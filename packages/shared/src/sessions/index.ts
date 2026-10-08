@@ -65,7 +65,7 @@ export {
 export { searchChats, getChatLog, type ChatLogRow, runChatsRecovery, initMessages, rebuildMessagesSearch, type ChatSearchResult, type RecoveryReport } from './messages.ts';
 
 // Pi's session file in object storage
-export { uploadPiSession, restorePiSession, deletePiSession, type PiSessionRef } from './pi-session-sync.ts';
+export type { PiSessionRef } from './pi-session-sync.ts';
 
 // Field utilities
 export { pickSessionFields } from './utils.ts';

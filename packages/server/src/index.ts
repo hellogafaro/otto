@@ -49,7 +49,7 @@ import { initSecrets } from '@otto/shared/secrets'
 import { initFileStorage } from '@otto/shared/library'
 import { initLocalUser, initUsersStore } from '@otto/shared/users'
 import { LOCAL_EMAIL, LOCAL_NAME } from '@otto/shared/users/queries'
-import { getAllPiModels, getPiModelsForAuthProvider, getWorkspaces, registerPiModelResolver } from '@otto/shared/config'
+import { getWorkspaces } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { initDb } from '@otto/shared/db'
 import { initSchema } from '@otto/shared/db/init-schema'
@@ -122,7 +122,7 @@ if (tlsCertPath || tlsKeyPath) {
 }
 
 // Pi's model list, resolved here so llm-connections stays free of the Pi SDK (the renderer bundles it)
-registerPiModelResolver((provider) => (provider ? getPiModelsForAuthProvider(provider) : getAllPiModels()))
+
 
 // The schema first: every boot applies each domain's schema.ts to the database (a packaged desktop has no
 // `bun run db:push`), and refuses a change that would lose data (the server does not start; db:push --force decides).
@@ -136,7 +136,7 @@ try {
 }
 
 // Secrets are encrypted under ENCRYPTION_KEY and sessions are signed with BETTER_AUTH_SECRET, library files go where OTTO_STORAGE says: fail now, not at the first use.
-const mastraStorage = process.env.OTTO_MASTRA_CHAT === '1' ? await initMastraHistory().catch((error) => {
+const mastraStorage = true ? await initMastraHistory().catch((error) => {
   console.error(error instanceof Error ? error.message : 'Native runtime database initialization failed.')
   process.exit(1)
 }) : undefined
@@ -281,7 +281,7 @@ const instance = await (async () => {
         try {
           await sessionManager.flushAllSessions()
         } finally {
-          sessionManager.cleanup()
+          await sessionManager.cleanup()
         }
       },
       cleanupClientResources: cleanupSessionFileWatchForClient,

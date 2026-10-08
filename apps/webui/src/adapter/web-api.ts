@@ -180,11 +180,6 @@ export function createWebApi(options: WebApiOptions): {
     },
     onNotificationNavigate: () => () => {},
 
-    // Git bash (Windows-only) — not applicable
-    checkGitBash: () => Promise.resolve({ available: true } as any),
-    browseForGitBash: () => Promise.resolve(null),
-    setGitBashPath: () => Promise.resolve({ success: true }),
-
     // Skills — open in browser not possible
     openSkillInEditor: () => Promise.resolve(),
     openSkillInFinder: () => Promise.resolve(),

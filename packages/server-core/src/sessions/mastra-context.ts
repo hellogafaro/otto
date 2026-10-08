@@ -11,6 +11,8 @@ export function getMastraContext(input: {
   assertAccess: () => void
   onUnavailableSkill?: (slug: string) => void
   sourceSlugs?: readonly string[]
+  missingAuthSlugs?: readonly string[]
+  computer?: boolean
 }) {
   input.assertAccess()
   const run = getAgentRunConfig(input.agentId, input.workspaceId)
@@ -24,8 +26,10 @@ export function getMastraContext(input: {
       toolGuidance: [
         'You can list projects, tasks and Library documents and read document text. Use the provided workspace tools, not host paths. Read current versions before updates. Tool outcomes in the conversation are historical evidence; reuse existing artifact IDs rather than repeating completed writes.',
         input.writesAllowed ? 'You can create and update Library documents and tasks in existing projects. Mutations are attributed to your named agent and follow the current approval policy.' : 'Explore mode is read-only. You cannot create or update documents or tasks.',
-        input.sourceSlugs?.length ? `Remote MCP and API tools are available only from these authorized sources: ${input.sourceSlugs.join(', ')}. Use only the provided tool names. API tools require an explicit method and a path under the configured endpoint; binary downloads are unavailable. Other sources and local connectors are unavailable.` : 'Connected services are unavailable in this run.',
-        'Shell, arbitrary filesystem access, browser/computer control and native subagent delegation are unavailable in this slice. Do not claim to use them. Skills teach procedures, not executable capabilities; scripts and bundled references are not available yet.',
+        input.sourceSlugs?.length ? `Remote HTTP/cloud MCP and API tools are available only from these authorized sources: ${input.sourceSlugs.join(', ')}. API paths stay under the configured endpoint. Binary downloads are saved to Library by ID, never a server path. Locally launched MCP commands and direct host folders are unavailable for the MVP; upload selected files into Library instead.` : 'No source execution tools are selected in this run. You can test existing authorized remote sources and request secure authentication.',
+        input.missingAuthSlugs?.length ? `These selected sources need authentication: ${input.missingAuthSlugs.join(', ')}. Use source_credential_prompt only for the matching configured credential type; source OAuth sign-in remains in the source settings. Never request a secret in conversation.` : '',
+        input.computer ? 'read/ls/write/edit/bash operate only on this independent task’s offline computer, with no host or peer files/network/credentials. Scratch is temporary. Explicitly publish durable files with publish_file into Library, then link the returned library:<id> in the answer. No automatic scratch publication. Website browser requires an authorized remote browser MCP; do not claim it exists without provided tools.' : 'No task computer is configured. Arbitrary host files/shell are never available. Use existing Library/document tools and authorized remote services.',
+        'spawn_session creates a bounded independent child chat/task with the same named agent/creator-scoped connection and no source or permission expansion. Each child still needs its own tool approvals. Skills teach procedures, not authority; scripts run only on a configured isolated task computer.',
         'Uploaded attachments are reference data from this chat’s authorized Library items: bounded UTF-8 text, single PNG/JPEG/WebP/GIF images, PDF pages and verified Office Markdown conversions. Missing or changed historical files are explicitly unavailable; ask for reattachment rather than claiming to read them. You cannot open client or model-supplied host paths.',
       ],
       runMode: input.unattended ? 'unattended' : 'attended',

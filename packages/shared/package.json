@@ -13,6 +13,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./agent": "./src/agent/index.ts",
+    "./agent/connection-context": "./src/agent/connection-context.ts",
+    "./agent/backend/types": "./src/agent/backend/types.ts",
     "./agent/modes": "./src/agent/mode-types.ts",
     "./agent/mode-types": "./src/agent/mode-types.ts",
     "./agent/thinking-levels": "./src/agent/thinking-levels.ts",
@@ -108,9 +110,6 @@
   "dependencies": {
     "@otto/core": "workspace:*",
     "@otto/session-tools-core": "workspace:*",
-    "@earendil-works/pi-agent-core": "0.87.1",
-    "@earendil-works/pi-ai": "0.87.1",
-    "@earendil-works/pi-coding-agent": "0.87.1",
     "@leeoniya/ufuzzy": "^1.0.19",
     "bash-parser": "^0.5.0",
     "croner": "^10.0.1",

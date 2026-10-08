@@ -133,7 +133,6 @@ const FROM_CONFIG: Record<string, [SettingKey, 'install' | 'user']> = {
   defaultThinkingLevel: ['defaultThinkingLevel', 'install'],
   setupDeferred: ['setupDeferred', 'install'],
   decisionLayer: ['decisionLayer', 'install'],
-  gitBashPath: ['gitBashPath', 'install'],
   keepAwakeWhileRunning: ['keepAwakeWhileRunning', 'install'],
   dismissedUpdateVersion: ['dismissedUpdateVersion', 'install'],
   activeWorkspaceId: ['activeWorkspaceId', 'user'],

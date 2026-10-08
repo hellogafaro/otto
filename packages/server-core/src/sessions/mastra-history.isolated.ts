@@ -146,9 +146,8 @@ it('imports mapped legacy history once with source effects/attribution and no pa
   await closeMastraHistory()
   expect(loadSession(workspace, chat.id)!.messages).toHaveLength(4)
   delete process.env.OTTO_MASTRA_CHAT
-  expect(()=>loadSession(workspace,chat.id)).toThrow('native runtime enabled')
-  expect(()=>createSession(workspace,{createdBy:'user:'+human})).toThrow('native runtime enabled')
-  expect(()=>sessionPersistenceQueue.enqueue(chat.id,()=>({chat:{...chat,workspaceId:workspace.id},sessionDir:'',messages:[]}))).toThrow('native runtime enabled')
+  expect(loadSession(workspace,chat.id)!.messages).toHaveLength(4)
+  expect(createSession(workspace,{createdBy:'user:'+human}).id).toBeTruthy()
   expect(sqlite.query('SELECT count(*) n FROM messages WHERE chat_id=?').get(chat.id)).toEqual({n:0})
   expect(()=>assertLegacyHistoryImported(workspace.id,chat.id)).not.toThrow()
   expect(sqlite.query('SELECT count(*) n FROM mastra_messages WHERE thread_id=?').get(chat.id)).toEqual({n:4})
@@ -308,15 +307,15 @@ it('concurrent scoped writes keep one transcript each and persistence failure re
   ).toEqual({ n: 0 })
 })
 
-it('bounds native search projection to recent authorized rows and measures a 2100-row fixture',async()=>{
+it('searches full authorized native history and measures a 2100-row fixture',async()=>{
   const workspace=addWorkspace({name:'Search measure',rootPath:join(CONFIG_DIR,'search-measure')})
   const chat=createSession(workspace,{createdBy:'user:human0000001'})
   await writeMastraHistory({workspaceId:workspace.id,chatId:chat.id,sessionDir:'',messages:Array.from({length:2100},(_,index)=>({id:crypto.randomUUID(),type:'user',timestamp:index+1,content:index===0?'oldestneedle':'recentneedle '+index,sender:'user:human0000001'}))})
   const start=performance.now()
   const hits=searchChats(workspace.id,'user:human0000001','recentneedle')
   const elapsed=performance.now()-start
-  expect(hits[0].matchCount).toBe(2000)
-  expect(searchChats(workspace.id,'user:human0000001','oldestneedle')).toEqual([])
+  expect(hits[0].matchCount).toBe(2099)
+  expect(searchChats(workspace.id,'user:human0000001','oldestneedle')[0].matchCount).toBe(1)
   expect(searchChats(workspace.id,'user:foreign','recentneedle')).toEqual([])
-  console.log(`Native search fixture: 2100 rows, 2000-row cap, ${elapsed.toFixed(2)}ms; not FTS parity.`)
+  console.log(`Native search fixture: 2100 rows, full history, ${elapsed.toFixed(2)}ms.`)
 },15000)

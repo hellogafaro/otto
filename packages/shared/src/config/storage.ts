@@ -381,18 +381,6 @@ export function setDecisionLayerSettings(patch: Partial<Record<keyof DecisionLay
   return normalizeDecisionLayerSettings(updateSetting(INSTALL, 'decisionLayer', mergeDecisionLayerSettings(getSetting(INSTALL, 'decisionLayer'), patch)));
 }
 
-/** The persisted Git Bash path (Windows only), used to set CLAUDE_CODE_GIT_BASH_PATH for the SDK subprocess. */
-export const getGitBashPath = (): string | undefined => getSetting(INSTALL, 'gitBashPath') ?? undefined;
-
-/** Persists the Git Bash path (Windows only) so it survives restarts. */
-export function setGitBashPath(path: string): boolean {
-  updateSetting(INSTALL, 'gitBashPath', path);
-  return true;
-}
-
-/** Forgets the persisted Git Bash path (it is stale or invalid). */
-export const clearGitBashPath = (): void => void updateSetting(INSTALL, 'gitBashPath', null);
-
 // Note: getDefaultWorkingDirectory/setDefaultWorkingDirectory removed
 // Working directory is now stored per-workspace in workspace config.json (defaults.workingDirectory)
 // Note: getDefaultPermissionMode/getEnabledPermissionModes removed

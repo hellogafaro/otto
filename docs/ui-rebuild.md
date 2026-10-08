@@ -59,7 +59,7 @@ yet).
 
 ## Settings pages (11)
 
-- [x] `pages/settings/ai-settings-page.tsx` (connections speak the Pi provider model; Workspace overrides and the decision model moved to `workspace-override-card.tsx` and `decision-model-section.tsx`, still legacy-styled)
+- [x] `pages/settings/ai-settings-page.tsx` (connections use native API-key setup and account-scoped catalogs; Workspace overrides and the decision model moved to `workspace-override-card.tsx` and `decision-model-section.tsx`, still legacy-styled)
 - [ ] `pages/settings/app-settings-page.tsx`
 - [ ] `pages/settings/appearance-settings-page.tsx`
 - [ ] `pages/settings/input-settings-page.tsx`

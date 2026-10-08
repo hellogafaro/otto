@@ -2,26 +2,28 @@ import { afterAll, expect, it } from 'bun:test'
 import { join } from 'node:path'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { createConnection, getConnection, getCredential, userScope, workspaceScope } from '@otto/shared/connections'
-import { PiModelFetcher } from '../../model-fetchers/pi'
-import { addWorkspace, saveConfig } from '@otto/shared/config'
+import { fetchOpenAiModels } from '../../model-fetchers/openai'
+import { initModelRefreshService, setFetcherPlatform } from '../../model-fetchers'
+import { addWorkspace, saveConfig } from '@otto/shared/config/storage'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import type { HandlerFn, RequestContext, RpcServer } from '../../transport'
 import type { HandlerDeps } from '../handler-deps'
 import { registerLlmConnectionsHandlers } from './llm-connections'
 
-process.env.OTTO_MASTRA_CHAT = '1'
 const keys: string[] = []
 const logs: string[] = []
+let catalogFailure = false
 const endpoint = Bun.serve({ port:0, hostname:'127.0.0.1', async fetch(request) {
   keys.push(request.headers.get('authorization') ?? '')
+  if (catalogFailure) return new Response('fixture-body-private', { status: 401 })
   if (request.url.endsWith('/models')) return Response.json({data:[{id:'gpt-scoped'}]})
   await request.json()
   const parts = [{type:'response.created',response:{id:'fixture',created_at:0,model:'gpt-scoped'}},{type:'response.output_item.added',output_index:0,item:{type:'message',id:'msg'}},{type:'response.output_text.delta',item_id:'msg',delta:'OK'},{type:'response.completed',response:{usage:{input_tokens:1,output_tokens:1,total_tokens:2}}}]
   return new Response(parts.map((part)=>`data: ${JSON.stringify(part)}\n\n`).join(''),{headers:{'content-type':'text/event-stream'}})
 } })
-afterAll(()=>{endpoint.stop(); delete process.env.OTTO_MASTRA_CHAT})
+afterAll(()=>endpoint.stop())
 const handlers = new Map<string, HandlerFn>()
-const logger = { info:(...args:unknown[])=>logs.push(args.join(' ')),warn:(...args:unknown[])=>logs.push(args.join(' ')),error:(...args:unknown[])=>logs.push(args.join(' ')) }
+const logger = { info:(...args:unknown[])=>logs.push(args.join(' ')),warn:(...args:unknown[])=>logs.push(args.join(' ')),error:(...args:unknown[])=>logs.push(args.join(' ')),debug:(...args:unknown[])=>logs.push(args.join(' ')) }
 registerLlmConnectionsHandlers({handle:(channel,handler)=>{handlers.set(channel,handler)},push(){},async invokeClient(){}} as RpcServer,{sessionManager:{refreshConnectionRuntime:async()=>{}},platform:{logger}} as unknown as HandlerDeps)
 const call = (channel:string,ctx:RequestContext,...args:unknown[])=>handlers.get(channel)!(ctx,...args)
 
@@ -53,23 +55,45 @@ it('keeps exact user/workspace keys separate and exposes unsupported records wit
   }
   expect(keys).toHaveLength(beforeCollision)
   expect(getCredential('install-collision','install')).toMatchObject({apiKey:'fixture-install-private'})
-  delete process.env.OTTO_MASTRA_CHAT
-  const beforeLegacy = keys.length
-  const legacy = await new PiModelFetcher().fetchModels(getConnection('same-name',{userId:'benbbbbbbbbb'}) as any,{apiKey:'fixture-ben'})
-  expect(legacy.models.some((model)=>model.id.startsWith('pi/'))).toBe(true)
-  expect(legacy.models.some((model)=>model.id === 'gpt-scoped')).toBe(false)
-  expect(keys).toHaveLength(beforeLegacy)
+  const beforeNative = keys.length
+  const catalog = await fetchOpenAiModels({apiKey:'fixture-ben',baseUrl:endpoint.url.href+'v1'})
+  expect(catalog.models.some((model)=>model.id.startsWith('pi/'))).toBe(false)
+  expect(catalog.models.map((model)=>model.id)).toEqual(['gpt-scoped'])
+  expect(keys.slice(beforeNative)).toEqual(['Bearer fixture-ben'])
   expect(getConnection('same-name',{userId:'benbbbbbbbbb'})!.defaultModel).toBe('pi/gpt-scoped')
-  process.env.OTTO_MASTRA_CHAT = '1'
   expect(await call(RPC_CHANNELS.llmConnections.REFRESH_MODELS,ctx('anaaaaaaaaaa'),'same-name')).toEqual({success:true})
   expect(getConnection('same-name',{userId:'anaaaaaaaaaa'})!.models?.map((model:any)=>model.id)).toEqual(['gpt-scoped'])
   expect(getConnection('same-name',{userId:'anaaaaaaaaaa'})!.defaultModel).toBe('gpt-scoped')
   expect(getConnection('same-name',{userId:'benbbbbbbbbb'})!.defaultModel).toBe('pi/gpt-scoped')
+  const credentialScopes: string[] = []
+  setFetcherPlatform({logger} as unknown as HandlerDeps['platform'])
+  const service = initModelRefreshService(async (slug,scope)=>{
+    credentialScopes.push(scope)
+    return {apiKey:getCredential(slug,scope)?.apiKey}
+  })
+  const beforeService = keys.length
+  await service.refreshNow('same-name',userScope('benbbbbbbbbb'))
+  expect(keys.slice(beforeService)).toEqual(['Bearer fixture-ben'])
+  expect(credentialScopes).toEqual([userScope('benbbbbbbbbb')])
+  expect(getConnection('same-name',{userId:'benbbbbbbbbb'})!.models?.map((model)=>typeof model==='string'?model:model.id)).toEqual(['gpt-scoped'])
+  expect(getConnection('same-name',{userId:'benbbbbbbbbb'})!.defaultModel).toBe('gpt-scoped')
+  expect(getCredential('same-name',userScope('anaaaaaaaaaa'))).toMatchObject({apiKey:'fixture-ana'})
+  expect(getCredential('same-name',userScope('benbbbbbbbbb'))).toMatchObject({apiKey:'fixture-ben'})
+  const beforeMissingScope = keys.length
+  await service.refreshNow('install-collision',userScope('anaaaaaaaaaa'))
+  await service.refreshNow('subscription',userScope('anaaaaaaaaaa'))
+  expect(keys).toHaveLength(beforeMissingScope)
+  const storedCatalog = getConnection('same-name',{userId:'benbbbbbbbbb'})
+  catalogFailure = true
+  await service.refreshNow('same-name',userScope('benbbbbbbbbb'))
+  catalogFailure = false
+  expect(getConnection('same-name',{userId:'benbbbbbbbbb'})).toEqual(storedCatalog)
+  service.stopAll()
   expect(await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION,ctx('anaaaaaaaaaa'),{slug:'fresh',type:'openai',title:'Native new',credential:'fixture-new',baseUrl:endpoint.url.href+'v1'})).toEqual({success:true})
   expect(getConnection('fresh',{userId:'anaaaaaaaaaa'})!.models?.map((model:any)=>model.id)).toEqual(['gpt-scoped'])
   expect(getConnection('fresh',{userId:'anaaaaaaaaaa'})!.defaultModel).toBe('gpt-scoped')
   expect(getCredential('fresh',userScope('anaaaaaaaaaa'))).toMatchObject({apiKey:'fixture-new'})
   expect((await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION,ctx('anaaaaaaaaaa'),{slug:'subscription',type:'openai',title:'Do not convert',credential:'fixture-new'}) as any).success).toBe(false)
   expect(getCredential('subscription',userScope('anaaaaaaaaaa'))).toMatchObject({accessToken:'fixture-oauth',refreshToken:'fixture-refresh'})
-  expect(JSON.stringify(logs)).not.toMatch(/fixture-ana|fixture-ben|fixture-shared|fixture-oauth|fixture-refresh/)
+  expect(JSON.stringify(logs)).not.toMatch(/fixture-ana|fixture-ben|fixture-shared|fixture-oauth|fixture-refresh|fixture-install-private|fixture-body-private|fixture-new/)
 })

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:te
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import * as backendFactory from '../../../shared/src/agent/backend/factory.ts'
+import * as backendFactory from '../../../shared/src/agent/connection-context.ts'
 import * as midTurnMessages from '../decisions/mid-turn-messages.ts'
 import * as suggestions from '../decisions/suggestions.ts'
 import { SessionManager, createManagedSession, isInQueuedContinuation } from './session-manager.ts'
@@ -46,7 +46,7 @@ describe('decision points in the session lifecycle', () => {
       const redirects: string[] = []
       return {
         redirects,
-        agent: { redirect: (message: string) => { redirects.push(message); return true }, canSteerNow: opts.canSteer } as any,
+        agent: { followUp: async ({content}: {content:string}) => { if (!opts.canSteer()) throw new Error('Not ready'); redirects.push(content) } } as any,
       }
     }
 
@@ -54,7 +54,7 @@ describe('decision points in the session lifecycle', () => {
       const managed = await session('order')
       managed.isProcessing = true
       const { agent, redirects } = liveAgent({ canSteer: () => true })
-      managed.agent = agent
+      managed.mastraSession = agent
       ;(sm as any).decisionFeatureActive = (feature: string) => feature === 'midTurnMessages'
       ;(sm as any).markQueuedContinuation = async () => {}
       const answers = new Map<string, (delivery: 'steer' | 'queue') => void>()
@@ -81,7 +81,7 @@ describe('decision points in the session lifecycle', () => {
       managed.isProcessing = true
       let canSteer = false
       const { agent, redirects } = liveAgent({ canSteer: () => canSteer })
-      managed.agent = agent
+      managed.mastraSession = agent
       ;(sm as any).decisionFeatureActive = (feature: string) => feature === 'midTurnMessages'
       ;(sm as any).markQueuedContinuation = async () => {}
       let answer!: (delivery: 'steer') => void
@@ -117,7 +117,7 @@ describe('decision points in the session lifecycle', () => {
         const managed = await session('split')
         managed.isProcessing = true
         const { agent, redirects } = liveAgent({ canSteer: () => true })
-        managed.agent = agent
+        managed.mastraSession = agent
         ;(sm as any).decisionFeatureActive = (feature: string) => feature === 'midTurnMessages'
         const deliveries = new Map<string, (delivery: 'steer' | 'queue') => void>()
         ;(sm as any).decideMidTurnDelivery = (_managed: unknown, message: string) => new Promise(resolve => deliveries.set(message, resolve))
@@ -202,12 +202,7 @@ describe('decision points in the session lifecycle', () => {
   it('does not start a turn that was stopped during the pre-turn checks', async () => {
     const managed = await session('stop-before-start')
     const chats: string[] = []
-    ;(sm as any).getOrCreateAgent = async () => ({
-      getModel: () => 'claude-sonnet-4-6',
-      setAllSources: () => {},
-      getSessionId: () => 'sdk-session',
-      chat: async function* (message: string) { chats.push(message); yield { type: 'complete' } },
-    })
+    ;(sm as any).runMastraChat = async () => { chats.push('hello') }
     let answer!: (value: { thinkingOverride: null; suggestionHint: null }) => void
     ;(sm as any).startPreTurnDecisions = () => new Promise(resolve => { answer = resolve })
 
@@ -225,12 +220,7 @@ describe('decision points in the session lifecycle', () => {
     const managed = await session('stale-stop')
     managed.stopRequested = true  // plan submission / auth handoffs end the turn without clearing it
     const chats: string[] = []
-    ;(sm as any).getOrCreateAgent = async () => ({
-      getModel: () => 'claude-sonnet-4-6',
-      setAllSources: () => {},
-      getSessionId: () => 'sdk-session',
-      chat: async function* (message: string) { chats.push(message); yield { type: 'complete' } },
-    })
+    ;(sm as any).runMastraChat = async () => { chats.push('go ahead') }
     await sm.sendMessage(managed.id, 'go ahead')
     expect(chats).toEqual(['go ahead'])
   })
@@ -261,12 +251,7 @@ describe('decision points in the session lifecycle', () => {
     const managed = await session('rename')
     managed.name = 'Old automatic title'
     managed.messages.push({ id: 'u1', role: 'user', content: 'plan the release', timestamp: 1 } as any)
-    managed.agent = {
-      regenerateTitle: async () => {
-        managed.name = 'My own title'
-        return 'New automatic title'
-      },
-    } as any
+    ;(sm as any).nativeCompletion = async () => { managed.name = 'My own title'; return 'New automatic title' }
     const result = await sm.refreshTitle(managed.id, { onlyIfName: 'Old automatic title' })
     expect(result.success).toBe(false)
     expect(managed.name).toBe('My own title')

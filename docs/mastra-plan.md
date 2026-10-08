@@ -1,5 +1,18 @@
 # Lean Mastra pre-MVP
 
+## Current integrated candidate, 8 October 2026
+
+Native Mastra is now unconditional: no runtime flag, Pi constructor/factory/package, executable subscription onboarding or Pi catalog/dependency remains. This section supersedes the chronological checkpoint notes below, which are retained only as history, not pending instructions. Local-only candidate, no push/deployment or real-data migration.
+
+Approved MVP source scope is remote HTTP/cloud MCP plus remote APIs; direct host-folder sources and locally launched MCP commands are deferred. Users select/upload files into existing Library, or agents explicitly publish durable outputs from their isolated task workspace into that same Library and link them in chat. No arbitrary Mac mounts, live host-folder snapshot importer, second blob store or file catalog. Stored unsupported source/account records remain, visibly unavailable, not converted/deleted.
+
+The candidate preserves existing named-agent shared chats, member/creator boundaries, native Session approvals/followups/Stop, canonical official history, full-history scoped FTS, Library/tasks/documents/direct edits, bounded multimodal attachments, source authentication/tests/binary downloads, scoped read-only decisions/mini completions, native branch snapshots and byte-bounded prefix compaction. Guarded fails to native Ask for mutations rather than granting risk-policy authority after execution. Constrained child tasks inherit creator/model/connection and cannot expand source/permission scope. Every independently writing child gets its own offline UUID task container/home; Stop terminates owned inner descendants, and exact allocation cleanup is confirmed/retry-owned.
+
+Actual Docker and no-flag production-browser fixture proves sandbox write→publish_file→Library chip→reload/open exact contents. Code review clears required authorization/cleanup findings. Code candidate checked on Pro with focused serial tests, shared/server-core/server/Electron types, production renderer and desktop esbuild/schema worker, and bounded independent no-required-finding review. Remaining acceptance: real custom-endpoint read-only tool roundtrip (real text confirmed through Captain; two result assertions failed, then one diagnostic attempt timed out and owned fixture was cleaned), website browser route/provider plus screenshot/session semantics, production computer image provisioning, final integrated commit/check report. Website browser is not provided by the offline task computer; remote browser MCP is the smallest candidate alternative to unapproved Fortress/network deployment. No 100% claim from fixtures.
+
+## Historical checkpoints (non-operative)
+
+
 Canonical migration plan, 7 October 2026. This supersedes runtime recommendations in
 `harness-plan.md`, `pi-only-plan.md` and `final-plan.md`, not their verified domain work.
 Pi remains the working default until the replacement slice passes. No push or deployment

@@ -174,19 +174,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.llmConnections.REFRESH_MODELS,
   RPC_CHANNELS.llmConnections.CHANGED,
 
-  // chatgpt — OAuth via capability passthrough
-  RPC_CHANNELS.chatgpt.START_OAUTH,
-  RPC_CHANNELS.chatgpt.CANCEL_OAUTH,
-  RPC_CHANNELS.chatgpt.DEVICE_CODE,
-
-  // claudeCode — the `claude` CLI of the machine the workspace's server runs on
-  RPC_CHANNELS.claudeCode.GET_STATUS,
-
-  // copilot — OAuth via capability passthrough
-  RPC_CHANNELS.copilot.START_OAUTH,
-  RPC_CHANNELS.copilot.CANCEL_OAUTH,
-  RPC_CHANNELS.copilot.DEVICE_CODE,
-
   // settings — workspace-level settings
   RPC_CHANNELS.settings.SETUP_LLM_CONNECTION,
   RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP,
@@ -204,9 +191,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.decisions.DELETE_API_KEY,
   RPC_CHANNELS.decisions.TEST,
   RPC_CHANNELS.decisions.PROBE_SERVER,
-
-  // pi — provider config on workspace server
-  RPC_CHANNELS.pi.GET_API_KEY_PROVIDERS,
 
   // preferences — workspace-level preferences
   RPC_CHANNELS.preferences.READ,
@@ -319,9 +303,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.power.GET_KEEP_AWAKE,
   RPC_CHANNELS.appearance.GET_RICH_TOOL_DESCRIPTIONS,
   RPC_CHANNELS.appearance.SET_RICH_TOOL_DESCRIPTIONS,
-  RPC_CHANNELS.gitbash.CHECK,
-  RPC_CHANNELS.gitbash.BROWSE,
-  RPC_CHANNELS.gitbash.SET_PATH,
   RPC_CHANNELS.onboarding.GET_AUTH_STATE,
   RPC_CHANNELS.onboarding.VALIDATE_MCP,
   RPC_CHANNELS.onboarding.START_MCP_OAUTH,

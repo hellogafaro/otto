@@ -1,11 +1,9 @@
 import { resolve } from 'path'
-import { join } from 'path'
 import { homedir } from 'os'
 import { execSync } from 'child_process'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { getWorkspaceByNameOrId, getGitBashPath, setGitBashPath, clearGitBashPath } from '@otto/shared/config'
+import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { classifyExternalUrl, formatBlockedUrlError } from '@otto/shared/utils/url-safety'
-import { isUsableGitBashPath, validateGitBashPath } from '@otto/server-core/services'
 import { validateFilePath, assertPathNotPrivate, callerOf, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
@@ -13,7 +11,6 @@ import {
   requestClientOpenExternal,
   requestClientOpenPath,
   requestClientShowInFolder,
-  requestClientOpenFileDialog,
 } from '@otto/server-core/transport'
 
 export const CORE_HANDLED_CHANNELS = [
@@ -26,9 +23,6 @@ export const CORE_HANDLED_CHANNELS = [
   RPC_CHANNELS.shell.OPEN_FILE,
   RPC_CHANNELS.shell.SHOW_IN_FOLDER,
   RPC_CHANNELS.git.GET_BRANCH,
-  RPC_CHANNELS.gitbash.CHECK,
-  RPC_CHANNELS.gitbash.BROWSE,
-  RPC_CHANNELS.gitbash.SET_PATH,
 ] as const
 
 interface ParsedInternalDeepLink {
@@ -169,84 +163,6 @@ export function registerSystemCoreHandlers(server: RpcServer, deps: HandlerDeps)
     } catch {
       return null
     }
-  })
-
-  // Git Bash detection and configuration (Windows only)
-  server.handle(RPC_CHANNELS.gitbash.CHECK, async () => {
-    const platform = process.platform as 'win32' | 'darwin' | 'linux'
-
-    if (platform !== 'win32') {
-      return { found: true, path: null, platform }
-    }
-
-    const commonPaths = [
-      'C:\\Program Files\\Git\\bin\\bash.exe',
-      'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
-      join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'bin', 'bash.exe'),
-      join(process.env.PROGRAMFILES || '', 'Git', 'bin', 'bash.exe'),
-    ]
-
-    const persistedPath = getGitBashPath()
-    if (persistedPath) {
-      if (await isUsableGitBashPath(persistedPath)) {
-        process.env.CLAUDE_CODE_GIT_BASH_PATH = persistedPath.trim()
-        return { found: true, path: persistedPath, platform }
-      }
-      clearGitBashPath()
-    }
-
-    for (const bashPath of commonPaths) {
-      if (await isUsableGitBashPath(bashPath)) {
-        process.env.CLAUDE_CODE_GIT_BASH_PATH = bashPath
-        setGitBashPath(bashPath)
-        return { found: true, path: bashPath, platform }
-      }
-    }
-
-    try {
-      const result = execSync('where bash', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 5000,
-      }).trim()
-      const firstPath = result.split('\n')[0]?.trim()
-      if (firstPath && firstPath.toLowerCase().includes('git') && await isUsableGitBashPath(firstPath)) {
-        process.env.CLAUDE_CODE_GIT_BASH_PATH = firstPath
-        setGitBashPath(firstPath)
-        return { found: true, path: firstPath, platform }
-      }
-    } catch {
-      // where command failed
-    }
-
-    delete process.env.CLAUDE_CODE_GIT_BASH_PATH
-    return { found: false, path: null, platform }
-  })
-
-  server.handle(RPC_CHANNELS.gitbash.BROWSE, async (ctx) => {
-    const result = await requestClientOpenFileDialog(server, ctx.clientId, {
-      title: 'Select bash.exe',
-      filters: [{ name: 'Executable', extensions: ['exe'] }],
-      properties: ['openFile'],
-      defaultPath: 'C:\\Program Files\\Git\\bin',
-    })
-
-    if (result.canceled || result.filePaths.length === 0) {
-      return null
-    }
-
-    return result.filePaths[0]
-  })
-
-  server.handle(RPC_CHANNELS.gitbash.SET_PATH, async (_ctx, bashPath: string) => {
-    const validation = await validateGitBashPath(bashPath)
-    if (!validation.valid) {
-      return { success: false, error: validation.error }
-    }
-
-    setGitBashPath(validation.path)
-    process.env.CLAUDE_CODE_GIT_BASH_PATH = validation.path
-    return { success: true }
   })
 
   // Debug logging from renderer -> main log file (fire-and-forget, no response)

@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronRight, Ellipsis, KeyRound, LogIn, Star, TriangleAlert, Trash2, Zap } from 'lucide-react'
+import { ChevronRight, Ellipsis, KeyRound, Star, Trash2, Zap } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@workspace/ui/components/dropdown-menu'
@@ -17,8 +17,7 @@ import { ConnectionIcon } from '@/components/icons/connection-icon'
 import { SettingsMenuSelectRow, SettingsRow } from '@/components/settings'
 import { cn } from '@/lib/utils'
 import { useAutosave } from '@/hooks/use-autosave'
-import { useClaudeCodeStatus } from '@/hooks/use-claude-code-status'
-import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, resolveMidStreamBehavior, type MidStreamBehavior } from '@config/llm-connections'
+import { CUSTOM_CONNECTION_TYPE, resolveMidStreamBehavior, type MidStreamBehavior } from '@config/llm-connections'
 import { isHttpUrl } from '@/components/onboarding/connection-kinds'
 import type { LlmConnectionUpdate, LlmConnectionWithStatus } from '../../../shared/types'
 import { connectionKindLabel, getModelOptionsForConnection, scopeLabel } from './connection-labels'
@@ -27,12 +26,10 @@ import { connectionKindLabel, getModelOptionsForConnection, scopeLabel } from '.
 export interface ConnectionActions {
   /** Make it the person's default (absent while it already is). */
   onSetDefault?: () => void
-  /** Sign in again (a device-code connection). */
-  onSignIn?: () => void
   /** Replace its API key. */
   onChangeKey?: () => void
   /** Test it with a real request; resolves to what the row shows. */
-  onTest: () => Promise<{ success: boolean; error?: string }>
+  onTest?: () => Promise<{ success: boolean; error?: string }>
   onDelete?: () => void
 }
 
@@ -66,6 +63,7 @@ export function ConnectionRow({
     return () => clearTimeout(timer)
   }, [testResult])
   const test = async () => {
+    if (!actions.onTest) return
     setTesting(true)
     setTestResult(null)
     try {
@@ -77,11 +75,7 @@ export function ConnectionRow({
       setTesting(false)
     }
   }
-  const claude = connection.type === CLAUDE_CODE_CONNECTION_TYPE && connection.runtimeSupported !== false
-  const claudeStatus = useClaudeCodeStatus(claude)
-  const problem = connection.authError ?? (claude && claudeStatus.status?.found === false
-    ? t('connections.claudeCode.notFound')
-    : !connection.isAuthenticated ? t('settings.ai.notAuthenticated') : null)
+  const problem = connection.authError ?? (!connection.isAuthenticated ? t('settings.ai.notAuthenticated') : null)
 
   return (
     <>
@@ -108,22 +102,18 @@ export function ConnectionRow({
                 {t('settings.ai.setAsDefault')}
               </DropdownMenuItem>
             )}
-            {actions.onSignIn && (
-              <DropdownMenuItem onClick={actions.onSignIn}>
-                <LogIn />
-                {t('connections.signInAgain')}
-              </DropdownMenuItem>
-            )}
             {actions.onChangeKey && (
               <DropdownMenuItem onClick={actions.onChangeKey}>
                 <KeyRound />
                 {t('connections.changeKey')}
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem onClick={() => void test()}>
-              <Zap />
-              {t('settings.ai.validateConnection')}
-            </DropdownMenuItem>
+            {actions.onTest && (
+              <DropdownMenuItem onClick={() => void test()}>
+                <Zap />
+                {t('settings.ai.validateConnection')}
+              </DropdownMenuItem>
+            )}
             {actions.onDelete && (
               <>
                 <DropdownMenuSeparator />
@@ -150,18 +140,16 @@ export function ConnectionRow({
           <span aria-hidden className="size-7" />
         )}
       </SettingsRow>
-      {open && editable && <ConnectionEditor connection={connection} claude={claude ? claudeStatus : undefined} onSaved={onSaved} />}
+      {open && editable && <ConnectionEditor connection={connection} onSaved={onSaved} />}
     </>
   )
 }
 
 function ConnectionEditor({
   connection,
-  claude,
   onSaved,
 }: {
   connection: LlmConnectionWithStatus
-  claude?: ReturnType<typeof useClaudeCodeStatus>
   onSaved: () => void
 }) {
   const { t } = useTranslation()
@@ -184,17 +172,6 @@ function ConnectionEditor({
 
   return (
     <div className="divide-y divide-foreground/10">
-      {claude && (
-        <SettingsRow
-          icon={claude.status?.found ? <Check className="text-success" /> : <TriangleAlert />}
-          label={claude.status === null ? t('connections.claudeCode.checking') : claude.status.found ? t('connections.claudeCode.found') : t('connections.claudeCode.notFound')}
-          description={claude.status?.found ? (claude.status.version ?? claude.status.path) : undefined}
-        >
-          <Button variant="outline" size="compact" loading={claude.checking} onClick={() => void claude.check()}>
-            {t('connections.claudeCode.checkAgain')}
-          </Button>
-        </SettingsRow>
-      )}
       <SettingsRow label={t('connections.form.name')}>
         <Input
           aria-label={t('connections.form.name')}

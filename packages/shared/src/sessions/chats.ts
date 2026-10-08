@@ -60,6 +60,8 @@ export interface ChatMetadata {
   branchFromSdkTurnId?: string
   transferredSessionSummary?: string
   transferredSessionSummaryApplied?: boolean
+  contextSummary?: string
+  contextThroughId?: string
   /** The automation run that made the chat, without its id (that is `origin`). */
   triggeredBy?: Omit<NonNullable<SessionConfig['triggeredBy']>, 'automationId'>
   tokenUsage?: SessionTokenUsage
@@ -70,6 +72,7 @@ const METADATA_KEYS = [
   'workingDirectory', 'enabledSourceSlugs', 'sharedUrl', 'sharedId', 'agents', 'pendingPlanExecution', 'lastReadMessageId',
   'branchFromMessageId', 'branchFromSdkSessionId', 'branchFromSessionPath', 'branchFromSdkTurnId',
   'transferredSessionSummary', 'transferredSessionSummaryApplied',
+  'contextSummary', 'contextThroughId',
 ] as const satisfies readonly (keyof ChatMetadata)[]
 
 /** A chat as the write path hands it over: its config fields plus what only the running server knows. */
@@ -228,7 +231,7 @@ export function getChats(
   if (!rows.length) return []
   const derived = new Map(
     db
-      .all<ListRow>(process.env.OTTO_MASTRA_CHAT==='1' && db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length ? sql`
+      .all<ListRow>(true && db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length ? sql`
         SELECT c.id,
           (SELECT count(*) FROM mastra_messages m WHERE m.thread_id=c.id AND m.resourceId=c.workspace_id) AS message_count,
           (SELECT json_extract(m.content,'$.metadata.otto.type') FROM mastra_messages m WHERE m.thread_id=c.id AND m.resourceId=c.workspace_id ORDER BY CAST(json_extract(m.content,'$.metadata.position') AS INTEGER) DESC LIMIT 1) AS last_type,

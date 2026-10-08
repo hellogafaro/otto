@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:te
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import * as backendFactory from '../../../shared/src/agent/backend/factory.ts'
+import * as backendFactory from '../../../shared/src/agent/connection-context.ts'
+import * as nativeAttachments from './mastra-attachments'
 import {
   SessionManager,
   createManagedSession,
@@ -83,19 +84,20 @@ describe('mid-stream queue runtime invariants', () => {
     spyOn(backendFactory, 'resolveSessionConnection').mockReturnValue({ type: 'openrouter', midStreamBehavior: 'steer' } as any)
     const managed = buildSession('attachments')
     managed.isProcessing = true
-    const redirect = mock(() => true)
-    managed.agent = { redirect } as any
+    const redirect = mock((_message: string) => true)
+    managed.mastraSession = { followUp: async ({content}: {content:string}) => redirect(content) } as any
     ;(sm as any).persistSession = () => {}
     ;(sm as any).flushSession = async () => {}
     const attachments = [{ name: 'photo.png', type: 'image', mimeType: 'image/png', base64: 'image-bytes' }] as any
     const storedAttachments = [{ id: 'file', name: 'photo.png', type: 'image', storedPath: '/tmp/photo.png' }] as any
+    spyOn(nativeAttachments, 'resolveMastraAttachmentReferences').mockReturnValue(storedAttachments)
     const options = { skillSlugs: ['image-skill'], hidden: true, optimisticMessageId: 'optimistic' }
     const events: any[] = []
     sm.setEventSink((_channel, _target, event) => events.push(event))
     await sm.sendMessage(managed.id, 'inspect image', attachments, storedAttachments, options)
     expect(redirect).not.toHaveBeenCalled()
     expect(managed.wasInterrupted).not.toBe(true)
-    expect(managed.messageQueue[0]).toMatchObject({ attachments, storedAttachments, options, messageId: managed.messages[0]!.id })
+    expect(managed.messageQueue[0]).toMatchObject({ attachments: undefined, storedAttachments, options, messageId: managed.messages[0]!.id })
     expect(managed.messages[0]!.isQueued).toBe(true)
     expect(events.find(e => e.type === 'user_message').status).toBe('queued')
     // Also prove the existing supported replay path receives the same objects.
@@ -103,7 +105,7 @@ describe('mid-stream queue runtime invariants', () => {
     ;(sm as any).sendMessage = replay
     ;(sm as any).processNextQueuedMessage(managed.id)
     await new Promise<void>(resolve => setImmediate(resolve))
-    expect(replay.mock.calls[0]).toEqual([managed.id, 'inspect image', attachments, storedAttachments, options, managed.messages[0]!.id, undefined, undefined, { wake: undefined, agentIds: ['agentaaaaaaa'] }])
+    expect(replay.mock.calls[0]).toEqual([managed.id, 'inspect image', undefined, storedAttachments, options, managed.messages[0]!.id, undefined, undefined, { wake: undefined, agentIds: ['agentaaaaaaa'] }])
   })
 
   it('marks Accept & Compact ready only after a manual compaction success and preserves the fresh snapshot', async () => {
@@ -148,17 +150,8 @@ describe('mid-stream queue runtime invariants', () => {
   it('keeps the pending plan record while sending the /compact command that releases it', async () => {
     const managed = buildSession('send-compact')
     await sm.setPendingPlanExecution(managed.id, '/tmp/plan.md')
-    const agent = {
-      getModel: () => 'claude-sonnet-4-6',
-      setAllSources: () => {},
-      getSessionId: () => 'sdk-session',
-      chat: async function* () {
-        yield { type: 'context_usage', contextUsage: { usedTokens: 12_000, limitTokens: 200_000, limitKind: 'compaction', isEstimate: true, isStale: false, canCompact: true } }
-        yield { type: 'info', message: 'Compacted Conversation', compactionTrigger: 'manual' }
-        yield { type: 'complete' }
-      },
-    }
-    ;(sm as any).getOrCreateAgent = async () => agent
+    managed.messages.push({ id: 'existing-user', role: 'user', content: 'Prepare plan', timestamp: 1 })
+    ;(sm as any).nativeCompletion = async () => 'Plan summary'
     sm.setEventSink(() => {})
     await sm.sendMessage(managed.id, '/compact')
     expect(sm.getPendingPlanExecution(managed.id)).toMatchObject({ awaitingCompaction: false, executionDispatched: false })
@@ -167,25 +160,16 @@ describe('mid-stream queue runtime invariants', () => {
   it.each(['complete', 'error'])('ignores a trailing %s from a handed-off turn after a newer turn starts', async terminal => {
     const managed = buildSession('handoff-new-turn')
     managed.sdkSessionId = 'offline-sdk'
-    const agent = {
-      debug: () => {},
-      getModel: () => 'pi/claude-sonnet-4-6',
-      setAllSources: () => {},
-      getSessionId: () => 'offline-sdk',
-      chat: (...args: unknown[]) => agent.chatTurn(...args),
-    } as any
     const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()]
     const starts = [Promise.withResolvers<void>(), Promise.withResolvers<void>()]
     let turn = 0
-    agent.chatTurn = async function* () {
+    ;(sm as any).runMastraChat = async (_managed: unknown, generation: number) => {
       const index = turn++
       starts[index]!.resolve()
       await gates[index]!.promise
-      if (index === 0 && terminal === 'error') throw new Error('old query aborted')
-      yield { type: 'complete' }
+      if (managed.processingGeneration !== generation) return
+      await (sm as any).onProcessingStopped(managed.id, terminal)
     }
-    managed.agent = agent
-    ;(sm as any).getOrCreateAgent = async () => agent
     ;(sm as any).persistSession = () => {}
     ;(sm as any).flushSession = async () => {}
     const stopped = mock(async () => { managed.isProcessing = false })

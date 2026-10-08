@@ -54,7 +54,6 @@ import {
   UV_VERSION,
   downloadBun,
   downloadUv,
-  buildSubprocessServers,
   getPlatformKey,
 } from './build/common';
 
@@ -819,23 +818,10 @@ async function main(): Promise<void> {
   console.log(`\n[3/8] Downloading uv ${UV_VERSION}...`);
   await downloadUvForServer(config);
 
-  // Step 4: Build the Pi agent server subprocess
-  console.log('\n[4/8] Building the Pi agent server...');
-  const buildConfig: BuildConfig = {
-    platform,
-    arch,
-    upload: false,
-    uploadLatest: false,
-    uploadScript: false,
-    rootDir,
-    electronDir,
-  };
-  buildSubprocessServers(buildConfig);
-
   // Build the WhatsApp worker bundle. Must happen before copyWorkspacePackages
   // so dist/worker.cjs exists when we copy the messaging-whatsapp-worker package.
   // The bundle embeds Baileys + transitive deps; see scripts/build-wa-worker.ts.
-  console.log('  Building WhatsApp worker bundle...');
+  console.log('\n[4/8] Building WhatsApp worker bundle...');
   await $`bun run ${join(rootDir, 'scripts', 'build-wa-worker.ts')}`.cwd(rootDir);
 
   // Step 5: Assemble resources

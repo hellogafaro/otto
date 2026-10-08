@@ -33,7 +33,7 @@ export interface ISessionManager {
 
   waitForInit(): Promise<void>
   initialize(): Promise<void>
-  cleanup(): void
+  cleanup(): void | Promise<void>
   setEventSink(sink: EventSink): void
   flushAllSessions(): Promise<void>
 
@@ -247,7 +247,6 @@ export interface ISessionManager {
    * that uses the given connection. Backstopped by the lazy refresh path in
    * `getOrCreateAgent`.
    */
-  refreshConnectionRuntime(connectionSlug: string): Promise<void>
   completeAuthRequest(sessionId: string, result: AuthResult): Promise<void>
   executePromptAutomation(input: ExecutePromptAutomationInput): Promise<{ sessionId: string }>
 

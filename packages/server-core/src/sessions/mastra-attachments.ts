@@ -7,7 +7,8 @@ export type MastraInputFile = { data: string; mediaType: string; filename: strin
 const office = /^(?:application\/(?:vnd\.(?:openxmlformats-officedocument\.|ms-)|msword))/i
 const textMime = /^(?:text\/|application\/(?:json|[^;]+\+json)(?:;|$))/i
 
-export function resolveMastraAttachmentReferences(workspaceId: string, attachments: StoredAttachment[] = []): StoredAttachment[] {
+export function resolveMastraAttachmentReferences(workspaceId: string, attachments?: StoredAttachment[] | null): StoredAttachment[] {
+  if (!attachments?.length) return []
   if (attachments.length > 4) throw new Error('Attach at most four files per message.')
   const workspace = getWorkspaceByNameOrId(workspaceId)
   if (!workspace) throw new Error('The attachment workspace is unavailable.')

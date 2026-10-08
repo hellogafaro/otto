@@ -3,7 +3,7 @@ import { initDb, type Db, type Tx } from '../db/index.ts'
 import { normalizePath } from '../utils/paths.ts'
 import { snippetOf } from '../utils/snippet.ts'
 import type { StoredMessage } from './types.ts'
-import { assertHistoryRuntime } from './native-messages.ts'
+import { assertHistoryRuntime, initNativeMessagesSearch } from './native-messages.ts'
 
 /**
  * The rows of `messages` and their full-text index `messages_fts` (docs/messages-design.md, docs/schema.md). A row is
@@ -232,7 +232,7 @@ export interface ChatLogRow {
  */
 export function getChatLog(workspaceId: string, chatId: string, afterPosition: number, { limit = 10_000 } = {}, db: Db | Tx = initDb()): ChatLogRow[] {
   assertHistoryRuntime(db)
-  if(process.env.OTTO_MASTRA_CHAT==='1' && db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length){
+  if(true && db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length){
     const rows=db.all<{position:number;id:string;type:string;text:string|null;sender:string|null;author:string|null;hidden:number|null;intermediate:number|null}>(sql`SELECT CAST(json_extract(content,'$.metadata.position') AS INTEGER)+1 AS position,json_extract(content,'$.metadata.otto.id') AS id,json_extract(content,'$.metadata.otto.type') AS type,json_extract(content,'$.metadata.otto.content') AS text,json_extract(content,'$.metadata.otto.sender') AS sender,json_extract(content,'$.metadata.otto.author') AS author,json_extract(content,'$.metadata.otto.hidden') AS hidden,json_extract(content,'$.metadata.otto.isIntermediate') AS intermediate FROM mastra_messages WHERE resourceId=${workspaceId} AND thread_id=${chatId} AND CAST(json_extract(content,'$.metadata.position') AS INTEGER)+1>${afterPosition} AND json_extract(content,'$.metadata.otto.type') IN ('user','assistant') ORDER BY CAST(json_extract(content,'$.metadata.position') AS INTEGER) DESC LIMIT ${limit}`)
     return rows.reverse().map((row)=>({...row,hidden:!!row.hidden,intermediate:!!row.intermediate}))
   }
@@ -313,38 +313,52 @@ export interface ChatSearchResult {
 /**
  * Full-text search over the chats `actor` may see in a workspace (the visibility rule is the join: `actor` is a
  * member, `chats_members`). Per chat: the number of matching messages and snippets of the newest `perChat`; chats with the most
- * matches first, at most `limit`. `lineNumber` is the matching message's position in its chat.
+ * matches first (chat id breaks ties), at most `limit` (capped at 100), after `offset` chats. `perChat` is capped
+ * at 20; counts cover the entire authorized history. `lineNumber` is the matching message's position in its chat.
  */
-export function searchChats(workspaceId: string, actor: string, query: string, { limit = 50, perChat = 3 } = {}, db: Db = initDb()): ChatSearchResult[] {
+export function searchChats(workspaceId: string, actor: string, query: string, { limit = 50, perChat = 3, offset = 0 } = {}, db: Db = initDb()): ChatSearchResult[] {
   assertHistoryRuntime(db)
-  if(process.env.OTTO_MASTRA_CHAT==='1'&&db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length){
-    const rows=db.all<{chat_id:string;title:string|null;position:number;content:string}>(sql`SELECT m.thread_id AS chat_id,c.title,CAST(json_extract(m.content,'$.metadata.position') AS INTEGER)+1 AS position,json_extract(m.content,'$.metadata.otto') AS content FROM mastra_messages m JOIN chats c ON c.id=m.thread_id AND c.workspace_id=m.resourceId JOIN chats_members cm ON cm.chat_id=c.id AND cm.actor=${actor} WHERE m.resourceId=${workspaceId} AND json_extract(m.content,'$.metadata.otto.type') IN ('user','assistant') AND coalesce(json_extract(m.content,'$.metadata.otto.hidden'),0)=0 AND coalesce(json_extract(m.content,'$.metadata.otto.isIntermediate'),0)=0 ORDER BY m."createdAt" DESC LIMIT 2000`)
-    const words=query.toLowerCase().split(/\s+/).filter(Boolean);if(!words.length)return []
-    const results=new Map<string,ChatSearchResult>()
-    for(const row of rows){const text=(JSON.parse(row.content) as {content?:string}).content??'';if(!words.every((word)=>text.toLowerCase().includes(word)))continue;let result=results.get(row.chat_id);if(!result)results.set(row.chat_id,result={sessionId:row.chat_id,title:row.title,matchCount:0,matches:[]});result.matchCount++;if(result.matches.length<perChat)result.matches.push({sessionId:row.chat_id,lineNumber:row.position,snippet:snippetOf(text,query)})}
-    return [...results.values()].sort((a,b)=>b.matchCount-a.matchCount).slice(0,limit)
-  }
   const match = toSearchQuery(query)
   if (!match) return []
-  initMessages(db)
-  const hits = db.all<{ chat_id: string; title: string | null; position: number; content: string }>(sql`
-    SELECT m.chat_id, c.title, m.position, m.content FROM messages_fts f
-    JOIN messages m ON m.rowid = f.rowid
-    JOIN chats c ON c.id = m.chat_id AND c.workspace_id = m.workspace_id
-    JOIN chats_members cm ON cm.chat_id = m.chat_id AND cm.actor = ${actor}
-    WHERE messages_fts MATCH ${match} AND m.workspace_id = ${workspaceId}
-    ORDER BY m.chat_id, m.position DESC`)
+  limit = Number.isFinite(limit) ? Math.max(0, Math.min(100, Math.floor(limit))) : 50
+  perChat = Number.isFinite(perChat) ? Math.max(0, Math.min(20, Math.floor(perChat))) : 3
+  offset = Number.isSafeInteger(offset) && offset >= 0 ? offset : 0
+  if (!limit) return []
+  const native = true && db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length > 0
+  if (native) initNativeMessagesSearch(db)
+  else initMessages(db)
+  const index = native ? sql`native_messages_fts` : sql`messages_fts`
+  const source = native ? sql`(SELECT rowid, resourceId AS workspace_id, thread_id AS chat_id,
+    CAST(json_extract(content, '$.metadata.position') AS INTEGER) + 1 AS position,
+    json_extract(content, '$.metadata.otto.content') AS text FROM mastra_messages)` : sql`messages`
+  const text = native ? sql`m.text` : sql`json_extract(m.content, '$.content')`
+  const hits = db.all<{ chat_id: string; title: string | null; match_count: number; position: number | null; text: string | null }>(sql`
+    WITH hits AS MATERIALIZED (
+      SELECT m.rowid AS message_rowid, m.chat_id, m.position FROM ${index} f
+      JOIN ${source} m ON m.rowid = f.rowid
+      JOIN chats c ON c.id = m.chat_id AND c.workspace_id = m.workspace_id
+      JOIN chats_members cm ON cm.chat_id = c.id AND cm.workspace_id = c.workspace_id AND cm.actor = ${actor}
+      WHERE ${index} MATCH ${match} AND m.workspace_id = ${workspaceId}
+    ), selected AS (
+      SELECT chat_id, count(*) AS match_count FROM hits GROUP BY chat_id
+      ORDER BY match_count DESC, chat_id LIMIT ${limit} OFFSET ${offset}
+    ), ranked AS (
+      SELECT h.*, row_number() OVER (PARTITION BY h.chat_id ORDER BY h.position DESC, h.message_rowid DESC) AS rank
+      FROM hits h JOIN selected s ON s.chat_id = h.chat_id
+    )
+    SELECT s.chat_id, c.title, s.match_count, r.position, ${text} AS text FROM selected s
+    JOIN chats c ON c.id = s.chat_id AND c.workspace_id = ${workspaceId}
+    LEFT JOIN ranked r ON r.chat_id = s.chat_id AND r.rank <= ${perChat}
+    LEFT JOIN ${source} m ON m.rowid = r.message_rowid
+    ORDER BY s.match_count DESC, s.chat_id, r.rank`)
   const results = new Map<string, ChatSearchResult>()
   for (const hit of hits) {
     let result = results.get(hit.chat_id)
-    if (!result) results.set(hit.chat_id, (result = { sessionId: hit.chat_id, title: hit.title, matchCount: 0, matches: [] }))
-    result.matchCount++
-    if (result.matches.length < perChat) {
-      const text = (JSON.parse(hit.content) as { content?: unknown }).content
-      result.matches.push({ sessionId: hit.chat_id, lineNumber: hit.position, snippet: typeof text === 'string' ? snippetOf(text, query) : '' })
-    }
+    if (!result) results.set(hit.chat_id, (result = { sessionId: hit.chat_id, title: hit.title, matchCount: hit.match_count, matches: [] }))
+    if (hit.position !== null && hit.text !== null)
+      result.matches.push({ sessionId: hit.chat_id, lineNumber: hit.position, snippet: snippetOf(hit.text, query) })
   }
-  return [...results.values()].sort((a, b) => b.matchCount - a.matchCount).slice(0, limit)
+  return [...results.values()]
 }
 
 /** What boot recovery left behind: chats it closed, partial answers and tool calls it marked interrupted. */

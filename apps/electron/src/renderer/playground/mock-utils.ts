@@ -298,16 +298,6 @@ export const mockElectronAPI = {
   getSendMessageKey: async () => 'enter',
   getSpellCheck: async () => true,
 
-  // Pi provider discovery mocks
-  getPiApiKeyProviders: async () => [
-    { key: 'anthropic', label: 'Anthropic', placeholder: 'sk-ant-...' },
-    { key: 'openai', label: 'OpenAI', placeholder: 'sk-...' },
-    { key: 'openrouter', label: 'OpenRouter', placeholder: 'sk-or-...' },
-    { key: 'google', label: 'Google AI Studio', placeholder: 'AIza...' },
-    { key: 'deepseek', label: 'DeepSeek', placeholder: 'sk-...' },
-  ],
-  getClaudeCodeStatus: async () => ({ found: true, path: 'claude', version: '2.1.4 (Claude Code)' }),
-
   // ------------------------------------------------------------------
   // Messaging Gateway (Telegram + WhatsApp)
   // ------------------------------------------------------------------

@@ -185,19 +185,6 @@ export const RPC_CHANNELS = {
     REFRESH_MODELS: 'LLM_Connection:refreshModels',
     CHANGED: 'LLM_Connection:changed',
   },
-  chatgpt: {
-    START_OAUTH: 'chatgpt:startOAuth',
-    CANCEL_OAUTH: 'chatgpt:cancelOAuth',
-    DEVICE_CODE: 'chatgpt:deviceCode',
-  },
-  claudeCode: {
-    GET_STATUS: 'claudeCode:getStatus',
-  },
-  copilot: {
-    START_OAUTH: 'copilot:startOAuth',
-    CANCEL_OAUTH: 'copilot:cancelOAuth',
-    DEVICE_CODE: 'copilot:deviceCode',
-  },
   settings: {
     SETUP_LLM_CONNECTION: 'settings:setupLlmConnection',
     TEST_LLM_CONNECTION_SETUP: 'settings:testLlmConnectionSetup',
@@ -205,9 +192,6 @@ export const RPC_CHANNELS = {
     SET_DEFAULT_THINKING_LEVEL: 'settings:setDefaultThinkingLevel',
     GET_SETTING: 'settings:getSetting',
     UPDATE_SETTING: 'settings:updateSetting',
-  },
-  pi: {
-    GET_API_KEY_PROVIDERS: 'pi:getApiKeyProviders',
   },
   dialog: {
     OPEN_FOLDER: 'dialog:openFolder',
@@ -322,11 +306,7 @@ export const RPC_CHANNELS = {
   git: {
     GET_BRANCH: 'git:getBranch',
   },
-  gitbash: {
-    CHECK: 'gitbash:check',
-    BROWSE: 'gitbash:browse',
-    SET_PATH: 'gitbash:setPath',
-  },
+
 
   routines: {
     LIST: 'routines:list',

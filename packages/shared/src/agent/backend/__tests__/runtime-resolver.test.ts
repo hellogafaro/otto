@@ -9,55 +9,8 @@ import { describe, it, expect, afterEach } from 'bun:test';
 import { mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { resolveBackendRuntimePaths } from '../internal/runtime-resolver.ts';
-import { resolveBackendHostTooling } from '../factory.ts';
+import { resolveBackendRuntimePaths, resolveBackendHostTooling } from '../internal/runtime-resolver.ts';
 import type { BackendHostRuntimeContext } from '../types.ts';
-
-describe('resolveServerPath fallback', () => {
-  const tmpBase = join(tmpdir(), `resolver-test-${Date.now()}`);
-
-  afterEach(() => {
-    try { rmSync(tmpBase, { recursive: true, force: true }); } catch {}
-  });
-
-  it('finds server in dist/resources/ when resources/ does not exist', () => {
-    // Simulate packaged app where server is at dist/resources/<name>/index.js
-    const appRoot = join(tmpBase, 'app');
-    const serverDir = join(appRoot, 'dist', 'resources', 'pi-agent-server');
-    mkdirSync(serverDir, { recursive: true });
-    writeFileSync(join(serverDir, 'index.js'), '// stub');
-
-    const hostRuntime: BackendHostRuntimeContext = {
-      appRootPath: appRoot,
-      resourcesPath: appRoot,
-      isPackaged: true,
-    };
-
-    const paths = resolveBackendRuntimePaths(hostRuntime);
-    expect(paths.piServerPath).toBe(join(serverDir, 'index.js'));
-  });
-
-  it('prefers resources/ over dist/resources/ when both exist', () => {
-    const appRoot = join(tmpBase, 'app2');
-
-    // Create both paths
-    const primaryDir = join(appRoot, 'resources', 'pi-agent-server');
-    const fallbackDir = join(appRoot, 'dist', 'resources', 'pi-agent-server');
-    mkdirSync(primaryDir, { recursive: true });
-    mkdirSync(fallbackDir, { recursive: true });
-    writeFileSync(join(primaryDir, 'index.js'), '// primary');
-    writeFileSync(join(fallbackDir, 'index.js'), '// fallback');
-
-    const hostRuntime: BackendHostRuntimeContext = {
-      appRootPath: appRoot,
-      resourcesPath: appRoot,
-      isPackaged: true,
-    };
-
-    const paths = resolveBackendRuntimePaths(hostRuntime);
-    expect(paths.piServerPath).toBe(join(primaryDir, 'index.js'));
-  });
-});
 
 describe('resolveRipgrepPath', () => {
   const tmpBase = join(tmpdir(), `rg-resolver-test-${Date.now()}`);
@@ -81,7 +34,7 @@ describe('resolveRipgrepPath', () => {
       isPackaged: false,
     };
 
-    const result = resolveBackendHostTooling({ hostRuntime });
+    const result = resolveBackendHostTooling(hostRuntime);
     expect(result.ripgrepPath).toBe(rgPath);
   });
 
@@ -95,7 +48,7 @@ describe('resolveRipgrepPath', () => {
       isPackaged: false,
     };
 
-    const result = resolveBackendHostTooling({ hostRuntime });
+    const result = resolveBackendHostTooling(hostRuntime);
     // On CI/dev machines with rg installed, this finds system rg.
     // On machines without rg, this returns undefined.
     // We just verify it doesn't throw.
@@ -116,7 +69,7 @@ describe('resolveRipgrepPath', () => {
       isPackaged: true,
     };
 
-    const result = resolveBackendHostTooling({ hostRuntime });
+    const result = resolveBackendHostTooling(hostRuntime);
     if (result.ripgrepPath) {
       // Must be a vendored path, not a system PATH resolution
       expect(result.ripgrepPath).toContain('node_modules');

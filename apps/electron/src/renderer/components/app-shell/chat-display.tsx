@@ -1709,7 +1709,15 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 
                     // Assistant turns - render with TurnCard (buffered streaming)
                     const assistantUiKey = getAssistantTurnUiKey(turn, index)
+                    const published = session.messages.flatMap((message) => {
+                      if (message.role !== 'tool' || message.toolStatus !== 'completed' || !turn.activities.some((activity) => activity.toolUseId === message.toolUseId) || message.toolName !== 'publish_file' || !message.toolResult) return []
+                      try {
+                        const result = JSON.parse(message.toolResult) as { libraryId?: string }
+                        return result.libraryId && /^[0-9a-f-]{36}$/.test(result.libraryId) ? [result.libraryId] : []
+                      } catch { return [] }
+                    })
                     return row(
+                      <>
                       <TurnCard
                         sessionId={session.id}
                         sessionFolderPath={session.sessionFolderPath}
@@ -1888,7 +1896,9 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                             })
                           }
                         }}
-                      />,
+                      />
+                      {published.map((id) => <EntityText key={id} content={`library:${id}`} />)}
+                      </>,
                       // The agent's live state under its own header while its turn runs
                       session.isProcessing && !turn.isComplete && (
                         <ProcessingIndicator

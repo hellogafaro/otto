@@ -6,31 +6,7 @@
  * Workspaces can set a default connection.
  */
 
-// Import model types and lists from centralized registry
-// NOTE: Pi SDK functions (getPiModelsForAuthProvider, getAllPiModels) are NOT imported
-// here because @earendil-works/pi-ai transitively pulls in @aws-sdk which uses Node.js
-// `stream` module — breaking the Vite renderer build. Instead, Pi model resolution is
-// injected at app startup via registerPiModelResolver().
-import {
-  type ModelDefinition,
-  normalizeDeprecatedModelId,
-} from './models';
-
-// ============================================================
-// Pi Model Resolver (dependency injection to avoid Pi SDK in renderer)
-// ============================================================
-
-type PiModelResolver = (provider?: string) => ModelDefinition[];
-let _piModelResolver: PiModelResolver = () => [];
-
-/**
- * Register the Pi model resolver function.
- * Must be called from main process at app startup (before any Pi connections are used).
- * This avoids pulling @earendil-works/pi-ai into the renderer bundle.
- */
-export function registerPiModelResolver(resolver: PiModelResolver): void {
-  _piModelResolver = resolver;
-}
+import { type ModelDefinition, normalizeDeprecatedModelId } from './models';
 
 // ============================================================
 // Types
@@ -474,111 +450,6 @@ export function modelSupportsImages(
   return connection.customEndpoint?.supportsImages ?? false;
 }
 
-/**
- * Get the model list of a connection type from the registry.
- * A custom endpoint returns an empty array: it uses the connection's own `models`.
- *
- * @param type - The connection's Pi provider id (or `custom`)
- */
-export function getModelsForProviderType(type: string): ModelDefinition[] {
-  // A custom endpoint requires an explicit model list from the connection
-  if (isCompatProvider(type)) {
-    return [];
-  }
-
-  // Pi: fetch models via registered resolver (avoids Pi SDK import in renderer)
-  return _piModelResolver(type);
-}
-
-/**
- * Preferred default model IDs per Pi provider.
- * The Pi SDK returns models in arbitrary order (alphabetical by ID), which means
- * deprecated models like claude-3-5-haiku-20241022 can end up first.
- * This map ensures getDefaultModelForConnection() picks a modern, capable model.
- *
- * Format: bare model IDs (without pi/ prefix). Matched against pi/{id} or pi/{id}-*.
- */
-export const PI_PREFERRED_DEFAULTS: Record<string, string[]> = {
-  // TODO(opus-4.6-sunset): drop 'claude-opus-4-6' from anthropic and amazon-bedrock
-  // when Opus 4.6 is deprecated.
-  // Opus 5.5 (in the Pi catalog since SDK 0.87.1) is the default for new
-  // connections, matching the Claude Agent SDK path; older Opus generations follow.
-  anthropic: ['claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-fable-5-1', 'claude-fable-5', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
-  // A Claude subscription serves the same models (through the user's own `claude`).
-  'claude-code': ['claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-fable-5-1', 'claude-fable-5', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
-  // GPT-6 Astra entered the Pi catalog in SDK 0.85.1 for both the API-key and
-  // the ChatGPT-account (openai-codex) flows; new connections default to it.
-  openai: ['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'o4-mini', 'o3', 'gpt-4o'],
-  'openai-codex': ['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'o4-mini', 'o3', 'gpt-4o'],
-  // Stable models first so the connection-setup test (which uses
-  // getDefaultModelForConnection) lands on a reliable model.
-  // gemini-3-pro-preview and gemini-3.1-pro-preview are intermittently
-  // unresponsive on generateContent — verified against the live API in
-  // April 2026 — and are deliberately excluded from defaults.
-  google: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview'],
-  // Pi 0.86.0 replaced the retired `deepseek-v4-flash` alias (and the experimental
-  // vision variant) with `deepseek-flash`; stored ids migrate via DEPRECATED_MODEL_REPLACEMENTS.
-  deepseek: ['deepseek-v4-pro', 'deepseek-flash'],
-  // Kimi has no mini/flash-named model, so findSmallModel falls back to the
-  // last entry of the connection's model list; keep the cheaper K2.6 second
-  // so 3-tier setups get a sensible summarizer default.
-  moonshotai: ['kimi-k3', 'kimi-k2.6'],
-  'moonshotai-cn': ['kimi-k3', 'kimi-k2.6'],
-  'github-copilot': ['claude-sonnet-4-6', 'gpt-5', 'o4-mini', 'claude-haiku-4-5'],
-  'amazon-bedrock': ['claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
-};
-
-/**
- * Get the default model list for a connection type: Pi's catalog for its provider, preferred models first (empty for
- * a custom endpoint, where the user names them). Use this whenever you need to populate or backfill a connection's models.
- */
-export function getDefaultModelsForConnection(type: string): Array<ModelDefinition | string> {
-  if (!isCompatProvider(type)) {
-    const models = _piModelResolver(type);
-    // Sort preferred defaults first so getDefaultModelForConnection picks a modern model.
-    // For Bedrock models, the Pi SDK returns IDs like pi/us.anthropic.claude-opus-4-8
-    // but preferred defaults use bare IDs (claude-opus-4-8). We match via both direct
-    // comparison and reverse Bedrock ID mapping.
-    const preferred = PI_PREFERRED_DEFAULTS[type] || [];
-    if (preferred.length > 0) {
-      // Rank of a catalog entry among the preferred defaults. Unranked entries
-      // sort after every preferred model, keeping the SDK's catalog order.
-      const UNRANKED = preferred.length
-      const matchIndex = (candidate: string): number =>
-        preferred.findIndex(p => candidate === p || candidate.startsWith(`${p}-`))
-      const preferredRank = (id: string): number => {
-        const bare = id.startsWith('pi/') ? id.slice(3) : id
-        // Deprecated IDs normalize to their replacement for stored-config
-        // migration. Rank them explicitly as unranked: fromBedrockNativeId()
-        // below applies the same normalization, and letting a retired snapshot
-        // (e.g. claude-opus-4-5-20251101) inherit its replacement's rank made
-        // the stable sort pick it as the connection default.
-        if (normalizeDeprecatedModelId(bare) !== bare) return UNRANKED
-        // Direct match (non-Bedrock providers)
-        const direct = matchIndex(bare)
-        if (direct >= 0) return direct
-        // Bedrock: reverse-map the native inference-profile ID to bare, then match
-        const reversed = fromBedrockNativeId(bare)
-        const viaBedrock = reversed !== bare ? matchIndex(reversed) : -1
-        return viaBedrock >= 0 ? viaBedrock : UNRANKED
-      }
-      models.sort((a, b) => preferredRank(a.id) - preferredRank(b.id));
-    }
-    return models;
-  }
-  return [];  // a custom endpoint: the user specifies
-}
-
-/**
- * Get the default model ID for a connection type.
- * Derived from the first entry in getDefaultModelsForConnection() — single source of truth.
- */
-export function getDefaultModelForConnection(type: string): string {
-  const models = getDefaultModelsForConnection(type);
-  const first = models[0];
-  if (!first) return '';  // Dynamic provider — no default
-  return typeof first === 'string' ? first : first.id;
-}
 
 /**
  * Resolve the effective LLM connection slug from available fallbacks.

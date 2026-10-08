@@ -67,7 +67,7 @@ it('confines API endpoints, resolves fresh scoped credentials, enforces mode, bo
   expect(redirected).toBe(0)
   expect(JSON.stringify(await call('/error'))).not.toContain('controlled-api-secret')
   expect(await call('/echo')).toHaveProperty('error')
-  expect(await call('/binary')).toHaveProperty('error')
+  expect(await call('/binary')).toHaveProperty('libraryItem')
   expect(await call('/large')).toHaveProperty('error')
   await setSourceCredential(workspace.id, source.slug, 'source_bearer', { value: 'controlled-new-secret' })
   await call('/brief')

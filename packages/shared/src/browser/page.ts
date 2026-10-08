@@ -22,7 +22,7 @@ export interface AccessibilitySnapshot {
 
 /** CDP bound to one page session. */
 export interface PageCdp {
-  send<T = any>(method: string, params?: Record<string, unknown>, timeoutMs?: number): Promise<T>
+  send<T = any>(method: string, params?: Record<string, unknown>, timeoutMs?: number, signal?: AbortSignal): Promise<T>
   /** Listen to an event of this page; returns the unsubscribe function. */
   on(method: string, listener: (params: any) => void): () => void
 }
@@ -64,7 +64,46 @@ export class BrowserPage {
   private refByNode = new Map<number, string>()
   private nextRef = 0
 
-  constructor(private readonly cdp: PageCdp) {}
+  private readonly cdp: PageCdp
+  private execution: { signal: AbortSignal; assertAccess: () => void } | null = null
+
+  constructor(cdp: PageCdp) {
+    this.cdp = {
+      send: async (method, params, timeoutMs) => {
+        const execution = this.execution
+        execution?.signal.throwIfAborted()
+        execution?.assertAccess()
+        const result = await cdp.send(method, params, timeoutMs, execution?.signal)
+        execution?.signal.throwIfAborted()
+        execution?.assertAccess()
+        return result
+      },
+      on: (method, listener) => cdp.on(method, listener),
+    }
+  }
+
+  async runGuarded<T>(execution: { signal: AbortSignal; assertAccess: () => void }, action: () => Promise<T>): Promise<T> {
+    if (this.execution) throw new Error('A browser command is already running on this page.')
+    this.execution = execution
+    let onAbort: (() => void) | undefined
+    try {
+      execution.signal.throwIfAborted()
+      execution.assertAccess()
+      const operation = action().finally(() => { this.execution = null })
+      const aborted = new Promise<never>((_resolve, reject) => {
+        onAbort = () => reject(execution.signal.reason ?? new Error('aborted'))
+        execution.signal.addEventListener('abort', onAbort, { once: true })
+        if (execution.signal.aborted) onAbort()
+      })
+      const result = await Promise.race([operation, aborted])
+      execution.signal.throwIfAborted()
+      execution.assertAccess()
+      return result
+    } finally {
+      if (onAbort) execution.signal.removeEventListener('abort', onAbort)
+      else this.execution = null
+    }
+  }
 
   /** Turns on the domains the page needs; call once after attaching. */
   async init(): Promise<void> {

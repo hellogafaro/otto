@@ -1,13 +1,3 @@
-/**
- * AiSettingsPage: Settings -> AI. The connections the person can use, and the defaults over them.
- *
- * Connections: one list, the person's own first (a personal Claude subscription or key powers their agents and is
- * seen by nobody else), then the workspace's and the server's, each with whose it is. The "+" opens the setup (the
- * same full-screen flow as the first run): a Claude subscription, an Anthropic API key, ChatGPT, another provider's
- * key or a custom endpoint. A row's ⋯ sets the person's default, signs in again, changes the key, tests and deletes
- * (asked first); its editor saves as it is edited. Defaults: the person's default connection and the thinking level.
- */
-
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -22,13 +12,11 @@ import { Kbd } from '@/components/ui/kbd'
 import { SettingsPage } from '@/components/settings/settings-page'
 import { SettingsSection, SettingsCard, SettingsRow, SettingsMenuSelectRow } from '@/components/settings'
 import { OnboardingWizard } from '@/components/onboarding'
-import type { DeviceCodeProvider } from '@/components/onboarding/device-code-step'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useWorkspaceMemberList } from '@/hooks/use-workspace-members'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { DEFAULT_THINKING_LEVEL, THINKING_LEVELS } from '@otto/shared/agent/thinking-levels'
-import { CLAUDE_CODE_CONNECTION_TYPE } from '@config/llm-connections'
 import type { CredentialHealthIssue, LlmConnectionWithStatus, ThinkingLevel, Workspace } from '../../../shared/types'
 import { ChangeKeyDialog } from './change-key-dialog'
 import { canEditConnection, connectionKindLabel, scopeLabel, sortConnections } from './connection-labels'
@@ -40,9 +28,6 @@ export const meta: DetailsPageMeta = {
   navigator: 'settings',
   slug: 'ai',
 }
-
-/** The accounts that sign in with a device code. */
-const DEVICE_CODE_PROVIDERS: Record<string, DeviceCodeProvider> = { 'openai-codex': 'chatgpt', 'github-copilot': 'copilot' }
 
 /** Get user-friendly message for credential health issue */
 function getHealthIssueMessage(issue: CredentialHealthIssue, t: (key: string) => string): string {
@@ -78,9 +63,6 @@ function CredentialHealthBanner({ issues, onReauthenticate }: { issues: Credenti
   )
 }
 
-/** What the setup overlay is doing: adding a connection, or signing one in again. */
-type Setup = { reauth?: { slug: string; provider: DeviceCodeProvider } }
-
 export default function AiSettingsPage() {
   const { t } = useTranslation()
   const { llmConnections, refreshLlmConnections, activeWorkspaceId } = useAppShellContext()
@@ -89,7 +71,7 @@ export default function AiSettingsPage() {
   const setFullscreenOverlayOpen = useSetAtom(fullscreenOverlayOpenAtom)
   const { confirmDelete, dialog: deleteDialog } = useConfirmDelete()
 
-  const [setup, setSetup] = useState<Setup | null>(null)
+  const [setup, setSetup] = useState(false)
   const [changingKey, setChangingKey] = useState<LlmConnectionWithStatus | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [defaultThinking, setDefaultThinking] = useState<ThinkingLevel>(DEFAULT_THINKING_LEVEL)
@@ -110,13 +92,13 @@ export default function AiSettingsPage() {
     void load()
   }, [activeWorkspaceId])
 
-  const openSetup = useCallback((next: Setup) => {
-    setSetup(next)
+  const openSetup = useCallback(() => {
+    setSetup(true)
     setFullscreenOverlayOpen(true)
   }, [setFullscreenOverlayOpen])
 
   const closeSetup = useCallback(() => {
-    setSetup(null)
+    setSetup(false)
     setFullscreenOverlayOpen(false)
   }, [setFullscreenOverlayOpen])
 
@@ -152,12 +134,9 @@ export default function AiSettingsPage() {
       toast.success(t('connections.deleted', { name: connection.name }))
     })
 
-  /** What fixes a connection that is signed out or whose key is wrong: signing in again, or a new key. */
   const reconnect = (connection: LlmConnectionWithStatus | undefined) => {
-    const provider = connection ? DEVICE_CODE_PROVIDERS[connection.type] : undefined
-    if (connection && provider) openSetup({ reauth: { slug: connection.slug, provider } })
-    else if (connection && connection.authType !== 'cli_login' && connection.authType !== 'none') setChangingKey(connection)
-    else openSetup({})
+    if (connection?.runtimeSupported !== false && connection?.authType === 'api_key') setChangingKey(connection)
+    else openSetup()
   }
 
   const changeThinking = async (level: ThinkingLevel) => {
@@ -208,7 +187,7 @@ export default function AiSettingsPage() {
       <SettingsSection
         title={t('settings.ai.connections')}
         description={t('settings.ai.connectionsDesc')}
-        action={<CreateButton label={t('connections.new')} onClick={() => openSetup({})} />}
+        action={<CreateButton label={t('connections.new')} onClick={() => openSetup()} />}
       >
         <SettingsCard>
           {rows.length === 0 ? (
@@ -216,18 +195,16 @@ export default function AiSettingsPage() {
           ) : (
             rows.map((connection) => {
               const editable = canEditConnection(connection, isOwner)
-              const provider = DEVICE_CODE_PROVIDERS[connection.type]
               return (
                 <ConnectionRow
                   key={`${connection.scope}:${connection.slug}`}
                   connection={connection}
-                  editable={editable}
+                  editable={editable && connection.runtimeSupported !== false}
                   onSaved={refresh}
                   actions={{
                     onSetDefault: connection.isDefault || connection.runtimeSupported === false ? undefined : () => void setDefault(connection.slug),
-                    onSignIn: editable && provider && connection.runtimeSupported !== false ? () => openSetup({ reauth: { slug: connection.slug, provider } }) : undefined,
                     onChangeKey: editable && hasKey(connection) && connection.runtimeSupported !== false ? () => setChangingKey(connection) : undefined,
-                    onTest: () => window.electronAPI.testLlmConnection(connection.slug),
+                    onTest: connection.runtimeSupported === false ? undefined : () => window.electronAPI.testLlmConnection(connection.slug),
                     onDelete: editable ? () => remove(connection) : undefined,
                   }}
                 />
@@ -254,7 +231,6 @@ export default function AiSettingsPage() {
           <OnboardingWizard
             existingSlugs={existingSlugs}
             canShare={isOwner}
-            reauth={setup.reauth}
             onSaved={refresh}
             onFinish={() => { closeSetup(); setCredentialHealthIssues([]) }}
             onBack={closeSetup}

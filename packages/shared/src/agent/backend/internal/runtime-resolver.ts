@@ -139,7 +139,6 @@ export function resolveBackendRuntimePaths(hostRuntime: BackendHostRuntimeContex
 
   return {
     interceptorBundlePath: resolveInterceptorBundlePath(hostRuntime),
-    piServerPath: resolveServerPath(hostRuntime, 'pi-agent-server'),
     nodeRuntimePath: hostRuntime.nodeRuntimePath || bundledRuntimePath || process.execPath,
     bundledRuntimePath,
   };

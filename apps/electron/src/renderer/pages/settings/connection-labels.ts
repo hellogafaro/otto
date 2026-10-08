@@ -5,7 +5,7 @@
  */
 
 import type { TFunction } from 'i18next'
-import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, getModelsForProviderType, type LlmConnection } from '@config/llm-connections'
+import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, type LlmConnection } from '@config/llm-connections'
 import { getProviderMetadata } from '@config/provider-metadata'
 import { getModelShortName, type ModelDefinition } from '@config/models'
 
@@ -76,11 +76,5 @@ export function getModelOptionsForConnection(
   }
 
   // Fall back to registry models for this connection type
-  const registryModels = getModelsForProviderType(connection.type)
-  return registryModels.map((m) => ({
-    value: m.id,
-    label: m.name,
-    description: m.description,
-    descriptionKey: m.descriptionKey,
-  }))
+  return []
 }

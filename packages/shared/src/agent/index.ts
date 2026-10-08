@@ -1,39 +1,13 @@
-// The agent of every chat (docs/pi-only-plan.md)
-export { PiAgent, PiBackend } from './pi-agent.ts';
-export { getAgentTurn, getAgentComputer, getRunningAgentComputer, runComputerIdleStop, type AgentTurn } from './agent-turn.ts';
 export { initAgentApiUrl, getAgentApiUrl, initComputerApiUrl, createRunToken, getRunByToken, deleteRunToken, RUN_TOKEN_TTL_MS, type AgentRun } from './run-tokens.ts';
 export type { AgentEvent } from '@otto/core/types';
 export type { LoadedSource } from '../sources/types.ts';
 export * from './conversation-summary.ts';
 export * from './errors.ts';
 
-// Export session-scoped-tools - tools scoped to a specific session
-export {
-  // Session-scoped tools provider
-  getSessionScopedTools,
-  cleanupSessionScopedTools,
-  // Plan file management
-  getSessionPlansDir,
-  getLastPlanFilePath,
-  clearPlanFileState,
-  isPathInPlansDir,
-  // Callback registry for session-scoped tool notifications
-  registerSessionScopedToolCallbacks,
-  unregisterSessionScopedToolCallbacks,
-  mergeSessionScopedToolCallbacks,
-  // Types
-  type SessionScopedToolCallbacks,
-  // Auth request types (unified auth flow)
-  type AuthRequest,
-  type AuthRequestType,
-  type AuthResult,
-  type CredentialAuthRequest,
-  type McpOAuthAuthRequest,
-  type GoogleOAuthAuthRequest,
-  type SlackOAuthAuthRequest,
-  type MicrosoftOAuthAuthRequest,
-  type CredentialInputMode,
-} from './session-scoped-tools.ts';
+export type { AuthRequest, AuthResult, CredentialAuthRequest, CredentialInputMode } from '@otto/session-tools-core';
+export { getAgentComputer, getRunningAgentComputer, runComputerIdleStop } from './agent-turn.ts';
+export type { ChatOptions } from './backend/types.ts';
+export { AbortReason } from './core/session-lifecycle.ts';
 
 // Export mode-manager - Centralized mode management
 export {
@@ -122,35 +96,6 @@ export {
   type MergedPermissionsConfig,
   type PermissionsContext,
 } from './permissions-config.ts';
-
-// Export BaseAgent - shared abstract class for all agent backends
-export {
-  BaseAgent,
-  // Mini agent configuration (centralized for all backends)
-  type MiniAgentConfig,
-  MINI_AGENT_TOOLS,
-  MINI_AGENT_MCP_KEYS,
-} from './base-agent.ts';
-
-// The factory and the agent's config and callback types
-export {
-  createBackend,
-  // Types
-  type BackendConfig,
-  type PermissionCallback,
-  type PlanCallback,
-  type AuthCallback,
-  type SourceChangeCallback,
-  type SourceActivationCallback,
-  type ChatOptions,
-  type RecoveryMessage,
-  type SdkMcpServerConfig as BackendMcpServerConfig,
-  // Enums
-  AbortReason as BackendAbortReason,
-} from './backend/index.ts';
-
-// Export core utilities for shared agent logic
-export * from './core/index.ts';
 
 // Export browser tool name normalization helpers
 export {

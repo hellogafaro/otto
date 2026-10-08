@@ -11,7 +11,7 @@ import { getDocsDir } from '../docs/index.ts';
 import { getSkills } from '../skills/index.ts';
 import { getSources, isSourceUsable, loadAllSources } from '../sources/index.ts';
 import { getWorkspaceSkillsPath, getWorkspaceSourcesPath } from '../workspaces/storage.ts';
-import type { PiTurnSkill } from './backend/pi/protocol.ts';
+type PiTurnSkill = { name: string; description: string; filePath: string; baseDir?: string; disableModelInvocation?: boolean }
 
 export interface AgentTurn {
   /** The chat's agent (its computer and browser are this agent's). */

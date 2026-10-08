@@ -21,6 +21,9 @@ export interface DockerComputerOptions {
   image?: string
   /** The agent's workspace, as a docker label. */
   workspaceId?: string
+  network?: string
+  hostAccess?: boolean
+  publishPorts?: boolean
   /** Host folder of the workspace skills; mounted read-only at /skills. */
   skillsDir?: string
   /** Host folder of the server's docs (the guides the prompt names); mounted read-only at /otto/docs. */
@@ -51,6 +54,9 @@ export class DockerComputer implements Computer {
   readonly volume: string
   private readonly image: string
   private readonly workspaceId?: string
+  private readonly network?: string
+  private readonly hostAccess: boolean
+  private readonly publishPorts: boolean
   private readonly skillsDir?: string
   private readonly docsDir?: string
   private readonly sourcesDir?: string
@@ -72,6 +78,9 @@ export class DockerComputer implements Computer {
     this.volume = `${this.name}-home`
     this.image = o.image ?? DEFAULT_IMAGE
     this.workspaceId = o.workspaceId
+    this.network = o.network
+    this.hostAccess = o.hostAccess ?? true
+    this.publishPorts = o.publishPorts ?? true
     this.skillsDir = o.skillsDir
     this.docsDir = o.docsDir
     this.sourcesDir = o.sourcesDir
@@ -134,14 +143,14 @@ export class DockerComputer implements Computer {
       '--cpus', '1',
       '--pids-limit', '512',
       '--shm-size', '1g',
+      ...(this.network ? ['--network', this.network] : []),
       '-v', `${this.volume}:${BOX_HOME}`,
       ...(this.skillsDir ? ['-v', `${this.skillsDir}:${SKILLS_MOUNT}:ro`] : []),
       ...(this.docsDir ? ['-v', `${this.docsDir}:${DOCS_MOUNT}:ro`] : []),
       ...(this.sourcesDir ? ['-v', `${this.sourcesDir}:${SOURCES_MOUNT}:ro`] : []),
       // The box's `otto` CLI reaches the server here (the computer API listener, see getComputerApiUrl).
-      '--add-host', `${HOST_ALIAS}:host-gateway`,
-      '-p', `127.0.0.1::${NOVNC_PORT}`,
-      '-p', `127.0.0.1::${CDP_PORT}`,
+      ...(this.hostAccess ? ['--add-host', `${HOST_ALIAS}:host-gateway`] : []),
+      ...(this.publishPorts ? ['-p', `127.0.0.1::${NOVNC_PORT}`, '-p', `127.0.0.1::${CDP_PORT}`] : []),
       '--label', `otto.agent=${this.id}`,
       ...(this.workspaceId ? ['--label', `otto.workspace=${this.workspaceId}`] : []),
       this.image,
@@ -294,6 +303,16 @@ export class DockerComputer implements Computer {
     if (r.code !== 0 && !/no such (object|container)/i.test(r.stderr)) {
       throw new Error(`docker stop failed: ${r.stderr.trim()}`)
     }
+  }
+
+  async terminate(): Promise<void> {
+    this.running = false
+    const result = await collect(this.docker(['kill', this.name]))
+    if (result.code !== 0 && !/no such (object|container)|is not running/i.test(result.stderr)) {
+      throw new Error(`docker kill failed: ${result.stderr.trim()}`)
+    }
+    const state = await this.inspect()
+    if (state?.status === 'running') throw new Error('The computer is still running after cancellation.')
   }
 
   /**

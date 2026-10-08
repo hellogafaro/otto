@@ -13,11 +13,6 @@ const ROOT_DIR = join(import.meta.dir, "..");
 const ELECTRON_DIR = join(ROOT_DIR, "apps/electron");
 const DIST_DIR = join(ELECTRON_DIR, "dist");
 
-// Subprocess server paths
-// Pi agent server path (subprocess for Pi SDK sessions)
-const PI_AGENT_SERVER_DIR = join(ROOT_DIR, "packages/pi-agent-server");
-const PI_AGENT_SERVER_OUTPUT = join(PI_AGENT_SERVER_DIR, "dist/index.js");
-
 // Platform-specific binary paths (bun creates .exe on Windows, no extension on Unix)
 const IS_WINDOWS = process.platform === "win32";
 const BIN_EXT = IS_WINDOWS ? ".exe" : "";
@@ -202,28 +197,6 @@ async function buildWaWorker(): Promise<void> {
   }
 }
 
-// Build the Pi agent server subprocess (one-time, no watch needed)
-async function buildSubprocessServers(): Promise<void> {
-  console.log("🌉 Building Pi agent server...");
-
-  const piDistDir = join(PI_AGENT_SERVER_DIR, "dist");
-  if (!existsSync(piDistDir)) mkdirSync(piDistDir, { recursive: true });
-
-  // Build Pi agent server with bun (not esbuild) because its Pi SDK deps are ESM-only.
-  // esbuild with packages:external leaves them as require() calls which fail at runtime.
-  // Optional: skip if package directory is missing (e.g., not synced to OSS).
-  if (existsSync(join(PI_AGENT_SERVER_DIR, "src"))) {
-    const piResult = await buildPiAgentServer();
-    if (!piResult.success) {
-      console.error("❌ Pi agent server build failed:", piResult.error);
-      process.exit(1);
-    }
-    console.log("✅ Pi agent server built");
-  } else {
-    console.log("⏭️  Pi agent server skipped (package not found)");
-  }
-}
-
 // Get OAuth defines for esbuild API
 function getOAuthDefines(): Record<string, string> {
   const oauthVars = [
@@ -284,29 +257,6 @@ async function runEsbuild(
       define: defines,
       logLevel: "warning",
     });
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: String(err) };
-  }
-}
-
-// Build Pi agent server using bun instead of esbuild.
-// The Pi SDK (@earendil-works/pi-coding-agent) is ESM-only, and esbuild with
-// packages:external leaves ESM imports as require() calls that fail at runtime.
-// Bun's bundler handles ESM→ESM bundling correctly.
-async function buildPiAgentServer(): Promise<{ success: boolean; error?: string }> {
-  try {
-    const proc = spawn({
-      cmd: ["bun", "build", "src/index.ts", "--outdir=dist", "--target=bun", "--format=esm"],
-      cwd: PI_AGENT_SERVER_DIR,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const stderr = await new Response(proc.stderr).text();
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
-      return { success: false, error: stderr };
-    }
     return { success: true };
   } catch (err) {
     return { success: false, error: String(err) };
@@ -391,9 +341,6 @@ async function main(): Promise<void> {
   await ensureBundledUvForCurrentPlatform();
 
   copyResources();
-
-  // Build the Pi agent server subprocess
-  await buildSubprocessServers();
 
   // Build WhatsApp worker bundle so the adapter can spawn it on demand
   await buildWaWorker();

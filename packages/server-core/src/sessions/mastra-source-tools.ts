@@ -10,7 +10,10 @@ import {
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { buildServersFromSources } from '../sources/build-servers'
 import { shouldAllowToolInMode, type PermissionMode } from '@otto/shared/agent'
-import { createMastraApiTool } from './mastra-api-tools'
+import { createMastraApiTool, testMastraApiSource } from './mastra-api-tools'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { getSourceCredentialManager, getSourceServerBuilder } from '@otto/shared/sources'
 
 export async function openMastraSourceTools(input: {
   workspaceId: string
@@ -24,6 +27,7 @@ export async function openMastraSourceTools(input: {
   refresh?: TokenRefreshManager
 }) {
   input.assertAccess()
+  input.signal.throwIfAborted()
   const workspace = getWorkspaceByNameOrId(input.workspaceId)
   const run = getAgentRunConfig(input.agentId, input.workspaceId)
   if (!workspace || !run || run.agent.id !== input.agentId)
@@ -48,23 +52,25 @@ export async function openMastraSourceTools(input: {
     )
   )
     throw new Error(
-      'Only remote MCP and API sources are supported by this native checkpoint. Local source execution is not yet migrated.',
+      'Local filesystem sources require race-safe configured-root isolation, which is unavailable. Stdio MCP requires an isolated subprocess boundary, which is unavailable. Only remote MCP and API sources can run.',
     )
+  if (sources.some((source) => !source.config.enabled))
+    throw new Error('A selected source is disabled. Enable it in Sources before running.')
   if (input.refresh) {
     const pending = await input.refresh.getSourcesNeedingRefresh(sources)
     if (pending.length) await input.refresh.refreshSources(pending)
   }
-  if (sources.some((source) => !isSourceUsable(source)))
-    throw new Error(
-      'A selected source needs authentication. Reconnect it in Sources before running.',
-    )
+  input.signal.throwIfAborted()
+  input.assertAccess()
+  const missingAuthSlugs = sources.filter((source) => !isSourceUsable(source)).map((source) => source.config.slug)
+  const usableSources = sources.filter((source) => isSourceUsable(source))
   const pool = new McpClientPool({
     workspaceRootPath: workspace.rootPath,
     sessionPath: input.sessionPath,
   })
   try {
     const { mcpServers, errors } = await buildServersFromSources(
-      sources.filter((source) => source.config.type === 'mcp'),
+      usableSources.filter((source) => source.config.type === 'mcp'),
       input.sessionPath,
       input.refresh,
     )
@@ -140,6 +146,8 @@ export async function openMastraSourceTools(input: {
                 args as Record<string, unknown>,
                 { signal: input.signal, timeoutMs: 30000 },
               )
+              input.signal.throwIfAborted()
+              input.assertAccess()
               return result.isError
                 ? {
                     error:
@@ -150,12 +158,13 @@ export async function openMastraSourceTools(input: {
           }),
         ]),
     )
-    for (const source of sources.filter((source) => source.config.type === 'api')) {
+    for (const source of usableSources.filter((source) => source.config.type === 'api')) {
       const [name, tool] = createMastraApiTool({
-        source, mode: input.mode, getMode: input.getMode, signal: input.signal, refresh: input.refresh,
+        source, agentId: input.agentId, mode: input.mode, getMode: input.getMode, signal: input.signal, refresh: input.refresh,
         activeSourceSlugs: sources.map((source) => source.config.slug),
         assertSource: () => {
           input.assertAccess()
+          input.signal.throwIfAborted()
           const current = getAgentRunConfig(input.agentId, input.workspaceId)
           const selected = getSourcesBySlugs(workspace.rootPath, [source.config.slug])[0]
           if (!selected || selected.config.type !== 'api' || !isSourceUsable(selected) || JSON.stringify(selected.config.api) !== JSON.stringify(source.config.api)
@@ -171,10 +180,110 @@ export async function openMastraSourceTools(input: {
     return {
       tools,
       slugs: sources.map((source) => source.config.slug),
+      missingAuthSlugs,
       close: () => pool.disconnectAll(),
     }
   } catch (error) {
     await pool.disconnectAll()
     throw error
+  }
+}
+
+export async function testMastraSource(input: {
+  workspaceId: string
+  agentId: string
+  sourceSlug: string
+  signal: AbortSignal
+  assertAccess: () => void
+  mode: PermissionMode
+  getMode?: () => PermissionMode
+  refresh?: TokenRefreshManager
+}) {
+  input.signal.throwIfAborted()
+  input.assertAccess()
+  const workspace = getWorkspaceByNameOrId(input.workspaceId)
+  const source = workspace ? getSourcesBySlugs(workspace.rootPath, [input.sourceSlug])[0] : undefined
+  if (!workspace || !source) throw new Error('The source scope is unavailable.')
+  const assertSource = () => {
+    input.signal.throwIfAborted()
+    input.assertAccess()
+    const current = getAgentRunConfig(input.agentId, input.workspaceId)
+    const selected = getSourcesBySlugs(workspace.rootPath, [input.sourceSlug])[0]
+    if (!current || current.agent.id !== input.agentId || !selected || selected.config.id !== source.config.id
+      || selected.config.type !== source.config.type || selected.config.provider !== source.config.provider
+      || JSON.stringify(selected.config.api) !== JSON.stringify(source.config.api)
+      || JSON.stringify(selected.config.mcp) !== JSON.stringify(source.config.mcp)
+      || !selected.config.enabled
+      || (current.sources.length && !current.sources.includes(source.config.slug) && !current.sources.includes(source.config.id)))
+      throw new Error('Source access or configuration changed before execution.')
+  }
+  assertSource()
+  if (!isSourceUsable(source)) return { success: false, needsAuthentication: true, error: 'Authenticate this source before testing its connection.' }
+  if (source.config.type === 'api') return testMastraApiSource({ ...input, source, assertSource })
+  if (source.config.type !== 'mcp' || source.config.mcp?.transport === 'stdio') return { success: false, error: 'Local source connection tests require an isolated filesystem or subprocess boundary, which is unavailable.' }
+  const client = new Client({ name: 'native-source-test', version: '1.0.0' })
+  const signal = AbortSignal.any([input.signal, AbortSignal.timeout(30000)])
+  let responseBytes = 0
+  const assertCurrent = () => {
+    signal.throwIfAborted()
+    assertSource()
+    if ((input.getMode?.() ?? input.mode) !== input.mode) throw new Error('The permission mode changed.')
+  }
+  try {
+    const credentials = getSourceCredentialManager()
+    const token = await credentials.getToken(source)
+    const credential = await credentials.getApiCredential(source)
+    assertCurrent()
+    const config = getSourceServerBuilder().buildMcpServer(source, token, credential)
+    if (!config || config.type === 'stdio') throw new Error('The source needs authentication.')
+    const endpoint = new URL(config.url)
+    if (!['https:', 'http:'].includes(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.hash) throw new Error('Invalid remote endpoint.')
+    const transport = new StreamableHTTPClientTransport(endpoint, {
+      requestInit: { headers: config.headers },
+      reconnectionOptions: { maxRetries: 0, maxReconnectionDelay: 0, initialReconnectionDelay: 0, reconnectionDelayGrowFactor: 1 },
+      fetch: async (url, init) => {
+        assertCurrent()
+        if (new URL(url).href !== endpoint.href) throw new Error('The discovery endpoint changed.')
+        const response = await fetch(url, { ...init, redirect: 'error', signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal })
+        if (!response.ok) {
+          await response.body?.cancel()
+          throw new Error('The source connection test failed.')
+        }
+        if (Number(response.headers.get('content-length')) > 65536 || response.headers.get('content-type')?.includes('text/event-stream')) {
+          await response.body?.cancel()
+          throw new Error('Discovery requires bounded JSON responses.')
+        }
+        if (!response.body) return response
+        const reader = response.body.getReader()
+        const chunks: Uint8Array[] = []
+        let size = 0
+        try {
+          while (true) {
+            assertCurrent()
+            const part = await reader.read()
+            assertCurrent()
+            if (part.done) break
+            responseBytes += part.value.byteLength
+            size += part.value.byteLength
+            if (responseBytes > 65536) throw new Error('Discovery exceeded its response limit.')
+            chunks.push(part.value)
+          }
+        } finally {
+          await reader.cancel().catch(() => {})
+          reader.releaseLock()
+        }
+        return new Response(Buffer.concat(chunks, size), { status: response.status, headers: response.headers })
+      },
+    })
+    await client.connect(transport, { signal, timeout: 30000 })
+    const result = await client.listTools({}, { signal, timeout: 30000 })
+    assertCurrent()
+    if (result.nextCursor || result.tools.length > 100) return { success: false, error: 'Remote discovery exceeds the native tool limit.' }
+    return { success: true, toolCount: result.tools.length }
+  } catch {
+    input.signal.throwIfAborted()
+    return { success: false, error: 'The remote source connection test could not complete. Native discovery requires bounded JSON responses at the pinned endpoint.' }
+  } finally {
+    await client.close().catch(() => {})
   }
 }

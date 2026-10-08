@@ -74,5 +74,13 @@ export async function* streamMastraChat(input: {
 
 export function createMastraChatModel(input: { provider: string; model: string; apiKey: string; baseUrl?: string }) {
   if (input.provider !== 'openai') throw new Error('This migration slice supports an OpenAI API-key connection only.')
-  return createOpenAI({ apiKey: input.apiKey, baseURL: input.baseUrl }).responses(input.model.replace(/^pi\//, ''))
+  const base = new URL(input.baseUrl ?? 'https://api.openai.com/v1')
+  if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new Error('The model endpoint must be an HTTP(S) base URL without credentials or query parameters.')
+  const prefix = `${base.pathname.replace(/\/$/, '')}/`
+  const confinedFetch = Object.assign(async (url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const target = new URL(typeof url === 'string' || url instanceof URL ? url : url.url)
+    if (target.origin !== base.origin || !target.pathname.startsWith(prefix)) throw new Error('The model request attempted to leave its configured endpoint.')
+    return fetch(url, { ...init, redirect: 'error' })
+  }, { preconnect: fetch.preconnect })
+  return createOpenAI({ apiKey: input.apiKey, baseURL: base.href.replace(/\/$/, ''), fetch: confinedFetch }).responses(input.model.replace(/^pi\//, ''))
 }

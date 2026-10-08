@@ -116,7 +116,7 @@ export interface CreateSessionOptions {
    * Reasoning/thinking level override. When set, takes precedence over workspace
    * and global defaults. Silently ignored by the underlying SDK on non-reasoning
    * models (e.g. gpt-4o) — provider drivers don't attach the reasoning param to
-   * the API request for models with `reasoning: false` in the Pi SDK catalog.
+   * the API request for models without reasoning support.
    */
   thinkingLevel?: ThinkingLevel
   /**
@@ -381,14 +381,13 @@ export type LlmConnectionUpdate = Pick<LlmConnection, 'slug'> & Partial<Omit<Llm
 
 export interface LlmConnectionSetup {
   slug: string
-  /** The Pi provider id of a new connection (`anthropic`, `claude-code`, `openai-codex`, `openrouter`, ..., `custom`); a connection that exists keeps its own. */
+  /** The provider type of a new connection (`openai`); an existing connection keeps its stored type. */
   type?: string
   /** The display name of a new connection. */
   title?: string
   /**
-   * Whose the connection is: the caller's own (default for a new one: their subscription or key powers their agents),
+   * Whose the connection is: the caller's own (default for a new one: their key powers their agents),
    * the workspace's (its owners set it) or the install's (its owner sets it). Names the connection of that scope only.
-   * A Claude subscription is always the caller's own.
    */
   scope?: 'user' | 'workspace' | 'install'
   credential?: string
@@ -412,22 +411,13 @@ export interface LlmConnectionSetup {
 }
 
 export interface TestLlmConnectionParams {
-  /** The Pi provider id the key is for, or `custom` with a base URL and `customEndpoint`. */
+  /** The provider type the key is for; new setup supports `openai`. */
   type: string
   apiKey: string
   baseUrl?: string
   model?: string
   /** Optional custom endpoint protocol hint so setup tests mirror runtime routing */
   customEndpoint?: CustomEndpointConfig
-}
-
-/** Whether the `claude` CLI of the machine the server runs on is runnable (a Claude subscription needs it). */
-export interface ClaudeCodeStatus {
-  found: boolean
-  /** What was run: `OTTO_CLAUDE_PATH`, else `claude`. */
-  path: string
-  /** The first line `claude --version` printed. */
-  version?: string
 }
 
 export interface TestLlmConnectionResult {
@@ -532,12 +522,6 @@ export interface Plan {
 // ---------------------------------------------------------------------------
 // System types
 // ---------------------------------------------------------------------------
-
-export interface GitBashStatus {
-  found: boolean
-  path: string | null
-  platform: 'win32' | 'darwin' | 'linux'
-}
 
 export interface UpdateInfo {
   /** False when no update host is configured (OTTO_UPDATE_URL unset): no checks, no UI */

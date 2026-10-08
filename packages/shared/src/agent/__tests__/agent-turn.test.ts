@@ -5,14 +5,12 @@ import { join } from 'node:path';
 import { createAgent } from '../../agents/index.ts';
 import { UNATTENDED_RUN_INSTRUCTIONS } from '../../agents/instructions.ts';
 import { createConnection } from '../../connections/index.ts';
-import { DockerComputer } from '../../computer/index.ts';
+import { DockerComputer, collect } from '../../computer/index.ts';
+import { ChatComputer } from '../../computer/chat-computer.ts';
 import { initDb } from '../../db/index.ts';
 import { skills } from '../../skills/schema.ts';
 import { COMPUTER_TOOL_GUIDANCE, buildAgentTurn, getAgentComputer, getAgentTurn } from '../agent-turn.ts';
-import { resolveBackendContext } from '../backend/factory.ts';
-import { createComputerExecHost } from '../backend/pi/computer-exec.ts';
-
-/** M1 (docs/final-plan.md 2.6): what a chat's agent gives each Pi turn. */
+import { resolveBackendContext } from '../connection-context.ts';
 
 const run = (extra: { skills?: string[]; sources?: string[] } = {}) => ({
   agent: { id: 'agent1', title: 'Scout' },
@@ -85,25 +83,32 @@ describe('getAgentTurn (database)', () => {
 describe("the agent's provider picks the creator's connection", () => {
   it('user, then workspace, then install; none is a clear error; the agent model is the default', () => {
     const where = { workspaceId: 'wsconn1', userId: 'bbbbbbbbbbbb' };
-    createConnection({ slug: 'm1-install-claude', type: 'claude-code', authType: 'cli_login', title: 'Claude' });
+    createConnection({ slug: 'm1-openai', type: 'openai', authType: 'api_key', title: 'OpenAI' });
     createConnection({ slug: 'm1-ws-openrouter', scope: 'workspace:wsconn1', type: 'openrouter', authType: 'api_key', title: 'OpenRouter' });
-    const scout = { title: 'Scout', provider: 'claude-code', model: 'pi/claude-opus-5-5' };
+    const scout = { title: 'Scout', provider: 'openai', model: 'gpt-4.1' };
 
     const install = resolveBackendContext({ where, agent: scout });
-    expect(install.connection?.slug).toBe('m1-install-claude');
-    expect(install.resolvedModel).toBe('pi/claude-opus-5-5');
+    expect(install.connection?.slug).toBe('m1-openai');
+    expect(install.connection?.scope).toBe('install');
+    expect(install.resolvedModel).toBe('gpt-4.1');
     expect(install.missingConnection).toBeUndefined();
 
-    createConnection({ slug: 'm1-user-claude', scope: 'user:bbbbbbbbbbbb', type: 'claude-code', authType: 'cli_login', title: 'My Claude' });
-    expect(resolveBackendContext({ where, agent: scout }).connection?.slug).toBe('m1-user-claude');
+    createConnection({ slug: 'm1-openai', scope: 'workspace:wsconn1', type: 'openai', authType: 'api_key', title: 'Shared OpenAI' });
+    expect(resolveBackendContext({ where, agent: scout }).connection?.scope).toBe('workspace:wsconn1');
+    createConnection({ slug: 'm1-openai', scope: 'user:bbbbbbbbbbbb', type: 'openai', authType: 'api_key', title: 'My OpenAI', models: ['gpt-4.1', 'gpt-4.1-mini'], defaultModel: 'gpt-4.1' });
+    createConnection({ slug: 'm1-foreign-openai', scope: 'user:foreign-user', type: 'openai', authType: 'api_key', title: 'Foreign OpenAI' });
+    expect(resolveBackendContext({ where, agent: scout }).connection?.scope).toBe('user:bbbbbbbbbbbb');
+    expect(resolveBackendContext({ where, agent: scout, sessionConnectionSlug: 'm1-foreign-openai' }).connection?.scope).toBe('user:bbbbbbbbbbbb');
     // A chat locked to a connection of another provider runs on the agent's provider.
-    expect(resolveBackendContext({ where, sessionConnectionSlug: 'm1-ws-openrouter', agent: scout }).connection?.slug).toBe('m1-user-claude');
+    expect(resolveBackendContext({ where, sessionConnectionSlug: 'm1-ws-openrouter', agent: scout }).connection?.scope).toBe('user:bbbbbbbbbbbb');
     // The chat's own model wins over the agent's.
-    expect(resolveBackendContext({ where, agent: scout, managedModel: 'pi/claude-sonnet-5' }).resolvedModel).toBe('pi/claude-sonnet-5');
+    expect(resolveBackendContext({ where, agent: scout, managedModel: 'gpt-4.1-mini' }).resolvedModel).toBe('gpt-4.1-mini');
+    expect(resolveBackendContext({ where, agent: { title: 'Scout', provider: 'openai' } }).resolvedModel).toBe('gpt-4.1');
+    expect(resolveBackendContext({ where, agent: scout, managedModel: 'not-in-account-catalog' }).resolvedModel).toBe('gpt-4.1');
 
-    const none = resolveBackendContext({ where, agent: { title: 'Scout', provider: 'openai-codex' } });
+    const none = resolveBackendContext({ where, agent: { title: 'Scout', provider: 'anthropic' } });
     expect(none.connection).toBeNull();
-    expect(none.missingConnection).toBe('Connect ChatGPT to talk to Scout.');
+    expect(none.missingConnection).toBe('Connect Anthropic to talk to Scout.');
 
     // Without an agent (mini sessions) the old order applies.
     expect(resolveBackendContext({ where, sessionConnectionSlug: 'm1-ws-openrouter' }).connection?.slug).toBe('m1-ws-openrouter');
@@ -139,21 +144,27 @@ describe("the agent's computer", () => {
   });
 
   it('a box starts at the first tool call, then runs the command (fake docker)', async () => {
-    const sent: any[] = [];
-    let exited!: () => void;
-    const done = new Promise<void>((resolve) => (exited = resolve));
-    const host = createComputerExecHost((msg) => {
-      sent.push(msg);
-      if (msg.type === 'computer_exec_exit') exited();
-    });
-    const box = new DockerComputer({ agentId: 'agentbox0001', pollMs: 5, readyTimeoutMs: 500 });
+    const box = new ChatComputer({ workspaceId: 'ws1', agentId: 'agentbox0001', chatId: 'chat1' });
     expect(verbs()).toEqual([]);
-    await host.exec({ type: 'computer_exec', id: 'x1', argv: ['fake-echo', 'hello'] }, box);
-    await done;
+    await box.ensureRunning();
+    const result = await collect(box.exec(['fake-echo', 'hello']));
     expect(verbs()).toContain('run');
     expect(verbs().indexOf('run')).toBeLessThan(verbs().indexOf('exec'));
-    const out = sent.filter((m) => m.type === 'computer_exec_data').map((m) => Buffer.from(m.data, 'base64').toString()).join('');
-    expect(out).toBe('hello\n');
-    expect(sent.at(-1)).toEqual({ type: 'computer_exec_exit', id: 'x1', code: 0 });
+    expect(result.stdout).toBe('hello\n');
+    expect(result.code).toBe(0);
+    const calls = readFileSync(join(dir, 'calls'), 'utf8').split('\n--\n').map((call) => call.split('\n'));
+    const allocation = calls.find((args) => args[0] === 'run')!;
+    expect(allocation).toContain('--network');
+    expect(allocation[allocation.indexOf('--network') + 1]).toBe('none');
+    expect(allocation).not.toContain('--add-host');
+    expect(allocation).not.toContain('-p');
+    expect(allocation.filter((arg) => arg.endsWith(':ro'))).toEqual([]);
+    expect(calls.find((args) => args[0] === 'exec')).toContain('/home/agent/chats/chat1');
+    expect(() => box.exec(['fake-echo'], { user: 'root' })).toThrow('user or environment');
+    expect(() => box.exec(['fake-echo'], { env: { PRIVATE: 'fixture' } })).toThrow('user or environment');
+    const aborted = new AbortController();
+    aborted.abort();
+    expect(() => box.exec(['fake-echo'], { signal: aborted.signal })).toThrow();
+    await expect(box.hostPort(9223)).rejects.toThrow('no host or peer network access');
   });
 });

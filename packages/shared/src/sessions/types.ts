@@ -46,6 +46,8 @@ export const SESSION_PERSISTENT_FIELDS = [
   // Remote transfer handoff
   'transferredSessionSummary',
   'transferredSessionSummaryApplied',
+  'contextSummary',
+  'contextThroughId',
   // Automation origin
   'triggeredBy',
   // Project binding (workspace-scoped grouping)
@@ -142,6 +144,8 @@ export interface SessionConfig {
   sharedId?: string;
   /** Model to use for this session (overrides global config if set) */
   model?: string;
+  contextSummary?: string;
+  contextThroughId?: string;
   /** LLM connection slug for this session (locked after first message) */
   llmConnection?: string;
   /** Whether the connection is locked (cannot be changed after first agent creation) */

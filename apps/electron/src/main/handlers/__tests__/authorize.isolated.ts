@@ -20,7 +20,7 @@ const { createWorkspaceMember, deleteWorkspaceMember, getMemberRole } = await im
 const { WsRpcServer, WsRpcClient } = await import('@otto/server-core/transport')
 const { users } = await import('../../../../../../packages/shared/src/users/schema.ts')
 const { userEntity, workspaceEntity } = await import('@otto/shared/settings')
-const { CLAUDE_CODE_OWNER_ONLY, createConnection, deleteConnection, getConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
+const { createConnection, deleteConnection, getConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
 const { getTranscriptionKey } = await import('@otto/shared/transcription')
 const { createAgent } = await import('@otto/shared/agents')
 const { createRoutine } = await import('@otto/shared/automations/routines')
@@ -474,30 +474,23 @@ describe('the connection channels', () => {
     expect(await defaultOf(alice)).toBe('inst')
   })
 
-  it('lets only the instance owner ask whether claude is runnable', async () => {
-    const { url } = await start(true)
-    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
-    expect(await alice.invoke(RPC_CHANNELS.claudeCode.GET_STATUS)).toMatchObject({ found: expect.any(Boolean), path: expect.any(String) })
-    expect(await codeOf(bob.invoke(RPC_CHANNELS.claudeCode.GET_STATUS))).toBe('forbidden')
-    expect(await codeOf(zed.invoke(RPC_CHANNELS.claudeCode.GET_STATUS))).toBe('forbidden')
-    expect(await handshake(url, 'stranger', A)).not.toBe('ok')
-  })
-
-  it("lets only the instance owner connect a Claude subscription, always as their own", async () => {
-    const { url } = await start(true)
+  it('authorizes native API-key setup for personal, workspace, and install scopes', async () => {
+    const { url, calls } = await start(false)
     const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
     const setup = RPC_CHANNELS.settings.SETUP_LLM_CONNECTION
-    const claude = (scope?: string) => ({ slug: 'claude-test', type: 'claude-code', title: 'Claude', ...(scope ? { scope } : {}) })
-    // a member and a workspace owner (zed owns B) are refused, as their own or the workspace's
-    for (const scope of [undefined, 'user']) expect(await bob.invoke(setup, claude(scope))).toMatchObject({ success: false, error: CLAUDE_CODE_OWNER_ONLY })
-    for (const scope of [undefined, 'user', 'workspace']) expect(await zed.invoke(setup, claude(scope))).toMatchObject({ success: false, error: CLAUDE_CODE_OWNER_ONLY })
-    // the instance owner: as their own only
-    expect(await alice.invoke(setup, claude('workspace'))).toMatchObject({ success: false, error: CLAUDE_CODE_OWNER_ONLY })
-    expect(await alice.invoke(setup, claude('install'))).toMatchObject({ success: false, error: CLAUDE_CODE_OWNER_ONLY })
-    expect(await alice.invoke(setup, claude('user'))).toMatchObject({ success: true })
-    expect(getConnection('claude-test', { userId: 'alice' })?.scope).toBe(userScope('alice'))
-    expect(getConnection('claude-test', { userId: 'bob', workspaceId: A })).toBeUndefined()
-    deleteConnection(getConnection('claude-test', { userId: 'alice' })!.id)
+    const payload = (scope?: string) => ({ slug: 'openai-test', type: 'openai', title: 'OpenAI', credential: 'fixture-api-key', ...(scope ? { scope } : {}) })
+    for (const client of [alice, bob, zed]) {
+      expect(await codeOf(client.invoke(setup, payload()))).toBe('ok')
+      expect(await codeOf(client.invoke(setup, payload('user')))).toBe('ok')
+    }
+    expect(await codeOf(alice.invoke(setup, payload('workspace')))).toBe('ok')
+    expect(await codeOf(zed.invoke(setup, payload('workspace')))).toBe('ok')
+    expect(await codeOf(bob.invoke(setup, payload('workspace')))).toBe('forbidden')
+    expect(await codeOf(alice.invoke(setup, payload('install')))).toBe('ok')
+    expect(await codeOf(bob.invoke(setup, payload('install')))).toBe('forbidden')
+    expect(await codeOf(zed.invoke(setup, payload('install')))).toBe('forbidden')
+    expect(calls).toEqual(Array(9).fill(setup))
+    expect(await handshake(url, 'stranger', A)).not.toBe('ok')
   })
 })
 

@@ -2969,7 +2969,7 @@ continue through bounded pages instead of treating the first hundred as complete
 
 ### Native runtime migration proof
 
-The opt-in Mastra slices reuse the existing named-agent chat, composer,
+Native Mastra reuses the existing named-agent chat, composer,
 streaming reply, tool cards, approval prompt and reconnect history. They
 introduce no alternate chat layout. Library documents and tasks in existing
 projects are the first work actions. Explore refuses changes, Ask and Guarded
@@ -2977,15 +2977,13 @@ ask for each write, and Execute allows it. Approvals apply only to the shown
 call in that chat, not a permanent grant. Authorized remote MCP and API sources
 reuse those tool cards and per-call approvals. API calls show the explicit method,
 path and arguments, stay under the configured endpoint, and withhold unsafe errors
-or authentication material. API output is bounded text/JSON; binary downloads and
-unsupported local sources fail visibly. Native attachments keep the original uploaded
+or authentication material. API output is bounded text/JSON; bounded binary downloads go to Library by ID.
+Stored direct host-folder/local-command sources remain visibly unavailable for the MVP. Native attachments keep the original uploaded
 Library object and reuse the existing thumbnail/file chip. Text, supported single images,
 PDFs and verified Office Markdown derivatives use bounded inline model input; the model
 never receives a client host path. An unavailable or changed historical attachment keeps
 its chip and tells the model to ask for reattachment, rather than removing the message or
-pretending it read the file. Current unsupported/oversized input fails visibly. Shell and filesystem tools remain disabled. Pi remains
-the default until work tools and controls are verified. API-key-only is the MVP direction;
-subscription setup is removed when the default runtime cuts over, without
+pretending it read the file. Current unsupported/oversized input fails visibly. Read/write/edit/commands use an independent offline task computer, never the server or another task. Scratch stays temporary until publish_file creates a durable Library artifact; its persisted tool result renders an existing Library chip below the turn and opens the saved item after reload. Native Mastra is the unconditional runtime. API-key-only setup removes subscription executable flows, without
 silently converting or deleting existing accounts. Document views continue to
 support direct editing. Public sharing of chats, documents and other work
 artifacts is deferred and will require explicit visibility, never inherited
@@ -3006,13 +3004,13 @@ stored names and content.
 
 The native provider checkpoint offers OpenAI API-key setup only. Preserved
 subscription and other-provider rows show unavailable status and no reconnect
-or make-default action while that runtime is selected. They are not converted
+or make-default action. They are not converted
 or deleted. Account catalog entries are candidates; only a completed inference
 check may be called connection validation.
 
 Native transcripts and tool cards project one official history. Reload preserves
-attribution and completed actions. Native branching is hidden until supported;
-queued input is not called delivered steering. Restart shows interrupted work
+attribution and completed actions. Native branches copy authorized official transcript snapshots without vendor journal anchors. Manual compaction summarizes only a byte-bounded whole prefix and retains every later message; the full UI history stays intact.
+Queued input is not called delivered steering. Restart shows interrupted work
 and never silently replays a pending action or approval.
 
 Native Session owns per-call approvals and same-agent follow-up admission. Stop

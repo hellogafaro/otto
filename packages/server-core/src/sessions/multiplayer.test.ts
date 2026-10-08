@@ -108,7 +108,7 @@ describe('a people chat in the session manager', () => {
     await sm.sendMessage(chat.id, 'lunch?', undefined, undefined, { sender: ANA }, undefined, undefined, (id) => (acked = id))
 
     expect(acked).not.toBe('')
-    expect(chat.agent).toBeNull()
+    expect(chat.mastraSession).toBeUndefined()
     expect(chat.isProcessing).toBe(false)
     expect(chat.messages.map((m: { role: string; sender?: string }) => [m.role, m.sender])).toEqual([['user', ANA]])
     expect(events.filter((e) => e.type === 'complete')).toEqual([

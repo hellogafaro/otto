@@ -93,16 +93,13 @@ export const SOURCE_WRITE_CHANNELS = new Map<string, (args: unknown[], workspace
 ])
 
 /**
- * Channels only the instance owner may call: they write `install` settings (or read one that holds a secret), or ask
- * about the server's own `claude` (a Claude subscription is the instance owner's alone, `getClaudeCodeScope`).
+ * Channels only the instance owner may call: they write `install` settings (or read one that holds a secret).
  * The instance owner is the first user (the earliest account): the owner of every workspace in a single-workspace
  * install, who `OTTO_SERVER_TOKEN` and the desktop app act as. Everyone else, workspace owners included, is refused.
  */
 export const INSTANCE_OWNER_CHANNELS = new Set<string>([
-  C.claudeCode.GET_STATUS,
   C.settings.SET_DEFAULT_THINKING_LEVEL,
   C.decisions.SET_SETTINGS,
-  C.gitbash.SET_PATH,
   C.onboarding.DEFER_SETUP,
 ])
 
@@ -121,10 +118,6 @@ export const CONNECTION_WRITE_CHANNELS = new Map<string, number>([
   [C.llmConnections.DELETE, 0],
   [C.llmConnections.TEST, 0],
   [C.llmConnections.REFRESH_MODELS, 0],
-  [C.chatgpt.START_OAUTH, 0],
-  [C.chatgpt.CANCEL_OAUTH, 0],
-  [C.copilot.START_OAUTH, 0],
-  [C.copilot.CANCEL_OAUTH, 0],
 ])
 
 /** Channels that address any settings entity by name: `(entity, key, ...)`. */

@@ -408,111 +408,12 @@ export function copyInterceptorBundle(config: BuildConfig): void {
 
   const source = join(electronDir, 'dist', 'interceptor.cjs');
   if (!existsSync(source)) {
-    console.warn('Warning: Interceptor bundle not found at', source, '— tool metadata will be unavailable for Pi sessions');
+    console.warn('Warning: Interceptor bundle not found at', source, '— tool metadata will be unavailable for subprocess sessions');
     return;
   }
 
   // Already in dist/ which is included in the packaged app — just verify it exists
   console.log('Interceptor bundle verified at:', source);
-}
-
-/**
- * Map our Platform type to koffi's directory naming convention.
- * koffi uses: darwin_arm64, darwin_x64, linux_x64, win32_x64, etc.
- */
-function koffiPlatformDir(platform: Platform, arch: Arch): string {
-  return `${platform}_${arch}`;
-}
-
-/**
- * Copy Pi Agent Server to packaged app resources.
- *
- * The bun build uses --external koffi so the bare import resolves through
- * node_modules at runtime. We copy the koffi npm package next to index.js
- * with only the target platform's native binary (~4MB instead of ~80MB).
- */
-export function copyPiAgentServer(config: BuildConfig): void {
-  const { rootDir, electronDir, platform, arch } = config;
-
-  const piSourceDir = join(rootDir, 'packages', 'pi-agent-server', 'dist');
-  const piDestDir = join(electronDir, 'resources', 'pi-agent-server');
-
-  if (!existsSync(join(piSourceDir, 'index.js'))) {
-    console.warn(`Warning: Pi agent server not found at ${piSourceDir}/index.js. Pi SDK sessions will not work.`);
-    return;
-  }
-
-  console.log('Copying Pi Agent Server...');
-  mkdirSync(piDestDir, { recursive: true });
-
-  // 1. Copy index.js
-  copyFileSync(join(piSourceDir, 'index.js'), join(piDestDir, 'index.js'));
-
-  // 2. Copy koffi npm package (external import, resolved via node_modules at runtime)
-  const koffiSource = join(rootDir, 'node_modules', 'koffi');
-
-  if (!existsSync(koffiSource)) {
-    console.warn('  Warning: koffi not found in node_modules. Pi SDK sessions may not work.');
-    return;
-  }
-
-  const koffiDest = join(piDestDir, 'node_modules', 'koffi');
-  mkdirSync(koffiDest, { recursive: true });
-
-  // Copy koffi JS files
-  for (const entry of ['package.json', 'index.js', 'indirect.js', 'index.d.ts', 'lib']) {
-    const src = join(koffiSource, entry);
-    if (existsSync(src)) {
-      cpSync(src, join(koffiDest, entry), { recursive: true });
-    }
-  }
-
-  // Copy only the target platform's native binary
-  const targetDir = koffiPlatformDir(platform, arch);
-  const nativeSrc = join(koffiSource, 'build', 'koffi', targetDir);
-  const nativeDest = join(koffiDest, 'build', 'koffi', targetDir);
-
-  if (existsSync(nativeSrc)) {
-    mkdirSync(nativeDest, { recursive: true });
-    cpSync(nativeSrc, nativeDest, { recursive: true });
-    const size = lstatSync(join(nativeSrc, readdirSync(nativeSrc)[0])).size;
-    console.log(`  Copied index.js + koffi/${targetDir} (${(size / 1024 / 1024).toFixed(1)}MB)`);
-  } else {
-    console.warn(`  Warning: koffi native binary not found for ${targetDir}`);
-    cpSync(join(koffiSource, 'build'), join(koffiDest, 'build'), { recursive: true });
-    console.log('  Copied index.js + koffi (all platforms as fallback)');
-  }
-}
-
-/**
- * Build the Pi agent server subprocess.
- * Shared across all platforms to avoid drift.
- */
-export function buildSubprocessServers(config: BuildConfig): void {
-  const { rootDir } = config;
-
-  const piDir = join(rootDir, 'packages', 'pi-agent-server');
-  const piOut = join(piDir, 'dist', 'index.js');
-
-  console.log('Building Pi agent server...');
-
-  // Pi agent server uses --target=bun --format=esm because its Pi SDK deps are ESM-only.
-  // --target=node --format=cjs leaves ESM deps as external require() calls that fail at runtime.
-  // koffi is marked external because it's a native N-API module — bun can't inline .node binaries
-  // and inlining its JS breaks the native binary resolution paths.
-  // Optional: skip if package directory is missing (e.g., not synced to OSS).
-  if (existsSync(join(piDir, 'src'))) {
-    mkdirSync(join(piDir, 'dist'), { recursive: true });
-    execSync(
-      `bun build ${join(piDir, 'src', 'index.ts')} --outdir ${join(piDir, 'dist')} --target bun --format esm --external koffi`,
-      { cwd: rootDir, stdio: 'inherit', shell: true }
-    );
-    if (!existsSync(piOut)) {
-      throw new Error(`Pi agent server output not found at ${piOut}`);
-    }
-  } else {
-    console.warn('Warning: Pi agent server package not found. Pi SDK sessions will not work.');
-  }
 }
 
 /**
@@ -530,19 +431,6 @@ export function buildWhatsAppWorker(config: BuildConfig): void {
 
   if (!existsSync(workerOut)) {
     throw new Error(`WhatsApp worker output not found at ${workerOut}`);
-  }
-}
-
-/**
- * Verify the Pi agent server is present in packaged resources.
- */
-export function verifySubprocessServersExist(config: BuildConfig): void {
-  const { electronDir } = config;
-
-  const piPath = join(electronDir, 'resources', 'pi-agent-server', 'index.js');
-
-  if (!existsSync(piPath)) {
-    console.warn(`Warning: Pi agent server not found at ${piPath}. Pi SDK sessions will not work.`);
   }
 }
 

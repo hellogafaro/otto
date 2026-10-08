@@ -94,7 +94,6 @@ const CONFIG = {
   notificationsEnabled: false,
   serverConfig: { enabled: true, port: 9200, token: 't-123' }, // server mode is gone: not imported
   setupDeferred: true,
-  gitBashPath: 'C:\\Git\\bash.exe',
   dismissedUpdateVersion: '1.2.3',
 }
 const PREFERENCES = { name: 'Johan', email: 'johan@x.test', timezone: 'Europe/Amsterdam', location: { city: 'Utrecht' }, notes: 'likes tea', uiLanguage: 'hu', includeCoAuthoredBy: false, updatedAt: 5 }
@@ -120,7 +119,6 @@ test('the importer moves config.json and preferences.json into settings, once, a
   expect(getSetting(INSTALL, 'defaultThinkingLevel', db)).toBe('medium')
   expect(getSetting(INSTALL, 'decisionLayer', db)).toEqual({ enabled: true, provider: 'typesafe' })
   expect(getSetting(INSTALL, 'setupDeferred', db)).toBe(true)
-  expect(getSetting(INSTALL, 'gitBashPath', db)).toBe('C:\\Git\\bash.exe')
   expect(getSetting(INSTALL, 'dismissedUpdateVersion', db)).toBe('1.2.3')
   expect(getSetting(INSTALL, 'imports', db).settings).toBeGreaterThan(0)
   const mine = getSettings(userEntity(A), db)

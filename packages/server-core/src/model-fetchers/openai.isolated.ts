@@ -1,6 +1,6 @@
 import { afterAll, expect, it } from 'bun:test'
 import { fetchOpenAiModels, validateOpenAiConnection } from './openai'
-import { registerPiModelResolver } from '@otto/shared/config'
+import { createMastraChatModel } from '../sessions/mastra-chat'
 
 let status = 200
 let responseError = false
@@ -19,7 +19,6 @@ afterAll(() => server.stop())
 const baseUrl = server.url.href + 'v1'
 
 it('discovers account model candidates without importing the Pi catalog and validates completed native Responses', async () => {
-  registerPiModelResolver(() => { throw new Error('Pi catalog must not run for OpenAI') })
   const result = await fetchOpenAiModels({ apiKey: 'controlled-key', baseUrl })
   expect(result.models.map((model) => model.id)).toEqual(['gpt-fixture', 'o3-fixture'])
   expect(result.models.every((model) => model.provider === 'openai' && !model.id.startsWith('pi/'))).toBe(true)
@@ -49,4 +48,18 @@ it('does not treat catalog access as inference success and sanitizes terminal fa
   expect(result.error).not.toContain('controlled-key')
   expect(result.error).not.toContain('fixture-secret')
   responseError = false
+}, 30000)
+
+it('confines custom endpoint credentials and refuses Responses redirects to another origin', async () => {
+  let foreignHits = 0
+  const foreign = Bun.serve({ port: 0, hostname: '127.0.0.1', fetch: () => { foreignHits++; return Response.json({ data: [] }) } })
+  const redirect = Bun.serve({ port: 0, hostname: '127.0.0.1', fetch: () => Response.redirect(foreign.url.href) })
+  try {
+    const endpoint = redirect.url.href + 'v1'
+    expect((await validateOpenAiConnection({ apiKey: 'controlled-endpoint-key', baseUrl: endpoint, model: 'gpt-fixture' })).success).toBe(false)
+    expect(foreignHits).toBe(0)
+    await expect(fetchOpenAiModels({ apiKey: 'controlled-endpoint-key', baseUrl: endpoint })).rejects.toThrow()
+    expect(foreignHits).toBe(0)
+    expect(() => createMastraChatModel({ provider: 'openai', model: 'gpt-fixture', apiKey: 'controlled-endpoint-key', baseUrl: 'https://user:password@invalid.test/v1' })).toThrow('without credentials')
+  } finally { foreign.stop(true); redirect.stop(true) }
 }, 30000)

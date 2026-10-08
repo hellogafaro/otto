@@ -12,8 +12,6 @@ import {
   CLAUDE_CODE_CONNECTION_TYPE,
   CUSTOM_CONNECTION_TYPE,
   defaultMidStreamBehavior,
-  getDefaultModelsForConnection,
-  getDefaultModelForConnection,
 } from '@otto/shared/config'
 
 // ============================================================
@@ -138,8 +136,8 @@ export function createConnectionForSetup(setup: {
     name: setup.title,
     type: setup.type,
     authType: setup.authType,
-    models: getDefaultModelsForConnection(setup.type),
-    defaultModel: getDefaultModelForConnection(setup.type),
+    models: [],
+    defaultModel: undefined,
     midStreamBehavior: defaultMidStreamBehavior(),
     createdAt: Date.now(),
   }

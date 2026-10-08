@@ -175,7 +175,6 @@ import type {
   RefreshTitleResult,
   FileSearchResult,
   SessionSearchResult,
-  ClaudeCodeStatus,
   LlmConnectionSetup,
   LlmConnectionUpdate,
   TestLlmConnectionParams,
@@ -184,7 +183,6 @@ import type {
   SessionFile,
   OAuthResult,
   McpToolsResult,
-  GitBashStatus,
   UpdateInfo,
   WorkspaceSettings,
   PermissionModeState,
@@ -394,26 +392,10 @@ export interface ElectronAPI {
   /** Defer onboarding setup — user chose "Setup later" */
   deferSetup(): Promise<{ success: boolean }>
 
-  // ChatGPT OAuth (for Codex chatgptAuthTokens mode)
-  startChatGptOAuth(connectionSlug: string): Promise<{ success: boolean; error?: string }>
-  cancelChatGptOAuth(): Promise<{ success: boolean }>
-  onChatGptDeviceCode(callback: (data: { userCode: string; verificationUri: string }) => void): () => void
-
-  /** Whether the `claude` CLI of the machine the server runs on is runnable (a Claude subscription needs it) */
-  getClaudeCodeStatus(): Promise<ClaudeCodeStatus>
-
-  // GitHub Copilot OAuth
-  startCopilotOAuth(connectionSlug: string): Promise<{ success: boolean; error?: string }>
-  cancelCopilotOAuth(): Promise<{ success: boolean }>
-  onCopilotDeviceCode(callback: (data: { userCode: string; verificationUri: string }) => void): () => void
-
   /** Unified LLM connection setup */
   setupLlmConnection(setup: LlmConnectionSetup): Promise<{ success: boolean; error?: string }>
-  /** Unified connection test — spawns a lightweight agent subprocess to validate credentials */
+  /** Unified connection test — validates credentials with the native runtime */
   testLlmConnectionSetup(params: TestLlmConnectionParams): Promise<TestLlmConnectionResult>
-  // Pi provider discovery (main process only — Pi SDK can't run in renderer)
-  getPiApiKeyProviders(): Promise<Array<{ key: string; label: string; placeholder: string }>>
-
   // Session-specific model (overrides global)
   getSessionModel(sessionId: string, workspaceId: string): Promise<string | null>
   setSessionModel(sessionId: string, workspaceId: string, model: string | null, connection?: string): Promise<void>
@@ -563,9 +545,6 @@ export interface ElectronAPI {
   getGitBranch(dirPath: string): Promise<string | null>
 
   // Git Bash (Windows)
-  checkGitBash(): Promise<GitBashStatus>
-  browseForGitBash(): Promise<string | null>
-  setGitBashPath(path: string): Promise<{ success: boolean; error?: string }>
 
   // Menu actions (from renderer to main)
   menuQuit(): Promise<void>

@@ -1,98 +1,81 @@
-import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
-import * as backend from '@otto/shared/agent/backend'
+import { afterEach, describe, expect, it, spyOn } from 'bun:test'
 import * as config from '@otto/shared/config'
 import { SessionManager, createManagedSession, setSessionPlatform } from './session-manager.ts'
+import { buildTitlePrompt, buildRegenerateTitlePrompt } from '../../../shared/src/utils/title-generator.ts'
 
-// Run in isolation: setSessionPlatform is process-global and has no reset API.
 setSessionPlatform({
-  appRootPath: '/tmp/title-test',
-  resourcesPath: '/tmp/title-test/resources',
-  isPackaged: false,
-  appVersion: 'test',
-  isDebugMode: false,
+  appRootPath: '/tmp/title-test', resourcesPath: '/tmp/title-test/resources', isPackaged: false,
+  appVersion: 'test', isDebugMode: false,
   logger: { info() {}, warn() {}, error() {}, debug() {} },
-  imageProcessor: {
-    async getMetadata() { return null },
-    async process() { throw new Error('Unexpected image processing in title test') },
-  },
+  imageProcessor: { async getMetadata() { return null }, async process() { throw new Error('Unexpected image processing in title test') } },
 })
 
-// No config/credential writes or real subprocesses: exercise the actual manager
-// title paths with an in-memory session and a temporary backend stub.
 const spies: Array<{ mockRestore(): void }> = []
-afterEach(() => {
-  for (const spy of spies.splice(0)) spy.mockRestore()
-})
+afterEach(() => { for (const spy of spies.splice(0)) spy.mockRestore() })
 
 function setup() {
   const manager = new SessionManager()
-  const managed = createManagedSession({
-    id: 'title-test',
-    llmConnection: 'chatgpt-plus-test',
-    model: 'pi/gpt-5.4',
-  }, {
-    id: 'ws-test',
-    slug: 'ws-test',
-    name: 'Test',
-    rootPath: '/tmp/title-test',
-    createdAt: 0,
+  const managed = createManagedSession({ id: 'title-test', llmConnection: 'openai-test', model: 'gpt-5.4', createdBy: 'user:title-owner' }, {
+    id: 'ws-test', slug: 'ws-test', name: 'Test', rootPath: '/tmp/title-test', createdAt: 0,
   }, { messagesLoaded: true })
-  managed.messages = [{
-    id: 'user-1', role: 'user', content: 'Fix ChatGPT title regeneration', timestamp: 1,
-  }]
+  managed.messages = [{ id: 'user-1', role: 'user', content: 'Fix title regeneration', timestamp: 1 }]
   ;(manager as any).sessions.set(managed.id, managed)
-
-  const agent = {
-    postInit: mock(async () => undefined),
-    regenerateTitle: mock(async () => 'ChatGPT Title Fix'),
-    generateTitle: mock(async () => 'ChatGPT Title Fix'),
-    destroy: mock(() => {}),
-  }
-  const createAgent = spyOn(backend, 'createBackendFromConnection').mockReturnValue(agent as unknown as ReturnType<typeof backend.createBackendFromConnection>)
-  spies.push(createAgent)
-  spies.push(spyOn(config, 'getLlmConnection').mockReturnValue({
-    slug: 'chatgpt-plus-test',
-    name: 'ChatGPT Plus',
-    type: 'openai-codex',
-    authType: 'oauth',
-    defaultModel: 'pi/gpt-5.5',
-    models: ['pi/gpt-5.4-mini', 'pi/gpt-5.4', 'pi/gpt-5.5'],
-    createdAt: 0,
-  }))
-  spies.push(spyOn(config, 'resolveTitleLanguageName').mockReturnValue('English'))
-  spies.push(spyOn(config, 'getPersistedUiLanguage').mockReturnValue('en'))
+  const complete = spyOn(manager as any, 'nativeCompletion').mockResolvedValue('Native Title Fix')
+  spies.push(complete, spyOn(config, 'resolveTitleLanguageName').mockReturnValue('English'))
   const sendEvent = spyOn(manager as any, 'sendEvent').mockImplementation(() => {})
-  spies.push(sendEvent)
-  spies.push(spyOn(manager as any, 'persistSession').mockImplementation(() => {}))
-  spies.push(spyOn(manager as any, 'flushSession').mockResolvedValue(undefined))
-  return { manager, managed, agent, createAgent, sendEvent }
+  const persist = spyOn(manager as any, 'persistSession').mockImplementation(() => {})
+  const flush = spyOn(manager as any, 'flushSession').mockResolvedValue(undefined)
+  spies.push(sendEvent, persist, flush)
+  return { manager, managed, complete, sendEvent, persist, flush }
 }
 
-describe('temporary title agents', () => {
-  it('preserves the cold session model for regenerate-title fallback and cleans up the agent', async () => {
-    const { manager, managed, agent, createAgent, sendEvent } = setup()
-    await expect(manager.refreshTitle(managed.id)).resolves.toEqual({ success: true, title: 'ChatGPT Title Fix' })
-    expect(createAgent.mock.calls[0]![1]).toMatchObject({
-      model: 'pi/gpt-5.4', miniModel: 'pi/gpt-5.4-mini', isHeadless: true,
-    })
-    // Exercise the real factory's model resolver too: the preserved selection
-    // must survive resolution, not merely arrive at the factory stub.
-    expect(backend.resolveModel(
-      createAgent.mock.calls[0]![1].model, config.getLlmConnection('chatgpt-plus-test'),
-    )).toBe('pi/gpt-5.4')
-    expect(agent.regenerateTitle).toHaveBeenCalledWith(['Fix ChatGPT title regeneration'], '', { language: 'English' })
-    expect(agent.destroy).toHaveBeenCalledTimes(1)
-    expect(managed.name).toBe('ChatGPT Title Fix')
+describe('native title completion', () => {
+  it('preserves the cold session model and language through regenerate-title and clears operation state', async () => {
+    const { manager, managed, complete, sendEvent, flush } = setup()
+    await expect(manager.refreshTitle(managed.id)).resolves.toEqual({ success: true, title: 'Native Title Fix' })
+    expect(complete).toHaveBeenCalledWith(managed, buildRegenerateTitlePrompt(['Fix title regeneration'], '', { language: 'English' }))
+    expect(complete.mock.calls[0]![0]).toMatchObject({ model: 'gpt-5.4', llmConnection: 'openai-test' })
+    expect(managed.name).toBe('Native Title Fix')
     expect(managed.isAsyncOperationOngoing).toBe(false)
-    expect(sendEvent).toHaveBeenCalledWith({ type: 'title_generated', sessionId: managed.id, title: 'ChatGPT Title Fix' }, 'ws-test')
+    expect(flush).toHaveBeenCalledWith(managed.id)
+    expect(sendEvent).toHaveBeenCalledWith({ type: 'title_generated', sessionId: managed.id, title: 'Native Title Fix' }, 'ws-test')
+    expect(sendEvent).toHaveBeenCalledWith({ type: 'title_regenerating', sessionId: managed.id, isRegenerating: false }, 'ws-test')
   })
 
-  it('preserves the session model when initial title generation also needs a temporary agent', async () => {
-    const { manager, managed, agent, createAgent } = setup()
-    await (manager as any).generateTitle(managed, 'Fix ChatGPT title regeneration')
-    expect(createAgent.mock.calls[0]![1]).toMatchObject({ model: 'pi/gpt-5.4', miniModel: 'pi/gpt-5.4-mini' })
-    expect(agent.generateTitle).toHaveBeenCalledWith('Fix ChatGPT title regeneration', { language: 'English' })
-    expect(agent.destroy).toHaveBeenCalledTimes(1)
-    expect(managed.name).toBe('ChatGPT Title Fix')
+  it('preserves model and language when initially generating a title without a runtime process', async () => {
+    const { manager, managed, complete } = setup()
+    await (manager as any).generateTitle(managed, 'Fix title regeneration')
+    expect(complete).toHaveBeenCalledWith(managed, buildTitlePrompt('Fix title regeneration', { language: 'English' }))
+    expect(managed.model).toBe('gpt-5.4')
+    expect(managed.name).toBe('Native Title Fix')
+  })
+
+  it('keeps a title renamed during refresh and still cleans operation state', async () => {
+    const { manager, managed, complete, persist } = setup()
+    managed.name = 'Original'
+    complete.mockImplementation(async () => { managed.name = 'Human rename'; return 'Native Title Fix' })
+    expect(await manager.refreshTitle(managed.id, { onlyIfName: 'Original' })).toEqual({ success: false, error: 'Renamed meanwhile' })
+    expect(managed.name).toBe('Human rename')
+    expect(managed.isAsyncOperationOngoing).toBe(false)
+    expect(persist).not.toHaveBeenCalled()
+  })
+
+  it('initial generation never overwrites a human rename while awaiting completion', async () => {
+    const { manager, managed, complete, persist } = setup()
+    managed.autoTitle = managed.name = 'Original'
+    complete.mockImplementation(async () => { managed.name = 'Human rename'; return 'Native Title Fix' })
+    await (manager as any).generateTitle(managed, 'Fix title regeneration')
+    expect(managed.name).toBe('Human rename')
+    expect(persist).not.toHaveBeenCalled()
+  })
+
+  it('cleans flags and returns a safe failure when completion rejects', async () => {
+    const { manager, managed, complete, persist } = setup()
+    complete.mockRejectedValue(new Error('fixture-private-error'))
+    const result = await manager.refreshTitle(managed.id)
+    expect(result.success).toBe(false)
+    expect(JSON.stringify(result)).not.toContain('fixture-private-error')
+    expect(managed.isAsyncOperationOngoing).toBe(false)
+    expect(persist).not.toHaveBeenCalled()
   })
 })

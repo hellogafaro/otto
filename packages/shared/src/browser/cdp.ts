@@ -34,15 +34,27 @@ export class CdpConnection {
     return this.closedError !== null
   }
 
-  send<T = any>(method: string, params: Record<string, unknown> = {}, sessionId?: string, timeoutMs = this.timeoutMs): Promise<T> {
+  send<T = any>(method: string, params: Record<string, unknown> = {}, sessionId?: string, timeoutMs = this.timeoutMs, signal?: AbortSignal): Promise<T> {
+    if (signal?.aborted) return Promise.reject(signal.reason ?? new Error('aborted'))
     if (this.closedError) return Promise.reject(this.closedError)
     const id = ++this.nextId
     return new Promise<T>((resolve, reject) => {
+      const onAbort = () => {
+        const pending = this.pending.get(id)
+        if (!pending) return
+        this.pending.delete(id)
+        clearTimeout(pending.timer)
+        cleanup()
+        reject(signal?.reason ?? new Error('aborted'))
+      }
+      const cleanup = () => signal?.removeEventListener('abort', onAbort)
       const timer = setTimeout(() => {
         this.pending.delete(id)
+        cleanup()
         reject(new CdpError(`${method} timed out after ${timeoutMs} ms`))
       }, timeoutMs)
-      this.pending.set(id, { resolve, reject, timer })
+      this.pending.set(id, { resolve: (value) => { cleanup(); resolve(value) }, reject: (error) => { cleanup(); reject(error) }, timer })
+      signal?.addEventListener('abort', onAbort, { once: true })
       this.ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }))
     })
   }

@@ -144,19 +144,6 @@ export const CHANNEL_MAP = {
   startWorkspaceMcpOAuth: invoke(RPC_CHANNELS.onboarding.START_MCP_OAUTH),
   deferSetup: invoke(RPC_CHANNELS.onboarding.DEFER_SETUP),
 
-  // ChatGPT OAuth
-  startChatGptOAuth: invoke(RPC_CHANNELS.chatgpt.START_OAUTH),
-  cancelChatGptOAuth: invoke(RPC_CHANNELS.chatgpt.CANCEL_OAUTH),
-  onChatGptDeviceCode: listener(RPC_CHANNELS.chatgpt.DEVICE_CODE),
-
-  // Claude Code (the user's own `claude` CLI)
-  getClaudeCodeStatus: invoke(RPC_CHANNELS.claudeCode.GET_STATUS),
-
-  // GitHub Copilot OAuth
-  startCopilotOAuth: invoke(RPC_CHANNELS.copilot.START_OAUTH),
-  cancelCopilotOAuth: invoke(RPC_CHANNELS.copilot.CANCEL_OAUTH),
-  onCopilotDeviceCode: listener(RPC_CHANNELS.copilot.DEVICE_CODE),
-
   // Server info (REMOTE_ELIGIBLE)
   getServerHomeDir: invoke(RPC_CHANNELS.server.HOME_DIR),
 
@@ -167,9 +154,6 @@ export const CHANNEL_MAP = {
   testLlmConnectionSetup: invoke(RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP),
   getDefaultThinkingLevel: invoke(RPC_CHANNELS.settings.GET_DEFAULT_THINKING_LEVEL),
   setDefaultThinkingLevel: invoke(RPC_CHANNELS.settings.SET_DEFAULT_THINKING_LEVEL),
-
-  // Pi provider discovery
-  getPiApiKeyProviders: invoke(RPC_CHANNELS.pi.GET_API_KEY_PROVIDERS),
 
   // Session-specific model
   getSessionModel: invoke(RPC_CHANNELS.sessions.GET_MODEL),
@@ -317,9 +301,6 @@ export const CHANNEL_MAP = {
 
   // Git
   getGitBranch: invoke(RPC_CHANNELS.git.GET_BRANCH),
-  checkGitBash: invoke(RPC_CHANNELS.gitbash.CHECK),
-  browseForGitBash: invoke(RPC_CHANNELS.gitbash.BROWSE),
-  setGitBashPath: invoke(RPC_CHANNELS.gitbash.SET_PATH),
 
   // Menu actions
   menuQuit: invoke(RPC_CHANNELS.menu.QUIT),
