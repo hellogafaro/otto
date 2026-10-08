@@ -25,16 +25,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.22",
     "@ai-sdk/openai": "4.0.87",
+    "@libsql/client": "0.18.0",
     "@mastra/core": "1.75.0",
     "@mastra/libsql": "1.25.1",
-    "@libsql/client": "0.18.0",
+    "@napi-rs/canvas": "0.1.88",
     "@otto/core": "workspace:*",
     "@otto/shared": "workspace:*",
-    "ws": "^8.19.0",
-    "sharp": "0.34.5",
     "pdfjs-dist": "5.4.296",
-    "@napi-rs/canvas": "0.1.88"
+    "sharp": "0.34.5",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "typescript": "^5.8.2",

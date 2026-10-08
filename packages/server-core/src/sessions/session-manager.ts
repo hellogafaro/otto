@@ -10,6 +10,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises'
 import { randomUUID } from 'node:crypto'
 import { type AgentEvent, getPermissionMode, setPermissionMode, setGuardedModeActiveResolver, clampPermissionMode, planExecutionMode, parsePermissionMode, hydratePreviousPermissionMode, getPermissionModeDiagnostics, type PermissionMode, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest, generateConversationSummary, normalizeCanonicalBrowserToolName } from '@otto/shared/agent'
 import { getLlmConnection, getLlmConnections, piProviderOf, getDefaultLlmConnection, getDefaultThinkingLevel, resolveMidStreamBehavior, resolveTitleLanguageName } from '@otto/shared/config'
+import { isNativeConnection } from '../model-fetchers/native-provider'
 import { resolveSessionConnection, resolveBackendContext, type BackendAgent } from '@otto/shared/agent/connection-context'
 import type { ConnectionContext, MidStreamBehavior } from '@otto/shared/config'
 import { getWorkspaceRootPath } from '@otto/shared/config'
@@ -3337,12 +3338,12 @@ export class SessionManager implements ISessionManager {
         || !managed.members.some((member) => member.actor === `agent:${agentId}`)) throw new Error('The native completion scope is unavailable.')
     }
     assertAccess()
-    if (!connection || connection.type !== 'openai' || connection.authType !== 'api_key') throw new Error('The native completion needs an OpenAI API-key connection.')
+    if (!connection || !isNativeConnection(connection)) throw new Error('The native completion needs an OpenAI API-key connection.')
     const apiKey = await getCredentialManager().getLlmApiKey(connection.slug, connection.scope)
     assertAccess()
     if (!apiKey) throw new Error('The native completion needs an API key.')
     const { runMastraCompletion } = await import('./mastra-completion')
-    return runMastraCompletion({ apiKey, model: context.resolvedModel, baseUrl: connection.baseUrl, prompt, assertAccess, signal: run?.signal })
+    return runMastraCompletion({ apiKey, provider: connection.type, api: connection.customEndpoint?.api, model: context.resolvedModel, baseUrl: connection.baseUrl, prompt, assertAccess, signal: run?.signal })
   }
 
   /** Update the working directory for a session (and its agent). */
@@ -4264,7 +4265,7 @@ export class SessionManager implements ISessionManager {
       }
       const { loadMastraAttachmentFiles } = await import('./mastra-attachments')
       const modelEntry = connection.models?.find((entry) => typeof entry !== 'string' && entry.id === context.resolvedModel)
-      const supportsImages = typeof modelEntry === 'object' ? modelEntry.supportsImages !== false : true
+      const supportsImages = typeof modelEntry === 'object' && typeof modelEntry.supportsImages === 'boolean' ? modelEntry.supportsImages : connection.type === 'custom' ? connection.customEndpoint?.supportsImages === true : true
       const prepareHistory = async (excludeId?: string) => {
         const budget = { bytes: 0, tokens: 0 }
         const current = managed.messages.find((entry) => entry.id === excludeId)
@@ -4365,7 +4366,7 @@ export class SessionManager implements ISessionManager {
         agentId: selectedAgent.id, name: selectedAgent.title,
         instructions: contextForRun.instructions, skills: contextForRun.skills, messages, files: initial.files,
         history:async()=>{assertAccess();await this.flushSession(managed.id);return (await prepareHistory(currentMessageId)).projected},
-        model: createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl }),
+        model: createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl, api: connection.customEndpoint?.api }),
         signal: abort.signal, assertAccess,
         tools: {...(managed.permissionMode === 'safe' ? Object.fromEntries(Object.entries(workTools).filter(([name]) => !MASTRA_WORK_WRITES.has(name))) : workTools),...sourceTools?.tools,...sessionTools,...(permissionMode === 'safe' ? Object.fromEntries(Object.entries(computerTools).filter(([name]) => !['write', 'edit', 'bash', 'publish_file'].includes(name))) : computerTools)},
         policy: (toolName) => {

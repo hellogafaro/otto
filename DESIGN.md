@@ -3002,7 +3002,13 @@ Skills with metadata unsupported by the native runtime are excluded individually
 with a warning naming the skill. They do not prevent an unrelated chat or change
 stored names and content.
 
-The native provider checkpoint offers OpenAI API-key setup only. Preserved
+Native provider setup offers OpenAI, Custom OpenAI-compatible endpoint, and Anthropic
+API-key choices. Custom requires its base URL and key, selects Responses or Chat
+Completions explicitly (Responses by default), and accepts an optional catalog model
+ID used for both validation and saved default. Provider form changes remount drafts and
+errors so credentials do not carry across providers. Keys remain password fields and
+the Personal/Workspace ownership rule is unchanged. Anthropic uses native API keys,
+not Claude subscription/CLI setup. Preserved
 subscription and other-provider rows show unavailable status and no reconnect
 or make-default action. They are not converted
 or deleted. Account catalog entries are candidates; only a completed inference

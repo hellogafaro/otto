@@ -5,11 +5,19 @@
 
 import type { LlmConnectionSetup, TestLlmConnectionParams } from '../../../shared/types'
 
-export type ConnectionKind = 'openai'
+export type ConnectionKind = 'openai' | 'custom' | 'anthropic'
 export type OfferedKind = ConnectionKind
 
-export const OFFERED_KINDS: readonly OfferedKind[] = ['openai']
+export const OFFERED_KINDS: readonly OfferedKind[] = ['openai', 'custom', 'anthropic']
 export const OPENAI_LABEL = 'OpenAI'
+
+export function connectionKindName(kind: ConnectionKind): string {
+  switch (kind) {
+    case 'openai': return OPENAI_LABEL
+    case 'custom': return 'Custom OpenAI-compatible endpoint'
+    case 'anthropic': return 'Anthropic'
+  }
+}
 
 /** A slug no connection the person sees has yet: `base`, then `base-2`, `base-3`. */
 export function uniqueSlug(base: string, existing: ReadonlySet<string>): string {
@@ -33,6 +41,9 @@ export function isHttpUrl(value: string): boolean {
 export interface KeyFormValues {
   apiKey: string
   scope: 'user' | 'workspace'
+  baseUrl?: string
+  api?: 'openai-responses' | 'openai-completions'
+  model?: string
 }
 
 export function keySetup(
@@ -42,5 +53,14 @@ export function keySetup(
 ): { test: TestLlmConnectionParams; setup: LlmConnectionSetup } {
   const apiKey = values.apiKey.trim()
   const { slug, title } = options
+  if (kind === 'custom') {
+    const baseUrl = values.baseUrl?.trim() ?? ''
+    const customEndpoint = { api: values.api ?? 'openai-responses' }
+    const model = values.model?.trim()
+    return {
+      test: { type: kind, apiKey, baseUrl, customEndpoint, ...(model ? { model } : {}) },
+      setup: { slug, type: kind, title, scope: values.scope, credential: apiKey, baseUrl, customEndpoint, ...(model ? { defaultModel: model } : {}) },
+    }
+  }
   return { test: { type: kind, apiKey }, setup: { slug, type: kind, title, scope: values.scope, credential: apiKey } }
 }

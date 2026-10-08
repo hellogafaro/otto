@@ -101,7 +101,7 @@ export function resolveModel(
   if (managedModel) {
     managedModel = normalizeDeprecatedModelId(managedModel);
     const modelProvider = getModelProvider(managedModel);
-    if (modelProvider && modelProvider !== 'pi' && modelProvider !== 'openai') {
+    if (modelProvider && modelProvider !== 'pi' && modelProvider !== 'openai' && modelProvider !== 'anthropic' && connection?.type !== 'custom') {
       managedModel = undefined; // Clear — will fall through to connection default
     }
   }

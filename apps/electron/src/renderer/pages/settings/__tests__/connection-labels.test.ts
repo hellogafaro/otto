@@ -24,6 +24,12 @@ describe('connection labels', () => {
     expect(hostOf('not a url')).toBe('not a url')
   })
 
+  it('labels the saved custom API protocol without guessing legacy endpoints', () => {
+    expect(connectionKindLabel({ type: 'custom', baseUrl: 'https://api.example.com/v1', customEndpoint: { api: 'openai-responses' } }, t)).toBe('connections.kind.custom · Responses API · api.example.com')
+    expect(connectionKindLabel({ type: 'custom', customEndpoint: { api: 'openai-completions' } }, t)).toBe('connections.kind.custom · Chat Completions API')
+    expect(connectionKindLabel({ type: 'custom', customEndpoint: { api: 'anthropic-messages' } }, t)).toBe('connections.kind.custom')
+  })
+
   it('lists personal connections first, then the workspace\'s, then the server\'s, each by name', () => {
     const rows = [
       { name: 'Z', scope: 'user:1' },

@@ -1,6 +1,6 @@
 import { INSTALL_SCOPE, getAllConnections, getConnection } from '@otto/shared/connections'
 import { contextOfScope, getLlmConnection, updateLlmConnection } from '@otto/shared/config/storage'
-import { fetchOpenAiModels } from './openai'
+import { fetchNativeModels, isNativeConnection } from './native-provider'
 import { handlerLog } from './runtime'
 
 type CredentialResolver = (slug: string, scope: string) => Promise<{ apiKey?: string }>
@@ -29,17 +29,17 @@ class ModelRefreshService {
   private async refreshModels(slug: string, scope: string, signal: AbortSignal): Promise<void> {
     const where = contextOfScope(scope)
     const connection = getLlmConnection(slug, where)
-    if (!connection || connection.scope !== scope || connection.type !== 'openai' || connection.authType !== 'api_key') return
+    if (!connection || connection.scope !== scope || !isNativeConnection(connection)) return
     const stored = getConnection(slug, where)
     try {
       const credentials = await this.getCredentials(slug, scope)
       signal.throwIfAborted()
-      const catalog = await fetchOpenAiModels({ apiKey: credentials.apiKey ?? '', baseUrl: connection.baseUrl, signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) })
+      const catalog = await fetchNativeModels({ provider: connection.type, api: connection.customEndpoint?.api, apiKey: credentials.apiKey ?? '', baseUrl: connection.baseUrl, signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) })
       signal.throwIfAborted()
       const currentDefault = connection.defaultModel?.replace(/^pi\//, '')
       const defaultModel = currentDefault && catalog.models.some((model) => model.id === currentDefault) ? currentDefault : catalog.models[0]?.id
       const current = getLlmConnection(slug, where)
-      if (!current || getConnection(slug, where)?.id !== stored?.id || current.scope !== scope || current.type !== 'openai' || current.authType !== 'api_key' || current.baseUrl !== connection.baseUrl) return
+      if (!current || getConnection(slug, where)?.id !== stored?.id || current.scope !== scope || !isNativeConnection(current) || current.type !== connection.type || current.baseUrl !== connection.baseUrl || current.customEndpoint?.api !== connection.customEndpoint?.api) return
       updateLlmConnection(slug, { models: catalog.models, defaultModel }, { where })
     } catch {
       handlerLog.warn('OpenAI model refresh failed; the stored catalog is unchanged.')
@@ -48,7 +48,7 @@ class ModelRefreshService {
 
   startAll(): void {
     for (const connection of getAllConnections()) {
-      if (connection.type !== 'openai' || connection.authType !== 'api_key') continue
+      if (!isNativeConnection({ ...connection, baseUrl: connection.baseUrl ?? undefined, customEndpoint: connection.config.customEndpoint })) continue
       void this.refreshConnection(connection.slug, connection.scope)
     }
   }

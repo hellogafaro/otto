@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'bun:test'
-import { isHttpUrl, keySetup, OFFERED_KINDS, uniqueSlug, type KeyFormValues } from '../connection-kinds'
+import { connectionKindName, isHttpUrl, keySetup, OFFERED_KINDS, uniqueSlug, type KeyFormValues } from '../connection-kinds'
 
 describe('connection kinds', () => {
-  it('offers only the native OpenAI API-key connection', () => {
-    expect(OFFERED_KINDS).toEqual(['openai'])
+  it('offers native OpenAI, custom OpenAI protocol, and Anthropic API-key connections without subscriptions', () => {
+    expect(OFFERED_KINDS).toEqual(['openai', 'custom', 'anthropic'])
+    expect(OFFERED_KINDS.map(connectionKindName)).toEqual(['OpenAI', 'Custom OpenAI-compatible endpoint', 'Anthropic'])
   })
 
   it('picks a slug no visible connection has', () => {
@@ -14,8 +15,10 @@ describe('connection kinds', () => {
 
   it('recognizes valid saved endpoint addresses', () => {
     expect(isHttpUrl('https://api.example.com/v1')).toBe(true)
+    expect(isHttpUrl(' http://localhost:11434/v1 ')).toBe(true)
     expect(isHttpUrl('localhost:11434')).toBe(false)
     expect(isHttpUrl('ftp://x.test')).toBe(false)
+    expect(isHttpUrl('')).toBe(false)
   })
 })
 
@@ -32,5 +35,28 @@ describe('keySetup', () => {
   it('preserves the workspace scope an owner requests', () => {
     const { setup } = keySetup('openai', { ...values, scope: 'workspace' }, { slug: 'openai-2', title: 'OpenAI' })
     expect(setup).toEqual({ slug: 'openai-2', type: 'openai', title: 'OpenAI', scope: 'workspace', credential: 'fixture-key' })
+  })
+
+  it('uses the native Anthropic API-key type without CLI or subscription auth', () => {
+    expect(keySetup('anthropic', values, { slug: 'anthropic', title: 'Anthropic' })).toEqual({
+      test: { type: 'anthropic', apiKey: 'fixture-key' },
+      setup: { slug: 'anthropic', type: 'anthropic', title: 'Anthropic', scope: 'user', credential: 'fixture-key' },
+    })
+  })
+
+  for (const api of ['openai-responses', 'openai-completions'] as const) {
+    it(`tests and saves the same custom ${api} URL, model, credential, and scope`, () => {
+      expect(keySetup('custom', { ...values, scope: 'workspace', baseUrl: ' https://api.example.com/v1 ', api, model: ' gpt-6-luna ' }, { slug: 'custom-2', title: 'Custom endpoint' })).toEqual({
+        test: { type: 'custom', apiKey: 'fixture-key', baseUrl: 'https://api.example.com/v1', customEndpoint: { api }, model: 'gpt-6-luna' },
+        setup: { slug: 'custom-2', type: 'custom', title: 'Custom endpoint', scope: 'workspace', credential: 'fixture-key', baseUrl: 'https://api.example.com/v1', customEndpoint: { api }, defaultModel: 'gpt-6-luna' },
+      })
+    })
+  }
+
+  it('defaults a new custom endpoint to Responses and leaves an empty model to discovery', () => {
+    expect(keySetup('custom', { ...values, baseUrl: 'https://api.example.com/v1', model: ' ' }, { slug: 'custom', title: 'Custom endpoint' })).toEqual({
+      test: { type: 'custom', apiKey: 'fixture-key', baseUrl: 'https://api.example.com/v1', customEndpoint: { api: 'openai-responses' } },
+      setup: { slug: 'custom', type: 'custom', title: 'Custom endpoint', scope: 'user', credential: 'fixture-key', baseUrl: 'https://api.example.com/v1', customEndpoint: { api: 'openai-responses' } },
+    })
   })
 })

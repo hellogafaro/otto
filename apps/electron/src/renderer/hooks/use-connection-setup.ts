@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { keySetup, OPENAI_LABEL, uniqueSlug, type ConnectionKind, type KeyFormValues } from '@/components/onboarding/connection-kinds'
+import { connectionKindName, keySetup, uniqueSlug, type ConnectionKind, type KeyFormValues } from '@/components/onboarding/connection-kinds'
 
 export type SetupStep = 'choose' | ConnectionKind
 
@@ -40,7 +40,8 @@ export function useConnectionSetup({ existingSlugs, onSaved, onFinish, onDismiss
 
   /** Tests the key, then saves; returns what went wrong, for the form to show. */
   const connectKey = useCallback(async (values: KeyFormValues): Promise<string | null> => {
-    const { test, setup: payload } = keySetup('openai', values, { slug: uniqueSlug('openai', existingSlugs), title: OPENAI_LABEL })
+    if (step === 'choose') return t('connections.testFailed')
+    const { test, setup: payload } = keySetup(step, values, { slug: uniqueSlug(step, existingSlugs), title: connectionKindName(step) })
     try {
       const tested = await window.electronAPI.testLlmConnectionSetup(test)
       if (!tested.success) return tested.error || t('connections.testFailed')
@@ -50,7 +51,7 @@ export function useConnectionSetup({ existingSlugs, onSaved, onFinish, onDismiss
     const failure = await setup(payload)
     if (!failure) saved()
     return failure
-  }, [setup, existingSlugs, t, saved])
+  }, [step, setup, existingSlugs, t, saved])
 
   return { step, back, select, connectKey }
 }

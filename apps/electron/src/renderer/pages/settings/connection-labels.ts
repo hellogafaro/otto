@@ -29,7 +29,7 @@ export function hostOf(baseUrl: string): string {
 }
 
 /** "Claude subscription", "Anthropic API", "ChatGPT", a provider's name, or "Custom endpoint · host". */
-export function connectionKindLabel(connection: Pick<LlmConnection, 'type' | 'baseUrl'>, t: TFunction): string {
+export function connectionKindLabel(connection: Pick<LlmConnection, 'type' | 'baseUrl' | 'customEndpoint'>, t: TFunction): string {
   switch (connection.type) {
     case CLAUDE_CODE_CONNECTION_TYPE:
       return t('connections.kind.claudeCode')
@@ -37,8 +37,11 @@ export function connectionKindLabel(connection: Pick<LlmConnection, 'type' | 'ba
       return t('connections.kind.anthropic')
     case 'openai-codex':
       return t('connections.kind.chatgpt')
-    case CUSTOM_CONNECTION_TYPE:
-      return connection.baseUrl ? `${t('connections.kind.custom')} · ${hostOf(connection.baseUrl)}` : t('connections.kind.custom')
+    case CUSTOM_CONNECTION_TYPE: {
+      const protocol = connection.customEndpoint?.api === 'openai-responses' ? 'Responses API'
+        : connection.customEndpoint?.api === 'openai-completions' ? 'Chat Completions API' : undefined
+      return [t('connections.kind.custom'), protocol, connection.baseUrl ? hostOf(connection.baseUrl) : undefined].filter(Boolean).join(' · ')
+    }
     default:
       return getProviderMetadata(connection.type)?.name ?? connection.type
   }

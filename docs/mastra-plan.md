@@ -12,6 +12,24 @@ Actual Docker and no-flag production-browser fixture proves sandbox write→publ
 
 Remaining acceptance: website browser route/provider plus task-owned session/Stop/screenshot/live-view semantics and website browser live-view acceptance. The reproducible offline `task` image target is now built locally and actual task execution/publication/Stop verified; native allocations default to `otto-task:latest` with explicit `OTTO_COMPUTER_IMAGE` override. Website browser is not provided by the offline task computer; remote browser MCP is the smallest candidate alternative to unapproved Fortress/network deployment. Full installer/cross-platform execution and real old-data import/rekey require separate verification/approval. No 100% claim from fixtures.
 
+## Provider setup correction from actual use
+
+The owner’s real local preview exposed the missing Custom endpoint entry. Native setup
+now offers OpenAI, explicit Custom OpenAI-compatible endpoint and Anthropic API keys.
+Custom uses an entered URL/key and explicit Responses or Chat Completions contract;
+optional model is validated/saved consistently against its discovered account catalog.
+Anthropic uses its official Messages SDK/API and x-api-key, never the Railway credential
+or revived subscription CLI. Existing connection domains store exact user/workspace
+secrets encrypted; provider labels/protocol remain truthful. Both native provider wire
+contracts and scoped RPC storage are fixture verified; Anthropic live use remains
+unverified without its own authorized key. Custom Responses matches the already proven
+Railway path. Origin confinement, redirect refusal, safe errors and cancellation remain.
+
+The persistent preview runs production mode with an explicit skip of old legacy
+credential-file import, so it never reads/copies personal ~/.otto credentials. Runtime
+secrets are generated/reused in the approved preview-only OS Keychain item, not env files.
+No preview account/data reseeding or hidden provider bootstrap occurred.
+
 ## Historical checkpoints (non-operative)
 
 

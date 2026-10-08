@@ -7,7 +7,7 @@ import type { HandlerFn, RequestContext, RpcServer } from '../../transport/types
 import type { HandlerDeps } from '../handler-deps'
 import { HANDLED_CHANNELS, registerLlmConnectionsHandlers } from './llm-connections'
 import { initModelRefreshService } from '../../model-fetchers'
-import { OPENAI_UNSUPPORTED } from '../../model-fetchers/openai'
+import { NATIVE_PROVIDER_UNSUPPORTED as OPENAI_UNSUPPORTED } from '../../model-fetchers/native-provider'
 
 const calls: { key: string | null; path: string; body?: unknown }[] = []
 let fail = false
@@ -15,7 +15,7 @@ const server = Bun.serve({ port: 0, hostname: '127.0.0.1', async fetch(request) 
   const path = new URL(request.url).pathname
   calls.push({ key: request.headers.get('authorization'), path, body: request.method === 'POST' ? await request.json() : undefined })
   if (fail) return new Response('fixture-body-private', { status: 401 })
-  if (path.endsWith('/models')) return Response.json({ data: [{ id: 'gpt-fixture' }, { id: 'o3-fixture' }] })
+  if (path.endsWith('/models')) return Response.json({ data: path.startsWith('/anthropic') ? [null, { id: 'claude-fixture' }] : [{ id: 'gpt-fixture' }, { id: 'o3-fixture' }] })
   return new Response([
     { type: 'response.created', response: { id: 'fixture', created_at: 0, model: 'gpt-fixture' } },
     { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'msg' } },
@@ -49,6 +49,16 @@ it('registers only native Settings and connection handlers, with no executable s
 })
 
 const joinPath = (path: string) => new URL(path, import.meta.url)
+
+it('saves custom protocol and Anthropic credentials encrypted in exact personal/workspace scopes', async () => {
+  expect(await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, { slug: 'custom-fixture', type: 'custom', title: 'Custom', scope: 'user', credential: 'controlled-custom-key', baseUrl, customEndpoint: { api: 'openai-responses' }, defaultModel: 'gpt-fixture' })).toEqual({ success: true })
+  expect(getLlmConnection('custom-fixture', ctx)).toMatchObject({ type: 'custom', baseUrl, customEndpoint: { api: 'openai-responses' } })
+  expect(getCredential('custom-fixture', userScope(ctx.userId!))).toEqual({ apiKey: 'controlled-custom-key' })
+  expect(await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, { slug: 'anthropic-fixture', type: 'anthropic', title: 'Anthropic', scope: 'workspace', credential: 'controlled-anthropic-key', baseUrl: server.url.href + 'anthropic/v1' })).toEqual({ success: true })
+  expect(getLlmConnection('anthropic-fixture', { workspaceId: ctx.workspaceId })).toMatchObject({ type: 'anthropic', defaultModel: 'claude-fixture' })
+  expect(getCredential('anthropic-fixture', workspaceScope(ctx.workspaceId!))).toEqual({ apiKey: 'controlled-anthropic-key' })
+  expect(getCredential('anthropic-fixture', userScope(ctx.userId!))).toBeUndefined()
+})
 
 it('uses native catalog/setup/test with the flag absent, and credentials stay in their exact scope', async () => {
   const previous = process.env.OTTO_MASTRA_CHAT
@@ -94,7 +104,7 @@ it('refreshes and validates native keys, preserves saved catalogs on failure, an
   expect(calls.at(-1)?.body).toMatchObject({ model: 'o3-fixture', stream: true, store: false })
   const before = getLlmConnection('native-same', ctx)
   fail = true
-  expect(await call(RPC_CHANNELS.llmConnections.REFRESH_MODELS, 'native-same')).toEqual({ success: false, error: 'Invalid OpenAI API key.' })
+  expect(await call(RPC_CHANNELS.llmConnections.REFRESH_MODELS, 'native-same')).toEqual({ success: false, error: 'Provider model refresh failed. The existing catalog was not changed.' })
   expect(getLlmConnection('native-same', ctx)).toEqual(before)
   fail = false
   expect(await call(RPC_CHANNELS.llmConnections.SAVE, { slug: 'native-same', name: 'Renamed', scope: 'install', type: 'github-copilot', authType: 'oauth', credential: 'injected', createdAt: 99 })).toEqual({ success: true })

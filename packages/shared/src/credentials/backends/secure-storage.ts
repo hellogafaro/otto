@@ -50,6 +50,7 @@ const LEGACY_CREDENTIALS_FILE = join(homedir(), DEFAULT_CONFIG_DIR_NAME, 'creden
 function migrateCredentialsIfNeeded(): void {
   // Tests run on a temp config dir and must never copy (read) the real file.
   if (process.env.NODE_ENV === 'test') return;
+  if (process.env.OTTO_SKIP_LEGACY_CREDENTIAL_IMPORT === '1') return;
   if (CREDENTIALS_FILE === LEGACY_CREDENTIALS_FILE) return;
   if (existsSync(CREDENTIALS_FILE) || !existsSync(LEGACY_CREDENTIALS_FILE)) return;
   try {

@@ -33,7 +33,9 @@ export function OnboardingWizard({
       case 'choose':
         return <ChooseConnectionStep onSelect={(kind) => void flow.select(kind)} onSkip={onSkip} />
       case 'openai':
-        return <KeyConnectionStep canShare={canShare} onSubmit={flow.connectKey} onBack={flow.back} />
+      case 'custom':
+      case 'anthropic':
+        return <KeyConnectionStep key={flow.step} kind={flow.step} canShare={canShare} onSubmit={flow.connectKey} onBack={flow.back} />
     }
   }
 

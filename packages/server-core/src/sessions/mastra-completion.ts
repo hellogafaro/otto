@@ -2,6 +2,8 @@ import { createMastraChatModel, streamMastraChat } from './mastra-chat'
 
 export async function runMastraCompletion(input: {
   apiKey: string
+  provider?: string
+  api?: string
   model: string
   baseUrl?: string
   prompt: string
@@ -17,7 +19,8 @@ export async function runMastraCompletion(input: {
     instructions: 'Return only the requested result.',
     messages: [{ role: 'user', content: input.prompt }],
     model: createMastraChatModel({
-      provider: 'openai',
+      provider: input.provider ?? 'openai',
+      api: input.api,
       model: input.model,
       apiKey: input.apiKey,
       baseUrl: input.baseUrl,

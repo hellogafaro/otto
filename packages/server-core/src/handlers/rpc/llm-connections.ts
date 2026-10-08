@@ -7,7 +7,7 @@ import { updateAgentsUnconnected } from '@otto/shared/agents'
 import { getModelRefreshService } from '../../model-fetchers'
 import type { RpcServer } from '../../transport'
 import type { HandlerDeps } from '../handler-deps'
-import { fetchOpenAiModels, validateOpenAiConnection, validateStoredOpenAiConnection, OPENAI_UNSUPPORTED } from '../../model-fetchers/openai'
+import { fetchNativeModels, validateNativeConnection, validateStoredNativeConnection, isNativeConnection, NATIVE_PROVIDER_UNSUPPORTED as OPENAI_UNSUPPORTED } from '../../model-fetchers/native-provider'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.llmConnections.LIST,
@@ -32,7 +32,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       const where = narrowContext(whereOf(ctx), setup.scope)
       const connection = getLlmConnection(setup.slug, where)
       const stored = getConnection(setup.slug, where)
-      if ((setup.type ?? connection?.type) !== 'openai' || (connection && connection.authType !== 'api_key'))
+      if (!['openai', 'custom', 'anthropic'].includes(setup.type ?? connection?.type ?? '') || (connection && connection.authType !== 'api_key'))
         return { success: false, error: OPENAI_UNSUPPORTED }
       if (connection && setup.type && setup.type !== connection.type)
         return { success: false, error: 'The existing connection provider cannot be changed.' }
@@ -45,27 +45,30 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
           : userScope(ctx.userId))
       const key = setup.credential ?? await getCredentialManager().getLlmApiKey(setup.slug, scope)
       const baseUrl = setup.baseUrl !== undefined ? setup.baseUrl?.trim() || undefined : connection?.baseUrl
-      const catalog = await fetchOpenAiModels({ apiKey: key ?? '', baseUrl })
+      const type = setup.type ?? connection!.type
+      const customEndpoint = setup.customEndpoint ?? connection?.customEndpoint
+      const catalog = await fetchNativeModels({ provider: type, apiKey: key ?? '', baseUrl, api: customEndpoint?.api })
       const requested = (setup.defaultModel ?? connection?.defaultModel)?.replace(/^pi\//, '')
+      if (setup.defaultModel && !catalog.models.some((model) => model.id === requested)) return { success: false, error: 'The requested model is not in this connection catalog.' }
       const defaultModel = requested && catalog.models.some((model) => model.id === requested) ? requested : catalog.models[0]?.id
       const credential = setup.credential !== undefined ? { apiKey: setup.credential } : undefined
       if (getConnection(setup.slug, where)?.id !== stored?.id) return { success: false, error: 'Connection changed during setup. Try again.' }
       const saved = stored
-        ? updateConnection(stored.id, { baseUrl: baseUrl ?? null, models: catalog.models, defaultModel }, credential)
-        : addLlmConnection({ slug: setup.slug, name: setup.title!.trim(), type: 'openai', authType: 'api_key', baseUrl, models: catalog.models, defaultModel, createdAt: Date.now() }, { scope, credential })
+        ? updateConnection(stored.id, { baseUrl: baseUrl ?? null, config: { ...stored.config, customEndpoint }, models: catalog.models, defaultModel }, credential)
+        : addLlmConnection({ slug: setup.slug, name: setup.title!.trim(), type, authType: 'api_key', baseUrl, customEndpoint, models: catalog.models, defaultModel, createdAt: Date.now() }, { scope, credential })
       if (!saved) return { success: false, error: 'Failed to save connection.' }
       if (!connection && ctx.userId && ctx.workspaceId)
-        updateAgentsUnconnected(ctx.workspaceId, ctx.userId, 'openai', getConnections(whereOf(ctx)).map((row) => row.type))
+        updateAgentsUnconnected(ctx.workspaceId, ctx.userId, type, getConnections(whereOf(ctx)).map((row) => row.type))
       setSetupDeferred(false)
       return { success: true }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to set up connection.' }
+    } catch {
+      return { success: false, error: 'Provider setup failed. Check the API key, endpoint, protocol and account model access.' }
     }
   })
 
   server.handle(RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP, async (_ctx, params: import('@otto/shared/protocol').TestLlmConnectionParams) => {
-    if (params.type !== 'openai') return { success: false, error: OPENAI_UNSUPPORTED }
-    return validateOpenAiConnection({ apiKey: params.apiKey, baseUrl: params.baseUrl, model: params.model })
+    if (!['openai', 'custom', 'anthropic'].includes(params.type ?? '')) return { success: false, error: OPENAI_UNSUPPORTED }
+    return validateNativeConnection({ provider: params.type!, apiKey: params.apiKey, baseUrl: params.baseUrl, api: params.customEndpoint?.api, model: params.model })
   })
 
   server.handle(RPC_CHANNELS.llmConnections.LIST, async (ctx) => getLlmConnections(whereOf(ctx)))
@@ -75,7 +78,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     const defaultSlug = getDefaultLlmConnection(where)
     return Promise.all(getLlmConnections(where).map(async (connection) => {
       const hasCredentials = await getCredentialManager().hasLlmCredentials(connection.slug, connection.authType, connection.scope)
-      const runtimeSupported = connection.type === 'openai' && connection.authType === 'api_key'
+      const runtimeSupported = isNativeConnection(connection)
       return { ...connection, isAuthenticated: connection.authType === 'none' || hasCredentials, isDefault: connection.slug === defaultSlug,
         runtimeSupported, ...(!runtimeSupported ? { authError: OPENAI_UNSUPPORTED } : {}) }
     }))
@@ -114,12 +117,12 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   server.handle(RPC_CHANNELS.llmConnections.TEST, async (ctx, slug: string) => {
     const connection = getLlmConnection(slug, whereOf(ctx))
     if (!connection) return { success: false, error: 'Connection not found.' }
-    return validateStoredOpenAiConnection(connection)
+    return validateStoredNativeConnection(connection)
   })
 
   server.handle(RPC_CHANNELS.llmConnections.SET_DEFAULT, async (ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
     const connection = getLlmConnection(slug, whereOf(ctx))
-    if (!connection || connection.type !== 'openai' || connection.authType !== 'api_key') return { success: false, error: OPENAI_UNSUPPORTED }
+    if (!connection || !isNativeConnection(connection)) return { success: false, error: OPENAI_UNSUPPORTED }
     const success = setDefaultLlmConnection(slug, whereOf(ctx))
     return { success, error: success ? undefined : 'Connection not found.' }
   })
@@ -131,7 +134,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       if (slug) {
         const connection = getLlmConnection(slug, { workspaceId: workspace.id })
         if (!connection) return { success: false, error: 'Connection not found.' }
-        if (connection.type !== 'openai' || connection.authType !== 'api_key') return { success: false, error: OPENAI_UNSUPPORTED }
+        if (!isNativeConnection(connection)) return { success: false, error: OPENAI_UNSUPPORTED }
       }
       const { loadWorkspaceConfig, saveWorkspaceConfig } = await import('@otto/shared/workspaces')
       const config = loadWorkspaceConfig(workspace.rootPath)
@@ -150,18 +153,18 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     try {
       const connection = getLlmConnection(slug, whereOf(ctx))
       if (!connection) return { success: false, error: 'Connection not found.' }
-      if (connection.type !== 'openai' || connection.authType !== 'api_key') return { success: false, error: OPENAI_UNSUPPORTED }
+      if (!isNativeConnection(connection)) return { success: false, error: OPENAI_UNSUPPORTED }
       const stored = getConnection(slug, whereOf(ctx))
       const key = await getCredentialManager().getLlmApiKey(slug, connection.scope)
-      const catalog = await fetchOpenAiModels({ apiKey: key ?? '', baseUrl: connection.baseUrl })
+      const catalog = await fetchNativeModels({ provider: connection.type, apiKey: key ?? '', baseUrl: connection.baseUrl, api: connection.customEndpoint?.api })
       const currentConnection = getLlmConnection(slug, whereOf(ctx))
       if (getConnection(slug, whereOf(ctx))?.id !== stored?.id || currentConnection?.baseUrl !== connection.baseUrl)
         return { success: false, error: 'Connection changed during refresh. Try again.' }
       const current = connection.defaultModel?.replace(/^pi\//, '')
       updateLlmConnection(slug, { models: catalog.models, defaultModel: current && catalog.models.some((model) => model.id === current) ? current : catalog.models[0]?.id }, { where: whereOf(ctx) })
       return { success: true }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to refresh models.' }
+    } catch {
+      return { success: false, error: 'Provider model refresh failed. The existing catalog was not changed.' }
     }
   })
 }
