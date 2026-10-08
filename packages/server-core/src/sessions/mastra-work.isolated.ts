@@ -160,6 +160,11 @@ it('two humans and two named agents create and update a linked brief with scoped
   expect(requests.at(-1)!.body.tools.map((tool: any) => tool.name)).not.toContain('update_task')
   expect(JSON.stringify(requests.at(-1)!.body)).toContain('Explore mode is read-only')
   expect(JSON.stringify(requests.at(-1)!.body)).not.toContain('your own Linux computer')
+  nextCall = [() => ({ name: 'create_document', args: { title: 'Routine brief.md', content: 'Created by authorized routine' } }), () => null]
+  const routine = await manager.executePromptAutomation({workspaceId:workspace.id,workspaceRootPath:workspace.rootPath,prompt:'Prepare routine brief',permissionMode:'allow-all',llmConnection:'same-name',model:'pi/fixture',createdBy:`user:${ana}`,agentId:scout.id,automationName:'Fixture routine',automationId:'routine-fixture'})
+  expect(getLibraryItems(workspace.id,{type:'document'}).some((item)=>item.title==='Routine brief.md'&&item.createdBy===`agent:${scout.id}`)).toBe(true)
+  expect(requests.at(-1)!.key).toBe('Bearer fixture-'+ana)
+  expect((await manager.getSession(routine.sessionId)) as unknown).toMatchObject({triggeredBy:{automationName:'Fixture routine'}})
   const before = requests.length
   deleteWorkspaceMember(workspace.id, ana)
   await manager.sendMessage(chat.id, `agent:${writer.id} creator removed`, undefined, undefined, { sender: `user:${ben}` })

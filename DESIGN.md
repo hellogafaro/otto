@@ -3003,6 +3003,11 @@ attribution and completed actions. Native branching is hidden until supported;
 queued input is not called delivered steering. Restart shows interrupted work
 and never silently replays a pending action or approval.
 
+Native Session owns per-call approvals and same-agent follow-up admission. Stop
+cancels queued and preparing input as well as the live run; it does not undo
+completed actions. Remote source tools appear only when authorized and connected.
+Local/API connector and durable approval parity remain explicit migration gaps.
+
 - Do change shared looks in the `packages/ui` component with an `// Otto:`
   comment; don't override colors or type on one instance.
 - Do use only the spacing scale, the two insets, 32px bar controls and 28px

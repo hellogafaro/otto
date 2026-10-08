@@ -23,6 +23,7 @@ import { ChatPersistenceQueue } from '../../../shared/src/sessions/persistence-q
 import { getNativeMessages } from '../../../shared/src/sessions/native-messages.ts'
 import { createSecretsStore } from '@otto/shared/secrets'
 import { convertLegacyIds } from '../../../../scripts/db-uuid.ts'
+import { performance } from 'node:perf_hooks'
 
 process.env.OTTO_MASTRA_CHAT = '1'
 afterAll(async () => {
@@ -306,3 +307,16 @@ it('concurrent scoped writes keep one transcript each and persistence failure re
       .get(a.id),
   ).toEqual({ n: 0 })
 })
+
+it('bounds native search projection to recent authorized rows and measures a 2100-row fixture',async()=>{
+  const workspace=addWorkspace({name:'Search measure',rootPath:join(CONFIG_DIR,'search-measure')})
+  const chat=createSession(workspace,{createdBy:'user:human0000001'})
+  await writeMastraHistory({workspaceId:workspace.id,chatId:chat.id,sessionDir:'',messages:Array.from({length:2100},(_,index)=>({id:crypto.randomUUID(),type:'user',timestamp:index+1,content:index===0?'oldestneedle':'recentneedle '+index,sender:'user:human0000001'}))})
+  const start=performance.now()
+  const hits=searchChats(workspace.id,'user:human0000001','recentneedle')
+  const elapsed=performance.now()-start
+  expect(hits[0].matchCount).toBe(2000)
+  expect(searchChats(workspace.id,'user:human0000001','oldestneedle')).toEqual([])
+  expect(searchChats(workspace.id,'user:foreign','recentneedle')).toEqual([])
+  console.log(`Native search fixture: 2100 rows, 2000-row cap, ${elapsed.toFixed(2)}ms; not FTS parity.`)
+},15000)

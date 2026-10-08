@@ -110,14 +110,14 @@ large abstract contract, not a reason to build a repository framework.
 | --- | --- |
 | Chat stream, author, history, usage | `Agent.stream`, fullStream → current events, existing rows replayed. Verified fixtures/browser for completed messages; live inference unverified. Final storage must have one runtime-history authority. |
 | Work tools/results/errors | Six native tools call Library/task/project domain functions. Document/task work verified in the scoped second slice; tool events map to existing cards. Files/shell disabled until isolation proof. |
-| Permission modes and approvals | Installed per-run `hooks.beforeToolCall` bridges existing permission UI: Explore refuses writes, Ask and Guarded require one chat-bound approval, Execute allows. Session/controller suspension APIs evaluated; no checkpoint storage introduced for transient approval. |
-| Steering, queue, Stop | Existing host queue for now; native AbortSignal for Stop. Steering remains queued, not falsely marked delivered. Native Session/signals migration must replace overlapping queue ownership before cutover. |
+| Permission modes and approvals | Native Session permission/approval gate bridges existing UI; old Promise gate removed for native turns. Explore/Ask/Guarded/Execute remain explicit. Approval restart is not yet durable. |
+| Steering, queue, Stop | Same-agent follow-ups use native tracked `Session.followUp`; Stop cancels prepared and queued native input and releases approvals. Other-agent routing remains host admission only. Abort-then-send steering is not claimed uninterrupted. |
 | Delegation and named-agent routing | Existing mention routing serializes named agents. Native constrained delegation/result proof is later in migration, not implemented by this work-tool slice. |
 | Skills | Native per-request inline skills resolve from authorized workspace rows and the selected agent ID/slug allowlist. Core supplies `skill`, `skill_search`, `skill_read`; only instruction bodies are included, not scripts/references or host instructions. Progressive activation is fixture verified; live behavior is unverified. |
-| MCP sources, discovery, invocation and auth | Existing source/credential domains stay. Native MCP tool contracts must preserve allowlists, names, auth flow and tool-result UI. Not yet migrated; sources rejected in current slice rather than faked. |
+| MCP sources, discovery, invocation and auth | Authorized remote MCP discovery/invocation uses existing source creds/pool and native schema tools with execution access checks. Bearer stays server-side; missing auth is explicit. API/local connector replacement remains required before retirement. |
 | Model and connection settings | One supported OpenAI API-key provider reads exact existing connection scope. Catalog/testing/settings remain Pi-dependent and must migrate before deletion. Subscription setup/success UI must disappear at API-key-only cutover; private records remain untouched. |
 | Computer/browser/files | Existing views remain, execution not granted by this slice. Per-task isolation, permissions, stop and visible browser behavior need native replacement/proof before enabling. |
-| Routines and webhook runs | Existing schedule/webhook domain owns trigger data. Native run execution must replace Pi path and retain authenticated creator/caller semantics. Not yet migrated. |
+| Routines and webhook runs | Existing trigger domain stays; native prompt routine fixture preserves creator key/agent attribution. Unattended Ask denies instead of hanging. API/local/routine script parity remains unverified. |
 | Branch, compact, retry, plan controls | Pi-specific branch anchors/compaction cannot be called native support. Replace with supported Mastra behavior or remove exposed obsolete controls, locales and handlers before default cutover. |
 
 Delete only after replacement checks: `packages/pi-agent-server`, shared `agent/pi-agent.ts`
@@ -434,3 +434,34 @@ transcript/tool cards and showed no branch action; disposable DB had zero app me
 and six official rows. Server was stopped. Final scoped independent review reports no
 required findings after authority/deletion fixes. Actual live inference, full old-data
 executor, SDK session steering/durable approval and remaining Pi consumers are next.
+
+## Native Session and remote-source checkpoint
+
+Actual native turns now run through installed AgentController/Session, scoped by
+workspace resource and chat `scope`, without automatic Memory. Official transcript
+projection stays the only writer. Controller builtin tasks/plan/subagent tools, workspace,
+browser and shell are disabled. Public machinery keeps eight steps, single tool
+concurrency and OpenAI `store:false`. Native event/tool/usage output maps into existing UI.
+
+Same-agent follow-ups use native cancellation-aware `followUp`, not a second execution
+queue. Queue owner grouping delegates to the same runtime Agent with supported owner
+metadata; Stop cancels that exact queue, tracked preparation and parked approval.
+History resolves afresh after prior events drain, preserving request/answer/effect IDs
+once. Admission captures run/stop ownership across ack persistence; ended-run fallback
+uses existing admission and Stop/deletion cannot commit late. Old finally cannot clear
+newer control handles. Cross-agent routing still uses the existing serial admission
+policy, not a duplicate same-agent FIFO.
+
+Authorized remote MCP tools are built from actual source schema and invoked through
+existing scoped source credentials/pool. Active agent/source membership and existing
+permissions recheck before execution; Explore exposes only approved read calls.
+Credentials remain server-side. Local/stdin and API connector parity is explicitly not
+claimed. Native prompt routines run with creator keys and named-agent authors, and
+native title refresh/transfer-summary paths no longer construct Pi runtimes. The old
+native Promise approval gate/unused hook parameter are removed. Remaining default-Pi
+constructors are temporary legacy consumers to delete at complete cutover.
+
+Native search now projects at most the recent 2,000 authorized messages. A 2,100-row
+fixture measured about 3.5 ms on Pro and proves the cap/privacy. Older matches outside
+that window are absent; this is not FTS prefix parity and remains a known cutover limit,
+not an unbounded scan or silently advertised full-history search.

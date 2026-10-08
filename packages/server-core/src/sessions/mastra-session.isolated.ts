@@ -27,7 +27,7 @@ beforeAll(() => {
     const parts = [
       { type: 'response.created', response: { id: 'response-fixture', created_at: 0, model: 'fixture' } },
       { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'message-fixture' } },
-      { type: 'response.output_text.delta', item_id: 'message-fixture', delta: 'A brief for the launch.' },
+      { type: 'response.output_text.delta', item_id: 'message-fixture', delta: JSON.stringify(requests.at(-1)?.body.input).includes('Reply with ONLY') ? 'Launch Brief' : 'A brief for the launch.' },
       { type: 'response.completed', response: { usage: { input_tokens: 12, output_tokens: 5, total_tokens: 17 } } },
     ]
     return new Response(parts.map((part) => `data: ${JSON.stringify(part)}\n\n`).join(''), { headers: { 'content-type': 'text/event-stream' } })
@@ -82,6 +82,36 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   expect(requests).toHaveLength(2)
   expect(JSON.stringify(requests[1].body.input)).toContain('A brief for the launch.')
   expect(JSON.stringify(requests[1].body.input)).toContain('Make it shorter.')
+  expect(await manager.refreshTitle(stored.id)).toMatchObject({success:true,title:'Launch Brief'})
+  expect(requests).toHaveLength(3)
+  const flushAdmission=manager.flushSession.bind(manager)
+  const idleAdmission={followUp:async()=>{throw new Error('Old native session must not receive late admission')}} as never
+  recovered.isProcessing=true;recovered.turnAgentId=agent.id;recovered.mastraSession=idleAdmission
+  let admissionWaiting!:()=>void,releaseAdmission!:()=>void
+  const admissionReady=new Promise<void>((resolve)=>{admissionWaiting=resolve})
+  let delayOnce=true
+  manager.flushSession=async(id)=>{
+    if(delayOnce){delayOnce=false;admissionWaiting();await new Promise<void>((resolve)=>{releaseAdmission=resolve})}
+    await flushAdmission(id)
+  }
+  const admitted=manager.sendMessage(stored.id,'Accepted while old run ends.',undefined,undefined,{sender:actor})
+  await admissionReady
+  recovered.isProcessing=false;recovered.mastraSession=undefined;recovered.processingGeneration++
+  releaseAdmission();await admitted
+  manager.flushSession=flushAdmission
+  expect(requests).toHaveLength(4)
+  expect(JSON.stringify(requests.at(-1)!.body.input)).toContain('Accepted while old run ends.')
+  let stopWaiting!:()=>void,releaseStopped!:()=>void
+  const stopReady=new Promise<void>((resolve)=>{stopWaiting=resolve})
+  recovered.isProcessing=true;recovered.mastraSession=idleAdmission;delayOnce=true
+  manager.flushSession=async(id)=>{
+    if(delayOnce){delayOnce=false;stopWaiting();await new Promise<void>((resolve)=>{releaseStopped=resolve})}
+    await flushAdmission(id)
+  }
+  const stoppedAdmission=manager.sendMessage(stored.id,'Never admit after Stop.',undefined,undefined,{sender:actor})
+  await stopReady;await manager.cancelProcessing(stored.id);releaseStopped();await stoppedAdmission
+  manager.flushSession=flushAdmission;recovered.isProcessing=false;recovered.mastraSession=undefined
+  expect(requests).toHaveLength(4)
   const credentials = getCredentialManager()
   const getKey = credentials.getLlmApiKey.bind(credentials)
   credentials.getLlmApiKey = async (...args) => {
@@ -90,7 +120,7 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   }
   await manager.sendMessage(stored.id, 'Stop before inference.', undefined, undefined, { sender: actor })
   credentials.getLlmApiKey = getKey
-  expect(requests).toHaveLength(2)
+  expect(requests).toHaveLength(4)
   let release!: () => void
   let started!: () => void
   const preparing = new Promise<void>((resolve) => { started = resolve })
@@ -103,6 +133,11 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   await preparing
   recovered.mastraAbort?.abort()
   recovered.processingGeneration++
+  const newerSession={respondToToolApproval:()=>({accepted:true})} as never
+  const newerStop=()=>{}
+  recovered.mastraSession=newerSession
+  recovered.mastraStop=newerStop
+  recovered.mastraApprovalId='new-approval'
   recovered.streamingTurnId = 'newerturn001'
   recovered.streamingText = 'New turn answer'
   recovered.isProcessing = true
@@ -112,12 +147,15 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   expect(recovered.streamingTurnId).toBe('newerturn001')
   expect(recovered.streamingText).toBe('New turn answer')
   expect(recovered.isProcessing).toBe(true)
+  expect(recovered.mastraSession).toBe(newerSession)
+  expect(recovered.mastraStop).toBe(newerStop)
+  expect(recovered.mastraApprovalId).toBe('new-approval')
   recovered.isProcessing = false
   recovered.streamingText = ''
   recovered.streamingTurnId = undefined
   recovered.members = recovered.members.filter((member) => member.actor !== actor)
   await manager.sendMessage(stored.id, `agent:${agent.id} blocked`, undefined, undefined, { sender: `user:${other}` })
-  expect(requests).toHaveLength(2)
+  expect(requests).toHaveLength(4)
   recovered.members = [{ actor, readAt: null }, { actor: `agent:${agent.id}`, readAt: null }]
   let releaseDeleted!: () => void
   let deletionStarted!: () => void

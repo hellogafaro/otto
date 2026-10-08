@@ -4,7 +4,6 @@ import { Mastra } from '@mastra/core/mastra'
 import type { MastraModelConfig } from '@mastra/core/llm'
 import type { AgentEvent } from '@otto/core/types'
 import type { ToolsInput } from '@mastra/core/agent'
-import type { ToolHooks } from '@mastra/core/tools'
 import type { AgentSkillsInput } from '@mastra/core/skills'
 
 export async function* streamMastraChat(input: {
@@ -15,7 +14,6 @@ export async function* streamMastraChat(input: {
   model: MastraModelConfig
   signal: AbortSignal
   tools?: ToolsInput
-  beforeToolCall?: ToolHooks['beforeToolCall']
   skills?: AgentSkillsInput
 }): AsyncGenerator<AgentEvent> {
   const agent = new Agent({
@@ -31,7 +29,7 @@ export async function* streamMastraChat(input: {
   const messages = input.messages.map((message) => message.role === 'assistant'
     ? { role: 'assistant' as const, content: message.content }
     : { role: 'user' as const, content: message.content })
-  const output = await agent.stream(messages, { abortSignal: input.signal, maxSteps: input.tools || input.skills ? 8 : 1, toolCallConcurrency: 1, hooks: { beforeToolCall: input.beforeToolCall }, providerOptions: { openai: { store: false } } })
+  const output = await agent.stream(messages, { abortSignal: input.signal, maxSteps: input.tools || input.skills ? 8 : 1, toolCallConcurrency: 1, providerOptions: { openai: { store: false } } })
   let text = ''
   let completed = false
   for await (const chunk of output.fullStream) {

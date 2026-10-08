@@ -27,6 +27,8 @@ import { InitGate } from '@otto/server-core/domain'
 import { onConnectionsChange } from '@otto/shared/connections'
 import { i18n } from '@otto/shared/i18n'
 import { initDb } from '@otto/shared/db'
+import { shouldAllowToolInMode } from '@otto/shared/agent'
+import { buildRegenerateTitlePrompt, validateTitle } from '../../../shared/src/utils/title-generator.ts'
 import { assertHistoryRuntime } from '../../../shared/src/sessions/native-messages.ts'
 import { assertLegacyHistoryImported, writeMastraHistory, recoverMastraHistory, closeMastraHistory, deleteMastraHistory } from './mastra-history.ts'
 import {
@@ -618,7 +620,10 @@ interface ManagedSession {
   steeredIds?: Set<string>
   agent: AgentInstance | null  // Lazy-loaded - null until first message
   mastraAbort?: AbortController
-  mastraApproval?: { id: string; resolve: (allowed: boolean) => void }
+  mastraSession?: import('@mastra/core/agent-controller').Session
+  mastraStop?:()=>void
+  mastraQueuedIds?:string[]
+  mastraApprovalId?: string
   messages: Message[]
   isProcessing: boolean
   /** Set when user requests stop - allows event loop to drain before clearing isProcessing */
@@ -4905,6 +4910,16 @@ export class SessionManager implements ISessionManager {
     const titleUserId = userIdOf(managed.createdBy)
     const titleLanguage = resolveTitleLanguageName(titleUserId)
     const titleOptions = { language: titleLanguage }
+    if(process.env.OTTO_MASTRA_CHAT==='1'){
+      try{
+        const title=validateTitle(await this.nativeCompletion(managed,buildRegenerateTitlePrompt(userMessages,assistantResponse,titleOptions)))
+        if(!title)return {success:false,error:'Native completion returned no title.'}
+        if(this.sessions.get(managed.id)!==managed)return {success:false,error:'The chat was deleted.'}
+        if(options?.onlyIfName!==undefined&&managed.name!==options.onlyIfName)return {success:false,error:'Renamed meanwhile'}
+        managed.name=title;managed.autoTitle=title;this.persistSession(managed);await this.flushSession(managed.id);this.sendEvent({type:'title_generated',sessionId,title},managed.workspace.id)
+        return {success:true,title}
+      }catch{return {success:false,error:'Native title generation could not complete. Check your model connection.'}}
+    }
     sessionLog.info(`[refreshTitle] language at call time`, {
       sessionId,
       persistedUiLanguage: getPersistedUiLanguage(titleUserId) ?? null,
@@ -4993,6 +5008,19 @@ export class SessionManager implements ISessionManager {
       managed.isAsyncOperationOngoing = false
       this.sendEvent({ type: 'async_operation', sessionId, isOngoing: false }, managed.workspace.id)
     }
+  }
+
+  private async nativeCompletion(managed:ManagedSession,prompt:string):Promise<string>{
+    const context=resolveBackendContext({...turnConnectionOf(managed),workspaceDefaultConnectionSlug:loadWorkspaceConfig(managed.workspace.rootPath)?.defaults?.defaultLlmConnection,where:this.connectionContextOf(managed),agent:agentOf(managed)})
+    const connection=context.connection
+    const creator=userIdOf(managed.createdBy)
+    const agentId=turnAgentOf(managed)
+    if(!connection||connection.type!=='openai'||connection.authType!=='api_key'||!creator||!getMemberRole(managed.workspace.id,creator)||!managed.members.some((member)=>member.actor===managed.createdBy)||!agentId||!getAgent(managed.workspace.id,agentId)||!managed.members.some((member)=>member.actor===`agent:${agentId}`))throw new Error('The native completion scope is unavailable.')
+    const apiKey=await getCredentialManager().getLlmApiKey(connection.slug,connection.scope)
+    if(!apiKey)throw new Error('The native completion needs an API key.')
+    if(this.sessions.get(managed.id)!==managed)throw new Error('The completion chat was deleted.')
+    const {runMastraCompletion}=await import('./mastra-completion')
+    return runMastraCompletion({apiKey,model:context.resolvedModel,baseUrl:connection.baseUrl,prompt})
   }
 
   /** Update the working directory for a session (and its agent). */
@@ -5590,6 +5618,23 @@ export class SessionManager implements ISessionManager {
         this.persistSession(managed)
         await this.flushSession(managed.id)
         onAck?.(userMessage.id)
+        return
+      }
+
+      if(process.env.OTTO_MASTRA_CHAT==='1'&&forRunningAgent&&managed.mastraSession&&canSteerTextPayload(attachments,storedAttachments,options)){
+        const session=managed.mastraSession,generation=managed.processingGeneration,stopEpoch=managed.stopEpoch??0
+        userMessage.isQueued=true
+        ;(managed.mastraQueuedIds??=[]).push(userMessage.id)
+        this.sendEvent({type:'user_message',sessionId,message:userMessage,status:'queued',optimisticMessageId:options?.optimisticMessageId},managed.workspace.id)
+        this.persistSession(managed);await this.flushSession(sessionId);onAck?.(userMessage.id)
+        if(this.sessions.get(managed.id)!==managed||(managed.stopEpoch??0)!==stopEpoch)return
+        if(managed.mastraSession!==session||managed.processingGeneration!==generation){
+          managed.mastraQueuedIds=managed.mastraQueuedIds?.filter((id)=>id!==userMessage.id)
+          userMessage.isQueued=false
+          await this.sendMessage(sessionId,message,attachments,storedAttachments,options,userMessage.id)
+          return
+        }
+        await session.followUp({content:this.attributed(managed,message,userMessage.sender)})
         return
       }
 
@@ -6227,8 +6272,9 @@ export class SessionManager implements ISessionManager {
     const abort = new AbortController()
     managed.mastraAbort = abort
     let reason: 'complete' | 'interrupted' | 'error' = 'error'
+    let sourceTools:Awaited<ReturnType<typeof import('./mastra-source-tools').openMastraSourceTools>>|undefined
     try {
-      if (hasAttachments || managed.enabledSourceSlugs?.length) throw new Error('This text-only migration slice does not run attachments or connected sources yet.')
+      if (hasAttachments) throw new Error('Attachments are not supported by this native checkpoint yet.')
       const creatorId = userIdOf(managed.createdBy)
       const agentId = turnAgentOf(managed)
       const selectedAgent = agentId ? getAgent(managed.workspace.id, agentId) : undefined
@@ -6249,8 +6295,8 @@ export class SessionManager implements ISessionManager {
       if (!apiKey) throw new Error('The selected connection has no API key.')
       if ((managed.stopEpoch ?? 0) !== stopEpoch || this.sessions.get(managed.id) !== managed) abort.abort()
       const self = `agent:${turnAgentOf(managed)}`
-      const messages = managed.messages
-        .filter((entry) => !entry.isQueued && !entry.hidden && (entry.role === 'user' || entry.role === 'assistant' || (entry.role === 'tool' && (entry.toolStatus === 'completed' || entry.toolStatus === 'error'))))
+      const projectHistory = (excludeId?:string) => managed.messages
+        .filter((entry) => entry.id!==excludeId&&!entry.isQueued && !entry.hidden && (entry.role === 'user' || entry.role === 'assistant' || (entry.role === 'tool' && (entry.toolStatus === 'completed' || entry.toolStatus === 'error'))))
         .map((entry) => ({
           role: entry.role === 'assistant' && (entry.author ?? `agent:${managed.agentId}`) === self ? 'assistant' as const : 'user' as const,
           content: entry.role === 'tool'
@@ -6259,8 +6305,10 @@ export class SessionManager implements ISessionManager {
             ? this.attributed(managed, entry.content, entry.sender ?? entry.author ?? managed.createdBy)
             : entry.content,
         }))
+      const messages=projectHistory()
+      let currentMessageId=managed.lastSentMessageIds?.at(-1)
       abort.signal.throwIfAborted()
-      const { createMastraChatModel, streamMastraChat } = await import('./mastra-chat.ts')
+      const { createMastraChatModel } = await import('./mastra-chat.ts')
       const { createMastraWorkTools, MASTRA_WORK_WRITES } = await import('./mastra-work-tools.ts')
       const { getMastraContext } = await import('./mastra-context.ts')
       const assertAccess = () => {
@@ -6274,49 +6322,53 @@ export class SessionManager implements ISessionManager {
         }
       }
       assertAccess()
-      const contextForRun = getMastraContext({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, writesAllowed: managed.permissionMode !== 'safe', unattended: !!(managed.unattended || managed.triggeredBy), assertAccess, onUnavailableSkill: (slug) => this.sendEvent({ type: 'info', sessionId: managed.id, message: `Skill "${slug}" is unavailable because its metadata is incompatible with the native runtime.`, level: 'warning' }, managed.workspace.id) })
+      if(managed.enabledSourceSlugs?.length){const {openMastraSourceTools}=await import('./mastra-source-tools');sourceTools=await openMastraSourceTools({workspaceId:managed.workspace.id,agentId:selectedAgent.id,slugs:managed.enabledSourceSlugs,sessionPath:getSessionStoragePath(managed.workspace.rootPath,managed.id),signal:abort.signal,assertAccess,mode:managed.permissionMode??'ask',refresh:managed.tokenRefreshManager})}
+      const contextForRun = getMastraContext({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, writesAllowed: managed.permissionMode !== 'safe', unattended: !!(managed.unattended || managed.triggeredBy), assertAccess, sourceSlugs:sourceTools?.slugs, onUnavailableSkill: (slug) => this.sendEvent({ type: 'info', sessionId: managed.id, message: `Skill "${slug}" is unavailable because its metadata is incompatible with the native runtime.`, level: 'warning' }, managed.workspace.id) })
       const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess })
-      for await (const event of streamMastraChat({
-        agentId: selectedAgent.id,
-        name: selectedAgent.title,
-        instructions: contextForRun.instructions,
-        skills: contextForRun.skills,
-        messages,
+      const { runMastraSession } = await import('./mastra-session')
+      await runMastraSession({
+        chatId: managed.id, workspaceId: managed.workspace.id, ownerId: creatorId,
+        agentId: selectedAgent.id, name: selectedAgent.title,
+        instructions: contextForRun.instructions, skills: contextForRun.skills, messages,
+        history:async()=>{assertAccess();await this.flushSession(managed.id);return projectHistory(currentMessageId)},
         model: createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl }),
-        signal: abort.signal,
-        tools: managed.permissionMode === 'safe' ? Object.fromEntries(Object.entries(workTools).filter(([name]) => !MASTRA_WORK_WRITES.has(name))) : workTools,
-        beforeToolCall: async ({ toolName, input }) => {
-          assertAccess()
-          if (!MASTRA_WORK_WRITES.has(toolName)) return
-          const mode = managed.permissionMode ?? 'ask'
-          if (mode === 'safe') return { proceed: false, output: { error: 'Explore mode cannot change documents or tasks.' } }
-          if (mode === 'allow-all') return
-          const id = crypto.randomUUID()
-          const allowed = await new Promise<boolean>((resolve) => {
-            const finish = (allowed: boolean) => {
-              abort.signal.removeEventListener('abort', stop)
-              if (managed.mastraApproval?.id === id) managed.mastraApproval = undefined
-              resolve(allowed)
-            }
-            const stop = () => finish(false)
-            managed.mastraApproval = { id, resolve: finish }
-            abort.signal.addEventListener('abort', stop, { once: true })
-            this.sendEvent({ type: 'permission_request', sessionId: managed.id, request: { sessionId: managed.id, requestId: id, toolName, description: `Allow ${selectedAgent.title} to run ${toolName}?`, command: JSON.stringify(input), type: 'api_mutation', canRemember: false } }, managed.workspace.id)
-          })
-          assertAccess()
-          if (!allowed) return { proceed: false, output: { error: 'The work action was declined.' } }
+        signal: abort.signal, assertAccess,
+        tools: {...(managed.permissionMode === 'safe' ? Object.fromEntries(Object.entries(workTools).filter(([name]) => !MASTRA_WORK_WRITES.has(name))) : workTools),...sourceTools?.tools},
+        policy: (toolName) => {
+          if(!MASTRA_WORK_WRITES.has(toolName)&&!toolName.startsWith('mcp__')) return 'allow'
+          if(managed.permissionMode==='safe') return toolName.startsWith('mcp__')&&shouldAllowToolInMode(toolName,{},'safe',{permissionsContext:{workspaceRootPath:managed.workspace.rootPath,activeSourceSlugs:sourceTools?.slugs}}).allowed?'allow':'deny'
+          if(managed.permissionMode==='allow-all') return 'allow'
+          return managed.unattended||managed.triggeredBy?'deny':'ask'
         },
-      })) {
-        if (managed.processingGeneration !== generation || this.sessions.get(managed.id) !== managed) return
-        await this.processEvent(managed, event)
-        if (event.type === 'complete') reason = 'complete'
-      }
+        onReady: (session,stop) => { managed.mastraSession=session;managed.mastraStop=stop },
+        onRunStart:()=>{
+          const id=managed.mastraQueuedIds?.shift();const message=managed.messages.find((message)=>message.id===id)
+          currentMessageId=id
+          if(message){message.isQueued=false;this.sendEvent({type:'user_message',sessionId:managed.id,message,status:'processing'},managed.workspace.id);this.persistSession(managed)}
+        },
+        onApproval: (id,toolName,args) => {
+          managed.mastraApprovalId=id
+          this.sendEvent({type:'permission_request',sessionId:managed.id,request:{sessionId:managed.id,requestId:id,toolName,description:`Allow ${selectedAgent.title} to run ${toolName}?`,command:JSON.stringify(args),type:'api_mutation',canRemember:false}},managed.workspace.id)
+        },
+        emit: async (event) => {
+          if(managed.processingGeneration!==generation||this.sessions.get(managed.id)!==managed)return
+          await this.processEvent(managed,event)
+          if(event.type==='complete')reason='complete'
+        },
+      })
     } catch {
       if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation) return
       reason = abort.signal.aborted ? 'interrupted' : 'error'
       if (managed.streamingTurnId) await this.processEvent(managed, { type: 'text_discard', turnId: managed.streamingTurnId })
       if (!abort.signal.aborted) await this.processEvent(managed, { type: 'error', message: 'The text-only Mastra request could not complete. Use an OpenAI API-key connection without attachments or sources.' })
     } finally {
+      if(managed.processingGeneration===generation&&this.sessions.get(managed.id)===managed){
+        managed.mastraSession=undefined
+        managed.mastraStop=undefined
+        managed.mastraQueuedIds=[]
+        managed.mastraApprovalId=undefined
+      }
+      await sourceTools?.close()
       if (managed.mastraAbort === abort) managed.mastraAbort = undefined
       if (this.sessions.get(managed.id) === managed && managed.processingGeneration === generation && managed.isProcessing) await this.onProcessingStopped(managed.id, reason)
     }
@@ -6333,12 +6385,16 @@ export class SessionManager implements ISessionManager {
     // Collect queued message text for input restoration before clearing (an agent turn a mention woke is no message)
     const replays = managed.messageQueue.filter(q => !q.wake)
     const queuedTexts = replays.map(q => q.message)
+    const nativeIds=new Set(managed.mastraQueuedIds??[])
+    queuedTexts.push(...managed.messages.filter((message)=>nativeIds.has(message.id)).map((message)=>message.content))
 
     // Collect queued message IDs so we can remove them from the messages array
     // (they were added when sendMessage was called during processing)
     const queuedMessageIds = new Set(
       replays.map(q => q.messageId).filter((id): id is string => !!id)
     )
+    for(const id of nativeIds)queuedMessageIds.add(id)
+    managed.mastraQueuedIds=[]
 
     // Clear queue - user explicitly stopped, don't process queued messages
     managed.messageQueue = []
@@ -6358,6 +6414,7 @@ export class SessionManager implements ISessionManager {
     // Track interruption so the next user message gets a context note
     // telling the LLM the previous response was cut short
     managed.wasInterrupted = true
+    managed.mastraStop?.()
     managed.mastraAbort?.abort()
 
     // Force-abort via Query.close() - sends soft interrupt to the backend
@@ -6756,9 +6813,10 @@ export class SessionManager implements ISessionManager {
     options?: import('@otto/shared/protocol').PermissionResponseOptions,
   ): boolean {
     const managed = this.sessions.get(sessionId)
-    if (managed?.mastraApproval?.id === requestId) {
-      managed.mastraApproval.resolve(allowed)
-      return true
+    if (managed?.mastraSession && managed.mastraApprovalId === requestId) {
+      const response=managed.mastraSession.respondToToolApproval({toolCallId:requestId,decision:allowed?'approve':'decline'})
+      managed.mastraApprovalId=undefined
+      return response.accepted
     }
     if (managed?.agent) {
       const requestMeta = this.pendingPermissionRequests.get(requestId)
@@ -7864,7 +7922,7 @@ export class SessionManager implements ISessionManager {
 
     // Warn if llmConnection was specified but doesn't resolve
     if (llmConnection) {
-      const connection = resolveSessionConnection(llmConnection)
+      const connection = resolveSessionConnection(llmConnection,undefined,{workspaceId,userId:userIdOf(createdBy)})
       if (!connection) {
         sessionLog.warn(`[Automations] llmConnection "${llmConnection}" not found, using default`)
       }
@@ -7993,6 +8051,7 @@ export class SessionManager implements ISessionManager {
       }))
 
     if (messages.length === 0) return null
+    if(process.env.OTTO_MASTRA_CHAT==='1')return generateConversationSummary(messages,(prompt)=>this.nativeCompletion(managed,prompt))
 
     const workspaceRootPath = managed.workspace.rootPath
     const wsConfig = loadWorkspaceConfig(workspaceRootPath)
