@@ -98,17 +98,26 @@ export function createProjectsStore(db: Db) {
       description?: string
       resources?: Resource[]
       createdBy: string
+      creationId?: string
     }): Project {
       const title = assertTitle(input.title)
       const description = assertDescription(input.description ?? '')
       const resources = assertResources(input.resources ?? [])
       const createdBy = input.createdBy
       if (!isActor(createdBy)) throw domainError('invalid', `${createdBy} is not an actor`)
+      if (input.creationId && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(input.creationId)) throw domainError('invalid', 'Invalid project creation ID')
       const now = new Date()
       return db.transaction((tx) => {
+        if (input.creationId) {
+          const existing = tx.select().from(projects).where(eq(projects.id, input.creationId)).get()
+          if (existing) {
+            if (existing.workspaceId !== input.workspaceId || existing.members[0] !== createdBy || existing.title !== title || existing.description !== description || JSON.stringify(existing.resources) !== JSON.stringify(resources)) throw domainError('conflict', 'This creation request already produced a different project')
+            return toProject(existing)
+          }
+        }
         const row = tx
           .insert(projects)
-          .values({ id: crypto.randomUUID(), workspaceId: input.workspaceId, title, description, status: 'active', members: [createdBy], resources, createdAt: now, updatedAt: now })
+          .values({ id: input.creationId ?? crypto.randomUUID(), workspaceId: input.workspaceId, title, description, status: 'active', members: [createdBy], resources, createdAt: now, updatedAt: now })
           .returning()
           .get()
         return toProject(row)

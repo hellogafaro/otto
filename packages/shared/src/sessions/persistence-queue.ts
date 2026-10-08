@@ -60,6 +60,7 @@ export class ChatPersistenceQueue {
   private pending = new Map<string, PendingWrite>()
   private written = new Map<string, WrittenChat>()
   private writing = new Map<string, Promise<void>>()
+  private writeTail = Promise.resolve()
   private readonly debounceMs: number
   private readonly retryMs: number
   private readonly db: () => Db
@@ -99,19 +100,27 @@ export class ChatPersistenceQueue {
     if (!entry) return
     clearTimeout(entry.timer)
     this.pending.delete(chatId)
-    const run = (async () => {
+    const run = this.writeTail.then(async () => {
+      let stage = 'snapshot'
       try {
         const snapshot = entry.snapshot()
         if (snapshot.writeNativeMessages && snapshot.messages) {
+          stage = 'native_history'
           await snapshot.writeNativeMessages(snapshot.messages)
           snapshot.messages = undefined
         }
+        stage = 'chat_metadata'
         this.write(chatId, snapshot)
       } catch (error) {
-        console.error(
-          `[chats] writing chat ${chatId} failed; retrying in ${this.retryMs} ms:`,
-          error,
-        )
+        let code = 'storage_error'
+        let cause: unknown = error
+        for (let depth = 0; depth < 4 && cause && typeof cause === 'object'; depth++) {
+          const detail = cause as { code?: string; message?: string; cause?: unknown }
+          if (['SQLITE_BUSY', 'SQLITE_LOCKED', 'TRANSACTION_ACTIVE'].includes(detail.code ?? '')) { code = detail.code!; break }
+          if (detail.message?.toLowerCase().includes('database is locked')) { code = 'SQLITE_BUSY'; break }
+          cause = detail.cause
+        }
+        console.error('[chats] write failed; pending snapshot retained for storage retry', { chatId, stage, code, retryMs: this.retryMs })
         if (!this.pending.has(chatId)) {
           entry.timer = setTimeout(() => {
             this.flush(chatId).catch(() => {})
@@ -120,7 +129,8 @@ export class ChatPersistenceQueue {
         }
         throw error
       }
-    })()
+    })
+    this.writeTail = run.catch(() => {})
     this.writing.set(chatId, run)
     try {
       await run

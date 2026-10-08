@@ -94,7 +94,8 @@ export async function runMastraSession(input: {
       toolCallConcurrency: 1,
       providerOptions: { openai: { store: false } },
       hooks: {
-        beforeToolCall: ({ toolName }: { toolName: string }) => {
+        beforeToolCall: async ({ toolName }: { toolName: string }) => {
+          await writes
           input.assertAccess()
           if (input.policy(toolName) === 'deny')
             return {
@@ -185,9 +186,20 @@ export async function runMastraSession(input: {
         isError,
         turnId,
       })
-    } else if (event.type === 'tool_approval_required')
-      input.onApproval(event.toolCallId, event.toolName, event.args)
-    else if (event.type === 'usage_update')
+    } else if (event.type === 'tool_approval_required') {
+      writes = writes.then(() => {
+        try {
+          input.assertAccess()
+          input.onApproval(event.toolCallId, event.toolName, event.args)
+        } catch {
+          failed = true
+          session.abort()
+        }
+      }, () => {
+        failed = true
+        session.abort()
+      })
+    } else if (event.type === 'usage_update')
       usage = {
         inputTokens: event.usage.promptTokens,
         outputTokens: usage.outputTokens + event.usage.completionTokens,

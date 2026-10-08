@@ -1012,19 +1012,6 @@ export class SessionManager implements ISessionManager {
   private lastTimestamp = 0
 
   /**
-   * Optional binder installed by the messaging-gateway bootstrap. When set,
-   * `executePromptAutomation` calls it after creating a session whose matcher
-   * declared `telegramTopic`, so the new session is bound to a Telegram forum
-   * topic in the workspace's paired supergroup. Best-effort — failures must
-   * not block the session.
-   */
-  private automationBinder?: (input: {
-    workspaceId: string
-    sessionId: string
-    topicName: string
-  }) => Promise<void>
-
-  /**
    * Merge auto-label matches into the session's labels (valued entries as `id::value`,
    * plain ones as the bare id), persist and broadcast when anything changed.
    */
@@ -1220,7 +1207,6 @@ export class SessionManager implements ISessionManager {
           automationId: pending.matcherId,
           triggerEvent: pending.event,
           chainDepth: guard.depth,
-          telegramTopic: pending.telegramTopic,
           createdBy: routine?.createdBy,
           agentId: routine?.agentId ?? undefined,
         })
@@ -1470,17 +1456,6 @@ export class SessionManager implements ISessionManager {
    *  Resolves immediately if already initialized. */
   waitForInit(): Promise<void> {
     return this.initGate.wait()
-  }
-
-  /**
-   * Install the automation→topic binder. Wired by the messaging-gateway
-   * bootstrap so SessionManager doesn't need to import the messaging
-   * package (avoids a package-level circular dependency).
-   */
-  setAutomationBinder(
-    fn: (input: { workspaceId: string; sessionId: string; topicName: string }) => Promise<void>,
-  ): void {
-    this.automationBinder = fn
   }
 
   private eventSink: EventSink | null = null
@@ -4329,7 +4304,17 @@ export class SessionManager implements ISessionManager {
       const messages = [...initial.projected, { role: 'user' as const, content: projectHistory().at(-1)?.content ?? '' }]
       if(managed.enabledSourceSlugs?.length){const {openMastraSourceTools}=await import('./mastra-source-tools');sourceTools=await openMastraSourceTools({workspaceId:managed.workspace.id,agentId:selectedAgent.id,slugs:managed.enabledSourceSlugs,sessionPath:getSessionStoragePath(managed.workspace.rootPath,managed.id),signal:abort.signal,assertAccess,mode:permissionMode,getMode:()=>managed.permissionMode??'ask',refresh:managed.tokenRefreshManager})}
       const contextForRun = getMastraContext({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, writesAllowed: managed.permissionMode !== 'safe', unattended: !!(managed.unattended || managed.triggeredBy), assertAccess, sourceSlugs:sourceTools?.slugs, missingAuthSlugs:sourceTools?.missingAuthSlugs, computer:!!runComputer, onUnavailableSkill: (slug) => this.sendEvent({ type: 'info', sessionId: managed.id, message: `Skill "${slug}" is unavailable because its metadata is incompatible with the native runtime.`, level: 'warning' }, managed.workspace.id) })
-      const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess })
+      const projectDraft = (creationId: string) => {
+        assertAccess()
+        for (const message of managed.messages.toReversed()) {
+          if (message.role !== 'tool' || message.toolName !== 'prepare_project' || message.toolStatus !== 'completed') continue
+          try {
+            const draft = JSON.parse(message.toolResult ?? '') as { creationId?: string; title?: string; description?: string }
+            if (draft.creationId === creationId && typeof draft.title === 'string' && typeof draft.description === 'string') return { title: draft.title, description: draft.description }
+          } catch {}
+        }
+      }
+      const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess, getProjectDraft: projectDraft, creator: { userId: creatorId, provider: connection.type, model: context.resolvedModel } })
       const { createMastraSessionTools } = await import('./mastra-session-tools')
       const unavailable = () => { throw new Error('Host filesystem access is unavailable to native session tools.') }
       const ownChat = (id = managed.id) => {
@@ -4415,6 +4400,7 @@ export class SessionManager implements ISessionManager {
         signal: abort.signal, assertAccess,
         tools: {...(managed.permissionMode === 'safe' ? Object.fromEntries(Object.entries(workTools).filter(([name]) => !MASTRA_WORK_WRITES.has(name))) : workTools),...sourceTools?.tools,...sessionTools,...(permissionMode === 'safe' ? Object.fromEntries(Object.entries(computerTools).filter(([name]) => !['write', 'edit', 'bash', 'publish_file'].includes(name))) : computerTools)},
         policy: (toolName) => {
+          if (['create_project', 'create_agent', 'create_routine'].includes(toolName)) return permissionMode === 'safe' || managed.unattended || managed.triggeredBy ? 'deny' : 'ask'
           if (['write', 'edit', 'bash', 'publish_file'].includes(toolName)) {
             if (permissionMode === 'safe') return 'deny'
             if (permissionMode === 'allow-all') return 'allow'
@@ -4440,7 +4426,13 @@ export class SessionManager implements ISessionManager {
         },
         onApproval: (id,toolName,args) => {
           managed.mastraApprovalId=id
-          this.sendEvent({type:'permission_request',sessionId:managed.id,request:{sessionId:managed.id,requestId:id,toolName,description:`Allow ${selectedAgent.title} to run ${toolName}?`,command:JSON.stringify(args),type:'api_mutation',canRemember:false}},managed.workspace.id)
+          const draft = toolName === 'create_project' ? projectDraft((args as { creationId: string }).creationId) : undefined
+          if (toolName === 'create_project' && !draft) {
+            managed.mastraSession?.respondToToolApproval({ toolCallId: id, decision: 'decline', declineContext: { message: 'The prepared project draft is unavailable. Review a new foundation before creating it.' } })
+            managed.mastraApprovalId = undefined
+            return
+          }
+          this.sendEvent({type:'permission_request',sessionId:managed.id,request:{sessionId:managed.id,requestId:id,toolName,description:draft ? `Create project “${draft.title}” with this reviewed foundation?` : `Allow ${selectedAgent.title} to run ${toolName}?`,command:JSON.stringify(draft ? { ...args as object, ...draft } : args),type:'api_mutation',canRemember:false}},managed.workspace.id)
         },
         emit: async (event) => {
           if(managed.processingGeneration!==generation||this.sessions.get(managed.id)!==managed)return
@@ -5687,7 +5679,6 @@ export class SessionManager implements ISessionManager {
       automationId,
       triggerEvent,
       chainDepth,
-      telegramTopic,
       waitForCompletion,
       createdBy,
       agentId,
@@ -5741,26 +5732,6 @@ export class SessionManager implements ISessionManager {
 
     // (session_created is emitted by createSession above; triggeredBy is set synchronously
     // before the renderer's hydrate round-trip resolves, so it is observed.)
-
-    // Bind the new session to its Telegram forum topic if the matcher
-    // declared `telegramTopic`. Done before `sendMessage` so the first
-    // assistant tokens already route through the bound topic. Failure
-    // is logged inside the binder; the session continues unbound.
-    if (this.automationBinder && telegramTopic && telegramTopic.trim().length > 0) {
-      try {
-        await this.automationBinder({
-          workspaceId,
-          sessionId: session.id,
-          topicName: telegramTopic.trim(),
-        })
-      } catch (err) {
-        sessionLog.warn('[Automations] automation binder threw', {
-          sessionId: session.id,
-          telegramTopic,
-          error: err instanceof Error ? err.message : String(err),
-        })
-      }
-    }
 
     // Send the prompt.
     // Test runs pass `waitForCompletion: false` so we return as soon as the
