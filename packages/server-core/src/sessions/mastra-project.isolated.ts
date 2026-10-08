@@ -61,9 +61,9 @@ it('creates only reviewed same-chat project drafts with explicit approval even i
     approvals.push(event.request)
     manager.respondToPermission(chat.id, event.request.requestId, approve, false)
   })
-  const run = async (name: string, args: unknown, chatId = chat.id) => {
+  const run = async (name: string, args: unknown, chatId = chat.id, sender = actor) => {
     call = { name, args }
-    await manager.sendMessage(chatId, 'Review the requested creation.', undefined, undefined, { sender: actor })
+    await manager.sendMessage(chatId, `agent:${agent.id} Review the requested creation.`, undefined, undefined, { sender })
     return loadSession(workspace, chatId)!.messages.filter((message) => message.type === 'tool').at(-1)!.toolResult!
   }
   const description = '## Purpose\nA reviewed launch\n\n## Scope\nPlanning only\n\n## Open questions\nWho reviews it?'
@@ -119,6 +119,15 @@ it('creates only reviewed same-chat project drafts with explicit approval even i
   expect(routine.runs).toEqual([])
   expect(approvals.some((entry) => entry.toolName === 'create_agent')).toBe(true)
   expect(approvals.some((entry) => entry.toolName === 'create_routine')).toBe(true)
+  const otherHuman = 'benbbbbbbbbb'
+  initDb().insert(users).values({ id: otherHuman, name: 'Ben', email: 'ben@example.test', createdAt: now, updatedAt: now }).run()
+  createWorkspaceMember(workspace.id, otherHuman, 'member')
+  await manager.addSessionMembers(chat.id, human, [`user:${otherHuman}`])
+  const memberAgent = JSON.parse(await run('create_agent', { title: 'Member writer', instructions: 'Write reviewed notes.' }, chat.id, `user:${otherHuman}`))
+  expect(memberAgent.createdBy).toBe(`user:${otherHuman}`)
+  const memberRoutine = JSON.parse(await run('create_routine', { title: 'Member brief', cron: '0 10 * * *', timezone: 'Europe/Madrid', prompt: 'Review notes' }, chat.id, `user:${otherHuman}`))
+  expect(memberRoutine.createdBy).toBe(`user:${otherHuman}`)
+  expect(memberRoutine.pausedAt).not.toBeNull()
   let retained = false, injected = false
   const approvalCount = approvals.length
   ;(manager as any).processEvent = async (managed: any, event: any) => {

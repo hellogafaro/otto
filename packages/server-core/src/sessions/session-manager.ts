@@ -4314,7 +4314,13 @@ export class SessionManager implements ISessionManager {
           } catch {}
         }
       }
-      const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess, getProjectDraft: projectDraft, creator: { userId: creatorId, provider: connection.type, model: context.resolvedModel } })
+      const requestUserId = () => {
+        assertAccess()
+        const userId = userIdOf(managed.messages.find((message) => message.id === currentMessageId)?.sender)
+        if (!userId || !getMemberRole(managed.workspace.id, userId) || !managed.members.some((member) => member.actor === `user:${userId}`)) throw new Error('The initiating human no longer has access to this chat.')
+        return userId
+      }
+      const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess, getProjectDraft: projectDraft, creator: { getUserId: requestUserId, provider: connection.type, model: context.resolvedModel } })
       const { createMastraSessionTools } = await import('./mastra-session-tools')
       const unavailable = () => { throw new Error('Host filesystem access is unavailable to native session tools.') }
       const ownChat = (id = managed.id) => {

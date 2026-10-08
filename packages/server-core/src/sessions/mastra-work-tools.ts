@@ -6,7 +6,7 @@ import { createTask, getTask, getTasks, updateTask } from '@otto/shared/tasks'
 import { createAgent, getAgent, MAX_INSTRUCTIONS } from '@otto/shared/agents'
 import { createRoutine } from '@otto/shared/automations/routines'
 
-export function createMastraWorkTools(scope: { workspaceId: string; agentId: string; assertAccess: () => void; getProjectDraft?: (creationId: string) => { title: string; description: string } | undefined; creator?: { userId: string; provider: string; model: string } }) {
+export function createMastraWorkTools(scope: { workspaceId: string; agentId: string; assertAccess: () => void; getProjectDraft?: (creationId: string) => { title: string; description: string } | undefined; creator?: { getUserId: () => string; provider: string; model: string } }) {
   const workspaceId = scope.workspaceId
   const actor = `agent:${scope.agentId}`
   const id = z.string().refine((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value) || /^[a-z0-9]{12}$/.test(value), 'Invalid stored item id')
@@ -26,7 +26,7 @@ export function createMastraWorkTools(scope: { workspaceId: string; agentId: str
           scope.assertAccess()
           const current = getAgent(workspaceId, scope.agentId)
           if (!current) throw new Error('The current agent is unavailable.')
-          return createAgent({ workspaceId, ...input, provider: scope.creator!.provider, model: scope.creator!.model, skills: current.skills, sources: current.sources, createdBy: `user:${scope.creator!.userId}` })
+          return createAgent({ workspaceId, ...input, provider: scope.creator!.provider, model: scope.creator!.model, skills: current.skills, sources: current.sources, createdBy: `user:${scope.creator!.getUserId()}` })
         },
       }),
       create_routine: createTool({
@@ -34,7 +34,7 @@ export function createMastraWorkTools(scope: { workspaceId: string; agentId: str
         inputSchema: z.object({ title, cron: z.string().trim().min(1).max(100), timezone: z.string().trim().min(1).max(100), prompt: text.min(1) }).strict(),
         execute: async (input) => {
           scope.assertAccess()
-          return createRoutine({ workspaceId, title: input.title, agentId: scope.agentId, createdBy: `user:${scope.creator!.userId}`, paused: true, config: { type: 'schedule', schedule: { cron: input.cron, timezone: input.timezone }, permissionMode: 'safe', actions: [{ type: 'prompt', prompt: input.prompt }] } })
+          return createRoutine({ workspaceId, title: input.title, agentId: scope.agentId, createdBy: `user:${scope.creator!.getUserId()}`, paused: true, config: { type: 'schedule', schedule: { cron: input.cron, timezone: input.timezone }, permissionMode: 'safe', actions: [{ type: 'prompt', prompt: input.prompt }] } })
         },
       }),
     } : {}),
