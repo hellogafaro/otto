@@ -11,6 +11,7 @@ import {
   deleteProjectMember,
   upsertProjectMember,
 } from "../packages/projects/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   createTask,
   createTimesheet,
@@ -25,7 +26,7 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, workspaces } from "../packages/workspaces/src/schema";
-import { controlledSubscription } from "./fixtures/pi";
+import { controlledSubscription } from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
 const task = z
@@ -54,6 +55,7 @@ type Human = { id: string; cookie: string };
 
 describe("multiple Task assignees through authenticated HTTP and private PostgreSQL", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: Awaited<ReturnType<typeof startQueue>>;
   let server: ReturnType<typeof Bun.serve>;
   let origin: string;
@@ -115,6 +117,9 @@ describe("multiple Task assignees through authenticated HTTP and private Postgre
     task.parse(await (await request(`${tasksUrl()}/${id}`)).json());
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -130,7 +135,7 @@ describe("multiple Task assignees through authenticated HTTP and private Postgre
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, boss, auth, origin });
+    app = createApp({ db: database.db, boss, auth, origin, nativeStorage });
     const signup = async (label: string, http = false) => {
       const body = {
         name: label,
@@ -234,6 +239,7 @@ describe("multiple Task assignees through authenticated HTTP and private Postgre
   afterAll(async () => {
     await server?.stop(true);
     await boss?.stop();
+    await nativeStorage?.close();
     await database?.stop();
   });
 

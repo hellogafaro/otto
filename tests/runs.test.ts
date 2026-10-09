@@ -22,15 +22,20 @@ import {
   updateSchedule,
   validateSchedule,
 } from "../packages/schedules/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { createSkill, updateSkill } from "../packages/skills/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users, workspaces } from "../packages/workspaces/src/schema";
-import { controlledSubscription, pi } from "./fixtures/pi";
+import {
+  controlledSubscription,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { fixtureStorage } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
 describe("real atomic Run and pg-boss admission", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: PgBoss;
   let workspaceId: string;
   let agentId: string;
@@ -40,6 +45,9 @@ describe("real atomic Run and pg-boss admission", () => {
     inWorkspace(database.db, workspaceId, { userId: "owner" }, fn);
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -85,6 +93,7 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   afterAll(async () => {
     await boss?.stop();
+    await nativeStorage?.close();
     await database?.stop();
   });
   const request = () => ({
@@ -101,7 +110,7 @@ describe("real atomic Run and pg-boss admission", () => {
     );
     await expect(
       scope(async (c) => {
-        await admitRun(c, boss, input, pi);
+        await admitRun(c, boss, input, nativeModelAuthorization, nativeStorage);
         throw new Error("forced rollback");
       }),
     ).rejects.toThrow("forced rollback");
@@ -119,8 +128,12 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("deduplicates admission and keeps skill instructions from the accepted attempt", async () => {
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input, pi));
-    const same = await scope((c) => admitRun(c, boss, input, pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+    );
+    const same = await scope((c) =>
+      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+    );
     expect(same.id).toBe(run.id);
     expect((await boss.findJobs(RUN_QUEUE)).length).toBe(1);
     await scope((c) =>
@@ -144,7 +157,9 @@ describe("real atomic Run and pg-boss admission", () => {
     expect(duplicate).toEqual(first);
   });
   it("rejects stale attempt results and leaves the durable state unchanged", async () => {
-    const run = await scope((c) => admitRun(c, boss, request(), pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+    );
     await expect(
       withRunAttempt(
         database.db,
@@ -202,10 +217,24 @@ describe("real atomic Run and pg-boss admission", () => {
       editToken: 0,
       id: crypto.randomUUID(),
     };
-    const first = await deliverSchedule(database.db, boss, tick, pi);
-    expect((await deliverSchedule(database.db, boss, tick, pi)).runId).toBe(
-      first.runId,
+    const first = await deliverSchedule(
+      database.db,
+      boss,
+      tick,
+      nativeModelAuthorization,
+      nativeStorage,
     );
+    expect(
+      (
+        await deliverSchedule(
+          database.db,
+          boss,
+          tick,
+          nativeModelAuthorization,
+          nativeStorage,
+        )
+      ).runId,
+    ).toBe(first.runId);
     const next = await deliverSchedule(
       database.db,
       boss,
@@ -213,7 +242,8 @@ describe("real atomic Run and pg-boss admission", () => {
         ...tick,
         id: crypto.randomUUID(),
       },
-      pi,
+      nativeModelAuthorization,
+      nativeStorage,
     );
     expect(next.runId).toBe(first.runId);
     const saved = (
@@ -238,7 +268,8 @@ describe("real atomic Run and pg-boss admission", () => {
           ...tick,
           id: crypto.randomUUID(),
         },
-        pi,
+        nativeModelAuthorization,
+        nativeStorage,
       ),
     ).toMatchObject({ outcome: "stale_configuration" });
     expect(
@@ -250,7 +281,9 @@ describe("real atomic Run and pg-boss admission", () => {
     ).toBe(false);
   });
   it("requires a fresh Session when retained skill scope changes", async () => {
-    const first = await scope((c) => admitRun(c, boss, request(), pi));
+    const first = await scope((c) =>
+      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+    );
     const saved = (
       await database.db.select().from(runs).where(eq(runs.id, first.id))
     )[0];
@@ -270,14 +303,17 @@ describe("real atomic Run and pg-boss admission", () => {
             ...request(),
             sessionId: saved?.sessionId ?? undefined,
           },
-          pi,
+          nativeModelAuthorization,
+          nativeStorage,
         ),
       ),
     ).rejects.toMatchObject({ code: "conflict" });
     await dispatchRun(database.db, first.id);
   });
   it("recovers bookkeeping without requeuing a possibly launched execution", async () => {
-    const run = await scope((c) => admitRun(c, boss, request(), pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+    );
     await database.db
       .update(runs)
       .set({ state: "launching" })
@@ -298,7 +334,9 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("processes real pg-boss delivery and duplicate delivery through the server worker", async () => {
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input, pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+    );
     const workers = await startQueue(database.db, database.pool);
     try {
       await expect
@@ -335,7 +373,9 @@ describe("real atomic Run and pg-boss admission", () => {
       email: "reader@example.test",
       emailVerified: true,
     });
-    const run = await scope((c) => admitRun(c, boss, request(), pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+    );
     await database.db
       .insert(members)
       .values({ workspaceId, userId: "new-reader", role: "viewer" });
@@ -367,8 +407,12 @@ describe("real atomic Run and pg-boss admission", () => {
     await dispatchRun(database.db, run.id);
   });
   it("rechecks sponsor membership on duplicate queue delivery", async () => {
-    const run = await scope((c) => admitRun(c, boss, request(), pi));
-    const terminal = await scope((c) => admitRun(c, boss, request(), pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+    );
+    const terminal = await scope((c) =>
+      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+    );
     const terminalResult = await dispatchRun(database.db, terminal.id);
     await database.db.delete(members).where(eq(members.userId, "owner"));
     expect(await dispatchRun(database.db, run.id)).toMatchObject({

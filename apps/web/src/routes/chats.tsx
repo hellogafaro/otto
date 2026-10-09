@@ -113,6 +113,9 @@ import {
 import { EmptyPage } from "@/components/empty-page";
 import { Lightbox } from "@/components/files";
 import { MentionText } from "@/components/mentions";
+import { NativeActionCards } from "@/components/native-action-cards";
+import { NativeChatRecipients } from "@/components/native-chat-recipients";
+import { useNativeChatSend } from "@/components/native-chat-send";
 import { QueryState } from "@/components/query-state";
 import { SectionSidebar } from "@/components/section-sidebar";
 import { ActorAvatar, type Look } from "@/components/task-meta";
@@ -130,14 +133,13 @@ import {
   useChatRuns,
   useChatSessions,
   useChats,
-  useMessageSend,
   useParticipants,
   useRunActivity,
 } from "@/lib/chat-data";
 import { useChatUpload } from "@/lib/chat-upload";
 import { useDirectory } from "@/lib/directory";
 import { savedResource } from "@/lib/file-library";
-import { mentionUserIds, parseMentions } from "@/lib/mention-text";
+import { parseMentions } from "@/lib/mention-text";
 import { useWorkspace } from "@/lib/workspace";
 
 export function ago(createdAt?: string | null) {
@@ -398,7 +400,6 @@ function ChatView({ chat }: { chat: LiveChat }) {
   const participants = useParticipants(chat.id);
   const permissions = useChatPermissions(chat, participants);
   const composer = useRef<ComposerHandle>(null);
-  const send = useMessageSend(chat.id);
   const [replyTo, setReplyTo] = useState<string>();
   const [title, setTitle] = useState(chat.title);
   const [editing, setEditing] = useState(false);
@@ -544,23 +545,13 @@ function ChatView({ chat }: { chat: LiveChat }) {
             </Button>
           </p>
         )}
-        {send.error && (
-          <p role="alert">{send.error.message} Your draft is retained.</p>
-        )}
         {permissions.canWrite ? (
           <ChatComposer
+            key={chat.id}
             chat={chat}
             composerRef={composer}
-            sending={send.isPending}
-            onSend={(body, files) =>
-              send
-                .mutateAsync({
-                  body,
-                  fileIds: files.map((file) => file.id),
-                  replyTo,
-                })
-                .then(() => setReplyTo(undefined))
-            }
+            replyTo={replyTo}
+            onSent={() => setReplyTo(undefined)}
           />
         ) : (
           <p>
@@ -579,8 +570,8 @@ function ChatView({ chat }: { chat: LiveChat }) {
 export function ChatComposer({
   chat,
   composerRef,
-  onSend,
-  sending = false,
+  onSent,
+  replyTo,
   disabled = false,
   compact = false,
   embedded = false,
@@ -589,8 +580,8 @@ export function ChatComposer({
 }: {
   chat: LiveChat;
   composerRef?: React.Ref<ComposerHandle>;
-  onSend: (body: string, files: FileRef[]) => Promise<void>;
-  sending?: boolean;
+  onSent?: () => void;
+  replyTo?: string;
   disabled?: boolean;
   compact?: boolean;
   embedded?: boolean;
@@ -598,6 +589,31 @@ export function ChatComposer({
   idle?: ReactNode;
 }) {
   const upload = useChatUpload(chat.projectId ?? undefined);
+  const participants = useParticipants(chat.id);
+  const directory = useDirectory();
+  const send = useNativeChatSend();
+  const [recipients, setRecipients] = useState<string[]>();
+  const memberAgentIds = new Set(
+    participants.data?.items
+      .filter((participant) => participant.role === "contributor")
+      .map((participant) => participant.agentId),
+  );
+  const agents = directory.agents.filter(
+    (agent) => !agent.archived && memberAgentIds.has(agent.id),
+  );
+  const loadingRecipients =
+    participants.isPending ||
+    participants.hasNextPage ||
+    directory.agentsQuery.isPending ||
+    directory.agentsQuery.hasNextPage;
+  const selected = recipients ?? (agents.length === 1 ? [agents[0].id] : []);
+  const validRecipients =
+    !loadingRecipients &&
+    !participants.error &&
+    !directory.agentsQuery.error &&
+    !(recipients === undefined && agents.length > 1) &&
+    selected.every((id) => agents.some((agent) => agent.id === id)) &&
+    (!chat.archived || selected.length === 0);
   const { api, workspaceId, invalidate } = useWorkspace();
   const lastTyped = useRef(0);
   const [presenceError, setPresenceError] = useState<Error>();
@@ -643,17 +659,56 @@ export function ChatComposer({
             throw new Error(
               "A message can attach at most 30 files. Remove extra attachments and retry.",
             );
-          await onSend(body, files);
+          await send.mutateAsync({
+            chatId: chat.id,
+            body,
+            fileIds: files.map((file) => file.id),
+            replyTo,
+            agentIds: selected,
+          });
+          setRecipients(undefined);
+          onSent?.();
           await typing(false);
         }}
         compact={compact}
         embedded={embedded}
-        tools={tools}
+        tools={
+          <>
+            {tools}
+            <NativeChatRecipients
+              agents={agents}
+              value={recipients}
+              onChange={setRecipients}
+              disabled={
+                disabled || send.isPending || send.locked || loadingRecipients
+              }
+            />
+          </>
+        }
         idle={idle}
-        pending={sending}
+        pending={send.isPending}
+        locked={send.locked}
+        sendable={validRecipients || send.locked}
         disabled={disabled}
         upload={upload.upload}
       />
+      <ParticipantPages participants={participants} />
+      <DirectoryPages kind="agents" />
+      {recipients === undefined && agents.length > 1 && (
+        <p>
+          Choose one or more member agents, or Human only, for this message.
+        </p>
+      )}
+      {send.error && (
+        <p role="alert">
+          {send.error.message}{" "}
+          {send.messageSaved
+            ? "Message saved; send again to retry only the original agent admissions."
+            : send.locked
+              ? "Delivery is unconfirmed; send again to retry the same message."
+              : "Your draft is retained."}
+        </p>
+      )}
       {presenceError && (
         <p role="alert">
           {presenceError.message} Typing presence is unavailable.
@@ -701,7 +756,7 @@ export function NewChatEmpty() {
         <EmptyTitle>New chat</EmptyTitle>
         <EmptyDescription>
           Choose participants and optional project context, then send your first
-          message. Start an Agent Run explicitly from the chat.
+          message to the selected agents or keep it human only.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
@@ -713,7 +768,16 @@ export function useNewChat() {
   const directory = useDirectory();
   const created = useRef<LiveChat | undefined>(undefined);
   const uncertainCreation = useRef(false);
-  const request = useRef({ signature: "", id: "" });
+  const send = useNativeChatSend();
+  const membersAdded = useRef(new Set<string>());
+  const accepted = useRef<{
+    memberIds: string[];
+    body: string;
+    files: FileRef[];
+    projectId?: string;
+    visibility: "participants" | "workspace";
+    agentIds?: string[];
+  } | null>(null);
   const create = useMutation({
     mutationFn: async (input: {
       memberIds: string[];
@@ -721,9 +785,20 @@ export function useNewChat() {
       files: FileRef[];
       projectId?: string;
       visibility: "participants" | "workspace";
+      agentIds?: string[];
     }) => {
+      if (accepted.current) input = accepted.current;
       if (!input.body.trim())
         throw new Error("Add a message before creating a chat.");
+      if (input.files.length > 30)
+        throw new Error("A message can attach at most 30 files.");
+      const memberAgentIds = input.memberIds.filter((id) =>
+        directory.agents.some((agent) => agent.id === id),
+      );
+      const agentIds = input.agentIds ?? memberAgentIds;
+      if (agentIds.some((id) => !memberAgentIds.includes(id)))
+        throw new Error("Recipients must be selected chat participants.");
+      accepted.current = { ...input, agentIds };
       if (uncertainCreation.current)
         throw new Error(
           "Chat creation was not acknowledged, inspect Chats before starting another.",
@@ -756,13 +831,15 @@ export function useNewChat() {
               "Chat creation was not acknowledged, inspect Chats before starting another.",
             );
           }
+          accepted.current = null;
           throw error;
         }
         await invalidate();
       }
       const chat = created.current;
       for (const memberId of input.memberIds) {
-        if (memberId === user.id) continue;
+        if (memberId === user.id || membersAdded.current.has(memberId))
+          continue;
         const bot = directory.agents.find((agent) => agent.id === memberId);
         if (
           !bot &&
@@ -778,23 +855,15 @@ export function useNewChat() {
             },
           }),
         );
+        membersAdded.current.add(memberId);
         await invalidate();
       }
-      const fileIds = input.files.map((file) => file.id);
-      const signature = JSON.stringify([chat.id, input.body, fileIds]);
-      if (signature !== request.current.signature)
-        request.current = { signature, id: crypto.randomUUID() };
-      await read(
-        await api.chats[":id"].messages.$post({
-          param: { workspaceId, id: chat.id },
-          json: {
-            body: input.body,
-            fileIds,
-            requestId: request.current.id,
-            mentionUserIds: mentionUserIds(input.body),
-          },
-        }),
-      );
+      await send.mutateAsync({
+        chatId: chat.id,
+        body: input.body,
+        fileIds: input.files.map((file) => file.id),
+        agentIds,
+      });
       await invalidate();
       return chat;
     },
@@ -803,10 +872,13 @@ export function useNewChat() {
     ...create,
     createdChat: created.current,
     uncertainCreation: uncertainCreation.current,
+    locked: Boolean(accepted.current),
     reset: () => {
       created.current = undefined;
       uncertainCreation.current = false;
-      request.current = { signature: "", id: "" };
+      accepted.current = null;
+      membersAdded.current.clear();
+      send.reset();
       create.reset();
     },
   };
@@ -825,8 +897,14 @@ export function NewChatComposer({
   const { workspace } = useWorkspace();
   const [withIds, setWithIds] = useState<string[]>(withId ? [withId] : []);
   const [projectId, setProjectId] = useState(initialProjectId);
+  const [recipients, setRecipients] = useState<string[]>();
   const create = useNewChat();
   const upload = useChatUpload(projectId);
+  const agents = directory.agents.filter((agent) => withIds.includes(agent.id));
+  const selected = recipients ?? (agents.length === 1 ? [agents[0].id] : []);
+  const validRecipients =
+    !(recipients === undefined && agents.length > 1) &&
+    selected.every((id) => agents.some((agent) => agent.id === id));
   const validProject =
     !projectId ||
     directory.projects.some(
@@ -896,6 +974,15 @@ export function NewChatComposer({
         upload={upload.upload}
         projectId={projectId}
         placeholder="Write your first message"
+        tools={
+          <NativeChatRecipients
+            agents={agents}
+            value={recipients}
+            onChange={setRecipients}
+            disabled={create.isPending || create.locked}
+          />
+        }
+        locked={create.locked}
         onSend={async (body, files) => {
           const chat = await create.mutateAsync({
             memberIds: withIds,
@@ -904,6 +991,7 @@ export function NewChatComposer({
             visibility: "participants",
             body,
             files,
+            agentIds: selected,
           });
           onCreated(chat);
         }}
@@ -916,7 +1004,8 @@ export function NewChatComposer({
             !validProject ||
             !validPeople,
           // Starts disabled: someone (yourself counts) must be chosen under With. No project is a valid choice.
-          sendable: withIds.length > 0,
+          sendable:
+            withIds.length > 0 && validRecipients && !create.uncertainCreation,
         }}
       />
     </>
@@ -1661,7 +1750,7 @@ export function ChatRunFeed({
 }
 
 function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
-  const { api, workspaceId, invalidate } = useWorkspace();
+  const { api, workspaceId, user, invalidate } = useWorkspace();
   const directory = useDirectory();
   const [open, setOpen] = useState(activeRun(run));
   const [body, setBody] = useState("");
@@ -1715,6 +1804,16 @@ function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
       <CollapsibleContent>
         <div className="flex flex-col gap-3 py-3">
           {run.outcome && <p>{run.outcome}</p>}
+          {user.id === run.sponsorId && run.sessionState && (
+            <p role="status">
+              {run.sessionState === "continued"
+                ? "Continuing your private session."
+                : run.sessionState === "reset"
+                  ? "The previous private context was not continued. A new private session was started."
+                  : "New private session."}
+            </p>
+          )}
+          <NativeActionCards run={run} canWrite={canWrite} />
           <QueryState
             pending={activity.isPending}
             error={activity.error}
@@ -1746,7 +1845,7 @@ function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
           />
           {!usage.error && usage.data && (
             <p>
-              Pi observed · {usage.data.model} ·{" "}
+              Native usage · {usage.data.model} ·{" "}
               {usage.data.totalTokens === null
                 ? "Token total unknown"
                 : `${usage.data.totalTokens} tokens`}
@@ -1912,7 +2011,6 @@ function RunAdmission({
   const { canWrite } = useChatPermissions(chat, participants);
   const { api, workspaceId, invalidate } = useWorkspace();
   const [agentId, setAgentId] = useState("");
-  const [type, setType] = useState<"prompt" | "script">("prompt");
   const [sessionId, setSessionId] = useState("");
   const [body, setBody] = useState("");
   const [taskId, setTaskId] = useState("");
@@ -1973,9 +2071,9 @@ function RunAdmission({
       const input = {
         chatId: chat.id,
         agentId,
-        type,
+        type: "prompt" as const,
         body,
-        sessionId: type === "prompt" && sessionId ? sessionId : undefined,
+        sessionId: sessionId || undefined,
         taskId: taskId || undefined,
         documentIds,
         messageIds,
@@ -2056,63 +2154,49 @@ function RunAdmission({
             .
           </p>
         )}
-        <ContextPicker
-          label="Run type"
-          value={type}
-          options={{
-            prompt: { label: "Prompt", icon: RiChat1Line },
-            script: { label: "Script", icon: RiChat1Line },
-          }}
-          onPick={(value) => {
-            setType(value as typeof type);
-            setSessionId("");
-          }}
-          disabled={admit.isPending}
+        <p>
+          Native prompt Runs only. Confined computer execution is unavailable.
+        </p>
+        <QueryState
+          pending={sessions.isPending}
+          error={sessions.error}
+          retry={sessions.refetch}
         />
-        {type === "prompt" && (
-          <>
-            <QueryState
-              pending={sessions.isPending}
-              error={sessions.error}
-              retry={sessions.refetch}
-            />
-            <ContextPicker
-              label="Private Session"
-              value={sessionId || "fresh"}
-              options={{
-                fresh: { label: "Fresh private Session", icon: RiChat1Line },
-                ...Object.fromEntries(
-                  (
-                    sessions.data?.pages.flatMap((page) => page.items) ?? []
-                  ).map((session) => [
-                    session.id,
-                    {
-                      label: `Continue ${session.createdAt ? new Date(session.createdAt).toLocaleString() : session.id}`,
-                      icon: RiChat1Line,
-                    },
-                  ]),
-                ),
-              }}
-              onPick={(id) => setSessionId(id === "fresh" ? "" : id)}
-              disabled={admit.isPending || !agentId || Boolean(sessions.error)}
-            />
-            {sessions.hasNextPage && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={sessions.isFetchingNextPage}
-                onClick={() => sessions.fetchNextPage()}
-              >
-                More Sessions
-              </Button>
-            )}
-            <p>
-              Private context stays private. A continued Session must match the
-              accepted scope, account and model; conflicts require your explicit
-              fresh selection.
-            </p>
-          </>
+        <ContextPicker
+          label="Private Session"
+          value={sessionId || "fresh"}
+          options={{
+            fresh: { label: "Fresh private Session", icon: RiChat1Line },
+            ...Object.fromEntries(
+              (sessions.data?.pages.flatMap((page) => page.items) ?? []).map(
+                (session) => [
+                  session.id,
+                  {
+                    label: `Continue ${session.createdAt ? new Date(session.createdAt).toLocaleString() : session.id}`,
+                    icon: RiChat1Line,
+                  },
+                ],
+              ),
+            ),
+          }}
+          onPick={(id) => setSessionId(id === "fresh" ? "" : id)}
+          disabled={admit.isPending || !agentId || Boolean(sessions.error)}
+        />
+        {sessions.hasNextPage && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={sessions.isFetchingNextPage}
+            onClick={() => sessions.fetchNextPage()}
+          >
+            More Sessions
+          </Button>
         )}
+        <p>
+          Private context stays private. A continued Session must match the
+          accepted scope, account and model; conflicts require your explicit
+          fresh selection.
+        </p>
         {chat.projectId && (
           <>
             <QueryState
@@ -2227,9 +2311,7 @@ function RunAdmission({
           </CollapsibleContent>
         </Collapsible>
         <Field>
-          <FieldLabel htmlFor="run-body">
-            {type === "script" ? "Script" : "Prompt"}
-          </FieldLabel>
+          <FieldLabel htmlFor="run-body">Prompt</FieldLabel>
           <Textarea
             id="run-body"
             required
@@ -2253,7 +2335,7 @@ function RunAdmission({
             !available.some((agent) => agent.id === agentId) ||
             !body.trim() ||
             admit.isPending ||
-            (type === "prompt" && !selected?.subscriptionId)
+            !selected?.subscriptionId
           }
         >
           {admit.isPending ? "Admitting Run" : "Start Run"}

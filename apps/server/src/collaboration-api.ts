@@ -8,7 +8,6 @@ import {
   getChat,
   getChatAudience,
   getChats,
-  getMessage,
   getMessages,
   getParticipants,
   markChatRead,
@@ -23,7 +22,6 @@ import {
   createProject,
   deleteProjectMember,
   getProject,
-  getProjectAudience,
   getProjectMembers,
   getProjects,
   PROJECT_MEMBER_SORTS,
@@ -57,7 +55,8 @@ import {
 import type { Context } from "@otto/workspaces";
 import { Hono } from "hono";
 import { z } from "zod";
-import { type ApiEnv, recordId, transact } from "./http";
+import { type ApiEnv, recordId, transact, workspaceId } from "./http";
+import { captureTask } from "./task-capture";
 import {
   body,
   editToken,
@@ -294,6 +293,7 @@ export const collaborationApi = new Hono<ApiEnv>()
               ctx,
               id.parse(c.req.param("id")),
               c.req.valid("query").after,
+              c.get("options").nativeStorage,
             ),
           false,
         ),
@@ -308,6 +308,7 @@ export const collaborationApi = new Hono<ApiEnv>()
           c,
           async (ctx) => {
             const chatId = id.parse(c.req.param("id"));
+            await getChat(ctx, chatId);
             return getSessions(ctx, chatId, c.req.valid("query"));
           },
           false,
@@ -399,28 +400,9 @@ export const collaborationApi = new Hono<ApiEnv>()
     ),
     async (c) =>
       c.json(
-        await transact(c, async (ctx) => {
-          const input = c.req.valid("json");
-          const message = await getMessage(ctx, input.chatId, input.messageId);
-          const audience = await getChatAudience(ctx, input.chatId);
-          const destination = await getProjectAudience(ctx, input.projectId);
-          if (destination.some((userId) => !audience.humans.includes(userId)))
-            throw new DomainError(
-              "forbidden",
-              "Capture would widen the source audience",
-            );
-          const task = await createTask(ctx, {
-            projectId: input.projectId,
-            title: input.title,
-            notes: message.body,
-            ownerId: input.ownerId,
-          });
-          await createTaskLink(ctx, task.id, {
-            type: "chat",
-            reference: input.chatId,
-          });
-          return task;
-        }),
+        await transact(c, (ctx) =>
+          captureTask(ctx, c.get("options").nativeStorage, c.req.valid("json")),
+        ),
       ),
   )
   .post(
@@ -677,27 +659,34 @@ export const collaborationApi = new Hono<ApiEnv>()
     ),
     async (c) =>
       c.json(
-        await transact(c, async (ctx) => {
-          const input = c.req.valid("json");
-          // Participants read what is attached to the Chat; only the custodian attaches a private File.
-          if (input.fileIds?.length) {
-            const audience = await getChatAudience(ctx, recordId(c));
-            for (const fileId of input.fileIds) {
-              const file = await requireFileAudience(
-                ctx,
-                fileId,
-                audience.humans,
-                true,
-              );
-              if (
-                file.ownerId !== ctx.actor.userId &&
-                file.visibility === "user"
-              )
-                throw new DomainError("forbidden");
+        await createMessage(
+          c.get("options").db,
+          c.get("options").nativeStorage,
+          workspaceId(c),
+          { userId: c.get("userId") },
+          recordId(c),
+          c.req.valid("json"),
+          async (ctx) => {
+            const input = c.req.valid("json");
+            // Participants read what is attached to the Chat; only the custodian attaches a private File.
+            if (input.fileIds?.length) {
+              const audience = await getChatAudience(ctx, recordId(c));
+              for (const fileId of input.fileIds) {
+                const file = await requireFileAudience(
+                  ctx,
+                  fileId,
+                  audience.humans,
+                  true,
+                );
+                if (
+                  file.ownerId !== ctx.actor.userId &&
+                  file.visibility === "user"
+                )
+                  throw new DomainError("forbidden");
+              }
             }
-          }
-          return createMessage(ctx, recordId(c), input);
-        }),
+          },
+        ),
       ),
   )
   .post(

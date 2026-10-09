@@ -13,10 +13,15 @@ import { connections, operations } from "../packages/connections/src/schema";
 import { createEnvironment } from "../packages/environments/src";
 import { admitRun } from "../packages/runs/src";
 import * as runRuntime from "../packages/runs/src/runtime";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { inWorkspace } from "../packages/workspaces/src";
 import { members, users, workspaces } from "../packages/workspaces/src/schema";
-import { ControlledComputer } from "./fixtures/computer";
-import { pi } from "./fixtures/pi";
+import {
+  controlledModel,
+  controlledSubscription,
+  fixtureEncryptionKey,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
 const cwd = new URL("../", import.meta.url).pathname;
@@ -30,6 +35,7 @@ async function until(check: () => Promise<boolean>) {
 describe("server operations on private PostgreSQL", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let databaseUrl: string;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   // Same memory-only signing/password fixtures as the reviewed auth tests.
   const signing = crypto.randomUUID() + crypto.randomUUID();
   beforeAll(async () => {
@@ -44,14 +50,17 @@ describe("server operations on private PostgreSQL", () => {
     });
     if (result.exitCode !== 0)
       throw new Error(result.stdout.toString() + result.stderr.toString());
+    nativeStorage = await openNativeStorage({ connectionString: databaseUrl });
   });
   afterAll(async () => {
+    await nativeStorage?.close();
     await database?.stop();
   });
   const config = () =>
     readConfig({
       DATABASE_URL: databaseUrl,
       BETTER_AUTH_SECRET: signing,
+      ENCRYPTION_KEY: fixtureEncryptionKey.toString("base64"),
       OTTO_ORIGIN: "http://localhost:43001",
       PORT: "0",
     });
@@ -90,6 +99,7 @@ describe("server operations on private PostgreSQL", () => {
       { userId: sponsorId },
       async (c) => {
         const agent = await createAgent(c, {
+          subscriptionId: await controlledSubscription(c),
           title: "Recovery",
           instructions: "fixture",
           model: "fixture",
@@ -110,10 +120,10 @@ describe("server operations on private PostgreSQL", () => {
             agentId: agent.id,
             chatId: chat.id,
             requestId: crypto.randomUUID(),
-            type: "script",
+            type: "prompt",
             body: "fixture",
           },
-          pi,
+          nativeModelAuthorization,
         );
         return { agentId: agent.id, runId: run.id };
       },
@@ -306,8 +316,7 @@ describe("server operations on private PostgreSQL", () => {
     try {
       server = await startServer(config(), {
         execution: {
-          backend: new ControlledComputer(crypto.randomUUID()),
-          pi,
+          resolveModel: async () => controlledModel(),
         },
       });
       capture.mockRestore();
@@ -389,6 +398,7 @@ describe("server operations on private PostgreSQL", () => {
           PATH: process.env.PATH,
           DATABASE_URL: databaseUrl,
           BETTER_AUTH_SECRET: signing,
+          ENCRYPTION_KEY: fixtureEncryptionKey.toString("base64"),
           OTTO_ORIGIN: `http://127.0.0.1:${port}`,
           PORT: String(port),
         },
@@ -430,6 +440,7 @@ describe("server operations on private PostgreSQL", () => {
           PATH: process.env.PATH,
           DATABASE_URL: databaseUrl,
           BETTER_AUTH_SECRET: signing,
+          ENCRYPTION_KEY: fixtureEncryptionKey.toString("base64"),
           OTTO_ORIGIN: "invalid",
         },
         stdout: "pipe",
@@ -482,7 +493,15 @@ describe("server operations on private PostgreSQL", () => {
     const boss = await startQueue(database.db, database.pool, {
       workers: false,
     });
-    app = createApp({ pi, db: database.db, boss, auth, origin });
+    app = createApp({
+      db: database.db,
+      boss,
+      auth,
+      origin,
+      nativeStorage,
+      modelAuthorization: nativeModelAuthorization,
+      encryptionKey: fixtureEncryptionKey,
+    });
     const password = crypto.randomUUID() + crypto.randomUUID();
     const nextPassword = crypto.randomUUID() + crypto.randomUUID();
     const post = (path: string, body: unknown) =>

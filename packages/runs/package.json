@@ -7,8 +7,8 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
     "./runtime": "./src/runtime.ts",
-    "./pi": "./src/pi.ts",
-    "./pi-extension": "./src/pi-extension.ts"
+    "./actions": "./src/actions.ts",
+    "./action-schema": "./src/action-schema.ts"
   },
   "dependencies": {
     "@otto/db": "workspace:*",
@@ -27,6 +27,7 @@
     "@otto/shared": "workspace:*",
     "@otto/schedules": "workspace:*",
     "@otto/subscriptions": "workspace:*",
-    "@otto/skills": "workspace:*"
+    "@otto/skills": "workspace:*",
+    "@mastra/core": "1.75.0"
   }
 }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdir } from "node:fs/promises";
+import { open, readdir, unlink, writeFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { deliverFile, type Located } from "../apps/server/src/file-delivery";
 import type { FileStorage } from "../packages/files/src";
@@ -13,6 +13,23 @@ describe("verified-before-first-byte delivery: checks, deadlines and lease relea
   const closers: (() => Promise<void>)[] = [];
   afterEach(async () => {
     for (const close of closers.splice(0)) await close();
+  });
+  it("detects a held spool descriptor before and after unlink, then proves it closes", async () => {
+    const transfers = await testSpool(100);
+    closers.push(transfers.close);
+    const lease = transfers.spool.lease(100);
+    const path = lease.path();
+    await writeFile(path, "descriptor probe");
+    const handle = await open(path, "r");
+    try {
+      expect(openSpoolFds(transfers.baseDir)).toHaveLength(1);
+      await unlink(path);
+      expect(openSpoolFds(transfers.baseDir)).toHaveLength(1);
+    } finally {
+      await handle.close();
+      await lease.release();
+    }
+    expect(openSpoolFds(transfers.baseDir)).toEqual([]);
   });
   async function setup(
     size: number,

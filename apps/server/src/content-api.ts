@@ -642,6 +642,7 @@ export const contentApi = new Hono<ApiEnv>()
             ctx,
             c.req.valid("json").selection,
             c.req.valid("json").existing,
+            c.get("options").nativeStorage,
           ),
         ),
       ),
@@ -652,7 +653,12 @@ export const contentApi = new Hono<ApiEnv>()
     async (c) =>
       c.json(
         await transact(c, (ctx) =>
-          publishShare(ctx, recordId(c), c.req.valid("json").editToken),
+          publishShare(
+            ctx,
+            recordId(c),
+            c.req.valid("json").editToken,
+            c.get("options").nativeStorage,
+          ),
         ),
       ),
   )

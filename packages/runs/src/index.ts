@@ -3,9 +3,9 @@ import { getAgent } from "@otto/agents";
 import {
   chatHasSponsor,
   chatReadable,
-  createMessage,
   getChat,
   getChatAudience,
+  getChatContext,
   getMessage,
 } from "@otto/chats";
 import { getConnection, snapshotGrants } from "@otto/connections";
@@ -21,6 +21,7 @@ import { getDocument, getDocumentAudience } from "@otto/documents";
 import { getEnvironment } from "@otto/environments";
 import { getProject } from "@otto/projects";
 import { createSession, requireSession } from "@otto/sessions";
+import type { NativeSessionStorage } from "@otto/sessions/native";
 import {
   DomainError,
   filterPage,
@@ -32,6 +33,7 @@ import {
 import { getSkill, snapshotSkills, validateSkillAccess } from "@otto/skills";
 
 import { getSubscription } from "@otto/subscriptions";
+import { authorizeSubscriptionModel } from "@otto/subscriptions/server";
 import { getTask } from "@otto/tasks";
 import {
   type Actor,
@@ -55,11 +57,9 @@ import {
 } from "./schema";
 export const RUN_QUEUE = "otto-run-dispatch";
 export type { ModelConfig, RunRequest } from "./schema";
-/** One managed Pi installation, supplied by trusted server composition. */
-export interface PiInstallation {
-  version: string;
-  argv: string[];
-  authorizeModel?: (
+export interface ModelAuthorization {
+  authorizeModel: (
+    c: Context,
     subscriptionId: string,
     model: string,
   ) => Promise<{
@@ -77,6 +77,7 @@ function normalizeRequest(input: RunRequest): RunRequestIdentity {
     body: input.body,
     taskId: input.taskId ?? null,
     sessionId: input.sessionId ?? null,
+    sessionMode: input.sessionMode ?? null,
     documentIds: input.documentIds ?? [],
     messageIds: input.messageIds ?? [],
     automationId: input.scheduleId ?? null,
@@ -89,9 +90,9 @@ export async function prepareRunModel(
   workspaceId: string,
   actor: Actor,
   input: Pick<RunRequest, "agentId" | "type" | "requestId">,
-  pi?: PiInstallation,
-): Promise<PiInstallation | undefined> {
-  if (input.type === "script" || !pi?.authorizeModel) return pi;
+  authorization?: ModelAuthorization,
+): Promise<ModelAuthorization | undefined> {
+  if (input.type === "script" || !authorization) return authorization;
   const selection = await inWorkspace(
     db,
     workspaceId,
@@ -123,24 +124,34 @@ export async function prepareRunModel(
       const subscription = await getSubscription(c, subscriptionId);
       if (subscription.status !== "enabled")
         throw new DomainError("forbidden", "Subscription unavailable");
-      return { subscriptionId, model: agent.model };
+      return {
+        subscriptionId,
+        model: agent.model,
+        accepted: await authorization.authorizeModel(
+          c,
+          subscriptionId,
+          agent.model,
+        ),
+      };
     },
     false,
   );
-  if (!selection) return pi;
-  const accepted = await pi.authorizeModel(
-    selection.subscriptionId,
-    selection.model,
-  );
+  if (!selection) return authorization;
   return {
-    ...pi,
-    authorizeModel: async (subscriptionId, model) => {
+    authorizeModel: async (c, subscriptionId, model) => {
       if (
         subscriptionId !== selection.subscriptionId ||
         model !== selection.model
       )
         throw new DomainError("conflict", "Account/model selection changed");
-      return accepted;
+      const current = await authorization.authorizeModel(
+        c,
+        subscriptionId,
+        model,
+      );
+      if (!isDeepStrictEqual(current, selection.accepted))
+        throw new DomainError("conflict", "Accepted provider identity changed");
+      return current;
     },
   };
 }
@@ -151,10 +162,24 @@ export async function admitRun(
   c: Context,
   boss: PgBoss,
   input: RunRequest,
-  pi?: PiInstallation,
+  authorization?: ModelAuthorization,
+  native?: NativeSessionStorage,
 ) {
   requireHuman(c);
   requireWriter(c);
+  if (
+    input.sessionMode === "auto" &&
+    (input.type !== "prompt" ||
+      input.sessionId ||
+      input.taskId ||
+      input.scheduleId ||
+      (input.documentIds?.length ?? 0) > 0 ||
+      input.messageIds?.length !== 1)
+  )
+    throw new DomainError(
+      "invalid",
+      "Automatic Session requires one Chat message without manual selections",
+    );
   const requestIdentity = normalizeRequest(input);
   const existing = (
     await c.tx
@@ -224,7 +249,34 @@ export async function admitRun(
     if (task.archived) throw new DomainError("conflict", "Task archived");
     if (task.projectId !== chat.projectId) throw new DomainError("forbidden");
   }
-  const context = await snapshotContext(c, input, audience);
+  const context = await snapshotContext(c, input, audience, "launch", native);
+  const triggeringMessage =
+    input.sessionMode === "auto"
+      ? await getMessage(
+          c,
+          chat.id,
+          required(input.messageIds?.[0]),
+          required(native, "unavailable"),
+        )
+      : null;
+  if (
+    triggeringMessage &&
+    (triggeringMessage.authorUserId !== c.actor.userId ||
+      triggeringMessage.authorAgentId ||
+      triggeringMessage.body !== input.body)
+  )
+    throw new DomainError(
+      "forbidden",
+      "Initiating message must belong to the authenticated sponsor",
+    );
+  const publicMessages = triggeringMessage
+    ? await getChatContext(
+        c,
+        chat.id,
+        triggeringMessage.cursor,
+        required(native, "unavailable"),
+      )
+    : undefined;
   const environment = await getEnvironment(c, agent.id);
   const pending = await c.tx
     .select({ id: runs.id })
@@ -240,38 +292,50 @@ export async function admitRun(
     throw new DomainError("conflict", "Environment queue is full");
   const skills = await snapshotSkills(c, agent.skillIds, audience);
   const grants = await snapshotGrants(c, agent.id);
-  const scope = JSON.stringify({
-    projectId: chat.projectId,
-    humans: [...audience.humans].sort(),
-    agents: [...audience.agents].sort(),
-    grants,
-    skillIds: skills.map((skill) => skill.documentId).sort(),
-    documentIds: context.documents.map((d) => d.id).sort(),
-    taskId: context.task?.id ?? null,
-  });
-  const piVersion = input.type === "prompt" ? pi?.version : null;
-  if (input.type === "prompt" && (!piVersion || !subscription))
-    throw new DomainError("unavailable", "Managed Pi account not configured");
+  if (input.type === "prompt" && (!authorization || !subscription))
+    throw new DomainError("unavailable", "Model account not configured");
   if (input.type === "prompt" && subscription?.status !== "enabled")
     throw new DomainError("forbidden", "Subscription unavailable");
   if (input.type === "script" && input.sessionId)
     throw new DomainError("invalid");
   const account =
     input.type === "prompt"
-      ? await required(pi?.authorizeModel, "unavailable")(
+      ? await required(authorization?.authorizeModel, "unavailable")(
+          c,
           required(agent.subscriptionId ?? undefined),
           agent.model,
         )
       : null;
+  const scope = JSON.stringify({
+    mode: input.sessionMode === "auto" ? "auto" : "manual",
+    projectId: chat.projectId,
+    humans: [...audience.humans].sort(),
+    agents: [...audience.agents].sort(),
+    grants,
+    agentEditToken: agent.editToken,
+    skills: skills
+      .map((skill) => ({ id: skill.documentId, editToken: skill.editToken }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    modelConfig: account?.modelConfig ?? null,
+    ...(input.sessionMode === "auto"
+      ? {}
+      : {
+          documentIds: context.documents.map((document) => document.id).sort(),
+          messageIds: context.messages.map((message) => message.id).sort(),
+          fileIds: [
+            ...new Set(context.messages.flatMap((message) => message.fileIds)),
+          ].sort(),
+          taskId: context.task?.id ?? null,
+        }),
+  });
   let session: Awaited<ReturnType<typeof createSession>> | null = null;
-  if (input.type === "prompt") {
+  if (input.type === "prompt" && input.sessionMode !== "auto") {
     const binding = {
       chatId: chat.id,
       agentId: agent.id,
       environmentId: environment.id,
       environmentGeneration: environment.generation,
       scope,
-      piVersion: required(piVersion ?? undefined, "unavailable"),
       provider: required(subscription?.provider, "unavailable"),
       model: agent.model,
       subscriptionId: agent.subscriptionId,
@@ -303,7 +367,6 @@ export async function admitRun(
           inputs: {
             body: input.body,
             instructions: agent.instructions,
-            piVersion: piVersion ?? null,
             provider: subscription?.provider ?? null,
             model: agent.model,
             subscriptionId:
@@ -311,12 +374,18 @@ export async function admitRun(
             accountId: account?.accountId ?? null,
             modelConfig: account?.modelConfig ?? null,
             agentEditToken: agent.editToken,
+            sessionMode: input.sessionMode ?? "fresh",
+            sessionScope: scope,
+            triggeringMessageId: triggeringMessage?.id,
+            chatCursor: triggeringMessage?.cursor,
+            publicMessages,
             audience,
             skills,
             grants,
             context,
           },
           cursor,
+          admittedCursor: cursor,
         })
         .returning()
     )[0],
@@ -341,6 +410,8 @@ function publicRun(run: typeof runs.$inferSelect) {
     id: run.id,
     chatId: run.chatId,
     agentId: run.agentId,
+    sponsorId: run.sponsorId,
+    sessionState: run.sessionState,
     taskId: run.taskId,
     type: run.type,
     state: run.state,
@@ -453,7 +524,7 @@ export async function stopRun(c: Context, id: string) {
     return { stopped: true };
   throw new DomainError(
     "unavailable",
-    "Cannot confirm process termination without the selected provider",
+    "Native runtime is unavailable to confirm termination",
   );
 }
 /** Server-only terminal admission outcome; it never changes an execution that may have launched. */
@@ -529,6 +600,8 @@ export async function recoverRuns(db: Database, boss: PgBoss) {
         );
         if (!jobId) throw new DomainError("conflict");
       } else if (current.state === "launching" || current.state === "running") {
+        if (current.deadlineAt && current.deadlineAt.getTime() > Date.now())
+          return;
         const cursor = await tx.execute<{ cursor: number }>(
           sql`update workspaces set cursor=cursor+1 where id=${row.workspaceId} returning cursor`,
         );
@@ -584,6 +657,7 @@ async function snapshotContext(
   input: Pick<RunRequest, "chatId" | "taskId" | "messageIds" | "documentIds">,
   audience: { humans: string[]; agents: string[] },
   phase: "launch" | "continue" = "launch",
+  native?: NativeSessionStorage,
 ) {
   if (
     (input.documentIds?.length ?? 0) > 20 ||
@@ -610,8 +684,17 @@ async function snapshotContext(
   }
   const messages = [];
   for (const id of input.messageIds ?? []) {
-    const message = await getMessage(c, input.chatId, id);
-    messages.push({ id: message.id, body: message.body });
+    const message = await getMessage(
+      c,
+      input.chatId,
+      id,
+      required(native, "unavailable"),
+    );
+    messages.push({
+      id: message.id,
+      body: message.body,
+      fileIds: message.fileIds,
+    });
   }
   const task = input.taskId ? await getTask(c, input.taskId, true) : null;
   if (task && phase === "launch" && task.archived)
@@ -633,6 +716,7 @@ export async function validateRunSources(
     editToken: number,
   ) => Promise<void>,
   phase: "launch" | "continue" = "launch",
+  native?: NativeSessionStorage,
 ) {
   requireWriter(c);
   const chat = await getChat(c, run.chatId, true);
@@ -659,6 +743,16 @@ export async function validateRunSources(
       throw new DomainError("conflict", "Accepted provider changed");
     if (account.status !== "enabled")
       throw new DomainError("forbidden", "Account unavailable");
+    const accepted = await authorizeSubscriptionModel(
+      c,
+      run.inputs.subscriptionId,
+      run.inputs.model,
+    );
+    if (
+      accepted.accountId !== run.inputs.accountId ||
+      !isDeepStrictEqual(accepted.modelConfig, run.inputs.modelConfig)
+    )
+      throw new DomainError("forbidden", "Accepted provider identity changed");
   }
   if (phase === "launch" && agent.model !== run.inputs.model)
     throw new DomainError("conflict", "Accepted model changed");
@@ -708,6 +802,7 @@ export async function validateRunSources(
       },
       run.inputs.audience,
       phase,
+      native,
     );
   if (run.taskId) {
     const task = await getTask(c, run.taskId, true);
@@ -716,7 +811,7 @@ export async function validateRunSources(
   }
 }
 
-/** Saved shared activity excludes raw private harness history. */
+/** Saved shared activity excludes private native history. */
 export async function getRunActivity(c: Context, id: string, after = 0) {
   const audience = await getRunAudience(c, id);
   if (
@@ -796,10 +891,6 @@ export async function createRunQuestion(
         .returning()
     )[0],
   );
-  await createMessage(c, run.chatId, {
-    requestId: question.id,
-    body: `Question ${question.id}: ${input.body}`,
-  });
   return question;
 }
 export async function getRunQuestion(c: Context, id: string) {
@@ -857,10 +948,6 @@ export async function answerRunQuestion(c: Context, id: string, body: string) {
         .returning()
     )[0],
   );
-  await createMessage(c, run.chatId, {
-    requestId: crypto.randomUUID(),
-    body: `Answer ${question.id}: ${body}`,
-  });
   return answered;
 }
 export async function getRunQuestions(c: Context, filter: PageOptions = {}) {
@@ -945,7 +1032,7 @@ export async function requestPeerRun(
   boss: PgBoss,
   parentId: string,
   input: { agentId: string; requestId: string; body: string },
-  pi?: PiInstallation,
+  authorization?: ModelAuthorization,
 ) {
   const parent = await authorizePeerRun(c, parentId, input.agentId);
   const sponsor = { ...c, actor: { userId: parent.sponsorId } };
@@ -992,7 +1079,7 @@ export async function requestPeerRun(
       type: "prompt",
       body: input.body,
     },
-    pi,
+    authorization,
   );
   if (!existing)
     await c.tx
@@ -1003,10 +1090,6 @@ export async function requestPeerRun(
         updatedAt: new Date(),
       })
       .where(eq(runs.id, child.id));
-  await createMessage(c, parent.chatId, {
-    requestId: child.id,
-    body: `Directed request to agent ${input.agentId}: ${input.body}`,
-  });
   return { runId: child.id, acknowledged: true };
 }
 
@@ -1122,7 +1205,7 @@ export async function getRunSkillFile(
 }
 
 /**
- * USD estimate at the accepted catalog list price, per request like Pi's `calculateCost`: the highest tier whose
+ * USD estimate at the accepted catalog list price, per model request: the highest tier whose
  * input threshold the request's input + cacheRead + cacheWrite exceeds prices that request in full. Null when no
  * price was accepted, any of the four priced counts (input, output, cacheRead, cacheWrite) is unreported or the
  * result is not finite.
@@ -1164,8 +1247,7 @@ export function estimateCost(
   return Number.isFinite(amount) ? Math.round(amount * 1e9) / 1e9 : null;
 }
 /**
- * Whole-Run totals of the model requests Pi reported, only after finished capture. They exclude retries inside the
- * gateway and are not billed money.
+ * Whole-Run totals of native model requests, only after finished capture. They are not billed money.
  * `estimatedCost` prices each message's reported tokens at the catalog API list price accepted with the Run
  * (the highest tier whose input threshold the message exceeds). It is an estimate, not a subscription charge,
  * and stays null when the Run is incomplete, any of the four priced counts is unreported or no price was accepted.
@@ -1203,9 +1285,7 @@ export async function getRunUsage(c: Context, id: string) {
   return {
     provider: run.inputs.provider,
     model: run.inputs.model,
-    // Pi-observed model requests only: assistant messages and compaction summaries. Retries inside the
-    // gateway are not observed, so this is never provider-billed or whole-account consumption.
-    scope: "pi_observed" as const,
+    scope: "native_observed" as const,
     complete,
     messageCount: run.usage.length,
     unreportedCount: run.usage.filter((message) =>

@@ -45,7 +45,12 @@ export function createRealtime(options: ApiOptions) {
         request.workspaceId,
         { userId: session.user.id },
         async (c) => {
-          const messages = await getMessages(c, request.chatId, request.after);
+          const messages = await getMessages(
+            c,
+            request.chatId,
+            request.after,
+            options.nativeStorage,
+          );
           const { items: runs } = await getRuns(c, {
             chatId: request.chatId,
             cursor: request.after,
@@ -142,7 +147,13 @@ export function createRealtime(options: ApiOptions) {
           options.db,
           parsed.data.workspaceId,
           { userId: session.user.id },
-          (c) => getMessages(c, parsed.data.chatId, parsed.data.after),
+          (c) =>
+            getMessages(
+              c,
+              parsed.data.chatId,
+              parsed.data.after,
+              options.nativeStorage,
+            ),
           false,
         );
       } catch (error) {

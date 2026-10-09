@@ -4,17 +4,29 @@ import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
+import { authorizeRunSources } from "../apps/server/src/run-sources";
 import { readRunSkillFile } from "../apps/server/src/skill-files";
-import { createRunTools } from "../apps/server/src/tools";
-import { createRunRuntime } from "../packages/runs/src/runtime";
+import {
+  createNativeRunTools,
+  effectRequestId,
+} from "../apps/server/src/tools";
+import { publishNativeMessage } from "../packages/chats/src";
+import {
+  assertRunAttempt,
+  createRunRuntime,
+  withRunAttempt,
+} from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
 import { validateSchedule } from "../packages/schedules/src";
-import { createSubscription } from "../packages/subscriptions/src";
-import { subscriptions } from "../packages/subscriptions/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { pushDatabase } from "../scripts/push";
-import { ControlledComputer } from "./fixtures/computer";
-import { pi, piRuntime } from "./fixtures/pi";
+import {
+  controlledModel,
+  controlledSubscription,
+  fixtureEncryptionKey,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
@@ -25,6 +37,9 @@ const TABLES = "'files','documents','messages','task_links'";
 it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evidence and matches a fresh push", async () => {
   const database = await startPostgres();
   const fresh = await startPostgres();
+  const nativeStorage = await openNativeStorage({
+    connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+  });
   const boss = await startQueue(database.db, database.pool, {
     workers: false,
     install: true,
@@ -43,6 +58,7 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
     },
   });
   let app: ReturnType<typeof createApp>;
+  let runtime: ReturnType<typeof createRunRuntime> | undefined;
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -60,7 +76,9 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
       auth,
       boss,
       origin,
-      pi,
+      nativeStorage,
+      encryptionKey: fixtureEncryptionKey,
+      modelAuthorization: nativeModelAuthorization,
       storage,
       spool: transfers.spool,
     });
@@ -96,34 +114,109 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
       const response = await request(path, method, json);
       expect(response.status, await response.clone().text()).toBe(200);
     };
-    // Real runtime-produced retained scopes (the controlled computer is a fixture, not isolation proof).
-    const accountId = (
-      await inWorkspace(database.db, workspaceId, { userId }, (c) =>
-        createSubscription(c, {
-          provider: "codex",
-          title: "Fixture native account",
-          visibility: "workspace",
-        }),
-      )
-    ).id;
-    await database.db
-      .update(subscriptions)
-      .set({ status: "enabled" })
-      .where(eq(subscriptions.id, accountId));
-    const computer = new ControlledComputer(accountId);
-    const runtime = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
+    const accountId = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId },
+      controlledSubscription,
+    );
+    let fixtureError: unknown;
+    runtime = createRunRuntime(database.db, {
+      storage: nativeStorage,
+      resolveModel: async (attempt) => {
+        const row = await runState(attempt.runId);
+        if (!row) throw new Error("Missing native Run");
+        expect(
+          new Uint8Array(
+            await readRunSkillFile(database.db, storage, {
+              workspaceId,
+              sponsorId: userId,
+              runId: row.id,
+              skillId: skill.id,
+              path: "references/source.txt",
+              attempt,
+              native: nativeStorage,
+            }).catch((error) => {
+              fixtureError = error;
+              throw error;
+            }),
+          ),
+        ).toEqual(bytes);
+        return controlledModel({
+          toolRequests:
+            row.inputs.body === "Create Agent file"
+              ? [
+                  {
+                    toolName: "file_create",
+                    toolCallId: "file-output",
+                    input: {
+                      title: "Agent result",
+                      type: "text",
+                      visibility: "workspace",
+                      mediaType: "text/plain",
+                      text: "saved agent output",
+                    },
+                  },
+                ]
+              : [],
+        });
+      },
       deadlineMs: 30000,
       validateSchedule,
-      handleTool: createRunTools(database.db, boss, { storage, pi }),
-      readSkillFile: (input) => readRunSkillFile(database.db, storage, input),
+      authorizeSources: authorizeRunSources,
+      tools: (attempt, signal) =>
+        createNativeRunTools(
+          database.db,
+          boss,
+          attempt,
+          { native: nativeStorage, storage, models: nativeModelAuthorization },
+          signal,
+        ),
+      publishOutput: async (attempt, output) => {
+        const scope = await withRunAttempt(
+          database.db,
+          attempt,
+          async (c, run) => ({
+            actor: c.actor,
+            sessionId: run.sessionId,
+            chatId: run.chatId,
+          }),
+          validateSchedule,
+          nativeStorage,
+          authorizeRunSources,
+        );
+        if (!scope.sessionId) throw new Error("Missing native Session");
+        await publishNativeMessage(
+          database.db,
+          nativeStorage,
+          workspaceId,
+          scope.actor,
+          scope.chatId,
+          {
+            requestId: effectRequestId(attempt.runId, output.nativeMessageId),
+            sessionId: scope.sessionId,
+            ...output,
+          },
+          async (c) => {
+            await assertRunAttempt(
+              c,
+              attempt,
+              validateSchedule,
+              nativeStorage,
+              authorizeRunSources,
+            );
+          },
+        ).catch((error) => {
+          fixtureError = error;
+          throw error;
+        });
+      },
     });
     const withRuntime = async <T>(work: () => Promise<T>) => {
       const worker = await startQueue(database.db, database.pool, {
         runtime,
-        pi,
+        modelAuthorization: nativeModelAuthorization,
+        nativeStorage,
       });
       const previous = app;
       app = createApp({
@@ -131,7 +224,9 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
         auth,
         boss,
         origin,
-        pi,
+        nativeStorage,
+        encryptionKey: fixtureEncryptionKey,
+        modelAuthorization: nativeModelAuthorization,
         storage,
         spool: transfers.spool,
         runtime,
@@ -150,6 +245,7 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
         .poll(
           async () => {
             const row = await runState(id);
+            if (fixtureError) throw fixtureError;
             return `${row?.state}:${row?.state === "finished" ? "" : (row?.outcome ?? "")}`;
           },
           { timeout: 15000 },
@@ -205,13 +301,12 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
       title: "Linked task",
     });
     await ok(`/tasks/${task.id}/links`, { type: "file", reference: file.id });
-    const agents: Record<"prompt" | "script", string> = {
+    const agents: Record<"prompt", string> = {
       prompt: "",
-      script: "",
     };
     const oldRuns: string[] = [];
     await withRuntime(async () => {
-      for (const type of ["prompt", "script"] as const) {
+      for (const type of ["prompt"] as const) {
         const created = z.object({ agent: record }).parse(
           await (
             await request("/agents", "POST", {
@@ -224,9 +319,6 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
             })
           ).json(),
         ).agent;
-        await ok(`/agents/${created.id}/computer`, {
-          computerRef: created.id,
-        });
         await ok(`/chats/${chat.id}/participants`, {
           agentId: created.id,
           role: "contributor",
@@ -234,7 +326,7 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
         agents[type] = created.id;
       }
       // Stable audience: every participant joins before any Run is accepted.
-      for (const type of ["prompt", "script"] as const) {
+      for (const type of ["prompt"] as const) {
         const started = await post("/runs", {
           chatId: chat.id,
           agentId: agents[type],
@@ -273,15 +365,15 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
     const scopes = async () =>
       (
         await database.pool.query(
-          'select "agentId","executionScope" from environments where "agentId"=any($1) order by "agentId"',
+          'select "agentId",scope from agent_sessions where "agentId"=any($1) order by "agentId"',
           [Object.values(agents)],
         )
       ).rows;
     const originalScopes = await scopes();
-    // The Skill's accepted file reference keeps its historical private key inside the retained scope.
     expect(
-      originalScopes.some((s) => s.executionScope.includes("artifactId")),
-    ).toBe(true);
+      (await runState(oldRuns[0] ?? ""))?.inputs.skills[0]
+        ?.supportingFiles?.[0],
+    ).toMatchObject({ artifactId: file.id });
     // Reconstruct the captured Resources-era state: names, discriminators and historical stored JSON forms only.
     await database.pool.query(`
       DO $$ DECLARE e record; BEGIN
@@ -468,17 +560,25 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
       expect(exported.files[0]).not.toHaveProperty("resourceId");
       expect(exported.files[0]).not.toHaveProperty("artifactId");
     }
-    expect(
-      new Uint8Array(
-        await readRunSkillFile(database.db, storage, {
-          workspaceId,
-          sponsorId: userId,
-          runId: oldRuns[0] ?? "",
-          skillId: skill.id,
-          path: "references/source.txt",
-        }),
-      ),
-    ).toEqual(bytes);
+    const completed = await runState(oldRuns[0] ?? "");
+    if (!completed?.launchKey || !completed.sessionId)
+      throw new Error("Missing completed native attempt");
+    await expect(
+      readRunSkillFile(database.db, storage, {
+        workspaceId,
+        sponsorId: userId,
+        runId: completed.id,
+        skillId: skill.id,
+        path: "references/source.txt",
+        native: nativeStorage,
+        attempt: {
+          runId: completed.id,
+          agentId: completed.agentId,
+          attempt: completed.attempt,
+          launchKey: completed.launchKey,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "forbidden" });
     for (const id of [share.id, legacyShare.id]) {
       const frozen = await (await fetch(`${origin}/api/shares/${id}`)).json();
       expect(frozen).toMatchObject({ type: "file", fileType: "text" });
@@ -489,16 +589,16 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
       ).toEqual(bytes);
     }
     expect(await proof()).toEqual(before);
-    // NEW prompt and script Runs reuse the real retained scopes; a changed source set is still refused.
     expect(await scopes()).toEqual(originalScopes);
     await withRuntime(async () => {
-      for (const type of ["prompt", "script"] as const) {
+      for (const type of ["prompt"] as const) {
         const started = await post("/runs", {
           chatId: chat.id,
           agentId: agents[type],
           requestId: crypto.randomUUID(),
           type,
           body: "finish",
+          sessionId: completed.sessionId,
         });
         await finish(started.id);
       }
@@ -507,7 +607,8 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
         agentId: agents.prompt,
         requestId: crypto.randomUUID(),
         type: "prompt",
-        body: `_tool=${JSON.stringify({ name: "file.create", requestId: crypto.randomUUID(), title: "Agent result", type: "text", visibility: "workspace", mediaType: "text/plain", text: "saved agent output" })}`,
+        body: "Create Agent file",
+        sessionId: completed.sessionId,
       });
       await finish(created.id);
       const agentFile = (
@@ -520,22 +621,16 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
         sourceRunId: created.id,
         ownerId: userId,
       });
-      const changed = await post("/runs", {
+      const changed = await request("/runs", "POST", {
         chatId: chat.id,
         agentId: agents.prompt,
         requestId: crypto.randomUUID(),
         type: "prompt",
         body: "finish",
         documentIds: [doc.id],
+        sessionId: completed.sessionId,
       });
-      await expect
-        .poll(async () => (await runState(changed.id))?.state, {
-          timeout: 15000,
-        })
-        .toBe("failed");
-      expect((await runState(changed.id))?.outcome).toBe(
-        "admission_configuration_unavailable",
-      );
+      expect(changed.status).toBe(409);
     });
     expect(await scopes()).toEqual(originalScopes);
     // Native push after the rename keeps the data and constraint/index definitions of a fresh push.
@@ -557,6 +652,8 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
   } finally {
     await server.stop(true);
     await boss.stop();
+    await runtime?.close();
+    await nativeStorage.close();
     await fresh.stop();
     await database.stop();
   }

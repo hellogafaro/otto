@@ -1,7 +1,8 @@
 import type { Page } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { connections } from "../../packages/connections/src/schema";
-import { qualifySubscription } from "../../packages/subscriptions/src/server";
+import { secrets } from "../../packages/secrets/src/schema";
+import { authorizeSubscriptionModel } from "../../packages/subscriptions/src/server";
 import { inWorkspace } from "../../packages/workspaces/src";
 import { invitations, users } from "../../packages/workspaces/src/schema";
 import { register } from "./account";
@@ -341,7 +342,7 @@ test("Known invitation acceptance uses the verified exact recipient and consumes
   }
 });
 
-test("Exact Codex account persists display and visibility, reports missing login/models services, disables and disconnects", async ({
+test("Exact native provider persists encrypted key, display and visibility, selected models, disables and disconnects", async ({
   page,
   fixture,
   browser,
@@ -351,82 +352,118 @@ test("Exact Codex account persists display and visibility, reports missing login
     fixture,
     "Settings Account Owner",
   );
-  const mine = page.locator("section").filter({
-    has: page.getByRole("heading", { name: "Your connections", exact: true }),
-  });
-  const shared = page.locator("section").filter({
-    has: page.getByRole("heading", {
-      name: "Workspace connections",
-      exact: true,
-    }),
-  });
   await page.goto("/settings/models");
-  await expect(page.getByText("No connections", { exact: true })).toHaveCount(
-    2,
-  );
+  await expect(
+    page.getByRole("heading", { name: "No providers", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  const creationDialog = page.getByRole("dialog", {
+    name: "Add provider",
+    exact: true,
+  });
+  await creationDialog
+    .getByLabel("Title", { exact: true })
+    .fill("Settings OpenAI");
+  await creationDialog
+    .getByLabel("Model IDs", { exact: true })
+    .fill("gpt-fixture, gpt-selected");
   const creationAck = responseFor(
     page,
     "POST",
     `/api/workspaces/${workspaceId}/subscriptions`,
   );
-  await mine.getByRole("button", { name: "Add connection" }).click();
-  await page.getByRole("menuitem", { name: "Codex", exact: true }).click();
+  await creationDialog
+    .getByRole("button", { name: "Continue to API key", exact: true })
+    .click();
   const creation = await creationAck;
   expect(creation.status()).toBe(200);
   const account = await creation.json();
   expect(account).toMatchObject({
-    provider: "codex",
+    provider: "openai",
+    protocol: "responses",
+    baseUrl: "https://api.openai.com/v1",
+    models: ["gpt-fixture", "gpt-selected"],
     status: "needs_auth",
     visibility: "user",
     createdBy: userId,
   });
-  await expect(mine.getByText("Sign-in needed", { exact: true })).toBeVisible();
-  // The new connection signs in at once; with no login service it says so and shows no device code.
+  expect(account).not.toHaveProperty("secretId");
+  const keyDialog = page.getByRole("dialog", {
+    name: "Set API key",
+    exact: true,
+  });
   await expect(
-    page.getByRole("alert").filter({ hasText: "This service is unavailable" }),
+    keyDialog.getByLabel("API key", { exact: true }),
+  ).toHaveAttribute("type", "password");
+  await keyDialog
+    .getByLabel("API key", { exact: true })
+    .fill("fixture-browser-provider-key");
+  const keyAck = responseFor(
+    page,
+    "PUT",
+    `/api/workspaces/${workspaceId}/subscriptions/${account.id}/api-key`,
+  );
+  await keyDialog
+    .getByRole("button", { name: "Save API key", exact: true })
+    .click();
+  const keyResponse = await keyAck;
+  expect(keyResponse.status()).toBe(200);
+  const keyProjection = await keyResponse.json();
+  expect(keyProjection.status).toBe("enabled");
+  expect(keyProjection).not.toHaveProperty("secretId");
+  expect(JSON.stringify(keyProjection)).not.toContain(
+    "fixture-browser-provider-key",
+  );
+  await expect(keyDialog).not.toBeVisible();
+  await expect(
+    page.getByText("openai · responses · Key saved", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Device code:", { exact: false })).toHaveCount(0);
 
+  const firstIdentity = await inWorkspace(
+    fixture.database.db,
+    workspaceId,
+    { userId },
+    (c) => authorizeSubscriptionModel(c, account.id, "gpt-selected"),
+  );
+  const savedSecret = await fixture.database.db
+    .select({ value: secrets.value })
+    .from(secrets)
+    .where(eq(secrets.id, firstIdentity.accountId));
+  expect(savedSecret).toHaveLength(1);
+  expect(savedSecret[0]?.value).not.toContain("fixture-browser-provider-key");
+
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const edit = page.getByRole("dialog", { name: "Edit provider", exact: true });
+  await edit
+    .getByLabel("Title", { exact: true })
+    .fill("Settings Renamed OpenAI");
+  await edit
+    .getByRole("button", { name: "Who can use it: Only you", exact: true })
+    .click();
   await page
-    .getByRole("textbox", { name: "Codex name", exact: true })
-    .fill("Settings Renamed Codex");
-  const renameAck = responseFor(
+    .getByRole("menuitemradio", { name: "Workspace", exact: true })
+    .click();
+  const metadataAck = responseFor(
     page,
     "PATCH",
     `/api/workspaces/${workspaceId}/subscriptions/${account.id}`,
   );
-  await page.getByRole("textbox", { name: "Codex name", exact: true }).blur();
-  expect((await renameAck).status()).toBe(200);
-  await expect(
-    page.getByRole("textbox", {
-      name: "Settings Renamed Codex name",
+  await edit
+    .getByRole("button", { name: "Save provider", exact: true })
+    .click();
+  expect((await metadataAck).status()).toBe(200);
+  await expect(edit).not.toBeVisible();
+  await page.reload();
+  const shared = page.locator("section").filter({
+    has: page.getByRole("heading", {
+      name: "Workspace providers",
       exact: true,
     }),
-  ).toHaveValue("Settings Renamed Codex");
-  await page
-    .getByRole("button", {
-      name: "Actions for Settings Renamed Codex",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("menuitem", { name: "Share with workspace", exact: true })
-    .click();
-  const sharingAck = responseFor(
-    page,
-    "PATCH",
-    `/api/workspaces/${workspaceId}/subscriptions/${account.id}`,
-  );
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Share", exact: true })
-    .click();
-  expect((await sharingAck).status()).toBe(200);
-  await page.reload();
+  });
   await expect(
-    shared.getByText("Settings Renamed Codex", { exact: true }),
+    shared.getByText("Settings Renamed OpenAI", { exact: true }),
   ).toBeVisible();
-  await expect(mine.getByText("No connections", { exact: true })).toBeVisible();
 
   const reader = await browser.newContext();
   try {
@@ -439,120 +476,181 @@ test("Exact Codex account persists display and visibility, reports missing login
     );
     await readerPage.goto("/settings/models");
     await expect(
-      readerPage.getByText("Sign-in needed · Added by Settings Account Owner", {
-        exact: true,
-      }),
+      readerPage.getByText("Settings Renamed OpenAI", { exact: true }),
     ).toBeVisible();
     await expect(
-      readerPage.getByRole("button", { name: /^Actions for / }),
+      readerPage.getByRole("button", { name: "Replace key", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      readerPage.getByRole("button", { name: "Edit", exact: true }),
     ).toHaveCount(0);
     const denied = await readerPage.evaluate(
-      async ({ workspaceId, id }) =>
-        (
-          await fetch(`/api/workspaces/${workspaceId}/subscriptions/${id}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ title: "Unauthorized rename" }),
-          })
-        ).status,
+      async ({ workspaceId, id }) => {
+        const base = `/api/workspaces/${workspaceId}/subscriptions/${id}`;
+        const patch = await fetch(base, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title: "Unauthorized rename" }),
+        });
+        const key = await fetch(`${base}/api-key`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ apiKey: "fixture-unauthorized-key" }),
+        });
+        const models = await fetch(`${base}/models`);
+        const projection = await (await fetch(base)).json();
+        return {
+          patch: patch.status,
+          key: key.status,
+          models: await models.json(),
+          projection,
+        };
+      },
       { workspaceId, id: account.id },
     );
-    expect(denied).toBe(403);
+    expect(denied.patch).toBe(403);
+    expect(denied.key).toBe(403);
+    expect(denied.models).toEqual({
+      items: [{ id: "gpt-fixture" }, { id: "gpt-selected" }],
+      next: null,
+    });
+    expect(denied.projection).not.toHaveProperty("secretId");
+    expect(JSON.stringify(denied)).not.toContain(
+      "fixture-browser-provider-key",
+    );
   } finally {
     await reader.close();
   }
 
-  // Controlled server-only qualified state to reach the enabled-only Models widget.
-  // This exercises no real gateway authentication, provider account or billing.
-  await test.step("Controlled account qualification; actual gateway service remains absent", async () => {
-    await inWorkspace(fixture.database.db, workspaceId, { userId }, (ctx) =>
-      qualifySubscription(ctx, account.id, "codex"),
-    );
-  });
-  await page.reload();
-  const modelsAck = responseFor(
-    page,
-    "GET",
-    `/api/workspaces/${workspaceId}/subscriptions/${account.id}/models`,
+  await page.getByRole("button", { name: "Replace key", exact: true }).click();
+  await expect(keyDialog.getByLabel("API key", { exact: true })).toHaveValue(
+    "",
   );
-  await page
-    .getByRole("button", { name: "Expand Settings Renamed Codex" })
+  await keyDialog
+    .getByLabel("API key", { exact: true })
+    .fill("fixture-browser-replacement-key");
+  const replacementAck = responseFor(
+    page,
+    "PUT",
+    `/api/workspaces/${workspaceId}/subscriptions/${account.id}/api-key`,
+  );
+  await keyDialog
+    .getByRole("button", { name: "Save API key", exact: true })
     .click();
-  expect((await modelsAck).status()).toBe(503);
-  await expect(
-    page.getByRole("alert").filter({ hasText: "This service is unavailable" }),
-  ).toBeVisible();
-  await expect(page.getByText(/gpt-|claude-/)).toHaveCount(0);
+  expect((await replacementAck).status()).toBe(200);
+  await expect(keyDialog).not.toBeVisible();
+  const nextIdentity = await inWorkspace(
+    fixture.database.db,
+    workspaceId,
+    { userId },
+    (c) => authorizeSubscriptionModel(c, account.id, "gpt-selected"),
+  );
+  expect(nextIdentity.accountId).not.toBe(firstIdentity.accountId);
+  expect(
+    await fixture.database.db
+      .select()
+      .from(secrets)
+      .where(eq(secrets.id, firstIdentity.accountId)),
+  ).toHaveLength(0);
+
+  const defaults = await page.evaluate(
+    async (workspaceId) =>
+      (
+        await (
+          await fetch(`/api/workspaces/${workspaceId}/agents?limit=100`)
+        ).json()
+      ).items as { id: string; isDefault: boolean }[],
+    workspaceId,
+  );
+  const defaultAgent = defaults.find((agent) => agent.isDefault);
+  expect(defaultAgent).toBeDefined();
+  if (!defaultAgent)
+    throw new Error("Default agent missing from bootstrap fixture");
+  await page.goto(`/settings/agents/${defaultAgent.id}`);
+  await page.getByRole("button", { name: "Edit agent", exact: true }).click();
+  const agentEditor = page.getByRole("dialog", {
+    name: "Edit agent",
+    exact: true,
+  });
+  await agentEditor.getByRole("button", { name: /^Account:/ }).click();
   await page
-    .getByRole("button", {
-      name: "Actions for Settings Renamed Codex",
+    .getByRole("menuitemradio", {
+      name: "Settings Renamed OpenAI · openai",
       exact: true,
     })
     .click();
-  await page.getByRole("menuitem", { name: "Disable", exact: true }).click();
+  await agentEditor.getByRole("button", { name: /^Model:/ }).click();
+  await page
+    .getByRole("menuitemradio", { name: "gpt-selected", exact: true })
+    .click();
+  const agentAck = responseFor(
+    page,
+    "PATCH",
+    `/api/workspaces/${workspaceId}/agents/${defaultAgent.id}`,
+  );
+  await agentEditor
+    .getByRole("button", { name: "Save agent", exact: true })
+    .click();
+  expect((await agentAck).status()).toBe(200);
+  await expect(agentEditor).not.toBeVisible();
+  await page.reload();
+  await expect(page.getByText("gpt-selected", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Protected default", { exact: true }),
+  ).toBeVisible();
+  await page.goto("/settings/models");
+
   const disableAck = responseFor(
     page,
     "PATCH",
     `/api/workspaces/${workspaceId}/subscriptions/${account.id}`,
   );
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Disable", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Disable", exact: true }).click();
   expect((await disableAck).status()).toBe(200);
-  await expect(shared.getByText("Disabled", { exact: true })).toBeVisible();
+  await expect(
+    shared.getByText("openai · responses · disabled", { exact: true }),
+  ).toBeVisible();
   await page.reload();
-  await expect(shared.getByText("Disabled", { exact: true })).toBeVisible();
-  const current = await page.evaluate(
-    async ({ workspaceId, id }) =>
-      await (
-        await fetch(`/api/workspaces/${workspaceId}/subscriptions/${id}`)
-      ).json(),
-    { workspaceId, id: account.id },
-  );
-  expect(current).toMatchObject({
-    id: account.id,
-    title: "Settings Renamed Codex",
-    visibility: "workspace",
-    status: "disabled",
-  });
-  await testInfo.attach("exact-account-disabled-no-model-fallback", {
+  await expect(
+    shared.getByText("openai · responses · disabled", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    inWorkspace(fixture.database.db, workspaceId, { userId }, (c) =>
+      authorizeSubscriptionModel(c, account.id, "gpt-selected"),
+    ),
+  ).rejects.toThrow("Provider or model unavailable");
+  await testInfo.attach("native-provider-disabled-no-model-fallback", {
     body: await page.screenshot(),
     contentType: "image/png",
   });
-
-  // Disconnect ends the account for good and takes it off the page.
-  await page
-    .getByRole("button", {
-      name: "Actions for Settings Renamed Codex",
-      exact: true,
-    })
-    .click();
-  await page.getByRole("menuitem", { name: "Disconnect", exact: true }).click();
   const disconnectAck = responseFor(
     page,
     "POST",
     `/api/workspaces/${workspaceId}/subscriptions/${account.id}/disconnect`,
   );
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Disconnect", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Disconnect", exact: true }).click();
   expect((await disconnectAck).status()).toBe(200);
-  await expect(page.getByText("No connections", { exact: true })).toHaveCount(
-    2,
+  await expect(
+    page.getByRole("heading", { name: "No providers", exact: true }),
+  ).toBeVisible();
+  const current = await page.evaluate(
+    async ({ workspaceId, id }) =>
+      (
+        await fetch(`/api/workspaces/${workspaceId}/subscriptions/${id}`)
+      ).json(),
+    { workspaceId, id: account.id },
   );
+  expect(current).toMatchObject({
+    status: "disconnected",
+    title: "Settings Renamed OpenAI",
+    visibility: "workspace",
+  });
   expect(
-    (
-      await page.evaluate(
-        async ({ workspaceId, id }) =>
-          await (
-            await fetch(`/api/workspaces/${workspaceId}/subscriptions/${id}`)
-          ).json(),
-        { workspaceId, id: account.id },
-      )
-    ).status,
-  ).toBe("disconnected");
+    await fixture.database.db
+      .select()
+      .from(secrets)
+      .where(eq(secrets.id, nextIdentity.accountId)),
+  ).toHaveLength(0);
 });
 
 test("MCP creation and configuration persist, missing discovery/connect services never imply connected", async ({

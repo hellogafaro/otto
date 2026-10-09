@@ -1,7 +1,8 @@
 import type { CursorCodec, Database } from "@otto/db";
 import type { FileStorage } from "@otto/files";
-import type { PiInstallation } from "@otto/runs";
+import type { ModelAuthorization } from "@otto/runs";
 import type { RunRuntime } from "@otto/runs/runtime";
+import type { NativeSessionStorage } from "@otto/sessions/native";
 import { type Context, inWorkspace } from "@otto/workspaces";
 import type { Context as HttpContext } from "hono";
 import type { PgBoss } from "pg-boss";
@@ -9,9 +10,7 @@ import type { Auth } from "./auth";
 import type { ConnectionOptions } from "./connections";
 import type { createContentPresence } from "./content-presence";
 import type { Mail } from "./mail";
-import type { ModelGateway } from "./model-gateway";
 import type { Spool, TransferLimits } from "./spool";
-import type { SubscriptionLogin } from "./subscription-login";
 import type { Transcriber } from "./transcription";
 import { id } from "./validation";
 
@@ -26,12 +25,11 @@ export interface ApiOptions {
   /** Deadlines for file transfers; defaults apply when omitted. */
   transfer?: TransferLimits;
   runtime?: RunRuntime;
-  pi?: PiInstallation;
+  modelAuthorization?: ModelAuthorization;
+  nativeStorage: NativeSessionStorage;
+  encryptionKey?: Uint8Array;
   mail?: Mail;
   connections?: ConnectionOptions;
-  subscriptionLogin?: SubscriptionLogin;
-  gatewayStoreKey?: string;
-  modelGateway?: ModelGateway;
   /** Speech to text for dictation; absent without OPENROUTER_API_KEY. */
   transcriber?: Transcriber;
   /** Seals sorted list cursors; production derives it from the auth secret. Without it a sorted list is unavailable. */

@@ -23,15 +23,26 @@ import {
 } from "@otto/workspaces";
 import { and, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
+import { PROVIDER_CONFIG, providerBaseUrl } from "./native-provider-config";
 import { subscriptions } from "./schema";
 
 export const SUBSCRIPTION_INPUT = z
   .object({
     title: z.string().min(1).max(200),
-    provider: z.literal("codex"),
+    ...PROVIDER_CONFIG.shape,
     visibility: z.enum(["user", "workspace"]).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const result = PROVIDER_CONFIG.safeParse(value);
+    if (!result.success)
+      for (const issue of result.error.issues)
+        ctx.addIssue({
+          code: "custom",
+          message: issue.message,
+          path: issue.path,
+        });
+  });
 export const SUBSCRIPTION_UPDATE = z
   .object({
     title: z.string().min(1).max(200).optional(),
@@ -67,6 +78,12 @@ export async function createSubscription(
         .insert(subscriptions)
         .values({
           ...parsed,
+          baseUrl:
+            parsed.provider === "openai-compatible"
+              ? providerBaseUrl(parsed.baseUrl ?? "")
+              : parsed.provider === "openai"
+                ? "https://api.openai.com/v1"
+                : "https://api.anthropic.com/v1",
           workspaceId: c.workspaceId,
           createdBy: c.actor.userId,
         })
@@ -85,6 +102,9 @@ export async function getSubscription(c: Context, id: string) {
           createdBy: subscriptions.createdBy,
           title: subscriptions.title,
           provider: subscriptions.provider,
+          protocol: subscriptions.protocol,
+          baseUrl: subscriptions.baseUrl,
+          models: subscriptions.models,
           visibility: subscriptions.visibility,
           status: subscriptions.status,
           createdAt: subscriptions.createdAt,

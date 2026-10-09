@@ -12,6 +12,7 @@
     "@otto/agents": "workspace:*",
     "@otto/chats": "workspace:*",
     "@otto/runs": "workspace:*",
+    "@otto/sessions": "workspace:*",
     "@otto/workspaces": "workspace:*",
     "drizzle-orm": "0.45.3",
     "pg-boss": "12.35.1",

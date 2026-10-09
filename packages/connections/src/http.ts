@@ -8,6 +8,7 @@ export interface HttpOptions {
   /** Only explicit test/private-service composition may opt into loopback HTTP. */
   allowLoopbackHttp?: boolean;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 export class ProviderError extends Error {
   constructor(readonly status: number | null = null) {
@@ -44,7 +45,8 @@ export async function requestHttp<T>(
   );
   const abort = () => controller.abort();
   init.signal?.addEventListener("abort", abort, { once: true });
-  if (init.signal?.aborted) controller.abort();
+  options.signal?.addEventListener("abort", abort, { once: true });
+  if (init.signal?.aborted || options.signal?.aborted) controller.abort();
   try {
     const response = await fetch(url, {
       ...init,
@@ -63,6 +65,7 @@ export async function requestHttp<T>(
   } finally {
     clearTimeout(timeout);
     init.signal?.removeEventListener("abort", abort);
+    options.signal?.removeEventListener("abort", abort);
   }
 }
 export async function readText(response: Response) {

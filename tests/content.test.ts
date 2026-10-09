@@ -30,6 +30,7 @@ import {
   readFile,
 } from "../packages/files/src";
 import { files } from "../packages/files/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { createSkill, snapshotSkills } from "../packages/skills/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
@@ -38,6 +39,7 @@ import { startPostgres } from "./postgres";
 
 describe("persisted content and capability scope", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let workspaceId: string;
   const scope = <T>(
     fn: Parameters<typeof inWorkspace<T>>[3],
@@ -45,6 +47,9 @@ describe("persisted content and capability scope", () => {
   ) => inWorkspace(database.db, workspaceId, { userId }, fn);
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     await database.db.insert(users).values([
       {
         id: "owner",
@@ -65,6 +70,7 @@ describe("persisted content and capability scope", () => {
       .values({ workspaceId, userId: "other", role: "contributor" });
   });
   afterAll(async () => {
+    await nativeStorage?.close();
     await database?.stop();
   });
   it("rejects stale Document edits and keeps one current body", async () => {
@@ -251,7 +257,9 @@ describe("persisted content and capability scope", () => {
         role: "viewer",
       }),
     );
-    expect(await scope((c) => getMessages(c, chat.id), "other")).toEqual([]);
+    expect(
+      await scope((c) => getMessages(c, chat.id, 0, nativeStorage), "other"),
+    ).toEqual([]);
     const participant = (
       await database.db
         .select()
@@ -260,7 +268,7 @@ describe("persisted content and capability scope", () => {
     )[0];
     await scope((c) => deleteParticipant(c, chat.id, participant?.id ?? ""));
     await expect(
-      scope((c) => getMessages(c, chat.id), "other"),
+      scope((c) => getMessages(c, chat.id, 0, nativeStorage), "other"),
     ).rejects.toMatchObject({ code: "forbidden" });
   });
   it("scopes Connection grants and revokes them on disconnect", async () => {

@@ -29,8 +29,7 @@ for (const area of ["packages", "apps"]) {
       cwd: join(directory, "src"),
       absolute: true,
     })) {
-      const schema =
-        path.endsWith("/schema.ts") || path.endsWith("/content-schema.ts");
+      const schema = path.endsWith("/schema.ts") || path.endsWith("-schema.ts");
       const source = await Bun.file(path).text();
       for (const match of source.matchAll(
         /(?:from\s*|import\s*\()["']([^"']+)["']/g,
@@ -49,7 +48,7 @@ for (const area of ["packages", "apps"]) {
         const name = specifier.split("/").slice(0, 2).join("/");
         if (!dependencies.includes(name))
           throw new Error(`Undeclared domain dependency ${name}: ${path}`);
-        if (specifier.endsWith("/schema")) {
+        if (specifier.endsWith("/schema") || specifier.endsWith("-schema")) {
           // Better Auth's adapter is the one non-schema consumer of its own auth tables.
           if (
             !schema &&

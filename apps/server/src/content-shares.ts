@@ -9,6 +9,7 @@ import {
   readFile,
 } from "@otto/files";
 import { requireProjectMember } from "@otto/projects";
+import type { NativeSessionStorage } from "@otto/sessions/native";
 import {
   DomainError,
   getPage,
@@ -36,6 +37,7 @@ import {
 async function selectContent(
   c: Context,
   selection: ShareSelection,
+  native: NativeSessionStorage,
 ): Promise<ShareSnapshot> {
   requireHuman(c);
   requireWriter(c);
@@ -56,7 +58,12 @@ async function selectContent(
   if (selection.type === "chat")
     return {
       type: "chat",
-      ...(await previewChat(c, selection.targetId, selection.messageIds)),
+      ...(await previewChat(
+        c,
+        selection.targetId,
+        selection.messageIds,
+        native,
+      )),
     };
   const saved = await previewFile(c, selection.targetId);
   return {
@@ -101,8 +108,13 @@ export async function upsertShare(
   c: Context,
   selection: ShareSelection,
   existing?: { id: string; editToken: number },
+  native?: NativeSessionStorage,
 ) {
-  const preview = await selectContent(c, selection);
+  const preview = await selectContent(
+    c,
+    selection,
+    required(native, "unavailable"),
+  );
   if (existing) {
     const row = await getOwnedShare(c, existing.id);
     if (row.publisherId !== c.actor.userId) throw new DomainError("forbidden");
@@ -149,12 +161,17 @@ export async function upsertShare(
     editToken: saved.editToken,
   };
 }
-export async function publishShare(c: Context, id: string, editToken: number) {
+export async function publishShare(
+  c: Context,
+  id: string,
+  editToken: number,
+  native: NativeSessionStorage,
+) {
   const row = await getOwnedShare(c, id);
   if (row.publisherId !== c.actor.userId) throw new DomainError("forbidden");
   if (row.editToken !== editToken) throw new DomainError("conflict");
   // Current permissions and exact preview must still agree at the explicit publication action.
-  const current = await selectContent(c, row.selection);
+  const current = await selectContent(c, row.selection, native);
   if (!isDeepStrictEqual(current, row.preview))
     throw new DomainError("conflict", "Source changed since preview");
   await c.tx

@@ -25,13 +25,13 @@ import {
 } from "@workspace/ui/components/sidebar";
 import { toast } from "@workspace/ui/components/sonner";
 import { useState } from "react";
-import { Timeline, TimelineItem } from "@/components/activity";
 import { ChoiceItem, DetailView, Section } from "@/components/detail";
 import { Editor } from "@/components/editor/editor";
 import { NotFound } from "@/components/empty-page";
 import { FloatingChat } from "@/components/floating-chat";
 import { QueryState } from "@/components/query-state";
-import { People, shortDate, statuses } from "@/components/task-meta";
+import { People, statuses } from "@/components/task-meta";
+import { TaskComments } from "@/components/tasks/task-comments";
 import { TaskForm } from "@/components/tasks/task-form";
 import {
   TaskLinksSection,
@@ -286,19 +286,7 @@ function TaskView({ task }: { task: Task }) {
           Previous occurrence
         </Button>
       )}
-      <section className="flex flex-col gap-5">
-        <h2 className="text-base font-medium">Activity</h2>
-        <Timeline>
-          {task.createdAt && (
-            <TimelineItem dot="event" className="text-sm text-muted-foreground">
-              Task created · {shortDate.format(new Date(task.createdAt))}
-            </TimelineItem>
-          )}
-        </Timeline>
-        <p className="text-muted-foreground">
-          Comments and activity history are not available yet.
-        </p>
-      </section>
+      <TaskComments task={task} canWrite={project.canWrite} />
       {editing && (
         <TaskForm
           task={task}

@@ -96,7 +96,8 @@ function AgentSettings({
     <Page
       title={agent.title}
       actions={
-        canEdit && (
+        canEdit &&
+        !agent.isDefault && (
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -144,7 +145,13 @@ function AgentSettings({
                 )?.title ?? "Unavailable project")
               : "Workspace"}
           </Row>
-          <Row title="State">{agent.archived ? "Archived" : "Active"}</Row>
+          <Row title="State">
+            {agent.isDefault
+              ? "Protected default"
+              : agent.archived
+                ? "Archived"
+                : "Active"}
+          </Row>
         </Group>
         <Group
           title="Instructions"
@@ -165,7 +172,11 @@ function AgentSettings({
               "No account selected"
             )}
           </Row>
-          <Row title="Model">{agent.model}</Row>
+          <Row title="Model">
+            {agent.model === "unconfigured"
+              ? "Choose a provider and model"
+              : agent.model}
+          </Row>
         </Group>
         {canEdit && (
           <Button
@@ -253,7 +264,7 @@ function AccountTitle({ id }: { id: string }) {
     <>
       <QueryState error={account.error} retry={account.refetch} />
       <span>
-        {account.data.title} · {account.data.status}
+        {account.data.title} · {account.data.provider} · {account.data.status}
       </span>
     </>
   ) : (
@@ -483,6 +494,7 @@ function AgentConfiguration({
               value={visibility}
               options={{ user: "Only you", workspace: "Workspace" }}
               onChange={setVisibility}
+              disabled={agent?.isDefault}
             />
           </Row>
           {!agent && (
@@ -537,15 +549,19 @@ function AgentConfiguration({
               label="Account"
               value={subscriptionId}
               options={{
-                "": "No account (scripts only)",
+                "": "No provider selected",
                 ...Object.fromEntries(
                   accounts
                     .filter(
                       (item) =>
-                        item.status === "enabled" ||
+                        (item.status === "enabled" &&
+                          item.provider !== "codex") ||
                         item.id === agent?.subscriptionId,
                     )
-                    .map((item) => [item.id, `${item.title} · ${item.status}`]),
+                    .map((item) => [
+                      item.id,
+                      `${item.title} · ${item.provider === "codex" ? "Unsupported" : item.provider}`,
+                    ]),
                 ),
               }}
               onChange={(id) => {
@@ -560,6 +576,17 @@ function AgentConfiguration({
             error={subscriptions.error}
             retry={subscriptions.refetch}
           />
+          <Button
+            type="button"
+            variant="ghost"
+            className="self-start"
+            nativeButton={false}
+            render={
+              <Link to="/settings/$section" params={{ section: "models" }} />
+            }
+          >
+            Manage providers
+          </Button>
           {subscriptions.hasNextPage && (
             <Button
               type="button"
@@ -601,7 +628,7 @@ function AgentConfiguration({
           ) : (
             <Row
               title="Configured model ID"
-              description="Required configuration; prompt runs also require an authorized account."
+              description="Native runs require an explicitly selected provider and model. No provider is chosen automatically."
             >
               <Input
                 aria-label="Configured model ID"

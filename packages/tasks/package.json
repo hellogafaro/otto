@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./comments": "./src/comments.ts",
+    "./comments-schema": "./src/comments-schema.ts"
   },
   "dependencies": {
     "@otto/workspaces": "workspace:*",

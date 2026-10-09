@@ -1,3 +1,4 @@
+import { RiEyeLine, RiEyeOffLine } from "@remixicon/react";
 import { Button } from "@workspace/ui/components/button";
 import {
   Field,
@@ -7,9 +8,14 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { PageTitle } from "@workspace/ui/components/page-title";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group";
 import { useState } from "react";
 import { authClient } from "@/lib/auth";
+import "./authentication.css";
 
 export function Authentication() {
   const token = new URLSearchParams(window.location.search).get("token");
@@ -19,6 +25,7 @@ export function Authentication() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [message, setMessage] = useState<string>();
+  const [passwordShown, setPasswordShown] = useState(false);
   const heading =
     mode === "signup"
       ? "Create your Otto account"
@@ -28,13 +35,32 @@ export function Authentication() {
           ? "Choose a new password"
           : "Sign in to Otto";
   return (
-    <main className="flex min-h-svh min-w-0 flex-1 flex-col items-center overflow-y-auto px-6">
-      <div className="flex w-full max-w-84 flex-1 flex-col justify-center gap-6 py-16">
-        <header className="text-center">
-          <PageTitle>{heading}</PageTitle>
+    <main className="authentication">
+      <div className="authentication-column">
+        <header>
+          <img
+            className="authentication-icon"
+            src="/authentication-otto-icon.png"
+            alt=""
+            aria-hidden="true"
+            width={40}
+            height={40}
+          />
+          <h1 className="authentication-heading" aria-label={heading}>
+            {mode === "signin" ? "Sign in" : heading}
+          </h1>
+          <p className="authentication-subtitle">
+            {mode === "signup"
+              ? "Create an account to work with your agents."
+              : mode === "request"
+                ? "We'll email you instructions to reset your password."
+                : mode === "reset"
+                  ? "Choose a new password for your Otto account."
+                  : "Pick up where you and your agents left off."}
+          </p>
         </header>
         <form
-          className="w-full"
+          className="authentication-form"
           onSubmit={async (event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
@@ -87,13 +113,17 @@ export function Authentication() {
             }
           }}
         >
-          <FieldGroup className="gap-3">
+          <FieldGroup className="authentication-fields">
             {mode === "signup" && (
               <Field className="gap-2">
-                <FieldLabel htmlFor="name">Name</FieldLabel>
+                <FieldLabel className="sr-only" htmlFor="name">
+                  Name
+                </FieldLabel>
                 <Input
+                  className="authentication-input"
                   id="name"
                   name="name"
+                  placeholder="Name"
                   autoComplete="name"
                   required
                   disabled={pending}
@@ -103,10 +133,14 @@ export function Authentication() {
             )}
             {mode !== "reset" && (
               <Field className="gap-2">
-                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <FieldLabel className="sr-only" htmlFor="email">
+                  Email
+                </FieldLabel>
                 <Input
+                  className="authentication-input"
                   id="email"
                   name="email"
+                  placeholder="Email"
                   type="email"
                   autoComplete="username"
                   required
@@ -117,29 +151,60 @@ export function Authentication() {
             )}
             {mode !== "request" && (
               <Field className="gap-2">
-                <FieldLabel htmlFor="password">
+                <FieldLabel className="sr-only" htmlFor="password">
                   {mode === "reset" ? "New password" : "Password"}
                 </FieldLabel>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete={
-                    mode === "signup" || mode === "reset"
-                      ? "new-password"
-                      : "current-password"
-                  }
-                  minLength={mode === "signin" ? undefined : 12}
-                  required
-                  disabled={pending}
-                />
+                <InputGroup className="authentication-password">
+                  <InputGroupInput
+                    className="authentication-input"
+                    id="password"
+                    name="password"
+                    placeholder={mode === "reset" ? "New password" : "Password"}
+                    type={passwordShown ? "text" : "password"}
+                    autoComplete={
+                      mode === "signup" || mode === "reset"
+                        ? "new-password"
+                        : "current-password"
+                    }
+                    minLength={mode === "signin" ? undefined : 12}
+                    required
+                    disabled={pending}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <Button
+                      className="authentication-password-toggle"
+                      type="button"
+                      variant="ghost"
+                      size="icon-compact"
+                      aria-label={
+                        passwordShown ? "Hide password" : "Show password"
+                      }
+                      aria-pressed={passwordShown}
+                      disabled={pending}
+                      onClick={(event) => {
+                        setPasswordShown(!passwordShown);
+                        event.currentTarget
+                          .closest("[data-slot=input-group]")
+                          ?.querySelector("input")
+                          ?.focus();
+                      }}
+                    >
+                      {passwordShown ? <RiEyeOffLine /> : <RiEyeLine />}
+                    </Button>
+                  </InputGroupAddon>
+                </InputGroup>
               </Field>
             )}
             {error && <FieldError>{error}</FieldError>}
             {message && (
               <FieldDescription role="status">{message}</FieldDescription>
             )}
-            <Button type="submit" disabled={pending}>
+            <Button
+              className="authentication-submit"
+              type="submit"
+              size="sm"
+              disabled={pending}
+            >
               {pending
                 ? "Please wait"
                 : mode === "signup"
@@ -150,7 +215,7 @@ export function Authentication() {
                       ? "Change password"
                       : "Sign in"}
             </Button>
-            <div className="flex flex-wrap justify-center gap-1">
+            <div className="authentication-actions">
               {mode !== "signin" && (
                 <Button
                   type="button"
@@ -158,6 +223,7 @@ export function Authentication() {
                   disabled={pending}
                   onClick={() => {
                     setMode("signin");
+                    setPasswordShown(false);
                     setError(undefined);
                   }}
                 >
@@ -172,6 +238,7 @@ export function Authentication() {
                     disabled={pending}
                     onClick={() => {
                       setMode("signup");
+                      setPasswordShown(false);
                       setError(undefined);
                       setMessage(undefined);
                     }}
@@ -184,6 +251,7 @@ export function Authentication() {
                     disabled={pending}
                     onClick={() => {
                       setMode("request");
+                      setPasswordShown(false);
                       setError(undefined);
                       setMessage(undefined);
                     }}

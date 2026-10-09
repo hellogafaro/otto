@@ -5,16 +5,20 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./native": "./src/native.ts"
   },
   "dependencies": {
     "@otto/workspaces": "workspace:*",
-    "drizzle-orm": "0.45.3",
     "@otto/chats": "workspace:*",
+    "drizzle-orm": "0.45.3",
     "@otto/shared": "workspace:*",
     "@otto/agents": "workspace:*",
     "@otto/environments": "workspace:*",
     "@otto/subscriptions": "workspace:*",
-    "@otto/db": "workspace:*"
+    "@otto/db": "workspace:*",
+    "@mastra/core": "1.75.0",
+    "@mastra/pg": "1.30.0",
+    "@mastra/memory": "1.36.0"
   }
 }

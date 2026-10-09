@@ -1,31 +1,43 @@
-import { fileURLToPath } from "node:url";
+import { publishNativeMessage } from "@otto/chats";
 import { createCursorCodec, openDatabase } from "@otto/db";
-import { MAX_FILE_BYTES } from "@otto/files";
+import {
+  getFile,
+  MAX_FILE_BYTES,
+  readFile,
+  requireFileAudience,
+  SMALL_FILE_BYTES,
+} from "@otto/files";
 import { createS3Storage } from "@otto/files/storage";
-import { createRunRuntime, type RunRuntime } from "@otto/runs/runtime";
+import {
+  assertRunAttempt,
+  createRunRuntime,
+  getRunExecutionModel,
+  type RunRuntime,
+  withRunAttempt,
+} from "@otto/runs/runtime";
 import { validateSchedule } from "@otto/schedules";
+import {
+  type NativeSessionStorage,
+  openNativeStorage,
+} from "@otto/sessions/native";
+import { DomainError } from "@otto/shared";
+import {
+  authorizeSubscriptionModel,
+  resolveSubscriptionModel,
+} from "@otto/subscriptions/server";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { createApp } from "./app";
 import { createAuth } from "./auth";
 import type { ServerConfig } from "./config";
 import type { ConnectionOptions } from "./connections";
 import { createLogger } from "./logger";
-import { createResendMail } from "./mail";
-import { createModelGateway, type ModelGateway } from "./model-gateway";
+import { createResendMail, type Mail } from "./mail";
 import { startQueue } from "./queue";
 import { createRealtime, type RealtimeData } from "./realtime";
+import { authorizeRunSources } from "./run-sources";
 import * as schema from "./schema";
-import { readRunSkillFile } from "./skill-files";
 import { createSpool, type Spool } from "./spool";
-import {
-  createSubscriptionLogin,
-  type SubscriptionLogin,
-} from "./subscription-login";
-import {
-  createInfisicalAccounts,
-  type InfisicalAccounts,
-} from "./subscription-secrets";
-import { createRunTools, runToolSchema } from "./tools";
+import { createNativeRunTools, effectRequestId } from "./tools";
 import { createOpenRouterTranscriber } from "./transcription";
 
 /** Acquires resources in dependency order and releases every acquired resource on failure. */
@@ -34,14 +46,10 @@ export async function startServer(
   services: {
     execution?: Pick<
       Parameters<typeof createRunRuntime>[1],
-      "backend" | "pi" | "deadlineMs"
+      "resolveModel" | "deadlineMs"
     >;
     connections?: ConnectionOptions;
-    accounts?: InfisicalAccounts;
-    gateway?: Pick<
-      Parameters<typeof createModelGateway>[1],
-      "endpoint" | "key" | "allowLoopbackHttp" | "modelConfig"
-    > & { storeKey: string };
+    mail?: Mail | null;
   } = {},
 ) {
   const { execution, connections } = services;
@@ -54,8 +62,7 @@ export async function startServer(
   let storage: ReturnType<typeof createS3Storage> | undefined;
   let spool: Spool | undefined;
   let runtime: RunRuntime | undefined;
-  let subscriptionLogin: SubscriptionLogin | undefined;
-  let modelGateway: ModelGateway | undefined;
+  let native: NativeSessionStorage | undefined;
   let closing = false;
   let stopPromise: Promise<void> | undefined;
   let queueStopped = false;
@@ -94,12 +101,7 @@ export async function startServer(
       errors.push(error);
     }
     try {
-      await modelGateway?.close();
-    } catch (error) {
-      errors.push(error);
-    }
-    try {
-      await subscriptionLogin?.close();
+      await native?.close();
     } catch (error) {
       errors.push(error);
     }
@@ -176,89 +178,171 @@ export async function startServer(
         budgetBytes: config.UPLOAD_SPOOL_BYTES,
       });
     }
-    const accounts =
-      services.accounts ??
-      (config.INFISICAL_URL &&
-      config.INFISICAL_TOKEN &&
-      config.OTTO_ACCOUNT_SECRET_BINDINGS
-        ? createInfisicalAccounts({
-            endpoint: config.INFISICAL_URL,
-            bindings: config.OTTO_ACCOUNT_SECRET_BINDINGS,
-            getAccessToken: async () => {
-              if (!config.INFISICAL_TOKEN)
-                throw new Error("Account secret authentication unavailable");
-              return config.INFISICAL_TOKEN;
-            },
-          })
-        : undefined);
-    const gateway =
-      services.gateway ??
-      (config.OTTO_GATEWAY_URL &&
-      config.OTTO_GATEWAY_KEY &&
-      config.OTTO_GATEWAY_STORE_KEY
-        ? {
-            endpoint: config.OTTO_GATEWAY_URL,
-            // The packaged gateway shares this server's network namespace. HTTP is accepted only on loopback.
-            allowLoopbackHttp: true,
-            key: config.OTTO_GATEWAY_KEY,
-            storeKey: config.OTTO_GATEWAY_STORE_KEY,
-          }
-        : undefined);
-    if (accounts)
-      subscriptionLogin = createSubscriptionLogin(db, accounts, pool);
-    if (gateway && subscriptionLogin)
-      modelGateway = createModelGateway(db, {
-        ...gateway,
-        origin: config.OTTO_ORIGIN,
-        accounts: subscriptionLogin,
-      });
-    const pi = execution
-      ? {
-          ...execution.pi,
-          authorizeModel:
-            modelGateway?.authorizeModel ?? execution.pi.authorizeModel,
-        }
-      : undefined;
-    if (execution)
-      runtime = createRunRuntime(db, {
-        ...execution,
-        pi: pi ?? execution.pi,
-        extensionSource: await Bun.file(
-          Bun.resolveSync(
-            "@otto/runs/pi-extension",
-            fileURLToPath(new URL(".", import.meta.url)),
-          ),
-        ).text(),
-        toolSchema: runToolSchema,
-        modelAccess: modelGateway?.issue,
-        validateSchedule,
-        readSkillFile: async (input) => {
-          if (!storage) throw new Error("Skill storage unavailable");
-          return readRunSkillFile(db, storage, input);
-        },
-        handleTool: async (attempt, input, signal) => {
-          if (!boss) throw new Error("Queue unavailable");
-          return createRunTools(db, boss, {
+    native = await openNativeStorage({ connectionString: config.DATABASE_URL });
+    const nativeStorage = native;
+    const encryptionKey = Buffer.from(config.ENCRYPTION_KEY, "base64");
+    const modelAuthorization = { authorizeModel: authorizeSubscriptionModel };
+    runtime = createRunRuntime(db, {
+      storage: nativeStorage,
+      deadlineMs: execution?.deadlineMs,
+      resolveModel:
+        execution?.resolveModel ??
+        (async (attempt, signal) => {
+          const accepted = await getRunExecutionModel(
+            db,
+            attempt,
+            validateSchedule,
+            nativeStorage,
+            authorizeRunSources,
+          );
+          return resolveSubscriptionModel(db, accepted, encryptionKey, signal);
+        }),
+      tools: (attempt, signal) => {
+        if (!boss) throw new Error("Queue unavailable");
+        return createNativeRunTools(
+          db,
+          boss,
+          attempt,
+          {
             connections,
             storage,
-            pi,
-          })(attempt, input, signal);
-        },
-      });
+            native: nativeStorage,
+            models: modelAuthorization,
+            cursors: createCursorCodec(config.BETTER_AUTH_SECRET),
+          },
+          signal,
+        );
+      },
+      publishOutput: async (attempt, output) => {
+        const target = await withRunAttempt(
+          db,
+          attempt,
+          async (c, run) => ({
+            workspaceId: c.workspaceId,
+            actor: c.actor,
+            chatId: run.chatId,
+            sessionId: run.sessionId,
+          }),
+          validateSchedule,
+          nativeStorage,
+          authorizeRunSources,
+        );
+        if (!target.sessionId) throw new Error("Native Session unavailable");
+        await publishNativeMessage(
+          db,
+          nativeStorage,
+          target.workspaceId,
+          target.actor,
+          target.chatId,
+          {
+            requestId: effectRequestId(attempt.runId, output.nativeMessageId),
+            sessionId: target.sessionId,
+            ...output,
+          },
+          async (c) => {
+            await assertRunAttempt(
+              c,
+              attempt,
+              validateSchedule,
+              nativeStorage,
+              authorizeRunSources,
+            );
+          },
+        );
+      },
+      validateSchedule,
+      authorizeSources: authorizeRunSources,
+      readAttachments: async (attempt, signal) => {
+        if (!storage)
+          throw new DomainError("unavailable", "File storage unavailable");
+        const authorize = () =>
+          withRunAttempt(
+            db,
+            attempt,
+            async (c, run) => {
+              const ids = [
+                ...new Set(
+                  run.inputs.context?.messages.flatMap(
+                    (message) => message.fileIds ?? [],
+                  ) ?? [],
+                ),
+              ];
+              const files = [];
+              let size = 0;
+              for (const id of ids) {
+                await requireFileAudience(
+                  c,
+                  id,
+                  run.inputs.audience.humans,
+                  true,
+                );
+                const file = await getFile(c, id);
+                size += file.byteLength;
+                if (size > SMALL_FILE_BYTES || files.length >= 20)
+                  throw new DomainError("invalid", "Native attachment limit");
+                files.push(file);
+              }
+              return { workspaceId: c.workspaceId, actor: c.actor, files };
+            },
+            validateSchedule,
+            nativeStorage,
+            authorizeRunSources,
+          );
+        const accepted = await authorize();
+        const files = [];
+        for (const file of accepted.files) {
+          signal.throwIfAborted();
+          const bytes = await readFile(
+            db,
+            storage,
+            accepted.workspaceId,
+            accepted.actor,
+            file.id,
+          );
+          files.push({
+            data: `data:${file.mediaType};base64,${Buffer.from(bytes).toString("base64")}`,
+            mediaType: file.mediaType,
+            filename: file.title,
+          });
+        }
+        signal.throwIfAborted();
+        const current = await authorize();
+        if (
+          JSON.stringify(
+            current.files.map((file) => [file.id, file.sha256, file.mediaType]),
+          ) !==
+          JSON.stringify(
+            accepted.files.map((file) => [
+              file.id,
+              file.sha256,
+              file.mediaType,
+            ]),
+          )
+        )
+          throw new DomainError(
+            "conflict",
+            "Native attachment sources changed",
+          );
+        return files;
+      },
+    });
     boss = await startQueue(db, pool, {
       runtime,
-      pi,
+      modelAuthorization,
+      nativeStorage,
     });
     boss.on("stopped", () => {
       queueStopped = true;
     });
     const mail =
-      config.MAIL_FROM && config.RESEND_API_KEY
-        ? createResendMail({
-            from: config.MAIL_FROM,
-            apiKey: config.RESEND_API_KEY,
-          })
-        : null;
+      services.mail !== undefined
+        ? services.mail
+        : config.MAIL_FROM && config.RESEND_API_KEY
+          ? createResendMail({
+              from: config.MAIL_FROM,
+              apiKey: config.RESEND_API_KEY,
+            })
+          : null;
     const options = {
       db,
       boss,
@@ -271,18 +355,17 @@ export async function startServer(
         minBytesPerSecond: config.TRANSFER_MIN_BYTES_PER_SECOND,
       },
       runtime,
-      pi,
+      modelAuthorization,
+      nativeStorage,
+      encryptionKey,
       connections,
       mail: mail ?? undefined,
-      subscriptionLogin,
-      modelGateway,
       transcriber: config.OPENROUTER_API_KEY
         ? createOpenRouterTranscriber({
             apiKey: config.OPENROUTER_API_KEY,
             model: config.TRANSCRIPTION_MODEL,
           })
         : undefined,
-      gatewayStoreKey: gateway?.storeKey,
       cursors: createCursorCodec(config.BETTER_AUTH_SECRET),
     };
     let probe: Promise<boolean> | undefined;
@@ -302,7 +385,6 @@ export async function startServer(
         try {
           await pool.query("select version from queue.version");
           await storage?.check();
-          if (modelGateway && !(await modelGateway.isReady())) return false;
           return isHealthy();
         } catch {
           return false;

@@ -11,9 +11,13 @@ import {
   SCHEDULE_QUEUE,
   validateSchedule,
 } from "../packages/schedules/src";
-import { claimInstallation } from "../packages/workspaces/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
+import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { pushDatabase } from "../scripts/push";
-import { pi } from "./fixtures/pi";
+import {
+  controlledSubscription,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
 it("offline Schedule rename retains old native queue deliveries, exact retries/history and accepted bytes", async () => {
@@ -21,6 +25,9 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
   let boss = await startQueue(database.db, database.pool, {
     workers: false,
     install: true,
+  });
+  const nativeStorage = await openNativeStorage({
+    connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
   });
   let app: ReturnType<typeof createApp>;
   const server = Bun.serve({
@@ -35,7 +42,14 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, auth, boss, origin, pi });
+    app = createApp({
+      db: database.db,
+      auth,
+      boss,
+      origin,
+      nativeStorage,
+      modelAuthorization: nativeModelAuthorization,
+    });
     const registration = await auth.api.signUpEmail({
       body: {
         name: "Schedule Owner",
@@ -52,6 +66,12 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
     const workspaceId = (
       await claimInstallation(database.db, session.user.id, "Schedules")
     ).id;
+    const subscriptionId = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId: session.user.id },
+      controlledSubscription,
+    );
     const request = (path: string, method = "GET", json?: unknown) =>
       fetch(`${origin}/api/workspaces/${workspaceId}${path}`, {
         method,
@@ -69,7 +89,8 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
     const created = await request("/agents", "POST", {
       title: "Worker",
       instructions: "Work",
-      model: "none",
+      model: "selected",
+      subscriptionId,
       visibility: "workspace",
     });
     expect(created.status).toBe(200);
@@ -99,7 +120,7 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
     ).rows[0];
     if (!environment) throw new Error("Missing Agent Environment");
     await database.pool.query(
-      'insert into agent_sessions(id,"workspaceId","chatId","agentId","environmentId","environmentGeneration",scope,"piVersion",provider,model,"accountId","contextRef") values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      'insert into agent_sessions(id,"workspaceId","chatId","agentId","environmentId","environmentGeneration",scope,"ownerId",provider,model,"accountId","contextRef") values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
       [
         crypto.randomUUID(),
         workspaceId,
@@ -108,19 +129,20 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
         environment.id,
         environment.generation,
         retainedScope,
-        "fixture-only",
-        "codex",
-        "controlled-model",
+        session.user.id,
+        "openai",
+        "selected",
         "controlled-account",
-        "/private/unchanged-session.jsonl",
+        crypto.randomUUID(),
       ],
     );
+    // Script execution is retired; this transfer proof exercises native prompt admission only.
     const config = {
       title: "Reusable manual work",
       agentId: agent.id,
       chatId: chat.id,
-      type: "script",
-      body: "echo controlled",
+      type: "prompt",
+      body: "Controlled native admission; do not execute a model",
       timezone: "Europe/Berlin",
       status: "disabled",
     };
@@ -139,7 +161,8 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
       database.db,
       boss,
       { scheduleId: manual.id, editToken: 0, id: priorHistoryId },
-      pi,
+      nativeModelAuthorization,
+      nativeStorage,
     );
     const pendingTick = await boss.send(CRON_QUEUE, {
       automationId: scheduled.id,
@@ -236,7 +259,8 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
     const dispatched: string[] = [];
     await boss.stop();
     boss = await startQueue(database.db, database.pool, {
-      pi,
+      modelAuthorization: nativeModelAuthorization,
+      nativeStorage,
       runtime: {
         async recover() {},
         async dispatch(id) {
@@ -245,7 +269,14 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
         },
       },
     });
-    app = createApp({ db: database.db, auth, boss, origin, pi });
+    app = createApp({
+      db: database.db,
+      auth,
+      boss,
+      origin,
+      nativeStorage,
+      modelAuthorization: nativeModelAuthorization,
+    });
     await expect
       .poll(
         async () =>
@@ -290,7 +321,8 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
       database.db,
       boss,
       { scheduleId: scheduled.id, editToken: 0, id: pendingTick },
-      pi,
+      nativeModelAuthorization,
+      nativeStorage,
     );
     expect(
       (
@@ -302,7 +334,14 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
     ).toBe(firstCount);
     await boss.stop();
     boss = await startQueue(database.db, database.pool, { workers: false });
-    app = createApp({ db: database.db, auth, boss, origin, pi });
+    app = createApp({
+      db: database.db,
+      auth,
+      boss,
+      origin,
+      nativeStorage,
+      modelAuthorization: nativeModelAuthorization,
+    });
     expect(
       (
         await database.pool.query(
@@ -338,7 +377,8 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
       database.db,
       boss,
       { scheduleId: scheduled.id, editToken: 0, id: crypto.randomUUID() },
-      pi,
+      nativeModelAuthorization,
+      nativeStorage,
     );
     expect(stale.outcome).toBe("stale_configuration");
     const disabledRun = await post(`/schedules/${scheduled.id}/run`, {
@@ -370,6 +410,7 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
   } finally {
     await server.stop(true);
     await boss.stop();
+    await nativeStorage.close();
     await database.stop();
   }
 }, 60000);

@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +8,7 @@ import { claimInstallation } from "../../packages/workspaces/src";
 import { members } from "../../packages/workspaces/src/schema";
 import type { startPostgres } from "../postgres";
 import { startS3Peer } from "./s3-peer";
-import { openSpoolFds } from "./storage";
+import { openSpoolFds, processMemory } from "./storage";
 
 const root = new URL("../../", import.meta.url).pathname;
 
@@ -69,158 +68,196 @@ export async function startServerProcess(
   await probe.stop(true);
   const origin = `http://127.0.0.1:${port}`;
   const secret = crypto.randomUUID() + crypto.randomUUID();
-  const child = Bun.spawn([process.execPath, "apps/server/src/index.ts"], {
-    cwd: root,
-    stdout: "ignore",
-    stderr: "ignore",
-    env: {
-      PATH: process.env.PATH,
-      HOST: "127.0.0.1",
-      PORT: String(port),
-      OTTO_ORIGIN: origin,
-      DATABASE_URL: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
-      BETTER_AUTH_SECRET: secret,
-      S3_ENDPOINT: peer.endpoint,
-      S3_BUCKET: peer.bucket,
-      S3_ACCESS_KEY_ID: "fixture-access",
-      S3_SECRET_ACCESS_KEY: "fixture-secret-fixture-secret",
-      UPLOAD_SPOOL_DIR: spoolBase,
-      UPLOAD_SPOOL_BYTES: String(options.spoolBytes ?? 500_000_000),
-      ...options.env,
+  let peakKb = 0;
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      "--eval",
+      'setInterval(() => process.send?.({ peakKb: process.resourceUsage().maxRSS }), 10).unref(); await import("./apps/server/src/index.ts");',
+    ],
+    {
+      cwd: root,
+      stdout: "ignore",
+      stderr: "ignore",
+      ipc(message: unknown) {
+        if (
+          message &&
+          typeof message === "object" &&
+          "peakKb" in message &&
+          typeof message.peakKb === "number" &&
+          Number.isFinite(message.peakKb) &&
+          message.peakKb > 0
+        )
+          peakKb = Math.max(peakKb, message.peakKb);
+      },
+      env: {
+        PATH: process.env.PATH,
+        HOST: "127.0.0.1",
+        PORT: String(port),
+        OTTO_ORIGIN: origin,
+        DATABASE_URL: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+        BETTER_AUTH_SECRET: secret,
+        ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+        S3_ENDPOINT: peer.endpoint,
+        S3_BUCKET: peer.bucket,
+        S3_ACCESS_KEY_ID: "fixture-access",
+        S3_SECRET_ACCESS_KEY: "fixture-secret-fixture-secret",
+        UPLOAD_SPOOL_DIR: spoolBase,
+        UPLOAD_SPOOL_BYTES: String(options.spoolBytes ?? 500_000_000),
+        ...options.env,
+      },
     },
+  );
+  let exitCode: number | undefined;
+  void child.exited.then((code) => {
+    exitCode = code;
   });
-  for (let attempt = 0; ; attempt++) {
-    if ((await fetch(`${origin}/ready`).catch(() => null))?.status === 200)
-      break;
-    if (attempt > 200) throw new Error("Server process did not become ready");
-    await Bun.sleep(100);
-  }
-  const auth = createAuth(database.db, secret, origin);
-  async function human(label: string) {
-    const response = await auth.api.signUpEmail({
-      body: {
-        name: label,
-        email: `${label}-${crypto.randomUUID()}@example.test`,
-        password: crypto.randomUUID() + crypto.randomUUID(),
-      },
-      asResponse: true,
-    });
-    const cookie = response.headers.get("set-cookie") ?? "";
-    const session = await auth.api.getSession({
-      headers: new Headers({ cookie }),
-    });
-    if (!session) throw new Error("Missing session");
-    return { id: session.user.id, cookie };
-  }
-  const owner = await human("owner");
-  const workspaceId = (
-    await claimInstallation(database.db, owner.id, "Transfers")
-  ).id;
-  async function member(label: string, role: "contributor" | "viewer") {
-    const user = await human(label);
-    await database.db
-      .insert(members)
-      .values({ workspaceId, userId: user.id, role });
-    return user;
-  }
-  const request = (
-    who: { cookie: string } | null,
-    path: string,
-    init: RequestInit & { duplex?: "half" } = {},
-  ) =>
-    fetch(`${origin}/api/workspaces/${workspaceId}${path}`, {
-      ...init,
-      headers: {
-        ...(who ? { cookie: who.cookie } : {}),
-        origin,
-        ...(init.headers as Record<string, string> | undefined),
-      },
-    });
-  const json = (
-    who: { cookie: string },
-    path: string,
-    method: string,
-    body?: unknown,
-  ) =>
-    request(who, path, {
-      method,
-      headers: { "content-type": "application/json" },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-  const upload = (
-    who: { cookie: string } | null,
-    requestId: string,
-    body: BodyInit | null,
-    options: {
-      length?: number;
-      query?: Record<string, string>;
-      headers?: Record<string, string>;
-    } = {},
-  ) => {
-    const query = new URLSearchParams({
-      title: "Upload",
-      type: "binary",
-      mediaType: "application/octet-stream",
-      visibility: "workspace",
-      ...options.query,
-    });
-    return request(who, `/files/${requestId}/content?${query}`, {
-      method: "PUT",
-      body,
-      duplex: "half",
-      headers: {
-        "content-type": "application/octet-stream",
-        ...(options.length === undefined
-          ? {}
-          : { "content-length": String(options.length) }),
-        ...options.headers,
-      },
-    });
-  };
-  /** Peak and current resident memory of the server process (kB) from the kernel. */
-  const memory = () => {
-    const status = readFileSync(`/proc/${child.pid}/status`, "utf8");
-    const pick = (name: string) =>
-      Number(new RegExp(`${name}:\\s+(\\d+)`).exec(status)?.[1] ?? 0);
-    return { peakKb: pick("VmHWM"), currentKb: pick("VmRSS") };
-  };
-  /** Files currently held by this server instance's private spool. */
-  const spoolEntries = async () => {
-    const instances = (await readdir(spoolBase)).filter((n) =>
-      n.startsWith("inst-"),
-    );
-    const out: string[] = [];
-    for (const instance of instances)
-      for (const name of await readdir(join(spoolBase, instance)))
-        if (name.endsWith(".part")) out.push(name);
-    return out;
-  };
-  async function stop() {
-    child.kill("SIGTERM");
-    await Promise.race([child.exited, Bun.sleep(8000)]);
+  try {
+    for (let attempt = 0; ; attempt++) {
+      if ((await fetch(`${origin}/ready`).catch(() => null))?.status === 200)
+        break;
+      if (exitCode !== undefined)
+        throw new Error(`Server process exited before readiness (${exitCode})`);
+      if (attempt > 200) throw new Error("Server process did not become ready");
+      await Bun.sleep(100);
+    }
+    const auth = createAuth(database.db, secret, origin);
+    async function human(label: string) {
+      const response = await auth.api.signUpEmail({
+        body: {
+          name: label,
+          email: `${label}-${crypto.randomUUID()}@example.test`,
+          password: crypto.randomUUID() + crypto.randomUUID(),
+        },
+        asResponse: true,
+      });
+      const cookie = response.headers.get("set-cookie") ?? "";
+      const session = await auth.api.getSession({
+        headers: new Headers({ cookie }),
+      });
+      if (!session) throw new Error("Missing session");
+      return { id: session.user.id, cookie };
+    }
+    const owner = await human("owner");
+    const workspaceId = (
+      await claimInstallation(database.db, owner.id, "Transfers")
+    ).id;
+    async function member(label: string, role: "contributor" | "viewer") {
+      const user = await human(label);
+      await database.db
+        .insert(members)
+        .values({ workspaceId, userId: user.id, role });
+      return user;
+    }
+    const request = (
+      who: { cookie: string } | null,
+      path: string,
+      init: RequestInit & { duplex?: "half" } = {},
+    ) =>
+      fetch(`${origin}/api/workspaces/${workspaceId}${path}`, {
+        ...init,
+        headers: {
+          ...(who ? { cookie: who.cookie } : {}),
+          origin,
+          ...(init.headers as Record<string, string> | undefined),
+        },
+      });
+    const json = (
+      who: { cookie: string },
+      path: string,
+      method: string,
+      body?: unknown,
+    ) =>
+      request(who, path, {
+        method,
+        headers: { "content-type": "application/json" },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    const upload = (
+      who: { cookie: string } | null,
+      requestId: string,
+      body: BodyInit | null,
+      options: {
+        length?: number;
+        query?: Record<string, string>;
+        headers?: Record<string, string>;
+      } = {},
+    ) => {
+      const query = new URLSearchParams({
+        title: "Upload",
+        type: "binary",
+        mediaType: "application/octet-stream",
+        visibility: "workspace",
+        ...options.query,
+      });
+      return request(who, `/files/${requestId}/content?${query}`, {
+        method: "PUT",
+        body,
+        duplex: "half",
+        headers: {
+          "content-type": "application/octet-stream",
+          ...(options.length === undefined
+            ? {}
+            : { "content-length": String(options.length) }),
+          ...options.headers,
+        },
+      });
+    };
+    /** Kernel resident high-water comes from the child itself; current resident size comes from the operating system. */
+    const memory = () => {
+      const current = processMemory(child.pid);
+      if (!peakKb)
+        throw new Error("Server resident high-water report is unavailable");
+      return {
+        ...current,
+        peakKb: Math.max(peakKb, current.currentKb),
+        peakMetric: "kernel_resident_high_water" as const,
+      };
+    };
+    /** Files currently held by this server instance's private spool. */
+    const spoolEntries = async () => {
+      const instances = (await readdir(spoolBase)).filter((n) =>
+        n.startsWith("inst-"),
+      );
+      const out: string[] = [];
+      for (const instance of instances)
+        for (const name of await readdir(join(spoolBase, instance)))
+          if (name.endsWith(".part")) out.push(name);
+      return out;
+    };
+    async function stop() {
+      child.kill("SIGTERM");
+      await Promise.race([child.exited, Bun.sleep(8000)]);
+      child.kill("SIGKILL");
+      await peer.stop();
+      await rm(spoolBase, { recursive: true, force: true });
+    }
+    return {
+      origin,
+      port,
+      pid: child.pid,
+      workspaceId,
+      owner,
+      member,
+      peer,
+      request,
+      json,
+      upload,
+      memory,
+      spoolEntries,
+      /** Descriptors the server process still holds on its spool, including deleted files. */
+      spoolFds: () => openSpoolFds(spoolBase, child.pid),
+      spoolBase,
+      stop,
+      exited: child.exited,
+    };
+  } catch (error) {
     child.kill("SIGKILL");
+    await child.exited;
     await peer.stop();
     await rm(spoolBase, { recursive: true, force: true });
+    throw error;
   }
-  return {
-    origin,
-    port,
-    pid: child.pid,
-    workspaceId,
-    owner,
-    member,
-    peer,
-    request,
-    json,
-    upload,
-    memory,
-    spoolEntries,
-    /** Descriptors the server process still holds on its spool, including deleted files. */
-    spoolFds: () => openSpoolFds(spoolBase, child.pid),
-    spoolBase,
-    stop,
-    exited: child.exited,
-  };
 }
 
 /**

@@ -10,7 +10,8 @@ import {
   textKey,
   timeKey,
 } from "@otto/db";
-import { admitRun, type PiInstallation, prepareRunModel } from "@otto/runs";
+import { admitRun, type ModelAuthorization, prepareRunModel } from "@otto/runs";
+import type { NativeSessionStorage } from "@otto/sessions/native";
 import { DomainError, type PageOptions, required } from "@otto/shared";
 
 import {
@@ -182,7 +183,8 @@ export async function runSchedule(
   boss: PgBoss,
   id: string,
   requestId: string,
-  pi?: PiInstallation,
+  authorization?: ModelAuthorization,
+  native?: NativeSessionStorage,
 ) {
   const schedule = await getSchedule(c, id);
   if (schedule.status === "archived")
@@ -198,7 +200,8 @@ export async function runSchedule(
       scheduleId: id,
       scheduleEditToken: schedule.editToken,
     },
-    pi,
+    authorization,
+    native,
   );
 }
 export async function validateSchedule(
@@ -266,7 +269,8 @@ export async function deliverSchedule(
   db: Database,
   boss: PgBoss,
   input: { scheduleId: string; editToken: number; id: string },
-  pi?: PiInstallation,
+  authorization?: ModelAuthorization,
+  native?: NativeSessionStorage,
 ) {
   const descriptor = required(
     (
@@ -300,15 +304,15 @@ export async function deliverSchedule(
       },
       false,
     );
-    const preparedPi = selection
+    const preparedAuthorization = selection
       ? await prepareRunModel(
           db,
           descriptor.workspaceId,
           { userId: descriptor.ownerId },
           { ...selection, requestId: `cron:${input.id}` },
-          pi,
+          authorization,
         )
-      : pi;
+      : authorization;
     return await inWorkspace(
       db,
       descriptor.workspaceId,
@@ -348,7 +352,8 @@ export async function deliverSchedule(
             scheduleEditToken: schedule.editToken,
             requestId: `cron:${input.id}`,
           },
-          preparedPi,
+          preparedAuthorization,
+          native,
         );
         return required(
           (

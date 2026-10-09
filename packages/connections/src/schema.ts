@@ -128,6 +128,7 @@ export const operations = pgTable(
       enum: [
         "awaiting_approval",
         "approved",
+        "denied",
         "executing",
         "succeeded",
         "failed",
@@ -135,6 +136,8 @@ export const operations = pgTable(
       ],
     }).notNull(),
     approvedBy: text(),
+    deniedBy: text(),
+    deniedAt: timestamp({ withTimezone: true }),
     expiresAt: timestamp({ withTimezone: true }),
   },
   (t): PgTableExtraConfigValue[] => [
@@ -166,6 +169,11 @@ export const operations = pgTable(
     foreignKey({
       name: "connection_operations_approvedBy_fk",
       columns: [t.approvedBy],
+      foreignColumns: [workspacesSchema.users.id],
+    }),
+    foreignKey({
+      name: "connection_operations_deniedBy_fk",
+      columns: [t.deniedBy],
       foreignColumns: [workspacesSchema.users.id],
     }),
     unique("connection_operations_identity_workspace").on(t.id, t.workspaceId),

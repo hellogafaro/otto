@@ -58,6 +58,9 @@ export function createConnectionService(options: {
       throw new DomainError("unavailable", "Connection adapter unavailable");
     const config = CONNECTION_CONFIG.parse(row.config);
     const controller = new AbortController();
+    const abort = () => controller.abort();
+    options.http.signal?.addEventListener("abort", abort, { once: true });
+    if (options.http.signal?.aborted) controller.abort();
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let credential: string;
     try {
@@ -88,6 +91,7 @@ export function createConnectionService(options: {
       throw new DomainError("unavailable", "Credential unavailable");
     } finally {
       clearTimeout(timeout);
+      options.http.signal?.removeEventListener("abort", abort);
     }
     if (config.type === "github") {
       const access = await github.connect(config, credential);
@@ -204,6 +208,7 @@ export function createConnectionService(options: {
           prepared = await prepare(claimed.connection);
           // Credential resolution, installation scope verification and discovery are asynchronous.
           await boundary.transact(async (c) => {
+            options.http.signal?.throwIfAborted();
             const row = await getOperationRecord(c, id);
             const authorization = await validateOperation(
               c,
@@ -239,26 +244,14 @@ export function createConnectionService(options: {
           );
           received = true;
           return await boundary.transact(async (c) => {
+            options.http.signal?.throwIfAborted();
             const row = await getOperationRecord(c, id);
-            const authorization = await validateOperation(
-              c,
-              row,
-              boundary.validateRun,
-            );
+            await validateOperation(c, row, boundary.validateRun);
             if (
               row.state !== "executing" ||
               row.executionToken !== claimed.row.executionToken
             )
               throw new DomainError("conflict");
-            await boundary.publishResult(c, {
-              operationId: row.id,
-              connectionId: row.connectionId,
-              runId: row.runId,
-              action: row.action,
-              target: row.target,
-              value,
-              audience: authorization.audience,
-            });
             const completedAt = new Date();
             await c.tx
               .update(operations)
@@ -323,6 +316,21 @@ export function createConnectionService(options: {
   return {
     connectConnection,
     discoverConnection,
+    readOperation: (id: string) =>
+      boundary.transact(async (c) => {
+        const row = await getOperationRecord(c, id);
+        if (
+          !c.actor.agentId ||
+          row.agentId !== c.actor.agentId ||
+          row.sponsorId !== c.actor.userId
+        )
+          throw new DomainError("forbidden");
+        await validateOperation(c, row, boundary.validateRun);
+        return {
+          ...operationView(row),
+          result: row.state === "succeeded" ? row.result : null,
+        };
+      }),
     requestOperation: (input: OperationRequest) =>
       boundary.transact((c) =>
         requestOperation(c, input, boundary.validateRun),

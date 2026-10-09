@@ -1,140 +1,87 @@
-import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { randomBytes } from "node:crypto";
+import { and, eq } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
-import { createSubscriptionLogin } from "../apps/server/src/subscription-login";
+import { archiveAgent, updateAgent } from "../packages/agents/src";
+import { ensureDefaultAgent } from "../packages/agents/src/server";
+import { secrets } from "../packages/secrets/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
-  ACCOUNT_AUTH,
-  type AccountAuth,
-  type AccountCredential,
-  createInfisicalAccounts,
-  credentialFingerprint,
-} from "../apps/server/src/subscription-secrets";
-import { createSubscription } from "../packages/subscriptions/src";
+  createSubscription,
+  getSubscription,
+  updateSubscription,
+} from "../packages/subscriptions/src";
 import { subscriptions } from "../packages/subscriptions/src/schema";
+import {
+  type AcceptedSubscriptionModel,
+  authorizeSubscriptionModel,
+  resolveSubscriptionModel,
+  setSubscriptionApiKey,
+} from "../packages/subscriptions/src/server";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
+import { members, workspaces } from "../packages/workspaces/src/schema";
 import { startPostgres } from "./postgres";
 
-// Real private PG + authenticated HTTP + controlled Infisical protocol peer; no actual OAuth account or secret scope.
-describe("account credential persistence authority", () => {
+describe("native API-key provider authenticated authority", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: Awaited<ReturnType<typeof startQueue>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let server: Bun.Server<undefined>;
-  let peer: Bun.Server<undefined>;
   let app: ReturnType<typeof createApp>;
-  let service: ReturnType<typeof createSubscriptionLogin>;
   let origin: string;
-  let cookie: string;
-  let userId: string;
-  let oauthHook: ((request: Request) => Promise<Response>) | undefined;
   let workspaceId: string;
-  let id: string;
-  let stored: AccountAuth;
-  let writeHook: (() => Promise<Response | undefined>) | undefined;
-  let removed = false;
-  const machineKey = crypto.randomUUID();
-  function credential(
-    accountId = "controlled-account",
-    generation = 1,
-  ): AccountCredential {
-    const payload = Buffer.from(
-      JSON.stringify({
-        "https://api.openai.com/auth": { chatgpt_account_id: accountId },
-      }),
-    ).toString("base64url");
-    return {
-      provider: "codex",
-      accountId,
-      accessToken: `fixture.${payload}.fixture${generation}`,
-      refreshToken: `controlled-${generation}`,
-      expired: "2030-01-01T00:00:00.000Z",
-    };
-  }
-  async function status() {
-    const [row] = await database.db
-      .select({ status: subscriptions.status })
-      .from(subscriptions)
-      .where(eq(subscriptions.id, id));
-    return row?.status;
-  }
-  async function enabled() {
-    writeHook = undefined;
-    removed = false;
-    stored = {
-      credential: credential(),
-      authenticatedAt: "2026-10-03T00:00:00.000Z",
-    };
-    // Explicit controlled authenticated datum. Not live OAuth qualification.
-    await database.db
-      .update(subscriptions)
-      .set({ status: "enabled", visibility: "workspace" })
-      .where(eq(subscriptions.id, id));
-  }
-  async function callback(
+  let owner: { id: string; cookie: string };
+  let member: { id: string; cookie: string };
+  let viewer: { id: string; cookie: string };
+  let outsider: { id: string; cookie: string };
+  const encryptionKey = randomBytes(32);
+  const scope = <T>(
+    work: Parameters<typeof inWorkspace<T>>[3],
+    userId = owner.id,
+  ) => inWorkspace(database.db, workspaceId, { userId }, work);
+  const json = { "content-type": "application/json" };
+  const call = (
+    path: string,
     method = "GET",
-    value?: unknown,
-    key: string = machineKey,
-  ) {
-    return fetch(`${origin}/internal/gateway/accounts/${id}`, {
+    body?: unknown,
+    cookie = owner.cookie,
+    requestOrigin = origin,
+  ) =>
+    fetch(`${origin}/api/workspaces/${workspaceId}/subscriptions${path}`, {
       method,
-      headers: {
-        authorization: `Bearer ${key}`,
-        "content-type": "application/json",
-      },
-      body: value === undefined ? undefined : JSON.stringify(value),
+      headers: { ...json, cookie, origin: requestOrigin },
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
+  const input = {
+    title: "Controlled provider",
+    provider: "openai" as const,
+    protocol: "responses" as const,
+    models: ["gpt-fixture"],
+    visibility: "user" as const,
+  };
+  async function create(visibility: "user" | "workspace" = "user") {
+    return scope((c) => createSubscription(c, { ...input, visibility }));
   }
-  function refresh(value = credential("controlled-account", 2)) {
-    return callback("PUT", {
-      expectedFingerprint: credentialFingerprint(stored.credential),
-      expectedAuthenticatedAt: stored.authenticatedAt,
-      credential: value,
-    });
+  async function accepted(id: string): Promise<AcceptedSubscriptionModel> {
+    return {
+      workspaceId,
+      sponsorId: owner.id,
+      subscriptionId: id,
+      model: "gpt-fixture",
+      ...(await scope((c) => authorizeSubscriptionModel(c, id, "gpt-fixture"))),
+    };
   }
   beforeAll(async () => {
-    database = await startPostgres({ poolMax: 2 });
+    database = await startPostgres();
     boss = await startQueue(database.db, database.pool, {
       install: true,
       workers: false,
     });
-    peer = Bun.serve({
-      hostname: "127.0.0.1",
-      port: 0,
-      async fetch(request) {
-        const url = new URL(request.url);
-        if (url.pathname.startsWith("/oauth-peer/")) {
-          if (!oauthHook) throw new Error("Unexpected OAuth call");
-          return oauthHook(request);
-        }
-        expect(url.pathname).toBe(
-          `/api/v4/secrets/OTTO_ACCOUNT_${id.replaceAll("-", "_")}`,
-        );
-        if (request.method === "DELETE") {
-          removed = true;
-          return Response.json({});
-        }
-        if (request.method === "GET") {
-          expect(url.searchParams.get("projectId")).toBe("controlled-project");
-          expect(url.searchParams.get("includeImports")).toBe("false");
-          if (removed) return new Response(null, { status: 404 });
-        } else {
-          const body = z
-            .object({
-              secretValue: z.string(),
-              environment: z.literal("controlled"),
-              secretPath: z.literal("/otto"),
-            })
-            .parse(await request.json());
-          stored = ACCOUNT_AUTH.parse(JSON.parse(body.secretValue));
-          const response = await writeHook?.();
-          if (response) return response;
-        }
-        return Response.json({
-          secret: { secretValue: JSON.stringify(stored) },
-        });
-      },
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
     });
     server = Bun.serve({
       hostname: "127.0.0.1",
@@ -142,491 +89,391 @@ describe("account credential persistence authority", () => {
       fetch: (request) => app.fetch(request),
     });
     origin = server.url.origin;
-    const auth = createAuth(
-      database.db,
-      crypto.randomUUID() + crypto.randomUUID(),
-      origin,
-    );
-    app = createApp({ db: database.db, auth, boss, origin });
-    const signup = await fetch(`${origin}/api/auth/sign-up/email`, {
-      method: "POST",
-      headers: { origin, "content-type": "application/json" },
-      body: JSON.stringify({
-        name: "Human",
-        email: "credential@example.test",
-        password: crypto.randomUUID() + crypto.randomUUID(),
-      }),
-    });
-    expect(signup.status).toBe(200);
-    cookie = signup.headers.get("set-cookie") ?? "";
-    userId = z
-      .object({ user: z.object({ id: z.string() }) })
-      .parse(await signup.json()).user.id;
-    workspaceId = (await claimInstallation(database.db, userId, "Accounts")).id;
-    const response = await fetch(
-      `${origin}/api/workspaces/${workspaceId}/subscriptions`,
-      {
-        method: "POST",
-        headers: { cookie, origin, "content-type": "application/json" },
-        body: JSON.stringify({
-          title: "Account",
-          provider: "codex",
-          visibility: "workspace",
-        }),
-      },
-    );
-    expect(response.status).toBe(200);
-    id = z.object({ id: z.uuid() }).parse(await response.json()).id;
-    const secrets = createInfisicalAccounts({
-      endpoint: peer.url.origin,
-      allowLoopbackHttp: true,
-      bindings: [
-        {
-          workspaceId,
-          projectId: "controlled-project",
-          environment: "controlled",
-          secretPath: "/otto",
-        },
-      ],
-      getAccessToken: async () => "controlled-peer-capability",
-    });
-    service = createSubscriptionLogin(database.db, secrets, database.pool);
     app = createApp({
       db: database.db,
-      auth,
       boss,
+      nativeStorage,
       origin,
-      subscriptionLogin: service,
-      gatewayStoreKey: machineKey,
+      encryptionKey,
+      auth: createAuth(
+        database.db,
+        crypto.randomUUID() + crypto.randomUUID(),
+        origin,
+      ),
     });
+    async function signup(label: string) {
+      const response = await fetch(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: { ...json, origin },
+        body: JSON.stringify({
+          name: label,
+          email: `${label}@provider.example.test`,
+          password: crypto.randomUUID() + crypto.randomUUID(),
+        }),
+      });
+      expect(response.status).toBe(200);
+      const data = z
+        .object({ user: z.object({ id: z.string() }) })
+        .parse(await response.json());
+      return {
+        id: data.user.id,
+        cookie: response.headers.get("set-cookie") ?? "",
+      };
+    }
+    owner = await signup("owner");
+    member = await signup("member");
+    viewer = await signup("viewer");
+    await Bun.sleep(11000);
+    outsider = await signup("outsider");
+    workspaceId = (await claimInstallation(database.db, owner.id, "Providers"))
+      .id;
+    await database.db.insert(members).values([
+      { workspaceId, userId: member.id, role: "contributor" },
+      { workspaceId, userId: viewer.id, role: "viewer" },
+    ]);
   });
   afterAll(async () => {
-    await service?.close();
     await server?.stop(true);
-    await peer?.stop(true);
+    await nativeStorage?.close();
     await boss?.stop();
     await database?.stop();
   });
-  it("requires the private capability and current enabled account, with no human credential projection", async () => {
-    await enabled();
-    expect((await callback("GET", undefined, "forged")).status).toBe(403);
-    const before = await callback();
-    expect(before.status).toBe(200);
-    expect(before.headers.get("cache-control")).toBe("no-store");
-    const human = await fetch(
-      `${origin}/api/workspaces/${workspaceId}/subscriptions/${id}`,
-      { headers: { cookie } },
-    );
-    const value = z
-      .object({ title: z.literal("Account") })
-      .parse(await human.json());
-    expect(value).not.toHaveProperty("credential");
-    await database.db
-      .update(subscriptions)
-      .set({ status: "disabled" })
-      .where(eq(subscriptions.id, id));
-    expect((await callback()).status).toBe(403);
-  });
-  it("commits needs_auth before write I/O and enables only after exact readback", async () => {
-    await enabled();
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
+  it("creates and replaces a key over authenticated HTTP without exposing its plaintext or secret ID", async () => {
+    const created = await call("", "POST", input);
+    expect(created.status).toBe(200);
+    const row = z
+      .object({ id: z.string(), status: z.string() })
+      .parse(await created.json());
+    expect(row.status).toBe("needs_auth");
+    const saved = await call(`/${row.id}/api-key`, "PUT", {
+      apiKey: "fixture-provider-key-one",
     });
-    let entered: () => void = () => {};
-    const started = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-    writeHook = async () => {
-      entered();
-      await gate;
-      return undefined;
-    };
-    const pending = refresh();
-    await started;
-    expect(await status()).toBe("needs_auth");
-    // A fresh server/domain lookup denies use while the first writer is still blocked.
-    expect((await callback()).status).toBe(403);
-    release();
-    const response = await pending;
-    expect(response.status).toBe(200);
+    expect(saved.status).toBe(200);
+    const text = await saved.text();
+    expect(text).not.toContain("fixture-provider-key-one");
+    expect(text).not.toContain("secretId");
+    expect(JSON.parse(text).status).toBe("enabled");
+    const first = await accepted(row.id);
+    const stored = (
+      await database.db
+        .select()
+        .from(secrets)
+        .where(eq(secrets.id, first.accountId))
+    )[0];
+    expect(stored?.value).not.toContain("fixture-provider-key-one");
     expect(
-      z.object({ fingerprint: z.string() }).parse(await response.json())
-        .fingerprint,
-    ).toBe(credentialFingerprint(stored.credential));
-    expect(await status()).toBe("enabled");
-    expect(stored.authenticatedAt).toBe("2026-10-03T00:00:00.000Z");
-  });
-  it("lost acknowledgement stays durably needs_auth on a fresh service instance", async () => {
-    await enabled();
-    writeHook = async () => new Response(null, { status: 503 });
-    expect((await refresh()).status).toBe(503);
-    expect(await status()).toBe("needs_auth");
-    expect((await callback()).status).toBe(403);
-    // Refresh changed the secret, not the trusted authentication event.
-    expect(stored.authenticatedAt).toBe("2026-10-03T00:00:00.000Z");
-  });
-  it("stale refresh never downgrades the newer authentication", async () => {
-    await enabled();
-    const stale = {
-      expectedFingerprint: credentialFingerprint(stored.credential),
-      expectedAuthenticatedAt: stored.authenticatedAt,
-      credential: credential("controlled-account", 2),
-    };
-    stored = {
-      credential: credential("controlled-account", 3),
-      authenticatedAt: "2026-10-03T00:01:00.000Z",
-    };
-    expect((await callback("PUT", stale)).status).toBe(409);
-    expect(await status()).toBe("enabled");
-    expect(stored.credential).toEqual(credential("controlled-account", 3));
-  });
-  it("revocation during persisted write cannot restore qualification", async () => {
-    await enabled();
-    writeHook = async () => {
+      (
+        await call(`/${row.id}/api-key`, "PUT", {
+          apiKey: "fixture-provider-key-two",
+        })
+      ).status,
+    ).toBe(200);
+    expect((await accepted(row.id)).accountId).not.toBe(first.accountId);
+    expect(
       await database.db
-        .update(subscriptions)
-        .set({ status: "disabled" })
-        .where(eq(subscriptions.id, id));
-      return undefined;
-    };
-    expect((await refresh()).status).toBe(403);
-    expect(await status()).toBe("disabled");
-    expect((await callback()).status).toBe(403);
+        .select()
+        .from(secrets)
+        .where(eq(secrets.id, first.accountId)),
+    ).toHaveLength(0);
+    await expect(
+      resolveSubscriptionModel(
+        database.db,
+        first,
+        encryptionKey,
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow("Accepted provider identity changed");
+    const refreshed = await call(`/${row.id}`);
+    expect(await refreshed.text()).not.toContain("secretId");
+    expect((await call(`/${row.id}/api-key`)).status).toBe(404);
   });
-  it("refuses a foreign account and remains fail closed", async () => {
-    await enabled();
-    expect((await refresh(credential("foreign-account"))).status).toBe(409);
-    expect(await status()).toBe("needs_auth");
-    expect(stored.credential.accountId).toBe("controlled-account");
-  });
-  it("concurrent refresh callbacks complete with two pool connections, without nested acquisition", async () => {
-    const accounts = await inWorkspace(
-      database.db,
-      workspaceId,
-      { userId },
-      async (c) =>
-        Promise.all([
-          createSubscription(c, { title: "First", provider: "codex" }),
-          createSubscription(c, { title: "Second", provider: "codex" }),
-        ]),
-    );
-    const records = new Map(
-      accounts.map((account) => [
-        account.id,
-        {
-          credential: credential(account.id),
-          authenticatedAt: "2026-10-03T00:00:00.000Z",
-        },
-      ]),
-    );
-    for (const account of accounts)
-      await database.db
-        .update(subscriptions)
-        .set({ status: "enabled" })
-        .where(eq(subscriptions.id, account.id));
-    const secretPeer = Bun.serve({
-      hostname: "127.0.0.1",
-      port: 0,
-      async fetch(request) {
-        const key =
-          new URL(request.url).pathname
-            .split("/")
-            .at(-1)
-            ?.replace("OTTO_ACCOUNT_", "")
-            .replaceAll("_", "-") ?? "";
-        if (!records.has(key)) return new Response(null, { status: 404 });
-        if (request.method !== "GET") {
-          records.set(
-            key,
-            ACCOUNT_AUTH.parse(
-              JSON.parse(
-                z
-                  .object({ secretValue: z.string() })
-                  .parse(await request.json()).secretValue,
-              ),
-            ),
-          );
-          await Bun.sleep(25);
-        }
-        return Response.json({
-          secret: { secretValue: JSON.stringify(records.get(key)) },
-        });
-      },
-    });
-    const concurrent = createSubscriptionLogin(
-      database.db,
-      createInfisicalAccounts({
-        endpoint: secretPeer.url.origin,
-        allowLoopbackHttp: true,
-        bindings: [
-          {
-            workspaceId,
-            projectId: "controlled-project",
-            environment: "controlled",
-            secretPath: "/otto",
-          },
-        ],
-        getAccessToken: async () => "controlled-peer-capability",
-      }),
-      database.pool,
-    );
-    const endpoint = Bun.serve({
-      hostname: "127.0.0.1",
-      port: 0,
-      fetch(request) {
-        const account = accounts.find((account) =>
-          new URL(request.url).pathname.endsWith(account.id),
-        );
-        if (!account) return new Response(null, { status: 404 });
-        const current = records.get(account.id);
-        if (!current) throw new Error("Missing controlled account");
-        return concurrent
-          .refresh(
-            account.id,
-            credentialFingerprint(current.credential),
-            current.authenticatedAt,
-            credential(account.id, 2),
-            request.signal,
+  it("denies origin forgery, anonymous requests, viewers and nonowners before storing a key", async () => {
+    const row = await create("workspace");
+    const before = await database.db.select().from(secrets);
+    expect(
+      (
+        await call(
+          `/${row.id}/api-key`,
+          "PUT",
+          { apiKey: "fixture-key" },
+          owner.cookie,
+          "https://evil.example",
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (await call(`/${row.id}/api-key`, "PUT", { apiKey: "fixture-key" }, ""))
+        .status,
+    ).toBe(401);
+    for (const person of [member, viewer, outsider])
+      expect(
+        (
+          await call(
+            `/${row.id}/api-key`,
+            "PUT",
+            { apiKey: "fixture-key" },
+            person.cookie,
           )
-          .then(Response.json);
-      },
-    });
-    try {
-      const responses = await Promise.all(
-        accounts.map((account) =>
-          fetch(`${endpoint.url.origin}/${account.id}`, { method: "PUT" }),
-        ),
+        ).status,
+      ).toBe(403);
+    expect(await database.db.select().from(secrets)).toEqual(before);
+  });
+  it("shares use but never credential management, denies private access and unconfigured models", async () => {
+    const shared = await create("workspace");
+    const privateRow = await create();
+    await scope((c) =>
+      setSubscriptionApiKey(
+        c,
+        shared.id,
+        { apiKey: "fixture-shared" },
+        encryptionKey,
+      ),
+    );
+    await expect(
+      scope(
+        (c) => authorizeSubscriptionModel(c, shared.id, "gpt-fixture"),
+        member.id,
+      ),
+    ).resolves.toMatchObject({ modelConfig: { id: "gpt-fixture" } });
+    await expect(
+      scope((c) => getSubscription(c, privateRow.id), member.id),
+    ).rejects.toThrow();
+    await expect(
+      scope(
+        (c) => authorizeSubscriptionModel(c, shared.id, "gpt-fixture"),
+        viewer.id,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      scope((c) => authorizeSubscriptionModel(c, shared.id, "other-model")),
+    ).rejects.toThrow("Provider or model unavailable");
+    expect(
+      (await call(`/${shared.id}/models`, "GET", undefined, member.cookie))
+        .status,
+    ).toBe(200);
+    const identity = { ...(await accepted(shared.id)), sponsorId: member.id };
+    await expect(
+      resolveSubscriptionModel(
+        database.db,
+        identity,
+        encryptionKey,
+        new AbortController().signal,
+      ),
+    ).resolves.toBeDefined();
+    await scope((c) =>
+      updateSubscription(c, shared.id, { visibility: "user" }),
+    );
+    await expect(
+      resolveSubscriptionModel(
+        database.db,
+        identity,
+        encryptionKey,
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow();
+  });
+  it("reauthorizes disabled providers and removed provider owners without any network call", async () => {
+    const row = await create("workspace");
+    await scope((c) =>
+      setSubscriptionApiKey(
+        c,
+        row.id,
+        { apiKey: "fixture-current" },
+        encryptionKey,
+      ),
+    );
+    const identity = await accepted(row.id);
+    await scope((c) => updateSubscription(c, row.id, { status: "disabled" }));
+    await expect(
+      resolveSubscriptionModel(
+        database.db,
+        identity,
+        encryptionKey,
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow();
+    await scope((c) =>
+      setSubscriptionApiKey(
+        c,
+        row.id,
+        { apiKey: "fixture-current" },
+        encryptionKey,
+      ),
+    );
+    const next = await accepted(row.id);
+    await database.db
+      .delete(members)
+      .where(
+        and(eq(members.workspaceId, workspaceId), eq(members.userId, owner.id)),
       );
-      expect(responses.map((response) => response.status)).toEqual([200, 200]);
-      for (const account of accounts) {
-        const [row] = await database.db
-          .select({ status: subscriptions.status })
-          .from(subscriptions)
-          .where(eq(subscriptions.id, account.id));
-        expect(row?.status).toBe("enabled");
-      }
-    } finally {
-      await concurrent.close();
-      await endpoint.stop(true);
-      await secretPeer.stop(true);
-    }
-  }, 12000);
-  async function withOAuth(
-    work: () => Promise<void>,
-    hook?: (request: Request) => Promise<Response>,
-  ) {
-    const nativeFetch = globalThis.fetch;
-    let device = 0;
-    oauthHook =
-      hook ??
-      (async (request) => {
-        const path = new URL(request.url).pathname;
-        if (path.endsWith("/usercode"))
-          return Response.json({
-            device_auth_id: `device-${++device}`,
-            user_code: "CONTROLLED",
-            interval: 0,
-          });
-        if (path.endsWith("/deviceauth/token"))
-          return Response.json({
-            authorization_code: "controlled-code",
-            code_verifier: "controlled-verifier",
-          });
-        if (path.endsWith("/oauth/token"))
-          return Response.json({
-            access_token: credential().accessToken,
-            refresh_token: credential().refreshToken,
-            expires_in: 3600,
-          });
-        throw new Error("Unexpected OAuth endpoint");
-      });
-    const scopedFetch: typeof fetch = Object.assign(
-      async (
-        input: Parameters<typeof fetch>[0],
-        init?: Parameters<typeof fetch>[1],
-      ) => {
-        const url = new URL(
-          input instanceof Request ? input.url : String(input),
-        );
-        if (url.hostname === "auth.openai.com") {
-          url.protocol = "http:";
-          url.host = new URL(peer.url).host;
-          url.pathname = `/oauth-peer${url.pathname}`;
-          return nativeFetch(url, init);
-        }
-        if (![new URL(origin).host, new URL(peer.url).host].includes(url.host))
-          throw new Error("External request denied in fixture");
-        return nativeFetch(input, init);
-      },
-      { preconnect: nativeFetch.preconnect },
-    );
-    vi.stubGlobal("fetch", scopedFetch);
     try {
-      await work();
-    } finally {
-      vi.unstubAllGlobals();
-      oauthHook = undefined;
-    }
-  }
-  async function login() {
-    return fetch(
-      `${origin}/api/workspaces/${workspaceId}/subscriptions/${id}/login`,
-      { method: "POST", headers: { cookie, origin } },
-    );
-  }
-  it("runs the published public SDK device flow through HTTP and confirms Infisical before connected", async () => {
-    await enabled();
-    const previousAt = stored.authenticatedAt;
-    await withOAuth(async () => {
-      const response = await login();
-      expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toBe("application/x-ndjson");
-      const lines = (await response.text())
-        .trim()
-        .split("\n")
-        .map((line) => JSON.parse(line));
-      expect(lines).toEqual([
-        {
-          type: "device_code",
-          verificationUri: "https://auth.openai.com/codex/device",
-          userCode: "CONTROLLED",
-          expiresInSeconds: 300,
-        },
-        { type: "connected", provider: "codex" },
-      ]);
-      expect(await status()).toBe("enabled");
-      expect(stored.authenticatedAt > previousAt).toBe(true);
-      expect((await callback()).status).toBe(200);
-    });
-  });
-  it("a lost login persistence acknowledgement produces only sanitized failure and needs_auth", async () => {
-    await enabled();
-    writeHook = async () => new Response(null, { status: 503 });
-    await withOAuth(async () => {
-      const response = await login();
-      const lines = (await response.text())
-        .trim()
-        .split("\n")
-        .map((line) => JSON.parse(line));
-      expect(lines.at(-1)).toEqual({ type: "error", code: "login_failed" });
-      expect(lines.some((line) => line.type === "connected")).toBe(false);
-      expect(await status()).toBe("needs_auth");
-    });
-  });
-  it("a stale login failure cannot disable a newer successful authentication from another server", async () => {
-    await enabled();
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let entered: () => void = () => {};
-    const pending = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-    let device = 0;
-    await withOAuth(
-      async () => {
-        const first = login();
-        await pending;
-        const secrets = createInfisicalAccounts({
-          endpoint: peer.url.origin,
-          allowLoopbackHttp: true,
-          bindings: [
-            {
-              workspaceId,
-              projectId: "controlled-project",
-              environment: "controlled",
-              secretPath: "/otto",
-            },
-          ],
-          getAccessToken: async () => "controlled-peer-capability",
-        });
-        const second = createSubscriptionLogin(
+      await expect(
+        resolveSubscriptionModel(
           database.db,
-          secrets,
-          database.pool,
-        );
-        const events: string[] = [];
-        try {
-          await second.login(
-            workspaceId,
-            { userId },
-            id,
-            (event) => events.push(event.type),
-            new AbortController().signal,
-          );
-          expect(events).toEqual(["device_code", "connected"]);
-          expect(await status()).toBe("enabled");
-          const newer = stored.authenticatedAt;
-          release();
-          const response = await first;
-          expect(
-            (await response.text()).includes('"code":"login_failed"'),
-          ).toBe(true);
-          expect(await status()).toBe("enabled");
-          expect(stored.authenticatedAt).toBe(newer);
-        } finally {
-          release();
-          await second.close();
-        }
-      },
-      async (request) => {
-        const path = new URL(request.url).pathname;
-        if (path.endsWith("/usercode"))
-          return Response.json({
-            device_auth_id: `device-${++device}`,
-            user_code: "CONTROLLED",
-            interval: 0,
-          });
-        if (path.endsWith("/deviceauth/token")) {
-          const value = z
-            .object({ device_auth_id: z.string() })
-            .parse(await request.json());
-          if (value.device_auth_id === "device-1") {
-            entered();
-            await gate;
-          }
-          return Response.json({
-            authorization_code: "controlled-code",
-            code_verifier: "controlled-verifier",
-          });
-        }
-        if (path.endsWith("/oauth/token"))
-          return Response.json({
-            access_token: credential().accessToken,
-            refresh_token: credential().refreshToken,
-            expires_in: 3600,
-          });
-        throw new Error("Unexpected OAuth endpoint");
-      },
-    );
+          next,
+          encryptionKey,
+          new AbortController().signal,
+        ),
+      ).rejects.toThrow();
+    } finally {
+      await database.db
+        .insert(members)
+        .values({ workspaceId, userId: owner.id, role: "owner" });
+    }
   });
-  it("disconnect stops the account first, removes the stored credential and ends it for good", async () => {
-    await enabled();
-    const post = (path: string, method = "POST", body?: unknown) =>
-      fetch(`${origin}/api/workspaces/${workspaceId}/subscriptions${path}`, {
-        method,
-        headers: { cookie, origin, "content-type": "application/json" },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-    const ids = async (query = "") =>
-      z
-        .object({ items: z.array(z.object({ id: z.string() })) })
-        .parse(await (await post(query, "GET")).json())
-        .items.map((item) => item.id);
-    expect(await ids()).toContain(id);
-    const response = await post(`/${id}/disconnect`);
-    expect(response.status).toBe(200);
-    expect(await status()).toBe("disconnected");
-    expect(removed).toBe(true);
-    // Gone from the default list and from the gateway; only an explicit status filter finds it.
-    expect(await ids()).not.toContain(id);
-    expect(await ids("?status=disconnected")).toContain(id);
-    expect((await callback()).status).toBe(403);
-    // Terminal: no login, no edit, no second disconnect side effects.
-    expect((await login()).status).toBe(403);
-    expect((await post(`/${id}`, "PATCH", { title: "Back" })).status).toBe(403);
-    expect((await post(`/${id}/disconnect`)).status).toBe(200);
+  it("pins model, provider, endpoint and protocol and fails closed for corrupt ciphertext", async () => {
+    const row = await create();
+    await scope((c) =>
+      setSubscriptionApiKey(
+        c,
+        row.id,
+        { apiKey: "fixture-current" },
+        encryptionKey,
+      ),
+    );
+    const identity = await accepted(row.id);
+    for (const changed of [
+      { protocol: "chat-completions" as const },
+      { baseUrl: "https://other.vendor.com/v1" },
+      { id: "other-model" },
+      { provider: "anthropic" as const },
+    ]) {
+      await expect(
+        resolveSubscriptionModel(
+          database.db,
+          { ...identity, modelConfig: { ...identity.modelConfig, ...changed } },
+          encryptionKey,
+          new AbortController().signal,
+        ),
+      ).rejects.toThrow("Accepted provider identity changed");
+    }
+    await database.db
+      .update(secrets)
+      .set({ value: "broken" })
+      .where(eq(secrets.id, identity.accountId));
+    await expect(
+      resolveSubscriptionModel(
+        database.db,
+        identity,
+        encryptionKey,
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow("Stored credential unavailable");
+  });
+  it("keeps historical Codex rows readable but impossible to execute or reconnect", async () => {
+    const [row] = await database.db
+      .insert(subscriptions)
+      .values({
+        workspaceId,
+        createdBy: owner.id,
+        title: "Historical",
+        provider: "codex",
+        status: "enabled",
+      })
+      .returning();
+    if (!row) throw new Error("Missing fixture row");
+    expect((await call(`/${row.id}`)).status).toBe(200);
+    await expect(
+      scope((c) => authorizeSubscriptionModel(c, row.id, "gpt-fixture")),
+    ).rejects.toThrow();
+    expect(
+      (await call(`/${row.id}/api-key`, "PUT", { apiKey: "fixture-key" }))
+        .status,
+    ).toBe(403);
+    expect((await call(`/${row.id}/login`, "POST")).status).toBe(404);
+  });
+  it("disconnects terminally and deletes encrypted bytes atomically", async () => {
+    const row = await create();
+    await scope((c) =>
+      setSubscriptionApiKey(
+        c,
+        row.id,
+        { apiKey: "fixture-delete" },
+        encryptionKey,
+      ),
+    );
+    const identity = await accepted(row.id);
+    expect((await call(`/${row.id}/disconnect`, "POST")).status).toBe(200);
+    expect(
+      await database.db
+        .select()
+        .from(secrets)
+        .where(eq(secrets.id, identity.accountId)),
+    ).toHaveLength(0);
+    expect(
+      (await call(`/${row.id}/api-key`, "PUT", { apiKey: "fixture-resurrect" }))
+        .status,
+    ).toBe(403);
+    expect((await call(`/${row.id}/disconnect`, "POST")).status).toBe(200);
+    await expect(
+      scope((c) => authorizeSubscriptionModel(c, row.id, "gpt-fixture")),
+    ).rejects.toThrow();
+  });
+  it("rejects cross-workspace provider IDs even for members of both workspaces", async () => {
+    const row = await create();
+    const [other] = await database.db
+      .insert(workspaces)
+      .values({ title: "Other" })
+      .returning();
+    if (!other) throw new Error("Missing fixture workspace");
+    await database.db
+      .insert(members)
+      .values({ workspaceId: other.id, userId: owner.id, role: "owner" });
+    await expect(
+      inWorkspace(database.db, other.id, { userId: owner.id }, (c) =>
+        setSubscriptionApiKey(
+          c,
+          row.id,
+          { apiKey: "fixture-wrong-workspace" },
+          encryptionKey,
+        ),
+      ),
+    ).rejects.toThrow();
+  });
+  it("provisions exactly one unconfigured protected default and allows explicit provider selection", async () => {
+    const [first, second] = await Promise.all([
+      scope(ensureDefaultAgent),
+      scope(ensureDefaultAgent),
+    ]);
+    expect(first.id).toBe(second.id);
+    expect(first).toMatchObject({
+      isDefault: true,
+      subscriptionId: null,
+      model: "unconfigured",
+      visibility: "workspace",
+      archived: false,
+    });
+    await expect(scope((c) => archiveAgent(c, first.id, true))).rejects.toThrow(
+      "Default agent cannot be archived",
+    );
+    await expect(
+      scope((c) =>
+        updateAgent(c, first.id, {
+          visibility: "user",
+          editToken: first.editToken,
+        }),
+      ),
+    ).rejects.toThrow("Default agent must remain shared");
+    const row = await create();
+    await scope((c) =>
+      setSubscriptionApiKey(
+        c,
+        row.id,
+        { apiKey: "fixture-default" },
+        encryptionKey,
+      ),
+    );
+    const updated = await scope((c) =>
+      updateAgent(c, first.id, {
+        subscriptionId: row.id,
+        model: "gpt-fixture",
+        editToken: first.editToken,
+      }),
+    );
+    expect(updated).toMatchObject({
+      isDefault: true,
+      subscriptionId: row.id,
+      model: "gpt-fixture",
+    });
   });
 });

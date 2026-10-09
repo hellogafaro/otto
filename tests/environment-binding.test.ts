@@ -6,31 +6,25 @@ import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
-import {
-  bindEnvironment,
-  bindExecutionScope,
-  claimEnvironment,
-  settleEnvironment,
-} from "../packages/environments/src";
+import { getEnvironment } from "../packages/environments/src";
 import { environments } from "../packages/environments/src/schema";
 import { RUN_QUEUE } from "../packages/runs/src";
 import {
   createRunRuntime,
   type RunRuntime,
 } from "../packages/runs/src/runtime";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { required } from "../packages/shared/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, workspaces } from "../packages/workspaces/src/schema";
-import { ControlledComputer } from "./fixtures/computer";
-import { pi, piRuntime } from "./fixtures/pi";
+import { controlledModel } from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
-/** Real auth/HTTP/PG/runtime binding with a controlled connector; no provider isolation claim. */
-describe("exclusive computer binding and writer authorization", () => {
+describe("disabled computer binding and preserved PostgreSQL records", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: PgBoss;
   let runtime: RunRuntime;
-  let computer: ControlledComputer;
+  let native: Awaited<ReturnType<typeof openNativeStorage>>;
   let app: ReturnType<typeof createApp>;
   let server: ReturnType<typeof Bun.serve>;
   let origin: string;
@@ -128,11 +122,13 @@ describe("exclusive computer binding and writer authorization", () => {
       workers: false,
       install: true,
     });
-    computer = new ControlledComputer("unused-scripts-only-account");
+    native = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     runtime = createRunRuntime(database.db, {
-      ...piRuntime,
-      pi,
-      backend: computer,
+      storage: native,
+      resolveModel: async () => controlledModel(),
+      tools: () => ({}),
     });
     server = Bun.serve({
       hostname: "127.0.0.1",
@@ -150,7 +146,7 @@ describe("exclusive computer binding and writer authorization", () => {
       boss,
       auth,
       origin,
-      pi,
+      nativeStorage: native,
       runtime,
     });
     async function human(name: string) {
@@ -190,7 +186,7 @@ describe("exclusive computer binding and writer authorization", () => {
     ]);
   });
   afterAll(async () => {
-    await computer?.close();
+    await native?.close();
     await runtime?.close();
     await server?.stop(true);
     await boss?.stop();
@@ -199,27 +195,23 @@ describe("exclusive computer binding and writer authorization", () => {
   });
 
   it.each(["declared", "existing provider-first"])(
-    "repeats native push with %s uniqueness and populated Environments, retaining leases, data and queue objects",
+    "repeats native push with %s uniqueness, preserving unsupported records and native storage",
     async (constraint) => {
       const first = await agent();
       const second = await agent(owner, otherWorkspaceId);
       const third = await agent();
       const ref = crypto.randomUUID();
-      expect((await bind(first, ref)).status).toBe(200);
-      expect((await bind(second, ref, owner, otherWorkspaceId)).status).toBe(
-        409,
-      );
       const runId = crypto.randomUUID();
-      await inWorkspace(
-        database.db,
-        workspaceId,
-        { userId: owner.id },
-        async (c) => {
-          await bindExecutionScope(c, first, "retained-fixture-scope");
-          await claimEnvironment(c, first, runId, 0);
-          await settleEnvironment(c.tx, workspaceId, first, runId, 0, false);
-        },
-      );
+      await database.db
+        .update(environments)
+        .set({
+          provider: "retained-unsupported-provider",
+          computerRef: ref,
+          activeRunId: runId,
+          state: "uncertain",
+          executionScope: "retained-unsupported-scope",
+        })
+        .where(eq(environments.agentId, first));
       expect(await saved(first)).toMatchObject({
         activeRunId: runId,
         state: "uncertain",
@@ -254,7 +246,7 @@ describe("exclusive computer binding and writer authorization", () => {
           .parse(
             (
               await database.pool.query(
-                "select format('%I.%I', schemaname, tablename) as name from pg_tables where schemaname in ('public','queue') order by schemaname,tablename",
+                "select format('%I.%I', schemaname, tablename) as name from pg_tables where schemaname in ('public','queue','mastra') order by schemaname,tablename",
               )
             ).rows,
           );
@@ -289,7 +281,7 @@ describe("exclusive computer binding and writer authorization", () => {
           ).rows,
           indexes: (
             await database.pool.query(
-              "select schemaname,tablename,indexname,indexdef from pg_indexes where schemaname in ('public','queue') order by schemaname,tablename,indexname",
+              "select schemaname,tablename,indexname,indexdef from pg_indexes where schemaname in ('public','queue','mastra') order by schemaname,tablename,indexname",
             )
           ).rows,
           queue: (
@@ -311,12 +303,12 @@ describe("exclusive computer binding and writer authorization", () => {
       );
       expect(await snapshot()).toEqual(before);
       expect((await bind(second, ref, owner, otherWorkspaceId)).status).toBe(
-        409,
+        503,
       );
       await expect(
         database.pool.query(
           'update environments set provider=$1, "computerRef"=$2 where "agentId"=$3',
-          [computer.provider, ref, second],
+          ["retained-unsupported-provider", ref, second],
         ),
       ).rejects.toMatchObject({
         code: "23505",
@@ -326,111 +318,48 @@ describe("exclusive computer binding and writer authorization", () => {
     },
   );
 
-  it("rejects a second Agent on the same computer and preserves an uncertain lease", async () => {
-    const first = await agent();
-    const second = await agent();
-    const ref = crypto.randomUUID();
-    expect((await bind(first, ref)).status).toBe(200);
-    const untouched = await saved(second);
-    expect((await bind(second, ref)).status).toBe(409);
-    expect(await saved(second)).toEqual(untouched);
-    const runId = crypto.randomUUID();
-    await inWorkspace(
-      database.db,
-      workspaceId,
-      { userId: owner.id },
-      async (c) => {
-        await claimEnvironment(c, first, runId, 0);
-        await expect(
-          settleEnvironment(c.tx, workspaceId, first, runId, 99, true),
-        ).rejects.toMatchObject({ code: "conflict" });
-        await settleEnvironment(c.tx, workspaceId, first, runId, 0, false);
-      },
-    );
-    const leased = await saved(first);
-    expect((await bind(second, ref)).status).toBe(409);
-    expect((await bind(first, ref)).status).toBe(409);
-    expect(await saved(first)).toEqual(leased);
-    expect(await saved(second)).toEqual(untouched);
-  });
-
-  it("allows exactly one concurrent cross-workspace binding to a canonical computer", async () => {
+  it("refuses binding for two Agents across workspaces without claiming a computer", async () => {
     const first = await agent();
     const second = await agent(owner, otherWorkspaceId);
+    const before = [await saved(first), await saved(second)];
     const ref = crypto.randomUUID();
     const responses = await Promise.all([
       bind(first, ref),
       bind(second, ref, owner, otherWorkspaceId),
     ]);
-    expect(responses.map((r) => r.status).sort()).toEqual([200, 409]);
-    const rows = [await saved(first), await saved(second)];
-    expect(rows.filter((row) => row.computerRef === ref)).toHaveLength(1);
-    expect(rows.filter((row) => row.state === "unavailable")).toHaveLength(1);
-  });
-
-  it("enforces exclusivity in PostgreSQL even outside the domain guard", async () => {
-    const first = await agent();
-    const second = await agent(owner, otherWorkspaceId);
-    const ref = crypto.randomUUID();
-    expect((await bind(first, ref)).status).toBe(200);
-    await expect(
-      database.pool.query(
-        'update environments set provider = $1, "computerRef" = $2 where "agentId" = $3',
-        [computer.provider, ref, second],
-      ),
-    ).rejects.toMatchObject({
-      code: "23505",
-      constraint: "environments_provider_computer_unique",
-    });
-    expect((await saved(second)).computerRef).toBeNull();
-  });
-
-  it("propagates unrelated database failures without translating them to conflicts", async () => {
-    const id = await agent();
-    const before = await saved(id);
-    await expect(
-      inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-        bindEnvironment(c, id, computer.provider, "invalid\0reference"),
-      ),
-    ).rejects.toMatchObject({ cause: { code: "22021" } });
-    expect(await saved(id)).toEqual(before);
-  });
-
-  it("allows distinct references and independent leases while preserving rebinding fences", async () => {
-    const first = await agent();
-    const second = await agent(owner, otherWorkspaceId);
-    const refs = [crypto.randomUUID(), crypto.randomUUID()];
-    const firstRef = required(refs[0]);
-    const secondRef = required(refs[1]);
-    expect((await bind(first, firstRef)).status).toBe(200);
-    expect((await bind(first, firstRef)).status).toBe(200);
-    expect((await bind(first, secondRef)).status).toBe(409);
+    expect(responses.map((r) => r.status)).toEqual([503, 503]);
+    expect([await saved(first), await saved(second)]).toEqual(before);
     expect(
-      (await bind(second, secondRef, owner, otherWorkspaceId)).status,
-    ).toBe(200);
-    const runIds = [crypto.randomUUID(), crypto.randomUUID()];
-    await Promise.all([
-      inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-        claimEnvironment(c, first, required(runIds[0]), 0),
+      before.every(
+        (row) =>
+          row.state === "unavailable" &&
+          row.activeRunId === null &&
+          row.computerRef === null,
       ),
-      inWorkspace(database.db, otherWorkspaceId, { userId: owner.id }, (c) =>
-        claimEnvironment(c, second, required(runIds[1]), 0),
-      ),
-    ]);
-    expect((await saved(first)).activeRunId).toBe(runIds[0]);
-    expect((await saved(second)).activeRunId).toBe(runIds[1]);
-    expect((await bind(first, firstRef)).status).toBe(409);
-    await expect(
-      inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-        claimEnvironment(c, first, required(runIds[0]), 1),
-      ),
-    ).rejects.toMatchObject({ code: "conflict" });
+    ).toBe(true);
   });
 
-  it("denies a downgraded scripts-only owner without mutation, then permits the restored writer", async () => {
+  it("preserves unsupported uncertain records rather than releasing or replacing their lease", async () => {
+    const id = await agent();
+    await database.db
+      .update(environments)
+      .set({
+        provider: "retained-unsupported-provider",
+        computerRef: "retained-reference",
+        activeRunId: crypto.randomUUID(),
+        state: "uncertain",
+      })
+      .where(eq(environments.agentId, id));
+    const before = await saved(id);
+    for (const ref of ["retained-reference", "replacement-reference"]) {
+      expect((await bind(id, ref)).status).toBe(503);
+      expect(await saved(id)).toEqual(before);
+    }
+  });
+
+  it("denies a viewer and does not turn restored writer authority into a compute provider", async () => {
     const id = await agent(contributor);
     const before = await saved(id);
-    const ref = crypto.randomUUID();
     await database.db
       .update(members)
       .set({ role: "viewer" })
@@ -440,13 +369,7 @@ describe("exclusive computer binding and writer authorization", () => {
           eq(members.userId, contributor.id),
         ),
       );
-    expect((await bind(id, ref, contributor)).status).toBe(403);
-    expect(await saved(id)).toEqual(before);
-    await expect(
-      inWorkspace(database.db, workspaceId, { userId: contributor.id }, (c) =>
-        bindEnvironment(c, id, computer.provider, ref),
-      ),
-    ).rejects.toMatchObject({ code: "forbidden" });
+    expect((await bind(id, "unavailable", contributor)).status).toBe(403);
     expect(await saved(id)).toEqual(before);
     await database.db
       .update(members)
@@ -457,12 +380,15 @@ describe("exclusive computer binding and writer authorization", () => {
           eq(members.userId, contributor.id),
         ),
       );
-    expect((await bind(id, ref, contributor)).status).toBe(200);
-    expect(await saved(id)).toMatchObject({
-      computerRef: ref,
-      provider: computer.provider,
-      state: "ready",
-      generation: before.generation,
-    });
+    expect((await bind(id, "unavailable", contributor)).status).toBe(503);
+    expect(await saved(id)).toEqual(before);
+    expect(
+      await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: contributor.id },
+        (c) => getEnvironment(c, id),
+      ),
+    ).toEqual(before);
   });
 });

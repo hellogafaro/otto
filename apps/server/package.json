@@ -34,8 +34,8 @@
     "@hono/zod-validator": "0.9.1",
     "@otto/shared": "workspace:*",
     "@otto/subscriptions": "workspace:*",
-    "@earendil-works/pi-ai": "1.0.0",
-    "@earendil-works/pi-coding-agent": "1.0.0",
-    "@otto/skills": "workspace:*"
+    "@otto/skills": "workspace:*",
+    "@mastra/core": "1.75.0",
+    "@otto/secrets": "workspace:*"
   }
 }

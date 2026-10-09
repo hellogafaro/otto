@@ -28,6 +28,7 @@ import { type ReactNode, useState } from "react";
 import { useConfirm } from "@/components/confirm";
 import { IconAction } from "@/components/icon-action";
 import { RiConnectorLine } from "@/components/icons";
+import { NativeProviderSettings as ModelSettings } from "@/components/native-provider-settings";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
 import { SectionSidebar } from "@/components/section-sidebar";
@@ -50,7 +51,6 @@ import {
   useSettingsCreation,
   useSettingsList,
 } from "@/features/settings/controls";
-import { ModelSettings } from "@/features/settings/subscriptions";
 import { client, read } from "@/lib/api";
 import { authClient } from "@/lib/auth";
 import { useDirectory } from "@/lib/directory";

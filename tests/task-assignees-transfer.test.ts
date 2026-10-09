@@ -6,7 +6,7 @@ import { createTask, getTask } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
 import { pushDatabase } from "../scripts/push";
-import { controlledSubscription } from "./fixtures/pi";
+import { controlledSubscription } from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
 it("explicit offline move copies single assignments into the junctions exactly, drops the old columns and refuses a repeat", async () => {

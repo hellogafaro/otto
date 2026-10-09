@@ -7,4 +7,4 @@ test "$(bun -p 'require("./package.json").name')" = otto
 test -f .infisical.json || { echo "Verified Otto Infisical link required" >&2; exit 1; }
 # The repository must already be linked to the authorized Otto project.
 # Never use compose config: it expands secret values into terminal output.
-exec bb secret run --env "$OTTO_SECRET_ENV" --path "$OTTO_SECRET_PATH" -- docker compose -f ops/compose.yaml "$@"
+exec infisical run --env "$OTTO_SECRET_ENV" --path "$OTTO_SECRET_PATH" -- docker compose -f ops/compose.yaml "$@"

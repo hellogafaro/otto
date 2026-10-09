@@ -1,4 +1,3 @@
-import { createMessage } from "@otto/chats";
 import type { RunProof } from "@otto/connections";
 import {
   type ConnectionBoundary,
@@ -8,21 +7,28 @@ import type { Database } from "@otto/db";
 import { getRun } from "@otto/runs";
 import { assertRunAttempt } from "@otto/runs/runtime";
 import { validateSchedule } from "@otto/schedules";
+import type { NativeSessionStorage } from "@otto/sessions/native";
 import { DomainError } from "@otto/shared";
-
 import { type Actor, type Context, inWorkspace } from "@otto/workspaces";
+import { authorizeRunSources } from "./run-sources";
 
 export type ConnectionOptions = Omit<
   Parameters<typeof createConnectionService>[0],
   "boundary"
->;
+> & { native?: NativeSessionStorage };
 /** Validates persisted execution identity, not a browser-supplied Agent or sponsor. */
-export async function validateConnectionRun(c: Context, proof: RunProof) {
+export async function validateConnectionRun(
+  c: Context,
+  proof: RunProof,
+  native?: NativeSessionStorage,
+) {
   const view = await getRun(c, proof.runId);
   const run = await assertRunAttempt(
     c,
     { ...proof, agentId: view.agentId },
     validateSchedule,
+    native,
+    authorizeRunSources,
   );
   if (run.environmentGeneration !== proof.environmentGeneration)
     throw new DomainError("forbidden", "Stale Environment");
@@ -39,26 +45,7 @@ export function connectionService(
 ) {
   const boundary: ConnectionBoundary = {
     transact: (work) => inWorkspace(db, workspaceId, actor, work),
-    validateRun: validateConnectionRun,
-    async publishResult(c, result) {
-      const run = await getRun(c, result.runId);
-      const body = JSON.stringify({
-        connectionId: result.connectionId,
-        action: result.action,
-        target: result.target,
-        result: result.value,
-      });
-      if (Buffer.byteLength(body) > 100000)
-        throw new DomainError(
-          "unavailable",
-          "Shared tool result exceeds message limit",
-        );
-      await createMessage(
-        { ...c, actor: { userId: c.actor.userId, agentId: run.agentId } },
-        run.chatId,
-        { requestId: result.operationId, body },
-      );
-    },
+    validateRun: (c, proof) => validateConnectionRun(c, proof, options.native),
   };
   return createConnectionService({ ...options, boundary });
 }

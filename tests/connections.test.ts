@@ -8,7 +8,6 @@ import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import {
   createChat,
-  createMessage,
   createParticipant,
   getChatAudience,
 } from "../packages/chats/src";
@@ -16,6 +15,7 @@ import { messages } from "../packages/chats/src/schema";
 import {
   approveOperation,
   createConnection,
+  denyOperation,
   disconnectConnection,
   getConnection,
   getConnections,
@@ -60,7 +60,10 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, users, workspaces } from "../packages/workspaces/src/schema";
-import { pi } from "./fixtures/pi";
+import {
+  controlledSubscription,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
 /** Controlled public test data only. This qualifies Otto HTTP/PG behavior, not GitHub/Infisical/MCP provider authentication. */
@@ -380,6 +383,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
     await scope(async (c) => {
       agentId = (
         await createAgent(c, {
+          subscriptionId: await controlledSubscription(c),
           visibility: "workspace",
           title: "Fixture agent",
           instructions: "Public fixture",
@@ -402,6 +406,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       transact: scope,
       // This explicit DB-backed composition fixture tests the mandatory hook. Main owns the production Run adapter.
       async validateRun(c, proof) {
+        if (denyPublication) throw new DomainError("forbidden");
         const run = required(
           (
             await c.tx
@@ -444,13 +449,6 @@ describe("Connections production adapters with private PostgreSQL and controlled
           throw new DomainError("forbidden");
         return { agentId: run.agentId, audience };
       },
-      async publishResult(c, result) {
-        if (denyPublication) throw new DomainError("forbidden");
-        await createMessage(c, chatId, {
-          requestId: result.operationId,
-          body: JSON.stringify(result.value),
-        });
-      },
     };
     service = makeService();
   });
@@ -488,10 +486,10 @@ describe("Connections production adapters with private PostgreSQL and controlled
             requestId: crypto.randomUUID(),
             chatId,
             agentId,
-            type: "script",
+            type: "prompt",
             body: "fixture only",
           },
-          pi,
+          nativeModelAuthorization,
         ),
       )
     ).id;
@@ -540,7 +538,9 @@ describe("Connections production adapters with private PostgreSQL and controlled
   it("does not route Subscriptions through external Connection adapters", async () => {
     const row = await scope((c) =>
       createSubscription(c, {
-        provider: "codex",
+        provider: "openai",
+        protocol: "responses",
+        models: ["fixture"],
         title: "Native association",
       }),
     );
@@ -597,6 +597,229 @@ describe("Connections production adapters with private PostgreSQL and controlled
     );
     expect(issueWrites).toBe(0);
   });
+  it("persists exact human denial and never executes or retries the denied request", async () => {
+    const input = request();
+    const row = await service.requestOperation(input);
+    const identity = required(row.identity ?? undefined);
+    const beforeRequests = requests.length;
+    const deny = () =>
+      scope((c) =>
+        denyOperation(c, row.id, { identity }, boundary.validateRun),
+      );
+    const [first, second] = await Promise.all([deny(), deny()]);
+    expect(first).toMatchObject({
+      id: row.id,
+      state: "denied",
+      deniedBy: "owner",
+      deniedAt: expect.any(Date),
+      outcome: "denied_by_human",
+    });
+    expect(second).toEqual(first);
+    expect(await scope((c) => getOperation(c, row.id))).toEqual(first);
+    expect(await service.requestOperation(input)).toEqual(first);
+    expect((await service.executeOperation(row.id)).state).toBe("denied");
+    await expect(
+      scope((c) => retryOperation(c, row.id, boundary.validateRun)),
+    ).rejects.toMatchObject({ code: "conflict" });
+    await expect(
+      scope((c) =>
+        approveOperation(c, row.id, { identity }, boundary.validateRun),
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      scope((c) =>
+        denyOperation(
+          c,
+          row.id,
+          { identity: "0".repeat(64) },
+          boundary.validateRun,
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "conflict" });
+    await expect(
+      service.requestOperation({
+        ...input,
+        arguments: { title: "Changed denied request" },
+      }),
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(
+      (await scope((c) => getOperations(c, { state: "denied" }))).items.map(
+        (item) => item.id,
+      ),
+    ).toContain(row.id);
+    expect(requests).toHaveLength(beforeRequests);
+    expect(issueWrites).toBe(0);
+    const stored = required(
+      (
+        await database.db
+          .select()
+          .from(operations)
+          .where(eq(operations.id, row.id))
+      )[0],
+    );
+    expect(stored.approvedBy).toBeNull();
+    expect(stored.executionToken).toBeNull();
+    expect(stored.retryCount).toBe(0);
+    await database.db
+      .update(operations)
+      .set({ expiresAt: new Date(0) })
+      .where(eq(operations.id, row.id));
+    expect(await deny()).toMatchObject({
+      state: "denied",
+      deniedBy: first.deniedBy,
+      deniedAt: first.deniedAt,
+      updatedAt: first.updatedAt,
+    });
+    expect((await service.executeOperation(row.id)).state).toBe("denied");
+    expect(requests).toHaveLength(beforeRequests);
+  });
+
+  it("requires the actual human sponsor and exact digest to deny a Connection operation", async () => {
+    const row = await service.requestOperation(request());
+    const identity = required(row.identity ?? undefined);
+    await expect(
+      scope((c) =>
+        denyOperation(
+          c,
+          row.id,
+          { identity: "0".repeat(64) },
+          boundary.validateRun,
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "conflict" });
+    await expect(
+      inWorkspace(database.db, workspaceId, { userId: "owner", agentId }, (c) =>
+        denyOperation(c, row.id, { identity }, boundary.validateRun),
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    const other = crypto.randomUUID();
+    await database.db.insert(users).values({
+      id: other,
+      name: "Different sponsor",
+      email: `${other}@example.test`,
+      emailVerified: true,
+    });
+    await database.db
+      .insert(members)
+      .values({ workspaceId, userId: other, role: "admin" });
+    try {
+      await expect(
+        inWorkspace(database.db, workspaceId, { userId: other }, (c) =>
+          denyOperation(c, row.id, { identity }, boundary.validateRun),
+        ),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    } finally {
+      await database.db
+        .delete(members)
+        .where(
+          and(eq(members.workspaceId, workspaceId), eq(members.userId, other)),
+        );
+    }
+    await database.db
+      .update(members)
+      .set({ role: "viewer" })
+      .where(
+        and(eq(members.workspaceId, workspaceId), eq(members.userId, "owner")),
+      );
+    try {
+      await expect(
+        scope((c) =>
+          denyOperation(c, row.id, { identity }, boundary.validateRun),
+        ),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    } finally {
+      await database.db
+        .update(members)
+        .set({ role: "owner" })
+        .where(
+          and(
+            eq(members.workspaceId, workspaceId),
+            eq(members.userId, "owner"),
+          ),
+        );
+    }
+    expect((await scope((c) => getOperation(c, row.id))).state).toBe(
+      "awaiting_approval",
+    );
+    expect(issueWrites).toBe(0);
+  });
+
+  it.each(["attempt", "launch", "generation", "grant", "expiry"] as const)(
+    "rejects Connection denial after the current %s fence changes",
+    async (fence) => {
+      const row = await service.requestOperation(request());
+      const identity = required(row.identity ?? undefined);
+      if (fence === "attempt")
+        await database.db
+          .update(runs)
+          .set({ attempt: 9 })
+          .where(eq(runs.id, runId));
+      if (fence === "launch")
+        await database.db
+          .update(runs)
+          .set({ launchKey: crypto.randomUUID() })
+          .where(eq(runs.id, runId));
+      if (fence === "generation")
+        await database.db
+          .update(runs)
+          .set({ environmentGeneration: 9 })
+          .where(eq(runs.id, runId));
+      if (fence === "grant")
+        await scope((c) => revokeConnectionAccess(c, connectionId, agentId));
+      if (fence === "expiry")
+        await database.db
+          .update(operations)
+          .set({ expiresAt: new Date(0) })
+          .where(eq(operations.id, row.id));
+      const before = await database.db
+        .select()
+        .from(operations)
+        .where(eq(operations.id, row.id));
+      await expect(
+        scope((c) =>
+          denyOperation(c, row.id, { identity }, boundary.validateRun),
+        ),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(
+        await database.db
+          .select()
+          .from(operations)
+          .where(eq(operations.id, row.id)),
+      ).toEqual(before);
+      expect(issueWrites).toBe(0);
+    },
+  );
+
+  it("serializes approval versus denial with one durable winner", async () => {
+    let writes = 0;
+    for (let index = 0; index < 4; index++) {
+      const row = await service.requestOperation(request());
+      const input = { identity: required(row.identity ?? undefined) };
+      const approve = () =>
+        scope((c) => approveOperation(c, row.id, input, boundary.validateRun));
+      const deny = () =>
+        scope((c) => denyOperation(c, row.id, input, boundary.validateRun));
+      const ordered = index % 2 ? [deny, approve] : [approve, deny];
+      const results = await Promise.allSettled(
+        ordered.map((decide) => decide()),
+      );
+      expect(
+        results.filter((result) => result.status === "fulfilled"),
+      ).toHaveLength(1);
+      const saved = await scope((c) => getOperation(c, row.id));
+      expect(["approved", "denied"]).toContain(saved.state);
+      const executed = await service.executeOperation(row.id);
+      if (saved.state === "approved") {
+        expect(executed.state).toBe("succeeded");
+        writes++;
+      } else {
+        expect(executed.state).toBe("denied");
+        expect(saved.deniedBy).toBe("owner");
+      }
+      expect(issueWrites).toBe(writes);
+    }
+  });
+
   it("renames a Connection without invalidating its accepted grant or exact approval", async () => {
     const row = await approved();
     const before = await scope((c) => snapshotGrants(c, agentId));
@@ -612,7 +835,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       ),
     ).rejects.toMatchObject({ code: "conflict" });
   });
-  it("executes an exact human approval once and saves a result atomically with publication", async () => {
+  it("executes an exact human approval once and keeps its result out of the public Chat", async () => {
     const row = await approved();
     const [first, duplicate] = await Promise.all([
       service.executeOperation(row.id),
@@ -630,6 +853,27 @@ describe("Connections production adapters with private PostgreSQL and controlled
       )[0],
     );
     expect(saved.result).toMatchObject({ number: 1 });
+    const agentService = createConnectionService({
+      boundary: {
+        ...boundary,
+        transact: (work) =>
+          inWorkspace(
+            database.db,
+            workspaceId,
+            { userId: "owner", agentId },
+            work,
+          ),
+      },
+      secrets: secretResolver(),
+      http: http(),
+      githubEndpoint: server.url.origin,
+    });
+    expect((await agentService.readOperation(row.id)).result).toMatchObject({
+      number: 1,
+    });
+    await expect(service.readOperation(row.id)).rejects.toMatchObject({
+      code: "forbidden",
+    });
     expect(
       (
         await database.db
@@ -637,7 +881,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
           .from(messages)
           .where(eq(messages.requestId, row.id))
       ).length,
-    ).toBe(1);
+    ).toBe(0);
   });
   it("intersects provider permission and Otto grant; disabled actions or unselected targets cannot execute", async () => {
     const row = await approved();
@@ -1176,8 +1420,13 @@ describe("Connections production adapters with private PostgreSQL and controlled
       code: "forbidden",
     });
     await grant();
+    await database.db
+      .update(runs)
+      .set({ state: "finished" })
+      .where(eq(runs.id, runId));
     const privateAudience = await scope(async (c) => {
       const other = await createAgent(c, {
+        subscriptionId: await controlledSubscription(c),
         visibility: "workspace",
         title: "Other audience",
         instructions: "Fixture",
@@ -1206,10 +1455,10 @@ describe("Connections production adapters with private PostgreSQL and controlled
             requestId: crypto.randomUUID(),
             chatId: privateAudience.id,
             agentId,
-            type: "script",
+            type: "prompt",
             body: "fixture",
           },
-          pi,
+          nativeModelAuthorization,
         ),
       )
     ).id;
@@ -1403,6 +1652,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       { userId: "owner" },
       async (c) => {
         const agent = await createAgent(c, {
+          subscriptionId: await controlledSubscription(c),
           visibility: "workspace",
           title: "Foreign fixture",
           instructions: "Fixture",
@@ -1426,10 +1676,10 @@ describe("Connections production adapters with private PostgreSQL and controlled
               requestId: crypto.randomUUID(),
               chatId: chat.id,
               agentId: agent.id,
-              type: "script",
+              type: "prompt",
               body: "fixture only",
             },
-            pi,
+            nativeModelAuthorization,
           ),
         };
       },
@@ -1476,6 +1726,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
     beforeResponse = () =>
       scope(async (c) => {
         const other = await createAgent(c, {
+          subscriptionId: await controlledSubscription(c),
           visibility: "workspace",
           title: "Later audience",
           instructions: "Fixture",

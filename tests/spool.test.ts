@@ -8,6 +8,7 @@ import {
   PayloadTooLarge,
   receiveToFile,
 } from "../apps/server/src/spool";
+import { processStartTicks } from "./fixtures/storage";
 
 describe("transfer spool ownership and admission", () => {
   const bases: string[] = [];
@@ -86,9 +87,7 @@ describe("transfer spool ownership and admission", () => {
     );
     // Live owner with a matching start time and an unreadable-owner directory are both left alone.
     const live = join(dir, `inst-${process.pid}-cccccccccccc`);
-    const { readFile: read } = await import("node:fs/promises");
-    const stat = await read(`/proc/${process.pid}/stat`, "utf8");
-    const start = stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19];
+    const start = processStartTicks(process.pid);
     await mkdir(live);
     await writeFile(
       join(live, "owner.json"),
@@ -106,6 +105,37 @@ describe("transfer spool ownership and admission", () => {
     );
     expect(await readFile(join(dir, "plain-file"), "utf8")).toBe("mine");
     await spool.close();
+  });
+
+  it("preserves live legacy owners and refuses invalid or directory-mismatched owner identities", async () => {
+    const dir = await base();
+    const entries = [
+      { name: `inst-${process.pid}-eeeeeeeeeeee`, owner: { pid: process.pid } },
+      {
+        name: "inst-4194303-ffffffffffff",
+        owner: { pid: process.pid, start: processStartTicks(process.pid) },
+      },
+      { name: "inst-0-111111111111", owner: { pid: 0, start: "0" } },
+      { name: "inst-1-222222222222", owner: { pid: "1", start: "0" } },
+      {
+        name: `inst-${process.pid}-333333333333`,
+        owner: { pid: process.pid, start: 0 },
+      },
+    ];
+    for (const { name, owner } of entries) {
+      await mkdir(join(dir, name));
+      await writeFile(join(dir, name, "owner.json"), JSON.stringify(owner));
+      await writeFile(join(dir, name, "retained.part"), "must survive");
+    }
+    const spool = await createSpool({ baseDir: dir, budgetBytes: 10 });
+    try {
+      for (const { name } of entries)
+        expect(await readFile(join(dir, name, "retained.part"), "utf8")).toBe(
+          "must survive",
+        );
+    } finally {
+      await spool.close();
+    }
   });
 
   it("ends a body that stalls or overruns its total deadline, removes nothing it does not own and reports honestly", async () => {

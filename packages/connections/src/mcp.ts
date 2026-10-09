@@ -167,7 +167,7 @@ export function createMcpClient(options: { http: HttpOptions }) {
                 "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
               },
             },
-            options.http,
+            { ...options.http, signal: undefined },
             async (response) => {
               await response.body?.cancel();
             },

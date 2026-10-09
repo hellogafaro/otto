@@ -14,6 +14,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 export const agents = pgTable(
@@ -35,10 +36,18 @@ export const agents = pgTable(
     model: text().notNull(),
     subscriptionId: uuid(),
     archived: boolean().notNull().default(false),
+    isDefault: boolean().notNull().default(false),
     editToken: integer().notNull().default(0),
   },
   (t): PgTableExtraConfigValue[] => [
     check("agents_visibility", sql`${t.visibility} in ('user','workspace')`),
+    check(
+      "agents_default_active_shared",
+      sql`not ${t.isDefault} or (not ${t.archived} and ${t.visibility} = 'workspace' and ${t.projectId} is null)`,
+    ),
+    uniqueIndex("agents_one_default_workspace")
+      .on(t.workspaceId)
+      .where(sql`${t.isDefault}`),
     foreignKey({
       name: "agents_workspace_fk",
       columns: [t.workspaceId],

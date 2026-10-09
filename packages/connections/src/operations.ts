@@ -12,6 +12,7 @@ import {
   creatorIsMember,
   requireHuman,
   requireMember,
+  requireWriter,
 } from "@otto/workspaces";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
@@ -27,7 +28,6 @@ import {
   OPERATION_APPROVAL,
   OPERATION_REQUEST,
   type OperationRequest,
-  type OperationResult,
   type RunProof,
 } from "./types";
 
@@ -39,8 +39,6 @@ export type ValidateRun = (
 export interface ConnectionBoundary {
   transact<T>(work: (c: Context) => Promise<T>): Promise<T>;
   validateRun: ValidateRun;
-  /** Called under the same workspace transaction as the final grant check and result persistence. */
-  publishResult(c: Context, result: OperationResult): Promise<void>;
 }
 export function canonicalJson(value: JsonValue): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -168,6 +166,8 @@ export function operationView(row: typeof operations.$inferSelect) {
     audience: row.audience,
     identity: row.identity,
     state: row.state,
+    deniedBy: row.deniedBy,
+    deniedAt: row.deniedAt,
     expiresAt: row.expiresAt,
     retryCount: row.retryCount,
     outcome: row.outcome,
@@ -212,6 +212,7 @@ export async function getOperations(
           .enum([
             "awaiting_approval",
             "approved",
+            "denied",
             "executing",
             "succeeded",
             "failed",
@@ -325,7 +326,10 @@ export async function validateOperation(
   );
   if (row.identity !== current.identity || row.agentId !== current.agentId)
     throw new DomainError("conflict");
-  if (!row.expiresAt || row.expiresAt.getTime() <= Date.now())
+  if (
+    row.state !== "denied" &&
+    (!row.expiresAt || row.expiresAt.getTime() <= Date.now())
+  )
     throw new DomainError("forbidden", "Operation approval expired");
   return current;
 }
@@ -354,9 +358,58 @@ export async function approveOperation(
             expiresAt: new Date(Date.now() + 300_000),
             updatedAt: new Date(),
           })
-          .where(eq(operations.id, id))
+          .where(
+            and(
+              eq(operations.id, id),
+              eq(operations.state, "awaiting_approval"),
+            ),
+          )
           .returning()
       )[0],
+      "conflict",
+    ),
+  );
+}
+export async function denyOperation(
+  c: Context,
+  id: string,
+  input: z.infer<typeof OPERATION_APPROVAL>,
+  validateRun: ValidateRun,
+) {
+  requireHuman(c);
+  requireWriter(c);
+  const parsed = parseInput(OPERATION_APPROVAL, input);
+  const row = await getOperationRecord(c, id);
+  if (
+    row.sponsorId !== c.actor.userId ||
+    !["awaiting_approval", "denied"].includes(row.state)
+  )
+    throw new DomainError("forbidden");
+  if (parsed.identity !== row.identity) throw new DomainError("conflict");
+  await validateOperation(c, row, validateRun);
+  if (row.state === "denied") return operationView(row);
+  const deniedAt = new Date();
+  return operationView(
+    required(
+      (
+        await c.tx
+          .update(operations)
+          .set({
+            state: "denied",
+            deniedBy: c.actor.userId,
+            deniedAt,
+            outcome: "denied_by_human",
+            updatedAt: deniedAt,
+          })
+          .where(
+            and(
+              eq(operations.id, id),
+              eq(operations.state, "awaiting_approval"),
+            ),
+          )
+          .returning()
+      )[0],
+      "conflict",
     ),
   );
 }

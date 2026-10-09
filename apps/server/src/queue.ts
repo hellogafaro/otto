@@ -3,7 +3,7 @@ import type { Database } from "@otto/db";
 import {
   dispatchRun,
   failQueuedRun,
-  type PiInstallation,
+  type ModelAuthorization,
   RUN_QUEUE,
   recoverRuns,
 } from "@otto/runs";
@@ -14,6 +14,7 @@ import {
   SCHEDULE_QUEUE,
   validateSchedule,
 } from "@otto/schedules";
+import type { NativeSessionStorage } from "@otto/sessions/native";
 import type { Pool } from "pg";
 import { PgBoss } from "pg-boss";
 import { z } from "zod";
@@ -27,7 +28,8 @@ export async function startQueue(
   options: {
     workers?: boolean;
     install?: boolean;
-    pi?: PiInstallation;
+    modelAuthorization?: ModelAuthorization;
+    nativeStorage?: NativeSessionStorage;
     runtime?: {
       dispatch(runId: string): Promise<void>;
       recover(): Promise<void>;
@@ -135,7 +137,8 @@ export async function startQueue(
               editToken: data.editToken,
               id: job.id,
             },
-            options.pi,
+            options.modelAuthorization,
+            options.nativeStorage,
           );
         }
       });

@@ -8,18 +8,25 @@ import { createEnvironment } from "../packages/environments/src";
 import { admitRun, RUN_QUEUE } from "../packages/runs/src";
 import { createRunRuntime } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
+import { required } from "../packages/shared/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { users } from "../packages/workspaces/src/schema";
-import { ControlledComputer } from "./fixtures/computer";
-import { pi, piRuntime } from "./fixtures/pi";
+import {
+  controlledModel,
+  controlledSubscription,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
-describe("pg-boss dispatch failure ownership with controlled compute", () => {
+describe("pg-boss dispatch failure ownership with deterministic native models", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: PgBoss;
   let worker: PgBoss | undefined;
   let runtime: ReturnType<typeof createRunRuntime>;
-  let computer: ControlledComputer;
+  let native: Awaited<ReturnType<typeof openNativeStorage>>;
+  let subscriptionId: string;
+  let heldWork: Promise<void> | undefined;
   let workspaceId: string;
   const scope = <T>(fn: Parameters<typeof inWorkspace<T>>[3]) =>
     inWorkspace(database.db, workspaceId, { userId: "owner" }, fn);
@@ -32,6 +39,10 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
     expect(process.versions.bun).toBeTruthy();
     worker = undefined;
     database = await startPostgres();
+    native = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
+    heldWork = undefined;
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -43,18 +54,24 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
       emailVerified: true,
     });
     workspaceId = (await claimInstallation(database.db, "owner", "Queue")).id;
-    computer = new ControlledComputer("script-fixture-no-account");
+    subscriptionId = await scope(controlledSubscription);
     runtime = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
+      storage: native,
+      resolveModel: async (attempt, signal) =>
+        controlledModel({
+          signal,
+          hold: (await saved(attempt.runId))?.inputs.body === "hold",
+        }),
+      tools: () => ({}),
+      publishOutput: async () => {},
       deadlineMs: 20000,
     });
   });
   afterEach(async () => {
     await worker?.stop();
-    await computer?.close();
     await runtime?.close();
+    await heldWork;
+    await native?.close();
     await boss?.stop();
     await database?.stop();
   });
@@ -63,8 +80,9 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
     const target = await scope(async (c) => {
       const agent = await createAgent(c, {
         title: "Queue fixture",
-        instructions: "Controlled script only",
+        instructions: "Deterministic native fixture only",
         model: "fixture",
+        subscriptionId,
       });
       await createEnvironment(c, agent.id);
       const chat = await createChat(c, {
@@ -77,12 +95,6 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
       });
       return { agentId: agent.id, chatId: chat.id };
     });
-    await runtime.bind(
-      workspaceId,
-      { userId: "owner" },
-      target.agentId,
-      target.agentId,
-    );
     return target;
   }
   const admit = (target: Awaited<ReturnType<typeof setup>>, body = "finish") =>
@@ -93,10 +105,11 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
         {
           ...target,
           requestId: crypto.randomUUID(),
-          type: "script",
+          type: "prompt",
           body,
         },
-        pi,
+        nativeModelAuthorization,
+        native,
       ),
     );
 
@@ -107,8 +120,16 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
         target: Awaited<ReturnType<typeof setup>>;
         run: Awaited<ReturnType<typeof admit>>;
       }[] = [];
+      let holder: Awaited<ReturnType<typeof admit>> | undefined;
       for (let i = 0; i < 3; i++) {
         const target = await setup();
+        if (i === 0 && mode !== "preparation") {
+          holder = await admit(target, "hold");
+          heldWork = runtime.dispatch(holder.id);
+          await expect
+            .poll(async () => (await saved(required(holder).id))?.state)
+            .toBe("running");
+        }
         accepted.push({ target, run: await admit(target) });
       }
       // Shorten only the fixture retry budget, keeping the production admission path.
@@ -116,8 +137,7 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
         "update queue.job set retry_limit=$1,retry_delay=1 where name=$2",
         [mode === "busy-retry" ? 1 : 0, RUN_QUEUE],
       );
-      let failingId: string | undefined;
-      let holder: Awaited<ReturnType<typeof admit>> | undefined;
+      const failingId = required(accepted[0]).run.id;
       const attempts = new Map<string, number>();
       const failures: string[] = [];
       worker = await startQueue(database.db, database.pool, {
@@ -126,20 +146,8 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
           async dispatch(id) {
             attempts.set(id, (attempts.get(id) ?? 0) + 1);
             try {
-              // Pick the first delivered Run: SQL UPDATE RETURNING has no row-order guarantee.
-              if (!failingId) {
-                failingId = id;
-                if (mode === "preparation")
-                  throw new Error("Controlled preparation failure");
-                const entry = accepted.find(({ run }) => run.id === id);
-                if (!entry) throw new Error("Unexpected first dispatch");
-                const heldRun = await admit(entry.target, "hold");
-                holder = heldRun;
-                await runtime.dispatch(heldRun.id);
-                await expect
-                  .poll(async () => (await saved(heldRun.id))?.state)
-                  .toBe("running");
-              }
+              if (id === failingId && mode === "preparation")
+                throw new Error("Controlled preparation failure");
               await runtime.dispatch(id);
             } catch (error) {
               failures.push(
@@ -157,7 +165,7 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
             { timeout: 10000 },
           )
           .toBe("retry");
-        expect(failures).toContain("Environment busy");
+        expect(failures).toContain("Agent execution busy");
         if (!holder) throw new Error("Missing held Run");
         await runtime.stop(workspaceId, { userId: "owner" }, holder.id);
       }
@@ -220,7 +228,7 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
         expect(failures).toContain(
           mode === "preparation"
             ? "Controlled preparation failure"
-            : "Environment busy",
+            : "Agent execution busy",
         );
       }
     },

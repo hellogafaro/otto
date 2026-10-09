@@ -3,9 +3,47 @@ import {
   MAX_OUTPUT_BYTES,
   ProviderError,
   readText,
+  requestHttp,
 } from "../packages/connections/src/http";
 
 describe("bounded provider body cleanup", () => {
+  it("joins the native attempt abort signal and withholds partial provider output", async () => {
+    const received = Promise.withResolvers<void>();
+    const abort = new AbortController();
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch() {
+        received.resolve();
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode("partial private output"),
+              );
+            },
+          }),
+        );
+      },
+    });
+    try {
+      const result = requestHttp(
+        server.url,
+        {},
+        {
+          allowedOrigins: [server.url.origin],
+          allowLoopbackHttp: true,
+          signal: abort.signal,
+        },
+        readText,
+      );
+      await received.promise;
+      abort.abort();
+      await expect(result).rejects.toEqual(new ProviderError());
+    } finally {
+      await server.stop(true);
+    }
+  });
   it("retains the output-limit failure when cancelling the provider body also fails", async () => {
     const cleanup = new Error("controlled cancellation failure");
     const response = new Response(

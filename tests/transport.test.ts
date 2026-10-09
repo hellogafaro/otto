@@ -10,15 +10,24 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
-import { createChat, createMessage } from "../packages/chats/src";
+import {
+  createChat,
+  createMessage,
+  publishMessage,
+  reserveMessage,
+} from "../packages/chats/src";
 import { createDocument, updateDocument } from "../packages/documents/src";
+import {
+  openNativeStorage,
+  saveNativeMessage,
+} from "../packages/sessions/src/native";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
-import { pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 describe("authenticated HTTP RPC and WebSocket replay", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: PgBoss;
   let server: Server<RealtimeData>;
   let realtime: ReturnType<typeof createRealtime>;
@@ -31,6 +40,9 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
   let app: ReturnType<typeof createApp>;
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -65,8 +77,8 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    const options = { db: database.db, boss, auth, origin };
-    app = createApp({ ...options, pi });
+    const options = { db: database.db, boss, auth, origin, nativeStorage };
+    app = createApp(options);
     realtime = createRealtime(options);
     const response = await fetch(`${origin}/api/auth/sign-up/email`, {
       method: "POST",
@@ -103,7 +115,8 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
   afterAll(async () => {
     realtime?.close();
     await server?.stop(true);
-    await boss?.stop();
+    await boss?.stop({ graceful: false });
+    await nativeStorage?.close();
     await database?.stop();
   });
   it("requires authentication and rejects invalid requests and foreign origins", async () => {
@@ -214,11 +227,18 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     const ws = connect(0);
     const first = await next(ws);
     ws.close();
-    await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
-      await createMessage(c, chatId, {
+    await createMessage(
+      database.db,
+      nativeStorage,
+      workspaceId,
+      { userId },
+      chatId,
+      {
         body: "during gap",
         requestId: crypto.randomUUID(),
-      });
+      },
+    );
+    await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
       await updateDocument(c, documentId, {
         title: "Document",
         body: "after gap",
@@ -241,25 +261,45 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     const ready = new Promise<void>((resolve) => {
       started = resolve;
     });
+    const reserved = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId },
+      (c) =>
+        reserveMessage(c, chatId, {
+          body: "transaction one",
+          requestId: crypto.randomUUID(),
+        }),
+    );
+    await saveNativeMessage(nativeStorage, {
+      workspaceId,
+      threadId: reserved.nativeThreadId,
+      messageId: reserved.nativeMessageId,
+      role: "user",
+      body: "transaction one",
+      createdAt: reserved.createdAt,
+    });
     const first = inWorkspace(
       database.db,
       workspaceId,
       { userId },
       async (c) => {
-        await createMessage(c, chatId, {
-          body: "transaction one",
-          requestId: crypto.randomUUID(),
-        });
+        await publishMessage(c, chatId, reserved.id);
         started();
         await held;
       },
     );
     await ready;
-    const second = inWorkspace(database.db, workspaceId, { userId }, (c) =>
-      createMessage(c, chatId, {
+    const second = createMessage(
+      database.db,
+      nativeStorage,
+      workspaceId,
+      { userId },
+      chatId,
+      {
         body: "transaction two",
         requestId: crypto.randomUUID(),
-      }),
+      },
     );
     release();
     await Promise.all([first, second]);
@@ -320,13 +360,18 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
   );
   it("splits large saved history into bounded frames without losing the cursor", async () => {
     const prefix = "large-record-";
-    await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
-      for (let index = 0; index < 15; index++)
-        await createMessage(c, chatId, {
+    for (let index = 0; index < 15; index++)
+      await createMessage(
+        database.db,
+        nativeStorage,
+        workspaceId,
+        { userId },
+        chatId,
+        {
           body: `${prefix}${index}:${"x".repeat(90000)}`,
           requestId: crypto.randomUUID(),
-        });
-    });
+        },
+      );
     const ws = connect(0);
     let received = 0;
     try {

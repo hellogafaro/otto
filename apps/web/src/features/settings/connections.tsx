@@ -847,41 +847,44 @@ function ConnectionOperations({ connection }: { connection: Connection }) {
       description="Only operations sponsored by you are returned. Unknown external outcomes require reconciliation outside Otto."
     >
       <Row title="Filter">
-        <Choice
-          label="Operation state"
-          value={state}
-          options={{
-            all: "All states",
-            awaiting_approval: "Needs approval",
-            approved: "Approved",
-            executing: "Executing",
-            succeeded: "Succeeded",
-            failed: "Failed",
-            uncertain: "Uncertain",
-          }}
-          onChange={(state) => {
-            setState(state);
-            setAfter(undefined);
-          }}
-        />
-        <Choice
-          label="Operation sort"
-          value={sort}
-          options={{ createdAt: "Created", updatedAt: "Updated" }}
-          onChange={(sort) => {
-            setSort(sort);
-            setAfter(undefined);
-          }}
-        />
-        <Choice
-          label="Operation order"
-          value={order}
-          options={{ asc: "Ascending", desc: "Descending" }}
-          onChange={(order) => {
-            setOrder(order);
-            setAfter(undefined);
-          }}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Choice
+            label="Operation state"
+            value={state}
+            options={{
+              all: "All states",
+              awaiting_approval: "Needs approval",
+              approved: "Approved",
+              denied: "Denied",
+              executing: "Executing",
+              succeeded: "Succeeded",
+              failed: "Failed",
+              uncertain: "Uncertain",
+            }}
+            onChange={(state) => {
+              setState(state);
+              setAfter(undefined);
+            }}
+          />
+          <Choice
+            label="Operation sort"
+            value={sort}
+            options={{ createdAt: "Created", updatedAt: "Updated" }}
+            onChange={(sort) => {
+              setSort(sort);
+              setAfter(undefined);
+            }}
+          />
+          <Choice
+            label="Operation order"
+            value={order}
+            options={{ asc: "Ascending", desc: "Descending" }}
+            onChange={(order) => {
+              setOrder(order);
+              setAfter(undefined);
+            }}
+          />
+        </div>
       </Row>
       <QueryState
         pending={query.isPending}
@@ -952,31 +955,70 @@ function OperationRow({ operation }: { operation: Operation }) {
           </div>
         </details>
         {operation.state === "awaiting_approval" && operation.identity && (
-          <Button
-            variant="outline"
-            size="compact"
-            disabled={action.pending || expired || !writable}
-            onClick={async () => {
-              const yes = await confirm({
-                title: "Approve this exact operation?",
-                description: `${operation.action} on ${operation.target}. Review the arguments, audience and identity before approving.`,
-                action: "Approve",
-              });
-              if (yes)
-                await action.perform(
-                  async () =>
-                    read(
-                      await api.operations[":id"].approve.$post({
-                        param,
-                        json: { identity: operation.identity ?? "" },
-                      }),
-                    ),
-                  "Operation approved",
-                );
-            }}
-          >
-            Approve
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="compact"
+              disabled={action.pending || expired || !writable}
+              onClick={async () => {
+                const yes = await confirm({
+                  title: "Approve this exact operation?",
+                  description: `${operation.action} on ${operation.target}. Review the arguments, audience and identity before approving.`,
+                  action: "Approve",
+                });
+                if (yes)
+                  await action.perform(
+                    async () =>
+                      read(
+                        await api.operations[":id"].approve.$post({
+                          param,
+                          json: { identity: operation.identity ?? "" },
+                        }),
+                      ),
+                    "Operation approved",
+                  );
+              }}
+            >
+              Approve
+            </Button>
+            <Button
+              variant="outline"
+              size="compact"
+              disabled={action.pending || expired || !writable}
+              onClick={async () => {
+                const yes = await confirm({
+                  title: "Deny this exact operation?",
+                  description: `${operation.action} on ${operation.target} will not execute. This denial is final; it cannot be retried or approved later.`,
+                  action: "Deny",
+                });
+                if (yes)
+                  await action.perform(
+                    async () =>
+                      read(
+                        await api.operations[":id"].deny.$post({
+                          param,
+                          json: { identity: operation.identity ?? "" },
+                        }),
+                      ),
+                    "Operation denied",
+                  );
+              }}
+            >
+              Deny
+            </Button>
+          </div>
+        )}
+        {operation.state === "denied" && (
+          <p>
+            Denied
+            {operation.deniedBy
+              ? ` by ${directory.actorOf(operation.deniedBy).name} (${operation.deniedBy})`
+              : ""}
+            {operation.deniedAt
+              ? ` · ${new Date(operation.deniedAt).toLocaleString()}`
+              : ""}
+            . This operation was not executed and cannot be retried.
+          </p>
         )}
         {operation.state === "approved" && (
           <Button

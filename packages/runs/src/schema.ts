@@ -30,6 +30,7 @@ export interface RunRequest {
   body: string;
   taskId?: string;
   sessionId?: string;
+  sessionMode?: "auto" | "fresh";
   documentIds?: string[];
   messageIds?: string[];
   scheduleId?: string;
@@ -55,10 +56,10 @@ export interface ModelCostRates {
   cacheWrite: number;
 }
 export interface ModelConfig {
-  contextWindow: number;
-  maxTokens: number;
-  reasoning: boolean;
-  input: ("text" | "image")[];
+  id: string;
+  provider: "openai" | "anthropic" | "openai-compatible";
+  protocol: "responses" | "chat-completions" | "anthropic";
+  baseUrl: string;
   /** Accepted with the Run so later catalog changes never reprice it; absent means the price is unknown. */
   cost?: ModelCostRates & {
     tiers?: (ModelCostRates & { inputTokensAbove: number })[];
@@ -67,13 +68,23 @@ export interface ModelConfig {
 export interface RunInputs {
   body: string;
   instructions: string;
-  piVersion: string | null;
   provider: string | null;
   model: string;
   subscriptionId: string | null;
   accountId: string | null;
   modelConfig: ModelConfig | null;
   agentEditToken: number;
+  sessionMode?: "auto" | "fresh";
+  sessionScope?: string;
+  triggeringMessageId?: string;
+  chatCursor?: number;
+  publicMessages?: {
+    id: string;
+    body: string;
+    authorUserId: string | null;
+    authorAgentId: string | null;
+    cursor: number;
+  }[];
   audience: { humans: string[]; agents: string[] };
   skills: {
     documentId: string;
@@ -91,7 +102,7 @@ export interface RunInputs {
       body: string;
       editToken?: number;
     }[];
-    messages: { id: string; body: string }[];
+    messages: { id: string; body: string; fileIds: string[] }[];
   };
   grants: {
     id: string;
@@ -115,6 +126,7 @@ export const runs = pgTable(
     scheduleId: uuid(),
     scheduleEditToken: integer(),
     sessionId: uuid(),
+    sessionState: text({ enum: ["new", "continued", "reset"] }),
     environmentId: uuid().notNull(),
     environmentGeneration: integer().notNull(),
     requestId: text().notNull(),
@@ -146,6 +158,7 @@ export const runs = pgTable(
     handoffDepth: integer().notNull().default(0),
     outcome: text(),
     cursor: integer().notNull(),
+    admittedCursor: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -210,6 +223,12 @@ export const runs = pgTable(
     check("runs_usage_bound", sql`jsonb_array_length(${t.usage})<=256`),
     check("runs_input_size", sql`octet_length(${t.inputs}::text)<=1048576`),
     index("runs_environment_queue").on(t.environmentId, t.state),
+    uniqueIndex("runs_agent_execution")
+      .on(t.agentId)
+      .where(sql`${t.state} in ('launching','running','uncertain')`),
+    uniqueIndex("runs_session_execution")
+      .on(t.sessionId)
+      .where(sql`${t.state} in ('launching','running','uncertain')`),
     uniqueIndex("runs_request_unique").on(
       t.workspaceId,
       t.sponsorId,
@@ -220,7 +239,7 @@ export const runs = pgTable(
       .where(sql`${t.state} in ('queued','launching','running','uncertain')`),
     check(
       "runs_prompt_session",
-      sql`(${t.type}='prompt' and ${t.sessionId} is not null) or (${t.type}='script' and ${t.sessionId} is null)`,
+      sql`(${t.type}='prompt' and (${t.sessionId} is not null or (coalesce(${t.inputs}->>'sessionMode','')='auto' and ${t.attempt}=0 and ${t.state} in ('queued','failed','interrupted')))) or (${t.type}='script' and ${t.sessionId} is null)`,
     ),
     index("runs_chat_replay").on(t.chatId, t.cursor),
   ],
@@ -248,6 +267,29 @@ export const runActivity = pgTable(
   (t): PgTableExtraConfigValue[] => [
     uniqueIndex("run_activities_request").on(t.runId, t.requestId),
     index("run_activities_cursor").on(t.runId, t.cursor),
+  ],
+);
+
+export const runEffects = pgTable(
+  "run_effects",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    runId: uuid()
+      .notNull()
+      .references(() => runs.id),
+    toolCallId: text().notNull(),
+    toolName: text().notNull(),
+    inputHash: text().notNull(),
+    attempt: integer().notNull(),
+    result: jsonb().$type<unknown>(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    uniqueIndex("run_effects_call").on(t.runId, t.toolCallId),
+    check(
+      "run_effects_result_bound",
+      sql`octet_length(${t.result}::text)<=65536`,
+    ),
   ],
 );
 

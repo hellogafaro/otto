@@ -2,11 +2,16 @@ import { expect, it } from "vitest";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
-import { readRunSkillFile } from "../apps/server/src/skill-files";
 import { createFile, readFile } from "../packages/files/src";
-import { claimInstallation } from "../packages/workspaces/src";
+import { getRunSkillFile } from "../packages/runs/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
+import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { pushDatabase } from "../scripts/push";
-import { pi } from "./fixtures/pi";
+import {
+  controlledSubscription,
+  fixtureEncryptionKey,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
@@ -14,6 +19,9 @@ const transfers = await testSpool();
 
 it("offline Artifact→Resource→File rename sequence preserves populated file/retry/reference/share and accepted scope bytes through real HTTP/PG", async () => {
   const database = await startPostgres();
+  const nativeStorage = await openNativeStorage({
+    connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+  });
   const boss = await startQueue(database.db, database.pool, {
     workers: false,
     install: true,
@@ -51,7 +59,9 @@ it("offline Artifact→Resource→File rename sequence preserves populated file/
       origin,
       storage,
       spool: transfers.spool,
-      pi,
+      nativeStorage,
+      encryptionKey: fixtureEncryptionKey,
+      modelAuthorization: nativeModelAuthorization,
     });
     const signup = await fetch(`${origin}/api/auth/sign-up/email`, {
       method: "POST",
@@ -170,7 +180,13 @@ it("offline Artifact→Resource→File rename sequence preserves populated file/
     const agentResponse = await request("/agents", "POST", {
       title: "Worker",
       instructions: "Work",
-      model: "none",
+      model: "fixture",
+      subscriptionId: await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: owner },
+        controlledSubscription,
+      ),
       visibility: "workspace",
       skillIds: [skill.id],
     });
@@ -188,8 +204,8 @@ it("offline Artifact→Resource→File rename sequence preserves populated file/
       await request("/runs", "POST", {
         chatId: chat.id,
         agentId: agent.id,
-        type: "script",
-        body: "No process in transfer fixture",
+        type: "prompt",
+        body: "No model execution in transfer fixture",
         requestId: crypto.randomUUID(),
       }),
     );
@@ -404,14 +420,14 @@ it("offline Artifact→Resource→File rename sequence preserves populated file/
     expect(skillOutput.files[0]).not.toHaveProperty("resourceId");
     expect(skillOutput.files[0]).not.toHaveProperty("artifactId");
     expect(
-      await readRunSkillFile(database.db, storage, {
-        workspaceId,
-        sponsorId: owner,
-        runId: run.id,
-        skillId: skill.id,
-        path: "references/source.txt",
-      }),
-    ).toEqual(bytes);
+      await inWorkspace(database.db, workspaceId, { userId: owner }, (c) =>
+        getRunSkillFile(c, run.id, skill.id, "references/source.txt"),
+      ),
+    ).toMatchObject({
+      fileId: file.id,
+      byteLength: bytes.length,
+      sha256: new Bun.CryptoHasher("sha256").update(bytes).digest("hex"),
+    });
     const publicContent = await (
       await fetch(`${origin}/api/shares/${share.id}`)
     ).json();
@@ -463,6 +479,7 @@ it("offline Artifact→Resource→File rename sequence preserves populated file/
   } finally {
     await server.stop(true);
     await boss.stop();
+    await nativeStorage.close();
     await database.stop();
   }
 }, 60000);

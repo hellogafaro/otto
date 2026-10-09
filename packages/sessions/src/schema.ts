@@ -4,8 +4,11 @@ import * as environmentsSchema from "@otto/environments/schema";
 import * as subscriptionsSchema from "@otto/subscriptions/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import {
+  boolean,
   foreignKey,
+  index,
   integer,
+  jsonb,
   type PgTableExtraConfigValue,
   pgTable,
   text,
@@ -13,6 +16,18 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
+export type SessionSource =
+  | { type: "document" | "file" | "task"; id: string }
+  | { type: "attachment"; chatId: string; messageId: string; fileId: string }
+  | {
+      type: "skill-file";
+      skillId: string;
+      path: string;
+      fileId: string;
+      sha256: string;
+      byteLength: number;
+    };
+
 export const sessions = pgTable(
   "agent_sessions",
   {
@@ -24,10 +39,16 @@ export const sessions = pgTable(
     workspaceId: uuid().notNull(),
     chatId: uuid().notNull(),
     agentId: uuid().notNull(),
+    ownerId: text().notNull(),
+    mode: text({ enum: ["manual", "auto"] })
+      .notNull()
+      .default("manual"),
+    createdCursor: integer().notNull().default(0),
+    sources: jsonb().$type<SessionSource[]>().notNull().default([]),
+    sourcesCertified: boolean().notNull().default(false),
     environmentId: uuid().notNull(),
     environmentGeneration: integer().notNull(),
     scope: text().notNull(),
-    piVersion: text().notNull(),
     provider: text().notNull(),
     model: text().notNull(),
     accountId: text().notNull(),
@@ -67,5 +88,13 @@ export const sessions = pgTable(
       ],
     }),
     unique("agent_sessions_identity_workspace").on(t.id, t.workspaceId),
+    index("agent_sessions_auto_owner").on(
+      t.workspaceId,
+      t.chatId,
+      t.agentId,
+      t.ownerId,
+      t.mode,
+      t.createdCursor,
+    ),
   ],
 );

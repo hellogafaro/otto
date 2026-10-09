@@ -14,6 +14,7 @@ import { createEnvironment } from "../packages/environments/src";
 import { createProject } from "../packages/projects/src";
 import { admitRun, dispatchRun } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   createSkill,
   exportSkill,
@@ -31,11 +32,17 @@ import {
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { users } from "../packages/workspaces/src/schema";
 import { pushDatabase } from "../scripts/push";
-import { controlledSubscription, pi } from "./fixtures/pi";
+import {
+  controlledSubscription,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
 it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes and proposals; mixed Document links refuse atomically", async () => {
   const database = await startPostgres();
+  const nativeStorage = await openNativeStorage({
+    connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+  });
   const boss = await startQueue(database.db, database.pool, {
     workers: false,
     install: true,
@@ -101,7 +108,9 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
       type: "prompt" as const,
       body: "Work",
     };
-    const run = await scope((c) => admitRun(c, boss, request, pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, request, nativeModelAuthorization),
+    );
     await dispatchRun(database.db, run.id);
     const privateScope = JSON.stringify({
       sources: {
@@ -219,12 +228,17 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
       );
       // Other persisted ordinary references use the same UUID semantics, not text casing.
       const share = await scope((c) =>
-        upsertShare(c, {
-          type: "document",
-          targetId: skill.id.toUpperCase(),
-          start: 0,
-          end: 1,
-        }),
+        upsertShare(
+          c,
+          {
+            type: "document",
+            targetId: skill.id.toUpperCase(),
+            start: 0,
+            end: 1,
+          },
+          undefined,
+          nativeStorage,
+        ),
       );
       const shareBefore = (
         await client.query("select row_to_json(s)::text from content_shares s")
@@ -355,9 +369,10 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
     expect(
       (await scope((c) => getSkillProposals(c, skill.id))).items[0]?.id,
     ).toBe(proposal.id);
-    expect((await scope((c) => admitRun(c, boss, request, pi))).id).toBe(
-      run.id,
-    );
+    expect(
+      (await scope((c) => admitRun(c, boss, request, nativeModelAuthorization)))
+        .id,
+    ).toBe(run.id);
     expect(
       (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0]
         ?.inputs.skills[0]?.documentId,
@@ -372,6 +387,7 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
     );
   } finally {
     await boss.stop();
+    await nativeStorage.close();
     await database.stop();
   }
 });

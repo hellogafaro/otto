@@ -45,7 +45,18 @@ export async function createAgent(
   const skillIds = normalizeSkillIds(input.skillIds);
   if (input.projectId) await getProject(c, input.projectId, true);
   // An Agent may only name an account its author may use: shared, or their own.
-  if (input.subscriptionId) await getSubscription(c, input.subscriptionId);
+  if (input.subscriptionId) {
+    const provider = await getSubscription(c, input.subscriptionId);
+    if (
+      provider.provider === "codex" ||
+      provider.status !== "enabled" ||
+      !provider.models.includes(input.model)
+    )
+      throw new DomainError(
+        "invalid",
+        "Choose an available provider and configured model",
+      );
+  }
   const agent = required(
     (
       await c.tx
@@ -175,9 +186,34 @@ export async function updateAgent(
   const skillIds = normalizeSkillIds(input.skillIds);
   const current = await getAgent(c, id);
   if (current.createdBy !== c.actor.userId) throw new DomainError("forbidden");
+  if (
+    current.isDefault &&
+    input.visibility !== undefined &&
+    input.visibility !== "workspace"
+  )
+    throw new DomainError("forbidden", "Default agent must remain shared");
   if (current.editToken !== input.editToken)
     throw new DomainError("conflict", "Agent changed");
-  if (input.subscriptionId) await getSubscription(c, input.subscriptionId);
+  const subscriptionId =
+    input.subscriptionId === undefined
+      ? current.subscriptionId
+      : input.subscriptionId;
+  const model = input.model ?? current.model;
+  if (
+    subscriptionId &&
+    (subscriptionId !== current.subscriptionId || model !== current.model)
+  ) {
+    const provider = await getSubscription(c, subscriptionId);
+    if (
+      provider.provider === "codex" ||
+      provider.status !== "enabled" ||
+      !provider.models.includes(model)
+    )
+      throw new DomainError(
+        "invalid",
+        "Choose an available provider and configured model",
+      );
+  }
   if (
     [
       input.visibility,
@@ -235,6 +271,8 @@ export async function archiveAgent(c: Context, id: string, archived: boolean) {
   requireWriter(c);
   const agent = await getAgent(c, id);
   if (agent.createdBy !== c.actor.userId) throw new DomainError("forbidden");
+  if (agent.isDefault && archived)
+    throw new DomainError("forbidden", "Default agent cannot be archived");
   await c.tx
     .update(agents)
     .set({ archived, editToken: agent.editToken + 1 })

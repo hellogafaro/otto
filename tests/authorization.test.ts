@@ -31,6 +31,7 @@ import {
 } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
 import { createSchedule } from "../packages/schedules/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   createSkill,
   getSkill,
@@ -44,12 +45,16 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
-import { controlledSubscription, pi } from "./fixtures/pi";
+import {
+  controlledSubscription,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { fixtureStorage } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
 describe("review authorization and admission regressions", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: PgBoss;
   let workspaceId: string;
   let agentId: string;
@@ -89,6 +94,9 @@ describe("review authorization and admission regressions", () => {
   });
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -121,6 +129,7 @@ describe("review authorization and admission regressions", () => {
     });
   });
   afterAll(async () => {
+    await nativeStorage?.close();
     await boss?.stop();
     await database?.stop();
   });
@@ -159,7 +168,13 @@ describe("review authorization and admission regressions", () => {
         return row;
       });
       const run = await scope((c) =>
-        admitRun(c, boss, { ...request(), chatId: chat.id }, pi),
+        admitRun(
+          c,
+          boss,
+          { ...request(), chatId: chat.id },
+          nativeModelAuthorization,
+          nativeStorage,
+        ),
       );
       const bytes = new Uint8Array([1, 2, 3]);
       const file = await createFile(
@@ -300,7 +315,8 @@ describe("review authorization and admission regressions", () => {
           ...request(),
           chatId: chat.id,
         },
-        pi,
+        nativeModelAuthorization,
+        nativeStorage,
       ),
     );
     expect(
@@ -341,7 +357,9 @@ describe("review authorization and admission regressions", () => {
     };
     await scope((c) => grantConnectionAccess(c, connection.id, grant));
     await scope((c) => grantConnectionAccess(c, active.id, grant));
-    const run = await scope((c) => admitRun(c, boss, request(), pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+    );
     const validateRun = async () => ({ agentId, audience: grant.audience });
     const input = {
       connectionId: connection.id,
@@ -432,16 +450,30 @@ describe("review authorization and admission regressions", () => {
     "conflicts on changed %s request controls without new side effects",
     async (_name, change) => {
       const input = request();
-      const run = await scope((c) => admitRun(c, boss, input, pi));
+      const run = await scope((c) =>
+        admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+      );
       const before = await database.pool.query(
         "select (select count(*) from runs)::int as runs, (select count(*) from agent_sessions)::int as sessions, (select count(*) from queue.job)::int as jobs",
       );
       await expect(
-        scope((c) => admitRun(c, boss, { ...input, ...change }, pi)),
+        scope((c) =>
+          admitRun(
+            c,
+            boss,
+            { ...input, ...change },
+            nativeModelAuthorization,
+            nativeStorage,
+          ),
+        ),
       ).rejects.toMatchObject({ code: "conflict" });
-      expect((await scope((c) => admitRun(c, boss, input, pi))).id).toBe(
-        run.id,
-      );
+      expect(
+        (
+          await scope((c) =>
+            admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+          )
+        ).id,
+      ).toBe(run.id);
       const after = await database.pool.query(
         "select (select count(*) from runs)::int as runs, (select count(*) from agent_sessions)::int as sessions, (select count(*) from queue.job)::int as jobs",
       );
@@ -476,7 +508,9 @@ describe("review authorization and admission regressions", () => {
       taskId: task.id,
     };
     await selectSkills([skill.id]);
-    const seed = await scope((c) => admitRun(c, boss, initial, pi));
+    const seed = await scope((c) =>
+      admitRun(c, boss, initial, nativeModelAuthorization, nativeStorage),
+    );
     const sessionId = (
       await database.db.select().from(runs).where(eq(runs.id, seed.id))
     )[0]?.sessionId;
@@ -501,7 +535,9 @@ describe("review authorization and admission regressions", () => {
       scheduleId: schedule.id,
       scheduleEditToken: 0,
     };
-    const run = await scope((c) => admitRun(c, boss, input, pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+    );
     const stored = (
       await database.db.select().from(runs).where(eq(runs.id, run.id))
     )[0];
@@ -512,6 +548,7 @@ describe("review authorization and admission regressions", () => {
       conversationId: chatId,
       automationId: scheduleId,
       automationEditToken: scheduleEditToken,
+      sessionMode: null,
       documentIds: [],
       messageIds: [],
     });
@@ -522,13 +559,46 @@ describe("review authorization and admission regressions", () => {
       "scheduleEditToken",
     ] as const) {
       await expect(
-        scope((c) => admitRun(c, boss, { ...input, [key]: undefined }, pi)),
+        scope((c) =>
+          admitRun(
+            c,
+            boss,
+            { ...input, [key]: undefined },
+            nativeModelAuthorization,
+            nativeStorage,
+          ),
+        ),
       ).rejects.toMatchObject({ code: "conflict" });
     }
     await expect(
-      scope((c) => admitRun(c, boss, { ...input, scheduleEditToken: 1 }, pi)),
+      scope((c) =>
+        admitRun(
+          c,
+          boss,
+          { ...input, sessionMode: "fresh" },
+          nativeModelAuthorization,
+          nativeStorage,
+        ),
+      ),
     ).rejects.toMatchObject({ code: "conflict" });
-    expect((await scope((c) => admitRun(c, boss, input, pi))).id).toBe(run.id);
+    await expect(
+      scope((c) =>
+        admitRun(
+          c,
+          boss,
+          { ...input, scheduleEditToken: 1 },
+          nativeModelAuthorization,
+          nativeStorage,
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(
+      (
+        await scope((c) =>
+          admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+        )
+      ).id,
+    ).toBe(run.id);
     expect(
       (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0],
     ).toEqual(stored);
@@ -539,14 +609,18 @@ describe("review authorization and admission regressions", () => {
   });
   it("fails closed for legacy Runs whose original caller controls cannot be recovered", async () => {
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input, pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+    );
     // Represents an existing row after the additive nullable-column migration.
     await database.db
       .update(runs)
       .set({ requestIdentity: null })
       .where(eq(runs.id, run.id));
     await expect(
-      scope((c) => admitRun(c, boss, input, pi)),
+      scope((c) =>
+        admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+      ),
     ).rejects.toMatchObject({
       code: "conflict",
     });
@@ -565,7 +639,9 @@ describe("review authorization and admission regressions", () => {
     );
     await selectSkills([skill.id]);
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input, pi));
+    const run = await scope((c) =>
+      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+    );
     const saved = (
       await database.db.select().from(runs).where(eq(runs.id, run.id))
     )[0];
@@ -594,7 +670,8 @@ describe("review authorization and admission regressions", () => {
               scheduleId: undefined,
               scheduleEditToken: undefined,
             },
-            pi,
+            nativeModelAuthorization,
+            nativeStorage,
           ),
         )
       ).id,
@@ -611,7 +688,8 @@ describe("review authorization and admission regressions", () => {
           ...input,
           requestId: crypto.randomUUID(),
         },
-        pi,
+        nativeModelAuthorization,
+        nativeStorage,
       ),
     );
     expect(explicit.id).not.toBe(run.id);

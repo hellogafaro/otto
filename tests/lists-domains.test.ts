@@ -20,6 +20,7 @@ import { runs } from "../packages/runs/src/schema";
 import { createSchedule } from "../packages/schedules/src";
 import { createSkill, proposeSkillChange } from "../packages/skills/src";
 import { createSubscription } from "../packages/subscriptions/src";
+import { setSubscriptionApiKey } from "../packages/subscriptions/src/server";
 import {
   createTask,
   createTaskLink,
@@ -30,6 +31,7 @@ import {
   type ListHarness,
   startListHarness,
 } from "./fixtures/lists";
+import { fixtureEncryptionKey } from "./fixtures/native-model";
 
 type Items = { items: Record<string, unknown>[]; next: string | number | null };
 
@@ -596,7 +598,7 @@ describe("sorted and filtered discovery across every domain list, and Document/F
       ).toBe(400);
       const replay = await h.scope(
         h.owner,
-        (c) => getMessages(c, chatId, 0),
+        (c) => getMessages(c, chatId, 0, h.nativeStorage),
         false,
       );
       expect(replay).toEqual([]);
@@ -604,17 +606,22 @@ describe("sorted and filtered discovery across every domain list, and Document/F
 
     it("sorts and filters Agents, Skills, Collections, Folders and Files, keeping private rows out", async () => {
       const projectId = await h.project("Catalog");
-      const subscriptionId = await h.scope(
-        h.owner,
-        async (c) =>
-          (
-            await createSubscription(c, {
-              title: "Beta account",
-              provider: "codex",
-              visibility: "workspace",
-            })
-          ).id,
-      );
+      const subscriptionId = await h.scope(h.owner, async (c) => {
+        const subscription = await createSubscription(c, {
+          title: "Beta account",
+          provider: "openai",
+          protocol: "responses",
+          models: ["m"],
+          visibility: "workspace",
+        });
+        await setSubscriptionApiKey(
+          c,
+          subscription.id,
+          { apiKey: "fixture-not-a-real-key" },
+          fixtureEncryptionKey,
+        );
+        return subscription.id;
+      });
       await h.scope(h.owner, async (c) => {
         await createAgent(c, {
           title: "Zed agent",
@@ -856,17 +863,23 @@ describe("sorted and filtered discovery across every domain list, and Document/F
         }
         await createSubscription(c, {
           title: "Zed seat",
-          provider: "codex",
+          provider: "openai",
+          protocol: "responses",
+          models: ["m"],
           visibility: "workspace",
         });
         await createSubscription(c, {
           title: "alpha seat",
-          provider: "codex",
+          provider: "openai",
+          protocol: "responses",
+          models: ["m"],
           visibility: "workspace",
         });
         await createSubscription(c, {
           title: "Private seat PRIVSUB",
-          provider: "codex",
+          provider: "openai",
+          protocol: "responses",
+          models: ["m"],
           visibility: "user",
         });
       });
@@ -909,12 +922,15 @@ describe("sorted and filtered discovery across every domain list, and Document/F
       ).toEqual(["alpha seat", "Zed seat"]);
       expect(
         await names(
-          "/subscriptions?query=seat&status=needs_auth&provider=codex&sort=title&order=desc&limit=1",
+          "/subscriptions?query=seat&status=needs_auth&provider=openai&sort=title&order=desc&limit=1",
           alice.cookie,
         ),
       ).toEqual(["Zed seat"]);
       expect(
         await names("/subscriptions?status=enabled", alice.cookie),
+      ).toEqual(["Beta account"]);
+      expect(
+        await names("/subscriptions?query=seat&status=enabled", alice.cookie),
       ).toEqual([]);
       expect(await names("/subscriptions?visibility=user&query=seat")).toEqual([
         "Private seat PRIVSUB",

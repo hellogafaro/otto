@@ -17,6 +17,7 @@ import {
   deleteProjectMember,
   upsertProjectMember,
 } from "../packages/projects/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   archiveTask,
   createTask,
@@ -33,7 +34,7 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
-import { controlledSubscription } from "./fixtures/pi";
+import { controlledSubscription } from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
 const MONDAYS =
@@ -50,6 +51,7 @@ const task = z.looseObject({
 
 describe("completion-created Task recurrence on private PostgreSQL", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: Awaited<ReturnType<typeof startQueue>>;
   let server: ReturnType<typeof Bun.serve>;
   let origin: string;
@@ -103,6 +105,9 @@ describe("completion-created Task recurrence on private PostgreSQL", () => {
     ).rows;
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -118,7 +123,7 @@ describe("completion-created Task recurrence on private PostgreSQL", () => {
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, boss, auth, origin });
+    app = createApp({ db: database.db, boss, auth, origin, nativeStorage });
     const response = await auth.api.signUpEmail({
       body: {
         name: "owner",
@@ -165,6 +170,7 @@ describe("completion-created Task recurrence on private PostgreSQL", () => {
   afterAll(async () => {
     await server?.stop(true);
     await boss?.stop();
+    await nativeStorage?.close();
     await database?.stop();
   });
 

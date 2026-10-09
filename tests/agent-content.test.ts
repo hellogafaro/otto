@@ -1,7 +1,7 @@
 import { DomainError } from "@otto/shared";
 import { and, eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import {
@@ -16,6 +16,7 @@ import { createFile, getFile, updateFile } from "../packages/files/src";
 import { files } from "../packages/files/src/schema";
 import { admitRun } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   archiveSkill,
   createSkill,
@@ -29,12 +30,13 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
-import { pi } from "./fixtures/pi";
+import { nativeModelAuthorization } from "./fixtures/native-model";
 import { fixtureStorage } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
 describe("agent File publication with real PostgreSQL/queue and explicit execution/storage fixtures", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: PgBoss;
   let workspaceId: string;
   let chatId: string;
@@ -60,6 +62,9 @@ describe("agent File publication with real PostgreSQL/queue and explicit executi
   });
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -111,8 +116,15 @@ describe("agent File publication with real PostgreSQL/queue and explicit executi
     });
   });
   afterAll(async () => {
+    await nativeStorage?.close();
     await boss?.stop();
     await database?.stop();
+  });
+  afterEach(async () => {
+    await database.db
+      .update(runs)
+      .set({ state: "finished" })
+      .where(and(eq(runs.agentId, agentId), eq(runs.state, "running")));
   });
   async function runningRun() {
     const run = await scope((c) =>
@@ -126,7 +138,8 @@ describe("agent File publication with real PostgreSQL/queue and explicit executi
           type: "script",
           body: "Execution is a controlled state fixture; no native process",
         },
-        pi,
+        nativeModelAuthorization,
+        nativeStorage,
       ),
     );
     await database.db

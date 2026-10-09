@@ -18,14 +18,13 @@ bun run typecheck
 bun run check:boundaries
 bun run check:consistency
 bun run test
-bun run build
 bun --bun run --cwd apps/web dev
 ```
 
-The generated web page is currently the visual baseline. The backend has working domain and transport slices, exercised against isolated PostgreSQL. Native execution and external services remain unqualified. See [the execution checkpoint](docs/execution.md) for completed checks and open boundaries.
+The pre-Craft v1 UI and PostgreSQL domains are the restored foundation. Official native Mastra owns execution and conversation history; OpenAI, Anthropic and explicit OpenAI-compatible protocols use server-only encrypted API keys. See [native acceptance](docs/native-acceptance.md) for current evidence and remaining gates. Historical Pi/gateway reports are not current runtime instructions. Local feedback uses dev/HMR; production builds and deployment require separate approval.
 
-Server configuration is injected through the verified Infisical scope, never a committed environment file. Required names are `DATABASE_URL`, `BETTER_AUTH_SECRET` and `OTTO_ORIGIN`. No Otto secret scope has been selected here. Use native `bun run db:push` for pre-MVP development with that configuration before starting `bun --cwd apps/server start`. Production signup requires configured verification mail and creates an unprivileged identity; workspace ownership is operator-controlled. Mail is explicitly unavailable without its configured sender. See docs/operations.md for the service configuration boundary.
+Server configuration is injected through the authorized runtime secret scope, never a committed environment file. Required names are `DATABASE_URL`, `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY` (canonical base64 of 32 bytes) and `OTTO_ORIGIN`. Use native `bun run db:push` for pre-MVP development with that configuration before starting `bun --cwd apps/server start`. Production signup requires configured verification mail and creates an unprivileged identity; workspace ownership is operator-controlled. Mail is explicitly unavailable without its configured sender. See docs/operations.md for the service configuration boundary.
 
-Compute selection is deferred. There is no host-local agent execution or claimed native subscription qualification. Storage and provider integration checks require their selected services and credentials.
+Confined computer execution is deferred; there is no host-local execution or subscription fallback. `bun scripts/native-dev.ts` starts an isolated disposable development backend using private PostgreSQL and a loopback S3 peer; it is not a production-storage qualification. Operator enrollment is stdin-only. Storage and real-provider checks remain separate from deterministic fixtures.
 
 See [TESTING.md](TESTING.md) for private database and Playwright checks, and [backend notes](docs/backend.md) for transaction, queue, realtime and integration boundaries.

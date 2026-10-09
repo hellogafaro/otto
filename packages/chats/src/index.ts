@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { getAgent } from "@otto/agents";
 import {
   authorizedPage,
+  type Database,
   matchesText,
   pageOf,
   sortNames,
@@ -13,17 +15,35 @@ import {
   getProjectAudience,
   projectReadable,
 } from "@otto/projects";
+import { getSessionContext } from "@otto/sessions";
+import {
+  type NativeSessionStorage,
+  readNativeMessages,
+  saveNativeMessage,
+} from "@otto/sessions/native";
 import { DomainError, type PageOptions, required } from "@otto/shared";
 
 import {
+  type Actor,
   advanceCursor,
   type Context,
   getWorkspaceAudience,
+  inWorkspace,
   requireHuman,
   requireMember,
   requireWriter,
 } from "@otto/workspaces";
-import { type AnyColumn, and, asc, eq, gt, inArray, sql } from "drizzle-orm";
+import {
+  type AnyColumn,
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { chatReads, chats, messages, participants } from "./schema";
 export async function createChat(
@@ -61,13 +81,20 @@ export async function createChat(
  * A File attached to a Message is readable by the participants of that Chat for as long as they can read it:
  * access follows the Chat's audience, never the File's own visibility, and ends with membership.
  */
-export async function isAttachedToReadableChat(c: Context, fileId: string) {
+export async function isAttachedToReadableChat(
+  c: Context,
+  fileId: string,
+  source?: { chatId: string; messageId: string },
+) {
   const rows = await c.tx
     .select({ chatId: messages.chatId })
     .from(messages)
     .where(
       and(
         eq(messages.workspaceId, c.workspaceId),
+        eq(messages.status, "published"),
+        source ? eq(messages.chatId, source.chatId) : undefined,
+        source ? eq(messages.id, source.messageId) : undefined,
         sql`${messages.fileIds} @> ${JSON.stringify([fileId])}::jsonb`,
       ),
     )
@@ -208,18 +235,29 @@ export async function getChatAudience(c: Context, id: string) {
     agents: explicit.flatMap((p) => (p.agentId ? [p.agentId] : [])).sort(),
   };
 }
-export async function createMessage(
+export interface MessageInput {
+  body: string;
+  requestId: string;
+  replyTo?: string;
+  mentionUserIds?: string[];
+  fileIds?: string[];
+}
+
+type MessageIndex = typeof messages.$inferSelect;
+
+export async function reserveMessage(
   c: Context,
   chatId: string,
-  input: {
-    body: string;
-    requestId: string;
-    replyTo?: string;
-    mentionUserIds?: string[];
-    fileIds?: string[];
+  input: MessageInput,
+  reference?: {
+    nativeMessageId: string;
+    nativeThreadId: string;
+    nativePartIndexes: number[];
   },
 ) {
   await getChat(c, chatId, true);
+  if (!input.body.length || Buffer.byteLength(input.body) > 100000)
+    throw new DomainError("invalid", "Message exceeds byte limit");
   const mentions = input.mentionUserIds ?? [];
   if ((input.fileIds?.length ?? 0) > 30) throw new DomainError("invalid");
   if (mentions.length > 50 || new Set(mentions).size !== mentions.length)
@@ -229,6 +267,23 @@ export async function createMessage(
     if (mentions.some((id) => !audience.humans.includes(id)))
       throw new DomainError("forbidden");
   }
+  const requestHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        body: input.body,
+        replyTo: input.replyTo ?? null,
+        mentions: [...mentions].sort(),
+        files: input.fileIds ?? [],
+        reference: reference
+          ? {
+              nativeMessageId: reference.nativeMessageId,
+              nativeThreadId: reference.nativeThreadId,
+              nativePartIndexes: reference.nativePartIndexes,
+            }
+          : null,
+      }),
+    )
+    .digest("hex");
   const existing = (
     await c.tx
       .select()
@@ -244,7 +299,7 @@ export async function createMessage(
     if (
       existing.authorUserId !== (c.actor.agentId ? null : c.actor.userId) ||
       existing.authorAgentId !== (c.actor.agentId ?? null) ||
-      existing.body !== input.body ||
+      existing.requestHash !== requestHash ||
       existing.replyTo !== (input.replyTo ?? null) ||
       JSON.stringify([...existing.mentionUserIds].sort()) !==
         JSON.stringify([...mentions].sort()) ||
@@ -260,36 +315,331 @@ export async function createMessage(
           .select({ id: messages.id })
           .from(messages)
           .where(
-            and(eq(messages.id, input.replyTo), eq(messages.chatId, chatId)),
+            and(
+              eq(messages.id, input.replyTo),
+              eq(messages.chatId, chatId),
+              eq(messages.status, "published"),
+            ),
           )
       )[0],
     );
-  const cursor = await advanceCursor(c);
   return required(
     (
       await c.tx
         .insert(messages)
         .values({
-          ...input,
+          requestId: input.requestId,
+          replyTo: input.replyTo,
+          mentionUserIds: mentions,
+          fileIds: input.fileIds ?? [],
+          nativeMessageId: reference?.nativeMessageId ?? crypto.randomUUID(),
+          nativeThreadId: reference?.nativeThreadId ?? chatId,
+          nativePartIndexes: reference?.nativePartIndexes ?? [0],
+          requestHash,
+          status: "reserved",
           workspaceId: c.workspaceId,
           chatId,
           authorUserId: c.actor.agentId ? null : c.actor.userId,
           authorAgentId: c.actor.agentId,
-          cursor,
+          cursor: 0,
         })
         .returning()
     )[0],
   );
 }
+
+export async function publishMessage(c: Context, chatId: string, id: string) {
+  await getChat(c, chatId, true);
+  const row = required(
+    (
+      await c.tx
+        .select()
+        .from(messages)
+        .where(
+          and(
+            eq(messages.id, id),
+            eq(messages.chatId, chatId),
+            eq(messages.workspaceId, c.workspaceId),
+          ),
+        )
+    )[0],
+  );
+  if (
+    row.authorUserId !== (c.actor.agentId ? null : c.actor.userId) ||
+    row.authorAgentId !== (c.actor.agentId ?? null)
+  )
+    throw new DomainError("forbidden");
+  if (row.status === "published") return row;
+  if (row.mentionUserIds.length) {
+    const audience = await getChatAudience(c, chatId);
+    if (row.mentionUserIds.some((id) => !audience.humans.includes(id)))
+      throw new DomainError("forbidden");
+  }
+  return required(
+    (
+      await c.tx
+        .update(messages)
+        .set({ status: "published", cursor: await advanceCursor(c) })
+        .where(eq(messages.id, id))
+        .returning()
+    )[0],
+  );
+}
+
+export async function createMessage(
+  db: Database,
+  native: NativeSessionStorage,
+  workspaceId: string,
+  actor: Actor,
+  chatId: string,
+  input: MessageInput,
+  authorize?: (c: Context) => Promise<void>,
+) {
+  const row = await inWorkspace(db, workspaceId, actor, async (c) => {
+    await authorize?.(c);
+    return reserveMessage(c, chatId, input);
+  });
+  await saveNativeMessage(native, {
+    workspaceId,
+    threadId: row.nativeThreadId,
+    messageId: row.nativeMessageId,
+    role: actor.agentId ? "assistant" : "user",
+    body: input.body,
+    createdAt: row.createdAt,
+  });
+  const projected = await projectMessage(native, row);
+  return inWorkspace(db, workspaceId, actor, async (c) => {
+    await authorize?.(c);
+    const published = await publishMessage(c, chatId, row.id);
+    return { ...projected, cursor: published.cursor };
+  });
+}
+
+async function projectMessage(native: NativeSessionStorage, row: MessageIndex) {
+  const source = required(
+    (
+      await readNativeMessages(native, {
+        workspaceId: row.workspaceId,
+        threadId: row.nativeThreadId,
+        messageIds: [row.nativeMessageId],
+      })
+    )[0],
+  );
+  const text = row.nativePartIndexes
+    .map((index) => {
+      const part = source.content.parts[index];
+      if (part?.type !== "text")
+        throw new DomainError(
+          "forbidden",
+          "Only explicitly published text is readable",
+        );
+      return part.text;
+    })
+    .join("");
+  if (Buffer.byteLength(text) > 100000) throw new DomainError("unavailable");
+  const hash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        body: text,
+        replyTo: row.replyTo,
+        mentions: [...row.mentionUserIds].sort(),
+        files: row.fileIds,
+        reference:
+          row.nativeThreadId === row.chatId
+            ? null
+            : {
+                nativeMessageId: row.nativeMessageId,
+                nativeThreadId: row.nativeThreadId,
+                nativePartIndexes: row.nativePartIndexes,
+              },
+      }),
+    )
+    .digest("hex");
+  if (hash !== row.requestHash)
+    throw new DomainError("conflict", "Published native message changed");
+  const {
+    nativeThreadId: _thread,
+    nativeMessageId: _message,
+    nativePartIndexes: _parts,
+    requestHash: _hash,
+    status: _status,
+    ...metadata
+  } = row;
+  return { ...metadata, body: text };
+}
+
+export async function publishNativeMessage(
+  db: Database,
+  native: NativeSessionStorage,
+  workspaceId: string,
+  actor: Actor,
+  chatId: string,
+  input: {
+    requestId: string;
+    sessionId: string;
+    nativeMessageId: string;
+    partIndexes: number[];
+  },
+  authorize: (c: Context) => Promise<void>,
+) {
+  if (
+    !actor.agentId ||
+    !input.partIndexes.length ||
+    input.partIndexes.length > 100 ||
+    input.partIndexes.some(
+      (index) => !Number.isSafeInteger(index) || index < 0,
+    ) ||
+    new Set(input.partIndexes).size !== input.partIndexes.length
+  )
+    throw new DomainError("invalid");
+  const check = async (c: Context) => {
+    await authorize(c);
+    await getChat(c, chatId, true);
+    const session = await getSessionContext(c, input.sessionId);
+    if (
+      session.ownerId !== actor.userId ||
+      session.chatId !== chatId ||
+      session.agentId !== actor.agentId
+    )
+      throw new DomainError("forbidden");
+  };
+  await inWorkspace(db, workspaceId, actor, check);
+  const source = required(
+    (
+      await readNativeMessages(native, {
+        workspaceId,
+        threadId: input.sessionId,
+        messageIds: [input.nativeMessageId],
+      })
+    )[0],
+  );
+  if (source.role !== "assistant") throw new DomainError("forbidden");
+  const body = input.partIndexes
+    .map((index) => {
+      const part = source.content.parts[index];
+      if (part?.type !== "text") throw new DomainError("forbidden");
+      return part.text;
+    })
+    .join("");
+  return inWorkspace(db, workspaceId, actor, async (c) => {
+    await check(c);
+    const row = await reserveMessage(
+      c,
+      chatId,
+      { requestId: input.requestId, body },
+      {
+        nativeThreadId: input.sessionId,
+        nativeMessageId: input.nativeMessageId,
+        nativePartIndexes: input.partIndexes,
+      },
+    );
+    const published = await publishMessage(c, chatId, row.id);
+    const {
+      nativeThreadId: _thread,
+      nativeMessageId: _message,
+      nativePartIndexes: _parts,
+      requestHash: _hash,
+      status: _status,
+      ...metadata
+    } = published;
+    return { ...metadata, body };
+  });
+}
 /** Workspace row locking makes this cursor commit ordered, unlike a bare sequence or timestamp. */
-export async function getMessages(c: Context, chatId: string, after = 0) {
+export async function getMessages(
+  c: Context,
+  chatId: string,
+  after = 0,
+  native: NativeSessionStorage,
+) {
   await getChat(c, chatId);
-  return c.tx
+  const rows = await c.tx
     .select()
     .from(messages)
-    .where(and(eq(messages.chatId, chatId), gt(messages.cursor, after)))
+    .where(
+      and(
+        eq(messages.chatId, chatId),
+        eq(messages.status, "published"),
+        gt(messages.cursor, after),
+      ),
+    )
     .orderBy(asc(messages.cursor))
     .limit(100);
+  return Promise.all(rows.map((row) => projectMessage(native, row)));
+}
+
+export async function getChatContext(
+  c: Context,
+  chatId: string,
+  throughCursor: number,
+  native: NativeSessionStorage,
+) {
+  await getChat(c, chatId);
+  if (!Number.isSafeInteger(throughCursor) || throughCursor < 0)
+    throw new DomainError("invalid");
+  const rows = await c.tx
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.chatId, chatId),
+        eq(messages.status, "published"),
+        lte(messages.cursor, throughCursor),
+      ),
+    )
+    .orderBy(desc(messages.cursor))
+    .limit(50);
+  const context: Array<
+    Pick<MessageIndex, "id" | "authorUserId" | "authorAgentId" | "cursor"> & {
+      body: string;
+    }
+  > = [];
+  let bytes = 0;
+  for (const row of rows) {
+    const message = await projectMessage(native, row);
+    bytes += Buffer.byteLength(message.body);
+    if (bytes > 100000) break;
+    context.push({
+      id: message.id,
+      body: message.body,
+      authorUserId: message.authorUserId,
+      authorAgentId: message.authorAgentId,
+      cursor: message.cursor,
+    });
+  }
+  return context.reverse();
+}
+
+export async function getChatSessionMessageIds(
+  c: Context,
+  chatId: string,
+  sessionId: string,
+  messageIds: string[],
+) {
+  await getChat(c, chatId);
+  const session = await getSessionContext(c, sessionId);
+  if (
+    session.ownerId !== c.actor.userId ||
+    session.chatId !== chatId ||
+    (c.actor.agentId !== undefined && session.agentId !== c.actor.agentId)
+  )
+    throw new DomainError("forbidden");
+  if (messageIds.length > 50) throw new DomainError("invalid");
+  if (!messageIds.length) return [];
+  const rows = await c.tx
+    .select({ id: messages.id })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.workspaceId, c.workspaceId),
+        eq(messages.chatId, chatId),
+        eq(messages.status, "published"),
+        eq(messages.nativeThreadId, sessionId),
+        inArray(messages.id, messageIds),
+      ),
+    )
+    .limit(50);
+  return rows.map((row) => row.id);
 }
 
 const chatSorts = {
@@ -452,6 +802,7 @@ export async function markChatRead(c: Context, id: string, cursor: number) {
 export async function getChatAttention(
   c: Context,
   filter: { after?: string; limit?: number; mentionsOnly?: boolean },
+  native: NativeSessionStorage,
 ) {
   requireHuman(c);
   const page = await getChats(c, filter);
@@ -469,15 +820,12 @@ export async function getChatAttention(
         )
     )[0];
     const unread = await c.tx
-      .select({
-        id: messages.id,
-        cursor: messages.cursor,
-        body: sql<string>`left(${messages.body},500)`,
-      })
+      .select()
       .from(messages)
       .where(
         and(
           eq(messages.chatId, chat.id),
+          eq(messages.status, "published"),
           gt(messages.cursor, read?.cursor ?? 0),
           filter.mentionsOnly
             ? sql`${messages.mentionUserIds} @> ${JSON.stringify([c.actor.userId])}::jsonb`
@@ -490,7 +838,13 @@ export async function getChatAttention(
       items.push({
         chatId: chat.id,
         title: chat.title,
-        unread,
+        unread: await Promise.all(
+          unread.map(async (row) => ({
+            id: row.id,
+            cursor: row.cursor,
+            body: (await projectMessage(native, row)).body.slice(0, 500),
+          })),
+        ),
       });
     if (items.reduce((sum, item) => sum + item.unread.length, 0) === 100)
       return {
@@ -505,6 +859,7 @@ export async function previewChat(
   c: Context,
   id: string,
   messageIds: string[],
+  native: NativeSessionStorage,
 ) {
   requireHuman(c);
   const chat = await getChat(c, id, true);
@@ -515,32 +870,55 @@ export async function previewChat(
   )
     throw new DomainError("invalid");
   const rows = await c.tx
-    .select({ id: messages.id, body: messages.body })
+    .select()
     .from(messages)
-    .where(and(eq(messages.chatId, id), inArray(messages.id, messageIds)))
+    .where(
+      and(
+        eq(messages.chatId, id),
+        eq(messages.status, "published"),
+        inArray(messages.id, messageIds),
+      ),
+    )
     .orderBy(messages.cursor);
   if (rows.length !== messageIds.length) throw new DomainError("not_found");
+  const projected = await Promise.all(
+    rows.map((row) => projectMessage(native, row)),
+  );
   if (
-    rows.reduce((sum, m) => sum + new TextEncoder().encode(m.body).length, 0) >
-    500000
+    projected.reduce(
+      (sum, m) => sum + new TextEncoder().encode(m.body).length,
+      0,
+    ) > 500000
   )
     throw new DomainError("invalid", "Share exceeds byte limit");
   return {
     title: chat.title,
-    messages: rows.map((m) => ({ body: m.body })),
+    messages: projected.map((m) => ({ body: m.body })),
   };
 }
 
-export async function getMessage(c: Context, chatId: string, id: string) {
+export async function getMessage(
+  c: Context,
+  chatId: string,
+  id: string,
+  native: NativeSessionStorage,
+) {
   await getChat(c, chatId);
-  return required(
+  const row = required(
     (
       await c.tx
         .select()
         .from(messages)
-        .where(and(eq(messages.id, id), eq(messages.chatId, chatId)))
+        .where(
+          and(
+            eq(messages.id, id),
+            eq(messages.chatId, chatId),
+            eq(messages.status, "published"),
+          ),
+        )
     )[0],
   );
+  return projectMessage(native, row);
 }
 export async function updateParticipant(
   c: Context,

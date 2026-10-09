@@ -10,6 +10,7 @@ import { createEnvironment } from "../packages/environments/src";
 import { createProject } from "../packages/projects/src";
 import { admitRun, createRunQuestion } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   claimInstallation,
   getMembers,
@@ -17,11 +18,16 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
+import {
+  controlledSubscription,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
 /** Real candidate queries and current authorization, including invisible pages. */
 describe("discovery pagination on private PostgreSQL", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let workspaceId: string;
   const owner = "page-owner";
   const reader = "page-reader";
@@ -29,6 +35,9 @@ describe("discovery pagination on private PostgreSQL", () => {
     `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     await database.db.insert(users).values(
       [owner, reader].map((userId) => ({
         id: userId,
@@ -43,6 +52,7 @@ describe("discovery pagination on private PostgreSQL", () => {
       .values({ workspaceId, userId: reader, role: "viewer" });
   });
   afterAll(async () => {
+    await nativeStorage?.close();
     await database?.stop();
   });
   const read = (after?: string) =>
@@ -156,25 +166,33 @@ describe("discovery pagination on private PostgreSQL", () => {
             title: "Private questions",
             visibility: "participants",
           });
-          const agent = await createAgent(c, {
-            title: "Attention",
-            instructions: "Work",
-            model: "fixture",
-            visibility: "workspace",
-          });
-          await createParticipant(c, chat.id, {
-            agentId: agent.id,
-            role: "contributor",
-          });
-          await createEnvironment(c, agent.id);
+          const subscriptionId = await controlledSubscription(c);
           for (let i = 0; i < 2; i++) {
-            const run = await admitRun(c, boss, {
-              requestId: crypto.randomUUID(),
-              chatId: chat.id,
-              agentId: agent.id,
-              type: "script",
-              body: "fixture",
+            const agent = await createAgent(c, {
+              title: "Attention",
+              instructions: "Work",
+              model: "fixture",
+              subscriptionId,
+              visibility: "workspace",
             });
+            await createParticipant(c, chat.id, {
+              agentId: agent.id,
+              role: "contributor",
+            });
+            await createEnvironment(c, agent.id);
+            const run = await admitRun(
+              c,
+              boss,
+              {
+                requestId: crypto.randomUUID(),
+                chatId: chat.id,
+                agentId: agent.id,
+                type: "prompt",
+                body: "fixture",
+              },
+              nativeModelAuthorization,
+              nativeStorage,
+            );
             // Explicit running-state fixture; discovery must still authorize every saved question.
             await c.tx
               .update(runs)
@@ -193,7 +211,7 @@ describe("discovery pagination on private PostgreSQL", () => {
         database.db,
         workspaceId,
         { userId: owner },
-        (c) => getAttention(c, filter),
+        (c) => getAttention(c, filter, nativeStorage),
         false,
       );
       expect(first.runs.items).toHaveLength(1);
@@ -205,11 +223,15 @@ describe("discovery pagination on private PostgreSQL", () => {
         workspaceId,
         { userId: owner },
         (c) =>
-          getAttention(c, {
-            ...filter,
-            runAfter: String(first.runs.next),
-            questionAfter: String(first.questions.next),
-          }),
+          getAttention(
+            c,
+            {
+              ...filter,
+              runAfter: String(first.runs.next),
+              questionAfter: String(first.questions.next),
+            },
+            nativeStorage,
+          ),
         false,
       );
       expect(last.runs.items).toHaveLength(1);
@@ -220,7 +242,7 @@ describe("discovery pagination on private PostgreSQL", () => {
         database.db,
         workspaceId,
         { userId: reader },
-        (c) => getAttention(c, filter),
+        (c) => getAttention(c, filter, nativeStorage),
         false,
       );
       // Runs in a Chat the reader cannot read are narrowed in SQL; saved question candidates still scan and advance.
@@ -234,10 +256,14 @@ describe("discovery pagination on private PostgreSQL", () => {
         workspaceId,
         { userId: reader },
         (c) =>
-          getAttention(c, {
-            ...filter,
-            questionAfter: String(denied.questions.next),
-          }),
+          getAttention(
+            c,
+            {
+              ...filter,
+              questionAfter: String(denied.questions.next),
+            },
+            nativeStorage,
+          ),
         false,
       );
       expect(deniedLast.runs).toEqual({ items: [], next: null });

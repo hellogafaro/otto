@@ -449,10 +449,10 @@ export function FloatingChat({
               )}
               {chat ? (
                 <ChatComposer
+                  key={chat.id}
                   chat={chat}
                   composerRef={setComposer}
-                  onSend={send}
-                  sending={sendMessage.isPending}
+                  onSent={() => change({ expanded: true })}
                   disabled={!permissions.canWrite}
                   compact={!expanded}
                   embedded={expanded}

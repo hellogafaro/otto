@@ -13,6 +13,10 @@
     "@otto/workspaces": "workspace:*",
     "drizzle-orm": "0.45.3",
     "zod": "4.6.5",
-    "@otto/db": "workspace:*"
+    "@otto/db": "workspace:*",
+    "@ai-sdk/openai": "4.0.87",
+    "@ai-sdk/anthropic": "4.0.22",
+    "@mastra/core": "1.75.0",
+    "@otto/secrets": "workspace:*"
   }
 }

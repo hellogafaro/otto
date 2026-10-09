@@ -23,12 +23,13 @@ import { contentApi, publicSharesApi } from "./content-api";
 import { createContentPresence } from "./content-presence";
 import { executionApi } from "./execution-api";
 import { foldersApi } from "./folders-api";
-
 import type { ApiOptions } from "./http";
 import { type ApiEnv, transact } from "./http";
 import { sendInvitation } from "./invitations";
+import { nativeActionsApi } from "./native-actions-api";
 import { skillsApi } from "./skills-api";
 import { subscriptionApi } from "./subscription-api";
+import { taskCommentsApi } from "./task-comments-api";
 import { transcriptionApi } from "./transcription-api";
 import { flag, id, listQuery, pageQuery, validate } from "./validation";
 /** One authentication/origin boundary. Public shares expose frozen selections before it. */
@@ -58,6 +59,8 @@ export function createApi(options: ApiOptions) {
       await next();
     })
     .route("/", collaborationApi)
+    .route("/", taskCommentsApi)
+    .route("/", nativeActionsApi)
     .route("/", contentApi)
     .route("/", foldersApi)
     .route("/", skillsApi)
@@ -219,12 +222,11 @@ export function createApi(options: ApiOptions) {
         c.json(
           await transact(
             c,
-            (ctx) => getAttention(ctx, c.req.valid("query")),
+            (ctx) =>
+              getAttention(ctx, c.req.valid("query"), options.nativeStorage),
             false,
           ),
         ),
     );
 }
 export type RpcApp = ReturnType<typeof createApi>;
-
-export type { LoginEvent } from "./subscription-login";

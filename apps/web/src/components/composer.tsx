@@ -125,6 +125,7 @@ export function Composer({
   disabled = false,
   sendable = true,
   pending = false,
+  locked = false,
   upload,
   projectId,
   ref,
@@ -141,6 +142,7 @@ export function Composer({
   /** False keeps Send disabled while the text stays editable (a form around the composer is incomplete). */
   sendable?: boolean;
   pending?: boolean;
+  locked?: boolean;
   projectId?: string;
   upload?: (
     file: File,
@@ -240,8 +242,8 @@ export function Composer({
   });
   const dictation = useDictation(editor);
   useEffect(() => {
-    editor?.setEditable(!disabled && !pending && !sending);
-  }, [editor, disabled, pending, sending]);
+    editor?.setEditable(!disabled && !pending && !sending && !locked);
+  }, [editor, disabled, pending, sending, locked]);
   const elapsed = useElapsed(dictation.listening);
   const uploading = files.some((file) => file.state !== "done");
   const hasContent = !empty || files.length > 0;
@@ -258,10 +260,11 @@ export function Composer({
 
   useImperativeHandle(ref, () => ({
     prefill: (text) => {
+      if (locked) return;
       editor?.chain().setContent(toContent(text)).focus("end").run();
     },
     prepend: (text) => {
-      if (!editor) return;
+      if (!editor || locked) return;
       if (editor.isEmpty) {
         editor.chain().setContent(toContent(text)).focus("end").run();
         return;
@@ -276,7 +279,7 @@ export function Composer({
   }));
 
   const add = (list: FileList | File[]) => {
-    if (disabled || pending || sending) return;
+    if (disabled || pending || sending || locked) return;
     if (!upload) {
       toast.error("Attachments are unavailable here");
       return;
@@ -457,7 +460,9 @@ export function Composer({
               state={file.state}
               compact={compact || embedded}
               nested={embedded}
-              onRemove={sending ? undefined : () => remove(file.id)}
+              onRemove={
+                sending || pending || locked ? undefined : () => remove(file.id)
+              }
             />
             {file.state === "error" && (
               <>
@@ -480,7 +485,7 @@ export function Composer({
           <InputGroupButton
             {...button}
             aria-label="Add files"
-            disabled={!upload || disabled || pending || sending}
+            disabled={!upload || disabled || pending || sending || locked}
             onClick={() => picker.current?.click()}
           />
         }

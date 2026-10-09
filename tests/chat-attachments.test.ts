@@ -4,6 +4,7 @@ import {
   createChat,
   createParticipant,
   deleteParticipant,
+  isAttachedToReadableChat,
 } from "../packages/chats/src";
 import { participants } from "../packages/chats/src/schema";
 import { type ListHarness, startListHarness } from "./fixtures/lists";
@@ -14,6 +15,84 @@ beforeAll(async () => {
 }, 120000);
 afterAll(async () => {
   await h?.stop();
+});
+
+it("does not substitute another readable attachment for an exact revoked Chat source", async () => {
+  const upload = await h.api(`${h.base}/files`, {
+    cookie: h.owner.cookie,
+    method: "POST",
+    json: {
+      requestId: crypto.randomUUID(),
+      title: "Exact source",
+      type: "note",
+      mediaType: "text/plain",
+      bytes: Buffer.from("Exact source bytes").toString("base64"),
+    },
+  });
+  expect(upload.status).toBe(200);
+  const fileId = (upload.body as { id: string }).id;
+  const sources = [];
+  for (let index = 0; index < 2; index++) {
+    const chat = await h.scope(h.owner, async (c) => {
+      const created = await createChat(c, {
+        title: `Source ${index}`,
+        visibility: "participants",
+      });
+      await createParticipant(c, created.id, {
+        userId: h.bob.id,
+        role: "contributor",
+      });
+      const participant = (
+        await c.tx
+          .select()
+          .from(participants)
+          .where(eq(participants.chatId, created.id))
+      ).find((row) => row.userId === h.bob.id);
+      if (!participant) throw new Error("Missing participant");
+      return { ...created, participantId: participant.id };
+    });
+    const posted = await h.api(`${h.base}/chats/${chat.id}/messages`, {
+      cookie: h.owner.cookie,
+      method: "POST",
+      json: {
+        requestId: crypto.randomUUID(),
+        body: "Exact attachment",
+        fileIds: [fileId],
+      },
+    });
+    expect(posted.status).toBe(200);
+    sources.push({
+      chatId: chat.id,
+      messageId: (posted.body as { id: string }).id,
+      participantId: chat.participantId,
+    });
+  }
+  const first = sources[0];
+  const second = sources[1];
+  if (!first || !second) throw new Error("Missing source fixture");
+  expect(
+    await h.scope(h.bob, (c) => isAttachedToReadableChat(c, fileId, first)),
+  ).toBe(true);
+  await h.scope(h.owner, (c) =>
+    deleteParticipant(c, first.chatId, first.participantId),
+  );
+  expect(await h.scope(h.bob, (c) => isAttachedToReadableChat(c, fileId))).toBe(
+    true,
+  );
+  expect(
+    await h.scope(h.bob, (c) => isAttachedToReadableChat(c, fileId, first)),
+  ).toBe(false);
+  expect(
+    await h.scope(h.bob, (c) => isAttachedToReadableChat(c, fileId, second)),
+  ).toBe(true);
+  expect(
+    await h.scope(h.bob, (c) =>
+      isAttachedToReadableChat(c, fileId, {
+        ...second,
+        messageId: first.messageId,
+      }),
+    ),
+  ).toBe(false);
 });
 
 /** Participants read what is attached to their Chat; nobody else does, and access ends with membership. */

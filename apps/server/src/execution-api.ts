@@ -265,23 +265,34 @@ export const executionApi = new Hono<ApiEnv>()
           body,
           taskId: id.optional(),
           sessionId: id.optional(),
+          sessionMode: z.enum(["auto", "fresh"]).optional(),
           documentIds: z.array(id).max(20).optional(),
           messageIds: z.array(id).max(100).optional(),
         })
-        .strict(),
+        .strict()
+        .refine((input) => !(input.sessionId && input.sessionMode), {
+          message: "Choose an explicit Session or a Session mode",
+          path: ["sessionMode"],
+        }),
     ),
     async (c) => {
       const options = c.get("options");
-      const pi = await prepareRunModel(
+      const modelAuthorization = await prepareRunModel(
         options.db,
         id.parse(c.req.param("workspaceId")),
         { userId: c.get("userId") },
         c.req.valid("json"),
-        options.pi,
+        options.modelAuthorization,
       );
       return c.json(
         await transact(c, (ctx) =>
-          admitRun(ctx, options.boss, c.req.valid("json"), pi),
+          admitRun(
+            ctx,
+            options.boss,
+            c.req.valid("json"),
+            modelAuthorization,
+            options.nativeStorage,
+          ),
         ),
       );
     },
@@ -427,12 +438,12 @@ export const executionApi = new Hono<ApiEnv>()
         (ctx) => getSchedule(ctx, id.parse(c.req.param("id"))),
         false,
       );
-      const pi = await prepareRunModel(
+      const modelAuthorization = await prepareRunModel(
         options.db,
         id.parse(c.req.param("workspaceId")),
         { userId: c.get("userId") },
         { ...schedule, requestId: c.req.valid("json").requestId },
-        options.pi,
+        options.modelAuthorization,
       );
       return c.json(
         await transact(c, (ctx) =>
@@ -441,7 +452,8 @@ export const executionApi = new Hono<ApiEnv>()
             options.boss,
             id.parse(c.req.param("id")),
             c.req.valid("json").requestId,
-            pi,
+            modelAuthorization,
+            options.nativeStorage,
           ),
         ),
       );

@@ -11,7 +11,7 @@ describe("Bun server foundation", () => {
     const response = await createApp().request("/health");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      execution: { available: false, reason: "compute_provider_not_selected" },
+      execution: { available: false, runtime: "mastra" },
     });
   });
   it("rejects oversized requests", async () => {

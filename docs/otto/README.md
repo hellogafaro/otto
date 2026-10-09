@@ -1,5 +1,7 @@
 # Otto
 
+The current 9 October restoration/native-runtime direction is defined in the root [contributor guide](../../AGENTS.md) and [acceptance matrix](../native-acceptance.md). The v1 domain/UI foundation is preserved, but the Pi/gateway direction below is historical and is being replaced by native Mastra. Historical checks are not native-runtime acceptance.
+
 Otto is a fresh application repository for a workspace combining flat project
 tasks, shared chats, documents, reusable skills, saved files, and
 Pi-powered agents for coding, research, writing and tool work. This directory is the canonical home for

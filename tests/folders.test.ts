@@ -3,6 +3,7 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { createFolder } from "../packages/files/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   claimInstallation,
   getCursor,
@@ -15,6 +16,7 @@ import { startPostgres } from "./postgres";
 type Human = { id: string; cookie: string };
 describe("folders, placement rules and the mixed library through real HTTP and private PostgreSQL", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: Awaited<ReturnType<typeof startQueue>>;
   let server: ReturnType<typeof Bun.serve>;
   let transfers: Awaited<ReturnType<typeof testSpool>>;
@@ -34,6 +36,9 @@ describe("folders, placement rules and the mixed library through real HTTP and p
   };
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -49,6 +54,7 @@ describe("folders, placement rules and the mixed library through real HTTP and p
     const auth = createAuth(database.db, secret, origin);
     app = createApp({
       db: database.db,
+      nativeStorage,
       auth,
       boss,
       origin,
@@ -91,6 +97,7 @@ describe("folders, placement rules and the mixed library through real HTTP and p
     await server?.stop(true);
     await boss?.stop();
     await transfers?.close();
+    await nativeStorage?.close();
     await database?.stop();
   });
   const raw = (who: Human, path: string, method = "GET", body?: unknown) =>

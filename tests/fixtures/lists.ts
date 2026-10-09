@@ -6,6 +6,7 @@ import {
   createProject,
   upsertProjectMember,
 } from "../../packages/projects/src";
+import { openNativeStorage } from "../../packages/sessions/src/native";
 import { claimInstallation, inWorkspace } from "../../packages/workspaces/src";
 import { members } from "../../packages/workspaces/src/schema";
 import { startPostgres } from "../postgres";
@@ -20,6 +21,9 @@ export const uuid = (n: number, prefix = "00000000-0000-4000-8000") =>
 /** Real PostgreSQL, Better Auth and the real Hono app over HTTP, with explicit disposable cursor secrets. */
 export async function startListHarness(secret = LIST_SECRET) {
   const database = await startPostgres();
+  const nativeStorage = await openNativeStorage({
+    connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+  });
   const boss = await startQueue(database.db, database.pool, {
     workers: false,
     install: true,
@@ -53,6 +57,7 @@ export async function startListHarness(secret = LIST_SECRET) {
     auth,
     origin,
     storage,
+    nativeStorage,
   };
   app = createApp({ ...options, cursors: createCursorCodec(secret) });
   /** Another server instance over the same database: a restart, a rotated secret, or no cursor secret at all. */
@@ -206,6 +211,7 @@ export async function startListHarness(secret = LIST_SECRET) {
   }
   return {
     database,
+    nativeStorage,
     boss,
     origin,
     secret,
@@ -226,6 +232,7 @@ export async function startListHarness(secret = LIST_SECRET) {
     async stop() {
       await server.stop(true);
       await boss.stop();
+      await nativeStorage.close();
       await database.stop();
     },
   };

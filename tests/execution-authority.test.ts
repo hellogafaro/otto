@@ -1,39 +1,54 @@
-import { eq } from "drizzle-orm";
+import { createTool } from "@mastra/core/tools";
+import { and, eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
-import { createRunTools } from "../apps/server/src/tools";
-import { resolveDocumentProposal } from "../packages/documents/src";
+import { authorizeRunSources } from "../apps/server/src/run-sources";
+import { createNativeRunTools, createRunTools } from "../apps/server/src/tools";
+import {
+  createDocument,
+  resolveDocumentProposal,
+} from "../packages/documents/src";
 import { documentProposals } from "../packages/documents/src/schema";
-import type { ProcessInspection } from "../packages/environments/src";
-import { environments } from "../packages/environments/src/schema";
+import { projectMembers } from "../packages/projects/src/schema";
 import {
   createRunRuntime,
   type RunRuntime,
   withRunAttempt,
 } from "../packages/runs/src/runtime";
 import { runActivity, runs } from "../packages/runs/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { required } from "../packages/shared/src";
 import { skillProposals } from "../packages/skills/src/schema";
-import { createSubscription } from "../packages/subscriptions/src";
-import { qualifySubscription } from "../packages/subscriptions/src/server";
+
+import { setSubscriptionApiKey } from "../packages/subscriptions/src/server";
 import { setTaskStatus } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
-import { members } from "../packages/workspaces/src/schema";
-import { ControlledComputer } from "./fixtures/computer";
-import { pi, piRuntime } from "./fixtures/pi";
+import { members, workspaces } from "../packages/workspaces/src/schema";
+import {
+  controlledModel,
+  controlledSubscription,
+  fixtureEncryptionKey,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
-/** Real auth/HTTP/PG/queue/runtime; controlled computers prove Otto decisions, not VM containment. */
 describe("execution authority and retained sources", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: PgBoss;
   let worker: PgBoss;
   let runtime: RunRuntime;
-  let computer: ControlledComputer;
+  let native: Awaited<ReturnType<typeof openNativeStorage>>;
+  const observedResults: unknown[] = [];
+  let modelStarts = 0;
+  const prompts: unknown[] = [];
+  const modelFixtures = new Map<
+    string,
+    Parameters<typeof controlledModel>[0]
+  >();
   let app: ReturnType<typeof createApp>;
   let server: ReturnType<typeof Bun.serve>;
   let origin: string;
@@ -41,8 +56,7 @@ describe("execution authority and retained sources", () => {
   let accountId: string;
   let owner: { id: string; cookie: string };
   let viewer: { id: string; cookie: string };
-  let stopMode: "confirmed" | "false" | "throw" = "confirmed";
-  let stopCalls = 0;
+
   const record = z.object({ id: z.uuid() });
   async function request(
     path: string,
@@ -82,7 +96,7 @@ describe("execution authority and retained sources", () => {
         subscriptionId: accountId,
       }),
     ).agent;
-    await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
+
     const chat = record.parse(
       await post("/chats", {
         title: "Source",
@@ -114,13 +128,14 @@ describe("execution authority and retained sources", () => {
     source: Awaited<ReturnType<typeof setup>>,
     input: {
       body?: string;
+      tool?: { name: string; [key: string]: unknown };
       type?: "prompt" | "script";
       documentIds?: string[];
       skillIds?: string[];
       taskId?: string;
     } = {},
   ) {
-    const { skillIds, ...selection } = input;
+    const { skillIds, tool, ...selection } = input;
     if (skillIds) {
       const current = z
         .object({ editToken: z.number() })
@@ -139,11 +154,28 @@ describe("execution authority and retained sources", () => {
         "PATCH",
       );
     }
+    const requestId = crypto.randomUUID();
+    const {
+      name,
+      requestId: _requestId,
+      ...toolInput
+    } = tool ?? { name: "", requestId: undefined };
+    modelFixtures.set(requestId, {
+      hold: input.body === "hold",
+      onPrompt: (prompt) => prompts.push(prompt),
+      ...(name
+        ? {
+            toolRequests: [
+              { toolName: name.replaceAll(".", "_"), input: toolInput },
+            ],
+          }
+        : {}),
+    });
     const run = record.parse(
       await post("/runs", {
         agentId: source.agent.id,
         chatId: source.chat.id,
-        requestId: crypto.randomUUID(),
+        requestId,
         type: "prompt",
         body: "finish",
         ...selection,
@@ -164,6 +196,9 @@ describe("execution authority and retained sources", () => {
   beforeAll(async () => {
     expect(process.versions.bun).toBeTruthy();
     database = await startPostgres();
+    native = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -180,7 +215,15 @@ describe("execution authority and retained sources", () => {
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, boss, auth, origin, pi });
+    app = createApp({
+      db: database.db,
+      boss,
+      auth,
+      origin,
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
+      encryptionKey: fixtureEncryptionKey,
+    });
     async function human(name: string) {
       const response = await fetch(`${origin}/api/auth/sign-up/email`, {
         method: "POST",
@@ -207,72 +250,210 @@ describe("execution authority and retained sources", () => {
     await database.db
       .insert(members)
       .values({ workspaceId, userId: viewer.id, role: "contributor" });
-    accountId = (
-      await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-        createSubscription(c, {
-          provider: "codex",
-          title: "Fixture native",
-          visibility: "workspace",
-        }),
-      )
-    ).id;
-    // Explicit synthetic confirmed account: computer binding does not authenticate it.
-    await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-      qualifySubscription(c, accountId, "codex"),
+    accountId = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId: owner.id },
+      controlledSubscription,
     );
-    computer = new ControlledComputer(accountId);
     runtime = createRunRuntime(database.db, {
-      ...piRuntime,
-      pi,
+      storage: native,
+      authorizeSources: authorizeRunSources,
       deadlineMs: 20000,
-      handleTool: createRunTools(database.db, boss, { pi }),
-      backend: {
-        provider: computer.provider,
-        inspectComputer: () => computer.inspectComputer(),
-        lookup: async (ref, key) => {
-          const result = await computer.lookup(ref, key);
-          return result.state === "exited"
-            ? { ...result, stopped: stopMode === "confirmed" }
-            : result;
-        },
-        launch: async (input) => {
-          const process = await computer.launch(input);
-          return {
-            ...process,
-            stop: async () => {
-              stopCalls++;
-              if (stopMode === "throw")
-                throw new Error("Controlled unconfirmed tree");
-              if (stopMode === "false") return { stopped: false };
-              return process.stop();
-            },
-          };
-        },
+      resolveModel: async (attempt, signal) => {
+        modelStarts++;
+        const row = required(
+          (
+            await database.db
+              .select()
+              .from(runs)
+              .where(eq(runs.id, attempt.runId))
+          )[0],
+        );
+        return controlledModel({ ...modelFixtures.get(row.requestId), signal });
       },
+      tools: (attempt, signal) => {
+        const tools = createNativeRunTools(
+          database.db,
+          boss,
+          attempt,
+          { native, models: nativeModelAuthorization },
+          signal,
+        );
+        return Object.fromEntries(
+          Object.entries(tools).map(([name, tool]) => {
+            if (!("execute" in tool) || !tool.execute)
+              throw new Error("Expected executable native tool");
+            const execute = tool.execute;
+            return [
+              name,
+              {
+                ...tool,
+                execute: async (...args: Parameters<typeof execute>) => {
+                  try {
+                    const result = await execute(args[0], args[1]);
+                    observedResults.push(result);
+                    return result;
+                  } catch (error) {
+                    observedResults.push({ success: false });
+                    throw error;
+                  }
+                },
+              },
+            ];
+          }),
+        );
+      },
+      publishOutput: async () => {},
     });
     app = createApp({
       db: database.db,
       boss,
       auth,
       origin,
-      pi,
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
+      encryptionKey: fixtureEncryptionKey,
       runtime,
     });
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      pi,
     });
   });
   afterAll(async () => {
     await worker?.stop({ graceful: false });
-    await computer?.close();
     await runtime?.close();
+    await native?.close();
     await server?.stop(true);
     await boss?.stop();
     await database?.stop();
   });
 
-  it("denies sponsor-inherited private Agent peer requests through the actual Pi tool", async () => {
+  function invokeTools() {
+    const execute = createRunTools(database.db, boss, {
+      native,
+      models: nativeModelAuthorization,
+    });
+    return (identity: Parameters<typeof execute>[0], value: unknown) =>
+      execute(identity, value, undefined, crypto.randomUUID());
+  }
+  it.each(["stop", "shutdown"] as const)(
+    "preserves unjoined native server-tool uncertainty after %s and recovery",
+    async (control) => {
+      await worker.stop({ graceful: false });
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const isolated = createRunRuntime(database.db, {
+        storage: native,
+        authorizeSources: authorizeRunSources,
+        resolveModel: async () =>
+          controlledModel({
+            toolRequests: [{ toolName: "blocked_effect", input: {} }],
+          }),
+        tools: () => ({
+          blocked_effect: createTool({
+            id: "blocked_effect",
+            description: "Deterministic cancellation-ignoring fixture",
+            inputSchema: z.object({}).strict(),
+            execute: async () => {
+              entered.resolve();
+              await release.promise;
+              return { late: true };
+            },
+          }),
+        }),
+        publishOutput: async () => {},
+      });
+      const fresh = createRunRuntime(database.db, {
+        storage: native,
+        authorizeSources: authorizeRunSources,
+        resolveModel: async () => controlledModel(),
+        tools: () => ({}),
+        publishOutput: async () => {},
+      });
+      let dispatch: Promise<void> | undefined;
+      try {
+        const source = await setup();
+        const run = record.parse(
+          await post("/runs", {
+            agentId: source.agent.id,
+            chatId: source.chat.id,
+            requestId: crypto.randomUUID(),
+            type: "prompt",
+            body: "Native cancellation fixture",
+          }),
+        );
+        dispatch = isolated.dispatch(run.id);
+        await entered.promise;
+        const before = performance.now();
+        if (control === "stop")
+          await isolated.stop(workspaceId, { userId: owner.id }, run.id);
+        else await isolated.close();
+        expect(performance.now() - before).toBeLessThan(8000);
+        expect(await saved(run.id)).toMatchObject({
+          state: "uncertain",
+          ...(control === "stop" ? { stopRequested: true } : {}),
+        });
+        await fresh.reconcile(run.id);
+        expect((await saved(run.id)).state).toBe("uncertain");
+        const next = record.parse(
+          await post("/runs", {
+            agentId: source.agent.id,
+            chatId: source.chat.id,
+            requestId: crypto.randomUUID(),
+            type: "prompt",
+            body: "Must stay fenced",
+          }),
+        );
+        await expect(fresh.dispatch(next.id)).rejects.toThrow("busy");
+        await fresh.stop(workspaceId, { userId: owner.id }, next.id);
+      } finally {
+        release.resolve();
+        await dispatch;
+        await isolated.close();
+        await fresh.close();
+        worker = await startQueue(database.db, database.pool, { runtime });
+      }
+    },
+  );
+
+  it("isolates accepted Task context from fresh Sessions and refuses incompatible Session reuse", async () => {
+    const project = record.parse(
+      await post("/projects", { title: "Native retained task" }),
+    );
+    const task = record.parse(
+      await post("/tasks", {
+        projectId: project.id,
+        title: "Accepted isolated task",
+      }),
+    );
+    const source = await setup(project.id);
+    const first = await launch(source, { taskId: task.id });
+    expect((await terminal(first.id)).state).toBe("finished");
+    expect(JSON.stringify(prompts.at(-1))).toContain("Accepted isolated task");
+    expect(
+      (
+        await request("/runs", {
+          agentId: source.agent.id,
+          chatId: source.chat.id,
+          sessionId: (await saved(first.id)).sessionId,
+          requestId: crypto.randomUUID(),
+          type: "prompt",
+          body: "Omit task from retained Session",
+        })
+      ).status,
+    ).toBe(409);
+    const next = await launch(source);
+    expect((await terminal(next.id)).state).toBe("finished");
+    expect((await saved(next.id)).sessionId).not.toBe(
+      (await saved(first.id)).sessionId,
+    );
+    expect(JSON.stringify(prompts.at(-1))).not.toContain(
+      "Accepted isolated task",
+    );
+    expect(JSON.stringify(prompts.at(-1))).not.toContain(task.id);
+  });
+  it("denies sponsor-inherited private Agent peer requests through a native tool", async () => {
     const source = await setup();
     const target = await setup();
     await post(
@@ -285,12 +466,17 @@ describe("execution authority and retained sources", () => {
       agentId: target.agent.id,
       role: "contributor",
     });
-    const before = computer.toolResults.length;
+    const before = observedResults.length;
     const run = await launch(source, {
-      body: `_tool=${JSON.stringify({ name: "agent.request", requestId: crypto.randomUUID(), agentId: target.agent.id, body: "finish" })}`,
+      tool: {
+        name: "agent.request",
+        requestId: crypto.randomUUID(),
+        agentId: target.agent.id,
+        body: "finish",
+      },
     });
     await terminal(run.id);
-    expect(computer.toolResults.slice(before)).toContainEqual(
+    expect(observedResults.slice(before)).toContainEqual(
       expect.objectContaining({ success: false }),
     );
     expect(
@@ -330,12 +516,17 @@ describe("execution authority and retained sources", () => {
           agentId: target.agent.id,
           role: "contributor",
         });
-        const before = computer.toolResults.length;
+        const before = observedResults.length;
         const run = await launch(source, {
-          body: `_tool=${JSON.stringify({ name: "agent.request", requestId: crypto.randomUUID(), agentId: target.agent.id, body: "finish" })}`,
+          tool: {
+            name: "agent.request",
+            requestId: crypto.randomUUID(),
+            agentId: target.agent.id,
+            body: "finish",
+          },
         });
         await terminal(run.id);
-        expect(computer.toolResults.slice(before)).toContainEqual(
+        expect(observedResults.slice(before)).toContainEqual(
           expect.objectContaining({ success: false }),
         );
         expect(
@@ -381,7 +572,12 @@ describe("execution authority and retained sources", () => {
       "PATCH",
     );
     await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-      qualifySubscription(c, accountId, "codex"),
+      setSubscriptionApiKey(
+        c,
+        accountId,
+        { apiKey: "fixture-not-a-real-key" },
+        fixtureEncryptionKey,
+      ),
     );
   });
   it("keeps noncreator participant Run controls and discussion after creator archive", async () => {
@@ -393,12 +589,14 @@ describe("execution authority and retained sources", () => {
         archived: true,
       });
       expect(
-        await post(
-          `/runs/${run.id}/steer`,
-          { requestId: crypto.randomUUID(), body: "Contributor control" },
-          viewer,
-        ),
-      ).toEqual({ delivered: true });
+        (
+          await request(
+            `/runs/${run.id}/steer`,
+            { requestId: crypto.randomUUID(), body: "Contributor control" },
+            viewer,
+          )
+        ).status,
+      ).toBe(503);
       expect(
         (
           await request(
@@ -439,17 +637,6 @@ describe("execution authority and retained sources", () => {
         .poll(async () => (await saved(run.id)).state)
         .toBe("running");
       try {
-        await expect
-          .poll(
-            async () =>
-              (
-                await database.db
-                  .select()
-                  .from(runActivity)
-                  .where(eq(runActivity.runId, run.id))
-              ).length,
-          )
-          .toBe(1);
         const before = await database.db
           .select()
           .from(runActivity)
@@ -482,11 +669,13 @@ describe("execution authority and retained sources", () => {
           editToken: 0,
         });
         expect(
-          await post(`/runs/${run.id}/steer`, {
-            requestId: crypto.randomUUID(),
-            body: "Authorized archived control",
-          }),
-        ).toEqual({ delivered: true });
+          (
+            await request(`/runs/${run.id}/steer`, {
+              requestId: crypto.randomUUID(),
+              body: "Authorized archived control",
+            })
+          ).status,
+        ).toBe(503);
       } finally {
         await post(`/runs/${run.id}/stop`, {});
         await terminal(run.id);
@@ -509,7 +698,8 @@ describe("execution authority and retained sources", () => {
     const source = await setup();
     const first = await launch(source, { documentIds: [doc.id] });
     expect((await terminal(first.id)).state).toBe("finished");
-    const launches = computer.launches;
+    const launches = modelStarts;
+    expect(JSON.stringify(prompts.at(-1))).toContain("Saved source");
     await post(
       `/documents/${doc.id}`,
       { visibility: "user", editToken: 0 },
@@ -517,45 +707,28 @@ describe("execution authority and retained sources", () => {
       "PATCH",
     );
     expect((await request(`/documents/${doc.id}`)).status).toBe(403);
+    expect(
+      (
+        await request("/runs", {
+          agentId: source.agent.id,
+          chatId: source.chat.id,
+          sessionId: (await saved(first.id)).sessionId,
+          type: "prompt",
+          body: "Reuse revoked source",
+          requestId: crypto.randomUUID(),
+        })
+      ).status,
+    ).toBe(409);
     const next = await launch(source, { documentIds: [] });
     const result = await terminal(next.id);
     expect(result.sessionId).not.toBe((await saved(first.id)).sessionId);
-    expect(result.state).toBe("failed");
-    expect(computer.launches).toBe(launches);
+    expect(result.state).toBe("finished");
+    expect(modelStarts).toBe(launches + 1);
+    expect(JSON.stringify(prompts.at(-1))).not.toContain("Saved source");
+    expect(JSON.stringify(prompts.at(-1))).not.toContain(doc.id);
   });
 
-  it.each(["false", "throw"] as const)(
-    "keeps the script lease fenced when tree-stop is %s after parent exit",
-    async (mode) => {
-      const source = await setup();
-      const before = stopCalls;
-      stopMode = mode;
-      try {
-        const run = await launch(source, {
-          type: "script",
-          body: "fixture parent exit",
-        });
-        expect((await terminal(run.id)).state).toBe("uncertain");
-        expect(stopCalls).toBeGreaterThan(before);
-        await runtime.reconcile(run.id);
-        expect((await saved(run.id)).state).toBe("uncertain");
-        const environment = (
-          await database.db
-            .select()
-            .from(environments)
-            .where(eq(environments.agentId, source.agent.id))
-        )[0];
-        expect(environment).toMatchObject({
-          state: "uncertain",
-          activeRunId: run.id,
-        });
-      } finally {
-        stopMode = "confirmed";
-      }
-    },
-  );
-
-  it("submits a scoped Pi skill proposal with Agent authorship for human-only application", async () => {
+  it("submits a scoped native skill proposal with Agent authorship for human-only application", async () => {
     const project = record.parse(
       await post("/projects", { title: "Proposal" }),
     );
@@ -570,7 +743,13 @@ describe("execution authority and retained sources", () => {
     const source = await setup(project.id);
     const run = await launch(source, {
       skillIds: [doc.id],
-      body: `_tool=${JSON.stringify({ name: "skill.proposeChange", skillId: doc.id, title: "accepted-skill", instructions: "Proposed", editToken: 0 })}`,
+      tool: {
+        name: "skill.proposeChange",
+        skillId: doc.id,
+        title: "accepted-skill",
+        instructions: "Proposed",
+        editToken: 0,
+      },
     });
     expect((await terminal(run.id)).state).toBe("finished");
     const proposals = await database.db
@@ -596,38 +775,7 @@ describe("execution authority and retained sources", () => {
       editToken: 1,
     });
   });
-  it("retains Task scope across new Sessions and refuses incomplete legacy computer scope", async () => {
-    const project = record.parse(
-      await post("/projects", { title: "Retained task" }),
-    );
-    const task = record.parse(
-      await post("/tasks", { projectId: project.id, title: "Accepted task" }),
-    );
-    const source = await setup(project.id);
-    const first = await launch(source, { taskId: task.id });
-    expect((await terminal(first.id)).state).toBe("finished");
-    const before = computer.launches;
-    const omitted = await launch(source);
-    expect((await terminal(omitted.id)).state).toBe("failed");
-    expect(computer.launches).toBe(before);
-    // A known old shape lacks retained-source identity; never reconstruct it from current grants.
-    await database.db
-      .update(environments)
-      .set({
-        executionScope: JSON.stringify({
-          humans: [owner.id],
-          agents: [source.agent.id],
-          grants: [],
-          skills: [],
-        }),
-      })
-      .where(eq(environments.agentId, source.agent.id));
-    const legacy = await launch(source, { taskId: task.id });
-    expect((await terminal(legacy.id)).state).toBe("failed");
-    expect(computer.launches).toBe(before);
-  });
-
-  it("limits live tool reads/proposals to accepted sources and keeps archive distinct from revoked authority", async () => {
+  it("allows current Project reads while preserving private, Project, revocation and accepted-proposal fences", async () => {
     const project = record.parse(
       await post("/projects", { title: "Scoped reads" }),
     );
@@ -651,6 +799,72 @@ describe("execution authority and retained sources", () => {
       await post("/tasks", { projectId: project.id, title: "Unaccepted Task" }),
     );
     const source = await setup(project.id);
+    const privateDoc = record.parse(
+      await post("/documents", {
+        projectId: project.id,
+        title: "Private",
+        body: "Private content",
+        visibility: "user",
+      }),
+    );
+    const otherProject = record.parse(
+      await post("/projects", { title: "Outside accepted Project" }),
+    );
+    const outsideDoc = record.parse(
+      await post("/documents", {
+        projectId: otherProject.id,
+        title: "Outside",
+        body: "Outside content",
+        visibility: "workspace",
+      }),
+    );
+    const memberProject = record.parse(
+      await post("/projects", { title: "Nonmember Project" }),
+    );
+    const nonmemberDoc = record.parse(
+      await post("/documents", {
+        projectId: memberProject.id,
+        title: "Nonmember",
+        body: "Nonmember content",
+        visibility: "workspace",
+      }),
+    );
+    await post(`/projects/${memberProject.id}/members`, {
+      userId: viewer.id,
+      role: "contributor",
+    });
+    await database.db
+      .delete(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, memberProject.id),
+          eq(projectMembers.userId, owner.id),
+        ),
+      );
+    const otherWorkspace = required(
+      (
+        await database.db
+          .insert(workspaces)
+          .values({ title: "Other fixture workspace" })
+          .returning()
+      )[0],
+    );
+    await database.db.insert(members).values({
+      workspaceId: otherWorkspace.id,
+      userId: owner.id,
+      role: "owner",
+    });
+    const crossWorkspace = await inWorkspace(
+      database.db,
+      otherWorkspace.id,
+      { userId: owner.id },
+      (c) =>
+        createDocument(c, {
+          title: "Other workspace",
+          body: "Other workspace content",
+          visibility: "workspace",
+        }),
+    );
     const run = await launch(source, { body: "hold", documentIds: [doc.id] });
     await expect.poll(async () => (await saved(run.id)).state).toBe("running");
     const row = required(
@@ -662,26 +876,42 @@ describe("execution authority and retained sources", () => {
       attempt: row.attempt,
       launchKey: row.launchKey,
     };
-    const tool = createRunTools(database.db, boss, { pi });
+    const tool = invokeTools();
     try {
+      expect(
+        await tool(identity, { name: "document.get", documentId: other.id }),
+      ).toMatchObject({ body: "Not supplied" });
+      expect(
+        await tool(identity, { name: "task.get", taskId: task.id }),
+      ).toMatchObject({ title: "Unaccepted Task" });
+      for (const documentId of [privateDoc.id, outsideDoc.id, nonmemberDoc.id])
+        await expect(
+          tool(identity, { name: "document.get", documentId }),
+        ).rejects.toMatchObject({ code: "forbidden" });
       await expect(
-        tool(identity, { name: "document.get", documentId: other.id }),
-      ).rejects.toMatchObject({ code: "forbidden" });
-      await expect(
-        tool(identity, { name: "task.get", taskId: task.id }),
-      ).rejects.toMatchObject({ code: "forbidden" });
-      await expect(
-        tool(identity, {
+        tool(identity, { name: "document.get", documentId: crossWorkspace.id }),
+      ).rejects.toMatchObject({ code: "not_found" });
+      expect(
+        await tool(identity, {
           name: "document.proposeChange",
           documentId: other.id,
           title: "not selected",
-          body: "No",
+          body: "Current authorized proposal",
           editToken: 0,
         }),
-      ).rejects.toMatchObject({ code: "forbidden" });
+      ).toMatchObject({ documentId: other.id });
+      await post(
+        `/documents/${doc.id}`,
+        { body: "Human edited current content", editToken: 0 },
+        owner,
+        "PATCH",
+      );
+      expect(
+        await tool(identity, { name: "document.get", documentId: doc.id }),
+      ).toMatchObject({ body: "Accepted text" });
       await post(`/documents/${doc.id}/archive`, {
         archived: true,
-        editToken: 0,
+        editToken: 1,
       });
       expect(
         await tool(identity, { name: "document.get", documentId: doc.id }),
@@ -705,6 +935,19 @@ describe("execution authority and retained sources", () => {
           editToken: 1,
         }),
       ).rejects.toMatchObject({ code: "conflict" });
+      await post(
+        `/documents/${other.id}`,
+        { visibility: "user", editToken: 0 },
+        owner,
+        "PATCH",
+      );
+      await expect(
+        tool(identity, { name: "document.get", documentId: other.id }),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      await expect(
+        tool(identity, { name: "document.get", documentId: doc.id }),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect((await terminal(run.id)).state).toBe("interrupted");
     } finally {
       await post(`/runs/${run.id}/stop`, {});
       await terminal(run.id);
@@ -714,18 +957,22 @@ describe("execution authority and retained sources", () => {
     ).rejects.toMatchObject({ code: "forbidden" });
   });
 
-  it("creates an Pi Task owned by its eligible human sponsor and records Agent authorship", async () => {
+  it("creates a native Task owned by its eligible human sponsor and records Agent authorship", async () => {
     const project = record.parse(
       await post("/projects", { title: "Agent Task" }),
     );
     const source = await setup(project.id);
     const run = await launch(source, {
-      body: `_tool=${JSON.stringify({ name: "task.create", title: "Agent captured work", notes: "Scoped notes" })}`,
+      tool: {
+        name: "task.create",
+        title: "Agent captured work",
+        notes: "Scoped notes",
+      },
     });
     expect((await terminal(run.id)).state).toBe("finished");
     const task = z
       .object({ id: z.uuid(), ownerId: z.string(), status: z.literal("todo") })
-      .parse(computer.toolResults.at(-1));
+      .parse(observedResults.at(-1));
     expect(task.ownerId).toBe(owner.id);
     const messages = z
       .array(
@@ -753,7 +1000,7 @@ describe("execution authority and retained sources", () => {
     const row = required(
       (await database.db.select().from(runs).where(eq(runs.id, holding.id)))[0],
     );
-    const tool = createRunTools(database.db, boss, { pi });
+    const tool = invokeTools();
     const identity = {
       runId: row.id,
       agentId: row.agentId,
@@ -806,7 +1053,7 @@ describe("execution authority and retained sources", () => {
       attempt: row.attempt,
       launchKey: row.launchKey,
     };
-    const tool = createRunTools(database.db, boss, { pi });
+    const tool = invokeTools();
     const proposalInput = {
       name: "document.proposeChange",
       documentId: doc.id,
@@ -817,8 +1064,13 @@ describe("execution authority and retained sources", () => {
     try {
       const proposal = record.parse(await tool(identity, proposalInput));
       await expect(
-        withRunAttempt(database.db, identity, (c) =>
-          resolveDocumentProposal(c, doc.id, proposal.id, true),
+        withRunAttempt(
+          database.db,
+          identity,
+          (c) => resolveDocumentProposal(c, doc.id, proposal.id, true),
+          undefined,
+          native,
+          authorizeRunSources,
         ),
       ).rejects.toMatchObject({ code: "forbidden" });
       await post(
@@ -852,263 +1104,20 @@ describe("execution authority and retained sources", () => {
     const privateSource = await setup();
     const denied = await launch(privateSource, {
       documentIds: [wide.id],
-      body: `_tool=${JSON.stringify({ ...proposalInput, documentId: wide.id, title: "workspace source" })}`,
+      tool: {
+        ...proposalInput,
+        documentId: wide.id,
+        title: "workspace source",
+      },
     });
     await terminal(denied.id);
-    expect(computer.toolResults.at(-1)).toMatchObject({ success: false });
+    expect(observedResults.at(-1)).toMatchObject({ success: false });
     expect(
       await database.db
         .select()
         .from(documentProposals)
         .where(eq(documentProposals.documentId, wide.id)),
     ).toHaveLength(0);
-  });
-
-  it("retains uncertainty when a server tool ignores cancellation despite a confirmed remote tree Stop", async () => {
-    await worker.stop({ graceful: false });
-    let release: () => void = () => {};
-    let entered: () => void = () => {};
-    const blocked = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const started = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-    const isolated = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
-      deadlineMs: 30000,
-      handleTool: async () => {
-        entered();
-        await blocked;
-        return { late: true };
-      },
-    });
-    try {
-      const source = await setup();
-      const run = record.parse(
-        await post("/runs", {
-          agentId: source.agent.id,
-          chatId: source.chat.id,
-          requestId: crypto.randomUUID(),
-          type: "prompt",
-          body: '_tool={"name":"human.ask","body":"Controlled blocked server I/O"}',
-        }),
-      );
-      await isolated.dispatch(run.id);
-      await started;
-      const before = performance.now();
-      await expect(
-        isolated.stop(workspaceId, { userId: owner.id }, run.id),
-      ).rejects.toMatchObject({ code: "unavailable" });
-      expect(performance.now() - before).toBeLessThan(8000);
-      expect(await saved(run.id)).toMatchObject({
-        state: "uncertain",
-        stopRequested: true,
-      });
-      expect(
-        (
-          await database.db
-            .select()
-            .from(environments)
-            .where(eq(environments.agentId, source.agent.id))
-        )[0],
-      ).toMatchObject({ state: "uncertain", activeRunId: run.id });
-      await isolated.reconcile(run.id);
-      expect((await saved(run.id)).state).toBe("uncertain");
-    } finally {
-      release();
-      await expect(isolated.close()).rejects.toThrow(
-        "Runtime persistence/cleanup failed",
-      );
-      worker = await startQueue(database.db, database.pool, {
-        runtime,
-        pi,
-      });
-    }
-  });
-  it.each([false, true])(
-    "keeps a pending launch fenced until its eventual tree stop is acknowledged (%s)",
-    async (confirmed) => {
-      await worker.stop({ graceful: false });
-      let release: () => void = () => {};
-      let entered: () => void = () => {};
-      const gate = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      const started = new Promise<void>((resolve) => {
-        entered = resolve;
-      });
-      const isolated = createRunRuntime(database.db, {
-        ...piRuntime,
-        pi,
-        backend: {
-          provider: computer.provider,
-          inspectComputer: () => computer.inspectComputer(),
-          lookup: (ref, key) => computer.lookup(ref, key),
-          launch: async (input) => {
-            entered();
-            await gate;
-            const process = await computer.launch(input);
-            return {
-              ...process,
-              stop: async () =>
-                confirmed ? process.stop() : { stopped: false },
-            };
-          },
-        },
-      });
-      const restarted = createRunRuntime(database.db, {
-        ...piRuntime,
-        backend: computer,
-        pi,
-      });
-      let dispatch: Promise<void> | undefined;
-      try {
-        const source = await setup();
-        const run = record.parse(
-          await post("/runs", {
-            agentId: source.agent.id,
-            chatId: source.chat.id,
-            requestId: crypto.randomUUID(),
-            type: "prompt",
-            body: "hold",
-          }),
-        );
-        dispatch = isolated.dispatch(run.id);
-        await started;
-        expect(
-          await isolated.stop(workspaceId, { userId: owner.id }, run.id),
-        ).toEqual({ stopped: false });
-        await isolated.reconcile(run.id);
-        // A second runtime has no access to the original in-memory starting map.
-        await restarted.reconcile(run.id);
-        expect((await saved(run.id)).state).toBe("uncertain");
-        expect(
-          required(
-            (
-              await database.db
-                .select()
-                .from(environments)
-                .where(eq(environments.agentId, source.agent.id))
-            )[0],
-          ).activeRunId,
-        ).toBe(run.id);
-        release();
-        await dispatch;
-        expect((await saved(run.id)).state).toBe(
-          confirmed ? "interrupted" : "uncertain",
-        );
-        expect(
-          required(
-            (
-              await database.db
-                .select()
-                .from(environments)
-                .where(eq(environments.agentId, source.agent.id))
-            )[0],
-          ).activeRunId,
-        ).toBe(confirmed ? null : run.id);
-        if (!confirmed) {
-          const next = record.parse(
-            await post("/runs", {
-              agentId: source.agent.id,
-              chatId: source.chat.id,
-              requestId: crypto.randomUUID(),
-              type: "prompt",
-              body: "hold",
-            }),
-          );
-          const launches = computer.launches;
-          await expect(isolated.dispatch(next.id)).rejects.toMatchObject({
-            code: "unavailable",
-          });
-          await post(`/runs/${next.id}/stop`, {});
-          expect(computer.launches).toBe(launches);
-        }
-      } finally {
-        release();
-        await dispatch;
-        await isolated.close();
-        await restarted.close();
-        worker = await startQueue(database.db, database.pool, {
-          runtime,
-          pi,
-        });
-      }
-    },
-  );
-
-  it("persists unjoined server-tool uncertainty during shutdown and refuses recovery release", async () => {
-    await worker.stop({ graceful: false });
-    let release: () => void = () => {};
-    let entered: () => void = () => {};
-    const blocked = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const started = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-    const isolated = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
-      handleTool: async () => {
-        entered();
-        await blocked;
-        return { late: true };
-      },
-    });
-    const fresh = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
-    });
-    try {
-      const source = await setup();
-      const run = record.parse(
-        await post("/runs", {
-          agentId: source.agent.id,
-          chatId: source.chat.id,
-          requestId: crypto.randomUUID(),
-          type: "prompt",
-          body: '_tool={"name":"human.ask","body":"blocked shutdown"}',
-        }),
-      );
-      await isolated.dispatch(run.id);
-      await started;
-      await expect(isolated.close()).rejects.toThrow(
-        "Runtime persistence/cleanup failed",
-      );
-      expect(
-        required(
-          (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0],
-        ),
-      ).toMatchObject({
-        state: "uncertain",
-        outcome: "tool_cleanup_unconfirmed",
-      });
-      await computer.close();
-      await fresh.reconcile(run.id);
-      expect(
-        required(
-          (
-            await database.db
-              .select()
-              .from(environments)
-              .where(eq(environments.agentId, source.agent.id))
-          )[0],
-        ),
-      ).toMatchObject({ activeRunId: run.id, state: "uncertain" });
-    } finally {
-      release();
-      await fresh.close();
-      worker = await startQueue(database.db, database.pool, {
-        runtime,
-        pi,
-      });
-    }
   });
 
   it("denies viewer Agent admission and reauthorizes its writer role during active execution", async () => {
@@ -1142,7 +1151,7 @@ describe("execution authority and retained sources", () => {
       type: "prompt",
       body: "hold",
     };
-    const launches = computer.launches;
+    const launches = modelStarts;
     expect((await request("/runs", input)).status).toBe(403);
     expect(
       await database.db
@@ -1188,7 +1197,7 @@ describe("execution authority and retained sources", () => {
     });
     await terminal(run.id);
     expect((await saved(run.id)).state).toBe("interrupted");
-    expect(computer.launches).toBe(launches + 1);
+    expect(modelStarts).toBe(launches + 1);
   });
 
   it("returns accepted Task content while retaining current Task authorization", async () => {
@@ -1214,7 +1223,7 @@ describe("execution authority and retained sources", () => {
       attempt: row.attempt,
       launchKey: row.launchKey,
     };
-    const tools = createRunTools(database.db, boss, { pi });
+    const tools = invokeTools();
     try {
       await post(
         `/tasks/${task.id}`,
@@ -1230,130 +1239,39 @@ describe("execution authority and retained sources", () => {
       await terminal(run.id);
     }
     const next = await launch(source, {
-      body: `_tool=${JSON.stringify({ name: "task.get", taskId: task.id })}`,
+      tool: { name: "task.get", taskId: task.id },
       taskId: task.id,
     });
     await terminal(next.id);
-    expect(computer.toolResults.at(-1)).toEqual({
+    expect(observedResults.at(-1)).toEqual({
       id: task.id,
       title: "Current B",
       notes: "Notes B",
     });
   });
 
-  it("denies a directed Pi request to a viewer Agent without creating child work", async () => {
+  it("denies a directed native request to a viewer Agent without creating child work", async () => {
     const source = await setup();
     const target = await setup();
     await post(`/chats/${source.chat.id}/participants`, {
       agentId: target.agent.id,
       role: "viewer",
     });
-    const before = computer.toolResults.length;
+    const before = observedResults.length;
     const run = await launch(source, {
-      body: `_tool=${JSON.stringify({ name: "agent.request", requestId: crypto.randomUUID(), agentId: target.agent.id, body: "finish" })}`,
+      tool: {
+        name: "agent.request",
+        requestId: crypto.randomUUID(),
+        agentId: target.agent.id,
+        body: "finish",
+      },
     });
     await terminal(run.id);
-    expect(computer.toolResults.slice(before)).toContainEqual(
+    expect(observedResults.slice(before)).toContainEqual(
       expect.objectContaining({ success: false }),
     );
     expect(
       await database.db.select().from(runs).where(eq(runs.parentRunId, run.id)),
     ).toHaveLength(0);
   });
-  it.each(["throw", "unknown"] as const)(
-    "retains lost-launch acknowledgement across %s, absence and unconfirmed exit",
-    async (first) => {
-      await worker.stop({ graceful: false });
-      let inspections = 0;
-      const isolated = createRunRuntime(database.db, {
-        ...piRuntime,
-        pi,
-        backend: {
-          provider: computer.provider,
-          inspectComputer: () => computer.inspectComputer(),
-          launch: async () => {
-            throw new Error(
-              "Controlled lost acknowledgement; launch may still arrive",
-            );
-          },
-          lookup: async (_ref, key): Promise<ProcessInspection> => {
-            const step = inspections++;
-            if (step === 0) {
-              if (first === "throw")
-                throw new Error("Controlled transient lookup failure");
-              return { state: "unknown" };
-            }
-            if (step === 1) return { state: "absent" };
-            return {
-              state: "exited",
-              reference: key,
-              exitCode: 0,
-              stopped: step >= 3,
-            };
-          },
-        },
-      });
-      try {
-        const source = await setup();
-        const run = record.parse(
-          await post("/runs", {
-            agentId: source.agent.id,
-            chatId: source.chat.id,
-            requestId: crypto.randomUUID(),
-            type: "script",
-            body: "hold",
-          }),
-        );
-        await isolated.dispatch(run.id);
-        const current = async () =>
-          required(
-            (
-              await database.db.select().from(runs).where(eq(runs.id, run.id))
-            )[0],
-          );
-        expect(await current()).toMatchObject({
-          state: "uncertain",
-          outcome: "launch_acknowledgement_missing",
-        });
-        for (let step = 0; step < 3; step++) {
-          await isolated.reconcile(run.id);
-          expect(await current()).toMatchObject({
-            state: "uncertain",
-            outcome: "launch_acknowledgement_missing",
-          });
-          expect(
-            required(
-              (
-                await database.db
-                  .select()
-                  .from(environments)
-                  .where(eq(environments.agentId, source.agent.id))
-              )[0],
-            ),
-          ).toMatchObject({ state: "uncertain", activeRunId: run.id });
-        }
-        await isolated.reconcile(run.id);
-        expect(await current()).toMatchObject({
-          state: "interrupted",
-          outcome: "recovered_process_exit_without_confirmed_result",
-        });
-        expect(
-          required(
-            (
-              await database.db
-                .select()
-                .from(environments)
-                .where(eq(environments.agentId, source.agent.id))
-            )[0],
-          ),
-        ).toMatchObject({ state: "ready", activeRunId: null });
-      } finally {
-        await isolated.close();
-        worker = await startQueue(database.db, database.pool, {
-          runtime,
-          pi,
-        });
-      }
-    },
-  );
 });

@@ -1,4 +1,3 @@
-import { DomainError } from "@otto/shared";
 import type { Server } from "bun";
 import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
@@ -10,37 +9,55 @@ import { createAuth } from "../apps/server/src/auth";
 import { createResendMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
-import { readRunSkillFile } from "../apps/server/src/skill-files";
-import { createRunTools } from "../apps/server/src/tools";
-import { deleteParticipant } from "../packages/chats/src";
+import { authorizeRunSources } from "../apps/server/src/run-sources";
+import {
+  createNativeRunTools,
+  createRunTools,
+  effectRequestId,
+} from "../apps/server/src/tools";
+import { deleteParticipant, publishNativeMessage } from "../packages/chats/src";
 import { participants } from "../packages/chats/src/schema";
-import { environments } from "../packages/environments/src/schema";
 import { files } from "../packages/files/src/schema";
 import { RUN_QUEUE } from "../packages/runs/src";
 import {
+  assertRunAttempt,
   createRunRuntime,
   type RunRuntime,
   withRunAttempt,
 } from "../packages/runs/src/runtime";
-import { runs } from "../packages/runs/src/schema";
+import { runActivity, runs } from "../packages/runs/src/schema";
 import { validateSchedule } from "../packages/schedules/src";
-import { createSubscription } from "../packages/subscriptions/src";
-import { subscriptions } from "../packages/subscriptions/src/schema";
+import {
+  openNativeStorage,
+  saveNativeMessage,
+} from "../packages/sessions/src/native";
+
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
-import { ControlledComputer } from "./fixtures/computer";
-import { pi, piRuntime } from "./fixtures/pi";
+import {
+  controlledModel,
+  controlledSubscription,
+  fixtureEncryptionKey,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
 const transfers = await testSpool();
 
-describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
+describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: PgBoss;
   let worker: PgBoss;
   let runtime: RunRuntime;
-  let computer: ControlledComputer;
+  let native: Awaited<ReturnType<typeof openNativeStorage>>;
+  let modelStarts = 0;
+  const observedResults: unknown[] = [];
+  const prompts = new Map<string, unknown[]>();
+  const fixtureTools = new Map<
+    string,
+    { name: string; [key: string]: unknown }
+  >();
   let server: Server<RealtimeData>;
   let realtime: ReturnType<typeof createRealtime>;
   let origin: string;
@@ -92,18 +109,28 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       return bytes.slice();
     },
   });
-  const toolOptions: Parameters<typeof createRunTools>[2] = {
-    storage,
-    pi,
-  };
+  let toolOptions: Parameters<typeof createRunTools>[2];
   const record = z.object({ id: z.string() });
-  async function post(path: string, value = {}, method = "POST") {
+  async function post(
+    path: string,
+    value: Record<string, unknown> = {},
+    method = "POST",
+  ) {
+    const { fixtureTool, ...body } = value;
+    if (fixtureTool !== undefined) {
+      const tool = z
+        .object({ name: z.string() })
+        .catchall(z.unknown())
+        .parse(fixtureTool);
+      fixtureTools.set(z.string().parse(body.requestId), tool);
+      body.body ??= "Controlled native tool request";
+    }
     const response = await fetch(
       `${origin}/api/workspaces/${workspaceId}${path}`,
       {
         method,
         headers: { cookie, origin, "Content-Type": "application/json" },
-        body: JSON.stringify(value),
+        body: JSON.stringify(body),
       },
     );
     if (!response.ok)
@@ -116,7 +143,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     });
   }
   async function setup(
-    body = "finish",
+    body: string | { name: string; [key: string]: unknown } = "finish",
     type = "prompt",
     context: {
       skillIds?: string[];
@@ -137,7 +164,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         subscriptionId: accountId,
       }),
     ).agent;
-    await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
+
     const chat = record.parse(
       await post("/chats", {
         title: "Runtime",
@@ -155,7 +182,8 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       chatId: chat.id,
       requestId: crypto.randomUUID(),
       type,
-      body,
+      body: typeof body === "string" ? body : "Controlled native tool request",
+      ...(typeof body === "object" ? { fixtureTool: body } : {}),
     };
     const run = record.parse(await post("/runs", input));
     return { agent, chat, input, run };
@@ -164,6 +192,10 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     (await database.db.select().from(runs).where(eq(runs.id, id)))[0];
   beforeAll(async () => {
     database = await startPostgres();
+    native = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
+    toolOptions = { storage, native, models: nativeModelAuthorization };
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -219,37 +251,31 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       request,
     );
     auth = createAuth(database.db, authSecret, origin, mail);
-    app = createApp({ pi, db: database.db, boss, auth, origin, mail });
+    app = createApp({
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
+      encryptionKey: fixtureEncryptionKey,
+      db: database.db,
+      boss,
+      auth,
+      origin,
+      mail,
+    });
     const owner = await createHuman("runtime@example.test");
     cookie = owner.cookie;
     userId = owner.id;
     workspaceId = (await claimInstallation(database.db, userId, "Runtime")).id;
-    accountId = (
-      await inWorkspace(database.db, workspaceId, { userId }, (c) =>
-        createSubscription(c, {
-          provider: "codex",
-          title: "Fixture native account",
-          visibility: "workspace",
-        }),
-      )
-    ).id;
-    // Controlled authenticated account datum; no live gateway/login qualification.
-    await database.db
-      .update(subscriptions)
-      .set({ status: "enabled" })
-      .where(eq(subscriptions.id, accountId));
-    computer = new ControlledComputer(accountId);
-    runtime = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
-      deadlineMs: 30000,
-      validateSchedule,
-      handleTool: createRunTools(database.db, boss, toolOptions),
-      readSkillFile: (input) => readRunSkillFile(database.db, storage, input),
-    });
+    accountId = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId },
+      controlledSubscription,
+    );
+    runtime = createEngine();
     app = createApp({
-      pi,
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
+      encryptionKey: fixtureEncryptionKey,
       db: database.db,
       boss,
       auth,
@@ -266,40 +292,200 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       origin,
       runtime,
       storage,
+      nativeStorage: native,
     });
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      pi,
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
     });
   });
   afterAll(async () => {
     await worker?.stop({ graceful: false });
-    await computer?.close();
+
     await runtime?.close();
+    await native?.close();
     await boss?.stop();
     realtime?.close();
     await server?.stop(true);
     await mailSink?.stop(true);
     await database?.stop();
   });
-  it("executes admitted prompt and script through real workers and saves bounded authorized output", async () => {
-    for (const type of ["prompt", "script"]) {
-      const { input, run } = await setup("finish", type);
-      await expect
-        .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
-        .toBe("finished");
-      expect(record.parse(await post("/runs", input)).id).toBe(run.id);
-      const activity = z
-        .array(z.object({ body: z.string() }))
-        .parse(await (await get(`/runs/${run.id}/activity`)).json());
-      expect(activity.map((a) => a.body).join("")).toContain("fixture");
-      const view = await (await get(`/runs/${run.id}`)).text();
-      expect(view).not.toContain("contextRef");
-      expect(view).not.toContain("inputs");
-    }
-    expect(computer.launches).toBe(2);
+  async function nativeHistory(id: string) {
+    const row = await saved(id);
+    if (!row?.sessionId) throw new Error("Missing native Session");
+    const memory = await native.storage.getStore("memory");
+    if (!memory) throw new Error("Missing native memory");
+    return (
+      await memory.listMessages({
+        threadId: row.sessionId,
+        resourceId: workspaceId,
+        perPage: 100,
+        page: 0,
+      })
+    ).messages;
+  }
+  function createEngine(
+    overrides: Partial<Parameters<typeof createRunRuntime>[1]> = {},
+  ) {
+    return createRunRuntime(database.db, {
+      storage: native,
+      deadlineMs: 30000,
+      validateSchedule,
+      authorizeSources: authorizeRunSources,
+      resolveModel: async (attempt, signal) => {
+        modelStarts++;
+        const row = await saved(attempt.runId);
+        if (!row) throw new Error("Missing run");
+        const {
+          name,
+          requestId: _requestId,
+          ...input
+        } = fixtureTools.get(row.requestId) ?? {
+          name: "",
+          requestId: undefined,
+        };
+        const skill = row.inputs.skills[0];
+        const supportingFile = skill?.supportingFiles?.[0];
+        return controlledModel({
+          signal,
+          hold: row.inputs.body === "hold",
+          text: "fixture output",
+          onPrompt: (prompt) => {
+            const values = prompts.get(row.id) ?? [];
+            values.push(prompt);
+            prompts.set(row.id, values);
+          },
+          ...(name
+            ? { toolRequests: [{ toolName: name.replaceAll(".", "_"), input }] }
+            : {}),
+          ...(name === "file.create" && skill && supportingFile
+            ? {
+                steps: [
+                  {
+                    toolRequests: [
+                      {
+                        toolName: "skill_read",
+                        input: {
+                          skillId: skill.documentId,
+                          path: supportingFile.path,
+                        },
+                      },
+                    ],
+                  },
+                  { toolRequests: [{ toolName: "file_create", input }] },
+                  { text: "fixture output" },
+                ],
+              }
+            : {}),
+        });
+      },
+      tools: (attempt, signal) => {
+        const tools = createNativeRunTools(
+          database.db,
+          boss,
+          attempt,
+          toolOptions,
+          signal,
+        );
+        return Object.fromEntries(
+          Object.entries(tools).map(([name, tool]) => {
+            if (!("execute" in tool) || !tool.execute)
+              throw new Error("Expected native executable tool");
+            const execute = tool.execute;
+            return [
+              name,
+              {
+                ...tool,
+                execute: async (...args: Parameters<typeof execute>) => {
+                  const result = await execute(args[0], args[1]);
+                  observedResults.push(result);
+                  return result;
+                },
+              },
+            ];
+          }),
+        );
+      },
+      publishOutput: async (identity, output) => {
+        const scope = await withRunAttempt(
+          database.db,
+          identity,
+          async (c, run) => ({
+            actor: c.actor,
+            sessionId: run.sessionId,
+            chatId: run.chatId,
+          }),
+          validateSchedule,
+          native,
+          authorizeRunSources,
+        );
+        if (!scope.sessionId) throw new Error("Missing native Session");
+        await publishNativeMessage(
+          database.db,
+          native,
+          workspaceId,
+          scope.actor,
+          scope.chatId,
+          {
+            requestId: effectRequestId(identity.runId, output.nativeMessageId),
+            sessionId: scope.sessionId,
+            ...output,
+          },
+          async (c) => {
+            await assertRunAttempt(
+              c,
+              identity,
+              validateSchedule,
+              native,
+              authorizeRunSources,
+            );
+          },
+        );
+      },
+      ...overrides,
+    });
+  }
+  function invokeTools() {
+    const execute = createRunTools(database.db, boss, toolOptions);
+    return (attempt: Parameters<typeof execute>[0], value: unknown) =>
+      execute(attempt, value, undefined, crypto.randomUUID());
+  }
+  async function unsupportedSteer(id: string) {
+    const response = await fetch(
+      `${origin}/api/workspaces/${workspaceId}/runs/${id}/steer`,
+      {
+        method: "POST",
+        headers: { cookie, origin, "content-type": "application/json" },
+        body: JSON.stringify({
+          requestId: crypto.randomUUID(),
+          body: "Unsupported native steering",
+        }),
+      },
+    );
+    expect(response.status).toBe(503);
+  }
+  it("executes an admitted native prompt through the real worker and saves authorized output", async () => {
+    const { input, run, chat } = await setup("finish");
+    await expect
+      .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
+      .toBe("finished");
+    const launches = modelStarts;
+    expect(record.parse(await post("/runs", input)).id).toBe(run.id);
+    await runtime.dispatch(run.id);
+    expect(modelStarts).toBe(launches);
+    const messages = z
+      .array(z.object({ body: z.string() }))
+      .parse(await (await get(`/chats/${chat.id}/messages`)).json());
+    expect(messages).toEqual([
+      expect.objectContaining({ body: "fixture output" }),
+    ]);
+    const view = await (await get(`/runs/${run.id}`)).text();
+    expect(view).not.toContain("contextRef");
+    expect(view).not.toContain("inputs");
+    expect(view).not.toContain("launchKey");
   });
-  it("runs two Agents independently and targets steer/Stop without stopping the other", async () => {
+  it("runs two Agents independently and targets Stop without stopping the other", async () => {
     const a = await setup("hold");
     const b = await setup("hold");
     await expect
@@ -311,40 +497,19 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         { timeout: 10000 },
       )
       .toEqual(["running", "running"]);
-    await expect
-      .poll(
-        async () =>
-          z
-            .array(z.object({ body: z.string() }))
-            .parse(await (await get(`/runs/${a.run.id}/activity`)).json())
-            .length,
-      )
-      .toBe(1);
-    await post(`/runs/${a.run.id}/steer`, {
-      requestId: crypto.randomUUID(),
-      body: "adjust",
-    });
+    await unsupportedSteer(a.run.id);
     const startedAt = performance.now();
     const reads = Promise.all(
-      Array.from({ length: 32 }, async () => {
-        const start = performance.now();
-        expect((await get(`/runs/${b.run.id}/activity`)).status).toBe(200);
-        return performance.now() - start;
-      }),
+      Array.from({ length: 32 }, async () =>
+        expect((await get(`/runs/${b.run.id}/activity`)).status).toBe(200),
+      ),
     );
-    expect(await post(`/runs/${a.run.id}/stop`)).toEqual({ stopped: true });
-    const stopMs = performance.now() - startedAt;
-    const latencies = (await reads).sort((a, b) => a - b);
-    expect(stopMs).toBeLessThan(10000);
-    console.log(
-      JSON.stringify({
-        profile: "controlled-two-agent-32-reader",
-        readCount: latencies.length,
-        readP95Ms: latencies[30],
-        stopMs,
-        rssBytes: process.memoryUsage().rss,
-      }),
-    );
+    expect(await post(`/runs/${a.run.id}/stop`)).toMatchObject({
+      stopped: true,
+    });
+    await reads;
+    expect(performance.now() - startedAt).toBeLessThan(10000);
+    expect((await saved(a.run.id))?.state).toBe("interrupted");
     expect((await saved(b.run.id))?.state).toBe("running");
     const row = await saved(b.run.id);
     if (!row) throw new Error("Missing Run");
@@ -358,30 +523,21 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
           launchKey: row.launchKey,
         },
         async () => true,
+        validateSchedule,
+        native,
+        authorizeRunSources,
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     await post(`/runs/${b.run.id}/stop`);
   });
-  it("fences a lost launch acknowledgement and reconciles without launching a duplicate", async () => {
-    computer.loseNextAcknowledgement = true;
-    const { run } = await setup("hold");
-    await expect
-      .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
-      .toBe("uncertain");
-    const launches = computer.launches;
-    await runtime.dispatch(run.id);
-    await runtime.reconcile(run.id);
-    expect((await saved(run.id))?.state).toBe("interrupted");
-    expect(computer.launches).toBe(launches);
-  });
-  it("invokes a scoped Otto message tool through Pi without accepting a browser Agent identity", async () => {
-    const { run, chat, agent } = await setup(
-      `_tool=${JSON.stringify({ name: "message.create", requestId: crypto.randomUUID(), body: "Scoped fixture message", agentId: crypto.randomUUID() })}`,
-    );
+  it("invokes a native scoped message tool without accepting a forged Agent identity", async () => {
+    const { run, chat, agent } = await setup({
+      name: "message.create",
+      body: "Scoped fixture message",
+    });
     await expect
       .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
       .toBe("finished");
-    const response = await get(`/chats/${chat.id}/messages`);
     const messages = z
       .array(
         z.object({
@@ -390,14 +546,448 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
           authorUserId: z.string().nullable(),
         }),
       )
-      .parse(await response.json());
-    expect(messages).toContainEqual(
+      .parse(await (await get(`/chats/${chat.id}/messages`)).json());
+    expect(messages).toContainEqual({
+      body: "Scoped fixture message",
+      authorAgentId: agent.id,
+      authorUserId: null,
+    });
+    const active = await setup("hold");
+    await expect
+      .poll(async () => (await saved(active.run.id))?.state, { timeout: 10000 })
+      .toBe("running");
+    const row = await saved(active.run.id);
+    if (!row) throw new Error("Missing Run");
+    const identity = {
+      runId: row.id,
+      agentId: row.agentId,
+      attempt: row.attempt,
+      launchKey: row.launchKey,
+    };
+    await expect(
+      invokeTools()(identity, {
+        name: "message.create",
+        body: "Forged",
+        requestId: crypto.randomUUID(),
+        agentId: agent.id,
+      }),
+    ).rejects.toMatchObject({
+      name: "ZodError",
+      issues: [{ code: "unrecognized_keys", keys: ["agentId"], path: [] }],
+    });
+    const afterRejection = await (
+      await get(`/chats/${active.chat.id}/messages`)
+    ).json();
+    expect(afterRejection).not.toContainEqual(
+      expect.objectContaining({ body: "Forged" }),
+    );
+    const authorized = await invokeTools()(identity, {
+      name: "message.create",
+      body: "Authorized current Agent",
+      requestId: crypto.randomUUID(),
+    });
+    expect(authorized).toMatchObject({
+      authorAgentId: active.agent.id,
+      authorUserId: null,
+    });
+    expect(authorized).not.toMatchObject({ authorAgentId: agent.id });
+    await post(`/runs/${active.run.id}/stop`);
+  });
+  it("catches up native output and saved question activity after a WebSocket gap", async () => {
+    const { run, chat } = await setup({
+      name: "human.ask",
+      body: "Gap question",
+    });
+    let questionId = "";
+    await expect
+      .poll(
+        async () => {
+          const activity = z
+            .array(z.object({ id: z.string(), type: z.string() }))
+            .parse(await (await get(`/runs/${run.id}/activity`)).json());
+          questionId =
+            activity.find((item) => item.type === "question")?.id ?? "";
+          return questionId;
+        },
+        { timeout: 10000 },
+      )
+      .not.toBe("");
+    const frameSchema = z.object({
+      cursor: z.number(),
+      messages: z.array(z.object({ body: z.string(), cursor: z.number() })),
+      activity: z.array(
+        z.object({
+          id: z.string(),
+          body: z.string(),
+          answer: z.string().nullable(),
+          cursor: z.number(),
+        }),
+      ),
+      refreshCurrentViews: z.literal(true),
+    });
+    const readFrame = async (after: number) => {
+      const ws = new WebSocket(
+        `${origin.replace("http:", "ws:")}/api/realtime?workspaceId=${workspaceId}&chatId=${chat.id}&runId=${run.id}&after=${after}`,
+        { headers: { cookie, origin } },
+      );
+      try {
+        return await new Promise<z.infer<typeof frameSchema>>(
+          (resolve, reject) => {
+            const timer = setTimeout(
+              () => reject(new Error("WebSocket deadline")),
+              5000,
+            );
+            ws.once("message", (data) => {
+              clearTimeout(timer);
+              try {
+                resolve(frameSchema.parse(JSON.parse(data.toString())));
+              } catch (error) {
+                reject(error);
+              }
+            });
+            ws.once("error", (error) => {
+              clearTimeout(timer);
+              reject(error);
+            });
+          },
+        );
+      } finally {
+        ws.close();
+      }
+    };
+    const first = await readFrame(0);
+    expect(first.activity).toContainEqual(
       expect.objectContaining({
-        body: "Scoped fixture message",
-        authorAgentId: agent.id,
-        authorUserId: null,
+        id: questionId,
+        body: "Gap question",
+        answer: null,
       }),
     );
+    await post(`/questions/${questionId}/answer`, { body: "Gap answer" });
+    await expect
+      .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
+      .toBe("finished");
+    const catchup = await readFrame(first.cursor);
+    expect(catchup.activity).toContainEqual(
+      expect.objectContaining({ id: questionId, answer: "Gap answer" }),
+    );
+    expect(
+      catchup.messages.some((message) => message.body === "fixture output"),
+    ).toBe(true);
+    expect(
+      [...catchup.activity, ...catchup.messages].every(
+        (item) => item.cursor > first.cursor,
+      ),
+    ).toBe(true);
+    const stranger = await createHuman("runtime-ws-outsider@example.test");
+    expect(
+      (
+        await fetch(
+          `${origin}/api/realtime?workspaceId=${workspaceId}&chatId=${chat.id}&runId=${run.id}`,
+          { headers: { cookie: stranger.cookie, origin } },
+        )
+      ).status,
+    ).toBe(403);
+  });
+  it("loads persisted private Session history without republishing it as shared output", async () => {
+    const first = await setup("PRIVATE NATIVE HISTORY");
+    await expect
+      .poll(async () => (await saved(first.run.id))?.state, { timeout: 10000 })
+      .toBe("finished");
+    const sessionId = (await saved(first.run.id))?.sessionId;
+    expect(sessionId).toBeTruthy();
+    const before = z
+      .array(record)
+      .parse(await (await get(`/chats/${first.chat.id}/messages`)).json());
+    const second = record.parse(
+      await post("/runs", {
+        ...first.input,
+        body: "Continue the saved Session",
+        sessionId,
+        requestId: crypto.randomUUID(),
+      }),
+    );
+    await expect
+      .poll(async () => (await saved(second.id))?.state, { timeout: 10000 })
+      .toBe("finished");
+    expect((await saved(second.id))?.sessionId).toBe(sessionId);
+    expect(JSON.stringify(prompts.get(second.id))).toContain(
+      "PRIVATE NATIVE HISTORY",
+    );
+    const shared = z
+      .array(z.object({ id: z.string(), body: z.string() }))
+      .parse(await (await get(`/chats/${first.chat.id}/messages`)).json());
+    expect(shared).toHaveLength(before.length + 1);
+    expect(shared.map((message) => message.body).join("\n")).not.toContain(
+      "PRIVATE NATIVE HISTORY",
+    );
+    expect(new Set(shared.map((message) => message.id)).size).toBe(
+      shared.length,
+    );
+  });
+  it("preserves native message identity against conflicting replay", async () => {
+    const { run } = await setup("finish");
+    await expect
+      .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
+      .toBe("finished");
+    const sessionId = (await saved(run.id))?.sessionId;
+    if (!sessionId) throw new Error("Missing Session");
+    const input = {
+      workspaceId,
+      threadId: sessionId,
+      messageId: crypto.randomUUID(),
+      role: "user" as const,
+      body: "PRIVATE REPLAY",
+      createdAt: new Date(),
+    };
+    const original = await saveNativeMessage(native, input);
+    expect((await saveNativeMessage(native, input)).id).toBe(original.id);
+    await expect(
+      saveNativeMessage(native, { ...input, body: "CHANGED REPLAY" }),
+    ).rejects.toMatchObject({ code: "conflict" });
+    const history = await nativeHistory(run.id);
+    expect(
+      history.filter((message) => message.id === original.id),
+    ).toHaveLength(1);
+    expect(JSON.stringify(history)).toContain("PRIVATE REPLAY");
+    expect(JSON.stringify(history)).not.toContain("CHANGED REPLAY");
+  });
+  it("persists native usage once and denies unauthorized aggregate reads", async () => {
+    const { run } = await setup("finish");
+    await expect
+      .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
+      .toBe("finished");
+    const usage = (await saved(run.id))?.usage;
+    expect(usage).toHaveLength(1);
+    expect(await (await get(`/runs/${run.id}/usage`)).json()).toMatchObject({
+      provider: "openai",
+      model: "fixture",
+      scope: "native_observed",
+      complete: true,
+      messageCount: 1,
+      inputTokens: 10,
+      outputTokens: 2,
+      totalTokens: 12,
+    });
+    await runtime.dispatch(run.id);
+    await runtime.reconcile(run.id);
+    expect((await saved(run.id))?.usage).toEqual(usage);
+    const outsider = await createHuman("usage-outsider@example.test");
+    expect(
+      (
+        await fetch(
+          `${origin}/api/workspaces/${workspaceId}/runs/${run.id}/usage`,
+          { headers: { cookie: outsider.cookie } },
+        )
+      ).status,
+    ).toBe(403);
+    expect((await saved(run.id))?.usage).toEqual(usage);
+  });
+  it("bounds native output without publishing an oversized result", async () => {
+    await worker.stop({ graceful: false });
+    const isolated = createEngine({
+      resolveModel: async (_attempt, signal) =>
+        controlledModel({ signal, text: "x".repeat(1048577) }),
+    });
+    try {
+      const { run, chat } = await setup("finish");
+      await isolated.dispatch(run.id);
+      await expect
+        .poll(() => isolated.health().active, { timeout: 10000 })
+        .toBe(0);
+      expect((await saved(run.id))?.state).toBe("interrupted");
+      expect((await saved(run.id))?.outcome).toBe(
+        "stopped_or_authorization_revoked",
+      );
+      expect(await (await get(`/chats/${chat.id}/messages`)).json()).toEqual(
+        [],
+      );
+    } finally {
+      await isolated.close();
+      worker = await startQueue(database.db, database.pool, {
+        runtime,
+        nativeStorage: native,
+        modelAuthorization: nativeModelAuthorization,
+      });
+    }
+  });
+  it("Stops during native model resolution and joins cleanup without poisoning a sibling", async () => {
+    await worker.stop({ graceful: false });
+    let entered: () => void = () => {};
+    const ready = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let resolutions = 0;
+    let aborted = false;
+    const isolated = createEngine({
+      resolveModel: async (_attempt, signal) => {
+        if (resolutions++ === 0) {
+          entered();
+          await new Promise<void>((resolve) => {
+            const abort = () => {
+              aborted = true;
+              resolve();
+            };
+            if (signal.aborted) abort();
+            else signal.addEventListener("abort", abort, { once: true });
+          });
+        }
+        return controlledModel({ signal });
+      },
+    });
+    try {
+      const first = await setup("hold");
+      const dispatch = isolated.dispatch(first.run.id);
+      await ready;
+      expect(
+        await isolated.stop(workspaceId, { userId }, first.run.id),
+      ).toMatchObject({ stopped: true });
+      await dispatch;
+      expect(aborted).toBe(true);
+      expect(isolated.health()).toMatchObject({
+        active: 0,
+        persistenceErrors: 0,
+      });
+      expect((await saved(first.run.id))?.state).toBe("interrupted");
+      const sibling = await setup("finish");
+      await isolated.dispatch(sibling.run.id);
+      await expect
+        .poll(async () => (await saved(sibling.run.id))?.state, {
+          timeout: 10000,
+        })
+        .toBe("finished");
+    } finally {
+      await isolated.close();
+      worker = await startQueue(database.db, database.pool, {
+        runtime,
+        nativeStorage: native,
+        modelAuthorization: nativeModelAuthorization,
+      });
+    }
+  });
+  it("bounds simultaneous native starts before model resolution", async () => {
+    await worker.stop({ graceful: false });
+    const admitted = [];
+    for (let index = 0; index < 17; index++)
+      admitted.push(await setup("finish"));
+    let resolutions = 0;
+    const isolated = createEngine({
+      resolveModel: async (_attempt, signal) => {
+        if (++resolutions <= 16) {
+          await new Promise<void>((resolve) => {
+            if (signal.aborted) resolve();
+            else
+              signal.addEventListener("abort", () => resolve(), { once: true });
+          });
+        }
+        return controlledModel({ signal });
+      },
+    });
+    const pending = admitted
+      .slice(0, 16)
+      .map(({ run }) => isolated.dispatch(run.id));
+    try {
+      await expect.poll(() => resolutions).toBe(16);
+      const overflow = admitted[16];
+      if (!overflow) throw new Error("Missing overflow Run");
+      await expect(isolated.dispatch(overflow.run.id)).rejects.toMatchObject({
+        code: "unavailable",
+        message: "Runtime capacity",
+      });
+      expect((await saved(overflow.run.id))?.state).toBe("queued");
+      expect(resolutions).toBe(16);
+      await Promise.all(
+        admitted
+          .slice(0, 16)
+          .map(({ run }) => isolated.stop(workspaceId, { userId }, run.id)),
+      );
+      await Promise.all(pending);
+      expect(isolated.health()).toMatchObject({
+        active: 0,
+        persistenceErrors: 0,
+      });
+      await isolated.dispatch(overflow.run.id);
+      expect((await saved(overflow.run.id))?.state).toBe("finished");
+      expect(resolutions).toBe(17);
+    } finally {
+      await isolated.close();
+      await Promise.all(pending);
+      for (const { run } of admitted) {
+        const jobs = await boss.findJobs(RUN_QUEUE, {
+          data: { runId: run.id },
+        });
+        if (jobs.length)
+          await boss.cancel(
+            RUN_QUEUE,
+            jobs.map((job) => job.id),
+          );
+      }
+      worker = await startQueue(database.db, database.pool, {
+        runtime,
+        nativeStorage: native,
+        modelAuthorization: nativeModelAuthorization,
+      });
+    }
+  });
+  it("joins active native Runs on close and recovers through a new worker without duplicate execution", async () => {
+    const first = await setup("hold");
+    const second = await setup("hold");
+    await expect
+      .poll(
+        async () => [
+          (await saved(first.run.id))?.state,
+          (await saved(second.run.id))?.state,
+        ],
+        { timeout: 10000 },
+      )
+      .toEqual(["running", "running"]);
+    await worker.stop({ graceful: false });
+    await runtime.close();
+    expect(runtime.health()).toMatchObject({
+      active: 0,
+      closing: true,
+      persistenceErrors: 0,
+    });
+    const launches = modelStarts;
+    runtime = createEngine();
+    realtime.close();
+    auth = createAuth(database.db, authSecret, origin, mail);
+    app = createApp({
+      db: database.db,
+      boss,
+      auth,
+      origin,
+      runtime,
+      storage,
+      spool: transfers.spool,
+      mail,
+      nativeStorage: native,
+      encryptionKey: fixtureEncryptionKey,
+      modelAuthorization: nativeModelAuthorization,
+    });
+    realtime = createRealtime({
+      db: database.db,
+      boss,
+      auth,
+      origin,
+      runtime,
+      storage,
+      nativeStorage: native,
+    });
+    worker = await startQueue(database.db, database.pool, {
+      runtime,
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
+    });
+    for (const { run } of [first, second]) {
+      expect((await saved(run.id))?.state).toBe("interrupted");
+      await runtime.dispatch(run.id);
+    }
+    expect(modelStarts).toBe(launches);
+    const next = await setup("finish");
+    await expect
+      .poll(async () => (await saved(next.run.id))?.state, { timeout: 10000 })
+      .toBe("finished");
   });
   it("exposes the scoped Chat read tool and rejects the retired Conversation tool name", async () => {
     const { run } = await setup("hold");
@@ -412,7 +1002,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       attempt: row.attempt,
       launchKey: row.launchKey,
     };
-    const tools = createRunTools(database.db, boss);
+    const tools = invokeTools();
     expect(Array.isArray(await tools(attempt, { name: "chat.read" }))).toBe(
       true,
     );
@@ -442,7 +1032,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       .poll(async () => (await saved(run.id))?.state)
       .toBe("interrupted");
     await expect(
-      createRunTools(database.db, boss)(
+      invokeTools()(
         {
           runId: row.id,
           agentId: row.agentId,
@@ -457,43 +1047,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
   });
-  it("bounds malformed/oversized Pi and rejects a missing managed bridge without success", async () => {
-    await worker.stop({ graceful: false });
-    const isolated = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
-      deadlineMs: 30000,
-    });
-    try {
-      computer.bridgeReady = false;
-      const unsupported = await setup("finish");
-      await isolated.dispatch(unsupported.run.id);
-      await expect
-        .poll(async () => (await saved(unsupported.run.id))?.state, {
-          timeout: 10000,
-        })
-        .toBe("interrupted");
-      computer.bridgeReady = true;
-      const oversized = await setup("oversized");
-      await isolated.dispatch(oversized.run.id);
-      await expect
-        .poll(async () => (await saved(oversized.run.id))?.state, {
-          timeout: 10000,
-        })
-        .toBe("uncertain");
-      expect((await saved(oversized.run.id))?.outputBytes).toBeLessThanOrEqual(
-        1048576,
-      );
-    } finally {
-      computer.bridgeReady = true;
-      await expect(isolated.close()).rejects.toThrow(
-        "Runtime persistence/cleanup failed",
-      );
-      worker = await startQueue(database.db, database.pool, { runtime, pi });
-    }
-  });
-  it("routes a Pi peer request to a second Agent through atomic admission and the real worker", async () => {
+  it("routes a native peer request to a second Agent through atomic admission and the real worker", async () => {
     const makeAgent = async () => {
       const agent = z.object({ agent: record }).parse(
         await post("/agents", {
@@ -504,7 +1058,6 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
           subscriptionId: accountId,
         }),
       ).agent;
-      await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
       return agent;
     };
     const sender = await makeAgent();
@@ -523,7 +1076,12 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         agentId: sender.id,
         requestId: crypto.randomUUID(),
         type: "prompt",
-        body: `_tool=${JSON.stringify({ name: "agent.request", requestId: crypto.randomUUID(), agentId: receiver.id, body: "finish" })}`,
+        fixtureTool: {
+          name: "agent.request",
+          requestId: crypto.randomUUID(),
+          agentId: receiver.id,
+          body: "finish",
+        },
       }),
     );
     await expect
@@ -541,70 +1099,11 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     await expect
       .poll(async () => (await saved(child.id))?.state, { timeout: 10000 })
       .toBe("finished");
-    const launches = computer.launches;
+    const launches = modelStarts;
     await runtime.dispatch(child.id);
-    expect(computer.launches).toBe(launches);
+    expect(modelStarts).toBe(launches);
   });
-  it("streams persisted output and catches up after a WebSocket gap through current authorization", async () => {
-    const { run, chat } = await setup("hold");
-    await expect
-      .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
-      .toBe("running");
-    await expect
-      .poll(async () =>
-        z
-          .array(z.object({ body: z.string() }))
-          .parse(await (await get(`/runs/${run.id}/activity`)).json())
-          .some((item) => item.body === "fixture output"),
-      )
-      .toBe(true);
-    const frameSchema = z.object({
-      cursor: z.number(),
-      activity: z.array(z.object({ body: z.string(), cursor: z.number() })),
-      refreshCurrentViews: z.literal(true),
-    });
-    const readFrame = async (after: number) => {
-      const ws = new WebSocket(
-        `${origin.replace("http:", "ws:")}/api/realtime?workspaceId=${workspaceId}&chatId=${chat.id}&runId=${run.id}&after=${after}`,
-        { headers: { cookie, origin } },
-      );
-      try {
-        return await new Promise<z.infer<typeof frameSchema>>(
-          (resolve, reject) => {
-            const timer = setTimeout(
-              () => reject(new Error("WebSocket deadline")),
-              5000,
-            );
-            ws.once("message", (data) => {
-              clearTimeout(timer);
-              try {
-                resolve(frameSchema.parse(JSON.parse(data.toString())));
-              } catch (e) {
-                reject(e);
-              }
-            });
-            ws.once("error", (error) => {
-              clearTimeout(timer);
-              reject(error);
-            });
-          },
-        );
-      } finally {
-        ws.close();
-      }
-    };
-    const first = await readFrame(0);
-    expect(first.activity.some((a) => a.body === "fixture output")).toBe(true);
-    await post(`/runs/${run.id}/steer`, {
-      requestId: crypto.randomUUID(),
-      body: "Gap control",
-    });
-    const catchup = await readFrame(first.cursor);
-    expect(catchup.activity.some((a) => a.body === "Gap control")).toBe(true);
-    expect(catchup.activity.every((a) => a.cursor > first.cursor)).toBe(true);
-    await post(`/runs/${run.id}/stop`);
-  });
-  it("executes a scoped MCP write only after exact human approval through HTTP and Pi", async () => {
+  it("executes a scoped MCP write only after exact human approval through HTTP and native tools", async () => {
     let writes = 0;
     const mcp = Bun.serve({
       hostname: "127.0.0.1",
@@ -656,7 +1155,8 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       http: { allowedOrigins: [mcp.url.origin], allowLoopbackHttp: true },
     };
     app = createApp({
-      pi,
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
       db: database.db,
       boss,
       auth,
@@ -694,7 +1194,6 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
           subscriptionId: accountId,
         }),
       ).agent;
-      await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
       const chat = record.parse(
         await post("/chats", {
           title: "External result",
@@ -752,7 +1251,14 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
           agentId: agent.id,
           requestId: crypto.randomUUID(),
           type: "prompt",
-          body: `_tool=${JSON.stringify({ name: "connection.request", connectionId: connection.id, requestId: crypto.randomUUID(), action: "tool.write", target: "repo:one", arguments: { target: "repo:one" } })}`,
+          fixtureTool: {
+            name: "connection.request",
+            connectionId: connection.id,
+            requestId: crypto.randomUUID(),
+            action: "tool.write",
+            target: "repo:one",
+            arguments: { target: "repo:one" },
+          },
         });
       const run = record.parse(await start());
       const operations = z.object({
@@ -787,10 +1293,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       if (!pending) throw new Error("Missing pending approval");
       expect(writes).toBe(0);
       const steerStarted = performance.now();
-      await post(`/runs/${run.id}/steer`, {
-        body: "Keep waiting for this exact approval",
-        requestId: crypto.randomUUID(),
-      });
+      await unsupportedSteer(run.id);
       expect(performance.now() - steerStarted).toBeLessThan(5000);
       expect(writes).toBe(0);
       const wrong = await fetch(
@@ -809,9 +1312,12 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
         .toBe("finished");
       expect(writes).toBe(1);
-      expect(await (await get(`/chats/${chat.id}/messages`)).text()).toContain(
+      expect(JSON.stringify(await nativeHistory(run.id))).toContain(
         "controlled MCP result",
       );
+      const shared = await (await get(`/chats/${chat.id}/messages`)).text();
+      expect(shared).toContain("fixture output");
+      expect(shared).not.toContain("controlled MCP result");
       expect(
         await (await get(`/connections/${connection.id}`)).text(),
       ).not.toContain("credentialRef");
@@ -859,7 +1365,8 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         .where(eq(members.userId, maintainer.id));
       delete toolOptions.connections;
       app = createApp({
-        pi,
+        nativeStorage: native,
+        modelAuthorization: nativeModelAuthorization,
         db: database.db,
         boss,
         auth,
@@ -883,89 +1390,15 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       }),
     );
     await expect(runtime.dispatch(second.id)).rejects.toMatchObject({
-      code: "unavailable",
+      code: "conflict",
     });
     expect((await saved(second.id))?.state).toBe("queued");
-    const activeLaunches = computer.launches;
+    const activeLaunches = modelStarts;
     await post(`/runs/${first.run.id}/stop`);
     await expect
       .poll(async () => (await saved(second.id))?.state, { timeout: 15000 })
       .toBe("finished");
-    expect(computer.launches).toBe(activeLaunches + 1);
-  });
-  it("loads private Session history without republishing it as new shared output", async () => {
-    const first = await setup("finish");
-    await expect
-      .poll(async () => (await saved(first.run.id))?.state, { timeout: 10000 })
-      .toBe("finished");
-    const sessionId = (await saved(first.run.id))?.sessionId;
-    computer.replayOnLoad = true;
-    try {
-      const second = record.parse(
-        await post("/runs", {
-          ...first.input,
-          requestId: crypto.randomUUID(),
-          sessionId,
-        }),
-      );
-      await expect
-        .poll(async () => (await saved(second.id))?.state, { timeout: 10000 })
-        .toBe("finished");
-      const activity = await (await get(`/runs/${second.id}/activity`)).text();
-      expect(activity).toContain("fixture output");
-      expect(activity).not.toContain("PRIVATE NATIVE HISTORY");
-    } finally {
-      computer.replayOnLoad = false;
-    }
-  });
-  it("reconciles a server restart through the worker without relaunching its execution", async () => {
-    const first = await setup("hold");
-    await expect
-      .poll(async () => (await saved(first.run.id))?.state, { timeout: 10000 })
-      .toBe("running");
-    await worker.stop({ graceful: false });
-    await runtime.close();
-    const launches = computer.launches;
-    runtime = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
-      deadlineMs: 30000,
-      validateSchedule,
-      handleTool: createRunTools(database.db, boss, toolOptions),
-      readSkillFile: (input) => readRunSkillFile(database.db, storage, input),
-    });
-    // Existing app closures are replaced exactly as a restarted process constructs them.
-    auth = createAuth(database.db, authSecret, origin, mail);
-    app = createApp({
-      pi,
-      db: database.db,
-      boss,
-      auth,
-      origin,
-      runtime,
-      storage,
-      spool: transfers.spool,
-      mail,
-    });
-    realtime = createRealtime({
-      db: database.db,
-      boss,
-      auth,
-      origin,
-      runtime,
-      storage,
-    });
-    worker = await startQueue(database.db, database.pool, {
-      runtime,
-      pi,
-    });
-    expect((await saved(first.run.id))?.state).toBe("interrupted");
-    expect(computer.launches).toBe(launches);
-    const next = await setup("finish");
-    await expect
-      .poll(async () => (await saved(next.run.id))?.state, { timeout: 10000 })
-      .toBe("finished");
+    expect(modelStarts).toBe(activeLaunches + 1);
   });
   it("materializes accepted immutable skill files and publishes an agent File through the trusted runtime", async () => {
     const reader = await createHuman("runtime-reader@example.test");
@@ -1042,7 +1475,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       mediaType: "text/plain",
       text: "saved agent output",
     };
-    const { run } = await setup(`_tool=${JSON.stringify(request)}`, "prompt", {
+    const { run } = await setup(request, "prompt", {
       projectId: project.id,
       taskId: task.id,
       skillIds: [skill.id],
@@ -1068,7 +1501,8 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     );
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      pi,
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
     });
     await expect
       .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
@@ -1081,22 +1515,37 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     expect(accepted?.inputs.context?.documents[0]?.body).toBe(
       "saved selected context",
     );
-    const launch = computer.inputs.find(
-      (input) => input.launchKey === accepted?.launchKey,
+    expect(JSON.stringify(prompts.get(run.id))).toContain(
+      "saved skill instructions",
     );
+    expect(JSON.stringify(prompts.get(run.id))).toContain(
+      "saved selected context",
+    );
+    expect(JSON.stringify(prompts.get(run.id))).not.toContain("later context");
+    expect(accepted?.inputs.skills[0]?.supportingFiles).toEqual([
+      expect.objectContaining({
+        artifactId: file.id,
+        path: "references/example.txt",
+        byteLength: 22,
+        sha256: new Bun.CryptoHasher("sha256")
+          .update("saved supporting bytes")
+          .digest("hex"),
+      }),
+    ]);
+    const skillResults = (await nativeHistory(run.id))
+      .flatMap((message) => message.content.parts)
+      .flatMap((part) =>
+        part.type === "tool-invocation" &&
+        part.toolInvocation.toolName === "skill_read" &&
+        part.toolInvocation.state === "result"
+          ? [z.object({ base64: z.string() }).parse(part.toolInvocation.result)]
+          : [],
+      );
+    expect(skillResults).toHaveLength(1);
     expect(
-      launch?.files.map((f) => ({
-        path: f.path,
-        text: new TextDecoder().decode(f.bytes),
-      })),
-    ).toContainEqual({
-      path: `skills/${skill.id}/references/example.txt`,
-      text: "saved supporting bytes",
-    });
-    expect(
-      launch?.files.find((f) => f.path.endsWith("SKILL.md"))?.bytes,
-    ).toBeDefined();
-    const receipt = record.parse(computer.toolResults.at(-1));
+      Buffer.from(skillResults[0]?.base64 ?? "", "base64").toString(),
+    ).toBe("saved supporting bytes");
+    const receipt = record.parse(observedResults.at(-1));
     expect(await (await get(`/files/${receipt.id}/file`)).text()).toBe(
       "saved agent output",
     );
@@ -1148,7 +1597,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       text: "must not publish",
     };
     await worker.stop({ graceful: false });
-    const { run } = await setup(`_tool=${JSON.stringify(request)}`);
+    const { run } = await setup(request);
     let stopResponse: Promise<unknown> | undefined;
     afterPut = async () => {
       stopResponse = post(`/runs/${run.id}/stop`);
@@ -1161,7 +1610,8 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     try {
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        pi,
+        nativeStorage: native,
+        modelAuthorization: nativeModelAuthorization,
       });
       await expect
         .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
@@ -1177,177 +1627,22 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       const [intent] = await database.db
         .select()
         .from(files)
-        .where(eq(files.requestId, request.requestId));
+        .where(eq(files.sourceRunId, run.id));
       expect(intent?.state).toBe("pending");
       expect((await get(`/files/${intent?.id}`)).status).toBe(404);
-      expect(await stopResponse).toEqual({ stopped: true });
+      expect(await stopResponse).toMatchObject({ stopped: true });
     } finally {
       afterPut = undefined;
       await stopResponse;
     }
   });
-  it("persists final usage once on exact replay and denies unauthorized aggregate reads", async () => {
-    computer.usageReplay = "same";
-    try {
-      const { run } = await setup("finish");
-      await expect
-        .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
-        .toBe("finished");
-      expect((await saved(run.id))?.usage).toHaveLength(1);
-      expect(await (await get(`/runs/${run.id}/usage`)).json()).toMatchObject({
-        provider: "codex",
-        model: "fixture",
-        complete: true,
-        messageCount: 1,
-        inputTokens: 10,
-        outputTokens: 2,
-        totalTokens: 12,
-      });
-      const outsider = await createHuman("usage-outsider@example.test");
-      const response = await fetch(
-        `${origin}/api/workspaces/${workspaceId}/runs/${run.id}/usage`,
-        {
-          headers: { cookie: outsider.cookie },
-        },
-      );
-      expect(response.status).toBe(403);
-      expect((await saved(run.id))?.usage).toHaveLength(1);
-    } finally {
-      computer.usageReplay = "none";
-    }
-  });
-  it("rejects conflicting native replay without publishing altered usage", async () => {
-    await worker.stop({ graceful: false });
-    computer.usageReplay = "changed";
-    const isolated = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
-    });
-    try {
-      const { run } = await setup("finish");
-      await isolated.dispatch(run.id);
-      await expect.poll(() => isolated.health().active).toBe(0);
-      const receipts = (await saved(run.id))?.usage ?? [];
-      // Protocol failure may precede the first DB commit. It must never commit
-      // the conflicting counters or count the same message twice.
-      expect(receipts.length).toBeLessThanOrEqual(1);
-      expect(
-        receipts.every((receipt) => receipt.tokens.totalTokens === 12),
-      ).toBe(true);
-      expect((await saved(run.id))?.state).toBe("uncertain");
-      const jobs = await boss.findJobs(RUN_QUEUE, { data: { runId: run.id } });
-      if (jobs.length)
-        await boss.cancel(
-          RUN_QUEUE,
-          jobs.map((job) => job.id),
-        );
-    } finally {
-      computer.usageReplay = "none";
-      await expect(isolated.close()).rejects.toThrow(
-        "Runtime persistence/cleanup failed",
-      );
-      worker = await startQueue(database.db, database.pool, { runtime, pi });
-    }
-  });
-  it("Stops during Pi startup without poisoning sibling execution", async () => {
-    await worker.stop({ graceful: false });
-    const isolated = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
-    });
-    try {
-      const first = await setup("hold");
-      await isolated.dispatch(first.run.id);
-      expect(
-        await isolated.stop(workspaceId, { userId }, first.run.id),
-      ).toEqual({ stopped: true });
-      await expect.poll(() => isolated.health().active).toBe(0);
-      expect(isolated.health().persistenceErrors).toBe(0);
-      const sibling = await setup("finish");
-      await isolated.dispatch(sibling.run.id);
-      await expect
-        .poll(async () => (await saved(sibling.run.id))?.state)
-        .toBe("finished");
-      for (const { run } of [first, sibling]) {
-        const jobs = await boss.findJobs(RUN_QUEUE, {
-          data: { runId: run.id },
-        });
-        if (jobs.length)
-          await boss.cancel(
-            RUN_QUEUE,
-            jobs.map((job) => job.id),
-          );
-      }
-    } finally {
-      await isolated.close();
-      worker = await startQueue(database.db, database.pool, { runtime, pi });
-    }
-  });
-  it("bounds simultaneous pending computer launches before external I/O", async () => {
-    await worker.stop({ graceful: false });
-    const admitted = [];
-    for (let index = 0; index < 17; index++) admitted.push(await setup("hold"));
-    let release: () => void = () => {};
-    const barrier = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let entered = 0;
-    computer.beforeInspect = async () => {
-      entered++;
-      await barrier;
-    };
-    const dispatches = admitted.map(({ run }) => runtime.dispatch(run.id));
-    const results = Promise.allSettled(dispatches);
-    try {
-      await expect
-        .poll(() => entered, { timeout: 10000 })
-        .toBeGreaterThanOrEqual(16);
-      // Let all submitted dispatches reach their claimed launch boundary.
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      expect(entered).toBe(16);
-    } finally {
-      release();
-      computer.beforeInspect = undefined;
-      const dispatched = await results;
-      // Launch admission returns before the protocol handshake. Wait for the
-      // controlled pending prompts before exercising their normal Stop cleanup.
-      for (const [index, { run }] of admitted.entries())
-        if (dispatched[index]?.status === "fulfilled")
-          await expect
-            .poll(async () => (await saved(run.id))?.outputBytes ?? 0, {
-              timeout: 10000,
-            })
-            .toBeGreaterThan(0);
-      for (const { run } of admitted) await post(`/runs/${run.id}/stop`);
-      // These Runs were dispatched directly while their queue worker was stopped.
-      // Cancel only their now-terminal fixture jobs before restarting that worker.
-      for (const { run } of admitted) {
-        const record = await saved(run.id);
-        expect(["interrupted", "failed"]).toContain(record?.state);
-        const jobs = await boss.findJobs(RUN_QUEUE, {
-          data: { runId: run.id },
-        });
-        if (jobs.length)
-          await boss.cancel(
-            RUN_QUEUE,
-            jobs.map((job) => job.id),
-          );
-      }
-      worker = await startQueue(database.db, database.pool, {
-        runtime,
-        pi,
-      });
-    }
-  });
-  it("waits for an authorized human answer through saved activity and resumes the same Pi Run", async () => {
+  it("waits for an authorized human answer through saved activity and resumes the same native Run", async () => {
     const request = {
       name: "human.ask",
       requestId: crypto.randomUUID(),
       body: "Which destination?",
     };
-    const { run } = await setup(`_tool=${JSON.stringify(request)}`);
+    const { run } = await setup(request);
     let questionId = "";
     await expect
       .poll(
@@ -1382,10 +1677,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     );
     expect(anonymous.status).toBe(401);
     const steerStarted = performance.now();
-    await post(`/runs/${run.id}/steer`, {
-      body: "Keep waiting for the authorized answer",
-      requestId: crypto.randomUUID(),
-    });
+    await unsupportedSteer(run.id);
     expect(performance.now() - steerStarted).toBeLessThan(5000);
     await post(`/questions/${questionId}/answer`, {
       body: "Use the approved destination",
@@ -1393,7 +1685,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     await expect
       .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
       .toBe("finished");
-    expect(computer.toolResults.at(-1)).toEqual({
+    expect(observedResults.at(-1)).toEqual({
       answer: "Use the approved destination",
     });
     const answered = z
@@ -1407,21 +1699,21 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     await post(`/questions/${questionId}/answer`, {
       body: "Use the approved destination",
     });
-    const messages = z
-      .array(z.object({ body: z.string() }))
-      .parse(
-        await (
-          await get(`/chats/${(await saved(run.id))?.chatId}/messages`)
-        ).json(),
-      );
-    expect(
-      messages.filter((message) =>
-        message.body.startsWith(`Answer ${questionId}:`),
-      ),
-    ).toHaveLength(1);
-    const waiting = await setup(
-      `_tool=${JSON.stringify({ ...request, requestId: crypto.randomUUID() })}`,
+    const answers = await database.db
+      .select()
+      .from(runActivity)
+      .where(eq(runActivity.id, questionId));
+    expect(answers).toHaveLength(1);
+    expect(answers[0]).toMatchObject({
+      runId: run.id,
+      answer: "Use the approved destination",
+      answeredBy: userId,
+    });
+    expect(answers[0]?.answeredAt).toBeInstanceOf(Date);
+    expect(JSON.stringify(await nativeHistory(run.id))).toContain(
+      "Use the approved destination",
     );
+    const waiting = await setup({ ...request, requestId: crypto.randomUUID() });
     await expect
       .poll(
         async () =>
@@ -1433,15 +1725,15 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       )
       .toBe(true);
     const stopStarted = performance.now();
-    expect(await post(`/runs/${waiting.run.id}/stop`)).toEqual({
+    expect(await post(`/runs/${waiting.run.id}/stop`)).toMatchObject({
       stopped: true,
     });
     expect(performance.now() - stopStarted).toBeLessThan(5000);
     expect((await saved(waiting.run.id))?.state).toBe("interrupted");
   });
-  it("fires prompt and script Schedule occurrences through the real pg-boss clock", async () => {
+  it("fires native prompt Schedule occurrences through the real pg-boss clock", async () => {
     const records = [];
-    for (const type of ["prompt", "script"]) {
+    for (const type of ["prompt"]) {
       const { agent, chat, run } = await setup("finish", type);
       await expect
         .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
@@ -1515,7 +1807,6 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         subscriptionId: accountId,
       }),
     ).agent;
-    await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
     const chat = record.parse(
       await post("/chats", {
         title: "Archive control",
@@ -1591,6 +1882,8 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       },
       async () => true,
       validateSchedule,
+      native,
+      authorizeRunSources,
     );
     expect((await saved(run.id))?.state).toBe("running");
     const denied = await fetch(`${origin}/api/workspaces/${workspaceId}/runs`, {
@@ -1605,21 +1898,8 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       }),
     });
     expect(denied.status).toBe(409);
-    await post(`/runs/${run.id}/steer`, {
-      requestId: crypto.randomUUID(),
-      body: "Still controlled",
-    });
-    await expect
-      .poll(async () => {
-        const activity = z
-          .array(z.object({ body: z.string() }))
-          .parse(await (await get(`/runs/${run.id}/activity`)).json());
-        return activity.some(
-          (item) => item.body === "fixture after steer: Still controlled",
-        );
-      })
-      .toBe(true);
-    expect(await post(`/runs/${run.id}/stop`)).toEqual({ stopped: true });
+    await unsupportedSteer(run.id);
+    expect(await post(`/runs/${run.id}/stop`)).toMatchObject({ stopped: true });
     for (const path of [
       `projects/${project.id}`,
       `chats/${chat.id}`,
@@ -1632,7 +1912,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     await worker.stop({ graceful: false });
     try {
       const { run, agent, chat } = await setup("hold");
-      const launches = computer.launches;
+      const launches = modelStarts;
       const admittedAt = (await saved(run.id))?.updatedAt;
       await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
         const participant = (
@@ -1646,47 +1926,15 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       });
       await runtime.dispatch(run.id);
       expect((await saved(run.id))?.state).toBe("failed");
-      expect(computer.launches).toBe(launches);
+      expect(modelStarts).toBe(launches);
       expect((await saved(run.id))?.updatedAt.getTime()).toBeGreaterThan(
         admittedAt?.getTime() ?? 0,
       );
     } finally {
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        pi,
-      });
-    }
-  });
-  it("releases other active computer handles when one runtime cleanup fails", async () => {
-    await worker.stop({ graceful: false });
-    const backend = new ControlledComputer(accountId);
-    const local = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend,
-      pi,
-      deadlineMs: 30000,
-    });
-    const first = await setup("hold");
-    const second = await setup("hold");
-    try {
-      await local.dispatch(first.run.id);
-      await local.dispatch(second.run.id);
-      await expect.poll(() => local.health().active).toBe(2);
-      backend.detachFailures.add(first.agent.id);
-      await expect(local.close()).rejects.toBeInstanceOf(AggregateError);
-      expect(new Set(backend.detached)).toEqual(
-        new Set([first.agent.id, second.agent.id]),
-      );
-    } finally {
-      // Test cleanup must finish even while reproducing the old short-circuit failure.
-      await local.close().catch(() => {});
-      for (const execution of backend.executions.values())
-        await execution.process.stop();
-      await local.reconcile(first.run.id);
-      await local.reconcile(second.run.id);
-      worker = await startQueue(database.db, database.pool, {
-        runtime,
-        pi,
+        nativeStorage: native,
+        modelAuthorization: nativeModelAuthorization,
       });
     }
   });
@@ -1700,163 +1948,4 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       await database.pool.query("drop schema otto_jobs");
     }
   });
-  for (const racing of ["close", "revocation"] as const)
-    it(`preserves an actual receipt conflict during ${racing}`, async () => {
-      await worker.stop({ graceful: false });
-      let promptEntered: () => void = () => {};
-      let promptRelease: () => void = () => {};
-      let conflictEntered: () => void = () => {};
-      let conflictRelease: () => void = () => {};
-      const promptReady = new Promise<void>((resolve) => {
-        promptEntered = resolve;
-      });
-      const promptGate = new Promise<void>((resolve) => {
-        promptRelease = resolve;
-      });
-      const conflictReady = new Promise<void>((resolve) => {
-        conflictEntered = resolve;
-      });
-      const conflictGate = new Promise<void>((resolve) => {
-        conflictRelease = resolve;
-      });
-      let originalConflict = false;
-      const backend = new ControlledComputer(accountId);
-      const guarded = new Proxy(database.db, {
-        get(target, key, receiver) {
-          if (key === "transaction") {
-            const transaction: typeof database.db.transaction = async (
-              work,
-              config,
-            ) => {
-              try {
-                return await target.transaction(work, config);
-              } catch (error) {
-                if (
-                  !originalConflict &&
-                  error instanceof DomainError &&
-                  error.code === "conflict"
-                ) {
-                  originalConflict = true;
-                  conflictEntered();
-                  // Pause after the real PostgreSQL publication conflict; later
-                  // cancellation/authority must not change its original cause.
-                  await conflictGate;
-                }
-                throw error;
-              }
-            };
-            return transaction;
-          }
-          const value = Reflect.get(target, key, receiver);
-          return typeof value === "function" ? value.bind(target) : value;
-        },
-      });
-      const isolated = createRunRuntime(guarded, {
-        ...piRuntime,
-        pi,
-        backend: {
-          provider: backend.provider,
-          inspectComputer: backend.inspectComputer.bind(backend),
-          lookup: backend.lookup.bind(backend),
-          async launch(input) {
-            const process = await backend.launch(input);
-            return {
-              ...process,
-              async write(bytes) {
-                const message = z
-                  .object({ type: z.string() })
-                  .parse(JSON.parse(new TextDecoder().decode(bytes)));
-                if (message.type === "prompt") {
-                  promptEntered();
-                  await promptGate;
-                }
-                return process.write(bytes);
-              },
-            };
-          },
-        },
-      });
-      let runId: string | undefined;
-      let closing: Promise<{ rejected: boolean }> | undefined;
-      const close = () =>
-        isolated.close().then(
-          () => ({ rejected: false }),
-          () => ({ rejected: true }),
-        );
-      try {
-        const { run } = await setup("finish");
-        runId = run.id;
-        await isolated.dispatch(run.id);
-        await promptReady;
-        const row = await saved(run.id);
-        if (!row) throw new Error("Missing current attempt");
-        const tokens = {
-          inputTokens: 10,
-          outputTokens: 3,
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-          totalTokens: 13,
-        };
-        await database.db
-          .update(runs)
-          .set({ usage: [{ attempt: row.attempt, sequence: 1, tokens }] })
-          .where(eq(runs.id, run.id));
-        promptRelease();
-        await conflictReady;
-        if (racing === "close") {
-          closing = close();
-          await expect.poll(() => isolated.health().closing).toBe(true);
-        } else {
-          await post(
-            `/subscriptions/${accountId}`,
-            { status: "disabled" },
-            "PATCH",
-          );
-          await expect
-            .poll(() =>
-              [...backend.executions.values()].every(
-                (execution) => execution.exited,
-              ),
-            )
-            .toBe(true);
-        }
-        conflictRelease();
-        await expect
-          .poll(() => isolated.health().active, { timeout: 10000 })
-          .toBe(0);
-        const state = await saved(run.id);
-        expect(originalConflict).toBe(true);
-        expect(state?.usage).toEqual([
-          { attempt: row.attempt, sequence: 1, tokens },
-        ]);
-        expect(state?.state).toBe("uncertain");
-        expect(state?.outcome).toBe("tool_cleanup_unconfirmed");
-        expect(isolated.health().persistenceErrors).toBeGreaterThan(0);
-        expect(await (closing ?? close())).toEqual({ rejected: true });
-        const [environment] = await database.db
-          .select()
-          .from(environments)
-          .where(eq(environments.agentId, row.agentId));
-        expect(environment?.activeRunId).toBe(run.id);
-        expect(environment?.state).toBe("uncertain");
-      } finally {
-        promptRelease();
-        conflictRelease();
-        await close();
-        await backend.close();
-        await database.db
-          .update(subscriptions)
-          .set({ status: "enabled" })
-          .where(eq(subscriptions.id, accountId));
-        if (runId) {
-          const jobs = await boss.findJobs(RUN_QUEUE, { data: { runId } });
-          if (jobs.length)
-            await boss.cancel(
-              RUN_QUEUE,
-              jobs.map((job) => job.id),
-            );
-        }
-        worker = await startQueue(database.db, database.pool, { runtime, pi });
-      }
-    });
 });

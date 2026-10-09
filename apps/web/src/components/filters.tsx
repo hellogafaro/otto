@@ -150,8 +150,8 @@ export function FilterBar<K extends string>({
               {label}
             </ButtonGroupText>
             <ButtonGroupText>
-              <look.icon className={look.className} />
-              {look.label}
+              {look && <look.icon className={look.className} />}
+              {look?.label ?? "Unavailable"}
             </ButtonGroupText>
             <Button
               variant="outline"

@@ -40,8 +40,17 @@ export function admitTransfer(c: {
 export class PayloadTooLarge extends Error {}
 
 /** Kernel start time distinguishes this process from an earlier one that reused its PID (containers). */
-async function startTicks(pid: number) {
+async function processStart(pid: number) {
   try {
+    if (process.platform === "darwin") {
+      const child = Bun.spawn(["/bin/ps", "-p", String(pid), "-o", "lstart="], {
+        env: { LC_ALL: "C" },
+        stdout: "pipe",
+        stderr: "ignore",
+      });
+      const start = (await new Response(child.stdout).text()).trim();
+      return (await child.exited) === 0 && start ? start : undefined;
+    }
     const stat = await readFile(`/proc/${pid}/stat`, "utf8");
     return stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19];
   } catch {
@@ -53,7 +62,7 @@ function alive(pid: number) {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
   }
 }
 
@@ -72,7 +81,10 @@ export async function createSpool(options: {
   await mkdir(dir, { mode: 0o700 });
   await writeFile(
     join(dir, "owner.json"),
-    JSON.stringify({ pid: process.pid, start: await startTicks(process.pid) }),
+    JSON.stringify({
+      pid: process.pid,
+      start: await processStart(process.pid),
+    }),
     { mode: 0o600 },
   );
   // Only instance directories this program created, whose recorded owner is demonstrably gone, are removed.
@@ -82,10 +94,19 @@ export async function createSpool(options: {
       const owner = JSON.parse(
         await readFile(join(base, entry, "owner.json"), "utf8"),
       ) as { pid: number; start?: string };
+      if (
+        !Number.isSafeInteger(owner.pid) ||
+        owner.pid <= 0 ||
+        !entry.startsWith(`inst-${owner.pid}-`) ||
+        (owner.start !== undefined && typeof owner.start !== "string")
+      )
+        continue;
+      const start = await processStart(owner.pid);
       const running =
         alive(owner.pid) &&
         (owner.start === undefined ||
-          (await startTicks(owner.pid)) === owner.start);
+          start === undefined ||
+          start === owner.start);
       if (!running) await rm(join(base, entry), { recursive: true });
     } catch {
       // Unknown or unreadable ownership is left alone.
@@ -196,8 +217,16 @@ export async function copyToFile(
         hash.update(next.value);
         if (!out.write(next.value))
           await new Promise<void>((resolve, reject) => {
-            out.once("drain", resolve);
-            out.once("error", reject);
+            const drained = () => {
+              out.off("error", failed);
+              resolve();
+            };
+            const failed = (error: Error) => {
+              out.off("drain", drained);
+              reject(error);
+            };
+            out.once("drain", drained);
+            out.once("error", failed);
           });
       }
     await new Promise<void>((resolve, reject) => {

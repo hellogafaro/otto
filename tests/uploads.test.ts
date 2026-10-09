@@ -1,13 +1,20 @@
 import { createHash } from "node:crypto";
+import * as fs from "node:fs";
 import { appendFileSync } from "node:fs";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { receiveToFile } from "../apps/server/src/spool";
 import {
   patternBody,
   rawUpload,
   startServerProcess,
 } from "./fixtures/server-process";
+import { openSpoolFds, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return { ...actual, createWriteStream: vi.fn(actual.createWriteStream) };
+});
 
 const MB = 1_000_000;
 const MAX = 100 * MB;
@@ -935,6 +942,54 @@ describe("binary upload and verified download through the real server entry, AWS
   }, 80000);
 
   it("maps a full disk to a retryable unavailable error without leaving a partial file", async () => {
+    if (process.platform === "darwin") {
+      const transfers = await testSpool(MAX);
+      const lease = transfers.spool.lease(MB);
+      const path = lease.path();
+      const create = (
+        await vi.importActual<typeof import("node:fs")>("node:fs")
+      ).createWriteStream;
+      let writes = 0;
+      const write = vi
+        .mocked(fs.createWriteStream)
+        .mockImplementation((target, options) =>
+          create(target, {
+            ...(typeof options === "object" ? options : {}),
+            fs: {
+              ...fs,
+              write(_fd, buffer, _offset, _length, _position, callback) {
+                writes++;
+                callback(
+                  Object.assign(new Error("Controlled full-disk fixture"), {
+                    code: "ENOSPC",
+                  }),
+                  0,
+                  buffer,
+                );
+              },
+            },
+          }),
+        );
+      try {
+        await expect(
+          receiveToFile(patternBody(MB).stream, path, {
+            maxBytes: MAX,
+            signal: AbortSignal.timeout(5000),
+            idleMs: 5000,
+          }),
+        ).rejects.toMatchObject({ code: "unavailable" });
+        expect(writes).toBeGreaterThan(0);
+        expect(openSpoolFds(transfers.baseDir)).toEqual([]);
+        await lease.release();
+        expect(fs.existsSync(path)).toBe(false);
+        expect(transfers.spool.reservedBytes).toBe(0);
+      } finally {
+        write.mockRestore();
+        await lease.release();
+        await transfers.close();
+      }
+      return;
+    }
     await expect(
       receiveToFile(patternBody(MB).stream, "/dev/full", {
         maxBytes: MAX,

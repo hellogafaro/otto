@@ -1,6 +1,7 @@
 import { getChatAttention } from "@otto/chats";
 import { getOperations } from "@otto/connections";
 import { getRunQuestions, getRuns } from "@otto/runs";
+import type { NativeSessionStorage } from "@otto/sessions/native";
 import { type Context, requireHuman } from "@otto/workspaces";
 
 /** Composes current authorized records; each bounded collection keeps its own pagination position. */
@@ -14,9 +15,10 @@ export async function getAttention(
     questionAfter?: string;
     operationAfter?: string;
   },
+  native: NativeSessionStorage,
 ) {
   requireHuman(c);
-  const messages = await getChatAttention(c, filter);
+  const messages = await getChatAttention(c, filter, native);
   const runs = await getRuns(c, {
     after: filter.runAfter,
     limit: filter.limit,

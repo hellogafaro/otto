@@ -8,6 +8,7 @@ import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { createProject, upsertProjectMember } from "../packages/projects/src";
 import { RUN_QUEUE } from "../packages/runs/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   createTask,
   createTimesheet,
@@ -39,6 +40,7 @@ const page = z.object({ items: z.array(entry), next: z.uuid().nullable() });
 
 describe("manual Task timesheets through authenticated HTTP and private PostgreSQL", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: Awaited<ReturnType<typeof startQueue>>;
   let server: ReturnType<typeof Bun.serve>;
   let origin: string;
@@ -83,6 +85,9 @@ describe("manual Task timesheets through authenticated HTTP and private PostgreS
   });
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -98,7 +103,7 @@ describe("manual Task timesheets through authenticated HTTP and private PostgreS
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, boss, auth, origin });
+    app = createApp({ db: database.db, boss, auth, origin, nativeStorage });
     const signup = async (label: string) => {
       const body = {
         name: label,
@@ -166,6 +171,7 @@ describe("manual Task timesheets through authenticated HTTP and private PostgreS
   afterAll(async () => {
     await server?.stop(true);
     await boss?.stop();
+    await nativeStorage?.close();
     await database?.stop();
   });
   it("creates server-owned minutes, corrects only duration/notes and advances cursor once per write", async () => {

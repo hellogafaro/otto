@@ -6,26 +6,38 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { readRunSkillFile } from "../apps/server/src/skill-files";
-import { createRunTools } from "../apps/server/src/tools";
+import { createNativeRunTools } from "../apps/server/src/tools";
 import { updateAgent } from "../packages/agents/src";
 import { agents } from "../packages/agents/src/schema";
+import { publishNativeMessage } from "../packages/chats/src";
+import { messages } from "../packages/chats/src/schema";
 import { connections } from "../packages/connections/src/schema";
 import { RUN_QUEUE, validateRunSources } from "../packages/runs/src";
 import {
+  assertRunAttempt,
   createRunRuntime,
   type RunRuntime,
+  withRunAttempt,
 } from "../packages/runs/src/runtime";
 import { runActivity, runs } from "../packages/runs/src/schema";
+import { validateSchedule } from "../packages/schedules/src";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { skills as skillsTable } from "../packages/skills/src/schema";
-import { qualifySubscription } from "../packages/subscriptions/src/server";
+import {
+  authorizeSubscriptionModel,
+  setSubscriptionApiKey,
+} from "../packages/subscriptions/src/server";
 import {
   claimInstallation,
   getCursor,
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, workspaces } from "../packages/workspaces/src/schema";
-import { ControlledComputer } from "./fixtures/computer";
-import { pi, piRuntime } from "./fixtures/pi";
+import {
+  controlledModel,
+  fixtureEncryptionKey,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
@@ -34,10 +46,12 @@ const transfers = await testSpool();
 /** Real HTTP/auth/PG/queue, without a compute provider or external credential lookup. */
 describe("user/workspace file visibility", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: PgBoss;
   let worker: PgBoss;
   let runtime: RunRuntime;
-  let computer: ControlledComputer;
+  const modelPrompts = new Map<string, unknown[]>();
+  const modelSkillReads = new Map<string, { skillId: string; path: string }>();
   let accountId: string;
   let afterRead: (() => Promise<void>) | undefined;
   const objects = new Map<string, Uint8Array>();
@@ -166,7 +180,13 @@ describe("user/workspace file visibility", () => {
           await request(
             "/subscriptions",
             "POST",
-            { title: "Managed account", visibility, provider: "codex" },
+            {
+              title: "Native account",
+              visibility,
+              provider: "openai",
+              protocol: "responses",
+              models: ["fixture"],
+            },
             human,
           ),
         ),
@@ -174,6 +194,9 @@ describe("user/workspace file visibility", () => {
   }
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -189,7 +212,15 @@ describe("user/workspace file visibility", () => {
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, boss, auth, origin, pi });
+    app = createApp({
+      db: database.db,
+      boss,
+      auth,
+      origin,
+      nativeStorage,
+      encryptionKey: fixtureEncryptionKey,
+      modelAuthorization: nativeModelAuthorization,
+    });
     async function signup(name: string) {
       const response = await fetch(`${origin}/api/auth/sign-up/email`, {
         method: "POST",
@@ -217,32 +248,94 @@ describe("user/workspace file visibility", () => {
       .insert(members)
       .values({ workspaceId, userId: other.id, role: "contributor" });
     accountId = (await subscription("workspace")).id;
-    // Explicit synthetic confirmed account: computer binding does not authenticate it.
     await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-      qualifySubscription(c, accountId, "codex"),
+      setSubscriptionApiKey(
+        c,
+        accountId,
+        { apiKey: "fixture-not-a-real-key" },
+        fixtureEncryptionKey,
+      ),
     );
-    computer = new ControlledComputer(accountId);
     runtime = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
+      storage: nativeStorage,
+      resolveModel: async (attempt, signal) => {
+        const saved = (
+          await database.db
+            .select()
+            .from(runs)
+            .where(eq(runs.id, attempt.runId))
+        )[0];
+        if (!saved) throw new Error("Missing controlled native Run");
+        const read = modelSkillReads.get(attempt.agentId);
+        return controlledModel({
+          signal,
+          hold: saved.inputs.body === "hold",
+          toolRequests: read
+            ? [{ toolName: "skill_read", input: read }]
+            : undefined,
+          onPrompt: (prompt) => {
+            const previous = modelPrompts.get(attempt.runId) ?? [];
+            modelPrompts.set(attempt.runId, [...previous, prompt]);
+          },
+        });
+      },
       deadlineMs: 30000,
-      handleTool: createRunTools(database.db, boss, { pi, storage }),
-      readSkillFile: (input) => readRunSkillFile(database.db, storage, input),
+      tools: (attempt, signal) =>
+        createNativeRunTools(
+          database.db,
+          boss,
+          attempt,
+          { models: nativeModelAuthorization, storage, native: nativeStorage },
+          signal,
+        ),
+      publishOutput: async (attempt, output) => {
+        const target = await withRunAttempt(
+          database.db,
+          attempt,
+          async (c, run) => ({
+            workspaceId: c.workspaceId,
+            actor: c.actor,
+            chatId: run.chatId,
+            sessionId: run.sessionId,
+          }),
+          validateSchedule,
+          nativeStorage,
+        );
+        if (!target.sessionId) throw new Error("Missing native Session");
+        await publishNativeMessage(
+          database.db,
+          nativeStorage,
+          target.workspaceId,
+          target.actor,
+          target.chatId,
+          {
+            requestId: `run:${attempt.runId}:${output.nativeMessageId}`,
+            sessionId: target.sessionId,
+            ...output,
+          },
+          async (c) => {
+            await assertRunAttempt(c, attempt, validateSchedule, nativeStorage);
+          },
+        );
+      },
+      validateSchedule,
     });
     app = createApp({
       db: database.db,
       boss,
       auth,
       origin,
-      pi,
+      nativeStorage,
+      encryptionKey: fixtureEncryptionKey,
+      modelAuthorization: nativeModelAuthorization,
       runtime,
       storage,
       spool: transfers.spool,
     });
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      pi,
+      modelAuthorization: nativeModelAuthorization,
+      nativeStorage,
     });
   });
   it("derives createdBy for reusable resources and rejects forged creator fields", async () => {
@@ -691,29 +784,47 @@ describe("user/workspace file visibility", () => {
         })
       ).status,
     ).toBe(400);
+    expect(
+      (
+        await request("/agents", "POST", {
+          title: "Unavailable provider",
+          instructions: "Work",
+          model: "fixture",
+          subscriptionId: account.id,
+        })
+      ).status,
+    ).toBe(400);
     const a = z.object({ agent: z.object({ id: z.uuid() }) }).parse(
       await value(
         await request("/agents", "POST", {
           title: "Native qualification",
           instructions: "Work",
           model: "fixture",
-          subscriptionId: account.id,
         }),
       ),
     ).agent;
     expect(
       (await request(`/agents/${a.id}/computer`, "POST", { computerRef: a.id }))
         .status,
-    ).toBe(200);
+    ).toBe(503);
     expect((await read()).status).toBe("needs_auth");
-    // Controlled confirmed persistence event; the actual public SDK/Infisical path is exercised separately.
     await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-      qualifySubscription(c, account.id, "codex"),
+      setSubscriptionApiKey(
+        c,
+        account.id,
+        { apiKey: "fixture-not-a-real-key" },
+        fixtureEncryptionKey,
+      ),
     );
     expect((await read()).status).toBe("enabled");
     await expect(
       inWorkspace(database.db, workspaceId, { userId: other.id }, (c) =>
-        qualifySubscription(c, account.id, "codex"),
+        setSubscriptionApiKey(
+          c,
+          account.id,
+          { apiKey: "fixture-not-a-real-key" },
+          fixtureEncryptionKey,
+        ),
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect(
@@ -725,13 +836,13 @@ describe("user/workspace file visibility", () => {
     ).toBe(200);
     await expect(
       inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-        qualifySubscription(c, account.id, "codex"),
+        authorizeSubscriptionModel(c, account.id, "fixture"),
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect(
       (await request(`/agents/${a.id}/computer`, "POST", { computerRef: a.id }))
         .status,
-    ).toBe(200);
+    ).toBe(503);
     expect((await read()).status).toBe("disabled");
     expect(
       (
@@ -741,7 +852,12 @@ describe("user/workspace file visibility", () => {
       ).status,
     ).toBe(200);
     await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-      qualifySubscription(c, account.id, "codex"),
+      setSubscriptionApiKey(
+        c,
+        account.id,
+        { apiKey: "fixture-not-a-real-key" },
+        fixtureEncryptionKey,
+      ),
     );
     expect((await read()).status).toBe("enabled");
   });
@@ -792,10 +908,10 @@ describe("user/workspace file visibility", () => {
   afterAll(async () => {
     afterRead = undefined;
     await worker?.stop({ graceful: false });
-    await computer?.close();
     await runtime?.close();
     await server?.stop(true);
     await boss?.stop();
+    await nativeStorage?.close();
     await database?.stop();
   });
 
@@ -1188,11 +1304,18 @@ describe("user/workspace file visibility", () => {
       );
     }
     const configured = await agent("workspace", owner, [selected.id]);
-    await value(
-      await request(`/agents/${configured.id}/computer`, "POST", {
-        computerRef: configured.id,
-      }),
-    );
+    expect(
+      (
+        await request(`/agents/${configured.id}/computer`, "POST", {
+          computerRef: configured.id,
+        })
+      ).status,
+    ).toBe(503);
+    if (withFile)
+      modelSkillReads.set(configured.id, {
+        skillId: selected.id,
+        path: "references/source.txt",
+      });
     const chat = z
       .object({ id: z.uuid() })
       .parse(
@@ -1241,15 +1364,7 @@ describe("user/workspace file visibility", () => {
         .poll(() => state(run.id), { timeout: 10000 })
         .toBe("running");
       await expect
-        .poll(
-          async () =>
-            (
-              await database.db
-                .select()
-                .from(runActivity)
-                .where(eq(runActivity.runId, run.id))
-            ).length,
-        )
+        .poll(async () => modelPrompts.get(run.id)?.length ?? 0)
         .toBe(1);
       try {
         if (resource === "membership")
@@ -1271,14 +1386,19 @@ describe("user/workspace file visibility", () => {
         await expect
           .poll(() => state(run.id), { timeout: 10000 })
           .toBe("interrupted");
+        expect(modelPrompts.get(run.id)).toHaveLength(1);
         expect(
-          (
-            await database.db
-              .select()
-              .from(runActivity)
-              .where(eq(runActivity.runId, run.id))
-          ).map((row) => row.body),
-        ).toEqual(["fixture output"]);
+          await database.db
+            .select()
+            .from(messages)
+            .where(eq(messages.authorAgentId, source.configured.id)),
+        ).toEqual([]);
+        expect(
+          await database.db
+            .select()
+            .from(runActivity)
+            .where(eq(runActivity.runId, run.id)),
+        ).toEqual([]);
         expect(
           (
             await request(
@@ -1320,7 +1440,6 @@ describe("user/workspace file visibility", () => {
       entered = true;
       await blocked;
     };
-    const launches = computer.launches;
     const run = z.object({ id: z.uuid() }).parse(
       await value(
         await request(
@@ -1349,8 +1468,22 @@ describe("user/workspace file visibility", () => {
       release();
       afterRead = undefined;
     }
-    await expect.poll(() => state(run.id), { timeout: 10000 }).toBe("failed");
-    expect(computer.launches).toBe(launches);
+    await expect
+      .poll(() => state(run.id), { timeout: 10000 })
+      .toBe("interrupted");
+    expect(modelPrompts.get(run.id)).toHaveLength(1);
+    expect(JSON.stringify(modelPrompts.get(run.id))).not.toContain(
+      "immutable instructions",
+    );
+    expect(JSON.stringify(modelPrompts.get(run.id))).not.toContain(
+      Buffer.from("immutable instructions").toString("base64"),
+    );
+    expect(
+      await database.db
+        .select()
+        .from(messages)
+        .where(eq(messages.authorAgentId, source.configured.id)),
+    ).toEqual([]);
     expect(
       await database.db
         .select()
@@ -1670,11 +1803,13 @@ describe("user/workspace file visibility", () => {
     expect(
       (await request(`/documents/${doc.id}`, "GET", undefined, other)).status,
     ).toBe(403);
-    await value(
-      await request(`/agents/${configured.id}/computer`, "POST", {
-        computerRef: `selected-${configured.id}`,
-      }),
-    );
+    expect(
+      (
+        await request(`/agents/${configured.id}/computer`, "POST", {
+          computerRef: `selected-${configured.id}`,
+        })
+      ).status,
+    ).toBe(503);
     const input = {
       requestId: crypto.randomUUID(),
       agentId: configured.id,
@@ -1711,7 +1846,7 @@ describe("user/workspace file visibility", () => {
     )[0];
     if (!saved) throw new Error("No Run");
     await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-      validateRunSources(c, saved),
+      validateRunSources(c, saved, undefined, "launch", nativeStorage),
     );
     await value(
       await request(
@@ -1722,7 +1857,7 @@ describe("user/workspace file visibility", () => {
     );
     await expect(
       inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-        validateRunSources(c, saved),
+        validateRunSources(c, saved, undefined, "launch", nativeStorage),
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
   });
@@ -1861,6 +1996,7 @@ describe("user/workspace file visibility", () => {
     );
     await worker.stop({ graceful: false });
     let runId: string | undefined;
+    let dispatch: Promise<void> | undefined;
     try {
       runId = z.object({ id: z.uuid() }).parse(
         await value(
@@ -1873,12 +2009,25 @@ describe("user/workspace file visibility", () => {
           }),
         ),
       ).id;
+      dispatch = runtime.dispatch(runId);
+      await expect.poll(() => state(runId ?? "missing")).toBe("running");
+      const saved = (
+        await database.db.select().from(runs).where(eq(runs.id, runId))
+      )[0];
+      if (!saved?.launchKey) throw new Error("Missing native attempt identity");
       const input = {
         workspaceId,
         sponsorId: owner.id,
         runId,
         skillId: selected.id,
         path: "references/private.txt",
+        native: nativeStorage,
+        attempt: {
+          runId,
+          agentId: configured.id,
+          attempt: saved.attempt,
+          launchKey: saved.launchKey,
+        },
       };
       expect(
         new TextDecoder().decode(
@@ -1899,9 +2048,11 @@ describe("user/workspace file visibility", () => {
     } finally {
       afterRead = undefined;
       if (runId) await value(await request(`/runs/${runId}/stop`, "POST", {}));
+      await dispatch;
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        pi,
+        modelAuthorization: nativeModelAuthorization,
+        nativeStorage,
       });
     }
   });
@@ -2080,7 +2231,8 @@ describe("user/workspace file visibility", () => {
           await value(await request(`/runs/${runId}/stop`, "POST", {}));
         worker = await startQueue(database.db, database.pool, {
           runtime,
-          pi,
+          modelAuthorization: nativeModelAuthorization,
+          nativeStorage,
         });
       }
     },

@@ -9,15 +9,20 @@ import { agents } from "../packages/agents/src/schema";
 import { admitRun, dispatchRun } from "../packages/runs/src";
 import { createRunRuntime } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { sessions } from "../packages/sessions/src/schema";
 import { subscriptions } from "../packages/subscriptions/src/schema";
+import { setSubscriptionApiKey } from "../packages/subscriptions/src/server";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
-import { ControlledComputer } from "./fixtures/computer";
-import { pi, piRuntime } from "./fixtures/pi";
+import {
+  controlledModel,
+  fixtureEncryptionKey,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { startPostgres } from "./postgres";
 
-// HTTP/PG/queue proof; the enabled account below is fixture data, not a gateway login.
-describe("managed Pi admission bindings", () => {
+describe("native admission bindings with deterministic account fixtures", () => {
+  let native: Awaited<ReturnType<typeof openNativeStorage>>;
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: PgBoss;
   let server: Bun.Server<undefined>;
@@ -39,6 +44,9 @@ describe("managed Pi admission bindings", () => {
   }
   beforeAll(async () => {
     database = await startPostgres();
+    native = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       install: true,
       workers: false,
@@ -54,7 +62,15 @@ describe("managed Pi admission bindings", () => {
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, boss, auth, origin, pi });
+    app = createApp({
+      db: database.db,
+      boss,
+      auth,
+      origin,
+      nativeStorage: native,
+      modelAuthorization: nativeModelAuthorization,
+      encryptionKey: fixtureEncryptionKey,
+    });
     const signup = await fetch(`${origin}/api/auth/sign-up/email`, {
       method: "POST",
       headers: { origin, "Content-Type": "application/json" },
@@ -74,11 +90,21 @@ describe("managed Pi admission bindings", () => {
     workspaceId = (await claimInstallation(database.db, userId, "Pi")).id;
     const account = await request("/subscriptions", {
       title: "Fixture account",
-      provider: "codex",
+      provider: "openai",
+      protocol: "responses",
+      models: ["fixture", "other"],
       visibility: "workspace",
     });
     expect(account.status).toBe(200);
     subscriptionId = record.parse(await account.json()).id;
+    await inWorkspace(database.db, workspaceId, { userId }, (c) =>
+      setSubscriptionApiKey(
+        c,
+        subscriptionId,
+        { apiKey: "fixture-not-a-real-key" },
+        fixtureEncryptionKey,
+      ),
+    );
     const agent = await request("/agents", {
       title: "One Pi body",
       instructions: "Work",
@@ -89,6 +115,10 @@ describe("managed Pi admission bindings", () => {
     expect(agent.status).toBe(200);
     const body = z.object({ agent: record }).parse(await agent.json());
     agentId = body.agent.id;
+    await database.db
+      .update(subscriptions)
+      .set({ status: "needs_auth" })
+      .where(eq(subscriptions.id, subscriptionId));
     const chat = await request("/chats", {
       title: "Work",
       visibility: "workspace",
@@ -106,6 +136,7 @@ describe("managed Pi admission bindings", () => {
   });
   afterAll(async () => {
     await server?.stop(true);
+    await native?.close();
     await boss?.stop();
     await database?.stop();
   });
@@ -162,22 +193,21 @@ describe("managed Pi admission bindings", () => {
     expect(await database.db.select().from(runs)).toHaveLength(0);
     expect(await database.db.select().from(sessions)).toHaveLength(0);
   });
-  it("computer binding does not assert model-account authentication", async () => {
-    const computer = new ControlledComputer(subscriptionId);
+  it("disabled computer binding cannot authenticate an account or mutate its status", async () => {
     const runtime = createRunRuntime(database.db, {
-      ...piRuntime,
-      backend: computer,
-      pi,
+      storage: native,
+      resolveModel: async () => controlledModel(),
+      tools: () => ({}),
     });
     try {
-      expect(
-        await runtime.bind(
+      await expect(
+        runtime.bind(
           workspaceId,
           { userId },
           agentId,
           "fixture-bound-computer",
         ),
-      ).toEqual({ bound: true });
+      ).rejects.toMatchObject({ code: "unavailable" });
       const [account] = await database.db
         .select()
         .from(subscriptions)
@@ -186,14 +216,20 @@ describe("managed Pi admission bindings", () => {
       expect((await request("/runs", input())).status).toBe(403);
     } finally {
       await runtime.close();
-      await computer.close();
     }
   });
-  it("saves the exact managed pin/account/model and keeps Session context private", async () => {
-    // Controlled gateway qualification datum only; no real upstream account is enabled.
-    await database.db
-      .update(subscriptions)
-      .set({ status: "enabled" })
+  it("saves the exact native account/model/protocol and keeps Session context private", async () => {
+    await inWorkspace(database.db, workspaceId, { userId }, (c) =>
+      setSubscriptionApiKey(
+        c,
+        subscriptionId,
+        { apiKey: "fixture-not-a-real-key" },
+        fixtureEncryptionKey,
+      ),
+    );
+    const [account] = await database.db
+      .select()
+      .from(subscriptions)
       .where(eq(subscriptions.id, subscriptionId));
     const controls = input();
     const response = await request("/runs", controls);
@@ -204,10 +240,16 @@ describe("managed Pi admission bindings", () => {
       .from(runs)
       .where(eq(runs.id, publicRun.id));
     expect(run?.inputs).toMatchObject({
-      piVersion: pi.version,
-      provider: "codex",
+      provider: "openai",
       model: "fixture",
       subscriptionId,
+      accountId: account?.secretId,
+      modelConfig: {
+        provider: "openai",
+        protocol: "responses",
+        baseUrl: "https://api.openai.com/v1",
+        id: "fixture",
+      },
     });
     expect(run?.inputs).not.toHaveProperty("harness");
     const [session] = await database.db
@@ -215,8 +257,7 @@ describe("managed Pi admission bindings", () => {
       .from(sessions)
       .where(eq(sessions.id, run?.sessionId ?? ""));
     expect(session).toMatchObject({
-      piVersion: pi.version,
-      provider: "codex",
+      provider: "openai",
       model: "fixture",
       subscriptionId,
     });
@@ -252,7 +293,7 @@ describe("managed Pi admission bindings", () => {
     });
     expect(failed?.inputs.model).toBe("fixture");
   });
-  it("unconfigured Pi denies prompt admission atomically", async () => {
+  it("unconfigured native authorization denies prompt admission atomically", async () => {
     await expect(
       inWorkspace(database.db, workspaceId, { userId }, (c) =>
         admitRun(c, boss, input()),

@@ -5,13 +5,16 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { createResendMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { claimInstallation } from "../packages/workspaces/src";
 import { invitations } from "../packages/workspaces/src/schema";
-import { pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 it("delivers committed invitations through HTTP, verifies recipients and guards human ownership on role changes", async () => {
   const database = await startPostgres();
+  const nativeStorage = await openNativeStorage({
+    connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+  });
   const boss = await startQueue(database.db, database.pool, {
     workers: false,
     install: true,
@@ -70,7 +73,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     origin,
     mail,
   );
-  app = createApp({ pi, db: database.db, boss, auth, origin, mail });
+  app = createApp({ nativeStorage, db: database.db, boss, auth, origin, mail });
   const post = (path: string, body: unknown, cookie = "") =>
     fetch(`${origin}/api${path}`, {
       method: "POST",
@@ -342,6 +345,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     await server.stop(true);
     await sink.stop(true);
     await boss.stop();
+    await nativeStorage.close();
     await database.stop();
   }
 });

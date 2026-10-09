@@ -3,6 +3,7 @@ import {
   CONNECTION_AUDIENCE,
   CONNECTION_SORTS,
   createConnection,
+  denyOperation,
   disconnectConnection,
   getConnection,
   getConnections,
@@ -41,7 +42,7 @@ function service(c: import("hono").Context<ApiEnv>) {
     options.db,
     workspaceId(c),
     { userId: c.get("userId") },
-    options.connections,
+    { ...options.connections, native: options.nativeStorage },
   );
 }
 export const connectionApi = new Hono<ApiEnv>()
@@ -162,6 +163,7 @@ export const connectionApi = new Hono<ApiEnv>()
           .enum([
             "awaiting_approval",
             "approved",
+            "denied",
             "executing",
             "succeeded",
             "failed",
@@ -196,7 +198,20 @@ export const connectionApi = new Hono<ApiEnv>()
             ctx,
             recordId(c),
             c.req.valid("json"),
-            validateConnectionRun,
+            (ctx, proof) =>
+              validateConnectionRun(ctx, proof, c.get("options").nativeStorage),
+          ),
+        ),
+      ),
+  )
+  .post(
+    "/workspaces/:workspaceId/operations/:id/deny",
+    validate("json", OPERATION_APPROVAL),
+    async (c) =>
+      c.json(
+        await transact(c, (ctx) =>
+          denyOperation(ctx, recordId(c), c.req.valid("json"), (ctx, proof) =>
+            validateConnectionRun(ctx, proof, c.get("options").nativeStorage),
           ),
         ),
       ),
@@ -207,7 +222,9 @@ export const connectionApi = new Hono<ApiEnv>()
   .post("/workspaces/:workspaceId/operations/:id/retry", async (c) =>
     c.json(
       await transact(c, (ctx) =>
-        retryOperation(ctx, recordId(c), validateConnectionRun),
+        retryOperation(ctx, recordId(c), (ctx, proof) =>
+          validateConnectionRun(ctx, proof, c.get("options").nativeStorage),
+        ),
       ),
     ),
   );

@@ -2,11 +2,14 @@ import { createApp } from "../../apps/server/src/app";
 import { createAuth } from "../../apps/server/src/auth";
 import { startQueue } from "../../apps/server/src/queue";
 import { createOpenRouterTranscriber } from "../../apps/server/src/transcription";
+import { ensureDefaultAgent } from "../../packages/agents/src/server";
 import { createCursorCodec } from "../../packages/db/src";
 import { createS3Storage } from "../../packages/files/src/storage";
-import { claimInstallation } from "../../packages/workspaces/src";
+import { openNativeStorage } from "../../packages/sessions/src/native";
+import { claimInstallation, inWorkspace } from "../../packages/workspaces/src";
 import { members, workspaces } from "../../packages/workspaces/src/schema";
 import { startPostgres } from "../postgres";
+import { fixtureEncryptionKey, nativeModelAuthorization } from "./native-model";
 import { startS3Peer } from "./s3-peer";
 import { testSpool } from "./storage";
 
@@ -17,9 +20,14 @@ export async function startUiApp(origin: string, port = 0) {
   const transfers = await testSpool();
   const secret = crypto.randomUUID() + crypto.randomUUID();
   const auth = createAuth(database.db, secret, origin);
+  const nativeStorage = await openNativeStorage({
+    connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+  });
   const boss = await startQueue(database.db, database.pool, {
     workers: true,
     install: true,
+    modelAuthorization: nativeModelAuthorization,
+    nativeStorage,
   });
   const storage = createS3Storage({
     endpoint: peer.endpoint,
@@ -34,6 +42,9 @@ export async function startUiApp(origin: string, port = 0) {
       auth,
       boss,
       origin,
+      nativeStorage,
+      encryptionKey: fixtureEncryptionKey,
+      modelAuthorization: nativeModelAuthorization,
       storage,
       spool: transfers.spool,
       cursors: createCursorCodec(secret),
@@ -59,11 +70,17 @@ export async function startUiApp(origin: string, port = 0) {
     userId: string,
     role: "owner" | "contributor" | "viewer" = "owner",
   ) {
-    if (!workspaceId)
+    if (!workspaceId) {
       workspaceId = (
         await claimInstallation(database.db, userId, "Otto walkthrough")
       ).id;
-    else
+      await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId },
+        ensureDefaultAgent,
+      );
+    } else
       await database.db
         .insert(members)
         .values({ workspaceId, userId, role })
@@ -79,6 +96,12 @@ export async function startUiApp(origin: string, port = 0) {
     await database.db
       .insert(members)
       .values({ workspaceId: workspace.id, userId, role: "owner" });
+    await inWorkspace(
+      database.db,
+      workspace.id,
+      { userId },
+      ensureDefaultAgent,
+    );
     return workspace.id;
   }
   return {
@@ -86,12 +109,15 @@ export async function startUiApp(origin: string, port = 0) {
     apiOrigin: server.url.origin,
     auth,
     database,
+    nativeStorage,
+    encryptionKey: fixtureEncryptionKey,
     peer,
     grant,
     secondWorkspace,
     async stop() {
       await server.stop(true);
       await boss.stop();
+      await nativeStorage.close();
       await transfers.close();
       await peer.stop();
       await database.stop();

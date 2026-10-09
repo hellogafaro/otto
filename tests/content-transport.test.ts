@@ -12,11 +12,15 @@ import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
 import { previewFile } from "../packages/files/src";
 import { runs } from "../packages/runs/src/schema";
+import { openNativeStorage } from "../packages/sessions/src/native";
 import { skills } from "../packages/skills/src/schema";
 import { updateTask } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
-import { pi } from "./fixtures/pi";
+import {
+  fixtureEncryptionKey,
+  nativeModelAuthorization,
+} from "./fixtures/native-model";
 import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
@@ -29,6 +33,7 @@ const page = z.object({ items: z.array(record), next: z.string().nullable() });
 
 describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a named in-memory fixture", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
+  let nativeStorage: Awaited<ReturnType<typeof openNativeStorage>>;
   let boss: PgBoss;
   let server: Server<RealtimeData>;
   let app: ReturnType<typeof createApp>;
@@ -124,6 +129,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
   beforeAll(async () => {
     database = await startPostgres();
+    nativeStorage = await openNativeStorage({
+      connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+    });
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
@@ -159,8 +167,11 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       origin,
       storage,
       spool: transfers.spool,
+      nativeStorage,
+      modelAuthorization: nativeModelAuthorization,
+      encryptionKey: fixtureEncryptionKey,
     };
-    app = createApp({ ...options, pi });
+    app = createApp(options);
     realtime = createRealtime(options);
     async function signup(name: string) {
       const response = await request(
@@ -245,7 +256,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     afterStorageRead = undefined;
     realtime?.close();
     await server?.stop(true);
-    await boss?.stop();
+    await boss?.stop({ graceful: false });
+    await nativeStorage?.close();
     await database?.stop();
   });
 
@@ -272,7 +284,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     const subscription = await saved(
       await api("/subscriptions", "POST", {
         title: "Subscription title",
-        provider: "codex",
+        provider: "openai",
+        protocol: "responses",
+        models: ["configured-id"],
       }),
     );
     const schedule = await saved(
@@ -1094,8 +1108,15 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).toBe(400);
     const connection = await saved(
       await api("/subscriptions", "POST", {
-        provider: "codex",
+        provider: "openai",
+        protocol: "responses",
+        models: ["fixture"],
         title: "Native",
+      }),
+    );
+    await saved(
+      await api(`/subscriptions/${connection.id}/api-key`, "PUT", {
+        apiKey: "fixture-not-a-real-key",
       }),
     );
     const result = z
@@ -2416,7 +2437,10 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       includeFile: true,
     });
     await publish(share);
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({
+      headless: true,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    });
     try {
       const page = await browser.newPage({
         viewport: { width: 900, height: 500 },

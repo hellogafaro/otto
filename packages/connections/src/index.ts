@@ -11,6 +11,7 @@ export {
 } from "./lifecycle";
 export {
   approveOperation,
+  denyOperation,
   getOperation,
   getOperations,
   OPERATION_SORTS,

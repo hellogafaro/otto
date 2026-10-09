@@ -3,6 +3,10 @@ import { z } from "zod";
 import { startQueue } from "../apps/server/src/queue";
 import { MAX_FILE_BYTES } from "../packages/files/src";
 import { RUN_QUEUE } from "../packages/runs/src";
+import {
+  openNativeStorage,
+  saveNativeMessage,
+} from "../packages/sessions/src/native";
 import { pushDatabase } from "../scripts/push";
 import { startPostgres } from "./postgres";
 
@@ -22,6 +26,7 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
     const boss = await startQueue(database.db, database.pool, {
       workers: false,
     });
+    const nativeStorage = await openNativeStorage({ connectionString: url });
     try {
       await database.pool.query(
         "insert into auth_users(id,name,email) values('schema-owner','Owner','schema@example.test')",
@@ -203,7 +208,7 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
         });
       }
       const messageSql =
-        'insert into messages("workspaceId","chatId","authorUserId",body,"requestId",cursor) values($1,$2,$3,$4,$5,$6)';
+        'insert into messages("workspaceId","chatId","authorUserId","nativeMessageId","nativeThreadId","nativePartIndexes","requestHash",status,"requestId",cursor) values($1,$2,$3,$4,$5,\'[0]\',$6,\'published\',$7,$8)';
       for (const [messageWorkspace, destination] of [
         [workspaceId, crypto.randomUUID()],
         [otherWorkspaceId, chatId],
@@ -213,7 +218,9 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
             messageWorkspace,
             destination,
             "schema-owner",
-            "invalid",
+            crypto.randomUUID(),
+            chatId,
+            "a".repeat(64),
             crypto.randomUUID(),
             1,
           ]),
@@ -283,11 +290,31 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
         database.pool.query("insert into installation_setups(id) values(2)"),
       ).rejects.toMatchObject({ code: "23514", constraint: "single_setup" });
       await expect(
+        saveNativeMessage(nativeStorage, {
+          workspaceId,
+          threadId: chatId,
+          messageId: crypto.randomUUID(),
+          role: "user",
+          body: "x".repeat(100001),
+          createdAt: new Date(),
+        }),
+      ).rejects.toMatchObject({ code: "invalid" });
+      await expect(
         database.pool.query(
-          'insert into messages("workspaceId","chatId","authorUserId",body,cursor,"requestId") values($1,$2,$3,$4,1,gen_random_uuid())',
-          [workspaceId, chatId, "schema-owner", "x".repeat(100001)],
+          'insert into messages("workspaceId","chatId","authorUserId","nativeMessageId","nativeThreadId","nativePartIndexes","requestHash",status,"requestId",cursor) values($1,$2,$3,$4,$5,\'[0]\',$6,\'published\',gen_random_uuid(),0)',
+          [
+            workspaceId,
+            chatId,
+            "schema-owner",
+            crypto.randomUUID(),
+            chatId,
+            "a".repeat(64),
+          ],
         ),
-      ).rejects.toMatchObject({ code: "23514", constraint: "messages_size" });
+      ).rejects.toMatchObject({
+        code: "23514",
+        constraint: "messages_publication_cursor",
+      });
       const insertFile = (byteLength: number) =>
         database.pool.query(
           'insert into files("workspaceId","ownerId","requestId",title,type,visibility,"objectKey",sha256,"byteLength","mediaType",request) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,jsonb_build_object())',
@@ -342,6 +369,7 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
       expect(constraintNames).toContain("runs_sessionId_workspace_fk");
       expect(before.constraints.length).toBeGreaterThan(100);
     } finally {
+      await nativeStorage.close();
       await boss.stop();
     }
   } finally {

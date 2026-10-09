@@ -16,6 +16,10 @@ const schema = z
   .object({
     DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(32),
+    ENCRYPTION_KEY: z.string().refine((value) => {
+      const bytes = Buffer.from(value, "base64");
+      return bytes.length === 32 && bytes.toString("base64") === value;
+    }),
     OTTO_ORIGIN: httpUrl.refine((value) => {
       try {
         return new URL(value).origin === value;
@@ -52,38 +56,6 @@ const schema = z
     S3_BUCKET: z.string().min(1).optional(),
     S3_ACCESS_KEY_ID: z.string().min(1).optional(),
     S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
-    OTTO_GATEWAY_URL: httpUrl.optional(),
-    OTTO_GATEWAY_KEY: z.string().min(32).optional(),
-    OTTO_GATEWAY_STORE_KEY: z.string().min(32).optional(),
-    INFISICAL_URL: httpUrl.optional(),
-    INFISICAL_TOKEN: z.string().min(1).optional(),
-    OTTO_ACCOUNT_SECRET_BINDINGS: z
-      .string()
-      .transform((value, ctx) => {
-        try {
-          return z
-            .array(
-              z
-                .object({
-                  workspaceId: z.uuid(),
-                  projectId: z.uuid(),
-                  environment: z.string().min(1).max(100),
-                  secretPath: z.string().startsWith("/").max(500),
-                })
-                .strict(),
-            )
-            .min(1)
-            .max(100)
-            .parse(JSON.parse(value));
-        } catch {
-          ctx.addIssue({
-            code: "custom",
-            message: "Invalid account secret bindings",
-          });
-          return z.NEVER;
-        }
-      })
-      .optional(),
     MAIL_FROM: z.email().optional(),
     RESEND_API_KEY: z.string().min(1).optional(),
     /** Dictation is unavailable without a key; the model is any OpenRouter speech-to-text model. */
@@ -97,14 +69,6 @@ const schema = z
     for (const group of [
       ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
       ["MAIL_FROM", "RESEND_API_KEY"],
-      [
-        "OTTO_GATEWAY_URL",
-        "OTTO_GATEWAY_KEY",
-        "OTTO_GATEWAY_STORE_KEY",
-        "INFISICAL_URL",
-        "INFISICAL_TOKEN",
-        "OTTO_ACCOUNT_SECRET_BINDINGS",
-      ],
     ] as const) {
       const present = group.filter((key) => config[key] !== undefined);
       if (present.length > 0 && present.length < group.length) {
