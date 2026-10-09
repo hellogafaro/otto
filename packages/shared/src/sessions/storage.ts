@@ -32,6 +32,7 @@ import { debug } from '../utils/debug.ts';
 import { deleteChat, getChat, getChats, writeChat } from './chats.ts';
 import { addChatMembers } from './members.ts';
 import { getDefaultAgent } from '../agents/index.ts';
+import { getDefaultStatusId } from '../statuses/storage.ts';
 import { copyMessages, fromMessageRow, getMessageRows, getMessagesPage, initMessages, toMessageRow, writeMessages } from './messages.ts';
 import { sessionPersistenceQueue } from './persistence-queue.ts';
 import { getNativeMessages, assertHistoryRuntime } from './native-messages.ts';
@@ -175,6 +176,7 @@ export function createSession(
     workspaceRootPath: workspace.rootPath,
     ...fields,
     ...branchFields,
+    sessionStatus: fields.sessionStatus ?? getDefaultStatusId(workspace.id, db),
     createdAt: now,
     lastUsedAt: now,
   };

@@ -9,6 +9,7 @@ import { pushSchema } from '../../db/push.ts'
 import { initWorkspaceLabels } from '../../labels/storage.ts'
 import { INSTALL, getSetting, updateSetting } from '../../settings/index.ts'
 import { initWorkspaceStatuses } from '../../statuses/storage.ts'
+import { setDefaultStatus } from '../../statuses/crud.ts'
 import { users } from '../../users/schema.ts'
 import { createWorkspaceMember } from '../../workspaces/members.ts'
 import { deleteChat, getChat, getChats, type ChatSnapshot } from '../chats.ts'
@@ -346,6 +347,24 @@ describe('write path', () => {
 describe('members', () => {
   const actors = (db: Db, id: string) => getChatMembers(W, id, db).map((m) => m.actor)
   const AGENT = 'agentaaaaaaa'
+
+  it('snapshots the default status for new chats without overriding explicit choices or earlier chats', async () => {
+    const db = await setup()
+    const ws = { id: W, rootPath: tempDir('otto-default-status-') }
+    const initial = createSession(ws, { createdBy: ME }, db)
+    expect(initial.sessionStatus).toBe('todo')
+    expect(getChat(W, ws.rootPath, initial.id, db)!.sessionStatus).toBe('todo')
+    setDefaultStatus(W, 'done', db)
+    const reviewed = createSession(ws, { createdBy: ME }, db)
+    const explicit = createSession(ws, { createdBy: ME, sessionStatus: 'todo' }, db)
+    expect(reviewed.sessionStatus).toBe('done')
+    expect(getChat(W, ws.rootPath, reviewed.id, db)!.sessionStatus).toBe('done')
+    expect(explicit.sessionStatus).toBe('todo')
+    setDefaultStatus(W, 'todo', db)
+    expect(getChat(W, ws.rootPath, initial.id, db)!.sessionStatus).toBe('todo')
+    expect(getChat(W, ws.rootPath, reviewed.id, db)!.sessionStatus).toBe('done')
+    expect(getChat(W, ws.rootPath, explicit.id, db)!.sessionStatus).toBe('todo')
+  })
 
   it('a new chat has its creator (read) and its agent; a DM has its pair, unique per workspace', async () => {
     const db = await setup()
