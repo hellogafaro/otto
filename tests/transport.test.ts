@@ -1,4 +1,4 @@
-import type { Server } from "bun";
+import type { Server, ServerWebSocket } from "bun";
 import { eq } from "drizzle-orm";
 import { hc } from "hono/client";
 import type { PgBoss } from "pg-boss";
@@ -271,6 +271,53 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     ]);
     ws.close();
   });
+  it.each([-1, 0])(
+    "handles WebSocket send status %i without losing replay",
+    async (status) => {
+      const data = await realtime.prepare(
+        new Request(
+          `${origin}/api/realtime?workspaceId=${workspaceId}&chatId=${chatId}&after=0`,
+          { headers: { Cookie: cookie, Origin: origin } },
+        ),
+      );
+      if (data instanceof Response)
+        throw new Error("Replay authorization failed");
+      const closed: number[] = [];
+      let sent: () => void = () => {};
+      const delivered = new Promise<void>((resolve) => {
+        sent = resolve;
+      });
+      let frame: z.infer<typeof snapshot> | undefined;
+      const ws = {
+        data,
+        getBufferedAmount: () => 0,
+        send(payload: string) {
+          frame = snapshot.parse(JSON.parse(payload));
+          sent();
+          return status;
+        },
+        close(code: number) {
+          closed.push(code);
+        },
+      } as unknown as ServerWebSocket<RealtimeData>;
+      realtime.websocket.open(ws);
+      try {
+        await delivered;
+        expect(frame).toBeDefined();
+        if (status === -1) {
+          expect(closed).toEqual([]);
+          expect(data.cursor).toBe(frame?.cursor);
+          expect(data.subscription.after).toBe(frame?.cursor);
+        } else {
+          expect(closed).toEqual([4408]);
+          expect(data.cursor).toBe(-1);
+          expect(data.subscription.after).toBe(0);
+        }
+      } finally {
+        realtime.websocket.close(ws);
+      }
+    },
+  );
   it("splits large saved history into bounded frames without losing the cursor", async () => {
     const prefix = "large-record-";
     await inWorkspace(database.db, workspaceId, { userId }, async (c) => {

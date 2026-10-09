@@ -103,7 +103,7 @@ export function createRealtime(options: ApiOptions) {
             return;
           }
           // Send while holding the workspace read lock so removal cannot commit between authorization and enqueue.
-          if (ws.send(payload) === -1) {
+          if (ws.send(payload) === 0) {
             ws.close(4408, "Slow consumer");
             return;
           }
