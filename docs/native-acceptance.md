@@ -5,6 +5,7 @@ This is the single current operation, page and scenario checklist. Restored hist
 ## Scope and recovery
 
 - Exact v1 anchor: `2a6e9a79be8b268b6cac583f68a68fa674be2fe9`.
+- Native integration checkpoint: `fa912a635c5d38feb0948cf9611b7d1348f21036`. The corrected full-suite and live source manifests below also include the separately checkpointed durable launcher; its exact bytes are recorded in the startup evidence.
 - Current-source recovery checkpoint: `c7f5b4e5eaab18efed20f689a6764bbab0e1f284`.
 - Exact forward restoration: `9b3a9a70342c72414a33c313f6ef07fd2301c1ba`, tree `a1c9dbda28baaaac5eb904216736eb9807d6f506`, identical to the anchor. An initial restoration commit retained 14 rename-source files; the next forward commit removed them before implementation.
 - Local recovery evidence: `~/.capy/work/otto-v1-restoration/`. The 2,151-entry source archive and hashes were verified. Current login and Home source/assets are preserved separately. Saved app data has a consistent SQLite backup with integrity check plus 102 supporting files; Keychain entries remain untouched and were not exported. No saved app data was removed or converted.

@@ -27,4 +27,6 @@ Server configuration is injected through the authorized runtime secret scope, ne
 
 Confined computer execution is deferred; there is no host-local execution or subscription fallback. `bun scripts/native-dev.ts` starts an isolated disposable development backend using private PostgreSQL and a loopback S3 peer; it is not a production-storage qualification. Operator enrollment is stdin-only. Storage and real-provider checks remain separate from deterministic fixtures.
 
+For the reusable local instance, follow [durable localhost development](docs/local-dev.md), not the disposable fixture launcher. Its PostgreSQL restart path is verified; Garage credentials, normal signup mail and authenticated app startup still require the recorded setup approvals and verification.
+
 See [TESTING.md](TESTING.md) for private database and Playwright checks, and [backend notes](docs/backend.md) for transaction, queue, realtime and integration boundaries.
