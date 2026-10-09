@@ -3171,3 +3171,7 @@ that carry over, applied where Craft draws the same thing.
     icon inline with the title (one icon beside two lines of a compact list, not a tile); the
     chevron is 14px (`size-3.5`).
 - **Root font size** stays at Craft's 15px; Craft sizes in `rem`.
+
+### Durable question history
+
+Canonical request cards keep the question title, Details and actual resolving human/time. Only the built-in instruction is state-aware: live questions may ask for an answer; answered history confirms it was recorded, and expired, denied, canceled or failed history never promises that answering can continue an ended run. Custom question content and persisted messages remain unchanged. Terminal cards have no answer or approval actions; authority and callback checks remain server-backed.
