@@ -1,2 +1,0 @@
-@echo off
-"%OTTO_UV%" run --python 3.12 "%OTTO_SCRIPTS%\img_tool.py" %*

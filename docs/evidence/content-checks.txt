@@ -1,0 +1,23 @@
+Bun 1.4.2; Vitest 5.0.3 explicitly under Bun
+
+bun run check
+PASS: Biome, 87 files
+
+bun run typecheck
+PASS: strict server/packages and generated web TypeScript
+
+bun run check:boundaries
+PASS: 14 packages; no private schema imports, undeclared domain imports or cycles
+
+bun run build
+PASS: existing generated web production build; no product UI changes
+
+bun --bun vitest run
+PASS: 66 tests across 8 files, including 47 baseline tests
+
+bun --bun vitest run tests/content-transport.test.ts tests/artifact-immutability.test.ts
+PASS: 19 tests across 2 content suites, including the Chromium sandbox and source-Run publication checks.
+
+Browser within content transport suite: real Chromium, published HTML endpoint, sandboxed script/cookie/network assertions, screenshot docs/evidence/content-share-sandbox.png
+
+Unverified: real Garage compatibility/durability, native execution/isolation/subscription mode, integrated branch independent review.

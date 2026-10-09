@@ -1,0 +1,16 @@
+{$OTTO_HOST} {
+  handle /api/* {
+    reverse_proxy server:43001
+  }
+  handle /health {
+    reverse_proxy server:43001
+  }
+  handle /ready {
+    reverse_proxy server:43001
+  }
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@otto/runs",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./runtime": "./src/runtime.ts",
+    "./pi": "./src/pi.ts",
+    "./pi-extension": "./src/pi-extension.ts"
+  },
+  "dependencies": {
+    "@otto/db": "workspace:*",
+    "@otto/agents": "workspace:*",
+    "@otto/chats": "workspace:*",
+    "@otto/documents": "workspace:*",
+    "@otto/environments": "workspace:*",
+    "@otto/sessions": "workspace:*",
+    "@otto/connections": "workspace:*",
+    "@otto/tasks": "workspace:*",
+    "@otto/workspaces": "workspace:*",
+    "drizzle-orm": "0.45.3",
+    "pg-boss": "12.35.1",
+    "zod": "4.6.5",
+    "@otto/projects": "workspace:*",
+    "@otto/shared": "workspace:*",
+    "@otto/schedules": "workspace:*",
+    "@otto/subscriptions": "workspace:*",
+    "@otto/skills": "workspace:*"
+  }
+}

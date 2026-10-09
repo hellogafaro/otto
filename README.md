@@ -1,58 +1,31 @@
-<p align="center">
-  <img src="design/brand/otto-app-icon.svg" alt="Otto" width="96" />
-</p>
-
 # Otto
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+Otto combines flat project tasks, shared chats, documents, saved outputs and native coding agents. This is a fresh Bun application. Product contracts and research live in [docs/otto](docs/otto/README.md).
 
-Otto is an agent workspace for Claude, ChatGPT and local models. It runs as a
-desktop app (Electron) and as a browser UI served by a headless server, both on
-the same server code.
+- `apps/web`: generated React/Vite/shadcn app, preset `bIkg4yR`, pointer cursor enabled.
+- `apps/server`: Bun/Hono server and Better Auth composition.
+- `packages/ui`: generated shared shadcn components.
+- Domain packages own their records and operations. PostgreSQL is authoritative.
 
-- **Agents and sessions**: run many agent sessions side by side, with status, labels, skills and automations.
-- **Sources**: connect MCP servers, REST APIs and local folders, and let the agent set them up.
-- **Connections**: sign in with Claude or ChatGPT/Codex, use API keys, or point at a local model.
-- **Permission modes**: Explore, Ask to Edit and Auto, with customizable rules.
+## Setup
 
-Otto is under active development and being rebuilt on its own design system;
-expect rough edges.
+Use Bun 1.4.2 or later:
 
-## Quick start
-
-You need [Bun](https://bun.sh) and the [Infisical CLI](https://infisical.com/docs/cli/overview)
-(secrets live in the Infisical project `otto`, env `dev`; never put values in files).
-
-```bash
-bun install
-bun run dev        # pushes the db schema, then serves the app with `infisical run --env dev`
+```sh
+bun install --frozen-lockfile
+bun run check
+bun run typecheck
+bun run check:boundaries
+bun run check:consistency
+bun run test
+bun run build
+bun --bun run --cwd apps/web dev
 ```
 
-Desktop build: `bun run electron:start`. Contributor rules, checks and conventions are in
-[AGENTS.md](AGENTS.md).
+The generated web page is currently the visual baseline. The backend has working domain and transport slices, exercised against isolated PostgreSQL. Native execution and external services remain unqualified. See [the execution checkpoint](docs/execution.md) for completed checks and open boundaries.
 
-## Project layout
+Server configuration is injected through the verified Infisical scope, never a committed environment file. Required names are `DATABASE_URL`, `BETTER_AUTH_SECRET` and `OTTO_ORIGIN`. No Otto secret scope has been selected here. Use native `bun run db:push` for pre-MVP development with that configuration before starting `bun --cwd apps/server start`. Production signup requires configured verification mail and creates an unprivileged identity; workspace ownership is operator-controlled. Mail is explicitly unavailable without its configured sender. See docs/operations.md for the service configuration boundary.
 
-- `apps/electron`: the desktop app and its React renderer.
-- `apps/webui`: the same renderer in the browser, talking to the server over WebSocket.
-- `apps/cli`, `apps/viewer`: the terminal client and the read-only session viewer (sharing is planned, the hosted viewer is not live yet).
-- `packages/`: shared domains and services (`core`, `shared`, `server`, `server-core`, `pi-agent-server`, `ui`, messaging and session tools).
-- `design/`: the design system (`design/ui`, shadcn on Base UI and Lucide) and brand sources (`design/brand`).
+Compute selection is deferred. There is no host-local agent execution or claimed native subscription qualification. Storage and provider integration checks require their selected services and credentials.
 
-## Docs
-
-- [DESIGN.md](DESIGN.md): tokens, type, layout and components.
-- [docs/ui-rebuild.md](docs/ui-rebuild.md): the in-place UI rebuild and what is deleted as each part is swapped.
-- [docs/cli.md](docs/cli.md): the command-line client.
-- [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [TRADEMARK.md](TRADEMARK.md).
-
-## Origin
-
-Otto started from [Craft Agents](https://github.com/craft-ai-agents/craft-agents-oss) by
-Craft Docs Ltd. (Apache-2.0). See [UPSTREAM.md](UPSTREAM.md) for the exact commit.
-
-## License
-
-Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). The Otto name and logo are
-covered by [TRADEMARK.md](TRADEMARK.md).
+See [TESTING.md](TESTING.md) for private database and Playwright checks, and [backend notes](docs/backend.md) for transaction, queue, realtime and integration boundaries.

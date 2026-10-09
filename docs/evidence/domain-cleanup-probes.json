@@ -1,0 +1,164 @@
+[
+  {
+    "name": "Conversation creator-only management, private group and viewer role ceilings",
+    "status": "verified",
+    "observed": {
+      "forgedCreator": 400,
+      "noncreatorManagement": 403,
+      "deniedCursorDelta": 0,
+      "contributorDiscussion": 200,
+      "explicitViewerDiscussion": 403
+    }
+  },
+  {
+    "name": "Project membership intersects creator management and Document writes",
+    "status": "verified",
+    "observed": {
+      "projectViewerRead": 200,
+      "creatorAfterDemotion": 403,
+      "deniedCursorDelta": 0,
+      "removedProjectMemberRead": 403
+    }
+  },
+  {
+    "name": "Realtime private Conversation removal closes saved/current delivery",
+    "status": "verified",
+    "observed": {
+      "initialFrames": 1,
+      "closeCode": 4403,
+      "replayAfterRemoval": 403
+    }
+  },
+  {
+    "name": "Workspace Documents and Artifacts: current private policy and atomic dependency rollback",
+    "status": "verified",
+    "observed": {
+      "privateRead": 403,
+      "workspaceRead": 200,
+      "noncreatorEdit": 403,
+      "dependencyWiden": 403,
+      "rollbackCursorDelta": 0,
+      "immutableRetry": "same id/request/key/hash/size",
+      "pendingReadRevoked": 403
+    }
+  },
+  {
+    "name": "Skill UUID normalization, concurrent CAS and real relation rejection",
+    "status": "verified",
+    "observed": {
+      "sortedCanonical": true,
+      "duplicate": 400,
+      "concurrent": [
+        200,
+        409
+      ],
+      "cursorDelta": 1,
+      "unique": "23505",
+      "foreignKey": "23503"
+    }
+  },
+  {
+    "name": "Trusted Subscription qualification race, explicit reauth, already-enabled noncreator denial",
+    "status": "verified",
+    "observed": {
+      "disableDuringInspection": 403,
+      "disabledRebind": 403,
+      "browserEnable": 400,
+      "explicitReauthThenBind": 200,
+      "alreadyEnabledNoncreator": 403,
+      "deniedCursorDelta": 0
+    }
+  },
+  {
+    "name": "Queued Agent configuration fencing retains exact historical skills and queue identity",
+    "status": "verified",
+    "observed": {
+      "queuedState": "queued",
+      "dispatchState": "failed",
+      "outcome": "admission_configuration_unavailable",
+      "launchDelta": 0,
+      "snapshot": "byte-identical",
+      "job": "unchanged"
+    }
+  },
+  {
+    "name": "Noncreator controls survive creator archive while viewer controls and new admission fail",
+    "status": "verified",
+    "observed": {
+      "viewerControls": 403,
+      "deniedCursorDelta": 0,
+      "noncreatorSteer": 200,
+      "archivedDiscussion": 200,
+      "archivedAdmission": 409,
+      "noncreatorStop": "interrupted"
+    }
+  },
+  {
+    "name": "Removed sponsor duplicate dispatch preserves terminal record and replay cursor",
+    "status": "verified",
+    "observed": {
+      "firstFailure": "authorization_revoked",
+      "firstCursorDelta": 1,
+      "duplicateCursorDelta": 0,
+      "terminalRow": "unchanged"
+    }
+  },
+  {
+    "name": "Artifact source audience cannot widen to newly joined current participants",
+    "status": "verified",
+    "observed": {
+      "newParticipantRead": 403,
+      "widen": 403,
+      "deniedCursorDelta": 0
+    }
+  },
+  {
+    "name": "Frozen selected share derives publication from snapshot and revocation stays effective",
+    "status": "verified",
+    "observed": {
+      "preview": 404,
+      "published": 200,
+      "bodyEdit": "frozen selected bytes unchanged",
+      "revoked": 404,
+      "snapshot": null
+    }
+  },
+  {
+    "name": "ACP proposal keeps creator application, stale-body CAS and exact accepted source",
+    "status": "verified",
+    "observed": {
+      "agentProposal": "saved separately with Agent authorship",
+      "directBody": "unchanged until human edit",
+      "noncreatorApply": 403,
+      "creatorStaleApply": 409,
+      "acceptedBytes": "unchanged",
+      "deniedCursorDelta": 0
+    }
+  },
+  {
+    "name": "Attention common limit with actual pending human tools and denied cursor continuation",
+    "status": "verified",
+    "observed": {
+      "ownerFirst": {
+        "runs": 1,
+        "questions": 1,
+        "continuation": true
+      },
+      "deniedFirst": {
+        "runs": 0,
+        "questions": 0,
+        "sameContinuation": true
+      },
+      "ownerLast": {
+        "runs": 1,
+        "questions": 1,
+        "next": null
+      },
+      "deniedLast": {
+        "runs": 0,
+        "questions": 0,
+        "next": null
+      }
+    }
+  }
+]

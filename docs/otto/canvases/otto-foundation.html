@@ -1,0 +1,264 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Otto: choose a small ACP bridge</title><link rel="preconnect" href="https://rsms.me/"><link rel="stylesheet" href="https://rsms.me/inter/inter.css"><style>/* BB canvas kit v0.3 — shadcn anatomy, BB theme tokens (apps/app/src/components/ui/theme.css) */
+:root {
+  color-scheme: light dark;
+  --canvas: oklch(1 0 0);
+  --ink: oklch(0.3289 0.0107 91.66);
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--canvas);
+  --card-foreground: var(--ink);
+  --primary: oklch(0.6058 0.1674 252.7);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: color-mix(in oklch, var(--ink) 6.3%, var(--canvas));
+  --secondary-foreground: var(--ink);
+  --muted: color-mix(in oklch, var(--ink) 6.3%, var(--canvas));
+  --muted-foreground: color-mix(in oklch, var(--ink) 66.8%, var(--canvas));
+  --accent: color-mix(in oklch, var(--ink) 7.7%, var(--canvas));
+  --accent-foreground: var(--ink);
+  --destructive: oklch(0.45 0.19 25.8625);
+  --destructive-foreground: oklch(1 0 0);
+  --warning: oklch(0.7 0.16 50);
+  --warning-text: oklch(0.55 0.14 50);
+  --success: oklch(0.7 0.15 155);
+  --success-text: color-mix(in oklch, var(--success) 45%, var(--ink));
+  --border: color-mix(in oklch, var(--ink) 11.7%, var(--canvas));
+  --input: color-mix(in oklch, var(--ink) 29.5%, var(--canvas));
+  --ring: var(--primary);
+  --chart-1: var(--primary);
+  --chart-2: var(--success);
+  --chart-3: var(--warning);
+  --chart-4: oklch(0.53 0.2 295);
+  --chart-5: var(--destructive);
+  --radius: 0.5rem;
+  --font-sans: Inter, "Inter Variable", InterVariable, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: oklch(0.1872 0.002 286.2);
+    --ink: oklch(0.9 0.0027 106.45);
+    --card: color-mix(in oklch, var(--ink) 3.5%, var(--canvas));
+    --secondary: color-mix(in oklch, var(--ink) 11.4%, var(--canvas));
+    --muted: color-mix(in oklch, var(--ink) 11.4%, var(--canvas));
+    --muted-foreground: color-mix(in oklch, var(--ink) 74%, var(--canvas));
+    --accent: color-mix(in oklch, var(--ink) 10.8%, var(--canvas));
+    --destructive: oklch(0.56 0.19 22.1703);
+    --warning: oklch(0.75 0.16 50);
+    --warning-text: oklch(0.75 0.16 50);
+    --success: oklch(0.74 0.15 155);
+    --border: color-mix(in oklch, var(--ink) 14.3%, var(--canvas));
+    --input: color-mix(in oklch, var(--ink) 32.6%, var(--canvas));
+    --chart-4: oklch(0.68 0.18 295);
+  }
+}
+:root {
+  --tint-primary: color-mix(in oklab, var(--primary) 10%, var(--background));
+  --tint-success: color-mix(in oklab, var(--success) 12%, var(--background));
+  --tint-warning: color-mix(in oklab, var(--warning) 14%, var(--background));
+  --tint-destructive: color-mix(in oklab, var(--destructive) 10%, var(--background));
+}
+
+/* Base — shadcn typography scale, 14px body */
+*, *::before, *::after { box-sizing: border-box; border: 0 solid var(--border); }
+html { background: var(--background); }
+body {
+  margin: 0; background: var(--background); color: var(--foreground);
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
+  font-feature-settings: "rlig" 1, "calt" 1; -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 800px; margin: 0 auto; padding: 24px 24px 48px; }
+h1, h2, h3, h4 { margin: 0; color: var(--foreground); letter-spacing: -0.01em; text-wrap: balance; }
+h1 { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.02em; }
+h2 { font-size: 18px; line-height: 28px; font-weight: 600; }
+h3 { font-size: 16px; line-height: 24px; font-weight: 600; }
+h4 { font-size: 14px; line-height: 20px; font-weight: 600; }
+p { margin: 0; max-width: 72ch; }
+p + p { margin-top: 12px; }
+a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+ul, ol { margin: 0; padding-left: 20px; }
+li + li { margin-top: 4px; }
+.lead { font-size: 16px; line-height: 24px; color: var(--muted-foreground); }
+.text-muted { color: var(--muted-foreground); }
+.text-sm { font-size: 13px; line-height: 18px; }
+.text-xs { font-size: 12px; line-height: 16px; }
+.num { font-variant-numeric: tabular-nums; }
+.up { color: var(--success-text); }
+.down { color: var(--destructive); }
+code { font-family: var(--font-mono); font-size: 12.5px; background: var(--muted); padding: 2px 5px; border-radius: 4px; }
+pre { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; overflow: auto; margin: 0; }
+pre code { background: none; padding: 0; }
+
+/* Layout */
+.section { margin-top: 32px; }
+.section > h2 { margin-bottom: 4px; }
+.section > .text-muted { margin-bottom: 16px; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.grid-4 { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.separator { height: 1px; background: var(--border); margin: 24px 0; }
+
+/* Page header */
+.page-header { display: flex; flex-direction: column; gap: 8px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+.page-header .row { gap: 8px; }
+.page-header .lead { margin-top: 4px; }
+.page-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; line-height: 16px; color: var(--muted-foreground); margin-top: 4px; }
+
+/* Badge */
+.badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; border: 1px solid transparent; padding: 1px 8px; font-size: 12px; line-height: 16px; font-weight: 500; white-space: nowrap; background: var(--primary); color: var(--primary-foreground); }
+.badge-secondary { background: var(--secondary); color: var(--secondary-foreground); }
+.badge-outline { background: transparent; color: var(--foreground); border-color: var(--border); }
+.badge-destructive { background: var(--destructive); color: var(--destructive-foreground); }
+.badge-success { background: var(--tint-success); color: var(--success-text); }
+.badge-warning { background: var(--tint-warning); color: var(--warning-text); }
+.badge-info { background: var(--tint-primary); color: var(--primary); }
+
+/* Table */
+.table-wrap { width: 100%; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 18px; }
+.table th { height: 40px; padding: 0 12px; text-align: left; vertical-align: middle; font-weight: 500; color: var(--muted-foreground); background: color-mix(in oklab, var(--muted) 60%, var(--background)); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.table td { padding: 10px 12px; vertical-align: middle; border-bottom: 1px solid var(--border); }
+.table tr:last-child td { border-bottom: 0; }
+.table .n { text-align: right; font-variant-numeric: tabular-nums; }
+.table caption { caption-side: bottom; text-align: left; padding: 8px 12px; font-size: 12px; color: var(--muted-foreground); }
+
+/* Steps (open, not cards) */
+.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+.steps > li { position: relative; padding: 0 0 24px 40px; counter-increment: step; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); background: var(--background); font-size: 12px; font-weight: 600; display: grid; place-items: center; color: var(--foreground); }
+.steps > li::after { content: ""; position: absolute; left: 11.5px; top: 28px; bottom: 4px; width: 1px; background: var(--border); }
+.steps > li:last-child::after { display: none; }
+.steps > li.done::before { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.steps > li.active::before { border-color: var(--primary); color: var(--primary); }
+.step-head { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.step-head h3 { font-size: 14px; line-height: 20px; }
+.step-head .badge { margin-left: auto; }
+.step-body { margin-top: 8px; }
+.step-meta { margin-top: 8px; font-size: 12px; line-height: 16px; color: var(--muted-foreground); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+
+/* Footer — credits line, always present */
+.page-footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; font-size: 12px; line-height: 16px; color: var(--muted-foreground); }
+.page-footer strong { font-weight: 500; color: var(--foreground); }
+
+.page { max-width:1000px; }
+nav { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:8px; font-size:13px; }
+section { scroll-margin-top:16px; }
+.section > p, .section > ul, .section > ol, .section > .table-wrap, .section > figure { margin-top:14px; }
+.section > h2 + p { color:var(--muted-foreground); }
+.table td { vertical-align:top; overflow-wrap:break-word; }
+.table th { white-space:normal; }
+.table th:first-child,.table td:first-child { width:18%; font-weight:500; }
+.table-wrap { margin:16px 0; }
+.steps { margin-top:16px; }
+.step-body { margin-top:0; }
+figure { margin:20px 0; border:1px solid var(--border); border-radius:var(--radius); background:var(--card); }
+.diagram-scroll { overflow-x:auto; padding:12px; }
+.diagram { display:block; width:100%; min-width:690px; height:auto; font-family:var(--font-sans); }
+.diagram rect { fill:var(--background); stroke:var(--border); stroke-width:1.4; }
+.diagram .highlight rect { fill:var(--tint-primary); stroke:var(--primary); }
+.diagram .d-title { fill:var(--foreground); font-size:15px; font-weight:600; }
+.diagram .d-sub { fill:var(--muted-foreground); font-size:13px; }
+.diagram .edge { fill:none; stroke:var(--muted-foreground); stroke-width:1.5; }
+.diagram .arrow { fill:var(--muted-foreground); }
+.diagram .d-label { fill:var(--muted-foreground); font-size:12px; }
+.diagram .annotation { fill:var(--primary); font-size:13px; font-weight:500; }
+figcaption { padding:10px 16px; border-top:1px solid var(--border); color:var(--muted-foreground); font-size:13px; }
+.summary { padding:14px 16px; margin-top:14px; background:var(--muted); border-radius:var(--radius); }
+.summary p { max-width:none; }
+@media(max-width:600px) { .page { padding:20px 16px 40px; } .table { min-width:620px; } .diagram-scroll { padding:8px; } }
+@media print { :root { color-scheme:light; } .page { max-width:none; } nav { display:none; } figure,tr { break-inside:avoid; } .diagram { min-width:0; } }
+</style></head><body><main class="page"><header class="page-header"><div class="row"><span class="badge badge-outline">Plan</span><span class="badge badge-info">Foundation choice</span></div><h1>Otto: choose a small ACP bridge</h1><p class="lead">The server owns execution. Reuse native coding harnesses through thin domain packages. Multi-agent from day one.</p><div class="page-meta"><span>1 October 2026</span><span>Official documentation + pinned source inspection</span></div><nav aria-label="Foundation plan sections"><a href="#choose-a-small-otto-app-with-an-acp-server-bridge">Choice</a><a href="#what-the-candidates-actually-give-us">Comparison</a><a href="#keep-the-flow-simple">Flow</a><a href="#proof-before-adoption">Proof</a><a href="#source-record-and-limits">Evidence</a></nav></header><p>Researched 30 September 2026; architecture revised 1 October 2026. Recommendation from documentation and source inspection. Runtime adoption remains subject to the proof below.</p>
+<p>Argus passed the simplification, Bun/Vitest and schema-control clarifications, and stack comparison with no blockers (9/10 across all criteria). Remaining candidate choices are not adopted dependencies. This is a design verdict. Permitted provider integration, subscription authentication, sandbox lifecycle, storage durability, and runtime behavior remain unverified.</p>
+<section class="section" id="choose-a-small-otto-app-with-an-acp-server-bridge"><h2>Choose a small Otto app with an ACP server bridge</h2>
+<p>Build Otto&#x27;s product domains in the planned TypeScript/Bun monorepo. Use <strong>an ACP client in the server-used Runs domain</strong>, connecting to established coding harnesses inside each agent&#x27;s isolated computer. Prove the maintained Codex ACP adapter first with native ChatGPT subscription login. Evaluate Claude alongside it only after qualifying a permitted subscription path. A working SDK API-key integration does not meet the requirement. Keep PostgreSQL authoritative for Otto&#x27;s records, accepted requests, automation occurrences, and Run outcomes. The server assigns a workspace and starts the native process through one existing sandbox backend. Garage holds durable artifact bytes. Web and server are separate apps; there is no separate Otto execution service.</p>
+<p>This best fits the current brief: project management and shared documents around a capable coding agent, with simple relationships and little process. UI reuse has little weight in this decision. The main value to reuse is the coding harness. We do not need to reproduce its model loop, coding tools, context compaction, and session controls.</p>
+<p>This is a recommendation for the first implementation, not a claim that a protocol supplies the entire product or that the adapters have passed Otto&#x27;s workflow checks. <strong>Multi-agent is required from day one.</strong> Multiple agents run concurrently on separate computers, retain separate context, receive targeted controls, and exchange directed messages through one shared Conversation model. A second provider is recommended for the first proof so the bridge does not accidentally depend on one harness. Multiple agents and multiple providers are separate requirements.</p>
+<p>T3 Code is the closest architectural reference: a server normalizes different coding harnesses. Otto should own that small bridge and its domain data. ACP supplies the first common transport underneath it. Users can choose a preset or configure their own compatible ACP executable inside an isolated agent computer. Runtime selection belongs in the existing Agent configuration, not a separate profile or plugin framework. Negotiate features and enforce the same Run, access, and subscription rules. Pi can participate through its ACP adapter rather than becoming a required Otto harness. We do not need to fork T3&#x27;s complete application or wrap another supervisor agent around every coding request.</p>
+</section>
+<section class="section" id="what-the-candidates-actually-give-us"><h2>What the candidates actually give us</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="What the candidates actually give us table"><table class="table"><thead><tr><th scope="col">Candidate</th><th scope="col">Useful capability</th><th scope="col">Work or mismatch for Otto</th><th scope="col">Decision</th></tr></thead><tbody>
+<tr><td>ACP plus maintained harness adapters</td><td>Common session, prompt, update, permission, and cancellation protocol around Codex App Server and Claude Agent SDK</td><td>Provider capabilities and extensions differ. Otto still owns the durable ledger, identity, grants, and containment.</td><td><strong>First bridge integration</strong></td></tr>
+<tr><td>Codex App Server directly</td><td>Native coding harness with structured turns, streaming, steering, interruption, and stored thread resume</td><td>A direct adapter means maintaining provider-specific protocol mapping. Protocol version changes require checks.</td><td>Native fallback behind the same bridge</td></tr>
+<tr><td>Pi</td><td>Embeddable TypeScript coding harness, customizable resources and tools, persistent sessions, SDK and subprocess modes</td><td>This is Pi&#x27;s own harness, not the native Codex or Claude harness. We still need supervision, authorization, isolation, and the durable Run ledger.</td><td>Best alternative for an Otto-owned harness across model providers</td></tr>
+<tr><td>Mastra</td><td>TypeScript agents, controller, memory, tools, schedules, workflow recovery, and ACP delegation</td><td>Adds framework execution and memory concepts to reconcile with Otto. Durable-agent API is beta; recovery can replay tool effects. ACP does not contain the launched process.</td><td>Strong option if broader workflow execution becomes an actual requirement</td></tr>
+<tr><td>Eve</td><td>Filesystem-authored agents, skills, connections, durable execution, schedules, and sandbox providers</td><td>Self-hosting works. It still adds Nitro, Workflow worlds, callback routing, and agent authoring/runtime concepts to integrate. Native Codex control is not established by this research.</td><td>Connection and sandbox reference; evaluate for a model-driven assistant product</td></tr>
+<tr><td>T3 Code</td><td>Working control application for native coding harnesses, with provider adapters and durable command acceptance</td><td>A full application with its own orchestration state and event log. Extracting adapters requires tracing their dependencies.</td><td>Best implementation reference for our adapter</td></tr>
+<tr><td>Craft Agents</td><td>Connections, skills, session organization, a headless server, Claude SDK and Pi backends</td><td>Its ChatGPT subscription path uses Pi rather than native Codex. Advertised OAuth support does not establish permission for Otto to intermediate provider credentials.</td><td>Product and connection reference; selective reuse</td></tr>
+<tr><td>Herdr</td><td>Persistent terminal server and explicit controls for agent processes</td><td>Terminal lifecycle is not individual turn identity. Its docs warn that prompt waits can complete for an already-active turn and timeouts can follow submitted input.</td><td>Optional operator tool</td></tr>
+<tr><td>Buzz</td><td>Shared human/agent conversations, relay authorization, artifacts, workflows, and ACP harness</td><td>Its Nostr-first, channel-scoped product contract differs from Otto&#x27;s internal relational domains. Task payloads are opaque records, and the inspected Kubernetes workspace is temporary.</td><td>Reference and selective reuse</td></tr>
+<tr><td>BB</td><td>Existing host execution, steerable threads, adapters, and environment lifecycle management</td><td>Otto needs its own multi-participant Conversation model and dedicated agent computers. Reusing the whole app would require reconciling its ownership and environment model.</td><td>Provisioning and execution reference</td></tr>
+</tbody></table></div>
+<p>These are integration judgments, not performance measurements. A larger repository is not evidence of bloat. The relevant cost is how many state, permission, and lifecycle boundaries we must reconcile.</p>
+</section>
+<section class="section" id="evidence-that-affects-the-choice"><h2>Evidence that affects the choice</h2>
+<p><strong>ACP adapters:</strong> The current <a href="https://github.com/agentclientprotocol/codex-acp">Codex adapter</a> starts Codex App Server and translates its requests and events. The older Zed adapter explicitly points new installs to this maintained project. The <a href="https://github.com/agentclientprotocol/claude-agent-acp">Claude adapter</a> uses the official Claude Agent SDK. Both inspected source revisions implement session loading and a steering extension. Source-head support is not proof that a selected released version supports every feature. Negotiate capabilities and pin compatible adapter, SDK, and harness versions.</p>
+<p><strong>Protocol:</strong> ACP specifies <a href="https://agentclientprotocol.com/protocol/session-setup">session setup and optional history loading</a> plus <a href="https://agentclientprotocol.com/protocol/prompt-turn">prompt completion and cancellation</a>. Live steering is not established by the base v1 prompt contract; the inspected adapters advertise it through an extension. Otto must confirm that extension at initialization and test its semantics. Do not turn an unsupported steer into a silently queued request. Use a native fallback when necessary, with unsupported operations reported explicitly. ACP is communication, not a sandbox, durable job scheduler, or internal agent-to-agent messaging model.</p>
+<p><strong>Codex:</strong> The <a href="https://developers.openai.com/codex/app-server/">official integration guide</a> documents <code>thread/start</code>, <code>thread/resume</code>, <code>thread/read</code>, <code>turn/start</code>, <code>turn/steer</code>, <code>turn/interrupt</code>, and structured completion events. It supports version-specific TypeScript schema generation. Use stdio internally. TCP WebSocket transport is explicitly experimental and unsupported. Dynamic tools are experimental too; the first integration should use configured MCP tools instead. The installed CLI, version 0.159.2, advertises app-server and its schema tooling but labels the command experimental. Pin a release and validate the supported methods; documentation alone is not a stability guarantee.</p>
+<p><strong>Pi:</strong> Its <a href="https://github.com/earendil-works/pi/blob/955cc6665ee3986c6a033db52200779310d10dfd/packages/coding-agent/docs/sdk.md">SDK guide</a> exposes session creation, resource loaders, skills, tool selection, steering, abort, and persisted context. A settled run is distinct from a low-level agent end. Current Pi includes MCP extensions; SDK sessions must load them explicitly. Its <a href="https://github.com/earendil-works/pi/blob/955cc6665ee3986c6a033db52200779310d10dfd/SECURITY.md">security policy</a> places containment with the caller. Pi session persistence does not supply an Otto occurrence ledger or prove exactly-once effects. It is the cleanest SDK option here when owning a separate harness is intentional.</p>
+<p><strong>Mastra:</strong> The <a href="https://mastra.ai/docs/harness/durable-agents">durable-agent guide</a> marks the API beta. Default stream cache is in memory, crash recovery is off by default, and recovery can repeat tool calls. Configured storage and recovery can address much of this, but they do not remove uncertainty around external side effects. Its <a href="https://mastra.ai/docs/connections/acp">ACP guide</a> explicitly says workspace-mediated file requests do not sandbox the process or its shell. Mastra is a credible framework, not automatic containment or exactly-once execution.</p>
+<p><strong>Eve:</strong> Its <a href="https://github.com/vercel/eve/blob/d09e3819b1a1334fea8741c7c9fce5457ae66460/docs/guides/deployment/self-hosting.md">self-hosting guide</a> documents a Node service, persistent local workflow data, custom Workflow worlds, and Docker or microsandbox providers. It currently requires compatibility with the Workflow 5.0.0-beta line and routing both runtime and workflow callbacks. <a href="https://github.com/vercel/eve/blob/d09e3819b1a1334fea8741c7c9fce5457ae66460/docs/guides/dynamic-capabilities.md">Dynamic capabilities</a> can resolve tools, skills, and connections at runtime, so agents are not restricted to completely static definitions. Its <a href="https://eve.dev/docs/sandbox">sandbox guide</a> describes session-owned state; reusing one computer across different sessions requires an explicit custom provider. Eve&#x27;s channels are transport integrations, not Otto&#x27;s shared Conversation records.</p>
+<p><strong>T3 Code:</strong> Its <a href="https://github.com/pingdotgg/t3code/blob/35be904f2fc40aa6d7a42778b6895e8274f3097f/docs/internals/providers.md">provider guide</a> puts native differences behind adapters. Its <a href="https://github.com/pingdotgg/t3code/blob/35be904f2fc40aa6d7a42778b6895e8274f3097f/docs/internals/overview.md">architecture guide</a> distinguishes committed command acceptance from completed provider work. Borrow those boundaries. Do not assume its internal adapter code is a standalone supported SDK.</p>
+<p><strong>Herdr:</strong> Its <a href="https://herdr.dev/docs/agent-automation/">automation contract</a> explicitly says it does not track individual turns. This makes it useful for terminals and human supervision, while Otto still needs structured provider correlation and durable accepted requests.</p>
+<p><strong>Subscription requirement:</strong> ACP does not choose billing. <a href="https://developers.openai.com/codex/auth/">Codex authentication</a> distinguishes ChatGPT subscription login from API-key usage and documents device login for remote computers. The inspected Codex ACP adapter supports both modes. Otto must verify the selected account and subscription mode before launch, reject unexpected API authentication, and stop on limits or expired login without switching billing or accounts. Parallel agents share the relevant account limits; bounded account-level admission complements environment leases.</p>
+<p><strong>Claude runtime:</strong> The <a href="https://code.claude.com/docs/en/agent-sdk/overview">Agent SDK overview</a> restricts third-party subscription login without approval. The <a href="https://code.claude.com/docs/en/legal-and-compliance">hosting and credential conditions</a> separately allow end users to sign into an unmodified hosted Claude Code binary with their own subscription under the stated conditions. Hosting requires Commercial Terms, preserving native authentication options, and direct end-user authentication and billing. Otto must not collect or intermediate Claude subscription tokens. The inspected ACP adapter technically offers subscription login, but its SDK-based product path is not established as qualified by this research. A direct adapter does not automatically resolve this. Qualify the integration before adoption; Codex can support the initial multi-agent proof while this remains open.</p>
+<p><strong>Craft Agents:</strong> At the <a href="https://github.com/craft-ai-agents/craft-agents-oss/tree/73bd9c2a3573158bea880984eb8d5fdb41e0cac2">reviewed source revision</a>, the README describes skills, MCP/API/local sources, subscription connections, and remote server sessions. The <a href="https://github.com/craft-ai-agents/craft-agents-oss/blob/73bd9c2a3573158bea880984eb8d5fdb41e0cac2/packages/shared/src/agent/backend/factory.ts">backend factory</a> selects Claude Agent SDK or Pi. The <a href="https://github.com/craft-ai-agents/craft-agents-oss/blob/73bd9c2a3573158bea880984eb8d5fdb41e0cac2/packages/pi-agent-server/src/adapt-credential.ts">Pi credential adapter</a> explicitly handles ChatGPT&#x27;s OAuth-only <code>openai-codex</code> provider. This uses Codex models through Pi, not the native Codex CLI harness. Borrow connection setup, skill discovery, and remote session boundaries. Do not infer provider approval from another app&#x27;s OAuth implementation or adopt its credential handling blindly.</p>
+<p><strong>Buzz:</strong> The local vision makes signed Nostr events and channel membership central. The inspected artifact payload is client-defined, and <code>buzz-acp run --task</code> delegates retry and task-result persistence to its caller. The Kubernetes pod uses <code>emptyDir</code>. These are specific integration gaps, not a verdict that the whole project is poorly designed. See the Buzz reference notes.</p>
+</section>
+<section class="section" id="keep-the-flow-simple"><h2>Keep the flow simple</h2>
+<figure><div class="diagram-scroll" tabindex="0" role="region" aria-label="One bridge, independent agents"><svg class="diagram" viewBox="0 0 880 590" role="img" aria-labelledby="bridge-title bridge-desc"><title id="bridge-title">One bridge, independent agents</title><desc id="bridge-desc">Two people share one Otto conversation. The server runtime uses durable database requests and dispatches independent ACP sessions to Codex and Claude on separate computers. External tools execute behind Otto connection grants. Saved outputs remain outside compute.</desc><defs><marker id="bridge-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="arrow" d="M 0 0 L 10 5 L 0 10 z"/></marker></defs><path class="edge" d="M 440 76 V 125" marker-end="url(#bridge-arrow)" marker-start="url(#bridge-arrow)"/><path class="edge" d="M 235 158 H 193" marker-end="url(#bridge-arrow)" marker-start="url(#bridge-arrow)"/><path class="edge" d="M 335 191 V 220 H 233 V 250" marker-end="url(#bridge-arrow)" marker-start="url(#bridge-arrow)"/><path class="edge" d="M 545 191 V 220 H 647 V 250" marker-end="url(#bridge-arrow)" marker-start="url(#bridge-arrow)"/><path class="edge" d="M 233 316 V 373 H 330 V 390" marker-end="url(#bridge-arrow)"/><path class="edge" d="M 647 316 V 373 H 550 V 390" marker-end="url(#bridge-arrow)"/><path class="edge" d="M 645 158 H 848 V 538 H 645" marker-end="url(#bridge-arrow)"/><g class="highlight"><rect x="235" y="10" width="410" height="66" rx="8"/><text class="d-title" text-anchor="middle" x="440.0" y="38">One shared Conversation</text><text class="d-sub" text-anchor="middle" x="440.0" y="59">People + agents + directed requests</text></g><g class="highlight"><rect x="235" y="125" width="410" height="66" rx="8"/><text class="d-title" text-anchor="middle" x="440.0" y="153">Otto server: domain functions</text><text class="d-sub" text-anchor="middle" x="440.0" y="174">Sessions + Runs + ACP + targeted controls</text></g><g class=""><rect x="8" y="125" width="185" height="66" rx="8"/><text class="d-title" text-anchor="middle" x="100.5" y="153">PostgreSQL</text><text class="d-sub" text-anchor="middle" x="100.5" y="174">Requests + outcomes</text></g><g class=""><rect x="68" y="250" width="330" height="66" rx="8"/><text class="d-title" text-anchor="middle" x="233.0" y="278">Agent A: Codex</text><text class="d-sub" text-anchor="middle" x="233.0" y="299">Own computer, files, browser, model context</text></g><g class=""><rect x="482" y="250" width="330" height="66" rx="8"/><text class="d-title" text-anchor="middle" x="647.0" y="278">Agent B: Claude</text><text class="d-sub" text-anchor="middle" x="647.0" y="299">Own computer, files, browser, model context</text></g><g class="highlight"><rect x="235" y="390" width="410" height="66" rx="8"/><text class="d-title" text-anchor="middle" x="440.0" y="418">Trusted Connections executor</text><text class="d-sub" text-anchor="middle" x="440.0" y="439">Account + grant + policy + credential resolution</text></g><g class=""><rect x="235" y="505" width="410" height="66" rx="8"/><text class="d-title" text-anchor="middle" x="440.0" y="533">Durable, selected outputs</text><text class="d-sub" text-anchor="middle" x="440.0" y="554">Run history + Conversation + Artifact library</text></g><text class="annotation" text-anchor="middle" x="440" y="580">Audience checks precede publication. Scripts use the same Run path without an LLM.</text></svg></div><figcaption>Proposed Otto architecture. ACP connects harnesses; Otto owns collaboration, isolation, permissions, automation occurrences, and saved outputs.</figcaption></figure>
+<p>Connections remain an Otto domain. The agent computer calls an authenticated tool bridge. The trusted connection executor checks the current agent grant, human sponsor, selected account, and action policy, then resolves credentials and executes the operation. Check the audience before putting private results into shared conversation context or publishing output. Connections also record the model account, human association, selected authentication mode, and runtime reference. Native subscription credentials stay in provider-managed private storage when required; Otto does not turn Claude OAuth into a centrally stored credential. Authentication must be permitted and proven with each selected harness release. Do not hand unrestricted external write credentials to the shell.</p>
+<p>The tool bridge may expose an internal MCP transport. It is not a second public CRUD API or a separate product model. Otto Sessions are distinct runtime records holding private harness context and a provider reference. Each binds one agent, Conversation, and environment scope; prompt Runs reference a Session, while scripts do not require one. Conversation owns participant memberships and selected shared messages without a type field. Recheck permission and retained-context scope before continuation; create fresh authorized context when reuse is no longer permitted. Sessions do not replace shared Conversation history or membership. One conversation can supervise several independent agent contexts. The server runtime must dispatch independent environments concurrently; one lease per environment must not become a global single-agent lock. Two people can observe and steer one agent without opening competing provider sessions.</p>
+<p>Agents address peers through an Otto conversation command carrying sender, recipient, and a request correlation ID. The recipient gets its own Run and scoped context. Replies do not wake every participant; bound exchanges and require a directed request for automatic execution. User-created peer agents are not ACP&#x27;s draft nested-subagent sessions. No hierarchical task model, mandatory supervisor, or orchestration graph is needed.</p>
+<p>Manual and cron automations launch the same Run path. A script does not need an LLM or a Codex turn. pg-boss owns cron and job delivery in the existing PostgreSQL database; Run admission deduplicates its request identity. One environment lease allows one active run initially. Server loss must leave an interrupted or uncertain outcome that can be reconciled, not trigger a blind replay of external writes. Persisted model context supports continuation; it does not prove what happened during an interrupted operation.</p>
+</section>
+<section class="section" id="server-owned-workspace-and-execution"><h2>Server-owned workspace and execution</h2>
+<p>The server composes the agents, environments, sessions, runs, connections, and automations domains. Environment owns workspace assignment and compute lifecycle; Runs own attempt state, ACP/process controls, and recovery; Automations integrate pg-boss scheduling. The server invokes these functions directly and starts the native executable inside the selected sandbox through its existing input/output transport. There is no separate Otto runner application or required agent-side Otto daemon. A persistent working directory and a sandbox are different responsibilities: the directory holds files; the backend supplies the isolated execution boundary and process lifecycle.</p>
+<p><a href="https://mastra.ai/docs/sandbox/overview">Mastra&#x27;s sandbox documentation</a> separates execution from files and supports backend-specific process controls. Default LocalSandbox is unisolated; native isolation or an isolated backend is necessary. Its <a href="https://mastra.ai/docs/sandbox/filesystem">filesystem documentation</a> distinguishes file-tool path containment from shell containment. Neither importing Workspace nor mounting S3 automatically contains a native coding process. Reuse the pattern or a specific component after proving interactive ACP input/output, persistent agent homes, separate browser and credential state, and targeted process-tree cleanup.</p>
+<p>Persist a launch key and environment generation before dispatch, then the backend execution reference before reporting launch success. If launch acknowledgement is lost, find the execution by its launch key rather than starting a duplicate. If the backend cannot resolve that key, stop and confirm the environment&#x27;s active processes before retrying; otherwise retain an uncertain outcome. A backend must enforce a bounded execution deadline after server loss. Server recovery reconciles or stops the old process before launching a replacement; a database lease alone cannot stop an old shell or external write. These controls belong in the server-used Run and Environment functions and backend adapter.</p>
+<p>Garage is selected for saved artifact bytes, with PostgreSQL remaining authoritative for metadata and access. Keep working volumes separate from published artifact storage. Garage&#x27;s <a href="https://garagehq.deuxfleurs.fr/documentation/quick-start/">single-node guide</a> warns that an unreplicated setup is unsuitable for production redundancy requirements. Verify the chosen deployment&#x27;s write durability and backup restore; use replicated Garage or an existing external S3 store when redundancy is required. This source-based choice is not a runtime certification.</p>
+</section>
+<section class="section" id="what-we-build-and-what-we-reuse"><h2>What we build and what we reuse</h2>
+<p>Start a fresh Otto monorepo and selectively reuse compatible libraries or code after checking dependencies. Refactoring BB would also require changing its thread ownership, shared-environment assumptions, and daemon transport to meet Otto&#x27;s model. Its internal ACP package depends on BB domain and protocol packages; extraction is not presumed complete. Use thin, granular packages for projects, tasks, conversations, documents, artifacts, agents, environments, sessions, runs, connections, and automations. Keep Collections and skills with Documents because they reuse that content model. These packages compose inside one server and share PostgreSQL; they are not services. Their value is human ownership, flat task organization, shared context, controlled tools, documents, artifacts, and simple automation. Reuse coding harnesses, maintained ACP adapters, an existing isolated sandbox or computer backend, an established editor, provider SDKs, and durable file storage. Start with one bridge implementation, one environment backend, and one GitHub connection. Reuse pg-boss for durable jobs and cron rather than writing a scheduler. Keep current Document content, one output per Artifact, and inline Automation prompt/script bodies. Preserve exact Run inputs and public share selections without adding product revision histories.</p>
+<p>The bridge needs launch, attach or read, steer, stop, approval response, and normalized events, with explicit capability checks. Keep provider session, turn, and item IDs behind it. Runtime-specific state is stored as an execution reference, not another user-facing object model. No universal plugin system is needed for the initial provider pair.</p>
+</section>
+<section class="section" id="postgresql-jobs-pg-boss-before-dbos"><h2>PostgreSQL jobs: pg-boss before DBOS</h2>
+<p><strong>Recommendation:</strong> use pg-boss as a server library for manual dispatch and cron, with the existing PostgreSQL database. Automation is one saved prompt/script launch; Run is its execution record. DBOS is a reasonable alternative when durable multi-step workflows or long waits become a demonstrated requirement.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="PostgreSQL jobs: pg-boss before DBOS table"><table class="table"><thead><tr><th scope="col">Choice</th><th scope="col">What it gives</th><th scope="col">Fit now</th></tr></thead><tbody>
+<tr><td>pg-boss</td><td>PostgreSQL-backed jobs, cron, retries, and transactional enqueue</td><td>Directly covers one launch and schedule; no extra service</td></tr>
+<tr><td>DBOS</td><td>Embedded PostgreSQL workflow checkpoints, durable queues and schedules, step recovery</td><td>Adds value for multi-step orchestration; replay and code-upgrade rules need deliberate handling</td></tr>
+<tr><td>Custom queue/cron</td><td>Tables, polling, locking, and recovery written by us</td><td>More code to maintain than the library; avoid</td></tr>
+</tbody></table></div>
+<p><a href="https://docs.dbos.dev/architecture">DBOS architecture</a> requires no separate orchestration server. Single-node startup can recover incomplete workflows. Its replay requires deterministic step ordering and retry-safe steps; changing step sequences requires compatible code updates. Its <a href="https://docs.dbos.dev/typescript/tutorials/workflow-tutorial">workflow cancellation</a> preempts at the next step, so an executing native process still needs explicit backend termination. These are useful guarantees for the right workflow, not a substitute for Otto&#x27;s isolation and uncertain-operation rules.</p>
+<p><strong>Reviewed pg-boss source:</strong> <code>8bbcf58153578b1bb7e5bed206d7603187de6af8</code>, package version 12.35.1, a source snapshot rather than an adopted release. Its <a href="https://github.com/timgit/pg-boss/blob/8bbcf58153578b1bb7e5bed206d7603187de6af8/docs/api/adapters.md">Drizzle adapter</a> puts job creation in the application&#x27;s transaction, including rollback. Its <a href="https://github.com/timgit/pg-boss/blob/8bbcf58153578b1bb7e5bed206d7603187de6af8/docs/api/scheduling.md">scheduling guide</a> describes named timezones, minute-level evaluation, and skipped missed ticks by default. Its <a href="https://github.com/timgit/pg-boss/blob/8bbcf58153578b1bb7e5bed206d7603187de6af8/docs/database-backends.md#bun-driver">Bun driver documentation</a> describes Bun.SQL integration; Otto selects Bun for its own runtime and still needs a selected-release compatibility proof. Vitest remains mandatory, with Bun-forced execution; the small local worker/API smoke is recorded in the stack options.</p>
+<p>Save Run inputs and dispatch job atomically. A cron job admits one Run using its stable identity and current Automation configuration token. Dispatch jobs carry only the Run ID; redelivery launches or reconciles the same execution. Acknowledge only after saving the backend execution reference. On startup also reconcile nonterminal Runs whose dispatch jobs already completed. Queue retry/expiry is not permission to repeat an external write. Verify selected-release schedule/job transaction support; where not atomic, retain durable schedule reconciliation and reject stale tokens. No ACP event-stream checkpoint workflow, Redis, worker app, or custom command bus is required.</p>
+</section>
+<section class="section" id="proof-before-adoption"><h2>Proof before adoption</h2>
+<p>Start with the small server execution proof in the plan: two concurrent subscription-backed Codex agents on separate computers. Add a second ACP implementation or a controlled fixture to falsify provider-specific assumptions in configuration, routing, and capability handling. Fixtures do not prove billing or real-agent compatibility. Supported launch agents need the full control and recovery proof; custom agents advertise any reduced feature set explicitly.</p>
+<p>Implement and exercise one slice before treating the recommendation as an adopted dependency:</p>
+<ol>
+<li>Establish permitted subscription use for the selected releases, verify the native account and mode, and exercise manual and cron prompts. Check unexpected API authentication, expiry, and quota exhaustion: no billing or account fallback is allowed. Then start two independent agents concurrently, preferably one Codex and one qualified Claude, with two people in one conversation. Edit files, run a test, stream progress, steer one agent, and stop it during a tool call while the other continues. Exchange one directed request and reply without extra wakeups. Confirm provider identity, authorship, context separation, and completion semantics.</li>
+<li>Disconnect the UI and restart the server. Recover accepted requests and stored context without claiming an interrupted tool succeeded or issuing a duplicate external write. Persist and reconcile provider correlation across a lost launch response.</li>
+<li>Supply saved skill inputs and an MCP tool through the adapter. Enforce revoked grants, account identity, model authentication, output audience, and a shell that cannot bypass protected external writes. Prove process cleanup and per-agent computer isolation. Kill the server while a shell is running; verify the backend-enforced deadline and reconciliation prevent concurrent replacement execution.</li>
+<li>Run manual and cron prompts, then scripts without model calls. Deliver a schedule occurrence twice, overlap requests, and replace compute. Files and saved artifacts must follow the plan&#x27;s persistence rules. Restore PostgreSQL and Garage together and read the saved artifact bytes.</li>
+</ol>
+<p>If an ACP adapter cannot satisfy subscription authentication or expose a required control or authorization boundary on its pinned release, evaluate a direct native adapter behind the same bridge. Do not defer required multi-agent behavior. Evaluate Pi if we deliberately decide to own a different harness across model providers. If durable multi-step orchestration becomes essential, reopen Mastra or Eve against that concrete requirement. These are decision triggers, not additional launch dependencies.</p>
+</section>
+<section class="section" id="source-record-and-limits"><h2>Source record and limits</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Source record and limits table"><table class="table"><thead><tr><th scope="col">Project</th><th scope="col">Reviewed revision</th><th scope="col">License record inspected</th></tr></thead><tbody>
+<tr><td>Codex</td><td><code>60947e234156ac12bdb7fba2477d3965f166bd34</code></td><td>Apache-2.0</td></tr>
+<tr><td>Codex ACP adapter</td><td><code>ba7b21636190a95626631c9a9226298d41d19325</code></td><td>Apache-2.0 in LICENSE</td></tr>
+<tr><td>Claude ACP adapter</td><td><code>bdb50ad984336e62dde1d41339f04071f6617085</code></td><td>Apache-2.0; underlying SDK has separate terms</td></tr>
+<tr><td>Pi</td><td><code>955cc6665ee3986c6a033db52200779310d10dfd</code></td><td>MIT</td></tr>
+<tr><td>Mastra</td><td><code>af7e837cf6274f98c35c1dcda345188df8891932</code></td><td>Core Apache-2.0; enterprise and other component exceptions need separate checks</td></tr>
+<tr><td>Eve</td><td><code>d09e3819b1a1334fea8741c7c9fce5457ae66460</code></td><td>Apache-2.0</td></tr>
+<tr><td>T3 Code</td><td><code>35be904f2fc40aa6d7a42778b6895e8274f3097f</code></td><td>MIT</td></tr>
+<tr><td>Craft Agents</td><td><code>73bd9c2a3573158bea880984eb8d5fdb41e0cac2</code></td><td>Apache-2.0; provider and SDK terms remain separate</td></tr>
+<tr><td>Herdr</td><td><code>347f9c99bc95672e5ebcb26753648e85801d3c71</code></td><td>Apache-2.0</td></tr>
+</tbody></table></div>
+<p>Repository heads were resolved through GitHub&#x27;s API and selected files fetched at those revisions. The local Buzz source was inspected at <code>084250a</code>; BB&#x27;s previously reviewed revision is recorded in the reference guide. A source pin is an evidence snapshot, not the release we have selected to install. Public docs can change independently.</p>
+<p>No candidate was installed or benchmarked for this research. The existing Codex CLI help was exercised; no new model run, framework integration, isolation backend, automation, connection, or sharing flow was tested. The proof above remains required. Repository license records are evidence for package selection, not a conclusion about every dependency&#x27;s terms.</p>
+<p>The base product contract remains OTTO_PLAN.md. OTTO_REFERENCES.md provides entry points for implementation questions.</p>
+</section>
+<section class="section" id="web-first-and-human-authentication"><h2>Web first and human authentication</h2>
+<p>The web MVP uses React, TypeScript, Vite, Tailwind CSS v4, and shadcn/ui. Better Auth runs inside apps/server with its PostgreSQL Drizzle adapter. Otto still enforces workspace/project membership, Conversation access, and agent grants; human login does not authenticate native model subscriptions or replace Connections. Better Auth login sessions and Otto Sessions have different schemas and purposes. Electron and Expo WebView clients are later objectives, with separate authentication, deep-link, and session-handoff proof. These selections are not implemented or runtime-qualified. See the primary references in the plan and reference guide.</p>
+</section><footer class="page-footer"><span>Generated by <strong>bb</strong> for <strong>Gafaro</strong> · Hello Gafaro</span><span>1 October 2026</span></footer></main></body></html>

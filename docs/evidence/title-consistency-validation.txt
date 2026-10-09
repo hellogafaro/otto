@@ -1,0 +1,54 @@
+Title consistency correction — author validation, independent affected review PENDING
+Base HEAD: 306bd2d4cbdda76c5d91f5d50763390865fe33ce; previous author freeze: 984c1aa71e735e7ce99db73ec23b85a44052684213c1125fabe9f16448ea2a1d.
+Old domain-cleanup acceptance/verdict/probes/manifest/log are immutable; their PASS does not cover this amendment.
+
+Observed behavior:
+- New title request was reproduced as HTTP 400 before the rename (title-http-red.log).
+- Final HTTP/Better Auth/private-PG test creates, edits and reads Project/Agent/Connection/Subscription/Automation title with no public name alias; Workspace discovery exposes title. Human members still expose name.
+- Raw SQL proves renamed scalar titles still persist in physical name columns; fresh/repeated native push preserves schema/data/queue ownership and integrity in schema.test.ts.
+- Existing Collection JSON {name:"Legacy label"} reads as {title:"Legacy label"}; field identity/type retained and raw persisted JSON unchanged. New fields accept title. No data conversion runs.
+- Connection title-only update preserves saved grant and exact approval, followed by one successful controlled HTTP provider operation (connections.test.ts).
+- MCP/ACP/GitHub wire identifiers, SKILL.md import/export, trusted tool identifiers, Run/Session accepted schemas and operation digest code are unchanged by hash versus984; full regression suite exercises those boundaries.
+- Existing schema consistency scan rejects owned pgTable name properties and CollectionField.name while allowing auth_users.name and native constraint options.
+
+Final commands (explicit repository cwd; package name otto verified before frozen install):
+bun install --frozen-lockfile => PASS exit 0 (0.02s); title-final-install.log
+bun run check => PASS exit 0 (0.15s); title-final-check.log
+bun run typecheck => PASS exit 0 (6.08s); title-final-types.log
+bun run check:boundaries => PASS exit 0 (0.02s); title-final-boundaries.log
+bun run check:consistency => PASS exit 0 (0.3s); title-final-consistency.log
+bun run build => PASS exit 0 (1.34s); title-final-build.log
+git diff --check => PASS exit 0 (0.02s); title-final-diff.log
+bun run test => PASS exit 0 (257.94s); title-final-full.log
+
+ Test Files  24 passed (24)
+      Tests  228 passed (228)
+   Start at  23:32:21
+   Duration  257.64s (tests 98%, import 1%)
+
+Vitest worker /proc executable observed as /home/g4f4r0/.bun/bin/bun; foundation/schema assertions also check Bun. Pinned Bun1.4.2, Vitest5.0.3, PostgreSQL18.4, Drizzle ORM0.45.3/Kit0.31.11. Native repeat push may emit composite-FK DDL; gate is semantic stability, not no-op. No source changed during final checks.
+Intermediate checks: initial type errors in two stale test reads and an incorrect member fixture parser were corrected; initial title-http-green.log is a FAILED intermediate check, not final proof. Focused title-http-mapping.log is1/1 PASS before full228 PASS.
+
+Scope: 41 source/test/current-guide files differ from984. No authorization, model, provider, UI, dependency or stored accepted-snapshot/digest change. Six scalar title properties deliberately retain SQL name. Collection old name exists only as a private stored JSON input, normalized at the owning getter; there is no public alias. Historical evidence/UI/package manifests/lock preserved; no staged paths or remotes. Pattern scan reports no flags, not secret-content certification.
+
+Unverified/deferred: independent affected review; live compute/native login/subscription/billing/isolation/Garage/external credentials. Controlled peers only prove exercised contracts. No browser rerun because UI unchanged. No live/shared DB changes, commit, staging, push or Notion action. Actual human work time unknown.
+
+Raw logs, source diff, preservation and check status: /home/g4f4r0/.bb/thread-storage/thr_kfugrrgbs4/title-consistency-freeze
+
+Raw log SHA256:
+2e2d5426a09cfb908f0d401652fc626bb9bb253211a274e9bfd8afc5cf04422a  title-final-boundaries.log
+e720c72b076ee4ef5a5c71d82cb01e0da744a615c8753840a793c708ac8444df  title-final-build.log
+1bada1452f7d0b704834c8cd16cd2b5d94ae38c89a0b22b89a176c82d590e20a  title-final-check.log
+226c466d1fcc39e1e60b06d1ef8e88872f6704f94924c24ed1e5051bd72b36cc  title-final-consistency.log
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  title-final-diff.log
+677e2a0e6537792ed11f8da7743409fef6dd7dfafc32400a108b37eb05b22b7e  title-final-format.log
+712d779e2649a3d78fa1e7f6e625ed78ca45e6f48dd0da6a9dbd5bc01dd3be5d  title-final-full.log
+0830bbfbfd6fcd8e7c0a972423fea2397a26e3e94aa48eeac49701e500783f44  title-final-install.log
+93891df227c484d45362cf90a955f9971de48ca29a2f2397b16862ffd5663091  title-final-types.log
+a73c9366ee2616d17dcc425942ed9e01b60da59b9491673d6eb7af50a5df443d  title-format.log
+e767526ab6558c7138eea87342e9dd1902f2dcc3ed635282e95de4e062c5ddc9  title-http-green-final.log
+6ef394176e0861f80e313d9d06b2029165e3e875ea1e4d3acde5cc902e5bc20a  title-http-green.log
+9e59c4e912b86a1ab3b2a0883bdbba4b49b844c9623763da7b66bc2dd5ef07aa  title-http-mapping.log
+8a72c234221ebe4695499103c8418d5f2ecd2b322d4886140fb914208a213e77  title-http-red.log
+d188a4353736b23017c510f3710f0f99f7600c7efb6675fafb2ec4eeb5a79a78  title-types-initial.log
+93891df227c484d45362cf90a955f9971de48ca29a2f2397b16862ffd5663091  title-types.log

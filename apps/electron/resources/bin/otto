@@ -1,3 +1,0 @@
-#!/bin/sh
-# The agents' otto CLI (resources/scripts/otto.mjs) on the bundled Bun.
-exec "${OTTO_BUN:-bun}" "$(dirname "$0")/../scripts/otto.mjs" "$@"

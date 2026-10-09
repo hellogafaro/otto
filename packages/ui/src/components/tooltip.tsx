@@ -1,49 +1,66 @@
-import * as React from 'react'
-import {
-  Tooltip as DSTooltip,
-  TooltipContent,
-  TooltipProvider as DSTooltipProvider,
-  TooltipTrigger as DSTooltipTrigger,
-} from '@workspace/ui/components/tooltip'
-import { asChildProps } from '../lib/as-child'
+"use client";
 
-/**
- * Adapter over the design-system Tooltip (Base UI). Keeps the Radix-shaped API:
- * `asChild` on TooltipTrigger, `delayDuration` on TooltipProvider and Tooltip.
- *
- * Base UI tooltips work without a provider (a provider only shares the delay
- * between neighbouring tooltips), so call sites do not need one; the app root
- * still mounts one in app.tsx.
- */
-
-const DelayContext = React.createContext<number | undefined>(undefined)
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+import { cn } from "cn";
 
 function TooltipProvider({
-  delayDuration,
-  delay,
+  delay = 0,
   ...props
-}: React.ComponentProps<typeof DSTooltipProvider> & { delayDuration?: number }) {
-  return <DSTooltipProvider delay={delay ?? delayDuration} {...props} />
-}
-
-function Tooltip({
-  delayDuration,
-  ...props
-}: React.ComponentProps<typeof DSTooltip> & { delayDuration?: number }) {
+}: TooltipPrimitive.Provider.Props) {
   return (
-    <DelayContext.Provider value={delayDuration}>
-      <DSTooltip {...props} />
-    </DelayContext.Provider>
-  )
+    <TooltipPrimitive.Provider
+      data-slot="tooltip-provider"
+      delay={delay}
+      {...props}
+    />
+  );
 }
 
-function TooltipTrigger({
-  asChild,
+function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
+  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+}
+
+function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+}
+
+// Otto: a lean label (24px tall, 6px radius) on the menu surface. Anything
+// richer than a label belongs in a HoverCard.
+function TooltipContent({
+  className,
+  side = "top",
+  sideOffset = 4,
+  align = "center",
+  alignOffset = 0,
   children,
   ...props
-}: React.ComponentProps<typeof DSTooltipTrigger> & { asChild?: boolean }) {
-  const delay = React.useContext(DelayContext)
-  return <DSTooltipTrigger delay={delay} {...asChildProps({ asChild, children, ...props })} />
+}: TooltipPrimitive.Popup.Props &
+  Pick<
+    TooltipPrimitive.Positioner.Props,
+    "align" | "alignOffset" | "side" | "sideOffset"
+  >) {
+  return (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Positioner
+        align={align}
+        alignOffset={alignOffset}
+        side={side}
+        sideOffset={sideOffset}
+        className="isolate z-50"
+      >
+        <TooltipPrimitive.Popup
+          data-slot="tooltip-content"
+          className={cn(
+            "z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 dark relative rounded-sm bg-popover/70 px-2 py-1 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 animate-none! before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150 has-data-[slot=kbd]:pr-1 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-xs data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </TooltipPrimitive.Popup>
+      </TooltipPrimitive.Positioner>
+    </TooltipPrimitive.Portal>
+  );
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger };

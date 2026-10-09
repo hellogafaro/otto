@@ -1,0 +1,102 @@
+name: otto
+services:
+  postgres:
+    image: postgres:18.4
+    environment:
+      POSTGRES_DB: otto
+      POSTGRES_USER: otto
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Inject POSTGRES_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U otto -d otto"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [private]
+  garage:
+    image: dxflrs/garage:v2.4.1
+    command: [server]
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?Inject GARAGE_RPC_SECRET}
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    restart: unless-stopped
+    networks: [private]
+  schema:
+    build: {context: .., dockerfile: ops/Dockerfile, target: app}
+    command: [bun, scripts/push.ts]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Inject DATABASE_URL}
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [private]
+    restart: "no"
+  server:
+    build: {context: .., dockerfile: ops/Dockerfile, target: app}
+    environment:
+      HOST: 0.0.0.0
+      PORT: 43001
+      OTTO_ORIGIN: ${OTTO_ORIGIN:?Set OTTO_ORIGIN}
+      DATABASE_URL: ${DATABASE_URL:?Inject DATABASE_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Inject BETTER_AUTH_SECRET}
+      S3_ENDPOINT: http://garage:3900
+      S3_REGION: garage
+      S3_BUCKET: ${S3_BUCKET:?Set private bucket}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Inject S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Inject S3_SECRET_ACCESS_KEY}
+      MAIL_FROM: ${MAIL_FROM:?Set verified sender}
+      RESEND_API_KEY: ${RESEND_API_KEY:?Inject RESEND_API_KEY}
+      OTTO_GATEWAY_URL: http://127.0.0.1:8317
+      OTTO_GATEWAY_KEY: ${OTTO_GATEWAY_KEY:?Inject OTTO_GATEWAY_KEY}
+      OTTO_GATEWAY_STORE_KEY: ${OTTO_GATEWAY_STORE_KEY:?Inject OTTO_GATEWAY_STORE_KEY}
+      INFISICAL_URL: ${INFISICAL_URL:?Set Infisical endpoint}
+      INFISICAL_TOKEN: ${INFISICAL_TOKEN:?Inject scoped Infisical token}
+      OTTO_ACCOUNT_SECRET_BINDINGS: ${OTTO_ACCOUNT_SECRET_BINDINGS:?Set exact workspace secret scopes}
+    depends_on:
+      schema: {condition: service_completed_successfully}
+      garage: {condition: service_started}
+    healthcheck:
+      test: [CMD, bun, scripts/health.ts]
+      interval: 10s
+      timeout: 6s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 30s
+    restart: unless-stopped
+    networks: [private, outbound]
+  gateway:
+    build: {context: .., dockerfile: ops/Dockerfile, target: gateway}
+    network_mode: service:server
+    environment:
+      OTTO_GATEWAY_KEY: ${OTTO_GATEWAY_KEY:?Inject OTTO_GATEWAY_KEY}
+      OTTO_GATEWAY_STORE_KEY: ${OTTO_GATEWAY_STORE_KEY:?Inject OTTO_GATEWAY_STORE_KEY}
+      OTTO_GATEWAY_STORE_URL: http://127.0.0.1:43001
+    depends_on:
+      server: {condition: service_started}
+    stop_grace_period: 30s
+    restart: unless-stopped
+  caddy:
+    build: {context: .., dockerfile: ops/Dockerfile, target: edge}
+    environment:
+      OTTO_HOST: ${OTTO_HOST:?Set hostname}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      server: {condition: service_healthy}
+    restart: unless-stopped
+    networks: [private, outbound]
+networks:
+  private: {internal: true}
+  outbound: {}
+volumes:
+  postgres: {}
+  garage-meta: {}
+  garage-data: {}
+  caddy-data: {}
+  caddy-config: {}

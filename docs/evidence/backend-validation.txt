@@ -1,0 +1,80 @@
+Otto backend correction validation, 2026-10-02T11:04:53.902362+00:00
+
+Base commit: 2bdcb93124bcb0bfb300382695faab7bf0c2c87f
+Backend implementation: independently reviewed checkpoint, authorized for one signed-off local save.
+Source manifest: backend-source-sha256.txt (96 files)
+Manifest SHA-256: ffd493cecbb5282bd387681b2db72ea5c115eed6206c4b537f5cc90b003f32e1
+Prior reviewed manifest: 39fa2d67198a011feb2bce11e053fad8bd5f7f780e0223b6706c9790560204fa (93 files)
+
+Environment: Linux x86_64, Bun 1.4.2, real PostgreSQL 18.4.
+Private 0700 Unix sockets and disposable data directories; TCP disabled.
+Vitest worker/process Bun identity assertion remains in the full passing suite.
+
+Reproduction before production fixes:
+  bun --bun vitest run tests/authorization.test.ts
+  1 suite failed; 11 failed, 3 passed (14 checks), 1.77s.
+  Later workspace/project members saw saved Run Artifact metadata in library results.
+  Restricted Document access resolved for an agent actor using its human sponsor.
+  Regrant on a disconnected Connection resolved successfully.
+  Changed skills/Task/Session/Automation controls returned an old Run; changed unknown
+  Conversation/Agent IDs produced not_found instead of an identity conflict.
+  Three checks already passed: kind/body conflict and unchanged default-source retry.
+
+Exact final runtime invocation from /home/g4f4r0/projects/otto:
+  bun run test
+Resolved script:
+  bun --bun vitest run
+ RUN  v5.0.3 /home/g4f4r0/projects/otto
+ Test Files  6 passed (6)
+      Tests  47 passed (47)
+   Start at  13:02:41
+   Duration  11.67s (tests 84%, import 9%, transform 7%)
+
+Correction suite: 16 production-domain tests, including parameterized controls.
+Checks cover both workspace and Project audience caps, metadata/list/download denial,
+original-recipient access and revocation during fixture storage reads; restricted agent
+Document/Artifact reads and human-authorized skill snapshots; disconnected grant,
+stale-row snapshot, operation request/retry and approval denial with an active control;
+all RunRequest controls, null/default normalization, exact snapshot retry, explicit
+Session/Task/Automation controls, no extra queue/Session rows and legacy retry conflict.
+Agent-identity cases are direct-domain proof, not a current HTTP actor exploit.
+Artifact bytes use a named fixture; no Garage durability result is established.
+
+Other checks rerun on this correction (all exit 0):
+  bun run check             -- 80 files, no fixes
+  bun run typecheck         -- root strict TS and web TS
+  bun run check:boundaries  -- 14 packages, no private imports/cycles
+
+Historical unchanged setup/web proof (previous checkpoint, not rerun for backend-only fixes):
+  bun install --frozen-lockfile
+  bun run test:browser      -- 1 Playwright/Bun test, Vite build; rendering, keyboard,
+                              pointer cursor and theme toggle, no page errors.
+  Screenshot: generated-web-playwright.png
+Dependency manifests/lock and generated web sources match the prior reviewed fingerprint.
+
+Pinned runtime/tool packages:
+  hono: 4.13.12
+  drizzle-orm: 0.45.3
+  pg: 8.23.1
+  pg-boss: 12.35.1
+  better-auth: 1.7.7
+  @better-auth/drizzle-adapter: 1.7.7
+  pino: 10.3.1
+  zod: 4.6.5
+  @aws-sdk/client-s3: 3.1145.0
+  vitest: 5.0.3
+  @playwright/test: 1.63.0
+  @biomejs/biome: 2.5.15
+  embedded-postgres: 18.4.0-beta.17
+  Vite: 8.3.2, resolved in bun.lock
+
+No native login, isolated compute, remote process recovery, wall-clock cron/DST or
+performance result is established by this evidence. No external-write or full-product certification is claimed.
+
+Independent focused rechecks (reported by root, 2026-10-02):
+  Argus: PASS, no remaining blockers; independently verified all 96 source hashes,
+         reran 47 tests, Biome, TypeScript and 14-package boundaries; scores 9/9/9.
+  Cody (Claude): PASS, no introduced defects; independently verified all 96 source hashes,
+                 reran 47 tests and inspected correction sources, migration and regressions.
+Both verdicts apply to the manifest above. Source remained unchanged for local commit;
+only review-status wording in the three handoff/evidence documents was updated.

@@ -1,0 +1,40 @@
+Otto current backend — author validation,2026-10-02
+Repository /home/g4f4r0/projects/otto; baseline03192913bfc93a733e721d270b5cd1c98c0a2c34.
+Uncommitted/unstaged exact source freeze; fresh independent Otto recheck PENDING. Historical198c9b semantic review REQUEST CHANGES remains immutable. No independent PASS claim.
+
+VERIFIED COMMANDS (explicit repository cwd; each exit inspected independently)
+- bun run test -> bun --bun vitest run: exit0,24files209/209,263.62s. Tests assert Bun; launcher executable observed as /home/g4f4r0/.bun/bin/bun despite its argv display. Full summary in backend-current-tests.txt.
+- bun run check: exit0,136files. Initial formatting-only failure corrected; current check clean.
+- bun run typecheck: exit0,strict server and web TypeScript.
+- bun run check:boundaries: exit0,15packages; declared dependencies/private-schema boundaries/acyclic operations, native schema-only cycles explicitly allowed.
+- bun run check:consistency: exit0,65handwritten backend files,113unique paths,63catch/rejection sites inventoried (count is not semantic proof).
+- bun run build: exit0,Vite8.3.2,370ms;20generated web/UI files byte-identical to0319291. No product UI edits/browser rerun in this backend-only slice.
+- bun install --frozen-lockfile: exit0,525installs/640packages,no changes,15ms; package name otto checked first. Lock changes from baseline are explicit workspace dependencies/shared primitives/schema links and existing pinned Zod, not new provider SDKs.
+- git diff --check: exit0. No staged paths or remote. Candidate path/credential-pattern and local-link scans recorded with source manifest; not a secret-content certification.
+- Controlled fairness command: bun --bun vitest run tests/runtime.test.ts -t "runs two Agents independently" --disableConsoleIntercept: exit0,1/1,5.89s. Two controlled Agents/32 real authenticated HTTP reads over private PG; p95=67.04ms,targeted Stop=78.33ms,RSS160063488bytes,Linux x86_64/8logicalCPUs. Fixture context and raw record in backend-current-tests.txt; no production speed guarantee.
+
+PINNED RUNTIME
+Bun1.4.2 (744846f84),Vitest5.0.3,TypeScript6.0.3,Biome2.5.15,PostgreSQL18.4 via embedded-postgres18.4.0-beta.17,DrizzleORM0.45.3/Kit0.31.11,Hono4.13.12,BetterAuth1.7.7,pg-boss12.35.1,Zod4.6.5,Pino10.3.1,AWS SDK3.1145.0,Vite8.3.2. GitHub header2026-03-10,MCP2025-11-25,ACPv1+explicit negotiated Otto extension. Private test PG uses process-owned0700 sockets,TCPdisabled,fsyncon; trust auth is test-only.
+
+OBSERVED INPUT -> OUTPUT
+- Verified human HTTP invitation/create/retry/revoke/accept and eligible ownership mutations -> exact current authorization, single-use membership, explicit sent/unavailable/uncertain mail result. Mail sink is controlled.
+- Duplicate/changed admission and forced queue transaction failure -> one immutable Run/snapshot/job or full rollback/conflict; failed dispatch has independent sibling ownership. Real PG+pg-boss.
+- Actual HTTP admission -> real queue worker -> production runtime -> controlled ACP -> persisted activity/tool/message/Artifact -> authorized HTTP/WS readback. Two Agents remain independently controllable; fake browser actor/proof rejected.
+- Viewer human/Agent, retained-source change, private peer dependency, membership/visibility/grant removal -> denied admission/output/tool/reuse; accepted Task reads remain snapshot A after live edit B, next Run accepts B.
+- Pending launch+Stop with absent lookup -> retained lease and stopped:false; late false tree ack -> uncertain, confirmed ack -> release. Unjoined server tool during Stop OR shutdown -> persisted tool_cleanup_unconfirmed; fresh-runtime exited lookup cannot release lease.
+- Human/agent Artifact creation -> immutable digest/intent bytes and saved/current audience caps; explicit selected share/read/revoke. Named in-memory storage and controllable S3 peer qualify protocol/composition only.
+- Restricted Doc/Artifact ACL with Project-ineligible recipient ->403,no Run/job side effects. Adding current eligible Project member permits; removal while ACL retained rejects again. Skill visibility widening with private files rejects transactionally; after-I/O file audience revocation withholds bytes.
+- Concurrent same-provider/computer bindings -> one successful binding, other409; scripts-only viewer403; distinct references succeed. Canonical adapter references are assumed, no physical alias detection/provisioning claim.
+- Manual disabled Automation -> admitted, cron disabled -> no new launch; archive blocks new/manual, restore remains disabled; actual minute prompt/script delivery, duplicate/edit fencing and server-owned removed-sponsor backlog/minute recovery/restart exercised.
+- Native fresh schema push and repeated sync -> same definitions/data/native queue jobs; invalid composite/human/check/size writes reject. Pinned Kit reorders composite FK metadata and emits drop/add DDL; semantic stability is verified, NOT a no-op sync. Startup performs read-only declared-schema/version checks, not auto-push. Missing/mismatched schema fails closed.
+- Runtime fails during blocked readiness DB probe ->503 after probe. Actual executable startup/stop/restart and cleanup errors exercised.
+
+CORRECTION TRACE
+F1 same-transaction writer control; F2 complete accepted retained source scope/accepted-only tool reads; F3 one-job dispatch failure ownership; F4 bounded nonblocking ACP tool/control cancellation; F5 whole-tree acknowledgement before script release; F6 actual scoped proposals and human-owned Agent Task creation. All included in209. Historical F3 broader32/33 fixture failure remains recorded, resolved by cancelling only terminal capacity-fixture jobs. C1-C3/CONTENT-1/E1-E6 final sweep red/green in backend-current-regressions.txt. Earlier135/182,171/176 and focused fixture/assertion failures are intermediate evidence, not this verdict.
+
+PHASE AND REVIEW
+Actual compute allocation/cloud or local adapter/native login/subscription/billing/physical isolation/VM recovery deliberately deferred to human provider discussion. Existing typed connector/models/trusted injection + controlled fixtures are the selected phase. Live GitHub/MCP/Infisical/Resend permissions/external writes and Garage durability/backup restore unverified; no verified Otto Infisical scope supplied. No credential access, live provisioning, UI work, Notion, staging/commit/push/deploy. Actual human work time unknown.
+Historical schema upgrades are preserved in prior archives only; current policy is zero app migration history/native development push. Exact current source manifest is backend-current-source.json. Root must verify the immutable archive and obtain fresh independent Otto review before any completion/commit verdict.
+
+SOURCE SHA256 04c161d42215304f316dded198c4ddf8a2041e354bbeddc1dacd9553d00ca343
+215 file fingerprints;2 self-describing evidence files excluded. Candidate path/credential-pattern scan: no matches; 39 current local links resolve, no staged paths/remotes. Detailed scan /home/g4f4r0/.bb/thread-storage/thr_kfugrrgbs4/backend-current-freeze/candidate-scan.json.

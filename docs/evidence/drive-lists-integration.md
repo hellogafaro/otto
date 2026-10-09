@@ -1,0 +1,35 @@
+# Drive, list sorting/filtering and labels: combined integration record
+
+Scope: the Drive organization and 100 MB transfer API, typed per-domain list sorting and filtering (default and maximum 100), and Document/File labels, integrated once into this checkout over the 334-file prior working change. No commit, deployment or UI change is part of this record. Credentials were not used or printed; the credential incident recorded by root is not remediated by this code change.
+
+## Source identities
+- Baseline: HEAD 084b76d23abb3a5880474af73cee991d090e0d68; the 334 prior working-change paths verified byte-for-byte before writing; the 11 baseline deletions were already present and were not re-applied.
+- Drive freeze4: archive 6146144c6c82cf11290fd455b3f357d03df63330d6e0d073e02d49641e6fdfb3, manifest 41d0330f8ee0f894e6c2d04f4e1d12a3c687f02d6406e50b531ecfa69ab49963 (347 paths).
+- Drive freeze5 (freeze4 plus the spool release accounting fix, three files): archive 03d71d0fe45e127ec563768f327c0d0743b571b6ece151820b3f1318cca0a750, manifest ca697327cc1e15c5f5d96b48dc91a51c7e2a19145b1bd82e401389553518508c.
+- Lists combined4: manifest b457aede8d4f688ae649de83a7f7fe3f7cdc44bd3b3221b1109c22cd43a38fcd (357 paths), delta archive 56c4d73f8c2dd046b7de56d646a986ce02079c25bd781913b3076d234d3e512b, patch over freeze4 7b9e04b4942e2222e9837b9b9546963e58e16d5f6a86b29a35ecb839b960932d.
+- Lists combined5 (combined4 plus the three freeze5 paths, byte-for-byte): manifest 36e8cdaf1e94f9fa61998563712399af1bcf1d800b6e33699c3a95109cd7aca2 (357 paths), overlay 03c569577162f9e444088d95eada810667cc1d843ff30f39288f7f3025450bf0.
+- Integrated: 61 modified and 23 added paths from the reconstructed tree (freeze4 plus the combined4 delta), no deletions, then the exact three-path freeze5 overlay (`spool.ts`, `file-delivery.ts`, `tests/spool.test.ts`); all 357 integrated paths match the combined5 manifest. The whole uncommitted change is 91 modified, 71 untracked and 11 deleted files (the 11 baseline deletions).
+- Independent verdicts, copied byte-for-byte: [drive-verdict.md](drive-verdict.md) (ee786dea51f37ca34b5543513db722fe8745b97dedfc8c4bec7a10e8bf29af10), [lists-verdict.md](lists-verdict.md) (0393de1e895d335479e09f0146f458d31e99f933c332e53574097630060013cc) [lists-verdict-combined4.md](lists-verdict-combined4.md) (f54cb9c82b842205745cc455428f83ec223742f2527f74e189814c50d07a76d7), [drive-verdict-freeze5.md](drive-verdict-freeze5.md) (02edd9b4acd640351358487061d8163732df08898a08ae68adc5d1ab92754468) and [lists-verdict-combined5.md](lists-verdict-combined5.md) (e4eed8b7a7abf87ec97040721f279e77233ad12c33625e33c1b4032faa85b6ef). The earlier validation records and verdicts are unchanged.
+
+## Outcomes
+- Authorization: every list scans only rows its domain's `getX` allows (Project, creator membership, Chat, File source-Run audience including the sponsor), sorted lists fail closed, and sorted cursors are sealed with a key derived from `BETTER_AUTH_SECRET`. See [Discovery lists](../lists.md). A missing codec gives sorted requests 503; rotating the secret ends open sorted cursors with 400.
+- Drive: Folders, library, 100,000,000-byte binary upload and verified spooled download with admission, stall and total deadlines and `Connection: close`; see [Files](../files.md).
+- Schema: native `bun db:push` only, no numbered migration. The combined change adds `documents.labels` (default `[]`), `folderId` columns and the `folders` table, and replaces the file-size constraint with `files_size_100000000`. No shared or live database was pushed.
+
+## Checks and attribution
+- Independent (reviewers, exact bytes of combined3): full suite 47 files / 415 tests, Go gateway checks, real-process lifecycle probe. Independent affected recheck for combined4 (the eight freeze4 paths): see the two verdicts above. The Drive author's full suite on freeze2 (41 files / 388 tests) and populated-database probe are author evidence.
+- Integration owner, this checkout: frozen install (lock and manifests unchanged), Biome, `tsc` with web typecheck, boundaries, consistency, web build and `git diff --check` pass. A bounded integration selection ran once with a private on-disk TMPDIR: 14 files, 131 tests; 130 passed and one `file-delivery` timing assertion failed once in that run and passed 6 of 6 in isolation. The cause was real (below) and is closed by freeze5; the failed run's output is preserved.
+
+## Final full suite on the merged bytes
+- One run of `vitest run --maxWorkers=1` on merge commit d146a53669d60fe0adfac8b60ce6da62d9ca876a (backend commit 17c7daa987d6da9a572b696fcff739fdc80a0f13 merged with the web mockup foundation 9b277e2, which stays unwired): 47 test files and 418 tests passed in 643.88 s, exit status 0, clean environment (`env -i`), private on-disk TMPDIR, private disposable PostgreSQL.
+- Go gateway fixture: built by the integration owner from the merged `ops/gateway` source with go1.26.0 (toolchain tarball sha256 aac1b08a0fb0c4e0a7c1555beb7b59180b05dfc5a3d62e40e9de90cd42f88235, equal to go.dev's published value); helper sha256 19982fb158731510c1dac69563d3ec6cbc2a92b390c05247eb3de11b4c2a5034.
+- Run log sha256 9315ac43bdf998ba02733528d3dd243b9054cfbe760ed8025ddf7e55febd6daa (raw) and 0215ff0ef3cfc15484a8bee79785f1af4b1681af8476423b2df1f2c3c8b66755 (request lines removed). The working tree was clean afterwards and no owned process remained.
+- The earlier bounded integration selection's single `file-delivery` failure is superseded: the cause was fixed in freeze5 and the test passed in this run.
+- Merged static checks (Biome, `tsc` with web typecheck, boundaries, consistency, web build, `git diff --check`) passed on the same head. Playwright browser checks were not run; the UI is unwired.
+
+## Open limits
+- Garage and every real provider were not exercised: transfer proofs use a controlled S3-compatible peer and controlled gateway fixtures. Object-store durability, provider isolation and billing are unverified.
+- Closed by freeze5: the spool lease used to return its reserved bytes before the file removal was awaited, which advertised capacity early and let a consumer see the end of a body while the lease was still held. `release()` now returns capacity only after deletion joins (concurrent callers join one cleanup; a failed deletion keeps the capacity held and can be retried), and the final-chunk path awaits the release before the last chunk. See [drive-verdict-freeze5.md](drive-verdict-freeze5.md).
+- Slow readers can still hold a lease up to the total deadline (bounded, not eliminated); socket buffers cannot be recalled after revocation (13 MB measured).
+- Not changed here (reviewer notes): sorted order fails closed on any list-predicate/`getX` disagreement, so equivalence tests must be extended with every new list; sort values that cannot fit a cursor return 503; Sessions accepts `sort=updatedAt` without returning that field; a Document label edit advances `editToken`; no supporting sort indexes or latency measurements.
+- Garage S3 remains the intended byte backend with Otto owning app permissions and metadata; it was not exercised, so storage durability is unverified.

@@ -1,0 +1,20 @@
+{
+  "name": "@otto/documents",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "dependencies": {
+    "@otto/agents": "workspace:*",
+    "@otto/projects": "workspace:*",
+    "@otto/workspaces": "workspace:*",
+    "drizzle-orm": "0.45.3",
+    "zod": "4.6.5",
+    "@otto/shared": "workspace:*",
+    "@otto/files": "workspace:*",
+    "@otto/db": "workspace:*"
+  }
+}

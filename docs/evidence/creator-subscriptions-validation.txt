@@ -1,0 +1,48 @@
+Creator, skills, Subscriptions, Document audience and token simplification — 2026-10-02
+Baseline: 306bd2d4cbdda76c5d91f5d50763390865fe33ce
+Frozen source manifest: docs/evidence/creator-subscriptions-source.json
+Manifest SHA256: 84654208beb95c1c16d23787c9a7cf92f2beb70503a63704ce40b4e08a450d8d
+Source fingerprints: 226; manifest and this validation are self-described separately.
+Independent affected review: PENDING. Historical cc992 PASS applies only to its saved source.
+
+FINAL VERIFIED CHECKS (explicit cwd /home/g4f4r0/projects/otto)
+bun run test -> exit0; 24 files,224/224 PASS,259.12s; Vitest5.0.3 workers assert process.versions.bun.
+bun run typecheck -> exit0; server strict TS and unchanged generated web TS.
+bun run check -> exit0;143 files,no fixes.
+bun run check:boundaries -> exit0;16 packages,declared dependencies/private schema boundaries/runtime DAG.
+bun run check:consistency -> exit0;69 backend files,116 unique routes;63 catch sites remain semantic-review obligations.
+bun run build -> exit0;unchanged web build,289ms. No product UI changes/browser requalification requested.
+bun install --frozen-lockfile -> exit0;527 installs/641 packages,no changes,16ms.
+git diff --check -> exit0.
+Protected baseline comparison ->50 evidence/UI paths unchanged;0 credential-pattern/path findings;0 staged paths;0 remotes.
+
+PINNED VERSIONS
+Bun1.4.2;TypeScript6.0.2;Vitest5.0.3;PostgreSQL18.4;DrizzleORM0.45.3;DrizzleKit0.31.11;pg-boss12.35.1;Hono4.13.12;Zod4.6.5;BetterAuth1.7.7.
+No new external package. Subscriptions is a real internal domain; workspace lock entry/dependencies changed.
+
+INPUT -> OUTPUT PROOF
+visibility.test.ts creator tests: forged createdBy/createdById rejects400; other human update403; server-derived creator persisted.
+Skill relation tests: deterministic unordered selection; max50 hydrate; equivalent UUID duplicates400; stale concurrent edit409; missing/cross-workspace FK replacement rolls back Agent token/relation. Actual HTTP+PG.
+Subscription test: arbitrary enabled/identity input400; wrong trusted reported ID403; disable while inspection blocked403; explicit needs_auth then exact report enables. Already-enabled foreign creator binding red200->green403. Human metadata/status writes have no editToken; no accountRef/mode/credential projection.
+execution-authority/visibility: accepted Subscription selection/current visibility/member changes interrupt/deny active work and peer routing. Existing two-Agent external scoped tool and private native Session tests pass through actual HTTP+queue+runtime with controlled computer/provider peers.
+Connection name test: no-token rename leaves accepted grant snapshot unchanged and exact approved operation executes once against controlled HTTP provider. Missing policy editToken still conflicts. Actual PostgreSQL/production adapter.
+Project/Conversation test: no-token metadata/archive updates200; viewer attempts403 with current content unchanged; archive/control/runtime existing regressions stay green.
+Document two-mode test: default user403 for another member; workspace readable but noncreator edit403; stale body409; user revocation403; removed ACL route404 and old create ACL400. Source Project audience/Run admission and retained-source checks, WebSocket revocation, supporting bytes and selected public shares exercised in existing updated production-seam suites. Fine-grained collaborator behavior is intentionally retired, not claimed tested/supported.
+Schema test: actual fresh native push, two repeat pushes with populated junction/native Subscription reference and queue job; data/constraint/index/queue semantic stability. Cross-workspace native/junction FK, creator-human FK and invalid status/check writes reject. Pinned Drizzle may emit composite-FK drop/add DDL; NOT claimed a no-op repeat.
+
+INTERMEDIATE FAILED/RED EVIDENCE (not final acceptance)
+Creator/relationship baseline2red; UUID equivalent duplicate initially500 instead400, fixed canonicalization. Creator-only full218/219 failed before fix, then219/219; superseded by this combined run.
+Subscription qualification owner shortcut red200 instead403; fixed creator check before enabled shortcut; focusedgreen.
+No-token metadata red400; Connection name redinvalid; two-mode Document default red400; corresponding production changes/regressions pass final224.
+followup-focused80/81 failed obsolete Project token fixture; document-focused81/83 failed removed ACL endpoint fixtures. Updated tests reflect explicit new product model; final224 includes all24 suites.
+
+SCOPE/LIMITS
+Task/Automation ownerId and Artifact human ownerId+creatorAgentId preserve their distinct meanings. Agent projectId/config fences retained. External grants/approvals and all Run/lease/attempt/uncertainty controls remain.
+Old schemas, Agent JSON skill arrays, model Connections/native snapshot identities and Document ACLs need explicit operator-reviewed transfer. No live/shared DB changed, destructive push, migration history or silent conversion. Old accepted JSON is never rewritten; incompatible native/session/retained bindings fail closed. Populated older-installation upgrade is UNVERIFIED.
+Controlled computer/storage/GitHub/MCP peers prove only protocol/composition behavior; real compute/native login/billing/isolation/VM recovery are deferred, real Garage durability/restore/live external credentials unverified. No credentials read/provisioning/model catalog/UI/Notion/staging/commit/push. Human work time unknown.
+
+RAW EVIDENCE
+/home/g4f4r0/.bb/thread-storage/thr_kfugrrgbs4/creator-subscriptions-freeze/logs
+Full final log: creator-subscriptions-full.log
+Other final logs: creator-subscriptions-{types,check-freeze,boundaries,consistency,build,lock-final}.log
+Exact changed paths: source manifest changedSinceBaseline. Outcome table: docs/creator-skills.md.

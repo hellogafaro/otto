@@ -1,0 +1,438 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="3570" viewBox="0 0 1440 3570">
+<defs><style>@font-face{font-family:'Otto Inter';font-weight:400;src:url('fonts/Inter-Regular.woff2') format('woff2');}@font-face{font-family:'Otto Inter';font-weight:500;src:url('fonts/Inter-Medium.woff2') format('woff2');}@font-face{font-family:'Otto Inter';font-weight:600;src:url('fonts/Inter-SemiBold.woff2') format('woff2');}@font-face{font-family:'Otto Inter';font-weight:700;src:url('fonts/Inter-SemiBold.woff2') format('woff2');}@font-face{font-family:'Otto Inter Display';font-weight:500;src:url('fonts/InterDisplay-Medium.woff2') format('woff2');}@font-face{font-family:'Otto Mono';font-weight:400;src:url('fonts/JetBrainsMono-Regular.woff2') format('woff2');}text{font-feature-settings:'cv11','ss01';}</style><filter id="shadow-xs" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.04"/></filter><filter id="shadow-sm" x="-20%" y="-20%" width="140%" height="170%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.08"/><feDropShadow dx="0" dy="1" stdDeviation="0.75" flood-color="#000" flood-opacity="0.06"/></filter></defs>
+<rect x="0.0" y="0.0" width="1440.0" height="3570.0" rx="0" fill="#ffffff" />
+<text x="96.0" y="104.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600" fill="#18181b" text-anchor="start">Otto</text>
+<text x="1344.0" y="104.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="13" font-weight="400" fill="#71717a" text-anchor="end">Design system · Foundations and components · Draft 01</text>
+<text x="96.0" y="212.0" font-family="'Otto Inter Display', 'Otto Inter', Inter, ui-sans-serif, sans-serif" font-size="68" font-weight="500" fill="#18181b" text-anchor="start" letter-spacing="-1.4">Calm work, side by side.</text>
+<text x="96.0" y="262.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="19" font-weight="400" fill="#71717a" text-anchor="start">A working foundation for Otto. Quiet surfaces, precise type, and one blue accent</text>
+<text x="96.0" y="292.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="19" font-weight="400" fill="#71717a" text-anchor="start">reserved for action and focus, so people and agents can share work without noise.</text>
+<line x1="96" y1="344" x2="1344" y2="344" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96" y="400" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="500" fill="#18181b"><tspan fill="#71717a" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="15" font-weight="400">01</tspan><tspan dx="14">Color</tspan></text>
+<text x="1344.0" y="400.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#71717a" text-anchor="end">Neutral foundation. One restrained accent.</text>
+<rect x="96.0" y="436.0" width="164.6" height="136.0" rx="10" fill="#fafafa" stroke="#e4e4e7" stroke-width="1" />
+<text x="96.0" y="600.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Canvas</text>
+<text x="260.6" y="600.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">#fafafa</text>
+<text x="96.0" y="622.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">App canvas</text>
+<rect x="276.6" y="436.0" width="164.6" height="136.0" rx="10" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="276.6" y="600.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Surface</text>
+<text x="441.1" y="600.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">#ffffff</text>
+<text x="276.6" y="622.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Cards, floating chrome</text>
+<rect x="457.1" y="436.0" width="164.6" height="136.0" rx="10" fill="#18181b" />
+<text x="457.1" y="600.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Ink</text>
+<text x="621.7" y="600.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">#18181b</text>
+<text x="457.1" y="622.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Text, icons, structure</text>
+<rect x="637.7" y="436.0" width="164.6" height="136.0" rx="10" fill="#71717a" />
+<text x="637.7" y="600.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Stone</text>
+<text x="802.3" y="600.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">#71717a</text>
+<text x="637.7" y="622.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Secondary text</text>
+<rect x="818.3" y="436.0" width="164.6" height="136.0" rx="10" fill="#f4f4f5" stroke="#e4e4e7" stroke-width="1" />
+<text x="818.3" y="600.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Mist</text>
+<text x="982.9" y="600.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">#f4f4f5</text>
+<text x="818.3" y="622.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Quiet fills, hover</text>
+<rect x="998.9" y="436.0" width="164.6" height="136.0" rx="10" fill="#e4e4e7" />
+<text x="998.9" y="600.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Line</text>
+<text x="1163.4" y="600.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">#e4e4e7</text>
+<text x="998.9" y="622.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Dividers, card edges</text>
+<rect x="1179.4" y="436.0" width="164.6" height="136.0" rx="10" fill="#2451d6" />
+<text x="1179.4" y="600.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Accent</text>
+<text x="1344.0" y="600.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">#2451d6</text>
+<text x="1179.4" y="622.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Action, focus, Running</text>
+<rect x="96.0" y="648.0" width="1248.0" height="52.0" rx="10" fill="#f4f4f5" />
+<text x="116.0" y="680.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14.5" font-weight="400" fill="#18181b" text-anchor="start">Blue marks the primary action, the focus ring and a running Run. Nothing else.</text>
+<text x="1324.0" y="680.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#71717a" text-anchor="end">Ink on Canvas 16.97:1 · Stone on Canvas 4.63:1</text>
+<text x="96.0" y="748.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Supporting</text>
+<text x="96.0" y="768.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Status and controls</text>
+<rect x="296.0" y="737.0" width="22.0" height="22.0" rx="6" fill="#8f8f96" />
+<text x="330.0" y="748.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Control</text>
+<text x="383.9" y="748.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">#8f8f96</text>
+<text x="330.0" y="768.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Input outlines · 3.08:1</text>
+<rect x="505.6" y="737.0" width="22.0" height="22.0" rx="6" fill="#15803d" />
+<text x="539.6" y="748.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Success</text>
+<text x="603.8" y="748.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">#15803d</text>
+<text x="539.6" y="768.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Finished, Done</text>
+<rect x="715.2" y="737.0" width="22.0" height="22.0" rx="6" fill="#b45309" />
+<text x="749.2" y="748.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Warning</text>
+<text x="809.1" y="748.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">#b45309</text>
+<text x="749.2" y="768.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Waiting</text>
+<rect x="924.8" y="737.0" width="22.0" height="22.0" rx="6" fill="#dc2626" />
+<text x="958.8" y="748.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Danger</text>
+<text x="1011.8" y="748.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">#dc2626</text>
+<text x="958.8" y="768.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Failed, errors</text>
+<rect x="1134.4" y="737.0" width="22.0" height="22.0" rx="6" fill="#52525b" />
+<text x="1168.4" y="748.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Neutral</text>
+<text x="1222.3" y="748.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">#52525b</text>
+<text x="1168.4" y="768.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Queued, Stopped</text>
+<line x1="96" y1="824" x2="1344" y2="824" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96" y="880" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="500" fill="#18181b"><tspan fill="#71717a" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="15" font-weight="400">02</tspan><tspan dx="14">Typography</tspan></text>
+<text x="1344.0" y="880.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#71717a" text-anchor="end">Inter 400 · 500 · 600 · JetBrains Mono 400 · system fallback</text>
+<line x1="96" y1="916" x2="1344" y2="916" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="967.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Display</text>
+<text x="96.0" y="986.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">56 / 64 · Medium</text>
+<text x="396.0" y="990.2" font-family="'Otto Inter Display', 'Otto Inter', Inter, ui-sans-serif, sans-serif" font-size="56" font-weight="500" fill="#18181b" text-anchor="start" letter-spacing="-1.1">Shared work, clearly owned.</text>
+<text x="1344.0" y="975.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">text-display</text>
+<line x1="96" y1="1024" x2="1344" y2="1024" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="1061.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Heading</text>
+<text x="96.0" y="1080.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">32 / 40 · Medium</text>
+<text x="396.0" y="1075.5" font-family="'Otto Inter Display', 'Otto Inter', Inter, ui-sans-serif, sans-serif" font-size="32" font-weight="500" fill="#18181b" text-anchor="start" letter-spacing="-0.5">A task, a conversation, a result.</text>
+<text x="1344.0" y="1069.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">text-heading</text>
+<line x1="96" y1="1104" x2="1344" y2="1104" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="1133.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Title</text>
+<text x="96.0" y="1152.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">20 / 28 · Semibold</text>
+<text x="396.0" y="1143.2" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600" fill="#18181b" text-anchor="start" letter-spacing="-0.2">Fix sign-in redirect loop</text>
+<text x="1344.0" y="1141.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">text-lg</text>
+<line x1="96" y1="1168" x2="1344" y2="1168" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="1195.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Body</text>
+<text x="96.0" y="1214.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">16 / 24 · Regular</text>
+<text x="396.0" y="1203.8" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="400" fill="#18181b" text-anchor="start">Cody finished a Run and proposed the fix. Johan decides when the task is done.</text>
+<text x="1344.0" y="1203.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">text-base</text>
+<line x1="96" y1="1228" x2="1344" y2="1228" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="1253.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Interface</text>
+<text x="96.0" y="1272.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">14 / 20 · Medium</text>
+<text x="396.0" y="1261.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Assign · Start run · Mark done</text>
+<text x="1344.0" y="1261.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">text-sm</text>
+<line x1="96" y1="1284" x2="1344" y2="1284" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="1307.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Caption</text>
+<text x="96.0" y="1326.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">12 / 16 · Regular</text>
+<text x="396.0" y="1314.3" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="400" fill="#18181b" text-anchor="start">Updated 4 minutes ago · Otto web</text>
+<text x="1344.0" y="1315.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">text-xs</text>
+<line x1="96" y1="1336" x2="1344" y2="1336" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="1359.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Mono</text>
+<text x="96.0" y="1378.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">13 / 20 · Regular</text>
+<text x="396.0" y="1366.7" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="13" font-weight="400" fill="#18181b" text-anchor="start">run_8f2c · finished · 2m 14s</text>
+<text x="1344.0" y="1367.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">font-mono</text>
+<line x1="96" y1="1436" x2="1344" y2="1436" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96" y="1492" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="500" fill="#18181b"><tspan fill="#71717a" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="15" font-weight="400">03</tspan><tspan dx="14">Space and shape</tspan></text>
+<text x="1344.0" y="1492.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#71717a" text-anchor="end">A 4-point rhythm. Flat by default, raised only when floating.</text>
+<rect x="96.0" y="1528.0" width="1248.0" height="256.0" rx="14" fill="#f4f4f5" />
+<rect x="144.0" y="1722.4" width="30.0" height="5.6" rx="2" fill="#18181b" />
+<text x="159.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">4</text>
+<rect x="210.0" y="1716.8" width="30.0" height="11.2" rx="2" fill="#18181b" />
+<text x="225.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">8</text>
+<rect x="276.0" y="1711.2" width="30.0" height="16.8" rx="2" fill="#18181b" />
+<text x="291.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">12</text>
+<rect x="342.0" y="1705.6" width="30.0" height="22.4" rx="2" fill="#18181b" />
+<text x="357.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">16</text>
+<rect x="408.0" y="1694.4" width="30.0" height="33.6" rx="2" fill="#18181b" />
+<text x="423.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">24</text>
+<rect x="474.0" y="1683.2" width="30.0" height="44.8" rx="2" fill="#18181b" />
+<text x="489.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">32</text>
+<rect x="540.0" y="1660.8" width="30.0" height="67.2" rx="2" fill="#18181b" />
+<text x="555.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">48</text>
+<rect x="606.0" y="1638.4" width="30.0" height="89.6" rx="2" fill="#18181b" />
+<text x="621.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">64</text>
+<rect x="672.0" y="1593.6" width="30.0" height="134.4" rx="2" fill="#18181b" />
+<text x="687.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">96</text>
+<text x="144.0" y="1564.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Spacing</text>
+<text x="856.0" y="1564.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Radius</text>
+<rect x="856.0" y="1656.0" width="72.0" height="72.0" rx="6" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="892.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">sm 6</text>
+<rect x="954.0" y="1656.0" width="72.0" height="72.0" rx="8" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="990.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">md 8</text>
+<rect x="1052.0" y="1656.0" width="72.0" height="72.0" rx="10" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="1088.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">lg 10</text>
+<rect x="1150.0" y="1656.0" width="72.0" height="72.0" rx="14" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="1186.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">xl 14</text>
+<rect x="1248.0" y="1656.0" width="72.0" height="72.0" rx="36" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="1284.0" y="1756.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="middle">full</text>
+<rect x="96.0" y="1824.0" width="224.0" height="76.0" rx="10" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="114.0" y="1856.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Flat</text>
+<text x="114.0" y="1878.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Canvas content · 1 px Line</text>
+<rect x="344.0" y="1824.0" width="224.0" height="76.0" rx="10" fill="#ffffff" stroke="#8f8f96" stroke-width="1" filter="url(#shadow-xs)"/>
+<text x="362.0" y="1856.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Hover</text>
+<text x="362.0" y="1878.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">shadow-xs · Control edge</text>
+<rect x="592.0" y="1824.0" width="224.0" height="76.0" rx="10" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" filter="url(#shadow-sm)"/>
+<text x="610.0" y="1856.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Floating</text>
+<text x="610.0" y="1878.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">shadow-sm · floating chrome</text>
+<text x="896.0" y="1836.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Layout</text>
+<text x="896.0" y="1862.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Rail 56 · context card 212 · details card 300</text>
+<text x="896.0" y="1884.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Reading column 640 · composer 640 max</text>
+<text x="896.0" y="1906.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Canvas gutter 16 · card padding 16–20</text>
+<line x1="96" y1="1948" x2="1344" y2="1948" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96" y="2004" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="500" fill="#18181b"><tspan fill="#71717a" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="15" font-weight="400">04</tspan><tspan dx="14">Actions</tspan></text>
+<text x="1344.0" y="2004.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#71717a" text-anchor="end">36 px height · 8 px radius · 2 px focus ring with a 2 px gap</text>
+<text x="96.0" y="2048.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Variant</text>
+<text x="316.0" y="2048.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Default</text>
+<text x="566.0" y="2048.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Hover</text>
+<text x="816.0" y="2048.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Focus</text>
+<text x="1066.0" y="2048.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Disabled</text>
+<line x1="96" y1="2068" x2="1344" y2="2068" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="2111.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Primary</text>
+<g opacity="1">
+<rect x="316.0" y="2088.0" width="110.1" height="36.0" rx="8" fill="#2451d6" />
+<text x="332.0" y="2111.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#ffffff" text-anchor="start">Start run</text>
+<g transform="translate(396.1,2099.0) scale(0.5833)" fill="none" stroke="#ffffff" stroke-width="3.43" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></g>
+</g>
+<g opacity="1">
+<rect x="566.0" y="2088.0" width="110.1" height="36.0" rx="8" fill="#2047BC" />
+<text x="582.0" y="2111.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#ffffff" text-anchor="start">Start run</text>
+<g transform="translate(646.1,2099.0) scale(0.5833)" fill="none" stroke="#ffffff" stroke-width="3.43" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></g>
+</g>
+<g opacity="1">
+<rect x="816.0" y="2088.0" width="110.1" height="36.0" rx="8" fill="#2451d6" />
+<text x="832.0" y="2111.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#ffffff" text-anchor="start">Start run</text>
+<g transform="translate(896.1,2099.0) scale(0.5833)" fill="none" stroke="#ffffff" stroke-width="3.43" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></g>
+</g>
+<rect x="812.0" y="2084.0" width="118.1" height="44.0" rx="12" fill="none" stroke="#2451d6" stroke-width="2" />
+<g opacity="0.45">
+<rect x="1066.0" y="2088.0" width="110.1" height="36.0" rx="8" fill="#2451d6" />
+<text x="1082.0" y="2111.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#ffffff" text-anchor="start">Start run</text>
+<g transform="translate(1146.1,2099.0) scale(0.5833)" fill="none" stroke="#ffffff" stroke-width="3.43" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></g>
+</g>
+<line x1="96" y1="2144" x2="1344" y2="2144" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="2187.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Secondary</text>
+<g opacity="1">
+<rect x="316.0" y="2164.0" width="77.0" height="36.0" rx="8" fill="#ffffff" stroke="#8f8f96" stroke-width="1" />
+<text x="354.5" y="2187.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="middle">Assign</text>
+</g>
+<g opacity="1">
+<rect x="566.0" y="2164.0" width="77.0" height="36.0" rx="8" fill="#f4f4f5" stroke="#8f8f96" stroke-width="1" />
+<text x="604.5" y="2187.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="middle">Assign</text>
+</g>
+<g opacity="1">
+<rect x="816.0" y="2164.0" width="77.0" height="36.0" rx="8" fill="#ffffff" stroke="#8f8f96" stroke-width="1" />
+<text x="854.5" y="2187.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="middle">Assign</text>
+</g>
+<rect x="812.0" y="2160.0" width="85.0" height="44.0" rx="12" fill="none" stroke="#2451d6" stroke-width="2" />
+<g opacity="0.45">
+<rect x="1066.0" y="2164.0" width="77.0" height="36.0" rx="8" fill="#ffffff" stroke="#8f8f96" stroke-width="1" />
+<text x="1104.5" y="2187.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="middle">Assign</text>
+</g>
+<line x1="96" y1="2220" x2="1344" y2="2220" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="2263.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Quiet</text>
+<g opacity="1">
+<text x="354.5" y="2263.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="middle">Cancel</text>
+</g>
+<g opacity="1">
+<rect x="566.0" y="2240.0" width="77.0" height="36.0" rx="8" fill="#f4f4f5" />
+<text x="604.5" y="2263.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="middle">Cancel</text>
+</g>
+<g opacity="1">
+<text x="854.5" y="2263.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="middle">Cancel</text>
+</g>
+<rect x="812.0" y="2236.0" width="85.0" height="44.0" rx="12" fill="none" stroke="#2451d6" stroke-width="2" />
+<g opacity="0.45">
+<text x="1104.5" y="2263.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="middle">Cancel</text>
+</g>
+<line x1="96" y1="2296" x2="1344" y2="2296" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="2339.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Icon</text>
+<g opacity="1">
+<g transform="translate(325.0,2325.0) scale(0.7500)" fill="none" stroke="#18181b" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></g>
+</g>
+<g opacity="1">
+<rect x="566.0" y="2316.0" width="36.0" height="36.0" rx="8" fill="#f4f4f5" />
+<g transform="translate(575.0,2325.0) scale(0.7500)" fill="none" stroke="#18181b" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></g>
+</g>
+<g opacity="1">
+<g transform="translate(825.0,2325.0) scale(0.7500)" fill="none" stroke="#18181b" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></g>
+</g>
+<rect x="812.0" y="2312.0" width="44.0" height="44.0" rx="12" fill="none" stroke="#2451d6" stroke-width="2" />
+<rect x="864.0" y="2320.0" width="84.0" height="28.0" rx="6" fill="#18181b" />
+<path d="M864,2329 l-5,5 l5,5 z" fill="#18181b"/>
+<text x="906.0" y="2339.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#ffffff" text-anchor="middle">Search</text>
+<g opacity="0.45">
+<g transform="translate(1075.0,2325.0) scale(0.7500)" fill="none" stroke="#18181b" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></g>
+</g>
+<line x1="96" y1="2372" x2="1344" y2="2372" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="2402.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Icon buttons always carry an accessible name. The tooltip appears on hover and on keyboard focus.</text>
+<line x1="96" y1="2446" x2="1344" y2="2446" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96" y="2502" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="500" fill="#18181b"><tspan fill="#71717a" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="15" font-weight="400">05</tspan><tspan dx="14">Inputs and status</tspan></text>
+<text x="1344.0" y="2502.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#71717a" text-anchor="end">Clear labels, visible focus, specific feedback.</text>
+<text x="96.0" y="2546.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Default</text>
+<text x="96.0" y="2578.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Task title</text>
+<rect x="96.0" y="2590.0" width="389.3" height="42.0" rx="8" fill="#ffffff" stroke="#8f8f96" stroke-width="1" />
+<text x="110.0" y="2616.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="400" fill="#71717a" text-anchor="start">Describe the task</text>
+<text x="96.0" y="2660.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Visible to everyone in this project.</text>
+<text x="525.3" y="2546.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Focus</text>
+<text x="525.3" y="2578.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Task title</text>
+<rect x="525.3" y="2590.0" width="389.3" height="42.0" rx="8" fill="#ffffff" stroke="#2451d6" stroke-width="1.25" />
+<rect x="521.3" y="2586.0" width="397.3" height="50.0" rx="11" fill="none" stroke="#2451d6" stroke-width="2" stroke-opacity="0.35"/>
+<text x="539.3" y="2616.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="400" fill="#18181b" text-anchor="start">Fix sign-in redirect loop</text>
+<text x="525.3" y="2660.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Press Enter to create the task.</text>
+<text x="954.7" y="2546.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Error</text>
+<text x="954.7" y="2578.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Task title</text>
+<rect x="954.7" y="2590.0" width="389.3" height="42.0" rx="8" fill="#ffffff" stroke="#dc2626" stroke-width="1.25" />
+<text x="968.7" y="2616.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="400" fill="#71717a" text-anchor="start">Describe the task</text>
+<circle cx="960.6666666666666" cy="2656" r="5.5" fill="#dc2626"/>
+<path d="M960.6666666666666,2653.2 v3 M960.6666666666666,2658.4 v0.2" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"/>
+<text x="972.7" y="2660.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="500" fill="#991b1b" text-anchor="start">Add a title to create the task.</text>
+<line x1="96" y1="2706" x2="1344" y2="2706" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="2734.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Task stage</text>
+<text x="96.0" y="2753.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Set by people</text>
+<rect x="316.0" y="2722.0" width="74.1" height="28.0" rx="14.0" fill="#f4f4f5" />
+<circle cx="332" cy="2736" r="4.5" fill="none" stroke="#52525b" stroke-width="1.5"/>
+<text x="344.0" y="2740.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#3f3f46" text-anchor="start">To do</text>
+<rect x="400.1" y="2722.0" width="74.5" height="28.0" rx="14.0" fill="#f4f4f5" />
+<circle cx="416.1445" cy="2736" r="4.5" fill="none" stroke="#18181b" stroke-width="1.5"/>
+<path d="M416.1445,2731.5 A4.5,4.5 0 0 1 416.1445,2740.5 Z" fill="#18181b"/>
+<text x="428.1" y="2740.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#3f3f46" text-anchor="start">Doing</text>
+<rect x="484.7" y="2722.0" width="70.5" height="28.0" rx="14.0" fill="#f0fdf4" />
+<circle cx="500.6907" cy="2736" r="5.5" fill="#15803d"/>
+<path d="M498.09069999999997,2736.1 l1.8,1.8 l3.4,-3.6" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="512.7" y="2740.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#166534" text-anchor="start">Done</text>
+<line x1="96" y1="2772" x2="1344" y2="2772" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="2806.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Run signal</text>
+<text x="96.0" y="2825.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Reported by the run</text>
+<rect x="316.0" y="2794.0" width="85.0" height="28.0" rx="14.0" fill="#f4f4f5" />
+<circle cx="332" cy="2808" r="4.5" fill="none" stroke="#52525b" stroke-width="1.5" stroke-dasharray="2 2"/>
+<text x="344.0" y="2812.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#3f3f46" text-anchor="start">Queued</text>
+<rect x="411.0" y="2794.0" width="89.0" height="28.0" rx="14.0" fill="#E5EAFA" />
+<circle cx="426.9904" cy="2808" r="3.5" fill="#2451d6"/>
+<text x="439.0" y="2812.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#2451d6" text-anchor="start">Running</text>
+<rect x="510.0" y="2794.0" width="137.2" height="28.0" rx="14.0" fill="#fffbeb" />
+<circle cx="525.9978" cy="2808" r="5.5" fill="#b45309"/>
+<path d="M524.4978,2805.8 v4.4 M527.4978,2805.8 v4.4" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+<text x="538.0" y="2812.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#92400e" text-anchor="start">Waiting for input</text>
+<rect x="657.2" y="2794.0" width="93.0" height="28.0" rx="14.0" fill="#f0fdf4" />
+<circle cx="673.2092" cy="2808" r="5.5" fill="#15803d"/>
+<path d="M670.6092,2808.1 l1.8,1.8 l3.4,-3.6" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="685.2" y="2812.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#166534" text-anchor="start">Finished</text>
+<rect x="760.2" y="2794.0" width="78.6" height="28.0" rx="14.0" fill="#fef2f2" />
+<circle cx="776.2336" cy="2808" r="5.5" fill="#dc2626"/>
+<path d="M776.2336,2805.2 v3 M776.2336,2810.4 v0.2" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"/>
+<text x="788.2" y="2812.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#991b1b" text-anchor="start">Failed</text>
+<rect x="848.8" y="2794.0" width="89.0" height="28.0" rx="14.0" fill="#f4f4f5" />
+<rect x="861.2968000000001" y="2804.5" width="7" height="7" rx="1.5" fill="#52525b"/>
+<text x="876.8" y="2812.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#3f3f46" text-anchor="start">Stopped</text>
+<line x1="96" y1="2844" x2="1344" y2="2844" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="2882.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Completion</text>
+<text x="96.0" y="2901.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#71717a" text-anchor="start">Human-owned</text>
+<rect x="316.0" y="2870.0" width="115.1" height="28.0" rx="14.0" fill="#f0fdf4" />
+<circle cx="332" cy="2884" r="5.5" fill="#15803d"/>
+<path d="M329.4,2884.1 l1.8,1.8 l3.4,-3.6" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="344.0" y="2888.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#166534" text-anchor="start">Run finished</text>
+<g transform="translate(445.1,2876.0) scale(0.6667)" fill="none" stroke="#71717a" stroke-width="2.62" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></g>
+<text x="471.1" y="2889.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">proposes</text>
+<rect x="540.2" y="2870.0" width="74.5" height="28.0" rx="14.0" fill="#f4f4f5" />
+<circle cx="556.1979" cy="2884" r="4.5" fill="none" stroke="#18181b" stroke-width="1.5"/>
+<path d="M556.1979,2879.5 A4.5,4.5 0 0 1 556.1979,2888.5 Z" fill="#18181b"/>
+<text x="568.2" y="2888.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#3f3f46" text-anchor="start">Doing</text>
+<g transform="translate(628.7,2876.0) scale(0.6667)" fill="none" stroke="#71717a" stroke-width="2.62" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></g>
+<text x="654.7" y="2889.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">authorized human marks</text>
+<rect x="817.0" y="2870.0" width="70.5" height="28.0" rx="14.0" fill="#f0fdf4" />
+<circle cx="832.9740999999999" cy="2884" r="5.5" fill="#15803d"/>
+<path d="M830.3740999999999,2884.1 l1.8,1.8 l3.4,-3.6" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="845.0" y="2888.7" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#166534" text-anchor="start">Done</text>
+<text x="1344.0" y="2889.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="500" fill="#18181b" text-anchor="end">A finished Run never completes a task by itself.</text>
+<line x1="96" y1="2958" x2="1344" y2="2958" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96" y="3014" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="500" fill="#18181b"><tspan fill="#71717a" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="15" font-weight="400">06</tspan><tspan dx="14">Product patterns</tspan></text>
+<text x="1344.0" y="3014.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#71717a" text-anchor="end">Patterns, not screens. One rail, floating cards, an open canvas.</text>
+<text x="96.0" y="3052.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Shell · composition</text>
+<text x="520.0" y="3052.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Rail · names and context card</text>
+<text x="944.0" y="3052.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Task row · pills and composer</text>
+<rect x="96.0" y="3066.0" width="400.0" height="292.0" rx="12" fill="#fafafa" stroke="#e4e4e7" stroke-width="1" />
+<clipPath id="t1"><rect x="96" y="3066" width="400.0" height="292" rx="12"/></clipPath><g clip-path="url(#t1)">
+<rect x="96.0" y="3066.0" width="34.0" height="292.0" rx="0" fill="#ffffff" />
+<line x1="130" y1="3066" x2="130" y2="3358" stroke="#e4e4e7" stroke-width="1"/>
+<rect x="105.0" y="3082.0" width="16.0" height="16.0" rx="4" fill="#E5EAFA" />
+<rect x="105.0" y="3108.0" width="16.0" height="16.0" rx="4" fill="#f4f4f5" />
+<rect x="105.0" y="3134.0" width="16.0" height="16.0" rx="4" fill="#f4f4f5" />
+<rect x="105.0" y="3160.0" width="16.0" height="16.0" rx="4" fill="#f4f4f5" />
+<rect x="105.0" y="3186.0" width="16.0" height="16.0" rx="4" fill="#f4f4f5" />
+<rect x="142.0" y="3080.0" width="104.0" height="112.0" rx="8" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" filter="url(#shadow-sm)"/>
+<rect x="152.0" y="3092.0" width="44.0" height="6.0" rx="3" fill="#71717a" opacity="0.5"/>
+<rect x="150.0" y="3108.0" width="88.0" height="16.0" rx="4" fill="#f4f4f5" />
+<rect x="156.0" y="3134.0" width="60.0" height="6.0" rx="3" fill="#e4e4e7" />
+<rect x="156.0" y="3152.0" width="50.0" height="6.0" rx="3" fill="#e4e4e7" />
+<rect x="156.0" y="3170.0" width="40.0" height="6.0" rx="3" fill="#e4e4e7" />
+<rect x="258.0" y="3084.0" width="120.0" height="26.0" rx="6" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<rect x="268.0" y="3094.0" width="60.0" height="6.0" rx="3" fill="#e4e4e7" />
+<rect x="258.0" y="3118.0" width="120.0" height="26.0" rx="6" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<rect x="268.0" y="3128.0" width="60.0" height="6.0" rx="3" fill="#e4e4e7" />
+<rect x="258.0" y="3152.0" width="120.0" height="26.0" rx="6" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<rect x="268.0" y="3162.0" width="60.0" height="6.0" rx="3" fill="#e4e4e7" />
+<rect x="258.0" y="3186.0" width="120.0" height="26.0" rx="6" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<rect x="268.0" y="3196.0" width="60.0" height="6.0" rx="3" fill="#e4e4e7" />
+<rect x="390.0" y="3080.0" width="94.0" height="132.0" rx="8" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" filter="url(#shadow-sm)"/>
+<rect x="400.0" y="3092.0" width="30.0" height="6.0" rx="3" fill="#18181b" opacity="0.7"/>
+<line x1="390.0" y1="3108" x2="484.0" y2="3108" stroke="#e4e4e7" stroke-width="1"/>
+<rect x="400.0" y="3120.0" width="74.0" height="46.0" rx="4" fill="#f4f4f5" />
+<rect x="213.0" y="3308.0" width="200.0" height="32.0" rx="16" fill="#ffffff" stroke="#8f8f96" stroke-width="1" filter="url(#shadow-sm)"/>
+<rect x="227.0" y="3321.0" width="70.0" height="6.0" rx="3" fill="#e4e4e7" />
+<circle cx="397.0" cy="3324" r="9" fill="#2451d6"/>
+</g>
+<text x="96.0" y="3388.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Shell composition</text>
+<text x="96.0" y="3410.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Icon rail, screen-specific context card, open canvas,</text>
+<text x="96.0" y="3430.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">optional details card, floating composer.</text>
+<rect x="520.0" y="3066.0" width="400.0" height="292.0" rx="12" fill="#fafafa" stroke="#e4e4e7" stroke-width="1" />
+<clipPath id="t2"><rect x="520.0" y="3066" width="400.0" height="292" rx="12"/></clipPath><g clip-path="url(#t2)">
+<rect x="520.0" y="3066.0" width="60.0" height="292.0" rx="0" fill="#ffffff" />
+<line x1="580.0" y1="3066" x2="580.0" y2="3358" stroke="#e4e4e7" stroke-width="1"/>
+<text x="550.0" y="3098.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="600" fill="#18181b" text-anchor="middle">O</text>
+<rect x="532.0" y="3114.0" width="36.0" height="36.0" rx="8" fill="#f4f4f5" />
+<g transform="translate(541.0,3123.0) scale(0.7500)" fill="none" stroke="#2451d6" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></g>
+<g transform="translate(541.0,3163.0) scale(0.7500)" fill="none" stroke="#71717a" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"/></g>
+<g transform="translate(541.0,3203.0) scale(0.7500)" fill="none" stroke="#71717a" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></g>
+<g transform="translate(541.0,3243.0) scale(0.7500)" fill="none" stroke="#71717a" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></g>
+<g transform="translate(541.0,3283.0) scale(0.7500)" fill="none" stroke="#71717a" stroke-width="2.33" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4v16H5zM10 4h4v16h-4z"/><path d="M15.5 4.5l3.8-1 3.2 15.5-3.8 1z"/></g>
+<rect x="528.0" y="3270.0" width="44.0" height="44.0" rx="11" fill="none" stroke="#2451d6" stroke-width="2" />
+<circle cx="550.0" cy="3332" r="12" fill="#f4f4f5"/>
+<text x="550.0" y="3335.6" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="8.64" font-weight="600" fill="#18181b" text-anchor="middle">JG</text>
+<rect x="598.0" y="3082.0" width="304.0" height="178.0" rx="12" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" filter="url(#shadow-sm)"/>
+<text x="614.0" y="3108.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#71717a" text-anchor="start">My work</text>
+<rect x="606.0" y="3120.0" width="288.0" height="28.0" rx="6" fill="#f4f4f5" />
+<text x="614.0" y="3139.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="500" fill="#18181b" text-anchor="start">Assigned to me</text>
+<text x="886.0" y="3139.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">4</text>
+<text x="614.0" y="3169.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#18181b" text-anchor="start">Doing</text>
+<text x="886.0" y="3169.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">1</text>
+<text x="614.0" y="3199.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#18181b" text-anchor="start">To do</text>
+<text x="886.0" y="3199.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">2</text>
+<text x="614.0" y="3229.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#18181b" text-anchor="start">Done</text>
+<text x="886.0" y="3229.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">1</text>
+<rect x="582.0" y="3278.0" width="70.0" height="28.0" rx="6" fill="#18181b" />
+<path d="M582.0,3287 l-5,5 l5,5 z" fill="#18181b"/>
+<text x="617.0" y="3297.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#ffffff" text-anchor="middle">Library</text>
+<text x="670.0" y="3278.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="500" fill="#71717a" text-anchor="start">Selected</text>
+<text x="670.0" y="3296.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">aria-current, Mist fill</text>
+<text x="670.0" y="3318.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="500" fill="#71717a" text-anchor="start">Focused</text>
+<text x="670.0" y="3336.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">2 px ring, name shown</text>
+</g>
+<text x="520.0" y="3388.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Icon rail with context card</text>
+<text x="520.0" y="3410.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Every icon is named. The card shows this screen's</text>
+<text x="520.0" y="3430.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">filters, never a second copy of the rail.</text>
+<rect x="944.0" y="3066.0" width="400.0" height="292.0" rx="12" fill="#fafafa" stroke="#e4e4e7" stroke-width="1" />
+<clipPath id="t3"><rect x="944.0" y="3066" width="400.0" height="292" rx="12"/></clipPath><g clip-path="url(#t3)">
+<rect x="960.0" y="3082.0" width="368.0" height="58.0" rx="10" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<circle cx="986.0" cy="3111" r="13" fill="#f4f4f5"/>
+<text x="986.0" y="3114.9" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="9.36" font-weight="600" fill="#18181b" text-anchor="middle">JG</text>
+<circle cx="974.95" cy="3099.95" r="7.5" fill="#ffffff" stroke="#8f8f96" stroke-width="1"/>
+<text x="975.0" y="3103.1" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="9" font-weight="700" fill="#3f3f46" text-anchor="middle">O</text>
+<circle cx="1022.0" cy="3111" r="12.25" fill="#ffffff" stroke="#2451d6" stroke-width="1.5"/>
+<text x="1022.0" y="3115.3" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="10.14" font-weight="600" fill="#2451d6" text-anchor="middle">C</text>
+<circle cx="1031.36" cy="3120.36" r="4.68" fill="#2451d6" stroke="#ffffff" stroke-width="1"/>
+<circle cx="1010.95" cy="3099.95" r="7.5" fill="#ffffff" stroke="#8f8f96" stroke-width="1"/>
+<text x="1011.0" y="3103.1" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="9" font-weight="700" fill="#3f3f46" text-anchor="middle">A</text>
+<text x="1048.0" y="3116.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="500" fill="#18181b" text-anchor="start">Fix sign-in redirect loop</text>
+<rect x="1250.1" y="3099.0" width="71.9" height="24.0" rx="12.0" fill="#f4f4f5" />
+<circle cx="1266.1112" cy="3111" r="4.5" fill="none" stroke="#18181b" stroke-width="1.5"/>
+<path d="M1266.1112,3106.5 A4.5,4.5 0 0 1 1266.1112,3115.5 Z" fill="#18181b"/>
+<text x="1278.1" y="3115.3" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#3f3f46" text-anchor="start">Doing</text>
+<rect x="960.0" y="3150.0" width="95.1" height="24.0" rx="12.0" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="1007.6" y="3166.3" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#3f3f46" text-anchor="middle">#sign-in-bug</text>
+<rect x="1063.1" y="3150.0" width="92.3" height="24.0" rx="12.0" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="1109.3" y="3166.3" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#3f3f46" text-anchor="middle">Priority: High</text>
+<rect x="1163.5" y="3150.0" width="69.3" height="24.0" rx="12.0" fill="#ffffff" stroke="#e4e4e7" stroke-width="1" />
+<text x="1198.1" y="3166.3" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#3f3f46" text-anchor="middle">Otto web</text>
+<rect x="960.0" y="3188.0" width="368.0" height="40.0" rx="8" fill="#f4f4f5" stroke="#e4e4e7" stroke-width="1" />
+<rect x="968.0" y="3196.0" width="88.9" height="24.0" rx="12.0" fill="#f0fdf4" />
+<circle cx="984.0" cy="3208" r="5.5" fill="#15803d"/>
+<path d="M981.4,3208.1 l1.8,1.8 l3.4,-3.6" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="996.0" y="3212.3" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#166534" text-anchor="start">Finished</text>
+<text x="1064.0" y="3212.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Run · patch cookie handling</text>
+<text x="1316.0" y="3212.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="400" fill="#71717a" text-anchor="end">▸</text>
+<circle cx="972.0" cy="3256" r="11.25" fill="#ffffff" stroke="#2451d6" stroke-width="1.5"/>
+<text x="972.0" y="3260.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="9.36" font-weight="600" fill="#2451d6" text-anchor="middle">C</text>
+<circle cx="980.64" cy="3264.64" r="4.32" fill="#2451d6" stroke="#ffffff" stroke-width="1"/>
+<text x="992.0" y="3255.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#18181b" text-anchor="start">Fix is up for review. Done is your call.</text>
+<text x="992.0" y="3273.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="400" fill="#71717a" text-anchor="start">Cody · agent · 10:03</text>
+<rect x="960.0" y="3296.0" width="368.0" height="44.0" rx="14" fill="#ffffff" stroke="#8f8f96" stroke-width="1" filter="url(#shadow-sm)"/>
+<text x="976.0" y="3323.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#71717a" text-anchor="start">Reply in #sign-in-bug…</text>
+<circle cx="1304.0" cy="3318" r="14" fill="#2451d6"/>
+<g transform="translate(1296.0,3310.0) scale(0.6667)" fill="none" stroke="#ffffff" stroke-width="3.00" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></g>
+</g>
+<text x="944.0" y="3388.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#18181b" text-anchor="start">Task row, pills and composer</text>
+<text x="944.0" y="3410.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">Owner (O) and assignee (A) always visible. Pills</text>
+<text x="944.0" y="3430.0" font-family="'Otto Inter', Inter, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="400" fill="#71717a" text-anchor="start">carry metadata, never status.</text>
+<line x1="96" y1="3486" x2="1344" y2="3486" stroke="#e4e4e7" stroke-width="1"/>
+<text x="96.0" y="3522.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="start">Otto · Foundations draft 01 · October 2026</text>
+<text x="1344.0" y="3522.0" font-family="'Otto Mono', 'JetBrains Mono', ui-monospace, monospace" font-size="12.5" font-weight="400" fill="#71717a" text-anchor="end">Proposal for review. Blue accent pending human approval.</text>
+</svg>

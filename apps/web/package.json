@@ -1,0 +1,44 @@
+{
+  "name": "@otto/web",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --bun vite --host 127.0.0.1 --port 45173",
+    "build": "bun --bun tsc -b && bun --bun vite build",
+    "typecheck": "bun --bun tsc -b",
+    "preview": "bun --bun vite preview"
+  },
+  "dependencies": {
+    "@remixicon/react": "^4.9.0",
+    "@tanstack/react-query": "5.104.1",
+    "@tanstack/react-router": "^1.170.41",
+    "@tiptap/extension-image": "3.31.4",
+    "@tiptap/extension-list": "3.31.4",
+    "@tiptap/extension-mention": "3.31.4",
+    "@tiptap/extension-table": "3.31.4",
+    "@tiptap/extensions": "3.31.4",
+    "@tiptap/markdown": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
+    "@tiptap/suggestion": "3.31.4",
+    "@workspace/ui": "workspace:*",
+    "better-auth": "1.7.7",
+    "hono": "4.13.12",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "rrule": "2.8.1",
+    "@otto/server": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6",
+    "typescript": "~6.0.2",
+    "vite": "^8"
+  }
+}

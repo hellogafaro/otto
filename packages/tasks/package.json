@@ -1,0 +1,19 @@
+{
+  "name": "@otto/tasks",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "dependencies": {
+    "@otto/workspaces": "workspace:*",
+    "@otto/projects": "workspace:*",
+    "drizzle-orm": "0.45.3",
+    "@otto/agents": "workspace:*",
+    "@otto/shared": "workspace:*",
+    "rrule-temporal": "2.2.8",
+    "@otto/db": "workspace:*"
+  }
+}
