@@ -12,7 +12,8 @@ import { Toaster as Sonner, toast as sonner, type ToasterProps } from "sonner"
 // translucent, blurred, hairline, 12px corners like a card). Close is the
 // 28px ghost button 6px in (its 6px corners + 6 = 12, nested); the message
 // sits 12px in and wraps, so a toast is as tall as what it says (40px for
-// one line). Bottom right, above the composer bar (`--composer-lift`). Styled through
+// one line). Bottom right on the common shell edge, above the composer only
+// when the pane is too narrow (`--toast-clearance`). Styled through
 // Sonner's classNames (unstyled), so no defaults fight it: no stylesheet may
 // restyle `[data-sonner-toast]` either (a leftover one hid every icon). The icon
 // slot is `relative` because Sonner's loading spinner is absolutely centred in it.
@@ -23,9 +24,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       position="bottom-right"
       className="toaster group"
       closeButton
-      // Over the composer bar: the page frame publishes its band as `--composer-lift`.
-      offset={{ bottom: "calc(var(--composer-lift, 0px) + 24px)" }}
-      mobileOffset={{ bottom: "calc(var(--composer-lift, 0px) + 16px)" }}
+      offset={{ bottom: "calc(var(--toast-clearance, 0px) + 3 * var(--shell-inset, 8px))" }}
+      mobileOffset={{ bottom: "calc(var(--toast-clearance, 0px) + 3 * var(--shell-inset, 8px))" }}
       icons={{
         success: <CircleCheckIcon className="size-3.5 text-status-done" />,
         info: <InfoIcon className="size-3.5 text-muted-foreground" />,

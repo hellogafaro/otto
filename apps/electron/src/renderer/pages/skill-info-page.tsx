@@ -148,7 +148,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId }: SkillInfoPageP
         <Info_Page.Content>
           <Info_Section title={t('skillInfo.instructions')} actions={editButton('skillInstructions', skill.metadata.name)}>
             <div className="p-4">
-              <Markdown mode="full" className="[&>:first-child]:mt-0 [&>:last-child]:mb-0" onUrlClick={(url) => window.electronAPI.openUrl(url)}>
+              <Markdown mode="full" className="max-w-[37em]" onUrlClick={(url) => window.electronAPI.openUrl(url)}>
                 {withoutTitle(skill.content, skill.metadata.name) || t('skillInfo.noInstructions')}
               </Markdown>
             </div>

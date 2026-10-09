@@ -23,11 +23,14 @@ export const CHANNEL_MAP = {
   markAllSessionsRead: invoke(RPC_CHANNELS.sessions.MARK_ALL_READ),
   getSessionMessages: invoke(RPC_CHANNELS.sessions.GET_MESSAGES),
   createSession: invoke(RPC_CHANNELS.sessions.CREATE),
+  initLinkedPageSession: invoke(RPC_CHANNELS.sessions.INIT_LINKED_PAGE),
   deleteSession: invoke(RPC_CHANNELS.sessions.DELETE),
   sendMessage: invoke(RPC_CHANNELS.sessions.SEND_MESSAGE),
+  getNativeFeatures: invoke(RPC_CHANNELS.sessions.FEATURES),
   cancelProcessing: invoke(RPC_CHANNELS.sessions.CANCEL),
 
   respondToPermission: invoke(RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION),
+  respondToNativeQuestion: invoke(RPC_CHANNELS.sessions.RESPOND_QUESTION),
   respondToCredential: invoke(RPC_CHANNELS.sessions.RESPOND_TO_CREDENTIAL),
   sessionCommand: invoke(RPC_CHANNELS.sessions.COMMAND),
   exportSession: invoke(RPC_CHANNELS.sessions.EXPORT),
@@ -178,6 +181,8 @@ export const CHANNEL_MAP = {
   // User Preferences
   readPreferences: invoke(RPC_CHANNELS.preferences.READ),
   writePreferences: invoke(RPC_CHANNELS.preferences.WRITE),
+  getUserPreferences: invoke(RPC_CHANNELS.preferences.GET_USER),
+  updateUserPreferences: invoke(RPC_CHANNELS.preferences.UPDATE_USER),
 
   // Session Drafts
   getDraft: invoke(RPC_CHANNELS.drafts.GET),
@@ -357,36 +362,4 @@ export const CHANNEL_MAP = {
   runRoutine: invoke(RPC_CHANNELS.routines.RUN),
   resetRoutineWebhook: invoke(RPC_CHANNELS.routines.RESET_WEBHOOK),
 
-  // Messaging gateway
-  getMessagingConfig: invoke(RPC_CHANNELS.messaging.GET_CONFIG),
-  updateMessagingConfig: invoke(RPC_CHANNELS.messaging.UPDATE_CONFIG),
-  testTelegramToken: invoke(RPC_CHANNELS.messaging.TEST_TELEGRAM),
-  saveTelegramToken: invoke(RPC_CHANNELS.messaging.SAVE_TELEGRAM),
-  testLarkCredentials: invoke(RPC_CHANNELS.messaging.TEST_LARK),
-  saveLarkCredentials: invoke(RPC_CHANNELS.messaging.SAVE_LARK),
-  disconnectMessagingPlatform: invoke(RPC_CHANNELS.messaging.DISCONNECT),
-  forgetMessagingPlatform: invoke(RPC_CHANNELS.messaging.FORGET),
-  getMessagingBindings: invoke(RPC_CHANNELS.messaging.GET_BINDINGS),
-  generateMessagingPairingCode: invoke(RPC_CHANNELS.messaging.GENERATE_CODE),
-  generateMessagingSupergroupCode: invoke(RPC_CHANNELS.messaging.GENERATE_SUPERGROUP_CODE),
-  getMessagingSupergroup: invoke(RPC_CHANNELS.messaging.GET_SUPERGROUP),
-  unbindMessagingSupergroup: invoke(RPC_CHANNELS.messaging.UNBIND_SUPERGROUP),
-  unbindMessagingSession: invoke(RPC_CHANNELS.messaging.UNBIND),
-  unbindMessagingBinding: invoke(RPC_CHANNELS.messaging.UNBIND_BINDING),
-  onMessagingBindingChanged: listener(RPC_CHANNELS.messaging.BINDING_CHANGED),
-  onMessagingPlatformStatus: listener(RPC_CHANNELS.messaging.PLATFORM_STATUS),
-  startWhatsAppConnect: invoke(RPC_CHANNELS.messaging.WA_START_CONNECT),
-  submitWhatsAppPhone: invoke(RPC_CHANNELS.messaging.WA_SUBMIT_PHONE),
-  onWhatsAppEvent: listener(RPC_CHANNELS.messaging.WA_UI_EVENT),
-
-  // Messaging access control (Phase 3)
-  getMessagingPlatformOwners: invoke(RPC_CHANNELS.messaging.GET_PLATFORM_OWNERS),
-  setMessagingPlatformOwners: invoke(RPC_CHANNELS.messaging.SET_PLATFORM_OWNERS),
-  getMessagingPlatformAccessMode: invoke(RPC_CHANNELS.messaging.GET_PLATFORM_ACCESS_MODE),
-  setMessagingPlatformAccessMode: invoke(RPC_CHANNELS.messaging.SET_PLATFORM_ACCESS_MODE),
-  getMessagingPendingSenders: invoke(RPC_CHANNELS.messaging.GET_PENDING_SENDERS),
-  dismissMessagingPendingSender: invoke(RPC_CHANNELS.messaging.DISMISS_PENDING_SENDER),
-  allowMessagingPendingSender: invoke(RPC_CHANNELS.messaging.ALLOW_PENDING_SENDER),
-  setMessagingBindingAccess: invoke(RPC_CHANNELS.messaging.SET_BINDING_ACCESS),
-  onMessagingPendingChanged: listener(RPC_CHANNELS.messaging.PENDING_CHANGED),
 } satisfies ChannelMap

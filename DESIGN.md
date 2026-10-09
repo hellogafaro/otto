@@ -109,7 +109,10 @@ components:
   sidebar-icons:
     width: 48px
   page-header-row:
-    height: 52px
+    height: 32px
+  panel-header:
+    height: 48px
+    padding: 8px
   sidecar:
     width: 296px
   card:
@@ -123,8 +126,8 @@ components:
   composer:
     backgroundColor: "{colors.card}"
     typography: "{typography.body}"
-    rounded: "{rounded.xl}"
-    padding: 16px
+    rounded: "{rounded.lg}"
+    padding: 8px
   button-ghost:
     textColor: "{colors.muted-foreground}"
     typography: "{typography.body}"
@@ -332,6 +335,102 @@ this file wins.
 
 ## Overview
 
+### Accepted shell and reference direction — 2026-10-08
+
+The shared shell is a sidebar beside one larger rounded main panel containing the page, composer and optional right details pane. This replaces the continuous borderless frame and floating navigation described in older sections below. The app canvas and sidebar are darker than the main panel; nested cards retain sufficient contrast in light and dark using existing tokens. The sidebar never has a left shadow. Home keeps the original clouds/night-sky images, clipped to the main panel only, never behind the sidebar.
+
+The 2026-10-09 refinement scopes the main panel to the existing 12px radius with a subtle 1px border and no shadow; inner cards use 8px, the shared composer 10px, its buttons 6px and attachments 8px. Composer internal padding and its inner-pane bottom gap are both 8px (`p-2` / `bottom-2`), without stacked body/footer padding. The outer panel inset is 16px and the navigation/compact-chat band uses `p-2 h-12`, with no bottom border. Ordinary body heading and content spacing remain distinct, as specified below. These surface-specific choices do not resize unrelated popovers or icons. Sidebar footer geometry stays vanilla shadcn, without the added bottom spacer; retain only actual mobile safe-area clearance. Tables and grouped lists render directly in the enclosing panel, without a redundant outer card, while Home and settings keep their semantic inner cards. Page actions use the existing 32px variant. Alert confirmations use stock shadcn composition; a dialog nested inside an existing overlay uses the shared overlay-suppression context instead of a second backdrop or z-index workaround.
+
+The main pane owns normal page vertical scrolling across its full width: a centered max-width column constrains content width only, never creates an inner vertical scroll viewport. The scrollbar sits at the pane edge and wheel input in its blank margins reaches the same page. Preserve existing chat virtualization, bottom-follow/manual-scroll intent, paging, read markers, navigation scroll restoration and keyboard focus. The composer stays anchored at the pane bottom with the measured fade/clearance. Intentional details-pane, table-horizontal, code and modal scroll affordances remain independent; window/document body scrolling is not a substitute.
+
+Navigation sits directly in the panel's upper corners, without a card header, topbar or bottom separator: existing parent-route Back at the left, existing previous/next item controls at the right. Their semantics, disabled states and focus behavior stay unchanged. Show only shortcuts actually implemented, using `Kbd` in the tooltip; do not invent bindings or add browser-conflicting web keys. Reuse the existing split/details primitives and installed resizing capability; the composer belongs to the content pane, and details must not overlap it on desktop or narrow screens. Existing route state, scroll, focus, draft and conversation identities remain intact.
+
+**Title placement — corrected 2026-10-09.** Only an open conversation/chat detail
+uses the centered compact title in the panel's fixed top band. The Chats **list**,
+Tasks, Projects, Library, Settings and other ordinary pages retain their previous
+in-body headings and spacing; they are not compact chat headers. The shared
+`PageColumn` title slot stays inside the page scroller. Restore the verified
+ordinary desktop contract: 64px top space, a 32px title row and 40px between the
+title block and the next content block, with the existing narrow-screen variant
+and regular text rail. Normal headings scroll with the page; Home keeps its
+separate centered variant. The navigation/compact-chat top band remains `p-2`
+and `h-12`, with no bottom border; that 48px band does not replace or resize an
+ordinary page heading. Composer internal padding remains `p-2`; the complete
+dock's outer bottom gap is `1 * --spacing` plus the actual safe-area inset.
+The outer panel's 16px inset and full-pane page scrolling
+remain separate. No per-page offsets or blanket spacing changes implement this
+distinction.
+
+The shared ordinary page viewport clears the first 48px navigation band and
+fades to the existing 64px heading boundary, without changing heading/content
+offsets. Native focus scrolling reserves that same 64px top boundary and the
+measured composer/fade clearance below, so controls and the composer never hide
+the focused item. Compact chat retains its separate conversation viewport and
+fade; this ordinary-page selector does not change chat following or windowing.
+
+### Composer dock and right details — 2026-10-09 refinement
+
+The agent picker moves out of the composer surface into a shared footer below
+it, using the existing 28px control variant. The picker leads the left group.
+No linked-page/entity context chip is rendered in the composer or its footer,
+on any page. The actual context entity still binds the first message, linked
+chat identity, routing and authorization; removing the cue does not remove that
+data. User attachments and genuine message/artifact links remain visible.
+The right group contains the actual current chat's complete membership,
+including the authenticated viewer and agents, using `AvatarGroup`, named
+tooltips and a read-only overflow list. Unlinked pages do not invent members.
+Selection, actor authority and active-run ownership remain unchanged. Existing
+recording/transcription locks also lock footer controls; recording retains its
+previous controls, row order, timer and draft restoration.
+
+On an existing chat, the footer picker selects the next message's recipient
+within that same chat. Offer only authorized eligible agent members already in
+the chat; selection changes no chat ID, draft, history, membership, credentials
+or running-agent ownership and never invokes the old new-chat callback. Keep
+implicit single-agent, explicit multi-agent and human-only routing semantics;
+no eligible agent means no fabricated invocation. A new/unbound page retains
+its original draft-agent selection before explicit first Send. The participant
+avatar group remains the full membership, independent of the selected recipient.
+
+The existing recording surface measures 48px at desktop and narrow widths:
+8px padding plus a 32px row. The shared idle/single-line base matches that
+measured height. Nonrecording Attach sits immediately left of Send/mic on the
+right; previews are above the full-width writing area. Multiline text and
+attachment previews may grow naturally without clipping or state-specific
+pixel nudges. The outside footer is a `min-h-8 px-4 pt-1 pb-0` rail: 28px
+controls plus 4px top space, not a 44px `p-2` row. No separate dock gap adds
+another 4px. The complete dock ends 4px plus the actual safe-area inset from
+the inner content-pane bottom, without stacked Frame/slot padding; this
+supersedes the earlier 8px outer gap only. Measured fade and scroll/focus
+clearance include the whole footer, and an absent footer reserves no height.
+Scenic glass remains, but page content is masked before it can bleed through
+the writing surface. Only the open-chat compact title becomes text-only; message avatars
+and ordinary page icons remain.
+
+Existing right details panes default open only when registered. Every right
+details control uses Lucide `List`. While open, the only close/toggle is in the
+sidebar header; while closed, a top navigation List affordance reopens it.
+Explicit close persists across native route navigation and reload, without
+forcing it open on each render or adding a pane to pages that have none.
+Narrow stacking, resize, focus/Escape and the panel's existing spacing remain.
+
+Project index/detail use the verified immediate pre-Craft source foundation:
+`16196c2991c5ae7f8f91cd1874876ba711871e36` imported Craft Agents and its sole
+parent `2a6e9a79be8b268b6cac583f68a68fa674be2fe9` retains the original Project
+routes. Adopt its quiet landscape covers, member/archive summary, icon-bearing
+wrapping tabs and plain overview/member/resource surfaces on current domains.
+Do not revive repository fields, old roles/dialog creation or the old runtime.
+Historical screenshots are evidence only for their actual earlier revision,
+not proof of exact final-v1 pixels.
+
+For settings and pages, an authorized observation of the corresponding Capy **web** UI is the default layout/interaction foundation, with these Otto tokens/components and explicit owner deviations taking precedence. Do not copy branding, private source/assets or unrelated features. Record reference limitations rather than inventing an authenticated layout from marketing images. The activity reference uses recovered v1 source `2a6e9a79` and observed public Capy demo evidence; authenticated Capy settings were unavailable to the isolated reference profile.
+
+Activity presentation is independent of the Mastra runtime: one truthful working/waiting summary, ordinary completed tools collapsed behind an accessible disclosure, and canonical approval/question/artifact cards visible outside that fold. Do not force all history open because a native action exists or duplicate its waiting heading. Keep Details, actual errors, Stop, immutable action identity, eligible-human authority, resolving human/time and existing Library/task/project links. Approval does not imply successful execution; an approved action that fails retains its permission record and a safe visible failure. Do not expose hidden chain-of-thought, cycle arbitrary status phrases, fabricate elapsed time from the last user message, or restore retired Branch/Markdown overlays.
+
+The 2026-10-09 component direction uses the installed official shadcn Base **Message** composition (`MessageAvatar`, `MessageContent`, `MessageHeader`, `MessageFooter`, `MessageGroup`) and **Questionnaire** parts rather than custom message/question skins. Message remains presentational; the existing full-pane conversation viewport owns scrolling. Normal prose grows naturally without a reply-local height cap or vertical scrollbar; intentional code/table horizontal affordances remain. Existing supported message actions are icon-only in MessageFooter with accessible labels, and truthful loading uses Marker with `role="status"` and Spinner. No demo-only retry, feedback or edit feature is added. Plain supported message surfaces retain the agreed Otto layout rather than forcing chat bubbles.
+
+All generic agent questions use the official Questionnaire's state, navigation, validation, fieldset/legend and accessible choice/input parts. The host retains immutable durable request identity, persistence, transport, cancellation, server authorization/resolve-once, actor/time and terminal read-only history. Mapping covers existing single, multiple and freeform answers; Skip is exposed only if the actual payload supports it. Never auto-submit or mutate stored question content. Approvals, credentials and destructive security confirmations remain their appropriate controls, not generic questions that grant permissions. Tool-detail opening links/arrows/menu actions are retired; truthful activity disclosure and failures, real artifact links and request controls remain.
+
 Otto is a quiet, neutral workspace where people and AI agents do the same work
 side by side. The UI stays out of the way: flat surfaces, hairline rings, one
 accent, compact 32px controls.
@@ -424,7 +523,9 @@ card on the 0.96 frame keeps the same weight, solid `oklch(0.87 0 0)`, and
 
 ## Typography
 
-Inter for everything; Geist Mono only for code. Sizes are theme tokens on a
+Inter remains the application UI font. Selected read-only Markdown and editable
+document prose use the official Typeset docs profile described below; code uses
+Geist Mono. UI sizes are theme tokens on a
 golden scale from a 13px base. Each step is √φ (1.272), so every second step is
 φ: body 13 → heading 16.5 → title 21 (→ 26.8 → 34 reserved). The smallest step
 is fixed at 12px; 10.2px read too small.
@@ -433,8 +534,8 @@ is fixed at 12px; 10.2px read too small.
 | --- | --- | --- | --- |
 | key | `text-[0.6875rem]` | 11px / 16px | Keys (`Kbd`) and the questionnaire's number keys |
 | caption | `text-xs` | 12px / 16px | Badges, tooltips, times, day dividers, small metadata |
-| body | `text-sm` | 13px / 20px | All UI text: buttons, rows, menus, comments, body |
-| heading | `text-base` | 16.5px / 24px | Page section titles (`PageSection`), section headings (Comments), empty-state titles, editor H1 |
+| body | `text-sm` | 13px / 20px | UI text: buttons, rows, menus, labels and controls |
+| heading | `text-base` | 16.5px / 24px | Page section titles (`PageSection`), section headings (Comments), empty-state titles |
 | title | `text-lg` | 21px / 28px | Page titles |
 
 - The page ladder is golden: page title T = 21 (13 x φ); a section title is T / √φ
@@ -453,81 +554,66 @@ is fixed at 12px; 10.2px read too small.
   lowercase; no ellipses in placeholders; main calls to action read "New …";
   agents are never labeled "(agent)".
 
+### Document and Markdown prose
+
+Use the installed official Typeset stylesheet and `typeset typeset-docs` on the
+central minimal/full Markdown root and the editable document's ProseMirror
+content DOM. The docs profile uses Geist for body/headings, Geist Mono for code,
+`--typeset-size: 15px`, `--typeset-leading: 1.75` and `--typeset-flow: 1.25em`.
+Keep official responsive scaling: actual desktop prose is 15px/26.25px; the
+official narrow profile is 16.875px/29.531px. Semantic headings, lists, quotes,
+rules, tables, links and inline code defer to Typeset instead of competing
+per-renderer or per-caller typography utilities. Terminal rendering retains its
+separate existing presentation.
+
+There is no default or chat prose width cap. Selected read-only Library
+documents, skill/source guides and embedded document previews apply the 37em
+measure to the prose root only, never the page, controls or preview chrome.
+Editable documents retain their consumer width. Wide semantic tables use
+`typeset-scroll`; code/table horizontal overflow, Shiki, math, sanitization,
+streaming identity and editor selection/input behavior remain intact.
+
+Keep application controls, EntityChip references, rich embedded UI, request
+controls, Questionnaire and editor chrome outside prose styling. Exclusions
+(`not-typeset` or `data-not-typeset`) suppress the entire descendant subtree,
+including nested Typeset roots, so place them on chrome only. Preserve existing
+`font-sans text-sm` on excluded UI to prevent inherited prose metrics. Do not
+change iframe internals, application Inter defaults or other Typeset presets.
+The plain-text/mention composer is a control, not editable document prose.
+
 ## Layout
 
-Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
+Spacing uses the existing Tailwind 4px grid. Explicit panel/header/composer
+requirements use spacing tokens, not arbitrary per-instance pixel offsets.
 
-- **The shell** is `[Sidebar][PageFrame]`. There is no top bar, no rail, no
-  panels and no page-wide card. The frame (`bg-sidebar`) is the lowest and
-  darkest layer: the sidebar sits directly on it and so does the main region
-  (`PageFrame`), the same color, with no card, divider, ring or seam between them.
-  What a page puts on the frame is **surfaces** (`PageCard`, `PageCenterpiece`,
-  `bg-card`, hairline border, `shadow-xs`, `xl` 12 corners), as siblings. Lower is
-  darker (values under Colors).
-- **The page frame** (`PageFrame`, the main region) lays out three tracks and
-  the column's body (numbers are px at 1x):
-  - **The column** is ONE track for every page (chat, lists, settings, empty
-    states): **768px** (`48rem`), centered in the free space right of the sidebar.
-    Narrower than 768 + 2 x 20 it fills the width with 20px on each side. Nothing
-    is ever wider. Its body scrolls from the window's top edge (no strip above
-    it) to 8px above the window's bottom.
-  - **One page spacing, the roomy one** (the owner's call: "make all pages
-    except chats/id, but chat index as well, to follow the normal page spacings,
-    not the compact version", after Capy's General). Every page but the open
-    chat is a `PageColumn` in that track: from 768px **24px sides** (content,
-    cards and the title row 720px wide), **the title row 64px from the top**,
-    **40px between blocks** and **40px under the last one** (a centerpiece's card
-    instead runs to the frame's 8px bottom; while the composer bar shows, the
-    last block ends 24px above it and a card 8px above it: Components,
-    Composer, Clearance). Below 768px the sides are the
-    frame's 20px, the title row sits on the top axis beside the sheet's menu
-    button and the gaps stay 40px. See Page anatomy.
-  - **Nothing is pinned above a page.** Its title row is the first block of the
-    scrolling column (Capy's settings pattern) and scrolls away with the content;
-    see The page header. The one exception is the **open chat**
-    (`/chats/<id>`): a compact 80px header (`density="compact"`, see Density) pinned
-    above its transcript, which scrolls on the frame on the same 24px sides as every
-    page (no card, no wrapper); it is the only page on the compact spacing.
-  - **The top axis** (`--axis-y`, 34px, one CSS variable in `globals.css`): **the
-    sidebar's mark** and, below 768px, every roomy title row and the sheet's menu
-    button share the center y 34 (the compact chat header is no longer on it: it
-    is the row between two equal 24px gaps, center 40). Each offsets from the variable by half its own height
-    (the chat's row: top 18, 32px; Back and a title row below 768px: top 18,
-    32px; the mark's row: top 20, 28px), so changing it moves them all. The
-    value is the sidebar's: its first row starts one group gap (20px) from the
-    top, 20 + 28 / 2 = 34. From 768px every other page's title row is lower,
-    at y 64 (its center 80): expected, the roomy spacing does not line up with
-    the mark.
-  - **The gutters** are the free space left and right of the column; they hold
-    the floating navigation (left, level with the title row, 16px from the column) and,
-    mirrored, the sidecar's toggle (right, level with the title row) over the floating
-    sidecar (right, starting at the **content start**, below), and do not
-    scroll (so the navigation is sticky: it never moves while the title and the
-    page scroll away beside it): only the column's body scrolls (a blocks page as
-    a whole, a centerpiece in itself). Frame width is the region right of the
-    sidebar (window - 256, or - 48 icons only, or the whole window on a phone).
-    On Electron the gutters and the window's top 8px are the drag region; the
-    column is not, so what scrolls under the top stays clickable.
-  - **Collapse rules.** Closed sidecar: both gutters equal, column centered. Open
-    sidecar: `--sidecar-reserve` (320px: `--nav-gap` 16, `--sidecar-width` 296, 8px
-    to the window; `FRAME_TOKENS`) is reserved in the right track; while the gutter
-    already is wider the column stays centered, else it shifts left, the composer
-    with it (it is in the column's track), so the panel never covers the content
-    (measured at 1440: content 488..1208 closed, 376..1096 open; composer
-    624..1072 -> 512..960; panel 1136..1432). Both fit from **1160px of frame
-    width** (the nav's 72px gutter + 768 + 320; a container query takes no
-    variable, so the number is written out); under it the sidecar overlays the
-    page instead. The floating
-    navigation needs a left gutter of 72px (20px, the 32px buttons, 20px to the
-    column); narrower it moves into the title row's trailing actions.
-  - **The content start** is the top of the first block after the title row: the
-    first section's title row on a blocks page, the first card when there is no
-    section title (y 136 at scroll 0 from 768px: the title row is 64 to 96, then
-    40px; lower under an item's description), on the open chat the body's top
-    under its pinned header (y 80; the transcript marks no block). Blocks mark themselves (`data-content-start`), `PageFrame`
-    measures the first one (unscrolled) and publishes it as `--content-start`.
-    The floating sidecar starts there (it is the sidecar's line, not the floating
-    navigation's nor its toggle's: those are level with the title row).
+- **The shell** is a darker sidebar/canvas beside one rounded, bordered,
+  lighter main panel. The panel contains the page, composer and optional
+  resizable details. Home's wallpaper is clipped to that panel. There is no
+  sidebar left shadow, floating navigation card or header-bottom separator.
+- **The page frame** has one full-width content track, optionally split with
+  details inside the panel. A centered 768px column constrains content width,
+  not the page viewport. Normal page scrolling reaches the pane edge, including
+  its blank margins; Task and document prose do not create another vertical
+  scroll box. Details, modal previews and horizontal code/table scrolling remain
+  intentional independent affordances.
+- **Ordinary page headings** belong to the scrolling `PageColumn` title slot.
+  Chats list, Tasks, Projects, Library, Settings and item pages retain their
+  previous roomy heading rhythm: a 32px row, 64px desktop top space and 40px
+  block gaps, with the existing narrow variant and text rail. A description is
+  part of the same title block. These headings scroll away; they are never
+  forced into the compact chat band. Home retains its centered variant.
+- **Only the open chat** uses the centered compact title in the panel header.
+  That navigation/chat band is a fixed 48px border-box (`h-12`) with 8px padding
+  (`p-2`), fitting 32px controls, and never has a bottom border. Leading Menu/Back
+  and trailing previous/next/actions retain their semantics. Measure hitboxes
+  separately from their glyph inset, and from the panel's 1px border.
+- **The outer panel inset** is 16px through the spacing scale. Composer internal
+  padding is 8px; the complete dock's bottom gap is 4px plus safe area, independently of ordinary
+  body spacing. Existing width rails, measured composer clearance/fade,
+  virtualization, manual scroll/follow intent, read markers and focus remain.
+- **Details** resize within the panel and stack below the content on narrow
+  screens. They never float over the composer or reserve an unrelated outer
+  gutter. Composer bottom geometry is measured against its own content pane.
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
 - **Controls are 32px**: bar buttons and tabs on a page. Task list and
@@ -736,132 +822,36 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     source GitHub to "), then focuses it; Enter starts the chat. Sources, skills and
     routines have no entity token yet, so their name is plain text. No "Edit file"
     secondary action. Copy lives in `agentEdit.*` strings, never a hardcoded name.
-- **The page header** (`PageHeaderRow`, drawn by `PageHeader`) is the page's
-  **title row: the first block of the scrolling column**, never a pinned bar
-  (the owner's call, after Capy's settings, where "General" is simply the first
-  element of the 768px content column). It is 32px tall, **its top 64px below
-  the window's top** from 768px (its own margin, `md:mt-16`; below 768px 18px,
-  `--axis-y` - 16, so its center is the axis beside the sheet's menu button),
-  inset 16px (`PAGE_INSET`) inside the column's 24px sides, 40px above the first
-  block (the column's gap), and it scrolls away with the content; the column
-  ends 40px under its last block. It holds the page title (`PageTitle`, 21px medium, plain text with
-  its badge where it has one) and the page's actions right-aligned on the same
-  row, all 28px ghost controls (Filter, Search, New chat, More…).
-  **The title is one line, never an ellipsis and never a dropdown**: it runs the
-  full width and fades out over its last 16px (8 x 2) where the actions start
-  (a mask, the technique of the sidebar's rows; a short title is untouched). A
-  page with a menu of actions on its subject (a chat's session menu, a source's,
-  a skill's, an automation's) ends its actions with **More actions** (`Ellipsis`,
-  28px ghost icon button, tooltip "More actions", open state the standard
-  `foreground/10` fill) that opens that menu; below 768px a chat's opens the
-  drawer instead. **The title never has a back button or a breadcrumb.** Going
-  back and stepping through a list is the floating navigation. Pages call
-  `<PageHeader title actions />` anywhere and pass no handlers (see Navigation):
-  it draws its row in the column's title slot (`PageColumn`'s first child, so
-  the title scrolls with the content; in place on a page with no column, such
-  as a not-yet-loaded item, at the same height).
-  **An item's description** (`PageHeader description`: a skill's description, a
-  source's tagline, an automation's summary) is the page's lead line, muted
-  body text 4px under the title in the same slot (inset like the title; one
-  block, so the 40px gap comes after it), shown there once and never repeated
-  in the page: the same pattern as a document, its title then its body.
-  - **Density: ONE row, one `density` prop (`roomy` | `compact`), no per-page
-    override.** The spacing tokens live in ONE place, `FRAME_TOKENS` in
-    `page-frame.tsx` (published on the frame's grid, so the owner can tweak and
-    compare), on the golden scale 8, 13, 21, 34, 55 (`--gr-8` ... `--gr-55`, the
-    same steps as the type scale 13, 16.5, 21):
-
-    | Token | Value | What |
-    | --- | --- | --- |
-    | `--nav-gap` | 16 | the navigation's right edge to the column (owner: 16, never above): its x is the same on EVERY page (x 336 at 1280) |
-    | `--nav-top-roomy` | 64 | roomy: the nav top and the title row's top |
-    | `--header-gap` | 24 | compact: the gap above the title row AND below it (equal) |
-    | `--header-compact` | 80 | compact: 24 + 32 + 24, where the transcript starts |
-    | `--nav-top-compact` | 96 | `--header-compact` + the 16px a turn row carries on top (the transcript's top fade covers it): the first row's top (the day divider) |
-    | `--composer-gap` | 24 | the clear space between the floating composer and the content above it |
-
-    **Roomy** (every page in the column: skill, source, routine, task, project,
-    library item, settings): the title row 64 down, the big title (21px), 16px in
-    to line up with the cards' text; the nav top is 64 (level with it).
-    **Compact** (the open chat only): the row in the frame's header slot, the
-    section title size (`text-base`, 16.5px), its left edge on the column's
-    content edge (24px in from 768px, the frame's 20px below: the same x as the
-    transcript's text and the composer's left; measured at 1440: title, text and
-    composer all x 488, the composer's right = the transcript's right, x 1208),
-    and the nav top on the transcript's first row (80 + 16 = 96, measured equal).
-    There is no wrapper, card or line around the transcript (the owner's call,
-    2026-10-07: "fully remove the bordered wrapper ... one less padding"): it scrolls
-    on the frame, so the first row is 40px under the title row, the roomy
-    pages' block gap. On Electron the compact row is the window's drag region and
-    the controls opt out.
-  - **Below 768px** the sidebar is a sheet, so its menu button must stay
-    reachable without a pinned bar: a **32px raised icon button** (`outline`, as
-    the floating navigation: content scrolls under it, so it needs the card
-    fill) **fixed over the column's top-left**, 16px in, on the axis, outside the
-    scroll (the frame's leading slot), and the title row clears it (its title
-    starts 56px in: 16 + 32 + 8). On the chat it leads the compact row instead (a
-    28px ghost button). A page showing only its empty state (`PageHeader` with no
-    title) draws only this button.
-- **The sidecar** (`Sidecar`), closed by default, holds an item's details (a
-  task, project, routine, library item; `SidecarDetails` in a page). It looks
-  **exactly like Otto v1's right column** (the owner's call, 2026-10-07): plain
-  text on the page background, no card, border, background, shadow or title,
-  muted section labels, rows of icon + value (`PropertySection` / `PropertyRow`,
-  see Components, Property list; never hand-made rows). It **floats**: an
-  absolute layer in the right gutter's area, never a grid item, 296px
-  (`--sidecar-width`) wide, `--nav-gap` (16px) right of the column (the
-  toggle's x) and from the content start to the frame's 8px bottom; the column
-  makes room for it (Collapse rules), so it never covers content. Taller than the
-  window it scrolls itself with the edge fade. Under 1160px of frame width it
-  overlays the page on a surface (`bg-card`, ring, `shadow-md`, no backdrop; the
-  one place it is a card, because it floats over content) with its title and a
-  Close (it covers the toggle there); below 768px it spans the width (the phone
-  sheet). Opening and closing is 200ms of slide and fade, none with reduced
-  motion. Escape closes it while focus is inside, and it closes when the page
-  goes away.
-- **The sidecar's toggle** (`SidecarToggle`) is **never in the title row**: it is
-  the floating navigation mirrored, the same 32px raised icon button (`outline`,
-  `md` 8, 14px `PanelRight`, the same hover and pressed rules), in the frame's
-  trailing slot: in the right gutter `--nav-gap` from the column, its top
-  `--nav-top` (level with the title row: y 64), while that gutter is 72px wide
-  (from 912px of frame width); narrower, fixed over the column's top-right on the
-  title row's line (40px in from 768px; 16px in on the axis below, mirroring the
-  sheet's menu button) and the title row clears it (`pr-14`, as `pl-14` for the
-  menu button). It stays put while the page scrolls. Open, it is the Close (X,
-  label "Close") in the same place, right above the panel's left edge; the panel
-  has no Close of its own except when it overlays. Tooltip below: the label
-  (Details / Close); there is no shortcut. Pages render
-  `<SidecarDetails title>{details}</SidecarDetails>` anywhere; the details mount
-  on the first open.
+- **The page header** (`PageHeaderRow`, drawn by `PageHeader`) uses one explicit
+  `density` distinction. `roomy` renders in the `PageColumn` title slot inside
+  the actual page scroller; it keeps the verified prior 32px heading row, 64px
+  desktop top space, 40px block gap, normal text rail and narrow variant. The
+  title is 21px UI text, with an optional muted lead line 4px below it. It scrolls
+  with the page. This includes the Chats list, not just settings and item pages.
+  `compact` is only the open conversation: a centered text-only title in the
+  pinned `p-2 h-12` panel band, without a bottom border. Home keeps its separate
+  centered heading. PageHeader routes normal titles to `frame.title` and only
+  compact titles to `frame.header`; no per-page offsets implement the split.
+  Existing Menu/Back and previous/next/actions use the panel's upper corners,
+  with 32px hitboxes and no floating navigation skin. Narrow layouts reserve
+  those controls without changing ordinary body rails. Shortcuts use `Kbd` and
+  only implemented bindings. Request controls and actual artifact navigation
+  remain independent of this presentational header.
+- **The sidecar** (`Sidecar`), open by default when registered, holds the item's details
+  using existing property/list primitives. It is an optional resizable pane
+  inside the bordered main panel; on narrow screens it stacks below the content.
+  It does not float in an outer gutter or overlap the composer. Preserve its
+  existing open/close behavior, property actions, focus and intentional scroll.
 - **New chat** is on the Chats index only (a chat has More actions there
   instead): the create "+" (`CreateButton`, 28px, Buttons, Create actions) last
   in the title row's actions at every width, tooltip below with the label and
   its `Kbd`; ⌘N (`app.newChat`, bound by the shell, not the sidebar) does the
   same. There is no floating "+".
-- **Floating navigation** (`FloatingNav`): Superhuman's controls, in the left
-  gutter beside the column, **`--nav-gap` (13px) from it**, **level with the title row**: Back's
-  top is y 64, the title row's top, so the two share a center at scroll 0. It is
-  fixed to the frame, not to the title row or the first block, so the title
-  scrolls away beside it. On the open chat (the one compact page, `PageFrame`
-  reads its header's density, one rule) the top is `--nav-top-compact`
-  (96, the transcript's first row) instead; the x is the same. They are our standard raised icon button
-  (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
-  with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
-  Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
-  1px divider between them, in the buttons' own border color, edge to edge (the
-  group squares only the inner corners; the outer ones stay 8px). Disabled at the
-  ends (dimmed). They stay put while the center scrolls (sticky: the gutter does not
-  scroll), on the chat too. They float over the empty canvas, never over content, so the hairline
-  border alone reads as raised: no shadow. Every page that has
-  anywhere to go shows them (Back when it has a parent, Previous / Next when it
-  has a list), none otherwise; **Settings' own pages never show them** (its own sidebar lists the pages and
-  leads with Back to app); **a skill and a source do** (the one exception in Settings, the owner's call:
-  Back to their grid, Previous / Next through it), while their sidebar row stays filled; narrower than a 72px gutter (or below 768px) they
-  move into the title row's trailing actions (the chat's compact row's) as 28px ghost icon buttons in the
-  same order (Back, Previous, Next), never leading and never beside the title. **Below 768px (phones)
-  the row keeps only the menu, Back, the title and More**: Previous and Next (and the chat's Session
-  info) are the first items of More (a dropdown; the chat's drawer), so the title gets the room. One
-  rule for every detail page.
+- **Panel navigation** uses the shared corner slots rather than floating
+  gutter controls: parent-route Back at the upper left, previous/next and page
+  actions at the upper right. Keep existing semantics, disabled/focus behavior
+  and implemented shortcut tooltips. The controls remain reachable while the
+  ordinary body title scrolls away; only the open-chat title stays in the band.
 - **Widths**: the column track is 768px for every page (720px of content inside
   its 24px sides on every page, the open chat included), the sidebar 256px on every
   page (48px as icons), the sidecar 296px (`--sidecar-width`). A centerpiece is never wider than the
@@ -924,27 +914,15 @@ no shadow.
   grids and a skill's and a source's pages (`Info_Page.Content`) are the same
   column. The roomy spacing started here (Capy's General) and is now every
   page's.
-- **Centerpiece** (`PageColumn fill` + `PageCenterpiece`: a task, a document, a
-  file's preview): ONE card as wide as the column's content and as
-  tall as the space under the title row (to 8px above the window's bottom),
-  clipped, scrolling inside it with the edge fade. `fill` makes the column fill
-  the height without scrolling as a whole; its title row is 64px down and the
-  card 40px under it (y 136), like any page. A toolbar is part of the title
-  row, not a nested card. **The open chat is the one compact page** and takes no
-  `PageColumn`: its title row is the compact one (80px, see Density) and its
-  transcript is **no card and no wrapper** (the owner's call, 2026-10-07: "fully
-  remove the bordered wrapper, it is ugly"): it scrolls straight on the frame
-  from y 80 to the frame's 8px bottom, its text on the column's content edges
-  (24px sides from 768px, 0 in below: the compact title's left, the composer's
-  left and right). Its top is the 16px a turn row carries (the top fade is as
-  tall), so the first row (the day divider) is at y 96, the nav's top. **The floating composer
-  is the shell's, in the frame's one slot, as on every page**: on the content
-  edges, 8px above the body's end (16px above the window); the transcript's
-  bottom padding is `--composer-lift` (the slot's height) + `--composer-gap`
-  (24px), so nothing hides behind it at the end.
-  Messages are flat: every message sits straight on the frame under its
-  author's header (no bubble, ring or shadow, see Chats > One chat), code
-  blocks are flat muted blocks.
+- **Long-form pages** (Task and editable document) keep their heading and
+  content in the same full-pane page scroller. `PageColumn` constrains width;
+  the editor/card wrappers do not impose a second vertical viewport. Preserve
+  the ordinary title rhythm and editor input, selection, autosave and reload.
+  Intentional file-preview/modal, code/table-horizontal and details scrolling
+  are separate. Only an open chat has a compact pinned title; its existing
+  virtualized conversation viewport owns natural-height message/history
+  scrolling. The shared composer uses its measured clearance/fade and 4px plus
+  safe-area content-pane bottom gap, without a reply-local cap or forced auto-follow.
 - **The list card: a dense list page's table in the Settings card.** A page of
   many small rows with small details (Chats, Tasks and a project's Tasks tab,
   Routines, Home's Notifications) puts its list in ONE `ListCard` (list-group.tsx): the
@@ -1070,7 +1048,7 @@ status color (Archived neutral). A row (44px): the status icon
   description, 32px down, the task's **Activity** (`ActivityFeed`, see
   Activity): one chronological feed of what happened (created, status,
   title, assignees, due date, project, links, time logged) with the comments
-  inside it (there is no separate Comments section), then the comment box. The sidecar "Details" (closed by default):
+  inside it (there is no separate Comments section), then the comment box. The sidecar "Details" (open by default, with explicit close retained):
   Properties (each row's key works while the Details are open and shows as its
   `Kbd`: Status S, a menu, keys 1 to 3; Assignees, the searchable `Picker`
   (multiple); Due date D, the `DatePicker` popover from the row, × clears it;
@@ -1158,7 +1136,7 @@ status color (Archived neutral). A row (44px): the status icon
   whose item is gone is a tile captioned "Unavailable", title muted, whose menu
   is Remove from project (its tab comes from its title: `.md` is a document);
   none is the inline `Empty` "No documents yet" / "No files yet", no action.
-  The Details sidecar (closed by default): Properties (Status, Active or
+  The Details sidecar (open by default, with explicit close retained): Properties (Status, Active or
   Archived from its menu; Created) and Chats (the chats bound to the project by
   `projectId`, newest first, a row opens it; not drawn when none). An empty
   picker says why ("Everyone is already in this project"). An id the workspace
@@ -1382,7 +1360,7 @@ as a card).
 | `SidebarMenuSlot`, `SidebarMenuSlotAction` | | the row's right slot: a 20px lane 4px from the row's top, right and bottom, one cell for stacked layers (status or time, actions, key) that swap by opacity; clicks pass through except on a visible layer; `SlotAction` is the 20px in-line ghost button (the look of `SidebarMenuAction`). The row fades its title under the lane with a mask, see Pins and recents |
 | `SidebarTrigger` | | the sheet's menu button below 768px: 28px ghost in the chat's compact row; elsewhere 32px `outline`, fixed over the column's top-left on the axis |
 | `PageFrame` | `aside` | the main region on the frame: the 768px column (`@container/panel`) and its title slot, the chat's header slot, the leading slot (the fixed menu button), left and right gutters; the top axis `--axis-y`; see Layout |
-| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `density` (`roomy` \| `compact`) | the title row: 32px; `roomy` the first block of the column, 64px down from 768px (centered on the axis below), `PageTitle` 21px medium, inset 16px; `compact` (the open chat only) 80px in the header slot (24 + 32 + 24), 16.5px title on the column's content edge (24px from 768px, the transcript's and composer's left); 28px controls; no back button, no crumbs; tokens in `FRAME_TOKENS` |
+| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `density` (`roomy` \| `compact`) | the title row: 32px; `roomy` the first block of the column, 64px down from 768px (centered on the axis below), `PageTitle` 21px medium, inset 16px; `compact` (the open chat only) centered in the 48px p-2 panel band, with a 32px payload/control row and no bottom border; normal titles remain in the scrolling title slot |
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
 | `PageColumn`, `PageSection`, `PageCard` | `fill`; `title`, `description`, `action`, `danger` | every page but the open chat (the column's first child is the title slot): 24px sides from 768px, 40px gaps, 40px at the end; `fill` for a centerpiece page (fills the height, no scroll of its own); see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
@@ -2264,9 +2242,10 @@ One chat:
 - **A person's message** is plain text (`UserMessage`: markdown, line breaks
   kept, `EntityText` chips), its attachments above it (image thumbnails,
   document chips on muted), queued ones led by the Clock "Queued" chip.
-- **An agent's turn** keeps Craft's turn card under its header, unchanged: the
-  steps line (count, live preview, the folded tool steps), thinking, plans,
-  intermediate text, the response with Copy, Markdown and Branch. With several
+- **An agent's turn** has one quiet activity disclosure under its header, with
+  completed ordinary tool details collapsed and durable action cards visible.
+  It keeps truthful status, readable outcomes and the final response with Copy,
+  without competing Thinking spinners or retired Markdown/Branch overlays. With several
   agents in a chat each turn is its own agent's (a row by another agent starts
   a new turn and header). Rows from before multiplayer have no author: a
   person's message is the creator's, an agent's turn the chat's agent's.
@@ -3002,17 +2981,19 @@ Skills with metadata unsupported by the native runtime are excluded individually
 with a warning naming the skill. They do not prevent an unrelated chat or change
 stored names and content.
 
-Native provider setup offers OpenAI, Custom OpenAI-compatible endpoint, and Anthropic
-API-key choices. Custom requires its base URL and key, selects Responses or Chat
-Completions explicitly (Responses by default), and accepts an optional catalog model
-ID used for both validation and saved default. Provider form changes remount drafts and
-errors so credentials do not carry across providers. Keys remain password fields and
-the Personal/Workspace ownership rule is unchanged. Anthropic uses native API keys,
-not Claude subscription/CLI setup. Preserved
-subscription and other-provider rows show unavailable status and no reconnect
-or make-default action. They are not converted
-or deleted. Account catalog entries are candidates; only a completed inference
-check may be called connection validation.
+Native provider setup offers only OpenAI and Anthropic API-key families. Both show
+an editable base URL, a password key field and an optional model ID; official `/v1`
+URLs are the defaults. OpenAI selects Responses or Chat Completions explicitly.
+Settings retains the existing personal/shared groups and stock DESIGN controls;
+Add is bound to its initiating group, and install records remain read-only. Legacy
+custom rows display as OpenAI without changing their stored identity, scope,
+endpoint, key, protocol, default or image hint. Existing edits use exact connection
+IDs and last-seen versions. A blank key reuses only that saved connection's key;
+sending it to a new canonical origin requires an explicit checkbox naming that
+origin before any test or save. Every endpoint, protocol, model or key edit resets
+the consent. Failed/stale tests do not save; closing/revoking an editor stops its
+post-test continuation. Account catalog entries are candidates, not proof of
+inference support. Unsupported saved rows remain preserved and unavailable.
 
 Native transcripts and tool cards project one official history. Reload preserves
 attribution and completed actions. Native branches copy authorized official transcript snapshots without vendor journal anchors. Manual compaction summarizes only a byte-bounded whole prefix and retains every later message; the full UI history stays intact.
@@ -3102,7 +3083,7 @@ Unknown creation outcomes disable another submission in the current form and dir
 3. There is no permanent toolbar. A page header holds the Filter menu (real properties and archive state), a Search icon that opens the command palette on that page's category, and "+"; never a page's own search box. Active filters show as chips in the filter bar; no search box, sort picker, order or page-size control is drawn on a page. Settings lists show only their own property filters.
 4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No {plural} yet" (a table row or `Row` may be just that, "No labels yet"), one description line ending in a period, no action.
 5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
-6. Tasks list every project's tasks (filter by Project to narrow them), so an empty page never asks for one; with no project at all, the empty state's button is New project. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
+6. Tasks list every workspace task, including standalone tasks (filter by Project to narrow them). An empty page always offers New task, even when there are no projects; it prefills editable intent into the existing composer, preserves the draft and requires explicit Send. A task's Project property shows No project when unlinked, offers the existing project picker to link one, and uses the shared property-row action slot to remove the link without opening the picker. No default project or inbox is created. A requested future action is recorded as a task with its due date in the initiating person's timezone, not executed as part of creation. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
 7. The composer bar's Notifications button (its `attention` slot, W5) shows only while something needs you (a chat waiting on you or with news, an unread notification) and nothing is written or attached; with nothing, there is no button at all (the owner's call, over open question 7).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
@@ -3175,3 +3156,7 @@ that carry over, applied where Craft draws the same thing.
 ### Durable question history
 
 Canonical request cards keep the question title, Details and actual resolving human/time. Only the built-in instruction is state-aware: live questions may ask for an answer; answered history confirms it was recorded, and expired, denied, canceled or failed history never promises that answering can continue an ended run. Custom question content and persisted messages remain unchanged. Terminal cards have no answer or approval actions; authority and callback checks remain server-backed.
+
+### Durable approval history
+
+The built-in approval instruction is also state-aware. Only pending requests ask for approval; resolving requests say the decision is being recorded. Approved requests distinguish human authorization from successful execution. Denied, canceled, expired and failed requests never invite another approval. A failed request without a confirmed result directs the person to inspect its target before requesting another action, rather than claiming nothing was written or inviting an automatic retry. Custom descriptive summaries, canonical actor/time, artifact links and server authorization remain unchanged.

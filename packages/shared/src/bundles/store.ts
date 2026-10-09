@@ -35,6 +35,7 @@ export type BundleTarget = {
 }
 
 export type SyncStatus = 'none' | 'unchanged' | 'created' | 'pushed' | 'materialized' | 'removed' | 'conflict' | 'invalid'
+export type BundleAuthorize = () => void
 
 /**
  * Both bundle tables have these columns. Limit: the store is typed against the skills table and a kind passes its own
@@ -252,19 +253,26 @@ export function createBundleStore<Row extends BundleRow, Item>(db: Db, spec: Bun
     },
 
     /** Makes a bundle of a whole set of files. `conflict` when the slug is taken. */
-    create: (input: { workspaceId: string; slug: string; files: BundleFiles; createdBy: string }) => serial(input.workspaceId, input.slug, () => createImpl(input, false)),
+    create: (input: { workspaceId: string; slug: string; files: BundleFiles; createdBy: string }, authorize?: BundleAuthorize) => serial(input.workspaceId, input.slug, () => {
+      authorize?.()
+      return createImpl(input, false)
+    }),
 
     /**
      * Replaces the bundle with `files` (the whole folder; a file left out is deleted). `expectedUpdatedAt` is the
      * `updatedAt` the caller based the files on; another value means someone wrote in between and nothing changes
      * (`conflict`). Files equal to the stored bundle change nothing.
      */
-    update: (workspaceId: string, slug: string, files: BundleFiles, expectedUpdatedAt: number) =>
-      serial(workspaceId, slug, () => updateImpl(workspaceId, slug, files, expectedUpdatedAt, false)),
+    update: (workspaceId: string, slug: string, files: BundleFiles, expectedUpdatedAt: number, authorize?: BundleAuthorize) =>
+      serial(workspaceId, slug, () => {
+        authorize?.()
+        return updateImpl(workspaceId, slug, files, expectedUpdatedAt, false)
+      }),
 
     /** Removes the row, the bundle and the local folder. */
-    delete: (workspaceId: string, slug: string) =>
+    delete: (workspaceId: string, slug: string, authorize?: BundleAuthorize) =>
       serial(workspaceId, slug, async () => {
+        authorize?.()
         const row = find(workspaceId, slug)
         if (!row) throw domainError('not_found', `${label} ${slug} does not exist`)
         db.delete(table).where(eq(table.id, row.id)).run()

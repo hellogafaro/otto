@@ -80,6 +80,7 @@ export const UserPreferencesSchema = z.object({
   // Empty (no email) or a basic email shape.
   email: z.string().refine((value) => value === '' || isValidEmail(value), 'Enter a valid email address').optional(),
   timezone: z.string().optional(),  // TODO: Could validate against IANA timezone list
+  midStreamBehavior: z.enum(['steer', 'queue']).optional(),
   location: LocationSchema.optional(),
   notes: z.string().optional(),
   // Internal: mirrors Appearance → Language. Not user-editable.
@@ -87,6 +88,15 @@ export const UserPreferencesSchema = z.object({
   uiLanguage: z.enum([...SUPPORTED_LANGUAGE_CODES] as [LanguageCode, ...LanguageCode[]]).optional(),
   updatedAt: z.number().int().min(0).optional(),
 }).passthrough();
+
+export const UserPreferencesUpdateSchema = UserPreferencesSchema.omit({ updatedAt: true }).extend({
+  location: LocationSchema.strict().optional(),
+  diffViewer: z.object({
+    diffStyle: z.enum(['unified', 'split']).optional(),
+    disableBackground: z.boolean().optional(),
+  }).strict().optional(),
+  includeCoAuthoredBy: z.boolean().optional(),
+}).strict();
 
 /**
  * Check the text the Preferences page saves: JSON that is an object matching the

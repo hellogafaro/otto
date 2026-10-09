@@ -2,9 +2,19 @@ import { Agent, type ToolsInput } from '@mastra/core/agent'
 import { AgentController, type Session } from '@mastra/core/agent-controller'
 import type { MastraModelConfig } from '@mastra/core/llm'
 import type { AgentSkillsInput } from '@mastra/core/skills'
+import { ToolSearchProcessor } from '@mastra/core/processors'
 import type { AgentEvent } from '@otto/core/types'
 import { initMastraHistory } from './mastra-history'
 import type { MastraInputFile } from './mastra-attachments'
+
+export type NativeSessionFailureStage = 'approval-preparation' | 'question-preparation' | 'provider-stream' | 'provider-continuation' | 'canonical-event'
+
+export class NativeSessionFailure extends Error {
+  constructor(readonly stage: NativeSessionFailureStage, cause: unknown) {
+    super('The native session could not complete.', { cause })
+    this.name = 'NativeSessionFailure'
+  }
+}
 
 export async function runMastraSession(input: {
   chatId: string
@@ -15,15 +25,19 @@ export async function runMastraSession(input: {
   instructions: string
   messages: { role: 'user' | 'assistant'; content: string }[]
   history?: () => Promise<{ role: 'user' | 'assistant'; content: string; files?: MastraInputFile[] }[]>
+  canonicalHistory?: boolean
   files?: MastraInputFile[]
   model: MastraModelConfig
   tools: ToolsInput
+  discoveryTools?: Record<string, import('@mastra/core/tools').Tool<any>>
   skills?: AgentSkillsInput
   signal: AbortSignal
   assertAccess: () => void
   policy: (toolName: string) => 'allow' | 'deny' | 'ask'
   onReady: (session: Session, stop: () => void) => void
-  onApproval: (toolCallId: string, toolName: string, args: unknown) => void
+  onApproval: (toolCallId: string, toolName: string, args: unknown) => void | Promise<void>
+  onQuestion?: (toolCallId: string, payload: unknown) => Promise<void>
+  onFailure?: (error: unknown, stage: NativeSessionFailureStage) => string | void
   emit: (event: AgentEvent) => Promise<void>
   onRunStart?: () => void
 }) {
@@ -37,13 +51,15 @@ export async function runMastraSession(input: {
     tools: input.tools,
     skills: input.skills,
     inputProcessors: [
+      ...(input.discoveryTools ? [new ToolSearchProcessor({ tools: input.discoveryTools, search: { topK: 5, autoLoad: true }, filter: ({ toolName }) => { input.assertAccess(); return input.policy(toolName) !== 'deny' } })] : []),
       {
         id: 'otto-history',
         processInput: async ({ messages }) => {
           await writes
           const replay = input.history ? await input.history() : history
+          const projected = input.canonicalHistory ? [...replay, { role: 'user' as const, content, files: input.files }] : replay
           return [
-            ...replay.map((message) => ({
+            ...projected.map((message) => ({
               id: crypto.randomUUID(),
               role: message.role,
               createdAt: new Date(),
@@ -52,7 +68,7 @@ export async function runMastraSession(input: {
                 parts: [{ type: 'text' as const, text: message.content }, ...('files' in message && message.files ? (message.files as MastraInputFile[]).map((file) => file.mediaType.startsWith('text/') ? { type: 'text' as const, text: `[Attached file: ${file.filename}; reference data]\n${file.data}` } : { type: 'file' as const, data: file.data, mimeType: file.mediaType }) : [])],
               },
             })),
-            ...messages,
+            ...(input.canonicalHistory ? [] : messages),
           ]
         },
       },
@@ -64,7 +80,6 @@ export async function runMastraSession(input: {
     storage: (await initMastraHistory()).storage,
     modes: [{ id: 'work', name: 'Work', default: true }],
     disableBuiltinTools: [
-      'ask_user',
       'submit_plan',
       'task_write',
       'task_update',
@@ -116,6 +131,10 @@ export async function runMastraSession(input: {
   })
   for (const name of [
     ...Object.keys(input.tools),
+    ...Object.keys(input.discoveryTools ?? {}),
+    'search_tools',
+    'load_tool',
+    'ask_user',
     'skill',
     'skill_search',
     'skill_read',
@@ -128,13 +147,28 @@ export async function runMastraSession(input: {
     queued = 0,
     active = false,
     runs = 0
+  const parked = new Set<string>()
   let idleResolve: (() => void) | undefined
   let text = '',
     turnId: string = crypto.randomUUID(),
     failed = false,
     usage = { inputTokens: 0, outputTokens: 0 }
+  let failure: { stage: NativeSessionFailureStage; cause: unknown; message?: string } | undefined
+  let toolsEnded = 0
+  const publishedErrors = new Set<unknown>()
+  const reportFailure = (cause: unknown, stage: NativeSessionFailureStage) => {
+    failed = true
+    const message = input.onFailure?.(cause, stage) ?? undefined
+    failure ??= { stage, cause, message }
+    return message ?? failure.message
+  }
   const emit = (event: AgentEvent) => {
-    writes = writes.then(() => input.emit(event))
+    writes = writes.then(() => input.emit(event)).catch((error) => {
+      reportFailure(error, 'canonical-event')
+      session.abort()
+      throw error
+    })
+    void writes.catch(() => {})
   }
   const flush = (intermediate: boolean) => {
     if (text) {
@@ -152,7 +186,7 @@ export async function runMastraSession(input: {
       active = true
       failed = false
       usage = { inputTokens: 0, outputTokens: 0 }
-      if (runs++) input.onRunStart?.()
+      if (runs++ && !parked.size) input.onRunStart?.()
     } else if (event.type === 'follow_up_queued') queued = event.count
     else if (
       event.type === 'message_start' &&
@@ -171,11 +205,13 @@ export async function runMastraSession(input: {
         type: 'tool_start',
         toolName: event.toolName,
         toolUseId: event.toolCallId,
-        input: event.args as Record<string, unknown>,
+        input: event.toolName === 'ask_user' || input.policy(event.toolName) !== 'allow' ? {} : event.args as Record<string, unknown>,
         turnId,
       })
     } else if (event.type === 'tool_end') {
-      const result = event.result
+      toolsEnded++
+      parked.delete(event.toolCallId)
+      const result = event.denied === true && failure?.stage === 'approval-preparation' ? { error: failure.message ?? 'The action could not be prepared for approval. No action was approved.' } : event.result
       const envelope = result && typeof result === 'object' ? result as { error?: unknown; isError?: unknown; validationErrors?: unknown } : undefined
       const invalidInput = envelope?.error === true && envelope.validationErrors !== undefined
       const isError = event.isError || event.denied === true || envelope?.isError === true || (envelope?.error !== undefined && envelope.error !== false && envelope.error !== null)
@@ -187,41 +223,57 @@ export async function runMastraSession(input: {
         turnId,
       })
     } else if (event.type === 'tool_approval_required') {
-      writes = writes.then(() => {
+      writes = writes.then(async () => {
         try {
           input.assertAccess()
-          input.onApproval(event.toolCallId, event.toolName, event.args)
-        } catch {
-          failed = true
+          await input.onApproval(event.toolCallId, event.toolName, event.args)
+        } catch (error) {
+          reportFailure(error, 'approval-preparation')
           session.abort()
         }
-      }, () => {
-        failed = true
+      }, (error) => {
+        reportFailure(error, 'canonical-event')
         session.abort()
       })
+    } else if (event.type === 'tool_suspended') {
+      parked.add(event.toolCallId)
+      writes = writes.then(async () => {
+        try {
+          input.assertAccess()
+          if (event.toolName !== 'ask_user' || !input.onQuestion) throw new Error('This suspension is unavailable.')
+          await input.onQuestion(event.toolCallId, event.suspendPayload)
+        } catch (error) { reportFailure(error, 'question-preparation'); stop() }
+      }, (error) => { reportFailure(error, 'canonical-event'); stop() })
+    } else if (event.type === 'tool_suspension_cancelled') {
+      parked.delete(event.toolCallId)
+      failed = true
     } else if (event.type === 'usage_update')
       usage = {
         inputTokens: event.usage.promptTokens,
         outputTokens: usage.outputTokens + event.usage.completionTokens,
       }
     else if (event.type === 'error') {
-      failed = true
+      let source: unknown = event.error
+      for (let depth = 0; depth < 4 && source && typeof source === 'object' && 'cause' in source && source.cause !== undefined; depth++) source = source.cause
+      if (publishedErrors.has(source)) return
+      publishedErrors.add(source)
+      const message = reportFailure(event.error, toolsEnded ? 'provider-continuation' : 'provider-stream')
       emit({ type: 'text_discard', turnId })
       emit({
         type: 'error',
-        message: 'The native model request could not complete.',
+        message: message ?? 'The selected model could not complete its request. Check its connection and model configuration.',
       })
     } else if (event.type === 'agent_end') {
       active = false
       if (event.reason === 'complete' && !failed) {
         flush(false)
         emit({ type: 'complete', usage })
-      } else if (text) {
+      } else if (event.reason !== 'suspended' && text) {
         emit({ type: 'text_discard', turnId })
         text = ''
       }
       setImmediate(() => {
-        if (!active && !queued) idleResolve?.()
+        if (!active && !queued && !parked.size) idleResolve?.()
       })
     }
   })
@@ -233,23 +285,25 @@ export async function runMastraSession(input: {
       queueOwnerId: input.chatId,
     })
     queued = 0
+    parked.clear()
     session.abort()
+    setImmediate(() => { if (!active) idleResolve?.() })
   }
   input.signal.addEventListener('abort', stop, { once: true })
   input.onReady(session, stop)
   try {
     input.signal.throwIfAborted()
     await session.sendMessage({ content, files: input.files })
-    if (active || queued)
+    if (active || queued || parked.size)
       await new Promise<void>((resolve) => {
         idleResolve = resolve
         setImmediate(() => {
-          if (!active && !queued) resolve()
+          if (!active && !queued && !parked.size) resolve()
         })
       })
     await writes
     input.signal.throwIfAborted()
-    if (failed) throw new Error('Native session failed.')
+    if (failed) throw failure ? new NativeSessionFailure(failure.stage, failure.cause) : new Error('The native session could not complete.')
   } finally {
     input.signal.removeEventListener('abort', stop)
     unsubscribe()

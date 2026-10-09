@@ -1,7 +1,7 @@
 /**
  * AutomationSystem - the event side of routines, one per workspace
  *
- * - Owns the workspace's EventBus and the handlers (prompt, webhook, script) that run the active event routines
+ * - Owns the workspace's EventBus and the prompt handler that runs supported active event routines
  *   (`config.type = 'event'`, read from the `routines` table at every event, so a change applies at once)
  * - Diffs session metadata into events (labels, flags, status, permission mode)
  * - Schedules nothing: schedule routines are fired by the routines scheduler (./routine-runner.ts)
@@ -10,10 +10,10 @@
 import { initDb, type Db } from '../db/index.ts';
 import { createLogger } from '../utils/debug.ts';
 import { WorkspaceEventBus, type EventPayloadMap } from './event-bus.ts';
-import { PromptHandler, WebhookHandler, ScriptHandler, type AutomationsConfigProvider } from './handlers/index.ts';
+import { PromptHandler, type AutomationsConfigProvider } from './handlers/index.ts';
 import { type AutomationsConfig, type AutomationEvent, type AutomationMatcher, type PendingPrompt, type WebhookActionResult, type ScriptActionResult, type AppEvent, type AgentEvent, type SdkAutomationCallbackMatcher, type SdkAutomationInput } from './types.ts';
 import { matcherMatchesSdk } from './utils.ts';
-import { resolveWebhookAction } from './routine-runner.ts';
+import { isNativeRoutineConfigSupported, UNSUPPORTED_NATIVE_ROUTINE } from './routine-runner.ts';
 import { getEventRoutines, getRoutines } from './routines.ts';
 import type { Routine } from './routine-types.ts';
 
@@ -48,7 +48,7 @@ export interface AutomationSystemOptions {
   db?: Db;
 }
 
-/** An event routine as the handlers' matcher: its id and title, and each webhook action's secret read into `auth`. */
+/** A supported event routine as the prompt handler's matcher. */
 function toMatcher(routine: Routine): AutomationMatcher {
   const { config } = routine;
   return {
@@ -58,17 +58,7 @@ function toMatcher(routine: Routine): AutomationMatcher {
     permissionMode: config.permissionMode,
     conditions: config.conditions,
     semanticCondition: config.semanticCondition,
-    telegramTopic: config.telegramTopic,
-    actions: config.actions.map((action) => {
-      if (action.type !== 'webhook') return action;
-      try {
-        return resolveWebhookAction(action);
-      } catch (error) {
-        log.debug(`[AutomationSystem] Webhook credentials of ${routine.id} not read: ${error}`);
-        const { secretId: _secretId, ...rest } = action;
-        return rest;
-      }
-    }),
+    actions: config.actions,
   };
 }
 
@@ -81,8 +71,6 @@ export class AutomationSystem implements AutomationsConfigProvider {
 
   private readonly options: AutomationSystemOptions;
   private promptHandler: PromptHandler | null = null;
-  private webhookHandler: WebhookHandler | null = null;
-  private scriptHandler: ScriptHandler | null = null;
   private disposed = false;
 
   // Session metadata tracking (moved from SessionManager)
@@ -109,13 +97,18 @@ export class AutomationSystem implements AutomationsConfigProvider {
     for (const routine of getRoutines(this.options.workspaceId, this.db)) {
       const event = routine.config.event as AutomationEvent | undefined;
       if (routine.pausedAt !== null || routine.config.type !== 'event' || !event) continue;
+      if (!isNativeRoutineConfigSupported(routine.config)) continue;
       (automations[event] ??= []).push(toMatcher(routine));
     }
     return { automations };
   }
 
   getMatchersForEvent(event: AutomationEvent): AutomationMatcher[] {
-    return getEventRoutines(this.options.workspaceId, event, this.db).map(toMatcher);
+    return getEventRoutines(this.options.workspaceId, event, this.db).filter((routine) => {
+      if (isNativeRoutineConfigSupported(routine.config)) return true;
+      this.options.onError?.(event, new Error(UNSUPPORTED_NATIVE_ROUTINE));
+      return false;
+    }).map(toMatcher);
   }
 
   // ============================================================================
@@ -137,30 +130,6 @@ export class AutomationSystem implements AutomationsConfigProvider {
       this
     );
     this.promptHandler.subscribe(this.eventBus);
-
-    // Webhook handler
-    this.webhookHandler = new WebhookHandler(
-      {
-        workspaceId: this.options.workspaceId,
-        workspaceRootPath: this.options.workspaceRootPath,
-        onWebhookResults: this.options.onWebhookResults,
-        onError: this.options.onError,
-      },
-      this
-    );
-    this.webhookHandler.subscribe(this.eventBus);
-
-    // Script handler
-    this.scriptHandler = new ScriptHandler(
-      {
-        workspaceId: this.options.workspaceId,
-        workspaceRootPath: this.options.workspaceRootPath,
-        onScriptResults: this.options.onScriptResults,
-        onError: this.options.onError,
-      },
-      this
-    );
-    this.scriptHandler.subscribe(this.eventBus);
 
     log.debug(`[AutomationSystem] Handlers created and subscribed`);
   }
@@ -395,8 +364,6 @@ export class AutomationSystem implements AutomationsConfigProvider {
 
     // Dispose handlers
     this.promptHandler?.dispose();
-    this.webhookHandler?.dispose();
-    this.scriptHandler?.dispose();
 
     // Dispose event bus
     this.eventBus.dispose();

@@ -3,18 +3,17 @@
  * the tile) straight on the frame, no card, no toolbar.
  *
  * The header carries Filter (one on/off field, Archived: `?status=archived` lists the archived
- * projects instead of the active ones, their titles muted), Search (the palette on Projects) and "+" (New project, a dialog). A tile
+ * projects instead of the active ones, their titles muted), Search (the palette on Projects) and "+" (New project, composer intent). A tile
  * opens its project; its right-click menu (a long press on touch) is Open, Copy link, then
  * Archive or Restore (applies at once, one "Saved" toast). States: loading (skeleton tiles), no
- * projects at all (the section's empty state, whose button opens the same dialog), filtered with
+ * projects at all (the section's empty state, whose button prefills the same intent), filtered with
  * nothing left (`NoResults`), and only archived projects (the empty state under the header, so
  * Filter stays reachable).
  */
 
-import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
-import { Archive, ArchiveRestore, Folder, Link, SquareArrowOutUpRight } from 'lucide-react'
+import { Archive, ArchiveRestore, Box, Link, SquareArrowOutUpRight } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from '@workspace/ui/components/context-menu'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
@@ -30,7 +29,7 @@ import { isProjectsNavigation, useNavigation } from '@/contexts/navigation-conte
 import { useProjects } from '@/hooks/use-projects'
 import { routeStringToLocation, workspaceSlugFromPathname } from '@/router/location'
 import type { Project } from '../../../shared/types'
-import { ProjectFormDialog } from './project-form-dialog'
+import { dispatchPrefillInputEvent } from '@/components/app-shell/input/focus-input-events'
 
 /** A project's address in this workspace, absolute (the desktop app's is its own `otto://app` origin). */
 export function projectUrl(projectId: string): string | null {
@@ -66,8 +65,7 @@ function ProjectTile({ project, actions }: { project: Project; actions: TileActi
   return (
     <GalleryItem
       ratio="16:9"
-      media={<Folder />}
-      icon={<Folder />}
+      icon={<Box />}
       title={project.title}
       muted={project.status === 'archived'}
       onClick={() => actions.onOpen(project)}
@@ -85,7 +83,6 @@ export function ProjectsPage() {
   useComposerContext({ key: 'page:projects' })
   const { navigate, navigationState } = useNavigation()
   const { projects, loaded, setProjectStatus } = useProjects()
-  const [creating, setCreating] = React.useState(false)
 
   const archivedOnly = isProjectsNavigation(navigationState) && navigationState.search.status === 'archived'
   const archivedCount = projects.filter((p) => p.status === 'archived').length
@@ -111,25 +108,24 @@ export function ProjectsPage() {
     },
   }
 
-  const newProject = <CreateButton label={t('projects.newProject')} onClick={() => setCreating(true)} />
-  const dialog = <ProjectFormDialog open={creating} onOpenChange={setCreating} />
+  const startProject = () => dispatchPrefillInputEvent(t('projects.createPrompt', { defaultValue: 'Help me create a project. Ask for any missing name or brief, draft a foundation and let me review it before requesting create approval. Details: ' }))
+  const newProject = <CreateButton label={t('projects.newProject')} onClick={startProject} />
   const emptyState = (
     <EntityListEmptyScreen
-      icon={<Folder />}
+      icon={<Box />}
       title={t('sectionEmpty.projectsTitle')}
       description={t('sectionEmpty.projectsDescription')}
     >
-      <Button onClick={() => setCreating(true)}>{t('sectionEmpty.newProject')}</Button>
+      <Button onClick={startProject}>{t('sectionEmpty.newProject')}</Button>
     </EntityListEmptyScreen>
   )
 
-  // No projects at all: only the empty state; its button opens the New project dialog.
+  // No projects at all: only the empty state; its button prefills New project intent.
   if (loaded && projects.length === 0) {
     return (
       <div className="flex h-full flex-col">
         <PageHeader />
         {emptyState}
-        {dialog}
       </div>
     )
   }
@@ -167,7 +163,6 @@ export function ProjectsPage() {
           )}
         </div>
       </PageColumn>
-      {dialog}
     </div>
   )
 }

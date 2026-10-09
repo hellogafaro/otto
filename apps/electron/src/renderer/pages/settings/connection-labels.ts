@@ -40,7 +40,7 @@ export function connectionKindLabel(connection: Pick<LlmConnection, 'type' | 'ba
     case CUSTOM_CONNECTION_TYPE: {
       const protocol = connection.customEndpoint?.api === 'openai-responses' ? 'Responses API'
         : connection.customEndpoint?.api === 'openai-completions' ? 'Chat Completions API' : undefined
-      return [t('connections.kind.custom'), protocol, connection.baseUrl ? hostOf(connection.baseUrl) : undefined].filter(Boolean).join(' · ')
+      return ['OpenAI', protocol, connection.baseUrl ? hostOf(connection.baseUrl) : undefined].filter(Boolean).join(' · ')
     }
     default:
       return getProviderMetadata(connection.type)?.name ?? connection.type
@@ -55,7 +55,12 @@ export function sortConnections<T extends Pick<LlmConnection, 'name' | 'scope'>>
 
 /** Whether the person may change a connection: their own always, a shared one (workspace or server) only as an owner. */
 export const canEditConnection = (connection: Pick<LlmConnection, 'scope'>, isOwner: boolean): boolean =>
-  scopeKindOf(connection.scope) === 'user' || isOwner
+  scopeKindOf(connection.scope) === 'user' || (scopeKindOf(connection.scope) === 'workspace' && isOwner)
+
+export function groupConnections<T extends Pick<LlmConnection, 'name' | 'scope'>>(connections: readonly T[]): { user: T[]; shared: T[] } {
+  const rows = sortConnections(connections)
+  return { user: rows.filter((connection) => scopeKindOf(connection.scope) === 'user'), shared: rows.filter((connection) => scopeKindOf(connection.scope) !== 'user') }
+}
 
 /**
  * Derive model dropdown options from a connection's models array,

@@ -3,8 +3,8 @@ import { join } from 'node:path'
 import { addWorkspace, saveConfig } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { createAgent, getAgents, updateAgent } from '@otto/shared/agents'
-import { createConnection, userScope } from '@otto/shared/connections'
-import { createWorkspaceMember } from '@otto/shared/workspaces'
+import { createConnection, workspaceScope } from '@otto/shared/connections'
+import { createWorkspaceMember, loadWorkspaceConfig, saveWorkspaceConfig } from '@otto/shared/workspaces'
 import { initDb } from '@otto/shared/db'
 import { getProjects } from '@otto/shared/projects'
 import { getLibraryItems } from '@otto/shared/library'
@@ -12,14 +12,17 @@ import { getRoutines } from '@otto/shared/automations/routines'
 import { users } from '../../../shared/src/users/schema'
 import { loadSession, sessionPersistenceQueue } from '@otto/shared/sessions'
 import { SessionManager } from './session-manager'
+import { closeMastraHistory } from './mastra-history'
 
 let call: { name: string; args: unknown } | undefined
 let approve = false
 let createSameTurn = false
 let storageFailurePrefix = false
 const approvals: { toolName: string; command: string }[] = []
+const requestKeys: (string | null)[] = []
 const manager = new SessionManager()
 const endpoint = Bun.serve({ port: 0, hostname: '127.0.0.1', async fetch(request) {
+  requestKeys.push(request.headers.get('authorization'))
   const body = await request.json() as { tools?: unknown[]; input?: unknown }
   const title = JSON.stringify(body.input).includes('Reply with ONLY')
   let selected = title ? undefined : call
@@ -44,24 +47,30 @@ const endpoint = Bun.serve({ port: 0, hostname: '127.0.0.1', async fetch(request
     ...(selected ? [{ type: 'response.function_call_arguments.delta', item_id: 'fc', output_index: index, delta: JSON.stringify(selected.args) }, { type: 'response.function_call_arguments.done', item_id: 'fc', output_index: index, arguments: JSON.stringify(selected.args) }, { type: 'response.output_item.done', output_index: index, item }] : [{ type: 'response.output_text.delta', item_id: 'msg', delta: title ? 'Project creation' : 'Review this foundation before creating it.' }]), { type: 'response.completed', response: { usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } }]
   return new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(''), { headers: { 'content-type': 'text/event-stream' } })
 } })
-afterAll(() => { manager.cleanup(); endpoint.stop(true) })
+afterAll(async () => { await manager.cleanup(); await sessionPersistenceQueue.flushAll(); await closeMastraHistory(); endpoint.stop(true) })
 
 it('creates only reviewed same-chat project drafts with explicit approval even in Allow-all and idempotent retries', async () => {
   saveConfig({ workspaces: [] })
   const workspace = addWorkspace({ name: 'Chat creation', rootPath: join(CONFIG_DIR, 'chat-creation') })
   const human = 'anaaaaaaaaaa', actor = `user:${human}`
+  let requestingHuman = human
   const now = new Date()
   initDb().insert(users).values({ id: human, name: 'Ana', email: 'ana@example.test', createdAt: now, updatedAt: now }).run()
   createWorkspaceMember(workspace.id, human, 'owner')
   const agent = createAgent({ workspaceId: workspace.id, title: 'Scout', provider: 'openai', model: 'fixture', createdBy: actor, skills: ['bounded-skill'], sources: ['bounded-source'] })
-  createConnection({ scope: userScope(human), slug: 'creation', type: 'openai', authType: 'api_key', title: 'Fixture', baseUrl: endpoint.url.href + 'v1', defaultModel: 'fixture', models: ['fixture'] }, { apiKey: 'controlled-key' })
-  const chat = await manager.createSession(workspace.id, { name: 'Project review', agentId: agent.id, llmConnection: 'creation', permissionMode: 'allow-all' }, { createdBy: actor })
-  manager.setEventSink((_channel, _target, event: any) => {
+  const connection = createConnection({ scope: workspaceScope(workspace.id), slug: 'creation', type: 'openai', authType: 'api_key', title: 'Fixture', baseUrl: endpoint.url.href + 'v1', defaultModel: 'fixture', models: ['fixture'] }, { apiKey: 'controlled-key' })
+  const config = loadWorkspaceConfig(workspace.rootPath)!
+  saveWorkspaceConfig(workspace.rootPath, { ...config, defaults: { ...config.defaults, defaultLlmConnection: connection.slug, defaultLlmConnectionId: connection.id } })
+  const chat = await manager.createSession(workspace.id, { name: 'Project review', agentId: agent.id, llmConnection: connection.slug, llmConnectionId: connection.id, permissionMode: 'allow-all' }, { createdBy: actor })
+  await manager.flushSession(chat.id)
+  expect(loadSession(workspace, chat.id)!.llmConnectionId).toBe(connection.id)
+  manager.setEventSink(async (_channel, _target, event: any) => {
     if (event?.type !== 'permission_request') return
     approvals.push(event.request)
-    manager.respondToPermission(chat.id, event.request.requestId, approve, false)
+    expect(await manager.respondToPermission(chat.id, event.request.requestId, approve, false, undefined, requestingHuman)).toBe(true)
   })
   const run = async (name: string, args: unknown, chatId = chat.id, sender = actor) => {
+    requestingHuman = sender.slice('user:'.length)
     call = { name, args }
     await manager.sendMessage(chatId, `agent:${agent.id} Review the requested creation.`, undefined, undefined, { sender })
     return loadSession(workspace, chatId)!.messages.filter((message) => message.type === 'tool').at(-1)!.toolResult!
@@ -81,14 +90,14 @@ it('creates only reviewed same-chat project drafts with explicit approval even i
   await run('create_project', { creationId: draft.creationId })
   expect(getProjects(workspace.id)).toHaveLength(1)
   expect(approvals.filter((entry) => entry.toolName === 'create_project')).toHaveLength(3)
-  const other = await manager.createSession(workspace.id, { name: 'Other chat', agentId: agent.id, llmConnection: 'creation', permissionMode: 'allow-all' }, { createdBy: actor })
-  manager.setEventSink((_channel, _target, event: any) => { if (event?.type === 'permission_request') manager.respondToPermission(other.id, event.request.requestId, true, false) })
+  const other = await manager.createSession(workspace.id, { name: 'Other chat', agentId: agent.id, llmConnection: connection.slug, llmConnectionId: connection.id, permissionMode: 'allow-all' }, { createdBy: actor })
+  manager.setEventSink(async (_channel, _target, event: any) => { if (event?.type === 'permission_request') expect(await manager.respondToPermission(other.id, event.request.requestId, true, false, undefined, requestingHuman)).toBe(true) })
   expect(await run('create_project', { creationId: draft.creationId }, other.id)).toContain('not approved')
   expect(getProjects(workspace.id)).toHaveLength(1)
-  manager.setEventSink((_channel, _target, event: any) => { if (event?.type === 'permission_request') {
+  manager.setEventSink(async (_channel, _target, event: any) => { if (event?.type === 'permission_request') {
     approvals.push(event.request)
     if (event.request.toolName === 'create_agent') updateAgent(workspace.id, agent.id, { skills: ['narrowed-skill'], sources: ['narrowed-source'] })
-    manager.respondToPermission(chat.id, event.request.requestId, true, false)
+    expect(await manager.respondToPermission(chat.id, event.request.requestId, true, false, undefined, requestingHuman)).toBe(true)
   } })
   const processEvent = (manager as any).processEvent.bind(manager)
   ;(manager as any).processEvent = async (managed: unknown, event: any) => {
@@ -128,6 +137,8 @@ it('creates only reviewed same-chat project drafts with explicit approval even i
   const memberRoutine = JSON.parse(await run('create_routine', { title: 'Member brief', cron: '0 10 * * *', timezone: 'Europe/Madrid', prompt: 'Review notes' }, chat.id, `user:${otherHuman}`))
   expect(memberRoutine.createdBy).toBe(`user:${otherHuman}`)
   expect(memberRoutine.pausedAt).not.toBeNull()
+  expect(requestKeys.length).toBeGreaterThan(0)
+  expect(requestKeys.every((key) => key === 'Bearer controlled-key')).toBe(true)
   let retained = false, injected = false
   const approvalCount = approvals.length
   ;(manager as any).processEvent = async (managed: any, event: any) => {

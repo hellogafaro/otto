@@ -1,4 +1,4 @@
-import { afterAll, expect, it } from 'bun:test'
+import { afterAll, beforeAll, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { createConnection, getConnection, getCredential, getConnections, userScope, workspaceScope } from '@otto/shared/connections'
@@ -8,6 +8,7 @@ import type { HandlerDeps } from '../handler-deps'
 import { HANDLED_CHANNELS, registerLlmConnectionsHandlers } from './llm-connections'
 import { initModelRefreshService } from '../../model-fetchers'
 import { NATIVE_PROVIDER_UNSUPPORTED as OPENAI_UNSUPPORTED } from '../../model-fetchers/native-provider'
+import { createWorkspaceMember } from '@otto/shared/workspaces'
 
 const calls: { key: string | null; path: string; body?: unknown }[] = []
 let fail = false
@@ -33,6 +34,7 @@ registerLlmConnectionsHandlers({ handle: (channel: string, handler: HandlerFn) =
 } as unknown as HandlerDeps)
 const ctx = { userId: 'native-owner', workspaceId: 'native-workspace', clientId: 'fixture' } as RequestContext
 const call = (channel: string, ...args: unknown[]) => handlers.get(channel)!(ctx, ...args)
+beforeAll(() => createWorkspaceMember(ctx.workspaceId!, ctx.userId!, 'owner'))
 
 it('registers only native Settings and connection handlers, with no executable subscription or Pi discovery routes', () => {
   expect([...handlers.keys()].sort()).toEqual([...HANDLED_CHANNELS].sort())
@@ -51,7 +53,8 @@ it('registers only native Settings and connection handlers, with no executable s
 const joinPath = (path: string) => new URL(path, import.meta.url)
 
 it('saves custom protocol and Anthropic credentials encrypted in exact personal/workspace scopes', async () => {
-  expect(await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, { slug: 'custom-fixture', type: 'custom', title: 'Custom', scope: 'user', credential: 'controlled-custom-key', baseUrl, customEndpoint: { api: 'openai-responses' }, defaultModel: 'gpt-fixture' })).toEqual({ success: true })
+  const legacy = createConnection({ slug: 'custom-fixture', type: 'custom', title: 'Custom', scope: userScope(ctx.userId!), authType: 'api_key', baseUrl, config: { customEndpoint: { api: 'openai-responses' } } }, { apiKey: 'controlled-custom-key' })
+  expect(await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, { slug: legacy.slug, connectionId: legacy.id, expectedUpdatedAt: legacy.updatedAt, type: 'custom', scope: 'user', baseUrl, defaultModel: 'gpt-fixture' })).toEqual({ success: true })
   expect(getLlmConnection('custom-fixture', ctx)).toMatchObject({ type: 'custom', baseUrl, customEndpoint: { api: 'openai-responses' } })
   expect(getCredential('custom-fixture', userScope(ctx.userId!))).toEqual({ apiKey: 'controlled-custom-key' })
   expect(await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, { slug: 'anthropic-fixture', type: 'anthropic', title: 'Anthropic', scope: 'workspace', credential: 'controlled-anthropic-key', baseUrl: server.url.href + 'anthropic/v1' })).toEqual({ success: true })
@@ -65,7 +68,8 @@ it('uses native catalog/setup/test with the flag absent, and credentials stay in
   delete process.env.OTTO_MASTRA_CHAT
   try {
     for (const [scope, key] of [['user', 'user-fixture'], ['workspace', 'workspace-fixture'], ['install', 'install-fixture']] as const) {
-      expect(await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, { slug: 'native-same', type: 'openai', title: scope, scope, credential: key, baseUrl, defaultModel: 'pi/o3-fixture' })).toEqual({ success: true })
+      if (scope === 'install') createConnection({ slug: 'native-same', type: 'openai', title: scope, scope, authType: 'api_key', baseUrl, defaultModel: 'o3-fixture' }, { apiKey: key })
+      else expect(await call(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, { slug: 'native-same', type: 'openai', title: scope, scope, credential: key, baseUrl, defaultModel: 'pi/o3-fixture' })).toEqual({ success: true })
       const exact = scope === 'user' ? userScope(ctx.userId!) : scope === 'workspace' ? workspaceScope(ctx.workspaceId!) : 'install'
       expect(getCredential('native-same', exact)).toEqual({ apiKey: key })
     }
@@ -107,7 +111,8 @@ it('refreshes and validates native keys, preserves saved catalogs on failure, an
   expect(await call(RPC_CHANNELS.llmConnections.REFRESH_MODELS, 'native-same')).toEqual({ success: false, error: 'Provider model refresh failed. The existing catalog was not changed.' })
   expect(getLlmConnection('native-same', ctx)).toEqual(before)
   fail = false
-  expect(await call(RPC_CHANNELS.llmConnections.SAVE, { slug: 'native-same', name: 'Renamed', scope: 'install', type: 'github-copilot', authType: 'oauth', credential: 'injected', createdAt: 99 })).toEqual({ success: true })
+  expect((await call(RPC_CHANNELS.llmConnections.SAVE, { slug: 'native-same', name: 'Renamed', scope: 'install', type: 'github-copilot', authType: 'oauth', credential: 'injected', createdAt: 99 })).success).toBe(false)
+  expect(await call(RPC_CHANNELS.llmConnections.SAVE, { slug: 'native-same', name: 'Renamed', type: 'github-copilot', authType: 'oauth', credential: 'injected', createdAt: 99 })).toEqual({ success: true })
   expect(getLlmConnection('native-same', ctx)).toMatchObject({ name: 'Renamed', type: 'openai', authType: 'api_key', scope: userScope(ctx.userId!) })
   expect(getCredential('native-same', userScope(ctx.userId!))).toEqual({ apiKey: 'user-fixture' })
   expect(runtimeRefresh).toEqual([])

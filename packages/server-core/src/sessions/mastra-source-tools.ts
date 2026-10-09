@@ -14,6 +14,13 @@ import { createMastraApiTool, testMastraApiSource } from './mastra-api-tools'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { getSourceCredentialManager, getSourceServerBuilder } from '@otto/shared/sources'
+import { getSource } from '@otto/shared/sources'
+
+function allowsSource(workspaceId: string, references: readonly string[], source: { config: { id: string; slug: string } }): boolean {
+  if (!references.length) return true
+  const rowId = getSource(workspaceId, source.config.slug)?.id
+  return references.includes(source.config.id) || references.includes(source.config.slug) || !!rowId && references.includes(rowId)
+}
 
 export async function openMastraSourceTools(input: {
   workspaceId: string
@@ -36,9 +43,7 @@ export async function openMastraSourceTools(input: {
     ...input.slugs,
   ]).filter(
     (source) =>
-      !run.sources.length ||
-      run.sources.includes(source.config.id) ||
-      run.sources.includes(source.config.slug),
+      allowsSource(input.workspaceId, run.sources, source),
   )
   if (sources.length !== input.slugs.length)
     throw new Error(
@@ -136,9 +141,7 @@ export async function openMastraSourceTools(input: {
                 !isSourceUsable(selected) ||
                 !current ||
                 current.agent.id !== input.agentId ||
-                (current.sources.length &&
-                  !current.sources.includes(slug) &&
-                  !current.sources.includes(selected.config.id))
+                !allowsSource(input.workspaceId, current.sources, selected)
               )
                 throw new Error('Source access was removed before execution.')
               const result = await pool.callTool(
@@ -170,7 +173,7 @@ export async function openMastraSourceTools(input: {
           if (!selected || selected.config.type !== 'api' || !isSourceUsable(selected) || JSON.stringify(selected.config.api) !== JSON.stringify(source.config.api)
             || selected.config.id !== source.config.id || selected.config.provider !== source.config.provider
             || !current || current.agent.id !== input.agentId
-            || (current.sources.length && !current.sources.includes(source.config.slug) && !current.sources.includes(source.config.id))) {
+            || !allowsSource(input.workspaceId, current.sources, source)) {
             throw new Error('Source access or configuration changed before execution.')
           }
         },
@@ -214,7 +217,7 @@ export async function testMastraSource(input: {
       || JSON.stringify(selected.config.api) !== JSON.stringify(source.config.api)
       || JSON.stringify(selected.config.mcp) !== JSON.stringify(source.config.mcp)
       || !selected.config.enabled
-      || (current.sources.length && !current.sources.includes(source.config.slug) && !current.sources.includes(source.config.id)))
+      || !allowsSource(input.workspaceId, current.sources, source))
       throw new Error('Source access or configuration changed before execution.')
   }
   assertSource()

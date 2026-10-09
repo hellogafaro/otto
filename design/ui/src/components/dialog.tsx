@@ -57,7 +57,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed z-[var(--z-dialog,50)] text-sm duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+          "fixed z-[var(--z-dialog,50)] text-sm duration-100 outline-none data-nested-dialog-open:pointer-events-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
           fullScreen
             ? "inset-x-0 top-(--titlebar,0px) bottom-0 flex flex-col bg-background text-foreground"
             : "top-1/2 left-1/2 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-xl bg-popover p-6 text-popover-foreground ring-1 ring-foreground/10 sm:max-w-md data-open:zoom-in-95 data-closed:zoom-out-95",

@@ -37,44 +37,10 @@ export interface PlatformActions {
   onOpenUrl?: (url: string) => void
 
   /**
-   * Open a code preview in a new window (Electron: opens Monaco window)
-   * Web: Could show inline modal with syntax highlighting
-   */
-  onOpenCodePreview?: (sessionId: string, toolUseId: string) => void
-
-  /**
-   * Open a terminal output preview (Electron: opens terminal window)
-   * Web: Could show inline modal with monospace output
-   */
-  onOpenTerminalPreview?: (sessionId: string, toolUseId: string) => void
-
-  /**
-   * Open a markdown preview window
-   * Web: Could show fullscreen modal
-   */
-  onOpenMarkdownPreview?: (content: string) => void
-
-  /**
-   * Open a multi-file diff view
-   * Web: Could show inline diff viewer
-   */
-  onOpenMultiFileDiff?: (sessionId: string, turnId: string) => void
-
-  /**
    * Copy text to clipboard
    * Works in both environments via navigator.clipboard
    */
   onCopyToClipboard?: (text: string) => Promise<void>
-
-  /**
-   * Open turn details in a new window/modal
-   */
-  onOpenTurnDetails?: (sessionId: string, turnId: string) => void
-
-  /**
-   * Open activity details in a new window/modal
-   */
-  onOpenActivityDetails?: (sessionId: string, activityId: string) => void
 
   /**
    * Read a file's contents as UTF-8 string (Electron: fs.readFile via IPC)
@@ -162,18 +128,6 @@ export function PlatformProvider({ children, actions = {} }: PlatformProviderPro
  * ```tsx
  * const { onOpenFile } = usePlatform()
  * const handleClick = () => onOpenFile?.(filePath)
- * ```
- *
- * Or provide fallback behavior:
- * ```tsx
- * const { onOpenCodePreview } = usePlatform()
- * const handleClick = () => {
- *   if (onOpenCodePreview) {
- *     onOpenCodePreview(sessionId, toolUseId)
- *   } else {
- *     setShowInlineModal(true)
- *   }
- * }
  * ```
  */
 export function usePlatform(): PlatformActions {

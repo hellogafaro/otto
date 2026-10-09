@@ -16,6 +16,7 @@ import type { RpcServer } from '@otto/server-core/transport'
 import { createScreenUrl } from '../../webui/computer-screen'
 import type { HandlerDeps } from '../handler-deps'
 import { actorOf, resolveWorkspace } from './library'
+import { getConnectionById } from '@otto/shared/connections'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.agents.LIST,
@@ -33,6 +34,12 @@ export const HANDLED_CHANNELS = [
  */
 export function registerAgentsHandlers(server: RpcServer, deps: HandlerDeps): void {
   const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx).id
+  const connectionOf = (ctx: Parameters<typeof resolveWorkspace>[0], id: string | null | undefined) => {
+    if (!id) return
+    const connection = getConnectionById(id, { workspaceId: workspaceOf(ctx), userId: ctx.userId })
+    if (!connection || connection.authType !== 'api_key' || !['openai', 'custom', 'anthropic'].includes(connection.type)) throw domainError('forbidden', 'The selected connection is unavailable to this person.')
+    return connection
+  }
 
   server.handle(RPC_CHANNELS.agents.LIST, (ctx) => {
     const workspaceId = workspaceOf(ctx)
@@ -46,12 +53,14 @@ export function registerAgentsHandlers(server: RpcServer, deps: HandlerDeps): vo
     RPC_CHANNELS.agents.CREATE,
     (ctx, input: Omit<Parameters<typeof createAgent>[0], 'workspaceId' | 'createdBy' | 'provider'> & { provider?: string }): Agent => {
       const workspaceId = workspaceOf(ctx)
+      const connection = connectionOf(ctx, input.llmConnectionId)
       return createAgent({
         workspaceId,
         title: input.title,
         instructions: input.instructions,
-        provider: input.provider ?? getDefaultProvider(workspaceId, ctx.userId),
+        provider: connection?.type ?? input.provider ?? getDefaultProvider(workspaceId, ctx.userId),
         model: input.model,
+        llmConnectionId: connection?.id,
         thinkingLevel: input.thinkingLevel,
         skills: input.skills,
         sources: input.sources,
@@ -61,19 +70,21 @@ export function registerAgentsHandlers(server: RpcServer, deps: HandlerDeps): vo
     },
   )
 
-  server.handle(RPC_CHANNELS.agents.UPDATE, (ctx, id: string, patch: AgentUpdate) =>
-    updateAgent(workspaceOf(ctx), id, {
+  server.handle(RPC_CHANNELS.agents.UPDATE, (ctx, id: string, patch: AgentUpdate) => {
+    const connection = connectionOf(ctx, patch.llmConnectionId)
+    return updateAgent(workspaceOf(ctx), id, {
       title: patch.title,
       instructions: patch.instructions,
-      provider: patch.provider,
+      provider: connection?.type ?? patch.provider,
       model: patch.model,
+      llmConnectionId: patch.llmConnectionId,
       thinkingLevel: patch.thinkingLevel,
       skills: patch.skills,
       sources: patch.sources,
       avatar: patch.avatar,
       expectedUpdatedAt: patch.expectedUpdatedAt,
-    }),
-  )
+    })
+  })
 
   server.handle(RPC_CHANNELS.agents.DELETE, (ctx, id: string) => {
     deleteAgent(workspaceOf(ctx), id)

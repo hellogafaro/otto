@@ -1,8 +1,8 @@
 /**
- * HomeWallpaper - Home's full-window photo (the sidebar included), dithered and slowly animated (`photo.ts`),
+ * HomeWallpaper - Home's panel-only photo (never behind the sidebar), dithered and slowly animated (`photo.ts`),
  * under one overlay (uniform, BB's bottom fade and a soft top-left scrim). Clouds in light, the night sky in dark. Mounted by the shell only
  * on Home (and its full list of notifications) and gone when you leave it (no canvas, no WebGL context elsewhere). While it shows it sets
- * `data-wallpaper` on <html>: the sidebar drops its fill and the page's surfaces turn to glass (globals.css, where
+ * `data-wallpaper` on <html>: only the panel's surfaces turn to glass (globals.css, where
  * the scrim is styled too). It fades in once the photo is decoded. Photos: Viktor Mogilat and Raphael Koh on
  * Unsplash (see NOTICE).
  */
@@ -54,13 +54,14 @@ export function HomeWallpaper() {
   return (
     <div
       aria-hidden
+      data-slot="home-wallpaper"
       data-ready={ready || undefined}
       className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-0 transition-opacity duration-240 ease-out data-ready:opacity-100 motion-reduce:transition-none"
       style={{ backgroundImage: `url(${photo})` }}
     >
       {/* A new canvas per photo: a released WebGL context cannot be taken again. */}
       <canvas key={photo} ref={canvasRef} className="size-full [image-rendering:pixelated]" />
-      {/* The one overlay over the whole window: uniform, bottom fade, top-left scrim (globals.css, `--wallpaper-*`). */}
+      {/* The one overlay over the content panel: uniform, bottom fade, top-left scrim (globals.css, `--wallpaper-*`). */}
       <div data-slot="wallpaper-scrim" className="absolute inset-0" />
     </div>
   )

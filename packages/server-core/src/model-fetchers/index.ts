@@ -1,6 +1,6 @@
-import { INSTALL_SCOPE, getAllConnections, getConnection } from '@otto/shared/connections'
-import { contextOfScope, getLlmConnection, updateLlmConnection } from '@otto/shared/config/storage'
-import { fetchNativeModels, isNativeConnection } from './native-provider'
+import { INSTALL_SCOPE, getAllConnections, getConnection, updateConnection } from '@otto/shared/connections'
+import { contextOfScope, getLlmConnection } from '@otto/shared/config/storage'
+import { fetchNativeModels, isNativeConnection, retainModelImageOverrides } from './native-provider'
 import { handlerLog } from './runtime'
 
 type CredentialResolver = (slug: string, scope: string) => Promise<{ apiKey?: string }>
@@ -34,13 +34,14 @@ class ModelRefreshService {
     try {
       const credentials = await this.getCredentials(slug, scope)
       signal.throwIfAborted()
+      if (!stored || getConnection(slug, where)?.id !== stored.id || getConnection(slug, where)?.updatedAt !== stored.updatedAt) return
       const catalog = await fetchNativeModels({ provider: connection.type, api: connection.customEndpoint?.api, apiKey: credentials.apiKey ?? '', baseUrl: connection.baseUrl, signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) })
       signal.throwIfAborted()
       const currentDefault = connection.defaultModel?.replace(/^pi\//, '')
       const defaultModel = currentDefault && catalog.models.some((model) => model.id === currentDefault) ? currentDefault : catalog.models[0]?.id
       const current = getLlmConnection(slug, where)
-      if (!current || getConnection(slug, where)?.id !== stored?.id || current.scope !== scope || !isNativeConnection(current) || current.type !== connection.type || current.baseUrl !== connection.baseUrl || current.customEndpoint?.api !== connection.customEndpoint?.api) return
-      updateLlmConnection(slug, { models: catalog.models, defaultModel }, { where })
+      if (!current || getConnection(slug, where)?.id !== stored.id || current.updatedAt !== stored.updatedAt || current.scope !== scope || !isNativeConnection(current)) return
+      updateConnection(stored.id, { models: retainModelImageOverrides(catalog.models, stored.models), defaultModel }, undefined, stored.updatedAt)
     } catch {
       handlerLog.warn('OpenAI model refresh failed; the stored catalog is unchanged.')
     }

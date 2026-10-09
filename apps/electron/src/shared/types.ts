@@ -201,9 +201,12 @@ export interface ElectronAPI {
   /** A chat with its newest page of messages (`page.beforeId`: the page before that message), with `olderMessageCount`. */
   getSessionMessages(sessionId: string, page?: { beforeId?: string; limit?: number }): Promise<Session | null>
   createSession(workspaceId: string, options?: CreateSessionOptions): Promise<Session>
+  initLinkedPageSession(workspaceId: string, contextEntity: string): Promise<Session>
   deleteSession(sessionId: string): Promise<void>
   sendMessage(sessionId: string, message: string, attachments?: FileAttachment[], storedAttachments?: StoredAttachmentType[], options?: SendMessageOptions): Promise<void>
-  cancelProcessing(sessionId: string, silent?: boolean): Promise<void>
+  getNativeFeatures(): Promise<{ version: 1; explicitAgentRecipient: boolean; linkedPageContext: boolean; durableRequests: boolean; providerFamilies: boolean; userPreferences: boolean }>
+  cancelProcessing(sessionId: string, silent?: boolean, expectedRunId?: string): Promise<void>
+  respondToNativeQuestion(sessionId: string, requestId: string, answer: string | string[]): Promise<boolean>
 
   respondToPermission(sessionId: string, requestId: string, allowed: boolean, alwaysAllow: boolean, options?: PermissionResponseOptions): Promise<boolean>
   respondToCredential(sessionId: string, requestId: string, response: CredentialResponse): Promise<boolean>
@@ -410,6 +413,8 @@ export interface ElectronAPI {
   // User Preferences
   readPreferences(): Promise<{ content: string }>
   writePreferences(content: string): Promise<{ success: boolean; error?: string }>
+  getUserPreferences(): Promise<import('@otto/shared/config').UserPreferences>
+  updateUserPreferences(updates: Partial<Omit<import('@otto/shared/config').UserPreferences, 'midStreamBehaviorNeedsReview'>>): Promise<import('@otto/shared/config').UserPreferences>
 
   // Session Drafts (persisted composer state — text + attachment refs)
   getDraft(sessionId: string): Promise<import('@otto/shared/config').SessionDraft | null>
@@ -552,20 +557,20 @@ export interface ElectronAPI {
   // LLM Connections (provider configurations)
   listLlmConnections(): Promise<LlmConnection[]>
   listLlmConnectionsWithStatus(): Promise<LlmConnectionWithStatus[]>
-  getLlmConnection(slug: string): Promise<LlmConnection | null>
+  getLlmConnection(target: string | import('@otto/shared/protocol').LlmConnectionSelector): Promise<LlmConnection | null>
   saveLlmConnection(update: LlmConnectionUpdate): Promise<{ success: boolean; error?: string }>
-  deleteLlmConnection(slug: string): Promise<{ success: boolean; error?: string }>
-  testLlmConnection(slug: string): Promise<{ success: boolean; error?: string }>
-  setDefaultLlmConnection(slug: string): Promise<{ success: boolean; error?: string }>
+  deleteLlmConnection(target: string | import('@otto/shared/protocol').LlmConnectionSelector): Promise<{ success: boolean; error?: string }>
+  testLlmConnection(target: string | import('@otto/shared/protocol').LlmConnectionSelector): Promise<{ success: boolean; error?: string }>
+  setDefaultLlmConnection(target: string | import('@otto/shared/protocol').LlmConnectionSelector): Promise<{ success: boolean; error?: string }>
   getDefaultThinkingLevel(): Promise<ThinkingLevel>
   setDefaultThinkingLevel(level: ThinkingLevel): Promise<{ success: boolean; error?: string }>
-  setWorkspaceDefaultLlmConnection(workspaceId: string, slug: string | null): Promise<{ success: boolean; error?: string }>
+  setWorkspaceDefaultLlmConnection(workspaceId: string, target: string | import('@otto/shared/protocol').LlmConnectionSelector | null): Promise<{ success: boolean; error?: string }>
 
   // Projects, tasks and timesheets (see docs/projects-tasks.md). The workspace is the window's.
   // Updates may send the `updatedAt` last seen as `expectedUpdatedAt`; a stale one is refused.
   getProjects(filter?: ProjectFilter): Promise<Project[]>
   getProject(id: string): Promise<Project | null>
-  createProject(input: { title: string; description?: string; resources?: Resource[] }): Promise<Project>
+  createProject(input: { title: string; description?: string; resources?: Resource[]; creationId?: string }): Promise<Project>
   updateProject(id: string, patch: ProjectUpdate): Promise<Project>
   setProjectStatus(id: string, status: ProjectStatus): Promise<Project>
   addProjectMember(id: string, actor: string): Promise<Project>
@@ -617,102 +622,8 @@ export interface ElectronAPI {
   // Language
   changeLanguage(lang: string): Promise<void>
 
-  // Messaging gateway — workspaceId is taken from the client handshake (ctx.workspaceId)
-  getMessagingConfig(): Promise<{
-    enabled: boolean
-    platforms: Record<string, { enabled: boolean; accessMode?: MessagingPlatformAccessMode; owners?: MessagingPlatformOwnerInfo[] } | undefined>
-    runtime: Record<string, MessagingPlatformRuntimeInfo | undefined>
-  } | null>
-  updateMessagingConfig(config: Record<string, unknown>): Promise<void>
-  testTelegramToken(token: string): Promise<{ success: boolean; botName?: string; botUsername?: string; error?: string }>
-  saveTelegramToken(token: string): Promise<void>
-  testLarkCredentials(creds: { appId: string; appSecret: string; domain: 'lark' | 'feishu' }): Promise<{ success: boolean; botName?: string; error?: string }>
-  saveLarkCredentials(creds: { appId: string; appSecret: string; domain: 'lark' | 'feishu' }): Promise<void>
-  disconnectMessagingPlatform(platform: string): Promise<void>
-  forgetMessagingPlatform(platform: string): Promise<void>
-  getMessagingBindings(): Promise<Array<{ id: string; workspaceId: string; sessionId: string; platform: string; channelId: string; threadId?: number; channelName?: string; enabled: boolean; createdAt: number; accessMode?: MessagingBindingAccessMode; allowedSenderIds?: string[] }>>
-  generateMessagingPairingCode(sessionId: string, platform: string): Promise<{ code: string; expiresAt: number; botUsername?: string }>
-  /** Telegram supergroup pairing — returns a code typed in the supergroup to capture its chatId. */
-  generateMessagingSupergroupCode(platform: string): Promise<{ code: string; expiresAt: number; botUsername?: string }>
-  /** Read the workspace's currently paired Telegram supergroup, if any. */
-  getMessagingSupergroup(): Promise<{ chatId: string; title: string; capturedAt: number } | null>
-  /** Forget the paired Telegram supergroup (existing topic bindings stay on disk but stop matching). */
-  unbindMessagingSupergroup(): Promise<{ success: boolean }>
-  unbindMessagingSession(sessionId: string, platform?: string): Promise<void>
-  unbindMessagingBinding(bindingId: string): Promise<{ success: boolean }>
-  onMessagingBindingChanged(callback: (workspaceId: string) => void): () => void
-  onMessagingPlatformStatus(callback: (workspaceId: string, platform: string, status: MessagingPlatformRuntimeInfo) => void): () => void
-  // WhatsApp (subprocess-based Baileys adapter)
-  startWhatsAppConnect(): Promise<{ success: boolean }>
-  submitWhatsAppPhone(phoneNumber: string): Promise<{ success: boolean }>
-  onWhatsAppEvent(callback: (payload: { workspaceId: string; event: WhatsAppUiEvent }) => void): () => void
-  // Messaging access control (Phase 3)
-  getMessagingPlatformOwners(platform: string): Promise<MessagingPlatformOwnerInfo[]>
-  setMessagingPlatformOwners(platform: string, owners: MessagingPlatformOwnerInfo[]): Promise<MessagingPlatformOwnerInfo[]>
-  getMessagingPlatformAccessMode(platform: string): Promise<MessagingPlatformAccessMode>
-  setMessagingPlatformAccessMode(platform: string, mode: MessagingPlatformAccessMode): Promise<{ success: boolean }>
-  getMessagingPendingSenders(platform?: string): Promise<MessagingPendingSenderInfo[]>
-  dismissMessagingPendingSender(platform: string, userId: string, opts?: { reason?: MessagingPendingRejectReason; bindingId?: string }): Promise<{ success: boolean }>
-  allowMessagingPendingSender(
-    platform: string,
-    userId: string,
-    entryKey?: { reason?: MessagingPendingRejectReason; bindingId?: string },
-  ): Promise<{ owners: MessagingPlatformOwnerInfo[]; bindingId?: string }>
-  setMessagingBindingAccess(bindingId: string, access: { mode: MessagingBindingAccessMode; allowedSenderIds?: string[] }): Promise<{ success: boolean }>
-  onMessagingPendingChanged(callback: (workspaceId: string) => void): () => void
+
 }
-
-export interface MessagingPlatformRuntimeInfo {
-  platform: string
-  configured: boolean
-  connected: boolean
-  state: 'disconnected' | 'connecting' | 'connected' | 'reconnect_required' | 'error'
-  identity?: string
-  lastError?: string
-  updatedAt: number
-}
-
-/**
- * Workspace-level access policy for a messaging platform.
- * Mirrors the canonical type in `@otto/messaging-gateway`.
- */
-export type MessagingPlatformAccessMode = 'open' | 'owner-only'
-
-/** Per-binding access policy. */
-export type MessagingBindingAccessMode = 'inherit' | 'allow-list' | 'open'
-
-export interface MessagingPlatformOwnerInfo {
-  userId: string
-  displayName?: string
-  username?: string
-  addedAt: number
-}
-
-export type MessagingPendingRejectReason = 'not-owner' | 'not-on-binding-allowlist'
-
-export interface MessagingPendingSenderInfo {
-  platform: string
-  userId: string
-  displayName?: string
-  username?: string
-  lastAttemptAt: number
-  attemptCount: number
-  reason?: MessagingPendingRejectReason
-  bindingId?: string
-  sessionId?: string
-  channelId?: string
-  threadId?: number
-}
-
-/** Event payloads broadcast from the WhatsApp subprocess to the UI. */
-export type WhatsAppUiEvent =
-  | { type: 'qr'; qr: string }
-  | { type: 'pairing_code'; code: string }
-  | { type: 'connected'; jid?: string; name?: string }
-  | { type: 'disconnected'; loggedOut: boolean; reason?: string }
-  | { type: 'unavailable'; reason: string; message: string }
-  | { type: 'error'; message: string }
-
 // =============================================================================
 // Navigation types (renderer-only)
 // =============================================================================

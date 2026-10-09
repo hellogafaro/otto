@@ -1,12 +1,13 @@
 /**
- * The shell composer's pure logic (docs/composer.md (f)): what a page tells it, the compact bar's state
- * machine, which look the shell draws, the first message of a chat started from a page, the send key and the
+ * The shell composer's pure logic (docs/composer.md): what a page tells it,
+ * the first message of a chat started from a page, the send key and the
  * main button's one action.
  */
 
 import type { ReactNode } from 'react'
 import type { PermissionMode } from '@otto/shared/agent/modes'
-import type { FileAttachment } from '../../../shared/types'
+import type { Agent, FileAttachment } from '../../../shared/types'
+import type { ComposerFooterProps } from './composer-footer'
 
 /** What a send hands the page: the text, the files and the `@` mentions in it. */
 export interface ComposerMessage {
@@ -38,8 +39,6 @@ export interface ComposerContext {
   entity?: string
   /** Already translated; default "Ask your agents about this page". */
   placeholder?: string
-  /** Default 'compact'; 'full' on the chat, the new chat and Home. */
-  mode?: 'compact' | 'full'
   /** The chat's session id: scopes the chat's events (focus, paste, restore, submit) to it. */
   sessionId?: string
   /** The page's own send (the chat); else the default: a new chat led by `entity`. */
@@ -47,13 +46,14 @@ export interface ComposerContext {
   busy?: boolean
   /** Stop the run; `silent` when a new message replaces it (no "interrupted" line). */
   onStop?: (silent?: boolean) => void
-  /** Full mode pickers (the chat's model) and anything laid over the action row (its status). */
+  /** Recipient controls and anything laid over the action row (the chat's status). */
   tools?: ReactNode
-  /** Chips above the text in full mode (the chat's background tasks and follow-ups). */
+  footer?: ComposerFooterProps
+  /** Chips above the text (the chat's background tasks and follow-ups). */
   chips?: ReactNode
   /** Shown above the files while an image is among them (the chat's model cannot read images). */
   imageNotice?: ReactNode
-  /** A request that replaces the composer's body in full mode (a permission, a credential). */
+  /** A request that replaces the composer's body (a permission, a credential). */
   structured?: ReactNode
   /** Something to send even with no text (the chat's pending follow-ups). */
   canSendEmpty?: boolean
@@ -64,56 +64,22 @@ export interface ComposerContext {
   commands?: ComposerChatCommands
 }
 
-/** The compact bar's own state; a full page has none (it never collapses). */
-export type ComposerView = 'idle' | 'focused' | 'expanded'
-
-export type ComposerEvent =
-  | { type: 'focus' }
-  /** Focus left the composer; `empty` when there is no text (nor files). */
-  | { type: 'blur'; empty: boolean }
-  | { type: 'escape' }
-  /** The text wrapped or holds a line break (Shift+Enter, a paste). */
-  | { type: 'wrap' }
-  | { type: 'files' }
-  | { type: 'expand' }
-  | { type: 'collapse' }
-
-/**
- * idle --focus--> focused --(wrap | files | expand)--> expanded
- * expanded --(escape | blur while empty | collapse)--> idle; focused --(escape | blur | collapse)--> idle.
- * The draft is kept either way. `expand` and `files` also open it from idle (prefill, a drop).
- */
-export function composerReducer(view: ComposerView, event: ComposerEvent): ComposerView {
-  switch (event.type) {
-    case 'focus':
-      return view === 'idle' ? 'focused' : view
-    case 'wrap':
-      return view === 'focused' ? 'expanded' : view
-    case 'files':
-    case 'expand':
-      return 'expanded'
-    case 'escape':
-    case 'collapse':
-      return 'idle'
-    case 'blur':
-      return view === 'expanded' && !event.empty ? 'expanded' : 'idle'
-  }
-}
-
-/** What the shell's slot draws: nothing, the compact bar, the expanded glass or the full card. */
-export type ShellSurface = 'none' | 'compact' | 'expanded' | 'full'
-
-/** The look for a page: a full page (the chat, the new chat, Home) is full; else the bar's own state. */
-export function resolveShellSurface(context: ComposerContext | null, view: ComposerView): ShellSurface {
-  if (!context) return 'none'
-  if (context.mode === 'full') return 'full'
-  return view === 'expanded' ? 'expanded' : 'compact'
-}
-
 /** The first message of a chat started from a page: its entity token first (drawn as a chip), then the text. */
 export function buildFirstMessage(entity: string | undefined, text: string): string {
   const body = text.trim()
   return entity ? `${entity} ${body}` : body
+}
+
+export function composerAgent(agents: Agent[], agentId?: string | null): Agent | undefined {
+  return agentId ? agents.find((agent) => agent.id === agentId) : agents.find((agent) => agent.isDefault)
+}
+
+export function chatAgentIds(chat: { agentId?: string; members?: string[] } | null): string[] {
+  if (!chat) return []
+  return [...new Set([
+    ...(chat.agentId ? [chat.agentId] : []),
+    ...(chat.members ?? []).filter((actor) => actor.startsWith('agent:')).map((actor) => actor.slice(6)),
+  ])]
 }
 
 export type SendKey = 'enter' | 'cmd-enter'
@@ -143,15 +109,4 @@ export function mainAction(state: {
   if (state.transcribing) return 'transcribing'
   if (state.listening) return 'done'
   return state.hasContent ? 'send' : 'dictate'
-}
-
-/**
- * What the bar's attention slot draws (compact and expanded): while ⌘/Ctrl or Option/Alt is held, the ONE key
- * hint (the composer's own focus key); else the Notifications button while something needs you and nothing is written
- * or attached (then Send has the slot to itself); else nothing. Never while dictating.
- */
-export function attentionSlot(state: { held: boolean; listening: boolean; empty: boolean; count: number }): 'key' | 'notifications' | null {
-  if (state.listening) return null
-  if (state.held) return 'key'
-  return state.empty && state.count > 0 ? 'notifications' : null
 }

@@ -42,7 +42,6 @@ import { LabelMenuItems, StatusMenuItems, ShareMenuItems } from './session-menu-
 import { getFileManagerName } from '@/lib/platform'
 import type { SessionMeta } from '@/atoms/sessions'
 import { getSessionStatus, hasUnreadMeta, hasMessagesMeta } from '@/utils/session'
-import { MessagingSessionMenuItem } from '@/components/messaging/messaging-session-menu-item'
 import { useSessionMenuActions } from '@/hooks/use-session-menu-actions'
 import { useShareCapabilities } from '@/hooks/use-share-capabilities'
 import { usePins } from '@/hooks/use-pins'
@@ -165,9 +164,6 @@ export function SessionMenu({
           <span className="flex-1">{t("sessionMenu.sendToWorkspace")}</span>
         </MenuItem>
       )}
-
-      {/* Connect to Messaging — pairing code flow */}
-      <MessagingSessionMenuItem sessionId={sessionId} />
 
       <Separator />
 

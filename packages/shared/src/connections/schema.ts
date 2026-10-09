@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { sql } from 'drizzle-orm'
 
 /**
  * One row per provider account or endpoint; see ./index.ts.
@@ -23,6 +24,7 @@ export const connections = sqliteTable(
     config: text('config'),
     secretId: text('secret_id'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at').notNull().default(sql`0`),
   },
   (table) => [uniqueIndex('connections_scope_slug').on(table.scope, table.slug)],
 )

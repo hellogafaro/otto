@@ -92,6 +92,7 @@ export type Connection = {
   config: ConnectionConfig
   hasSecret: boolean
   createdAt: Date
+  updatedAt: number
 }
 
 export type ConnectionInput = {
@@ -143,6 +144,7 @@ function toConnection(row: Row): Connection {
     config,
     hasSecret: row.secretId !== null,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   }
 }
 
@@ -160,13 +162,13 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
   const rowOf = (id: string) => db.select().from(connections).where(eq(connections.id, id)).get()
 
   /** The connections this context sees, the user's own first, then the workspace's, then the install's; a slug shows once. */
-  const rowsOf = (where?: ConnectionContext): Row[] => {
+  const rowsOf = (where?: ConnectionContext, includeShadowed = false): Row[] => {
     const scopes = [where?.userId ? userScope(where.userId) : null, where?.workspaceId ? workspaceScope(where.workspaceId) : null, where?.installToo === false ? null : INSTALL_SCOPE].filter((scope): scope is string => scope !== null)
     const rows = db.select().from(connections).where(inArray(connections.scope, scopes)).orderBy(asc(connections.createdAt), sql`rowid`).all()
     const seen = new Set<string>()
     return scopes
       .flatMap((scope) => rows.filter((row) => row.scope === scope))
-      .filter((row) => !seen.has(row.slug ?? '') && seen.add(row.slug ?? ''))
+      .filter((row) => includeShadowed || !seen.has(row.slug ?? '') && seen.add(row.slug ?? ''))
   }
   const lookup = (slug: string, where?: ConnectionContext): Row | undefined => rowsOf(where).find((row) => row.slug === slug)
   const exact = (slug: string, scope: string): Row | undefined =>
@@ -186,14 +188,18 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
       return row && toConnection(row)
     },
 
-    getConnectionById(id: string): Connection | undefined {
+    getConnectionById(id: string, where?: ConnectionContext): Connection | undefined {
       const row = rowOf(id)
-      return row && toConnection(row)
+      return row && (!where || rowsOf(where, true).some((visible) => visible.id === id)) ? toConnection(row) : undefined
     },
 
     /** The connections a context sees (the user's own, then the workspace's, then the install's, one per slug); the install's alone without one. */
     getConnections(where?: ConnectionContext): Connection[] {
       return rowsOf(where).map(toConnection)
+    },
+
+    getVisibleConnections(where?: ConnectionContext): Connection[] {
+      return rowsOf(where, true).map(toConnection)
     },
 
     /** Every connection of every scope, for what serves the whole install (model refresh). */
@@ -223,6 +229,7 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
             config: packConfig(input.config),
             secretId,
             createdAt: input.createdAt ?? now,
+            updatedAt: now.getTime(),
           })
           .returning()
           .get()
@@ -238,10 +245,11 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
      * Updates a connection and, in the same transaction, its secret: a credential replaces it (one is made when
      * there is none), `null` removes it, `undefined` leaves it.
      */
-    updateConnection(id: string, patch: ConnectionPatch, credential?: Credential | null): Connection {
+    updateConnection(id: string, patch: ConnectionPatch, credential?: Credential | null, expectedUpdatedAt?: number): Connection {
       const updated = db.transaction(() => {
         const row = rowOf(id)
         if (!row) throw new Error(`Connection ${id} does not exist`)
+        if (expectedUpdatedAt !== undefined && row.updatedAt !== expectedUpdatedAt) throw new Error('Connection changed. Try again.')
         let secretId = row.secretId
         if (credential === null) {
           if (secretId) secrets.deleteSecret(secretId)
@@ -261,6 +269,7 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
             models: patch.models === undefined ? undefined : toJson(patch.models),
             config: patch.config === undefined ? undefined : packConfig(patch.config),
             secretId,
+            updatedAt: Math.max(Date.now(), row.updatedAt + 1),
           })
           .where(eq(connections.id, id))
           .returning()
@@ -271,15 +280,18 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
     },
 
     /** Removes the connection and its secret; the default moves to the first connection left when it was this one. */
-    deleteConnection(id: string): void {
+    deleteConnection(id: string, expectedUpdatedAt?: number): void {
       const row = rowOf(id)
       if (!row) return
+      if (expectedUpdatedAt !== undefined && row.updatedAt !== expectedUpdatedAt) throw new Error('Connection changed. Try again.')
       db.transaction(() => {
-        db.delete(connections).where(eq(connections.id, id)).run()
+        const deleted = db.delete(connections).where(and(eq(connections.id, id), eq(connections.updatedAt, row.updatedAt))).returning({ id: connections.id }).get()
+        if (!deleted) throw new Error('Connection changed. Try again.')
         if (row.secretId) secrets.deleteSecret(row.secretId)
       })
       if (row.scope === INSTALL_SCOPE && getSetting(INSTALL, 'defaultConnectionSlug', db) === row.slug) {
         updateSetting(INSTALL, 'defaultConnectionSlug', rowsOf()[0]?.slug ?? null, db)
+        updateSetting(INSTALL, 'defaultConnectionId', null, db)
       }
       changed()
     },
@@ -313,19 +325,29 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
     /** The connection a chat uses when it names none: the person's own default (any connection they see), else their first own connection, else the install's default setting, else the first one the context sees. */
     getDefaultConnection(where?: ConnectionContext): Connection | undefined {
       const own = where?.userId ? getSetting(userEntity(where.userId), 'userDefaultConnectionSlug', db) : null
+      const ownId = where?.userId ? getSetting(userEntity(where.userId), 'userDefaultConnectionId', db) : null
       const rows = rowsOf(where)
+      const visible = rowsOf(where, true)
       const mine = rows.filter((row) => where?.userId && row.scope === userScope(where.userId))
       const installDefault = getSetting(INSTALL, 'defaultConnectionSlug', db)
-      const row = (own ? rows.find((r) => r.slug === own) : undefined) ?? mine[0] ?? (installDefault ? rows.find((r) => r.slug === installDefault) : undefined) ?? rows[0]
+      const installId = getSetting(INSTALL, 'defaultConnectionId', db)
+      const row = (ownId ? visible.find((r) => r.id === ownId) : own ? rows.find((r) => r.slug === own) : undefined) ?? mine[0] ?? (installId ? visible.find((r) => r.id === installId) : installDefault ? rows.find((r) => r.slug === installDefault) : undefined) ?? rows[0]
       return row && toConnection(row)
     },
 
     /** Makes a connection the default: the person's own (any connection they see), or the install's with no person; false when it does not exist. */
-    setDefaultConnection(slug: string, where?: ConnectionContext): boolean {
-      const row = lookup(slug, where)
+    setDefaultConnection(slug: string, where?: ConnectionContext, connectionId?: string): boolean {
+      const row = connectionId ? rowsOf(where, true).find((row) => row.id === connectionId && row.slug === slug) : lookup(slug, where)
       if (!row) return false
-      if (where?.userId) updateSetting(userEntity(where.userId), 'userDefaultConnectionSlug', slug, db)
-      else updateSetting(INSTALL, 'defaultConnectionSlug', slug, db)
+      db.transaction(() => {
+        if (where?.userId) {
+          updateSetting(userEntity(where.userId), 'userDefaultConnectionSlug', slug, db)
+          updateSetting(userEntity(where.userId), 'userDefaultConnectionId', connectionId ? row.id : null, db)
+        } else {
+          updateSetting(INSTALL, 'defaultConnectionSlug', slug, db)
+          updateSetting(INSTALL, 'defaultConnectionId', connectionId ? row.id : null, db)
+        }
+      })
       return true
     },
   }
@@ -339,15 +361,16 @@ function defaultStore() {
 }
 
 export const getConnection = (slug: string, where?: ConnectionContext) => defaultStore().getConnection(slug, where)
-export const getConnectionById = (id: string) => defaultStore().getConnectionById(id)
+export const getConnectionById = (id: string, where?: ConnectionContext) => defaultStore().getConnectionById(id, where)
 export const getConnections = (where?: ConnectionContext) => defaultStore().getConnections(where)
+export const getVisibleConnections = (where?: ConnectionContext) => defaultStore().getVisibleConnections(where)
 export const getAllConnections = () => defaultStore().getAllConnections()
 export const createConnection = (input: ConnectionInput, credential?: Credential) => defaultStore().createConnection(input, credential)
-export const updateConnection = (id: string, patch: ConnectionPatch, credential?: Credential | null) => defaultStore().updateConnection(id, patch, credential)
-export const deleteConnection = (id: string) => defaultStore().deleteConnection(id)
+export const updateConnection = (id: string, patch: ConnectionPatch, credential?: Credential | null, expectedUpdatedAt?: number) => defaultStore().updateConnection(id, patch, credential, expectedUpdatedAt)
+export const deleteConnection = (id: string, expectedUpdatedAt?: number) => defaultStore().deleteConnection(id, expectedUpdatedAt)
 export const getCredential = (slug: string, scope?: string) => defaultStore().getCredential(slug, scope)
 export const setCredential = (slug: string, credential: Credential, scope?: string) => defaultStore().setCredential(slug, credential, scope)
 export const deleteCredential = (slug: string, scope?: string) => defaultStore().deleteCredential(slug, scope)
 export const onConnectionsChange = (listener: () => void) => defaultStore().onConnectionsChange(listener)
 export const getDefaultConnection = (where?: ConnectionContext) => defaultStore().getDefaultConnection(where)
-export const setDefaultConnection = (slug: string, where?: ConnectionContext) => defaultStore().setDefaultConnection(slug, where)
+export const setDefaultConnection = (slug: string, where?: ConnectionContext, connectionId?: string) => defaultStore().setDefaultConnection(slug, where, connectionId)

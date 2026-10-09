@@ -28,15 +28,14 @@ export const HANDLED_CHANNELS = [
 
 export function registerProjectsHandlers(server: RpcServer, deps: HandlerDeps): void {
   const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx).id
-
   server.handle(RPC_CHANNELS.projects.LIST, (ctx, filter?: ProjectFilter) => getProjects(workspaceOf(ctx), filter))
 
   server.handle(RPC_CHANNELS.projects.GET, (ctx, id: string) => getProject(workspaceOf(ctx), id) ?? null)
 
   server.handle(
     RPC_CHANNELS.projects.CREATE,
-    (ctx, input: { title: string; description?: string; resources?: Resource[] }) =>
-      createProject({ workspaceId: workspaceOf(ctx), title: input.title, description: input.description, resources: input.resources, createdBy: actorOf(ctx) }),
+    (ctx, input: { title: string; description?: string; resources?: Resource[]; creationId?: string }) =>
+      createProject({ workspaceId: workspaceOf(ctx), title: input.title, description: input.description, resources: input.resources, createdBy: actorOf(ctx), creationId: input.creationId }),
   )
 
   server.handle(RPC_CHANNELS.projects.UPDATE, (ctx, id: string, patch: ProjectUpdate) =>

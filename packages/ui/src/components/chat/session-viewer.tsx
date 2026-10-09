@@ -21,7 +21,6 @@ import {
   groupMessagesByTurn,
   storedToMessage,
   getAssistantTurnUiKey,
-  type ActivityItem,
 } from './turn-utils'
 
 export type SessionViewerMode = 'interactive' | 'readonly'
@@ -35,10 +34,6 @@ export interface SessionViewerProps {
   platformActions?: PlatformActions
   /** Additional className for the container */
   className?: string
-  /** Callback when a turn is clicked */
-  onTurnClick?: (turnId: string) => void
-  /** Callback when an activity is clicked */
-  onActivityClick?: (activity: ActivityItem) => void
   /** Default expanded state for turns (true for readonly, false for interactive) */
   defaultExpanded?: boolean
   /** Custom header content */
@@ -57,8 +52,6 @@ export function SessionViewer({
   mode = 'readonly',
   platformActions = {},
   className,
-  onTurnClick,
-  onActivityClick,
   defaultExpanded = false,
   header,
   footer,
@@ -103,22 +96,6 @@ export function SessionViewer({
   const handleExpandedActivityGroupsChange = useCallback((groups: Set<string>) => {
     setExpandedActivityGroups(groups)
   }, [])
-
-  const handleOpenActivityDetails = useCallback((activity: ActivityItem) => {
-    if (onActivityClick) {
-      onActivityClick(activity)
-    } else if (platformActions.onOpenActivityDetails) {
-      platformActions.onOpenActivityDetails(session.id, activity.id)
-    }
-  }, [onActivityClick, platformActions, session.id])
-
-  const handleOpenTurnDetails = useCallback((turnId: string) => {
-    if (onTurnClick) {
-      onTurnClick(turnId)
-    } else if (platformActions.onOpenTurnDetails) {
-      platformActions.onOpenTurnDetails(session.id, turnId)
-    }
-  }, [onTurnClick, platformActions, session.id])
 
   return (
     <PlatformProvider actions={platformActions}>
@@ -183,19 +160,9 @@ export function SessionViewer({
                     onExpandedChange={(expanded) => handleExpandedChange(assistantUiKey, expanded)}
                     onOpenFile={platformActions.onOpenFile}
                     onOpenUrl={platformActions.onOpenUrl}
-                    onPopOut={platformActions.onOpenMarkdownPreview}
-                    onOpenDetails={() => handleOpenTurnDetails(turn.turnId)}
-                    onOpenActivityDetails={handleOpenActivityDetails}
                     todos={turn.todos}
                     expandedActivityGroups={expandedActivityGroups}
                     onExpandedActivityGroupsChange={handleExpandedActivityGroupsChange}
-                    hasEditOrWriteActivities={turn.activities.some(a =>
-                      a.toolName === 'Edit' || a.toolName === 'Write'
-                    )}
-                    onOpenMultiFileDiff={platformActions.onOpenMultiFileDiff
-                      ? () => platformActions.onOpenMultiFileDiff!(session.id, turn.turnId)
-                      : undefined
-                    }
                     sessionFolderPath={sessionFolderPath}
                     annotationInteractionMode={mode === 'readonly' ? 'tooltip-only' : 'interactive'}
                   />

@@ -1,11 +1,11 @@
 /**
  * TasksPage - the Tasks index: the workspace's tasks across every project, grouped by status in the Settings card (`ListCard`)
  * (`TaskGroups`, the Chats index's pattern), no toolbar. The header carries Filter (Project, Assignee, Status,
- * Archived; in the URL, `useTaskFilters`), Search (the palette on Tasks) and New task (a dialog); active filters show as chips above the list.
+ * Archived; in the URL, `useTaskFilters`), Search (the palette on Tasks) and New task (a composer prefill); active filters show as chips above the list.
  * Archived is the last, folded group, and the whole list (open) when Archived is the filter.
  *
- * Nothing at all: the section's empty state, whose button is New task, or New project while no project exists
- * (a task needs one; the new project then opens the New task dialog). Filters that keep nothing: `NoResults`.
+ * Nothing at all: the section's empty state, whose New task button prefills the composer.
+ * Filters that keep nothing: `NoResults`.
  */
 
 import * as React from 'react'
@@ -27,10 +27,9 @@ import { routes } from '@/lib/navigate'
 import { useProjects } from '@/hooks/use-projects'
 import { useTasks } from '@/hooks/use-tasks'
 import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
-import { ProjectFormDialog } from '../projects/project-form-dialog'
+import { dispatchPrefillInputEvent } from '@/components/app-shell/input/focus-input-events'
 import { TASK_FILTER_STATUSES, type TasksSearch } from '../../../shared/section-search'
 import type { Task } from '../../../shared/types'
-import { TaskFormDialog, type NewTaskDefaults } from './task-form-dialog'
 import { TaskGroups } from './task-list'
 import { statusLabelKey } from './task-row'
 import { hasTaskFilters, matchesTaskFilters, useTaskFilters } from './use-task-filters'
@@ -46,11 +45,8 @@ export function TasksPage() {
   const { projects } = useProjects()
   const { members, nameOf, me } = useWorkspaceMembers()
   const { runTaskAction } = useTaskSave(tasksApi)
-  const [creating, setCreating] = React.useState<NewTaskDefaults | null>(null)
-  const [creatingProject, setCreatingProject] = React.useState(false)
 
   const projectTitles = React.useMemo(() => new Map(projects.map((p) => [p.id, p.title])), [projects])
-  const hasProject = projects.some((p) => p.status === 'active')
   const matching = React.useMemo(() => tasks.filter((task) => matchesTaskFilters(task, filters)), [tasks, filters])
 
   // The counts in the filter menu: tasks that are not archived (Archived counts its own).
@@ -109,27 +105,19 @@ export function TasksPage() {
     setFilters({ ...filters, [key]: value } as TasksSearch)
   }
 
-  const newTask = (status?: Task['status']) => {
-    if (hasProject) setCreating({ projectId: filters.project, status })
-    else setCreatingProject(true)
+  const newTask = () => {
+    dispatchPrefillInputEvent(t('tasks.createPrompt', { defaultValue: 'Help me create a task{{context}}. Details: ', context: filters.project ? ` in project:${filters.project}` : '' }))
   }
   const openTask = (task: Task) => navigate(routes.view.tasks({ taskId: task.id, ...filters }))
-  const dialogs = (
-    <>
-      <TaskFormDialog open={creating !== null} onOpenChange={(open) => { if (!open) setCreating(null) }} defaults={creating ?? undefined} />
-      <ProjectFormDialog open={creatingProject} onOpenChange={setCreatingProject} onCreated={(project) => setCreating({ projectId: project.id })} />
-    </>
-  )
 
-  // No tasks at all: only the empty state and its New task (New project while there is none).
+  // No tasks at all: only the empty state and its New task.
   if (loaded && tasks.length === 0) {
     return (
       <div className="flex h-full flex-col">
         <PageHeader />
         <EntityListEmptyScreen icon={<CircleCheck />} title={t('sectionEmpty.tasksTitle')} description={t('sectionEmpty.tasksDescription')}>
-          <Button onClick={() => newTask()}>{hasProject ? t('sectionEmpty.newTask') : t('sectionEmpty.newProject')}</Button>
+          <Button onClick={() => newTask()}>{t('sectionEmpty.newTask')}</Button>
         </EntityListEmptyScreen>
-        {dialogs}
       </div>
     )
   }
@@ -176,12 +164,10 @@ export function TasksPage() {
               archivedOpen={!!filters.archived}
               onOpen={openTask}
               onAction={(task, action) => void runTaskAction(task, action)}
-              onNewTask={newTask}
             />
           )}
         </div>
       </PageColumn>
-      {dialogs}
     </div>
   )
 }

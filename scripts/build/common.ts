@@ -3,7 +3,6 @@
  */
 
 import { $ } from 'bun';
-import { execSync } from 'child_process';
 import {
   existsSync,
   mkdirSync,
@@ -359,24 +358,6 @@ export function copyRipgrep(config: BuildConfig): void {
     rmSync(rgDest, { recursive: true, force: true });
   }
   cpSync(rgSource, rgDest, { recursive: true, dereference: true });
-}
-
-/**
- * Build the WhatsApp worker subprocess (Baileys + Node runtime bundle).
- * Output ships as an extraResource at resources/messaging-whatsapp-worker/worker.cjs
- * and is spawned by WhatsAppAdapter. See electron-builder.yml `extraResources`.
- */
-export function buildWhatsAppWorker(config: BuildConfig): void {
-  const { rootDir } = config;
-  const workerOut = join(rootDir, 'packages', 'messaging-whatsapp-worker', 'dist', 'worker.cjs');
-
-  console.log('Building WhatsApp worker...');
-
-  execSync('bun run build:wa-worker', { cwd: rootDir, stdio: 'inherit', shell: true });
-
-  if (!existsSync(workerOut)) {
-    throw new Error(`WhatsApp worker output not found at ${workerOut}`);
-  }
 }
 
 /**

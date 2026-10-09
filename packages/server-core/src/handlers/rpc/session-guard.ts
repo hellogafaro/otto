@@ -19,6 +19,7 @@ export const SESSION_ID_CHANNELS: ReadonlySet<string> = new Set([
   RPC_CHANNELS.sessions.SEND_MESSAGE,
   RPC_CHANNELS.sessions.CANCEL,
   RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION,
+  RPC_CHANNELS.sessions.RESPOND_QUESTION,
   RPC_CHANNELS.sessions.RESPOND_TO_CREDENTIAL,
   RPC_CHANNELS.sessions.COMMAND,
   RPC_CHANNELS.sessions.GET_PENDING_PLAN_EXECUTION,
@@ -34,8 +35,6 @@ export const SESSION_ID_CHANNELS: ReadonlySet<string> = new Set([
   RPC_CHANNELS.drafts.GET,
   RPC_CHANNELS.drafts.SET,
   RPC_CHANNELS.drafts.DELETE,
-  RPC_CHANNELS.messaging.GENERATE_CODE,
-  RPC_CHANNELS.messaging.UNBIND,
 ])
 
 /** The same server, except that handlers of `SESSION_ID_CHANNELS` run only for the chat's owner. */

@@ -87,6 +87,8 @@ export type MidStreamBehavior = 'steer' | 'queue';
  * Stored in config.llmConnections array.
  */
 export interface LlmConnection {
+  id?: string;
+  updatedAt?: number;
   /** URL-safe identifier (e.g., 'anthropic-api', 'ollama-local') */
   slug: string;
 

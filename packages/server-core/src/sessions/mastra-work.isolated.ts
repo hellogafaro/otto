@@ -1,7 +1,7 @@
 import { afterAll, expect, it } from 'bun:test'
 import { join } from 'node:path'
 import { createAgent } from '@otto/shared/agents'
-import { createConnection, userScope } from '@otto/shared/connections'
+import { createConnection, userScope, workspaceScope } from '@otto/shared/connections'
 import { addWorkspace, saveConfig } from '@otto/shared/config'
 import { initDb } from '@otto/shared/db'
 import { getLibraryItems, readLibraryText, createLibraryItem } from '@otto/shared/library'
@@ -16,6 +16,8 @@ import { createManagedSession } from './session-manager.ts'
 import { loadSession } from '@otto/shared/sessions'
 import { storedToMessage } from '@otto/core/types'
 import { assertOwnsSession } from './private-chats.ts'
+import { loadWorkspaceConfig, saveWorkspaceConfig } from '@otto/shared/workspaces'
+import { closeMastraHistory } from './mastra-history.ts'
 
 process.env.OTTO_MASTRA_CHAT = '1'
 const ana = 'anaaaaaaaaaa'
@@ -44,7 +46,7 @@ const endpoint = Bun.serve({ port: 0, hostname: '127.0.0.1', async fetch(request
   ]
   return new Response(parts.map((part) => `data: ${JSON.stringify(part)}\n\n`).join(''), { headers: { 'content-type': 'text/event-stream' } })
 } })
-afterAll(() => { manager.cleanup(); endpoint.stop(); delete process.env.OTTO_MASTRA_CHAT })
+afterAll(async () => { await manager.cleanup(); await manager.flushAllSessions(); await closeMastraHistory(); endpoint.stop(true); delete process.env.OTTO_MASTRA_CHAT })
 
 it('two humans and two named agents create and update a linked brief with scoped keys and authorized approvals', async () => {
   saveConfig({ workspaces: [] })
@@ -56,14 +58,19 @@ it('two humans and two named agents create and update a linked brief with scoped
     createWorkspaceMember(workspace.id, id, 'owner')
     createConnection({ scope: userScope(id), slug: 'same-name', type: 'openai', authType: 'api_key', title: name, baseUrl: endpoint.url.href + 'v1', defaultModel: 'pi/fixture', models: ['pi/fixture'] }, { apiKey: 'fixture-' + id })
   }
-  const scout = createAgent({ workspaceId: workspace.id, title: 'Scout', provider: 'openai', model: 'pi/fixture', createdBy: `user:${ana}` })
-  const writer = createAgent({ workspaceId: workspace.id, title: 'Writer', provider: 'openai', model: 'pi/fixture', createdBy: `user:${ben}` })
+  const sharedConnection = createConnection({ scope: workspaceScope(workspace.id), slug: 'same-name', type: 'openai', authType: 'api_key', title: 'Shared fixture', baseUrl: endpoint.url.href + 'v1', defaultModel: 'pi/fixture', models: ['pi/fixture'] }, { apiKey: 'fixture-shared' })
+  const config = loadWorkspaceConfig(workspace.rootPath)!
+  saveWorkspaceConfig(workspace.rootPath, { ...config, defaults: { ...config.defaults, defaultLlmConnection: sharedConnection.slug, defaultLlmConnectionId: sharedConnection.id } })
+  const scout = createAgent({ workspaceId: workspace.id, title: 'Scout', provider: 'openai', model: 'pi/fixture', llmConnectionId: sharedConnection.id, createdBy: `user:${ana}` })
+  const writer = createAgent({ workspaceId: workspace.id, title: 'Writer', provider: 'openai', model: 'pi/fixture', llmConnectionId: sharedConnection.id, createdBy: `user:${ben}` })
   const project = createProject({ workspaceId: workspace.id, title: 'Launch', createdBy: `user:${ana}` })
   const secretDoc = await createLibraryItem({ workspaceId: foreign.id, title: 'Private.md', mime: 'text/markdown', bytes: new TextEncoder().encode('foreign-private-content'), createdBy: `user:${ana}` })
-  const chat = await manager.createSession(workspace.id, { agentId: scout.id, name: 'Brief', llmConnection: 'same-name', permissionMode: 'ask' }, { createdBy: `user:${ana}` })
+  const chat = await manager.createSession(workspace.id, { agentId: scout.id, name: 'Brief', llmConnection: sharedConnection.slug, llmConnectionId: sharedConnection.id, permissionMode: 'ask' }, { createdBy: `user:${ana}` })
+  await manager.flushSession(chat.id)
+  expect(loadSession(workspace, chat.id)!.llmConnectionId).toBe(sharedConnection.id)
   await manager.addSessionMembers(chat.id, ana, [`user:${ben}`, `agent:${writer.id}`])
-  const otherChat = await manager.createSession(workspace.id, { agentId: writer.id, name: 'Ben private', llmConnection: 'same-name' }, { createdBy: `user:${ben}` })
-  manager.setEventSink((_channel, _target, event: any) => {
+  const otherChat = await manager.createSession(workspace.id, { agentId: writer.id, name: 'Ben private', llmConnection: sharedConnection.slug, llmConnectionId: sharedConnection.id }, { createdBy: `user:${ben}` })
+  manager.setEventSink(async (_channel, _target, event: any) => {
     if (event?.type === 'tool_result' && stopAfterWrite) {
       stopAfterWrite = false
       void manager.cancelProcessing(event.sessionId)
@@ -73,9 +80,9 @@ it('two humans and two named agents create and update a linked brief with scoped
     expect(event.request.command).not.toBe('{}')
     approvals.push({ sessionId: event.sessionId, requestId: event.request.requestId })
     expect(() => assertOwnsSession(manager, { userId: 'outsider0001' }, event.sessionId)).toThrow()
-    expect(manager.respondToPermission(otherChat.id, event.request.requestId, true, false)).toBe(false)
+    expect(await manager.respondToPermission(otherChat.id, event.request.requestId, true, false, undefined, ben)).toBe(false)
     assertOwnsSession(manager, { userId: ben }, event.sessionId)
-    expect(manager.respondToPermission(event.sessionId, event.request.requestId, !decline, false)).toBe(true)
+    expect(await manager.respondToPermission(event.sessionId, event.request.requestId, !decline, false, undefined, ben)).toBe(true)
   })
   const doc = () => getLibraryItems(workspace.id, { type: 'document' })[0]
   const task = () => getTasks(workspace.id)[0]
@@ -107,7 +114,7 @@ it('two humans and two named agents create and update a linked brief with scoped
   expect(await readLibraryText(workspace.id, doc().id)).toContain('Reviewed by Writer')
   expect(task().title).toBe('Reviewed launch brief')
   expect(getComments(workspace.id, `task:${task().id}`).items.some((entry) => entry.createdBy === `agent:${writer.id}` && entry.event?.kind === 'title')).toBe(true)
-  expect(requests.every((request) => request.key === 'Bearer fixture-' + ana)).toBe(true)
+  expect(requests.every((request) => request.key === 'Bearer fixture-shared')).toBe(true)
   expect(approvals).toHaveLength(4)
   expect(requests.every((request) => !JSON.stringify(request.body).includes('foreign-private-content'))).toBe(true)
   expect(requests[0].body.tools.map((tool: any) => tool.name)).not.toContain('bash')
@@ -161,9 +168,10 @@ it('two humans and two named agents create and update a linked brief with scoped
   expect(JSON.stringify(requests.at(-1)!.body)).toContain('Explore mode is read-only')
   expect(JSON.stringify(requests.at(-1)!.body)).not.toContain('your own Linux computer')
   nextCall = [() => ({ name: 'create_document', args: { title: 'Routine brief.md', content: 'Created by authorized routine' } }), () => null]
-  const routine = await manager.executePromptAutomation({workspaceId:workspace.id,workspaceRootPath:workspace.rootPath,prompt:'Prepare routine brief',permissionMode:'allow-all',llmConnection:'same-name',model:'pi/fixture',createdBy:`user:${ana}`,agentId:scout.id,automationName:'Fixture routine',automationId:'routine-fixture'})
+  const routine = await manager.executePromptAutomation({workspaceId:workspace.id,workspaceRootPath:workspace.rootPath,prompt:'Prepare routine brief',permissionMode:'allow-all',llmConnection:sharedConnection.slug,model:'pi/fixture',createdBy:`user:${ana}`,agentId:scout.id,automationName:'Fixture routine',automationId:'routine-fixture'})
   expect(getLibraryItems(workspace.id,{type:'document'}).some((item)=>item.title==='Routine brief.md'&&item.createdBy===`agent:${scout.id}`)).toBe(true)
-  expect(requests.at(-1)!.key).toBe('Bearer fixture-'+ana)
+  expect(requests.at(-1)!.key).toBe('Bearer fixture-shared')
+  expect(requests.every((request) => request.key === 'Bearer fixture-shared')).toBe(true)
   expect((await manager.getSession(routine.sessionId)) as unknown).toMatchObject({triggeredBy:{automationName:'Fixture routine'}})
   const before = requests.length
   deleteWorkspaceMember(workspace.id, ana)

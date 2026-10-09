@@ -175,9 +175,6 @@ export const AutomationMatcherSchema = z.object({
     question: z.string().trim().min(1, 'Question cannot be empty').max(500),
     threshold: z.number().gt(0).lte(1).optional(),
   }).strict().optional(),
-  // Telegram forum-topic name (1–128 chars). Silently ignored at runtime when
-  // no supergroup is paired or the Telegram adapter is not connected.
-  telegramTopic: z.string().min(1).max(128).optional(),
   actions: z.array(ActionDefinitionSchema).min(1, 'At least one action required'),
 });
 
@@ -199,7 +196,6 @@ export const RoutineConfigSchema = z.object({
   conditions: z.array(AutomationConditionSchema).optional(),
   semanticCondition: SemanticConditionSchema.optional(),
   permissionMode: z.enum(['safe', 'ask', 'guarded', 'allow-all']).optional(),
-  telegramTopic: z.string().min(1).max(128).optional(),
   actions: z.array(z.discriminatedUnion('type', [
     PromptActionSchema.strict(),
     RoutineWebhookActionSchema.strict(),

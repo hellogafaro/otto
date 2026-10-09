@@ -42,7 +42,6 @@ const server = {
 const deps = {
   sessionManager: {},
   platform: { logger: console, imageProcessor: {} },
-  messagingRegistry: new Proxy({}, { get: () => () => undefined }),
   oauthFlowStore: {},
 } as unknown as HandlerDeps
 registerCoreRpcHandlers(server, deps)

@@ -123,7 +123,6 @@ function toConfig(event: string, matcher: Matcher, storeSecret: (title: string, 
     ...(matcher.conditions?.length ? { conditions: matcher.conditions } : {}),
     ...(matcher.semanticCondition ? { semanticCondition: matcher.semanticCondition } : {}),
     ...(matcher.permissionMode ? { permissionMode: matcher.permissionMode } : {}),
-    ...(matcher.telegramTopic ? { telegramTopic: matcher.telegramTopic } : {}),
     actions,
   }
 }

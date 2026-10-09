@@ -460,7 +460,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
               actions={<AgentEditButton prompt={t('agentEdit.sourceGuide', { name: source.config.name })} />}
             >
               <div className="p-4">
-                <Markdown mode="full" className="[&>:first-child]:mt-0 [&>:last-child]:mb-0" onUrlClick={(url) => window.electronAPI.openUrl(url)}>{source.guide.raw}</Markdown>
+                <Markdown mode="full" className="max-w-[37em]" onUrlClick={(url) => window.electronAPI.openUrl(url)}>{source.guide.raw}</Markdown>
               </div>
             </Info_Section>
           )}

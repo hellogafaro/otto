@@ -25,8 +25,6 @@ function register() {
     // What the handlers need from the manager here: who may see which chat.
     sessionManager: { canSeeSession: (id: string, userId: string | null) => id === MINE && userId === OWNER },
     platform: { logger: console, imageProcessor: {} },
-    // Messaging channels register only when a registry exists; none of its methods is reached.
-    messagingRegistry: new Proxy({}, { get: () => () => undefined }),
     oauthFlowStore: {},
   } as unknown as HandlerDeps
   registerCoreRpcHandlers(server, deps)
@@ -83,7 +81,6 @@ describe('chats are private on every channel with a session id', () => {
       RPC_CHANNELS.sessions.EXPORT,
       RPC_CHANNELS.sessions.GET_FILES,
       RPC_CHANNELS.drafts.GET,
-      RPC_CHANNELS.messaging.GENERATE_CODE,
     ]) {
       expect(SESSION_ID_CHANNELS.has(channel)).toBe(true)
     }

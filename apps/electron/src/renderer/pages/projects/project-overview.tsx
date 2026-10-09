@@ -1,5 +1,5 @@
 /**
- * A project's Overview tab, a blocks layout: the description in its card (the markdown editor, autosaved with the
+ * A project's Overview tab, a blocks layout: the description (the markdown editor, autosaved with the
  * title by the page), then Links (web links, library items and chats: `ResourceList`; "+" prefills the composer, remove
  * applies at once), Members, then the Activity (comments).
  */
@@ -27,12 +27,12 @@ export function ProjectOverview({ projectId, members, onAddMember, onRemoveMembe
   const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-10">
-      <PageCard className="px-4 py-3" onBlur={onBlur}>
+      <PageCard surface={false} className="px-4 py-3" onBlur={onBlur}>
         <TiptapMarkdownEditor content={description} onUpdate={onDescription} placeholder={t('projects.descriptionPlaceholder')} />
       </PageCard>
       <PageSection title={t('resources.title')} action={<NewLink entity={`project:${projectId}`} resources={resources} />}>
         {resources.length > 0 && (
-          <PageCard>
+          <PageCard surface={false}>
             <div className="flex flex-col gap-0.5 p-1">
               <ResourceList resources={resources} onChange={onResources} />
             </div>

@@ -39,6 +39,7 @@ export const actions = {
     label: 'Settings',
     description: 'Open application settings',
     defaultHotkey: 'mod+,',
+    webHotkey: null,
     category: 'General',
   },
   'app.toggleTheme': {
@@ -208,7 +209,7 @@ export const actions = {
 
 /** The hotkey an action has here: the browser's own when it defines one, else the default. */
 export function hotkeyFor(action: ActionDefinition, webui: boolean): string | null {
-  return webui && action.webHotkey ? action.webHotkey : action.defaultHotkey
+  return webui && action.webHotkey !== undefined ? action.webHotkey : action.defaultHotkey
 }
 
 // Type-safe action IDs

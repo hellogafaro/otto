@@ -10,12 +10,17 @@ import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { requestClientOpenFileDialog } from '@otto/server-core/transport'
 import { isValidWorkingDirectory } from '../../utils/path-validation'
+import { getUserMidStreamPreference, initUserMidStreamPreference, updatePreferences, type UserPreferences } from '@otto/shared/config/preferences'
+import { UserPreferencesUpdateSchema } from '@otto/shared/config/validators'
+import { domainError } from '@otto/shared/utils'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.workspace.SETTINGS_GET,
   RPC_CHANNELS.workspace.SETTINGS_UPDATE,
   RPC_CHANNELS.preferences.READ,
   RPC_CHANNELS.preferences.WRITE,
+  RPC_CHANNELS.preferences.GET_USER,
+  RPC_CHANNELS.preferences.UPDATE_USER,
   RPC_CHANNELS.drafts.GET,
   RPC_CHANNELS.drafts.SET,
   RPC_CHANNELS.drafts.DELETE,
@@ -121,6 +126,7 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
       workingDirectory: config?.defaults?.workingDirectory,
       localMcpEnabled: config?.localMcpServers?.enabled ?? true,
       defaultLlmConnection: config?.defaults?.defaultLlmConnection,
+      defaultLlmConnectionId: config?.defaults?.defaultLlmConnectionId,
       enabledSourceSlugs: config?.defaults?.enabledSourceSlugs ?? [],
     }
   })
@@ -188,6 +194,20 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
   // The caller's preferences as JSON text: their name and email, and their own settings
   server.handle(RPC_CHANNELS.preferences.READ, async (ctx) => {
     return { content: JSON.stringify(loadPreferences(ctx.userId), null, 2) }
+  })
+  server.handle(RPC_CHANNELS.preferences.GET_USER, (ctx) => {
+    if (!ctx.userId) throw domainError('unauthorized', 'Sign in to read your preferences.')
+    const preference = initUserMidStreamPreference(ctx.userId)
+    return { ...loadPreferences(ctx.userId), midStreamBehavior: preference.behavior, midStreamBehaviorNeedsReview: preference.needsReview }
+  })
+  server.handle(RPC_CHANNELS.preferences.UPDATE_USER, (ctx, updates: Partial<UserPreferences>) => {
+    if (!ctx.userId) throw domainError('unauthorized', 'Sign in to update your preferences.')
+    const validation = UserPreferencesUpdateSchema.safeParse(updates)
+    if (!validation.success) throw domainError('invalid', 'The preference update is invalid.')
+    initUserMidStreamPreference(ctx.userId)
+    const updated = updatePreferences(validation.data, ctx.userId)
+    const preference = getUserMidStreamPreference(ctx.userId)
+    return { ...updated, midStreamBehavior: preference.behavior, midStreamBehaviorNeedsReview: preference.needsReview }
   })
 
   // Make the JSON text the caller's preferences (validates the content before saving)

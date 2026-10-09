@@ -24,7 +24,6 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogMedia,
   AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog'
 import { Button } from '@workspace/ui/components/button'
@@ -581,9 +580,6 @@ export function ActivityFeed({ entity, className }: { entity: string; className?
       <AlertDialog open={deleting !== null} onOpenChange={(open) => { if (!open && !deletePending) setDeleting(null) }}>
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
-            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20">
-              <Trash2 />
-            </AlertDialogMedia>
             <AlertDialogTitle>{t('comments.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>{deleteFailed ? t('comments.deleteFailed') : t('comments.deleteDescription')}</AlertDialogDescription>
           </AlertDialogHeader>

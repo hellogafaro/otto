@@ -3,7 +3,6 @@
  */
 
 import * as React from 'react'
-import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
@@ -13,7 +12,6 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogMedia,
   AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog'
 
@@ -44,9 +42,6 @@ export function useConfirmDelete() {
     <AlertDialog open={pending !== null} onOpenChange={(open) => { if (!open && !running) setPending(null) }}>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
-          <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20">
-            <Trash2 />
-          </AlertDialogMedia>
           <AlertDialogTitle>{pending?.title}</AlertDialogTitle>
           <AlertDialogDescription>{failed ? t('library.deleteFailed') : t('library.deleteDescription')}</AlertDialogDescription>
         </AlertDialogHeader>

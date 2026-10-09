@@ -1,5 +1,7 @@
 import { initDb } from '../db/index.ts';
-import { CATALOGUE, deleteSetting, getSettings, getUserSetting, updateSetting, userEntity } from '../settings/index.ts';
+import { CATALOGUE, deleteSetting, getSettings, getStoredSetting, getUserSetting, updateSetting, userEntity } from '../settings/index.ts';
+import { getAllConnections, INSTALL_SCOPE, userScope, workspaceScope } from '../connections/index.ts';
+import { getMemberWorkspaceIds } from '../workspaces/members.ts';
 import { getFirstUser, getUser, LOCAL_EMAIL, updateUser } from '../users/queries.ts';
 import { domainError } from '../utils/errors.ts';
 import { i18n, SUPPORTED_LANGUAGE_CODES } from '../i18n/index.ts';
@@ -36,6 +38,8 @@ export interface UserPreferences {
   diffViewer?: DiffViewerPreferences;
   // Whether to include Co-Authored-By trailer on git commits (default: true)
   includeCoAuthoredBy?: boolean;
+  midStreamBehavior?: 'steer' | 'queue';
+  readonly midStreamBehaviorNeedsReview?: boolean;
   /**
    * Internal: persisted UI language code (mirrors Appearance → Language).
    * Maintained only by the desktop's `i18n:changeLanguage` IPC handler (through `preferences:write`).
@@ -44,7 +48,33 @@ export interface UserPreferences {
   uiLanguage?: LanguageCode;
 }
 
-const PREFERENCE_SETTINGS = ['timezone', 'location', 'notes', 'diffViewer', 'includeCoAuthoredBy', 'uiLanguage'] as const;
+const PREFERENCE_SETTINGS = ['timezone', 'location', 'notes', 'diffViewer', 'includeCoAuthoredBy', 'uiLanguage', 'midStreamBehavior'] as const;
+
+export function getUserMidStreamPreference(userId: string): { behavior: 'steer' | 'queue'; needsReview: boolean } {
+  if (!userId) throw domainError('unauthorized', 'Sign in to read your preferences.');
+  if (!getUser(userId)) throw domainError('not_found', 'The user is unavailable.');
+  const stored = getStoredSetting(userEntity(userId), 'midStreamBehavior');
+  if (stored === 'steer' || stored === 'queue') return { behavior: stored, needsReview: false };
+  const scopes = new Set([INSTALL_SCOPE, userScope(userId), ...getMemberWorkspaceIds(userId).map(workspaceScope)]);
+  const values = new Set<'steer' | 'queue'>();
+  for (const connection of getAllConnections()) {
+    if (!scopes.has(connection.scope)) continue;
+    const behavior = connection.config?.midStreamBehavior;
+    if (behavior === 'steer' || behavior === 'queue') values.add(behavior);
+  }
+  if (values.size > 1) return { behavior: 'queue', needsReview: true };
+  return { behavior: values.has('queue') ? 'queue' : 'steer', needsReview: false };
+}
+
+export function initUserMidStreamPreference(userId: string): { behavior: 'steer' | 'queue'; needsReview: boolean } {
+  return initDb().transaction(() => {
+    const preference = getUserMidStreamPreference(userId);
+    if (!preference.needsReview && getStoredSetting(userEntity(userId), 'midStreamBehavior') !== preference.behavior) {
+      updateSetting(userEntity(userId), 'midStreamBehavior', preference.behavior);
+    }
+    return preference;
+  });
+}
 
 /** What the user has set: only what differs from the default. */
 export function loadPreferences(userId?: string | null): UserPreferences {
@@ -75,22 +105,27 @@ export function savePreferences(prefs: UserPreferences, userId?: string | null):
   });
 }
 
-export function updatePreferences(updates: Partial<UserPreferences>, userId?: string | null): UserPreferences {
-  const current = loadPreferences(userId);
-  const updated = {
-    ...current,
-    ...updates,
-    // Merge location if provided
-    location: updates.location
-      ? { ...current.location, ...updates.location }
-      : current.location,
-    // Merge diffViewer if provided
-    diffViewer: updates.diffViewer
-      ? { ...current.diffViewer, ...updates.diffViewer }
-      : current.diffViewer,
-  };
-  savePreferences(updated, userId);
-  return updated;
+export function updatePreferences(updates: Partial<Omit<UserPreferences, 'midStreamBehaviorNeedsReview'>>, userId?: string | null): UserPreferences {
+  const id = userId ?? getFirstUser()?.id;
+  if (!id) throw domainError('not_found', 'There is no user yet');
+  return initDb().transaction((tx) => {
+    const current = loadPreferences(id);
+    const updated = {
+      ...current,
+      ...updates,
+      location: updates.location ? { ...current.location, ...updates.location } : current.location,
+      diffViewer: updates.diffViewer ? { ...current.diffViewer, ...updates.diffViewer } : current.diffViewer,
+    };
+    const name = updates.name?.trim();
+    const email = updates.email?.trim();
+    if (name || email) updateUser(id, { name, email }, tx);
+    for (const key of PREFERENCE_SETTINGS) {
+      if (!Object.hasOwn(updates, key)) continue;
+      if (updates[key] === undefined) deleteSetting(userEntity(id), key, tx);
+      else updateSetting(userEntity(id), key, updated[key], tx);
+    }
+    return updated;
+  });
 }
 
 /**

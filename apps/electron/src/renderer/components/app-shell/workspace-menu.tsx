@@ -14,7 +14,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -31,7 +30,6 @@ import { waitForTransportConnected } from '@/lib/transport-wait'
 import { useWorkspaceIcons } from "@/hooks/use-workspace-icon"
 import { useTransportConnectionState } from "@/hooks/use-transport-connection-state"
 import { readLocalAccount, useCurrentUser } from "@/hooks/use-current-user"
-import { useWorkspaceMembers } from "@/hooks/use-workspace-members"
 import type { Workspace } from "../../../shared/types"
 
 interface WorkspaceMenuProps {
@@ -41,8 +39,6 @@ interface WorkspaceMenuProps {
   onSettings: () => void
   onWorkspaceCreated?: (workspace: Workspace) => void
   onWorkspaceRemoved?: () => void
-  /** workspaceId -> has unread */
-  workspaceUnreadMap?: Record<string, boolean>
 }
 
 /**
@@ -70,7 +66,7 @@ function getInitials(name: string): string {
  * the current workspace (avatar, name), Settings, the workspaces to switch
  * to (a check on the current one, remove on hover for the others) with New
  * workspace, then the account block and, on the web only, Log out. The account
- * (name, then the role in this workspace and the email)
+ * (name, then the email)
  * is the signed-in person on the web (static); on Electron the name and email
  * from Settings -> Preferences, a muted placeholder for each one not set, and it
  * opens that page.
@@ -82,7 +78,6 @@ export function WorkspaceMenu({
   onSettings,
   onWorkspaceCreated,
   onWorkspaceRemoved,
-  workspaceUnreadMap,
 }: WorkspaceMenuProps) {
   const { t } = useTranslation()
   const { state, isMobile } = useSidebar()
@@ -98,8 +93,6 @@ export function WorkspaceMenu({
   const [preferencesAccount, setAccount] = useState({ name: '', email: '' })
   const sessionUser = useCurrentUser()
   const account = isWebUI ? sessionUser ?? { name: '', email: '' } : preferencesAccount
-  const { members, me } = useWorkspaceMembers()
-  const role = members.find((member) => member.actor === me)?.role
   const isRemote = connectionState?.mode === 'remote'
 
   // Health check results for non-active remote workspaces (checked on dropdown open)
@@ -167,11 +160,6 @@ export function WorkspaceMenu({
     return remoteHealthMap.get(workspaceId) === 'error'
   }
 
-  const hasUnreadInOtherWorkspaces = React.useMemo(() => {
-    if (!activeWorkspaceId || !workspaceUnreadMap) return false
-    return workspaces.some((workspace) => workspace.id !== activeWorkspaceId && workspaceUnreadMap[workspace.id])
-  }, [workspaces, activeWorkspaceId, workspaceUnreadMap])
-
   const handleNewWorkspace = () => {
     setShowCreationScreen(true)
     setFullscreenOverlayOpen(true)
@@ -228,7 +216,6 @@ export function WorkspaceMenu({
           {account.name || t('workspaceMenu.accountNamePlaceholder')}
         </span>
         <span className="truncate text-xs leading-4 text-muted-foreground">
-          {role && `${t(`members.role.${role}`)} · `}
           {account.email || t('workspaceMenu.accountEmailPlaceholder')}
         </span>
       </span>
@@ -272,7 +259,6 @@ export function WorkspaceMenu({
                 ? <CloudOff className="text-destructive" />
                 : <Cloud />
             )}
-            {hasUnreadInOtherWorkspaces && <span className="size-2 shrink-0 rounded-full bg-primary" />}
             <ChevronsUpDown className="shrink-0" />
           </SidebarMenuButton>
         </DropdownMenuTrigger>
@@ -283,30 +269,7 @@ export function WorkspaceMenu({
           sideOffset={4}
           className="w-60"
         >
-          {/* The current workspace: a static block, not a row. */}
-          <div className="flex h-9 items-center gap-2 rounded-sm px-2 py-2">
-            <span className={LEAD}>
-              <WorkspaceAvatar
-                workspaceId={selectedWorkspace?.id}
-                workspaceName={selectedWorkspace?.name}
-                src={selectedWorkspace ? workspaceIconMap.get(selectedWorkspace.id) : undefined}
-                className="size-5 rounded-xs"
-                fallbackClassName="rounded-xs"
-              />
-            </span>
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{selectedWorkspace?.name || t('workspace.selectWorkspace')}</span>
-          </div>
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onClick={onSettings}>
-            <span className={LEAD}><Settings /></span>
-            {t('sidebar.settings')}
-            {settingsHotkey && <span className="ml-auto flex"><DropdownMenuShortcut>{settingsHotkey}</DropdownMenuShortcut></span>}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-
           <DropdownMenuGroup>
-            <DropdownMenuLabel>{t('workspaceMenu.workspaces')}</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={activeWorkspaceId ?? ''}>
               {workspaces.map((workspace) => {
                 const disconnected = isRemoteDisconnected(workspace.id)
@@ -342,7 +305,6 @@ export function WorkspaceMenu({
                         ? <span title={getDisconnectTooltip(workspace.id)} className="shrink-0"><CloudOff className="text-destructive" /></span>
                         : <Cloud className="shrink-0 text-muted-foreground" />
                     )}
-                    {workspaceUnreadMap?.[workspace.id] && <span className="size-2 shrink-0 rounded-full bg-primary" />}
                     {/* Only non-active workspaces can be removed; it shows on hover, in the check's slot. */}
                     {activeWorkspaceId !== workspace.id && (
                       <button
@@ -367,6 +329,12 @@ export function WorkspaceMenu({
             {t('workspaceMenu.new')}
           </DropdownMenuItem>
 
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onSettings}>
+            <span className={LEAD}><Settings /></span>
+            {t('sidebar.settings')}
+            {settingsHotkey && <span className="ml-auto flex"><DropdownMenuShortcut>{settingsHotkey}</DropdownMenuShortcut></span>}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           {/* The account: always shown, a muted placeholder for what is not set. The same slot and text line as every row; 48px so the two lines sit 7px from the top and bottom. On Electron it opens Settings -> Preferences, where its name and email are set; on the web it is the signed-in person, a static block. */}
           {isWebUI ? (

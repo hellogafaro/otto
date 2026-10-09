@@ -1,8 +1,7 @@
 /**
  * The attachment rail (v1's, docs/composer.md R10): one row of file chips above the text, scrolling sideways with
  * the edge fade (`AttachmentGroup`: the end fades while more chips wait, the start once scrolled). 28px chips
- * (`xs`: thumbnail, the name cut in the middle, remove) in the glass; `sm` chips with the kind and size in the
- * full composer. A chip being read spins and shimmers; one that failed is red, with Retry.
+ * with the kind and size. A chip being read spins and shimmers; one that failed is red, with Retry.
  */
 
 import { useTranslation } from 'react-i18next'
@@ -20,11 +19,6 @@ import {
 import { Button } from '@workspace/ui/components/button'
 import { Spinner } from '@workspace/ui/components/spinner'
 import type { ComposerFile } from './use-composer-files'
-
-/** A long file name cut in the middle, keeping its end and type: "Banner-mob…08-10.jpg". */
-export function middleCut(name: string): string {
-  return name.length > 24 ? `${name.slice(0, 10)}…${name.slice(-10)}` : name
-}
 
 /** "PNG", "MD", "PDF": the extension, else the MIME subtype. */
 export function fileKind(name: string, type: string): string {
@@ -50,13 +44,10 @@ function Media({ file }: { file: ComposerFile }) {
 
 export function AttachmentRail({
   files,
-  full,
   onRemove,
   onRetry,
 }: {
   files: ComposerFile[]
-  /** The full composer's two-line chips. */
-  full: boolean
   onRemove?: (id: string) => void
   onRetry: (id: string) => void
 }) {
@@ -73,30 +64,20 @@ export function AttachmentRail({
         ) : null
         return (
           <div key={file.id} className="flex flex-col gap-1">
-            {full ? (
-              <Attachment size="sm" state={file.state} title={file.name}>
-                <Media file={file} />
-                <AttachmentContent>
-                  <AttachmentTitle>{file.name}</AttachmentTitle>
-                  <AttachmentDescription>
-                    {file.state === 'uploading'
-                      ? t('composer.adding')
-                      : file.state === 'error'
-                        ? t('composer.error.read')
-                        : `${fileKind(file.name, file.type)} · ${fileSize(file.size)}`}
-                  </AttachmentDescription>
-                </AttachmentContent>
-                {remove && <AttachmentActions>{remove}</AttachmentActions>}
-              </Attachment>
-            ) : (
-              <Attachment size="xs" state={file.state} title={file.name}>
-                <Media file={file} />
-                <AttachmentContent>
-                  <AttachmentTitle>{middleCut(file.name)}</AttachmentTitle>
-                </AttachmentContent>
-                {remove}
-              </Attachment>
-            )}
+            <Attachment size="sm" state={file.state} title={file.name}>
+              <Media file={file} />
+              <AttachmentContent>
+                <AttachmentTitle>{file.name}</AttachmentTitle>
+                <AttachmentDescription>
+                  {file.state === 'uploading'
+                    ? t('composer.adding')
+                    : file.state === 'error'
+                      ? t('composer.error.read')
+                      : `${fileKind(file.name, file.type)} · ${fileSize(file.size)}`}
+                </AttachmentDescription>
+              </AttachmentContent>
+              {remove && <AttachmentActions>{remove}</AttachmentActions>}
+            </Attachment>
             {file.state === 'error' && (
               <Button type="button" variant="ghost" size="xs" className="self-start" onClick={() => onRetry(file.id)}>
                 {t('composer.retryUpload')}

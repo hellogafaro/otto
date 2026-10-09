@@ -7,9 +7,9 @@ import { createScopedLogger, CONSOLE_LOGGER, type PlatformServices, type Logger 
 import { basename, join } from 'path'
 import { existsSync, readdirSync } from 'fs'
 import { readFile, writeFile, mkdir } from 'fs/promises'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import { type AgentEvent, getPermissionMode, setPermissionMode, setGuardedModeActiveResolver, clampPermissionMode, planExecutionMode, parsePermissionMode, hydratePreviousPermissionMode, getPermissionModeDiagnostics, type PermissionMode, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest, generateConversationSummary, normalizeCanonicalBrowserToolName } from '@otto/shared/agent'
-import { getLlmConnection, getLlmConnections, piProviderOf, getDefaultLlmConnection, getDefaultThinkingLevel, resolveMidStreamBehavior, resolveTitleLanguageName } from '@otto/shared/config'
+import { getLlmConnection, getLlmConnections, piProviderOf, getDefaultLlmConnection, getDefaultThinkingLevel, getUserMidStreamPreference, resolveTitleLanguageName } from '@otto/shared/config'
 import { isNativeConnection } from '../model-fetchers/native-provider'
 import { resolveSessionConnection, resolveBackendContext, type BackendAgent } from '@otto/shared/agent/connection-context'
 import type { ConnectionContext, MidStreamBehavior } from '@otto/shared/config'
@@ -17,12 +17,27 @@ import { getWorkspaceRootPath } from '@otto/shared/config'
 import { PrivilegedExecutionBroker } from '@otto/server-core/services'
 import { isValidWorkingDirectory } from '../utils/path-validation'
 import { InitGate } from '@otto/server-core/domain'
-import { onConnectionsChange } from '@otto/shared/connections'
+import { onConnectionsChange, getConnectionById } from '@otto/shared/connections'
 import { initDb } from '@otto/shared/db'
 import { shouldAllowToolInMode } from '@otto/shared/agent'
 import { buildTitlePrompt, buildRegenerateTitlePrompt, validateTitle } from '../../../shared/src/utils/title-generator.ts'
 import { assertHistoryRuntime } from '../../../shared/src/sessions/native-messages.ts'
 import { assertLegacyHistoryImported, writeMastraHistory, recoverMastraHistory, closeMastraHistory, deleteMastraHistory } from './mastra-history.ts'
+import { createMastraProjectTaskTools, PROJECT_TASK_WRITE_TOOL_NAMES, PROJECT_TASK_DESTRUCTIVE_TOOL_NAMES, PROJECT_TASK_NOTIFICATION_TOOL_NAMES } from './mastra-project-task-tools'
+import { createMastraLibraryTools, MASTRA_LIBRARY_WRITES, MASTRA_LIBRARY_DESTRUCTIVE } from './mastra-library-tools'
+import { createMastraManagementTools, MANAGEMENT_WRITE_TOOL_NAMES, MANAGEMENT_SENSITIVE_TOOL_NAMES } from './mastra-management-tools'
+import { createMastraChatManagementTools, CHAT_WRITE_TOOL_NAMES, CHAT_SENSITIVE_TOOL_NAMES } from './mastra-chat-management-tools'
+import { NativeApprovalController, type NativeApprovalRecord, type NativeApprovalValue } from './native-approvals'
+import { runRoutineForHuman } from './native-routine-run'
+import { z } from 'zod'
+import { OpenAISchemaCompatLayer, OpenAIReasoningSchemaCompatLayer, toStandardSchema } from '@mastra/schema-compat'
+import { getProject } from '@otto/shared/projects'
+import { getTask, getTimesheets, updateTask } from '@otto/shared/tasks'
+import { getLibraryItem } from '@otto/shared/library'
+import { getCommentsById } from '@otto/shared/comments'
+import { getSkill } from '@otto/shared/skills'
+import { getSources } from '@otto/shared/sources'
+import { searchChats } from '@otto/shared/sessions'
 import {
   getWorkspaces,
   getWorkspaceByNameOrId,
@@ -117,7 +132,7 @@ import { domainError } from '@otto/shared/utils'
 import { MAX_AGENT_CHAIN_DEPTH, MAX_AGENT_TURNS, NEW_AGENT_HISTORY, authorOfRow, buildAgentPrompt, hasSeveralAuthors, routeAgentReply, routeMessage } from './multiplayer'
 
 // Import from server-core domain utilities
-import { sanitizeForTitle, rollbackFailedBranchCreation } from '@otto/server-core/domain'
+import { sanitizeForTitle } from '@otto/server-core/domain'
 import { resizeImageForAPI, resizeIconBuffer } from '@otto/server-core/services'
 export { sanitizeForTitle }
 
@@ -429,6 +444,11 @@ interface ManagedSession {
   mastraStop?:()=>void
   mastraQueuedIds?:string[]
   mastraApprovalId?: string
+  nativeRunId?: string
+  nativeChatRevision?: string
+  nativeApprovals?: NativeApprovalController
+  nativeCanResolve?: (requestId: string, userId: string) => boolean
+  nativeQuestionResponse?: (requestId: string, answer: string | string[], userId: string) => Promise<boolean>
   nativeComputer?: import('../../../shared/src/computer/chat-computer').ChatComputer
   contextSummary?: string
   contextThroughId?: string
@@ -498,6 +518,7 @@ interface ManagedSession {
   labels?: string[]
   // Workspace-scoped project binding (undefined = unbound)
   projectId?: string
+  contextEntity?: string
   // Parent session id — when set, this session is a subtask of the parent (undefined = top-level task)
   parentSessionId?: string
   // Working directory for this session (used by agent for bash commands)
@@ -510,6 +531,7 @@ interface ManagedSession {
   model?: string
   // LLM connection slug for this session (locked after first message)
   llmConnection?: string
+  llmConnectionId?: string
   // Whether the connection is locked (cannot be changed after first agent creation)
   connectionLocked?: boolean
   // Thinking level for this session ('off', 'think', 'max')
@@ -552,12 +574,12 @@ interface ManagedSession {
     /** Mid-turn messages: the pending continuation check that may set `mergeWith`. */
     continuationCheck?: Promise<void>
   }>
+  queueAdmission?: { messageId?: string; wake?: AgentWake }
   // Whether every message of the chat is in `messages` (loaded from the database on demand; see LOADED_CHATS_LIMIT)
   messagesLoaded: boolean
   // Pending auth request tracking (for unified auth flow)
   pendingAuthRequestId?: string
   pendingAuthRequest?: AuthRequest
-  nativeAuthSource?: { id: string; config: string; agentId: string }
   // Auth retry tracking (for mid-session token expiry)
   // Store last sent message/attachments to enable retry after token refresh
   lastSentMessage?: string
@@ -579,19 +601,6 @@ interface ManagedSession {
   // prompt or a turn start that sees it change was stopped meanwhile.
   stopEpoch?: number
   branchFromMessageId?: string
-  // Branch context strategy:
-  // - sdk-fork: provider-level fork from parent SDK session
-  // - seeded-fresh-session: fresh backend session seeded with transcript up to branch cutoff
-  branchContextStrategy?: 'sdk-fork' | 'seeded-fresh-session'
-  // Parent session's SDK session ID (used only when branchContextStrategy === 'sdk-fork')
-  branchFromSdkSessionId?: string
-  // Parent session's storage path (used only when branchContextStrategy === 'sdk-fork')
-  branchFromSessionPath?: string
-  // SDK assistant message UUID at the branch point — used as resumeSessionAt
-  // to trim the forked conversation at the branch point.
-  branchFromSdkTurnId?: string
-  // One-shot flag for seeded branch mode - set true after first turn seed injection.
-  branchSeedApplied?: boolean
   // One-shot hidden summary injected on the first turn after a remote transfer.
   transferredSessionSummary?: string
   // Whether the transferred-session summary has already been injected.
@@ -789,32 +798,14 @@ export function createManagedSession(
     ...overrides,
   } as ManagedSession
 
-  if (managed.branchFromMessageId && !managed.branchContextStrategy) {
-    managed.branchContextStrategy = managed.branchFromSdkSessionId
-      ? 'sdk-fork'
-      : 'seeded-fresh-session'
-  }
-
-  if (managed.branchContextStrategy === 'seeded-fresh-session' && managed.branchSeedApplied === undefined) {
-    // If an SDK session ID already exists, first turn has already happened.
-    managed.branchSeedApplied = !!managed.sdkSessionId
-  }
-
   return managed
 }
-
-/**
- * Whether the chat has messages its agent's backend holds none of: it ran on the removed Claude backend (or Pi's
- * session files are gone), so Pi starts it from a summary of its messages. Branches and transferred chats bring
- * their own context and are left out.
- */
-
 
 /** The chat's agent as it picks the connection and model (docs/final-plan.md 2.2); none for mini sessions. */
 function agentOf(managed: ManagedSession): BackendAgent | null {
   if (managed.systemPromptPreset === 'mini') return null
   const run = getAgentRunConfig(turnAgentOf(managed), managed.workspace.id)
-  return run ? { title: run.agent.title, provider: run.provider, model: run.model } : null
+  return run ? { title: run.agent.title, provider: run.provider, model: run.model, llmConnectionId: run.llmConnectionId } : null
 }
 
 /**
@@ -840,12 +831,47 @@ function actorName(workspaceId: string, actor: string): string {
   return getAgent(workspaceId, actor.slice('agent:'.length))?.title || actor
 }
 
-/**
- * Resolve supportsBranching for a managed session.
- * Prefers the live agent instance; falls back to true for all backends.
- */
-function resolveSupportsBranching(_managed: ManagedSession): boolean {
-  return true
+function nativeFailureDiagnostic(error: unknown, stage: string) {
+  const faults: { name?: string; code?: string; errno?: number; statusCode?: number; fields?: string[]; frames: string[] }[] = []
+  let current = error
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth++) {
+    const value = current as { name?: unknown; code?: unknown; errno?: unknown; statusCode?: unknown; issues?: unknown; stack?: unknown; cause?: unknown }
+    const frames = typeof value.stack === 'string' ? value.stack.split('\n').slice(1).filter((line) => /^\s+at /.test(line)).flatMap((line) => line.match(/(?:packages|node_modules|apps)\/[^\s)]+:\d+:\d+/g) ?? []).slice(0, 5) : []
+    const fields = Array.isArray(value.issues) ? value.issues.slice(0, 10).filter((issue) => issue && ['invalid_type', 'invalid_value', 'unrecognized_keys', 'too_small', 'too_big', 'invalid_format', 'custom'].includes(issue.code)).map((issue) => `${issue.code}: ${Array.isArray(issue.path) ? issue.path.filter((field: unknown) => typeof field === 'number' && Number.isSafeInteger(field) && field >= 0 || typeof field === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(field)).slice(0, 8).join('.') : ''}`) : undefined
+    faults.push({ name: typeof value.name === 'string' && ['Error', 'SQLiteError', 'LibsqlError', 'DomainError', 'TypeError', 'AbortError', 'MastraError', 'AI_APICallError', 'ZodError', 'NativeSessionFailure', 'NativeToolInputError'].includes(value.name) ? value.name : undefined, code: typeof value.code === 'string' && (/^(?:SQLITE|LIBSQL)_[A-Z0-9_]+$/.test(value.code) || ['forbidden', 'not_found', 'conflict', 'invalid', 'unauthorized'].includes(value.code)) ? value.code : undefined, errno: typeof value.errno === 'number' && Number.isSafeInteger(value.errno) ? value.errno : undefined, statusCode: typeof value.statusCode === 'number' && Number.isInteger(value.statusCode) && value.statusCode >= 100 && value.statusCode <= 599 ? value.statusCode : undefined, fields, frames })
+    current = value.cause
+  }
+  return { stage, faults }
+}
+
+function nativeHistoryChatReferences(message: Message): { ids: string[]; complete: boolean } {
+  const name = message.toolName ?? ''
+  if (message.role !== 'tool' || message.toolStatus !== 'completed' || (!name.startsWith('chat_') && !/^(?:project_|task_|comment_|routine_|list_work$)/.test(name) && !['create_task', 'update_task', 'create_project', 'mcp__session__get_session_info', 'mcp__session__list_sessions'].includes(name))) return { ids: [], complete: true }
+  const result = JSON.parse(message.toolResult ?? '')
+  const ids: string[] = []
+  let complete = true
+  if (name === 'chat_list') { complete = result.total === result.chats.length; ids.push(...result.chats.map((chat: { id: string }) => chat.id)) }
+  else if (name === 'chat_search') ids.push(...result.map((chat: { sessionId: string }) => chat.sessionId))
+  else if (name.startsWith('chat_') && name !== 'chat_delete') ids.push(result.chat?.id ?? result.chatId ?? result.id)
+  else if (name.startsWith('mcp__session__')) {
+    for (const block of result.content) {
+      const data = JSON.parse(block.text)
+      if (name === 'mcp__session__get_session_info') ids.push(data.id)
+      else { complete = complete && data.total === data.sessions.length && data.returned === data.sessions.length; ids.push(...data.sessions.map((chat: { id: string }) => chat.id)) }
+    }
+  } else {
+    const visit = (value: unknown): void => {
+      if (!value || typeof value !== 'object') return
+      if (Array.isArray(value)) { for (const item of value) visit(item); return }
+      const item = value as Record<string, unknown>
+      if (item.type === 'chat') ids.push(String(item.ref))
+      if (name.startsWith('routine_') && typeof item.chatId === 'string') ids.push(item.chatId)
+      for (const child of Object.values(item)) visit(child)
+    }
+    visit(result)
+  }
+  if (ids.some((id) => typeof id !== 'string' || !id)) throw new Error('Recorded chat references are unavailable.')
+  return { ids: [...new Set(ids)], complete }
 }
 
 const DEFAULT_TOKEN_USAGE = {
@@ -873,8 +899,9 @@ function managedToSession(m: ManagedSession, overrides?: Partial<Session>, viewe
     workspaceName: m.workspace.name,
     messages: [],
     isProcessing: m.isProcessing,
+    currentRunId: m.nativeRunId,
+    currentAgentId: m.isProcessing ? turnAgentOf(m) : undefined,
     sessionFolderPath: getSessionStoragePath(m.workspace.rootPath, m.id),
-    supportsBranching: resolveSupportsBranching(m),
     ...overrides,
   } as Session
 }
@@ -1224,7 +1251,7 @@ export class SessionManager implements ISessionManager {
    * Smart titles (decision model, toggle `smartTitles`): a first message that is only small
    * talk gets no AI title; the next request is titled instead (see sendMessage).
    */
-  private async generateTitleUnlessSmallTalk(managed: ManagedSession, message: string): Promise<void> {
+  private async generateTitleUnlessSmallTalk(managed: ManagedSession, message: string, userId?: string): Promise<void> {
     try {
       if (await isSmallTalk(message, { sessionId: managed.id, log: (line) => sessionLog.info(line) })) {
         managed.titleDeferred = true
@@ -1234,7 +1261,7 @@ export class SessionManager implements ISessionManager {
     } catch (e) {
       sessionLog.warn(`[smart-titles] Small-talk check failed for session ${managed.id}:`, e)
     }
-    await this.generateTitle(managed, message)
+    await this.generateTitle(managed, message, userId)
   }
 
   /**
@@ -1252,7 +1279,7 @@ export class SessionManager implements ISessionManager {
       const drifted = await titleNoLongerFits(managed.name, userMessages, { sessionId: managed.id, log: (line) => sessionLog.info(line) })
       if (!drifted || managed.name !== managed.autoTitle || managed.isProcessing || this.sessions.get(managed.id) !== managed) return
       sessionLog.info(`[smart-titles] Title of session ${managed.id} no longer fits, refreshing`)
-      await this.refreshTitle(managed.id, { onlyIfName: managed.name })
+      await this.refreshTitle(managed.id, { onlyIfName: managed.name }, userIdOf(managed.messages.findLast((message) => message.role === 'user' && !message.hidden && !message.isQueued)?.sender) ?? undefined)
     } catch (e) {
       sessionLog.warn(`[smart-titles] Title drift check failed for session ${managed.id}:`, e)
     }
@@ -1573,6 +1600,7 @@ export class SessionManager implements ISessionManager {
     for (const [sessionId, next] of fields) {
       const managed = this.sessions.get(sessionId)
       if (!managed) continue
+      managed.nativeChatRevision = crypto.randomUUID()
       if (JSON.stringify(managed.labels ?? []) !== JSON.stringify(next.labels ?? [])) {
         managed.labels = next.labels
         this.sendEvent({ type: 'labels_changed', sessionId, labels: next.labels ?? [] }, workspaceId)
@@ -2030,7 +2058,6 @@ export class SessionManager implements ISessionManager {
     // Clear pending auth state
     managed.pendingAuthRequestId = undefined
     managed.pendingAuthRequest = undefined
-    managed.nativeAuthSource = undefined
 
     // Auto-enable the source in the session after successful auth
     if (result.success && result.sourceSlug) {
@@ -2055,51 +2082,6 @@ export class SessionManager implements ISessionManager {
     sessionLog.info(`Auth request completed for ${result.sourceSlug}: ${result.success ? 'success' : 'failed'}`)
   }
 
-  private requestSessionAuth(managed: ManagedSession, request: AuthRequest): void {
-        // Create auth-request message
-        const authMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'auth-request',
-          content: this.getAuthRequestDescription(request),
-          timestamp: this.monotonic(),
-          authRequestId: request.requestId,
-          authRequestType: request.type,
-          authSourceSlug: request.sourceSlug,
-          authSourceName: request.sourceName,
-          authStatus: 'pending',
-          // Copy type-specific fields for credentials
-          ...(request.type === 'credential' && {
-            authCredentialMode: request.mode,
-            authLabels: request.labels,
-            authDescription: request.description,
-            authHint: request.hint,
-            authHeaderName: request.headerName,
-            authHeaderNames: request.headerNames,
-            authSourceUrl: request.sourceUrl,
-            authPasswordRequired: request.passwordRequired,
-          }),
-        }
-
-        // Add to session messages
-        managed.messages.push(authMessage)
-
-        // Store pending auth request for later resolution
-        managed.pendingAuthRequestId = request.requestId
-        managed.pendingAuthRequest = request
-
-        // Emit auth_request event to renderer
-        this.sendEvent({
-          type: 'auth_request',
-          sessionId: managed.id,
-          message: authMessage,
-          request: request,
-        }, managed.workspace.id)
-
-        // Persist session state
-        this.persistSession(managed)
-
-  }
-
   /**
    * Handle credential input from the UI (for non-OAuth auth)
    * Called when user submits credentials via the inline form
@@ -2120,21 +2102,6 @@ export class SessionManager implements ISessionManager {
       sessionLog.warn(`Credential request ID mismatch: expected ${request.requestId}, got ${requestId}`)
       return
     }
-    if (managed.nativeAuthSource) {
-      const binding = managed.nativeAuthSource
-      const source = getSourcesBySlugs(managed.workspace.rootPath, [request.sourceSlug])[0]
-      const run = getAgentRunConfig(binding.agentId, managed.workspace.id)
-      const creator = userIdOf(managed.createdBy)
-      if (!creator || !getMemberRole(managed.workspace.id, creator) || !managed.members.some((member) => member.actor === managed.createdBy)
-        || !managed.members.some((member) => member.actor === `agent:${binding.agentId}`) || !run || run.agent.id !== binding.agentId || !source || source.config.id !== binding.id
-        || JSON.stringify(source.config) !== binding.config || (run.sources.length && !run.sources.includes(binding.id) && !run.sources.includes(request.sourceSlug))) {
-        managed.pendingAuthRequest = undefined
-        managed.pendingAuthRequestId = undefined
-        managed.nativeAuthSource = undefined
-        throw new Error('The source authentication scope changed. Request authentication again.')
-      }
-    }
-
     if (response.cancelled) {
       await this.completeAuthRequest(sessionId, {
         requestId,
@@ -2374,13 +2341,12 @@ export class SessionManager implements ISessionManager {
   private async ensureMessagesLoaded(managed: ManagedSession): Promise<void> {
     this.loadedChats.delete(managed.id)
     this.loadedChats.add(managed.id)
-    if (managed.messagesLoaded) return
-
     // Deduplicate concurrent loads - return existing promise if already loading
     const existingPromise = this.messageLoadingPromises.get(managed.id)
     if (existingPromise) {
       return existingPromise
     }
+    if (managed.messagesLoaded) return
 
     const loadPromise = this.loadMessages(managed)
     this.messageLoadingPromises.set(managed.id, loadPromise)
@@ -2396,8 +2362,14 @@ export class SessionManager implements ISessionManager {
   private async loadMessages(managed: ManagedSession): Promise<void> {
     assertLegacyHistoryImported(managed.workspace.id,managed.id)
     const storedSession = loadStoredSession(managed.workspace, managed.id)
+    let recoveredMetadata = false
     if (storedSession) {
       managed.messages = (storedSession.messages || []).map(storedToMessage)
+      for (const message of managed.messages) {
+        if (!message.nativeAction || !['pending', 'resolving'].includes(message.nativeAction.status)) continue
+        message.nativeAction = { ...message.nativeAction, status: 'expired', eligibleActors: [], resolvedAt: this.monotonic() }
+        recoveredMetadata = true
+      }
       sessionLog.debug(`Lazy-loaded ${managed.messages.length} messages for session ${managed.id}`)
 
       // Queue recovery: find orphaned queued messages from crash/restart and re-queue them
@@ -2406,12 +2378,15 @@ export class SessionManager implements ISessionManager {
       )
       if (orphanedQueued.length > 0) {
         for (const message of orphanedQueued) message.isQueued = false
-        this.persistSession(managed)
-        await this.flushSession(managed.id)
+        recoveredMetadata = true
       }
     }
 
     managed.messagesLoaded = true
+    if (recoveredMetadata) {
+      this.persistSession(managed)
+      await this.flushSession(managed.id)
+    }
   }
 
   /**
@@ -2454,8 +2429,10 @@ export class SessionManager implements ISessionManager {
     // `createdBy` is who the chat belongs to ('user:<id>'): the RPC passes the caller, a spawned chat
     // its parent's creator (null: a chat with no creator, like its parent). Omitted (automations,
     // messaging): the first owner of the workspace.
-    internal?: { emitCreatedEvent?: boolean; createdBy?: string | null; agentId?: string },
+    internal?: { emitCreatedEvent?: boolean; createdBy?: string | null; agentId?: string; contextEntity?: string },
   ): Promise<Session> {
+    if (options && 'contextEntity' in options) throw domainError('invalid', 'Initialize a page conversation from its page.')
+    if (options && ('branchFromSessionId' in options || 'branchFromMessageId' in options)) throw domainError('invalid', 'Chat branching is unavailable.')
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) {
       throw new Error(`Workspace ${workspaceId} not found`)
@@ -2463,6 +2440,9 @@ export class SessionManager implements ISessionManager {
 
     // A direct message: one per pair of people (`dm_key`), so "message Ana" opens the one that exists
     const creator = internal?.createdBy ?? this.firstOwnerActor(workspaceId)
+    const selectedAgentId = internal?.agentId ?? options?.agentId ?? getDefaultAgent(workspace.id)?.id
+    const selectedAgent = selectedAgentId ? getAgent(workspace.id, selectedAgentId) : undefined
+    if ((internal?.agentId || options?.agentId) && !selectedAgent) throw domainError('not_found', 'The selected agent is unavailable in this workspace.')
     let dmKey: string | undefined
     if (options?.dmWith !== undefined) {
       const other = `user:${options.dmWith}`
@@ -2524,14 +2504,15 @@ export class SessionManager implements ISessionManager {
       }
     }
 
-    // Resolve backend target early for branching policy checks.
     const targetBackendContext = resolveBackendContext({
       sessionConnectionSlug: options?.llmConnection,
+      sessionConnectionId: options?.llmConnectionId,
       workspaceDefaultConnectionSlug: wsConfig?.defaults?.defaultLlmConnection,
+      workspaceDefaultConnectionId: wsConfig?.defaults?.defaultLlmConnectionId,
       managedModel: resolvedModelOption,
       where: { workspaceId: workspace.id, userId: userIdOf(internal?.createdBy ?? undefined) },
+      agent: options?.systemPromptPreset === 'mini' ? null : selectedAgent,
     })
-    const targetPiAuthProvider = targetBackendContext.connection?.type
 
     // Resolve working directory from options:
     // - 'user_default' or undefined: Use workspace's configured default
@@ -2568,28 +2549,11 @@ export class SessionManager implements ISessionManager {
       }
     }
 
-    let validatedBranch: { sourceSessionId: string; sourceMessageId: string; messages: StoredMessage[] } | undefined
-    if (options?.branchFromSessionId || options?.branchFromMessageId) {
-      if (!options.branchFromSessionId || !options.branchFromMessageId) throw new Error('Both branch chat and message are required.')
-      const source = this.sessions.get(options.branchFromSessionId)
-      const creatorId = userIdOf(creator)
-      if (!source || source.workspace.id !== workspaceId || !creatorId || !this.canSee(creatorId)(source) || source.isProcessing) throw new Error('Branch source is unavailable or still running.')
-      const generation = source.processingGeneration
-      await this.ensureMessagesLoaded(source)
-      await this.flushSession(source.id)
-      if (this.sessions.get(source.id) !== source || source.processingGeneration !== generation || source.isProcessing || source.workspace.id !== workspaceId || !getMemberRole(workspaceId, creatorId) || !this.canSee(creatorId)(source)) throw new Error('Branch source access changed while preparing the snapshot.')
-      const index = source.messages.findIndex((message) => message.id === options.branchFromMessageId)
-      if (index < 0) throw new Error('The branch message is unavailable.')
-      validatedBranch = { sourceSessionId: source.id, sourceMessageId: options.branchFromMessageId, messages: source.messages.slice(0, index + 1).map(messageToStored) }
-    }
-
-    // The chat's row (and a branch's copied messages, paths kept as `{{SESSION_PATH}}` so they point at the
-    // branch's own folder) in one transaction.
     const storedSession = createStoredSession(workspace, {
       name: options?.name,
       createdBy: creator,
       // only an agent of this workspace, else the workspace's default agent; a DM has none
-      agentId: dmKey ? undefined : ([internal?.agentId, options?.agentId].find((id) => id && getAgent(workspace.id, id)) ?? getDefaultAgent(workspace.id)?.id),
+      agentId: dmKey ? undefined : selectedAgentId,
       ...(dmKey && { dmKey, people: [`user:${options!.dmWith}`] }),
       permissionMode: defaultPermissionMode,
       workingDirectory: resolvedWorkingDir,
@@ -2597,20 +2561,13 @@ export class SessionManager implements ISessionManager {
       labels: options?.labels,
       isFlagged: options?.isFlagged,
       projectId: resolvedProjectId,
-      parentSessionId: validatedBranch?.sourceSessionId ?? options?.parentSessionId,
+      contextEntity: internal?.contextEntity,
+      parentSessionId: options?.parentSessionId,
       // Persist only an EXPLICIT selection.
       // The workspace-default fallback stays dynamic — freezing it into the header would
       // pin every ordinary session to the defaults as of its creation time.
       enabledSourceSlugs: options?.enabledSourceSlugs,
     })
-    if (validatedBranch) {
-      try { await writeMastraHistory({ workspaceId, chatId: storedSession.id, sessionDir: getSessionStoragePath(workspaceRootPath, storedSession.id), title: storedSession.name, messages: validatedBranch.messages }) }
-      catch (error) { await deleteMastraHistory(workspaceId, storedSession.id); deleteStoredSession(workspace, storedSession.id); throw error }
-    }
-
-
-    // Resolve connection/provider/auth/model using the provider-agnostic backend resolver.
-    // Reuse precomputed target context so branch validation and session construction share the same target identity.
     const resolvedContext = targetBackendContext
     const resolvedModel = resolvedContext.resolvedModel
 
@@ -2619,28 +2576,19 @@ export class SessionManager implements ISessionManager {
       sessionLog.info(`🤖 Creating mini agent session: model=${resolvedModel}, systemPromptPreset=${options?.systemPromptPreset}`)
     }
 
-    const isBranch = !!validatedBranch
-
     const managed = createManagedSession(storedSession, workspace, {
       permissionMode: defaultPermissionMode,
       workingDirectory: resolvedWorkingDir,
       model: resolvedModel,
       llmConnection: options?.llmConnection,
+      llmConnectionId: resolvedContext.connection?.id,
       thinkingLevel: defaultThinkingLevel,
       systemPromptPreset: options?.systemPromptPreset,
       enabledSourceSlugs: defaultEnabledSourceSlugs,
-      branchFromMessageId: validatedBranch?.sourceMessageId,
-      messagesLoaded: !isBranch,  // Branched sessions: lazy-load the copied messages
+      messagesLoaded: true,
       members: getChatMembers(workspace.id, storedSession.id),
     })
     if (options?.unattended) managed.unattended = true
-
-    // Eagerly load messages for branched sessions so the renderer gets the full
-    // conversation immediately (needed for scroll-to-bottom on panel open)
-    if (isBranch) {
-      await this.ensureMessagesLoaded(managed)
-
-    }
 
     // Initialize mode-manager state immediately to avoid UI/enforcement races
     // before the agent instance is lazily created.
@@ -2672,7 +2620,7 @@ export class SessionManager implements ISessionManager {
       this.notifySessionCreated(workspaceId, storedSession.id)
     }
 
-    return managedToSession(managed, isBranch ? { messages: managed.messages } : undefined, userIdOf(creator))
+    return managedToSession(managed, undefined, userIdOf(creator))
   }
 
   /**
@@ -2752,6 +2700,7 @@ export class SessionManager implements ISessionManager {
     const managed = this.sessions.get(sessionId)
     if (managed) {
       const wasArchived = !!managed.isArchived
+      managed.nativeChatRevision = crypto.randomUUID()
       managed.sessionStatus = sessionStatus
       managed.isArchived = sessionStatus === 'archived'
       this.persistSession(managed)
@@ -2802,7 +2751,6 @@ export class SessionManager implements ISessionManager {
       type: 'connection_changed',
       sessionId,
       connectionSlug,
-      supportsBranching: resolveSupportsBranching(managed),
     }, managed.workspace.id)
   }
 
@@ -3231,6 +3179,7 @@ export class SessionManager implements ISessionManager {
   async renameSession(sessionId: string, name: string): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (managed) {
+      managed.nativeChatRevision = crypto.randomUUID()
       managed.name = name
       this.persistSession(managed)
       // Notify renderer of the name change
@@ -3247,7 +3196,7 @@ export class SessionManager implements ISessionManager {
    * Regenerate the session title. `onlyIfName` (automatic refreshes) keeps a title the user set
    * while the new one was being generated.
    */
-  async refreshTitle(sessionId: string, options?: { onlyIfName?: string }): Promise<{ success: boolean; title?: string; error?: string }> {
+  async refreshTitle(sessionId: string, options?: { onlyIfName?: string }, userId?: string): Promise<{ success: boolean; title?: string; error?: string }> {
     sessionLog.info(`refreshTitle called for session ${sessionId}`)
     const managed = this.sessions.get(sessionId)
     if (!managed) {
@@ -3280,14 +3229,13 @@ export class SessionManager implements ISessionManager {
 
     // Resolve title language from the explicitly persisted UI language (disk-backed,
     // race-free vs. main-process i18n async hydration); undefined => auto-detect (#885).
-    const titleUserId = userIdOf(managed.createdBy)
-    const titleLanguage = resolveTitleLanguageName(titleUserId)
+    const titleLanguage = resolveTitleLanguageName(userId)
     const titleOptions = { language: titleLanguage }
     managed.isAsyncOperationOngoing = true
     this.sendEvent({ type: 'async_operation', sessionId, isOngoing: true }, managed.workspace.id)
     this.sendEvent({ type: 'title_regenerating', sessionId, isRegenerating: true }, managed.workspace.id)
     try {
-      const title = validateTitle(await this.nativeCompletion(managed, buildRegenerateTitlePrompt(userMessages, assistantResponse, titleOptions)))
+      const title = validateTitle(await this.nativeCompletion(managed, buildRegenerateTitlePrompt(userMessages, assistantResponse, titleOptions), undefined, userId))
       if (!title) return { success: false, error: 'Native completion returned no title.' }
       if (this.sessions.get(managed.id) !== managed) return { success: false, error: 'The chat was deleted.' }
       if (options?.onlyIfName !== undefined && managed.name !== options.onlyIfName) return { success: false, error: 'Renamed meanwhile' }
@@ -3306,16 +3254,18 @@ export class SessionManager implements ISessionManager {
     }
   }
 
-  private async nativeCompletion(managed: ManagedSession, prompt: string, run?: { signal: AbortSignal; assertAccess: () => void }): Promise<string> {
-    const context = resolveBackendContext({ ...turnConnectionOf(managed), workspaceDefaultConnectionSlug: loadWorkspaceConfig(managed.workspace.rootPath)?.defaults?.defaultLlmConnection, where: this.connectionContextOf(managed), agent: agentOf(managed) })
+  private async nativeCompletion(managed: ManagedSession, prompt: string, run?: { signal: AbortSignal; assertAccess: () => void; getUserId: () => string }, userId?: string): Promise<string> {
+    const requester = run?.getUserId() ?? userId
+    if (!requester) throw new Error('The native completion requires its actual human principal.')
+    const context = resolveBackendContext({ ...turnConnectionOf(managed), sessionConnectionId: isPrimaryTurn(managed) ? managed.llmConnectionId : undefined, workspaceDefaultConnectionSlug: loadWorkspaceConfig(managed.workspace.rootPath)?.defaults?.defaultLlmConnection, workspaceDefaultConnectionId: loadWorkspaceConfig(managed.workspace.rootPath)?.defaults?.defaultLlmConnectionId, where: { workspaceId: managed.workspace.id, userId: requester }, agent: agentOf(managed) })
     const connection = context.connection
-    const creator = userIdOf(managed.createdBy)
     const agentId = turnAgentOf(managed)
     const assertAccess = () => {
       run?.signal.throwIfAborted()
       run?.assertAccess()
-      if (this.sessions.get(managed.id) !== managed || !creator || !getMemberRole(managed.workspace.id, creator)
-        || !managed.members.some((member) => member.actor === managed.createdBy) || !agentId || !getAgent(managed.workspace.id, agentId)
+      const currentConnection = connection?.id ? getConnectionById(connection.id, { workspaceId: managed.workspace.id, userId: requester }) : undefined
+      if (this.sessions.get(managed.id) !== managed || !getMemberRole(managed.workspace.id, requester) || (run && run.getUserId() !== requester) || !currentConnection || (connection?.updatedAt !== undefined && currentConnection.updatedAt !== connection.updatedAt)
+        || !managed.members.some((member) => member.actor === `user:${requester}`) || !agentId || !getAgent(managed.workspace.id, agentId)
         || !managed.members.some((member) => member.actor === `agent:${agentId}`)) throw new Error('The native completion scope is unavailable.')
     }
     assertAccess()
@@ -3569,13 +3519,14 @@ export class SessionManager implements ISessionManager {
   }
 
   /** Deletes a chat for everyone. `callerId` (a person's request): only the creator may; the others leave instead. */
-  async deleteSession(sessionId: string, callerId?: string | null): Promise<void> {
+  async deleteSession(sessionId: string, callerId?: string | null, authorize?: () => void): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (!managed) {
       sessionLog.warn(`Cannot delete session: ${sessionId} not found`)
       return
     }
     if (callerId !== undefined && managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can delete it; leave it instead')
+    authorize?.()
 
     managed.mastraAbort?.abort()
     const computer = managed.nativeComputer
@@ -3660,6 +3611,7 @@ export class SessionManager implements ISessionManager {
   /** A person's message moves the chat's last message time (unread for the other members) and is read by its sender. */
   private noteMessageFrom(managed: ManagedSession, message: Message): void {
     if (message.hidden) return
+    managed.nativeChatRevision = crypto.randomUUID()
     managed.lastMessageAt = Math.max(Date.now(), managed.lastMessageAt + 1)
     const sender = userIdOf(message.sender ?? managed.createdBy)
     if (sender) this.setReadAt(managed, sender, managed.lastMessageAt)
@@ -3670,12 +3622,22 @@ export class SessionManager implements ISessionManager {
    * when the chat has one person, else none. A hidden message (an automatic resend) goes to the agent of the last turn.
    */
   private routeHumanMessage(managed: ManagedSession, message: string, options?: SendMessageOptions): string[] {
-    if (managed.systemPromptPreset === 'mini' || options?.hidden) return [turnAgentOf(managed)].filter((id): id is string => !!id)
     const agents = new Set(getAgents(managed.workspace.id).map((agent) => agent.id))
     const people = managed.members.filter((member) => isPersonActor(member.actor)).length
-    const route = routeMessage({ text: message, people, primaryAgentId: managed.agentId, agents })
-    this.addMembersInternal(managed, route.map((id) => `agent:${id}`))
-    return route
+    if (options?.recipientAgentId !== undefined) {
+      const userId = userIdOf(options.sender)
+      const members = getChatMembers(managed.workspace.id, managed.id)
+      if (!userId || !getMemberRole(managed.workspace.id, userId) || !members.some((member) => member.actor === `user:${userId}`)) throw chatNotFound(managed.id)
+      if (options.recipientAgentId === null) return []
+      if (!agents.has(options.recipientAgentId)) throw domainError('not_found', 'The selected agent is unavailable in this workspace.')
+      const firstPageSend = !!managed.contextEntity && managed.messagesLoaded && !options.hidden && !managed.isProcessing && !managed.queueAdmission && !managed.messageQueue.length && !managed.messages.some((entry) => entry.role === 'user' && !entry.hidden)
+      if (!members.some((member) => member.actor === `agent:${options.recipientAgentId}`) && !firstPageSend) throw domainError('not_found', 'The selected agent is no longer a member of this chat.')
+      const mentioned = routeMessage({ text: message, people, primaryAgentId: undefined, agents })
+      if (mentioned.some((id) => id !== options.recipientAgentId)) throw domainError('invalid', 'The selected recipient and agent mentions must agree.')
+      return [options.recipientAgentId]
+    }
+    if (managed.systemPromptPreset === 'mini' || options?.hidden) return [turnAgentOf(managed)].filter((id): id is string => !!id)
+    return routeMessage({ text: message, people, primaryAgentId: managed.agentId, agents })
   }
 
   /** Whether the chat has more than one author besides the agent (then what it is given names each author). */
@@ -3742,6 +3704,7 @@ export class SessionManager implements ISessionManager {
     const fresh = actors.filter((actor) => !known.has(actor))
     if (!fresh.length) return []
     const added = addChatMembers(managed.workspace.id, managed.id, fresh)
+    if (added.length) managed.nativeChatRevision = crypto.randomUUID()
     for (const actor of added) managed.members.push({ actor, readAt: null })
     if (added.some(isPersonActor) && managed.dmKey) {
       clearChatDmKey(managed.workspace.id, managed.id)
@@ -3762,7 +3725,7 @@ export class SessionManager implements ISessionManager {
   }
 
   /** The creator adds people (workspace members) or agents (workspace agents) to the chat. */
-  async addSessionMembers(sessionId: string, callerId: string | null, actors: string[]): Promise<void> {
+  async addSessionMembers(sessionId: string, callerId: string | null, actors: string[], authorize?: () => void): Promise<void> {
     const managed = this.memberChat(sessionId, callerId)
     if (managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can add people to it')
     if (!Array.isArray(actors) || !actors.length) throw domainError('invalid', 'Name at least one person or agent')
@@ -3776,28 +3739,18 @@ export class SessionManager implements ISessionManager {
     }
     const references = new Set<string>()
     for (const message of managed.messages) {
-      if (message.role !== 'tool' || !['mcp__session__get_session_info', 'mcp__session__list_sessions'].includes(message.toolName ?? '') || message.toolStatus !== 'completed') continue
       try {
-        const result = JSON.parse(message.toolResult ?? '') as { content: { text: string }[] }
-        if (!Array.isArray(result.content) || !result.content.length) throw new Error('Invalid recorded metadata')
-        for (const block of result.content) {
-          const data = JSON.parse(block.text) as { id?: string; total?: number; returned?: number; sessions?: { id: string }[] }
-          if (message.toolName === 'mcp__session__get_session_info') {
-            if (typeof data.id !== 'string' || !data.id) throw new Error('Invalid recorded metadata')
-            references.add(data.id)
-          } else {
-            if (!Array.isArray(data.sessions) || data.total !== data.sessions.length || data.returned !== data.sessions.length) throw new Error('Incomplete recorded metadata')
-            for (const chat of data.sessions) {
-              if (typeof chat.id !== 'string' || !chat.id) throw new Error('Invalid recorded metadata')
-              references.add(chat.id)
-            }
-          }
-        }
+        const result = nativeHistoryChatReferences(message)
+        if (!result.complete) throw new Error('Incomplete recorded chat page')
+        for (const id of result.ids) references.add(id)
       } catch { throw domainError('forbidden', 'This chat contains prior private chat metadata that cannot be safely shared. Create a new shared chat instead.') }
     }
     for (const actor of actors.filter(isPersonActor)) {
       const userId = userIdOf(actor)
       if (!userId || [...references].some((id) => id !== managed.id && !this.canSeeSession(id, userId))) throw domainError('forbidden', 'The new member cannot access private chat metadata already recorded here. Share the referenced chats first or create a new shared chat.')
+    }
+    for (const actor of actors.filter((actor) => actor.startsWith('agent:'))) {
+      if ([...references].some((id) => id !== managed.id && !this.sessions.get(id)?.members.some((member) => member.actor === actor))) throw domainError('forbidden', 'The new agent cannot access chat data already recorded here. Create a new chat instead.')
     }
     if (actors.some(isPersonActor) && managed.isProcessing) {
       managed.stopEpoch = (managed.stopEpoch ?? 0) + 1
@@ -3807,6 +3760,7 @@ export class SessionManager implements ISessionManager {
       managed.messageQueue = []
       this.setProcessing(managed, false)
     }
+    authorize?.()
     this.addMembersInternal(managed, actors)
   }
 
@@ -3832,6 +3786,7 @@ export class SessionManager implements ISessionManager {
   }
 
   private removeMemberInternal(managed: ManagedSession, actor: string): void {
+    managed.nativeChatRevision = crypto.randomUUID()
     if (!managed.members.some((member) => member.actor === actor)) return
     removeChatMember(managed.workspace.id, managed.id, actor)
     managed.members = managed.members.filter((member) => member.actor !== actor)
@@ -3859,10 +3814,17 @@ export class SessionManager implements ISessionManager {
     onAck?: (messageId: string) => void,
     /** A replayed turn: the agent a mention woke (`wake`, no message of its own), or the agents a queued message wakes. */
     plan?: { wake?: AgentWake; agentIds?: string[] },
+    authorize?: () => void,
   ): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (!managed) {
       throw new Error(`Session ${sessionId} not found`)
+    }
+    authorize?.()
+    if (!existingMessageId && !plan?.wake && !plan?.agentIds && options?.recipientAgentId !== undefined) {
+      await this.ensureMessagesLoaded(managed)
+      authorize?.()
+      this.routeHumanMessage(managed, message, options)
     }
 
     {
@@ -3914,7 +3876,7 @@ export class SessionManager implements ISessionManager {
       }
       if (!entries.length) throw new Error('The first history entry exceeds the compaction input bound; nothing was omitted.')
       const through = entries.at(-1)!.id
-      const summary = await this.nativeCompletion(managed, prefix + transcript)
+      const summary = await this.nativeCompletion(managed, prefix + transcript, undefined, userIdOf(options?.sender) ?? undefined)
       if (!summary || this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation || managed.messages.at(-1)?.id !== last) throw new Error('Context changed during compaction; nothing was replaced.')
       managed.contextSummary = summary
       managed.contextThroughId = through
@@ -3924,12 +3886,12 @@ export class SessionManager implements ISessionManager {
       onAck?.(crypto.randomUUID())
       return
     }
-    if (!isCompactCommand) {
-      await this.clearPendingPlanExecution(sessionId)
-    }
-
     // Ensure messages are loaded before we try to add new ones
     await this.ensureMessagesLoaded(managed)
+    authorize?.()
+    const admittedAgentIds = plan?.wake ? [plan.wake.agentId] : plan?.agentIds ?? this.routeHumanMessage(managed, message, options)
+    if (!isCompactCommand) delete managed.pendingPlanExecution
+    if (!existingMessageId && !plan?.wake) this.addMembersInternal(managed, admittedAgentIds.map((id) => `agent:${id}`))
 
     // If currently processing, behavior depends on the connection's
     // `midStreamBehavior` (resolved via {@link resolveMidStreamBehavior},
@@ -3942,21 +3904,24 @@ export class SessionManager implements ISessionManager {
     // - 'queue': hold the message untouched; the current turn keeps running
     //   to natural completion; replay as a new turn afterwards. NO call to
     //   `agent.redirect()`, NO forceAbort, NO interruption.
-    if (managed.isProcessing) {
-      const connection = resolveSessionConnection(managed.llmConnection, undefined, this.connectionContextOf(managed))
-      // Fallback to 'steer' when no connection is resolvable — preserves
-      // today's exact behavior (call redirect, take whatever it returns).
-      const configured = connection ? resolveMidStreamBehavior(connection) : 'steer'
+    const ownsAdmission = managed.queueAdmission && managed.queueAdmission.messageId === existingMessageId && managed.queueAdmission.wake === plan?.wake
+    if (managed.isProcessing || (managed.queueAdmission && !ownsAdmission)) {
+      const admissionEpoch = managed.stopEpoch ?? 0
+      const senderId = userIdOf(options?.sender)
+      const configured = senderId ? getUserMidStreamPreference(senderId).behavior : 'queue'
+      const nativeState = managed.mastraSession?.displayState?.get()
+      const gated = !!managed.mastraApprovalId || !!managed.pendingAuthRequestId || !!nativeState?.pendingApprovals.size || !!nativeState?.pendingSuspensions.size
       // Mid-turn messages (decision model, toggle `midTurnMessages`): a text message is recorded as
       // queued right away, like any queued message, and the model decides in the background whether
       // it corrects the running work and should be steered in (steerQueuedIfDecided). Recording
       // first keeps send order and leaves the queue the single source of truth.
       // Multiplayer: the message steers or queues for the running turn only when it wakes the agent that runs it; a
       // message for other agents queues for their turns, and one that wakes no agent is only recorded.
-      const route = this.routeHumanMessage(managed, message, options)
+      const route = admittedAgentIds
       const forRunningAgent = route.length === 1 && route[0] === turnAgentOf(managed)
-      const decideDelivery = forRunningAgent && canSteerTextPayload(attachments, storedAttachments, options) && this.decisionFeatureActive('midTurnMessages')
-      const behavior = decideDelivery || !forRunningAgent ? 'queue' : configured
+      const textOptions = options ? { ...options, recipientAgentId: undefined } : undefined
+      const decideDelivery = !managed.mastraSession && forRunningAgent && canSteerTextPayload(attachments, storedAttachments, textOptions) && this.decisionFeatureActive('midTurnMessages')
+      const behavior = gated || decideDelivery || !forRunningAgent ? 'queue' : configured
 
       // Create user message for UI
       const userMessage: Message = {
@@ -3979,23 +3944,6 @@ export class SessionManager implements ISessionManager {
         this.persistSession(managed)
         await this.flushSession(managed.id)
         onAck?.(userMessage.id)
-        return
-      }
-
-      if(forRunningAgent&&managed.mastraSession&&!this.decisionFeatureActive('midTurnMessages')&&canSteerTextPayload(attachments,storedAttachments,options)){
-        const session=managed.mastraSession,generation=managed.processingGeneration,stopEpoch=managed.stopEpoch??0
-        userMessage.isQueued=true
-        ;(managed.mastraQueuedIds??=[]).push(userMessage.id)
-        this.sendEvent({type:'user_message',sessionId,message:userMessage,status:'queued',optimisticMessageId:options?.optimisticMessageId},managed.workspace.id)
-        this.persistSession(managed);await this.flushSession(sessionId);onAck?.(userMessage.id)
-        if(this.sessions.get(managed.id)!==managed||(managed.stopEpoch??0)!==stopEpoch)return
-        if(managed.mastraSession!==session||managed.processingGeneration!==generation){
-          managed.mastraQueuedIds=managed.mastraQueuedIds?.filter((id)=>id!==userMessage.id)
-          userMessage.isQueued=false
-          await this.sendMessage(sessionId,message,attachments,storedAttachments,options,userMessage.id)
-          return
-        }
-        await session.followUp({content:this.attributed(managed,message,userMessage.sender)})
         return
       }
 
@@ -4037,12 +3985,29 @@ export class SessionManager implements ISessionManager {
         if (delivery.wasInterrupted) managed.wasInterrupted = true
       }
 
+      if (behavior === 'steer' && forRunningAgent && managed.mastraAbort && canSteerTextPayload(attachments, storedAttachments, textOptions)) {
+        const pendingIds = managed.mastraQueuedIds ?? []
+        const alreadyQueued = new Set(managed.messageQueue.map((item) => item.messageId))
+        const retained = pendingIds.filter((id) => !alreadyQueued.has(id)).map((id) => {
+          const entry = managed.messages.find((entry) => entry.id === id)
+          if (!entry) throw new Error('A persisted native follow-up is unavailable; nothing was interrupted.')
+          return { message: entry.content, messageId: id, options: { sender: entry.sender, recipientAgentId: turnAgentOf(managed), badges: entry.badges }, agentIds: route }
+        })
+        managed.messageQueue = [payload, ...retained, ...managed.messageQueue.filter((item) => item !== payload)]
+        managed.mastraQueuedIds = []
+        managed.wasInterrupted = true
+        this.persistSession(managed)
+        managed.mastraAbort.abort()
+        managed.mastraStop?.()
+      }
+
       this.persistSession(managed)
       // Force a synchronous flush so the user message is genuinely on disk
       // before we tell the renderer "accepted" — `persistSession` only
       // enqueues with a 500ms debounce. (#616 reliability fix.)
       await this.flushSession(managed.id)
       onAck?.(userMessage.id)
+      if (this.sessions.get(sessionId) === managed && (managed.stopEpoch ?? 0) === admissionEpoch && !managed.isProcessing && managed.messageQueue.includes(payload)) await this.processNextQueuedMessage(sessionId)
       return
     }
 
@@ -4129,7 +4094,7 @@ export class SessionManager implements ISessionManager {
 
         // Generate AI title asynchronously using agent's SDK
         // (waits briefly for agent creation if needed)
-        void this.generateTitleUnlessSmallTalk(managed, sanitized || message)
+        void this.generateTitleUnlessSmallTalk(managed, sanitized || message, userIdOf(userMessage.sender) ?? undefined)
       }
     }
 
@@ -4154,7 +4119,7 @@ export class SessionManager implements ISessionManager {
     let agentIds: string[]
     if (plan?.wake) agentIds = [plan.wake.agentId]
     else {
-      agentIds = plan?.agentIds ?? this.routeHumanMessage(managed, message, options)
+      agentIds = admittedAgentIds
       if (!options?.hidden) managed.agentTurnsLeft = MAX_AGENT_TURNS
       agentIds = agentIds.slice(0, Math.max(0, managed.agentTurnsLeft ?? MAX_AGENT_TURNS))
       managed.agentTurnsLeft = (managed.agentTurnsLeft ?? MAX_AGENT_TURNS) - agentIds.length
@@ -4210,29 +4175,40 @@ export class SessionManager implements ISessionManager {
       return
     }
 
-    await this.runMastraChat(managed, myGeneration, turnStopEpoch)
+    await this.runMastraChat(managed, myGeneration, turnStopEpoch, message)
   }
 
-  private async runMastraChat(managed: ManagedSession, generation: number, stopEpoch: number): Promise<void> {
+  private async runMastraChat(managed: ManagedSession, generation: number, stopEpoch: number, prompt: string): Promise<void> {
     const abort = new AbortController()
     managed.mastraAbort = abort
+    let runId = crypto.randomUUID()
+    managed.nativeRunId = runId
+    const firstMessageIndex = managed.messages.length
     const permissionMode = managed.permissionMode ?? 'ask'
     let reason: 'complete' | 'interrupted' | 'error' = 'error'
     let runComputer: import('../../../shared/src/computer/chat-computer').ChatComputer | undefined
     let sourceTools:Awaited<ReturnType<typeof import('./mastra-source-tools').openMastraSourceTools>>|undefined
+    let stage = 'native-startup'
+    let nativeFailureMessage: string | undefined
+    let nativeErrorPublished = false
     try {
       const creatorId = userIdOf(managed.createdBy)
+      let currentMessageId = managed.lastSentMessageIds?.at(-1)
+      const initiatingUserId = userIdOf(managed.messages.find((message) => message.id === currentMessageId)?.sender)
       const agentId = turnAgentOf(managed)
       const selectedAgent = agentId ? getAgent(managed.workspace.id, agentId) : undefined
-      if (!creatorId || !getMemberRole(managed.workspace.id, creatorId)
+      if (!initiatingUserId || !creatorId || !getMemberRole(managed.workspace.id, creatorId)
           || !managed.members.some((member) => member.actor === managed.createdBy)
           || !selectedAgent || !managed.members.some((member) => member.actor === `agent:${agentId}`)) {
         throw new Error('The chat creator and selected agent must still belong to this workspace and chat.')
       }
+      stage = 'resolve-native-connection'
       const context = resolveBackendContext({
         ...turnConnectionOf(managed),
+        sessionConnectionId: isPrimaryTurn(managed) ? managed.llmConnectionId : undefined,
         workspaceDefaultConnectionSlug: loadWorkspaceConfig(managed.workspace.rootPath)?.defaults?.defaultLlmConnection,
-        where: this.connectionContextOf(managed),
+        workspaceDefaultConnectionId: loadWorkspaceConfig(managed.workspace.rootPath)?.defaults?.defaultLlmConnectionId,
+        where: { workspaceId: managed.workspace.id, userId: initiatingUserId },
         agent: agentOf(managed),
       })
       const connection = context.connection
@@ -4254,19 +4230,30 @@ export class SessionManager implements ISessionManager {
             : entry.content,
         }))]
       }
-      let currentMessageId=managed.lastSentMessageIds?.at(-1)
-      const senderId = userIdOf(managed.messages.find((message) => message.id === currentMessageId)?.sender)
       abort.signal.throwIfAborted()
       const { createMastraChatModel } = await import('./mastra-chat.ts')
-      const { createMastraWorkTools, MASTRA_WORK_WRITES } = await import('./mastra-work-tools.ts')
+      const { createMastraWorkTools } = await import('./mastra-work-tools.ts')
       const { getMastraContext } = await import('./mastra-context.ts')
       const assertAccess = () => {
         abort.signal.throwIfAborted()
+        const requester = userIdOf(managed.messages.find((message) => message.id === currentMessageId)?.sender)
+        const currentConnection = connection.id && requester ? getConnectionById(connection.id, { workspaceId: managed.workspace.id, userId: requester }) : undefined
+        if (!currentConnection || (connection.updatedAt !== undefined && currentConnection.updatedAt !== connection.updatedAt)) throw new Error('The initiating human’s exact configured connection changed or is unavailable.')
+        for (const message of managed.messages) {
+          const references = nativeHistoryChatReferences(message)
+          if (!references.complete && message.author !== `agent:${selectedAgent.id}`) throw new Error('This agent cannot read prior incomplete private chat metadata.')
+          for (const id of references.ids) {
+            const target = this.sessions.get(id)
+            if (!target || target.workspace.id !== managed.workspace.id || !target.members.some((member) => member.actor === `agent:${selectedAgent.id}`) || this.getAudience(managed).some((userId) => !this.canSee(userId)(target))) throw new Error('Prior chat data is no longer visible to this audience and named agent.')
+          }
+        }
         if ((managed.permissionMode ?? 'ask') !== permissionMode) throw new Error('The permission mode changed during this run.')
         if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation
             || !getMemberRole(managed.workspace.id, creatorId)
             || !managed.members.some((member) => member.actor === managed.createdBy)
-            || (senderId && (!getMemberRole(managed.workspace.id, senderId) || !managed.members.some((member) => member.actor === `user:${senderId}`)))
+            || !userIdOf(managed.messages.find((message) => message.id === currentMessageId)?.sender)
+            || !getMemberRole(managed.workspace.id, userIdOf(managed.messages.find((message) => message.id === currentMessageId)?.sender)!)
+            || !managed.members.some((member) => member.actor === managed.messages.find((message) => message.id === currentMessageId)?.sender)
             || managed.members.some((member) => isPersonActor(member.actor) && (!userIdOf(member.actor) || !getMemberRole(managed.workspace.id, userIdOf(member.actor)!)))
             || !getAgent(managed.workspace.id, selectedAgent.id)
             || !managed.members.some((member) => member.actor === `agent:${selectedAgent.id}`)) {
@@ -4274,6 +4261,7 @@ export class SessionManager implements ISessionManager {
         }
       }
       assertAccess()
+      this.sendEvent({ type: 'processing_started', sessionId: managed.id, currentRunId: runId, currentAgentId: selectedAgent.id }, managed.workspace.id)
       let computerTools: Record<string, import('@mastra/core/tools').Tool<any>> = {}
       if (process.env.OTTO_COMPUTER === 'docker') {
         const { ChatComputer } = await import('../../../shared/src/computer/chat-computer')
@@ -4306,10 +4294,12 @@ export class SessionManager implements ISessionManager {
         }
         return { projected, files }
       }
+      stage = 'prepare-canonical-history'
       const initial = await prepareHistory(currentMessageId)
-      const messages = [...initial.projected, { role: 'user' as const, content: projectHistory().at(-1)?.content ?? '' }]
+      const messages = [...initial.projected, { role: 'user' as const, content: this.attributed(managed, prompt, managed.messages.find((message) => message.id === currentMessageId)?.sender) }]
+      stage = 'open-native-sources'
       if(managed.enabledSourceSlugs?.length){const {openMastraSourceTools}=await import('./mastra-source-tools');sourceTools=await openMastraSourceTools({workspaceId:managed.workspace.id,agentId:selectedAgent.id,slugs:managed.enabledSourceSlugs,sessionPath:getSessionStoragePath(managed.workspace.rootPath,managed.id),signal:abort.signal,assertAccess,mode:permissionMode,getMode:()=>managed.permissionMode??'ask',refresh:managed.tokenRefreshManager})}
-      const contextForRun = getMastraContext({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, writesAllowed: managed.permissionMode !== 'safe', unattended: !!(managed.unattended || managed.triggeredBy), assertAccess, sourceSlugs:sourceTools?.slugs, missingAuthSlugs:sourceTools?.missingAuthSlugs, computer:!!runComputer, onUnavailableSkill: (slug) => this.sendEvent({ type: 'info', sessionId: managed.id, message: `Skill "${slug}" is unavailable because its metadata is incompatible with the native runtime.`, level: 'warning' }, managed.workspace.id) })
+      const contextForRun = getMastraContext({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, userId: initiatingUserId, writesAllowed: managed.permissionMode !== 'safe', unattended: !!(managed.unattended || managed.triggeredBy), assertAccess, sourceSlugs:sourceTools?.slugs, missingAuthSlugs:sourceTools?.missingAuthSlugs, computer:!!runComputer, onUnavailableSkill: (slug) => this.sendEvent({ type: 'info', sessionId: managed.id, message: `Skill "${slug}" is unavailable because its metadata is incompatible with the native runtime.`, level: 'warning' }, managed.workspace.id) })
       const projectDraft = (creationId: string) => {
         assertAccess()
         for (const message of managed.messages.toReversed()) {
@@ -4326,23 +4316,154 @@ export class SessionManager implements ISessionManager {
         if (!userId || !getMemberRole(managed.workspace.id, userId) || !managed.members.some((member) => member.actor === `user:${userId}`)) throw new Error('The initiating human no longer has access to this chat.')
         return userId
       }
-      const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess, getProjectDraft: projectDraft, creator: { getUserId: requestUserId, provider: connection.type, model: context.resolvedModel } })
       const { createMastraSessionTools } = await import('./mastra-session-tools')
       const unavailable = () => { throw new Error('Host filesystem access is unavailable to native session tools.') }
       const ownChat = (id = managed.id) => {
         assertAccess()
         const target = this.sessions.get(id)
-        if (!target || target.workspace.id !== managed.workspace.id || !this.canSee(creatorId)(target) || this.getAudience(managed).some((userId) => !this.canSee(userId)(target))) throw chatNotFound(id)
+        if (!target || target.workspace.id !== managed.workspace.id || !this.canSee(requestUserId())(target) || !target.members.some((member) => member.actor === `agent:${selectedAgent.id}`) || this.getAudience(managed).some((userId) => !getMemberRole(managed.workspace.id, userId) || !this.canSee(userId)(target))) throw chatNotFound(id)
         return target
       }
+      let executing: { id: string; name: string; userId?: string } | undefined
+      const grants = new Map<string, { name: string; hash: string; userId: string }>()
+      const effectiveUserId = () => {
+        requestUserId()
+        if (executing?.userId) {
+          if (!getMemberRole(managed.workspace.id, executing.userId) || !this.canSee(executing.userId)(managed)) throw new Error('The approving human no longer has access.')
+          return executing.userId
+        }
+        return requestUserId()
+      }
+      const scope = { workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess, getUserId: effectiveUserId, assertChatAccess: (id: string) => { ownChat(id) } }
+      const baseTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess, getProjectDraft: projectDraft, creator: { getUserId: effectiveUserId, provider: connection.type, model: context.resolvedModel, llmConnectionId: connection.id } })
+      const libraryTools = createMastraLibraryTools(scope)
+      const projectTaskTools = createMastraProjectTaskTools(scope)
+      const createTaskTool = projectTaskTools.task_create.execute!
+      const updateLibraryTool = libraryTools.library_update_item.execute!
+      const workTools = {
+        prepare_project: baseTools.prepare_project!, create_project: baseTools.create_project!, create_agent: baseTools.create_agent!, create_routine: baseTools.create_routine!,
+        ...projectTaskTools, ...libraryTools, ...createMastraManagementTools({ ...scope, runRoutine: (id, userId) => {
+          const routine = getRoutine(managed.workspace.id, id)
+          if (!routine?.agentId || !getAgent(managed.workspace.id, routine.agentId)) throw new Error('Configure an explicit available agent before running this routine; no default-agent fallback is used.')
+          return runRoutineForHuman(this, managed.workspace.id, id, userId, assertAccess, (workspaceId) => this.broadcastDomainChanged(workspaceId, 'routines'))
+        } }),
+        create_document: { ...libraryTools.library_create_document, id: 'create_document' }, create_folder: { ...libraryTools.library_create_folder, id: 'create_folder' },
+        read_document: { ...libraryTools.library_read_document, id: 'read_document' },
+        update_document: { ...libraryTools.library_update_item, id: 'update_document', inputSchema: baseTools.update_document.inputSchema, execute: async (input: { id: string; content: string; expectedUpdatedAt: number }, context: import('@mastra/core/tools').ToolExecutionContext) => updateLibraryTool(input, context) },
+        create_task: { ...baseTools.create_task, execute: async (input: { projectId?: string | null; title: string; description?: string; documentId?: string; dueAt?: number | null }, context: import('@mastra/core/tools').ToolExecutionContext) => {
+          const item = input.documentId ? getLibraryItem(managed.workspace.id, input.documentId) : undefined
+          if (input.documentId && item?.type !== 'document') throw new Error('The document is unavailable.')
+          return createTaskTool({ projectId: input.projectId, title: input.title, description: input.description, dueAt: input.dueAt, resources: item ? [{ type: 'library', title: item.title, ref: item.id }] : [] }, context)
+        } },
+        update_task: { ...baseTools.update_task, execute: async (input: { id: string; title: string; documentId?: string; expectedUpdatedAt: number }, context: import('@mastra/core/tools').ToolExecutionContext) => {
+          const task = getTask(managed.workspace.id, input.id)
+          const item = input.documentId ? getLibraryItem(managed.workspace.id, input.documentId) : undefined
+          if (!task || (input.documentId && item?.type !== 'document')) throw new Error('The task or document is unavailable.')
+          for (const resource of task.resources) { if (resource.type === 'chat') ownChat(resource.ref); if (resource.type === 'library' && !getLibraryItem(managed.workspace.id, resource.ref)) throw new Error('A task resource is unavailable.') }
+          return updateTask(managed.workspace.id, input.id, { title: input.title, expectedUpdatedAt: input.expectedUpdatedAt, resources: item && !task.resources.some((resource) => resource.type === 'library' && resource.ref === item.id) ? [...task.resources, { type: 'library', title: item.title, ref: item.id }] : task.resources }, `agent:${selectedAgent.id}`)
+        } },
+      }
+      const writes = new Set([...PROJECT_TASK_WRITE_TOOL_NAMES, ...MASTRA_LIBRARY_WRITES, ...MANAGEMENT_WRITE_TOOL_NAMES, ...CHAT_WRITE_TOOL_NAMES, 'create_project', 'create_agent', 'create_routine', 'create_document', 'create_folder', 'create_task', 'update_task', 'update_document'])
+      const approvals = new Set([...PROJECT_TASK_DESTRUCTIVE_TOOL_NAMES, ...PROJECT_TASK_NOTIFICATION_TOOL_NAMES, ...MASTRA_LIBRARY_DESTRUCTIVE, ...MANAGEMENT_SENSITIVE_TOOL_NAMES, ...CHAT_SENSITIVE_TOOL_NAMES, 'create_project', 'create_agent', 'create_routine'])
       const listChats = (options?: import('@otto/session-tools-core').ListSessionsOptions) => {
         assertAccess()
-        const chats = this.getSessions(managed.workspace.id, creatorId).filter((chat) => this.getAudience(managed).every((userId) => this.canSeeSession(chat.id, userId)) && (!options?.status || chat.sessionStatus === options.status) && (!options?.label || chat.labels?.includes(options.label)) && (!options?.search || chat.name?.toLowerCase().includes(options.search.toLowerCase())))
+        const chats = this.getSessions(managed.workspace.id, requestUserId()).filter((chat) => { try { ownChat(chat.id); return (!options?.status || chat.sessionStatus === options.status) && (!options?.label || chat.labels?.includes(options.label)) && (!options?.search || chat.name?.toLowerCase().includes(options.search.toLowerCase())) } catch { return false } })
         if (options?.sortBy === 'name') chats.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
         else if (options?.sortBy === 'status') chats.sort((a, b) => (a.sessionStatus ?? '').localeCompare(b.sessionStatus ?? ''))
         const page = chats.slice(Math.max(0, Math.floor(options?.offset ?? 0)), Math.max(0, Math.floor(options?.offset ?? 0)) + Math.max(1, Math.min(100, Math.floor(options?.limit ?? 20))))
         return { total: chats.length, returned: page.length, sessions: page.map((chat) => ({ id: chat.id, name: chat.name ?? chat.id, labels: chat.labels ?? [], status: chat.sessionStatus ?? 'todo', createdAt: chat.createdAt ?? 0, projectId: chat.projectId })) }
       }
+      const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
+      const sourceVersion = (toolName: string, args: Record<string, unknown>) => {
+        const ref = ['mcp__session__source_test', 'mcp__session__source_credential_prompt'].includes(toolName) ? args.sourceSlug : toolName.startsWith('mcp__') && !toolName.startsWith('mcp__session__') ? toolName.split('__')[1] : undefined
+        if (typeof ref !== 'string') return
+        const source = getSourcesBySlugs(managed.workspace.rootPath, [ref])[0]
+        const row = source ? getSources(managed.workspace.id).find((row) => row.slug === source.config.slug) : undefined
+        return source && row ? digest({ id: row.id, updatedAt: row.updatedAt, config: source.config }) : undefined
+      }
+      const chatVersion = (target: ManagedSession) => digest({ revision: target.nativeChatRevision ??= crypto.randomUUID(), title: target.name, status: target.sessionStatus, labels: target.labels, projectId: target.projectId, createdBy: target.createdBy, members: target.members.map((member) => member.actor).sort(), lastMessageAt: target.lastMessageAt, lastFinalMessageId: target.lastFinalMessageId })
+      const metadata = (target: ManagedSession) => ({ id: target.id, title: target.name ?? null, status: target.sessionStatus ?? 'todo', labels: target.labels ?? [], projectId: target.projectId ?? null, version: chatVersion(target) })
+      const writableChat = (id: string, version: string, creatorOnly = false) => {
+        const target = ownChat(id)
+        const userId = effectiveUserId()
+        if (!this.canSee(userId)(target) || (creatorOnly && target.createdBy !== `user:${userId}`)) throw chatNotFound(id)
+        if (chatVersion(target) !== version) throw new Error('The chat changed since it was read.')
+        return target
+      }
+      const members = (target: ManagedSession) => ({ id: target.id, version: chatVersion(target), members: target.members.map((member) => ({ actor: member.actor, name: actorName(target.workspace.id, member.actor) })) })
+      const chatTools = createMastraChatManagementTools({
+        workspaceId: managed.workspace.id, agentId: selectedAgent.id, getUserId: requestUserId,
+        assertAccess: (ids) => { assertAccess(); for (const id of ids ?? []) ownChat(id) },
+        listChats: (options) => {
+          const eligible = [...this.sessions.values()].filter((target) => { try { ownChat(target.id); return (!options.status || target.sessionStatus === options.status) && (!options.label || target.labels?.includes(options.label)) && (!options.projectId || target.projectId === options.projectId) && (!options.search || target.name?.toLowerCase().includes(options.search.toLowerCase())) } catch { return false } })
+          eligible.sort(options.sortBy === 'name' ? (a, b) => (a.name ?? '').localeCompare(b.name ?? '') : options.sortBy === 'status' ? (a, b) => (a.sessionStatus ?? '').localeCompare(b.sessionStatus ?? '') : (a, b) => b.lastMessageAt - a.lastMessageAt)
+          return { total: eligible.length, chats: eligible.slice(options.offset, options.offset + options.limit).map(metadata) }
+        },
+        getChat: async (id, options) => {
+          const target = ownChat(id)
+          await this.ensureMessagesLoaded(target)
+          ownChat(id)
+          const visible = target.messages.filter((message) => !message.hidden && !message.nativeAction && (message.role === 'user' || message.role === 'assistant'))
+          const before = options.beforeId ? visible.findIndex((message) => message.id === options.beforeId) : visible.length
+          if (before < 0) throw new Error('The page cursor is unavailable.')
+          const start = Math.max(0, before - options.limit)
+          return { chat: metadata(target), messages: visible.slice(start, before).map((message) => ({ id: message.id, role: message.role as 'user' | 'assistant', content: message.content.slice(0, 8000), author: message.sender ?? message.author })), hasMore: start > 0 }
+        },
+        sendMessage: async (id, body, version) => {
+          const target = writableChat(id, version)
+          if (/^\s*\//.test(body) || routeMessage({ text: body, people: 0, agents: new Set(getAgents(managed.workspace.id).map((agent) => agent.id)) }).length) throw new Error('Chat sends cannot execute commands or assign work to agents.')
+          let messageId: string | undefined
+          await this.sendMessage(id, body, undefined, undefined, { sender: `user:${effectiveUserId()}`, recipientAgentId: null }, undefined, undefined, (id) => { messageId = id }, undefined, () => { writableChat(target.id, version) })
+          ownChat(id)
+          if (!messageId) throw new Error('The send has no durable acknowledgement; do not retry it automatically.')
+          return { chatId: id, messageId, version: chatVersion(target) }
+        },
+        updateChat: async (id, patch, version) => {
+          const target = writableChat(id, version)
+      const resolvedLabels = patch.labels ? resolveSessionLabels([...patch.labels], getLabels(managed.workspace.id)) : undefined
+          if (resolvedLabels?.unknown.length) throw new Error('A selected label is unavailable.')
+          if (patch.status && !getStatuses(managed.workspace.id).some((status) => status.id === patch.status)) throw new Error('The status is unavailable.')
+          if (patch.projectId && !getProject(managed.workspace.id, patch.projectId)) throw new Error('The project is unavailable.')
+          writableChat(id, version)
+          target.nativeChatRevision = crypto.randomUUID()
+          if (patch.title !== undefined) target.name = patch.title
+          if (resolvedLabels) target.labels = resolvedLabels.resolved
+          if (patch.status) { target.sessionStatus = patch.status as SessionStatus; target.isArchived = patch.status === 'archived' }
+          if (patch.projectId !== undefined) target.projectId = patch.projectId ?? undefined
+          this.persistSession(target)
+          await this.flushSession(id)
+          ownChat(id)
+          if (patch.title !== undefined) this.sendEvent({ type: 'title_generated', sessionId: id, title: patch.title }, managed.workspace.id)
+          if (resolvedLabels) this.sendEvent({ type: 'labels_changed', sessionId: id, labels: resolvedLabels.resolved }, managed.workspace.id)
+          if (patch.status) this.sendEvent({ type: 'session_status_changed', sessionId: id, sessionStatus: target.sessionStatus! }, managed.workspace.id)
+          if (patch.projectId !== undefined) this.sendEvent({ type: 'project_id_changed', sessionId: id, projectId: patch.projectId }, managed.workspace.id)
+          return metadata(target)
+        },
+        deleteChat: async (id, version) => {
+          if (id === managed.id) throw new Error('A running tool cannot delete its own chat.')
+          writableChat(id, version, true)
+          await this.deleteSession(id, effectiveUserId(), () => { writableChat(id, version, true) })
+          assertAccess()
+          return { id, deleted: true }
+        },
+        getMembers: (id) => members(ownChat(id)),
+        addMembers: async (id, actors, version) => {
+          writableChat(id, version, true)
+          await this.addSessionMembers(id, effectiveUserId(), [...actors], () => { writableChat(id, version, true) })
+          return members(ownChat(id))
+        },
+        removeMember: async (id, actor, version) => {
+          writableChat(id, version, true)
+          await this.removeSessionMember(id, effectiveUserId(), actor)
+          return members(ownChat(id))
+        },
+        search: async (query, options) => {
+          const eligibleChatIds = [...this.sessions.keys()].filter((id) => { try { ownChat(id); return true } catch { return false } })
+          await Promise.all(eligibleChatIds.map((id) => this.flushSession(id)))
+          for (const id of eligibleChatIds) ownChat(id)
+          return searchChats(managed.workspace.id, `user:${requestUserId()}`, query, { ...options, eligibleChatIds, ordinaryTextOnly: true })
+        },
+      })
       const sessionTools = createMastraSessionTools({
         writesAllowed: permissionMode !== 'safe', decideEnabled: this.decisionFeatureActive('decideTool'), assertAccess,
         assertResultAccess: (name, args, result) => {
@@ -4351,7 +4472,7 @@ export class SessionManager implements ISessionManager {
           const text = (result as { content: { text: string }[] }).content[0]!.text
           if (text !== JSON.stringify(listChats(args as import('@otto/session-tools-core').ListSessionsOptions), null, 2)) throw new Error('Chat access changed while listing sessions. Try again.')
         },
-        complete: (prompt) => this.nativeCompletion(managed, prompt, { signal: abort.signal, assertAccess }),
+        complete: (prompt) => this.nativeCompletion(managed, prompt, { signal: abort.signal, assertAccess, getUserId: requestUserId }),
         testSource: async (slug, activate) => {
           assertAccess()
           const { testMastraSource } = await import('./mastra-source-tools')
@@ -4376,20 +4497,22 @@ export class SessionManager implements ISessionManager {
           let cursor = managed.parentSessionId
           while (cursor && ancestors.size <= 3) { if (ancestors.has(cursor)) throw new Error('Delegation cycle detected.'); ancestors.add(cursor); cursor = this.sessions.get(cursor)?.parentSessionId }
           if (ancestors.size >= 3 || this.getActiveSessionCount(managed.workspace.id) >= 4) throw new Error('The bounded independent-task limit was reached.')
-          const child = await this.createSession(managed.workspace.id, { name: args.name, llmConnection: connection.slug, model: context.resolvedModel, enabledSourceSlugs: slugs, permissionMode: clampPermissionMode(args.permissionMode, permissionMode), parentSessionId: managed.id, projectId: managed.projectId, unattended: !isAttendedSession(managed) || undefined }, { createdBy: managed.createdBy, agentId: selectedAgent.id })
+          const requester = requestUserId()
+          const child = await this.createSession(managed.workspace.id, { name: args.name, llmConnection: connection.slug, llmConnectionId: connection.id, model: context.resolvedModel, enabledSourceSlugs: slugs, permissionMode: clampPermissionMode(args.permissionMode, permissionMode), parentSessionId: managed.id, projectId: managed.projectId, unattended: !isAttendedSession(managed) || undefined }, { createdBy: `user:${requester}`, agentId: selectedAgent.id })
           assertAccess()
-          void this.sendMessage(child.id, args.prompt, undefined, undefined, { sender: managed.createdBy }).catch(() => {})
+          void this.sendMessage(child.id, args.prompt, undefined, undefined, { sender: `user:${requester}` }).catch(() => {})
           return { sessionId: child.id, status: 'started', permissionMode: clampPermissionMode(args.permissionMode, permissionMode) }
         },
         context: {
           sessionId: managed.id, workspacePath: managed.workspace.rootPath, sourcesPath: '', skillsPath: '', plansFolderPath: '',
           fs: { exists: unavailable, readFile: unavailable, readFileBuffer: unavailable, writeFile: unavailable, isDirectory: unavailable, readdir: unavailable, stat: unavailable },
-          callbacks: { onPlanSubmitted: unavailable, onAuthRequest: (request) => { assertAccess(); const source = getSourcesBySlugs(managed.workspace.rootPath, [request.sourceSlug])[0]; if (!source) throw new Error('The source no longer exists.'); managed.nativeAuthSource = { id: source.config.id, config: JSON.stringify(source.config), agentId: selectedAgent.id }; this.requestSessionAuth(managed, request); setImmediate(() => { if (this.sessions.get(managed.id) === managed) managed.mastraStop?.() }) } },
+          callbacks: { onPlanSubmitted: unavailable, onAuthRequest: () => { throw new Error('Configure authentication in the secure source settings form, not in chat.') } },
           loadSourceConfig: (slug) => {
             assertAccess()
             const run = getAgentRunConfig(selectedAgent.id, managed.workspace.id)
             const source = getSourcesBySlugs(managed.workspace.rootPath, [slug])[0]
-            if (!run || !source || (run.sources.length && !run.sources.includes(slug) && !run.sources.includes(source.config.id))) return null
+            const row = source ? getSources(managed.workspace.id).find((row) => row.slug === source.config.slug) : undefined
+            if (!run || !source || !row || (run.sources.length && ![row.id, source.config.id, source.config.slug].some((id) => run.sources.includes(id)))) return null
             return source.config as unknown as import('@otto/session-tools-core').SourceConfig
           },
           getSessionInfo: (id) => { const target = ownChat(id); return { id: target.id, name: target.name ?? target.id, labels: target.labels ?? [], status: target.sessionStatus ?? 'todo', permissionMode: target.permissionMode ?? 'ask', createdAt: target.createdAt ?? 0, projectId: target.projectId, llmConnection: target.llmConnection, model: target.model, isActive: target.isProcessing } },
@@ -4398,71 +4521,295 @@ export class SessionManager implements ISessionManager {
           setSessionStatus: (id, status) => this.setSessionStatus(ownChat(id).id, status as SessionStatus),
           resolveLabels: (labels) => resolveSessionLabels(labels, getLabels(managed.workspace.id)),
           resolveStatus: (status) => { const statuses = getStatuses(managed.workspace.id); const found = statuses.find((row) => row.id === status || row.label.toLowerCase() === status.toLowerCase()); return { resolved: found?.id ?? null, available: statuses.map((row) => row.id), category: found?.category } },
-          editPermissions: async (args) => { assertAccess(); const { result, wrote } = runPermissionsAction(managed.workspace.id, creatorId, args); if (wrote) this.broadcastDomainChanged(managed.workspace.id, 'permissions'); return result },
+          editPermissions: async (args) => { assertAccess(); const { result, wrote } = runPermissionsAction(managed.workspace.id, effectiveUserId(), args); if (wrote) this.broadcastDomainChanged(managed.workspace.id, 'permissions'); return result },
           decide: buildDecisionToolCallbacks({ sessionId: managed.id }),
         },
       })
+      if (sessionTools.mcp__session__source_credential_prompt) {
+        sessionTools.mcp__session__source_credential_prompt.description = 'Guide the current human to the secure source authentication form. Returns only safe source IDs and slugs; never requests or accepts credentials in chat.'
+        sessionTools.mcp__session__source_credential_prompt.inputSchema = z.object({ sourceSlug: z.string().min(1).max(200) }).strict()
+        sessionTools.mcp__session__source_credential_prompt.execute = async (args: { sourceSlug: string }) => {
+        assertAccess()
+        const source = getSourcesBySlugs(managed.workspace.rootPath, [args.sourceSlug])[0]
+        const row = source ? getSources(managed.workspace.id).find((row) => row.slug === source.config.slug) : undefined
+        const limits = getAgentRunConfig(selectedAgent.id, managed.workspace.id)?.sources
+        if (!source || !row || !limits || (limits.length && ![row.id, source.config.id, source.config.slug].some((id) => limits.includes(id)))) throw new Error('The source is unavailable in this agent scope.')
+        return { availability: 'secure-ui', sourceId: row.id, sourceSlug: source.config.slug, message: 'Configure authentication in the secure source settings form. Do not provide credentials in chat.' }
+        }
+      }
+      const policy = (toolName: string): 'allow' | 'deny' | 'ask' => {
+        if (toolName === 'ask_user') return managed.unattended || managed.triggeredBy ? 'deny' : 'allow'
+        if (approvals.has(toolName) || ['mcp__session__set_session_labels', 'mcp__session__set_session_status', 'mcp__session__permissions_edit', 'mcp__session__source_credential_prompt', 'mcp__session__spawn_session', 'mcp__session__source_test'].includes(toolName)) return permissionMode === 'safe' || managed.unattended || managed.triggeredBy ? 'deny' : 'ask'
+        if (['search_tools', 'load_tool', 'skill', 'skill_search', 'skill_read'].includes(toolName)) return 'allow'
+        if (['write', 'edit', 'bash', 'publish_file'].includes(toolName) || writes.has(toolName)) return permissionMode === 'safe' ? 'deny' : permissionMode === 'allow-all' ? 'allow' : managed.unattended || managed.triggeredBy ? 'deny' : 'ask'
+        if (toolName.startsWith('mcp__session__')) return 'allow'
+        if (toolName.startsWith('mcp__')) {
+          const slug = toolName.split('__')[1]
+          const source = getLoadedSources(managed.workspace.id).find((source) => source.config.slug === slug)
+          const row = getSources(managed.workspace.id).find((source) => source.slug === slug)
+          const limits = getAgent(managed.workspace.id, selectedAgent.id)?.sources
+          if (!source || !row || !isSourceUsable(source) || !limits || (limits.length && ![slug, row.id, source.config.id].some((id) => limits.includes(id)))) return 'deny'
+          if (toolName.includes('__api_')) return permissionMode === 'safe' ? 'allow' : managed.unattended || managed.triggeredBy ? 'deny' : 'ask'
+          return shouldAllowToolInMode(toolName, {}, 'safe', { permissionsContext: { workspaceRootPath: managed.workspace.rootPath, activeSourceSlugs: sourceTools?.slugs } }).allowed ? 'allow' : permissionMode === 'safe' || managed.unattended || managed.triggeredBy ? 'deny' : 'ask'
+        }
+        return 'allow'
+      }
+      const registered = { ...workTools, ...chatTools, ...sourceTools?.tools, ...sessionTools, ...computerTools }
+      const model = createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl, api: connection.customEndpoint?.api })
+      const modelInfo = { provider: model.provider, modelId: model.modelId, supportsStructuredOutputs: 'supportsStructuredOutputs' in model && model.supportsStructuredOutputs === true }
+      const compat = [new OpenAIReasoningSchemaCompatLayer(modelInfo), new OpenAISchemaCompatLayer(modelInfo)].find((layer) => layer.shouldApply())
+      const validateToolInput = async (tool: import('@mastra/core/tools').Tool<any>, args: unknown) => {
+        if (!tool.inputSchema) return args
+        const schema = tool.strict !== false && compat ? compat.processToCompatSchema(tool.inputSchema) : toStandardSchema(tool.inputSchema)
+        const result = await schema['~standard'].validate(args)
+        if (!('value' in result)) throw Object.assign(new Error('Tool input did not match its advertised schema.'), { name: 'NativeToolInputError', issues: result.issues.map((issue) => ({ code: 'invalid_value', path: issue.path?.map((field) => typeof field === 'object' && field !== null ? field.key : field) ?? [] })) })
+        return result.value
+      }
+      const sourceTarget = (ref: unknown) => {
+        const loaded = getLoadedSources(managed.workspace.id)
+        const matches = getSources(managed.workspace.id).filter((source) => [source.id, source.slug, loaded.find((entry) => entry.config.slug === source.slug)?.config.id].includes(String(ref)))
+        return matches.length === 1 ? matches[0] : undefined
+      }
+      const records = new Map<string, NativeApprovalRecord>()
+      const eligible = (record: NativeApprovalRecord, userId: string) => {
+        try {
+          assertAccess()
+          if (record.runId !== runId || managed.nativeRunId !== record.runId) return false
+          if (!getMemberRole(managed.workspace.id, userId) || !this.canSee(userId)(managed)) return false
+          const args = record.args as Record<string, NativeApprovalValue>
+          const name = record.toolName
+          const owner = getMemberRole(managed.workspace.id, userId) === 'owner'
+          const mine = (actor?: string) => actor === `user:${userId}` || owner
+          if (/^(status_|label_)/.test(name) || name === 'mcp__session__permissions_edit') return owner
+          if (/^agent_(update|configure|delete)$/.test(name)) { const target = getAgent(managed.workspace.id, String(args.id)); return !!target && mine(target.createdBy) }
+          if (/^routine_(update|set_paused|delete|run)$/.test(name)) { const target = getRoutine(managed.workspace.id, String(args.id)); return !!target && mine(target.createdBy) }
+          if (/^skill_(update|delete)$/.test(name)) {
+            const skill = getSkill(managed.workspace.id, String(args.slug))
+            const limits = getAgent(managed.workspace.id, selectedAgent.id)?.skills
+            return !!skill && !!limits && (!limits.length || limits.includes(skill.id) || limits.includes(skill.slug)) && mine(skill.createdBy)
+          }
+          if (name === 'source_update' || name === 'source_delete') {
+            const source = sourceTarget(args.slug)
+            const configId = source && getLoadedSources(managed.workspace.id).find((entry) => entry.config.slug === source.slug)?.config.id
+            const limits = getAgent(managed.workspace.id, selectedAgent.id)?.sources
+            return !!source && !!limits && (!limits.length || [source.id, source.slug, configId].some((id) => !!id && limits.includes(id))) && mine(source.createdBy) && (name !== 'source_update' || args.permissions === undefined || owner)
+          }
+          if (name === 'comment_update' || name === 'comment_delete') {
+            const comment = getCommentsById(managed.workspace.id, [String(args.id)])[0]
+            return !!comment && (comment.createdBy === `user:${userId}` || comment.createdBy === `agent:${selectedAgent.id}`)
+          }
+          if (name.startsWith('chat_')) {
+            const target = ownChat(String(args.id))
+            return this.canSee(userId)(target) && (!['chat_delete', 'chat_add_members', 'chat_remove_member'].includes(name) || target.createdBy === `user:${userId}`)
+          }
+          return true
+        } catch { return false }
+      }
+      const validate = (record: NativeApprovalRecord, userId: string) => {
+        assertAccess()
+        if (!eligible(record, userId) || record.runId !== runId || record.requesterId !== requestUserId() || record.payloadHash !== digest(record.args)) throw new Error('The native request changed.')
+        if (record.toolName === 'create_project' && digest(projectDraft(String(record.args.creationId))) !== record.targetVersion) throw new Error('The project foundation changed.')
+        if (record.toolName.startsWith('mcp__') && record.targetVersion !== undefined && sourceVersion(record.toolName, record.args) !== record.targetVersion) throw new Error('The source configuration changed since approval was requested.')
+        if (record.toolName.startsWith('chat_') && record.args.expectedVersion !== undefined && chatVersion(ownChat(String(record.args.id))) !== record.args.expectedVersion) throw new Error('The chat version changed.')
+        if (record.args.expectedUpdatedAt !== undefined) {
+          const args = record.args
+          const item = record.toolName.startsWith('project_') ? getProject(managed.workspace.id, String(args.id)) : record.toolName.startsWith('task_') || record.toolName === 'update_task' ? getTask(managed.workspace.id, String(args.id)) : record.toolName.startsWith('agent_') ? getAgent(managed.workspace.id, String(args.id)) : record.toolName.startsWith('library_') || record.toolName === 'update_document' ? getLibraryItem(managed.workspace.id, String(args.id)) : record.toolName.startsWith('comment_') ? getCommentsById(managed.workspace.id, [String(args.id)])[0] : record.toolName.startsWith('skill_') ? getSkill(managed.workspace.id, String(args.slug)) : ['source_update', 'source_delete'].includes(record.toolName) ? sourceTarget(args.slug) : undefined
+          if (!item || item.updatedAt !== args.expectedUpdatedAt) throw new Error('The action target changed.')
+        }
+        if (record.toolName.startsWith('routine_') && record.args.expectedVersion !== undefined) {
+          const value = getRoutine(managed.workspace.id, String(record.args.id))
+          if (!value || digest({ title: value.title, config: value.config, agentId: value.agentId, pausedAt: value.pausedAt, createdBy: value.createdBy }) !== record.args.expectedVersion) throw new Error('The routine changed.')
+        }
+        if (record.toolName.startsWith('status_') && record.args.expectedVersion !== undefined && digest(getStatuses(managed.workspace.id)) !== record.args.expectedVersion) throw new Error('The statuses changed.')
+        if (record.toolName.startsWith('label_') && record.args.expectedVersion !== undefined && digest(getLabels(managed.workspace.id)) !== record.args.expectedVersion) throw new Error('The labels changed.')
+        if (record.toolName === 'timesheet_delete' && !getTimesheets(managed.workspace.id, String(record.args.taskId)).some((entry) => entry.id === record.args.id)) throw new Error('The time entry changed.')
+      }
+      const approvalsController = new NativeApprovalController({
+        assertLive: (chatId, expectedRunId, agentId) => { assertAccess(); if (chatId !== managed.id || managed.nativeRunId !== expectedRunId || agentId !== selectedAgent.id) throw new Error('This run ended.') },
+        canResolve: eligible, validate,
+        persist: async (record, state) => {
+          let row = managed.messages.find((message) => message.toolUseId === record.toolCallId)
+          if (!row) {
+            row = { id: crypto.randomUUID(), role: 'tool', content: '', timestamp: this.monotonic(), toolName: record.toolName, toolUseId: record.toolCallId, toolStatus: 'pending', toolInput: {}, author: `agent:${record.agentId}` }
+            managed.messages.push(row)
+          }
+          row.toolInput = {}
+          row.nativeAction = { id: record.toolCallId, kind: record.toolName === 'ask_user' ? 'question' : 'approval', status: state.status === 'declined' ? 'denied' : state.status === 'cancelled' ? 'canceled' : state.status, title: record.summary.title, summary: record.summary.summary ?? '', details: record.summary.details?.join('\n'), actorName: state.actorId ? actorName(managed.workspace.id, `user:${state.actorId}`) : undefined, actorId: state.actorId ? `user:${state.actorId}` : undefined, resolvedAt: state.status === 'pending' ? undefined : state.time, runId: record.runId, payloadHash: record.payloadHash, eligibleActors: this.getAudience(managed).filter((id) => eligible(record, id)).map((id) => `user:${id}`), ...(record.toolName === 'ask_user' ? { choices: record.args.options as unknown as { label: string; description?: string }[] | undefined, selectionMode: record.args.selectionMode as 'single_select' | 'multi_select' | undefined } : {}) }
+          this.persistSession(managed)
+          await this.flushSession(managed.id)
+          if (state.status !== 'pending' && this.sessions.get(managed.id) === managed) this.sendEvent({ type: 'message_updated', sessionId: managed.id, message: row }, managed.workspace.id)
+        },
+        release: (record, approve, answer) => {
+          const state = managed.messages.find((message) => message.toolUseId === record.toolCallId)?.nativeAction
+          const userId = userIdOf(state?.actorId)
+          if (record.toolName === 'ask_user') {
+            if (!approve || !userId || (typeof answer !== 'string' && !Array.isArray(answer))) return false
+            validate(record, userId)
+            const session = managed.mastraSession
+            if (!session?.claimToolSuspension(record.toolCallId).accepted) return false
+            void session.respondToToolSuspension({ toolCallId: record.toolCallId, resumeData: answer }).catch(() => { abort.abort() }).finally(() => session.releaseToolResponse(record.toolCallId))
+            managed.mastraApprovalId = undefined
+            return true
+          }
+          if (approve) {
+            if (!userId) return false
+            validate(record, userId)
+            grants.set(record.toolCallId, { name: record.toolName, hash: record.payloadHash, userId })
+          }
+          const response = managed.mastraSession?.respondToToolApproval({ toolCallId: record.toolCallId, decision: approve ? 'approve' : 'decline' })
+          managed.mastraApprovalId = undefined
+          return response?.accepted === true
+        },
+        abort: (record) => { if (managed.nativeRunId === record.runId) { managed.mastraStop?.(); abort.abort() } },
+      })
+      managed.nativeApprovals = approvalsController
+      managed.nativeCanResolve = (requestId, userId) => { const record = records.get(requestId); return !!record && eligible(record, userId) }
+      managed.nativeQuestionResponse = async (requestId, answer, userId) => {
+        const record = records.get(requestId)
+        if (!record || record.toolName !== 'ask_user' || !eligible(record, userId)) return false
+        const labels = (record.args.options as unknown as { label: string }[] | undefined)?.map((option) => option.label)
+        const values = Array.isArray(answer) ? answer : [answer]
+        if (!values.length || values.length > 20 || values.some((value) => typeof value !== 'string' || !value.trim() || value.length > 4000 || /(?:sk-[A-Za-z0-9_-]{10,}|Bearer\s+\S+|-----BEGIN .*PRIVATE KEY)/i.test(value)) || new Set(values).size !== values.length || (labels && values.some((value) => !labels.includes(value))) || (record.args.selectionMode === 'multi_select' ? !Array.isArray(answer) : Array.isArray(answer))) return false
+        return approvalsController.resolve(requestId, userId, true, answer)
+      }
+      for (const [name, tool] of Object.entries(registered)) {
+        const execute = tool.execute!
+        tool.execute = async (args: any, context: import('@mastra/core/tools').ToolExecutionContext) => {
+          try {
+          assertAccess()
+          const normalized = await validateToolInput(tool, args)
+          const id = context?.agent?.toolCallId
+          const grant = id ? grants.get(id) : undefined
+          if (policy(name) === 'deny' || (policy(name) === 'ask' && (!id || !grant || grant.name !== name || grant.hash !== digest(normalized)))) {
+            throw new Error('This exact action has no current native approval.')
+          }
+          if (grant && id) { const record = records.get(id); if (!record) throw new Error('Approval expired.'); validate(record, grant.userId); grants.delete(id) }
+          executing = { id: id ?? '', name, userId: grant?.userId }
+            const result = await execute(normalized, context)
+            assertAccess()
+            const domain = name.startsWith('agent_') || name === 'create_agent' ? 'agents' : name.startsWith('routine_') || name === 'create_routine' ? 'routines' : name.startsWith('skill_') ? 'skills' : name.startsWith('source_') ? 'sources' : name.startsWith('label_') ? 'labels' : name.startsWith('status_') ? 'statuses' : undefined
+            if (domain && writes.has(name)) this.eventSink?.(RPC_CHANNELS.domain.CHANGED, { to: 'workspace', workspaceId: managed.workspace.id }, { domain, workspaceId: managed.workspace.id })
+            return result
+          } catch (error) { sessionLog.error('Native tool execution failed', nativeFailureDiagnostic(error, 'tool-execution')); throw error } finally { executing = undefined }
+        }
+      }
       const { runMastraSession } = await import('./mastra-session')
+      stage = 'native-session-state-and-stream'
       await runMastraSession({
         chatId: managed.id, workspaceId: managed.workspace.id, ownerId: creatorId,
         agentId: selectedAgent.id, name: selectedAgent.title,
         instructions: contextForRun.instructions, skills: contextForRun.skills, messages, files: initial.files,
+        canonicalHistory: true,
         history:async()=>{assertAccess();await this.flushSession(managed.id);return (await prepareHistory(currentMessageId)).projected},
-        model: createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl, api: connection.customEndpoint?.api }),
+        model,
         signal: abort.signal, assertAccess,
-        tools: {...(managed.permissionMode === 'safe' ? Object.fromEntries(Object.entries(workTools).filter(([name]) => !MASTRA_WORK_WRITES.has(name))) : workTools),...sourceTools?.tools,...sessionTools,...(permissionMode === 'safe' ? Object.fromEntries(Object.entries(computerTools).filter(([name]) => !['write', 'edit', 'bash', 'publish_file'].includes(name))) : computerTools)},
-        policy: (toolName) => {
-          if (['create_project', 'create_agent', 'create_routine'].includes(toolName)) return permissionMode === 'safe' || managed.unattended || managed.triggeredBy ? 'deny' : 'ask'
-          if (['write', 'edit', 'bash', 'publish_file'].includes(toolName)) {
-            if (permissionMode === 'safe') return 'deny'
-            if (permissionMode === 'allow-all') return 'allow'
-            return managed.unattended || managed.triggeredBy ? 'deny' : 'ask'
-          }
-          if (toolName.startsWith('mcp__session__')) {
-            const name = toolName.slice('mcp__session__'.length)
-            if (!['set_session_labels', 'set_session_status', 'permissions_edit', 'source_credential_prompt', 'spawn_session'].includes(name)) return 'allow'
-            if (managed.permissionMode === 'safe') return 'deny'
-            if (managed.permissionMode === 'allow-all') return 'allow'
-            return managed.unattended || managed.triggeredBy ? 'deny' : 'ask'
-          }
-          if(!MASTRA_WORK_WRITES.has(toolName)&&!toolName.startsWith('mcp__')) return 'allow'
-          if(managed.permissionMode==='safe') return toolName.startsWith('mcp__')&&shouldAllowToolInMode(toolName,{},'safe',{permissionsContext:{workspaceRootPath:managed.workspace.rootPath,activeSourceSlugs:sourceTools?.slugs}}).allowed?'allow':'deny'
-          if(managed.permissionMode==='allow-all') return 'allow'
-          return managed.unattended||managed.triggeredBy?'deny':'ask'
+        tools: Object.fromEntries(Object.entries(registered).filter(([name]) => ['prepare_project', 'create_project', 'create_agent', 'create_routine', 'create_document', 'create_folder', 'update_document', 'create_task', 'update_task', 'read_document', 'project_list', 'project_get', 'task_get', 'library_list'].includes(name) && policy(name) !== 'deny')),
+        discoveryTools: Object.fromEntries(Object.entries(registered).filter(([name]) => !['prepare_project', 'create_project', 'create_agent', 'create_routine', 'create_document', 'create_folder', 'update_document', 'create_task', 'update_task', 'read_document', 'project_list', 'project_get', 'task_get', 'library_list'].includes(name) && policy(name) !== 'deny')),
+        policy,
+        onFailure: (error, failureStage) => {
+          const diagnostic = nativeFailureDiagnostic(error, failureStage)
+          if (!abort.signal.aborted) sessionLog.error('Native session operation failed', diagnostic)
+          nativeFailureMessage = failureStage === 'approval-preparation'
+            ? diagnostic.faults.some((fault) => fault.fields?.length) ? 'The tool input did not match its advertised fields. No action was approved. Review the request before trying again.' : 'The action could not be prepared for approval because its access, policy or target changed. Reload before requesting a fresh action.'
+            : failureStage === 'canonical-event' ? 'The conversation could not be saved. Check storage before requesting more work; completed or uncertain actions are not automatically retried.'
+            : failureStage === 'question-preparation' ? 'The question could not be prepared safely. Credentials and authentication must use their secure settings forms.'
+            : failureStage === 'provider-continuation' ? 'The model could not finish its follow-up after tool activity. Review the recorded tool result before requesting more work; completed or uncertain actions are not automatically repeated.'
+            : 'The selected model could not complete its request. Check the current connection and model configuration; completed actions are not automatically repeated.'
+          return nativeFailureMessage
         },
         onReady: (session,stop) => { managed.mastraSession=session;managed.mastraStop=stop },
         onRunStart:()=>{
+          if (abort.signal.aborted) return
           const id=managed.mastraQueuedIds?.shift();const message=managed.messages.find((message)=>message.id===id)
           currentMessageId=id
-          if(message){message.isQueued=false;this.sendEvent({type:'user_message',sessionId:managed.id,message,status:'processing'},managed.workspace.id);this.persistSession(managed)}
+          runId=crypto.randomUUID()
+          managed.nativeRunId=runId
+          grants.clear()
+          if(message){message.isQueued=false;assertAccess();this.sendEvent({ type: 'processing_started', sessionId: managed.id, currentRunId: runId, currentAgentId: selectedAgent.id }, managed.workspace.id);this.sendEvent({type:'user_message',sessionId:managed.id,message,status:'processing'},managed.workspace.id);this.persistSession(managed)}
         },
-        onApproval: (id,toolName,args) => {
+        onApproval: async (id,toolName,args) => {
           managed.mastraApprovalId=id
+          assertAccess()
+          const tool = registered[toolName as keyof typeof registered]
+          const normalized = tool ? await validateToolInput(tool, args) : args
+          if (!normalized || typeof normalized !== 'object' || Array.isArray(normalized) || policy(toolName) !== 'ask') throw new Error('This tool has no approval contract.')
+          let details = Object.entries(normalized).filter(([key, value]) => ['id', 'creationId', 'title', 'label', 'status', 'actor', 'paused'].includes(key) && ['string', 'number', 'boolean'].includes(typeof value) && !/(?:sk-[A-Za-z0-9_-]{10,}|Bearer\s+\S+|https?:\/\/|-----BEGIN .*PRIVATE KEY)/i.test(String(value))).map(([key, value]) => `${key}: ${String(value).slice(0, 500)}`)
+          if (toolName === 'source_update' || toolName === 'source_delete') {
+            const source = sourceTarget((normalized as { slug: string }).slug)
+            if (!source) throw new Error('The source target is unavailable or ambiguous.')
+            const patch = normalized as { title?: unknown; tagline?: unknown; guide?: unknown; permissions?: { allowedMcpPatterns?: unknown[]; allowedApiEndpoints?: unknown[] } }
+            details = [`Source ID: ${source.id}`, `Source title: ${source.title}`, `Changed fields: ${toolName === 'source_delete' ? 'delete' : ['title', 'tagline', 'guide', 'permissions'].filter((field) => patch[field as keyof typeof patch] !== undefined).join(', ')}`]
+            if (patch.permissions?.allowedMcpPatterns !== undefined) details.push(`allowedMcpPatterns: ${patch.permissions.allowedMcpPatterns.length}`)
+            if (patch.permissions?.allowedApiEndpoints !== undefined) details.push(`allowedApiEndpoints: ${patch.permissions.allowedApiEndpoints.length}`)
+          }
           const draft = toolName === 'create_project' ? projectDraft((args as { creationId: string }).creationId) : undefined
           if (toolName === 'create_project' && !draft) {
             managed.mastraSession?.respondToToolApproval({ toolCallId: id, decision: 'decline', declineContext: { message: 'The prepared project draft is unavailable. Review a new foundation before creating it.' } })
             managed.mastraApprovalId = undefined
             return
           }
-          this.sendEvent({type:'permission_request',sessionId:managed.id,request:{sessionId:managed.id,requestId:id,toolName,description:draft ? `Create project “${draft.title}” with this reviewed foundation?` : `Allow ${selectedAgent.title} to run ${toolName}?`,command:JSON.stringify(draft ? { ...args as object, ...draft } : args),type:'api_mutation',canRemember:false}},managed.workspace.id)
+          const record = await approvalsController.create({ chatId: managed.id, runId, toolCallId: id, toolName, agentId: selectedAgent.id, requesterId: requestUserId(), args: normalized as Record<string, NativeApprovalValue>, payloadHash: digest(normalized), targetVersion: draft ? digest(draft) : sourceVersion(toolName, normalized as Record<string, unknown>), summary: { title: draft ? `Create project “${draft.title}”` : `Allow ${selectedAgent.title} to run ${toolName}?`, summary: draft?.description ?? 'Review this exact action. Only a current human with authority over its target can approve it.', details } })
+          if (!record) return
+          records.set(id, record)
+          this.sendEvent({ type: 'message_updated', sessionId: managed.id, message: managed.messages.find((message) => message.toolUseId === id)! }, managed.workspace.id)
+          this.sendEvent({type:'permission_request',sessionId:managed.id,request:{sessionId:managed.id,requestId:id,toolName,description:record.summary.title,command:JSON.stringify(draft ?? { summary: record.summary.summary }),type:'api_mutation',canRemember:false}},managed.workspace.id)
+        },
+        onQuestion: async (id, payload) => {
+          assertAccess()
+          if (policy('ask_user') === 'deny') throw new Error('Unattended questions are unavailable.')
+          const question = z.object({ question: z.string().trim().min(1).max(4000), options: z.array(z.object({ label: z.string().trim().min(1).max(200), description: z.string().max(1000).optional() }).strict()).min(2).max(20).optional(), selectionMode: z.enum(['single_select', 'multi_select']).optional() }).strict().parse(payload)
+          if (/(?:password|credential|api[ _-]?key|access[ _-]?token|secret|private[ _-]?key|authentication|oauth|sk-[A-Za-z0-9_-]{10,}|Bearer\s+\S+)/i.test(JSON.stringify(question)) || (question.selectionMode && !question.options?.length)) throw new Error('Credentials and authentication belong in the secure connection form.')
+          const args = JSON.parse(JSON.stringify(question)) as Record<string, NativeApprovalValue>
+          const record = await approvalsController.create({ chatId: managed.id, runId, toolCallId: id, toolName: 'ask_user', agentId: selectedAgent.id, requesterId: requestUserId(), args, payloadHash: digest(args), summary: { title: question.question, summary: 'Answer this question to continue the current run.' } })
+          if (!record) return
+          records.set(id, record)
+          managed.mastraApprovalId = id
+          this.sendEvent({ type: 'message_updated', sessionId: managed.id, message: managed.messages.find((message) => message.toolUseId === id)! }, managed.workspace.id)
         },
         emit: async (event) => {
           if(managed.processingGeneration!==generation||this.sessions.get(managed.id)!==managed)return
-          await this.processEvent(managed,event)
+          if (event.type === 'tool_result' && event.isError) {
+            const toolUseId = event.toolUseId
+            const row = managed.messages.find((message) => message.toolUseId === toolUseId)
+            if (row?.nativeAction?.kind === 'approval' && ['approved', 'failed'].includes(row.nativeAction.status)) row.nativeAction = { ...row.nativeAction, status: 'failed', title: `Action failed: ${row.toolName ?? 'tool'}`, summary: 'This action was approved, but its execution did not confirm a successful result. Inspect the target before requesting a fresh action; do not automatically repeat it.', eligibleActors: [] }
+          }
+          if (event.type === 'error') {
+            const completed = managed.messages.slice(firstMessageIndex).findLast((message) => message.toolStatus === 'completed' && message.nativeAction?.status === 'approved' && message.nativeAction.artifact)
+            if (completed) event = { ...event, message: `The ${completed.nativeAction!.artifact!.type === 'library' ? 'Library item' : completed.nativeAction!.artifact!.type} was created and its result saved, but the model's follow-up failed. Open the saved result; do not request another creation for the same work.` }
+          }
+          try { await this.processEvent(managed,event) } catch (error) { sessionLog.error('Native canonical event failed', nativeFailureDiagnostic(error, `canonical-${event.type}`)); throw error }
+          if (event.type === 'error') nativeErrorPublished = true
           if(event.type==='complete')reason='complete'
         },
       })
-    } catch {
+    } catch (error) {
+      if (!abort.signal.aborted) sessionLog.error('Native run failed', nativeFailureDiagnostic(error, stage))
       if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation) return
       reason = abort.signal.aborted ? 'interrupted' : 'error'
       if (managed.streamingTurnId) await this.processEvent(managed, { type: 'text_discard', turnId: managed.streamingTurnId })
-      if (!abort.signal.aborted) await this.processEvent(managed, { type: 'error', message: 'The native request could not complete. Check the connection, sources and attachments. Native attachments require available Library items, verified Office conversions and supported bounded text/image/PDF input; reattach missing or changed files. Local sources remain unavailable.' })
+      if (!abort.signal.aborted && !nativeErrorPublished) await this.processEvent(managed, { type: 'error', message: nativeFailureMessage ?? (stage === 'resolve-native-connection' ? 'The selected connection is unavailable to the requesting human. Check its identity, credentials and model configuration.' : stage === 'open-native-sources' ? 'A selected source could not be opened with the current access. Check its secure settings and request a fresh run.' : stage === 'prepare-canonical-history' ? 'The conversation or its selected attachments could not be prepared. Check the current history and Library items before requesting a fresh run.' : stage === 'native-startup' ? 'The requesting human or named agent no longer has access to this chat. Reload before requesting a fresh run.' : 'The native session could not complete. Check the current connection and storage state before requesting a fresh run; completed actions are not automatically repeated.') })
     } finally {
+      await managed.nativeApprovals?.cancelRun(managed.id, runId, reason === 'error' ? 'run-failed' : 'expired')
       if(managed.processingGeneration===generation&&this.sessions.get(managed.id)===managed){
+        const unfinished = managed.messages.slice(firstMessageIndex).filter((message) => message.role === 'tool' && (message.toolStatus === 'pending' || message.toolStatus === 'executing'))
+        for (const message of unfinished) {
+          message.toolStatus = 'error'
+          message.isError = true
+          message.toolResult = 'This turn ended before a confirmed result. The action may have run; inspect its target before any new write. Do not automatically retry it.'
+          if (message.nativeAction?.status === 'approved') message.nativeAction = { ...message.nativeAction, status: reason === 'interrupted' ? 'canceled' : 'failed', title: `Action ${reason === 'interrupted' ? 'interrupted' : 'failed'}: ${message.toolName ?? 'tool'}`, summary: 'This action was approved, but the turn ended before a confirmed result. Inspect its target before requesting a fresh action; do not automatically repeat it.', eligibleActors: [] }
+        }
+        if (unfinished.length) {
+          this.persistSession(managed)
+          await this.flushSession(managed.id).then(() => { for (const message of unfinished) if (message.nativeAction) this.sendEvent({ type: 'message_updated', sessionId: managed.id, message }, managed.workspace.id) }, () => {})
+        }
         managed.mastraSession=undefined
         managed.mastraStop=undefined
         managed.mastraQueuedIds=[]
         managed.mastraApprovalId=undefined
+        managed.nativeApprovals=undefined
+        managed.nativeCanResolve=undefined
+        managed.nativeQuestionResponse=undefined
+        managed.nativeRunId=undefined
       }
       try {
         const closed = await Promise.allSettled([sourceTools?.close(), ...(runComputer ? [this.disposeComputer(runComputer)] : [])])
@@ -4479,8 +4826,9 @@ export class SessionManager implements ISessionManager {
     }
   }
 
-  async cancelProcessing(sessionId: string, silent = false): Promise<void> {
+  async cancelProcessing(sessionId: string, silent = false, expectedRunId?: string): Promise<void> {
     const managed = this.sessions.get(sessionId)
+    if (expectedRunId && managed?.nativeRunId !== expectedRunId) return
     if (!managed?.isProcessing) {
       return // Not processing, nothing to cancel
     }
@@ -4521,6 +4869,7 @@ export class SessionManager implements ISessionManager {
     managed.wasInterrupted = true
     managed.mastraStop?.()
     managed.mastraAbort?.abort()
+    await managed.nativeApprovals?.cancelChat(sessionId, 'stopped')
     await managed.nativeComputer?.terminate()
 
     // Only show "Response interrupted" message when user explicitly clicked Stop
@@ -4574,6 +4923,7 @@ export class SessionManager implements ISessionManager {
   ): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (!managed) return
+    const generation = managed.processingGeneration
 
     sessionLog.info(`Processing stopped for session ${sessionId}: ${reason}`)
 
@@ -4598,6 +4948,7 @@ export class SessionManager implements ISessionManager {
       }
       this.persistSession(managed)
       await this.flushSession(sessionId).catch(() => {}) // logged and retried by the queue
+      if (this.sessions.get(sessionId) !== managed || managed.processingGeneration !== generation) return
       this.emitUnreadSummaryChanged()
       // 2b. The agent's answer may hand work to other agents (`agent:<id>` in it): they answer after it, a chain at most
       //     MAX_AGENT_CHAIN_DEPTH deep and MAX_AGENT_TURNS turns per person's message.
@@ -4611,6 +4962,7 @@ export class SessionManager implements ISessionManager {
       sessionLog.info(`Auto-completing mini agent session ${sessionId}`)
       await this.setSessionStatus(sessionId, 'done')
     }
+    if (this.sessions.get(sessionId) !== managed || managed.processingGeneration !== generation || managed.isProcessing) return
 
     // 4. Check queue and process or complete
     if (managed.messageQueue.length > 0) {
@@ -4670,11 +5022,12 @@ export class SessionManager implements ISessionManager {
    * the chat has its own file; this is the one of the agent whose turn ended.
    */
 
-  private processNextQueuedMessage(sessionId: string): void {
+  private processNextQueuedMessage(sessionId: string): Promise<void> | undefined {
     const managed = this.sessions.get(sessionId)
-    if (!managed || managed.messageQueue.length === 0) return
+    if (!managed || managed.queueAdmission || managed.messageQueue.length === 0) return
 
     const first = managed.messageQueue.shift()!
+    managed.queueAdmission = first
     // Mid-turn messages: entries judged to continue this one are replayed with it as one turn.
     const merged: typeof managed.messageQueue = []
     let last: object = first
@@ -4709,6 +5062,8 @@ export class SessionManager implements ISessionManager {
         // timestamp) while queued; groupMessagesByTurn sorts by timestamp, so
         // without this the prior turn's completed response would render BELOW it.
         existingMessage.timestamp = this.monotonic()
+        managed.messages = managed.messages.filter((message) => message !== existingMessage)
+        managed.messages.push(existingMessage)
         this.persistSession(managed)
 
         this.sendEvent({
@@ -4722,7 +5077,7 @@ export class SessionManager implements ISessionManager {
     }
 
     // Process message (use setImmediate to allow current stack to clear)
-    setImmediate(() => {
+    return new Promise<void>((resolve) => { setImmediate(() => {
       this.sendMessage(
         sessionId,
         next.message,
@@ -4733,7 +5088,7 @@ export class SessionManager implements ISessionManager {
         undefined,
         undefined,
         { wake: first.wake, agentIds: first.agentIds },
-      ).catch(err => {
+      ).catch(async (err) => {
         sessionLog.error('replay failed', {
           sessionId,
           messageId: next.messageId,
@@ -4756,29 +5111,41 @@ export class SessionManager implements ISessionManager {
           },
         }, managed.workspace.id)
         // Call onProcessingStopped to handle cleanup and check for more queued messages
-        this.onProcessingStopped(sessionId, 'error')
+        await this.onProcessingStopped(sessionId, 'error')
+      }).finally(() => {
+        if (managed.queueAdmission === first) managed.queueAdmission = undefined
+        if (this.sessions.get(sessionId) === managed && !managed.isProcessing && managed.messageQueue.length) this.processNextQueuedMessage(sessionId)
+        resolve()
       })
-    })
+    }) })
   }
 
   /**
    * Respond to a pending permission request
    * Returns true if the response was delivered, false if agent/session is gone
    */
-  respondToPermission(
+  canResolveNativeRequest(requestId: string, userId: string): boolean {
+    for (const managed of this.sessions.values()) if (managed.mastraApprovalId === requestId) return managed.nativeCanResolve?.(requestId, userId) === true
+    return false
+  }
+
+  async respondToPermission(
     sessionId: string,
     requestId: string,
     allowed: boolean,
     alwaysAllow: boolean,
     options?: import('@otto/shared/protocol').PermissionResponseOptions,
-  ): boolean {
+    userId?: string,
+  ): Promise<boolean> {
     const managed = this.sessions.get(sessionId)
-    if (managed?.mastraSession && managed.mastraApprovalId === requestId) {
-      const response=managed.mastraSession.respondToToolApproval({toolCallId:requestId,decision:allowed?'approve':'decline'})
-      managed.mastraApprovalId=undefined
-      return response.accepted
-    }
-    return false
+    if (!userId || !managed?.nativeApprovals || managed.mastraApprovalId !== requestId || managed.messages.find((message) => message.toolUseId === requestId)?.nativeAction?.kind !== 'approval' || !managed.nativeCanResolve?.(requestId, userId)) return false
+    return managed.nativeApprovals.resolve(requestId, userId, allowed)
+  }
+
+  async respondToNativeQuestion(sessionId: string, requestId: string, answer: string | string[], userId?: string): Promise<boolean> {
+    const managed = this.sessions.get(sessionId)
+    if (!userId || managed?.mastraApprovalId !== requestId) return false
+    return managed.nativeQuestionResponse?.(requestId, answer, userId) ?? false
   }
 
   /**
@@ -4937,6 +5304,7 @@ export class SessionManager implements ISessionManager {
     const managed = this.sessions.get(sessionId)
     if (managed) {
       managed.labels = labels
+      managed.nativeChatRevision = crypto.randomUUID()
 
       this.sendEvent({
         type: 'labels_changed',
@@ -4956,6 +5324,7 @@ export class SessionManager implements ISessionManager {
   async setSessionProjectId(sessionId: string, projectId: string | null): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (managed) {
+      managed.nativeChatRevision = crypto.randomUUID()
       managed.projectId = projectId ?? undefined
 
       this.sendEvent({
@@ -4992,16 +5361,16 @@ export class SessionManager implements ISessionManager {
    * Uses the agent's generateTitle() method which handles provider-specific SDK calls.
    * If no agent exists, creates a temporary one using the session's connection.
    */
-  private async generateTitle(managed: ManagedSession, userMessage: string): Promise<void> {
+  private async generateTitle(managed: ManagedSession, userMessage: string, userId?: string): Promise<void> {
     try {
-      const title = validateTitle(await this.nativeCompletion(managed, buildTitlePrompt(userMessage, { language: resolveTitleLanguageName(userIdOf(managed.createdBy)) })))
+      const title = validateTitle(await this.nativeCompletion(managed, buildTitlePrompt(userMessage, { language: resolveTitleLanguageName(userId) }), undefined, userId))
       if (!title || this.sessions.get(managed.id) !== managed || managed.autoTitle !== undefined && managed.name !== managed.autoTitle) return
       managed.name = title
       managed.autoTitle = title
       this.persistSession(managed)
       await this.flushSession(managed.id)
       this.sendEvent({ type: 'title_generated', sessionId: managed.id, title }, managed.workspace.id)
-    } catch {}
+    } catch (error) { sessionLog.error('Native automatic title failed', nativeFailureDiagnostic(error, 'automatic-title')) }
   }
 
   private async processEvent(managed: ManagedSession, event: AgentEvent): Promise<void> {
@@ -5050,6 +5419,7 @@ export class SessionManager implements ISessionManager {
           parentToolUseId: event.parentToolUseId,
         }
         managed.messages.push(assistantMessage)
+        managed.nativeChatRevision = crypto.randomUUID()
         managed.streamingText = ''
         managed.streamingTurnId = undefined
 
@@ -5116,6 +5486,7 @@ export class SessionManager implements ISessionManager {
         let shouldSendEvent = !isDuplicateEvent
 
         if (existingStartMsg) {
+          existingStartMsg.toolStatus = 'executing'
           // Update existing message with complete input (second event has full input)
           if (formattedToolInput && Object.keys(formattedToolInput).length > 0) {
             const hadInputBefore = existingStartMsg.toolInput && Object.keys(existingStartMsg.toolInput).length > 0
@@ -5215,6 +5586,16 @@ export class SessionManager implements ISessionManager {
           existingToolMsg.toolResult = formattedResult
           existingToolMsg.toolStatus = inferredError ? 'error' : 'completed'
           existingToolMsg.isError = inferredError
+          if (inferredError && existingToolMsg.nativeAction?.status === 'approved') existingToolMsg.nativeAction = { ...existingToolMsg.nativeAction, status: 'failed', eligibleActors: [], resolvedAt: this.monotonic() }
+          if (!inferredError) {
+            const type = ['create_project'].includes(toolName) ? 'project' : ['task_create', 'create_task'].includes(toolName) ? 'task' : ['library_create_document', 'library_create_folder', 'create_document', 'create_folder'].includes(toolName) ? 'library' : undefined
+            if (type) {
+              try {
+                const artifact = JSON.parse(formattedResult) as { id?: string; title?: string }
+                if (artifact.id && artifact.title) existingToolMsg.nativeAction = { ...(existingToolMsg.nativeAction ?? { id: event.toolUseId, kind: 'artifact', status: 'approved', title: artifact.title, summary: 'Created in this workspace.', runId: managed.nativeRunId, eligibleActors: [] }), artifact: { type, id: artifact.id, title: artifact.title } }
+              } catch {}
+            }
+          }
           // If message doesn't have parent set, use event's parentToolUseId
           if (!existingToolMsg.parentToolUseId && event.parentToolUseId) {
             existingToolMsg.parentToolUseId = event.parentToolUseId
@@ -5293,6 +5674,7 @@ export class SessionManager implements ISessionManager {
         // A finished tool call is written at once
         this.persistSession(managed)
         await this.flushSession(sessionId)
+        if (existingToolMsg?.nativeAction) this.sendEvent({ type: 'message_updated', sessionId, message: existingToolMsg }, workspaceId)
         break
       }
 
@@ -5685,6 +6067,7 @@ export class SessionManager implements ISessionManager {
       permissionMode,
       mentions,
       llmConnection,
+      llmConnectionId,
       model,
       thinkingLevel,
       automationName,
@@ -5697,13 +6080,9 @@ export class SessionManager implements ISessionManager {
       projectId,
     } = input
 
-    // Warn if llmConnection was specified but doesn't resolve
-    if (llmConnection) {
-      const connection = resolveSessionConnection(llmConnection,undefined,{workspaceId,userId:userIdOf(createdBy)})
-      if (!connection) {
-        sessionLog.warn(`[Automations] llmConnection "${llmConnection}" not found, using default`)
-      }
-    }
+    const requester = userIdOf(createdBy)
+    if (!requester || !getMemberRole(workspaceId, requester)) throw domainError('forbidden', 'Automation requires its supplied current human principal.')
+    if ((llmConnectionId && !getConnectionById(llmConnectionId, { workspaceId, userId: requester })) || (!llmConnectionId && llmConnection && !getLlmConnection(llmConnection, { workspaceId, userId: requester }))) throw domainError('not_found', 'The exact automation connection is unavailable to this human.')
 
     // Resolve @mentions to source/skill slugs
     const resolved = mentions ? this.resolveAutomationMentions(workspaceRootPath, mentions) : undefined
@@ -5729,6 +6108,7 @@ export class SessionManager implements ISessionManager {
       permissionMode: permissionMode || 'safe',
       enabledSourceSlugs: resolved?.sourceSlugs,
       llmConnection,
+      llmConnectionId,
       model,
       thinkingLevel,
       projectId,
@@ -5753,6 +6133,7 @@ export class SessionManager implements ISessionManager {
     // way; a background failure surfaces in the session UI and is logged here.
     if (waitForCompletion === false) {
       void this.sendMessage(session.id, prompt, undefined, undefined, {
+        sender: userActor(requester),
         skillSlugs: resolved?.skillSlugs,
       }).catch((err) => {
         sessionLog.error('[Automations] background sendMessage failed for test run', {
@@ -5764,6 +6145,7 @@ export class SessionManager implements ISessionManager {
     }
 
     await this.sendMessage(session.id, prompt, undefined, undefined, {
+      sender: userActor(requester),
       skillSlugs: resolved?.skillSlugs,
     })
 
@@ -5796,7 +6178,7 @@ export class SessionManager implements ISessionManager {
   // Export / Import / Dispatch
   // ============================================
 
-  private async generateRemoteTransferSummary(managed: ManagedSession): Promise<string | null> {
+  private async generateRemoteTransferSummary(managed: ManagedSession, userId?: string): Promise<string | null> {
     await this.ensureMessagesLoaded(managed)
 
     const messages = managed.messages
@@ -5808,10 +6190,10 @@ export class SessionManager implements ISessionManager {
       }))
 
     if (messages.length === 0) return null
-    return generateConversationSummary(messages, (prompt) => this.nativeCompletion(managed, prompt))
+    return generateConversationSummary(messages, (prompt) => this.nativeCompletion(managed, prompt, undefined, userId))
   }
 
-  async exportRemoteSessionTransfer(sessionId: string, workspaceId: string): Promise<RemoteSessionTransferPayload | null> {
+  async exportRemoteSessionTransfer(sessionId: string, workspaceId: string, userId?: string): Promise<RemoteSessionTransferPayload | null> {
     const managed = this.sessions.get(sessionId)
     if (!managed) {
       sessionLog.warn(`[dispatch] Cannot export remote transfer: ${sessionId} not found`)
@@ -5831,7 +6213,7 @@ export class SessionManager implements ISessionManager {
     this.persistSession(managed)
     await this.flushSession(sessionId)
 
-    const summary = await this.generateRemoteTransferSummary(managed)
+    const summary = await this.generateRemoteTransferSummary(managed, userId)
     if (!summary) {
       sessionLog.warn(`[dispatch] Failed to generate remote transfer summary for ${sessionId}`)
       return null
@@ -6137,6 +6519,7 @@ export class SessionManager implements ISessionManager {
       return managed.nativeComputer ? [managed.nativeComputer] : []
     })
     const disposed = Promise.all([...new Set([...computers, ...this.computerCleanup])].map((computer) => this.disposeComputer(computer)))
+    await Promise.all([...this.sessions.values()].map((managed) => managed.nativeApprovals?.cancelChat(managed.id, 'restart')))
     this.unsubscribeChatsChange?.()
     this.unsubscribeChatsChange = undefined
 

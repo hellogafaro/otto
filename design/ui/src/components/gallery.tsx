@@ -142,7 +142,7 @@ function GalleryItem({
             </div>
             <span
               className={cn(
-                "flex h-5 min-w-0 items-center gap-2 text-sm font-medium",
+                "flex h-5 min-w-0 items-center gap-2 px-4 text-sm font-medium",
                 muted ? "text-muted-foreground" : "text-foreground"
               )}
             >
@@ -192,7 +192,7 @@ function GalleryItemSkeleton({ ratio = "4:5" }: { ratio?: GalleryRatio }) {
   return (
     <li data-slot="gallery-item-skeleton" className="flex flex-col gap-2">
       <Skeleton className={cn("w-full rounded-md", RATIO[ratio])} />
-      <span className="flex h-5 items-center">
+      <span className="flex h-5 items-center px-4">
         <Skeleton className="h-3.5 w-2/3" />
       </span>
     </li>

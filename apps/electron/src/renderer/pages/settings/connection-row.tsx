@@ -17,10 +17,10 @@ import { ConnectionIcon } from '@/components/icons/connection-icon'
 import { SettingsMenuSelectRow, SettingsRow } from '@/components/settings'
 import { cn } from '@/lib/utils'
 import { useAutosave } from '@/hooks/use-autosave'
-import { CUSTOM_CONNECTION_TYPE, resolveMidStreamBehavior, type MidStreamBehavior } from '@config/llm-connections'
-import { isHttpUrl } from '@/components/onboarding/connection-kinds'
 import type { LlmConnectionUpdate, LlmConnectionWithStatus } from '../../../shared/types'
 import { connectionKindLabel, getModelOptionsForConnection, scopeLabel } from './connection-labels'
+import { connectionSelector } from './provider-connection-form'
+import { ConnectionEndpointForm } from './connection-endpoint-form'
 
 /** What the menu may do to a connection; absent actions are not offered. */
 export interface ConnectionActions {
@@ -68,20 +68,20 @@ export function ConnectionRow({
     setTestResult(null)
     try {
       const result = await actions.onTest()
-      setTestResult(result.success ? t('connections.testPassed', { name: connection.name }) : result.error || t('settings.ai.validationFailed'))
+      setTestResult(result.success ? t('connections.testPassed', { name: connection.name }) : t('settings.ai.validationFailed'))
     } catch {
       setTestResult(t('connections.testFailed'))
     } finally {
       setTesting(false)
     }
   }
-  const problem = connection.authError ?? (!connection.isAuthenticated ? t('settings.ai.notAuthenticated') : null)
+  const problem = connection.authError ? t('settings.ai.validationFailed') : !connection.isAuthenticated ? t('settings.ai.notAuthenticated') : null
 
   return (
     <>
       <SettingsRow
         list
-        icon={<ConnectionIcon connection={connection} />}
+        icon={<ConnectionIcon connection={connection.type === 'custom' ? { ...connection, type: 'openai' } : connection} />}
         label={
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate">{connection.name}</span>
@@ -140,7 +140,7 @@ export function ConnectionRow({
           <span aria-hidden className="size-7" />
         )}
       </SettingsRow>
-      {open && editable && <ConnectionEditor connection={connection} onSaved={onSaved} />}
+      {open && editable && <ConnectionEditor key={connection.id ?? `${connection.scope}:${connection.slug}`} connection={connection} onSaved={onSaved} />}
     </>
   )
 }
@@ -153,21 +153,17 @@ function ConnectionEditor({
   onSaved: () => void
 }) {
   const { t } = useTranslation()
-  const { slug } = connection
-  const name = useAutosave(connection.name, (value) => save({ slug, name: value }), { onSaved })
-  const baseUrl = useAutosave(connection.baseUrl ?? '', (value) => save({ slug, baseUrl: value }), { onSaved })
-  // What is typed, saved only while it is an address; it springs back on blur otherwise
-  const [typedUrl, setTypedUrl] = useState(connection.baseUrl ?? '')
+  const identity = connectionSelector(connection)
+  const name = useAutosave(connection.name, (value) => save({ ...identity, name: value }), { onSaved })
   const models = getModelOptionsForConnection(connection).map((o) => ({ ...o, description: o.descriptionKey ? t(o.descriptionKey) : o.description }))
-  const midStream = resolveMidStreamBehavior(connection)
 
   const saveNow = (update: Omit<LlmConnectionUpdate, 'slug'>) =>
-    save({ slug, ...update }).then(
+    save({ ...identity, ...update }).then(
       () => {
         toast.success(t('common.saved'), { id: 'saved' })
         onSaved()
       },
-      (error: Error) => void toast.error(error.message, { id: 'saved' }),
+      () => void toast.error(t('connections.saveFailed'), { id: 'saved' }),
     )
 
   return (
@@ -184,24 +180,6 @@ function ConnectionEditor({
           className="w-[200px]"
         />
       </SettingsRow>
-      {connection.type === CUSTOM_CONNECTION_TYPE && (
-        <SettingsRow label={t('connections.form.baseUrl')}>
-          <Input
-            aria-label={t('connections.form.baseUrl')}
-            type="url"
-            value={typedUrl}
-            onChange={(event) => {
-              setTypedUrl(event.target.value)
-              if (isHttpUrl(event.target.value)) baseUrl.change(event.target.value.trim())
-            }}
-            onBlur={() => {
-              if (!isHttpUrl(typedUrl)) setTypedUrl(baseUrl.value)
-              baseUrl.flush()
-            }}
-            className="w-[200px]"
-          />
-        </SettingsRow>
-      )}
       {models.length > 0 && (
         <SettingsMenuSelectRow
           label={t('settings.ai.model')}
@@ -210,15 +188,7 @@ function ConnectionEditor({
           onValueChange={(next) => next !== connection.defaultModel && void saveNow({ defaultModel: next })}
         />
       )}
-      <SettingsMenuSelectRow
-        label={t('settings.ai.midStream.title')}
-        value={midStream}
-        options={[
-          { value: 'steer', label: t('settings.ai.midStream.steer') },
-          { value: 'queue', label: t('settings.ai.midStream.queue') },
-        ]}
-        onValueChange={(next) => next !== midStream && void saveNow({ midStreamBehavior: next as MidStreamBehavior })}
-      />
+      <ConnectionEndpointForm key={`${connection.id}:${connection.updatedAt}`} connection={connection} onSaved={onSaved} />
     </div>
   )
 }

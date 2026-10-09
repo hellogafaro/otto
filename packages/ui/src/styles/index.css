@@ -294,24 +294,6 @@
     display: none;
   }
 
-  /* Hide scrollbar until parent .group is hovered */
-  .scrollbar-hover::-webkit-scrollbar {
-    width: 4px;
-  }
-  .scrollbar-hover::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .scrollbar-hover::-webkit-scrollbar-thumb {
-    background: transparent;
-    border-radius: 4px;
-  }
-  .group:hover .scrollbar-hover::-webkit-scrollbar-thumb {
-    background: var(--border);
-  }
-  .group:hover .scrollbar-hover::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-foreground);
-  }
-
   /* The card edge for the standalone viewer (the app takes `card-surface`
      from design/ui, which defines it with the card tokens). */
   .card-surface {

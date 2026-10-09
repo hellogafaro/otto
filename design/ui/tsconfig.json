@@ -7,6 +7,7 @@
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "strict": true,
+    "types": ["node", "bun"],
     "noEmit": true,
     "paths": {
       "@workspace/ui/*": ["./src/*"]

@@ -7,8 +7,11 @@
  * - Queued state (Electron only)
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Clock } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Bubble, BubbleContent, BubbleGroup } from '@workspace/ui/components/bubble'
+import { MessageFooter } from '@workspace/ui/components/message'
+import { Marker, MarkerContent, MarkerIcon } from '@workspace/ui/components/marker'
+import { Spinner } from '@workspace/ui/components/spinner'
 import type { StoredAttachment, ContentBadge } from '@otto/core'
 import { normalizePath } from '@otto/core/utils'
 import { cn } from '../../lib/utils'
@@ -226,7 +229,7 @@ function renderContentWithBadges(
         mode="minimal"
         onUrlClick={onUrlClick}
         onFileClick={onFileClick}
-        className="text-sm [&_a]:underline [&_code]:bg-foreground/10 [&_p]:whitespace-pre-wrap"
+        className="[&_p]:whitespace-pre-wrap"
       >
         {content}
       </Markdown>
@@ -250,7 +253,7 @@ function renderContentWithBadges(
             mode="minimal"
             onUrlClick={onUrlClick}
             onFileClick={onFileClick}
-            className="inline text-sm [&_a]:underline [&_code]:bg-foreground/10 [&_p]:whitespace-pre-wrap [&_p]:inline"
+            className="inline [&_p]:whitespace-pre-wrap [&_p]:inline"
           >
             {textBefore}
           </Markdown>
@@ -286,7 +289,7 @@ function renderContentWithBadges(
           mode="minimal"
           onUrlClick={onUrlClick}
           onFileClick={onFileClick}
-          className="inline text-sm [&_a]:underline [&_code]:bg-foreground/10 [&_p]:whitespace-pre-wrap [&_p]:inline"
+          className="inline [&_p]:whitespace-pre-wrap [&_p]:inline"
         >
           {textAfter}
         </Markdown>
@@ -317,12 +320,6 @@ export interface UserMessageProps {
   renderContent?: (content: string) => ReactNode
 }
 
-/** Minimum visible duration of the "Queued" chip. Both backends ack
- * mid-stream sends within ~50–150ms, which would otherwise make the chip
- * flash too briefly to register. Hold it long enough for the user to
- * actually read it. */
-const QUEUED_MIN_VISIBLE_MS = 2500
-
 export function UserMessage({
   content,
   className,
@@ -335,54 +332,6 @@ export function UserMessage({
 }: UserMessageProps) {
   const { t } = useTranslation()
   const hasAttachments = attachments && attachments.length > 0
-
-  // Show the queued chip while `isQueued` is true AND for at least
-  // QUEUED_MIN_VISIBLE_MS after it first became true — even if the backend
-  // acks in <150ms. Pure UI state; `isQueued` remains the persisted source
-  // of truth.
-  const [showQueued, setShowQueued] = useState(isQueued ?? false)
-  const queuedShownAtRef = useRef<number | null>(isQueued ? Date.now() : null)
-  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (clearTimerRef.current) clearTimeout(clearTimerRef.current)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (clearTimerRef.current) {
-      clearTimeout(clearTimerRef.current)
-      clearTimerRef.current = null
-    }
-
-    if (isQueued) {
-      setShowQueued(true)
-      if (queuedShownAtRef.current === null) {
-        queuedShownAtRef.current = Date.now()
-      }
-      return
-    }
-
-    // isQueued flipped to false. Keep the chip up for the remainder of
-    // the minimum visible window, then clear.
-    if (queuedShownAtRef.current === null) return
-
-    const elapsed = Date.now() - queuedShownAtRef.current
-    const remaining = Math.max(0, QUEUED_MIN_VISIBLE_MS - elapsed)
-
-    if (remaining === 0) {
-      setShowQueued(false)
-      queuedShownAtRef.current = null
-      return
-    }
-
-    clearTimerRef.current = setTimeout(() => {
-      setShowQueued(false)
-      queuedShownAtRef.current = null
-      clearTimerRef.current = null
-    }, remaining)
-  }, [isQueued])
 
   // Separate edit_request badges (rendered above the text) from other badges (rendered inline)
   const editRequestBadges = badges?.filter(isEditRequestBadge) ?? []
@@ -404,7 +353,7 @@ export function UserMessage({
   }
 
   return (
-    <div className={cn("flex flex-col items-start gap-2 w-full min-w-0", className)}>
+    <BubbleGroup className={cn("w-full", className)}>
       {/* Attachment preview row - stored attachments with thumbnails */}
       {hasAttachments && (
         <div className="flex gap-2 flex-wrap">
@@ -473,32 +422,30 @@ export function UserMessage({
         </div>
       )}
 
-      {/* The text, flat on the frame; a queued message leads with the Clock chip while it waits. */}
-      <div className="max-w-full break-words min-w-0 select-text [&_p]:m-0">
-        {showQueued && (
-          <div
-            className="flex items-center gap-1.5 text-foreground/55 mb-1.5"
-            role="status"
-            aria-live="polite"
-          >
-            <Clock className="h-3 w-3 animate-pulse" aria-hidden="true" />
-            <span className="text-[11px] italic">{t('chat.queuedBadge')}</span>
-          </div>
-        )}
-        {hasInlineBadges
+      {/* The text and authoritative queued status use the shared message surface and footer. */}
+      <Bubble variant="ghost" className="w-full">
+        <BubbleContent className="select-text [&_p]:m-0">{hasInlineBadges
           ? renderContentWithBadges(displayContent, inlineBadges, onUrlClick, onFileClick)
           : renderContent ? renderContent(displayContent) : (
             <Markdown
               mode="minimal"
               onUrlClick={onUrlClick}
               onFileClick={onFileClick}
-              className="text-sm [&_a]:underline [&_code]:bg-foreground/10 [&_p]:whitespace-pre-wrap"
+              className="[&_p]:whitespace-pre-wrap"
             >
               {displayContent}
             </Markdown>
           )
-        }
-      </div>
-    </div>
+        }</BubbleContent>
+      </Bubble>
+      {isQueued && (
+        <MessageFooter>
+          <Marker role="status" aria-live="polite">
+            <MarkerIcon><Spinner aria-hidden role={undefined} aria-label={undefined} /></MarkerIcon>
+            <MarkerContent>{t('chat.queuedBadge')}</MarkerContent>
+          </Marker>
+        </MessageFooter>
+      )}
+    </BubbleGroup>
   )
 }

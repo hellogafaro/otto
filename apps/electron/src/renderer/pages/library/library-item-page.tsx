@@ -1,13 +1,13 @@
 /**
- * A library item's page (`/{ws}/library/{itemId}`): a file's preview or a document's editor as the centerpiece,
- * under the title row. A file's title row: Download, More (Rename, Move, Copy link, Delete); a document's title is
- * edited in place and its More holds Download instead of Rename. Details is the sidecar, opened by its floating toggle
- * (closed by default): Folder, Created by, Created, Size, Type. An id the server does not have is not found; a
+ * A library item's page (`/{ws}/library/{itemId}`): a file's fullscreen preview or a document's editor as the centerpiece,
+ * under the title row. A file's toolbar: Download, Copy link, Delete, Close and More; a document's title is
+ * edited in place and its More holds Download instead of Rename. A file's details sit beside its preview on wide screens;
+ * a document keeps the sidecar, closed by default: Folder, Created by, Created, Size, Type. An unknown id is not found; a
  * folder's id opens the folder; an item deleted while open goes back to the Library.
  */
 
 import * as React from 'react'
-import { Calendar, Download, Folder, HardDrive, Shapes } from 'lucide-react'
+import { Calendar, Folder, HardDrive, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
@@ -17,7 +17,6 @@ import { toast } from '@workspace/ui/components/sonner'
 import { Spinner } from '@workspace/ui/components/spinner'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { ActorAvatar } from '@/components/people/actor-avatar'
-import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { SidecarDetails } from '@/context/sidecar-context'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useLibrary } from '@/hooks/use-library'
@@ -28,7 +27,7 @@ import type { LibraryItem } from '../../../shared/types'
 import { DocumentEditor } from './document-editor'
 import { FilePreview } from './file-preview'
 import { libraryErrorMessage, useLibraryItemDialogs } from './item-dialogs'
-import { contentToText, downloadLibraryItem, formatSize, getDisplayTitle, getExtension, getFolderPath } from './library-items'
+import { contentToText, downloadLibraryItem, formatSize, getExtension, getFolderPath } from './library-items'
 
 /** The item's facts, live from the library (the sidecar keeps showing them while the item changes). */
 function LibraryDetails({ itemId }: { itemId: string }) {
@@ -100,10 +99,24 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
   const download = useDownload()
   const item = items.find((entry) => entry.id === itemId)
   useComposerContext({ key: `library:${itemId}`, entity: `library:${itemId}`, placeholder: t(item?.type === 'document' ? 'composer.placeholder.document' : 'composer.placeholder.file') })
-  const seen = React.useRef(false)
-  if (item) seen.current = true
+  const seen = React.useRef<LibraryItem['type'] | null>(null)
+  if (item) seen.current = item.type
 
   const backToLibrary = () => (parent ? parent.onBack() : navigate(routes.view.library()))
+  const closeFile = () => {
+    backToLibrary()
+    requestAnimationFrame(() => {
+      const tile = document.querySelector<HTMLElement>(`[data-library-item-id="${CSS.escape(itemId)}"]`)
+      const body = document.querySelector<HTMLElement>('[data-slot="page-body"]')
+      const target = tile ?? body?.querySelector<HTMLElement>('button:not(:disabled):not([aria-disabled="true"])') ?? body
+      if (!target) return
+      if (target === body && !target.hasAttribute('tabindex')) {
+        target.tabIndex = -1
+        target.addEventListener('blur', () => target.removeAttribute('tabindex'), { once: true })
+      }
+      target.focus()
+    })
+  }
   // Deleting the open item drops it from the list; the effect below then goes back to the Library.
   const dialogs = useLibraryItemDialogs()
 
@@ -117,6 +130,7 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
       (found) => {
         if (!live) return
         if (found) void refresh()
+        else if (seen.current === 'file') closeFile()
         else if (seen.current) backToLibrary()
         else showNotFound()
       },
@@ -151,17 +165,15 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
   }
 
   return (
-    <PageColumn fill>
-      <PageHeader
-        title={getDisplayTitle(item)}
-        actions={<HeaderIconButton icon={<Download />} tooltip={t('library.download')} onClick={() => download(item)} />}
-        menu={menu}
-      />
-      <PageCenterpiece>
-        <FilePreview item={item} onDownload={() => download(item)} />
-      </PageCenterpiece>
-      {details}
-      {dialogs.dialogs}
-    </PageColumn>
+    <FilePreview
+      item={item}
+      onDownload={() => download(item)}
+      onCopyLink={() => { void dialogs.copyLink(item).catch(() => toast.error(libraryErrorMessage(t, 'unknown'))) }}
+      onDelete={() => dialogs.remove(item)}
+      onClose={closeFile}
+      details={<LibraryDetails itemId={item.id} />}
+      dialogs={dialogs.dialogs}
+      menu={menu}
+    />
   )
 }

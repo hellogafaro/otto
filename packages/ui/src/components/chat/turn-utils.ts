@@ -118,6 +118,8 @@ export function getAssistantTurnUiKey(turn: AssistantTurn, index: number): strin
  * "disappear" after a tool completed.
  */
 export type TurnPhase =
+  | 'approval'
+  | 'answer'
   | 'pending'      // Turn created, waiting for first activity
   | 'tool_active'  // At least one tool is currently running
   | 'awaiting'     // All tools done, waiting for next action (THE GAP!)
@@ -146,6 +148,10 @@ export function deriveTurnPhase(turn: AssistantTurn): TurnPhase {
   if (turn.isComplete) {
     return 'complete'
   }
+
+  const pendingAction = turn.activities.find(a => a.nativeAction?.status === 'pending' || a.nativeAction?.status === 'resolving')?.nativeAction
+  if (pendingAction?.kind === 'approval') return 'approval'
+  if (pendingAction?.kind === 'question') return 'answer'
 
   // Check if final response is streaming
   // Note: turn.response only exists for final responses, not intermediate text
@@ -196,9 +202,13 @@ export function shouldShowThinkingIndicator(phase: TurnPhase, isBuffering: boole
 
 /** Convert tool status from message to ActivityStatus */
 function getToolStatus(message: Message): ActivityStatus {
-  // response_too_large is success (data was saved, just too large for inline display)
   if (message.errorCode === 'response_too_large') return 'completed'
-  if (message.isError) return 'error'
+  if (message.isError || message.toolStatus === 'error') return 'error'
+  if (message.nativeAction) {
+    if (message.nativeAction.status === 'pending' || message.nativeAction.status === 'resolving') return 'pending'
+    return message.nativeAction.status === 'approved' ? 'completed' : 'error'
+  }
+  // response_too_large is success (data was saved, just too large for inline display)
   // Check explicit toolStatus first (set by tool_result handler)
   if (message.toolStatus === 'completed') return 'completed'
   // Fallback: check if toolResult exists (handles empty string results)
@@ -222,13 +232,14 @@ function messageToActivity(message: Message, existingActivities: ActivityItem[] 
     status: getToolStatus(message),
     toolName: message.toolName,
     toolUseId: message.toolUseId,  // For parent-child matching
-    toolInput: message.toolInput,
-    content: message.toolResult || message.content,
-    intent: message.toolIntent,
-    displayName: message.toolDisplayName,  // LLM-generated human-friendly name
+    nativeAction: message.nativeAction,
+    toolInput: message.nativeAction ? undefined : message.toolInput,
+    content: message.nativeAction ? message.nativeAction.summary : message.toolResult || message.content,
+    intent: message.nativeAction ? message.nativeAction.title : message.toolIntent,
+    displayName: message.nativeAction ? message.nativeAction.title : message.toolDisplayName,  // LLM-generated human-friendly name
     toolDisplayMeta: message.toolDisplayMeta,  // Embedded metadata with base64 icon for viewer
     timestamp: message.timestamp,
-    error: message.isError ? stripErrorTags(message.toolResult || message.content) : undefined,
+    error: !message.nativeAction && message.isError ? stripErrorTags(message.toolResult || message.content) : undefined,
     // parentId: The toolUseId of the parent tool (e.g., Task subagent).
     // This is tracked by session manager's parentToolStack, NOT the SDK's
     // parent_tool_use_id which is for result-matching, not hierarchy.
@@ -561,7 +572,7 @@ export function groupMessagesByTurn(messages: Message[], options: GroupTurnsOpti
           turnId: message.turnId || message.id,
           activities: [],
           response: undefined,
-          intent: message.toolIntent,
+          intent: message.nativeAction ? message.nativeAction.title : message.toolIntent,
           isStreaming: !isToolComplete,
           isComplete: false,
           timestamp: message.timestamp,
@@ -704,209 +715,6 @@ export function hasPendingActivities(turn: AssistantTurn): boolean {
  */
 export function hasErrorActivities(turn: AssistantTurn): boolean {
   return turn.activities.some(a => a.status === 'error')
-}
-
-/**
- * Get a summary of completed activities
- */
-export function getActivitySummary(turn: AssistantTurn): string {
-  const completed = turn.activities.filter(a => a.status === 'completed').length
-  const running = turn.activities.filter(a => a.status === 'running').length
-  const errors = turn.activities.filter(a => a.status === 'error').length
-
-  const parts: string[] = []
-  if (running > 0) parts.push(`${running} running`)
-  if (completed > 0) parts.push(`${completed} completed`)
-  if (errors > 0) parts.push(`${errors} failed`)
-
-  return parts.join(', ') || 'No activities'
-}
-
-/**
- * Format an AssistantTurn as markdown for detailed viewing in Monaco
- * Shows full tool inputs, results, and response
- */
-export function formatTurnAsMarkdown(turn: AssistantTurn): string {
-  const lines: string[] = []
-
-  // Header with intent if available
-  if (turn.intent) {
-    lines.push(`# ${turn.intent}`)
-  } else {
-    lines.push('# Turn Details')
-  }
-  lines.push('')
-
-  // Summary
-  const summary = getActivitySummary(turn)
-  lines.push(`**Status:** ${turn.isComplete ? 'Complete' : 'In Progress'} · ${summary}`)
-  lines.push('')
-
-  // Activities section
-  if (turn.activities.length > 0) {
-    lines.push('---')
-    lines.push('')
-    lines.push('## Activities')
-    lines.push('')
-
-    for (const activity of turn.activities) {
-      if (activity.type === 'intermediate') {
-        // Intermediate text (thinking/commentary)
-        lines.push(`### 💭 Commentary`)
-        lines.push('')
-        if (activity.content) {
-          lines.push(activity.content)
-        }
-        lines.push('')
-      } else if (activity.toolName) {
-        // Tool call
-        const statusEmoji = activity.status === 'completed' ? '✅' :
-                           activity.status === 'error' ? '❌' :
-                           activity.status === 'running' ? '⏳' : '⏸️'
-
-        lines.push(`### ${statusEmoji} ${activity.toolName}`)
-        lines.push('')
-
-        // Intent if available
-        if (activity.intent) {
-          lines.push(`> ${activity.intent}`)
-          lines.push('')
-        }
-
-        // Input
-        if (activity.toolInput && Object.keys(activity.toolInput).length > 0) {
-          lines.push('**Input:**')
-          lines.push('```json')
-          lines.push(JSON.stringify(activity.toolInput, null, 2))
-          lines.push('```')
-          lines.push('')
-        }
-
-        // Result/Output
-        if (activity.content) {
-          lines.push('**Result:**')
-          // Check if result looks like JSON
-          const trimmed = activity.content.trim()
-          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-            try {
-              const parsed = JSON.parse(trimmed)
-              lines.push('```json')
-              lines.push(JSON.stringify(parsed, null, 2))
-              lines.push('```')
-            } catch {
-              // Not valid JSON, show as text
-              lines.push('```')
-              lines.push(activity.content)
-              lines.push('```')
-            }
-          } else {
-            lines.push('```')
-            lines.push(activity.content)
-            lines.push('```')
-          }
-          lines.push('')
-        }
-
-        // Error if present
-        if (activity.error) {
-          lines.push('**Error:**')
-          lines.push('```')
-          lines.push(activity.error)
-          lines.push('```')
-          lines.push('')
-        }
-      }
-    }
-  }
-
-  // Response section
-  if (turn.response?.text) {
-    lines.push('---')
-    lines.push('')
-    lines.push('## Response')
-    lines.push('')
-    lines.push(turn.response.text)
-  }
-
-  return lines.join('\n')
-}
-
-/**
- * Format a single ActivityItem as markdown for detailed viewing in Monaco
- */
-export function formatActivityAsMarkdown(activity: ActivityItem): string {
-  const lines: string[] = []
-
-  if (activity.type === 'intermediate') {
-    // Commentary/thinking
-    lines.push('# Commentary')
-    lines.push('')
-    if (activity.content) {
-      lines.push(activity.content)
-    }
-    return lines.join('\n')
-  }
-
-  // Tool activity
-  const statusEmoji = activity.status === 'completed' ? '✅' :
-                     activity.status === 'error' ? '❌' :
-                     activity.status === 'running' ? '⏳' : '⏸️'
-
-  lines.push(`# ${statusEmoji} ${activity.toolName || 'Tool'}`)
-  lines.push('')
-
-  // Intent if available
-  if (activity.intent) {
-    lines.push(`> ${activity.intent}`)
-    lines.push('')
-  }
-
-  // Input
-  if (activity.toolInput && Object.keys(activity.toolInput).length > 0) {
-    lines.push('## Input')
-    lines.push('')
-    lines.push('```json')
-    lines.push(JSON.stringify(activity.toolInput, null, 2))
-    lines.push('```')
-    lines.push('')
-  }
-
-  // Result/Output
-  if (activity.content) {
-    lines.push('## Result')
-    lines.push('')
-    // Check if result looks like JSON
-    const trimmed = activity.content.trim()
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        const parsed = JSON.parse(trimmed)
-        lines.push('```json')
-        lines.push(JSON.stringify(parsed, null, 2))
-        lines.push('```')
-      } catch {
-        // Not valid JSON, show as text
-        lines.push('```')
-        lines.push(activity.content)
-        lines.push('```')
-      }
-    } else {
-      lines.push('```')
-      lines.push(activity.content)
-      lines.push('```')
-    }
-    lines.push('')
-  }
-
-  // Error if present
-  if (activity.error) {
-    lines.push('## Error')
-    lines.push('')
-    lines.push('```')
-    lines.push(activity.error)
-    lines.push('```')
-  }
-
-  return lines.join('\n')
 }
 
 // ============================================================================

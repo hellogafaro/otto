@@ -18,6 +18,7 @@ export type Agent = {
   instructions: string
   provider: string
   model: string | null
+  llmConnectionId?: string | null
   thinkingLevel: ThinkingLevel
   skills: string[]
   sources: string[]
@@ -34,6 +35,7 @@ export type AgentInput = {
   instructions?: string
   provider: string
   model?: string | null
+  llmConnectionId?: string | null
   thinkingLevel?: ThinkingLevel
   skills?: string[]
   sources?: string[]
@@ -48,6 +50,7 @@ export type AgentUpdate = Partial<Omit<AgentInput, 'workspaceId' | 'createdBy'>>
 /** What a turn takes from an agent (see `getAgentRunConfig`). `instructions` is assembled, never a file. */
 export type AgentRunConfig = {
   agent: { id: string; title: string }
+  llmConnectionId?: string | null
   /** `workspaceInstructions` + the agent's own, assembled with no rules, tools, sources or run mode; the harness assembles the full text itself from the two raw parts. */
   instructions: string
   workspaceInstructions: string

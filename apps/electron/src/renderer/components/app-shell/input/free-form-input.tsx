@@ -1,16 +1,11 @@
 /**
  * FreeFormInput - the ONE composer: the chat input (Craft's, kept: rich text with `@` mention badges, `/` commands,
- * files, Send and Stop, Arrow Up to stop and recall, the chat's events) refactored to v1's look, with the compact
- * floating bar as one of its MODES. `ShellComposer` hosts the single instance in the page frame's composer slot,
- * mounted once, so opening a chat, the new chat or Home grows the SAME instance into the full composer (and
- * leaving shrinks it) with the text and files kept. It reads the page's context (`useComposerContext`), keeps a
- * browser draft per context, runs the compact bar's state machine (`composerReducer`), takes files (+, drop, paste:
+ * files, Send and Stop, Arrow Up to stop and recall, the chat's events). `ShellComposer` hosts the single instance
+ * in the page frame's bottom composer slot, mounted once with the text and files kept across navigation.
+ * It reads the page's context (`useComposerContext`), keeps a browser draft per context, takes files (+, drop, paste:
  * the attachment rail), dictates (`useDictation`, `transcription:create`), and sends: the page's own `onSend` (the
- * chat), else the default, a new chat whose first line is the page's entity token, opened at once. While
- * something needs you (`useAttention`) and nothing is written, the bar has the Notifications button; it opens the
- * Notifications list above the text in the same surface (Escape, the button again or a click outside closes it). Its one shortcut, the focus key (`Kbd`), shows only while ⌘/Ctrl or Option/Alt is held
- * (`useModifierHeld`), in the Notifications button's place. The chat draws an instance of its own, not hosted, when the shell has
- * no composer. See docs/composer.md.
+ * chat), else the default, a new chat whose first line is the page's entity token, opened at once.
+ * The chat draws an instance of its own, not hosted, when the shell has no composer. See docs/composer.md.
  */
 
 import * as React from 'react'
@@ -21,10 +16,10 @@ import { Composer, ComposerInput, ComposerMainButton } from '@workspace/ui/compo
 import { Kbd } from '@workspace/ui/components/kbd'
 import { toast } from '@workspace/ui/components/sonner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
-import { useAction, useHotkeyLabel } from '@/actions'
+import { useAction } from '@/actions'
 import { useAppShellContext } from '@/context/app-shell-context'
-import { getNewChatAgentId } from '@/lib/new-chat-agent'
-import { EntityChip } from '@/components/entities/entity-chip'
+import { useLoadedAgents } from '@/hooks/use-agents'
+import { ComposerFooter, type ComposerFooterProps } from '@/components/composer/composer-footer'
 import { RichTextInput, type RichTextInputHandle } from '@/components/ui/rich-text-input'
 import { shouldHandleScopedInputEvent, shouldRecallPromptOnArrowUp } from './input-event-guards'
 import { clearPendingFocusForSession, consumePendingFocusForSession } from './focus-input-events'
@@ -37,13 +32,10 @@ import { applySmartTypography } from '@/lib/smart-typography'
 import { AttachmentRail } from '@/components/composer/attachment-rail'
 import { useComposerCommands } from '@/components/composer/composer-commands'
 import type { ComposerHandle } from '@/components/composer/composer-provider'
-import { attentionSlot, buildFirstMessage, composerReducer, mainAction, resolveShellSurface, sendKeyAction, type ComposerContext, type SendKey } from '@/components/composer/composer-state'
-import { NotificationsButton, NotificationsList } from '@/components/composer/notifications-button'
-import { useAttention } from '@/components/composer/use-attention'
+import { buildFirstMessage, composerAgent, mainAction, sendKeyAction, type ComposerContext, type SendKey } from '@/components/composer/composer-state'
 import { useComposerDraft } from '@/components/composer/use-composer-draft'
 import { useComposerFiles } from '@/components/composer/use-composer-files'
 import { useDictation } from '@/components/composer/use-dictation'
-import { useModifierHeld } from '@/components/composer/use-modifier-held'
 import { Dictation, Transcribing } from '@/components/composer/waveform'
 
 export function FreeFormInput({ context, handleRef }: {
@@ -53,30 +45,23 @@ export function FreeFormInput({ context, handleRef }: {
 }) {
   const { t } = useTranslation()
   const hosted = !!handleRef
-  const { activeWorkspaceId, onCreateSession, onSendMessage, onSessionSourcesChange } = useAppShellContext()
-  const [view, dispatch] = React.useReducer(composerReducer, 'idle')
+  const { activeWorkspaceId, onCreateSession, onInitLinkedPageSession, onSendMessage, onSessionSourcesChange } = useAppShellContext()
   const [text, setText] = useComposerDraft(activeWorkspaceId, context?.key ?? 'none')
   const files = useComposerFiles()
   const [sending, setSending] = React.useState(false)
+  const sendingRef = React.useRef(false)
+  const agents = useLoadedAgents()
+  const [recipient, setRecipient] = React.useState<{ workspaceId: typeof activeWorkspaceId; agentId: string | null }>({ workspaceId: activeWorkspaceId, agentId: null })
+  if (recipient.workspaceId !== activeWorkspaceId) setRecipient({ workspaceId: activeWorkspaceId, agentId: null })
+  const pageAgent = composerAgent(agents, recipient.workspaceId === activeWorkspaceId ? recipient.agentId : null)
   const [dragging, setDragging] = React.useState(false)
   const inputRef = React.useRef<RichTextInputHandle>(null)
   const pickerRef = React.useRef<HTMLInputElement>(null)
-  const held = useModifierHeld()
-  const attention = useAttention()
-  const [listOpen, setListOpen] = React.useState(false)
-  const formRef = React.useRef<HTMLFormElement>(null)
-  const surface = resolveShellSurface(context, view)
-  const full = surface === 'full'
   const sessionId = context?.sessionId
   const textRef = React.useRef(text)
   textRef.current = text
-
-  // A new page starts collapsed (its draft comes with it).
-  const contextKey = context?.key
-  React.useEffect(() => {
-    dispatch({ type: 'collapse' })
-    setListOpen(false)
-  }, [contextKey])
+  const draftRef = React.useRef({ workspaceId: activeWorkspaceId, key: context?.key, text, items: files.items })
+  draftRef.current = { workspaceId: activeWorkspaceId, key: context?.key, text, items: files.items }
 
   // The chat input's settings: the send key, auto-capitalisation and spell check.
   const [settings, setSettings] = React.useState<{ sendKey: SendKey; capitalise: boolean; spellCheck: boolean }>({ sendKey: 'enter', capitalise: true, spellCheck: false })
@@ -98,7 +83,7 @@ export function FreeFormInput({ context, handleRef }: {
   }, [])
 
   const addFiles = (list: FileList | File[]) => {
-    if (files.add(list) > 0 && !full) dispatch({ type: 'files' })
+    files.add(list)
   }
 
   // Dictated text lands at the caret, with a space before it when it follows a word.
@@ -115,25 +100,13 @@ export function FreeFormInput({ context, handleRef }: {
 
   const commands = useComposerCommands({ inputRef, context, setText, onAddFiles: () => pickerRef.current?.click() })
 
-  // The compact bar is one line: text that overflows it or a line break opens it up (in place, bottom edge pinned).
-  React.useLayoutEffect(() => {
-    const editor = inputRef.current?.element
-    if (view !== 'focused' || !editor) return
-    if (text.includes('\n') || editor.scrollWidth > editor.clientWidth + 1) dispatch({ type: 'wrap' })
-  }, [text, view])
-
   React.useImperativeHandle(handleRef ?? undefined, () => ({
     prefill: (value) => {
-      setText(value)
-      if (value.includes('\n')) dispatch({ type: 'expand' })
-      focusAt(value.length)
+      const next = appendRestoredInput(textRef.current, value)
+      setText(next)
+      focusAt(next.length)
     },
     focus: () => focusAt(),
-    expand: () => {
-      dispatch({ type: 'expand' })
-      focusAt()
-    },
-    collapse: () => dispatch({ type: 'collapse' }),
     take: () => {
       const value = textRef.current.trim()
       setText('')
@@ -142,37 +115,20 @@ export function FreeFormInput({ context, handleRef }: {
   }), [setText, focusAt])
 
   useAction('composer.focus', () => focusAt(), { enabled: () => hosted && inputRef.current !== null })
-  const focusKey = useHotkeyLabel('composer.focus')
-
-  // The Notifications list: over the bar (compact or expanded) while something needs you, never in full mode or
-  // while dictating.
-  const listShown = listOpen && attention.count > 0 && !full && !listening && !!context
-  React.useEffect(() => {
-    if (!listShown) return
-    const close = () => setListOpen(false)
-    const onPointer = (event: PointerEvent) => {
-      if (!formRef.current?.contains(event.target as Node)) close()
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.isComposing || hasOpenOverlay()) return
-      // Escape closes the list first, before anything else takes it.
-      event.preventDefault()
-      event.stopPropagation()
-      close()
-    }
-    document.addEventListener('pointerdown', onPointer)
-    window.addEventListener('keydown', onKey, true)
-    return () => {
-      document.removeEventListener('pointerdown', onPointer)
-      window.removeEventListener('keydown', onKey, true)
-    }
-  }, [listShown])
 
   const hasContent = text.trim() !== '' || files.items.length > 0 || !!context?.canSendEmpty
-  const canSend = hasContent && files.ready && !sending && !context?.disabled && !listening && !dictation.transcribing
+  const canSend = hasContent && files.ready && !sending && !context?.disabled && !listening && !dictation.transcribing && (!!context?.onSend || !!pageAgent)
 
   const send = async () => {
-    if (!context || !canSend) return
+    if (!context || !canSend || sendingRef.current) return
+    sendingRef.current = true
+    const draft = draftRef.current
+    const stillOwnsDraft = () => draftRef.current.workspaceId === draft.workspaceId && draftRef.current.key === draft.key
+    const clearSentDraft = () => {
+      if (!stillOwnsDraft()) return
+      if (draftRef.current.text === draft.text) setText('')
+      if (draftRef.current.items === draft.items) files.clear()
+    }
     const message = text.trim()
     const mentions = parseMentions(message, commands.skills.map((skill) => skill.slug), commands.sources.map((source) => source.config.slug))
     const attachments = files.attachments
@@ -180,28 +136,33 @@ export function FreeFormInput({ context, handleRef }: {
     try {
       if (context.onSend) {
         await context.onSend({ text: message, attachments, skillSlugs: mentions.skills, sourceSlugs: mentions.sources })
-        setText('')
-        files.clear()
+        clearSentDraft()
       } else {
         // The default: a new chat about this page, opened at once, its first message led by the page's token.
         if (!activeWorkspaceId) throw new Error('No workspace')
-        const session = await onCreateSession(activeWorkspaceId, { agentId: getNewChatAgentId(activeWorkspaceId) })
-        setText('')
-        files.clear()
+        if (!pageAgent) throw new Error('No recipient agent')
+        const features = context.entity ? await window.electronAPI.getNativeFeatures() : undefined
+        const session = context.entity && features?.linkedPageContext
+          ? await onInitLinkedPageSession(activeWorkspaceId, context.entity)
+          : await onCreateSession(activeWorkspaceId, { agentId: pageAgent.id })
         if (mentions.sources.length > 0) onSessionSourcesChange?.(session.id, mentions.sources)
-        navigate(routes.view.allSessions(session.id))
-        onSendMessage(
+        const accepted = await onSendMessage(
           session.id,
           buildFirstMessage(context.entity, message),
           attachments.length > 0 ? attachments : undefined,
           mentions.skills.length > 0 ? mentions.skills : undefined,
+          undefined,
+          { recipientAgentId: pageAgent.id },
         )
+        if (!accepted) throw new Error('Message was not accepted.')
+        clearSentDraft()
+        if (stillOwnsDraft()) navigate(routes.view.allSessions(session.id))
       }
-      dispatch({ type: 'collapse' })
     } catch (error) {
       console.error('[FreeFormInput] send failed:', error)
       toast.error(t('composer.error.startChat'))
     } finally {
+      sendingRef.current = false
       setSending(false)
     }
   }
@@ -223,7 +184,11 @@ export function FreeFormInput({ context, handleRef }: {
     }
     const onRestore = (event: Event) => {
       const restored = (event as CustomEvent<{ text?: string }>).detail?.text
-      if (scoped(event) && restored) setText(appendRestoredInput(textRef.current, restored))
+      if (scoped(event) && restored) {
+        const next = appendRestoredInput(textRef.current, restored)
+        setText(next)
+        focusAt(next.length)
+      }
     }
     const onSubmit = (event: Event) => {
       if (scoped(event)) void sendRef.current()
@@ -256,16 +221,29 @@ export function FreeFormInput({ context, handleRef }: {
     return () => window.removeEventListener('keydown', onKey)
   }, [dictating, listening, dictation])
 
-  if (!context || surface === 'none') return null
+  if (!context) return null
 
   const placeholder = context.placeholder ?? t('composer.placeholder.page')
+  const footerProps: ComposerFooterProps = context.footer ?? {
+    picker: context.onSend ? null : {
+      agents,
+      agent: pageAgent,
+      disabled: agents.length === 0,
+      onChange: (agent) => setRecipient({ workspaceId: activeWorkspaceId, agentId: agent.id }),
+    },
+    participants: null,
+  }
+  const footer = <ComposerFooter {...footerProps} disabled={dictating || sending || !!context.disabled || footerProps.disabled} />
 
   // A pending request (a permission, a credential) takes the full composer's place until it is answered.
-  if (full && context.structured) {
+  if (context.structured) {
     return (
-      <Composer variant="full" aria-label={placeholder} onSubmit={(event) => event.preventDefault()}>
-        {context.structured}
-      </Composer>
+      <div data-slot="composer-dock" className="flex w-full min-w-0 flex-col">
+        <Composer aria-label={placeholder} onSubmit={(event) => event.preventDefault()}>
+          {context.structured}
+        </Composer>
+        {footer}
+      </div>
     )
   }
 
@@ -357,129 +335,112 @@ export function FreeFormInput({ context, handleRef }: {
     </>
   )
   const rail = (
-    <AttachmentRail files={files.items} full={full} onRemove={sending ? undefined : files.remove} onRetry={files.retry} />
+    <AttachmentRail files={files.items} onRemove={sending ? undefined : files.remove} onRetry={files.retry} />
   )
-  const chips = full ? (
+  const chips = (
     <>
       {context.chips}
       {files.items.some((file) => file.type.startsWith('image/')) && context.imageNotice}
     </>
-  ) : null
-  const empty = text.trim() === '' && files.items.length === 0
+  )
 
   return (
     <>
       {commands.menus}
-      <Composer
-        ref={formRef}
-        variant={surface}
-        dragging={dragging}
-        aria-label={placeholder}
-        onSubmit={(event) => {
-          event.preventDefault()
-          void send()
-        }}
-        onBlur={(event) => {
-          // Focus moving inside the composer (to + or Send) is not leaving it.
-          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
-          // Pressing Done unmounts the focused button: that is not leaving, and the row must not change size.
-          if (dictating) return
-          dispatch({ type: 'blur', empty })
-        }}
-        onDragOver={(event) => {
-          if (!event.dataTransfer.types.includes('Files')) return
-          event.preventDefault()
-          setDragging(true)
-        }}
-        onDragLeave={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false)
-        }}
-        onDrop={(event) => {
-          setDragging(false)
-          if (!event.dataTransfer.files.length) return
-          event.preventDefault()
-          addFiles(event.dataTransfer.files)
-        }}
-        attachments={chips || files.items.length > 0 ? <>{chips}{rail}</> : null}
-        leading={dictating ? cancel : plus}
-        context={context.entity && !dictating ? <EntityChip entity={context.entity} className="mx-1" /> : null}
-        tools={listening ? <Dictation /> : dictation.transcribing ? <Transcribing /> : surface === 'compact' ? null : context.tools}
-        attention={{
-          key: focusKey ? <span className="flex h-8 min-w-8 items-center justify-center"><Kbd>{focusKey}</Kbd></span> : null,
-          notifications: <NotificationsButton count={attention.count} open={listShown} onToggle={() => setListOpen((open) => !open)} />,
-          none: null,
-        }[attentionSlot({ held, listening: dictating, empty, count: attention.count }) ?? 'none']}
-        panel={listShown ? <NotificationsList attention={attention} onPick={() => setListOpen(false)} /> : null}
-        main={main}
-      >
-        <ComposerInput>
-          <RichTextInput
-            ref={inputRef}
-            value={text}
-            placeholder={placeholder}
-            aria-label={placeholder}
-            spellCheck={settings.spellCheck}
-            skills={commands.skills}
-            sources={commands.sources}
-            workspaceId={commands.workspaceSlug}
-            entityLabel={commands.entityLabel}
-            onChange={setText}
-            onInput={(value, cursor) => {
-              commands.onInput(value, cursor)
-              // Capitalise the first letter (not a command, mention or tag) and type arrows and dashes.
-              if (settings.capitalise && value && !'/@#'.includes(value[0]!) && !startsWithEntityMention(value) && value[0] !== value[0]!.toUpperCase()) {
-                inputRef.current?.setSelectionRange(cursor, cursor)
-                setText(value[0]!.toUpperCase() + value.slice(1))
-                return
-              }
-              const typed = applySmartTypography(value, cursor)
-              if (typed.replaced) {
-                inputRef.current?.setSelectionRange(typed.cursor, typed.cursor)
-                setText(typed.text)
-              }
-            }}
-            onFocus={() => dispatch({ type: 'focus' })}
-            onPaste={(event) => {
-              if (event.clipboardData?.files.length) addFiles(event.clipboardData.files)
-            }}
-            onLongTextPaste={(pasted) => {
-              files.addText(pasted)
-              if (!full) dispatch({ type: 'files' })
-            }}
-            onKeyDown={(event) => {
-              if (commands.takesKey(event)) return
-              const { key, shiftKey, metaKey, ctrlKey, altKey } = event
-              const isComposing = event.nativeEvent.isComposing
-              if (key === 'Escape') {
-                if (isComposing || hasOpenOverlay()) return
-                dispatch({ type: 'escape' })
-                inputRef.current?.blur()
-                return
-              }
-              // Arrow Up on an empty draft while the chat runs stops it and brings its prompt back.
-              if (shouldRecallPromptOnArrowUp({
-                key, shiftKey, metaKey, ctrlKey, altKey, isComposing,
-                isProcessing: !!context.busy,
-                input: text,
-                attachmentCount: files.items.length,
-                loadingAttachmentCount: 0,
-                followUpItemCount: context.canSendEmpty ? 1 : 0,
-                inlineMenuOpen: commands.menuOpen,
-                disabled: !context.onStop,
-                disableSend: !!context.disabled,
-              })) {
-                event.preventDefault()
-                context.onStop?.()
-                return
-              }
-              if (sendKeyAction({ key, shiftKey, metaKey, ctrlKey, isComposing }, settings.sendKey) === 'send') {
-                event.preventDefault()
-                void send()
-              }
-            }}
-          />
-        </ComposerInput>
-      </Composer>
+      <div data-slot="composer-dock" className="flex w-full min-w-0 flex-col">
+        <Composer
+          dragging={dragging}
+          aria-label={placeholder}
+          onSubmit={(event) => {
+            event.preventDefault()
+            void send()
+          }}
+          onDragOver={(event) => {
+            if (!event.dataTransfer.types.includes('Files')) return
+            event.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false)
+          }}
+          onDrop={(event) => {
+            setDragging(false)
+            if (!event.dataTransfer.files.length) return
+            event.preventDefault()
+            addFiles(event.dataTransfer.files)
+          }}
+          attachments={chips || files.items.length > 0 ? <>{chips}{rail}</> : null}
+          leading={dictating ? cancel : plus}
+          tools={listening ? <Dictation /> : dictation.transcribing ? <Transcribing /> : context.tools}
+          main={main}
+        >
+          <ComposerInput>
+            <RichTextInput
+              ref={inputRef}
+              value={text}
+              placeholder={placeholder}
+              aria-label={placeholder}
+              spellCheck={settings.spellCheck}
+              skills={commands.skills}
+              sources={commands.sources}
+              workspaceId={commands.workspaceSlug}
+              entityLabel={commands.entityLabel}
+              onChange={setText}
+              onInput={(value, cursor) => {
+                commands.onInput(value, cursor)
+                // Capitalise the first letter (not a command, mention or tag) and type arrows and dashes.
+                if (settings.capitalise && value && !'/@#'.includes(value[0]!) && !startsWithEntityMention(value) && value[0] !== value[0]!.toUpperCase()) {
+                  inputRef.current?.setSelectionRange(cursor, cursor)
+                  setText(value[0]!.toUpperCase() + value.slice(1))
+                  return
+                }
+                const typed = applySmartTypography(value, cursor)
+                if (typed.replaced) {
+                  inputRef.current?.setSelectionRange(typed.cursor, typed.cursor)
+                  setText(typed.text)
+                }
+              }}
+              onPaste={(event) => {
+                if (event.clipboardData?.files.length) addFiles(event.clipboardData.files)
+              }}
+              onLongTextPaste={(pasted) => {
+                files.addText(pasted)
+              }}
+              onKeyDown={(event) => {
+                if (commands.takesKey(event)) return
+                const { key, shiftKey, metaKey, ctrlKey, altKey } = event
+                const isComposing = event.nativeEvent.isComposing
+                if (key === 'Escape') {
+                  if (isComposing || hasOpenOverlay()) return
+                  inputRef.current?.blur()
+                  return
+                }
+                // Arrow Up on an empty draft while the chat runs stops it and brings its prompt back.
+                if (shouldRecallPromptOnArrowUp({
+                  key, shiftKey, metaKey, ctrlKey, altKey, isComposing,
+                  isProcessing: !!context.busy,
+                  input: text,
+                  attachmentCount: files.items.length,
+                  loadingAttachmentCount: 0,
+                  followUpItemCount: context.canSendEmpty ? 1 : 0,
+                  inlineMenuOpen: commands.menuOpen,
+                  disabled: !context.onStop,
+                  disableSend: !!context.disabled,
+                })) {
+                  event.preventDefault()
+                  context.onStop?.()
+                  return
+                }
+                if (sendKeyAction({ key, shiftKey, metaKey, ctrlKey, isComposing }, settings.sendKey) === 'send') {
+                  event.preventDefault()
+                  void send()
+                }
+              }}
+            />
+          </ComposerInput>
+        </Composer>
+        {footer}
+      </div>
     </>
   )
 }

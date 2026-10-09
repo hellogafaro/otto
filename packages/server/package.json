@@ -25,7 +25,6 @@
   },
   "dependencies": {
     "@otto/core": "workspace:*",
-    "@otto/messaging-gateway": "workspace:*",
     "@otto/server-core": "workspace:*",
     "@otto/shared": "workspace:*"
   },

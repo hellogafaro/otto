@@ -1,13 +1,13 @@
 /**
- * The shell's sidecar (an item's details, floating right of the page frame's column; a card only when it
- * overlays): one slot, closed by default. A page that has details renders them anywhere in its tree:
+ * The shell's right details pane: one slot, open by default only while a page registers its details.
+ * An explicit close stays in the URL across navigation and reload. A page renders its details anywhere in its tree:
  *
  * ```tsx
  * <SidecarDetails title={t('tasks.details')}><TaskDetails taskId={task.id} /></SidecarDetails>
  * ```
  *
- * which draws the floating toggle (`SidecarToggle`, in the frame's trailing slot; never in the title row) and
- * portals the details into the sidecar, mounted from the first open. It closes when the page goes away, so it
+ * which draws the opener only while closed and portals the details into the sidecar, mounted from the first open.
+ * The pane disappears when the page goes away, so it
  * never shows another page's details.
  */
 
@@ -16,10 +16,13 @@ import { createPortal } from 'react-dom'
 import { usePageFrame } from '@workspace/ui/components/page-frame'
 import { Sidecar, SidecarToggle } from '@workspace/ui/components/sidecar'
 import { useTranslation } from 'react-i18next'
+import { useNavigate, useRouterState } from '@tanstack/react-router'
 
 interface SidecarContextValue {
+  readonly closed: boolean
   open: boolean
   setOpen: (open: boolean) => void
+  setAvailable: (available: boolean) => void
   title: string
   setTitle: (title: string) => void
   /** The sidecar's body, where `SidecarDetails` portals its content. */
@@ -30,10 +33,17 @@ interface SidecarContextValue {
 const SidecarContext = React.createContext<SidecarContextValue | null>(null)
 
 export function SidecarProvider({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = React.useState(false)
+  const [available, setAvailable] = React.useState(false)
+  const closed = useRouterState({ select: (state) => state.location.search.details === 'closed' })
+  const navigate = useNavigate()
+  const open = available && !closed
+  const setOpen = React.useCallback((next: boolean) => {
+    if (next === !closed) return
+    void navigate({ to: '.', search: (previous) => ({ ...previous, details: next ? undefined : 'closed' as const }), replace: true, resetScroll: false })
+  }, [closed, navigate])
   const [title, setTitle] = React.useState('')
   const [body, setBody] = React.useState<HTMLElement | null>(null)
-  const value = React.useMemo(() => ({ open, setOpen, title, setTitle, body, setBody }), [open, title, body])
+  const value = React.useMemo(() => ({ closed, open, setOpen, setAvailable, title, setTitle, body, setBody }), [closed, open, setOpen, title, body])
   return <SidecarContext.Provider value={value}>{children}</SidecarContext.Provider>
 }
 
@@ -42,27 +52,30 @@ export function SidecarHost() {
   const { t } = useTranslation()
   const { open, setOpen, title, setBody } = useSidecar()
   return (
-    <Sidecar open={open} onOpenChange={setOpen} title={title} closeLabel={t('common.close')}>
+    <Sidecar open={open} onOpenChange={setOpen} title={title} closeLabel={`${t('common.close')} ${title}`}>
       <div ref={setBody} className="contents" />
     </Sidecar>
   )
 }
 
-/** A page's details: the floating toggle and, once opened, `children` in the sidecar. */
+/** A page's details: register the pane, its closed-state opener and its portaled content. */
 export function SidecarDetails({ title, children }: { title: string; children: React.ReactNode }) {
   const { t } = useTranslation()
-  const { open, setOpen, setTitle, body } = useSidecar()
+  const { open, setOpen, setAvailable, setTitle, body } = useSidecar()
   const frame = usePageFrame()
   const [opened, setOpened] = React.useState(false)
   if (open && !opened) setOpened(true)
 
-  React.useEffect(() => setTitle(title), [title, setTitle])
-  React.useEffect(() => () => setOpen(false), [setOpen])
+  React.useLayoutEffect(() => {
+    setTitle(title)
+    setAvailable(true)
+    return () => setAvailable(false)
+  }, [setAvailable, setTitle, title])
 
   return (
     <>
       {frame?.trailing && createPortal(
-        <SidecarToggle open={open} onOpenChange={setOpen} label={title} closeLabel={t('common.close')} />,
+        <SidecarToggle open={open} onOpenChange={setOpen} label={`${t('common.open')} ${title}`} />,
         frame.trailing,
       )}
       {opened && body && createPortal(children, body)}
@@ -70,8 +83,12 @@ export function SidecarDetails({ title, children }: { title: string; children: R
   )
 }
 
+export function useOptionalSidecar(): SidecarContextValue | null {
+  return React.useContext(SidecarContext)
+}
+
 export function useSidecar(): SidecarContextValue {
-  const context = React.useContext(SidecarContext)
+  const context = useOptionalSidecar()
   if (!context) throw new Error('useSidecar must be used within SidecarProvider')
   return context
 }

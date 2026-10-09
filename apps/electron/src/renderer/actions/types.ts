@@ -6,7 +6,7 @@ export interface ActionDefinition {
   description?: string
   defaultHotkey: string | null  // null = no default hotkey
   /** The hotkey in the browser (web UI), where it replaces the default: the browser owns ⌘/Ctrl+digit. */
-  webHotkey?: string
+  webHotkey?: string | null
   category: string
   scope?: ActionScope           // Default: 'global'
   /** When-clause expression controlling when the action fires.

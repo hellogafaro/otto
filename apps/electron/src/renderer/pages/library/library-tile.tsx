@@ -105,6 +105,7 @@ export function LibraryTile({
   const cover = useThumbnail(item)
   return (
     <GalleryItem
+      data-library-item-id={item.id}
       title={getDisplayTitle(item)}
       icon={<Icon />}
       media={<Icon />}

@@ -99,7 +99,6 @@ beforeAll(async () => {
       emitLabelConfigChange: () => {},
     },
     platform: { logger: console, imageProcessor: {} },
-    messagingRegistry: new Proxy({}, { get: () => () => undefined }),
     oauthFlowStore: {},
   } as never
 

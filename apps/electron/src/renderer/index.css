@@ -450,24 +450,6 @@ html[data-scenic] {
     display: none;
   }
 
-  /* Hide scrollbar until parent .group is hovered */
-  .scrollbar-hover::-webkit-scrollbar {
-    width: 4px;
-  }
-  .scrollbar-hover::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .scrollbar-hover::-webkit-scrollbar-thumb {
-    background: transparent;
-    border-radius: 4px;
-  }
-  .group:hover .scrollbar-hover::-webkit-scrollbar-thumb {
-    background: var(--border);
-  }
-  .group:hover .scrollbar-hover::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-foreground);
-  }
-
   /* Mask fade utilities - for fading content at edges over transparent/image backgrounds */
   .mask-fade-y {
     mask-image: linear-gradient(to bottom, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%);
@@ -928,7 +910,7 @@ html.dark[data-scenic] .fullscreen-overlay-background {
   }
 
   /* Input toolbar items: attach, task, workspace pill, model picker (desktop: h-7 = 28px → 36px) */
-  .input-toolbar-btn {
+  .input-toolbar-btn:not([data-size="compact"]):not([data-size="icon-compact"]) {
     height: 36px;
     min-width: 36px;
   }
@@ -974,11 +956,4 @@ html.dark[data-scenic] .fullscreen-overlay-background {
   [data-slot="sidebar"][data-mobile] {
     padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
   }
-}
-
-/* TurnCard action buttons (Copy, Markdown) — outside @container/shell,
-   scaled via data-compact attribute passed from the renderer */
-[data-compact] .turn-action-btn {
-  min-height: 31px;
-  padding: 6px 8px;
 }

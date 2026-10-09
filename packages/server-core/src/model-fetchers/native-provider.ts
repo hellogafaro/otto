@@ -1,26 +1,33 @@
 import type { LlmConnection, ModelFetchResult } from '@otto/shared/config'
+import type { ModelDefinition } from '@otto/shared/config/models'
 import { getCredentialManager } from '@otto/shared/credentials'
-import { createMastraChatModel, streamMastraChat } from '../sessions/mastra-chat'
+import { createMastraChatModel, nativeProviderBaseUrl, streamMastraChat } from '../sessions/mastra-chat'
 import { fetchOpenAiModels } from './openai'
 
 export const NATIVE_PROVIDER_UNSUPPORTED = 'Connect an OpenAI, explicit OpenAI-compatible endpoint or Anthropic API key. Subscription execution is unavailable.'
 
+export function retainModelImageOverrides(models: ModelDefinition[], stored: readonly (ModelDefinition | string)[] | null | undefined): ModelDefinition[] {
+  const overrides = new Map<string, boolean>()
+  for (const model of stored ?? []) if (typeof model !== 'string' && typeof model.supportsImages === 'boolean') overrides.set(model.id, model.supportsImages)
+  return models.map((model) => overrides.has(model.id) ? { ...model, supportsImages: overrides.get(model.id)! } : model)
+}
+
 export function isNativeConnection(connection: Pick<LlmConnection, 'type' | 'authType' | 'baseUrl' | 'customEndpoint'>): boolean {
-  return connection.authType === 'api_key' && (['openai', 'anthropic'].includes(connection.type) || connection.type === 'custom' && !!connection.baseUrl && ['openai-completions', 'openai-responses'].includes(connection.customEndpoint?.api ?? ''))
+  if (connection.authType !== 'api_key') return false
+  try { nativeProviderBaseUrl({ provider: connection.type, baseUrl: connection.baseUrl, api: connection.customEndpoint?.api }); return true } catch { return false }
 }
 
 export async function fetchNativeModels(input: { provider: string; apiKey: string; baseUrl?: string; api?: string; signal?: AbortSignal }): Promise<ModelFetchResult> {
+  const base = nativeProviderBaseUrl(input)
   if (input.provider !== 'anthropic') {
     if (!['openai', 'custom'].includes(input.provider) || input.provider === 'custom' && (!input.baseUrl || !['openai-completions', 'openai-responses'].includes(input.api ?? ''))) throw new Error(NATIVE_PROVIDER_UNSUPPORTED)
-    const result = await fetchOpenAiModels({ ...input, custom: input.provider === 'custom' })
+    const result = await fetchOpenAiModels(input)
     return { models: result.models.map((model) => ({ ...model, provider: 'openai' as const })) }
   }
   if (!input.apiKey.trim()) throw new Error('An Anthropic API key is required.')
-  const base = new URL(input.baseUrl ?? 'https://api.anthropic.com/v1')
-  if (!['https:', 'http:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new Error('Invalid Anthropic base URL.')
   const response = await fetch(`${base.href.replace(/\/$/, '')}/models?limit=100`, { headers: { 'x-api-key': input.apiKey, 'anthropic-version': '2023-06-01' }, redirect: 'error', signal: input.signal ?? AbortSignal.timeout(15000) }).catch(() => { throw new Error('Anthropic model discovery could not connect.') })
   if (!response.ok) throw new Error('Anthropic model discovery failed. Check the key and permissions.')
-  const text = await response.text()
+  const text = await response.text().catch(() => { throw new Error('Anthropic returned an unreadable model catalog.') })
   if (Buffer.byteLength(text) > 65536) throw new Error('Anthropic model catalog exceeds the supported limit.')
   let body: { data?: unknown[]; has_more?: boolean }
   try {
@@ -29,7 +36,8 @@ export async function fetchNativeModels(input: { provider: string; apiKey: strin
     body = { data: parsed.data, has_more: 'has_more' in parsed && parsed.has_more === true }
   } catch { throw new Error('Anthropic returned an invalid model catalog.') }
   if (body.has_more) throw new Error('Anthropic model catalog requires pagination beyond this setup limit.')
-  const models = body.data!.flatMap((value) => { const row = value && typeof value === 'object' ? value as {id?:unknown;display_name?:unknown} : undefined; return row && typeof row.id === 'string' && /^claude-[a-z0-9.-]{1,120}$/.test(row.id) ? [{ id: row.id, name: row.id, shortName: row.id, description: 'Anthropic account catalog; inference must be validated.', provider: 'anthropic' as const, contextWindow: 0 }] : [] })
+  const custom = base.href.replace(/\/$/, '') !== 'https://api.anthropic.com/v1'
+  const models = body.data!.flatMap((value) => { const row = value && typeof value === 'object' ? value as {id?:unknown;display_name?:unknown} : undefined; return row && typeof row.id === 'string' && (custom ? /^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,159}$/.test(row.id) : /^claude-[a-z0-9.-]{1,120}$/.test(row.id)) ? [{ id: row.id, name: row.id, shortName: row.id, description: 'Anthropic account catalog; inference must be validated.', provider: 'anthropic' as const, contextWindow: 0 }] : [] })
   if (!models.length) throw new Error('No Anthropic model candidate is available.')
   return { models }
 }

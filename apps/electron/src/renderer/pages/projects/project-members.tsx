@@ -1,6 +1,6 @@
 /**
  * The Overview's Members section: one row per member (avatar, name, a remove button) and "Add member", a
- * searchable list of the workspace's people and agents not in the project yet. Everyone can change everything.
+ * searchable list of the workspace's people and agents not in the project yet.
  * Each change applies at once with the "Saved" toast; the project list reloads after it.
  */
 
@@ -51,7 +51,7 @@ export function ProjectMembers({ members, onAdd, onRemove }: {
 
   return (
     <PageSection title={t('projects.members')} action={<AddMember members={members} onAdd={(actor) => void run(onAdd(actor))} />}>
-      <PageCard>
+      <PageCard surface={false}>
         {members.length === 0 ? (
           <SettingsRow label={<span className="font-normal text-muted-foreground">{t('projects.noMembers')}</span>} />
         ) : members.map((actor) => (

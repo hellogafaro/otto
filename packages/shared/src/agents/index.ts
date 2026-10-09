@@ -30,7 +30,7 @@ import {
  *
  * `provider` names which of the chat creator's connections pays (never an account); `model` null = that
  * connection's default; `skills` and `sources` are id lists, `[]` = all. The workspace's default agent is its
- * oldest; the last agent cannot be deleted, so a workspace that has been seeded always has one. Chats name their
+ * oldest; that default agent cannot be deleted, so a workspace that has been seeded always has one. Chats name their
  * agent in the session header (`agentId`, absent = the default); one that was deleted falls back to the default
  * the same way (`getAgentRunConfig`), so deleting never rewrites a chat. Every function takes the workspace
  * explicitly and only sees its rows. Who may edit is `canEditAgent`, applied by the guard (`bootstrap/authorize.ts`)
@@ -48,6 +48,7 @@ const toAgent = (row: Row, defaultId: string | undefined): Agent => ({
   instructions: row.instructions,
   provider: row.provider,
   model: row.model,
+  llmConnectionId: row.llmConnectionId,
   thinkingLevel: row.thinkingLevel as ThinkingLevel,
   skills: row.skills,
   sources: row.sources,
@@ -79,6 +80,11 @@ function assertModel(model: unknown): string | null {
   if (model === null || model === '') return null
   if (typeof model !== 'string' || model.length > 200) throw domainError('invalid', 'The model must be text or null')
   return model
+}
+function assertConnectionId(id: unknown): string | null {
+  if (id === null || id === undefined) return null
+  if (typeof id !== 'string' || !/^(?:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[a-z0-9]{12})$/.test(id)) throw domainError('invalid', 'Invalid connection ID')
+  return id
 }
 
 function assertThinkingLevel(level: unknown): ThinkingLevel {
@@ -133,6 +139,7 @@ export function createAgent(input: AgentInput, db: Db | Tx = initDb()): Agent {
     instructions: assertText(input.instructions ?? '', 'The instructions', MAX_INSTRUCTIONS),
     provider: assertProvider(input.provider),
     model: assertModel(input.model ?? null),
+    llmConnectionId: assertConnectionId(input.llmConnectionId),
     thinkingLevel: assertThinkingLevel(input.thinkingLevel ?? 'medium'),
     skills: assertIds(input.skills ?? [], 'skills'),
     sources: assertIds(input.sources ?? [], 'sources'),
@@ -165,6 +172,7 @@ export function updateAgent(workspaceId: string, id: string, patch: AgentUpdate,
     if (patch.instructions !== undefined) changes.instructions = assertText(patch.instructions, 'The instructions', MAX_INSTRUCTIONS)
     if (patch.provider !== undefined) changes.provider = assertProvider(patch.provider)
     if (patch.model !== undefined) changes.model = assertModel(patch.model)
+    if (patch.llmConnectionId !== undefined) changes.llmConnectionId = assertConnectionId(patch.llmConnectionId)
     if (patch.thinkingLevel !== undefined) changes.thinkingLevel = assertThinkingLevel(patch.thinkingLevel)
     if (patch.skills !== undefined) changes.skills = assertIds(patch.skills, 'skills')
     if (patch.sources !== undefined) changes.sources = assertIds(patch.sources, 'sources')
@@ -181,15 +189,15 @@ export function updateAgent(workspaceId: string, id: string, patch: AgentUpdate,
 }
 
 /**
- * Removes an agent. The last one of a workspace cannot go (`invalid`). The chats it was primary of move to the
- * workspace's next default agent (the oldest left) and it leaves every chat it was in, in the same transaction; the
+ * Removes an agent. The default one of a workspace cannot go (`invalid`). The chats it was primary of move to the
+ * workspace's default agent and it leaves every chat it was in, in the same transaction; the
  * session manager hears of it.
  */
 export function deleteAgent(workspaceId: string, id: string, db: Db | Tx = initDb()): void {
   const moved = db.transaction((tx) => {
     const rows = rowsOf(workspaceId, tx)
     if (!rows.some((row) => row.id === id)) throw domainError('not_found', `Agent ${id} does not exist`)
-    if (rows.length === 1) throw domainError('invalid', 'The last agent of a workspace cannot be deleted')
+    if (rows[0]!.id === id) throw domainError('invalid', 'The default agent of a workspace cannot be deleted')
     tx.delete(agents).where(and(eq(agents.workspaceId, workspaceId), eq(agents.id, id))).run()
     return updateChatsAgent(tx, workspaceId, id, rows.find((row) => row.id !== id)!.id)
   })
@@ -250,6 +258,7 @@ export function getAgentRunConfig(agentId: string | null | undefined, workspaceI
     agentInstructions: agent.instructions,
     provider: agent.provider,
     model: agent.model,
+    llmConnectionId: agent.llmConnectionId,
     thinkingLevel: agent.thinkingLevel,
     skills: agent.skills,
     sources: agent.sources,

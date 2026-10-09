@@ -117,7 +117,7 @@ export function MarkdownDocBlock({ code, className, onUrlClick, onFileClick }: M
     return () => { cancelled = true }
   }, [activeItem?.src, onReadFile, contentCache])
 
-  const fallback = <CodeBlock code={code} language="json" mode="full" className={className} />
+  const fallback = <div className="not-typeset font-sans text-sm" data-not-typeset><CodeBlock code={code} language="json" mode="full" className={className} /></div>
 
   if (!spec || items.length === 0) {
     return fallback
@@ -129,7 +129,7 @@ export function MarkdownDocBlock({ code, className, onUrlClick, onFileClick }: M
   return (
     <MarkdownDocBlockErrorBoundary fallback={fallback}>
       <div className={cn('relative group rounded-[8px] overflow-hidden border bg-muted/10', className)}>
-        <div className="px-3 py-2 bg-muted/50 border-b flex items-center gap-2">
+        <div className="not-typeset font-sans text-sm px-3 py-2 bg-muted/50 border-b flex items-center gap-2" data-not-typeset>
           <FileText className="w-3.5 h-3.5 text-muted-foreground/50" />
           <span className="text-[12px] text-muted-foreground font-medium flex-1">{headerTitle}</span>
           <div className="flex items-center gap-1">
@@ -159,6 +159,7 @@ export function MarkdownDocBlock({ code, className, onUrlClick, onFileClick }: M
           {activeContent !== undefined && (
             <Markdown
               mode="minimal"
+              className="max-w-[37em]"
               disablePreviewBlocks={DISABLE_INNER_MARKDOWN_PREVIEW}
               onUrlClick={onUrlClick}
               onFileClick={onFileClick}
@@ -168,11 +169,11 @@ export function MarkdownDocBlock({ code, className, onUrlClick, onFileClick }: M
           )}
 
           {activeContent === undefined && loading && (
-            <div className="flex justify-center py-8 text-muted-foreground text-[13px]"><Spinner /></div>
+            <div className="not-typeset font-sans flex justify-center py-8 text-muted-foreground text-[13px]" data-not-typeset><Spinner /></div>
           )}
 
           {activeContent === undefined && !loading && error && (
-            <div className="py-6 text-center text-destructive/70 text-[13px]">{error}</div>
+            <div className="not-typeset font-sans py-6 text-center text-destructive/70 text-[13px]" data-not-typeset>{error}</div>
           )}
 
           {!isFullscreen && activeContent !== undefined && (

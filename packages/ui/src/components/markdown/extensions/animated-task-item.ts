@@ -51,6 +51,7 @@ export const AnimatedTaskItem = TaskItem.extend({
       updateA11Y(node)
 
       checkboxWrapper.contentEditable = 'false'
+      checkboxWrapper.dataset.notTypeset = ''
       checkbox.type = 'checkbox'
 
       const swallowPointerEvent = (event: MouseEvent) => {

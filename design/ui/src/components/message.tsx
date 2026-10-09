@@ -29,17 +29,12 @@ function Message({
   );
 }
 
-// Otto: a 28px slot for an md Avatar (stock: 32px), which brings its own fill
-// and shape (a rounded square, so the slot doesn't clip it to a circle). It
-// sits at the top, beside the name, as group chats do (stock bottom-aligns it
-// beside the last bubble), 4px down: its top 2px above the name's capitals
-// (the 20px header line starts 6px above them), as Slack sets it.
 function MessageAvatar({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="message-avatar"
       className={cn(
-        "mt-1 flex w-fit min-w-7 shrink-0 items-center justify-center self-start",
+        "flex w-fit min-w-8 shrink-0 items-center justify-center self-end overflow-hidden rounded-full bg-muted group-has-data-[slot=message-footer]/message:-translate-y-8",
         className,
       )}
       {...props}
@@ -65,7 +60,7 @@ function MessageHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="message-header"
       className={cn(
-        "flex max-w-full min-w-0 items-center px-3 text-xs font-medium text-muted-foreground group-has-data-[variant=ghost]/message:px-0",
+        "flex max-w-full min-w-0 items-center px-3.5 text-xs font-medium text-muted-foreground group-has-data-[variant=ghost]/message:px-0",
         className,
       )}
       {...props}
@@ -78,7 +73,7 @@ function MessageFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="message-footer"
       className={cn(
-        "flex max-w-full min-w-0 items-center px-3 text-xs font-medium text-muted-foreground group-has-data-[variant=ghost]/message:px-0 group-data-[align=end]/message:justify-end",
+        "flex max-w-full min-w-0 items-center px-3.5 text-xs font-medium text-muted-foreground group-has-data-[variant=ghost]/message:px-0 group-data-[align=end]/message:justify-end",
         className,
       )}
       {...props}

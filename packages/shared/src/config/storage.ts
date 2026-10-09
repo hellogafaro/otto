@@ -54,7 +54,9 @@ import {
   createConnection,
   deleteConnection,
   getConnection,
+  getConnectionById,
   getConnections,
+  getVisibleConnections,
   getDefaultConnection,
   setDefaultConnection,
   updateConnection,
@@ -1251,8 +1253,10 @@ export type {
 } from './llm-connections.ts';
 
 /** A connection as the callers see it: the row's `title` is `name` and its `config` keys sit on it. */
-function toLlmConnection(c: Connection): LlmConnection {
+export function toLlmConnection(c: Connection): LlmConnection {
   return {
+    id: c.id,
+    updatedAt: c.updatedAt,
     slug: c.slug,
     scope: c.scope,
     name: c.title,
@@ -1286,6 +1290,10 @@ function toPatch(c: LlmConnection): ConnectionPatch {
 /** The connections a context sees (the user's own, then the workspace's, then the install's, one per slug); the install's without one. */
 export function getLlmConnections(where?: ConnectionContext): LlmConnection[] {
   return getConnections(where).map(toLlmConnection);
+}
+
+export function getVisibleLlmConnections(where?: ConnectionContext): LlmConnection[] {
+  return getVisibleConnections(where).map(toLlmConnection);
 }
 
 /**
@@ -1324,15 +1332,15 @@ export function addLlmConnection(connection: LlmConnection, options: { scope?: s
 export function updateLlmConnection(
   slug: string,
   updates: Partial<Omit<LlmConnection, 'slug'>>,
-  options: { where?: ConnectionContext; credential?: Credential } = {},
+  options: { where?: ConnectionContext; credential?: Credential; connectionId?: string; expectedUpdatedAt?: number } = {},
 ): boolean {
-  const existing = getConnection(slug, options.where);
-  if (!existing) return false;
+  const existing = options.connectionId ? getConnectionById(options.connectionId, options.where) : getConnection(slug, options.where);
+  if (!existing || existing.slug !== slug) return false;
   const merged = { ...toLlmConnection(existing) };
   for (const [key, value] of Object.entries(updates)) {
     if (value !== undefined && key !== 'createdAt') (merged as Record<string, unknown>)[key] = value;
   }
-  updateConnection(existing.id, toPatch(merged), options.credential);
+  updateConnection(existing.id, toPatch(merged), options.credential, options.expectedUpdatedAt);
   return true;
 }
 
@@ -1340,18 +1348,19 @@ export function updateLlmConnection(
  * Delete an LLM connection and its credential.
  * @returns true if deleted, false if not found
  */
-export function deleteLlmConnection(slug: string, where?: ConnectionContext): boolean {
-  const existing = getConnection(slug, where);
-  if (!existing) return false;
-  deleteConnection(existing.id);
+export function deleteLlmConnection(slug: string, where?: ConnectionContext, connectionId?: string, expectedUpdatedAt?: number): boolean {
+  const existing = connectionId ? getConnectionById(connectionId, where) : getConnection(slug, where);
+  if (!existing || existing.slug !== slug) return false;
+  deleteConnection(existing.id, expectedUpdatedAt);
 
   // Clean up workspace references to the deleted connection (non-blocking)
   try {
     const workspaces = getWorkspaces();
     for (const ws of workspaces) {
       const wsConfig = loadWorkspaceConfig(ws.rootPath);
-      if (wsConfig?.defaults?.defaultLlmConnection === slug) {
+      if (wsConfig?.defaults?.defaultLlmConnectionId === existing.id || !wsConfig?.defaults?.defaultLlmConnectionId && wsConfig?.defaults?.defaultLlmConnection === slug && existing.scope === `workspace:${ws.id}`) {
         wsConfig.defaults.defaultLlmConnection = undefined;
+        wsConfig.defaults.defaultLlmConnectionId = undefined;
         saveWorkspaceConfig(ws.rootPath, wsConfig);
       }
     }
@@ -1373,8 +1382,8 @@ export function getDefaultLlmConnection(where?: ConnectionContext): string | nul
  * Set the default LLM connection.
  * @returns true if set, false if connection not found
  */
-export function setDefaultLlmConnection(slug: string, where?: ConnectionContext): boolean {
-  return setDefaultConnection(slug, where);
+export function setDefaultLlmConnection(slug: string, where?: ConnectionContext, connectionId?: string): boolean {
+  return setDefaultConnection(slug, where, connectionId);
 }
 
 /** The app-level default thinking level for new sessions ('medium' until set). */

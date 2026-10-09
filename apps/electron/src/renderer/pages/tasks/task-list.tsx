@@ -1,15 +1,14 @@
 /**
  * `TaskGroups`: tasks grouped by status in the Settings card (`ListCard`; DESIGN Data patterns 1, the Chats index's pattern):
  * Todo, In progress, Done (folded unless asked), then Archived (folded last unless asked), each a 36px rounded
- * `ListGroup` band over 44px `TaskRow`s; empty groups are not drawn. A group's "+" starts a new task in that status.
+ * `ListGroup` band over 44px `TaskRow`s; empty groups are not drawn. Group headings only collapse their rows.
  * Reused by a project's Tasks tab (`projectTitles` left out hides the project badge).
  */
 
 import { useTranslation } from 'react-i18next'
 import { ListCard, ListGroup } from '@workspace/ui/components/list-group'
-import { CreateButton } from '@/components/ui/create-button'
 import { TaskStatusIcon, taskStatusTint } from '@/components/tasks/task-status-icon'
-import type { Task, TaskStatus } from '../../../shared/types'
+import type { Task } from '../../../shared/types'
 import { TaskRow, statusLabelKey, type TaskAction } from './task-row'
 import { groupTasks, TASK_GROUPS } from './use-task-filters'
 
@@ -21,7 +20,6 @@ export function TaskGroups({
   archivedOpen = false,
   onOpen,
   onAction,
-  onNewTask,
 }: {
   /** The tasks to show, already filtered, in the backend's order. */
   tasks: Task[]
@@ -32,8 +30,6 @@ export function TaskGroups({
   archivedOpen?: boolean
   onOpen: (task: Task) => void
   onAction: (task: Task, action: TaskAction) => void
-  /** A group's "+": a new task in that status. */
-  onNewTask?: (status: TaskStatus) => void
 }) {
   const { t } = useTranslation()
   const groups = groupTasks(tasks)
@@ -51,7 +47,6 @@ export function TaskGroups({
             label={t(statusLabelKey(status))}
             count={groups[status].length}
             defaultOpen={open}
-            action={onNewTask && status !== 'archived' && <CreateButton size="icon-xs" label={t('tasks.newTask')} onClick={() => onNewTask(status)} />}
           >
             {groups[status].map((task) => (
               <TaskRow

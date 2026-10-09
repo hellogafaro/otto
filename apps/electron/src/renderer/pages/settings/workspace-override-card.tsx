@@ -11,7 +11,8 @@ import { useWorkspaceIcon } from '@/hooks/use-workspace-icon'
 import { getModelShortName } from '@config/models'
 import { THINKING_LEVELS } from '@otto/shared/agent/thinking-levels'
 import type { LlmConnectionWithStatus, ThinkingLevel, WorkspaceSettings, Workspace } from '../../../shared/types'
-import { connectionKindLabel, getModelOptionsForConnection } from './connection-labels'
+import { connectionKindLabel, getModelOptionsForConnection, scopeLabel } from './connection-labels'
+import { connectionChoiceId, connectionSelector } from './provider-connection-form'
 
 interface WorkspaceOverrideCardProps {
   workspace: Workspace
@@ -20,7 +21,6 @@ interface WorkspaceOverrideCardProps {
 }
 
 const WORKSPACE_SETTING_LABELS: Partial<Record<keyof WorkspaceSettings, string>> = {
-  defaultLlmConnection: 'workspace connection override',
   model: 'workspace model override',
   thinkingLevel: 'workspace thinking override',
 }
@@ -74,12 +74,18 @@ export function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsCha
         description: message,
       })
     }
-  }, [workspace.id, onSettingsChange, settings])
+  }, [workspace.id, onSettingsChange, settings, t])
 
-  const handleConnectionChange = useCallback((slug: string) => {
-    // 'global' means use app default (clear workspace override)
-    updateSetting('defaultLlmConnection', slug === 'global' ? undefined : slug)
-  }, [updateSetting])
+  const handleConnectionChange = useCallback(async (id: string) => {
+    const connection = llmConnections.find((row) => connectionChoiceId(row) === id)
+    if (id !== 'global' && !connection) return
+    try {
+      const result = await window.electronAPI.setWorkspaceDefaultLlmConnection(workspace.id, connection ? connectionSelector(connection) : null)
+      if (!result.success) throw new Error(result.error)
+      setSettings(await window.electronAPI.getWorkspaceSettings(workspace.id))
+      onSettingsChange()
+    } catch { toast.error(t('connections.saveFailed')) }
+  }, [llmConnections, workspace.id, onSettingsChange, t])
 
   const handleModelChange = useCallback((model: string) => {
     // 'global' means use app default (clear workspace override)
@@ -93,29 +99,30 @@ export function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsCha
 
   // Determine if workspace has any overrides
   const hasOverrides = settings && (
+    settings.defaultLlmConnectionId ||
     settings.defaultLlmConnection ||
     settings.model ||
     settings.thinkingLevel
   )
 
   // Get display values
-  const currentConnection = settings?.defaultLlmConnection || 'global'
   const currentModel = settings?.model || 'global'
   const currentThinking = settings?.thinkingLevel || 'global'
 
   // Derive workspace's effective connection (override or default)
   const workspaceEffectiveConnection = useMemo(() => {
     const connSlug = settings?.defaultLlmConnection
-    return connSlug ? llmConnections.find(c => c.slug === connSlug) : llmConnections.find(c => c.isDefault)
-  }, [settings?.defaultLlmConnection, llmConnections])
+    return settings?.defaultLlmConnectionId ? llmConnections.find((row) => row.id === settings.defaultLlmConnectionId) : connSlug ? llmConnections.find(c => c.slug === connSlug && (c.scope === `workspace:${workspace.id}` || c.scope === 'install')) : llmConnections.find(c => c.isDefault)
+  }, [settings?.defaultLlmConnectionId, settings?.defaultLlmConnection, llmConnections, workspace.id])
+  const currentConnection = settings?.defaultLlmConnectionId ?? (settings?.defaultLlmConnection ? workspaceEffectiveConnection ? connectionChoiceId(workspaceEffectiveConnection) : '' : 'global')
 
   // Get summary text for collapsed state
   const getSummary = () => {
     if (!hasOverrides) return t("settings.ai.usingDefaults")
     const parts: string[] = []
-    if (settings?.defaultLlmConnection) {
-      const conn = llmConnections.find(c => c.slug === settings.defaultLlmConnection)
-      parts.push(conn?.name || settings.defaultLlmConnection)
+    if (settings?.defaultLlmConnectionId || settings?.defaultLlmConnection) {
+      const conn = workspaceEffectiveConnection
+      parts.push(conn?.name ?? settings.defaultLlmConnection ?? settings.defaultLlmConnectionId ?? '')
     }
     if (settings?.model) {
       parts.push(getModelShortName(settings.model))
@@ -162,9 +169,9 @@ export function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsCha
                 onValueChange={handleConnectionChange}
                 options={[
                   { value: 'global', label: t("settings.ai.useDefault"), description: t("settings.ai.inheritFromApp") },
-                  ...llmConnections.map((conn) => ({
-                    value: conn.slug,
-                    label: conn.name,
+                  ...llmConnections.filter((conn) => conn.id && (conn.scope === `workspace:${workspace.id}` || conn.scope === 'install')).map((conn) => ({
+                    value: connectionChoiceId(conn),
+                    label: `${conn.name} · ${scopeLabel(conn.scope, t)}`,
                     description: connectionKindLabel(conn, t),
                   })),
                 ]}

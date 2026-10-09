@@ -31,7 +31,6 @@ export interface RoutineConfig {
   conditions?: AutomationCondition[]
   semanticCondition?: SemanticCondition
   permissionMode?: PermissionMode
-  telegramTopic?: string
   actions: RoutineAction[]
 }
 

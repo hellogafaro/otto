@@ -1,8 +1,24 @@
 @import "tailwindcss" source(none);
+@import "./typeset.css";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/geist";
+
+:root {
+  --font-geist: "Geist Variable";
+  --font-geist-mono: "Geist Mono Variable";
+}
+
+.typeset-docs {
+  --typeset-font-body: var(--font-geist);
+  --typeset-font-heading: var(--font-geist);
+  --typeset-font-mono: var(--font-geist-mono);
+  --typeset-size: 15px;
+  --typeset-leading: 1.75;
+  --typeset-flow: 1.25em;
+}
 
 @custom-variant dark (&:is(.dark *));
 @source "../**/*.{ts,tsx}";
@@ -78,7 +94,7 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.985 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -120,7 +136,7 @@
      visible step in both themes. State fills (hover, open, selected) are never
      a layer: they are alphas of --foreground (5%, 10%), so they read the same on
      the frame, on a card and in dark. */
-  --sidebar: oklch(0.96 0 0);
+  --sidebar: oklch(0.94 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -145,7 +161,7 @@
      0.19 < popover 0.22 < hover and open fills 0.27 (--muted). */
   --background: oklch(0.17 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.19 0 0);
+  --card: oklch(0.22 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.22 0 0);
   --popover-foreground: oklch(0.985 0 0);
@@ -264,22 +280,17 @@ html[data-wallpaper] [data-slot="wallpaper-scrim"] {
     ),
     rgb(var(--s) / var(--wallpaper-overlay));
 }
-html[data-wallpaper] :is([data-slot="sidebar-wrapper"], [data-slot="sidebar"][data-mobile]) {
-  --sidebar: oklch(0.96 0 0 / 70%);
+html[data-wallpaper] [data-slot="page-frame"] {
   --card: oklch(1 0 0 / 70%);
   --muted-foreground: oklch(0.42 0 0);
   --card-ring: oklch(0.145 0 0 / 10%);
 }
-html.dark[data-wallpaper] :is([data-slot="sidebar-wrapper"], [data-slot="sidebar"][data-mobile]) {
-  --sidebar: oklch(0.12 0 0 / 70%);
+html.dark[data-wallpaper] [data-slot="page-frame"] {
   --card: oklch(0.19 0 0 / 65%);
   --muted-foreground: oklch(0.82 0 0);
   --card-ring: oklch(1 0 0 / 14%);
 }
-html[data-wallpaper] [data-slot="sidebar-inner"] {
-  background-color: transparent;
-}
-html[data-wallpaper] :is([data-slot="sidebar"][data-mobile], [data-slot="composer"], .card-surface) {
+html[data-wallpaper] [data-slot="page-frame"] :is([data-slot="composer"], .card-surface) {
   backdrop-filter: blur(24px) saturate(1.2);
 }
 
@@ -287,6 +298,251 @@ html[data-wallpaper] :is([data-slot="sidebar"][data-mobile], [data-slot="compose
   :root {
     --text-sm: 0.875rem;
   }
+}
+
+/* Otto: the panel gutter and footer clearance belong to the shared shell. */
+:root {
+  --shell-inset: calc(4 * var(--spacing));
+}
+
+[data-slot="sidebar-wrapper"] {
+  padding-block: var(--shell-inset);
+  padding-right: var(--shell-inset);
+}
+
+[data-slot="sidebar"] {
+  box-shadow: none;
+}
+
+[data-slot="sidebar-footer"] {
+  margin-top: 0;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+@media (width < 48rem) {
+  [data-slot="sidebar-wrapper"] {
+    padding-left: var(--shell-inset);
+  }
+
+  [data-slot="sidebar-footer"] {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Otto: shell radii and one content inset are scoped to the enclosing panel. */
+[data-slot="page-frame"] {
+  --page-content-max: 48rem;
+  --page-text-inset: 1.5rem;
+  --page-surface-outset: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+
+[data-slot="page-frame"] button {
+  border-radius: var(--radius-sm);
+}
+
+[data-slot="composer"] button {
+  border-radius: var(--radius-sm);
+}
+
+[data-slot="composer"] [data-slot="attachment"] {
+  border-radius: var(--radius-md);
+}
+
+[data-slot="page-frame"] [data-slot="page-body"] {
+  grid-column: 1 / -1;
+}
+
+/* Otto: only the viewport scrolls; resize panels must not acquire a hidden scroll offset. */
+[data-slot="page-frame"] [data-panel-id="page-content"] {
+  min-width: 0;
+  min-height: 0;
+  overflow: clip !important;
+}
+
+[data-slot="page-frame"] [data-slot="page-body"] [data-slot="page-scroll"] {
+  scrollbar-width: thin;
+}
+
+[data-slot="page-frame"] [data-slot="page-body"] [data-slot="page-scroll"]::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+[data-slot="page-frame"] [data-slot="page-scroll"]:has(> [data-slot="page-column"] [data-slot="page-header-row"][data-density="roomy"]) {
+  --scroll-fade-mask: linear-gradient(to bottom, transparent calc(12 * var(--spacing)), #000 var(--nav-top-roomy), #000 calc(100% - var(--composer-clearance, 0px)), transparent calc(100% - var(--composer-slot-height, 0px)), transparent 100%);
+  scroll-padding-top: var(--nav-top-roomy);
+  scroll-padding-bottom: var(--scroll-fade-b-size, var(--composer-clearance, 0px));
+}
+
+[data-slot="page-frame"] [data-slot="page-column"] {
+  width: 100%;
+  max-width: var(--page-content-max);
+  height: auto;
+  margin-inline: auto;
+  padding-inline: var(--page-text-inset);
+}
+
+[data-slot="page-frame"] [data-slot="page-section"] > div:first-child {
+  padding-inline: 0;
+}
+
+[data-slot="page-frame"] [data-slot="page-column"] :is([data-slot="page-card"], [data-slot="list-card"], [data-slot="page-centerpiece"], [data-slot="gallery"]) {
+  margin-inline: calc(-1 * var(--page-surface-outset));
+}
+
+[data-slot="page-frame"] [data-slot="page-column"] [data-slot="tabs"] {
+  margin-inline-start: calc(-3 * var(--spacing) - 1px);
+}
+
+[data-slot="page-frame"] [data-slot="page-column"] [data-slot="tabs"][data-size="default"]:has(> [data-slot="tabs-list"] > [data-slot="tabs-trigger"]:first-child > :is(svg:first-child:not([data-icon="inline-end"]), [data-icon="inline-start"])) {
+  margin-inline-start: calc(-2.5 * var(--spacing) - 1px);
+}
+
+[data-slot="page-frame"] [data-slot="page-composer-slot"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: var(--page-content-max);
+  margin-inline: auto;
+  padding-inline: calc(var(--page-text-inset) - var(--page-surface-outset));
+}
+
+[data-slot="page-frame"] [data-slot="chat-transcript"] {
+  width: calc(100% - 2 * (var(--page-text-inset) - var(--page-surface-outset)));
+  max-width: calc(var(--page-content-max) - 2 * (var(--page-text-inset) - var(--page-surface-outset)));
+  margin-inline: auto;
+  padding-inline: var(--page-surface-outset);
+}
+
+[data-slot="page-frame"] [data-slot="scroll-area-viewport"]:has([data-slot="chat-transcript"]) {
+  mask-image: linear-gradient(to bottom, transparent, #000 1rem, #000 calc(100% - var(--composer-clearance, 0px)), transparent calc(100% - var(--composer-slot-height, 0px)), transparent 100%);
+  scroll-padding-bottom: calc(var(--composer-clearance, 0px) + 0.5rem);
+}
+
+[data-slot="page-leading-slot"] [data-slot="sidebar-trigger"] {
+  width: 2rem;
+  height: 2rem;
+}
+
+[data-slot="page-header-layer"]:has([data-density="compact"]) {
+  display: grid;
+  grid-template-columns: var(--page-controls-width, 0px) minmax(0, 1fr) var(--page-controls-width, 0px);
+}
+
+/* Otto: the enclosing panel header owns p-2 and a fixed h-12; its title is a payload, not a second inset. */
+[data-slot="page-header-layer"] {
+  box-sizing: border-box;
+  height: calc(12 * var(--spacing));
+  min-height: 0;
+  max-height: calc(12 * var(--spacing));
+  padding: calc(2 * var(--spacing));
+  border-bottom: 0;
+}
+
+[data-slot="page-header-layer"]:not(:has([data-density="compact"])) {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+}
+
+[data-slot="page-header-row"] {
+  box-sizing: border-box;
+  height: calc(12 * var(--spacing));
+  min-height: 0;
+  max-height: calc(12 * var(--spacing));
+  padding: calc(2 * var(--spacing));
+  border-bottom: 0;
+  margin-block: 0;
+}
+
+[data-slot="page-frame"] [data-slot="page-column"] [data-slot="page-header-row"][data-density="roomy"] {
+  height: calc(8 * var(--spacing));
+  min-height: 0;
+  max-height: calc(8 * var(--spacing));
+  margin-top: calc(16 * var(--spacing));
+  margin-inline: 0;
+  padding: 0;
+}
+
+[data-slot="page-frame"] [data-slot="page-column"] [data-slot="page-header-row"] {
+  margin-inline: calc(-2 * var(--spacing));
+}
+
+[data-slot="page-header-layer"] [data-slot="page-header-row"] {
+  height: calc(8 * var(--spacing));
+  min-height: 0;
+  max-height: calc(8 * var(--spacing));
+  padding: 0;
+}
+
+[data-slot="page-header-layer"] [data-slot="page-leading-slot"],
+[data-slot="page-header-layer"] [data-slot="page-trailing-slot"] {
+  top: calc(2 * var(--spacing));
+}
+
+[data-slot="page-header-layer"]:has([data-density="compact"]) [data-slot="page-leading-slot"],
+[data-slot="page-header-layer"]:has([data-density="compact"]) [data-slot="page-trailing-slot"] {
+  position: static;
+}
+
+[data-slot="page-header-layer"] [data-slot="page-leading-slot"] {
+  justify-self: start;
+}
+
+[data-slot="page-header-layer"] [data-slot="page-trailing-slot"] {
+  justify-self: end;
+}
+
+[data-slot="page-header-layer"] [data-slot="page-leading-slot"] {
+  left: calc(2 * var(--spacing));
+}
+
+[data-slot="page-header-layer"] [data-slot="page-trailing-slot"] {
+  right: calc(2 * var(--spacing));
+}
+
+[data-slot="page-header-layer"]:has([data-density="compact"]) [data-slot="page-leading-slot"] {
+  justify-self: start;
+}
+
+[data-slot="page-header-layer"]:has([data-density="compact"]) [data-slot="page-trailing-slot"] {
+  justify-self: end;
+}
+
+[data-slot="page-header-layer"] [data-slot="page-header-slot"] {
+  width: 100%;
+}
+
+[data-slot="page-header-row"][data-density="compact"] {
+  padding-inline: 0;
+}
+
+[data-slot="page-header-row"][data-density="compact"] h1 {
+  display: flex;
+  justify-content: center;
+}
+
+[data-slot="page-header-row"][data-density="compact"] h1 > span {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+[data-slot="page-header-layer"] [data-slot="page-header-row"][data-density="roomy"] > div {
+  width: 100%;
+  max-width: calc(var(--page-content-max) - 2 * var(--page-text-inset));
+  margin-inline: auto;
+}
+
+[data-slot="page-header-layer"] [data-slot="page-header-row"][data-density="roomy"] h1 {
+  padding: 0;
+}
+
+[data-slot="page-composer-fade"] {
+  height: calc(var(--composer-clearance, 0px) + 0.5rem);
+  background: linear-gradient(to bottom, transparent, var(--background) 65%, var(--background));
+  pointer-events: none;
 }
 
 @layer base {

@@ -1,16 +1,12 @@
 import { eq } from 'drizzle-orm'
 import { initDb, type Db } from '../db/index.ts'
 import { getWorkspaceRootPath } from '../config/storage.ts'
-import { getSecret } from '../secrets/index.ts'
 import { evaluateConditions } from './conditions.ts'
 import { matchesCron } from './cron-matcher.ts'
 import { routinesHistory } from './schema.ts'
 import { getScheduledRoutines, startRoutineRun, updateRoutineRun } from './routines.ts'
-import type { Routine, RoutineRun, RoutineWebhookAction } from './routine-types.ts'
-import { executeScriptAction } from './script-executor.ts'
-import type { PromptAction, WebhookAction } from './types.ts'
-import { buildScriptEnv, buildWebhookEnv } from './utils.ts'
-import { executeWebhookRequest } from './webhook-utils.ts'
+import type { Routine, RoutineConfig, RoutineRun } from './routine-types.ts'
+import type { PromptAction } from './types.ts'
 
 /**
  * Running a routine: one path for the scheduler's tick and for a person's "Run now". A run is its `routines_history`
@@ -27,9 +23,9 @@ export interface RoutineRunnerDeps {
   /** Called when a run starts and when it ends, so the host can tell the workspace's clients (`domain:changed`). */
   onChange?(workspaceId: string): void
   db?: Db
-  /** The value of a secret (a webhook action's credentials); default the secrets store. */
+  /** Reads an existing incoming webhook credential for authentication; never executes a webhook action. */
   getSecret?: (id: string) => string | undefined
-  /** A workspace's root folder (where scripts run); default the registry's. */
+  /** A workspace's root folder for the native prompt runner; default the registry's. */
   getWorkspaceRootPath?: (workspaceId: string) => string | null
 }
 
@@ -41,35 +37,25 @@ export interface RoutineRunHandle {
 
 const ERROR_MAX = 2000
 
-/** A webhook action as the executor takes it: its secret (`{type:'bearer',token}` or `{type:'basic',username,password}`) read into `auth`. */
-export function resolveWebhookAction(action: RoutineWebhookAction, read: (id: string) => string | undefined = getSecret): WebhookAction {
-  const { secretId, ...rest } = action
-  if (!secretId) return rest
-  const value = read(secretId)
-  if (value === undefined) throw new Error('The webhook\'s secret does not exist')
-  return { ...rest, auth: JSON.parse(value) as WebhookAction['auth'] }
+export const UNSUPPORTED_NATIVE_ROUTINE = 'Script actions and webhook actions or triggers are unsupported in the native runtime. Stored configurations are preserved; only prompt schedule and event routines can run.'
+
+export function isNativeRoutineConfigSupported(config: Pick<RoutineConfig, 'type' | 'actions'>): boolean {
+  return (config.type === 'schedule' || config.type === 'event') && Array.isArray(config.actions) && config.actions.length > 0 && config.actions.every((action) => action?.type === 'prompt')
 }
 
 const clip = (text: string) => text.slice(0, ERROR_MAX)
 
 async function runActions(routine: Routine, deps: RoutineRunnerDeps): Promise<{ status: 'ok' | 'error'; chatId?: string; error?: string }> {
+  if (!isNativeRoutineConfigSupported(routine.config)) return { status: 'error', error: UNSUPPORTED_NATIVE_ROUTINE }
   const rootPath = (deps.getWorkspaceRootPath ?? getWorkspaceRootPath)(routine.workspaceId)
   if (!rootPath) return { status: 'error', error: 'The workspace is gone' }
-  const payload = { workspaceId: routine.workspaceId, timestamp: Date.now() }
   const errors: string[] = []
   let chatId: string | undefined
   for (const action of routine.config.actions) {
+    if (action.type !== 'prompt') return { status: 'error', chatId, error: UNSUPPORTED_NATIVE_ROUTINE }
     try {
-      if (action.type === 'prompt') {
-        const started = await deps.runPrompt({ routine, action, workspaceRootPath: rootPath })
-        chatId ??= started.chatId
-      } else if (action.type === 'webhook') {
-        const result = await executeWebhookRequest(resolveWebhookAction(action, deps.getSecret), { env: buildWebhookEnv('SchedulerTick', payload) })
-        if (!result.success) errors.push(result.error ?? `The webhook answered ${result.statusCode}`)
-      } else {
-        const result = await executeScriptAction(action, { workspaceRootPath: rootPath, env: buildScriptEnv('SchedulerTick', payload, { workspaceRootPath: rootPath }) })
-        if (!result.success) errors.push(result.stderr || `The script exited with ${result.exitCode}`)
-      }
+      const started = await deps.runPrompt({ routine, action, workspaceRootPath: rootPath })
+      chatId ??= started.chatId
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error))
     }
@@ -80,6 +66,7 @@ async function runActions(routine: Routine, deps: RoutineRunnerDeps): Promise<{ 
 async function finishRun(routine: Routine, run: RoutineRun, deps: RoutineRunnerDeps): Promise<void> {
   const db = deps.db ?? initDb()
   try {
+    if (!isNativeRoutineConfigSupported(routine.config)) throw new Error(UNSUPPORTED_NATIVE_ROUTINE)
     const verdict = routine.config.semanticCondition ? await deps.shouldRun?.(routine) : undefined
     const outcome = verdict && !verdict.run ? { status: 'skipped' as const, error: verdict.reason ?? null } : await runActions(routine, deps)
     updateRoutineRun(run.id, outcome, db)
@@ -98,6 +85,11 @@ export function runRoutine(routine: Routine, deps: RoutineRunnerDeps, scheduledF
   const run = startRoutineRun(routine, scheduledFor ?? Date.now(), { bump: scheduledFor === undefined }, deps.db ?? initDb())
   if (!run) return undefined
   deps.onChange?.(routine.workspaceId)
+  if (!isNativeRoutineConfigSupported(routine.config)) {
+    updateRoutineRun(run.id, { status: 'error', error: UNSUPPORTED_NATIVE_ROUTINE }, deps.db ?? initDb())
+    deps.onChange?.(routine.workspaceId)
+    return { run: { ...run, status: 'error', error: UNSUPPORTED_NATIVE_ROUTINE }, done: Promise.resolve() }
+  }
   return { run, done: finishRun(routine, run, deps) }
 }
 
@@ -106,10 +98,11 @@ export function runRoutine(routine: Routine, deps: RoutineRunnerDeps, scheduledF
  * a `running` row now, `ok` with its chat or `error` when `work` settles, and `onChange` at both ends so the page
  * follows live. Rethrows what `work` threw, after the row ends.
  */
-export async function recordRoutineRun(routine: Pick<Routine, 'id' | 'workspaceId'>, work: () => Promise<{ chatId: string }>, onChange?: (workspaceId: string) => void, db: Db = initDb()): Promise<void> {
+export async function recordRoutineRun(routine: Pick<Routine, 'id' | 'workspaceId' | 'config'>, work: () => Promise<{ chatId: string }>, onChange?: (workspaceId: string) => void, db: Db = initDb()): Promise<void> {
   const run = startRoutineRun(routine, Date.now(), { bump: true }, db)
   onChange?.(routine.workspaceId)
   try {
+    if (!isNativeRoutineConfigSupported(routine.config)) throw new Error(UNSUPPORTED_NATIVE_ROUTINE)
     const { chatId } = await work()
     if (run) updateRoutineRun(run.id, { status: 'ok', chatId }, db)
   } catch (error) {

@@ -32,7 +32,6 @@ import { registerTranscriptionHandlers } from './transcription'
 import { registerTransferHandlers } from './transfer'
 import { registerWorkspaceCoreHandlers } from './workspace'
 import { registerWorkspaceMembersHandlers } from './workspaces-members'
-import { registerMessagingHandlers } from './messaging'
 import { guardSessionChannels } from './session-guard'
 
 export function registerCoreRpcHandlers(
@@ -70,5 +69,4 @@ export function registerCoreRpcHandlers(
   registerTransferHandlers(server)
   registerWorkspaceCoreHandlers(server, deps)
   registerWorkspaceMembersHandlers(server)
-  registerMessagingHandlers(server, deps)
 }

@@ -23,6 +23,7 @@ const object = <T extends object>() => z.custom<T>((value) => typeof value === '
 export const CATALOGUE = {
   // install: one value for the whole server or desktop
   defaultConnectionSlug: key('install', textOrNull, null),
+  defaultConnectionId: key('install', textOrNull, null),
   defaultThinkingLevel: key('install', z.preprocess(normalizeThinkingLevel, z.enum(THINKING_LEVEL_IDS)), 'medium' as const),
   setupDeferred: key('install', flag, false),
   decisionLayer: key('install', object<DecisionLayerStoredSettings>(), {}),
@@ -44,9 +45,11 @@ export const CATALOGUE = {
   activeChatId: key('user', textOrNull, null),
   /** The slug of the connection this person's chats use when they name none (their own, else the one visible to them). */
   userDefaultConnectionSlug: key('user', textOrNull, null),
+  userDefaultConnectionId: key('user', textOrNull, null),
   colorTheme: key('user', text, 'default'),
   notificationsEnabled: key('user', flag, true),
   sendMessageKey: key('user', z.enum(['enter', 'cmd-enter']), 'enter' as const),
+  midStreamBehavior: key('user', z.enum(['steer', 'queue']), 'steer' as const),
   spellCheck: key('user', flag, false),
   autoCapitalisation: key('user', flag, true),
   richToolDescriptions: key('user', flag, true),

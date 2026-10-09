@@ -42,6 +42,7 @@ export interface ChatMetadata {
   piSession?: SessionConfig['piSession']
   model?: string
   llmConnection?: string
+  llmConnectionId?: string
   connectionLocked?: boolean
   thinkingLevel?: SessionConfig['thinkingLevel']
   permissionMode?: SessionConfig['permissionMode']
@@ -62,17 +63,18 @@ export interface ChatMetadata {
   transferredSessionSummaryApplied?: boolean
   contextSummary?: string
   contextThroughId?: string
+  contextEntity?: string
   /** The automation run that made the chat, without its id (that is `origin`). */
   triggeredBy?: Omit<NonNullable<SessionConfig['triggeredBy']>, 'automationId'>
   tokenUsage?: SessionTokenUsage
 }
 
 const METADATA_KEYS = [
-  'sdkSessionId', 'piSession', 'model', 'llmConnection', 'connectionLocked', 'thinkingLevel', 'permissionMode', 'previousPermissionMode',
+  'sdkSessionId', 'piSession', 'model', 'llmConnection', 'llmConnectionId', 'connectionLocked', 'thinkingLevel', 'permissionMode', 'previousPermissionMode',
   'workingDirectory', 'enabledSourceSlugs', 'sharedUrl', 'sharedId', 'agents', 'pendingPlanExecution', 'lastReadMessageId',
   'branchFromMessageId', 'branchFromSdkSessionId', 'branchFromSessionPath', 'branchFromSdkTurnId',
   'transferredSessionSummary', 'transferredSessionSummaryApplied',
-  'contextSummary', 'contextThroughId',
+  'contextSummary', 'contextThroughId', 'contextEntity',
 ] as const satisfies readonly (keyof ChatMetadata)[]
 
 /** A chat as the write path hands it over: its config fields plus what only the running server knows. */
@@ -83,6 +85,14 @@ export interface ChatSnapshot extends SessionConfig {
   tokenUsage?: SessionTokenUsage
   /** A turn is running: `run_started_at` stays set until a snapshot says it stopped. */
   running?: boolean
+}
+
+export function getLinkedPageChatId(workspaceId: string, contextEntity: string, db: Db = initDb()): string | undefined {
+  return db.select({ id: chats.id, metadata: chats.metadata }).from(chats).where(eq(chats.workspaceId, workspaceId)).orderBy(chats.createdAt, chats.id).all()
+    .find((row) => {
+      try { return JSON.parse(row.metadata ?? '{}')?.contextEntity === contextEntity }
+      catch { return false }
+    })?.id
 }
 
 function toOrigin(chat: SessionConfig): string | null {

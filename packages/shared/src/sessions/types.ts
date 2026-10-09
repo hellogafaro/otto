@@ -31,7 +31,7 @@ export const SESSION_PERSISTENT_FIELDS = [
   // Config
   'enabledSourceSlugs', 'permissionMode', 'previousPermissionMode', 'workingDirectory',
   // Model/Connection
-  'model', 'llmConnection', 'connectionLocked', 'thinkingLevel',
+  'model', 'llmConnection', 'llmConnectionId', 'connectionLocked', 'thinkingLevel',
   // Sharing
   'sharedUrl', 'sharedId',
   // Plan execution
@@ -52,6 +52,7 @@ export const SESSION_PERSISTENT_FIELDS = [
   'triggeredBy',
   // Project binding (workspace-scoped grouping)
   'projectId',
+  'contextEntity',
   // Subtask hierarchy (sessions spawned by spawn_session)
   'parentSessionId',
 ] as const;
@@ -148,6 +149,7 @@ export interface SessionConfig {
   contextThroughId?: string;
   /** LLM connection slug for this session (locked after first message) */
   llmConnection?: string;
+  llmConnectionId?: string;
   /** Whether the connection is locked (cannot be changed after first agent creation) */
   connectionLocked?: boolean;
   /** Thinking level for this session ('off', 'think', 'max') */
@@ -196,6 +198,7 @@ export interface SessionConfig {
   };
   /** Workspace-scoped project id this session belongs to (undefined = unbound). */
   projectId?: string;
+  contextEntity?: string;
   /** Parent session id — when set, this session is a subtask of the parent (undefined = top-level task). */
   parentSessionId?: string;
 }
@@ -255,6 +258,7 @@ export interface SessionHeader {
   model?: string;
   /** LLM connection slug for this session (locked after first message) */
   llmConnection?: string;
+  llmConnectionId?: string;
   /** Whether the connection is locked (cannot be changed after first agent creation) */
   connectionLocked?: boolean;
   /** Thinking level for this session ('off', 'think', 'max') */
@@ -292,6 +296,7 @@ export interface SessionHeader {
   };
   /** Workspace-scoped project id this session belongs to (undefined = unbound). */
   projectId?: string;
+  contextEntity?: string;
   /** Parent session id — when set, this session is a subtask of the parent (undefined = top-level task). */
   parentSessionId?: string;
   // Pre-computed fields for fast list loading
@@ -354,6 +359,7 @@ export interface SessionMetadata {
   model?: string;
   /** LLM connection slug for this session (locked after first message) */
   llmConnection?: string;
+  llmConnectionId?: string;
   /** Whether the connection is locked (cannot be changed after first agent creation) */
   connectionLocked?: boolean;
   /** Thinking level for this session ('off', 'think', 'max') */
@@ -372,6 +378,7 @@ export interface SessionMetadata {
   branchFromMessageId?: string;
   /** Workspace-scoped project id this session belongs to (undefined = unbound). */
   projectId?: string;
+  contextEntity?: string;
   /** Parent session id — when set, this session is a subtask of the parent (undefined = top-level task). */
   parentSessionId?: string;
 }

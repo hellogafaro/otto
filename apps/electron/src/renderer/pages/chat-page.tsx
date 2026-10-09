@@ -31,7 +31,6 @@ import { coerceInputText } from '@/lib/input-text'
 import { deriveSessionMessagesLoadState, formatSessionLoadFailure } from '@/lib/session-load'
 import { ensureSessionMessagesLoadedAtom, forceSessionMessagesReloadAtom, loadedSessionsAtom, removeSessionAtom, sessionMetaMapAtom } from '@/atoms/sessions'
 import { getSessionTitle } from '@/utils/session'
-import { ChatPeople } from '@/components/people/chat-people'
 import { ChatMembersDialog } from '@/components/people/chat-members-dialog'
 import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import { isPeopleChat } from '@/lib/actors'
@@ -363,14 +362,6 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   // Priority: name > (a DM or a group) the other people > first user message > preview > "New chat"
   const workspaceMembers = useWorkspaceMembers()
   const displayTitle = session ? getSessionTitle(session, workspaceMembers) : (sessionMeta ? getSessionTitle(sessionMeta, workspaceMembers) : t('chat.session'))
-  // The chat's members (its agents and the people in it, never you) lead its title; hidden until there is one to show.
-  const people = <ChatPeople chat={chat} />
-  const headerTitle = (
-    <>
-      <span className="mr-1 flex shrink-0 empty:hidden">{people}</span>
-      {displayTitle}
-    </>
-  )
   const sharedUrl = session?.sharedUrl || sessionMeta?.sharedUrl || null
   const { viewerConfigured } = useShareCapabilities()
   // Use isAsyncOperationOngoing for shimmer effect (sharing, updating share, revoking, title regeneration)
@@ -643,7 +634,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       return (
         <>
           <div className="h-full flex flex-col">
-            <PageHeader density="compact" title={headerTitle} menu={sessionMenu} compactMenu={compactSessionMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
+            <PageHeader density="compact" title={displayTitle} menu={sessionMenu} compactMenu={compactSessionMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
             <div className="flex-1 flex flex-col min-h-0">
               <ChatDisplay
                 ref={chatDisplayRef}
@@ -709,15 +700,16 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   return (
     <>
       <div className="h-full flex flex-col">
-        <PageHeader density="compact" title={headerTitle} menu={sessionMenu} compactMenu={compactSessionMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
+        <PageHeader density="compact" title={displayTitle} menu={sessionMenu} compactMenu={compactSessionMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
         <div className="flex-1 flex flex-col min-h-0">
           <ChatDisplay
             ref={chatDisplayRef}
             session={session}
-            onSendMessage={(message, attachments, skillSlugs) => {
+            onSendMessage={(message, attachments, skillSlugs, options) => {
               if (session) {
-                onSendMessage(session.id, message, attachments, skillSlugs)
+                return onSendMessage(session.id, message, attachments, skillSlugs, undefined, options)
               }
+              return false
             }}
             onOpenFile={handleOpenFile}
             onOpenUrl={handleOpenUrl}

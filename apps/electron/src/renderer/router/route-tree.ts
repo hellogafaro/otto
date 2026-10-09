@@ -12,7 +12,7 @@
  */
 
 import { createElement, type ComponentType } from 'react'
-import { createRootRouteWithContext, createRoute, notFound, redirect, useRouterState } from '@tanstack/react-router'
+import { createRootRouteWithContext, createRoute, notFound, redirect, retainSearchParams, useRouterState } from '@tanstack/react-router'
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
 import { DEFAULT_SETTINGS_SUBPAGE, isValidSettingsSubpage } from '../../shared/settings-registry'
 import { normalizeLibrarySearch, normalizeNotificationsSearch, normalizeProjectsSearch, normalizeSkillsSearch, normalizeTasksSearch } from '../../shared/section-search'
@@ -55,6 +55,8 @@ const loginRoute = createRoute({
 const workspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '$workspaceSlug',
+  validateSearch: (search: Record<string, unknown>): { details?: 'closed' } => search.details === 'closed' ? { details: 'closed' } : {},
+  search: { middlewares: [retainSearchParams(['details'])] },
   beforeLoad: ({ params }) => {
     if (isReservedWorkspaceSlug(params.workspaceSlug)) throw notFound()
   },

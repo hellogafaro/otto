@@ -1,7 +1,6 @@
 import type { PlatformServices } from '../runtime/platform'
 import type { ISessionManager } from './session-manager-interface'
 import type { IOAuthFlowStore } from './oauth-flow-store-interface'
-import type { IMessagingGatewayRegistry } from './messaging-registry-interface'
 
 /**
  * Generic handler dependency bag.
@@ -16,5 +15,4 @@ export interface HandlerDeps<
   sessionManager: TSessionManager
   platform: PlatformServices
   oauthFlowStore: TOAuthFlowStore
-  messagingRegistry?: IMessagingGatewayRegistry
 }

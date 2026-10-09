@@ -23,7 +23,6 @@ import {
 } from '@workspace/ui/components/dropdown-menu'
 import { DatePicker } from '@workspace/ui/components/date-picker'
 import { PageCenterpiece, PageColumn } from '@workspace/ui/components/page'
-import { PageScroll } from '@workspace/ui/components/page-frame'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
 import { TiptapMarkdownEditor } from '@otto/ui'
 import { getDateLocale } from '@otto/shared/i18n'
@@ -138,7 +137,7 @@ function TaskProperties({ task, tasksApi }: { task: Task; tasksApi: ReturnType<t
           onOpenChange={setProjectOpen}
           value={task.projectId}
           onValueChange={(projectId) => { if (projectId !== task.projectId) void runTaskAction(task, { projectId }) }}
-          trigger={<PropertyRow icon={<Box />} label={t('tasks.project')} value={project?.title} kbd="P" />}
+          trigger={<PropertyRow icon={<Box />} label={t('tasks.project')} value={project?.title} placeholder={t('sessionMenu.noProject')} kbd="P" actions={task.projectId ? <Button variant="ghost" size="icon-xs" aria-label={t('tasks.clearProject', { defaultValue: 'Remove project link' })} onClick={(event) => { event.stopPropagation(); void runTaskAction(task, { projectId: null }) }}><X /></Button> : undefined} />}
         />
       </PropertySection>
       <PropertySection
@@ -206,7 +205,7 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
         menu={<TaskMenuItems task={task} onAction={(item, action) => void runTaskAction(item, action)} />}
       />
       <PageCenterpiece>
-        <PageScroll className="flex flex-col gap-3 px-5 py-5" onBlur={flush}>
+        <div className="flex flex-col gap-3 p-4" onBlur={flush}>
           <p className="text-xs text-muted-foreground">
             {t('tasks.createdBy', { name: nameOf(task.createdBy), date: format(task.createdAt, 'MMM d, yyyy', { locale: getDateLocale(i18n.language) }) })}
           </p>
@@ -216,7 +215,7 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
             placeholder={t('tasks.descriptionPlaceholder')}
           />
           <ActivityFeed entity={`task:${task.id}`} className="mt-5" />
-        </PageScroll>
+        </div>
       </PageCenterpiece>
       <SidecarDetails title={t('tasks.details')}><TaskDetails taskId={task.id} /></SidecarDetails>
     </PageColumn>

@@ -363,23 +363,6 @@ export interface SessionToolContext {
   }>;
 
   // ============================================================
-  // Messaging Gateway (for list/unbind messaging channels)
-  // ============================================================
-
-  /** Get messaging bindings for a session. Injected by backend when messaging is configured. */
-  getMessagingBindings?(sessionId: string): Array<{
-    platform: string;
-    channelId: string;
-    /** Telegram supergroup forum topic id; undefined for DMs / non-Telegram. */
-    threadId?: number;
-    channelName?: string;
-    enabled: boolean;
-  }>;
-
-  /** Unbind messaging channels from a session. Returns count of removed bindings. */
-  unbindMessagingChannel?(sessionId: string, platform?: string): number;
-
-  // ============================================================
   // Session Paths (for transform_data / render_template)
   // ============================================================
 

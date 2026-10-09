@@ -211,18 +211,6 @@ export interface AutomationMatcher {
   conditions?: AutomationCondition[];
   /** Optional decision-model condition checked before prompt actions start a session */
   semanticCondition?: SemanticCondition;
-  /**
-   * Optional Telegram forum-topic name. When set, sessions spawned by this
-   * matcher are bound to a forum topic of this name in the workspace's paired
-   * supergroup. The topic is created on first use and reused thereafter.
-   * Multiple matchers using the same value share one topic.
-   *
-   * Silently ignored when:
-   *   - No supergroup is paired in Settings → Messaging → Telegram
-   *   - The Telegram bot is not connected
-   *   - The bot lacks "Manage Topics" permission in the supergroup
-   */
-  telegramTopic?: string;
   actions: AutomationAction[];
 }
 
@@ -322,8 +310,6 @@ export interface PendingPrompt {
   model?: string;
   /** Thinking level for the created session (falls back to workspace default when omitted) */
   thinkingLevel?: ThinkingLevel;
-  /** Forum-topic name to bind the new session to (Telegram supergroup, when paired). */
-  telegramTopic?: string;
   /** Decision-model condition from the matcher, with the event it is judged against. */
   semanticCondition?: SemanticCondition;
   /** Event that fired the matcher (for `semanticCondition`). */

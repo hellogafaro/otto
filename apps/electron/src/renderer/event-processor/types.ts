@@ -446,6 +446,8 @@ export interface UsageUpdateEvent {
  * Union of all agent events
  */
 export type AgentEvent =
+  | { type: 'message_updated'; sessionId: string; message: Message }
+  | { type: 'processing_started'; sessionId: string; currentRunId: string; currentAgentId: string }
   | TextDiscardEvent
   | RetryEvent
   | TextDeltaEvent

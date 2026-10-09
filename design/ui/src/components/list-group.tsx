@@ -10,30 +10,12 @@ import { PageCard } from "@workspace/ui/components/page"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "cn"
 
-// Otto: the grouped list, Otto v1's table (Linear's and Codex's pattern), for
-// collections you work through: Chats, Tasks, Routines (and the notifications' flat list).
-// It sits in the Settings card (`ListCard`: `PageCard`, 8px in), NO hairlines
-// inside it: each group is a ROUNDED band (8px, a quiet fill) and its rows sit
-// plain on the card under it, 4px below the band; a group sits 8px under the
-// one before. Hover, current and pressed fills are rounded too, so the table
-// floats 8px inside the card's edge without clipping.
-//
-// Proportions (DESIGN.md, Data patterns): body text 13px on a 20px line; a
-// row is 44px (20 + 12 + 12), a band 36px (20 + 8 + 8), a metadata badge 24px
-// (16 + 4 + 4): the padding steps down the 12 · 8 · 4 of the golden ladder.
-//
-// ONE column grid for bands and rows, so icons and text line up: 8px in (with
-// the card's 8px, `PAGE_INSET` 16 from the card's edge: the page title's line),
-// a 14px column (the band's chevron; empty in a row), 8px, a 14px icon column
-// (the group's icon, the row's status icon or avatar), 8px, then the text (the
-// group's name, the row's title) at 52px.
-
-// Otto: the table's container: the Settings card (`PageCard`: `bg-card`, the
-// card edge, `xl` 12 corners) with the table 8px in (`p-2`, the ONE padding of
-// a list page: no line wrapper around it). Groups are not split by the card's
-// row hairlines (`divide-y-0`); a flat list (Notifications, Home's cards) puts its rows in one `ul`.
+// Otto: collection lists are plain surfaces within the enclosing page panel.
+// Group labels, collapse, row menus, hover and keyboard behavior are unchanged.
+// Bands own a 16px leading inset. Standalone card lists keep their existing
+// 8px wrapper plus 8px row inset; plain ListCard rows own the full 16px.
 function ListCard({ className, ...props }: React.ComponentProps<"div">) {
-  return <PageCard className={cn("p-2 divide-y-0", className)} {...props} />
+  return <PageCard surface={false} data-slot="list-card" className={cn("divide-y-0", className)} {...props} />
 }
 
 // A 14px column: a status icon, an avatar, a glyph; centered, so 16px ones fit.
@@ -53,8 +35,7 @@ function ListSlot({ className, ...props }: React.ComponentProps<"span">) {
 // on hover), laid over with `tint` (the group's status color) at 5% when it has
 // one; the whole band toggles the group (Enter or Space too). Left to right: a
 // muted chevron (down when open, right when folded), the group's icon, its name
-// (medium), its `Count`; `action` (a 24px ghost icon button, such as the "+")
-// sits 6px inside the band's end, shown on hover or focus (always on touch).
+// (medium) and its `Count`; the label never hosts a creation action.
 // Empty groups render nothing.
 function ListGroup({
   icon,
@@ -62,7 +43,6 @@ function ListGroup({
   count,
   tint,
   defaultOpen = true,
-  action,
   className,
   children,
 }: {
@@ -73,8 +53,6 @@ function ListGroup({
   /** The group's status color (any CSS color); none keeps the band neutral. */
   tint?: string
   defaultOpen?: boolean
-  /** One 24px ghost icon button at the band's end. */
-  action?: React.ReactNode
   className?: string
   children: React.ReactNode
 }) {
@@ -89,10 +67,9 @@ function ListGroup({
         <CollapsibleTrigger
           style={tint ? ({ "--list-tint": tint } as React.CSSProperties) : undefined}
           className={cn(
-            "group/trigger flex h-9 w-full items-center gap-2 rounded-md bg-foreground/5 px-2 text-left text-sm font-medium text-foreground transition-colors outline-none select-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+            "group/trigger flex h-9 w-full items-center gap-2 rounded-md bg-foreground/5 px-4 text-left text-sm font-medium text-foreground transition-colors outline-none select-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
             tint &&
-              "bg-[linear-gradient(color-mix(in_oklab,var(--list-tint)_5%,transparent),color-mix(in_oklab,var(--list-tint)_5%,transparent))]",
-            action && "pr-10"
+              "bg-[linear-gradient(color-mix(in_oklab,var(--list-tint)_5%,transparent),color-mix(in_oklab,var(--list-tint)_5%,transparent))]"
           )}
         >
           <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover/trigger:text-foreground group-data-panel-open/trigger:rotate-90 motion-reduce:transition-none" />
@@ -100,11 +77,6 @@ function ListGroup({
           <span className="min-w-0 truncate">{label}</span>
           <Count>{count}</Count>
         </CollapsibleTrigger>
-        {action && (
-          <div className="absolute inset-y-0 right-1.5 flex items-center opacity-0 group-focus-within/band:opacity-100 group-hover/band:opacity-100 has-aria-expanded:opacity-100 not-pointer-fine:opacity-100">
-            {action}
-          </div>
-        )}
       </div>
       <CollapsibleContent>
         <ul className="flex flex-col pt-1">{children}</ul>
@@ -162,7 +134,7 @@ function ListRow({
       type="button"
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-data-popup-open/row:bg-foreground/5 rounded-md px-2",
+        "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-data-popup-open/row:bg-foreground/5 rounded-md px-2 in-data-[slot=list-card]:px-4",
         size === "sm" ? "h-8" : "h-11",
         className
       )}

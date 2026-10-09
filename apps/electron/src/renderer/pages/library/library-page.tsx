@@ -10,6 +10,7 @@ import * as React from 'react'
 import { FilePlus, FolderPlus, Library, Upload, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
+import { dispatchPrefillInputEvent } from '@/components/app-shell/input/focus-input-events'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@workspace/ui/components/breadcrumb'
 import { Button } from '@workspace/ui/components/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui/components/dropdown-menu'
@@ -22,7 +23,6 @@ import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { CreateButton } from '@/components/ui/create-button'
-import { RenameDialog } from '@/components/ui/rename-dialog'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { useLibrary } from '@/hooks/use-library'
 import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
@@ -55,17 +55,15 @@ function AddMenu({ trigger, canAddFolder, onUpload, onNewDocument, onNewFolder }
   )
 }
 
-type Creating = 'folder' | 'document'
 type Pending = { key: string; title: string; parentId: string | null }
 
 export function LibraryPage() {
   const { t } = useTranslation()
   useComposerContext({ key: 'page:library' })
-  const { items, loaded, createLibraryItem, createLibraryFolder } = useLibrary()
+  const { items, loaded, createLibraryItem } = useLibrary()
   const { me } = useWorkspaceMembers()
   const { view, setSearch, openItem } = useLibraryFilters()
   const dialogs = useLibraryItemDialogs()
-  const [creating, setCreating] = React.useState<Creating | null>(null)
   const [pending, setPending] = React.useState<Pending[]>([])
   const fileInput = React.useRef<HTMLInputElement>(null)
 
@@ -100,27 +98,18 @@ export function LibraryPage() {
     }
   }
 
-  const submitCreate = async (name: string) => {
-    if (!creating) return
-    setCreating(null)
-    if (creating === 'folder') {
-      const result = await createLibraryFolder({ title: name, parentId: view.folder })
-      if (!result.ok) toast.error(libraryErrorMessage(t, result.code))
-      return
-    }
-    // The library refuses empty files: a new document starts as one line break.
-    const result = await createLibraryItem({ title: `${name}.md`, mime: 'text/markdown', content: { encoding: 'utf8', data: '\n' }, parentId: view.folder })
-    if (result.ok) openItem(result.value.id)
-    else toast.error(libraryErrorMessage(t, result.code))
-  }
+  const prefillCreate = (type: 'folder' | 'document') => dispatchPrefillInputEvent(t(type === 'folder' ? 'library.createFolderPrompt' : 'library.createDocumentPrompt', {
+    defaultValue: type === 'folder' ? 'Help me create a Library folder{{context}}. Details: ' : 'Help me create a Library document{{context}}. Details: ',
+    context: view.folder ? ` in library:${view.folder}` : '',
+  }))
 
   const addMenu = (trigger: React.ReactElement) => (
     <AddMenu
       trigger={trigger}
       canAddFolder={canAddFolder}
       onUpload={() => fileInput.current?.click()}
-      onNewDocument={() => setCreating('document')}
-      onNewFolder={() => setCreating('folder')}
+      onNewDocument={() => prefillCreate('document')}
+      onNewFolder={() => prefillCreate('folder')}
     />
   )
 
@@ -149,15 +138,6 @@ export function LibraryPage() {
           event.target.value = ''
           if (files.length > 0) void upload(files)
         }}
-      />
-      <RenameDialog
-        open={creating !== null}
-        onOpenChange={(open) => { if (!open) setCreating(null) }}
-        title={creating === 'folder' ? t('library.newFolder') : t('library.newDocument')}
-        defaultValue=""
-        onSubmit={submitCreate}
-        placeholder={t('library.titlePlaceholder')}
-        submitLabel={t('common.create')}
       />
       {dialogs.dialogs}
     </>
@@ -200,7 +180,7 @@ export function LibraryPage() {
       <PageColumn className="min-h-full">
         <div data-content-start="" className="flex flex-1 flex-col gap-3">
           <Tabs value={view.tab} onValueChange={(tab) => setSearch({ tab: tab as LibraryTab })}>
-            <TabsList className="px-1">
+            <TabsList>
               {LIBRARY_TABS.map((tab) => <TabsTrigger key={tab} value={tab}>{t(TAB_LABELS[tab])}</TabsTrigger>)}
             </TabsList>
           </Tabs>

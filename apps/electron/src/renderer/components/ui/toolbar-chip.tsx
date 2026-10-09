@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 export interface ToolbarChipProps extends Omit<React.ComponentProps<typeof Button>, 'variant' | 'size'> {
   /** `icon-compact` is the same chip with only an icon (a 28px square). */
-  size?: 'compact' | 'icon-compact'
+  size?: 'default' | 'icon' | 'compact' | 'icon-compact'
   /** Any CSS color (`var(--info)`, an entity color): tints the chip 10%, hover 15%, open 20%. */
   tint?: string
   /** Controlled open state for chips that are not a Radix trigger (it sets `aria-expanded` itself). */
@@ -17,6 +17,7 @@ export function ToolbarChip({ tint, open, size = 'compact', className, style, ..
     <Button
       variant="ghost"
       size={size}
+      data-size={size}
       data-popup-open={open || undefined}
       style={tint ? ({ ...style, '--chip-tint': tint } as React.CSSProperties) : style}
       className={cn(

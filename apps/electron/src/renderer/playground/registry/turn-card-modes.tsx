@@ -299,7 +299,6 @@ function TurnCardModesDemo({
         animateResponse={hasPlaybackStarted}
         onOpenFile={(path) => console.log('[Playground] Open file:', path)}
         onOpenUrl={(url) => console.log('[Playground] Open URL:', url)}
-        onOpenActivityDetails={(activity) => console.log('[Playground] Open activity details:', activity.id, activity.toolName)}
       />
     </div>
   )

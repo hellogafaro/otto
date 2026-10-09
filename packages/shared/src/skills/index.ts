@@ -34,9 +34,9 @@ function defaultStore() {
 export const getSkills: Store['getSkills'] = (workspaceId) => defaultStore().getSkills(workspaceId)
 export const getSkill: Store['getSkill'] = (workspaceId, slug) => defaultStore().getSkill(workspaceId, slug)
 export const getLoadedSkills: Store['getLoadedSkills'] = (workspaceId) => defaultStore().getLoadedSkills(workspaceId)
-export const createSkill: Store['createSkill'] = (input) => defaultStore().createSkill(input)
-export const updateBundle: Store['updateBundle'] = (workspaceId, slug, files, expectedUpdatedAt) => defaultStore().updateBundle(workspaceId, slug, files, expectedUpdatedAt)
-export const deleteSkill: Store['deleteSkill'] = (workspaceId, slug) => defaultStore().deleteSkill(workspaceId, slug)
+export const createSkill: Store['createSkill'] = (input, authorize) => defaultStore().createSkill(input, authorize)
+export const updateBundle: Store['updateBundle'] = (workspaceId, slug, files, expectedUpdatedAt, authorize) => defaultStore().updateBundle(workspaceId, slug, files, expectedUpdatedAt, authorize)
+export const deleteSkill: Store['deleteSkill'] = (workspaceId, slug, authorize) => defaultStore().deleteSkill(workspaceId, slug, authorize)
 export const syncLocalSkill: Store['syncLocalSkill'] = (workspaceId, slug) => defaultStore().syncLocalSkill(workspaceId, slug)
 export const syncSkills: Store['syncSkills'] = (workspaceId) => defaultStore().syncSkills(workspaceId)
 

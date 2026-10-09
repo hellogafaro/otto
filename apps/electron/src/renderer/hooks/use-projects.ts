@@ -18,7 +18,7 @@ export function useProjects() {
   const actions = useMemo(() => {
     const api = window.electronAPI
     return {
-      createProject: (input: { title: string; description?: string; resources?: Resource[] }) => mutate(() => api.createProject(input)),
+      createProject: (input: { title: string; description?: string; resources?: Resource[]; creationId?: string }) => mutate(() => api.createProject(input)),
       updateProject: (id: string, patch: ProjectUpdate) => mutate(() => api.updateProject(id, patch)),
       /** `archived` hides it from the default list, `deleted` removes it (restoring is `active`). */
       setProjectStatus: (id: string, status: ProjectStatus) => mutate(() => api.setProjectStatus(id, status)),

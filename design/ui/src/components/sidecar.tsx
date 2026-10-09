@@ -7,27 +7,11 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { cn } from "cn"
-import { PanelRightIcon, XIcon } from "lucide-react"
+import { List } from "lucide-react"
 import * as React from "react"
 
-// Otto: the sidecar, for an item's details (Otto v1's right column: plain text
-// on the page background, muted section labels, rows of icon + value). It
-// FLOATS: an absolute layer, never a grid item, so opening it never reflows the
-// page by itself. Pass it as the `aside` of `PageFrame`:
-// - from 1160px of frame width (the nav's 72px gutter + the 768px column + the
-//   320px it reserves: `--nav-gap` 16, `--sidecar-width` 296, 8 to the window)
-//   both fit. It sits in the right gutter on the frame with NO surface (no
-//   background, ring, shadow, corners or title), `--nav-gap` from the column
-//   (the x of `SidecarToggle` above it) and from the content start
-//   (`--content-start`) to the frame's 8px bottom; `PageFrame` reserves its 320px
-//   in the right track, so the column (and the composer in it) shifts left only
-//   as far as the gutter is too narrow. Its toggle is its close.
-// - narrower it overlays the page on a card (`bg-card`, ring, `shadow-md`; it
-//   floats over content) with its title and Close, since it covers the toggle;
-//   below 768px it spans the width (the phone sheet).
-// Closed by default; opening and closing is a 200ms slide and fade, none with
-// reduced motion. It scrolls itself, with the edge fade, when taller than the
-// window. Escape closes it while focus is inside.
+// Otto: details stay inside the shell panel's resizable split, without a floating
+// card, header separator or shadow. The narrow split stacks below the page.
 function Sidecar({
   open,
   onOpenChange,
@@ -43,54 +27,50 @@ function Sidecar({
   className?: string
   children?: React.ReactNode
 }) {
+  const close = (event: React.SyntheticEvent<HTMLElement>) => {
+    const frame = event.currentTarget.closest('[data-slot="page-frame"]')
+    onOpenChange(false)
+    requestAnimationFrame(() => frame?.querySelector<HTMLElement>('[data-slot="sidecar-toggle"]')?.focus())
+  }
   return (
     <section
       data-slot="sidecar"
       data-state={open ? "open" : "closed"}
       aria-label={title}
       inert={!open}
-      onKeyDown={(event) => {
+      onKeyDownCapture={(event) => {
         // Otto: only while focus is inside it in the DOM: a dialog opened from it (a portal) bubbles here in React.
         if (
           event.key === "Escape" &&
           event.currentTarget.contains(event.target as Node)
         ) {
           event.stopPropagation()
-          onOpenChange(false)
+          close(event)
         }
       }}
       className={cn(
-        "absolute z-20 flex flex-col overflow-hidden",
-        "transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",
-        // Overlay (under 1160px): a card over the page, right, spanning on phones.
-        "inset-y-2 right-2 w-(--sidecar-width) max-w-[calc(100%-1rem)] rounded-xl bg-card card-surface [--card-shadow:var(--shadow-md)] max-md:inset-x-2 max-md:w-auto max-md:max-w-none",
-        // Floating beside the column: the right gutter's area, no surface.
-        "@[1160px]/frame:col-start-3 @[1160px]/frame:row-start-2 @[1160px]/frame:top-(--content-start) @[1160px]/frame:right-auto @[1160px]/frame:bottom-0 @[1160px]/frame:left-(--nav-gap) @[1160px]/frame:max-w-none @[1160px]/frame:rounded-none @[1160px]/frame:border-0 @[1160px]/frame:bg-transparent @[1160px]/frame:[box-shadow:none]",
-        open
-          ? "translate-x-0 opacity-100"
-          : "pointer-events-none translate-x-4 opacity-0",
+        "flex h-full min-h-0 w-full flex-col overflow-hidden",
+        !open && "pointer-events-none",
         className
       )}
     >
       <header
         data-slot="sidecar-header"
-        className="flex h-13 shrink-0 items-center gap-1 pr-3.5 pl-4 @[1160px]/frame:hidden"
+        className="flex h-12 shrink-0 items-center gap-1 p-2"
       >
         <h2 className="min-w-0 flex-1 truncate text-sm font-medium">
           {title}
         </h2>
-        <Button
-          variant="ghost"
-          size="icon-compact"
-          aria-label={closeLabel}
-          onClick={() => onOpenChange(false)}
-        >
-          <XIcon />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger render={<Button variant="ghost" size="icon" data-slot="sidecar-close" aria-label={closeLabel} aria-expanded={open} onClick={close} />}>
+            <List />
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{closeLabel}</TooltipContent>
+        </Tooltip>
       </header>
       <div
         data-slot="sidecar-body"
-        className="no-scrollbar min-h-0 flex-1 scroll-fade-y overflow-y-auto px-2 pb-4 text-sm @[1160px]/frame:px-0"
+        className="no-scrollbar min-h-0 flex-1 scroll-fade-y overflow-y-auto px-4 pb-4 text-sm"
       >
         {children}
       </div>
@@ -98,41 +78,39 @@ function Sidecar({
   )
 }
 
-// Otto: the sidecar's toggle, never in the title row: the floating
-// navigation's raised icon button (`outline`, 32px, `md` 8), mirrored. `PageFrame`
-// gives it its slot: in the right gutter `--nav-gap` from the column, level with
-// the title row, while that gutter is 72px wide (from 912px of frame width); else
-// fixed over the column's top-right on the title row's line (the title row
-// clears it), on the axis below 768px. Open, it is the Close in the same place.
+// Otto: the details opener is an upper-right panel action only while closed.
 function SidecarToggle({
   open,
   onOpenChange,
   label,
-  closeLabel = "Close",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   label: string
-  closeLabel?: string
 }) {
-  const text = open ? closeLabel : label
+  if (open) return null
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
-            aria-label={text}
+            data-slot="sidecar-toggle"
+            aria-label={label}
             aria-expanded={open}
             className="titlebar-no-drag"
-            onClick={() => onOpenChange(!open)}
+            onClick={(event) => {
+              const frame = event.currentTarget.closest('[data-slot="page-frame"]')
+              onOpenChange(true)
+              requestAnimationFrame(() => frame?.querySelector<HTMLElement>('[data-slot="sidecar-close"]')?.focus())
+            }}
           >
-            {open ? <XIcon /> : <PanelRightIcon />}
+            <List />
           </Button>
         }
       />
-      <TooltipContent side="bottom">{text}</TooltipContent>
+      <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   )
 }

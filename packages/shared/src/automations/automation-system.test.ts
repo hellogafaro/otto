@@ -67,13 +67,15 @@ describe('AutomationSystem', () => {
       await system.dispose();
     });
 
-    it('should hand a webhook action its credentials from its secret, and none when the secret is gone', async () => {
-      addRoutine('Hook', { type: 'event', event: 'LabelAdd', actions: [{ type: 'webhook', url: 'https://example.test', secretId: 'missing' }] });
+    it('should exclude a stored webhook action from execution admission without converting its credentials', async () => {
+      const routine = addRoutine('Hook', { type: 'event', event: 'LabelAdd', actions: [{ type: 'webhook', url: 'https://example.test', secretId: 'missing' }] });
 
       const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
-      const action = system.getConfig()?.automations.LabelAdd?.[0]?.actions[0];
-      expect(action).toEqual({ type: 'webhook', url: 'https://example.test' });
+      expect(system.getConfig()?.automations.LabelAdd).toBeUndefined();
+      expect(system.getMatchersForEvent('LabelAdd')).toEqual([]);
+      const { getRoutine } = await import('./routines.ts');
+      expect(getRoutine('test-workspace', routine.id, db)?.config.actions).toEqual([{ type: 'webhook', url: 'https://example.test', secretId: 'missing' }]);
 
       await system.dispose();
     });

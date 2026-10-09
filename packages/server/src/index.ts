@@ -31,8 +31,6 @@
  *   OTTO_WEBUI_DIR            — path to built web UI assets (enables web UI on RPC port)
  *   OTTO_WEBUI_SECURE_COOKIE  — optional true/false override for the session cookie Secure flag
  *   OTTO_WEBUI_WS_URL         — optional browser-facing ws:// or wss:// URL returned by /api/config
- *   OTTO_MESSAGING_WA_WORKER  — absolute path to worker.cjs (default: packages/messaging-whatsapp-worker/dist/worker.cjs)
- *   OTTO_MESSAGING_NODE_BIN   — Node binary used to spawn the WhatsApp worker (default: node)
  *   OTTO_LOCAL_USER           — '1' on the desktop app: the install has one person and no sign-in, so the server makes
  *                               that user (once) and OTTO_SERVER_TOKEN acts as them; otherwise the first sign-up owns it
  */
@@ -49,13 +47,11 @@ import { initSecrets } from '@otto/shared/secrets'
 import { initFileStorage } from '@otto/shared/library'
 import { initLocalUser, initUsersStore } from '@otto/shared/users'
 import { LOCAL_EMAIL, LOCAL_NAME } from '@otto/shared/users/queries'
-import { getWorkspaces } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { initDb } from '@otto/shared/db'
 import { initSchema } from '@otto/shared/db/init-schema'
 import { ensureDefaultPermissions, setPowerShellValidatorRoot } from '@otto/shared/agent'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@otto/messaging-gateway'
 
 // --generate-token: print a crypto-random token and exit
 if (process.argv.includes('--generate-token')) {
@@ -189,18 +185,6 @@ if (webuiEnabled && serverToken) {
   webuiNodeHandler = nodeHttpAdapter(webuiHandler.fetch)
 }
 
-// Resolve WhatsApp worker paths up-front so the helper + Docker env stay in sync.
-// The worker is a Node subprocess — Bun cannot run it directly — so we must
-// pass an explicit `nodeBin` (Electron defaults nodeBin to process.execPath
-// which is correct there but wrong under Bun).
-const waWorkerEntry = process.env.OTTO_MESSAGING_WA_WORKER
-  ?? join(bundledAssetsRoot, 'packages', 'messaging-whatsapp-worker', 'dist', 'worker.cjs')
-const waNodeBin = process.env.OTTO_MESSAGING_NODE_BIN ?? 'node'
-
-// Built inside createHandlerDeps (needs sessionManager), populated with the WS
-// publisher after bootstrapServer resolves.
-let messagingHandle: MessagingBootstrapHandle | null = null
-
 // Chats running a turn, pushed on each change (the desktop keeps the screen awake while one runs)
 let runningChats = 0
 let pushStatus: (() => void) | null = null
@@ -244,35 +228,14 @@ const instance = await (async () => {
         }
       }),
       createSessionManager: () => new SessionManager(),
-      createHandlerDeps: ({ sessionManager, platform, oauthFlowStore }) => {
-        messagingHandle = createMessagingBootstrap({
-          sessionManager,
-          credentialManager: getCredentialManager(),
-          getMessagingDir: (wsId: string) =>
-            join(CONFIG_DIR, 'workspaces', wsId, 'messaging'),
-          // Headless has no legacy messaging dir — workspaces start clean.
-          whatsapp: {
-            workerEntry: waWorkerEntry,
-            nodeBin: waNodeBin,
-            pairingMode: 'qr',
-          },
-        })
-        return {
-          sessionManager,
-          platform,
-          oauthFlowStore,
-          messagingRegistry: messagingHandle.registry,
-        }
-      },
+      createHandlerDeps: ({ sessionManager, platform, oauthFlowStore }) => ({
+        sessionManager,
+        platform,
+        oauthFlowStore,
+      }),
       registerAllRpcHandlers: registerCoreRpcHandlers,
       setSessionEventSink: (sessionManager, sink) => {
-        if (!messagingHandle) {
-          // createHandlerDeps always runs before setSessionEventSink, but be
-          // defensive in case bootstrapServer's ordering ever changes.
-          sessionManager.setEventSink(sink)
-          return
-        }
-        sessionManager.setEventSink(messagingHandle.wrapSink(sink))
+        sessionManager.setEventSink(sink)
       },
       initializeSessionManager: async (sessionManager) => {
         await sessionManager.initialize()
@@ -293,29 +256,6 @@ const instance = await (async () => {
 })()
 
 pushStatus = () => instance.wsServer.push(RPC_CHANNELS.server.STATUS_CHANGED, { to: 'all' }, { runningChats })
-
-// ---------------------------------------------------------------------------
-// Messaging post-bootstrap: bind the WS publisher and initialize local
-// workspaces. Remote-owned workspaces are skipped because their messaging
-// runs on the remote server.
-// ---------------------------------------------------------------------------
-// OTTO_DISABLE_MESSAGING lets a dev/test server share a config dir with a live app
-// without both processes fighting over the same Telegram/WhatsApp connections (409s).
-const messagingDisabled = process.env.OTTO_DISABLE_MESSAGING === 'true' || process.env.OTTO_DISABLE_MESSAGING === '1'
-if (messagingHandle !== null && !messagingDisabled) {
-  const handle: MessagingBootstrapHandle = messagingHandle
-  handle.setPublisher(instance.wsServer.push.bind(instance.wsServer))
-  try {
-    const localWorkspaceIds = getWorkspaces()
-      .filter((ws) => !ws.remoteServer)
-      .map((ws) => ws.id)
-    await handle.initializeWorkspaces(localWorkspaceIds)
-  } catch (error) {
-    console.error('[messaging] Workspace initialization failed:', error)
-  }
-} else if (messagingDisabled) {
-  console.log('[messaging] Disabled via OTTO_DISABLE_MESSAGING — skipping workspace messaging init')
-}
 
 // Wire up the lazy health check now that the session manager is ready
 if (webuiHandler) {
@@ -381,13 +321,6 @@ if (!isLocalBind && instance.protocol === 'ws') {
 
 const shutdown = async () => {
   healthServer?.stop()
-  if (messagingHandle) {
-    try {
-      await messagingHandle.dispose()
-    } catch (error) {
-      console.error('[messaging] dispose failed:', error)
-    }
-  }
   await instance.stop()
   await instance.sessionManager.closeNativeHistory()
   mastraStorage?.close()

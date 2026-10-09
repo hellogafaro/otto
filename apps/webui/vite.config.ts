@@ -84,7 +84,6 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5175,
     open: false,
     host: true,
     // Dev only: reached through the bb link, whose host name changes.

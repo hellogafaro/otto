@@ -316,7 +316,7 @@ export interface ChatSearchResult {
  * matches first (chat id breaks ties), at most `limit` (capped at 100), after `offset` chats. `perChat` is capped
  * at 20; counts cover the entire authorized history. `lineNumber` is the matching message's position in its chat.
  */
-export function searchChats(workspaceId: string, actor: string, query: string, { limit = 50, perChat = 3, offset = 0 } = {}, db: Db = initDb()): ChatSearchResult[] {
+export function searchChats(workspaceId: string, actor: string, query: string, { limit = 50, perChat = 3, offset = 0, eligibleChatIds, ordinaryTextOnly = false }: { limit?: number; perChat?: number; offset?: number; eligibleChatIds?: readonly string[]; ordinaryTextOnly?: boolean } = {}, db: Db = initDb()): ChatSearchResult[] {
   assertHistoryRuntime(db)
   const match = toSearchQuery(query)
   if (!match) return []
@@ -324,13 +324,21 @@ export function searchChats(workspaceId: string, actor: string, query: string, {
   perChat = Number.isFinite(perChat) ? Math.max(0, Math.min(20, Math.floor(perChat))) : 3
   offset = Number.isSafeInteger(offset) && offset >= 0 ? offset : 0
   if (!limit) return []
+  if (eligibleChatIds?.length === 0) return []
+  const eligible = eligibleChatIds ? sql`AND m.chat_id IN (SELECT value FROM json_each(${JSON.stringify([...new Set(eligibleChatIds)])}))` : sql``
   const native = true && db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length > 0
   if (native) initNativeMessagesSearch(db)
   else initMessages(db)
   const index = native ? sql`native_messages_fts` : sql`messages_fts`
   const source = native ? sql`(SELECT rowid, resourceId AS workspace_id, thread_id AS chat_id,
     CAST(json_extract(content, '$.metadata.position') AS INTEGER) + 1 AS position,
-    json_extract(content, '$.metadata.otto.content') AS text FROM mastra_messages)` : sql`messages`
+    json_extract(content, '$.metadata.otto.content') AS text,
+    json_extract(content, '$.metadata.otto.type') AS kind,
+    json_extract(content, '$.metadata.otto.hidden') AS hidden,
+    json_extract(content, '$.metadata.otto.nativeAction') AS native_action FROM mastra_messages)` : sql`messages`
+  const ordinary = !ordinaryTextOnly ? sql`` : native
+    ? sql`AND m.kind IN ('user','assistant') AND coalesce(m.hidden,0) != 1 AND m.native_action IS NULL`
+    : sql`AND m.type IN ('user','assistant') AND coalesce(json_extract(m.content,'$.hidden'),0) != 1 AND json_extract(m.content,'$.nativeAction') IS NULL`
   const text = native ? sql`m.text` : sql`json_extract(m.content, '$.content')`
   const hits = db.all<{ chat_id: string; title: string | null; match_count: number; position: number | null; text: string | null }>(sql`
     WITH hits AS MATERIALIZED (
@@ -338,7 +346,7 @@ export function searchChats(workspaceId: string, actor: string, query: string, {
       JOIN ${source} m ON m.rowid = f.rowid
       JOIN chats c ON c.id = m.chat_id AND c.workspace_id = m.workspace_id
       JOIN chats_members cm ON cm.chat_id = c.id AND cm.workspace_id = c.workspace_id AND cm.actor = ${actor}
-      WHERE ${index} MATCH ${match} AND m.workspace_id = ${workspaceId}
+      WHERE ${index} MATCH ${match} AND m.workspace_id = ${workspaceId} ${eligible} ${ordinary}
     ), selected AS (
       SELECT chat_id, count(*) AS match_count FROM hits GROUP BY chat_id
       ORDER BY match_count DESC, chat_id LIMIT ${limit} OFFSET ${offset}

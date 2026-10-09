@@ -29,7 +29,6 @@ export {
 export {
   SessionViewer,
   TurnCard,
-  TurnCardActionsMenu,
   ResponseCard,
   UserMessage,
   SystemMessage,
@@ -46,7 +45,6 @@ export {
   type SessionViewerProps,
   type SessionViewerMode,
   type TurnCardProps,
-  type TurnCardActionsMenuProps,
   type ResponseCardProps,
   type UserMessageProps,
   type SystemMessageProps,
@@ -208,8 +206,6 @@ export {
   type DocumentFormattedMarkdownOverlayProps,
   type ImagePreviewOverlayProps,
   type PDFPreviewOverlayProps,
-  ActivityCardsOverlay,
-  type ActivityCardsOverlayProps,
 } from './components/overlay'
 
 // File classification (for link interceptor)
@@ -242,27 +238,6 @@ export {
   useOverlayMode,
   type OverlayMode,
 } from './lib/layout'
-
-// Tool result parsers
-export {
-  parseReadResult,
-  parseBashResult,
-  parseGrepResult,
-  parseGlobResult,
-  extractOverlayData,
-  extractOverlayCards,
-  type ReadResult,
-  type BashResult,
-  type GrepResult,
-  type GlobResult,
-  type CodeOverlayData,
-  type TerminalOverlayData,
-  type GenericOverlayData,
-  type JSONOverlayData,
-  type DocumentOverlayData,
-  type OverlayData,
-  type OverlayCard,
-} from './lib/tool-parsers'
 
 // Turn utilities (pure functions)
 export * from './components/chat/turn-utils'

@@ -30,9 +30,7 @@ import { ListCard, ListGroup, ListRow } from '@workspace/ui/components/list-grou
 import { Spinner } from '@otto/ui'
 import { flattenLabels, matchesLabelFilter, parseLabelEntry, type LabelConfig } from '@otto/shared/labels'
 import { getModelShortName } from '@config/models'
-import { routes } from '@/lib/navigate'
 import { PageHeader } from '@/components/app-shell/page-header'
-import { CreateButton } from '@/components/ui/create-button'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { SessionMenu } from '@/components/app-shell/session-menu'
 import { CompactSessionMenu } from '@/components/app-shell/compact-session-menu'
@@ -169,7 +167,7 @@ function ChatRow({ item, labels, actions, onOpen }: { item: SessionMeta; labels:
 export default function ChatsIndexPage() {
   const { t } = useTranslation()
   useComposerContext({ key: 'page:chats', placeholder: t('composer.placeholder.start') })
-  const { navigate, navigateToSession } = useNavigation()
+  const { navigateToSession } = useNavigation()
   const [filters, setFilters] = useChatFilters()
   const {
     activeWorkspaceId,
@@ -365,7 +363,6 @@ export default function ChatsIndexPage() {
                   tint={getStateColor(g.status.id, sessionStatuses)}
                   label={t(`status.${g.status.id}`, g.status.label)}
                   count={g.items.length}
-                  action={<CreateButton size="icon-xs" label={t('menu.newChat')} onClick={() => navigate(routes.action.newSession({ status: g.status.id }))} />}
                 >
                   {g.items.map(row)}
                 </ListGroup>

@@ -27,16 +27,16 @@ export function KeyConnectionStep({
 }) {
   const { t } = useTranslation()
   const [error, setError] = useState<string | null>(null)
-  const custom = kind === 'custom'
+  const openai = kind !== 'anthropic'
   const schema = z.object({
     apiKey: z.string().trim().min(1, t('common.required')),
     scope: z.enum(['user', 'workspace']),
-    baseUrl: z.string().refine((value) => !custom || isHttpUrl(value), t('connections.form.invalidBaseUrl', { defaultValue: 'Enter an HTTP or HTTPS base URL.' })),
+    baseUrl: z.string().refine((value) => kind !== 'custom' && !value.trim() || isHttpUrl(value), t('connections.form.invalidBaseUrl', { defaultValue: 'Enter an HTTP or HTTPS base URL without credentials or a fragment.' })),
     api: z.enum(['openai-responses', 'openai-completions']),
     model: z.string(),
   })
   const form = useForm({
-    defaultValues: { apiKey: '', scope: 'user' as KeyFormValues['scope'], baseUrl: '', api: 'openai-responses' as NonNullable<KeyFormValues['api']>, model: '' },
+    defaultValues: { apiKey: '', scope: 'user' as KeyFormValues['scope'], baseUrl: kind === 'anthropic' ? 'https://api.anthropic.com/v1' : kind === 'custom' ? '' : 'https://api.openai.com/v1', api: 'openai-responses' as NonNullable<KeyFormValues['api']>, model: '' },
     validators: { onBlur: schema, onSubmit: schema },
     onSubmit: async ({ value }) => setError(await onSubmit(value)),
   })
@@ -44,7 +44,7 @@ export function KeyConnectionStep({
   return (
     <StepFormLayout
       title={connectionKindName(kind)}
-      description={custom ? t('connections.form.customProtocolDescription', { defaultValue: 'API key · Responses or Chat Completions API' }) : t('connections.form.apiKey')}
+      description={t('connections.form.apiKey')}
       actions={
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
@@ -59,22 +59,20 @@ export function KeyConnectionStep({
       }
     >
       <form id="connection-form" noValidate onSubmit={(event) => submitForm(event, form)} className="flex flex-col gap-3">
-        <FieldGroup>
-          {custom && (
-            <>
+        <form.Subscribe selector={(state) => state.isSubmitting}>{(busy) => <fieldset disabled={busy}><FieldGroup>
               <form.Field name="baseUrl">
                 {(field) => {
                   const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
                   return (
                     <Field data-invalid={isInvalid}>
                       <FieldLabel htmlFor={field.name}>{t('connections.form.baseUrl')}</FieldLabel>
-                      <Input id={field.name} name={field.name} type="url" value={field.state.value} aria-invalid={isInvalid} autoComplete="off" placeholder="https://api.example.com/v1" autoFocus onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} />
+                      <Input id={field.name} name={field.name} type="url" value={field.state.value} aria-invalid={isInvalid} autoComplete="off" placeholder={kind === 'anthropic' ? 'https://api.anthropic.com/v1' : kind === 'custom' ? 'https://api.example.com/v1' : 'https://api.openai.com/v1'} autoFocus onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} />
                       {isInvalid && <FieldError errors={field.state.meta.errors} />}
                     </Field>
                   )
                 }}
               </form.Field>
-              <form.Field name="api">
+              {openai && <form.Field name="api">
                 {(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name}>{t('connections.form.protocol', { defaultValue: 'API protocol' })}</FieldLabel>
@@ -85,7 +83,7 @@ export function KeyConnectionStep({
                     <FieldDescription>{t('connections.form.protocolDescription', { defaultValue: 'Choose the API your endpoint implements. Not every OpenAI-compatible endpoint supports both.' })}</FieldDescription>
                   </Field>
                 )}
-              </form.Field>
+              </form.Field>}
               <form.Field name="model">
                 {(field) => (
                   <Field>
@@ -95,15 +93,13 @@ export function KeyConnectionStep({
                   </Field>
                 )}
               </form.Field>
-            </>
-          )}
           <form.Field name="apiKey">
             {(field) => {
               const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
               return (
                 <Field data-invalid={isInvalid}>
                   <FieldLabel htmlFor={field.name}>{t('connections.form.apiKey')}</FieldLabel>
-                  <Input id={field.name} name={field.name} type="password" value={field.state.value} aria-invalid={isInvalid} autoComplete="off" autoFocus={!custom} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} />
+                  <Input id={field.name} name={field.name} type="password" value={field.state.value} aria-invalid={isInvalid} autoComplete="off" onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)} />
                   {isInvalid && <FieldError errors={field.state.meta.errors} />}
                 </Field>
               )
@@ -122,7 +118,7 @@ export function KeyConnectionStep({
               )}
             </form.Field>
           )}
-        </FieldGroup>
+        </FieldGroup></fieldset>}</form.Subscribe>
         {error && <p className="text-xs text-destructive">{error}</p>}
       </form>
     </StepFormLayout>

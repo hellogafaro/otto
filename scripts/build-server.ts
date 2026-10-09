@@ -338,11 +338,7 @@ function copyProductionDeps(config: ServerBuildConfig): void {
   //    This catches everything — declared deps, undeclared deps, transitive
   //    imports that happen to work due to hoisting. No more whack-a-mole.
   // -------------------------------------------------------------------------
-  // messaging-gateway is included so its runtime deps (grammy, etc.) land in node_modules.
-  // messaging-whatsapp-worker is intentionally OMITTED: Baileys and its transitive deps
-  // are bundled directly into packages/messaging-whatsapp-worker/dist/worker.cjs by
-  // scripts/build-wa-worker.ts — pulling them into node_modules would duplicate the tree.
-  const SERVER_PACKAGES = ['server', 'server-core', 'shared', 'core', 'session-tools-core', 'messaging-gateway'];
+  const SERVER_PACKAGES = ['server', 'server-core', 'shared', 'core', 'session-tools-core'];
 
   const allImports = new Set<string>();
   for (const pkg of SERVER_PACKAGES) {
@@ -427,17 +423,12 @@ function getDirSize(dir: string): number {
 function copyWorkspacePackages(config: ServerBuildConfig): void {
   const { rootDir, outputDir } = config;
 
-  // messaging-whatsapp-worker is included so dist/worker.cjs (built in step 4) ships.
-  // The worker is spawned as a Node subprocess against that file at runtime; see
-  // OTTO_MESSAGING_WA_WORKER env resolution in packages/server/src/index.ts.
   const packages = [
     'server',
     'server-core',
     'shared',
     'core',
     'session-tools-core',
-    'messaging-gateway',
-    'messaging-whatsapp-worker',
   ];
 
   for (const pkg of packages) {
@@ -466,7 +457,7 @@ function copyWorkspacePackages(config: ServerBuildConfig): void {
       cpSync(srcDir, join(dest, 'src'), { recursive: true });
     }
 
-    // Copy dist/ directory if present (built artifacts like the WhatsApp worker)
+    // Copy dist/ directory if present
     const distDir = join(src, 'dist');
     if (existsSync(distDir)) {
       cpSync(distDir, join(dest, 'dist'), { recursive: true });
@@ -804,41 +795,35 @@ async function main(): Promise<void> {
   console.log(`  Output: ${outputDir}`);
 
   // Step 1: Clean
-  console.log('\n[1/8] Cleaning output directory...');
+  console.log('\n[1/7] Cleaning output directory...');
   if (existsSync(outputDir)) {
     rmSync(outputDir, { recursive: true, force: true });
   }
   mkdirSync(outputDir, { recursive: true });
 
   // Step 2: Download Bun runtime
-  console.log(`\n[2/8] Downloading Bun ${BUN_VERSION}...`);
+  console.log(`\n[2/7] Downloading Bun ${BUN_VERSION}...`);
   await downloadBunForServer(config);
 
   // Step 3: Download uv
-  console.log(`\n[3/8] Downloading uv ${UV_VERSION}...`);
+  console.log(`\n[3/7] Downloading uv ${UV_VERSION}...`);
   await downloadUvForServer(config);
 
-  // Build the WhatsApp worker bundle. Must happen before copyWorkspacePackages
-  // so dist/worker.cjs exists when we copy the messaging-whatsapp-worker package.
-  // The bundle embeds Baileys + transitive deps; see scripts/build-wa-worker.ts.
-  console.log('\n[4/8] Building WhatsApp worker bundle...');
-  await $`bun run ${join(rootDir, 'scripts', 'build-wa-worker.ts')}`.cwd(rootDir);
-
-  // Step 5: Assemble resources
-  console.log('\n[5/8] Assembling resources...');
+  // Step 4: Assemble resources
+  console.log('\n[4/7] Assembling resources...');
   assembleResources(config);
 
-  // Step 6: Copy production node_modules
-  console.log('\n[6/8] Copying production dependencies...');
+  // Step 5: Copy production node_modules
+  console.log('\n[5/7] Copying production dependencies...');
   copyProductionDeps(config);
 
-  // Step 7: Copy workspace packages
-  console.log('\n[7/8] Copying workspace packages...');
+  // Step 6: Copy workspace packages
+  console.log('\n[6/7] Copying workspace packages...');
   copyWorkspacePackages(config);
   createRootConfig(config);
 
-  // Step 8: Create entry scripts + Docker files
-  console.log('\n[8/8] Creating entry scripts...');
+  // Step 7: Create entry scripts + Docker files
+  console.log('\n[7/7] Creating entry scripts...');
   createEntryScripts(config);
   createDockerFiles(config);
 

@@ -44,7 +44,6 @@ export function routineRunnerDeps(deps: Pick<HandlerDeps, 'sessionManager'>, not
         thinkingLevel: action.thinkingLevel,
         automationName: routine.title,
         automationId: routine.id,
-        telegramTopic: routine.config.telegramTopic,
         // The routine's runs and their chats belong to its creator, on its agent (absent: the workspace's default).
         createdBy: routine.createdBy,
         agentId: routine.agentId ?? undefined,

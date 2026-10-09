@@ -74,7 +74,7 @@ const CHATS = [
 
 const SETTINGS: [string, string][] = [
   ['app', 'App'], ['ai', 'AI'], ['appearance', 'Appearance'], ['input', 'Input'], ['shortcuts', 'Shortcuts'],
-  ['preferences', 'Preferences'], ['workspace', 'Workspace'], ['permissions', 'Permissions'], ['labels', 'Labels'], ['messaging', 'Messaging'],
+  ['preferences', 'Preferences'], ['workspace', 'Workspace'], ['permissions', 'Permissions'], ['labels', 'Labels'],
 ]
 
 const DATA: PaletteData<PaletteItem> = {

@@ -1,4 +1,5 @@
-import { getLlmConnection, getLlmConnections, getDefaultLlmConnection, type ConnectionContext, type LlmConnection } from '../config/storage.ts'
+import { getLlmConnection, getLlmConnections, getDefaultLlmConnection, toLlmConnection, type ConnectionContext, type LlmConnection } from '../config/storage.ts'
+import { getConnectionById, getDefaultConnection } from '../connections/index.ts'
 import { CUSTOM_CONNECTION_TYPE, type LlmAuthType } from '../config/llm-connections.ts'
 import { getModelProvider, normalizeDeprecatedModelId } from '../config/models.ts'
 
@@ -10,11 +11,27 @@ export function resolveSessionConnection(
   where?: ConnectionContext,
   /** The chat agent's provider: only a connection of it (the same order among them); none = null. */
   provider?: string,
+  workspaceDefaultConnectionId?: string,
+  sessionConnectionId?: string,
 ): LlmConnection | null {
+  if (sessionConnectionId) {
+    const exact = getConnectionById(sessionConnectionId, where)
+    if (!exact) return null
+    const connection = toLlmConnection(exact)
+    return !provider || connection.type === provider || provider === 'openai' && connection.type === 'custom' ? connection : null
+  }
+  if (!sessionConnection && workspaceDefaultConnectionId) {
+    const exact = getConnectionById(workspaceDefaultConnectionId, where)
+    if (!exact) return null
+    const connection = toLlmConnection(exact)
+    return !provider || connection.type === provider || provider === 'openai' && connection.type === 'custom' ? connection : null
+  }
+  const defaultRecord = getDefaultConnection(where)
+  const exactDefault = defaultRecord ? toLlmConnection(defaultRecord) : null
   if (provider) {
-    const ofProvider = getLlmConnections(where).filter((connection) => connection.type === provider);
+    const ofProvider = getLlmConnections(where).filter((connection) => connection.type === provider || provider === 'openai' && connection.type === 'custom');
     const named = (slug?: string | null) => (slug ? ofProvider.find((connection) => connection.slug === slug) : undefined);
-    return named(sessionConnection) ?? named(workspaceDefaultConnection) ?? named(getDefaultLlmConnection(where)) ?? ofProvider[0] ?? null;
+    return named(sessionConnection) ?? named(workspaceDefaultConnection) ?? (exactDefault && (exactDefault.type === provider || provider === 'openai' && exactDefault.type === 'custom') ? exactDefault : undefined) ?? ofProvider[0] ?? null;
   }
 
   // 1. Session-level connection (locked after first message)
@@ -30,9 +47,7 @@ export function resolveSessionConnection(
   }
 
   // 3. Global default
-  const defaultSlug = getDefaultLlmConnection(where);
-  if (!defaultSlug) return null;
-  return getLlmConnection(defaultSlug, where);
+  return exactDefault;
 }
 
 /** A session's connection, the auth type its agent uses and the model it runs. */
@@ -49,6 +64,7 @@ export interface BackendAgent {
   title: string;
   provider: string;
   model?: string | null;
+  llmConnectionId?: string | null;
 }
 
 /** An agent's provider as a connection `type`; rows written before Pi only may name `pi_compat` or `pi` (no constraint). */
@@ -72,8 +88,11 @@ const providerLabel = (provider: string) =>
  */
 export function resolveBackendContext(args: {
   sessionConnectionSlug?: string;
+  sessionConnectionId?: string;
   workspaceDefaultConnectionSlug?: string;
+  workspaceDefaultConnectionId?: string;
   managedModel?: string;
+  preferAgentModel?: boolean;
   /** Whose connections are looked at: the chat's creator's own, then the workspace's, then the install's. */
   where?: ConnectionContext;
   /** The chat's agent: only a connection of its provider; its model when the chat has none of its own. */
@@ -85,11 +104,13 @@ export function resolveBackendContext(args: {
     args.workspaceDefaultConnectionSlug,
     args.where,
     provider,
+    args.workspaceDefaultConnectionId,
+    args.agent?.llmConnectionId ?? args.sessionConnectionId,
   );
   return {
     connection,
     authType: connection ? credentialAuthType(connection.authType) : undefined,
-    resolvedModel: resolveModel(args.managedModel || args.agent?.model || undefined, connection),
+    resolvedModel: resolveModel(args.preferAgentModel ? args.agent?.model || connection?.defaultModel || undefined : args.managedModel || args.agent?.model || undefined, connection),
     ...(!connection && provider && args.agent ? { missingConnection: `Connect ${providerLabel(provider)} to talk to ${args.agent.title}.` } : {}),
   };
 }

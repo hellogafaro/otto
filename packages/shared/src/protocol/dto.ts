@@ -54,6 +54,8 @@ export interface Session {
   /** `sessions:getMessages` sends the newest page: how many messages come before it (ask with `beforeId`). */
   olderMessageCount?: number
   isProcessing: boolean
+  currentRunId?: string
+  currentAgentId?: string
   isFlagged?: boolean
   /** Permission mode for this session ('safe', 'ask', 'guarded', 'allow-all') */
   permissionMode?: PermissionMode
@@ -99,6 +101,7 @@ export interface Session {
   supportsBranching?: boolean
   /** Workspace-scoped project id this session is bound to (undefined = unbound) */
   projectId?: string
+  contextEntity?: string
   /** Parent session id — when set, this session is a subtask of the parent (undefined = top-level task) */
   parentSessionId?: string
   /** The chat's primary agent (an `agents` row id): it replies when one person talks to it. Undefined = a people chat (a DM or a group): no agent replies unless mentioned. */
@@ -111,6 +114,7 @@ export interface Session {
 
 export interface CreateSessionOptions {
   name?: string
+  llmConnectionId?: string
   permissionMode?: PermissionMode
   /**
    * Reasoning/thinking level override. When set, takes precedence over workspace
@@ -187,6 +191,8 @@ export type SessionEvent =
   | { type: 'text_complete'; sessionId: string; text: string; isIntermediate?: boolean; turnId?: string; parentToolUseId?: string; timestamp?: number; messageId?: string; author?: string }
   | { type: 'tool_start'; sessionId: string; toolName: string; toolUseId: string; toolInput: Record<string, unknown>; toolIntent?: string; toolDisplayName?: string; toolDisplayMeta?: ToolDisplayMeta; turnId?: string; parentToolUseId?: string; timestamp?: number }
   | { type: 'tool_result'; sessionId: string; toolUseId: string; toolName: string; result: string; turnId?: string; parentToolUseId?: string; isError?: boolean; timestamp?: number }
+  | { type: 'message_updated'; sessionId: string; message: Message }
+  | { type: 'processing_started'; sessionId: string; currentRunId: string; currentAgentId: string }
   | { type: 'error'; sessionId: string; error: string; timestamp?: number }
   | { type: 'typed_error'; sessionId: string; error: TypedError; timestamp?: number }
   | { type: 'complete'; sessionId: string; tokenUsage?: Session['tokenUsage']; hasUnread?: boolean }
@@ -226,6 +232,7 @@ export type SessionEvent =
   | { type: 'working_directory_error'; sessionId: string; error: string }
 
 export interface SendMessageOptions {
+  recipientAgentId?: string | null
   skillSlugs?: string[]
   badges?: ContentBadge[]
   optimisticMessageId?: string
@@ -377,10 +384,19 @@ export interface FileSearchResult {
  * A change to a connection's own fields (its name, models, default model, mid-stream behavior, base URL): the slug and
  * what changes. Its type, auth type and scope never change here, and a new connection is made by the setup.
  */
-export type LlmConnectionUpdate = Pick<LlmConnection, 'slug'> & Partial<Omit<LlmConnection, 'slug' | 'type' | 'authType' | 'scope' | 'createdAt'>>
+export interface LlmConnectionSelector {
+  slug: string
+  connectionId?: string
+  scope?: 'user' | 'workspace' | 'install'
+  expectedUpdatedAt?: number
+}
+export type LlmConnectionUpdate = LlmConnectionSelector & Partial<Omit<LlmConnection, 'slug' | 'type' | 'authType' | 'scope' | 'createdAt'>> & { approvedCredentialOrigin?: string }
 
 export interface LlmConnectionSetup {
   slug: string
+  connectionId?: string
+  expectedUpdatedAt?: number
+  approvedCredentialOrigin?: string
   /** The provider type of a new connection (`openai`); an existing connection keeps its stored type. */
   type?: string
   /** The display name of a new connection. */
@@ -413,7 +429,11 @@ export interface LlmConnectionSetup {
 export interface TestLlmConnectionParams {
   /** The provider type the key is for; new setup supports `openai`. */
   type: string
-  apiKey: string
+  apiKey?: string
+  connectionId?: string
+  scope?: 'user' | 'workspace' | 'install'
+  expectedUpdatedAt?: number
+  approvedCredentialOrigin?: string
   baseUrl?: string
   model?: string
   /** Optional custom endpoint protocol hint so setup tests mirror runtime routing */
@@ -547,6 +567,7 @@ export interface WorkspaceSettings {
   workingDirectory?: string
   localMcpEnabled?: boolean
   defaultLlmConnection?: string
+  defaultLlmConnectionId?: string
   enabledSourceSlugs?: string[]
 }
 

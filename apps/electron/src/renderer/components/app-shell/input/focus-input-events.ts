@@ -22,6 +22,10 @@ export function dispatchFocusInputEvent(detail: FocusInputEventDetail = {}): voi
   window.dispatchEvent(new CustomEvent<FocusInputEventDetail>('otto:focus-input', { detail }))
 }
 
+export function dispatchPrefillInputEvent(text: string): void {
+  window.dispatchEvent(new CustomEvent('otto:restore-input', { detail: { text } }))
+}
+
 /**
  * Consume queued focus request for a specific session. Returns true when consumed.
  */

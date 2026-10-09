@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
 import { randomUUID } from 'crypto';
+import type { BundleAuthorize } from '../bundles/store.ts';
 import type {
   FolderSourceConfig,
   SourceGuide,
@@ -27,6 +28,7 @@ import { getWorkspaceIdByRootPath } from '../config/storage.ts';
 // getSourceCredentialManager is only referenced lazily inside saveSourceConfig,
 // not at module-eval time.
 import { getSourceCredentialManager } from './credential-manager.ts';
+import { createSourceBundle } from './rows.ts';
 import {
   validateIconValue,
   findIconFile,
@@ -195,7 +197,7 @@ function parseGuideMarkdown(raw: string): SourceGuide {
   const guide: SourceGuide = { raw };
 
   // Extract sections by headers (including Cache)
-  const sectionRegex = /^## (Scope|Guidelines|Context|API Notes|Cache)\n([\s\S]*?)(?=\n## |\Z)/gim;
+  const sectionRegex = /^## (Scope|Guidelines|Context|API Notes|Cache)\r?\n([\s\S]*?)(?=\r?\n## |(?![\s\S]))/gim;
   let match;
   while ((match = sectionRegex.exec(raw)) !== null) {
     const sectionName = (match[1] ?? '').toLowerCase().replace(/\s+/g, '');
@@ -491,7 +493,8 @@ export function generateSourceSlug(workspaceRootPath: string, name: string): str
  */
 export async function createSource(
   workspaceRootPath: string,
-  input: CreateSourceInput
+  input: CreateSourceInput,
+  scope?: { workspaceId: string; createdBy: string; authorize: BundleAuthorize }
 ): Promise<FolderSourceConfig> {
   const slug = generateSourceSlug(workspaceRootPath, input.name);
   const now = Date.now();
@@ -534,6 +537,20 @@ export async function createSource(
     if (validatedIcon) {
       config.icon = validatedIcon;
     }
+  }
+
+  if (scope) {
+    const guide = `# ${input.name}\n\n## Guidelines\n\n(Add usage guidelines here)\n\n## Context\n\n(Add context about this source)\n`;
+    await createSourceBundle({
+      workspaceId: scope.workspaceId,
+      slug,
+      createdBy: scope.createdBy,
+      files: new Map([
+        ['config.json', new TextEncoder().encode(JSON.stringify(config, null, 2))],
+        ['guide.md', new TextEncoder().encode(guide)],
+      ]),
+    }, scope.authorize);
+    return config;
   }
 
   // Save config first to create the directory

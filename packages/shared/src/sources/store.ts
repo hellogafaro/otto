@@ -1,14 +1,21 @@
 import { dirname, join } from 'node:path'
 import { eq } from 'drizzle-orm'
-import type { BundleFiles } from '../bundles/bundle.ts'
-import { createBundleStore, type BundleTable, type BundleTarget, type SyncStatus } from '../bundles/store.ts'
+import { userActor } from '../actors.ts'
+import { PermissionsConfigSchema } from '../agent/mode-types.ts'
+import { permissionsConfigCache, validatePermissionsConfig } from '../agent/permissions-config.ts'
+import { assertFiles, hashBundle, MAX_BUNDLE_BYTES, MAX_BUNDLE_FILES, type BundleFiles } from '../bundles/bundle.ts'
+import { createBundleStore, type BundleAuthorize, type BundleTable, type BundleTarget, type SyncStatus } from '../bundles/store.ts'
+import { validateSourceConfig } from '../config/validators.ts'
 import type { StoredCredential } from '../credentials/types.ts'
 import type { Db } from '../db/index.ts'
 import type { createSecretsStore } from '../secrets/index.ts'
 import { domainError } from '../utils/errors.ts'
+import { getMemberRole } from '../workspaces/members.ts'
 import { sources } from './schema.ts'
-import { loadSource } from './storage.ts'
+import { loadSource, loadSourceConfig } from './storage.ts'
 import type { FolderSourceConfig, LoadedSource, Source, SourceAuthStatus, SourceType } from './types.ts'
+import { SourceUpdateSchema, type SourceUpdate } from './update.ts'
+import { splitSourceGuide } from './guide.ts'
 
 /**
  * Sources on rows plus bundles: `createBundleStore` (../bundles/store.ts, which holds the write order and the sync of
@@ -108,6 +115,82 @@ export function createSourcesStore(db: Db, secrets: SecretsStore, targetFor: (wo
             workspaceId,
           },
       )
+    },
+
+    createSourceBundle: bundles.create,
+
+    async updateSource(workspaceId: string, slug: string, input: SourceUpdate, expectedUpdatedAt: number, scope: { userId: string; authorize: BundleAuthorize }): Promise<Source> {
+      const patch = SourceUpdateSchema.parse(input)
+      const check = () => {
+        scope.authorize()
+        const role = getMemberRole(workspaceId, scope.userId, db)
+        if (!role) throw domainError('forbidden', 'The initiating person is not a workspace member')
+        const row = find(workspaceId, slug)
+        if (!row) throw domainError('not_found', 'Source not found in this workspace')
+        if (row.createdBy !== userActor(scope.userId) && role !== 'owner') throw domainError('forbidden', 'Only the source creator or a workspace owner can change this source')
+        if (patch.permissions !== undefined && role !== 'owner') throw domainError('forbidden', 'Only a workspace owner can change source permissions')
+        if (row.updatedAt.getTime() !== expectedUpdatedAt) throw domainError('conflict', 'The source changed since it was loaded')
+        return row
+      }
+      const before = check()
+      const target = targetFor(workspaceId)
+      const keys = await target.store.list(`${slug}/`)
+      check()
+      if (keys.length > MAX_BUNDLE_FILES) throw domainError('too_large', 'The source bundle exceeds its file limit')
+      const files: BundleFiles = new Map()
+      let size = 0
+      for (const key of keys) {
+        if (!key.startsWith(`${slug}/`)) throw domainError('invalid', 'The source bundle contains an invalid key')
+        const bytes = await target.store.get(key)
+        check()
+        if (!bytes) throw domainError('conflict', 'The source bundle changed while reading it')
+        size += bytes.length
+        if (size > MAX_BUNDLE_BYTES) throw domainError('too_large', 'The source bundle exceeds its byte limit')
+        files.set(key.slice(slug.length + 1), bytes)
+      }
+      assertFiles(files, 'source')
+      if (hashBundle(files) !== before.hash) throw domainError('conflict', 'The source bundle changed before it was indexed')
+      let config: FolderSourceConfig
+      try { config = JSON.parse(new TextDecoder().decode(files.get('config.json'))) } catch { throw domainError('invalid', 'The existing source configuration requires the secure form') }
+      if (!validateSourceConfig(config).valid || config.slug !== before.slug || config.type !== before.type || !['mcp', 'api'].includes(config.type) || config.mcp?.transport === 'stdio' || config.local) throw domainError('invalid', 'Only existing remote HTTP/cloud MCP or API sources can be updated; unsupported records are preserved')
+      const endpoint = config.type === 'api' ? config.api?.baseUrl : config.mcp?.url
+      try {
+        const url = new URL(endpoint ?? '')
+        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hash || url.search) throw new Error()
+      } catch { throw domainError('invalid', 'The existing source endpoint requires the secure form') }
+      const configSnapshot = JSON.stringify(config)
+      if (patch.title !== undefined || patch.tagline !== undefined) {
+        config = { ...config, ...(patch.title !== undefined ? { name: patch.title } : {}), ...(patch.tagline !== undefined ? { tagline: patch.tagline } : {}), updatedAt: Date.now() }
+        if (!validateSourceConfig(config).valid) throw domainError('invalid', 'The source metadata is invalid')
+        files.set('config.json', new TextEncoder().encode(JSON.stringify(config, null, 2)))
+      }
+      if (patch.guide !== undefined) {
+        const guide = new TextDecoder().decode(files.get('guide.md'))
+        const { frontmatter, cache } = splitSourceGuide(guide)
+        files.set('guide.md', new TextEncoder().encode(frontmatter + patch.guide + (cache ? `${patch.guide && !patch.guide.endsWith('\n') ? '\n\n' : ''}${cache}` : '')))
+      }
+      if (patch.permissions !== undefined) {
+        if (config.type === 'api' && patch.permissions.allowedMcpPatterns !== undefined) throw domainError('invalid', 'API sources use relative API endpoint permission rules')
+        if (config.type === 'mcp' && patch.permissions.allowedApiEndpoints !== undefined) throw domainError('invalid', 'MCP sources use source-scoped MCP permission patterns')
+        let permissions: Record<string, unknown> = {}
+        if (files.has('permissions.json')) {
+          try { permissions = JSON.parse(new TextDecoder().decode(files.get('permissions.json'))) } catch { throw domainError('invalid', 'The existing source permissions require the secure form') }
+          if (!permissions || typeof permissions !== 'object' || Array.isArray(permissions)) throw domainError('invalid', 'The existing source permissions require the secure form')
+        }
+        for (const [field, value] of Object.entries(patch.permissions)) if (value !== undefined) permissions[field] = value
+        const parsed = PermissionsConfigSchema.safeParse(permissions)
+        if (!parsed.success || validatePermissionsConfig(parsed.data).length) throw domainError('invalid', 'The existing source permissions require the secure form')
+        files.set('permissions.json', new TextEncoder().encode(JSON.stringify(permissions, null, 2)))
+      }
+      const updated = await bundles.update(workspaceId, slug, files, expectedUpdatedAt, () => {
+        const live = check()
+        if (live.id !== before.id) throw domainError('conflict', 'The source identity changed since it was loaded')
+        const currentConfig = loadSourceConfig(dirname(target.dir), slug)
+        if (!currentConfig || JSON.stringify(currentConfig) !== configSnapshot) throw domainError('conflict', 'The secure source configuration changed while the update was queued')
+      })
+      if (patch.permissions !== undefined) permissionsConfigCache.invalidateSource(dirname(target.dir), slug)
+      scope.authorize()
+      return updated
     },
 
     /** Removes the row, its credential, the bundle and the local folder. */

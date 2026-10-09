@@ -6,14 +6,15 @@
 import * as React from 'react'
 import type { Components } from 'react-markdown'
 import { Markdown } from '@/components/markdown'
-import { cn } from '@/lib/utils'
 import { EntityChip } from './entity-chip'
 import { toEntityMarkdown } from './entity-tokens'
 
 const COMPONENTS: Partial<Components> = {
   span: ({ node: _node, ...props }) => {
     const entity = (props as Record<string, unknown>)['data-entity']
-    return typeof entity === 'string' ? <EntityChip entity={entity} /> : <span {...props} />
+    return typeof entity === 'string'
+      ? <span className="not-typeset font-sans text-sm" data-not-typeset><EntityChip entity={entity} /></span>
+      : <span {...props} />
   },
 }
 
@@ -22,8 +23,7 @@ const openUrl = (url: string) => void window.electronAPI.openUrl(url)
 export function EntityText({ content, className }: { content: string; className?: string }) {
   const markdown = React.useMemo(() => toEntityMarkdown(content), [content])
   return (
-    // The first and last blocks drop their outer margin, so the text starts on its container's line.
-    <Markdown mode="minimal" className={cn('[&>:first-child]:mt-0 [&>:last-child]:mb-0', className)} components={COMPONENTS} onUrlClick={openUrl}>
+    <Markdown mode="minimal" className={className} components={COMPONENTS} onUrlClick={openUrl}>
       {markdown}
     </Markdown>
   )

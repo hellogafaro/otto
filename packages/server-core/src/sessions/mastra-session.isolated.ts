@@ -12,6 +12,7 @@ import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { storedToMessage } from '@otto/core/types'
 import { SessionManager, createManagedSession } from './session-manager.ts'
 import { assertOwnsSession } from './private-chats.ts'
+import { closeMastraHistory } from './mastra-history.ts'
 
 process.env.OTTO_MASTRA_CHAT = '1'
 const human = 'anaaaaaaaaaa'
@@ -35,9 +36,11 @@ beforeAll(() => {
   manager = new SessionManager()
 })
 
-afterAll(() => {
-  manager.cleanup()
-  endpoint.stop()
+afterAll(async () => {
+  await manager.cleanup()
+  await manager.flushAllSessions()
+  await closeMastraHistory()
+  endpoint.stop(true)
   delete process.env.OTTO_MASTRA_CHAT
 })
 
@@ -51,18 +54,25 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   createWorkspaceMember(workspace.id, human, 'owner')
   createWorkspaceMember(workspace.id, other, 'member')
   const agent = createAgent({ workspaceId: workspace.id, title: 'Scout', provider: 'openai', model: 'pi/fixture', createdBy: actor })
-  for (const id of [human, other]) createConnection({
+  const connections = [human, other].map((id) => createConnection({
     scope: userScope(id), slug: 'same-name', type: 'openai', authType: 'api_key', title: 'Fixture endpoint',
     baseUrl: endpoint.url.href + 'v1', defaultModel: 'pi/fixture', models: ['pi/fixture'],
-  }, { apiKey: id === human ? 'fixture-owner' : 'fixture-other' })
-  const stored = await manager.createSession(workspace.id, { agentId: agent.id, name: 'Fixture chat', llmConnection: 'same-name' }, { createdBy: actor })
+  }, { apiKey: id === human ? 'fixture-owner' : 'fixture-other' }))
+  const stored = await manager.createSession(workspace.id, { agentId: agent.id, name: 'Fixture chat', llmConnection: 'same-name', llmConnectionId: connections[0]!.id }, { createdBy: actor })
+  await manager.flushSession(stored.id)
+  expect(loadSession(workspace, stored.id)!.llmConnectionId).toBe(connections[0]!.id)
   expect(() => assertOwnsSession(manager, { userId: other }, stored.id)).toThrow('Session not found')
   await manager.addSessionMembers(stored.id, human, [`user:${other}`])
   assertOwnsSession(manager, { userId: other }, stored.id)
   const events: { type: string; [key: string]: unknown }[] = []
   manager.setEventSink((_channel, _target, event) => { if (event) events.push(event as typeof events[number]) })
+  await manager.sendMessage(stored.id, `agent:${agent.id} Do not use another person's locked key.`, undefined, undefined, { sender: `user:${other}` })
+  await manager.flushSession(stored.id)
+  expect(requests).toHaveLength(0)
+  expect(loadSession(workspace, stored.id)!.llmConnectionId).toBe(connections[0]!.id)
+  expect(loadSession(workspace, stored.id)!.messages.at(-1)?.type).toBe('error')
   let persistedAtAck = false
-  await manager.sendMessage(stored.id, `agent:${agent.id} Draft a launch brief.`, undefined, undefined, { sender: `user:${other}` }, undefined, undefined, (id) => {
+  await manager.sendMessage(stored.id, `agent:${agent.id} Draft a launch brief.`, undefined, undefined, { sender: actor }, undefined, undefined, (id) => {
     persistedAtAck = loadSession(workspace, stored.id)!.messages.some((message) => message.id === id)
   })
   expect(persistedAtAck).toBe(true)
@@ -74,7 +84,7 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   const persisted = loadSession(workspace, stored.id)!
   expect(persisted.messages.filter((message) => message.type === 'assistant').map((message) => message.content)).toEqual(['A brief for the launch.'])
   expect(manager.getSessions(workspace.id, 'unknownuser1')).toEqual([])
-  manager.cleanup()
+  await manager.cleanup()
   manager = new SessionManager()
   const recovered = createManagedSession({ ...persisted, messages: persisted.messages.map(storedToMessage) }, workspace, { messagesLoaded: true, messages: persisted.messages.map(storedToMessage), members: [{ actor, readAt: null }, { actor: `agent:${agent.id}`, readAt: null }] })
   ;(manager as unknown as { sessions: Map<string, typeof recovered> }).sessions.set(stored.id, recovered)
@@ -82,8 +92,9 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   expect(requests).toHaveLength(2)
   expect(JSON.stringify(requests[1].body.input)).toContain('A brief for the launch.')
   expect(JSON.stringify(requests[1].body.input)).toContain('Make it shorter.')
-  expect(await manager.refreshTitle(stored.id)).toMatchObject({success:true,title:'Launch Brief'})
+  expect(await manager.refreshTitle(stored.id, undefined, human)).toMatchObject({success:true,title:'Launch Brief'})
   expect(requests).toHaveLength(3)
+  expect(requests[2].authorization).toBe('Bearer fixture-owner')
   const flushAdmission=manager.flushSession.bind(manager)
   const idleAdmission={followUp:async()=>{throw new Error('Old native session must not receive late admission')}} as never
   recovered.isProcessing=true;recovered.turnAgentId=agent.id;recovered.mastraSession=idleAdmission

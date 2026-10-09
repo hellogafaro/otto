@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu'
-import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
+import { PageNavigationButtons } from '@workspace/ui/components/page-navigation'
 import { Input } from '@workspace/ui/components/input'
 import { ListCard, ListGroup, ListRow } from '@workspace/ui/components/list-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
@@ -460,18 +460,11 @@ function BadgesAndForms() {
   )
 }
 
-function FloatingNavStates() {
+function PageNavigationStates() {
   return (
     <OnFrame className="flex gap-6">
-      <Cell label="FloatingNav (outline 32): rest | disabled (Next)">
-        <FloatingNav
-          back={{ label: 'Back', onClick: () => {} }}
-          previous={{ label: 'Previous', onClick: () => {} }}
-          next={{ label: 'Next', onClick: () => {}, disabled: true }}
-        />
-      </Cell>
-      <Cell label="FloatingNavButtons (ghost icon 28)">
-        <FloatingNavButtons
+      <Cell label="Panel navigation: rest | disabled (Next)">
+        <PageNavigationButtons
           back={{ label: 'Back', onClick: () => {} }}
           previous={{ label: 'Previous', onClick: () => {} }}
           next={{ label: 'Next', onClick: () => {}, disabled: true }}
@@ -506,7 +499,7 @@ function Panel({ mode }: { mode: 'light' | 'dark' }) {
         <ListRows />
       </Section>
       <Section title="Floating navigation (on the frame)">
-        <FloatingNavStates />
+        <PageNavigationStates />
       </Section>
       <Section title="Tabs, toggles, segmented controls (on a card)">
         <OnCard><Segmented /></OnCard>

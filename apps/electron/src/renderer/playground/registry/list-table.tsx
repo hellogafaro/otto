@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Archive, CircleCheck, CircleDashed, CircleDot, Cpu, Flag, Plus, SquarePen, Tag } from 'lucide-react'
+import { Archive, CircleCheck, CircleDashed, CircleDot, Cpu, Flag, SquarePen, Tag } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { ContextMenuContent, ContextMenuItem } from '@workspace/ui/components/context-menu'
@@ -134,7 +134,6 @@ function ListTablePanel({ mode, initial }: { mode: 'light' | 'dark'; initial: Fi
                   tint={STATUSES[s].tint}
                   count={items.length}
                   defaultOpen={s !== 'done'}
-                  action={<Button variant="ghost" size="icon-xs" aria-label="New chat"><Plus /></Button>}
                 >
                   {items.map((r) => (
                     <ListRow

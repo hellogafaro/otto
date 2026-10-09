@@ -45,6 +45,7 @@ export {
   getSources,
   getSource,
   getLoadedSources,
+  updateSource,
   deleteSource,
   syncLocalSource,
   syncSources,
@@ -55,6 +56,8 @@ export {
 } from './rows.ts';
 export { authStatusOf, createSourcesStore, type SourceCredentialType, type SourcesTarget, type SyncStatus } from './store.ts';
 export type { SourcesImportReport } from './import.ts';
+export { SourceUpdateSchema, SourcePermissionsUpdateSchema, type SourceUpdate } from './update.ts';
+export { splitSourceGuide } from './guide.ts';
 
 /** Imports the source folders and credentials of every workspace once (see import.ts). */
 export const initSourcesImport = (workspaces?: { id: string; rootPath: string; remoteServer?: unknown }[]) =>

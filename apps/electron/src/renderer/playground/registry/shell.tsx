@@ -1,8 +1,7 @@
 import * as React from 'react'
 import { Box, CircleDot, MessagesSquare, MoreHorizontal, Search, Settings } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { createPortal } from 'react-dom'
-import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
+import { PageNavigationButtons } from '@workspace/ui/components/page-navigation'
 import { PageCard, PageCenterpiece, PageColumn, PageSection } from '@workspace/ui/components/page'
 import { PageFrame, PageHeaderRow, PageScroll, usePageFrame } from '@workspace/ui/components/page-frame'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
@@ -26,11 +25,11 @@ import type { ComponentEntry } from './types'
 import { PRODUCT_NAME } from '@otto/shared/branding'
 
 // =============================================================================
-// Shell primitives: Sidebar, PageFrame (the flat main region: the column with
+// Shell primitives: Sidebar, PageFrame (the rounded main panel: the column with
 // its title row first, the gutters, the chat's pinned row), a blocks page or a centerpiece page, the
-// Sidecar and FloatingNav, in one frame. The sidebar follows the window width
+// Sidecar and panel navigation, in one frame. The sidebar follows the window width
 // (icons only below 1024px, a sheet below 768px); the frame's layout follows the
-// frame's own width, so resize the window to see the gutters work.
+// frame's own width, so resize the window to see the split work.
 // =============================================================================
 
 const CHATS = ['Casual greeting', 'Fix the sidebar width', 'Plan the release', 'Summarize the thread']
@@ -43,7 +42,7 @@ interface ShellDemoProps {
 
 // The shell's `PageHeader` does this: draw the title row in the column's title
 // slot (it scrolls with the page) or, on a centerpiece (the chat), the compact
-// pinned row in the frame's header slot; the nav goes in the left gutter and the
+// pinned row in the frame's header slot; navigation sits at the upper corners and the
 // sidecar's toggle in the trailing slot (`SidecarDetails`).
 function DemoHeader({ active, setActive, showNav, pinned, open, setOpen }: {
   active: number
@@ -54,7 +53,6 @@ function DemoHeader({ active, setActive, showNav, pinned, open, setOpen }: {
   setOpen: (open: boolean) => void
 }) {
   const frame = usePageFrame()
-  const navInGutter = showNav && !!frame?.navFits
   const back = { label: 'Back', onClick: () => {} }
   const prev = { label: 'Previous', onClick: () => setActive((i) => Math.max(0, i - 1)), disabled: active === 0 }
   const next = { label: 'Next', onClick: () => setActive((i) => Math.min(CHATS.length - 1, i + 1)), disabled: active === CHATS.length - 1 }
@@ -64,19 +62,12 @@ function DemoHeader({ active, setActive, showNav, pinned, open, setOpen }: {
       {target && createPortal(
         <PageHeaderRow
           density={pinned ? 'compact' : 'roomy'}
-          className={cn(!pinned && 'max-md:pl-14')}
-          leading={pinned && <SidebarTrigger />}
           title={CHATS[active]}
-          actions={showNav && !navInGutter && <FloatingNavButtons back={back} previous={prev} next={next} />}
         />,
         target,
       )}
-      {!pinned && frame?.leading && createPortal(<SidebarTrigger variant="outline" size="icon" />, frame.leading)}
-      {navInGutter && frame?.nav && createPortal(
-        <FloatingNav back={back} previous={prev} next={next} />,
-        frame.nav,
-      )}
-      {frame?.trailing && createPortal(<SidecarToggle open={open} onOpenChange={setOpen} label="Details" />, frame.trailing)}
+      {frame?.leading && createPortal(<><SidebarTrigger />{showNav && <PageNavigationButtons back={back} />}</>, frame.leading)}
+      {frame?.trailing && createPortal(<>{showNav && <PageNavigationButtons previous={prev} next={next} />}<SidecarToggle open={open} onOpenChange={setOpen} label="Details" /></>, frame.trailing)}
     </>
   )
 }
@@ -140,6 +131,8 @@ function ShellDemo({ page, sidecarOpen, showNav }: ShellDemoProps) {
         </Sidebar>
 
         <PageFrame
+          asideOpen={open}
+          onAsideOpenChange={setOpen}
           aside={
             <Sidecar open={open} onOpenChange={setOpen} title="Details">
               <PropertySection title="Properties">
@@ -187,15 +180,15 @@ function ShellDemo({ page, sidecarOpen, showNav }: ShellDemoProps) {
 export const shellComponents: ComponentEntry[] = [
   {
     id: 'shell-primitives',
-    name: 'Shell (Sidebar, PageFrame, Sidecar, FloatingNav)',
+    name: 'Shell (Sidebar, rounded panel, resizable details)',
     category: 'Shell',
-    description: 'The shell primitives in one frame: a blocks page or a centerpiece page, the sidecar and the floating navigation. The sidebar and the frame follow the window width.',
+    description: 'The shell primitives in one frame: a blocks page or a centerpiece page, resizable details and upper-corner navigation. The sidebar and the frame follow the window width.',
     component: ShellDemo,
     layout: 'top',
     props: [
       { name: 'page', description: 'Page type', control: { type: 'select', options: [{ label: 'Blocks', value: 'blocks' }, { label: 'Centerpiece', value: 'centerpiece' }] }, defaultValue: 'blocks' },
       { name: 'sidecarOpen', description: 'Sidecar open', control: { type: 'boolean' }, defaultValue: false },
-      { name: 'showNav', description: 'Floating Back / Previous / Next (header buttons when the gutter is narrow)', control: { type: 'boolean' }, defaultValue: true },
+      { name: 'showNav', description: 'Upper-corner Back / Previous / Next', control: { type: 'boolean' }, defaultValue: true },
     ],
     variants: [
       { name: 'Blocks page', props: { page: 'blocks', sidecarOpen: false, showNav: true } },

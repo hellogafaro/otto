@@ -12,7 +12,7 @@ interface RichBlockShellProps {
 
 export function RichBlockShell({ children, onEdit, editTitle = 'Edit block', className }: RichBlockShellProps) {
   return (
-    <TiptapHoverActionsHost className={cn('group', className)}>
+    <TiptapHoverActionsHost className={cn('group not-typeset font-sans text-sm', className)}>
       {onEdit && (
         <TiptapHoverActions>
           <TiptapHoverActionButton

@@ -15,10 +15,10 @@ import type { ComposerContext } from './composer-state'
 export function useComposerContext(context: ComposerContext, enabled = true) {
   const registry = useComposerRegistry()
   const id = useId()
-  const { key, entity, placeholder, mode, sessionId, onSend, busy, onStop, tools, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands } = context
+  const { key, entity, placeholder, sessionId, onSend, busy, onStop, tools, footer, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands } = context
   useLayoutEffect(() => {
-    if (enabled) registry?.set(id, { key, entity, placeholder, mode, sessionId, onSend, busy, onStop, tools, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands })
+    if (enabled) registry?.set(id, { key, entity, placeholder, sessionId, onSend, busy, onStop, tools, footer, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands })
     else registry?.remove(id)
-  }, [registry, id, enabled, key, entity, placeholder, mode, sessionId, onSend, busy, onStop, tools, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands])
+  }, [registry, id, enabled, key, entity, placeholder, sessionId, onSend, busy, onStop, tools, footer, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands])
   useLayoutEffect(() => () => registry?.remove(id), [registry, id])
 }

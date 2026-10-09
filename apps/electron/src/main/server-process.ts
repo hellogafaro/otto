@@ -80,11 +80,6 @@ export async function initServer(secrets: { ENCRYPTION_KEY?: string }, onExit: (
       OTTO_BUNDLED_ASSETS_ROOT: __dirname,
       OTTO_RESOURCES_PATH: process.resourcesPath,
       OTTO_VERSION: app.getVersion(),
-      // WhatsApp's worker is a Node script: Electron runs it as Node (the adapter sets ELECTRON_RUN_AS_NODE)
-      OTTO_MESSAGING_NODE_BIN: process.execPath,
-      OTTO_MESSAGING_WA_WORKER: app.isPackaged
-        ? join(process.resourcesPath, 'messaging-whatsapp-worker', 'worker.cjs')
-        : join(__dirname, '..', '..', '..', 'packages', 'messaging-whatsapp-worker', 'dist', 'worker.cjs'),
     },
     // stdin stays open: the child stops when it closes (main gone without a clean quit)
     stdio: ['pipe', 'pipe', 'pipe'],

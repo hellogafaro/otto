@@ -6,15 +6,15 @@
 import type { LlmConnectionSetup, TestLlmConnectionParams } from '../../../shared/types'
 
 export type ConnectionKind = 'openai' | 'custom' | 'anthropic'
-export type OfferedKind = ConnectionKind
+export type OfferedKind = 'openai' | 'anthropic'
 
-export const OFFERED_KINDS: readonly OfferedKind[] = ['openai', 'custom', 'anthropic']
+export const OFFERED_KINDS: readonly OfferedKind[] = ['openai', 'anthropic']
 export const OPENAI_LABEL = 'OpenAI'
 
 export function connectionKindName(kind: ConnectionKind): string {
   switch (kind) {
     case 'openai': return OPENAI_LABEL
-    case 'custom': return 'Custom OpenAI-compatible endpoint'
+    case 'custom': return OPENAI_LABEL
     case 'anthropic': return 'Anthropic'
   }
 }
@@ -30,8 +30,8 @@ export function uniqueSlug(base: string, existing: ReadonlySet<string>): string 
 /** Whether a base URL parses as http(s). */
 export function isHttpUrl(value: string): boolean {
   try {
-    const { protocol } = new URL(value.trim())
-    return protocol === 'http:' || protocol === 'https:'
+    const url = new URL(value.trim())
+    return (url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password && !url.search && !url.hash
   } catch {
     return false
   }
@@ -53,14 +53,12 @@ export function keySetup(
 ): { test: TestLlmConnectionParams; setup: LlmConnectionSetup } {
   const apiKey = values.apiKey.trim()
   const { slug, title } = options
-  if (kind === 'custom') {
-    const baseUrl = values.baseUrl?.trim() ?? ''
-    const customEndpoint = { api: values.api ?? 'openai-responses' }
-    const model = values.model?.trim()
-    return {
-      test: { type: kind, apiKey, baseUrl, customEndpoint, ...(model ? { model } : {}) },
-      setup: { slug, type: kind, title, scope: values.scope, credential: apiKey, baseUrl, customEndpoint, ...(model ? { defaultModel: model } : {}) },
-    }
+  const type = kind === 'anthropic' ? 'anthropic' : 'openai'
+  const baseUrl = values.baseUrl?.trim() || (type === 'openai' ? 'https://api.openai.com/v1' : 'https://api.anthropic.com/v1')
+  const customEndpoint = type === 'openai' ? { api: values.api ?? 'openai-responses' } : { api: 'anthropic-messages' as const }
+  const model = values.model?.trim()
+  return {
+    test: { type, apiKey, baseUrl, customEndpoint, ...(model ? { model } : {}) },
+    setup: { slug, type, title, scope: values.scope, credential: apiKey, baseUrl, customEndpoint, ...(model ? { defaultModel: model } : {}) },
   }
-  return { test: { type: kind, apiKey }, setup: { slug, type: kind, title, scope: values.scope, credential: apiKey } }
 }

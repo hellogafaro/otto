@@ -251,6 +251,24 @@ export interface StoredAttachment {
 /**
  * Runtime message type (includes transient fields like isStreaming)
  */
+export interface NativeActionData {
+  id: string
+  kind: 'approval' | 'question' | 'artifact'
+  status: 'pending' | 'resolving' | 'approved' | 'denied' | 'canceled' | 'expired' | 'failed'
+  title: string
+  summary: string
+  details?: string
+  actorName?: string
+  actorId?: string
+  resolvedAt?: number
+  eligibleActors?: string[]
+  artifact?: { type: 'library' | 'project' | 'task'; id: string; title: string }
+  choices?: { label: string; description?: string }[]
+  selectionMode?: 'single_select' | 'multi_select'
+  runId?: string
+  payloadHash?: string
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -262,6 +280,7 @@ export interface Message {
   toolInput?: Record<string, unknown>;
   toolResult?: string;
   toolStatus?: ToolStatus;
+  nativeAction?: NativeActionData;
   toolDuration?: number;
   toolIntent?: string;
   toolDisplayName?: string;
@@ -353,6 +372,7 @@ export interface StoredMessage {
   toolInput?: Record<string, unknown>;
   toolResult?: string;
   toolStatus?: ToolStatus;
+  nativeAction?: NativeActionData;
   toolDuration?: number;
   toolIntent?: string;
   toolDisplayName?: string;

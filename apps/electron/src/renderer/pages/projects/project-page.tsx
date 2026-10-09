@@ -11,7 +11,8 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
-import { Archive, ArchiveRestore, Link } from 'lucide-react'
+import { AlignLeft, Archive, ArchiveRestore, CircleCheck, File, FileText, Link } from 'lucide-react'
+import { Badge } from '@workspace/ui/components/badge'
 import { Count } from '@workspace/ui/components/count'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@workspace/ui/components/empty'
@@ -20,6 +21,7 @@ import { toast } from '@workspace/ui/components/sonner'
 import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { CreateButton } from '@/components/ui/create-button'
+import { ActorAvatar } from '@/components/people/actor-avatar'
 import { SidecarDetails } from '@/context/sidecar-context'
 import { isProjectsNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
 import { useAutosave } from '@/hooks/use-autosave'
@@ -30,7 +32,7 @@ import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import { routes } from '@/lib/navigate'
 import { PROJECT_TABS, type ProjectTab } from '../../../shared/section-search'
 import type { Project, ProjectUpdate, Resource } from '../../../shared/types'
-import { TaskFormDialog, type NewTaskDefaults } from '../tasks/task-form-dialog'
+import { dispatchPrefillInputEvent } from '@/components/app-shell/input/focus-input-events'
 import { TaskGroups } from '../tasks/task-list'
 import { useTaskSave } from '../tasks/use-task-save'
 import { ProjectDetails, useSetProjectStatus } from './project-details'
@@ -45,6 +47,8 @@ const TAB_LABELS: Record<ProjectTab, string> = {
   documents: 'projects.tabDocuments',
   files: 'projects.tabFiles',
 }
+
+const TAB_ICONS = { overview: AlignLeft, tasks: CircleCheck, documents: FileText, files: File }
 
 interface Draft {
   title: string
@@ -99,7 +103,6 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
   const { nameOf } = useWorkspaceMembers()
   const setStatus = useSetProjectStatus()
   const { saveProject, saveResources } = useProjectSave(project, projectsApi)
-  const [newTask, setNewTask] = React.useState<NewTaskDefaults | null>(null)
   const latest = React.useRef(project)
   latest.current = project
 
@@ -138,7 +141,7 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
 
   const libraryKind = tab === 'documents' ? 'document' : tab === 'files' ? 'file' : null
   const tabAction = tab === 'tasks' ? (
-    <CreateButton label={t('tasks.newTask')} onClick={() => setNewTask({ projectId: project.id })} />
+    <CreateButton label={t('tasks.newTask')} onClick={() => dispatchPrefillInputEvent(t('tasks.createPrompt', { defaultValue: 'Help me create a task{{context}}. Details: ', context: ` in project:${project.id}` }))} />
   ) : libraryKind ? (
     <AddFromLibrary key={libraryKind} kind={libraryKind} resources={project.resources} onResources={(next) => void saveResources(next)} />
   ) : null
@@ -160,6 +163,17 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
             className="w-full min-w-0 bg-transparent outline-none placeholder:text-muted-foreground"
           />
         )}
+        description={(
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {project.members.length > 0 && (
+              <span className="inline-flex items-center gap-1">
+                {project.members.slice(0, 8).map((actor) => <ActorAvatar key={actor} actor={actor} name={nameOf(actor)} size="sm" />)}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1">{t('projects.members')}<Count>{project.members.length}</Count></span>
+            {archived && <Badge variant="secondary">{t('projects.status_archived')}</Badge>}
+          </span>
+        )}
         menu={(
           <>
             <DropdownMenuItem shortcut="C" onClick={() => void copyLink()}>
@@ -178,11 +192,13 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
         <div data-content-start="" className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <Tabs value={tab} onValueChange={(next) => setTab(next as ProjectTab)} className="min-w-0">
-              <TabsList className="no-scrollbar max-w-full overflow-x-auto px-1">
+              <TabsList className="max-w-full flex-wrap" aria-label={t('projects.details')}>
                 {PROJECT_TABS.map((id) => {
                   const count = id === 'overview' ? 0 : counts[id]
+                  const Icon = TAB_ICONS[id]
                   return (
                     <TabsTrigger key={id} value={id}>
+                      <Icon />
                       {t(TAB_LABELS[id])}
                       {count > 0 && <Count>{count}</Count>}
                     </TabsTrigger>
@@ -190,7 +206,7 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
                 })}
               </TabsList>
             </Tabs>
-            {tabAction && <div className="ml-auto pr-4">{tabAction}</div>}
+            {tabAction && <div className="ml-auto">{tabAction}</div>}
           </div>
           {tab === 'overview' ? (
             <ProjectOverview
@@ -218,7 +234,6 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
                 nameOf={nameOf}
                 onOpen={(task) => navigate(routes.view.tasks({ taskId: task.id }))}
                 onAction={(task, action) => void runTaskAction(task, action)}
-                onNewTask={(status) => setNewTask({ projectId: project.id, status })}
               />
             )
           ) : (
@@ -231,7 +246,6 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
         </div>
       </PageColumn>
       <SidecarDetails title={t('projects.details')}><ProjectDetails projectId={project.id} /></SidecarDetails>
-      <TaskFormDialog open={newTask !== null} onOpenChange={(next) => { if (!next) setNewTask(null) }} defaults={newTask ?? undefined} />
     </div>
   )
 }

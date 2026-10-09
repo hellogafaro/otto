@@ -16,6 +16,7 @@ export const agents = sqliteTable(
     instructions: text('instructions').notNull(),
     provider: text('provider').notNull(),
     model: text('model'),
+    llmConnectionId: text('llm_connection_id'),
     thinkingLevel: text('thinking_level').notNull(),
     skills: text('skills', { mode: 'json' }).$type<string[]>().notNull(),
     sources: text('sources', { mode: 'json' }).$type<string[]>().notNull(),

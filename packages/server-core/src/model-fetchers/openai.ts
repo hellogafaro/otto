@@ -1,13 +1,13 @@
 import type { LlmConnection, ModelFetchResult } from '@otto/shared/config'
 import { getCredentialManager } from '@otto/shared/credentials'
-import { streamMastraChat, createMastraChatModel } from '../sessions/mastra-chat.ts'
+import { streamMastraChat, createMastraChatModel, nativeProviderBaseUrl } from '../sessions/mastra-chat.ts'
 
 export const OPENAI_UNSUPPORTED = 'This native migration slice supports OpenAI API-key connections only. Existing subscription and other provider records are unchanged but unavailable here.'
 
 export async function fetchOpenAiModels(input: { apiKey: string; baseUrl?: string; signal?: AbortSignal; custom?: boolean }): Promise<ModelFetchResult> {
   if (!input.apiKey.trim()) throw new Error('An OpenAI API key is required.')
-  const base = new URL(input.baseUrl ?? 'https://api.openai.com/v1')
-  if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new Error('OpenAI model endpoint must be an HTTP(S) base URL without credentials or query parameters.')
+  const base = nativeProviderBaseUrl({ ...input, provider: 'openai' })
+  const custom = base.href.replace(/\/$/, '') !== 'https://api.openai.com/v1'
   let response: Response
   try {
     response = await fetch(`${base.href.replace(/\/$/, '')}/models`, {
@@ -23,7 +23,7 @@ export async function fetchOpenAiModels(input: { apiKey: string; baseUrl?: strin
   try { const text = await response.text(); if (Buffer.byteLength(text) > 65536) throw new Error('catalog too large'); data = JSON.parse(text) } catch { throw new Error('OpenAI returned an invalid or oversized model list.') }
   if (!data || typeof data !== 'object' || !('data' in data) || !Array.isArray(data.data)) throw new Error('OpenAI returned an invalid model list.')
   const ids = [...new Set(data.data.flatMap((entry: unknown) => entry && typeof entry === 'object' && 'id' in entry && typeof entry.id === 'string' ? [entry.id] : []))]
-    .filter((id) => (input.custom ? /^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,159}$/.test(id) : /^(gpt-|o\d)[a-z0-9.-]{1,120}$/.test(id)) && !/(audio|realtime|transcri|tts|image|search|embedding|instruct)/.test(id))
+    .filter((id) => custom ? /^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,159}$/.test(id) : /^(gpt-|o\d)[a-z0-9.-]{1,120}$/.test(id) && !/(audio|realtime|transcri|tts|image|search|embedding|instruct)/.test(id))
     .sort()
   if (!ids.length) throw new Error('No text model candidates are available to this OpenAI key. Model-list access does not prove Responses inference support.')
   return { models: ids.map((id) => ({ id, name: id, shortName: id, description: 'OpenAI account catalog; inference support must be tested.', provider: 'openai', contextWindow: 0, supportsThinking: false })) }

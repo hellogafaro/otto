@@ -1,8 +1,8 @@
 /**
- * Home's four cards, a 2 x 2 grid under the composer (one column on a phone): Tasks (your open tasks and your
+ * Home's four stacked cards: Tasks (your open tasks and your
  * agents'), Chats (the ones that need you, then the recent ones), Notifications (the unread ones) and Routines today.
- * Each is the Settings card (`ListCard`) with a title row (icon, title, `Count`, View all) and a FIXED height whose
- * list scrolls inside it, so the cards never move the layout. Rows are the lists' own `ListRow`s with their
+ * Each is a natural-height Settings card with its section title and `Count` outside it.
+ * Rows are the lists' own `ListRow`s with their
  * right-click menus (never a ⋯); everything follows the stores' live updates (`domain:changed`, the sessions).
  */
 
@@ -12,7 +12,6 @@ import { useSetAtom } from 'jotai'
 import { format } from 'date-fns'
 import { Bell, Box, CircleAlert, CircleCheck, CircleDashed, Clock, Loader, MessagesSquare, SquareArrowOutUpRight, type LucideIcon } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
-import { Button } from '@workspace/ui/components/button'
 import {
   ContextMenuContent,
   ContextMenuGroup,
@@ -23,7 +22,9 @@ import {
   ContextMenuSubTrigger,
 } from '@workspace/ui/components/context-menu'
 import { Count } from '@workspace/ui/components/count'
-import { ListCard, ListRow, ListRowSkeleton } from '@workspace/ui/components/list-group'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@workspace/ui/components/empty'
+import { ListRow, ListRowSkeleton } from '@workspace/ui/components/list-group'
+import { SettingsCard, SettingsSection } from '@/components/settings'
 import { getDateLocale } from '@otto/shared/i18n'
 import { sendToWorkspaceAtom, type SessionMeta } from '@/atoms/sessions'
 import { SessionMenu } from '@/components/app-shell/session-menu'
@@ -51,15 +52,12 @@ import { getSessionStatus, getSessionTitle, shortTimeAgo } from '@/utils/session
 import { getRoutinesToday, selectMyTasks, type RoutineTodayStatus } from './home-rules'
 import { NotificationMenu, useNotificationRow } from './notification-row'
 
-/** The most rows a card draws; it scrolls inside its fixed height. */
 const MAX_ROWS = 50
 
-/** The card: the Settings card at a fixed height (320px, 280px on a phone), its title row, then its list scrolling inside. */
-function HomeCard({ icon: Icon, title, count, onViewAll, loading, empty, after, children }: {
+function HomeCard({ icon: Icon, title, count, loading, empty, after, children }: {
   icon: LucideIcon
   title: string
   count?: number
-  onViewAll: () => void
   loading: boolean
   /** The muted line in place of the rows when there are none. */
   empty: string | null
@@ -67,29 +65,24 @@ function HomeCard({ icon: Icon, title, count, onViewAll, loading, empty, after, 
   after?: React.ReactNode
   children: React.ReactNode
 }) {
-  const { t } = useTranslation()
   return (
-    <ListCard className="flex h-70 min-w-0 flex-col md:h-80">
-      {/* On the rows' grid: the icon on their 14px media column, the title at their text's 30px. */}
-      <div className="flex h-9 shrink-0 items-center gap-2 pr-1 pl-2">
-        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-        <h2 className="flex min-w-0 items-center gap-2 text-sm font-medium">
-          <span className="truncate">{title}</span>
-          {count ? <Count>{count}</Count> : null}
-        </h2>
-        <Button variant="ghost" size="compact" className="ml-auto" onClick={onViewAll}>{t('home.viewAll')}</Button>
-      </div>
-      <div className="no-scrollbar min-h-0 flex-1 scroll-fade-y overflow-y-auto">
+    <SettingsSection title={title} action={count ? <Count>{count}</Count> : undefined}>
+      <SettingsCard>
         {loading ? (
-          <ul aria-busy>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
+          <ul className="p-2" aria-busy>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
         ) : empty ? (
-          <p className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">{empty}</p>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><Icon /></EmptyMedia>
+              <EmptyDescription>{empty}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <ul>{children}</ul>
+          <ul className="p-2">{children}</ul>
         )}
-      </div>
+      </SettingsCard>
       {after}
-    </ListCard>
+    </SettingsSection>
   )
 }
 
@@ -117,7 +110,7 @@ export function TasksCard() {
     [me, agents],
   )
   const shown = React.useMemo(() => selectMyTasks(tasksApi.tasks, mine), [tasksApi.tasks, mine])
-  const projectOf = (id: string) => projects.find((project) => project.id === id)?.title
+  const projectOf = (id: string | null) => id ? projects.find((project) => project.id === id)?.title : undefined
   const open = (taskId: string) => navigate(routes.view.tasks({ taskId }))
 
   return (
@@ -125,9 +118,8 @@ export function TasksCard() {
       icon={CircleCheck}
       title={t('sidebar.tasks')}
       count={shown.length}
-      onViewAll={() => navigate(routes.view.tasks())}
       loading={!tasksApi.loaded}
-      empty={shown.length === 0 ? t('sectionEmpty.tasksTitle') : null}
+      empty={shown.length === 0 ? t('sectionEmpty.tasksDescription') : null}
     >
       {shown.slice(0, MAX_ROWS).map((task) => {
         const project = projectOf(task.projectId)
@@ -178,7 +170,7 @@ export function TasksCard() {
 /** The chats waiting on you, then the unread ones, then the rest, newest first; each row the chat row (its bare status icon) with the session menu. */
 export function ChatsCard() {
   const { t } = useTranslation()
-  const { navigate, navigateToSession } = useNavigation()
+  const { navigateToSession } = useNavigation()
   const attention = useAttention()
   const people = useWorkspaceMembers()
   useMinuteClock()
@@ -229,10 +221,9 @@ export function ChatsCard() {
       icon={MessagesSquare}
       title={t('sidebar.chats')}
       count={attention.chats.length}
-      onViewAll={() => navigate(routes.view.allSessions())}
       // The shell shows once the chats have loaded.
       loading={false}
-      empty={shown.length === 0 ? t('chatsIndex.emptyTitle') : null}
+      empty={shown.length === 0 ? t('chatsIndex.emptyDescription') : null}
       after={(
         <RenameDialog
           open={renaming !== null}
@@ -269,7 +260,6 @@ export function ChatsCard() {
 /** Your unread notifications, newest first: the Notifications page's rows (a row opens what it is about and marks it read). */
 export function NotificationsCard() {
   const { t } = useTranslation()
-  const { navigate } = useNavigation()
   useEntityData()
   useMinuteClock()
   const { notifications, loaded, setStatus, clear } = useNotifications()
@@ -281,9 +271,8 @@ export function NotificationsCard() {
       icon={Bell}
       title={t('notifications.title')}
       count={unread.length}
-      onViewAll={() => navigate(routes.view.notifications())}
       loading={!loaded}
-      empty={unread.length === 0 ? t('notifications.emptyTitle') : null}
+      empty={unread.length === 0 ? t('notifications.emptyDescription') : null}
     >
       {unread.slice(0, MAX_ROWS).map((item) => (
         <ListRow
@@ -318,11 +307,10 @@ export function RoutinesCard() {
   return (
     <HomeCard
       icon={Clock}
-      title={t('home.routinesToday')}
+      title={t('sidebar.routines')}
       count={entries.length}
-      onViewAll={() => navigate(routes.view.automations())}
       loading={!api.loaded}
-      empty={entries.length === 0 ? t('home.routinesEmpty') : null}
+      empty={entries.length === 0 ? t('sectionEmpty.routinesDescription') : null}
       after={actions.dialog}
     >
       {entries.slice(0, MAX_ROWS).map(({ routine, at, status }) => {

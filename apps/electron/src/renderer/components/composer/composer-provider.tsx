@@ -1,7 +1,7 @@
 /**
  * ComposerProvider - the one composer's place in the shell (docs/composer.md (f)). Mounted once around the page
  * frame. Pages tell it what they are about (`useComposerContext`, the last one mounted wins) and anything can
- * drive it (`useComposer`: prefill, focus, expand, collapse). `ShellComposer` draws it in the frame's slot and
+ * drive it (`useComposer`: prefill, focus, take). `ShellComposer` draws it in the frame's slot and
  * implements the handle, so the editor never remounts on navigation.
  */
 
@@ -9,11 +9,9 @@ import * as React from 'react'
 import type { ComposerContext } from './composer-state'
 
 export interface ComposerHandle {
-  /** Replace the text, put the cursor at the end, focus, and expand when it needs the room. */
+  /** Preserve the draft, append the page's text, put the cursor at the end, and focus. */
   prefill: (text: string) => void
   focus: () => void
-  expand: () => void
-  collapse: () => void
   /** The text, now cleared (a plan approval sends it along). */
   take: () => string
 }
@@ -48,8 +46,6 @@ export function ComposerProvider({ children }: { children: React.ReactNode }) {
     handle: {
       prefill: (text: string) => ref.current?.prefill(text),
       focus: () => ref.current?.focus(),
-      expand: () => ref.current?.expand(),
-      collapse: () => ref.current?.collapse(),
       take: () => ref.current?.take() ?? '',
     },
   }), [])
@@ -65,13 +61,13 @@ export function ComposerProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Drive the composer from anywhere: `prefill`, `focus`, `expand`, `collapse`, `take`. No-ops outside the shell. */
+/** Drive the composer from anywhere: `prefill`, `focus`, `take`. No-ops outside the shell. */
 export function useComposer(): ComposerHandle {
   const handles = React.useContext(HandleContext)
   return handles?.handle ?? NOOP_HANDLE
 }
 
-const NOOP_HANDLE: ComposerHandle = { prefill: () => {}, focus: () => {}, expand: () => {}, collapse: () => {}, take: () => '' }
+const NOOP_HANDLE: ComposerHandle = { prefill: () => {}, focus: () => {}, take: () => '' }
 
 /** For `useComposerContext`: the stable registry. */
 export function useComposerRegistry() {

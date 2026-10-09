@@ -1,10 +1,10 @@
-/* TiptapMarkdownEditor — styles matching the app's markdown rendering (minimal mode) */
+/* TiptapMarkdownEditor — editor behavior and node-view presentation around Typeset prose */
 
 .tiptap-editor {
   --tiptap-bubble-z: var(--z-floating-menu, 400);
   --tiptap-image-selection-width: 1.5px;
   --tiptap-image-selection-color: color-mix(in oklch, var(--primary) 45%, transparent);
-  --tiptap-list-indent: 1.5rem;
+  --tiptap-list-indent: 1.5em;
 }
 
 .tiptap-editor .tiptap-prose {
@@ -22,152 +22,12 @@
   height: 0;
 }
 
-/* Otto: tables, flat as in the markdown renderer: hairline cell borders, medium header text */
 .tiptap-editor .tiptap-prose table {
-  border-collapse: collapse;
-  margin: 0.75rem 0;
   width: 100%;
 }
 
-.tiptap-editor .tiptap-prose th,
-.tiptap-editor .tiptap-prose td {
-  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
-  padding: 0.25rem 0.5rem;
-  text-align: left;
-  vertical-align: top;
-}
-
-.tiptap-editor .tiptap-prose th {
-  font-weight: 500;
-}
-
-.tiptap-editor .tiptap-prose th p,
-.tiptap-editor .tiptap-prose td p {
-  margin: 0;
-}
-
-/* Paragraphs */
-.tiptap-editor .tiptap-prose p {
-  margin: 0.5rem 0;
-  line-height: 1.625; /* leading-relaxed */
-}
-
-.tiptap-editor .tiptap-prose > :first-child {
-  margin-top: 0;
-}
-
-/* Headings */
-.tiptap-editor .tiptap-prose h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
-}
-
-.tiptap-editor .tiptap-prose h2 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
-}
-
-.tiptap-editor .tiptap-prose h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
-}
-
-/* Bold & Italic */
-.tiptap-editor .tiptap-prose strong {
-  font-weight: 700;
-}
-
-.tiptap-editor .tiptap-prose em {
-  font-style: italic;
-}
-
-.tiptap-editor .tiptap-prose s {
-  text-decoration: line-through;
-  color: color-mix(in oklch, var(--foreground) 50%, transparent);
-}
-
-/* Lists */
-.tiptap-editor .tiptap-prose ul {
-  list-style-type: disc;
-  padding-inline-start: var(--tiptap-list-indent);
-  margin: 0.5rem 0;
-}
-
-.tiptap-editor .tiptap-prose ol {
-  list-style-type: decimal;
-  padding-inline-start: var(--tiptap-list-indent);
-  margin: 0.5rem 0;
-}
-
-.tiptap-editor .tiptap-prose li {
-  line-height: 1.625;
-}
-
-.tiptap-editor .tiptap-prose li > p {
-  margin: 0;
-}
-
-.tiptap-editor .tiptap-prose ul ::marker {
-  color: var(--md-bullets, color-mix(in oklch, var(--foreground) 50%, transparent));
-}
-
-.tiptap-editor .tiptap-prose ol ::marker {
-  color: var(--md-counters, color-mix(in oklch, var(--foreground) 50%, transparent));
-}
-
-/* Nested lists */
-.tiptap-editor .tiptap-prose ul ul,
-.tiptap-editor .tiptap-prose ol ul {
-  list-style-type: circle;
-}
-
-.tiptap-editor .tiptap-prose ul ul ul,
-.tiptap-editor .tiptap-prose ol ul ul {
-  list-style-type: square;
-}
-
-/* Blockquote */
-.tiptap-editor .tiptap-prose blockquote {
-  border-left: 2px solid color-mix(in oklch, var(--foreground) 30%, transparent);
-  padding-left: 0.75rem;
-  margin: 0.5rem 0;
-  font-style: italic;
-}
-
-/* Inline code */
-.tiptap-editor .tiptap-prose code {
-  padding: 0 0.25rem;
-  border-radius: 0.25rem;
-  background: color-mix(in oklch, var(--foreground) 4%, transparent);
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
-/* Code blocks */
-.tiptap-editor .tiptap-prose pre {
-  margin: 0.5rem 0;
-  border-radius: 0.5rem;
-  background: color-mix(in oklch, var(--foreground) 3%, transparent);
-  padding: 0.75rem;
-  overflow-x: auto;
-}
-
-.tiptap-editor .tiptap-prose pre code {
-  background: none;
-  padding: 0;
-  border-radius: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: inherit;
+.tiptap-editor .tiptap-prose :is(th, td) > p:first-child {
+  margin-block-start: 0;
 }
 
 .tiptap-hover-actions-host {
@@ -221,7 +81,7 @@
 }
 
 .tiptap-editor .tiptap-code-block-node {
-  margin: 0.5rem 0;
+  margin-block-start: var(--typeset-flow);
 }
 
 .tiptap-editor .tiptap-code-block-node pre {
@@ -242,13 +102,6 @@
   font-weight: 500;
 }
 
-/* Horizontal rule */
-.tiptap-editor .tiptap-prose hr {
-  border: none;
-  border-top: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
-  margin: 1rem 0;
-}
-
 /* Links */
 .tiptap-editor .tiptap-prose a {
   color: var(--primary);
@@ -261,7 +114,6 @@
   display: block;
   max-width: 100%;
   height: auto;
-  margin: 0.75rem 0;
   border-radius: 0.5rem;
 }
 

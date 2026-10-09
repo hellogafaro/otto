@@ -179,24 +179,6 @@ function copyResources(): void {
   }
 }
 
-// Build the WhatsApp worker bundle (dist/worker.cjs). Runs the canonical
-// `scripts/build-wa-worker.ts` as a subprocess so the dev path stays in
-// sync with the packaged/CI build. Cheap (~70ms) so we always rebuild.
-async function buildWaWorker(): Promise<void> {
-  console.log("📨 Building WhatsApp worker...");
-  const proc = spawn({
-    cmd: ["bun", "run", "scripts/build-wa-worker.ts"],
-    cwd: ROOT_DIR,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    console.error("❌ WhatsApp worker build failed");
-    process.exit(1);
-  }
-}
-
 // Get OAuth defines for esbuild API
 function getOAuthDefines(): Record<string, string> {
   const oauthVars = [
@@ -341,9 +323,6 @@ async function main(): Promise<void> {
   await ensureBundledUvForCurrentPlatform();
 
   copyResources();
-
-  // Build WhatsApp worker bundle so the adapter can spawn it on demand
-  await buildWaWorker();
 
   const vitePort = process.env.OTTO_VITE_PORT || "5173";
   const oauthDefines = getOAuthDefines();

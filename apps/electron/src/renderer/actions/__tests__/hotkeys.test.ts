@@ -64,6 +64,10 @@ describe('matchesHotkey', () => {
 })
 
 describe('the standard keys', () => {
+  it('keeps Settings on desktop and leaves the browser shortcut unbound', () => {
+    expect(hotkeyFor(actions['app.settings'], false)).toBe('mod+,')
+    expect(hotkeyFor(actions['app.settings'], true)).toBe(null)
+  })
   it('binds ⌘K to the command palette alone, and no ⌘F', () => {
     expect(all.filter(action => action.defaultHotkey === 'mod+k').map(action => action.id)).toEqual(['app.commandPalette'])
     expect(all.some(action => action.defaultHotkey === 'mod+f')).toBe(false)

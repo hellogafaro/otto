@@ -159,6 +159,7 @@ export function createSession(
     labels?: string[];
     isFlagged?: boolean;
     projectId?: string;
+    contextEntity?: string;
     parentSessionId?: string;
     /** Branch: copy the messages of `fromSessionId` up to and including `throughMessageId`. */
     branch?: { fromSessionId: string; throughMessageId: string } & Pick<SessionConfig, 'branchFromMessageId' | 'branchFromSdkSessionId' | 'branchFromSessionPath' | 'branchFromSdkTurnId'>;

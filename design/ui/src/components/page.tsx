@@ -51,7 +51,7 @@ function PageColumn({
       className={cn(
         "flex w-full flex-col gap-10 md:px-6",
         fill
-          ? "h-full min-h-0 pb-(--composer-clearance)"
+          ? "pb-(--composer-clearance)"
           : "pb-[max(2.5rem,var(--composer-clearance,0px))]",
         className
       )}
@@ -65,9 +65,7 @@ function PageColumn({
       {children}
     </div>
   )
-  return fill ? (
-    column
-  ) : (
+  return (
     <PageScroll className="[--scroll-fade-b-size:calc(var(--composer-clearance)+0.5rem)]">
       {column}
     </PageScroll>
@@ -86,7 +84,7 @@ function PageCenterpiece({
       data-slot="page-centerpiece"
       data-content-start=""
       className={cn(
-        "relative flex min-h-0 flex-1 flex-col overflow-hidden card-surface rounded-xl bg-card",
+        "relative flex flex-col card-surface rounded-md bg-card",
         className
       )}
       {...props}
@@ -142,18 +140,19 @@ function PageSection({
   )
 }
 
-// Otto: the inner card: `bg-card`, the card edge (`card-surface`), 12px corners.
+// Otto: inner cards retain their card color/edge and 8px corners; plain lists opt out.
 // Only rows live in it, split by full-bleed hairlines (`divide-y`, drawn between
 // the children that exist, so a collapsed row leaves no line); controls nested
 // in a row are 28px with 6px corners. A list page's table sits in the same card
 // (`ListCard`, list-group.tsx), 8px in.
-function PageCard({ className, ...props }: React.ComponentProps<"div">) {
+function PageCard({ className, surface = true, ...props }: React.ComponentProps<"div"> & { surface?: boolean }) {
   return (
     <div
       data-slot="page-card"
       data-content-start=""
       className={cn(
-        "divide-y divide-(--card-divider) overflow-hidden card-surface rounded-xl bg-card",
+        "divide-y divide-(--card-divider) overflow-hidden",
+        surface && "card-surface rounded-md bg-card",
         className
       )}
       {...props}

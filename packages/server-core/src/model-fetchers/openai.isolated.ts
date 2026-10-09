@@ -20,7 +20,7 @@ const baseUrl = server.url.href + 'v1'
 
 it('discovers account model candidates without importing the Pi catalog and validates completed native Responses', async () => {
   const result = await fetchOpenAiModels({ apiKey: 'controlled-key', baseUrl })
-  expect(result.models.map((model) => model.id)).toEqual(['gpt-fixture', 'o3-fixture'])
+  expect(result.models.map((model) => model.id)).toEqual(['gpt-audio-fixture', 'gpt-fixture', 'o3-fixture', 'text-embedding-fixture'])
   expect(result.models.every((model) => model.provider === 'openai' && !model.id.startsWith('pi/'))).toBe(true)
   expect(await validateOpenAiConnection({ apiKey: 'controlled-key', baseUrl, model: 'pi/gpt-fixture' })).toEqual({ success: true })
   expect(calls.at(-1)!.body).toMatchObject({ model: 'gpt-fixture', stream: true, store: false })

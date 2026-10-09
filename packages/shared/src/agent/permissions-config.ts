@@ -840,7 +840,8 @@ class PermissionsConfigCache {
     // User writes: "list" → becomes: "mcp__<sourceSlug>__.*list"
     // This ensures patterns only match tools from THIS source
     for (const pattern of custom.allowedMcpPatterns) {
-      const scopedPattern = `mcp__${sourceSlug}__.*${pattern}`;
+      const escapedSlug = sourceSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const scopedPattern = `^mcp__${escapedSlug}__.*(?:${pattern})`;
       const regex = validateRegex(scopedPattern);
       if (regex) {
         merged.readOnlyMcpPatterns.push(regex);

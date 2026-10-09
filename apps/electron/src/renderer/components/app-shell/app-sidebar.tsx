@@ -80,7 +80,6 @@ interface AppSidebarProps {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
   onSelectWorkspace: (workspaceId: string) => void | Promise<void>
-  workspaceUnreadMap?: Record<string, boolean>
   onWorkspaceCreated?: (workspace: Workspace) => void
   onWorkspaceRemoved?: () => void
   /** The workspace's session statuses, for the status icons of Pinned and Recent chats. */
@@ -121,7 +120,6 @@ export function AppSidebar({
   workspaces,
   activeWorkspaceId,
   onSelectWorkspace,
-  workspaceUnreadMap,
   onWorkspaceCreated,
   onWorkspaceRemoved,
   sessionStatuses,
@@ -243,7 +241,6 @@ export function AppSidebar({
                   activeWorkspaceId={activeWorkspaceId}
                   onSelect={onSelectWorkspace}
                   onSettings={onSettings}
-                  workspaceUnreadMap={workspaceUnreadMap}
                   onWorkspaceCreated={onWorkspaceCreated}
                   onWorkspaceRemoved={onWorkspaceRemoved}
                 />

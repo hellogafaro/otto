@@ -156,13 +156,16 @@ function createComponents(
     const blockId = `blk-${stableHash(`${blockType}|${path}|${content.slice(0, 240)}`)}`
 
     return (
-      <div
+      <figure
         data-ca-block-type={blockType}
         data-ca-block-path={path}
         data-ca-block-id={blockId}
       >
-        {child}
-      </div>
+        <div
+          className={cn(blockType !== 'markdown-preview' && 'not-typeset', blockType !== 'latex' && 'font-sans text-sm')}
+          data-not-typeset={blockType !== 'markdown-preview' || undefined}
+        >{child}</div>
+      </figure>
     )
   }
 
@@ -233,7 +236,7 @@ function createComponents(
         <a
           href={safeHref}
           onClick={handleClick}
-          className="text-primary hover:underline cursor-pointer"
+          className={mode === 'terminal' ? 'text-primary hover:underline cursor-pointer' : undefined}
         >
           {children}
         </a>
@@ -267,199 +270,63 @@ function createComponents(
     }
   }
 
-  // Minimal mode: clean with syntax highlighting
-  if (mode === 'minimal') {
-    return {
-      ...baseComponents,
-      // Inline code
-      code: ({ className, children, ...props }) => {
-        const match = /language-([\w-]+)/.exec(className || '')
-        const isBlock = 'node' in props && props.node?.position?.start.line !== props.node?.position?.end.line
-
-        // Block code
-        if (match || isBlock) {
-          const code = String(children).replace(/\n$/, '')
-          // Diff code blocks → pierre/diffs for a proper diff viewer
-          if (match?.[1] === 'diff') {
-            return wrapBlock('code', code, <MarkdownDiffBlock code={code} className="my-2" />, props.node?.position)
-          }
-          // JSON code blocks → interactive tree viewer
-          if (match?.[1] === 'json') {
-            return wrapBlock('code', code, <MarkdownJsonBlock code={code} className="my-2" />, props.node?.position)
-          }
-          // Datatable code blocks → sortable/filterable data table
-          if (match?.[1] === 'datatable') {
-            return wrapBlock('datatable', code, <MarkdownDatatableBlock code={code} className="my-2" />, props.node?.position)
-          }
-          // Spreadsheet code blocks → Excel-style grid
-          if (match?.[1] === 'spreadsheet') {
-            return wrapBlock('spreadsheet', code, <MarkdownSpreadsheetBlock code={code} className="my-2" />, props.node?.position)
-          }
-          // HTML preview blocks → sandboxed iframe
-          if (match?.[1] === 'html-preview' && isPreviewEnabled('html-preview')) {
-            return wrapBlock('html-preview', code, <MarkdownHtmlBlock code={code} className="my-2" />, props.node?.position)
-          }
-          // PDF preview blocks → inline first page with expand to full viewer
-          if (match?.[1] === 'pdf-preview' && isPreviewEnabled('pdf-preview')) {
-            return wrapBlock('pdf-preview', code, <MarkdownPdfBlock code={code} className="my-2" />, props.node?.position)
-          }
-          // Image preview blocks → inline image with expand to full viewer
-          if (match?.[1] === 'image-preview' && isPreviewEnabled('image-preview')) {
-            return wrapBlock('image-preview', code, <MarkdownImageBlock code={code} className="my-2" />, props.node?.position)
-          }
-          // Markdown preview blocks → inline rendered .md file
-          if (match?.[1] === 'markdown-preview' && isPreviewEnabled('markdown-preview')) {
-            return wrapBlock(
-              'markdown-preview',
-              code,
-              <MarkdownDocBlock code={code} className="my-2" onUrlClick={onUrlClick} onFileClick={onFileClick} />,
-              props.node?.position,
-            )
-          }
-          // LaTeX/math code blocks → KaTeX rendered display math
-          if (match?.[1] === 'latex' || match?.[1] === 'math') {
-            return wrapBlock('latex', code, <MarkdownLatexBlock code={code} className="my-2" />, props.node?.position)
-          }
-          // Mermaid code blocks → zinc-styled SVG diagram.
-          // Hide the inline expand button when the mermaid block is the first
-          // content in the message — TurnCard's own fullscreen button occupies
-          // the same top-right spot. Detection uses firstMermaidCodeRef (content
-          // match) rather than AST line positions which are unreliable after
-          // preprocessLinks transforms the markdown.
-          if (match?.[1] === 'mermaid') {
-            const isFirstBlock = hideFirstMermaidExpand &&
-                                firstMermaidCodeRef?.current != null &&
-                                code === firstMermaidCodeRef.current
-            return wrapBlock(
-              'mermaid',
-              code,
-              <MarkdownMermaidBlock code={code} className="my-2" showExpandButton={!isFirstBlock} />,
-              props.node?.position,
-            )
-          }
-          return wrapBlock('code', code, <CodeBlock code={code} language={match?.[1]} mode="full" className="my-2" />, props.node?.position)
-        }
-
-        // Inline code
-        return <InlineCode>{children}</InlineCode>
-      },
-      pre: ({ children }) => <>{children}</>,
-      // Comfortable paragraph spacing
-      p: ({ children }) => <p className="my-2 leading-relaxed">{children}</p>,
-      // Styled lists - ul uses tighter spacing, ol uses standard for number alignment
-      ul: ({ children, className }) => (
-        <ul
-          className={cn(
-            'my-2 space-y-1 ps-[16px] pe-2 list-disc marker:text-[var(--md-bullets)]',
-            className?.includes('contains-task-list') && 'list-none ps-0 marker:content-none',
-          )}
-        >
-          {children}
-        </ul>
-      ),
-      ol: ({ children, className }) => (
-        <ol className={cn('my-2 space-y-1 pl-6 list-decimal', className)}>{children}</ol>
-      ),
-      li: ({ children, className }) => (
-        <li className={cn(className?.includes('task-list-item') && 'list-none')}>{children}</li>
-      ),
-      input: ({ type, checked }) => {
-        if (type === 'checkbox') {
-          return (
-            <input
-              type="checkbox"
-              checked={checked}
-              readOnly
-              className="mr-2 rounded border-muted-foreground align-middle"
-            />
-          )
-        }
-        return <input type={type} />
-      },
-      // Clean tables
-      table: ({ children }) => (
-        <div className="my-3 overflow-x-auto">
-          <table className="min-w-full text-sm">{children}</table>
-        </div>
-      ),
-      thead: ({ children }) => <thead className="border-b">{children}</thead>,
-      th: ({ children }) => (
-        <th className="text-left py-2 px-3 font-semibold text-muted-foreground">{children}</th>
-      ),
-      td: ({ children }) => (
-        <td className="py-2 px-3 border-b border-border/50">{children}</td>
-      ),
-      // Headings - H1/H2 same size, differentiated by weight
-      h1: ({ children }) => <h1 className="font-sans text-[16px] font-bold mt-5 mb-3">{children}</h1>,
-      h2: ({ children }) => <h2 className="font-sans text-[16px] font-semibold mt-4 mb-3">{children}</h2>,
-      h3: ({ children }) => <h3 className="font-sans text-[15px] font-semibold mt-4 mb-2">{children}</h3>,
-      // Blockquotes
-      blockquote: ({ children }) => (
-        <blockquote className="border-l-2 border-muted-foreground/30 pl-3 my-2 text-muted-foreground italic">
-          {children}
-        </blockquote>
-      ),
-      // Horizontal rules
-      hr: () => <hr className="my-4 border-border" />,
-      // Strong/emphasis
-      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-      em: ({ children }) => <em className="italic">{children}</em>,
-    }
-  }
-
-  // Full mode: rich styling
   return {
     ...baseComponents,
-    // Full code blocks with copy button
+    // Inline code
     code: ({ className, children, ...props }) => {
       const match = /language-([\w-]+)/.exec(className || '')
       const isBlock = 'node' in props && props.node?.position?.start.line !== props.node?.position?.end.line
 
+      // Block code
       if (match || isBlock) {
         const code = String(children).replace(/\n$/, '')
         // Diff code blocks → pierre/diffs for a proper diff viewer
         if (match?.[1] === 'diff') {
-          return wrapBlock('code', code, <MarkdownDiffBlock code={code} className="my-2" />, props.node?.position)
+          return wrapBlock('code', code, <MarkdownDiffBlock code={code} />, props.node?.position)
         }
         // JSON code blocks → interactive tree viewer
         if (match?.[1] === 'json') {
-          return wrapBlock('code', code, <MarkdownJsonBlock code={code} className="my-2" />, props.node?.position)
+          return wrapBlock('code', code, <MarkdownJsonBlock code={code} />, props.node?.position)
         }
         // Datatable code blocks → sortable/filterable data table
         if (match?.[1] === 'datatable') {
-          return wrapBlock('datatable', code, <MarkdownDatatableBlock code={code} className="my-2" />, props.node?.position)
+          return wrapBlock('datatable', code, <MarkdownDatatableBlock code={code} />, props.node?.position)
         }
         // Spreadsheet code blocks → Excel-style grid
         if (match?.[1] === 'spreadsheet') {
-          return wrapBlock('spreadsheet', code, <MarkdownSpreadsheetBlock code={code} className="my-2" />, props.node?.position)
+          return wrapBlock('spreadsheet', code, <MarkdownSpreadsheetBlock code={code} />, props.node?.position)
         }
         // HTML preview blocks → sandboxed iframe
         if (match?.[1] === 'html-preview' && isPreviewEnabled('html-preview')) {
-          return wrapBlock('html-preview', code, <MarkdownHtmlBlock code={code} className="my-2" />, props.node?.position)
+          return wrapBlock('html-preview', code, <MarkdownHtmlBlock code={code} />, props.node?.position)
         }
         // PDF preview blocks → inline first page with expand to full viewer
         if (match?.[1] === 'pdf-preview' && isPreviewEnabled('pdf-preview')) {
-          return wrapBlock('pdf-preview', code, <MarkdownPdfBlock code={code} className="my-2" />, props.node?.position)
+          return wrapBlock('pdf-preview', code, <MarkdownPdfBlock code={code} />, props.node?.position)
         }
         // Image preview blocks → inline image with expand to full viewer
         if (match?.[1] === 'image-preview' && isPreviewEnabled('image-preview')) {
-          return wrapBlock('image-preview', code, <MarkdownImageBlock code={code} className="my-2" />, props.node?.position)
+          return wrapBlock('image-preview', code, <MarkdownImageBlock code={code} />, props.node?.position)
         }
         // Markdown preview blocks → inline rendered .md file
         if (match?.[1] === 'markdown-preview' && isPreviewEnabled('markdown-preview')) {
           return wrapBlock(
             'markdown-preview',
             code,
-            <MarkdownDocBlock code={code} className="my-2" onUrlClick={onUrlClick} onFileClick={onFileClick} />,
+            <MarkdownDocBlock code={code} onUrlClick={onUrlClick} onFileClick={onFileClick} />,
             props.node?.position,
           )
         }
         // LaTeX/math code blocks → KaTeX rendered display math
         if (match?.[1] === 'latex' || match?.[1] === 'math') {
-          return wrapBlock('latex', code, <MarkdownLatexBlock code={code} className="my-2" />, props.node?.position)
+          return wrapBlock('latex', code, <MarkdownLatexBlock code={code} />, props.node?.position)
         }
         // Mermaid code blocks → zinc-styled SVG diagram.
-        // (Same first-block detection as minimal mode — see comment above.)
+        // Hide the inline expand button when the mermaid block is the first
+        // content in the message — TurnCard's own fullscreen button occupies
+        // the same top-right spot. Detection uses firstMermaidCodeRef (content
+        // match) rather than AST line positions which are unreliable after
+        // preprocessLinks transforms the markdown.
         if (match?.[1] === 'mermaid') {
           const isFirstBlock = hideFirstMermaidExpand &&
                               firstMermaidCodeRef?.current != null &&
@@ -467,93 +334,23 @@ function createComponents(
           return wrapBlock(
             'mermaid',
             code,
-            <MarkdownMermaidBlock code={code} className="my-2" showExpandButton={!isFirstBlock} />,
+            <MarkdownMermaidBlock code={code} showExpandButton={!isFirstBlock} />,
             props.node?.position,
           )
         }
-        return wrapBlock('code', code, <CodeBlock code={code} language={match?.[1]} mode="full" className="my-2" />, props.node?.position)
+        return wrapBlock('code', code, <CodeBlock code={code} language={match?.[1]} mode="full" />, props.node?.position)
       }
 
-      return <InlineCode>{children}</InlineCode>
+      // Inline code
+      return <code>{children}</code>
     },
     pre: ({ children }) => <>{children}</>,
-    // Rich paragraph spacing
-    p: ({ children }) => <p className="my-3 leading-relaxed">{children}</p>,
-    // Styled lists - ul uses tighter spacing, ol uses standard for number alignment
-    ul: ({ children, className }) => (
-      <ul
-        className={cn(
-          'my-3 space-y-1.5 ps-[16px] pe-2 list-disc marker:text-[var(--md-bullets)]',
-          className?.includes('contains-task-list') && 'list-none ps-0 marker:content-none',
-        )}
-      >
-        {children}
-      </ul>
+    input: ({ type, checked, disabled }) => type === 'checkbox'
+      ? <input type="checkbox" checked={checked} disabled={disabled} readOnly />
+      : <input type={type} />,
+    table: ({ node: _node, children, ...props }) => (
+      <div className="typeset-scroll"><table {...props}>{children}</table></div>
     ),
-    ol: ({ children, className }) => (
-      <ol className={cn('my-3 space-y-1.5 pl-6 list-decimal', className)}>{children}</ol>
-    ),
-    li: ({ children, className }) => (
-      <li className={cn('leading-relaxed', className?.includes('task-list-item') && 'list-none')}>{children}</li>
-    ),
-    // Beautiful tables
-    table: ({ children }) => (
-      <div className="my-4 overflow-x-auto rounded-md border">
-        <table className="min-w-full divide-y divide-border">{children}</table>
-      </div>
-    ),
-    thead: ({ children }) => <thead className="bg-muted/50">{children}</thead>,
-    tbody: ({ children }) => <tbody className="divide-y divide-border">{children}</tbody>,
-    th: ({ children }) => (
-      <th className="text-left py-3 px-4 font-semibold text-sm">{children}</th>
-    ),
-    td: ({ children }) => (
-      <td className="py-3 px-4 text-sm">{children}</td>
-    ),
-    tr: ({ children }) => (
-      <tr className="hover:bg-foreground/5 transition-colors">{children}</tr>
-    ),
-    // Rich headings - H1/H2 same size, differentiated by weight
-    h1: ({ children }) => (
-      <h1 className="font-sans text-[16px] font-bold mt-7 mb-4">{children}</h1>
-    ),
-    h2: ({ children }) => (
-      <h2 className="font-sans text-[16px] font-semibold mt-6 mb-3">{children}</h2>
-    ),
-    h3: ({ children }) => (
-      <h3 className="font-sans text-[15px] font-semibold mt-5 mb-3">{children}</h3>
-    ),
-    h4: ({ children }) => (
-      <h4 className="text-[14px] font-semibold mt-3 mb-1">{children}</h4>
-    ),
-    // Styled blockquotes
-    blockquote: ({ children }) => (
-      <blockquote className="border-l-4 border-foreground/30 bg-muted/30 pl-4 pr-3 py-2 my-3 rounded-r-md">
-        {children}
-      </blockquote>
-    ),
-    // Task lists (GFM)
-    input: ({ type, checked }) => {
-      if (type === 'checkbox') {
-        return (
-          <input
-            type="checkbox"
-            checked={checked}
-            readOnly
-            className="mr-2 rounded border-muted-foreground"
-          />
-        )
-      }
-      return <input type={type} />
-    },
-    // Horizontal rules
-    hr: () => <hr className="my-6 border-border" />,
-    // Strong/emphasis
-    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-    em: ({ children }) => <em className="italic">{children}</em>,
-    del: ({ children }) => <del className="line-through text-muted-foreground">{children}</del>,
-    // Handle unknown <markdown> tags that may come through rehype-raw
-    // Type assertion needed because 'markdown' is not a standard HTML element
     markdown: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   } as Partial<Components>
 }
@@ -624,7 +421,7 @@ export function Markdown({
   )
 
   return (
-    <div className={cn('markdown-content', className)}>
+    <div className={cn('markdown-content', mode !== 'terminal' && 'typeset typeset-docs', className)}>
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={[rehypeKatex, rehypeRaw]}

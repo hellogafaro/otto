@@ -67,7 +67,4 @@ export interface BroadcastEventMap {
   [RPC_CHANNELS.menu.OPEN_SETTINGS]: []
   [RPC_CHANNELS.menu.KEYBOARD_SHORTCUTS]: []
 
-  // Messaging gateway broadcasts
-  [RPC_CHANNELS.messaging.BINDING_CHANGED]: [workspaceId: string]
-  [RPC_CHANNELS.messaging.PLATFORM_STATUS]: [workspaceId: string, platform: string, connected: boolean]
 }

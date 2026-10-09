@@ -8,6 +8,7 @@ import { createLabel } from '@otto/shared/labels/crud'
 import { initWorkspaceStatuses } from '@otto/shared/statuses/storage'
 import type { StoredMessage } from '@otto/core/types'
 import { SessionManager, createManagedSession } from './session-manager.ts'
+import { closeMastraHistory, importMastraHistory } from './mastra-history.ts'
 
 // A chat whose messages are not loaded (every chat after a restart until it is opened) still writes its own fields:
 // the write queue writes its row only, never an empty message list over its messages. Runs on the test database of
@@ -27,7 +28,10 @@ describe('cold-session metadata persistence', () => {
     sm = new SessionManager()
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    await sm.cleanup()
+    await sm.flushAllSessions()
+    await closeMastraHistory()
     rmSync(tmpRoot, { recursive: true, force: true })
   })
 
@@ -35,7 +39,7 @@ describe('cold-session metadata persistence', () => {
   const chatId = (name: string) => `${name}-${workspaceId}`
 
   // A chat present from a previous run, registered with the post-restart `messagesLoaded: false` state.
-  function seedColdSession(sessionId: string, opts: { name?: string; sessionStatus?: string; labels?: string[]; messages?: StoredMessage[] } = {}) {
+  async function seedColdSession(sessionId: string, opts: { name?: string; sessionStatus?: string; labels?: string[]; messages?: StoredMessage[] } = {}) {
     const stored = {
       id: sessionId,
       workspaceRootPath: tmpRoot,
@@ -48,6 +52,7 @@ describe('cold-session metadata persistence', () => {
       messages: opts.messages ?? [],
     } as StoredSession
     createImportedSession(workspace(), stored)
+    await importMastraHistory({ workspaceId, chatId: sessionId, title: stored.name, sessionDir: join(tmpRoot, 'sessions', sessionId) })
     const managed = createManagedSession(
       { id: sessionId, name: stored.name, createdBy: stored.createdBy, sessionStatus: stored.sessionStatus, labels: stored.labels, createdAt: stored.createdAt },
       workspace(),
@@ -60,7 +65,7 @@ describe('cold-session metadata persistence', () => {
 
   it('setSessionStatus on a cold session is stored once it resolves', async () => {
     const sessionId = chatId('cold-status')
-    seedColdSession(sessionId, { sessionStatus: 'todo' })
+    await seedColdSession(sessionId, { sessionStatus: 'todo' })
 
     await sm.setSessionStatus(sessionId, 'done')
 
@@ -69,7 +74,7 @@ describe('cold-session metadata persistence', () => {
 
   it('setSessionLabels on a cold session is stored once it resolves', async () => {
     const sessionId = chatId('cold-labels')
-    seedColdSession(sessionId, { labels: [] })
+    await seedColdSession(sessionId, { labels: [] })
 
     await sm.setSessionLabels(sessionId, ['urgent', 'bug'])
 
@@ -78,7 +83,7 @@ describe('cold-session metadata persistence', () => {
 
   it('renameSession on a cold session persists (with explicit flushSession)', async () => {
     const sessionId = chatId('cold-rename')
-    seedColdSession(sessionId, { name: 'old name' })
+    await seedColdSession(sessionId, { name: 'old name' })
 
     await sm.renameSession(sessionId, 'new name')
     await sm.flushSession(sessionId)
@@ -88,19 +93,24 @@ describe('cold-session metadata persistence', () => {
 
   it('a cold-session write keeps the stored messages', async () => {
     const sessionId = chatId('cold-preserve-msgs')
-    seedColdSession(sessionId, { messages: [makeUserMessage('m1', 'hello'), makeUserMessage('m2', 'world'), makeUserMessage('m3', 'three')] })
+    await seedColdSession(sessionId, { messages: [makeUserMessage('m1', 'hello'), makeUserMessage('m2', 'world'), makeUserMessage('m3', 'three')] })
     expect(reload(sessionId)?.messages.map((m) => m.id)).toEqual(['m1', 'm2', 'm3'])
+    const before = reload(sessionId)!
+    expect((sm as unknown as { sessions: Map<string, { messagesLoaded: boolean }> }).sessions.get(sessionId)!.messagesLoaded).toBe(false)
 
     await sm.setSessionStatus(sessionId, 'done')
 
     const after = reload(sessionId)
     expect(after?.sessionStatus).toBe('done')
     expect(after?.messages.map((m) => m.id)).toEqual(['m1', 'm2', 'm3'])
+    expect(after?.messages).toEqual(before.messages)
+    expect(after).toMatchObject({ name: before.name, createdBy: before.createdBy, createdAt: before.createdAt })
+    expect(after?.labels).toEqual(before.labels)
   })
 
   it('concurrent cold-session status changes end with the last one', async () => {
     const sessionId = chatId('cold-concurrent')
-    seedColdSession(sessionId, { sessionStatus: 'todo' })
+    await seedColdSession(sessionId, { sessionStatus: 'todo' })
 
     await Promise.all([sm.setSessionStatus(sessionId, 'needs-review'), sm.setSessionStatus(sessionId, 'done')])
 
@@ -109,7 +119,7 @@ describe('cold-session metadata persistence', () => {
 
   it('flushSession on a cold session returns only after the write lands', async () => {
     const sessionId = chatId('cold-flush-ordering')
-    seedColdSession(sessionId, { sessionStatus: 'todo' })
+    await seedColdSession(sessionId, { sessionStatus: 'todo' })
 
     const managed = (sm as unknown as { sessions: Map<string, { sessionStatus?: string }> }).sessions.get(sessionId)!
     managed.sessionStatus = 'cancelled'

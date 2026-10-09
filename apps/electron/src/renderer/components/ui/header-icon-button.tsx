@@ -1,8 +1,8 @@
 /**
  * HeaderIconButton
  *
- * The icon button of a page header and of a list's section header: a 28px
- * ghost button (the design system's `icon-compact`), with an optional tooltip.
+ * The icon button of a page header and of a list's section header: a 32px
+ * ghost button (the design system's `icon`), with an optional tooltip.
  */
 
 import * as React from 'react'
@@ -21,7 +21,7 @@ export function HeaderIconButton({ icon, tooltip, className, ...props }: HeaderI
   const button = (
     <Button
       variant="ghost"
-      size="icon-compact"
+      size="icon"
       aria-label={props['aria-label'] ?? tooltip}
       className={cn('titlebar-no-drag', className)}
       {...props}

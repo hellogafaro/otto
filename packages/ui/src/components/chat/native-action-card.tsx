@@ -2,12 +2,9 @@ import * as React from 'react'
 import { ChevronDown, CircleCheck, Folder, Library } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@workspace/ui/components/card'
-import { Checkbox } from '@workspace/ui/components/checkbox'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@workspace/ui/components/collapsible'
-import { Label } from '@workspace/ui/components/label'
-import { RadioGroup, RadioGroupItem } from '@workspace/ui/components/radio-group'
-import { Textarea } from '@workspace/ui/components/textarea'
 import { Markdown } from '../markdown/markdown'
+import { NativeQuestionnaire } from './native-questionnaire'
 
 export interface NativeActionArtifact {
   type: 'library' | 'project' | 'task'
@@ -44,10 +41,7 @@ export function NativeActionCard(props: NativeActionCardProps) {
 
 function NativeActionCardContent({ data, canResolve, onApprove, onDeny, onAnswer, onOpenArtifact }: NativeActionCardProps) {
   const titleId = React.useId()
-  const answerId = React.useId()
   const errorId = React.useId()
-  const [answer, setAnswer] = React.useState('')
-  const [selected, setSelected] = React.useState<string[]>([])
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState(false)
   const submittingRef = React.useRef(false)
@@ -60,9 +54,6 @@ function NativeActionCardContent({ data, canResolve, onApprove, onDeny, onAnswer
   const pending = data.status === 'pending'
   const busy = submitting || data.status === 'resolving'
   const actionable = pending && canResolve
-  const choices = data.choices ?? []
-  const multiple = data.selectionMode === 'multi_select'
-  const hasAnswer = choices.length && multiple ? selected.length > 0 : answer.trim().length > 0
   const terminal = !pending && data.status !== 'resolving'
   const resolvedAt = data.resolvedAt === undefined ? null : new Date(data.resolvedAt)
   const ArtifactIcon = data.artifact?.type === 'library' ? Library : data.artifact?.type === 'project' ? Folder : CircleCheck
@@ -85,7 +76,17 @@ function NativeActionCardContent({ data, canResolve, onApprove, onDeny, onAnswer
       expired: 'The run has ended. This question can no longer be answered.',
       failed: 'This question failed and can no longer be answered.',
     }[data.status]
-    : data.summary
+    : data.kind === 'approval' && data.summary === 'Review this exact action. Only a current human with authority over its target can approve it.'
+      ? {
+        pending: data.summary,
+        resolving: 'Your decision is being recorded.',
+        approved: 'This action was approved. Approval alone does not confirm that it completed.',
+        denied: 'This action was denied and can no longer be approved.',
+        canceled: 'This request was canceled and can no longer be approved.',
+        expired: 'The run has ended. This request can no longer be approved.',
+        failed: 'This request ended without a confirmed result and can no longer be approved. Check its target before requesting another action.',
+      }[data.status]
+      : data.summary
 
   React.useLayoutEffect(() => {
     if (focusedRef.current && ((previousStatus.current !== data.status && !pending) || (previousCanResolve.current && !canResolve))) statusRef.current?.focus()
@@ -164,41 +165,7 @@ function NativeActionCardContent({ data, canResolve, onApprove, onDeny, onAnswer
           </div>
         )}
         {actionable && data.kind === 'question' && (
-          <form className="flex flex-col gap-3" onSubmit={(event) => {
-            event.preventDefault()
-            if (hasAnswer) void submit(onAnswer ? () => onAnswer(choices.length && multiple ? selected : answer.trim()) : undefined)
-          }}>
-            {choices.length > 0 ? (
-              multiple ? (
-                <fieldset disabled={busy} className="flex flex-col gap-3">
-                  <legend className="sr-only">Choose answers</legend>
-                  {choices.map((choice, index) => (
-                    <Label key={choice.label} htmlFor={`${answerId}-${index}`}>
-                      <Checkbox id={`${answerId}-${index}`} disabled={busy} checked={selected.includes(choice.label)} onCheckedChange={(checked) => {
-                        setSelected((values) => checked ? [...values, choice.label] : values.filter((value) => value !== choice.label))
-                      }} />
-                      <span><span>{choice.label}</span>{choice.description && <span className="block text-muted-foreground">{choice.description}</span>}</span>
-                    </Label>
-                  ))}
-                </fieldset>
-              ) : (
-                <RadioGroup aria-label="Choose an answer" value={answer} disabled={busy} onValueChange={(value) => setAnswer(String(value))}>
-                  {choices.map((choice, index) => (
-                    <Label key={choice.label} htmlFor={`${answerId}-${index}`}>
-                      <RadioGroupItem id={`${answerId}-${index}`} value={choice.label} />
-                      <span><span>{choice.label}</span>{choice.description && <span className="block text-muted-foreground">{choice.description}</span>}</span>
-                    </Label>
-                  ))}
-                </RadioGroup>
-              )
-            ) : (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={answerId}>Your answer</Label>
-                <Textarea id={answerId} value={answer} disabled={busy} aria-describedby={error ? errorId : undefined} onChange={(event) => setAnswer(event.target.value)} />
-              </div>
-            )}
-            <div><Button type="submit" disabled={busy || !hasAnswer || !onAnswer}>Send answer</Button></div>
-          </form>
+          <NativeQuestionnaire data={data} disabled={busy || !onAnswer} onSubmit={answer => void submit(onAnswer ? () => onAnswer(answer) : undefined)} />
         )}
         {pending && !canResolve && data.kind !== 'artifact' && <p className="text-muted-foreground">You can view this request, but cannot resolve it.</p>}
         {pending && error && <p id={errorId} role="alert">Could not submit your response. Refresh the conversation and try again.</p>}

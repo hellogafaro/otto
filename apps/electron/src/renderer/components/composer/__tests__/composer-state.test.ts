@@ -1,53 +1,62 @@
 import { describe, expect, it } from 'bun:test'
-import { attentionSlot, buildFirstMessage, composerReducer, mainAction, resolveShellSurface, sendKeyAction, type ComposerEvent, type ComposerView } from '../composer-state'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { readFileSync } from 'node:fs'
+import { Composer, ComposerInput } from '../../../../../../../design/ui/src/components/composer'
+import { buildFirstMessage, mainAction, sendKeyAction } from '../composer-state'
 import { arrivingDraft, draftSuffix } from '../use-composer-draft'
-import { isHintModifier } from '../use-modifier-held'
 import { pastedName } from '../use-composer-files'
-import { fileKind, fileSize, middleCut } from '../attachment-rail'
+import { fileKind, fileSize } from '../attachment-rail'
 import { dictationErrorKey, formatElapsed } from '../use-dictation'
 
-const run = (events: ComposerEvent[], from: ComposerView = 'idle') => events.reduce(composerReducer, from)
-
-describe('composerReducer', () => {
-  it('focuses, then grows on wrap, files or expand', () => {
-    expect(run([{ type: 'focus' }])).toBe('focused')
-    expect(run([{ type: 'focus' }, { type: 'wrap' }])).toBe('expanded')
-    expect(run([{ type: 'focus' }, { type: 'files' }])).toBe('expanded')
-    expect(run([{ type: 'expand' }])).toBe('expanded')
+describe('full composer', () => {
+  it('always renders the full-width stacked input and action row without a variant', () => {
+    const html = renderToStaticMarkup(createElement(Composer, {
+      attachments: createElement('span', null, 'Attachment'),
+      leading: createElement('button', { type: 'button' }, 'Add files'),
+      tools: createElement('button', { type: 'button' }, 'Model'),
+      main: createElement('button', { type: 'submit' }, 'Send'),
+      children: createElement(ComposerInput, null, createElement('div', { role: 'textbox' }, 'First line\nSecond line')),
+    }))
+    expect(html.match(/data-slot="composer"/g)).toHaveLength(1)
+    expect(html).toContain('group/composer w-full')
+    expect(html).toContain('flex w-full flex-col gap-1 p-2')
+    expect(html).toContain('data-slot="composer-row"')
+    expect(html).toContain('First line\nSecond line')
+    expect(html.indexOf('Attachment')).toBeLessThan(html.indexOf('data-slot="composer-input"'))
+    expect(html.indexOf('data-slot="composer-row"')).toBeLessThan(html.indexOf('data-slot="composer-input"'))
+    expect(html.indexOf('data-slot="composer-input"')).toBeLessThan(html.indexOf('Add files'))
+    expect(html.indexOf('Add files')).toBeLessThan(html.indexOf('Send'))
+    expect(html).toContain('min-h-8')
+    expect(html).toContain('items-end gap-2')
+    expect(html).toContain('Add files')
+    expect(html).toContain('Model')
+    expect(html).toContain('Send')
+    expect(html).not.toContain('data-variant')
+    expect(html).not.toContain('variant=compact')
+    expect(html).not.toContain('max-w-[28rem]')
   })
 
-  it('does not grow on wrap while idle (a long draft shown unfocused stays one line)', () => {
-    expect(run([{ type: 'wrap' }])).toBe('idle')
+  it('keeps the mounted writing input and unchanged centered recording control order', () => {
+    const html = renderToStaticMarkup(createElement(Composer, {
+      leading: createElement('button', { type: 'button' }, 'Cancel'),
+      tools: createElement('span', { 'data-slot': 'dictation' }, '0:00'),
+      main: createElement('button', { type: 'button' }, 'Done'),
+      children: createElement(ComposerInput, null, createElement('div', { role: 'textbox' }, 'Retained draft')),
+    }))
+    expect(html).toContain('group-has-[[data-slot=dictation]]/composer:hidden')
+    expect(html).toContain('group-has-[[data-slot=dictation]]/composer:items-center')
+    expect(html).toContain('Retained draft')
+    expect(html.indexOf('Cancel')).toBeLessThan(html.indexOf('data-slot="dictation"'))
+    expect(html.indexOf('data-slot="dictation"')).toBeLessThan(html.indexOf('Done'))
   })
 
-  it('collapses on Escape or collapse, keeps an expanded draft on blur, folds an empty one', () => {
-    expect(run([{ type: 'escape' }], 'expanded')).toBe('idle')
-    expect(run([{ type: 'collapse' }], 'expanded')).toBe('idle')
-    expect(run([{ type: 'blur', empty: false }], 'expanded')).toBe('expanded')
-    expect(run([{ type: 'blur', empty: true }], 'expanded')).toBe('idle')
-    expect(run([{ type: 'blur', empty: false }], 'focused')).toBe('idle')
-  })
-
-  it('stays expanded when focused again', () => {
-    expect(run([{ type: 'focus' }], 'expanded')).toBe('expanded')
-  })
-})
-
-describe('resolveShellSurface', () => {
-  it('draws nothing without a page context', () => {
-    expect(resolveShellSurface(null, 'idle')).toBe('none')
-  })
-
-  it('draws the compact bar, expanded when the state says so', () => {
-    const page = { key: 'task:abcdefghijkl', entity: 'task:abcdefghijkl' }
-    expect(resolveShellSurface(page, 'idle')).toBe('compact')
-    expect(resolveShellSurface(page, 'focused')).toBe('compact')
-    expect(resolveShellSurface(page, 'expanded')).toBe('expanded')
-  })
-
-  it('draws a full page (the chat, the new chat, Home) full, whatever the bar was doing', () => {
-    expect(resolveShellSurface({ key: 'chat:abcdefghijkl', mode: 'full' }, 'idle')).toBe('full')
-    expect(resolveShellSurface({ key: 'page:home', mode: 'full' }, 'expanded')).toBe('full')
+  it('places the footer outside both composer bodies and preserves recording and send locks', () => {
+    const source = readFileSync(new URL('../../app-shell/input/free-form-input.tsx', import.meta.url), 'utf8')
+    expect(source.match(/data-slot="composer-dock"[\s\S]*?<\/Composer>\s*\{footer\}/g)).toHaveLength(2)
+    expect(source).not.toContain('EntityChip')
+    expect(source).not.toContain('footerProps.context')
+    expect(source).toContain('disabled={dictating || sending || !!context.disabled || footerProps.disabled}')
   })
 })
 
@@ -107,27 +116,13 @@ describe('mainAction', () => {
   })
 })
 
-describe('isHintModifier', () => {
-  const key = (k: string, shiftKey = false) => ({ key: k, metaKey: false, ctrlKey: false, altKey: false, shiftKey })
-  it('is ⌘ on a Mac, Ctrl elsewhere, and Option/Alt everywhere; not with Shift or another key', () => {
-    expect(isHintModifier(key('Meta'), true)).toBe(true)
-    expect(isHintModifier(key('Control'), true)).toBe(false)
-    expect(isHintModifier(key('Control'), false)).toBe(true)
-    expect(isHintModifier(key('Alt'), false)).toBe(true)
-    expect(isHintModifier(key('Alt', true), false)).toBe(false)
-    expect(isHintModifier(key('j'), true)).toBe(false)
-  })
-})
-
 describe('files', () => {
   it('names pastes after those already added', () => {
     expect(pastedName('image', 'png', [])).toBe('pasted-image-1.png')
     expect(pastedName('image', 'png', ['pasted-image-2.png', 'a.txt'])).toBe('pasted-image-3.png')
     expect(pastedName('text', 'txt', ['pasted-image-4.png'])).toBe('pasted-text-1.txt')
   })
-  it('cuts a long name in the middle and reads kind and size', () => {
-    expect(middleCut('Banner-mobile-2026-08-10.jpg')).toBe('Banner-mob…-08-10.jpg')
-    expect(middleCut('short.png')).toBe('short.png')
+  it('reads kind and size', () => {
     expect(fileKind('notes.md', 'text/markdown')).toBe('MD')
     expect(fileKind('blob', 'application/pdf')).toBe('PDF')
     expect(fileSize(500)).toBe('500 B')
@@ -143,21 +138,5 @@ describe('dictation', () => {
     expect(dictationErrorKey('timeout')).toBe('composer.error.unable')
     expect(formatElapsed(7)).toBe('0:07')
     expect(formatElapsed(75)).toBe('1:15')
-  })
-})
-
-describe('attentionSlot', () => {
-  const at = { held: false, listening: false, empty: true, count: 2 }
-  it('shows the Notifications button only while something needs you and nothing is written or attached', () => {
-    expect(attentionSlot(at)).toBe('notifications')
-    expect(attentionSlot({ ...at, count: 0 })).toBeNull()
-    expect(attentionSlot({ ...at, empty: false })).toBeNull()
-  })
-  it('swaps it for the one key hint while a modifier is held, Notifications button or not', () => {
-    expect(attentionSlot({ ...at, held: true })).toBe('key')
-    expect(attentionSlot({ ...at, held: true, count: 0, empty: false })).toBe('key')
-  })
-  it('draws nothing while dictating', () => {
-    expect(attentionSlot({ ...at, listening: true, held: true })).toBeNull()
   })
 })

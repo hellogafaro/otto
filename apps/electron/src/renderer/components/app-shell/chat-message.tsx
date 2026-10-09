@@ -1,6 +1,6 @@
 /**
- * The transcript's rows, Slack-like (DESIGN.md, Chats > One chat): a group opens with the author's 28px avatar,
- * their name (their color, "You" in the text color for the viewer) and the time; the rows after it keep the 28px gutter, where hovering shows the time.
+ * The transcript's rows: a group opens with the author's 32px avatar,
+ * their name (their color, "You" in the text color for the viewer) and the time; the rows after it keep the 32px gutter, where hovering shows the time.
  * Agents and people use the same row; an agent's name carries the "Agent" tag. What a row holds (a person's text,
  * an agent's turn card) is the caller's.
  *
@@ -34,20 +34,20 @@ export function useTranscriptPeople(): { me: string | null; personOf: (actor: st
     const personOf = (actor: string): TranscriptPerson => {
       if (!isAgentActor(actor)) {
         const own = actor === me
-        return { name: own ? t('members.you') : nameOf(actor), avatar: <ActorAvatar actor={actor} name={nameOf(actor)} size="md" />, isAgent: false }
+        return { name: own ? t('members.you') : nameOf(actor), avatar: <ActorAvatar actor={actor} name={nameOf(actor)} size="default" />, isAgent: false }
       }
       const id = actor.slice('agent:'.length)
       // `agent:default` (older rows) is the workspace's default agent, the first
       const agent = agents.find((entry) => entry.id === id) ?? (id === 'default' ? agents[0] : undefined)
       return agent
-        ? { name: agent.title, avatar: <AgentAvatar agent={agent} size="md" />, isAgent: true }
-        : { name: nameOf(actor), avatar: <ActorAvatar actor={actor} size="md" />, isAgent: true }
+        ? { name: agent.title, avatar: <AgentAvatar agent={agent} size="default" />, isAgent: true }
+        : { name: nameOf(actor), avatar: <ActorAvatar actor={actor} size="default" />, isAgent: true }
     }
     return { me, personOf }
   }, [agents, nameOf, me, t])
 }
 
-/** The time of day ("3:42 PM"); `bare` drops the day period for the 28px gutter ("3:42"). */
+/** The time of day ("3:42 PM"); `bare` drops the day period for the 32px gutter ("3:42"). */
 export function formatMessageTime(at: number, language: string, bare = false): string {
   const parts = new Intl.DateTimeFormat(language, { hour: 'numeric', minute: '2-digit' }).formatToParts(at)
   return parts.filter((part) => !bare || part.type !== 'dayPeriod').map((part) => part.value).join('').trim()
@@ -78,7 +78,7 @@ export function MessageRow({
       {opens ? (
         <MessageAvatar>{person.avatar}</MessageAvatar>
       ) : (
-        <div className="w-7 shrink-0 select-none" data-search-exclude="true">
+        <div className="w-8 shrink-0 select-none" data-search-exclude="true">
           <time
             dateTime={new Date(at).toISOString()}
             className="block pt-1 text-right text-[10px] leading-4 text-muted-foreground tabular-nums opacity-0 transition-opacity group-hover/message:opacity-100 pointer-coarse:hidden"
@@ -89,7 +89,7 @@ export function MessageRow({
       )}
       <MessageContent className="gap-1">
         {opens && (
-          <MessageHeader className="gap-2 px-0 text-sm select-none" data-search-exclude="true">
+          <MessageHeader className="gap-2 select-none" data-search-exclude="true">
             <span className={cn('min-w-0 truncate', authorNameClass(actor, me, messageAuthorColors))}>{person.name}</span>
             {person.isAgent && (
               <span className="shrink-0 rounded-xs bg-muted px-1 text-[10px] leading-4 text-muted-foreground">{t('entities.type_agent')}</span>

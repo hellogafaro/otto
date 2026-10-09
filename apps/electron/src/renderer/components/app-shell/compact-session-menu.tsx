@@ -4,7 +4,7 @@
  * Bottom-sheet replacement for the desktop ChatPage "More actions" dropdown
  * (`SessionMenu` in the page header's Radix DropdownMenu) when
  * `AppShellContext.isCompactMode === true`. Mirrors the same actions but
- * routes Status / Labels / Share / Connect Messaging submenus through
+ * routes Status / Labels / Share submenus through
  * an internal view stack instead of nested Radix popovers — Radix submenus
  * get clipped by the panel container query on narrow viewports, and the
  * Status submenu in particular falls off the right edge.
@@ -39,7 +39,6 @@ import {
   Globe,
   Link2Off,
   MailOpen,
-  MessageSquare,
   Pencil,
   Pin,
   PinOff,
@@ -73,14 +72,13 @@ import {
 import type { SessionMeta } from '@/atoms/sessions'
 import { getSessionStatus, hasUnreadMeta, hasMessagesMeta } from '@/utils/session'
 import { getFileManagerName } from '@/lib/platform'
-import { useMessagingConnect, type MessagingPlatform } from '@/components/messaging/messaging-session-menu-item'
 import { useSessionMenuActions } from '@/hooks/use-session-menu-actions'
 import { useShareCapabilities } from '@/hooks/use-share-capabilities'
 import { usePins } from '@/hooks/use-pins'
 import { chatItem } from '@/atoms/pins-recents'
 import { Button } from '@/components/ui/button'
 
-type View = 'root' | 'status' | 'labels' | 'share' | 'messaging'
+type View = 'root' | 'status' | 'labels' | 'share'
 
 export interface CompactSessionMenuProps {
   /** Title text shown in the drawer header. */
@@ -201,12 +199,6 @@ export function CompactSessionMenu({
     [setOpen],
   )
 
-  const connectMessaging = useMessagingConnect({ sessionId: item.id })
-  const handleConnectMessaging = (platform: MessagingPlatform) => {
-    setOpen(false)
-    void connectMessaging(platform)
-  }
-
   // ---------------------------------------------------------------------------
   // Drawer header — shared between root + sub-panes. Sub-panes show a back
   // chevron; the root pane shows the session title.
@@ -216,7 +208,6 @@ export function CompactSessionMenu({
       case 'status':    return t('sessionMenu.status')
       case 'labels':    return t('sessionMenu.labels')
       case 'share':     return t('sessionMenu.shared')
-      case 'messaging': return t('sessionMenu.connectMessaging')
       default:          return title ?? ''
     }
   })()
@@ -270,7 +261,6 @@ export function CompactSessionMenu({
               onShare={closeAfter(actions.share)}
               onOpenShareSub={() => setView('share')}
               onSendToWorkspace={closeAfter(onSendToWorkspace)}
-              onOpenMessagingSub={() => setView('messaging')}
               onOpenStatusSub={() => setView('status')}
               onOpenLabelsSub={() => setView('labels')}
               onFlag={closeAfter(onFlag)}
@@ -315,9 +305,6 @@ export function CompactSessionMenu({
             />
           )}
 
-          {view === 'messaging' && (
-            <MessagingPane onConnect={handleConnectMessaging} />
-          )}
         </div>
       </DrawerContent>
     </Drawer>
@@ -345,7 +332,6 @@ interface RootPaneProps {
   onShare?: () => void
   onOpenShareSub: () => void
   onSendToWorkspace?: () => void
-  onOpenMessagingSub: () => void
   onOpenStatusSub: () => void
   onOpenLabelsSub: () => void
   onFlag?: () => void
@@ -377,7 +363,6 @@ function RootPane({
   onShare,
   onOpenShareSub,
   onSendToWorkspace,
-  onOpenMessagingSub,
   onOpenStatusSub,
   onOpenLabelsSub,
   onTogglePin,
@@ -419,13 +404,6 @@ function RootPane({
       {hasTransferTargets && onSendToWorkspace && (
         <CompactMenuRow icon={<Send className="size-3.5" />} label={t('sessionMenu.sendToWorkspace')} onTap={onSendToWorkspace} />
       )}
-
-      <CompactMenuRow
-        icon={<MessageSquare className="size-3.5" />}
-        label={t('sessionMenu.connectMessaging')}
-        chevron
-        onTap={onOpenMessagingSub}
-      />
 
       <Separator />
 
@@ -576,16 +554,6 @@ function SharePane({
       <CompactMenuRow icon={<RefreshCw className="size-3.5" />} label={t('sessionMenu.updateShare')} onTap={onUpdateShare} />
       <Separator />
       <CompactMenuRow icon={<Link2Off className="size-3.5" />} label={t('sessionMenu.stopSharing')} destructive onTap={onRevokeShare} />
-    </div>
-  )
-}
-
-function MessagingPane({ onConnect }: { onConnect: (platform: MessagingPlatform) => void }) {
-  return (
-    <div className="flex flex-col">
-      <CompactMenuRow icon={<MessageSquare className="size-3.5" />} label="Telegram" onTap={() => onConnect('telegram')} />
-      <CompactMenuRow icon={<MessageSquare className="size-3.5" />} label="WhatsApp" onTap={() => onConnect('whatsapp')} />
-      <CompactMenuRow icon={<MessageSquare className="size-3.5" />} label="Lark / Feishu" onTap={() => onConnect('lark')} />
     </div>
   )
 }

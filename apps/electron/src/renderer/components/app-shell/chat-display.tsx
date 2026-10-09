@@ -18,32 +18,15 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { coerceInputText } from "@/lib/input-text"
 import { AnimatedCollapsibleContent } from "@/components/ui/collapsible"
-import {
-  Spinner,
-  extractOverlayData,
-  extractOverlayCards,
-  ActivityCardsOverlay,
-  CodePreviewOverlay,
-  MultiDiffPreviewOverlay,
-  TerminalPreviewOverlay,
-  GenericOverlay,
-  JSONPreviewOverlay,
-  DocumentFormattedMarkdownOverlay,
-  detectLanguage,
-  type ActivityItem,
-  type FileChange,
-  type DiffViewerSettings,
-} from "@otto/ui"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { useFocusZone } from "@/hooks/keyboard"
-import { useTheme } from "@/hooks/use-theme"
-import type { Session, Message, FileAttachment, PermissionRequest, CredentialRequest, CredentialResponse, LoadedSource } from "../../../shared/types"
+import type { Session, Message, FileAttachment, PermissionRequest, CredentialRequest, CredentialResponse, LoadedSource, SendMessageOptions } from "../../../shared/types"
 import type { PermissionMode } from "@otto/shared/agent/modes"
 import type { ThinkingLevel } from "@otto/shared/agent/thinking-levels"
 import {
   TurnCard,
   UserMessage,
   groupMessagesByTurn,
-  formatTurnAsMarkdown,
   getAssistantTurnUiKey,
   asRecord,
   getAnnotationNoteText,
@@ -62,13 +45,10 @@ import { EntityText } from "@/components/entities/entity-text"
 import { useEntityData } from "@/components/entities/entity-chip"
 import { Button } from "@/components/ui/button"
 import { useTurnCardExpansion } from "@/hooks/use-turn-card-expansion"
-import { useNavigation } from "@/contexts/navigation-context"
-import { useAppShellContext } from "@/context/app-shell-context"
-import { routes } from "@/lib/navigate"
+import { navigate, routes } from "@/lib/navigate"
 import { CHAT_LAYOUT } from "@/config/layout"
-import { collectFileChangesFromActivities, getFirstFileChangeIdForActivity } from "@/lib/file-changes"
 import { handleErrorMessageAction } from "./error-message-actions"
-import { Marker, MarkerContent } from "@workspace/ui/components/marker"
+import { Marker, MarkerContent, MarkerIcon } from "@workspace/ui/components/marker"
 import { dayLabel, firstUnreadTurn, layoutTranscript, turnActor } from "./chat-transcript"
 import { MessageRow, WindowedRow, useTranscriptPeople, useTranscriptWindowing } from "./chat-message"
 
@@ -85,39 +65,6 @@ function getCSSHighlights(): Map<string, Highlight> | undefined {
   }
 }
 
-// ============================================================================
-// Overlay State Types
-// ============================================================================
-
-/** State for multi-diff overlay (Edit/Write activities) */
-interface MultiDiffOverlayState {
-  type: 'multi-diff'
-  changes: FileChange[]
-  consolidated: boolean
-  focusedChangeId?: string
-}
-
-/** State for markdown overlay (pop-out, turn details, generic activities) */
-interface MarkdownOverlayState {
-  type: 'markdown'
-  content: string
-  title: string
-  /** When true, show raw markdown source in code viewer instead of rendered preview */
-  forceCodeView?: boolean
-}
-
-/** Union of all overlay states, or null for no overlay */
-type OverlayState =
-  | { type: 'activity'; activity: ActivityItem }
-  | MultiDiffOverlayState
-  | MarkdownOverlayState
-  | null
-
-function isStackedActivityTool(activity: ActivityItem): boolean {
-  const toolName = activity.toolName?.toLowerCase() || ''
-  return toolName === 'bash' || toolName.startsWith('mcp__') || toolName.startsWith('browser_')
-}
-
 function getTurnKey(turn: Turn): string {
   if (turn.type === 'user') return `user-${turn.message.id}`
   if (turn.type === 'system') return `system-${turn.message.id}`
@@ -127,7 +74,7 @@ function getTurnKey(turn: Turn): string {
 
 interface ChatDisplayProps {
   session: Session | null
-  onSendMessage: (message: string, attachments?: FileAttachment[], skillSlugs?: string[]) => void
+  onSendMessage: (message: string, attachments?: FileAttachment[], skillSlugs?: string[], options?: SendMessageOptions) => void | boolean | Promise<void | boolean>
   onOpenFile: (path: string) => void
   onOpenUrl: (url: string) => void
   // Model selection
@@ -147,7 +94,7 @@ interface ChatDisplayProps {
     allowed: boolean,
     alwaysAllow: boolean,
     options?: import('../../../shared/types').PermissionResponseOptions
-  ) => void
+  ) => Promise<boolean>
   /** Pending credential request for this session */
   pendingCredential?: CredentialRequest
   /** Callback to respond to credential request */
@@ -227,158 +174,16 @@ export interface ChatDisplayHandle {
   currentMatchIndex: number
   isHighlighting: boolean
 }
-
-/**
- * Processing status messages - cycles through these randomly
- * Inspired by Claude Code's playful status messages
- */
-const PROCESSING_MESSAGE_KEYS = [
-  'chat.processing.thinking',
-  'chat.processing.pondering',
-  'chat.processing.contemplating',
-  'chat.processing.reasoning',
-  'chat.processing.processing',
-  'chat.processing.computing',
-  'chat.processing.considering',
-  'chat.processing.reflecting',
-  'chat.processing.deliberating',
-  'chat.processing.cogitating',
-  'chat.processing.ruminating',
-  'chat.processing.musing',
-  'chat.processing.workingOnIt',
-  'chat.processing.onIt',
-  'chat.processing.crunching',
-  'chat.processing.brewing',
-  'chat.processing.connectingDots',
-  'chat.processing.mullingItOver',
-  'chat.processing.deepInThought',
-  'chat.processing.hmm',
-  'chat.processing.letMeSee',
-  'chat.processing.oneMoment',
-  'chat.processing.holdOn',
-  'chat.processing.bearWithMe',
-  'chat.processing.justASec',
-  'chat.processing.hangTight',
-  'chat.processing.gettingThere',
-  'chat.processing.almost',
-  'chat.processing.working',
-  'chat.processing.busyBusy',
-  'chat.processing.whirring',
-  'chat.processing.churning',
-  'chat.processing.percolating',
-  'chat.processing.simmering',
-  'chat.processing.cooking',
-  'chat.processing.baking',
-  'chat.processing.stirring',
-  'chat.processing.spinningUp',
-  'chat.processing.warmingUp',
-  'chat.processing.revving',
-  'chat.processing.buzzing',
-  'chat.processing.humming',
-  'chat.processing.ticking',
-  'chat.processing.clicking',
-  'chat.processing.whizzing',
-  'chat.processing.zooming',
-  'chat.processing.zipping',
-  'chat.processing.chugging',
-  'chat.processing.trucking',
-  'chat.processing.rolling',
-]
-
-/**
- * Format elapsed time: "45s" under a minute, "1:02" for 1+ minutes
- */
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
-}
-
-interface ProcessingIndicatorProps {
-  /** Start timestamp (persists across remounts) */
-  startTime?: number
-  /** Override cycling messages with explicit status (e.g., "Compacting...") */
-  statusMessage?: string
-  /** The working agent's name: the line opens on "{name} is working" and comes back to it every third change */
-  name?: string
-}
-
-/**
- * ProcessingIndicator - Shows cycling status messages with elapsed time, under the working agent's header
- * Matches TurnCard header layout for visual continuity
- */
-function ProcessingIndicator({ startTime, statusMessage, name }: ProcessingIndicatorProps) {
+function ProcessingIndicator({ statusMessage }: { statusMessage?: string }) {
   const { t } = useTranslation()
-  const [elapsed, setElapsed] = React.useState(0)
-  // -1 is "{name} is working"
-  const [messageIndex, setMessageIndex] = React.useState(() =>
-    name ? -1 : Math.floor(Math.random() * PROCESSING_MESSAGE_KEYS.length)
-  )
-  const tickRef = React.useRef(0)
-
-  // Update elapsed time every second using provided startTime
-  React.useEffect(() => {
-    const start = startTime || Date.now()
-    // Set initial elapsed immediately
-    setElapsed(Math.floor((Date.now() - start) / 1000))
-
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - start) / 1000))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [startTime])
-
-  // Cycle through messages every 10 seconds (only when not showing status)
-  React.useEffect(() => {
-    if (statusMessage) return  // Don't cycle when showing status
-    const interval = setInterval(() => {
-      tickRef.current += 1
-      setMessageIndex(prev => {
-        if (name && tickRef.current % 3 === 0) return -1
-        // Pick a random different message
-        let next = Math.floor(Math.random() * PROCESSING_MESSAGE_KEYS.length)
-        while (next === prev && PROCESSING_MESSAGE_KEYS.length > 1) {
-          next = Math.floor(Math.random() * PROCESSING_MESSAGE_KEYS.length)
-        }
-        return next
-      })
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [statusMessage, name])
-
-  // Use status message if provided, otherwise cycle through default messages
-  const displayMessage = statusMessage
-    || (messageIndex === -1 && name ? t('chat.agentWorking', { name }) : t(PROCESSING_MESSAGE_KEYS[Math.max(0, messageIndex)]))
-
   return (
-    <div className="flex items-center gap-2 pl-2.5 py-1 text-[13px] text-muted-foreground" role="status">
-      {/* Spinner in same location as TurnCard chevron */}
-      <div className="w-3 h-3 flex items-center justify-center shrink-0">
-        <Spinner className="text-[10px]" />
-      </div>
-      {/* Label with crossfade animation on content change only */}
-      <span className="relative h-5 flex items-center">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={displayMessage}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: 'easeInOut' }}
-          >
-            {displayMessage}
-          </motion.span>
-        </AnimatePresence>
-        {elapsed >= 1 && (
-          <span className="text-muted-foreground/60 ml-1 tabular-nums">
-            {formatElapsed(elapsed)}
-          </span>
-        )}
-      </span>
-    </div>
+    <Marker role="status" aria-live="polite">
+      <MarkerIcon><Spinner role="presentation" aria-hidden="true" aria-label={undefined} /></MarkerIcon>
+      <MarkerContent>{statusMessage || t('chat.processing.working')}</MarkerContent>
+    </Marker>
   )
 }
+
 
 /**
  * Scrolls to target element on mount, before browser paint.
@@ -464,7 +269,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   connectionUnavailable = false,
 }, ref) {
   const { t, i18n } = useTranslation()
-  const appShellContext = useAppShellContext()
 
   // Input is only disabled when explicitly disabled (e.g., agent needs activation)
   // User can type during streaming - submitting will stop the stream and send
@@ -497,13 +301,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     nonce: number
   } | null>(null)
   const followUpOpenNonceRef = React.useRef(0)
-
-  // Navigation for session branching
-  const { navigate } = useNavigation()
-
-  // Get isDark from useTheme hook for overlay theme
-  // This accounts for scenic themes (like Haze) that force dark mode
-  const { isDark } = useTheme()
 
   // Register as focus zone - when zone gains focus, focus the textarea
   const { zoneRef, isFocused } = useFocusZone({
@@ -919,71 +716,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     })
   }, [validMatches.length, currentMatchIndex, isHighlighting, session?.id, onMatchInfoChange])
 
-  // ============================================================================
-  // Overlay State Management
-  // ============================================================================
-
-  // Overlay state - controls which overlay is shown (if any)
-  const [overlayState, setOverlayState] = useState<OverlayState>(null)
-
-  // Diff viewer settings - loaded from user preferences on mount, persisted on change
-  // These settings are stored in the user's preferences (not localStorage)
-  const [diffViewerSettings, setDiffViewerSettings] = useState<Partial<DiffViewerSettings>>({})
-
-  // Load diff viewer settings from preferences on mount
-  useEffect(() => {
-    window.electronAPI.readPreferences().then(({ content }) => {
-      try {
-        const prefs = JSON.parse(content)
-        if (prefs.diffViewer) {
-          setDiffViewerSettings(prefs.diffViewer)
-        }
-      } catch {
-        // Ignore parse errors, use defaults
-      }
-    })
-  }, [])
-
-  // Persist diff viewer settings to preferences when changed
-  const handleDiffViewerSettingsChange = useCallback((settings: DiffViewerSettings) => {
-    setDiffViewerSettings(settings)
-    // Read current preferences, merge in new settings, write back
-    window.electronAPI.readPreferences().then(({ content }) => {
-      try {
-        const prefs = JSON.parse(content)
-        prefs.diffViewer = settings
-        prefs.updatedAt = Date.now()
-        window.electronAPI.writePreferences(JSON.stringify(prefs, null, 2))
-      } catch {
-        // If preferences malformed, create fresh with just diffViewer
-        window.electronAPI.writePreferences(JSON.stringify({ diffViewer: settings, updatedAt: Date.now() }, null, 2))
-      }
-    })
-  }, [])
-
-  // Close overlay handler
-  const handleCloseOverlay = useCallback(() => {
-    setOverlayState(null)
-  }, [])
-
-  // Extract overlay cards for activity-based overlays (Input/Output, future extensible)
-  const overlayCards = useMemo(() => {
-    if (!overlayState || overlayState.type !== 'activity') return []
-    return extractOverlayCards(overlayState.activity)
-  }, [overlayState])
-
-  // Parsed output data for legacy output-only activity overlays
-  const activityOutputOverlayData = useMemo(() => {
-    if (!overlayState || overlayState.type !== 'activity') return null
-    return extractOverlayData(overlayState.activity)
-  }, [overlayState])
-
-  // Stacked input/output cards are only enabled for Bash and MCP tools
-  const useStackedActivityOverlay = useMemo(() => {
-    if (!overlayState || overlayState.type !== 'activity') return false
-    return isStackedActivityTool(overlayState.activity)
-  }, [overlayState])
-
   // Ref to track total turn count for scroll handler
   const totalTurnCountRef = React.useRef(0)
   // Older pages from the server (scrolling up past the loaded turns)
@@ -1120,6 +852,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
       // Clear pending scroll and wait for layout to settle
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
+        if (!isStickToBottomRef.current) return
         // Right after an instant scroll (session switch/lazy load) stay on the end without animating: late
         // layout (the composer's lift) still grows the content then
         if (Date.now() < skipSmoothScrollUntilRef.current) {
@@ -1178,7 +911,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 
   // Handle message submission from the composer
   // Backend handles interruption and queueing if currently processing
-  const handleSubmit = (message: string, attachments?: FileAttachment[], skillSlugs?: string[]) => {
+  const handleSubmit = async (message: string, attachments?: FileAttachment[], skillSlugs?: string[], options?: SendMessageOptions) => {
     const hasBaseMessage = message.trim().length > 0
     const followUpSection = formatFollowUpSection(pendingFollowUpAnnotations, {
       includeTopSeparator: hasBaseMessage,
@@ -1190,7 +923,8 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 
     // Force stick-to-bottom when user sends a message
     isStickToBottomRef.current = true
-    onSendMessage(normalizedMessage, attachments, skillSlugs)
+    const accepted = await onSendMessage(normalizedMessage, attachments, skillSlugs, options)
+    if (accepted === false) return false
 
     // Persist sent marker on follow-up annotations so TurnCard can distinguish
     // sent vs pending follow-ups. If user edits a follow-up later, TurnCard
@@ -1227,6 +961,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     requestAnimationFrame(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     })
+    return true
   }
 
   const handleSaveAndSendFollowUp = useCallback((_target: {
@@ -1306,9 +1041,21 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     }
   }
 
+  const [durableRequestsReady, setDurableRequestsReady] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof window.electronAPI.getNativeFeatures !== 'function') return
+    let disposed = false
+    void window.electronAPI.getNativeFeatures().then(features => {
+      if (!disposed) setDurableRequestsReady(features.durableRequests)
+    }).catch(() => {})
+    return () => { disposed = true }
+  }, [])
+  const hasLiveNativeAction = session?.messages.some(message => message.nativeAction?.status === 'pending' || message.nativeAction?.status === 'resolving') ?? false
+  const hasInlinePermission = durableRequestsReady && !!pendingPermission && !!onRespondToPermission && !!session?.isProcessing && session.messages.some(message => message.toolUseId === pendingPermission.requestId && message.nativeAction?.kind === 'approval' && (!session.currentRunId || message.nativeAction.runId === session.currentRunId) && (message.nativeAction.status === 'pending' || message.nativeAction.status === 'resolving'))
+
   // Build structured input state from pending requests (permissions take priority)
   const structuredInput: StructuredInputState | undefined = React.useMemo(() => {
-    if (pendingPermission) {
+    if (pendingPermission && !hasInlinePermission) {
       if (pendingPermission.type === 'admin_approval') {
         return {
           type: 'admin_approval',
@@ -1328,7 +1075,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
       return { type: 'credential', data: pendingCredential }
     }
     return undefined
-  }, [pendingPermission, pendingCredential])
+  }, [pendingPermission, pendingCredential, hasInlinePermission])
 
   // Memoize turn grouping - avoids O(n) iteration on every render/keystroke
   const allTurns = React.useMemo(() => {
@@ -1523,19 +1270,19 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
             <div
               className="h-full"
               style={{
-                maskImage: `linear-gradient(to bottom, transparent 0%, black ${shellComposer ? '1rem' : '32px'}, black calc(100% - 32px), transparent 100%)`,
-                WebkitMaskImage: `linear-gradient(to bottom, transparent 0%, black ${shellComposer ? '1rem' : '32px'}, black calc(100% - 32px), transparent 100%)`
+                maskImage: shellComposer ? undefined : 'linear-gradient(to bottom, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%)',
+                WebkitMaskImage: shellComposer ? undefined : 'linear-gradient(to bottom, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%)'
               }}
             >
-              <ScrollArea className="h-full min-w-0" viewportRef={scrollViewportRef}>
-              <div className={cn(
+              <ScrollArea className="h-full min-w-0" viewportRef={scrollViewportRef} viewportClassName={shellComposer ? "[mask-image:linear-gradient(to_bottom,transparent,black_1rem,black_calc(100%_-_32px),transparent)]" : undefined}>
+              <div data-slot={shellComposer ? "chat-transcript" : undefined} className={cn(
                 "min-w-0",
                 compactMode ? "px-3 py-4" : [CHAT_LAYOUT.containerPaddingX, CHAT_LAYOUT.containerPaddingY],
                 // On the chat page the transcript is on the column's content edges (24px sides from 768px, the
                 // compact title's and the composer's left and right); its top is the 16px the first row (the day
                 // divider, `pt-4`) carries itself, as tall as the top fade, so it starts 16px under the header (`--nav-top-compact`);
                 // the composer floats over its bottom, so it ends `--composer-gap` above it.
-                shellComposer && "px-0 pt-0 pb-[calc(var(--composer-lift,0px)+var(--composer-gap))] md:px-6"
+                shellComposer && "pt-0 pb-(--composer-clearance)"
               )}>
                 {/* Session-level AnimatePresence: Prevents layout jump when switching sessions */}
                 <AnimatePresence mode={compactMode ? "sync" : "wait"} initial={false}>
@@ -1635,7 +1382,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                     const isCurrentMatch = isSearchActive && matchingTurnIds[currentMatchIndex] === turnKey
                     const isAnyMatch = isSearchActive && matchingTurnIds.includes(turnKey)
                     // One row of the transcript: the author's group header or the gutter, windowed when far away
-                    const row = (content: React.ReactNode, extra?: React.ReactNode) => (
+                    const row = (content: React.ReactNode) => (
                       <WindowedRow
                         key={turnKey}
                         windowing={turn.type === 'assistant' && !turn.isComplete ? null : transcriptWindowing}
@@ -1649,7 +1396,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                       >
                         <MessageRow actor={actor} me={me} person={actor ? personOf(actor) : null} header={header} at={turn.timestamp}>
                           {content}
-                          {extra}
                         </MessageRow>
                       </WindowedRow>
                     )
@@ -1710,7 +1456,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                     // Assistant turns - render with TurnCard (buffered streaming)
                     const assistantUiKey = getAssistantTurnUiKey(turn, index)
                     const published = session.messages.flatMap((message) => {
-                      if (message.role !== 'tool' || message.toolStatus !== 'completed' || !turn.activities.some((activity) => activity.toolUseId === message.toolUseId) || message.toolName !== 'publish_file' || !message.toolResult) return []
+                      if (message.nativeAction || message.role !== 'tool' || message.toolStatus !== 'completed' || !turn.activities.some((activity) => activity.toolUseId === message.toolUseId) || message.toolName !== 'publish_file' || !message.toolResult) return []
                       try {
                         const result = JSON.parse(message.toolResult) as { libraryId?: string }
                         return result.libraryId && /^[0-9a-f-]{36}$/.test(result.libraryId) ? [result.libraryId] : []
@@ -1719,6 +1465,28 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                     return row(
                       <>
                       <TurnCard
+                        nativeActionActor={me}
+                        nativeActionRunId={session.currentRunId}
+                        nativeActionsEnabled={durableRequestsReady && session.isProcessing}
+                        onRespondToNativeApproval={onRespondToPermission ? async (toolUseId, allowed) => {
+                          try {
+                            const accepted = await onRespondToPermission(session.id, toolUseId, allowed, false)
+                            if (accepted) return
+                          } catch {}
+                          throw new Error('Could not submit your response.')
+                        } : undefined}
+                        onRespondToNativeQuestion={typeof window.electronAPI.respondToNativeQuestion === 'function' ? async (toolUseId, answer) => {
+                          try {
+                            const accepted = await window.electronAPI.respondToNativeQuestion(session.id, toolUseId, answer)
+                            if (accepted) return
+                          } catch {}
+                          throw new Error('Could not submit your response.')
+                        } : undefined}
+                        onOpenNativeArtifact={(artifact) => {
+                          if (artifact.type === 'library') navigate(routes.view.library({ itemId: artifact.id }))
+                          else if (artifact.type === 'project') navigate(routes.view.projects({ projectId: artifact.id }))
+                          else if (artifact.type === 'task') navigate(routes.view.tasks({ taskId: artifact.id }))
+                        }}
                         sessionId={session.id}
                         sessionFolderPath={session.sessionFolderPath}
                         hasActiveFollowUpAnnotations={pendingFollowUpAnnotations.length > 0}
@@ -1739,33 +1507,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                         compactMode={compactMode}
                         sendMessageKey={sendMessageKey}
                         openAnnotationRequest={openAnnotationRequest}
-                        onBranch={session?.supportsBranching ? async (messageId: string) => {
-                          if (!session) return
-                          try {
-                            const child = await appShellContext.onCreateSession(
-                              session.workspaceId,
-                              {
-                                branchFromMessageId: messageId,
-                                branchFromSessionId: session.id,
-                                name: `Branch of ${session.name || 'Untitled'}`,
-                                // Keep branch on the same backend/provider by inheriting parent session settings.
-                                llmConnection: session.llmConnection,
-                                model: session.model,
-                                permissionMode: session.permissionMode,
-                                workingDirectory: session.workingDirectory,
-                                enabledSourceSlugs: session.enabledSourceSlugs,
-                              }
-                            )
-                            navigate(routes.view.allSessions(child.id))
-                          } catch (error) {
-                            const rawMessage = error instanceof Error ? error.message : 'Failed to create branch'
-                            const message = rawMessage.includes('source and target providers must match')
-                              || rawMessage.includes('same provider/backend')
-                              ? 'Branching is only supported within the same provider/backend. Switch the connection of this chat and try again.'
-                              : rawMessage
-                            toast.error(t('toast.couldNotCreateBranch'), { description: message })
-                          }
-                        } : undefined}
                         onAddAnnotation={async (messageId, annotation) => {
                           if (!session) return
                           try {
@@ -1838,75 +1579,9 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                             },
                           }))
                         }}
-                        onPopOut={(text) => {
-                          // Open raw markdown source in code viewer
-                          setOverlayState({
-                            type: 'markdown',
-                            content: text,
-                            title: 'Response Preview',
-                            forceCodeView: true,
-                          })
-                        }}
-                        onOpenDetails={() => {
-                          // Open turn details in markdown overlay
-                          const markdown = formatTurnAsMarkdown(turn)
-                          setOverlayState({
-                            type: 'markdown',
-                            content: markdown,
-                            title: 'Turn Details',
-                          })
-                        }}
-                        onOpenActivityDetails={(activity) => {
-                          // Write tool for .md/.txt → Document overlay (rendered markdown)
-                          // rather than multi-diff, since these are better viewed as formatted documents
-                          const isDocumentWrite = activity.toolName === 'Write' && (() => {
-                            const actInput = activity.toolInput as Record<string, unknown> | undefined
-                            const fp = (actInput?.file_path as string) || ''
-                            const ext = fp.split('.').pop()?.toLowerCase()
-                            return ext === 'md' || ext === 'txt'
-                          })()
-
-                          // Edit/Write tool → Multi-file diff overlay (ungrouped, focused on this change)
-                          // Exception: Write to .md/.txt files goes to document overlay instead
-                          if ((activity.toolName === 'Edit' || activity.toolName === 'Write') && !isDocumentWrite) {
-                            const changes = collectFileChangesFromActivities(turn.activities)
-                            if (changes.length > 0) {
-                              setOverlayState({
-                                type: 'multi-diff',
-                                changes,
-                                consolidated: false, // Ungrouped mode - show individual changes
-                                focusedChangeId: getFirstFileChangeIdForActivity(activity.id, changes),
-                              })
-                            }
-                          } else {
-                            // All other tools → open generic activity cards overlay (Input/Output)
-                            setOverlayState({ type: 'activity', activity })
-                          }
-                        }}
-                        hasEditOrWriteActivities={turn.activities.some(a =>
-                          a.toolName === 'Edit' || a.toolName === 'Write'
-                        )}
-                        onOpenMultiFileDiff={() => {
-                          const changes = collectFileChangesFromActivities(turn.activities)
-                          if (changes.length > 0) {
-                            setOverlayState({
-                              type: 'multi-diff',
-                              changes,
-                              consolidated: true, // Consolidated mode - group by file
-                            })
-                          }
-                        }}
                       />
                       {published.map((id) => <EntityText key={id} content={`library:${id}`} />)}
-                      </>,
-                      // The agent's live state under its own header while its turn runs
-                      session.isProcessing && !turn.isComplete && (
-                        <ProcessingIndicator
-                          startTime={lastUserMessageAt}
-                          statusMessage={session.currentStatus?.message}
-                          name={actor ? personOf(actor).name : undefined}
-                        />
-                      )
+                      </>
                     )
                   })}
                     </motion.div>
@@ -1915,13 +1590,11 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                   </motion.div>
                 </AnimatePresence>
                 {/* Processing before the agent's turn has a row: its header and live state (no header without an agent) */}
-                {session.isProcessing && !hasRunningTurn && (
+                {session.isProcessing && !hasRunningTurn && !hasLiveNativeAction && (
                   <div className="pt-4">
                     <MessageRow actor={pendingAgent} me={me} person={pendingAgent ? personOf(pendingAgent) : null} header={!!pendingAgent} at={lastUserMessageAt ?? Date.now()}>
                       <ProcessingIndicator
-                        startTime={lastUserMessageAt}
                         statusMessage={session.currentStatus?.message}
-                        name={pendingAgent ? personOf(pendingAgent).name : undefined}
                       />
                     </MessageRow>
                   </div>
@@ -1939,139 +1612,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
         </div>
       ) : null}
 
-      {/* ================================================================== */}
-      {/* Preview Overlays - Rendered outside the main chat flow            */}
-      {/* ================================================================== */}
-
-      {/* Activity details overlay */}
-      {overlayState?.type === 'activity' && useStackedActivityOverlay && (
-        <ActivityCardsOverlay
-          isOpen={true}
-          onClose={handleCloseOverlay}
-          cards={overlayCards}
-          title={overlayState.activity.displayName || overlayState.activity.toolName || 'Activity'}
-          theme={isDark ? 'dark' : 'light'}
-          onOpenUrl={onOpenUrl}
-          onOpenFile={onOpenFile}
-        />
-      )}
-
-      {/* Legacy output-only activity overlay for non-bash/non-mcp tools */}
-      {overlayState?.type === 'activity' && !useStackedActivityOverlay && activityOutputOverlayData && (
-        activityOutputOverlayData.type === 'code' ? (
-          <CodePreviewOverlay
-            isOpen={true}
-            onClose={handleCloseOverlay}
-            content={activityOutputOverlayData.content}
-            filePath={activityOutputOverlayData.filePath}
-            mode={activityOutputOverlayData.mode}
-            startLine={activityOutputOverlayData.startLine}
-            totalLines={activityOutputOverlayData.totalLines}
-            numLines={activityOutputOverlayData.numLines}
-            command={activityOutputOverlayData.command}
-            error={activityOutputOverlayData.error}
-            theme={isDark ? 'dark' : 'light'}
-          />
-        ) : activityOutputOverlayData.type === 'terminal' ? (
-          <TerminalPreviewOverlay
-            isOpen={true}
-            onClose={handleCloseOverlay}
-            command={activityOutputOverlayData.command}
-            output={activityOutputOverlayData.output}
-            exitCode={activityOutputOverlayData.exitCode}
-            toolType={activityOutputOverlayData.toolType}
-            description={activityOutputOverlayData.description}
-            error={activityOutputOverlayData.error}
-            theme={isDark ? 'dark' : 'light'}
-          />
-        ) : activityOutputOverlayData.type === 'json' ? (
-          <JSONPreviewOverlay
-            isOpen={true}
-            onClose={handleCloseOverlay}
-            data={activityOutputOverlayData.data}
-            title={activityOutputOverlayData.title}
-            error={activityOutputOverlayData.error}
-            theme={isDark ? 'dark' : 'light'}
-          />
-        ) : activityOutputOverlayData.type === 'document' ? (
-          <DocumentFormattedMarkdownOverlay
-            isOpen={true}
-            onClose={handleCloseOverlay}
-            content={activityOutputOverlayData.content}
-            onOpenUrl={onOpenUrl}
-            onOpenFile={onOpenFile}
-            filePath={activityOutputOverlayData.filePath}
-            typeBadge={{
-              icon: Info,
-              label: activityOutputOverlayData.toolName,
-              variant: 'blue',
-            }}
-            error={activityOutputOverlayData.error}
-          />
-        ) : detectLanguage(activityOutputOverlayData.content) === 'markdown' ? (
-          <DocumentFormattedMarkdownOverlay
-            isOpen={true}
-            onClose={handleCloseOverlay}
-            content={activityOutputOverlayData.content}
-            onOpenUrl={onOpenUrl}
-            onOpenFile={onOpenFile}
-            typeBadge={{
-              icon: Info,
-              label: overlayState.activity.displayName || overlayState.activity.toolName || 'Activity',
-              variant: 'blue',
-            }}
-            error={activityOutputOverlayData.error}
-          />
-        ) : (
-          <GenericOverlay
-            isOpen={true}
-            onClose={handleCloseOverlay}
-            content={activityOutputOverlayData.content}
-            title={activityOutputOverlayData.title}
-            error={activityOutputOverlayData.error}
-            theme={isDark ? 'dark' : 'light'}
-          />
-        )
-      )}
-
-      {/* Multi-diff preview overlay (Edit/Write tools) */}
-      {overlayState?.type === 'multi-diff' && (
-        <MultiDiffPreviewOverlay
-          isOpen={true}
-          onClose={handleCloseOverlay}
-          changes={overlayState.changes}
-          consolidated={overlayState.consolidated}
-          focusedChangeId={overlayState.focusedChangeId}
-          theme={isDark ? 'dark' : 'light'}
-          diffViewerSettings={diffViewerSettings}
-          onDiffViewerSettingsChange={handleDiffViewerSettingsChange}
-        />
-      )}
-
-      {/* Markdown preview overlay (pop-out, turn details) */}
-      {/* forceCodeView: show raw markdown source in code viewer (used by "View as Markdown" button) */}
-      {/* otherwise: render formatted markdown (used by turn details, etc.) */}
-      {overlayState?.type === 'markdown' && (
-        overlayState.forceCodeView ? (
-          <CodePreviewOverlay
-            isOpen={true}
-            onClose={handleCloseOverlay}
-            content={overlayState.content}
-            filePath="response.md"
-            language="markdown"
-            mode="read"
-            theme={isDark ? 'dark' : 'light'}
-          />
-        ) : (
-          <DocumentFormattedMarkdownOverlay
-            isOpen={true}
-            onClose={handleCloseOverlay}
-            content={overlayState.content}
-            onOpenUrl={onOpenUrl}
-            onOpenFile={onOpenFile}
-          />
-        )
-      )}
     </div>
   )
 })
@@ -2164,7 +1704,7 @@ function ErrorMessage({ message, onOpenUrl, sessionId, onRetry }: { message: Mes
 }
 
 /** A user message's text with its typed references (`task:<id>`, a chat started from a page) as chips. */
-const renderUserText = (content: string) => <EntityText content={content} className="text-sm [&_p]:whitespace-pre-wrap" />
+const renderUserText = (content: string) => <EntityText content={content} className="[&_p]:whitespace-pre-wrap" />
 
 function MessageBubble({
   message,

@@ -9,27 +9,10 @@
  * - /s/{id} - View shared session
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileText } from 'lucide-react'
 import type { StoredSession } from '@otto/core'
-import {
-  SessionViewer,
-  GenericOverlay,
-  CodePreviewOverlay,
-  MultiDiffPreviewOverlay,
-  TerminalPreviewOverlay,
-  JSONPreviewOverlay,
-  DocumentFormattedMarkdownOverlay,
-  TooltipProvider,
-  extractOverlayData,
-  detectLanguage,
-  openExternalUrl,
-  type PlatformActions,
-  type ActivityItem,
-  type OverlayData,
-  type FileChange,
-} from '@otto/ui'
+import { SessionViewer, TooltipProvider, openExternalUrl, type PlatformActions } from '@otto/ui'
 import { SessionUpload } from './components/session-upload'
 import { Header } from './components/header'
 
@@ -138,46 +121,6 @@ export function App() {
     setIsDark(prev => !prev)
   }, [])
 
-  // State for overlay
-  const [overlayActivity, setOverlayActivity] = useState<ActivityItem | null>(null)
-  // State for multi-diff overlay (Edit/Write activities shown as diffs)
-  const [multiDiffState, setMultiDiffState] = useState<{ changes: FileChange[] } | null>(null)
-
-  // Handle activity click - Edit/Write opens multi-diff, others use extractOverlayData
-  const handleActivityClick = useCallback((activity: ActivityItem) => {
-    if (activity.toolName === 'Edit' || activity.toolName === 'Write') {
-      const input = activity.toolInput as Record<string, unknown> | undefined
-      // Claude fields are primary; PI fields are additive fallbacks.
-      const filePath = (input?.file_path as string) || (input?.path as string) || 'unknown'
-      const change: FileChange = {
-        id: activity.id,
-        filePath,
-        toolType: activity.toolName,
-        original: activity.toolName === 'Edit'
-          ? ((input?.old_string as string) || (input?.oldText as string) || '')
-          : '',
-        modified: activity.toolName === 'Edit'
-          ? ((input?.new_string as string) || (input?.newText as string) || '')
-          : ((input?.content as string) || ''),
-        error: activity.error || undefined,
-      }
-      setMultiDiffState({ changes: [change] })
-    } else {
-      setOverlayActivity(activity)
-    }
-  }, [])
-
-  const handleCloseOverlay = useCallback(() => {
-    setOverlayActivity(null)
-    setMultiDiffState(null)
-  }, [])
-
-  // Extract overlay data using shared parser (non-Edit/Write tools only)
-  const overlayData: OverlayData | null = useMemo(() => {
-    if (!overlayActivity) return null
-    return extractOverlayData(overlayActivity)
-  }, [overlayActivity])
-
   // Platform actions for the viewer (limited functionality)
   const platformActions: PlatformActions = {
     onOpenUrl: (url) => {
@@ -191,8 +134,6 @@ export function App() {
       await navigator.clipboard.writeText(text)
     },
   }
-
-  const theme = isDark ? 'dark' : 'light'
 
   return (
     <TooltipProvider>
@@ -230,7 +171,7 @@ export function App() {
           platformActions={platformActions}
           defaultExpanded={false}
           className="flex-1 min-h-0"
-          onActivityClick={handleActivityClick}
+
         />
       ) : (
         <div className="flex-1 flex items-center justify-center p-8">
@@ -238,93 +179,6 @@ export function App() {
         </div>
       )}
 
-      {/* Code preview overlay for Read/Write tools */}
-      {overlayData?.type === 'code' && (
-        <CodePreviewOverlay
-          isOpen={!!overlayActivity}
-          onClose={handleCloseOverlay}
-          content={overlayData.content}
-          filePath={overlayData.filePath}
-          mode={overlayData.mode}
-          startLine={overlayData.startLine}
-          totalLines={overlayData.totalLines}
-          numLines={overlayData.numLines}
-          theme={theme}
-          error={overlayData.error}
-          command={overlayData.command}
-        />
-      )}
-
-      {/* Multi-diff preview overlay for Edit/Write tools */}
-      {multiDiffState && (
-        <MultiDiffPreviewOverlay
-          isOpen={true}
-          onClose={handleCloseOverlay}
-          changes={multiDiffState.changes}
-          consolidated={false}
-          theme={theme}
-        />
-      )}
-
-      {/* Terminal preview overlay for Bash/Grep/Glob tools */}
-      {overlayData?.type === 'terminal' && (
-        <TerminalPreviewOverlay
-          isOpen={!!overlayActivity}
-          onClose={handleCloseOverlay}
-          command={overlayData.command}
-          output={overlayData.output}
-          exitCode={overlayData.exitCode}
-          toolType={overlayData.toolType}
-          description={overlayData.description}
-          theme={theme}
-        />
-      )}
-
-      {/* JSON preview overlay for tools returning JSON data */}
-      {overlayData?.type === 'json' && (
-        <JSONPreviewOverlay
-          isOpen={!!overlayActivity}
-          onClose={handleCloseOverlay}
-          data={overlayData.data}
-          title={overlayData.title}
-          theme={theme}
-          error={overlayData.error}
-        />
-      )}
-
-      {/* Document overlay for formatted markdown content (Write tool on .md/.txt, WebSearch results) */}
-      {overlayData?.type === 'document' && (
-        <DocumentFormattedMarkdownOverlay
-          isOpen={!!overlayActivity}
-          onClose={handleCloseOverlay}
-          content={overlayData.content}
-          filePath={overlayData.filePath}
-          typeBadge={{ icon: FileText, label: overlayData.toolName, variant: 'default' }}
-          onOpenUrl={platformActions.onOpenUrl}
-          error={overlayData.error}
-        />
-      )}
-
-      {/* Generic overlay for unknown tools - route markdown to fullscreen viewer */}
-      {overlayData?.type === 'generic' && (
-        detectLanguage(overlayData.content) === 'markdown' ? (
-          <DocumentFormattedMarkdownOverlay
-            isOpen={!!overlayActivity}
-            onClose={handleCloseOverlay}
-            content={overlayData.content}
-            onOpenUrl={platformActions.onOpenUrl}
-            error={overlayData.error}
-          />
-        ) : (
-          <GenericOverlay
-            isOpen={!!overlayActivity}
-            onClose={handleCloseOverlay}
-            content={overlayData.content}
-            title={overlayData.title}
-            theme={theme}
-          />
-        )
-      )}
     </div>
     </TooltipProvider>
   )

@@ -21,7 +21,6 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogMedia,
   AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog'
 import { Badge } from '@workspace/ui/components/badge'
@@ -311,7 +310,6 @@ function ConfirmDialog({
     <AlertDialog open={!!confirm} onOpenChange={(open) => !open && !pending && onClose()}>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
-          <AlertDialogMedia variant="destructive">{leave ? <LogOut /> : <UserMinus />}</AlertDialogMedia>
           <AlertDialogTitle>{leave ? t('members.leaveConfirm.title') : t('members.removeConfirm.title')}</AlertDialogTitle>
           <AlertDialogDescription>
             {error ?? (leave ? t('members.leaveConfirm.description') : t('members.removeConfirm.description'))}

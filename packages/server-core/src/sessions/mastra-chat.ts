@@ -73,19 +73,29 @@ export async function* streamMastraChat(input: {
   }
 }
 
-export function createMastraChatModel(input: { provider: string; model: string; apiKey: string; baseUrl?: string; api?: string }) {
-  if (!['openai', 'custom', 'anthropic'].includes(input.provider)) throw new Error('Native chat supports API-key connections for OpenAI, explicit OpenAI-compatible endpoints and Anthropic only.')
+export function nativeProviderBaseUrl(input: { provider: string; baseUrl?: string; api?: string }): URL {
+  if (!['openai', 'custom', 'anthropic'].includes(input.provider)) throw new Error('Native chat supports OpenAI API-key connections, explicit OpenAI-compatible endpoints and Anthropic API keys only.')
   if (input.provider === 'custom' && (!input.baseUrl || !['openai-completions', 'openai-responses'].includes(input.api ?? ''))) throw new Error('Custom endpoints require a base URL and an explicit supported OpenAI protocol.')
-  const base = new URL(input.baseUrl ?? (input.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'))
+  if (input.api && !(input.provider === 'anthropic' ? input.api === 'anthropic-messages' : ['openai-completions', 'openai-responses'].includes(input.api))) throw new Error('The selected API protocol does not match the provider family.')
+  let base: URL
+  try { base = new URL(input.baseUrl ?? (input.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1')) } catch { throw new Error('The model endpoint must be a valid HTTP(S) base URL.') }
   if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new Error('The model endpoint must be an HTTP(S) base URL without credentials or query parameters.')
+  return base
+}
+
+export function createMastraChatModel(input: { provider: string; model: string; apiKey: string; baseUrl?: string; api?: string }) {
+  const base = nativeProviderBaseUrl(input)
+  if (!input.apiKey.trim()) throw new Error('An API key is required.')
+  const model = input.model.replace(/^pi\//, '')
+  const official = base.href.replace(/\/$/, '') === (input.provider === 'anthropic' ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1')
+  if (!(official ? input.provider === 'anthropic' ? /^claude-[a-z0-9.-]{1,120}$/.test(model) : /^(gpt-|o\d)[a-z0-9.-]{1,120}$/.test(model) : /^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,159}$/.test(model))) throw new Error('The model ID is not supported by this endpoint.')
   const prefix = `${base.pathname.replace(/\/$/, '')}/`
   const confinedFetch = Object.assign(async (url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     const target = new URL(typeof url === 'string' || url instanceof URL ? url : url.url)
     if (target.origin !== base.origin || !target.pathname.startsWith(prefix)) throw new Error('The model request attempted to leave its configured endpoint.')
     return fetch(url, { ...init, redirect: 'error' })
   }, { preconnect: fetch.preconnect })
-  const model = input.model.replace(/^pi\//, '')
   if (input.provider === 'anthropic') return createAnthropic({ apiKey: input.apiKey, baseURL: base.href.replace(/\/$/, ''), fetch: confinedFetch })(model)
   const provider = createOpenAI({ apiKey: input.apiKey, baseURL: base.href.replace(/\/$/, ''), fetch: confinedFetch })
-  return input.provider === 'custom' && input.api === 'openai-completions' ? provider.chat(model) : provider.responses(model)
+  return input.api === 'openai-completions' ? provider.chat(model) : provider.responses(model)
 }

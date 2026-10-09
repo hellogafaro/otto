@@ -1,17 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, AlertTriangle } from 'lucide-react'
-import { useSetAtom } from 'jotai'
+import { AlertTriangle } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { toast } from '@workspace/ui/components/sonner'
-import { fullscreenOverlayOpenAtom } from '@/atoms/overlay'
 import { CreateButton } from '@/components/ui/create-button'
-import { Kbd } from '@/components/ui/kbd'
 import { SettingsPage } from '@/components/settings/settings-page'
 import { SettingsSection, SettingsCard, SettingsRow, SettingsMenuSelectRow } from '@/components/settings'
-import { OnboardingWizard } from '@/components/onboarding'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useWorkspaceMemberList } from '@/hooks/use-workspace-members'
@@ -19,10 +13,12 @@ import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { DEFAULT_THINKING_LEVEL, THINKING_LEVELS } from '@otto/shared/agent/thinking-levels'
 import type { CredentialHealthIssue, LlmConnectionWithStatus, ThinkingLevel, Workspace } from '../../../shared/types'
 import { ChangeKeyDialog } from './change-key-dialog'
-import { canEditConnection, connectionKindLabel, scopeLabel, sortConnections } from './connection-labels'
+import { canEditConnection, connectionKindLabel, groupConnections, scopeLabel, sortConnections } from './connection-labels'
 import { ConnectionRow } from './connection-row'
 import { DecisionModelSection } from './decision-model-section'
 import { WorkspaceOverrideCard } from './workspace-override-card'
+import { ProviderConnectionDialog } from './provider-connection-dialog'
+import { connectionChoiceId, connectionSelector } from './provider-connection-form'
 
 export const meta: DetailsPageMeta = {
   navigator: 'settings',
@@ -39,7 +35,7 @@ function getHealthIssueMessage(issue: CredentialHealthIssue, t: (key: string) =>
     case 'no_default_credentials':
       return t('settings.ai.credentialNotFound')
     default:
-      return issue.message || t('settings.ai.credentialIssue')
+      return t('settings.ai.credentialIssue')
   }
 }
 
@@ -68,14 +64,23 @@ export default function AiSettingsPage() {
   const { llmConnections, refreshLlmConnections, activeWorkspaceId } = useAppShellContext()
   const { items: members } = useWorkspaceMemberList()
   const isOwner = members.some((member) => member.me && member.role === 'owner')
-  const setFullscreenOverlayOpen = useSetAtom(fullscreenOverlayOpenAtom)
   const { confirmDelete, dialog: deleteDialog } = useConfirmDelete()
 
-  const [setup, setSetup] = useState(false)
+  const [setupScope, setSetupScope] = useState<'user' | 'workspace' | null>(null)
   const [changingKey, setChangingKey] = useState<LlmConnectionWithStatus | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [defaultThinking, setDefaultThinking] = useState<ThinkingLevel>(DEFAULT_THINKING_LEVEL)
   const [credentialHealthIssues, setCredentialHealthIssues] = useState<CredentialHealthIssue[]>([])
+
+  useEffect(() => {
+    setSetupScope(null)
+    setChangingKey(null)
+  }, [activeWorkspaceId])
+
+  useEffect(() => {
+    if (!isOwner && setupScope === 'workspace') setSetupScope(null)
+    if (changingKey && !canEditConnection(changingKey, isOwner)) setChangingKey(null)
+  }, [isOwner, setupScope, changingKey])
 
   useEffect(() => {
     const load = async () => {
@@ -92,34 +97,15 @@ export default function AiSettingsPage() {
     void load()
   }, [activeWorkspaceId])
 
-  const openSetup = useCallback(() => {
-    setSetup(true)
-    setFullscreenOverlayOpen(true)
-  }, [setFullscreenOverlayOpen])
-
-  const closeSetup = useCallback(() => {
-    setSetup(false)
-    setFullscreenOverlayOpen(false)
-  }, [setFullscreenOverlayOpen])
-
-  // Escape closes the setup
-  useEffect(() => {
-    if (!setup) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeSetup()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [setup, closeSetup])
-
   const existingSlugs = useMemo(() => new Set(llmConnections.map((connection) => connection.slug)), [llmConnections])
   const rows = useMemo(() => sortConnections(llmConnections), [llmConnections])
+  const groups = useMemo(() => groupConnections(llmConnections), [llmConnections])
   const defaultConnection = llmConnections.find((connection) => connection.isDefault)
 
   const refresh = () => void refreshLlmConnections()
 
-  const setDefault = async (slug: string) => {
-    const result = await window.electronAPI.setDefaultLlmConnection(slug)
+  const setDefault = async (connection: LlmConnectionWithStatus) => {
+    const result = await window.electronAPI.setDefaultLlmConnection(connectionSelector(connection))
     if (result.success) {
       toast.success(t('common.saved'), { id: 'saved' })
       refresh()
@@ -128,15 +114,15 @@ export default function AiSettingsPage() {
 
   const remove = (connection: LlmConnectionWithStatus) =>
     confirmDelete(t('connections.deleteTitle', { name: connection.name }), async () => {
-      const result = await window.electronAPI.deleteLlmConnection(connection.slug)
+      const result = await window.electronAPI.deleteLlmConnection(connectionSelector(connection))
       if (!result.success) throw new Error(result.error)
       refresh()
       toast.success(t('connections.deleted', { name: connection.name }))
     })
 
   const reconnect = (connection: LlmConnectionWithStatus | undefined) => {
-    if (connection?.runtimeSupported !== false && connection?.authType === 'api_key') setChangingKey(connection)
-    else openSetup()
+    if (connection && canEditConnection(connection, isOwner) && connection.runtimeSupported !== false && connection.authType === 'api_key') setChangingKey(connection)
+    else setSetupScope('user')
   }
 
   const changeThinking = async (level: ThinkingLevel) => {
@@ -165,11 +151,11 @@ export default function AiSettingsPage() {
             <SettingsMenuSelectRow
               label={t('settings.ai.connection')}
               description={t('settings.ai.connectionDesc')}
-              value={defaultConnection?.slug ?? ''}
-              onValueChange={(slug) => slug !== defaultConnection?.slug && void setDefault(slug)}
-              options={rows.map((connection) => ({
-                value: connection.slug,
-                label: connection.name,
+              value={defaultConnection ? connectionChoiceId(defaultConnection) : ''}
+              onValueChange={(id) => { const connection = rows.find((row) => connectionChoiceId(row) === id); if (connection && !connection.isDefault) void setDefault(connection) }}
+              options={rows.filter((connection) => connection.id).map((connection) => ({
+                value: connectionChoiceId(connection),
+                label: `${connection.name} · ${scopeLabel(connection.scope, t)}`,
                 description: `${connectionKindLabel(connection, t)} · ${scopeLabel(connection.scope, t)}`,
               }))}
             />
@@ -184,17 +170,18 @@ export default function AiSettingsPage() {
         </SettingsSection>
       )}
 
+      {(['user', 'shared'] as const).map((group) => (
       <SettingsSection
-        title={t('settings.ai.connections')}
-        description={t('settings.ai.connectionsDesc')}
-        action={<CreateButton label={t('connections.new')} onClick={() => openSetup()} />}
+        key={group}
+        title={group === 'user' ? t('settings.ai.yourConnections', { defaultValue: 'Your connections' }) : t('settings.ai.sharedConnections', { defaultValue: 'Workspace connections' })}
+        action={group === 'user' || (isOwner && activeWorkspaceId) ? <CreateButton label={t('connections.new')} onClick={() => setSetupScope(group === 'user' ? 'user' : 'workspace')} /> : undefined}
       >
         <SettingsCard>
-          {rows.length === 0 ? (
+          {groups[group].length === 0 ? (
             <SettingsRow label={<span className="font-normal text-muted-foreground">{t('settings.ai.noConnections')}</span>} />
           ) : (
-            rows.map((connection) => {
-              const editable = canEditConnection(connection, isOwner)
+            groups[group].map((connection) => {
+              const editable = !!connection.id && canEditConnection(connection, isOwner)
               return (
                 <ConnectionRow
                   key={`${connection.scope}:${connection.slug}`}
@@ -202,9 +189,9 @@ export default function AiSettingsPage() {
                   editable={editable && connection.runtimeSupported !== false}
                   onSaved={refresh}
                   actions={{
-                    onSetDefault: connection.isDefault || connection.runtimeSupported === false ? undefined : () => void setDefault(connection.slug),
+                    onSetDefault: !connection.id || connection.isDefault || connection.runtimeSupported === false ? undefined : () => void setDefault(connection),
                     onChangeKey: editable && hasKey(connection) && connection.runtimeSupported !== false ? () => setChangingKey(connection) : undefined,
-                    onTest: connection.runtimeSupported === false ? undefined : () => window.electronAPI.testLlmConnection(connection.slug),
+                    onTest: !connection.id || connection.runtimeSupported === false ? undefined : () => window.electronAPI.testLlmConnection(connectionSelector(connection)),
                     onDelete: editable ? () => remove(connection) : undefined,
                   }}
                 />
@@ -213,6 +200,7 @@ export default function AiSettingsPage() {
           )}
         </SettingsCard>
       </SettingsSection>
+      ))}
 
       {workspaces.length > 0 && llmConnections.length > 0 && (
         <SettingsSection title={t('settings.ai.workspaceOverrides')} description={t('settings.ai.workspaceOverridesDesc')}>
@@ -226,35 +214,7 @@ export default function AiSettingsPage() {
 
       <DecisionModelSection llmConnections={llmConnections} />
 
-      {setup && createPortal(
-        <div role="dialog" aria-modal className="fixed inset-0 bg-background" style={{ zIndex: 'var(--z-fullscreen, 350)' }}>
-          <OnboardingWizard
-            existingSlugs={existingSlugs}
-            canShare={isOwner}
-            onSaved={refresh}
-            onFinish={() => { closeSetup(); setCredentialHealthIssues([]) }}
-            onBack={closeSetup}
-            className="h-full"
-          />
-          {/* Same close as the dialogs: a solid 32px icon button, 16px from the corner */}
-          <div className="fixed top-4 right-4 [-webkit-app-region:no-drag]" style={{ zIndex: 'var(--z-fullscreen, 350)' }}>
-            <Tooltip>
-              <TooltipTrigger
-                render={(
-                  <Button variant="secondary" size="icon" onClick={closeSetup} aria-label={t('common.close')}>
-                    <X />
-                  </Button>
-                )}
-              />
-              <TooltipContent side="bottom">
-                {t('common.close')}
-                <Kbd>Esc</Kbd>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>,
-        document.body,
-      )}
+      <ProviderConnectionDialog scope={setupScope} workspaceId={activeWorkspaceId ?? undefined} existingSlugs={existingSlugs} onClose={() => setSetupScope(null)} onSaved={() => { refresh(); setCredentialHealthIssues([]) }} />
 
       <ChangeKeyDialog connection={changingKey} onOpenChange={(open) => !open && setChangingKey(null)} onSaved={refresh} />
       {deleteDialog}

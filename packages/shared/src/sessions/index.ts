@@ -49,7 +49,7 @@ export {
   sessionPersistenceQueue,
 } from './storage.ts';
 export type { ChatWrite } from './persistence-queue.ts';
-export { onChatsChange, notifyChatsChange, getChatsFields, getChatWorkspaceId, toPreview, type ChatSnapshot, type AgentCursor } from './chats.ts';
+export { onChatsChange, notifyChatsChange, getChatsFields, getChatWorkspaceId, getLinkedPageChatId, toPreview, type ChatSnapshot, type AgentCursor } from './chats.ts';
 export {
   initChatMembers,
   getChatMembers,

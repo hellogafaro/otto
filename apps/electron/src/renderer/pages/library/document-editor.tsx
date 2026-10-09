@@ -8,7 +8,6 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageCenterpiece, PageColumn } from '@workspace/ui/components/page'
-import { PageScroll } from '@workspace/ui/components/page-frame'
 import { TiptapMarkdownEditor } from '@otto/ui'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { useAutosave } from '@/hooks/use-autosave'
@@ -78,13 +77,13 @@ export function DocumentEditor({
         menu={menu}
       />
       <PageCenterpiece>
-        <PageScroll className="px-5 py-5" onBlur={flush}>
+        <div className="p-4" onBlur={flush}>
           <TiptapMarkdownEditor
             content={initial.content}
             onUpdate={(markdown) => update({ content: markdown })}
             placeholder={t('library.documentPlaceholder')}
           />
-        </PageScroll>
+        </div>
       </PageCenterpiece>
     </PageColumn>
   )

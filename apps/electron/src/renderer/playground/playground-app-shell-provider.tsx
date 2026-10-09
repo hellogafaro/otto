@@ -2,7 +2,7 @@
  * PlaygroundAppShellProvider
  *
  * Minimal stand-in for the real AppShellProvider so components that rely on
- * `useActiveWorkspace()` / `useAppShellContext()` (e.g. MessagingSettingsPage)
+ * `useActiveWorkspace()` / `useAppShellContext()`
  * can render inside the playground without the full app shell wiring.
  *
  * All callbacks are no-op logging stubs — interactions just go to the console.
@@ -44,7 +44,8 @@ const playgroundValue: AppShellContextType = {
   onCreateSession: (async () => {
     throw new Error('[Playground] onCreateSession is not available')
   }) as AppShellContextType['onCreateSession'],
-  onSendMessage: logCall('onSendMessage'),
+  onInitLinkedPageSession: async () => { throw new Error('[Playground] onInitLinkedPageSession is not available') },
+  onSendMessage: async (...args) => { logCall('onSendMessage')(...args); return true },
   onRenameSession: logCall('onRenameSession'),
   onFlagSession: logCall('onFlagSession'),
   onUnflagSession: logCall('onUnflagSession'),

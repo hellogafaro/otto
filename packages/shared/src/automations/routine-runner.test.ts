@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { openDb } from '../db/index.ts'
 import { pushSchema } from '../db/push.ts'
-import { finishInterruptedRoutineRuns, recordRoutineRun, resolveWebhookAction, runRoutine, startRoutineScheduler, tickRoutines, type RoutineRunnerDeps } from './routine-runner.ts'
+import { finishInterruptedRoutineRuns, isNativeRoutineConfigSupported, recordRoutineRun, runRoutine, startRoutineScheduler, tickRoutines, type RoutineRunnerDeps } from './routine-runner.ts'
 import type { RoutineConfig } from './routine-types.ts'
 import { createRoutine, getRoutine, startRoutineRun, updateRoutine } from './routines.ts'
 
@@ -112,13 +112,17 @@ test('a failing prompt ends the run as error with the message, and the others st
   expect(getRoutine(W, routine.id, db)!.runs[0]).toMatchObject({ status: 'error', error: 'No connection', chatId: 'c2' })
 })
 
-test('a scripts and webhooks run through the same path: a missing script and a missing secret end the run as error', async () => {
+test('scripts and webhooks are unsupported through the common run path without reading their secret', async () => {
   const { db, deps } = await setup()
+  let secretsRead = 0
   const script = runRoutine(make(db, 'Script', { ...daily, actions: [{ type: 'script', script: 'scripts/missing.ts' }] }), { ...deps, getWorkspaceRootPath: () => '/nonexistent' })!
-  const hook = runRoutine(make(db, 'Hook', { type: 'event', event: 'LabelAdd', actions: [{ type: 'webhook', url: 'https://example.test', secretId: 'gone' }] }), { ...deps, getSecret: () => undefined })!
+  const hook = runRoutine(make(db, 'Hook', { type: 'event', event: 'LabelAdd', actions: [{ type: 'webhook', url: 'https://example.test', secretId: 'gone' }] }), { ...deps, getSecret: () => { secretsRead++; return undefined } })!
   await settle([script, hook])
-  for (const routine of [getRoutine(W, script.run.routineId, db)!, getRoutine(W, hook.run.routineId, db)!]) expect(routine.runs[0]!.status).toBe('error')
-  expect(getRoutine(W, hook.run.routineId, db)!.runs[0]!.error).toContain('secret')
+  for (const routine of [getRoutine(W, script.run.routineId, db)!, getRoutine(W, hook.run.routineId, db)!]) {
+    expect(routine.runs[0]!.status).toBe('error')
+    expect(routine.runs[0]!.error).toContain('unsupported')
+  }
+  expect(secretsRead).toBe(0)
 })
 
 test('a semantic condition that says no skips the run with its reason', async () => {
@@ -129,11 +133,11 @@ test('a semantic condition that says no skips the run with its reason', async ()
   expect(getRoutine(W, routine.id, db)!.runs[0]).toMatchObject({ status: 'skipped', error: 'condition not met' })
 })
 
-test('a webhook action takes its credentials from its secret, never from the row', () => {
-  const read = (id: string) => (id === 's1' ? JSON.stringify({ type: 'bearer', token: 't0k3n' }) : undefined)
-  expect(resolveWebhookAction({ type: 'webhook', url: 'https://x.test', secretId: 's1' }, read)).toEqual({ type: 'webhook', url: 'https://x.test', auth: { type: 'bearer', token: 't0k3n' } })
-  expect(resolveWebhookAction({ type: 'webhook', url: 'https://x.test' }, read)).toEqual({ type: 'webhook', url: 'https://x.test' })
-  expect(() => resolveWebhookAction({ type: 'webhook', url: 'https://x.test', secretId: 'nope' }, read)).toThrow('secret')
+test('native eligibility rejects stored webhook credentials without converting or discarding them', () => {
+  const config: RoutineConfig = { ...daily, actions: [{ type: 'webhook', url: 'https://x.test', secretId: 's1' }] }
+  expect(isNativeRoutineConfigSupported(config)).toBe(false)
+  expect(config.actions).toEqual([{ type: 'webhook', url: 'https://x.test', secretId: 's1' }])
+  expect(isNativeRoutineConfigSupported(daily)).toBe(true)
 })
 
 test('the scheduler ends the runs a restart left running, and stops', async () => {

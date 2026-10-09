@@ -54,7 +54,7 @@ export interface ISessionManager {
   createSession(
     workspaceId: string,
     options?: CreateSessionOptions,
-    internal?: { emitCreatedEvent?: boolean; createdBy?: string | null },
+    internal?: { emitCreatedEvent?: boolean; createdBy?: string | null; contextEntity?: string },
   ): Promise<Session>
   /** `callerId` (a person's request): only the chat's creator may delete it. */
   deleteSession(sessionId: string, callerId?: string | null): Promise<void>
@@ -106,7 +106,7 @@ export interface ISessionManager {
     _isAuthRetry?: boolean,
     onAck?: (messageId: string) => void,
   ): Promise<void>
-  cancelProcessing(sessionId: string, silent?: boolean): Promise<void>
+  cancelProcessing(sessionId: string, silent?: boolean, expectedRunId?: string): Promise<void>
   addMessageAnnotation(sessionId: string, messageId: string, annotation: AnnotationV1): void
   removeMessageAnnotation(sessionId: string, messageId: string, annotationId: string): void
   updateMessageAnnotation(
@@ -126,8 +126,10 @@ export interface ISessionManager {
     allowed: boolean,
     alwaysAllow: boolean,
     options?: PermissionResponseOptions,
-  ): boolean
+    userId?: string,
+  ): Promise<boolean>
   respondToCredential(sessionId: string, requestId: string, response: CredentialResponse): Promise<boolean>
+  respondToNativeQuestion(sessionId: string, requestId: string, answer: string | string[], userId?: string): Promise<boolean>
   getSessionPermissionModeState(sessionId: string): PermissionModeState | null
 
   // ---------------------------------------------------------------------------
@@ -177,6 +179,7 @@ export interface ISessionManager {
   exportRemoteSessionTransfer(
     sessionId: string,
     workspaceId: string,
+    userId?: string,
   ): Promise<import('@otto/shared/protocol').RemoteSessionTransferPayload | null>
 
   /**
@@ -206,7 +209,7 @@ export interface ISessionManager {
   // ---------------------------------------------------------------------------
 
   getSessionPath(sessionId: string): string | null
-  refreshTitle(sessionId: string): Promise<{ success: boolean; title?: string; error?: string }>
+  refreshTitle(sessionId: string, options?: { onlyIfName?: string }, userId?: string): Promise<{ success: boolean; title?: string; error?: string }>
   refreshBadge(): void
   getUnreadSummary(viewerId?: string | null): UnreadSummary
 
@@ -250,17 +253,6 @@ export interface ISessionManager {
   completeAuthRequest(sessionId: string, result: AuthResult): Promise<void>
   executePromptAutomation(input: ExecutePromptAutomationInput): Promise<{ sessionId: string }>
 
-  /**
-   * Install a callback invoked from `executePromptAutomation` after a session
-   * is created when the matcher declared `telegramTopic`. Wired by the
-   * messaging-gateway bootstrap so the SessionManager doesn't need to import
-   * the messaging package (avoids a circular package-level import).
-   *
-   * The callback should be best-effort: failures must not block the session.
-   */
-  setAutomationBinder?(
-    fn: (input: { workspaceId: string; sessionId: string; topicName: string }) => Promise<void>,
-  ): void
 }
 
 /**
@@ -277,6 +269,7 @@ export interface ExecutePromptAutomationInput {
   permissionMode?: PermissionMode
   mentions?: string[]
   llmConnection?: string
+  llmConnectionId?: string
   model?: string
   /** Override the workspace default thinking level for the spawned session. */
   thinkingLevel?: ThinkingLevel
@@ -287,13 +280,7 @@ export interface ExecutePromptAutomationInput {
   triggerEvent?: string
   /** Chain depth of the new session (see `automationLoopGuard`); 1 when omitted. */
   chainDepth?: number
-  /**
-   * Optional Telegram forum-topic name. When set and the workspace has a
-   * paired supergroup, the new session is bound to a topic of this name
-   * (created on first use). Silently ignored when prerequisites aren't met.
-   */
-  telegramTopic?: string
-  /** Actor ('user:<id>') the new chat belongs to; omitted, the workspace's first owner. */
+  /** Actual human actor ('user:<id>') that authorized the routine. */
   createdBy?: string
   /** The agent the new chat talks to (`agents` row id); omitted, the workspace's default agent. */
   agentId?: string

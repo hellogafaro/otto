@@ -117,17 +117,22 @@ test('update changes the given fields, clears the model and refuses a stale save
   expect(again.updatedAt).toBeGreaterThan(updated.updatedAt)
 })
 
-test('the last agent cannot be deleted; deleting the default makes the next oldest the default', async () => {
+test('the default agent cannot be deleted, even with other agents, and remains editable', async () => {
   const db = await setup()
   const first = make(db, 'First')
   expect(code(() => deleteAgent(W, first.id, db))).toBe('invalid')
   const second = make(db, 'Second')
-  deleteAgent(W, first.id, db)
-  expect(getDefaultAgent(W, db)?.id).toBe(second.id)
-  expect(getAgent(W, second.id, db)?.isDefault).toBe(true)
-  expect(code(() => deleteAgent(W, first.id, db))).toBe('not_found')
+  expect(code(() => deleteAgent(W, first.id, db))).toBe('invalid')
+  expect(getDefaultAgent(W, db)?.id).toBe(first.id)
+  expect(getAgent(W, first.id, db)?.isDefault).toBe(true)
+  expect(updateAgent(W, first.id, { title: second.title, instructions: 'Edited instructions', model: 'edited-model' }, db)).toMatchObject({ id: first.id, title: second.title, instructions: 'Edited instructions', model: 'edited-model', isDefault: true })
+  expect(initAgentsSeed(W, ME, 'openai', db)).toBeUndefined()
+  expect(getAgents(W, db)).toHaveLength(2)
+  deleteAgent(W, second.id, db)
+  expect(getDefaultAgent(W, db)?.id).toBe(first.id)
+  expect(code(() => deleteAgent(W, second.id, db))).toBe('not_found')
   expect(code(() => deleteAgent('other', second.id, db))).toBe('not_found')
-  expect(code(() => deleteAgent(W, second.id, db))).toBe('invalid')
+  expect(code(() => deleteAgent(W, first.id, db))).toBe('invalid')
 })
 
 test('seeding makes one agent per workspace, once', async () => {

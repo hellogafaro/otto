@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { MAX_HOOK_BODY_BYTES, webhookSecretMatches, withWebhookContext } from '@otto/shared/automations/routine-webhook'
-import { runRoutine, type RoutineRunnerDeps } from '@otto/shared/automations/routine-runner'
+import { webhookSecretMatches } from '@otto/shared/automations/routine-webhook'
+import { isNativeRoutineConfigSupported, UNSUPPORTED_NATIVE_ROUTINE, type RoutineRunnerDeps } from '@otto/shared/automations/routine-runner'
 import { ROUTINE_WEBHOOK_PATH } from '@otto/shared/automations/routine-types'
 import { getWebhookRoutine } from '@otto/shared/automations/routines'
 import { initDb } from '@otto/shared/db'
@@ -9,9 +9,9 @@ import { getSecret } from '@otto/shared/secrets'
 /**
  * `POST /api/webhooks/<routine_id>/<secret>`: the webhook trigger of a routine (docs/final-plan.md 2.8). The URL
  * is the credential, so there is no session: a wrong secret, an unknown routine and a routine that is not a webhook
- * all answer the same 404, and the secret is compared in constant time. A paused routine answers 409, a body over
- * 256 KB 413, too many calls 429. A call starts a run as the routine's creator on its agent, with the body passed to
- * its prompts as escaped, size-capped data (`withWebhookContext`), and answers 202 `{ id }`, the run's history id.
+ * all answer the same 404, and the secret is compared in constant time. A paused routine answers 409 and too many
+ * calls answer 429. Native webhook activation is unsupported: an authenticated active routine
+ * answers 501 without reading its body, creating a run, or executing an action. Stored configuration is retained.
  * One audit line per call: the routine and the outcome, never the secret.
  */
 
@@ -20,30 +20,12 @@ export const ROUTINE_HOOK_RATE = { windowMs: 60_000, calls: 60, misses: 30 }
 
 type NodeHandler = (req: IncomingMessage, res: ServerResponse) => void
 
-class TooLarge extends Error {}
-
 function send(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
   res.end(JSON.stringify(body))
 }
 
 const fail = (res: ServerResponse, status: number, code: string, message: string) => send(res, status, { error: { code, message } })
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = []
-    let size = 0
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length
-      if (size > MAX_HOOK_BODY_BYTES) {
-        reject(new TooLarge())
-        req.destroy()
-      } else chunks.push(chunk)
-    })
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-    req.on('error', reject)
-  })
-}
 
 /** A fixed window per key; `take` is false once the key used up its `max`. */
 function windows(max: number) {
@@ -83,7 +65,7 @@ export function createRoutineWebhookHandler(opts: { runner: () => RoutineRunnerD
     const deps = runner()
     const routine = getWebhookRoutine(routineId, deps.db ?? initDb())
     const expected = routine?.config.webhook ? (deps.getSecret ?? getSecret)(routine.config.webhook.secretId) : undefined
-    if (!routine || !webhookSecretMatches(given, expected)) {
+    if (!routine || isNativeRoutineConfigSupported(routine.config) || !webhookSecretMatches(given, expected)) {
       misses.take(from, now)
       audit(`[routine-webhook] routine=${routineId} -> not_found`)
       return fail(res, 404, 'not_found', 'Not Found')
@@ -97,21 +79,8 @@ export function createRoutineWebhookHandler(opts: { runner: () => RoutineRunnerD
       return fail(res, 409, 'conflict', 'The routine is paused')
     }
 
-    let body: string
-    try {
-      if (Number(req.headers['content-length'] ?? 0) > MAX_HOOK_BODY_BYTES) throw new TooLarge()
-      body = await readBody(req)
-    } catch (error) {
-      audit(`[routine-webhook] routine=${routine.id} -> ${error instanceof TooLarge ? 'too_large' : 'unreadable'}`)
-      return error instanceof TooLarge ? fail(res, 413, 'too_large', `The body is limited to ${MAX_HOOK_BODY_BYTES / 1024} KB`) : fail(res, 400, 'invalid', 'The body could not be read')
-    }
-
-    // Runs as the routine's creator on its agent; `scheduledFor` is the request time (one more millisecond when taken)
-    const started = runRoutine(withWebhookContext(routine, body), deps)
-    if (!started) return fail(res, 409, 'conflict', 'The routine could not start a run')
-    void started.done
-    audit(`[routine-webhook] routine=${routine.id} run=${started.run.id} bytes=${Buffer.byteLength(body)} -> accepted`)
-    send(res, 202, { id: started.run.id })
+    audit(`[routine-webhook] routine=${routine.id} -> unsupported`)
+    return fail(res, 501, 'unsupported', UNSUPPORTED_NATIVE_ROUTINE)
   }
 
   return (req, res) => {

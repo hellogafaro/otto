@@ -19,14 +19,16 @@ function Tabs({
 }
 
 // Otto: tabs are buttons (the Button's heights and padding) 4px apart; the open one has the selected
-// fill (`foreground/10`), like every selected item.
+// fill (`foreground/10`), like every selected item. The list has no horizontal padding, including
+// instance padding; vertical list padding and the triggers' intrinsic spacing are unchanged.
 function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
         "inline-flex w-fit items-center gap-1 data-vertical:flex-col data-vertical:items-stretch",
-        className
+        className,
+        "px-0"
       )}
       {...props}
     />

@@ -73,7 +73,8 @@ export interface AppShellContextType {
 
   // Session callbacks
   onCreateSession: (workspaceId: string, options?: import('../../shared/types').CreateSessionOptions) => Promise<Session>
-  onSendMessage: (sessionId: string, message: string, attachments?: FileAttachment[], skillSlugs?: string[], badges?: import('@otto/core').ContentBadge[]) => void
+  onInitLinkedPageSession: (workspaceId: string, contextEntity: string) => Promise<Session>
+  onSendMessage: (sessionId: string, message: string, attachments?: FileAttachment[], skillSlugs?: string[], badges?: import('@otto/core').ContentBadge[], options?: import('../../shared/types').SendMessageOptions) => Promise<boolean>
   onRenameSession: (sessionId: string, name: string) => void
   onFlagSession: (sessionId: string) => void
   onUnflagSession: (sessionId: string) => void
@@ -93,7 +94,7 @@ export interface AppShellContextType {
     allowed: boolean,
     alwaysAllow: boolean,
     options?: import('../../shared/types').PermissionResponseOptions
-  ) => void
+  ) => Promise<boolean>
 
   // Credential handling
   onRespondToCredential?: (

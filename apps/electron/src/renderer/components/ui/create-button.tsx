@@ -4,7 +4,7 @@
  * The one create action of a page, a section, a tab or a group: a ghost "+" icon
  * button whose `aria-label` and tooltip are the label ("New task", "Invite member"),
  * with the action's key as a `Kbd` after it when it has one (DESIGN.md, Header actions).
- * 28px by default (page header, section, tab row); `size="icon-xs"` is the 24px
+ * 32px by default (page header, section, tab row); `size="icon-xs"` is the 24px
  * one of a group band and a sidecar section. It is also the trigger of a menu or
  * a picker: `<DropdownMenuTrigger render={<CreateButton label=… />} />`.
  */
@@ -21,10 +21,10 @@ interface CreateButtonProps extends Omit<React.ComponentProps<typeof Button>, 'c
   label: string
   /** The action's key, shown as a `Kbd` after the label. */
   hotkey?: string
-  size?: 'icon-compact' | 'icon-xs'
+  size?: 'icon' | 'icon-compact' | 'icon-xs'
 }
 
-export function CreateButton({ label, hotkey, size = 'icon-compact', className, ...props }: CreateButtonProps) {
+export function CreateButton({ label, hotkey, size = 'icon', className, ...props }: CreateButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger

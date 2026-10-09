@@ -1,32 +1,20 @@
-/**
- * The chat on the shell composer: the open chat (and the new chat, an empty one) registers a full composer that
- * sends into it (`onSend`; to a person picked under With, into your DM with them), stops it, shows its With picker
- * (an empty chat only), its model picker (not in a people chat: no agent runs there) and status over the action row (`tools`), its
- * background tasks, follow-ups and finished-elsewhere chip above the text (`chips`), a pending permission or
- * credential in place of the text (`structured`), and its `/` commands (mode, status, working directory, compact).
- */
-
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PermissionMode } from '@otto/shared/agent/modes'
 import type { ThinkingLevel } from '@otto/shared/agent/thinking-levels'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@otto/ui'
 import { useComposerContext } from '@/components/composer/use-composer-context'
-import type { ComposerContext, ComposerMessage } from '@/components/composer/composer-state'
+import { chatAgentIds, composerAgent, type ComposerContext, type ComposerMessage } from '@/components/composer/composer-state'
 import { useEscapeInterrupt } from '@/context/escape-interrupt-context'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { getModelDisplayName } from '@config/models'
 import { isCompatProvider, modelSupportsImages, resolveEffectiveConnectionSlug } from '@config/llm-connections'
-import { AGENT_DEFAULT_NAME } from '@otto/shared/branding'
-import { AgentPicker } from '@/components/composer/agent-picker'
-import { useNewChatAgent } from '@/components/composer/use-new-chat-agent'
 import { useChatMembers } from '@/hooks/use-chat-members'
 import { isAgentActor, isPeopleChat } from '@/lib/actors'
 import { formatNameList } from '@/utils/session'
-import type { FileAttachment, Session } from '../../../../shared/types'
+import type { FileAttachment, SendMessageOptions, Session } from '../../../../shared/types'
 import { BackgroundFinishedChip } from '../background-finished-chip'
 import { ImageSupportWarningBanner } from './image-support-warning-banner'
-import { ModelMenu } from './model-menu'
 import { stripPiPrefixForDisplay } from './model-picker-helpers'
 import { useModelVisionToggle } from './use-model-vision-toggle'
 import { StructuredInput } from './structured-input'
@@ -125,7 +113,7 @@ export function useChatComposer({
   /** The edit popover's own placeholder. */
   placeholder?: string
   session: Session | null
-  onSubmit: (message: string, attachments?: FileAttachment[], skillSlugs?: string[]) => void
+  onSubmit: (message: string, attachments?: FileAttachment[], skillSlugs?: string[], options?: SendMessageOptions) => void | boolean | Promise<void | boolean>
   onStop: (silent?: boolean) => void
   disabled: boolean
   sources?: { config: { slug: string } }[]
@@ -157,25 +145,41 @@ export function useChatComposer({
   const sessionId = session?.id ?? ''
   const isEmpty = (session?.messages.length ?? 0) === 0
   const busy = !!session?.isProcessing
-  // An empty chat picks who it is with; a chat that has started talks to the agent it was created with.
-  const { agents, agent, pick, people, person, pickPerson, sendToPerson } = useNewChatAgent(session)
-  const { others } = useChatMembers(session)
-  // A people chat (a DM or a group, or a person picked under With) runs no agent: no model picker, no image notice.
-  const peopleChat = !!person || (!!session && isPeopleChat(session))
+  const agentIds = chatAgentIds(session)
+  const { members, others } = useChatMembers(session)
+  const agents = members.flatMap((member) => member.agent ? [member.agent] : [])
+  const [recipient, setRecipient] = React.useState<{ sessionId: string; agentId?: string }>({ sessionId })
+  if (recipient.sessionId !== sessionId) setRecipient({ sessionId })
+  const mounted = React.useRef(true)
+  React.useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+  const recipientId = recipient.sessionId === sessionId ? recipient.agentId : undefined
+  const agent = recipientId ? composerAgent(agents, recipientId) : agents.length === 1 ? agents[0] : undefined
+  const pick = (next: typeof agents[number]) => {
+    if (agents.some((entry) => entry.id === next.id)) setRecipient({ sessionId, agentId: next.id })
+  }
+  const peopleChat = !!session && isPeopleChat(session)
 
   // Stable callbacks over the latest values, so a streaming chat does not re-register on every frame.
-  const latest = React.useRef({ onSubmit, onStop, onSourcesChange, enabledSourceSlugs, person, sendToPerson })
-  latest.current = { onSubmit, onStop, onSourcesChange, enabledSourceSlugs, person, sendToPerson }
-  const onSend = React.useCallback(({ text, attachments, skillSlugs, sourceSlugs }: ComposerMessage) => {
-    const { onSubmit: submit, onSourcesChange: changeSources, enabledSourceSlugs: enabled = [] } = latest.current
-    if (latest.current.person) {
-      void latest.current.sendToPerson(text, attachments.length > 0 ? attachments : undefined, skillSlugs.length > 0 ? skillSlugs : undefined)
-      return
+  const latest = React.useRef({ onSubmit, onStop, onSourcesChange, enabledSourceSlugs, sessionId, recipientId, agents, disabled })
+  latest.current = { onSubmit, onStop, onSourcesChange, enabledSourceSlugs, sessionId, recipientId, agents, disabled }
+  const onSend = React.useCallback(async ({ text, attachments, skillSlugs, sourceSlugs }: ComposerMessage) => {
+    const { onSubmit: submit, onSourcesChange: changeSources, enabledSourceSlugs: enabled = [], sessionId: id, recipientId: selected, agents: eligible } = latest.current
+    if (!mounted.current || !id || latest.current.disabled) throw new Error('This conversation is unavailable.')
+    if (selected) {
+      if (!eligible.some((entry) => entry.id === selected)) throw new Error('The selected recipient is unavailable.')
+      const [current, visible] = await Promise.all([window.electronAPI.getSessionMessages(id), window.electronAPI.getAgents()])
+      if (!mounted.current || latest.current.sessionId !== id || latest.current.recipientId !== selected || latest.current.disabled || !current?.members?.includes(`agent:${selected}`) || !visible.some((entry) => entry.id === selected)) {
+        throw new Error('The selected recipient is unavailable.')
+      }
     }
     // Sources mentioned with @ are turned on for the chat.
     const next = [...new Set([...enabled, ...sourceSlugs])]
     if (next.length > enabled.length) changeSources?.(next)
-    submit(text, attachments.length > 0 ? attachments : undefined, skillSlugs.length > 0 ? skillSlugs : undefined)
+    const accepted = await submit(text, attachments.length > 0 ? attachments : undefined, skillSlugs.length > 0 ? skillSlugs : undefined, selected ? { recipientAgentId: selected } : undefined)
+    if (accepted === false) throw new Error('The message was not accepted.')
   }, [])
   const stop = React.useCallback((silent?: boolean) => latest.current.onStop(silent), [])
 
@@ -188,25 +192,9 @@ export function useChatComposer({
     onCompact: busy ? undefined : () => latest.current.onSubmit('/compact'),
   }), [permissionMode, onPermissionModeChange, session?.sessionStatus, onSessionStatusChange, onWorkingDirectoryChange, busy])
 
-  const contextStatus = {
-    isCompacting: session?.currentStatus?.statusType === 'compacting',
-    inputTokens: session?.tokenUsage?.inputTokens,
-    contextWindow: session?.tokenUsage?.contextWindow,
-    contextUsage: session?.tokenUsage?.contextUsage,
-  }
-
   const tools = (
     <>
       <ToolbarStatusSlot showEscapeOverlay={busy && showEscapeOverlay} />
-      {isEmpty && agent && !(session && isPeopleChat(session)) && <AgentPicker agents={agents} agent={agent} people={people} person={person} onChange={pick} onPickPerson={pickPerson} />}
-      {!peopleChat && (
-        <ModelMenu
-          {...model}
-          currentConnection={session?.llmConnection}
-          isEmptySession={isEmpty}
-          contextStatus={contextStatus}
-        />
-      )}
     </>
   )
 
@@ -232,23 +220,25 @@ export function useChatComposer({
 
   // "Message Ada and Grace" where people talk (a person picked, a people chat, more than one person), else "Reply to" the agent.
   function chatPlaceholder() {
-    const picked = person && people.find((entry) => entry.actor === person)
-    if (picked) return t('composer.placeholder.message', { names: picked.name })
     if (isEmpty) return t('composer.placeholder.start')
     const humans = (session?.members ?? []).filter((actor) => !isAgentActor(actor)).length
-    if ((peopleChat || humans > 1) && others.length > 0) return t('composer.placeholder.message', { names: formatNameList(others.map((member) => member.name)) })
-    return t('composer.placeholder.reply', { agent: agent?.title ?? AGENT_DEFAULT_NAME })
+    if ((peopleChat || humans > 1 || agentIds.length > 1) && others.length > 0) return t('composer.placeholder.message', { names: formatNameList(others.map((member) => member.name)) })
+    return agent ? t('composer.placeholder.reply', { agent: agent.title }) : t('composer.placeholder.page')
   }
 
   const context: ComposerContext = {
     key: session ? `chat:${session.id}` : 'none',
-    mode: 'full',
     sessionId: session ? sessionId : undefined,
     placeholder: placeholder ?? chatPlaceholder(),
     onSend,
     busy,
     onStop: stop,
     tools,
+    footer: {
+      picker: agents.length > 0 && !peopleChat ? { agents, agent, onChange: pick } : null,
+      participants: session?.members ? members : null,
+      disabled,
+    },
     chips,
     imageNotice,
     structured: structuredInput ? <StructuredInput state={structuredInput} onResponse={onStructuredResponse} unstyled /> : undefined,

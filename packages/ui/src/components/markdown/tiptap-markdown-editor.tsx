@@ -319,7 +319,7 @@ export function TiptapMarkdownEditor({
     editable,
     editorProps: {
       attributes: {
-        class: 'tiptap-prose outline-none',
+        class: 'tiptap-prose typeset typeset-docs outline-none',
       },
       handlePaste: (_view, event) => {
         if (!editable) return false

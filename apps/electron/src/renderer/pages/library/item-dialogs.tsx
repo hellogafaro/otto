@@ -5,7 +5,6 @@
  */
 
 import * as React from 'react'
-import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
@@ -15,7 +14,6 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogMedia,
   AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog'
 import { toast } from '@workspace/ui/components/sonner'
@@ -95,9 +93,6 @@ export function useLibraryItemDialogs() {
       <AlertDialog open={deleting !== null} onOpenChange={(open) => { if (!open && !deletePending) setDeleting(null) }}>
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
-            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20">
-              <Trash2 />
-            </AlertDialogMedia>
             <AlertDialogTitle>{t(deleteTitle)}</AlertDialogTitle>
             <AlertDialogDescription>{deleteFailed ? t('library.deleteFailed') : t('library.deleteDescription')}</AlertDialogDescription>
           </AlertDialogHeader>

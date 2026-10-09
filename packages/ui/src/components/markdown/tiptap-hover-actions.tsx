@@ -26,7 +26,7 @@ interface TiptapHoverActionsProps {
 
 export function TiptapHoverActions({ children, className, contentEditable = false }: TiptapHoverActionsProps) {
   return (
-    <div className={cn('tiptap-hover-actions', className)} contentEditable={contentEditable ? undefined : false}>
+    <div data-not-typeset className={cn('tiptap-hover-actions font-sans text-sm', className)} contentEditable={contentEditable ? undefined : false}>
       {children}
     </div>
   )

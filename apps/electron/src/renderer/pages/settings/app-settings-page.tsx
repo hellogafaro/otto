@@ -25,6 +25,7 @@ import {
   SettingsToggle,
 } from '@/components/settings'
 import { useUpdateChecker } from '@/hooks/use-update-checker'
+import { MidstreamPreferenceRow } from './midstream-preference-row'
 
 export const meta: DetailsPageMeta = {
   navigator: 'settings',
@@ -114,6 +115,8 @@ export default function AppSettingsPage() {
                 </SettingsCard>
               </SettingsSection>
               </>)}
+
+              <MidstreamPreferenceRow />
 
               {/* About */}
               <SettingsSection title={t("settings.about.title")}>

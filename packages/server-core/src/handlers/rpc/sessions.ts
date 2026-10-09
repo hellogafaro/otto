@@ -13,7 +13,8 @@ import { pushTyped, type RequestContext, type RpcServer } from '@otto/server-cor
 import type { HandlerDeps } from '../handler-deps'
 import { setTransferableHandler } from './transfer'
 import { actorOf } from './library'
-import { searchChats } from '@otto/shared/sessions'
+import { getLinkedPageChatId, searchChats } from '@otto/shared/sessions'
+import { initLinkedPageChat } from '../../sessions/linked-page-chat'
 
 interface ClientSessionWatchState {
   watcher: import('fs').FSWatcher
@@ -108,6 +109,7 @@ async function scanSessionDirectory(dirPath: string): Promise<import('@otto/shar
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.sessions.GET,
   RPC_CHANNELS.sessions.GET_UNREAD_SUMMARY,
+  RPC_CHANNELS.sessions.FEATURES,
   RPC_CHANNELS.sessions.MARK_ALL_READ,
   RPC_CHANNELS.sessions.CREATE,
   RPC_CHANNELS.sessions.DELETE,
@@ -115,6 +117,7 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.sessions.SEND_MESSAGE,
   RPC_CHANNELS.sessions.CANCEL,
   RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION,
+  RPC_CHANNELS.sessions.RESPOND_QUESTION,
   RPC_CHANNELS.sessions.RESPOND_TO_CREDENTIAL,
   RPC_CHANNELS.sessions.COMMAND,
   RPC_CHANNELS.sessions.GET_PENDING_PLAN_EXECUTION,
@@ -135,6 +138,7 @@ export const HANDLED_CHANNELS = [
 export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): void {
   const { sessionManager, platform } = deps
   const log = platform.logger
+  server.handle(RPC_CHANNELS.sessions.FEATURES, () => ({ version: 1, explicitAgentRecipient: true, linkedPageContext: true, durableRequests: true, providerFamilies: true, userPreferences: true }))
 
   // Get all sessions for the calling window's workspace
   // Waits for initialization to complete so sessions are never returned empty during startup
@@ -194,6 +198,11 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
     const session = await sessionManager.createSession(workspaceId, options, { emitCreatedEvent: false, createdBy: actorOf(ctx) })
     end()
     return session
+  })
+
+  server.handle(RPC_CHANNELS.sessions.INIT_LINKED_PAGE, async (ctx, workspaceId: string, contextEntity: string) => {
+    await sessionManager.waitForInit()
+    return initLinkedPageChat({ workspaceId, contextEntity, userId: ctx.userId ?? '' }, { sessions: sessionManager, findLinkedSessionId: getLinkedPageChatId })
   })
 
   // Delete a session
@@ -261,15 +270,16 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   })
 
   // Cancel processing
-  server.handle(RPC_CHANNELS.sessions.CANCEL, async (_ctx, sessionId: string, silent?: boolean) => {
-    return sessionManager.cancelProcessing(sessionId, silent)
+  server.handle(RPC_CHANNELS.sessions.CANCEL, async (_ctx, sessionId: string, silent?: boolean, expectedRunId?: string) => {
+    return sessionManager.cancelProcessing(sessionId, silent, expectedRunId)
   })
 
   // Respond to a permission request (bash command approval)
   // Returns true if the response was delivered, false if agent/session is gone
-  server.handle(RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION, async (_ctx, sessionId: string, requestId: string, allowed: boolean, alwaysAllow: boolean) => {
-    return sessionManager.respondToPermission(sessionId, requestId, allowed, alwaysAllow)
+  server.handle(RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION, async (ctx, sessionId: string, requestId: string, allowed: boolean, alwaysAllow: boolean, options?: import('@otto/shared/protocol').PermissionResponseOptions) => {
+    return sessionManager.respondToPermission(sessionId, requestId, allowed, alwaysAllow, options, ctx.userId ?? undefined)
   })
+  server.handle(RPC_CHANNELS.sessions.RESPOND_QUESTION, (ctx, sessionId: string, requestId: string, answer: string | string[]) => sessionManager.respondToNativeQuestion(sessionId, requestId, answer, ctx.userId ?? undefined))
 
   // Respond to a credential request (secure auth input)
   // Returns true if the response was delivered, false if agent/session is gone
@@ -353,7 +363,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
         return sessionManager.revokeShare(sessionId)
       case 'refreshTitle':
         log.info(`IPC: refreshTitle received for session ${sessionId}`)
-        return sessionManager.refreshTitle(sessionId)
+        return sessionManager.refreshTitle(sessionId, undefined, ctx.userId ?? undefined)
       // Connection selection (locked after first message)
       case 'setConnection':
         log.info(`IPC: setConnection received for session ${sessionId}, connection: ${command.connectionSlug}`)
@@ -537,7 +547,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
     const workspaceId = ctx.workspaceId
     if (!workspaceId) throw new Error('No workspace context')
 
-    const payload = await sessionManager.exportRemoteSessionTransfer(sessionId, workspaceId)
+    const payload = await sessionManager.exportRemoteSessionTransfer(sessionId, workspaceId, ctx.userId ?? undefined)
     if (!payload) throw new Error(`Failed to export remote transfer for session ${sessionId}`)
     return payload
   })

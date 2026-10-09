@@ -34,7 +34,7 @@ export function useModelVisionToggle(): ToggleModelVision {
     try {
       const { isAuthenticated: _a, authError: _b, isDefault: _c, ...bare } = conn
       const updated = setModelSupportsImages(bare as LlmConnection, modelId, enabled)
-      const result = await window.electronAPI.saveLlmConnection(updated)
+      const result = await window.electronAPI.saveLlmConnection({ slug: updated.slug, connectionId: updated.id, expectedUpdatedAt: updated.updatedAt, scope: updated.scope?.startsWith('user:') ? 'user' : updated.scope?.startsWith('workspace:') ? 'workspace' : 'install', models: updated.models, customEndpoint: updated.customEndpoint })
       if (!result.success) {
         console.error('Failed to toggle model vision:', result.error)
         toast.error(t('chat.modelPicker.toggleVisionFailed'))

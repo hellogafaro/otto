@@ -1057,7 +1057,7 @@ export default function App() {
     window.electronAPI.sessionCommand(sessionId, { type: 'rename', name })
   }, [updateSessionById])
 
-  const handleSendMessage = useCallback(async (sessionId: string, message: string, attachments?: FileAttachment[], skillSlugs?: string[], externalBadges?: ContentBadge[]) => {
+  const handleSendMessage = useCallback(async (sessionId: string, message: string, attachments?: FileAttachment[], skillSlugs?: string[], externalBadges?: ContentBadge[], options?: import('../shared/types').SendMessageOptions) => {
     try {
       // Capture pre-send processing state so we can flag mid-stream sends
       // for the queued badge (#616 follow-up — covers Pi steer path which
@@ -1203,10 +1203,12 @@ export default function App() {
 
       // Step 6: Send to Claude with processed attachments + stored attachments for persistence
       await window.electronAPI.sendMessage(sessionId, message, processedAttachments, storedAttachments, {
+        recipientAgentId: options?.recipientAgentId,
         skillSlugs,
         badges: badges.length > 0 ? badges : undefined,
         optimisticMessageId: userMessage.id,
       })
+      return true
     } catch (error) {
       console.error('Failed to send message:', error)
       updateSessionById(sessionId, (s) => ({
@@ -1221,6 +1223,7 @@ export default function App() {
           }
         ]
       }))
+      return false
     }
   }, [sessionOptions, updateSessionById, skills, sources, windowWorkspaceId])
 
@@ -1394,11 +1397,10 @@ export default function App() {
     const success = await window.electronAPI.respondToPermission(sessionId, requestId, allowed, alwaysAllow, options)
 
     if (success) {
-      // Remove only the first permission from the queue (the one we just responded to)
       setPendingPermissions(prev => {
         const next = new Map(prev)
         const queue = next.get(sessionId) || []
-        const remainingQueue = queue.slice(1) // Remove first item
+        const remainingQueue = queue.filter(request => request.requestId !== requestId)
         if (remainingQueue.length === 0) {
           next.delete(sessionId)
         } else {
@@ -1407,21 +1409,8 @@ export default function App() {
         return next
       })
       // Note: No need to force session refresh - per-session atoms update automatically
-    } else {
-      // Response failed (agent/session gone) - clear the permission anyway
-      // to avoid UI being stuck with stale permission
-      setPendingPermissions(prev => {
-        const next = new Map(prev)
-        const queue = next.get(sessionId) || []
-        const remainingQueue = queue.slice(1)
-        if (remainingQueue.length === 0) {
-          next.delete(sessionId)
-        } else {
-          next.set(sessionId, remainingQueue)
-        }
-        return next
-      })
     }
+    return success
   }, [])
 
   const handleRespondToCredential = useCallback(async (sessionId: string, requestId: string, response: CredentialResponse) => {
@@ -1608,6 +1597,12 @@ export default function App() {
     sessionOptions,
     // Session callbacks
     onCreateSession: handleCreateSession,
+    onInitLinkedPageSession: async (workspaceId, contextEntity) => {
+      const session = await window.electronAPI.initLinkedPageSession(workspaceId, contextEntity)
+      addSession(session)
+      syncSessionOptionsFromSession(session)
+      return session
+    },
     onSendMessage: handleSendMessage,
     onRenameSession: handleRenameSession,
     onFlagSession: handleFlagSession,

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Globe } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { SettingsCard, SettingsRow } from '@/components/settings'
 import { ProviderLogo } from '@/components/icons/provider-logo'
@@ -18,7 +18,7 @@ export function ChooseConnectionStep({ onSelect, onSkip }: { onSelect: (kind: Of
     <StepFormLayout title={t('setup.connection.title')} description={t('connections.form.apiKey')}>
       <SettingsCard>
         {OFFERED_KINDS.map((kind) => (
-          <SettingsRow key={kind} icon={kind === 'custom' ? <Globe /> : <ProviderLogo src={providerIcons[kind]} />} label={connectionKindName(kind)} description={kind === 'custom' ? t('connections.form.customProtocolDescription', { defaultValue: 'API key · Responses or Chat Completions API' }) : t('connections.form.apiKey')} onClick={() => onSelect(kind)}>
+          <SettingsRow key={kind} icon={<ProviderLogo src={providerIcons[kind]} />} label={connectionKindName(kind)} description={t('connections.form.apiKey')} onClick={() => onSelect(kind)}>
             <ChevronRight className="size-3.5 text-muted-foreground" />
           </SettingsRow>
         ))}

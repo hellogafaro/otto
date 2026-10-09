@@ -45,13 +45,12 @@ import { PageFrame } from "@workspace/ui/components/page-frame"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { AppSidebar, type SidebarArea } from "./app-sidebar"
 import { MainContentPanel } from "./main-content-panel"
-import { SidecarHost, SidecarProvider } from "@/context/sidecar-context"
+import { SidecarHost, SidecarProvider, useSidecar } from "@/context/sidecar-context"
 import { ComposerProvider } from "@/components/composer/composer-provider"
 import { ShellComposer } from "@/components/composer/shell-composer"
-import { isWebUI } from "@/lib/platform"
 import { HomeWallpaper } from "@/components/wallpaper/home-wallpaper"
+import { isWebUI } from "@/lib/platform"
 import { SendToWorkspaceDialog } from "./send-to-workspace-dialog"
-import { MessagingDialogHost } from "@/components/messaging/messaging-dialog-host"
 import { CommandPaletteProvider } from "@/components/command-palette/command-palette-provider"
 import { hasOpenOverlay } from "@/lib/overlay-detection"
 import { clearSourceIconCaches } from "@/lib/icon-cache"
@@ -86,6 +85,15 @@ function CloseSheetOnNavigate() {
     setOpenMobile(false)
   }, [key, setOpenMobile])
   return null
+}
+
+function ShellPageFrame({ home }: { home: boolean }) {
+  const { open, setOpen } = useSidecar()
+  return (
+    <PageFrame background={home ? <HomeWallpaper /> : undefined} aside={<SidecarHost />} asideOpen={open} onAsideOpenChange={setOpen} composer={<ShellComposer />}>
+      <MainContentPanel />
+    </PageFrame>
+  )
 }
 
 /**
@@ -432,8 +440,6 @@ function AppShellContent({
   // Use session metadata from Jotai atom (lightweight, no messages)
   // This prevents closures from retaining full message arrays
   const sessionMetaMap = useAtomValue(sessionMetaMapAtom)
-  // Workspace-level unread indicators (needed for workspace selectors across all workspaces)
-  const [workspaceUnreadMap, setWorkspaceUnreadMap] = useState<Record<string, boolean>>({})
 
   const activeSessionWorkingDirectory = session.selected
     ? sessionMetaMap.get(session.selected)?.workingDirectory
@@ -468,46 +474,6 @@ function AppShellContent({
   const activeSessionMetas = useMemo(() => {
     return workspaceSessionMetas.filter(s => !s.isArchived)
   }, [workspaceSessionMetas])
-
-  const refreshWorkspaceUnreadMap = useCallback(async () => {
-    try {
-      const summary = await window.electronAPI.getUnreadSummary()
-      const next: Record<string, boolean> = {}
-
-      for (const workspace of workspaces) {
-        next[workspace.id] = !!summary.hasUnreadByWorkspace[workspace.id]
-      }
-
-      setWorkspaceUnreadMap(next)
-    } catch (error) {
-      console.error('[AppShell] Failed to refresh workspace unread indicators:', error)
-    }
-  }, [workspaces])
-
-  // Initial + workspace-list refresh
-  useEffect(() => {
-    void refreshWorkspaceUnreadMap()
-  }, [refreshWorkspaceUnreadMap])
-
-  // Keep active workspace unread indicator in sync with live metadata updates
-  useEffect(() => {
-    if (!activeWorkspaceId) return
-    const activeHasUnread = activeSessionMetas.some((session) => !!session.hasUnread)
-    setWorkspaceUnreadMap((prev) => ({ ...prev, [activeWorkspaceId]: activeHasUnread }))
-  }, [activeWorkspaceId, activeSessionMetas])
-
-  // Keep cross-workspace indicators in sync with global unread updates from main process
-  useEffect(() => {
-    const cleanup = window.electronAPI.onUnreadSummaryChanged((summary) => {
-      const next: Record<string, boolean> = {}
-      for (const workspace of workspaces) {
-        next[workspace.id] = !!summary.hasUnreadByWorkspace[workspace.id]
-      }
-      setWorkspaceUnreadMap(next)
-    })
-
-    return cleanup
-  }, [workspaces])
 
   // Ensure session messages are loaded when selected
   React.useEffect(() => {
@@ -639,8 +605,6 @@ function AppShellContent({
     <AppShellProvider value={appShellContextValue}>
       <CommandPaletteProvider>
       <SidebarProvider>
-        {/* Home only: the photo under the whole window, first so the sidebar and the page paint over it. */}
-        {sidebarArea === 'home' && <HomeWallpaper />}
         {/* Electron: the window's top 8px is drag space everywhere (the gutters, the sidebar header and the chat's pinned row are the rest). */}
         {!isWebUI && <div aria-hidden className="titlebar-drag-region fixed inset-x-0 top-0 z-50 h-2" />}
         <CloseSheetOnNavigate />
@@ -662,16 +626,13 @@ function AppShellContent({
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
           onSelectWorkspace={onSelectWorkspace}
-          workspaceUnreadMap={workspaceUnreadMap}
           onWorkspaceCreated={() => onRefreshWorkspaces?.()}
           onWorkspaceRemoved={() => onRefreshWorkspaces?.()}
           sessionStatuses={sessionStatuses}
         />
         <SidecarProvider>
           <ComposerProvider>
-            <PageFrame aside={<SidecarHost />} composer={<ShellComposer />}>
-              <MainContentPanel />
-            </PageFrame>
+            <ShellPageFrame home={sidebarArea === 'home'} />
           </ComposerProvider>
         </SidecarProvider>
       </SidebarProvider>
@@ -686,10 +647,6 @@ function AppShellContent({
         activeWorkspaceId={activeWorkspaceId}
         onTransferComplete={handleTransferComplete}
       />
-
-      {/* Messaging dialogs (pairing-code + WA connect) — driven by messagingDialogAtom.
-          Mounted here so they survive context-menu / dropdown close. */}
-      <MessagingDialogHost />
 
     </AppShellProvider>
   )

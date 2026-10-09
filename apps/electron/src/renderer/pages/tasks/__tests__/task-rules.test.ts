@@ -36,6 +36,13 @@ describe('task filters', () => {
     expect(groups.doing.map((x) => x.id)).toEqual(['d'])
     expect(groups.archived.map((x) => x.id)).toEqual(['c'])
   })
+  it('keeps unlinked tasks in workspace lists, status groups and assignee filters', () => {
+    const unlinked = task({ id: 'unlinked', projectId: null, assignees: ['user:me'], status: 'doing' })
+    expect(matchesTaskFilters(unlinked, {})).toBe(true)
+    expect(matchesTaskFilters(unlinked, { assignee: 'user:me', status: ['doing'] })).toBe(true)
+    expect(matchesTaskFilters(unlinked, { project: 'p1' })).toBe(false)
+    expect(groupTasks([a, unlinked]).doing).toEqual([unlinked])
+  })
 })
 
 describe('time entries', () => {

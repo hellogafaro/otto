@@ -92,6 +92,13 @@ export function processEvent(
       const newState = handleToolResult(state, event)
       return { state: newState, effects: [] }
     }
+    case 'message_updated': {
+      const exists = state.session.messages.some((message) => message.id === event.message.id || event.message.toolUseId && message.toolUseId === event.message.toolUseId)
+      const messages = exists ? state.session.messages.map((message) => message.id === event.message.id || event.message.toolUseId && message.toolUseId === event.message.toolUseId ? event.message : message) : [...state.session.messages, event.message]
+      return { state: { ...state, session: { ...state.session, messages } }, effects: [] }
+    }
+    case 'processing_started':
+      return { state: { ...state, session: { ...state.session, isProcessing: true, currentRunId: event.currentRunId, currentAgentId: event.currentAgentId } }, effects: [] }
 
     case 'complete':
       return handleComplete(state, event)

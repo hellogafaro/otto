@@ -3,7 +3,7 @@
  * it replaces the stored one; the old key is never shown. A form (TanStack Form, validated on blur and on submit).
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from '@tanstack/react-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -14,8 +14,9 @@ import { Input } from '@workspace/ui/components/input'
 import { toast } from '@workspace/ui/components/sonner'
 import { useRegisterModal } from '@/context/modal-context'
 import { submitForm } from '@/lib/form'
-import { CUSTOM_CONNECTION_TYPE } from '@config/llm-connections'
 import type { LlmConnectionWithStatus } from '../../../shared/types'
+import { scopeKindOf } from './connection-labels'
+import { connectionSelector } from './provider-connection-form'
 
 export function ChangeKeyDialog({
   connection,
@@ -41,24 +42,33 @@ export function ChangeKeyDialog({
 function ChangeKey({ connection, onDone, onSaved }: { connection: LlmConnectionWithStatus; onDone: () => void; onSaved: () => void }) {
   const { t } = useTranslation()
   const [error, setError] = useState<string | null>(null)
+  const current = useRef(true)
+  useEffect(() => { current.current = true; return () => { current.current = false } }, [])
   const schema = z.object({ apiKey: z.string().trim().min(1, t('common.required')) })
   const form = useForm({
     defaultValues: { apiKey: '' },
     validators: { onBlur: schema, onSubmit: schema },
     onSubmit: async ({ value }) => {
       const apiKey = value.apiKey.trim()
-      const custom = connection.type === CUSTOM_CONNECTION_TYPE
+      const scope = scopeKindOf(connection.scope)
+      if (scope === 'install') return setError(t('connections.saveFailed'))
       try {
         const tested = await window.electronAPI.testLlmConnectionSetup({
+          ...connectionSelector(connection),
           type: connection.type,
           apiKey,
-          ...(custom ? { baseUrl: connection.baseUrl, model: connection.defaultModel, customEndpoint: connection.customEndpoint } : {}),
+          baseUrl: connection.baseUrl,
+          model: connection.defaultModel,
+          customEndpoint: connection.customEndpoint,
         })
-        if (!tested.success) return setError(tested.error || t('connections.testFailed'))
-        const saved = await window.electronAPI.setupLlmConnection({ slug: connection.slug, updateOnly: true, credential: apiKey })
-        if (!saved.success) return setError(saved.error || t('connections.saveFailed'))
-      } catch (cause) {
-        return setError(cause instanceof Error ? cause.message : t('connections.saveFailed'))
+        if (!current.current) return
+        if (!tested.success) return setError(t('connections.testFailed'))
+        const saved = await window.electronAPI.setupLlmConnection({ ...connectionSelector(connection), updateOnly: true, credential: apiKey })
+        if (!current.current) return
+        if (!saved.success) return setError(t('connections.saveFailed'))
+      } catch {
+        if (current.current) setError(t('connections.saveFailed'))
+        return
       }
       toast.success(t('common.saved'), { id: 'saved' })
       onSaved()
