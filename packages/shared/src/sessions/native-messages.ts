@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import type { StoredMessage } from './types.ts'
+import { createHash } from 'node:crypto'
 
 const searchInitialized = new WeakSet<object>()
 
@@ -39,6 +40,12 @@ export function initNativeMessagesSearch(db: Db = initDb()): void {
 }
 
 export function assertHistoryRuntime(_db: Db | Tx = initDb()) {}
+
+export function getNativeMessageIdentities(workspaceId: string, chatId: string, db: Db | Tx = initDb()): { id: string; canonicalId: string | null; taggedId: string | null; fingerprint: string | null }[] {
+  if (!db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length) return []
+  const rows = db.all<{ id: string; canonical_id: string | null; tagged_id: string | null; projection: string | null }>(sql`SELECT id, json_extract(content,'$.metadata.otto.id') AS canonical_id, json_extract(content,'$.metadata.ottoId') AS tagged_id, CASE WHEN json_type(content,'$.metadata.otto')='object' AND json_type(content,'$.metadata.otto.id')='text' AND json_type(content,'$.metadata.otto.content')='text' AND json_extract(content,'$.metadata.otto.type') IN ('user','assistant','tool','info','error','warning','plan','auth-request') THEN json_extract(content,'$.metadata.otto') END AS projection FROM mastra_messages WHERE thread_id=${chatId} AND resourceId=${workspaceId} ORDER BY rowid`)
+  return rows.map((row) => ({ id: row.id, canonicalId: row.canonical_id, taggedId: row.tagged_id, fingerprint: row.projection === null ? null : createHash('sha256').update(JSON.stringify(JSON.parse(row.projection), (_key, value) => value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, value[key]])) : value)).digest('hex') }))
+}
 
 export function getNativeMessages(
   workspaceId: string,

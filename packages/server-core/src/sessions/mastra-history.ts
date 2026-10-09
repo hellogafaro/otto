@@ -1,12 +1,13 @@
 import type { MastraDBMessage } from '@mastra/core/agent'
 import { initDb } from '@otto/shared/db'
 import type { StoredMessage } from '@otto/core/types'
+import { isDeepStrictEqual } from 'node:util'
 import {
   expandSessionPath,
   makeSessionPathPortable,
 } from '../../../shared/src/sessions/messages.ts'
 import { openMastraStorage } from './mastra-storage'
-import { getNativeMessages } from '../../../shared/src/sessions/native-messages.ts'
+import { getNativeMessages, getNativeMessageIdentities } from '../../../shared/src/sessions/native-messages.ts'
 
 let runtime: ReturnType<typeof openMastraStorage> | undefined
 
@@ -25,39 +26,30 @@ export async function writeMastraHistory(input: {
   const { storage } = await initMastraHistory()
   const memory = await storage.getStore('memory')
   if (!memory) throw new Error('Native conversation storage is unavailable.')
-  const thread = await memory.getThreadById({
-    threadId: input.chatId,
-    resourceId: input.workspaceId,
-  })
-  if (!thread)
-    await memory.saveThread({
-      thread: {
-        id: input.chatId,
-        resourceId: input.workspaceId,
-        title: input.title ?? 'Chat',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    })
-  const current = await memory.listMessages({
-    threadId: input.chatId,
-    resourceId: input.workspaceId,
-    perPage: false,
-  })
-  const known = new Map(
-    current.messages.map((row) => [
-      String(row.content.metadata?.ottoId ?? row.id),
-      row.id,
-    ]),
-  )
+  const current = getNativeMessageIdentities(input.workspaceId, input.chatId)
+  const known = new Map<string, { id: string; fingerprint: string | null }>()
+  for (const row of current) {
+    if (typeof row.canonicalId !== 'string' || !row.canonicalId || !row.fingerprint) throw new Error('Native history contains an unsupported canonical identity or projection; existing rows were preserved.')
+    if (row.taggedId && row.taggedId !== row.canonicalId) throw new Error('Native message identity metadata conflicts; existing history was preserved.')
+    const previous = known.get(row.canonicalId)
+    if (previous && previous.fingerprint !== row.fingerprint) throw new Error('Duplicate native message identities have divergent projections; existing history was preserved.')
+    if (!previous) known.set(row.canonicalId, row)
+  }
+  const unique = new Map<string, { message: StoredMessage; fields: StoredMessage }>()
+  for (const message of input.messages) {
+    const serialized = makeSessionPathPortable(JSON.stringify(message), input.sessionDir)
+    const fields = JSON.parse(serialized) as StoredMessage
+    const previous = unique.get(message.id)
+    if (previous && !isDeepStrictEqual(previous.fields, fields)) throw new Error('Duplicate snapshot identities have divergent projections; existing history was preserved.')
+    if (!previous) unique.set(message.id, { message, fields })
+  }
+  const thread = await memory.getThreadById({ threadId: input.chatId, resourceId: input.workspaceId })
+  if (!thread) await memory.saveThread({ thread: { id: input.chatId, resourceId: input.workspaceId, title: input.title ?? 'Chat', createdAt: new Date(), updatedAt: new Date() } })
   const retained = new Set<string>()
-  const messages: MastraDBMessage[] = input.messages.map(
-    (message, position) => {
-      const id = known.get(message.id) ?? crypto.randomUUID()
+  const messages: MastraDBMessage[] = [...unique.values()].map(
+    ({ message, fields }, position) => {
+      const id = known.get(message.id)?.id ?? crypto.randomUUID()
       retained.add(id)
-      const fields = JSON.parse(
-        makeSessionPathPortable(JSON.stringify(message), input.sessionDir),
-      ) as StoredMessage
       return {
         id,
         threadId: input.chatId,
@@ -87,7 +79,7 @@ export async function writeMastraHistory(input: {
     },
   )
   await memory.saveMessages({ messages })
-  const removed = current.messages
+  const removed = current
     .filter((message) => !retained.has(message.id))
     .map((message) => message.id)
   if (removed.length) await memory.deleteMessages(removed)
@@ -189,6 +181,8 @@ export async function recoverMastraHistory(input: {
   chatId: string
   sessionDir: string
 }) {
+  const running = initDb().$client.query('SELECT run_started_at FROM chats WHERE id=? AND workspace_id=?').get(input.chatId, input.workspaceId) as { run_started_at: number | null } | null
+  if (!running || running.run_started_at === null) return
   const messages = getNativeMessages(
     input.workspaceId,
     input.chatId,
