@@ -341,7 +341,7 @@ export function useRunActivity(run: LiveRun, enabled: boolean) {
       return [...merged.values()].sort((a, b) => a.cursor - b.cursor);
     },
     enabled,
-    refetchInterval: enabled ? 2000 : false,
+    refetchInterval: enabled && activeRun(run) ? 2000 : false,
     retry: false,
   });
 }

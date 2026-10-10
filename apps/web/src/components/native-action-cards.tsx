@@ -1,3 +1,4 @@
+import { RiArrowDownSLine } from "@remixicon/react";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -7,6 +8,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@workspace/ui/components/collapsible";
 import type { InferResponseType } from "hono/client";
 import { QueryState } from "@/components/query-state";
 import { ApiError, read, type workspaceApi } from "@/lib/api";
@@ -42,6 +48,10 @@ export function NativeActionCards({
     retry: false,
   });
   if (user.id !== run.sponsorId) return null;
+  const items = actions.error
+    ? []
+    : (actions.data?.pages.flatMap((page) => page.items) ?? []);
+  const steps = items.filter((action) => action.status === "approved");
   return (
     <>
       <QueryState
@@ -49,16 +59,53 @@ export function NativeActionCards({
         error={actions.error}
         retry={actions.refetch}
       />
-      {!actions.error &&
-        actions.data?.pages
-          .flatMap((page) => page.items)
-          .map((action) => (
-            <NativeActionCard
-              key={action.id}
-              action={action}
-              canResolve={canWrite && run.state === "running"}
-            />
-          ))}
+      {steps.length > 0 && (
+        <Collapsible>
+          <CollapsibleTrigger
+            render={<Button variant="ghost" size="compact" />}
+          >
+            {steps.length} {steps.length === 1 ? "step" : "steps"}
+            <RiArrowDownSLine />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="flex flex-col gap-3 py-3">
+              {steps.map((action) => (
+                <Collapsible key={action.id}>
+                  <CollapsibleTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="compact"
+                        className="max-w-full"
+                      />
+                    }
+                  >
+                    <span className="truncate">
+                      {action.type}
+                      {"title" in action.input && action.input.title
+                        ? ` · ${action.input.title}`
+                        : ""}
+                    </span>
+                    <RiArrowDownSLine />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <NativeActionCard action={action} canResolve={false} />
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+      {items
+        .filter((action) => action.status !== "approved")
+        .map((action) => (
+          <NativeActionCard
+            key={action.id}
+            action={action}
+            canResolve={canWrite && run.state === "running"}
+          />
+        ))}
       {actions.hasNextPage && (
         <Button
           variant="ghost"

@@ -144,7 +144,7 @@ test("controlled Chrome capture startup, byte bound and transcription unmount cl
   await expect(
     page.getByRole("button", { name: "Transcribing", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Inbox", exact: true }).click();
+  await page.getByRole("button", { name: "Home", exact: true }).click();
   release();
   await expect.poll(released).toBe(true);
   await expect(
@@ -370,7 +370,7 @@ test("controlled Chrome denied, cancel, pending permission, recorder and transcr
     window.dictationFixture.mode = "delayed";
   });
   await dictate.press("Enter");
-  await page.getByRole("button", { name: "Inbox", exact: true }).click();
+  await page.getByRole("button", { name: "Home", exact: true }).click();
   await page.evaluate(() => window.dictationFixture.release?.());
   await expect
     .poll(() => page.evaluate(() => window.dictationFixture.streams.length))

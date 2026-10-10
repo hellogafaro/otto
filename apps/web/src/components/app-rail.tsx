@@ -26,6 +26,7 @@ import {
 } from "@workspace/ui/components/tooltip";
 import { Fragment, type ReactElement, type ReactNode } from "react";
 import { useCommandPalette } from "@/components/command-palette";
+import { OttoLogo } from "@/components/otto-logo";
 import { ProfileMenu } from "@/components/profile-menu";
 
 type Destination = {
@@ -132,11 +133,11 @@ export function AppRail() {
         return (
           <Fragment key={to}>
             <RailItem
-              label={label}
+              label={to === "/" ? "Home" : label}
               active={active}
               render={<Link to={to} onClick={() => setOpen(true)} />}
             >
-              <Icon />
+              {to === "/" ? <OttoLogo className="size-5" /> : <Icon />}
             </RailItem>
             {/* Search (the command palette) second, right after home. */}
             {index === 0 && (

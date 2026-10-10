@@ -1786,24 +1786,11 @@ export function ChatRunFeed({
 }
 
 function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
-  const { api, workspaceId, user, invalidate } = useWorkspace();
+  const { api, workspaceId, invalidate } = useWorkspace();
   const directory = useDirectory();
-  const [open, setOpen] = useState(activeRun(run));
   const [body, setBody] = useState("");
   const steerRequest = useRef({ body: "", id: "" });
-  const activity = useRunActivity(run, open);
-  const usage = useQuery({
-    queryKey: ["workspace", workspaceId, "run", run.id, "usage"],
-    queryFn: async () =>
-      read(
-        await api.runs[":id"].usage.$get({
-          param: { workspaceId, id: run.id },
-        }),
-      ),
-    enabled: open,
-    refetchInterval: activeRun(run) ? 5000 : false,
-    retry: false,
-  });
+  const activity = useRunActivity(run, true);
   const stop = useMutation({
     mutationFn: async () =>
       read(
@@ -1831,84 +1818,75 @@ function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
     },
   });
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger render={<Button variant="ghost" className="w-fit" />}>
-        <ActorAvatar actorId={run.agentId} />
-        {directory.actorOf(run.agentId).name}: {run.state}
-        <RiArrowDownSLine />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="flex flex-col gap-3 py-3">
-          {run.outcome && <p>{run.outcome}</p>}
-          {user.id === run.sponsorId && run.sessionState && (
-            <p role="status">
-              {run.sessionState === "continued"
-                ? "Continuing your private session."
-                : run.sessionState === "reset"
-                  ? "The previous private context was not continued. A new private session was started."
-                  : "New private session."}
-            </p>
-          )}
-          <NativeActionCards run={run} canWrite={canWrite} />
-          <QueryState
-            pending={activity.isPending}
-            error={activity.error}
-            retry={activity.refetch}
-          />
-          {!activity.error &&
-            activity.data?.map((item) =>
-              item.type === "question" ? (
-                <RunQuestion
-                  key={item.id}
-                  question={item}
-                  canWrite={canWrite}
-                />
-              ) : (
-                <Marker key={item.id}>
-                  <MarkerContent>
-                    <span className="whitespace-pre-line">
-                      {item.type === "steer" ? "Instruction: " : ""}
-                      {item.body}
-                    </span>
-                  </MarkerContent>
-                </Marker>
-              ),
-            )}
-          <QueryState
-            pending={usage.isPending}
-            error={usage.error}
-            retry={usage.refetch}
-          />
-          {!usage.error && usage.data && (
-            <p>
-              Native usage · {usage.data.model} ·{" "}
-              {usage.data.totalTokens === null
-                ? "Token total unknown"
-                : `${usage.data.totalTokens} tokens`}
-              {usage.data.estimatedCost
-                ? ` · $${usage.data.estimatedCost.amount.toFixed(6)} API list-price estimate`
-                : " · Cost unknown"}
-              .{" "}
-              {usage.data.complete
-                ? "Complete observed usage."
-                : "Usage is incomplete."}{" "}
-              This is not an account charge.
-            </p>
-          )}
-          {activeRun(run) && canWrite && (
-            <>
-              <Button
-                variant="outline"
-                disabled={stop.isPending}
-                onClick={() => stop.mutate()}
+    <div className="flex flex-col gap-3">
+      {activeRun(run) && (
+        <Marker role="status">
+          <ActorAvatar actorId={run.agentId} />
+          <MarkerContent>
+            {directory.actorOf(run.agentId).name} ·{" "}
+            {run.state === "queued" || run.state === "launching"
+              ? "Starting"
+              : run.state === "uncertain"
+                ? "Needs attention"
+                : "Working"}
+          </MarkerContent>
+        </Marker>
+      )}
+      {(run.state === "failed" ||
+        run.state === "interrupted" ||
+        run.state === "uncertain") && (
+        <p role={run.state === "interrupted" ? "status" : "alert"}>
+          {run.state === "uncertain"
+            ? "Execution could not be confirmed. Check the result before trying again."
+            : run.state === "interrupted"
+              ? "Stopped or access changed before the work finished."
+              : run.outcome === "authorization_revoked"
+                ? "Access changed. The agent could not start."
+                : run.outcome === "configuration_or_provider_unavailable" ||
+                    run.outcome === "compute_provider_not_selected"
+                  ? "The agent’s configuration or provider is unavailable. Check Agent settings before trying again."
+                  : "The agent could not finish. Check the result before trying again."}
+        </p>
+      )}
+      <NativeActionCards run={run} canWrite={canWrite} />
+      <QueryState
+        pending={activity.isPending}
+        error={activity.error}
+        retry={activity.refetch}
+      />
+      {!activity.error &&
+        activity.data?.map((item) =>
+          item.type === "question" ? (
+            <RunQuestion key={item.id} question={item} canWrite={canWrite} />
+          ) : item.type === "steer" ? (
+            <Marker key={item.id}>
+              <MarkerContent>
+                <span className="whitespace-pre-line">
+                  Instruction: {item.body}
+                </span>
+              </MarkerContent>
+            </Marker>
+          ) : null,
+        )}
+      {activeRun(run) && canWrite && (
+        <>
+          <Button
+            variant="outline"
+            disabled={stop.isPending}
+            onClick={() => stop.mutate()}
+          >
+            {stop.isPending ? "Requesting stop" : "Stop Run"}
+          </Button>
+          {stop.error && <p role="alert">{stop.error.message}</p>}
+          {run.type === "prompt" && run.state === "running" && (
+            <Collapsible>
+              <CollapsibleTrigger
+                render={<Button variant="ghost" size="compact" />}
               >
-                {stop.isPending ? "Requesting stop" : "Stop Run"}
-              </Button>
-              {stop.isSuccess && (
-                <p>Stop acknowledged. Current state: {run.state}.</p>
-              )}
-              {stop.error && <p role="alert">{stop.error.message}</p>}
-              {run.type === "prompt" && run.state === "running" && (
+                Send instruction
+                <RiArrowDownSLine />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
                 <form
                   onSubmit={(event) => {
                     event.preventDefault();
@@ -1938,12 +1916,12 @@ function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
                     {steer.error && <p role="alert">{steer.error.message}</p>}
                   </FieldGroup>
                 </form>
-              )}
-            </>
+              </CollapsibleContent>
+            </Collapsible>
           )}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+        </>
+      )}
+    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page, Request } from "@playwright/test";
 import type { hc, InferRequestType, InferResponseType } from "hono/client";
 import type { RpcApp } from "../../apps/server/src/api";
 import { register } from "./account";
@@ -115,11 +115,58 @@ async function prepareAgent(page: Page, title: string) {
 }
 async function prepareSchedule(
   page: Page,
+  workspaceId: string,
   title: string,
   agent: Agent,
   chat: Chat,
 ) {
   await page.goto("/schedules");
+  await expect(page.getByText("No schedules", { exact: true })).toBeVisible();
+  const submissions: string[] = [];
+  const submitted = (request: Request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (
+      request.method() === "POST" &&
+      ["schedules", "chats", "runs"].some(
+        (domain) => pathname === path(workspaceId, domain),
+      )
+    )
+      submissions.push(pathname);
+  };
+  page.on("request", submitted);
+  await page.getByRole("button", { name: "New schedule", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", {
+      name: "Message about your schedules",
+      exact: true,
+    }),
+  ).toHaveText("Every");
+  await expect(
+    page.getByRole("dialog", { name: "New schedule", exact: true }),
+  ).toHaveCount(0);
+  const empty = await page.request.get(
+    `${path(workspaceId, "schedules")}?limit=100`,
+  );
+  expect(empty.status()).toBe(200);
+  expect((await empty.json()).items).toEqual([]);
+  expect(submissions).toEqual([]);
+  page.off("request", submitted);
+  const seed = await page.request.post(path(workspaceId, "schedules"), {
+    headers: headers(page),
+    data: {
+      title: unique("Existing disabled Schedule"),
+      agentId: agent.id,
+      chatId: chat.id,
+      type: "prompt",
+      body: "Fixture setup only",
+      cron: "",
+      timezone: "UTC",
+      status: "disabled",
+    } satisfies InferRequestType<WorkspaceApi["schedules"]["$post"]>["json"],
+  });
+  expect(seed.status()).toBe(200);
+  expect(await seed.json()).toMatchObject({ status: "disabled", cron: "" });
+  await page.reload();
   await page
     .getByRole("button", { name: "New schedule", exact: true })
     .first()
@@ -684,7 +731,7 @@ test("Schedule UI saves cron/manual policy, validates drafts, restores disabled 
   );
   expect(participant.status()).toBe(200);
   const title = unique("Schedule lifecycle");
-  const create = await prepareSchedule(page, title, agent, chat);
+  const create = await prepareSchedule(page, workspaceId, title, agent, chat);
   await choose(page, create, "Trigger", "Cron");
   await create.getByLabel("Cron expression", { exact: true }).fill("0 9 * *");
   await expect(
@@ -716,8 +763,9 @@ test("Schedule UI saves cron/manual policy, validates drafts, restores disabled 
     timezone: "Europe/Berlin",
     status: "disabled",
   });
+  await expect(page.getByText("No deliveries", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("No scheduled deliveries yet.", { exact: true }),
+    page.getByText("Scheduled deliveries show up here.", { exact: true }),
   ).toBeVisible();
   const history = await page.request.get(
     `${path(workspaceId, "schedules", id)}/history?limit=100`,
@@ -959,7 +1007,7 @@ for (const domain of ["Agent", "Schedule"] as const) {
         workspaceId,
         unique("Lost ACK output Chat"),
       );
-      dialog = await prepareSchedule(page, title, agent, chat);
+      dialog = await prepareSchedule(page, workspaceId, title, agent, chat);
       await choose(page, dialog, "Schedule type", "Script");
       await expect(dialog.getByLabel("Script", { exact: true })).toHaveValue(
         `Private body ${title}`,

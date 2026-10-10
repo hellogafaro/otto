@@ -24,7 +24,7 @@ Use normal authenticated separate user/browser contexts. The finite multiplayer 
 
 ### Composer-first Settings candidate
 
-The uncommitted candidate over `e68c5400dda070ee31ebe9b6e14be0c6a9d6696a`
+The local Settings checkpoint `f3803cff216e2737f76114a1b1cc62a8fe960528`
 implements read-only Settings Skills/Connections, exact composer target/fence
 handoff, MCP-only explicitly human-approved activation and human-only cached
 details. Secure credential-reference and GitHub authentication completion remain
@@ -53,10 +53,42 @@ were inspected by the independent reviewer. The final acceptance report is
 `9898792c556bf146d61f812462ea018552f85954861c988d7dd12a89ebfc3865`.
 On resumption, all304 source/test entries, seven owner pins and144 sealed evidence
 artifacts matched the preserved candidate. This reconciliation is not a new test
-run. The two unrelated Schedule dialog failures remain failed; no full browser
-suite pass is claimed. Settings commit/recovery and owned activation are still
-unverified. Compact Chat and first-rail logo are separate resumed work.
-No new inference, credential access or remote push occurred during reconciliation.
+run. The resumed owner independently reviewed the checkpoint and verified its
+recovery bundle. Fresh Settings checks passed89 tests and root/web types.
+The two Schedule failures were stale fixture assumptions: the repaired tests
+preserve empty-state composer/no-write behavior, then seed one disabled Schedule
+through authenticated HTTP to exercise the existing populated-list editor.
+The scoped Settings/Schedule replay passed15/15, zero skipped/flaky, on260 stable
+source pins; this is not the complete repository browser suite. Evidence:
+`~/.capy/work/otto-resume-20261010/schedules/run4-results.json`, SHA256
+`024520f99a2bdfed8f543ccea20e1e75975d9b1fee7e07a9c1cc18afed4b96e0`.
+
+### Resumed local-main UI and memory work
+
+Completed UI slices are integrated directly into the existing local main/HMR
+checkout. Full and floating Chat use collapsed recorded approved-action steps,
+preserving exact receipts, pending approvals, questions, Stop and meaningful
+errors without conversation usage/session/log clutter. Native reads without a
+public record are not counted; receipt authority and backend usage stay unchanged.
+The authentic Otto mark replaces the first Inbox glyph with the Home accessible
+name; navigation geometry/order remain unchanged. The palette project dropdown
+is removed, retaining Projects results and the existing route/first-project task
+scope. Worker evidence under `~/.capy/work/otto-resume-20261010/{chat,logo,palette}/`
+records inspected isolated screenshots, typechecks and targeted interaction
+checks. Chat additionally passed55 targeted tests and the native streaming browser
+case with controlled providers. No live-provider success is inferred.
+
+The unchanged300,000 KiB RSS cap still fails:50 MB roundtrip461,376 KiB,
+100 MB501,552 KiB, concurrent80 MB upload/60 MB download570,896 KiB; native-loaded
+idle281,328 KiB. Bounded chunks and a single native module graph provide no
+demonstrated small fix; all temporary instrumentation was removed. Nine adjacent
+integrity/authorization/cancellation cases passed. Sealed diagnosis:
+`~/.capy/work/otto-resume-20261010/memory/result.md`, SHA256
+`ba94dbe7622db2c2840f6cb695cd9761f1b31f6cd3ce0cef9723237b3c05516e`.
+Larger native dependency/runtime memory changes require separate scope. Two paid
+Skills/MCP attempts remain consumed failures; exact output, SMTP and confined
+agent-browser qualification remain unresolved under their existing gates.
+No remote push, deployment, production build or further inference occurred.
 
 ### Prior committed runtime checkpoint
 

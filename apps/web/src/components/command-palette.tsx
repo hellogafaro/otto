@@ -18,10 +18,6 @@ import {
 } from "@workspace/ui/components/command";
 import { Empty, EmptyMedia, EmptyTitle } from "@workspace/ui/components/empty";
 import { Kbd, KbdGroup } from "@workspace/ui/components/kbd";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@workspace/ui/components/native-select";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   createContext,
@@ -141,9 +137,7 @@ function Palette({
   const [text, setText] = useState("");
   const [query, setQuery] = useState("");
   const debounced = useDebounced(setQuery, 800);
-  const [projectSelection, setProjectSelection] = useState("");
-  const projectId =
-    projectSelection || params.projectId || directory.projects[0]?.id;
+  const projectId = params.projectId || directory.projects[0]?.id;
   const shows = (group: PaletteCategory) =>
     category === "all" || category === group;
   const search = {
@@ -235,8 +229,7 @@ function Palette({
     <Command
       shouldFilter={false}
       onKeyDown={(event) => {
-        if (event.key !== "Tab" || event.target instanceof HTMLSelectElement)
-          return;
+        if (event.key !== "Tab") return;
         event.preventDefault();
         const step = event.shiftKey ? -1 : 1;
         const index = categories.indexOf(category);
@@ -261,22 +254,6 @@ function Palette({
           value={category}
           onChange={onCategory}
         />
-      )}
-      {shows("tasks") && directory.projects.length > 0 && (
-        <div className="flex items-center gap-2 px-4 pb-2">
-          <NativeSelect
-            aria-label="Task search project"
-            value={projectId ?? ""}
-            onChange={(event) => setProjectSelection(event.target.value)}
-          >
-            <NativeSelectOption value="">Choose project</NativeSelectOption>
-            {directory.projects.map((project) => (
-              <NativeSelectOption key={project.id} value={project.id}>
-                {project.title}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
       )}
       <CommandList className="pt-0">
         {errors.map(({ key, result }) => (

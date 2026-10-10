@@ -409,8 +409,10 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   share one column (32px in), and a
   combobox's search icon and text sit on the items' columns.
 - **Rail** (`AppRail`): 48px wide, 8px around 32px buttons, no labels.
-  Inbox (home), Search (the command palette), Tasks, Projects, Chats,
-  Schedules, Documents, Files.
+  Home (the original six-blade Otto mark), Search (the command palette),
+  Tasks, Projects, Chats, Schedules, Documents, Files. The 20px mark replaces
+  the Inbox icon in its existing "/" link, inherits the rail's neutral
+  hover/selected colors and keeps the Home tooltip and accessible name.
 - **Left and right panels.** The rail stays alone on the frame. Inside the
   card, a left panel (`SectionSidebar`) holds a section's own navigation
   (Chats) and the right panel holds details; both are 280px, in the card's
@@ -782,8 +784,9 @@ switches) 8px above and below; 36px rows that match
 names containing the query, with edges that fade while more results scroll;
 a 48px footer with key hints. Categories: All, Tasks, People, Projects,
 Documents, Files, Actions. Picking a result goes there (a file opens
-in the viewer). Text and icons sit
-16px in throughout.
+in the viewer). There is no project dropdown; task results retain the current
+route's project or the existing first accessible project fallback. The Projects
+category remains available. Text and icons sit 16px in throughout.
 
 **Task list.** Groups by status in lifecycle order under full-width
 `secondary` header buttons. Each row: its status icon (under the header's),
@@ -993,7 +996,9 @@ Existing Connection operation cards retain their exact-request disclosure and st
 
 Active filters preserve their selected value while directory options load or become unavailable. An unresolved option displays “Unavailable” without dereferencing a missing icon; the person can still remove or clear it. Missing options never silently broaden the query by dropping the filter.
 
-Normal Chat sends request automatic private continuity for the authenticated human and selected Agent in that Chat. Advanced explicit Session selection remains separate. The existing Run detail shows its sponsoring human only the persisted dispatch result: new private session, continued private session, or a fresh private session because previous context was not continued. Queued admission does not predict continuity, expose another person's private Session, or invent a reset reason.
+Normal Chat sends request automatic private continuity for the authenticated human and selected Agent in that Chat. Advanced explicit Session selection remains separate. Conversation views do not show private Session diagnostics.
+
+Full and floating Chats share a quiet, collapsed “N steps” disclosure for recorded, approved action results, using the existing compact ghost Button and Collapsible. Only loaded, executed actions count; proposals, denials, questions, instructions and completion bookkeeping are not work steps. Expansion lists each recorded action and its title, with a further disclosure for its exact payload, human decision and receipt; pending approvals, questions, Stop and meaningful failures stay visible outside it. Conversation views omit model/token/cost metadata, raw output logs and repeated completion labels; usage storage is unchanged. Tool reads without a public work record do not invent a step.
 
 ### Private native streaming drafts
 
