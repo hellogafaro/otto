@@ -61,6 +61,22 @@ are covered. Whole-foundation independent acceptance, real-provider exact-answer
 qualification and the previously failed RSS gate remain open. No paid inference,
 external email, remote push, deployment or production build was performed.
 
+Local activation passed for signed-off source commit
+`9557ac2dc6d3ecdb12a45b5180ea6ccf00fcae1a`. The 315 runtime source/config pins
+in `settings-review/library-candidate-sources.json` have SHA-256
+`1565c9f83c6392e442d899ee7ff9cc50c6d1be1f40fe38db409df425e3c1d94e`.
+Fresh command/cwd/parent/start/listener identity and quiescence checks preceded
+the owned API restart; wrapper/API PIDs are now 77363/77364. Health is `ok`,
+readiness is `ready`, and the existing Vite UI responds HTTP 200. PostgreSQL,
+Garage and Vite were not restarted. User/session/saved-file counts stayed 1/1/2,
+public settings and disabled policies stayed unchanged, and approved startup
+values were retained in memory only. This confirms retained session storage,
+not a fresh exercise of the person's existing browser session.
+The actual `settings-review/library-activation-receipt.json` has SHA-256
+`5a5db9ff9d8c5631326eba9f0eb0f768c54263f4c364ea3ead2f7cb8fe999e0a`.
+The pinned rollback was not invoked. Independent final acceptance of the merged
+Library backend remains unverified; author-run tests are not independent acceptance.
+
 ### Composer-first Settings candidate
 
 The local Settings checkpoint `f3803cff216e2737f76114a1b1cc62a8fe960528`
