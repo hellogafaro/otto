@@ -45,7 +45,7 @@ retry. Participant pagination continues past an already-found current user.
 | Legacy oversized discussion | Corrected a regression found by the existing late-viewer browser test: unavailable complete automatic snapshots now freeze `[]` without blocking ordinary human discussion. Explicit contributor mentions persist first, then unchanged Run/audience caps return a safe refusal. Independent HTTP proves 103 retained participants, late viewer denial, and no reinterpretation of an empty retry after shrinking membership and rebuilding the app. No limits were raised. |
 | Actual browser interactions | Passed the six one/two-human by zero/one/two-Agent combinations, explicit group/multiple/deduped mentions, lost message ACK, exact retry, second-human delivery and reload using a controlled native runtime. Late-viewer pagination/recovery, special-label human mention attention and keyboard retry, and full/new/floating composer checks also pass. The existing no-account admission and Chat lifecycle cases passed earlier in this integration. |
 | Native approval retention | Passed real controlled native Connection proposal, deliberately lost approval ACK, exact payload/receipt readback, one persisted creation and reload. The fixture now observes the current nested step disclosures and holds reconciliation reads while asserting the unconfirmed state, avoiding a race with authoritative polling. |
-| Additive schema preservation | Passed populated disposable metadata/native-message/Run equality and transactional DDL rollback. The only proposed saved-schema change is `ALTER TABLE messages ADD COLUMN "replyAgentIds" jsonb NOT NULL DEFAULT '[]'::jsonb;`. Existing rows remain silent on exact retry. Application rollback must retain this column once new messages contain frozen selections. Local activation is recorded separately after execution. |
+| Additive schema preservation | Passed populated disposable metadata/native-message/Run equality and transactional DDL rollback. The only saved-schema change is `ALTER TABLE messages ADD COLUMN "replyAgentIds" jsonb NOT NULL DEFAULT '[]'::jsonb;`. Existing rows remain silent on exact retry. Application rollback must retain this column once new messages contain frozen selections. Actual guarded local activation is recorded below. |
 
 The 422 implementation/test/config pins over `ee2f1eaf8c4b9ed9621490cba9d4703241c76570`
 are in `~/.capy/work/otto-resume-20261010/multiplayer-ui/verification-sources.json`,
@@ -62,6 +62,27 @@ This supersedes the sidebar checkpoint's unmigrated manual-Run-test limitation:
 that case now exercises the real composer and preserved discussion with no account.
 It is not a full browser-suite or whole-foundation pass. Real-provider exact-answer,
 RSS, SMTP, agent-browser and final merged-Library acceptance gates remain unchanged.
+
+The source is signed off on local main at `d82b99516e2ad2c0587ad4908a331195dca07639`.
+Guarded local activation reached `candidate-ready`, wrapper/API PIDs 16075/16076,
+with health `ok`, readiness `ready`, web HTTP 200 and the new reply-error code served
+by the existing Vite process. PostgreSQL, Garage and Vite were not restarted.
+At the guarded before/after boundary, saved users/sessions/files stayed 1/1/2 and
+message metadata, native messages, native threads and Runs had identical fingerprints
+before the additive SQL, after SQL and after startup. Later human app activity is
+not covered by that unchanged-data snapshot. No model call was made by activation.
+Approved startup values stayed memory-only; public settings and disabled policies
+were preserved. No rollback, remote push, deployment or production build occurred.
+
+Actual receipt: `settings-review/multiplayer-activation-receipt.json`, SHA-256
+`96c26c7b6ac3ddd4866a014143e32d0e503b2350e44ec4ea20b9378f26f094c3`.
+The 316-file runtime manifest is `settings-review/multiplayer-candidate-sources.json`,
+SHA-256 `d5d61248c26982c10b28cb0ea79c4843b431902847f927db8554ddabf2c75e59`.
+Guard source and reviewed plan hashes are respectively
+`756088637764ae58546d198fffa56876820bc5c5d9eb00acb28ce912b03730df` and
+`467677486f99b53462c8ced647793bf9baa9bf1dbefd38897a3f8adb01f0c1cc`.
+Browser acceptance remains a normal-auth fictional/isolated instance, not a claim
+that a fresh paid-provider reply was exercised in the saved human session.
 
 ### Simplified Chat sidebar
 
