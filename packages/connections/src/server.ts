@@ -44,6 +44,7 @@ export function createConnectionService(options: {
   boundary: ConnectionBoundary;
   secrets: SecretResolver;
   http: HttpOptions;
+  allowAnonymousMcp?: boolean;
   githubEndpoint?: string;
 }) {
   const { boundary } = options;
@@ -54,39 +55,52 @@ export function createConnectionService(options: {
   const mcp = createMcpClient({ http: options.http });
 
   async function prepare(row: typeof connections.$inferSelect) {
-    if (!row.config || !row.credentialRef)
+    if (!row.config)
       throw new DomainError("unavailable", "Connection adapter unavailable");
     const config = CONNECTION_CONFIG.parse(row.config);
+    const anonymous = config.type === "mcp" && config.authentication === "none";
+    if (anonymous && !options.allowAnonymousMcp)
+      throw new DomainError("unavailable", "Anonymous MCP is not configured");
     const controller = new AbortController();
     const abort = () => controller.abort();
     options.http.signal?.addEventListener("abort", abort, { once: true });
     if (options.http.signal?.aborted) controller.abort();
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    let credential: string;
+    let credential = "";
     try {
-      credential = await Promise.race([
-        options.secrets.resolve(
-          {
-            workspaceId: row.workspaceId,
-            connectionId: row.id,
-            credentialRef: row.credentialRef,
-          },
-          controller.signal,
-        ),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(
-            () => {
-              controller.abort();
-              reject(
-                new DomainError("unavailable", "Credential deadline exceeded"),
-              );
-            },
-            Math.min(options.http.timeoutMs ?? 10000, 10000),
+      if (!anonymous) {
+        if (!row.credentialRef)
+          throw new DomainError(
+            "unavailable",
+            "Connection adapter unavailable",
           );
-        }),
-      ]);
-      if (!credential || credential.length > 65536)
-        throw new DomainError("unavailable");
+        credential = await Promise.race([
+          options.secrets.resolve(
+            {
+              workspaceId: row.workspaceId,
+              connectionId: row.id,
+              credentialRef: row.credentialRef,
+            },
+            controller.signal,
+          ),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(
+              () => {
+                controller.abort();
+                reject(
+                  new DomainError(
+                    "unavailable",
+                    "Credential deadline exceeded",
+                  ),
+                );
+              },
+              Math.min(options.http.timeoutMs ?? 10000, 10000),
+            );
+          }),
+        ]);
+        if (!credential || credential.length > 65536)
+          throw new DomainError("unavailable");
+      }
     } catch {
       throw new DomainError("unavailable", "Credential unavailable");
     } finally {
@@ -118,7 +132,11 @@ export function createConnectionService(options: {
         action: string,
         target: string,
         args: Record<string, JsonValue>,
-      ) => sanitize(await client.execute(action, target, args), [credential]),
+      ) =>
+        sanitize(
+          await client.execute(action, target, args),
+          anonymous ? [] : [credential],
+        ),
       close: client.close,
     };
   }

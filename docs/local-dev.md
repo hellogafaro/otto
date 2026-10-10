@@ -84,7 +84,7 @@ otto_secrets() {
     --env dev --path / --include-imports=false \
     --secret-overriding=false --expand=false -- \
     /usr/bin/env -u MCP_ORIGIN -u MCP_ALLOW_LOOPBACK_HTTP \
-    -u MCP_CREDENTIAL_BINDINGS \
+    -u MCP_CREDENTIAL_BINDINGS -u MCP_ALLOW_ANONYMOUS \
     TRANSCRIPTION_MODEL=mistralai/voxtral-mini-transcribe \
     COMPUTER_DOCKER_IMAGE=sha256:b7adb4eb8a91a86f2c2ce9497311ae0cf8ce8a4bb81872bb540ef7bffa81fa08 \
     COMPUTER_DOCKER_SOCKET="$HOME/.colima/default/docker.sock" \

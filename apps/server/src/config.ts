@@ -57,6 +57,7 @@ const schema = z
       })
       .optional(),
     MCP_ALLOW_LOOPBACK_HTTP: z.enum(["true"]).optional(),
+    MCP_ALLOW_ANONYMOUS: z.enum(["true"]).optional(),
     MCP_CREDENTIAL_BINDINGS: z
       .string()
       .max(100_000)
@@ -146,7 +147,6 @@ const schema = z
   .superRefine((config, ctx) => {
     for (const group of [
       ["COMPUTER_DOCKER_IMAGE", "COMPUTER_DOCKER_SOCKET", "COMPUTER_OWNER_ID"],
-      ["MCP_ORIGIN", "MCP_CREDENTIAL_BINDINGS"],
       ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
       ["MAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_TLS"],
       ["SMTP_USER", "SMTP_PASSWORD"],
@@ -162,6 +162,28 @@ const schema = z
             });
       }
     }
+    if (config.MCP_CREDENTIAL_BINDINGS && !config.MCP_ORIGIN)
+      ctx.addIssue({
+        code: "custom",
+        path: ["MCP_ORIGIN"],
+        message: "Required for MCP credentials",
+      });
+    if (
+      config.MCP_ORIGIN &&
+      !config.MCP_CREDENTIAL_BINDINGS &&
+      !config.MCP_ALLOW_ANONYMOUS
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["MCP_CREDENTIAL_BINDINGS"],
+        message: "Required for authenticated MCP",
+      });
+    if (config.MCP_ALLOW_ANONYMOUS && !config.MCP_ORIGIN)
+      ctx.addIssue({
+        code: "custom",
+        path: ["MCP_ORIGIN"],
+        message: "Required for anonymous MCP",
+      });
     if (config.MCP_ALLOW_LOOPBACK_HTTP && !config.MCP_ORIGIN)
       ctx.addIssue({
         code: "custom",

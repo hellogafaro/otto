@@ -56,6 +56,8 @@ export function mcpAction(
 export function createMcpClient(options: { http: HttpOptions }) {
   return {
     async connect(config: McpConfig, credential: string) {
+      if (config.authentication !== "none" && !credential)
+        throw new DomainError("unavailable", "Credential unavailable");
       let sessionId: string | undefined;
       let nextId = 0;
       const endpoint = new URL(config.endpoint);
@@ -66,7 +68,9 @@ export function createMcpClient(options: { http: HttpOptions }) {
       ): Promise<JsonValue> {
         const id = ++nextId;
         const headers: Record<string, string> = {
-          Authorization: `Bearer ${credential}`,
+          ...(config.authentication === "none"
+            ? {}
+            : { Authorization: `Bearer ${credential}` }),
           Accept: "application/json, text/event-stream",
           "Content-Type": "application/json",
         };
@@ -162,7 +166,9 @@ export function createMcpClient(options: { http: HttpOptions }) {
             {
               method: "DELETE",
               headers: {
-                Authorization: `Bearer ${credential}`,
+                ...(config.authentication === "none"
+                  ? {}
+                  : { Authorization: `Bearer ${credential}` }),
                 "Mcp-Session-Id": sessionId,
                 "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
               },

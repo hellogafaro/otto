@@ -96,6 +96,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
   let loseResponse = false;
   let sse = false;
   let protocolVerified = false;
+  let mcpAuthorization: boolean[] = [];
   let beforeResponse: (() => Promise<void>) | undefined;
   let denyPublication = false;
   // Ephemeral signing material is generated in memory for the private fixture and never saved or printed.
@@ -303,6 +304,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
           });
         }
         if (url.pathname === "/mcp") {
+          mcpAuthorization.push(req.headers.has("Authorization"));
           if (req.method === "DELETE")
             return new Response(null, { status: mcpDeleteStatus });
           const body = z
@@ -457,6 +459,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
     bindings.length = 0;
     issueWrites = 0;
     mcpWrites = 0;
+    mcpAuthorization = [];
     providerIssues = "write";
     tokenExpired = false;
     accountChanged = false;
@@ -1796,6 +1799,195 @@ describe("Connections production adapters with private PostgreSQL and controlled
     );
     return id;
   }
+  it("requires explicit anonymous deployment access and never falls back from missing bearer credentials", async () => {
+    const row = await scope((c) =>
+      createConnection(c, {
+        title: "Public fixture",
+        type: "mcp",
+        accountRef: "public-fixture",
+      }),
+    );
+    const config = {
+      type: "mcp" as const,
+      endpoint: new URL("/mcp", server.url).href,
+      tools: [],
+      resources: ["fixture://repo"],
+    };
+    const configured = await scope((c) =>
+      updateConnection(c, row.id, { editToken: row.editToken, config }),
+    );
+    let secretReads = 0;
+    const anonymous = createConnectionService({
+      boundary,
+      secrets: {
+        resolve: async () => {
+          secretReads++;
+          return "";
+        },
+      },
+      http: http(),
+      allowAnonymousMcp: true,
+    });
+    await expect(anonymous.connectConnection(row.id)).rejects.toMatchObject({
+      code: "unavailable",
+    });
+    expect(secretReads).toBe(0);
+    expect(mcpAuthorization).toEqual([]);
+    const bearer = await scope((c) =>
+      updateConnection(c, row.id, {
+        editToken: configured.editToken,
+        credentialRef: "missing-bearer",
+      }),
+    );
+    await expect(anonymous.connectConnection(row.id)).rejects.toMatchObject({
+      code: "unavailable",
+    });
+    expect(secretReads).toBe(1);
+    expect(mcpAuthorization).toEqual([]);
+    await scope((c) =>
+      updateConnection(c, row.id, {
+        editToken: bearer.editToken,
+        config: { ...config, authentication: "none" },
+      }),
+    );
+    await expect(service.connectConnection(row.id)).rejects.toMatchObject({
+      code: "unavailable",
+    });
+    expect(mcpAuthorization).toEqual([]);
+    await anonymous.connectConnection(row.id);
+    expect(secretReads).toBe(1);
+    expect(mcpAuthorization.length).toBeGreaterThan(0);
+    expect(mcpAuthorization.every((present) => !present)).toBe(true);
+  });
+  it("keeps anonymous MCP caller authority, exact grants, approvals and authentication-change fences", async () => {
+    const row = await scope((c) =>
+      createConnection(c, {
+        title: "Public fixture authority",
+        type: "mcp",
+        accountRef: "public-fixture-authority",
+      }),
+    );
+    const config = {
+      type: "mcp" as const,
+      authentication: "none" as const,
+      endpoint: new URL("/mcp", server.url).href,
+      tools: [{ name: "write", targetArgument: "resource", readOnly: false }],
+      resources: ["fixture://repo"],
+    };
+    await scope((c) =>
+      updateConnection(c, row.id, { editToken: row.editToken, config }),
+    );
+    let secretReads = 0;
+    const options = {
+      secrets: {
+        resolve: async () => {
+          secretReads++;
+          throw new Error("Unexpected secret read");
+        },
+      },
+      http: http(),
+      allowAnonymousMcp: true,
+    };
+    const anonymous = createConnectionService({ boundary, ...options });
+    await anonymous.connectConnection(row.id);
+    const input = request({
+      connectionId: row.id,
+      action: "tool.write",
+      target: "fixture://repo",
+      arguments: { resource: "fixture://repo" },
+    });
+    await expect(anonymous.requestOperation(input)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await scope((c) =>
+      grantConnectionAccess(c, row.id, {
+        agentId,
+        audience: { humans: ["owner"], agents: [agentId] },
+        resources: ["fixture://repo"],
+        operations: {
+          "tool.write": "confirmation",
+          "resource.read": "allowed",
+        },
+      }),
+    );
+    const foreign = createConnectionService({
+      ...options,
+      boundary: {
+        ...boundary,
+        transact: (work) =>
+          inWorkspace(
+            database.db,
+            workspaceId,
+            { userId: "foreign-caller" },
+            work,
+          ),
+      },
+    });
+    const beforeForeign = mcpAuthorization.length;
+    await expect(foreign.connectConnection(row.id)).rejects.toBeInstanceOf(
+      DomainError,
+    );
+    await expect(foreign.requestOperation(input)).rejects.toBeInstanceOf(
+      DomainError,
+    );
+    expect(mcpAuthorization).toHaveLength(beforeForeign);
+    const pending = await anonymous.requestOperation(input);
+    expect(pending.state).toBe("awaiting_approval");
+    const beforeApproval = mcpAuthorization.length;
+    expect((await anonymous.executeOperation(pending.id)).state).toBe(
+      "awaiting_approval",
+    );
+    expect(mcpAuthorization).toHaveLength(beforeApproval);
+    expect(mcpWrites).toBe(0);
+    await scope((c) =>
+      approveOperation(
+        c,
+        pending.id,
+        { identity: required(pending.identity ?? undefined) },
+        boundary.validateRun,
+      ),
+    );
+    expect((await anonymous.executeOperation(pending.id)).state).toBe(
+      "succeeded",
+    );
+    expect(mcpWrites).toBe(1);
+    const stale = await anonymous.requestOperation({
+      ...input,
+      requestId: crypto.randomUUID(),
+    });
+    await scope((c) =>
+      approveOperation(
+        c,
+        stale.id,
+        { identity: required(stale.identity ?? undefined) },
+        boundary.validateRun,
+      ),
+    );
+    const connected = await scope((c) => getConnection(c, row.id));
+    const changed = await scope((c) =>
+      updateConnection(c, row.id, {
+        editToken: connected.editToken,
+        config: { ...config, authentication: "bearer" },
+      }),
+    );
+    expect(changed.connected).toBe(false);
+    expect(changed.editToken).toBe(connected.editToken + 1);
+    expect(
+      (
+        await database.db
+          .select()
+          .from(grants)
+          .where(eq(grants.connectionId, row.id))
+      ).every((value) => value.revokedAt !== null),
+    ).toBe(true);
+    await expect(anonymous.executeOperation(stale.id)).rejects.toBeInstanceOf(
+      DomainError,
+    );
+    expect(mcpWrites).toBe(1);
+    expect(secretReads).toBe(0);
+    expect(mcpAuthorization.length).toBeGreaterThan(0);
+    expect(mcpAuthorization.every((present) => !present)).toBe(true);
+  });
   it("negotiates pinned MCP HTTP, filters discovery and checks exact tool resource arguments", async () => {
     const id = await mcpConnection();
     expect(await service.discoverConnection(id)).toEqual({

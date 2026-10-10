@@ -146,11 +146,18 @@ export function ConnectionConfigDialog({
   const [repositories, setRepositories] = useState("");
   const [issues, setIssues] = useState<"none" | "read" | "write">("none");
   const [endpoint, setEndpoint] = useState("");
+  const [authentication, setAuthentication] = useState<"bearer" | "none">(
+    "bearer",
+  );
   const [tools, setTools] = useState("");
   const [resources, setResources] = useState("");
   const [replaceConfig, setReplaceConfig] = useState<
     "binding" | "configuration"
   >("binding");
+  const anonymous =
+    connection.type === "mcp" &&
+    replaceConfig === "configuration" &&
+    authentication === "none";
   return (
     <SettingsDialog
       title={`Configure ${connection.title}`}
@@ -163,7 +170,11 @@ export function ConnectionConfigDialog({
       onSubmit={async () => {
         if (
           await action.perform(async () => {
-            if (credentialRef && !/^[\w.:/-]{1,200}$/.test(credentialRef))
+            if (
+              !anonymous &&
+              credentialRef &&
+              !/^[\w.:/-]{1,200}$/.test(credentialRef)
+            )
               throw new Error(
                 "Enter the deployment-approved credential reference, not a credential value.",
               );
@@ -184,6 +195,7 @@ export function ConnectionConfigDialog({
                   : {
                       type: "mcp",
                       endpoint: safeEndpoint(endpoint),
+                      authentication,
                       tools: mcpTools(tools),
                       resources: lines(resources, 100),
                     };
@@ -193,7 +205,9 @@ export function ConnectionConfigDialog({
                 param: { workspaceId, id: connection.id },
                 json: {
                   editToken,
-                  credentialRef: credentialRef || undefined,
+                  credentialRef: anonymous
+                    ? undefined
+                    : credentialRef || undefined,
                   config,
                 },
               }),
@@ -215,15 +229,17 @@ export function ConnectionConfigDialog({
           onChange={setReplaceConfig}
         />
       </Field>
-      <SettingsField
-        label="Credential reference"
-        description="An approved server binding name. Blank preserves it when replacing provider configuration."
-        value={credentialRef}
-        required={replaceConfig === "binding"}
-        maxLength={200}
-        autoComplete="off"
-        onChange={(event) => setCredentialRef(event.target.value.trim())}
-      />
+      {!anonymous && (
+        <SettingsField
+          label="Credential reference"
+          description="An approved server binding name. Blank preserves it when replacing provider configuration."
+          value={credentialRef}
+          required={replaceConfig === "binding"}
+          maxLength={200}
+          autoComplete="off"
+          onChange={(event) => setCredentialRef(event.target.value.trim())}
+        />
+      )}
       {replaceConfig === "configuration" &&
         (connection.type === "github" ? (
           <>
@@ -267,6 +283,20 @@ export function ConnectionConfigDialog({
           </>
         ) : (
           <>
+            <Field>
+              <FieldLabel>Authentication</FieldLabel>
+              <Choice
+                label="MCP authentication"
+                value={authentication}
+                options={{ bearer: "Bearer token", none: "No authentication" }}
+                onChange={setAuthentication}
+              />
+              <FieldDescription>
+                Public endpoints require deployment-approved anonymous access.
+                Changing authentication disconnects the Connection and revokes
+                its grants.
+              </FieldDescription>
+            </Field>
             <SettingsField
               label="MCP endpoint"
               type="url"
@@ -283,8 +313,8 @@ export function ConnectionConfigDialog({
               maxLength={17000}
             />
             <LinesField
-              label="Resource URIs"
-              description="One exact resource URI per line; at most 100."
+              label="Resource URIs and tool targets"
+              description="One exact resource URI or permitted tool target per line; at most 100."
               value={resources}
               onChange={setResources}
               maxLength={200000}

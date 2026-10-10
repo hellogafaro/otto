@@ -36,6 +36,25 @@ const configuredEnv = () => ({
 });
 
 describe("trusted process-injected MCP composition", () => {
+  it("requires an explicit approved origin for anonymous MCP without credential bindings", () => {
+    const env = {
+      ...baseEnv(),
+      MCP_ORIGIN: "https://docs.mcp.cloudflare.com",
+      MCP_ALLOW_ANONYMOUS: "true",
+    };
+    const options = createConnectionOptions(readConfig(env), env);
+    expect(options?.allowAnonymousMcp).toBe(true);
+    expect(options?.http.allowedOrigins).toEqual([env.MCP_ORIGIN]);
+    expect(() =>
+      readConfig({ ...baseEnv(), MCP_ALLOW_ANONYMOUS: "true" }),
+    ).toThrow("MCP_ORIGIN");
+    expect(() =>
+      readConfig({ ...baseEnv(), MCP_ORIGIN: env.MCP_ORIGIN }),
+    ).toThrow("MCP_CREDENTIAL_BINDINGS");
+    expect(() => readConfig({ ...env, MCP_ALLOW_ANONYMOUS: "false" })).toThrow(
+      "MCP_ALLOW_ANONYMOUS",
+    );
+  });
   it("keeps computer deployment opt-in and validates all-or-none immutable configuration", () => {
     expect(readConfig(baseEnv()).COMPUTER_DOCKER_IMAGE).toBeUndefined();
     const computer = {

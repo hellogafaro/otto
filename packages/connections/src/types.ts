@@ -35,6 +35,7 @@ export const CONNECTION_CONFIG = z.discriminatedUnion("type", [
     .object({
       type: z.literal("mcp"),
       endpoint: z.url().max(2000),
+      authentication: z.enum(["bearer", "none"]).optional(),
       tools: z
         .array(
           z

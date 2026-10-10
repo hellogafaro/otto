@@ -6,9 +6,9 @@ export function createConnectionOptions(
   config: ServerConfig,
   env: NodeJS.ProcessEnv,
 ): ConnectionOptions | undefined {
-  if (!config.MCP_ORIGIN || !config.MCP_CREDENTIAL_BINDINGS) return;
+  if (!config.MCP_ORIGIN) return;
   const references = JSON.parse(
-    config.MCP_CREDENTIAL_BINDINGS,
+    config.MCP_CREDENTIAL_BINDINGS ?? "[]",
   ) as McpCredentialBinding[];
   const bindings = references.map((binding) => {
     const token = env[binding.tokenEnv];
@@ -17,6 +17,7 @@ export function createConnectionOptions(
     return { ...binding, token };
   });
   return {
+    allowAnonymousMcp: config.MCP_ALLOW_ANONYMOUS === "true",
     http: {
       allowedOrigins: [config.MCP_ORIGIN],
       allowLoopbackHttp: config.MCP_ALLOW_LOOPBACK_HTTP === "true",

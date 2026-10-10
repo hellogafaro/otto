@@ -71,7 +71,13 @@ export async function authorizeOperation(
   if (c.actor.agentId && c.actor.agentId !== agentId)
     throw new DomainError("forbidden");
   const connection = await getConnectionRecord(c, input.connectionId);
-  if (!connection.connected || !connection.config || !connection.credentialRef)
+  if (!connection.connected || !connection.config)
+    throw new DomainError("forbidden");
+  const config = parseInput(CONNECTION_CONFIG, connection.config);
+  if (
+    !(config.type === "mcp" && config.authentication === "none") &&
+    !connection.credentialRef
+  )
     throw new DomainError("forbidden");
   const grant = required(
     (
@@ -100,7 +106,6 @@ export async function authorizeOperation(
     policy === "disabled"
   )
     throw new DomainError("forbidden");
-  const config = parseInput(CONNECTION_CONFIG, connection.config);
   const mapped =
     config.type === "github"
       ? githubAction(config, input.action, input.target, input.arguments)
