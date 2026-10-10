@@ -33,10 +33,6 @@ export function createAuth(
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 12,
-      // Undefined preserves explicit in-process fixtures. The production entrypoint
-      // always passes a sender or null, and never permits unverified login.
-      requireEmailVerification: mail !== undefined,
-      disableSignUp: mail === null,
       revokeSessionsOnPasswordReset: true,
       ...(mail
         ? {
@@ -59,31 +55,6 @@ export function createAuth(
           }
         : {}),
     },
-    ...(mail
-      ? {
-          emailVerification: {
-            sendOnSignUp: true,
-            sendOnSignIn: true,
-            autoSignInAfterVerification: false,
-            sendVerificationEmail: async ({
-              user,
-              url,
-              token,
-            }: {
-              user: { email: string };
-              url: string;
-              token: string;
-            }) => {
-              await mail.send({
-                to: user.email,
-                subject: "Verify your Otto email",
-                text: `Verify your email: ${url}`,
-                key: `verify:${token}`,
-              });
-            },
-          },
-        }
-      : {}),
     logger: {
       log(level) {
         logger.info({ authLevel: level }, "auth event");

@@ -183,12 +183,37 @@ export async function createInvitation(
     )[0],
   );
 }
-/** Invitation IDs are recipient-bound selectors, never bearer credentials. */
+export async function createInvitationToken(c: Context, id: string) {
+  const invitation = await getInvitation(c, id);
+  if (!c.cursors) throw new DomainError("unavailable");
+  return c.cursors.seal(
+    [
+      invitation.id,
+      invitation.workspaceId,
+      invitation.email,
+      invitation.role,
+      invitation.expiresAt.toISOString(),
+      c.actor.userId,
+    ],
+    "otto:invitation:v1",
+  );
+}
+
 export async function acceptInvitation(
   db: Database,
   userId: string,
   id: string,
+  token: string,
+  tokens: CursorCodec,
 ) {
+  let proof: unknown[];
+  try {
+    proof = tokens.open(token, "otto:invitation:v1");
+    if (proof.length !== 6 || proof.some((value) => typeof value !== "string"))
+      throw new Error("Invalid invitation token");
+  } catch {
+    throw new DomainError("forbidden");
+  }
   return db.transaction(async (tx) => {
     const invitation = required(
       (await tx.select().from(invitations).where(eq(invitations.id, id)))[0],
@@ -208,8 +233,26 @@ export async function acceptInvitation(
     const user = required(
       (await tx.select().from(users).where(eq(users.id, userId)))[0],
     );
+    const issuer = (
+      await tx
+        .select()
+        .from(members)
+        .where(
+          and(
+            eq(members.workspaceId, current.workspaceId),
+            eq(members.userId, proof[5] as string),
+          ),
+        )
+    )[0];
     if (
-      !user.emailVerified ||
+      proof[0] !== current.id ||
+      proof[1] !== current.workspaceId ||
+      proof[2] !== current.email ||
+      proof[3] !== current.role ||
+      proof[4] !== current.expiresAt.toISOString() ||
+      !issuer ||
+      (issuer.role !== "owner" && issuer.role !== "admin") ||
+      (current.role === "admin" && issuer.role !== "owner") ||
       user.email.toLowerCase() !== current.email ||
       current.revokedAt ||
       current.acceptedAt ||

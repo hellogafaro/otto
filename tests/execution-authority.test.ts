@@ -209,7 +209,6 @@ describe("execution authority and retained sources", () => {
       fetch: (r) => app.fetch(r),
     });
     origin = server.url.origin;
-    // Fixture auth configuration; production verification is exercised in operations.test.ts.
     const auth = createAuth(
       database.db,
       crypto.randomUUID() + crypto.randomUUID(),
@@ -236,7 +235,9 @@ describe("execution authority and retained sources", () => {
       });
       expect(response.status).toBe(200);
       const body = z
-        .object({ user: z.object({ id: z.string() }) })
+        .object({
+          user: z.object({ id: z.string(), emailVerified: z.literal(false) }),
+        })
         .parse(await response.json());
       return {
         id: body.user.id,

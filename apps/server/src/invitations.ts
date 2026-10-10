@@ -4,6 +4,7 @@ import type { Mail } from "./mail";
 export async function sendInvitation(options: {
   mail?: Mail;
   origin: string;
+  token?: string;
   invitation: {
     id: string;
     email: string;
@@ -12,9 +13,10 @@ export async function sendInvitation(options: {
     revokedAt?: Date | null;
   };
 }): Promise<"sent" | "unavailable" | "uncertain"> {
-  const { mail, origin, invitation } = options;
+  const { mail, origin, invitation, token } = options;
   if (
     !mail ||
+    !token ||
     invitation.acceptedAt ||
     invitation.revokedAt ||
     invitation.expiresAt <= new Date()
@@ -27,7 +29,8 @@ export async function sendInvitation(options: {
       text: [
         `You have been invited to Otto at ${origin}.`,
         `Invitation ID: ${invitation.id}`,
-        `Sign in with this email address and verify it before accepting the invitation.`,
+        `Invitation token: ${token}`,
+        `Sign in with this email address and enter the invitation ID and token in Settings to accept. Keep the token private.`,
         `This invitation expires at ${invitation.expiresAt.toISOString()}.`,
       ].join("\n\n"),
       key: `invitation:${invitation.id}`,

@@ -454,7 +454,7 @@ describe("server operations on private PostgreSQL", () => {
     expect(child.stdout.toString().includes(signing)).toBe(false);
     expect(child.stdout.toString()).toContain("OTTO_ORIGIN");
   });
-  it("delivers verification and reset to a local SMTP server, and revokes old sessions", async () => {
+  it("allows no-mail signup and signin, protects credentials, and optionally delivers SMTP reset with session revocation", async () => {
     let reject = false;
     const sink = await startSmtp({
       onData() {
@@ -475,7 +475,7 @@ describe("server operations on private PostgreSQL", () => {
       fetch: (request) => app.fetch(request),
     });
     const origin = http.url.origin;
-    const auth = createAuth(database.db, signing, origin, mail);
+    let auth = createAuth(database.db, signing, origin);
     const boss = await startQueue(database.db, database.pool, {
       workers: false,
     });
@@ -488,50 +488,100 @@ describe("server operations on private PostgreSQL", () => {
       modelAuthorization: nativeModelAuthorization,
       encryptionKey: fixtureEncryptionKey,
     });
-    const password = crypto.randomUUID() + crypto.randomUUID();
+    const password = crypto.randomUUID().slice(0, 12);
     const nextPassword = crypto.randomUUID() + crypto.randomUUID();
-    const post = (path: string, body: unknown) =>
+    const post = (path: string, body: unknown, client = "192.0.2.1") =>
       fetch(`${origin}/api/auth/${path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Origin: origin },
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          "x-forwarded-for": client,
+        },
         body: JSON.stringify(body),
       });
     try {
+      const signup = await post("sign-up/email", {
+        email: "lifecycle@example.test",
+        name: "Local test",
+        password,
+      });
+      expect(signup.status).toBe(200);
+      const signedUp = z
+        .object({
+          user: z.object({ id: z.string(), emailVerified: z.literal(false) }),
+        })
+        .parse(await signup.json());
+      const signupCookie = signup.headers.get("set-cookie") ?? "";
+      const signupSession = await auth.api.getSession({
+        headers: new Headers({ cookie: signupCookie }),
+      });
+      expect(signupSession?.user.id).toBe(signedUp.user.id);
+      expect(signupSession?.user.emailVerified).toBe(false);
+      expect(signupSession?.session.expiresAt.getTime()).toBeGreaterThan(
+        Date.now(),
+      );
+      expect(messages).toHaveLength(0);
       expect(
         (
           await post("sign-up/email", {
-            email: "lifecycle@example.test",
-            name: "Local test",
-            password,
+            email: "LIFECYCLE@example.test",
+            name: "Duplicate test",
+            password: nextPassword,
           })
         ).status,
-      ).toBe(200);
-      expect(messages.length).toBe(1);
+      ).toBe(422);
+      expect(
+        await database.db
+          .select({ id: users.id, emailVerified: users.emailVerified })
+          .from(users)
+          .where(eq(users.email, "lifecycle@example.test")),
+      ).toEqual([{ id: signedUp.user.id, emailVerified: false }]);
+      expect(
+        (
+          await post("sign-up/email", {
+            email: "short-password@example.test",
+            name: "Short password",
+            password: "12345678901",
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        await database.db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, "short-password@example.test")),
+      ).toEqual([]);
       expect(
         (
           await post("sign-in/email", {
             email: "lifecycle@example.test",
-            password,
+            password: nextPassword,
           })
         ).status,
-      ).toBe(403);
-      const verification = messages.find(
-        (m) => m.subject === "Verify your Otto email",
-      );
-      const verifyUrl = verification?.text.split("Verify your email: ")[1];
-      if (!verifyUrl) throw new Error("Verification delivery missing");
-      expect((await fetch(verifyUrl, { redirect: "manual" })).status).toBe(302);
+      ).toBe(401);
       const login = await post("sign-in/email", {
         email: "lifecycle@example.test",
         password,
       });
       expect(login.status).toBe(200);
       const cookie = login.headers.get("set-cookie") ?? "";
-      expect(
-        Boolean(
-          await auth.api.getSession({ headers: new Headers({ cookie }) }),
-        ),
-      ).toBe(true);
+      const loginSession = await auth.api.getSession({
+        headers: new Headers({ cookie }),
+      });
+      expect(loginSession?.user.id).toBe(signedUp.user.id);
+      expect(loginSession?.user.emailVerified).toBe(false);
+      expect(messages).toHaveLength(0);
+      auth = createAuth(database.db, signing, origin, mail);
+      app = createApp({
+        db: database.db,
+        boss,
+        auth,
+        origin,
+        nativeStorage,
+        modelAuthorization: nativeModelAuthorization,
+        encryptionKey: fixtureEncryptionKey,
+      });
       expect(
         (
           await post("request-password-reset", {
@@ -540,12 +590,18 @@ describe("server operations on private PostgreSQL", () => {
           })
         ).status,
       ).toBe(200);
+      expect(messages).toHaveLength(1);
       const reset = messages.find(
         (m) => m.subject === "Reset your Otto password",
       );
+      expect(reset?.to).toEqual(["lifecycle@example.test"]);
       const resetUrl = reset?.text.split("Reset your password: ")[1];
       if (!resetUrl) throw new Error("Reset delivery missing");
       const token = new URL(resetUrl).pathname.split("/").at(-1);
+      expect(
+        (await post("reset-password", { token, newPassword: "12345678901" }))
+          .status,
+      ).toBe(400);
       expect(
         (await post("reset-password", { token, newPassword: nextPassword }))
           .status,
@@ -556,13 +612,38 @@ describe("server operations on private PostgreSQL", () => {
         ),
       ).toBe(false);
       expect(
+        await auth.api.getSession({
+          headers: new Headers({ cookie: signupCookie }),
+        }),
+      ).toBeNull();
+      expect(
         (
           await post("sign-in/email", {
             email: "lifecycle@example.test",
-            password: nextPassword,
+            password,
           })
         ).status,
-      ).toBe(200);
+      ).toBe(401);
+      const resetLogin = await post(
+        "sign-in/email",
+        { email: "lifecycle@example.test", password: nextPassword },
+        "192.0.2.2",
+      );
+      expect(resetLogin.status).toBe(200);
+      expect(
+        z
+          .object({ user: z.object({ emailVerified: z.literal(false) }) })
+          .parse(await resetLogin.json()).user.emailVerified,
+      ).toBe(false);
+      expect(
+        (
+          await database.db
+            .select({ emailVerified: users.emailVerified })
+            .from(users)
+            .where(eq(users.id, signedUp.user.id))
+        )[0]?.emailVerified,
+      ).toBe(false);
+      expect(messages).toHaveLength(1);
       expect(
         (await post("reset-password", { token, newPassword: password })).status,
       ).toBe(400);

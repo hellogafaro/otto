@@ -5,13 +5,14 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { createSmtpMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
+import { createCursorCodec } from "../packages/db/src";
 import { openNativeStorage } from "../packages/sessions/src/native";
 import { claimInstallation } from "../packages/workspaces/src";
-import { invitations } from "../packages/workspaces/src/schema";
+import { invitations, users } from "../packages/workspaces/src/schema";
 import { startSmtp } from "./fixtures/smtp";
 import { startPostgres } from "./postgres";
 
-it("delivers committed invitations through HTTP, verifies recipients and guards human ownership on role changes", async () => {
+it("delivers committed private tokens through HTTP, authorizes unverified recipients and guards human ownership on role changes", async () => {
   const database = await startPostgres();
   const nativeStorage = await openNativeStorage({
     connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
@@ -61,7 +62,15 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     origin,
     mail,
   );
-  app = createApp({ nativeStorage, db: database.db, boss, auth, origin, mail });
+  app = createApp({
+    nativeStorage,
+    db: database.db,
+    boss,
+    auth,
+    origin,
+    mail,
+    cursors: createCursorCodec(crypto.randomUUID() + crypto.randomUUID()),
+  });
   const post = (path: string, body: unknown, cookie = "") =>
     fetch(`${origin}/api${path}`, {
       method: "POST",
@@ -74,12 +83,6 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
       (await post("/auth/sign-up/email", { email, password, name: email }))
         .status,
     ).toBe(200);
-    const message = received.find(
-      (m) => m.to[0] === email && m.subject === "Verify your Otto email",
-    );
-    const url = message?.text.split("Verify your email: ")[1];
-    if (!url) throw new Error("Verification missing");
-    expect((await fetch(url, { redirect: "manual" })).status).toBe(302);
     const login = await post("/auth/sign-in/email", { email, password });
     expect(login.status).toBe(200);
     const cookie = login.headers.get("set-cookie") ?? "";
@@ -87,9 +90,21 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
       headers: new Headers({ cookie }),
     });
     if (!session) throw new Error("Missing session");
+    expect(session.user.emailVerified).toBe(false);
     return { cookie, id: session.user.id, email };
   };
   const record = z.object({ id: z.uuid() });
+  const mailedToken = (id: string) => {
+    const token = received
+      .findLast(
+        (message) =>
+          message.subject === "Your Otto invitation" &&
+          message.text.includes(`Invitation ID: ${id}`),
+      )
+      ?.text.match(/Invitation token: (\S+)/)?.[1];
+    if (!token) throw new Error("Missing invitation token");
+    return token;
+  };
   try {
     const owner = await createUser("owner@membership.test");
     const human = await createUser("human@membership.test");
@@ -100,17 +115,18 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     );
     const path = `/workspaces/${workspace.id}`;
     rejectMail = true;
+    const created = await (
+      await post(
+        `${path}/invitations`,
+        { email: human.email, role: "contributor" },
+        owner.cookie,
+      )
+    ).json();
     const invitation = z
       .object({ id: z.uuid(), delivery: z.literal("uncertain") })
-      .parse(
-        await (
-          await post(
-            `${path}/invitations`,
-            { email: human.email, role: "contributor" },
-            owner.cookie,
-          )
-        ).json(),
-      );
+      .parse(created);
+    expect(created).not.toHaveProperty("token");
+    expect(JSON.stringify(created)).not.toContain(mailedToken(invitation.id));
     rejectMail = false;
     expect(
       await (
@@ -122,6 +138,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
       ).json(),
     ).toEqual({ delivery: "sent" });
     expect(received.at(-1)?.to).toEqual([human.email]);
+    const token = mailedToken(invitation.id);
     expect(
       (
         await post(
@@ -131,14 +148,55 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
         )
       ).status,
     ).toBe(403);
+    for (const body of [
+      {},
+      { id: invitation.id },
+      { token: "" },
+      { token, email: human.email },
+    ])
+      expect(
+        (await post(`/invitations/${invitation.id}/accept`, body, human.cookie))
+          .status,
+      ).toBe(400);
+    for (const invalid of [invitation.id, `${token.slice(0, -1)}!`])
+      expect(
+        (
+          await post(
+            `/invitations/${invitation.id}/accept`,
+            { token: invalid },
+            human.cookie,
+          )
+        ).status,
+      ).toBe(403);
     expect(
-      (await post(`/invitations/${invitation.id}/accept`, {}, human.cookie))
-        .status,
-    ).toBe(200);
-    expect(
-      (await post(`/invitations/${invitation.id}/accept`, {}, human.cookie))
-        .status,
+      (
+        await post(
+          `/invitations/${invitation.id}/accept`,
+          { token },
+          owner.cookie,
+        )
+      ).status,
     ).toBe(403);
+    const accepted = await Promise.all([
+      post(`/invitations/${invitation.id}/accept`, { token }, human.cookie),
+      post(`/invitations/${invitation.id}/accept`, { token }, human.cookie),
+    ]);
+    expect(accepted.map((response) => response.status).sort()).toEqual([
+      200, 403,
+    ]);
+    expect(
+      (
+        await post(
+          `/invitations/${invitation.id}/accept`,
+          { token },
+          human.cookie,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (await database.db.select().from(users).where(eq(users.id, human.id)))[0]
+        ?.emailVerified,
+    ).toBe(false);
     expect(
       (
         await post(
@@ -152,11 +210,12 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
       await (
         await post(
           `${path}/invitations`,
-          { email: "unused@membership.test", role: "viewer" },
+          { email: human.email, role: "viewer" },
           owner.cookie,
         )
       ).json(),
     );
+    const revokedToken = mailedToken(revoked.id);
     const update = (id: string, body: unknown, cookie = owner.cookie) =>
       fetch(`${origin}/api${path}/invitations/${id}`, {
         method: "PATCH",
@@ -198,8 +257,13 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
 
     expect((await update(revoked.id, { status: "revoked" })).status).toBe(409);
     expect(
-      (await post(`/invitations/${revoked.id}/accept`, {}, human.cookie))
-        .status,
+      (
+        await post(
+          `/invitations/${revoked.id}/accept`,
+          { token: revokedToken },
+          human.cookie,
+        )
+      ).status,
     ).toBe(403);
     const project = record.parse(
       await (

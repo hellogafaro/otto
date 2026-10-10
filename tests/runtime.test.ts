@@ -17,6 +17,7 @@ import {
 } from "../apps/server/src/tools";
 import { deleteParticipant, publishNativeMessage } from "../packages/chats/src";
 import { participants } from "../packages/chats/src/schema";
+import { createCursorCodec } from "../packages/db/src";
 import { files } from "../packages/files/src/schema";
 import { RUN_QUEUE } from "../packages/runs/src";
 import {
@@ -40,7 +41,7 @@ import {
   fixtureEncryptionKey,
   nativeModelAuthorization,
 } from "./fixtures/native-model";
-import { type SmtpMessage, startSmtp } from "./fixtures/smtp";
+import { startSmtp } from "./fixtures/smtp";
 import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
@@ -65,7 +66,6 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
   let cookie: string;
   let mailSink: Awaited<ReturnType<typeof startSmtp>>;
   let mail: ReturnType<typeof createSmtpMail>;
-  let received: SmtpMessage[];
   async function createHuman(email: string) {
     const password = crypto.randomUUID() + crypto.randomUUID();
     const send = (path: string, body: unknown) =>
@@ -77,21 +77,18 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
     expect(
       (await send("sign-up/email", { name: email, email, password })).status,
     ).toBe(200);
-    const url = received
-      .find((m) => m.to[0] === email && m.subject === "Verify your Otto email")
-      ?.text.split("Verify your email: ")[1];
-    if (!url) throw new Error("Verification missing");
-    expect((await fetch(url, { redirect: "manual" })).status).toBe(302);
     const login = await send("sign-in/email", { email, password });
     expect(login.status).toBe(200);
     const cookie = login.headers.get("set-cookie") ?? "";
     const session = await auth.api.getSession({
       headers: new Headers({ cookie }),
     });
-    if (!session) throw new Error("Missing verified session");
+    if (!session) throw new Error("Missing session");
+    expect(session.user.emailVerified).toBe(false);
     return { cookie, id: session.user.id, email };
   }
   const authSecret = crypto.randomUUID() + crypto.randomUUID();
+  const cursors = createCursorCodec(authSecret);
   let workspaceId: string;
   let userId: string;
   let accountId: string;
@@ -227,14 +224,13 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
     });
     origin = `http://127.0.0.1:${server.port}`;
     mailSink = await startSmtp();
-    received = mailSink.messages;
     mail = createSmtpMail({
       from: "otto@example.test",
       host: mailSink.host,
       port: mailSink.port,
       tls: "none",
     });
-    auth = createAuth(database.db, authSecret, origin, mail);
+    auth = createAuth(database.db, authSecret, origin);
     app = createApp({
       nativeStorage: native,
       modelAuthorization: nativeModelAuthorization,
@@ -244,6 +240,7 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
       auth,
       origin,
       mail,
+      cursors,
     });
     const owner = await createHuman("runtime@example.test");
     cookie = owner.cookie;
@@ -268,6 +265,7 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
       storage,
       spool: transfers.spool,
       mail,
+      cursors,
     });
     realtime = createRealtime({
       db: database.db,
@@ -938,7 +936,7 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
     const launches = modelStarts;
     runtime = createEngine();
     realtime.close();
-    auth = createAuth(database.db, authSecret, origin, mail);
+    auth = createAuth(database.db, authSecret, origin);
     app = createApp({
       db: database.db,
       boss,
@@ -948,6 +946,7 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
       storage,
       spool: transfers.spool,
       mail,
+      cursors,
       nativeStorage: native,
       encryptionKey: fixtureEncryptionKey,
       modelAuthorization: nativeModelAuthorization,
@@ -1150,6 +1149,8 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
       origin,
       runtime,
       connections: toolOptions.connections,
+      mail,
+      cursors,
     });
     const maintainer = await createHuman("mcp-maintainer@example.test");
     await database.db
@@ -1361,6 +1362,8 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
         runtime,
         storage,
         spool: transfers.spool,
+        mail,
+        cursors,
       });
     }
   });
@@ -1392,11 +1395,25 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
     const invitation = record.parse(
       await post("/invitations", { email: reader.email, role: "viewer" }),
     );
+    const token = mailSink.messages
+      .find(
+        (message) =>
+          message.to[0] === reader.email &&
+          message.subject === "Your Otto invitation",
+      )
+      ?.text.split("Invitation token: ")[1]
+      ?.split("\n\n")[0];
+    if (!token) throw new Error("Invitation token delivery missing");
     expect(
       (
         await fetch(`${origin}/api/invitations/${invitation.id}/accept`, {
           method: "POST",
-          headers: { cookie: reader.cookie, origin },
+          headers: {
+            cookie: reader.cookie,
+            origin,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ token }),
         })
       ).status,
     ).toBe(200);

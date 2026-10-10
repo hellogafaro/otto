@@ -122,19 +122,27 @@ validation stays unchanged, and no saved data is migrated.
 
 ## Authentication and restarts
 
-No users, email verification, memberships or provider accounts are created by
-this launcher. Normal signup requires an approved SMTP server and sender:
-`MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS`, and, for authenticated
-submission, the paired `SMTP_USER` and `SMTP_PASSWORD`. Inject these through
-the approved Infisical scope; the launcher forwards them without saving them.
-Set `SMTP_TLS=tls` for implicit TLS (usually port 465), or `starttls` for a
-required STARTTLS upgrade (usually port 587). Certificate and hostname checks
-remain enabled. `none` is limited to an unauthenticated loopback test sink;
-it is not a remote mail configuration. See [mail configuration](operations.md#smtp-mail)
-for the complete contract. No real SMTP account or recipient is currently
-approved/configured, and local captured mail is not external-deliverability proof.
-A new empty database has no verified user until legitimate enrollment; there
-is no verification bypass.
+The launcher never creates users, memberships or provider accounts. Ordinary
+email/password signup and sign-in need no SMTP or mandatory email verification,
+including for an existing unverified account. No flag or local bypass is used,
+and no `emailVerified` value or password is rewritten. An unverified email is
+not proof of ownership and confers no workspace membership.
+
+The first workspace is claimed explicitly by the operator with
+`bun scripts/bootstrap.ts <existing-user-id> <workspace-title>` against this
+installation. That operation grants the selected identity owner membership and
+creates the default Agent; it does not assert verified email ownership. Existing
+workspace access instead requires an authorized invitation's private mailed
+token and current recipient/issuer permissions, not an email match or ID alone.
+
+Password reset and invitation delivery are unavailable until approved SMTP is
+configured: `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS`, and paired
+`SMTP_USER`/`SMTP_PASSWORD` for authenticated submission. The launcher forwards
+these without saving them. Use `tls` for implicit TLS or `starttls` for a required
+upgrade, with normal certificate checks. `none` is restricted to loopback test
+sinks. See [mail configuration](operations.md#smtp-mail). The temporary Mailpit
+inbox and enrollment-verification helper were retired; neither is part of normal
+local startup. No external mail or Garage provisioning is implied by login.
 
 Stopping the foreground PostgreSQL/server wrapper signals only its child.
 For an explicit PostgreSQL stop, use `pg_ctl -D` against this exact durable

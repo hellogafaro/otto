@@ -5,6 +5,7 @@ import { assertNoOpenOwnedTasks } from "@otto/tasks";
 import {
   acceptInvitation,
   createInvitation,
+  createInvitationToken,
   deleteMember,
   getInvitation,
   getMembers,
@@ -87,14 +88,28 @@ export function createApi(options: ApiOptions) {
           ),
         ),
     )
-    .post("/invitations/:id/accept", async (c) =>
-      c.json(
-        await acceptInvitation(
-          options.db,
-          c.get("userId"),
-          id.parse(c.req.param("id")),
-        ),
+    .post(
+      "/invitations/:id/accept",
+      validate(
+        "json",
+        z
+          .object({
+            token: z.string().min(1).max(4096),
+          })
+          .strict(),
       ),
+      async (c) => {
+        if (!options.cursors) throw new DomainError("unavailable");
+        return c.json(
+          await acceptInvitation(
+            options.db,
+            c.get("userId"),
+            id.parse(c.req.param("id")),
+            c.req.valid("json").token,
+            options.cursors,
+          ),
+        );
+      },
     )
     .post(
       "/workspaces/:workspaceId/invitations",
@@ -106,21 +121,35 @@ export function createApi(options: ApiOptions) {
         }),
       ),
       async (c) => {
-        const invitation = await transact(c, (ctx) =>
-          createInvitation(ctx, c.req.valid("json")),
-        );
+        const { invitation, token } = await transact(c, async (ctx) => {
+          const invitation = await createInvitation(ctx, c.req.valid("json"));
+          const token = options.mail
+            ? await createInvitationToken(ctx, invitation.id)
+            : undefined;
+          return { invitation, token };
+        });
         const delivery = await sendInvitation({
           mail: options.mail,
           origin: options.origin,
           invitation,
+          token,
         });
         return c.json({ ...invitation, delivery });
       },
     )
     .post("/workspaces/:workspaceId/invitations/:id/send", async (c) => {
-      const invitation = await transact(
+      const { invitation, token } = await transact(
         c,
-        (ctx) => getInvitation(ctx, id.parse(c.req.param("id"))),
+        async (ctx) => {
+          const invitation = await getInvitation(
+            ctx,
+            id.parse(c.req.param("id")),
+          );
+          const token = options.mail
+            ? await createInvitationToken(ctx, invitation.id)
+            : undefined;
+          return { invitation, token };
+        },
         false,
       );
       return c.json({
@@ -128,6 +157,7 @@ export function createApi(options: ApiOptions) {
           mail: options.mail,
           origin: options.origin,
           invitation,
+          token,
         }),
       });
     })

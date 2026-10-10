@@ -3,7 +3,11 @@ import { eq } from "drizzle-orm";
 import { connections } from "../../packages/connections/src/schema";
 import { secrets } from "../../packages/secrets/src/schema";
 import { authorizeSubscriptionModel } from "../../packages/subscriptions/src/server";
-import { inWorkspace } from "../../packages/workspaces/src";
+import {
+  createInvitation,
+  createInvitationToken,
+  inWorkspace,
+} from "../../packages/workspaces/src";
 import { invitations, users } from "../../packages/workspaces/src/schema";
 import { register } from "./account";
 import { expect, test } from "./live-app";
@@ -42,7 +46,7 @@ test("Members save real roles, reject viewer writes, remove members and manage k
   fixture,
   browser,
 }, testInfo) => {
-  const { workspaceId } = await register(
+  const { workspaceId, userId: ownerId } = await register(
     page,
     fixture,
     "Settings Membership Owner",
@@ -135,6 +139,15 @@ test("Members save real roles, reject viewer writes, remove members and manage k
     const creation = await creationAck;
     expect(creation.status()).toBe(200);
     const invitation = await creation.json();
+    const token = await inWorkspace(
+      fixture.database.db,
+      workspaceId,
+      { userId: ownerId },
+      (c) => createInvitationToken(c, invitation.id),
+      false,
+      fixture.cursors,
+    );
+    expect(invitation).not.toHaveProperty("token");
     expect(invitation).toMatchObject({
       email,
       role: "contributor",
@@ -194,6 +207,16 @@ test("Members save real roles, reject viewer writes, remove members and manage k
       "POST",
       `/api/invitations/${invitation.id}/accept`,
     );
+    await page.getByLabel("Invitation token", { exact: true }).fill(token);
+    await expect(
+      page.getByRole("button", { name: "Accept", exact: true }),
+    ).toBeEnabled();
+    await testInfo.attach("settings-private-invitation-token-masked", {
+      body: await page.screenshot({
+        path: testInfo.outputPath("settings-token-masked.png"),
+      }),
+      contentType: "image/png",
+    });
     await page.getByRole("button", { name: "Accept", exact: true }).click();
     expect((await acceptAck).status()).toBe(403);
 
@@ -228,12 +251,12 @@ test("Members save real roles, reject viewer writes, remove members and manage k
   }
 });
 
-test("Known invitation acceptance uses the verified exact recipient and consumes only that ID", async ({
+test("Known invitation acceptance requires a masked token, preserves unverified membership and refuses replay", async ({
   page,
   fixture,
   browser,
 }, testInfo) => {
-  const { workspaceId } = await register(
+  const { workspaceId, userId: ownerId } = await register(
     page,
     fixture,
     "Settings Invitation Owner",
@@ -252,13 +275,6 @@ test("Known invitation acceptance uses the verified exact recipient and consumes
         (await (await fetch("/api/auth/get-session")).json()).user
           .email as string,
     );
-    // Controlled fixture verification only: this app has no mail sender. This
-    // proves recipient/acceptance authorization, not delivery or email verification.
-    await fixture.database.db
-      .update(users)
-      .set({ emailVerified: true })
-      .where(eq(users.id, userId));
-    await recipient.reload();
     await page.goto("/settings/members");
     await page.getByRole("button", { name: "Invite", exact: true }).click();
     const dialog = page.getByRole("dialog", {
@@ -273,6 +289,15 @@ test("Known invitation acceptance uses the verified exact recipient and consumes
     );
     await dialog.getByRole("button", { name: "Invite", exact: true }).click();
     const invitation = await (await creationAck).json();
+    const token = await inWorkspace(
+      fixture.database.db,
+      workspaceId,
+      { userId: ownerId },
+      (c) => createInvitationToken(c, invitation.id),
+      false,
+      fixture.cursors,
+    );
+    expect(invitation).not.toHaveProperty("token");
     await expect(dialog).not.toBeVisible();
     await page
       .getByLabel("Accept invitation ID", { exact: true })
@@ -282,12 +307,41 @@ test("Known invitation acceptance uses the verified exact recipient and consumes
       "POST",
       `/api/invitations/${invitation.id}/accept`,
     );
+    await expect(
+      page.getByRole("button", { name: "Accept", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByLabel("Invitation token", { exact: true }),
+    ).toHaveAttribute("type", "password");
+    await page.getByLabel("Invitation token", { exact: true }).fill(token);
     await page.getByRole("button", { name: "Accept", exact: true }).click();
     expect((await wrongRecipient).status()).toBe(403);
     await recipient.goto("/settings/members");
     await recipient
       .getByLabel("Accept invitation ID", { exact: true })
       .fill(invitation.id);
+    const idOnly = await recipient.evaluate(
+      async (id) =>
+        (
+          await fetch(`/api/invitations/${id}/accept`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({}),
+          })
+        ).status,
+      invitation.id,
+    );
+    expect(idOnly).toBe(400);
+    await recipient.getByLabel("Invitation token", { exact: true }).fill(token);
+    await expect(
+      recipient.getByRole("button", { name: "Accept", exact: true }),
+    ).toBeEnabled();
+    await testInfo.attach("settings-private-invitation-token-masked", {
+      body: await recipient.screenshot({
+        path: testInfo.outputPath("settings-token-masked.png"),
+      }),
+      contentType: "image/png",
+    });
     const accepted = responseFor(
       recipient,
       "POST",
@@ -306,6 +360,14 @@ test("Known invitation acceptance uses the verified exact recipient and consumes
       .where(eq(invitations.id, invitation.id))
       .limit(1);
     expect(saved[0]?.acceptedAt).toBeInstanceOf(Date);
+    expect(
+      (
+        await fixture.database.db
+          .select()
+          .from(users)
+          .where(eq(users.id, userId))
+      )[0]?.emailVerified,
+    ).toBe(false);
     // Existing membership is retained: accepting a new invite must not promote it.
     const member = await recipient.evaluate(
       async ({ workspaceId, userId }) =>
@@ -326,6 +388,7 @@ test("Known invitation acceptance uses the verified exact recipient and consumes
       "POST",
       `/api/invitations/${invitation.id}/accept`,
     );
+    await recipient.getByLabel("Invitation token", { exact: true }).fill(token);
     await recipient
       .getByRole("button", { name: "Accept", exact: true })
       .click();
@@ -337,6 +400,114 @@ test("Known invitation acceptance uses the verified exact recipient and consumes
       body: await recipient.screenshot(),
       contentType: "image/png",
     });
+  } finally {
+    await other.close();
+  }
+});
+
+test("An unverified account joins from the no-workspace boundary only with a private invitation token", async ({
+  page,
+  fixture,
+  browser,
+}, testInfo) => {
+  const { workspaceId, userId: ownerId } = await register(
+    page,
+    fixture,
+    "Boundary Invitation Owner",
+  );
+  const other = await browser.newContext();
+  try {
+    const recipient = await other.newPage();
+    const email = `boundary-${crypto.randomUUID()}@example.test`;
+    await recipient.goto("/");
+    await recipient
+      .getByRole("button", { name: "Create account", exact: true })
+      .click();
+    await recipient
+      .getByLabel("Name", { exact: true })
+      .fill("Boundary Recipient");
+    await recipient.getByLabel("Email", { exact: true }).fill(email);
+    await recipient
+      .getByLabel("Password", { exact: true })
+      .fill(crypto.randomUUID() + crypto.randomUUID());
+    await recipient
+      .getByRole("button", { name: "Create account", exact: true })
+      .click();
+    await expect(
+      recipient.getByText("No workspace access.", { exact: false }),
+    ).toBeVisible();
+    const { invitation, token } = await inWorkspace(
+      fixture.database.db,
+      workspaceId,
+      { userId: ownerId },
+      async (c) => {
+        const invitation = await createInvitation(c, { email, role: "viewer" });
+        return {
+          invitation,
+          token: await createInvitationToken(c, invitation.id),
+        };
+      },
+      true,
+      fixture.cursors,
+    );
+    await recipient
+      .getByLabel("Invitation ID", { exact: true })
+      .fill(invitation.id);
+    await expect(
+      recipient.getByLabel("Invitation token", { exact: true }),
+    ).toHaveAttribute("type", "password");
+    await recipient
+      .getByRole("button", { name: "Accept invitation", exact: true })
+      .click();
+    await expect(
+      recipient.getByText("No workspace access.", { exact: false }),
+    ).toBeVisible();
+    expect(
+      (
+        await fixture.database.db
+          .select()
+          .from(invitations)
+          .where(eq(invitations.id, invitation.id))
+      )[0]?.acceptedAt,
+    ).toBeNull();
+    await recipient.getByLabel("Invitation token", { exact: true }).fill(token);
+    await testInfo.attach("no-workspace-private-invitation-token-masked", {
+      body: await recipient.screenshot({
+        path: testInfo.outputPath("no-workspace-token-masked.png"),
+      }),
+      contentType: "image/png",
+    });
+    const accepted = responseFor(
+      recipient,
+      "POST",
+      `/api/invitations/${invitation.id}/accept`,
+    );
+    await recipient
+      .getByRole("button", { name: "Accept invitation", exact: true })
+      .click();
+    expect((await accepted).status()).toBe(200);
+    await recipient
+      .getByRole("button", { name: "Open profile menu", exact: true })
+      .waitFor();
+    await recipient.reload();
+    await recipient
+      .getByRole("button", { name: "Open profile menu", exact: true })
+      .waitFor();
+    const session = await recipient.evaluate(
+      async () => (await (await fetch("/api/auth/get-session")).json()).user,
+    );
+    expect(session.emailVerified).toBe(false);
+    await testInfo.attach(
+      "private-token-no-workspace-acceptance-after-reload",
+      {
+        body: await recipient.screenshot({
+          path: testInfo.outputPath(
+            "registration-acceptance-authenticated-reload.png",
+          ),
+        }),
+        contentType: "image/png",
+      },
+    );
   } finally {
     await other.close();
   }

@@ -8,19 +8,22 @@ import WebSocket from "ws";
 import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
+import { createSmtpMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
+import { createCursorCodec } from "../packages/db/src";
 import { previewFile } from "../packages/files/src";
 import { runs } from "../packages/runs/src/schema";
 import { openNativeStorage } from "../packages/sessions/src/native";
 import { skills } from "../packages/skills/src/schema";
 import { updateTask } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
-import { members, users } from "../packages/workspaces/src/schema";
+import { members } from "../packages/workspaces/src/schema";
 import {
   fixtureEncryptionKey,
   nativeModelAuthorization,
 } from "./fixtures/native-model";
+import { startSmtp } from "./fixtures/smtp";
 import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
@@ -38,6 +41,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
   let server: Server<RealtimeData>;
   let app: ReturnType<typeof createApp>;
   let realtime: ReturnType<typeof createRealtime>;
+  let sink: Awaited<ReturnType<typeof startSmtp>>;
   let origin: string;
   let workspaceId: string;
   let owner: string;
@@ -48,6 +52,17 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
   let viewerCookie = "";
   let projectId: string;
   let chatId: string;
+  const invitationToken = (id: string) => {
+    const token = sink.messages
+      .findLast(
+        (message) =>
+          message.subject === "Your Otto invitation" &&
+          message.text.includes(`Invitation ID: ${id}`),
+      )
+      ?.text.match(/Invitation token: (\S+)/)?.[1];
+    if (!token) throw new Error("Missing mailed invitation token");
+    return token;
+  };
   const objects = new Map<string, Uint8Array>();
   let afterStorageRead: (() => Promise<void>) | undefined;
   const storage = fixtureStorage({
@@ -155,6 +170,13 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       },
     });
     origin = `http://127.0.0.1:${server.port}`;
+    sink = await startSmtp();
+    const mail = createSmtpMail({
+      from: "otto@example.test",
+      host: sink.host,
+      port: sink.port,
+      tls: "none",
+    });
     const auth = createAuth(
       database.db,
       crypto.randomUUID() + crypto.randomUUID(),
@@ -168,6 +190,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       storage,
       spool: transfers.spool,
       nativeStorage,
+      mail,
+      cursors: createCursorCodec(crypto.randomUUID() + crypto.randomUUID()),
       modelAuthorization: nativeModelAuthorization,
       encryptionKey: fixtureEncryptionKey,
     };
@@ -204,8 +228,6 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     workspaceId = (
       await claimInstallation(database.db, owner, "Content transport")
     ).id;
-    // Verified-email fixture; email delivery qualification belongs to the operations lane.
-    await database.db.update(users).set({ emailVerified: true });
     for (const [userId, email, role, authCookie] of [
       [
         collaborator,
@@ -223,7 +245,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
           await request(
             `/api/invitations/${invite.id}/accept`,
             "POST",
-            {},
+            { token: invitationToken(invite.id) },
             authCookie,
           )
         ).status,
@@ -258,6 +280,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     await server?.stop(true);
     await boss?.stop({ graceful: false });
     await nativeStorage?.close();
+    await sink?.close();
     await database?.stop();
   });
 
@@ -1629,10 +1652,6 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     const later = z
       .object({ user: z.object({ id: z.string() }) })
       .parse(await joined.json()).user.id;
-    await database.db
-      .update(users)
-      .set({ emailVerified: true })
-      .where(eq(users.id, later));
     const invitation = await saved(
       await api("/invitations", "POST", {
         email: "later-content@example.test",
@@ -1644,7 +1663,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         await request(
           `/api/invitations/${invitation.id}/accept`,
           "POST",
-          {},
+          { token: invitationToken(invitation.id) },
           laterCookie,
         )
       ).status,

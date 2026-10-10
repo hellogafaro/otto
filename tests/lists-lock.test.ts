@@ -7,6 +7,7 @@ import {
   deleteParticipant,
 } from "../packages/chats/src";
 import { participants } from "../packages/chats/src/schema";
+import { createCursorCodec } from "../packages/db/src";
 import { createDocument, updateDocument } from "../packages/documents/src";
 import { createEnvironment } from "../packages/environments/src";
 import { deleteProjectMember } from "../packages/projects/src";
@@ -14,10 +15,14 @@ import { admitRun, failQueuedRun } from "../packages/runs/src";
 import {
   acceptInvitation,
   createInvitation,
+  createInvitationToken,
   deleteMember,
 } from "../packages/workspaces/src";
-import { users } from "../packages/workspaces/src/schema";
-import { type ListHarness, startListHarness } from "./fixtures/lists";
+import {
+  LIST_SECRET,
+  type ListHarness,
+  startListHarness,
+} from "./fixtures/lists";
 
 let h: ListHarness;
 beforeAll(async () => {
@@ -78,12 +83,12 @@ it("blocks every kind of authority write while a list read transaction is open, 
       .where(eq(participants.chatId, chatId))
   ).find((row) => row.userId === h.bob.id);
   const late = await h.signup("late");
-  await h.database.db
-    .update(users)
-    .set({ emailVerified: true })
-    .where(eq(users.id, late.id));
+  const tokens = createCursorCodec(LIST_SECRET);
   const invitation = await h.scope(h.owner, (c) =>
     createInvitation(c, { email: "late@lists.test", role: "contributor" }),
+  );
+  const token = await h.scope(h.owner, (c) =>
+    createInvitationToken({ ...c, cursors: tokens }, invitation.id),
   );
   const writes: [string, () => Promise<unknown>][] = [
     [
@@ -116,6 +121,8 @@ it("blocks every kind of authority write while a list read transaction is open, 
           h.database.db,
           late.id,
           (invitation as { id: string }).id,
+          token,
+          tokens,
         ),
     ],
     [

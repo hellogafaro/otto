@@ -19,6 +19,7 @@ export async function startUiApp(origin: string, port = 0) {
   const peer = await startS3Peer();
   const transfers = await testSpool();
   const secret = crypto.randomUUID() + crypto.randomUUID();
+  const cursors = createCursorCodec(secret);
   const auth = createAuth(database.db, secret, origin);
   const nativeStorage = await openNativeStorage({
     connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
@@ -47,7 +48,7 @@ export async function startUiApp(origin: string, port = 0) {
       modelAuthorization: nativeModelAuthorization,
       storage,
       spool: transfers.spool,
-      cursors: createCursorCodec(secret),
+      cursors,
       // Live dictation only when a key is injected; otherwise the route answers not_configured.
       transcriber: process.env.OPENROUTER_API_KEY
         ? createOpenRouterTranscriber({
@@ -109,6 +110,7 @@ export async function startUiApp(origin: string, port = 0) {
     apiOrigin: server.url.origin,
     auth,
     database,
+    cursors,
     nativeStorage,
     encryptionKey: fixtureEncryptionKey,
     peer,

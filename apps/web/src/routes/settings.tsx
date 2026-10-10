@@ -711,20 +711,33 @@ function AcceptInvitation() {
   const { selectWorkspace } = useWorkspace();
   const queryClient = useQueryClient();
   const [id, setId] = useState("");
+  const [token, setToken] = useState("");
   const action = useSettingsAction();
   const valid =
-    /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(id);
+    /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(id) &&
+    token.length > 0;
   return (
     <Group title="Accept invitation">
       <Row
         title="Invitation ID"
-        description="Use the ID sent to your verified email."
+        description="Use the ID and private token in your invitation email."
       >
         <SettingsField
           label="Accept invitation ID"
           disabled={action.pending}
           value={id}
           onChange={(event) => setId(event.target.value.trim())}
+        />
+      </Row>
+      <Row title="Invitation token">
+        <SettingsField
+          label="Invitation token"
+          type="password"
+          autoComplete="off"
+          maxLength={4096}
+          disabled={action.pending}
+          value={token}
+          onChange={(event) => setToken(event.target.value.trim())}
         />
         <Button
           variant="outline"
@@ -733,8 +746,12 @@ function AcceptInvitation() {
           onClick={() =>
             action.perform(async () => {
               const result = await read(
-                await client.invitations[":id"].accept.$post({ param: { id } }),
+                await client.invitations[":id"].accept.$post({
+                  param: { id },
+                  json: { token },
+                }),
               );
+              setToken("");
               await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
               if (action.isActive()) selectWorkspace(result.workspaceId);
             }, "Invitation accepted")

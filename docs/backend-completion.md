@@ -1,6 +1,6 @@
 # Backend completion checkpoint
 
-The HTTP mail fixture below is historical. Current signup, reset and invitations use standard SMTP; see [configuration](operations.md#smtp-mail) and [current acceptance](native-acceptance.md).
+The HTTP mail fixture below is historical. Current signup/sign-in are mail-independent; reset and invitations use standard SMTP; see [configuration](operations.md#smtp-mail) and [current acceptance](native-acceptance.md).
 
 Current managed Pi/CLIProxyAPI implementation and qualification: [checkpoint](pi-implementation.md) and [source map](pi-gateway-plan.md). The earlier checkpoints and ACP/native-computer observations below are historical; they do not qualify the replacement.
 

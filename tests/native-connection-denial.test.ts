@@ -74,7 +74,6 @@ it("authorizes exact human Connection decisions and execution against native sel
     connectionString: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
   });
   const origin = "http://localhost:43101";
-  const verification = new Map<string, string>();
   const connections = {
     secrets: { resolve: async () => "controlled-peer-not-a-real-credential" },
     http: {
@@ -113,15 +112,6 @@ it("authorizes exact human Connection decisions and execution against native sel
               },
             }),
         },
-        mail: {
-          async send(message) {
-            if (message.subject === "Verify your Otto email")
-              verification.set(
-                message.to,
-                message.text.slice("Verify your email: ".length),
-              );
-          },
-        },
       },
     );
     const apiOrigin = server.server.url.origin;
@@ -144,21 +134,13 @@ it("authorizes exact human Connection decisions and execution against native sel
           })
         ).status,
       ).toBe(200);
-      const url = new URL(verification.get(email) ?? "");
-      expect(url.origin).toBe(origin);
-      expect(
-        (
-          await fetch(`${apiOrigin}${url.pathname}${url.search}`, {
-            redirect: "manual",
-            headers: { origin },
-          })
-        ).status,
-      ).toBe(302);
       const response = await authRequest("/sign-in/email", { email, password });
       expect(response.status).toBe(200);
       return {
         id: z
-          .object({ user: z.object({ id: z.string() }) })
+          .object({
+            user: z.object({ id: z.string(), emailVerified: z.literal(false) }),
+          })
           .parse(await response.json()).user.id,
         cookie: response.headers.get("set-cookie") ?? "",
       };

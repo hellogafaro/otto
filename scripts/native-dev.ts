@@ -2,7 +2,6 @@ import { z } from "zod";
 import { startNativeTestApp } from "../tests/fixtures/native-app";
 
 const command = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("verify"), email: z.email() }).strict(),
   z
     .object({
       type: z.literal("enroll"),
@@ -67,13 +66,6 @@ try {
         await fixture.restart();
         console.log(
           JSON.stringify({ status: "restarted", apiOrigin: fixture.apiOrigin }),
-        );
-      } else if (input.type === "verify") {
-        console.log(
-          JSON.stringify({
-            userId: await fixture.verifyEmail(input.email),
-            status: "verified",
-          }),
         );
       } else {
         console.log(

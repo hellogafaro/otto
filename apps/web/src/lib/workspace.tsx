@@ -192,6 +192,7 @@ function InvitationJoin() {
           await read(
             await client.invitations[":id"].accept.$post({
               param: { id: invitationId },
+              json: { token: String(form.get("invitationToken")).trim() },
             }),
           );
           await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
@@ -212,6 +213,18 @@ function InvitationJoin() {
           <Input
             id="invitation-id"
             name="invitationId"
+            required
+            disabled={pending}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="invitation-token">Invitation token</FieldLabel>
+          <Input
+            id="invitation-token"
+            name="invitationToken"
+            type="password"
+            autoComplete="off"
+            maxLength={4096}
             required
             disabled={pending}
           />

@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sendInvitation } from "../apps/server/src/invitations";
 import { createSmtpMail } from "../apps/server/src/mail";
+import { createCursorCodec } from "../packages/db/src";
 import {
   claimInstallation,
   createInvitation,
+  createInvitationToken,
   getInvitation,
   inWorkspace,
 } from "../packages/workspaces/src";
@@ -14,13 +16,14 @@ import { startPostgres } from "./postgres";
 describe("invitation delivery to a local SMTP server", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let invitation: Awaited<ReturnType<typeof createInvitation>>;
+  let token: string;
+  const tokens = createCursorCodec(crypto.randomUUID() + crypto.randomUUID());
   beforeAll(async () => {
     database = await startPostgres();
     await database.db.insert(users).values({
       id: "invitation-sender",
       name: "Sender",
       email: "sender@example.test",
-      emailVerified: true,
     });
     const workspace = await claimInstallation(
       database.db,
@@ -44,6 +47,14 @@ describe("invitation delivery to a local SMTP server", () => {
       (context) => getInvitation(context, created.id),
       false,
     );
+    token = await inWorkspace(
+      database.db,
+      workspace.id,
+      { userId: "invitation-sender" },
+      (context) => createInvitationToken(context, invitation.id),
+      false,
+      tokens,
+    );
   });
   afterAll(async () => {
     await database?.stop();
@@ -62,19 +73,29 @@ describe("invitation delivery to a local SMTP server", () => {
       port: sink.port,
       tls: "none",
     });
-    const options = { mail, origin: "http://localhost:43001", invitation };
+    const options = {
+      mail,
+      origin: "http://localhost:43001",
+      invitation,
+      token,
+    };
     try {
       expect(await sendInvitation(options)).toBe("sent");
       expect(await sendInvitation(options)).toBe("sent");
       expect(received[0]?.to).toEqual([invitation.email]);
       expect(received[0]?.text).toContain(invitation.id);
       expect(received[0]?.text).toContain(options.origin);
+      expect(received[0]?.text).toContain(`Invitation token: ${token}`);
+      expect(invitation).not.toHaveProperty("token");
       expect(received[0]?.messageId).toBe(received[1]?.messageId);
       expect(Boolean(received[0]?.messageId)).toBe(true);
       reject = true;
       expect(await sendInvitation(options)).toBe("uncertain");
       expect(received.length).toBe(3);
       expect(await sendInvitation({ ...options, mail: undefined })).toBe(
+        "unavailable",
+      );
+      expect(await sendInvitation({ ...options, token: undefined })).toBe(
         "unavailable",
       );
       expect(

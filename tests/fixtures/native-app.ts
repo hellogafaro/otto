@@ -6,7 +6,6 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { readConfig } from "../../apps/server/src/config";
 import { startServer } from "../../apps/server/src/lifecycle";
-import type { Mail } from "../../apps/server/src/mail";
 import { startQueue } from "../../apps/server/src/queue";
 import { ensureDefaultAgent } from "../../packages/agents/src/server";
 import { claimInstallation, inWorkspace } from "../../packages/workspaces/src";
@@ -62,23 +61,6 @@ export async function startNativeTestApp(
     const spool = await mkdtemp(join(tmpdir(), "otto-native-spool-"));
     cleanups.push(() => rm(spool, { recursive: true, force: true }));
     await chmod(spool, 0o700);
-    const pending = new Map<string, string>();
-    cleanups.push(async () => pending.clear());
-    const mail: Mail = {
-      async send(message) {
-        if (message.subject !== "Verify your Otto email") return;
-        const email = message.to.toLowerCase();
-        if (!pending.has(email) && pending.size >= 100)
-          throw new Error("Fixture verification inbox is full");
-        const prefix = "Verify your email: ";
-        if (!message.text.startsWith(prefix))
-          throw new Error("Invalid fixture verification message");
-        const url = new URL(message.text.slice(prefix.length));
-        if (url.origin !== origin || url.pathname !== "/api/auth/verify-email")
-          throw new Error("Unexpected fixture verification destination");
-        pending.set(email, url.pathname + url.search);
-      },
-    };
     const config = readConfig({
       DATABASE_URL: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
       BETTER_AUTH_SECRET: randomBytes(32).toString("base64"),
@@ -93,7 +75,7 @@ export async function startNativeTestApp(
       S3_SECRET_ACCESS_KEY: "disposable-peer-not-a-live-credential",
       UPLOAD_SPOOL_DIR: spool,
     });
-    let runtime = await startServer(config, { mail });
+    let runtime = await startServer(config);
     cleanups.push(() => runtime.stop());
     const port = runtime.server.port;
     if (port === undefined) throw new Error("Fixture requires a TCP listener");
@@ -107,11 +89,10 @@ export async function startNativeTestApp(
       if (stopped) throw new Error("Native fixture is stopped");
       const selectedRole = role.parse(requestedRole);
       const [user] = await database.db
-        .select({ verified: users.emailVerified })
+        .select({ id: users.id })
         .from(users)
         .where(eq(users.id, userId));
-      if (!user?.verified)
-        throw new Error("A verified fixture user is required");
+      if (!user) throw new Error("A registered fixture user is required");
       if (!workspace) {
         if (selectedRole !== "owner")
           throw new Error("Provision the fixture owner before other members");
@@ -140,26 +121,6 @@ export async function startNativeTestApp(
         .onConflictDoNothing();
       return workspaceId;
     }
-    async function verifyEmail(email: string) {
-      if (stopped) throw new Error("Native fixture is stopped");
-      const address = z.email().parse(email).toLowerCase();
-      const path = pending.get(address);
-      if (!path) throw new Error("No pending fixture verification");
-      const response = await fetch(`${apiOrigin}${path}`, {
-        headers: { origin },
-        redirect: "manual",
-      });
-      await response.body?.cancel();
-      if (response.status !== 302)
-        throw new Error("Fixture email verification failed");
-      pending.delete(address);
-      const [user] = await database.db
-        .select({ id: users.id, verified: users.emailVerified })
-        .from(users)
-        .where(eq(users.email, address));
-      if (!user?.verified) throw new Error("Fixture user was not verified");
-      return user.id;
-    }
     async function provisionUser(input: z.input<typeof userInput> = {}) {
       if (stopped) throw new Error("Native fixture is stopped");
       const selected = userInput.parse(input);
@@ -177,9 +138,16 @@ export async function startNativeTestApp(
         }),
         redirect: "manual",
       });
-      await response.body?.cancel();
-      if (!response.ok) throw new Error("Fixture user registration failed");
-      const id = await verifyEmail(email);
+      if (!response.ok) {
+        await response.body?.cancel();
+        throw new Error("Fixture user registration failed");
+      }
+      const { user } = z
+        .object({
+          user: z.object({ id: z.string(), emailVerified: z.literal(false) }),
+        })
+        .parse(await response.json());
+      const id = user.id;
       const workspaceId = await grant(id, selected.role);
       return { id, email, password, workspaceId };
     }
@@ -188,7 +156,7 @@ export async function startNativeTestApp(
         return Promise.reject(new Error("Native fixture is stopped"));
       restarting ??= (async () => {
         await runtime.stop();
-        runtime = await startServer(config, { mail });
+        runtime = await startServer(config);
       })().finally(() => {
         restarting = undefined;
       });
@@ -200,7 +168,6 @@ export async function startNativeTestApp(
       database,
       peer,
       provisionUser,
-      verifyEmail,
       grant,
       restart,
       stop,

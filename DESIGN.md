@@ -934,7 +934,7 @@ Command search omits empty result groups and the redundant Task scope label. Its
 
 ### Accounts and workspace access
 
-Authentication uses the real account service for sign-in, registration and password reset, with acknowledged results and request errors. Registration does not grant installation or workspace authority. A person without workspace access can accept a known invitation ID. Workspace selection loads additional server pages and clears the previous workspace cache before navigation. The profile menu omits workspace selection when there is only one workspace and no further page.
+Authentication uses the real account service for email/password sign-in and registration without mandatory email verification or mail configuration. Password reset remains an explicitly mail-dependent action, with acknowledged results and request errors. Registration does not prove email ownership or grant installation or workspace authority. Invitation acceptance, both before workspace access and in Settings, requires the emailed invitation ID and a private token entered in a masked stock Input; tokens are not shown in invitation metadata. Workspace selection loads additional server pages and clears the previous workspace cache before navigation. The profile menu omits workspace selection when there is only one workspace and no further page.
 
 ### Fenced configuration and content
 

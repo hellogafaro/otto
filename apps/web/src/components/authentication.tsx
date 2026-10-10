@@ -95,7 +95,7 @@ export function Authentication() {
                 );
               else if (mode === "signup")
                 setMessage(
-                  "Account created. Check your email if verification is required; workspace access is granted separately.",
+                  "Account created. Workspace access is granted separately.",
                 );
               else if (mode === "request")
                 setMessage(
