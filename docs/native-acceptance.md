@@ -22,6 +22,25 @@ Use normal authenticated separate user/browser contexts. The finite multiplayer 
 
 ## Current verdicts
 
+The reviewed anonymous-MCP and outcome-classification changes were integrated
+as signed-off local main commits `2a3bc68159e1bdea6bb240a197163bf6788ed4c2`
+and `601df0f88628790608fe7a5614e1ed031cf0eda0`, without push or PR.
+All642 disk/commit/recovered-bundle file bytes match. Fresh committed-source
+checks pass154 affected tests, root/web types, boundaries and consistency.
+The owned API was gracefully restarted after repeated zero unfinished
+Run/operation/pending-action/upload checks and no enabled Schedule. These
+are quiescent-window snapshots, not a newly implemented admission lock.
+Exactly the five approved existing startup keys were read individually and
+compared in memory to the old process before stopping it; no values were saved
+or changed. Durable MCP (including anonymous opt-in) and mail remain disabled,
+and provider/dictation/computer/storage/auth configuration remains unchanged.
+Fresh API PID67141 is bound to its verified listener/launcher; health and ready
+pass, UI returns200 and an isolated browser renders Sign in without page errors.
+The account, session and saved File counts are unchanged. Launch evidence pins
+all642 stable source files at `601df0f`; this establishes the fresh launch's
+source identity, not an in-memory module-hash API or broad live requalification.
+Evidence and independently verifiable recovery: `integration/native-outcome-final/`.
+
 The Captain executed the sealed selected-Skill/public-MCP case exactly once;
 it failed before any saved Connection operation or Agent publication. Run
 `7924a28e-7edf-418e-ac2f-74ab1483a313` was interrupted with the generic
