@@ -9,7 +9,6 @@ type SendInput = {
   body: string;
   fileIds: string[];
   replyTo?: string;
-  agentIds: string[];
 };
 
 export function useNativeChatSend() {
@@ -18,7 +17,6 @@ export function useNativeChatSend() {
     input: SendInput;
     requestId: string;
     messageId?: string;
-    runs: { agentId: string; requestId: string; accepted: boolean }[];
   } | null>(null);
   const send = useMutation({
     mutationFn: async (input: SendInput) => {
@@ -30,51 +28,34 @@ export function useNativeChatSend() {
       attempt.current ??= {
         input,
         requestId: crypto.randomUUID(),
-        runs: input.agentIds.map((agentId) => ({
-          agentId,
-          requestId: crypto.randomUUID(),
-          accepted: false,
-        })),
       };
       const current = attempt.current;
-      if (!current.messageId) {
-        try {
-          const message = await read(
-            await api.chats[":id"].messages.$post({
-              param: { workspaceId, id: input.chatId },
-              json: {
-                body: input.body,
-                fileIds: input.fileIds,
-                replyTo: input.replyTo,
-                mentionUserIds: mentionUserIds(input.body),
-                requestId: current.requestId,
-              },
-            }),
-          );
-          current.messageId = message.id;
-        } catch (error) {
-          if (error instanceof ApiError && error.status < 500)
-            attempt.current = null;
-          throw error;
-        }
-      }
-      for (const run of current.runs) {
-        if (run.accepted) continue;
-        await read(
-          await api.runs.$post({
-            param: { workspaceId },
+      try {
+        const message = await read(
+          await api.chats[":id"].messages.$post({
+            param: { workspaceId, id: input.chatId },
             json: {
-              chatId: input.chatId,
-              agentId: run.agentId,
-              type: "prompt",
-              sessionMode: "auto",
               body: input.body,
-              messageIds: [current.messageId],
-              requestId: run.requestId,
+              fileIds: input.fileIds,
+              replyTo: input.replyTo,
+              mentionUserIds: mentionUserIds(input.body),
+              requestId: current.requestId,
             },
           }),
         );
-        run.accepted = true;
+        current.messageId = message.id;
+        if (message.replyErrors.length)
+          throw new Error(
+            message.replyErrors.map((reply) => reply.message).join(" "),
+          );
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          error.status < 500 &&
+          !current.messageId
+        )
+          attempt.current = null;
+        throw error;
       }
       attempt.current = null;
     },

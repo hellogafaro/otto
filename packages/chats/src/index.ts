@@ -22,6 +22,7 @@ import {
   saveNativeMessage,
 } from "@otto/sessions/native";
 import { DomainError, type PageOptions, required } from "@otto/shared";
+import { parseMentions } from "@otto/shared/mentions";
 
 import {
   type Actor,
@@ -323,6 +324,49 @@ export async function reserveMessage(
           )
       )[0],
     );
+  let replyAgentIds: string[] = [];
+  if (!c.actor.agentId) {
+    const mentioned = [
+      ...new Set(
+        parseMentions(input.body)
+          .filter((mention) => mention.type === "agent")
+          .map((mention) => mention.id),
+      ),
+    ];
+    if (mentioned.length) {
+      if (mentioned.length > 100) throw new DomainError("invalid");
+      const contributors = await c.tx
+        .select({ agentId: participants.agentId })
+        .from(participants)
+        .where(
+          and(
+            eq(participants.chatId, chatId),
+            eq(participants.role, "contributor"),
+            inArray(sql`${participants.agentId}::text`, mentioned),
+          ),
+        )
+        .limit(101);
+      if (
+        mentioned.some(
+          (agentId) => !contributors.some((p) => p.agentId === agentId),
+        )
+      )
+        throw new DomainError(
+          "invalid",
+          "Mentioned Agent must be a contributing Chat participant",
+        );
+      replyAgentIds = mentioned;
+    } else {
+      try {
+        const audience = await getChatAudience(c, chatId);
+        if (audience.humans.length === 1 && audience.agents.length === 1)
+          replyAgentIds = audience.agents;
+      } catch (error) {
+        if (!(error instanceof DomainError) || error.code !== "unavailable")
+          throw error;
+      }
+    }
+  }
   return required(
     (
       await c.tx
@@ -331,6 +375,7 @@ export async function reserveMessage(
           requestId: input.requestId,
           replyTo: input.replyTo,
           mentionUserIds: mentions,
+          replyAgentIds,
           fileIds: input.fileIds ?? [],
           nativeMessageId: reference?.nativeMessageId ?? crypto.randomUUID(),
           nativeThreadId: reference?.nativeThreadId ?? chatId,
@@ -415,6 +460,35 @@ export async function createMessage(
   });
 }
 
+export async function getMessageReplyAgentIds(
+  c: Context,
+  chatId: string,
+  id: string,
+) {
+  requireHuman(c);
+  await getChat(c, chatId, true);
+  const row = required(
+    (
+      await c.tx
+        .select({
+          authorUserId: messages.authorUserId,
+          replyAgentIds: messages.replyAgentIds,
+        })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.id, id),
+            eq(messages.chatId, chatId),
+            eq(messages.workspaceId, c.workspaceId),
+            eq(messages.status, "published"),
+          ),
+        )
+    )[0],
+  );
+  if (row.authorUserId !== c.actor.userId) throw new DomainError("forbidden");
+  return row.replyAgentIds;
+}
+
 async function projectMessage(native: NativeSessionStorage, row: MessageIndex) {
   const source = required(
     (
@@ -463,6 +537,7 @@ async function projectMessage(native: NativeSessionStorage, row: MessageIndex) {
     nativePartIndexes: _parts,
     requestHash: _hash,
     status: _status,
+    replyAgentIds: _replies,
     ...metadata
   } = row;
   return { ...metadata, body: text };
@@ -540,6 +615,7 @@ export async function publishNativeMessage(
       nativePartIndexes: _parts,
       requestHash: _hash,
       status: _status,
+      replyAgentIds: _replies,
       ...metadata
     } = published;
     return { ...metadata, body };

@@ -103,6 +103,7 @@ export const messages = pgTable(
     requestHash: text().notNull(),
     status: text({ enum: ["reserved", "published"] }).notNull(),
     mentionUserIds: jsonb().$type<string[]>().notNull().default([]),
+    replyAgentIds: jsonb().$type<string[]>().notNull().default([]),
     fileIds: jsonb().$type<string[]>().notNull().default([]),
     replyTo: uuid(),
     requestId: uuid().notNull(),

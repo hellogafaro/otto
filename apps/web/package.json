@@ -30,6 +30,7 @@
     "react-dom": "^19.2.8",
     "rrule": "2.8.1",
     "@otto/server": "workspace:*",
+    "@otto/shared": "workspace:*",
     "zod": "4.6.5"
   },
   "devDependencies": {

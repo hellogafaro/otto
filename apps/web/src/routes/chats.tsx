@@ -114,7 +114,6 @@ import { EmptyPage } from "@/components/empty-page";
 import { Lightbox } from "@/components/files";
 import { MentionText } from "@/components/mentions";
 import { NativeActionCards } from "@/components/native-action-cards";
-import { NativeChatRecipients } from "@/components/native-chat-recipients";
 import { useNativeChatSend } from "@/components/native-chat-send";
 import { QueryState } from "@/components/query-state";
 import { SectionSidebar } from "@/components/section-sidebar";
@@ -591,30 +590,17 @@ export function ChatComposer({
 }) {
   const upload = useChatUpload(chat.projectId ?? undefined);
   const participants = useParticipants(chat.id);
-  const directory = useDirectory();
   const send = useNativeChatSend();
-  const [recipients, setRecipients] = useState<string[]>();
-  const memberAgentIds = new Set(
-    participants.data?.items
-      .filter((participant) => participant.role === "contributor")
-      .map((participant) => participant.agentId),
-  );
-  const agents = directory.agents.filter(
-    (agent) => !agent.archived && memberAgentIds.has(agent.id),
-  );
-  const loadingRecipients =
-    participants.isPending ||
-    participants.hasNextPage ||
-    directory.agentsQuery.isPending ||
-    directory.agentsQuery.hasNextPage;
-  const selected = recipients ?? (agents.length === 1 ? [agents[0].id] : []);
-  const validRecipients =
-    !loadingRecipients &&
-    !participants.error &&
-    !directory.agentsQuery.error &&
-    !(recipients === undefined && agents.length > 1) &&
-    selected.every((id) => agents.some((agent) => agent.id === id)) &&
-    (!chat.archived || selected.length === 0);
+  const mentionParticipants = {
+    userIds:
+      participants.data?.items.flatMap((person) =>
+        person.userId ? [person.userId] : [],
+      ) ?? [],
+    agentIds:
+      participants.data?.items.flatMap((person) =>
+        person.agentId && person.role === "contributor" ? [person.agentId] : [],
+      ) ?? [],
+  };
   const { api, workspaceId, invalidate } = useWorkspace();
   const lastTyped = useRef(0);
   const [presenceError, setPresenceError] = useState<Error>();
@@ -665,46 +651,25 @@ export function ChatComposer({
             body,
             fileIds: files.map((file) => file.id),
             replyTo,
-            agentIds: selected,
           });
-          setRecipients(undefined);
           onSent?.();
           await typing(false);
         }}
         compact={compact}
         embedded={embedded}
-        tools={
-          <>
-            {tools}
-            <NativeChatRecipients
-              agents={agents}
-              value={recipients}
-              onChange={setRecipients}
-              disabled={
-                disabled || send.isPending || send.locked || loadingRecipients
-              }
-            />
-          </>
-        }
+        tools={tools}
+        mentionParticipants={mentionParticipants}
         idle={idle}
         pending={send.isPending}
         locked={send.locked}
-        sendable={validRecipients || send.locked}
         disabled={disabled}
         upload={upload.upload}
       />
-      <ParticipantPages participants={participants} />
-      <DirectoryPages kind="agents" />
-      {recipients === undefined && agents.length > 1 && (
-        <p>
-          Choose one or more member agents, or Human only, for this message.
-        </p>
-      )}
       {send.error && (
         <p role="alert">
           {send.error.message}{" "}
           {send.messageSaved
-            ? "Message saved; send again to retry only the original agent admissions."
+            ? "Message saved; send again to retry the missing agent replies."
             : send.locked
               ? "Delivery is unconfirmed; send again to retry the same message."
               : "Your draft is retained."}
@@ -833,8 +798,8 @@ export function NewChatEmpty() {
         </EmptyMedia>
         <EmptyTitle>New chat</EmptyTitle>
         <EmptyDescription>
-          Choose participants and optional project context, then send your first
-          message to the selected agents or keep it human only.
+          Choose participants and send your first message. In a group, @mention
+          an agent when you want a reply.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
@@ -854,7 +819,6 @@ export function useNewChat() {
     files: FileRef[];
     projectId?: string;
     visibility: "participants" | "workspace";
-    agentIds?: string[];
   } | null>(null);
   const create = useMutation({
     mutationFn: async (input: {
@@ -863,20 +827,13 @@ export function useNewChat() {
       files: FileRef[];
       projectId?: string;
       visibility: "participants" | "workspace";
-      agentIds?: string[];
     }) => {
       if (accepted.current) input = accepted.current;
       if (!input.body.trim())
         throw new Error("Add a message before creating a chat.");
       if (input.files.length > 30)
         throw new Error("A message can attach at most 30 files.");
-      const memberAgentIds = input.memberIds.filter((id) =>
-        directory.agents.some((agent) => agent.id === id),
-      );
-      const agentIds = input.agentIds ?? memberAgentIds;
-      if (agentIds.some((id) => !memberAgentIds.includes(id)))
-        throw new Error("Recipients must be selected chat participants.");
-      accepted.current = { ...input, agentIds };
+      accepted.current = input;
       if (uncertainCreation.current)
         throw new Error(
           "Chat creation was not acknowledged, inspect Chats before starting another.",
@@ -940,7 +897,6 @@ export function useNewChat() {
         chatId: chat.id,
         body: input.body,
         fileIds: input.files.map((file) => file.id),
-        agentIds,
       });
       await invalidate();
       return chat;
@@ -972,17 +928,24 @@ export function NewChatComposer({
   onCreated: (chat: LiveChat) => void;
 }) {
   const directory = useDirectory();
-  const { workspace } = useWorkspace();
+  const { workspace, user } = useWorkspace();
   const [withIds, setWithIds] = useState<string[]>(withId ? [withId] : []);
   const [projectId, setProjectId] = useState(initialProjectId);
-  const [recipients, setRecipients] = useState<string[]>();
   const create = useNewChat();
   const upload = useChatUpload(projectId);
-  const agents = directory.agents.filter((agent) => withIds.includes(agent.id));
-  const selected = recipients ?? (agents.length === 1 ? [agents[0].id] : []);
-  const validRecipients =
-    !(recipients === undefined && agents.length > 1) &&
-    selected.every((id) => agents.some((agent) => agent.id === id));
+  const mentionParticipants = {
+    userIds: [
+      ...new Set([
+        user.id,
+        ...withIds.filter((id) =>
+          directory.members.some((member) => member.userId === id),
+        ),
+      ]),
+    ],
+    agentIds: withIds.filter((id) =>
+      directory.agents.some((agent) => agent.id === id),
+    ),
+  };
   const validProject =
     !projectId ||
     directory.projects.some(
@@ -1027,14 +990,7 @@ export function NewChatComposer({
         upload={upload.upload}
         projectId={projectId}
         placeholder="Write your first message"
-        tools={
-          <NativeChatRecipients
-            agents={agents}
-            value={recipients}
-            onChange={setRecipients}
-            disabled={create.isPending || create.locked}
-          />
-        }
+        mentionParticipants={mentionParticipants}
         locked={create.locked}
         onSend={async (body, files) => {
           const chat = await create.mutateAsync({
@@ -1044,7 +1000,6 @@ export function NewChatComposer({
             visibility: "participants",
             body,
             files,
-            agentIds: selected,
           });
           onCreated(chat);
         }}
@@ -1056,9 +1011,7 @@ export function NewChatComposer({
             Boolean(directory.error) ||
             !validProject ||
             !validPeople,
-          // Starts disabled: someone (yourself counts) must be chosen under With. No project is a valid choice.
-          sendable:
-            withIds.length > 0 && validRecipients && !create.uncertainCreation,
+          sendable: !create.uncertainCreation,
         }}
       />
       <div className="flex flex-wrap items-center gap-1 px-1 pt-2">

@@ -1,14 +1,12 @@
 import {
   useInfiniteQuery,
-  useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import type { InferRequestType, InferResponseType } from "hono/client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { read, type workspaceApi } from "@/lib/api";
-import { mentionUserIds } from "@/lib/mention-text";
 import { useWorkspace } from "@/lib/workspace";
 
 export type LiveChat = InferResponseType<
@@ -173,11 +171,11 @@ export function useParticipants(chatId?: string) {
   const authorityPending = !query.error && !authorityResolved;
   const { fetchNextPage, hasNextPage, isFetching, error } = query;
   useEffect(() => {
-    if (chatId && authorityPending && hasNextPage && !isFetching && !error) {
+    if (chatId && hasNextPage && !isFetching && !error) {
       // Multiple Chat/menu/Run observers share this query; join an existing fetch.
       void fetchNextPage({ cancelRefetch: false });
     }
-  }, [chatId, authorityPending, hasNextPage, isFetching, error, fetchNextPage]);
+  }, [chatId, hasNextPage, isFetching, error, fetchNextPage]);
   return { ...query, currentParticipant, authorityResolved, authorityPending };
 }
 
@@ -203,44 +201,6 @@ export function useChatMessages(chatId?: string, active = true) {
     enabled: Boolean(chatId) && active,
     refetchInterval: active ? 2000 : false,
     retry: false,
-  });
-}
-
-// Retry the exact request identity after a lost acknowledgement; edited drafts intentionally get a new ID.
-export function useMessageSend(chatId?: string) {
-  const { api, workspaceId, invalidate } = useWorkspace();
-  const attempt = useRef({ signature: "", requestId: "" });
-  return useMutation({
-    mutationFn: async (input: {
-      body: string;
-      fileIds?: string[];
-      replyTo?: string;
-    }) => {
-      if (!chatId) throw new Error("Open a chat before sending.");
-      if (!input.body.trim())
-        throw new Error("Add message text before sending attachments.");
-      if ((input.fileIds?.length ?? 0) > 30)
-        throw new Error(
-          "A message can attach at most 30 files. Remove extra attachments and retry.",
-        );
-      const signature = JSON.stringify([chatId, input]);
-      if (signature !== attempt.current.signature)
-        attempt.current = { signature, requestId: crypto.randomUUID() };
-      return read(
-        await api.chats[":id"].messages.$post({
-          param: { workspaceId, id: chatId },
-          json: {
-            ...input,
-            requestId: attempt.current.requestId,
-            mentionUserIds: mentionUserIds(input.body),
-          },
-        }),
-      );
-    },
-    onSuccess: async () => {
-      attempt.current = { signature: "", requestId: "" };
-      await invalidate();
-    },
   });
 }
 

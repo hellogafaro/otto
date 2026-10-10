@@ -78,6 +78,19 @@ export const executionApi = new Hono<ApiEnv>()
         query: z.string().max(200).optional(),
         visibility: visibility.optional(),
         createdBy: z.string().min(1).max(128).optional(),
+        agentIds: z
+          .string()
+          .max(4000)
+          .transform((value, ctx) => {
+            try {
+              return JSON.parse(value) as unknown;
+            } catch {
+              ctx.addIssue({ code: "custom", message: "Invalid Agent IDs" });
+              return z.NEVER;
+            }
+          })
+          .pipe(z.array(id).max(100))
+          .optional(),
       }),
     ),
     async (c) =>

@@ -16,7 +16,7 @@ import {
   requireHuman,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { agentSkills, agents } from "./schema";
 
 /** Skill selections are sets of canonical UUIDs, not an instruction priority list. */
@@ -129,8 +129,11 @@ export async function getAgents(
     createdBy?: string;
     archived?: boolean;
     query?: string;
+    agentIds?: string[];
   } = {},
 ) {
+  if (filter.agentIds && filter.agentIds.length > 100)
+    throw new DomainError("invalid", "Agent filter limit");
   const f = { ...filter, archived: filter.archived ?? false };
   const plan = sortPlan({
     operation: "getAgents",
@@ -140,6 +143,7 @@ export async function getAgents(
     id: agents.id,
   });
   if (f.projectId) await getProject(c, f.projectId);
+  if (f.agentIds?.length === 0) return { items: [], next: null };
   const candidates = await c.tx
     .select({ id: agents.id, position: plan.position })
     .from(agents)
@@ -147,6 +151,7 @@ export async function getAgents(
       and(
         eq(agents.workspaceId, c.workspaceId),
         eq(agents.archived, f.archived),
+        f.agentIds ? inArray(agents.id, f.agentIds) : undefined,
         f.projectId ? eq(agents.projectId, f.projectId) : undefined,
         projectReadable(c, agents.projectId),
         f.visibility ? eq(agents.visibility, f.visibility) : undefined,

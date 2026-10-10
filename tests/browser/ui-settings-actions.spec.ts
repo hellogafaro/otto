@@ -1045,15 +1045,42 @@ nativeSettingsTest(
         await route.abort("failed");
       },
     );
-    await page
-      .getByRole("button", { name: "Approve exact action", exact: true })
-      .click();
+    let releaseReadback = () => {};
+    const readback = new Promise<void>((resolve) => {
+      releaseReadback = resolve;
+    });
+    await page.route(
+      (url) =>
+        url.pathname ===
+        `/api/workspaces/${workspaceId}/runs/${proposed.runId}/actions`,
+      async (route) => {
+        if (route.request().method() === "GET") await readback;
+        return route.continue();
+      },
+    );
     const card = page.locator('[data-slot="card"]').filter({
       has: page.getByText("connection.create", { exact: true }),
     });
-    await expect(card.getByRole("alert")).toContainText(
-      "No successful decision was acknowledged.",
-    );
+    try {
+      await page
+        .getByRole("button", { name: "Approve exact action", exact: true })
+        .click();
+      await expect(card.getByRole("alert")).toContainText(
+        "No successful decision was acknowledged.",
+      );
+      expect(JSON.parse(await card.locator("pre").first().innerText())).toEqual(
+        input,
+      );
+    } finally {
+      releaseReadback();
+    }
+    await page.getByRole("button", { name: "1 step", exact: true }).click();
+    await page
+      .getByRole("button", {
+        name: `connection.create · ${title}`,
+        exact: true,
+      })
+      .click();
     expect(JSON.parse(await card.locator("pre").first().innerText())).toEqual(
       input,
     );
@@ -1092,7 +1119,13 @@ nativeSettingsTest(
     await page.goto(`/chats/${native.chat.id}`);
     await page
       .getByRole("button", {
-        name: `${native.agent.title}: finished`,
+        name: "1 step",
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("button", {
+        name: `connection.create · ${title}`,
         exact: true,
       })
       .click();
@@ -1117,7 +1150,13 @@ nativeSettingsTest(
     await page.reload();
     await page
       .getByRole("button", {
-        name: `${native.agent.title}: finished`,
+        name: "1 step",
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("button", {
+        name: `connection.create · ${title}`,
         exact: true,
       })
       .click();

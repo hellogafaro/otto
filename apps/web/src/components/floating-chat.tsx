@@ -52,7 +52,6 @@ import {
   useChatMessages,
   useChatPermissions,
   useChats,
-  useMessageSend,
   useParticipants,
 } from "@/lib/chat-data";
 import { useChatUpload } from "@/lib/chat-upload";
@@ -159,7 +158,7 @@ export function FloatingChat({
   const navigate = useNavigate();
   const { chatId, expanded, listing, change, composer, viewRevision } =
     useFloatingChat();
-  const { api, workspaceId, workspace } = useWorkspace();
+  const { api, workspaceId, workspace, user } = useWorkspace();
   const [withIds, setWithIds] = useState<string[]>([]);
   const current = useChat(chatId);
   const chat = current.error ? undefined : current.data;
@@ -188,7 +187,6 @@ export function FloatingChat({
   const projectTitle = directory.projects.find(
     (item) => item.id === projectId,
   )?.title;
-  const sendMessage = useMessageSend(chatId);
   const questionRuns = useQuery({
     queryKey: [
       "workspace",
@@ -231,13 +229,7 @@ export function FloatingChat({
 
   const send = async (body: string, files: FileRef[]) => {
     const submittedView = viewRevision.current;
-    if (chatId) {
-      await sendMessage.mutateAsync({
-        body,
-        fileIds: files.map((file) => file.id),
-      });
-      if (submittedView === viewRevision.current) change({ expanded: true });
-    } else {
+    if (!chatId) {
       const created = await newChat.mutateAsync({
         memberIds: withIds,
         body: subject ? `${mention(subject)} ${body}` : body,
@@ -252,7 +244,7 @@ export function FloatingChat({
   const chatsLabel = pending.length
     ? `Chats, ${pending.length} loaded chats unread or awaiting answers`
     : "Chats";
-  const failure = sendMessage.error ?? newChat.error;
+  const failure = newChat.error;
   return (
     <div className="relative h-10">
       <div
@@ -478,6 +470,21 @@ export function FloatingChat({
                 <>
                   <Composer
                     projectId={projectId}
+                    mentionParticipants={{
+                      userIds: [
+                        ...new Set([
+                          user.id,
+                          ...withIds.filter((id) =>
+                            directory.members.some(
+                              (member) => member.userId === id,
+                            ),
+                          ),
+                        ]),
+                      ],
+                      agentIds: withIds.filter((id) =>
+                        directory.agents.some((agent) => agent.id === id),
+                      ),
+                    }}
                     upload={upload.upload}
                     ref={setComposer}
                     compact={!expanded}
@@ -485,6 +492,8 @@ export function FloatingChat({
                     placeholder={`Message about ${about}`}
                     onSend={send}
                     pending={newChat.isPending}
+                    locked={newChat.locked}
+                    sendable={!newChat.uncertainCreation}
                     disabled={Boolean(chatId) || workspace.role === "viewer"}
                     idle={
                       pending.length > 0 ? (

@@ -51,6 +51,7 @@ import {
 } from "react";
 import {
   createMentions,
+  type MentionParticipants,
   mentionKey,
   toContent,
   toText,
@@ -124,6 +125,7 @@ export function Composer({
   locked = false,
   upload,
   projectId,
+  mentionParticipants,
   ref,
 }: {
   onSend: (text: string, files: FileRef[]) => unknown;
@@ -140,6 +142,7 @@ export function Composer({
   pending?: boolean;
   locked?: boolean;
   projectId?: string;
+  mentionParticipants?: MentionParticipants;
   upload?: (
     file: File,
     requestId: string,
@@ -148,10 +151,15 @@ export function Composer({
   ref?: Ref<ComposerHandle>;
 }) {
   const { workspaceId } = useWorkspace();
-  const mentionScope = useRef(projectId);
-  mentionScope.current = projectId;
+  const mentionScope = useRef({ projectId, mentionParticipants });
+  mentionScope.current = { projectId, mentionParticipants };
   const mentions = useMemo(
-    () => createMentions(workspaceId, () => mentionScope.current),
+    () =>
+      createMentions(
+        workspaceId,
+        () => mentionScope.current.projectId,
+        () => mentionScope.current.mentionParticipants,
+      ),
     [workspaceId],
   );
   const button = { size: "icon-sm" } as const;
@@ -199,6 +207,7 @@ export function Composer({
         class:
           "otto-composer max-h-60 overflow-y-auto p-1 text-sm outline-none",
         "aria-label": placeholder,
+        tabindex: "0",
       },
       handlePaste: (_view, event) => {
         const pasted = event.clipboardData?.files;
@@ -521,6 +530,17 @@ export function Composer({
           <EditorContent
             editor={editor}
             className={cn("min-w-0 flex-1", dictation.listening && "hidden")}
+            onKeyDown={(event) => {
+              if (
+                locked &&
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing
+              ) {
+                event.preventDefault();
+                void send();
+              }
+            }}
           />
           {!dictation.listening && tools}
           {!hasContent && !dictation.listening && idle}

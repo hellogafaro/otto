@@ -2,7 +2,6 @@ import {
   archiveChat,
   CHAT_SORTS,
   createChat,
-  createMessage,
   createParticipant,
   deleteParticipant,
   getChat,
@@ -54,6 +53,7 @@ import {
 import type { Context } from "@otto/workspaces";
 import { Hono } from "hono";
 import { z } from "zod";
+import { createChatMessage } from "./chat-replies";
 import { type ApiEnv, recordId, transact, workspaceId } from "./http";
 import { captureTask } from "./task-capture";
 import {
@@ -658,9 +658,8 @@ export const collaborationApi = new Hono<ApiEnv>()
     ),
     async (c) =>
       c.json(
-        await createMessage(
-          c.get("options").db,
-          c.get("options").nativeStorage,
+        await createChatMessage(
+          c.get("options"),
           workspaceId(c),
           { userId: c.get("userId") },
           recordId(c),

@@ -49,6 +49,8 @@ type Mentionable = {
   hint?: string;
 };
 
+export type MentionParticipants = { userIds: string[]; agentIds: string[] };
+
 const groups: { type: MentionType; title: string }[] = [
   { type: "user", title: "People" },
   { type: "agent", title: "Agents" },
@@ -70,6 +72,7 @@ async function search(
   workspaceId: string,
   projectId: string | undefined,
   query: string,
+  participants: MentionParticipants | undefined,
 ): Promise<Mentionable[]> {
   const param = { workspaceId };
   const filter = { query: query || undefined, limit: "3" };
@@ -77,7 +80,13 @@ async function search(
     read(
       await workspaceApi.members.$get({
         param,
-        query: { ...filter, sort: "name" },
+        query: {
+          ...filter,
+          sort: "name",
+          userIds: participants
+            ? JSON.stringify(participants.userIds)
+            : undefined,
+        },
       }),
     ).then((page) =>
       page.items.map((item) => ({
@@ -89,7 +98,13 @@ async function search(
     read(
       await workspaceApi.agents.$get({
         param,
-        query: { ...filter, sort: "title" },
+        query: {
+          ...filter,
+          sort: "title",
+          agentIds: participants
+            ? JSON.stringify(participants.agentIds)
+            : undefined,
+        },
       }),
     ).then((page) =>
       page.items.map((item) => ({
@@ -314,6 +329,7 @@ export const mentionKey = new PluginKey("mention");
 export const createMentions = (
   workspaceId: string,
   projectId?: () => string | undefined,
+  participants?: () => MentionParticipants | undefined,
 ) =>
   Mention.extend({
     addNodeView() {
@@ -326,7 +342,12 @@ export const createMentions = (
       pluginKey: mentionKey,
       items: async ({ query }) => {
         try {
-          return await search(workspaceId, projectId?.(), query);
+          return await search(
+            workspaceId,
+            projectId?.(),
+            query,
+            participants?.(),
+          );
         } catch (error) {
           toast.error(
             error instanceof Error ? error.message : "Unable to load mentions.",

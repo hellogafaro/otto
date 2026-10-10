@@ -78,6 +78,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@otto/server": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@remixicon/react": "^4.9.0",
         "@tanstack/react-query": "5.104.1",
         "@tanstack/react-router": "^1.170.41",

@@ -10,7 +10,7 @@ import {
 } from "@otto/db";
 import { DomainError, type PageOptions, required } from "@otto/shared";
 
-import { type AnyColumn, and, eq, sql } from "drizzle-orm";
+import { type AnyColumn, and, eq, inArray, sql } from "drizzle-orm";
 import { invitations, members, setup, users, workspaces } from "./schema";
 
 export interface Actor {
@@ -371,9 +371,12 @@ export async function getMembers(
     order?: string;
     role?: Role;
     query?: string;
+    userIds?: string[];
   } = {},
 ) {
   requireHuman(c);
+  if (input.userIds && input.userIds.length > 100)
+    throw new DomainError("invalid", "Member filter limit");
   const plan = sortPlan({
     operation: "getMembers",
     scope: c,
@@ -382,6 +385,7 @@ export async function getMembers(
     id: members.userId,
     idKind: "text",
   });
+  if (input.userIds?.length === 0) return { items: [], next: null };
   const rows = await c.tx
     .select({
       userId: members.userId,
@@ -394,6 +398,7 @@ export async function getMembers(
     .where(
       and(
         eq(members.workspaceId, c.workspaceId),
+        input.userIds ? inArray(members.userId, input.userIds) : undefined,
         input.role ? eq(members.role, input.role) : undefined,
         input.query ? matchesText(users.name, input.query) : undefined,
         plan.where,

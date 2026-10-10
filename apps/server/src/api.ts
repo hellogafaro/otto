@@ -182,6 +182,19 @@ export function createApi(options: ApiOptions) {
         listQuery(MEMBER_SORTS, {
           role: z.enum(["owner", "admin", "contributor", "viewer"]).optional(),
           query: z.string().max(200).optional(),
+          userIds: z
+            .string()
+            .max(14000)
+            .transform((value, ctx) => {
+              try {
+                return JSON.parse(value) as unknown;
+              } catch {
+                ctx.addIssue({ code: "custom", message: "Invalid member IDs" });
+                return z.NEVER;
+              }
+            })
+            .pipe(z.array(z.string().min(1).max(128)).max(100))
+            .optional(),
         }),
       ),
       async (c) =>

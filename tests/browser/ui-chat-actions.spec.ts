@@ -260,26 +260,8 @@ test("Late explicit viewer fails closed through participant continuation error a
     await page.goto(`/chats/${chat.id}`);
     await openPanel(page);
     await expect(
-      page.getByRole("button", { name: "Agent: Choose Agent", exact: true }),
-    ).toBeEnabled();
-    await page
-      .getByRole("button", { name: "Agent: Choose Agent", exact: true })
-      .click();
-    await expect(
-      page.getByRole("option", { name: agent.title, exact: true }),
-    ).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await page
-      .getByRole("button", { name: "More participants", exact: true })
-      .first()
-      .click();
-    await page
-      .getByRole("button", { name: "Agent: Choose Agent", exact: true })
-      .click();
-    await expect(
-      page.getByRole("option", { name: agent.title, exact: true }),
+      page.getByRole("button", { name: `Remove ${agent.title}`, exact: true }),
     ).toBeVisible();
-    await page.keyboard.press("Escape");
 
     const continuations: string[] = [];
     const held = new Promise<void>((resolve) => {
@@ -481,7 +463,7 @@ test("Special-label first and later mentions render chips and retain real attent
     });
     await composer.press("Enter");
     await expect(
-      page.getByRole("alert").filter({ hasText: "Your draft is retained" }),
+      page.getByRole("alert").filter({ hasText: "Delivery is unconfirmed" }),
     ).toBeVisible();
     await expect(composer).toContainText(label);
     expect(attempts[0]?.mentionUserIds).toEqual([recipient.userId]);
@@ -555,13 +537,7 @@ test("Run admission stays unavailable without an eligible configured account and
   const chatId = await createChatInUi(page, "Unavailable Run proof");
   await openPanel(page);
   const start = page.getByRole("button", { name: "Start Run", exact: true });
-  await expect(start).toBeDisabled();
-  await expect(
-    page.getByText(
-      "Add an eligible Agent as a contributor to this chat first.",
-      { exact: true },
-    ),
-  ).toBeVisible();
+  await expect(start).toHaveCount(0);
   const agent = (
     await ack(
       await client.agents.$post({
@@ -584,21 +560,26 @@ test("Run admission stays unavailable without an eligible configured account and
   );
   await page.reload();
   await openPanel(page);
-  await page
-    .getByRole("button", { name: "Agent: Choose Agent", exact: true })
-    .click();
-  await page.getByRole("option", { name: agent.title, exact: true }).click();
-  await page
-    .getByLabel("Prompt", { exact: true })
-    .fill("Keep this explicit draft");
+  const composer = page.getByRole("textbox", { name: /^Message / });
+  await composer.fill("Keep this explicit draft");
+  await composer.press("Enter");
   await expect(
-    page.getByText("No configured AI account.", { exact: false }),
+    page.getByRole("alert").filter({ hasText: "Message saved" }),
   ).toBeVisible();
-  await expect(start).toBeDisabled();
-  await page.getByLabel("Prompt", { exact: true }).press("Enter");
-  await expect(page.getByLabel("Prompt", { exact: true })).toHaveValue(
-    /Keep this explicit draft/,
+  await expect(composer).toHaveText("Keep this explicit draft");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Message saved" }),
+  ).toBeVisible();
+  const history = await ack(
+    await client.chats[":id"].messages.$get({
+      param: { workspaceId, id: chatId },
+      query: {},
+    }),
   );
+  expect(
+    history.filter((message) => message.body === "Keep this explicit draft"),
+  ).toHaveLength(1);
   expect(admitted).toEqual([]);
   expect(
     (
@@ -621,7 +602,7 @@ test("Run admission stays unavailable without an eligible configured account and
   await expect(
     page.getByText("Archived. New Runs are unavailable", { exact: false }),
   ).toBeVisible();
-  await expect(start).toBeDisabled();
+  await expect(start).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("run-admission-unavailable.png"),
   });

@@ -22,6 +22,47 @@ Use normal authenticated separate user/browser contexts. The finite multiplayer 
 
 ## Current verdicts
 
+### Mention-driven multiplayer Chat
+
+The message POST now owns reply routing: exactly one eligible human and one Agent
+selects an automatic reply; other combinations require typed Agent mentions.
+Workspace/Project viewers count in the actual audience. Multiple mentions dedupe
+by canonical ID, never label. One persisted private `messages.replyAgentIds`
+selection and deterministic per-message/Agent Run identities preserve exact retries,
+including empty selections. Native message bytes and the existing request hash stay
+unchanged. Agent publications never trigger replies, and model/account/authority
+checks remain at current preparation and admission boundaries.
+
+Full, new and floating composers have no recipient selector. Mention suggestions
+filter participant IDs in SQL before LIMIT; contributor Agents only are offered.
+The browser sends one message POST, never a second Run admission. Partial failures
+acknowledge saved discussion and retain the original draft/request for Send or Enter
+retry. Participant pagination continues past an already-found current user.
+
+| Scope | Current bounded verdict |
+| --- | --- |
+| Routing, permissions, concurrency and reload | Passed 19 focused author cases, 33 existing regressions, then independent 21-case replay and a separate real-HTTP/Better Auth/private-PostgreSQL probe. Includes complete 100-participant selection, workspace/Project viewers, invalid/viewer/nonparticipant mentions, partial admission, concurrent queue dedupe, membership removal, frozen empty selections, native storage reload, unchanged model identity and no Agent loops. |
+| Legacy oversized discussion | Corrected a regression found by the existing late-viewer browser test: unavailable complete automatic snapshots now freeze `[]` without blocking ordinary human discussion. Explicit contributor mentions persist first, then unchanged Run/audience caps return a safe refusal. Independent HTTP proves 103 retained participants, late viewer denial, and no reinterpretation of an empty retry after shrinking membership and rebuilding the app. No limits were raised. |
+| Actual browser interactions | Passed the six one/two-human by zero/one/two-Agent combinations, explicit group/multiple/deduped mentions, lost message ACK, exact retry, second-human delivery and reload using a controlled native runtime. Late-viewer pagination/recovery, special-label human mention attention and keyboard retry, and full/new/floating composer checks also pass. The existing no-account admission and Chat lifecycle cases passed earlier in this integration. |
+| Native approval retention | Passed real controlled native Connection proposal, deliberately lost approval ACK, exact payload/receipt readback, one persisted creation and reload. The fixture now observes the current nested step disclosures and holds reconciliation reads while asserting the unconfirmed state, avoiding a race with authoritative polling. |
+| Additive schema preservation | Passed populated disposable metadata/native-message/Run equality and transactional DDL rollback. The only proposed saved-schema change is `ALTER TABLE messages ADD COLUMN "replyAgentIds" jsonb NOT NULL DEFAULT '[]'::jsonb;`. Existing rows remain silent on exact retry. Application rollback must retain this column once new messages contain frozen selections. Local activation is recorded separately after execution. |
+
+The 422 implementation/test/config pins over `ee2f1eaf8c4b9ed9621490cba9d4703241c76570`
+are in `~/.capy/work/otto-resume-20261010/multiplayer-ui/verification-sources.json`,
+SHA-256 `f86902f55c111564bd4cbeb738544ea5600079d2e14f548a4dbf5883496ca33a`.
+Root/web types, scoped Biome, boundaries, consistency, DESIGN lint and diff checks
+pass. Key retained evidence under the same `otto-resume-20261010/` root:
+
+- `multiplayer-backend/oversized-green.log`: `a8da65fca23366386b1c267f30f27223d3231e4516b1b77152d0afd48fc98267`; adjacent regressions: `11e2a7f86ea62e3094ed4698a7ff30734b93a9e8643ba9cd350a15df38f9af3e`.
+- Amended independent `multiplayer-independent/REPORT.md`: `79c4dec54d1102bb48838ed923fc3122b3144e42d8842f4b706420dedabca064`. Original report/evidence remain retained; the amendment explicitly corrects its missed legacy-discussion regression. Fresh 21-case log: `a50ef29fdb5d8dcf8c19e8aa796e9883de0c4fffae34474c09de896917befc55`; independent HTTP probe: `92d4fe78627e778bba3d4a01af981aea700fc369260474aef823abd9da6169f7`.
+- `multiplayer-ui/accepted-browser.log`: `ded55c0edb3888057da4963addcd491c0818afc11f4659b64efc573a49b0fe0e` records four passes and the superseded approval-fixture polling failure. Its corrected isolated rerun `approval-browser.log` passes, SHA-256 `16fd3afe3e11a328a19c63d2cf40d99a744808d439a27bc90c9c6760d56d8128`. Static checks: `b1f8c4a75464ac0a4c4b32028ab0893dfe561e1accc96595555a0163ca628be0`.
+- Inspected settled screenshot: `multiplayer-ui/accepted-results/ui-chat-multiplayer-human--5fdaa-and-explicit-group-mentions/mention-driven-multiplayer.png`. Initial selector/type errors, missing default Chromium, keyboard-focus failure, legacy-discussion failure and obsolete receipt selectors remain in the earlier logs. The installed Chromium executable was selected explicitly; no production build or external provider was invoked.
+
+This supersedes the sidebar checkpoint's unmigrated manual-Run-test limitation:
+that case now exercises the real composer and preserved discussion with no account.
+It is not a full browser-suite or whole-foundation pass. Real-provider exact-answer,
+RSS, SMTP, agent-browser and final merged-Library acceptance gates remain unchanged.
+
 ### Simplified Chat sidebar
 
 The right Chat sidebar now contains Participants and Library only. Participant

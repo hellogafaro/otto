@@ -240,12 +240,6 @@ export async function prepareNativeSettings(
   ).toBe(200);
   async function propose(input: NativeActionInput) {
     await page.goto(`/chats/${chat.id}`);
-    await expect(
-      page.getByRole("button", {
-        name: `Send to: ${agent.title}`,
-        exact: true,
-      }),
-    ).toBeVisible();
     const text = fixture.plan(input);
     const composer = page.getByRole("textbox", {
       name: `Message ${chat.title}, @ to tag`,
@@ -255,13 +249,26 @@ export async function prepareNativeSettings(
     const admission = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        new URL(response.url()).pathname === `${prefix}/runs`,
+        new URL(response.url()).pathname ===
+          `${prefix}/chats/${chat.id}/messages`,
     );
     await composer.press("Enter");
     const admitted = await admission;
     expect(admitted.status()).toBe(200);
     expect(admitted.request().postDataJSON().body).toBe(text);
-    const run = (await admitted.json()) as { id: string };
+    const message = (await admitted.json()) as {
+      id: string;
+      replyErrors: unknown[];
+    };
+    expect(message.replyErrors).toEqual([]);
+    const replies = await fixture.database.db
+      .select()
+      .from(runs)
+      .where(eq(runs.chatId, chat.id));
+    const run = replies.find((item) =>
+      item.inputs.context?.messages.some((source) => source.id === message.id),
+    );
+    if (!run) throw new Error("Acknowledged Chat reply missing");
     await expect(
       page.getByRole("button", { name: "Approve exact action", exact: true }),
     ).toBeVisible({ timeout: 20000 });
