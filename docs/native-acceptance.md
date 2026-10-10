@@ -7,6 +7,7 @@ This is the single current operation, page and scenario checklist. Restored hist
 - Exact v1 anchor: `2a6e9a79be8b268b6cac583f68a68fa674be2fe9`.
 - Native integration checkpoint: `fa912a635c5d38feb0948cf9611b7d1348f21036`. The corrected full-suite and live source manifests below also include the separately checkpointed durable launcher; its exact bytes are recorded in the startup evidence.
 - Current-source recovery checkpoint: `c7f5b4e5eaab18efed20f689a6764bbab0e1f284`.
+- Current chat-foundation source checkpoint: `193ccb84ebb5b56a54cad9816fd2ac15f43a908f`. All 388 reviewed source/config/test hashes match committed bytes; the verified incremental bundle and manifest are under `~/.capy/work/otto-pending-closure-20261010/integration/final-checkpoint-20261010/`.
 - Exact forward restoration: `9b3a9a70342c72414a33c313f6ef07fd2301c1ba`, tree `a1c9dbda28baaaac5eb904216736eb9807d6f506`, identical to the anchor. An initial restoration commit retained 14 rename-source files; the next forward commit removed them before implementation.
 - Local recovery evidence: `~/.capy/work/otto-v1-restoration/`. The 2,151-entry source archive and hashes were verified. Current login and Home source/assets are preserved separately. Saved app data has a consistent SQLite backup with integrity check plus 102 supporting files; Keychain entries remain untouched and were not exported. No saved app data was removed or converted.
 - Isolated baseline work: `~/.capy/work/otto-v1-preflight-2a6e9a79/`. PostgreSQL 17 is a qualified local candidate, not a claim about all production versions.
@@ -35,7 +36,7 @@ No aggregate all-green or computer/browser-complete claim is made.
 | --- | --- |
 | Normal account and workspace access | Passed independently with the legitimate existing account, unchanged false email verification and owner membership. |
 | Garage-backed Files upload/read/reload/restart | Passed on the same saved 67-byte synthetic private File, including normal HTTP and isolated browser download/reload after both Garage and API restarted; exact evidence follows below. |
-| Native tools and multiple humans/Agents | Current controlled critical seams and normal-authentication two-human/one-Agent cases pass; one-human/two-Agent streaming isolation also passes. Reviewed request/token/retry ceilings are active. After the independently accepted bootstrap Environment repair, one separately sealed same-message continuation finished on the configured real provider. Its exact native File read, accepted account/model binding and durable publication pass; the model added synthetic decoding commentary, so the original exact-output gate remains failed. Same-Chat browser readback is pending. |
+| Native tools and multiple humans/Agents | Current controlled critical seams and normal-authentication two-human/one-Agent cases pass; one-human/two-Agent streaming isolation also passes. Reviewed request/token/retry ceilings are active. After the independently accepted bootstrap Environment repair, one separately sealed same-message continuation finished on the configured real provider. Its exact native File read, accepted account/model binding and durable publication pass; the model added synthetic decoding commentary, so the original exact-output gate remains failed. Same-Chat browser readback is blocked because newer messages exceed its authorized two-message scope. |
 | Incremental streaming | Actual native partial text reaches the sponsor before completion in full and floating Chat. Final budget-integrated independent acceptance passes private audience, actual realtime-only reconnect without page reload, Stop, current authority and publication deduplication/reload. Shared history still uses only authorized durable publication. |
 | Chat attachments and Folders | Current frozen-source replay passes actual isolated Chrome upload, exact bytes/native context, participant access/revocation, Folder create/move/list/reload and nonempty archive denial. The accompanying 83-case affected regression run includes attachment/source/Folder authority and native custody. No live configured-user Folder write is claimed. |
 | Dictation | The composed real STT → literal composer → self-only message → persistence/reload gate passed. Original helper policy failure remains intact; the separately sealed same-Chat readback passed with no new capture/STT/message/Run and exactly two acknowledged own read markers. Microphone, browser and helper-session cleanup passed. |
@@ -81,6 +82,18 @@ The bounded published-text projection is
 published message `cfd92801-bebf-4588-a369-1b9164bf0639`, cursor 25, has body digest
 `c43fcf2a158d8c669323fc57c4ec50e3c04c2fcb5e91315f6c623baea7e00938`.
 No further inference or admission is authorized by this readback.
+
+The separately sealed UI readback stopped before Chrome when the normal messages
+response no longer matched its exact two-message scope. Metadata-only diagnosis
+found later human/Agent publications at cursors 29/33; their bodies were not
+inspected. The messages API supports only a lower `after` cursor, so a helper-only
+change cannot exclude those newer messages. This is a changed-content authority
+boundary, not a malformed API or product failure. The failed helper and original
+guard remain unchanged; browser proof stays unverified until the narrower scope
+decision is resolved. Evidence `agent-proof/ui-scope-change-metadata.json` hashes
+to `c7618ae51a47c4a244cff60994b41c30d0ab420af5f06843bfcb8a69cf14e3ef`;
+the failed result hashes to
+`f45bb8d5c10355c1b4b44b915600384ddfafc3b2454c05aff20b722eaee4a72c`.
 
 The final independent budget/streaming/MCP report is
 `integration/independent-acceptance/FINAL-REPORT.md`, SHA-256
