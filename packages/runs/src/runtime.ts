@@ -43,6 +43,17 @@ export interface Attempt {
   launchKey: string;
 }
 
+export function effectRequestId(runId: string, toolCallId: string) {
+  const bytes = createHash("sha256")
+    .update(JSON.stringify([runId, toolCallId]))
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x50;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 type ValidateSchedule = (
   c: Context,
   id: string,
@@ -80,6 +91,7 @@ export interface RuntimeOptions {
     signal: AbortSignal,
   ): Promise<MastraModelConfig>;
   tools(attempt: Attempt, signal: AbortSignal): ToolsInput;
+  cleanup?(attempt: Attempt): Promise<void>;
   readAttachments?(
     attempt: Attempt,
     signal: AbortSignal,
@@ -97,6 +109,13 @@ export interface Usage extends UsageTokens {
   sequence: number;
   provider: string;
   model: string;
+}
+
+export interface NativeDraft {
+  id: string;
+  runId: string;
+  agentId: string;
+  text: string;
 }
 
 export async function withRunAttempt<T>(
@@ -310,6 +329,12 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
       controller: AbortController;
       session?: Session;
       done: Promise<void>;
+      workspaceId: string;
+      chatId: string;
+      sponsorId: string;
+      drafts: Map<string, NativeDraft>;
+      draftBytes: number;
+      draftClosed: boolean;
     }
   >();
   const starting = new Map<string, Promise<void>>();
@@ -566,7 +591,23 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
       controller: AbortController;
       session?: Session;
       done: Promise<void>;
-    } = { identity, controller: abort, done: completed.promise };
+      workspaceId: string;
+      chatId: string;
+      sponsorId: string;
+      drafts: Map<string, NativeDraft>;
+      draftBytes: number;
+      draftClosed: boolean;
+    } = {
+      identity,
+      controller: abort,
+      done: completed.promise,
+      workspaceId: run.workspaceId,
+      chatId: run.chatId,
+      sponsorId: run.sponsorId,
+      drafts: new Map(),
+      draftBytes: 0,
+      draftClosed: false,
+    };
     active.set(run.id, entry);
     const timeout = setTimeout(
       () => abort.abort(),
@@ -600,7 +641,11 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           checking = undefined;
         });
     }, 250);
-    const stop = () => entry.session?.abort();
+    const stop = () => {
+      entry.draftClosed = true;
+      entry.drafts.clear();
+      entry.session?.abort();
+    };
     abort.signal.addEventListener("abort", stop, { once: true });
     let state: "finished" | "failed" | "interrupted" | "uncertain" = "failed";
     let outcome = "native_execution_failed";
@@ -632,6 +677,8 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         id: run.agentId,
         name: "Otto Agent",
         model,
+        maxRetries: 0,
+        maxProcessorRetries: 0,
         instructions: [
           run.inputs.instructions,
           ...run.inputs.skills.map(
@@ -644,6 +691,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           prepareStep: async () => {
             abort.signal.throwIfAborted();
             await check();
+            return { modelSettings: { maxOutputTokens: 8192, maxRetries: 0 } };
           },
         },
       });
@@ -681,6 +729,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         buildSharedRunOptions: () => ({
           ...machinery.buildSharedRunOptions(),
           maxSteps: 16,
+          modelSettings: { maxOutputTokens: 8192, maxRetries: 0 },
           toolCallConcurrency: 1,
           savePerStep: true,
           providerOptions: { openai: { store: false } },
@@ -690,6 +739,10 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           return {
             ...initial,
             maxSteps: 16,
+            modelSettings: {
+              maxOutputTokens: 8192,
+              maxRetries: 0,
+            },
             toolCallConcurrency: 1,
             savePerStep: true,
             providerOptions: { openai: { store: false } },
@@ -719,6 +772,22 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           event.event.type === "text-delta"
         ) {
           bytes += Buffer.byteLength(event.event.delta);
+          if (!entry.draftClosed && messageIds.has(event.id)) {
+            entry.draftBytes += Buffer.byteLength(event.event.delta);
+            if (entry.draftBytes > 32768 || messageIds.size > 32) {
+              entry.draftClosed = true;
+              entry.drafts.clear();
+            } else {
+              const draft = entry.drafts.get(event.id) ?? {
+                id: effectRequestId(run.id, event.id),
+                runId: run.id,
+                agentId: run.agentId,
+                text: "",
+              };
+              draft.text += event.event.delta;
+              entry.drafts.set(event.id, draft);
+            }
+          }
           if (bytes > 1048576) {
             failed = true;
             abort.abort();
@@ -815,6 +884,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           nativeMessageId: message.id,
           partIndexes,
         });
+        entry.drafts.delete(message.id);
       }
       await check();
       state = "finished";
@@ -830,6 +900,8 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           : "native_execution_failed";
       abort.abort();
     } finally {
+      entry.draftClosed = true;
+      entry.drafts.clear();
       clearTimeout(timeout);
       clearInterval(poll);
       abort.signal.removeEventListener("abort", stop);
@@ -851,6 +923,12 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           })(),
           5000,
         );
+      } catch {
+        state = "uncertain";
+        outcome = "native_cleanup_unconfirmed";
+      }
+      try {
+        await within(options.cleanup?.(identity) ?? Promise.resolve(), 5000);
       } catch {
         state = "uncertain";
         outcome = "native_cleanup_unconfirmed";
@@ -905,6 +983,40 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
 
   return {
     dispatch,
+    async getDrafts(c: Context, chatId: string): Promise<NativeDraft[]> {
+      requireHuman(c);
+      const drafts: NativeDraft[] = [];
+      for (const entry of active.values()) {
+        if (
+          entry.workspaceId !== c.workspaceId ||
+          entry.chatId !== chatId ||
+          entry.sponsorId !== c.actor.userId ||
+          entry.draftClosed ||
+          entry.controller.signal.aborted ||
+          !entry.drafts.size
+        )
+          continue;
+        try {
+          requireWriter(c);
+          await getChat(c, chatId, true);
+          await assertRunAttempt(
+            c,
+            entry.identity,
+            options.validateSchedule,
+            options.storage,
+            options.authorizeSources,
+          );
+        } catch (error) {
+          if (!(error instanceof DomainError)) throw error;
+          continue;
+        }
+        if (!entry.draftClosed && !entry.controller.signal.aborted)
+          drafts.push(
+            ...[...entry.drafts.values()].map((draft) => ({ ...draft })),
+          );
+      }
+      return drafts;
+    },
     async bind(
       workspaceId: string,
       actor: Actor,

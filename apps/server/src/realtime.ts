@@ -16,6 +16,7 @@ const subscription = z.object({
   taskId: z.uuid().optional(),
   documentId: z.uuid().optional(),
   runId: z.uuid().optional(),
+  drafts: z.literal("private").optional(),
 });
 export interface RealtimeData {
   headers: Headers;
@@ -59,6 +60,21 @@ export function createRealtime(options: ApiOptions) {
             ? await getRunActivity(c, request.runId, request.after)
             : [];
           const workspaceCursor = await getCursor(c);
+          if (request.drafts) {
+            const draftPayload = JSON.stringify({
+              type: "drafts",
+              drafts:
+                (await options.runtime?.getDrafts(c, request.chatId)) ?? [],
+            });
+            if (
+              Buffer.byteLength(draftPayload) > 1024 * 1024 ||
+              ws.getBufferedAmount() > 1024 * 1024 ||
+              ws.send(draftPayload) === 0
+            ) {
+              ws.close(4408, "Reconnect for catch-up");
+              return;
+            }
+          }
           // Even an idle connection is reauthorized above. A gap explicitly re-fetches open current-record views.
           if (ws.data.cursor === workspaceCursor) return;
           let cursor = Math.min(

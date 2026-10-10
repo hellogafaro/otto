@@ -10,17 +10,27 @@ import { transcriptionApi } from "../apps/server/src/transcription-api";
 
 /** A local peer standing in for OpenRouter; each reply is decided per request number. */
 function peer(reply: (n: number, request: Request) => Promise<Response>) {
-  const seen: { auth: string | null; model: unknown; size: number }[] = [];
+  const seen: {
+    auth: string | null;
+    model: unknown;
+    size: number;
+    filename: string | null;
+    type: string | null;
+  }[] = [];
   const sink = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     async fetch(request) {
+      const wire = await request.clone().text();
       const form = await request.formData();
       const file = form.get("file");
       seen.push({
         auth: request.headers.get("authorization"),
         model: form.get("model"),
         size: file instanceof Blob ? file.size : -1,
+        filename: file instanceof File ? file.name : null,
+        // Bun 1.4.2 formData() infers video/webm from the filename despite the audio/webm wire header.
+        type: wire.match(/Content-Type: ([^\r\n]+)/i)?.[1] ?? null,
       });
       return reply(seen.length, request);
     },
@@ -46,11 +56,152 @@ describe("OpenRouter transcriber", () => {
       );
       expect(await transcriber.transcribe(audio)).toBe("hello");
       expect(p.seen).toEqual([
-        { auth: `Bearer ${key}`, model: "vendor/model", size: 64 },
+        {
+          auth: `Bearer ${key}`,
+          model: "vendor/model",
+          size: 64,
+          filename: "voice-input.webm",
+          type: "audio/webm",
+        },
       ]);
     } finally {
       await p.stop();
     }
+  });
+
+  it("keeps the official endpoint, redirect fence and codec-bearing multipart filename", async () => {
+    const seen: {
+      url: string;
+      redirect: RequestRedirect | undefined;
+      name: string | undefined;
+    }[] = [];
+    const request: typeof fetch = Object.assign(
+      async (
+        input: Parameters<typeof fetch>[0],
+        init?: Parameters<typeof fetch>[1],
+      ) => {
+        const body = init?.body;
+        const file = body instanceof FormData ? body.get("file") : null;
+        seen.push({
+          url: String(input),
+          redirect: init?.redirect,
+          name: file instanceof File ? file.name : undefined,
+        });
+        return Response.json({ text: "literal <b>text</b>" });
+      },
+      { preconnect: fetch.preconnect },
+    );
+    const transcriber = createOpenRouterTranscriber(
+      { apiKey: key, model: "mistralai/voxtral-mini-transcribe" },
+      request,
+    );
+    expect(
+      await transcriber.transcribe(
+        new Blob(["fixture"], { type: "audio/mp4;codecs=mp4a.40.2" }),
+      ),
+    ).toBe("literal <b>text</b>");
+    expect(seen).toEqual([
+      {
+        url: "https://openrouter.ai/api/v1/audio/transcriptions",
+        redirect: "error",
+        name: "voice-input.m4a",
+      },
+    ]);
+    await expect(transcriber.transcribe(new Blob([]))).rejects.toMatchObject({
+      reason: "failed",
+    });
+    await expect(
+      transcriber.transcribe(new Blob([new Uint8Array(25 * 1024 * 1024 + 1)])),
+    ).rejects.toMatchObject({ reason: "failed" });
+    expect(seen).toHaveLength(1);
+  });
+
+  it("cancels a pending provider request without retrying or exposing its response", async () => {
+    const controller = new AbortController();
+    let calls = 0;
+    const request: typeof fetch = Object.assign(
+      async (
+        _input: Parameters<typeof fetch>[0],
+        init?: Parameters<typeof fetch>[1],
+      ) => {
+        calls++;
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new Error("private provider detail")),
+            { once: true },
+          );
+        });
+      },
+      { preconnect: fetch.preconnect },
+    );
+    const pending = createOpenRouterTranscriber(
+      { apiKey: key, model: "m" },
+      request,
+    ).transcribe(audio, controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({
+      reason: "unavailable",
+      message: "Transcription unavailable",
+    });
+    expect(calls).toBe(1);
+    await expect(
+      createOpenRouterTranscriber(
+        { apiKey: key, model: "m" },
+        request,
+      ).transcribe(audio, controller.signal),
+    ).rejects.toMatchObject({ reason: "unavailable" });
+    expect(calls).toBe(1);
+  });
+
+  it("rejects malformed successful provider bodies with a coarse error", async () => {
+    const p = peer(() =>
+      Promise.resolve(Response.json({ text: 42, key: "private" })),
+    );
+    try {
+      await expect(
+        createOpenRouterTranscriber(
+          { apiKey: key, model: "m" },
+          p.request,
+        ).transcribe(audio),
+      ).rejects.toMatchObject({
+        reason: "failed",
+        message: "Transcription failed",
+      });
+      expect(p.seen).toHaveLength(1);
+    } finally {
+      await p.stop();
+    }
+  });
+
+  it("bounds chunked provider JSON and cancels and releases the reader", async () => {
+    let cancelled = false;
+    let chunks = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        chunks++;
+        controller.enqueue(new Uint8Array(128 * 1024).fill(65));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const request: typeof fetch = Object.assign(
+      async () => new Response(stream),
+      { preconnect: fetch.preconnect },
+    );
+    await expect(
+      createOpenRouterTranscriber(
+        { apiKey: key, model: "m" },
+        request,
+      ).transcribe(audio),
+    ).rejects.toMatchObject({
+      reason: "failed",
+      message: "Transcription failed",
+    });
+    expect(cancelled).toBe(true);
+    expect(stream.locked).toBe(false);
+    expect(chunks).toBeLessThanOrEqual(4);
   });
 
   it("retries a transient failure once and does not retry a rejected request", async () => {

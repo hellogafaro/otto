@@ -19,12 +19,148 @@ Use normal authenticated separate user/browser contexts. The finite multiplayer 
 
 ## Current verdicts
 
-Remaining required closure is real Garage-backed Files persistence, the three
-unresolved upload RSS caps, and bounded durable-user Agent qualification after
-the correct provider account is configured. Ordinary account/workspace access
-has passed. Remote computer/browser provisioning is optional and remains
-explicitly unavailable; it is not a pre-MVP completion gate. Actual external
-reset/invitation mail is a separate unconfigured integration, not a login gate.
+The current required scope is the complete chat foundation: streaming, native
+tools, multiple humans and Agents, attachments, Files, Folders, dictation, Skills,
+HTTP MCP and confined Agent computers. This supersedes the earlier optional
+computer classification. Home/page redesign is deferred. Ordinary authentication
+and real Garage-backed Files persistence have passed; the three upload RSS caps
+remain failed, not waived. Actual external reset/invitation mail is a separate
+unconfigured integration, not a login gate.
+
+The following working acceptance map distinguishes completed proof from the
+current implementation work after `2ea56febc104c0e808273bb3a7c0a7187d8b2e91`.
+No aggregate all-green or computer/browser-complete claim is made.
+
+| Requested behavior | Actual proof or remaining gap |
+| --- | --- |
+| Normal account and workspace access | Passed independently with the legitimate existing account, unchanged false email verification and owner membership. |
+| Garage-backed Files upload/read/reload/restart | Passed on the same saved 67-byte synthetic private File, including normal HTTP and isolated browser download/reload after both Garage and API restarted; exact evidence follows below. |
+| Native tools and multiple humans/Agents | Current controlled critical seams and normal-authentication two-human/one-Agent cases pass; one-human/two-Agent streaming isolation also passes. Reviewed request/token/retry ceilings are active. After the independently accepted bootstrap Environment repair, one separately sealed same-message continuation finished on the configured real provider. Its exact native File read, accepted account/model binding and durable publication pass; the model added synthetic decoding commentary, so the original exact-output gate remains failed. Same-Chat browser readback is pending. |
+| Incremental streaming | Actual native partial text reaches the sponsor before completion in full and floating Chat. Final budget-integrated independent acceptance passes private audience, actual realtime-only reconnect without page reload, Stop, current authority and publication deduplication/reload. Shared history still uses only authorized durable publication. |
+| Chat attachments and Folders | Current frozen-source replay passes actual isolated Chrome upload, exact bytes/native context, participant access/revocation, Folder create/move/list/reload and nonempty archive denial. The accompanying 83-case affected regression run includes attachment/source/Folder authority and native custody. No live configured-user Folder write is claimed. |
+| Dictation | The composed real STT → literal composer → self-only message → persistence/reload gate passed. Original helper policy failure remains intact; the separately sealed same-Chat readback passed with no new capture/STT/message/Run and exactly two acknowledged own read markers. Microphone, browser and helper-session cleanup passed. |
+| Skills | Current 83-case affected regression run includes native Skill materialization and live authority revocation, including visibility change during actual byte I/O. Live configured-user Skill use is unverified; the current Default has no selected Skills. |
+| HTTP MCP | The ordinary index.ts startup now composes one exact origin and workspace/Connection/reference credential bindings. Independent final-source controlled native request, human approval, denial, revocation and restart pass. No real remote endpoint/account is configured; durable MCP remains disabled. |
+| Confined Agent computer | Required and implemented as one bounded offline Mastra tool using Docker primitives. Independent review found and reproduced unsafe SDK pull/reconnect/late-create behavior; that lifecycle was removed. Direct-Docker race probes and both owner and independent thirteen-case real-container/native-HTTP runs pass. Independent Docker events confirm all eighteen created containers were destroyed, with no leftovers. Reviewed durable configuration is active; no real-model computer invocation is claimed. Browser and persistent desktop execution remain unsupported. |
+
+The approved app default is OpenRouter at `https://openrouter.ai/api/v1`, explicit
+`chat-completions`, model `google/gemini-2.5-flash-lite`; dictation separately uses
+the official transcription route with `mistralai/voxtral-mini-transcribe`.
+Only the existing exact `OPENROUTER_API_KEY` vault record may supply these calls.
+Provider setup preserves conflicting user choices and terminal historical rows.
+
+The normal authenticated provider setup completed without inference and without
+changing the disconnected historical account. The exact safe Default/provider/File
+collector also passed; its instruction hash is the empty default, with no selected
+Skills or Project. Evidence under `~/.capy/work/otto-pending-closure-20261010/`:
+`provider-helper/captain-configure-result.json` SHA-256
+`9c2d01a6ef3576d233eff373c9be7f1433394370193cb117bc702b03f508163f`,
+and `agent-proof/expected.json` SHA-256
+`bf979f70f75eec1235fa4ef7d92e2aa953b39b05f1ebfe007bd87e1a63a11328`.
+Neither file proves inference or native tool invocation. The configuration helper
+explicitly does not claim atomic absence checks across provider/key creation.
+
+The subsequent separately sealed continuation admitted exactly the original Chat,
+Message and request and finished as Run `fb7dd36b-e145-40d1-8bbe-7fccd9f2d37d`.
+Its actual acknowledgement hashes to
+`26e24e171e277418148e6bf0ddb369aaf64f591ea9e0da3c23a660542daf586d`.
+The read-only native receipt result, `agent-proof/native-receipt-result.json`,
+SHA-256 `d2f544024926c8005a27f7acfcdecc9b0ed31f8bf1b99a2e686e38f6baa4460f`,
+proves one exact `file_read` result with the saved 67-byte digest, the accepted
+OpenRouter account/model/endpoint/credential binding and a new unreused Session.
+Two persisted usage receipts are observed, not two measured network requests;
+actual live transport count remains unverified.
+
+The model published a 454-byte text answer containing decoding commentary and both
+synthetic File lines, ending with the correct requested first-line answer instead
+of returning only that answer. This is model format noncompliance, not a missing
+tool result or publication. The original exact-output failure is retained.
+The bounded published-text projection is
+`agent-proof/publication-readback/publication.json`, SHA-256
+`def820be0c0afcf49d879305f47eaa0faf59b89b4188c46a90fd600206b341bc`;
+published message `cfd92801-bebf-4588-a369-1b9164bf0639`, cursor 25, has body digest
+`c43fcf2a158d8c669323fc57c4ec50e3c04c2fcb5e91315f6c623baea7e00938`.
+No further inference or admission is authorized by this readback.
+
+The final independent budget/streaming/MCP report is
+`integration/independent-acceptance/FINAL-REPORT.md`, SHA-256
+`b06c9db18b4a2806a68f9503c3c21d85bb160ae1dff710e33cf2c2b4503b5310`.
+It proves serialized 8,192 output tokens across sixteen official-SDK steps,
+exactly one transport attempt on retryable 503, request seventeen rejected before
+authority/DNS/transmission, independent counters and deadline/cancellation cleanup.
+Both model and Mastra processor retries are disabled through official APIs.
+The reviewed runtime and offline computer were activated as PID 26937; source seal
+`integration/final-head-20261010/activation-source.json` hashes to
+`5be11a6b543de0da9d2eb67092aa63fc8fc16ff93ec143260d185ac34e455fe7`.
+Startup records storage/transcription/computer enabled, mail absent and MCP disabled;
+readiness and UI HTTP 200 passed. No unfinished Runs or offline containers existed
+before/after startup, so no foreign computer was adopted or cleaned up.
+
+The subsequent single live admission failure remains separate:
+`bootstrap-repair/exact-reconciliation.json` records zero exact-request/Chat Runs
+and zero Default Environment rows; `admission-404.jsonl` retains the sanitized
+HTTP status. The original helper state is preserved unchanged. Initial bootstrap
+called `ensureDefaultAgent` without `createEnvironment`, while normal Agent
+creation performs both. The narrow owner-only initialization repair passed four
+actual-CLI isolated cases and an independent four-case replay; there is no
+missing-Environment fallback in Run admission. Independent report
+`integration/independent-acceptance/bootstrap/REPORT.md` hashes to
+`3b2556b8e52089e2a663a478e6829f9be864d325e3ea9238758925a7234e77a6`.
+The reviewed CLI then repaired the exact saved Default with one generation-zero,
+unavailable Environment and no provider/computer binding. Agent/provider/Chat/message
+fingerprints and the original helper state remained unchanged; no Run was admitted.
+`bootstrap-repair/live-repair-result.json` hashes to
+`52af9d2bb3a0160477a41c818532cdc3311ad9819cfeb3b88dba5ed1270cdb6b`.
+`activation-addendum.json` in that directory records the sole prior source-seal
+delta (`scripts/bootstrap.ts`) and new test, while the loaded runtime, transport,
+computer and UI bytes remain unchanged. No server restart was needed.
+
+Voice/chat activation is recorded in `integration/voice-chat-activation-source.json`
+and `integration/api-voice-chat-20261010.log`: storage and transcription are enabled,
+computer is disabled, and the API is ready. The real dictation result is
+`dictation-proof/live-result.json`, SHA-256
+`6b5fef4253761b08fcc70866b63e30496fb3799e39d015686f9f7d833ad892a7`.
+It preserves the policy failure while recording STT 200, one 69,937-byte capture,
+one saved human message and successful reload/session revocation. Do not repeat
+capture, transcription or message creation to repair that policy check. Controlled
+dictation evidence separately passed eight server cases and three Chrome cases.
+The independently executed same-Chat recovery is
+`dictation-proof/readback-proof/readback-result.json`, SHA-256
+`275b3f688998ff266ae2cf91aab142784e23d06c5fafe4a56c75d3b9e79c2736`.
+Before/after HTTP and visible DOM match the original saved synthetic text hash
+`432f2dadc22d8e757adf79caa918807b81ab0cf5f3fec4c5de5778f6ff5b8eaa`.
+Its policy, self-only audience, zero Runs, bounded metadata scaffold, two exact
+read-marker acknowledgements and session revocation passed. The original failed
+live result remains in place and under `live-execution-v2/`; it was not rerun.
+
+Current integration replay under `integration/final-head-20261010/` passed
+83/83 tests across seven suites, including all thirteen actual Docker cases,
+on 387 unchanged source/config/test files. Before/after manifests both hash to
+`f75faf8079f67ca0e2936750e97d39db863e95f51362c35b82236e2d6f07dc91`;
+the regression log hashes to
+`bc56704b9d17dc12c4fe256595819ac96cb6143ec7307521a8430369d2399882`.
+The separate actual Chrome attachment/Folder replay has no source drift or
+browser errors; `attachments-browser/result.json` hashes to
+`ca155a87cb8259101223f193ecab850dd9ad73fabc9351a86377edc754470efe`.
+Root/web types, full Biome, boundaries, consistency and DESIGN lint passed.
+These controlled models and storage peers are not real provider/Garage proof.
+
+The direct-Docker owner's final thirteen-case log hashes to
+`600560a1ffa720ce2bb7546870d3be77ba029a4642dd08382971797bbb25145a`.
+`runtime-capabilities/independent-review/` retains both the original three failing
+SDK control-plane probes and corrected direct-Docker probes. The first direct
+suite's late-create fixture failed because client timeout propagated upstream EOF
+and Docker returned 499; the corrected fixture retains upstream delivery and proves
+uncertain cleanup until exact owned-identity reconciliation. This is not real-model,
+browser or persistent-computer qualification. The independent full replay passed
+13/13 with zero skips in 79.48 seconds, preserving all ten source/config/lock hashes.
+Its report is `runtime-capabilities/independent-review/real-run-20261010T0951Z/ACCEPTANCE.md`,
+SHA-256 `892b7ae5140860b68042e114e57ca084f67e3ddeef5f52eb08608c01f50fa3f0`;
+the test log hashes to `af4fa18521256ae269d46b3575651edc37f817101de3e2c0f620616c457e5962`.
+The reviewed computer source is `d633c342a21d4708236722386c381e419261191c6ec711087fc28da08bb46b58`.
+The replay used current runtime source `4667c306d61dff856bb625baa13101d5d8c3caf009a4d04ba383350e8190c06e`;
+provider-budget acceptance remains a separate gate. Its cleanup proof records all
+eighteen create/destroy pairs and an empty owned-container list.
 
 The 10 October bounded RSS rebaseline on `7a5a6d542b6bdc1873dbb3a9984ab4ac5db3c98d`
 failed all three unchanged 300,000 KiB checks at 450,208 / 511,168 / 567,344 KiB.
@@ -63,8 +199,21 @@ The owned Otto API was restarted with storage enabled and mail disabled; its
 startup reported server ready, `/ready` returned `{"status":"ready"}`, and Vite
 remained available on port 5173. PostgreSQL and Vite were not restarted; the
 pre-restart unfinished-Run count was zero. This activation is not authenticated
-Files proof. The actual Otto API still needs normal-account Files/browser proof;
-raw S3 durability does not substitute for it. Post-activation read-only checks
+Files proof by itself. Subsequent normal-account Files/browser proof passed:
+one private 67-byte File `85c2ac65-d9d7-4ff1-9a04-3888a8bee890`, content SHA-256
+`882f43d383778ebdc21684c7c67b0a1db897e894733fb0be1daba4889462f94b`, survived an
+owned Garage restart and API restart. The final read-only recheck passed metadata,
+exact bytes, actual isolated Chrome list/detail/reload/download, browser policy,
+signout and helper-session revocation without another upload. Captain executed
+the secure helper independently; the result and screenshot were inspected here.
+Evidence under `~/.capy/work/otto-pending-closure-20261010/files-proof/` is
+`recheck-61cfacc7-f0e1-44f2-9bb4-6260dfce0751-result.json`, SHA-256
+`179ccb8ac7113303df35f642146279bd4545fcc749e9cbb60162db8b8b566287`.
+The initial result's policy failure is retained unchanged: the helper refused
+Vite's exact loopback HMR socket despite passing functional checks. The narrow
+correction admits only the identified port/root/token shape; 18 controlled cases
+and an actual unauthenticated Chrome reproduction qualify that policy fix.
+Post-activation read-only checks
 confirm the original unverified account, installation claim and Hello Gafaro owner
 membership remain present: `storage/persisted-after-activation.json`, SHA-256
 `3a762587271ceade853fc998f462414a1d67aba17c32d1397ada722261b45d3a`.

@@ -36,7 +36,11 @@
     "@otto/subscriptions": "workspace:*",
     "@otto/skills": "workspace:*",
     "@mastra/core": "1.75.0",
+    "dockerode": "4.0.12",
     "@otto/secrets": "workspace:*",
     "nodemailer": "10.1.0"
+  },
+  "devDependencies": {
+    "@types/dockerode": "4.0.2"
   }
 }

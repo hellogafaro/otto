@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+const mcpBinding = z
+  .object({
+    workspaceId: z.uuid(),
+    connectionId: z.uuid(),
+    credentialRef: z.string().min(1).max(200),
+    tokenEnv: z
+      .string()
+      .regex(/^OTTO_MCP_TOKEN_[A-Z0-9_]+$/)
+      .max(200),
+  })
+  .strict();
+export type McpCredentialBinding = z.infer<typeof mcpBinding>;
+
 const httpUrl = z.url().refine((value) => {
   try {
     const url = new URL(value);
@@ -14,6 +27,67 @@ const httpUrl = z.url().refine((value) => {
 });
 const schema = z
   .object({
+    COMPUTER_DOCKER_IMAGE: z
+      .string()
+      .regex(/^sha256:[a-f0-9]{64}$/)
+      .optional(),
+    COMPUTER_DOCKER_SOCKET: z
+      .string()
+      .min(1)
+      .max(1024)
+      .refine(
+        (value) =>
+          value.startsWith("/") &&
+          value.endsWith(".sock") &&
+          !value.includes("\0"),
+      )
+      .optional(),
+    COMPUTER_OWNER_ID: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,80}$/)
+      .optional(),
+    MCP_ORIGIN: httpUrl
+      .refine((value) => {
+        try {
+          const url = new URL(value);
+          return url.origin === value && value !== "https://api.github.com";
+        } catch {
+          return false;
+        }
+      })
+      .optional(),
+    MCP_ALLOW_LOOPBACK_HTTP: z.enum(["true"]).optional(),
+    MCP_CREDENTIAL_BINDINGS: z
+      .string()
+      .max(100_000)
+      .transform((value, ctx) => {
+        try {
+          return JSON.parse(value) as unknown;
+        } catch {
+          ctx.addIssue({ code: "custom", message: "Invalid bindings" });
+          return z.NEVER;
+        }
+      })
+      .pipe(
+        z
+          .array(mcpBinding)
+          .min(1)
+          .max(100)
+          .refine(
+            (bindings) =>
+              new Set(
+                bindings.map((binding) =>
+                  JSON.stringify([
+                    binding.workspaceId,
+                    binding.connectionId,
+                    binding.credentialRef,
+                  ]),
+                ),
+              ).size === bindings.length,
+          ),
+      )
+      .transform((bindings) => JSON.stringify(bindings))
+      .optional(),
     DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(32),
     ENCRYPTION_KEY: z.string().refine((value) => {
@@ -71,6 +145,8 @@ const schema = z
   })
   .superRefine((config, ctx) => {
     for (const group of [
+      ["COMPUTER_DOCKER_IMAGE", "COMPUTER_DOCKER_SOCKET", "COMPUTER_OWNER_ID"],
+      ["MCP_ORIGIN", "MCP_CREDENTIAL_BINDINGS"],
       ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
       ["MAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_TLS"],
       ["SMTP_USER", "SMTP_PASSWORD"],
@@ -85,6 +161,28 @@ const schema = z
               message: "Required together",
             });
       }
+    }
+    if (config.MCP_ALLOW_LOOPBACK_HTTP && !config.MCP_ORIGIN)
+      ctx.addIssue({
+        code: "custom",
+        path: ["MCP_ORIGIN"],
+        message: "Required together",
+      });
+    if (config.MCP_ORIGIN) {
+      let secure = false;
+      try {
+        const url = new URL(config.MCP_ORIGIN);
+        secure =
+          url.protocol === "https:" ||
+          (config.MCP_ALLOW_LOOPBACK_HTTP === "true" &&
+            ["127.0.0.1", "[::1]"].includes(url.hostname));
+      } catch {}
+      if (!secure)
+        ctx.addIssue({
+          code: "custom",
+          path: ["MCP_ORIGIN"],
+          message: "HTTPS required",
+        });
     }
     if (config.SMTP_USER !== undefined && config.SMTP_HOST === undefined)
       ctx.addIssue({

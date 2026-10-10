@@ -65,6 +65,7 @@ export function createProviderFetch(
   parentSignal: AbortSignal,
   authorize: () => Promise<void>,
 ): typeof globalThis.fetch {
+  let requests = 0;
   return Object.assign(
     async (input: string | URL | Request, init?: RequestInit) => {
       const source = input instanceof Request ? input : null;
@@ -79,6 +80,9 @@ export function createProviderFetch(
         AbortSignal.timeout(300000),
       ]);
       signal.throwIfAborted();
+      if (requests >= 16)
+        throw new DomainError("unavailable", "Provider request limit");
+      requests++;
       await authorize();
       const addresses = await lookup(url.hostname, {
         all: true,

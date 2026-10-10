@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readServiceJson } from "./service-http";
 
 export const TRANSCRIPTION_MAX_BYTES = 25 * 1024 * 1024;
 export const DEFAULT_TRANSCRIPTION_MODEL = "mistralai/voxtral-mini-transcribe";
@@ -14,7 +15,7 @@ export class TranscriptionError extends Error {
   }
 }
 export interface Transcriber {
-  transcribe(audio: Blob): Promise<string>;
+  transcribe(audio: Blob, signal?: AbortSignal): Promise<string>;
 }
 
 const response = z.object({ text: z.string() });
@@ -32,7 +33,17 @@ export function createOpenRouterTranscriber(
   async function attempt(audio: Blob, signal: AbortSignal) {
     const body = new FormData();
     body.set("model", config.model);
-    body.set("file", audio, "voice-input");
+    const subtype = audio.type.split(";")[0]?.split("/")[1] ?? "webm";
+    const extension =
+      subtype === "mpeg"
+        ? "mp3"
+        : subtype === "mp4" || subtype === "x-m4a"
+          ? "m4a"
+          : subtype.replace(/^x-/, "");
+    body.set(
+      "file",
+      new File([audio], `voice-input.${extension}`, { type: audio.type }),
+    );
     let reply: Response;
     try {
       reply = await request(`${BASE}/audio/transcriptions`, {
@@ -56,19 +67,42 @@ export function createOpenRouterTranscriber(
         reply.status === 429 || reply.status >= 500 ? "unavailable" : "failed",
       );
     }
-    const parsed = response.safeParse(await reply.json().catch(() => null));
+    let data: unknown;
+    try {
+      data = await readServiceJson(reply, 256 * 1024);
+    } catch {
+      throw new TranscriptionError(
+        signal.reason instanceof DOMException &&
+          signal.reason.name === "TimeoutError"
+          ? "timeout"
+          : "failed",
+      );
+    }
+    const parsed = response.safeParse(data);
     if (!parsed.success) throw new TranscriptionError("failed");
     return parsed.data.text;
   }
 
   return {
-    async transcribe(audio) {
+    async transcribe(audio, callerSignal) {
+      if (audio.size === 0 || audio.size > TRANSCRIPTION_MAX_BYTES)
+        throw new TranscriptionError("failed");
       const cancel = new AbortController();
       const signal = AbortSignal.any([
         AbortSignal.timeout(TIMEOUT_MS),
         cancel.signal,
+        ...(callerSignal ? [callerSignal] : []),
       ]);
-      const run = () => attempt(audio, signal);
+      const run = async () => {
+        if (signal.aborted)
+          throw new TranscriptionError(
+            signal.reason instanceof DOMException &&
+              signal.reason.name === "TimeoutError"
+              ? "timeout"
+              : "unavailable",
+          );
+        return attempt(audio, signal);
+      };
       let hedge: ReturnType<typeof setTimeout> | undefined;
       const slow = new Promise<void>((resolve) => {
         hedge = setTimeout(resolve, HEDGE_AFTER_MS);

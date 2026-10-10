@@ -128,6 +128,7 @@ import {
   type LiveMessage,
   type LiveRun,
   useChat,
+  useChatDrafts,
   useChatMessages,
   useChatPermissions,
   useChatRuns,
@@ -1449,6 +1450,10 @@ export function ChatThread({
   children?: ReactNode;
   onReply?: (id: string) => void;
 }) {
+  const incomingDrafts = useChatDrafts(chatId);
+  const published = new Set(messages.map((message) => message.requestId));
+  const drafts = incomingDrafts.filter((draft) => !published.has(draft.id));
+  const directory = useDirectory();
   const turns: LiveMessage[][] = [];
   for (const message of messages) {
     const last = turns.at(-1)?.at(-1);
@@ -1489,7 +1494,7 @@ export function ChatThread({
                 </MessageScrollerItem>
               </Fragment>
             ))}
-            {!messages.length && (
+            {!messages.length && !drafts.length && (
               <MessageScrollerItem messageId="empty">
                 <Empty>
                   <EmptyHeader>
@@ -1506,6 +1511,26 @@ export function ChatThread({
                 {children}
               </MessageScrollerItem>
             )}
+            {drafts.map((draft) => (
+              <MessageScrollerItem key={draft.id} messageId={draft.id}>
+                <Message>
+                  <MessageAvatar>
+                    <ActorAvatar actorId={draft.agentId} size="md" />
+                  </MessageAvatar>
+                  <MessageContent className="gap-1">
+                    <MessageHeader className="gap-2 px-0 text-sm">
+                      <span>{directory.actorOf(draft.agentId).name}</span>
+                      <span>Private draft · only you</span>
+                    </MessageHeader>
+                    <Bubble variant="ghost">
+                      <BubbleContent className="whitespace-pre-line">
+                        {draft.text}
+                      </BubbleContent>
+                    </Bubble>
+                  </MessageContent>
+                </Message>
+              </MessageScrollerItem>
+            ))}
           </MessageScrollerContent>
         </MessageScrollerViewport>
         <MessageScrollerButton variant="outline" size="compact">
@@ -2155,7 +2180,9 @@ function RunAdmission({
           </p>
         )}
         <p>
-          Native prompt Runs only. Confined computer execution is unavailable.
+          Native Runs use the selected Agent and authorized tools. Computer
+          tools require configured confinement; this development host is never
+          exposed.
         </p>
         <QueryState
           pending={sessions.isPending}

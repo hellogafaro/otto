@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { ToolsInput } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import {
@@ -54,9 +53,13 @@ import { nativeActionInput } from "@otto/runs/actions";
 import {
   type Attempt,
   assertRunAttempt,
+  effectRequestId,
   withRunAttempt,
   withRunEffect,
 } from "@otto/runs/runtime";
+
+export { effectRequestId } from "@otto/runs/runtime";
+
 import {
   getSchedule,
   getScheduleHistory,
@@ -1322,17 +1325,6 @@ async function authorizeTaskLink(
     )
       throw new DomainError("invalid");
   }
-}
-
-export function effectRequestId(runId: string, toolCallId: string) {
-  const bytes = createHash("sha256")
-    .update(JSON.stringify([runId, toolCallId]))
-    .digest()
-    .subarray(0, 16);
-  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x50;
-  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
-  const hex = bytes.toString("hex");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 export function createNativeRunTools(

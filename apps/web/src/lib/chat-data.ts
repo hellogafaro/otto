@@ -5,7 +5,8 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import type { InferRequestType, InferResponseType } from "hono/client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { read, type workspaceApi } from "@/lib/api";
 import { mentionUserIds } from "@/lib/mention-text";
 import { useWorkspace } from "@/lib/workspace";
@@ -23,6 +24,79 @@ export type ChatFilters = Omit<
   InferRequestType<(typeof workspaceApi.chats)["$get"]>["query"],
   "after" | "limit"
 >;
+
+const draftFrame = z.object({
+  type: z.literal("drafts"),
+  drafts: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        runId: z.uuid(),
+        agentId: z.uuid(),
+        text: z.string().max(32768),
+      }),
+    )
+    .max(512),
+});
+
+export function useChatDrafts(chatId?: string) {
+  const { workspaceId, user } = useWorkspace();
+  const [current, setCurrent] = useState<{
+    scope: string;
+    drafts: z.infer<typeof draftFrame>["drafts"];
+  }>();
+  const scope = `${user.id}:${workspaceId}:${chatId}`;
+  useEffect(() => {
+    if (!chatId) return;
+    let disposed = false;
+    let socket: WebSocket | undefined;
+    let reconnect: ReturnType<typeof setTimeout> | undefined;
+    let expiry: ReturnType<typeof setTimeout> | undefined;
+    const clear = () => setCurrent(undefined);
+    const connect = () => {
+      const url = new URL("/api/realtime", window.location.origin);
+      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+      url.searchParams.set("workspaceId", workspaceId);
+      url.searchParams.set("chatId", chatId);
+      url.searchParams.set("drafts", "private");
+      socket = new WebSocket(url);
+      socket.onmessage = (event) => {
+        if (disposed || typeof event.data !== "string") return;
+        try {
+          const frame = draftFrame.safeParse(JSON.parse(event.data));
+          if (!frame.success) return;
+          clearTimeout(expiry);
+          setCurrent({ scope, drafts: frame.data.drafts });
+          expiry = setTimeout(() => {
+            clear();
+            socket?.close();
+          }, 5000);
+        } catch {
+          clear();
+          socket?.close();
+        }
+      };
+      socket.onerror = () => {
+        if (!disposed) clear();
+      };
+      socket.onclose = (event) => {
+        if (disposed) return;
+        clearTimeout(expiry);
+        clear();
+        if (!disposed && ![4401, 4403].includes(event.code))
+          reconnect = setTimeout(connect, 1000);
+      };
+    };
+    connect();
+    return () => {
+      disposed = true;
+      clearTimeout(reconnect);
+      clearTimeout(expiry);
+      socket?.close();
+    };
+  }, [chatId, workspaceId, scope]);
+  return current?.scope === scope ? current.drafts : [];
+}
 
 export function useChats(filters: ChatFilters = {}) {
   const { api, workspaceId } = useWorkspace();

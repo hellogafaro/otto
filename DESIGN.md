@@ -990,3 +990,13 @@ Existing Connection operation cards retain their exact-request disclosure and st
 Active filters preserve their selected value while directory options load or become unavailable. An unresolved option displays “Unavailable” without dereferencing a missing icon; the person can still remove or clear it. Missing options never silently broaden the query by dropping the filter.
 
 Normal Chat sends request automatic private continuity for the authenticated human and selected Agent in that Chat. Advanced explicit Session selection remains separate. The existing Run detail shows its sponsoring human only the persisted dispatch result: new private session, continued private session, or a fresh private session because previous context was not continued. Queued admission does not predict continuity, expose another person's private Session, or invent a reset reason.
+
+### Private native streaming drafts
+
+Full and floating Chats reuse the existing message scroller, Agent avatar and ghost bubble for actual native assistant text arriving during an active Run. The header says “Private draft · only you”: only the sponsoring human sees it, never other Chat participants. Reasoning and tool payloads are not rendered. Drafts are transient, bounded to 32 KiB per Run, and disappear on Stop, authority loss, disconnection, expiry or completion; oversized drafts are withheld rather than presented as complete. Existing authorized native publications remain the only durable shared messages and reload history. No synthetic typing animation or second conversation history is introduced.
+
+Drafts follow the existing Run controls so the scroller’s end position keeps arriving text visible in the smaller floating Chat. The existing Run panel describes authorized native tools and says computer tools require configured confinement, without claiming a provider is available or exposing this development host.
+
+### Dictation lifecycle
+
+Dictation preserves the existing microphone, waveform, Cancel and Done controls. Pending microphone permission uses those same cancellation controls; the waveform shares the recorder's stream rather than opening a second microphone. Cancel, navigation and recording failure release capture and discard late results. Transcribed text is inserted literally into the composer for human review, never interpreted as markup or sent automatically.

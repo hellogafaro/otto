@@ -83,6 +83,12 @@ otto_secrets() {
     run --projectId 44ca0ed3-4d24-4f7e-a080-43f0b8787035 \
     --env dev --path / --include-imports=false \
     --secret-overriding=false --expand=false -- \
+    /usr/bin/env -u MCP_ORIGIN -u MCP_ALLOW_LOOPBACK_HTTP \
+    -u MCP_CREDENTIAL_BINDINGS \
+    TRANSCRIPTION_MODEL=mistralai/voxtral-mini-transcribe \
+    COMPUTER_DOCKER_IMAGE=sha256:b7adb4eb8a91a86f2c2ce9497311ae0cf8ce8a4bb81872bb540ef7bffa81fa08 \
+    COMPUTER_DOCKER_SOCKET="$HOME/.colima/default/docker.sock" \
+    COMPUTER_OWNER_ID=otto-v1-durable-compute \
     "$BUN" --no-env-file "$REPO/scripts/durable-dev.ts" "$@"
 }
 otto_secrets server
@@ -106,6 +112,52 @@ sign-in remain available; only password-reset and invitation delivery are
 unavailable. The current installation already has its legitimate account and
 Hello Gafaro workspace; do not replay its one-time bootstrap. These unavailable services are
 reported at startup; they are not replaced with in-memory storage or fake auth.
+
+## Bounded offline Agent computer
+
+The startup command above selects the approved local computer configuration.
+Use it only after the accepted runtime activation recorded in
+[native acceptance](native-acceptance.md); a documentation command is not proof
+that an already-running process loaded it. The normal server conditionally adds
+`computer_execute` to its native Mastra tools. There is no browser, persistent
+desktop, host-folder access or second agent runtime. All three `COMPUTER_*`
+fields must be present together; omit all three to disable this tool.
+
+The reviewed image is already cached in Colima. Its reproducible source is
+`ops/offline-computer.Dockerfile`. To rebuild locally without fetching a missing
+base, first require the pinned base to exist, then build with networking disabled:
+
+```sh
+DOCKER_HOST="unix://$HOME/.colima/default/docker.sock" \
+  docker image inspect node@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 >/dev/null &&
+DOCKER_HOST="unix://$HOME/.colima/default/docker.sock" \
+  docker build --pull=false --network=none -t otto-native-computer:20261010 \
+  -f "$REPO/ops/offline-computer.Dockerfile" "$REPO/ops"
+DOCKER_HOST="unix://$HOME/.colima/default/docker.sock" \
+  docker image inspect --format '{{.Id}}' otto-native-computer:20261010
+```
+
+Do not replace the configured immutable image ID with a tag or silently accept
+a different rebuilt ID. A different platform/image needs confinement acceptance
+before activation. Runtime provisioning only inspects the cached ID; it never
+pulls an image. Missing cache or mismatched confinement fails closed.
+
+Each authorized Run can perform one bounded JavaScript computation in its own
+non-root container: no network or host mounts, read-only root, 64 MiB noexec
+temporary space, 256 MiB memory, half a CPU and 64 PIDs. The action has a 20-second
+deadline and a separate 60-second PID1 lifetime. Combined stdout/stderr is capped
+at 16 KiB. No input credentials or server environment are forwarded. Results
+are returned only after confirmed destruction; existing authorized File/Chat
+tools can save the returned text, not a persistent container filesystem.
+
+Keep the server's owner namespace `otto-v1-durable-compute` distinct from test
+owners and other server instances. Startup reconciliation considers only exact
+owner/type labels and verifies immutable identity and security settings before
+removing stopped owned containers. Foreign name collisions are never adopted,
+started or deleted. Uncertain provisioning/destruction withholds results and
+retains an uncertain Run rather than permitting a successor. Do not manually
+clear that state or run broad container cleanup to make startup pass. Inspect
+the exact owned object and retained evidence before recovery.
 
 ## One-time storage provisioning
 
@@ -159,6 +211,14 @@ workspace access instead requires an authorized invitation's private mailed
 token and current recipient/issuer permissions, not an email match or ID alone.
 That initial claim has already completed on this installation. Routine startup
 never needs another signup, bootstrap, password reset or provider setup.
+
+For an explicitly authorized initialization repair, the current workspace owner
+can run `bun scripts/bootstrap.ts <existing-user-id> --workspace <existing-workspace-id>`
+through the same database wrapper. This path never reclaims an installation or
+changes membership. It ensures the Default Agent and its required unavailable
+Environment metadata exist, preserving an existing Environment's identity,
+generation, state and computer binding. It provisions no computer and admits no
+Run. Only the explicit existing workspace is touched; nonowners are refused.
 
 Password reset and invitation delivery are unavailable until approved SMTP is
 configured: `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS`, and paired

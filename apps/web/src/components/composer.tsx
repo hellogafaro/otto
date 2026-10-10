@@ -410,7 +410,7 @@ export function Composer({
       <MainButton
         {...button}
         label={dictation.supported ? "Dictate" : "Dictation isn't available"}
-        disabled={!dictation.supported || disabled}
+        disabled={!dictation.supported || disabled || locked}
         onClick={dictation.start}
       >
         <RiMicLine />
@@ -435,7 +435,7 @@ export function Composer({
         </TooltipTrigger>
         <TooltipContent>Cancel</TooltipContent>
       </Tooltip>
-      <Waveform />
+      <Waveform stream={dictation.stream} />
       <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
         {elapsed}
       </span>
@@ -627,10 +627,11 @@ const dictationErrors: Record<string, string> = {
   too_large: "The recording is too long to transcribe",
 };
 
-async function transcribe(audio: Blob) {
+async function transcribe(audio: Blob, signal: AbortSignal) {
   const response = await fetch("/api/transcriptions", {
     method: "POST",
     credentials: "include",
+    signal,
     headers: { "Content-Type": audio.type || "audio/webm" },
     body: audio,
   });
@@ -647,31 +648,80 @@ async function transcribe(audio: Blob) {
 function useDictation(editor: Editor | null) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
-  const discard = useRef(false);
+  const request = useRef<AbortController | null>(null);
+
+  const cancel = () => {
+    request.current?.abort();
+    request.current = null;
+    const session = recorder.current;
+    recorder.current = null;
+    if (session?.state !== "inactive") session?.stop();
+    for (const track of session?.stream.getTracks() ?? []) track.stop();
+    setStream(null);
+    setListening(false);
+    setTranscribing(false);
+  };
 
   const start = async () => {
-    if (!supported || !editor || recorder.current) return;
-    let stream: MediaStream;
+    if (!supported || !editor || request.current) return;
+    const controller = new AbortController();
+    request.current = controller;
+    setListening(true);
+    let granted: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      granted = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      toast.error("Allow microphone access to dictate");
+      if (!controller.signal.aborted) {
+        cancel();
+        toast.error("Allow microphone access to dictate");
+      }
+      return;
+    }
+    if (controller.signal.aborted) {
+      for (const track of granted.getTracks()) track.stop();
       return;
     }
     const chunks: Blob[] = [];
-    const session = new MediaRecorder(stream);
-    session.ondataavailable = (event) => chunks.push(event.data);
+    let bytes = 0;
+    let session: MediaRecorder;
+    try {
+      session = new MediaRecorder(granted);
+    } catch {
+      for (const track of granted.getTracks()) track.stop();
+      cancel();
+      toast.error("Unable to record audio");
+      return;
+    }
+    session.ondataavailable = (event) => {
+      if (controller.signal.aborted) return;
+      bytes += event.data.size;
+      if (bytes > 25 * 1024 * 1024) {
+        cancel();
+        toast.error("The recording is too long to transcribe");
+        return;
+      }
+      chunks.push(event.data);
+    };
+    session.onerror = () => {
+      if (controller.signal.aborted) return;
+      cancel();
+      toast.error("Unable to record audio");
+    };
     session.onstop = async () => {
-      for (const track of stream.getTracks()) track.stop();
+      for (const track of granted.getTracks()) track.stop();
+      if (controller.signal.aborted) return;
       recorder.current = null;
+      setStream(null);
       setListening(false);
-      if (discard.current) return;
       setTranscribing(true);
       try {
         const text = await transcribe(
           new Blob(chunks, { type: session.mimeType }),
+          controller.signal,
         );
+        if (controller.signal.aborted || editor.isDestroyed) return;
         if (!text) toast.error("No speech detected");
         else {
           const at = editor.state.selection.to;
@@ -679,36 +729,47 @@ function useDictation(editor: Editor | null) {
           editor
             .chain()
             .focus()
-            .insertContent((before && before !== " " ? " " : "") + text)
+            .insertContent({
+              type: "text",
+              text: (before && before !== " " ? " " : "") + text,
+            })
             .run();
         }
       } catch (error) {
+        if (controller.signal.aborted) return;
         toast.error(
           error instanceof Error ? error.message : "Unable to transcribe",
         );
       } finally {
-        setTranscribing(false);
+        if (!controller.signal.aborted) {
+          request.current = null;
+          setTranscribing(false);
+        }
       }
     };
-    discard.current = false;
     recorder.current = session;
-    // Chunks arrive while recording, so a stop never depends on one final flush.
-    session.start(250);
-    setListening(true);
+    try {
+      session.start(250);
+      setStream(granted);
+    } catch {
+      cancel();
+      toast.error("Unable to record audio");
+    }
   };
 
-  const stop = () => recorder.current?.stop();
-
-  const cancel = () => {
-    discard.current = true;
-    stop();
+  const stop = () => {
+    const session = recorder.current;
+    if (!session) return cancel();
+    if (session.state === "inactive") return;
+    session.stop();
+    for (const track of session.stream.getTracks()) track.stop();
   };
 
   // Leaving the page releases the mic and drops the recording.
   // biome-ignore lint/correctness/useExhaustiveDependencies: unmount only
   useEffect(() => cancel, []);
 
-  return { supported, listening, transcribing, start, stop, cancel };
+  return { supported, listening, transcribing, stream, start, stop, cancel };
 }
 
 // Seconds since `on` turned true, as m:ss.
@@ -732,7 +793,7 @@ function useElapsed(on: boolean) {
 // the width, so a voice moves them edge to edge. They start flat (a row of
 // 4px dots) and stay flat until there is a level to show (or without mic
 // access).
-function Waveform() {
+function Waveform({ stream }: { stream: MediaStream | null }) {
   const bars = useRef<HTMLDivElement>(null);
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -746,46 +807,38 @@ function Waveform() {
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    let stream: MediaStream | undefined;
+    if (!stream) return;
     let context: AudioContext | undefined;
     let frame = 0;
-    let stopped = false;
-    navigator.mediaDevices?.getUserMedia({ audio: true }).then(
-      (granted) => {
-        if (stopped) {
-          for (const track of granted.getTracks()) track.stop();
-          return;
+    try {
+      context = new AudioContext();
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 64;
+      context.createMediaStreamSource(stream).connect(analyser);
+      const levels = new Uint8Array(analyser.frequencyBinCount);
+      const draw = () => {
+        analyser.getByteFrequencyData(levels);
+        const children = bars.current?.children ?? [];
+        const half = children.length / 2;
+        for (let i = 0; i < children.length; i++) {
+          const fromCenter = Math.abs(i - half) / half;
+          // Bins are 750 Hz wide (fftSize 64 at 48 kHz): 0-7 hold speech.
+          const level = levels[Math.floor(fromCenter * 7.99)] / 255;
+          (children[i] as HTMLElement).style.transform =
+            `scaleY(${0.2 + level * 0.8})`;
         }
-        stream = granted;
-        context = new AudioContext();
-        const analyser = context.createAnalyser();
-        analyser.fftSize = 64;
-        context.createMediaStreamSource(granted).connect(analyser);
-        const levels = new Uint8Array(analyser.frequencyBinCount);
-        const draw = () => {
-          analyser.getByteFrequencyData(levels);
-          const children = bars.current?.children ?? [];
-          const half = children.length / 2;
-          for (let i = 0; i < children.length; i++) {
-            const fromCenter = Math.abs(i - half) / half;
-            // Bins are 750 Hz wide (fftSize 64 at 48 kHz): 0-7 hold speech.
-            const level = levels[Math.floor(fromCenter * 7.99)] / 255;
-            (children[i] as HTMLElement).style.transform =
-              `scaleY(${0.2 + level * 0.8})`;
-          }
-          frame = requestAnimationFrame(draw);
-        };
-        draw();
-      },
-      () => {},
-    );
+        frame = requestAnimationFrame(draw);
+      };
+      draw();
+    } catch {
+      void context?.close();
+      return;
+    }
     return () => {
-      stopped = true;
       cancelAnimationFrame(frame);
-      for (const track of stream?.getTracks() ?? []) track.stop();
-      context?.close();
+      void context?.close();
     };
-  }, []);
+  }, [stream]);
 
   return (
     <div

@@ -20,7 +20,7 @@ export const transcriptionApi = new Hono<ApiEnv>().post(
     const audio = new Blob([await c.req.arrayBuffer()], { type });
     if (audio.size === 0) return c.json({ error: "invalid" }, 400);
     try {
-      const text = await transcriber.transcribe(audio);
+      const text = await transcriber.transcribe(audio, c.req.raw.signal);
       logger.info(
         { audioBytes: audio.size, type, textLength: text.length },
         "transcription",

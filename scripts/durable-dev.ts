@@ -2,7 +2,10 @@ import { mkdir } from "node:fs/promises";
 import { isIP } from "node:net";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { readConfig } from "../apps/server/src/config";
+import {
+  type McpCredentialBinding,
+  readConfig,
+} from "../apps/server/src/config";
 
 const root = resolve(import.meta.dirname, "..");
 const state = resolve(homedir(), ".capy/work/otto-v1-durable");
@@ -282,8 +285,21 @@ try {
         SMTP_TLS: process.env.SMTP_TLS,
         SMTP_USER: process.env.SMTP_USER,
         SMTP_PASSWORD: process.env.SMTP_PASSWORD,
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+        TRANSCRIPTION_MODEL: process.env.TRANSCRIPTION_MODEL,
+        MCP_ORIGIN: process.env.MCP_ORIGIN,
+        MCP_ALLOW_LOOPBACK_HTTP: process.env.MCP_ALLOW_LOOPBACK_HTTP,
+        MCP_CREDENTIAL_BINDINGS: process.env.MCP_CREDENTIAL_BINDINGS,
+        COMPUTER_DOCKER_IMAGE: process.env.COMPUTER_DOCKER_IMAGE,
+        COMPUTER_DOCKER_SOCKET: process.env.COMPUTER_DOCKER_SOCKET,
+        COMPUTER_OWNER_ID: process.env.COMPUTER_OWNER_ID,
       };
-      readConfig(env);
+      const config = readConfig(env);
+      const bindings = JSON.parse(
+        config.MCP_CREDENTIAL_BINDINGS ?? "[]",
+      ) as McpCredentialBinding[];
+      for (const binding of bindings)
+        env[binding.tokenEnv] = process.env[binding.tokenEnv];
       await run(
         [process.execPath, "--no-env-file", "apps/server/src/index.ts"],
         Object.fromEntries(

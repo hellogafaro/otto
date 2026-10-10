@@ -28,6 +28,7 @@ import {
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { createApp } from "./app";
 import { createAuth } from "./auth";
+import type { ComputerOptions } from "./computer";
 import type { ServerConfig } from "./config";
 import type { ConnectionOptions } from "./connections";
 import { createLogger } from "./logger";
@@ -49,6 +50,7 @@ export async function startServer(
       "resolveModel" | "deadlineMs"
     >;
     connections?: ConnectionOptions;
+    computer?: ComputerOptions;
     mail?: Mail | null;
   } = {},
 ) {
@@ -182,9 +184,14 @@ export async function startServer(
     const nativeStorage = native;
     const encryptionKey = Buffer.from(config.ENCRYPTION_KEY, "base64");
     const modelAuthorization = { authorizeModel: authorizeSubscriptionModel };
+    const computer = services.computer
+      ? (await import("./computer")).createComputer(services.computer)
+      : undefined;
+    await computer?.prepare();
     runtime = createRunRuntime(db, {
       storage: nativeStorage,
       deadlineMs: execution?.deadlineMs,
+      cleanup: computer ? (attempt) => computer.cleanup(attempt) : undefined,
       resolveModel:
         execution?.resolveModel ??
         (async (attempt, signal) => {
@@ -199,7 +206,7 @@ export async function startServer(
         }),
       tools: (attempt, signal) => {
         if (!boss) throw new Error("Queue unavailable");
-        return createNativeRunTools(
+        const tools = createNativeRunTools(
           db,
           boss,
           attempt,
@@ -212,6 +219,18 @@ export async function startServer(
           },
           signal,
         );
+        if (computer)
+          tools.computer_execute = computer.tool(attempt, signal, async () => {
+            await withRunAttempt(
+              db,
+              attempt,
+              async () => {},
+              validateSchedule,
+              nativeStorage,
+              authorizeRunSources,
+            );
+          });
+        return tools;
       },
       publishOutput: async (attempt, output) => {
         const target = await withRunAttempt(
@@ -426,7 +445,13 @@ export async function startServer(
       },
     });
     logger.info(
-      { port: server.port, storage: Boolean(storage), mail: Boolean(mail) },
+      {
+        port: server.port,
+        storage: Boolean(storage),
+        mail: Boolean(mail),
+        transcription: Boolean(config.OPENROUTER_API_KEY),
+        computer: Boolean(computer),
+      },
       "server ready",
     );
     return { server, stop, isReady };
