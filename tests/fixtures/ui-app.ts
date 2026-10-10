@@ -4,7 +4,7 @@ import { startQueue } from "../../apps/server/src/queue";
 import { createOpenRouterTranscriber } from "../../apps/server/src/transcription";
 import { ensureDefaultAgent } from "../../packages/agents/src/server";
 import { createCursorCodec } from "../../packages/db/src";
-import { createS3Storage } from "../../packages/files/src/storage";
+import { createS3Storage } from "../../packages/library/src/storage";
 import { openNativeStorage } from "../../packages/sessions/src/native";
 import { claimInstallation, inWorkspace } from "../../packages/workspaces/src";
 import { members, workspaces } from "../../packages/workspaces/src/schema";

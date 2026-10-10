@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
-import { createFolder } from "../packages/files/src";
+import { createCursorCodec } from "../packages/db/src";
+import { createFolder } from "../packages/library/src";
 import { openNativeStorage } from "../packages/sessions/src/native";
 import {
   claimInstallation,
@@ -65,6 +66,7 @@ describe("folders, placement rules and the mixed library through real HTTP and p
         get,
       }),
       spool: transfers.spool,
+      cursors: createCursorCodec(secret),
     });
     human = async (label: string): Promise<Human> => {
       const response = await auth.api.signUpEmail({
@@ -614,13 +616,13 @@ describe("folders, placement rules and the mixed library through real HTTP and p
     expect(seen.filter((item) => item.type === "document")).toHaveLength(2);
     for (const item of seen.filter((item) => item.type === "document"))
       expect(item.ownerId).toBe(owner.id);
-    // The Project root and the workspace root are separate scopes.
+    // The explicit Project root narrows the workspace-wide top level.
     const projectRoot = await call(owner, `/library?projectId=${projectId}`);
     expect(projectRoot.items.map((i: { id: string }) => i.id)).toContain(
       root.id,
     );
     const workspaceRoot = await call(owner, "/library");
-    expect(workspaceRoot.items.map((i: { id: string }) => i.id)).not.toContain(
+    expect(workspaceRoot.items.map((i: { id: string }) => i.id)).toContain(
       root.id,
     );
     expect(

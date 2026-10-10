@@ -17,17 +17,16 @@ import {
   reserveMessage,
 } from "../packages/chats/src";
 import { messages, participants } from "../packages/chats/src/schema";
+import { createEnvironment } from "../packages/environments/src";
 import {
   createCollection,
   createDocument,
-  updateDocument,
-} from "../packages/documents/src";
-import { createEnvironment } from "../packages/environments/src";
-import {
   createFile,
   getSkillFileReference,
+  snapshotRunDocuments,
+  updateDocument,
   updateFile,
-} from "../packages/files/src";
+} from "../packages/library/src";
 import {
   createProject,
   deleteProjectMember,
@@ -214,6 +213,7 @@ describe("bounded native conversational operation completeness", () => {
         },
         nativeModelAuthorization,
         native,
+        snapshotRunDocuments,
       ),
     );
     if (!queued)
@@ -693,6 +693,7 @@ describe("bounded native conversational operation completeness", () => {
         },
         nativeModelAuthorization,
         native,
+        snapshotRunDocuments,
       ),
     );
     const generated = await createFile(
@@ -856,6 +857,7 @@ describe("bounded native conversational operation completeness", () => {
           undefined,
           native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         if (!scope.sessionId) throw new Error("Missing Session");
         await publishNativeMessage(
@@ -876,10 +878,12 @@ describe("bounded native conversational operation completeness", () => {
               undefined,
               native,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
           },
         );
       },
+      snapshotDocuments: snapshotRunDocuments,
     });
     try {
       await runtime.dispatch(f.run.id);

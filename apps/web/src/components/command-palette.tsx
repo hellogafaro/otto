@@ -48,8 +48,7 @@ const categories = [
   "tasks",
   "people",
   "projects",
-  "documents",
-  "files",
+  "library",
   "actions",
 ] as const;
 export type PaletteCategory = (typeof categories)[number];
@@ -59,8 +58,7 @@ const labels: Record<PaletteCategory, string> = {
   tasks: "Tasks",
   people: "People",
   projects: "Projects",
-  documents: "Documents",
-  files: "Files",
+  library: "Library",
   actions: "Actions",
 };
 
@@ -165,13 +163,13 @@ function Palette({
   });
   const documents = useQuery({
     queryKey: ["workspace", workspaceId, "palette-documents", query],
-    enabled: open && shows("documents"),
+    enabled: open && shows("library"),
     queryFn: async () =>
       read(await api.documents.$get({ param: { workspaceId }, query: search })),
   });
   const files = useQuery({
     queryKey: ["workspace", workspaceId, "palette-files", query],
-    enabled: open && shows("files"),
+    enabled: open && shows("library"),
     queryFn: async () =>
       read(await api.files.$get({ param: { workspaceId }, query: search })),
   });
@@ -373,7 +371,7 @@ function Palette({
             </CommandGroup>
           )}
         {!searching &&
-          shows("documents") &&
+          shows("library") &&
           Boolean(documents.data?.items.length) && (
             <CommandGroup heading="Documents">
               {documents.data?.items.map((document) => (
@@ -382,7 +380,7 @@ function Palette({
                   value={`document-${document.id}`}
                   onSelect={go(() =>
                     navigate({
-                      to: "/documents/$documentId",
+                      to: "/library/documents/$documentId",
                       params: { documentId: document.id },
                     }),
                   )}
@@ -395,27 +393,29 @@ function Palette({
               ))}
             </CommandGroup>
           )}
-        {!searching && shows("files") && Boolean(files.data?.items.length) && (
-          <CommandGroup heading="Files">
-            {files.data?.items.map((file) => {
-              const Icon = resourceIcons[resourceKindOf(file.mediaType)];
-              return (
-                <CommandItem
-                  key={file.id}
-                  value={`file-${file.id}`}
-                  onSelect={go(() =>
-                    navigate({ to: "/files", search: { open: file.id } }),
-                  )}
-                >
-                  <Slot>
-                    <Icon />
-                  </Slot>
-                  {file.title}
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-        )}
+        {!searching &&
+          shows("library") &&
+          Boolean(files.data?.items.length) && (
+            <CommandGroup heading="Files">
+              {files.data?.items.map((file) => {
+                const Icon = resourceIcons[resourceKindOf(file.mediaType)];
+                return (
+                  <CommandItem
+                    key={file.id}
+                    value={`file-${file.id}`}
+                    onSelect={go(() =>
+                      navigate({ to: "/library", search: { open: file.id } }),
+                    )}
+                  >
+                    <Slot>
+                      <Icon />
+                    </Slot>
+                    {file.title}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          )}
         {!searching &&
           shows("actions") &&
           (actions.length > 0 || showsSettings) && (

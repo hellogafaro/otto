@@ -33,8 +33,7 @@ test("the first Otto mark opens Home without changing the rail", async ({
     "Projects",
     "Chats",
     "Schedules",
-    "Documents",
-    "Files",
+    "Library",
     "Open profile menu",
   ]);
   expect((await rail.boundingBox())?.width).toBe(48);

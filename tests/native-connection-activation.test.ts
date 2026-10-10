@@ -19,6 +19,7 @@ import {
 import { connections, grants } from "../packages/connections/src/schema";
 import { MCP_PROTOCOL_VERSION } from "../packages/connections/src/server";
 import { createEnvironment } from "../packages/environments/src";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { createRunAction, getRunActions } from "../packages/runs/src/actions";
 import { type Attempt, withRunAttempt } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
@@ -262,10 +263,12 @@ describe("human-approved native MCP activation", () => {
           },
           native,
           authorizeRunSources,
+          snapshotRunDocuments,
         ),
       undefined,
       native,
       authorizeRunSources,
+      snapshotRunDocuments,
     );
     return { connection, attempt, action };
   }

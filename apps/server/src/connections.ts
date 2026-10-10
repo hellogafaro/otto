@@ -4,6 +4,7 @@ import {
   createConnectionService,
 } from "@otto/connections/server";
 import type { Database } from "@otto/db";
+import { snapshotRunDocuments } from "@otto/library";
 import { getRun } from "@otto/runs";
 import { assertRunAttempt } from "@otto/runs/runtime";
 import { validateSchedule } from "@otto/schedules";
@@ -29,6 +30,7 @@ export async function validateConnectionRun(
     validateSchedule,
     native,
     authorizeRunSources,
+    snapshotRunDocuments,
   );
   if (run.environmentGeneration !== proof.environmentGeneration)
     throw new DomainError("forbidden", "Stale Environment");

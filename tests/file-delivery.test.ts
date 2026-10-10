@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { open, readdir, unlink, writeFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { deliverFile, type Located } from "../apps/server/src/file-delivery";
-import type { FileStorage } from "../packages/files/src";
+import type { FileStorage } from "../packages/library/src";
 import { openSpoolFds, testSpool } from "./fixtures/storage";
 
 const CHUNK = 64 * 1024;

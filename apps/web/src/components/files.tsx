@@ -544,7 +544,7 @@ function FileMenu({
           onClick={() =>
             act(() =>
               navigator.clipboard.writeText(
-                `${location.origin}/files?open=${encodeURIComponent(resource.id)}`,
+                `${location.origin}/library?open=${encodeURIComponent(resource.id)}`,
               ),
             )
           }
@@ -582,7 +582,7 @@ function FileDetails({ file }: { file: SavedFile }) {
         <DetailRow
           link={
             <Link
-              to="/files"
+              to="/library"
               search={{
                 folder: file.folderId ?? undefined,
                 project: file.projectId ?? undefined,
@@ -641,7 +641,7 @@ function FileDetails({ file }: { file: SavedFile }) {
               key={label}
               link={
                 <Link
-                  to="/files"
+                  to="/library"
                   search={{
                     label,
                     folder: file.folderId ?? undefined,

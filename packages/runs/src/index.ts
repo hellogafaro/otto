@@ -17,7 +17,6 @@ import {
   sortPlan,
   timeKey,
 } from "@otto/db";
-import { getDocument, getDocumentAudience } from "@otto/documents";
 import { getEnvironment } from "@otto/environments";
 import { getProject } from "@otto/projects";
 import { createSession, requireSession } from "@otto/sessions";
@@ -67,6 +66,12 @@ export interface ModelAuthorization {
     modelConfig: import("./schema").ModelConfig;
   }>;
 }
+export type SnapshotDocuments = (
+  c: Context,
+  documentIds: string[],
+  audience: { humans: string[]; agents: string[] },
+  phase: "launch" | "continue",
+) => Promise<{ id: string; title: string; body: string; editToken: number }[]>;
 
 function normalizeRequest(input: RunRequest): RunRequestIdentity {
   return {
@@ -164,6 +169,7 @@ export async function admitRun(
   input: RunRequest,
   authorization?: ModelAuthorization,
   native?: NativeSessionStorage,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   requireHuman(c);
   requireWriter(c);
@@ -249,7 +255,14 @@ export async function admitRun(
     if (task.archived) throw new DomainError("conflict", "Task archived");
     if (task.projectId !== chat.projectId) throw new DomainError("forbidden");
   }
-  const context = await snapshotContext(c, input, audience, "launch", native);
+  const context = await snapshotContext(
+    c,
+    input,
+    audience,
+    "launch",
+    native,
+    snapshotDocuments,
+  );
   const triggeringMessage =
     input.sessionMode === "auto"
       ? await getMessage(
@@ -441,6 +454,7 @@ export async function dispatchRun(
     id: string,
     editToken: number,
   ) => Promise<void>,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   const descriptor = required(
     (
@@ -462,7 +476,14 @@ export async function dispatchRun(
         if (run.state !== "queued") return publicRun(run);
         let outcome = "compute_provider_not_selected";
         try {
-          await validateRunSources(c, run, validateSchedule);
+          await validateRunSources(
+            c,
+            run,
+            validateSchedule,
+            "launch",
+            undefined,
+            snapshotDocuments,
+          );
         } catch (error) {
           if (!(error instanceof DomainError)) throw error;
           outcome =
@@ -658,30 +679,21 @@ async function snapshotContext(
   audience: { humans: string[]; agents: string[] },
   phase: "launch" | "continue" = "launch",
   native?: NativeSessionStorage,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   if (
     (input.documentIds?.length ?? 0) > 20 ||
     (input.messageIds?.length ?? 0) > 100
   )
     throw new DomainError("invalid", "Context limit");
-  const documents = [];
-  for (const id of input.documentIds ?? []) {
-    const doc = await getDocument(c, id);
-    if (phase === "launch" && doc.archived)
-      throw new DomainError("conflict", "Document archived");
-    const available = await getDocumentAudience(c, id);
-    if (
-      audience.humans.some((id) => !available.includes(id)) ||
-      (doc.visibility === "user" && audience.agents.length > 1)
-    )
-      throw new DomainError("forbidden", "Document context audience mismatch");
-    documents.push({
-      id: doc.id,
-      title: doc.title,
-      body: doc.body,
-      editToken: doc.editToken,
-    });
-  }
+  const documents = input.documentIds?.length
+    ? await required(snapshotDocuments, "unavailable")(
+        c,
+        input.documentIds,
+        audience,
+        phase,
+      )
+    : [];
   const messages = [];
   for (const id of input.messageIds ?? []) {
     const message = await getMessage(
@@ -717,6 +729,7 @@ export async function validateRunSources(
   ) => Promise<void>,
   phase: "launch" | "continue" = "launch",
   native?: NativeSessionStorage,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   requireWriter(c);
   const chat = await getChat(c, run.chatId, true);
@@ -803,6 +816,7 @@ export async function validateRunSources(
       run.inputs.audience,
       phase,
       native,
+      snapshotDocuments,
     );
   if (run.taskId) {
     const task = await getTask(c, run.taskId, true);

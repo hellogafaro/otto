@@ -7,6 +7,7 @@ import {
   updateAgent,
 } from "@otto/agents";
 import { createEnvironment, getEnvironment } from "@otto/environments";
+import { snapshotRunDocuments } from "@otto/library";
 import {
   admitRun,
   getRun,
@@ -292,6 +293,7 @@ export const executionApi = new Hono<ApiEnv>()
             c.req.valid("json"),
             modelAuthorization,
             options.nativeStorage,
+            snapshotRunDocuments,
           ),
         ),
       );

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { dispatchRun } from "../packages/runs/src";
 import {
   CRON_QUEUE,
@@ -265,7 +266,12 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
         async recover() {},
         async dispatch(id) {
           dispatched.push(id);
-          await dispatchRun(database.db, id, validateSchedule);
+          await dispatchRun(
+            database.db,
+            id,
+            validateSchedule,
+            snapshotRunDocuments,
+          );
         },
       },
     });
@@ -362,7 +368,12 @@ it("offline Schedule rename retains old native queue deliveries, exact retries/h
       { status: "disabled", editToken: 0 },
       "PATCH",
     );
-    await dispatchRun(database.db, queued.id, validateSchedule);
+    await dispatchRun(
+      database.db,
+      queued.id,
+      validateSchedule,
+      snapshotRunDocuments,
+    );
     expect(
       (
         await database.pool.query(

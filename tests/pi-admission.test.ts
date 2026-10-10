@@ -6,6 +6,7 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { agents } from "../packages/agents/src/schema";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { admitRun, dispatchRun } from "../packages/runs/src";
 import { createRunRuntime } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
@@ -198,6 +199,7 @@ describe("native admission bindings with deterministic account fixtures", () => 
       storage: native,
       resolveModel: async () => controlledModel(),
       tools: () => ({}),
+      snapshotDocuments: snapshotRunDocuments,
     });
     try {
       await expect(
@@ -282,7 +284,12 @@ describe("native admission bindings with deterministic account fixtures", () => 
     expect(
       record.parse(await (await request("/runs", controls)).json()).id,
     ).toBe(publicRun.id);
-    await dispatchRun(database.db, publicRun.id);
+    await dispatchRun(
+      database.db,
+      publicRun.id,
+      undefined,
+      snapshotRunDocuments,
+    );
     const [failed] = await database.db
       .select()
       .from(runs)
@@ -296,7 +303,7 @@ describe("native admission bindings with deterministic account fixtures", () => 
   it("unconfigured native authorization denies prompt admission atomically", async () => {
     await expect(
       inWorkspace(database.db, workspaceId, { userId }, (c) =>
-        admitRun(c, boss, input()),
+        admitRun(c, boss, input(), undefined, undefined, snapshotRunDocuments),
       ),
     ).rejects.toMatchObject({ code: "unavailable" });
     expect(await database.db.select().from(runs)).toHaveLength(1);

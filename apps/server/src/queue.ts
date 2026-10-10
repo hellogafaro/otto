@@ -1,5 +1,6 @@
 import { recoverConnectionOperations } from "@otto/connections/server";
 import type { Database } from "@otto/db";
+import { snapshotRunDocuments } from "@otto/library";
 import {
   dispatchRun,
   failQueuedRun,
@@ -107,7 +108,13 @@ export async function startQueue(
             const { runId } = z.object({ runId: z.uuid() }).parse(job.data);
             try {
               if (runtime) await runtime.dispatch(runId);
-              else await dispatchRun(db, runId, validateSchedule);
+              else
+                await dispatchRun(
+                  db,
+                  runId,
+                  validateSchedule,
+                  snapshotRunDocuments,
+                );
             } catch (error) {
               if (job.retryCount >= job.retryLimit)
                 await failQueuedRun(db, runId, "dispatch_retries_exhausted");

@@ -59,7 +59,7 @@ export function DocumentMenu({
         <ContextMenuItem
           onClick={() =>
             navigate({
-              to: "/documents/$documentId",
+              to: "/library/documents/$documentId",
               params: { documentId: id },
             })
           }
@@ -69,7 +69,9 @@ export function DocumentMenu({
         {document && (
           <ContextMenuItem
             onClick={() =>
-              ask(`In the document "${document.title}" (/documents/${id}), `)
+              ask(
+                `In the document "${document.title}" (/library/documents/${id}), `,
+              )
             }
           >
             Ask about it
@@ -80,7 +82,7 @@ export function DocumentMenu({
           onClick={async () => {
             try {
               await navigator.clipboard.writeText(
-                `${location.origin}/documents/${id}`,
+                `${location.origin}/library/documents/${id}`,
               );
               toast.success("Link copied");
             } catch {

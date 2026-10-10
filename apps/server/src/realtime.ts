@@ -1,5 +1,5 @@
 import { getMessages } from "@otto/chats";
-import { getDocument } from "@otto/documents";
+import { getDocument } from "@otto/library";
 import { getRunActivity, getRuns } from "@otto/runs";
 import { DomainError } from "@otto/shared";
 

@@ -8,8 +8,12 @@ import {
 } from "../packages/chats/src";
 import { participants } from "../packages/chats/src/schema";
 import { createCursorCodec } from "../packages/db/src";
-import { createDocument, updateDocument } from "../packages/documents/src";
 import { createEnvironment } from "../packages/environments/src";
+import {
+  createDocument,
+  snapshotRunDocuments,
+  updateDocument,
+} from "../packages/library/src";
 import { deleteProjectMember } from "../packages/projects/src";
 import { admitRun, failQueuedRun } from "../packages/runs/src";
 import {
@@ -61,13 +65,20 @@ it("blocks every kind of authority write while a list read transaction is open, 
       body: "b",
       visibility: "workspace",
     });
-    const run = await admitRun(c, h.boss, {
-      requestId: crypto.randomUUID(),
-      chatId: chat.id,
-      agentId: agent.id,
-      type: "script",
-      body: "x",
-    });
+    const run = await admitRun(
+      c,
+      h.boss,
+      {
+        requestId: crypto.randomUUID(),
+        chatId: chat.id,
+        agentId: agent.id,
+        type: "script",
+        body: "x",
+      },
+      undefined,
+      undefined,
+      snapshotRunDocuments,
+    );
     return {
       chatId: chat.id,
       participantId: "",
@@ -142,7 +153,7 @@ it("blocks every kind of authority write while a list read transaction is open, 
   const reader = h.scope(
     h.alice,
     async (c) => {
-      const { getDocuments } = await import("../packages/documents/src");
+      const { getDocuments } = await import("../packages/library/src");
       await getDocuments(c, {});
       reading();
       await gate;

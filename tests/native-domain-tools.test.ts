@@ -18,6 +18,7 @@ import {
 } from "../packages/chats/src";
 import { messages, participants } from "../packages/chats/src/schema";
 import { createEnvironment } from "../packages/environments/src";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { createProject } from "../packages/projects/src";
 import {
   type Attempt,
@@ -349,6 +350,7 @@ describe("native domain tools preserve current actor and stable effect identity"
           undefined,
           native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         if (!scope.sessionId) throw new Error("Missing session");
         await publishNativeMessage(
@@ -369,10 +371,12 @@ describe("native domain tools preserve current actor and stable effect identity"
               undefined,
               native,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
           },
         );
       },
+      snapshotDocuments: snapshotRunDocuments,
     });
     try {
       await runtime.dispatch(existing.id);

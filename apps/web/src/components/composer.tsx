@@ -105,13 +105,9 @@ const SendOnEnter = Extension.create<{ onEnter: () => void }>({
 // files. + adds files (also by dropping or pasting them). The main button
 // dictates while the box is empty, sends once there is text or a file, and
 // stops a reply while `busy`. `tools` sit next to + (model or agent pickers).
-// Upload callbacks save real bytes before a message can reference them. `compact` is the one-line
-// floating bar (the floating chat): + on the left, the main button on the
-// right. `embedded` is the smaller composer inside a 12px card (the floating
-// chat's window): 4px in, so 8px corners; its 28px buttons 6px in with the
-// 28px buttons' 6px corners, so they breathe and stay round; text 12px in
-// (16px from the card, like the panel's text), on the + icon's line; one
-// step lighter than the card it sits on. `idle` sits before the main button
+// Upload callbacks save real bytes before a message can reference them. `compact`
+// changes the floating surface, not the editor or its controls. `embedded`
+// nests the same 32px controls inside the floating chat's window. `idle` sits before the main button
 // only while the box is empty (no text or files).
 export function Composer({
   onSend,
@@ -158,10 +154,7 @@ export function Composer({
     () => createMentions(workspaceId, () => mentionScope.current),
     [workspaceId],
   );
-  // The embedded composer's buttons: 28px, 6px corners.
-  const button = embedded
-    ? ({ size: "icon-sm", className: "size-7 rounded-sm" } as const)
-    : ({ size: "icon-sm" } as const);
+  const button = { size: "icon-sm" } as const;
   const [files, setFiles] = useState<Pending[]>([]);
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
@@ -195,27 +188,18 @@ export function Composer({
         codeBlock: false,
         horizontalRule: false,
         link: false,
-        // The compact bar is one line: no Shift+Enter breaks.
-        hardBreak: compact ? false : undefined,
       }),
       Placeholder.configure({ placeholder: () => placeholderText.current }),
       mentions,
       SendOnEnter.configure({ onEnter: () => actions.current.send() }),
     ],
     editorProps: {
-      // One line tall until it grows with the text, up to 240px. The
-      // compact bar stays one line and scrolls sideways as you type.
+      // One line tall until it grows with the text, up to 240px.
       attributes: {
-        class: compact
-          ? "otto-composer no-scrollbar overflow-x-auto overflow-y-hidden p-1 text-sm whitespace-pre! outline-none"
-          : cn(
-              "otto-composer max-h-60 overflow-y-auto p-3 pb-0 text-sm outline-none",
-            ),
+        class:
+          "otto-composer max-h-60 overflow-y-auto p-1 text-sm outline-none",
         "aria-label": placeholder,
       },
-      // Pasted lines join into one in the compact bar.
-      transformPastedText: (text) =>
-        compact ? text.replace(/\s*\n\s*/g, " ") : text,
       handlePaste: (_view, event) => {
         const pasted = event.clipboardData?.files;
         if (!pasted?.length) return false;
@@ -445,13 +429,9 @@ export function Composer({
   const attachments = files.length > 0 && (
     // Attachments sit 4px in (top and sides), like the buttons below, so
     // their 8px corners nest in the composer's 12px (8 + 4). AttachmentGroup
-    // adds the 4px above. In the compact bar nothing pads below them: the
-    // row's own 4px is the gap.
-    <InputGroupAddon
-      align="block-start"
-      className={cn("px-1 pt-0", compact && "pb-0")}
-    >
-      <AttachmentGroup className={cn("w-full", compact && "pb-0")}>
+    // adds the 4px above.
+    <InputGroupAddon align="block-start" className="px-1 pt-0">
+      <AttachmentGroup className="w-full">
         {files.map((file) => (
           <div key={file.requestId} className="flex flex-col gap-1">
             <FileAttachment
@@ -503,15 +483,11 @@ export function Composer({
         void send();
       }}
     >
-      {/* Same surface as a comment card (xl radius, card background, faint
-          ring). Two insets: visible edges (attachment borders, button
-          backgrounds) sit 4px in, so their 8px corners nest in its 12px;
-          content (text) sits 16px in. The
-          compact bar keeps the corners and floats (shadow-md). */}
+      {/* The compact presentation retains the full editor and controls. */}
       <InputGroup
         data-dragging={dragging}
         className={cn(
-          "border-0 bg-card ring-1 ring-foreground/10 data-[dragging=true]:ring-ring dark:bg-card",
+          "h-auto border-0 bg-card ring-1 ring-foreground/10 data-[dragging=true]:ring-ring dark:bg-card",
           embedded
             ? // The hairline inside, so its visible edge sits 4px in, where
               // the top bar's buttons sit.
@@ -540,40 +516,16 @@ export function Composer({
         }}
       >
         {attachments}
-        {compact ? (
-          // One row, 40px like a top bar: buttons 4px from the edges, text
-          // 44px in (4px padding + 32px button + 4px gap + 4px text padding).
-          <div className="flex w-full items-center gap-1 p-1">
-            {dictation.listening ? listening : plus}
-            {/* Kept mounted while dictating (the text lands here), but the
-                bar shows the waveform instead. */}
-            <EditorContent
-              editor={editor}
-              className={cn("min-w-0 flex-1", dictation.listening && "hidden")}
-            />
-            {!dictation.listening && tools}
-            {!dictation.listening && !hasContent && idle}
-            {main}
-          </div>
-        ) : (
-          <>
-            <EditorContent editor={editor} className="w-full" />
-            <InputGroupAddon
-              align="block-end"
-              className={embedded ? "p-1.5" : "p-1"}
-            >
-              {dictation.listening ? (
-                listening
-              ) : (
-                <>
-                  {plus}
-                  {tools}
-                </>
-              )}
-              <span className="ml-auto">{main}</span>
-            </InputGroupAddon>
-          </>
-        )}
+        <div className="flex w-full min-w-0 items-center gap-1 p-1">
+          {dictation.listening ? listening : plus}
+          <EditorContent
+            editor={editor}
+            className={cn("min-w-0 flex-1", dictation.listening && "hidden")}
+          />
+          {!dictation.listening && tools}
+          {!hasContent && !dictation.listening && idle}
+          {main}
+        </div>
       </InputGroup>
       {/* Outside the group: a direct <input> child changes its addon padding. */}
       <input

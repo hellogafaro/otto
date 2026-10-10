@@ -252,7 +252,7 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.xl}"
     height: 40px
-    width: 450px
+    width: 728px
     padding: 4px
   section-sidebar:
     backgroundColor: "{colors.frame}"
@@ -410,26 +410,28 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   combobox's search icon and text sit on the items' columns.
 - **Rail** (`AppRail`): 48px wide, 8px around 32px buttons, no labels.
   Home (the original six-blade Otto mark), Search (the command palette),
-  Tasks, Projects, Chats, Schedules, Documents, Files. The 20px mark replaces
+  Tasks, Projects, Chats, Schedules, Library. The 20px mark replaces
   the Inbox icon in its existing "/" link, inherits the rail's neutral
   hover/selected colors and keeps the Home tooltip and accessible name.
 - **Left and right panels.** The rail stays alone on the frame. Inside the
   card, a left panel (`SectionSidebar`) holds a section's own navigation
   (Chats) and the right panel holds details; both are 280px, in the card's
-  color, divided from the page by a hairline, with a 40px header level with
-  the page's top bar and the title 16px in. Left navigates, right details.
-- **Top bar** (`Topbar`): 40px, 32px controls 4px from every edge, no
+  color, divided from the page by a hairline, with the title 16px in. The
+  right header is 48px, level with the page's top bar; the left navigation
+  header remains 40px. Left navigates, right details.
+- **Top bar** (`Topbar`): 48px, 32px controls 8px from every edge in both the main and right panel headers, no
   hairline. Breadcrumb on the left; page actions on the right, ending with
-  the panel toggle.
-- **Right panel toggle** stays in the window's top right corner: in the
+  the panel toggle. Page-level actions belong here on every page, never beside
+  the large content title. Library folder breadcrumbs and actions share one bar.
+- **Right panel toggle** always uses `RiListCheck` and stays in the window's top right corner: in the
   page's top bar while the panel is closed, in the panel's own top bar
   ("Details" and the toggle) once open. The panel opens and closes at once,
   with no slide.
 - **Desktop app.** The desktop app adds a 40px title strip above the shell
   (traffic lights, back and forward, one tab per open page); `?desktop`
   previews it in a browser. The web app has none.
-- **Widths follow φ**: the page column is 728px; the floating chat bar
-  is 728 ÷ φ = 450px;
+- **Composer width**: the floating composer now matches the full Chat's
+  728px content width, clamped to the available viewport;
   sidebars and the right panel are 450 ÷ φ = 280px.
 - **One left line.** The page title, headings, editor text, grid tiles and
   their labels, and the text inside page-level surfaces all start on the
@@ -476,7 +478,8 @@ Depth comes from translucency and hairlines, not heavy shadows.
   translucent, blurred, hairline ring, `shadow-md`) on a layer above the
   scrolling page, never inside it (the page's fade mask, and the morph's
   named elements, would stop the blur), with nothing behind it: content
-  scrolls on under the frost, keeping 88px free at its end. Only the bar
+  scrolls on under the frost, keeping 124px free at its end for the composer
+  and its context row. Only the bar
   takes clicks; no overlay, so the page stays usable while you chat.
 
 ## Shapes
@@ -544,10 +547,10 @@ Page shortcuts pause while a modal dialog or sheet is open, including when its
 buttons have focus; the modal keeps its own keyboard controls.
 
 **Right panel.** A stock shadcn sidebar: collapsible `SidebarGroup` sections
-with stock spacing and no dividers, under its own 40px top bar ("Details",
+with stock spacing and no dividers, under its own 48px top bar ("Details",
 its title on the section titles' line, and the panel toggle). Muted section
 titles with an optional count, hidden when there is nothing (no "0").
-Counts everywhere sit right after their label, softer than it
+Where present, counts sit right after their label, softer than it
 (`Count`), the label's icon-to-label gap away. Property rows open their menu; each
 has a hotkey. A "New …" row ends a list. Row actions appear on hover (always on
 touch), and hovering one keeps its row highlighted. Repeat stores an iCalendar
@@ -558,7 +561,13 @@ shows its status icon. Right side: More (copy link, delete) and then the panel
 toggle, always rightmost, labeled "Open panel" / "Close panel".
 
 **Composer** (`Composer`). The one input for comments, chats and agent
-requests. Card surface; one line that grows to 240px. **+** adds files (drop
+requests. One compact inline row with 32px Add and main controls, and an editor
+that grows vertically to 240px while preserving typed and pasted line breaks.
+Full, new and floating Chats use this same layout, at up to the full Chat's
+728px content width. Participants and Project always sit below it: creation
+pickers for new Chats, persisted authorized context for existing Chats. Existing
+membership management stays in the permission-gated Chat panel; a floating
+page's Project remains fixed. **+** adds files (drop
 and paste too), shown as `Attachment`s with upload state. The main button
 dictates when empty, sends with content and stops while `busy`. A `tools` slot
 after + holds pickers (model, agent). Enter sends, Shift+Enter adds a line.
@@ -578,9 +587,9 @@ the text is typed in at the cursor. A failure is a toast ("Unable to transcribe"
 the recording is dropped; Cancel drops it too.
 
 **Floating chat** (`FloatingChat`). On every page but Chats (and in the file
-viewer): one row at the bottom, kept one line tall so it never covers the
-page, floating 16px above the bottom: the compact composer as a 40px, 450px
-bar (the 728px column ÷ φ), "Ask Otto about this task / page": +, the text,
+viewer): the shared compact composer and persistent context row float 16px
+above the bottom. Its empty input row is 40px and grows for multiline text;
+its maximum width is 728px. "Message about this task / page": +, the text,
 Chats (a red dot while any need you) as a ghost button before the main
 button, shown only while the bar is empty. Bar and window wear the command
 palette's surface: dark, translucent (popover at 70%), blurred. Attachments
@@ -593,7 +602,7 @@ bar's surface (no change as it grows), the column plus 4px a side, fitting
 its content up to 30rem, with the panel's insets: a 40px top bar (32px
 buttons 4px in, the title 16px in), messages and the composer's text on the
 same 16px line, the embedded composer (`Composer embedded`) 4px in with 8px
-corners, 28px buttons 6px in with 6px corners (the 28px buttons' radius), one
+corners, the same 32px primary controls 4px in, one
 step lighter. The title switches chats: a search grouped like the Chats
 sidebar (Pinned, Waiting, Working, Snoozed, Done; no archived), one thing at
 each row's end (status, else time; the open chat shows the check). Then Chats
@@ -625,14 +634,16 @@ author. Comment attachments open in the file viewer.
 
 **Inbox** is home ("/"), like Notion's Home: your day under a centered
 greeting ("Good afternoon, Johan", the page title's size and spacing), in
-one section per kind: an h2 with its count, like Activity's, then rows the
+one section per kind: an h2 without a count, then rows the
 same as on their own pages, their icons lined up with the heading. Tasks:
 what you own or are assigned, still open, review first. Notifications:
-mentions, assignments, review requests and shares today ("Forge mentioned
-you in …", read ones muted). Chats: waiting on you (a question, a review, a
-failed run, with what it wants) or unread. Schedules: today's runs, done
-("Ran 9:00") or still to come ("Today 18:00"). Empty sections don't show;
-with nothing at all, it reads "Nothing needs you".
+recent comments by other people or Agents on tasks you own, plus explicit user
+mentions in accessible task comments. These are persisted comments, not Run
+status updates, unread-chat summaries or a fabricated unread count. Own human
+comments and inaccessible Projects are excluded; there is no read/dismiss state
+yet. Chats lists recent conversations. Routines lists enabled schedules with
+their saved cron and timezone. Current Home empty cards retain
+only their icon and explanatory sentence, without a repeated title or buttons.
 
 **Chats.** One chat model for every kind: a project's one general chat
 (#name), group chats (any members, with or without a project) and direct
@@ -779,12 +790,11 @@ filters happens only in the menu.
 **Command palette** (`CommandPaletteProvider`). One palette for the whole app:
 ⌘K / Ctrl+K anywhere, or a page's search button with its category already
 selected. 720px wide, 15% from the top, card radius. A borderless 48px search
-field over a full-width divider; the shared 32px tabs for categories (Tab
+field over a full-width divider; 28px compact tabs for categories (Tab
 switches) 8px above and below; 36px rows that match
 names containing the query, with edges that fade while more results scroll;
-a 48px footer with key hints. Category tabs use the 28px compact Button variant.
-Categories: All, Tasks, People, Projects,
-Documents, Files, Actions. Picking a result goes there (a file opens
+a 48px footer with key hints. Categories: All, Tasks, People, Projects,
+Library, Actions. Picking a result goes there (a file opens
 in the viewer). There is no project dropdown; task results retain the current
 route's project or the existing first accessible project fallback. The Projects
 category remains available. Text and icons sit 16px in throughout.
@@ -834,7 +844,7 @@ and chat link to them, rows it lacks are left out), then Labels. No composer ins
 floating chat with a link to the file. Read-only previews: images, video and
 audio in the browser's players, PDFs in its viewer, Markdown rendered like a
 document, canvases (an agent's HTML page) sandboxed as they are; anything
-else shows its type. The open file is in the URL (`?open=`) on the Files
+else shows its type. The open file is in the URL (`?open=`) on the Library
 page.
 
 **Right-click menus** (`ContextMenu`, stock shadcn styled like the
@@ -873,17 +883,19 @@ ghost button 6px in (nested), the message 12px in and wrapping, so the toast
 is as tall as its message (40px for one line); bottom right.
 Copy link, Archive and Delete say they are done with one.
 
-**Files.** Everything saved is a file: uploads, task and chat attachments,
-and agents' outputs, canvases included (never "artifact"). Like a drive:
-folders, nested to any depth, come first in the gallery as 4:5 tiles (a big
-folder and how many items it holds), then the files; inside a folder the top
-bar's breadcrumb (Files › Brand › Logos) is the way back up, and the page
-takes the folder's name. No side panel. Filters, the shared set (type,
-project, label, made by), search the open folder and everything inside it as
-one flat list. + is one menu: Upload file, or New folder, named in place on
-its tile (Enter makes it, Escape drops it); both land in the open folder.
-Folder, filters and open file live in the URL. Folders persist through the
-backend, nest at most eight levels, and archive only when completely empty.
+**Library.** One rail destination and `/library` page combine editable Documents
+and saved uploaded/generated Files without conflating their storage or editing
+semantics. Compact 28px tabs are All, Documents, Images, Video, Audio and Other.
+Documents includes editable documents and document-format uploads; other tabs
+use the saved media type. Filters run on the server before pagination. Folder
+tiles remain navigable in every type view; the gallery keeps its existing
+folders-first grouping and per-kind sort rather than claiming a global sort.
+The breadcrumb (Library › Brand › Logos) leads back up. The Add menu contains
+New document, Upload file and New folder; creation starts in the current folder
+and Project. Project, label, creator/custodian and visibility filters remain,
+with Collections on the Documents tab. Category, folder, filters and open file
+live in the URL. Old Files/Document links redirect to Library. Folders still
+nest at most eight levels and archive only when completely empty.
 
 **Live data states.** Server reads use the shared skeleton (three full-width 40px rows, no
 extra padding so they align with the page title) and inline error with Retry; unavailable controls explain the missing capability and never
@@ -923,8 +935,8 @@ continue through bounded pages instead of treating the first hundred as complete
 - Do keep tooltips to one label; don't put metadata in a tooltip.
 - Do route creation through the floating chat; don't add a form for something a
   sentence can ask for, and don't send it as a comment.
-- Do use the domain words (task, project, document, file) in copy and
-  prompts; don't call a file a resource or the Files section a library.
+- Do use Library for the combined destination, and document/file for its item
+  types; don't call a saved file a resource.
 - Do check a visible change in the browser and measure it; don't ship from a
   screenshot guess.
 - Don't nest tasks or comments, add subtitles to data-heavy pages, or use
@@ -983,7 +995,7 @@ Unknown creation outcomes disable another submission in the current form and dir
 
 The restored v1 rail, pages, navigation, route-owned toolbars, main panel and shared components remain the foundation. These are deliberate additions, not a replacement design system or a claim of completed visual acceptance.
 
-Login uses the preserved centered, left-aligned narrow column, standalone icon, filled fields and sky-blue primary submit action. Home retains the preserved centered greeting, Notifications → Tasks → Chats → Routines hierarchy, cloud/night-sky wallpapers, slow Bayer dithering, responsive scrim and translucent cards inside the v1 main panel. Its sections read authorized domains: Tasks require a selected Project and human ownership/assignment; Routines show saved cron/timezone labels rather than invented next-run data. Empty Home sections use one explanatory sentence and one navigation action; the Project picker remains available in an empty Tasks card.
+Login uses the preserved centered, left-aligned narrow column, standalone icon, filled fields and sky-blue primary submit action. Home retains the preserved centered greeting, Notifications → Tasks → Chats → Routines hierarchy, cloud/night-sky wallpapers, slow Bayer dithering, responsive scrim and translucent cards inside the v1 main panel. Its sections read authorized domains: Tasks use the first accessible Project and human ownership/assignment; Routines show saved cron/timezone labels rather than invented next-run data. By explicit Home exception, empty cards contain only the icon and one description sentence: no repeated empty-state title or inner navigation button. Home has no Project dropdown or All chats link; the Tasks description names its actual Project scope. Other pages retain their existing empty-state rules.
 
 Chat keeps its existing scroller, bubbles and composer. A compact Send to picker lists current contributor-member Agents, with an implicit sole Agent, explicit multiple selection and Human only. The choice resets after acknowledgement; it never changes membership or an active Run. Existing question and Connection approval surfaces remain. Native human-only proposals use stock Cards with the proposing Agent, exact payload/target versions, digest, explicit authenticated Approve/Deny controls and persisted receipt states. Advanced Runs expose native prompt execution and label confined computer execution unavailable.
 

@@ -12,7 +12,7 @@ import { createSmtpMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
 import { createCursorCodec } from "../packages/db/src";
-import { previewFile } from "../packages/files/src";
+import { previewFile } from "../packages/library/src";
 import { runs } from "../packages/runs/src/schema";
 import { openNativeStorage } from "../packages/sessions/src/native";
 import { skills } from "../packages/skills/src/schema";

@@ -1,4 +1,3 @@
-import * as filesSchema from "@otto/files/schema";
 import * as projectsSchema from "@otto/projects/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import { sql } from "drizzle-orm";
@@ -15,6 +14,7 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
+import * as filesSchema from "./file-schema";
 export const documents = pgTable(
   "documents",
   {

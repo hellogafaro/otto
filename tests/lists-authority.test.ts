@@ -3,9 +3,14 @@ import { getAgent } from "../packages/agents/src";
 import { getChat } from "../packages/chats/src";
 import { getConnection, getOperation } from "../packages/connections/src";
 import { createCursorCodec } from "../packages/db/src";
-import { getCollection, getDocument } from "../packages/documents/src";
 import { createEnvironment } from "../packages/environments/src";
-import { getFile, getFolder } from "../packages/files/src";
+import {
+  getCollection,
+  getDocument,
+  getFile,
+  getFolder,
+  snapshotRunDocuments,
+} from "../packages/library/src";
 import { createProject, upsertProjectMember } from "../packages/projects/src";
 import { admitRun, getRun } from "../packages/runs/src";
 import { getSchedule } from "../packages/schedules/src";
@@ -240,15 +245,23 @@ describe("sorted and id-ordered lists return exactly the rows the domain authori
         "late alice",
         "late bob",
       ]) {
-        const run = await admitRun(c, h.boss, {
-          requestId: crypto.randomUUID(),
-          chatId: ids.chats[
-            { "late alice": "with alice", "late bob": "workspace" }[key] ?? key
-          ] as string,
-          agentId: ids.agentX,
-          type: "script",
-          body: "x",
-        });
+        const run = await admitRun(
+          c,
+          h.boss,
+          {
+            requestId: crypto.randomUUID(),
+            chatId: ids.chats[
+              { "late alice": "with alice", "late bob": "workspace" }[key] ??
+                key
+            ] as string,
+            agentId: ids.agentX,
+            type: "script",
+            body: "x",
+          },
+          undefined,
+          undefined,
+          snapshotRunDocuments,
+        );
         ids.runs[key] = run.id;
       }
     });
@@ -382,11 +395,11 @@ describe("sorted and id-ordered lists return exactly the rows the domain authori
       { getConnections, getOperations },
       { getSubscriptions },
     ] = await Promise.all([
-      import("../packages/documents/src"),
-      import("../packages/files/src"),
+      import("../packages/library/src"),
+      import("../packages/library/src"),
       import("../packages/agents/src"),
       import("../packages/skills/src"),
-      import("../packages/documents/src"),
+      import("../packages/library/src"),
       import("../packages/chats/src"),
       import("../packages/schedules/src"),
       import("../packages/runs/src"),
@@ -576,7 +589,7 @@ describe("sorted and id-ordered lists return exactly the rows the domain authori
       [ids.runs["agent only"]],
     );
     const fileId = (sourceFile.rows[0] as { id: string }).id;
-    const { getFiles } = await import("../packages/files/src");
+    const { getFiles } = await import("../packages/library/src");
     // Saved audience contains Alice and the Agent and the Agent reads the Chat, yet the sponsor is not a current human participant.
     expect(
       (await as(agentActor, (c) => getFiles(c, {}))).items.map((i) => i.id),

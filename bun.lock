@@ -21,6 +21,7 @@
         "@biomejs/biome": "2.5.15",
         "@mastra/core": "1.75.0",
         "@otto/db": "workspace:*",
+        "@otto/library": "workspace:*",
         "@otto/shared": "workspace:*",
         "@playwright/test": "1.63.0",
         "@types/bun": "1.4.2",
@@ -48,9 +49,8 @@
         "@otto/chats": "workspace:*",
         "@otto/connections": "workspace:*",
         "@otto/db": "workspace:*",
-        "@otto/documents": "workspace:*",
         "@otto/environments": "workspace:*",
-        "@otto/files": "workspace:*",
+        "@otto/library": "workspace:*",
         "@otto/projects": "workspace:*",
         "@otto/runs": "workspace:*",
         "@otto/schedules": "workspace:*",
@@ -157,20 +157,6 @@
         "pg": "8.23.1",
       },
     },
-    "packages/documents": {
-      "name": "@otto/documents",
-      "version": "0.0.1",
-      "dependencies": {
-        "@otto/agents": "workspace:*",
-        "@otto/db": "workspace:*",
-        "@otto/files": "workspace:*",
-        "@otto/projects": "workspace:*",
-        "@otto/shared": "workspace:*",
-        "@otto/workspaces": "workspace:*",
-        "drizzle-orm": "0.45.3",
-        "zod": "4.6.5",
-      },
-    },
     "packages/environments": {
       "name": "@otto/environments",
       "version": "0.0.1",
@@ -183,11 +169,12 @@
         "zod": "4.6.5",
       },
     },
-    "packages/files": {
-      "name": "@otto/files",
+    "packages/library": {
+      "name": "@otto/library",
       "version": "0.0.1",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1145.0",
+        "@otto/agents": "workspace:*",
         "@otto/chats": "workspace:*",
         "@otto/db": "workspace:*",
         "@otto/projects": "workspace:*",
@@ -195,6 +182,7 @@
         "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
+        "zod": "4.6.5",
       },
     },
     "packages/projects": {
@@ -216,7 +204,6 @@
         "@otto/chats": "workspace:*",
         "@otto/connections": "workspace:*",
         "@otto/db": "workspace:*",
-        "@otto/documents": "workspace:*",
         "@otto/environments": "workspace:*",
         "@otto/projects": "workspace:*",
         "@otto/schedules": "workspace:*",
@@ -664,11 +651,9 @@
 
     "@otto/db": ["@otto/db@workspace:packages/db"],
 
-    "@otto/documents": ["@otto/documents@workspace:packages/documents"],
-
     "@otto/environments": ["@otto/environments@workspace:packages/environments"],
 
-    "@otto/files": ["@otto/files@workspace:packages/files"],
+    "@otto/library": ["@otto/library@workspace:packages/library"],
 
     "@otto/projects": ["@otto/projects@workspace:packages/projects"],
 

@@ -149,7 +149,7 @@ function TaskLinkItem({
         ? link.reference
         : undefined
       : link.type === "file"
-        ? `/files?open=${encodeURIComponent(link.reference)}${fileProject}`
+        ? `/library?open=${encodeURIComponent(link.reference)}${fileProject}`
         : `/${link.type === "document" ? "documents" : "chats"}/${encodeURIComponent(link.reference)}`;
   return (
     <SidebarMenuItem>

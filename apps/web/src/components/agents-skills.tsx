@@ -487,7 +487,7 @@ function SkillDetail({ id, close }: { id: string; close: () => void }) {
                   nativeButton={false}
                   render={
                     <a
-                      href={`/files?open=${file.fileId}${skill.projectId ? `&project=${skill.projectId}` : ""}`}
+                      href={`/library?open=${file.fileId}${skill.projectId ? `&project=${skill.projectId}` : ""}`}
                     />
                   }
                 >

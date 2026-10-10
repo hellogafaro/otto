@@ -47,6 +47,7 @@ import type {
 } from "../packages/connections/src/types";
 import { createEnvironment } from "../packages/environments/src";
 import { environments } from "../packages/environments/src/schema";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { admitRun } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
 import {
@@ -493,6 +494,8 @@ describe("Connections production adapters with private PostgreSQL and controlled
             body: "fixture only",
           },
           nativeModelAuthorization,
+          undefined,
+          snapshotRunDocuments,
         ),
       )
     ).id;
@@ -1462,6 +1465,8 @@ describe("Connections production adapters with private PostgreSQL and controlled
             body: "fixture",
           },
           nativeModelAuthorization,
+          undefined,
+          snapshotRunDocuments,
         ),
       )
     ).id;
@@ -1683,6 +1688,8 @@ describe("Connections production adapters with private PostgreSQL and controlled
               body: "fixture only",
             },
             nativeModelAuthorization,
+            undefined,
+            snapshotRunDocuments,
           ),
         };
       },

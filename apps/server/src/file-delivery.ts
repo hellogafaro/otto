@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import type { FileStorage } from "@otto/files";
+import type { FileStorage } from "@otto/library";
 import { DomainError } from "@otto/shared";
 import {
   copyToFile,

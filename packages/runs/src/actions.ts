@@ -13,7 +13,7 @@ import {
   nativeActionInput,
   runActions,
 } from "./action-schema";
-import { getRun } from "./index";
+import { getRun, type SnapshotDocuments } from "./index";
 import { type AuthorizeSources, assertRunAttempt } from "./runtime";
 import { runs } from "./schema";
 
@@ -85,6 +85,7 @@ export async function createRunAction(
   request: { toolCallId: string; input: unknown },
   native?: NativeSessionStorage,
   authorizeSources?: AuthorizeSources,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   if (
     c.actor.agentId !== run.agentId ||
@@ -104,6 +105,7 @@ export async function createRunAction(
     undefined,
     native,
     authorizeSources,
+    snapshotDocuments,
   );
   const parsed = nativeActionInput.safeParse(request.input);
   if (!parsed.success)
@@ -153,6 +155,7 @@ export async function getRunAction(
   actionId: string,
   native?: NativeSessionStorage,
   authorizeSources?: AuthorizeSources,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   await assertRunAttempt(
     c,
@@ -165,6 +168,7 @@ export async function getRunAction(
     undefined,
     native,
     authorizeSources,
+    snapshotDocuments,
   );
   const row = required(
     (
@@ -241,6 +245,7 @@ export async function resolveRunAction(
   ) => Promise<NativeActionResult>,
   native?: NativeSessionStorage,
   authorizeSources?: AuthorizeSources,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   requireHuman(c);
   requireWriter(c);
@@ -273,6 +278,7 @@ export async function resolveRunAction(
     undefined,
     native,
     authorizeSources,
+    snapshotDocuments,
   );
   const status = decision.decision === "approve" ? "approved" : "denied";
   if (row.status !== "pending") {
@@ -297,6 +303,7 @@ export async function resolveRunAction(
       undefined,
       native,
       authorizeSources,
+      snapshotDocuments,
     );
   };
   const result =

@@ -14,7 +14,6 @@
     "@otto/db": "workspace:*",
     "@otto/agents": "workspace:*",
     "@otto/chats": "workspace:*",
-    "@otto/documents": "workspace:*",
     "@otto/environments": "workspace:*",
     "@otto/sessions": "workspace:*",
     "@otto/connections": "workspace:*",

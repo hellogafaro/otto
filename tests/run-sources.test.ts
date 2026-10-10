@@ -10,12 +10,18 @@ import {
   isAttachedToReadableChat,
 } from "../packages/chats/src";
 import { participants } from "../packages/chats/src/schema";
-import { createDocument, updateDocument } from "../packages/documents/src";
 import { createEnvironment } from "../packages/environments/src";
-import { createFile, updateFile } from "../packages/files/src";
-import { files } from "../packages/files/src/schema";
+import {
+  archiveDocument,
+  createDocument,
+  createFile,
+  snapshotRunDocuments,
+  updateDocument,
+  updateFile,
+} from "../packages/library/src";
+import { files } from "../packages/library/src/schema";
 import { deleteProjectMember } from "../packages/projects/src";
-import { admitRun } from "../packages/runs/src";
+import { admitRun, validateRunSources } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
 import type { SessionSource } from "../packages/sessions/src/schema";
 import { required } from "../packages/shared/src";
@@ -93,14 +99,21 @@ describe("retained Run source ledger against current domain authority", () => {
         agentId: agent.id,
         role: "contributor",
       });
-      const run = await admitRun(c, h.boss, {
-        chatId: chat.id,
-        agentId: agent.id,
-        requestId: crypto.randomUUID(),
-        type: "script",
-        body: "Unexecuted authorization fixture",
-        documentIds: options.documentIds,
-      });
+      const run = await admitRun(
+        c,
+        h.boss,
+        {
+          chatId: chat.id,
+          agentId: agent.id,
+          requestId: crypto.randomUUID(),
+          type: "script",
+          body: "Unexecuted authorization fixture",
+          documentIds: options.documentIds,
+        },
+        undefined,
+        undefined,
+        snapshotRunDocuments,
+      );
       return { projectId, chat, agent, runId: run.id };
     });
   }
@@ -119,6 +132,82 @@ describe("retained Run source ledger against current domain authority", () => {
       },
       new TextEncoder().encode("immutable supporting bytes"),
     );
+
+  it("requires Library composition for selected Documents and preserves accepted bytes through edits, archive and revocation", async () => {
+    const fixture = await setup();
+    const document = await h.scope(h.owner, (c) =>
+      createDocument(c, {
+        title: "Selected",
+        body: "Accepted body",
+        projectId: fixture.projectId,
+        visibility: "workspace",
+      }),
+    );
+    const input = {
+      chatId: fixture.chat.id,
+      agentId: fixture.agent.id,
+      requestId: crypto.randomUUID(),
+      type: "script" as const,
+      body: "Selected context",
+      documentIds: [document.id],
+    };
+    await expect(
+      h.scope(h.owner, (c) => admitRun(c, h.boss, input)),
+    ).rejects.toMatchObject({ code: "unavailable" });
+    expect(
+      await h.database.db
+        .select()
+        .from(runs)
+        .where(eq(runs.requestId, input.requestId)),
+    ).toEqual([]);
+    const admitted = await h.scope(h.owner, (c) =>
+      admitRun(c, h.boss, input, undefined, undefined, snapshotRunDocuments),
+    );
+    const accepted = await saved(admitted.id);
+    const validate = (phase: "launch" | "continue", composed = true) =>
+      h.scope(
+        h.owner,
+        (c) =>
+          validateRunSources(
+            c,
+            accepted,
+            undefined,
+            phase,
+            h.nativeStorage,
+            composed ? snapshotRunDocuments : undefined,
+          ),
+        false,
+      );
+    await expect(validate("continue", false)).rejects.toMatchObject({
+      code: "unavailable",
+    });
+    await h.scope(h.owner, (c) =>
+      updateDocument(c, document.id, { body: "Current body", editToken: 0 }),
+    );
+    await expect(validate("launch")).resolves.toBeUndefined();
+    expect((await saved(admitted.id)).inputs.context?.documents).toEqual([
+      {
+        id: document.id,
+        title: "Selected",
+        body: "Accepted body",
+        editToken: 0,
+      },
+    ]);
+    await h.scope(h.owner, (c) => archiveDocument(c, document.id, true, 1));
+    await expect(validate("launch")).rejects.toMatchObject({
+      code: "conflict",
+    });
+    await expect(validate("continue")).resolves.toBeUndefined();
+    await h.scope(h.owner, (c) =>
+      updateDocument(c, document.id, { visibility: "user", editToken: 2 }),
+    );
+    await expect(validate("continue")).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    expect((await saved(admitted.id)).inputs.context?.documents[0]?.body).toBe(
+      "Accepted body",
+    );
+  });
   async function attach(chatId: string, fileId: string) {
     return createMessage(
       h.database.db,
@@ -290,14 +379,21 @@ describe("retained Run source ledger against current domain authority", () => {
     );
     await expect(
       h.scope(h.owner, (c) =>
-        admitRun(c, h.boss, {
-          chatId: selected.chat.id,
-          agentId: selected.agent.id,
-          requestId: crypto.randomUUID(),
-          type: "script",
-          body: "Invalid private selection",
-          documentIds: [foreign.id],
-        }),
+        admitRun(
+          c,
+          h.boss,
+          {
+            chatId: selected.chat.id,
+            agentId: selected.agent.id,
+            requestId: crypto.randomUUID(),
+            type: "script",
+            body: "Invalid private selection",
+            documentIds: [foreign.id],
+          },
+          undefined,
+          undefined,
+          snapshotRunDocuments,
+        ),
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
 
@@ -309,14 +405,21 @@ describe("retained Run source ledger against current domain authority", () => {
     );
     await expect(
       h.scope(h.owner, (c) =>
-        admitRun(c, h.boss, {
-          chatId: selected.chat.id,
-          agentId: selected.agent.id,
-          requestId: crypto.randomUUID(),
-          type: "script",
-          body: "Invalid widened selection",
-          documentIds: [doc.id],
-        }),
+        admitRun(
+          c,
+          h.boss,
+          {
+            chatId: selected.chat.id,
+            agentId: selected.agent.id,
+            requestId: crypto.randomUUID(),
+            type: "script",
+            body: "Invalid widened selection",
+            documentIds: [doc.id],
+          },
+          undefined,
+          undefined,
+          snapshotRunDocuments,
+        ),
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
   });

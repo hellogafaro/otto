@@ -8,6 +8,7 @@ import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import { createChat, createParticipant } from "../packages/chats/src";
 import { createEnvironment } from "../packages/environments/src";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { admitRun, getRunUsage } from "../packages/runs/src";
 import {
   createRunRuntime,
@@ -134,6 +135,7 @@ describe("native deterministic stream settlement, privacy and bounded output", (
         },
         nativeModelAuthorization,
         native,
+        snapshotRunDocuments,
       );
     });
   }
@@ -150,6 +152,8 @@ describe("native deterministic stream settlement, privacy and bounded output", (
           async () => {},
           undefined,
           native,
+          undefined,
+          snapshotRunDocuments,
         );
         const [message] = await readNativeMessages(native, {
           workspaceId,
@@ -163,6 +167,7 @@ describe("native deterministic stream settlement, privacy and bounded output", (
         }
       },
       ...options,
+      snapshotDocuments: snapshotRunDocuments,
     });
     engines.push(value);
     return value;

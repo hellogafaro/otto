@@ -24,12 +24,10 @@
     "@otto/agents": "workspace:*",
     "@otto/environments": "workspace:*",
     "@otto/chats": "workspace:*",
-    "@otto/documents": "workspace:*",
     "@otto/sessions": "workspace:*",
     "@otto/runs": "workspace:*",
     "@otto/connections": "workspace:*",
     "@otto/schedules": "workspace:*",
-    "@otto/files": "workspace:*",
     "pg-boss": "12.35.1",
     "@hono/zod-validator": "0.9.1",
     "@otto/shared": "workspace:*",
@@ -38,7 +36,8 @@
     "@mastra/core": "1.75.0",
     "dockerode": "4.0.12",
     "@otto/secrets": "workspace:*",
-    "nodemailer": "10.1.0"
+    "nodemailer": "10.1.0",
+    "@otto/library": "workspace:*"
   },
   "devDependencies": {
     "@types/dockerode": "4.0.2"

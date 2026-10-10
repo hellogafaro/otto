@@ -12,6 +12,7 @@ import { agents } from "../packages/agents/src/schema";
 import { publishNativeMessage } from "../packages/chats/src";
 import { messages } from "../packages/chats/src/schema";
 import { connections } from "../packages/connections/src/schema";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { RUN_QUEUE, validateRunSources } from "../packages/runs/src";
 import {
   assertRunAttempt,
@@ -300,6 +301,8 @@ describe("user/workspace file visibility", () => {
           }),
           validateSchedule,
           nativeStorage,
+          undefined,
+          snapshotRunDocuments,
         );
         if (!target.sessionId) throw new Error("Missing native Session");
         await publishNativeMessage(
@@ -314,11 +317,19 @@ describe("user/workspace file visibility", () => {
             ...output,
           },
           async (c) => {
-            await assertRunAttempt(c, attempt, validateSchedule, nativeStorage);
+            await assertRunAttempt(
+              c,
+              attempt,
+              validateSchedule,
+              nativeStorage,
+              undefined,
+              snapshotRunDocuments,
+            );
           },
         );
       },
       validateSchedule,
+      snapshotDocuments: snapshotRunDocuments,
     });
     app = createApp({
       db: database.db,
@@ -1846,7 +1857,14 @@ describe("user/workspace file visibility", () => {
     )[0];
     if (!saved) throw new Error("No Run");
     await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-      validateRunSources(c, saved, undefined, "launch", nativeStorage),
+      validateRunSources(
+        c,
+        saved,
+        undefined,
+        "launch",
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     await value(
       await request(
@@ -1857,7 +1875,14 @@ describe("user/workspace file visibility", () => {
     );
     await expect(
       inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-        validateRunSources(c, saved, undefined, "launch", nativeStorage),
+        validateRunSources(
+          c,
+          saved,
+          undefined,
+          "launch",
+          nativeStorage,
+          snapshotRunDocuments,
+        ),
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
   });

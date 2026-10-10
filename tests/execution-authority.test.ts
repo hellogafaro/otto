@@ -11,8 +11,9 @@ import { createNativeRunTools, createRunTools } from "../apps/server/src/tools";
 import {
   createDocument,
   resolveDocumentProposal,
-} from "../packages/documents/src";
-import { documentProposals } from "../packages/documents/src/schema";
+  snapshotRunDocuments,
+} from "../packages/library/src";
+import { documentProposals } from "../packages/library/src/schema";
 import { projectMembers } from "../packages/projects/src/schema";
 import {
   createRunRuntime,
@@ -306,6 +307,7 @@ describe("execution authority and retained sources", () => {
         );
       },
       publishOutput: async () => {},
+      snapshotDocuments: snapshotRunDocuments,
     });
     app = createApp({
       db: database.db,
@@ -364,6 +366,7 @@ describe("execution authority and retained sources", () => {
           }),
         }),
         publishOutput: async () => {},
+        snapshotDocuments: snapshotRunDocuments,
       });
       const fresh = createRunRuntime(database.db, {
         storage: native,
@@ -371,6 +374,7 @@ describe("execution authority and retained sources", () => {
         resolveModel: async () => controlledModel(),
         tools: () => ({}),
         publishOutput: async () => {},
+        snapshotDocuments: snapshotRunDocuments,
       });
       let dispatch: Promise<void> | undefined;
       try {
@@ -1072,6 +1076,7 @@ describe("execution authority and retained sources", () => {
           undefined,
           native,
           authorizeRunSources,
+          snapshotRunDocuments,
         ),
       ).rejects.toMatchObject({ code: "forbidden" });
       await post(

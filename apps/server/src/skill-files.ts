@@ -1,5 +1,10 @@
 import type { Database } from "@otto/db";
-import { type FileStorage, readFile, requireFileAudience } from "@otto/files";
+import {
+  type FileStorage,
+  readFile,
+  requireFileAudience,
+  snapshotRunDocuments,
+} from "@otto/library";
 import { getRunAudience, getRunSkillFile } from "@otto/runs";
 import {
   type Attempt,
@@ -39,6 +44,7 @@ export async function readRunSkillFile(
     validateSchedule,
     input.native,
     authorizeRunSources,
+    snapshotRunDocuments,
   );
   if (
     input.workspaceId !== scope.workspaceId ||
@@ -60,6 +66,7 @@ export async function readRunSkillFile(
           validateSchedule,
           input.native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         await getSkill(c, input.skillId);
         const reference = await getRunSkillFile(

@@ -4,13 +4,14 @@ import { upsertShare } from "../apps/server/src/content-shares";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import { createChat, createParticipant } from "../packages/chats/src";
+import { createEnvironment } from "../packages/environments/src";
 import {
   createCollection,
   createDocument,
   getDocument,
+  snapshotRunDocuments,
   updateDocumentCollection,
-} from "../packages/documents/src";
-import { createEnvironment } from "../packages/environments/src";
+} from "../packages/library/src";
 import { createProject } from "../packages/projects/src";
 import { admitRun, dispatchRun } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
@@ -109,9 +110,16 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
       body: "Work",
     };
     const run = await scope((c) =>
-      admitRun(c, boss, request, nativeModelAuthorization),
+      admitRun(
+        c,
+        boss,
+        request,
+        nativeModelAuthorization,
+        undefined,
+        snapshotRunDocuments,
+      ),
     );
-    await dispatchRun(database.db, run.id);
+    await dispatchRun(database.db, run.id, undefined, snapshotRunDocuments);
     const privateScope = JSON.stringify({
       sources: {
         documentIds: [doc.id],
@@ -370,8 +378,18 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
       (await scope((c) => getSkillProposals(c, skill.id))).items[0]?.id,
     ).toBe(proposal.id);
     expect(
-      (await scope((c) => admitRun(c, boss, request, nativeModelAuthorization)))
-        .id,
+      (
+        await scope((c) =>
+          admitRun(
+            c,
+            boss,
+            request,
+            nativeModelAuthorization,
+            undefined,
+            snapshotRunDocuments,
+          ),
+        )
+      ).id,
     ).toBe(run.id);
     expect(
       (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0]

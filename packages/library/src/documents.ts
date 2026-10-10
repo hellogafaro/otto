@@ -30,7 +30,7 @@ import {
   collections,
   documentProposals,
   documents,
-} from "./schema";
+} from "./document-schema";
 export async function createDocument(
   c: Context,
   input: {

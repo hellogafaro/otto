@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
-import { createFile, readFile } from "../packages/files/src";
+import { createFile, readFile } from "../packages/library/src";
 import { getRunSkillFile } from "../packages/runs/src";
 import { openNativeStorage } from "../packages/sessions/src/native";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";

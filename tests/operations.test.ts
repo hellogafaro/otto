@@ -11,6 +11,7 @@ import { createAgent } from "../packages/agents/src";
 import { createChat, createParticipant } from "../packages/chats/src";
 import { connections, operations } from "../packages/connections/src/schema";
 import { createEnvironment } from "../packages/environments/src";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { admitRun } from "../packages/runs/src";
 import * as runRuntime from "../packages/runs/src/runtime";
 import { openNativeStorage } from "../packages/sessions/src/native";
@@ -125,6 +126,8 @@ describe("server operations on private PostgreSQL", () => {
             body: "fixture",
           },
           nativeModelAuthorization,
+          undefined,
+          snapshotRunDocuments,
         );
         return { agentId: agent.id, runId: run.id };
       },

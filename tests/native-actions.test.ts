@@ -17,17 +17,19 @@ import {
 import { participants } from "../packages/chats/src/schema";
 import { connections } from "../packages/connections/src/schema";
 import {
-  createDocument,
-  getDocument,
-  proposeDocumentChange,
-  updateDocument,
-} from "../packages/documents/src";
-import { documentProposals } from "../packages/documents/src/schema";
-import {
   createEnvironment,
   getEnvironment,
 } from "../packages/environments/src";
-import { createFile, getFolder } from "../packages/files/src";
+import {
+  createDocument,
+  createFile,
+  getDocument,
+  getFolder,
+  proposeDocumentChange,
+  snapshotRunDocuments,
+  updateDocument,
+} from "../packages/library/src";
+import { documentProposals } from "../packages/library/src/schema";
 import {
   createProject,
   deleteProjectMember,
@@ -244,10 +246,12 @@ describe("native actions through normal human authentication and private Postgre
           { toolCallId, input },
           native,
           authorizeRunSources,
+          snapshotRunDocuments,
         ),
       undefined,
       native,
       authorizeRunSources,
+      snapshotRunDocuments,
     );
   }
   async function proposalFixture(
@@ -1247,9 +1251,19 @@ describe("native actions through normal human authentication and private Postgre
       withRunAttempt(
         database.db,
         attempt,
-        (c, run) => getRunAction(c, run, actionId, native),
+        (c, run) =>
+          getRunAction(
+            c,
+            run,
+            actionId,
+            native,
+            undefined,
+            snapshotRunDocuments,
+          ),
         undefined,
         native,
+        undefined,
+        snapshotRunDocuments,
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect((await resolve(attempt.runId, row)).status).toBe(403);
@@ -1299,6 +1313,8 @@ describe("native actions through normal human authentication and private Postgre
       async () => ({ id: crypto.randomUUID() }),
       undefined,
       native,
+      undefined,
+      snapshotRunDocuments,
     );
     await expect(
       requestNativeAction(
@@ -1811,10 +1827,18 @@ describe("native actions through normal human authentication and private Postgre
         database.db,
         attempt,
         (c, current) =>
-          getRunAction(c, current, actionId, native, authorizeRunSources),
+          getRunAction(
+            c,
+            current,
+            actionId,
+            native,
+            authorizeRunSources,
+            snapshotRunDocuments,
+          ),
         undefined,
         native,
         authorizeRunSources,
+        snapshotRunDocuments,
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
   });

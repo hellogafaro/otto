@@ -8,6 +8,7 @@ import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { getEnvironment } from "../packages/environments/src";
 import { environments } from "../packages/environments/src/schema";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { RUN_QUEUE } from "../packages/runs/src";
 import {
   createRunRuntime,
@@ -129,6 +130,7 @@ describe("disabled computer binding and preserved PostgreSQL records", () => {
       storage: native,
       resolveModel: async () => controlledModel(),
       tools: () => ({}),
+      snapshotDocuments: snapshotRunDocuments,
     });
     server = Bun.serve({
       hostname: "127.0.0.1",

@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { z } from "zod";
 import { startQueue } from "../apps/server/src/queue";
-import { MAX_FILE_BYTES } from "../packages/files/src";
+import { MAX_FILE_BYTES } from "../packages/library/src";
 import { RUN_QUEUE } from "../packages/runs/src";
 import {
   openNativeStorage,

@@ -11,6 +11,7 @@ import {
   effectRequestId,
 } from "../apps/server/src/tools";
 import { publishNativeMessage } from "../packages/chats/src";
+import { snapshotRunDocuments } from "../packages/library/src";
 import {
   assertRunAttempt,
   createRunRuntime,
@@ -184,6 +185,7 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
           validateSchedule,
           nativeStorage,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         if (!scope.sessionId) throw new Error("Missing native Session");
         await publishNativeMessage(
@@ -204,6 +206,7 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
               validateSchedule,
               nativeStorage,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
           },
         ).catch((error) => {
@@ -211,6 +214,7 @@ it("offline File rename keeps IDs, bytes, upload/Skill/share/Run/scope/queue evi
           throw error;
         });
       },
+      snapshotDocuments: snapshotRunDocuments,
     });
     const withRuntime = async <T>(work: () => Promise<T>) => {
       const worker = await startQueue(database.db, database.pool, {

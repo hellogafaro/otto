@@ -3,6 +3,7 @@ import {
   deleteTaskComment,
   getTaskComment,
   getTaskComments,
+  getTaskNotifications,
   MAX_TASK_COMMENT_BYTES,
   TASK_COMMENT_SORTS,
   updateTaskComment,
@@ -10,7 +11,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import { type ApiEnv, recordId, transact } from "./http";
-import { id, listQuery, validate } from "./validation";
+import { id, listQuery, pageQuery, validate } from "./validation";
 
 const commentBody = z
   .string()
@@ -23,6 +24,18 @@ const commentBody = z
 const commentInput = z.object({ body: commentBody }).strict();
 
 export const taskCommentsApi = new Hono<ApiEnv>()
+  .get(
+    "/workspaces/:workspaceId/task-notifications",
+    validate("query", pageQuery.strict()),
+    async (c) =>
+      c.json(
+        await transact(
+          c,
+          (ctx) => getTaskNotifications(ctx, c.req.valid("query")),
+          false,
+        ),
+      ),
+  )
   .post(
     "/workspaces/:workspaceId/task-comments",
     validate("json", commentInput.extend({ taskId: id }).strict()),

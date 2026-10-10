@@ -16,13 +16,15 @@ import {
   deleteParticipant,
   publishNativeMessage,
 } from "../packages/chats/src";
+import { createEnvironment } from "../packages/environments/src";
 import {
   createDocument,
+  createFile,
   getDocument,
+  readFile,
+  snapshotRunDocuments,
   updateDocument,
-} from "../packages/documents/src";
-import { createEnvironment } from "../packages/environments/src";
-import { createFile, readFile } from "../packages/files/src";
+} from "../packages/library/src";
 import {
   createProject,
   deleteProjectMember,
@@ -230,6 +232,7 @@ describe("direct native PostgreSQL execution", () => {
         },
         authorization,
         native,
+        snapshotRunDocuments,
       ),
     );
   const saved = async (id: string) =>
@@ -259,7 +262,7 @@ describe("direct native PostgreSQL execution", () => {
       requestId: crypto.randomUUID(),
     };
     const run = await inWorkspace(database.db, workspaceId, { userId }, (c) =>
-      admitRun(c, boss, input, authorization, native),
+      admitRun(c, boss, input, authorization, native, snapshotRunDocuments),
     );
     return { run, input, message };
   };
@@ -278,6 +281,7 @@ describe("direct native PostgreSQL execution", () => {
           undefined,
           native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         const [message] = await readNativeMessages(native, {
           workspaceId,
@@ -308,11 +312,13 @@ describe("direct native PostgreSQL execution", () => {
               undefined,
               native,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
           },
         );
       },
       ...input,
+      snapshotDocuments: snapshotRunDocuments,
     });
 
   it.each(["provider", "forbidden", "conflict"] as const)(
@@ -494,6 +500,8 @@ describe("direct native PostgreSQL execution", () => {
                 async () => ({ count: ++effects }),
                 undefined,
                 native,
+                undefined,
+                snapshotRunDocuments,
               );
             const results = await Promise.all([effect(), effect()]);
             expect(results).toEqual([{ count: 1 }, { count: 1 }]);
@@ -505,6 +513,8 @@ describe("direct native PostgreSQL execution", () => {
                 async () => ({ count: ++effects }),
                 undefined,
                 native,
+                undefined,
+                snapshotRunDocuments,
               ),
             ).rejects.toThrow("identity changed");
             return required(results[0]);
@@ -522,7 +532,14 @@ describe("direct native PostgreSQL execution", () => {
         .where(eq(runEffects.runId, run.id)),
     ).toHaveLength(1);
     await expect(
-      getRunExecutionModel(database.db, required(observed), undefined, native),
+      getRunExecutionModel(
+        database.db,
+        required(observed),
+        undefined,
+        native,
+        undefined,
+        snapshotRunDocuments,
+      ),
     ).rejects.toThrow("Inactive or stale");
     await engine.close();
   });
@@ -634,7 +651,7 @@ describe("direct native PostgreSQL execution", () => {
     };
     await expect(
       inWorkspace(database.db, workspaceId, { userId: "native-other" }, (c) =>
-        admitRun(c, boss, input, authorization, native),
+        admitRun(c, boss, input, authorization, native, snapshotRunDocuments),
       ),
     ).rejects.toThrow("Fresh Session required");
     const fresh = await inWorkspace(
@@ -648,6 +665,7 @@ describe("direct native PostgreSQL execution", () => {
           { ...input, sessionId: undefined, requestId: crypto.randomUUID() },
           authorization,
           native,
+          snapshotRunDocuments,
         ),
     );
     expect((await saved(fresh.id)).sessionId).not.toBe(sessionId);
@@ -834,6 +852,7 @@ describe("direct native PostgreSQL execution", () => {
           },
           authorization,
           native,
+          snapshotRunDocuments,
         ),
       );
     const prompts: unknown[] = [];
@@ -850,6 +869,7 @@ describe("direct native PostgreSQL execution", () => {
         undefined,
         native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
       const bytes = await readFile(
         database.db,
@@ -998,7 +1018,14 @@ describe("direct native PostgreSQL execution", () => {
       .set({ createdAt: sameTime })
       .where(eq(runs.id, second.run.id));
     const replay = await scope((c) =>
-      admitRun(c, boss, first.input, authorization, native),
+      admitRun(
+        c,
+        boss,
+        first.input,
+        authorization,
+        native,
+        snapshotRunDocuments,
+      ),
     );
     expect(replay.id).toBe(first.run.id);
     await createMessage(
@@ -1197,6 +1224,7 @@ describe("direct native PostgreSQL execution", () => {
               undefined,
               native,
               authorizeRunSources,
+              snapshotRunDocuments,
             ),
         }),
       }),
@@ -1294,6 +1322,7 @@ describe("direct native PostgreSQL execution", () => {
               undefined,
               native,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
             await scope((c) =>
               updateDocument(c, document.id, {
@@ -1335,6 +1364,7 @@ describe("direct native PostgreSQL execution", () => {
         },
         authorization,
         native,
+        snapshotRunDocuments,
       ),
     );
     const prompts: unknown[] = [];
@@ -1437,6 +1467,7 @@ describe("direct native PostgreSQL execution", () => {
             { ...first.input, ...extra, requestId: crypto.randomUUID() },
             authorization,
             native,
+            snapshotRunDocuments,
           ),
         ),
       ).rejects.toThrow();
@@ -1453,6 +1484,7 @@ describe("direct native PostgreSQL execution", () => {
           },
           authorization,
           native,
+          snapshotRunDocuments,
         ),
       ),
     ).rejects.toThrow();
@@ -1465,6 +1497,7 @@ describe("direct native PostgreSQL execution", () => {
           { ...first.input, ...otherChat, requestId: crypto.randomUUID() },
           authorization,
           native,
+          snapshotRunDocuments,
         ),
       ),
     ).rejects.toThrow();
@@ -1505,6 +1538,7 @@ describe("direct native PostgreSQL execution", () => {
           },
           authorization,
           native,
+          snapshotRunDocuments,
         ),
       ),
     ).rejects.toThrow("Initiating message");
@@ -1561,6 +1595,7 @@ describe("direct native PostgreSQL execution", () => {
           },
           authorization,
           native,
+          snapshotRunDocuments,
         ),
       ),
     ).rejects.toThrow("Initiating message");
@@ -1607,6 +1642,8 @@ describe("direct native PostgreSQL execution", () => {
                 },
                 undefined,
                 native,
+                undefined,
+                snapshotRunDocuments,
               );
             } finally {
               toolEnded.resolve();

@@ -1,5 +1,5 @@
 {
-  "name": "@otto/files",
+  "name": "@otto/library",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -16,6 +16,8 @@
     "drizzle-orm": "0.45.3",
     "@aws-sdk/client-s3": "3.1145.0",
     "@otto/chats": "workspace:*",
-    "@otto/shared": "workspace:*"
+    "@otto/shared": "workspace:*",
+    "@otto/agents": "workspace:*",
+    "zod": "4.6.5"
   }
 }

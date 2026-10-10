@@ -16,7 +16,7 @@ import {
   publishMessage,
   reserveMessage,
 } from "../packages/chats/src";
-import { createDocument, updateDocument } from "../packages/documents/src";
+import { createDocument, updateDocument } from "../packages/library/src";
 import {
   openNativeStorage,
   saveNativeMessage,

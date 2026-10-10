@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
+import { snapshotRunDocuments } from "../packages/library/src";
 import {
   createRunRuntime,
   getRunExecutionModel,
@@ -135,6 +136,8 @@ describe("native account identity, sharing and revocation with deterministic mod
           attempt,
           undefined,
           native,
+          undefined,
+          snapshotRunDocuments,
         );
         accounts.push(accepted.accountId);
         const run = await saved(attempt.runId);
@@ -152,6 +155,7 @@ describe("native account identity, sharing and revocation with deterministic mod
       publishOutput: async (attempt) => {
         publications.push(attempt.runId);
       },
+      snapshotDocuments: snapshotRunDocuments,
     });
     app = createApp({
       db: database.db,

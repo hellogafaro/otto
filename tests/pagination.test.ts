@@ -4,9 +4,9 @@ import { getAttention } from "../apps/server/src/attention";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import { createChat, createParticipant } from "../packages/chats/src";
-import { getDocuments } from "../packages/documents/src";
-import { documents } from "../packages/documents/src/schema";
 import { createEnvironment } from "../packages/environments/src";
+import { getDocuments, snapshotRunDocuments } from "../packages/library/src";
+import { documents } from "../packages/library/src/schema";
 import { createProject } from "../packages/projects/src";
 import { admitRun, createRunQuestion } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
@@ -192,6 +192,7 @@ describe("discovery pagination on private PostgreSQL", () => {
               },
               nativeModelAuthorization,
               nativeStorage,
+              snapshotRunDocuments,
             );
             // Explicit running-state fixture; discovery must still authorize every saved question.
             await c.tx

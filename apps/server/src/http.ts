@@ -1,5 +1,5 @@
 import type { CursorCodec, Database } from "@otto/db";
-import type { FileStorage } from "@otto/files";
+import type { FileStorage } from "@otto/library";
 import type { ModelAuthorization } from "@otto/runs";
 import type { RunRuntime } from "@otto/runs/runtime";
 import type { NativeSessionStorage } from "@otto/sessions/native";

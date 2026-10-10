@@ -10,7 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSpool } from "../../apps/server/src/spool";
-import type { FileStorage } from "../../packages/files/src";
+import type { FileStorage } from "../../packages/library/src";
 
 /** Adapts a bytes-only fixture to the streamed storage contract; controlled in-memory peer, not S3. */
 export function fixtureStorage(base: {

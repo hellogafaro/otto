@@ -567,6 +567,7 @@ function ChatView({ chat }: { chat: LiveChat }) {
                 : "This chat is read-only for you.")}
           </p>
         )}
+        <ChatContextRow chat={chat} />
       </div>
     </WithPanel>
   );
@@ -721,6 +722,83 @@ export function ChatComposer({
         </p>
       )}
     </fieldset>
+  );
+}
+
+export function ChatContextRow({
+  chat,
+  manageLink = false,
+}: {
+  chat: LiveChat;
+  manageLink?: boolean;
+}) {
+  const directory = useDirectory();
+  const participants = useParticipants(chat.id);
+  const { canManage } = useChatPermissions(chat, participants);
+  const project = directory.projects.find((item) => item.id === chat.projectId);
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-1 pt-2 text-sm text-muted-foreground">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="plain" size="compact" aria-label="Participants" />
+          }
+        >
+          <RiGroupLine />
+          Participants
+          <RiArrowDownSLine data-icon="inline-end" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <ParticipantPages participants={participants} />
+          <DropdownMenuGroup>
+            {!participants.error &&
+              participants.data?.items.map((person) => {
+                const id = person.userId ?? person.agentId ?? "";
+                return (
+                  <div
+                    key={person.id}
+                    className="flex items-center gap-2 px-2 py-1 text-sm"
+                  >
+                    <ActorAvatar actorId={id} />
+                    <span>{directory.actorOf(id).name}</span>
+                    <span className="text-muted-foreground">{person.role}</span>
+                  </div>
+                );
+              })}
+            {canManage && manageLink && (
+              <DropdownMenuItem
+                render={
+                  <Link to="/chats/$chatId" params={{ chatId: chat.id }} />
+                }
+              >
+                Open Chat to manage participants
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {chat.projectId ? (
+        <Button
+          variant="plain"
+          size="compact"
+          nativeButton={false}
+          render={
+            <Link
+              to="/projects/$projectId"
+              params={{ projectId: chat.projectId }}
+            />
+          }
+          aria-label={`Project: ${project?.title ?? "Project"}`}
+        >
+          <RiBox3Line />
+          {project?.title ?? "Project"}
+        </Button>
+      ) : (
+        <span className="flex items-center gap-1 px-2 py-1">
+          <RiBox3Line /> No project
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -928,31 +1006,6 @@ export function NewChatComposer({
   );
   return (
     <>
-      <div className="flex flex-wrap items-center gap-1 px-1 pb-2">
-        <WithPicker
-          value={withIds}
-          onChange={setWithIds}
-          projectId={projectId}
-          disabled={create.isPending || Boolean(create.createdChat)}
-        />
-        <ContextPicker
-          label="Project"
-          value={projectId ?? "none"}
-          options={{
-            none: { label: "No project", icon: RiBox3Line },
-            ...Object.fromEntries(
-              directory.projects
-                .filter((project) => !project.archived)
-                .map((project) => [
-                  project.id,
-                  { label: project.title, icon: RiBox3Line },
-                ]),
-            ),
-          }}
-          onPick={(next) => setProjectId(next === "none" ? undefined : next)}
-          disabled={create.isPending || Boolean(create.createdChat)}
-        />
-      </div>
       {(!validProject || !validPeople) && (
         <p role="alert">
           A selected project or participant is unavailable in this context.
@@ -1014,6 +1067,31 @@ export function NewChatComposer({
             withIds.length > 0 && validRecipients && !create.uncertainCreation,
         }}
       />
+      <div className="flex flex-wrap items-center gap-1 px-1 pt-2">
+        <WithPicker
+          value={withIds}
+          onChange={setWithIds}
+          projectId={projectId}
+          disabled={create.isPending || Boolean(create.createdChat)}
+        />
+        <ContextPicker
+          label="Project"
+          value={projectId ?? "none"}
+          options={{
+            none: { label: "No project", icon: RiBox3Line },
+            ...Object.fromEntries(
+              directory.projects
+                .filter((project) => !project.archived)
+                .map((project) => [
+                  project.id,
+                  { label: project.title, icon: RiBox3Line },
+                ]),
+            ),
+          }}
+          onPick={(next) => setProjectId(next === "none" ? undefined : next)}
+          disabled={create.isPending || Boolean(create.createdChat)}
+        />
+      </div>
     </>
   );
 }

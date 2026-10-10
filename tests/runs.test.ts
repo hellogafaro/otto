@@ -5,7 +5,7 @@ import { startQueue } from "../apps/server/src/queue";
 import { createAgent, getAgent, updateAgent } from "../packages/agents/src";
 import { createChat, createParticipant } from "../packages/chats/src";
 import { createEnvironment } from "../packages/environments/src";
-import { createFile } from "../packages/files/src";
+import { createFile, snapshotRunDocuments } from "../packages/library/src";
 import {
   admitRun,
   dispatchRun,
@@ -110,7 +110,14 @@ describe("real atomic Run and pg-boss admission", () => {
     );
     await expect(
       scope(async (c) => {
-        await admitRun(c, boss, input, nativeModelAuthorization, nativeStorage);
+        await admitRun(
+          c,
+          boss,
+          input,
+          nativeModelAuthorization,
+          nativeStorage,
+          snapshotRunDocuments,
+        );
         throw new Error("forced rollback");
       }),
     ).rejects.toThrow("forced rollback");
@@ -129,10 +136,24 @@ describe("real atomic Run and pg-boss admission", () => {
   it("deduplicates admission and keeps skill instructions from the accepted attempt", async () => {
     const input = request();
     const run = await scope((c) =>
-      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        input,
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     const same = await scope((c) =>
-      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        input,
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     expect(same.id).toBe(run.id);
     expect((await boss.findJobs(RUN_QUEUE)).length).toBe(1);
@@ -148,8 +169,18 @@ describe("real atomic Run and pg-boss admission", () => {
     )[0];
     expect(saved?.inputs.skills[0]?.instructions).toBe("Original instructions");
     expect(saved?.sessionId).toBeTruthy();
-    const first = await dispatchRun(database.db, run.id);
-    const duplicate = await dispatchRun(database.db, run.id);
+    const first = await dispatchRun(
+      database.db,
+      run.id,
+      undefined,
+      snapshotRunDocuments,
+    );
+    const duplicate = await dispatchRun(
+      database.db,
+      run.id,
+      undefined,
+      snapshotRunDocuments,
+    );
     expect(first).toMatchObject({
       state: "failed",
       outcome: "compute_provider_not_selected",
@@ -158,7 +189,14 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("rejects stale attempt results and leaves the durable state unchanged", async () => {
     const run = await scope((c) =>
-      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        request(),
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     await expect(
       withRunAttempt(
@@ -167,13 +205,17 @@ describe("real atomic Run and pg-boss admission", () => {
         async () => {
           throw new Error("Stale attempt reached publication");
         },
+        undefined,
+        undefined,
+        undefined,
+        snapshotRunDocuments,
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect(
       (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0]
         ?.state,
     ).toBe("queued");
-    await dispatchRun(database.db, run.id);
+    await dispatchRun(database.db, run.id, undefined, snapshotRunDocuments);
   });
   it("deduplicates cron delivery, fences paused configuration and stores scripts without Sessions", async () => {
     const input = {
@@ -273,7 +315,12 @@ describe("real atomic Run and pg-boss admission", () => {
       ),
     ).toMatchObject({ outcome: "stale_configuration" });
     expect(
-      await dispatchRun(database.db, first.runId ?? "", validateSchedule),
+      await dispatchRun(
+        database.db,
+        first.runId ?? "",
+        validateSchedule,
+        snapshotRunDocuments,
+      ),
     ).toMatchObject({ outcome: "configuration_changed" });
     await reconcileSchedule(database.db, boss, schedule.id);
     expect(
@@ -282,7 +329,14 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("requires a fresh Session when retained skill scope changes", async () => {
     const first = await scope((c) =>
-      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        request(),
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     const saved = (
       await database.db.select().from(runs).where(eq(runs.id, first.id))
@@ -305,14 +359,22 @@ describe("real atomic Run and pg-boss admission", () => {
           },
           nativeModelAuthorization,
           nativeStorage,
+          snapshotRunDocuments,
         ),
       ),
     ).rejects.toMatchObject({ code: "conflict" });
-    await dispatchRun(database.db, first.id);
+    await dispatchRun(database.db, first.id, undefined, snapshotRunDocuments);
   });
   it("recovers bookkeeping without requeuing a possibly launched execution", async () => {
     const run = await scope((c) =>
-      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        request(),
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     await database.db
       .update(runs)
@@ -335,7 +397,14 @@ describe("real atomic Run and pg-boss admission", () => {
   it("processes real pg-boss delivery and duplicate delivery through the server worker", async () => {
     const input = request();
     const run = await scope((c) =>
-      admitRun(c, boss, input, nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        input,
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     const workers = await startQueue(database.db, database.pool);
     try {
@@ -374,7 +443,14 @@ describe("real atomic Run and pg-boss admission", () => {
       emailVerified: true,
     });
     const run = await scope((c) =>
-      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        request(),
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     await database.db
       .insert(members)
@@ -404,18 +480,39 @@ describe("real atomic Run and pg-boss admission", () => {
         new Uint8Array([1]),
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
-    await dispatchRun(database.db, run.id);
+    await dispatchRun(database.db, run.id, undefined, snapshotRunDocuments);
   });
   it("rechecks sponsor membership on duplicate queue delivery", async () => {
     const run = await scope((c) =>
-      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        request(),
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
     const terminal = await scope((c) =>
-      admitRun(c, boss, request(), nativeModelAuthorization, nativeStorage),
+      admitRun(
+        c,
+        boss,
+        request(),
+        nativeModelAuthorization,
+        nativeStorage,
+        snapshotRunDocuments,
+      ),
     );
-    const terminalResult = await dispatchRun(database.db, terminal.id);
+    const terminalResult = await dispatchRun(
+      database.db,
+      terminal.id,
+      undefined,
+      snapshotRunDocuments,
+    );
     await database.db.delete(members).where(eq(members.userId, "owner"));
-    expect(await dispatchRun(database.db, run.id)).toMatchObject({
+    expect(
+      await dispatchRun(database.db, run.id, undefined, snapshotRunDocuments),
+    ).toMatchObject({
       state: "failed",
       outcome: "authorization_revoked",
     });
@@ -429,8 +526,15 @@ describe("real atomic Run and pg-boss admission", () => {
         .from(workspaces)
         .where(eq(workspaces.id, workspaceId))
     )[0]?.cursor;
-    expect(await dispatchRun(database.db, terminal.id)).toEqual(terminalResult);
-    await dispatchRun(database.db, run.id);
+    expect(
+      await dispatchRun(
+        database.db,
+        terminal.id,
+        undefined,
+        snapshotRunDocuments,
+      ),
+    ).toEqual(terminalResult);
+    await dispatchRun(database.db, run.id, undefined, snapshotRunDocuments);
     expect(
       (
         await database.db

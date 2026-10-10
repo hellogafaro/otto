@@ -2,15 +2,9 @@ import {
   RiChat1Line,
   RiCheckboxCircleLine,
   RiNotification3Line,
-  RiQuestionLine,
   RiTimeLine,
 } from "@remixicon/react";
-import {
-  useInfiniteQuery,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -21,15 +15,10 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@workspace/ui/components/native-select";
-import { useState } from "react";
 import { HomeSection } from "@/components/home-section";
 import { HomeWallpaper } from "@/components/home-wallpaper";
+import { MentionText } from "@/components/mentions";
 import { Page } from "@/components/page";
-import { QueryState } from "@/components/query-state";
 import { ActorAvatar, statuses } from "@/components/task-meta";
 import { read } from "@/lib/api";
 import { useChats } from "@/lib/chat-data";
@@ -39,43 +28,20 @@ import "@/components/home-page.css";
 
 export function InboxPage() {
   const { api, workspaceId, user } = useWorkspace();
-  const cache = useQueryClient();
   const directory = useDirectory();
-  const [selectedProject, setSelectedProject] = useState("");
-  const projectId = selectedProject || directory.projects[0]?.id;
-  const attention = useInfiniteQuery({
-    initialPageParam: {
-      after: undefined as string | undefined,
-      runAfter: undefined as string | undefined,
-      questionAfter: undefined as string | undefined,
-      operationAfter: undefined as string | undefined,
-    },
-    queryKey: ["workspace", workspaceId, "attention"],
+  const project = directory.projects[0];
+  const projectId = project?.id;
+  const notifications = useInfiniteQuery({
+    initialPageParam: undefined as string | undefined,
+    queryKey: ["workspace", workspaceId, "task-notifications", user.id],
     queryFn: async ({ pageParam }) =>
       read(
-        await api.attention.$get({
+        await api["task-notifications"].$get({
           param: { workspaceId },
-          query: { limit: "20", ...pageParam },
+          query: { limit: "20", after: pageParam },
         }),
       ),
-    getNextPageParam: (last, _pages, previous) => {
-      if (
-        !last.next &&
-        typeof last.runs.next !== "string" &&
-        !last.questions.next &&
-        !last.approvals.next
-      )
-        return undefined;
-      return {
-        after: last.next ?? previous.after,
-        runAfter:
-          typeof last.runs.next === "string"
-            ? last.runs.next
-            : previous.runAfter,
-        questionAfter: last.questions.next ?? previous.questionAfter,
-        operationAfter: last.approvals.next ?? previous.operationAfter,
-      };
-    },
+    getNextPageParam: (last) => last.next ?? undefined,
     refetchInterval: 10_000,
   });
   const taskQueries = useQueries({
@@ -156,66 +122,17 @@ export function InboxPage() {
         ? "afternoon"
         : "evening";
   const greeting = `Good ${part}${name && !name.includes("@") ? `, ${name}` : ""}`;
-  const chatMap = new Map<
-    string,
-    { chatId: string; title: string; unread: { body: string }[] }
-  >();
-  const runMap = new Map<
-    string,
-    {
-      id: string;
-      chatId: string;
-      agentId: string;
-      outcome: string | null;
-      state: string;
-    }
-  >();
-  const questionMap = new Map<
-    string,
-    { id: string; runId: string; body: string }
-  >();
-  const approvalMap = new Map<
-    string,
-    { id: string; action: string; target: string }
-  >();
-  for (const page of attention.error ? [] : (attention.data?.pages ?? [])) {
-    for (const item of page.items) chatMap.set(item.chatId, item);
-    for (const item of page.runs.items)
-      runMap.set(item.id, {
-        id: item.id,
-        chatId: item.chatId,
-        agentId: item.agentId,
-        outcome: item.outcome,
-        state: item.state,
-      });
-    for (const item of page.questions.items)
-      questionMap.set(item.id, {
-        id: item.id,
-        runId: item.runId,
-        body: item.body,
-      });
-    for (const item of page.approvals.items)
-      approvalMap.set(item.id, {
-        id: item.id,
-        action: item.action,
-        target: item.target,
-      });
-  }
-  const unreadChats = [...chatMap.values()];
-  const runs = [...runMap.values()];
-  const questions = [...questionMap.values()];
-  const approvals = [...approvalMap.values()];
-  const chats = [
-    ...new Map([
-      ...unreadChats.map(
-        (chat) =>
-          [chat.chatId, { id: chat.chatId, title: chat.title }] as const,
-      ),
-      ...(recentChats.data?.pages.flatMap((page) => page.items) ?? []).map(
-        (chat) => [chat.id, chat] as const,
-      ),
-    ]).values(),
-  ].slice(0, 50);
+  const comments = notifications.error
+    ? []
+    : [
+        ...new Map(
+          (notifications.data?.pages.flatMap((page) => page.items) ?? []).map(
+            (comment) => [comment.id, comment],
+          ),
+        ).values(),
+      ];
+  const chats =
+    recentChats.data?.pages.flatMap((page) => page.items).slice(0, 50) ?? [];
   const routines = schedules.data?.pages.flatMap((page) => page.items) ?? [];
   const taskFailure = taskQueries.find((result) => result.error);
 
@@ -227,110 +144,48 @@ export function InboxPage() {
           <HomeSection
             title="Notifications"
             icon={RiNotification3Line}
-            count={
-              unreadChats.length +
-              runs.length +
-              questions.length +
-              approvals.length
-            }
-            pending={attention.isPending}
-            error={attention.error}
-            retry={() => attention.refetch()}
-            empty="Unread chats, run updates, questions and approvals appear here."
-            emptyAction={
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={<Link to="/chats" />}
-              >
-                Open chats
-              </Button>
-            }
+            count={comments.length}
+            pending={notifications.isPending}
+            error={notifications.error}
+            retry={() => notifications.refetch()}
+            empty="Mentions and comments on tasks you own appear here."
           >
-            {unreadChats.map((chat) => (
-              <li key={`chat:${chat.chatId}`}>
+            {comments.map((comment) => (
+              <li key={comment.id}>
                 <Item
                   size="xs"
                   render={
                     <Link
-                      to="/chats/$chatId"
-                      params={{ chatId: chat.chatId }}
+                      to="/tasks/$taskId"
+                      params={{ taskId: comment.taskId }}
                     />
                   }
                 >
                   <ItemMedia>
-                    <RiChat1Line />
+                    <ActorAvatar
+                      actorId={comment.agentId ?? comment.createdBy}
+                    />
                   </ItemMedia>
                   <ItemContent>
-                    <ItemTitle>{chat.title}</ItemTitle>
+                    <ItemTitle>{comment.title}</ItemTitle>
                     <ItemDescription>
-                      {chat.unread.at(-1)?.body}
+                      {
+                        directory.actorOf(comment.agentId ?? comment.createdBy)
+                          .name
+                      }
+                      {comment.mentioned ? " mentioned you: " : " commented: "}
+                      <MentionText text={comment.body} />
                     </ItemDescription>
                   </ItemContent>
-                  <ItemActions>
-                    <span
-                      role="img"
-                      aria-label={`${chat.unread.length} unread messages`}
-                      className="size-1.5 rounded-full bg-primary"
-                    />
-                  </ItemActions>
-                </Item>
-              </li>
-            ))}
-            {runs.map((run) => (
-              <li key={`run:${run.id}`}>
-                <Item
-                  size="xs"
-                  render={
-                    <Link to="/chats/$chatId" params={{ chatId: run.chatId }} />
-                  }
-                >
-                  <ItemMedia>
-                    <ActorAvatar actorId={run.agentId} />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{directory.actorOf(run.agentId).name}</ItemTitle>
-                    <ItemDescription>{run.outcome}</ItemDescription>
-                  </ItemContent>
-                  <ItemActions>{run.state}</ItemActions>
-                </Item>
-              </li>
-            ))}
-            {questions.map((question) => (
-              <QuestionLink
-                key={`question:${question.id}`}
-                runId={question.runId}
-                body={question.body}
-              />
-            ))}
-            {approvals.map((operation) => (
-              <li key={`approval:${operation.id}`}>
-                <Item
-                  size="xs"
-                  render={
-                    <Link
-                      to="/settings/$section"
-                      params={{ section: "connections" }}
-                    />
-                  }
-                >
-                  <ItemMedia>
-                    <RiTimeLine />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{operation.action}</ItemTitle>
-                    <ItemDescription>{operation.target}</ItemDescription>
-                  </ItemContent>
-                  <ItemActions>Awaiting approval</ItemActions>
                 </Item>
               </li>
             ))}
           </HomeSection>
-          {attention.hasNextPage && (
+          {notifications.hasNextPage && (
             <Button
               variant="outline"
-              disabled={attention.isFetchingNextPage}
-              onClick={() => attention.fetchNextPage()}
+              disabled={notifications.isFetchingNextPage}
+              onClick={() => notifications.fetchNextPage()}
             >
               More notifications
             </Button>
@@ -351,42 +206,10 @@ export function InboxPage() {
               for (const query of taskQueries)
                 if (projectId) void query.refetch();
             }}
-            empty="Your open tasks in the selected project appear here."
-            emptyAction={
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={<Link to="/tasks" search={{ project: projectId }} />}
-              >
-                Open tasks
-              </Button>
-            }
-            action={
-              !directory.error &&
-              directory.projects.length > 0 && (
-                <NativeSelect
-                  aria-label="Home task project"
-                  value={projectId ?? ""}
-                  onChange={(event) => {
-                    const selected = event.target.value;
-                    cache.removeQueries({
-                      queryKey: [
-                        "workspace",
-                        workspaceId,
-                        "home-tasks",
-                        selected,
-                      ],
-                    });
-                    setSelectedProject(selected);
-                  }}
-                >
-                  {directory.projects.map((project) => (
-                    <NativeSelectOption key={project.id} value={project.id}>
-                      {project.title}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              )
+            empty={
+              project
+                ? `Your open tasks in ${project.title} appear here.`
+                : "Your open tasks appear here."
             }
           >
             {tasks.map((task) => {
@@ -420,16 +243,6 @@ export function InboxPage() {
               );
             })}
           </HomeSection>
-          {directory.projectsQuery.hasNextPage && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={directory.projectsQuery.isFetchingNextPage}
-              onClick={() => directory.projectsQuery.fetchNextPage()}
-            >
-              More projects
-            </Button>
-          )}
           {tasks.length > 0 && (
             <Link to="/tasks" search={{ project: projectId }}>
               All tasks in this project
@@ -443,15 +256,6 @@ export function InboxPage() {
             error={recentChats.error}
             retry={() => recentChats.refetch()}
             empty="Your recent conversations appear here."
-            emptyAction={
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={<Link to="/chats" />}
-              >
-                Open chats
-              </Button>
-            }
           >
             {chats.map((chat) => (
               <li key={chat.id}>
@@ -467,20 +271,10 @@ export function InboxPage() {
                   <ItemContent>
                     <ItemTitle>{chat.title}</ItemTitle>
                   </ItemContent>
-                  {chatMap.has(chat.id) && (
-                    <ItemActions>
-                      <span
-                        role="img"
-                        aria-label="Unread messages"
-                        className="size-1.5 rounded-full bg-primary"
-                      />
-                    </ItemActions>
-                  )}
                 </Item>
               </li>
             ))}
           </HomeSection>
-          {chats.length > 0 && <Link to="/chats">All chats</Link>}
           <HomeSection
             title="Routines"
             icon={RiTimeLine}
@@ -489,15 +283,6 @@ export function InboxPage() {
             error={schedules.error}
             retry={() => schedules.refetch()}
             empty="Your enabled schedules appear here."
-            emptyAction={
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={<Link to="/schedules" />}
-              >
-                Open schedules
-              </Button>
-            }
           >
             {routines.map((routine) => (
               <li key={routine.id}>
@@ -537,39 +322,5 @@ export function InboxPage() {
         </Page>
       </div>
     </div>
-  );
-}
-
-function QuestionLink({ runId, body }: { runId: string; body: string }) {
-  const { api, workspaceId } = useWorkspace();
-  const run = useQuery({
-    queryKey: ["workspace", workspaceId, "run", runId],
-    queryFn: async () =>
-      read(await api.runs[":id"].$get({ param: { workspaceId, id: runId } })),
-  });
-  return (
-    <li>
-      {run.data && !run.error ? (
-        <Item
-          size="xs"
-          render={
-            <Link to="/chats/$chatId" params={{ chatId: run.data.chatId }} />
-          }
-        >
-          <ItemMedia>
-            <RiQuestionLine />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle>{body}</ItemTitle>
-          </ItemContent>
-        </Item>
-      ) : (
-        <QueryState
-          pending={run.isPending}
-          error={run.error}
-          retry={() => run.refetch()}
-        />
-      )}
-    </li>
   );
 }

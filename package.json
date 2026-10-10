@@ -31,7 +31,8 @@
     "@types/mailparser": "3.9.0",
     "@types/smtp-server": "3.5.13",
     "mailparser": "3.9.37",
-    "smtp-server": "3.19.19"
+    "smtp-server": "3.19.19",
+    "@otto/library": "workspace:*"
   },
   "packageManager": "bun@1.4.2",
   "engines": {

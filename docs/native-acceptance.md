@@ -22,6 +22,45 @@ Use normal authenticated separate user/browser contexts. The finite multiplayer 
 
 ## Current verdicts
 
+### Library and lean interface integration
+
+Implemented on local main over `88fe9b8e148e158e54ad4b9233cb88525fe019c9`.
+The tested 415 source/test/config entries are pinned in
+`~/.capy/work/otto-resume-20261010/library-ui/verification-sources.json`
+(SHA-256 `387f768b3b65c8b5a22fbce83f0be753c3301d545a06e600575e16b729af2064`).
+The local checkpoint and owned API activation are recorded separately below;
+browser proof used an isolated authenticated instance, not the saved user session.
+
+| Scope | Verdict and evidence |
+| --- | --- |
+| Library ownership and saved data | Passed source inspection: `@otto/library` replaces the Files/Documents packages and owns Documents, Files, Folders, Collections and storage. Physical schema declarations are byte-equivalent after import relocation; no saved-data migration or schema push. `library-backend/schema-declarations.json`, SHA-256 `e2fb6d4b93c1175758e3d99ac255832ad45f051dffce06cde9b0f311edcdfcf7`. |
+| Bounded Library and retained Run context | Passed 15 focused cases and four adjacent existing cases: categories before SQL LIMIT, sealed caller/filter/category cursors, authorized Project roots, private/collection filters, missing Document callback fail-closed, retained snapshots and current revocation. `library-backend/focused.log`, SHA-256 `95d5f7fb03d6c67ecdd2ca677033de624a8824e67275c8436a555de08aeefa4b`; `adjacent.log`, SHA-256 `9c784d45fcbeeb8c90f9ec4604b4dc757edf0f5674d2dc8b1c7b9c1ac6f93666`. The adjacent selection skipped 41 unrelated cases. |
+| Library UI and reload | Passed final authenticated browser case: one navigation destination, six 28px category tabs, actual uploads, cross-Project editable Documents, creation, canonical/legacy links and reload. Upload modal identity survives the empty-to-populated transition, preserving the acknowledged upload rather than resetting its request. |
+| Home notifications and simplification | Passed two-human browser case: actual other-author comments on owned Tasks and explicit canonical user mentions; own human comments, unrelated discussions and inaccessible Projects excluded before pagination; cursor replay by another actor denied. Persisted results survive reload. Counts, inner card actions, empty titles, Project dropdown and All chats are removed. This is a recent-comment projection, not a read/dismiss notification queue. |
+| Panel actions and spacing | Passed shared implementation and browser inspection: page-level actions occupy the top-right toolbar, Library folder breadcrumbs share that bar, both main/right headers have measured 8px padding, and the shared toggle uses `RiListCheck`. |
+| Unified composer | Passed authenticated full/new/floating Chat case: one compact inline layout, 32px primary controls, 728px maximum content width, Participants/Project below, multiline typing/paste and human-only send/reload. Existing Project context and participant-management authority are preserved. |
+
+The final three browser cases pass together in 18.2s. Evidence and inspected
+screenshots are in `library-ui/final-results/`; `final-browser.log` has SHA-256
+`a2aefc92a28e71ffa664b70253bda29bccdb664640b6f76b14897f1da7af7306`.
+Final inspection additionally preserved direct document creation in an empty
+Library without requiring an upload or a model. The two affected browser cases
+pass again in 13.4s, including creation and reload of the first document;
+`library-ui/empty-creation.log` has SHA-256
+`4a06b2b2d73e959954f241eebfa5b961c1b40adbacffefe6947825d39ac9b886`.
+Only the Library route and its test changed after the combined browser run.
+Root/web types, scoped Biome, 17-package acyclic boundaries, consistency and
+DESIGN lint passed. Earlier failed browser attempts remain in `library-ui/`;
+they include selector/navigation timing corrections and the real upload-modal
+reset corrected before the final pass.
+
+Independent read-only inspection found no blocking notification authorization
+or cursor issue. Noncanonical percent-encoded IDs in manually imported mention
+text remain an unqualified edge; normal Otto serialization and escaped labels
+are covered. Whole-foundation independent acceptance, real-provider exact-answer
+qualification and the previously failed RSS gate remain open. No paid inference,
+external email, remote push, deployment or production build was performed.
+
 ### Composer-first Settings candidate
 
 The local Settings checkpoint `f3803cff216e2737f76114a1b1cc62a8fe960528`

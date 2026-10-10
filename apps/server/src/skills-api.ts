@@ -1,4 +1,4 @@
-import { getSkillFileReference, requireFileAudience } from "@otto/files";
+import { getSkillFileReference, requireFileAudience } from "@otto/library";
 import {
   archiveSkill,
   createSkill,

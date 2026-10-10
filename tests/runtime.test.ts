@@ -18,7 +18,8 @@ import {
 import { deleteParticipant, publishNativeMessage } from "../packages/chats/src";
 import { participants } from "../packages/chats/src/schema";
 import { createCursorCodec } from "../packages/db/src";
-import { files } from "../packages/files/src/schema";
+import { snapshotRunDocuments } from "../packages/library/src";
+import { files } from "../packages/library/src/schema";
 import { RUN_QUEUE } from "../packages/runs/src";
 import {
   assertRunAttempt,
@@ -404,6 +405,7 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
           validateSchedule,
           native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         if (!scope.sessionId) throw new Error("Missing native Session");
         await publishNativeMessage(
@@ -424,11 +426,13 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
               validateSchedule,
               native,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
           },
         );
       },
       ...overrides,
+      snapshotDocuments: snapshotRunDocuments,
     });
   }
   function invokeTools() {
@@ -511,6 +515,7 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
         validateSchedule,
         native,
         authorizeRunSources,
+        snapshotRunDocuments,
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     await post(`/runs/${b.run.id}/stop`);
@@ -1888,6 +1893,7 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
       validateSchedule,
       native,
       authorizeRunSources,
+      snapshotRunDocuments,
     );
     expect((await saved(run.id))?.state).toBe("running");
     const denied = await fetch(`${origin}/api/workspaces/${workspaceId}/runs`, {

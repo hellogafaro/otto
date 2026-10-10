@@ -1,3 +1,4 @@
+import { snapshotRunDocuments } from "@otto/library";
 import { getRunActions, resolveRunAction } from "@otto/runs/actions";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -61,6 +62,7 @@ export const nativeActionsApi = new Hono<ApiEnv>()
               }),
             c.get("options").nativeStorage,
             authorizeRunSources,
+            snapshotRunDocuments,
           ),
         ),
       ),

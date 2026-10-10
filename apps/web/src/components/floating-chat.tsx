@@ -2,6 +2,7 @@ import {
   type RemixiconComponentType,
   RiArrowDownSLine,
   RiArrowUpSLine,
+  RiBox3Line,
   RiChat1Line,
   RiCloseLine,
   RiEditBoxLine,
@@ -55,9 +56,11 @@ import {
   useParticipants,
 } from "@/lib/chat-data";
 import { useChatUpload } from "@/lib/chat-upload";
+import { useDirectory } from "@/lib/directory";
 import { useWorkspace } from "@/lib/workspace";
 import {
   ChatComposer,
+  ChatContextRow,
   ChatPresence,
   ChatRunFeed,
   ChatThread,
@@ -181,6 +184,10 @@ export function FloatingChat({
   });
   const newChat = useNewChat();
   const upload = useChatUpload(projectId);
+  const directory = useDirectory();
+  const projectTitle = directory.projects.find(
+    (item) => item.id === projectId,
+  )?.title;
   const sendMessage = useMessageSend(chatId);
   const questionRuns = useQuery({
     queryKey: [
@@ -252,8 +259,8 @@ export function FloatingChat({
         className={cn(
           "pointer-events-auto absolute left-1/2 flex -translate-x-1/2",
           expanded
-            ? "-bottom-1 w-[calc(100%+--spacing(2))] max-w-[calc(var(--container-3xl)+--spacing(2))]"
-            : "bottom-0 w-full max-w-[28.125rem]",
+            ? "-bottom-1 w-[calc(100%+--spacing(2))] max-w-[calc(var(--container-3xl)-2.5rem+--spacing(2))]"
+            : "bottom-0 w-full max-w-[calc(var(--container-3xl)-2.5rem)]",
         )}
       >
         <div
@@ -412,15 +419,7 @@ export function FloatingChat({
                     </ChatThread>
                   )}
                 </>
-              ) : (
-                <div className="flex items-center gap-1 px-2 pt-3 pb-1">
-                  <WithPicker
-                    value={withIds}
-                    onChange={setWithIds}
-                    projectId={projectId}
-                  />
-                </div>
-              )}
+              ) : null}
             </div>
           )}
           {!(expanded && listing) && (
@@ -448,52 +447,88 @@ export function FloatingChat({
                 <QueryState error={current.error} retry={current.refetch} />
               )}
               {chat ? (
-                <ChatComposer
-                  key={chat.id}
-                  chat={chat}
-                  composerRef={setComposer}
-                  onSent={() => change({ expanded: true })}
-                  disabled={!permissions.canWrite}
-                  compact={!expanded}
-                  embedded={expanded}
-                  tools={
-                    !expanded ? (
-                      <Resume chat={chat} onOpen={() => show(chat.id)} />
-                    ) : undefined
-                  }
-                  idle={
-                    pending.length > 0 ? (
-                      <Action
-                        label={chatsLabel}
-                        icon={RiInboxLine}
-                        dot
-                        onClick={list}
-                      />
-                    ) : undefined
-                  }
-                />
+                <>
+                  <ChatComposer
+                    key={chat.id}
+                    chat={chat}
+                    composerRef={setComposer}
+                    onSent={() => change({ expanded: true })}
+                    disabled={!permissions.canWrite}
+                    compact={!expanded}
+                    embedded={expanded}
+                    tools={
+                      !expanded ? (
+                        <Resume chat={chat} onOpen={() => show(chat.id)} />
+                      ) : undefined
+                    }
+                    idle={
+                      pending.length > 0 ? (
+                        <Action
+                          label={chatsLabel}
+                          icon={RiInboxLine}
+                          dot
+                          onClick={list}
+                        />
+                      ) : undefined
+                    }
+                  />
+                  <ChatContextRow chat={chat} manageLink />
+                </>
               ) : (
-                <Composer
-                  projectId={projectId}
-                  upload={upload.upload}
-                  ref={setComposer}
-                  compact={!expanded}
-                  embedded={expanded}
-                  placeholder={`Message about ${about}`}
-                  onSend={send}
-                  pending={newChat.isPending}
-                  disabled={Boolean(chatId) || workspace.role === "viewer"}
-                  idle={
-                    pending.length > 0 ? (
-                      <Action
-                        label={chatsLabel}
-                        icon={RiInboxLine}
-                        dot
-                        onClick={list}
-                      />
-                    ) : undefined
-                  }
-                />
+                <>
+                  <Composer
+                    projectId={projectId}
+                    upload={upload.upload}
+                    ref={setComposer}
+                    compact={!expanded}
+                    embedded={expanded}
+                    placeholder={`Message about ${about}`}
+                    onSend={send}
+                    pending={newChat.isPending}
+                    disabled={Boolean(chatId) || workspace.role === "viewer"}
+                    idle={
+                      pending.length > 0 ? (
+                        <Action
+                          label={chatsLabel}
+                          icon={RiInboxLine}
+                          dot
+                          onClick={list}
+                        />
+                      ) : undefined
+                    }
+                  />
+                  <div className="flex flex-wrap items-center gap-2 px-1 pt-2 text-sm text-muted-foreground">
+                    <WithPicker
+                      value={withIds}
+                      onChange={setWithIds}
+                      projectId={projectId}
+                      disabled={
+                        newChat.isPending || Boolean(newChat.createdChat)
+                      }
+                    />
+                    {projectId ? (
+                      <Button
+                        variant="plain"
+                        size="compact"
+                        nativeButton={false}
+                        render={
+                          <Link
+                            to="/projects/$projectId"
+                            params={{ projectId }}
+                          />
+                        }
+                        aria-label={`Project: ${projectTitle ?? "Project"}`}
+                      >
+                        <RiBox3Line />
+                        {projectTitle ?? "Project"}
+                      </Button>
+                    ) : (
+                      <span className="flex items-center gap-1 px-2 py-1">
+                        <RiBox3Line /> No project
+                      </span>
+                    )}
+                  </div>
+                </>
               )}
               {chatId && !permissions.canWrite && (
                 <p className="px-3">This chat is read-only for you.</p>

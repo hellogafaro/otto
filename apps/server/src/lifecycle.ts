@@ -6,8 +6,9 @@ import {
   readFile,
   requireFileAudience,
   SMALL_FILE_BYTES,
-} from "@otto/files";
-import { createS3Storage } from "@otto/files/storage";
+  snapshotRunDocuments,
+} from "@otto/library";
+import { createS3Storage } from "@otto/library/storage";
 import {
   assertRunAttempt,
   createRunRuntime,
@@ -201,6 +202,7 @@ export async function startServer(
             validateSchedule,
             nativeStorage,
             authorizeRunSources,
+            snapshotRunDocuments,
           );
           return resolveSubscriptionModel(db, accepted, encryptionKey, signal);
         }),
@@ -228,6 +230,7 @@ export async function startServer(
               validateSchedule,
               nativeStorage,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
           });
         return tools;
@@ -245,6 +248,7 @@ export async function startServer(
           validateSchedule,
           nativeStorage,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         if (!target.sessionId) throw new Error("Native Session unavailable");
         await publishNativeMessage(
@@ -265,6 +269,7 @@ export async function startServer(
               validateSchedule,
               nativeStorage,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
           },
         );
@@ -306,6 +311,7 @@ export async function startServer(
             validateSchedule,
             nativeStorage,
             authorizeRunSources,
+            snapshotRunDocuments,
           );
         const accepted = await authorize();
         const files = [];
@@ -344,6 +350,7 @@ export async function startServer(
           );
         return files;
       },
+      snapshotDocuments: snapshotRunDocuments,
     });
     boss = await startQueue(db, pool, {
       runtime,

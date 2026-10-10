@@ -13,23 +13,22 @@ import { getConnection } from "@otto/connections";
 import type { CursorCodec, Database } from "@otto/db";
 import {
   COLLECTION_SORTS,
+  createFile,
   DOCUMENT_SORTS,
+  FILE_SORTS,
+  type FileStorage,
   getCollection,
   getCollections,
   getDocument,
   getDocumentAudience,
   getDocuments,
-  proposeDocumentChange,
-} from "@otto/documents";
-import {
-  createFile,
-  FILE_SORTS,
-  type FileStorage,
   getFile,
   getFiles,
+  proposeDocumentChange,
   readFile,
   requireFileAudience,
-} from "@otto/files";
+  snapshotRunDocuments,
+} from "@otto/library";
 import {
   getProject,
   getProjectAudience,
@@ -459,6 +458,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
     }
     if (input.name === "file.read") {
@@ -483,6 +483,7 @@ export function createRunTools(
           validateSchedule,
           options.native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
       const scope = await authorize();
       const bytes = await readFile(
@@ -504,6 +505,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
       const model = await prepareRunModel(
         db,
@@ -524,6 +526,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
     }
     if (input.name === "human.ask") {
@@ -534,6 +537,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
       const deadline = Date.now() + 300000;
       while (Date.now() < deadline) {
@@ -545,6 +549,7 @@ export function createRunTools(
           validateSchedule,
           options.native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         if (current.answer !== null) return { answer: current.answer };
         await Bun.sleep(250);
@@ -565,6 +570,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
       const { name: _name, text, ...file } = input;
       return createFile(
@@ -583,6 +589,7 @@ export function createRunTools(
             validateSchedule,
             options.native,
             authorizeRunSources,
+            snapshotRunDocuments,
           );
           if (run.environmentGeneration !== scope.environmentGeneration)
             throw new DomainError("forbidden", "Execution generation changed");
@@ -601,6 +608,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
       if (input.name === "skill.read") {
         if (!options.storage)
@@ -620,6 +628,7 @@ export function createRunTools(
           validateSchedule,
           options.native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         return { base64: Buffer.from(bytes).toString("base64") };
       }
@@ -660,6 +669,7 @@ export function createRunTools(
           validateSchedule,
           options.native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         if (operation.state === "approved")
           operation = await service.executeOperation(operation.id);
@@ -691,6 +701,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
       return service.readOperation(operation.id);
     }
@@ -715,6 +726,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
       return createMessage(
         db,
@@ -744,6 +756,7 @@ export function createRunTools(
             validateSchedule,
             options.native,
             authorizeRunSources,
+            snapshotRunDocuments,
           );
           if (input.name === "message.create") {
             const audience = await getChatAudience(c, run.chatId);
@@ -1233,6 +1246,7 @@ export function createRunTools(
         validateSchedule,
         options.native,
         authorizeRunSources,
+        snapshotRunDocuments,
       );
       if (input.name === "task.create" || input.name === "task.capture") {
         const saved = z
@@ -1255,6 +1269,7 @@ export function createRunTools(
           validateSchedule,
           options.native,
           authorizeRunSources,
+          snapshotRunDocuments,
         );
         await createMessage(
           db,
@@ -1277,6 +1292,7 @@ export function createRunTools(
               validateSchedule,
               options.native,
               authorizeRunSources,
+              snapshotRunDocuments,
             );
           },
         );
@@ -1290,6 +1306,7 @@ export function createRunTools(
       validateSchedule,
       options.native,
       authorizeRunSources,
+      snapshotRunDocuments,
     );
   };
 }

@@ -1,13 +1,13 @@
 import { isDeepStrictEqual } from "node:util";
 import { getChat, previewChat } from "@otto/chats";
 import type { Database } from "@otto/db";
-import { getDocument } from "@otto/documents";
 import {
   type FileStorage,
+  getDocument,
   locateFile,
   previewFile,
   readFile,
-} from "@otto/files";
+} from "@otto/library";
 import { requireProjectMember } from "@otto/projects";
 import type { NativeSessionStorage } from "@otto/sessions/native";
 import {

@@ -12,8 +12,13 @@ import {
 } from "../packages/chats/src";
 import { participants } from "../packages/chats/src/schema";
 import { createEnvironment } from "../packages/environments/src";
-import { createFile, getFile, updateFile } from "../packages/files/src";
-import { files } from "../packages/files/src/schema";
+import {
+  createFile,
+  getFile,
+  snapshotRunDocuments,
+  updateFile,
+} from "../packages/library/src";
+import { files } from "../packages/library/src/schema";
 import { admitRun } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
 import { openNativeStorage } from "../packages/sessions/src/native";
@@ -140,6 +145,7 @@ describe("agent File publication with real PostgreSQL/queue and explicit executi
         },
         nativeModelAuthorization,
         nativeStorage,
+        snapshotRunDocuments,
       ),
     );
     await database.db

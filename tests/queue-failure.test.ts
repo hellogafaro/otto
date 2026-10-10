@@ -5,6 +5,7 @@ import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import { createChat, createParticipant } from "../packages/chats/src";
 import { createEnvironment } from "../packages/environments/src";
+import { snapshotRunDocuments } from "../packages/library/src";
 import { admitRun, RUN_QUEUE } from "../packages/runs/src";
 import { createRunRuntime } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
@@ -65,6 +66,7 @@ describe("pg-boss dispatch failure ownership with deterministic native models", 
       tools: () => ({}),
       publishOutput: async () => {},
       deadlineMs: 20000,
+      snapshotDocuments: snapshotRunDocuments,
     });
   });
   afterEach(async () => {
@@ -110,6 +112,7 @@ describe("pg-boss dispatch failure ownership with deterministic native models", 
         },
         nativeModelAuthorization,
         native,
+        snapshotRunDocuments,
       ),
     );
 

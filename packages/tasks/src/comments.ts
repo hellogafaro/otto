@@ -6,11 +6,13 @@ import {
   sortPlan,
   timeKey,
 } from "@otto/db";
+import { projectReadable } from "@otto/projects";
 import { DomainError, required } from "@otto/shared";
-import { advanceCursor, type Context } from "@otto/workspaces";
-import { and, eq, getTableColumns } from "drizzle-orm";
+import { advanceCursor, type Context, requireHuman } from "@otto/workspaces";
+import { and, eq, getTableColumns, isNotNull, ne, or, sql } from "drizzle-orm";
 import { taskComments } from "./comments-schema";
 import { getTask } from "./index";
+import { tasks } from "./schema";
 
 export const MAX_TASK_COMMENT_BYTES = 10000;
 export interface TaskCommentInput {
@@ -180,6 +182,55 @@ const commentSorts = {
   updatedAt: timeKey(taskComments.updatedAt),
 };
 export const TASK_COMMENT_SORTS = sortNames(commentSorts);
+
+export async function getTaskNotifications(
+  c: Context,
+  filter: { after?: string; limit?: number },
+) {
+  requireHuman(c);
+  fields(filter, ["after", "limit"]);
+  const plan = sortPlan({
+    operation: "getTaskNotifications",
+    scope: c,
+    filter: { ...filter, sort: "createdAt", order: "desc" },
+    keys: { createdAt: commentSorts.createdAt },
+    id: taskComments.id,
+  });
+  const userId = encodeURIComponent(c.actor.userId)
+    .replace(/\)/g, "%29")
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const mentioned = sql<boolean>`${taskComments.body} ~ ${String.raw`@\[((?:\\.|[^\]\\])*)\]\(user:${userId}\)`}`;
+  const rows = await c.tx
+    .select({
+      id: taskComments.id,
+      taskId: tasks.id,
+      title: tasks.title,
+      createdBy: taskComments.createdBy,
+      agentId: taskComments.agentId,
+      body: taskComments.body,
+      createdAt: taskComments.createdAt,
+      mentioned,
+      position: plan.position,
+    })
+    .from(taskComments)
+    .innerJoin(tasks, eq(taskComments.taskId, tasks.id))
+    .where(
+      and(
+        eq(taskComments.workspaceId, c.workspaceId),
+        eq(tasks.workspaceId, c.workspaceId),
+        projectReadable(c, tasks.projectId),
+        or(
+          ne(taskComments.createdBy, c.actor.userId),
+          isNotNull(taskComments.agentId),
+        ),
+        or(eq(tasks.ownerId, c.actor.userId), mentioned),
+        plan.where,
+      ),
+    )
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return pageOf(rows, plan, (comment) => comment.id);
+}
 
 export async function getTaskComments(c: Context, input: TaskCommentQuery) {
   const filter = validateTaskCommentQuery(input);

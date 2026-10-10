@@ -46,7 +46,7 @@ export function EmptyPage({
   children?: ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col p-5 pb-22">
+    <div className="relative flex min-h-0 flex-1 flex-col p-5 pb-31">
       <Empty>
         <EmptyHeader className="max-w-xs">
           <EmptyMedia variant="icon">

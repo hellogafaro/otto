@@ -1,6 +1,9 @@
 import { getChat, isAttachedToReadableChat } from "@otto/chats";
-import { getDocument, getDocumentAudience } from "@otto/documents";
-import { requireFileAudience } from "@otto/files";
+import {
+  getDocument,
+  getDocumentAudience,
+  requireFileAudience,
+} from "@otto/library";
 import { getProjectAudience } from "@otto/projects";
 import type { AuthorizeSources } from "@otto/runs/runtime";
 import { DomainError } from "@otto/shared";

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createFolder } from "../packages/files/src";
+import { createFolder } from "../packages/library/src";
 import { members, workspaces } from "../packages/workspaces/src/schema";
 import {
   type Human,

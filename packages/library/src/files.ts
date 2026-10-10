@@ -30,9 +30,10 @@ import {
   requireWriter,
 } from "@otto/workspaces";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
+import type { LibraryCategory } from "./categories";
+import { files } from "./file-schema";
 import { requireFolderPlacement } from "./folders";
 import { MAX_FILE_BYTES, SMALL_FILE_BYTES } from "./limits";
-import { files } from "./schema";
 import type { FileSource, FileStorage } from "./storage";
 
 export type { DocumentFolderUse, Folder } from "./folders";
@@ -412,6 +413,28 @@ const fileSorts = {
   byteLength: intKey(files.byteLength),
 };
 export const FILE_SORTS = sortNames(fileSorts);
+const DOCUMENT_MEDIA_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/rtf",
+  "application/json",
+  "application/xml",
+  "application/javascript",
+  "application/yaml",
+  "application/x-yaml",
+  "application/vnd.ms-excel",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.presentation",
+  "application/vnd.ms-word.document.macroenabled.12",
+  "application/vnd.ms-excel.sheet.macroenabled.12",
+  "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+  "application/vnd.ms-powerpoint.presentation.macroenabled.12",
+];
 /** Access-filtered keyset pagination for the workspace library or one authorized Project. */
 export async function getFiles(
   c: Context,
@@ -428,6 +451,7 @@ export async function getFiles(
     visibility?: "user" | "workspace";
     label?: string;
     archived?: boolean;
+    category?: LibraryCategory;
   },
 ) {
   const f = { ...filter, archived: filter.archived ?? false };
@@ -439,6 +463,19 @@ export async function getFiles(
     id: files.id,
   });
   if (f.projectId) await getProject(c, f.projectId);
+  const mediaType = sql`lower(trim(split_part(${files.mediaType}, ';', 1)))`;
+  const documentType = sql`(${mediaType} like 'text/%' or ${mediaType} in (${sql.join(
+    DOCUMENT_MEDIA_TYPES.map((type) => sql`${type}`),
+    sql`, `,
+  )}))`;
+  const category =
+    !f.category || f.category === "all"
+      ? undefined
+      : f.category === "documents"
+        ? documentType
+        : f.category === "other"
+          ? sql`not (${documentType} or ${mediaType} like 'image/%' or ${mediaType} like 'video/%' or ${mediaType} like 'audio/%')`
+          : sql`${mediaType} like ${f.category === "images" ? "image/%" : f.category === "video" ? "video/%" : "audio/%"}`;
   const rows = await c.tx
     .select({
       id: files.id,
@@ -463,6 +500,7 @@ export async function getFiles(
         eq(files.workspaceId, c.workspaceId),
         eq(files.state, "saved"),
         eq(files.archived, f.archived),
+        category,
         f.projectId === undefined
           ? undefined
           : f.projectId === null

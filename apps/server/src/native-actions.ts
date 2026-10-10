@@ -17,31 +17,30 @@ import {
 } from "@otto/connections";
 import { createConnectionService } from "@otto/connections/server";
 import type { Database } from "@otto/db";
+import { createEnvironment } from "@otto/environments";
 import {
   archiveCollection,
   archiveDocument,
+  archiveFile,
+  archiveFolder,
   createCollection,
   createDocument,
+  createFolder,
   getDocument,
   getDocumentAudience,
   getDocumentFolderUse,
-  resolveDocumentProposal,
-  setDocumentAttachments,
-  updateCollection,
-  updateDocument,
-  updateDocumentCollection,
-} from "@otto/documents";
-import { createEnvironment } from "@otto/environments";
-import {
-  archiveFile,
-  archiveFolder,
-  createFolder,
   getSkillFileReference,
   requireFileAudience,
   requireFolderPlacement,
+  resolveDocumentProposal,
+  setDocumentAttachments,
+  snapshotRunDocuments,
+  updateCollection,
+  updateDocument,
+  updateDocumentCollection,
   updateFile,
   updateFolder,
-} from "@otto/files";
+} from "@otto/library";
 import {
   archiveProject,
   createProject,
@@ -482,22 +481,40 @@ export async function requestNativeAction(
       input: request.input,
     },
     async (c, run) => ({
-      id: (await createRunAction(c, run, request, native, authorizeRunSources))
-        .id,
+      id: (
+        await createRunAction(
+          c,
+          run,
+          request,
+          native,
+          authorizeRunSources,
+          snapshotRunDocuments,
+        )
+      ).id,
     }),
     validateSchedule,
     native,
     authorizeRunSources,
+    snapshotRunDocuments,
   );
   for (;;) {
     signal.throwIfAborted();
     const current = await withRunAttempt(
       db,
       attempt,
-      (c, run) => getRunAction(c, run, pending.id, native, authorizeRunSources),
+      (c, run) =>
+        getRunAction(
+          c,
+          run,
+          pending.id,
+          native,
+          authorizeRunSources,
+          snapshotRunDocuments,
+        ),
       validateSchedule,
       native,
       authorizeRunSources,
+      snapshotRunDocuments,
     );
     signal.throwIfAborted();
     if (current.status !== "pending") return current;

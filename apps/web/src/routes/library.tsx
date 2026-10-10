@@ -3,14 +3,17 @@ import {
   RiArchiveLine,
   RiBox3Line,
   RiChat1Line,
+  RiEyeLine,
   RiFileTextLine,
   RiFolder3Fill,
   RiFolder3Line,
   RiFolderAddLine,
   RiLinkM,
   RiPriceTag3Line,
+  RiQuillPenLine,
   RiSearchLine,
   RiUploadLine,
+  RiUserLine,
 } from "@remixicon/react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -43,6 +46,11 @@ import {
 } from "@workspace/ui/components/empty";
 import { useRef, useState } from "react";
 import { useCommandPalette } from "@/components/command-palette";
+import { DocumentDirectoryPages } from "@/components/documents/document-data";
+import {
+  CreateDocument,
+  DocumentItem,
+} from "@/components/documents/document-library";
 import { EmptyPage } from "@/components/empty-page";
 import { FolderEdit } from "@/components/file-edit";
 import { FileUploads } from "@/components/file-uploads";
@@ -59,13 +67,35 @@ import { GalleryItem } from "@/components/gallery";
 import { IconAction } from "@/components/icon-action";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
-import { Topbar } from "@/components/topbar";
+import { TabBar } from "@/components/tab-bar";
 import { read } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
 import { fileKind, type SavedFolder } from "@/lib/file-library";
 import { useWorkspace } from "@/lib/workspace";
 
-export type FilesSearch = {
+const categories = [
+  "all",
+  "documents",
+  "images",
+  "video",
+  "audio",
+  "other",
+] as const;
+type Category = (typeof categories)[number];
+const categoryLabels: Record<Category, string> = {
+  all: "All",
+  documents: "Documents",
+  images: "Images",
+  video: "Video",
+  audio: "Audio",
+  other: "Other",
+};
+
+export type LibrarySearch = {
+  category?: Category;
+  createdBy?: string;
+  visibility?: "user" | "workspace";
+  collectionId?: string;
   folder?: string;
   project?: string;
   label?: string;
@@ -76,9 +106,9 @@ export type FilesSearch = {
   archived?: boolean;
 };
 
-export function validateFilesSearch(
+export function validateLibrarySearch(
   search: Record<string, unknown>,
-): FilesSearch {
+): LibrarySearch {
   const text = (key: string, max = 200) =>
     typeof search[key] === "string" && search[key].length <= max
       ? search[key]
@@ -90,6 +120,17 @@ export function validateFilesSearch(
       ? search.sort
       : undefined;
   return {
+    category:
+      categories.includes(search.category as Category) &&
+      search.category !== "all"
+        ? (search.category as Category)
+        : undefined,
+    createdBy: text("createdBy", 128),
+    visibility:
+      search.visibility === "user" || search.visibility === "workspace"
+        ? search.visibility
+        : undefined,
+    collectionId: text("collectionId", 128),
     folder: text("folder", 128),
     project: text("project", 128),
     label: text("label"),
@@ -105,17 +146,24 @@ export function validateFilesSearch(
   };
 }
 
-type FilterKey = "project" | "label" | "archived";
+type FilterKey =
+  | "project"
+  | "label"
+  | "archived"
+  | "createdBy"
+  | "visibility"
+  | "collectionId";
 
-export function FilesPage({ search }: { search: FilesSearch }) {
+export function LibraryPage({ search }: { search: LibrarySearch }) {
   const { workspaceId, workspace, api, user, invalidate } = useWorkspace();
   const directory = useDirectory();
-  const navigate = useNavigate({ from: "/files" });
+  const navigate = useNavigate({ from: "/library" });
   const ask = useAskAgent();
   const openPalette = useCommandPalette();
   const picker = useRef<HTMLInputElement>(null);
   const [uploads, setUploads] = useState<File[]>();
   const [editing, setEditing] = useState<SavedFolder | "new">();
+  const [creatingDocument, setCreatingDocument] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error>();
   const library = useInfiniteQuery({
@@ -123,6 +171,10 @@ export function FilesPage({ search }: { search: FilesSearch }) {
       "workspace",
       workspaceId,
       "library",
+      search.category,
+      search.createdBy,
+      search.visibility,
+      search.collectionId,
       search.folder,
       search.project,
       search.label,
@@ -137,7 +189,11 @@ export function FilesPage({ search }: { search: FilesSearch }) {
         await api.library.$get({
           param: { workspaceId },
           query: {
-            limit: "100",
+            limit: "24",
+            category: search.category,
+            createdBy: search.createdBy === "me" ? user.id : search.createdBy,
+            visibility: search.visibility,
+            collectionId: search.collectionId,
             ...(search.folder ? { folderId: search.folder } : {}),
             ...(search.project ? { projectId: search.project } : {}),
             ...(search.label ? { label: search.label } : {}),
@@ -150,6 +206,19 @@ export function FilesPage({ search }: { search: FilesSearch }) {
         }),
       ),
     getNextPageParam: (page) => page.next ?? undefined,
+  });
+  const collections = useInfiniteQuery({
+    queryKey: ["workspace", workspaceId, "library-collections"],
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) =>
+      read(
+        await api.collections.$get({
+          param: { workspaceId },
+          query: { limit: "100", sort: "title", after: pageParam },
+        }),
+      ),
+    getNextPageParam: (page) => page.next ?? undefined,
+    enabled: search.category === "documents" || Boolean(search.collectionId),
   });
   const folder = library.data?.pages[0]?.folder;
   const entries = library.data?.pages.flatMap((page) => page.items) ?? [];
@@ -209,7 +278,54 @@ export function FilesPage({ search }: { search: FilesSearch }) {
     icon: RiArchiveLine,
     options: { true: { label: "Archived", icon: RiArchiveLine } },
   });
+  filters.push(
+    {
+      key: "createdBy",
+      label: "Created by",
+      icon: RiQuillPenLine,
+      options: {
+        me: { label: "Me", icon: RiUserLine },
+        ...Object.fromEntries(
+          directory.members.map((member) => [
+            member.userId,
+            { label: member.name, icon: RiUserLine },
+          ]),
+        ),
+      },
+    },
+    {
+      key: "visibility",
+      label: "Visibility",
+      icon: RiEyeLine,
+      options: {
+        user: { label: "Only me", icon: RiUserLine },
+        workspace: { label: "Workspace", icon: RiEyeLine },
+      },
+    },
+  );
+  if (search.category === "documents" || search.collectionId)
+    filters.push({
+      key: "collectionId",
+      label: "Collection",
+      icon: RiFileTextLine,
+      options: Object.fromEntries(
+        (collections.data?.pages.flatMap((page) => page.items) ?? []).map(
+          (collection) => [
+            collection.id,
+            { label: collection.title, icon: RiFileTextLine },
+          ],
+        ),
+      ),
+    });
   const values = { ...search, archived: search.archived ? "true" : undefined };
+  for (const filter of filters) {
+    const value = values[filter.key];
+    if (value && !filter.options[value])
+      filter.options[value] = {
+        label: "Unavailable selection",
+        icon: filter.icon,
+      };
+  }
   const change = (key: FilterKey, value: string | undefined) =>
     navigate({
       search: (previous) => ({
@@ -258,26 +374,28 @@ export function FilesPage({ search }: { search: FilesSearch }) {
     !search.project &&
     !search.label &&
     !search.query &&
-    !search.archived
+    !search.archived &&
+    !search.category &&
+    !search.createdBy &&
+    !search.visibility &&
+    !search.collectionId
   )
     return (
       <>
         <EmptyPage
           icon={RiFolder3Line}
-          title="No files"
-          description="Files you upload and agents make collect here."
-          ask={
+          title="No library items"
+          description="Documents and files you save appear here."
+          create={
             canWrite
               ? {
-                  about: "your files",
-                  action: "New file",
-                  start: "Make a file with ",
+                  action: "New document",
+                  onClick: () => setCreatingDocument(true),
                 }
               : undefined
           }
         >
           {canWrite && (
-            // Uploading is a person's own action, beside asking for one.
             <Button
               size="sm"
               variant="outline"
@@ -289,8 +407,15 @@ export function FilesPage({ search }: { search: FilesSearch }) {
           )}
           {fileInput}
         </EmptyPage>
+        {creatingDocument && (
+          <CreateDocument
+            key="document"
+            onClose={() => setCreatingDocument(false)}
+          />
+        )}
         {uploads && (
           <FileUploads
+            key="uploads"
             files={uploads}
             folderId={undefined}
             projectId={undefined}
@@ -302,82 +427,77 @@ export function FilesPage({ search }: { search: FilesSearch }) {
     );
   return (
     <>
-      {folder && (
-        <Topbar>
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      nativeButton={false}
-                      render={
-                        <Link
-                          to="/files"
-                          search={{ project: folder.projectId ?? undefined }}
-                        />
-                      }
-                    />
-                  }
-                >
-                  <RiFolder3Line />
-                  Files
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              {folder.path.map((step) => (
-                <span key={step.id} className="contents">
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbLink
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          nativeButton={false}
-                          render={
-                            <Link
-                              to="/files"
-                              search={{
-                                folder: step.id,
-                                project: folder.projectId ?? undefined,
-                              }}
-                            />
-                          }
-                        />
-                      }
-                    >
-                      <RiFolder3Line />
-                      {step.title}
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                </span>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
-        </Topbar>
-      )}
       <Page
-        title={folder?.title ?? "Files"}
+        title={folder?.title ?? "Library"}
         width="wide"
+        breadcrumbs={
+          folder && (
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        nativeButton={false}
+                        render={
+                          <Link
+                            to="/library"
+                            search={{
+                              category: search.category,
+                              project: folder.projectId ?? undefined,
+                            }}
+                          />
+                        }
+                      />
+                    }
+                  >
+                    <RiFolder3Line />
+                    Library
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {folder.path.map((step) => (
+                  <span key={step.id} className="contents">
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbLink
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            nativeButton={false}
+                            render={
+                              <Link
+                                to="/library"
+                                search={{
+                                  category: search.category,
+                                  folder: step.id,
+                                  project: folder.projectId ?? undefined,
+                                }}
+                              />
+                            }
+                          />
+                        }
+                      >
+                        <RiFolder3Line />
+                        {step.title}
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                  </span>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          )
+        }
         actions={
           <>
             <FilterMenu filters={filters} values={values} onChange={change} />
             <IconAction
               label="Search"
               icon={RiSearchLine}
-              onClick={() => openPalette("files")}
+              onClick={() => openPalette("library")}
             />
-            {directory.projectsQuery.hasNextPage && (
-              <Button
-                variant="ghost"
-                disabled={directory.projectsQuery.isFetchingNextPage}
-                onClick={() => directory.projectsQuery.fetchNextPage()}
-              >
-                More projects
-              </Button>
-            )}
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -398,6 +518,10 @@ export function FilesPage({ search }: { search: FilesSearch }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => setCreatingDocument(true)}>
+                    <RiFileTextLine />
+                    New document
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => picker.current?.click()}>
                     <RiUploadLine />
                     Upload file
@@ -425,24 +549,61 @@ export function FilesPage({ search }: { search: FilesSearch }) {
           </>
         }
       >
+        <TabBar
+          label="Library types"
+          size="compact"
+          tabs={categories.map((value) => ({
+            value,
+            label: categoryLabels[value],
+          }))}
+          value={search.category ?? "all"}
+          onChange={(category) =>
+            navigate({
+              search: (previous) => ({
+                ...previous,
+                category: category === "all" ? undefined : category,
+                collectionId:
+                  category === "documents" ? previous.collectionId : undefined,
+                open: undefined,
+              }),
+            })
+          }
+        />
+        <DocumentDirectoryPages members projects />
+        {collections.hasNextPage &&
+          (search.category === "documents" || search.collectionId) && (
+            <Button
+              variant="ghost"
+              disabled={collections.isFetchingNextPage}
+              onClick={() => collections.fetchNextPage()}
+            >
+              Load more collection filters
+            </Button>
+          )}
         <FilterBar
           filters={filters}
           values={values}
           onChange={change}
           onClear={() =>
             navigate({
-              search: { folder: search.folder, project: search.project },
+              search: {
+                folder: search.folder,
+                project: search.project,
+                category: search.category,
+              },
             })
           }
         />
         <QueryState
           pending={library.isPending}
-          error={library.error ?? directory.error}
+          error={library.error ?? directory.error ?? collections.error}
           retry={() => {
             void library.refetch();
             void directory.membersQuery.refetch();
             void directory.projectsQuery.refetch();
             void directory.agentsQuery.refetch();
+            if (search.category === "documents" || search.collectionId)
+              void collections.refetch();
           }}
         />
         {error && <p role="alert">{error.message}</p>}
@@ -450,12 +611,18 @@ export function FilesPage({ search }: { search: FilesSearch }) {
           !library.error &&
           entries.length === 0 &&
           !library.hasNextPage &&
-          (search.query || search.label || search.project || search.archived ? (
+          (search.query ||
+          search.label ||
+          search.project ||
+          search.archived ||
+          search.createdBy ||
+          search.visibility ||
+          search.collectionId ? (
             <NoResults
               what="files and documents"
               onClear={() =>
                 navigate({
-                  search: search.folder ? { folder: search.folder } : {},
+                  search: { folder: search.folder, category: search.category },
                 })
               }
             />
@@ -465,9 +632,13 @@ export function FilesPage({ search }: { search: FilesSearch }) {
                 <EmptyMedia variant="icon">
                   <RiFolder3Line />
                 </EmptyMedia>
-                <EmptyTitle>No files</EmptyTitle>
+                <EmptyTitle>
+                  {search.category && search.category !== "all"
+                    ? `No ${categoryLabels[search.category].toLowerCase()}${search.category === "other" ? " files" : ""}`
+                    : "No library items"}
+                </EmptyTitle>
                 <EmptyDescription>
-                  Files and documents you add to this folder show up here.
+                  Documents and files matching this view appear here.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -488,8 +659,9 @@ export function FilesPage({ search }: { search: FilesSearch }) {
                 key={entry.id}
                 render={
                   <Link
-                    to="/files"
+                    to="/library"
                     search={{
+                      category: search.category,
                       folder: entry.id,
                       project: entry.projectId ?? undefined,
                       archived: search.archived,
@@ -508,8 +680,9 @@ export function FilesPage({ search }: { search: FilesSearch }) {
                       <ContextMenuItem
                         onClick={() =>
                           navigate({
-                            to: "/files",
+                            to: "/library",
                             search: {
+                              category: search.category,
                               folder: entry.id,
                               project: entry.projectId ?? undefined,
                               archived: search.archived,
@@ -522,7 +695,7 @@ export function FilesPage({ search }: { search: FilesSearch }) {
                       <ContextMenuItem
                         onClick={() =>
                           ask(
-                            `About the folder ${entry.title} (/files?folder=${entry.id}), `,
+                            `About the folder ${entry.title} (/library?folder=${entry.id}), `,
                           )
                         }
                       >
@@ -534,7 +707,7 @@ export function FilesPage({ search }: { search: FilesSearch }) {
                         onClick={() =>
                           act(() =>
                             navigator.clipboard.writeText(
-                              `${location.origin}/files?folder=${encodeURIComponent(entry.id)}${entry.projectId ? `&project=${encodeURIComponent(entry.projectId)}` : ""}`,
+                              `${location.origin}/library?folder=${encodeURIComponent(entry.id)}${entry.projectId ? `&project=${encodeURIComponent(entry.projectId)}` : ""}`,
                             ),
                           )
                         }
@@ -569,23 +742,7 @@ export function FilesPage({ search }: { search: FilesSearch }) {
             ))}
           trailing={entries
             .filter((entry) => entry.type === "document")
-            .map((entry) => (
-              <GalleryItem
-                key={entry.id}
-                render={
-                  <Link
-                    to="/documents/$documentId"
-                    params={{ documentId: entry.id }}
-                  />
-                }
-                className="flex aspect-[4/5] items-center justify-center bg-muted"
-                tile={
-                  <RiFileTextLine className="size-10 text-muted-foreground" />
-                }
-                icon={RiFileTextLine}
-                title={entry.title}
-              />
-            ))}
+            .map((entry) => <DocumentItem key={entry.id} document={entry} />)}
         />
         {library.hasNextPage && (
           <Button
@@ -603,6 +760,15 @@ export function FilesPage({ search }: { search: FilesSearch }) {
           />
         )}
       </Page>
+      {creatingDocument && (
+        <CreateDocument
+          key="document"
+          projectId={projectId ?? undefined}
+          folderId={search.folder}
+          visibility={folder?.visibility}
+          onClose={() => setCreatingDocument(false)}
+        />
+      )}
       {editing && (
         <FolderEdit
           key={editing === "new" ? "new" : editing.id}
@@ -615,6 +781,7 @@ export function FilesPage({ search }: { search: FilesSearch }) {
       )}
       {uploads && (
         <FileUploads
+          key="uploads"
           files={uploads}
           folderId={search.folder}
           projectId={projectId ?? undefined}

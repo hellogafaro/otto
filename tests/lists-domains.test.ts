@@ -8,12 +8,13 @@ import {
 } from "../packages/chats/src";
 import { createConnection } from "../packages/connections/src";
 import { connections } from "../packages/connections/src/schema";
+import { createEnvironment } from "../packages/environments/src";
 import {
   createCollection,
   createDocument,
   proposeDocumentChange,
-} from "../packages/documents/src";
-import { createEnvironment } from "../packages/environments/src";
+  snapshotRunDocuments,
+} from "../packages/library/src";
 import { upsertProjectMember } from "../packages/projects/src";
 import { admitRun, getRuns } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
@@ -973,13 +974,20 @@ describe("sorted and filtered discovery across every domain list, and Document/F
         return { agentId: agent.id, chatId: chat.id };
       });
       const run = await h.scope(h.owner, (c) =>
-        admitRun(c, h.boss, {
-          requestId: crypto.randomUUID(),
-          chatId,
-          agentId,
-          type: "script",
-          body: "x",
-        }),
+        admitRun(
+          c,
+          h.boss,
+          {
+            requestId: crypto.randomUUID(),
+            chatId,
+            agentId,
+            type: "script",
+            body: "x",
+          },
+          undefined,
+          undefined,
+          snapshotRunDocuments,
+        ),
       );
       for (const [n, state] of [
         [1, "awaiting_approval"],
@@ -1053,13 +1061,20 @@ describe("sorted and filtered discovery across every domain list, and Document/F
         for (const type of ["script", "script", "script"] as const)
           runIds.push(
             (
-              await admitRun(c, h.boss, {
-                requestId: crypto.randomUUID(),
-                chatId,
-                agentId,
-                type,
-                body: "x",
-              })
+              await admitRun(
+                c,
+                h.boss,
+                {
+                  requestId: crypto.randomUUID(),
+                  chatId,
+                  agentId,
+                  type,
+                  body: "x",
+                },
+                undefined,
+                undefined,
+                snapshotRunDocuments,
+              )
             ).id,
           );
       });

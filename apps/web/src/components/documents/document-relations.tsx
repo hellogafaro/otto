@@ -703,7 +703,10 @@ function Attachment({
   });
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Link to="/files" search={{ open: id, project: projectId ?? undefined }}>
+      <Link
+        to="/library"
+        search={{ open: id, project: projectId ?? undefined }}
+      >
         {file.error && !canKeepDocumentDraft(file.error)
           ? "Attachment unavailable"
           : (file.data?.title ?? "Attachment")}

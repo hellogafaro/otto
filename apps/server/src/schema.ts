@@ -2,9 +2,8 @@
 export * from "@otto/agents/schema";
 export * from "@otto/chats/schema";
 export * from "@otto/connections/schema";
-export * from "@otto/documents/schema";
 export * from "@otto/environments/schema";
-export * from "@otto/files/schema";
+export * from "@otto/library/schema";
 export * from "@otto/projects/schema";
 export { runActions } from "@otto/runs/action-schema";
 export * from "@otto/runs/schema";

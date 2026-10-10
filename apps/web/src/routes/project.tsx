@@ -666,7 +666,7 @@ function ProjectContent({
               className="aspect-4/5 bg-muted"
               render={
                 <Link
-                  to="/documents/$documentId"
+                  to="/library/documents/$documentId"
                   params={{ documentId: document.id }}
                 />
               }
@@ -684,7 +684,7 @@ function ProjectContent({
               className="aspect-square bg-muted"
               render={
                 <Link
-                  to="/files"
+                  to="/library"
                   search={{ project: projectId, open: file.id }}
                 />
               }

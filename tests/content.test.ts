@@ -16,20 +16,18 @@ import {
 } from "../packages/connections/src";
 import { connections } from "../packages/connections/src/schema";
 import {
+  archiveFile,
   createCollection,
   createDocument,
-  getDocument,
-  updateDocument,
-  updateDocumentCollection,
-} from "../packages/documents/src";
-import {
-  archiveFile,
   createFile,
+  getDocument,
   getFile,
   getFiles,
   readFile,
-} from "../packages/files/src";
-import { files } from "../packages/files/src/schema";
+  updateDocument,
+  updateDocumentCollection,
+} from "../packages/library/src";
+import { files } from "../packages/library/src/schema";
 import { openNativeStorage } from "../packages/sessions/src/native";
 import { createSkill, snapshotSkills } from "../packages/skills/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";

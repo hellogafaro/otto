@@ -2,6 +2,7 @@ import { PageTitle } from "@workspace/ui/components/page-title";
 import { cn } from "@workspace/ui/lib/utils";
 import type { ReactNode } from "react";
 import { FloatingChat } from "@/components/floating-chat";
+import { Topbar } from "@/components/topbar";
 
 // Scrollable page body: centered column with a title header (no subtitle).
 // Spacing follows the 4px-grid golden scale: 4 · 8 · 12 · 20 · 32 · 52.
@@ -12,6 +13,7 @@ export function Page({
   width = "default",
   cover,
   actions,
+  breadcrumbs,
   centered = false,
   floating = <FloatingChat about="this page" />,
   children,
@@ -26,8 +28,8 @@ export function Page({
    * (by default about "this page"); it rests under short content and stays
    * 16px above the bottom while the page scrolls. */
   floating?: ReactNode;
-  /** Page-level ghost icon buttons, shown right of the title. */
   actions?: ReactNode;
+  breadcrumbs?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -36,17 +38,19 @@ export function Page({
     // can't reliably blur what is behind it, so the glass would show the
     // page through it instead of frosting it.
     <div className="relative flex min-h-0 flex-1 flex-col">
+      {(actions || breadcrumbs) && (
+        <Topbar actions={actions}>{breadcrumbs}</Topbar>
+      )}
       {/* Content fades at both ends as it scrolls, under the top bar and
           off the bottom. The floating chat sits above the page, outside this
-          fade, so it never dims; content keeps 88px free at the end (the
-          bar's 40px, 16px below it and 32px above) so the last of it clears
-          the bar. No scrollbar, like the side panels: the fade says there is
+          fade, so it never dims; content keeps room for the composer and its
+          context row. No scrollbar, like the side panels: the fade says there is
           more, and the column never shifts when a page starts to scroll. */}
       <div className="no-scrollbar flex min-h-0 flex-1 scroll-fade-y flex-col overflow-y-auto">
         <div
           className={cn(
             "mx-auto flex w-full flex-1 flex-col gap-5 px-5 pt-5 md:pt-13",
-            floating ? "pb-22" : "pb-13",
+            floating ? "pb-31" : "pb-13",
             width === "wide" ? "max-w-5xl" : "max-w-3xl",
           )}
         >
@@ -58,9 +62,6 @@ export function Page({
             )}
           >
             <PageTitle className="min-w-0">{title}</PageTitle>
-            {actions && (
-              <div className="flex items-center gap-1">{actions}</div>
-            )}
           </header>
           {children}
         </div>

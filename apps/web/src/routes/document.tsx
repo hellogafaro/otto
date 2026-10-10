@@ -181,9 +181,9 @@ function DocumentView({
   return (
     <DetailView
       parent={{
-        label: "Documents",
+        label: "Library",
         icon: RiFileTextLine,
-        link: <Link to="/documents" />,
+        link: <Link to="/library" search={{ category: "documents" }} />,
       }}
       current={{ icon: RiFileTextLine }}
       title={document.title}

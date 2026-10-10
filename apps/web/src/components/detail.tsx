@@ -2,7 +2,7 @@ import {
   type RemixiconComponentType,
   RiAddLine,
   RiArrowDownSLine,
-  RiLayoutRightLine,
+  RiListCheck,
   RiMoreLine,
 } from "@remixicon/react";
 import {
@@ -190,10 +190,8 @@ export function WithPanel({
         side="right"
         className="absolute inset-y-0 h-auto *:data-[slot=sidebar-inner]:bg-transparent"
       >
-        {/* Its own top bar, level with the page's: the title on the section
-            titles' 16px line (4 + 12) and the toggle in the corner. */}
         <Topbar actions={<PanelToggle inPanel />}>
-          <h2 className="truncate pl-3 text-sm font-medium">{title}</h2>
+          <h2 className="truncate pl-2 text-sm font-medium">{title}</h2>
         </Topbar>
         {/* Stock shadcn sidebar spacing, no dividers: groups set sections
             apart. */}
@@ -257,7 +255,7 @@ export function PanelToggle({ inPanel = false }: { inPanel?: boolean }) {
           />
         }
       >
-        <RiLayoutRightLine />
+        <RiListCheck />
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

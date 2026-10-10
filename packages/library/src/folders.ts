@@ -18,8 +18,8 @@ import {
   requireWriter,
 } from "@otto/workspaces";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { folders } from "./file-schema";
 import { MAX_FOLDER_DEPTH } from "./limits";
-import { folders } from "./schema";
 
 /** Counts Documents placed in a folder; the Documents package cannot be imported here, so routes inject it. */
 export type DocumentFolderUse = (

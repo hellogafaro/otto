@@ -15,8 +15,7 @@ import {
   updateChat,
   updateParticipant,
 } from "@otto/chats";
-import { getDocument } from "@otto/documents";
-import { getFile, requireFileAudience } from "@otto/files";
+import { getDocument, getFile, requireFileAudience } from "@otto/library";
 import {
   archiveProject,
   createProject,

@@ -33,7 +33,12 @@ import {
   requireWriter,
 } from "@otto/workspaces";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { failQueuedRun, getRun, validateRunSources } from "./index";
+import {
+  failQueuedRun,
+  getRun,
+  type SnapshotDocuments,
+  validateRunSources,
+} from "./index";
 import { runEffects, runs, type UsageTokens } from "./schema";
 
 export interface Attempt {
@@ -102,6 +107,7 @@ export interface RuntimeOptions {
   ): Promise<void>;
   validateSchedule?: ValidateSchedule;
   authorizeSources?: AuthorizeSources;
+  snapshotDocuments?: SnapshotDocuments;
   deadlineMs?: number;
 }
 
@@ -125,6 +131,7 @@ export async function withRunAttempt<T>(
   validateSchedule?: ValidateSchedule,
   native?: NativeSessionStorage,
   authorizeSources?: AuthorizeSources,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   const descriptor = required(
     (await db.select().from(runs).where(eq(runs.id, identity.runId)))[0],
@@ -140,6 +147,7 @@ export async function withRunAttempt<T>(
         validateSchedule,
         native,
         authorizeSources,
+        snapshotDocuments,
       );
       return action(c, run);
     },
@@ -152,6 +160,7 @@ export async function assertRunAttempt(
   validateSchedule?: ValidateSchedule,
   native?: NativeSessionStorage,
   authorizeSources?: AuthorizeSources,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   const run = required(
     (await c.tx.select().from(runs).where(eq(runs.id, identity.runId)))[0],
@@ -175,6 +184,7 @@ export async function assertRunAttempt(
     validateSchedule,
     "continue",
     native,
+    snapshotDocuments,
   );
   const session =
     run.type === "prompt" || run.sessionId
@@ -217,6 +227,7 @@ export async function getRunExecutionModel(
   validateSchedule?: ValidateSchedule,
   native?: NativeSessionStorage,
   authorizeSources?: AuthorizeSources,
+  snapshotDocuments?: SnapshotDocuments,
 ) {
   return withRunAttempt(
     db,
@@ -235,6 +246,7 @@ export async function getRunExecutionModel(
     validateSchedule,
     native,
     authorizeSources,
+    snapshotDocuments,
   );
 }
 
@@ -246,6 +258,7 @@ export async function withRunEffect<T>(
   validateSchedule?: ValidateSchedule,
   native?: NativeSessionStorage,
   authorizeSources?: AuthorizeSources,
+  snapshotDocuments?: SnapshotDocuments,
 ): Promise<T> {
   if (
     !input.toolCallId ||
@@ -315,6 +328,7 @@ export async function withRunEffect<T>(
     validateSchedule,
     native,
     authorizeSources,
+    snapshotDocuments,
   );
 }
 
@@ -419,6 +433,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           options.validateSchedule,
           "launch",
           options.storage,
+          options.snapshotDocuments,
         );
         if (run.type !== "prompt")
           throw new DomainError("unavailable", "compute_provider_not_selected");
@@ -632,6 +647,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         options.validateSchedule,
         options.storage,
         options.authorizeSources,
+        options.snapshotDocuments,
       );
     const poll = setInterval(() => {
       if (checking || abort.signal.aborted) return;
@@ -1011,6 +1027,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
             options.validateSchedule,
             options.storage,
             options.authorizeSources,
+            options.snapshotDocuments,
           );
         } catch (error) {
           if (!(error instanceof DomainError)) throw error;

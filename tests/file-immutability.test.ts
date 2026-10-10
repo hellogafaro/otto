@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createFile, readFile, updateFile } from "../packages/files/src";
-import { files } from "../packages/files/src/schema";
+import { createFile, readFile, updateFile } from "../packages/library/src";
+import { files } from "../packages/library/src/schema";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { users } from "../packages/workspaces/src/schema";
 import { fixtureStorage } from "./fixtures/storage";

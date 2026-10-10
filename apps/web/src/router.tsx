@@ -16,9 +16,8 @@ import {
   validateChatsSearch,
 } from "@/routes/chats";
 import { DocumentPage } from "@/routes/document";
-import { DocumentsPage, validateDocumentsSearch } from "@/routes/documents";
-import { FilesPage, validateFilesSearch } from "@/routes/files";
 import { InboxPage } from "@/routes/inbox";
+import { LibraryPage, validateLibrarySearch } from "@/routes/library";
 import { ProjectPage, validateProjectSearch } from "@/routes/project";
 import { ProjectsPage, validateProjectsSearch } from "@/routes/projects";
 import {
@@ -76,17 +75,33 @@ const projectRoute = createRoute({
 const documentsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/documents",
-  validateSearch: validateDocumentsSearch,
-  component: function Documents() {
-    return <DocumentsPage search={documentsRoute.useSearch()} />;
+  validateSearch: validateLibrarySearch,
+  beforeLoad: ({ search }) => {
+    throw redirect({
+      to: "/library",
+      search: { ...search, category: "documents" },
+      replace: true,
+    });
   },
 });
 
 const documentRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: "/documents/$documentId",
+  path: "/library/documents/$documentId",
   component: function Document() {
     return <DocumentPage documentId={documentRoute.useParams().documentId} />;
+  },
+});
+
+const oldDocumentRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/documents/$documentId",
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: "/library/documents/$documentId",
+      params,
+      replace: true,
+    });
   },
 });
 
@@ -111,9 +126,18 @@ const scheduleRoute = createRoute({
 const filesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/files",
-  validateSearch: validateFilesSearch,
-  component: function Files() {
-    return <FilesPage search={filesRoute.useSearch()} />;
+  validateSearch: validateLibrarySearch,
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: "/library", search, replace: true });
+  },
+});
+
+const libraryRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/library",
+  validateSearch: validateLibrarySearch,
+  component: function Library() {
+    return <LibraryPage search={libraryRoute.useSearch()} />;
   },
 });
 
@@ -212,7 +236,9 @@ export const router = createRouter({
       chatRoute,
       documentsRoute,
       documentRoute,
+      oldDocumentRoute,
       filesRoute,
+      libraryRoute,
       schedulesRoute,
       scheduleRoute,
       tasksRoute,

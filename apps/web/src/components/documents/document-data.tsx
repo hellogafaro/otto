@@ -237,7 +237,7 @@ export function DocumentFolder({
       {folderId ? (
         <>
           <Link
-            to="/files"
+            to="/library"
             search={{ folder: folderId, project: projectId ?? undefined }}
           >
             {folder.data?.path.map((item) => item.title).join(" / ") ||
