@@ -29,6 +29,10 @@ and real Garage-backed Files persistence have passed; the three upload RSS caps
 remain failed, not waived. Actual external reset/invitation mail is a separate
 unconfigured integration, not a login gate.
 
+Agent-browser/computer capability work is now deferred to last by the user, not
+waiting for approval. Its proposal and failed sandbox evidence remain retained;
+no image acquisition, policy/security change or new probe is authorized.
+
 The following working acceptance map distinguishes completed proof from the
 current implementation work after `2ea56febc104c0e808273bb3a7c0a7187d8b2e91`.
 No aggregate all-green or computer/browser-complete claim is made.
@@ -41,9 +45,34 @@ No aggregate all-green or computer/browser-complete claim is made.
 | Incremental streaming | Actual native partial text reaches the sponsor before completion in full and floating Chat. Final budget-integrated independent acceptance passes private audience, actual realtime-only reconnect without page reload, Stop, current authority and publication deduplication/reload. Shared history still uses only authorized durable publication. |
 | Chat attachments and Folders | Current frozen-source replay passes actual isolated Chrome upload, exact bytes/native context, participant access/revocation, Folder create/move/list/reload and nonempty archive denial. The accompanying 83-case affected regression run includes attachment/source/Folder authority and native custody. No live configured-user Folder write is claimed. |
 | Dictation | The composed real STT → literal composer → self-only message → persistence/reload gate passed. Original helper policy failure remains intact; the separately sealed same-Chat readback passed with no new capture/STT/message/Run and exactly two acknowledged own read markers. Microphone, browser and helper-session cleanup passed. |
-| Skills | Current 83-case affected regression run includes native Skill materialization and current authority revocation, including visibility change during actual byte I/O. The additional controlled Chat proof preserves accepted selected instructions through a later edit, reads exact immutable supporting File bytes and denies queued launch after Skill archive. Live configured-user Skill use remains unverified; the saved Default is unchanged. |
-| HTTP MCP | The ordinary index.ts startup composes one exact origin and workspace/Connection/reference credential bindings; independent controlled native request, approval, denial, revocation and restart pass. The additional selected-Skill/Chat chain proves exact approval before one HTTP peer write, current-grant revocation, saved output and inference-disabled readback. No real remote endpoint/account is configured; durable MCP remains disabled. |
+| Skills | Current 83-case affected regression run includes native Skill materialization and current authority revocation, including visibility change during actual byte I/O. The additional controlled Chat proof preserves accepted selected instructions through a later edit, reads exact immutable supporting File bytes and denies queued launch after Skill archive. The real-UI controlled proof below also passes Skill creation, supporting-File picker/save, Agent Skill selection, composer admission and native byte read. Live configured-user Skill use remains unverified; the saved Default is unchanged. |
+| HTTP MCP | The ordinary index.ts startup composes one exact origin and workspace/Connection/reference credential bindings; independent controlled native request, approval, denial, revocation and restart pass. The additional selected-Skill/Chat chain proves exact approval before one HTTP peer write, current-grant revocation, saved output and inference-disabled readback. The real-UI controlled proof below passes exact Settings operation approval/confirmation, one loopback write, publication and page reload without replay. No real remote endpoint/account is configured; durable MCP remains disabled. |
 | Confined Agent computer | Required and implemented as one bounded offline Mastra tool using Docker primitives. Independent review found and reproduced unsafe SDK pull/reconnect/late-create behavior; that lifecycle was removed. Direct-Docker race probes and both owner and independent thirteen-case real-container/native-HTTP runs pass. Independent Docker events confirm all eighteen created containers were destroyed, with no leftovers. Reviewed durable configuration is active; no real-model computer invocation is claimed. Browser and persistent desktop execution remain unsupported. |
+
+The real-UI selected-Skills/MCP proof passed on source revision
+`f7d1d715365ef6503b1dae303cac1b61ec4dfd9b`. Normal signup/sign-in, Skill
+creation, supporting-File selection/save, Agent Skill checkbox/save, composer
+target/send, exact approval and its confirmation in Settings → Connections →
+Operations, publication and actual page reload all ran through the existing UI.
+Fixture setup alone used the installation domain/API for workspace, provider,
+Agent, uploaded File, Connection grant and empty Chat. Production server, queue,
+native memory and domain tools produced one finished/completed Run, one succeeded
+operation, one MCP write and two saved Messages. Exact supporting/generated
+File bytes and unchanged reload readback passed; no page errors or replay were
+observed. The deterministic model and loopback MCP/S3 peers do not prove real
+inference, external account compatibility or Garage certification.
+
+Evidence is `~/.capy/work/otto-pending-closure-20261010/skills-mcp-ui/`:
+`attempt-2b259bf5-99d3-4239-9f93-b7022e2ed389/result.json` SHA-256
+`dc6ce3b08a6dc1e594ea2e2841efd5cda5329d04c6f8e792b67e7b1ee5d259c4`;
+complete `SHA256SUMS` digest
+`506cdccfa7c000de0bfdd91059923c94a26c0db0e1fd7e597b40f4f82c96a4b5`.
+Owner inspection verified the harness, persisted assertions, original screenshots,
+seals and current source pins. Authority sources match the earlier negative
+fixture below, so denial/revocation/archive cases were not repeated. Joined
+owned browser/Vite/server/peer/PostgreSQL cleanup passed in the harness; owner
+recheck found the fixture PID, API/UI listeners and owned spool absent. No product
+fix was required; saved user data and the existing runtime were not changed.
 
 The additional controlled Skills/MCP chain used source checkpoint
 `0cecc9f669c584c45b4a8b4e1368b29b1ec0f568`, three disposable Runs, two
