@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { isIP } from "node:net";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { readConfig } from "../apps/server/src/config";
@@ -214,6 +215,45 @@ try {
       );
       break;
     }
+    case "garage-forward": {
+      await capture([
+        process.execPath,
+        "--no-env-file",
+        import.meta.filename,
+        "garage",
+      ]);
+      const address = await capture([
+        "docker",
+        "inspect",
+        "--format",
+        '{{(index .NetworkSettings.Networks "otto-v1-durable").IPAddress}}',
+        garage,
+      ]);
+      if (isIP(address) !== 4)
+        throw new Error("Expected the owned Garage internal IPv4 address");
+      await run([
+        "/usr/bin/ssh",
+        "-F",
+        resolve(homedir(), ".colima/_lima/colima/ssh.config"),
+        "-o",
+        "ControlMaster=no",
+        "-o",
+        "ControlPath=none",
+        "-o",
+        "ExitOnForwardFailure=yes",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ServerAliveInterval=15",
+        "-o",
+        "ServerAliveCountMax=3",
+        "-N",
+        "-L",
+        `127.0.0.1:43900:${address}:3900`,
+        "lima-colima",
+      ]);
+      break;
+    }
     case "server": {
       const storage =
         process.env.S3_ACCESS_KEY_ID !== undefined ||
@@ -255,7 +295,9 @@ try {
       break;
     }
     default:
-      throw new Error("Choose postgres, schema, garage, or server");
+      throw new Error(
+        "Choose postgres, schema, garage, garage-forward, or server",
+      );
   }
 } catch {
   console.error("Durable local service failed; no secret values were logged");

@@ -33,9 +33,11 @@ explicit and rejects interactive destructive proposals:
 "$BUN" --no-env-file "$REPO/scripts/durable-dev.ts" schema
 ```
 
-Garage provisioning is still gated on the approved storage credentials below.
-Skip this step while using the existing app without Files storage. After that
-one-time provisioning is complete, start the owned Garage container. The launcher verifies its
+Garage has been provisioned on this installation with its approved vault
+credentials, single-node layout and `otto-dev` bucket. Do not repeat provisioning
+or issue replacement keys. Start the existing Colima `default` profile if it is
+stopped (`colima start --profile default`); never reset or replace that VM.
+Then start the owned Garage container. The launcher verifies its
 ownership label, pinned image, command, bind mounts, private network and
 loopback-only port before reusing it. It never removes/recreates a mismatched
 container or resets data:
@@ -43,6 +45,23 @@ container or resets data:
 ```sh
 "$BUN" --no-env-file "$REPO/scripts/durable-dev.ts" garage
 ```
+
+Docker 29.5.2 does not activate published ports on an internal-only network.
+Keep Garage's internal network and start this owned foreground process in a
+separate terminal (or an owned detached process):
+
+```sh
+"$BUN" --no-env-file "$REPO/scripts/durable-dev.ts" garage-forward
+```
+
+It verifies the existing Garage through the same launcher, resolves its current
+internal IPv4 address, then uses Colima's existing SSH configuration to forward
+only `127.0.0.1:43900` to Garage port 3900. It creates no credentials, network,
+public listener or outbound route. It refuses a port conflict rather than
+stopping another listener. Stopping this wrapper signals only its own SSH child;
+re-run it after a VM stop or an SSH connection loss. Do not terminate unrelated
+forwards. If the container's address changes, restart this owned forward to
+resolve it again. Container recreation is not part of normal startup.
 
 The storage container is `otto-v1-durable-garage`; S3 is
 `http://127.0.0.1:43900`, bucket `otto-dev`, region `garage`. Its pinned official
@@ -90,8 +109,9 @@ reported at startup; they are not replaced with in-memory storage or fake auth.
 
 ## One-time storage provisioning
 
-Provisioning is separate from routine startup and requires approval for exactly
-these previously absent Otto/dev root names:
+Provisioning is separate from routine startup. The following exact Otto/dev
+root names were approved and created for this installation; existing records
+must never be overwritten by rerunning setup:
 
 | Name | Origin | Consumer |
 | --- | --- | --- |
@@ -163,11 +183,15 @@ storage peers, controlled provider fixtures and schema success alone do not
 establish these results. Keep source hashes, scoped results and remaining
 unverified gates in the native acceptance handoff.
 
-Do not run stop/restart commands while someone is using the live app. A
-non-disruptive check can read `/ready`, load the Sign in page in a separate
-browser context, and inspect persisted membership/configuration without
-changing it. Such reads are not a fresh restart or authenticated browser proof.
+Routine owned dev-server restarts and HMR refreshes are authorized for this
+local testing installation without another pause request. Check process ownership
+and active execution first; preserve saved data, authentication, provider choices
+and unrelated processes. Do not interrupt an external effect of uncertain outcome.
+A non-disruptive check can read `/ready`, load the Sign in page in a separate
+browser context, and inspect persisted membership/configuration without changing
+it. Such reads are not a fresh restart or authenticated browser proof.
 Keep prior controlled and durable-restart evidence labelled with its source and
-time rather than replaying a live restart unnecessarily. Provider/model setup is
-owned by the person using Settings; never copy credentials or overwrite their
-choices during startup or qualification.
+time rather than replaying a live restart unnecessarily. Provider/model assistance
+requires the confirmed endpoint and credential authority; never infer these from
+an old provider row or overwrite the person's current choices during startup or
+qualification.

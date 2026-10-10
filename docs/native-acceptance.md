@@ -36,11 +36,40 @@ Exactly the three affected tests ran; 23 others in the file were skipped.
 `~/.capy/work/otto-pending-closure-20261010/memory/diagnosis.md` records the bounded
 investigation; test-log SHA-256 is
 `12261b6459f38ed331dd5cfabca490d86edbc67cc1516a28c3d4f44bf396380f`.
-Original failed proof remains unchanged. Further memory work needs a bounded
-implementation scope; the Captain's earlier local-testing exception does not
-constitute Johan's acceptance of all-done.
+Original failed proof remains unchanged. The final authorized phase investigation
+also stopped without a demonstrated small fix: with native initialized, 50 MB
+ingress reached 286,256 KiB, S3 PUT 329,424 KiB, and read-back verification
+405,776 KiB. ArrayBuffers subsequently fell below 1 MB while RSS stayed about
+407 MB. Two supported-transport scratch candidates still exceeded every cap and
+were not shipped. `memory/phase/no-fix.md` records the stop point. No further
+investigation or production memory edit is active; the Captain's earlier
+local-testing exception does not constitute Johan's acceptance of all-done.
 
-The corrected bounded **live** continuation proof passed all 14 checks in `real-provider-continuity-live-cdb3065e-9164-48d6-b030-6409288a13eb/result.json`, SHA-256 `272557ade3fcfd80a26833e91325c4a50d8cca4f843310bfd87fd09b8643ddc0`. It used eight SDK calls across three finished Runs on the same sponsor-private Session: one Task creation, one successful rename, one exact authenticated approval for 30 human minutes, and Run 3's own published title/ID/30 answer backed by its actual `task_get`/`time_list` results with zero new effects. Independent authenticated readback/reload and no-inference server restart passed; all 282 source hashes and harness `0d12ea896f5d9a7021d9effbb8186a0d13b63928ae5b7d1cbff6c7c2b718fc47` remained unchanged. The first `task_update` produced an output-error that the model recovered from; this is not an error-free-tool claim. Observed usage is 14,065 input and 638 output tokens, not billing qualification. No more live calls are needed for this bounded gate. Durable Garage and person-configured Default-agent execution remain unverified; ordinary account/workspace authentication has since passed as recorded below.
+Garage is now provisioned with the three approved create-only Otto/dev root
+records, one `otto-dev` bucket, and a key granting read/write but not owner or
+bucket creation. Actual authenticated 4,480-byte content matched SHA-256
+`5be5ee1e6e02f5dbff61106d59349db131ee1b44b62264bcf5b6f6fb1c700ade`
+before and after restarting the same Garage v2.4.1 container; anonymous object
+access returned 403. A retained owned SSH forward binds only 127.0.0.1:43900,
+using Colima's existing configuration and the current internal container IP.
+It preserves the internal-only Docker network; no outbound bridge, public
+listener, new SSH credential or container replacement was introduced. The
+forwarding launcher passed type/format checks and independent source/listener
+review; the identified startup-documentation omission was corrected and checked.
+Exact sanitized proof is
+`~/.capy/work/otto-pending-closure-20261010/storage/storage-result.json`, SHA-256
+`d95c526ffacd9053f8d807dd0b69286a68aa4947d1d885c9ca0bb31508859ed1`.
+The owned Otto API was restarted with storage enabled and mail disabled; its
+startup reported server ready, `/ready` returned `{"status":"ready"}`, and Vite
+remained available on port 5173. PostgreSQL and Vite were not restarted; the
+pre-restart unfinished-Run count was zero. This activation is not authenticated
+Files proof. The actual Otto API still needs normal-account Files/browser proof;
+raw S3 durability does not substitute for it. Post-activation read-only checks
+confirm the original unverified account, installation claim and Hello Gafaro owner
+membership remain present: `storage/persisted-after-activation.json`, SHA-256
+`3a762587271ceade853fc998f462414a1d67aba17c32d1397ada722261b45d3a`.
+
+The corrected bounded **live** continuation proof passed all 14 checks in `real-provider-continuity-live-cdb3065e-9164-48d6-b030-6409288a13eb/result.json`, SHA-256 `272557ade3fcfd80a26833e91325c4a50d8cca4f843310bfd87fd09b8643ddc0`. It used eight SDK calls across three finished Runs on the same sponsor-private Session: one Task creation, one successful rename, one exact authenticated approval for 30 human minutes, and Run 3's own published title/ID/30 answer backed by its actual `task_get`/`time_list` results with zero new effects. Independent authenticated readback/reload and no-inference server restart passed; all 282 source hashes and harness `0d12ea896f5d9a7021d9effbb8186a0d13b63928ae5b7d1cbff6c7c2b718fc47` remained unchanged. The first `task_update` produced an output-error that the model recovered from; this is not an error-free-tool claim. Observed usage is 14,065 input and 638 output tokens, not billing qualification. No more live calls are needed for this bounded gate. Normal-account Files persistence and person-configured Default-agent execution remain unverified; ordinary account/workspace authentication has since passed as recorded below.
 
 The 10 October continuation correction supersedes the earlier live-ready checkpoint. The bounded live attempt in `real-provider-continuity-live-10ad072d-8034-43f9-9732-5a1552272d0c/result.json` failed at SDK invocation 4 with HTTP404 after the first Task was created; the exact approval did not finish and no third Run existed. Cleanup interruption is not the cause. The failed evidence remains unchanged.
 
