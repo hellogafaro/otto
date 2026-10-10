@@ -270,30 +270,6 @@ export function useChatRuns(chatId?: string) {
   });
 }
 
-export function useChatSessions(chatId?: string, agentId?: string) {
-  const { api, workspaceId } = useWorkspace();
-  return useInfiniteQuery({
-    queryKey: ["workspace", workspaceId, "chat", chatId, "sessions", agentId],
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) =>
-      read(
-        await api.chats[":id"].sessions.$get({
-          param: { workspaceId, id: chatId ?? "" },
-          query: {
-            agentId,
-            limit: "100",
-            sort: "createdAt",
-            order: "desc",
-            after: pageParam,
-          },
-        }),
-      ),
-    getNextPageParam: (page) => page.next ?? undefined,
-    enabled: Boolean(chatId),
-    retry: false,
-  });
-}
-
 export function useChatPermissions(
   chat: LiveChat | undefined,
   participants: ReturnType<typeof useParticipants>,

@@ -8,15 +8,11 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiFileCopyLine,
+  RiFolder3Line,
   RiGroupLine,
   RiMoreLine,
 } from "@remixicon/react";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Link,
   Navigate,
@@ -35,7 +31,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import { Checkbox } from "@workspace/ui/components/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -137,7 +132,6 @@ import {
   useChatMessages,
   useChatPermissions,
   useChatRuns,
-  useChatSessions,
   useChats,
   useParticipants,
   useRunActivity,
@@ -1343,34 +1337,9 @@ function ChatPanel({
     },
     onSuccess: () => setIds([]),
   });
-  const project = directory.projects.find((item) => item.id === chat.projectId);
   const fileIds = [...new Set(messages.flatMap((message) => message.fileIds))];
   return (
     <>
-      <Section title="Project">
-        {chat.projectId ? (
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={
-                <Link
-                  to="/projects/$projectId"
-                  params={{ projectId: chat.projectId }}
-                />
-              }
-            >
-              <RiBox3Line />
-              {project?.title ?? "Project"}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ) : (
-          <p>No project</p>
-        )}
-      </Section>
-      <Section title="Visibility">
-        <p>
-          {chat.visibility === "participants" ? "Participants" : "Workspace"}
-        </p>
-      </Section>
       <Section title="Participants" count={participants.data?.items.length}>
         <ParticipantPages participants={participants} />
         {!participants.error &&
@@ -1424,43 +1393,50 @@ function ChatPanel({
           })}
         {update.error && <p role="alert">{update.error.message}</p>}
         {canManage && (
-          <>
-            <WithPicker
-              value={ids}
-              onChange={setIds}
-              projectId={chat.projectId ?? undefined}
-              disabled={add.isPending}
-            />
-            <ContextPicker
-              label="New participant role"
-              value={role}
-              options={{
-                contributor: { label: "Contributor", icon: RiChat1Line },
-                viewer: { label: "Viewer", icon: RiChat1Line },
-              }}
-              onPick={(next) => setRole(next as typeof role)}
-              disabled={add.isPending}
-            />
-            <Button
-              variant="ghost"
-              disabled={!ids.length || add.isPending}
-              onClick={() => add.mutate()}
-            >
+          <Collapsible>
+            <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+              <RiAddLine data-icon="inline-start" />
               Add participants
-            </Button>
-            {add.error && <p role="alert">{add.error.message}</p>}
-          </>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <WithPicker
+                value={ids}
+                onChange={setIds}
+                projectId={chat.projectId ?? undefined}
+                disabled={add.isPending}
+              />
+              <ContextPicker
+                label="New participant role"
+                value={role}
+                options={{
+                  contributor: { label: "Contributor", icon: RiChat1Line },
+                  viewer: { label: "Viewer", icon: RiChat1Line },
+                }}
+                onPick={(next) => setRole(next as typeof role)}
+                disabled={add.isPending}
+              />
+              <Button
+                variant="ghost"
+                disabled={!ids.length || add.isPending}
+                onClick={() => add.mutate()}
+              >
+                Add selected
+              </Button>
+              {add.error && <p role="alert">{add.error.message}</p>}
+            </CollapsibleContent>
+          </Collapsible>
         )}
       </Section>
-      {fileIds.length > 0 && (
-        <Section title="Files" count={fileIds.length}>
-          {fileIds.map((id) => (
-            <SavedChatFile key={id} fileId={id} />
-          ))}
-        </Section>
-      )}
-      <Section title="Agent Runs">
-        <RunAdmission chat={chat} messages={messages} />
+      <Section title="Library">
+        {fileIds.map((id) => (
+          <SavedChatFile key={id} fileId={id} />
+        ))}
+        <SidebarMenuItem>
+          <SidebarMenuButton render={<Link to="/library" />}>
+            <RiFolder3Line />
+            Open Library
+          </SidebarMenuButton>
+        </SidebarMenuItem>
       </Section>
     </>
   );
@@ -2088,354 +2064,5 @@ function ParticipantPages({
         </Button>
       )}
     </>
-  );
-}
-
-function RunAdmission({
-  chat,
-  messages,
-}: {
-  chat: LiveChat;
-  messages: LiveMessage[];
-}) {
-  const directory = useDirectory();
-  const participants = useParticipants(chat.id);
-  const { canWrite } = useChatPermissions(chat, participants);
-  const { api, workspaceId, invalidate } = useWorkspace();
-  const [agentId, setAgentId] = useState("");
-  const [sessionId, setSessionId] = useState("");
-  const [body, setBody] = useState("");
-  const [taskId, setTaskId] = useState("");
-  const [documentIds, setDocumentIds] = useState<string[]>([]);
-  const [messageIds, setMessageIds] = useState<string[]>([]);
-  const sessions = useChatSessions(chat.id, agentId || undefined);
-  const docs = useInfiniteQuery({
-    initialPageParam: undefined as string | undefined,
-    queryKey: ["workspace", workspaceId, "chat", chat.id, "run-documents"],
-    queryFn: async ({ pageParam }) =>
-      read(
-        await api.documents.$get({
-          param: { workspaceId },
-          query: {
-            limit: "100",
-            projectId: chat.projectId ?? undefined,
-            archived: "false",
-            sort: "title",
-            after: pageParam,
-          },
-        }),
-      ),
-    getNextPageParam: (page) => page.next ?? undefined,
-    enabled: canWrite,
-    retry: false,
-  });
-  const tasks = useInfiniteQuery({
-    initialPageParam: undefined as string | undefined,
-    queryKey: ["workspace", workspaceId, "chat", chat.id, "run-tasks"],
-    queryFn: async ({ pageParam }) =>
-      read(
-        await api.tasks.$get({
-          param: { workspaceId },
-          query: {
-            projectId: chat.projectId ?? "",
-            limit: "100",
-            archived: "false",
-            sort: "title",
-            after: pageParam,
-          },
-        }),
-      ),
-    getNextPageParam: (page) => page.next ?? undefined,
-    enabled: canWrite && Boolean(chat.projectId),
-    retry: false,
-  });
-  const selected = directory.agents.find((agent) => agent.id === agentId);
-  const members =
-    participants.data?.items
-      .filter((person) => person.agentId && person.role === "contributor")
-      .flatMap((person) => (person.agentId ? [person.agentId] : [])) ?? [];
-  const available = directory.agents.filter(
-    (agent) => !agent.archived && members.includes(agent.id),
-  );
-  const request = useRef({ signature: "", id: "" });
-  const admit = useMutation({
-    mutationFn: async () => {
-      const input = {
-        chatId: chat.id,
-        agentId,
-        type: "prompt" as const,
-        body,
-        sessionId: sessionId || undefined,
-        taskId: taskId || undefined,
-        documentIds,
-        messageIds,
-      };
-      const signature = JSON.stringify(input);
-      if (signature !== request.current.signature)
-        request.current = { signature, id: crypto.randomUUID() };
-      return read(
-        await api.runs.$post({
-          param: { workspaceId },
-          json: { ...input, requestId: request.current.id },
-        }),
-      );
-    },
-    onSuccess: async () => {
-      setBody("");
-      request.current = { signature: "", id: "" };
-      await invalidate();
-    },
-  });
-  if (!canWrite)
-    return (
-      <>
-        <ParticipantPages participants={participants} />
-        {!participants.authorityPending && !participants.error && (
-          <p>Run admission requires contributor access.</p>
-        )}
-      </>
-    );
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        admit.mutate();
-      }}
-    >
-      <FieldGroup>
-        <Field>
-          <FieldLabel>Agent</FieldLabel>
-          <ContextPicker
-            label="Agent"
-            value={agentId || "none"}
-            options={{
-              none: { label: "Choose Agent", icon: RiChat1Line },
-              ...Object.fromEntries(
-                available.map((agent) => [
-                  agent.id,
-                  { label: agent.title, icon: RiChat1Line },
-                ]),
-              ),
-            }}
-            onPick={(id) => {
-              setAgentId(id === "none" ? "" : id);
-              setSessionId("");
-            }}
-            disabled={admit.isPending}
-          />
-        </Field>
-        <DirectoryPages kind="agents" />
-        <ParticipantPages participants={participants} />
-        {!available.length && (
-          <p>
-            {participants.hasNextPage || directory.agentsQuery.hasNextPage
-              ? "Load more participants and Agents to find an eligible contributor."
-              : "Add an eligible Agent as a contributor to this chat first."}
-          </p>
-        )}
-        {selected && (
-          <p>
-            {selected.model} ·{" "}
-            {selected.subscriptionId
-              ? "Uses this Agent’s configured account."
-              : "No configured AI account."}{" "}
-            Account and model are managed in{" "}
-            <Link to="/settings/agents/$agentId" params={{ agentId }}>
-              Agent settings
-            </Link>
-            .
-          </p>
-        )}
-        <p>
-          Native Runs use the selected Agent and authorized tools. Computer
-          tools require configured confinement; this development host is never
-          exposed.
-        </p>
-        <QueryState
-          pending={sessions.isPending}
-          error={sessions.error}
-          retry={sessions.refetch}
-        />
-        <ContextPicker
-          label="Private Session"
-          value={sessionId || "fresh"}
-          options={{
-            fresh: { label: "Fresh private Session", icon: RiChat1Line },
-            ...Object.fromEntries(
-              (sessions.data?.pages.flatMap((page) => page.items) ?? []).map(
-                (session) => [
-                  session.id,
-                  {
-                    label: `Continue ${session.createdAt ? new Date(session.createdAt).toLocaleString() : session.id}`,
-                    icon: RiChat1Line,
-                  },
-                ],
-              ),
-            ),
-          }}
-          onPick={(id) => setSessionId(id === "fresh" ? "" : id)}
-          disabled={admit.isPending || !agentId || Boolean(sessions.error)}
-        />
-        {sessions.hasNextPage && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={sessions.isFetchingNextPage}
-            onClick={() => sessions.fetchNextPage()}
-          >
-            More Sessions
-          </Button>
-        )}
-        <p>
-          Private context stays private. A continued Session must match the
-          accepted scope, account and model; conflicts require your explicit
-          fresh selection.
-        </p>
-        {chat.projectId && (
-          <>
-            <QueryState
-              pending={tasks.isPending}
-              error={tasks.error}
-              retry={tasks.refetch}
-            />
-            <ContextPicker
-              label="Task context"
-              value={taskId || "none"}
-              options={{
-                none: { label: "No Task", icon: RiBox3Line },
-                ...Object.fromEntries(
-                  (tasks.data?.pages.flatMap((page) => page.items) ?? []).map(
-                    (task) => [
-                      task.id,
-                      { label: task.title, icon: RiBox3Line },
-                    ],
-                  ),
-                ),
-              }}
-              onPick={(id) => setTaskId(id === "none" ? "" : id)}
-              disabled={admit.isPending}
-            />
-          </>
-        )}
-        {tasks.hasNextPage && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={tasks.isFetchingNextPage}
-            onClick={() => tasks.fetchNextPage()}
-          >
-            More Tasks
-          </Button>
-        )}
-        <Collapsible>
-          <CollapsibleTrigger render={<Button variant="ghost" type="button" />}>
-            Select execution context
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={admit.isPending}
-              onClick={() => {
-                setDocumentIds([]);
-                setMessageIds([]);
-              }}
-            >
-              Clear execution selections
-            </Button>
-            <QueryState
-              pending={docs.isPending}
-              error={docs.error}
-              retry={docs.refetch}
-            />
-            {docs.data?.pages
-              .flatMap((page) => page.items)
-              .map((document) => (
-                <Field key={document.id} orientation="horizontal">
-                  <Checkbox
-                    id={`run-doc-${document.id}`}
-                    checked={documentIds.includes(document.id)}
-                    disabled={
-                      admit.isPending ||
-                      (!documentIds.includes(document.id) &&
-                        documentIds.length >= 20)
-                    }
-                    onCheckedChange={(checked) =>
-                      setDocumentIds((ids) =>
-                        checked
-                          ? [...ids, document.id]
-                          : ids.filter((id) => id !== document.id),
-                      )
-                    }
-                  />
-                  <FieldLabel htmlFor={`run-doc-${document.id}`}>
-                    {document.title}
-                  </FieldLabel>
-                </Field>
-              ))}
-            {docs.hasNextPage && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={docs.isFetchingNextPage}
-                onClick={() => docs.fetchNextPage()}
-              >
-                More Documents
-              </Button>
-            )}
-            {messages.slice(-100).map((message) => (
-              <Field key={message.id} orientation="horizontal">
-                <Checkbox
-                  id={`run-message-${message.id}`}
-                  checked={messageIds.includes(message.id)}
-                  disabled={admit.isPending}
-                  onCheckedChange={(checked) =>
-                    setMessageIds((ids) =>
-                      checked
-                        ? [...ids, message.id]
-                        : ids.filter((id) => id !== message.id),
-                    )
-                  }
-                />
-                <FieldLabel htmlFor={`run-message-${message.id}`}>
-                  {message.body.slice(0, 80)}
-                </FieldLabel>
-              </Field>
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
-        <Field>
-          <FieldLabel htmlFor="run-body">Prompt</FieldLabel>
-          <Textarea
-            id="run-body"
-            required
-            maxLength={100000}
-            value={body}
-            disabled={admit.isPending}
-            onChange={(event) => setBody(event.target.value)}
-          />
-        </Field>
-        {admit.error && (
-          <p role="alert">
-            {admit.error.message} No account, model or Session fallback was
-            attempted.
-          </p>
-        )}
-        <Button
-          type="submit"
-          disabled={
-            chat.archived ||
-            !agentId ||
-            !available.some((agent) => agent.id === agentId) ||
-            !body.trim() ||
-            admit.isPending ||
-            !selected?.subscriptionId
-          }
-        >
-          {admit.isPending ? "Admitting Run" : "Start Run"}
-        </Button>
-        {chat.archived && <p>Restore the chat before starting a new Run.</p>}
-      </FieldGroup>
-    </form>
   );
 }

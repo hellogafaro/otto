@@ -22,6 +22,31 @@ Use normal authenticated separate user/browser contexts. The finite multiplayer 
 
 ## Current verdicts
 
+### Simplified Chat sidebar
+
+The right Chat sidebar now contains Participants and Library only. Participant
+addition is collapsed until requested; existing owner-only role/removal controls
+remain. Attached files retain normal authorized previews and an Open Library link.
+Project, Visibility and the manual Run form are removed, including the unused
+Session-discovery hook and its eager context queries. Normal composer send,
+active Run controls, approvals and questions remain unchanged. Existing workspace
+Chat visibility is not converted to participants-only by hiding its label.
+
+Passed: web types, scoped Biome, DESIGN lint, the existing full/new/floating
+composer scenario, and the new two-human sidebar scenario (6.2s), covering saved
+attachment reload, viewer read-only controls, collapsed participant addition and
+absence of Session discovery. Initial new-test failures were route-readiness and
+counted-heading selector mistakes; their evidence is retained. The historical
+manual-Run-form case in `ui-chat-actions.spec.ts` still targets the removed surface
+and was not migrated or included; this is not a full browser-suite pass.
+
+Evidence is in `~/.capy/work/otto-resume-20261010/chat-sidebar/`: source manifest
+SHA-256 `3f6d9ff195204ccb24f759893950e81f18410903259f6d3775de1867a44e548b`,
+`verified-browser.log` SHA-256
+`1cc2ce2b5f632774e6911139848a46ea9999b5cc6cd5a488f9e8f066d683e58b`, and
+the inspected `verified-results/**/chat-sidebar.png`. No backend restart,
+data/access migration, external inference or remote push was needed.
+
 ### Library and lean interface integration
 
 Implemented on local main over `88fe9b8e148e158e54ad4b9233cb88525fe019c9`.
