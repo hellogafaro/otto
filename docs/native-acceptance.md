@@ -90,6 +90,20 @@ Skills/MCP attempts remain consumed failures; exact output, SMTP and confined
 agent-browser qualification remain unresolved under their existing gates.
 No remote push, deployment, production build or further inference occurred.
 
+Local main checkpoint `1cdc4bbd668e97c4547661843389937d57ccc6bc` includes the
+requested20px SVG with unchanged32px target. One final main integration pass
+passed root/web types and the two changed Chat/rail interaction tests; the full
+suite was not repeated. Existing Vite PID18753 continues HMR on5173. The owned
+API was gracefully reloaded from main as PID36998 after zero-effect snapshots,
+retaining only the five approved startup values in memory. Health/readiness and
+311 source pins passed; user/session/saved-File counts remained1/1/2. No database,
+storage or frontend restart occurred. Receipt:
+`~/.capy/work/otto-resume-20261010/settings-review/activation-receipt.json`;
+source-manifest SHA256:
+`cfd8a9e50b110a23397c86b6a48434940d62cda2d9ddf111ed3153111d088d79`.
+Existing-user authenticated reload was not exercised through the person's
+browser; controlled authenticated UI/reload proof remains separate.
+
 ### Prior committed runtime checkpoint
 
 The reviewed anonymous-MCP and outcome-classification changes were integrated
