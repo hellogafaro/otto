@@ -33,7 +33,9 @@ explicit and rejects interactive destructive proposals:
 "$BUN" --no-env-file "$REPO/scripts/durable-dev.ts" schema
 ```
 
-Start the already-provisioned Garage container. The launcher verifies its
+Garage provisioning is still gated on the approved storage credentials below.
+Skip this step while using the existing app without Files storage. After that
+one-time provisioning is complete, start the owned Garage container. The launcher verifies its
 ownership label, pinned image, command, bind mounts, private network and
 loopback-only port before reusing it. It never removes/recreates a mismatched
 container or resets data:
@@ -80,9 +82,10 @@ owns an existing API or Vite listener before stopping it. The server wrapper
 forwards only its allowlisted config, not legacy web-UI credentials or ambient
 model-provider keys. Valid auth configuration is required. When both S3 key
 fields are absent it starts without storage; one missing key still fails
-configuration. With all mail fields absent, it starts without mail and new
-signup is disabled. The normal login screen remains available, but an empty
-installation has no account to sign in with. These unavailable services are
+configuration. With all mail fields absent, ordinary email/password signup and
+sign-in remain available; only password-reset and invitation delivery are
+unavailable. The current installation already has its legitimate account and
+Hello Gafaro workspace; do not replay its one-time bootstrap. These unavailable services are
 reported at startup; they are not replaced with in-memory storage or fake auth.
 
 ## One-time storage provisioning
@@ -134,6 +137,8 @@ installation. That operation grants the selected identity owner membership and
 creates the default Agent; it does not assert verified email ownership. Existing
 workspace access instead requires an authorized invitation's private mailed
 token and current recipient/issuer permissions, not an email match or ID alone.
+That initial claim has already completed on this installation. Routine startup
+never needs another signup, bootstrap, password reset or provider setup.
 
 Password reset and invitation delivery are unavailable until approved SMTP is
 configured: `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS`, and paired
@@ -157,3 +162,12 @@ process restart and authenticated application persistence/reload. Disposable
 storage peers, controlled provider fixtures and schema success alone do not
 establish these results. Keep source hashes, scoped results and remaining
 unverified gates in the native acceptance handoff.
+
+Do not run stop/restart commands while someone is using the live app. A
+non-disruptive check can read `/ready`, load the Sign in page in a separate
+browser context, and inspect persisted membership/configuration without
+changing it. Such reads are not a fresh restart or authenticated browser proof.
+Keep prior controlled and durable-restart evidence labelled with its source and
+time rather than replaying a live restart unnecessarily. Provider/model setup is
+owned by the person using Settings; never copy credentials or overwrite their
+choices during startup or qualification.
