@@ -249,6 +249,7 @@ function Palette({
       {!nothing && (
         <TabBar
           label="Categories"
+          size="compact"
           className="flex-nowrap px-1.75 py-2"
           tabs={categories.map((value) => ({ value, label: labels[value] }))}
           value={category}

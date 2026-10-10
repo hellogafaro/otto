@@ -782,7 +782,8 @@ selected. 720px wide, 15% from the top, card radius. A borderless 48px search
 field over a full-width divider; the shared 32px tabs for categories (Tab
 switches) 8px above and below; 36px rows that match
 names containing the query, with edges that fade while more results scroll;
-a 48px footer with key hints. Categories: All, Tasks, People, Projects,
+a 48px footer with key hints. Category tabs use the 28px compact Button variant.
+Categories: All, Tasks, People, Projects,
 Documents, Files, Actions. Picking a result goes there (a file opens
 in the viewer). There is no project dropdown; task results retain the current
 route's project or the existing first accessible project fallback. The Projects

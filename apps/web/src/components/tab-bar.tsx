@@ -12,13 +12,14 @@ export type Tab<T extends string> = {
 };
 
 // Tabs, one pattern everywhere (a project's sections, the command palette's
-// categories): 32px buttons 4px apart, the open one filled (secondary), the
+// categories): 32px buttons (28px compact) 4px apart, the open one filled (secondary), the
 // rest ghost; an optional icon, and a count right after the label.
 export function TabBar<T extends string>({
   label,
   tabs,
   value,
   onChange,
+  size = "sm",
   className,
 }: {
   /** What the tabs choose, for screen readers. */
@@ -26,6 +27,7 @@ export function TabBar<T extends string>({
   tabs: Tab<T>[];
   value: T;
   onChange: (value: T) => void;
+  size?: "sm" | "compact";
   className?: string;
 }) {
   return (
@@ -40,7 +42,7 @@ export function TabBar<T extends string>({
           role="tab"
           aria-selected={tab.value === value}
           variant={tab.value === value ? "secondary" : "ghost"}
-          size="sm"
+          size={size}
           onClick={() => onChange(tab.value)}
         >
           {tab.icon && <tab.icon data-icon="inline-start" />}
