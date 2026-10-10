@@ -67,11 +67,23 @@ otto_secrets() {
 otto_secrets server
 ```
 
-The API binds `127.0.0.1:45175`. Keep Vite on `http://localhost:5173`, using its
-existing HMR command and API proxy; do not run a production build. Verify who
+The API binds `127.0.0.1:45175`. Start Vite on `http://localhost:5173` with its
+existing API proxy and HMR, not a production build:
+
+```sh
+cd "$REPO/apps/web"
+"$BUN" --no-env-file --bun vite --host 127.0.0.1 --port 5173 --strictPort
+```
+
+Verify who
 owns an existing API or Vite listener before stopping it. The server wrapper
 forwards only its allowlisted config, not legacy web-UI credentials or ambient
-model-provider keys. It does not start without valid auth and S3 configuration.
+model-provider keys. Valid auth configuration is required. When both S3 key
+fields are absent it starts without storage; one missing key still fails
+configuration. With all mail fields absent, it starts without mail and new
+signup is disabled. The normal login screen remains available, but an empty
+installation has no account to sign in with. These unavailable services are
+reported at startup; they are not replaced with in-memory storage or fake auth.
 
 ## One-time storage provisioning
 
@@ -111,9 +123,18 @@ validation stays unchanged, and no saved data is migrated.
 ## Authentication and restarts
 
 No users, email verification, memberships or provider accounts are created by
-this launcher. Normal signup requires an approved Resend sender/key pair
-(`MAIL_FROM`, `RESEND_API_KEY`); no alternative mail backend or auth bypass is
-provided. A new empty database has no verified user until legitimate enrollment.
+this launcher. Normal signup requires an approved SMTP server and sender:
+`MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS`, and, for authenticated
+submission, the paired `SMTP_USER` and `SMTP_PASSWORD`. Inject these through
+the approved Infisical scope; the launcher forwards them without saving them.
+Set `SMTP_TLS=tls` for implicit TLS (usually port 465), or `starttls` for a
+required STARTTLS upgrade (usually port 587). Certificate and hostname checks
+remain enabled. `none` is limited to an unauthenticated loopback test sink;
+it is not a remote mail configuration. See [mail configuration](operations.md#smtp-mail)
+for the complete contract. No real SMTP account or recipient is currently
+approved/configured, and local captured mail is not external-deliverability proof.
+A new empty database has no verified user until legitimate enrollment; there
+is no verification bypass.
 
 Stopping the foreground PostgreSQL/server wrapper signals only its child.
 For an explicit PostgreSQL stop, use `pg_ctl -D` against this exact durable

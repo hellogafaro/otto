@@ -5,7 +5,7 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { readConfig } from "../apps/server/src/config";
 import { startServer } from "../apps/server/src/lifecycle";
-import { createResendMail } from "../apps/server/src/mail";
+import { createSmtpMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import { createChat, createParticipant } from "../packages/chats/src";
@@ -22,6 +22,7 @@ import {
   fixtureEncryptionKey,
   nativeModelAuthorization,
 } from "./fixtures/native-model";
+import { startSmtp } from "./fixtures/smtp";
 import { startPostgres } from "./postgres";
 
 const cwd = new URL("../", import.meta.url).pathname;
@@ -234,6 +235,7 @@ describe("server operations on private PostgreSQL", () => {
         readConfig({
           ...config(),
           PORT: "0",
+          SMTP_PORT: undefined,
           UPLOAD_SPOOL_BYTES: undefined,
           TRANSFER_BASE_MS: undefined,
           TRANSFER_MIN_BYTES_PER_SECOND: undefined,
@@ -452,36 +454,20 @@ describe("server operations on private PostgreSQL", () => {
     expect(child.stdout.toString().includes(signing)).toBe(false);
     expect(child.stdout.toString()).toContain("OTTO_ORIGIN");
   });
-  it("delivers verification and reset to a local HTTP sink, and revokes old sessions", async () => {
-    const messages: { subject: string; text: string; to: string[] }[] = [];
+  it("delivers verification and reset to a local SMTP server, and revokes old sessions", async () => {
     let reject = false;
-    const sink = Bun.serve({
-      hostname: "127.0.0.1",
-      port: 0,
-      async fetch(request) {
-        if (reject)
-          return new Response("provider error must stay private", {
-            status: 503,
-          });
-        messages.push(await request.json());
-        return Response.json({ id: crypto.randomUUID() });
+    const sink = await startSmtp({
+      onData() {
+        if (reject) return new Error("provider error must stay private");
       },
     });
-    // Local protocol fixture: only destination is replaced; actual fetch and provider payload run.
-    const transport: typeof fetch = Object.assign(
-      (
-        input: Parameters<typeof fetch>[0],
-        init?: Parameters<typeof fetch>[1],
-      ) => {
-        expect(String(input)).toBe("https://api.resend.com/emails");
-        return fetch(sink.url, init);
-      },
-      { preconnect: fetch.preconnect },
-    );
-    const mail = createResendMail(
-      { from: "otto@example.test", apiKey: signing },
-      transport,
-    );
+    const messages = sink.messages;
+    const mail = createSmtpMail({
+      from: "otto@example.test",
+      host: sink.host,
+      port: sink.port,
+      tls: "none",
+    });
     let app: ReturnType<typeof createApp>;
     const http = Bun.serve({
       hostname: "127.0.0.1",
@@ -591,8 +577,11 @@ describe("server operations on private PostgreSQL", () => {
       ).rejects.toThrow("Mail delivery uncertain");
     } finally {
       await boss.stop();
-      await sink.stop(true);
-      await http.stop(true);
+      try {
+        await sink.close();
+      } finally {
+        await http.stop(true);
+      }
     }
   });
 });

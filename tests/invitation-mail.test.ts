@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { z } from "zod";
 import { sendInvitation } from "../apps/server/src/invitations";
-import { createResendMail } from "../apps/server/src/mail";
+import { createSmtpMail } from "../apps/server/src/mail";
 import {
   claimInstallation,
   createInvitation,
@@ -9,14 +8,10 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { users } from "../packages/workspaces/src/schema";
+import { startSmtp } from "./fixtures/smtp";
 import { startPostgres } from "./postgres";
 
-const message = z.object({
-  to: z.array(z.string()),
-  subject: z.string(),
-  text: z.string(),
-});
-describe("invitation delivery to a local HTTP sink", () => {
+describe("invitation delivery to a local SMTP server", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let invitation: Awaited<ReturnType<typeof createInvitation>>;
   beforeAll(async () => {
@@ -54,32 +49,19 @@ describe("invitation delivery to a local HTTP sink", () => {
     await database?.stop();
   });
   it("uses the committed recipient and stable retry identity without claiming a provider error succeeded", async () => {
-    const received: z.infer<typeof message>[] = [];
-    const keys: (string | null)[] = [];
     let reject = false;
-    const sink = Bun.serve({
-      hostname: "127.0.0.1",
-      port: 0,
-      async fetch(request) {
-        keys.push(request.headers.get("idempotency-key"));
-        received.push(message.parse(await request.json()));
-        return reject
-          ? new Response("private provider detail", { status: 503 })
-          : Response.json({ id: crypto.randomUUID() });
+    const sink = await startSmtp({
+      onData() {
+        if (reject) return new Error("private provider detail");
       },
     });
-    const request: typeof fetch = Object.assign(
-      (
-        _input: Parameters<typeof fetch>[0],
-        init?: Parameters<typeof fetch>[1],
-      ) => fetch(sink.url, init),
-      { preconnect: fetch.preconnect },
-    );
-    // Same memory-only inert fixture data as existing auth/mail tests; no external account.
-    const mail = createResendMail(
-      { from: "otto@example.test", apiKey: crypto.randomUUID() },
-      request,
-    );
+    const received = sink.messages;
+    const mail = createSmtpMail({
+      from: "otto@example.test",
+      host: sink.host,
+      port: sink.port,
+      tls: "none",
+    });
     const options = { mail, origin: "http://localhost:43001", invitation };
     try {
       expect(await sendInvitation(options)).toBe("sent");
@@ -87,8 +69,8 @@ describe("invitation delivery to a local HTTP sink", () => {
       expect(received[0]?.to).toEqual([invitation.email]);
       expect(received[0]?.text).toContain(invitation.id);
       expect(received[0]?.text).toContain(options.origin);
-      expect(keys[0]).toBe(keys[1]);
-      expect(Boolean(keys[0])).toBe(true);
+      expect(received[0]?.messageId).toBe(received[1]?.messageId);
+      expect(Boolean(received[0]?.messageId)).toBe(true);
       reject = true;
       expect(await sendInvitation(options)).toBe("uncertain");
       expect(received.length).toBe(3);
@@ -109,7 +91,7 @@ describe("invitation delivery to a local HTTP sink", () => {
       ).toBe("unavailable");
       expect(received.length).toBe(3);
     } finally {
-      await sink.stop(true);
+      await sink.close();
     }
   });
 });

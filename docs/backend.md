@@ -1,5 +1,7 @@
 # Backend implementation notes
 
+Current mail uses standard SMTP; the old HTTP-mail observations below are historical. See [the current configuration contract](operations.md#smtp-mail) and [native acceptance](native-acceptance.md).
+
 Current Skills split: [model, API, transfer and complete relation inventory](skills.md). The dated baseline descriptions and verdicts below are historical; this amendment has a new source freeze and requires affected independent review.
 
 Current integration extends reviewed baseline `306bd2d4cbdda76c5d91f5d50763390865fe33ce`; the creator/account/domain cleanup remains independently unreviewed. See [current scope and proof](creator-skills.md) and separately named `domain-cleanup-*` evidence; older counts/verdicts below are historical. The backend composes sixteen packages, including generated UI, database plumbing and dependency-free shared primitives. Business domains own queries and transitions; the server composes authorization, transports and external execution. Collections remain in Documents; reusable Skills now own a separate domain/table. The dependency check rejects business-operation cycles and private-table imports from operations; schema-only lazy references may form physical relational cycles. Product UI remains generated boilerplate.

@@ -50,7 +50,11 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Inject S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Inject S3_SECRET_ACCESS_KEY}
       MAIL_FROM: ${MAIL_FROM:?Set verified sender}
-      RESEND_API_KEY: ${RESEND_API_KEY:?Inject RESEND_API_KEY}
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP host}
+      SMTP_PORT: ${SMTP_PORT:?Set SMTP port}
+      SMTP_TLS: ${SMTP_TLS:?Set tls or starttls}
+      SMTP_USER: ${SMTP_USER:?Inject SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Inject SMTP_PASSWORD}
     depends_on:
       schema: {condition: service_completed_successfully}
       garage: {condition: service_started}

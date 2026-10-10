@@ -1,5 +1,7 @@
 # Backend completion checkpoint
 
+The HTTP mail fixture below is historical. Current signup, reset and invitations use standard SMTP; see [configuration](operations.md#smtp-mail) and [current acceptance](native-acceptance.md).
+
 Current managed Pi/CLIProxyAPI implementation and qualification: [checkpoint](pi-implementation.md) and [source map](pi-gateway-plan.md). The earlier checkpoints and ACP/native-computer observations below are historical; they do not qualify the replacement.
 
 Current integrated source extends reviewed baseline `03192913bfc93a733e721d270b5cd1c98c0a2c34`. Otto owns this backend integration. All author components were inspected and authorized by root; fresh combined Otto review is still required before staging or a final commit. No product UI work, Notion, deployment, remote or push.

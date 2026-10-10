@@ -6,7 +6,7 @@ import WebSocket from "ws";
 import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
-import { createResendMail } from "../apps/server/src/mail";
+import { createSmtpMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
 import { authorizeRunSources } from "../apps/server/src/run-sources";
@@ -40,6 +40,7 @@ import {
   fixtureEncryptionKey,
   nativeModelAuthorization,
 } from "./fixtures/native-model";
+import { type SmtpMessage, startSmtp } from "./fixtures/smtp";
 import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
@@ -62,9 +63,9 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
   let realtime: ReturnType<typeof createRealtime>;
   let origin: string;
   let cookie: string;
-  let mailSink: ReturnType<typeof Bun.serve>;
-  let mail: ReturnType<typeof createResendMail>;
-  const received: { to: string[]; text: string; subject: string }[] = [];
+  let mailSink: Awaited<ReturnType<typeof startSmtp>>;
+  let mail: ReturnType<typeof createSmtpMail>;
+  let received: SmtpMessage[];
   async function createHuman(email: string) {
     const password = crypto.randomUUID() + crypto.randomUUID();
     const send = (path: string, body: unknown) =>
@@ -225,31 +226,14 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
       },
     });
     origin = `http://127.0.0.1:${server.port}`;
-    mailSink = Bun.serve({
-      hostname: "127.0.0.1",
-      port: 0,
-      async fetch(request) {
-        received.push(
-          z
-            .object({
-              to: z.array(z.string()),
-              text: z.string(),
-              subject: z.string(),
-            })
-            .parse(await request.json()),
-        );
-        return Response.json({ id: crypto.randomUUID() });
-      },
+    mailSink = await startSmtp();
+    received = mailSink.messages;
+    mail = createSmtpMail({
+      from: "otto@example.test",
+      host: mailSink.host,
+      port: mailSink.port,
+      tls: "none",
     });
-    const request: typeof fetch = Object.assign(
-      (_url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-        fetch(mailSink.url, init),
-      { preconnect: fetch.preconnect },
-    );
-    mail = createResendMail(
-      { from: "otto@example.test", apiKey: crypto.randomUUID() },
-      request,
-    );
     auth = createAuth(database.db, authSecret, origin, mail);
     app = createApp({
       nativeStorage: native,
@@ -308,8 +292,11 @@ describe("HTTP to PostgreSQL queue to deterministic native runtime", () => {
     await boss?.stop();
     realtime?.close();
     await server?.stop(true);
-    await mailSink?.stop(true);
-    await database?.stop();
+    try {
+      await mailSink?.close();
+    } finally {
+      await database?.stop();
+    }
   });
   async function nativeHistory(id: string) {
     const row = await saved(id);

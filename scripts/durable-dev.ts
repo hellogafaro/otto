@@ -215,6 +215,9 @@ try {
       break;
     }
     case "server": {
+      const storage =
+        process.env.S3_ACCESS_KEY_ID !== undefined ||
+        process.env.S3_SECRET_ACCESS_KEY !== undefined;
       const supplied = process.env.ENCRYPTION_KEY;
       const encryptionKey =
         supplied && /^[0-9a-f]{64}$/i.test(supplied)
@@ -228,13 +231,17 @@ try {
         OTTO_ORIGIN: "http://localhost:5173",
         HOST: "127.0.0.1",
         PORT: "45175",
-        S3_ENDPOINT: "http://127.0.0.1:43900",
+        S3_ENDPOINT: storage ? "http://127.0.0.1:43900" : undefined,
         S3_REGION: "garage",
-        S3_BUCKET: "otto-dev",
+        S3_BUCKET: storage ? "otto-dev" : undefined,
         S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID,
         S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY,
         MAIL_FROM: process.env.MAIL_FROM,
-        RESEND_API_KEY: process.env.RESEND_API_KEY,
+        SMTP_HOST: process.env.SMTP_HOST,
+        SMTP_PORT: process.env.SMTP_PORT,
+        SMTP_TLS: process.env.SMTP_TLS,
+        SMTP_USER: process.env.SMTP_USER,
+        SMTP_PASSWORD: process.env.SMTP_PASSWORD,
       };
       readConfig(env);
       await run(

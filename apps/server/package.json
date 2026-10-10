@@ -36,6 +36,7 @@
     "@otto/subscriptions": "workspace:*",
     "@otto/skills": "workspace:*",
     "@mastra/core": "1.75.0",
-    "@otto/secrets": "workspace:*"
+    "@otto/secrets": "workspace:*",
+    "nodemailer": "10.1.0"
   }
 }

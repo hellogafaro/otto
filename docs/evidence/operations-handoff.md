@@ -1,5 +1,7 @@
 # Operations lane handoff
 
+Historical checkpoint only. The Resend adapter/configuration described here has been removed; the current contract is [SMTP mail](../operations.md#smtp-mail), qualified in [native acceptance](../native-acceptance.md).
+
 Baseline: `03192913bfc93a733e721d270b5cd1c98c0a2c34`. Lane: `thr_dq35gzttru`; coordinating thread: `thr_g6sbbikxpg`; main integrator: `thr_kfugrrgbs4`.
 
 Implemented server config validation, safe startup/shutdown and partial cleanup, migration serialization, dependency readiness, verification/reset delivery through a small Resend boundary, private S3 integrity/reconciliation, workspace member-directory/role operations, and self-host configuration/runbook. No package or lockfile mutation was needed beyond the frozen install. No product UI code changed.

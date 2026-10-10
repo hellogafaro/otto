@@ -31,7 +31,7 @@ import { createAuth } from "./auth";
 import type { ServerConfig } from "./config";
 import type { ConnectionOptions } from "./connections";
 import { createLogger } from "./logger";
-import { createResendMail, type Mail } from "./mail";
+import { createSmtpMail, type Mail } from "./mail";
 import { startQueue } from "./queue";
 import { createRealtime, type RealtimeData } from "./realtime";
 import { authorizeRunSources } from "./run-sources";
@@ -337,10 +337,17 @@ export async function startServer(
     const mail =
       services.mail !== undefined
         ? services.mail
-        : config.MAIL_FROM && config.RESEND_API_KEY
-          ? createResendMail({
+        : config.MAIL_FROM &&
+            config.SMTP_HOST &&
+            config.SMTP_PORT &&
+            config.SMTP_TLS
+          ? createSmtpMail({
               from: config.MAIL_FROM,
-              apiKey: config.RESEND_API_KEY,
+              host: config.SMTP_HOST,
+              port: config.SMTP_PORT,
+              tls: config.SMTP_TLS,
+              user: config.SMTP_USER,
+              password: config.SMTP_PASSWORD,
             })
           : null;
     const options = {

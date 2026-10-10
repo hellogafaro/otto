@@ -3,11 +3,12 @@ import { expect, it } from "vitest";
 import { z } from "zod";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
-import { createResendMail } from "../apps/server/src/mail";
+import { createSmtpMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
 import { openNativeStorage } from "../packages/sessions/src/native";
 import { claimInstallation } from "../packages/workspaces/src";
 import { invitations } from "../packages/workspaces/src/schema";
+import { startSmtp } from "./fixtures/smtp";
 import { startPostgres } from "./postgres";
 
 it("delivers committed invitations through HTTP, verifies recipients and guards human ownership on role changes", async () => {
@@ -19,19 +20,9 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     workers: false,
     install: true,
   });
-  const received: { to: string[]; subject: string; text: string }[] = [];
   let rejectMail = false;
-  const sink = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    async fetch(request) {
-      const message = z
-        .object({
-          to: z.array(z.string()),
-          subject: z.string(),
-          text: z.string(),
-        })
-        .parse(await request.json());
+  const sink = await startSmtp({
+    async onData(message) {
       if (message.subject === "Your Otto invitation") {
         const invitationId = message.text.match(
           /Invitation ID: ([a-f0-9-]+)/,
@@ -47,19 +38,16 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
           )[0]?.email,
         ).toBe(message.to[0]);
       }
-      received.push(message);
-      return new Response(null, { status: rejectMail ? 503 : 200 });
+      if (rejectMail) return new Error("private provider detail");
     },
   });
-  const request: typeof fetch = Object.assign(
-    (_url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-      fetch(sink.url, init),
-    { preconnect: fetch.preconnect },
-  );
-  const mail = createResendMail(
-    { from: "otto@example.test", apiKey: crypto.randomUUID() },
-    request,
-  );
+  const received = sink.messages;
+  const mail = createSmtpMail({
+    from: "otto@example.test",
+    host: sink.host,
+    port: sink.port,
+    tls: "none",
+  });
   let app: ReturnType<typeof createApp>;
   const server = Bun.serve({
     hostname: "127.0.0.1",
@@ -343,9 +331,12 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     ).toBe(403);
   } finally {
     await server.stop(true);
-    await sink.stop(true);
-    await boss.stop();
-    await nativeStorage.close();
-    await database.stop();
+    try {
+      await sink.close();
+    } finally {
+      await boss.stop();
+      await nativeStorage.close();
+      await database.stop();
+    }
   }
 });

@@ -57,7 +57,11 @@ const schema = z
     S3_ACCESS_KEY_ID: z.string().min(1).optional(),
     S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     MAIL_FROM: z.email().optional(),
-    RESEND_API_KEY: z.string().min(1).optional(),
+    SMTP_HOST: z.union([z.hostname(), z.ipv4(), z.ipv6()]).optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    SMTP_TLS: z.enum(["tls", "starttls", "none"]).optional(),
+    SMTP_USER: z.string().min(1).max(512).optional(),
+    SMTP_PASSWORD: z.string().min(1).max(4096).optional(),
     /** Dictation is unavailable without a key; the model is any OpenRouter speech-to-text model. */
     OPENROUTER_API_KEY: z.string().min(1).optional(),
     TRANSCRIPTION_MODEL: z
@@ -68,7 +72,8 @@ const schema = z
   .superRefine((config, ctx) => {
     for (const group of [
       ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
-      ["MAIL_FROM", "RESEND_API_KEY"],
+      ["MAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_TLS"],
+      ["SMTP_USER", "SMTP_PASSWORD"],
     ] as const) {
       const present = group.filter((key) => config[key] !== undefined);
       if (present.length > 0 && present.length < group.length) {
@@ -81,6 +86,24 @@ const schema = z
             });
       }
     }
+    if (config.SMTP_USER !== undefined && config.SMTP_HOST === undefined)
+      ctx.addIssue({
+        code: "custom",
+        path: ["SMTP_HOST"],
+        message: "Required with SMTP authentication",
+      });
+    if (
+      config.SMTP_TLS === "none" &&
+      (!["localhost", "127.0.0.1", "::1"].includes(
+        config.SMTP_HOST?.toLowerCase() ?? "",
+      ) ||
+        config.SMTP_USER !== undefined)
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["SMTP_TLS"],
+        message: "Plaintext is limited to unauthenticated loopback delivery",
+      });
   });
 /** Returns field names only on failure: environment values must never reach logs. */
 export function readConfig(env: NodeJS.ProcessEnv) {
