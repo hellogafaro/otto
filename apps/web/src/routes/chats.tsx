@@ -11,7 +11,12 @@ import {
   RiGroupLine,
   RiMoreLine,
 } from "@remixicon/react";
-import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   Link,
   Navigate,
@@ -1613,7 +1618,8 @@ function Turn({
 
 function ReadReceipt({ chatId, cursor }: { chatId: string; cursor: number }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const { api, workspaceId, invalidate } = useWorkspace();
+  const { api, workspaceId } = useWorkspace();
+  const cache = useQueryClient();
   const [error, setError] = useState<Error>();
   const saved = useRef(false);
   const pending = useRef(false);
@@ -1635,7 +1641,12 @@ function ReadReceipt({ chatId, cursor }: { chatId: string; cursor: number }) {
       );
       saved.current = true;
       setError(undefined);
-      await invalidate();
+      await cache.invalidateQueries({
+        predicate: ({ queryKey }) =>
+          queryKey[0] === "workspace" &&
+          queryKey[1] === workspaceId &&
+          (queryKey[2] === "attention" || queryKey[2] === "floating-attention"),
+      });
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -1645,7 +1656,7 @@ function ReadReceipt({ chatId, cursor }: { chatId: string; cursor: number }) {
     } finally {
       pending.current = false;
     }
-  }, [api, workspaceId, chatId, cursor, invalidate]);
+  }, [api, workspaceId, chatId, cursor, cache]);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;

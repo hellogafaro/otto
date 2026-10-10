@@ -7,7 +7,8 @@ This is the single current operation, page and scenario checklist. Restored hist
 - Exact v1 anchor: `2a6e9a79be8b268b6cac583f68a68fa674be2fe9`.
 - Native integration checkpoint: `fa912a635c5d38feb0948cf9611b7d1348f21036`. The corrected full-suite and live source manifests below also include the separately checkpointed durable launcher; its exact bytes are recorded in the startup evidence.
 - Current-source recovery checkpoint: `c7f5b4e5eaab18efed20f689a6764bbab0e1f284`.
-- Current chat-foundation source checkpoint: `193ccb84ebb5b56a54cad9816fd2ac15f43a908f`. All 388 reviewed source/config/test hashes match committed bytes; the verified incremental bundle and manifest are under `~/.capy/work/otto-pending-closure-20261010/integration/final-checkpoint-20261010/`.
+- Historical chat-foundation source checkpoint: `193ccb84ebb5b56a54cad9816fd2ac15f43a908f`. Its 388 reviewed source/config/test hashes matched committed bytes; the retained incremental bundle and manifest are under `~/.capy/work/otto-pending-closure-20261010/integration/final-checkpoint-20261010/`.
+- The read-marker correction qualifies `apps/web/src/routes/chats.tsx` at SHA-256 `0b17dca50c96feee79f475a622f39042feb3aedd0964163745a51229e0deaa99`, based on local main `0cecc9f669c584c45b4a8b4e1368b29b1ec0f568`. The final local revision, tracked-file parity and verified recovery bundle are recorded under `integration/read-marker-checkpoint/` in that same evidence root; earlier clean-checkpoint claims do not cover this correction.
 - Exact forward restoration: `9b3a9a70342c72414a33c313f6ef07fd2301c1ba`, tree `a1c9dbda28baaaac5eb904216736eb9807d6f506`, identical to the anchor. An initial restoration commit retained 14 rename-source files; the next forward commit removed them before implementation.
 - Local recovery evidence: `~/.capy/work/otto-v1-restoration/`. The 2,151-entry source archive and hashes were verified. Current login and Home source/assets are preserved separately. Saved app data has a consistent SQLite backup with integrity check plus 102 supporting files; Keychain entries remain untouched and were not exported. No saved app data was removed or converted.
 - Isolated baseline work: `~/.capy/work/otto-v1-preflight-2a6e9a79/`. PostgreSQL 17 is a qualified local candidate, not a claim about all production versions.
@@ -36,13 +37,102 @@ No aggregate all-green or computer/browser-complete claim is made.
 | --- | --- |
 | Normal account and workspace access | Passed independently with the legitimate existing account, unchanged false email verification and owner membership. |
 | Garage-backed Files upload/read/reload/restart | Passed on the same saved 67-byte synthetic private File, including normal HTTP and isolated browser download/reload after both Garage and API restarted; exact evidence follows below. |
-| Native tools and multiple humans/Agents | Current controlled critical seams and normal-authentication two-human/one-Agent cases pass; one-human/two-Agent streaming isolation also passes. Reviewed request/token/retry ceilings are active. After the independently accepted bootstrap Environment repair, one separately sealed same-message continuation finished on the configured real provider. Its exact native File read, accepted account/model binding and durable publication pass; the model added synthetic decoding commentary, so the original exact-output gate remains failed. Same-Chat browser readback is blocked because newer messages exceed its authorized two-message scope. |
+| Native tools and multiple humans/Agents | Current controlled critical seams and normal-authentication two-human/one-Agent cases pass; one-human/two-Agent streaming isolation also passes. Reviewed request/token/retry ceilings are active. After the independently accepted bootstrap Environment repair, one separately sealed same-message continuation finished on the configured real provider. Its exact native File read, accepted account/model binding and durable publication pass; the model added synthetic decoding commentary, so the original exact-output gate remains failed. After the minimal read-marker correction, renewed-authority same-Chat initial and reload browser checks pass for the original answer/author/instruction/attachment/bytes, with eight own read-marker acknowledgements and no retry warning. V5 uses 34 browser-navigation API forwards within the unchanged 64 cap, plus five preflight API reads. |
 | Incremental streaming | Actual native partial text reaches the sponsor before completion in full and floating Chat. Final budget-integrated independent acceptance passes private audience, actual realtime-only reconnect without page reload, Stop, current authority and publication deduplication/reload. Shared history still uses only authorized durable publication. |
 | Chat attachments and Folders | Current frozen-source replay passes actual isolated Chrome upload, exact bytes/native context, participant access/revocation, Folder create/move/list/reload and nonempty archive denial. The accompanying 83-case affected regression run includes attachment/source/Folder authority and native custody. No live configured-user Folder write is claimed. |
 | Dictation | The composed real STT → literal composer → self-only message → persistence/reload gate passed. Original helper policy failure remains intact; the separately sealed same-Chat readback passed with no new capture/STT/message/Run and exactly two acknowledged own read markers. Microphone, browser and helper-session cleanup passed. |
-| Skills | Current 83-case affected regression run includes native Skill materialization and live authority revocation, including visibility change during actual byte I/O. Live configured-user Skill use is unverified; the current Default has no selected Skills. |
-| HTTP MCP | The ordinary index.ts startup now composes one exact origin and workspace/Connection/reference credential bindings. Independent final-source controlled native request, human approval, denial, revocation and restart pass. No real remote endpoint/account is configured; durable MCP remains disabled. |
+| Skills | Current 83-case affected regression run includes native Skill materialization and current authority revocation, including visibility change during actual byte I/O. The additional controlled Chat proof preserves accepted selected instructions through a later edit, reads exact immutable supporting File bytes and denies queued launch after Skill archive. Live configured-user Skill use remains unverified; the saved Default is unchanged. |
+| HTTP MCP | The ordinary index.ts startup composes one exact origin and workspace/Connection/reference credential bindings; independent controlled native request, approval, denial, revocation and restart pass. The additional selected-Skill/Chat chain proves exact approval before one HTTP peer write, current-grant revocation, saved output and inference-disabled readback. No real remote endpoint/account is configured; durable MCP remains disabled. |
 | Confined Agent computer | Required and implemented as one bounded offline Mastra tool using Docker primitives. Independent review found and reproduced unsafe SDK pull/reconnect/late-create behavior; that lifecycle was removed. Direct-Docker race probes and both owner and independent thirteen-case real-container/native-HTTP runs pass. Independent Docker events confirm all eighteen created containers were destroyed, with no leftovers. Reviewed durable configuration is active; no real-model computer invocation is claimed. Browser and persistent desktop execution remain unsupported. |
+
+The additional controlled Skills/MCP chain used source checkpoint
+`0cecc9f669c584c45b4a8b4e1368b29b1ec0f568`, three disposable Runs, two
+deterministic model resolutions and one approved HTTP MCP write. Anonymous,
+viewer and stale-identity approvals were denied; revocation produced no second
+write or final publication. Reopening Hono/native storage without a model
+runtime preserved the exact Chat messages, native history, generated File bytes
+and succeeded operation, without replay. This is not browser UI, external MCP,
+Garage or real-model evidence. `skills-mcp-gap/result.json` under the pending
+closure evidence root has SHA-256
+`f9d6aff1a5f55de08b232ef70a6923743812a171d29d3d337f6594a5e9023a48`;
+`cleanup.json` is
+`1a47873842feaeb681e17b8ecbb156831b2b422ab56d56c5d667d9e519305f20`.
+The private PostgreSQL/socket and spool were removed, all owned closures joined,
+and saved user data/configuration was never accessed by this fixture.
+
+The separately authorized cached-image Chromium feasibility probe failed under
+the unchanged confinement profile with actual exit 1 and “No usable sandbox!”;
+there was no DOM-render pass. The first collector failure is preserved rather
+than relabeled as that browser result. The corrected replacement's result and
+stderr are sealed in `browser-gap/replacement-probe-1/evidence.sha256`, with
+`RESULT.md` SHA-256
+`43fe7325d8a0492d38b3d1a85688bf91ff8d9f7108e303eada614720af9c2074`.
+Exact container destruction, exact-ID 404 and empty owner/type query were proved
+before device disconnection. Executed browser version remains unverified.
+No further probe or security relaxation ran. A clean image using an unprivileged
+user-namespace sandbox is only an unexecuted candidate: image acquisition/build
+and any reviewed namespace-only seccomp delta require separate authority.
+Installing the setuid helper alone is not proven sufficient with
+no-new-privileges. Browser and persistent desktop support remain unavailable.
+
+The capped live browser diagnostic (`agent-proof/ui-readback-v4/`, result
+`faba6611-d42a-4088-a77d-44836ae690d0-result.json`, SHA-256
+`dd2662975363db7861218cb9a1c24dbd9b952f0d3728faf5a5a1f09658802bcc`)
+observed exactly two requested navigations, not an HMR navigation loop. The
+initial load forwarded 53 API requests, including four read-marker POSTs and
+five requests to each major Chat/directory endpoint; reload used the remaining
+11 allowed API requests before the cap. A normal-authentication disposable
+browser regression isolated the cause: holding four actual read responses kept
+each directory endpoint at one request; releasing those responses increased
+each to five. ReadReceipt now invalidates only this workspace's Inbox/floating
+attention queries, leaving other mutation invalidation unchanged. The unchanged
+regression passes after that correction, with persisted attention cleared and
+no retry warning; root/web types and scoped Biome pass. Before/after logs are
+`read-marker-owner/baseline.log` (SHA-256
+`e34283fa3e07cdac8e9c454dbb0bdc04657eadb0ee97d438a25557f6a731cfd6`)
+and `after.log` (SHA-256
+`03ca4bdd2e27c0bff6f20a4af20760547616b419c8c98079b5d22bd7477206dc`).
+The changed `apps/web/src/routes/chats.tsx` hash is
+`0b17dca50c96feee79f475a622f39042feb3aedd0964163745a51229e0deaa99`.
+The additional normal-authentication afterproof passes full/floating behavior:
+four full-Chat ACKs and six held floating ACKs leave unrelated directory,
+participant, Session and File queries at their pre-release counts. Both active
+Inbox/floating attention consumers refetch and clear unread state. A valid
+human-participant composer Message still refreshes required consumers; full
+reload, floating minimize/reopen and reload/re-selection preserve history.
+Forced authenticated production draft-WebSocket reconnect passes while floating;
+forced full-page disconnect was not separately asserted. There was no Agent,
+Run admission or inference. Result
+`read-marker-refetch/6a43bfef-1847-4e54-a4f1-cee9092b0ed4/result.json` has SHA-256
+`b11a2d6e8f27f19b906b02c259a92512a98a942ea9356d3d98ab082ab4ba5078`;
+its complete evidence seal is
+`4ac6fce1e2342275484a92e81138fd2e41041506abb407e2c4cae1bcf616a42f`.
+Seven source pins matched before/after and at integrating-owner review. All three
+scratch attempts' browser/Vite/relay/queue/fixture cleanup was joined and their
+exact ports, PIDs and private PostgreSQL directories independently confirmed
+absent. Two scratch harness failures and the original empty-With legacy failure
+remain preserved; no product guard or existing test was weakened.
+The Captain then executed the separately sealed v5 helper exactly once, without
+another inference or Run admission. Result
+`agent-proof/ui-readback-v5/ceb97da7-c694-40ef-b5d8-4169baa43b26-result.json`,
+SHA-256 `68872e43998ee7616add10983df7e0f33ef763017ca9ab4cf4235b27a4af2a36`,
+passes exact saved answer/author/instruction/attachment/File checks on initial
+load and reload. Eight legitimate read ACKs passed, without a read-position
+warning or policy failure; helper signout/session revocation, browser close and
+temporary-profile removal passed. Two requested navigations forwarded 17 API
+requests each, down from 53 on v4's initial navigation. Five preflight API reads
+are separate from the unchanged 64-navigation-API cap. The 37 API-counter rows
+are complete; the independent 32-row static-resource reserve truncated, so this
+is not a complete resource inventory or authentication-network count.
+The original exact-output gate remains false: the preserved 454-byte answer
+still contains synthetic decoding commentary. `loadedApiRevisionVerified`
+also remains false; on-disk source pins and an owned healthy process do not
+attest the in-memory server revision. The helper seal remains unchanged at
+`6288aa0bc41baeb25fd0931c67d4b7f955d9ce498aec7650132dd7c5c0ba6af3`.
+Post-run owned API health/readiness and UI HTTP200 passed with zero unfinished
+durable Runs, no helper Chrome process or temporary directory and no restart.
+Fresh root/web types, scoped Biome, boundaries/consistency and the lasting
+browser regression are recorded in `integration/read-marker-checkpoint/`.
 
 The approved app default is OpenRouter at `https://openrouter.ai/api/v1`, explicit
 `chat-completions`, model `google/gemini-2.5-flash-lite`; dictation separately uses
@@ -89,8 +179,10 @@ found later human/Agent publications at cursors 29/33; their bodies were not
 inspected. The messages API supports only a lower `after` cursor, so a helper-only
 change cannot exclude those newer messages. This is a changed-content authority
 boundary, not a malformed API or product failure. The failed helper and original
-guard remain unchanged; browser proof stays unverified until the narrower scope
-decision is resolved. Evidence `agent-proof/ui-scope-change-metadata.json` hashes
+guard remain unchanged. That scope decision was subsequently resolved by explicit
+authority for bounded newer same-Chat reads and normal own read markers; the
+subsequent initial-browser and v5 reload passes are recorded above. Evidence
+`agent-proof/ui-scope-change-metadata.json` hashes
 to `c7618ae51a47c4a244cff60994b41c30d0ab420af5f06843bfcb8a69cf14e3ef`;
 the failed result hashes to
 `f45bb8d5c10355c1b4b44b915600384ddfafc3b2454c05aff20b722eaee4a72c`.
