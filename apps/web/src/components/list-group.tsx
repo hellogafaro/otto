@@ -19,14 +19,16 @@ export function ListGroup({
   look,
   count,
   defaultOpen = true,
+  showEmpty = false,
   children,
 }: {
   look: Look;
   count: number;
   defaultOpen?: boolean;
+  showEmpty?: boolean;
   children: ReactNode;
 }) {
-  if (count === 0) return null;
+  if (count === 0 && !showEmpty) return null;
   return (
     <Collapsible defaultOpen={defaultOpen} className="-mx-[9px]">
       {/* The whole header row toggles the group. */}

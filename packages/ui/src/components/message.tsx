@@ -86,11 +86,58 @@ function MessageFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+// Otto: per-message actions stay quiet on desktop and remain usable on touch.
+function MessageItem({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="message-item"
+      className={cn(
+        "group/message-item relative flex min-w-0 flex-col gap-2",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function MessageActions({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="message-actions"
+      className={cn(
+        "absolute top-0 right-0 flex items-center gap-0.5 rounded-md bg-background [@media(hover:hover)]:opacity-0 group-hover/message-item:opacity-100 group-focus-within/message-item:opacity-100",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+// Otto: one flat quote, shared by the draft and saved message presentation.
+function MessageQuote({
+  className,
+  ...props
+}: React.ComponentProps<"blockquote">) {
+  return (
+    <blockquote
+      data-slot="message-quote"
+      className={cn(
+        "flex min-w-0 items-start gap-2 border-l-2 border-border pl-3 text-sm text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export {
   Message,
+  MessageActions,
   MessageAvatar,
   MessageContent,
   MessageFooter,
   MessageGroup,
   MessageHeader,
+  MessageItem,
+  MessageQuote,
 };

@@ -36,7 +36,7 @@ export const tasks = pgTable(
     /** Server-only one-successor fence: the Task this occurrence was created from on completion. */
     predecessorId: uuid(),
     ownerId: text().notNull(),
-    status: text({ enum: ["todo", "doing", "done"] })
+    status: text({ enum: ["backlog", "todo", "doing", "review", "done"] })
       .notNull()
       .default("todo"),
     editToken: integer().notNull().default(0),
@@ -68,7 +68,10 @@ export const tasks = pgTable(
     unique("tasks_identity_workspace").on(t.id, t.workspaceId),
     uniqueIndex("tasks_predecessor_unique").on(t.predecessorId),
     check("tasks_recurrence_bytes", sql`octet_length(${t.recurrence}) <= 400`),
-    check("tasks_status_values", sql`${t.status} IN ('todo','doing','done')`),
+    check(
+      "tasks_status_values",
+      sql`${t.status} IN ('backlog','todo','doing','review','done')`,
+    ),
     index("tasks_project_idx").on(t.projectId, t.id),
   ],
 );

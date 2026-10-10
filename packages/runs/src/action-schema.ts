@@ -233,6 +233,16 @@ export const nativeActionInput = z.discriminatedUnion("type", [
     .strict(),
   z
     .object({
+      type: z.literal("task.review"),
+      id,
+      requestId: id,
+      editToken,
+      decision: z.enum(["approve", "request_changes"]),
+      body: z.string().max(9800).optional(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("task.update"),
       id,
       editToken,
@@ -474,6 +484,9 @@ export interface NativeActionResult {
   editToken?: number;
   removed?: boolean;
   ok?: boolean;
+  commentId?: string;
+  decision?: "approve" | "request_changes";
+  requestId?: string;
 }
 
 export const runActions = pgTable(

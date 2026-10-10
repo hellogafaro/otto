@@ -6,10 +6,12 @@ import {
   RiFileLine,
   RiFileTextLine,
   RiImageLine,
+  RiInboxLine,
   RiLockLine,
   RiMusic2Line,
   RiProgress4Line,
   RiTeamLine,
+  RiTimeLine,
   RiUserLine,
   RiVideoLine,
 } from "@remixicon/react";
@@ -32,15 +34,28 @@ export type Look = {
   icon: ComponentType<{ className?: string }>;
   className?: string;
 };
-export const statuses: Record<"todo" | "doing" | "done", Look> = {
-  todo: { label: "Todo", icon: RiCircleLine, className: "text-status-todo" },
+export const statuses: Record<
+  "backlog" | "todo" | "doing" | "review" | "done",
+  Look
+> = {
+  backlog: {
+    label: "Backlog",
+    icon: RiInboxLine,
+    className: "text-status-todo",
+  },
+  todo: { label: "Pending", icon: RiCircleLine, className: "text-status-todo" },
   doing: {
     label: "In progress",
     icon: RiProgress4Line,
     className: "text-status-doing",
   },
+  review: {
+    label: "In review",
+    icon: RiTimeLine,
+    className: "text-status-review",
+  },
   done: {
-    label: "Done",
+    label: "Completed",
     icon: RiCheckboxCircleFill,
     className: "text-status-done",
   },

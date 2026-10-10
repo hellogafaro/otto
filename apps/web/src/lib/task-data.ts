@@ -19,7 +19,13 @@ export type TaskLink = InferResponseType<
 export type Timesheet = InferResponseType<
   (typeof workspaceApi.timesheets)["$get"]
 >["items"][number];
-export const taskStatusOrder = ["todo", "doing", "done"] as const;
+export const taskStatusOrder = [
+  "backlog",
+  "todo",
+  "doing",
+  "review",
+  "done",
+] as const;
 export const taskSorts = ["title", "createdAt", "updatedAt", "dueAt"] as const;
 
 /** Project membership is separate from workspace membership. Missing/loading authority never enables writes. */

@@ -4,6 +4,7 @@ import {
   createAgent,
   getAgent,
   getAgents,
+  getDefaultAgent,
   updateAgent,
 } from "@otto/agents";
 import { createEnvironment, getEnvironment } from "@otto/environments";
@@ -68,6 +69,9 @@ async function validateSkills(c: Context, selected: string[] = []) {
 }
 
 export const executionApi = new Hono<ApiEnv>()
+  .get("/workspaces/:workspaceId/agents/default", async (c) =>
+    c.json(await transact(c, getDefaultAgent, false)),
+  )
   .get(
     "/workspaces/:workspaceId/agents",
     validate(

@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { startQueue } from "../apps/server/src/queue";
 import { authorizeRunSources } from "../apps/server/src/run-sources";
+import { continueTaskReview } from "../apps/server/src/task-review";
 import { effectRequestId } from "../apps/server/src/tools";
 import { createAgent } from "../packages/agents/src";
 import {
@@ -63,6 +64,8 @@ import {
   authorizeSubscriptionModel,
   setSubscriptionApiKey,
 } from "../packages/subscriptions/src/server";
+import { archiveTask, createTask, getTask } from "../packages/tasks/src";
+import { reviewTask, submitTaskReview } from "../packages/tasks/src/review";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
 import { fixtureStorage } from "./fixtures/storage";
@@ -192,7 +195,10 @@ describe("direct native PostgreSQL execution", () => {
     await database?.stop();
   });
 
-  async function setup(visibility: "workspace" | "participants" = "workspace") {
+  async function setup(
+    visibility: "workspace" | "participants" = "workspace",
+    projectId?: string,
+  ) {
     return scope(async (c) => {
       const agent = await createAgent(c, {
         title: "Worker",
@@ -204,6 +210,7 @@ describe("direct native PostgreSQL execution", () => {
       await createEnvironment(c, agent.id);
       const chat = await createChat(c, {
         title: "Fixture discussion",
+        projectId,
         visibility,
       });
       await createParticipant(c, chat.id, {
@@ -961,6 +968,107 @@ describe("direct native PostgreSQL execution", () => {
     expect((await saved(fresh.id)).sessionId).not.toBe(initial.sessionId);
     expect((await saved(fresh.id)).sessionState).toBe("new");
     await restarted.close();
+  });
+
+  it("continues reviewed work in its existing auto Session and blocks an archived Task before queued launch", async () => {
+    const project = await scope((c) =>
+      createProject(c, { title: "Review continuity" }),
+    );
+    const selection = await setup("participants", project.id);
+    const task = await scope((c) =>
+      createTask(c, { projectId: project.id, title: "One ongoing task" }),
+    );
+    const first = await auto(selection, "Remember review sentinel");
+    const engine = runtime();
+    await engine.dispatch(first.run.id);
+    const initial = await saved(first.run.id);
+    const requestChanges = async () => {
+      const submitted = await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: "native-owner", agentId: selection.agentId },
+        async (c) =>
+          submitTaskReview(c, task.id, {
+            editToken: (await getTask(c, task.id)).editToken,
+            body: "Ready for review",
+            chatId: selection.chatId,
+          }),
+      );
+      const requestId = crypto.randomUUID();
+      const changed = await scope((c) =>
+        reviewTask(c, task.id, {
+          requestId,
+          editToken: submitted.task.editToken,
+          decision: "request_changes",
+          body: "Continue with the evidence",
+        }),
+      );
+      const result = {
+        taskId: task.id,
+        requestId,
+        commentId: changed.comment.id,
+        editToken: changed.task.editToken,
+      };
+      const delivery = await continueTaskReview(
+        {
+          db: database.db,
+          boss,
+          nativeStorage: native,
+          modelAuthorization: authorization,
+        },
+        workspaceId,
+        "native-owner",
+        result,
+      );
+      expect(delivery.status).toBe("sent");
+      expect(
+        (
+          await continueTaskReview(
+            {
+              db: database.db,
+              boss,
+              nativeStorage: native,
+              modelAuthorization: authorization,
+            },
+            workspaceId,
+            "native-owner",
+            result,
+          )
+        ).status,
+      ).toBe("sent");
+      const queued = await database.db
+        .select()
+        .from(runs)
+        .where(eq(runs.taskId, task.id));
+      return required(queued.find((run) => run.state === "queued"));
+    };
+    try {
+      const second = await requestChanges();
+      expect(second.inputs.sessionMode).toBe("auto");
+      expect(second.inputs.taskReviewEditToken).toBe(
+        (await scope((c) => getTask(c, task.id))).editToken,
+      );
+      await engine.dispatch(second.id);
+      const continued = await saved(second.id);
+      expect(continued.state).toBe("finished");
+      expect(continued.sessionState).toBe("continued");
+      expect(continued.sessionId).toBe(initial.sessionId);
+      expect(
+        await database.db.select().from(runs).where(eq(runs.taskId, task.id)),
+      ).toHaveLength(1);
+      const third = await requestChanges();
+      await scope(async (c) =>
+        archiveTask(c, task.id, true, (await getTask(c, task.id)).editToken),
+      );
+      await engine.dispatch(third.id);
+      expect((await saved(third.id)).state).toBe("failed");
+      expect((await saved(third.id)).outcome).toBe(
+        "configuration_or_provider_unavailable",
+      );
+      expect((await saved(third.id)).attempt).toBe(0);
+    } finally {
+      await engine.close();
+    }
   });
 
   it("permits only never-launched auto prompts to lack a persisted Session binding", async () => {

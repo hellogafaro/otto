@@ -78,6 +78,7 @@ type Pending = FileRef & {
 
 // Text uses the stored form, with tags as @[label](type:id).
 export type ComposerHandle = {
+  focus: () => void;
   /** Replace the text and put the cursor at the end. */
   prefill: (text: string) => void;
   /** Insert text at the start (e.g. a reply's @tag). */
@@ -252,6 +253,9 @@ export function Composer({
     !dictation.transcribing;
 
   useImperativeHandle(ref, () => ({
+    focus: () => {
+      editor?.commands.focus("end");
+    },
     prefill: (text) => {
       if (locked) return;
       editor?.chain().setContent(toContent(text)).focus("end").run();
@@ -525,8 +529,14 @@ export function Composer({
         }}
       >
         {attachments}
-        <div className="flex w-full min-w-0 items-center gap-1 p-1">
+        <InputGroupAddon align="block-start" className="gap-1 p-1">
           {dictation.listening ? listening : plus}
+          {!dictation.listening && tools}
+          <div className="flex-1" />
+          {!hasContent && !dictation.listening && idle}
+          {main}
+        </InputGroupAddon>
+        <div className="w-full min-w-0 px-2 pb-2">
           <EditorContent
             editor={editor}
             className={cn("min-w-0 flex-1", dictation.listening && "hidden")}
@@ -542,9 +552,6 @@ export function Composer({
               }
             }}
           />
-          {!dictation.listening && tools}
-          {!hasContent && !dictation.listening && idle}
-          {main}
         </div>
       </InputGroup>
       {/* Outside the group: a direct <input> child changes its addon padding. */}

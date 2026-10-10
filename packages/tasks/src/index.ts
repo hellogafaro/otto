@@ -300,9 +300,48 @@ async function createSuccessor(
 export async function setTaskStatus(
   c: Context,
   id: string,
-  input: { status: "todo" | "doing" | "done"; editToken: number },
+  input: { status: "backlog" | "todo" | "doing" | "done"; editToken: number },
 ) {
+  return changeTaskStatus(c, id, input, false);
+}
+
+export async function resolveTaskReviewStatus(
+  c: Context,
+  id: string,
+  input: { status: "doing" | "done"; editToken: number },
+) {
+  requireHuman(c);
+  return changeTaskStatus(c, id, input, true);
+}
+
+async function changeTaskStatus(
+  c: Context,
+  id: string,
+  input: { status: "backlog" | "todo" | "doing" | "done"; editToken: number },
+  reviewing: boolean,
+) {
+  if (!["backlog", "todo", "doing", "done"].includes(input.status))
+    throw new DomainError("invalid", "Submit a completion summary for review");
   const task = await getTask(c, id, true);
+  if ((task.status === "review") !== reviewing)
+    throw new DomainError(
+      "conflict",
+      "Use the review controls for tasks in review",
+    );
+  if (task.status === "review") {
+    requireHuman(c);
+    if (
+      c.actor.userId !== task.ownerId &&
+      c.role !== "owner" &&
+      c.role !== "admin"
+    )
+      throw new DomainError("forbidden");
+    if (input.status !== "doing" && input.status !== "done")
+      throw new DomainError(
+        "invalid",
+        "Approve or request changes to the review",
+      );
+  }
   if (input.status === "done") requireHuman(c);
   else await requireProjectMember(c, task.projectId, task.ownerId, true);
   if (task.editToken !== input.editToken)
@@ -442,7 +481,7 @@ export async function getTasks(
     order?: string;
     archived?: boolean;
     query?: string;
-    status?: "todo" | "doing" | "done";
+    status?: "backlog" | "todo" | "doing" | "review" | "done";
     ownerId?: string;
     assigneeUserId?: string;
     assigneeAgentId?: string;

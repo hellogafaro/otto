@@ -237,7 +237,7 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
               ? {
                   about: "your schedules",
                   action: "New schedule",
-                  start: "Every ",
+                  start: "I want to schedule an Agent to ",
                 }
               : undefined
           }

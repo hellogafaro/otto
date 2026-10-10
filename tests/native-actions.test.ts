@@ -59,6 +59,7 @@ import {
 } from "../packages/skills/src";
 import { skillProposals } from "../packages/skills/src/schema";
 import { createTask, createTimesheet, getTask } from "../packages/tasks/src";
+import { getTaskReview, submitTaskReview } from "../packages/tasks/src/review";
 import { timesheets } from "../packages/tasks/src/schema";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
@@ -464,10 +465,13 @@ describe("native actions through normal human authentication and private Postgre
       { native },
       new AbortController().signal,
     );
-    expect(Object.keys(tools)).toHaveLength(97);
+    expect(Object.keys(tools)).toHaveLength(100);
+    expect(tools.project_list).toBeDefined();
+    expect(tools.schedule_list).toBeDefined();
+    expect(tools.request_task_review).toBeDefined();
     expect(tools.request_task_update).toBeUndefined();
     expect(tools.request_task_status).toBeUndefined();
-    expect(nativeActionInput.options).toHaveLength(50);
+    expect(nativeActionInput.options).toHaveLength(51);
     const task = await scope((c) =>
       createTask(c, { projectId: project.id, title: "Before native edit" }),
     );
@@ -1149,6 +1153,49 @@ describe("native actions through normal human authentication and private Postgre
     expect((await resolve(attempt.runId, badAttachment)).status).not.toBe(200);
     expect((await pending(badAttachment.id))?.status).toBe("pending");
     expect((await scope((c) => getDocument(c, doc.id))).fileIds).toEqual([]);
+  });
+
+  it("records human review actions once and reports unavailable continuation without leaking source Chat identity", async () => {
+    const { attempt, project, run } = await fixture();
+    const task = await scope((c) =>
+      createTask(c, { projectId: project.id, title: "Review native decision" }),
+    );
+    const submitted = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId: sponsor.id, agentId: run.agentId },
+      (c) =>
+        submitTaskReview(c, task.id, {
+          editToken: task.editToken,
+          body: "Fixture evidence",
+          chatId: run.chatId,
+        }),
+    );
+    const action = await propose(attempt, {
+      type: "task.review",
+      id: task.id,
+      editToken: submitted.task.editToken,
+      requestId: crypto.randomUUID(),
+      decision: "request_changes",
+      body: "Add the missing evidence",
+    });
+    const response = await resolve(attempt.runId, action);
+    expect(response.status).toBe(200);
+    const receipt = await response.json();
+    expect(receipt.status).toBe("approved");
+    expect(receipt.continuation.status).toBe("unavailable");
+    expect(receipt.result.chatId).toBeUndefined();
+    expect(receipt.result.agentId).toBeUndefined();
+    expect((await scope((c) => getTask(c, task.id))).status).toBe("doing");
+    expect(
+      (await scope((c) => getTaskReview(c, task.id)))?.continuationStatus,
+    ).toBe("unavailable");
+    const replay = await resolve(attempt.runId, action);
+    expect(replay.status).toBe(200);
+    expect((await replay.json()).result).toEqual(receipt.result);
+    expect((await scope((c) => getTask(c, task.id))).editToken).toBe(
+      submitted.task.editToken + 1,
+    );
   });
 
   it("keeps human Task Done and creator-only Timesheet mutations behind actual approval", async () => {

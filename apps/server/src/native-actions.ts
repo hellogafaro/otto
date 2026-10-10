@@ -89,6 +89,7 @@ import {
   updateTask,
   updateTimesheet,
 } from "@otto/tasks";
+import { reviewTask } from "@otto/tasks/review";
 import { type Context, requireHuman } from "@otto/workspaces";
 import type { PgBoss } from "pg-boss";
 import type { ConnectionOptions } from "./connections";
@@ -276,6 +277,15 @@ export async function executeNativeAction(
           editToken: action.editToken,
         }),
       );
+    case "task.review": {
+      const result = await reviewTask(c, action.id, action);
+      return {
+        ...reference(result.task),
+        commentId: result.comment.id,
+        decision: action.decision,
+        requestId: action.requestId,
+      };
+    }
     case "task.update": {
       const { type: _, id, ...input } = action;
       return reference(

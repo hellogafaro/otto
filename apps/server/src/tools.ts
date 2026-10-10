@@ -1,5 +1,6 @@
 import type { ToolsInput } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
+import { getAgent } from "@otto/agents";
 import {
   createMessage,
   getChat,
@@ -33,7 +34,9 @@ import {
   getProject,
   getProjectAudience,
   getProjectMembers,
+  getProjects,
   PROJECT_MEMBER_SORTS,
+  PROJECT_SORTS,
 } from "@otto/projects";
 import {
   authorizePeerRun,
@@ -62,7 +65,9 @@ export { effectRequestId } from "@otto/runs/runtime";
 import {
   getSchedule,
   getScheduleHistory,
+  getSchedules,
   SCHEDULE_HISTORY_SORTS,
+  SCHEDULE_SORTS,
   validateSchedule,
 } from "@otto/schedules";
 import {
@@ -102,6 +107,7 @@ import {
   getTaskComments,
   updateTaskComment,
 } from "@otto/tasks/comments";
+import { submitTaskReview } from "@otto/tasks/review";
 import type { PgBoss } from "pg-boss";
 import { z } from "zod";
 import { type ConnectionOptions, connectionService } from "./connections";
@@ -109,6 +115,10 @@ import { requestNativeAction } from "./native-actions";
 import { authorizeRunSources } from "./run-sources";
 import { readRunSkillFile } from "./skill-files";
 import { captureTask } from "./task-capture";
+import {
+  nativeActionDescriptions,
+  toolDescriptions,
+} from "./tool-descriptions";
 
 const pageInput = {
   after: z.string().max(4000).optional(),
@@ -157,6 +167,15 @@ export const toolInput = z.discriminatedUnion("name", [
   z.object({ name: z.literal("schedule.get"), scheduleId: z.uuid() }).strict(),
   z
     .object({
+      name: z.literal("schedule.list"),
+      ...pageInput,
+      sort: z.enum(SCHEDULE_SORTS).optional(),
+      query: z.string().max(200).optional(),
+      status: z.enum(["enabled", "disabled", "archived"]).optional(),
+    })
+    .strict(),
+  z
+    .object({
       name: z.literal("schedule.history"),
       scheduleId: z.uuid(),
       ...pageInput,
@@ -164,6 +183,15 @@ export const toolInput = z.discriminatedUnion("name", [
     })
     .strict(),
   z.object({ name: z.literal("project.get") }).strict(),
+  z
+    .object({
+      name: z.literal("project.list"),
+      ...pageInput,
+      sort: z.enum(PROJECT_SORTS).optional(),
+      query: z.string().max(200).optional(),
+      archived: z.boolean().optional(),
+    })
+    .strict(),
   z
     .object({
       name: z.literal("project.members"),
@@ -178,7 +206,7 @@ export const toolInput = z.discriminatedUnion("name", [
       sort: z.enum(TASK_SORTS).optional(),
       query: z.string().max(200).optional(),
       archived: z.boolean().optional(),
-      status: z.enum(["todo", "doing", "done"]).optional(),
+      status: z.enum(["backlog", "todo", "doing", "review", "done"]).optional(),
       ownerId: z.string().max(128).optional(),
       assigneeUserId: z.string().max(128).optional(),
       assigneeAgentId: z.uuid().optional(),
@@ -196,7 +224,7 @@ export const toolInput = z.discriminatedUnion("name", [
     .object({
       name: z.literal("task.status"),
       ...taskSelection,
-      status: z.enum(["todo", "doing"]),
+      status: z.enum(["backlog", "todo", "doing"]),
       editToken: z.number().int().nonnegative(),
     })
     .strict(),
@@ -410,7 +438,14 @@ export const toolInput = z.discriminatedUnion("name", [
     name: z.literal("task.proposeCompletion"),
     taskId: z.uuid(),
     requestId: z.uuid(),
-    body: z.string().max(16000),
+    editToken: z.number().int().nonnegative(),
+    body: z
+      .string()
+      .min(1)
+      .max(10000)
+      .describe(
+        "Completion summary, evidence links and unresolved issues for the human reviewer; at most 10,000 UTF-8 bytes.",
+      ),
   }),
   z.object({ name: z.literal("document.get"), documentId: z.uuid() }),
 ]);
@@ -443,7 +478,6 @@ export function createRunTools(
     if (
       [
         "message.create",
-        "task.proposeCompletion",
         "file.create",
         "connection.request",
         "human.ask",
@@ -705,18 +739,90 @@ export function createRunTools(
       );
       return service.readOperation(operation.id);
     }
-    if (
-      input.name === "message.create" ||
-      input.name === "task.proposeCompletion"
-    ) {
+    if (input.name === "task.proposeCompletion") {
+      const result = await withRunEffect(
+        db,
+        attempt,
+        { toolCallId, toolName: input.name, input },
+        async (c, run) => {
+          const task = await getTask(c, input.taskId);
+          const chat = await getChat(c, run.chatId, true);
+          const audience = await getProjectAudience(c, task.projectId);
+          if (
+            task.projectId !== chat.projectId ||
+            audience.some((id) => !run.inputs.audience.humans.includes(id)) ||
+            run.inputs.audience.humans.some((id) => !audience.includes(id))
+          )
+            throw new DomainError(
+              "forbidden",
+              "Review outside accepted Project audience",
+            );
+          if (run.sessionId)
+            await recordSessionSources(c, run.sessionId, [
+              { type: "task", id: task.id },
+            ]);
+          const review = await submitTaskReview(c, task.id, {
+            ...input,
+            chatId: chat.id,
+          });
+          return {
+            taskId: task.id,
+            title: task.title,
+            editToken: review.task.editToken,
+            commentId: review.comment.id,
+            chatId: chat.id,
+            status: review.task.status,
+            ownerId: task.ownerId,
+          };
+        },
+        validateSchedule,
+        options.native,
+        authorizeRunSources,
+        snapshotRunDocuments,
+      );
+      const scope = await withRunAttempt(
+        db,
+        attempt,
+        async (c, run) => ({
+          workspaceId: c.workspaceId,
+          actor: c.actor,
+          chatId: run.chatId,
+        }),
+        validateSchedule,
+        options.native,
+        authorizeRunSources,
+        snapshotRunDocuments,
+      );
+      const message = await createMessage(
+        db,
+        options.native,
+        scope.workspaceId,
+        scope.actor,
+        scope.chatId,
+        {
+          requestId,
+          body: `Ready for review: ${result.title}\nTask ${result.taskId}\n\n${input.body}`,
+          mentionUserIds: [result.ownerId],
+        },
+        async (c) => {
+          signal.throwIfAborted();
+          await assertRunAttempt(
+            c,
+            attempt,
+            validateSchedule,
+            options.native,
+            authorizeRunSources,
+            snapshotRunDocuments,
+          );
+        },
+      );
+      return { ...result, messageId: message.id };
+    }
+    if (input.name === "message.create") {
       const scope = await withRunAttempt(
         db,
         attempt,
         async (c, run) => {
-          if (input.name === "task.proposeCompletion") {
-            if (input.taskId !== run.taskId) throw new DomainError("forbidden");
-            await getTask(c, input.taskId);
-          }
           return {
             workspaceId: c.workspaceId,
             actor: c.actor,
@@ -736,17 +842,10 @@ export function createRunTools(
         scope.chatId,
         {
           requestId,
-          ...(input.name === "message.create"
-            ? {
-                replyTo: input.replyTo,
-                mentionUserIds: input.mentionUserIds,
-                fileIds: input.fileIds,
-              }
-            : {}),
-          body:
-            input.name === "message.create"
-              ? input.body
-              : `Proposed completion of ${input.taskId}: ${input.body}`,
+          replyTo: input.replyTo,
+          mentionUserIds: input.mentionUserIds,
+          fileIds: input.fileIds,
+          body: input.body,
         },
         async (c) => {
           signal.throwIfAborted();
@@ -813,6 +912,7 @@ export function createRunTools(
           "connection.get",
           "connection.list",
           "schedule.get",
+          "schedule.list",
           "schedule.history",
           "collection.get",
           "collection.list",
@@ -863,6 +963,23 @@ export function createRunTools(
         await remember([{ type: "task", id: task.id }]);
       }
       switch (input.name) {
+        case "project.list": {
+          const agent = await getAgent(c, run.agentId);
+          const page = await getProjects(c, {
+            ...toolArguments(input),
+            projectId: agent.projectId ?? undefined,
+            audienceUserIds: run.inputs.audience.humans,
+          });
+          await remember(
+            page.items.map((item) => ({ type: "project", id: item.id })),
+          );
+          return page;
+        }
+        case "schedule.list":
+          return getSchedules(c, {
+            ...toolArguments(input),
+            chatId: run.chatId,
+          });
         case "chat.get":
           return getChat(c, run.chatId);
         case "chat.participants":
@@ -1369,18 +1486,13 @@ export function createNativeRunTools(
         shape.assigneeAgentIds = z.array(z.uuid()).max(20).optional();
       }
       if (name === "task.status")
-        shape.status = z.enum(["todo", "doing", "done"]);
+        shape.status = z.enum(["backlog", "todo", "doing", "done"]);
       const inputSchema = z.object(shape).strict();
       return [
         name.replaceAll(".", "_"),
         createTool({
           id: name.replaceAll(".", "_"),
-          description:
-            name === "task.update"
-              ? "Update a Task. Ordinary edits execute as the Agent. Including ownerId or either assignee list requests actual human approval of the entire exact payload; no field changes before approval. A denied request is not success."
-              : name === "task.status"
-                ? "Set Task status. Todo and doing execute as the Agent. Done requests actual human approval of the exact payload. A denied request is not success."
-                : `Perform ${name} under the current Run's accepted scope and current domain authorization. Human-only operations require a human; this tool never impersonates one.`,
+          description: toolDescriptions[name],
           inputSchema,
           execute: async (input, context) => {
             const toolCallId = required(
@@ -1436,11 +1548,13 @@ export function createNativeRunTools(
     const id = `request_${type.replaceAll(".", "_")}`;
     tools[id] = createTool({
       id,
-      description: `Request ${type}. This does not perform the effect: the actual human must approve the exact payload and execute it under their current permissions. A denied request is not success.`,
+      description: `${nativeActionDescriptions[type]} This requests the effect; the actual human must approve the exact payload under their current permissions. Wait for the receipt: pending, denied, failed or uncertain is not success.`,
       inputSchema: z
         .object(
           Object.fromEntries(
-            Object.entries(schema.shape).filter(([key]) => key !== "type"),
+            Object.entries(schema.shape).filter(
+              ([key]) => key !== "type" && key !== "requestId",
+            ),
           ),
         )
         .strict(),
@@ -1452,7 +1566,16 @@ export function createNativeRunTools(
         return requestNativeAction(
           db,
           attempt,
-          { toolCallId, input: nativeActionInput.parse({ ...input, type }) },
+          {
+            toolCallId,
+            input: nativeActionInput.parse({
+              ...input,
+              type,
+              ...("requestId" in schema.shape
+                ? { requestId: effectRequestId(attempt.runId, toolCallId) }
+                : {}),
+            }),
+          },
           abort,
           options.native,
         );

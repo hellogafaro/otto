@@ -773,6 +773,65 @@ describe("authoritative Chat replies on private PostgreSQL and native storage", 
     expect(await savedRuns(chat.id)).toEqual([]);
   });
 
+  it("continues a quoted Agent in a group Chat without waking other Agents", async () => {
+    const { chat, bots } = await fixture(2, 2);
+    const worker = required(bots[0]);
+    const other = required(bots[1]);
+    const publication = await createChatMessage(
+      options(),
+      workspaceId,
+      { userId, agentId: worker.id },
+      chat.id,
+      { body: "Ready for your review.", requestId: crypto.randomUUID() },
+    );
+    const input = {
+      body: "Please revise the introduction.",
+      replyTo: publication.id,
+      requestId: crypto.randomUUID(),
+    };
+    const reply = await post(chat.id, input);
+    expect(reply.status).toBe(200);
+    const saved = await reply.json();
+    expect(await selected(chat.id, saved.id)).toEqual([worker.id]);
+    expect(await savedRuns(chat.id)).toMatchObject([
+      {
+        agentId: worker.id,
+        chatId: chat.id,
+        inputs: { body: input.body, sessionMode: "auto" },
+      },
+    ]);
+    expect((await post(chat.id, input)).status).toBe(200);
+    expect(await savedRuns(chat.id)).toHaveLength(1);
+    const explicit = await post(chat.id, {
+      ...input,
+      requestId: crypto.randomUUID(),
+      body: `${mention(other.id)} please handle this instead`,
+    });
+    expect(explicit.status).toBe(200);
+    expect(await selected(chat.id, (await explicit.json()).id)).toEqual([
+      other.id,
+    ]);
+    await context(async (c) => {
+      const [participant] = await c.tx
+        .select()
+        .from(participants)
+        .where(
+          and(
+            eq(participants.chatId, chat.id),
+            eq(participants.agentId, worker.id),
+          ),
+        );
+      await deleteParticipant(c, chat.id, required(participant).id);
+    });
+    const afterRemoval = await post(chat.id, {
+      ...input,
+      requestId: crypto.randomUUID(),
+    });
+    expect(afterRemoval.status).toBe(200);
+    expect(await selected(chat.id, (await afterRemoval.json()).id)).toEqual([]);
+    expect(await savedRuns(chat.id)).toHaveLength(2);
+  });
+
   it("never routes Agent messages or native Agent publications, including explicit mentions", async () => {
     const { chat, bots } = await fixture(1, 2);
     const author = required(bots[0]);

@@ -22,6 +22,7 @@ export async function createChatMessage(
   chatId: string,
   input: MessageInput,
   authorize?: (c: Context) => Promise<void>,
+  taskReview?: { taskId: string; requestId: string; editToken: number },
 ) {
   const message = await createMessage(
     options.db,
@@ -63,6 +64,7 @@ export async function createChatMessage(
         messageIds: [message.id],
       };
       const check = async (c: Context) => {
+        await authorize?.(c);
         await getChat(c, chatId, true);
         await getAgent(c, agentId);
         await getChat(
@@ -88,6 +90,7 @@ export async function createChatMessage(
           authorization,
           options.nativeStorage,
           snapshotRunDocuments,
+          taskReview,
         );
       });
     } catch (error) {

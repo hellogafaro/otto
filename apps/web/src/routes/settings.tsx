@@ -20,6 +20,7 @@ import {
 import { Button } from "@workspace/ui/components/button";
 import { Field, FieldLabel } from "@workspace/ui/components/field";
 import {
+  SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
@@ -33,7 +34,6 @@ import { RiConnectorLine } from "@/components/icons";
 import { NativeProviderSettings as ModelSettings } from "@/components/native-provider-settings";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
-import { SectionSidebar } from "@/components/section-sidebar";
 import { ActorAvatar } from "@/components/task-meta";
 import { ConnectionSettings } from "@/features/settings/connections";
 import {
@@ -86,9 +86,9 @@ export const isSettingsSection = (value: string): value is SettingsSection =>
 export function SettingsSidebar() {
   const matchRoute = useMatchRoute();
   return (
-    <SectionSidebar title="Settings">
+    <nav aria-label="Settings navigation">
       {(["Account", "Workspace"] as const).map((group) => (
-        <div key={group}>
+        <SidebarGroup key={group}>
           <SidebarGroupLabel>{group}</SidebarGroupLabel>
           <SidebarMenu>
             {Object.entries(sections)
@@ -103,6 +103,15 @@ export function SettingsSidebar() {
                         fuzzy: true,
                       }),
                     )}
+                    aria-current={
+                      matchRoute({
+                        to: "/settings/$section",
+                        params: { section: id },
+                        fuzzy: true,
+                      })
+                        ? "page"
+                        : undefined
+                    }
                     render={
                       <Link to="/settings/$section" params={{ section: id }} />
                     }
@@ -113,9 +122,9 @@ export function SettingsSidebar() {
                 </SidebarMenuItem>
               ))}
           </SidebarMenu>
-        </div>
+        </SidebarGroup>
       ))}
-    </SectionSidebar>
+    </nav>
   );
 }
 export function SettingsPage({ section }: { section: SettingsSection }) {

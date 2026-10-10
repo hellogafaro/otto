@@ -167,7 +167,11 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
           description="Projects gather tasks, chats and documents around one goal."
           create={
             admin
-              ? { action: "New project", onClick: startCreating }
+              ? {
+                  action: "New project",
+                  onClick: () =>
+                    ask("I want to create a project to organize work around "),
+                }
               : undefined
           }
         />

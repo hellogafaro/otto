@@ -119,6 +119,17 @@ const agentSorts = {
   updatedAt: timeKey(agents.updatedAt),
 };
 export const AGENT_SORTS = sortNames(agentSorts);
+export async function getDefaultAgent(c: Context) {
+  const [agent] = await c.tx
+    .select({ id: agents.id })
+    .from(agents)
+    .where(
+      and(eq(agents.workspaceId, c.workspaceId), eq(agents.isDefault, true)),
+    )
+    .limit(1);
+  return agent ? getAgent(c, agent.id) : null;
+}
+
 export async function getAgents(
   c: Context,
   filter: PageOptions & {
@@ -191,6 +202,11 @@ export async function updateAgent(
   const skillIds = normalizeSkillIds(input.skillIds);
   const current = await getAgent(c, id);
   if (current.createdBy !== c.actor.userId) throw new DomainError("forbidden");
+  if (current.isDefault && input.title !== undefined && input.title !== "Otto")
+    throw new DomainError(
+      "forbidden",
+      "The default assistant must be named Otto",
+    );
   if (
     current.isDefault &&
     input.visibility !== undefined &&

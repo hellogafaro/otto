@@ -81,6 +81,9 @@ export function TaskComments({
   const items = comments.error
     ? []
     : (comments.data?.pages.flatMap((page) => page.items) ?? []);
+  const immutableIds = new Set(
+    comments.data?.pages.flatMap((page) => page.immutableIds) ?? [],
+  );
   return (
     <section className="flex flex-col gap-5" aria-label="Task activity">
       <h2 className="text-base font-medium">Activity</h2>
@@ -110,7 +113,10 @@ export function TaskComments({
           )}
           {items.map((comment) => (
             <TimelineItem key={comment.id}>
-              <TaskCommentItem comment={comment} canWrite={canWrite} />
+              <TaskCommentItem
+                comment={comment}
+                canWrite={canWrite && !immutableIds.has(comment.id)}
+              />
             </TimelineItem>
           ))}
           {comments.hasNextPage && (

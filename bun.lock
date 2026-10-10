@@ -299,6 +299,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@otto/agents": "workspace:*",
+        "@otto/chats": "workspace:*",
         "@otto/db": "workspace:*",
         "@otto/projects": "workspace:*",
         "@otto/shared": "workspace:*",

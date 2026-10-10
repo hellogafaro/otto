@@ -33,6 +33,7 @@ import { QueryState } from "@/components/query-state";
 import { People, statuses } from "@/components/task-meta";
 import { TaskComments } from "@/components/tasks/task-comments";
 import { TaskForm } from "@/components/tasks/task-form";
+import { TaskReview } from "@/components/tasks/task-review";
 import {
   TaskLinksSection,
   TaskTimeSection,
@@ -81,7 +82,9 @@ function TaskView({ task }: { task: Task }) {
   const [editing, setEditing] = useState(false);
   const current = statuses[task.status];
   const control = useMutation({
-    mutationFn: async (action: Task["status"] | "archive") =>
+    mutationFn: async (
+      action: Exclude<Task["status"], "review"> | "archive",
+    ) =>
       action === "archive"
         ? read(
             await api.tasks[":id"].archive.$post({
@@ -175,14 +178,21 @@ function TaskView({ task }: { task: Task }) {
       panel={
         <>
           <Section title="Properties">
-            {project.canWrite && !control.isPending ? (
+            {project.canWrite &&
+            !control.isPending &&
+            task.status !== "review" ? (
               <ChoiceItem
                 label="Status"
                 value={task.status}
                 options={
                   Object.fromEntries(
-                    taskStatusOrder.map((status) => [status, statuses[status]]),
-                  ) as Record<Task["status"], typeof statuses.todo>
+                    taskStatusOrder
+                      .filter((status) => status !== "review")
+                      .map((status) => [status, statuses[status]]),
+                  ) as Record<
+                    Exclude<Task["status"], "review">,
+                    typeof statuses.todo
+                  >
                 }
                 onChange={(status) => control.mutate(status)}
                 hotkey={editing ? undefined : "s"}
@@ -264,6 +274,7 @@ function TaskView({ task }: { task: Task }) {
         </Button>
       )}
       <TaskNotes task={task} canWrite={project.canWrite} />
+      <TaskReview task={task} canWrite={project.canWrite} />
       {task.successorId && (
         <Button
           variant="outline"

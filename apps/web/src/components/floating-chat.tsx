@@ -10,7 +10,6 @@ import {
   RiInboxLine,
   RiSubtractLine,
 } from "@remixicon/react";
-import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -44,8 +43,8 @@ import {
 } from "@/components/composer";
 import { ListRow } from "@/components/list-row";
 import { type MentionType, mention } from "@/components/mentions";
+import { useNavigation } from "@/components/navigation";
 import { QueryState } from "@/components/query-state";
-import { read } from "@/lib/api";
 import {
   type LiveChat,
   useChat,
@@ -55,11 +54,10 @@ import {
   useParticipants,
 } from "@/lib/chat-data";
 import { useChatUpload } from "@/lib/chat-upload";
-import { useDirectory } from "@/lib/directory";
+import { useDefaultAgent, useDirectory } from "@/lib/directory";
 import { useWorkspace } from "@/lib/workspace";
 import {
   ChatComposer,
-  ChatContextRow,
   ChatPresence,
   ChatRunFeed,
   ChatThread,
@@ -158,8 +156,12 @@ export function FloatingChat({
   const navigate = useNavigate();
   const { chatId, expanded, listing, change, composer, viewRevision } =
     useFloatingChat();
-  const { api, workspaceId, workspace, user } = useWorkspace();
-  const [withIds, setWithIds] = useState<string[]>([]);
+  const { workspace, user } = useWorkspace();
+  const defaultAgent = useDefaultAgent();
+  const [selectedIds, setWithIds] = useState<string[] | undefined>();
+  const withIds =
+    selectedIds ?? (defaultAgent.data ? [defaultAgent.data.id] : []);
+  const [reply, setReply] = useState<{ chatId: string; messageId: string }>();
   const current = useChat(chatId);
   const chat = current.error ? undefined : current.data;
   const participants = useParticipants(chatId);
@@ -169,54 +171,22 @@ export function FloatingChat({
     expanded && !listing && Boolean(chat),
   );
   const chats = useChats({ archived: "false" });
-  const attention = useQuery({
-    queryKey: ["workspace", workspaceId, "floating-attention"],
-    queryFn: async () =>
-      read(
-        await api.attention.$get({
-          param: { workspaceId },
-          query: { limit: "100" },
-        }),
-      ),
-    refetchInterval: 5000,
-    retry: false,
-  });
+  const {
+    attention,
+    attentionError,
+    attentionPending,
+    retryAttention,
+    moreAttention,
+  } = useNavigation();
   const newChat = useNewChat();
   const upload = useChatUpload(projectId);
   const directory = useDirectory();
   const projectTitle = directory.projects.find(
     (item) => item.id === projectId,
   )?.title;
-  const questionRuns = useQuery({
-    queryKey: [
-      "workspace",
-      workspaceId,
-      "floating-question-runs",
-      attention.data?.questions.items.map((question) => question.runId),
-    ],
-    queryFn: async () =>
-      Promise.all(
-        [
-          ...new Set(
-            attention.data?.questions.items.map((question) => question.runId) ??
-              [],
-          ),
-        ].map(async (id) =>
-          read(await api.runs[":id"].$get({ param: { workspaceId, id } })),
-        ),
-      ),
-    enabled: Boolean(attention.data) && !attention.error,
-    retry: false,
-  });
-  const pendingIds = new Set(
-    questionRuns.error ? [] : questionRuns.data?.map((run) => run.chatId),
-  );
-  const unreadIds = new Set(
-    attention.error ? [] : attention.data?.items.map((item) => item.chatId),
-  );
   const pending = (
     chats.error ? [] : (chats.data?.pages.flatMap((page) => page.items) ?? [])
-  ).filter((item) => pendingIds.has(item.id) || unreadIds.has(item.id));
+  ).filter((item) => attention.has(item.id));
   const setComposer = (handle: ComposerHandle | null) => {
     composer.current = handle;
     if (typeof ref === "function") ref(handle);
@@ -334,19 +304,14 @@ export function FloatingChat({
               {listing ? (
                 <>
                   <QueryState
-                    pending={
-                      chats.isPending ||
-                      attention.isPending ||
-                      questionRuns.isPending
-                    }
-                    error={chats.error ?? attention.error ?? questionRuns.error}
+                    pending={chats.isPending || attentionPending}
+                    error={chats.error ?? attentionError}
                     retry={() => {
                       void chats.refetch();
-                      void attention.refetch();
-                      void questionRuns.refetch();
+                      retryAttention();
                     }}
                   />
-                  {!chats.error && !attention.error && !questionRuns.error && (
+                  {!chats.error && !attentionError && (
                     <ul className="no-scrollbar flex min-h-0 scroll-fade-y flex-col gap-0.5 overflow-y-auto px-2 pb-2">
                       {pending.map((item) => (
                         <ListRow
@@ -381,7 +346,7 @@ export function FloatingChat({
                       More chats
                     </Button>
                   )}
-                  {(attention.data?.next || attention.data?.questions.next) && (
+                  {moreAttention && (
                     <p className="px-4 pb-2">
                       More unread items or questions are available in Inbox.
                     </p>
@@ -401,6 +366,14 @@ export function FloatingChat({
                     <ChatThread
                       chatId={chat.id}
                       messages={messages.data ?? []}
+                      onReply={
+                        permissions.canWrite
+                          ? (messageId) => {
+                              setReply({ chatId: chat.id, messageId });
+                              composer.current?.focus();
+                            }
+                          : undefined
+                      }
                       className="px-4 pt-3 pb-4"
                     >
                       <ChatPresence chatId={chat.id} />
@@ -444,7 +417,14 @@ export function FloatingChat({
                     key={chat.id}
                     chat={chat}
                     composerRef={setComposer}
-                    onSent={() => change({ expanded: true })}
+                    replyTo={
+                      reply?.chatId === chat.id ? reply.messageId : undefined
+                    }
+                    onCancelReply={() => setReply(undefined)}
+                    onSent={() => {
+                      setReply(undefined);
+                      change({ expanded: true });
+                    }}
                     disabled={!permissions.canWrite}
                     compact={!expanded}
                     embedded={expanded}
@@ -464,49 +444,10 @@ export function FloatingChat({
                       ) : undefined
                     }
                   />
-                  <ChatContextRow chat={chat} manageLink />
                 </>
               ) : (
                 <>
-                  <Composer
-                    projectId={projectId}
-                    mentionParticipants={{
-                      userIds: [
-                        ...new Set([
-                          user.id,
-                          ...withIds.filter((id) =>
-                            directory.members.some(
-                              (member) => member.userId === id,
-                            ),
-                          ),
-                        ]),
-                      ],
-                      agentIds: withIds.filter((id) =>
-                        directory.agents.some((agent) => agent.id === id),
-                      ),
-                    }}
-                    upload={upload.upload}
-                    ref={setComposer}
-                    compact={!expanded}
-                    embedded={expanded}
-                    placeholder={`Message about ${about}`}
-                    onSend={send}
-                    pending={newChat.isPending}
-                    locked={newChat.locked}
-                    sendable={!newChat.uncertainCreation}
-                    disabled={Boolean(chatId) || workspace.role === "viewer"}
-                    idle={
-                      pending.length > 0 ? (
-                        <Action
-                          label={chatsLabel}
-                          icon={RiInboxLine}
-                          dot
-                          onClick={list}
-                        />
-                      ) : undefined
-                    }
-                  />
-                  <div className="flex flex-wrap items-center gap-2 px-1 pt-2 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2 px-1 pb-2 text-sm text-muted-foreground">
                     <WithPicker
                       value={withIds}
                       onChange={setWithIds}
@@ -537,6 +478,51 @@ export function FloatingChat({
                       </span>
                     )}
                   </div>
+                  <Composer
+                    projectId={projectId}
+                    mentionParticipants={{
+                      userIds: [
+                        ...new Set([
+                          user.id,
+                          ...withIds.filter((id) =>
+                            directory.members.some(
+                              (member) => member.userId === id,
+                            ),
+                          ),
+                        ]),
+                      ],
+                      agentIds: withIds.filter((id) =>
+                        directory.agents.some((agent) => agent.id === id),
+                      ),
+                    }}
+                    upload={upload.upload}
+                    ref={setComposer}
+                    compact={!expanded}
+                    embedded={expanded}
+                    placeholder={`Message about ${about}`}
+                    onSend={send}
+                    pending={newChat.isPending}
+                    locked={newChat.locked}
+                    sendable={!newChat.uncertainCreation}
+                    disabled={
+                      Boolean(chatId) ||
+                      workspace.role === "viewer" ||
+                      (selectedIds === undefined &&
+                        (defaultAgent.isPending ||
+                          Boolean(defaultAgent.error) ||
+                          !defaultAgent.data))
+                    }
+                    idle={
+                      pending.length > 0 ? (
+                        <Action
+                          label={chatsLabel}
+                          icon={RiInboxLine}
+                          dot
+                          onClick={list}
+                        />
+                      ) : undefined
+                    }
+                  />
                 </>
               )}
               {chatId && !permissions.canWrite && (

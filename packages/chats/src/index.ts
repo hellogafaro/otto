@@ -309,21 +309,22 @@ export async function reserveMessage(
       throw new DomainError("conflict");
     return existing;
   }
-  if (input.replyTo)
-    required(
-      (
-        await c.tx
-          .select({ id: messages.id })
-          .from(messages)
-          .where(
-            and(
-              eq(messages.id, input.replyTo),
-              eq(messages.chatId, chatId),
-              eq(messages.status, "published"),
-            ),
-          )
-      )[0],
-    );
+  const replied = input.replyTo
+    ? required(
+        (
+          await c.tx
+            .select({ authorAgentId: messages.authorAgentId })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.id, input.replyTo),
+                eq(messages.chatId, chatId),
+                eq(messages.status, "published"),
+              ),
+            )
+        )[0],
+      )
+    : null;
   let replyAgentIds: string[] = [];
   if (!c.actor.agentId) {
     const mentioned = [
@@ -356,6 +357,18 @@ export async function reserveMessage(
           "Mentioned Agent must be a contributing Chat participant",
         );
       replyAgentIds = mentioned;
+    } else if (replied?.authorAgentId) {
+      const contributors = await c.tx
+        .select({ agentId: participants.agentId })
+        .from(participants)
+        .where(
+          and(
+            eq(participants.chatId, chatId),
+            eq(participants.role, "contributor"),
+            eq(participants.agentId, replied.authorAgentId),
+          ),
+        );
+      if (contributors.length) replyAgentIds = [replied.authorAgentId];
     } else {
       try {
         const audience = await getChatAudience(c, chatId);

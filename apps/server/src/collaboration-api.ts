@@ -50,12 +50,14 @@ import {
   updateTask,
   updateTimesheet,
 } from "@otto/tasks";
+import { getTaskReview, reviewTask } from "@otto/tasks/review";
 import type { Context } from "@otto/workspaces";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createChatMessage } from "./chat-replies";
 import { type ApiEnv, recordId, transact, workspaceId } from "./http";
 import { captureTask } from "./task-capture";
+import { continueTaskReview, readableTaskReview } from "./task-review";
 import {
   body,
   editToken,
@@ -213,11 +215,65 @@ export const collaborationApi = new Hono<ApiEnv>()
     await transact(c, (ctx) => deleteTimesheet(ctx, recordId(c)));
     return c.json({ removed: true });
   })
+  .get("/workspaces/:workspaceId/tasks/:id/review", async (c) =>
+    c.json(
+      await transact(
+        c,
+        async (ctx) => {
+          return readableTaskReview(ctx, await getTaskReview(ctx, recordId(c)));
+        },
+        false,
+      ),
+    ),
+  )
+  .post(
+    "/workspaces/:workspaceId/tasks/:id/review",
+    validate(
+      "json",
+      z
+        .object({
+          requestId: id,
+          editToken,
+          decision: z.enum(["approve", "request_changes"]),
+          body: z.string().max(10000).optional(),
+        })
+        .strict(),
+    ),
+    async (c) => {
+      const input = c.req.valid("json");
+      const result = await transact(c, (ctx) =>
+        reviewTask(ctx, recordId(c), input),
+      );
+      const continuation =
+        input.decision === "request_changes"
+          ? await continueTaskReview(
+              c.get("options"),
+              workspaceId(c),
+              c.get("userId"),
+              {
+                taskId: result.task.id,
+                requestId: input.requestId,
+                commentId: result.comment.id,
+                editToken: result.task.editToken,
+              },
+            )
+          : null;
+      const readable = await transact(
+        c,
+        (ctx) => readableTaskReview(ctx, result),
+        false,
+      );
+      return c.json({ ...readable, continuation });
+    },
+  )
   .post(
     "/workspaces/:workspaceId/tasks/:id/status",
     validate(
       "json",
-      z.object({ status: z.enum(["todo", "doing", "done"]), editToken }),
+      z.object({
+        status: z.enum(["backlog", "todo", "doing", "done"]),
+        editToken,
+      }),
     ),
     async (c) =>
       c.json(
@@ -534,7 +590,9 @@ export const collaborationApi = new Hono<ApiEnv>()
         projectId: id,
         archived: flag,
         query: search,
-        status: z.enum(["todo", "doing", "done"]).optional(),
+        status: z
+          .enum(["backlog", "todo", "doing", "review", "done"])
+          .optional(),
         ownerId: z.string().max(128).optional(),
         assigneeUserId: z.string().max(128).optional(),
         assigneeAgentId: id.optional(),

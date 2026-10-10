@@ -10,22 +10,9 @@ import {
   RiFolder3Line,
   RiInboxFill,
   RiInboxLine,
-  RiSearchLine,
   RiTimeFill,
   RiTimeLine,
 } from "@remixicon/react";
-import { Link, useMatchRoute } from "@tanstack/react-router";
-import { Button } from "@workspace/ui/components/button";
-import { useSidebar } from "@workspace/ui/components/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip";
-import { Fragment, type ReactElement, type ReactNode } from "react";
-import { useCommandPalette } from "@/components/command-palette";
-import { OttoLogo } from "@/components/otto-logo";
-import { ProfileMenu } from "@/components/profile-menu";
 
 type Destination = {
   to: string;
@@ -72,90 +59,3 @@ export const destinations: Destination[] = [
     activeIcon: RiFolder3Fill,
   },
 ];
-
-function RailItem({
-  label,
-  active,
-  render,
-  children,
-}: {
-  label: string;
-  active: boolean;
-  render: ReactElement;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant={active ? "secondary" : "ghost"}
-            size="icon-sm"
-            aria-label={label}
-            // Renders a link, not a native <button>.
-            nativeButton={false}
-            render={render}
-          />
-        }
-      >
-        {children}
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-export function AppRail() {
-  const matchRoute = useMatchRoute();
-  const { setOpen } = useSidebar();
-  const openPalette = useCommandPalette();
-
-  return (
-    // Bars share one rule: p-2 around 32px buttons spaced gap-1, so the rail
-    // is 48px wide. It sits on the frame; 12px on top puts its first button
-    // level with the card's top bar buttons (8px card margin + 4px padding;
-    // 4px under the desktop strip, where the card has no margin).
-    <nav
-      aria-label="App navigation"
-      className="flex shrink-0 flex-col gap-1 p-2 pt-3 select-none group-data-desktop/sidebar-wrapper:pt-1"
-    >
-      {destinations.map(({ to, label, icon, activeIcon }, index) => {
-        const active = Boolean(matchRoute({ to, fuzzy: to !== "/" }));
-        const Icon = active ? activeIcon : icon;
-        return (
-          <Fragment key={to}>
-            <RailItem
-              label={to === "/" ? "Home" : label}
-              active={active}
-              render={<Link to={to} onClick={() => setOpen(true)} />}
-            >
-              {to === "/" ? <OttoLogo className="size-5" /> : <Icon />}
-            </RailItem>
-            {/* Search (the command palette) second, right after home. */}
-            {index === 0 && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Search"
-                      onClick={() => openPalette()}
-                    />
-                  }
-                >
-                  <RiSearchLine />
-                </TooltipTrigger>
-                <TooltipContent side="right">Search</TooltipContent>
-              </Tooltip>
-            )}
-          </Fragment>
-        );
-      })}
-
-      <div className="mt-auto">
-        <ProfileMenu />
-      </div>
-    </nav>
-  );
-}

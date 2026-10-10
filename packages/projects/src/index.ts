@@ -196,8 +196,12 @@ export async function getProjects(
     order?: string;
     archived?: boolean;
     query?: string;
+    projectId?: string;
+    audienceUserIds?: string[];
   } = {},
 ) {
+  if ((filter.audienceUserIds?.length ?? 0) > 100)
+    throw new DomainError("invalid", "Project audience limit");
   const f = { ...filter, archived: filter.archived ?? false };
   const plan = sortPlan({
     operation: "getProjects",
@@ -221,6 +225,11 @@ export async function getProjects(
         eq(projects.workspaceId, c.workspaceId),
         eq(projectMembers.userId, c.actor.userId),
         eq(projects.archived, f.archived),
+        f.projectId ? eq(projects.id, f.projectId) : undefined,
+        ...(f.audienceUserIds ?? []).map(
+          (userId) =>
+            sql`exists (select 1 from ${projectMembers} audience_members where audience_members."projectId" = ${projects.id} and audience_members."userId" = ${userId})`,
+        ),
         f.query ? matchesText(projects.title, f.query) : undefined,
         plan.where,
       ),

@@ -203,8 +203,8 @@ export function TasksPage({ search }: { search: TasksSearch }) {
   );
   const canCreate = projectId ? project.canWrite : workspace.role !== "viewer";
   const createStart = projectId
-    ? `Create a task in ${mention({ type: "project", id: projectId, label: projectOptions[projectId] ?? "Project" })} `
-    : "Create a task ";
+    ? `I want to create a task for ${mention({ type: "project", id: projectId, label: projectOptions[projectId] ?? "Project" })} `
+    : "I want to create a task for ";
   if (
     !filtered &&
     !directory.pending &&
@@ -339,6 +339,7 @@ export function TaskGroups({
             key={status}
             look={statuses[status]}
             count={items.length}
+            showEmpty
             defaultOpen={status !== "done"}
           >
             {items.map((task) => (

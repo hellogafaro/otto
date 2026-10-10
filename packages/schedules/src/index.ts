@@ -427,6 +427,7 @@ export async function getSchedules(
     agentId?: string;
     type?: ScheduleInput["type"];
     query?: string;
+    chatId?: string;
   } = {},
 ) {
   const plan = sortPlan({
@@ -442,6 +443,7 @@ export async function getSchedules(
     .where(
       and(
         eq(schedules.workspaceId, c.workspaceId),
+        filter.chatId ? eq(schedules.chatId, filter.chatId) : undefined,
         filter.status ? eq(schedules.status, filter.status) : undefined,
         filter.ownerId ? eq(schedules.ownerId, filter.ownerId) : undefined,
         filter.agentId ? eq(schedules.agentId, filter.agentId) : undefined,

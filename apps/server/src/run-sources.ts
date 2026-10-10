@@ -4,7 +4,7 @@ import {
   getDocumentAudience,
   requireFileAudience,
 } from "@otto/library";
-import { getProjectAudience } from "@otto/projects";
+import { getProject, getProjectAudience } from "@otto/projects";
 import type { AuthorizeSources } from "@otto/runs/runtime";
 import { DomainError } from "@otto/shared";
 import { getSkill, getSkillAudience } from "@otto/skills";
@@ -25,6 +25,10 @@ export const authorizeRunSources: AuthorizeSources = async (
   for (const source of sources) {
     let audience: string[];
     switch (source.type) {
+      case "project":
+        await getProject(c, source.id);
+        audience = await getProjectAudience(c, source.id);
+        break;
       case "document": {
         const selected = run.inputs.context?.documents.some(
           (item) => item.id === source.id,

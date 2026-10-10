@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startQueue } from "../apps/server/src/queue";
 import { authorizeRunSources } from "../apps/server/src/run-sources";
+import { continueTaskReview } from "../apps/server/src/task-review";
 import {
   createNativeRunTools,
   effectRequestId,
@@ -52,8 +53,12 @@ import {
 import {
   createTask,
   createTimesheet,
+  getTask,
   getTaskLinks,
+  setTaskStatus,
 } from "../packages/tasks/src";
+import { taskComments } from "../packages/tasks/src/comments-schema";
+import { getTaskReview, reviewTask } from "../packages/tasks/src/review";
 import { tasks } from "../packages/tasks/src/schema";
 import { type Context, inWorkspace } from "../packages/workspaces/src";
 import { members, users, workspaces } from "../packages/workspaces/src/schema";
@@ -266,6 +271,195 @@ describe("bounded native conversational operation completeness", () => {
       invoke,
     };
   }
+
+  it("submits native task evidence once and continues requested changes in the same worker Chat", async () => {
+    const f = await fixture();
+    const input = {
+      taskId: f.task.id,
+      editToken: f.task.editToken,
+      body: "Finished the work. Evidence: https://example.test/result",
+    };
+    const submitted = (await f.invoke(
+      "task_proposeCompletion",
+      input,
+      "submit-review",
+    )) as {
+      taskId: string;
+      status: string;
+      editToken: number;
+      messageId: string;
+    };
+    expect(submitted).toMatchObject({
+      taskId: f.task.id,
+      status: "review",
+      editToken: f.task.editToken + 1,
+    });
+    expect(
+      await f.invoke("task_proposeCompletion", input, "submit-review"),
+    ).toEqual(submitted);
+    expect(
+      await database.db
+        .select()
+        .from(taskComments)
+        .where(eq(taskComments.taskId, f.task.id)),
+    ).toHaveLength(1);
+    expect(await f.scope((c) => getTaskReview(c, f.task.id))).toMatchObject({
+      chatId: f.chat.id,
+      agentId: f.agent.id,
+    });
+    const requestId = crypto.randomUUID();
+    const changed = await f.scope((c) =>
+      reviewTask(c, f.task.id, {
+        requestId,
+        editToken: submitted.editToken,
+        decision: "request_changes",
+        body: "Please revise the introduction.",
+      }),
+    );
+    const deliveryInput = {
+      requestId,
+      taskId: f.task.id,
+      commentId: changed.comment.id,
+      chatId: changed.chatId,
+      agentId: changed.agentId,
+      editToken: changed.task.editToken,
+    };
+    const options = {
+      db: database.db,
+      nativeStorage: native,
+      boss,
+      modelAuthorization: nativeModelAuthorization,
+    };
+    expect(
+      await continueTaskReview(options, f.workspaceId, f.owner, deliveryInput),
+    ).toMatchObject({ status: "sent" });
+    expect(
+      await continueTaskReview(options, f.workspaceId, f.owner, deliveryInput),
+    ).toMatchObject({ status: "sent" });
+    const followups = await database.db
+      .select()
+      .from(runs)
+      .where(and(eq(runs.chatId, f.chat.id), eq(runs.agentId, f.agent.id)));
+    expect(followups).toHaveLength(2);
+    expect(followups.find((run) => run.id !== f.run.id)?.inputs.body).toContain(
+      "Please revise the introduction.",
+    );
+    expect(
+      (await f.scope((c) => getTaskReview(c, f.task.id)))?.continuationStatus,
+    ).toBe("sent");
+    expect(
+      await database.db
+        .select()
+        .from(taskComments)
+        .where(eq(taskComments.taskId, f.task.id)),
+    ).toHaveLength(2);
+  });
+
+  it.each(["publication", "model authorization"] as const)(
+    "does not continue a superseded review during %s",
+    async (phase) => {
+      const f = await fixture();
+      const submitted = (await f.invoke("task_proposeCompletion", {
+        taskId: f.task.id,
+        editToken: f.task.editToken,
+        body: "Evidence",
+      })) as { editToken: number };
+      const requestId = crypto.randomUUID();
+      const changed = await f.scope((c) =>
+        reviewTask(c, f.task.id, {
+          requestId,
+          editToken: submitted.editToken,
+          decision: "request_changes",
+          body: "Superseded request",
+        }),
+      );
+      let completed = false;
+      const complete = async (context?: Context) => {
+        if (completed) return;
+        completed = true;
+        const finish = async (c: Context) => {
+          const current = await getTask(c, f.task.id);
+          await setTaskStatus(c, current.id, {
+            editToken: current.editToken,
+            status: "done",
+          });
+        };
+        if (context) await finish(context);
+        else await f.scope(finish);
+      };
+      const memory = await native.storage.getStore("memory");
+      if (!memory) throw new Error("Missing native memory");
+      const save = memory.saveMessages.bind(memory);
+      if (phase === "publication")
+        memory.saveMessages = async (input) => {
+          await complete();
+          return save(input);
+        };
+      try {
+        const result = await continueTaskReview(
+          {
+            db: database.db,
+            nativeStorage: native,
+            boss,
+            modelAuthorization: {
+              ...nativeModelAuthorization,
+              authorizeModel: async (...args) => {
+                if (phase === "model authorization") await complete(args[0]);
+                return nativeModelAuthorization.authorizeModel(...args);
+              },
+            },
+          },
+          f.workspaceId,
+          f.owner,
+          {
+            requestId,
+            taskId: f.task.id,
+            commentId: changed.comment.id,
+            editToken: changed.task.editToken,
+          },
+        );
+        expect(completed).toBe(true);
+        expect(result.status).toBe("unavailable");
+        expect((await f.scope((c) => getTask(c, f.task.id))).status).toBe(
+          "done",
+        );
+        expect(
+          await database.db
+            .select()
+            .from(runs)
+            .where(eq(runs.chatId, f.chat.id)),
+        ).toHaveLength(1);
+      } finally {
+        memory.saveMessages = save;
+      }
+    },
+  );
+
+  it("discovers only accepted Project audiences and retains Project read authority", async () => {
+    const f = await fixture();
+    await f.scope((c) => createProject(c, { title: "Other private Project" }));
+    const page = (await f.invoke("project_list", {})) as {
+      items: { id: string }[];
+    };
+    expect(page.items.map((item) => item.id)).toEqual([f.project.id]);
+    const [session] = await database.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, f.run.sessionId ?? ""));
+    expect(session?.sources).toContainEqual({
+      type: "project",
+      id: f.project.id,
+    });
+    await f.scope((c) => deleteProjectMember(c, f.project.id, f.other));
+    await expect(
+      f.scope((c) =>
+        authorizeRunSources(c, f.run, [{ type: "project", id: f.project.id }]),
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(f.invoke("project_list", {})).rejects.toMatchObject({
+      code: "conflict",
+    });
+  });
 
   it("exports the exact accepted Skill format and metadata, and refuses changed or unselected sources", async () => {
     const f = await fixture();

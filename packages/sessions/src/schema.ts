@@ -17,7 +17,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 export type SessionSource =
-  | { type: "document" | "file" | "task"; id: string }
+  | { type: "document" | "file" | "task" | "project"; id: string }
   | { type: "attachment"; chatId: string; messageId: string; fileId: string }
   | {
       type: "skill-file";

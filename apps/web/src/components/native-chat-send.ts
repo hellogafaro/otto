@@ -65,6 +65,7 @@ export function useNativeChatSend() {
   return {
     ...send,
     locked: Boolean(attempt.current),
+    replyTo: attempt.current?.input.replyTo,
     messageSaved: Boolean(attempt.current?.messageId),
     reset: () => {
       attempt.current = null;

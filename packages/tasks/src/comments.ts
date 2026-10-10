@@ -9,8 +9,17 @@ import {
 import { projectReadable } from "@otto/projects";
 import { DomainError, required } from "@otto/shared";
 import { advanceCursor, type Context, requireHuman } from "@otto/workspaces";
-import { and, eq, getTableColumns, isNotNull, ne, or, sql } from "drizzle-orm";
-import { taskComments } from "./comments-schema";
+import {
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
+import { taskComments, taskReviews } from "./comments-schema";
 import { getTask } from "./index";
 import { tasks } from "./schema";
 
@@ -128,6 +137,22 @@ export async function getTaskComment(c: Context, id: string, write = false) {
       comment.agentId !== (c.actor.agentId?.toLowerCase() ?? null))
   )
     throw new DomainError("forbidden");
+  if (
+    write &&
+    (
+      await c.tx
+        .select({ id: taskReviews.taskId })
+        .from(taskReviews)
+        .where(
+          or(
+            eq(taskReviews.commentId, comment.id),
+            eq(taskReviews.decisionCommentId, comment.id),
+          ),
+        )
+        .limit(1)
+    ).length
+  )
+    throw new DomainError("forbidden", "Review summaries are immutable");
   return comment;
 }
 
@@ -254,5 +279,32 @@ export async function getTaskComments(c: Context, input: TaskCommentQuery) {
     )
     .orderBy(...plan.orderBy)
     .limit(plan.limit + 1);
-  return pageOf(rows, plan, (comment) => comment.id);
+  const page = pageOf(rows, plan, (comment) => comment.id);
+  const ids = page.items.map((comment) => comment.id);
+  const immutable = ids.length
+    ? await c.tx
+        .select({
+          commentId: taskReviews.commentId,
+          decisionCommentId: taskReviews.decisionCommentId,
+        })
+        .from(taskReviews)
+        .where(
+          and(
+            eq(taskReviews.taskId, filter.taskId),
+            or(
+              inArray(taskReviews.commentId, ids),
+              inArray(taskReviews.decisionCommentId, ids),
+            ),
+          ),
+        )
+        .limit(100)
+    : [];
+  return {
+    ...page,
+    immutableIds: ids.filter((id) =>
+      immutable.some(
+        (review) => review.commentId === id || review.decisionCommentId === id,
+      ),
+    ),
+  };
 }

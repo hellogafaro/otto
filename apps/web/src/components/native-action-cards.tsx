@@ -1,5 +1,6 @@
 import { RiArrowDownSLine } from "@remixicon/react";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
   Card,
@@ -192,6 +193,29 @@ function NativeActionCard({
             {JSON.stringify(receipt.result, null, 2)}
           </pre>
         )}
+        {resolve.data?.continuation && (
+          <p role="status">
+            {resolve.data.continuation.status === "sent"
+              ? "Changes were sent to the existing work chat."
+              : resolve.data.continuation.message}
+          </p>
+        )}
+        {receipt.status === "approved" &&
+          action.input.type === "task.review" &&
+          action.input.decision === "request_changes" && (
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/tasks/$taskId"
+                  params={{ taskId: action.input.id }}
+                />
+              }
+            >
+              Check worker delivery or retry
+            </Button>
+          )}
         {resolve.error && (
           <p role="alert">
             {resolve.error instanceof ApiError && resolve.error.status === 409

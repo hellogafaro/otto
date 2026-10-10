@@ -74,6 +74,7 @@ export interface RunInputs {
   accountId: string | null;
   modelConfig: ModelConfig | null;
   agentEditToken: number;
+  taskReviewEditToken?: number;
   sessionMode?: "auto" | "fresh";
   sessionScope?: string;
   triggeringMessageId?: string;

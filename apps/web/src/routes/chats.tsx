@@ -11,15 +11,12 @@ import {
   RiFolder3Line,
   RiGroupLine,
   RiMoreLine,
+  RiPushpinLine,
+  RiReplyLine,
+  RiStopLine,
 } from "@remixicon/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Link,
-  Navigate,
-  useMatchRoute,
-  useNavigate,
-  useParams,
-} from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { AttachmentGroup } from "@workspace/ui/components/attachment";
 import { AvatarGroup } from "@workspace/ui/components/avatar";
 import { Bubble, BubbleContent } from "@workspace/ui/components/bubble";
@@ -66,12 +63,22 @@ import {
 } from "@workspace/ui/components/empty";
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item";
 import { Marker, MarkerContent } from "@workspace/ui/components/marker";
 import {
   Message,
+  MessageActions,
   MessageAvatar,
   MessageContent,
   MessageHeader,
+  MessageItem,
+  MessageQuote,
 } from "@workspace/ui/components/message";
 import {
   MessageScroller,
@@ -82,12 +89,11 @@ import {
   MessageScrollerViewport,
 } from "@workspace/ui/components/message-scroller";
 import {
-  SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar";
 import { toast } from "@workspace/ui/components/sonner";
+import { Spinner } from "@workspace/ui/components/spinner";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { cn } from "@workspace/ui/lib/utils";
 import {
@@ -112,11 +118,18 @@ import {
 } from "@/components/detail";
 import { EmptyPage } from "@/components/empty-page";
 import { Lightbox } from "@/components/files";
+import {
+  FilterBar,
+  type FilterDef,
+  FilterMenu,
+  NoResults,
+} from "@/components/filters";
 import { MentionText } from "@/components/mentions";
 import { NativeActionCards } from "@/components/native-action-cards";
 import { useNativeChatSend } from "@/components/native-chat-send";
+import { useNavigation } from "@/components/navigation";
+import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
-import { SectionSidebar } from "@/components/section-sidebar";
 import { ActorAvatar, type Look } from "@/components/task-meta";
 import { Topbar } from "@/components/topbar";
 import { ApiError, read } from "@/lib/api";
@@ -136,7 +149,7 @@ import {
   useRunActivity,
 } from "@/lib/chat-data";
 import { useChatUpload } from "@/lib/chat-upload";
-import { useDirectory } from "@/lib/directory";
+import { useDefaultAgent, useDirectory } from "@/lib/directory";
 import { savedResource } from "@/lib/file-library";
 import { parseMentions } from "@/lib/mention-text";
 import { useWorkspace } from "@/lib/workspace";
@@ -151,113 +164,57 @@ export function ago(createdAt?: string | null) {
   return `${Math.floor(minutes / 10080)}w`;
 }
 
-// Backend Chat metadata has no pin/done/snooze/type state.
-export function chatGroups(chats: LiveChat[] = []) {
-  return [
-    {
-      title: "Chats",
-      chats: chats.filter((chat) => !chat.archived),
-      open: true,
-    },
-    {
-      title: "Archived",
-      chats: chats.filter((chat) => chat.archived),
-      open: false,
-    },
-  ];
-}
-
-export function ChatsSidebar() {
-  // /chats/new has no chatId; a fuzzy match on /chats/$chatId would read "new" as one.
-  const { chatId } = useParams({ strict: false });
-  const selected = useChat(chatId);
-  const chats = useChats({ archived: "false" });
-  const { workspace } = useWorkspace();
-  // No chats: no sidebar. The new-chat page is the whole screen.
-  if (
-    !chats.error &&
-    (chats.isPending || chats.data?.pages.every((page) => !page.items.length))
-  )
-    return null;
-  return (
-    <SectionSidebar
-      title="Chats"
-      actions={
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="New chat"
-          disabled={workspace.role === "viewer"}
-          nativeButton={false}
-          render={
-            <Link
-              to="/chats/new"
-              search={{
-                with: undefined,
-                project: selected.data?.projectId ?? undefined,
-              }}
-            />
-          }
-        >
-          <RiAddLine />
-        </Button>
-      }
-    >
-      <QueryState
-        pending={chats.isPending}
-        error={chats.error}
-        retry={chats.refetch}
-      />
-      {!chats.error && (
-        <>
-          <SidebarMenu>
-            {chats.data?.pages
-              .flatMap((page) => page.items)
-              .map((chat) => (
-                <ChatRow key={chat.id} chat={chat} />
-              ))}
-          </SidebarMenu>
-          {chats.hasNextPage && (
-            <Button
-              variant="ghost"
-              disabled={chats.isFetchingNextPage}
-              onClick={() => chats.fetchNextPage()}
-            >
-              Load more chats
-            </Button>
-          )}
-        </>
-      )}
-    </SectionSidebar>
-  );
-}
-
 function ChatRow({ chat }: { chat: LiveChat }) {
-  const matchRoute = useMatchRoute();
+  const navigation = useNavigation();
+  const item = { type: "chat" as const, id: chat.id };
+  const pinned = navigation.isPinned(item);
+  const status = navigation.attention.get(chat.id);
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        isActive={Boolean(
-          matchRoute({ to: "/chats/$chatId", params: { chatId: chat.id } }),
-        )}
+    <li className="flex items-center gap-1">
+      <Item
+        size="xs"
+        className="min-w-0 flex-1"
         render={<Link to="/chats/$chatId" params={{ chatId: chat.id }} />}
       >
-        <RiChat1Line />
-        <span className="truncate">{chat.title}</span>
-      </SidebarMenuButton>
+        <ItemMedia variant="icon">
+          <RiChat1Line />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>{chat.title}</ItemTitle>
+        </ItemContent>
+        <ItemActions>
+          {status && <span className="text-xs text-primary">{status}</span>}
+          <span className="text-xs text-muted-foreground">
+            {ago(chat.updatedAt)}
+          </span>
+        </ItemActions>
+      </Item>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <SidebarMenuAction aria-label={`Actions for ${chat.title}`} />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Actions for ${chat.title}`}
+            />
           }
         >
           <RiMoreLine />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              disabled={!pinned && navigation.pinLimit}
+              onClick={() => navigation.togglePin(item)}
+            >
+              <RiPushpinLine />
+              {pinned ? "Unpin" : "Pin"}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
           <ChatMenuItems chat={chat} />
         </DropdownMenuContent>
       </DropdownMenu>
-    </SidebarMenuItem>
+    </li>
   );
 }
 
@@ -348,7 +305,58 @@ export function ChatsLandingPage({
     sort: search.sort,
     order: search.order,
   });
-  // Chats always has one open: the first one, or the empty page with New chat.
+  const navigation = useNavigation();
+  const [query, setQuery] = useState(search.query ?? "");
+  useEffect(() => setQuery(search.query ?? ""), [search.query]);
+  const filters: FilterDef<"archived" | "sort" | "order">[] = [
+    {
+      key: "archived",
+      label: "Archive",
+      icon: RiArchiveLine,
+      options: {
+        false: { label: "Active", icon: RiChat1Line },
+        true: { label: "Archived", icon: RiArchiveLine },
+      },
+    },
+    {
+      key: "sort",
+      label: "Sort",
+      icon: RiArrowDownLine,
+      options: {
+        updatedAt: { label: "Updated", icon: RiArrowDownLine },
+        createdAt: { label: "Created", icon: RiAddLine },
+        title: { label: "Title", icon: RiChat1Line },
+      },
+    },
+    {
+      key: "order",
+      label: "Order",
+      icon: RiArrowDownLine,
+      options: {
+        desc: { label: "Descending", icon: RiArrowDownLine },
+        asc: { label: "Ascending", icon: RiArrowDownLine },
+      },
+    },
+  ];
+  const change = (
+    key: "archived" | "sort" | "order",
+    value: string | undefined,
+  ) =>
+    void navigate({
+      to: "/chats",
+      search: validateChatsSearch({ ...search, [key]: value }),
+    });
+  const create = () =>
+    void navigate({
+      to: "/chats/new",
+      search: { with: undefined, project: search.project },
+    });
+  const items = chats.error
+    ? []
+    : (chats.data?.pages.flatMap((page) => page.items) ?? []);
+  const filtered = Boolean(
+    search.query || search.project || search.archived === "true",
+  );
   if (chats.error || chats.isPending)
     return (
       <QueryState
@@ -357,27 +365,100 @@ export function ChatsLandingPage({
         retry={chats.refetch}
       />
     );
-  const first = chats.data.pages[0]?.items[0];
-  return first ? (
-    <Navigate to="/chats/$chatId" params={{ chatId: first.id }} replace />
-  ) : (
-    <EmptyPage
-      icon={RiChat1Line}
-      title="No chats"
-      description="Conversations with your team and agents live here."
-      create={
-        workspace.role === "viewer"
-          ? undefined
-          : {
-              action: "New chat",
-              onClick: () =>
-                void navigate({
-                  to: "/chats/new",
-                  search: { with: undefined, project: search.project },
-                }),
-            }
+  if (!items.length && !chats.hasNextPage && !filtered)
+    return (
+      <EmptyPage
+        icon={RiChat1Line}
+        title="No chats"
+        description="Conversations with your team and agents live here."
+        create={
+          workspace.role === "viewer"
+            ? undefined
+            : {
+                action: "New chat",
+                onClick: create,
+              }
+        }
+      />
+    );
+  return (
+    <Page
+      title="Chats"
+      width="wide"
+      actions={
+        <>
+          <FilterMenu filters={filters} values={search} onChange={change} />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="New chat"
+            disabled={workspace.role === "viewer"}
+            onClick={create}
+          >
+            <RiAddLine />
+          </Button>
+        </>
       }
-    />
+    >
+      <form
+        aria-label="Chat search"
+        className="flex items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void navigate({
+            to: "/chats",
+            search: { ...search, query: query.trim() || undefined },
+          });
+        }}
+      >
+        <Input
+          aria-label="Search chats"
+          placeholder="Search chats"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          maxLength={200}
+        />
+        <Button type="submit" variant="outline">
+          Search
+        </Button>
+      </form>
+      <FilterBar
+        filters={filters}
+        values={{ archived: search.archived === "true" ? "true" : undefined }}
+        onChange={change}
+        onClear={() =>
+          void navigate({ to: "/chats", search: validateChatsSearch({}) })
+        }
+      />
+      {navigation.attentionError && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Chat attention is unavailable.
+        </p>
+      )}
+      {items.length ? (
+        <ul aria-label="Chats list" className="flex flex-col gap-1">
+          {items.map((chat) => (
+            <ChatRow key={chat.id} chat={chat} />
+          ))}
+        </ul>
+      ) : (
+        <NoResults
+          what="chats"
+          onClear={() =>
+            void navigate({ to: "/chats", search: validateChatsSearch({}) })
+          }
+        />
+      )}
+      {chats.hasNextPage && (
+        <Button
+          variant="outline"
+          disabled={chats.isFetchingNextPage}
+          onClick={() => chats.fetchNextPage()}
+        >
+          Load more chats
+        </Button>
+      )}
+    </Page>
   );
 }
 
@@ -519,7 +600,14 @@ function ChatView({ chat }: { chat: LiveChat }) {
         <ChatThread
           chatId={chat.id}
           messages={messages.data ?? []}
-          onReply={permissions.canWrite ? setReplyTo : undefined}
+          onReply={
+            permissions.canWrite
+              ? (id) => {
+                  setReplyTo(id);
+                  composer.current?.focus();
+                }
+              : undefined
+          }
         >
           <ChatPresence chatId={chat.id} />
           <ChatRunFeed chatId={chat.id} canWrite={permissions.canWrite} />
@@ -532,24 +620,13 @@ function ChatView({ chat }: { chat: LiveChat }) {
             Run controls continue.
           </p>
         )}
-        {replyTo && (
-          <p>
-            Replying to message {replyTo}
-            <Button
-              variant="ghost"
-              size="compact"
-              onClick={() => setReplyTo(undefined)}
-            >
-              Cancel reply
-            </Button>
-          </p>
-        )}
         {permissions.canWrite ? (
           <ChatComposer
             key={chat.id}
             chat={chat}
             composerRef={composer}
             replyTo={replyTo}
+            onCancelReply={() => setReplyTo(undefined)}
             onSent={() => setReplyTo(undefined)}
           />
         ) : (
@@ -560,7 +637,6 @@ function ChatView({ chat }: { chat: LiveChat }) {
                 : "This chat is read-only for you.")}
           </p>
         )}
-        <ChatContextRow chat={chat} />
       </div>
     </WithPanel>
   );
@@ -572,6 +648,7 @@ export function ChatComposer({
   composerRef,
   onSent,
   replyTo,
+  onCancelReply,
   disabled = false,
   compact = false,
   embedded = false,
@@ -582,6 +659,7 @@ export function ChatComposer({
   composerRef?: React.Ref<ComposerHandle>;
   onSent?: () => void;
   replyTo?: string;
+  onCancelReply?: () => void;
   disabled?: boolean;
   compact?: boolean;
   embedded?: boolean;
@@ -591,6 +669,8 @@ export function ChatComposer({
   const upload = useChatUpload(chat.projectId ?? undefined);
   const participants = useParticipants(chat.id);
   const send = useNativeChatSend();
+  const messages = useChatMessages(chat.id);
+  const quotedId = send.locked ? send.replyTo : replyTo;
   const mentionParticipants = {
     userIds:
       participants.data?.items.flatMap((person) =>
@@ -635,6 +715,22 @@ export function ChatComposer({
           void typing(false);
       }}
     >
+      <ChatContextRow chat={chat} manageLink={compact || embedded} />
+      {quotedId && (
+        <ChatQuote
+          message={messages.data?.find((message) => message.id === quotedId)}
+        >
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Remove quote"
+            disabled={send.locked || send.isPending}
+            onClick={onCancelReply}
+          >
+            <RiCloseLine />
+          </Button>
+        </ChatQuote>
+      )}
       <Composer
         ref={composerRef}
         projectId={chat.projectId ?? undefined}
@@ -696,7 +792,7 @@ export function ChatContextRow({
   const { canManage } = useChatPermissions(chat, participants);
   const project = directory.projects.find((item) => item.id === chat.projectId);
   return (
-    <div className="flex flex-wrap items-center gap-2 px-1 pt-2 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-2 px-1 pb-2 text-sm text-muted-foreground">
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -929,7 +1025,12 @@ export function NewChatComposer({
 }) {
   const directory = useDirectory();
   const { workspace, user } = useWorkspace();
-  const [withIds, setWithIds] = useState<string[]>(withId ? [withId] : []);
+  const defaultAgent = useDefaultAgent();
+  const [selectedIds, setWithIds] = useState<string[] | undefined>(
+    withId ? [withId] : undefined,
+  );
+  const withIds =
+    selectedIds ?? (defaultAgent.data ? [defaultAgent.data.id] : []);
   const [projectId, setProjectId] = useState(initialProjectId);
   const create = useNewChat();
   const upload = useChatUpload(projectId);
@@ -986,35 +1087,7 @@ export function NewChatComposer({
         </p>
       )}
       <DirectoryPages kind="projects" />
-      <Composer
-        upload={upload.upload}
-        projectId={projectId}
-        placeholder="Write your first message"
-        mentionParticipants={mentionParticipants}
-        locked={create.locked}
-        onSend={async (body, files) => {
-          const chat = await create.mutateAsync({
-            memberIds: withIds,
-            projectId,
-            // Participants only: the project's own chat is the one that is open to the whole project.
-            visibility: "participants",
-            body,
-            files,
-          });
-          onCreated(chat);
-        }}
-        {...{
-          pending: create.isPending,
-          disabled:
-            workspace.role === "viewer" ||
-            directory.pending ||
-            Boolean(directory.error) ||
-            !validProject ||
-            !validPeople,
-          sendable: !create.uncertainCreation,
-        }}
-      />
-      <div className="flex flex-wrap items-center gap-1 px-1 pt-2">
+      <div className="flex flex-wrap items-center gap-1 px-1 pb-2">
         <WithPicker
           value={withIds}
           onChange={setWithIds}
@@ -1039,6 +1112,38 @@ export function NewChatComposer({
           disabled={create.isPending || Boolean(create.createdChat)}
         />
       </div>
+      <Composer
+        upload={upload.upload}
+        projectId={projectId}
+        placeholder="Write your first message"
+        mentionParticipants={mentionParticipants}
+        locked={create.locked}
+        onSend={async (body, files) => {
+          const chat = await create.mutateAsync({
+            memberIds: withIds,
+            projectId,
+            // Participants only: the project's own chat is the one that is open to the whole project.
+            visibility: "participants",
+            body,
+            files,
+          });
+          onCreated(chat);
+        }}
+        {...{
+          pending: create.isPending,
+          disabled:
+            workspace.role === "viewer" ||
+            (selectedIds === undefined &&
+              (defaultAgent.isPending ||
+                Boolean(defaultAgent.error) ||
+                !defaultAgent.data)) ||
+            directory.pending ||
+            Boolean(directory.error) ||
+            !validProject ||
+            !validPeople,
+          sendable: !create.uncertainCreation,
+        }}
+      />
     </>
   );
 }
@@ -1467,6 +1572,9 @@ export function ChatThread({
   const drafts = incomingDrafts.filter((draft) => !published.has(draft.id));
   const directory = useDirectory();
   const turns: LiveMessage[][] = [];
+  const messagesById = new Map(
+    messages.map((message) => [message.id, message]),
+  );
   for (const message of messages) {
     const last = turns.at(-1)?.at(-1);
     const actor = message.authorUserId ?? message.authorAgentId;
@@ -1502,7 +1610,12 @@ export function ChatThread({
                   messageId={turn[0].id}
                   className="pt-0.5 pb-1"
                 >
-                  <Turn messages={turn} onReply={onReply} chatId={chatId} />
+                  <Turn
+                    messages={turn}
+                    messagesById={messagesById}
+                    onReply={onReply}
+                    chatId={chatId}
+                  />
                 </MessageScrollerItem>
               </Fragment>
             ))}
@@ -1556,10 +1669,12 @@ export function ChatThread({
 
 function Turn({
   messages,
+  messagesById,
   onReply,
   chatId,
 }: {
   messages: LiveMessage[];
+  messagesById: Map<string, LiveMessage>;
   onReply?: (id: string) => void;
   chatId?: string;
 }) {
@@ -1573,25 +1688,36 @@ function Turn({
         <ActorAvatar actorId={actorId} size="md" />
       </MessageAvatar>
       <MessageContent className="gap-1">
-        <MessageHeader className="gap-2 px-0 text-sm">
-          <span>
-            {actorId === user.id ? "You" : directory.actorOf(actorId).name}
-          </span>
-          <span className="text-xs font-normal tabular-nums">
-            {clock.format(new Date(first.createdAt))}
-          </span>
-          <CopyButton
-            text={messages.map((message) => message.body).join("\n\n")}
-          />
-        </MessageHeader>
-        {messages.map((message) => (
-          <div className="flex w-full min-w-0 flex-col gap-2" key={message.id}>
+        {messages.map((message, index) => (
+          <MessageItem key={message.id}>
+            {index === 0 && (
+              <MessageHeader className="gap-2 px-0 pr-14 text-sm">
+                <span>
+                  {actorId === user.id
+                    ? "You"
+                    : directory.actorOf(actorId).name}
+                </span>
+                <span className="text-xs font-normal tabular-nums">
+                  {clock.format(new Date(first.createdAt))}
+                </span>
+              </MessageHeader>
+            )}
+            <MessageActions>
+              {onReply && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Reply"
+                  title="Reply"
+                  onClick={() => onReply(message.id)}
+                >
+                  <RiReplyLine />
+                </Button>
+              )}
+              <CopyButton text={message.body} />
+            </MessageActions>
             {message.replyTo && (
-              <Marker>
-                <MarkerContent>
-                  Reply to message {message.replyTo}
-                </MarkerContent>
-              </Marker>
+              <ChatQuote message={messagesById.get(message.replyTo)} />
             )}
             <Bubble variant="ghost">
               <BubbleContent className="whitespace-pre-line">
@@ -1605,21 +1731,42 @@ function Turn({
                 ))}
               </AttachmentGroup>
             )}
-            {onReply && (
-              <Button
-                variant="ghost"
-                size="compact"
-                className="w-fit"
-                onClick={() => onReply(message.id)}
-              >
-                Reply
-              </Button>
-            )}
             {chatId && <ReadReceipt chatId={chatId} cursor={message.cursor} />}
-          </div>
+          </MessageItem>
         ))}
       </MessageContent>
     </Message>
+  );
+}
+
+function ChatQuote({
+  message,
+  children,
+}: {
+  message?: LiveMessage;
+  children?: ReactNode;
+}) {
+  const directory = useDirectory();
+  const { user } = useWorkspace();
+  const actorId = message?.authorUserId ?? message?.authorAgentId;
+  return (
+    <MessageQuote aria-label="Quoted message">
+      <div className="min-w-0 flex-1">
+        <strong>
+          {actorId === user.id
+            ? "You"
+            : actorId
+              ? directory.actorOf(actorId).name
+              : "Original message unavailable"}
+        </strong>
+        {message && (
+          <div className="line-clamp-2">
+            <MentionText text={message.body || "Attachment"} />
+          </div>
+        )}
+      </div>
+      {children}
+    </MessageQuote>
   );
 }
 
@@ -1743,7 +1890,7 @@ function CopyButton({ text }: { text: string }) {
       variant="ghost"
       size="icon-xs"
       aria-label={error ? "Copy failed; retry" : copied ? "Copied" : "Copy"}
-      className="-my-0.5 ml-auto"
+      title={error ? "Copy failed; retry" : copied ? "Copied" : "Copy"}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
@@ -1795,8 +1942,6 @@ export function ChatRunFeed({
 function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
   const { api, workspaceId, invalidate } = useWorkspace();
   const directory = useDirectory();
-  const [body, setBody] = useState("");
-  const steerRequest = useRef({ body: "", id: "" });
   const activity = useRunActivity(run, true);
   const stop = useMutation({
     mutationFn: async () =>
@@ -1807,38 +1952,45 @@ function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
       ),
     onSuccess: invalidate,
   });
-  const steer = useMutation({
-    mutationFn: async () => {
-      if (steerRequest.current.body !== body)
-        steerRequest.current = { body, id: crypto.randomUUID() };
-      return read(
-        await api.runs[":id"].steer.$post({
-          param: { workspaceId, id: run.id },
-          json: { body, requestId: steerRequest.current.id },
-        }),
-      );
-    },
-    onSuccess: async () => {
-      setBody("");
-      steerRequest.current = { body: "", id: "" };
-      await invalidate();
-    },
-  });
   return (
     <div className="flex flex-col gap-3">
       {activeRun(run) && (
-        <Marker role="status">
-          <ActorAvatar actorId={run.agentId} />
-          <MarkerContent>
-            {directory.actorOf(run.agentId).name} ·{" "}
-            {run.state === "queued" || run.state === "launching"
-              ? "Starting"
-              : run.state === "uncertain"
-                ? "Needs attention"
-                : "Working"}
-          </MarkerContent>
-        </Marker>
+        <Message>
+          <MessageAvatar>
+            <ActorAvatar actorId={run.agentId} size="md" />
+          </MessageAvatar>
+          <MessageContent className="gap-1">
+            <MessageHeader className="gap-2 px-0 text-sm">
+              <span>{directory.actorOf(run.agentId).name}</span>
+              {canWrite && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Stop Run"
+                  title="Stop"
+                  disabled={stop.isPending}
+                  onClick={() => stop.mutate()}
+                >
+                  <RiStopLine />
+                </Button>
+              )}
+            </MessageHeader>
+            <Marker role="status">
+              {run.state !== "uncertain" && <Spinner aria-hidden="true" />}
+              <MarkerContent>
+                {stop.isPending
+                  ? "Stopping…"
+                  : run.state === "queued" || run.state === "launching"
+                    ? "Starting…"
+                    : run.state === "uncertain"
+                      ? "Needs attention"
+                      : "Working…"}
+              </MarkerContent>
+            </Marker>
+          </MessageContent>
+        </Message>
       )}
+      {stop.error && <p role="alert">{stop.error.message}</p>}
       {(run.state === "failed" ||
         run.state === "interrupted" ||
         run.state === "uncertain") && (
@@ -1875,59 +2027,6 @@ function Run({ run, canWrite }: { run: LiveRun; canWrite: boolean }) {
             </Marker>
           ) : null,
         )}
-      {activeRun(run) && canWrite && (
-        <>
-          <Button
-            variant="outline"
-            disabled={stop.isPending}
-            onClick={() => stop.mutate()}
-          >
-            {stop.isPending ? "Requesting stop" : "Stop Run"}
-          </Button>
-          {stop.error && <p role="alert">{stop.error.message}</p>}
-          {run.type === "prompt" && run.state === "running" && (
-            <Collapsible>
-              <CollapsibleTrigger
-                render={<Button variant="ghost" size="compact" />}
-              >
-                Send instruction
-                <RiArrowDownSLine />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    steer.mutate();
-                  }}
-                >
-                  <FieldGroup>
-                    <Field>
-                      <FieldLabel htmlFor={`steer-${run.id}`}>
-                        Steer this Run
-                      </FieldLabel>
-                      <Textarea
-                        id={`steer-${run.id}`}
-                        value={body}
-                        maxLength={100000}
-                        disabled={steer.isPending}
-                        onChange={(event) => setBody(event.target.value)}
-                        required
-                      />
-                    </Field>
-                    <Button
-                      disabled={steer.isPending || !body.trim()}
-                      type="submit"
-                    >
-                      Send instruction
-                    </Button>
-                    {steer.error && <p role="alert">{steer.error.message}</p>}
-                  </FieldGroup>
-                </form>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-        </>
-      )}
     </div>
   );
 }

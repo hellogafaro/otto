@@ -1,10 +1,11 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { read } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
 
 /** Real, workspace-scoped directory shared by pickers and identity presentation. */
 export function useDirectory() {
   const { api, workspaceId, user } = useWorkspace();
+  const defaultAgent = useDefaultAgent();
   const members = useInfiniteQuery({
     queryKey: ["workspace", workspaceId, "directory", "members"],
     initialPageParam: undefined as string | undefined,
@@ -54,7 +55,14 @@ export function useDirectory() {
     }),
   });
   const people = members.data?.items ?? [];
-  const bots = agents.data?.items ?? [];
+  const bots = [
+    ...new Map(
+      [
+        ...(agents.data?.items ?? []),
+        ...(defaultAgent.data ? [defaultAgent.data] : []),
+      ].map((agent) => [agent.id, agent]),
+    ).values(),
+  ];
   const actorOf = (id: string) => {
     const bot = bots.find((item) => item.id === id);
     const person = people.find((item) => item.userId === id);
@@ -89,4 +97,13 @@ export function useDirectory() {
     agentsQuery: agents,
     projectsQuery: projects,
   };
+}
+
+export function useDefaultAgent() {
+  const { api, workspaceId } = useWorkspace();
+  return useQuery({
+    queryKey: ["workspace", workspaceId, "default-agent"],
+    queryFn: async () =>
+      read(await api.agents.default.$get({ param: { workspaceId } })),
+  });
 }

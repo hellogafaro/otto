@@ -390,7 +390,8 @@ export function LibraryPage({ search }: { search: LibrarySearch }) {
             canWrite
               ? {
                   action: "New document",
-                  onClick: () => setCreatingDocument(true),
+                  onClick: () =>
+                    ask("I want to create a document in the library about "),
                 }
               : undefined
           }
