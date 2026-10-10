@@ -11,6 +11,7 @@ import {
 import { invitations, users } from "../../packages/workspaces/src/schema";
 import { register } from "./account";
 import { expect, test } from "./live-app";
+import { nativeSettingsTest, prepareNativeSettings } from "./native-settings";
 
 function responseFor(page: Page, method: string, path: string) {
   return page.waitForResponse(
@@ -18,27 +19,6 @@ function responseFor(page: Page, method: string, path: string) {
       new URL(response.url()).pathname === path &&
       response.request().method() === method,
   );
-}
-
-async function openMcpCreation(page: Page, title: string) {
-  await page
-    .getByRole("button", { name: "New connection", exact: true })
-    .click();
-  const dialog = page.getByRole("dialog", {
-    name: "New connection",
-    exact: true,
-  });
-  await dialog.getByLabel("Name", { exact: true }).fill(title);
-  await dialog
-    .getByRole("button", { name: "Connection type: GitHub App", exact: true })
-    .click();
-  await page
-    .getByRole("menuitemradio", { name: "MCP server", exact: true })
-    .click();
-  await dialog
-    .getByLabel("Account association", { exact: true })
-    .fill(`qa:${crypto.randomUUID()}`);
-  return dialog;
 }
 
 test("Members save real roles, reject viewer writes, remove members and manage known invitation IDs", async ({
@@ -824,131 +804,346 @@ test("Exact native provider persists encrypted key, display and visibility, sele
   ).toHaveLength(0);
 });
 
-test("MCP creation and configuration persist, missing discovery/connect services never imply connected", async ({
-  page,
-  fixture,
-}, testInfo) => {
-  const { workspaceId } = await register(
-    page,
-    fixture,
-    "Settings Connection Owner",
-  );
-  await page.goto("/settings/connections?connected=true");
-  const dialog = await openMcpCreation(page, "Settings Exact MCP");
-  const creationAck = responseFor(
-    page,
-    "POST",
-    `/api/workspaces/${workspaceId}/connections`,
-  );
-  await dialog.getByRole("button", { name: "Create", exact: true }).click();
-  const creation = await creationAck;
-  expect(creation.status()).toBe(200);
-  const connection = await creation.json();
-  expect(connection).toMatchObject({
-    type: "mcp",
-    connected: false,
-    visibility: "user",
-  });
-  await page.waitForURL(
-    (url) => url.searchParams.get("connection") === connection.id,
-  );
-  await expect(
-    page.getByRole("heading", { name: "Settings Exact MCP", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Configure", exact: true }).click();
-  const config = page.getByRole("dialog", {
-    name: "Configure Settings Exact MCP",
-    exact: true,
-  });
-  await config
-    .getByRole("button", {
-      name: "Configuration replacement: Credential reference",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("menuitemradio", { name: "Provider configuration", exact: true })
-    .click();
-  await config
-    .getByLabel("MCP endpoint", { exact: true })
-    .fill("https://mcp.example.test/otto");
-  await config
-    .getByLabel("Trusted tools", { exact: true })
-    .fill("read_item target read");
-  await config
-    .getByLabel("Resource URIs", { exact: true })
-    .fill("otto://qa/item");
-  const configAck = responseFor(
-    page,
-    "PATCH",
-    `/api/workspaces/${workspaceId}/connections/${connection.id}`,
-  );
-  await config
-    .getByRole("button", { name: "Replace configuration", exact: true })
-    .click();
-  expect((await configAck).status()).toBe(200);
-  await expect(config).not.toBeVisible();
-  const saved = await fixture.database.db
-    .select({
-      config: connections.config,
-      editToken: connections.editToken,
-      connected: connections.connected,
-    })
-    .from(connections)
-    .where(eq(connections.id, connection.id))
-    .limit(1);
-  expect(saved[0]).toMatchObject({
-    connected: false,
-    editToken: connection.editToken + 1,
-    config: {
-      type: "mcp",
-      endpoint: "https://mcp.example.test/otto",
-      tools: [{ name: "read_item", targetArgument: "target", readOnly: true }],
-      resources: ["otto://qa/item"],
-    },
-  });
-  await page.reload();
-  for (const [button, operation] of [
-    ["Discover", "discover"],
-    ["Connect", "connect"],
-  ] as const) {
-    const unavailable = responseFor(
+nativeSettingsTest(
+  "MCP creation and configuration persist, missing discovery/connect services never imply connected",
+  async ({ page, fixture }, testInfo) => {
+    const { workspaceId } = await register(
       page,
-      "POST",
-      `/api/workspaces/${workspaceId}/connections/${connection.id}/${operation}`,
+      fixture,
+      "Settings Connection Owner",
     );
-    await page.getByRole("button", { name: button, exact: true }).click();
-    expect((await unavailable).status()).toBe(503);
+    const native = await prepareNativeSettings(page, fixture, workspaceId);
+    const created = await native.approve({
+      type: "connection.create",
+      title: "Settings Exact MCP",
+      connectionType: "mcp",
+      accountRef: `qa:${crypto.randomUUID()}`,
+      visibility: "user",
+    });
+    const path = `/api/workspaces/${workspaceId}/connections/${created.id}`;
+    const creation = await page.request.get(path);
+    expect(creation.status()).toBe(200);
+    const connection = await creation.json();
+    expect(connection).toMatchObject({
+      type: "mcp",
+      connected: false,
+      visibility: "user",
+    });
+    await page.goto(
+      `/settings/connections?connected=true&connection=${connection.id}`,
+    );
     await expect(
-      page
-        .getByRole("alert")
-        .filter({ hasText: "This service is unavailable" }),
+      page.getByRole("heading", { name: "Settings Exact MCP", exact: true }),
+    ).toBeVisible();
+    let editToken = connection.editToken;
+    for (const authentication of ["bearer", "none"] as const) {
+      const config = {
+        type: "mcp" as const,
+        endpoint: "https://mcp.example.test/otto",
+        authentication,
+        tools: [
+          { name: "read_item", targetArgument: "target", readOnly: true },
+        ],
+        resources: ["otto://qa/item"],
+      };
+      const configured = await native.approve({
+        type: "connection.update",
+        id: connection.id,
+        editToken,
+        config,
+      });
+      const saved = await fixture.database.db
+        .select({
+          config: connections.config,
+          editToken: connections.editToken,
+          connected: connections.connected,
+        })
+        .from(connections)
+        .where(eq(connections.id, connection.id))
+        .limit(1);
+      expect(saved[0]).toMatchObject({
+        connected: false,
+        editToken: editToken + 1,
+        config,
+      });
+      expect(configured.editToken).toBe(editToken + 1);
+      editToken = configured.editToken;
+      await page.goto(`/settings/connections?connection=${connection.id}`);
+      await page.reload();
+      await expect(
+        page.getByText("Configured tools", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("read_item · target: target · Read-only", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Resource URIs and tool targets", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("otto://qa/item", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText(
+          authentication === "none"
+            ? "No authentication; deployment opt-in required"
+            : "Bearer; server-bound credential required",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", {
+          name: "Complete credential reference",
+          exact: true,
+        }),
+      ).toHaveCount(authentication === "none" ? 0 : 1);
+      for (const button of [
+        "New connection",
+        "Configure",
+        "Connect",
+        "Discover",
+        "Grant access",
+      ]) {
+        await expect(
+          page.getByRole("button", { name: button, exact: true }),
+        ).toHaveCount(0);
+      }
+      const detailsResponse = await page.request.get(`${path}/details`);
+      expect(detailsResponse.status()).toBe(200);
+      const details = await detailsResponse.json();
+      expect(details).toMatchObject({
+        connected: false,
+        observation: "cached",
+        scope: {
+          type: "mcp",
+          authentication,
+          tools: config.tools,
+          resources: config.resources,
+        },
+        discovery: null,
+      });
+      for (const key of ["config", "endpoint", "credentialRef", "accountRef"]) {
+        expect(details).not.toHaveProperty(key);
+      }
+      expect(details.scope).not.toHaveProperty("endpoint");
+      const proposed = await native.propose({
+        type: "connection.activate",
+        id: connection.id,
+        editToken,
+      });
+      const unavailable = responseFor(page, "POST", proposed.resolutionPath);
+      await page
+        .getByRole("button", { name: "Approve exact action", exact: true })
+        .click();
+      expect((await unavailable).status()).toBe(503);
+      await expect(
+        page
+          .getByRole("alert")
+          .filter({ hasText: "This service is unavailable" }),
+      ).toBeVisible();
+      const pending = await page.request.get(
+        `/api/workspaces/${workspaceId}/runs/${proposed.runId}/actions`,
+      );
+      expect(pending.status()).toBe(200);
+      expect((await pending.json()).items).toEqual([
+        expect.objectContaining({ id: proposed.action.id, status: "pending" }),
+      ]);
+      const denied = responseFor(page, "POST", proposed.resolutionPath);
+      await page.getByRole("button", { name: "Deny", exact: true }).click();
+      expect((await denied).status()).toBe(200);
+      await expect
+        .poll(
+          async () => {
+            const run = await page.request.get(
+              `/api/workspaces/${workspaceId}/runs/${proposed.runId}`,
+            );
+            expect(run.status()).toBe(200);
+            return (await run.json()).state;
+          },
+          { timeout: 20000 },
+        )
+        .toBe("finished");
+      await page.goto(`/settings/connections?connection=${connection.id}`);
+      await expect(
+        page.getByText("Disconnected · Only creator", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("No saved discovery", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("No saved resources", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Discovered actions", { exact: true }),
+      ).toHaveCount(0);
+    }
+    const current = await page.evaluate(
+      async ({ workspaceId, id }) =>
+        await (
+          await fetch(`/api/workspaces/${workspaceId}/connections/${id}`)
+        ).json(),
+      { workspaceId, id: connection.id },
+    );
+    expect(current.connected).toBe(false);
+    await testInfo.attach("mcp-real-config-unavailable-service", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  },
+);
+
+nativeSettingsTest(
+  "Controlled lost ACK after real connection commit never replays its creation POST",
+  async ({ page, fixture }, testInfo) => {
+    const { workspaceId } = await register(
+      page,
+      fixture,
+      "Settings Lost ACK connection",
+    );
+    const native = await prepareNativeSettings(page, fixture, workspaceId);
+    const title = "Settings Lost ACK connection Record";
+    const input = {
+      type: "connection.create" as const,
+      title,
+      connectionType: "mcp" as const,
+      accountRef: `qa:${crypto.randomUUID()}`,
+      visibility: "user" as const,
+    };
+    const proposed = await native.propose(input);
+    let posts = 0;
+    let savedId: string | undefined;
+    let creationPosts = 0;
+    let admissionPosts = 0;
+    const path = `/api/workspaces/${workspaceId}/connections`;
+    page.on("request", (request) => {
+      if (request.method() !== "POST") return;
+      const pathname = new URL(request.url()).pathname;
+      if (pathname === path) creationPosts++;
+      if (pathname === `/api/workspaces/${workspaceId}/runs`) admissionPosts++;
+    });
+    await page.route(
+      (url) => url.pathname === proposed.resolutionPath,
+      async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        posts++;
+        expect(route.request().postDataJSON()).toEqual({
+          decision: "approve",
+          digest: proposed.action.digest,
+        });
+        const committed = await route.fetch();
+        expect(committed.status()).toBe(200);
+        const receipt = await committed.json();
+        expect(receipt.status).toBe("approved");
+        savedId = receipt.result.id;
+        const rows = await fixture.database.db
+          .select({ id: connections.id })
+          .from(connections)
+          .where(eq(connections.title, title))
+          .limit(2);
+        expect(rows).toEqual([{ id: savedId }]);
+        await route.abort("failed");
+      },
+    );
+    await page
+      .getByRole("button", { name: "Approve exact action", exact: true })
+      .click();
+    const card = page.locator('[data-slot="card"]').filter({
+      has: page.getByText("connection.create", { exact: true }),
+    });
+    await expect(card.getByRole("alert")).toContainText(
+      "No successful decision was acknowledged.",
+    );
+    expect(JSON.parse(await card.locator("pre").first().innerText())).toEqual(
+      input,
+    );
+    expect(posts).toBe(1);
+    expect(savedId).toMatch(/^[\da-f-]{36}$/);
+    await expect
+      .poll(
+        async () => {
+          const run = await page.request.get(
+            `/api/workspaces/${workspaceId}/runs/${proposed.runId}`,
+          );
+          expect(run.status()).toBe(200);
+          return (await run.json()).state;
+        },
+        { timeout: 20000 },
+      )
+      .toBe("finished");
+    const records = await page.request.get(`${path}?limit=100`);
+    expect(records.status()).toBe(200);
+    expect(
+      (await records.json()).items
+        .filter((row: { title: string }) => row.title === title)
+        .map((row: { id: string }) => row.id),
+    ).toEqual([savedId]);
+    await page.goto(`/settings/connections?connection=${savedId}`);
+    await expect(
+      page.getByRole("heading", { name: title, exact: true }),
     ).toBeVisible();
     await expect(
       page.getByText("Disconnected · Only creator", { exact: true }),
     ).toBeVisible();
+    await page.reload();
     await expect(
-      page.getByRole("button", { name: "Grant access", exact: true }),
-    ).toBeDisabled();
+      page.getByRole("heading", { name: title, exact: true }),
+    ).toBeVisible();
+    await page.goto(`/chats/${native.chat.id}`);
+    await page
+      .getByRole("button", {
+        name: `${native.agent.title}: finished`,
+        exact: true,
+      })
+      .click();
+    await expect(card.getByRole("status")).toHaveText(
+      "Approved. The server recorded the action result.",
+    );
     await expect(
-      page.getByText("Discovered actions", { exact: true }),
+      card.getByRole("button", { name: "Approve exact action", exact: true }),
     ).toHaveCount(0);
-  }
-  const current = await page.evaluate(
-    async ({ workspaceId, id }) =>
-      await (
-        await fetch(`/api/workspaces/${workspaceId}/connections/${id}`)
-      ).json(),
-    { workspaceId, id: connection.id },
-  );
-  expect(current.connected).toBe(false);
-  await testInfo.attach("mcp-real-config-unavailable-service", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
-});
+    await expect(
+      card.getByRole("button", { name: "Deny", exact: true }),
+    ).toHaveCount(0);
+    expect(JSON.parse(await card.locator("pre").first().innerText())).toEqual(
+      input,
+    );
+    const composer = page.getByRole("textbox", {
+      name: `Message ${native.chat.title}, @ to tag`,
+      exact: true,
+    });
+    await expect(composer).toHaveText("");
+    await composer.press("Enter");
+    await page.reload();
+    await page
+      .getByRole("button", {
+        name: `${native.agent.title}: finished`,
+        exact: true,
+      })
+      .click();
+    await expect(card.getByRole("status")).toHaveText(
+      "Approved. The server recorded the action result.",
+    );
+    await expect(
+      card.getByRole("button", { name: "Approve exact action", exact: true }),
+    ).toHaveCount(0);
+    expect(posts).toBe(1);
+    expect(creationPosts).toBe(0);
+    expect(admissionPosts).toBe(0);
+    const rows = await fixture.database.db
+      .select({ id: connections.id })
+      .from(connections)
+      .where(eq(connections.title, title))
+      .limit(2);
+    expect(rows).toEqual([{ id: savedId }]);
+    await testInfo.attach("lost-connection-ack-replay-blocked", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  },
+);
 
-for (const kind of ["connection", "invitation"] as const) {
+for (const kind of ["invitation"] as const) {
   test(`Controlled lost ACK after real ${kind} commit never replays its creation POST`, async ({
     page,
     fixture,
@@ -958,14 +1153,13 @@ for (const kind of ["connection", "invitation"] as const) {
       fixture,
       `Settings Lost ACK ${kind}`,
     );
-    const section = kind === "connection" ? "connections" : "members";
-    const collection = kind === "connection" ? "connections" : "invitations";
+    const section = "members";
+    const collection = "invitations";
     const path = `/api/workspaces/${workspaceId}/${collection}`;
-    const title = `Settings Lost ACK ${kind} Record`;
     const email = `lost-${crypto.randomUUID()}@example.test`;
-    const trigger = kind === "connection" ? "New connection" : "Invite";
-    const dialogName = kind === "invitation" ? "Invite member" : trigger;
-    const submitName = kind === "invitation" ? "Invite" : "Create";
+    const trigger = "Invite";
+    const dialogName = "Invite member";
+    const submitName = "Invite";
     let posts = 0;
     let savedId: string | undefined;
     // Controlled network failure only: forward to actual Hono/PostgreSQL first,
@@ -986,21 +1180,14 @@ for (const kind of ["connection", "invitation"] as const) {
       .locator("header")
       .filter({
         has: page.getByRole("heading", {
-          name: kind === "connection" ? "Connections" : "Members",
+          name: "Members",
           exact: true,
         }),
       })
       .getByRole("button", { name: trigger, exact: true });
-    const dialog =
-      kind === "connection"
-        ? await openMcpCreation(page, title)
-        : page.getByRole("dialog", { name: dialogName, exact: true });
-    if (kind !== "connection") {
-      await pageAction.click();
-      await dialog
-        .getByLabel(kind === "invitation" ? "Email" : "Name", { exact: true })
-        .fill(kind === "invitation" ? email : title);
-    }
+    const dialog = page.getByRole("dialog", { name: dialogName, exact: true });
+    await pageAction.click();
+    await dialog.getByLabel("Email", { exact: true }).fill(email);
     await dialog.getByRole("button", { name: submitName, exact: true }).click();
     await expect(
       dialog.getByText(
@@ -1015,45 +1202,29 @@ for (const kind of ["connection", "invitation"] as const) {
       dialog.getByRole("button", { name: "Cancel", exact: true }),
     ).toBeEnabled();
     await expect(
-      dialog.getByLabel(kind === "invitation" ? "Email" : "Name", {
+      dialog.getByLabel("Email", {
         exact: true,
       }),
-    ).toHaveValue(kind === "invitation" ? email : title);
-    await dialog
-      .getByLabel(kind === "invitation" ? "Email" : "Name", { exact: true })
-      .press("Enter");
+    ).toHaveValue(email);
+    await dialog.getByLabel("Email", { exact: true }).press("Enter");
     expect(posts).toBe(1);
     expect(savedId).toMatch(/^[\da-f-]{36}$/);
-    if (kind === "invitation") {
-      const rows = await fixture.database.db
-        .select({ id: invitations.id })
-        .from(invitations)
-        .where(eq(invitations.email, email))
-        .limit(2);
-      expect(rows).toEqual([{ id: savedId }]);
-      await expect(
-        page.getByText("Created invitation", { exact: true }),
-      ).toHaveCount(0);
-    } else {
-      const rows = await page.evaluate(
-        async (path) => (await (await fetch(`${path}?limit=100`)).json()).items,
-        path,
-      );
-      expect(
-        rows
-          .filter((row: { title: string }) => row.title === title)
-          .map((row: { id: string }) => row.id),
-      ).toEqual([savedId]);
-    }
+    const rows = await fixture.database.db
+      .select({ id: invitations.id })
+      .from(invitations)
+      .where(eq(invitations.email, email))
+      .limit(2);
+    expect(rows).toEqual([{ id: savedId }]);
+    await expect(
+      page.getByText("Created invitation", { exact: true }),
+    ).toHaveCount(0);
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(dialog).not.toBeVisible();
     await pageAction.click();
     await expect(
       dialog.getByRole("button", { name: submitName, exact: true }),
     ).toBeDisabled();
-    await dialog
-      .getByLabel(kind === "invitation" ? "Email" : "Name", { exact: true })
-      .press("Enter");
+    await dialog.getByLabel("Email", { exact: true }).press("Enter");
     expect(posts).toBe(1);
     await testInfo.attach(`lost-${kind}-ack-replay-blocked`, {
       body: await page.screenshot(),
@@ -1062,103 +1233,132 @@ for (const kind of ["connection", "invitation"] as const) {
   });
 }
 
-test("Connection configuration keeps its draft and opening editToken across a real background policy refresh", async ({
-  page,
-  fixture,
-}, testInfo) => {
-  const { workspaceId } = await register(
-    page,
-    fixture,
-    "Settings Stale Config Owner",
-  );
-  await page.goto("/settings/connections");
-  const creation = await openMcpCreation(page, "Settings Stale MCP");
-  const creationAck = responseFor(
-    page,
-    "POST",
-    `/api/workspaces/${workspaceId}/connections`,
-  );
-  await creation.getByRole("button", { name: "Create", exact: true }).click();
-  const connection = await (await creationAck).json();
-  await page.waitForURL(
-    (url) => url.searchParams.get("connection") === connection.id,
-  );
-  await page.getByRole("button", { name: "Configure", exact: true }).click();
-  const dialog = page.getByRole("dialog", {
-    name: "Configure Settings Stale MCP",
-    exact: true,
-  });
-  // A reference name, never a secret value; no resolver/provider is configured.
-  await dialog
-    .getByLabel("Credential reference", { exact: true })
-    .fill("qa:settings:unsaved-binding");
-  const changed = await page.evaluate(
-    async ({ workspaceId, id, editToken }) => {
-      const response = await fetch(
-        `/api/workspaces/${workspaceId}/connections/${id}`,
-        {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ visibility: "workspace", editToken }),
-        },
-      );
-      return { status: response.status, record: await response.json() };
-    },
-    { workspaceId, id: connection.id, editToken: connection.editToken },
-  );
-  expect(changed.status).toBe(200);
-  expect(changed.record.editToken).toBe(connection.editToken + 1);
-  // Advance only browser freshness time; the refetch and stale rejection are real.
-  await page.clock.install();
-  await page.clock.fastForward(11_000);
-  const refreshed = responseFor(
-    page,
-    "GET",
-    `/api/workspaces/${workspaceId}/connections/${connection.id}`,
-  );
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event("offline"));
-    window.dispatchEvent(new Event("online"));
-  });
-  expect((await (await refreshed).json()).editToken).toBe(
-    changed.record.editToken,
-  );
-  await expect(
-    dialog.getByLabel("Credential reference", { exact: true }),
-  ).toHaveValue("qa:settings:unsaved-binding");
-  const staleAck = responseFor(
-    page,
-    "PATCH",
-    `/api/workspaces/${workspaceId}/connections/${connection.id}`,
-  );
-  await dialog
-    .getByRole("button", { name: "Replace configuration", exact: true })
-    .click();
-  const rejected = await staleAck;
-  expect(rejected.status()).toBe(409);
-  expect(rejected.request().postDataJSON().editToken).toBe(
-    connection.editToken,
-  );
-  await expect(dialog.getByRole("alert")).toContainText("This item changed,");
-  await expect(
-    dialog.getByLabel("Credential reference", { exact: true }),
-  ).toHaveValue("qa:settings:unsaved-binding");
-  const saved = await fixture.database.db
-    .select({
-      credentialRef: connections.credentialRef,
-      visibility: connections.visibility,
-      editToken: connections.editToken,
-    })
-    .from(connections)
-    .where(eq(connections.id, connection.id))
-    .limit(1);
-  expect(saved[0]).toEqual({
-    credentialRef: null,
-    visibility: "workspace",
-    editToken: changed.record.editToken,
-  });
-  await testInfo.attach("stale-config-draft-and-opening-token-retained", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
-});
+nativeSettingsTest(
+  "Connection configuration keeps its draft and opening editToken across a real background policy refresh",
+  async ({ page, fixture }, testInfo) => {
+    const { workspaceId } = await register(
+      page,
+      fixture,
+      "Settings Stale Config Owner",
+    );
+    const native = await prepareNativeSettings(page, fixture, workspaceId);
+    const created = await native.approve({
+      type: "connection.create",
+      title: "Settings Stale MCP",
+      connectionType: "mcp",
+      accountRef: `qa:${crypto.randomUUID()}`,
+      visibility: "user",
+    });
+    if (created.editToken === undefined)
+      throw new Error("Connection creation token missing");
+    const connection = await native.approve({
+      type: "connection.update",
+      id: created.id,
+      editToken: created.editToken,
+      config: {
+        type: "mcp",
+        endpoint: "https://mcp.example.test/otto",
+        authentication: "bearer",
+        tools: [
+          { name: "read_item", targetArgument: "target", readOnly: true },
+        ],
+        resources: ["otto://qa/item"],
+      },
+    });
+    if (connection.editToken === undefined)
+      throw new Error("Connection configuration token missing");
+    await page.goto(`/settings/connections?connection=${connection.id}`);
+    await page
+      .getByRole("button", {
+        name: "Complete credential reference",
+        exact: true,
+      })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Complete credential reference: Settings Stale MCP",
+      exact: true,
+    });
+    await expect(
+      dialog.getByLabel("Credential reference", { exact: true }),
+    ).toHaveAttribute("type", "password");
+    await expect(
+      dialog.getByLabel("Credential reference", { exact: true }),
+    ).toHaveValue("");
+    await expect(
+      dialog.locator(
+        'input:not([type="password"]):not([type="hidden"]), textarea, [contenteditable="true"]',
+      ),
+    ).toHaveCount(0);
+    await dialog
+      .getByLabel("Credential reference", { exact: true })
+      .fill("qa:settings:unsaved-binding");
+    const changed = await page.evaluate(
+      async ({ workspaceId, id, editToken }) => {
+        const response = await fetch(
+          `/api/workspaces/${workspaceId}/connections/${id}`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ visibility: "workspace", editToken }),
+          },
+        );
+        return { status: response.status, record: await response.json() };
+      },
+      { workspaceId, id: connection.id, editToken: connection.editToken },
+    );
+    expect(changed.status).toBe(200);
+    expect(changed.record.editToken).toBe(connection.editToken + 1);
+    await page.clock.install();
+    await page.clock.fastForward(11_000);
+    const refreshed = responseFor(
+      page,
+      "GET",
+      `/api/workspaces/${workspaceId}/connections/${connection.id}`,
+    );
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("offline"));
+      window.dispatchEvent(new Event("online"));
+    });
+    expect((await (await refreshed).json()).editToken).toBe(
+      changed.record.editToken,
+    );
+    await expect(
+      dialog.getByLabel("Credential reference", { exact: true }),
+    ).toHaveValue("qa:settings:unsaved-binding");
+    const staleAck = responseFor(
+      page,
+      "PATCH",
+      `/api/workspaces/${workspaceId}/connections/${connection.id}`,
+    );
+    await dialog
+      .getByRole("button", { name: "Replace reference", exact: true })
+      .click();
+    const rejected = await staleAck;
+    expect(rejected.status()).toBe(409);
+    expect(rejected.request().postDataJSON().editToken).toBe(
+      connection.editToken,
+    );
+    await expect(dialog.getByRole("alert")).toContainText("This item changed,");
+    await expect(
+      dialog.getByLabel("Credential reference", { exact: true }),
+    ).toHaveValue("qa:settings:unsaved-binding");
+    const saved = await fixture.database.db
+      .select({
+        credentialRef: connections.credentialRef,
+        visibility: connections.visibility,
+        editToken: connections.editToken,
+      })
+      .from(connections)
+      .where(eq(connections.id, connection.id))
+      .limit(1);
+    expect(saved[0]).toEqual({
+      credentialRef: null,
+      visibility: "workspace",
+      editToken: changed.record.editToken,
+    });
+    await testInfo.attach("stale-config-draft-and-opening-token-retained", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  },
+);

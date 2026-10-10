@@ -51,11 +51,13 @@ export const nativeActionsApi = new Hono<ApiEnv>()
             id.parse(c.req.param("runId")),
             id.parse(c.req.param("actionId")),
             c.req.valid("json"),
-            (human, input, actionId) =>
+            (human, input, actionId, revalidate) =>
               executeNativeAction(human, input, c.get("options").boss, {
                 actionId,
                 native: c.get("options").nativeStorage,
                 modelAuthorization: c.get("options").modelAuthorization,
+                connections: c.get("options").connections,
+                revalidate,
               }),
             c.get("options").nativeStorage,
             authorizeRunSources,

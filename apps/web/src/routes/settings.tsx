@@ -2,6 +2,7 @@ import {
   type RemixiconComponentType,
   RiAddLine,
   RiArrowRightSLine,
+  RiBookOpenLine,
   RiBuilding2Line,
   RiCpuLine,
   RiNotification3Line,
@@ -25,6 +26,7 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar";
 import { type ReactNode, useState } from "react";
+import { SkillsSettings } from "@/components/agents-skills";
 import { useConfirm } from "@/components/confirm";
 import { IconAction } from "@/components/icon-action";
 import { RiConnectorLine } from "@/components/icons";
@@ -33,10 +35,7 @@ import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
 import { SectionSidebar } from "@/components/section-sidebar";
 import { ActorAvatar } from "@/components/task-meta";
-import {
-  ConnectionSettings,
-  NewConnection,
-} from "@/features/settings/connections";
+import { ConnectionSettings } from "@/features/settings/connections";
 import {
   Choice,
   Group,
@@ -72,6 +71,7 @@ const sections = {
     label: "Connections",
     icon: RiConnectorLine,
   },
+  skills: { group: "Account", label: "Skills", icon: RiBookOpenLine },
   agents: { group: "Account", label: "Agents", icon: RiRobot3Line },
   workspace: { group: "Workspace", label: "General", icon: RiBuilding2Line },
   members: { group: "Workspace", label: "Members", icon: RiTeamLine },
@@ -127,7 +127,6 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
   const writer = workspace.role !== "viewer";
   const admin = workspace.role === "owner" || workspace.role === "admin";
   const adds = {
-    connections: "New connection",
     members: "Invite",
     agents: "New agent",
   };
@@ -150,9 +149,6 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
     >
       <div key={`${workspaceId}:${section}`} className="flex flex-col gap-8">
         <Body />
-        {section === "connections" && (
-          <NewConnection open={open} onOpenChange={setOpen} />
-        )}
         {section === "members" && (
           <InviteMember open={open} onOpenChange={setOpen} />
         )}
@@ -769,6 +765,7 @@ const bodies: Record<SettingsSection, () => ReactNode> = {
   notifications: NotificationSettings,
   models: ModelSettings,
   connections: ConnectionSettings,
+  skills: SkillsSettings,
   agents: AgentSettings,
   workspace: WorkspaceSettings,
   members: MemberSettings,

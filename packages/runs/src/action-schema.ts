@@ -323,7 +323,7 @@ export const nativeActionInput = z.discriminatedUnion("type", [
       instructions: body,
       projectId: id.optional(),
       visibility,
-      whenToUse: z.string().max(10000).optional(),
+      whenToUse: body.optional(),
     })
     .strict(),
   z
@@ -334,7 +334,7 @@ export const nativeActionInput = z.discriminatedUnion("type", [
       title: title.optional(),
       instructions: body.optional(),
       visibility: visibility.optional(),
-      whenToUse: z.string().max(10000).optional(),
+      whenToUse: body.optional(),
     })
     .strict(),
   z
@@ -404,6 +404,7 @@ export const nativeActionInput = z.discriminatedUnion("type", [
   z
     .object({ type: z.literal("connection.disconnect"), id, editToken })
     .strict(),
+  z.object({ type: z.literal("connection.activate"), id, editToken }).strict(),
   z
     .object({
       type: z.literal("connection.grant"),

@@ -142,13 +142,15 @@ export function createConnectionService(options: {
   }
 
   /** Connect and refresh authenticate from the same pinned credential reference, never another account. */
-  async function connectConnection(id: string) {
+  async function connectConnection(id: string, editToken?: number) {
     const row = await boundary.transact(async (c) => {
       requireHuman(c);
       requireWriter(c);
       const current = await getConnectionRecord(c, id);
       if (current.createdBy !== c.actor.userId)
         throw new DomainError("forbidden");
+      if (editToken !== undefined && current.editToken !== editToken)
+        throw new DomainError("conflict", "Connection changed");
       await reserveCredentialLifetime(c, current);
       return current;
     });

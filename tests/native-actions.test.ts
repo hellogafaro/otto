@@ -460,10 +460,10 @@ describe("native actions through normal human authentication and private Postgre
       { native },
       new AbortController().signal,
     );
-    expect(Object.keys(tools)).toHaveLength(96);
+    expect(Object.keys(tools)).toHaveLength(97);
     expect(tools.request_task_update).toBeUndefined();
     expect(tools.request_task_status).toBeUndefined();
-    expect(nativeActionInput.options).toHaveLength(49);
+    expect(nativeActionInput.options).toHaveLength(50);
     const task = await scope((c) =>
       createTask(c, { projectId: project.id, title: "Before native edit" }),
     );

@@ -22,6 +22,44 @@ Use normal authenticated separate user/browser contexts. The finite multiplayer 
 
 ## Current verdicts
 
+### Composer-first Settings candidate
+
+The uncommitted candidate over `e68c5400dda070ee31ebe9b6e14be0c6a9d6696a`
+implements read-only Settings Skills/Connections, exact composer target/fence
+handoff, MCP-only explicitly human-approved activation and human-only cached
+details. Secure credential-reference and GitHub authentication completion remain
+human-only; no implicit grants, discovery-on-read or broader Agent access.
+Historical seven-case composer proof preceded general-form removal.
+
+The initial browser migration's archived-only navigation failure and denied
+export retry fallthrough remain retained as failed evidence. Both are corrected:
+Archive → Archived → Restore stays reachable, failed export503 and pending Retry
+keep private caches hidden, and Connection authorization recovery uses fresh
+details metadata instead of the retained parent title/token. Replacement
+`phase2-be85a5ad-070d-490e-a17a-3cc9fa5abd7b` passes15 exact native actions and17
+UI/authority checks with300 unchanged product entries, seven exact owner pins
+and joined owned cleanup. Report SHA256:
+`8f96633e847d1dcdc0267084470e5dc71abcbfcedc266eebcd77bb646dbc995c`.
+Owner-pin manifest SHA256:
+`c06d4335cc3acb78e8877b30620e43aebb565aca87f0f5132c07a843b6c5abf5`.
+Evidence: `settings-composer-ui-proof/` and `settings-composer-ui/` in the
+existing `~/.capy/work/otto-pending-closure-20261010/` evidence root.
+
+The retained owner run passed89 affected native/backend tests, root/web types,
+scoped Biome, boundaries/consistency, DESIGN lint and diff checks. Final browser
+run5 passed all six migrated cases without skips or flakes; its five screenshots
+were inspected by the independent reviewer. The final acceptance report is
+`settings-composer-ui-proof/final-independent-acceptance.md`, SHA256
+`9898792c556bf146d61f812462ea018552f85954861c988d7dd12a89ebfc3865`.
+On resumption, all304 source/test entries, seven owner pins and144 sealed evidence
+artifacts matched the preserved candidate. This reconciliation is not a new test
+run. The two unrelated Schedule dialog failures remain failed; no full browser
+suite pass is claimed. Settings commit/recovery and owned activation are still
+unverified. Compact Chat and first-rail logo are separate resumed work.
+No new inference, credential access or remote push occurred during reconciliation.
+
+### Prior committed runtime checkpoint
+
 The reviewed anonymous-MCP and outcome-classification changes were integrated
 as signed-off local main commits `2a3bc68159e1bdea6bb240a197163bf6788ed4c2`
 and `601df0f88628790608fe7a5614e1ed031cf0eda0`, without push or PR.

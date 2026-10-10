@@ -106,6 +106,61 @@ export async function getConnection(c: Context, id: string) {
   const row = await getConnectionRecord(c, id);
   return connectionView(row);
 }
+export async function getConnectionDetails(c: Context, id: string) {
+  requireHuman(c);
+  const row = await getConnectionRecord(c, id);
+  const config = row.config ? CONNECTION_CONFIG.parse(row.config) : null;
+  const target = (value: string) => {
+    try {
+      const uri = new URL(value);
+      uri.username = "";
+      uri.password = "";
+      uri.search = "";
+      uri.hash = "";
+      return uri.href;
+    } catch {
+      if (
+        /^[a-z][a-z0-9+.-]*:|:\/\/|^\/\/|^https?[/\\]|[?&#](?:access[_-]?token|api[_-]?key|auth|password|secret|credential|token|key)\s*=/i.test(
+          value,
+        )
+      )
+        return "[redacted target]";
+      return value;
+    }
+  };
+  const scope = !config
+    ? null
+    : config.type === "github"
+      ? {
+          type: config.type,
+          repositories: config.repositories.map(({ id, name }) => ({
+            id,
+            name,
+          })),
+          permissions: { ...config.permissions },
+        }
+      : {
+          type: config.type,
+          authentication: config.authentication ?? "bearer",
+          tools: config.tools.map(({ name, targetArgument, readOnly }) => ({
+            name,
+            targetArgument,
+            readOnly,
+          })),
+          resources: config.resources.map(target),
+        };
+  return {
+    ...connectionView(row),
+    observation: "cached" as const,
+    scope,
+    discovery: row.discovery
+      ? {
+          actions: row.discovery.actions.slice(0, 100),
+          resources: row.discovery.resources.slice(0, 100).map(target),
+        }
+      : null,
+  };
+}
 const connectionSorts = {
   title: textKey(connections.title),
   createdAt: timeKey(connections.createdAt),

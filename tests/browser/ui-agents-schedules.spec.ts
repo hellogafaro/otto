@@ -3,6 +3,7 @@ import type { hc, InferRequestType, InferResponseType } from "hono/client";
 import type { RpcApp } from "../../apps/server/src/api";
 import { register } from "./account";
 import { expect, test } from "./live-app";
+import { nativeSettingsTest, prepareNativeSettings } from "./native-settings";
 
 type WorkspaceApi = ReturnType<typeof hc<RpcApp>>["workspaces"][":workspaceId"];
 type Agent = InferResponseType<WorkspaceApi["agents"][":id"]["$get"]>;
@@ -77,31 +78,25 @@ async function more(page: Page, action: string) {
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: action, exact: true }).click();
 }
-async function openSkill(page: Page, title: string, archived = false) {
+async function openSkill(page: Page, title: string) {
   await page
     .locator('[data-slot="item"]')
     .filter({ has: page.getByText(title, { exact: true }) })
     .getByRole("button", {
-      name: archived ? "View archived skill" : "Open skill",
+      name: "Open skill",
       exact: true,
     })
     .click();
   const dialog = page.getByRole("dialog", { name: "Skill", exact: true });
-  await expect(dialog.getByLabel("Title", { exact: true })).toHaveValue(title);
+  await expect(
+    dialog.getByRole("heading", { name: title, exact: true }),
+  ).toBeVisible();
   return dialog;
 }
 async function closeSkill(dialog: Locator) {
-  // A saved database value can be observed before mutation ACK/invalidation
-  // settles. Wait for the editor to unlock before testing the stock Close.
-  const save = dialog.getByRole("button", {
-    name: "Save instructions",
-    exact: true,
-  });
-  if (await save.count()) await expect(save).toBeEnabled();
-  else
-    await expect(
-      dialog.getByRole("button", { name: "Export SKILL.md", exact: true }),
-    ).toBeEnabled();
+  await expect(
+    dialog.getByRole("button", { name: "Export SKILL.md", exact: true }),
+  ).toBeEnabled();
   await dialog.locator('[data-slot="dialog-close"]').click();
   await expect(dialog).not.toBeVisible();
 }
@@ -116,17 +111,6 @@ async function prepareAgent(page: Page, title: string) {
   await dialog
     .getByRole("textbox", { name: "Configured model ID" })
     .fill("qa-explicit-script-model");
-  return dialog;
-}
-async function prepareSkill(page: Page, agentId: string, title: string) {
-  await page.goto(`/settings/agents/${agentId}`);
-  await page.getByRole("button", { name: "New skill", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "New skill", exact: true });
-  await dialog.getByLabel("Title", { exact: true }).fill(title);
-  await dialog.getByLabel("Instructions", { exact: true }).fill(`Use ${title}`);
-  await dialog
-    .getByLabel("When to use", { exact: true })
-    .fill("For QA requests");
   return dialog;
 }
 async function prepareSchedule(
@@ -281,291 +265,393 @@ test("Agent UI saves explicit configuration, rejects a stale draft and archives/
   expect(errors).toEqual([]);
 });
 
-test("Skill UI saves instructions, real supporting File references, export and Agent selection", async ({
-  page,
-  fixture,
-}) => {
-  const errors = recordPageErrors(page);
-  const { workspaceId } = await register(page, fixture, "Skill QA Owner");
-  const agent = await seedAgent(page, workspaceId, unique("Skill host Agent"));
-  const title = unique("Reusable skill");
-  const create = await prepareSkill(page, agent.id, title);
-  await create
-    .getByRole("button", { name: "Create skill", exact: true })
-    .click();
-  const detail = page.getByRole("dialog", { name: "Skill", exact: true });
-  await expect(detail.getByLabel("Title", { exact: true })).toHaveValue(title);
-  const listResponse = await page.request.get(
-    `${path(workspaceId, "skills")}?query=${encodeURIComponent(title)}&limit=100`,
-  );
-  expect(listResponse.status()).toBe(200);
-  const list = (await listResponse.json()) as {
-    items: { id: string; title: string }[];
-  };
-  expect(list.items).toHaveLength(1);
-  const id = list.items[0]?.id ?? "";
-  const finalTitle = `saved-reusable-skill-${crypto.randomUUID()}`;
-  await detail.getByLabel("Title", { exact: true }).fill(finalTitle);
-  await detail
-    .getByLabel("Instructions", { exact: true })
-    .fill("Saved reusable instructions");
-  await detail
-    .getByRole("button", { name: "Save instructions", exact: true })
-    .click();
-  await expect
-    .poll(async () => (await getSkill(page, workspaceId, id)).title)
-    .toBe(finalTitle);
-
-  // Small real binary upload through the production streaming/storage seam.
-  const fileTitle = unique("Skill reference");
-  const bytes = "Actual supporting reference bytes";
-  const upload = await page.request.put(
-    `${path(workspaceId, "files", crypto.randomUUID())}/content?${new URLSearchParams({ title: fileTitle, type: "text", mediaType: "text/plain", visibility: "user" })}`,
-    {
-      headers: { ...headers(page), "content-type": "application/octet-stream" },
-      data: bytes,
-    },
-  );
-  expect(upload.status()).toBe(200);
-  const file = (await upload.json()) as { id: string; byteLength: number };
-  expect(file.byteLength).toBe(new TextEncoder().encode(bytes).byteLength);
-  // Reopen to discover the newly saved File through the live bounded picker.
-  await closeSkill(detail);
-  const files = await openSkill(page, finalTitle);
-  await files
-    .getByRole("textbox", { name: "Search supporting files by whole words" })
-    .fill(fileTitle);
-  await choose(page, files, "Supporting File", fileTitle);
-  await files
-    .getByRole("textbox", { name: "Supporting file path" })
-    .fill("references/qa.txt");
-  await files.getByRole("button", { name: "Add", exact: true }).click();
-  await files
-    .getByRole("button", { name: "Save supporting files", exact: true })
-    .click();
-  await expect
-    .poll(async () => (await getSkill(page, workspaceId, id)).supportingFiles)
-    .toEqual([
-      expect.objectContaining({
-        path: "references/qa.txt",
-        fileId: file.id,
-        byteLength: file.byteLength,
-      }),
-    ]);
-  await files
-    .getByRole("button", { name: "Export SKILL.md", exact: true })
-    .click();
-  await expect(
-    files.getByRole("textbox", { name: "Exported SKILL.md" }),
-  ).toHaveValue(/Saved reusable instructions/);
-  await files
-    .getByRole("button", { name: "Archive skill", exact: true })
-    .click();
-  await expect
-    .poll(async () => (await getSkill(page, workspaceId, id)).archived)
-    .toBe(true);
-  await closeSkill(files);
-  await choose(page, page, "Skill state", "Archived");
-  const archived = await openSkill(page, finalTitle, true);
-  await archived
-    .getByRole("button", { name: "Restore skill", exact: true })
-    .click();
-  await expect
-    .poll(async () => (await getSkill(page, workspaceId, id)).archived)
-    .toBe(false);
-  await closeSkill(archived);
-  await choose(page, page, "Skill state", "Active");
-  await page.getByRole("button", { name: "Edit agent", exact: true }).click();
-  const agentEdit = page.getByRole("dialog", {
-    name: "Edit agent",
-    exact: true,
-  });
-  await agentEdit
-    .getByRole("checkbox", { name: `Select ${finalTitle}`, exact: true })
-    .check();
-  await agentEdit
-    .getByRole("button", { name: "Save agent", exact: true })
-    .click();
-  await expect(agentEdit).not.toBeVisible();
-  expect((await getAgent(page, workspaceId, agent.id)).skillIds).toEqual([id]);
-  await page.reload();
-  const reopened = await openSkill(page, finalTitle);
-  await expect(
-    reopened.getByText("references/qa.txt", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    reopened.getByLabel("Instructions", { exact: true }),
-  ).toHaveValue("Saved reusable instructions");
-  expect(errors).toEqual([]);
-});
-
-test("Skill proposals respect creator control and cached Agent/Skill reads fail closed after revocation", async ({
-  page,
-  fixture,
-  browser,
-}) => {
-  const errors = recordPageErrors(page);
-  const { workspaceId } = await register(page, fixture, "Proposal QA Creator");
-  const agent = await seedAgent(
-    page,
-    workspaceId,
-    unique("Shared proposal Agent"),
-  );
-  const title = unique("Shared proposal skill");
-  const create = await prepareSkill(page, agent.id, title);
-  await choose(page, create, "Skill visibility", "Workspace");
-  await create
-    .getByRole("button", { name: "Create skill", exact: true })
-    .click();
-  const creator = page.getByRole("dialog", { name: "Skill", exact: true });
-  await expect(creator.getByLabel("Title", { exact: true })).toHaveValue(title);
-  const list = await page.request.get(
-    `${path(workspaceId, "skills")}?query=${encodeURIComponent(title)}&limit=100`,
-  );
-  expect(list.status()).toBe(200);
-  const id =
-    ((await list.json()) as { items: { id: string }[] }).items[0]?.id ?? "";
-  await closeSkill(creator);
-
-  const context = await browser.newContext({ baseURL: fixture.origin });
-  try {
-    const contributor = await context.newPage();
-    const contributorErrors = recordPageErrors(contributor);
-    await register(
-      contributor,
-      fixture,
-      "Proposal QA Contributor",
-      "contributor",
+nativeSettingsTest(
+  "Skill UI saves instructions, real supporting File references, export and Agent selection",
+  async ({ page, fixture }, testInfo) => {
+    const errors = recordPageErrors(page);
+    const { workspaceId } = await register(page, fixture, "Skill QA Owner");
+    const native = await prepareNativeSettings(page, fixture, workspaceId);
+    const agent = await seedAgent(
+      page,
+      workspaceId,
+      unique("Skill host Agent"),
     );
-    await contributor.goto(`/settings/agents/${agent.id}`);
-    await expect(
-      contributor.getByRole("button", { name: "Edit agent", exact: true }),
-    ).toHaveCount(0);
-    let proposal = await openSkill(contributor, title);
-    await expect(
-      proposal.getByLabel("Instructions", { exact: true }),
-    ).toBeDisabled();
-    await expect(
-      proposal.getByRole("button", { name: "Archive skill", exact: true }),
-    ).toHaveCount(0);
-    await proposal
-      .getByRole("button", { name: "Propose changes", exact: true })
-      .click();
-    const proposedTitle = unique("Accepted proposal");
-    await proposal.getByLabel("Title", { exact: true }).fill(proposedTitle);
-    await proposal
-      .getByLabel("Instructions", { exact: true })
-      .fill("Proposed real instructions");
-    await proposal
-      .getByRole("button", { name: "Submit proposal", exact: true })
-      .click();
-    await expect(proposal.getByLabel("Title", { exact: true })).toHaveValue(
+    const title = `reusable-skill-${crypto.randomUUID()}`;
+    const created = await native.approve({
+      type: "skill.create",
       title,
-    );
-    expect((await getSkill(page, workspaceId, id)).title).toBe(title);
-    await expect(
-      proposal.getByText(proposedTitle, { exact: true }),
-    ).toBeVisible();
-    await expect(
-      proposal.getByRole("button", { name: "Accept", exact: true }),
-    ).toHaveCount(0);
-    const unauthorized = await contributor.request.patch(
-      path(workspaceId, "skills", id),
-      {
-        headers: headers(contributor),
-        data: {
-          title: "Unauthorized",
-          editToken: (await getSkill(page, workspaceId, id)).editToken,
-        },
-      },
-    );
-    expect(unauthorized.status()).toBe(403);
-    await page.reload();
-    const resolution = await openSkill(page, title);
-    await resolution
-      .getByRole("button", { name: "Accept", exact: true })
-      .click();
-    await expect(resolution.getByLabel("Title", { exact: true })).toHaveValue(
-      proposedTitle,
-    );
-    await expect(
-      resolution.getByText("No proposals", { exact: true }),
-    ).toBeVisible();
-    expect((await getSkill(page, workspaceId, id)).instructions).toBe(
-      "Proposed real instructions",
-    );
-
-    // A second proposal is rejected; rejection must not alter accepted content.
-    await closeSkill(proposal);
-    await contributor.reload();
-    proposal = await openSkill(contributor, proposedTitle);
-    await proposal
-      .getByRole("button", { name: "Propose changes", exact: true })
-      .click();
-    await proposal
-      .getByLabel("Instructions", { exact: true })
-      .fill("Rejected proposal bytes");
-    await proposal
-      .getByRole("button", { name: "Submit proposal", exact: true })
-      .click();
-    await expect(
-      proposal.getByLabel("Instructions", { exact: true }),
-    ).toHaveValue("Proposed real instructions");
-    await closeSkill(resolution);
-    await page.reload();
-    const reject = await openSkill(page, proposedTitle);
-    await reject.getByRole("button", { name: "Reject", exact: true }).click();
-    await expect(
-      reject.getByText("No proposals", { exact: true }),
-    ).toBeVisible();
-    expect((await getSkill(page, workspaceId, id)).instructions).toBe(
-      "Proposed real instructions",
-    );
-
-    // Change authority through the creator's real fenced PATCH, then refetch the
-    // contributor's already rendered private instructions, preserving its cache.
-    const saved = await getSkill(page, workspaceId, id);
-    const revoke = await page.request.patch(path(workspaceId, "skills", id), {
-      headers: headers(page),
-      data: { visibility: "user", editToken: saved.editToken },
+      instructions: `Use ${title}`,
+      whenToUse: "For QA requests",
+      visibility: "user",
     });
-    expect(revoke.status()).toBe(200);
-    await refetchDenied(contributor, path(workspaceId, "skills", id));
-    await expect(
-      proposal.getByLabel("Instructions", { exact: true }),
-    ).toHaveCount(0);
-    await expect(
-      proposal.getByText("Proposed real instructions", { exact: true }),
-    ).toHaveCount(0);
-    await expect(proposal.getByRole("alert")).toBeVisible();
-    await expect(
-      proposal.getByRole("button", { name: "Retry", exact: true }),
-    ).toBeVisible();
-    await proposal.locator('[data-slot="dialog-close"]').click();
-    await expect(proposal).not.toBeVisible();
-    const agentSnapshot = await getAgent(page, workspaceId, agent.id);
-    const revokeAgent = await page.request.patch(
-      path(workspaceId, "agents", agent.id),
+    await page.goto("/settings/skills");
+    const detail = await openSkill(page, title);
+    const listResponse = await page.request.get(
+      `${path(workspaceId, "skills")}?query=${encodeURIComponent(title)}&limit=100`,
+    );
+    expect(listResponse.status()).toBe(200);
+    const list = (await listResponse.json()) as {
+      items: { id: string; title: string }[];
+    };
+    expect(list.items).toHaveLength(1);
+    const id = list.items[0]?.id ?? "";
+    expect(id).toBe(created.id);
+    const finalTitle = `saved-reusable-skill-${crypto.randomUUID()}`;
+    await closeSkill(detail);
+    await native.approve({
+      type: "skill.update",
+      id,
+      editToken: (await getSkill(page, workspaceId, id)).editToken,
+      title: finalTitle,
+      instructions: "Saved reusable instructions",
+    });
+    await expect
+      .poll(async () => (await getSkill(page, workspaceId, id)).title)
+      .toBe(finalTitle);
+
+    const fileTitle = unique("Skill reference");
+    const bytes = "Actual supporting reference bytes";
+    const upload = await page.request.put(
+      `${path(workspaceId, "files", crypto.randomUUID())}/content?${new URLSearchParams({ title: fileTitle, type: "text", mediaType: "text/plain", visibility: "user" })}`,
       {
-        headers: headers(page),
-        data: { visibility: "user", editToken: agentSnapshot.editToken },
+        headers: {
+          ...headers(page),
+          "content-type": "application/octet-stream",
+        },
+        data: bytes,
       },
     );
-    expect(revokeAgent.status()).toBe(200);
-    await refetchDenied(contributor, path(workspaceId, "agents", agent.id));
+    expect(upload.status()).toBe(200);
+    const file = (await upload.json()) as { id: string; byteLength: number };
+    expect(file.byteLength).toBe(new TextEncoder().encode(bytes).byteLength);
+    await native.approve({
+      type: "skill.files",
+      id,
+      editToken: (await getSkill(page, workspaceId, id)).editToken,
+      files: [{ path: "references/qa.txt", fileId: file.id }],
+    });
+    await page.goto("/settings/skills");
+    const files = await openSkill(page, finalTitle);
+    await expect
+      .poll(async () => (await getSkill(page, workspaceId, id)).supportingFiles)
+      .toEqual([
+        expect.objectContaining({
+          path: "references/qa.txt",
+          fileId: file.id,
+          byteLength: file.byteLength,
+        }),
+      ]);
+    await files
+      .getByRole("button", { name: "Export SKILL.md", exact: true })
+      .click();
     await expect(
-      contributor.getByText(agent.instructions, { exact: true }),
-    ).toHaveCount(0);
+      files.getByRole("textbox", { name: "Exported SKILL.md" }),
+    ).toHaveValue(/Saved reusable instructions/);
     await expect(
-      contributor.getByRole("heading", { name: agent.title, exact: true }),
-    ).toHaveCount(0);
-    await expect(contributor.getByRole("alert")).toBeVisible();
-    expect(contributorErrors).toEqual([]);
-  } finally {
-    await context.close();
-  }
-  expect(errors).toEqual([]);
-});
+      files.getByRole("textbox", { name: "Exported SKILL.md" }),
+    ).toHaveAttribute("readonly", "");
+    await files
+      .getByRole("button", { name: "Archive skill", exact: true })
+      .click();
+    const confirmation = page.getByRole("alertdialog");
+    await expect(confirmation).toBeVisible();
+    expect((await getSkill(page, workspaceId, id)).archived).toBe(false);
+    await confirmation
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    expect((await getSkill(page, workspaceId, id)).archived).toBe(false);
+    await files
+      .getByRole("button", { name: "Archive skill", exact: true })
+      .click();
+    await confirmation
+      .getByRole("button", { name: "Archive skill", exact: true })
+      .click();
+    await expect
+      .poll(async () => (await getSkill(page, workspaceId, id)).archived)
+      .toBe(true);
+    await closeSkill(files);
+    await expect(
+      page.getByRole("button", { name: /^Skill state:/ }),
+    ).toBeVisible();
+    await testInfo.attach("archived-only-skill-navigation", {
+      body: await page.screenshot({ animations: "disabled" }),
+      contentType: "image/png",
+    });
+    await choose(page, page, "Skill state", "Archived");
+    const archived = await openSkill(page, finalTitle);
+    await archived
+      .getByRole("button", { name: "Restore skill", exact: true })
+      .click();
+    await expect(confirmation).toBeVisible();
+    expect((await getSkill(page, workspaceId, id)).archived).toBe(true);
+    await confirmation
+      .getByRole("button", { name: "Restore skill", exact: true })
+      .click();
+    await expect
+      .poll(async () => (await getSkill(page, workspaceId, id)).archived)
+      .toBe(false);
+    await closeSkill(archived);
+    await choose(page, page, "Skill state", "Active");
+    await native.approve({
+      type: "agent.update",
+      id: agent.id,
+      editToken: (await getAgent(page, workspaceId, agent.id)).editToken,
+      skillIds: [...agent.skillIds, id],
+    });
+    expect((await getAgent(page, workspaceId, agent.id)).skillIds).toEqual([
+      id,
+    ]);
+    await page.goto(`/settings/agents/${agent.id}`);
+    await page.reload();
+    const reopened = await openSkill(page, finalTitle);
+    await expect(
+      reopened.getByText("references/qa.txt", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      reopened.getByText("Saved reusable instructions", { exact: true }),
+    ).toBeVisible();
+    await expect(reopened.getByRole("textbox")).toHaveCount(0);
+    await testInfo.attach("restored-skill-persisted-supporting-files", {
+      body: await page.screenshot({ animations: "disabled" }),
+      contentType: "image/png",
+    });
+    expect(errors).toEqual([]);
+  },
+);
+
+nativeSettingsTest(
+  "Skill proposals respect creator control and cached Agent/Skill reads fail closed after revocation",
+  async ({ page, fixture, browser }) => {
+    const errors = recordPageErrors(page);
+    const { workspaceId } = await register(
+      page,
+      fixture,
+      "Proposal QA Creator",
+    );
+    const native = await prepareNativeSettings(page, fixture, workspaceId);
+    const agent = await seedAgent(
+      page,
+      workspaceId,
+      unique("Proposal host Agent"),
+    );
+    const title = unique("Shared proposal skill");
+    const created = await native.approve({
+      type: "skill.create",
+      title,
+      instructions: `Use ${title}`,
+      whenToUse: "For QA requests",
+      visibility: "workspace",
+    });
+    const list = await page.request.get(
+      `${path(workspaceId, "skills")}?query=${encodeURIComponent(title)}&limit=100`,
+    );
+    expect(list.status()).toBe(200);
+    const id =
+      ((await list.json()) as { items: { id: string }[] }).items[0]?.id ?? "";
+    expect(id).toBe(created.id);
+    await native.approve({
+      type: "agent.update",
+      id: agent.id,
+      editToken: (await getAgent(page, workspaceId, agent.id)).editToken,
+      skillIds: [...agent.skillIds, id],
+    });
+    await page.goto("/settings/skills");
+    const creator = await openSkill(page, title);
+    await closeSkill(creator);
+
+    const context = await browser.newContext({ baseURL: fixture.origin });
+    try {
+      const contributor = await context.newPage();
+      const contributorErrors = recordPageErrors(contributor);
+      await register(
+        contributor,
+        fixture,
+        "Proposal QA Contributor",
+        "contributor",
+      );
+      await contributor.goto(`/settings/agents/${agent.id}`);
+      await expect(
+        contributor.getByRole("heading", { name: agent.title, exact: true }),
+      ).toBeVisible();
+      await expect(
+        contributor.getByText(agent.instructions, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        contributor.getByRole("button", { name: "Edit agent", exact: true }),
+      ).toHaveCount(0);
+      let proposal = await openSkill(contributor, title);
+      await expect(
+        proposal.getByText(`Use ${title}`, { exact: true }),
+      ).toBeVisible();
+      await expect(proposal.getByRole("textbox")).toHaveCount(0);
+      await expect(
+        proposal.getByRole("button", { name: "Archive skill", exact: true }),
+      ).toHaveCount(0);
+      const proposedTitle = unique("Accepted proposal");
+      const submitted = await contributor.request.post(
+        `${path(workspaceId, "skills", id)}/proposals`,
+        {
+          headers: headers(contributor),
+          data: {
+            title: proposedTitle,
+            instructions: "Proposed real instructions",
+            editToken: (await getSkill(page, workspaceId, id)).editToken,
+          },
+        },
+      );
+      expect(submitted.status()).toBe(200);
+      const acceptedProposal = (await submitted.json()) as { id: string };
+      await closeSkill(proposal);
+      await contributor.reload();
+      proposal = await openSkill(contributor, title);
+      await expect(
+        proposal.getByRole("heading", { name: title, exact: true }),
+      ).toBeVisible();
+      expect((await getSkill(page, workspaceId, id)).title).toBe(title);
+      await expect(
+        proposal.getByText(proposedTitle, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        proposal.getByRole("button", { name: "Accept", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        proposal.getByRole("button", { name: "Reject", exact: true }),
+      ).toHaveCount(0);
+      const unauthorizedResolution = await contributor.request.post(
+        `${path(workspaceId, "skills", id)}/proposals/${acceptedProposal.id}/resolve`,
+        {
+          headers: headers(contributor),
+          data: { accept: true },
+        },
+      );
+      expect(unauthorizedResolution.status()).toBe(403);
+      const unauthorized = await contributor.request.patch(
+        path(workspaceId, "skills", id),
+        {
+          headers: headers(contributor),
+          data: {
+            title: "Unauthorized",
+            editToken: (await getSkill(page, workspaceId, id)).editToken,
+          },
+        },
+      );
+      expect(unauthorized.status()).toBe(403);
+      await page.reload();
+      const resolution = await openSkill(page, title);
+      await resolution
+        .getByRole("button", { name: "Accept", exact: true })
+        .click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Accept", exact: true })
+        .click();
+      await expect(
+        resolution.getByRole("heading", { name: proposedTitle, exact: true }),
+      ).toBeVisible();
+      await expect(
+        resolution.getByText("No proposals", { exact: true }),
+      ).toBeVisible();
+      expect((await getSkill(page, workspaceId, id)).instructions).toBe(
+        "Proposed real instructions",
+      );
+
+      await closeSkill(proposal);
+      await contributor.reload();
+      proposal = await openSkill(contributor, proposedTitle);
+      const rejectedSubmission = await contributor.request.post(
+        `${path(workspaceId, "skills", id)}/proposals`,
+        {
+          headers: headers(contributor),
+          data: {
+            title: proposedTitle,
+            instructions: "Rejected proposal bytes",
+            editToken: (await getSkill(page, workspaceId, id)).editToken,
+          },
+        },
+      );
+      expect(rejectedSubmission.status()).toBe(200);
+      const rejectedProposal = (await rejectedSubmission.json()) as {
+        id: string;
+      };
+      const unauthorizedRejection = await contributor.request.post(
+        `${path(workspaceId, "skills", id)}/proposals/${rejectedProposal.id}/resolve`,
+        {
+          headers: headers(contributor),
+          data: { accept: false },
+        },
+      );
+      expect(unauthorizedRejection.status()).toBe(403);
+      await expect(
+        proposal.getByText("Proposed real instructions", { exact: true }),
+      ).toBeVisible();
+      await closeSkill(resolution);
+      await page.reload();
+      const reject = await openSkill(page, proposedTitle);
+      await reject.getByRole("button", { name: "Reject", exact: true }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Reject", exact: true })
+        .click();
+      await expect(
+        reject.getByText("No proposals", { exact: true }),
+      ).toBeVisible();
+      expect((await getSkill(page, workspaceId, id)).instructions).toBe(
+        "Proposed real instructions",
+      );
+
+      const saved = await getSkill(page, workspaceId, id);
+      await native.approve({
+        type: "skill.update",
+        id,
+        visibility: "user",
+        editToken: saved.editToken,
+      });
+      await refetchDenied(contributor, path(workspaceId, "skills", id));
+      await expect(proposal.locator("pre")).toHaveCount(0);
+      await expect(
+        proposal.getByText("Proposed real instructions", { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        proposal.getByRole("heading", { name: proposedTitle, exact: true }),
+      ).toHaveCount(0);
+      await expect(proposal.getByRole("alert")).toBeVisible();
+      await expect(
+        proposal.getByRole("button", { name: "Retry", exact: true }),
+      ).toBeVisible();
+      await proposal.locator('[data-slot="dialog-close"]').click();
+      await expect(proposal).not.toBeVisible();
+      await expect(
+        contributor.getByText(proposedTitle, { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        contributor.getByText("Unavailable skill", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        contributor.getByRole("button", { name: "Open skill", exact: true }),
+      ).toHaveCount(0);
+      const agentSnapshot = await getAgent(page, workspaceId, agent.id);
+      await native.approve({
+        type: "agent.update",
+        id: agent.id,
+        visibility: "user",
+        editToken: agentSnapshot.editToken,
+        skillIds: agentSnapshot.skillIds,
+      });
+      await refetchDenied(contributor, path(workspaceId, "agents", agent.id));
+      await expect(
+        contributor.getByText(agent.instructions, { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        contributor.getByRole("heading", { name: agent.title, exact: true }),
+      ).toHaveCount(0);
+      await expect(contributor.getByRole("alert")).toBeVisible();
+      expect(contributorErrors).toEqual([]);
+    } finally {
+      await context.close();
+    }
+    expect(errors).toEqual([]);
+  },
+);
 
 test("Schedule UI saves cron/manual policy, validates drafts, restores disabled and reports unavailable admission honestly", async ({
   page,
@@ -846,7 +932,7 @@ test("Schedule UI saves cron/manual policy, validates drafts, restores disabled 
   expect(errors).toEqual([]);
 });
 
-for (const domain of ["Agent", "Skill", "Schedule"] as const) {
+for (const domain of ["Agent", "Schedule"] as const) {
   test(`${domain} creation does not duplicate a real server write after its ACK is lost`, async ({
     page,
     fixture,
@@ -868,22 +954,17 @@ for (const domain of ["Agent", "Skill", "Schedule"] as const) {
         workspaceId,
         unique("Lost ACK host Agent"),
       );
-      if (domain === "Skill") {
-        dialog = await prepareSkill(page, agent.id, title);
-        save = "Create skill";
-      } else {
-        const chat = await seedChat(
-          page,
-          workspaceId,
-          unique("Lost ACK output Chat"),
-        );
-        dialog = await prepareSchedule(page, title, agent, chat);
-        await choose(page, dialog, "Schedule type", "Script");
-        await expect(dialog.getByLabel("Script", { exact: true })).toHaveValue(
-          `Private body ${title}`,
-        );
-        save = "Save schedule";
-      }
+      const chat = await seedChat(
+        page,
+        workspaceId,
+        unique("Lost ACK output Chat"),
+      );
+      dialog = await prepareSchedule(page, title, agent, chat);
+      await choose(page, dialog, "Schedule type", "Script");
+      await expect(dialog.getByLabel("Script", { exact: true })).toHaveValue(
+        `Private body ${title}`,
+      );
+      save = "Save schedule";
     }
     const plural = `${domain.toLowerCase()}s`;
     const endpoint = path(workspaceId, plural);
@@ -935,3 +1016,153 @@ for (const domain of ["Agent", "Skill", "Schedule"] as const) {
     expect(writes).toBe(1);
   });
 }
+
+nativeSettingsTest(
+  "Skill creation does not duplicate a real server write after its ACK is lost",
+  async ({ page, fixture }) => {
+    const { workspaceId } = await register(
+      page,
+      fixture,
+      "Skill Lost ACK Owner",
+    );
+    const native = await prepareNativeSettings(page, fixture, workspaceId);
+    const title = unique("Skill lost ACK");
+    let creations = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        (new URL(request.url()).pathname === path(workspaceId, "skills") ||
+          (new URL(request.url()).pathname === path(workspaceId, "runs") &&
+            typeof request.postDataJSON().body === "string" &&
+            request.postDataJSON().body.includes(title)))
+      )
+        creations++;
+    });
+    const proposed = await native.propose({
+      type: "skill.create",
+      title,
+      instructions: `Use ${title}`,
+      whenToUse: "For QA requests",
+      visibility: "user",
+    });
+    let writes = 0;
+    let savedId = "";
+    let release: (() => void) | undefined;
+    const delivery = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let aborted: (() => void) | undefined;
+    const lostDelivery = new Promise<void>((resolve) => {
+      aborted = resolve;
+    });
+    await page.route(`**${proposed.resolutionPath}`, async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      writes++;
+      expect(route.request().postDataJSON()).toEqual({
+        decision: "approve",
+        digest: proposed.action.digest,
+      });
+      await delivery;
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      const receipt = (await response.json()) as {
+        status: string;
+        result: { id: string };
+      };
+      expect(receipt.status).toBe("approved");
+      savedId = receipt.result.id;
+      await route.abort("failed");
+      aborted?.();
+    });
+    const approve = page.getByRole("button", {
+      name: "Approve exact action",
+      exact: true,
+    });
+    await approve.click();
+    try {
+      await expect(
+        page.getByText("Submitting approval; execution is not yet confirmed.", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(approve).toBeDisabled();
+      await approve.evaluate((button) => {
+        (button as HTMLButtonElement).click();
+        (button as HTMLButtonElement).click();
+      });
+      await expect.poll(() => writes).toBe(1);
+      expect(creations).toBe(1);
+    } finally {
+      release?.();
+    }
+    await lostDelivery;
+    expect(savedId).toMatch(/^[0-9a-f-]{36}$/);
+    await expect(
+      page.getByRole("alert").filter({
+        hasText: "No successful decision was acknowledged.",
+      }),
+    ).toBeVisible();
+    const endpoint = path(workspaceId, "skills");
+    const response = await page.request.get(
+      `${endpoint}?query=${encodeURIComponent(title)}&limit=100`,
+    );
+    expect(response.status()).toBe(200);
+    expect((await response.json()).items).toEqual([
+      expect.objectContaining({ id: savedId, title }),
+    ]);
+    expect((await getSkill(page, workspaceId, savedId)).instructions).toBe(
+      `Use ${title}`,
+    );
+    await expect
+      .poll(async () => {
+        const run = await page.request.get(
+          path(workspaceId, "runs", proposed.runId),
+        );
+        expect(run.status()).toBe(200);
+        return (await run.json()).state;
+      })
+      .toBe("finished");
+    await page.reload();
+    await page
+      .getByRole("button", {
+        name: `${native.agent.title}: finished`,
+        exact: true,
+      })
+      .click();
+    await expect(
+      page.getByText("Approved. The server recorded the action result.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(approve).toHaveCount(0);
+    const recovered = await page.request.get(
+      `${path(workspaceId, "runs", proposed.runId)}/actions`,
+    );
+    expect(recovered.status()).toBe(200);
+    expect((await recovered.json()).items).toEqual([
+      expect.objectContaining({
+        id: proposed.action.id,
+        digest: proposed.action.digest,
+        status: "approved",
+        result: expect.objectContaining({ id: savedId }),
+      }),
+    ]);
+    await page.goto("/settings/skills");
+    const detail = await openSkill(page, title);
+    await expect(
+      detail.getByText(`Use ${title}`, { exact: true }),
+    ).toBeVisible();
+    await closeSkill(detail);
+    await page.reload();
+    const afterReload = await page.request.get(
+      `${endpoint}?query=${encodeURIComponent(title)}&limit=100`,
+    );
+    expect(afterReload.status()).toBe(200);
+    expect((await afterReload.json()).items).toEqual([
+      expect.objectContaining({ id: savedId, title }),
+    ]);
+    expect(writes).toBe(1);
+    expect(creations).toBe(1);
+    await page.unroute(`**${proposed.resolutionPath}`);
+  },
+);

@@ -6,7 +6,7 @@ let fixtureAddress = 0;
 
 export async function register(
   page: Page,
-  fixture: Awaited<ReturnType<typeof startUiApp>>,
+  fixture: Pick<Awaited<ReturnType<typeof startUiApp>>, "grant">,
   name: string,
   role: "owner" | "contributor" | "viewer" = "owner",
 ) {

@@ -6,6 +6,7 @@ import {
   denyOperation,
   disconnectConnection,
   getConnection,
+  getConnectionDetails,
   getConnections,
   getOperation,
   getOperations,
@@ -46,6 +47,11 @@ function service(c: import("hono").Context<ApiEnv>) {
   );
 }
 export const connectionApi = new Hono<ApiEnv>()
+  .get("/workspaces/:workspaceId/connections/:id/details", async (c) =>
+    c.json(
+      await transact(c, (ctx) => getConnectionDetails(ctx, recordId(c)), false),
+    ),
+  )
   .get(
     "/workspaces/:workspaceId/connections",
     validate(

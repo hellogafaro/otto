@@ -2,7 +2,6 @@ import { RiMoreLine } from "@remixicon/react";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
-import { Checkbox } from "@workspace/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +26,7 @@ import {
   isDeniedDomainRead,
 } from "@/components/agents-schedules-mutation-safety";
 import { AgentSkills } from "@/components/agents-skills";
+import { useAskAgent } from "@/components/floating-chat";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
 import { Group, Row } from "@/features/settings/controls";
@@ -75,6 +75,7 @@ function AgentSettings({
   const { api, workspaceId, user, workspace, invalidate } = useWorkspace();
   const directory = useDirectory();
   const navigate = useNavigate();
+  const ask = useAskAgent();
   const [editing, setEditing] = useState(false);
   const [editingPending, setEditingPending] = useState(false);
   const writer = workspace.role !== "viewer";
@@ -209,11 +210,24 @@ function AgentSettings({
             </DialogContent>
           </Dialog>
         )}
-        <AgentSkills
-          selected={agent.skillIds}
-          projectId={agent.projectId}
-          canManage={writer}
-        />
+        <AgentSkills selected={agent.skillIds} />
+        {canEdit && (
+          <Group>
+            <Row title="Manage Skills through composer">
+              <Button
+                variant="outline"
+                size="compact"
+                onClick={() =>
+                  ask(
+                    `Update this Agent's Skill selection through an exact human-approved request. Current authorized target: ${JSON.stringify({ agentId: agent.id, editToken: agent.editToken, title: agent.title, skillIds: agent.skillIds })}. Ask which Skills to add or remove. Replace the complete skillIds selection, preserve unrequested IDs, and reject stale tokens instead of silently rebasing.`,
+                  )
+                }
+              >
+                Ask agent
+              </Button>
+            </Row>
+          </Group>
+        )}
         <Group
           title="Connections"
           description="Connection owners grant specific resources, operations and audiences. Agent visibility does not grant access."
@@ -340,7 +354,6 @@ function AgentConfiguration({
     agent?.subscriptionId ?? "",
   );
   const [model, setModel] = useState(agent?.model ?? "");
-  const [skillIds, setSkillIds] = useState(agent?.skillIds ?? []);
   const projects = useInfiniteQuery({
     queryKey: ["workspace", workspaceId, "agent-project-choices"],
     enabled: !agent,
@@ -377,23 +390,6 @@ function AgentConfiguration({
         }),
       ),
   });
-  const skills = useInfiniteQuery({
-    queryKey: ["workspace", workspaceId, "agent-selectable-skills"],
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) =>
-      read(
-        await api.skills.$get({
-          param: { workspaceId },
-          query: {
-            archived: "false",
-            limit: "100",
-            sort: "title",
-            after: pageParam,
-          },
-        }),
-      ),
-    getNextPageParam: (page) => page.next ?? undefined,
-  });
   const mutation = useMutation({
     mutationFn: async () => {
       if (agent)
@@ -406,11 +402,6 @@ function AgentConfiguration({
               visibility,
               subscriptionId: subscriptionId || null,
               model,
-              skillIds:
-                JSON.stringify(skillIds.slice().sort()) ===
-                JSON.stringify(agent.skillIds.slice().sort())
-                  ? undefined
-                  : skillIds,
               editToken: agent.editToken,
             },
           }),
@@ -425,7 +416,6 @@ function AgentConfiguration({
             projectId: projectId || undefined,
             subscriptionId: subscriptionId || undefined,
             model,
-            skillIds,
           },
         }),
       );
@@ -452,9 +442,6 @@ function AgentConfiguration({
   const accounts = isDeniedDomainRead(subscriptions.error)
     ? []
     : (subscriptions.data?.pages.flatMap((page) => page.items) ?? []);
-  const skillList = isDeniedDomainRead(skills.error)
-    ? []
-    : (skills.data?.pages.flatMap((page) => page.items) ?? []);
   const savedAccount = agent?.subscriptionId === subscriptionId;
   const modelUnchanged = savedAccount && model === agent?.model;
   // An unchanged saved configuration may be edited even while its gateway is unavailable.
@@ -640,63 +627,6 @@ function AgentConfiguration({
             </Row>
           )}
         </Group>
-        <Group
-          title="Skills"
-          description="Select up to 50 current skills. Archived or inaccessible selections can be removed."
-        >
-          <QueryState
-            pending={skills.isPending}
-            error={skills.error}
-            retry={skills.refetch}
-          />
-          {skillList.map((skill) => (
-            <Row
-              key={skill.id}
-              title={skill.title}
-              media={
-                <Checkbox
-                  aria-label={`Select ${skill.title}`}
-                  checked={skillIds.includes(skill.id)}
-                  disabled={
-                    !skillIds.includes(skill.id) && skillIds.length >= 50
-                  }
-                  onCheckedChange={(checked) =>
-                    setSkillIds((ids) =>
-                      checked
-                        ? [...ids, skill.id]
-                        : ids.filter((id) => id !== skill.id),
-                    )
-                  }
-                />
-              }
-            />
-          ))}
-          {skillIds
-            .filter((id) => !skillList.some((skill) => skill.id === id))
-            .map((id) => (
-              <Row key={id} title="Selected skill outside the loaded list">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() =>
-                    setSkillIds((ids) => ids.filter((item) => item !== id))
-                  }
-                >
-                  Remove
-                </Button>
-              </Row>
-            ))}
-          {skills.hasNextPage && (
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={skills.isFetchingNextPage}
-              onClick={() => skills.fetchNextPage()}
-            >
-              More skills
-            </Button>
-          )}
-        </Group>
         <QueryState
           error={mutation.error ?? directory.error}
           retry={() => {
@@ -721,13 +651,7 @@ function AgentConfiguration({
           </Button>
           <Button
             type="submit"
-            disabled={
-              createUncertain ||
-              !title.trim() ||
-              !modelValid ||
-              skills.isPending ||
-              !!skills.error
-            }
+            disabled={createUncertain || !title.trim() || !modelValid}
           >
             {mutation.isPending ? "Saving" : "Save agent"}
           </Button>

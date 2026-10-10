@@ -3,6 +3,7 @@ export {
   createConnection,
   disconnectConnection,
   getConnection,
+  getConnectionDetails,
   getConnections,
   grantConnectionAccess,
   revokeConnectionAccess,

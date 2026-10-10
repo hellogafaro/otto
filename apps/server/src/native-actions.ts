@@ -15,6 +15,7 @@ import {
   revokeConnectionAccess,
   updateConnection,
 } from "@otto/connections";
+import { createConnectionService } from "@otto/connections/server";
 import type { Database } from "@otto/db";
 import {
   archiveCollection,
@@ -91,6 +92,7 @@ import {
 } from "@otto/tasks";
 import { type Context, requireHuman } from "@otto/workspaces";
 import type { PgBoss } from "pg-boss";
+import type { ConnectionOptions } from "./connections";
 import { authorizeRunSources } from "./run-sources";
 
 function reference(row: {
@@ -111,6 +113,8 @@ export async function executeNativeAction(
     actionId: string;
     native: NativeSessionStorage;
     modelAuthorization?: ModelAuthorization;
+    connections?: ConnectionOptions;
+    revalidate?: () => Promise<void>;
   },
 ): Promise<NativeActionResult> {
   requireHuman(c);
@@ -394,6 +398,42 @@ export async function executeNativeAction(
     case "connection.update": {
       const { type: _, id, ...input } = action;
       return reference(await updateConnection(c, id, input));
+    }
+    case "connection.activate": {
+      if (!options.connections || !options.revalidate)
+        throw new DomainError(
+          "unavailable",
+          "Connection activation unavailable",
+        );
+      const revalidate = options.revalidate;
+      const connection = await getConnection(c, action.id);
+      if (connection.createdBy !== c.actor.userId)
+        throw new DomainError("forbidden");
+      if (connection.editToken !== action.editToken)
+        throw new DomainError("conflict", "Connection changed");
+      if (connection.type !== "mcp")
+        throw new DomainError(
+          "unavailable",
+          "Native activation supports MCP only; GitHub requires human credential completion",
+        );
+      const service = createConnectionService({
+        ...options.connections,
+        boundary: {
+          transact: async (work) => {
+            await revalidate();
+            return work(c);
+          },
+          validateRun: () => {
+            throw new DomainError("forbidden");
+          },
+        },
+      });
+      const connected = await service.connectConnection(
+        action.id,
+        action.editToken,
+      );
+      await revalidate();
+      return reference(connected);
     }
     case "connection.disconnect":
     case "connection.grant":

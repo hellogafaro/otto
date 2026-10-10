@@ -1,55 +1,44 @@
 import { RiGithubFill } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
-import { Checkbox } from "@workspace/ui/components/checkbox";
-import { Field, FieldLabel } from "@workspace/ui/components/field";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import type { InferResponseType } from "hono/client";
-import { useId, useState } from "react";
+import { useEffect, useState } from "react";
+import { isDeniedDomainRead } from "@/components/agents-schedules-mutation-safety";
 import { useConfirm } from "@/components/confirm";
+import { useAskAgent } from "@/components/floating-chat";
 import { RiConnectorLine } from "@/components/icons";
 import { QueryState } from "@/components/query-state";
 import { read, type workspaceApi } from "@/lib/api";
-import { useDirectory } from "@/lib/directory";
 import { useWorkspace } from "@/lib/workspace";
-import { ConnectionConfigDialog, positiveId } from "./connection-config";
+import { ConnectionCredentialDialog } from "./connection-credential";
+import { ConnectionOperations } from "./connection-operations";
 import {
   Choice,
   Group,
   Row,
   SaveState,
-  SettingsDialog,
-  SettingsField,
   SettingsFilters,
-  SettingsInput,
   SettingsPaging,
   useSettingsAction,
-  useSettingsCreation,
   useSettingsList,
 } from "./controls";
-import {
-  type GrantAgent,
-  GrantAgentButton,
-  GrantAgents,
-  GrantMembers,
-} from "./grant-directory";
 
 type Connection = InferResponseType<
   typeof workspaceApi.connections.$get
 >["items"][number];
-type Discovery = InferResponseType<
-  (typeof workspaceApi.connections)[":id"]["discover"]["$post"]
->;
-type Operation = Omit<
-  InferResponseType<
-    (typeof workspaceApi.connections)[":id"]["operations"]["$get"]
-  >["items"][number],
-  "arguments"
-> & { arguments: unknown };
 const sorts = { title: "Name", createdAt: "Created", updatedAt: "Updated" };
 const visibilityOptions = { user: "Only you", workspace: "Workspace" };
+
 export function ConnectionSettings() {
-  const { api, workspaceId } = useWorkspace();
+  const { api, workspaceId, workspace } = useWorkspace();
+  const ask = useAskAgent();
   const list = useSettingsList(sorts, "title");
   const id = list.params.get("connection") || undefined;
   const selected = useQuery({
@@ -60,7 +49,7 @@ export function ConnectionSettings() {
         await api.connections[":id"].$get({ param: { workspaceId, id } }),
       );
     },
-    enabled: Boolean(id),
+    enabled: !!id,
   });
   const type = (["github", "mcp"] as const).find(
     (value) => value === list.params.get("type"),
@@ -68,12 +57,9 @@ export function ConnectionSettings() {
   const visibility = (["user", "workspace"] as const).find(
     (value) => value === list.params.get("visibility"),
   );
-  const connected =
-    list.params.get("connected") === "true"
-      ? "true"
-      : list.params.get("connected") === "false"
-        ? "false"
-        : undefined;
+  const connected = (["true", "false"] as const).find(
+    (value) => value === list.params.get("connected"),
+  );
   const query = useQuery({
     enabled: !id,
     queryKey: [
@@ -111,29 +97,76 @@ export function ConnectionSettings() {
           retry={selected.refetch}
         />
         {selected.data && !selected.error && (
-          <ConnectionCard key={selected.data.id} connection={selected.data} />
+          <ConnectionDetail key={selected.data.id} connection={selected.data} />
         )}
       </>
     );
+  if (
+    query.data &&
+    !query.error &&
+    !query.data.items.length &&
+    !type &&
+    !visibility &&
+    !connected
+  )
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>No connections</EmptyTitle>
+          <EmptyDescription>
+            App integrations and remote MCP servers created through the composer
+            show up here.
+          </EmptyDescription>
+        </EmptyHeader>
+        {workspace.role !== "viewer" && (
+          <EmptyContent>
+            <Button
+              onClick={() =>
+                ask(
+                  "Create a Connection for an existing supported GitHub integration or remote HTTP MCP server. Ask for nonsecret account association and explicit scope, then request exact human approval. Never ask for credentials in Chat.",
+                )
+              }
+            >
+              Ask agent
+            </Button>
+          </EmptyContent>
+        )}
+      </Empty>
+    );
   return (
     <>
+      <Group description="App integrations and remote MCP servers. Create and update Connections through the composer; model providers stay in Models.">
+        {workspace.role !== "viewer" && (
+          <Row title="Create or update">
+            <Button
+              variant="outline"
+              size="compact"
+              onClick={() =>
+                ask(
+                  "Create a Connection for an existing supported GitHub integration or remote HTTP MCP server. Ask for nonsecret account association and explicit scope, then request exact human approval. Never ask me to send credentials in Chat; credential-reference completion is human-only.",
+                )
+              }
+            >
+              Ask agent
+            </Button>
+          </Row>
+        )}
+      </Group>
       <SettingsFilters>
         <Choice
           label="Connection type"
           value={type ?? "all"}
           options={{ all: "All types", github: "GitHub", mcp: "MCP" }}
-          onChange={(type) =>
-            list.update({ type: type === "all" ? undefined : type })
+          onChange={(value) =>
+            list.update({ type: value === "all" ? undefined : value })
           }
         />
         <Choice
           label="Connection visibility"
           value={visibility ?? "all"}
           options={{ all: "All connections", ...visibilityOptions }}
-          onChange={(visibility) =>
-            list.update({
-              visibility: visibility === "all" ? undefined : visibility,
-            })
+          onChange={(value) =>
+            list.update({ visibility: value === "all" ? undefined : value })
           }
         />
         <Choice
@@ -144,10 +177,8 @@ export function ConnectionSettings() {
             true: "Connected",
             false: "Disconnected",
           }}
-          onChange={(connected) =>
-            list.update({
-              connected: connected === "all" ? undefined : connected,
-            })
+          onChange={(value) =>
+            list.update({ connected: value === "all" ? undefined : value })
           }
         />
       </SettingsFilters>
@@ -158,17 +189,29 @@ export function ConnectionSettings() {
       />
       {query.data && !query.error && (
         <>
-          {query.data.items.map((connection) => (
-            <ConnectionCard key={connection.id} connection={connection} />
-          ))}
-          {!query.data.items.length && (
-            <Group>
+          <Group>
+            {query.data.items.map((connection) => (
+              <Row
+                key={connection.id}
+                title={connection.title}
+                description={`${connection.type === "github" ? "GitHub" : "MCP"} · ${connection.connected ? "Connected" : "Disconnected"}`}
+              >
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  onClick={() => list.update({ connection: connection.id })}
+                >
+                  Open connection
+                </Button>
+              </Row>
+            ))}
+            {!query.data.items.length && (
               <Row
                 title="No connections"
-                description="GitHub and MCP connections you add show up here."
+                description="Connections created through the composer show up here."
               />
-            </Group>
-          )}
+            )}
+          </Group>
           <SettingsPaging
             next={query.data.next}
             after={list.after}
@@ -179,319 +222,149 @@ export function ConnectionSettings() {
     </>
   );
 }
-export function NewConnection({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { api, workspaceId } = useWorkspace();
-  const router = useRouter();
-  const action = useSettingsCreation();
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState<"github" | "mcp">("github");
-  const [visibility, setVisibility] = useState<"user" | "workspace">("user");
-  const [accountRef, setAccountRef] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [installationId, setInstallationId] = useState("");
-  return (
-    <SettingsDialog
-      title="New connection"
-      description="Create the association, then configure a server credential reference and explicit provider scope. Never enter keys or tokens."
-      open={open}
-      onOpenChange={onOpenChange}
-      pending={action.pending}
-      error={action.error}
-      submitDisabled={action.blocked}
-      onSubmit={async () => {
-        if (
-          await action.perform(async () => {
-            const reference =
-              type === "github"
-                ? `github:${positiveId(accountId)}:${positiveId(installationId)}`
-                : accountRef.trim();
-            if (!/^[\w.:-]{1,200}$/.test(reference))
-              throw new Error(
-                "Enter an account association identifier without credentials.",
-              );
-            const connection = await action.create(() =>
-              api.connections.$post({
-                param: { workspaceId },
-                json: {
-                  title: title.trim(),
-                  type,
-                  accountRef: reference,
-                  visibility,
-                },
-              }),
-            );
-            if (!action.isActive()) return;
-            router.history.push(
-              `/settings/connections?connection=${encodeURIComponent(connection.id)}`,
-            );
-          }, "Connection created")
-        ) {
-          action.reset();
-          setTitle("");
-          setAccountRef("");
-          setAccountId("");
-          setInstallationId("");
-          onOpenChange(false);
-        }
-      }}
-    >
-      <SettingsField
-        label="Name"
-        required
-        maxLength={200}
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-      />
-      <Field>
-        <FieldLabel>Type</FieldLabel>
-        <Choice
-          label="Connection type"
-          value={type}
-          options={{ github: "GitHub App", mcp: "MCP server" }}
-          onChange={setType}
-        />
-      </Field>
-      {type === "github" ? (
-        <>
-          <SettingsField
-            label="GitHub account ID"
-            required
-            inputMode="numeric"
-            value={accountId}
-            onChange={(event) => setAccountId(event.target.value)}
-          />
-          <SettingsField
-            label="Installation ID"
-            required
-            inputMode="numeric"
-            value={installationId}
-            onChange={(event) => setInstallationId(event.target.value)}
-          />
-        </>
-      ) : (
-        <SettingsField
-          label="Account association"
-          description="A non-secret identifier for the external MCP account."
-          required
-          value={accountRef}
-          maxLength={200}
-          autoComplete="off"
-          onChange={(event) => setAccountRef(event.target.value)}
-        />
-      )}
-      <Field>
-        <FieldLabel>Who can use it</FieldLabel>
-        <Choice
-          label="Connection visibility"
-          value={visibility}
-          options={visibilityOptions}
-          onChange={setVisibility}
-        />
-      </Field>
-    </SettingsDialog>
-  );
-}
-function ConnectionCard({ connection }: { connection: Connection }) {
-  const { api, workspaceId, user, workspace, invalidate } = useWorkspace();
-  const action = useSettingsAction();
+
+function ConnectionDetail({ connection: initial }: { connection: Connection }) {
+  const { api, workspaceId, user, workspace } = useWorkspace();
+  const ask = useAskAgent();
   const confirm = useConfirm();
-  const [configOpen, setConfigOpen] = useState(false);
-  const [grantOpen, setGrantOpen] = useState(false);
-  const [discovered, setDiscovered] = useState<{
-    editToken: number;
-    data: Discovery;
-  } | null>(null);
-  const discovery =
-    connection.connected && discovered?.editToken === connection.editToken
-      ? discovered.data
-      : null;
-  const [showOperations, setShowOperations] = useState(false);
+  const action = useSettingsAction();
+  const [credentials, setCredentials] = useState(false);
+  const [operations, setOperations] = useState(false);
+  const [readDenied, setReadDenied] = useState<Error>();
   const [externalExpiry, setExternalExpiry] = useState<string | null>(null);
+  const param = { workspaceId, id: initial.id };
+  const details = useQuery({
+    queryKey: [
+      "workspace",
+      workspaceId,
+      "connection-details",
+      initial.id,
+      initial.editToken,
+      initial.connected,
+    ],
+    queryFn: async () =>
+      read(await api.connections[":id"].details.$get({ param })),
+    retry: false,
+  });
+  const current = !details.error ? details.data : undefined;
+  const connection = current ?? initial;
   const editable =
     connection.createdBy === user.id && workspace.role !== "viewer";
-  const param = { workspaceId, id: connection.id };
+  useEffect(() => {
+    if (details.error && isDeniedDomainRead(details.error))
+      setReadDenied(details.error);
+  }, [details.error]);
+  if (isDeniedDomainRead(details.error) || readDenied)
+    return (
+      <QueryState
+        error={details.error ?? readDenied}
+        retry={async () => {
+          const response = await details.refetch();
+          if (!response.error) setReadDenied(undefined);
+        }}
+      />
+    );
   return (
     <>
-      <Group title={connection.title}>
+      <Group
+        title={connection.title}
+        description="Saved status and cached discovery, not a live health check or effective Agent permissions."
+      >
         <Row
           title={connection.type === "github" ? "GitHub" : "MCP"}
           description={`${connection.connected ? "Connected" : "Disconnected"} · ${connection.visibility === "user" ? "Only creator" : "Workspace"}`}
           media={
             connection.type === "github" ? (
-              <RiGithubFill className="size-5" />
+              <RiGithubFill />
             ) : (
-              <RiConnectorLine className="size-5" />
+              <RiConnectorLine />
             )
           }
-        >
-          <div className="flex flex-wrap gap-2">
-            {editable && (
-              <>
-                <Button
-                  variant="outline"
-                  size="compact"
-                  disabled={action.pending}
-                  onClick={() => setConfigOpen(true)}
-                >
-                  Configure
-                </Button>
-                <Button
-                  variant="outline"
-                  size="compact"
-                  disabled={action.pending}
-                  onClick={() =>
-                    action.perform(async () => {
-                      await read(
-                        await api.connections[":id"].connect.$post({ param }),
-                      );
-                      setExternalExpiry(null);
-                    }, "Connection confirmed")
-                  }
-                >
-                  {connection.connected ? "Reconnect" : "Connect"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="compact"
-                  disabled={action.pending}
-                  onClick={() =>
-                    action.perform(async () => {
-                      setGrantOpen(false);
-                      setDiscovered({
-                        editToken: connection.editToken,
-                        data: await read(
-                          await api.connections[":id"].discover.$post({
-                            param,
-                          }),
-                        ),
-                      });
-                    }, "Discovery updated")
-                  }
-                >
-                  Discover
-                </Button>
-                {connection.connected && (
-                  <Button
-                    variant="outline"
-                    size="compact"
-                    disabled={action.pending}
-                    onClick={async () => {
-                      const yes = await confirm({
-                        title: `Disconnect ${connection.title}?`,
-                        description:
-                          "Otto will block requests and revoke grants. Existing GitHub tokens may remain valid until their expiry.",
-                        action: "Disconnect",
-                        destructive: true,
-                      });
-                      if (yes)
-                        await action.perform(async () => {
-                          const result = await read(
-                            await api.connections[":id"].disconnect.$post({
-                              param,
-                            }),
-                          );
-                          setExternalExpiry(result.externalCredentialExpiresAt);
-                        }, "Connection disconnected");
-                    }}
-                  >
-                    Disconnect
-                  </Button>
-                )}
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="compact"
-              onClick={() => setShowOperations((value) => !value)}
-            >
-              {showOperations ? "Hide operations" : "Operations"}
-            </Button>
-          </div>
-        </Row>
-        {editable && (
+        />
+        <QueryState
+          pending={details.isPending}
+          error={details.error}
+          retry={details.refetch}
+        />
+        {current?.scope?.type === "mcp" && (
           <>
-            <Row title="Name">
-              <SettingsInput
-                label={`${connection.title} name`}
-                initial={connection.title}
-                disabled={action.pending}
-                save={async (title) => {
-                  await read(
-                    await api.connections[":id"].$patch({
-                      param,
-                      json: { title: title.trim() },
-                    }),
-                  );
-                  await invalidate();
-                }}
-              />
+            <Row
+              title="Remote authentication"
+              description={
+                current.scope.authentication === "none"
+                  ? "No authentication; deployment opt-in required"
+                  : "Bearer; server-bound credential required"
+              }
+            />
+            <Row title="Configured tools">
+              <div className="flex max-w-full flex-col gap-1">
+                {current.scope.tools.map((tool) => (
+                  <span key={tool.name}>
+                    {tool.name} · target: {tool.targetArgument} ·{" "}
+                    {tool.readOnly ? "Read-only" : "Write-capable"}
+                  </span>
+                ))}
+                {!current.scope.tools.length && (
+                  <span>No tools configured</span>
+                )}
+              </div>
             </Row>
             <Row
-              title="Who can use this connection"
-              description="Changing visibility revokes existing grants and pending approvals."
+              title="Resource URIs and tool targets"
+              description="Credential, query and fragment components are omitted. This saved display is not an effective grant or an exact execution target."
             >
-              <Choice
-                label={`${connection.title} visibility`}
-                value={connection.visibility}
-                options={visibilityOptions}
-                disabled={action.pending}
-                onChange={async (visibility) => {
-                  if (visibility === connection.visibility) return;
-                  const yes = await confirm({
-                    title: "Change connection visibility?",
-                    description:
-                      "Existing grants and pending approvals will be invalidated.",
-                    action: "Change visibility",
-                  });
-                  if (yes)
-                    await action.perform(
-                      async () =>
-                        read(
-                          await api.connections[":id"].$patch({
-                            param,
-                            json: {
-                              visibility,
-                              editToken: connection.editToken,
-                            },
-                          }),
-                        ),
-                      "Connection visibility saved",
-                    );
-                }}
-              />
+              <div className="flex max-w-full flex-col gap-1 break-all">
+                {current.scope.resources.map((resource) => (
+                  <span key={resource}>{resource}</span>
+                ))}
+                {!current.scope.resources.length && (
+                  <span>No targets configured</span>
+                )}
+              </div>
             </Row>
-            <Row
-              title="Agent access"
-              description="Existing grants cannot be listed here. Discover before creating or replacing an exact scoped grant."
-            >
-              <Button
-                variant="outline"
-                size="compact"
-                disabled={action.pending || !connection.connected || !discovery}
-                onClick={() => setGrantOpen(true)}
-              >
-                Grant access
-              </Button>
-            </Row>
-            <RevokeGrant connection={connection} />
           </>
         )}
-        {(action.pending || action.error) && (
-          <Row title="Connection update">
-            <SaveState {...action} />
-          </Row>
+        {current?.scope?.type === "github" && (
+          <>
+            <Row
+              title="Configured repositories"
+              description={
+                current.scope.repositories
+                  .map((repository) => repository.name)
+                  .join(", ") || "No repositories configured"
+              }
+            />
+            <Row
+              title="Configured issue permission"
+              description={current.scope.permissions.issues || "Not configured"}
+            />
+          </>
         )}
-        {externalExpiry && (
+        {current && !current.scope && (
           <Row
-            title="External credential expiry"
-            description={`Provider-side credentials may remain valid until ${new Date(externalExpiry).toLocaleString()}. Otto access is blocked.`}
+            title="Configuration"
+            description="No supported saved configuration"
           />
+        )}
+        {current && (
+          <>
+            <Row
+              title="Cached discovered actions"
+              description={
+                current.discovery?.actions.join(", ") || "No saved discovery"
+              }
+            />
+            <Row title="Cached discovered resources">
+              <div className="flex max-w-full flex-col gap-1 break-all">
+                {current.discovery?.resources.map((resource) => (
+                  <span key={resource}>{resource}</span>
+                ))}
+                {!current.discovery?.resources.length && (
+                  <span>No saved resources</span>
+                )}
+              </div>
+            </Row>
+          </>
         )}
         {connection.expiresAt && (
           <Row
@@ -499,589 +372,133 @@ function ConnectionCard({ connection }: { connection: Connection }) {
             description={`${new Date(connection.expiresAt).toLocaleString()}. This does not guarantee provider acceptance.`}
           />
         )}
-        {discovery && (
-          <>
-            <Row
-              title="Discovered actions"
-              description={
-                discovery.actions.length
-                  ? discovery.actions.join(", ")
-                  : "No actions discovered"
+        {editable && (
+          <Row title="Manage through composer">
+            <Button
+              variant="outline"
+              size="compact"
+              onClick={() =>
+                ask(
+                  `Manage this Connection through exact human-approved requests. Current authorized target: ${JSON.stringify({ connectionId: connection.id, editToken: connection.editToken, title: connection.title, type: connection.type, connected: connection.connected })}. Ask what I want to change. For MCP use request_connection_activate for explicit connect and discovery, never automatic reconnect. GitHub uses the human secure-auth completion step. Preserve unrequested fields and reject stale tokens. Never request credentials in Chat.`,
+                )
               }
-            />
-            <Row title="Discovered resources">
-              <div className="flex max-w-full flex-col gap-1 break-all">
-                {discovery.resources.length ? (
-                  discovery.resources.map((resource) => (
-                    <span key={resource}>{resource}</span>
-                  ))
-                ) : (
-                  <span>No resources discovered</span>
-                )}
-              </div>
+            >
+              Ask agent
+            </Button>
+          </Row>
+        )}
+        {editable && connection.type === "github" && (
+          <Row
+            title="Human authentication completion"
+            description="GitHub token issuance keeps its existing reserved expiry. This step does not grant Agent access."
+          >
+            <Button
+              variant="outline"
+              size="compact"
+              disabled={action.pending}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: `Complete GitHub authentication: ${connection.title}?`,
+                    description:
+                      "Authenticate using the existing server-bound GitHub reference and discover its configured repositories. Agent grants remain separate.",
+                    action: "Complete authentication",
+                  })
+                )
+                  await action.perform(async () => {
+                    await read(
+                      await api.connections[":id"].connect.$post({ param }),
+                    );
+                    await details.refetch();
+                  }, "GitHub authentication completed");
+              }}
+            >
+              Complete GitHub authentication
+            </Button>
+          </Row>
+        )}
+        {editable &&
+          current?.scope &&
+          !(
+            current.scope.type === "mcp" &&
+            current.scope.authentication === "none"
+          ) && (
+            <Row
+              title="Secure completion"
+              description="Only an existing deployment-approved credential reference; never enter a key or token."
+            >
+              <Button
+                variant="outline"
+                size="compact"
+                onClick={() => setCredentials(true)}
+              >
+                Complete credential reference
+              </Button>
             </Row>
-          </>
+          )}
+        {editable && connection.connected && (
+          <Row title="Availability">
+            <Button
+              variant="outline"
+              size="compact"
+              disabled={action.pending}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: `Disconnect ${connection.title}?`,
+                    description:
+                      "Otto will block new requests and revoke grants. Existing provider credentials may remain valid until their expiry.",
+                    action: "Disconnect",
+                    destructive: true,
+                  })
+                )
+                  await action.perform(async () => {
+                    const result = await read(
+                      await api.connections[":id"].disconnect.$post({ param }),
+                    );
+                    setExternalExpiry(result.externalCredentialExpiresAt);
+                  }, "Connection disconnected");
+              }}
+            >
+              Disconnect
+            </Button>
+          </Row>
+        )}
+        <Row title="Human operation approvals">
+          <Button
+            variant="outline"
+            size="compact"
+            onClick={() => setOperations((value) => !value)}
+          >
+            {operations ? "Hide operations" : "Operations"}
+          </Button>
+        </Row>
+        {externalExpiry && (
+          <Row
+            title="External credential expiry"
+            description={`Provider credentials may remain valid until ${new Date(externalExpiry).toLocaleString()}. Otto access is blocked.`}
+          />
+        )}
+        {(action.pending || action.error) && (
+          <Row title="Connection update">
+            <SaveState {...action} />
+          </Row>
         )}
       </Group>
-      {editable && configOpen && (
-        <ConnectionConfigDialog
+      {credentials && (
+        <ConnectionCredentialDialog
           key={connection.id}
           connection={connection}
-          open={configOpen}
-          onOpenChange={setConfigOpen}
+          open
+          onOpenChange={setCredentials}
         />
       )}
-      {editable && discovery && (
-        <GrantDialog
-          key={`${connection.id}:${connection.editToken}`}
+      {operations && (
+        <ConnectionOperations
           connection={connection}
-          discovery={discovery}
-          open={grantOpen}
-          onOpenChange={setGrantOpen}
+          onReadDenied={setReadDenied}
         />
       )}
-      {showOperations && <ConnectionOperations connection={connection} />}
     </>
-  );
-}
-function Selection({
-  label,
-  checked,
-  onChange,
-  disabled = false,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  disabled?: boolean;
-}) {
-  const id = useId();
-  return (
-    <Field orientation="horizontal">
-      <Checkbox
-        id={id}
-        aria-label={label}
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onChange}
-      />
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-    </Field>
-  );
-}
-const toggle = (values: string[], value: string, checked: boolean) =>
-  checked
-    ? [...new Set([...values, value])]
-    : values.filter((item) => item !== value);
-function GrantDialog({
-  connection,
-  discovery,
-  open,
-  onOpenChange,
-}: {
-  connection: Connection;
-  discovery: Discovery;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { api, workspaceId, user } = useWorkspace();
-  const action = useSettingsAction();
-  const [selectedAgent, setSelectedAgent] = useState<GrantAgent | null>(null);
-  const [resources, setResources] = useState<string[]>([]);
-  const [operations, setOperations] = useState<
-    Record<string, "allowed" | "confirmation" | "disabled">
-  >({});
-  const [humans, setHumans] = useState<string[]>([]);
-  const [agents, setAgents] = useState<string[]>([]);
-  const createdBy = connection.visibility === "user" ? user.id : undefined;
-  return (
-    <SettingsDialog
-      title={`Grant ${connection.title} access`}
-      description="Replace this agent's grant with exact discovered resources, actions and an explicitly selected output audience. Nothing is selected automatically."
-      open={open}
-      onOpenChange={onOpenChange}
-      pending={action.pending}
-      error={action.error}
-      submitLabel="Grant access"
-      onSubmit={async () => {
-        if (
-          await action.perform(async () => {
-            if (!selectedAgent)
-              throw new Error("Select an eligible current agent.");
-            if (
-              !resources.length ||
-              !Object.values(operations).some((value) => value !== "disabled")
-            )
-              throw new Error(
-                "Select at least one resource and an allowed action.",
-              );
-            if (!humans.length && !agents.length)
-              throw new Error("Select the exact output audience.");
-            if (
-              humans.length > 500 ||
-              agents.length > 100 ||
-              Object.keys(operations).length > 50
-            )
-              throw new Error(
-                "Select at most 500 humans, 100 agents and 50 actions.",
-              );
-            await read(
-              await api.connections[":id"].grants.$post({
-                param: { workspaceId, id: connection.id },
-                json: {
-                  agentId: selectedAgent.id,
-                  resources,
-                  operations,
-                  audience: { humans, agents },
-                },
-              }),
-            );
-          }, "Agent grant saved")
-        )
-          onOpenChange(false);
-      }}
-    >
-      <Field>
-        <FieldLabel>Agent</FieldLabel>
-        <span>
-          {selectedAgent
-            ? `${selectedAgent.title} (${selectedAgent.id})`
-            : "Select an agent"}
-        </span>
-        <GrantAgents
-          createdBy={createdBy}
-          enabled={open}
-          render={(agent) => (
-            <GrantAgentButton
-              agent={agent}
-              selected={selectedAgent}
-              onSelect={setSelectedAgent}
-            />
-          )}
-        />
-      </Field>
-      {discovery.resources.map((resource) => (
-        <Selection
-          key={resource}
-          label={resource}
-          checked={resources.includes(resource)}
-          onChange={(checked) =>
-            setResources((values) => toggle(values, resource, checked))
-          }
-        />
-      ))}
-      {discovery.actions.map((action) => (
-        <Field key={action}>
-          <FieldLabel>{action}</FieldLabel>
-          <Choice
-            label={`${action} policy`}
-            value={operations[action] ?? "disabled"}
-            options={{
-              disabled: "Disabled",
-              confirmation: "Ask each time",
-              allowed: "Allowed",
-            }}
-            onChange={(value) =>
-              setOperations((values) => ({ ...values, [action]: value }))
-            }
-          />
-        </Field>
-      ))}
-      <Field>
-        <FieldLabel>
-          Human output audience ({humans.length} selected)
-        </FieldLabel>
-        {connection.visibility === "user" ? (
-          <Selection
-            label={user.name}
-            checked={humans.includes(user.id)}
-            onChange={(checked) =>
-              setHumans((values) => toggle(values, user.id, checked))
-            }
-          />
-        ) : (
-          <GrantMembers
-            enabled={open}
-            render={(member) => (
-              <Selection
-                label={`${member.name} (${member.userId})`}
-                checked={humans.includes(member.userId)}
-                onChange={(checked) =>
-                  setHumans((values) => toggle(values, member.userId, checked))
-                }
-              />
-            )}
-          />
-        )}
-      </Field>
-      <Field>
-        <FieldLabel>
-          Agent output audience ({agents.length} selected)
-        </FieldLabel>
-        <GrantAgents
-          createdBy={createdBy}
-          enabled={open}
-          render={(agent) => (
-            <Selection
-              label={`${agent.title} (${agent.id})`}
-              checked={agents.includes(agent.id)}
-              onChange={(checked) =>
-                setAgents((values) => toggle(values, agent.id, checked))
-              }
-            />
-          )}
-        />
-      </Field>
-    </SettingsDialog>
-  );
-}
-function RevokeGrant({ connection }: { connection: Connection }) {
-  const { api, workspaceId, user } = useWorkspace();
-  const action = useSettingsAction();
-  const confirm = useConfirm();
-  const [selectedAgent, setSelectedAgent] = useState<GrantAgent | null>(null);
-  const [choose, setChoose] = useState(false);
-  return (
-    <Row
-      title="Revoke agent access"
-      description="This revokes the selected agent's grant; it does not assert a grant currently exists."
-    >
-      <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="compact"
-          disabled={action.pending}
-          onClick={() => setChoose((value) => !value)}
-        >
-          {selectedAgent?.title ?? "Select an agent"}
-        </Button>
-        {choose && !action.pending && (
-          <GrantAgents
-            createdBy={connection.visibility === "user" ? user.id : undefined}
-            enabled={choose}
-            includeArchived
-            render={(agent) => (
-              <GrantAgentButton
-                agent={agent}
-                selected={selectedAgent}
-                onSelect={(agent) => {
-                  setSelectedAgent(agent);
-                  setChoose(false);
-                }}
-              />
-            )}
-          />
-        )}
-        <Button
-          variant="outline"
-          size="compact"
-          disabled={!selectedAgent || action.pending}
-          onClick={async () => {
-            if (!selectedAgent) return;
-            const yes = await confirm({
-              title: "Revoke agent grant?",
-              description: `${selectedAgent.title} (${selectedAgent.id}) and its active runs will lose this connection access.`,
-              action: "Revoke",
-              destructive: true,
-            });
-            if (yes)
-              await action.perform(
-                async () =>
-                  read(
-                    await api.connections[":id"].grants[":agentId"].$delete({
-                      param: {
-                        workspaceId,
-                        id: connection.id,
-                        agentId: selectedAgent.id,
-                      },
-                    }),
-                  ),
-                "Agent grant revoked",
-              );
-          }}
-        >
-          Revoke
-        </Button>
-        <SaveState {...action} />
-      </div>
-    </Row>
-  );
-}
-function ConnectionOperations({ connection }: { connection: Connection }) {
-  const { api, workspaceId } = useWorkspace();
-  const [after, setAfter] = useState<string>();
-  const [state, setState] = useState<"all" | Operation["state"]>("all");
-  const [sort, setSort] = useState<"createdAt" | "updatedAt">("createdAt");
-  const [order, setOrder] = useState<"asc" | "desc">("desc");
-  const query = useQuery<{ items: Operation[]; next: string | null }>({
-    queryKey: [
-      "workspace",
-      workspaceId,
-      "connections",
-      connection.id,
-      "operations",
-      after,
-      state,
-      sort,
-      order,
-    ],
-    queryFn: async () =>
-      read(
-        await api.connections[":id"].operations.$get({
-          param: { workspaceId, id: connection.id },
-          query: {
-            after,
-            state: state === "all" ? undefined : state,
-            sort,
-            order,
-            limit: "100",
-          },
-        }),
-      ),
-    refetchInterval: 10000,
-  });
-  return (
-    <Group
-      title={`${connection.title} operations`}
-      description="Only operations sponsored by you are returned. Unknown external outcomes require reconciliation outside Otto."
-    >
-      <Row title="Filter">
-        <div className="flex flex-wrap items-center gap-2">
-          <Choice
-            label="Operation state"
-            value={state}
-            options={{
-              all: "All states",
-              awaiting_approval: "Needs approval",
-              approved: "Approved",
-              denied: "Denied",
-              executing: "Executing",
-              succeeded: "Succeeded",
-              failed: "Failed",
-              uncertain: "Uncertain",
-            }}
-            onChange={(state) => {
-              setState(state);
-              setAfter(undefined);
-            }}
-          />
-          <Choice
-            label="Operation sort"
-            value={sort}
-            options={{ createdAt: "Created", updatedAt: "Updated" }}
-            onChange={(sort) => {
-              setSort(sort);
-              setAfter(undefined);
-            }}
-          />
-          <Choice
-            label="Operation order"
-            value={order}
-            options={{ asc: "Ascending", desc: "Descending" }}
-            onChange={(order) => {
-              setOrder(order);
-              setAfter(undefined);
-            }}
-          />
-        </div>
-      </Row>
-      <QueryState
-        pending={query.isPending}
-        error={query.error}
-        retry={query.refetch}
-      />
-      {query.data && !query.error && (
-        <>
-          {!query.data.items.length && (
-            <Row
-              title="No operations"
-              description="Operations your agents request show up here."
-            />
-          )}
-          {query.data.items.map((operation) => (
-            <OperationRow key={operation.id} operation={operation} />
-          ))}
-          <SettingsPaging
-            next={query.data.next}
-            after={after}
-            change={setAfter}
-          />
-        </>
-      )}
-    </Group>
-  );
-}
-function OperationRow({ operation }: { operation: Operation }) {
-  const { api, workspaceId, workspace, invalidate } = useWorkspace();
-  const directory = useDirectory();
-  const action = useSettingsAction();
-  const confirm = useConfirm();
-  const expired =
-    !operation.expiresAt ||
-    new Date(operation.expiresAt).getTime() <= Date.now();
-  const writable = workspace.role !== "viewer";
-  const param = { workspaceId, id: operation.id };
-  return (
-    <Row
-      title={`${operation.action} · ${operation.state}`}
-      description={`${operation.target}${operation.outcome ? ` · ${operation.outcome}` : ""}`}
-    >
-      <div className="flex max-w-full flex-col items-start gap-2">
-        <details>
-          <summary>Review exact request</summary>
-          <div className="flex flex-col gap-2 break-all">
-            <span>Run: {operation.runId}</span>
-            <span>Identity: {operation.identity ?? "Unavailable"}</span>
-            <span>
-              Expires:{" "}
-              {operation.expiresAt
-                ? new Date(operation.expiresAt).toLocaleString()
-                : "Unknown"}
-            </span>
-            <span>Retries: {operation.retryCount} / 2</span>
-            <span>
-              Audience:{" "}
-              {[
-                ...(operation.audience?.humans ?? []),
-                ...(operation.audience?.agents ?? []),
-              ]
-                .map((id) => `${directory.actorOf(id).name} (${id})`)
-                .join(", ") || "Unavailable"}
-            </span>
-            <pre className="max-h-52 max-w-full overflow-auto whitespace-pre-wrap">
-              {JSON.stringify(operation.arguments, null, 2)}
-            </pre>
-          </div>
-        </details>
-        {operation.state === "awaiting_approval" && operation.identity && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="compact"
-              disabled={action.pending || expired || !writable}
-              onClick={async () => {
-                const yes = await confirm({
-                  title: "Approve this exact operation?",
-                  description: `${operation.action} on ${operation.target}. Review the arguments, audience and identity before approving.`,
-                  action: "Approve",
-                });
-                if (yes)
-                  await action.perform(
-                    async () =>
-                      read(
-                        await api.operations[":id"].approve.$post({
-                          param,
-                          json: { identity: operation.identity ?? "" },
-                        }),
-                      ),
-                    "Operation approved",
-                  );
-              }}
-            >
-              Approve
-            </Button>
-            <Button
-              variant="outline"
-              size="compact"
-              disabled={action.pending || expired || !writable}
-              onClick={async () => {
-                const yes = await confirm({
-                  title: "Deny this exact operation?",
-                  description: `${operation.action} on ${operation.target} will not execute. This denial is final; it cannot be retried or approved later.`,
-                  action: "Deny",
-                });
-                if (yes)
-                  await action.perform(
-                    async () =>
-                      read(
-                        await api.operations[":id"].deny.$post({
-                          param,
-                          json: { identity: operation.identity ?? "" },
-                        }),
-                      ),
-                    "Operation denied",
-                  );
-              }}
-            >
-              Deny
-            </Button>
-          </div>
-        )}
-        {operation.state === "denied" && (
-          <p>
-            Denied
-            {operation.deniedBy
-              ? ` by ${directory.actorOf(operation.deniedBy).name} (${operation.deniedBy})`
-              : ""}
-            {operation.deniedAt
-              ? ` · ${new Date(operation.deniedAt).toLocaleString()}`
-              : ""}
-            . This operation was not executed and cannot be retried.
-          </p>
-        )}
-        {operation.state === "approved" && (
-          <Button
-            variant="outline"
-            size="compact"
-            disabled={action.pending || expired || !writable}
-            onClick={async () => {
-              const yes = await confirm({
-                title: "Execute approved operation?",
-                description: `The provider will receive this exact ${operation.action} request.`,
-                action: "Execute",
-              });
-              if (yes)
-                await action.perform(async () => {
-                  const result = await read(
-                    await api.operations[":id"].execute.$post({ param }),
-                  );
-                  await invalidate();
-                  if (result.state !== "succeeded")
-                    throw new Error(
-                      `Operation ${result.state}${result.outcome ? `: ${result.outcome}` : ""}. Reload its status before taking further action.`,
-                    );
-                }, "Operation succeeded");
-            }}
-          >
-            Execute
-          </Button>
-        )}
-        {operation.state === "failed" && operation.retryCount < 2 && (
-          <Button
-            variant="outline"
-            size="compact"
-            disabled={action.pending || expired || !writable}
-            onClick={async () => {
-              const yes = await confirm({
-                title: "Retry failed read?",
-                description:
-                  "The server permits only failed reads. Writes cannot be retried. A successful retry returns to Approved for explicit execution.",
-                action: "Retry read",
-              });
-              if (yes)
-                await action.perform(
-                  async () =>
-                    read(await api.operations[":id"].retry.$post({ param })),
-                  "Read retry approved",
-                );
-            }}
-          >
-            Retry read
-          </Button>
-        )}
-        {expired &&
-          ["awaiting_approval", "approved", "failed"].includes(
-            operation.state,
-          ) && <span>Approval expired; request new work from the run.</span>}
-        {operation.state === "uncertain" && (
-          <p>
-            Check the external system before authorizing new work. Otto cannot
-            retry or mark this outcome reconciled.
-          </p>
-        )}
-        <SaveState {...action} />
-      </div>
-    </Row>
   );
 }

@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import type { NativeSessionStorage } from "@otto/sessions/native";
 import { DomainError, required } from "@otto/shared";
-import { type Context, requireHuman, requireWriter } from "@otto/workspaces";
+import {
+  type Context,
+  requireHuman,
+  requireMember,
+  requireWriter,
+} from "@otto/workspaces";
 import { and, asc, eq, gt } from "drizzle-orm";
 import {
   type NativeActionResult,
@@ -232,6 +237,7 @@ export async function resolveRunAction(
     c: Context,
     input: Action["input"],
     actionId: string,
+    revalidate: () => Promise<void>,
   ) => Promise<NativeActionResult>,
   native?: NativeSessionStorage,
   authorizeSources?: AuthorizeSources,
@@ -276,8 +282,27 @@ export async function resolveRunAction(
   }
   const parsed = nativeActionInput.safeParse(row.input);
   if (!parsed.success) throw new DomainError("invalid");
+  const revalidate = async () => {
+    requireHuman(c);
+    const member = await requireMember(c, c.actor.userId, true);
+    if (row.sponsorId !== c.actor.userId) throw new DomainError("forbidden");
+    await assertRunAttempt(
+      { ...c, role: member.role },
+      {
+        runId,
+        agentId: row.agentId,
+        attempt: row.attempt,
+        launchKey: row.launchKey,
+      },
+      undefined,
+      native,
+      authorizeSources,
+    );
+  };
   const result =
-    status === "approved" ? await execute(c, parsed.data, row.id) : null;
+    status === "approved"
+      ? await execute(c, parsed.data, row.id, revalidate)
+      : null;
   return receipt(
     required(
       (
