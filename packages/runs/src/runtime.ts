@@ -788,17 +788,23 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
               entry.drafts.set(event.id, draft);
             }
           }
-          if (bytes > 1048576) {
+          if (bytes > 1048576 && !abort.signal.aborted) {
             failed = true;
             abort.abort();
           }
         }
         if (
-          event.type === "error" ||
-          event.type === "tool_approval_required" ||
-          event.type === "tool_suspended"
+          !abort.signal.aborted &&
+          (event.type === "error" ||
+            event.type === "tool_approval_required" ||
+            event.type === "tool_suspended")
         ) {
-          failed = true;
+          failed = !(
+            event.type === "error" &&
+            event.error instanceof DomainError &&
+            (event.error.code === "forbidden" ||
+              event.error.code === "conflict")
+          );
           abort.abort();
         }
         if (event.type === "agent_end") complete = event.reason === "complete";
@@ -893,11 +899,11 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
       const revoked =
         error instanceof DomainError &&
         (error.code === "forbidden" || error.code === "conflict");
-      state = abort.signal.aborted || revoked ? "interrupted" : "failed";
-      outcome =
-        abort.signal.aborted || revoked
-          ? "stopped_or_authorization_revoked"
-          : "native_execution_failed";
+      const interrupted = revoked || (abort.signal.aborted && !failed);
+      state = interrupted ? "interrupted" : "failed";
+      outcome = interrupted
+        ? "stopped_or_authorization_revoked"
+        : "native_execution_failed";
       abort.abort();
     } finally {
       entry.draftClosed = true;

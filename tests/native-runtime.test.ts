@@ -55,7 +55,7 @@ import {
   saveNativeMessage,
 } from "../packages/sessions/src/native";
 import { sessions } from "../packages/sessions/src/schema";
-import { required } from "../packages/shared/src";
+import { DomainError, required } from "../packages/shared/src";
 import { createSubscription } from "../packages/subscriptions/src";
 import {
   authorizeSubscriptionModel,
@@ -314,6 +314,87 @@ describe("direct native PostgreSQL execution", () => {
       },
       ...input,
     });
+
+  it.each(["provider", "forbidden", "conflict"] as const)(
+    "classifies a native %s error without confusing failure with cancellation",
+    async (cause) => {
+      const selection = await setup();
+      const run = await admit(selection);
+      let calls = 0;
+      let publications = 0;
+      const engine = runtime({
+        resolveModel: async () =>
+          model(() => {
+            if (++calls === 2)
+              throw cause === "provider"
+                ? new Error("Controlled provider continuation failure")
+                : new DomainError(cause, "Controlled authority failure");
+          }, true),
+        tools: () => ({
+          record_effect: createTool({
+            id: "record_effect",
+            description: "Controlled read",
+            inputSchema: z.object({}),
+            execute: async () => ({ read: true }),
+          }),
+        }),
+        publishOutput: async () => {
+          publications++;
+        },
+      });
+      try {
+        await engine.dispatch(run.id);
+        const result = await saved(run.id);
+        expect(result.state).toBe(
+          cause === "provider" ? "failed" : "interrupted",
+        );
+        expect(result.outcome).toBe(
+          cause === "provider"
+            ? "native_execution_failed"
+            : "stopped_or_authorization_revoked",
+        );
+        expect(result.usage).toHaveLength(1);
+        expect(calls).toBe(2);
+        expect(publications).toBe(0);
+        expect(engine.health().active).toBe(0);
+      } finally {
+        await engine.close();
+      }
+    },
+  );
+
+  it("keeps deadline cancellation interrupted when the model rejects after abort", async () => {
+    const selection = await setup();
+    const run = await admit(selection);
+    let publications = 0;
+    const engine = runtime({
+      deadlineMs: 500,
+      resolveModel: async (_attempt, signal) =>
+        model(async () => {
+          signal.throwIfAborted();
+          await new Promise<never>((_resolve, reject) => {
+            signal.addEventListener(
+              "abort",
+              () => reject(new Error("Controlled aborted stream")),
+              { once: true },
+            );
+          });
+        }),
+      publishOutput: async () => {
+        publications++;
+      },
+    });
+    try {
+      await engine.dispatch(run.id);
+      const result = await saved(run.id);
+      expect(result.state).toBe("interrupted");
+      expect(result.outcome).toBe("stopped_or_authorization_revoked");
+      expect(publications).toBe(0);
+      expect(engine.health().active).toBe(0);
+    } finally {
+      await engine.close();
+    }
+  });
 
   it("uses a separate official schema and preserves native message identities after reopening", async () => {
     const schemas = await database.pool.query(

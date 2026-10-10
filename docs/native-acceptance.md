@@ -7,6 +7,7 @@ This is the single current operation, page and scenario checklist. Restored hist
 - Exact v1 anchor: `2a6e9a79be8b268b6cac583f68a68fa674be2fe9`.
 - Native integration checkpoint: `fa912a635c5d38feb0948cf9611b7d1348f21036`. The corrected full-suite and live source manifests below also include the separately checkpointed durable launcher; its exact bytes are recorded in the startup evidence.
 - Current-source recovery checkpoint: `c7f5b4e5eaab18efed20f689a6764bbab0e1f284`.
+- The pre-integration anonymous-MCP/outcome-classification candidate over `004db99a9d5ad1c4d5682ddd954bc79e72c4526a` is preserved under `~/.capy/work/otto-pending-closure-20261010/integration/native-outcome-uncommitted/`. The subsequently authorized local commits and independently recoverable final checkpoint are recorded under `integration/native-outcome-final/` in that evidence root. Source recovery does not imply durable API activation.
 - Historical chat-foundation source checkpoint: `193ccb84ebb5b56a54cad9816fd2ac15f43a908f`. Its 388 reviewed source/config/test hashes matched committed bytes; the retained incremental bundle and manifest are under `~/.capy/work/otto-pending-closure-20261010/integration/final-checkpoint-20261010/`.
 - The read-marker correction qualifies `apps/web/src/routes/chats.tsx` at SHA-256 `0b17dca50c96feee79f475a622f39042feb3aedd0964163745a51229e0deaa99`, based on local main `0cecc9f669c584c45b4a8b4e1368b29b1ec0f568`. The final local revision, tracked-file parity and verified recovery bundle are recorded under `integration/read-marker-checkpoint/` in that same evidence root; earlier clean-checkpoint claims do not cover this correction.
 - Exact forward restoration: `9b3a9a70342c72414a33c313f6ef07fd2301c1ba`, tree `a1c9dbda28baaaac5eb904216736eb9807d6f506`, identical to the anchor. An initial restoration commit retained 14 rename-source files; the next forward commit removed them before implementation.
@@ -21,17 +22,144 @@ Use normal authenticated separate user/browser contexts. The finite multiplayer 
 
 ## Current verdicts
 
+The Captain executed the sealed selected-Skill/public-MCP case exactly once;
+it failed before any saved Connection operation or Agent publication. Run
+`7924a28e-7edf-418e-ac2f-74ab1483a313` was interrupted with the generic
+`stopped_or_authorization_revoked` outcome and one usage receipt (8178 input,
+45 output tokens), which proves neither exact cause nor transport count.
+The helper failed to retain native history on its failure path before private
+database cleanup, so the actual model/tool/error trace is unavailable. Two
+narrow controlled production-runtime fixtures reproduced the same coarse
+outcome through different causes: provider error and participant revocation.
+The actionable correction is bounded failed-path native readback before
+cleanup, not an inferred product authorization change. Evidence is under
+`live-failure-diagnosis/` and the actual result under
+`live-skills-mcp-next/attempt-48256646-24c1-43d4-bf72-8aa258a54350/`.
+Owner verified cleanup absence, all667 source pins and the original137-artifact
+seal; both once markers remain. No retry or further credential access occurred.
+That failure led to the separately reviewed diagnostic case below.
+
+The diagnostic-only helper correction is now separately sealed under
+`live-skills-mcp-diagnostic/`, preserving original helpers and markers. Exactly
+the two retained provider-error/revocation fixtures pass with bounded native
+failure histories and explicit withholding/incomplete flags. Types pass; owner
+verified all668 source pins,75 artifacts and fixture cleanup. Manifest SHA-256:
+`4a80019da4ae23ec00eccdd010a3c4d6a3e36a272ed1ff4168911cea779f65db`.
+The active HTTP stop request's Origin header was corrected during review;
+that wiring is source-reviewed, not exercised by another UI rehearsal.
+The Captain subsequently consumed that second and last authorized Run. Both
+live allowances are exhausted; no further inference or credential access is
+authorized. Run `359e673d-fd12-48f3-8761-b481d56d25f9` retained the selected
+`skill_read` result for `references/nonce.txt`, followed by the native error
+`Agent stream finished with finishReason "other" (provider reported "error")
+without producing any output`. It did not reach a saved Connection operation
+or Agent publication. One usage receipt contains 8174 input/365 output tokens;
+it is not an actual transport count or a complete billing record. Bounded
+native capture reports complete/not withheld and joined execution; cleanup
+records private PostgreSQL/spool removal and all acquired resources joined.
+The owner independently checked the retained result and PostgreSQL-directory
+and UI-listener absence. Result SHA-256 is
+`66678a514fa0c8e84594b6938c9e69ea77201704ee93b65bc20d1f873328ee97`,
+under `live-skills-mcp-diagnostic/attempt-83cb5504-75c2-408d-90a9-710b3124addf/`.
+
+A narrow local outcome correction now separates native execution failure from
+the abort used to clean up that failure. Prior cancellation, authority errors
+and durable human stop retain their interruption semantics; unconfirmed
+cleanup still overrides with `uncertain`. The sensitive regression failed
+before the fix and passes afterward. All26 runtime and128 adjacent checks
+pass, as do root types, boundaries and consistency. Independent review
+reproduced the red baseline, passed26 runtime plus9 additional production-seam
+cases, and found no required issue. Reviewed runtime SHA-256 is
+`4add9bbf99758e459988b93a8a64e46fb3e71b268ce34f37c164e9486ff1f28c`;
+test SHA-256 is
+`facbea3488bd07a6a340dce0ed21a8c653df596857cd285516a8ad05bb1f10a1`.
+Evidence: `runtime-outcome-fix/` and `runtime-outcome-review/`; independent
+manifest SHA-256:
+`40bd9902e29d9cb25df694f5adfefa0299110f2f0564a6496224f6844a593f69`.
+This does not repair historical Run rows, prove the remote provider's reason,
+or turn the failed live chain into a pass. Historical source seals remain
+unchanged and intentionally predate these runtime/test edits.
+
+Three nonpaid synthetic transport tests in `continuation-protocol-diagnosis/`
+exercise the actual installed OpenAI adapter and Mastra continuation. A raw
+`finish_reason: "error"` reproduces the exact retained error, while the same
+serialized tool continuation succeeds with text and `stop`. Tool-call identity,
+arguments and JSON/base64 result survive serialization. A malformed response
+produces a distinct schema error. A mixed choices/error payload can lose its
+additional error object during SDK parsing; the actual remote payload was not
+retained, so neither its detailed reason nor that particular payload shape is
+proved. No SDK continuation defect, billing/routing cause or provider-specific
+field omission is established. This is controlled protocol evidence, not a
+successful real-provider continuation or permission to retry.
+
 The current required scope is the complete chat foundation: streaming, native
 tools, multiple humans and Agents, attachments, Files, Folders, dictation, Skills,
 HTTP MCP and confined Agent computers. This supersedes the earlier optional
 computer classification. Home/page redesign is deferred. Ordinary authentication
 and real Garage-backed Files persistence have passed; the three upload RSS caps
 remain failed, not waived. Actual external reset/invitation mail is a separate
-unconfigured integration, not a login gate.
+user-deferred integration, not a login gate.
 
-Agent-browser/computer capability work is now deferred to last by the user, not
-waiting for approval. Its proposal and failed sandbox evidence remain retained;
+The current continuation explicitly excludes item 5, Agent browser/desktop
+capability work. Its proposal and failed sandbox evidence remain retained;
 no image acquisition, policy/security change or new probe is authorized.
+
+The bounded real-model selected-Skill/public-MCP exact-output case failed and
+its two-Run allowance is exhausted; memory experiments have stopped with all
+three caps still failed.
+Johan subsequently deferred live SMTP setup
+and delivery ("No smtp for now bro"); the provider/sender/recipient question is
+withdrawn. No SMTP credential discovery, configuration or external email sends
+are authorized now. Keep the email implementation and current login behavior.
+The prior exact-output and three 300,000 KiB RSS failures remain failures. Public
+Cloudflare documentation MCP discovery now passes the pinned 2025-11-25 protocol
+without credentials; a remote tool call and live-model chain are not yet proved.
+Explicit per-Connection anonymous authentication is a reviewed local change
+based on `004db99a9d5ad1c4d5682ddd954bc79e72c4526a`; 49 connection/config tests
+pass, including zero anonymous secret resolution/Authorization and retained
+caller, grant, approval and authentication-change fences. The diff/source pins
+and check logs are under `anonymous-mcp/` in the evidence root. Independent
+backend review passed 49 focused and 11 additional negative checks with no
+required finding; its evidence manifest SHA-256 is
+`7afcf13b62bcdb6ba173a8fe04ad99efff5e37d17a983b5ff3959a4e98a69368`.
+The isolated controlled UI rehearsal at
+`live-skills-mcp-next/attempt-8f068138-596d-451d-99d4-0d496f7943f0/`
+passed normal signup/sign-in, anonymous configuration save and authorized
+storage/reload, supporting-File selection, Agent Skill selection, composer
+admission, exact persisted native-answer/publication equality and unchanged
+published-answer reload. Its model and MCP service
+were fixtures, not live inference or external tool execution. The owner
+inspected the results, preceding UI screenshots and joined-cleanup evidence. The
+configuration dialog remains a blind replacement editor and defaults to bearer
+when reopened; none-mode persistence was checked in authorized storage, not
+inferred from that default. This is not a durable runtime configuration claim.
+
+Current production reset/private-token invitation composition passed a fresh
+capture-only SMTP replay: exact envelopes/templates, revoked reset sessions,
+token replay and wrong-recipient denial, normal unverified authentication and
+persisted accepted membership after restart. `email-next/evidence-sha256.txt`
+has SHA-256 `1f123e7e7c1ac23cdc2fba4198459f49784d9a4c8b64074c7150dbad13f35b6a`;
+all 16 retained artifacts verify. Its source manifest distinguishes the tested
+uncommitted config hash from subsequent MCP-only formatting. No external email
+was sent. External SMTP delivery is user-deferred, not blocked on approval and
+not passed live; the captured proof remains valid. Vault inventory remains
+unknown, not proven absent, and will not be investigated under this scope.
+
+The authorized single Bun `--smol` A/B finished on unmodified frozen
+`004db99a9d5ad1c4d5682ddd954bc79e72c4526a`; all 641 source files and the harness
+stayed identical. Normal→smol RSS peaks were 456,512→451,776,
+505,200→502,336 and 512,160→520,272 KiB: all three unchanged 300,000 KiB gates
+failed in both variants. The largest case worsened; do not activate this flag as
+a fix. Slowest unrelated-request latency was 66→91 ms, both under the unchanged
+1,500 ms bound. Both variants passed authority revocation, abandoned downloads,
+admitted incomplete-upload cancellation and real joined shutdown during an
+incomplete upload (exit 0, no SIGKILL, about 10.02 seconds, unchanged File rows
+and empty spool). One pair establishes no general latency claim. Evidence is
+`memory-smol/`; manifest SHA-256
+`989c14415188954bff93376dc2ed5c48be1c135d39d96e73dce6048fd276abc2`.
+Owner verified its seal and both owned child processes/private temp resources
+are absent. Memory remains an unresolved failed gate; no S3 prototype, runtime
+mode or executor architecture was integrated, and further experiments stopped.
 
 The following working acceptance map distinguishes completed proof from the
 current implementation work after `2ea56febc104c0e808273bb3a7c0a7187d8b2e91`.
