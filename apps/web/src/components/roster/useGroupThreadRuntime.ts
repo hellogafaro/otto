@@ -1,0 +1,459 @@
+import { Predicate } from "effect";
+import { useBotConversationMessageProjection } from "./botConversationMessageProjection";
+import { useAtomValue } from "@effect/atom-react";
+import { scopeThreadRef } from "@otto/client-runtime/environment";
+import { BotId, EnvironmentId, GroupId, ThreadId, type ScopedThreadRef } from "@otto/contracts";
+import { useCallback, useMemo, useRef, useState } from "react";
+
+import { usePrimarySettings } from "../../hooks/useSettings";
+import { newMessageId, newThreadId } from "../../lib/utils";
+import { resolveAppModelSelectionState } from "../../modelSelection";
+import {
+  applyProviderInstanceSettings,
+  deriveProviderInstanceEntries,
+  isProviderInstancePickerSelectable,
+  NO_PROVIDER_MODEL_SELECTION,
+} from "../../providerInstances";
+import { environmentGroupsAtom } from "../../state/bots";
+import {
+  useAllEnvironmentShellsBootstrapped,
+  useProjects,
+  readEnvironmentSupportsFileAttachments,
+  useThreadActivities,
+  useThreadShell,
+  useThreadShells,
+} from "../../state/entities";
+import { usePrimaryEnvironmentId } from "../../state/environments";
+import { primaryServerProvidersAtom } from "../../state/server";
+import { threadEnvironment } from "../../state/threads";
+import { useAtomCommand } from "../../state/use-atom-command";
+import { derivePendingUserInputs } from "../../session-logic";
+import { DEFAULT_INTERACTION_MODE } from "../../types";
+import { sortScopedProjectsForSidebar } from "../Sidebar.logic";
+import {
+  buildGroupTurnStartInput,
+  createBotTurnSubmissionQueue,
+  findLatestGroupThreadTarget,
+  nextRetainedChat,
+  type RetainedChat,
+} from "./botThreadRuntime.logic";
+import { groupContainsBot } from "./roster.logic";
+import { useRosterStore } from "./rosterStore";
+import { resolveBotFileAttachment } from "./botFileAttachment";
+import { readThreadTurnAttachments, threadTitle } from "./threadRuntimeAttachments";
+import { useThreadPendingUserInput } from "./useThreadPendingUserInput";
+import { groupModelSelection } from "./groupThreadModel.logic";
+import {
+  type BotThreadFailure,
+  commandFailure,
+  latestBotThreadFailure,
+  localFailure,
+} from "./threadRuntimeWarning.logic";
+
+// SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
+const NO_ENVIRONMENT = "" as EnvironmentId;
+
+export function useGroupThreadRuntime(groupId: string) {
+  const projects = useProjects();
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const serverGroups = useAtomValue(environmentGroupsAtom(primaryEnvironmentId ?? NO_ENVIRONMENT));
+  const threadShells = useThreadShells();
+  const bootstrapped = useAllEnvironmentShellsBootstrapped();
+  const settings = usePrimarySettings();
+  const providers = useAtomValue(primaryServerProvidersAtom);
+
+  const providerEntries = useMemo(
+    () => applyProviderInstanceSettings(deriveProviderInstanceEntries(providers), settings),
+    [providers, settings],
+  );
+
+  const bots = useRosterStore((state) => state.bots);
+
+  const group = useRosterStore((state) =>
+    state.groups.find((candidate) => candidate.id === groupId),
+  );
+
+  const primaryThreadShells = useMemo(
+    () =>
+      primaryEnvironmentId
+        ? threadShells.filter((thread) => thread.environmentId === primaryEnvironmentId)
+        : [],
+    [primaryEnvironmentId, threadShells],
+  );
+
+  const serverTarget = primaryEnvironmentId
+    ? findLatestGroupThreadTarget(groupId, primaryEnvironmentId, primaryThreadShells)
+    : null;
+
+  const targetEnvironmentId = serverTarget?.environmentId;
+  const targetThreadId = serverTarget?.threadId;
+
+  const rememberedThreadRef = useMemo<ScopedThreadRef | null>(
+    () =>
+      targetEnvironmentId && targetThreadId
+        ? scopeThreadRef(EnvironmentId.make(targetEnvironmentId), ThreadId.make(targetThreadId))
+        : null,
+    [targetEnvironmentId, targetThreadId],
+  );
+
+  const rememberedThread = useThreadShell(rememberedThreadRef);
+  const linkedThreadRef = rememberedThread ? rememberedThreadRef : null;
+
+  const retainedThreadRef = useRef<RetainedChat>({
+    ownerId: groupId,
+    threadRef: null,
+    linked: false,
+  });
+
+  // Chats created by queued sends, keyed by the retention state they were submitted from, so
+  // sends queued together share one chat even after the user leaves the group.
+  const createdChatsRef = useRef(new WeakMap<RetainedChat, ScopedThreadRef>());
+
+  if (retainedThreadRef.current.ownerId !== groupId) {
+    retainedThreadRef.current = { ownerId: groupId, threadRef: null, linked: false };
+  }
+
+  retainedThreadRef.current = nextRetainedChat(
+    retainedThreadRef.current,
+    linkedThreadRef,
+    bootstrapped,
+  );
+
+  const { messages, lastMessageRole, lastUserMessageAt } =
+    useBotConversationMessageProjection(linkedThreadRef);
+
+  const activities = useThreadActivities(linkedThreadRef);
+  const pendingUserInputs = useMemo(() => derivePendingUserInputs(activities), [activities]);
+
+  const defaultProject = useMemo(
+    () =>
+      bootstrapped && primaryEnvironmentId
+        ? (sortScopedProjectsForSidebar(
+            projects.filter((project) => project.environmentId === primaryEnvironmentId),
+            primaryThreadShells,
+            "updated_at",
+          )[0] ?? null)
+        : null,
+    [bootstrapped, primaryEnvironmentId, primaryThreadShells, projects],
+  );
+
+  const activeProject =
+    projects.find(
+      (project) =>
+        project.environmentId === rememberedThread?.environmentId &&
+        project.id === rememberedThread.projectId,
+    ) ?? defaultProject;
+
+  const appDefaultModelSelection = useMemo(
+    () => resolveAppModelSelectionState(settings, providers),
+    [providers, settings],
+  );
+
+  const setRuntimeMode = useAtomCommand(threadEnvironment.setRuntimeMode, {
+    reportFailure: false,
+  });
+
+  const startTurn = useAtomCommand(threadEnvironment.startTurn, { reportFailure: false });
+  const resumeTurnCommand = useAtomCommand(threadEnvironment.resumeTurn, { reportFailure: false });
+  const groupReady = serverGroups.some((candidate) => candidate.id === groupId);
+  const sendQueueRef = useRef(createBotTurnSubmissionQueue());
+  const queuedSendCountRef = useRef(0);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<BotThreadFailure | null>(null);
+
+  const {
+    pendingUserInputAnswers,
+    pendingUserInputStep,
+    setPendingUserInputStep,
+    respondingRequestIds,
+    answerPendingUserInputWithPrompt,
+    answerPendingUserInputWithText,
+    selectPendingUserInputOption,
+    submitPendingUserInputAnswers,
+  } = useThreadPendingUserInput({ linkedThreadRef, pendingUserInputs, onFailure: setError });
+
+  const [resuming, setResuming] = useState(false);
+
+  const canResume =
+    linkedThreadRef !== null &&
+    (rememberedThread?.session?.status === "error" ||
+      rememberedThread?.session?.status === "interrupted" ||
+      rememberedThread?.session?.status === "stopped") &&
+    (rememberedThread?.latestTurn?.state === "error" ||
+      rememberedThread?.latestTurn?.state === "interrupted" ||
+      (rememberedThread?.latestTurn === null && lastMessageRole === "user"));
+
+  const resume = useCallback(async (): Promise<boolean> => {
+    if (!linkedThreadRef || !canResume || resuming) return false;
+    setResuming(true);
+    setError(null);
+
+    const result = await resumeTurnCommand({
+      environmentId: linkedThreadRef.environmentId,
+      input: { threadId: linkedThreadRef.threadId },
+    });
+
+    setResuming(false);
+
+    if (Predicate.isTagged(result, "Failure")) {
+      setError(commandFailure(result));
+
+      return false;
+    }
+
+    return true;
+  }, [canResume, linkedThreadRef, resumeTurnCommand, resuming]);
+
+  const send = useCallback(
+    async (prompt: string, files: readonly File[], requestedBotId?: string): Promise<boolean> => {
+      const pendingUserInput = pendingUserInputs[0];
+
+      if (pendingUserInput && linkedThreadRef && files.length === 0) {
+        return answerPendingUserInputWithPrompt(pendingUserInput, prompt);
+      }
+
+      if (!groupReady || !group) {
+        setError(localFailure("The group is still connecting."));
+
+        return false;
+      }
+
+      if (!activeProject) {
+        setError(localFailure("Your workspace is still loading. Try again in a moment."));
+
+        return false;
+      }
+
+      const unsupported = files.find((file) => resolveBotFileAttachment(file) === null);
+
+      if (unsupported) {
+        setError(localFailure(`This file type is not supported: ${unsupported.name}`));
+
+        return false;
+      }
+
+      if (
+        files.some((file) => resolveBotFileAttachment(file)?.type === "file") &&
+        !readEnvironmentSupportsFileAttachments(activeProject.environmentId)
+      ) {
+        setError(localFailure("Update the connected Otto server to attach files."));
+
+        return false;
+      }
+
+      const respondingBotId = requestedBotId ?? group.bossBotId;
+
+      const respondingBot = bots.find(
+        (bot) =>
+          bot.id === respondingBotId && bot.archivedAt === null && groupContainsBot(group, bot.id),
+      );
+
+      if (!respondingBot) {
+        setError(localFailure("Choose a current group member."));
+
+        return false;
+      }
+
+      const modelSelection = groupModelSelection(
+        respondingBot.engine,
+        activeProject.defaultModelSelection,
+        appDefaultModelSelection,
+      );
+
+      if (
+        !modelSelection ||
+        modelSelection.instanceId === NO_PROVIDER_MODEL_SELECTION.instanceId ||
+        !providerEntries.some(
+          (entry) =>
+            entry.instanceId === modelSelection.instanceId &&
+            isProviderInstancePickerSelectable(entry),
+        )
+      ) {
+        setError(
+          localFailure(
+            "Mention a group member with a connected provider, or connect the boss's provider.",
+          ),
+        );
+
+        return false;
+      }
+
+      queuedSendCountRef.current += 1;
+      setSending(true);
+      setError(null);
+      // Bind the queued send to the chat selected at submission; the ref moves on if the user
+      // switches groups.
+      const queuedRetained = retainedThreadRef.current;
+      const queuedThreadRef = queuedRetained.threadRef;
+
+      return sendQueueRef.current.enqueue(async () => {
+        setError(null);
+        const createdAt = new Date().toISOString();
+        // Leaving and returning to this group replaces the ref. A send queued before the
+        // group had a chat joins the one an earlier send created there.
+        const live = retainedThreadRef.current;
+
+        const currentThreadRef =
+          queuedThreadRef ??
+          createdChatsRef.current.get(queuedRetained) ??
+          (live.ownerId === groupId ? live.threadRef : null);
+
+        const threadId = currentThreadRef?.threadId ?? newThreadId();
+        const runtimeMode = respondingBot.runtimeMode;
+
+        try {
+          const attachments = await readThreadTurnAttachments(files);
+          const environmentId = currentThreadRef?.environmentId ?? activeProject.environmentId;
+
+          if (currentThreadRef && rememberedThread?.runtimeMode !== runtimeMode) {
+            const modeResult = await setRuntimeMode({
+              environmentId,
+              input: { threadId, runtimeMode },
+            });
+
+            if (Predicate.isTagged(modeResult, "Failure")) {
+              setError(commandFailure(modeResult));
+
+              return false;
+            }
+          }
+
+          const result = await startTurn({
+            environmentId,
+            input: buildGroupTurnStartInput({
+              groupId: GroupId.make(groupId),
+              respondingBotId: BotId.make(respondingBot.id),
+              threadId,
+              projectId: activeProject.id,
+              title: threadTitle(prompt, files),
+              message: {
+                messageId: newMessageId(),
+                role: "user",
+                text: prompt,
+                attachments,
+              },
+              modelSelection,
+              runtimeMode,
+              interactionMode: DEFAULT_INTERACTION_MODE,
+              createdAt,
+              createThread: currentThreadRef === null,
+            }),
+          });
+
+          if (Predicate.isTagged(result, "Failure")) {
+            setError(commandFailure(result));
+
+            return false;
+          }
+
+          // Only a new chat restarts retention; a chat the shell list already showed stays
+          // linked so archiving it releases it. Skip it if the user moved to another group.
+          if (currentThreadRef === null) {
+            const createdThreadRef = scopeThreadRef(environmentId, threadId);
+            createdChatsRef.current.set(queuedRetained, createdThreadRef);
+
+            if (retainedThreadRef.current.ownerId === groupId) {
+              retainedThreadRef.current = {
+                ownerId: groupId,
+                threadRef: createdThreadRef,
+                linked: false,
+              };
+            }
+          }
+
+          return true;
+        } catch (cause) {
+          setError(
+            localFailure(cause instanceof Error ? cause.message : "Could not send the message."),
+          );
+
+          return false;
+        } finally {
+          queuedSendCountRef.current -= 1;
+
+          if (queuedSendCountRef.current === 0) setSending(false);
+        }
+      });
+    },
+    [
+      activeProject,
+      appDefaultModelSelection,
+      bots,
+      group,
+      groupId,
+      groupReady,
+      linkedThreadRef,
+      answerPendingUserInputWithPrompt,
+      pendingUserInputs,
+      providerEntries,
+      rememberedThread?.runtimeMode,
+      settings.localExecutionMode,
+      setRuntimeMode,
+      startTurn,
+    ],
+  );
+
+  const providerAvailable =
+    group !== undefined &&
+    bots.some((bot) => {
+      if (bot.archivedAt !== null || !groupContainsBot(group, bot.id)) return false;
+
+      const selection = groupModelSelection(
+        bot.engine,
+        activeProject?.defaultModelSelection,
+        appDefaultModelSelection,
+      );
+
+      return (
+        selection !== null &&
+        selection.instanceId !== NO_PROVIDER_MODEL_SELECTION.instanceId &&
+        providerEntries.some(
+          (entry) =>
+            entry.instanceId === selection.instanceId && isProviderInstancePickerSelectable(entry),
+        )
+      );
+    });
+
+  const session = rememberedThread?.session ?? null;
+
+  const turnFailure = latestBotThreadFailure({
+    activities,
+    latestTurn: rememberedThread?.latestTurn ?? null,
+    session,
+    lastUserMessageAt,
+  });
+
+  const failure: BotThreadFailure | null =
+    error ??
+    turnFailure ??
+    (session?.lastError
+      ? { message: session.lastError, unavailability: session.unavailability ?? null }
+      : null);
+
+  return {
+    bootstrapped,
+    canResume,
+    defaultProject: activeProject,
+    error: failure?.message ?? null,
+    failure,
+    turnFailure,
+    groupReady,
+    providerAvailable,
+    linkedThreadRef,
+    latestTurn: rememberedThread?.latestTurn ?? null,
+    messages,
+    pendingUserInputs,
+    pendingUserInputAnswers,
+    pendingUserInputStep,
+    setPendingUserInputStep,
+    respondingRequestIds,
+    respondingBotId: rememberedThread?.respondingBotId ?? group?.bossBotId ?? null,
+    resume,
+    resuming,
+    answerPendingUserInputWithText,
+    selectPendingUserInputOption,
+    submitPendingUserInputAnswers,
+    send,
+    sending,
+  };
+}

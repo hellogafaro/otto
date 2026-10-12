@@ -2,1037 +2,140 @@
 version: alpha
 name: Otto
 description: >-
-  Quiet, neutral workspace UI for people and AI agents. Vanilla shadcn
-  (preset bIkg4yR, base-vega, Remix icons) with one blue accent, a golden
-  type and spacing scale, 32px controls and strictly nested radii. Light
-  values are the defaults; "-dark" tokens are the dark theme. Floating
-  surfaces (menus, tooltips, hover cards) are dark in both themes.
-colors:
-  background: "oklch(1 0 0)"
-  background-dark: "oklch(0.145 0 0)"
-  foreground: "oklch(0.145 0 0)"
-  foreground-dark: "oklch(0.985 0 0)"
-  frame: "oklch(0.985 0 0)"
-  frame-dark: "oklch(0.11 0 0)"
-  card: "oklch(1 0 0)"
-  card-dark: "oklch(0.205 0 0)"
-  popover-dark: "oklch(0.205 0 0)"
-  muted: "oklch(0.97 0 0)"
-  muted-dark: "oklch(0.269 0 0)"
-  muted-foreground: "oklch(0.556 0 0)"
-  muted-foreground-dark: "oklch(0.708 0 0)"
-  primary: "oklch(0.546 0.245 262.881)"
-  primary-dark: "oklch(0.623 0.214 259.815)"
-  primary-foreground: "oklch(0.985 0 0)"
-  destructive: "oklch(0.577 0.245 27.325)"
-  destructive-dark: "oklch(0.704 0.191 22.216)"
-  status-todo: "oklch(0.556 0 0)"
-  status-todo-dark: "oklch(0.708 0 0)"
-  status-doing: "oklch(0.558 0.288 302.321)"
-  status-doing-dark: "oklch(0.714 0.203 305.504)"
-  status-review: "oklch(0.795 0.184 86.047)"
-  status-review-dark: "oklch(0.852 0.199 91.936)"
-  status-done: "oklch(0.627 0.194 149.214)"
-  status-done-dark: "oklch(0.723 0.219 149.579)"
-typography:
-  key:
-    fontFamily: Inter Variable
-    fontSize: 0.6875rem
-    fontWeight: 500
-    lineHeight: 1rem
-  caption:
-    fontFamily: Inter Variable
-    fontSize: 0.75rem
-    fontWeight: 400
-    lineHeight: 1rem
-  body:
-    fontFamily: Inter Variable
-    fontSize: 0.8125rem
-    fontWeight: 400
-    lineHeight: 1.25rem
-  body-medium:
-    fontFamily: Inter Variable
-    fontSize: 0.8125rem
-    fontWeight: 500
-    lineHeight: 1.25rem
-  heading:
-    fontFamily: Inter Variable
-    fontSize: 1.0335rem
-    fontWeight: 500
-    lineHeight: 1.5rem
-  title:
-    fontFamily: Inter Variable
-    fontSize: 1.3146rem
-    fontWeight: 500
-    lineHeight: 1.75rem
-  code:
-    fontFamily: Geist Mono Variable
-    fontSize: 0.9em
-    fontWeight: 400
-rounded:
-  xs: 4px
-  sm: 6px
-  md: 8px
-  lg: 10px
-  xl: 12px
-  full: 9999px
-spacing:
-  xs: 4px
-  sm: 8px
-  md: 12px
-  lg: 20px
-  xl: 32px
-  2xl: 52px
-components:
-  page:
-    backgroundColor: "{colors.background}"
-    textColor: "{colors.foreground}"
-    typography: "{typography.body}"
-  page-dark:
-    backgroundColor: "{colors.background-dark}"
-    textColor: "{colors.foreground-dark}"
-  frame:
-    backgroundColor: "{colors.frame}"
-  frame-dark:
-    backgroundColor: "{colors.frame-dark}"
-  page-card:
-    backgroundColor: "{colors.background}"
-    rounded: "{rounded.xl}"
-  top-bar:
-    height: 40px
-    padding: 4px
-  card:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.foreground}"
-    rounded: "{rounded.xl}"
-    padding: 16px
-  card-dark:
-    backgroundColor: "{colors.card-dark}"
-    textColor: "{colors.foreground-dark}"
-  composer:
-    backgroundColor: "{colors.card}"
-    typography: "{typography.body}"
-    rounded: "{rounded.xl}"
-    padding: 16px
-  button-ghost:
-    textColor: "{colors.muted-foreground}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    height: 32px
-    padding: 8px
-  button-ghost-hover:
-    backgroundColor: "{colors.muted}"
-    textColor: "{colors.foreground}"
-  button-ghost-dark:
-    textColor: "{colors.muted-foreground-dark}"
-  button-ghost-hover-dark:
-    backgroundColor: "{colors.muted-dark}"
-    textColor: "{colors.foreground-dark}"
-  button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.primary-foreground}"
-    rounded: "{rounded.md}"
-    size: 32px
-  button-primary-dark:
-    backgroundColor: "{colors.primary-dark}"
-  button-icon:
-    rounded: "{rounded.md}"
-    size: 32px
-  button-compact:
-    rounded: "{rounded.sm}"
-    height: 28px
-    padding: 8px
-  button-xs:
-    rounded: "{rounded.sm}"
-    size: 24px
-  command-palette:
-    backgroundColor: "{colors.popover-dark}"
-    textColor: "{colors.foreground-dark}"
-    rounded: "{rounded.xl}"
-    width: 720px
-  command-palette-row:
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    height: 36px
-    padding: 8px
-  sidebar-row:
-    textColor: "{colors.muted-foreground}"
-    typography: "{typography.body}"
-    rounded: "{rounded.sm}"
-    height: 28px
-    padding: 4px
-  sidebar-row-hover:
-    backgroundColor: "{colors.muted}"
-    textColor: "{colors.foreground}"
-  sidebar-row-dark:
-    textColor: "{colors.muted-foreground-dark}"
-  sidebar-row-hover-dark:
-    backgroundColor: "{colors.muted-dark}"
-    textColor: "{colors.foreground-dark}"
-  row-action:
-    textColor: "{colors.muted-foreground}"
-    rounded: "{rounded.xs}"
-    size: 24px
-  list-row:
-    typography: "{typography.body-medium}"
-    rounded: "{rounded.md}"
-    height: 36px
-  settings-row:
-    typography: "{typography.body-medium}"
-    padding: 16px
-  nested-control:
-    rounded: "{rounded.sm}"
-    height: 28px
-  timeline-dot:
-    backgroundColor: "{colors.muted-foreground}"
-    rounded: "{rounded.full}"
-    size: 8px
-  menu:
-    backgroundColor: "{colors.popover-dark}"
-    textColor: "{colors.foreground-dark}"
-    rounded: "{rounded.lg}"
-    padding: 4px
-  menu-item:
-    typography: "{typography.body}"
-    rounded: "{rounded.sm}"
-    height: 28px
-    padding: 4px
-  menu-item-highlighted:
-    backgroundColor: "{colors.muted-dark}"
-    textColor: "{colors.foreground-dark}"
-  menu-item-destructive:
-    textColor: "{colors.destructive-dark}"
-  hover-card:
-    backgroundColor: "{colors.popover-dark}"
-    textColor: "{colors.foreground-dark}"
-    typography: "{typography.body}"
-    rounded: "{rounded.lg}"
-    padding: 12px
-    width: 256px
-  tooltip:
-    backgroundColor: "{colors.popover-dark}"
-    textColor: "{colors.foreground-dark}"
-    typography: "{typography.caption}"
-    rounded: "{rounded.sm}"
-    height: 24px
-    padding: 8px
-  kbd:
-    backgroundColor: "{colors.muted-dark}"
-    textColor: "{colors.muted-foreground-dark}"
-    typography: "{typography.key}"
-    rounded: "{rounded.xs}"
-    height: 20px
-  input-invalid:
-    textColor: "{colors.destructive}"
-  avatar:
-    textColor: "{colors.muted-foreground}"
-    rounded: "{rounded.xs}"
-    size: 20px
-  avatar-message:
-    rounded: "{rounded.sm}"
-    size: 28px
-  tag:
-    textColor: "{colors.primary}"
-    typography: "{typography.body-medium}"
-  tag-dark:
-    textColor: "{colors.primary-dark}"
-  badge:
-    typography: "{typography.caption}"
-    rounded: "{rounded.full}"
-    height: 24px
-    padding: 8px
-  attachment:
-    backgroundColor: "{colors.card}"
-    rounded: "{rounded.md}"
-  empty-state:
-    textColor: "{colors.muted-foreground}"
-    typography: "{typography.heading}"
-  ask-otto:
-    backgroundColor: "{colors.card}"
-    typography: "{typography.body}"
-    rounded: "{rounded.xl}"
-    height: 40px
-    width: 728px
-    padding: 4px
-  section-sidebar:
-    backgroundColor: "{colors.frame}"
-    width: 280px
-  right-panel:
-    width: 280px
-  scroll-button:
-    backgroundColor: "{colors.card}"
-    rounded: "{rounded.md}"
-    height: 32px
-  question-card:
-    backgroundColor: "{colors.card}"
-    rounded: "{rounded.xl}"
-    padding: 12px
-  question-choice:
-    rounded: "{rounded.md}"
-    height: 40px
-    padding: 12px
-  gallery-tile:
-    backgroundColor: "{colors.card}"
-    rounded: "{rounded.md}"
-  cover:
-    rounded: "{rounded.md}"
-  file-viewer:
-    backgroundColor: "{colors.background}"
-    textColor: "{colors.foreground}"
-  status-icon-todo:
-    textColor: "{colors.status-todo}"
-    size: 14px
-  status-icon-todo-dark:
-    textColor: "{colors.status-todo-dark}"
-  status-icon-doing:
-    textColor: "{colors.status-doing}"
-    size: 14px
-  status-icon-doing-dark:
-    textColor: "{colors.status-doing-dark}"
-  status-icon-review:
-    textColor: "{colors.status-review}"
-    size: 14px
-  status-icon-review-dark:
-    textColor: "{colors.status-review-dark}"
-  status-icon-done:
-    textColor: "{colors.status-done}"
-    size: 14px
-  status-icon-done-dark:
-    textColor: "{colors.status-done-dark}"
+  Otto's bb-derived desktop-first workspace with a single sidebar and large
+  main panel, owned Otto branding, Remix icons and focused plugin management.
 ---
 
-# Otto design
-
-The rules behind the web UI as built. The front matter holds exact tokens; the
-sections below hold the rules and reasons. Keep this file current: when a UI
-decision changes, change it here in the same commit. Implementation lives in
-`packages/ui` (shadcn components, `styles/globals.css`) and `apps/web`. Where
-the earlier [brand guidelines draft](docs/otto/brand-guidelines.md) differs,
-this file wins.
-
-## Overview
-
-Otto is a quiet, neutral workspace where people and AI agents do the same work
-side by side. The UI stays out of the way: flat surfaces, hairline rings, one
-accent, compact 32px controls.
-
-- **Less is more.** Show state clearly and keep controls few. No subtasks, no
-  nested comments, no subtitles on data-heavy pages.
-- **AI-first.** Creating and editing go through a sentence to Otto, the
-  orchestrator agent, in the floating chat: "New …" rows prefill the start
-  of a sentence ("I spent ") instead of opening forms. Sending starts a chat
-  about what is open; it is never a comment. Instant human actions
-  stay one click: delete, copy, pick a file, change a property.
-- **Domain words.** The UI names things as the product does: task, project,
-  document, file, schedule, chat. Never resource, library, artifact,
-  asset or automation (the data model is still called Resource). Prompts
-  and placeholders use these words so Otto gets the same meaning the person
-  sees.
-- **Vanilla shadcn.** Preset `bIkg4yR` (base-vega, Remix icons). When
-  something must look different everywhere, change the `packages/ui`
-  component and mark it with an `// Otto:` comment. Instance classes are for
-  layout only.
-- **Measured.** Spacing, alignment and radii follow the rules below to the
-  pixel and are checked in the browser with measurements.
-
-## Colors
-
-The UI is neutral; color carries meaning, never decoration. Use theme tokens
-(`bg-primary`, `text-muted-foreground`, `text-status-doing`), never raw values.
-
-- **Primary** (Tailwind `blue-600` light, `blue-500` dark, white text) marks
-  the single main action of a surface (the composer's send and mic button) and
-  tags (`@` mentions). It is never a navigation or selection state.
-- **Muted foreground** is the resting color of ghost buttons, sidebar rows,
-  section titles and secondary text. **Foreground** is hover, open, pressed,
-  current and content.
-- **Destructive** red is only for destructive menu items (Delete, Log out).
-- **Status** colors follow the task lifecycle and appear only on status icons:
-  todo grey, doing purple, review yellow, done green. Lists, menus and number
-  keys use that order: Todo → In progress → In review → Done.
-- Floating surfaces render dark in both themes (`dark` class) at 70% opacity
-  with a blur. Highlighted items use `foreground/10`; dividers `foreground/5`.
-
-## Typography
-
-Inter for everything; Geist Mono only for code. Sizes are theme tokens on a
-golden scale from a 13px base. Each step is √φ (1.272), so every second step is
-φ: body 13 → heading 16.5 → title 21 (→ 26.8 → 34 reserved). The smallest step
-is fixed at 12px; 10.2px read too small.
-
-| Token | Tailwind | Size (desktop) | Use |
-| --- | --- | --- | --- |
-| key | `text-[0.6875rem]` | 11px / 16px | Keys (`Kbd`) and the questionnaire's number keys |
-| caption | `text-xs` | 12px / 16px | Badges, tooltips, times, day dividers, small metadata |
-| body | `text-sm` | 13px / 20px | All UI text: buttons, rows, menus, comments, body |
-| heading | `text-base` | 16.5px / 24px | Section headings (Activity), empty-state titles, editor H1 |
-| title | `text-lg` | 21px / 28px | Page titles |
-
-- Sizes are in rem and derive from `text-sm`, which is 14px below 768px, so the
-  whole scale steps up on small screens and follows the browser's font size.
-- Line heights stay on the 4px grid, so text never moves rows or spacing.
-- Inputs are at least 16px on phones (iOS zooms below that).
-- Weight 500 for titles, names and section labels; 400 elsewhere.
-- Dates are date only: "Oct 1" in lists, "Oct 1, 2026" in detail. Numbers use
-  `tabular-nums`.
-- Copy: sentence case everywhere, prompts and prefills included, never all
-  lowercase; no ellipses in placeholders; main calls to action read "New …";
-  agents are never labeled "(agent)".
-
-## Layout
-
-Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
-
-- **Layers.** The frame (`bg-sidebar`) is the lowest and darkest layer; the
-  rail and any section sidebar sit on it. The page is a card on the frame:
-  `SidebarInset` 8px from the top, right and bottom, `xl` 12 corners, the
-  hairline ring and `shadow-xs`. Lower is darker.
-- **Insets.** Controls sit **4px** inside their bar or card, so their corners
-  nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
-- **Controls are 32px**: bar buttons, the rail and tabs. Task list and
-  command palette rows are 36px. Sidebar rows (the left panels and the right
-  one, 2px apart, their group titles too), dropdown, combobox and suggestion
-  items, dense bars (filter groups, composer pickers) and controls nested in
-  a row (settings) use 28px with 6px corners, the `compact` button; the
-  smallest buttons are 24px (`xs`), like a sidebar row's actions, 2px inside
-  it.
-- **Tabs** (`TabBar`, one pattern everywhere: a project's sections, the
-  command palette's categories): 32px buttons 4px apart, the open one filled
-  (secondary), the rest ghost, an optional icon and a count right after the
-  label.
-- **Buttons** pad 8px on both sides, icon or text (6px at `xs`). Icon or
-  avatar to label is 8px everywhere. Buttons in a bar sit 4px apart.
-- **Even insets in rows.** What leads or ends a row (avatar, icon, key,
-  check) sits in a 20px slot as far from the side as from the top: 4px in
-  28px sidebar, menu, combobox and suggestion rows. A bare 14px icon gets 3px
-  each side of the slot, so it is 7px from every edge. Labels after a slot
-  share one column (32px in), and a
-  combobox's search icon and text sit on the items' columns.
-- **Rail** (`AppRail`): 48px wide, 8px around 32px buttons, no labels.
-  Home (the original six-blade Otto mark), Search (the command palette),
-  Tasks, Projects, Chats, Schedules, Library. The 20px mark replaces
-  the Inbox icon in its existing "/" link, inherits the rail's neutral
-  hover/selected colors and keeps the Home tooltip and accessible name.
-- **Left and right panels.** The rail stays alone on the frame. Inside the
-  card, a left panel (`SectionSidebar`) holds a section's own navigation
-  (Chats) and the right panel holds details; both are 280px, in the card's
-  color, divided from the page by a hairline, with the title 16px in. The
-  right header is 48px, level with the page's top bar; the left navigation
-  header remains 40px. Left navigates, right details.
-- **Top bar** (`Topbar`): 48px, 32px controls 8px from every edge in both the main and right panel headers, no
-  hairline. Breadcrumb on the left; page actions on the right, ending with
-  the panel toggle. Page-level actions belong here on every page, never beside
-  the large content title. Library folder breadcrumbs and actions share one bar.
-- **Right panel toggle** always uses `RiListCheck` and stays in the window's top right corner: in the
-  page's top bar while the panel is closed, in the panel's own top bar
-  ("Details" and the toggle) once open. The panel opens and closes at once,
-  with no slide.
-- **Desktop app.** The desktop app adds a 40px title strip above the shell
-  (traffic lights, back and forward, one tab per open page); `?desktop`
-  previews it in a browser. The web app has none.
-- **Composer width**: the floating composer now matches the full Chat's
-  728px content width, clamped to the available viewport;
-  sidebars and the right panel are 450 ÷ φ = 280px.
-- **One left line.** The page title, headings, editor text, grid tiles and
-  their labels, and the text inside page-level surfaces all start on the
-  page column's edge. Surfaces reach out by their own inset instead of
-  pushing their text in, as Capy's settings do: cards (settings, comments,
-  runs, a code block) 16px, list group bars 9px (their border and 8px
-  padding), Home's rows 9px. A composer embedded in a timeline sits 4px in
-  from the cards' edge, as in the floating chat, so its text is on the line
-  too. The header is at least 32px tall, so a title stays put with or
-  without buttons.
-- **Page** (`Page`): a centered column, `default` (max 3xl) for reading and
-  settings, `wide` (max 5xl) for lists. 20px between header and content;
-  20px side padding, 52px top and bottom on desktop. An optional `cover` sits
-  above the title; an optional `floating` bar (the floating chat) replaces the bottom
-  padding and rests 16px above the bottom.
-- **Galleries** (`Gallery`): 3 columns for projects, 4 for documents and
-  files; 12px between columns, 20px between rows so a title stays with its
-  tile.
-- **Right panel**: a full-height stock `Sidebar` inside the page card, beside
-  the top bar and page, 280px.
-
-## Elevation & Depth
-
-Depth comes from translucency and hairlines, not heavy shadows.
-
-- **Frame**: the darkest layer, flat. **Page card**: the background color on
-  the frame, hairline ring and `shadow-xs`.
-- **Cards** (comments, composer, question cards): card background, a
-  `ring-foreground/10` hairline and `shadow-xs`.
-- **Scrolling** areas fade at the edge where more content waits (shadcn
-  `scroll-fade-*`): under the top bar and off the bottom, the floating chat
-  above the fade. The fade is the only sign: no scrollbar (`no-scrollbar`)
-  on pages, panels, the file viewer and the floating chat's list, so the
-  column never shifts when a page starts to scroll. The chat thread keeps the
-  stock message scroller's thin one.
-- **Floating surfaces** (dropdowns, combobox, popover, hover card, tooltip,
-  editor menus): dark, `bg-popover/70`, `backdrop-blur-2xl` and saturation,
-  `ring-foreground/10`, `shadow-md`, no entry animation.
-- A floating surface opens 4px from its trigger and never covers it.
-- **Dialogs** (the command palette) sit over a plain 50% black overlay, no
-  blur. The file viewer is a full-screen dialog (`fullScreen`) on the page
-  background.
-- **The floating chat** floats on the command palette's glass (dark,
-  translucent, blurred, hairline ring, `shadow-md`) on a layer above the
-  scrolling page, never inside it (the page's fade mask, and the morph's
-  named elements, would stop the blur), with nothing behind it: content
-  scrolls on under the frost, keeping 124px free at its end for the composer
-  and its context row. Only the bar
-  takes clicks; no overlay, so the page stays usable while you chat.
-
-## Shapes
-
-Radius tokens: `xs` 4 · `sm` 6 · `md` 8 · `lg` 10 · `xl` 12 · `full`.
-**Rule: inner radius = outer radius − the gap between them.** Never repeat the
-container's radius inside it. `xl` is 12 because 32px controls sit 4px inside
-cards and have an 8px radius.
-
-| Container | Inside | Gap | Inner radius |
-| --- | --- | --- | --- |
-| Page card, composer, card (`xl` 12) | 32px buttons, rows | 4px | `md` 8 |
-| Sidebar row, 28px (`sm` 6) | 24px row action | 2px | `xs` 4 |
-| Menu, combobox, popover, hover card (`lg` 10) | Items, search field | 4px | `sm` 6 |
-| Command palette (`xl` 12) | Rows | 4px | `md` 8 |
-| Tooltip (`sm` 6) | Key | 4px | `xs` 4 |
-
-- Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6, except
-  where a 24px button sits 2px inside a 28px row (a sidebar row action): `xs`
-  4, to nest.
-- Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
-  inside their container (attachment thumbnails and remove button) use `xs`.
-- A tooltip is `sm` because it holds a label, not nested items.
-- Gallery tiles, covers, attachments and media in the file viewer are `md` 8.
-- Avatars are rounded squares at about a quarter of their side: 20px `xs`,
-  28px `sm`, 32px `md`, 40px `lg`. Badges stay pills.
-- Bars and inputs are never fully round: the floating chat keeps the composer's `xl`.
-
-## Components
-
-**Buttons.** Ghost for nearly everything, muted at rest; foreground on hover,
-while its menu is open, pressed or current. Active navigation is the
-`secondary` button. `default` (primary) only for a surface's main action.
-Icon buttons are 32px with 14px icons.
-
-**Icons and avatars.** Remix icons at **14px** everywhere. Fixed icons: project
-`RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
-`RiTimeLine`, row remove `RiCloseLine`, add `RiAddLine`, files
-`RiFolder3Line`. **Avatars are at least 20px** (`ActorAvatar`): people show
-initials, agents their pixel mascot in their name color, nobody a person
-outline. Lists mixing avatars and
-icons give icons a 20px slot so labels align.
-
-**Keys** (`Kbd`). 20px (16px in tooltips), 11px text, `xs` corners.
-
-**Badges.** Pills sized like tooltips: 24px tall, 8px on both sides, 12px
-text, 14px icon with a 4px gap so it reads as one unit. Used for metadata on
-list rows (the project).
-
-**Focus.** Text fields show no ring or border change; the caret shows focus.
-Buttons keep a keyboard-only focus ring. Invalid fields turn red.
-
-**Tooltip vs hover card.** A tooltip is one label, optionally with its key
-(`Kbd`), 24px tall. Anything richer (metadata, notes) is a `HoverCard` at body
-size. Blocks of data inside it are split by a content-width divider (spans the
-text, not the card) with 8px above and below.
-
-**Menus.** `DropdownMenu` for short option sets: a label row with the menu's
-hotkey, then options with number-key shortcuts shown as keys; the selected
-option shows a check instead of its key. A searchable `Combobox` for long
-lists, topped by `ComboboxSearch`: like the command palette, a search icon on
-the item icon column and a transparent 36px input over a full-width bottom
-border. "/" and "@" suggestion lists use the same 28px rows.
-Page shortcuts pause while a modal dialog or sheet is open, including when its
-buttons have focus; the modal keeps its own keyboard controls.
-
-**Right panel.** A stock shadcn sidebar: collapsible `SidebarGroup` sections
-with stock spacing and no dividers, under its own 48px top bar ("Details",
-its title on the section titles' line, and the panel toggle). Muted section
-titles with an optional count, hidden when there is nothing (no "0").
-Where present, counts sit right after their label, softer than it
-(`Count`), the label's icon-to-label gap away. Property rows open their menu; each
-has a hotkey. A "New …" row ends a list. Row actions appear on hover (always on
-touch), and hovering one keeps its row highlighted. Repeat stores an iCalendar
-rule: presets plus Custom, which asks Otto.
-
-**Top bar.** Breadcrumb as small ghost buttons with icons; the current item
-shows its status icon. Right side: More (copy link, delete) and then the panel
-toggle, always rightmost, labeled "Open panel" / "Close panel".
-
-**Composer** (`Composer`). The one input for comments, chats and agent
-requests. One compact inline row with 32px Add and main controls, and an editor
-that grows vertically to 240px while preserving typed and pasted line breaks.
-Full, new and floating Chats use this same layout, at up to the full Chat's
-728px content width. Participants and Project always sit below it: creation
-pickers for new Chats, persisted authorized context for existing Chats. Existing
-membership management stays in the permission-gated Chat panel; a floating
-page's Project remains fixed. **+** adds files (drop
-and paste too), shown as `Attachment`s with upload state. The main button
-dictates when empty, sends with content and stops while `busy`. A `tools` slot
-after + holds pickers (model, agent). Enter sends, Shift+Enter adds a line.
-`@` opens a grouped palette (people, agents, tasks, projects, files). Otto is
-not in it: Otto is reached through the floating chat, not tagged.
-
-**Tags** (`MentionChip`). Everywhere (composer, messages, comments): the type
-icon and label in primary on a soft primary tint (10%, 15% dark) with `xs`
-corners, stored as `@[label](type:id)`.
-
-**Dictation.** While listening the composer row shows ×, the level as 4px
-bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
-dots) and rise only with the mic level; the speech range (up to ~6 kHz) spans
-the width, mirrored from the center. Done stops the recording; the main
-button shows a spinner ("Transcribing") while the server transcribes it, then
-the text is typed in at the cursor. A failure is a toast ("Unable to transcribe", no retry action) and
-the recording is dropped; Cancel drops it too.
-
-**Floating chat** (`FloatingChat`). On every page but Chats (and in the file
-viewer): the shared compact composer and persistent context row float 16px
-above the bottom. Its empty input row is 40px and grows for multiline text;
-its maximum width is 728px. "Message about this task / page": +, the text,
-Chats (a red dot while any need you) as a ghost button before the main
-button, shown only while the bar is empty. Bar and window wear the command
-palette's surface: dark, translucent (popover at 70%), blurred. Attachments
-in the bar and the window are 28px chips: a 20px thumbnail, the name cut in
-the middle, and remove (in the embedded composer, 4px corners and a 2px
-thumbnail corner, to nest). Sending starts a chat with Otto in the page's
-project (fixed), the first message led by an inline link to the item, and the
-bar grows into a window up over the page. The window is a 12px card on the
-bar's surface (no change as it grows), the column plus 4px a side, fitting
-its content up to 30rem, with the panel's insets: a 40px top bar (32px
-buttons 4px in, the title 16px in), messages and the composer's text on the
-same 16px line, the embedded composer (`Composer embedded`) 4px in with 8px
-corners, the same 32px primary controls 4px in, one
-step lighter. The title switches chats: a search grouped like the Chats
-sidebar (Pinned, Waiting, Working, Snoozed, Done; no archived), one thing at
-each row's end (status, else time; the open chat shows the check). Then Chats
-(the list of chats waiting on your input or ready for your review, as 28px
-rows like the sidebar's, with no composer; a row opens that chat), New chat (who it's with: Otto
-unless picked), Minimize, Open as a page and Close. Minimized, the bar reads
-"Reply to Otto" and shows the chat's status and title, which reopens it; the
-chat follows you from page to page. Escape minimizes. The agent sees the page
-you are on. Page actions (log time, a custom repeat) prefill it. The same
-chats as in Chats.
-
-**Morph.** Folding, growing and switching between a chat and Chats morph
-(View Transitions, 320ms ease-out, off with reduced motion;
-`floating-chat.css`): the window grows from the bar's box, widening evenly
-and rising; the composer morphs with its bottom edge pinned (its old and new
-boxes share it), its corners settling from 12px to 8px. Each part clips its
-snapshots, which keep their size, so nothing stretches, and blurs what is
-behind it, so its translucent snapshot looks like the real surface at every
-frame: no flash at either end. Old snapshots leave quickly where both sides
-have content, so nothing shows twice.
-
-**Activity.** A timeline (`Timeline`), like Shopify's: one straight
-hairline down the left, under the cards' avatars. Cards (comments, a
-schedule's runs, the comment composer at the end) sit over it at full width,
-so it shows only between them; events are muted single lines on an 8px dot,
-their text lined up with the cards' names. Comment cards have Copy and Reply
-in the top-right corner on the card insets. Replies stay flat: Reply tags the
-author. Comment attachments open in the file viewer.
-
-**Inbox** is home ("/"), like Notion's Home: your day under a centered
-greeting ("Good afternoon, Johan", the page title's size and spacing), in
-one section per kind: an h2 without a count, then rows the
-same as on their own pages, their icons lined up with the heading. Tasks:
-what you own or are assigned, still open, review first. Notifications:
-recent comments by other people or Agents on tasks you own, plus explicit user
-mentions in accessible task comments. These are persisted comments, not Run
-status updates, unread-chat summaries or a fabricated unread count. Own human
-comments and inaccessible Projects are excluded; there is no read/dismiss state
-yet. Chats lists recent conversations. Routines lists enabled schedules with
-their saved cron and timezone. Current Home empty cards retain
-only their icon and explanatory sentence, without a repeated title or buttons.
-
-**Chats.** One chat model for every kind: a project's one general chat
-(#name), group chats (any members, with or without a project) and direct
-chats with a person or an agent; several chats with the same person or agent
-are fine. A chat may belong to a project and then works in its context.
-
-- **Sidebar**: Pinned, Waiting, Working, Snoozed and Done, collapsible, each
-  with its count. Rows are one line at normal weight (bright when unread or
-  waiting on you), the whole title running under the right slot instead of
-  truncating. Icons: # for a general chat, the group icon for group chats,
-  the avatar for direct chats. The slot is solid in the row's color, fading
-  in from the left, and holds one thing: the status (yellow circle waiting
-  on you, red warning when a run failed, purple part-filled circle while an
-  agent works, draft, green check when done) or else the time since the last
-  message; on hover, keyboard focus or an open menu only Pin, Archive and
-  More. Hovering a title shows a card: the title, what it is, then a divider,
-  the members and when it was last active. No status in the card.
-- **New chat** (`+`, /chats/new): a generic empty state, With (one or several
-  people and agents) and Project as 28px text-only pickers 8px above the
-  composer, on its text edge. Sending creates the chat and stays disabled until
-  someone is chosen under With (yourself counts); no project is a valid choice.
-- **Sub-threads**: an agent's session opened from a chat is a child chat, one
-  level only, kept out of the sidebar. The parent shows it inline as a card
-  (agents, title, status, chevron) that opens it; its top bar leads back to
-  the parent.
-
-One chat:
-
-- **Messages** follow one pattern for everyone, like Slack, all on the left:
-  a 28px avatar (its top 2px above the name's capitals), the name and time on
-  one line, then each message as plain text (shadcn `Message` with ghost
-  `Bubble`s), keeping line breaks. Consecutive messages from one sender within
-  five minutes form a turn. Copy shows on hover at the end of the name line.
-- **Names** carry an assigned color each (six hues tuned per theme, never the
-  primary blue); yours reads "You" in the plain text color.
-- **Rhythm**: 20px between turns and around day dividers. Turns keep 2px above
-  and 4px below inside their paint-contained items.
-- **Day dividers**: the stock shadcn separator `Marker` (Today, Yesterday,
-  then the weekday and date), its 12px label soft like the lines, with a 1px
-  highlight below.
-- **Agent runs**: "Worked for 52s" folds the run's steps (a `Marker` as the
-  collapsible trigger); a failed run reads "Failed after 2m 41s" in red. While
-  an agent works, one shimmering line opens on its real status, then fades
-  through playful lines, with the real status every third turn. No spinner.
-- **Files** in messages are attachment chips that open the file viewer, which
-  steps through everything shared in the chat.
-- **Questions** from agents: a compact card (stock small `Card` at 12px): the
-  question, then the choices as one bordered list of 40px rows split by
-  hairlines (number keys pick), then Send on the right. Answered, it keeps the
-  question and the picked row.
-- **Scroll to end**: a 28px outline button with its label, on the card color
-  with `shadow-md`, 8px above the composer, shown once you scroll up.
-- **Panel**: Project (a link for general chats and sub-threads, else a
-  picker), Members (people, then agents; Add member) and Files shared in the
-  chat, hidden until something is shared. A project's panel lists its chats.
-
-**Schedules.** Automations: on a time pattern, run a prompt (an agent you
-pick answers it) or code, and post the result to a chat: an existing one, or
-a new chat each run (a setting; nothing is made until it runs). No project
-row: less is more. Made and changed by asking an agent: + starts the floating
-chat with "Every ", and the prompt (or code, as a code block) shows
-read-only: that body is what tells them apart, so the panel has no type
-row. A person sets the state (Active or Paused), the agent (prompts
-only), Repeat (the tasks' dropdown, each preset with its time; Custom asks),
-and Chat, where it posts ("A new chat each run", then the chats; channels show their #
-icon, never a # in the name), and can Run now (then a toast). Its page
-follows the task's: owner and agent under the title, then Activity: created
-and each change as events, each run as a card like a comment (who ran
-it, when, Ran or Failed on the right, then what it said). The list is Tasks'
-pattern (`ListGroup`): Active, Paused, then Archived folded; rows show the
-owner's and agent's avatars, like a task's people, and the next run
-("Tomorrow 9:00"); filters by type, agent and owner; right-click opens the
-item menu. The next run ends the Activity timeline on a hollow dot, not a
-panel row: panel rows are controls, never read-only text. Picking a state
-on an archived schedule restores it.
-Schedules archive, never delete.
-
-**Settings** (from the profile menu), as lean as the MVP allows: a left
-panel like Chats', Account (Profile, Notifications, Models, Connections,
-Agents) then Workspace (General, Members). The theme stays in the profile
-menu; usage and activity wait for a Reports page. Each section is a page
-titled with its name: optional h2 sections (Activity's size), each a 12px
-card of rows split by hairlines. One row pattern: what it is and a line on
-it on the left, one control on the right; rows listing things (agents,
-members, connections) lead with their avatar or icon. Controls nested in a
-row are 28px with 6px corners: a switch, a choice (an outline `compact`
-button opening a radio menu, as Appearance in the profile menu), a text
-field, or a `compact` button. Everything saves as you go, no Save button: a
-change waits 800ms for the next (`useDebounced`), blur or leaving saves at
-once, and a value flipped back sends nothing. Every save shows the
-"Settings saved" toast, one at a time: saves close together refresh it.
-Deleting sits last under "Danger zone" and asks first. Adding an agent, a
-connection or a member asks Otto.
-
-**Models** (Settings › Models). Two lists by who can use the account:
-"Your connections" (only you) and "Workspace connections" (everyone in the
-workspace), each a card whose first row says "1 connection" / "No
-connections" with a ghost + that opens the providers (Codex). No filters, no
-priority order, no fallback and no "runs out" setting: an agent names its one
-account and model. A connection row leads with its provider icon, then the
-name, one line of state ("Connected", "Sign-in needed", "Disabled", plus
-"Added by <name>" when it is someone else's), a "Reconnect needed" badge while
-signed out, a ghost ⋯ menu (Reconnect or Enable, Share with workspace or Make
-private, Disable, then a red Disconnect, all asked first) and a chevron that
-opens its name, sign-in and models. Adding one signs in at once, in its open
-row. Disconnect removes the stored sign-in for good and takes the row off the
-page; the record stays only as history for sessions and runs pinned to it.
-
-**Agents** (Settings › Agents). Each agent shows its pixel mascot (BB's ten
-8x8 sprites, MIT, from MonoCode) in its name color wherever its avatar
-appears. The list opens each agent's own page (its row a link with a
-chevron); "+" asks Otto to create one. An agent's page, in the settings
-patterns: Profile (name, description, the mascot and color pickers as 28px
-buttons, the chosen one filled, and who can use it), Instructions (the card
-is the field), Model, then Skills and Connections as checklists ("Can use 3
-of 8 skills.", All first, the whole row toggles). Everything saves as you go
-("Agent saved"). More holds Copy link and Delete; Otto, the default agent,
-has none.
-
-**Empty states and 404.** `EmptyPage` is only for when a place has nothing at
-all (no tasks, not "no matches"). It replaces the whole page, title and
-actions included, with the stock `Empty` centered both ways: a 32px muted tile
-holding a 20px icon (32 / φ), a heading-size title, one line of description
-and one 32px primary button ("New task", "New project", "New schedule"…).
-Every main section starts this way, with the floating chat there as on any
-page: the button starts the sentence in it ("Add a task to ", "Every "),
-never a form; a person's own action (Upload file) sits beside it. Missing pages and records use `NotFound`
-(the same, with "Go home").
-
-**No results.** When filters match nothing, the page, its header and the
-filter bar stay; the list area shows the same `Empty` shape: the filter icon
-tile, "No results", one line, and an outline "Clear filters".
-
-**Filters** (`FilterMenu`, `FilterBar`, `NoResults`; one shared set). The
-header's Filter button opens a menu with a submenu per property (Tasks:
-owner, assignee, project, priority; Documents: created by, project,
-label, visibility; Files: type, project, label, made by); each starts with "Any" (the property's icon, muted) and lists
-options with their icons or avatars. Filters
-live in the URL and are never saved. While any is set, a filter bar sits under
-the title: one read-only 28px `ButtonGroup` per filter (the property and value
-as text, then ×) and an outline 28px Clear on the right. Changing or adding
-filters happens only in the menu.
-
-**Command palette** (`CommandPaletteProvider`). One palette for the whole app:
-⌘K / Ctrl+K anywhere, or a page's search button with its category already
-selected. 720px wide, 15% from the top, card radius. A borderless 48px search
-field over a full-width divider; 28px compact tabs for categories (Tab
-switches) 8px above and below; 36px rows that match
-names containing the query, with edges that fade while more results scroll;
-a 48px footer with key hints. Categories: All, Tasks, People, Projects,
-Library, Actions. Picking a result goes there (a file opens
-in the viewer). There is no project dropdown; task results retain the current
-route's project or the existing first accessible project fallback. The Projects
-category remains available. Text and icons sit 16px in throughout.
-
-**Task list.** Groups by status in lifecycle order under full-width
-`secondary` header buttons. Each row: its status icon (under the header's),
-the title, then an avatar group of everyone involved (owner first, then
-assignees; one tooltip lists them), with the project badge and date on the
-right. 20px avatars in a group overlap 4px.
-
-**Detail pages** (`DetailView`). Tasks, projects and documents share one shape:
-the top bar, then the page (optional cover, title, people row, body), the
-right panel and the floating chat.
-
-- **Task:** owner and assignee as avatar buttons (no labels; hover names the
-  role and its key); the description (markdown editor with `/` blocks);
-  Activity; the comment composer.
-- **Project:** cover, owner and members; 32px tabs with icons and muted counts
-  (Overview, Tasks, Documents, Files), kept in the URL (`?tab=`). Overview
-  is the description; Tasks is the task list without the project badge;
-  Documents and Files are galleries. Empty tabs show the `Empty` shape
-  without an action. Panel: Properties (Status, Priority) and its Chat.
-- **Document:** cover when it has an image, the author as plain text (set by
-  the server), the content in the editor. Panel: Project (or none) and
-  Visibility (Only me / Workspace).
-
-**Dithered images** (`Dither`, `Cover`). Covers and previews are drawn once in
-the image's own colors with an 8×8 ordered dither in four steps, never
-animated. Each dot is a whole number of device pixels (3 on 2x screens, 2 on
-1x), so dots stay square and even at any size. `Cover` is a 4:1 banner above a
-page title.
-
-**Galleries** (`Gallery`, `GalleryItem`). Not cards: a tile with its icon and
-title under it; the ring darkens on hover. Projects are 16:9 covers;
-documents are 4:5 pages showing their image or opening text fading out;
-files are 4:5 showing their picture or their type ("PDF").
-
-**File viewer** (`Lightbox`). Full screen on the page background, in two
-full-height columns. The file: its 40px top bar (type icon, title, "Image ·
-Oct 3"; Ask about this file, Open task, Download), then the file centered
-with `md` corners and the ring, 48px from the sides where the previous and
-next arrows sit 9px in (← → too, except inside a player). On wide screens a
-280px details panel with its own top bar (Details, then Close in the
-corner, like the panel toggle): one Properties list in Otto's words
-(folder, project, task, chat, created by, visibility, added; project, task
-and chat link to them, rows it lacks are left out), then Labels. No composer inside: Ask closes the viewer and starts the page's
-floating chat with a link to the file. Read-only previews: images, video and
-audio in the browser's players, PDFs in its viewer, Markdown rendered like a
-document, canvases (an agent's HTML page) sandboxed as they are; anything
-else shows its type. The open file is in the URL (`?open=`) on the Library
-page.
-
-**Right-click menus** (`ContextMenu`, stock shadcn styled like the
-dropdown: 28px rows, even insets). Wherever an item has actions: chat rows,
-task rows, and document, project, file and folder tiles. A right-click menu
-and the item's More menu share one list (`ItemMenuItems`; chats'
-`ChatMenuItems`), short and in one order: Open, Ask about it (the page's
-floating chat), Download, Rename, Copy link; then Archive and Delete apart.
-Chats: Pin, Mark as done, Snooze, Copy link; then Archive. Projects
-archive, never delete.
-
-**Menu keys and Delete.** Quick actions show their key as a `Kbd` on the
-right, and the key runs them while the menu is open (ahead of typeahead):
-Rename R, Copy link C, Pin P, Mark as done E, Archive A, Delete ⌫ (Backspace
-or Delete); options with number keys pick by them too. Delete is always the
-destructive variant: red text and icon, a red-tinted highlight.
-
-**Alert dialog** (`AlertDialog`, stock shadcn, small; `useConfirm()`). The one
-place an action asks first: Delete, always. shadcn's destructive example as
-is: the bin on a red-tinted tile, then copy as plain as a toast's: a short
-question naming what it is, not which ("Delete file?", "Delete account?"),
-and one line ("This can't be undone."); Cancel and the action, red when it
-destroys. The work runs inside it: the action keeps its label and gains a
-spinner (shadcn's button spinner) while both buttons wait, then the dialog
-closes and the toast says it is done ("“Fix plan” deleted"); a failure stays
-open and says "Something went wrong. Try again.". A plain darker overlay, no
-blur, like the dialog's.
-
-**Toasts** (stock shadcn `Toaster`, Sonner's own `toast.success()`, re-exported
-from `@workspace/ui/components/sonner`). One plain row and nothing else: the
-status icon in its color (a green check for done), a short sentence-case
-message ("Link copied", "“Fix plan” deleted"; always one sentence with no period,
-which the shared `toast` enforces), and Close at the end. On the
-menus' surface in both themes with a card's 12px corners: Close is the 28px
-ghost button 6px in (nested), the message 12px in and wrapping, so the toast
-is as tall as its message (40px for one line); bottom right.
-Copy link, Archive and Delete say they are done with one.
-
-**Library.** One rail destination and `/library` page combine editable Documents
-and saved uploaded/generated Files without conflating their storage or editing
-semantics. Compact 28px tabs are All, Documents, Images, Video, Audio and Other.
-Documents includes editable documents and document-format uploads; other tabs
-use the saved media type. Filters run on the server before pagination. Folder
-tiles remain navigable in every type view; the gallery keeps its existing
-folders-first grouping and per-kind sort rather than claiming a global sort.
-The breadcrumb (Library › Brand › Logos) leads back up. The Add menu contains
-New document, Upload file and New folder; creation starts in the current folder
-and Project. Project, label, creator/custodian and visibility filters remain,
-with Collections on the Documents tab. Category, folder, filters and open file
-live in the URL. Old Files/Document links redirect to Library. Folders still
-nest at most eight levels and archive only when completely empty.
-
-**Live data states.** Server reads use the shared skeleton (three full-width 40px rows, no
-extra padding so they align with the page title) and inline error with Retry; unavailable controls explain the missing capability and never
-show success. The authentication boundary uses the stock Field/Input/Button
-composition. Workspace switching clears prior workspace data and opens Inbox.
-Account forms use a centered 336px column, 24px side padding and 64px vertical
-padding, with the shared page-title typography and no logo. Labels stay above
-their inputs; the primary submission spans the column and secondary account
-actions center beneath it. Sign-in methods reflect configured backend support.
-The profile menu names the signed-in person and lists their accessible workspaces.
-When direct setup or creation is necessary before an Agent can run, a compact
-stock dialog may capture the backend's required fields. Ask remains available;
-direct controls use the same tokens and do not simulate an Agent response.
-Native selects use the shared 32px control, or 28px when nested, with the
-corresponding 8px/6px corners. Task search and Inbox name one Project explicitly;
-search requests five matches per group and uses whole words. Directory pickers
-continue through bounded pages instead of treating the first hundred as complete.
-
-## Do's and Don'ts
-
-- Do change shared looks in the `packages/ui` component with an `// Otto:`
-  comment; don't override colors or type on one instance.
-- Do use only the spacing scale, the two insets, 32px bar controls and 28px
-  rows and nested controls; don't invent values to make one screen fit.
-- Do start text on the page column's edge and let surfaces reach out by
-  their own inset; don't push a card's text in past the title's line.
-- Do save ordinary settings as they change, with the one "Settings saved" toast.
-  Multi-field Agent and Schedule configuration uses explicit Save/Cancel with one
-  captured edit token; Documents and Skill content preserve fenced drafts until Save.
-- Do nest radii (inner = outer − gap); don't reuse a container's radius inside
-  it.
-- Do keep primary for the main action and tags; don't use it for navigation,
-  selection or decoration.
-- Do keep icons 14px and avatars at least 20px; don't mix icon sizes in a row.
-- Do keep chat messages in one left-aligned pattern; don't right-align your
-  own or bring back bubbles for some senders.
-- Do keep tooltips to one label; don't put metadata in a tooltip.
-- Do route creation through the floating chat; don't add a form for something a
-  sentence can ask for, and don't send it as a comment.
-- Do use Library for the combined destination, and document/file for its item
-  types; don't call a saved file a resource.
-- Do check a visible change in the browser and measure it; don't ship from a
-  screenshot guess.
-- Don't nest tasks or comments, add subtitles to data-heavy pages, or use
-  ellipses in placeholders.
-
-### Live mention discovery
-
-Composer mentions query real workspace members, Agents, Projects and Files, with at most three results per kind. Task suggestions require the composer's explicit Project scope. Searches follow server whole-word matching; empty results and request failures are visible. File mentions use the File discriminator and saved identity.
-
-Command search omits empty result groups and the redundant Task scope label. Its placeholder is “Search”; an entered query with no matches shows a compact empty state (icon tile and “No results for “query””, no period) after loading completes. Search uses the shared 800 ms debounce and stock Skeletons for a category heading and three icon/title rows, matching result spacing while waiting.
-
-### Accounts and workspace access
-
-Authentication uses the real account service for email/password sign-in and registration without mandatory email verification or mail configuration. Password reset remains an explicitly mail-dependent action, with acknowledged results and request errors. Registration does not prove email ownership or grant installation or workspace authority. Invitation acceptance, both before workspace access and in Settings, requires the emailed invitation ID and a private token entered in a masked stock Input; tokens are not shown in invitation metadata. Workspace selection loads additional server pages and clears the previous workspace cache before navigation. The profile menu omits workspace selection when there is only one workspace and no further page.
-
-### Fenced configuration and content
-
-Agent account/model/Skill selection and Schedule configuration use explicit Save/Cancel for one atomic change protected by the opening edit token. Document content, labels, visibility and folder are one fenced draft; Skill content and supporting Files have separate acknowledged fences. Failed or stale edits retain input. Unsupported decorative fields and fabricated activity are removed; Schedule timing shows the saved cron/timezone without guessing a next-run date.
-
-### Real workflow controls
-
-Task details show the server lifecycle Todo/In progress/Done, mixed assignees, occurrence links and human-owned manual time in whole minutes. Unsupported priority, review status and decorative metadata have no mutable controls. Task comments show persisted human or Agent authorship, with edit/delete controls only for the original full author identity under current Task authority. Files and Documents retain folder/label organization and real creator identities. Avatar names come from the workspace directory; Agents use the existing robot sprite because the API has no mascot setting. Identity color is a stable display value derived from its ID, not saved configuration. Desktop tabs start with the current route and load the real item title.
-
-Chats show metadata update time separately from message activity. New Chats require explicit participants and scope; a configured Agent/account controls actual Run admission. Pending sends preserve the draft and uploaded File identities until acknowledgement. Failed creation with unknown outcome directs the person to inspect Chats before creating again. Pin/done/snooze/thread controls without persistence are unavailable. Settings show current server data, acknowledged autosave for profile fields, and explicit unavailable states for unsupported preferences or account/workspace changes. Connections retain exact scoped grants. Model settings use explicit OpenAI, Anthropic or OpenAI-compatible protocols and server-only API keys; there is no device login or implicit provider fallback.
-
-### Files and public frozen selections
-
-File uploads show pending, cancellation and retry of the same File/request identity; there is no simulated progress. Download uses the verified server route. Previews stay within 8 MiB, and HTML runs in a credential-free sandbox. Folder breadcrumbs and mixed lists keep Files, Documents and Folders grouped, with server sorting within kind. Sharing requires a preview of the explicit frozen selection before publishing; the anonymous share page shows only acknowledged frozen content and optional selected bytes, with revoked/unavailable and retry states. It sits outside authenticated workspace navigation.
-
-Inbox continues its four independent server attention cursors with one More attention items control. An exhausted group keeps its final cursor while other groups continue; counts describe loaded entries.
-
-The File share byte-selection control uses the shared Checkbox primitive, with its stock compact size and focus behavior, beside the descriptive label.
-
-On mobile, Chats and Settings section navigation opens in the shared Sheet from a compact section header; selecting a route closes it. The desktop section panel keeps its existing width. This leaves the page usable beside the app rail on narrow screens.
-
-Private pages remain behind the session-loading state until the previous authenticated session's requests and cache have been cleared. Current Project authority resolves independently of the displayed member page; incomplete pickers never decide who can edit.
-
-Mention chips preserve the exact selected display label, including brackets and backslashes, through editing, sending and notification delivery.
-
-Unknown creation outcomes disable another submission in the current form and direct the person to check saved records. A definite client refusal preserves the draft for correction. Relation writes and document content share one pending fence so an acknowledgement cannot overwrite a newly typed draft. Denied reads hide cached private content; transient read failures retain fenced drafts with Retry.
-
-**Empty-state rules (binding for every page).**
-
-1. Nothing exists and nothing is filtered: the header-free `EmptyPage`, with the floating chat kept. Title "No <things>" (sentence case, no period); description one sentence ending in a period, "<Things> … show up here." Exactly one 32px primary button, the "+ New <thing>" that prefills the floating bar (never a form); a person's own action (Upload file) sits beside it as a quiet outline button. Never a second primary button. The Inbox has no button ("Nothing needs you"); Projects is the one page whose button opens its form, because nothing exists yet to ask about.
-2. Something is filtered and nothing matches: the page, header and active filter bar stay and the list area shows `NoResults` ("No results", "No <things> match these filters.", Clear filters).
-3. There is no permanent toolbar. A page header holds the Filter menu (real properties and archive state), a Search icon that opens the command palette on that category, and "+". Active filters show as chips in the filter bar; no search box, sort picker, order or page-size control is drawn on a page. Settings lists show only their own property filters.
-4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No <things>", one description line ending in a period, no action.
-5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
-6. Tasks list the first Project when none is chosen, so an empty page never asks for one. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
-7. The floating bar shows its Inbox button only while something needs attention (an unread chat or an unanswered question).
-8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
-9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
-10. A new chat has two pickers, With and Project. It is always participants-only; the project's own chat is the one open to everyone in the project.
-
-### Native restoration exceptions
-
-The restored v1 rail, pages, navigation, route-owned toolbars, main panel and shared components remain the foundation. These are deliberate additions, not a replacement design system or a claim of completed visual acceptance.
-
-Login uses the preserved centered, left-aligned narrow column, standalone icon, filled fields and sky-blue primary submit action. Home retains the preserved centered greeting, Notifications → Tasks → Chats → Routines hierarchy, cloud/night-sky wallpapers, slow Bayer dithering, responsive scrim and translucent cards inside the v1 main panel. Its sections read authorized domains: Tasks use the first accessible Project and human ownership/assignment; Routines show saved cron/timezone labels rather than invented next-run data. By explicit Home exception, empty cards contain only the icon and one description sentence: no repeated empty-state title or inner navigation button. Home has no Project dropdown or All chats link; the Tasks description names its actual Project scope. Other pages retain their existing empty-state rules.
-
-Chat keeps its existing scroller, bubbles and compact inline composer, without a recipient picker or Human only mode. Exactly one eligible human and one Agent replies automatically; every other combination requires explicit Agent mentions. Multiple mentioned Agents each receive one reply request. People and Agent mention suggestions are scoped to the Chat's participants, with only contributor Agents offered. Mentioning never adds membership or grants access. The server freezes recipient IDs with the acknowledged message; retrying a partial or unconfirmed send keeps that same message and selection, with Enter and Send available while the original draft stays locked. Existing question and Connection approval surfaces remain. Native human-only proposals use stock Cards with the proposing Agent, exact payload/target versions, digest, explicit authenticated Approve/Deny controls and persisted receipt states. The right Chat sidebar contains Participants and Library: current participants with permission-bound management, attached files from loaded messages, and an Open Library link. It omits Project, Visibility and the manual Agent Runs form, including its second prompt and private Session selector. Existing composer context and backend access rules are unchanged; hiding Visibility does not make a workspace Chat participants-only, and automatic replies count the full eligible human audience, including workspace/Project viewers.
-
-Provider settings reuse the v1 Group, Row and Dialog patterns. A saved key is never read back; replacement opens an empty masked input. Models are explicit configured IDs. The protected default Agent starts unconfigured and cannot silently choose a provider; its owner selects the account/model before it runs. Private native Session discovery is limited to the current human owner even in shared Chats.
-
-Settings retains the v1 shell, Group/Row details and existing sidebar patterns. Skills is a deliberate new Settings destination; Connections remains the single destination for supported app integrations and remote MCP, separate from Models. Their saved information is read-only: Skill instructions, usage guidance and supporting File links; Connection saved status, cached discovered actions/resources and nonsecret configured scope. Cached information is not live health or effective Agent access. General creation, content/configuration edits, grants and Agent Skill assignment use the existing composer and exact human approval, not alternate Settings forms. Ask agent prefills ordinary text with the authorized target/current edit token (and the complete current Agent Skill selection); it does not create linked-context chips or silently send a message. Agent details show only their selected Skills, with unavailable selections explicitly unnamed.
-
-Removal controls use existing semantics and exact confirmations: Archive/Restore for Skills and Disconnect for Connections, never a fictional permanent Delete. Human operation/proposal approvals remain available. Secure credential-reference completion stays human-only and masked, never a key/token entry into Chat; it disconnects and revokes grants as before. GitHub additionally retains its existing human authentication completion to preserve token-expiry reservation semantics. MCP activation/discovery is one explicit approved composer action, not an autonomous reconnect or GET side effect. Bearer remains the default when MCP authentication is omitted; anonymous access still needs deployment approval. The scope is labeled Resource URIs and tool targets because the exact entries constrain both reads and tool target arguments. These additions do not broaden caller, grant or credential authority.
-
-Existing Connection operation cards retain their exact-request disclosure and stock confirmation dialog. Awaiting approvals offer adjacent Approve and Deny actions under the same current authority guards. Deny identifies the action and target and warns that the decision is final. Saved denied operations retain their exact request plus the denying human and timestamp, show that no execution occurred, and expose no approval, execute or retry controls. Denied is available in the existing state filter. Operation filter controls wrap on narrow screens so state, sort and order remain fully accessible.
-
-Active filters preserve their selected value while directory options load or become unavailable. An unresolved option displays “Unavailable” without dereferencing a missing icon; the person can still remove or clear it. Missing options never silently broaden the query by dropping the filter.
-
-Normal Chat sends request automatic private continuity for the authenticated human and selected Agent in that Chat. Advanced explicit Session selection remains separate. Conversation views do not show private Session diagnostics.
-
-Full and floating Chats share a quiet, collapsed “N steps” disclosure for recorded, approved action results, using the existing compact ghost Button and Collapsible. Only loaded, executed actions count; proposals, denials, questions, instructions and completion bookkeeping are not work steps. Expansion lists each recorded action and its title, with a further disclosure for its exact payload, human decision and receipt; pending approvals, questions, Stop and meaningful failures stay visible outside it. Conversation views omit model/token/cost metadata, raw output logs and repeated completion labels; usage storage is unchanged. Tool reads without a public work record do not invent a step.
-
-### Private native streaming drafts
-
-Quoted replies stay flat in the main conversation; there are no nested threads. Each message has adjacent Reply and Copy icon actions, revealed on hover or keyboard focus and always available on touch. Copy copies that individual message. Reply preserves the draft, focuses the composer and adds a removable author/excerpt quote; saved replies resolve that same reference from authorized loaded history, with an explicit unavailable fallback instead of raw IDs. Retry keeps the accepted quote fixed. Full and floating Chats use the same quote and message actions.
-
-Active work uses the existing Message/Avatar, Marker and shadcn Spinner primitives with a quiet Starting/Working status and an inline icon Stop control. There is no full-width Stop Run button or separate Send instruction form. Approvals, questions, stop failures and uncertain outcomes remain visible; this presentation does not change execution or permission rules.
-
-The composer stays at the bottom of the conversation. Its existing 32px attachment, dictation and send controls occupy a compact top row above the text editor, rather than sharing the text baseline. Participants/Project context and any removable quote also appear above the editor in full, new and floating Chats. This supersedes the earlier inline-control/context-below arrangement while retaining the 728px maximum width, multiline editing, uploads, dictation and retry fences.
-
-Full and floating Chats reuse the existing message scroller, Agent avatar and ghost bubble for actual native assistant text arriving during an active Run. The header says “Private draft · only you”: only the sponsoring human sees it, never other Chat participants. Reasoning and tool payloads are not rendered. Drafts are transient, bounded to 32 KiB per Run, and disappear on Stop, authority loss, disconnection, expiry or completion; oversized drafts are withheld rather than presented as complete. Existing authorized native publications remain the only durable shared messages and reload history. No synthetic typing animation or second conversation history is introduced.
-
-Drafts follow the existing Run controls so the scroller’s end position keeps arriving text visible in the smaller floating Chat. The existing Run panel describes authorized native tools and says computer tools require configured confinement, without claiming a provider is available or exposing this development host.
-
-### Dictation lifecycle
-
-Dictation preserves the existing microphone, waveform, Cancel and Done controls. Pending microphone permission uses those same cancellation controls; the waveform shares the recorder's stream rather than opening a second microphone. Cancel, navigation and recording failure release capture and discard late results. Transcribed text is inserted literally into the composer for human review, never interpreted as markup or sent automatically.
-
-### Lean collaboration navigation and task review
-
-The authorized navigation addition replaces the separate rail and section sidebar with one left sidebar containing the existing destinations, Pins and mixed Recents. Pins and history store only bounded references per human and workspace; current authorized reads supply their labels. Unread Chats and Chats awaiting an answer rise into Recents without inventing a second notification system. Settings replaces this sidebar's contents and provides a return action. Mobile uses the shared Sidebar sheet. The main panel retains only its right details panel. Chats opens a real searchable, paginated list before a selected conversation; this supersedes the earlier section-sidebar arrangement, not the preserved page components.
-
-Task groups show Backlog, Pending, In progress, In review and Completed in that order, including empty stage headers in a populated task list. Existing status colors remain: neutral backlog/pending, purple progress, gold review and green completion. The existing task detail adds a review Card with the worker's immutable summary, an authorized Open work chat action, human Approve/Request changes controls and bounded feedback. Requested changes preserve the original work Chat. Saved decisions and unavailable worker delivery are distinct, and the same decision can be retried after reload. Immutable summary/decision comments omit Edit/Delete actions. An approved native request-changes card links to the Task for durable delivery status and retry.
-
-Otto is the permanent default Agent for new conversation drafts, not an approval bypass or a mandatory intermediary. Create actions on Tasks, Projects, Library and Schedules insert an unfinished, descriptive composer draft for the person to finish; they never auto-send. Explicit Agent mentions take priority over a quoted Agent when choosing a reply target. Quotes remain flat and cannot wake an Agent that is no longer a contributor.
+# Foundation
+
+The authorized source replacement uses the bb application components. The subsequent shell direction replaces its icon rail with one sidebar beside a large main panel and adopts the measured Capy neutral palette and compact control scale, with a Tailwind sky accent. It does not restore the deleted v1 Otto UI or its previous token values. `apps/app/src/components/ui/theme.css`, `apps/app/src/app.css` and the shared UI package remain the implementation sources for colors, typography, spacing and interaction states. Preserve light/dark themes, responsive navigation, focus states and accessible control names.
+
+# Application shell
+
+Use one sidebar, not an icon rail plus a second sidebar. Its ordered regions are: owned Otto logo with a functional search control at the right; labeled primary navigation; populated Pins; populated Recents; and user navigation anchored at the bottom. Empty groups disappear completely, including their headings, placeholders and unused spacing. Determine emptiness from the currently eligible visible rows, not stale saved group membership; preserve saved groups and preferences. Pins and Recents use existing thread data and pin operations, not invented entries or a second persistence model. Keep the bottom region reachable while the middle content scrolls.
+
+The main panel takes the remaining space and uses existing surface, border and radius tokens. Settings replaces the normal sidebar with Settings navigation and a Back to app control; it does not keep the global navigation, Pins and Recents visible or add a second left column inside the panel. Returning restores the normal sidebar. Screens that need contextual controls, such as Skills, can use an internal right sidebar within the main panel; do not add one to every screen. On narrow screens these contextual controls may use a compact menu. Remove every visible left-sidebar toggle button and the space reserved for it, including footer, overlay, compact and native-chrome variants. Keep right-panel controls separate. Preserve resizing, keyboard/command access, compact swipe navigation, native traffic lights/window dragging and plugin-contributed navigation/disclosures. Use current capabilities only: a missing human identity gets an honest generic account control, not a fabricated profile or nonfunctional authentication actions.
+
+Capy is an interaction/layout and neutral-token reference, not an asset source. Keep Otto's logo, Remix glyphs and the fork's shared components. Do not copy Capy's logo, proprietary assets, account data or unrelated optional color themes.
+
+# Measured neutral foundation
+
+The 11 October 2026 reference study read rendered computed styles and public CSS declarations through the actual Capy browser. Dark desktop values and control geometry were measured on Automations and the empty New thread composer. Light and responsive values were read from the loaded stylesheet, not inferred from screenshot colors. Local observations are retained in `~/.capy/work/otto-capy-tokens/`; they are reference evidence, not Otto acceptance.
+
+| Role                           | Light default                | Dark default                 |
+| ------------------------------ | ---------------------------- | ---------------------------- |
+| Page and sidebar               | `oklch(94.31% .0006 286.15)` | `oklch(14.66% .0015 286.15)` |
+| Main panel                     | `oklch(98.21% .0007 286.22)` | `oklch(18.59% .0017 286.15)` |
+| Card and input                 | White                        | `oklch(20.77% .0018 286.15)` |
+| Popover and composer           | White                        | `oklch(24.31% .0019 286.15)` |
+| Primary text                   | `oklch(23.34% .0018 286.15)` | `oklch(97.02% .0006 286.15)` |
+| Neutral hover / stronger hover | Black at 5% / 8%             | White at 8% / 11%            |
+| Border tiers                   | Black at 8% / 11% / 15%      | White at 8% / 12% / 16%      |
+
+The neutral hierarchy is page → panel → card → popover, not a single background painted everywhere. The shared Otto palette maps chrome/sidebar to the page, canvas to the main panel, surface to cards, and surfaceOverlay to popovers and composers. Appearance offers only System, Light and Dark on web and mobile. Alternate palettes, Classic defaults, custom-theme storage readers, import/search, previews and the editor are removed, not hidden. Old named-theme and per-appearance selections do not influence the rendered palette; saved custom-theme JSON remains untouched and inert. Preserve destructive, warning, success and diff semantics; sky is an action accent, not a replacement for every status color.
+
+The 12 October follow-up re-read Capy's public light/dark CSS in an isolated browser; its gray hierarchy is unchanged. Panel toolbars share the panel background instead of introducing another chrome stripe. Grouped Settings cards and their inputs use the canonical card surface rather than independent foreground mixes. Composers use the raised popover surface, with opaque flat fills and no theme-specific grain. Terminals follow the current appearance's canvas and text roles. Native static defaults match the shared runtime palette, including sky fills and white solid-action labels/thumbs; web switches, checkboxes and radios use the same solid-action roles. Sky also supplies keyboard focus while dark foreground accents remain lighter for readability. Provider identity, user-selected avatar/accent metadata, media mats, scrims and semantic status colors remain distinct from neutral UI layers. Local reference and acceptance evidence live in `~/.capy/work/otto-colors/`.
+
+Usage is a regular App settings section at `/settings/usage`, not a main-sidebar destination or a separate full-page surface. It uses the shared Settings header, content width, scroll container and neutral panel background; its metric, period and refresh controls stay within the page content. The command palette and usage-refresh link open this section. The shared workspace shell and adjoining details pane use the panel role, rather than painting the card role over it. Glass-opacity controls and runtime overrides are removed so saved opacity preferences cannot alter the opaque neutral hierarchy; saved settings remain untouched.
+
+The host owns the shared typography scale. Loading retained plugin CSS must not reset the app's font sizes or weights through an older Tailwind theme layer. Keep responsive overrides and deliberate custom styling functional; regenerate the public registry and plugin theme bridge when their source tokens change.
+
+Primary buttons use sky 700 fills and white labels in both appearances through dedicated solid-action tokens. Keep sky 500 for dark-mode foreground accents; do not darken those foreground accents to match button fills. Disabled controls, decorative dividers and muted metadata are distinct from active text. Both clients render the same canonical shared palette rather than independently selecting optional themes.
+
+Accessibility takes precedence over exact shade matching: muted text mixes 65% ink in light mode and 70% in dark mode, rather than the reference's 62%/68%, to remain readable on hover/active surfaces. Preserve the fork's stronger subtle/readback tiers rather than copying Capy's faint tertiary shades. The existing light timeline/file accent keeps its blue hue and chroma but lowers lightness from .55 to .52 for the darker neutral canvas. Input boundaries use 50% ink in light mode and 45% in dark mode, independently of decorative hairlines. These are deliberate departures, not claims that every measured Capy shade meets WCAG text or control contrast.
+
+# Typography and control geometry
+
+Keep the existing openly licensed Inter variable font. Desktop regular text uses weight 450, controls and navigation 500, and semibold emphasis 560. The compact scale is 11px metadata, 12px small controls, 13px navigation, 14px body/composer and 18px larger text. Small text uses line heights 1.3 and 1.25; body uses 1.5, with the measured compact composer at 1.2. Use subtle tracking: −.01em on 13px and −.02em on body/larger text. Do not make all labels semibold.
+
+Desktop controls use 24px, 28px and 32px heights; ordinary glyphs use 12px, 14px, 16px and 18px. Control radius is 6px, cards/popovers/composer 8px, and the main panel 12px. Compact neutral boundaries use half-pixel borders. Preserve larger coarse-pointer targets, readable mobile text, visible focus and keyboard behavior rather than shrinking touch controls to desktop hit areas.
+
+The default sidebar is 240px wide; saved user resizing takes precedence. Its header is 44px high with a 20px owned Otto glyph and a 28px search control. Navigation has 8px outer insets, 28px desktop rows, 8px row padding and icon/text gaps, and 1px between rows. The main panel has 8px top/right/bottom clearance; content headers are 44px high. Keep optional contextual navigation on the right. The composer uses a raised popover surface, 8px corners, a restrained theme-specific shadow, 16px text inset and compact bottom controls. Preserve the existing composer behavior, plugin controls and viewport-aware scrolling.
+
+Sidebar top-level labels share one text column: 8px outer inset, 8px row inset, a 14px leading icon slot and an 8px gap. Reserve the slot even when a thread has no provider glyph. Group labels, primary navigation, Settings and Account align to that column; child rows retain meaningful 24px nesting. Coarse-pointer hit targets may grow without moving the text column.
+
+Section headings align with card contents, not with card outer edges. The measured Capy General and Appearance layouts use `-mx-4` around their cards and 16px inner row padding. Otto uses the same outward bleed with an inset boundary so a layout-consuming border cannot introduce a one-pixel text offset. Keep a 16px page text gutter on narrow Settings pages so the bleed remains inside the scroll viewport. Plain sections do not bleed or acquire a card boundary; flush cards retain their own inner row padding. Apply this through shared section presentation and the built-in provider-usage equivalent, not arbitrary negative margins on nested cards or dialogs.
+
+Every app-owned chat surface docks its composer at the bottom of its available pane, including New thread, empty/existing threads and contained embedded/split chat. Reuse the same composer and bottom-docked layout; history or Home content scrolls independently above it. Do not maintain a centered/top desktop composer or a separate absolute mobile overlay. The unpadded main host needs no compensating negative shell margins. AppLayout owns the bottom safe-area inset; the shared footer must not count it twice. Preserve drafts, send/admission behavior, queued messages, plugin controls and keyboard-resized viewport behavior.
+
+The SDK's explicit `layout="document"` contract remains a growing document with page-owned scrolling. It reuses the shared sticky footer without silently becoming a bounded, internally scrolling pane. This compatibility exception is separate from app-owned chat layout.
+
+# Deliberate additions
+
+Chats and Agents are native sidebar destinations for authenticated humans. New chat opens participant selection, not a provider-run wizard. A chat may contain only people, one person and an agent, or a group; the same profile can participate in independent conversations without duplication. Existing native conversation links and Tasks/Projects remain available. An absent native thread-list extension does not create a permanent empty sidebar warning when native Chats is available; genuine extension crashes still show their recovery action.
+
+Agent profiles use the existing resource list and stacked form controls for title, instructions, provider/model, selected skills and configured remote connections. Show immutable @handles separately from editable titles. Do not show secrets or imply that selecting a connection confines native provider settings or filesystem access. Empty Chats/Agents lists have one creation action and no permanent search toolbar; populated lists use bounded search and Load more. Participant selection has no owner/admin/viewer role controls: current human participants have equal discussion and approval rights.
+
+Shared conversations reuse the bottom-anchored PageShell and the existing PromptBoxInternal editor and composer, not a parallel textarea implementation. Keep its attachment +, file picker, paste/drop, preview and Send affordances. Agent configuration owns provider/model selection; the shared composer does not duplicate it. Text stays above the internal action row; the composer never moves into the history. Names, timestamps, flat quoted replies and adjacent Reply/Copy icon actions identify messages. Reply has a tooltip and accessible label. Direct and group chats use the same plain message placeholder without permanent automatic-reply or mention-rule copy. Typing @ still suggests only member agents. A failed send retains its body, quote, uploaded attachment order and request identity across reload. Account/chat-scoped drafts never become another human's draft. Only the composer's own in-flight send locks editing; a working agent or pending approval does not.
+
+Native and shared-chat attachments use one AttachmentPreview presentation for thumbnails, file pills, removal controls, compact counts and image lightboxes. Separate data adapters enforce their distinct access boundaries; shared chat previews and downloads use opaque chat attachment IDs, never private native/project paths. Failed image reads show a retryable error. Attachment-only messages are valid, pending uploads prevent premature Send, and the composer admits at most 16 files. Keep native thread links, provider commands and plugin execution controls out of the shared composer rather than exposing private session capabilities. A chat's Project selector explains and respects the server's placement lock once agent work or uploads exist.
+
+Tool approvals are inline transcript cards attached to the initiating message, using the existing PendingInteractionShell, decision controls, question form and plugin renderer. They never replace or disable the composer. Show the exact proposed operation and arguments, pending/failed state, and the persisted human decision and time. Any current human participant can decide; do not visually claim success before the server accepts that decision. Retain settled receipts on reload and make uncertain interrupted effects explicit rather than offering an automatic repeat. Cards whose initiating message is outside the loaded page stay reachable in the transcript. Every chat composition uses the same inline agent activity row: reuse the native working shimmer and place a small, accessible Stop icon at the right while actually running. Waiting for approval or another response shows a static waiting label without a Stop icon; queued and settled deliveries do not offer Stop. There is no standalone Stop button below the conversation or in the composer. Any current human member can stop running work; backend Stop authorization and cancellation semantics are unchanged.
+
+Native code, file and app execution has full permissions under the user's chosen runtime. Otto tool mutations require inline human approval; known reads can run without one. Unknown remote effects are treated conservatively. This policy is not a claim that today's native host is a separately confined computer.
+
+Tasks and Projects add list-only browsing to the existing sidebar and main panel. Reuse the shared resource rows, filter controls, loading/error states and page shell; do not introduce boards, Gantt charts or a second project registry. Task details present the owner, assignees, due date, stage, resources, comments, immutable activity and manually logged time as read-only information. Project totals come from persisted project-wide aggregates, not the currently loaded task page. Use plain-language activity labels rather than internal operation names.
+
+Tasks and Projects are native choices in the existing `@` chat reference picker, including projects without sources. Preserve typed identities through drafts, clipboard and sent messages; reopenable pills lead to the core detail records. References provide server-resolved context without enabling the optional Tasks plugin or changing execution settings. An unavailable independent suggestion source, such as host file search, must not hide successful task or project results; show the failure state only when no usable suggestions remain.
+
+Creation and editing append context to the existing chat draft without submitting it or replacing its attachments and mentions. A remembered project conversation is reused where available. New work conversations require an explicit execution selection; a source-less planning project must not silently select a machine or development folder. Completion, archive and deletion use an inline authenticated-human confirmation in the conversation, not a modal editor. Distinguish a prepared file resource from a file actually linked to a task, and distinguish saved, read, failed and uncertain tool outcomes. Display manual time in human-readable units while storing milliseconds; do not add start/stop timers.
+
+Otto's preserved six-part logo and app artwork identify the product. Do not replace that identity with a generic interface glyph. Product asset sources remain unchanged under `assets/otto/`; generated variants are described in `docs/branding.md`.
+
+Official plugin publisher avatars use the owned Otto logo, not an unrelated GitHub account's avatar. Third-party publisher identity remains unchanged.
+
+Use Remix for interface icons across web, desktop-rendered UI and mobile. Preserve each control's meaning, inherited color, sizing and accessible label. Existing semantic icon identifiers may continue to provide the plugin-facing contract, but their rendering must use Remix shapes rather than another icon library. Keep SVG rendering primitives where required; they are not an alternative icon family.
+
+The imported web foundation now renders icons directly with `@remixicon/react`; the shared AppIcon only supplies existing tone and chip sizing. Native mobile renders individual Remix SVG components through `react-native-svg`, including copy feedback. File chips use the same filename classification on both clients and Remix shapes; native rich-text attachment images are generated from those shapes rather than the former file-icon sprite. Filled and outline variants express actual selected states; do not simulate a filled Remix icon with stroke-width or fill utility classes. Use Remix's brand glyphs where available; providers, editors and source hosts absent from Remix use neutral functional glyphs alongside their accurate text labels. Owned Otto product artwork remains separate and unchanged.
+
+The imported navigation rail and classic sidebar do not offer Feedback. The rail also has no theme-toggle shortcut; theme controls remain in Appearance settings. Keep Settings and the existing navigation destinations accessible.
+
+In-progress bot activity uses the Remix loading glyph with reduced-motion-aware rotation, replacing the custom pixel comet. Native Live Activity status, toolbar actions and context menus use generated Remix template assets, retaining phase tint, native glass controls and the owned Otto logo. Keep the existing short status text and shimmer treatment. Settings keeps General first in the App group; Account, Organization and Members form a separate three-item group.
+
+Expose plugin management through **Installed plugins** in Settings only. Remove the main app Plugins page, marketplace discovery and the **Plugin marketplaces** Settings entry. Old discovery links must not reopen a marketplace. Keep existing installed-plugin management and installation mechanisms, SDK and extension contracts; hiding product navigation is not removal of plugin capability. Skills remain a separate surface.
+
+The sidebar has no **Report a bug** action. Remove its external issue-launch action and documentation rather than leaving a hidden reporting feature. Ignore old saved footer keys for this removed action; do not erase saved data or remove plugin-contributed actions.
+
+The footer itself is fixed and visible while the sidebar is open: no footer customization, hide/show toggle, per-item hiding or overflow menu. The Mobile apps shortcut is removed from the footer; Mobile settings and the native app are outside that removal. Show all currently registered plugin footer actions in stable order and allow the row to wrap when space is limited. Historical saved footer ordering and hiding preferences must not hide or rearrange these controls. Preserve plugin disclosures, actions, keyboard focus and saved primary-navigation preferences.
+
+Remove the Provider usage footer shortcut and popup, including its unused global refresh script. Keep the existing Settings usage view, provider connections and execution unchanged. Alternate sidebar bodies must not hide the remaining footer actions.
+
+Remove all update affordances from both normal and Settings sidebars, including the update badge and Updates navigation entry. Preserve update routes and backend capability. Plugin-error attention is a separate disclosure and remains available.
+
+Browser tabs show the current page followed by ` | Otto`; Home is simply `Otto`. Default favicons use the owned black glyph on light browser chrome and white glyph on dark browser chrome, updating with the browser theme in development as well as production. Preserve custom tint, unread badge and standalone/PWA behavior.
+
+# Scope
+
+Form inputs use one vertical column, never split side by side; first and last name each take their own row. Authentication and onboarding Back actions sit below and outside the card, centered, using the shared ghost Button variant. This includes step navigation and Back to sign in. Preserve entered values, keyboard navigation and pending-state disabling when moving those controls outside the form.
+
+Shared-server accounts add only the necessary authentication surfaces: first-owner setup, sign-in, email-addressed invitation acceptance and password reset. Center the plain Otto mark at 30px above the card, white in dark mode and black in light mode, without a tile or visible wordmark. Fields use placeholders with visually hidden, programmatically associated labels; preserve autocomplete, validation and the bootstrap-token help. Keep the compact centered card on the same `rounded-lg` radius and inset border as Settings cards. Do not show a separate account-server footer below the card; retain the existing server/storage explanation inside first-owner setup. Do not mount workspace content behind the authentication form.
+
+**Members** belongs in the existing Settings navigation and uses the same heading/card alignment. Show the current workspace/server, members, invitation expiry and delivery state. All members share collaboration access; an Owner badge communicates the protected founding account, not a role editor. Invitations support both email and copyable links, with an explicit warning when a loopback link cannot reach another computer. Keep empty invitation states simple and place errors beside the relevant action. Never present SMTP configuration as proof that an email was delivered.
+
+Local onboarding is the same in a browser and the desktop app: first name and optional last name, then workspace name, then enter Otto. No email, password, installation token, hosting choice or cloud-account requirement belongs in this flow. The native desktop uses its private runtime connection; local browser launches use a narrowly scoped, server-authorized same-origin handoff on an actual loopback listener. A hostname or missing workspace alone never grants access. Welcome copy says “Make yourself at home. Your workspace stays on this computer.” and uses “Mac” in the Mac desktop. Existing local owners enter automatically when no human is already signed in; never silently replace another signed-in human. Invitation, reset and explicit sign-in paths do not trigger automatic owner recovery. Explicit sign-out lands on `/sign-in`, not another automatic login. Account and Members surfaces identify the owner as a Local account instead of displaying its internal non-deliverable address. Omit the ineffective sign-out action for that automatically authenticated local profile.
+
+Remote clients keep sign-in. Explicit shared-server first-owner setup remains at `/setup`, only before a workspace exists, with its operator authorization and email/password account followed by workspace name. It is an advanced operator path, never an automatic fallback when local startup fails. A fresh instance with unavailable local authorization shows a clear Workspace not ready/Retry state instead of sign-in or Server authorization. Both creation flows save the account and workspace at the final Create workspace action. Back preserves fields within the form, not across reloads. Invitation recipients create an account or sign in and join the existing workspace, without installation or workspace creation. Combine trimmed names into the existing account name with a 100-character total limit. Last name is optional to support people with one name. Sign-in and password reset remain single-step. Shared-server setup explains storage with “Your workspace is saved on this server. Keep it running to access Otto.” Connect remains optional remote access, not an onboarding requirement or a hosting promise.
+
+Show only active invitations; accepted, revoked and expired links leave the list. Longer member lists use a Load more action with the server's continuation cursor, retain loaded rows on failure and offer retry. Apply URL wrapping only to the server address, not the surrounding explanation. The Account menu identifies the signed-in server user and offers sign-out.
+
+Human chat messages may show their server-recorded author's name. Preserve existing agent/system presentation and do not invent identities for historical messages. Authentication changes clear the previous account's loaded workspace state before another account's content mounts.
+
+The sidebar/main-panel layout and measured token changes are explicitly authorized in addition to the preceding icon and navigation cleanup. Reuse existing components, variants and semantic tokens; do not redesign unrelated page content. Do not introduce a second icon family, a parallel plugin-management page or inaccessible icon-only controls. Browser evidence and source-specific checks belong in `docs/native-acceptance.md`. This local MVP has no Notion task or document updates.
+
+### Current installation-account direction — 12 October 2026
+
+The accepted installation-account scope supersedes the earlier local-account and owner-only onboarding descriptions above. Each installation has one named organization, email/password accounts with first and last names, and admin/member roles. Account, Organization and Members use the existing Settings components; inviting someone uses a single-email modal. Initial setup remains protected by the existing one-use operator token.
+
+Before an organization exists, entry routes go directly to `/setup` without showing a sign-in or installation-not-configured screen. Show the setup form; an operator link supplies its token automatically, while a direct visit allows entering that token. Redirecting to setup never grants setup authority. An initialized installation uses `/login`. No `/pair` page or redirect is retained.
+
+Setup follows three steps: Setup token, Your account, then Organization. A link that already supplies the token starts at the account step; Back allows reviewing it. Keep entered values in component state while navigating, never persistent browser storage. Send the setup request only after the final Create organization action, preserving the server's one-time-token authorization and atomic account/organization creation. An invalid token returns to its entry step without discarding the account fields.
+
+Authentication uses a narrow, centered, cardless column inspired by the supplied references, with no surrounding card, border or dividers. Each step has its own heading: Enter your setup token, Create your account, and Name your organization. Use the existing Input, Form and Button components, single-column fields, placeholders with accessible hidden labels, and quiet Back actions. TanStack Form owns form values, touched/error state, validation and submission; Zod validates the mounted step's fields. Show a small step count during setup; sign-in and password reset remain single-step.
+
+The auth app icon includes its preserved background, is 36px square, and shares `--control-radius` with default inputs and buttons. The initial splash instead uses only the white SVG mark, without a background, at 36px and 10% opacity. Use an approximate golden-ratio spacing rhythm of 8, 12, 20 and 32px. Primary auth buttons have a sky background and white labels; preserve every other existing theme color. A white page background is explicitly rejected.
+
+Inter is the shared UI font and Geist Mono is the shared monospace font. Apply these defaults consistently to new and existing surfaces; do not substitute another font when implementing designs.
+
+Authentication validation runs on submission only. Typing and leaving a field must not introduce errors or disable the next action. Keep submission enabled for corrections, show field-specific errors after a failed attempt, and keep Back navigation independent of validity. TanStack Form is the sole validation owner for these forms; use the shared Input's native control mode rather than running a second Base UI validator over it.
+
+Default shared Alerts use 12px horizontal and 8px vertical padding, including authentication notices, and the same 8px control-radius token as inputs and buttons. Keep this compact spacing and radius in the shared component, not page-level overrides; specialized presentations retain their existing treatment.

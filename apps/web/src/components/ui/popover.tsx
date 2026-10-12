@@ -1,0 +1,159 @@
+"use client";
+
+import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
+
+import { cn } from "~/lib/utils";
+
+const PopoverCreateHandle = PopoverPrimitive.createHandle;
+
+const Popover = PopoverPrimitive.Root;
+
+const POPOVER_POPUP_VARIANT_CLASSES = {
+  default: undefined,
+  // Edge-to-edge picker surface: no viewport padding, so the picker owns its layout.
+  "color-picker":
+    "rounded-2xl border border-border/70 p-0 shadow-2xl [--viewport-inline-padding:0px] [&_[data-slot=popover-viewport]]:p-0",
+  "accent-picker":
+    "rounded-md p-0 [--viewport-inline-padding:0px] [&_[data-slot=popover-viewport]]:p-0",
+  // Clipped picker whose content scrolls itself; the viewport class below drops padding.
+  "model-picker": "before:hidden [--viewport-inline-padding:0]",
+  // Narrow notice card that stays inside small windows.
+  "provider-update":
+    "w-[min(21rem,calc(100vw-1.5rem))] [--popup-width:min(21rem,calc(100vw-1.5rem))]",
+} as const;
+
+const POPOVER_VIEWPORT_VARIANT_CLASSES: Partial<
+  Record<keyof typeof POPOVER_POPUP_VARIANT_CLASSES, string>
+> = {
+  "model-picker":
+    "!overflow-hidden rounded-[calc(var(--radius-lg)-1px)] p-0 [clip-path:inset(0_round_calc(var(--radius-lg)-1px))]",
+};
+
+function PopoverTrigger({
+  className,
+  children,
+  variant,
+  revealOnHover = false,
+  ...props
+}: PopoverPrimitive.Trigger.Props & { variant?: "keybinding-condition"; revealOnHover?: boolean }) {
+  return (
+    <PopoverPrimitive.Trigger
+      className={cn(
+        variant === "keybinding-condition" &&
+          "inline-flex h-6 max-w-full min-w-0 items-center gap-1 rounded-md px-1.5 text-left text-[12px] text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/24 data-[popup-open]:bg-accent/60 data-[popup-open]:text-foreground",
+        variant === "keybinding-condition" &&
+          revealOnHover &&
+          "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100",
+        className,
+      )}
+      data-slot="popover-trigger"
+      {...props}
+    >
+      {children}
+    </PopoverPrimitive.Trigger>
+  );
+}
+
+function PopoverPopup({
+  children,
+  className,
+  viewportClassName,
+  viewportPadding = "default",
+  side = "bottom",
+  align = "center",
+  sideOffset = 4,
+  alignOffset = 0,
+  tooltipStyle = false,
+  anchor,
+  variant = "default",
+  ...props
+}: PopoverPrimitive.Popup.Props & {
+  viewportClassName?: string;
+  /** `none` lets edge-to-edge content, such as a color picker, fill the popup. */
+  viewportPadding?: "default" | "none";
+  side?: PopoverPrimitive.Positioner.Props["side"];
+  align?: PopoverPrimitive.Positioner.Props["align"];
+  sideOffset?: PopoverPrimitive.Positioner.Props["sideOffset"];
+  alignOffset?: PopoverPrimitive.Positioner.Props["alignOffset"];
+  tooltipStyle?: boolean;
+  anchor?: PopoverPrimitive.Positioner.Props["anchor"];
+  variant?: keyof typeof POPOVER_POPUP_VARIANT_CLASSES;
+}) {
+  return (
+    <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Positioner
+        align={align}
+        alignOffset={alignOffset}
+        anchor={anchor}
+        className="z-[130] h-(--positioner-height) w-(--positioner-width) max-w-(--available-width) transition-transform data-instant:transition-none"
+        data-slot="popover-positioner"
+        side={side}
+        sideOffset={sideOffset}
+      >
+        <PopoverPrimitive.Popup
+          className={cn(
+            "dropdown-glass relative flex h-(--popup-height,auto) w-(--popup-width,auto) origin-(--transform-origin) rounded-lg text-popover-foreground outline-none transition-[width,height,scale,opacity] has-data-[slot=calendar]:rounded-xl data-starting-style:scale-98 data-starting-style:opacity-0 shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]",
+            tooltipStyle &&
+              "w-fit text-balance rounded-md text-xs shadow-md/5 before:rounded-[calc(var(--radius-md)-1px)]",
+            !tooltipStyle &&
+              "shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]",
+            POPOVER_POPUP_VARIANT_CLASSES[variant],
+            className,
+          )}
+          data-slot="popover-popup"
+          {...props}
+        >
+          <PopoverPrimitive.Viewport
+            className={cn(
+              "relative size-full max-h-(--available-height) overflow-clip px-(--viewport-inline-padding) py-4 [--viewport-inline-padding:--spacing(4)] has-data-[slot=calendar]:p-2 data-instant:transition-none **:data-current:data-ending-style:opacity-0 **:data-current:data-starting-style:opacity-0 **:data-previous:data-ending-style:opacity-0 **:data-previous:data-starting-style:opacity-0 **:data-current:w-[calc(var(--popup-width)-2*var(--viewport-inline-padding)-2px)] **:data-previous:w-[calc(var(--popup-width)-2*var(--viewport-inline-padding)-2px)] **:data-current:opacity-100 **:data-previous:opacity-100 **:data-current:transition-opacity **:data-previous:transition-opacity",
+              tooltipStyle
+                ? "py-1 [--viewport-inline-padding:--spacing(2)]"
+                : "not-data-transitioning:overflow-y-auto",
+              viewportPadding === "none" && "p-0 [--viewport-inline-padding:0px]",
+              POPOVER_VIEWPORT_VARIANT_CLASSES[variant],
+              viewportClassName,
+            )}
+            data-slot="popover-viewport"
+          >
+            {children}
+          </PopoverPrimitive.Viewport>
+        </PopoverPrimitive.Popup>
+      </PopoverPrimitive.Positioner>
+    </PopoverPrimitive.Portal>
+  );
+}
+
+function PopoverClose({ ...props }: PopoverPrimitive.Close.Props) {
+  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />;
+}
+
+function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
+  return (
+    <PopoverPrimitive.Title
+      className={cn("font-semibold text-lg leading-none", className)}
+      data-slot="popover-title"
+      {...props}
+    />
+  );
+}
+
+function PopoverDescription({ className, ...props }: PopoverPrimitive.Description.Props) {
+  return (
+    <PopoverPrimitive.Description
+      className={cn("text-muted-foreground text-sm", className)}
+      data-slot="popover-description"
+      {...props}
+    />
+  );
+}
+
+export {
+  PopoverCreateHandle,
+  Popover,
+  PopoverTrigger,
+  PopoverPopup,
+  PopoverPopup as PopoverContent,
+  PopoverTitle,
+  PopoverDescription,
+  PopoverClose,
+};

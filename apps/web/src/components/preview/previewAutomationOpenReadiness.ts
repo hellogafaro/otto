@@ -1,0 +1,46 @@
+import { Data } from "effect";
+import { Predicate } from "effect";
+import {
+  FILL_PREVIEW_VIEWPORT,
+  type PreviewAutomationOpenInput,
+  type PreviewSessionSnapshot,
+  PreviewViewportSetting,
+} from "@otto/contracts";
+
+/**
+ * Viewport an agent-opened tab falls back to when the user has no configured
+ * browser default. Agents screenshot and assert against what they open, so a
+ * brand-new tab left in fill mode would be sized by whatever the panel happens
+ * to be — deterministic beats incidental here.
+ */
+const ViewportSettings = Data.taggedEnum<PreviewViewportSetting>();
+
+export const DEFAULT_PREVIEW_AUTOMATION_VIEWPORT = ViewportSettings.freeform({
+  width: 1280,
+  height: 800,
+});
+
+export function previewAutomationOpenNeedsOverlay(
+  input: PreviewAutomationOpenInput,
+  snapshot: PreviewSessionSnapshot,
+): boolean {
+  return input.url !== undefined || !Predicate.isTagged(snapshot.navStatus, "Idle");
+}
+
+/**
+ * Whether a freshly opened automation tab still needs a viewport applied.
+ *
+ * A configured browser default is sent with `preview.open`, so the snapshot
+ * already carries it and nothing is needed here. Fill means the user has no
+ * stated preference, which is where the agent fallback applies.
+ */
+export function previewAutomationDefaultViewport(
+  reusedExistingTab: boolean,
+  snapshot: PreviewSessionSnapshot,
+): PreviewViewportSetting | null {
+  const viewport = snapshot.viewport ?? FILL_PREVIEW_VIEWPORT;
+
+  return !reusedExistingTab && Predicate.isTagged(viewport, "fill")
+    ? DEFAULT_PREVIEW_AUTOMATION_VIEWPORT
+    : null;
+}

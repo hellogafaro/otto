@@ -1,0 +1,64 @@
+import {
+  BotAvatar,
+  BotEngine,
+  BotId,
+  ImageProviderId,
+  BotPersonalityTone,
+  PersistedBotSandbox,
+  ChannelBinding,
+  GroupId,
+  IsoDateTime,
+  McpServerId,
+  RuntimeMode,
+} from "@otto/contracts";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+
+import type { ProjectionRepositoryError } from "../Errors.ts";
+
+export const ProjectionBot = Schema.Struct({
+  botId: BotId,
+  name: Schema.String,
+  title: Schema.String,
+  label: Schema.NullOr(Schema.String),
+  description: Schema.NullOr(Schema.String),
+  disabledMcpServerIds: Schema.Array(McpServerId),
+  avatar: BotAvatar,
+  engine: Schema.NullOr(BotEngine),
+  sandbox: PersistedBotSandbox,
+  runtimeMode: RuntimeMode,
+  imageProvider: Schema.NullOr(ImageProviderId).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
+  personalityTone: Schema.optionalKey(BotPersonalityTone),
+  voiceEnabled: Schema.Boolean,
+  channelBindings: Schema.optional(Schema.Array(ChannelBinding)),
+  groupId: Schema.NullOr(GroupId),
+  archivedAt: Schema.NullOr(IsoDateTime),
+  createdAt: IsoDateTime,
+  updatedAt: IsoDateTime,
+});
+
+export type ProjectionBot = typeof ProjectionBot.Type;
+
+export const GetProjectionBotInput = Schema.Struct({ botId: BotId });
+
+export type GetProjectionBotInput = typeof GetProjectionBotInput.Type;
+
+export interface ProjectionBotRepositoryShape {
+  readonly upsert: (bot: ProjectionBot) => Effect.Effect<void, ProjectionRepositoryError>;
+  readonly getById: (
+    input: GetProjectionBotInput,
+  ) => Effect.Effect<Option.Option<ProjectionBot>, ProjectionRepositoryError>;
+  readonly listAll: () => Effect.Effect<ReadonlyArray<ProjectionBot>, ProjectionRepositoryError>;
+  readonly deleteById: (
+    input: GetProjectionBotInput,
+  ) => Effect.Effect<void, ProjectionRepositoryError>;
+}
+
+export class ProjectionBotRepository extends Context.Service<
+  ProjectionBotRepository,
+  ProjectionBotRepositoryShape
+>()("@otto/server/persistence/Services/ProjectionBots/ProjectionBotRepository") {}

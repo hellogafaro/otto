@@ -1,0 +1,430 @@
+# Tenki and required native runners build stable and nightly desktop releases.
+
+name: Stable and nightly releases
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - apps/server/package.json
+      - apps/desktop/package.json
+      - apps/web/package.json
+      - packages/contracts/package.json
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Release preflight
+    runs-on: tenki-standard-small-2c-4g
+    timeout-minutes: 15
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      channel: ${{ steps.version.outputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Read stable version
+        id: version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          version="$(node -p "require('./apps/server/package.json').version")"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            printf 'Stable release version is invalid: %s\n' "$version" >&2
+            exit 1
+          fi
+          for manifest in apps/desktop/package.json apps/web/package.json packages/contracts/package.json; do
+            actual="$(node -p "require('./$manifest').version")"
+            if test "$actual" != "$version"; then
+              printf '%s has version %s, expected %s.\n' "$manifest" "$actual" "$version" >&2
+              exit 1
+            fi
+          done
+          if test "$EVENT_NAME" = schedule; then
+            latest_tag="$(gh release list --limit 100 --json tagName,isPrerelease,publishedAt --jq '[.[] | select(.isPrerelease and (.tagName | startswith("nightly-v")))] | sort_by(.publishedAt) | last | .tagName // ""')"
+            previous_sha="-"
+            if test -n "$latest_tag"; then
+              git fetch --force origin "refs/tags/$latest_tag:refs/tags/$latest_tag"
+              previous_sha="$(git rev-list -n 1 "$latest_tag")"
+            fi
+            node scripts/nightly-release.ts "$version" "$GITHUB_SHA" "$previous_sha" "$RUN_ID" "$RUN_ATTEMPT"
+            printf 'channel=nightly\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if test "$EVENT_NAME" != workflow_dispatch; then
+            previous_version="$(git show "HEAD^:apps/server/package.json" | node -e "let data=''; process.stdin.on('data', chunk => data += chunk).on('end', () => console.log(JSON.parse(data).version))")"
+            for manifest in apps/desktop/package.json apps/web/package.json packages/contracts/package.json; do
+              previous="$(git show "HEAD^:$manifest" | node -e "let data=''; process.stdin.on('data', chunk => data += chunk).on('end', () => console.log(JSON.parse(data).version))")"
+              if test "$previous" != "$previous_version"; then
+                printf 'Previous package versions were not synchronized.\n' >&2
+                exit 1
+              fi
+            done
+            if test "$previous_version" = "$version"; then
+              printf 'publish=false\n' >> "$GITHUB_OUTPUT"
+              printf 'Stable version did not change; this push is not a release.\n'
+              exit 0
+            fi
+          fi
+          if git rev-parse --verify --quiet "refs/tags/v$version"; then
+            printf 'Stable tag v%s already exists.\n' "$version" >&2
+            exit 1
+          fi
+          printf 'publish=true\nversion=%s\ntag=v%s\nchannel=stable\n' "$version" "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Vite+
+        if: steps.version.outputs.publish == 'true'
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+
+      - name: Run release checks
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          vp run check:public-dependencies
+          vp run release:smoke
+          vp test run scripts/verify-release-assets.test.ts
+
+  desktop:
+    name: ${{ matrix.label }}
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+      OTTO_LEGACY_DESKTOP_UPDATE_REPOSITORY: hellogafaro/otto
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS arm64 DMG
+            runner: macos-26
+            platform: mac
+            target: dmg
+            arch: arm64
+            rust_target: aarch64-apple-darwin
+          - label: Windows x64 NSIS
+            runner: windows-2025
+            platform: win
+            target: nsis
+            arch: x64
+            rust_target: x86_64-pc-windows-msvc
+          - label: Linux x64 AppImage
+            runner: tenki-standard-medium-4c-8g
+            platform: linux
+            target: AppImage
+            arch: x64
+            rust_target: x86_64-unknown-linux-gnu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@8a7496fd44e8a1b0a88a7459e36213b2fefc1d15 # v1
+        with:
+          node-version-file: package.json
+          cache: ${{ matrix.platform != 'win' }}
+          run-install: false
+
+      - name: Install desktop dependencies
+        run: vp install --frozen-lockfile --filter=@otto/desktop... --filter=otto... --filter=@otto/scripts...
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install ImageMagick
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
+      - name: Validate macOS signing credentials
+        if: matrix.platform == 'mac'
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPSTORE_API_KEY_P8: ${{ secrets.APPSTORE_API_KEY_P8 }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          values=("$MACOS_CERTIFICATE_P12" "$MACOS_CERTIFICATE_PASSWORD" "$MACOS_SIGNING_IDENTITY" "$APPSTORE_API_KEY_P8" "$APPSTORE_API_KEY_ID" "$APPSTORE_ISSUER_ID")
+          present=0
+          for value in "${values[@]}"; do test -n "$value" && present=$((present + 1)); done
+          if (( present != 0 && present != ${#values[@]} )); then
+            printf 'macOS signing credentials must be either complete or absent.\n' >&2
+            exit 1
+          fi
+          signed=false
+          if (( present > 0 )); then signed=true; fi
+          if test "$signed" != true && test "$RELEASE_CHANNEL" = stable; then
+            printf 'Stable macOS releases require the complete Developer ID signing credential set.\n' >&2
+            exit 1
+          fi
+          printf 'MACOS_SIGNED=%s\n' "$signed" >> "$GITHUB_ENV"
+
+      - name: Validate Windows signing credentials
+        if: matrix.platform == 'win'
+        shell: bash
+        env:
+          AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          values=("$AZURE_TRUSTED_SIGNING_PUBLISHER_NAME" "$AZURE_TRUSTED_SIGNING_ENDPOINT" "$AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME" "$AZURE_TRUSTED_SIGNING_ACCOUNT_NAME" "$AZURE_CLIENT_ID" "$AZURE_TENANT_ID" "$AZURE_CLIENT_SECRET")
+          present=0
+          for value in "${values[@]}"; do test -n "$value" && present=$((present + 1)); done
+          if (( present != 0 && present != ${#values[@]} )); then
+            printf 'Signing credentials must be either complete or absent.\n' >&2
+            exit 1
+          fi
+          signed=false
+          if (( present > 0 )); then signed=true; fi
+          printf 'SIGNED=%s\n' "$signed" >> "$GITHUB_ENV"
+
+      - name: Import macOS signing certificate
+        if: matrix.platform == 'mac' && env.MACOS_SIGNED == 'true'
+        uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7.0.0
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+
+      - name: Configure macOS notarization
+        if: matrix.platform == 'mac' && env.MACOS_SIGNED == 'true'
+        shell: bash
+        env:
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPSTORE_API_KEY_P8: ${{ secrets.APPSTORE_API_KEY_P8 }}
+        run: |
+          case "$MACOS_SIGNING_IDENTITY" in
+            "Developer ID Application:"*) ;;
+            *) printf 'MACOS_SIGNING_IDENTITY must name a Developer ID Application certificate.\n' >&2; exit 1 ;;
+          esac
+          printf '%s' "$APPSTORE_API_KEY_P8" > "$RUNNER_TEMP/notarytool-api-key.p8"
+          chmod 600 "$RUNNER_TEMP/notarytool-api-key.p8"
+          printf 'CSC_NAME=%s\n' "${MACOS_SIGNING_IDENTITY#Developer ID Application: }" >> "$GITHUB_ENV"
+
+      - name: Build signed macOS artifact
+        if: matrix.platform == 'mac' && env.MACOS_SIGNED == 'true'
+        shell: bash
+        env:
+          APPLE_API_KEY: ${{ runner.temp }}/notarytool-api-key.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          vp run dist:desktop:artifact \
+            --platform mac \
+            --target dmg \
+            --arch arm64 \
+            --build-version "$RELEASE_VERSION" \
+            --signed \
+            --verbose
+
+      - name: Build unsigned macOS artifact
+        if: matrix.platform == 'mac' && env.MACOS_SIGNED != 'true'
+        shell: bash
+        run: |
+          vp run dist:desktop:artifact \
+            --platform mac \
+            --target dmg \
+            --arch arm64 \
+            --build-version "$RELEASE_VERSION" \
+            --verbose
+
+      - name: Build Windows artifact
+        if: matrix.platform == 'win'
+        shell: bash
+        env:
+          AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          args=(--platform win --target nsis --arch x64 --build-version "$RELEASE_VERSION" --verbose)
+          if test "$SIGNED" = true; then args+=(--signed); fi
+          vp run dist:desktop:artifact "${args[@]}"
+
+      - name: Build Linux artifact
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: vp run dist:desktop:artifact --platform linux --target AppImage --arch x64 --build-version "$RELEASE_VERSION" --verbose
+
+      - name: Notarize and verify macOS DMG
+        if: matrix.platform == 'mac' && env.MACOS_SIGNED == 'true'
+        shell: bash
+        env:
+          APPLE_API_KEY: ${{ runner.temp }}/notarytool-api-key.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          dmg="release/Otto-Bot-$RELEASE_VERSION-arm64.dmg"
+          xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
+          mount_point="$RUNNER_TEMP/otto-dmg"
+          mkdir -p "$mount_point"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_point"
+          trap 'hdiutil detach "$mount_point" >/dev/null 2>&1 || true' EXIT
+          apps=("$mount_point"/*.app)
+          test "${#apps[@]}" -eq 1
+          codesign --verify --deep --strict --verbose=2 "${apps[0]}"
+          xcrun stapler validate "${apps[0]}"
+          spctl --assess --type execute --verbose=2 "${apps[0]}"
+
+      - name: Verify unsigned macOS app signature
+        if: matrix.platform == 'mac' && env.MACOS_SIGNED != 'true'
+        shell: bash
+        run: |
+          dmg="release/Otto-Bot-$RELEASE_VERSION-arm64.dmg"
+          mount_point="$RUNNER_TEMP/otto-unsigned-dmg"
+          mkdir -p "$mount_point"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_point"
+          trap 'hdiutil detach "$mount_point" >/dev/null 2>&1 || true' EXIT
+          apps=("$mount_point"/*.app)
+          test "${#apps[@]}" -eq 1
+          codesign --verify --deep --strict --verbose=2 "${apps[0]}"
+          signature="$(codesign -dv --verbose=4 "${apps[0]}" 2>&1)"
+          printf '%s\n' "$signature"
+          if ! printf '%s\n' "$signature" | grep -q '^Signature=adhoc$'; then
+            printf 'Packaged app does not use an ad-hoc signature.\n' >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "$signature" | grep -Fqx 'Identifier=studio.hellogafaro.otto'; then
+            printf 'Packaged app is missing the Otto bundle identifier.\n' >&2
+            exit 1
+          fi
+
+      - name: Launch macOS DMG
+        if: matrix.platform == 'mac'
+        run: vp run test:desktop-packaged-mac -- "release/Otto-Bot-$RELEASE_VERSION-arm64.dmg"
+
+      - name: Upload desktop assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ needs.preflight.outputs.channel }}-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*
+            !release/builder-debug.yml
+          if-no-files-found: error
+          retention-days: 7
+
+  remote:
+    name: Otto Remote ${{ matrix.platform }} ${{ matrix.arch }}
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Native runners, because the server ships native modules. These are the only targets
+        # scripts/install-remote.sh and scripts/install-remote.ps1 accept.
+        include:
+          - runner: tenki-standard-medium-4c-8g
+            platform: linux
+            arch: x64
+          - runner: macos-26
+            platform: darwin
+            arch: arm64
+          - runner: windows-2025
+            platform: win32
+            arch: x64
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@8a7496fd44e8a1b0a88a7459e36213b2fefc1d15 # v1
+        with:
+          node-version-file: package.json
+          cache: ${{ matrix.platform != 'win32' }}
+          run-install: true
+      - name: Build hosted client and server
+        run: |
+          vp run --filter @otto/web build
+          node apps/server/scripts/cli.ts build
+      - name: Assemble the production runtime
+        shell: bash
+        run: |
+          corepack enable
+          runtime="$RUNNER_TEMP/otto-runtime"
+          pnpm --config.inject-workspace-packages=true --config.node-linker=hoisted --filter @otto/server deploy --prod "$runtime"
+          mkdir -p "$runtime/node_modules/otto"
+          mv "$runtime/dist" "$runtime/node_modules/otto/dist"
+      - name: Package Otto Remote archive
+        shell: bash
+        run: node scripts/package-remote.ts archive "$RUNNER_TEMP/otto-runtime" release "$RELEASE_VERSION" ${{ matrix.platform }} ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ needs.preflight.outputs.channel }}-remote-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release/Otto-Remote-*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish release
+    needs: [preflight, desktop, remote]
+    if: needs.preflight.outputs.publish == 'true'
+    runs-on: tenki-standard-small-2c-4g
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+      RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ needs.preflight.outputs.channel }}-*
+          path: release
+          merge-multiple: true
+      - name: Sign the Otto Remote manifest
+        env:
+          OTTO_REMOTE_MANIFEST_SIGNING_KEY: ${{ secrets.OTTO_REMOTE_MANIFEST_SIGNING_KEY }}
+        run: node scripts/package-remote.ts manifest release "$RELEASE_VERSION"
+      - name: Verify names and hashes
+        run: node scripts/verify-release-assets.ts release "$RELEASE_VERSION"
+      - name: Create stable GitHub Release
+        if: env.RELEASE_CHANNEL == 'stable'
+        run: gh release create "$RELEASE_TAG" release/* --target "$GITHUB_SHA" --title "Otto $RELEASE_TAG" --generate-notes
+      - name: Create nightly GitHub Release
+        if: env.RELEASE_CHANNEL == 'nightly'
+        run: gh release create "$RELEASE_TAG" release/* --target "$GITHUB_SHA" --title "Otto nightly $RELEASE_VERSION" --prerelease --latest=false --generate-notes
+      - name: Update the next version PR
+        if: env.RELEASE_CHANNEL == 'stable'
+        run: gh workflow run version-packages.yml --ref main

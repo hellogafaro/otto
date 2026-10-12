@@ -1,0 +1,12 @@
+import { createFileRoute, redirect } from "@tanstack/react-router";
+
+import { BotSettingsPage } from "../components/roster/BotSettingsPage";
+
+export const Route = createFileRoute("/bots/$botId/settings")({
+  beforeLoad: async ({ context }) => {
+    if (context.authGateState.status !== "authenticated") {
+      throw redirect({ to: "/login", replace: true });
+    }
+  },
+  component: () => <BotSettingsPage botId={Route.useParams().botId} />,
+});

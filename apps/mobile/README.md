@@ -1,0 +1,91 @@
+# Otto Mobile
+
+> [!WARNING]
+> Otto Mobile is currently in development and is not distributed yet. If you want to try it out, you can build it from source.
+
+## Quickstart
+
+> [!NOTE]
+> Uses native modules so using Expo Go is not supported. You need to use the Expo Dev Client.
+
+This app has two variants:
+
+- `development`: Expo dev client, installable side-by-side as `Otto Dev`
+- `production`: store/release build as `Otto`
+
+Run commands from `apps/mobile`.
+
+OttoLegacy Connect is optional and disabled in a fresh clone. Public configuration belongs in the
+repository-root `.env` or `.env.local`, not an `apps/mobile/.env` file. See
+[`../../.env.example`](../../.env.example).
+
+## Development
+
+Start Metro for the dev client:
+
+```bash
+vp run dev:client
+```
+
+Build and run the local iOS dev client:
+
+```bash
+vp run ios:dev
+```
+
+If your Xcode account only has a Personal Team, use a bundle identifier you control and opt into the
+reduced-capability local build. Personal Team builds omit the widget and share extensions, push
+entitlement, and native Sign in with Apple entitlement; builds without this opt-in are unchanged.
+
+```bash
+OTTO_LEGACY_IOS_PERSONAL_TEAM=1 \
+OTTO_LEGACY_IOS_PERSONAL_TEAM_BUNDLE_ID=dev.example.otto.dev \
+vp run ios:dev
+```
+
+Build and install a self-contained Release app that does not need Metro:
+
+```bash
+vp run ios:release
+```
+
+The Personal Team equivalent also needs a unique bundle identifier:
+
+```bash
+OTTO_LEGACY_IOS_PERSONAL_TEAM=1 \
+OTTO_LEGACY_IOS_PERSONAL_TEAM_BUNDLE_ID=dev.example.otto \
+vp run ios:release
+```
+
+Inspect the resolved Expo config for a variant:
+
+```bash
+vp run config:dev
+vp run config:prod
+```
+
+Run static checks for mobile native code:
+
+```bash
+node ../../scripts/mobile-native-static-check.ts
+```
+
+The native lint task runs SwiftLint for Swift plus ktlint and detekt for Kotlin. Missing native tools are reported as warnings and skipped locally. CI installs the default toolset from `apps/mobile/Brewfile` before running the native checks.
+
+## EAS Builds
+
+For the production EAS environment, set `OTTO_LEGACY_CLERK_PUBLISHABLE_KEY`,
+`OTTO_LEGACY_CLERK_JWT_TEMPLATE`, and `OTTO_LEGACY_RELAY_URL`
+as EAS environment variables. Expo config maps the canonical values into the mobile build.
+
+Create a cloud dev-client build:
+
+```bash
+vp run eas:ios:dev
+```
+
+Android equivalents:
+
+```bash
+vp run eas:android:dev
+```

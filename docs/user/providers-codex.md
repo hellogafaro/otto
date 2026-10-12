@@ -1,0 +1,65 @@
+# Codex
+
+Otto runs Codex models through its built-in Mastra-based runtime. Connect a ChatGPT subscription in
+Otto. You do not need the Codex CLI for Otto bot turns.
+
+## Connect ChatGPT
+
+1. Open **Settings > Providers**.
+2. Find **ChatGPT** and select **Connect**.
+3. Copy the displayed device code, then open the sign-in page and enter it.
+4. Approve access with the ChatGPT account that this environment should use.
+5. Return to Otto and wait for the account status to update.
+
+Otto supports ChatGPT Plus, Pro, Business, Enterprise, and Edu. Select **Check OAuth** to test the
+stored login. Otto refreshes an elapsed access token when it next needs one. Use **Reconnect** if
+the refresh grant is rejected or **Check OAuth** reports a revoked login.
+
+ChatGPT image generation needs this account sign-in. An OpenAI API key for Codex chat does not
+connect the ChatGPT image provider.
+
+New bots use GPT-6.1 Sol when it is available to the connected account. You can choose another model
+in the bot's settings.
+
+To use a second ChatGPT account, add a Codex instance on the same provider page, then connect its
+account in that instance's **Instance account** section. Choose the instance when assigning a bot or
+selecting a model. Each instance keeps its own sign-in. Disconnecting one removes only its saved
+credential; deleting the instance removes its credential too.
+
+## How Codex runs
+
+Otto creates and controls the Codex session. The runtime supplies:
+
+- the bot's local or remote workspace
+- installed plugins and MCP tools
+- Otto memory and bot tools
+- the selected permission mode
+- the selected ChatGPT subscription model
+
+Otto normalizes tool calls, approvals, usage, messages, and errors before it sends them to the
+client. This keeps the same chat controls available on web, desktop, and mobile.
+
+The environment server stores the subscription credential under its private secrets directory. It
+passes short-lived access to the runtime when needed. The credential does not enter the project,
+conversation history, checkpoints, or client storage.
+
+## Protected actions
+
+The runtime can allow routine reads and edits based on the chat's permission mode. It still asks
+before an action that sends data, pays, deletes, changes production, publishes, exposes secrets,
+signs, refunds, or changes an account. An approval applies only to the pending action.
+
+See [Permission modes](./permission-modes.md) for the complete mode behavior.
+
+## Fix sign-in problems
+
+If Codex cannot start:
+
+1. Open **Settings > Providers**.
+2. Check the ChatGPT status.
+3. Select **Check OAuth**.
+4. Select **Reconnect** if the check fails.
+5. Confirm that the account has a supported ChatGPT plan.
+
+Repeat these steps on the environment that owns the project. Signing in on another Otto server does
+not connect this one.

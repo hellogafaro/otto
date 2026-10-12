@@ -1,0 +1,85 @@
+import { describe, expect, it } from "@effect/vitest";
+
+import { projectThreadContentPresentation } from "./threadContentPresentation";
+
+describe("thread content presentation", () => {
+  it("renders cached detail while its environment reconnects", () => {
+    expect(
+      projectThreadContentPresentation({
+        hasDetail: true,
+        detailError: null,
+        detailDeleted: false,
+        connectionState: "reconnecting",
+      }),
+    ).toEqual({ kind: "ready" });
+  });
+
+  it("loads missing detail inside the thread screen when connected", () => {
+    expect(
+      projectThreadContentPresentation({
+        hasDetail: false,
+        detailError: null,
+        detailDeleted: false,
+        connectionState: "connected",
+      }),
+    ).toEqual({ kind: "loading" });
+  });
+
+  it("explains uncached detail while disconnected instead of loading forever", () => {
+    expect(
+      projectThreadContentPresentation({
+        hasDetail: false,
+        detailError: null,
+        detailDeleted: false,
+        connectionState: "error",
+      }),
+    ).toEqual({
+      kind: "unavailable",
+      title: "Messages not cached",
+      detail: "Reconnect this environment to load the chat.",
+    });
+  });
+
+  it("uses bot-session language when the detail was deleted", () => {
+    expect(
+      projectThreadContentPresentation({
+        hasDetail: false,
+        detailError: null,
+        detailDeleted: true,
+        connectionState: "connected",
+      }),
+    ).toEqual({
+      kind: "unavailable",
+      title: "Chat unavailable",
+      detail: "This chat was deleted or is no longer available.",
+    });
+  });
+
+  it("surfaces detail errors before presenting a loading state", () => {
+    expect(
+      projectThreadContentPresentation({
+        hasDetail: false,
+        detailError: "The thread stream failed.",
+        detailDeleted: false,
+        connectionState: "connected",
+      }),
+    ).toEqual({
+      kind: "unavailable",
+      title: "Could not load chat",
+      detail: "The thread stream failed.",
+    });
+  });
+});
+
+describe("projectThreadContentPresentation identity", () => {
+  it("returns the same object for equal inputs so memoized consumers skip renders", () => {
+    const ready = { hasDetail: true, detailError: null, detailDeleted: false } as const;
+    expect(projectThreadContentPresentation({ ...ready, connectionState: "connected" })).toBe(
+      projectThreadContentPresentation({ ...ready, connectionState: "connected" }),
+    );
+    const failed = { hasDetail: false, detailError: "boom", detailDeleted: false } as const;
+    expect(projectThreadContentPresentation({ ...failed, connectionState: "connected" })).toBe(
+      projectThreadContentPresentation({ ...failed, connectionState: "connected" }),
+    );
+  });
+});

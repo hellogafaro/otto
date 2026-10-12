@@ -1,0 +1,564 @@
+import { Schema } from "effect";
+import { OttoDelegationRecord, EnvironmentId, ThreadId } from "@otto/contracts";
+import { Predicate } from "effect";
+import { useAtomValue } from "@effect/atom-react";
+import { Atom } from "effect/unstable/reactivity";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert } from "react-native";
+import * as Cause from "effect/Cause";
+import {
+  CommandId,
+  MessageId,
+  type ModelSelection,
+  DEFAULT_PROVIDER_INTERACTION_MODE,
+  type RuntimeMode,
+} from "@otto/contracts";
+import { safeErrorLogAttributes } from "@otto/client-runtime/errors";
+import {
+  codexFeedbackMessage,
+  parseCodexFeedbackCommand,
+  submitCodexFeedback,
+  type CodexFeedbackSubmission,
+} from "@otto/client-runtime/state/threads";
+import { isAtomCommandInterrupted } from "@otto/client-runtime/state/runtime";
+import { deriveActiveWorkStartedAt } from "@otto/shared/orchestrationTiming";
+import { createQueuedMessageMetadata } from "../lib/commandMetadata";
+import {
+  convertPastedImagesToAttachments,
+  pasteComposerClipboard,
+  pickComposerImages,
+} from "../lib/composerImages";
+import { scopedThreadKey } from "../lib/scopedEntities";
+import { copyTextWithHaptic } from "../lib/copyTextWithHaptic";
+import { useMobileI18n } from "../lib/i18n";
+import {
+  createThreadFeedBuilder,
+  deriveThreadFeedDelegations,
+  unchangedPrefixLength,
+} from "../lib/threadActivity";
+import { tryOpenExternalUrl } from "../lib/openExternalUrl";
+import {
+  appendComposerDraftAttachments,
+  appendComposerDraftText,
+  clearComposerDraftContent,
+  ensureComposerDraftsLoaded,
+  getComposerDraftSnapshot,
+  mergeComposerDraftContent,
+  removeComposerDraftAttachment,
+  setComposerDraftText,
+  updateComposerDraftSettings,
+  useComposerDraft,
+  useComposerDraftSettings,
+} from "./use-composer-drafts";
+import { setPendingConnectionError } from "../state/use-remote-environment-registry";
+import { useSelectedThreadDetail } from "../state/use-thread-detail";
+import { useThreadSelection } from "../state/use-thread-selection";
+import { environmentSnapshotAtom } from "../state/shell";
+import { enqueueThreadOutboxMessage } from "./thread-outbox";
+import { useThreadOutboxMessages } from "./use-thread-outbox";
+import { threadEnvironment } from "./threads";
+import { useAtomCommand } from "./use-atom-command";
+import { botEnvironment } from "./bots";
+import { effectiveThreadModelSelection, threadBotEngineUpdate } from "./thread-bot-engine";
+import { useThreadEngineBot } from "./use-thread-engine-bot";
+
+const decodeFeedDelegations = Schema.decodeUnknownSync(
+  Schema.Struct({
+    delegations: Schema.Array(OttoDelegationRecord),
+    waitingOnChildren: Schema.Boolean,
+  }),
+);
+
+export function useThreadDraftForThread(input: {
+  readonly environmentId?: EnvironmentId;
+  readonly threadId?: ThreadId;
+}) {
+  const threadKey =
+    input.environmentId && input.threadId
+      ? scopedThreadKey(input.environmentId, input.threadId)
+      : null;
+
+  const draft = useComposerDraft(threadKey);
+
+  return {
+    draftMessage: draft.text,
+    draftAttachments: draft.attachments,
+  };
+}
+
+const EMPTY_FEEDBACK_SUBMISSIONS: ReadonlyArray<CodexFeedbackSubmission> = Object.freeze([]);
+
+const feedDelegationsAtom = Atom.family((key: string) => {
+  const [environmentKey, threadKey] = key.split("\n");
+  const environmentId = environmentKey ? EnvironmentId.make(environmentKey) : undefined;
+  const threadId = threadKey ? ThreadId.make(threadKey) : undefined;
+
+  return Atom.make((get) =>
+    deriveThreadFeedDelegations(
+      threadId,
+      environmentId === undefined
+        ? undefined
+        : (get(environmentSnapshotAtom(environmentId))?.delegations ?? []),
+    ),
+  ).pipe(Atom.withLabel(`mobile-feed-delegations:${key}`));
+});
+
+export function useThreadComposerState() {
+  const { t } = useMobileI18n();
+  const { selectedThread: selectedThreadShell, selectedEnvironmentRuntime } = useThreadSelection();
+  const selectedThreadDetail = useSelectedThreadDetail();
+  const buildSelectedThreadFeed = useMemo(() => createThreadFeedBuilder(), []);
+  const openedAuthorizationActivitiesRef = useRef(new Set<string>());
+  const queuedMessagesByThreadKey = useThreadOutboxMessages();
+
+  const [feedbackSubmissionsByThreadKey, setFeedbackSubmissionsByThreadKey] = useState<
+    Record<string, ReadonlyArray<CodexFeedbackSubmission>>
+  >({});
+
+  const uploadThreadFeedback = useAtomCommand(threadEnvironment.uploadFeedback, {
+    reportFailure: false,
+  });
+
+  const updateBot = useAtomCommand(botEnvironment.update, { reportFailure: false });
+
+  useEffect(() => {
+    ensureComposerDraftsLoaded();
+  }, []);
+
+  const scannedAuthorizationActivitiesRef = useRef<ReadonlyArray<unknown>>([]);
+  useEffect(() => {
+    const activities = selectedThreadDetail?.activities ?? [];
+    // Activity updates usually append, so only the unseen tail is scanned.
+    const start = unchangedPrefixLength(scannedAuthorizationActivitiesRef.current, activities);
+    scannedAuthorizationActivitiesRef.current = activities;
+
+    for (let index = start; index < activities.length; index += 1) {
+      const activity = activities[index];
+
+      if (activity?.kind !== "mcp.oauth.authorization-required") continue;
+
+      if (openedAuthorizationActivitiesRef.current.has(activity.id)) continue;
+
+      if (!activity.payload || !Predicate.isObject(activity.payload)) continue;
+      const authorizationUrl = activity.payload.authorizationUrl;
+
+      if (!Predicate.isString(authorizationUrl)) continue;
+
+      try {
+        if (new URL(authorizationUrl).protocol !== "https:") continue;
+      } catch {
+        continue;
+      }
+
+      openedAuthorizationActivitiesRef.current.add(activity.id);
+      void tryOpenExternalUrl(authorizationUrl, "mcp-oauth");
+      // Leave later rows unscanned so the next update can open them.
+      scannedAuthorizationActivitiesRef.current = activities.slice(0, index + 1);
+      break;
+    }
+  }, [selectedThreadDetail?.activities]);
+
+  const selectedThreadKey = selectedThreadShell
+    ? scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id)
+    : null;
+
+  const selectedThreadQueuedMessages = useMemo(
+    () => (selectedThreadKey ? (queuedMessagesByThreadKey[selectedThreadKey] ?? []) : []),
+    [queuedMessagesByThreadKey, selectedThreadKey],
+  );
+
+  // Delegations live on the environment snapshot, not the thread detail.
+  const selectedThreadDelegations = useAtomValue(
+    feedDelegationsAtom(
+      selectedThreadShell
+        ? `${selectedThreadShell.environmentId}\n${selectedThreadShell.id}`
+        : "\n",
+    ),
+  );
+
+  const selectedThreadFeedDelegations = useMemo(
+    () => decodeFeedDelegations(JSON.parse(selectedThreadDelegations)),
+    [selectedThreadDelegations],
+  );
+
+  const selectedThreadFeedbackSubmissions = selectedThreadKey
+    ? (feedbackSubmissionsByThreadKey[selectedThreadKey] ?? EMPTY_FEEDBACK_SUBMISSIONS)
+    : EMPTY_FEEDBACK_SUBMISSIONS;
+
+  const selectedThreadLocalMessages = useMemo(
+    () =>
+      selectedThreadFeedbackSubmissions.flatMap((submission) =>
+        submission.status === "interrupted"
+          ? []
+          : [codexFeedbackMessage(submission), codexFeedbackMessage(submission, "assistant")],
+      ),
+    [selectedThreadFeedbackSubmissions],
+  );
+
+  const selectedThreadActivities = selectedThreadDetail?.activities;
+  const selectedThreadMessages = selectedThreadDetail?.messages;
+
+  const selectedThreadFeed = useMemo(() => {
+    if (!selectedThreadActivities || !selectedThreadMessages) return [];
+
+    return buildSelectedThreadFeed(
+      { activities: selectedThreadActivities, messages: selectedThreadMessages },
+      {
+        localMessages: selectedThreadLocalMessages,
+        delegations: selectedThreadFeedDelegations.delegations,
+      },
+    );
+  }, [
+    buildSelectedThreadFeed,
+    selectedThreadActivities,
+    selectedThreadMessages,
+    selectedThreadLocalMessages,
+    selectedThreadFeedDelegations,
+  ]);
+
+  // Draft text and attachments are read by the composer itself, so typing
+  // re-renders the composer rather than the whole thread route.
+  const selectedDraft = useComposerDraftSettings(selectedThreadKey);
+  const selectedThreadQueueCount = selectedThreadQueuedMessages.length;
+  const selectedThread = selectedThreadDetail ?? selectedThreadShell;
+  // A direct bot chat shows and sends with the bot's engine, never a stale draft.
+  const engineBot = useThreadEngineBot(selectedThreadShell?.environmentId, selectedThread);
+
+  const modelSelection = selectedThread
+    ? effectiveThreadModelSelection({
+        bot: engineBot,
+        draftSelection: selectedDraft.modelSelection,
+        threadSelection: selectedThread.modelSelection,
+      })
+    : null;
+
+  const runtimeMode = selectedDraft.runtimeMode ?? selectedThread?.runtimeMode ?? null;
+
+  const selectedThreadSessionActivity = useMemo(() => {
+    const selectedThread = selectedThreadDetail ?? selectedThreadShell;
+
+    if (!selectedThread?.session) {
+      return null;
+    }
+
+    return {
+      orchestrationStatus: selectedThread.session.status,
+      activeTurnId: selectedThread.session.activeTurnId ?? undefined,
+    };
+  }, [selectedThreadDetail, selectedThreadShell]);
+
+  const activeWorkStartedAt = useMemo(() => {
+    const selectedThread = selectedThreadDetail ?? selectedThreadShell;
+
+    if (!selectedThread) {
+      return null;
+    }
+
+    return deriveActiveWorkStartedAt(
+      selectedThread.latestTurn,
+      selectedThreadSessionActivity,
+      null,
+    );
+  }, [selectedThreadDetail, selectedThreadSessionActivity, selectedThreadShell]);
+
+  const onSendMessage = useCallback(async () => {
+    if (!selectedThreadShell) {
+      return null;
+    }
+
+    const threadKey = scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id);
+    const draft = getComposerDraftSnapshot(threadKey);
+    const thread = selectedThreadDetail ?? selectedThreadShell;
+    const text = draft.text.trim();
+    const attachments = draft.attachments;
+
+    if (text.length === 0 && attachments.length === 0) {
+      return null;
+    }
+
+    const provider = selectedEnvironmentRuntime?.serverConfig?.providers.find(
+      (entry) => entry.instanceId === thread.modelSelection.instanceId,
+    );
+
+    const feedbackCommand =
+      attachments.length === 0 &&
+      (provider?.driver === "codex" || thread.session?.providerName === "codex")
+        ? parseCodexFeedbackCommand(text)
+        : null;
+
+    if (feedbackCommand) {
+      if (thread.session === null) {
+        Alert.alert(t("Start a Codex chat first"), t("Send a message before you submit feedback."));
+
+        return null;
+      }
+
+      const metadata = createQueuedMessageMetadata();
+
+      const result = await submitCodexFeedback({
+        submission: {
+          id: MessageId.make(metadata.messageId),
+          command: text,
+          createdAt: metadata.createdAt,
+        },
+        clearDraft: () => clearComposerDraftContent(threadKey),
+        onUpdate: (submission) => {
+          setFeedbackSubmissionsByThreadKey((current) => {
+            const existing = current[threadKey] ?? [];
+            const found = existing.some((entry) => entry.id === submission.id);
+
+            return {
+              ...current,
+              [threadKey]: found
+                ? existing.map((entry) => (entry.id === submission.id ? submission : entry))
+                : [...existing, submission],
+            };
+          });
+        },
+        upload: () =>
+          uploadThreadFeedback({
+            environmentId: selectedThreadShell.environmentId,
+            input: {
+              threadId: selectedThreadShell.id,
+              ...feedbackCommand,
+            },
+          }),
+      });
+
+      if (Predicate.isTagged(result, "Failure")) {
+        if (isAtomCommandInterrupted(result)) {
+          return null;
+        }
+
+        const error = Cause.squash(result.cause);
+        Alert.alert(
+          t("Could not send feedback to OpenAI"),
+          error instanceof Error ? error.message : t("An error occurred."),
+        );
+
+        return null;
+      }
+
+      const feedbackId = result.value.feedbackId;
+      Alert.alert(t("Feedback sent to OpenAI"), t("Thread ID: {id}", { id: feedbackId }), [
+        { text: t("OK"), style: "cancel" },
+        {
+          text: t("Copy ID"),
+          onPress: () => copyTextWithHaptic(feedbackId, { target: "Codex feedback thread ID" }),
+        },
+      ]);
+
+      return null;
+    }
+
+    const metadata = createQueuedMessageMetadata();
+    const messageId = MessageId.make(metadata.messageId);
+
+    // Enqueue publishes the queued atom synchronously (the durable write
+    // happens behind it), so clearing the draft here gives send feedback on
+    // the tap frame instead of after file I/O. If the write fails the message
+    // is rolled out of the queue and the content is merged back into the
+    // draft, preserving anything typed since.
+    const enqueuePromise = enqueueThreadOutboxMessage({
+      environmentId: selectedThreadShell.environmentId,
+      threadId: selectedThreadShell.id,
+      messageId,
+      commandId: CommandId.make(metadata.commandId),
+      text,
+      attachments,
+      modelSelection: effectiveThreadModelSelection({
+        bot: engineBot,
+        draftSelection: draft.modelSelection,
+        threadSelection: thread.modelSelection,
+      }),
+      runtimeMode: draft.runtimeMode ?? thread.runtimeMode,
+      interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+      createdAt: metadata.createdAt,
+    });
+
+    clearComposerDraftContent(threadKey);
+    enqueuePromise.catch((error) => {
+      // Restore text via merge (idempotent) but attachments via the uncapped
+      // append: the merge path slots existing attachments first and truncates
+      // at the send limit, which would silently drop this message's images if
+      // the user attached new ones while the write was in flight.
+      void mergeComposerDraftContent(threadKey, { text, attachments: [] });
+      appendComposerDraftAttachments(threadKey, attachments);
+      setPendingConnectionError(
+        error instanceof Error ? error.message : "Failed to save the queued message.",
+      );
+    });
+
+    return messageId;
+  }, [
+    engineBot,
+    selectedEnvironmentRuntime?.serverConfig?.providers,
+    selectedThreadDetail,
+    selectedThreadShell,
+    t,
+    uploadThreadFeedback,
+  ]);
+
+  const onChangeDraftMessage = useCallback(
+    (value: string) => {
+      if (!selectedThreadShell) {
+        return;
+      }
+
+      const threadKey = scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id);
+      setComposerDraftText(threadKey, value);
+    },
+    [selectedThreadShell],
+  );
+
+  const onPickDraftImages = useCallback(async () => {
+    if (!selectedThreadShell) {
+      return;
+    }
+
+    const threadKey = scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id);
+
+    const result = await pickComposerImages({
+      existingCount: getComposerDraftSnapshot(threadKey).attachments.length,
+    });
+
+    if (result.images.length > 0) {
+      appendComposerDraftAttachments(threadKey, result.images);
+    }
+
+    if (result.error) {
+      setPendingConnectionError(result.error);
+    }
+  }, [selectedThreadShell]);
+
+  const onPasteIntoDraft = useCallback(async () => {
+    if (!selectedThreadShell) {
+      return;
+    }
+
+    const threadKey = scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id);
+
+    const result = await pasteComposerClipboard({
+      existingCount: getComposerDraftSnapshot(threadKey).attachments.length,
+    });
+
+    if (result.images.length > 0) {
+      appendComposerDraftAttachments(threadKey, result.images);
+    }
+
+    if (result.text) {
+      appendComposerDraftText(threadKey, result.text);
+    }
+
+    if (result.error) {
+      setPendingConnectionError(result.error);
+    }
+  }, [selectedThreadShell]);
+
+  const onNativePasteImages = useCallback(
+    async (uris: ReadonlyArray<string>) => {
+      if (!selectedThreadShell || uris.length === 0) {
+        return;
+      }
+
+      const threadKey = scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id);
+
+      try {
+        const images = await convertPastedImagesToAttachments({
+          uris,
+          existingCount: getComposerDraftSnapshot(threadKey).attachments.length,
+        });
+
+        if (images.length > 0) {
+          appendComposerDraftAttachments(threadKey, images);
+        }
+      } catch (error) {
+        console.error("[native paste] error converting images", {
+          environmentId: selectedThreadShell.environmentId,
+          threadId: selectedThreadShell.id,
+          uriCount: uris.length,
+          ...safeErrorLogAttributes(error),
+        });
+      }
+    },
+    [selectedThreadShell],
+  );
+
+  const onRemoveDraftImage = useCallback(
+    (imageId: string) => {
+      if (!selectedThreadShell) {
+        return;
+      }
+
+      const threadKey = scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id);
+      removeComposerDraftAttachment(threadKey, imageId);
+    },
+    [selectedThreadShell],
+  );
+
+  // A direct bot chat saves the pick to the bot, model and options together;
+  // every other chat keeps it on its own draft.
+  const onUpdateModelSelection = useCallback(
+    (value: ModelSelection) => {
+      if (!selectedThreadKey || !selectedThreadShell) {
+        return;
+      }
+
+      if (!engineBot) {
+        updateComposerDraftSettings(selectedThreadKey, { modelSelection: value });
+
+        return;
+      }
+
+      void updateBot({
+        environmentId: selectedThreadShell.environmentId,
+        input: {
+          botId: engineBot.id,
+          engine: threadBotEngineUpdate(selectedEnvironmentRuntime?.serverConfig, value),
+        },
+      }).then((result) => {
+        if (Predicate.isTagged(result, "Failure") && !isAtomCommandInterrupted(result)) {
+          Alert.alert(t("Could not change the model"));
+        }
+      });
+    },
+    [
+      engineBot,
+      selectedEnvironmentRuntime?.serverConfig,
+      selectedThreadKey,
+      selectedThreadShell,
+      t,
+      updateBot,
+    ],
+  );
+
+  const onUpdateRuntimeMode = useCallback(
+    (value: RuntimeMode) => {
+      if (!selectedThreadKey) {
+        return;
+      }
+
+      updateComposerDraftSettings(selectedThreadKey, { runtimeMode: value });
+    },
+    [selectedThreadKey],
+  );
+
+  const selectedThreadWaitingOnChildren = selectedThreadFeedDelegations.waitingOnChildren;
+
+  return {
+    selectedThreadFeed,
+    selectedThreadWaitingOnChildren,
+    selectedThreadQueueCount,
+    activeWorkStartedAt,
+    modelSelection,
+    runtimeMode,
+    onChangeDraftMessage,
+    onPickDraftImages,
+    onPasteIntoDraft,
+    onNativePasteImages,
+    onRemoveDraftImage,
+    onSendMessage,
+    onUpdateModelSelection,
+    onUpdateRuntimeMode,
+  };
+}

@@ -1,0 +1,215 @@
+# Architecture
+
+> For maintainers. Using Otto? See [docs/user](../user/).
+
+Otto is a server runtime that owns agent sessions, workspaces, and version control, plus clients
+(web, desktop, mobile) that talk to it over one authenticated Effect RPC WebSocket. The server is the
+execution boundary: every provider process, bot command, git operation, and filesystem read
+happens there, never in the client.
+
+```
+┌────────────────────────────────────────────────┐
+│ Clients: apps/web, apps/desktop, apps/mobile   │
+│ shared runtime: packages/client-runtime        │
+│  connection supervisor, RPC session, Atom state│
+└──────────────────┬─────────────────────────────┘
+                   │ Effect RPC over WebSocket (/ws)
+                   │ contract: packages/contracts
+┌──────────────────▼─────────────────────────────┐
+│ apps/server                                    │
+│  orchestration engine (event-sourced)          │
+│  provider driver registry (6 built-in drivers) │
+│  checkpointing, VCS, filesystem                │
+└──────────────────┬─────────────────────────────┘
+                   │ per-driver transport
+┌──────────────────▼─────────────────────────────┐
+│ Provider transports: Codex, Claude, Grok,      │
+│ Kimi For Coding, OpenCode, OpenCode Go         │
+└────────────────────────────────────────────────┘
+```
+
+## The RPC boundary
+
+The client/server contract is an Effect RPC group, not a hand-rolled push protocol. [`rpc.ts`][rpc]
+declares `WS_METHODS` and assembles `WsRpcGroup`; each member is either unary or a server stream
+(`stream: true`). Streaming members such as `orchestration.subscribeShell`,
+`orchestration.subscribeThread`, and `subscribeServerConfig` replace what used to be a broadcast push
+bus: a client subscribes to what it needs and the server pushes only on that subscription.
+
+[`ws.ts`][ws] serves the group. `websocketRpcRouteLayer` mounts `GET /ws`, authenticates the upgrade
+through `EnvironmentAuth.authenticateWebSocketUpgrade`, then hands the socket to
+`RpcServer.toHttpEffectWebsocket`. Authorization is per method: `RPC_REQUIRED_SCOPE` maps each method
+to a scope, and `authorizeEffect`/`authorizeStream` enforce it. Holding a valid socket is not
+authorization to call everything on it. See [environment-auth.md](./environment-auth.md).
+
+On the client, [`session.ts`][session] opens the socket and builds the typed client.
+`RpcSessionFactory` is the service; a session exposes `client`, `initialConfig`, `ready`, `probe`,
+and `closed`. It performs one attempt and does not retry. Retry, backoff, and offline policy belong
+to the connection supervisor.
+
+## Shared client runtime
+
+`packages/client-runtime` holds every non-visual client concern: connection lifecycle,
+authentication, RPC, cached environment data, and domain state as Atom factories. Web and mobile
+compose it the same way (`apps/web/src/connection/runtime.ts` and
+`apps/mobile/src/connection/runtime.ts` mirror each other, differing only in platform-specific
+background-activity layers) and differ beyond that only in the platform layer they supply and the
+UI they build on top. React components never construct transports, retry loops,
+or RPC clients. See [connection-runtime.md](./connection-runtime.md).
+
+## Orchestration is event-sourced
+
+The server does not mutate app state directly. Clients dispatch typed commands; the engine turns them
+into persisted events; projections derive the read model.
+
+[`OrchestrationEngine.ts`][engine] serializes this. `dispatch` offers a `CommandEnvelope` onto
+`commandQueue` and awaits its result; a single worker fiber takes envelopes one at a time, so command
+processing is totally ordered. For each envelope `processEnvelope`:
+
+1. checks the durable command receipt, making retries idempotent;
+2. runs `decideOrchestrationCommand` ([`decider.ts`][decider]) to produce events from command plus
+   current state, pure and side-effect free;
+3. inside one SQL transaction, appends events to the event store, applies them to the in-memory read
+   model via [`projector.ts`][projector], projects them into persisted tables, and writes the
+   accepted receipt;
+4. after commit, swaps in the new read model, cleans up attachments, and publishes committed events
+   to subscribers. Attachment cleanup failures are logged and do not reject committed commands.
+
+Because persistence and projection share a transaction, the read model cannot durably disagree with
+the event log. On dispatch failure the engine rereads persisted events past the starting sequence and
+reconciles.
+
+[`ProjectionSnapshotQuery.ts`][snapshot] is the persisted read model. Client thread snapshots load
+activity payloads in 25-row primary-key batches and project each batch before the next read. Shell
+summary refresh uses SQL aggregates for latest user-message time, pending approval count, and
+actionable-plan status, plus user-input lifecycle rows only. Provider command metadata paths use
+thread shells; turn start uses a single-message query. Runtime ingestion uses a joined thread
+context and keyed message, plan, and task-activity lookups instead of hydrating a full thread.
+`upsertMany` exists for projector cursors. Runtime `projectEvent` still commits each projector
+separately because attachment cleanup runs after each projector transaction. Combining those
+commits is shared with checkpoint attachment-transaction work and is not done here.
+
+Command and event names live in [`orchestration.ts`][contracts]. Some commands are client
+dispatchable (`thread.create`, `thread.turn.start`, `thread.approval.respond`); others are internal
+and produced only by server-side reactors (`thread.message.assistant.delta`,
+`thread.turn.diff.complete`).
+
+A turn is complete when its session leaves `running` status, projected by
+`settledTurnStateForSessionStatus` in [`projector.ts`][projector]. Checkpoint work settling later
+does not define turn end.
+
+## Drainable workers
+
+Follow-up work runs asynchronously in queue-backed workers built on [`DrainableWorker`][worker]
+or the keyed provider worker:
+[`ProviderRuntimeIngestion`][ingest] normalizes provider runtime streams into orchestration commands,
+[`ProviderCommandReactor`][cmd] dispatches provider calls in response to intent events, and
+[`CheckpointReactor`][checkpoint] captures and reverts workspace checkpoints.
+
+`DrainableWorker` pairs a transactional queue with a transactional count of outstanding items.
+`enqueue` atomically offers and increments; processing always decrements. `drain` retries until the
+count reaches zero, so a test can await "queue empty and current item finished" instead of sleeping.
+Each of the three services exposes `drain` for exactly this.
+
+`ProviderCommandReactor` uses a keyed worker with four concurrent lanes. Commands for the same
+thread run in FIFO order; unrelated threads can progress while session setup waits. Its drain
+retains the subscription sequence barrier and repeats when worker execution publishes more events.
+
+Workspace entry refreshes run in the background with at most two concurrent scans. Requests for
+the same workspace coalesce into generations. Entry searches and lists await the latest requested
+generation, while checkpoint publication only queues the refresh. Browsing and content search
+remain separate workspace services.
+
+Mastra attachment preparation reads bytes asynchronously in attachment order. Before admitting the
+turn, the controller checks that the session is still current and has not been interrupted or
+stopped during preparation.
+
+Runtime receipts are a test-only mechanism. `RuntimeReceiptBusLive` in
+[`RuntimeReceiptBus.ts`][receipts] publishes nothing; only the test layer is PubSub-backed. Do not
+build production behavior on receipts.
+
+Provider event logs in [`EventNdjsonLogger.ts`][event-log] drop canonical deltas and native
+streaming chunks (Codex item/realtime methods, Claude content-block deltas, ACP
+`agent_message_chunk`/`agent_thought_chunk`, OpenCode text/reasoning part updates) before
+serialization. ACP request diagnostics stay on by default; full protocol logging is opt-in through
+the Grok provider settings and filters the same transient session updates. Async drain/close behavior for this file is owned
+separately by the desktop log-drain work and is not changed here.
+
+## Provider drivers
+
+Six drivers ship built in, registered in [`builtInDrivers.ts`][drivers] as `BUILT_IN_DRIVERS`:
+Codex, Claude, Grok, Kimi For Coding, OpenCode, and OpenCode Go. A driver declares its kind and config schema and creates a
+scoped adapter; `ProviderInstanceRegistry` owns live instances and `ProviderAdapterRegistry` resolves
+an instance to its adapter, so `ProviderService` routes session and turn operations without knowing
+which agent is behind them. See [providers.md](./providers.md).
+
+## Checkpointing
+
+Each turn is bracketed by workspace checkpoints so diffs and reverts are exact. `CheckpointStore`
+captures state as hidden Git refs through the VCS driver's checkpoint operations;
+`CheckpointDiffQuery` answers turn and full-thread diff requests; `CheckpointReactor` coordinates
+baseline capture, completed-turn capture, diff projection, and reverting both the workspace and the
+provider conversation. The storage contract is `VcsCheckpointOps` in
+[`VcsDriver.ts`](../../apps/server/src/vcs/VcsDriver.ts), implemented for Git in the same directory.
+
+## Startup
+
+[`serverRuntimeStartup.ts`][startup] runs a fixed lifecycle: start keybindings, settings, and
+reactors; publish welcome; signal command readiness (logged as `Accepting commands`); wait for the
+HTTP listener via `markHttpListening`; publish ready; fork the heartbeat; then either print headless
+output or open the browser. Command readiness precedes the listener, so a socket that opens can
+already dispatch.
+
+## Related
+
+- [Workspace layout](./workspace-layout.md), [Glossary](./glossary.md)
+- [Remote environments](./remote.md), [Server updates](./server-updates.md)
+- [Resource telemetry](./resource-telemetry.md)
+- [Scripts](./scripts.md), [CI gates](./ci.md)
+
+[rpc]: ../../packages/contracts/src/rpc.ts
+[contracts]: ../../packages/contracts/src/orchestration.ts
+[ws]: ../../apps/server/src/ws.ts
+[session]: ../../packages/client-runtime/src/rpc/session.ts
+[startup]: ../../apps/server/src/serverRuntimeStartup.ts
+[engine]: ../../apps/server/src/orchestration/Layers/OrchestrationEngine.ts
+[snapshot]: ../../apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.ts
+[decider]: ../../apps/server/src/orchestration/decider.ts
+[projector]: ../../apps/server/src/orchestration/projector.ts
+[worker]: ../../packages/shared/src/DrainableWorker.ts
+[ingest]: ../../apps/server/src/orchestration/Layers/ProviderRuntimeIngestion.ts
+[event-log]: ../../apps/server/src/provider/Layers/EventNdjsonLogger.ts
+[cmd]: ../../apps/server/src/orchestration/Layers/ProviderCommandReactor.ts
+[checkpoint]: ../../apps/server/src/orchestration/Layers/CheckpointReactor.ts
+[receipts]: ../../apps/server/src/orchestration/Layers/RuntimeReceiptBus.ts
+[drivers]: ../../apps/server/src/provider/builtInDrivers.ts
+
+## Effect conventions and migration metric
+
+Server code should keep effectful work inside `Effect.gen` and named `Effect.fn` functions, model
+resources with scoped layers and `Effect.acquireRelease`, and use Effect services such as `Clock`,
+`DateTime`, `FileSystem`, `HttpClient`, and `ChildProcessSpawner` at system boundaries. Decode
+untrusted data with `Schema` and represent expected failures with `Schema.TaggedErrorClass`.
+`ManagedRuntime` is the bridge for legacy callbacks; do not scatter `Effect.runPromise` calls through
+library code.
+
+The migration tracks two signals in production `.ts` files under `apps/server/src`:
+
+1. Runtime escapes: `Effect.runPromise`, `Effect.runSync`, and `Effect.runFork` in library code.
+2. Promise bridges: `Effect.tryPromise` and `Effect.promise` used to cross an imperative boundary.
+
+Tests (`*.test.ts`) and the standalone `serviceLauncher.ts` bundle are excluded from both counts.
+Each matching call site counts once. Run `node scripts/effect-migration-metric.ts` for a
+production-source report. It is a reporting tool rather than a CI gate. The 2026-09-22 audit
+counted 58 runtime escapes and 76 Promise bridges.
+
+Effect language-service diagnostics run at error severity in every typecheck and cannot be
+switched off inline. `@effect-diagnostics` comments are rejected like lint suppressions; the few
+categories of code that cannot use Effect services get a config override with a written reason.
+See [Lint](lint.md#effect-diagnostics).
+
+Pure data and mapping modules are not migration targets when they have no I/O or lifetime state.
+`apps/server/src/serviceLauncher.ts` is also excluded: it is a deliberately Node-only standalone
+bundle packed separately by `build:bundle`, and adding Effect imports would break that deployment
+boundary. The audit also leaves type-only provider service shapes and the legitimate
+`returnEffectInGen` cases in place.

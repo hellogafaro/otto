@@ -1,0 +1,473 @@
+import * as Predicate from "effect/Predicate";
+import {
+  AuthAccessReadScope,
+  AuthAccessWriteScope,
+  AuthAdministrativeScopes,
+  AuthEnvironmentScope,
+  AuthRetiredEnvironmentScopes,
+  AuthStandardClientScopes,
+  EnvironmentAuthInvalidError,
+  type EnvironmentAuthInvalidReason,
+  EnvironmentHttpApi,
+  EnvironmentInternalError,
+  type EnvironmentInternalErrorReason,
+  EnvironmentOperationForbiddenError,
+  EnvironmentRequestInvalidError,
+  type EnvironmentRequestInvalidReason,
+  type ServerProviderUnavailability,
+  EnvironmentResourceNotFoundError,
+  type EnvironmentResourceNotFoundReason,
+  EnvironmentScopeRequiredError,
+  EnvironmentAuthenticatedAuth,
+  EnvironmentAuthenticatedPrincipal,
+} from "@otto/contracts";
+import { parseAllowedOAuthScope } from "@otto/shared/oauthScope";
+import * as Schema from "effect/Schema";
+import { causeErrorTag } from "@otto/shared/observability";
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Cookies from "effect/unstable/http/Cookies";
+import * as HttpEffect from "effect/unstable/http/HttpEffect";
+import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
+import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
+
+import * as EnvironmentAuth from "./EnvironmentAuth.ts";
+import * as SessionStore from "./SessionStore.ts";
+import { deriveAuthClientMetadata } from "./utils.ts";
+
+const CREDENTIAL_RESPONSE_HEADERS = {
+  "cache-control": "no-store",
+  pragma: "no-cache",
+} as const;
+
+const appendCredentialResponseHeaders = HttpEffect.appendPreResponseHandler((_request, response) =>
+  Effect.succeed(HttpServerResponse.setHeaders(response, CREDENTIAL_RESPONSE_HEADERS)),
+);
+
+export const currentEnvironmentTraceId = Effect.currentParentSpan.pipe(
+  Effect.map((span) => span.traceId),
+  Effect.orElseSucceed(() => "unavailable"),
+);
+
+export function annotateEnvironmentRequest(endpoint: string) {
+  return Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const url = HttpServerRequest.toURL(request);
+    const traceId = yield* currentEnvironmentTraceId;
+
+    yield* Effect.addFinalizer((exit) =>
+      Predicate.isTagged(exit, "Failure")
+        ? Effect.logWarning("environment api request failed", {
+            endpoint,
+            traceId,
+            errorTag: causeErrorTag(exit.cause),
+            cause: exit.cause,
+          })
+        : Effect.void,
+    );
+    yield* Effect.annotateLogsScoped({ "environment.endpoint": endpoint, traceId });
+    yield* Effect.annotateCurrentSpan({
+      "environment.endpoint": endpoint,
+      "http.request.method": request.method,
+      "url.path": Predicate.isTagged(url, "Some") ? url.value.pathname : "unknown",
+    });
+  });
+}
+
+export function failEnvironmentAuthInvalid(reason: EnvironmentAuthInvalidReason) {
+  return currentEnvironmentTraceId.pipe(
+    Effect.flatMap((traceId) =>
+      Effect.fail(new EnvironmentAuthInvalidError({ code: "auth_invalid", reason, traceId })),
+    ),
+  );
+}
+
+export function failEnvironmentInvalidRequest(
+  reason: EnvironmentRequestInvalidReason,
+  guidance?: {
+    readonly detail: string;
+    readonly unavailability: ServerProviderUnavailability;
+    readonly repairAction?: string;
+  },
+) {
+  return currentEnvironmentTraceId.pipe(
+    Effect.flatMap((traceId) =>
+      Effect.fail(
+        new EnvironmentRequestInvalidError({
+          code: "invalid_request",
+          reason,
+          traceId,
+          ...guidance,
+        }),
+      ),
+    ),
+  );
+}
+
+const isAuthEnvironmentScope = Schema.is(AuthEnvironmentScope);
+
+const REQUESTABLE_ENVIRONMENT_SCOPES = new Set<string>([
+  ...AuthAdministrativeScopes,
+  ...AuthRetiredEnvironmentScopes,
+]);
+
+/**
+ * Parses an OAuth `scope` request. Older clients may still ask for retired
+ * scopes; those are accepted and dropped so the exchange keeps working.
+ */
+export function parseRequestedEnvironmentScopes(
+  value: string,
+): ReadonlyArray<AuthEnvironmentScope> | null {
+  const scopes = parseAllowedOAuthScope({ value, allowedScopes: REQUESTABLE_ENVIRONMENT_SCOPES });
+  const currentScopes = scopes?.filter(isAuthEnvironmentScope) ?? [];
+
+  return currentScopes.length === 0 ? null : currentScopes;
+}
+
+export function failEnvironmentScopeRequired(requiredScope: AuthEnvironmentScope) {
+  return currentEnvironmentTraceId.pipe(
+    Effect.flatMap((traceId) =>
+      Effect.fail(
+        new EnvironmentScopeRequiredError({
+          code: "insufficient_scope",
+          requiredScope,
+          traceId,
+        }),
+      ),
+    ),
+  );
+}
+
+function failEnvironmentOperationForbidden(reason: "current_session_revoke_not_allowed") {
+  return currentEnvironmentTraceId.pipe(
+    Effect.flatMap((traceId) =>
+      Effect.fail(
+        new EnvironmentOperationForbiddenError({
+          code: "operation_forbidden",
+          reason,
+          traceId,
+        }),
+      ),
+    ),
+  );
+}
+
+export function failEnvironmentNotFound(reason: EnvironmentResourceNotFoundReason) {
+  return currentEnvironmentTraceId.pipe(
+    Effect.flatMap((traceId) =>
+      Effect.fail(new EnvironmentResourceNotFoundError({ code: "not_found", reason, traceId })),
+    ),
+  );
+}
+
+const appendSessionCookie = (cookieName: string, token: string, expiresAt: DateTime.DateTime) =>
+  Effect.fromResult(
+    Cookies.set(Cookies.empty, cookieName, token, {
+      expires: DateTime.toDate(expiresAt),
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+    }),
+  ).pipe(
+    Effect.catch(() => failEnvironmentInternal("browser_session_cookie_failed")),
+    Effect.flatMap((cookies) =>
+      HttpEffect.appendPreResponseHandler((_request, response) =>
+        Effect.succeed(HttpServerResponse.mergeCookies(response, cookies)),
+      ),
+    ),
+  );
+
+export function failEnvironmentInternal(reason: EnvironmentInternalErrorReason, cause?: unknown) {
+  return Effect.gen(function* () {
+    const traceId = yield* currentEnvironmentTraceId;
+
+    if (cause !== undefined) {
+      yield* Effect.logError("environment api operation failed", {
+        reason,
+        traceId,
+        cause: cause,
+      });
+    }
+
+    return yield* new EnvironmentInternalError({ code: "internal_error", reason, traceId });
+  });
+}
+
+export const requireEnvironmentScope = Effect.fn("environment.auth.requireScope")(function* (
+  scope: AuthEnvironmentScope,
+) {
+  const session = yield* EnvironmentAuthenticatedPrincipal;
+
+  if (!session.scopes.has(scope)) {
+    return yield* failEnvironmentScopeRequired(scope);
+  }
+
+  return session;
+});
+
+export const environmentAuthenticatedAuthLayer = Layer.effect(
+  EnvironmentAuthenticatedAuth,
+  Effect.gen(function* () {
+    const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+
+    return (httpEffect) =>
+      Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest;
+
+        const session = yield* serverAuth.authenticateHttpRequest(request).pipe(
+          Effect.catchIf(EnvironmentAuth.isServerAuthCredentialError, (error) =>
+            failEnvironmentAuthInvalid(EnvironmentAuth.serverAuthCredentialReason(error)),
+          ),
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("internal_error", error),
+          ),
+        );
+
+        return yield* httpEffect.pipe(
+          Effect.provideService(EnvironmentAuthenticatedPrincipal, {
+            ...session,
+            scopes: new Set(session.scopes),
+          }),
+        );
+      });
+  }),
+);
+
+export const authHttpApiLayer = HttpApiBuilder.group(
+  EnvironmentHttpApi,
+  "auth",
+  Effect.fnUntraced(function* (handlers) {
+    const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+    const sessions = yield* SessionStore.SessionStore;
+
+    return handlers
+      .handle(
+        "session",
+        Effect.fn("environment.auth.session")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const request = yield* HttpServerRequest.HttpServerRequest;
+            const result = yield* serverAuth.getSessionState(request);
+
+            const credential = EnvironmentAuth.selectRequestCredential(
+              request,
+              sessions.cookieName,
+              sessions.legacyCookieName,
+            );
+
+            if (
+              credential?.source === "legacy-cookie" &&
+              result.authenticated &&
+              result.sessionMethod === "browser-session-cookie" &&
+              result.expiresAt
+            ) {
+              yield* appendSessionCookie(sessions.cookieName, credential.token, result.expiresAt);
+              yield* appendCredentialResponseHeaders;
+            }
+
+            return result;
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("internal_error", error),
+          ),
+        ),
+      )
+      .handle(
+        "browserSession",
+        Effect.fn("environment.auth.browserSession")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const request = yield* HttpServerRequest.HttpServerRequest;
+
+            const result = yield* serverAuth.createBrowserSession(
+              args.payload.credential,
+              deriveAuthClientMetadata({ request }),
+            );
+
+            yield* appendSessionCookie(
+              sessions.cookieName,
+              result.sessionToken,
+              result.response.expiresAt,
+            );
+            yield* appendCredentialResponseHeaders;
+
+            return result.response;
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthCredentialError, (error) =>
+            failEnvironmentAuthInvalid(EnvironmentAuth.serverAuthCredentialReason(error)),
+          ),
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("browser_session_issuance_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "token",
+        Effect.fn("environment.auth.token")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const request = yield* HttpServerRequest.HttpServerRequest;
+
+            const requestedScopes =
+              args.payload.scope === undefined
+                ? undefined
+                : parseRequestedEnvironmentScopes(args.payload.scope);
+
+            if (requestedScopes === null) {
+              return yield* failEnvironmentInvalidRequest("invalid_scope");
+            }
+
+            yield* appendCredentialResponseHeaders;
+
+            return yield* serverAuth.exchangeBootstrapCredentialForAccessToken(
+              args.payload.subject_token,
+              requestedScopes,
+              deriveAuthClientMetadata({
+                request,
+                presented: {
+                  ...(args.payload.client_label ? { label: args.payload.client_label } : {}),
+                  ...(args.payload.client_device_type
+                    ? { deviceType: args.payload.client_device_type }
+                    : {}),
+                  ...(args.payload.client_os ? { os: args.payload.client_os } : {}),
+                },
+              }),
+            );
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthCredentialError, (error) =>
+            failEnvironmentAuthInvalid(EnvironmentAuth.serverAuthCredentialReason(error)),
+          ),
+          Effect.catchIf(EnvironmentAuth.isServerAuthInvalidRequestError, (error) =>
+            failEnvironmentInvalidRequest(EnvironmentAuth.serverAuthInvalidRequestReason(error)),
+          ),
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("access_token_issuance_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "webSocketTicket",
+        Effect.fn("environment.auth.webSocketTicket")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const session = yield* EnvironmentAuthenticatedPrincipal;
+            yield* appendCredentialResponseHeaders;
+
+            return yield* serverAuth.issueWebSocketTicket(session);
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("websocket_ticket_issuance_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "pairingCredential",
+        Effect.fn("environment.auth.pairingCredential")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const session = yield* requireEnvironmentScope(AuthAccessWriteScope);
+            const delegatedScopes = args.payload.scopes ?? AuthStandardClientScopes;
+
+            if (
+              delegatedScopes.length === 0 ||
+              new Set<AuthEnvironmentScope>(delegatedScopes).size !== delegatedScopes.length
+            ) {
+              return yield* failEnvironmentInvalidRequest("invalid_scope");
+            }
+
+            for (const delegatedScope of delegatedScopes) {
+              if (!session.scopes.has(delegatedScope)) {
+                return yield* failEnvironmentScopeRequired(delegatedScope);
+              }
+            }
+
+            return yield* serverAuth.issuePairingCredential(args.payload);
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("pairing_credential_issuance_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "pairingLinks",
+        Effect.fn("environment.auth.pairingLinks")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            yield* requireEnvironmentScope(AuthAccessReadScope);
+
+            return yield* serverAuth.listPairingLinks();
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("pairing_links_load_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "revokePairingLink",
+        Effect.fn("environment.auth.revokePairingLink")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            yield* requireEnvironmentScope(AuthAccessWriteScope);
+            const revoked = yield* serverAuth.revokePairingLink(args.payload.id);
+
+            return { revoked };
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("pairing_link_revoke_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "clients",
+        Effect.fn("environment.auth.clients")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const session = yield* requireEnvironmentScope(AuthAccessReadScope);
+
+            return yield* serverAuth.listClientSessions(session.sessionId);
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("client_sessions_load_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "revokeClient",
+        Effect.fn("environment.auth.revokeClient")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const session = yield* requireEnvironmentScope(AuthAccessWriteScope);
+
+            const revoked = yield* serverAuth.revokeClientSession(
+              session.sessionId,
+              args.payload.sessionId,
+            );
+
+            return { revoked };
+          },
+          Effect.catchTag("ServerAuthForbiddenOperationError", () =>
+            failEnvironmentOperationForbidden("current_session_revoke_not_allowed"),
+          ),
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("client_session_revoke_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "revokeOtherClients",
+        Effect.fn("environment.auth.revokeOtherClients")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const session = yield* requireEnvironmentScope(AuthAccessWriteScope);
+            const revokedCount = yield* serverAuth.revokeOtherClientSessions(session.sessionId);
+
+            return { revokedCount };
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("client_session_revoke_failed", error),
+          ),
+        ),
+      );
+  }),
+);

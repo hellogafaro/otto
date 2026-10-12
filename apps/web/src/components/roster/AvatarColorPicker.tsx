@@ -1,0 +1,229 @@
+import { Match } from "effect";
+import { useEffect, useState, type KeyboardEvent, type PointerEvent } from "react";
+
+import { useI18n } from "../../i18n";
+import { cn } from "../../lib/utils";
+import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
+import {
+  clampColorFraction,
+  formatColorFieldValueText,
+  hexToHsv,
+  hsvToHex,
+  type HsvColor,
+} from "./avatarColorPicker.logic";
+import { BLOB_COLORS, resolveBlobColor } from "./roster.logic";
+
+function ColorThumb({ color, left, top }: { color: string; left: string; top: string }) {
+  return (
+    <span
+      aria-hidden
+      // The dark ring keeps the thumb visible over any picked color.
+      className="pointer-events-none absolute top-(--thumb-top) left-(--thumb-left) size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-on-solid swatch-fill ring-1 ring-shade/60"
+      style={{ "--swatch": color, "--thumb-left": left, "--thumb-top": top }}
+    />
+  );
+}
+
+function pointerFraction(event: PointerEvent<HTMLDivElement>) {
+  const bounds = event.currentTarget.getBoundingClientRect();
+
+  return {
+    x: clampColorFraction((event.clientX - bounds.left) / bounds.width),
+    y: clampColorFraction((event.clientY - bounds.top) / bounds.height),
+  };
+}
+
+function ColorPickerPanel({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+}) {
+  const { t } = useI18n();
+  const [hsv, setHsv] = useState<HsvColor>(() => hexToHsv(value) ?? { h: 210, s: 0.5, v: 0.7 });
+  const [draft, setDraft] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next = hexToHsv(value);
+
+    if (!next) return;
+    setHsv((current) => (next.s === 0 || next.v === 0 ? { ...next, h: current.h } : next));
+    setDraft(null);
+  }, [value]);
+
+  const commitHsv = (next: HsvColor) => {
+    setHsv(next);
+    setDraft(null);
+    onChange(hsvToHex(next));
+  };
+
+  const commitHex = (candidate: string) => {
+    const next = hexToHsv(candidate);
+
+    if (next) commitHsv(next);
+    else setDraft(null);
+  };
+
+  const updateField = (event: PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const { x, y } = pointerFraction(event);
+    commitHsv({ ...hsv, s: x, v: 1 - y });
+  };
+
+  const updateHue = (event: PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    commitHsv({ ...hsv, h: pointerFraction(event).x * 360 });
+  };
+
+  const handleFieldKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 0.1 : 0.02;
+    const next = { ...hsv };
+
+    if (event.key === "ArrowLeft") next.s = clampColorFraction(hsv.s - step);
+    else if (event.key === "ArrowRight") next.s = clampColorFraction(hsv.s + step);
+    else if (event.key === "ArrowUp") next.v = clampColorFraction(hsv.v + step);
+    else if (event.key === "ArrowDown") next.v = clampColorFraction(hsv.v - step);
+    else return;
+    event.preventDefault();
+    commitHsv(next);
+  };
+
+  const handleHueKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const direction = Match.value(event).pipe(
+      Match.when({ key: "ArrowLeft" }, () => -1),
+      Match.when({ key: "ArrowRight" }, () => 1),
+      Match.orElse(() => 0),
+    );
+
+    if (direction === 0) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 30 : 4;
+    commitHsv({ ...hsv, h: (hsv.h + direction * step + 360) % 360 });
+  };
+
+  const color = hsvToHex(hsv);
+  const hueColor = hsvToHex({ h: hsv.h, s: 1, v: 1 });
+
+  return (
+    <div className="w-60 p-3">
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label={t("Saturation and brightness")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(hsv.v * 100)}
+        aria-valuetext={formatColorFieldValueText(hsv, color, t)}
+        className="relative h-36 cursor-crosshair touch-none rounded-md swatch-fill bg-saturation-value-plane outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        style={{ "--swatch": hueColor }}
+        onKeyDown={handleFieldKeyDown}
+        onPointerDown={updateField}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) updateField(event);
+        }}
+      >
+        <ColorThumb color={color} left={`${hsv.s * 100}%`} top={`${(1 - hsv.v) * 100}%`} />
+      </div>
+
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label={t("Hue")}
+        aria-valuemin={0}
+        aria-valuemax={360}
+        aria-valuenow={Math.round(hsv.h)}
+        className="relative mt-3 h-3 cursor-ew-resize touch-none rounded-full bg-hue-spectrum outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onKeyDown={handleHueKeyDown}
+        onPointerDown={updateHue}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) updateHue(event);
+        }}
+      >
+        <ColorThumb color={hueColor} left={`${(hsv.h / 360) * 100}%`} top="50%" />
+      </div>
+
+      <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+        {t("Hex")}
+        <span className="flex h-8 flex-1 items-center rounded-md border border-input bg-background px-2 font-mono text-foreground focus-within:ring-2 focus-within:ring-ring">
+          #
+          <input
+            aria-label={t("Avatar color hex value")}
+            className="min-w-0 flex-1 bg-transparent outline-none"
+            value={(draft ?? color).replace("#", "")}
+            maxLength={6}
+            spellCheck={false}
+            onChange={(event) => setDraft(event.currentTarget.value)}
+            onBlur={() => commitHex(draft ?? color)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitHex(draft ?? color);
+              } else if (event.key === "Escape") {
+                setDraft(null);
+              }
+            }}
+          />
+        </span>
+      </label>
+    </div>
+  );
+}
+
+export function AvatarColorPicker({
+  value,
+  onChange,
+  className,
+  label,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+  className?: string;
+  label?: string;
+}) {
+  const { t } = useI18n();
+  const color = resolveBlobColor(value);
+  const presetSelected = BLOB_COLORS.includes(color);
+
+  return (
+    <div
+      role="group"
+      aria-label={label ?? t("Avatar color")}
+      className={cn("flex flex-wrap items-center gap-2.5", className)}
+    >
+      {BLOB_COLORS.map((preset) => (
+        <button
+          key={preset}
+          type="button"
+          aria-label={t("Use {color}", { color: preset })}
+          aria-pressed={color === preset}
+          onClick={() => onChange(preset)}
+          style={{ "--swatch": preset }}
+          className={cn(
+            "size-8 cursor-pointer rounded-full swatch-fill border border-foreground/10 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            color === preset && "ring-2 ring-foreground/30 ring-offset-2 ring-offset-background",
+          )}
+        />
+      ))}
+
+      <Popover>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              aria-label={t("Choose a custom avatar color. Current color {color}", { color })}
+              aria-pressed={!presetSelected}
+              className={cn(
+                "size-8 cursor-pointer rounded-full bg-color-wheel border border-foreground/15 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                !presetSelected && "ring-2 ring-foreground/30 ring-offset-2 ring-offset-background",
+              )}
+            />
+          }
+        />
+        <PopoverPopup align="end" sideOffset={8} className="overflow-hidden" viewportPadding="none">
+          <ColorPickerPanel value={color} onChange={onChange} />
+        </PopoverPopup>
+      </Popover>
+    </div>
+  );
+}

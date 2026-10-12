@@ -1,0 +1,382 @@
+import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlSchema from "effect/unstable/sql/SqlSchema";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import * as Struct from "effect/Struct";
+import {
+  ChannelMessageOrigin,
+  ChannelDeliveryState,
+  ChatAttachment,
+  OrchestrationMessageReaction,
+} from "@otto/contracts";
+
+import { toPersistenceSqlError } from "../Errors.ts";
+import {
+  AppendStreamingProjectionThreadMessage,
+  GetProjectionThreadMessageInput,
+  HasProjectionThreadAssistantMessageInput,
+  ProjectionThreadMessageRepository,
+  type ProjectionThreadMessageRepositoryShape,
+  DeleteProjectionThreadMessagesInput,
+  ListProjectionThreadMessagesInput,
+  ProjectionThreadMessage,
+} from "../Services/ProjectionThreadMessages.ts";
+
+const ProjectionThreadMessageDbRowSchema = ProjectionThreadMessage.mapFields(
+  Struct.assign({
+    isStreaming: Schema.Number,
+    attachments: Schema.NullOr(Schema.fromJsonString(Schema.Array(ChatAttachment))),
+    channelOrigin: Schema.NullOr(Schema.fromJsonString(ChannelMessageOrigin)),
+    channelDelivery: Schema.NullOr(ChannelDeliveryState),
+    reactions: Schema.fromJsonString(Schema.Array(OrchestrationMessageReaction)),
+  }),
+);
+
+const ProjectionThreadMessageExistsDbRowSchema = Schema.Struct({ exists: Schema.Number });
+
+function toProjectionThreadMessage(
+  row: Schema.Schema.Type<typeof ProjectionThreadMessageDbRowSchema>,
+): ProjectionThreadMessage {
+  return {
+    messageId: row.messageId,
+    threadId: row.threadId,
+    turnId: row.turnId,
+    respondingBotId: row.respondingBotId ?? null,
+    authorPersonId: row.authorPersonId ?? null,
+    authorDisplayName: row.authorDisplayName ?? null,
+    channelOrigin: row.channelOrigin,
+    channelDelivery: row.channelDelivery,
+    role: row.role,
+    text: row.text,
+    isStreaming: row.isStreaming === 1,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    ...(row.attachments !== null ? { attachments: row.attachments } : {}),
+    reactions: row.reactions,
+  };
+}
+
+const makeProjectionThreadMessageRepository = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+
+  const upsertProjectionThreadMessageRow = SqlSchema.void({
+    Request: ProjectionThreadMessage,
+    execute: (row) => {
+      const nextAttachmentsJson =
+        row.attachments !== undefined ? JSON.stringify(row.attachments) : null;
+
+      const reactionsJson = JSON.stringify(row.reactions ?? []);
+
+      return sql`
+        INSERT INTO projection_thread_messages (
+          message_id,
+          thread_id,
+          turn_id,
+          responding_bot_id,
+          author_person_id,
+          author_display_name,
+          channel_origin_json,
+          channel_delivery,
+          role,
+          text,
+          attachments_json,
+          reactions_json,
+          is_streaming,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${row.messageId},
+          ${row.threadId},
+          ${row.turnId},
+          ${row.respondingBotId ?? null},
+          ${row.authorPersonId ?? null},
+          ${row.authorDisplayName ?? null},
+          ${row.channelOrigin == null ? null : JSON.stringify(row.channelOrigin)},
+          ${row.channelDelivery ?? null},
+          ${row.role},
+          ${row.text},
+          COALESCE(
+            ${nextAttachmentsJson},
+            (
+              SELECT attachments_json
+              FROM projection_thread_messages
+              WHERE message_id = ${row.messageId}
+            )
+          ),
+          ${reactionsJson},
+          ${row.isStreaming ? 1 : 0},
+          ${row.createdAt},
+          ${row.updatedAt}
+        )
+        ON CONFLICT (message_id)
+        DO UPDATE SET
+          thread_id = excluded.thread_id,
+          turn_id = excluded.turn_id,
+          responding_bot_id = excluded.responding_bot_id,
+          channel_delivery = COALESCE(
+            excluded.channel_delivery,
+            projection_thread_messages.channel_delivery
+          ),
+          author_person_id = excluded.author_person_id,
+          author_display_name = excluded.author_display_name,
+          channel_origin_json = COALESCE(
+            excluded.channel_origin_json,
+            projection_thread_messages.channel_origin_json
+          ),
+          role = excluded.role,
+          text = CASE
+            WHEN projection_thread_messages.is_streaming = 1
+              AND excluded.is_streaming = 0
+              AND excluded.text = ''
+            THEN projection_thread_messages.text
+            ELSE excluded.text
+          END,
+          attachments_json = COALESCE(
+            excluded.attachments_json,
+            projection_thread_messages.attachments_json
+          ),
+          reactions_json = excluded.reactions_json,
+          is_streaming = excluded.is_streaming,
+          created_at = excluded.created_at,
+          updated_at = excluded.updated_at
+      `;
+    },
+  });
+
+  const appendStreamingProjectionThreadMessageRow = SqlSchema.void({
+    Request: AppendStreamingProjectionThreadMessage,
+    execute: (row) => {
+      const nextAttachmentsJson =
+        row.attachments !== undefined ? JSON.stringify(row.attachments) : null;
+
+      return sql`
+        INSERT INTO projection_thread_messages (
+          message_id,
+          thread_id,
+          turn_id,
+          responding_bot_id,
+          author_person_id,
+          author_display_name,
+          channel_origin_json,
+          role,
+          text,
+          attachments_json,
+          reactions_json,
+          is_streaming,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${row.messageId},
+          ${row.threadId},
+          ${row.turnId},
+          ${row.respondingBotId ?? null},
+          ${row.authorPersonId ?? null},
+          ${row.authorDisplayName ?? null},
+          ${row.channelOrigin == null ? null : JSON.stringify(row.channelOrigin)},
+          ${row.role},
+          ${row.text},
+          ${nextAttachmentsJson},
+          '[]',
+          1,
+          ${row.createdAt},
+          ${row.updatedAt}
+        )
+        ON CONFLICT (message_id)
+        DO UPDATE SET
+          thread_id = excluded.thread_id,
+          turn_id = excluded.turn_id,
+          responding_bot_id = COALESCE(
+            excluded.responding_bot_id,
+            projection_thread_messages.responding_bot_id
+          ),
+          author_person_id = COALESCE(
+            excluded.author_person_id,
+            projection_thread_messages.author_person_id
+          ),
+          author_display_name = COALESCE(
+            excluded.author_display_name,
+            projection_thread_messages.author_display_name
+          ),
+          channel_origin_json = COALESCE(
+            excluded.channel_origin_json,
+            projection_thread_messages.channel_origin_json
+          ),
+          role = excluded.role,
+          text = projection_thread_messages.text || excluded.text,
+          attachments_json = COALESCE(
+            excluded.attachments_json,
+            projection_thread_messages.attachments_json
+          ),
+          is_streaming = 1,
+          updated_at = excluded.updated_at
+      `;
+    },
+  });
+
+  const getProjectionThreadMessageRow = SqlSchema.findOneOption({
+    Request: GetProjectionThreadMessageInput,
+    Result: ProjectionThreadMessageDbRowSchema,
+    execute: ({ messageId }) =>
+      sql`
+        SELECT
+          message_id AS "messageId",
+          thread_id AS "threadId",
+          turn_id AS "turnId",
+          responding_bot_id AS "respondingBotId",
+          author_person_id AS "authorPersonId",
+          author_display_name AS "authorDisplayName",
+          channel_origin_json AS "channelOrigin",
+          channel_delivery AS "channelDelivery",
+          role,
+          text,
+          attachments_json AS "attachments",
+          reactions_json AS "reactions",
+          is_streaming AS "isStreaming",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM projection_thread_messages
+        WHERE message_id = ${messageId}
+        LIMIT 1
+      `,
+  });
+
+  const hasProjectionThreadAssistantMessageRow = SqlSchema.findOne({
+    Request: HasProjectionThreadAssistantMessageInput,
+    Result: ProjectionThreadMessageExistsDbRowSchema,
+    execute: ({ threadId, turnId, streamingOnly }) =>
+      sql`
+        SELECT EXISTS (
+          SELECT 1
+          FROM projection_thread_messages
+          WHERE thread_id = ${threadId}
+            AND turn_id = ${turnId}
+            AND role = 'assistant'
+            AND (${streamingOnly ? 1 : 0} = 0 OR is_streaming = 1)
+          LIMIT 1
+        ) AS "exists"
+      `,
+  });
+
+  const listProjectionThreadMessageRows = SqlSchema.findAll({
+    Request: ListProjectionThreadMessagesInput,
+    Result: ProjectionThreadMessageDbRowSchema,
+    execute: ({ threadId }) =>
+      sql`
+        SELECT
+          message_id AS "messageId",
+          thread_id AS "threadId",
+          turn_id AS "turnId",
+          responding_bot_id AS "respondingBotId",
+          author_person_id AS "authorPersonId",
+          author_display_name AS "authorDisplayName",
+          channel_origin_json AS "channelOrigin",
+          channel_delivery AS "channelDelivery",
+          role,
+          text,
+          attachments_json AS "attachments",
+          reactions_json AS "reactions",
+          is_streaming AS "isStreaming",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM projection_thread_messages
+        WHERE thread_id = ${threadId}
+        ORDER BY created_at ASC, message_id ASC
+      `,
+  });
+
+  const getLatestUserMessageAtRow = SqlSchema.findOne({
+    Request: ListProjectionThreadMessagesInput,
+    Result: Schema.Struct({
+      latestUserMessageAt: Schema.NullOr(ProjectionThreadMessage.fields.createdAt),
+    }),
+    execute: ({ threadId }) => sql`
+      SELECT MAX(created_at) AS "latestUserMessageAt"
+      FROM projection_thread_messages
+      WHERE thread_id = ${threadId} AND role = 'user'
+    `,
+  });
+
+  const deleteProjectionThreadMessageRows = SqlSchema.void({
+    Request: DeleteProjectionThreadMessagesInput,
+    execute: ({ threadId }) =>
+      sql`
+        DELETE FROM projection_thread_messages
+        WHERE thread_id = ${threadId}
+      `,
+  });
+
+  const upsert: ProjectionThreadMessageRepositoryShape["upsert"] = (row) =>
+    upsertProjectionThreadMessageRow(row).pipe(
+      Effect.mapError(toPersistenceSqlError("ProjectionThreadMessageRepository.upsert:query")),
+    );
+
+  const appendStreaming: ProjectionThreadMessageRepositoryShape["appendStreaming"] = (row) =>
+    appendStreamingProjectionThreadMessageRow(row).pipe(
+      Effect.mapError(
+        toPersistenceSqlError("ProjectionThreadMessageRepository.appendStreaming:query"),
+      ),
+    );
+
+  const getByMessageId: ProjectionThreadMessageRepositoryShape["getByMessageId"] = (input) =>
+    getProjectionThreadMessageRow(input).pipe(
+      Effect.mapError(
+        toPersistenceSqlError("ProjectionThreadMessageRepository.getByMessageId:query"),
+      ),
+      Effect.map(Option.map(toProjectionThreadMessage)),
+    );
+
+  const hasAssistantMessageForTurn: ProjectionThreadMessageRepositoryShape["hasAssistantMessageForTurn"] =
+    (input) =>
+      hasProjectionThreadAssistantMessageRow(input).pipe(
+        Effect.mapError(
+          toPersistenceSqlError(
+            "ProjectionThreadMessageRepository.hasAssistantMessageForTurn:query",
+          ),
+        ),
+        Effect.map((row) => row.exists === 1),
+      );
+
+  const listByThreadId: ProjectionThreadMessageRepositoryShape["listByThreadId"] = (input) =>
+    listProjectionThreadMessageRows(input).pipe(
+      Effect.mapError(
+        toPersistenceSqlError("ProjectionThreadMessageRepository.listByThreadId:query"),
+      ),
+      Effect.map((rows) => rows.map(toProjectionThreadMessage)),
+    );
+
+  const getLatestUserMessageAt: ProjectionThreadMessageRepositoryShape["getLatestUserMessageAt"] = (
+    input,
+  ) =>
+    getLatestUserMessageAtRow(input).pipe(
+      Effect.mapError(
+        toPersistenceSqlError("ProjectionThreadMessageRepository.getLatestUserMessageAt:query"),
+      ),
+      Effect.map((row) => row.latestUserMessageAt),
+    );
+
+  const deleteByThreadId: ProjectionThreadMessageRepositoryShape["deleteByThreadId"] = (input) =>
+    deleteProjectionThreadMessageRows(input).pipe(
+      Effect.mapError(
+        toPersistenceSqlError("ProjectionThreadMessageRepository.deleteByThreadId:query"),
+      ),
+    );
+
+  return {
+    upsert,
+    appendStreaming,
+    getByMessageId,
+    hasAssistantMessageForTurn,
+    listByThreadId,
+    getLatestUserMessageAt,
+    deleteByThreadId,
+  } satisfies ProjectionThreadMessageRepositoryShape;
+});
+
+export const ProjectionThreadMessageRepositoryLive = Layer.effect(
+  ProjectionThreadMessageRepository,
+  makeProjectionThreadMessageRepository,
+);

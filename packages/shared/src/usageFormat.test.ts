@@ -1,0 +1,128 @@
+import { describe, expect, it, vi } from "vite-plus/test";
+
+import {
+  enumerateDays,
+  enumerateHourStarts,
+  formatDateTimeShort,
+  formatHourShort,
+  formatRelativeHourShort,
+  makeWindow,
+  stepTokenCount,
+  stepUsageTokenTotals,
+} from "./usageFormat.ts";
+
+describe("step usage", () => {
+  it("accounts for per-step tokens without using context occupancy", () => {
+    const usage = {
+      usedTokens: 90_000,
+      lastUsedTokens: 90_000,
+      lastInputTokens: 1_200,
+      lastCachedInputTokens: 200,
+      lastOutputTokens: 300,
+      lastReasoningOutputTokens: 100,
+    };
+
+    expect(stepTokenCount(usage)).toBe(1_500);
+    expect(stepUsageTokenTotals(usage)).toEqual({
+      uncachedInputTokens: 1_000,
+      cachedInputTokens: 200,
+      cacheCreationTokens: 0,
+      outputTokens: 300,
+      reasoningTokens: 100,
+    });
+    expect(stepTokenCount({ usedTokens: 90_000 })).toBeNull();
+  });
+});
+
+describe("hourly usage formatting", () => {
+  it("enumerates 24 fixed buckets across a rolling window", () => {
+    const hours = enumerateHourStarts("2026-08-10T12:37:00.000Z", "2026-08-11T12:37:00.000Z");
+
+    expect(hours).toHaveLength(24);
+    expect(hours[0]).toBe("2026-08-10T12:37:00.000Z");
+    expect(hours[23]).toBe("2026-08-11T11:37:00.000Z");
+  });
+
+  it("formats rolling instants in the requested time zone", () => {
+    expect(formatHourShort("2026-08-11T00:37:00.000Z", "UTC")).toBe("12 AM");
+    expect(formatHourShort("2026-08-11T12:37:00.000Z", "UTC")).toBe("12 PM");
+    expect(formatDateTimeShort("2026-08-11T17:37:00.000Z", "UTC")).toBe("Aug 11, 5 PM");
+  });
+
+  it("disambiguates repeated hours during a fall-back transition", () => {
+    expect(formatHourShort("2026-11-01T05:37:00.000Z", "America/New_York")).toBe("1 AM EDT");
+    expect(formatHourShort("2026-11-01T06:37:00.000Z", "America/New_York")).toBe("1 AM EST");
+  });
+
+  it("makes hourly tooltip dates relative to the window in its requested time zone", () => {
+    const windowEnd = "2026-08-11T14:37:00.000Z";
+
+    expect(formatRelativeHourShort("2026-08-10T17:37:00.000Z", windowEnd, "UTC")).toBe(
+      "5 PM yesterday",
+    );
+    expect(formatRelativeHourShort("2026-08-11T14:37:00.000Z", windowEnd, "UTC")).toBe(
+      "2 PM today",
+    );
+    expect(
+      formatRelativeHourShort(
+        "2026-08-11T01:37:00.000Z",
+        "2026-08-11T10:37:00.000Z",
+        "America/Los_Angeles",
+      ),
+    ).toBe("6 PM yesterday");
+  });
+
+  it("builds an exact minute-aligned 24-hour request", () => {
+    const window = makeWindow(1, new Date("2026-08-11T12:37:42.123Z"), "hour");
+
+    expect(window.resolution).toBe("hour");
+    expect(window.sinceTime).toBe("2026-08-10T12:37:00.000Z");
+    expect(window.untilTime).toBe("2026-08-11T12:37:00.000Z");
+  });
+
+  it("degrades an unknown resolved zone to UTC instead of crashing", () => {
+    const resolved = new Intl.DateTimeFormat().resolvedOptions();
+
+    const resolvedOptions = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+      .mockReturnValue({ ...resolved, timeZone: "Etc/Unknown" });
+
+    try {
+      const now = new Date("2026-08-11T12:37:42.123Z");
+
+      expect(makeWindow(1, now, "hour").timeZone).toBe("UTC");
+      expect(makeWindow(30, now).timeZone).toBe("UTC");
+    } finally {
+      resolvedOptions.mockRestore();
+    }
+  });
+});
+
+describe("usage date compatibility", () => {
+  it("keeps invalid dates and reversed windows harmless", () => {
+    expect(enumerateDays("invalid", "2026-08-11")).toEqual([]);
+    expect(enumerateDays("2026-08-11", "2026-08-10")).toEqual([]);
+    expect(enumerateHourStarts("invalid", "2026-08-11")).toEqual([]);
+    expect(formatHourShort("invalid", "UTC")).toBe("invalid");
+    expect(formatDateTimeShort("invalid", "UTC")).toBe("invalid");
+    expect(formatRelativeHourShort("invalid", "2026-08-11", "UTC")).toBe("invalid");
+  });
+
+  it("keeps unzoned timestamps in the viewer's local zone", () => {
+    const value = "2026-08-11T12:37:00";
+    const zoned = new Date(value).toISOString();
+    expect(formatHourShort(value, "UTC")).toBe(formatHourShort(zoned, "UTC"));
+    expect(formatDateTimeShort(value, "UTC")).toBe(formatDateTimeShort(zoned, "UTC"));
+    expect(formatRelativeHourShort(value, value, "UTC")).toBe(
+      formatRelativeHourShort(zoned, zoned, "UTC"),
+    );
+  });
+
+  it("enumerates inclusive UTC dates across a year boundary", () => {
+    expect(enumerateDays("2025-12-31", "2026-01-02")).toEqual([
+      "2025-12-31",
+      "2026-01-01",
+      "2026-01-02",
+    ]);
+  });
+});

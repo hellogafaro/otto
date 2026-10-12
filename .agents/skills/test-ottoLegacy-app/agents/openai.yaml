@@ -1,0 +1,4 @@
+interface:
+  display_name: "Otto App Testing"
+  short_description: "Verify isolated web and desktop environments"
+  default_prompt: "Use $test-ottoLegacy-app to verify Otto in an isolated web or desktop client and retain evidence of the affected behavior."

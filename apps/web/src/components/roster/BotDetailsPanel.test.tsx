@@ -1,0 +1,125 @@
+import * as NodeFS from "node:fs";
+
+import { createRef } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vite-plus/test";
+
+import { BotDetailsPanel, BotOverview } from "./BotDetailsPanel";
+import type { Bot } from "./types";
+
+const bot: Bot = {
+  id: "bot-otto",
+  name: "Otto",
+  title: "Generalist",
+  label: "Research",
+  description: "Finds evidence and explains what matters.",
+  disabledMcpServerIds: [],
+  avatar: { kind: "blob", shape: "circle", color: "#5B7FD4" },
+  engine: null,
+  sandbox: null,
+  runtimeMode: "full-access",
+  voiceEnabled: false,
+  groupId: null,
+  pinned: false,
+  archivedAt: null,
+  createdAt: "2026-08-27T00:00:00.000Z",
+  updatedAt: "2026-08-27T00:00:00.000Z",
+};
+
+describe("BotDetailsPanel", () => {
+  it("shows a compact overview that hands settings off to the full page", () => {
+    const markup = renderToStaticMarkup(<BotDetailsPanel bot={bot} />);
+    // No bot thread yet, so the empty browser preview stays hidden.
+    expect(markup).not.toContain('data-testid="bot-browser-preview"');
+    expect(markup).toContain(">Bot</h2>");
+    expect(markup).toContain("Otto");
+    expect(markup).toContain("Research");
+    expect(markup).toContain("Finds evidence and explains what matters.");
+    expect(markup).toContain("Open bot settings");
+    expect(markup).toContain("Personality");
+    expect(markup).toContain("Balanced");
+    // No providers are loaded in this render, so the panel says so plainly.
+    expect(markup).toContain("No provider ready");
+    expect(markup).not.toContain("App default");
+    expect(markup).toContain("Sandbox");
+    expect(markup).not.toContain('aria-label="Bot name"');
+    expect(markup).not.toContain('aria-label="Bot description"');
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain('data-state="closed"');
+    expect(markup).toContain('aria-label="Open Otto bot sidebar"');
+    expect(markup).not.toContain("Routines");
+    expect(markup).not.toContain("mock data");
+    expect(markup).not.toContain("border-b border-border");
+  });
+
+  it("keeps an unavailable model on the overview without a second warning", () => {
+    const markup = renderToStaticMarkup(
+      <BotOverview
+        bot={{ ...bot, engine: { provider: "claudeAgent", model: "claude-fable-5" } }}
+        routinePanelRef={createRef<HTMLDivElement>()}
+      />,
+    );
+
+    expect(markup).toContain("claude-fable-5");
+    expect(markup).not.toContain("Unavailable");
+  });
+
+  it("uses the configured right-panel shortcut while open or closed", () => {
+    const source = NodeFS.readFileSync(new URL("./BotDetailsPanel.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain('resolveShortcutCommand(event, keybindings) !== "rightPanel.toggle"');
+    expect(source).toContain("shortcutLabelForCommand(");
+    expect(source).toContain('"rightPanel.toggle"');
+    expect(source).toContain('window.addEventListener("keydown", onKeyDown, true)');
+    expect(source).toContain("RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY");
+  });
+
+  it("keeps model and reasoning controls on the full settings page", () => {
+    const panelSource = NodeFS.readFileSync(
+      new URL("./BotDetailsPanel.tsx", import.meta.url),
+      "utf8",
+    );
+
+    // The settings page renders its model controls through BotEngineFields.
+    const settingsSource = NodeFS.readFileSync(
+      new URL("./BotEngineFields.tsx", import.meta.url),
+      "utf8",
+    );
+
+    const composerSource = NodeFS.readFileSync(
+      new URL("./BotPromptComposer.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(panelSource).not.toContain("<BotModelPicker");
+    expect(panelSource).not.toContain("<TraitsPicker");
+    expect(settingsSource).toContain("<BotModelPicker");
+    expect(settingsSource).toContain("<TraitsPicker");
+    expect(composerSource).not.toContain("BotModelPicker");
+    expect(composerSource).not.toContain("TraitsPicker");
+    expect(composerSource).not.toContain("reasoningPicker");
+  });
+
+  it("stores the desktop preference under the bot id", () => {
+    const source = NodeFS.readFileSync(new URL("./BotDetailsPanel.tsx", import.meta.url), "utf8");
+    const storage = NodeFS.readFileSync(new URL("./detailsPanelOpen.ts", import.meta.url), "utf8");
+    expect(source).toContain("useBotDetailsOpen(bot.id)");
+    expect(storage).toContain("`otto:bot-details-open:${botId}`");
+    expect(storage).toContain("Schema.Boolean");
+    expect(source).toContain("setDesktopOpen((open) => !open)");
+  });
+
+  it("mounts from the bot route instead of the generic panel", () => {
+    const source = NodeFS.readFileSync(
+      new URL("../../routes/_chat.bots.$botId.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain("<BotDetailsPanel");
+    expect(source).toContain("threadRef={threadRef}");
+    expect(source).toContain("onOpenSettings={() =>");
+    expect(source).not.toContain("onSaveBot=");
+    expect(source).not.toContain("RightPanelTabs");
+    expect(source).not.toContain("ThreadTerminalDrawer");
+  });
+});

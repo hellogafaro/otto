@@ -1,0 +1,55 @@
+import { Data, Predicate } from "effect";
+import { useAtomValue } from "@effect/atom-react";
+import { createAssetEnvironmentAtoms, resolveAssetUrl } from "@otto/client-runtime/state/assets";
+import type { AssetResource, EnvironmentId } from "@otto/contracts";
+import { AsyncResult, Atom } from "effect/unstable/reactivity";
+
+import { connectionAtomRuntime } from "../connection/runtime";
+import { usePreparedConnection } from "./session";
+
+export const assetEnvironment = createAssetEnvironmentAtoms(connectionAtomRuntime);
+
+const EMPTY_ASSET_URL_ATOM = Atom.make(AsyncResult.initial<never, never>(false)).pipe(
+  Atom.withLabel("mobile-asset-url:empty"),
+);
+
+export type AssetUrlState =
+  | { readonly _tag: "Loading" }
+  | { readonly _tag: "Failure" }
+  | { readonly _tag: "Success"; readonly url: string };
+
+const assetUrlState = Data.taggedEnum<AssetUrlState>();
+
+export function useAssetUrlState(
+  environmentId: EnvironmentId | null,
+  resource: AssetResource | null,
+): AssetUrlState {
+  const preparedConnection = usePreparedConnection(environmentId);
+
+  const result = useAtomValue(
+    environmentId === null || resource === null
+      ? EMPTY_ASSET_URL_ATOM
+      : assetEnvironment.createUrl({ environmentId, input: { resource } }),
+  );
+
+  if (Predicate.isTagged(result, "Failure")) {
+    return assetUrlState["Failure"]();
+  }
+
+  if (Predicate.isTagged(preparedConnection, "None") || !Predicate.isTagged(result, "Success")) {
+    return assetUrlState["Loading"]();
+  }
+
+  const url = resolveAssetUrl(preparedConnection.value.httpBaseUrl, result.value.relativeUrl);
+
+  return url === null ? assetUrlState["Failure"]() : assetUrlState["Success"]({ url });
+}
+
+export function useAssetUrl(
+  environmentId: EnvironmentId | null,
+  resource: AssetResource | null,
+): string | null {
+  const state = useAssetUrlState(environmentId, resource);
+
+  return Predicate.isTagged(state, "Success") ? state.url : null;
+}

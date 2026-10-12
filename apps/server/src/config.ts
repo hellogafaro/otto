@@ -1,237 +1,254 @@
-import { z } from "zod";
+import * as Predicate from "effect/Predicate";
+/**
+ * ServerConfig - Runtime configuration services.
+ *
+ * Defines process-level server configuration and networking helpers used by
+ * startup and runtime layers.
+ *
+ * @module ServerConfig
+ */
+import * as Context from "effect/Context";
+import * as Clock from "effect/Clock";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as LogLevel from "effect/LogLevel";
+import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 
-const mcpBinding = z
-  .object({
-    workspaceId: z.uuid(),
-    connectionId: z.uuid(),
-    credentialRef: z.string().min(1).max(200),
-    tokenEnv: z
-      .string()
-      .regex(/^OTTO_MCP_TOKEN_[A-Z0-9_]+$/)
-      .max(200),
-  })
-  .strict();
-export type McpCredentialBinding = z.infer<typeof mcpBinding>;
+import { sweepStalePendingAttachments } from "./attachmentStore.ts";
 
-const httpUrl = z.url().refine((value) => {
-  try {
-    const url = new URL(value);
-    return (
-      ["http:", "https:"].includes(url.protocol) &&
-      !url.username &&
-      !url.password
-    );
-  } catch {
-    return false;
+export const DEFAULT_PORT = 3773;
+
+export const RuntimeMode = Schema.Literals(["web", "desktop"]);
+
+export type RuntimeMode = typeof RuntimeMode.Type;
+
+export const StartupPresentation = Schema.Literals(["browser", "headless"]);
+
+export type StartupPresentation = typeof StartupPresentation.Type;
+
+/**
+ * ServerDerivedPaths - Derived paths from the base directory.
+ */
+export interface ServerDerivedPaths {
+  readonly stateDir: string;
+  readonly dbPath: string;
+  readonly keybindingsConfigPath: string;
+  readonly settingsPath: string;
+  readonly providerStatusCacheDir: string;
+  readonly worktreesDir: string;
+  readonly attachmentsDir: string;
+  readonly logsDir: string;
+  readonly serverLogPath: string;
+  readonly serverTracePath: string;
+  readonly providerLogsDir: string;
+  readonly providerEventLogPath: string;
+  readonly terminalLogsDir: string;
+  readonly anonymousIdPath: string;
+  readonly analyticsStatePath: string;
+  readonly environmentIdPath: string;
+  readonly serverRuntimeStatePath: string;
+  readonly secretsDir: string;
+}
+
+export interface DeriveServerPathsOptions {
+  readonly baseDirIsExplicit?: boolean;
+}
+
+/**
+ * ServerConfig - Service tag for server runtime configuration.
+ */
+export class ServerConfig extends Context.Service<
+  ServerConfig,
+  ServerDerivedPaths & {
+    readonly logLevel: LogLevel.LogLevel;
+    readonly traceMinLevel: LogLevel.LogLevel;
+    readonly traceTimingEnabled: boolean;
+    readonly traceBatchWindowMs: number;
+    readonly traceMaxBytes: number;
+    readonly traceMaxFiles: number;
+    readonly otlpTracesUrl: string | undefined;
+    readonly otlpMetricsUrl: string | undefined;
+    readonly otlpExportIntervalMs: number;
+    readonly otlpServiceName: string;
+    readonly mode: RuntimeMode;
+    readonly port: number;
+    readonly host: string | undefined;
+    readonly cwd: string;
+    readonly baseDir: string;
+    readonly staticDir: string | undefined;
+    readonly devUrl: URL | undefined;
+    readonly devAllowedOrigins: ReadonlyArray<string>;
+    readonly noBrowser: boolean;
+    readonly startupPresentation: StartupPresentation;
+    readonly desktopBootstrapToken: string | undefined;
+    readonly desktopTelemetryFd?: number | undefined;
+    readonly desktopTelemetryControlFd?: number | undefined;
+    readonly resourceMonitorPath?: string | undefined;
+    readonly autoBootstrapProjectFromCwd: boolean;
+    readonly logWebSocketEvents: boolean;
+    readonly tailscaleServeEnabled: boolean;
+    readonly tailscaleServePort: number;
+    /** Public origin that forwards to this server, for provider webhooks. */
+    readonly publicOrigin?: string | undefined;
+  }
+>()("@otto/server/config/ServerConfig") {
+  /** @deprecated Import and use `layerTest` from this module. */
+  static readonly layerTest = (
+    cwd: string,
+    baseDirOrPrefix: string | { readonly prefix: string },
+  ) => layerTest(cwd, baseDirOrPrefix);
+}
+
+export const make = (config: ServerConfig["Service"]) => ServerConfig.of(config);
+
+export const layer = (config: ServerConfig["Service"]) => Layer.succeed(ServerConfig, make(config));
+
+export const deriveServerPaths = Effect.fn(function* (
+  baseDir: ServerConfig["Service"]["baseDir"],
+  devUrl: ServerConfig["Service"]["devUrl"],
+  options: DeriveServerPathsOptions = {},
+): Effect.fn.Return<ServerDerivedPaths, never, Path.Path> {
+  const { join } = yield* Path.Path;
+
+  const stateDir = join(
+    baseDir,
+    devUrl !== undefined && !options.baseDirIsExplicit ? "dev" : "userdata",
+  );
+
+  const dbPath = join(stateDir, "state.sqlite");
+  const attachmentsDir = join(stateDir, "attachments");
+  const logsDir = join(stateDir, "logs");
+  const providerLogsDir = join(logsDir, "provider");
+  const providerStatusCacheDir = join(baseDir, "caches");
+
+  return {
+    stateDir,
+    dbPath,
+    keybindingsConfigPath: join(stateDir, "keybindings.json"),
+    settingsPath: join(stateDir, "settings.json"),
+    providerStatusCacheDir,
+    worktreesDir: join(baseDir, "worktrees"),
+    attachmentsDir,
+    logsDir,
+    serverLogPath: join(logsDir, "server.log"),
+    serverTracePath: join(logsDir, "server.trace.ndjson"),
+    providerLogsDir,
+    providerEventLogPath: join(providerLogsDir, "events.log"),
+    terminalLogsDir: join(logsDir, "terminals"),
+    anonymousIdPath: join(stateDir, "anonymous-id"),
+    analyticsStatePath: join(stateDir, "analytics.json"),
+    environmentIdPath: join(stateDir, "environment-id"),
+    serverRuntimeStatePath: join(stateDir, "server-runtime.json"),
+    secretsDir: join(stateDir, "secrets"),
+  };
+});
+
+export const ensureServerDirectories = Effect.fn(function* (derivedPaths: ServerDerivedPaths) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+
+  yield* Effect.all(
+    [
+      fs.makeDirectory(derivedPaths.stateDir, { recursive: true }),
+      fs.makeDirectory(derivedPaths.logsDir, { recursive: true }),
+      fs.makeDirectory(derivedPaths.providerLogsDir, { recursive: true }),
+      fs.makeDirectory(derivedPaths.terminalLogsDir, { recursive: true }),
+      fs.makeDirectory(derivedPaths.attachmentsDir, { recursive: true }),
+      fs.makeDirectory(derivedPaths.worktreesDir, { recursive: true }),
+      fs.makeDirectory(path.dirname(derivedPaths.keybindingsConfigPath), { recursive: true }),
+      fs.makeDirectory(path.dirname(derivedPaths.settingsPath), { recursive: true }),
+      fs.makeDirectory(derivedPaths.providerStatusCacheDir, { recursive: true }),
+      fs.makeDirectory(path.dirname(derivedPaths.anonymousIdPath), { recursive: true }),
+      fs.makeDirectory(path.dirname(derivedPaths.analyticsStatePath), { recursive: true }),
+      fs.makeDirectory(path.dirname(derivedPaths.serverRuntimeStatePath), { recursive: true }),
+    ],
+    { concurrency: "unbounded" },
+  );
+
+  const swept = sweepStalePendingAttachments({
+    attachmentsDir: derivedPaths.attachmentsDir,
+    nowMs: yield* Clock.currentTimeMillis,
+  });
+
+  if (swept.deleted > 0) {
+    yield* Effect.logInfo("Removed expired attachment uploads.", { deleted: swept.deleted });
   }
 });
-const schema = z
-  .object({
-    COMPUTER_DOCKER_IMAGE: z
-      .string()
-      .regex(/^sha256:[a-f0-9]{64}$/)
-      .optional(),
-    COMPUTER_DOCKER_SOCKET: z
-      .string()
-      .min(1)
-      .max(1024)
-      .refine(
-        (value) =>
-          value.startsWith("/") &&
-          value.endsWith(".sock") &&
-          !value.includes("\0"),
-      )
-      .optional(),
-    COMPUTER_OWNER_ID: z
-      .string()
-      .regex(/^[A-Za-z0-9_-]{1,80}$/)
-      .optional(),
-    MCP_ORIGIN: httpUrl
-      .refine((value) => {
-        try {
-          const url = new URL(value);
-          return url.origin === value && value !== "https://api.github.com";
-        } catch {
-          return false;
-        }
-      })
-      .optional(),
-    MCP_ALLOW_LOOPBACK_HTTP: z.enum(["true"]).optional(),
-    MCP_ALLOW_ANONYMOUS: z.enum(["true"]).optional(),
-    MCP_CREDENTIAL_BINDINGS: z
-      .string()
-      .max(100_000)
-      .transform((value, ctx) => {
-        try {
-          return JSON.parse(value) as unknown;
-        } catch {
-          ctx.addIssue({ code: "custom", message: "Invalid bindings" });
-          return z.NEVER;
-        }
-      })
-      .pipe(
-        z
-          .array(mcpBinding)
-          .min(1)
-          .max(100)
-          .refine(
-            (bindings) =>
-              new Set(
-                bindings.map((binding) =>
-                  JSON.stringify([
-                    binding.workspaceId,
-                    binding.connectionId,
-                    binding.credentialRef,
-                  ]),
-                ),
-              ).size === bindings.length,
-          ),
-      )
-      .transform((bindings) => JSON.stringify(bindings))
-      .optional(),
-    DATABASE_URL: z.string().min(1),
-    BETTER_AUTH_SECRET: z.string().min(32),
-    ENCRYPTION_KEY: z.string().refine((value) => {
-      const bytes = Buffer.from(value, "base64");
-      return bytes.length === 32 && bytes.toString("base64") === value;
-    }),
-    OTTO_ORIGIN: httpUrl.refine((value) => {
-      try {
-        return new URL(value).origin === value;
-      } catch {
-        return false;
-      }
-    }),
-    HOST: z.enum(["127.0.0.1", "0.0.0.0", "::1", "::"]).default("127.0.0.1"),
-    PORT: z.coerce.number().int().min(0).max(65535).default(43001),
-    S3_ENDPOINT: httpUrl.optional(),
-    S3_REGION: z.string().min(1).default("garage"),
-    /** Base directory for in-flight transfer spools; each instance owns a private subdirectory. */
-    UPLOAD_SPOOL_DIR: z.string().min(1).optional(),
-    /** Transfer deadlines: a fixed allowance plus time for the size at a minimum acceptable rate. */
-    TRANSFER_BASE_MS: z.coerce
-      .number()
-      .int()
-      .min(100)
-      .max(3_600_000)
-      .default(60000),
-    TRANSFER_MIN_BYTES_PER_SECOND: z.coerce
-      .number()
-      .int()
-      .min(1024)
-      .max(1_000_000_000)
-      .default(256 * 1024),
-    /** One disk budget for uploads and verified downloads together (default: five maximum-size files). */
-    UPLOAD_SPOOL_BYTES: z.coerce
-      .number()
-      .int()
-      .min(100_000_000)
-      .max(100_000_000_000)
-      .default(500_000_000),
-    S3_BUCKET: z.string().min(1).optional(),
-    S3_ACCESS_KEY_ID: z.string().min(1).optional(),
-    S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
-    MAIL_FROM: z.email().optional(),
-    SMTP_HOST: z.union([z.hostname(), z.ipv4(), z.ipv6()]).optional(),
-    SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
-    SMTP_TLS: z.enum(["tls", "starttls", "none"]).optional(),
-    SMTP_USER: z.string().min(1).max(512).optional(),
-    SMTP_PASSWORD: z.string().min(1).max(4096).optional(),
-    /** Dictation is unavailable without a key; the model is any OpenRouter speech-to-text model. */
-    OPENROUTER_API_KEY: z.string().min(1).optional(),
-    TRANSCRIPTION_MODEL: z
-      .string()
-      .min(1)
-      .default("mistralai/voxtral-mini-transcribe"),
-  })
-  .superRefine((config, ctx) => {
-    for (const group of [
-      ["COMPUTER_DOCKER_IMAGE", "COMPUTER_DOCKER_SOCKET", "COMPUTER_OWNER_ID"],
-      ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
-      ["MAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_TLS"],
-      ["SMTP_USER", "SMTP_PASSWORD"],
-    ] as const) {
-      const present = group.filter((key) => config[key] !== undefined);
-      if (present.length > 0 && present.length < group.length) {
-        for (const key of group)
-          if (config[key] === undefined)
-            ctx.addIssue({
-              code: "custom",
-              path: [key],
-              message: "Required together",
-            });
-      }
-    }
-    if (config.MCP_CREDENTIAL_BINDINGS && !config.MCP_ORIGIN)
-      ctx.addIssue({
-        code: "custom",
-        path: ["MCP_ORIGIN"],
-        message: "Required for MCP credentials",
-      });
-    if (
-      config.MCP_ORIGIN &&
-      !config.MCP_CREDENTIAL_BINDINGS &&
-      !config.MCP_ALLOW_ANONYMOUS
-    )
-      ctx.addIssue({
-        code: "custom",
-        path: ["MCP_CREDENTIAL_BINDINGS"],
-        message: "Required for authenticated MCP",
-      });
-    if (config.MCP_ALLOW_ANONYMOUS && !config.MCP_ORIGIN)
-      ctx.addIssue({
-        code: "custom",
-        path: ["MCP_ORIGIN"],
-        message: "Required for anonymous MCP",
-      });
-    if (config.MCP_ALLOW_LOOPBACK_HTTP && !config.MCP_ORIGIN)
-      ctx.addIssue({
-        code: "custom",
-        path: ["MCP_ORIGIN"],
-        message: "Required together",
-      });
-    if (config.MCP_ORIGIN) {
-      let secure = false;
-      try {
-        const url = new URL(config.MCP_ORIGIN);
-        secure =
-          url.protocol === "https:" ||
-          (config.MCP_ALLOW_LOOPBACK_HTTP === "true" &&
-            ["127.0.0.1", "[::1]"].includes(url.hostname));
-      } catch {}
-      if (!secure)
-        ctx.addIssue({
-          code: "custom",
-          path: ["MCP_ORIGIN"],
-          message: "HTTPS required",
-        });
-    }
-    if (config.SMTP_USER !== undefined && config.SMTP_HOST === undefined)
-      ctx.addIssue({
-        code: "custom",
-        path: ["SMTP_HOST"],
-        message: "Required with SMTP authentication",
-      });
-    if (
-      config.SMTP_TLS === "none" &&
-      (!["localhost", "127.0.0.1", "::1"].includes(
-        config.SMTP_HOST?.toLowerCase() ?? "",
-      ) ||
-        config.SMTP_USER !== undefined)
-    )
-      ctx.addIssue({
-        code: "custom",
-        path: ["SMTP_TLS"],
-        message: "Plaintext is limited to unauthenticated loopback delivery",
-      });
+
+const makeTest = Effect.fn("ServerConfig.makeTest")(function* (
+  cwd: string,
+  baseDirOrPrefix: string | { readonly prefix: string },
+) {
+  const devUrl = undefined;
+  const fs = yield* FileSystem.FileSystem;
+
+  const baseDir = Predicate.isString(baseDirOrPrefix)
+    ? baseDirOrPrefix
+    : yield* fs.makeTempDirectoryScoped({ prefix: baseDirOrPrefix.prefix });
+
+  const derivedPaths = yield* deriveServerPaths(baseDir, devUrl);
+  yield* ensureServerDirectories(derivedPaths);
+
+  return ServerConfig.of({
+    logLevel: "Error",
+    traceMinLevel: "Info",
+    traceTimingEnabled: true,
+    traceBatchWindowMs: 200,
+    traceMaxBytes: 10 * 1024 * 1024,
+    traceMaxFiles: 10,
+    otlpTracesUrl: undefined,
+    otlpMetricsUrl: undefined,
+    otlpExportIntervalMs: 10_000,
+    otlpServiceName: "otto-server",
+    cwd,
+    baseDir,
+    ...derivedPaths,
+    mode: "web",
+    autoBootstrapProjectFromCwd: false,
+    logWebSocketEvents: false,
+    tailscaleServeEnabled: false,
+    tailscaleServePort: 443,
+    port: 0,
+    host: undefined,
+    desktopBootstrapToken: undefined,
+    desktopTelemetryFd: undefined,
+    desktopTelemetryControlFd: undefined,
+    resourceMonitorPath: undefined,
+    staticDir: undefined,
+    devUrl,
+    devAllowedOrigins: [],
+    noBrowser: false,
+    startupPresentation: "browser",
   });
-/** Returns field names only on failure: environment values must never reach logs. */
-export function readConfig(env: NodeJS.ProcessEnv) {
-  const result = schema.safeParse(env);
-  if (!result.success)
-    throw new Error(
-      `Invalid configuration fields: ${[...new Set(result.error.issues.map((issue) => issue.path.join(".")))].join(", ")}`,
-    );
-  return result.data;
-}
-export type ServerConfig = ReturnType<typeof readConfig>;
+});
+
+export const layerTest = (cwd: string, baseDirOrPrefix: string | { readonly prefix: string }) =>
+  Layer.effect(ServerConfig, makeTest(cwd, baseDirOrPrefix));
+
+export const resolveStaticDir = Effect.fn(function* () {
+  const { join, resolve } = yield* Path.Path;
+  const { exists } = yield* FileSystem.FileSystem;
+  const bundledClient = resolve(join(import.meta.dirname, "client"));
+
+  const bundledStat = yield* exists(join(bundledClient, "index.html")).pipe(
+    Effect.orElseSucceed(() => false),
+  );
+
+  if (bundledStat) {
+    return bundledClient;
+  }
+
+  const monorepoClient = resolve(join(import.meta.dirname, "../../web/dist"));
+
+  const monorepoStat = yield* exists(join(monorepoClient, "index.html")).pipe(
+    Effect.orElseSucceed(() => false),
+  );
+
+  if (monorepoStat) {
+    return monorepoClient;
+  }
+
+  return undefined;
+});

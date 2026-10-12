@@ -1,0 +1,33 @@
+# Plugin lifecycle verification
+
+Milestone 13 keeps catalog discovery separate from connection verification. An entry stays non-installable until its real install, authentication, safe read, approved write, disable, reconnect, and removal lifecycle passes. `verification-pending` means that local lifecycle proof is missing. `approval-pending` means an external vendor, administrator, allowlist, or first-party connector is still required.
+
+`plugins/lifecycle-matrix.test.ts` is the catalog gate. It fixes the directory at 54 IDs and, since every entry is currently pending, keeps `loadCatalog()` empty until a lifecycle is verified. It also checks Featured order, consequential approval coverage, broker identity, Custom MCP independence, legacy built-in display, and the Computer Use, Executor, Typefully, Paper, and PayPal blockers.
+
+## Runtime proof
+
+The lifecycle matrix does not copy runtime tests. These focused tests own the runtime behavior:
+
+- `apps/server/src/orchestration/Layers/McpServerRegistry.test.ts` covers create, update, disable, enable, delete, missing IDs, and independent raw MCP state.
+- `apps/server/src/provider/Layers/AgentController.test.ts` covers selected MCP registration, exact tool-to-server attribution, startup failure, and request failure or recovery at the runtime event boundary.
+- `apps/server/src/subscription-auth/service.test.ts` persists MCP failure and recovery without tool output or tokens.
+- `apps/server/src/subscription-auth/snapshot.test.ts` keeps a built-in MCP detected until a real request passes, reports healthy and disabled state, and lists dependent bots.
+- `apps/server/src/bot-inbox/connectorIncidents.test.ts` covers provider and MCP first-request failure, recovery, and stale dependent cleanup.
+
+Bot-facing MCP controls use the same session-scoped Mastra `McpManager`. `GetMcpServerStatus` returns the manager connection plus persisted request evidence. `TestMcpServer` and `ReconnectMcpServer` use the manager's real per-server reconnect result, then update the same health and inbox records. A connected manager without a completed request or connection test reports `not-run`, not healthy.
+
+Routine pausing remains an explicit dependency on the routine runtime in `ottoLegacy/routines-and-skills` commit `e77798657`. That branch owns durable connector dependencies and pause commands. Until it lands, MCP tool results return an empty `dependentRoutines` list and do not claim that a routine paused. Bind its repository and pause command at `OttoMcpHealthHandlerOptions.getDependencies` and `onFailure`. Do not add a second routine store here.
+
+Run the matrix with the catalog, schema, runtime, and validator checks. Do not call a vendor endpoint from automated tests.
+
+## Lifecycle matrix execution
+
+`apps/server/src/provider/PluginLifecycleMatrix.test.ts` runs the install → connect → health → disconnect → reconnect → remove sequence through the same Mastra `McpManager` used by bot sessions. The Codex Computer Use stdio recipe (`otto-codex-computer-use mcp`) runs against a newline-delimited JSON-RPC fixture because the CLI is not on PATH in CI. URL recipes (including Executor 2's authenticated `https://executor.sh/mcp` recipe) run against a loopback Streamable HTTP fake that stands in for the vendor endpoint. The Executor fixture requires a bearer header, so discovery is not treated as an unauthenticated socket probe.
+
+Fixtures prove the lifecycle wiring, not vendor behavior. A fixture pass never moves an entry out of `verification-pending`; only a run against the real CLI or endpoint does.
+
+## Vendor status
+
+No entry is currently `available`. Context.dev, Exa, Firecrawl, Parallel, and Hoplite keep their official HTTPS recipes visible but are `verification-pending` until each OAuth and connection lifecycle passes against the live vendor. Gmail keeps its Composio `brokered` connection but reports a `pendingBlocker` naming the required Composio API key and connected Gmail account, so it cannot be connected until that lifecycle is verified.
+
+Executor declares its official Executor 2 HTTP MCP recipe but stays pending until its full add, use, disable, reconnect, and removal lifecycle passes against the live service. Typefully stays pending until its OAuth lifecycle passes. Paper stays pending until its loopback desktop lifecycle passes. PayPal stays pending until its first-party OAuth and payment lifecycle passes. No entry can move to available based on a manifest check, HTTP probe, or vendor documentation alone.

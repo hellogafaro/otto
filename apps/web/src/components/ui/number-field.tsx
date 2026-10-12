@@ -1,0 +1,146 @@
+"use client";
+
+import { RiSubtractLine, RiAddLine, RiExpandWidthLine } from "@remixicon/react";
+import { NumberField as NumberFieldPrimitive } from "@base-ui/react/number-field";
+
+import * as React from "react";
+import { cn } from "~/lib/utils";
+import { Label } from "~/components/ui/label";
+
+export const NumberFieldContext: React.Context<{
+  fieldId: string;
+} | null> = React.createContext<{
+  fieldId: string;
+} | null>(null);
+
+export function NumberField({
+  id,
+  className,
+  size = "default",
+  ...props
+}: NumberFieldPrimitive.Root.Props & {
+  size?: "sm" | "default" | "lg";
+}): React.ReactElement {
+  const generatedId = React.useId();
+  const fieldId = id ?? generatedId;
+  const contextValue = React.useMemo(() => ({ fieldId }), [fieldId]);
+
+  return (
+    <NumberFieldContext value={contextValue}>
+      <NumberFieldPrimitive.Root
+        className={cn("flex w-full flex-col items-start gap-2", className)}
+        data-size={size}
+        data-slot="number-field"
+        id={fieldId}
+        {...props}
+      />
+    </NumberFieldContext>
+  );
+}
+
+export function NumberFieldGroup({
+  className,
+  ...props
+}: NumberFieldPrimitive.Group.Props): React.ReactElement {
+  return (
+    <NumberFieldPrimitive.Group
+      className={cn(
+        "relative flex w-full justify-between rounded-lg border border-transparent bg-secondary text-base text-foreground ring-ring/70 transition-shadow focus-within:ring-2 has-aria-invalid:ring-2 has-aria-invalid:ring-destructive/40 has-autofill:bg-foreground/4 focus-within:has-aria-invalid:ring-destructive/48 data-disabled:pointer-events-none data-disabled:opacity-64 sm:text-sm dark:has-autofill:bg-foreground/8 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        className,
+      )}
+      data-slot="number-field-group"
+      {...props}
+    />
+  );
+}
+
+export function NumberFieldDecrement({
+  className,
+  ...props
+}: NumberFieldPrimitive.Decrement.Props): React.ReactElement {
+  return (
+    <NumberFieldPrimitive.Decrement
+      className={cn(
+        "relative flex shrink-0 cursor-pointer items-center justify-center rounded-s-[calc(var(--radius-lg)-1px)] in-data-[size=sm]:px-[calc(--spacing(2.5)-1px)] px-[calc(--spacing(3)-1px)] transition-colors pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 hover:bg-accent",
+        className,
+      )}
+      data-slot="number-field-decrement"
+      {...props}
+    >
+      <RiSubtractLine />
+    </NumberFieldPrimitive.Decrement>
+  );
+}
+
+export function NumberFieldIncrement({
+  className,
+  ...props
+}: NumberFieldPrimitive.Increment.Props): React.ReactElement {
+  return (
+    <NumberFieldPrimitive.Increment
+      className={cn(
+        "relative flex shrink-0 cursor-pointer items-center justify-center rounded-e-[calc(var(--radius-lg)-1px)] in-data-[size=sm]:px-[calc(--spacing(2.5)-1px)] px-[calc(--spacing(3)-1px)] transition-colors pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 hover:bg-accent",
+        className,
+      )}
+      data-slot="number-field-increment"
+      {...props}
+    >
+      <RiAddLine />
+    </NumberFieldPrimitive.Increment>
+  );
+}
+
+export function NumberFieldInput({
+  className,
+  ...props
+}: NumberFieldPrimitive.Input.Props): React.ReactElement {
+  return (
+    <NumberFieldPrimitive.Input
+      className={cn(
+        "h-8.5 in-data-[size=lg]:h-9.5 in-data-[size=sm]:h-7.5 w-full min-w-0 grow bg-transparent in-data-[size=sm]:px-[calc(--spacing(2.5)-1px)] px-[calc(--spacing(3)-1px)] text-center tabular-nums in-data-[size=lg]:leading-9.5 in-data-[size=sm]:leading-7.5 leading-8.5 outline-none [transition:background-color_5000000s_ease-in-out_0s] sm:h-7.5 sm:in-data-[size=lg]:h-8.5 sm:in-data-[size=sm]:h-6.5 sm:in-data-[size=lg]:leading-8.5 sm:in-data-[size=sm]:leading-8.5 sm:leading-7.5",
+        className,
+      )}
+      data-slot="number-field-input"
+      {...props}
+    />
+  );
+}
+
+export function NumberFieldScrubArea({
+  className,
+  label,
+  ...props
+}: NumberFieldPrimitive.ScrubArea.Props & {
+  label: string;
+}): React.ReactElement {
+  const context = React.use(NumberFieldContext);
+
+  if (!context) {
+    throw new Error(
+      "NumberFieldScrubArea must be used within a NumberField component for accessibility.",
+    );
+  }
+
+  return (
+    <NumberFieldPrimitive.ScrubArea
+      className={cn("flex cursor-ew-resize", className)}
+      data-slot="number-field-scrub-area"
+      {...props}
+    >
+      <Label className="cursor-ew-resize" htmlFor={context.fieldId}>
+        {label}
+      </Label>
+      <NumberFieldPrimitive.ScrubAreaCursor className="drop-shadow-[0_1px_1px_#0008] filter">
+        <CursorGrowIcon />
+      </NumberFieldPrimitive.ScrubAreaCursor>
+    </NumberFieldPrimitive.ScrubArea>
+  );
+}
+
+export function CursorGrowIcon(
+  props: React.ComponentProps<typeof RiExpandWidthLine>,
+): React.ReactElement {
+  return <RiExpandWidthLine aria-hidden="true" size={14} {...props} />;
+}
+
+export { NumberFieldPrimitive };

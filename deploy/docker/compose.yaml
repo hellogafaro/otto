@@ -1,0 +1,39 @@
+services:
+  tailscale:
+    image: tailscale/tailscale:v1.88.4
+    hostname: ${OTTO_HOSTNAME:-otto}
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_USERSPACE: "false"
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices: [/dev/net/tun:/dev/net/tun]
+    restart: unless-stopped
+
+  otto:
+    image: ${OTTO_IMAGE:-otto-remote:local}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    network_mode: service:tailscale
+    environment:
+      OTTO_LEGACY_MODE: web
+      OTTO_LEGACY_HOST: 0.0.0.0
+      OTTO_LEGACY_PORT: 3773
+      OTTO_LEGACY_NO_BROWSER: "true"
+      OTTO_HOME: /data
+    volumes:
+      - otto-data:/data
+      - ${OTTO_WORKSPACE:-$HOME}:/workspace
+    restart: unless-stopped
+    depends_on: [tailscale]
+
+volumes:
+  otto-data:
+    name: ${OTTO_DATA_VOLUME:-otto-data}
+  tailscale-state:
+    name: ${OTTO_TAILSCALE_VOLUME:-otto-tailscale-state}

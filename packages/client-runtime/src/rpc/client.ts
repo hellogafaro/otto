@@ -1,0 +1,321 @@
+import * as Predicate from "effect/Predicate";
+import { ORCHESTRATION_WS_METHODS, WS_METHODS } from "@otto/contracts";
+import * as Cause from "effect/Cause";
+import * as Context from "effect/Context";
+import type * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
+import { RpcClientError } from "effect/unstable/rpc";
+
+import { EnvironmentSupervisor } from "../connection/supervisor.ts";
+import type { WsRpcProtocolClient } from "../rpc/protocol.ts";
+import type { RpcSession } from "../rpc/session.ts";
+
+export class EnvironmentRpcUnavailableError extends Schema.TaggedErrorClass<EnvironmentRpcUnavailableError>()(
+  "EnvironmentRpcUnavailableError",
+  {
+    environmentId: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+export interface EnvironmentRpcRequestObservation {
+  readonly environmentId: string;
+  readonly method: string;
+}
+
+export class EnvironmentRpcRequestObserver extends Context.Reference<{
+  readonly observe: (
+    request: EnvironmentRpcRequestObservation,
+  ) => Effect.Effect<Effect.Effect<void>>;
+}>("@otto/client-runtime/rpc/EnvironmentRpcRequestObserver", {
+  defaultValue: () => ({
+    observe: () => Effect.succeed(Effect.void),
+  }),
+}) {}
+
+export type EnvironmentRpcTag = keyof WsRpcProtocolClient & string;
+
+type RpcMethod<TTag extends EnvironmentRpcTag> = WsRpcProtocolClient[TTag];
+
+export type EnvironmentSubscriptionRpcTag =
+  | typeof ORCHESTRATION_WS_METHODS.subscribeShell
+  | typeof ORCHESTRATION_WS_METHODS.subscribeThread
+  | typeof WS_METHODS.subscribeAuthAccess
+  | typeof WS_METHODS.subscribeBackgroundPolicy
+  | typeof WS_METHODS.subscribeServerConfig
+  | typeof WS_METHODS.subscribeServerLifecycle
+  | typeof WS_METHODS.subscribePreviewEvents
+  | typeof WS_METHODS.computerEvents
+  | typeof WS_METHODS.subscribeDiscoveredLocalServers
+  | typeof WS_METHODS.subscribeResourceTelemetry
+  | typeof WS_METHODS.previewAutomationConnect;
+
+export type EnvironmentStreamCommandRpcTag =
+  | typeof WS_METHODS.serverUpdateServerWithProgress
+  | typeof WS_METHODS.mcpServerAuthenticate;
+
+export type EnvironmentStreamRpcTag =
+  | EnvironmentSubscriptionRpcTag
+  | EnvironmentStreamCommandRpcTag;
+
+export type EnvironmentUnaryRpcTag = Exclude<EnvironmentRpcTag, EnvironmentStreamRpcTag>;
+
+export interface EnvironmentRpcSubscriptionObservation {
+  readonly environmentId: string;
+  readonly method: EnvironmentSubscriptionRpcTag;
+  readonly input: unknown;
+}
+
+export class EnvironmentRpcSubscriptionObserver extends Context.Reference<{
+  readonly observe: (
+    subscription: EnvironmentRpcSubscriptionObservation,
+  ) => Effect.Effect<Effect.Effect<void>>;
+}>("@otto/client-runtime/rpc/EnvironmentRpcSubscriptionObserver", {
+  defaultValue: () => ({
+    observe: () => Effect.succeed(Effect.void),
+  }),
+}) {}
+
+export const isRpcClientError = Schema.is(RpcClientError.RpcClientError);
+
+export type EnvironmentRpcInput<TTag extends EnvironmentRpcTag> = Parameters<RpcMethod<TTag>>[0];
+
+export type EnvironmentRpcSuccess<TTag extends EnvironmentUnaryRpcTag> = Effect.Success<
+  ReturnType<RpcMethod<TTag>>
+>;
+
+export type EnvironmentRpcFailure<TTag extends EnvironmentUnaryRpcTag> = Effect.Error<
+  ReturnType<RpcMethod<TTag>>
+>;
+
+type RpcStreamResult<TTag extends EnvironmentStreamRpcTag> = Extract<
+  ReturnType<RpcMethod<TTag>>,
+  Stream.Stream<unknown, unknown, unknown>
+>;
+
+export type EnvironmentRpcStreamValue<TTag extends EnvironmentStreamRpcTag> = Stream.Success<
+  RpcStreamResult<TTag>
+>;
+
+export type EnvironmentRpcStreamFailure<TTag extends EnvironmentStreamRpcTag> = Stream.Error<
+  RpcStreamResult<TTag>
+>;
+
+const currentSession = Effect.fn("EnvironmentRpc.currentSession")(function* () {
+  const supervisor = yield* EnvironmentSupervisor;
+
+  return yield* SubscriptionRef.get(supervisor.session).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () =>
+          Effect.fail(
+            new EnvironmentRpcUnavailableError({
+              environmentId: supervisor.target.environmentId,
+              message: `${supervisor.target.label} is not connected.`,
+            }),
+          ),
+        onSome: Effect.succeed,
+      }),
+    ),
+  );
+});
+
+export const request = Effect.fn("EnvironmentRpc.request")(function* <
+  TTag extends EnvironmentUnaryRpcTag,
+>(tag: TTag, input: EnvironmentRpcInput<TTag>) {
+  const supervisor = yield* EnvironmentSupervisor;
+  yield* Effect.annotateCurrentSpan({
+    "environment.id": supervisor.target.environmentId,
+    "rpc.method": tag,
+  });
+  const session = yield* currentSession();
+  const observer = yield* EnvironmentRpcRequestObserver;
+
+  // SAFETY: Unary tags select schema-generated Effect methods; only the generic input/result correlation is erased by indexing.
+  const method = session.client[tag] as (
+    input: EnvironmentRpcInput<TTag>,
+  ) => Effect.Effect<EnvironmentRpcSuccess<TTag>, EnvironmentRpcFailure<TTag>>;
+
+  const completeObservation = yield* observer.observe({
+    environmentId: supervisor.target.environmentId,
+    method: tag,
+  });
+
+  return yield* method(input).pipe(Effect.ensuring(completeObservation));
+});
+
+export function runStream<TTag extends EnvironmentStreamCommandRpcTag>(
+  tag: TTag,
+  input: EnvironmentRpcInput<TTag>,
+): Stream.Stream<
+  EnvironmentRpcStreamValue<TTag>,
+  EnvironmentRpcStreamFailure<TTag> | EnvironmentRpcUnavailableError,
+  EnvironmentSupervisor
+> {
+  return Stream.unwrap(
+    currentSession().pipe(
+      Effect.map((session) => {
+        // SAFETY: Stream command tags select schema-generated streams when called without queue options.
+        const method = session.client[tag] as (
+          input: EnvironmentRpcInput<TTag>,
+        ) => Stream.Stream<EnvironmentRpcStreamValue<TTag>, EnvironmentRpcStreamFailure<TTag>>;
+
+        return method(input);
+      }),
+    ),
+  ).pipe(
+    Stream.withSpan("EnvironmentRpc.runStream", {
+      attributes: { "rpc.method": tag },
+    }),
+  );
+}
+
+interface SubscriptionOptions<TTag extends EnvironmentSubscriptionRpcTag> {
+  readonly onExpectedFailure?: (
+    cause: Cause.Cause<EnvironmentRpcStreamFailure<TTag>>,
+  ) => Effect.Effect<void, never, never>;
+  readonly retryExpectedFailureAfter?: Duration.Input;
+  readonly resubscribe?: Stream.Stream<unknown, never, never>;
+}
+
+export function subscribeDynamic<TTag extends EnvironmentSubscriptionRpcTag>(
+  tag: TTag,
+  makeInput: (session: RpcSession) => Effect.Effect<EnvironmentRpcInput<TTag>>,
+  options?: SubscriptionOptions<TTag>,
+): Stream.Stream<
+  EnvironmentRpcStreamValue<TTag>,
+  EnvironmentRpcStreamFailure<TTag>,
+  EnvironmentSupervisor
+> {
+  return Stream.unwrap(
+    Effect.gen(function* () {
+      const supervisor = yield* EnvironmentSupervisor;
+      const observer = yield* EnvironmentRpcSubscriptionObserver;
+      const sessionChanges = SubscriptionRef.changes(supervisor.session);
+
+      const sessions =
+        options?.resubscribe === undefined
+          ? sessionChanges
+          : Stream.merge(
+              sessionChanges,
+              options.resubscribe.pipe(
+                Stream.mapEffect(() => SubscriptionRef.get(supervisor.session)),
+              ),
+            );
+
+      return sessions.pipe(
+        Stream.switchMap(
+          Option.match({
+            onNone: () => Stream.empty,
+            onSome: (session) => {
+              // SAFETY: Subscription tags select schema-generated streams with matching input and output schemas.
+              const method = session.client[tag] as (
+                input: EnvironmentRpcInput<TTag>,
+              ) => Stream.Stream<
+                EnvironmentRpcStreamValue<TTag>,
+                EnvironmentRpcStreamFailure<TTag>
+              >;
+
+              const subscribeToSession = (): Stream.Stream<
+                EnvironmentRpcStreamValue<TTag>,
+                EnvironmentRpcStreamFailure<TTag>
+              > =>
+                Stream.suspend(() =>
+                  Stream.unwrap(
+                    Effect.gen(function* () {
+                      const input = yield* makeInput(session);
+
+                      const completeObservation = yield* observer.observe({
+                        environmentId: supervisor.target.environmentId,
+                        method: tag,
+                        input,
+                      });
+
+                      return method(input).pipe(
+                        Stream.ensuring(completeObservation),
+                        Stream.catchCause((cause) => {
+                          const hasOnlyExpectedFailures =
+                            cause.reasons.length > 0 &&
+                            cause.reasons.every((reason) => Predicate.isTagged(reason, "Fail"));
+
+                          const isTransportFailure =
+                            hasOnlyExpectedFailures &&
+                            cause.reasons.every(
+                              (reason) =>
+                                Predicate.isTagged(reason, "Fail") &&
+                                isRpcClientError(reason.error),
+                            );
+
+                          if (isTransportFailure) {
+                            return Stream.fromEffect(
+                              Effect.logWarning(
+                                "Durable RPC subscription lost its transport; waiting for the next session.",
+                                {
+                                  cause: Cause.pretty(cause),
+                                  method: tag,
+                                  environmentId: supervisor.target.environmentId,
+                                },
+                              ),
+                            ).pipe(Stream.drain);
+                          }
+
+                          if (hasOnlyExpectedFailures && options?.onExpectedFailure !== undefined) {
+                            const handled = Stream.fromEffect(
+                              options.onExpectedFailure(cause),
+                            ).pipe(Stream.drain);
+
+                            if (options.retryExpectedFailureAfter === undefined) {
+                              return handled;
+                            }
+
+                            return handled.pipe(
+                              Stream.concat(
+                                Stream.fromEffect(
+                                  Effect.sleep(options.retryExpectedFailureAfter),
+                                ).pipe(Stream.drain),
+                              ),
+                              Stream.concat(subscribeToSession()),
+                            );
+                          }
+
+                          return Stream.failCause(cause);
+                        }),
+                      );
+                    }),
+                  ),
+                );
+
+              return subscribeToSession();
+            },
+          }),
+        ),
+      );
+    }),
+  ).pipe(
+    Stream.withSpan("EnvironmentRpc.subscribe", {
+      attributes: { "rpc.method": tag },
+    }),
+  );
+}
+
+export function subscribe<TTag extends EnvironmentSubscriptionRpcTag>(
+  tag: TTag,
+  input: EnvironmentRpcInput<TTag>,
+  options?: SubscriptionOptions<TTag>,
+): Stream.Stream<
+  EnvironmentRpcStreamValue<TTag>,
+  EnvironmentRpcStreamFailure<TTag>,
+  EnvironmentSupervisor
+> {
+  return subscribeDynamic(tag, () => Effect.succeed(input), options);
+}
+
+export const config = Effect.gen(function* () {
+  const session = yield* currentSession();
+
+  return yield* session.initialConfig;
+}).pipe(Effect.withSpan("EnvironmentRpc.config"));

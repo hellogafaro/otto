@@ -1,0 +1,365 @@
+import { recordLookup } from "../recordLookup";
+import { isTagged } from "../tagged";
+import type {
+  BackgroundActivityProfile,
+  BackgroundActivitySettings,
+  ProviderDriverKind,
+  ProviderInstanceConfig,
+  PreviewViewportSetting,
+  ProviderInstanceId,
+  ServerSettings,
+  SidebarProjectGroupingMode,
+  UnifiedSettings,
+} from "@otto/contracts";
+import {
+  createTranslator,
+  type MessageKey,
+  type TranslationParams,
+} from "@otto/client-runtime/i18n";
+import { DEFAULT_UNIFIED_SETTINGS } from "@otto/contracts/settings";
+import {
+  getBackgroundActivityBaseProfile,
+  normalizeBackgroundActivitySettings,
+  normalizeServerBackgroundActivitySettings,
+  resolveServerBackgroundActivitySettings,
+} from "@otto/shared/backgroundActivitySettings";
+import * as Duration from "effect/Duration";
+import * as Equal from "effect/Equal";
+
+const englishTranslate = createTranslator("en").t;
+
+export function isProjectGroupingEnabled(mode: SidebarProjectGroupingMode): boolean {
+  return mode !== "separate";
+}
+
+export function projectGroupingModeFromToggle(
+  enabled: boolean,
+  lastEnabledMode: SidebarProjectGroupingMode = "repository",
+): SidebarProjectGroupingMode {
+  if (!enabled) return "separate";
+
+  return lastEnabledMode === "repository_path" ? "repository_path" : "repository";
+}
+
+const LAST_ENABLED_PROJECT_GROUPING_MODE_KEY = "otto:last-enabled-project-grouping-mode";
+
+// Pre-rebrand key, kept as a read fallback so the grouping preference survives.
+const LEGACY_LAST_ENABLED_PROJECT_GROUPING_MODE_KEY =
+  "ottoLegacy:last-enabled-project-grouping-mode";
+
+export function readLastEnabledProjectGroupingMode(): SidebarProjectGroupingMode {
+  try {
+    const stored =
+      localStorage.getItem(LAST_ENABLED_PROJECT_GROUPING_MODE_KEY) ??
+      localStorage.getItem(LEGACY_LAST_ENABLED_PROJECT_GROUPING_MODE_KEY);
+
+    return stored === "repository_path" ? "repository_path" : "repository";
+  } catch {
+    return "repository";
+  }
+}
+
+export function rememberEnabledProjectGroupingMode(mode: SidebarProjectGroupingMode): void {
+  if (mode === "separate") return;
+
+  try {
+    localStorage.setItem(LAST_ENABLED_PROJECT_GROUPING_MODE_KEY, mode);
+    localStorage.removeItem(LEGACY_LAST_ENABLED_PROJECT_GROUPING_MODE_KEY);
+  } catch {
+    // Storage can be unavailable in restricted browser contexts.
+  }
+}
+
+export function hasChangedBackgroundActivitySettings(
+  settings: Pick<
+    UnifiedSettings,
+    | "backgroundActivity"
+    | "backgroundActivityProfile"
+    | "automaticGitFetchInterval"
+    | "providerHealthRefreshInterval"
+  >,
+): boolean {
+  return (
+    !Equal.equals(settings.backgroundActivity, DEFAULT_UNIFIED_SETTINGS.backgroundActivity) ||
+    settings.backgroundActivityProfile !== DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile ||
+    !Equal.equals(
+      settings.automaticGitFetchInterval,
+      DEFAULT_UNIFIED_SETTINGS.automaticGitFetchInterval,
+    ) ||
+    !Equal.equals(
+      settings.providerHealthRefreshInterval,
+      DEFAULT_UNIFIED_SETTINGS.providerHealthRefreshInterval,
+    )
+  );
+}
+
+type TypographySettings = Pick<
+  UnifiedSettings,
+  | "fontFamilySans"
+  | "fontFamilyComposer"
+  | "fontFamilyCode"
+  | "fontFamilyTerminal"
+  | "fontSizeInterface"
+  | "fontSizePrompt"
+  | "fontSizeCode"
+  | "fontSizeTerminal"
+>;
+
+/** Labels the font rows whose family or size differs from the defaults. */
+export function getChangedTypographySettingLabels(settings: TypographySettings): string[] {
+  return [
+    ...(settings.fontFamilySans !== DEFAULT_UNIFIED_SETTINGS.fontFamilySans ||
+    settings.fontSizeInterface !== DEFAULT_UNIFIED_SETTINGS.fontSizeInterface
+      ? ["Interface font"]
+      : []),
+    ...(settings.fontFamilyComposer !== DEFAULT_UNIFIED_SETTINGS.fontFamilyComposer ||
+    settings.fontSizePrompt !== DEFAULT_UNIFIED_SETTINGS.fontSizePrompt
+      ? ["Prompt font"]
+      : []),
+    ...(settings.fontFamilyCode !== DEFAULT_UNIFIED_SETTINGS.fontFamilyCode ||
+    settings.fontSizeCode !== DEFAULT_UNIFIED_SETTINGS.fontSizeCode
+      ? ["Code font"]
+      : []),
+    ...(settings.fontFamilyTerminal !== DEFAULT_UNIFIED_SETTINGS.fontFamilyTerminal ||
+    settings.fontSizeTerminal !== DEFAULT_UNIFIED_SETTINGS.fontSizeTerminal
+      ? ["Terminal font"]
+      : []),
+  ];
+}
+
+export type BrowserDefaultSettings = Pick<
+  UnifiedSettings,
+  "browserDefaultViewport" | "browserDefaultZoomFactor" | "browserDefaultAppearance"
+>;
+
+/**
+ * True when two viewport settings describe the same viewport.
+ *
+ * The setting is a tagged union rather than a scalar, so identity comparison
+ * reports every stored viewport as changed — including one that matches the
+ * default.
+ */
+export function isSamePreviewViewport(
+  left: PreviewViewportSetting,
+  right: PreviewViewportSetting,
+): boolean {
+  if (left._tag !== right._tag) return false;
+
+  if (isTagged(left, "fill") || isTagged(right, "fill")) return true;
+
+  if (left.width !== right.width || left.height !== right.height) return false;
+
+  return isTagged(left, "preset") && isTagged(right, "preset")
+    ? left.presetId === right.presetId
+    : true;
+}
+
+/** Labels the browser-default rows that differ from the defaults. */
+export function getChangedBrowserSettingLabels(settings: BrowserDefaultSettings): string[] {
+  return [
+    ...(isSamePreviewViewport(
+      settings.browserDefaultViewport,
+      DEFAULT_UNIFIED_SETTINGS.browserDefaultViewport,
+    )
+      ? []
+      : ["Browser viewport"]),
+    ...(settings.browserDefaultZoomFactor !== DEFAULT_UNIFIED_SETTINGS.browserDefaultZoomFactor
+      ? ["Browser zoom"]
+      : []),
+    ...(settings.browserDefaultAppearance !== DEFAULT_UNIFIED_SETTINGS.browserDefaultAppearance
+      ? ["Browser appearance"]
+      : []),
+  ];
+}
+
+export function resolveBackgroundActivityProfileOption(
+  settings: ServerSettings,
+): BackgroundActivityProfile | "advanced" {
+  const resolved = resolveServerBackgroundActivitySettings(settings);
+
+  const normalized = normalizeBackgroundActivitySettings({
+    schemaVersion: 1,
+    profile: "custom",
+    baseProfile: resolved.profile,
+    overrides: {
+      automaticGitFetchInterval: resolved.automaticGitFetchInterval,
+      providerHealthRefreshInterval: resolved.providerHealthRefreshInterval,
+      hostPowerMonitorActiveInterval: resolved.hostPowerMonitorActiveInterval,
+      hostPowerMonitorIdleInterval: resolved.hostPowerMonitorIdleInterval,
+      idleClientTtl: resolved.idleClientTtl,
+      pauseWhenHostLocked: resolved.pauseWhenHostLocked,
+      pauseWhenHostLowPower: resolved.pauseWhenHostLowPower,
+      pauseWhenClientLowPower: resolved.pauseWhenClientLowPower,
+      pauseWhenOnBattery: resolved.pauseWhenOnBattery,
+    },
+  });
+
+  return normalized.profile === "custom" ? "advanced" : normalized.profile;
+}
+
+export function backgroundActivitySharedPolicySettings(
+  settings: ServerSettings,
+  profile: BackgroundActivityProfile,
+): BackgroundActivitySettings {
+  const normalized = normalizeServerBackgroundActivitySettings(settings);
+
+  return {
+    schemaVersion: 1,
+    profile: "custom",
+    baseProfile: profile,
+    overrides: normalized.profile === "custom" ? normalized.overrides : {},
+  };
+}
+
+function collapseOtelSignalsUrl(input: {
+  readonly tracesUrl: string;
+  readonly metricsUrl: string;
+}): string | null {
+  const tracesSuffix = "/traces";
+  const metricsSuffix = "/metrics";
+
+  if (!input.tracesUrl.endsWith(tracesSuffix) || !input.metricsUrl.endsWith(metricsSuffix)) {
+    return null;
+  }
+
+  const tracesBase = input.tracesUrl.slice(0, -tracesSuffix.length);
+  const metricsBase = input.metricsUrl.slice(0, -metricsSuffix.length);
+
+  if (tracesBase !== metricsBase) {
+    return null;
+  }
+
+  return `${tracesBase}/{traces,metrics}`;
+}
+
+export function formatDiagnosticsDescription(
+  input: {
+    readonly localTracingEnabled: boolean;
+    readonly otlpTracesEnabled: boolean;
+    readonly otlpTracesUrl?: string | undefined;
+    readonly otlpMetricsEnabled: boolean;
+    readonly otlpMetricsUrl?: string | undefined;
+  },
+  t: (message: MessageKey, params?: TranslationParams) => string = englishTranslate,
+): string {
+  const mode = input.localTracingEnabled ? t("Local trace file") : t("Terminal logs only");
+  const tracesUrl = input.otlpTracesEnabled ? input.otlpTracesUrl : undefined;
+  const metricsUrl = input.otlpMetricsEnabled ? input.otlpMetricsUrl : undefined;
+
+  if (tracesUrl && metricsUrl) {
+    const collapsedUrl = collapseOtelSignalsUrl({ tracesUrl, metricsUrl });
+
+    return collapsedUrl
+      ? t("{mode}. Exporting OTEL to {url}.", { mode, url: collapsedUrl })
+      : t("{mode}. Exporting OTEL traces to {tracesUrl} and metrics to {metricsUrl}.", {
+          mode,
+          tracesUrl,
+          metricsUrl,
+        });
+  }
+
+  if (tracesUrl) {
+    return t("{mode}. Exporting OTEL traces to {url}.", { mode, url: tracesUrl });
+  }
+
+  if (metricsUrl) {
+    return t("{mode}. Exporting OTEL metrics to {url}.", { mode, url: metricsUrl });
+  }
+
+  return t("{mode}.", { mode });
+}
+
+export function buildProviderInstanceUpdatePatch(input: {
+  readonly settings: Pick<ServerSettings, "providers" | "providerInstances">;
+  readonly instanceId: ProviderInstanceId;
+  readonly instance: ProviderInstanceConfig;
+  readonly driver: ProviderDriverKind;
+  readonly isDefault: boolean;
+  readonly textGenerationModelSelection?:
+    | ServerSettings["textGenerationModelSelection"]
+    | undefined;
+}): Partial<UnifiedSettings> {
+  const legacyProviderDefaults = DEFAULT_UNIFIED_SETTINGS.providers;
+
+  const legacyProviderDefault = input.isDefault
+    ? recordLookup(legacyProviderDefaults, input.driver)
+    : undefined;
+
+  return {
+    ...(legacyProviderDefault !== undefined
+      ? {
+          providers: {
+            ...input.settings.providers,
+            [input.driver]: legacyProviderDefault,
+          },
+        }
+      : {}),
+    providerInstances: {
+      ...input.settings.providerInstances,
+      [input.instanceId]: input.instance,
+    },
+    ...(input.textGenerationModelSelection !== undefined
+      ? { textGenerationModelSelection: input.textGenerationModelSelection }
+      : {}),
+  };
+}
+
+// ── Background-activity interval helpers ─────────────────────────────
+// Shared by the General panel's interval rows and the Providers panel's
+// health-check row.
+
+export const PROVIDER_HEALTH_INTERVAL_STEP_SECONDS = 30;
+
+type BackgroundActivityOverridePatch = Partial<{
+  [K in keyof BackgroundActivitySettings["overrides"]]:
+    | BackgroundActivitySettings["overrides"][K]
+    | undefined;
+}>;
+
+export function durationToSeconds(duration: Duration.Duration): number {
+  return Math.round(Duration.toMillis(duration) / 1_000);
+}
+
+export function normalizeIntervalSeconds(value: number | null, minimum = 0): number {
+  if (value === null || !Number.isFinite(value)) {
+    return minimum;
+  }
+
+  return Math.max(minimum, Math.round(value));
+}
+
+export function backgroundActivityOverrideSettings(
+  current: BackgroundActivitySettings,
+  resolved: ReturnType<typeof resolveServerBackgroundActivitySettings>,
+  overrides: BackgroundActivityOverridePatch,
+) {
+  const nextOverrides: BackgroundActivityOverridePatch = {
+    automaticGitFetchInterval: resolved.automaticGitFetchInterval,
+    providerHealthRefreshInterval: resolved.providerHealthRefreshInterval,
+    hostPowerMonitorActiveInterval: resolved.hostPowerMonitorActiveInterval,
+    hostPowerMonitorIdleInterval: resolved.hostPowerMonitorIdleInterval,
+    idleClientTtl: resolved.idleClientTtl,
+    pauseWhenHostLocked: resolved.pauseWhenHostLocked,
+    pauseWhenHostLowPower: resolved.pauseWhenHostLowPower,
+    pauseWhenClientLowPower: resolved.pauseWhenClientLowPower,
+    pauseWhenOnBattery: resolved.pauseWhenOnBattery,
+    ...overrides,
+  };
+
+  for (const [key, value] of Object.entries(nextOverrides)) {
+    if (value === undefined) {
+      // SAFETY: Object.entries supplies only own keys of nextOverrides; deletion removes explicitly undefined fields.
+      delete nextOverrides[key as keyof typeof nextOverrides];
+    }
+  }
+
+  // SAFETY: the preceding loop removes every explicitly undefined override, satisfying the exact optional settings type.
+  return {
+    backgroundActivity: {
+      schemaVersion: 1 as const,
+      profile: "custom" as const,
+      baseProfile: getBackgroundActivityBaseProfile(current),
+      overrides: nextOverrides as BackgroundActivitySettings["overrides"],
+    },
+  };
+}

@@ -1,0 +1,39 @@
+{
+  "name": "@otto/desktop",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "ensure:electron": "node scripts/ensure-electron-runtime.mjs",
+    "start": "node scripts/start-electron.mjs",
+    "typecheck": "tsgo --noEmit",
+    "test": "vp test run --passWithNoTests",
+    "smoke-test": "node scripts/smoke-test.mjs",
+    "smoke-test:packaged-mac": "node scripts/smoke-packaged-macos.mjs"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@otto/client-runtime": "workspace:*",
+    "@otto/contracts": "workspace:*",
+    "@otto/shared": "workspace:*",
+    "@otto/ssh": "workspace:*",
+    "@otto/tailscale": "workspace:*",
+    "effect": "catalog:",
+    "electron": "41.5.0",
+    "electron-updater": "^6.6.2",
+    "playwright-core": "1.60.0",
+    "pngjs": "7.0.0",
+    "react-grab": "^0.1.32"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pngjs": "6.0.5",
+    "cross-env": "^10.1.0",
+    "electron-builder": "26.15.6",
+    "tailwindcss": "^4.0.0",
+    "vite-plus": "catalog:"
+  },
+  "productName": "Otto (Alpha)"
+}

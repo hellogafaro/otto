@@ -1,0 +1,45 @@
+// Chip metrics are in em so the pills scale with the text they sit in (the
+// composer honors the prompt font-size preference). The chat variant pins the
+// original 12px, where every em value resolves to the same pixels as before.
+const INLINE_CHIP_GEOMETRY_CLASS_NAME =
+  "inline-flex h-[1.41em] max-w-full items-center gap-[0.33em] rounded-[0.5em] px-[0.5em] font-medium leading-none align-middle";
+
+const INLINE_CHIP_CLASS_NAME = `${INLINE_CHIP_GEOMETRY_CLASS_NAME} border border-border/70 bg-accent/40 text-foreground`;
+
+export const CHAT_INLINE_CHIP_CLASS_NAME = `${INLINE_CHIP_CLASS_NAME} text-xs`;
+
+export const COMPOSER_INLINE_CHIP_CLASS_NAME = `${INLINE_CHIP_CLASS_NAME} text-[0.86em] select-none`;
+
+export const COMPOSER_INLINE_CHIP_DECORATOR_CLASS_NAME =
+  "relative inline-flex align-[-0.125em] leading-none data-[composer-chip-selected]:after:pointer-events-none data-[composer-chip-selected]:after:absolute data-[composer-chip-selected]:after:inset-0 data-[composer-chip-selected]:after:rounded-[6px] data-[composer-chip-selected]:after:bg-[Highlight] data-[composer-chip-selected]:after:opacity-30 data-[composer-chip-selected]:after:content-['']";
+
+// AppIcon repeats this string for `fit="inline-chip"`; change both together.
+export const COMPOSER_INLINE_CHIP_ICON_CLASS_NAME =
+  "block size-[1.17em] shrink-0 self-center opacity-85 [&>svg]:block";
+
+export const CHAT_INLINE_CHIP_LABEL_CLASS_NAME = "truncate leading-tight";
+
+export const COMPOSER_INLINE_CHIP_LABEL_CLASS_NAME =
+  "block self-center truncate leading-tight select-none";
+
+// Skill chips read like a tinted automation pill rather than a bordered file
+// chip, one step larger than the standard geometry. The composer and the chat
+// share the pill so a sent `$name` looks like the chip that was typed; only the
+// font size differs. In the composer, 0.9em text in a 1.6em pill is about
+// 1.44em of the prompt font, still inside the leading-relaxed line box.
+const INLINE_SKILL_CHIP_CLASS_NAME =
+  "inline-flex h-[1.6em] max-w-full items-center gap-[0.35em] rounded-[0.45em] px-[0.5em] font-medium leading-none align-middle bg-skill/14 text-skill-foreground";
+
+export const COMPOSER_INLINE_SKILL_CHIP_CLASS_NAME = `${INLINE_SKILL_CHIP_CLASS_NAME} text-[0.9em] select-none`;
+
+export const CHAT_INLINE_SKILL_CHIP_CLASS_NAME = `${INLINE_SKILL_CHIP_CLASS_NAME} text-xs`;
+
+// Holds either the skill's emoji or the fallback skill glyph at the same box
+// and full opacity, so adjacent chips with and without an emoji match.
+export const INLINE_SKILL_CHIP_ICON_CLASS_NAME =
+  "flex size-[1.2em] shrink-0 items-center justify-center self-center text-[1em] leading-none [&>svg]:block [&>svg]:size-full";
+
+export const SKILL_CHIP_ICON_SVG = `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>`;
+
+export const COMPOSER_INLINE_CHIP_DISMISS_BUTTON_CLASS_NAME =
+  "ml-[0.17em] inline-flex size-[1.17em] shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/72 transition-colors hover:bg-foreground/6 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";

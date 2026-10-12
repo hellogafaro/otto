@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--ottoLegacy-font-sans);
+  --font-mono: var(--ottoLegacy-font-mono);
+  --color-background: var(--ottoLegacy-background);
+  --color-foreground: var(--ottoLegacy-foreground);
+  --color-popover: var(--ottoLegacy-popover);
+  --color-popover-foreground: var(--ottoLegacy-popover-foreground);
+  --color-primary: var(--ottoLegacy-primary);
+  --color-primary-foreground: var(--ottoLegacy-primary-foreground);
+  --color-muted: var(--ottoLegacy-muted);
+  --color-muted-foreground: var(--ottoLegacy-muted-foreground);
+  --color-accent: var(--ottoLegacy-accent);
+  --color-accent-foreground: var(--ottoLegacy-accent-foreground);
+  --color-border: var(--ottoLegacy-border);
+  --color-input: var(--ottoLegacy-input);
+  --color-ring: var(--ottoLegacy-ring);
+  --radius-sm: calc(var(--ottoLegacy-radius) - 4px);
+  --radius-md: calc(var(--ottoLegacy-radius) - 2px);
+  --radius-lg: var(--ottoLegacy-radius);
+  --radius-xl: calc(var(--ottoLegacy-radius) + 4px);
+  --radius-2xl: calc(var(--ottoLegacy-radius) + 8px);
+}
+
+:host {
+  --ottoLegacy-font-sans:
+    "DM Sans Variable", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    sans-serif;
+  --ottoLegacy-font-mono:
+    "SF Mono", "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --ottoLegacy-radius: 0.625rem;
+  --ottoLegacy-background: white;
+  --ottoLegacy-foreground: oklch(0.269 0 0);
+  --ottoLegacy-popover: white;
+  --ottoLegacy-popover-foreground: oklch(0.269 0 0);
+  --ottoLegacy-primary: oklch(0.488 0.217 264);
+  --ottoLegacy-primary-foreground: white;
+  --ottoLegacy-muted: rgb(0 0 0 / 4%);
+  --ottoLegacy-muted-foreground: oklch(0.556 0 0);
+  --ottoLegacy-accent: rgb(0 0 0 / 4%);
+  --ottoLegacy-accent-foreground: oklch(0.269 0 0);
+  --ottoLegacy-border: rgb(0 0 0 / 8%);
+  --ottoLegacy-input: rgb(0 0 0 / 10%);
+  --ottoLegacy-ring: oklch(0.488 0.217 264);
+  color: var(--ottoLegacy-foreground);
+  font-family: var(--ottoLegacy-font-sans);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--ottoLegacy-border);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ottoLegacy-ring) 72%, transparent);
+  outline-offset: 1px;
+}

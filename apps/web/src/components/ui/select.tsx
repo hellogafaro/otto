@@ -1,0 +1,266 @@
+"use client";
+
+import { RiArrowDownSLine, RiExpandUpDownLine, RiArrowUpSLine } from "@remixicon/react";
+import { mergeProps } from "@base-ui/react/merge-props";
+import { Select as SelectPrimitive } from "@base-ui/react/select";
+import { useRender } from "@base-ui/react/use-render";
+import { cva, type VariantProps } from "class-variance-authority";
+
+import type * as React from "react";
+
+import { cn } from "~/lib/utils";
+
+const Select = SelectPrimitive.Root;
+
+const selectTriggerVariants = cva(
+  "relative inline-flex cursor-pointer select-none items-center justify-between gap-2 border rounded-lg text-left text-base outline-none transition-[color,box-shadow,background-color] data-disabled:pointer-events-none data-disabled:opacity-64 sm:text-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
+  {
+    defaultVariants: {
+      size: "default",
+      variant: "default",
+    },
+    variants: {
+      variant: {
+        default:
+          "w-full min-w-36 border-transparent bg-secondary text-foreground ring-foreground/20 pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 focus-visible:ring-2 aria-invalid:ring-2 aria-invalid:ring-destructive/40 [:hover,[data-pressed]]:bg-secondary/75 [&_svg:not([class*='opacity-'])]:opacity-70 [&_svg:not([class*='text-'])]:text-icon-muted",
+        ghost:
+          "border-transparent text-secondary-label focus-visible:ring-2 focus-visible:ring-foreground/20 data-pressed:bg-secondary [:hover,[data-pressed]]:bg-secondary [:hover,[data-pressed]]:text-foreground",
+      },
+      size: {
+        "keybinding-variable":
+          "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs before:rounded-[calc(var(--radius-md)-1px)] [&_svg:not([class*='size-'])]:size-3.5 font-mono",
+        compact:
+          "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs before:rounded-[calc(var(--radius-md)-1px)] [&_svg:not([class*='size-'])]:size-3.5",
+        default: "min-h-9 px-[calc(--spacing(3)-1px)] sm:min-h-8",
+        lg: "min-h-10 px-[calc(--spacing(3)-1px)] sm:min-h-9",
+        "sm-dense": "min-h-8 gap-1.5 px-[calc(--spacing(2.5)-1px)] text-[13px] sm:min-h-7",
+        sm: "min-h-8 gap-1.5 px-[calc(--spacing(2.5)-1px)] sm:min-h-7",
+        xs: "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-sm before:rounded-[calc(var(--radius-md)-1px)] sm:h-6 sm:text-xs [&_svg:not([class*='size-'])]:size-4 sm:[&_svg:not([class*='size-'])]:size-3.5",
+      },
+      // Call-site treatments applied after size and variant, mirroring Button's presentations.
+      presentation: {
+        "composer-control":
+          "gap-1.5 rounded-(--control-radius) px-2.5 text-secondary-label transition-none hover:text-foreground",
+        "device-toolbar": "px-1.5 font-medium",
+        "filter-active": "text-foreground",
+      },
+    },
+  },
+);
+
+const selectTriggerIconClassName = "-me-1 size-4.5 opacity-80 sm:size-4";
+
+interface SelectButtonProps extends useRender.ComponentProps<"button"> {
+  size?: VariantProps<typeof selectTriggerVariants>["size"];
+  variant?: VariantProps<typeof selectTriggerVariants>["variant"];
+}
+
+function SelectButton({ className, size, variant, render, children, ...props }: SelectButtonProps) {
+  const typeValue: React.ButtonHTMLAttributes<HTMLButtonElement>["type"] = render
+    ? undefined
+    : "button";
+
+  const defaultProps = {
+    children: (
+      <>
+        <span className="flex-1 truncate in-data-placeholder:text-placeholder">{children}</span>
+        {variant === "ghost" ? (
+          <RiArrowDownSLine className="-me-1 size-3 opacity-50" />
+        ) : (
+          <RiExpandUpDownLine className={selectTriggerIconClassName} />
+        )}
+      </>
+    ),
+    className: cn(selectTriggerVariants({ size, variant }), className),
+    "data-slot": "select-button",
+    type: typeValue,
+  };
+
+  return useRender({
+    defaultTagName: "button",
+    props: mergeProps<"button">(defaultProps, props),
+    render,
+  });
+}
+
+function SelectTrigger({
+  className,
+  size = "default",
+  variant = "default",
+  presentation,
+  children,
+  icon,
+  ...props
+}: SelectPrimitive.Trigger.Props &
+  VariantProps<typeof selectTriggerVariants> & { icon?: React.ReactNode }) {
+  return (
+    <SelectPrimitive.Trigger
+      className={cn(selectTriggerVariants({ size, variant, presentation }), className)}
+      data-slot="select-trigger"
+      {...props}
+    >
+      {children}
+      <SelectPrimitive.Icon data-slot="select-icon">
+        {icon ?? <RiArrowDownSLine className="-me-1 size-3 opacity-50" />}
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  );
+}
+
+function SelectValue({
+  className,
+  size,
+  ...props
+}: SelectPrimitive.Value.Props & { size?: "keybinding-condition" }) {
+  return (
+    <SelectPrimitive.Value
+      className={cn(
+        "flex-1 truncate data-placeholder:text-placeholder",
+        size === "keybinding-condition" && "leading-7",
+        className,
+      )}
+      data-slot="select-value"
+      {...props}
+    />
+  );
+}
+
+function SelectPopup({
+  className,
+  popupClassName,
+  children,
+  side = "bottom",
+  sideOffset = 4,
+  align = "start",
+  alignOffset = 0,
+  alignItemWithTrigger = true,
+  matchTriggerWidth = true,
+  anchor,
+  ...props
+}: SelectPrimitive.Popup.Props & {
+  popupClassName?: string;
+  side?: SelectPrimitive.Positioner.Props["side"];
+  sideOffset?: SelectPrimitive.Positioner.Props["sideOffset"];
+  align?: SelectPrimitive.Positioner.Props["align"];
+  alignOffset?: SelectPrimitive.Positioner.Props["alignOffset"];
+  alignItemWithTrigger?: SelectPrimitive.Positioner.Props["alignItemWithTrigger"];
+  matchTriggerWidth?: boolean;
+  anchor?: SelectPrimitive.Positioner.Props["anchor"];
+}) {
+  return (
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Positioner
+        align={align}
+        alignItemWithTrigger={alignItemWithTrigger}
+        alignOffset={alignOffset}
+        anchor={anchor}
+        className="z-[130] select-none"
+        data-slot="select-positioner"
+        side={side}
+        sideOffset={sideOffset}
+      >
+        <SelectPrimitive.Popup
+          className="origin-(--transform-origin) rounded-xl text-foreground outline-none"
+          data-slot="select-popup"
+          {...props}
+        >
+          <SelectPrimitive.ScrollUpArrow
+            className="top-0 z-50 flex h-6 w-full cursor-default items-center justify-center before:pointer-events-none before:absolute before:inset-x-px before:top-px before:h-[200%] before:rounded-t-[calc(var(--radius-lg)-1px)] before:bg-linear-to-b before:from-50% before:from-popover"
+            data-slot="select-scroll-up-arrow"
+          >
+            <RiArrowUpSLine className="relative size-4.5 sm:size-4" />
+          </SelectPrimitive.ScrollUpArrow>
+          <div
+            className={cn(
+              "relative h-full rounded-xl border border-border/80 bg-popover shadow-[0_18px_48px_-24px_rgb(0_0_0/55%)] dark:shadow-[0_22px_56px_-24px_rgb(0_0_0/80%)]",
+              matchTriggerWidth && "min-w-(--anchor-width)",
+              popupClassName,
+            )}
+          >
+            <SelectPrimitive.List
+              className={cn("max-h-(--available-height) overflow-y-auto p-1.5", className)}
+              data-slot="select-list"
+            >
+              {children}
+            </SelectPrimitive.List>
+          </div>
+          <SelectPrimitive.ScrollDownArrow
+            className="bottom-0 z-50 flex h-6 w-full cursor-default items-center justify-center before:pointer-events-none before:absolute before:inset-x-px before:bottom-px before:h-[200%] before:rounded-b-[calc(var(--radius-lg)-1px)] before:bg-linear-to-t before:from-50% before:from-popover"
+            data-slot="select-scroll-down-arrow"
+          >
+            <RiArrowDownSLine className="relative size-4.5 sm:size-4" />
+          </SelectPrimitive.ScrollDownArrow>
+        </SelectPrimitive.Popup>
+      </SelectPrimitive.Positioner>
+    </SelectPrimitive.Portal>
+  );
+}
+
+function SelectItem({
+  className,
+  children,
+  hideIndicator: _hideIndicator = false,
+  size,
+  ...props
+}: SelectPrimitive.Item.Props & {
+  hideIndicator?: boolean;
+  size?: "keybinding-command" | "keybinding-condition";
+}) {
+  return (
+    <SelectPrimitive.Item
+      className={cn(
+        "flex min-h-9 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-pointer items-center rounded-lg px-2.5 py-1.5 text-base outline-none data-selected:bg-secondary data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-8 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        size === "keybinding-command" && "py-1 text-[12px]",
+        size === "keybinding-condition" && "py-1 font-mono text-[12px]",
+        className,
+      )}
+      data-slot="select-item"
+      {...props}
+    >
+      <SelectPrimitive.ItemText
+        className="min-w-0 flex-1 [&_svg:not([class*='text-'])]:text-muted-foreground"
+        data-slot="select-item-text"
+      >
+        {children}
+      </SelectPrimitive.ItemText>
+    </SelectPrimitive.Item>
+  );
+}
+
+function SelectSeparator({ className, ...props }: SelectPrimitive.Separator.Props) {
+  return (
+    <SelectPrimitive.Separator
+      className={cn("mx-2 my-1 h-px bg-border", className)}
+      data-slot="select-separator"
+      {...props}
+    />
+  );
+}
+
+function SelectGroup(props: SelectPrimitive.Group.Props) {
+  return <SelectPrimitive.Group data-slot="select-group" {...props} />;
+}
+
+function SelectGroupLabel(props: SelectPrimitive.GroupLabel.Props) {
+  return (
+    <SelectPrimitive.GroupLabel
+      className="px-2 py-1.5 font-medium text-muted-foreground text-xs"
+      data-slot="select-group-label"
+      {...props}
+    />
+  );
+}
+
+export {
+  Select,
+  SelectTrigger,
+  SelectButton,
+  selectTriggerVariants,
+  SelectValue,
+  SelectPopup,
+  SelectPopup as SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectGroup,
+  SelectGroupLabel,
+};

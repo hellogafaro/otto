@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "notion",
+  "name": "Notion",
+  "description": "Search, read, create, and update Notion pages and databases.",
+  "primaryCategory": "Work",
+  "tags": ["documents", "knowledge", "databases"],
+  "capabilities": [
+    "search a workspace",
+    "read pages and databases",
+    "create pages and databases",
+    "update pages and data sources",
+    "create comments"
+  ],
+  "publisher": { "name": "Notion Labs", "url": "https://www.notion.com" },
+  "maintainer": { "name": "Notion Labs", "url": "https://www.notion.com" },
+  "documentationUrl": "https://developers.notion.com/guides/mcp/mcp-supported-tools",
+  "sourceUrl": "https://github.com/makenotion/notion-mcp-server",
+  "license": "MIT",
+  "logo": {
+    "provenance": { "sourceUrl": "https://simpleicons.org/?q=notion", "license": "CC0-1.0" }
+  },
+  "platforms": ["web", "desktop", "mobile"],
+  "transport": { "type": "url", "url": "https://mcp.notion.com/mcp" },
+  "connection": {
+    "type": "verification-pending",
+    "blocker": "Connection lifecycle not verified: installation, OAuth, safe read and write, disable, reconnect, and removal."
+  },
+  "authentication": "oauth",
+  "requiredCredentials": [],
+  "setup": ["Wait for the Notion connection lifecycle to pass."],
+  "permissions": [
+    { "id": "read-notion-data", "description": "Read Notion workspace data.", "approval": "read" }
+  ],
+  "approvals": [],
+  "catalogStatus": "verification-pending"
+}

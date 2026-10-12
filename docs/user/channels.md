@@ -1,0 +1,140 @@
+# Bot channels
+
+A channel gives one named bot an external messaging line. Messages enter the bot's normal Otto conversation. The bot uses its workspace, model, tools, memory, permission mode, usage limits, and delegation rules.
+
+Otto does not create a separate messaging session. The Otto conversation keeps the work history, and each external request starts a turn.
+
+## Manage connections
+
+Open **Settings > Channels** with an environment administrator connection.
+
+1. Select a service and open its setup form.
+2. Enter the credentials and a connection name.
+3. Select the bot that answers, choose a project, and click **Connect**.
+
+Select **Connect later** to save a connection without assigning a bot. You can assign it from the saved connection card.
+
+If the connection saves but cannot connect, the form names the connection and says why, for example "Telegram rejected the bot token." The saved card keeps the bot and project you chose, so you can fix the problem and click **Reconnect** without choosing them again. Settings remembers the service tab you last opened.
+
+Choose the project that should receive this channel's turns when you connect the bot. Otto suggests the project the bot used most recently, but you can pick any project. It keeps replies in that project, so messages cannot silently move between workspaces. **Connect** stays unavailable until a project is selected. If the environment has no projects yet, the form asks you to add one first.
+
+To move a working channel, pick another project on its row in **Settings > Channels** or in the bot's Channels panel, then click **Move to this project**. Otto restarts the channel in the new project. If the move fails, the channel keeps running in its earlier project. If that project no longer exists, the channel stays assigned to the project you picked, so you can fix the problem and reconnect it there. Moving a disconnected channel only changes its project; it stays disconnected until you click **Reconnect**.
+
+You can reconnect, disconnect, unassign, or delete a connection. Otto asks you to confirm before it deletes a connection and its saved credentials. Disconnect stops messages but keeps the bot and project assignment. To bring a disconnected channel back in a different project, pick that project first, then click **Reconnect**. If moving a disconnected connection to another bot fails, it stays disconnected on its original bot. Unassign removes that assignment so you can use the connection with another bot or delete it. A connection that fails while the server restores it after a restart shows a repair state instead of appearing connected; the server still starts, and the card offers the right repair for the failure.
+
+If reassignment changes the workspace, replies from the earlier workspace cannot use the new assignment.
+
+Credentials stay on the environment server. Web, desktop, and mobile receive safe connection and delivery state only. A standard remote client cannot change channel credentials or assignment.
+
+## Channel health
+
+Each channel card shows whether the channel is working. When something is wrong, the card states the reason in plain words and offers one repair button. The chat's Channels section on mobile shows the same reason.
+
+- **Connecting…** appears while Otto starts the channel. It changes to connected or to an error when the start finishes.
+- **Needs reconnect** means the channel stopped after it was working, for example after a server restart or a dropped Discord or iMessage connection. Click **Reconnect** to resume.
+- **Connection failed** means the provider rejected the connection or Otto could not reach it. If the provider rejected the credentials, click **Update credentials**. Otherwise click **Reconnect**.
+- **Not live** means WhatsApp cannot receive messages because the environment has no public HTTPS address. The card shows the webhook URL when the server knows it. Give the environment a public URL, then reconnect.
+- **Choose another project** means the channel's project is unavailable.
+- **Disconnected** means someone stopped the channel. Click **Connect** to start it again.
+
+A connected channel can show **Needs attention** while it keeps working. If you reconnect with a token the provider rejects, the channel keeps running on its earlier connection and the card offers **Update credentials**. After a network or restart problem, the card offers **Reconnect**. If a reply's delivery is unknown, the card offers **Check the channel**, which opens the provider's console so you can see whether the reply arrived. If the connection has also failed, **Reconnect** remains available even when there is no provider console link. Reconnecting does not confirm whether the earlier reply arrived, so the warning remains.
+
+**Update credentials** in Settings opens the setup form for that connection. Enter the new credentials and click **Save and reconnect**. Otto connects with the new credentials and removes the old ones only after that works. If the new credentials fail, Otto puts the earlier connection back. If the old connection is removed but its listener does not stop cleanly, the form says the bot is now unassigned from the channel. Click **Reconnect** there to connect with the new credentials. The bot's Channels panel sends you to Settings for this step.
+
+A messaging account can answer for only one bot. If you connect an account that another bot already uses, Otto says so. Unassign the account from that bot, then connect again.
+
+Status changes reach every open client without a refresh.
+
+Error text comes from Otto, not from the messaging service. Service error messages can contain tokens or account details, so Otto never shows or logs them.
+
+## Delivery state
+
+Otto records confirmed replies and prevents normal retries from posting them again. If a provider confirms that it rejected a reply, you can retry that reply.
+
+A network failure can leave delivery unknown. Otto keeps that attempt and does not post it again automatically. Settings and the bot's Channels panel show a warning. Check the external conversation before taking further action. Reconnecting does not prove whether the earlier reply arrived.
+
+Each assistant reply to an external message carries its own delivery state in the conversation: sending, sent, failed to deliver, or unknown. Web and mobile show that state under the reply so you can tell which external conversation it reached without opening channel settings.
+
+Mobile shows channel health, the selected project, recent confirmed deliveries, and a warning when a channel needs attention. When a channel needs a new project, mobile tells you to repair it from Settings > Bot channels on the host; only an administrator session can reconnect a channel. Recent delivery counts cover retained confirmations, not the channel's full history.
+
+## Replies
+
+When a channel turn finishes, the bot's reply posts to the external conversation automatically. There is no separate send step, and no tool output or progress stream reaches the channel, only the final reply. The connected bot stays the reply owner: work it sends to another bot comes back through its own reply, never as a second external message.
+
+## Open in Otto links
+
+When the environment advertises a public address, external replies end with an **Open in Otto** link to the bot. The operator sets that address explicitly with `--public-origin` (or `OTTO_LEGACY_PUBLIC_ORIGIN`). Binding the server to a non-loopback host does not enable the link, and without an advertised public origin replies go out without it; Otto never guesses it from a bind address, browser, or client address.
+
+## Status signals
+
+On Slack and Discord, the bot marks your request message with a reaction: an eyes reaction when it accepts the request, an hourglass while it waits for your approval or answer inside Otto, a check mark on success, and an X on failure or cancellation. Otto removes stale reactions when a connection restores or closes. Telegram, iMessage, and WhatsApp do not support these reactions and receive no status signal. Detailed progress stays inside Otto; the channel never receives a stream of tool output.
+
+## Conversation behavior
+
+| Provider | Supported conversations                                            |
+| -------- | ------------------------------------------------------------------ |
+| Telegram | Direct messages                                                    |
+| iMessage | Direct messages                                                    |
+| WhatsApp | Direct messages                                                    |
+| Slack    | Direct messages and direct mentions in Slack threads               |
+| Discord  | Direct messages and direct mentions in Discord servers and threads |
+
+A group message on Telegram, iMessage, or WhatsApp does not start Otto work.
+
+For Slack and Discord, a direct mention starts a linked Otto thread. Later replies in that platform thread continue the same Otto thread without another mention. Otto includes a small amount of recent platform-thread context with the first mention.
+
+## Delegation
+
+The connected bot remains the external conversation owner. It can send work to another Otto bot or group. Delegated work follows the existing access, memory, usage, depth, concurrency, and approval limits.
+
+Delegated bots do not send separate external replies. The connected bot replies first. Otto does not send a separate message when delegated work finishes. The connected bot uses the result in its reply to the next message you send. A bot whose provider cannot hand off work, such as OpenCode, answers everything itself. See [Work sent to other bots](chats.md#work-sent-to-other-bots).
+
+## Telegram
+
+Create a bot with BotFather and copy its token. Enter the token in the Telegram connection form, select a bot, and click **Connect**. Send a direct message to the Telegram bot to test it.
+
+## iMessage
+
+Otto uses Photon for iMessage. You can use Photon hosted credentials or a self-hosted Photon server. Enter the connection details, select a bot, and click **Connect**. Send a direct iMessage to the connected line.
+
+External iMessage group chats are not supported.
+
+## WhatsApp
+
+Otto uses the WhatsApp Business Cloud API. The connection needs an access token, app secret, phone number ID, and verify token.
+
+WhatsApp must be able to reach the environment server over public HTTPS. Start the server with a public HTTPS origin, for example `--public-origin https://otto.example.com`. Add a WhatsApp connection in **Settings > Bot channels**, then configure Meta with the **Webhook URL** shown on that connection and your verify token. The URL uses `/api/channels/whatsapp/connections/<connection-id>/webhook` and stays with the saved connection if you assign it to another bot.
+
+Without a public origin, the connection saves as **Not live**: replies can still be sent, but WhatsApp cannot deliver new messages to Otto. Restart the server with a public origin and reconnect to go live.
+
+## Slack
+
+Create a Slack app for one workspace.
+
+1. Enable Socket Mode.
+2. Create an app-level token with the `connections:write` scope.
+3. Install the app to the workspace and copy the bot token.
+4. Subscribe the app's bot events to `message.im` for direct messages, `app_mention` for channel mentions, and `message.channels` so replies inside a subscribed thread keep reaching the bot.
+5. Give the bot these scopes: `chat:write`, `reactions:write`, `app_mentions:read`, `channels:history`, `channels:read`, `im:history`, `im:read`, and `im:write`.
+6. Save the bot token and app-level token in Otto. Otto checks the app-level token before it connects. If Slack rejects the token, Otto reports an invalid token. If Slack cannot be reached, Otto says so and leaves the token alone, so you can retry once the network is back.
+7. Select a bot and click **Connect**.
+
+Socket Mode uses an outbound connection from the environment server. It works when Otto runs locally, over SSH, or through Tailscale without a public webhook URL.
+
+The Slack channel connection is separate from the Slack plugin. The connection receives messages for a bot. The plugin gives a bot Slack tools. They do not share credentials or connection state.
+
+## Discord
+
+Create a Discord application and bot. In the developer portal, enable the Message Content privileged intent; Otto also requests the Guilds, Guild Messages, Direct Messages, Guild Message Reactions, and Direct Message Reactions intents, which need no portal switch. Copy the application ID, public key, and bot token. Invite the bot with permission to view channels, send messages, read message history, create or use threads, and add reactions.
+
+Enter the credentials in Otto, select a bot, and click **Connect**. Direct messages reach the bot. A direct mention of the bot in a server starts a Discord thread on that message and continues the work there. Role mentions and @everyone do not start work.
+
+## Access warning
+
+Anyone who can reach a connected bot can ask it to use the selected project and its enabled tools. The bot's permission mode still controls sensitive work, but channel membership is part of the access boundary.
+
+The setup form repeats this warning before you click **Connect**.
+
+Keep Slack bots out of channels that should not reach the workspace. Limit Discord server and channel access. Use a private phone or messaging identity for Telegram, iMessage, and WhatsApp when the selected project contains sensitive data.
+
+If the selected project is removed, the channel pauses and shows **Choose another project**. To repair it, pick a project on the channel card in Settings or in the bot's Channels panel and click **Reconnect in this project**. On mobile, the chat's Channels section points you to Settings > Bot channels on the host. Messages resume once the channel reconnects.

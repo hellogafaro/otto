@@ -1,0 +1,112 @@
+import type { ProviderAccessStatus } from "@otto/contracts";
+
+import type { ProviderStatus } from "../subscription-auth/service.ts";
+import { BotInboxService } from "./service.ts";
+
+export function syncConnectorIncidents(
+  botInbox: BotInboxService,
+  statuses: ReadonlyArray<ProviderStatus>,
+): void {
+  const currentIncidentKeys = new Set<string>();
+
+  for (const status of statuses) {
+    for (const bot of status.dependentBots) {
+      const incidentKey = `connector:${status.provider}:${bot.id}`;
+      currentIncidentKeys.add(incidentKey);
+
+      if (
+        status.health === "expired" ||
+        status.health === "revoked" ||
+        status.health === "failed" ||
+        status.health === "failed-first-request"
+      ) {
+        botInbox.ensureOpen({
+          incidentKey,
+          kind: status.health === "expired" ? "oauth-expired" : "connector-failure",
+          botId: bot.id,
+          botName: bot.name,
+          taskOrRoutine: `${status.provider} access`,
+          lastFailure:
+            status.lastFailedRequest?.message ??
+            (status.health === "expired"
+              ? "The OAuth access token expired."
+              : "The provider rejected the request."),
+          ...(status.lastFailedRequest ? { lastFailedRequestAt: status.lastFailedRequest.at } : {}),
+          nextAction: `${status.reconnectAction} in Settings, then send a provider request.`,
+        });
+        continue;
+      }
+
+      if (
+        status.health === "detected" ||
+        status.health === "healthy" ||
+        status.health === "recovered"
+      ) {
+        botInbox.resolve(incidentKey);
+      }
+    }
+  }
+
+  for (const incident of botInbox.list()) {
+    if (
+      (incident.status === "open" || incident.acknowledgedAt !== undefined) &&
+      incident.incidentKey.startsWith("connector:") &&
+      !currentIncidentKeys.has(incident.incidentKey)
+    ) {
+      botInbox.resolve(incident.incidentKey);
+    }
+  }
+}
+
+export function syncAccessIncidents(
+  botInbox: BotInboxService,
+  access: ReadonlyArray<ProviderAccessStatus>,
+): void {
+  const unresolvedIncidents = botInbox
+    .list()
+    .filter((incident) => incident.status === "open" || incident.acknowledgedAt !== undefined);
+
+  const unresolvedIncidentKeys = new Set(
+    unresolvedIncidents.map((incident) => incident.incidentKey),
+  );
+
+  const currentIncidentKeys = new Set<string>();
+
+  for (const item of access) {
+    if (item.accessMethod === "subscription-oauth") continue;
+
+    for (const bot of item.dependentBots) {
+      const incidentKey = `access:${item.id}:${bot.id}`;
+      currentIncidentKeys.add(incidentKey);
+
+      if (
+        item.health === "failed" ||
+        item.health === "failed-first-request" ||
+        item.health === "expired" ||
+        item.health === "revoked"
+      ) {
+        botInbox.ensureOpen({
+          incidentKey,
+          kind: item.health === "expired" ? "oauth-expired" : "connector-failure",
+          botId: bot.id,
+          botName: bot.name,
+          taskOrRoutine: `${item.label} access`,
+          lastFailure: item.lastFailedRequest?.message ?? "The connector request failed.",
+          nextAction: item.nextAction,
+          ...(item.lastFailedRequest ? { lastFailedRequestAt: item.lastFailedRequest.at } : {}),
+        });
+      } else if (unresolvedIncidentKeys.has(incidentKey)) {
+        botInbox.resolve(incidentKey);
+      }
+    }
+  }
+
+  for (const incident of unresolvedIncidents) {
+    if (
+      incident.incidentKey.startsWith("access:") &&
+      !currentIncidentKeys.has(incident.incidentKey)
+    ) {
+      botInbox.resolve(incident.incidentKey);
+    }
+  }
+}

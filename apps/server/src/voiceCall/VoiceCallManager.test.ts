@@ -1,0 +1,452 @@
+import * as Predicate from "effect/Predicate";
+import {
+  BotId,
+  CommandId,
+  EventId,
+  VoiceCallError,
+  type OrchestrationEvent,
+} from "@otto/contracts";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { assert, it } from "@effect/vitest";
+import { vi } from "vite-plus/test";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Stream from "effect/Stream";
+
+import { ServerConfig } from "../config.ts";
+import { ServerSettingsService } from "../serverSettings.ts";
+import {
+  ProjectionBotRepository,
+  type ProjectionBotRepositoryShape,
+} from "../persistence/Services/ProjectionBots.ts";
+import {
+  defaultSession,
+  hangupDeletedBotCalls,
+  parseCodexCliAuth,
+  VoiceCallManager,
+  layer,
+} from "./VoiceCallManager.ts";
+
+it("accepts a Codex CLI auth file without auth_mode", () => {
+  assert.deepEqual(
+    parseCodexCliAuth(JSON.stringify({ tokens: { access_token: "token", account_id: "account" } })),
+    { accessToken: "token", accountId: "account" },
+  );
+  assert.isUndefined(parseCodexCliAuth("not json"));
+});
+
+it("creates a current realtime session through the ChatGPT subscription endpoint", async () => {
+  const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+    assert.equal(String(url), "https://chatgpt.com/backend-api/codex/realtime/calls");
+    assert.isNull(new Headers(init?.headers).get("OpenAI-Alpha"));
+
+    const body = JSON.parse(String(init?.body)) as {
+      readonly session: {
+        readonly type: string;
+        readonly model: string;
+        readonly instructions: string;
+        readonly output_modalities: ReadonlyArray<string>;
+        readonly audio: {
+          readonly input: {
+            readonly turn_detection: {
+              readonly type: string;
+              readonly interrupt_response: boolean;
+            };
+          };
+          readonly output: { readonly voice: string };
+        };
+        readonly tool_choice: string;
+        readonly tools: ReadonlyArray<{ readonly name: string }>;
+      };
+    };
+
+    assert.equal(body.session.type, "realtime");
+    assert.equal(body.session.model, "gpt-realtime-2.1");
+    assert.equal(body.session.audio.output.voice, "marin");
+    assert.equal(body.session.audio.input.turn_detection.type, "semantic_vad");
+    assert.isFalse(body.session.audio.input.turn_detection.interrupt_response);
+    assert.equal(body.session.tool_choice, "auto");
+    assert.deepEqual(
+      body.session.tools.map((tool) => tool.name),
+      ["send_to_chat"],
+    );
+    assert.equal(body.session.instructions, "Be concise.");
+
+    return new Response("answer-sdp");
+  });
+
+  vi.stubGlobal("fetch", fetchMock);
+
+  try {
+    const answer = await defaultSession().negotiate({
+      offerSdp: "offer-sdp",
+      instructions: "Be concise.",
+      accessToken: "access",
+      accountId: "account",
+      voice: "marin",
+      signal: new AbortController().signal,
+    });
+
+    assert.equal(answer, "answer-sdp");
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+const botId = BotId.make("bot-voice");
+
+const now = "2026-08-27T00:00:00.000Z";
+
+const bot = {
+  botId,
+  name: "Otto",
+  title: "Generalist",
+  label: null,
+  description: "Helps Leo get work done.",
+  disabledMcpServerIds: [],
+  avatar: { kind: "blob" as const, shape: "circle" as const, color: "#5B7FD4" },
+  engine: null,
+  sandbox: null,
+  runtimeMode: "full-access" as const,
+  imageProvider: null,
+  voiceEnabled: true,
+  groupId: null,
+  archivedAt: null,
+  createdAt: now,
+  updatedAt: now,
+};
+
+const repository = {
+  upsert: () => Effect.void,
+  getById: ({ botId: requested }) =>
+    Effect.succeed(requested === botId ? Option.some(bot) : Option.none()),
+  listAll: () => Effect.succeed([bot]),
+  deleteById: () => Effect.void,
+} satisfies ProjectionBotRepositoryShape;
+
+const TestLayer = layer({
+  getCredential: async () => ({ accessToken: "access", accountId: "account" }),
+  makeSession: () => ({ negotiate: async () => "answer-sdp" }),
+}).pipe(
+  Layer.provide(Layer.succeed(ProjectionBotRepository, repository)),
+  Layer.provide(ServerSettingsService.layerTest()),
+  Layer.provide(NodeServices.layer),
+  Layer.provide(
+    ServerConfig.layerTest(process.cwd(), { prefix: "otto-voice-call-test-" }).pipe(
+      Layer.provide(NodeServices.layer),
+    ),
+  ),
+);
+
+const VoiceDisabledTestLayer = layer({
+  getCredential: async () => ({ accessToken: "access", accountId: "account" }),
+  makeSession: () => ({ negotiate: async () => "answer-sdp" }),
+}).pipe(
+  Layer.provide(Layer.succeed(ProjectionBotRepository, repository)),
+  Layer.provide(ServerSettingsService.layerTest({ voice: { enabled: false } })),
+  Layer.provide(NodeServices.layer),
+  Layer.provide(
+    ServerConfig.layerTest(process.cwd(), { prefix: "otto-voice-call-disabled-test-" }).pipe(
+      Layer.provide(NodeServices.layer),
+    ),
+  ),
+);
+
+let negotiatedVoice: string | undefined;
+
+const SelectedVoiceTestLayer = layer({
+  getCredential: async () => ({ accessToken: "access", accountId: "account" }),
+  makeSession: () => ({
+    negotiate: async ({ voice }) => {
+      negotiatedVoice = voice;
+
+      return "answer-sdp";
+    },
+  }),
+}).pipe(
+  Layer.provide(Layer.succeed(ProjectionBotRepository, repository)),
+  Layer.provide(ServerSettingsService.layerTest({ voice: { voice: "cedar" } })),
+  Layer.provide(NodeServices.layer),
+  Layer.provide(
+    ServerConfig.layerTest(process.cwd(), { prefix: "otto-voice-call-selection-test-" }).pipe(
+      Layer.provide(NodeServices.layer),
+    ),
+  ),
+);
+
+it.layer(SelectedVoiceTestLayer)("VoiceCallManager voice selection", (it) => {
+  it.effect("uses the globally selected voice for new calls", () =>
+    Effect.gen(function* () {
+      negotiatedVoice = undefined;
+      const manager = yield* VoiceCallManager;
+      const result = yield* manager.start({ botId, sdp: "offer-sdp" }, "client-1");
+      assert.equal(negotiatedVoice, "cedar");
+      yield* manager.hangup(result.call.callId, "client-1");
+    }),
+  );
+});
+
+it.layer(VoiceDisabledTestLayer)("VoiceCallManager global settings", (it) => {
+  it.effect("blocks every bot when voice is disabled globally", () =>
+    Effect.gen(function* () {
+      const manager = yield* VoiceCallManager;
+      const result = yield* Effect.result(manager.start({ botId, sdp: "offer-sdp" }, "client-1"));
+      assert.equal(result._tag, "Failure");
+
+      if (Predicate.isTagged(result, "Failure")) {
+        assert.equal(result.failure.reason, "voice-disabled");
+        assert.equal(result.failure.message, "Voice calls are disabled in Settings.");
+      }
+    }),
+  );
+});
+
+it.layer(TestLayer)("VoiceCallManager", (it) => {
+  it.effect("releases the one-call lock when session construction fails", () =>
+    Effect.gen(function* () {
+      let constructionAttempts = 0;
+
+      const failingLayer = layer({
+        getCredential: async () => ({ accessToken: "access", accountId: "account" }),
+        makeSession: () => {
+          constructionAttempts += 1;
+
+          if (constructionAttempts === 1) throw new Error("session constructor failed");
+
+          return { negotiate: async () => "answer-sdp" };
+        },
+      }).pipe(
+        Layer.provide(Layer.succeed(ProjectionBotRepository, repository)),
+        Layer.provide(ServerSettingsService.layerTest()),
+        Layer.provide(NodeServices.layer),
+        Layer.provide(
+          ServerConfig.layerTest(process.cwd(), {
+            prefix: "otto-voice-call-constructor-test-",
+          }).pipe(Layer.provide(NodeServices.layer)),
+        ),
+      );
+
+      const result = yield* Effect.provide(
+        Effect.gen(function* () {
+          const manager = yield* VoiceCallManager;
+
+          const failed = yield* Effect.result(
+            manager.start({ botId, sdp: "offer-sdp" }, "client-1"),
+          );
+
+          assert.equal(failed._tag, "Failure");
+          assert.deepEqual(yield* manager.get, { status: "idle" });
+          const retry = yield* manager.start({ botId, sdp: "offer-sdp" }, "client-1");
+          assert.equal(retry.answerSdp, "answer-sdp");
+          yield* manager.hangup(retry.call.callId, "client-1");
+        }),
+        failingLayer,
+      );
+
+      return result;
+    }),
+  );
+
+  it.effect("ends the call when its bot is deleted", () =>
+    Effect.gen(function* () {
+      const manager = yield* VoiceCallManager;
+      const call = yield* manager.start({ botId, sdp: "offer-sdp" }, "client-1");
+
+      const botDeleted = (deletedBotId: BotId, sequence: number): OrchestrationEvent => ({
+        sequence,
+        eventId: EventId.make(`evt-bot-deleted-${sequence}`),
+        aggregateKind: "bot",
+        aggregateId: deletedBotId,
+        type: "bot.deleted",
+        occurredAt: now,
+        commandId: CommandId.make(`cmd-bot-delete-${sequence}`),
+        causationEventId: null,
+        correlationId: CommandId.make(`cmd-bot-delete-${sequence}`),
+        metadata: {},
+        payload: { botId: deletedBotId, deletedAt: now },
+      });
+
+      yield* hangupDeletedBotCalls(manager, Stream.make(botDeleted(BotId.make("other-bot"), 1)));
+      assert.equal((yield* manager.get).status, "live");
+
+      yield* hangupDeletedBotCalls(manager, Stream.make(botDeleted(botId, 2)));
+      assert.deepEqual(yield* manager.get, { status: "idle" });
+      const stale = yield* Effect.result(manager.hangup(call.call.callId, "client-1"));
+      assert.equal(stale._tag, "Failure");
+
+      const next = yield* manager.start({ botId, sdp: "offer-sdp" }, "client-2");
+      yield* manager.hangup(next.call.callId, "client-2");
+    }),
+  );
+
+  it.effect("refuses hangup from a different connection owner", () =>
+    Effect.gen(function* () {
+      const manager = yield* VoiceCallManager;
+      const first = yield* manager.start({ botId, sdp: "offer-sdp" }, "client-1");
+
+      const stolen = yield* Effect.result(manager.hangup(first.call.callId, "client-2"));
+      assert.equal(stolen._tag, "Failure");
+
+      if (Predicate.isTagged(stolen, "Failure")) {
+        assert.equal(stolen.failure.reason, "call-not-active");
+      }
+
+      assert.equal((yield* manager.get).status, "live");
+
+      yield* manager.hangupOwner("client-2");
+      assert.equal((yield* manager.get).status, "live");
+
+      yield* manager.hangup(first.call.callId, "client-1");
+      assert.deepEqual(yield* manager.get, { status: "idle" });
+    }),
+  );
+
+  it.effect("allows only one concurrent start to claim the call lock", () =>
+    Effect.gen(function* () {
+      const manager = yield* VoiceCallManager;
+
+      const results = yield* Effect.all(
+        [
+          manager.start({ botId, sdp: "first-offer" }, "client-1").pipe(Effect.result),
+          manager.start({ botId, sdp: "second-offer" }, "client-2").pipe(Effect.result),
+        ],
+        { concurrency: "unbounded" },
+      );
+
+      const successes = results.filter((result) => Predicate.isTagged(result, "Success"));
+      const failures = results.filter((result) => Predicate.isTagged(result, "Failure"));
+      assert.lengthOf(successes, 1);
+      assert.lengthOf(failures, 1);
+      assert.equal(failures[0]?.failure.reason, "already-active");
+      const active = yield* manager.get;
+      assert.notEqual(active.status, "idle");
+
+      if (active.status !== "idle") {
+        const ownerId = results[0]?._tag === "Success" ? "client-1" : "client-2";
+        yield* manager.hangup(active.callId, ownerId);
+      }
+    }),
+  );
+
+  it.effect("refuses a second call until hangup and clears the active call", () =>
+    Effect.gen(function* () {
+      const manager = yield* VoiceCallManager;
+      const first = yield* manager.start({ botId, sdp: "offer-sdp" }, "client-1");
+      assert.equal(first.call.status, "live");
+      assert.equal(first.answerSdp, "answer-sdp");
+
+      const second = yield* Effect.result(
+        manager.start({ botId, sdp: "second-offer" }, "client-2"),
+      );
+
+      assert.equal(second._tag, "Failure");
+
+      if (Predicate.isTagged(second, "Failure")) {
+        const failure = second.failure;
+        assert.instanceOf(failure, VoiceCallError);
+        assert.equal(failure.reason, "already-active");
+      }
+
+      assert.deepEqual(yield* manager.hangup(first.call.callId, "client-1"), {
+        status: "idle",
+      });
+      assert.deepEqual(yield* manager.get, { status: "idle" });
+
+      const restarted = yield* manager.start({ botId, sdp: "third-offer" }, "client-1");
+      assert.equal(restarted.call.status, "live");
+      yield* manager.hangupOwner("client-1");
+      assert.deepEqual(yield* manager.get, { status: "idle" });
+    }),
+  );
+});
+
+let codexCliCredentialRequested = false;
+
+const CodexCliCredentialTestLayer = layer({
+  getCodexCliCredential: async () => {
+    codexCliCredentialRequested = true;
+
+    return { accessToken: "codex-access", accountId: "codex-account" };
+  },
+  makeSession: () => ({
+    negotiate: async ({ accessToken, accountId }) =>
+      accessToken === "codex-access" && accountId === "codex-account"
+        ? "answer-sdp"
+        : Promise.reject(new Error("wrong credential")),
+  }),
+}).pipe(
+  Layer.provide(Layer.succeed(ProjectionBotRepository, repository)),
+  Layer.provide(ServerSettingsService.layerTest()),
+  Layer.provide(NodeServices.layer),
+  Layer.provide(
+    ServerConfig.layerTest(process.cwd(), { prefix: "otto-voice-call-codex-auth-test-" }).pipe(
+      Layer.provide(NodeServices.layer),
+    ),
+  ),
+);
+
+it.layer(CodexCliCredentialTestLayer)("VoiceCallManager Codex CLI auth", (it) => {
+  it.effect("uses the existing ChatGPT subscription when app auth is not connected", () =>
+    Effect.gen(function* () {
+      codexCliCredentialRequested = false;
+      const manager = yield* VoiceCallManager;
+      const result = yield* manager.start({ botId, sdp: "offer-sdp" }, "client-1");
+      assert.isTrue(codexCliCredentialRequested);
+      assert.equal(result.answerSdp, "answer-sdp");
+    }),
+  );
+});
+
+let negotiationStarted: (() => void) | undefined;
+
+const PendingTestLayer = layer({
+  getCredential: async () => ({ accessToken: "access", accountId: "account" }),
+  makeSession: () => ({
+    negotiate: ({ signal }) =>
+      new Promise<string>((_resolve, reject) => {
+        negotiationStarted?.();
+        signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      }),
+  }),
+}).pipe(
+  Layer.provide(Layer.succeed(ProjectionBotRepository, repository)),
+  Layer.provide(ServerSettingsService.layerTest()),
+  Layer.provide(NodeServices.layer),
+  Layer.provide(
+    ServerConfig.layerTest(process.cwd(), { prefix: "otto-voice-call-pending-test-" }).pipe(
+      Layer.provide(NodeServices.layer),
+    ),
+  ),
+);
+
+it.layer(PendingTestLayer)("VoiceCallManager pending start", (it) => {
+  it.effect("cancels an in-flight negotiation when the call hangs up", () =>
+    Effect.gen(function* () {
+      const manager = yield* VoiceCallManager;
+
+      const started = new Promise<void>((resolve) => {
+        negotiationStarted = resolve;
+      });
+
+      const startFiber = yield* manager
+        .start({ botId, sdp: "offer-sdp" }, "client-1")
+        .pipe(Effect.result, Effect.forkChild);
+
+      yield* Effect.promise(() => started);
+      const pending = yield* manager.get;
+      assert.notEqual(pending.status, "idle");
+
+      if (pending.status === "idle") return;
+
+      yield* manager.hangup(pending.callId, "client-1");
+      const result = yield* Fiber.join(startFiber);
+      assert.equal(result._tag, "Failure");
+
+      if (Predicate.isTagged(result, "Failure"))
+        assert.equal(result.failure.reason, "call-not-active");
+      assert.deepEqual(yield* manager.get, { status: "idle" });
+    }),
+  );
+});

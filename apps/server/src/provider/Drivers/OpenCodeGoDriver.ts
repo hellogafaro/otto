@@ -1,0 +1,166 @@
+import { OpenCodeGoSettings, ProviderDriverKind, type ServerProvider } from "@otto/contracts";
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as PubSub from "effect/PubSub";
+import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+
+import { ServerConfig } from "../../config.ts";
+import { SubscriptionAuthService } from "../../subscription-auth/service.ts";
+import {
+  instanceUsesSavedCredential,
+  mergeSubscriptionInstanceEnvironment,
+} from "../../subscription-auth/runtime.ts";
+import type { ProviderDriver } from "../ProviderDriver.ts";
+import { explicitProviderInstanceEnvironment } from "../ProviderInstanceEnvironment.ts";
+import { defaultProviderContinuationIdentity } from "../ProviderDriver.ts";
+import { manualOnlyProviderMaintenanceCapabilities } from "../providerMaintenance.ts";
+import * as ModelCatalog from "../ModelCatalog.ts";
+
+const DRIVER_KIND = ProviderDriverKind.make("opencodeGo");
+
+const decodeSettings = Schema.decodeSync(OpenCodeGoSettings);
+
+export const OPEN_CODE_GO_MODELS = [
+  "gpt-6-luna",
+  "gpt-5.6-luna",
+  "grok-4.5",
+  "grok-4.6",
+  "glm-5.3-flash",
+  "glm-5.3",
+  "glm-5.2",
+  "glm-5.1",
+  "glm-5",
+  "kimi-k3",
+  "kimi-k2.7-code",
+  "kimi-k2.6",
+  "kimi-k2.5",
+  "longcat-2.0",
+  "deepseek-v4-pro",
+  "deepseek-v4-flash",
+  "deepseek-v4-flash-vision-exp",
+  "mimo-v2.5",
+  "mimo-v2.5-pro",
+  "mimo-v2-pro",
+  "mimo-v2-omni",
+  "minimax-m3",
+  "minimax-m2.7",
+  "minimax-m2.5",
+  "muse-spark-1.2-contributor",
+  "muse-spark-1.3-contributor",
+  "qwen3.8-max",
+  "qwen3.8-flash",
+  "qwen3.7-max",
+  "qwen3.7-plus",
+  "qwen3.6-plus",
+  "qwen3.5-plus",
+  "hy4-preview",
+  "hy3",
+  "hy3-preview",
+] as const;
+
+export type OpenCodeGoDriverEnv =
+  | ServerConfig
+  | FileSystem.FileSystem
+  | Path.Path
+  | ModelCatalog.ModelCatalog;
+
+export const OpenCodeGoDriver: ProviderDriver<OpenCodeGoSettings, OpenCodeGoDriverEnv> = {
+  driverKind: DRIVER_KIND,
+  metadata: { displayName: "OpenCode Go", supportsMultipleInstances: true },
+  configSchema: OpenCodeGoSettings,
+  defaultConfig: () => decodeSettings({}),
+  create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
+    Effect.gen(function* () {
+      const serverConfig = yield* ServerConfig;
+      const auth = yield* SubscriptionAuthService.forSecretsDir(serverConfig.secretsDir);
+      const modelCatalog = yield* ModelCatalog.ModelCatalog;
+
+      const changes = yield* Effect.acquireRelease(
+        PubSub.unbounded<ServerProvider>(),
+        PubSub.shutdown,
+      );
+
+      const effectiveEnabled = enabled && config.enabled;
+      const processEnv = mergeSubscriptionInstanceEnvironment(environment);
+
+      const continuationIdentity = defaultProviderContinuationIdentity({
+        driverKind: DRIVER_KIND,
+        instanceId,
+      });
+
+      const readSnapshot = Effect.gen(function* () {
+        yield* auth.reload();
+        const connected = auth.isConnected("opencode-go", instanceId);
+        yield* modelCatalog.refreshInBackground;
+        const catalog = yield* modelCatalog.current;
+
+        return {
+          instanceId,
+          driver: DRIVER_KIND,
+          displayName: displayName ?? "OpenCode Go",
+          ...(accentColor ? { accentColor } : {}),
+          continuation: { groupKey: continuationIdentity.continuationKey },
+          enabled: effectiveEnabled,
+          installed: true,
+          version: null,
+          status: !effectiveEnabled ? "disabled" : connected ? "ready" : "warning",
+          auth: { status: connected ? "authenticated" : "unauthenticated", type: "apiKey" },
+          checkedAt: DateTime.formatIso(DateTime.nowUnsafe()),
+          ...(!connected && effectiveEnabled
+            ? { message: "Connect OpenCode Go in Settings." }
+            : {}),
+          availability: "available",
+          models: ModelCatalog.catalogProviderModels({
+            catalog,
+            driver: DRIVER_KIND,
+            fallbackSlugs: OPEN_CODE_GO_MODELS,
+            customModels: config.customModels,
+          }),
+          slashCommands: [],
+          skills: [],
+        } satisfies ServerProvider;
+      });
+
+      const refresh = readSnapshot.pipe(
+        Effect.tap((snapshot) => PubSub.publish(changes, snapshot)),
+      );
+
+      // No periodic health check runs for this driver, so republish when the
+      // model catalog changes to bring new models to open clients.
+      yield* Stream.runForEach(modelCatalog.changes, () => refresh).pipe(
+        Effect.forkScoped({ startImmediately: true }),
+      );
+
+      return {
+        instanceId,
+        driverKind: DRIVER_KIND,
+        continuationIdentity,
+        displayName,
+        accentColor,
+        enabled: effectiveEnabled,
+        mastraConnection: {
+          environment: processEnv,
+          instanceEnvironment: explicitProviderInstanceEnvironment(environment),
+          useSavedCredential: instanceUsesSavedCredential("opencode-go", {
+            driver: DRIVER_KIND,
+            environment,
+            config,
+          }),
+        },
+        adapter: undefined,
+        textGeneration: undefined,
+        snapshot: {
+          maintenanceCapabilities: manualOnlyProviderMaintenanceCapabilities({
+            provider: DRIVER_KIND,
+            packageName: null,
+          }),
+          getSnapshot: readSnapshot,
+          refresh,
+          streamChanges: Stream.fromPubSub(changes),
+        },
+      };
+    }),
+};

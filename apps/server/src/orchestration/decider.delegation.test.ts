@@ -1,0 +1,375 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { BotId, CommandId, DelegationId, type OttoDelegationRecord } from "@otto/contracts";
+import { expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import { decideOrchestrationCommand } from "./decider.ts";
+import {
+  makeDelegation,
+  decideOne,
+  makeReadModel,
+  project,
+  CHILD_THREAD_ID,
+  CHILD_TURN_ID,
+  LATER,
+  NOW,
+  CHILD_BOT_ID,
+  PARENT_BOT_ID,
+  makeBot,
+  OTHER_BOT_ID,
+  PARENT_THREAD_ID,
+} from "./test-support/DelegationDeciderFixtures.ts";
+
+it.layer(NodeServices.layer)("delegation decider", (it) => {
+  it.effect("creates and projects the full delegation record", () =>
+    Effect.gen(function* () {
+      const delegation = makeDelegation();
+
+      const event = yield* decideOne(makeReadModel(), {
+        type: "delegation.create",
+        commandId: CommandId.make("command-create"),
+        delegation,
+      });
+
+      expect(event).toMatchObject({
+        type: "delegation.created",
+        aggregateKind: "delegation",
+        aggregateId: delegation.delegationId,
+        payload: { delegation },
+      });
+      const projected = yield* project(makeReadModel(), event);
+      expect(projected.delegations).toEqual([delegation]);
+    }),
+  );
+
+  it.effect("accepts every legal state and cancels unfinished work idempotently", () =>
+    Effect.gen(function* () {
+      let readModel = makeReadModel([makeDelegation()]);
+      const states: string[] = ["queued"];
+
+      const update = Effect.fn("updateDelegationState")(function* (
+        delegation: OttoDelegationRecord,
+        commandId: string,
+      ) {
+        const event = yield* decideOne(readModel, {
+          type: "delegation.state.set",
+          commandId: CommandId.make(commandId),
+          delegation,
+        });
+
+        readModel = yield* project(readModel, event);
+        states.push(delegation.phase._tag.toLowerCase());
+      });
+
+      const running = makeDelegation({
+        phase: {
+          _tag: "Running",
+          childThreadId: CHILD_THREAD_ID,
+          childTurnId: CHILD_TURN_ID,
+          startedAt: LATER,
+          progress: null,
+        },
+        updatedAt: LATER,
+      });
+
+      yield* update(running, "command-running");
+      yield* update(
+        {
+          ...running,
+          phase: {
+            _tag: "Blocked",
+            childThreadId: CHILD_THREAD_ID,
+            childTurnId: CHILD_TURN_ID,
+            startedAt: LATER,
+            reason: "blocked",
+          },
+          updatedAt: LATER,
+        },
+        "command-blocked",
+      );
+      yield* update(running, "command-resumed");
+      yield* update(
+        {
+          ...running,
+          phase: {
+            _tag: "Completed",
+            childThreadId: CHILD_THREAD_ID,
+            childTurnId: CHILD_TURN_ID,
+            startedAt: LATER,
+            completedAt: "2026-08-31T12:02:00.000Z",
+            acknowledgedAt: null,
+            result: {
+              summary: "Compared the flights.",
+              childThreadId: CHILD_THREAD_ID,
+              childTurnId: CHILD_TURN_ID,
+            },
+          },
+          updatedAt: "2026-08-31T12:02:00.000Z",
+        },
+        "command-completed",
+      );
+      expect(states).toEqual(["queued", "running", "blocked", "running", "completed"]);
+
+      const failed = makeDelegation({
+        phase: {
+          _tag: "Failed",
+          childThreadId: CHILD_THREAD_ID,
+          childTurnId: CHILD_TURN_ID,
+          startedAt: LATER,
+          completedAt: LATER,
+          failure: { failureCode: "internal", message: "Child process failed." },
+          acknowledgedAt: null,
+        },
+        updatedAt: LATER,
+      });
+
+      const failedEvent = yield* decideOne(makeReadModel([makeDelegation()]), {
+        type: "delegation.state.set",
+        commandId: CommandId.make("command-failed"),
+        delegation: failed,
+      });
+
+      expect(failedEvent.payload.delegation.phase._tag).toBe("Failed");
+
+      const cancelEvent = yield* decideOne(makeReadModel([makeDelegation()]), {
+        type: "delegation.cancel",
+        commandId: CommandId.make("command-cancel"),
+        delegationId: DelegationId.make("delegation-1"),
+        keep: false,
+        createdAt: LATER,
+      });
+
+      expect(cancelEvent.payload.delegation.phase._tag).toBe("Canceled");
+
+      const keepEvent = yield* decideOne(makeReadModel([makeDelegation()]), {
+        type: "delegation.cancel",
+        commandId: CommandId.make("command-keep"),
+        delegationId: DelegationId.make("delegation-1"),
+        keep: true,
+        createdAt: LATER,
+      });
+
+      expect(keepEvent.payload.delegation).toMatchObject({ phase: { _tag: "Queued" }, keep: true });
+
+      const canceledModel = yield* project(makeReadModel([makeDelegation()]), cancelEvent);
+
+      const repeated = yield* decideOne(canceledModel, {
+        type: "delegation.cancel",
+        commandId: CommandId.make("command-cancel-again"),
+        delegationId: DelegationId.make("delegation-1"),
+        keep: false,
+        createdAt: "2026-08-31T12:03:00.000Z",
+      });
+
+      expect(repeated.payload.delegation).toEqual(cancelEvent.payload.delegation);
+    }),
+  );
+
+  it.effect("assigns child ownership once and keeps lifecycle timestamps monotonic", () =>
+    Effect.gen(function* () {
+      const running = makeDelegation({
+        phase: {
+          _tag: "Running",
+          childThreadId: CHILD_THREAD_ID,
+          childTurnId: null,
+          startedAt: LATER,
+          progress: null,
+        },
+        updatedAt: LATER,
+      });
+
+      const assigned = makeDelegation({
+        phase: {
+          _tag: "Running",
+          childThreadId: CHILD_THREAD_ID,
+          childTurnId: CHILD_TURN_ID,
+          startedAt: LATER,
+          progress: null,
+        },
+        updatedAt: "2026-08-31T12:02:00.000Z",
+      });
+
+      const assignedEvent = yield* decideOne(makeReadModel([running]), {
+        type: "delegation.state.set",
+        commandId: CommandId.make("command-assign-child-turn"),
+        delegation: assigned,
+      });
+
+      expect(assignedEvent.payload.delegation).toEqual(assigned);
+
+      const cancelEvent = yield* decideOne(makeReadModel([assigned]), {
+        type: "delegation.cancel",
+        commandId: CommandId.make("command-stale-cancel"),
+        delegationId: assigned.delegationId,
+        keep: false,
+        createdAt: NOW,
+      });
+
+      expect(cancelEvent.payload.delegation).toMatchObject({
+        updatedAt: assigned.updatedAt,
+        phase: { _tag: "Canceled", completedAt: assigned.updatedAt },
+      });
+    }),
+  );
+
+  it.effect("rejects cycles, bad depth, missing records, and excess concurrency", () =>
+    Effect.gen(function* () {
+      const parent = makeDelegation();
+
+      const cycle = makeDelegation({
+        delegationId: DelegationId.make("delegation-cycle"),
+        parentDelegationId: parent.delegationId,
+        parentBotId: CHILD_BOT_ID,
+        childBotId: PARENT_BOT_ID,
+        parentThreadId: CHILD_THREAD_ID,
+        ancestorBotIds: [PARENT_BOT_ID, CHILD_BOT_ID],
+        depth: 2,
+        billedBotId: PARENT_BOT_ID,
+      });
+
+      const cycleError = yield* decideOrchestrationCommand({
+        readModel: makeReadModel([parent]),
+        command: {
+          type: "delegation.create",
+          commandId: CommandId.make("command-cycle"),
+          delegation: cycle,
+        },
+      }).pipe(Effect.flip);
+
+      expect(String(cycleError)).toContain("cycle");
+
+      const depthError = yield* decideOrchestrationCommand({
+        readModel: makeReadModel(),
+        command: {
+          type: "delegation.create",
+          commandId: CommandId.make("command-depth"),
+          delegation: makeDelegation({ depth: 2 }),
+        },
+      }).pipe(Effect.flip);
+
+      expect(String(depthError)).toContain("ancestor chain or depth");
+
+      const missingError = yield* decideOrchestrationCommand({
+        readModel: makeReadModel(),
+        command: {
+          type: "delegation.create",
+          commandId: CommandId.make("command-missing"),
+          delegation: makeDelegation({ childBotId: BotId.make("bot-missing") }),
+        },
+      }).pipe(Effect.flip);
+
+      expect(String(missingError)).toContain("bot-missing");
+
+      const archivedChildError = yield* decideOrchestrationCommand({
+        readModel: {
+          ...makeReadModel(),
+          bots: [
+            makeBot(PARENT_BOT_ID),
+            { ...makeBot(CHILD_BOT_ID), archivedAt: LATER },
+            makeBot(OTHER_BOT_ID),
+          ],
+        },
+        command: {
+          type: "delegation.create",
+          commandId: CommandId.make("command-archived-child"),
+          delegation: makeDelegation(),
+        },
+      }).pipe(Effect.flip);
+
+      expect(String(archivedChildError)).toContain("archived");
+
+      const active = [1, 2, 3].map((index) =>
+        makeDelegation({ delegationId: DelegationId.make(`delegation-${index}`) }),
+      );
+
+      const concurrencyError = yield* decideOrchestrationCommand({
+        readModel: makeReadModel(active),
+        command: {
+          type: "delegation.create",
+          commandId: CommandId.make("command-concurrency"),
+          delegation: makeDelegation({ delegationId: DelegationId.make("delegation-4") }),
+        },
+      }).pipe(Effect.flip);
+
+      expect(String(concurrencyError)).toContain("3 active delegations");
+    }),
+  );
+
+  it.effect("rejects illegal transitions and ownership changes", () =>
+    Effect.gen(function* () {
+      const queued = makeDelegation();
+
+      const completed = makeDelegation({
+        phase: {
+          _tag: "Completed",
+          childThreadId: CHILD_THREAD_ID,
+          childTurnId: CHILD_TURN_ID,
+          startedAt: NOW,
+          completedAt: LATER,
+          acknowledgedAt: null,
+          result: {
+            summary: "Done.",
+            childThreadId: CHILD_THREAD_ID,
+            childTurnId: CHILD_TURN_ID,
+          },
+        },
+        updatedAt: LATER,
+      });
+
+      const transitionError = yield* decideOrchestrationCommand({
+        readModel: makeReadModel([queued]),
+        command: {
+          type: "delegation.state.set",
+          commandId: CommandId.make("command-illegal"),
+          delegation: completed,
+        },
+      }).pipe(Effect.flip);
+
+      expect(String(transitionError)).toContain("cannot transition");
+
+      const ownershipError = yield* decideOrchestrationCommand({
+        readModel: makeReadModel([queued]),
+        command: {
+          type: "delegation.state.set",
+          commandId: CommandId.make("command-owner-change"),
+          delegation: makeDelegation({
+            childBotId: OTHER_BOT_ID,
+            billedBotId: OTHER_BOT_ID,
+          }),
+        },
+      }).pipe(Effect.flip);
+
+      expect(String(ownershipError)).toContain("immutable");
+
+      const running = makeDelegation({
+        phase: {
+          _tag: "Running",
+          childThreadId: CHILD_THREAD_ID,
+          childTurnId: CHILD_TURN_ID,
+          startedAt: NOW,
+          progress: null,
+        },
+      });
+
+      const mismatchError = yield* decideOrchestrationCommand({
+        readModel: makeReadModel([running]),
+        command: {
+          type: "delegation.state.set",
+          commandId: CommandId.make("command-result-mismatch"),
+          delegation: {
+            ...completed,
+            phase: {
+              ...completed.phase,
+              result: {
+                summary: "Done.",
+                childThreadId: PARENT_THREAD_ID,
+                childTurnId: CHILD_TURN_ID,
+              },
+            } as typeof completed.phase,
+          },
+        },
+      }).pipe(Effect.flip);
+
+      expect(String(mismatchError)).toContain("result must come from its child");
+    }),
+  );
+});

@@ -1,0 +1,604 @@
+import type {
+  OrchestrationClientOrigin,
+  OrchestrationEvent,
+  OrchestrationReadModel,
+} from "@otto/contracts";
+import { OrchestrationCommand } from "@otto/contracts";
+import * as Cause from "effect/Cause";
+import * as Clock from "effect/Clock";
+import * as Crypto from "effect/Crypto";
+import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
+import * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Layer from "effect/Layer";
+import * as Metric from "effect/Metric";
+import * as Option from "effect/Option";
+import * as PubSub from "effect/PubSub";
+import * as Queue from "effect/Queue";
+import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
+
+import {
+  metricAttributes,
+  orchestrationCommandAckDuration,
+  orchestrationCommandsTotal,
+  orchestrationCommandDuration,
+} from "../../observability/Metrics.ts";
+import { toPersistenceSqlError } from "../../persistence/Errors.ts";
+import { tryAdmitTurnStart, type TurnStartAdmission } from "../../remote/updateGate.ts";
+import { OrchestrationEventStore } from "../../persistence/Services/OrchestrationEventStore.ts";
+import { OrchestrationCommandReceiptRepository } from "../../persistence/Services/OrchestrationCommandReceipts.ts";
+import {
+  OrchestrationCommandIdConflictError,
+  OrchestrationCommandInvariantError,
+  OrchestrationCommandPreviouslyRejectedError,
+  type OrchestrationDispatchError,
+  type OrchestrationProjectorDecodeError,
+} from "../Errors.ts";
+import { decideOrchestrationCommand } from "../decider.ts";
+import { createEmptyReadModel, projectEvent } from "../projector.ts";
+import { OrchestrationProjectionPipeline } from "../Services/ProjectionPipeline.ts";
+import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
+import {
+  OrchestrationEngineService,
+  type OrchestrationDispatchActor,
+  type OrchestrationEngineShape,
+} from "../Services/OrchestrationEngine.ts";
+
+const isOrchestrationCommandPreviouslyRejectedError = Schema.is(
+  OrchestrationCommandPreviouslyRejectedError,
+);
+
+const isOrchestrationCommandIdConflictError = Schema.is(OrchestrationCommandIdConflictError);
+
+const isOrchestrationCommandInvariantError = Schema.is(OrchestrationCommandInvariantError);
+
+interface CommandEnvelope {
+  command: OrchestrationCommand;
+  actor: OrchestrationDispatchActor | undefined;
+  origin: OrchestrationClientOrigin | undefined;
+  result: Deferred.Deferred<{ sequence: number }, OrchestrationDispatchError>;
+  startedAtMs: number;
+  /** Turn-start admission owned by this envelope, released once the worker finishes it. */
+  admission: TurnStartAdmission | undefined;
+}
+
+type CommandAggregateRef = Pick<OrchestrationEvent, "aggregateKind" | "aggregateId">;
+
+function commandToAggregateRef(command: OrchestrationCommand): CommandAggregateRef {
+  switch (command.type) {
+    case "project.create":
+    case "project.meta.update":
+    case "project.delete":
+      return {
+        aggregateKind: "project",
+        aggregateId: command.projectId,
+      };
+    case "bot.create":
+    case "bot.update":
+    case "bot.archive":
+    case "bot.restore":
+    case "bot.delete":
+      return {
+        aggregateKind: "bot",
+        aggregateId: command.botId,
+      };
+    case "group.create":
+    case "group.rename":
+    case "group.delete":
+    case "group.member.assign":
+    case "group.member.unassign":
+    case "group.person.assign":
+    case "group.person.unassign":
+    case "group.leave":
+    case "group.boss.set":
+      return {
+        aggregateKind: "group",
+        aggregateId: command.groupId,
+      };
+    case "mcp-server.create":
+    case "mcp-server.update":
+    case "mcp-server.instructions.set":
+    case "mcp-server.delete":
+    case "mcp-server.enable":
+    case "mcp-server.disable":
+      return {
+        aggregateKind: "mcp-server",
+        aggregateId: command.mcpServerId,
+      };
+    case "delegation.create":
+    case "delegation.state.set":
+      return {
+        aggregateKind: "delegation",
+        aggregateId: command.delegation.delegationId,
+      };
+    case "delegation.cancel":
+    case "delegation.retry":
+      return {
+        aggregateKind: "delegation",
+        aggregateId: command.delegationId,
+      };
+    case "routine.create-approved":
+    case "routine.draft":
+    case "routine.approve":
+    case "routine.enable":
+    case "routine.pause":
+    case "routine.run":
+    case "routine.run.scheduled":
+    case "routine.run.start":
+    case "routine.run.block":
+    case "routine.run.fail":
+    case "routine.run.complete":
+    case "routine.run.cancel":
+    case "routine.delete":
+      return {
+        aggregateKind: "routine",
+        aggregateId: command.routineId,
+      };
+    case "routine.skill.assign":
+    case "routine.skill.unassign":
+      return {
+        aggregateKind: "skill-assignment",
+        aggregateId: command.assignmentId,
+      };
+    default:
+      return {
+        aggregateKind: "thread",
+        aggregateId: command.threadId,
+      };
+  }
+}
+
+const makeOrchestrationEngine = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  const eventStore = yield* OrchestrationEventStore;
+  const commandReceiptRepository = yield* OrchestrationCommandReceiptRepository;
+  const projectionPipeline = yield* OrchestrationProjectionPipeline;
+  const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
+  const crypto = yield* Crypto.Crypto;
+
+  const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
+  let commandReadModel = createEmptyReadModel(yield* nowIso);
+
+  const commandQueue = yield* Queue.unbounded<CommandEnvelope>();
+  const eventPubSub = yield* PubSub.unbounded<OrchestrationEvent>();
+
+  const projectEventsOntoReadModel = (
+    baseReadModel: OrchestrationReadModel,
+    events: ReadonlyArray<OrchestrationEvent>,
+  ): Effect.Effect<OrchestrationReadModel, OrchestrationProjectorDecodeError, never> =>
+    Effect.gen(function* () {
+      let nextReadModel = baseReadModel;
+
+      for (const event of events) {
+        nextReadModel = yield* projectEvent(nextReadModel, event);
+      }
+
+      return nextReadModel;
+    });
+
+  const processEnvelope = (envelope: CommandEnvelope): Effect.Effect<void> => {
+    const dispatchStartSequence = commandReadModel.snapshotSequence;
+    let processingStartedAtMs = 0;
+    const aggregateRef = commandToAggregateRef(envelope.command);
+
+    const baseMetricAttributes = {
+      commandType: envelope.command.type,
+      aggregateKind: aggregateRef.aggregateKind,
+    } as const;
+
+    const reconcileReadModelAfterDispatchFailure = Effect.gen(function* () {
+      const persistedEvents = yield* Stream.runCollect(
+        eventStore.readFromSequence(dispatchStartSequence),
+      ).pipe(Effect.map((chunk): OrchestrationEvent[] => Array.from(chunk)));
+
+      if (persistedEvents.length === 0) {
+        return;
+      }
+
+      commandReadModel = yield* projectEventsOntoReadModel(commandReadModel, persistedEvents);
+
+      for (const persistedEvent of persistedEvents) {
+        yield* PubSub.publish(eventPubSub, persistedEvent);
+      }
+    });
+
+    return Effect.exit(
+      Effect.gen(function* () {
+        processingStartedAtMs = yield* Clock.currentTimeMillis;
+        yield* Effect.annotateCurrentSpan({
+          "orchestration.command_id": envelope.command.commandId,
+          "orchestration.command_type": envelope.command.type,
+          "orchestration.aggregate_kind": aggregateRef.aggregateKind,
+          "orchestration.aggregate_id": aggregateRef.aggregateId,
+        });
+
+        const existingReceipt = yield* commandReceiptRepository.getByCommandId({
+          commandId: envelope.command.commandId,
+        });
+
+        if (Option.isSome(existingReceipt)) {
+          // A receipt only proves this exact command was handled. Replaying it
+          // for a command aimed at another aggregate would report success for
+          // work that never happened.
+          if (
+            existingReceipt.value.aggregateKind !== aggregateRef.aggregateKind ||
+            existingReceipt.value.aggregateId !== aggregateRef.aggregateId
+          ) {
+            return yield* new OrchestrationCommandIdConflictError({
+              commandId: envelope.command.commandId,
+              receiptAggregateKind: existingReceipt.value.aggregateKind,
+              receiptAggregateId: existingReceipt.value.aggregateId,
+              commandAggregateKind: aggregateRef.aggregateKind,
+              commandAggregateId: aggregateRef.aggregateId,
+            });
+          }
+
+          if (existingReceipt.value.status === "accepted") {
+            return {
+              sequence: existingReceipt.value.resultSequence,
+            };
+          }
+
+          return yield* new OrchestrationCommandPreviouslyRejectedError({
+            commandId: envelope.command.commandId,
+            detail: existingReceipt.value.error ?? "Previously rejected.",
+          });
+        }
+
+        let decisionReadModel = commandReadModel;
+        const command = envelope.command;
+
+        if (
+          (command.type === "thread.settle" || command.type === "thread.snooze") &&
+          projectionSnapshotQuery.getThreadCommandContext
+        ) {
+          const context = yield* projectionSnapshotQuery.getThreadCommandContext(command.threadId);
+          decisionReadModel = {
+            ...commandReadModel,
+            threads: commandReadModel.threads.map((thread) =>
+              thread.id === command.threadId ? { ...thread, ...context } : thread,
+            ),
+          };
+        } else if (
+          command.type === "thread.message.reaction.set" &&
+          projectionSnapshotQuery.getCommandMessage
+        ) {
+          const message = yield* projectionSnapshotQuery.getCommandMessage(command);
+          decisionReadModel = {
+            ...commandReadModel,
+            threads: commandReadModel.threads.map((thread) =>
+              thread.id === command.threadId
+                ? {
+                    ...thread,
+                    messages: Option.isSome(message) ? [message.value] : [],
+                  }
+                : thread,
+            ),
+          };
+        }
+
+        const eventBase = yield* decideOrchestrationCommand({
+          command: envelope.command,
+          readModel: decisionReadModel,
+          ...(envelope.actor !== undefined ? { actor: envelope.actor } : {}),
+        }).pipe(
+          Effect.provideService(Crypto.Crypto, crypto),
+          Effect.mapError((cause) =>
+            isOrchestrationCommandInvariantError(cause)
+              ? cause
+              : new OrchestrationCommandInvariantError({
+                  commandType: envelope.command.type,
+                  detail: "Failed to generate an event identifier.",
+                  cause,
+                }),
+          ),
+        );
+
+        const plannedEvents = Array.isArray(eventBase) ? eventBase : [eventBase];
+
+        // Stamp the dispatching client's origin onto every event the command
+        // produced. The decider stays pure; attribution is an engine concern.
+        const eventBases =
+          envelope.origin === undefined
+            ? plannedEvents
+            : plannedEvents.map((planned) => ({
+                ...planned,
+                metadata: { ...planned.metadata, origin: envelope.origin },
+              }));
+
+        const committedCommand = yield* sql
+          .withTransaction(
+            Effect.gen(function* () {
+              const committedEvents: OrchestrationEvent[] = [];
+              const attachmentCleanups: Effect.Effect<void>[] = [];
+              let nextCommandReadModel = commandReadModel;
+
+              for (const nextEvent of eventBases) {
+                const savedEvent = yield* eventStore.append(nextEvent);
+                nextCommandReadModel = yield* projectEvent(nextCommandReadModel, savedEvent);
+                const cleanup = yield* projectionPipeline.projectEventDeferred(savedEvent);
+                attachmentCleanups.push(cleanup);
+                committedEvents.push(savedEvent);
+              }
+
+              const lastSavedEvent = committedEvents.at(-1) ?? null;
+
+              if (lastSavedEvent === null) {
+                return yield* new OrchestrationCommandInvariantError({
+                  commandType: envelope.command.type,
+                  detail: "Command produced no events.",
+                });
+              }
+
+              yield* commandReceiptRepository.upsert({
+                commandId: envelope.command.commandId,
+                aggregateKind: lastSavedEvent.aggregateKind,
+                aggregateId: lastSavedEvent.aggregateId,
+                acceptedAt: lastSavedEvent.occurredAt,
+                resultSequence: lastSavedEvent.sequence,
+                status: "accepted",
+                error: null,
+              });
+
+              return {
+                committedEvents,
+                attachmentCleanups,
+                lastSequence: lastSavedEvent.sequence,
+                nextCommandReadModel,
+              } as const;
+            }),
+          )
+          .pipe(
+            Effect.catchTag("SqlError", (sqlError) =>
+              Effect.fail(
+                toPersistenceSqlError("OrchestrationEngine.processEnvelope:transaction")(sqlError),
+              ),
+            ),
+          );
+
+        commandReadModel = committedCommand.nextCommandReadModel;
+
+        for (const cleanup of committedCommand.attachmentCleanups) {
+          yield* cleanup;
+        }
+
+        for (const [index, event] of committedCommand.committedEvents.entries()) {
+          yield* PubSub.publish(eventPubSub, event);
+
+          if (index === 0) {
+            yield* Metric.update(
+              Metric.withAttributes(
+                orchestrationCommandAckDuration,
+                metricAttributes({
+                  ...baseMetricAttributes,
+                  ackEventType: event.type,
+                }),
+              ),
+              Duration.millis(Math.max(0, (yield* Clock.currentTimeMillis) - envelope.startedAtMs)),
+            );
+          }
+        }
+
+        return { sequence: committedCommand.lastSequence };
+      }).pipe(Effect.withSpan(`orchestration.command.${envelope.command.type}`)),
+    ).pipe(
+      Effect.flatMap((exit) =>
+        Effect.gen(function* () {
+          const outcome = Exit.isSuccess(exit)
+            ? "success"
+            : Cause.hasInterruptsOnly(exit.cause)
+              ? "interrupt"
+              : "failure";
+
+          yield* Metric.update(
+            Metric.withAttributes(
+              orchestrationCommandDuration,
+              metricAttributes(baseMetricAttributes),
+            ),
+            Duration.millis(Math.max(0, (yield* Clock.currentTimeMillis) - processingStartedAtMs)),
+          );
+          yield* Metric.update(
+            Metric.withAttributes(
+              orchestrationCommandsTotal,
+              metricAttributes({
+                ...baseMetricAttributes,
+                outcome,
+              }),
+            ),
+            1,
+          );
+
+          if (Exit.isSuccess(exit)) {
+            yield* Deferred.succeed(envelope.result, exit.value);
+
+            return;
+          }
+
+          const error = Cause.squash(exit.cause);
+
+          if (
+            !isOrchestrationCommandPreviouslyRejectedError(error) &&
+            !isOrchestrationCommandIdConflictError(error)
+          ) {
+            yield* reconcileReadModelAfterDispatchFailure.pipe(
+              Effect.catch(() =>
+                Effect.logWarning(
+                  "failed to reconcile orchestration read model after dispatch failure",
+                ).pipe(
+                  Effect.annotateLogs({
+                    commandId: envelope.command.commandId,
+                    snapshotSequence: commandReadModel.snapshotSequence,
+                  }),
+                ),
+              ),
+            );
+
+            if (isOrchestrationCommandInvariantError(error)) {
+              yield* commandReceiptRepository
+                .upsert({
+                  commandId: envelope.command.commandId,
+                  aggregateKind: aggregateRef.aggregateKind,
+                  aggregateId: aggregateRef.aggregateId,
+                  acceptedAt: yield* nowIso,
+                  resultSequence: commandReadModel.snapshotSequence,
+                  status: "rejected",
+                  error: error.message,
+                })
+                .pipe(Effect.catch(() => Effect.void));
+            }
+          }
+
+          yield* Deferred.failCause(envelope.result, exit.cause);
+        }),
+      ),
+    );
+  };
+
+  yield* projectionPipeline.bootstrap;
+  commandReadModel = yield* projectionSnapshotQuery.getCommandReadModel();
+
+  // The worker owns an envelope from the moment it is taken: the take runs
+  // uninterruptibly, and settlement and admission release are installed
+  // before processing becomes interruptible.
+  const worker = Effect.forever(
+    Effect.uninterruptibleMask((restore) =>
+      Queue.take(commandQueue).pipe(
+        Effect.flatMap((envelope) =>
+          restore(processEnvelope(envelope)).pipe(
+            Effect.onInterrupt(() => Deferred.interrupt(envelope.result)),
+            Effect.ensuring(Effect.sync(() => envelope.admission?.release())),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  yield* Effect.forkScoped(worker);
+
+  // Closing the engine settles every command it accepted, so callers that
+  // await a result, including uninterruptible ones, cannot outlive it.
+  // Registered after the worker fork so it runs first: failing the queue wakes
+  // the worker's uninterruptible take before the scope interrupts the worker.
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => {
+      Queue.failCauseUnsafe(commandQueue, Cause.interrupt());
+
+      const pending: Array<CommandEnvelope> = [];
+
+      for (
+        let next = Queue.takeUnsafe(commandQueue);
+        next !== undefined && Exit.isSuccess(next);
+        next = Queue.takeUnsafe(commandQueue)
+      ) {
+        pending.push(next.value);
+      }
+
+      return pending;
+    }).pipe(
+      Effect.flatMap((pending) =>
+        Effect.forEach(
+          pending,
+          (envelope) =>
+            Deferred.interrupt(envelope.result).pipe(
+              Effect.ensuring(Effect.sync(() => envelope.admission?.release())),
+            ),
+          { discard: true },
+        ),
+      ),
+    ),
+  );
+
+  yield* Effect.logDebug("orchestration engine started").pipe(
+    Effect.annotateLogs({ sequence: commandReadModel.snapshotSequence }),
+  );
+
+  const readEvents: OrchestrationEngineShape["readEvents"] = (
+    fromSequenceExclusive,
+    limit,
+    toSequenceInclusive,
+  ) => eventStore.readFromSequence(fromSequenceExclusive, limit, toSequenceInclusive);
+
+  const readThreadEvents: OrchestrationEngineShape["readThreadEvents"] = ({ threadId, ...range }) =>
+    eventStore.readAggregateRange({ ...range, aggregateKind: "thread", aggregateId: threadId });
+
+  const getThreadReplayStats: OrchestrationEngineShape["getThreadReplayStats"] = ({
+    threadId,
+    ...range
+  }) =>
+    eventStore.getAggregateReplayStats({
+      ...range,
+      aggregateKind: "thread",
+      aggregateId: threadId,
+    });
+
+  // Every turn start, whatever surface sent it, is admitted here so a server
+  // update cannot begin while a turn is being committed. The admission moves
+  // into the queued envelope in the same uninterruptible step as the offer, so
+  // an interrupted caller cannot release it while the worker still owns the
+  // turn. A caller that already holds an admission passes it to skip the
+  // maintenance check. A blocked start is rejected without a receipt, so the
+  // same command can be retried afterwards.
+  const dispatch: OrchestrationEngineShape["dispatch"] = (command, options) =>
+    Effect.uninterruptibleMask((restore) =>
+      Effect.gen(function* () {
+        const admission =
+          command.type === "thread.turn.start" || command.type === "thread.turn.resume"
+            ? (options?.admission?.retain() ?? tryAdmitTurnStart())
+            : undefined;
+
+        if (admission === null) {
+          return yield* new OrchestrationCommandInvariantError({
+            commandType: command.type,
+            detail: "The server is installing an update. Try again in a moment.",
+          });
+        }
+
+        const result = yield* Deferred.make<{ sequence: number }, OrchestrationDispatchError>();
+
+        const offered = yield* Queue.offer(commandQueue, {
+          command,
+          actor: options?.actor,
+          origin: options?.origin,
+          result,
+          startedAtMs: yield* Clock.currentTimeMillis,
+          admission,
+        });
+
+        if (!offered) {
+          admission?.release();
+
+          return yield* Effect.interrupt;
+        }
+
+        return yield* restore(Deferred.await(result));
+      }),
+    );
+
+  return {
+    readEvents,
+    readThreadEvents,
+    getThreadReplayStats,
+    dispatch,
+    // Each access creates a fresh PubSub subscription so that multiple
+    // consumers (wsServer, ProviderRuntimeIngestion, CheckpointReactor, etc.)
+    // each independently receive all domain events.
+    get streamDomainEvents(): OrchestrationEngineShape["streamDomainEvents"] {
+      return Stream.fromPubSub(eventPubSub);
+    },
+    subscribeDomainEvents: PubSub.subscribe(eventPubSub).pipe(Effect.map(Stream.fromSubscription)),
+    // The command read model's snapshotSequence tracks the latest committed
+    // event sequence (updated on the worker fiber). A plain property read is a
+    // consistent, committed value — reassignment of `commandReadModel` is
+    // atomic on the single-threaded event loop.
+    latestSequence: Effect.sync(() => commandReadModel.snapshotSequence),
+  } satisfies OrchestrationEngineShape;
+});
+
+export const OrchestrationEngineLive = Layer.effect(
+  OrchestrationEngineService,
+  makeOrchestrationEngine,
+);

@@ -1,0 +1,24 @@
+import type { ProviderInstanceEnvironment } from "@otto/contracts";
+
+export function mergeProviderInstanceEnvironment(
+  environment: ProviderInstanceEnvironment | undefined,
+  baseEnv: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  if (!environment || environment.length === 0) {
+    return baseEnv;
+  }
+
+  const next: NodeJS.ProcessEnv = { ...baseEnv };
+
+  for (const variable of environment) {
+    next[variable.name] = variable.value;
+  }
+
+  return next;
+}
+
+export function explicitProviderInstanceEnvironment(
+  environment: ProviderInstanceEnvironment | undefined,
+): NodeJS.ProcessEnv {
+  return Object.fromEntries(environment?.map((variable) => [variable.name, variable.value]) ?? []);
+}

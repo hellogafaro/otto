@@ -1,5 +1,0 @@
-Independent review (Cody, thr_iq9zrr9h4f) - FINAL: PASS
-Current source: all-files f1aa0e1ae8ed235504649e532bb2f545442ab5c614f943db860e8e3fa60bad21 (319 entries verified), changed-files beccf9520694df058ae4ed93d6fa8ea7ee441471a4abefbec47771782ff3bb69, MANIFEST 6e45121e305a0230bd5de8464154e096b40b53633aaf93730427e1c7a0cd4600; delta docs/tasks.md, packages/tasks/src/recurrence.ts, tests/task-recurrence.test.ts.
-Requirements 1-5 (multiple assignees, completion-driven RRULE, library-backed strict parser, thin integration, populated native move) are met; F1, F2, F3, F4 and F5 are all fixed and re-observed on this source; no required finding remains.
-Earlier failed freezes preserved, not accepted: 5387cc65... (F1-F3), 8b1b8863... (F4), bbd39497... (F5).
-Non-blocking observations (not gates): DTSTART inside a DST gap is shifted forward and counted; BYSETPOS positions count only existing local times when a candidate falls in a DST gap; WEEKLY INTERVAL=1000 COUNT=1000 is rejected as unsupported (beyond year 9999); the docs' "no other mismatch" claim covers the author's sweep, not DST-gap BYSETPOS.

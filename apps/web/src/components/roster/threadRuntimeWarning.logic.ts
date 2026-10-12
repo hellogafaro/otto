@@ -1,0 +1,166 @@
+import { Predicate, Option, Schema } from "effect";
+import {
+  isServerProviderUnavailability,
+  latestTurnFailure,
+} from "@otto/client-runtime/provider-availability";
+import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
+import type {
+  OrchestrationLatestTurn,
+  OrchestrationSession,
+  OrchestrationThreadActivity,
+  ServerProviderUnavailability,
+} from "@otto/contracts";
+
+const decodeWarningPayload = Schema.decodeUnknownOption(
+  Schema.Struct({
+    key: Schema.optionalKey(Schema.Unknown),
+    resolved: Schema.optionalKey(Schema.Unknown),
+    message: Schema.optionalKey(Schema.Unknown),
+  }),
+);
+
+export function activeThreadRuntimeWarning(
+  activities: ReadonlyArray<OrchestrationThreadActivity>,
+  latestTurn: OrchestrationLatestTurn | null,
+): string | null {
+  if (latestTurn?.state !== "running") return null;
+
+  const resolvedKeys = new Set<string>();
+
+  const newestFirst = activities.toSorted(
+    (left, right) =>
+      (right.sequence ?? -1) - (left.sequence ?? -1) ||
+      right.createdAt.localeCompare(left.createdAt) ||
+      right.id.localeCompare(left.id),
+  );
+
+  for (const activity of newestFirst) {
+    if (!activity || activity.kind !== "runtime.warning" || activity.turnId !== latestTurn.turnId) {
+      continue;
+    }
+
+    const payload = Option.getOrNull(decodeWarningPayload(activity.payload));
+
+    const key = Predicate.isString(payload?.key) ? payload.key : null;
+
+    if (payload?.resolved === true) {
+      if (key) resolvedKeys.add(key);
+      continue;
+    }
+
+    if (key && resolvedKeys.has(key)) continue;
+
+    return Predicate.isString(payload?.message) && payload.message.trim().length > 0
+      ? payload.message
+      : activity.summary;
+  }
+
+  return null;
+}
+
+/** Returns the persisted error for the latest failed turn, even after the session recovers. */
+export function latestThreadRuntimeError(
+  activities: ReadonlyArray<OrchestrationThreadActivity>,
+  latestTurn: OrchestrationLatestTurn | null,
+): string | null {
+  if (!latestTurn || latestTurn.state !== "error") return null;
+
+  const activity = activities
+    .toSorted(
+      (left, right) =>
+        (right.sequence ?? -1) - (left.sequence ?? -1) ||
+        right.createdAt.localeCompare(left.createdAt),
+    )
+    .find(
+      (candidate) => candidate.kind === "runtime.error" && candidate.turnId === latestTurn.turnId,
+    );
+
+  if (!activity) return null;
+
+  const payload = Option.getOrNull(decodeWarningPayload(activity.payload));
+
+  return Predicate.isString(payload?.message) && payload.message.trim()
+    ? payload.message
+    : activity.summary;
+}
+
+export interface BotThreadFailure {
+  readonly message: string;
+  readonly unavailability: ServerProviderUnavailability | null;
+  /** The provider instance that failed, so its repair survives a model change. */
+  readonly providerInstanceId?: string;
+}
+
+/** A failed command, keeping the category the server attached to a provider failure. */
+export function commandFailure(
+  result: Parameters<typeof squashAtomCommandFailure>[0],
+): BotThreadFailure {
+  const error = squashAtomCommandFailure(result);
+
+  const unavailability =
+    error && Predicate.isObjectOrArray(error) && "unavailability" in error
+      ? error.unavailability
+      : null;
+
+  return {
+    message: error instanceof Error ? error.message : "Could not send the message.",
+    unavailability: isServerProviderUnavailability(unavailability) ? unavailability : null,
+  };
+}
+
+export function localFailure(message: string): BotThreadFailure {
+  return { message, unavailability: null };
+}
+
+/**
+ * Why the chat's latest request has no reply. Covers a turn that failed
+ * mid-run and a request the provider never started, where the user message is
+ * persisted but no turn exists for it. The activity log carries the failure
+ * category; the session keeps only its text once projected.
+ */
+export function latestBotThreadFailure(input: {
+  readonly activities: ReadonlyArray<OrchestrationThreadActivity>;
+  readonly latestTurn: OrchestrationLatestTurn | null;
+  readonly session: Pick<OrchestrationSession, "status" | "lastError" | "unavailability"> | null;
+  readonly lastUserMessageAt: string | null;
+}): BotThreadFailure | null {
+  const { activities, latestTurn, session, lastUserMessageAt } = input;
+
+  if (
+    latestTurn?.state === "error" &&
+    (lastUserMessageAt === null || latestTurn.requestedAt >= lastUserMessageAt)
+  ) {
+    const message =
+      latestThreadRuntimeError(activities, latestTurn) ??
+      latestTurn.errorMessage ??
+      session?.lastError ??
+      null;
+
+    if (!message) return null;
+
+    const failure = latestTurnFailure(activities, latestTurn.requestedAt);
+
+    return {
+      message,
+      unavailability:
+        latestTurn.unavailability ?? session?.unavailability ?? failure?.unavailability ?? null,
+      ...(failure?.providerInstanceId ? { providerInstanceId: failure.providerInstanceId } : {}),
+    };
+  }
+
+  const unanswered =
+    lastUserMessageAt !== null &&
+    (latestTurn === null || latestTurn.requestedAt < lastUserMessageAt);
+
+  if (!unanswered || session?.status !== "error") return null;
+  const failure = latestTurnFailure(activities, lastUserMessageAt);
+  const message = failure?.detail ?? session.lastError;
+
+  if (!message) return null;
+
+  return {
+    message,
+    unavailability: failure?.unavailability ?? session.unavailability ?? null,
+    ...(failure?.providerInstanceId ? { providerInstanceId: failure.providerInstanceId } : {}),
+  };
+}

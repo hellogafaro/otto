@@ -1,0 +1,248 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { ThreadId } from "@otto/contracts";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
+
+import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
+import * as ServerConfig from "../config.ts";
+import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
+import { ASSET_ROUTE_PREFIX, issueAssetUrl, resolveAsset } from "./AssetAccess.ts";
+
+const configLayer = ServerConfig.ServerConfig.layerTest(process.cwd(), {
+  prefix: "ottoLegacy-asset-access-test-",
+});
+
+const testLayer = Layer.mergeAll(
+  configLayer,
+  WorkspacePaths.layer,
+  ServerSecretStore.layer.pipe(Layer.provide(configLayer)),
+).pipe(Layer.provideMerge(NodeServices.layer));
+
+describe("AssetAccess", () => {
+  it.effect("issues workspace URLs that resolve the entry file and sibling assets", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+
+      const root = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "ottoLegacy-asset-workspace-",
+      });
+
+      const htmlPath = path.join(root, "report.html");
+      const cssPath = path.join(root, "report.css");
+      yield* fileSystem.writeFileString(htmlPath, '<link rel="stylesheet" href="report.css">');
+      yield* fileSystem.writeFileString(cssPath, "body { color: red; }");
+      yield* fileSystem.writeFileString(path.join(root, ".env"), "SECRET=value");
+      const canonicalHtmlPath = yield* fileSystem.realPath(htmlPath);
+      const canonicalCssPath = yield* fileSystem.realPath(cssPath);
+
+      const result = yield* issueAssetUrl({
+        resource: {
+          _tag: "workspace-file",
+          threadId: ThreadId.make("thread-1"),
+          path: htmlPath,
+        },
+        workspaceRoot: root,
+      });
+
+      const suffix = result.relativeUrl.slice(`${ASSET_ROUTE_PREFIX}/`.length);
+      const separatorIndex = suffix.indexOf("/");
+      const token = suffix.slice(0, separatorIndex);
+
+      expect(yield* resolveAsset(token, "report.html")).toEqual({
+        kind: "file",
+        path: canonicalHtmlPath,
+      });
+      expect(yield* resolveAsset(token, "report.css")).toEqual({
+        kind: "file",
+        path: canonicalCssPath,
+      });
+      expect(yield* resolveAsset(token, "../secret.txt")).toBeNull();
+      expect(yield* resolveAsset(token, ".env")).toBeNull();
+      expect(yield* resolveAsset(`${token}tampered`, "report.html")).toBeNull();
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("reports pixel dimensions from an image header and nothing for other files", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "ottoLegacy-asset-dimensions-" });
+
+      const png = Uint8Array.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0,
+        0x06, 0x40, 0, 0, 0x03, 0x84,
+      ]);
+
+      yield* fs.writeFile(path.join(root, "shot.png"), png);
+      yield* fs.writeFileString(path.join(root, "clip.html"), "<html></html>");
+      yield* fs.writeFileString(path.join(root, "broken.png"), "not a png");
+
+      const issue = (name: string) =>
+        issueAssetUrl({
+          resource: {
+            _tag: "workspace-file",
+            threadId: ThreadId.make("thread-1"),
+            path: path.join(root, name),
+          },
+          workspaceRoot: root,
+        });
+
+      expect((yield* issue("shot.png")).imageDimensions).toEqual({ width: 1600, height: 900 });
+      expect((yield* issue("clip.html")).imageDimensions).toBeUndefined();
+      expect((yield* issue("broken.png")).imageDimensions).toBeUndefined();
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("rejects workspace files outside the authorized root", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+
+      const root = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "ottoLegacy-asset-root-",
+      });
+
+      const outside = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "ottoLegacy-asset-outside-",
+      });
+
+      const htmlPath = path.join(outside, "report.html");
+      yield* fileSystem.writeFileString(htmlPath, "<p>outside</p>");
+
+      const error = yield* issueAssetUrl({
+        resource: {
+          _tag: "workspace-file",
+          threadId: ThreadId.make("thread-1"),
+          path: htmlPath,
+        },
+        workspaceRoot: root,
+      }).pipe(Effect.flip);
+
+      expect(error.message).toBe("Workspace file path must be relative to the project root.");
+      expect(error).toMatchObject({
+        _tag: "AssetWorkspacePathValidationError",
+        resource: {
+          _tag: "workspace-file",
+          threadId: "thread-1",
+          path: htmlPath,
+        },
+      });
+      expect(error.cause).toBeInstanceOf(WorkspacePaths.WorkspacePathOutsideRootError);
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("preserves non-missing canonical path failures when issuing asset URLs", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+
+      const root = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "ottoLegacy-asset-permission-root-",
+      });
+
+      const htmlPath = path.join(root, "report.html");
+      yield* fileSystem.writeFileString(htmlPath, "<p>report</p>");
+
+      const cause = PlatformError.systemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "realPath",
+        pathOrDescriptor: htmlPath,
+      });
+
+      const failingFileSystem = FileSystem.FileSystem.of({
+        ...fileSystem,
+        realPath: () => Effect.fail(cause),
+      });
+
+      const error = yield* issueAssetUrl({
+        resource: {
+          _tag: "workspace-file",
+          threadId: ThreadId.make("thread-1"),
+          path: htmlPath,
+        },
+        workspaceRoot: root,
+      }).pipe(Effect.provideService(FileSystem.FileSystem, failingFileSystem), Effect.flip);
+
+      expect(error.message).toBe("Failed to inspect the workspace asset.");
+      expect(error).toMatchObject({
+        _tag: "AssetWorkspaceAssetInspectionError",
+        resource: {
+          _tag: "workspace-file",
+          threadId: "thread-1",
+          path: htmlPath,
+        },
+      });
+      expect(error.cause).toBe(cause);
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("issues exact workspace URLs for image previews", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+
+      const root = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "ottoLegacy-asset-image-workspace-",
+      });
+
+      const assetsDirectory = path.join(root, "assets");
+      const imagePath = path.join(assetsDirectory, "icon.png");
+      const siblingPath = path.join(assetsDirectory, "other.png");
+      yield* fileSystem.makeDirectory(assetsDirectory, { recursive: true });
+      yield* fileSystem.writeFile(imagePath, new Uint8Array([137, 80, 78, 71]));
+      yield* fileSystem.writeFile(siblingPath, new Uint8Array([137, 80, 78, 71]));
+      const canonicalImagePath = yield* fileSystem.realPath(imagePath);
+
+      const result = yield* issueAssetUrl({
+        resource: {
+          _tag: "workspace-file",
+          threadId: ThreadId.make("thread-1"),
+          path: imagePath,
+        },
+        workspaceRoot: root,
+      });
+
+      const suffix = result.relativeUrl.slice(`${ASSET_ROUTE_PREFIX}/`.length);
+      const separatorIndex = suffix.indexOf("/");
+      const token = suffix.slice(0, separatorIndex);
+
+      expect(yield* resolveAsset(token, "icon.png")).toEqual({
+        kind: "file",
+        path: canonicalImagePath,
+      });
+      expect(yield* resolveAsset(token, "other.png")).toBeNull();
+      expect(yield* resolveAsset(token, "../icon.png")).toBeNull();
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("issues exact attachment capabilities by attachment id", () =>
+    Effect.gen(function* () {
+      const config = yield* ServerConfig.ServerConfig;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const attachmentId = "thread-1-00000000-0000-4000-8000-000000000001";
+      const attachmentPath = path.join(config.attachmentsDir, `${attachmentId}.png`);
+      yield* fileSystem.makeDirectory(config.attachmentsDir, { recursive: true });
+      yield* fileSystem.writeFile(attachmentPath, new Uint8Array([1, 2, 3]));
+
+      const result = yield* issueAssetUrl({
+        resource: { _tag: "attachment", attachmentId },
+      });
+
+      const suffix = result.relativeUrl.slice(`${ASSET_ROUTE_PREFIX}/`.length);
+      const separatorIndex = suffix.indexOf("/");
+      const token = suffix.slice(0, separatorIndex);
+
+      expect(yield* resolveAsset(token, "ignored.png")).toEqual({
+        kind: "file",
+        path: attachmentPath,
+      });
+    }).pipe(Effect.provide(testLayer)),
+  );
+});

@@ -1,0 +1,118 @@
+import type { OrchestrationEvent } from "@otto/contracts";
+import { makeDrainableWorker } from "@otto/shared/DrainableWorker";
+import * as Cause from "effect/Cause";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
+
+import { AgentController } from "../../provider/Services/AgentController.ts";
+import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
+import {
+  ThreadDeletionReactor,
+  type ThreadDeletionReactorShape,
+} from "../Services/ThreadDeletionReactor.ts";
+import { forkParked } from "../../serverActivation.ts";
+
+type ThreadDeletedEvent = Extract<OrchestrationEvent, { type: "thread.deleted" }>;
+
+export const logCleanupCauseUnlessInterrupted = <R, E>({
+  effect,
+  message,
+  threadId,
+}: {
+  readonly effect: Effect.Effect<void, E, R>;
+  readonly message: string;
+  readonly threadId: ThreadDeletedEvent["payload"]["threadId"];
+}): Effect.Effect<void, E, R> =>
+  effect.pipe(
+    Effect.catchCause((cause) => {
+      if (Cause.hasInterruptsOnly(cause)) {
+        return Effect.failCause(cause);
+      }
+
+      return Effect.logDebug(message, {
+        threadId,
+        cause: Cause.pretty(cause),
+      });
+    }),
+  );
+
+const make = Effect.gen(function* () {
+  const orchestrationEngine = yield* OrchestrationEngineService;
+  const agentController = yield* AgentController;
+
+  const stopProviderSession = (threadId: ThreadDeletedEvent["payload"]["threadId"]) =>
+    logCleanupCauseUnlessInterrupted({
+      effect: agentController.stopSession({ threadId }),
+      message: "thread deletion cleanup skipped provider session stop",
+      threadId,
+    });
+
+  const processThreadDeleted = Effect.fn("processThreadDeleted")(function* (
+    event: ThreadDeletedEvent,
+  ) {
+    const { threadId } = event.payload;
+    yield* stopProviderSession(threadId);
+  });
+
+  const processThreadDeletedSafely = (event: ThreadDeletedEvent) =>
+    processThreadDeleted(event).pipe(
+      Effect.catchCause((cause) => {
+        if (Cause.hasInterruptsOnly(cause)) {
+          return Effect.failCause(cause);
+        }
+
+        return Effect.logWarning("thread deletion reactor failed to process event", {
+          eventType: event.type,
+          threadId: event.payload.threadId,
+          cause: Cause.pretty(cause),
+        });
+      }),
+    );
+
+  const worker = yield* makeDrainableWorker(processThreadDeletedSafely);
+
+  // Highest event sequence the subscriber has handed to the worker. Waiting
+  // through a successful thread.created sequence covers every deletion that
+  // was ahead of that create in the engine queue; the worker drain then covers
+  // the in-flight cleanup.
+  const seenSequence = yield* SubscriptionRef.make(0);
+
+  const noteSeen = (sequence: number) =>
+    SubscriptionRef.update(seenSequence, (seen) => Math.max(seen, sequence));
+
+  const start: ThreadDeletionReactorShape["start"] = Effect.fn("start")(function* () {
+    // Subscribe before returning, even while event handling waits for server
+    // activation. A hot stream started after forkParked would miss a delete
+    // and recreate that land in that window, and onStart would then advance
+    // the watermark to the engine head without queuing that cleanup.
+    const domainEvents = yield* orchestrationEngine.subscribeDomainEvents;
+    yield* orchestrationEngine.latestSequence.pipe(Effect.flatMap(noteSeen));
+    yield* forkParked(
+      Stream.runForEach(domainEvents, (event) =>
+        (event.type === "thread.deleted" ? worker.enqueue(event) : Effect.void).pipe(
+          Effect.andThen(noteSeen(event.sequence)),
+        ),
+      ),
+    );
+  });
+
+  const drainThrough: ThreadDeletionReactorShape["drainThrough"] = Effect.fn(
+    "ThreadDeletionReactor.drainThrough",
+  )(function* (target) {
+    yield* SubscriptionRef.changes(seenSequence).pipe(
+      Stream.filter((seen) => seen >= target),
+      Stream.runHead,
+    );
+    yield* worker.drain;
+  });
+
+  return {
+    start,
+    drain: worker.drain,
+    drainThrough,
+  } satisfies ThreadDeletionReactorShape;
+});
+
+export const ThreadDeletionReactorLive = Layer.effect(ThreadDeletionReactor, make);

@@ -1,0 +1,771 @@
+import { nativeMenuImage } from "../../native/nativeIcons";
+import { Predicate } from "effect";
+import { useMobileI18n } from "../../lib/i18n";
+import type { EnvironmentProject, EnvironmentThreadShell } from "@otto/client-runtime/state/shell";
+import type { EnvironmentThreadSearchMatch } from "@otto/client-runtime/state/thread-search";
+import { canSnooze, resolveSnoozePresets } from "@otto/client-runtime/state/thread-settled";
+import type { MenuAction } from "@react-native-menu/menu";
+import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
+import { Alert, Pressable, useWindowDimensions, View } from "react-native";
+import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
+import { useAtomValue } from "@effect/atom-react";
+import { SymbolView } from "../../components/AppSymbol";
+import { BotAvatarView, seededBlobAvatar } from "../../components/BotAvatarView";
+import { GroupAvatarStack } from "../../components/GroupAvatarStack";
+import { AppText as Text } from "../../components/AppText";
+import { ControlPillMenu } from "../../components/ControlPill";
+import { cn } from "../../lib/cn";
+import { useThemeColor } from "../../lib/useThemeColor";
+import { environmentBotsAtom, environmentGroupsAtom } from "../../state/bots";
+import { ThreadSwipeable } from "../home/thread-swipe-actions";
+import { buildThreadTitleRegenerationMenuItems } from "./thread-title-regeneration-menu";
+import {
+  resolveThreadListV2SnoozeMenuSelection,
+  resolveThreadListV2SnoozeGateExpiryMs,
+  resolveThreadListV2Status,
+  resolveThreadListV2SwipeActions,
+  type ThreadListV2Status,
+} from "./threadListV2";
+import { resolveThreadIdentity } from "./threadIdentity";
+import { ThreadSearchMatchExcerpt } from "./thread-search-match";
+import { MONO_FONT, SIDEBAR_V2_ROW_RADIUS, providerBotName } from "./thread-list-v2-presentation";
+
+export { providerBotName, threadListV2TimeLabel } from "./thread-list-v2-presentation";
+
+export {
+  ThreadListV2SectionDivider,
+  ThreadListV2SettledShelfHeader,
+  ThreadListV2SnoozedShelfHeader,
+} from "./thread-list-v2-shelves";
+
+export { ThreadListV2PendingRow } from "./thread-list-v2-pending-row";
+
+// Status hues follow the system-wide convention set by sidebar v1 and the
+// Live Activity/widgets (amber approval, indigo input, sky working) so a
+// thread reads the same color everywhere it surfaces.
+const STATUS_LABEL_BY_STATUS: Partial<
+  Record<ThreadListV2Status, { label: string; className: string }>
+> = {
+  approval: { label: "Approval", className: "text-amber-700 dark:text-amber-300" },
+  input: { label: "Input", className: "text-indigo-600 dark:text-indigo-300" },
+  working: { label: "Working", className: "text-sky-600 dark:text-sky-400" },
+  failed: { label: "Failed", className: "text-red-700 dark:text-red-300" },
+};
+
+// Menus keep lifecycle and title regeneration together. Archive keeps its
+// own surface (thread screen / settings) rather than crowding v2 rows.
+const CARD_MENU_ACTIONS: MenuAction[] = [
+  { id: "settle", title: "Settle", image: nativeMenuImage("checkmark") },
+  {
+    id: "delete",
+    title: "Delete",
+    image: nativeMenuImage("trash"),
+    attributes: { destructive: true },
+  },
+];
+
+const SLIM_MENU_ACTIONS: MenuAction[] = [
+  { id: "unsettle", title: "Un-settle", image: nativeMenuImage("arrow.uturn.backward") },
+  {
+    id: "delete",
+    title: "Delete",
+    image: nativeMenuImage("trash"),
+    attributes: { destructive: true },
+  },
+];
+
+const SNOOZED_MENU_ACTIONS: MenuAction[] = [
+  { id: "unsnooze", title: "Wake chat", image: nativeMenuImage("clock") },
+  {
+    id: "delete",
+    title: "Delete",
+    image: nativeMenuImage("trash"),
+    attributes: { destructive: true },
+  },
+];
+
+// Pre-settlement servers: no lifecycle items, archive fills the gap.
+const LEGACY_MENU_ACTIONS: MenuAction[] = [
+  { id: "archive", title: "Archive", image: nativeMenuImage("archivebox") },
+  {
+    id: "delete",
+    title: "Delete",
+    image: nativeMenuImage("trash"),
+    attributes: { destructive: true },
+  },
+];
+
+export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
+  readonly thread: EnvironmentThreadShell;
+  readonly variant: "card" | "slim";
+  /** Snoozed-shelf row: shows its wake time and offers Wake. */
+  readonly snoozed?: boolean;
+  /** Pinned-block row: shows the pin glyph and offers Unpin. */
+  readonly pinned?: boolean;
+  /** Preformatted against the parent minute tick so this memoized row's
+      countdown keeps moving. */
+  readonly snoozeWakeLabelText?: string;
+  /** Relative time from threadListV2TimeLabel, formatted by the parent on its
+      minute tick. Rows whose label text is unchanged skip that re-render. */
+  readonly timeLabel: string;
+  /** Parent minute tick so this memoized row refreshes its native snooze menu
+      while mounted. Null for rows that can never offer snooze presets (already
+      snoozed, or the server lacks snooze), which then ignore the tick. */
+  readonly snoozePresetMinute: string | null;
+  readonly project: EnvironmentProject | null;
+  readonly projectTitle?: string;
+  readonly providerDriver: string | null;
+  /** Which machine hosts the thread. Null when only one environment is
+      connected — repeating the same label on every row is noise. Mirrors
+      the web sidebar's remote-environment cloud icon, but as text since
+      phones have no hover tooltips. */
+  readonly environmentLabel: string | null;
+  /** Hosting surface. "screen" (default) renders the compact Home idiom:
+      flat edge-to-edge rows on the screen background with inset hairlines.
+      "sidebar" renders the iPad split-view idiom: rounded rows blending
+      into the drawer surface, selection filled with the accent color —
+      matching the v1 sidebar rows. */
+  readonly pane?: "screen" | "sidebar";
+  /** Keeps row hairlines inside a section; section headers draw their own rule. */
+  readonly showTrailingDivider?: boolean;
+  /** Highlights the thread open in the detail pane (iPad split view). The
+      compact Home list never sets it — phones navigate away on select. */
+  readonly selected?: boolean;
+  /** Override for narrow panes (iPad sidebar); defaults to window width. */
+  readonly fullSwipeWidth?: number;
+  readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
+  readonly onDeleteThread: (thread: EnvironmentThreadShell) => void;
+  readonly onRegenerateThreadTitle: (thread: EnvironmentThreadShell) => void;
+  readonly onSettleThread: (thread: EnvironmentThreadShell) => void;
+  readonly onSnoozeThread: (thread: EnvironmentThreadShell, snoozedUntil: string) => void;
+  readonly onUnsnoozeThread: (thread: EnvironmentThreadShell) => void;
+  readonly onUnsettleThread: (thread: EnvironmentThreadShell) => void;
+  readonly onArchiveThread: (thread: EnvironmentThreadShell) => void;
+  readonly onPinThread: (thread: EnvironmentThreadShell) => void;
+  readonly onUnpinThread: (thread: EnvironmentThreadShell) => void;
+  /** False on environments whose server predates thread.settle/unsettle:
+      swipe + menu fall back to Archive instead of failing on use. */
+  readonly settlementSupported: boolean;
+  /** False on servers that predate thread.snooze/unsnooze. */
+  readonly snoozeSupported: boolean;
+  /** False on servers that predate thread.pin/unpin. */
+  readonly pinningSupported: boolean;
+  /** False on servers that predate thread title regeneration. */
+  readonly titleRegenerationSupported: boolean;
+  /** False on servers that predate thread.pin.reorder. Gates the pinned
+      Move up / Move down menu items. */
+  readonly pinReorderSupported?: boolean;
+  readonly onMovePinnedThread?: (thread: EnvironmentThreadShell, direction: "up" | "down") => void;
+  /** Position flags for the pinned block so the menu disables the move that
+      would fall off the end of the list. */
+  readonly canMovePinnedUp?: boolean;
+  readonly canMovePinnedDown?: boolean;
+  readonly onSwipeableWillOpen: (methods: SwipeableMethods) => void;
+  readonly onSwipeableClose: (methods: SwipeableMethods) => void;
+  readonly projectCwd?: string | null;
+  readonly searchMatch?: EnvironmentThreadSearchMatch;
+  readonly searchQuery?: string;
+  readonly simultaneousSwipeGesture?: ComponentProps<
+    typeof ThreadSwipeable
+  >["simultaneousWithExternalGesture"];
+}) {
+  const { t } = useMobileI18n();
+  const { width: windowWidth } = useWindowDimensions();
+
+  const {
+    thread,
+    variant,
+    onSelectThread,
+    onDeleteThread,
+    onRegenerateThreadTitle,
+    onSettleThread,
+    onSnoozeThread,
+    onUnsnoozeThread,
+    onUnsettleThread,
+    onArchiveThread,
+    onPinThread,
+    onUnpinThread,
+    onMovePinnedThread,
+  } = props;
+
+  const snoozedRow = props.snoozed === true;
+  const pinnedRow = props.pinned === true;
+
+  const environmentBots = useAtomValue(environmentBotsAtom(thread.environmentId));
+  const environmentGroups = useAtomValue(environmentGroupsAtom(thread.environmentId));
+  const screenColor = useThemeColor("--color-screen");
+  const drawerColor = useThemeColor("--color-drawer");
+  const pressedBackgroundColor = useThemeColor("--color-subtle");
+  const selectedBackgroundColor = useThemeColor("--color-user-bubble");
+  const pinTintColor = useThemeColor("--color-foreground-muted");
+  const sidebarPane = props.pane === "sidebar";
+  const selected = props.selected === true;
+
+  const status = resolveThreadListV2Status(thread);
+  const statusLabel = STATUS_LABEL_BY_STATUS[status];
+  const timeLabel = props.timeLabel;
+
+  const handleDelete = useCallback(() => onDeleteThread(thread), [onDeleteThread, thread]);
+
+  const handleRegenerateTitle = useCallback(
+    () => onRegenerateThreadTitle(thread),
+    [onRegenerateThreadTitle, thread],
+  );
+
+  const handleSettle = useCallback(() => onSettleThread(thread), [onSettleThread, thread]);
+
+  const handleSnooze = useCallback(
+    (snoozedUntil: string) => onSnoozeThread(thread, snoozedUntil),
+    [onSnoozeThread, thread],
+  );
+
+  const handleUnsnooze = useCallback(() => onUnsnoozeThread(thread), [onUnsnoozeThread, thread]);
+  const handleUnsettle = useCallback(() => onUnsettleThread(thread), [onUnsettleThread, thread]);
+  const handlePin = useCallback(() => onPinThread(thread), [onPinThread, thread]);
+  const handleUnpin = useCallback(() => onUnpinThread(thread), [onUnpinThread, thread]);
+
+  const handleMovePinnedUp = useCallback(
+    () => onMovePinnedThread?.(thread, "up"),
+    [onMovePinnedThread, thread],
+  );
+
+  const handleMovePinnedDown = useCallback(
+    () => onMovePinnedThread?.(thread, "down"),
+    [onMovePinnedThread, thread],
+  );
+
+  const handleArchive = useCallback(() => onArchiveThread(thread), [onArchiveThread, thread]);
+
+  // Swipe uses the primary lifecycle transition for the row.
+  const canUnsettle = variant === "slim";
+  const [snoozeGateTick, bumpSnoozeGateTick] = useState(0);
+
+  const snoozeGateExpiryMs = props.snoozeSupported
+    ? resolveThreadListV2SnoozeGateExpiryMs(thread, { now: new Date().toISOString() })
+    : null;
+
+  useEffect(() => {
+    if (snoozeGateExpiryMs === null) return;
+    const delayMs = Math.min(Math.max(0, snoozeGateExpiryMs - Date.now()) + 50, 2_147_483_647);
+    const id = setTimeout(() => bumpSnoozeGateTick((tick) => tick + 1), delayMs);
+
+    return () => clearTimeout(id);
+  }, [snoozeGateExpiryMs, snoozeGateTick]);
+
+  const swipeActions = resolveThreadListV2SwipeActions({
+    variant,
+    settlementSupported: props.settlementSupported,
+    snoozeSupported: props.snoozeSupported,
+    snoozable: canSnooze(thread, { now: new Date().toISOString() }),
+    snoozed: snoozedRow,
+  });
+
+  const snoozePresets = useMemo(
+    () => (swipeActions.secondary === "snooze" ? resolveSnoozePresets(new Date()) : ([] as const)),
+    [props.snoozePresetMinute, swipeActions.secondary],
+  );
+
+  const snoozePresetActions = useMemo<MenuAction[]>(
+    () =>
+      snoozePresets.map((preset) => ({
+        id: `snooze:${preset.id}`,
+        title: preset.label,
+        subtitle: preset.whenLabel,
+      })),
+    [snoozePresets],
+  );
+
+  // Pinned cards keep the full lifecycle menu; only the pin item flips to
+  // Unpin. (Settling a pinned thread clears the pin server-side; snoozing
+  // hides the card until wake with the pin intact.)
+  const pinMenuItem = useMemo<MenuAction[]>(
+    () =>
+      props.pinningSupported
+        ? [
+            ...(pinnedRow && props.pinReorderSupported === true
+              ? [
+                  {
+                    id: "move-pin-up",
+                    title: "Move up",
+                    image: nativeMenuImage("arrow.up"),
+                    attributes: { disabled: props.canMovePinnedUp !== true },
+                  } satisfies MenuAction,
+                  {
+                    id: "move-pin-down",
+                    title: "Move down",
+                    image: nativeMenuImage("arrow.down"),
+                    attributes: { disabled: props.canMovePinnedDown !== true },
+                  } satisfies MenuAction,
+                ]
+              : []),
+            thread.pinnedAt != null
+              ? { id: "unpin", title: "Unpin", image: nativeMenuImage("pin.slash") }
+              : { id: "pin", title: "Pin", image: nativeMenuImage("pin") },
+          ]
+        : [],
+    [
+      pinnedRow,
+      props.canMovePinnedDown,
+      props.canMovePinnedUp,
+      props.pinReorderSupported,
+      props.pinningSupported,
+      thread.pinnedAt,
+    ],
+  );
+
+  const titleRegenerationMenuItems = useMemo<MenuAction[]>(
+    () =>
+      buildThreadTitleRegenerationMenuItems({
+        supported: props.titleRegenerationSupported,
+        isRegenerating: thread.titleRegeneration != null,
+      }),
+    [props.titleRegenerationSupported, thread.titleRegeneration],
+  );
+
+  const snoozableCardMenuActions = useMemo<MenuAction[]>(
+    () => [
+      { id: "settle", title: "Settle", image: nativeMenuImage("checkmark") },
+      {
+        id: "snooze",
+        title: "Snooze",
+        image: nativeMenuImage("clock"),
+        subactions: snoozePresetActions,
+      },
+      ...pinMenuItem,
+      ...titleRegenerationMenuItems,
+      {
+        id: "delete",
+        title: "Delete",
+        image: nativeMenuImage("trash"),
+        attributes: { destructive: true },
+      },
+    ],
+    [pinMenuItem, snoozePresetActions, titleRegenerationMenuItems],
+  );
+
+  const cardMenuActions = useMemo<MenuAction[]>(
+    () => [
+      CARD_MENU_ACTIONS[0]!,
+      ...pinMenuItem,
+      ...titleRegenerationMenuItems,
+      ...CARD_MENU_ACTIONS.slice(1),
+    ],
+    [pinMenuItem, titleRegenerationMenuItems],
+  );
+
+  const slimMenuActions = useMemo<MenuAction[]>(
+    () => [
+      SLIM_MENU_ACTIONS[0]!,
+      ...(thread.pinnedAt != null ? pinMenuItem : []),
+      ...titleRegenerationMenuItems,
+      SLIM_MENU_ACTIONS[1]!,
+    ],
+    [pinMenuItem, thread.pinnedAt, titleRegenerationMenuItems],
+  );
+
+  const snoozedMenuActions = useMemo<MenuAction[]>(
+    () => [SNOOZED_MENU_ACTIONS[0]!, ...titleRegenerationMenuItems, SNOOZED_MENU_ACTIONS[1]!],
+    [titleRegenerationMenuItems],
+  );
+
+  const legacyMenuActions = useMemo<MenuAction[]>(
+    () => [LEGACY_MENU_ACTIONS[0]!, ...titleRegenerationMenuItems, LEGACY_MENU_ACTIONS[1]!],
+    [titleRegenerationMenuItems],
+  );
+
+  const handleMenuAction = useCallback(
+    ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
+      if (nativeEvent.event === "settle") handleSettle();
+
+      if (nativeEvent.event === "unsettle") handleUnsettle();
+
+      if (nativeEvent.event === "unsnooze") handleUnsnooze();
+
+      if (nativeEvent.event === "pin") handlePin();
+
+      if (nativeEvent.event === "unpin") handleUnpin();
+
+      if (nativeEvent.event === "move-pin-up") handleMovePinnedUp();
+
+      if (nativeEvent.event === "move-pin-down") handleMovePinnedDown();
+
+      if (nativeEvent.event === "archive") handleArchive();
+
+      if (nativeEvent.event === "regenerate-title") handleRegenerateTitle();
+
+      if (nativeEvent.event === "delete") handleDelete();
+
+      const snoozeSelection = resolveThreadListV2SnoozeMenuSelection({
+        event: nativeEvent.event,
+        displayedPresets: snoozePresets,
+        now: new Date(),
+      });
+
+      if (Predicate.isTagged(snoozeSelection, "selected")) {
+        handleSnooze(snoozeSelection.preset.snoozedUntil);
+      } else if (Predicate.isTagged(snoozeSelection, "expired")) {
+        Alert.alert(
+          t("Could not snooze chat"),
+          t("That snooze time has passed. Choose another time."),
+        );
+      }
+    },
+    [
+      handleArchive,
+      handleDelete,
+      handleRegenerateTitle,
+      handleMovePinnedDown,
+      handleMovePinnedUp,
+      handlePin,
+      handleSettle,
+      handleSnooze,
+      handleUnpin,
+      handleUnsettle,
+      handleUnsnooze,
+      snoozePresets,
+      t,
+    ],
+  );
+
+  const primaryAction = useMemo(() => {
+    // Pre-settlement server: archive is the swipe action, as in v1. (Slim
+    // rows cannot occur here — unsupported environments never classify as
+    // settled.)
+    if (swipeActions.primary === "archive") {
+      return {
+        accessibilityLabel: `Archive ${thread.title}`,
+        icon: "archivebox" as const,
+        label: "Archive",
+        onPress: handleArchive,
+      };
+    }
+
+    if (swipeActions.primary === "unsnooze") {
+      return {
+        accessibilityLabel: `Wake ${thread.title} now`,
+        icon: "clock" as const,
+        label: "Wake",
+        onPress: handleUnsnooze,
+      };
+    }
+
+    return swipeActions.primary === "unsettle"
+      ? {
+          accessibilityLabel: `Un-settle ${thread.title}`,
+          icon: "arrow.uturn.backward" as const,
+          label: "Un-settle",
+          onPress: handleUnsettle,
+        }
+      : {
+          accessibilityLabel: `Settle ${thread.title}`,
+          icon: "checkmark" as const,
+          label: "Settle",
+          onPress: handleSettle,
+        };
+  }, [
+    handleArchive,
+    handleSettle,
+    handleUnsettle,
+    handleUnsnooze,
+    swipeActions.primary,
+    thread.title,
+  ]);
+
+  const secondaryAction = useMemo(
+    () =>
+      swipeActions.secondary === "snooze"
+        ? {
+            accessibilityLabel: `Choose when to snooze ${thread.title}`,
+            icon: "clock" as const,
+            label: "Snooze",
+            menu: {
+              actions: snoozePresetActions,
+              onPressAction: handleMenuAction,
+              title: "Snooze until",
+            },
+            onPress: () => undefined,
+          }
+        : null,
+    [handleMenuAction, snoozePresetActions, swipeActions.secondary, thread.title],
+  );
+
+  const displayThreadTitle = thread.title;
+
+  const swipeAccessibilityHint =
+    secondaryAction === null
+      ? `Opens the chat. Swipe left to ${primaryAction.label.toLowerCase()}.`
+      : `Opens the chat. Swipe left for ${primaryAction.label.toLowerCase()} and snooze actions.`;
+
+  // The sidebar pane fills selected rows with the theme's message surface, so
+  // every piece of row text must use that surface's paired foreground.
+  const projectTitleText = props.projectTitle ?? props.project?.title ?? "";
+  const metaMutedClass = selected ? "text-user-bubble-foreground-muted" : "text-foreground-muted";
+
+  const identity = resolveThreadIdentity({
+    thread,
+    bots: environmentBots,
+    groups: environmentGroups,
+    providerDriver: props.providerDriver,
+    providerName: providerBotName,
+  });
+
+  const botName = identity.title;
+
+  const botAvatar = identity.isGroup
+    ? null
+    : (identity.bots[0]?.avatar ?? seededBlobAvatar(identity.avatarSeed));
+
+  const avatarState =
+    status === "working"
+      ? "working"
+      : status === "approval" || status === "input"
+        ? "needs-you"
+        : "idle";
+
+  const online = status === "working" || status === "approval" || status === "input";
+
+  // Preview line: live state first, then where the work lives.
+  const previewText =
+    status === "failed" && thread.session?.lastError
+      ? thread.session.lastError
+      : [
+          statusLabel?.label ? `${statusLabel.label}…` : null,
+          projectTitleText || null,
+          props.environmentLabel,
+        ]
+          .filter(Boolean)
+          .join("  ·  ");
+
+  // Roster row, matching the web bot roster: blob avatar with presence dot,
+  // bot name, the chat title as a task chip, timestamp, and a preview line.
+  const cardContent = (
+    <View className="flex-row items-center gap-3">
+      <View>
+        {identity.isGroup ? (
+          <GroupAvatarStack
+            bots={identity.bots}
+            seed={identity.avatarSeed}
+            size={46}
+            state={avatarState}
+          />
+        ) : (
+          <BotAvatarView avatar={botAvatar} size={46} state={avatarState} />
+        )}
+        {online ? (
+          <View className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-screen bg-green-500" />
+        ) : null}
+      </View>
+      <View className="min-w-0 flex-1">
+        <View className="flex-row items-center gap-2">
+          <Text
+            className={cn(
+              "shrink text-[17px] font-ottoLegacy-bold leading-snug",
+              selected ? "text-user-bubble-foreground" : "text-foreground",
+            )}
+            numberOfLines={1}
+          >
+            {botName}
+          </Text>
+          {/* A title-derived identity already shows the title; skip the duplicate chip. */}
+          {displayThreadTitle !== botName ? (
+            <View className="min-w-0 shrink-[2] rounded-lg bg-subtle px-2 py-[3px]">
+              <Text
+                className={cn("text-[13px] font-ottoLegacy-medium", metaMutedClass)}
+                numberOfLines={1}
+              >
+                {displayThreadTitle}
+              </Text>
+            </View>
+          ) : null}
+          <View className="flex-1" />
+          {pinnedRow ? <SymbolView name="pin" size={11} tintColor={pinTintColor} /> : null}
+          <Text
+            className={cn(
+              "text-[13px] tabular-nums",
+              selected
+                ? "text-user-bubble-foreground-muted"
+                : (statusLabel?.className ?? "text-foreground-tertiary"),
+            )}
+          >
+            {statusLabel?.label ?? timeLabel}
+          </Text>
+        </View>
+        {previewText ? (
+          <Text
+            className={cn(
+              "mt-0.5 text-[14px]",
+              status === "failed" && thread.session?.lastError
+                ? selected
+                  ? "text-user-bubble-foreground-muted"
+                  : "text-red-600/80 dark:text-red-400/80"
+                : metaMutedClass,
+            )}
+            numberOfLines={1}
+          >
+            {previewText}
+          </Text>
+        ) : null}
+        {props.searchMatch ? (
+          <View className="mt-0.5">
+            <ThreadSearchMatchExcerpt
+              match={props.searchMatch}
+              query={props.searchQuery ?? ""}
+              selected={selected}
+            />
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  const rowContent = (close: () => void) =>
+    variant === "card" ? (
+      <Pressable
+        accessibilityHint={swipeAccessibilityHint}
+        accessibilityLabel={thread.title}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        onPress={() => {
+          close();
+          onSelectThread(thread);
+        }}
+        style={
+          sidebarPane
+            ? ({ pressed }) => ({
+                backgroundColor: selected
+                  ? selectedBackgroundColor
+                  : pressed
+                    ? pressedBackgroundColor
+                    : drawerColor,
+                borderRadius: SIDEBAR_V2_ROW_RADIUS,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+              })
+            : ({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })
+        }
+      >
+        {sidebarPane ? (
+          cardContent
+        ) : (
+          /* Flat native list rows: no tonal containers — colored status
+             labels and text hierarchy carry state, an inset hairline
+             separates rows. The opaque screen background stays so swipe
+             actions reveal behind the row. */
+          <View className="bg-screen">
+            <View className="px-5 py-3">{cardContent}</View>
+          </View>
+        )}
+      </Pressable>
+    ) : (
+      <Pressable
+        accessibilityHint={swipeAccessibilityHint}
+        accessibilityLabel={thread.title}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        className={sidebarPane ? undefined : "bg-screen"}
+        onPress={() => {
+          close();
+          onSelectThread(thread);
+        }}
+        style={
+          sidebarPane
+            ? ({ pressed }) => ({
+                backgroundColor: selected
+                  ? selectedBackgroundColor
+                  : pressed
+                    ? pressedBackgroundColor
+                    : drawerColor,
+                borderRadius: SIDEBAR_V2_ROW_RADIUS,
+              })
+            : ({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })
+        }
+      >
+        {/* Settled history recedes: muted title. */}
+        <View
+          className={cn(
+            "min-h-[44px] flex-row items-center gap-2.5 py-2",
+            sidebarPane ? "px-3" : "px-5",
+          )}
+        >
+          <View className="min-w-0 flex-1">
+            <Text
+              className={cn(
+                "text-base",
+                selected ? "text-user-bubble-foreground" : "text-foreground-muted",
+              )}
+              numberOfLines={1}
+            >
+              {displayThreadTitle}
+            </Text>
+            {props.searchMatch ? (
+              <ThreadSearchMatchExcerpt
+                match={props.searchMatch}
+                query={props.searchQuery ?? ""}
+                selected={selected}
+              />
+            ) : null}
+          </View>
+          <Text
+            className={cn(
+              "text-sm tabular-nums",
+              selected
+                ? "text-user-bubble-foreground-muted"
+                : snoozedRow
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-foreground-tertiary",
+            )}
+            style={{ fontFamily: MONO_FONT }}
+          >
+            {snoozedRow && props.snoozeWakeLabelText !== undefined
+              ? props.snoozeWakeLabelText
+              : timeLabel}
+          </Text>
+        </View>
+      </Pressable>
+    );
+
+  return (
+    <>
+      <ThreadSwipeable
+        backgroundColor={sidebarPane ? drawerColor : screenColor}
+        compactActions={variant === "slim"}
+        containerStyle={
+          sidebarPane ? { borderRadius: SIDEBAR_V2_ROW_RADIUS, overflow: "hidden" } : undefined
+        }
+        enableTrackpadSwipe
+        // Full swipe commits the advertised lifecycle action (Settle /
+        // Un-settle), never the secondary snooze action.
+        fullSwipeAction="primary"
+        fullSwipeWidth={props.fullSwipeWidth ?? windowWidth - 32}
+        onDelete={handleDelete}
+        onSwipeableClose={props.onSwipeableClose}
+        onSwipeableWillOpen={props.onSwipeableWillOpen}
+        primaryAction={primaryAction}
+        secondaryAction={secondaryAction}
+        resetKey={`${thread.environmentId}:${thread.id}`}
+        simultaneousWithExternalGesture={props.simultaneousSwipeGesture}
+        threadTitle={thread.title}
+      >
+        {(close) => (
+          <ControlPillMenu
+            actions={
+              snoozedRow
+                ? snoozedMenuActions
+                : !props.settlementSupported
+                  ? legacyMenuActions
+                  : canUnsettle
+                    ? slimMenuActions
+                    : swipeActions.secondary === "snooze"
+                      ? snoozableCardMenuActions
+                      : cardMenuActions
+            }
+            onPressAction={handleMenuAction}
+            shouldOpenOnLongPress
+          >
+            {rowContent(close)}
+          </ControlPillMenu>
+        )}
+      </ThreadSwipeable>
+    </>
+  );
+});

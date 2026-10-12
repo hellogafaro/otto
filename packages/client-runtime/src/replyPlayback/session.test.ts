@@ -1,0 +1,329 @@
+import { describe, expect, it, vi } from "vite-plus/test";
+import {
+  STORED_REPLY_SYNTHESIS_UNAVAILABLE,
+  storedReplySynthesisCapability,
+} from "./capability.ts";
+import { replyReadoutMessageAction } from "./messageAction.ts";
+import { createReplyPlaybackSession, SPOKEN_CACHE_LIMIT } from "./session.ts";
+
+vi.mock("./messageAction.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./messageAction.ts")>();
+
+  return { replyReadoutMessageAction: vi.fn(actual.replyReadoutMessageAction) };
+});
+
+const message = {
+  id: "reply-1",
+  role: "assistant" as const,
+  streaming: false,
+  text: "**Stored** answer",
+  updatedAt: "2026-09-08T00:00:00.000Z",
+};
+
+const later = { ...message, id: "reply-2", updatedAt: "2026-09-08T00:01:00.000Z" };
+
+const history = { ...message, id: "old", updatedAt: "2026-09-07T00:00:00.000Z" };
+
+const context = {
+  environmentId: "environment",
+  threadId: "thread",
+  provider: "unavailable",
+  voice: "unavailable",
+  connected: true,
+  mediaBlocked: false,
+};
+
+function setup(available = false) {
+  const prepare = vi.fn(async () => ({
+    play: vi.fn(async () => {}),
+    pause: vi.fn(),
+    dispose: vi.fn(),
+  }));
+
+  const session = available
+    ? createReplyPlaybackSession({
+        storage: { getItem: async () => "true", setItem: async () => {} },
+        prepare,
+        synthesis: { available: true, provider: "speech", voice: "voice" },
+      })
+    : createReplyPlaybackSession({
+        storage: { getItem: async () => "true", setItem: async () => {} },
+        prepare,
+      });
+
+  session.setContext(available ? { ...context, provider: "speech", voice: "voice" } : context);
+
+  return { session, prepare };
+}
+
+describe("reply playback session", () => {
+  it("derives spoken text once per stored reply text", async () => {
+    const { session } = setup(true);
+    await session.preference.load();
+    vi.mocked(replyReadoutMessageAction).mockClear();
+    session.actionFor(message);
+    session.actionFor(message);
+    session.observe([message]);
+    session.observe([message]);
+    expect(replyReadoutMessageAction).toHaveBeenCalledTimes(1);
+    const edited = { ...message, text: "Edited answer", updatedAt: later.updatedAt };
+    expect(session.actionFor(edited)?.request.text).toBe("Edited answer");
+    expect(replyReadoutMessageAction).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a long chat cached across repeated passes", async () => {
+    const { session } = setup(true);
+    await session.preference.load();
+
+    const replies = Array.from({ length: 501 }, (_, index) => ({
+      ...message,
+      id: `reply-${index}`,
+    }));
+
+    for (const reply of replies) session.actionFor(reply);
+    vi.mocked(replyReadoutMessageAction).mockClear();
+
+    for (const reply of replies) session.actionFor(reply);
+    expect(replyReadoutMessageAction).not.toHaveBeenCalled();
+  });
+
+  it("evicts only the oldest reply past the cache limit", async () => {
+    const { session } = setup(true);
+    await session.preference.load();
+
+    const replies = Array.from({ length: SPOKEN_CACHE_LIMIT + 1 }, (_, index) => ({
+      ...message,
+      id: `reply-${index}`,
+    }));
+
+    for (const reply of replies) session.actionFor(reply);
+    vi.mocked(replyReadoutMessageAction).mockClear();
+    session.actionFor(replies[1]!);
+    session.actionFor(replies.at(-1)!);
+    expect(replyReadoutMessageAction).not.toHaveBeenCalled();
+    session.actionFor(replies[0]!);
+    expect(replyReadoutMessageAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("derives capability from configured synthesis settings", () => {
+    expect(
+      storedReplySynthesisCapability({
+        provider: "composed",
+        synthesisProvider: "elevenlabs",
+        synthesisVoices: { elevenlabs: "voice-1" },
+      }),
+    ).toEqual({ available: true, provider: "elevenlabs", voice: "voice-1" });
+    expect(storedReplySynthesisCapability({ provider: "composed", openaiVoice: "nova" })).toEqual({
+      available: true,
+      provider: "openai",
+      voice: "alloy",
+    });
+    expect(storedReplySynthesisCapability({ provider: "chatgpt" }).available).toBe(false);
+  });
+
+  it("keeps the readout preference while the selected environment changes voice settings", async () => {
+    const { session } = setup();
+    await session.preference.load();
+    const onSynthesisChanged = vi.fn();
+    const unsubscribe = session.subscribeSynthesis(onSynthesisChanged);
+    expect(session.preference.getSnapshot().enabled).toBe(true);
+    expect(session.actionFor(message)?.unavailableReason).toBe(STORED_REPLY_SYNTHESIS_UNAVAILABLE);
+    session.setSynthesis({ available: true, provider: "openai", voice: "alloy" });
+    expect(session.actionFor(message)?.unavailableReason).toBeUndefined();
+    expect(session.getSynthesisSnapshot()).toMatchObject({ available: true, voice: "alloy" });
+    expect(onSynthesisChanged).toHaveBeenCalledOnce();
+    expect(session.preference.getSnapshot().enabled).toBe(true);
+    unsubscribe();
+  });
+
+  it("exposes settled assistant readout without starting a turn", () => {
+    const { session, prepare } = setup();
+    expect(session.actionFor(message)).toMatchObject({
+      request: { text: "Stored answer", automatic: false },
+      unavailableReason: STORED_REPLY_SYNTHESIS_UNAVAILABLE,
+    });
+    expect(session.actionFor({ ...message, role: "user" })).toBeNull();
+    expect(session.actionFor({ ...message, streaming: true })).toBeNull();
+    expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it("resolves synthesis per environment when given a lookup", () => {
+    const session = createReplyPlaybackSession({
+      storage: { getItem: async () => "true", setItem: async () => {} },
+      prepare: vi.fn(),
+      synthesis: (environmentId) =>
+        environmentId === "environment"
+          ? { available: true, provider: "speech", voice: "voice" }
+          : { available: false, provider: "unavailable", voice: "unavailable", reason: "no" },
+    });
+
+    expect(session.synthesisFor("environment")).toEqual({
+      available: true,
+      provider: "speech",
+      voice: "voice",
+    });
+    expect(session.synthesisFor("other").available).toBe(false);
+  });
+
+  it("keeps an environment's applied voice settings out of other environments", () => {
+    const session = createReplyPlaybackSession({
+      storage: { getItem: async () => "true", setItem: async () => {} },
+      prepare: vi.fn(),
+      synthesis: () => ({
+        available: false,
+        provider: "unavailable",
+        voice: "unavailable",
+        reason: "no",
+      }),
+    });
+
+    session.setSynthesis({ available: true, provider: "speech", voice: "voice" }, "a");
+
+    const context = {
+      threadId: "thread",
+      provider: "p",
+      voice: "v",
+      connected: true,
+      mediaBlocked: false,
+    };
+
+    session.setContext({ ...context, environmentId: "a" });
+    expect(session.actionFor(message)?.unavailableReason).toBeUndefined();
+    session.setContext({ ...context, environmentId: "b" });
+    expect(session.actionFor(message)?.unavailableReason).toBe("no");
+    expect(session.getSynthesisSnapshot().available).toBe(false);
+  });
+
+  it("keeps the synthesis snapshot stable until the capability changes", () => {
+    const session = createReplyPlaybackSession({
+      storage: { getItem: async () => "true", setItem: async () => {} },
+      prepare: vi.fn(),
+      synthesis: (environmentId) =>
+        environmentId === "environment"
+          ? { available: true, provider: "speech", voice: "voice" }
+          : { available: false, provider: "unavailable", voice: "unavailable", reason: "no" },
+    });
+
+    const onSynthesisChanged = vi.fn();
+    session.subscribeSynthesis(onSynthesisChanged);
+    const empty = session.getSynthesisSnapshot();
+    expect(session.getSynthesisSnapshot()).toBe(empty);
+
+    session.setContext(context);
+    const selected = session.getSynthesisSnapshot();
+    expect(selected).toMatchObject({ available: true });
+    expect(session.getSynthesisSnapshot()).toBe(selected);
+    expect(onSynthesisChanged).toHaveBeenCalledOnce();
+
+    session.setContext({ ...context, mediaBlocked: true });
+    expect(onSynthesisChanged).toHaveBeenCalledOnce();
+
+    session.clearContextIf(context.environmentId, context.threadId);
+    expect(session.getSynthesisSnapshot().available).toBe(false);
+    expect(session.getSynthesisSnapshot()).toBe(session.getSynthesisSnapshot());
+    expect(onSynthesisChanged).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns the default capability for a null or empty environment", () => {
+    const lookup = vi.fn(() => ({
+      available: true as const,
+      provider: "speech",
+      voice: "voice",
+    }));
+
+    const session = createReplyPlaybackSession({
+      storage: { getItem: async () => "true", setItem: async () => {} },
+      prepare: vi.fn(),
+      synthesis: lookup,
+    });
+
+    expect(session.synthesisFor(null).available).toBe(false);
+    expect(session.synthesisFor("").available).toBe(false);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(session.actionFor(message)).toBeNull();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("hydrates history and loaded-earlier replies without automatic playback", async () => {
+    const { session, prepare } = setup(true);
+    await session.preference.load();
+    session.observe([message]);
+    session.observe([history, message]);
+    expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it("reads a newly completed reply once after opt-in, then stops when disabled", async () => {
+    const { session, prepare } = setup(true);
+    await session.preference.load();
+    session.observe([message]);
+    session.observe([message, later]);
+    expect(prepare).toHaveBeenCalledOnce();
+    expect(prepare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        automatic: true,
+        identity: expect.objectContaining({ messageId: "reply-2" }),
+      }),
+      expect.any(AbortSignal),
+      expect.any(Object),
+    );
+    await session.preference.setEnabled(false);
+    session.observe([
+      message,
+      later,
+      { ...later, id: "reply-3", updatedAt: "2026-09-08T00:02:00.000Z" },
+    ]);
+    expect(prepare).toHaveBeenCalledOnce();
+  });
+
+  it("does not replay after reconnect on the same chat", async () => {
+    const { session, prepare } = setup(true);
+    await session.preference.load();
+    session.observe([message]);
+    session.observe([message, later]);
+    session.setContext({ ...context, provider: "speech", voice: "voice", connected: false });
+    session.setContext({ ...context, provider: "speech", voice: "voice", connected: true });
+    session.observe([message, later]);
+    expect(prepare).toHaveBeenCalledOnce();
+  });
+
+  it("clears only the owning chat so a stacked route can restore the revealed one", async () => {
+    const { session } = setup(true);
+    session.setContext({ ...context, threadId: "other", provider: "speech", voice: "voice" });
+    await session.controller.start({
+      identity: {
+        ...context,
+        threadId: "other",
+        provider: "speech",
+        voice: "voice",
+        messageId: "reply-1",
+        contentVersion: message.updatedAt,
+      },
+      text: "Stored answer",
+      automatic: false,
+    });
+    session.clearContextIf(context.environmentId, context.threadId);
+    expect(session.controller.getSnapshot()).toMatchObject({
+      status: "playing",
+      identity: { threadId: "other" },
+    });
+    session.clearContextIf(context.environmentId, "other");
+    expect(session.controller.getSnapshot().status).toBe("idle");
+  });
+
+  it("stops playback when the active chat changes", async () => {
+    const { session } = setup(true);
+    await session.controller.start({
+      identity: {
+        ...context,
+        provider: "speech",
+        voice: "voice",
+        messageId: "reply-1",
+        contentVersion: message.updatedAt,
+      },
+      text: "Stored answer",
+      automatic: false,
+    });
+    session.setContext({ ...context, threadId: "other", provider: "speech", voice: "voice" });
+    expect(session.controller.getSnapshot().status).toBe("idle");
+  });
+});

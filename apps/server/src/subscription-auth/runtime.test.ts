@@ -1,0 +1,339 @@
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
+import {
+  DEFAULT_SERVER_SETTINGS,
+  defaultInstanceIdForDriver,
+  ProviderInstanceId,
+  ProviderDriverKind,
+  type SubscriptionProviderStatus,
+} from "@otto/contracts";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import {
+  runWithNodeServices,
+  testSubscriptionAuthServiceForSecretsDir,
+} from "./testUtils/subscriptionAuthService.ts";
+import {
+  mergeSubscriptionInstanceEnvironment,
+  subscriptionProviderSettingsPatch,
+  subscriptionRequestUrl,
+  subscriptionRuntimeEnvironment,
+  withExplicitEnvironmentKeys,
+} from "./runtime.ts";
+
+const subscriptionStatus = (
+  provider: SubscriptionProviderStatus["provider"],
+  connected: boolean,
+): SubscriptionProviderStatus => ({
+  provider,
+  connected,
+  dependentBots: [],
+  dependentRoutines: [],
+});
+
+const directories: string[] = [];
+
+async function fixture() {
+  const secretsDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-runtime-auth-"));
+  directories.push(secretsDir);
+
+  return { secretsDir, auth: await testSubscriptionAuthServiceForSecretsDir(secretsDir) };
+}
+
+const runtimeEnvironment = (...args: Parameters<typeof subscriptionRuntimeEnvironment>) =>
+  runWithNodeServices(subscriptionRuntimeEnvironment(...args));
+
+afterEach(() => {
+  for (const directory of directories.splice(0))
+    NodeFS.rmSync(directory, { recursive: true, force: true });
+});
+
+describe("subscription runtime credentials", () => {
+  it("aligns default provider enablement with Otto subscription connections", () => {
+    expect(
+      subscriptionProviderSettingsPatch(DEFAULT_SERVER_SETTINGS, [
+        subscriptionStatus("openai-codex", false),
+        subscriptionStatus("anthropic", false),
+        subscriptionStatus("xai", true),
+        subscriptionStatus("kimi-for-coding", false),
+        subscriptionStatus("opencode-go", false),
+      ]),
+    ).toEqual({
+      providers: {
+        codex: { enabled: false },
+        claudeAgent: { enabled: false },
+        grok: { enabled: true },
+        kimi: { enabled: false },
+        opencodeGo: { enabled: false },
+      },
+    });
+  });
+
+  it("leaves explicitly configured default instances under instance control", () => {
+    const grok = ProviderDriverKind.make("grok");
+    const instanceId = defaultInstanceIdForDriver(grok);
+    expect(
+      subscriptionProviderSettingsPatch(
+        {
+          ...DEFAULT_SERVER_SETTINGS,
+          providerInstances: {
+            [instanceId]: { driver: grok, enabled: false, config: {} },
+          },
+        },
+        [subscriptionStatus("xai", true)],
+      ),
+    ).toEqual({
+      providers: {
+        codex: { enabled: false },
+        claudeAgent: { enabled: false },
+        kimi: { enabled: false },
+        opencodeGo: { enabled: false },
+      },
+    });
+  });
+
+  it.each([
+    ["anthropic", "ANTHROPIC_API_KEY", "instance-key"],
+    ["anthropic", "ANTHROPIC_API_KEY", ""],
+    ["anthropic", "ANTHROPIC_AUTH_TOKEN", "instance-token"],
+    ["anthropic", "CLAUDE_CODE_OAUTH_TOKEN", "instance-oauth"],
+    ["anthropic", "ANTHROPIC_BASE_URL", "https://instance.example"],
+    ["anthropic", "CLAUDE_CONFIG_DIR", "/instance/claude"],
+    ["xai", "XAI_API_KEY", "instance-key"],
+    ["opencode-go", "OPENCODE_API_KEY", "instance-key"],
+  ] as const)(
+    "preserves explicit %s %s settings even when equal to inherited values",
+    async (provider, name, value) => {
+      const { secretsDir, auth } = await fixture();
+      const login = await auth.startLogin(provider, { authMode: "api-key" });
+      await auth.completeLogin(login.loginId, "provider-wide-key");
+
+      const environment = {
+        ...mergeSubscriptionInstanceEnvironment([{ name, value, sensitive: true }], {
+          [name]: value,
+          KEEP: "value",
+        }),
+      };
+
+      expect(await runtimeEnvironment(secretsDir, provider, environment)).toBe(environment);
+      expect(environment[name]).toBe(value);
+      expect(JSON.stringify(environment)).not.toContain("provider-wide-key");
+    },
+  );
+
+  it("keeps a home-isolated Claude instance on its own account", async () => {
+    const { secretsDir, auth } = await fixture();
+    const login = await auth.startLogin("anthropic", { authMode: "api-key" });
+    await auth.completeLogin(login.loginId, "provider-wide-key");
+
+    const merged = mergeSubscriptionInstanceEnvironment(undefined, {
+      CLAUDE_CODE_OAUTH_TOKEN: "native-oauth",
+    });
+
+    const environment = withExplicitEnvironmentKeys(
+      { ...merged, CLAUDE_CONFIG_DIR: "/instance/claude" },
+      ["CLAUDE_CONFIG_DIR"],
+    );
+
+    expect(await runtimeEnvironment(secretsDir, "anthropic", environment)).toBe(environment);
+    expect(environment.CLAUDE_CODE_OAUTH_TOKEN).toBe("native-oauth");
+    expect(environment.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  it("replaces an inherited Grok key when only unrelated instance variables are explicit", async () => {
+    const { secretsDir, auth } = await fixture();
+    const login = await auth.startLogin("xai", { authMode: "api-key" });
+    await auth.completeLogin(login.loginId, "provider-wide-key");
+
+    const environment = {
+      ...mergeSubscriptionInstanceEnvironment(
+        [{ name: "KEEP", value: "instance-value", sensitive: false }],
+        { XAI_API_KEY: "inherited-key", KEEP: "inherited-value" },
+      ),
+    };
+
+    expect(await runtimeEnvironment(secretsDir, "xai", environment)).toEqual({
+      XAI_API_KEY: "provider-wide-key",
+      KEEP: "instance-value",
+    });
+  });
+
+  it("injects the key bound to the selected Grok instance", async () => {
+    const { secretsDir, auth } = await fixture();
+    const personal = await auth.startLogin("xai", { authMode: "api-key" });
+    await auth.completeLogin(personal.loginId, "personal-key");
+
+    const work = await auth.startLogin("xai", {
+      authMode: "api-key",
+      instanceId: ProviderInstanceId.make("grok_work"),
+    });
+
+    await auth.completeLogin(work.loginId, "work-key");
+    expect((await runtimeEnvironment(secretsDir, "xai", {}, "grok_work")).XAI_API_KEY).toBe(
+      "work-key",
+    );
+    expect((await runtimeEnvironment(secretsDir, "xai", {}, "grok")).XAI_API_KEY).toBe(
+      "personal-key",
+    );
+  });
+
+  it("does not override a directly supplied adapter environment", async () => {
+    const { secretsDir, auth } = await fixture();
+    const login = await auth.startLogin("xai", { authMode: "api-key" });
+    await auth.completeLogin(login.loginId, "provider-wide-key");
+    const environment = { XAI_API_KEY: "adapter-key" };
+    expect(await runtimeEnvironment(secretsDir, "xai", environment)).toBe(environment);
+  });
+
+  it("distinguishes explicit OpenCode credentials from inherited OpenCode credentials", async () => {
+    const { secretsDir, auth } = await fixture();
+    const login = await auth.startLogin("opencode-go", { authMode: "api-key" });
+    await auth.completeLogin(login.loginId, "provider-wide-key");
+
+    const content = JSON.stringify({
+      provider: {
+        "opencode-go": {
+          options: { apiKey: "instance-key", baseURL: "https://instance.example/v1" },
+        },
+      },
+    });
+
+    const baseEnv = { OPENCODE_CONFIG_CONTENT: content };
+
+    const explicit = {
+      ...mergeSubscriptionInstanceEnvironment(
+        [{ name: "OPENCODE_CONFIG_CONTENT", value: content, sensitive: true }],
+        baseEnv,
+      ),
+    };
+
+    expect(await runtimeEnvironment(secretsDir, "opencode-go", explicit)).toBe(explicit);
+    const inherited = { ...mergeSubscriptionInstanceEnvironment(undefined, baseEnv) };
+    const result = await runtimeEnvironment(secretsDir, "opencode-go", inherited);
+    expect(JSON.parse(result.OPENCODE_CONFIG_CONTENT!).provider["opencode-go"].options).toEqual({
+      apiKey: "provider-wide-key",
+      baseURL: "https://opencode.ai/zen/go/v1",
+    });
+  });
+
+  it.each([
+    ["https://proxy.example", "https://proxy.example"],
+    ["https://proxy.example/v1", "https://proxy.example"],
+    ["https://proxy.example/v1/", "https://proxy.example"],
+    ["https://proxy.example/gateway/v1/", "https://proxy.example/gateway"],
+  ])("uses the same Claude root for health and SDK requests: %s", async (baseUrl, root) => {
+    const { secretsDir, auth } = await fixture();
+    const login = await auth.startLogin("anthropic", { authMode: "api-key", baseUrl });
+    await auth.completeLogin(login.loginId, "claude-key");
+
+    const environment = await runtimeEnvironment(
+      secretsDir,
+      "anthropic",
+      mergeSubscriptionInstanceEnvironment(undefined, {}),
+    );
+
+    expect(environment.ANTHROPIC_BASE_URL).toBe(root);
+    const request = vi.fn().mockResolvedValue(new Response("{}"));
+    vi.stubGlobal("fetch", request);
+
+    try {
+      await auth.testHealth("anthropic");
+      expect(request).toHaveBeenCalledWith(
+        new URL(`${environment.ANTHROPIC_BASE_URL}/v1/models`),
+        expect.any(Object),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+  it("reads Claude keys at process start and leaves the original environment unchanged", async () => {
+    const { secretsDir, auth } = await fixture();
+
+    const environment = {
+      ...mergeSubscriptionInstanceEnvironment(undefined, {
+        CLAUDE_CODE_OAUTH_TOKEN: "native-oauth",
+        ANTHROPIC_AUTH_TOKEN: "native-token",
+        KEEP: "value",
+      }),
+    };
+
+    expect(await runtimeEnvironment(secretsDir, "anthropic", environment)).toBe(environment);
+
+    const login = await auth.startLogin("anthropic", {
+      authMode: "api-key",
+      baseUrl: "https://proxy.example/v1",
+    });
+
+    await auth.completeLogin(login.loginId, "new-key");
+    expect(await runtimeEnvironment(secretsDir, "anthropic", environment)).toEqual({
+      KEEP: "value",
+      ANTHROPIC_API_KEY: "new-key",
+      ANTHROPIC_BASE_URL: "https://proxy.example",
+    });
+    await auth.logout("anthropic");
+    expect(await runtimeEnvironment(secretsDir, "anthropic", environment)).toBe(environment);
+    expect(environment.CLAUDE_CODE_OAUTH_TOKEN).toBe("native-oauth");
+  });
+
+  it("passes saved Grok API keys to the ACP authentication environment", async () => {
+    const { secretsDir, auth } = await fixture();
+    const login = await auth.startLogin("xai", { authMode: "api-key" });
+    await auth.completeLogin(login.loginId, "grok-key");
+    expect(await runtimeEnvironment(secretsDir, "xai", { KEEP: "value" })).toEqual({
+      KEEP: "value",
+      XAI_API_KEY: "grok-key",
+    });
+  });
+
+  it("merges OpenCode Go credentials without deleting other OpenCode providers or options", async () => {
+    const { secretsDir, auth } = await fixture();
+
+    const login = await auth.startLogin("opencode-go", {
+      authMode: "api-key",
+      baseUrl: "https://proxy.example/v1",
+    });
+
+    await auth.completeLogin(login.loginId, "go-key");
+
+    const result = await runtimeEnvironment(secretsDir, "opencode-go", {
+      OPENCODE_CONFIG_CONTENT: JSON.stringify({
+        theme: "dark",
+        provider: { other: { name: "Other" }, "opencode-go": { options: { timeout: 1000 } } },
+      }),
+    });
+
+    expect(JSON.parse(result.OPENCODE_CONFIG_CONTENT!)).toEqual({
+      theme: "dark",
+      provider: {
+        other: { name: "Other" },
+        "opencode-go": {
+          options: { timeout: 1000, apiKey: "go-key", baseURL: "https://proxy.example/v1" },
+        },
+      },
+    });
+  });
+
+  it("preserves Request bodies and URL suffixes when changing endpoints", async () => {
+    const request = new Request("https://api.example/v1/messages?beta=true", {
+      method: "POST",
+      body: "request-body",
+    });
+
+    const rewritten = subscriptionRequestUrl(
+      request,
+      "https://api.example/v1",
+      "http://localhost:8000/api",
+    );
+
+    expect(rewritten).toBeInstanceOf(Request);
+    expect((rewritten as Request).url).toBe("http://localhost:8000/api/messages?beta=true");
+    expect(await (rewritten as Request).text()).toBe("request-body");
+    expect(() =>
+      subscriptionRequestUrl(
+        "https://elsewhere.example/v1/messages",
+        "https://api.example/v1",
+        "http://localhost:8000/api",
+      ),
+    ).toThrow("does not match");
+  });
+});

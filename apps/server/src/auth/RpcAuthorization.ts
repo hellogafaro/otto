@@ -1,0 +1,148 @@
+import {
+  AuthAccessReadScope,
+  AuthAccessWriteScope,
+  AuthOrchestrationOperateScope,
+  AuthOrchestrationReadScope,
+  ORCHESTRATION_WS_METHODS,
+  type AuthEnvironmentScope,
+  WS_METHODS,
+  WsRpcGroup,
+} from "@otto/contracts";
+import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
+
+type WsRpcMethod = RpcGroup.Rpcs<typeof WsRpcGroup>["_tag"];
+
+/**
+ * Keep authorization coverage coupled to the RPC group itself. Adding an RPC to
+ * `WsRpcGroup` without choosing a scope is a type error instead of a production
+ * runtime failure.
+ */
+export const RPC_REQUIRED_SCOPES = {
+  [ORCHESTRATION_WS_METHODS.dispatchCommand]: AuthOrchestrationOperateScope,
+  [ORCHESTRATION_WS_METHODS.getWorkflowScript]: AuthOrchestrationReadScope,
+  [ORCHESTRATION_WS_METHODS.getTurnDiff]: AuthOrchestrationReadScope,
+  [ORCHESTRATION_WS_METHODS.getFullThreadDiff]: AuthOrchestrationReadScope,
+  [ORCHESTRATION_WS_METHODS.searchThreads]: AuthOrchestrationReadScope,
+  [ORCHESTRATION_WS_METHODS.subscribeShell]: AuthOrchestrationReadScope,
+  [ORCHESTRATION_WS_METHODS.getArchivedShellSnapshot]: AuthOrchestrationReadScope,
+  [ORCHESTRATION_WS_METHODS.subscribeThread]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverProbe]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverGetConfig]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverRefreshProviders]: AuthAccessWriteScope,
+  [WS_METHODS.serverUpdateProvider]: AuthAccessWriteScope,
+  [WS_METHODS.serverUpdateServer]: AuthAccessWriteScope,
+  [WS_METHODS.serverUpdateServerWithProgress]: AuthAccessWriteScope,
+  [WS_METHODS.serverUpsertKeybinding]: AuthOrchestrationOperateScope,
+  [WS_METHODS.serverRemoveKeybinding]: AuthOrchestrationOperateScope,
+  [WS_METHODS.serverGetSettings]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverUpdateSettings]: AuthAccessWriteScope,
+  [WS_METHODS.composioGetStatus]: AuthOrchestrationReadScope,
+  [WS_METHODS.composioConfigure]: AuthAccessWriteScope,
+  [WS_METHODS.composioRemove]: AuthAccessWriteScope,
+  [WS_METHODS.composioSearchToolkits]: AuthOrchestrationReadScope,
+  [WS_METHODS.composioAuthorize]: AuthAccessWriteScope,
+  [WS_METHODS.composioDisconnect]: AuthAccessWriteScope,
+  [WS_METHODS.subscriptionAuthList]: AuthOrchestrationReadScope,
+  [WS_METHODS.subscriptionAuthStart]: AuthAccessWriteScope,
+  [WS_METHODS.subscriptionAuthPoll]: AuthAccessWriteScope,
+  [WS_METHODS.subscriptionAuthComplete]: AuthAccessWriteScope,
+  [WS_METHODS.subscriptionAuthCancel]: AuthAccessWriteScope,
+  [WS_METHODS.subscriptionAuthLogout]: AuthAccessWriteScope,
+  [WS_METHODS.subscriptionAuthHealthTest]: AuthAccessWriteScope,
+  [WS_METHODS.subscriptionAuthSetAccountOrder]: AuthAccessWriteScope,
+  [WS_METHODS.imageProviderList]: AuthOrchestrationReadScope,
+  [WS_METHODS.imageProviderHealthTest]: AuthAccessWriteScope,
+  [WS_METHODS.mcpServerAuthenticate]: AuthAccessWriteScope,
+  [WS_METHODS.botInboxList]: AuthOrchestrationReadScope,
+  [WS_METHODS.botInboxResolve]: AuthOrchestrationOperateScope,
+  [WS_METHODS.voiceProviders]: AuthOrchestrationReadScope,
+  [WS_METHODS.voiceConnect]: AuthAccessWriteScope,
+  [WS_METHODS.voiceDisconnect]: AuthAccessWriteScope,
+  [WS_METHODS.voiceTest]: AuthAccessWriteScope,
+  [WS_METHODS.voiceListVoices]: AuthOrchestrationReadScope,
+  [WS_METHODS.voiceTranscribe]: AuthOrchestrationOperateScope,
+  [WS_METHODS.voiceSynthesize]: AuthOrchestrationOperateScope,
+  [WS_METHODS.voiceCancel]: AuthOrchestrationOperateScope,
+  [WS_METHODS.voiceCallGet]: AuthOrchestrationReadScope,
+  [WS_METHODS.voiceCallStart]: AuthOrchestrationOperateScope,
+  [WS_METHODS.voiceCallHangup]: AuthOrchestrationOperateScope,
+  [WS_METHODS.serverGetTraceDiagnostics]: AuthAccessReadScope,
+  [WS_METHODS.serverGetProcessDiagnostics]: AuthAccessReadScope,
+  [WS_METHODS.serverGetProcessResourceHistory]: AuthAccessReadScope,
+  [WS_METHODS.serverGetResourceTelemetryHistory]: AuthAccessReadScope,
+  [WS_METHODS.serverRetryResourceTelemetry]: AuthAccessWriteScope,
+  [WS_METHODS.serverGetUsageSummary]: AuthOrchestrationReadScope,
+  // Remote health exposes host paths and repairs files, so it needs administrative scopes.
+  [WS_METHODS.serverGetRemoteDoctor]: AuthAccessReadScope,
+  [WS_METHODS.serverRepairRemoteDoctor]: AuthAccessWriteScope,
+  [WS_METHODS.serverSignalProcess]: AuthAccessWriteScope,
+  [WS_METHODS.serverReportClientActivity]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverReportHostPowerState]: AuthAccessWriteScope,
+  [WS_METHODS.serverGetBackgroundPolicy]: AuthOrchestrationReadScope,
+  [WS_METHODS.memoryExport]: AuthAccessReadScope,
+  [WS_METHODS.memoryImportPreview]: AuthAccessWriteScope,
+  [WS_METHODS.memoryImportApply]: AuthAccessWriteScope,
+  [WS_METHODS.memoryArchiveExport]: AuthAccessReadScope,
+  [WS_METHODS.memoryArchivePreviewImport]: AuthAccessWriteScope,
+  [WS_METHODS.memoryArchiveApplyImport]: AuthAccessWriteScope,
+  [WS_METHODS.memoryFactsList]: AuthOrchestrationReadScope,
+  [WS_METHODS.memoryFactMutate]: AuthOrchestrationOperateScope,
+  [WS_METHODS.memoryDocumentsInspect]: AuthOrchestrationReadScope,
+  [WS_METHODS.memoryDocumentReplace]: AuthOrchestrationOperateScope,
+  [WS_METHODS.memoryObservationsClear]: AuthOrchestrationOperateScope,
+  [WS_METHODS.botUsage]: AuthOrchestrationReadScope,
+  [WS_METHODS.portabilityExport]: AuthAccessReadScope,
+  [WS_METHODS.portabilityPreviewImport]: AuthAccessWriteScope,
+  [WS_METHODS.portabilityApplyImport]: AuthAccessWriteScope,
+  [WS_METHODS.routinesListRuns]: AuthOrchestrationReadScope,
+  [WS_METHODS.routinesListThreadRuns]: AuthOrchestrationReadScope,
+  [WS_METHODS.projectsListEntries]: AuthAccessReadScope,
+  [WS_METHODS.projectsReadFile]: AuthAccessReadScope,
+  [WS_METHODS.projectsSearchEntries]: AuthAccessReadScope,
+  [WS_METHODS.projectsWriteFile]: AuthAccessWriteScope,
+  [WS_METHODS.shellOpenInEditor]: AuthAccessWriteScope,
+  [WS_METHODS.shellRevealAttachment]: AuthAccessWriteScope,
+  [WS_METHODS.assetsCreateUrl]: AuthOrchestrationReadScope,
+  [WS_METHODS.attachmentsCreateUploadUrl]: AuthOrchestrationOperateScope,
+  [WS_METHODS.attachmentsDelete]: AuthOrchestrationOperateScope,
+  [WS_METHODS.providerUploadFeedback]: AuthOrchestrationOperateScope,
+  [WS_METHODS.subscribeResourceTelemetry]: AuthOrchestrationReadScope,
+  [WS_METHODS.computerGetState]: AuthAccessReadScope,
+  [WS_METHODS.computerOpen]: AuthAccessWriteScope,
+  [WS_METHODS.computerAcquire]: AuthAccessWriteScope,
+  [WS_METHODS.computerInput]: AuthAccessWriteScope,
+  [WS_METHODS.computerRelease]: AuthAccessWriteScope,
+  [WS_METHODS.computerClose]: AuthAccessWriteScope,
+  [WS_METHODS.computerStop]: AuthAccessWriteScope,
+  [WS_METHODS.computerEvents]: AuthAccessWriteScope,
+  [WS_METHODS.previewOpen]: AuthAccessWriteScope,
+  [WS_METHODS.previewNavigate]: AuthAccessWriteScope,
+  [WS_METHODS.previewResize]: AuthAccessWriteScope,
+  [WS_METHODS.previewRefresh]: AuthAccessWriteScope,
+  [WS_METHODS.previewClose]: AuthAccessWriteScope,
+  [WS_METHODS.previewList]: AuthOrchestrationReadScope,
+  [WS_METHODS.previewReportStatus]: AuthOrchestrationOperateScope,
+  [WS_METHODS.previewAutomationConnect]: AuthAccessWriteScope,
+  [WS_METHODS.previewAutomationRespond]: AuthAccessWriteScope,
+  [WS_METHODS.previewAutomationFocusHost]: AuthAccessWriteScope,
+  [WS_METHODS.subscribePreviewEvents]: AuthOrchestrationReadScope,
+  [WS_METHODS.subscribeDiscoveredLocalServers]: AuthOrchestrationReadScope,
+  [WS_METHODS.subscribeServerConfig]: AuthOrchestrationReadScope,
+  [WS_METHODS.subscribeServerLifecycle]: AuthOrchestrationReadScope,
+  [WS_METHODS.subscribeAuthAccess]: AuthAccessReadScope,
+  [WS_METHODS.subscribeBackgroundPolicy]: AuthOrchestrationReadScope,
+} as const satisfies Readonly<Record<WsRpcMethod, AuthEnvironmentScope>>;
+
+export function requiredScopeForRpcMethod(method: string): AuthEnvironmentScope {
+  if (!Object.hasOwn(RPC_REQUIRED_SCOPES, method)) {
+    throw new Error(`RPC method ${method} has no declared authorization scope.`);
+  }
+
+  const requiredScope = Object.entries(RPC_REQUIRED_SCOPES).find(([key]) => key === method)?.[1];
+
+  if (requiredScope === undefined) {
+    throw new Error(`RPC method ${method} has no declared authorization scope.`);
+  }
+
+  return requiredScope;
+}

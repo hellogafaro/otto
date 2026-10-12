@@ -1,0 +1,20 @@
+import { RiAlertLine } from "@remixicon/react";
+
+import { Alert, AlertDescription } from "../ui/alert";
+
+export function ThreadRuntimeWarningBanner({ warning }: { readonly warning: string | null }) {
+  if (!warning) return null;
+
+  return (
+    <div
+      aria-live="polite"
+      className="mx-auto w-fit max-w-min-48rem-pct-2rem pt-3"
+      data-testid="thread-runtime-warning"
+    >
+      <Alert variant="warning" controlAlignment="first-line">
+        <RiAlertLine />
+        <AlertDescription className="whitespace-pre-wrap">{warning}</AlertDescription>
+      </Alert>
+    </div>
+  );
+}

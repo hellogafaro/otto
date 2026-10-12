@@ -1,0 +1,179 @@
+import type * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
+import * as NodeFS from "node:fs";
+import * as NodePath from "node:path";
+import { describe, expect, it } from "vite-plus/test";
+import { parse } from "yaml";
+
+type PathLabelConfig = Record<
+  string,
+  Array<{
+    "changed-files": Array<{ "any-glob-to-any-file": string | string[] }>;
+  }>
+>;
+
+function text(path: string): string {
+  return NodeFS.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
+function yaml(path: string): Record<string, Schema.Json | undefined> {
+  return parse(text(path)) as Record<string, Schema.Json | undefined>;
+}
+
+function labelsForPath(config: PathLabelConfig, path: string): string[] {
+  return Object.entries(config).flatMap(([label, rules]) =>
+    rules.some((rule) =>
+      rule["changed-files"].some((condition) => {
+        const patterns = condition["any-glob-to-any-file"];
+
+        return (Predicate.isString(patterns) ? [patterns] : patterns).some((pattern) =>
+          NodePath.matchesGlob(path, pattern),
+        );
+      }),
+    )
+      ? [label]
+      : [],
+  );
+}
+
+describe("plugin contribution policy", () => {
+  it.each([
+    [
+      "plugin_proposal.yml",
+      "type:plugin",
+      ["product", "maintainer", "mcp_ownership", "logo", "permissions"],
+    ],
+    ["provider_proposal.yml", "type:provider", ["provider", "runtime", "logo", "approvals"]],
+  ])("collects admission evidence in %s", (file, typeLabel, specificFields) => {
+    const form = yaml(`.github/ISSUE_TEMPLATE/${file}`) as {
+      labels: string[];
+      body: Array<{
+        id?: string;
+        attributes?: { options?: Array<{ required?: boolean }> };
+        validations?: { required?: boolean };
+      }>;
+    };
+
+    const required = form.body
+      .filter((field) => field.validations?.required)
+      .map((field) => field.id);
+
+    expect(form.labels).toEqual([typeLabel, "status:needs-triage"]);
+    expect(required).toEqual(
+      expect.arrayContaining([
+        "demand",
+        "otto_job",
+        "lifecycle",
+        "documentation",
+        "health",
+        "blocker",
+        ...specificFields,
+      ]),
+    );
+    expect(
+      form.body.find((field) => field.id === "credential_safety")?.attributes?.options,
+    ).toEqual([expect.objectContaining({ required: true })]);
+  });
+
+  it.each([
+    ["plugins/entries/exa/plugin.json", ["type:plugin"]],
+    ["apps/server/src/provider/builtInDrivers.ts", ["type:provider"]],
+    ["apps/server/src/provider/builtInProviderCatalog.ts", ["type:provider"]],
+    ["apps/server/src/provider/Drivers/ClaudeDriver.ts", ["type:provider"]],
+    ["apps/server/src/provider/Layers/CodexAdapter.ts", ["type:provider"]],
+    ["apps/server/src/provider/Services/ClaudeAdapter.ts", ["type:provider"]],
+    ["apps/server/src/subscription-auth/providers/openaiCodex.ts", ["type:provider"]],
+    ["apps/web/src/components/plugins/PluginsDialog.tsx", ["area:directory"]],
+    ["apps/web/src/pluginsDialogStore.ts", ["area:directory"]],
+    ["docs/user/plugins.md", ["area:directory"]],
+    ["apps/web/src/components/sidebar/SidebarChrome.tsx", ["area:directory"]],
+    ["apps/web/src/components/roster/BotToolsSection.tsx", ["area:directory"]],
+    ["apps/web/src/components/roster/botTools.logic.ts", ["area:directory"]],
+    ["apps/server/src/provider/McpServerConfig.ts", ["area:connectors"]],
+    ["apps/server/src/provider/Layers/AgentController.ts", ["type:provider", "area:connectors"]],
+    ["apps/server/src/persistence/Layers/ProjectionMcpServers.ts", ["area:connectors"]],
+    ["apps/server/src/persistence/Services/ProjectionMcpServers.ts", ["area:connectors"]],
+    ["apps/server/src/orchestration/Layers/McpServerRegistry.test.ts", ["area:connectors"]],
+    ["apps/server/src/bot-inbox/connectorIncidents.ts", ["area:connectors"]],
+    ["apps/server/src/bot-inbox/connectorIncidents.test.ts", ["area:connectors"]],
+    ["packages/contracts/src/mcpServer.ts", ["area:connectors"]],
+    ["packages/client-runtime/src/state/mcpServerCommands.ts", ["area:connectors"]],
+    ["apps/web/src/state/mcpServers.ts", ["area:connectors"]],
+    ["apps/server/src/mcp/McpHttpServer.ts", []],
+    ["apps/mobile/plugins/withAndroidCleartextTraffic.cjs", []],
+  ])("maps %s to its contribution labels", (path, expected) => {
+    const config = yaml(".github/path-labels.yml") as PathLabelConfig;
+
+    expect(NodeFS.existsSync(new URL(`../${path}`, import.meta.url))).toBe(true);
+    expect(labelsForPath(config, path)).toEqual(expected);
+  });
+
+  it("uses one path-label job and mints no auth or category labels", () => {
+    const pathLabels = yaml(".github/path-labels.yml") as PathLabelConfig;
+
+    const issueLabelWorkflow = yaml(".github/workflows/issue-labels.yml") as {
+      jobs: Record<string, Schema.Json | undefined>;
+    };
+
+    const issueLabels = text(".github/workflows/issue-labels.yml");
+    const mintedLabels = [...issueLabels.matchAll(/name: "([^"]+)"/g)].map((match) => match[1]);
+
+    expect(
+      NodeFS.existsSync(new URL("../.github/workflows/contribution-labels.yml", import.meta.url)),
+    ).toBe(false);
+    expect(Object.keys(issueLabelWorkflow.jobs)).toEqual(["sync", "label-paths"]);
+    expect(issueLabels).toContain("uses: actions/labeler@v6");
+    expect(issueLabels).toContain("configuration-path: .github/path-labels.yml");
+    expect(mintedLabels).toEqual(
+      expect.arrayContaining([
+        "type:plugin",
+        "type:provider",
+        "status:needs-triage",
+        "area:directory",
+        "area:connectors",
+      ]),
+    );
+    expect([...Object.keys(pathLabels), ...mintedLabels]).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/^(?:auth|category):/)]),
+    );
+    expect(labelsForPath(pathLabels, "apps/server/src/mcp/McpHttpServer.ts")).toEqual([]);
+  });
+
+  it("runs catalog validation and contribution policy tests in CI", () => {
+    const ci = yaml(".github/workflows/ci.yml") as {
+      jobs: Record<string, { steps?: Array<{ run?: string }> }>;
+    };
+
+    const commands = Object.values(ci.jobs).flatMap(
+      (job) => job.steps?.map((step) => step.run) ?? [],
+    );
+
+    expect(commands).toContain("node scripts/validate-plugin-catalog.ts");
+    expect(commands).toContain(
+      "vp test run scripts/validate-plugin-catalog.test.ts scripts/plugin-contribution-policy.test.ts plugins/catalog.test.ts plugins/schema.test.ts plugins/lifecycle-matrix.test.ts",
+    );
+  });
+
+  it("keeps issue routing and the accepted-proposal PR exception coherent", () => {
+    const issueConfig = yaml(".github/ISSUE_TEMPLATE/config.yml") as {
+      contact_links: Array<{ name: string; url: string }>;
+    };
+
+    const contributionGuide = text("CONTRIBUTING.md");
+    const pullRequestTemplate = text(".github/pull_request_template.md");
+
+    expect(issueConfig.contact_links.find((link) => link.name === "Feature request")?.url).toBe(
+      "https://github.com/hellogafaro/otto/discussions/categories/ideas",
+    );
+    expect(contributionGuide).toContain("hellogafaro/otto/discussions");
+    expect(contributionGuide).toContain("plugin and provider proposal forms");
+    expect(contributionGuide).toContain("issues/new?template=plugin_proposal.yml");
+    expect(contributionGuide).toContain("issues/new?template=provider_proposal.yml");
+    expect(text("plugins/README.md")).toContain("issues/new?template=plugin_proposal.yml");
+    expect(text(".github/ISSUE_TEMPLATE/plugin_proposal.yml")).toContain("verification-pending");
+    expect(text("docs/internals/work-artifacts.md")).toContain(
+      "Plugin and provider proposals use their issue forms",
+    );
+    expect(pullRequestTemplate).toContain("accepted plugin or provider proposal");
+  });
+});

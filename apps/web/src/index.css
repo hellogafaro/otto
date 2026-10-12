@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+@import "@fontsource-variable/inter";
+
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+@custom-variant light (&:not(.dark, .dark *));
+
+/* Window Controls Overlay: active when Electron exposes native titlebar control geometry. */
+
+@custom-variant wco (&:is(.wco, .wco *));
+
+@utility otto-wordmark-symbol {
+  width: 1em;
+  height: 1em;
+  mask: url("/otto-logo.svg") center / contain no-repeat;
+}
+
+@utility chat-markdown-details {
+  --otto-class-hook: initial;
+}
+
+@utility chat-markdown-math-block {
+  --otto-class-hook: initial;
+}
+
+@utility chat-markdown-math-inline {
+  --otto-class-hook: initial;
+}
+
+@utility chat-markdown-settings-link {
+  --otto-class-hook: initial;
+}
+
+@utility language-mermaid {
+  --otto-class-hook: initial;
+}
+
+@utility stage-art {
+  --otto-class-hook: initial;
+}
+
+@utility stage-blueprint {
+  --otto-class-hook: initial;
+}
+
+@utility bot-eyes {
+  --otto-class-hook: initial;
+}
+
+@utility electron-drag-region {
+  --otto-class-hook: initial;
+}
+
+@utility roster-drag-boundary-label {
+  --otto-class-hook: initial;
+}
+
+@utility provider-update-main {
+  --otto-class-hook: initial;
+}
+
+/* On mobile, morph the expanded hero composer into the compact docked
+   composer while it moves; the rest of the app remains visually stationary. */
+
+@import "./styles/route-transitions.css";
+
+@import "./styles/control-tokens.css";
+
+@import "./styles/window-controls.css";
+
+/* The font tokens are declared outside the inline theme so utilities reference
+   the variables and Settings -> Appearance can override them at runtime. The
+   default stacks are mirrored in `appearanceFonts.ts`. */
+
+@theme {
+  --font-brand-serif: Georgia, "Times New Roman", serif;
+  --font-sans:
+    "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono:
+    "Geist Mono Variable", "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono",
+    monospace;
+}
+
+@theme inline {
+  --color-zinc-25: oklch(99.2% 0 0);
+  --animate-skeleton: none;
+  /* Duty-cycled indicator animations: long holds with stepped ramps, so the
+     compositor updates discrete frames instead of every vsync. */
+  --animate-status-pulse: status-pulse 2s infinite;
+  --animate-ghost-pulse: ghost-pulse 2.4s infinite;
+  --animate-status-ping: status-ping 2s infinite;
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-error-foreground: var(--error-foreground);
+  --color-error: var(--error);
+  --color-error-surface: var(--error-surface);
+  --color-update-foreground: var(--update-foreground);
+  --color-update: var(--update);
+  --color-update-surface: var(--update-surface);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-indicator-foreground: var(--success-indicator-foreground);
+  --color-success-bright-foreground: var(--success-bright-foreground);
+  --color-warning-bright-foreground: var(--warning-bright-foreground);
+  --color-favorite-foreground: var(--favorite-foreground);
+  --color-favorite-hover-foreground: var(--favorite-hover-foreground);
+  --color-caution-foreground: var(--caution-foreground);
+  --color-telemetry-warning-foreground: var(--telemetry-warning-foreground);
+  --color-telemetry-read-foreground: var(--telemetry-read-foreground);
+  --color-telemetry-write-foreground: var(--telemetry-write-foreground);
+  --color-telemetry-read: var(--telemetry-read);
+  --color-telemetry-write: var(--telemetry-write);
+  --color-telemetry-monitor: var(--telemetry-monitor);
+  --color-telemetry-electron: var(--telemetry-electron);
+  --color-telemetry-server: var(--telemetry-server);
+  --color-telemetry-server-total: var(--telemetry-server-total);
+  --color-telemetry-child: var(--telemetry-child);
+  --color-media-mat: var(--media-mat);
+  --color-media-mat-foreground: var(--media-mat-foreground);
+  --color-pending-indicator: var(--pending-indicator);
+  --color-disabled-indicator: var(--disabled-indicator);
+  --color-tint: var(--tint);
+  --color-inset-surface: var(--inset-surface);
+  --color-shade: var(--shade);
+  --color-on-solid: var(--on-solid);
+  --color-qr-surface: var(--qr-surface);
+  --color-option-hover: var(--option-hover);
+  --color-skill: var(--skill);
+  --color-skill-foreground: var(--skill-foreground);
+  --color-brand-grok: var(--brand-grok);
+  --color-markdown-note: var(--markdown-note);
+  --color-markdown-note-foreground: var(--markdown-note-foreground);
+  --color-markdown-tip: var(--markdown-tip);
+  --color-markdown-tip-foreground: var(--markdown-tip-foreground);
+  --color-markdown-important: var(--markdown-important);
+  --color-markdown-important-foreground: var(--markdown-important-foreground);
+  --color-markdown-warning: var(--markdown-warning);
+  --color-markdown-warning-foreground: var(--markdown-warning-foreground);
+  --color-markdown-caution: var(--markdown-caution);
+  --color-markdown-caution-foreground: var(--markdown-caution-foreground);
+  --color-computer-control-indicator: var(--computer-control-indicator);
+  --color-quit-prompt: var(--quit-prompt);
+  --color-plugin-connected: var(--plugin-connected);
+  --color-memory-approval-indicator: var(--memory-approval-indicator);
+  --color-telemetry-status-foreground: var(--telemetry-status-foreground);
+  --color-success: var(--success);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --color-input: var(--contrast-input);
+  --color-border: var(--contrast-border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--contrast-accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--contrast-muted-foreground);
+  --color-muted: var(--muted);
+  --color-placeholder: var(--contrast-placeholder);
+  --color-secondary-label: var(--contrast-secondary-label);
+  --color-icon-muted: var(--contrast-icon-muted);
+  --color-secondary-foreground: var(--contrast-secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--contrast-popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--contrast-card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--contrast-foreground);
+  --color-background: var(--background);
+  --color-surface-raised: var(--surface-raised);
+  --color-settings-surface: var(--settings-surface);
+  --color-settings-control: var(--settings-control);
+  --color-message: var(--message-surface);
+  --color-message-foreground: var(--contrast-message-foreground);
+  --color-message-action: var(--message-action);
+  --color-message-action-foreground: var(--message-action-foreground);
+  --color-message-action-hover: var(--message-action-hover);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--contrast-sidebar-foreground);
+  --color-sidebar-muted-foreground: var(--contrast-sidebar-muted-foreground);
+  --color-sidebar-control-surface: var(--sidebar-control-surface);
+  --color-sidebar-row-hover: var(--sidebar-row-hover);
+  --color-sidebar-row-active: var(--sidebar-row-active);
+  --color-sidebar-row-selected: var(--sidebar-row-selected);
+  --color-sidebar-border: var(--contrast-sidebar-border);
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  @keyframes skeleton {
+    /* Transform-only so the highlight sweep stays on the compositor, then a
+       long hold with the band parked off-screen instead of a constant shimmer. */
+    0% {
+      transform: translateX(-100%);
+    }
+    60%,
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes ghost-pulse {
+    /* The loading ghosts' breath. Stepped like the status indicators, so however many bars a
+       ghost holds, the compositor draws a handful of discrete frames per cycle rather than one
+       per vsync — which on a 120Hz display is the difference between ~14 and ~288 updates. */
+    0%,
+    42% {
+      opacity: 1;
+      animation-timing-function: steps(4);
+    }
+    50%,
+    92% {
+      opacity: 0.55;
+      animation-timing-function: steps(4);
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes status-pulse {
+    0%,
+    40% {
+      opacity: 1;
+      animation-timing-function: steps(6);
+    }
+    50%,
+    90% {
+      opacity: 0.5;
+      animation-timing-function: steps(6);
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes status-ping {
+    /* Burst first (immediate feedback for click ripples), then hold
+       invisible for the rest of the cycle. Mirrors animate-ping's
+       75%-scale start. */
+    0% {
+      opacity: 0.9;
+      scale: 0.75;
+      animation-timing-function: steps(8);
+    }
+    40%,
+    100% {
+      opacity: 0;
+      scale: 2;
+    }
+  }
+}
+
+@import "./styles/scale-tokens.css";
+
+@import "./styles/brand-colors.css";
+
+@import "./styles/one-off-utilities.css";
+
+@import "./styles/chrome-utilities.css";
+
+@import "./styles/stage-art.css";
+
+@import "./styles/settings-highlight.css";
+
+@import "./styles/composer.css";
+
+@import "./styles/settings-controls.css";
+
+/* Safe-area inset utilities for surfaces that opt into edge-to-edge rendering.
+   Insets resolve to 0 when the browser already constrains the layout viewport
+   to the safe area. */
+
+@import "./styles/sidebar-layout.css";
+
+/* Motion. Short one-shot entrances and state transitions on the motion scale.
+   Nothing here loops, and prefers-reduced-motion turns all of it off. Entrances
+   fill backwards only, so no transform or filter lingers after they finish. */
+
+@import "./styles/motion.css";
+
+@import "./styles/theme-tokens.css";
+
+/* OttoLegacy Chat's composer is a translucent lift over --chat-background. Route its
+   measured flattened color through the raised-surface role instead of deriving
+   another tint from the canvas, which made the dark composer too red. */
+
+@import "./styles/composer-theme.css";
+
+/* Theme-token dependency probes are restored synchronously, before paint. Keep
+   transitions from observing the temporary sentinel color in between. */
+
+/* Workspace actions use a small, separate chrome hierarchy. Keeping these
+   roles explicit prevents the thread toolbar from falling back to the default
+   dark-mode whites while preserving the same theme file across clients. */
+
+@import "./styles/themed-chrome.css";
+
+/* Contrast stays in ordinary custom properties so both Tailwind utilities and
+   global/imperative chrome styles resolve the same adjusted role. Redeclare on
+   the sidebar because it owns a local semantic palette. */
+
+@import "./styles/contrast-tokens.css";
+
+@import "./styles/chrome.css";
+
+/* Chat markdown rendering */
+
+@import "./styles/markdown.css";
+
+@import "./styles/generative-ui.css";
+
+/* Prompt-stash save acknowledgement: the new count fades up from just below
+   its resting position, once, then stops. One-shot and event-driven (React
+   remounts the element by key on each stash) — no continuous animation. */
+
+@import "./styles/status-indicators.css";

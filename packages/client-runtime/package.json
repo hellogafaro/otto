@@ -1,0 +1,266 @@
+{
+  "name": "@otto/client-runtime",
+  "version": "0.0.4",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./file-icons": {
+      "types": "./src/fileIcons.ts",
+      "default": "./src/fileIcons.ts"
+    },
+    "./dictation": {
+      "types": "./src/dictation/index.ts",
+      "default": "./src/dictation/index.ts"
+    },
+    "./i18n": {
+      "types": "./src/i18n/index.ts",
+      "default": "./src/i18n/index.ts"
+    },
+    "./connection": {
+      "types": "./src/connection/index.ts",
+      "default": "./src/connection/index.ts"
+    },
+    "./authorization": {
+      "types": "./src/authorization/index.ts",
+      "default": "./src/authorization/index.ts"
+    },
+    "./environment": {
+      "types": "./src/environment/index.ts",
+      "default": "./src/environment/index.ts"
+    },
+    "./reply-playback": {
+      "types": "./src/replyPlayback/index.ts",
+      "default": "./src/replyPlayback/index.ts"
+    },
+    "./voice": {
+      "types": "./src/voice.ts",
+      "default": "./src/voice.ts"
+    },
+    "./silent-run": {
+      "types": "./src/silentRun.ts",
+      "default": "./src/silentRun.ts"
+    },
+    "./pending-requests": {
+      "types": "./src/pendingRequests.ts",
+      "default": "./src/pendingRequests.ts"
+    },
+    "./user-input-answers": {
+      "types": "./src/userInputAnswers.ts",
+      "default": "./src/userInputAnswers.ts"
+    },
+    "./markdown-images": {
+      "types": "./src/markdownImages.ts",
+      "default": "./src/markdownImages.ts"
+    },
+    "./markdown-streaming": {
+      "types": "./src/markdownStreaming.ts",
+      "default": "./src/markdownStreaming.ts"
+    },
+    "./errors": {
+      "types": "./src/errors/index.ts",
+      "default": "./src/errors/index.ts"
+    },
+    "./rpc": {
+      "types": "./src/rpc/index.ts",
+      "default": "./src/rpc/index.ts"
+    },
+    "./operations": {
+      "types": "./src/operations/index.ts",
+      "default": "./src/operations/index.ts"
+    },
+    "./platform": {
+      "types": "./src/platform/index.ts",
+      "default": "./src/platform/index.ts"
+    },
+    "./provider-auth": {
+      "types": "./src/providerAuth.ts",
+      "default": "./src/providerAuth.ts"
+    },
+    "./provider-access": {
+      "types": "./src/providerAccessGuide.ts",
+      "default": "./src/providerAccessGuide.ts"
+    },
+    "./providerSkills": {
+      "types": "./src/providerSkills.ts",
+      "default": "./src/providerSkills.ts"
+    },
+    "./delegation-presentation": {
+      "types": "./src/delegationPresentation.ts",
+      "default": "./src/delegationPresentation.ts"
+    },
+    "./channel-presentation": {
+      "types": "./src/channelPresentation.ts",
+      "default": "./src/channelPresentation.ts"
+    },
+    "./channel-origin-presentation": {
+      "types": "./src/channelOriginPresentation.ts",
+      "default": "./src/channelOriginPresentation.ts"
+    },
+    "./image-generation": {
+      "types": "./src/imageGeneration.ts",
+      "default": "./src/imageGeneration.ts"
+    },
+    "./provider-availability": {
+      "types": "./src/providerAvailability.ts",
+      "default": "./src/providerAvailability.ts"
+    },
+    "./settings-deep-link": {
+      "types": "./src/settingsDeepLink.ts",
+      "default": "./src/settingsDeepLink.ts"
+    },
+    "./durable-memory": {
+      "types": "./src/durableMemory.ts",
+      "default": "./src/durableMemory.ts"
+    },
+    "./routines": {
+      "types": "./src/routines.ts",
+      "default": "./src/routines.ts"
+    },
+    "./bot-inbox": {
+      "types": "./src/botInbox.ts",
+      "default": "./src/botInbox.ts"
+    },
+    "./state/auth": {
+      "types": "./src/state/auth.ts",
+      "default": "./src/state/auth.ts"
+    },
+    "./state/bot-chat-timeline": {
+      "types": "./src/state/botChatTimeline.ts",
+      "default": "./src/state/botChatTimeline.ts"
+    },
+    "./state/bots": {
+      "types": "./src/state/bots.ts",
+      "default": "./src/state/bots.ts"
+    },
+    "./state/assets": {
+      "types": "./src/state/assets.ts",
+      "default": "./src/state/assets.ts"
+    },
+    "./state/computer": {
+      "types": "./src/state/computer.ts",
+      "default": "./src/state/computer.ts"
+    },
+    "./state/computer-viewer": {
+      "types": "./src/state/computerViewer.ts",
+      "default": "./src/state/computerViewer.ts"
+    },
+    "./state/computer-viewer-controller": {
+      "types": "./src/state/computerViewerController.ts",
+      "default": "./src/state/computerViewerController.ts"
+    },
+    "./state/connections": {
+      "types": "./src/state/connections.ts",
+      "default": "./src/state/connections.ts"
+    },
+    "./state/entities": {
+      "types": "./src/state/entities.ts",
+      "default": "./src/state/entities.ts"
+    },
+    "./state/models": {
+      "types": "./src/state/models.ts",
+      "default": "./src/state/models.ts"
+    },
+    "./state/mcp-servers": {
+      "types": "./src/state/mcpServerCommands.ts",
+      "default": "./src/state/mcpServerCommands.ts"
+    },
+    "./state/orchestration": {
+      "types": "./src/state/orchestration.ts",
+      "default": "./src/state/orchestration.ts"
+    },
+    "./state/presentation": {
+      "types": "./src/state/presentation.ts",
+      "default": "./src/state/presentation.ts"
+    },
+    "./state/preview": {
+      "types": "./src/state/preview.ts",
+      "default": "./src/state/preview.ts"
+    },
+    "./state/projects": {
+      "types": "./src/state/projects.ts",
+      "default": "./src/state/projects.ts"
+    },
+    "./state/project-grouping": {
+      "types": "./src/state/projectGrouping.ts",
+      "default": "./src/state/projectGrouping.ts"
+    },
+    "./state/routines": {
+      "types": "./src/state/routines.ts",
+      "default": "./src/state/routines.ts"
+    },
+    "./state/runtime": {
+      "types": "./src/state/runtime.ts",
+      "default": "./src/state/runtime.ts"
+    },
+    "./state/server": {
+      "types": "./src/state/server.ts",
+      "default": "./src/state/server.ts"
+    },
+    "./state/memory": {
+      "types": "./src/state/memory.ts",
+      "default": "./src/state/memory.ts"
+    },
+    "./state/bot-usage": {
+      "types": "./src/state/botUsage.ts",
+      "default": "./src/state/botUsage.ts"
+    },
+    "./state/bot-inbox": {
+      "types": "./src/state/botInbox.ts",
+      "default": "./src/state/botInbox.ts"
+    },
+    "./state/session": {
+      "types": "./src/state/session.ts",
+      "default": "./src/state/session.ts"
+    },
+    "./state/shell": {
+      "types": "./src/state/shell.ts",
+      "default": "./src/state/shell.ts"
+    },
+    "./state/threads": {
+      "types": "./src/state/threads.ts",
+      "default": "./src/state/threads.ts"
+    },
+    "./state/subagentRuntime": {
+      "types": "./src/state/subagentRuntime.ts",
+      "default": "./src/state/subagentRuntime.ts"
+    },
+    "./state/thread-sort": {
+      "types": "./src/state/threadSort.ts",
+      "default": "./src/state/threadSort.ts"
+    },
+    "./state/thread-settled": {
+      "types": "./src/state/threadSettled.ts",
+      "default": "./src/state/threadSettled.ts"
+    },
+    "./state/thread-search": {
+      "types": "./src/state/threadSearch.ts",
+      "default": "./src/state/threadSearch.ts"
+    },
+    "./work-log-command": {
+      "types": "./src/work-log-command.ts",
+      "default": "./src/work-log-command.ts"
+    },
+    "./bot-step-usage": {
+      "types": "./src/bot-step-usage.ts",
+      "default": "./src/bot-step-usage.ts"
+    },
+    "./usage": {
+      "types": "./src/usage.ts",
+      "default": "./src/usage.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@otto/contracts": "workspace:*",
+    "@otto/shared": "workspace:*",
+    "better-auth": "1.7.7",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

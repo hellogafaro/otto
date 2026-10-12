@@ -1,0 +1,110 @@
+# Keyboard shortcuts
+
+Edit shortcuts from **Settings > Keyboard**. Commands are grouped by purpose: General, Chats,
+Composer & models, and Layout. Numbered shortcuts such as
+**Jump to chat 1–9** share one row; expand it to change a single step. Click a shortcut to record a
+new one, or press Escape to cancel. Filter to **Customized** to see only the shortcuts you changed.
+
+The page warns when two commands share the same keys and only one of them can run. A later shortcut
+for a narrower context, such as while the model picker is open, overrides the broader one there and
+is not a conflict.
+
+The same configuration lives in `~/.otto/userdata/keybindings.json` on the machine running the
+server. Otto merges your rules with the built-in defaults. It keeps a default when no custom rule
+claims that command. An absent or empty file therefore still resolves to the built-in shortcuts.
+
+The file is a JSON array of rules.
+
+```json
+[
+  { "key": "mod+shift+p", "command": "commandPalette.toggle" },
+  { "key": "mod+shift+1", "command": "modelPicker.jump.1", "when": "modelPickerOpen" }
+]
+```
+
+Invalid rules are ignored. An invalid file is ignored entirely, and the server logs a warning.
+
+## Rule shape
+
+- `key` (required): shortcut string, like `mod+j`, `ctrl+k`, `cmd+shift+d`
+- `command` (required): the command ID to run
+- `when` (optional): boolean expression controlling when the shortcut is active
+
+## Key syntax
+
+Modifiers: `mod` (`cmd` on macOS, `ctrl` elsewhere), `cmd` / `meta`, `ctrl` / `control`, `shift`,
+`alt` / `option`.
+
+Examples: `mod+j`, `mod+shift+d`, `ctrl+l`, `cmd+k`.
+
+## Commands
+
+Commands are IDs like `commandPalette.toggle`, `composer.stash`, `sidebar.toggle`, and
+`rightPanel.toggle`, which opens or closes the bot and group details panel. Rules for commands from
+older versions, such as `terminal.toggle`, `diff.toggle`, `filePicker.toggle`, or `preview.refresh`,
+still load but no longer do anything. **Settings > Keyboard** hides them.
+
+`themeEditor.toggle` opens or closes the floating theme editor and defaults to
+`mod+alt+shift+t`. Select a color label to spotlight the elements that use it; select the label
+again to clear the spotlight. The swatch and hex field keep that color selected while you edit it.
+Advanced mode groups related app tokens into a smaller set of color families. Changing a family
+updates its paired text and interaction states while leaving every unrelated imported color intact.
+Use **Inspect** to pick an element in the app and reveal its color token. Inspect disarms after one
+successful pick; its hover glow and badge preview the element and color family that click will select.
+**Cancel** or `Escape` exits Inspect and clears its selection and spotlight.
+
+`thread.jump.1` through `thread.jump.9` switch to the matching bot and default to `mod+1` through
+`mod+9`. Pinned bots come first. Other bots follow their section and roster order. Groups do not
+take a shortcut number.
+
+These chat commands have no default shortcut. Add one from **Settings > Keyboard** to use them:
+
+- `chat.new` (**New chat**) starts a fresh chat with the open bot, once its current chat has a
+  message.
+- `thread.settle` (**Settle chat**) settles the open chat.
+- `thread.previous` and `thread.next` (**Previous bot** and **Next bot**) move through bots in the
+  same order as the numbered shortcuts, wrapping at either end.
+
+`chat.newLocal` is retired. Rules for it still load but do nothing, and **Settings > Keyboard** hides
+it.
+
+The command palette runs app actions: switch between light and dark mode, toggle the theme editor,
+and open plugins, usage, feedback, archived chats, or settings. While a chat is open, it also lists
+that chat's actions under **This chat**. Type to filter the list. Typing also searches your chats
+by title and message under **Chats**; see [Organize chats](./chats.md#find-a-chat).
+
+The full command list and the current defaults are shown in **Settings > Keyboard**, which
+always matches the build you are running. Use that rather than a copied list.
+
+## Desktop quit shortcut
+
+Use `Cmd+Q` on macOS or `Ctrl+Q` on Windows and Linux. In the default **Hold** mode, hold the
+shortcut for 1.2 seconds or press it twice within 500 milliseconds. The second press quits
+immediately. You can keep Command or Control held between presses, or release both keys.
+
+Hold mode needs keyboard repeat. If holding does not quit, use two quick presses or choose
+**Quit** from the application menu.
+
+Change **Quit shortcut** in **Settings** → **General**. **Direct** quits on the first press.
+**Double press** requires two quick presses and does not accept a hold. The application menu's
+**Quit** action always quits immediately.
+
+## `when` conditions
+
+A `when` expression is evaluated against context keys describing the current UI state. The key
+the app supplies today is `modelPickerOpen`. The set is open and grows over time, so treat that as the current list rather
+than a fixed one. Any key the running app does not supply evaluates to `false`.
+
+Operators: `!` (not), `&&` (and), `||` (or), and parentheses.
+
+Examples:
+
+- `"when": "modelPickerOpen"`
+- `"when": "!modelPickerOpen"`
+
+## Precedence
+
+- Rules are evaluated in array order.
+- For a key event, the last rule where both `key` matches and `when` evaluates to `true` wins.
+- Precedence is across commands, not only within the same command. A later rule for a different
+  command can take a key away from an earlier one.

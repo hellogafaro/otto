@@ -1,0 +1,49 @@
+# Privacy and outbound data
+
+Otto stores environment data under `~/.otto` by default. This includes projects, chats, bot
+profiles, settings, secrets, logs, local memory, and cached provider data. A worktree development
+server uses that worktree's `.otto` directory instead.
+
+Named-bot memory is stored as private Markdown files on the environment server. It is sent only as
+context to the provider running that bot. Group memory is separate for every bot, not a shared group
+document. See [Bot memory](memory.md).
+
+## Data that can leave the environment
+
+- Provider requests send the prompt, selected files, tool results, and conversation context to the
+  provider that you select. That provider controls its processing and retention.
+- When an owned feedback endpoint is configured, product feedback sends the text and an optional
+  safe interface descriptor to that service. The included Worker can retain accepted feedback for
+  up to 90 days and post it to the configured GitHub repository. This fork's default endpoint is a
+  reserved `.localhost` placeholder, not a deployed service.
+- Voice calls send microphone audio and call state to the ChatGPT Realtime service while a call is
+  active.
+- Dictation records microphone audio on the device you dictate from and sends it through the
+  environment server to the transcription provider selected in **Settings > Providers > Voice**. Otto does not
+  keep the recording after transcription finishes or is canceled. The text stays in your draft until
+  you send it.
+- Reading a stored reply aloud will send the spoken form of that reply to the selected speech
+  service when stored-reply speech is connected. Temporary audio stays on this device for the
+  current playback only. See [Voice and spoken replies](voice.md).
+- Provider update checks contact the release source for configured providers. Signed desktop builds
+  contact the configured Otto release host.
+- The environment server downloads the public model list from models.dev about once an hour, so new
+  provider models appear without an app update. The request sends no account or chat data. Turning
+  off provider update checks also stops this download.
+- Anonymous analytics send fixed aggregate counters and app, platform, architecture, and client
+  dimensions when analytics is on.
+
+## Subscription credentials
+
+The environment server stores subscription credentials in its private secrets directory. OAuth
+tokens do not pass through the WebSocket contract and do not enter projects, checkpoints, sandboxes,
+or client storage. A run receives only the short-lived access that it needs.
+
+## Privacy controls
+
+Open **Settings > Privacy & data** to control anonymous analytics, product feedback, and voice calls.
+You can also export or import environment data under **Backup and
+transfer**. Mobile exposes the sharing controls for the connected environment.
+
+Turning a control off stops new transfers for that feature. Provider requests still leave the
+environment when you run a connected online model.

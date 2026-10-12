@@ -1,0 +1,169 @@
+import { Predicate } from "effect";
+import { cva, type VariantProps } from "class-variance-authority";
+import { Children, isValidElement } from "react";
+import type * as React from "react";
+
+import { cn } from "~/lib/utils";
+
+const alertVariants = cva(
+  "relative rounded-[var(--control-radius)] border px-3 py-2 text-card-foreground text-sm",
+  {
+    defaultVariants: {
+      variant: "default",
+    },
+    variants: {
+      variant: {
+        default: "border-transparent bg-secondary [&_svg]:text-muted-foreground",
+        error:
+          "border-transparent bg-error-surface text-error-foreground [&_[data-slot=alert-description]]:text-error-foreground/80 [&_svg]:text-error",
+        info: "border-transparent bg-info/8 [&_svg]:text-info",
+        success: "border-transparent bg-success/8 [&_svg]:text-success",
+        warning:
+          "border-transparent bg-warning-surface text-warning-foreground [&_[data-slot=alert-description]]:text-warning-foreground/80 [&_svg]:text-warning",
+      },
+      presentation: {
+        "composer-drawer":
+          "chat-composer-drawer-surface chat-composer-drawer-attached px-3 pt-2 pb-composer-overlap-1.5 text-xs sm:px-4",
+        glass: "alert-glass rounded-[22px]",
+        "sidebar-warning": "rounded-2xl border-warning/40 bg-warning/8 text-xs",
+      },
+    },
+  },
+);
+
+function alertChildSlot(child: React.ReactElement): string | undefined {
+  const propsSlot = isValidElement<{ "data-slot"?: string }>(child)
+    ? child.props["data-slot"]
+    : undefined;
+
+  if (propsSlot) {
+    return propsSlot;
+  }
+
+  const type = child.type;
+
+  if (!Predicate.isObject(type) && !Predicate.isFunction(type)) {
+    return undefined;
+  }
+
+  const displayName =
+    "displayName" in type && Predicate.isString(type.displayName) ? type.displayName : undefined;
+
+  const name = "name" in type && Predicate.isString(type.name) ? type.name : undefined;
+
+  switch (displayName ?? name) {
+    case "AlertAction":
+      return "alert-action";
+    case "AlertTitle":
+      return "alert-title";
+    case "AlertDescription":
+      return "alert-description";
+    default:
+      return undefined;
+  }
+}
+
+function Alert({
+  className,
+  variant,
+  presentation,
+  controlAlignment = "center",
+  children,
+  ...props
+}: React.ComponentProps<"div"> &
+  VariantProps<typeof alertVariants> & {
+    controlAlignment?: "center" | "first-line";
+  }) {
+  const icon: React.ReactNode[] = [];
+  const content: React.ReactNode[] = [];
+  const action: React.ReactNode[] = [];
+
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) {
+      content.push(child);
+
+      return;
+    }
+
+    const slot = alertChildSlot(child);
+
+    if (slot === "alert-action") {
+      action.push(child);
+    } else if (slot === "alert-title" || slot === "alert-description") {
+      content.push(child);
+    } else {
+      icon.push(child);
+    }
+  });
+
+  return (
+    <div
+      className={cn(alertVariants({ variant, presentation }), className)}
+      data-slot="alert"
+      role="alert"
+      {...props}
+    >
+      <div
+        className={cn(
+          "flex gap-2",
+          controlAlignment === "first-line" ? "items-start" : "items-center",
+          controlAlignment === "first-line" &&
+            action.length > 0 &&
+            "min-h-7 pt-1 sm:min-h-6 sm:pt-0.5",
+        )}
+      >
+        {icon.length > 0 && (
+          <div
+            className={cn(
+              "flex shrink-0 items-center justify-center",
+              controlAlignment === "first-line"
+                ? "h-lh w-4 [&>svg]:size-4"
+                : "size-4 [&>svg]:size-full",
+            )}
+          >
+            {icon}
+          </div>
+        )}
+        {content.length > 0 && (
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">{content}</div>
+        )}
+        {action.length > 0 && (
+          <div
+            className={cn(
+              "flex shrink-0 items-center",
+              controlAlignment === "first-line" ? "h-lh self-start" : "self-center",
+            )}
+          >
+            {action}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return <div className={cn("font-medium", className)} data-slot="alert-title" {...props} />;
+}
+
+function AlertDescription({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      className={cn("flex flex-col gap-2.5 text-muted-foreground", className)}
+      data-slot="alert-description"
+      {...props}
+    />
+  );
+}
+
+function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
+  return <div className={cn("flex gap-1", className)} data-slot="alert-action" {...props} />;
+}
+
+AlertTitle.displayName = "AlertTitle";
+
+AlertDescription.displayName = "AlertDescription";
+
+AlertAction.displayName = "AlertAction";
+
+export { Alert, AlertTitle, AlertDescription, AlertAction };

@@ -1,0 +1,237 @@
+import * as Predicate from "effect/Predicate";
+import * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import * as Schedule from "effect/Schedule";
+import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+
+export const DEFAULT_HTTP_READY_PROBE_TIMEOUT_MS = 1_000;
+
+type HttpReadinessFailureCause =
+  | { readonly kind: "request-failure"; readonly cause: unknown }
+  | {
+      readonly kind: "probe-timeout";
+      readonly cause: {
+        readonly kind: "probe-timeout";
+        readonly attempt: number;
+        readonly probeTimeoutMs: number;
+      };
+    }
+  | {
+      readonly kind: "overall-timeout";
+      readonly cause: {
+        readonly kind: "overall-timeout";
+        readonly baseUrl: string;
+        readonly timeoutMs: number;
+        readonly lastFailure: unknown;
+      };
+    };
+
+export type HttpReadinessFailure = HttpReadinessFailureCause & {
+  readonly requestUrl: string;
+  readonly probeTimeoutMs: number;
+  readonly attempt: number;
+};
+
+/**
+ * Normalizes an arbitrary readiness probe failure into a plain, structured value
+ * suitable for diagnostic logging. Preserves the tagged-error `_tag` (and
+ * message/cause) shape for Effect tagged errors while recursing through nested
+ * `cause`/`reason` chains.
+ */
+type ReadinessDiagnostic =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined
+  | Function
+  | {
+      readonly _tag?: string;
+      readonly name?: string;
+      readonly message?: string;
+      readonly cause?: ReadinessDiagnostic;
+      readonly reason?: ReadinessDiagnostic;
+    };
+
+export function describeReadinessCause(cause: unknown): ReadinessDiagnostic {
+  if (cause instanceof Error) {
+    const tag = "_tag" in cause ? cause._tag : undefined;
+    const nested = cause.cause;
+
+    return {
+      ...(Predicate.isString(tag) ? { _tag: tag } : { name: cause.name }),
+      message: cause.message,
+      ...(nested === undefined ? {} : { cause: describeReadinessCause(nested) }),
+    };
+  }
+
+  if (
+    cause === null ||
+    Predicate.isUndefined(cause) ||
+    Predicate.isString(cause) ||
+    Predicate.isNumber(cause) ||
+    Predicate.isBoolean(cause) ||
+    Predicate.isBigInt(cause) ||
+    Predicate.isSymbol(cause) ||
+    Predicate.isFunction(cause)
+  ) {
+    return cause;
+  }
+
+  const record = cause;
+
+  return {
+    ...(Predicate.hasProperty(record, "_tag") && Predicate.isString(record._tag)
+      ? { _tag: record._tag }
+      : {}),
+    ...(Predicate.hasProperty(record, "message") && Predicate.isString(record.message)
+      ? { message: record.message }
+      : {}),
+    ...(!Predicate.hasProperty(record, "reason") || record.reason === undefined
+      ? {}
+      : { reason: describeReadinessCause(record.reason) }),
+    ...(!Predicate.hasProperty(record, "cause") || record.cause === undefined
+      ? {}
+      : { cause: describeReadinessCause(record.cause) }),
+  };
+}
+
+/**
+ * Generic HTTP readiness probe shared by the SSH tunnel and the desktop backend
+ * manager. Polls `baseUrl + path` until it returns a 2xx response or the overall
+ * `timeoutMs` elapses. Each individual probe is bounded by `probeTimeoutMs` so a
+ * single hung request cannot stall the retry loop, and the retry cadence is
+ * `intervalMs` bounded to roughly `timeoutMs / intervalMs` attempts.
+ *
+ * The error type is left to the caller via `makeError`, so each consumer keeps
+ * its own tagged error. `makeError` is called at every failure site; callers can
+ * switch on the failure's `kind` to reproduce phase-specific messages. The
+ * original diagnostic `cause` remains available for callers that only wrap it.
+ */
+export const waitForHttpReady = Effect.fn("shared.httpReadiness.waitForHttpReady")(function* <
+  E,
+>(input: {
+  readonly baseUrl: string;
+  readonly path?: string;
+  readonly timeoutMs?: number;
+  readonly intervalMs?: number;
+  readonly probeTimeoutMs?: number;
+  readonly makeError: (info: HttpReadinessFailure) => E;
+}): Effect.fn.Return<void, E, HttpClient.HttpClient> {
+  const timeoutMs = input.timeoutMs ?? 30_000;
+  const intervalMs = input.intervalMs ?? 100;
+  const probeTimeoutMs = input.probeTimeoutMs ?? DEFAULT_HTTP_READY_PROBE_TIMEOUT_MS;
+
+  const retryPolicy = Schedule.spaced(Duration.millis(intervalMs)).pipe(
+    Schedule.upTo({ times: Math.max(0, Math.ceil(timeoutMs / intervalMs)) }),
+  );
+
+  const requestUrl = new URL(input.path ?? "/", input.baseUrl).toString();
+  const client = yield* HttpClient.HttpClient;
+  const lastProbeFailure = yield* Ref.make<unknown>(null);
+  let attempt = 0;
+
+  // Tracks errors this function itself produced via `makeError`, so the
+  // pass-through guards below never double-wrap an already-constructed error
+  // (mirrors the SSH original's `cause instanceof SshReadinessError` checks).
+  const makeError = input.makeError;
+  const madeErrors = new WeakSet<object>();
+
+  const fail = (failure: HttpReadinessFailureCause): E => {
+    const error = makeError({ requestUrl, probeTimeoutMs, attempt, ...failure });
+
+    if (Predicate.isObjectOrArray(error)) {
+      madeErrors.add(error);
+    }
+
+    return error;
+  };
+
+  const isMadeError = (value: unknown): value is E =>
+    Predicate.isObjectOrArray(value) && madeErrors.has(value);
+
+  yield* Effect.logDebug("httpReadiness.start", {
+    baseUrl: input.baseUrl,
+    requestUrl,
+    timeoutMs,
+    intervalMs,
+    probeTimeoutMs,
+  });
+
+  const readinessClient = client.pipe(
+    HttpClient.filterStatusOk,
+    HttpClient.transform((effect) =>
+      Effect.gen(function* () {
+        attempt += 1;
+
+        const responseOption = yield* effect.pipe(
+          Effect.timeoutOption(Duration.millis(probeTimeoutMs)),
+          Effect.mapError((cause) => fail({ kind: "request-failure", cause })),
+        );
+
+        return yield* Option.match(responseOption, {
+          onSome: Effect.succeed,
+          onNone: () =>
+            Effect.fail(
+              fail({
+                kind: "probe-timeout",
+                cause: { kind: "probe-timeout", attempt, probeTimeoutMs },
+              }),
+            ),
+        });
+      }).pipe(
+        Effect.mapError((cause) =>
+          isMadeError(cause) ? cause : fail({ kind: "request-failure", cause }),
+        ),
+        Effect.tapError((cause) =>
+          Ref.set(lastProbeFailure, {
+            attempt,
+            cause: describeReadinessCause(cause),
+          }),
+        ),
+      ),
+    ),
+    HttpClient.tap((response) => response.text.pipe(Effect.ignore)),
+    HttpClient.retry(retryPolicy),
+  );
+
+  const result = yield* readinessClient.execute(HttpClientRequest.get(requestUrl)).pipe(
+    Effect.mapError((cause) =>
+      isMadeError(cause) ? cause : fail({ kind: "request-failure", cause }),
+    ),
+    Effect.timeoutOption(Duration.millis(timeoutMs)),
+  );
+
+  return yield* Option.match(result, {
+    onSome: () =>
+      Effect.logDebug("httpReadiness.succeeded", {
+        baseUrl: input.baseUrl,
+        requestUrl,
+        attempts: attempt,
+      }),
+    onNone: () =>
+      Effect.gen(function* () {
+        const lastFailure = yield* Ref.get(lastProbeFailure);
+        yield* Effect.logWarning("httpReadiness.timedOut", {
+          baseUrl: input.baseUrl,
+          requestUrl,
+          timeoutMs,
+          intervalMs,
+          probeTimeoutMs,
+          attempts: attempt,
+          lastFailure,
+        });
+
+        return yield* Effect.fail(
+          fail({
+            kind: "overall-timeout",
+            cause: { kind: "overall-timeout", baseUrl: input.baseUrl, timeoutMs, lastFailure },
+          }),
+        );
+      }),
+  });
+});
