@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { Button } from "../ui/button";
-import { Checkbox } from "../ui/checkbox";
 import {
   Dialog,
   DialogDescription,
@@ -14,44 +13,64 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
-import { BotAvatarView } from "./BotAvatarView";
+import {
+  GroupMemberChecklist,
+  groupCandidates,
+  type GroupPersonOption,
+} from "./GroupMemberChecklist";
 import type { Bot } from "./types";
 
 export interface NewGroupInput {
   readonly name: string;
   readonly bossBotId: string;
   readonly specialistBotIds: readonly string[];
+  readonly people: ReadonlyArray<GroupPersonOption>;
 }
 
-export function canCreateGroup(name: string, selectedIds: readonly string[]): boolean {
-  return name.trim().length > 0 && new Set(selectedIds).size >= 2;
+export function canCreateGroup(name: string, botIds: readonly string[]): boolean {
+  return name.trim().length > 0 && new Set(botIds).size >= 1;
 }
 
-/** Hint shown under the bot list until the group has enough members. */
-export function groupSelectionHint(selectedIds: readonly string[]): MessageKey | null {
-  return new Set(selectedIds).size >= 2 ? null : "Select at least two bots.";
+/** Hint shown under the member list until the group has a bot. */
+export function groupSelectionHint(botIds: readonly string[]): MessageKey | null {
+  return new Set(botIds).size >= 1 ? null : "Select at least one bot.";
 }
+
+const NO_PEOPLE: ReadonlyArray<GroupPersonOption> = [];
 
 export function NewGroupDialog({
   open,
   bots,
+  people = NO_PEOPLE,
+  currentPersonId = null,
   onOpenChange,
   onCreate,
 }: {
   readonly open: boolean;
   readonly bots: readonly Bot[];
+  /** People in the organization; the creator is always in the group. */
+  readonly people?: ReadonlyArray<GroupPersonOption>;
+  readonly currentPersonId?: string | null;
   readonly onOpenChange: (open: boolean) => void;
   readonly onCreate: (input: NewGroupInput) => void;
 }) {
   const { t } = useI18n();
   const activeBots = useMemo(() => bots.filter((bot) => bot.archivedAt === null), [bots]);
   const [name, setName] = useState("");
+  const [selected, setSelected] = useState<ReadonlyArray<string>>([]);
 
-  const [selectedIds, setSelectedIds] = useState<readonly string[]>(() =>
-    activeBots.slice(0, 2).map((bot) => bot.id),
+  const candidates = groupCandidates(
+    activeBots,
+    people.filter((person) => person.personId !== currentPersonId),
   );
 
-  const selectionHint = groupSelectionHint(selectedIds);
+  const chosen = candidates.filter((candidate) => selected.includes(candidate.key));
+
+  const botIds = chosen.flatMap((candidate) =>
+    candidate.kind === "bot" ? [candidate.bot.id] : [],
+  );
+
+  const selectionHint = groupSelectionHint(botIds);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,16 +83,24 @@ export function NewGroupDialog({
           onSubmit={(event) => {
             event.preventDefault();
 
-            if (!canCreateGroup(name, selectedIds)) return;
+            if (!canCreateGroup(name, botIds)) return;
             // Groups have no lead; the first bot is only stored as the group's boss.
-            const [bossBotId = "", ...specialistBotIds] = [...new Set(selectedIds)];
-            onCreate({ name: name.trim(), bossBotId, specialistBotIds });
+            const [bossBotId = "", ...specialistBotIds] = botIds;
+
+            onCreate({
+              name: name.trim(),
+              bossBotId,
+              specialistBotIds,
+              people: chosen.flatMap((candidate) =>
+                candidate.kind === "person" ? [candidate.person] : [],
+              ),
+            });
           }}
         >
           <DialogHeader className="shrink-0">
             <DialogTitle>{t("New group")}</DialogTitle>
             <DialogDescription>
-              {t("Choose the bots in this group. They all hear every message.")}
+              {t("Choose who is in this group. Every bot hears every message.")}
             </DialogDescription>
           </DialogHeader>
           <DialogPanel className="space-y-5">
@@ -89,42 +116,24 @@ export function NewGroupDialog({
               />
             </label>
             <fieldset className="space-y-2">
-              <legend className="mb-2 text-sm font-medium">{t("Bots")}</legend>
-              <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border p-2">
-                {activeBots.map((bot) => {
-                  const checked = selectedIds.includes(bot.id);
-
-                  return (
-                    <label
-                      key={bot.id}
-                      className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-2 hover:bg-muted/50"
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(next) =>
-                          setSelectedIds((current) =>
-                            next
-                              ? [...current, bot.id]
-                              : current.filter((candidate) => candidate !== bot.id),
-                          )
-                        }
-                      />
-                      <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-7" />
-                      <span className="min-w-0 flex-1 truncate text-sm">{bot.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              {selectionHint ? (
-                <p className="text-xs text-muted-foreground">{t(selectionHint)}</p>
-              ) : null}
+              <legend className="mb-2 text-sm font-medium">{t("Members")}</legend>
+              <GroupMemberChecklist
+                candidates={candidates}
+                selected={selected}
+                onSelectedChange={setSelected}
+              />
+              <p className="text-xs text-muted-foreground">
+                {selectionHint
+                  ? t(selectionHint)
+                  : t("You are in the group. Invite more people in Settings, Members.")}
+              </p>
             </fieldset>
           </DialogPanel>
           <DialogFooter className="shrink-0">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               {t("Cancel")}
             </Button>
-            <Button type="submit" disabled={!canCreateGroup(name, selectedIds)}>
+            <Button type="submit" disabled={!canCreateGroup(name, botIds)}>
               {t("Create group")}
             </Button>
           </DialogFooter>

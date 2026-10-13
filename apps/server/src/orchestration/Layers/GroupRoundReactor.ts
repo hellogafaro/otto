@@ -4,6 +4,7 @@ import {
   type ChatAttachment,
   CommandId,
   isGroupBotMember,
+  isGroupPersonMember,
   type MessageId,
   type OrchestrationEvent,
   type ThreadId,
@@ -185,7 +186,12 @@ const make = Effect.gen(function* () {
     });
 
     const batch = round.batch;
-    const plan = groupRound(bots, batch.map((message) => message.text).join("\n\n"));
+
+    const peopleNames = (group?.members ?? [])
+      .filter(isGroupPersonMember)
+      .map((person) => person.displayName);
+
+    const plan = groupRound(bots, batch.map((message) => message.text).join("\n\n"), peopleNames);
     round.batch = [];
     round.flushDue = false;
     round.carry = batch;
@@ -285,7 +291,10 @@ const make = Effect.gen(function* () {
       if (payload.role === "user" && payload.authorPersonId != null) {
         yield* onPersonMessage(payload.threadId, {
           messageId: payload.messageId,
-          text: payload.text,
+          // Several people can share a group, so each bot is told who wrote what.
+          text: payload.authorDisplayName
+            ? `${payload.authorDisplayName}: ${payload.text}`
+            : payload.text,
           attachments: payload.attachments ?? [],
         });
 

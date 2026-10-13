@@ -13,6 +13,7 @@ import {
   projectActivityEvent,
   projectThreadDetailSnapshot,
 } from "./orchestration/ActivityPayloadProjection.ts";
+import { canSeeGroup, withGroupVisibility } from "./orchestration/groupVisibility.ts";
 import { threadLiveEventCoalescer } from "./orchestration/ThreadLiveEventCoalescer.ts";
 import { liveStreamBudget, type RetainedLiveItem } from "./orchestration/LiveStreamBudget.ts";
 
@@ -34,6 +35,8 @@ export const createWsOrchestrationSubscriptions = ({
   channelBindingsForRuntime,
   observeRpcStreamEffect,
   loadEnvironmentPeople,
+  currentPersonId,
+  projectionGroups,
   SHELL_COALESCE_WINDOW,
   SHELL_COALESCE_MAX_CHUNK,
   coalesceShellStream,
@@ -46,12 +49,46 @@ export const createWsOrchestrationSubscriptions = ({
   | "channelBindingsForRuntime"
   | "observeRpcStreamEffect"
   | "loadEnvironmentPeople"
+  | "currentPersonId"
+  | "projectionGroups"
   | "SHELL_COALESCE_WINDOW"
   | "SHELL_COALESCE_MAX_CHUNK"
   | "coalesceShellStream"
   | "coalesceShellLiveInputs"
->) =>
-  ({
+>) => {
+  const loadShellSnapshot = Effect.all({
+    snapshot: projectionSnapshotQuery.getShellSnapshot(),
+    people: loadEnvironmentPeople(),
+  }).pipe(
+    Effect.map(({ snapshot, people }) => ({
+      ...snapshot,
+      currentPersonId: people.current.personId,
+      currentPersonDisplayName: people.current.displayName,
+      people: people.people,
+      ...(people.host === undefined
+        ? {}
+        : {
+            environmentHostPersonId: people.host.personId,
+            environmentHostDisplayName: people.host.displayName,
+          }),
+      bots: snapshot.bots.map((bot) => ({
+        ...bot,
+        channelBindings: channelBindingsForRuntime(bot.channelBindings ?? []),
+      })),
+    })),
+    Effect.tapError((cause) =>
+      Effect.logError("orchestration shell snapshot load failed", { cause }),
+    ),
+    Effect.mapError(
+      (cause) =>
+        new OrchestrationGetSnapshotError({
+          message: "Failed to load orchestration shell snapshot",
+          cause,
+        }),
+    ),
+  );
+
+  return {
     [ORCHESTRATION_WS_METHODS.subscribeShell]: (input) =>
       observeRpcStreamEffect(
         ORCHESTRATION_WS_METHODS.subscribeShell,
@@ -131,36 +168,7 @@ export const createWsOrchestrationSubscriptions = ({
             Stream.flatMap((items) => Stream.fromIterable(items)),
           );
 
-          const loadSnapshot = Effect.all({
-            snapshot: projectionSnapshotQuery.getShellSnapshot(),
-            people: loadEnvironmentPeople(),
-          }).pipe(
-            Effect.map(({ snapshot, people }) => ({
-              ...snapshot,
-              currentPersonId: people.current.personId,
-              currentPersonDisplayName: people.current.displayName,
-              ...(people.host === undefined
-                ? {}
-                : {
-                    environmentHostPersonId: people.host.personId,
-                    environmentHostDisplayName: people.host.displayName,
-                  }),
-              bots: snapshot.bots.map((bot) => ({
-                ...bot,
-                channelBindings: channelBindingsForRuntime(bot.channelBindings ?? []),
-              })),
-            })),
-            Effect.tapError((cause) =>
-              Effect.logError("orchestration shell snapshot load failed", { cause }),
-            ),
-            Effect.mapError(
-              (cause) =>
-                new OrchestrationGetSnapshotError({
-                  message: "Failed to load orchestration shell snapshot",
-                  cause,
-                }),
-            ),
-          );
+          const loadSnapshot = loadShellSnapshot;
 
           // Offer the completion marker into the same queue as live events.
           // Anything buffered while snapshot/replay work was in flight is
@@ -238,7 +246,16 @@ export const createWsOrchestrationSubscriptions = ({
             }),
             synchronizedThenLive,
           );
-        }),
+        }).pipe(
+          Effect.flatMap((stream) =>
+            withGroupVisibility({
+              stream,
+              personId: currentPersonId,
+              loadSnapshot: loadShellSnapshot,
+              resuming: input.afterSequence !== undefined,
+            }),
+          ),
+        ),
         { "rpc.aggregate": "orchestration" },
       ),
 
@@ -246,6 +263,26 @@ export const createWsOrchestrationSubscriptions = ({
       observeRpcStreamEffect(
         ORCHESTRATION_WS_METHODS.subscribeThread,
         Effect.gen(function* () {
+          const shell = yield* projectionSnapshotQuery
+            .getThreadShellById(input.threadId)
+            .pipe(Effect.orElseSucceed(() => Option.none()));
+
+          const group =
+            Option.isSome(shell) && shell.value.groupId != null
+              ? yield* projectionGroups
+                  .getById({ groupId: shell.value.groupId })
+                  .pipe(Effect.orElseSucceed(() => Option.none()))
+              : Option.none();
+
+          if (
+            Option.isSome(group) &&
+            !canSeeGroup({ id: group.value.groupId, members: group.value.members }, currentPersonId)
+          ) {
+            return yield* new OrchestrationGetSnapshotError({
+              message: "This chat is private to its members.",
+            });
+          }
+
           const isThisThreadDetailEvent = (event: OrchestrationEvent) =>
             event.aggregateKind === "thread" &&
             event.aggregateId === input.threadId &&
@@ -412,7 +449,8 @@ export const createWsOrchestrationSubscriptions = ({
         }),
         { "rpc.aggregate": "orchestration" },
       ),
-  }) satisfies Pick<
+  } satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     typeof ORCHESTRATION_WS_METHODS.subscribeShell | typeof ORCHESTRATION_WS_METHODS.subscribeThread
   >;
+};

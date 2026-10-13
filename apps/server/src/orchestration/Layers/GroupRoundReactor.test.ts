@@ -197,7 +197,7 @@ describe("GroupRoundReactor", () => {
 
         yield* wait(100);
         expect(bots(turns)).toEqual([BOSS_ID]);
-        expect(turns[0]?.input).toBe("hello team\n\nwho can fix the login page?");
+        expect(turns[0]?.input).toBe("Member: hello team\n\nMember: who can fix the login page?");
         expect(turns[0]?.messageId).toBe("message-2");
 
         yield* finishTurn(null);
@@ -280,7 +280,9 @@ describe("GroupRoundReactor", () => {
         }
 
         expect(bots(turns)).toEqual([BOSS_ID]);
-        expect(turns[0]?.input).toBe("part 0\n\npart 1\n\npart 2\n\npart 3\n\npart 4\n\npart 5");
+        expect(turns[0]?.input).toBe(
+          [0, 1, 2, 3, 4, 5].map((index) => `Member: part ${index}`).join("\n\n"),
+        );
       }),
     ),
   );
@@ -298,7 +300,7 @@ describe("GroupRoundReactor", () => {
 
         yield* finishTurn(null);
         expect(bots(turns)).toEqual([BOSS_ID, ANALYST_ID]);
-        expect(turns[1]?.input).toBe("actually, @bot-analyst only");
+        expect(turns[1]?.input).toBe("Member: actually, @bot-analyst only");
       }),
     ),
   );

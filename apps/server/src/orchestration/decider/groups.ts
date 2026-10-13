@@ -1,5 +1,6 @@
 import {
   isGroupBotMember,
+  isGroupPersonMember,
   type OrchestrationCommand,
   type OrchestrationReadModel,
 } from "@otto/contracts";
@@ -8,7 +9,12 @@ import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../Errors.ts";
 import type { OrchestrationDispatchActor } from "../Services/OrchestrationEngine.ts";
-import { requireBotNotArchived, requireGroup, requireGroupAbsent } from "../commandInvariants.ts";
+import {
+  requireBotNotArchived,
+  requireGroup,
+  requireGroupAbsent,
+  requireMutationActorAuthorized,
+} from "../commandInvariants.ts";
 import {
   type PlannedOrchestrationEvent,
   withEventBase,
@@ -21,6 +27,7 @@ import {
 export const decideGroups = Effect.fn("decideGroups")(function* ({
   command,
   readModel,
+  actor,
 }: {
   readonly command: Extract<
     OrchestrationCommand,
@@ -64,10 +71,10 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
         requireBotNotArchived({ readModel, command, botId }),
       );
 
-      if (memberBotIds.length < 2) {
+      if (memberBotIds.length < 1) {
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
-          detail: `Group '${command.groupId}' requires at least two active bots.`,
+          detail: `Group '${command.groupId}' requires at least one active bot.`,
         });
       }
 
@@ -90,6 +97,11 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
               role: botId === command.bossBotId ? ("boss" as const) : ("specialist" as const),
             })),
             ...(command.creator === undefined ? [] : [command.creator]),
+            ...(command.people ?? []).filter(
+              (person, index, people) =>
+                person.personId !== command.creator?.personId &&
+                people.findIndex((other) => other.personId === person.personId) === index,
+            ),
           ],
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
@@ -100,7 +112,8 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
     }
 
     case "group.rename": {
-      yield* requireGroup({ readModel, command, groupId: command.groupId });
+      const group = yield* requireGroup({ readModel, command, groupId: command.groupId });
+      yield* requireMutationActorAuthorized({ group, command, actor });
       const occurredAt = yield* nowIso;
 
       return {
@@ -121,6 +134,7 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
 
     case "group.delete": {
       const group = yield* requireGroup({ readModel, command, groupId: command.groupId });
+      yield* requireMutationActorAuthorized({ group, command, actor });
       const occurredAt = yield* nowIso;
 
       const deletedEvent: PlannedOrchestrationEvent = {
@@ -179,6 +193,7 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
 
     case "group.member.assign": {
       const group = yield* requireGroup({ readModel, command, groupId: command.groupId });
+      yield* requireMutationActorAuthorized({ group, command, actor });
       const bot = yield* requireBotNotArchived({ readModel, command, botId: command.botId });
 
       if (command.role === "boss" && group.bossBotId !== null && group.bossBotId !== bot.id) {
@@ -217,6 +232,7 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
 
     case "group.member.unassign": {
       const group = yield* requireGroup({ readModel, command, groupId: command.groupId });
+      yield* requireMutationActorAuthorized({ group, command, actor });
 
       const member = group.members
         .filter(isGroupBotMember)
@@ -239,10 +255,10 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
       const remainingBotIds = activeGroupBotIds(readModel, group);
       remainingBotIds.delete(command.botId);
 
-      if (remainingBotIds.size < 2) {
+      if (remainingBotIds.size < 1) {
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
-          detail: `Group '${group.id}' requires at least two active bots.`,
+          detail: `Group '${group.id}' requires at least one active bot.`,
         });
       }
 
@@ -268,6 +284,18 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
 
     case "group.person.assign": {
       const group = yield* requireGroup({ readModel, command, groupId: command.groupId });
+      yield* requireMutationActorAuthorized({ group, command, actor });
+
+      if (
+        group.members.some(
+          (member) => isGroupPersonMember(member) && member.personId === command.person.personId,
+        )
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `${command.person.displayName} is already in this group.`,
+        });
+      }
       const occurredAt = yield* nowIso;
 
       return {
@@ -301,6 +329,29 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
         });
       }
 
+      const people = group.members.filter(isGroupPersonMember);
+
+      // Anyone may leave; removing someone else takes the group's first person or an admin.
+      if (
+        command.type === "group.person.unassign" &&
+        actor !== undefined &&
+        !actor.canManageGroups &&
+        actor.personId !== command.personId &&
+        people[0]?.personId !== actor.personId
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Only the person who started this group or an admin can remove people.",
+        });
+      }
+
+      if (people.length === 1) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "The last person cannot leave a group. Delete the group instead.",
+        });
+      }
+
       const occurredAt = yield* nowIso;
 
       return {
@@ -321,6 +372,7 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
 
     case "group.boss.set": {
       const group = yield* requireGroup({ readModel, command, groupId: command.groupId });
+      yield* requireMutationActorAuthorized({ group, command, actor });
 
       const nextBoss = yield* requireBotNotArchived({
         readModel,
@@ -341,10 +393,10 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
         if (group.bossBotId !== null) remainingBotIds.delete(group.bossBotId);
         remainingBotIds.add(nextBoss.id);
 
-        if (remainingBotIds.size < 2) {
+        if (remainingBotIds.size < 1) {
           return yield* new OrchestrationCommandInvariantError({
             commandType: command.type,
-            detail: `Group '${group.id}' requires at least two active bots.`,
+            detail: `Group '${group.id}' requires at least one active bot.`,
           });
         }
       }

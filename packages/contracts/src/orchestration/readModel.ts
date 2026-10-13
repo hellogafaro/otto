@@ -143,12 +143,22 @@ export const OrchestrationThreadShell = Schema.Struct({
 
 export type OrchestrationThreadShell = typeof OrchestrationThreadShell.Type;
 
+/** A person in the organization who can be added to a group chat. */
+export const OrchestrationPerson = Schema.Struct({
+  personId: AuthSessionId,
+  displayName: TrimmedNonEmptyString,
+  email: Schema.optional(TrimmedNonEmptyString),
+});
+
+export type OrchestrationPerson = typeof OrchestrationPerson.Type;
+
 export const OrchestrationShellSnapshot = Schema.Struct({
   snapshotSequence: NonNegativeInt,
   currentPersonId: Schema.optional(AuthSessionId),
   currentPersonDisplayName: Schema.optional(TrimmedNonEmptyString),
   environmentHostPersonId: Schema.optional(AuthSessionId),
   environmentHostDisplayName: Schema.optional(TrimmedNonEmptyString),
+  people: Schema.optional(Schema.Array(OrchestrationPerson)),
   projects: Schema.Array(OrchestrationProjectShell),
   bots: Schema.Array(OrchestrationBot).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   groups: Schema.Array(OrchestrationGroup).pipe(Schema.withDecodingDefault(Effect.succeed([]))),

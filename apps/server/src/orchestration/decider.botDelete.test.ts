@@ -312,7 +312,7 @@ it.layer(NodeServices.layer)("bot delete decider", (it) => {
     }),
   );
 
-  it.effect("rejects deleting a bot when its group would have fewer than two active bots", () =>
+  it.effect("rejects deleting a group's only bot", () =>
     Effect.gen(function* () {
       const error = yield* decideOrchestrationCommand({
         command: {
@@ -322,7 +322,9 @@ it.layer(NodeServices.layer)("bot delete decider", (it) => {
         },
         readModel: makeReadModel({
           bots: [makeBot({ id: BOT_ID }), makeBot({ id: OTHER_BOT_ID })],
-          groups: [makeGroup()],
+          groups: [
+            makeGroup({ members: [{ kind: "bot", botId: OTHER_BOT_ID, role: "specialist" }] }),
+          ],
         }),
       }).pipe(Effect.flip);
 
@@ -330,7 +332,7 @@ it.layer(NodeServices.layer)("bot delete decider", (it) => {
         throw new Error("Expected minimum group size invariant error");
       }
 
-      expect(error.detail).toContain("at least two active bots");
+      expect(error.detail).toContain("at least one active bot");
     }),
   );
 

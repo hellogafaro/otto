@@ -184,10 +184,10 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         const remainingBotIds = activeGroupBotIds(readModel, sourceGroup);
         remainingBotIds.delete(bot.id);
 
-        if (remainingBotIds.size < 2) {
+        if (remainingBotIds.size < 1) {
           return yield* new OrchestrationCommandInvariantError({
             commandType: command.type,
-            detail: `Group '${sourceGroup.id}' requires at least two active bots.`,
+            detail: `Group '${sourceGroup.id}' requires at least one active bot.`,
           });
         }
       }
@@ -290,13 +290,13 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         const remainingBotIds = activeGroupBotIds(readModel, group);
         remainingBotIds.delete(command.botId);
 
-        return remainingBotIds.size < 2;
+        return remainingBotIds.size < 1;
       });
 
       if (undersizedGroup) {
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
-          detail: `Group '${undersizedGroup.id}' requires at least two active bots.`,
+          detail: `Group '${undersizedGroup.id}' requires at least one active bot.`,
         });
       }
 
@@ -399,13 +399,13 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         const remainingBotIds = activeGroupBotIds(readModel, group);
         remainingBotIds.delete(command.botId);
 
-        return remainingBotIds.size < 2;
+        return remainingBotIds.size < 1;
       });
 
       if (undersizedGroup) {
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
-          detail: `Group '${undersizedGroup.id}' requires at least two active bots.`,
+          detail: `Group '${undersizedGroup.id}' requires at least one active bot.`,
         });
       }
 

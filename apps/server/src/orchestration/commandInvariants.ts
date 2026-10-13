@@ -298,7 +298,7 @@ export function requireGroup(input: {
       );
 }
 
-function requireMutationActorAuthorized(input: {
+export function requireMutationActorAuthorized(input: {
   readonly group: OrchestrationGroup;
   readonly command: OrchestrationCommand;
   readonly actor: OrchestrationDispatchActor | undefined;

@@ -78,9 +78,9 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
     }),
   );
 
-  it.effect("rejects group creation with fewer than two distinct active bots", () =>
+  it.effect("creates a group with a single bot", () =>
     Effect.gen(function* () {
-      const error = yield* decideOrchestrationCommand({
+      const result = yield* decideOrchestrationCommand({
         command: {
           type: "group.create",
           commandId: CommandId.make("cmd-group-create-one-bot"),
@@ -91,13 +91,11 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
           createdAt: NOW,
         },
         readModel: makeReadModel({ bots: [makeBot({ id: BOSS_ID })] }),
-      }).pipe(Effect.flip);
+      });
 
-      if (!Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
-        throw new Error("Expected minimum group size invariant error");
-      }
+      const events = Array.isArray(result) ? result : [result];
 
-      expect(error.detail).toContain("at least two active bots");
+      expect(events[0]?.type).toBe("group.created");
     }),
   );
 
@@ -202,7 +200,7 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
     }),
   );
 
-  it.effect("rejects archiving a bot when its group would have fewer than two active bots", () =>
+  it.effect("rejects archiving a group's only bot", () =>
     Effect.gen(function* () {
       const error = yield* decideOrchestrationCommand({
         command: {
@@ -212,7 +210,14 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
         },
         readModel: makeReadModel({
           bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
-          groups: [makeGroup()],
+          groups: [
+            makeGroup({
+              members: [
+                { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
+                { kind: "person", personId: PERSON_ID, displayName: "Member" },
+              ],
+            }),
+          ],
         }),
       }).pipe(Effect.flip);
 
@@ -220,11 +225,11 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
         throw new Error("Expected minimum group size invariant error");
       }
 
-      expect(error.detail).toContain("at least two active bots");
+      expect(error.detail).toContain("at least one active bot");
     }),
   );
 
-  it.effect("rejects a legacy bot group move that would leave one active bot", () =>
+  it.effect("rejects a legacy bot group move that would leave no active bot", () =>
     Effect.gen(function* () {
       const targetGroupId = GroupId.make("group-target");
 
@@ -242,7 +247,12 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
             makeBot({ id: OTHER_SPECIALIST_ID, groupId: targetGroupId }),
           ],
           groups: [
-            makeGroup(),
+            makeGroup({
+              members: [
+                { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
+                { kind: "person", personId: PERSON_ID, displayName: "Member" },
+              ],
+            }),
             {
               ...makeGroup({
                 bossBotId: OTHER_SPECIALIST_ID,
@@ -258,7 +268,7 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
         throw new Error("Expected minimum group size invariant error");
       }
 
-      expect(error.detail).toContain("at least two active bots");
+      expect(error.detail).toContain("at least one active bot");
     }),
   );
 
@@ -342,7 +352,7 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
     }),
   );
 
-  it.effect("rejects unassigning a bot when the group would have fewer than two active bots", () =>
+  it.effect("rejects unassigning a group's only bot", () =>
     Effect.gen(function* () {
       const error = yield* decideOrchestrationCommand({
         command: {
@@ -353,7 +363,14 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
         },
         readModel: makeReadModel({
           bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
-          groups: [makeGroup()],
+          groups: [
+            makeGroup({
+              members: [
+                { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
+                { kind: "person", personId: PERSON_ID, displayName: "Member" },
+              ],
+            }),
+          ],
         }),
       }).pipe(Effect.flip);
 
@@ -361,13 +378,13 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
         throw new Error("Expected minimum group size invariant error");
       }
 
-      expect(error.detail).toContain("at least two active bots");
+      expect(error.detail).toContain("at least one active bot");
     }),
   );
 
-  it.effect("rejects replacing and removing the boss when one active bot would remain", () =>
+  it.effect("allows replacing and removing the first bot when one bot remains", () =>
     Effect.gen(function* () {
-      const error = yield* decideOrchestrationCommand({
+      const result = yield* decideOrchestrationCommand({
         command: {
           type: "group.boss.set",
           commandId: CommandId.make("cmd-boss-set-one-remaining"),
@@ -379,13 +396,11 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
           bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
           groups: [makeGroup()],
         }),
-      }).pipe(Effect.flip);
+      });
 
-      if (!Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
-        throw new Error("Expected minimum group size invariant error");
-      }
+      const events = Array.isArray(result) ? result : [result];
 
-      expect(error.detail).toContain("at least two active bots");
+      expect(events[0]?.type).toBe("group.boss-set");
     }),
   );
 
@@ -545,12 +560,23 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
       const { readModel } = yield* applyCommand(
         makeReadModel({
           bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
-          groups: [makeGroup()],
+          groups: [
+            makeGroup({
+              members: [
+                ...makeGroup().members,
+                { kind: "person", personId: AuthSessionId.make("person-2"), displayName: "Ben" },
+              ],
+            }),
+          ],
         }),
         leave,
       );
 
-      expect(readModel.groups[0]?.members.some((member) => member.kind === "person")).toBe(false);
+      expect(
+        readModel.groups[0]?.members.some(
+          (member) => member.kind === "person" && member.personId === PERSON_ID,
+        ),
+      ).toBe(false);
 
       const error = yield* decideOrchestrationCommand({ command: leave, readModel }).pipe(
         Effect.flip,

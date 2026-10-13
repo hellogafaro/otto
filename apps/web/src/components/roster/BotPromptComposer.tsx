@@ -92,6 +92,7 @@ export function BotPromptComposer({
   typeToFocus = true,
   mentionBots = EMPTY_MENTION_BOTS,
   mentionEveryone = false,
+  mentionPeople,
   mentionScope = null,
   commandCatalog,
   activitySlot = null,
@@ -114,6 +115,8 @@ export function BotPromptComposer({
   mentionBots?: ReadonlyArray<MentionBot>;
   /** Offers `@everyone` in the picker; group chats only. */
   mentionEveryone?: boolean;
+  /** Other people in a group chat, offered in the picker. */
+  mentionPeople?: ReadonlyArray<{ readonly personId: string; readonly displayName: string }>;
   /** Enables `@browser` and `@chat:` mentions for this chat's environment. */
   mentionScope?: BotPromptMentionScope | null;
   /**
@@ -411,6 +414,7 @@ export function BotPromptComposer({
               scope={mentionScope}
               bots={mentionBots}
               everyone={mentionEveryone}
+              {...(mentionPeople ? { people: mentionPeople } : {})}
               onSelect={selectMention}
               onClose={closeMentionMenu}
               onActiveOptionChange={setActiveMentionOptionId}

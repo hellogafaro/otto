@@ -1,6 +1,7 @@
 import {
   RiAtLine,
   RiTeamLine,
+  RiUserLine,
   RiFileLine,
   RiGlobalLine,
   RiChat3Line,
@@ -101,6 +102,7 @@ export function BotPromptMentionMenu({
   scope,
   bots,
   everyone = false,
+  people,
   onSelect,
   onClose,
   onActiveOptionChange,
@@ -111,6 +113,7 @@ export function BotPromptMentionMenu({
   scope: BotPromptMentionScope | null;
   bots: ReadonlyArray<BotPromptMentionBot>;
   everyone?: boolean;
+  people?: ReadonlyArray<{ readonly personId: string; readonly displayName: string }>;
   onSelect: (item: BotPromptMentionItem) => void;
   onClose: () => void;
   onActiveOptionChange: (optionId: string | null) => void;
@@ -121,6 +124,7 @@ export function BotPromptMentionMenu({
     browser: t("Preview browser"),
     bot: t("Bot"),
     everyone: t("Every bot in this group"),
+    person: t("Person"),
     thread: t("Chat"),
   };
 
@@ -167,6 +171,7 @@ export function BotPromptMentionMenu({
     browserAvailable: scope !== null && browserAccess,
     browserLabel: t("Browser"),
     everyone,
+    ...(people ? { people } : {}),
     bots,
     threads,
     paths: pathSearch.entries,
@@ -237,6 +242,7 @@ export function BotPromptMentionMenu({
           Match.when({ kind: "browser" }, () => RiGlobalLine),
           Match.when({ kind: "bot" }, () => RiAtLine),
           Match.when({ kind: "everyone" }, () => RiTeamLine),
+          Match.when({ kind: "person" }, () => RiUserLine),
           Match.when({ kind: "path" }, () => RiFileLine),
           Match.orElse(() => RiChat3Line),
         );

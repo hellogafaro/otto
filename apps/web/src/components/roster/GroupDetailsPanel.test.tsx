@@ -26,7 +26,7 @@ describe("GroupDetailsPanel", () => {
     expect(source).toContain("botEnvironment.groups.unassignMember");
     expect(source).toContain("botEnvironment.groups.setBoss");
     expect(source).toContain("botEnvironment.groups.delete");
-    expect(source).toContain("input.memberCount <= 2");
+    expect(source).toContain("input.memberCount <= 1");
     expect(source).not.toContain("Invite people");
     expect(source).toContain("dialogs.confirm(");
     expect(source).toContain('confirmLabel: t("Delete group")');
@@ -34,23 +34,26 @@ describe("GroupDetailsPanel", () => {
   });
 
   it("explains why a bot cannot be removed yet", () => {
-    expect(groupMemberRemovalHint({ memberCount: 2, canAddBot: true })).toBe(
-      "A group needs at least two bots. Add another bot before you remove one.",
+    expect(groupMemberRemovalHint({ memberCount: 1, canAddBot: true })).toBe(
+      "A group needs at least one bot. Add another bot before you remove this one.",
     );
-    expect(groupMemberRemovalHint({ memberCount: 2, canAddBot: false })).toBe(
-      "A group needs at least two bots. Create a new bot in the roster before you remove one.",
+    expect(groupMemberRemovalHint({ memberCount: 1, canAddBot: false })).toBe(
+      "A group needs at least one bot. Create a new bot in the roster before you remove this one.",
     );
-    expect(groupMemberRemovalHint({ memberCount: 3, canAddBot: true })).toBeNull();
+    expect(groupMemberRemovalHint({ memberCount: 2, canAddBot: true })).toBeNull();
   });
 
   it("links the removal hint only to rows it explains", () => {
-    expect(isGroupMemberRemovalBlocked(2)).toBe(true);
-    expect(isGroupMemberRemovalBlocked(3)).toBe(false);
+    expect(isGroupMemberRemovalBlocked(1)).toBe(true);
+    expect(isGroupMemberRemovalBlocked(2)).toBe(false);
 
     const source = readGroupDetailsSources();
     expect(source).toContain("aria-describedby={removalHint && blockedByRule ? removalHintId");
-    expect(source).toContain('<SelectValue placeholder={t("Choose bot")} />');
-    expect(source).toContain("Every bot is already in this group.");
+    expect(source).toContain('<DialogTitle>{t("Add members")}</DialogTitle>');
+    expect(source).toContain('<DialogTitle>{t("Rename group")}</DialogTitle>');
+    expect(source).toContain("<GroupMemberChecklist");
+    expect(source).toContain("Everyone is already in this group.");
+    expect(source).not.toContain("<Select");
   });
 
   it("mounts beside the group conversation", () => {

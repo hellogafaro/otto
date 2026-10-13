@@ -1,7 +1,13 @@
 import { RiSearchLine } from "@remixicon/react";
 import { Match, Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
-import { ARCHIVED_BOT_RETENTION_DAYS, BotId, GroupId } from "@otto/contracts";
+import {
+  ARCHIVED_BOT_RETENTION_DAYS,
+  AuthSessionId,
+  BotId,
+  GroupId,
+  type EnvironmentId,
+} from "@otto/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +19,7 @@ import { isPreviewFocused } from "../../lib/previewFocus";
 import { randomUUID } from "../../lib/utils";
 import { isModelPickerOpen } from "../../modelPickerVisibility";
 import { selectActiveRightPanel, useRightPanelStore } from "../../rightPanelStore";
-import { botEnvironment } from "../../state/bots";
+import { botEnvironment, environmentPeopleAtom } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -64,6 +70,9 @@ export { focusTargetAfterRosterArchive, runCreateBotOnce } from "./rosterCommand
 export { RosterPanelHeader } from "./RosterHeaders";
 
 /** Stable row actions, so memoized rows skip re-rendering when the sidebar does. */
+// SAFETY: the empty ID is an inactive sentinel; its snapshot is absent, so no people load.
+const NO_PEOPLE_ENVIRONMENT = "" as EnvironmentId;
+
 const setRosterItemPinned = (item: RosterItemRef, pinned: boolean) =>
   useRosterStore.getState().setItemPinned(item, pinned);
 
@@ -77,6 +86,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   const navigate = useNavigate();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const environmentId = usePrimaryEnvironmentId();
+  const people = useAtomValue(environmentPeopleAtom(environmentId ?? NO_PEOPLE_ENVIRONMENT));
 
   const createBotCommand = useAtomCommand(botEnvironment.create, {
     reportFailure: false,
@@ -426,6 +436,15 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
         name: input.name,
         bossBotId: BotId.make(input.bossBotId),
         specialistBotIds: input.specialistBotIds.map((botId) => BotId.make(botId)),
+        ...(input.people.length > 0
+          ? {
+              people: input.people.map((person) => ({
+                kind: "person" as const,
+                personId: AuthSessionId.make(person.personId),
+                displayName: person.displayName,
+              })),
+            }
+          : {}),
       },
     });
 
@@ -654,6 +673,8 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
         <NewGroupDialog
           open
           bots={bots}
+          people={people.directory}
+          currentPersonId={people.current?.id ?? null}
           onOpenChange={setNewGroupOpen}
           onCreate={(input) => void handleCreateGroup(input)}
         />

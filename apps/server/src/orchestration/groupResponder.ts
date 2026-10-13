@@ -61,16 +61,25 @@ export interface GroupRound {
  * Who answers a person's message: the bots it @mentions, every bot for @everyone, or,
  * for a plain message, every bot in roster order, each seeing the replies before it.
  */
-export function groupRound(bots: ReadonlyArray<GroupBot>, text: string): GroupRound {
+export function groupRound(
+  bots: ReadonlyArray<GroupBot>,
+  text: string,
+  peopleNames: ReadonlyArray<string> = [],
+): GroupRound {
   if (mentionAt(text, GROUP_EVERYONE_MENTION) >= 0) {
     return { botIds: bots.map((bot) => bot.id), reason: "everyone" };
   }
 
   const mentioned = groupMentions(bots, text);
 
-  return mentioned.length > 0
-    ? { botIds: mentioned, reason: "mentioned" }
-    : { botIds: bots.map((bot) => bot.id), reason: "plain" };
+  if (mentioned.length > 0) return { botIds: mentioned, reason: "mentioned" };
+
+  // A message that only @mentions people is between people; no bot answers it.
+  const forPeople = peopleNames.some((name) =>
+    [name, name.split(/\s+/)[0] ?? name].some((label) => mentionAt(text, `@${label}`) >= 0),
+  );
+
+  return { botIds: forPeople ? [] : bots.map((bot) => bot.id), reason: "plain" };
 }
 
 /** The hidden note that tells a bot why it is answering now. */

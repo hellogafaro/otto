@@ -19,7 +19,7 @@ import * as ChannelCommand from "./channels/ChannelCommand.ts";
 import {
   applyAuthenticatedCommandActor,
   applyKnownGroupPerson,
-  canManageGroupPeople,
+  commandNamesPeople,
 } from "./orchestration/AuthenticatedCommand.ts";
 import {
   cleanupFailedUploadedAttachments,
@@ -27,13 +27,20 @@ import {
   normalizeDispatchCommand,
 } from "./orchestration/Normalizer.ts";
 import { readWorkflowScript } from "./orchestration/workflowScriptQuery.ts";
+import {
+  canSeeGroup,
+  canSeeThread,
+  visibleShellSnapshot,
+} from "./orchestration/groupVisibility.ts";
 import { preflightProvider } from "./provider/providerPreflight.ts";
 
 import { isOrchestrationDispatchCommandError, nowIso } from "./wsSupport.ts";
 import type { WsConnection } from "./wsConnection.ts";
 
 export const createWsOrchestrationHandlers = ({
-  currentSessionId,
+  currentPersonId,
+  accounts,
+  projectionGroups,
   projectionSnapshotQuery,
   projectionBots,
   checkpointDiffQuery,
@@ -41,7 +48,6 @@ export const createWsOrchestrationHandlers = ({
   subscriptionAuth,
   serverSettings,
   startup,
-  serverAuth,
   commandReceipts,
   channelRuntime,
   channelBindingsForRuntime,
@@ -51,7 +57,9 @@ export const createWsOrchestrationHandlers = ({
   dispatchNormalizedCommand,
 }: Pick<
   WsConnection,
-  | "currentSessionId"
+  | "currentPersonId"
+  | "accounts"
+  | "projectionGroups"
   | "projectionSnapshotQuery"
   | "projectionBots"
   | "checkpointDiffQuery"
@@ -59,7 +67,6 @@ export const createWsOrchestrationHandlers = ({
   | "subscriptionAuth"
   | "serverSettings"
   | "startup"
-  | "serverAuth"
   | "commandReceipts"
   | "channelRuntime"
   | "channelBindingsForRuntime"
@@ -110,29 +117,28 @@ export const createWsOrchestrationHandlers = ({
               : undefined;
 
           const actorCommand = applyAuthenticatedCommandActor(decodedCommand, {
-            personId: currentSessionId,
+            personId: currentPersonId,
             displayName: currentPerson?.displayName ?? "Paired person",
             canManageGroups: currentSession.scopes.includes(AuthAccessWriteScope),
           });
 
           let normalizedCommand = actorCommand;
 
-          if (
-            actorCommand.type === "group.person.assign" ||
-            actorCommand.type === "group.person.unassign"
-          ) {
-            if (!canManageGroupPeople(actorCommand, currentSession.scopes)) {
-              return yield* new OrchestrationDispatchCommandError({
-                message: "Managing group people requires access:write.",
-              });
-            }
+          if (commandNamesPeople(actorCommand)) {
+            const people = yield* accounts
+              .listPeople()
+              .pipe(
+                Effect.mapError(
+                  () =>
+                    new OrchestrationDispatchCommandError({ message: "Could not load people." }),
+                ),
+              );
 
-            const clientSessions = yield* serverAuth.listClientSessions(currentSessionId);
-            const knownPersonCommand = applyKnownGroupPerson(actorCommand, clientSessions);
+            const knownPersonCommand = applyKnownGroupPerson(actorCommand, people);
 
             if (!knownPersonCommand) {
               return yield* new OrchestrationDispatchCommandError({
-                message: "Only a paired person can be changed in a group.",
+                message: "Only people in this organization can be added to a group.",
               });
             }
 
@@ -397,6 +403,30 @@ export const createWsOrchestrationHandlers = ({
       observeRpcEffect(
         ORCHESTRATION_WS_METHODS.searchThreads,
         projectionSnapshotQuery.searchThreads(input).pipe(
+          Effect.flatMap((result) =>
+            Effect.gen(function* () {
+              const groups = (yield* projectionGroups.listAll()).map((group) => ({
+                id: group.groupId,
+                members: group.members,
+              }));
+
+              if (groups.every((group) => canSeeGroup(group, currentPersonId))) return result;
+
+              const matches = yield* Effect.filter(result.matches, (match) =>
+                projectionSnapshotQuery
+                  .getThreadShellById(match.threadId)
+                  .pipe(
+                    Effect.map((thread) =>
+                      Option.isNone(thread)
+                        ? false
+                        : canSeeThread(thread.value, groups, currentPersonId),
+                    ),
+                  ),
+              );
+
+              return { ...result, matches };
+            }),
+          ),
           Effect.mapError(
             (cause) =>
               new OrchestrationSearchThreadsError({
@@ -412,6 +442,7 @@ export const createWsOrchestrationHandlers = ({
       observeRpcEffect(
         ORCHESTRATION_WS_METHODS.getArchivedShellSnapshot,
         projectionSnapshotQuery.getArchivedShellSnapshot().pipe(
+          Effect.map((snapshot) => visibleShellSnapshot(snapshot, currentPersonId)),
           Effect.map((snapshot) => ({
             ...snapshot,
             bots: snapshot.bots.map((bot) => ({

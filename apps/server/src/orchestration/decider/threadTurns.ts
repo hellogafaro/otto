@@ -188,10 +188,7 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
                 updatedAt: command.createdAt,
               },
             };
-          } else if (command.senderCanManageGroups !== true) {
-            // Person ids are sign-in sessions, so an administrator who signs in
-            // again is not a listed member. Administrators may already change any
-            // group, so they may also write in it, as group mutations allow.
+          } else {
             return yield* new OrchestrationCommandInvariantError({
               commandType: command.type,
               detail: `Person '${command.senderPersonId}' is not a member of group '${group.id}'.`,

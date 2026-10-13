@@ -6,6 +6,7 @@ import {
   ProjectId,
   ProviderInstanceId,
   ThreadId,
+  type GroupMembership,
   type OrchestrationCommand,
 } from "@otto/contracts";
 import { expect, it } from "@effect/vitest";
@@ -27,7 +28,7 @@ import {
 } from "./test-support/GroupDeciderFixtures.ts";
 
 it.layer(NodeServices.layer)("group membership decider", (it) => {
-  it.effect("lets paired clients configure groups but not create group-owned threads", () =>
+  it.effect("keeps people outside a group from changing it or opening its chats", () =>
     Effect.gen(function* () {
       const outsiderId = AuthSessionId.make("person-outsider");
       const actor = { personId: outsiderId, canManageGroups: false } as const;
@@ -151,11 +152,11 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
       ]);
 
       expect(results.map((result) => result._tag)).toEqual([
-        "Success",
-        "Success",
-        "Success",
-        "Success",
-        "Success",
+        "Failure",
+        "Failure",
+        "Failure",
+        "Failure",
+        "Failure",
         "Failure",
       ]);
     }),
@@ -447,12 +448,12 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
     }),
   );
 
-  it.effect("lets an administrator write in a group after signing in again", () =>
+  it.effect("keeps an administrator who is not in a group from writing in it", () =>
     Effect.gen(function* () {
-      const result = yield* decideOrchestrationCommand({
+      const error = yield* decideOrchestrationCommand({
         command: {
           ...startTurnCommand(),
-          senderPersonId: AuthSessionId.make("person-new-sign-in"),
+          senderPersonId: AuthSessionId.make("person-admin"),
           senderDisplayName: "Owner",
           senderCanManageGroups: true,
         },
@@ -461,11 +462,13 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
           groups: [makeGroup()],
           threads: [makeGroupThread()],
         }),
-      });
+      }).pipe(Effect.flip);
 
-      const events = Array.isArray(result) ? result : [result];
-      expect(events.map((event) => event.type)).not.toContain("group.person-assigned");
-      expect(events.map((event) => event.type)).toContain("thread.message-sent");
+      if (!Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
+        throw new Error("Expected sender membership invariant error");
+      }
+
+      expect(error.detail).toContain("is not a member");
     }),
   );
 
@@ -552,6 +555,129 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
       }
 
       expect(error.detail).toContain("A person member must send turns");
+    }),
+  );
+});
+
+it.layer(NodeServices.layer)("group people", (it) => {
+  const ANA = AuthSessionId.make("user-ana");
+  const BEN = AuthSessionId.make("user-ben");
+  const CY = AuthSessionId.make("user-cy");
+
+  const people = makeReadModel({
+    bots: [makeBot({ id: BOSS_ID })],
+    groups: [
+      makeGroup({
+        members: [
+          { kind: "bot", botId: BOSS_ID, role: "boss" },
+          { kind: "person", personId: ANA, displayName: "Ana" },
+          { kind: "person", personId: BEN, displayName: "Ben" },
+        ],
+      }),
+    ],
+  });
+
+  const tags = (...results: ReadonlyArray<{ readonly _tag: string }>) =>
+    results.map((result) => result._tag);
+
+  it.effect("creates a group with its creator, other people and one bot", () =>
+    Effect.gen(function* () {
+      const result = yield* decideOrchestrationCommand({
+        command: {
+          type: "group.create",
+          commandId: CommandId.make("cmd-create-people"),
+          groupId: GROUP_ID,
+          name: "Team",
+          bossBotId: BOSS_ID,
+          creator: { kind: "person", personId: ANA, displayName: "Ana" },
+          people: [
+            { kind: "person", personId: BEN, displayName: "Ben" },
+            { kind: "person", personId: ANA, displayName: "Ana" },
+          ],
+          createdAt: NOW,
+        },
+        readModel: makeReadModel({ bots: [makeBot({ id: BOSS_ID })] }),
+      });
+
+      const [event] = Array.isArray(result) ? result : [result];
+
+      expect(event?.type).toBe("group.created");
+      expect(
+        event?.type === "group.created"
+          ? event.payload.members.map((member: GroupMembership) =>
+              member.kind === "person" ? member.personId : member.botId,
+            )
+          : [],
+      ).toEqual([BOSS_ID, ANA, BEN]);
+    }),
+  );
+
+  it.effect("lets any member add a person once, but not an outsider", () =>
+    Effect.gen(function* () {
+      const assign = (personId: AuthSessionId, actorId: AuthSessionId) =>
+        Effect.result(
+          decideOrchestrationCommand({
+            command: {
+              type: "group.person.assign",
+              commandId: CommandId.make(`cmd-assign-${personId}-${actorId}`),
+              groupId: GROUP_ID,
+              person: { kind: "person", personId, displayName: "Someone" },
+            },
+            readModel: people,
+            actor: { personId: actorId, canManageGroups: false },
+          }),
+        );
+
+      expect(tags(yield* assign(CY, BEN), yield* assign(BEN, ANA), yield* assign(CY, CY))).toEqual([
+        "Success",
+        "Failure",
+        "Failure",
+      ]);
+    }),
+  );
+
+  it.effect("lets the group's first person or an admin remove others, and anyone leave", () =>
+    Effect.gen(function* () {
+      const unassign = (personId: AuthSessionId, actorId: AuthSessionId, admin = false) =>
+        Effect.result(
+          decideOrchestrationCommand({
+            command: {
+              type: "group.person.unassign",
+              commandId: CommandId.make(`cmd-unassign-${personId}-${actorId}`),
+              groupId: GROUP_ID,
+              personId,
+            },
+            readModel: people,
+            actor: { personId: actorId, canManageGroups: admin },
+          }),
+        );
+
+      expect(
+        tags(
+          yield* unassign(BEN, ANA),
+          yield* unassign(ANA, BEN),
+          yield* unassign(BEN, BEN),
+          yield* unassign(ANA, CY, true),
+        ),
+      ).toEqual(["Success", "Failure", "Success", "Success"]);
+    }),
+  );
+
+  it.effect("keeps the last person in a group", () =>
+    Effect.gen(function* () {
+      const error = yield* decideOrchestrationCommand({
+        command: {
+          type: "group.leave",
+          commandId: CommandId.make("cmd-last-leave"),
+          groupId: GROUP_ID,
+          personId: PERSON_ID,
+        },
+        readModel: makeReadModel({ bots: [makeBot({ id: BOSS_ID })], groups: [makeGroup()] }),
+      }).pipe(Effect.flip);
+
+      expect(
+        Predicate.isTagged(error, "OrchestrationCommandInvariantError") && error.detail,
+      ).toContain("last person");
     }),
   );
 });

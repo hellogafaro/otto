@@ -413,17 +413,36 @@ export function createThreadDetail({
 
           const oldest = windowRows[0];
 
+          const hasMore =
+            oldest !== undefined &&
+            (yield* listTurnWindowRows({
+              threadId,
+              beforeAnchorAt: oldest.anchorAt,
+              beforeTurnKey: oldest.turnKey,
+              userTurnLimit: 1,
+              maxRawTurns: 1,
+            }).pipe(
+              Effect.mapError(
+                toPersistenceSqlOrDecodeError(
+                  "ProjectionSnapshotQuery.getThreadDetailSnapshot:probeOlder:query",
+                  "ProjectionSnapshotQuery.getThreadDetailSnapshot:probeOlder:decodeRows",
+                ),
+              ),
+            )).length > 0;
+
           // An empty window (no turns before the cursor, or a thread with no
           // turns at all) still returns thread metadata with empty collections
           // for turn-linked rows; turnless rows are bounded to the same empty
           // range. The first page of a turnless thread stays unwindowed so
           // pre-turn content (e.g. a just-created thread) is not hidden.
+          // The oldest page has no lower bound, so messages sent before the first
+          // turn (a group's opening messages wait for its round) still load.
           const bounds: ThreadDetailBounds | undefined =
             oldest === undefined && cursor === null
               ? undefined
               : {
-                  minAnchorAt: oldest?.anchorAt ?? "",
-                  minTurnKey: oldest?.turnKey ?? "",
+                  minAnchorAt: hasMore ? (oldest?.anchorAt ?? "") : "",
+                  minTurnKey: hasMore ? (oldest?.turnKey ?? "") : "",
                   beforeAnchorAt: cursor?.beforeAnchorAt ?? ANCHOR_UNBOUNDED,
                   beforeTurnKey: cursor?.beforeTurnId ?? "",
                 };
@@ -441,23 +460,6 @@ export function createThreadDetail({
           if (Option.isNone(thread)) {
             return Option.none<OrchestrationThreadDetailSnapshot>();
           }
-
-          const hasMore =
-            oldest !== undefined &&
-            (yield* listTurnWindowRows({
-              threadId,
-              beforeAnchorAt: oldest.anchorAt,
-              beforeTurnKey: oldest.turnKey,
-              userTurnLimit: 1,
-              maxRawTurns: 1,
-            }).pipe(
-              Effect.mapError(
-                toPersistenceSqlOrDecodeError(
-                  "ProjectionSnapshotQuery.getThreadDetailSnapshot:probeOlder:query",
-                  "ProjectionSnapshotQuery.getThreadDetailSnapshot:probeOlder:decodeRows",
-                ),
-              ),
-            )).length > 0;
 
           const { snapshotSequence } = yield* getSnapshotSequence();
 

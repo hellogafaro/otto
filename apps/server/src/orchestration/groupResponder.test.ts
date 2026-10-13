@@ -59,4 +59,16 @@ describe("groupRosterContext", () => {
     expect(context).toContain("No bot leads this group");
     expect(context).not.toMatch(/\(lead\)|boss/i);
   });
+  it("keeps every bot quiet when a message only mentions a person", () => {
+    const bots = [
+      { id: BotId.make("bot-axo"), name: "Axo" },
+      { id: BotId.make("bot-capy"), name: "Capy" },
+    ];
+
+    expect(groupRound(bots, "@Ana can you check this?", ["Ana Lopez"]).botIds).toEqual([]);
+    expect(groupRound(bots, "@Ana Lopez and @Capy, thoughts?", ["Ana Lopez"]).botIds).toEqual([
+      BotId.make("bot-capy"),
+    ]);
+    expect(groupRound(bots, "hello", ["Ana Lopez"]).botIds).toHaveLength(2);
+  });
 });

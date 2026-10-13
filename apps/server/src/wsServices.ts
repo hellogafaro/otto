@@ -11,6 +11,7 @@ import * as Stream from "effect/Stream";
 import {
   AuthAccessWriteScope,
   AuthAccessStreamError,
+  AuthSessionId,
   type ChannelBinding,
   type AuthEnvironmentScope,
   CommandId,
@@ -41,6 +42,7 @@ import * as ChannelRuntime from "./channels/ChannelRuntime.ts";
 import * as CheckpointDiffQuery from "./checkpointing/CheckpointDiffQuery.ts";
 import * as ServerConfig from "./config.ts";
 import { OrganizationAccounts, organizationRoleScopes } from "./auth/OrganizationAccounts.ts";
+import { sessionPersonId } from "./orchestration/AuthenticatedCommand.ts";
 import * as Keybindings from "./keybindings.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
 import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
@@ -110,6 +112,7 @@ export const createWsServices = (
 ) =>
   Effect.gen(function* () {
     const currentSessionId = currentSession.sessionId;
+    const currentPersonId = sessionPersonId(currentSession);
 
     const crypto = yield* Crypto.Crypto;
 
@@ -206,7 +209,7 @@ export const createWsServices = (
       clientOrigin.surface !== undefined || clientOrigin.appVersion !== undefined;
 
     const dispatchActor = {
-      personId: currentSessionId,
+      personId: currentPersonId,
       canManageGroups: currentSession.scopes.includes(AuthAccessWriteScope),
     };
 
@@ -578,20 +581,31 @@ export const createWsServices = (
       randomUUID.pipe(Effect.map((uuid) => CommandId.make(`server:${tag}:${uuid}`)));
 
     const loadEnvironmentPeople = () =>
-      serverAuth.listClientSessions(currentSessionId).pipe(
-        Effect.map((clientSessions) => {
+      Effect.all({
+        clientSessions: serverAuth.listClientSessions(currentSessionId),
+        directory: accounts.listPeople().pipe(Effect.orElseSucceed(() => [])),
+      }).pipe(
+        Effect.map(({ clientSessions, directory }) => {
           const currentClient = clientSessions.find(
             (session) => session.sessionId === currentSessionId,
           );
+
+          const currentAccount = directory.find((person) => person.userId === currentPersonId);
 
           const hostClient = clientSessions.find((session) =>
             session.scopes.includes(AuthAccessWriteScope),
           );
 
           return {
+            people: directory.map((person) => ({
+              personId: AuthSessionId.make(person.userId),
+              displayName: person.displayName,
+              email: person.email,
+            })),
             current: {
-              personId: currentSessionId,
+              personId: currentPersonId,
               displayName:
+                currentAccount?.displayName ??
                 currentClient?.client.label ??
                 (currentSession.scopes.includes(AuthAccessWriteScope) ? "Host" : "Paired person"),
             },
@@ -599,7 +613,7 @@ export const createWsServices = (
               hostClient === undefined
                 ? undefined
                 : {
-                    personId: hostClient.sessionId,
+                    personId: sessionPersonId(hostClient),
                     displayName: hostClient.client.label ?? "Host",
                   },
           };
@@ -693,6 +707,8 @@ export const createWsServices = (
       voiceCalls,
       providerRefreshes,
       currentSessionId,
+      currentPersonId,
+      accounts,
       crypto,
       voiceCallOwnerId,
       computerClients,

@@ -335,6 +335,8 @@ export const GroupCreateCommand = Schema.Struct({
   bossBotId: Schema.optional(BotId),
   specialistBotIds: Schema.optional(Schema.Array(BotId)),
   creator: Schema.optional(GroupPersonMembership),
+  /** Other organization members to add; the server fills in their names. */
+  people: Schema.optional(Schema.Array(GroupPersonMembership)),
   createdAt: IsoDateTime,
 });
 

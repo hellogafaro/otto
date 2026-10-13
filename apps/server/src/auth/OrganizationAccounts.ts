@@ -21,6 +21,7 @@ import { resolveSessionCookieName } from "./utils.ts";
 import { ServerEnvironmentIdentity } from "../environment/ServerEnvironment.ts";
 import {
   createOrganizationAccountsRuntime,
+  type AccountPerson,
   type AccountPrincipal,
   type OrganizationAccountsRuntime,
 } from "./OrganizationAccountsRuntime.ts";
@@ -46,6 +47,10 @@ export class OrganizationAccounts extends Context.Service<
     readonly getPrincipal: (
       sessionId: string,
     ) => Effect.Effect<AccountPrincipal | null, OrganizationAccountsError>;
+    readonly listPeople: () => Effect.Effect<
+      ReadonlyArray<AccountPerson>,
+      OrganizationAccountsError
+    >;
     readonly handle: (request: Request) => Effect.Effect<Response>;
   }
 >()("@otto/server/auth/OrganizationAccounts") {}
@@ -209,6 +214,11 @@ export const layer = Layer.effect(
       getPrincipal: (sessionId) =>
         Effect.try({
           try: () => runtime.getPrincipal(sessionId),
+          catch: () => new OrganizationAccountsError({}),
+        }),
+      listPeople: () =>
+        Effect.try({
+          try: () => runtime.listPeople(),
           catch: () => new OrganizationAccountsError({}),
         }),
       handle,

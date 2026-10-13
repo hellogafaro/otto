@@ -66,7 +66,7 @@ import { ProviderConnectCard, providerConnectStep } from "../chat/ProviderConnec
 import { useSubscriptionStatuses } from "../settings/ProvidersPanel";
 import { buildBotStepMeters } from "@otto/client-runtime/bot-step-usage";
 import { useGroupPresence } from "./botPresence";
-import { groupBotMembers, isCurrentGroupPerson } from "./roster.logic";
+import { groupBotMembers, groupPersonMembers, isCurrentGroupPerson } from "./roster.logic";
 import { useMessageArrivals } from "./messageArrival";
 import { useRosterStore } from "./rosterStore";
 import { useGroupThreadRuntime } from "./useGroupThreadRuntime";
@@ -288,6 +288,10 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
   }
 
   const currentPersonId = peopleIdentity.current?.id;
+
+  const mentionPeople = groupPersonMembers(group).filter(
+    (person) => person.personId !== currentPersonId,
+  );
   const activeBot = members.find((bot) => bot.id === runtime.respondingBotId) ?? boss;
 
   const inboxItems = selectOpenBotInboxItems(
@@ -431,6 +435,15 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
                       testId="group-user-message"
                       startsGroup={startsGroup}
                       replyLabel={current ? "you" : "participant"}
+                      authorName={
+                        current
+                          ? null
+                          : (message.authorDisplayName ??
+                            groupPersonMembers(group).find(
+                              (person) => person.personId === message.authorPersonId,
+                            )?.displayName ??
+                            t("Someone"))
+                      }
                       showChannelOrigin={false}
                       skills={bossCatalog?.skills}
                       environmentId={environmentId}
@@ -558,6 +571,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
               (!waitingForUserInput && !runtime.providerAvailable)
             }
             mentionEveryone
+            mentionPeople={mentionPeople}
             mentionBots={members.map((bot) => ({
               id: bot.id,
               name: bot.name,

@@ -607,4 +607,87 @@ projectionSnapshotLayer("ProjectionSnapshotQuery windowed thread detail", (it) =
       }
     }),
   );
+
+  it.effect("the oldest page keeps messages sent before the first turn", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      const snapshotQuery = yield* ProjectionSnapshotQuery;
+
+      yield* sql`DELETE FROM projection_projects`;
+      yield* sql`DELETE FROM projection_threads`;
+      yield* sql`DELETE FROM projection_turns`;
+      yield* sql`DELETE FROM projection_thread_messages`;
+      yield* sql`DELETE FROM projection_thread_activities`;
+      yield* sql`DELETE FROM projection_state`;
+
+      yield* sql`
+        INSERT INTO projection_projects (
+          project_id, title, workspace_root, scripts_json, created_at, updated_at, deleted_at
+        )
+        VALUES ('project-g', 'Group', '/tmp/project-g', '[]',
+          '2026-03-03T00:00:00.000Z', '2026-03-03T00:00:00.000Z', NULL)
+      `;
+      yield* sql`
+        INSERT INTO projection_threads (
+          thread_id, project_id, title, model_selection_json, runtime_mode, interaction_mode,
+          latest_turn_id, pending_approval_count, pending_user_input_count,
+          has_actionable_proposed_plan, created_at, updated_at, deleted_at
+        )
+        VALUES ('thread-g', 'project-g', 'Group thread',
+          '{"provider":"codex","model":"gpt-5-codex"}', 'full-access', 'default',
+          'turn-g', 0, 0, 0, '2026-03-03T00:00:00.000Z', '2026-03-03T00:00:30.000Z', NULL)
+      `;
+
+      // Two people talk first; the group's round starts the bot's turn afterwards.
+      for (const [id, at] of [
+        ["person-msg-1", "2026-03-03T00:00:01.000Z"],
+        ["person-msg-2", "2026-03-03T00:00:20.000Z"],
+      ]) {
+        yield* sql`
+          INSERT INTO projection_thread_messages (
+            message_id, thread_id, turn_id, role, text, is_streaming, created_at, updated_at
+          )
+          VALUES (${id}, 'thread-g', NULL, 'user', ${id}, 0, ${at}, ${at})
+        `;
+      }
+
+      yield* sql`
+        INSERT INTO projection_turns (
+          thread_id, turn_id, pending_message_id, state, requested_at, started_at, completed_at,
+          checkpoint_files_json
+        )
+        VALUES ('thread-g', 'turn-g', 'person-msg-2', 'completed', '2026-03-03T00:00:22.000Z',
+          '2026-03-03T00:00:22.000Z', '2026-03-03T00:00:25.000Z', '[]')
+      `;
+      yield* sql`
+        INSERT INTO projection_thread_messages (
+          message_id, thread_id, turn_id, role, text, is_streaming, created_at, updated_at
+        )
+        VALUES ('turn-g-reply', 'thread-g', 'turn-g', 'assistant', 'hello both', 0,
+          '2026-03-03T00:00:25.000Z', '2026-03-03T00:00:25.000Z')
+      `;
+
+      for (const projector of Object.values(ORCHESTRATION_PROJECTOR_NAMES)) {
+        yield* sql`
+          INSERT INTO projection_state (projector, last_applied_sequence, updated_at)
+          VALUES (${projector}, 9, '2026-03-03T00:00:25.000Z')
+        `;
+      }
+
+      const snapshot = yield* snapshotQuery.getThreadDetailSnapshot(ThreadId.make("thread-g"), {
+        turnLimit: 10,
+      });
+
+      assert.equal(snapshot._tag, "Some");
+
+      if (Predicate.isTagged(snapshot, "Some")) {
+        assert.deepEqual(messageIds(snapshot.value), [
+          "person-msg-1",
+          "person-msg-2",
+          "turn-g-reply",
+        ]);
+        assert.equal(snapshot.value.page?.hasMore, false);
+      }
+    }),
+  );
 });

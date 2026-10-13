@@ -15,10 +15,12 @@ export function groupMemberRemovalHint(
   },
   t: Translate = englishTranslate,
 ): string | null {
-  if (input.memberCount <= 2) {
+  if (input.memberCount <= 1) {
     return input.canAddBot
-      ? t("A group needs at least two bots. Add another bot before you remove one.")
-      : t("A group needs at least two bots. Create a new bot in the roster before you remove one.");
+      ? t("A group needs at least one bot. Add another bot before you remove this one.")
+      : t(
+          "A group needs at least one bot. Create a new bot in the roster before you remove this one.",
+        );
   }
 
   return null;
@@ -26,5 +28,5 @@ export function groupMemberRemovalHint(
 
 /** True when the removal hint explains why this row's remove button is disabled. */
 export function isGroupMemberRemovalBlocked(memberCount: number): boolean {
-  return memberCount <= 2;
+  return memberCount <= 1;
 }

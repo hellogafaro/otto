@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1831,
+  "directMessageCount": 1839,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -104,7 +104,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "describeDurableFactFailure(squashAtomCommandFailure(result)).message),",
     ],
     "apps/web/src/components/roster/NewGroupDialog.tsx": [
-      "selectionHint)}</p>",
+      "selectionHint)",
     ],
     "apps/web/src/components/roster/RosterRows.tsx": [
       "chatsOpen ? "Hide {name} chats" : "Show {name} chats", {",

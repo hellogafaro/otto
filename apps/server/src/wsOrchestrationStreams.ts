@@ -70,6 +70,8 @@ export const createWsOrchestrationStreams = ({
       case "group.renamed":
       case "group.member-assigned":
       case "group.member-unassigned":
+      case "group.person-assigned":
+      case "group.person-unassigned":
       case "group.boss-set":
         return groupUpsertOrRemove(event.payload.groupId, event.sequence);
       case "group.deleted":

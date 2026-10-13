@@ -22,6 +22,7 @@ import { UserInputAnswerCard } from "../chat/UserInputAnswerCard";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { BotAvatarView } from "./BotAvatarView";
+import { PersonAvatar } from "./PersonAvatar";
 import { BotMessageAttachments } from "./BotMessageAttachments";
 import { BotStepMeter } from "./BotStepMeter";
 import {
@@ -255,11 +256,14 @@ export const UserMessageRow = memo(function UserMessageRow({
   environmentId,
   currentPersonId,
   answered = null,
+  authorName = null,
   onReply,
   onReactionChange,
 }: {
   readonly message: OrchestrationMessage;
   readonly testId: string;
+  /** Another person in a group chat; their messages sit on the left under their name. */
+  readonly authorName?: string | null;
   readonly arrived?: boolean;
   readonly replySourceMessageId?: string | null;
   readonly startsGroup: boolean;
@@ -278,6 +282,65 @@ export const UserMessageRow = memo(function UserMessageRow({
   const copyText = userMessageCopyText(message);
   const selectedReaction = selectedReactionForPerson(message.reactions, currentPersonId);
   const reactions = reactionProps(message, selectedReaction, onReactionChange);
+
+  if (authorName) {
+    return (
+      <div
+        id={`chat-message-${message.id}`}
+        tabIndex={-1}
+        className={cn(
+          "group/message flex items-start gap-3",
+          startsGroup ? "mt-3 first:mt-0" : "mt-1",
+          ROW_VISIBILITY_CLASS,
+          arrived && "motion-message-enter",
+        )}
+        data-testid={testId}
+      >
+        {startsGroup ? (
+          <PersonAvatar name={authorName} className="mt-0.5 size-7" />
+        ) : (
+          <div aria-hidden="true" className="size-7 shrink-0" />
+        )}
+        <div className="flex min-w-0 max-w-39/50 flex-col items-start">
+          {startsGroup ? <div className="text-sm font-medium">{authorName}</div> : null}
+          <div className="mt-0.5 rounded-2xl bg-foreground/10 px-3.5 py-2 text-sm leading-6">
+            {message.text ? (
+              <SentMessageText
+                text={message.text}
+                skills={skills}
+                replySourceMessageId={replySourceMessageId}
+              />
+            ) : null}
+            {message.attachments?.length ? (
+              <div className={message.text ? "mt-2" : undefined}>
+                <BotMessageAttachments
+                  attachments={message.attachments}
+                  environmentId={environmentId ?? NO_ENVIRONMENT}
+                />
+              </div>
+            ) : null}
+          </div>
+          <div className={`mt-0.5 flex ${HOVER_CONTROLS_CLASS}`}>
+            <MessageControls
+              flushStart
+              copyText={copyText}
+              selectedReaction={selectedReaction}
+              onReply={() => onReply(message.id, authorName, copyText)}
+              {...reactions.controls}
+            />
+            {!onReactionChange ? (
+              <UnavailableReactionControl selectedReaction={selectedReaction} />
+            ) : null}
+          </div>
+          <MessageReactions
+            reactions={message.reactions ?? []}
+            selectedEmoji={selectedReaction}
+            {...reactions.chips}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

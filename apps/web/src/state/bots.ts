@@ -57,6 +57,8 @@ export const environmentPeopleAtom = Atom.family((environmentId: EnvironmentId) 
             displayName: snapshot.currentPersonDisplayName ?? "Paired person",
           }
         : null,
+      /** Everyone in the organization who can be added to a group. */
+      directory: snapshot?.people ?? [],
       host: snapshot?.environmentHostPersonId
         ? {
             id: snapshot.environmentHostPersonId,

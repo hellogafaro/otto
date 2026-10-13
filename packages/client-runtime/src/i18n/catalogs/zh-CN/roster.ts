@@ -86,19 +86,8 @@ export const rosterCatalog = {
   "Bot name": "机器人名称",
   "Create bot": "创建机器人",
   "Group name": "群组名称",
-  "Select at least two bots.": "请至少选择两个机器人。",
   "Create group": "创建群组",
-  "A group needs at least two bots. Add another bot before you remove one.":
-    "群组至少需要两个机器人。请先添加另一个机器人，再移除其中一个。",
-  "A group needs at least two bots. Create a new bot in the roster before you remove one.":
-    "群组至少需要两个机器人。请先在机器人列表中创建一个新机器人，再移除其中一个。",
   "Could not rename group": "无法重命名群组",
-  "Remove {bot} from {group}": "将 {bot} 从 {group} 中移除",
-  "Add bot": "添加机器人",
-  "Choose bot": "选择机器人",
-  "Add bot to group": "将机器人添加到群组",
-  "Could not add bot": "无法添加机器人",
-  "Every bot is already in this group.": "所有机器人都已在此群组中。",
   "Delete group": "删除群组",
   'Delete "{name}"? Its bots stay in your roster.':
     "删除“{name}”？其中的机器人会保留在你的机器人列表中。",
@@ -303,10 +292,32 @@ export const rosterCatalog = {
   "It introduces itself and asks about your work.": "它会先做自我介绍，并了解你的工作。",
   "Meet {name}": "认识 {name}",
   "Choose another image": "选择其他图片",
-  "Choose the bots in this group. They all hear every message.":
-    "选择此群组中的机器人。它们都会收到每条消息。",
   "No active bots": "没有可用的机器人",
   "Add an active bot to this group in the group sidebar.":
     "请在群组侧栏中为此群组添加一个可用的机器人。",
   "Every bot in this group": "此群组中的所有机器人",
+  "Select at least one bot.": "请至少选择一个机器人。",
+  "Choose who is in this group. Every bot hears every message.":
+    "选择此群组的成员。每个机器人都会收到每条消息。",
+  "A group needs at least one bot. Add another bot before you remove this one.":
+    "群组至少需要一个机器人。请先添加另一个机器人，再移除这个。",
+  "A group needs at least one bot. Create a new bot in the roster before you remove this one.":
+    "群组至少需要一个机器人。请先在机器人列表中创建一个新机器人，再移除这个。",
+  "Could not add {name}": "无法添加 {name}",
+  "Could not leave group": "无法退出群组",
+  "Leave {group}": "退出 {group}",
+  Person: "成员",
+  "Remove {name} from {group}": "将 {name} 从 {group} 中移除",
+  Someone: "某人",
+  "You are in the group. Invite more people in Settings, Members.":
+    "你已在此群组中。请在“设置 > 成员”中邀请更多人。",
+  "{name} (you)": "{name}（你）",
+  Rename: "重命名",
+  "Rename group": "重命名群组",
+  "Add members": "添加成员",
+  "Everyone is already in this group.": "所有人都已在此群组中。",
+  "Every bot hears every message. Invite more people in Settings, Members.":
+    "每个机器人都会收到每条消息。请在“设置 > 成员”中邀请更多人。",
+  "{count} member": "{count} 名成员",
+  "{count} members": "{count} 名成员",
 } as const;

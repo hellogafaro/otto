@@ -204,14 +204,26 @@ describe("roster in Simplified Chinese", () => {
 
   it("translates the new group dialog", () => {
     const markup = renderInChinese(
-      <NewGroupDialog open bots={[otto]} onOpenChange={() => {}} onCreate={() => {}} />,
+      <NewGroupDialog
+        open
+        bots={[]}
+        people={[
+          { personId: "user-me", displayName: "Me" },
+          { personId: "user-ana", displayName: "Ana" },
+        ]}
+        currentPersonId="user-me"
+        onOpenChange={() => {}}
+        onCreate={() => {}}
+      />,
     );
 
     expect(markup).toContain("新建群组");
-    expect(markup).toContain("选择此群组中的机器人。它们都会收到每条消息。");
-    expect(markup).toContain("请至少选择两个机器人。");
-    expect(markup).not.toContain("Choose the bots");
-    expect(markup).not.toContain("Select at least two bots.");
+    expect(markup).toContain("选择此群组的成员。每个机器人都会收到每条消息。");
+    expect(markup).toContain("请至少选择一个机器人。");
+    expect(markup).toContain("成员");
+    expect(markup).toContain("Ana");
+    expect(markup).not.toContain("Choose who is in");
+    expect(markup).not.toContain("Select at least one bot.");
   });
 
   it("translates the roster panel header", () => {

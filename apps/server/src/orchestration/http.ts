@@ -2,8 +2,10 @@ import {
   AuthAccessWriteScope,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
+  AuthSessionId,
   EnvironmentHttpApi,
   ProviderInstanceId,
+  type ThreadId,
 } from "@otto/contracts";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -25,23 +27,25 @@ import { projectThreadDetailSnapshot } from "./ActivityPayloadProjection.ts";
 import {
   applyAuthenticatedCommandActor,
   applyKnownGroupPerson,
-  canManageGroupPeople,
+  commandNamesPeople,
+  sessionPersonId,
 } from "./AuthenticatedCommand.ts";
 import {
   cleanupFailedUploadedAttachments,
   dispatchKeepingAcceptedUploads,
   normalizeDispatchCommand,
 } from "./Normalizer.ts";
-import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
+import { OrganizationAccounts } from "../auth/OrganizationAccounts.ts";
 import {
   annotateEnvironmentRequest,
-  failEnvironmentScopeRequired,
   failEnvironmentInternal,
   failEnvironmentInvalidRequest,
   failEnvironmentNotFound,
   requireEnvironmentScope,
 } from "../auth/http.ts";
 import { OrchestrationEngineService } from "./Services/OrchestrationEngine.ts";
+import { ProjectionGroupRepository } from "../persistence/Services/ProjectionGroups.ts";
+import { canSeeGroup, visibleShellSnapshot } from "./groupVisibility.ts";
 import { ProjectionSnapshotQuery } from "./Services/ProjectionSnapshotQuery.ts";
 
 export const orchestrationHttpApiLayer = HttpApiBuilder.group(
@@ -50,7 +54,20 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
   Effect.fnUntraced(function* (handlers) {
     const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
     const orchestrationEngine = yield* OrchestrationEngineService;
-    const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+    const accounts = yield* OrganizationAccounts;
+    const projectionGroups = yield* ProjectionGroupRepository;
+
+    const canReadThread = (threadId: ThreadId, personId: AuthSessionId) =>
+      Effect.gen(function* () {
+        const thread = yield* projectionSnapshotQuery.getThreadShellById(threadId);
+
+        if (Option.isNone(thread) || thread.value.groupId == null) return true;
+        const group = yield* projectionGroups.getById({ groupId: thread.value.groupId });
+
+        return Option.isNone(group)
+          ? true
+          : canSeeGroup({ id: group.value.groupId, members: group.value.members }, personId);
+      });
     const projectionBots = yield* ProjectionBots.ProjectionBotRepository;
     const commandReceipts = yield* OrchestrationCommandReceiptRepository;
     const providerRegistry = yield* Effect.serviceOption(ProviderRegistry.ProviderRegistry);
@@ -85,11 +102,22 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
         "shellSnapshot",
         Effect.fn("environment.orchestration.shellSnapshot")(function* (args) {
           yield* annotateEnvironmentRequest(args.endpoint.name);
-          yield* requireEnvironmentScope(AuthOrchestrationReadScope);
+          const principal = yield* requireEnvironmentScope(AuthOrchestrationReadScope);
+          const personId = sessionPersonId(principal);
+          const people = yield* accounts.listPeople().pipe(Effect.orElseSucceed(() => []));
+          const currentPerson = people.find((person) => person.userId === personId);
 
           return yield* projectionSnapshotQuery.getShellSnapshot().pipe(
+            Effect.map((snapshot) => visibleShellSnapshot(snapshot, personId)),
             Effect.map((snapshot) => ({
               ...snapshot,
+              currentPersonId: personId,
+              ...(currentPerson ? { currentPersonDisplayName: currentPerson.displayName } : {}),
+              people: people.map((person) => ({
+                personId: AuthSessionId.make(person.userId),
+                displayName: person.displayName,
+                email: person.email,
+              })),
               bots: snapshot.bots.map((bot) => ({
                 ...bot,
                 channelBindings: Option.match(channelRuntime, {
@@ -109,7 +137,18 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
         "threadSnapshot",
         Effect.fn("environment.orchestration.threadSnapshot")(function* (args) {
           yield* annotateEnvironmentRequest(args.endpoint.name);
-          yield* requireEnvironmentScope(AuthOrchestrationReadScope);
+          const principal = yield* requireEnvironmentScope(AuthOrchestrationReadScope);
+
+          const readable = yield* canReadThread(
+            args.params.threadId,
+            sessionPersonId(principal),
+          ).pipe(
+            Effect.catch((cause) =>
+              failEnvironmentInternal("orchestration_thread_snapshot_failed", cause),
+            ),
+          );
+
+          if (!readable) return yield* failEnvironmentNotFound("thread_not_found");
 
           const snapshot = yield* projectionSnapshotQuery
             .getThreadDetailSnapshot(
@@ -179,20 +218,15 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
             Effect.catch(() => failEnvironmentInvalidRequest("invalid_command")),
           );
 
-          if (!canManageGroupPeople(decodedCommand, principal.scopes)) {
-            return yield* failEnvironmentScopeRequired(AuthAccessWriteScope);
-          }
-
           const needsPeople =
             decodedCommand.type === "group.create" ||
             decodedCommand.type === "group.leave" ||
             decodedCommand.type === "group.person.assign" ||
-            decodedCommand.type === "group.person.unassign" ||
             decodedCommand.type === "thread.turn.start";
 
-          const clientSessions = needsPeople
-            ? yield* serverAuth
-                .listClientSessions(principal.sessionId)
+          const people = needsPeople
+            ? yield* accounts
+                .listPeople()
                 .pipe(
                   Effect.catch((cause) =>
                     failEnvironmentInternal("orchestration_dispatch_failed", cause),
@@ -200,20 +234,21 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
                 )
             : [];
 
-          const currentClient = clientSessions.find(
-            (session) => session.sessionId === principal.sessionId,
-          );
+          const personId = sessionPersonId(principal);
 
           const actor = {
-            personId: principal.sessionId,
+            personId,
             displayName:
-              currentClient?.client.label ??
+              people.find((person) => person.userId === personId)?.displayName ??
               (principal.scopes.has(AuthAccessWriteScope) ? "Host" : "Paired person"),
             canManageGroups: principal.scopes.has(AuthAccessWriteScope),
           };
 
           const actorCommand = applyAuthenticatedCommandActor(decodedCommand, actor);
-          const normalizedCommand = applyKnownGroupPerson(actorCommand, clientSessions);
+
+          const normalizedCommand = commandNamesPeople(actorCommand)
+            ? applyKnownGroupPerson(actorCommand, people)
+            : actorCommand;
 
           if (!normalizedCommand) {
             return yield* failEnvironmentInvalidRequest("invalid_command");

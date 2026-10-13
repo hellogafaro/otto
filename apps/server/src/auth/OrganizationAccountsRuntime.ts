@@ -43,6 +43,19 @@ const principalRow = z.object({
 
 export type AccountPrincipal = z.infer<typeof principalRow>;
 
+const personRow = z.object({
+  userId: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string(),
+});
+
+export interface AccountPerson {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly email: string;
+}
+
 export interface AccountMail {
   readonly to: string;
   readonly subject: string;
@@ -230,6 +243,26 @@ export async function createOrganizationAccountsRuntime(options: {
     return row ? organizationRow.parse(row) : null;
   };
 
+  const selectPeople = database.prepare(`
+    SELECT u.id AS userId, u.firstName, u.lastName, u.email
+    FROM members m
+    JOIN users u ON u.id = m.userId
+    WHERE u.emailVerified = 1
+    ORDER BY u.firstName, u.lastName
+  `);
+
+  /** Everyone in the organization who can sign in, for group membership. */
+  const listPeople = (): ReadonlyArray<AccountPerson> =>
+    selectPeople.all().map((row) => {
+      const person = personRow.parse(row);
+
+      return {
+        userId: person.userId,
+        displayName: `${person.firstName} ${person.lastName}`.trim() || person.email,
+        email: person.email,
+      };
+    });
+
   const getPrincipal = (sessionId: string): AccountPrincipal | null => {
     const row = selectPrincipal.get(
       sessionId,
@@ -348,7 +381,16 @@ export async function createOrganizationAccountsRuntime(options: {
     database.prepare("DELETE FROM user_sessions WHERE id = ?").run(sessionId);
   };
 
-  return { auth, getOrganization, getPrincipal, authenticate, setup, handle, revokeSession };
+  return {
+    auth,
+    getOrganization,
+    getPrincipal,
+    listPeople,
+    authenticate,
+    setup,
+    handle,
+    revokeSession,
+  };
 }
 
 export type OrganizationAccountsRuntime = Awaited<

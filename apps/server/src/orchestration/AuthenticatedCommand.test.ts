@@ -1,28 +1,21 @@
-import {
-  AuthSessionId,
-  BotId,
-  CommandId,
-  GroupId,
-  MessageId,
-  ThreadId,
-  type AuthClientSession,
-} from "@otto/contracts";
+import { AuthSessionId, BotId, CommandId, GroupId, MessageId, ThreadId } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   applyAuthenticatedCommandActor,
   applyKnownGroupPerson,
-  canManageGroupPeople,
+  sessionPersonId,
 } from "./AuthenticatedCommand.ts";
 
 const currentPersonId = AuthSessionId.make("person-current");
 
 const targetPersonId = AuthSessionId.make("person-target");
 
-const targetSession = {
-  sessionId: targetPersonId,
-  client: { label: "Target person" },
-} as AuthClientSession;
+const targetPerson = {
+  userId: targetPersonId,
+  displayName: "Target person",
+  email: "target@example.test",
+};
 
 describe("authenticated orchestration commands", () => {
   it("replaces spoofed leave identity with the authenticated person", () => {
@@ -84,7 +77,7 @@ describe("authenticated orchestration commands", () => {
     });
   });
 
-  it("uses the paired session label for group assignment", () => {
+  it("uses the organization member's name for group assignment", () => {
     const command = applyKnownGroupPerson(
       {
         type: "group.person.assign",
@@ -96,7 +89,7 @@ describe("authenticated orchestration commands", () => {
           displayName: "Forged name",
         },
       },
-      [targetSession],
+      [targetPerson],
     );
 
     expect(command).toMatchObject({
@@ -133,43 +126,30 @@ describe("authenticated orchestration commands", () => {
     expect(applyKnownGroupPerson(command, [])).toEqual(command);
   });
 
-  it("requires access write to assign or unassign people", () => {
-    const assign = {
-      type: "group.person.assign" as const,
-      commandId: CommandId.make("command-assign-scope"),
+  it("adds named organization members to a new group and rejects strangers", () => {
+    const create = {
+      type: "group.create" as const,
+      commandId: CommandId.make("command-create-people"),
       groupId: GroupId.make("group-1"),
-      person: {
-        kind: "person" as const,
-        personId: targetPersonId,
-        displayName: "Target person",
-      },
+      name: "Product",
+      bossBotId: BotId.make("bot-1"),
+      createdAt: "2026-08-31T00:00:00.000Z",
     };
 
-    const unassign = {
-      type: "group.person.unassign" as const,
-      commandId: CommandId.make("command-unassign-scope"),
-      groupId: GroupId.make("group-1"),
-      personId: targetPersonId,
-    };
+    const forged = { kind: "person" as const, personId: targetPersonId, displayName: "Forged" };
 
-    expect(canManageGroupPeople(assign, ["orchestration:operate"])).toBe(false);
-    expect(canManageGroupPeople(unassign, ["orchestration:operate"])).toBe(false);
-    expect(canManageGroupPeople(assign, ["access:write"])).toBe(true);
-    expect(canManageGroupPeople(unassign, ["access:write"])).toBe(true);
-    expect(canManageGroupPeople(assign, new Set(["access:write"] as const))).toBe(true);
+    expect(applyKnownGroupPerson({ ...create, people: [forged] }, [targetPerson])).toMatchObject({
+      people: [{ personId: targetPersonId, displayName: "Target person" }],
+    });
+    expect(applyKnownGroupPerson({ ...create, people: [forged] }, [])).toBeNull();
   });
 
-  it("keeps leaving a group available without access write", () => {
+  it("treats every session of an account as the same person", () => {
+    expect(sessionPersonId({ sessionId: AuthSessionId.make("session-a"), subject: "user-1" })).toBe(
+      "user-1",
+    );
     expect(
-      canManageGroupPeople(
-        {
-          type: "group.leave",
-          commandId: CommandId.make("command-leave-scope"),
-          groupId: GroupId.make("group-1"),
-          personId: currentPersonId,
-        },
-        ["orchestration:operate"],
-      ),
-    ).toBe(true);
+      sessionPersonId({ sessionId: AuthSessionId.make("session-b"), subject: "one-time-token" }),
+    ).toBe("session-b");
   });
 });

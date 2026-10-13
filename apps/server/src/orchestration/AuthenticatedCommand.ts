@@ -1,10 +1,5 @@
-import {
-  AuthAccessWriteScope,
-  type AuthClientSession,
-  type AuthEnvironmentScope,
-  type AuthSessionId,
-  type OrchestrationCommand,
-} from "@otto/contracts";
+import { AuthSessionId, type OrchestrationCommand } from "@otto/contracts";
+import type { AccountPerson } from "../auth/OrganizationAccountsRuntime.ts";
 
 export interface AuthenticatedCommandActor {
   readonly personId: AuthSessionId;
@@ -12,39 +7,59 @@ export interface AuthenticatedCommandActor {
   readonly canManageGroups: boolean;
 }
 
-export function canManageGroupPeople(
-  command: OrchestrationCommand,
-  scopes: Iterable<AuthEnvironmentScope>,
-): boolean {
-  if (command.type !== "group.person.assign" && command.type !== "group.person.unassign") {
-    return true;
-  }
+const NON_ACCOUNT_SUBJECTS = new Set(["one-time-token", "desktop-bootstrap"]);
 
-  return [...scopes].includes(AuthAccessWriteScope);
+/**
+ * The person behind a session. Account sessions all belong to one user, so the user is the
+ * person; a paired device without an account stays its own person.
+ */
+export function sessionPersonId(session: {
+  readonly sessionId: AuthSessionId;
+  readonly subject: string;
+}): AuthSessionId {
+  return NON_ACCOUNT_SUBJECTS.has(session.subject)
+    ? session.sessionId
+    : AuthSessionId.make(session.subject);
 }
 
+/**
+ * Adding someone to a group names an organization member; the server fills in their name.
+ * Returns null when the person is not in the organization.
+ */
 export function applyKnownGroupPerson(
   command: OrchestrationCommand,
-  clientSessions: ReadonlyArray<AuthClientSession>,
+  people: ReadonlyArray<AccountPerson>,
 ): OrchestrationCommand | null {
-  if (command.type === "group.person.unassign") return command;
+  const known = (personId: string) => {
+    const person = people.find((candidate) => candidate.userId === personId);
+
+    return person
+      ? {
+          kind: "person" as const,
+          personId: AuthSessionId.make(person.userId),
+          displayName: person.displayName,
+        }
+      : null;
+  };
+
+  if (command.type === "group.create" && command.people !== undefined) {
+    const added = command.people.map((person) => known(person.personId));
+
+    return added.every((person) => person !== null) ? { ...command, people: added } : null;
+  }
 
   if (command.type !== "group.person.assign") return command;
+  const person = known(command.person.personId);
 
-  const clientSession = clientSessions.find(
-    (candidate) => candidate.sessionId === command.person.personId,
+  return person ? { ...command, person } : null;
+}
+
+/** Commands whose people must be checked against the organization before dispatch. */
+export function commandNamesPeople(command: OrchestrationCommand): boolean {
+  return (
+    command.type === "group.person.assign" ||
+    (command.type === "group.create" && command.people !== undefined)
   );
-
-  if (!clientSession) return null;
-
-  return {
-    ...command,
-    person: {
-      kind: "person",
-      personId: clientSession.sessionId,
-      displayName: clientSession.client.label ?? "Paired person",
-    },
-  };
 }
 
 export function applyAuthenticatedCommandActor(

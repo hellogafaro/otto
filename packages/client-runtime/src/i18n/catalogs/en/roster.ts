@@ -90,19 +90,8 @@ export const rosterCatalog = {
   "Bot name": "Bot name",
   "Create bot": "Create bot",
   "Group name": "Group name",
-  "Select at least two bots.": "Select at least two bots.",
   "Create group": "Create group",
-  "A group needs at least two bots. Add another bot before you remove one.":
-    "A group needs at least two bots. Add another bot before you remove one.",
-  "A group needs at least two bots. Create a new bot in the roster before you remove one.":
-    "A group needs at least two bots. Create a new bot in the roster before you remove one.",
   "Could not rename group": "Could not rename group",
-  "Remove {bot} from {group}": "Remove {bot} from {group}",
-  "Add bot": "Add bot",
-  "Choose bot": "Choose bot",
-  "Add bot to group": "Add bot to group",
-  "Could not add bot": "Could not add bot",
-  "Every bot is already in this group.": "Every bot is already in this group.",
   "Delete group": "Delete group",
   'Delete "{name}"? Its bots stay in your roster.':
     'Delete "{name}"? Its bots stay in your roster.',
@@ -318,10 +307,32 @@ export const rosterCatalog = {
     "It introduces itself and asks about your work.",
   "Meet {name}": "Meet {name}",
   "Choose another image": "Choose another image",
-  "Choose the bots in this group. They all hear every message.":
-    "Choose the bots in this group. They all hear every message.",
   "No active bots": "No active bots",
   "Add an active bot to this group in the group sidebar.":
     "Add an active bot to this group in the group sidebar.",
   "Every bot in this group": "Every bot in this group",
+  "Select at least one bot.": "Select at least one bot.",
+  "Choose who is in this group. Every bot hears every message.":
+    "Choose who is in this group. Every bot hears every message.",
+  "A group needs at least one bot. Add another bot before you remove this one.":
+    "A group needs at least one bot. Add another bot before you remove this one.",
+  "A group needs at least one bot. Create a new bot in the roster before you remove this one.":
+    "A group needs at least one bot. Create a new bot in the roster before you remove this one.",
+  "Could not add {name}": "Could not add {name}",
+  "Could not leave group": "Could not leave group",
+  "Leave {group}": "Leave {group}",
+  Person: "Person",
+  "Remove {name} from {group}": "Remove {name} from {group}",
+  Someone: "Someone",
+  "You are in the group. Invite more people in Settings, Members.":
+    "You are in the group. Invite more people in Settings, Members.",
+  "{name} (you)": "{name} (you)",
+  Rename: "Rename",
+  "Rename group": "Rename group",
+  "Add members": "Add members",
+  "Everyone is already in this group.": "Everyone is already in this group.",
+  "Every bot hears every message. Invite more people in Settings, Members.":
+    "Every bot hears every message. Invite more people in Settings, Members.",
+  "{count} member": "{count} member",
+  "{count} members": "{count} members",
 } as const;
