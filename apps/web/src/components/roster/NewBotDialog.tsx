@@ -95,7 +95,7 @@ export function NewBotDialog({
                 />
               </div>
             ) : null}
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-border/70 bg-secondary/35 px-4 py-7 text-center">
+            <div className="flex flex-col items-center justify-center rounded-lg border border-border/70 bg-secondary/35 px-4 py-7 text-center">
               <BotAvatarView avatar={avatar} name={trimmedName} className="size-20" />
               <div className="mt-4 max-w-full truncate text-sm font-semibold">
                 {trimmedName || t("Your bot")}

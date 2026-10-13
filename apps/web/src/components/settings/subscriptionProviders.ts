@@ -3,7 +3,7 @@ import { providerUsesApiKey } from "@otto/client-runtime/provider-auth";
 import type { SubscriptionProviderId, SubscriptionProviderStatus } from "@otto/contracts";
 
 import type { useI18n } from "../../i18n";
-import { ClaudeAI, GrokIcon, KimiIcon, OpenAI, OpenCodeIcon, type Icon } from "../Icons";
+import { ClaudeAI, GrokIcon, KimiIcon, OpenAI, OpenCodeIcon, type Icon } from "../icons";
 
 export interface SubscriptionProviderDefinition {
   readonly id: SubscriptionProviderId;

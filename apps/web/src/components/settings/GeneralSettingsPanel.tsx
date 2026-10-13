@@ -17,7 +17,6 @@ import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/useSettings";
 import { ensureLocalApi } from "../../localApi";
-import { openProductFeedback } from "../../productFeedbackStore";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
@@ -196,7 +195,7 @@ function AboutVersionSection() {
           <TooltipTrigger
             render={
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 disabled={buttonDisabled || isUpdateActionPending}
                 onClick={handleButtonClick}
@@ -394,14 +393,6 @@ export function GeneralSettingsPanel() {
             description={t("Current version of the application.")}
           />
         )}
-        <SettingsRow
-          title={t("Send feedback")}
-          control={
-            <Button size="xs" variant="outline" onClick={() => openProductFeedback()}>
-              {t("Send feedback")}
-            </Button>
-          }
-        />
       </SettingsSection>
     </SettingsPageContainer>
   );

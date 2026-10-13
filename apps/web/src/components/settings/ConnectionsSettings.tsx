@@ -484,7 +484,7 @@ export function ConnectionsSettings() {
                   <DialogTrigger
                     render={
                       <Button
-                        size="xs"
+                        size="sm"
                         variant="outline"
                         presentation="compact-gap"
                         aria-label="Add environment"

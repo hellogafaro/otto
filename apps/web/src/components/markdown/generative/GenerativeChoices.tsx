@@ -41,7 +41,7 @@ export function GenerativeChoices({ spec }: { readonly spec: ChoicesSpec }) {
           <button
             key={option.label}
             type="button"
-            className="gen-choice flex w-full items-start justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left transition-colors enabled:hover:bg-accent disabled:cursor-default"
+            className="gen-choice flex w-full items-start justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors enabled:hover:bg-accent disabled:cursor-default"
             aria-pressed={selected === option.label}
             disabled={locked}
             onClick={() => void choose(option)}

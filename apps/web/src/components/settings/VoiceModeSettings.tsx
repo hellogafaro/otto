@@ -340,7 +340,7 @@ function SynthesisVoicePicker({
         </Select>
         {nextCursor ? (
           <Button
-            size="xs"
+            size="sm"
             variant="outline"
             disabled={loading}
             onClick={() => void load(nextCursor)}

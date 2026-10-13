@@ -57,7 +57,7 @@ export function ChoiceButton({
   return (
     <button
       type="button"
-      className="gen-choice flex w-full items-start gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left transition-colors enabled:hover:bg-accent disabled:cursor-default"
+      className="gen-choice flex w-full items-start gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors enabled:hover:bg-accent disabled:cursor-default"
       aria-pressed={pressed}
       disabled={disabled}
       onClick={onClick}
@@ -102,7 +102,7 @@ export function OwnAnswerRow({
   return (
     <label
       className={cn(
-        "gen-choice flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 transition-colors focus-within:border-solid has-focus-visible:ring-2 has-focus-visible:ring-ring",
+        "gen-choice flex w-full items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 transition-colors focus-within:border-solid has-focus-visible:ring-2 has-focus-visible:ring-ring",
         !trimmed && "border-dashed",
       )}
       data-selected={answered ? "true" : undefined}

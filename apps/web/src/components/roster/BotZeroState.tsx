@@ -1,4 +1,4 @@
-import { RiRobot2Line, RiAddLine } from "@remixicon/react";
+import { RiRobot3Line, RiAddLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import { BotId } from "@otto/contracts";
 
@@ -10,7 +10,14 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useI18n } from "../../i18n";
 import { Button } from "../ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../ui/empty";
 import { toastManager } from "../ui/toast";
 import { DEFAULT_BOT_RUNTIME_MODE } from "./botSandbox";
 import { NewBotDialog } from "./NewBotDialog";
@@ -73,21 +80,17 @@ export function BotZeroState() {
     <>
       <Empty className="flex-1">
         <EmptyHeader className="max-w-md">
-          <div className="mx-auto mb-5 flex size-11 items-center justify-center rounded-xl border border-border bg-muted/40 text-muted-foreground">
-            <RiRobot2Line className="size-5" />
-          </div>
-          <EmptyTitle>{t("Create your first bot")}</EmptyTitle>
-          <EmptyDescription className="mt-2 leading-relaxed">
+          <EmptyMedia variant="icon">
+            <RiRobot3Line />
+          </EmptyMedia>
+          <EmptyTitle>{t("Hand off your first job")}</EmptyTitle>
+          <EmptyDescription>
             {t(
-              "A bot is a teammate you chat with. It keeps its own instructions, memory, tools, and schedule, so you can give it a job once and come back to it.",
+              "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.",
             )}
           </EmptyDescription>
-          <div className="mt-6 flex flex-col items-center gap-2">
-            <Button
-              disabled={environmentId === null || creating}
-              size="sm"
-              onClick={() => setOpen(true)}
-            >
+          <EmptyContent>
+            <Button disabled={environmentId === null || creating} onClick={() => setOpen(true)}>
               <RiAddLine className="size-4" />
               {t("Create bot")}
             </Button>
@@ -96,7 +99,7 @@ export function BotZeroState() {
                 {t("Connect an environment to create one.")}
               </span>
             ) : null}
-          </div>
+          </EmptyContent>
         </EmptyHeader>
       </Empty>
       {open ? (

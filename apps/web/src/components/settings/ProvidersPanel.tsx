@@ -55,8 +55,8 @@ export function ProviderAccountSection({
     );
   } else if (accounts.keyProvider) {
     body = (
-      <div data-settings-row="" className="rounded-xl pt-3">
-        <h3 className="px-3 pb-3 text-sm font-medium text-foreground sm:px-4">
+      <div data-settings-row="" className="rounded-lg pt-4">
+        <h3 className="px-4 pb-3 text-13px font-medium tracking-title-xs text-foreground">
           {status?.connected && providerUsesApiKey(status)
             ? t("Replace API key")
             : t("Add API key")}
@@ -101,7 +101,7 @@ export function ProviderAccountSection({
           <SettingsMessageRow
             tone="error"
             action={
-              <Button size="xs" variant="outline" onClick={() => accounts.statusQuery.refresh()}>
+              <Button size="sm" variant="outline" onClick={() => accounts.statusQuery.refresh()}>
                 {t("Try again")}
               </Button>
             }

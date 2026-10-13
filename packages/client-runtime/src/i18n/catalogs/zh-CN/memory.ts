@@ -20,8 +20,8 @@ export const memoryCatalog = {
   "File change approval": "文件更改批准",
   "Product feedback draft": "产品反馈草稿",
   "Waiting for approval": "正在等待批准",
-  "A bot is a teammate you chat with. It keeps its own instructions, memory, tools, and schedule, so you can give it a job once and come back to it.":
-    "机器人是与你聊天的队友。它拥有自己的指令、记忆、工具和日程，你只需交代一次任务，之后随时回来查看。",
+  "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.":
+    "机器人会记住你的指令、工具和上下文，你只需交代一次任务，它就会持续推进工作。",
   Feedback: "反馈",
   "Approval required": "需要批准",
   "Review product feedback": "审阅产品反馈",

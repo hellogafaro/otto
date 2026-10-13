@@ -7,7 +7,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-xs", className)}
+        className={cn("w-full caption-bottom text-13px", className)}
         {...props}
       />
     </div>
@@ -22,8 +22,9 @@ function TableHeader({
   return (
     <thead
       data-slot="table-header"
+      // Otto: The header is a quiet 32px band with 8px ends, not a ruled row.
       className={cn(
-        "[&_tr]:border-b",
+        "[&_tr]:border-0 [&_tr]:hover:bg-transparent",
         presentation === "provider-environment" && "bg-muted/25 text-[11px] text-muted-foreground",
         className,
       )}
@@ -79,7 +80,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-8 bg-foreground/[0.035] px-4 text-left align-middle text-xs font-normal whitespace-nowrap text-muted-foreground first:rounded-l-lg last:rounded-r-lg [&:has([role=checkbox])]:pr-0",
         className,
       )}
       {...props}
@@ -91,7 +92,10 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
-      className={cn("p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0", className)}
+      className={cn(
+        "h-12 px-4 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        className,
+      )}
       {...props}
     />
   );

@@ -14,7 +14,7 @@
   [data-settings-page-scroll] div.settings-search-target-pulse,
   [data-settings-page-scroll] section.settings-search-target-pulse > div:first-child {
     animation: settings-search-target-pulse 650ms ease-in-out 2;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-lg);
   }
 }
 

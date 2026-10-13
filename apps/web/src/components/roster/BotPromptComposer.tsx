@@ -424,7 +424,7 @@ export function BotPromptComposer({
             data-testid="bot-prompt-composer"
             data-expanded={expanded || undefined}
             className={cn(
-              "relative flex min-h-13 flex-col overflow-hidden rounded-1.65rem border shadow-composer-float transition-composer-shape duration-200 ease-out",
+              "relative flex min-h-13 flex-col overflow-hidden rounded-lg border shadow-composer-float transition-composer-shape duration-200 ease-out",
               quietSurface
                 ? BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME
                 : BOT_COMPOSER_SURFACE_CLASS_NAME,
@@ -435,7 +435,7 @@ export function BotPromptComposer({
             {/* One line, always the same height, so starting a reply never resizes the box. */}
             {replyPreview ? (
               <div
-                className="mx-3 mt-3 flex h-8 items-center gap-2 rounded-lg bg-foreground/8 px-2.5 text-xs"
+                className="mx-3 mt-3 flex h-8 items-center gap-2 rounded-md bg-foreground/8 px-2.5 text-xs"
                 data-testid="composer-reply-preview"
               >
                 <RiCornerDownRightLine

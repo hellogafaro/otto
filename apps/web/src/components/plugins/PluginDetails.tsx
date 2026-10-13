@@ -80,7 +80,7 @@ export function PluginDetailsContent({
   return (
     <DialogPanel className="px-6 pt-6! pb-6 sm:px-8">
       <div className="mx-auto max-w-3xl space-y-6">
-        <section className="rounded-2xl border bg-card/50 p-5">
+        <section className="rounded-lg border bg-card/50 p-5">
           <div className="flex items-start gap-4">
             <PluginLogoImage className="size-14 rounded-xl" plugin={plugin} />
             <div className="min-w-0 flex-1 pt-0.5">
@@ -149,7 +149,7 @@ export function PluginDetailsContent({
           >
             Connection
           </h3>
-          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border text-sm sm:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border text-sm sm:grid-cols-3">
             {connectionDetails.map(([label, value]) => (
               <div className="bg-background px-4 py-3" key={label}>
                 <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -166,7 +166,7 @@ export function PluginDetailsContent({
           >
             Dependents
           </h3>
-          <dl className="overflow-hidden rounded-xl border bg-muted/35 text-sm">
+          <dl className="overflow-hidden rounded-lg border bg-muted/35 text-sm">
             <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
               <dt className="text-muted-foreground">Active bots</dt>
               <dd className="text-end font-medium">
@@ -187,7 +187,7 @@ export function PluginDetailsContent({
           >
             Setup
           </h3>
-          <div className="space-y-2 rounded-xl border bg-muted/35 px-4 py-3.5 text-sm">
+          <div className="space-y-2 rounded-lg border bg-muted/35 px-4 py-3.5 text-sm">
             {plugin.requiredCredentials.length > 0 ? (
               <p>Keys: {plugin.requiredCredentials.join(", ")}</p>
             ) : null}
@@ -208,7 +208,7 @@ export function PluginDetailsContent({
               Approvals: {plugin.approvals.length > 0 ? plugin.approvals.join(", ") : "None"}
             </span>
           </div>
-          <div className="overflow-hidden rounded-xl border bg-muted/35">
+          <div className="overflow-hidden rounded-lg border bg-muted/35">
             {plugin.permissions.map((permission) => (
               <div className="border-b px-4 py-3 last:border-b-0" key={permission.id}>
                 <div className="flex items-start justify-between gap-4">
@@ -230,7 +230,7 @@ export function PluginDetailsContent({
               </h3>
               <span className="text-11px text-muted-foreground">Installed separately</span>
             </div>
-            <div className="overflow-hidden rounded-xl border bg-muted/35">
+            <div className="overflow-hidden rounded-lg border bg-muted/35">
               {plugin.skills.map((skill) => (
                 <button
                   className="group flex w-full cursor-pointer items-center justify-between gap-4 border-b px-4 py-3.5 text-start outline-hidden transition-colors last:border-b-0 hover:bg-muted/55 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"

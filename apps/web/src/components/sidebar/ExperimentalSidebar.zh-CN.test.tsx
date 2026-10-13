@@ -37,7 +37,7 @@ describe("experimental sidebar in Simplified Chinese", () => {
   it("translates the rail and the settings panel header", () => {
     const html = renderToStaticMarkup(
       <LanguageProvider testCatalog={{ locale: "zh-CN", catalog: zhCNCatalog }}>
-        <ExperimentalSidebar />
+        <ExperimentalSidebar place="chats" onPlaceChange={() => {}} />
       </LanguageProvider>,
     );
 

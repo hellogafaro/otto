@@ -77,7 +77,7 @@ export const AdvertisedEndpointListRow = memo(function AdvertisedEndpointListRow
           ) : null}
           {needsTailscaleSetup ? (
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               onClick={() => onSetupTailscaleServe(endpoint)}
               disabled={isUpdatingTailscaleServe}
@@ -87,7 +87,7 @@ export const AdvertisedEndpointListRow = memo(function AdvertisedEndpointListRow
           ) : null}
           {canDisableTailscaleServe ? (
             <Button
-              size="xs"
+              size="sm"
               variant="destructive-outline"
               onClick={() => onDisableTailscaleServe(endpoint)}
               disabled={isUpdatingTailscaleServe}
@@ -96,7 +96,7 @@ export const AdvertisedEndpointListRow = memo(function AdvertisedEndpointListRow
             </Button>
           ) : null}
           {!needsTailscaleSetup && !isDefault ? (
-            <Button size="xs" variant="outline" onClick={() => onSetDefault(endpoint)}>
+            <Button size="sm" variant="outline" onClick={() => onSetDefault(endpoint)}>
               Set as default
             </Button>
           ) : null}

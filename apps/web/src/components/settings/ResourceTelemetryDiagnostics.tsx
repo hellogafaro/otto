@@ -239,7 +239,7 @@ export function ResourceTelemetryDiagnostics() {
           </div>
         }
       >
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-hairline-lifted">
+        <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-hairline-lifted">
           <div className="flex flex-col gap-3 border-b border-border/60 bg-linear-to-r from-muted/45 via-muted/20 to-transparent px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
               <div className="text-10px font-semibold uppercase tracking-caps-widest text-muted-foreground/70">
@@ -359,7 +359,7 @@ export function ResourceTelemetryDiagnostics() {
           ) : null
         }
       >
-        <div className="grid overflow-hidden rounded-2xl border border-border/70 bg-card shadow-hairline md:grid-cols-2 md:divide-x md:divide-border/60">
+        <div className="grid overflow-hidden rounded-lg border border-border/70 bg-card shadow-hairline md:grid-cols-2 md:divide-x md:divide-border/60">
           <div className="px-4 py-4 sm:px-5">
             <div className="mb-3 flex items-center gap-2 text-10px font-semibold uppercase tracking-caps-wider text-muted-foreground/70">
               <span className="flex size-6 items-center justify-center rounded-md bg-muted/60">
@@ -417,7 +417,7 @@ export function ResourceTelemetryDiagnostics() {
                 />
               </>
             ) : (
-              <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-5">
+              <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-5">
                 <div className="text-13px font-medium text-foreground">
                   Desktop host signals not connected
                 </div>
@@ -496,7 +496,7 @@ export function ResourceTelemetryDiagnostics() {
           </div>
         }
       >
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-hairline">
+        <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-hairline">
           {history.error ? (
             <div className="flex items-start gap-2 border-b border-destructive/20 bg-destructive/5 px-4 py-3 text-xs text-destructive sm:px-5">
               <RiAlertLine className="mt-0.5 size-3.5 shrink-0" />
@@ -519,7 +519,7 @@ export function ResourceTelemetryDiagnostics() {
           ) : null
         }
       >
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-hairline">
+        <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-hairline">
           <ProcessTable
             processes={snapshot?.processes ?? []}
             signalingKeys={signalingKeys}
@@ -535,7 +535,7 @@ export function ResourceTelemetryDiagnostics() {
           <span className="text-10px text-muted-foreground/55">Logical bytes by operation</span>
         }
       >
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-hairline">
+        <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-hairline">
           <div className="bg-muted/15 px-4 py-3 text-11px leading-relaxed text-muted-foreground sm:px-5">
             Native counters identify which process is reading or writing. These application-level
             counters identify known Otto operations so process spikes can be correlated with

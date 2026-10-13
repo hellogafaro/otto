@@ -29,12 +29,15 @@ import { SettingsPageContainer, SettingsSection } from "./settingsLayout";
 import { useOrganizationAccounts } from "./useOrganizationAccounts";
 
 type AccountsClient = ReturnType<typeof createOrganizationAccountsClient>;
+
 type Member = NonNullable<
   Awaited<ReturnType<AccountsClient["organization"]["listMembers"]>>["data"]
 >["members"][number];
+
 type Invitation = NonNullable<
   Awaited<ReturnType<AccountsClient["organization"]["listInvitations"]>>["data"]
 >[number];
+
 const roles = { admin: "Admin", member: "Member" };
 
 export function OrganizationMembersSettings() {
@@ -55,12 +58,15 @@ export function OrganizationMembersSettings() {
   const load = useCallback(async () => {
     if (!client || !organizationId) return;
     const result = await client.organization.listMembers({ query: { organizationId, limit: 100 } });
+
     if (result.error) throw new Error(result.error.message ?? "Could not load members.");
     setMembers(result.data.members);
+
     if (admin) {
       const pendingInvitations = await client.organization.listInvitations({
         query: { organizationId },
       });
+
       if (pendingInvitations.error)
         throw new Error(pendingInvitations.error.message ?? "Could not load invitations.");
       setInvitations(
@@ -82,8 +88,10 @@ export function OrganizationMembersSettings() {
     if (pending) return;
     setPending(true);
     setError(null);
+
     try {
       const result = await operation();
+
       if (result.error) throw new Error(result.error.message ?? "Could not update members.");
       await load();
     } catch (cause) {
@@ -97,6 +105,7 @@ export function OrganizationMembersSettings() {
     return <SettingsPageContainer>{loadError ?? <Spinner />}</SettingsPageContainer>;
   const adminCount = members.filter((member) => member.role === "admin").length;
   const query = search.trim().toLowerCase();
+
   const visibleMembers = members.filter((member) =>
     `${member.user.name} ${member.user.email}`.toLowerCase().includes(query),
   );
@@ -108,11 +117,21 @@ export function OrganizationMembersSettings() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <SettingsSection
-        title="Members"
-        headerAction={
-          admin ? (
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Input
+            size="sm"
+            className="max-w-72"
+            aria-label="Search members"
+            placeholder="Search by name or email"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {admin ? (
             <Button
+              className="ms-auto"
+              size="sm"
+              variant="outline"
               onClick={() => {
                 setEmail("");
                 setInviteError(null);
@@ -121,15 +140,8 @@ export function OrganizationMembersSettings() {
             >
               Invite
             </Button>
-          ) : null
-        }
-      >
-        <Input
-          aria-label="Search members"
-          placeholder="Search by name or email"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
+          ) : null}
+        </div>
         {!loaded ? (
           <Spinner />
         ) : (
@@ -150,6 +162,7 @@ export function OrganizationMembersSettings() {
             <TableBody>
               {visibleMembers.map((member) => {
                 const lastAdmin = member.role === "admin" && adminCount === 1;
+
                 return (
                   <TableRow key={member.id}>
                     <TableCell>
@@ -209,8 +222,10 @@ export function OrganizationMembersSettings() {
             </TableBody>
           </Table>
         )}
-        {loaded && visibleMembers.length === 0 ? <p>No members match this search.</p> : null}
-      </SettingsSection>
+        {loaded && visibleMembers.length === 0 ? (
+          <p className="px-4 text-13px text-muted-foreground">No members match this search.</p>
+        ) : null}
+      </section>
       {admin && invitations.length > 0 ? (
         <SettingsSection title="Pending invitations">
           <Table>
@@ -289,9 +304,11 @@ export function OrganizationMembersSettings() {
               id="invite-member"
               onSubmit={async (event) => {
                 event.preventDefault();
+
                 if (pending) return;
                 setPending(true);
                 setInviteError(null);
+
                 try {
                   const result = await client.organization.inviteMember({
                     email: email.trim(),
@@ -299,6 +316,7 @@ export function OrganizationMembersSettings() {
                     organizationId: state.organization!.id,
                     resend: true,
                   });
+
                   if (result.error)
                     throw new Error(result.error.message ?? "Could not invite this person.");
                   await load();
@@ -371,7 +389,9 @@ export function OrganizationMembersSettings() {
                     memberIdOrEmail: removing.id,
                     organizationId: state.organization!.id,
                   });
+
                   if (!result.error) setRemoving(null);
+
                   return result;
                 });
               }}

@@ -332,7 +332,7 @@ export function ProviderInstancesSection({
         headerAction={
           <div className="flex items-center gap-1">
             <Button
-              size="xs"
+              size="sm"
               variant="ghost-muted"
               disabled={isRefreshing}
               onClick={refreshProviders}
@@ -346,7 +346,7 @@ export function ProviderInstancesSection({
               {t("Refresh")}
             </Button>
             {addDriverOption ? (
-              <Button size="xs" variant="ghost-muted" onClick={() => setIsAddDialogOpen(true)}>
+              <Button size="sm" variant="ghost-muted" onClick={() => setIsAddDialogOpen(true)}>
                 <RiAddLine className="size-3.5" />
                 {account ? t("Add separate account") : t("Add account")}
               </Button>

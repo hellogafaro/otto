@@ -235,7 +235,7 @@ export function connectionSettingsViews(settings: ReturnType<typeof useDesktopBa
             <p className="text-11px text-muted-foreground">From SSH config and known hosts</p>
           </div>
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             disabled={isLoadingDiscoveredSshHosts}
             onClick={desktopSshHosts.refresh}
@@ -318,7 +318,7 @@ export function connectionSettingsViews(settings: ReturnType<typeof useDesktopBa
             status={<span className="block text-destructive">{desktopWslError}</span>}
             control={
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 onClick={loadWslState}
                 disabled={isLoadingWslState}

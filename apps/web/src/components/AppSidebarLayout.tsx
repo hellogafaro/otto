@@ -21,7 +21,10 @@ import {
   ExperimentalSidebar,
   EXPERIMENTAL_RAIL_ONLY_WIDTH,
   EXPERIMENTAL_SIDEBAR_WIDTH,
-  isRailOnlyPath,
+  RoutinesZeroState,
+  type SidebarPlace,
+  useEmptyPlace,
+  useRailOnly,
   useSidebarExperiment,
 } from "./sidebar/ExperimentalSidebar";
 import { SettingsSidebarNav } from "./settings/SettingsSidebarNav";
@@ -183,12 +186,15 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   });
 
   const sidebarExperiment = useSidebarExperiment();
+  const [sidebarPlace, setSidebarPlace] = useState<SidebarPlace>("chats");
+  const railOnly = useRailOnly(sidebarPlace);
+  const emptyPlace = useEmptyPlace(sidebarPlace);
 
   // SAFETY: React CSSProperties omits custom properties; these values are CSS variables consumed by the component stylesheet.
   const sidebarProviderStyle = {
     "--sidebar-width": `${
       sidebarExperiment
-        ? isRailOnlyPath(pathname)
+        ? railOnly
           ? EXPERIMENTAL_RAIL_ONLY_WIDTH
           : EXPERIMENTAL_SIDEBAR_WIDTH
         : sidebarWidth
@@ -266,7 +272,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         }}
       >
         {sidebarExperiment ? (
-          <ExperimentalSidebar />
+          <ExperimentalSidebar place={sidebarPlace} onPlaceChange={setSidebarPlace} />
         ) : isOnSettings ? (
           <SettingsSidebarNav />
         ) : (
@@ -274,7 +280,11 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         )}
         {sidebarExperiment ? null : <SidebarRail onDoubleClick={resetSidebarWidth} />}
       </Sidebar>
-      {children}
+      {sidebarExperiment && emptyPlace && sidebarPlace === "routines" ? (
+        <RoutinesZeroState />
+      ) : (
+        children
+      )}
       <SidebarControl stageArtworkVisible={stageArtworkVisible} />
       <DesktopOnboarding />
     </SidebarProvider>

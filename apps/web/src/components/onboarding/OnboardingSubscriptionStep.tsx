@@ -324,7 +324,7 @@ export function SubscriptionStep({
         {activeLogin.flow.userCode ? (
           <SignInCodeCopy
             code={activeLogin.flow.userCode}
-            className="rounded-xl border border-border/70 bg-background/60 py-2.5"
+            className="rounded-lg border border-border/70 bg-background/60 py-2.5"
           />
         ) : null}
         {activeLogin.flow.completion === "paste" ? (

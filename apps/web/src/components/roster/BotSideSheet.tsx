@@ -105,14 +105,12 @@ export function BotSideSheetEmpty({
   readonly action?: ReactNode;
 }) {
   return (
-    <Empty className="gap-4 px-0 py-12 md:px-0 md:py-12">
+    <Empty className="px-0 py-12 md:px-0 md:py-12">
       <EmptyHeader>
-        <EmptyMedia variant="icon" className="mb-4">
+        <EmptyMedia variant="icon">
           <Icon />
         </EmptyMedia>
-        <EmptyTitle variant="body" className="text-sm">
-          {title}
-        </EmptyTitle>
+        <EmptyTitle variant="body">{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
       {action ? <EmptyContent>{action}</EmptyContent> : null}

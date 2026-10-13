@@ -139,14 +139,15 @@ export function applyAppearanceFontVariables(
   // The @pierre/diffs surfaces read their own hook for code text.
   root.style.setProperty("--diffs-font-size", `${code}px`);
 
-  // Inherited from the root; only macOS engines honor the property, so no
-  // platform gate is needed here. Smoothing on means grayscale `antialiased`
-  // (thinner strokes); off restores the platform default, which macOS renders
-  // with heavier stem darkening.
+  // The stylesheet makes grayscale `antialiased` the app-wide default; turning
+  // smoothing off restores the platform rendering, which macOS draws with
+  // heavier stem darkening. Only macOS engines honor these properties.
   if (preferences.smoothing) {
-    root.style.setProperty("-webkit-font-smoothing", "antialiased");
-  } else {
     root.style.removeProperty("-webkit-font-smoothing");
+    root.style.removeProperty("-moz-osx-font-smoothing");
+  } else {
+    root.style.setProperty("-webkit-font-smoothing", "auto");
+    root.style.setProperty("-moz-osx-font-smoothing", "auto");
   }
 }
 

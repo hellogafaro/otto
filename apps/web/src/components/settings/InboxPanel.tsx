@@ -223,7 +223,7 @@ function InboxRowControl({
     return (
       <span className="flex items-center gap-1.5">
         <Button
-          size="xs"
+          size="sm"
           variant="ghost-muted"
           disabled={isResolving || !canDecideMemory}
           onClick={() => onDecideMemory({ action: "reject" })}
@@ -231,7 +231,7 @@ function InboxRowControl({
           {t("Reject")}
         </Button>
         <Button
-          size="xs"
+          size="sm"
           disabled={isResolving || !canDecideMemory}
           onClick={() => onDecideMemory({ action: "approve" })}
         >
@@ -243,14 +243,14 @@ function InboxRowControl({
 
   if (action === "resolve") {
     return (
-      <Button size="xs" variant="outline" disabled={isResolving || !canResolve} onClick={onResolve}>
+      <Button size="sm" variant="outline" disabled={isResolving || !canResolve} onClick={onResolve}>
         {isResolving ? t("Resolving…") : t("Resolve")}
       </Button>
     );
   }
 
   return (
-    <Button size="xs" variant="outline" onClick={onOpenRepair}>
+    <Button size="sm" variant="outline" onClick={onOpenRepair}>
       {action === "plugins" ? t("Open Plugins") : t("Open Providers")}
     </Button>
   );

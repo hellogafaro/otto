@@ -122,14 +122,14 @@ export function useRelativeTimeTick(intervalMs = 1_000) {
 }
 
 /**
- * A section whose direct children are all `SettingsRow`s reads as one grouped
- * card with hairline dividers, filled with `--settings-surface` so it lifts
- * slightly off the page card. Sections that mix in custom content (tables,
- * provider cards, diagnostics) keep the open layout so cards never nest.
+ * Otto: A section whose direct children are all `SettingsRow`s reads as one
+ * 8px card with 1px border and dividers, filled with
+ * `--settings-surface`. Sections that mix in custom content (tables, provider
+ * cards, diagnostics) keep the open layout so cards never nest.
  */
 const GROUPED_ROWS_CLASS = cn(
   "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))]:space-y-0",
-  "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))]:rounded-xl",
+  "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))]:rounded-lg",
   "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))]:border",
   "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))]:border-border/70",
   "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))]:bg-settings-surface",
@@ -137,6 +137,10 @@ const GROUPED_ROWS_CLASS = cn(
   "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))]:divide-border/50",
   "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))>[data-settings-row]]:rounded-none",
 );
+
+/** Otto: Every settings-page section heading, including Usage, shares this 16px/500 style. */
+export const SETTINGS_SECTION_TITLE_CLASS =
+  "text-base font-medium tracking-title-sm text-foreground";
 
 export function SettingsSection({
   title,
@@ -152,20 +156,32 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   const targetRef = useSettingsSearchTarget<HTMLElement>(sectionProps.id);
+  // Otto: A page's first section that repeats the page title keeps that heading for screen readers only.
+  const repeatsPageTitle = title === useContext(SettingsPageTitleContext);
 
   return (
     <section
       {...sectionProps}
       ref={targetRef}
       tabIndex={sectionProps.id ? -1 : sectionProps.tabIndex}
-      className={cn("space-y-2", className)}
+      className={cn(
+        "space-y-3",
+        repeatsPageTitle &&
+          (headerAction
+            ? "[&:first-of-type>[data-slot=settings-section-header]>h2]:sr-only"
+            : "[&:first-of-type>[data-slot=settings-section-header]]:sr-only"),
+        className,
+      )}
     >
-      <div className="flex min-h-7 items-center justify-between gap-4 px-3 sm:px-4">
-        <h2 className="flex items-center gap-2 text-sm font-semibold tracking-title-sm text-foreground">
+      <div
+        data-slot="settings-section-header"
+        className="flex min-h-7 items-center justify-between gap-4 px-4"
+      >
+        <h2 className={cn("flex items-center gap-2", SETTINGS_SECTION_TITLE_CLASS)}>
           {icon}
           {title}
         </h2>
-        <div className="flex min-h-7 min-w-7 items-center justify-end">{headerAction}</div>
+        <div className="ms-auto flex min-h-7 min-w-7 items-center justify-end">{headerAction}</div>
       </div>
       <div
         className={cn("relative space-y-1 overflow-visible text-foreground", GROUPED_ROWS_CLASS)}
@@ -201,12 +217,12 @@ export function SettingsRow({
       ref={targetRef}
       tabIndex={rowProps.id ? -1 : rowProps.tabIndex}
       data-settings-row=""
-      className={cn("rounded-xl px-3 sm:px-4", children ? "pt-3 pb-1" : "py-3", className)}
+      className={cn("rounded-lg px-4", children ? "pt-4 pb-2" : "py-4", className)}
     >
       <div className="flex flex-col gap-3 sm:grid sm:grid-cols-1fr-10rem-auto sm:items-center sm:gap-8">
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex min-h-5 items-center gap-1.5">
-            <h3 className="text-sm font-medium tracking-title-xs text-foreground">{title}</h3>
+            <h3 className="text-13px font-medium tracking-title-xs text-foreground">{title}</h3>
             <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">
               {resetAction}
             </span>
@@ -220,7 +236,10 @@ export function SettingsRow({
           {status ? <div className="pt-0.5 text-xs text-muted-foreground">{status}</div> : null}
         </div>
         {control ? (
-          <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
+          <div
+            data-slot="settings-control"
+            className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end"
+          >
             {control}
           </div>
         ) : null}
@@ -264,15 +283,23 @@ export function SettingResetButton({
   );
 }
 
+/** The settings route names a section's own page here; subpages bring their own header. */
+export const SettingsPageTitleContext = createContext<string | null>(null);
+
+/**
+ * Otto: Settings pages are a 752px column. A section's own page opens with a
+ * 22px title inset 16px, on the same edge as card content.
+ */
 export function SettingsPageContainer({
   children,
   className,
-  width = "wide",
+  width = "narrow",
 }: {
   children: ReactNode;
   className?: string;
   width?: WorkspacePageWidth;
 }) {
+  const title = useContext(SettingsPageTitleContext);
   const navigate = useNavigate();
   const hash = useLocation({ select: (location) => location.hash });
   const dialogTargetId = useSettingsDialogStore((state) => state.targetId);
@@ -292,7 +319,15 @@ export function SettingsPageContainer({
         className="topbar-scroll-fade scrollbar-gutter-both flex-1 overflow-y-auto topbar-scroll-fade-compact"
         data-settings-page-scroll
       >
-        <WorkspacePageContainer width={width} className={cn("gap-8 pt-3 pb-16 sm:pt-4", className)}>
+        <WorkspacePageContainer
+          width={width}
+          className={cn("gap-10 pt-3 pb-16 sm:pt-4", className)}
+        >
+          {title ? (
+            <h1 className="px-4 text-22px leading-title font-medium tracking-title-lg text-foreground">
+              {title}
+            </h1>
+          ) : null}
           {children}
         </WorkspacePageContainer>
       </div>

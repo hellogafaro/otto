@@ -9,7 +9,7 @@ import {
 import type { ReactNode } from "react";
 
 import { cn } from "../../lib/utils";
-import type { Icon } from "../Icons";
+import type { Icon } from "../icons";
 import type { ConnectionTone } from "./providerStatus";
 
 const TONE_DOT_CLASS: Readonly<Record<ConnectionTone, string>> = {
@@ -95,7 +95,7 @@ export function SettingsLinkRow<TRouter extends RegisteredRouter, TOptions>({
       {...(link as LinkComponentProps)}
       {...(id ? { id } : {})}
       data-settings-row=""
-      className="group relative flex min-h-14 items-center gap-3 rounded-xl px-3 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-4"
+      className="group relative flex min-h-14 items-center gap-3 rounded-lg px-4 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span
         aria-hidden
@@ -138,7 +138,7 @@ export function SettingsDetailHeader({
   readonly action?: ReactNode;
 }) {
   return (
-    <header className="space-y-4 px-3 sm:px-4">
+    <header className="space-y-4 px-4">
       <Link
         to="/settings/$section"
         params={{ section: back.section }}
@@ -151,9 +151,9 @@ export function SettingsDetailHeader({
         <IconTile icon={icon} size="lg" />
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex min-w-0 items-center gap-2.5">
-            <h2 className="truncate text-lg font-semibold tracking-title text-foreground">
+            <h1 className="truncate text-22px leading-title font-medium tracking-title-lg text-foreground">
               {title}
-            </h2>
+            </h1>
             <SettingsStatus tone={tone} label={statusLabel} />
           </div>
           {description ? (
@@ -180,7 +180,7 @@ export function SettingsMessageRow({
     <div
       data-settings-row=""
       role={tone === "error" ? "alert" : undefined}
-      className="flex min-h-14 flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-3 sm:px-4"
+      className="flex min-h-14 flex-wrap items-center justify-between gap-3 rounded-lg p-4"
     >
       <p
         className={cn(

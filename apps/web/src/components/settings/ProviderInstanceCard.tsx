@@ -384,7 +384,7 @@ export function ProviderInstanceCard({
   ) : null;
 
   return (
-    <div data-settings-row="" className="rounded-xl">
+    <div data-settings-row="" className="rounded-lg">
       <div className="px-3 py-3 sm:px-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1 space-y-1">
@@ -430,7 +430,7 @@ export function ProviderInstanceCard({
                       {onRunUpdate ? (
                         <Button
                           type="button"
-                          size="xs"
+                          size="sm"
                           variant="outline"
                           className="w-full"
                           disabled={isUpdating}

@@ -59,6 +59,7 @@ export function BrowserSettingsSection() {
           }}
         >
           <Input
+            size="sm"
             aria-label={t("Browserbase API key")}
             autoComplete="off"
             placeholder={
@@ -69,11 +70,12 @@ export function BrowserSettingsSection() {
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
           />
-          <Button disabled={!canSave} type="submit">
+          <Button size="sm" disabled={!canSave} type="submit">
             {t("Save")}
           </Button>
           {configured ? (
             <Button
+              size="sm"
               type="button"
               variant="outline"
               onClick={() =>

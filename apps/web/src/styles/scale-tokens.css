@@ -18,6 +18,7 @@
   --text-13px: 13px;
   --text-15px: 15px;
   --text-17px: 17px;
+  --text-22px: 22px;
   --text-26px: 26px;
   /* Code block header label. */
   --text-code-label: 0.6875rem;
@@ -34,6 +35,7 @@
 
   --leading-copy: 1.45;
   --leading-copy-tight: 1.4;
+  --leading-title: 1.2;
 
   --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
 
@@ -89,8 +91,9 @@
     var(--workspace-controls-left) + var(--workspace-titlebar-control-size) +
       var(--workspace-titlebar-control-gap)
   );
+  --spacing-panel-gap: var(--panel-gap);
   /* Spacer that lines the sidebar up with a topbar's vertical center. */
-  --spacing-topbar-spacer: calc(0.5rem + var(--workspace-topbar-height) / 2 - 1.25rem);
+  --spacing-topbar-spacer: calc(var(--panel-gap) + var(--workspace-topbar-height) / 2 - 1.125rem);
   --spacing-composer-overlap-1\.5: calc(var(--chat-composer-attachment-overlap) + 0.375rem);
   --spacing-composer-overlap-1: calc(
     var(--chat-composer-attachment-overlap) + calc(var(--spacing) * 1)
@@ -108,13 +111,13 @@
   --radius-5px: 5px;
   --radius-10px: 10px;
   --radius-0\.45em: 0.45em;
-  --radius-1\.65rem: 1.65rem;
   --radius-2rem: 2rem;
   --radius-0\.5rem: 0.5rem;
   --radius-1rem: 1rem;
   --radius-16px: 16px;
 
   --shadow-hairline: 0 1px 1px rgb(0 0 0 / 0.03);
+  --shadow-control: var(--control-shadow);
   --shadow-hairline-lifted: 0 1px 1px rgb(0 0 0 / 0.03), 0 8px 30px rgb(0 0 0 / 0.035);
   --shadow-card-rest: 0 1px 2px rgb(0 0 0 / 3%);
   --shadow-card-hover: 0 1px 2px rgb(0 0 0 / 4%), 0 6px 16px -8px rgb(0 0 0 / 12%);

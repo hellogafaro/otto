@@ -13,7 +13,7 @@ import { cn } from "~/lib/utils";
 const Select = SelectPrimitive.Root;
 
 const selectTriggerVariants = cva(
-  "relative inline-flex cursor-pointer select-none items-center justify-between gap-2 border rounded-lg text-left text-base outline-none transition-[color,box-shadow,background-color] data-disabled:pointer-events-none data-disabled:opacity-64 sm:text-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
+  "relative inline-flex cursor-pointer select-none items-center justify-between gap-2 border rounded-(--control-radius) text-left text-base outline-none transition-[color,box-shadow,background-color] data-disabled:pointer-events-none data-disabled:opacity-64 sm:text-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
   {
     defaultVariants: {
       size: "default",
@@ -22,7 +22,7 @@ const selectTriggerVariants = cva(
     variants: {
       variant: {
         default:
-          "w-full min-w-36 border-transparent bg-secondary text-foreground ring-foreground/20 pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 focus-visible:ring-2 aria-invalid:ring-2 aria-invalid:ring-destructive/40 [:hover,[data-pressed]]:bg-secondary/75 [&_svg:not([class*='opacity-'])]:opacity-70 [&_svg:not([class*='text-'])]:text-icon-muted",
+          "w-full min-w-36 border-control-border bg-control text-foreground shadow-control ring-foreground/20 pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 focus-visible:ring-2 aria-invalid:ring-2 aria-invalid:ring-destructive/40 [:hover,[data-pressed]]:bg-control-hover [&_svg:not([class*='opacity-'])]:opacity-70 [&_svg:not([class*='text-'])]:text-icon-muted",
         ghost:
           "border-transparent text-secondary-label focus-visible:ring-2 focus-visible:ring-foreground/20 data-pressed:bg-secondary [:hover,[data-pressed]]:bg-secondary [:hover,[data-pressed]]:text-foreground",
       },
@@ -31,11 +31,13 @@ const selectTriggerVariants = cva(
           "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs before:rounded-[calc(var(--radius-md)-1px)] [&_svg:not([class*='size-'])]:size-3.5 font-mono",
         compact:
           "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs before:rounded-[calc(var(--radius-md)-1px)] [&_svg:not([class*='size-'])]:size-3.5",
-        default: "min-h-9 px-[calc(--spacing(3)-1px)] sm:min-h-8",
-        lg: "min-h-10 px-[calc(--spacing(3)-1px)] sm:min-h-9",
-        "sm-dense": "min-h-8 gap-1.5 px-[calc(--spacing(2.5)-1px)] text-[13px] sm:min-h-7",
-        sm: "min-h-8 gap-1.5 px-[calc(--spacing(2.5)-1px)] sm:min-h-7",
-        xs: "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-sm before:rounded-[calc(var(--radius-md)-1px)] sm:h-6 sm:text-xs [&_svg:not([class*='size-'])]:size-4 sm:[&_svg:not([class*='size-'])]:size-3.5",
+        // Otto: A select in a settings row is the compact 28px row control.
+        default:
+          "min-h-8 px-[calc(--spacing(3)-1px)] in-data-[slot=settings-control]:min-h-7 in-data-[slot=settings-control]:px-[calc(--spacing(2)-1px)] sm:in-data-[slot=settings-control]:text-13px",
+        lg: "min-h-9 px-[calc(--spacing(3)-1px)]",
+        "sm-dense": "min-h-7 gap-1.5 px-[calc(--spacing(2.5)-1px)] text-[13px]",
+        sm: "min-h-7 gap-1.5 px-[calc(--spacing(2.5)-1px)]",
+        xs: "h-6 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-sm before:rounded-[calc(var(--radius-md)-1px)] sm:text-xs [&_svg:not([class*='size-'])]:size-4 sm:[&_svg:not([class*='size-'])]:size-3.5",
       },
       // Call-site treatments applied after size and variant, mirroring Button's presentations.
       presentation: {
@@ -160,7 +162,7 @@ function SelectPopup({
         sideOffset={sideOffset}
       >
         <SelectPrimitive.Popup
-          className="origin-(--transform-origin) rounded-xl text-foreground outline-none"
+          className="origin-(--transform-origin) rounded-lg text-foreground outline-none"
           data-slot="select-popup"
           {...props}
         >
@@ -172,13 +174,13 @@ function SelectPopup({
           </SelectPrimitive.ScrollUpArrow>
           <div
             className={cn(
-              "relative h-full rounded-xl border border-border/80 bg-popover shadow-[0_18px_48px_-24px_rgb(0_0_0/55%)] dark:shadow-[0_22px_56px_-24px_rgb(0_0_0/80%)]",
+              "relative h-full rounded-lg border border-border/80 bg-popover shadow-[0_18px_48px_-24px_rgb(0_0_0/55%)] dark:shadow-[0_22px_56px_-24px_rgb(0_0_0/80%)]",
               matchTriggerWidth && "min-w-(--anchor-width)",
               popupClassName,
             )}
           >
             <SelectPrimitive.List
-              className={cn("max-h-(--available-height) overflow-y-auto p-1.5", className)}
+              className={cn("max-h-(--available-height) overflow-y-auto p-1", className)}
               data-slot="select-list"
             >
               {children}
@@ -209,7 +211,7 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "flex min-h-9 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-pointer items-center rounded-lg px-2.5 py-1.5 text-base outline-none data-selected:bg-secondary data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-8 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "flex min-h-9 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-pointer items-center rounded-md px-2 py-1.5 text-base outline-none data-selected:bg-secondary data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-8 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         size === "keybinding-command" && "py-1 text-[12px]",
         size === "keybinding-condition" && "py-1 font-mono text-[12px]",
         className,

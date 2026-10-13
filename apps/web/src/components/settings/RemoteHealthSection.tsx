@@ -105,7 +105,7 @@ export function RemoteHealthSection({ environmentId }: { readonly environmentId:
       title="Remote health"
       headerAction={
         <Button
-          size="xs"
+          size="sm"
           variant="outline"
           disabled={doctor.isPending || repairingCheckId !== null}
           onClick={doctor.refresh}
@@ -126,7 +126,7 @@ export function RemoteHealthSection({ environmentId }: { readonly environmentId:
           control={
             check.repairable && check.status !== "pass" ? (
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 disabled={doctor.isPending || repairingCheckId !== null}
                 onClick={() => void repairCheck(check)}

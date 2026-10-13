@@ -30,7 +30,7 @@
    The join holds while the aside is closing, then the card corners ease back. */
 
 [data-sidebar-experiment] {
-  --workspace-controls-top: calc(0.5rem + 1px);
+  --workspace-controls-top: calc(var(--panel-gap) + 1px);
   --workspace-controls-right: calc(env(safe-area-inset-right) + 1.25rem);
   --shell-card-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 4px 12px -6px rgb(0 0 0 / 7%);
   /* Resolved here, before the sidebar re-bases --card (to pure black in dark),
@@ -80,12 +80,12 @@
 
 [data-sidebar-experiment] > [data-slot="sidebar-inset"] {
   height: auto;
-  margin-block: 0.5rem;
-  margin-right: 0.5rem;
+  margin-block: var(--panel-gap);
+  margin-right: var(--panel-gap);
   overflow: hidden;
   background-color: var(--background);
   border: 1px solid color-mix(in srgb, var(--sidebar-border) 70%, transparent);
-  border-radius: 1rem;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shell-card-shadow);
   transition: border-radius var(--duration-quick) var(--ease-smooth-out);
 }
@@ -97,20 +97,20 @@
     ) {
     margin-right: 0;
     border-right-width: 0;
-    border-radius: 1rem 0 0 1rem;
+    border-radius: var(--radius-xl) 0 0 var(--radius-xl);
   }
   [data-sidebar-experiment]
     > [data-slot="sidebar-inset"]
     + aside:is(:not([aria-hidden="true"]), [data-state="closing"]) {
     position: relative;
     height: auto;
-    margin-block: 0.5rem;
-    margin-right: 0.5rem;
+    margin-block: var(--panel-gap);
+    margin-right: var(--panel-gap);
     overflow: hidden;
     background-color: var(--background);
     border: 1px solid color-mix(in srgb, var(--sidebar-border) 70%, transparent);
     border-left-width: 0;
-    border-radius: 0 1rem 1rem 0;
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
     box-shadow: var(--shell-card-shadow);
   }
   [data-sidebar-experiment]

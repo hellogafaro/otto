@@ -100,20 +100,20 @@ export function ProviderAccountRows({
           }
           control={
             !connected ? (
-              <Button size="xs" disabled={locked} onClick={onConnect}>
+              <Button size="sm" disabled={locked} onClick={onConnect}>
                 <BusyIcon busy={busy} />
                 {t("Connect")}
               </Button>
             ) : usesKey ? (
-              <Button size="xs" variant="outline" disabled={locked} onClick={onConnect}>
+              <Button size="sm" variant="outline" disabled={locked} onClick={onConnect}>
                 {t("Use OAuth")}
               </Button>
             ) : (
               <>
-                <Button size="xs" variant="ghost-muted" disabled={locked} onClick={onConnect}>
+                <Button size="sm" variant="ghost-muted" disabled={locked} onClick={onConnect}>
                   {t("Reconnect")}
                 </Button>
-                <Button size="xs" variant="outline" disabled={locked} onClick={onTest}>
+                <Button size="sm" variant="outline" disabled={locked} onClick={onTest}>
                   <BusyIcon busy={busy} idle={<RiRefreshLine className="size-3.5" />} />
                   {t("Check")}
                 </Button>
@@ -139,17 +139,17 @@ export function ProviderAccountRows({
         control={
           usesKey ? (
             <>
-              <Button size="xs" variant="ghost-muted" disabled={locked} onClick={onApiKey}>
+              <Button size="sm" variant="ghost-muted" disabled={locked} onClick={onApiKey}>
                 {t("Replace key")}
               </Button>
-              <Button size="xs" variant="outline" disabled={locked} onClick={onTest}>
+              <Button size="sm" variant="outline" disabled={locked} onClick={onTest}>
                 <BusyIcon busy={busy} idle={<RiRefreshLine className="size-3.5" />} />
                 {t("Check key")}
               </Button>
             </>
           ) : (
             <Button
-              size="xs"
+              size="sm"
               variant={keyOnly && !connected ? "default" : "outline"}
               disabled={locked}
               onClick={onApiKey}
@@ -176,7 +176,7 @@ export function ProviderAccountRows({
           description={disconnectDescription(status, t, locale)}
           control={
             <Button
-              size="xs"
+              size="sm"
               variant="destructive-outline"
               aria-label={t("Disconnect {provider}", { provider: definition.label })}
               disabled={locked}
@@ -260,10 +260,10 @@ export function ProviderApiKeyForm({
         </p>
       ) : null}
       <div className="flex gap-2">
-        <Button type="submit" size="xs" disabled={busy || !apiKey.trim()}>
+        <Button type="submit" size="sm" disabled={busy || !apiKey.trim()}>
           {busy ? t("Saving…") : t("Save")}
         </Button>
-        <Button type="button" size="xs" variant="ghost-muted" disabled={busy} onClick={onCancel}>
+        <Button type="button" size="sm" variant="ghost-muted" disabled={busy} onClick={onCancel}>
           {t("Cancel")}
         </Button>
       </div>
@@ -291,7 +291,7 @@ export function ActiveLoginPanel({
   const isApiKey = flow.provider === "opencode-go";
 
   return (
-    <div data-settings-row="" className="space-y-3 rounded-xl px-3 py-3 sm:px-4">
+    <div data-settings-row="" className="space-y-3 rounded-lg p-4">
       <p className="text-13px leading-copy text-muted-foreground">
         {flow.userCode
           ? t("Copy this code, then open the sign-in page and enter it.")
@@ -305,7 +305,7 @@ export function ActiveLoginPanel({
       {flow.userCode ? <SignInCodeCopy code={flow.userCode} className="bg-muted/60" /> : null}
 
       <Button
-        size="xs"
+        size="sm"
         variant="outline"
         render={<a href={flow.url} target="_blank" rel="noreferrer" />}
       >
@@ -342,7 +342,7 @@ export function ActiveLoginPanel({
         </p>
       ) : null}
 
-      <Button size="xs" variant="ghost-muted" disabled={completing} onClick={onCancel}>
+      <Button size="sm" variant="ghost-muted" disabled={completing} onClick={onCancel}>
         {t("Cancel")}
       </Button>
     </div>

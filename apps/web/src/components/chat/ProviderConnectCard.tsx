@@ -82,7 +82,7 @@ export function ProviderConnectCard({
       role="status"
       data-provider-connect=""
       className={cn(
-        "mx-4 max-w-3xl rounded-xl sm:mx-auto sm:w-full border bg-card text-card-foreground shadow-sm",
+        "mx-4 max-w-3xl rounded-lg sm:mx-auto sm:w-full border bg-card text-card-foreground shadow-sm",
         className,
       )}
     >

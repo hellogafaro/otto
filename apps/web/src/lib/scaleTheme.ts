@@ -14,6 +14,7 @@ export const scaleTheme = {
     "13px",
     "15px",
     "17px",
+    "22px",
     "26px",
     "0.6875rem",
     "code-label",
@@ -29,9 +30,10 @@ export const scaleTheme = {
     "title",
     "title-lg",
   ],
-  leading: ["copy", "copy-tight"],
+  leading: ["copy", "copy-tight", "title"],
   font: ["emoji"],
   spacing: [
+    "panel-gap",
     "0.2em",
     "0.25em",
     "1em",
@@ -87,8 +89,9 @@ export const scaleTheme = {
     "banner-indent",
     "banner-actions-wrapped",
   ],
-  radius: ["1px", "5px", "10px", "0.45em", "1.65rem", "2rem", "0.5rem", "1rem", "16px"],
+  radius: ["1px", "5px", "10px", "0.45em", "2rem", "0.5rem", "1rem", "16px"],
   shadow: [
+    "control",
     "hairline",
     "hairline-lifted",
     "card-rest",
@@ -103,7 +106,7 @@ export const scaleTheme = {
   ],
   blur: ["1px", "2px"],
   animate: ["prompt-stash-count-enter", "provider-update-pill-countdown"],
-  color: ["popover-highlight", "sidebar-wash"],
+  color: ["popover-highlight", "sidebar-wash", "control", "control-hover", "control-border"],
 };
 
 export const scaleClassGroups = {

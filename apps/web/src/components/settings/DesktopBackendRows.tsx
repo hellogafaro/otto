@@ -183,7 +183,7 @@ export function SavedBackendListRow({
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <Button size="xs" variant="outline" disabled>
+                  <Button size="sm" variant="outline" disabled>
                     Managed above
                   </Button>
                 }
@@ -196,7 +196,7 @@ export function SavedBackendListRow({
             <>
               {!isConnected ? (
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="outline"
                   disabled={removingEnvironmentId === environmentId}
                   onClick={() => void onRemove(environmentId)}
@@ -205,7 +205,7 @@ export function SavedBackendListRow({
                 </Button>
               ) : null}
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 disabled={isConnecting || removingEnvironmentId === environmentId}
                 onClick={() =>
@@ -244,7 +244,7 @@ export const DesktopSshHostRow = memo(function DesktopSshHostRow({
   const buttonLabel = connectingHostAlias === target.alias ? "Adding…" : "Add environment";
 
   return (
-    <div className="rounded-xl px-3 py-3 sm:px-4">
+    <div className="rounded-lg p-4">
       <div className={ITEM_ROW_INNER_CLASSNAME}>
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-medium text-foreground">{target.alias}</h3>
@@ -252,7 +252,7 @@ export const DesktopSshHostRow = memo(function DesktopSshHostRow({
         </div>
         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
           <Button
-            size="xs"
+            size="sm"
             variant="outline"
             disabled={connectingHostAlias === target.alias}
             onClick={() => onConnect(target)}

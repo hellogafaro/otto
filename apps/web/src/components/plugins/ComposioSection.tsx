@@ -99,7 +99,7 @@ export function ComposioAccounts({
     <ul aria-label={t("Composio accounts")} className="flex flex-col gap-1">
       {connections.map((connection) => (
         <li
-          className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+          className="flex min-w-0 items-center gap-3 rounded-md px-2 py-2"
           data-composio-connection={connection.id}
           key={connection.id}
         >
@@ -298,7 +298,7 @@ export function ComposioSection({
     <>
       <section
         aria-label="Composio"
-        className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card px-5 py-5"
+        className="flex flex-col gap-4 rounded-lg border border-border/70 bg-card px-5 py-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="max-w-xl">

@@ -6,6 +6,13 @@ body {
   padding: 0;
 }
 
+/* Otto: Every surface, including sign-in before settings load, renders
+   grayscale-antialiased text; the Appearance switch can opt back out. */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 html,
 body {
   min-height: calc(100svh + env(safe-area-inset-top));

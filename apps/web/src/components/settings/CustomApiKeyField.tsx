@@ -62,7 +62,7 @@ export function CustomApiKeyField(props: {
           <KeyLabel required={props.required} />
         </label>
         {stored ? (
-          <Button type="button" size="xs" variant="ghost" onClick={props.onRemove}>
+          <Button type="button" size="sm" variant="ghost" onClick={props.onRemove}>
             Remove key
           </Button>
         ) : null}

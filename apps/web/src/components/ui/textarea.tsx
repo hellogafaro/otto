@@ -24,7 +24,7 @@ function Textarea({
       className={
         cn(
           !unstyled &&
-            "relative inline-flex w-full rounded-lg border border-transparent bg-secondary text-base text-foreground ring-foreground/20 transition-shadow has-focus-visible:has-aria-invalid:ring-destructive/60 has-aria-invalid:ring-2 has-aria-invalid:ring-destructive/40 has-disabled:opacity-64 has-focus-visible:ring-2 sm:text-sm",
+            "relative inline-flex w-full rounded-(--control-radius) bg-secondary inset-ring inset-ring-control-border text-base text-foreground ring-foreground/20 transition-shadow has-focus-visible:has-aria-invalid:ring-destructive/60 has-aria-invalid:ring-2 has-aria-invalid:ring-destructive/40 has-disabled:opacity-64 has-focus-visible:ring-2 sm:text-sm",
           presentation === "credentials" && "min-h-20 font-mono text-xs",
           presentation === "pairing-link" && "text-xs leading-relaxed",
           className,

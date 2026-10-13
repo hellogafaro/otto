@@ -274,7 +274,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
           {shareablePairingUrl && canCopyToClipboard ? (
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               aria-expanded={isQrPanelOpen}
               aria-controls={qrPanelId}
@@ -294,12 +294,12 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
           >
             {canCopyToClipboard ? (
               shareablePairingUrl ? null : (
-                <Button size="xs" variant="outline" onClick={handleCopyCode}>
+                <Button size="sm" variant="outline" onClick={handleCopyCode}>
                   Copy code
                 </Button>
               )
             ) : (
-              <DialogTrigger render={<Button size="xs" variant="outline" />}>
+              <DialogTrigger render={<Button size="sm" variant="outline" />}>
                 {shareablePairingUrl ? "Show link" : "Show code"}
               </DialogTrigger>
             )}
@@ -322,7 +322,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
                   onClick={(event) => event.currentTarget.select()}
                 />
                 {isRevealValueUrl && isRevealValueQrShareable ? (
-                  <div className="flex justify-center rounded-xl border border-border/60 bg-muted/30 p-4">
+                  <div className="flex justify-center rounded-lg border border-border/70 bg-muted/30 p-4">
                     <QRCodeSvg
                       value={revealValue}
                       size={132}
@@ -338,7 +338,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
                   Done
                 </Button>
                 {canCopyToClipboard ? (
-                  <Button variant="outline" size="xs" onClick={handleCopyCode}>
+                  <Button variant="outline" size="sm" onClick={handleCopyCode}>
                     Copy code
                   </Button>
                 ) : null}
@@ -346,7 +346,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
             </DialogPopup>
           </Dialog>
           <Button
-            size="xs"
+            size="sm"
             variant="destructive-outline"
             disabled={revokingPairingLinkId === pairingLink.id}
             onClick={() => void onRevoke(pairingLink.id)}
@@ -415,7 +415,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
                 </TooltipPopup>
               </Tooltip>
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost"
                 className="shrink-0"
                 onClick={() => copyPairingValue(qrPairingUrl, "link")}
@@ -423,12 +423,12 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
                 Copy link
               </Button>
             </div>
-            <Button size="xs" variant="ghost" onClick={handleCopyCode}>
+            <Button size="sm" variant="ghost" onClick={handleCopyCode}>
               Copy code only
             </Button>
           </div>
           {canRenderQrForSelection ? (
-            <div className="w-fit shrink-0 self-center rounded-xl bg-qr-surface p-3 sm:self-start">
+            <div className="w-fit shrink-0 self-center rounded-lg bg-qr-surface p-3 sm:self-start">
               <QRCodeSvg
                 value={qrPairingUrl}
                 size={168}
@@ -438,7 +438,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
               />
             </div>
           ) : (
-            <div className="flex size-48 shrink-0 items-center justify-center self-center rounded-xl border border-border/50 p-4 sm:self-start">
+            <div className="flex size-48 shrink-0 items-center justify-center self-center rounded-lg border border-border/70 p-4 sm:self-start">
               <p className="text-center text-11px text-muted-foreground/70">
                 No QR for this endpoint. Another device scanning a loopback link would dial itself;
                 copy the URL for use on this machine instead.
@@ -519,7 +519,7 @@ const ConnectedClientListRow = memo(function ConnectedClientListRow({
         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
           {!clientSession.current ? (
             <Button
-              size="xs"
+              size="sm"
               variant="destructive-outline"
               disabled={revokingClientSessionId === clientSession.sessionId}
               onClick={() => void onRevokeSession(clientSession.sessionId)}

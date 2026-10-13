@@ -21,8 +21,8 @@ describe("ComposerPendingApprovalActions", () => {
     expect(markup).toContain(">Cancel<");
     expect(markup).toContain("Always allow this session");
     expect(markup).not.toContain(">Always allow<");
-    expect(markup).toContain("h-7");
-    expect(markup).toContain("sm:h-6");
+    expect(markup).toContain("h-6");
+    expect(markup).not.toContain("sm:h-");
     expect(markup).toContain("bg-foreground text-background");
     expect(markup).toContain("text-muted-foreground");
     expect(markup).not.toContain("bg-primary");

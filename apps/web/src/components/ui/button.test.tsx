@@ -25,8 +25,8 @@ describe("button geometry tokens", () => {
       </Button>,
     );
 
-    expect(html).toContain("size-7");
-    expect(html).toContain("sm:size-6");
+    expect(html).toContain("size-6");
+    expect(html).not.toContain("sm:size-");
   });
 
   it("owns shared compact and micro control geometry", () => {

@@ -21,7 +21,7 @@ import {
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
-import { SettingsPageContainer } from "../settings/settingsLayout";
+import { SETTINGS_SECTION_TITLE_CLASS, SettingsPageContainer } from "../settings/settingsLayout";
 import { PLAN_PROVIDER_ORDER } from "./UsageCharts";
 import { UsageProviderChart } from "./UsageProviderChart";
 import { PROVIDER_PRESENTATION, providersWithUsage } from "./usageProviders";
@@ -236,7 +236,7 @@ export function UsagePage() {
           staleEnvironments={merged.staleEnvironments}
         />
       ) : merged.connectedProviders.length === 0 ? (
-        <div className="rounded-xl border border-border/70 px-5 py-6">
+        <div className="rounded-lg border border-border/70 px-5 py-6">
           <h2 className="text-sm font-medium text-foreground">No provider usage yet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Connect a provider in Settings to start tracking usage.
@@ -320,7 +320,7 @@ export function UsagePage() {
                         below it, so it sits with them instead of competing with
                         the metric control in the top bar. */}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-foreground">
+                <h2 className={SETTINGS_SECTION_TITLE_CLASS}>
                   {isPast24Hours ? "Hourly" : "Daily"}{" "}
                   {metric === "tokens" ? "processed tokens" : "cost"}
                 </h2>
@@ -356,7 +356,7 @@ export function UsagePage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-foreground">Totals</h2>
+            <h2 className={SETTINGS_SECTION_TITLE_CLASS}>Totals</h2>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-1 md:grid-cols-5">
               <Metric label="Processed tokens" value={formatTokens(merged.totalTokens)} />
               <Metric label="Cached input" value={formatTokens(merged.cachedInputTokens)} />
@@ -368,7 +368,7 @@ export function UsagePage() {
 
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-medium text-foreground">Breakdown</h2>
+              <h2 className={SETTINGS_SECTION_TITLE_CLASS}>Breakdown</h2>
               <ToggleGroup
                 aria-label="Usage breakdown"
                 variant="segmented"

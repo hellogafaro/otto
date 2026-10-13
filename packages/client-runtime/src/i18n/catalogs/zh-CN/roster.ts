@@ -116,7 +116,7 @@ export const rosterCatalog = {
   "Choose a custom avatar color. Current color {color}": "选择自定义头像颜色。当前颜色 {color}",
   "Avatar source": "头像来源",
   "Avatar preview": "头像预览",
-  "Create your first bot": "创建你的第一个机器人",
+  "Hand off your first job": "交出你的第一项工作",
   "No plugins enabled": "未启用插件",
   "Plugins, {status}": "插件，{status}",
   "Plugins · {status}": "插件 · {status}",
@@ -286,8 +286,9 @@ export const rosterCatalog = {
   "Remove group": "移除条件组",
   "Team ID": "团队 ID",
   "Project ID": "项目 ID",
-  "No routines yet. Ask a bot to do something on a schedule.":
-    "还没有例行任务。让机器人按计划做点事吧。",
+  "Put recurring work on autopilot": "让重复性工作自动运行",
+  "Ask any bot for a morning briefing, a weekly report, or a regular check, and it runs on time without you.":
+    "让任意机器人按计划生成晨间简报、每周报告或例行检查，它会准时运行，无需你操心。",
   "The routine details did not come through. Read the bot's last message before creating it.":
     "例行任务的详情没有传过来。创建之前，请先阅读机器人的最后一条消息。",
   "Chat with your bots and start new work": "与你的机器人聊天并开始新工作",

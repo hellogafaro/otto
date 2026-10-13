@@ -63,15 +63,15 @@ function MenuPopup({
       >
         <MenuPrimitive.Popup
           className={cn(
-            "relative flex origin-(--transform-origin) rounded-xl border border-border/80 bg-popover shadow-[0_18px_48px_-24px_rgb(0_0_0/55%)] outline-none focus:outline-none dark:shadow-[0_22px_56px_-24px_rgb(0_0_0/80%)]",
+            "relative flex origin-(--transform-origin) rounded-lg border border-border/80 bg-popover shadow-[0_18px_48px_-24px_rgb(0_0_0/55%)] outline-none focus:outline-none dark:shadow-[0_22px_56px_-24px_rgb(0_0_0/80%)]",
             !hasExplicitWidthClass && "min-w-32",
-            presentation === "padded" && "p-1.5",
+            presentation === "padded" && "p-1",
             className,
           )}
           data-slot="menu-popup"
           {...props}
         >
-          <div className="max-h-(--available-height) w-full overflow-y-auto p-1.5">{children}</div>
+          <div className="max-h-(--available-height) w-full overflow-y-auto p-1">{children}</div>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </MenuPrimitive.Portal>
@@ -94,7 +94,7 @@ function MenuItem({
   return (
     <MenuPrimitive.Item
       className={cn(
-        "[&>svg]:-mx-0.5 flex min-h-9 cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-inset:ps-8 data-[variant=destructive]:text-destructive-foreground data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-8 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-70 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:[&>svg:not([class*='text-'])]:text-current [&>svg]:pointer-events-none [&>svg]:shrink-0",
+        "[&>svg]:-mx-0.5 flex min-h-9 cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-inset:ps-8 data-[variant=destructive]:text-destructive-foreground data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-8 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-70 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:[&>svg:not([class*='text-'])]:text-current [&>svg]:pointer-events-none [&>svg]:shrink-0",
         className,
       )}
       data-inset={inset}

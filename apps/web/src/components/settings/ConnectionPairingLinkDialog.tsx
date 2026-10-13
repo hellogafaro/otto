@@ -106,7 +106,7 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
   return (
     <div className="flex items-center gap-2">
       <Button
-        size="xs"
+        size="sm"
         variant="destructive-outline"
         disabled={
           isRevokingOtherClients || clientSessions.every((clientSession) => clientSession.current)
@@ -128,7 +128,7 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
       >
         <DialogTrigger
           render={
-            <Button size="xs" variant="default">
+            <Button size="sm" variant="default">
               <RiAddLine className="size-3" />
               Create link
             </Button>
@@ -165,7 +165,7 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
                 </div>
                 <div className="flex gap-1">
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="outline"
                     disabled={isCreatingPairingLink}
                     onClick={() => setPairingScopes([AuthOrchestrationReadScope])}
@@ -173,7 +173,7 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
                     Read only
                   </Button>
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="outline"
                     disabled={isCreatingPairingLink}
                     onClick={() => setPairingScopes([...AuthStandardClientScopes])}

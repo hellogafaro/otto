@@ -84,7 +84,7 @@ export const PluginSearchResultCard = memo(function PluginSearchResultCard({
     <section
       aria-label={t("{name} plugin", { name: recommendation.name })}
       className={cn(
-        "flex max-w-xl min-w-0 items-center gap-3 rounded-xl border border-border/70 bg-card/55 px-3 py-2.5",
+        "flex max-w-xl min-w-0 items-center gap-3 rounded-lg border border-border/70 bg-card/55 px-3 py-2.5",
         className,
       )}
     >

@@ -24,7 +24,7 @@ export const BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME = "border-border/70 bg-card";
  * and its open bottom edge meets the box's squared top. Put it after a surface class.
  */
 export const BOT_COMPOSER_DOCKED_PANEL_CLASS_NAME =
-  "mb-1 w-full rounded-t-[1.65rem] rounded-b-md border border-b-transparent px-3.5 pt-3 pb-2.5";
+  "mb-1 w-full rounded-t-lg rounded-b-md border border-b-transparent px-3.5 pt-3 pb-2.5";
 
 export function isBotConversationWorking(input: {
   sending: boolean;

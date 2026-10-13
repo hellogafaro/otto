@@ -17,7 +17,7 @@ export function UserInputAnswerCard({
 
   return (
     <div
-      className="chat-generative flex w-72 max-w-full flex-col overflow-hidden rounded-2xl border border-border bg-card"
+      className="chat-generative flex w-72 max-w-full flex-col overflow-hidden rounded-lg border border-border bg-card"
       data-generative="answer"
       data-testid="user-input-answer-card"
     >

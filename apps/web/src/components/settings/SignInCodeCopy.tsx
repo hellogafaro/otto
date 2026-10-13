@@ -38,7 +38,7 @@ export function SignInCodeCopy({
     <div className="space-y-1.5">
       <div className={cn("flex items-center gap-2 rounded-lg bg-background px-3 py-2", className)}>
         <code className="flex-1 select-all text-sm font-semibold tracking-widest">{code}</code>
-        <Button size="xs" variant="ghost" onClick={() => void copy()}>
+        <Button size="sm" variant="ghost" onClick={() => void copy()}>
           {copyState === "copied" ? (
             <RiCheckLine className="size-3.5" />
           ) : (

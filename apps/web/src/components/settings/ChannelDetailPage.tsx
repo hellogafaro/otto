@@ -64,7 +64,7 @@ export function ChannelDetailPage({ provider }: { readonly provider: ChannelProv
   };
 
   return (
-    <SettingsPageContainer className="gap-10">
+    <SettingsPageContainer>
       <SettingsDetailHeader
         back={{ section: "channels", label: t("Channels") }}
         icon={meta.icon}
@@ -78,7 +78,7 @@ export function ChannelDetailPage({ provider }: { readonly provider: ChannelProv
         title={t("Connections")}
         headerAction={
           allowed && connections.length > 0 ? (
-            <Button size="xs" variant="outline" onClick={() => openSetup(null)}>
+            <Button size="sm" variant="outline" onClick={() => openSetup(null)}>
               <RiAddLine className="size-3.5" />
               {t("Add connection")}
             </Button>
@@ -90,7 +90,7 @@ export function ChannelDetailPage({ provider }: { readonly provider: ChannelProv
         ) : connections.length === 0 ? (
           <SettingsMessageRow
             action={
-              <Button size="xs" onClick={() => openSetup(null)}>
+              <Button size="sm" onClick={() => openSetup(null)}>
                 {t("Set up {name}", { name: meta.label })}
               </Button>
             }
@@ -161,7 +161,7 @@ export function ChannelConnectionRow({
   const canDisconnect = bot !== undefined && binding?.status === "connected";
 
   return (
-    <div data-settings-row="" className="space-y-3 rounded-xl px-3 py-3 sm:px-4">
+    <div data-settings-row="" className="space-y-3 rounded-lg p-4">
       <div className="flex min-h-8 items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -253,7 +253,7 @@ export function ChannelConnectionRow({
             }}
           >
             <SelectTrigger
-              size="xs"
+              size="sm"
               aria-label={t("Assign {name}", { name: connection.name })}
               className="w-full sm:w-48"
               // No bot needs no project, so an assigned channel can always be unassigned.
@@ -280,11 +280,11 @@ export function ChannelConnectionRow({
           onChange={setPickedProjectId}
           label={t("Project for {name}", { name: connection.name })}
           disabled={connectionBusy}
-          size="xs"
+          size="sm"
         />
         {bot && binding ? (
           <ChannelRepairButton
-            size="xs"
+            size="sm"
             action={repairAction}
             status={binding.status}
             disabled={locked || (repairAction === "choose-project" && !canMove)}
@@ -312,7 +312,7 @@ export function ChannelConnectionRow({
         ) : null}
         {canMove && repairAction !== "choose-project" ? (
           <Button
-            size="xs"
+            size="sm"
             variant="outline"
             disabled={locked}
             onClick={() => void settings.moveToProject(connection, bot.id, projectId)}

@@ -328,7 +328,7 @@ export function KeybindingsSettingsPanel() {
                   );
 
                   return (
-                    <ToggleGroupItem key={option} value={option} size="keybinding-filter">
+                    <ToggleGroupItem key={option} value={option}>
                       {t(FILTER_LABELS[option])}
                       {count ? (
                         <span
@@ -398,7 +398,7 @@ export function KeybindingsSettingsPanel() {
               <h3 className="px-3 text-12px font-medium text-muted-foreground sm:px-4">
                 {group.title}
               </h3>
-              <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/70 bg-settings-surface">
+              <div className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/70 bg-settings-surface">
                 {group.items.map((item) => {
                   if (item.type === "row") return renderRow(item.row);
                   const { series } = item;
@@ -422,7 +422,7 @@ export function KeybindingsSettingsPanel() {
           ))}
 
           {groups.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
               <p>{emptyStateMessage(visibleFilter, query, t)}</p>
               {query.length > 0 || visibleFilter !== "all" ? (
                 <Button

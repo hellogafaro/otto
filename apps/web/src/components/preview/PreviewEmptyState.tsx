@@ -36,7 +36,7 @@ export function PreviewEmptyState({
     return (
       <Empty>
         <EmptyMedia variant="icon">
-          <RiGlobalLine className="size-4.5 text-muted-foreground" />
+          <RiGlobalLine />
         </EmptyMedia>
         <EmptyTitle>No preview yet</EmptyTitle>
         <EmptyDescription>
@@ -56,7 +56,7 @@ export function PreviewEmptyState({
               <RiHistoryLine className="size-4 shrink-0" />
               <h2 className="font-medium">Recently used</h2>
             </div>
-            <div className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-background">
+            <div className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/70 bg-background">
               {recents.map((entry) => (
                 <PreviewRecentUrlCard
                   key={entry.url}
@@ -75,7 +75,7 @@ export function PreviewEmptyState({
               <RiSignalTowerLine className="size-4 shrink-0" />
               <h2 className="font-medium">Local servers</h2>
             </div>
-            <div className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-background">
+            <div className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/70 bg-background">
               {servers.map((server) => (
                 <PreviewLocalServerCard
                   key={`${server.host}:${server.port}`}

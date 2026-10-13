@@ -12,7 +12,7 @@ const POPOVER_POPUP_VARIANT_CLASSES = {
   default: undefined,
   // Edge-to-edge picker surface: no viewport padding, so the picker owns its layout.
   "color-picker":
-    "rounded-2xl border border-border/70 p-0 shadow-2xl [--viewport-inline-padding:0px] [&_[data-slot=popover-viewport]]:p-0",
+    "rounded-lg border border-border/70 p-0 shadow-2xl [--viewport-inline-padding:0px] [&_[data-slot=popover-viewport]]:p-0",
   "accent-picker":
     "rounded-md p-0 [--viewport-inline-padding:0px] [&_[data-slot=popover-viewport]]:p-0",
   // Clipped picker whose content scrolls itself; the viewport class below drops padding.

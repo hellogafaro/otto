@@ -29,8 +29,8 @@ describe("BotZeroState", () => {
   it("explains what a bot is and offers to create one", () => {
     const markup = renderToStaticMarkup(<BotZeroState />);
 
-    expect(markup).toContain("Create your first bot");
-    expect(markup).toContain("A bot is a teammate you chat with.");
+    expect(markup).toContain("Hand off your first job");
+    expect(markup).toContain("A bot remembers your instructions, tools, and context");
     expect(markup).toContain(">Create bot</button>");
     expect(markup).not.toContain("Create a bot to start chatting");
   });

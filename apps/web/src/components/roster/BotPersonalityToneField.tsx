@@ -84,7 +84,7 @@ export function BotPersonalityTonePreview({
 
   return (
     <figure
-      className="space-y-3 rounded-xl bg-muted/30 p-4"
+      className="space-y-3 rounded-lg bg-muted/30 p-4"
       data-testid="bot-personality-tone-preview"
     >
       <figcaption className="text-xs font-medium text-muted-foreground">

@@ -176,7 +176,7 @@ export function ImageGenerationSettingsContent({
           control={
             providersQuery.error ? (
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 disabled={providersQuery.isPending}
                 onClick={providersQuery.refresh}
@@ -294,7 +294,7 @@ export function ImageProviderRow({
           {connected ? (
             <>
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 disabled={disabled}
                 onClick={onTest}
@@ -305,7 +305,7 @@ export function ImageProviderRow({
               </Button>
               {needsReconnect ? (
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="outline"
                   onClick={onConnect}
                   aria-label={`Reconnect ${label} subscription`}
@@ -314,7 +314,7 @@ export function ImageProviderRow({
                 </Button>
               ) : null}
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost-muted"
                 disabled={disabled}
                 onClick={onDisconnect}
@@ -325,7 +325,7 @@ export function ImageProviderRow({
             </>
           ) : (
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               disabled={!status}
               onClick={onConnect}

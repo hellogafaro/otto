@@ -152,6 +152,9 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-ring: var(--ring);
   --color-input: var(--contrast-input);
+  --color-control: var(--control);
+  --color-control-hover: var(--control-hover);
+  --color-control-border: var(--control-border);
   --color-border: var(--contrast-border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--contrast-accent-foreground);
@@ -190,13 +193,18 @@
   --color-selected: var(--selected);
   --color-selected-foreground: var(--selected-foreground);
   --color-disabled-foreground: var(--disabled-foreground);
+  /* Otto: 4 / 6 / 10 / 12. Controls 6, cards, popovers and menus 10,
+     panels and dialogs 12. A child that hugs its container sits at the
+     radius difference: 6px items inside a 10px popup with 4px padding.
+     Nothing but pills and avatars is rounder than a panel, so the larger
+     steps clamp to the panel radius. */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-2xl: var(--radius-xl);
+  --radius-3xl: var(--radius-xl);
+  --radius-4xl: var(--radius-xl);
   @keyframes skeleton {
     /* Transform-only so the highlight sweep stays on the compositor, then a
        long hold with the band parked off-screen instead of a constant shimmer. */

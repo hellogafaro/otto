@@ -16,7 +16,9 @@ import { Grid } from "../dither-kit/grid";
 import { Tooltip } from "../dither-kit/tooltip";
 import { XAxis } from "../dither-kit/x-axis";
 import { YAxis } from "../dither-kit/y-axis";
-import { ClaudeAI, GrokIcon, KimiIcon, OpenCodeIcon, type Icon, OpenAI } from "../Icons";
+import { cn } from "../../lib/utils";
+import { SETTINGS_SECTION_TITLE_CLASS } from "../settings/settingsLayout";
+import { ClaudeAI, GrokIcon, KimiIcon, OpenCodeIcon, type Icon, OpenAI } from "../icons";
 import { PROVIDER_ORDER, PROVIDER_PRESENTATION, providersWithUsage } from "./usageProviders";
 
 type LiveSubscriptionProviderId = Exclude<SubscriptionProviderId, "cursor">;
@@ -78,16 +80,16 @@ export function UsagePlanMeters(props: { readonly limits: UsageProviderPlanLimit
 
   return (
     <section className="flex min-w-0 flex-col gap-3">
-      <h2 className="flex items-center gap-2 px-1 text-sm font-medium text-foreground">
+      <h2 className={cn("flex items-center gap-2 px-4", SETTINGS_SECTION_TITLE_CLASS)}>
         <ProviderMark icon={presentation.icon} />
         {title}
       </h2>
       {props.limits.windows.length === 0 ? (
-        <p className="rounded-xl border border-border/70 px-4 py-5 text-sm text-muted-foreground">
+        <p className="rounded-lg border border-border/70 px-4 py-5 text-sm text-muted-foreground">
           {props.limits.message ?? "No limit data yet."}
         </p>
       ) : (
-        <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70">
+        <div className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/70">
           {props.limits.windows.map((window) => {
             const left = remainingPercent(window);
 

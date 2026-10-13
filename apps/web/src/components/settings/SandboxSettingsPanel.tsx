@@ -201,7 +201,7 @@ function EnvironmentSandboxSettingsPanel({
               control={
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="outline"
                     disabled={saving}
                     aria-label={
@@ -215,7 +215,7 @@ function EnvironmentSandboxSettingsPanel({
                   </Button>
                   {connected ? (
                     <Button
-                      size="xs"
+                      size="sm"
                       variant="ghost-muted"
                       aria-label={t("Disconnect {name}", { name: definition.label })}
                       disabled={saving}

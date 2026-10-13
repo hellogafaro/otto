@@ -113,7 +113,7 @@ export function ProviderUnavailableNotice({
   return (
     <div
       className={cn(
-        "flex min-w-0 items-start gap-2.5 rounded-xl border border-warning/30 bg-card px-3 py-2.5 text-card-foreground",
+        "flex min-w-0 items-start gap-2.5 rounded-lg border border-warning/30 bg-card px-3 py-2.5 text-card-foreground",
         className,
       )}
       id={id}

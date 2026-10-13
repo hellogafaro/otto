@@ -49,7 +49,7 @@ export function PluginSearchField({
       <input
         aria-label={t("Search plugins")}
         autoComplete="off"
-        className="h-9 w-full rounded-xl border border-border/80 bg-card ps-9 pe-9 text-sm text-foreground shadow-xs outline-none transition-border-shadow placeholder:text-muted-foreground focus-visible:border-ring/60 focus-visible:ring-3 focus-visible:ring-ring/15 [&::-webkit-search-cancel-button]:appearance-none"
+        className="h-8 w-full rounded-(--control-radius) border border-border/80 bg-card ps-9 pe-9 text-sm text-foreground shadow-xs outline-none transition-border-shadow placeholder:text-muted-foreground focus-visible:border-ring/60 focus-visible:ring-3 focus-visible:ring-ring/15 [&::-webkit-search-cancel-button]:appearance-none"
         placeholder={t("Search plugins")}
         spellCheck={false}
         type="search"

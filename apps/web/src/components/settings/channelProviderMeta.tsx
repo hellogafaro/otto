@@ -7,7 +7,7 @@ import {
   TelegramIcon,
   WhatsAppIcon,
   type Icon,
-} from "../Icons";
+} from "../icons";
 
 export interface ChannelCredentialField {
   readonly key: string;

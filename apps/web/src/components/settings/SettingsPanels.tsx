@@ -81,9 +81,8 @@ export function AppearanceSettingsPanel() {
 
   return (
     <SettingsPageContainer>
-      <ColorSchemeSettings />
-
       <SettingsSection id="display" title={t("Display")}>
+        <ColorSchemeSettings />
         <SettingsRow
           {...searchableSetting("setting-appearance-contrast", t)}
           description={t("Adjust the contrast of colors and borders across the interface.")}
@@ -320,7 +319,7 @@ export function AdvancedSettingsSections() {
             </>
           }
           control={
-            <Button size="xs" variant="outline" onClick={() => openSettings("diagnostics")}>
+            <Button size="sm" variant="outline" onClick={() => openSettings("diagnostics")}>
               {t("View diagnostics")}
             </Button>
           }

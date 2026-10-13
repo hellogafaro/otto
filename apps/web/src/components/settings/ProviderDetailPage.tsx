@@ -95,7 +95,7 @@ export function ProviderDetailPage({ entry }: { readonly entry: ProviderCatalogE
 
   if (environmentId === null) {
     return (
-      <SettingsPageContainer className="gap-10">
+      <SettingsPageContainer>
         <ProviderHeader entry={entry} state={unavailable} plan={translate(entry.planHint)} />
         <SettingsSection title={t("Account")}>
           <SettingsMessageRow>
@@ -146,7 +146,7 @@ function ConnectedProviderDetail({
   const { states, plans } = useProviderConnectionStates(environmentId, [entry]);
 
   return (
-    <SettingsPageContainer className="gap-10">
+    <SettingsPageContainer>
       <ProviderHeader
         entry={entry}
         state={states.get(entry.slug) ?? unavailable}

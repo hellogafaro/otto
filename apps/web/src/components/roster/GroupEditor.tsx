@@ -1,4 +1,4 @@
-import { RiRobot2Line, RiLogoutBoxRLine, RiDeleteBinLine } from "@remixicon/react";
+import { RiRobot3Line, RiLogoutBoxRLine, RiDeleteBinLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
 import { BotId, GroupId, isGroupBotMember, type EnvironmentId } from "@otto/contracts";
@@ -263,7 +263,7 @@ export function GroupEditor({
                 ).then((success) => success && setNewMemberId(""))
               }
             >
-              <RiRobot2Line />
+              <RiRobot3Line />
             </Button>
           </div>
           {availableBots.length === 0 ? (

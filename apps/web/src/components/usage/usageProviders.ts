@@ -1,6 +1,6 @@
 import type { UsageProviderKind } from "@otto/contracts";
 
-import { ClaudeAI, GrokIcon, KimiIcon, OpenCodeIcon, type Icon, OpenAI } from "../Icons";
+import { ClaudeAI, GrokIcon, KimiIcon, OpenCodeIcon, type Icon, OpenAI } from "../icons";
 
 type UsageProviderPresentation = {
   readonly label: string;

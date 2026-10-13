@@ -2,11 +2,12 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "~/lib/utils";
 
+// Otto: Empty states share one rhythm: 16px from icon to title, 4px to the description, 20px to actions.
 function Empty({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-1 flex-col items-center justify-center gap-6 text-balance p-6 text-center md:p-12",
+        "flex min-w-0 flex-1 flex-col items-center justify-center text-balance p-6 text-center md:p-12",
         className,
       )}
       data-slot="empty"
@@ -34,7 +35,7 @@ const emptyMediaVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent",
-        icon: "relative flex size-9 shrink-0 items-center justify-center rounded-md border border-transparent bg-secondary text-foreground [&_svg:not([class*='size-'])]:size-4.5",
+        icon: "relative flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-card text-muted-foreground [&_svg]:size-4!",
       },
     },
   },
@@ -47,29 +48,11 @@ function EmptyMedia({
 }: React.ComponentProps<"div"> & VariantProps<typeof emptyMediaVariants>) {
   return (
     <div
-      className={cn("relative mb-6", className)}
+      className={cn("relative mb-4", className)}
       data-slot="empty-media"
       data-variant={variant}
       {...props}
     >
-      {variant === "icon" && (
-        <>
-          <div
-            aria-hidden="true"
-            className={cn(
-              emptyMediaVariants({ className, variant }),
-              "-translate-x-0.5 -rotate-10 pointer-events-none absolute bottom-px origin-bottom-left scale-84 shadow-none",
-            )}
-          />
-          <div
-            aria-hidden="true"
-            className={cn(
-              emptyMediaVariants({ className, variant }),
-              "pointer-events-none absolute bottom-px origin-bottom-right translate-x-0.5 rotate-10 scale-84 shadow-none",
-            )}
-          />
-        </>
-      )}
       <div className={cn(emptyMediaVariants({ className, variant }))} {...props} />
     </div>
   );
@@ -86,8 +69,8 @@ function EmptyTitle({
   return (
     <div
       className={cn(
-        "font-semibold text-xl",
-        variant === "body" && "font-sans font-medium",
+        "text-base font-medium tracking-title-sm text-foreground",
+        variant === "body" && "text-13px tracking-normal",
         className,
       )}
       data-slot="empty-title"
@@ -100,7 +83,7 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
   return (
     <div
       className={cn(
-        "text-muted-foreground text-sm [&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4 [[data-slot=empty-title]+&]:mt-1",
+        "text-13px leading-copy text-muted-foreground [&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4 [[data-slot=empty-title]+&]:mt-1",
         className,
       )}
       data-slot="empty-description"
@@ -113,7 +96,7 @@ function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 max-w-sm flex-col items-center gap-4 text-balance text-sm",
+        "mt-5 flex w-full min-w-0 max-w-sm flex-col items-center gap-2 text-balance text-13px",
         className,
       )}
       data-slot="empty-content"

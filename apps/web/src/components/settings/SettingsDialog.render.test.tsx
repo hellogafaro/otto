@@ -23,7 +23,7 @@ describe("settings section loading", () => {
 
     expect(markup).toContain("Preferences");
     expect(markup).toContain('id="time-format"');
-    expect(markup).toContain("Send feedback");
+    expect(markup).toContain("Version");
     expect(markup).not.toContain('role="status"');
   });
 

@@ -37,7 +37,7 @@ describe("BotApprovalPrompt", () => {
     expect(markup).not.toContain("Enable Auto Review");
     // Attaches to the top of the prompt box instead of floating in the transcript.
     expect(markup).not.toContain("max-w-xl");
-    expect(markup).toContain("rounded-t-[1.65rem]");
+    expect(markup).toContain("rounded-t-lg");
     expect(markup).toContain("border-b-transparent");
     expect(markup).toContain("bg-card");
     expect(markup).toContain("bg-foreground text-background");

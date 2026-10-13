@@ -157,13 +157,13 @@ function LinkedAccountCard({
 
   if (state.kind === "signed-out") {
     fix = (
-      <Button size="xs" variant="outline" disabled={disabled} onClick={onReconnect}>
+      <Button size="sm" variant="outline" disabled={disabled} onClick={onReconnect}>
         {reconnectLabel}
       </Button>
     );
   } else if (state.kind === "unreachable") {
     fix = (
-      <Button size="xs" variant="outline" disabled={disabled} onClick={onRetry}>
+      <Button size="sm" variant="outline" disabled={disabled} onClick={onRetry}>
         <RiRefreshLine className="size-3.5" />
         {t("Try again")}
       </Button>
@@ -174,7 +174,7 @@ function LinkedAccountCard({
     <div
       data-settings-row=""
       data-account-id={status.accountId}
-      className="flex items-center gap-3 rounded-xl px-3 py-3 sm:px-4"
+      className="flex items-center gap-3 rounded-lg p-4"
     >
       <span
         aria-hidden
@@ -283,7 +283,7 @@ export function ProviderAccountsSection({
 
   const addButton = keyOnly ? (
     <Button
-      size="xs"
+      size="sm"
       variant="outline"
       disabled={locked || adding}
       onClick={() => accounts.openApiKey(definition, { addAccount: true })}
@@ -293,7 +293,7 @@ export function ProviderAccountsSection({
     </Button>
   ) : (
     <Menu>
-      <MenuTrigger render={<Button size="xs" variant="outline" disabled={locked || adding} />}>
+      <MenuTrigger render={<Button size="sm" variant="outline" disabled={locked || adding} />}>
         <BusyIcon
           busy={accounts.busyProvider === definition.id && accounts.busyAccount === null}
           idle={<RiAddLine className="size-3.5" />}
@@ -317,8 +317,8 @@ export function ProviderAccountsSection({
 
   if (accounts.keyProvider) {
     body = (
-      <div data-settings-row="" className="rounded-xl pt-3">
-        <h3 className="px-3 pb-3 text-sm font-medium text-foreground sm:px-4">
+      <div data-settings-row="" className="rounded-lg pt-4">
+        <h3 className="px-4 pb-3 text-13px font-medium tracking-title-xs text-foreground">
           {accounts.keyTarget.accountId ? t("Replace API key") : t("Add API key")}
         </h3>
         <ProviderApiKeyForm

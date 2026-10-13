@@ -295,7 +295,7 @@ export function NewKeybindingCard({
     <div
       role="group"
       aria-label={t("New shortcut")}
-      className="rounded-xl border border-border/70 bg-settings-surface"
+      className="rounded-lg border border-border/70 bg-settings-surface"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:px-4">
         <Select

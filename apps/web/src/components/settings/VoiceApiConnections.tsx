@@ -282,7 +282,7 @@ export function VoiceApiProviderRow({
           {connected && !editing ? (
             <>
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 disabled={disabled}
                 onClick={onTest}
@@ -292,7 +292,7 @@ export function VoiceApiProviderRow({
                 Test
               </Button>
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 disabled={disabled}
                 onClick={() => setEditing(true)}
@@ -301,7 +301,7 @@ export function VoiceApiProviderRow({
                 Replace key
               </Button>
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost-muted"
                 disabled={disabled}
                 onClick={onDisconnect}

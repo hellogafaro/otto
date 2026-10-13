@@ -2,6 +2,7 @@ import { RiCheckLine, RiCloseLine } from "@remixicon/react";
 import type { UsageProviderKind, UsageProviderPlanLimits } from "@otto/contracts";
 
 import { cn } from "../../lib/utils";
+import { SETTINGS_SECTION_TITLE_CLASS } from "../settings/settingsLayout";
 import type { EnvironmentUsageStatus } from "@otto/client-runtime/usage";
 import { Skeleton } from "../ui/skeleton";
 import { UsagePlanMeters } from "./UsageCharts";
@@ -28,9 +29,9 @@ export function UsageLimitsOverview({
       ) : environments.length === 0 ? (
         <p className="text-sm text-muted-foreground">Connect an environment to see usage.</p>
       ) : (
-        <div className="rounded-xl border border-border/70 px-5 py-6">
-          <h2 className="text-sm font-medium text-foreground">No subscription limits yet</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="space-y-0.5 rounded-lg border border-border/70 bg-settings-surface p-4">
+          <h2 className="text-13px font-medium text-foreground">No subscription limits yet</h2>
+          <p className="text-13px leading-copy text-muted-foreground/80">
             Connect a provider subscription in Settings, then refresh this page.
           </p>
         </div>
@@ -204,7 +205,7 @@ export function UsageSkeleton() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-foreground">Totals</h2>
+        <h2 className={SETTINGS_SECTION_TITLE_CLASS}>Totals</h2>
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-1 md:grid-cols-5">
           {["Processed tokens", "Cached input", "Uncached input", "Output", "Cache savings"].map(
             (label) => (
@@ -219,7 +220,7 @@ export function UsageSkeleton() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium text-foreground">Breakdown</h2>
+          <h2 className={SETTINGS_SECTION_TITLE_CLASS}>Breakdown</h2>
           <Skeleton className="h-7 w-28 rounded-lg" />
         </div>
         <Skeleton tone="faint" className="h-44" />

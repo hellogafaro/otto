@@ -63,7 +63,6 @@ describe("settings in Simplified Chinese", () => {
       "用量刷新",
       "5 分钟",
       "版本",
-      "发送反馈",
     ]) {
       expect(html).toContain(label);
     }
@@ -73,7 +72,6 @@ describe("settings in Simplified Chinese", () => {
       "System default follows",
       "Usage refresh",
       "reloads plan limits",
-      "Send feedback",
     ]) {
       expect(html).not.toContain(label);
     }

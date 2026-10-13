@@ -1,5 +1,5 @@
 import { ProviderDriverKind } from "@otto/contracts";
-import { ClaudeAI, CustomApiIcon, GrokIcon, Icon, KimiIcon, OpenAI, OpenCodeIcon } from "../Icons";
+import { ClaudeAI, CustomApiIcon, GrokIcon, Icon, KimiIcon, OpenAI, OpenCodeIcon } from "../icons";
 import { PROVIDER_OPTIONS } from "../../session-logic";
 
 export const PROVIDER_ICON_BY_PROVIDER: Partial<Record<ProviderDriverKind, Icon>> = {

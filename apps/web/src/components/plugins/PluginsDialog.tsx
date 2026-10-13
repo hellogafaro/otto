@@ -473,7 +473,7 @@ function PluginsDialogForEnvironment({
           search={<PluginSearchField query={query} onQueryChange={setQuery} />}
           filters={<PluginFilterBar filter={filter} onFilterChange={setFilter} />}
         >
-          <section className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <section className="flex flex-col gap-4 rounded-lg border border-border/70 bg-card px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-xl">
               <h2 className="text-base font-semibold">{t("Find an integration")}</h2>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">

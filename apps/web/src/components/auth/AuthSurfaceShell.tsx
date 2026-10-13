@@ -14,7 +14,7 @@ export function AuthSurfaceShell({
       data-auth-surface
       className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-10 text-foreground sm:px-6"
     >
-      <main className="flex w-full max-w-sm flex-col gap-8">
+      <main className="flex w-full max-w-sm flex-col gap-5">
         <img
           src="/icon.png"
           alt="Otto"
@@ -22,7 +22,7 @@ export function AuthSurfaceShell({
           height={36}
           className="size-9 rounded-(--control-radius)"
         />
-        <section className="flex flex-col gap-5">{children}</section>
+        <section className="flex flex-col gap-8">{children}</section>
         {footer ? (
           <div className="text-xs leading-relaxed text-muted-foreground">{footer}</div>
         ) : null}

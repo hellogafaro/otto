@@ -20,8 +20,8 @@ export const memoryCatalog = {
   "File change approval": "File change approval",
   "Product feedback draft": "Product feedback draft",
   "Waiting for approval": "Waiting for approval",
-  "A bot is a teammate you chat with. It keeps its own instructions, memory, tools, and schedule, so you can give it a job once and come back to it.":
-    "A bot is a teammate you chat with. It keeps its own instructions, memory, tools, and schedule, so you can give it a job once and come back to it.",
+  "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.":
+    "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.",
   Feedback: "Feedback",
   "Approval required": "Approval required",
   "Review product feedback": "Review product feedback",

@@ -25,7 +25,7 @@ const alertVariants = cva(
         "composer-drawer":
           "chat-composer-drawer-surface chat-composer-drawer-attached px-3 pt-2 pb-composer-overlap-1.5 text-xs sm:px-4",
         glass: "alert-glass rounded-[22px]",
-        "sidebar-warning": "rounded-2xl border-warning/40 bg-warning/8 text-xs",
+        "sidebar-warning": "rounded-lg border-warning/40 bg-warning/8 text-xs",
       },
     },
   },

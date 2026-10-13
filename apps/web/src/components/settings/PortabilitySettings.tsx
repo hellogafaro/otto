@@ -265,7 +265,7 @@ export function PortabilitySettings() {
         control={
           <div className="flex items-center gap-1.5">
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               disabled={environmentId === null || pending !== null}
               onClick={() => fileInputRef.current?.click()}
@@ -273,7 +273,7 @@ export function PortabilitySettings() {
               {pending === "preview" ? t("Reading...") : t("Import")}
             </Button>
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               disabled={environmentId === null || pending !== null}
               onClick={() => void handleExport()}

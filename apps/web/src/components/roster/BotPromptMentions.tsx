@@ -219,7 +219,7 @@ export function BotPromptMentionMenu({
       role="listbox"
       aria-label={t("Mention")}
       data-testid="bot-prompt-mention-menu"
-      className="absolute inset-x-0 bottom-full z-20 mb-2 max-h-72 overflow-y-auto rounded-2xl border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+      className="absolute inset-x-0 bottom-full z-20 mb-2 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
     >
       {items.map((item, index) => {
         const Icon = Match.value(item).pipe(
@@ -236,7 +236,7 @@ export function BotPromptMentionMenu({
             role="option"
             aria-selected={index === activeIndex}
             className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-sm",
+              "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm",
               index === activeIndex && "bg-accent text-accent-foreground",
             )}
             // Keep focus in the prompt so the caret and draft stay put.

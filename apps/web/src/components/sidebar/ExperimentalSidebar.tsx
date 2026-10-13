@@ -24,10 +24,13 @@ import { environmentSnapshotAtom } from "../../state/shell";
 import BotRosterSidebar from "../roster/BotRosterSidebar";
 import { BotAvatarView } from "../roster/BotAvatarView";
 import { formatRosterTimestamp } from "../roster/roster.logic";
+import { resolveRosterListState } from "../roster/rosterRouteSelection";
 import { useRosterStore } from "../roster/rosterStore";
 import { SettingsPanelNav } from "../settings/SettingsSidebarNav";
 import { AppIcon } from "../ui/app-icon";
-import { useSidebar } from "../ui/sidebar";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
+import { SidebarInset, useSidebar } from "../ui/sidebar";
+import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 /**
@@ -61,28 +64,84 @@ export function useSidebarExperiment(): boolean {
 /** Rail plus panel use a fixed width; resizing is ignored while experimenting. */
 export const EXPERIMENTAL_SIDEBAR_WIDTH = RAIL_WIDTH + PANEL_WIDTH;
 
-/** Plugins shows only the rail. */
+/** Plugins, and a place with nothing to list, show only the rail. */
 export const EXPERIMENTAL_RAIL_ONLY_WIDTH = RAIL_WIDTH;
 
-export function isRailOnlyPath(pathname: string): boolean {
-  return isPathUnder(pathname, "/plugins");
+/** Whether the chosen place has nothing to list, so the main panel carries its empty state. */
+export function useEmptyPlace(place: SidebarPlace): boolean {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const environmentId = usePrimaryEnvironmentId();
+  const snapshot = useEnvironmentSnapshot();
+
+  const noBots = useRosterStore(
+    (state) => resolveRosterListState(environmentId, state.environmentId, state.bots) === "empty",
+  );
+
+  if (isPathUnder(pathname, "/plugins") || isPathUnder(pathname, "/settings")) return false;
+
+  if (place === "chats") return noBots;
+
+  return Boolean(snapshot) && liveRoutines(snapshot?.routines).length === 0;
+}
+
+export function useRailOnly(place: SidebarPlace): boolean {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const emptyPlace = useEmptyPlace(place);
+
+  return emptyPlace || isPathUnder(pathname, "/plugins");
+}
+
+function liveRoutines<T extends { readonly lifecycle: string }>(
+  routines: readonly T[] | undefined,
+): readonly T[] {
+  return (routines ?? []).filter((routine) => routine.lifecycle !== "deleted");
+}
+
+export function RoutinesZeroState() {
+  const { t } = useI18n();
+
+  return (
+    <SidebarInset tone="foreground" className="h-dvh min-h-0 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <WorkspacePageHeader className="border-b border-border" />
+        <Empty className="flex-1">
+          <EmptyHeader className="max-w-md">
+            <EmptyMedia variant="icon">
+              <RiCalendarLine />
+            </EmptyMedia>
+            <EmptyTitle>{t("Put recurring work on autopilot")}</EmptyTitle>
+            <EmptyDescription>
+              {t(
+                "Ask any bot for a morning briefing, a weekly report, or a regular check, and it runs on time without you.",
+              )}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+    </SidebarInset>
+  );
 }
 
 function isPathUnder(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
-type Place = "chats" | "routines";
+export type SidebarPlace = "chats" | "routines";
 
-export function ExperimentalSidebar() {
-  const [place, setPlace] = useState<Place>("chats");
+export function ExperimentalSidebar({
+  place,
+  onPlaceChange,
+}: {
+  place: SidebarPlace;
+  onPlaceChange: (place: SidebarPlace) => void;
+}) {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   // Settings is a route, not a panel toggle: the URL decides whether it owns
   // the panel, and leaving it goes back to the chat workspace.
-  const onSettings = pathname === "/settings" || pathname.startsWith("/settings/");
+  const onSettings = isPathUnder(pathname, "/settings");
   const onPlugins = isPathUnder(pathname, "/plugins");
-  const railOnly = onPlugins;
+  const railOnly = useRailOnly(place);
   // Collapsing hides the panel and keeps the rail; picking a place brings it back.
   const { state: sidebarState, setOpen: setSidebarOpen, isMobile } = useSidebar();
 
@@ -90,11 +149,11 @@ export function ExperimentalSidebar() {
     if (sidebarState === "collapsed") setSidebarOpen(true);
   };
 
-  const choosePlace = (next: Place) => {
-    setPlace(next);
+  const choosePlace = (next: SidebarPlace) => {
+    onPlaceChange(next);
     revealPanel();
 
-    if (onSettings || railOnly) void navigate({ to: "/" });
+    if (onSettings || onPlugins) void navigate({ to: "/" });
   };
 
   const panel = onSettings ? "settings" : place;
@@ -126,17 +185,17 @@ export function ExperimentalSidebar() {
               isElectron && "drag-region",
             )}
           />
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1">
             <RailButton
               label={t("Chats")}
               icon={RiChat1Line}
-              active={!onSettings && !railOnly && place === "chats"}
+              active={!onSettings && !onPlugins && place === "chats"}
               onClick={() => choosePlace("chats")}
             />
             <RailButton
               label={t("Routines")}
               icon={RiCalendarLine}
-              active={!onSettings && !railOnly && place === "routines"}
+              active={!onSettings && !onPlugins && place === "routines"}
               onClick={() => choosePlace("routines")}
             />
             <RailButton
@@ -148,7 +207,7 @@ export function ExperimentalSidebar() {
               }}
             />
           </div>
-          <div className="mt-auto flex flex-col items-center gap-1.5">
+          <div className="mt-auto flex flex-col items-center gap-1">
             <RailButton
               label={t("Settings")}
               icon={RiSettings3Line}
@@ -165,12 +224,12 @@ export function ExperimentalSidebar() {
         {/* Fixed width so collapsing clips the panel instead of squeezing its rows. */}
         <div
           className={cn(
-            "flex w-(--panel-width) shrink-0 py-2 pr-2 in-data-[macos-traffic-lights]:pt-0",
+            "flex w-(--panel-width) shrink-0 py-panel-gap pr-panel-gap in-data-[macos-traffic-lights]:pt-0",
             railOnly && !isMobile && "hidden",
           )}
           style={{ "--panel-width": `${PANEL_WIDTH}px` }}
         >
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-sidebar-border/70 bg-sidebar shadow-(--shell-card-shadow) sidebar-shell-card">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border/70 bg-sidebar shadow-(--shell-card-shadow) sidebar-shell-card">
             <div
               key={panel}
               className={cn("flex min-h-0 flex-1 flex-col", panelSwitched && "motion-place-enter")}
@@ -214,13 +273,13 @@ function RailButton({
             aria-current={active || undefined}
             onClick={onClick}
             className={cn(
-              "flex size-10 cursor-pointer items-center justify-center rounded-xl outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag",
+              "flex size-8 cursor-pointer items-center justify-center rounded-md outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag",
               active
                 ? "bg-(--shell-card) text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
                 : "text-sidebar-muted-foreground hover:bg-sidebar-wash hover:text-sidebar-foreground",
             )}
           >
-            <AppIcon icon={icon} className="size-5" />
+            <AppIcon icon={icon} className="size-4" />
           </button>
         }
       />
@@ -237,7 +296,7 @@ function PanelHeader({ title }: { title: string }) {
         isElectron && "drag-region",
       )}
     >
-      <h2 className="truncate text-17px font-semibold tracking-tight text-sidebar-foreground">
+      <h2 className="truncate text-base font-medium tracking-title-sm text-sidebar-foreground">
         {title}
       </h2>
     </div>
@@ -260,7 +319,7 @@ function PanelRow({
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-left outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-ring"
       >
         {leading}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -295,17 +354,13 @@ function RoutinesPanel() {
   const bots = useLiveBots();
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const { t } = useI18n();
-  const routines = (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted");
+  const routines = liveRoutines(snapshot?.routines);
 
   return (
     <>
       <PanelHeader title={t("Routines")} />
       <div className="min-h-0 flex-1 overflow-y-auto px-2">
-        {routines.length === 0 ? (
-          <p className="px-2 py-6 text-center text-sm text-sidebar-muted-foreground">
-            {t("No routines yet. Ask a bot to do something on a schedule.")}
-          </p>
-        ) : (
+        {routines.length === 0 ? null : (
           <ul className="flex flex-col gap-0.5">
             {routines.map((routine) => {
               const bot = bots.find((candidate) => candidate.id === routine.botId);

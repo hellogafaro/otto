@@ -87,7 +87,7 @@ export function ImportPreview({
                 />
                 {canPickProjectFolders ? (
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="outline"
                     disabled={pending}
                     onClick={() => onProjectFolderPick(project.projectId, project.destination)}

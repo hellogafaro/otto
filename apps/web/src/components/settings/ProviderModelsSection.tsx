@@ -241,7 +241,7 @@ export function ProviderModelsSection({
         {builtInModels.length > 0 ? (
           <Button
             type="button"
-            size="xs"
+            size="sm"
             variant="ghost-muted"
             onClick={() =>
               onHiddenModelsChange(nextHiddenModelsForBulkToggle(models, hiddenModels))

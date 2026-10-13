@@ -1,6 +1,6 @@
 import { ProviderDriverKind } from "@otto/contracts";
 
-import { CustomApiIcon, type Icon } from "../Icons";
+import { CustomApiIcon, type Icon } from "../icons";
 import {
   SUBSCRIPTION_PROVIDERS,
   subscriptionProviderTargetId,

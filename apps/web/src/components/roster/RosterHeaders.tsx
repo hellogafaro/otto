@@ -1,4 +1,4 @@
-import { RiPencilLine, RiSearchLine, RiRobot2Line, RiAddLine, RiGroupLine } from "@remixicon/react";
+import { RiPencilLine, RiSearchLine, RiRobot3Line, RiAddLine, RiGroupLine } from "@remixicon/react";
 
 import { Link } from "@tanstack/react-router";
 
@@ -61,7 +61,7 @@ export const RosterSidebarHeader = memo(function RosterSidebarHeader({
             />
             <MenuPopup align="end">
               <MenuItem onClick={onNewBot}>
-                <RiRobot2Line />
+                <RiRobot3Line />
                 {t("New bot")}
               </MenuItem>
               <MenuItem onClick={onNewGroup}>
@@ -134,7 +134,7 @@ export function RosterPanelHeader({
         />
         <MenuPopup align="end">
           <MenuItem onClick={onNewBot}>
-            <RiRobot2Line />
+            <RiRobot3Line />
             {t("New bot")}
           </MenuItem>
           <MenuItem onClick={onNewGroup}>
@@ -173,7 +173,7 @@ export function RosterRailCreateMenu({
         />
         <MenuPopup align="end" side="right">
           <MenuItem onClick={onNewBot}>
-            <RiRobot2Line />
+            <RiRobot3Line />
             {t("New bot")}
           </MenuItem>
           <MenuItem onClick={onNewGroup}>

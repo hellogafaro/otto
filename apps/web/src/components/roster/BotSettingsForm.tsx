@@ -171,10 +171,10 @@ export function BotSettingsForm({
   return (
     <>
       <SettingsPageContainer>
-        <div className="flex items-center gap-4 px-3 pb-1 sm:px-4">
+        <div className="flex items-center gap-4 px-4">
           <BotAvatarView avatar={bot.avatar} name={draft.name || bot.name} className="size-14" />
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight">
+            <h1 className="truncate text-22px leading-title font-medium tracking-title-lg">
               {draft.name || bot.name}
             </h1>
             <p className="text-sm text-muted-foreground">

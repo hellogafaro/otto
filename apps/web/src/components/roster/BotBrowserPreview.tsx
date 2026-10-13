@@ -192,7 +192,7 @@ function ConnectedBotBrowserPreview({
         </header>
         <div
           className={cn(
-            "relative mx-3 mb-3 min-h-0 flex-1 overflow-hidden rounded-xl border border-border",
+            "relative mx-3 mb-3 min-h-0 flex-1 overflow-hidden rounded-lg border border-border",
             isLiveBrowserStatus(status) ? "bg-media-mat" : "bg-muted/40",
           )}
         >
@@ -277,7 +277,7 @@ function BotBrowserPreviewFrame({
       </div>
       <div
         className={cn(
-          "group/screen relative aspect-video overflow-hidden rounded-xl border border-border transition-shadow",
+          "group/screen relative aspect-video overflow-hidden rounded-lg border border-border transition-shadow",
           live ? "bg-media-mat" : "bg-muted/40",
           canOpen && "cursor-pointer hover:shadow-sm",
         )}

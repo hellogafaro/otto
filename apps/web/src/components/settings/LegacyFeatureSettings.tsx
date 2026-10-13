@@ -50,7 +50,7 @@ export function LegacyFeaturesSection() {
     <section className="space-y-3">
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger presentation="settings-section">
-          <h2 className="text-lg font-semibold tracking-tight text-muted-foreground transition-colors group-hover:text-foreground">
+          <h2 className="text-base font-medium tracking-title-sm text-muted-foreground transition-colors group-hover:text-foreground">
             {t("Legacy features")}
           </h2>
           <RiArrowRightSLine className="size-4 text-muted-foreground transition-transform duration-200 group-data-panel-open:rotate-90" />

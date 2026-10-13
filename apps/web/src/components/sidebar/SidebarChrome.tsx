@@ -336,7 +336,7 @@ function ComputerUseControlForEnvironment({
 
   return (
     <div
-      className="rounded-xl border border-computer-control-indicator/30 bg-computer-control-indicator/10 p-2.5"
+      className="rounded-lg border border-computer-control-indicator/30 bg-computer-control-indicator/10 p-2.5"
       role="status"
     >
       <div className="flex items-center gap-2 text-xs font-medium">

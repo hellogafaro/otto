@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-import { APP_DISPLAY_NAME } from "../branding";
 import { BotZeroState } from "../components/roster/BotZeroState";
 import { resolveRosterBotId } from "../components/roster/roster.logic";
 import { isRosterReady } from "../components/roster/rosterRouteSelection";
@@ -30,9 +29,7 @@ function BotIndexRedirect() {
   return (
     <SidebarInset tone="foreground" className="h-dvh min-h-0 overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <WorkspacePageHeader className="border-b border-border">
-          <span className="text-sm font-medium text-muted-foreground">{APP_DISPLAY_NAME}</span>
-        </WorkspacePageHeader>
+        <WorkspacePageHeader className="border-b border-border" />
         {rosterReady ? <BotZeroState /> : <RosterLoadStatus state={loadState} variant="page" />}
       </div>
     </SidebarInset>

@@ -307,11 +307,11 @@ export function OrganizationAccountGate({
 
   return (
     <AuthSurfaceShell>
-      <AuthSurfaceSection>
+      <AuthSurfaceSection className="gap-2">
         {page === "setup" && !notice ? (
           <p className="text-xs text-muted-foreground">Step {step.number} of 3</p>
         ) : null}
-        <h1 ref={heading} tabIndex={-1} className="text-xl font-medium outline-none">
+        <h1 ref={heading} tabIndex={-1} className="text-xl leading-title font-medium outline-none">
           {notice ? (page === "reset" ? "Password reset" : "Check your email") : title}
         </h1>
         {!notice ? <p className="text-sm text-muted-foreground">{description}</p> : null}
@@ -330,7 +330,6 @@ export function OrganizationAccountGate({
             </Alert>
             <Button
               variant="primary"
-              size="lg"
               onClick={() => {
                 if (page === "invite") {
                   setMode("login");
@@ -352,10 +351,10 @@ export function OrganizationAccountGate({
             ) : null}
             {page === "invite" && state.user ? (
               <div className="flex flex-col gap-3">
-                <p>Signed in as {state.user.email}.</p>
+                <p className="text-sm text-muted-foreground">Signed in as {state.user.email}.</p>
                 <Button
                   variant="primary"
-                  size="lg"
+                  className="mt-2 mb-1"
                   disabled={busy}
                   onClick={async () => {
                     setPending(true);
@@ -374,7 +373,8 @@ export function OrganizationAccountGate({
                   {state.role ? "Open organization" : "Accept invitation"}
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="link"
+                  presentation="quiet-link"
                   disabled={busy}
                   onClick={async () => {
                     const result = await client.signOut();
@@ -423,7 +423,6 @@ export function OrganizationAccountGate({
                               id={`auth-${name}`}
                               name={field.name}
                               type={definition.type}
-                              size="lg"
                               placeholder={label}
                               value={field.state.value}
                               onChange={(event) => field.handleChange(event.target.value)}
@@ -453,9 +452,8 @@ export function OrganizationAccountGate({
                 <Button
                   type="submit"
                   variant="primary"
-                  size="lg"
                   disabled={busy || setupBlocked}
-                  className="mt-2"
+                  className="mt-2 mb-1"
                 >
                   {busy ? <Spinner /> : null}
                   {submitLabel}
@@ -463,7 +461,8 @@ export function OrganizationAccountGate({
                 {page === "setup" && setupStep !== "token" ? (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="link"
+                    presentation="quiet-link"
                     disabled={busy}
                     onClick={() => {
                       setError(null);
@@ -477,7 +476,8 @@ export function OrganizationAccountGate({
                 {page === "invite" ? (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="link"
+                    presentation="quiet-link"
                     disabled={busy}
                     onClick={() => {
                       setMode(mode === "signup" ? "login" : "signup");
@@ -491,7 +491,8 @@ export function OrganizationAccountGate({
                 {page === "login" ? (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="link"
+                    presentation="quiet-link"
                     disabled={busy}
                     onClick={() => {
                       setMode(mode === "forgot" ? "login" : "forgot");

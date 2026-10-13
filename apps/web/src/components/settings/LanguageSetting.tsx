@@ -26,7 +26,7 @@ export function LanguageSetting() {
         catalogFailed ? (
           <span role="alert" className="inline-flex flex-wrap items-center gap-2">
             {t("The selected language could not load, so English is shown.")}
-            <Button size="xs" variant="outline" onClick={retryCatalog}>
+            <Button size="sm" variant="outline" onClick={retryCatalog}>
               {t("Try again")}
             </Button>
           </span>

@@ -121,7 +121,7 @@ export const rosterCatalog = {
     "Choose a custom avatar color. Current color {color}",
   "Avatar source": "Avatar source",
   "Avatar preview": "Avatar preview",
-  "Create your first bot": "Create your first bot",
+  "Hand off your first job": "Hand off your first job",
   "No plugins enabled": "No plugins enabled",
   "Plugins, {status}": "Plugins, {status}",
   "Plugins · {status}": "Plugins · {status}",
@@ -302,8 +302,9 @@ export const rosterCatalog = {
   "Remove group": "Remove group",
   "Team ID": "Team ID",
   "Project ID": "Project ID",
-  "No routines yet. Ask a bot to do something on a schedule.":
-    "No routines yet. Ask a bot to do something on a schedule.",
+  "Put recurring work on autopilot": "Put recurring work on autopilot",
+  "Ask any bot for a morning briefing, a weekly report, or a regular check, and it runs on time without you.":
+    "Ask any bot for a morning briefing, a weekly report, or a regular check, and it runs on time without you.",
   "The routine details did not come through. Read the bot's last message before creating it.":
     "The routine details did not come through. Read the bot's last message before creating it.",
   "Chat with your bots and start new work": "Chat with your bots and start new work",
