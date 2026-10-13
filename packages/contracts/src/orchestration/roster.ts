@@ -14,6 +14,7 @@ import {
   TrimmedNonEmptyString,
 } from "../baseSchemas.ts";
 import { McpServerId } from "../mcpServer.ts";
+import { WorkDescription, WorkParticipant, WorkResources, WorkStatus } from "./work.ts";
 import { ImageProviderId } from "../imageGeneration.ts";
 import { ModelSelection, RuntimeMode, DEFAULT_RUNTIME_MODE } from "./modelSelection.ts";
 
@@ -56,6 +57,14 @@ export const ProjectFaviconPath = TrimmedNonEmptyString.check(
 
 export type ProjectFaviconPath = typeof ProjectFaviconPath.Type;
 
+/** Planning fields; absent on projects saved before them (active, unowned, no links). */
+export const ProjectPlanningFields = {
+  description: Schema.optional(WorkDescription),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  resources: Schema.optional(WorkResources),
+  status: Schema.optional(WorkStatus),
+};
+
 export const OrchestrationProject = Schema.Struct({
   id: ProjectId,
   title: TrimmedNonEmptyString,
@@ -68,6 +77,7 @@ export const OrchestrationProject = Schema.Struct({
   // Optional on the wire so cached snapshots from older servers still decode.
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   scripts: Schema.Array(ProjectScript),
+  ...ProjectPlanningFields,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   deletedAt: Schema.NullOr(IsoDateTime),

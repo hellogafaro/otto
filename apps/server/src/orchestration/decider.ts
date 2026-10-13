@@ -12,6 +12,7 @@ import { decideGroups } from "./decider/groups.ts";
 import { decideMcpServers } from "./decider/mcpServers.ts";
 import { decideDelegations } from "./decider/delegations.ts";
 import { decideRoutines } from "./decider/routines.ts";
+import { decideTasks } from "./decider/tasks.ts";
 import { decideThreadLifecycle } from "./decider/threadLifecycle.ts";
 import { decideThreadVisibility } from "./decider/threadVisibility.ts";
 import { decideThreadTurns } from "./decider/threadTurns.ts";
@@ -145,6 +146,13 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "delegation.cancel":
     case "delegation.retry":
       return yield* decideDelegations({
+        command,
+        readModel,
+        ...(actor !== undefined ? { actor } : {}),
+      });
+    case "task.create":
+    case "task.update":
+      return yield* decideTasks({
         command,
         readModel,
         ...(actor !== undefined ? { actor } : {}),

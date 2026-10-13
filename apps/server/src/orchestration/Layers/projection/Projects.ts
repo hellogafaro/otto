@@ -18,6 +18,10 @@ export function createProjects({
           defaultThreadEnvMode: null,
           faviconPath: event.payload.faviconPath ?? null,
           scripts: event.payload.scripts,
+          description: event.payload.description ?? null,
+          owner: event.payload.owner ?? null,
+          resources: event.payload.resources ?? null,
+          status: event.payload.status ?? null,
           createdAt: event.payload.createdAt,
           updatedAt: event.payload.updatedAt,
           deletedAt: null,
@@ -50,6 +54,12 @@ export function createProjects({
             ? { faviconPath: event.payload.faviconPath }
             : {}),
           ...(event.payload.scripts !== undefined ? { scripts: event.payload.scripts } : {}),
+          ...(event.payload.description !== undefined
+            ? { description: event.payload.description }
+            : {}),
+          ...(event.payload.owner !== undefined ? { owner: event.payload.owner } : {}),
+          ...(event.payload.resources !== undefined ? { resources: event.payload.resources } : {}),
+          ...(event.payload.status !== undefined ? { status: event.payload.status } : {}),
           updatedAt: event.payload.updatedAt,
         });
 

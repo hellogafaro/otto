@@ -9,15 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PluginsRouteImport } from './routes/plugins'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteImport } from './routes/_chat'
+import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as SettingsSectionRouteImport } from './routes/settings.$section'
 import { Route as SettingsSplatRouteImport } from './routes/settings.$'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
 import { Route as SettingsProvidersProviderIdRouteImport } from './routes/settings.providers.$providerId'
 import { Route as SettingsChannelsChannelRouteImport } from './routes/settings.channels.$channel'
@@ -27,6 +30,11 @@ import { Route as ChatDraftDraftIdRouteImport } from './routes/_chat.draft.$draf
 import { Route as ChatBotsBotIdRouteImport } from './routes/_chat.bots.$botId'
 import { Route as ChatEnvironmentIdThreadIdRouteImport } from './routes/_chat.$environmentId.$threadId'
 
+const TasksRoute = TasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
@@ -56,6 +64,11 @@ const ChatRoute = ChatRouteImport.update({
   id: '/_chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -70,6 +83,11 @@ const SettingsSplatRoute = SettingsSplatRouteImport.update({
   id: '/$',
   path: '/$',
   getParentRoute: () => SettingsRoute,
+} as any)
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/projects/$projectId',
+  path: '/projects/$projectId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   id: '/invite/$invitationId',
@@ -121,9 +139,12 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRouteWithChildren
   '/setup': typeof SetupRoute
+  '/tasks': typeof TasksRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/bots/$botId': typeof ChatBotsBotIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
@@ -138,10 +159,13 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRouteWithChildren
   '/setup': typeof SetupRoute
+  '/tasks': typeof TasksRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/': typeof ChatIndexRoute
+  '/projects': typeof ProjectsIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/bots/$botId': typeof ChatBotsBotIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
@@ -158,10 +182,13 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRouteWithChildren
   '/setup': typeof SetupRoute
+  '/tasks': typeof TasksRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/_chat/': typeof ChatIndexRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/_chat/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/_chat/bots/$botId': typeof ChatBotsBotIdRoute
   '/_chat/draft/$draftId': typeof ChatDraftDraftIdRoute
@@ -179,9 +206,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/setup'
+    | '/tasks'
     | '/invite/$invitationId'
+    | '/projects/$projectId'
     | '/settings/$'
     | '/settings/$section'
+    | '/projects/'
     | '/$environmentId/$threadId'
     | '/bots/$botId'
     | '/draft/$draftId'
@@ -196,10 +226,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/setup'
+    | '/tasks'
     | '/invite/$invitationId'
+    | '/projects/$projectId'
     | '/settings/$'
     | '/settings/$section'
     | '/'
+    | '/projects'
     | '/$environmentId/$threadId'
     | '/bots/$botId'
     | '/draft/$draftId'
@@ -215,10 +248,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/setup'
+    | '/tasks'
     | '/invite/$invitationId'
+    | '/projects/$projectId'
     | '/settings/$'
     | '/settings/$section'
     | '/_chat/'
+    | '/projects/'
     | '/_chat/$environmentId/$threadId'
     | '/_chat/bots/$botId'
     | '/_chat/draft/$draftId'
@@ -235,12 +271,22 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   SetupRoute: typeof SetupRoute
+  TasksRoute: typeof TasksRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
   BotsBotIdSettingsRoute: typeof BotsBotIdSettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tasks': {
+      id: '/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/setup': {
       id: '/setup'
       path: '/setup'
@@ -283,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/': {
+      id: '/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_chat/': {
       id: '/_chat/'
       path: '/'
@@ -303,6 +356,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/$'
       preLoaderRoute: typeof SettingsSplatRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/invite/$invitationId': {
       id: '/invite/$invitationId'
@@ -406,7 +466,10 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRouteWithChildren,
   SetupRoute: SetupRoute,
+  TasksRoute: TasksRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
+  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
   BotsBotIdSettingsRoute: BotsBotIdSettingsRoute,
 }
 export const routeTree = rootRouteImport

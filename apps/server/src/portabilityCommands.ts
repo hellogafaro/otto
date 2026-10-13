@@ -110,6 +110,9 @@ export function itemForCommand(
       case "routine.skill.assign":
       case "routine.skill.unassign":
         return `skill-assignment:${command.assignmentId}`;
+      case "task.create":
+      case "task.update":
+        return `task:${command.taskId}`;
       default:
         return `thread:${command.threadId}`;
     }

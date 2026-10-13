@@ -139,6 +139,10 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
           default_thread_env_mode AS "defaultThreadEnvMode",
           favicon_path AS "faviconPath",
           scripts_json AS "scripts",
+          description,
+          owner_json AS "owner",
+          resources_json AS "resources",
+          status,
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -178,6 +182,10 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
           default_thread_env_mode AS "defaultThreadEnvMode",
           favicon_path AS "faviconPath",
           scripts_json AS "scripts",
+          description,
+          owner_json AS "owner",
+          resources_json AS "resources",
+          status,
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"

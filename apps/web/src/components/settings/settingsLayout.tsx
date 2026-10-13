@@ -15,7 +15,11 @@ import {
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
 import { clearSettingsTarget, useSettingsDialogStore } from "../../settingsDialogStore";
-import { WorkspacePageContainer, type WorkspacePageWidth } from "../WorkspacePageContainer";
+import {
+  WorkspacePageContainer,
+  WorkspacePageTitle,
+  type WorkspacePageWidth,
+} from "../WorkspacePageContainer";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
@@ -323,11 +327,7 @@ export function SettingsPageContainer({
           width={width}
           className={cn("gap-10 pt-3 pb-16 sm:pt-4", className)}
         >
-          {title ? (
-            <h1 className="px-4 text-22px leading-title font-medium tracking-title-lg text-foreground">
-              {title}
-            </h1>
-          ) : null}
+          {title ? <WorkspacePageTitle>{title}</WorkspacePageTitle> : null}
           {children}
         </WorkspacePageContainer>
       </div>

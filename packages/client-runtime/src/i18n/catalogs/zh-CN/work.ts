@@ -1,0 +1,37 @@
+export const workCatalog = {
+  Tasks: "任务",
+  Projects: "项目",
+  Title: "标题",
+  Owner: "负责人",
+  "No owner": "无负责人",
+  Assignees: "执行人",
+  People: "成员",
+  Due: "截止",
+  "Due date": "截止日期",
+  Links: "链接",
+  "Add link": "添加链接",
+  "Add a description…": "添加描述…",
+  Backlog: "待规划",
+  "In progress": "进行中",
+  Cancelled: "已取消",
+  "New task": "新建任务",
+  "Edit task": "编辑任务",
+  "Create task": "创建任务",
+  "New project": "新建项目",
+  "Edit project": "编辑项目",
+  "Create project": "创建项目",
+  "Open tasks": "未完成任务",
+  "Nothing matches these filters.": "没有符合这些筛选条件的内容。",
+  "Clear filters": "清除筛选",
+  "Keep every job in one place": "把所有工作集中在一处",
+  "See what people and bots are working on, who owns each task, and when it is due.":
+    "查看成员和机器人正在做什么、每项任务由谁负责，以及何时到期。",
+  "Plan work around an outcome": "围绕目标规划工作",
+  "Group related tasks under a project with an owner, links, and a status everyone can see.":
+    "将相关任务归入项目，设置负责人、链接和所有人可见的状态。",
+  "Project not found": "找不到项目",
+  "It may have been deleted, or the link points to another workspace.":
+    "它可能已被删除，或链接指向另一个工作区。",
+  "No tasks yet. Break the project into the next few steps.":
+    "还没有任务。把项目拆成接下来的几步。",
+} as const;

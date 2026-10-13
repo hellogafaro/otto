@@ -534,12 +534,12 @@ function PluginsDialogForEnvironment({
       )}
       <Dialog open={editorTarget !== null} onOpenChange={(open) => !open && closeEditor()}>
         <DialogPopup className="max-h-(--spacing-min-36rem-90dvh) max-w-lg flex-col overflow-hidden">
-          <DialogHeader variant="divided" className="shrink-0 px-6 py-5">
+          <DialogHeader variant="divided" className="shrink-0">
             <DialogTitle>
               {editorTarget?.server ? t("Edit MCP server") : t("Add MCP server")}
             </DialogTitle>
           </DialogHeader>
-          <DialogPanel className="space-y-4 px-6 py-5">
+          <DialogPanel className="space-y-4 py-5">
             <Field>
               <FieldLabel>{t("Name")}</FieldLabel>
               <Input

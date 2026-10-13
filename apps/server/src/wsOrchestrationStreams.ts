@@ -80,6 +80,15 @@ export const createWsOrchestrationStreams = ({
             groupId: event.payload.groupId,
           }),
         );
+      case "task.created":
+      case "task.updated":
+        return Effect.succeed(
+          Option.some({
+            kind: "task-upserted" as const,
+            sequence: event.sequence,
+            task: event.payload.task,
+          }),
+        );
       case "mcp-server.created":
       case "mcp-server.updated":
       case "mcp-server.enabled":

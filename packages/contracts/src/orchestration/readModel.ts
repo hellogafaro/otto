@@ -35,7 +35,9 @@ import {
   OrchestrationProject,
   OrchestrationBot,
   OrchestrationGroup,
+  ProjectPlanningFields,
 } from "./roster.ts";
+import { OrchestrationTask } from "./work.ts";
 import {
   OrchestrationSession,
   OrchestrationLatestTurn,
@@ -56,6 +58,7 @@ export const OrchestrationReadModel = Schema.Struct({
   routines: Schema.optional(Schema.Array(Routine)),
   routineRuns: Schema.optional(Schema.Array(RoutineRun)),
   skillAssignments: Schema.optional(Schema.Array(RoutineSkillAssignment)),
+  tasks: Schema.optional(Schema.Array(OrchestrationTask)),
   threads: Schema.Array(OrchestrationThread),
   updatedAt: IsoDateTime,
 });
@@ -72,6 +75,7 @@ export const OrchestrationProjectShell = Schema.Struct({
   // Optional on the wire so cached snapshots from older servers still decode.
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   scripts: Schema.Array(ProjectScript),
+  ...ProjectPlanningFields,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -156,6 +160,7 @@ export const OrchestrationShellSnapshot = Schema.Struct({
   routineReceiptSources: Schema.optional(Schema.Array(RoutineReceiptSource)),
   routineRuns: Schema.optional(Schema.Array(RoutineRun)),
   skillAssignments: Schema.optional(Schema.Array(RoutineSkillAssignment)),
+  tasks: Schema.optional(Schema.Array(OrchestrationTask)),
   threads: Schema.Array(OrchestrationThreadShell),
   updatedAt: IsoDateTime,
 });
@@ -192,6 +197,11 @@ export const OrchestrationShellStreamEvent = Schema.Union([
     kind: Schema.Literal("group-removed"),
     sequence: NonNegativeInt,
     groupId: GroupId,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("task-upserted"),
+    sequence: NonNegativeInt,
+    task: OrchestrationTask,
   }),
   Schema.Struct({
     kind: Schema.Literal("mcp-server-upserted"),

@@ -2,6 +2,7 @@ import * as Match from "effect/Match";
 import {
   DelegationCreatedPayload,
   DelegationUpdatedPayload,
+  OrchestrationTaskCreatedPayload,
   RoutineApprovedPayload,
   RoutineBlockedPayload,
   RoutineCompletedPayload,
@@ -64,6 +65,10 @@ export function projectEnvironment(
             defaultThreadEnvMode: null,
             faviconPath: payload.faviconPath ?? null,
             scripts: payload.scripts,
+            ...(payload.description !== undefined ? { description: payload.description } : {}),
+            ...(payload.owner !== undefined ? { owner: payload.owner } : {}),
+            ...(payload.resources !== undefined ? { resources: payload.resources } : {}),
+            ...(payload.status !== undefined ? { status: payload.status } : {}),
             createdAt: payload.createdAt,
             updatedAt: payload.updatedAt,
             deletedAt: null,
@@ -101,6 +106,12 @@ export function projectEnvironment(
                     ? { faviconPath: payload.faviconPath }
                     : {}),
                   ...(payload.scripts !== undefined ? { scripts: payload.scripts } : {}),
+                  ...(payload.description !== undefined
+                    ? { description: payload.description }
+                    : {}),
+                  ...(payload.owner !== undefined ? { owner: payload.owner } : {}),
+                  ...(payload.resources !== undefined ? { resources: payload.resources } : {}),
+                  ...(payload.status !== undefined ? { status: payload.status } : {}),
                   updatedAt: payload.updatedAt,
                 }
               : project,
@@ -121,6 +132,25 @@ export function projectEnvironment(
               : project,
           ),
         })),
+      );
+    case "task.created":
+    case "task.updated":
+      return decodeForEvent(
+        OrchestrationTaskCreatedPayload,
+        event.payload,
+        event.type,
+        "payload",
+      ).pipe(
+        Effect.map((payload) => {
+          const tasks = nextBase.tasks ?? [];
+
+          return {
+            ...nextBase,
+            tasks: tasks.some((entry) => entry.id === payload.task.id)
+              ? tasks.map((entry) => (entry.id === payload.task.id ? payload.task : entry))
+              : [...tasks, payload.task],
+          };
+        }),
       );
     case "mcp-server.created":
     case "mcp-server.updated":

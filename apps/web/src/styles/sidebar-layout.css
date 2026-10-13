@@ -26,12 +26,15 @@
 
 /* Sidebar experiment (?sidebar=places): the window is the rail color and the
    workspace floats as a card beside the sidebar panel. A details aside joins
-   that card, split by a soft inset hairline instead of a full-height border.
-   The join holds while the aside is closing, then the card corners ease back. */
+   that card, split by a full-height 1px divider.
+   The join holds from opening until closing ends. */
 
 [data-sidebar-experiment] {
   --workspace-controls-top: calc(var(--panel-gap) + 1px);
-  --workspace-controls-right: calc(env(safe-area-inset-right) + 1.25rem);
+  /* Top-bar controls sit 8px inside the card's 1px border, 6px apart. */
+  --workspace-controls-right: calc(env(safe-area-inset-right) + var(--panel-gap) + 1px + 0.5rem);
+  --workspace-controls-header-right: calc(env(safe-area-inset-right) + 0.5rem);
+  --workspace-titlebar-control-gap: 0.375rem;
   --shell-card-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 4px 12px -6px rgb(0 0 0 / 7%);
   /* Resolved here, before the sidebar re-bases --card (to pure black in dark),
      so the panel card and the main card share one surface. */
@@ -58,16 +61,11 @@
   border-bottom-color: transparent;
 }
 
-/* The rail stays visible when collapsed, so the title needs no toggle inset. */
+/* The rail stays visible when collapsed, so the title needs no toggle inset
+   and keeps the top bar's 8px edge. */
 
 [data-sidebar-experiment] [data-workspace-header] {
-  --workspace-titlebar-content-left: calc(env(safe-area-inset-left) + 0.75rem);
-}
-
-@media (min-width: 40rem) {
-  [data-sidebar-experiment] [data-workspace-header] {
-    --workspace-titlebar-content-left: calc(env(safe-area-inset-left) + 1.25rem);
-  }
+  --workspace-titlebar-content-left: calc(env(safe-area-inset-left) + 0.5rem);
 }
 
 [data-sidebar-experiment] [data-testid="bot-prompt-composer"] {
@@ -87,21 +85,24 @@
   border: 1px solid color-mix(in srgb, var(--sidebar-border) 70%, transparent);
   border-radius: var(--radius-xl);
   box-shadow: var(--shell-card-shadow);
-  transition: border-radius var(--duration-quick) var(--ease-smooth-out);
 }
+
+/* The details aside joins the card from the moment it starts opening until it
+   has finished closing. Keyed on the panel's own state, never aria-hidden: a
+   modal dialog marks every sibling aria-hidden while it is open. The corners
+   switch instantly, so the card never shows a square edge between states, and
+   a full-height divider splits the two. */
 
 @media (min-width: 981px) {
   [data-sidebar-experiment]
-    > [data-slot="sidebar-inset"]:has(
-      + aside:is(:not([aria-hidden="true"]), [data-state="closing"])
-    ) {
+    > [data-slot="sidebar-inset"]:has(~ aside[data-details-panel]:not([data-state="closed"])) {
     margin-right: 0;
     border-right-width: 0;
     border-radius: var(--radius-xl) 0 0 var(--radius-xl);
   }
   [data-sidebar-experiment]
     > [data-slot="sidebar-inset"]
-    + aside:is(:not([aria-hidden="true"]), [data-state="closing"]) {
+    ~ aside[data-details-panel]:not([data-state="closed"]) {
     position: relative;
     height: auto;
     margin-block: var(--panel-gap);
@@ -115,13 +116,13 @@
   }
   [data-sidebar-experiment]
     > [data-slot="sidebar-inset"]
-    + aside:is(:not([aria-hidden="true"]), [data-state="closing"])::before {
+    ~ aside[data-details-panel]:not([data-state="closed"])::before {
     content: "";
     position: absolute;
-    inset-block: 1rem;
+    inset-block: 0;
     left: 0;
     width: 1px;
-    background-color: color-mix(in srgb, var(--sidebar-border) 55%, transparent);
+    background-color: color-mix(in srgb, var(--sidebar-border) 70%, transparent);
     pointer-events: none;
   }
 }

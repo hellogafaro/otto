@@ -9,12 +9,7 @@ import { botEnvironment } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { SidebarInset } from "../ui/sidebar";
-import {
-  WorkspaceBreadcrumb,
-  WorkspaceBreadcrumbItem,
-  WorkspaceBreadcrumbSeparator,
-} from "../WorkspaceBreadcrumb";
-import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import { WorkspaceBackButton, WorkspacePageHeader } from "../WorkspacePageHeader";
 import { toastManager } from "../ui/toast";
 import { BotSettingsForm } from "./BotSettingsForm";
 import { useRosterStore } from "./rosterStore";
@@ -98,13 +93,7 @@ export function BotSettingsPage({ botId }: { readonly botId: string }) {
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground">
         <WorkspacePageHeader electron={isElectron} className="border-b border-border/70">
-          <WorkspaceBreadcrumb ariaLabel={t("Bot settings breadcrumb")}>
-            <WorkspaceBreadcrumbItem>{t("Bots")}</WorkspaceBreadcrumbItem>
-            <WorkspaceBreadcrumbSeparator />
-            <WorkspaceBreadcrumbItem current>
-              {bot ? bot.name : t("Unavailable bot")}
-            </WorkspaceBreadcrumbItem>
-          </WorkspaceBreadcrumb>
+          <WorkspaceBackButton label={bot ? bot.name : t("Back")} onBack={navigateBackWithinApp} />
         </WorkspacePageHeader>
         {bot ? (
           <BotSettingsForm

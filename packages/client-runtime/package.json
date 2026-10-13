@@ -160,6 +160,10 @@
       "types": "./src/state/models.ts",
       "default": "./src/state/models.ts"
     },
+    "./state/tasks": {
+      "types": "./src/state/taskCommands.ts",
+      "default": "./src/state/taskCommands.ts"
+    },
     "./state/mcp-servers": {
       "types": "./src/state/mcpServerCommands.ts",
       "default": "./src/state/mcpServerCommands.ts"

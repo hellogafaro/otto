@@ -3,7 +3,7 @@ import type { McpServer, ProviderAccessStatus } from "@otto/contracts";
 
 import type { PluginDirectoryDefinition, PluginSkill } from "../../../../../plugins";
 import { isElectron } from "../../env";
-import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import { WorkspaceBackButton, WorkspacePageHeader } from "../WorkspacePageHeader";
 import { AppIcon } from "../ui/app-icon";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -277,35 +277,15 @@ export function PluginDetails({
     <div className="flex h-full min-h-0 flex-1 flex-col" data-plugin-details="">
       {standalone ? (
         <WorkspacePageHeader electron={isElectron}>
-          <div className="-ms-1.5 flex min-w-0 items-center gap-1">
-            <Button
-              aria-label="Back to plugins"
-              size="icon-sm"
-              variant="ghost-muted"
-              onClick={onBack}
-            >
-              <AppIcon icon={RiArrowLeftSLine} className="size-4" />
-            </Button>
-            <button
-              className="cursor-pointer rounded-md px-1 text-sm text-muted-foreground outline-hidden transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              type="button"
-              onClick={onBack}
-            >
-              Plugins
-            </button>
-            <span aria-hidden="true" className="text-sm text-muted-foreground/60">
-              /
-            </span>
-            <h1 className="truncate px-1 text-sm font-medium text-foreground">{plugin.title}</h1>
-          </div>
+          <WorkspaceBackButton label="Plugins" onBack={onBack} />
         </WorkspacePageHeader>
       ) : (
-        <DialogHeader variant="divided" className="px-5 py-4">
+        <DialogHeader variant="divided">
           <div className="flex items-center gap-2 pe-8">
             <Button aria-label="Back to plugins" size="icon-sm" variant="ghost" onClick={onBack}>
               <AppIcon icon={RiArrowLeftSLine} className="size-4" />
             </Button>
-            <DialogTitle className="text-base">Plugin details</DialogTitle>
+            <DialogTitle>Plugin details</DialogTitle>
           </div>
         </DialogHeader>
       )}

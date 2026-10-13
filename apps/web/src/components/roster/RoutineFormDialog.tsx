@@ -141,10 +141,10 @@ export function RoutineFormDialog({
       }}
     >
       <DialogPopup className="max-h-(--spacing-min-42rem-90dvh) max-w-lg flex-col overflow-hidden">
-        <DialogHeader variant="divided" className="px-6 py-5">
+        <DialogHeader variant="divided">
           <DialogTitle>{t(title)}</DialogTitle>
         </DialogHeader>
-        <DialogPanel className="space-y-4 px-6 py-5">
+        <DialogPanel className="space-y-4 py-5">
           <label className="block space-y-1.5 text-sm">
             <span>{t("Name")}</span>
             <Input

@@ -1,6 +1,8 @@
 import {
+  RiBox3Line,
   RiChat1Line,
-  RiCalendarLine,
+  RiTimeLine,
+  RiListCheck3,
   RiPuzzleLine,
   RiSettings3Line,
   type RemixiconComponentType,
@@ -64,7 +66,7 @@ export function useSidebarExperiment(): boolean {
 /** Rail plus panel use a fixed width; resizing is ignored while experimenting. */
 export const EXPERIMENTAL_SIDEBAR_WIDTH = RAIL_WIDTH + PANEL_WIDTH;
 
-/** Plugins, and a place with nothing to list, show only the rail. */
+/** Full-width pages and a place with nothing to list show only the rail. */
 export const EXPERIMENTAL_RAIL_ONLY_WIDTH = RAIL_WIDTH;
 
 /** Whether the chosen place has nothing to list, so the main panel carries its empty state. */
@@ -77,7 +79,7 @@ export function useEmptyPlace(place: SidebarPlace): boolean {
     (state) => resolveRosterListState(environmentId, state.environmentId, state.bots) === "empty",
   );
 
-  if (isPathUnder(pathname, "/plugins") || isPathUnder(pathname, "/settings")) return false;
+  if (isFullPage(pathname) || isPathUnder(pathname, "/settings")) return false;
 
   if (place === "chats") return noBots;
 
@@ -88,7 +90,12 @@ export function useRailOnly(place: SidebarPlace): boolean {
   const pathname = useLocation({ select: (location) => location.pathname });
   const emptyPlace = useEmptyPlace(place);
 
-  return emptyPlace || isPathUnder(pathname, "/plugins");
+  return emptyPlace || isFullPage(pathname);
+}
+
+/** Plugins, Tasks and Projects own the whole main panel, so the place panel steps aside. */
+function isFullPage(pathname: string): boolean {
+  return ["/plugins", "/tasks", "/projects"].some((base) => isPathUnder(pathname, base));
 }
 
 function liveRoutines<T extends { readonly lifecycle: string }>(
@@ -107,7 +114,7 @@ export function RoutinesZeroState() {
         <Empty className="flex-1">
           <EmptyHeader className="max-w-md">
             <EmptyMedia variant="icon">
-              <RiCalendarLine />
+              <RiTimeLine />
             </EmptyMedia>
             <EmptyTitle>{t("Put recurring work on autopilot")}</EmptyTitle>
             <EmptyDescription>
@@ -141,6 +148,9 @@ export function ExperimentalSidebar({
   // the panel, and leaving it goes back to the chat workspace.
   const onSettings = isPathUnder(pathname, "/settings");
   const onPlugins = isPathUnder(pathname, "/plugins");
+  const onTasks = isPathUnder(pathname, "/tasks");
+  const onProjects = isPathUnder(pathname, "/projects");
+  const onPage = onSettings || isFullPage(pathname);
   const railOnly = useRailOnly(place);
   // Collapsing hides the panel and keeps the rail; picking a place brings it back.
   const { state: sidebarState, setOpen: setSidebarOpen, isMobile } = useSidebar();
@@ -153,7 +163,7 @@ export function ExperimentalSidebar({
     onPlaceChange(next);
     revealPanel();
 
-    if (onSettings || onPlugins) void navigate({ to: "/" });
+    if (onPage) void navigate({ to: "/" });
   };
 
   const panel = onSettings ? "settings" : place;
@@ -189,14 +199,30 @@ export function ExperimentalSidebar({
             <RailButton
               label={t("Chats")}
               icon={RiChat1Line}
-              active={!onSettings && !onPlugins && place === "chats"}
+              active={!onPage && place === "chats"}
               onClick={() => choosePlace("chats")}
             />
             <RailButton
               label={t("Routines")}
-              icon={RiCalendarLine}
-              active={!onSettings && !onPlugins && place === "routines"}
+              icon={RiTimeLine}
+              active={!onPage && place === "routines"}
               onClick={() => choosePlace("routines")}
+            />
+            <RailButton
+              label={t("Tasks")}
+              icon={RiListCheck3}
+              active={onTasks}
+              onClick={() => {
+                if (!onTasks) void navigate({ to: "/tasks" });
+              }}
+            />
+            <RailButton
+              label={t("Projects")}
+              icon={RiBox3Line}
+              active={onProjects}
+              onClick={() => {
+                if (!onProjects) void navigate({ to: "/projects" });
+              }}
             />
             <RailButton
               label={t("Plugins")}

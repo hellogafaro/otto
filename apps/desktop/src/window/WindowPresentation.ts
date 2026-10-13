@@ -154,7 +154,7 @@ export function getWindowTitleBarOptions(
   if (platform === "darwin") {
     return {
       titleBarStyle: "hiddenInset",
-      trafficLightPosition: { x: 16, y: 18 },
+      trafficLightPosition: { x: 16, y: 14 },
     };
   }
 

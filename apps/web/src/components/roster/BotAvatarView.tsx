@@ -35,7 +35,7 @@ const FACE_LAYOUT: Record<BotBlobShape, { x: number; y: number; scale: number }>
 };
 
 /** Flat body geometry on a 100×100 viewBox. Each shape fills the frame. */
-const BODY: Record<BotBlobShape, string> = {
+export const BLOB_BODY_PATHS: Record<BotBlobShape, string> = {
   circle: "M4 50A46 46 0 1 1 96 50A46 46 0 1 1 4 50Z",
   squircle:
     "M96.8 50C97.5 55.5 97.4 62 95.3 67.3C93.3 72.6 89.2 78.2 84.6 81.9C80 85.5 73.4 87.9 67.6 89.1C61.8 90.4 55.6 89.9 50 89.4C44.4 88.9 39.1 87.7 33.8 86C28.5 84.3 23 82.4 18.3 79.2C13.7 76 8.7 71.7 5.9 66.8C3.1 62 1.3 55.6 1.4 50C1.5 44.4 3.6 38.3 6.3 33.3C9 28.3 13.3 23.8 17.7 20.2C22 16.5 27.3 13.4 32.7 11.4C38.1 9.4 44.2 8.1 50 8.1C55.8 8.2 62 9.5 67.2 11.7C72.4 13.9 77.2 17.5 81.2 21.2C85.2 25 88.6 29.5 91.2 34.3C93.8 39.1 96.1 44.5 96.8 50Z",
@@ -133,7 +133,7 @@ function BlobFigure({
   eyeRefs: RefObject<Array<SVGRectElement | null>>;
 }) {
   const maskId = `bot-eyes-${useId().replace(/[^\w-]/g, "")}`;
-  const d = BODY[shape];
+  const d = BLOB_BODY_PATHS[shape];
   const eyes = resolveBlobEyes(color);
   const outline = resolveBlobOutline(color);
 

@@ -12,6 +12,10 @@ import {
   ProjectId,
   ProjectScript,
   ThreadEnvMode,
+  WorkDescription,
+  WorkParticipant,
+  WorkResources,
+  WorkStatus,
 } from "@otto/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -28,6 +32,11 @@ export const ProjectionProject = Schema.Struct({
   defaultThreadEnvMode: Schema.NullOr(ThreadEnvMode),
   faviconPath: Schema.optional(Schema.NullOr(Schema.String)),
   scripts: Schema.Array(ProjectScript),
+  // Null on rows projected before planning fields existed.
+  description: Schema.optional(Schema.NullOr(WorkDescription)),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  resources: Schema.optional(Schema.NullOr(WorkResources)),
+  status: Schema.optional(Schema.NullOr(WorkStatus)),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   deletedAt: Schema.NullOr(IsoDateTime),

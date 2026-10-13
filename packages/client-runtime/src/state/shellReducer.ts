@@ -65,6 +65,16 @@ export function applyShellStreamEvent(
         groups: Arr.filter(snapshot.groups, (group) => group.id !== event.groupId),
         snapshotSequence: event.sequence,
       };
+    case "task-upserted": {
+      const tasks = snapshot.tasks ?? [];
+
+      const nextTasks = tasks.some((task) => task.id === event.task.id)
+        ? Arr.map(tasks, (task) => (task.id === event.task.id ? event.task : task))
+        : Arr.append(tasks, event.task);
+
+      return { ...snapshot, tasks: nextTasks, snapshotSequence: event.sequence };
+    }
+
     case "mcp-server-upserted": {
       const mcpServers = snapshot.mcpServers ?? [];
 

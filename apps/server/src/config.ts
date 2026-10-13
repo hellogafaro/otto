@@ -38,6 +38,7 @@ export interface ServerDerivedPaths {
   readonly settingsPath: string;
   readonly providerStatusCacheDir: string;
   readonly worktreesDir: string;
+  readonly projectsDir: string;
   readonly attachmentsDir: string;
   readonly logsDir: string;
   readonly serverLogPath: string;
@@ -130,6 +131,7 @@ export const deriveServerPaths = Effect.fn(function* (
     settingsPath: join(stateDir, "settings.json"),
     providerStatusCacheDir,
     worktreesDir: join(baseDir, "worktrees"),
+    projectsDir: join(baseDir, "projects"),
     attachmentsDir,
     logsDir,
     serverLogPath: join(logsDir, "server.log"),

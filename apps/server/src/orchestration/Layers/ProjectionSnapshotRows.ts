@@ -34,6 +34,9 @@ import {
   type OrchestrationSession,
   type OrchestrationThreadActivity,
   ModelSelection,
+  WorkParticipant,
+  WorkResources,
+  type WorkStatus,
   ProjectId,
   ThreadLinkedPullRequest,
   ThreadId,
@@ -50,6 +53,7 @@ import { ProjectionBot } from "../../persistence/Services/ProjectionBots.ts";
 import { ProjectionCheckpoint } from "../../persistence/Services/ProjectionCheckpoints.ts";
 import { ProjectionGroup } from "../../persistence/Services/ProjectionGroups.ts";
 import { ProjectionMcpServerRepository } from "../../persistence/Services/ProjectionMcpServers.ts";
+import { ProjectionTaskRepository } from "../../persistence/Services/ProjectionTasks.ts";
 import { RoutineRepository } from "../../routines/Repository.ts";
 import { ThreadBackgroundLivenessService } from "../ThreadBackgroundLiveness.ts";
 import { ThreadPlanProgressService } from "../ThreadPlanProgress.ts";
@@ -104,8 +108,29 @@ export const ProjectionProjectDbRowSchema = ProjectionProject.mapFields(
   Struct.assign({
     defaultModelSelection: Schema.NullOr(Schema.fromJsonString(ModelSelection)),
     scripts: Schema.fromJsonString(Schema.Array(ProjectScript)),
+    owner: Schema.optional(Schema.NullOr(Schema.fromJsonString(WorkParticipant))),
+    resources: Schema.optional(Schema.NullOr(Schema.fromJsonString(WorkResources))),
   }),
 );
+
+/** Planning fields of a project row; rows projected before them carry none. */
+export function mapProjectPlanning(row: {
+  readonly description?: string | null | undefined;
+  readonly owner?: WorkParticipant | null | undefined;
+  readonly resources?: WorkResources | null | undefined;
+  readonly status?: WorkStatus | null | undefined;
+}) {
+  if (row.status == null) {
+    return {};
+  }
+
+  return {
+    description: row.description ?? "",
+    owner: row.owner ?? null,
+    resources: row.resources ?? [],
+    status: row.status,
+  };
+}
 
 export const ProjectionThreadMessageDbRowSchema = ProjectionThreadMessage.mapFields(
   Struct.assign({
@@ -451,6 +476,7 @@ export function mapProjectShellRow(
     defaultThreadEnvMode: row.defaultThreadEnvMode,
     faviconPath: row.faviconPath ?? null,
     scripts: row.scripts,
+    ...mapProjectPlanning(row),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -558,6 +584,7 @@ export function toPersistenceSqlOrDecodeError(sqlOperation: string, decodeOperat
 
 export interface ProjectionSnapshotDependencies {
   readonly projectionMcpServerRepository: ProjectionMcpServerRepository["Service"];
+  readonly projectionTaskRepository: ProjectionTaskRepository["Service"];
   readonly routineRepository: RoutineRepository["Service"];
   readonly threadBackgroundLiveness: ThreadBackgroundLivenessService["Service"];
   readonly threadPlanProgress: ThreadPlanProgressService["Service"];

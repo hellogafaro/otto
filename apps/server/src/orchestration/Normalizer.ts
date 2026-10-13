@@ -116,13 +116,30 @@ export const normalizeDispatchCommand = (command: ClientOrchestrationCommand) =>
         );
 
     if (canonicalCommand.type === "project.create") {
+      if (
+        canonicalCommand.workspaceRoot === undefined &&
+        !/^[A-Za-z0-9_-]+$/.test(canonicalCommand.projectId)
+      ) {
+        return yield* new OrchestrationDispatchCommandError({
+          message: "A project without a folder needs an id made of letters, digits, - or _.",
+        });
+      }
+
       return {
         ...canonicalCommand,
-        workspaceRoot: yield* normalizeProjectWorkspaceRootForCreate(
-          canonicalCommand.workspaceRoot,
-          canonicalCommand.createWorkspaceRootIfMissing,
-        ),
-        createWorkspaceRootIfMissing: canonicalCommand.createWorkspaceRootIfMissing === true,
+        workspaceRoot:
+          canonicalCommand.workspaceRoot === undefined
+            ? yield* normalizeProjectWorkspaceRootForCreate(
+                path.join(serverConfig.projectsDir, canonicalCommand.projectId),
+                true,
+              )
+            : yield* normalizeProjectWorkspaceRootForCreate(
+                canonicalCommand.workspaceRoot,
+                canonicalCommand.createWorkspaceRootIfMissing,
+              ),
+        createWorkspaceRootIfMissing:
+          canonicalCommand.workspaceRoot === undefined ||
+          canonicalCommand.createWorkspaceRootIfMissing === true,
       } satisfies OrchestrationCommand;
     }
 

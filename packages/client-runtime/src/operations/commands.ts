@@ -10,6 +10,13 @@ export {
 } from "./commands/project.ts";
 
 export {
+  type CreateTaskInput,
+  type UpdateTaskInput,
+  createTask,
+  updateTask,
+} from "./commands/task.ts";
+
+export {
   type CreateBotInput,
   type UpdateBotInput,
   type ArchiveBotInput,

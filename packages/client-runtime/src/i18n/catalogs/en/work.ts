@@ -1,0 +1,37 @@
+export const workCatalog = {
+  Tasks: "Tasks",
+  Projects: "Projects",
+  Title: "Title",
+  Owner: "Owner",
+  "No owner": "No owner",
+  Assignees: "Assignees",
+  People: "People",
+  Due: "Due",
+  "Due date": "Due date",
+  Links: "Links",
+  "Add link": "Add link",
+  "Add a description…": "Add a description…",
+  Backlog: "Backlog",
+  "In progress": "In progress",
+  Cancelled: "Cancelled",
+  "New task": "New task",
+  "Edit task": "Edit task",
+  "Create task": "Create task",
+  "New project": "New project",
+  "Edit project": "Edit project",
+  "Create project": "Create project",
+  "Open tasks": "Open tasks",
+  "Nothing matches these filters.": "Nothing matches these filters.",
+  "Clear filters": "Clear filters",
+  "Keep every job in one place": "Keep every job in one place",
+  "See what people and bots are working on, who owns each task, and when it is due.":
+    "See what people and bots are working on, who owns each task, and when it is due.",
+  "Plan work around an outcome": "Plan work around an outcome",
+  "Group related tasks under a project with an owner, links, and a status everyone can see.":
+    "Group related tasks under a project with an owner, links, and a status everyone can see.",
+  "Project not found": "Project not found",
+  "It may have been deleted, or the link points to another workspace.":
+    "It may have been deleted, or the link points to another workspace.",
+  "No tasks yet. Break the project into the next few steps.":
+    "No tasks yet. Break the project into the next few steps.",
+} as const;

@@ -67,6 +67,10 @@ export const ProjectId = makeEntityId("ProjectId");
 
 export type ProjectId = typeof ProjectId.Type;
 
+export const TaskId = makeEntityId("TaskId");
+
+export type TaskId = typeof TaskId.Type;
+
 export const BotId = makeEntityId("BotId");
 
 export type BotId = typeof BotId.Type;

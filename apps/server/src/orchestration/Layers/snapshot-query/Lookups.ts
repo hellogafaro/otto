@@ -26,6 +26,7 @@ import {
   mapSessionRow,
   mapBotRow,
   mapGroupRow,
+  mapProjectPlanning,
 } from "../ProjectionSnapshotRows.ts";
 import type { createEnvironmentRows } from "./EnvironmentRows.ts";
 import type { createThreadRows } from "./ThreadRows.ts";
@@ -182,6 +183,7 @@ export function createLookups({
                     defaultThreadEnvMode: option.value.defaultThreadEnvMode,
                     faviconPath: option.value.faviconPath ?? null,
                     scripts: option.value.scripts,
+                    ...mapProjectPlanning(option.value),
                     createdAt: option.value.createdAt,
                     updatedAt: option.value.updatedAt,
                     deletedAt: option.value.deletedAt,

@@ -73,9 +73,11 @@ const buttonVariants = cva(
           "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs before:rounded-[calc(var(--radius-md)-1px)] [&_svg:not([class*='size-'])]:size-3.5",
         // Wraps an avatar or avatar tile: the child sets the size.
         avatar: "p-0",
-        // Otto: A default button in a settings row matches the 28px row controls.
+        // Otto: A sub page's 13px back title in the top bar, chevron then title.
+        "back-title": "h-7 gap-1 px-[calc(--spacing(1.5)-1px)] text-13px sm:text-13px",
+        // Otto: A default button in a settings row or a dialog footer matches the 28px controls.
         default:
-          "h-8 px-[calc(--spacing(3)-1px)] in-data-[slot=settings-control]:h-7 in-data-[slot=settings-control]:px-[calc(--spacing(2.5)-1px)]",
+          "h-8 px-[calc(--spacing(3)-1px)] in-data-[slot=settings-control]:h-7 in-data-[slot=settings-control]:px-[calc(--spacing(2.5)-1px)] in-data-[slot=dialog-footer]:h-7 in-data-[slot=dialog-footer]:px-[calc(--spacing(2.5)-1px)] in-data-[slot=alert-dialog-footer]:h-7 in-data-[slot=alert-dialog-footer]:px-[calc(--spacing(2.5)-1px)]",
         icon: "size-8",
         "icon-lg": "size-9",
         "icon-micro":
@@ -83,6 +85,9 @@ const buttonVariants = cva(
         "icon-sm": "size-7",
         "icon-sm-round": "size-7 rounded-full",
         "icon-xl": "size-10 [&_svg:not([class*='size-'])]:size-4.5",
+        // Otto: a 24px icon button nested 2px inside a 28px row, its 4px radius concentric with the row's 6px.
+        "icon-row":
+          "size-6 rounded-sm before:rounded-[calc(var(--radius-sm)-1px)] not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-4 sm:not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-3.5",
         "icon-xs":
           "size-6 not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-4 sm:not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 px-[calc(--spacing(3.5)-1px)]",

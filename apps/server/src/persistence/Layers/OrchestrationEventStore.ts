@@ -16,6 +16,7 @@ import {
   RoutineId,
   RoutineRunId,
   SkillAssignmentId,
+  TaskId,
   ThreadId,
 } from "@otto/contracts";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -54,6 +55,7 @@ const AppendEventRequestSchema = Schema.Struct({
     RoutineId,
     RoutineRunId,
     SkillAssignmentId,
+    TaskId,
     ThreadId,
   ]),
   type: OrchestrationEventType,
@@ -87,6 +89,7 @@ const OrchestrationEventPersistedRowSchema = Schema.Struct({
     RoutineId,
     RoutineRunId,
     SkillAssignmentId,
+    TaskId,
     ThreadId,
   ]),
   occurredAt: IsoDateTime,

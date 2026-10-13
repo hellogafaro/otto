@@ -28,6 +28,7 @@ import {
   mapGroupRow,
   decodeReadModel,
   mapProposedPlanRow,
+  mapProjectPlanning,
 } from "../ProjectionSnapshotRows.ts";
 import type { createEnvironmentRows } from "./EnvironmentRows.ts";
 import type { createProjectIdentity } from "./ProjectIdentity.ts";
@@ -39,6 +40,7 @@ export function createReadModels({
   listGroupRows,
   listDelegationRows,
   projectionMcpServerRepository,
+  projectionTaskRepository,
   routineRepository,
   listThreadRows,
   listThreadMessageRows,
@@ -59,6 +61,7 @@ export function createReadModels({
   | "listGroupRows"
   | "listDelegationRows"
   | "projectionMcpServerRepository"
+  | "projectionTaskRepository"
   | "routineRepository"
   | "listThreadRows"
   | "listThreadMessageRows"
@@ -107,6 +110,7 @@ export function createReadModels({
             ),
           ),
           projectionMcpServerRepository.listAll(),
+          projectionTaskRepository.listAll(),
           routineRepository.listAll,
           routineRepository.listAllRuns,
           routineRepository.listSkillAssignments,
@@ -184,6 +188,7 @@ export function createReadModels({
             groupRows,
             delegationRows,
             mcpServers,
+            tasks,
             routines,
             routineRuns,
             skillAssignments,
@@ -339,6 +344,7 @@ export function createReadModels({
                 defaultThreadEnvMode: row.defaultThreadEnvMode,
                 faviconPath: row.faviconPath ?? null,
                 scripts: row.scripts,
+                ...mapProjectPlanning(row),
                 createdAt: row.createdAt,
                 updatedAt: row.updatedAt,
                 deletedAt: row.deletedAt,
@@ -388,6 +394,7 @@ export function createReadModels({
                 groups: groupRows.map(mapGroupRow),
                 delegations: delegationRows.map((row) => row.delegation),
                 mcpServers,
+                tasks,
                 routines,
                 routineRuns,
                 skillAssignments,
@@ -448,6 +455,7 @@ export function createReadModels({
             ),
           ),
           projectionMcpServerRepository.listAll(),
+          projectionTaskRepository.listAll(),
           routineRepository.listAll,
           routineRepository.listAllRuns,
           routineRepository.listSkillAssignments,
@@ -501,6 +509,7 @@ export function createReadModels({
             groupRows,
             delegationRows,
             mcpServers,
+            tasks,
             routines,
             routineRuns,
             skillAssignments,
@@ -531,6 +540,7 @@ export function createReadModels({
                   defaultThreadEnvMode: row.defaultThreadEnvMode,
                   faviconPath: row.faviconPath ?? null,
                   scripts: row.scripts,
+                  ...mapProjectPlanning(row),
                   createdAt: row.createdAt,
                   updatedAt: row.updatedAt,
                   deletedAt: row.deletedAt,
@@ -700,6 +710,7 @@ export function createReadModels({
                 groups: groupRows.map(mapGroupRow),
                 delegations: delegationRows.map((row) => row.delegation),
                 mcpServers,
+                tasks,
                 routines,
                 routineRuns,
                 skillAssignments,

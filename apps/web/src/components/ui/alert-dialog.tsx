@@ -76,7 +76,7 @@ function AlertDialogPopup({
 function AlertDialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex flex-col gap-2 p-6 text-center max-sm:pb-4 sm:text-left", className)}
+      className={cn("flex flex-col gap-1.5 px-5 pt-4 pb-4 text-center sm:text-left", className)}
       data-slot="alert-dialog-header"
       {...props}
     />
@@ -93,9 +93,9 @@ function AlertDialogFooter({
   return (
     <div
       className={cn(
-        "flex flex-col-reverse gap-2 px-6 sm:flex-row sm:justify-end sm:rounded-b-[calc(var(--radius-2xl)-1px)]",
-        variant === "default" && "border-t bg-muted/72 py-4",
-        variant === "bare" && "pb-6",
+        "flex flex-col-reverse gap-2 px-5 sm:flex-row sm:justify-end sm:gap-1.5",
+        variant === "default" && "border-t py-4",
+        variant === "bare" && "pb-5",
         className,
       )}
       data-slot="alert-dialog-footer"
@@ -107,7 +107,7 @@ function AlertDialogFooter({
 function AlertDialogTitle({ className, ...props }: AlertDialogPrimitive.Title.Props) {
   return (
     <AlertDialogPrimitive.Title
-      className={cn("font-semibold text-xl leading-none", className)}
+      className={cn("text-base leading-6 font-medium tracking-title-sm text-foreground", className)}
       data-slot="alert-dialog-title"
       {...props}
     />

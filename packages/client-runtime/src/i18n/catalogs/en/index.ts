@@ -4,6 +4,7 @@ import { chatCatalog } from "./chat.ts";
 import { settingsCatalog } from "./settings.ts";
 import { memoryCatalog } from "./memory.ts";
 import { commonCatalog } from "./common.ts";
+import { workCatalog } from "./work.ts";
 
 export const englishCatalog = {
   ...rosterCatalog,
@@ -12,4 +13,5 @@ export const englishCatalog = {
   ...settingsCatalog,
   ...memoryCatalog,
   ...commonCatalog,
+  ...workCatalog,
 } as const;

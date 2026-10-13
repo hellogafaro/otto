@@ -18,7 +18,7 @@ import { useEnvironmentSessionState } from "../../state/session";
 import { openSettings } from "../../settingsDialogStore";
 import { SidebarInset } from "../ui/sidebar";
 import { Spinner } from "../ui/spinner";
-import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import { WorkspaceHeaderTitle, WorkspacePageHeader } from "../WorkspacePageHeader";
 import { threadSilentRun } from "@otto/client-runtime/silent-run";
 import { botActivityUpdate, BotActivityStatus } from "./BotActivityStatus";
 import { deriveBotActivity } from "./botActivityStatus.logic";
@@ -120,6 +120,14 @@ export function BotThreadLanding({
     () => ({ canStart: runtime.canStartNewChat, start: runtime.startNewChat }),
     [runtime.canStartNewChat, runtime.startNewChat],
   );
+
+  // The roster's per-bot plus asks for a fresh chat; start it once the open chat allows one.
+  const newChatRequested = useRosterStore((state) => state.newChatBotId === botId);
+  useEffect(() => {
+    if (!newChatRequested || !runtime.canStartNewChat) return;
+    useRosterStore.getState().requestNewChat(null);
+    void runtime.startNewChat();
+  }, [newChatRequested, runtime.canStartNewChat, runtime.startNewChat]);
 
   const mentionScope = useBotPromptMentionScope({
     environmentId,
@@ -382,14 +390,12 @@ export function BotThreadLanding({
       >
         <div className="flex min-h-0 min-w-0 flex-1">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <WorkspacePageHeader
-              className="border-b border-border"
-              detailsPanelOpen={detailsPanelOpen}
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-6" />
-                <span className="truncate text-sm font-medium">{bot.name}</span>
-              </div>
+            <WorkspacePageHeader detailsPanelOpen={detailsPanelOpen}>
+              <WorkspaceHeaderTitle
+                visual={<BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />}
+              >
+                {bot.name}
+              </WorkspaceHeaderTitle>
               <div data-chat-header-actions className="ml-auto flex items-center">
                 <BotVoiceCallButton
                   bot={bot}

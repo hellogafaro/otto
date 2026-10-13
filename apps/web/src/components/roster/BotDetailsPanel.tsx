@@ -1,10 +1,4 @@
-import {
-  RiCloseLine,
-  RiComputerLine,
-  RiSidebarFoldLine,
-  RiSideBarLine,
-  RiSettings3Line,
-} from "@remixicon/react";
+import { RiCloseLine, RiComputerLine, RiListCheck, RiSettings3Line } from "@remixicon/react";
 import { useAtomValue } from "@effect/atom-react";
 import type { ScopedThreadRef } from "@otto/contracts";
 
@@ -23,7 +17,6 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../../lib/utils";
 import { BotAvatarView } from "./BotAvatarView";
 import { BotBrowserPreview } from "./BotBrowserPreview";
-import { BotChatsSection } from "./BotChatsSection";
 import { resolveBotModelLabel } from "./botModelLabel";
 import { botPersonalityToneLabel, canonicalizeBotPersonalityTone } from "./botPersonalityTone";
 import { botSandboxChoice, botSandboxLabel } from "./botSandbox";
@@ -41,7 +34,6 @@ export function BotOverview({
   routinePanel,
   routinePanelRef,
   routinePanelRequest = 0,
-  chats,
 }: {
   readonly bot: Bot;
   readonly onOpenSettings?: () => void;
@@ -50,8 +42,6 @@ export function BotOverview({
   readonly routinePanel?: Omit<RoutinePanelProps, "botName">;
   readonly routinePanelRequest?: number;
   readonly routinePanelRef?: Ref<HTMLDivElement>;
-  /** Lists the bot's recent chats. Omitted where the panel cannot switch chats. */
-  readonly chats?: { readonly threadRef: ScopedThreadRef | null; readonly onOpenChat?: () => void };
 }) {
   const { t } = useI18n();
   const providers = useAtomValue(primaryServerProvidersAtom);
@@ -108,14 +98,6 @@ export function BotOverview({
           <dd className="font-medium">{botSandboxLabel(botSandboxChoice(bot.sandbox), t)}</dd>
         </div>
       </dl>
-
-      {chats ? (
-        <BotChatsSection
-          botId={bot.id}
-          threadRef={chats.threadRef}
-          {...(chats.onOpenChat ? { onOpenChat: chats.onOpenChat } : {})}
-        />
-      ) : null}
 
       <div ref={routinePanelRef}>
         <RoutinePanel
@@ -223,7 +205,6 @@ export function BotDetailsPanel({
     routinePanelRef: Ref<HTMLDivElement>,
     closeButton?: ReactNode,
     canExpandBrowser = false,
-    onOpenChat?: () => void,
   ) => (
     <>
       <BotBrowserPreview
@@ -259,7 +240,6 @@ export function BotDetailsPanel({
                 }
               : {})}
             {...(routinePanel ? { routinePanel } : {})}
-            chats={{ threadRef, ...(onOpenChat ? { onOpenChat } : {}) }}
           />
         </>
       ) : null}
@@ -294,7 +274,7 @@ export function BotDetailsPanel({
                     variant="ghost"
                     onClick={() => setDesktopOpen(false)}
                   >
-                    <AppIcon icon={RiSidebarFoldLine} />
+                    <AppIcon icon={RiListCheck} />
                   </Button>
                 }
               />
@@ -325,7 +305,7 @@ export function BotDetailsPanel({
                   variant="ghost"
                   onClick={() => setDesktopOpen(true)}
                 >
-                  <AppIcon icon={RiSideBarLine} />
+                  <AppIcon icon={RiListCheck} />
                 </Button>
               }
             />
@@ -344,7 +324,7 @@ export function BotDetailsPanel({
           variant="ghost"
           onClick={() => setMobileOpen(true)}
         >
-          <AppIcon icon={RiSideBarLine} />
+          <AppIcon icon={RiListCheck} />
         </Button>
       </div>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -365,7 +345,6 @@ export function BotDetailsPanel({
               <AppIcon icon={RiCloseLine} />
             </SheetClose>,
             false,
-            () => setMobileOpen(false),
           )}
         </SheetPopup>
       </Sheet>

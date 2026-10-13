@@ -20,6 +20,7 @@ import {
   RoutineId,
   RoutineRunId,
   SkillAssignmentId,
+  TaskId,
   ThreadId,
 } from "@otto/contracts";
 import * as Option from "effect/Option";
@@ -41,6 +42,7 @@ export const OrchestrationCommandReceipt = Schema.Struct({
     RoutineId,
     RoutineRunId,
     SkillAssignmentId,
+    TaskId,
     ThreadId,
   ]),
   acceptedAt: IsoDateTime,

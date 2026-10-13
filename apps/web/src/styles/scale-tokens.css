@@ -82,10 +82,8 @@
   /* Side gutters that center a 48rem column, never narrower than 1rem or 1.5rem. */
   --spacing-gutter-48rem: max(1rem, calc((100% - 48rem) / 2));
   --spacing-gutter-48rem-wide: max(1.5rem, calc((100% - 48rem) / 2));
-  --spacing-safe-left-0\.75rem: calc(env(safe-area-inset-left) + 0.75rem);
-  --spacing-safe-right-0\.75rem: calc(env(safe-area-inset-right) + 0.75rem);
-  --spacing-safe-left-1\.25rem: calc(env(safe-area-inset-left) + 1.25rem);
-  --spacing-safe-right-1\.25rem: calc(env(safe-area-inset-right) + 1.25rem);
+  --spacing-safe-left-0\.5rem: calc(env(safe-area-inset-left) + 0.5rem);
+  --spacing-safe-right-0\.5rem: calc(env(safe-area-inset-right) + 0.5rem);
   /* Clears the window controls plus the titlebar toggle beside them. */
   --spacing-titlebar-controls-end: calc(
     var(--workspace-controls-left) + var(--workspace-titlebar-control-size) +

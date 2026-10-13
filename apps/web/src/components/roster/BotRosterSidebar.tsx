@@ -1,7 +1,5 @@
 import { RiSearchLine } from "@remixicon/react";
 import { Match, Predicate } from "effect";
-import { DndContext } from "@dnd-kit/core";
-import { SortableContext } from "@dnd-kit/sortable";
 import { useAtomValue } from "@effect/atom-react";
 import { ARCHIVED_BOT_RETENTION_DAYS, BotId, GroupId } from "@otto/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -36,34 +34,24 @@ import { DEFAULT_BOT_RUNTIME_MODE } from "./botSandbox";
 import { NewBotDialog } from "./NewBotDialog";
 import { NewGroupDialog, type NewGroupInput } from "./NewGroupDialog";
 import {
-  buildRosterListItems,
   filterRosterBots,
   filterRosterGroups,
   isRecordableChatPath,
   rosterItemKey,
   rosterItemsEqual,
-  rosterItemsForZone,
-  rosterListItemId,
   orderRosterBotsForShortcuts,
   resolveAdjacentRosterBot,
   resolveRosterShortcutBot,
+  type RosterEntry,
   type RosterItemRef,
 } from "./roster.logic";
-import { RosterDragLifecycle } from "./roster.pointer";
 import { useRosterStore } from "./rosterStore";
 import { resolveRosterListState } from "./rosterRouteSelection";
 import { RosterLoadStatus } from "./RosterLoadStatus";
 import { useRosterLoadState } from "./useServerRoster";
 import type { Bot, BotAvatar, Group } from "./types";
 import { useBotThreadRef } from "./useBotThreadRef";
-import {
-  RosterDragBoundary,
-  RosterSectionPlaceholder,
-  SortableRosterMarker,
-  SortableRosterRow,
-  useRosterDragController,
-} from "./RosterDrag";
-import { BotRosterRow, GroupRosterRow, RosterRail } from "./RosterRows";
+import { BotRosterRow, GroupRosterRow, RosterRail, RosterSectionLabel } from "./RosterRows";
 import { RosterPanelHeader, RosterRailCreateMenu, RosterSidebarHeader } from "./RosterHeaders";
 import {
   commandFailureMessage,
@@ -178,7 +166,11 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
         if (remaining(item) && !seen.has(rosterItemKey(item))) ordered.push(item);
       }
 
-      return ordered;
+      // Groups, then DMs: each kind keeps its saved order in its own section.
+      return [
+        ...ordered.filter((item) => item.kind === "group"),
+        ...ordered.filter((item) => item.kind === "bot"),
+      ];
     }
 
     return [
@@ -187,26 +179,16 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     ].filter(remaining);
   }, [liveItem, pinnedKeys, unassignedItems, visibleBots, visibleGroups]);
 
-  const rosterListItems = useMemo(
-    () =>
-      buildRosterListItems({
-        pinnedItems: visiblePinnedItems,
-        sections: [],
-        unassignedItems: visibleUnassignedItems,
-      }),
+  const firstUnassignedGroup = visibleUnassignedItems.find((item) => item.kind === "group");
+  const firstUnassignedBot = visibleUnassignedItems.find((item) => item.kind === "bot");
+
+  const rosterEntries = useMemo<RosterEntry[]>(
+    () => [
+      ...visiblePinnedItems.map((item) => ({ item, zone: "pinned" as const })),
+      ...visibleUnassignedItems.map((item) => ({ item, zone: "unassigned" as const })),
+    ],
     [visiblePinnedItems, visibleUnassignedItems],
   );
-
-  const {
-    dragState,
-    dragTargetZone,
-    rosterListRef,
-    listRef: attachListMotionRef,
-    cancelRosterDrag,
-    sortableIds,
-    sortingStrategy,
-    dndContextProps,
-  } = useRosterDragController({ rosterListItems, visiblePinnedItems });
 
   // Remember the chat route the selected bot lands on, so re-selecting the
   // bot returns to its conversation. The first run after a selection change
@@ -292,12 +274,12 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   // a button the projection is about to remove.
   const archivedFocusTarget = useRef<string | null | undefined>(undefined);
   const rosterSearchRef = useRef<HTMLInputElement | null>(null);
+  const rosterListRef = useRef<HTMLUListElement | null>(null);
 
   /** Row keys in the order the roster renders them, so the survivor is the next one down. */
   const rosterRowKeys = useMemo(
-    () =>
-      rosterListItems.flatMap((item) => (item.kind === "entry" ? [rosterItemKey(item.item)] : [])),
-    [rosterListItems],
+    () => rosterEntries.map((entry) => rosterItemKey(entry.item)),
+    [rosterEntries],
   );
 
   const focusRosterRow = useCallback((rowKey: string | null) => {
@@ -540,158 +522,111 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                 onSelectGroup={handleSelectGroup}
               />
               <SidebarGroup className="px-(--sidebar-content-inset) pb-1 pt-1 group-data-[collapsible=icon]:hidden">
-                <DndContext {...dndContextProps}>
-                  <RosterDragLifecycle onUnmount={cancelRosterDrag} />
-                  <SortableContext items={sortableIds} strategy={sortingStrategy}>
-                    <ul
-                      ref={attachListMotionRef}
-                      role="list"
-                      // Focusable only on purpose: where focus lands when an
-                      // archived row leaves and no sibling row survives it.
-                      tabIndex={-1}
-                      aria-label={t("Bots and groups")}
-                      className="relative flex flex-wrap justify-center gap-x-1 gap-y-px"
-                    >
-                      {rosterListItems.map((item) => {
-                        if (item.kind === "entry") {
-                          const pinned = pinnedKeys.has(rosterItemKey(item.item));
+                <ul
+                  ref={rosterListRef}
+                  role="list"
+                  // Focusable only on purpose: where focus lands when an
+                  // archived row leaves and no sibling row survives it.
+                  tabIndex={-1}
+                  aria-label={t("Bots and groups")}
+                  className="relative flex flex-wrap justify-center gap-x-1 gap-y-0.5"
+                >
+                  {rosterEntries.map((item) => {
+                    const pinned = pinnedKeys.has(rosterItemKey(item.item));
 
-                          const zoneOrder = rosterItemsForZone(item.zone, {
-                            pinnedItems: visiblePinnedItems,
-                            sections: [],
-                            unassignedItems: visibleUnassignedItems,
-                          });
+                    const zoneOrder =
+                      item.zone === "pinned" ? visiblePinnedItems : visibleUnassignedItems;
 
-                          const zoneIndex = zoneOrder.findIndex((candidate) =>
-                            rosterItemsEqual(candidate, item.item),
-                          );
+                    const zoneIndex = zoneOrder.findIndex((candidate) =>
+                      rosterItemsEqual(candidate, item.item),
+                    );
 
-                          const canMoveUp = !searching && zoneIndex > 0;
+                    const canMoveUp = !searching && zoneIndex > 0;
 
-                          const canMoveDown =
-                            !searching && zoneIndex >= 0 && zoneIndex < zoneOrder.length - 1;
+                    const canMoveDown =
+                      !searching && zoneIndex >= 0 && zoneIndex < zoneOrder.length - 1;
 
-                          return (
-                            <SortableRosterRow
-                              key={rosterListItemId(item)}
-                              id={rosterListItemId(item)}
-                              disabled={searching}
-                            >
-                              {(bag) =>
-                                item.item.kind === "bot"
-                                  ? (() => {
-                                      const bot = bots.find(
-                                        (candidate) => candidate.id === item.item.id,
-                                      );
+                    const firstOfSection =
+                      item.zone === "pinned"
+                        ? rosterItemsEqual(item.item, visiblePinnedItems[0]!)
+                        : (firstUnassignedGroup !== undefined &&
+                            rosterItemsEqual(item.item, firstUnassignedGroup)) ||
+                          (firstUnassignedBot !== undefined &&
+                            rosterItemsEqual(item.item, firstUnassignedBot));
 
-                                      if (!bot) return null;
+                    const sectionLabel = !firstOfSection
+                      ? null
+                      : item.zone === "pinned"
+                        ? { label: t("Pins") }
+                        : item.item.kind === "group"
+                          ? {
+                              label: t("Groups"),
+                              add: { label: t("New group"), onClick: handleNewGroup },
+                            }
+                          : {
+                              label: t("DMs"),
+                              add: { label: t("New bot"), onClick: handleNewBot },
+                            };
 
-                                      return (
-                                        <BotRosterRow
-                                          bot={bot}
-                                          lastMessage={lastMessageByBotId[bot.id] ?? null}
-                                          isActive={!groupRouteActive && selectedBotId === bot.id}
-                                          chatOpen={pathname === `/bots/${bot.id}`}
-                                          onSelect={handleSelect}
-                                          onOpenSettings={handleOpenBotSettings}
-                                          pinned={pinned}
-                                          onPin={setRosterItemPinned}
-                                          canMoveUp={canMoveUp}
-                                          canMoveDown={canMoveDown}
-                                          onNudge={nudgeRosterItem}
-                                          onArchive={setArchivingBot}
-                                          sortable={bag}
-                                        />
-                                      );
-                                    })()
-                                  : (() => {
-                                      const group = groups.find(
-                                        (candidate) => candidate.id === item.item.id,
-                                      );
+                    return [
+                      sectionLabel ? (
+                        <RosterSectionLabel
+                          key={`label:${rosterItemKey(item.item)}`}
+                          label={sectionLabel.label}
+                          {...("add" in sectionLabel ? { add: sectionLabel.add } : {})}
+                          first={rosterItemsEqual(
+                            item.item,
+                            (visiblePinnedItems[0] ?? visibleUnassignedItems[0])!,
+                          )}
+                        />
+                      ) : null,
+                      item.item.kind === "bot"
+                        ? (() => {
+                            const bot = bots.find((candidate) => candidate.id === item.item.id);
 
-                                      if (!group) return null;
+                            if (!bot) return null;
 
-                                      return (
-                                        <GroupRosterRow
-                                          group={group}
-                                          bots={bots}
-                                          isActive={pathname === `/groups/${group.id}`}
-                                          onSelect={handleSelectGroup}
-                                          pinned={pinned}
-                                          onPin={setRosterItemPinned}
-                                          canMoveUp={canMoveUp}
-                                          canMoveDown={canMoveDown}
-                                          onNudge={nudgeRosterItem}
-                                          sortable={bag}
-                                        />
-                                      );
-                                    })()
-                              }
-                            </SortableRosterRow>
-                          );
-                        }
-
-                        const from = dragState?.from ?? null;
-                        const dragging = from !== null;
-
-                        switch (item.marker) {
-                          case "pinned-header":
                             return (
-                              <RosterDragBoundary
-                                key="pinned-header"
-                                marker="pinned-header"
-                                label={t("Pinned")}
-                                visible={dragging}
-                                isDropTarget={dragTargetZone === "pinned"}
+                              <BotRosterRow
+                                key={rosterItemKey(item.item)}
+                                bot={bot}
+                                lastMessage={lastMessageByBotId[bot.id] ?? null}
+                                isActive={!groupRouteActive && selectedBotId === bot.id}
+                                chatOpen={pathname === `/bots/${bot.id}`}
+                                onSelect={handleSelect}
+                                onOpenSettings={handleOpenBotSettings}
+                                pinned={pinned}
+                                onPin={setRosterItemPinned}
+                                canMoveUp={canMoveUp}
+                                canMoveDown={canMoveDown}
+                                onNudge={nudgeRosterItem}
+                                onArchive={setArchivingBot}
                               />
                             );
-                          case "pinned-divider":
+                          })()
+                        : (() => {
+                            const group = groups.find((candidate) => candidate.id === item.item.id);
+
+                            if (!group) return null;
+
                             return (
-                              <RosterDragBoundary
-                                key="pinned-divider"
-                                marker="pinned-divider"
-                                label={null}
-                                visible={dragging}
-                                isDropTarget={
-                                  dragTargetZone !== null && dragTargetZone !== "pinned"
-                                }
+                              <GroupRosterRow
+                                key={rosterItemKey(item.item)}
+                                group={group}
+                                bots={bots}
+                                isActive={pathname === `/groups/${group.id}`}
+                                onSelect={handleSelectGroup}
+                                pinned={pinned}
+                                onPin={setRosterItemPinned}
+                                canMoveUp={canMoveUp}
+                                canMoveDown={canMoveDown}
+                                onNudge={nudgeRosterItem}
                               />
                             );
-                          case "unassigned-header":
-                            // Unlabeled drop anchor: the pinned divider marks the
-                            // boundary while dragging, so the list needs no heading.
-                            return (
-                              <SortableRosterMarker
-                                key="unassigned-header"
-                                marker="unassigned-header"
-                                data-testid="roster-unassigned-header"
-                                className="relative -mb-px h-0 w-full flex-none"
-                              />
-                            );
-                          case "unassigned-placeholder":
-                            return (
-                              <RosterSectionPlaceholder
-                                key="unassigned-placeholder"
-                                marker="unassigned-placeholder"
-                                label={t("Bots")}
-                                showHint={
-                                  dragging &&
-                                  (visibleUnassignedItems.length === 0 ||
-                                    (dragState?.from === "unassigned" &&
-                                      visibleUnassignedItems.length === 1 &&
-                                      dragTargetZone !== null &&
-                                      dragTargetZone !== "unassigned"))
-                                }
-                                isDropTarget={dragTargetZone === "unassigned"}
-                              />
-                            );
-                          default:
-                            return null;
-                        }
-                      })}
-                    </ul>
-                  </SortableContext>
-                </DndContext>
+                          })(),
+                    ];
+                  })}
+                </ul>
                 {visibleBots.length === 0 && visibleGroups.length === 0 ? (
                   <div className="px-2 py-6 text-center text-sm text-sidebar-muted-foreground">
                     {t("No bots match")}

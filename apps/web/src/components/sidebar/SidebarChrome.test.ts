@@ -222,32 +222,6 @@ describe("sidebar footer", () => {
     expect(mobileSource).toContain("selectedEnvironmentServerConfig?.settings.localExecutionMode");
   });
 
-  it("keeps the roster scrollable from touch gestures that start on a bot row", () => {
-    // The roster sidebar composes its rows and drag wiring from sibling modules.
-    const source = ["BotRosterSidebar.tsx", "RosterRows.tsx", "RosterDrag.tsx"]
-      .map((file) => NodeFS.readFileSync(new URL(`../roster/${file}`, import.meta.url), "utf8"))
-      .join("\n");
-
-    expect(source).toContain("touch-pan-y");
-    expect(source).not.toContain("touch-none");
-  });
-
-  it("keeps group membership out of roster drag and treats pins as a drop target", () => {
-    // The roster sidebar composes its rows and drag wiring from sibling modules.
-    const source = ["BotRosterSidebar.tsx", "RosterRows.tsx", "RosterDrag.tsx"]
-      .map((file) => NodeFS.readFileSync(new URL(`../roster/${file}`, import.meta.url), "utf8"))
-      .join("\n");
-
-    expect(source).not.toContain("botEnvironment.groups.assignMember");
-    expect(source).toContain("roster-pinned-header");
-    expect(source).toContain("scrollAnchoring={false}");
-    expect(source).toContain("restrictRosterAxis");
-    expect(source).not.toContain("KeyboardSensor");
-    expect(source).toContain("Move up");
-    expect(source).toContain("Move down");
-    expect(source).toContain("onContextMenu={(event) => {");
-  });
-
   it("keeps short plugin dialogs and the footer independently scrollable", () => {
     const sidebarSource = NodeFS.readFileSync(
       new URL("./SidebarChrome.tsx", import.meta.url),
@@ -261,6 +235,6 @@ describe("sidebar footer", () => {
 
     expect(sidebarSource).toContain("overflow-y-auto overscroll-contain");
     expect(pluginsSource).toContain("PLUGIN_DIRECTORY_HEADER_CLASS_NAME");
-    expect(pluginsSource).toContain('<DialogPanel className="space-y-4 px-6 py-5">');
+    expect(pluginsSource).toContain('<DialogPanel className="space-y-4 py-5">');
   });
 });

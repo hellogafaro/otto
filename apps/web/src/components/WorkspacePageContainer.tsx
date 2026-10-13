@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { cn } from "../lib/utils";
 
@@ -26,5 +26,14 @@ export function WorkspacePageContainer({
       )}
       {...props}
     />
+  );
+}
+
+/** Otto: A page's own 22px title, inset 16px to sit on the content edge. */
+export function WorkspacePageTitle({ children }: { readonly children: ReactNode }) {
+  return (
+    <h1 className="px-4 text-22px leading-title font-medium tracking-title-lg text-foreground">
+      {children}
+    </h1>
   );
 }

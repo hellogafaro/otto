@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1772,
+  "directMessageCount": 1807,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -105,6 +105,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/roster/NewGroupDialog.tsx": [
       "selectionHint)}</p>",
+    ],
+    "apps/web/src/components/roster/RosterRows.tsx": [
+      "chatsOpen ? "Hide {name} chats" : "Show {name} chats", {",
     ],
     "apps/web/src/components/roster/RoutineCards.tsx": [
       "status.label)}",
@@ -471,7 +474,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/BotBrowserPreview.tsx",
     "apps/web/src/components/roster/BotChannelsSheet.tsx",
     "apps/web/src/components/roster/BotChatMessageRows.tsx",
-    "apps/web/src/components/roster/BotChatsSection.tsx",
+    "apps/web/src/components/roster/BotChatTree.tsx",
     "apps/web/src/components/roster/BotConversationScrollArea.tsx",
     "apps/web/src/components/roster/BotDetailsPanel.tsx",
     "apps/web/src/components/roster/BotDurableMemory.tsx",
@@ -583,6 +586,11 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/ui/sidebar.tsx",
     "apps/web/src/components/ui/sidebarRail.tsx",
     "apps/web/src/components/ui/toast.tsx",
+    "apps/web/src/components/work/TasksTable.tsx",
+    "apps/web/src/components/work/WorkDialogs.tsx",
+    "apps/web/src/components/work/WorkPages.tsx",
+    "apps/web/src/components/work/WorkParticipants.tsx",
+    "apps/web/src/components/work/WorkStatus.tsx",
     "apps/web/src/hooks/useChatActions.ts",
     "apps/web/src/routes/-RootRouteErrorView.tsx",
     "apps/web/src/routes/__root.tsx",

@@ -164,34 +164,6 @@ describe("roster pins", () => {
     expect(useRosterStore.getState().pinnedItems).toEqual([{ kind: "group", id: "crew" }]);
   });
 
-  it("unpins a bot into the main list without changing group membership", () => {
-    const crew = group("crew");
-    useRosterStore.setState({
-      bots: [bot("otto"), bot("mori")],
-      groups: [crew],
-      pinnedItems: [{ kind: "bot", id: "mori" }],
-      unassignedItems: [{ kind: "bot", id: "otto" }],
-    });
-
-    useRosterStore.getState().applyRosterDrop({
-      kind: "move",
-      item: { kind: "bot", id: "mori" },
-      zone: "unassigned",
-      order: [
-        { kind: "bot", id: "mori" },
-        { kind: "bot", id: "otto" },
-      ],
-      unpin: true,
-    });
-
-    expect(useRosterStore.getState().pinnedItems).toEqual([]);
-    expect(useRosterStore.getState().unassignedItems.map((item) => item.id)).toEqual([
-      "mori",
-      "otto",
-    ]);
-    expect(useRosterStore.getState().groups).toEqual([crew]);
-  });
-
   it("nudges bots in the main list without changing group membership", () => {
     useRosterStore.setState({
       bots: [bot("otto"), bot("mori"), bot("scout")],

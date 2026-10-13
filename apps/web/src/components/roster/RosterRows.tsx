@@ -1,30 +1,34 @@
 import {
+  RiAddLine,
   RiArchiveLine,
   RiArrowDownLine,
+  RiArrowDownSLine,
   RiArrowUpLine,
   RiPushpinLine,
   RiSettings3Line,
 } from "@remixicon/react";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
-import { PLACEHOLDER_THREAD_TITLE, type ScopedThreadRef } from "@otto/contracts";
+import type { ScopedThreadRef } from "@otto/contracts";
 
-import { memo, useMemo, useRef } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 
-import { useClientSettings } from "../../hooks/useSettings";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { useLatestGroupThreadId, useThreadMessages } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
+import { formatRelativeTime } from "../../timestampFormat";
+import { AppIcon } from "../ui/app-icon";
+import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { SidebarGroup } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { BotChatTree, useBotChats } from "./BotChatTree";
 import { BotAvatarView } from "./BotAvatarView";
 import { visibleBotChatMessages } from "./botConversationPresentation";
 import { useBotPresence } from "./botPresence";
 import { useBotRosterUnread, useChatUnread } from "../chat/useChatUnread";
 import { GroupMemberStack } from "./GroupMemberStack";
 import {
-  formatRosterTimestamp,
   resolveLatestRosterMessage,
   resolveRosterIndicator,
   rosterItemKey,
@@ -32,9 +36,9 @@ import {
   type RosterLastMessage,
   type RosterPresence,
 } from "./roster.logic";
+import { useRosterStore } from "./rosterStore";
 import type { Bot, Group } from "./types";
 import { useBotChatTarget, useBotThreadCandidate } from "./useBotThreadRef";
-import { type SortableRosterRowBag, sortableRootProps } from "./RosterDrag";
 
 /** Avatar with a warning needs-you light and an accent working light. */
 function RosterAvatar({
@@ -51,7 +55,7 @@ function RosterAvatar({
   const indicator = resolveRosterIndicator(presence);
 
   return (
-    <span className="relative shrink-0">
+    <span className="relative flex shrink-0">
       <BotAvatarView avatar={bot.avatar} name={bot.name} state={presence} className={className} />
       {indicator !== null ? (
         <span
@@ -73,11 +77,10 @@ function useLatestBotMessage(
   fallback: RosterLastMessage | null,
 ): {
   message: RosterLastMessage | null;
-  taskTitle: string | null;
   threadRef: ScopedThreadRef | null;
 } {
   const candidate = useBotThreadCandidate(botId);
-  const { ref: threadRef, shell } = useBotChatTarget(botId, candidate);
+  const { ref: threadRef } = useBotChatTarget(botId, candidate);
   const messages = useThreadMessages(threadRef);
   const visibleMessages = useMemo(() => visibleBotChatMessages(messages), [messages]);
 
@@ -86,13 +89,7 @@ function useLatestBotMessage(
     [fallback, visibleMessages, threadRef?.threadId],
   );
 
-  // The chat title reads as the bot's current task; the placeholder title of
-  // a brand-new chat says nothing, so the chip stays hidden until a real
-  // title lands.
-  const shellTitle = shell?.title ?? null;
-  const taskTitle = shellTitle === PLACEHOLDER_THREAD_TITLE ? null : shellTitle;
-
-  return useMemo(() => ({ message, taskTitle, threadRef }), [message, taskTitle, threadRef]);
+  return useMemo(() => ({ message, threadRef }), [message, threadRef]);
 }
 
 const rosterFullTimestampFormatter = new Intl.DateTimeFormat(undefined, {
@@ -131,6 +128,27 @@ function UnreadDot() {
   );
 }
 
+/**
+ * Otto: Compact roster rows, copied from Capy's sidebar: 28px, a 16px avatar
+ * 6px in and centered under the 24px in-row chevron, 8px gap and right inset, 13px name at 80% (68% in dark) that turns full strength
+ * when active, and an 11px short time at 52% on the right.
+ */
+const ROSTER_NAME_CLASS =
+  "min-w-0 flex-1 truncate text-13px font-normal text-sidebar-foreground/80 dark:text-sidebar-foreground/68";
+
+/** Row controls appear on hover or keyboard focus, like Capy's row actions. */
+const ROSTER_REVEAL_CLASS =
+  "opacity-0 transition-opacity duration-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 motion-reduce:transition-none";
+
+const ROSTER_TIME_CLASS =
+  "flex min-w-6 shrink-0 justify-end text-11px tabular-nums text-sidebar-foreground/52";
+
+function shortRelativeTime(isoDate: string, t: ReturnType<typeof useI18n>["t"]): string {
+  const relative = formatRelativeTime(isoDate);
+
+  return relative?.suffix ? relative.value : t("now");
+}
+
 export const BotRosterRow = memo(function BotRosterRow({
   bot,
   lastMessage,
@@ -144,7 +162,6 @@ export const BotRosterRow = memo(function BotRosterRow({
   canMoveDown,
   onNudge,
   onArchive,
-  sortable,
 }: {
   bot: Bot;
   lastMessage: RosterLastMessage | null;
@@ -159,33 +176,26 @@ export const BotRosterRow = memo(function BotRosterRow({
   canMoveDown: boolean;
   onNudge: (item: RosterItemRef, delta: -1 | 1) => void;
   onArchive: (bot: Bot) => void;
-  sortable: SortableRosterRowBag;
 }) {
-  const { t, formatDate } = useI18n();
+  const { t } = useI18n();
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const item = useMemo(() => ({ kind: "bot" as const, id: bot.id }), [bot.id]);
-  const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const presence = useBotPresence(bot.id);
 
-  const {
-    message: latestMessage,
-    taskTitle,
-    threadRef: chatRef,
-  } = useLatestBotMessage(bot.id, lastMessage);
+  const { message: latestMessage, threadRef: chatRef } = useLatestBotMessage(bot.id, lastMessage);
 
   const unread = useBotRosterUnread(bot.id, chatRef, chatOpen);
+  const chats = useBotChats(bot.id);
+  const [chatsOpen, setChatsOpen] = useState(true);
+  const hasChatTree = chats.length > 1;
+  const environmentId = usePrimaryEnvironmentId();
 
   return (
     <li
       role="listitem"
       data-roster-item
       data-pinned={pinned || undefined}
-      className={cn(
-        "list-none touch-pan-y",
-        pinned ? "my-2 w-18 flex-none" : "w-full flex-none",
-        sortable.isDragging && "z-50",
-      )}
-      {...sortableRootProps(sortable)}
+      className="group/bot w-full flex-none list-none"
     >
       <div
         data-testid="roster-bot-row"
@@ -195,15 +205,11 @@ export const BotRosterRow = memo(function BotRosterRow({
           menuTriggerRef.current?.click();
         }}
         className={cn(
-          "relative flex w-full items-center outline-none select-none",
-          pinned ? "rounded-xl" : "rounded-lg",
-          sortable.isDragging
-            ? "sidebar-row-active-fill text-sidebar-foreground shadow-lg"
-            : isActive
-              ? "bg-sidebar-row-active text-sidebar-foreground"
-              : pinned
-                ? "bg-sidebar-row-hover/50 text-sidebar-foreground hover:bg-sidebar-row-hover"
-                : "bg-transparent text-sidebar-foreground hover:bg-sidebar-row-hover",
+          "group/row relative flex w-full items-center rounded-md outline-none select-none",
+          isActive
+            ? // With its chats listed, only the open chat's row is filled.
+              "bg-sidebar-row-active text-sidebar-foreground group-has-[[data-bot-chat-tree]_[aria-current]]/bot:bg-transparent group-has-[[data-bot-chat-tree]_[aria-current]]/bot:hover:bg-sidebar-row-hover"
+            : "bg-transparent text-sidebar-foreground hover:bg-sidebar-row-hover",
         )}
       >
         <button
@@ -212,57 +218,106 @@ export const BotRosterRow = memo(function BotRosterRow({
           aria-current={isActive || undefined}
           onClick={() => onSelect(bot)}
           className={cn(
-            "flex min-w-0 flex-1 cursor-grab outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
-            pinned
-              ? "min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-center"
-              : "items-center gap-2.5 rounded-lg px-2 py-1.5 text-left",
+            "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}
         >
-          <RosterAvatar bot={bot} presence={presence} className={pinned ? "size-12" : "size-10"} />
-          {pinned ? (
-            <span className="flex max-w-full items-center gap-1">
-              {unread ? <UnreadDot /> : null}
-              <span className="truncate text-xs font-medium">{bot.name}</span>
+          <span
+            className={cn(
+              "flex",
+              hasChatTree && "group-focus-within/row:opacity-0 group-hover/row:opacity-0",
+            )}
+          >
+            <RosterAvatar
+              bot={bot}
+              presence={presence}
+              className="size-4"
+              dotClassName="size-1.5"
+            />
+          </span>
+          <>
+            <span
+              className={cn(
+                ROSTER_NAME_CLASS,
+                isActive && "text-sidebar-foreground dark:text-sidebar-foreground",
+              )}
+            >
+              {bot.name}
             </span>
-          ) : (
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="min-w-0 truncate text-sm font-semibold">{bot.name}</span>
-                <span className="min-w-2 flex-1" />
-                {unread ? <UnreadDot /> : null}
-                {latestMessage ? (
-                  // The compact label collapses to a bare numeric date once a
-                  // chat is over a week old ("1/15"), which reads like a count
-                  // rather than a date. Keep the compact form — the roster has
-                  // no room for more — and let the machine-readable datetime
-                  // plus hover text say what it actually is.
-                  <time
-                    dateTime={latestMessage.at}
-                    aria-label={t("Last message {time}", {
-                      time: formatRosterFullTimestamp(latestMessage.at),
-                    })}
-                    className="shrink-0 text-xs tabular-nums text-sidebar-muted-foreground"
-                  >
-                    {formatRosterTimestamp(
-                      latestMessage.at,
-                      timestampFormat,
-                      Date.now(),
-                      t,
-                      formatDate,
-                    )}
-                  </time>
-                ) : null}
-              </span>
-              {latestMessage || taskTitle ? (
-                // Messenger preview: the last thing said. A chat with no
-                // messages yet shows its title instead.
-                <span className="truncate text-sm text-sidebar-muted-foreground">
-                  {latestMessage ? latestMessage.text : taskTitle}
-                </span>
-              ) : null}
-            </span>
-          )}
+            {unread ? <UnreadDot /> : null}
+            {latestMessage ? (
+              <time
+                dateTime={latestMessage.at}
+                aria-label={t("Last message {time}", {
+                  time: formatRosterFullTimestamp(latestMessage.at),
+                })}
+                className={cn(
+                  ROSTER_TIME_CLASS,
+                  "group-focus-within/row:opacity-0 group-hover/row:opacity-0",
+                )}
+              >
+                {shortRelativeTime(latestMessage.at, t)}
+              </time>
+            ) : null}
+          </>
         </button>
+        {hasChatTree ? (
+          // Like Capy's crews: the chevron takes the avatar's place on hover or focus.
+          <span
+            className={cn("absolute top-1/2 left-0.5 flex -translate-y-1/2", ROSTER_REVEAL_CLASS)}
+          >
+            <Button
+              size="icon-row"
+              variant="sidebar-ghost"
+              aria-expanded={chatsOpen}
+              aria-label={t(chatsOpen ? "Hide {name} chats" : "Show {name} chats", {
+                name: bot.name,
+              })}
+              onClick={() => setChatsOpen(!chatsOpen)}
+            >
+              <RiArrowDownSLine
+                aria-hidden
+                className={cn(
+                  "size-3.5 transition-transform duration-100 motion-reduce:transition-none",
+                  !chatsOpen && "-rotate-90",
+                )}
+              />
+            </Button>
+          </span>
+        ) : null}
+        {/* In the same 24px box as the section plus, so they line up. */}
+        <span
+          className={cn("absolute top-1/2 right-0.5 flex -translate-y-1/2", ROSTER_REVEAL_CLASS)}
+        >
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-row"
+                  variant="sidebar-ghost"
+                  aria-label={t("New chat with {name}", { name: bot.name })}
+                  onClick={() => {
+                    const newest = chats[0];
+                    const roster = useRosterStore.getState();
+
+                    if (newest && environmentId) {
+                      roster.openBotChat(bot.id, null, `/${environmentId}/${newest.id}`);
+
+                      // An untouched newest chat is already fresh.
+                      if (newest.latestUserMessageAt !== null || newest.latestTurn !== null) {
+                        roster.requestNewChat(bot.id);
+                      }
+                    }
+
+                    onSelect(bot);
+                  }}
+                >
+                  <AppIcon icon={RiAddLine} className="size-3" />
+                </Button>
+              }
+            />
+            <TooltipPopup>{t("New chat")}</TooltipPopup>
+          </Tooltip>
+        </span>
         <Menu>
           <MenuTrigger
             render={
@@ -298,6 +353,14 @@ export const BotRosterRow = memo(function BotRosterRow({
           </MenuPopup>
         </Menu>
       </div>
+      {hasChatTree && chatsOpen ? (
+        <BotChatTree
+          botId={bot.id}
+          chats={chats}
+          chatOpen={chatOpen}
+          onOpen={() => onSelect(bot)}
+        />
+      ) : null}
     </li>
   );
 });
@@ -404,7 +467,6 @@ export const GroupRosterRow = memo(function GroupRosterRow({
   canMoveUp,
   canMoveDown,
   onNudge,
-  sortable,
 }: {
   group: Group;
   bots: readonly Bot[];
@@ -415,7 +477,6 @@ export const GroupRosterRow = memo(function GroupRosterRow({
   canMoveUp: boolean;
   canMoveDown: boolean;
   onNudge: (item: RosterItemRef, delta: -1 | 1) => void;
-  sortable: SortableRosterRowBag;
 }) {
   const { t } = useI18n();
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -433,14 +494,10 @@ export const GroupRosterRow = memo(function GroupRosterRow({
         menuTriggerRef.current?.click();
       }}
       className={cn(
-        "relative flex touch-pan-y items-center",
-        pinned ? "my-2 w-18 flex-none rounded-xl" : "w-full flex-none rounded-lg",
-        sortable.isDragging && "z-50 bg-sidebar shadow-xl",
-        isActive
-          ? "bg-sidebar-row-active"
-          : pinned && "bg-sidebar-row-hover/50 hover:bg-sidebar-row-hover",
+        "relative flex items-center",
+        "w-full flex-none rounded-md",
+        isActive && "bg-sidebar-row-active",
       )}
-      {...sortableRootProps(sortable)}
     >
       <button
         type="button"
@@ -448,21 +505,14 @@ export const GroupRosterRow = memo(function GroupRosterRow({
         aria-current={isActive || undefined}
         onClick={() => onSelect(group)}
         className={cn(
-          "flex min-w-0 flex-1 cursor-grab outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
-          pinned
-            ? "min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-center"
-            : "items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-row-hover",
+          "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
-        <GroupMemberStack
-          group={group}
-          bots={bots}
-          sizeClassName={pinned ? "size-12" : "size-10"}
-        />
+        <GroupMemberStack group={group} bots={bots} sizeClassName="size-4" />
         <span
           className={cn(
-            "min-w-0 max-w-full truncate",
-            pinned ? "text-xs font-medium" : "flex-1 text-sm font-semibold",
+            ROSTER_NAME_CLASS,
+            isActive && "text-sidebar-foreground dark:text-sidebar-foreground",
           )}
         >
           {group.name}
@@ -498,6 +548,57 @@ export const GroupRosterRow = memo(function GroupRosterRow({
     </li>
   );
 });
+
+/**
+ * Otto: A roster section heading, copied from Capy's sidebar: a 28px row with
+ * a 12px/500 label at 52% inset 6px, on the avatars' edge, and an optional 24px quiet plus with a
+ * 12px glyph inset 2px on the right, the same box as a bot row's new-chat plus,
+ * so they line up. Pins, Groups and DMs share it, and their rows share one
+ * pattern.
+ */
+export function RosterSectionLabel({
+  label,
+  add,
+  first,
+}: {
+  /** The list's first section sits flush; later ones get 12px above. */
+  readonly first: boolean;
+  readonly label: string;
+  /** Omitted for Pinned, which gains rows from each row's menu. */
+  readonly add?: { readonly label: string; readonly onClick: () => void };
+}) {
+  return (
+    <li
+      role="presentation"
+      data-roster-section-label=""
+      className={cn(
+        "flex h-7 w-full flex-none list-none items-center gap-1 ps-1.5 pe-0.5",
+        !first && "mt-3",
+      )}
+    >
+      <span className="min-w-0 flex-1 truncate text-xs font-medium text-sidebar-foreground/52">
+        {label}
+      </span>
+      {add ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={add.label}
+                size="icon-row"
+                variant="sidebar-ghost"
+                onClick={add.onClick}
+              >
+                <AppIcon icon={RiAddLine} className="size-3" />
+              </Button>
+            }
+          />
+          <TooltipPopup>{add.label}</TooltipPopup>
+        </Tooltip>
+      ) : null}
+    </li>
+  );
+}
 
 /** Icon-collapsed roster: group buttons first, then every visible bot. */
 export function RosterRail({

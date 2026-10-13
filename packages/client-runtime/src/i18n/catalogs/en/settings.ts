@@ -115,7 +115,6 @@ export const settingsCatalog = {
   "{tokens} tokens": "{tokens} tokens",
   "{tokens} tokens billed to {name}": "{tokens} tokens billed to {name}",
   "Bot settings saved": "Bot settings saved",
-  "Bot settings breadcrumb": "Bot settings breadcrumb",
   "Discard unsaved bot settings?": "Discard unsaved bot settings?",
   "Let this bot take subscription voice calls. Voice must also be enabled in Settings.":
     "Let this bot take subscription voice calls. Voice must also be enabled in Settings.",

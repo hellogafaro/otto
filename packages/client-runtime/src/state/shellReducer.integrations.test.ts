@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   DelegationId,
+  ProjectId,
+  TaskId,
   SHELL_RECENT_TERMINAL_DELEGATIONS_PER_THREAD,
   ThreadId,
 } from "@otto/contracts";
@@ -43,6 +45,39 @@ describe("applyShellStreamEvent", () => {
 
       expect(next.mcpServers).toEqual([]);
       expect(next.snapshotSequence).toBe(6);
+    });
+  });
+
+  describe("task-upserted", () => {
+    it("adds a task and replaces it on update", () => {
+      const task = {
+        id: TaskId.make("task-1"),
+        projectId: ProjectId.make("project-1"),
+        title: "Write the launch post",
+        description: "",
+        owner: null,
+        assignees: [],
+        resources: [],
+        dueDate: null,
+        status: "backlog" as const,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      };
+
+      const added = applyShellStreamEvent(baseSnapshot, {
+        kind: "task-upserted",
+        sequence: 7,
+        task,
+      });
+
+      const updated = applyShellStreamEvent(added, {
+        kind: "task-upserted",
+        sequence: 8,
+        task: { ...task, status: "in_progress" },
+      });
+
+      expect(updated.tasks).toEqual([{ ...task, status: "in_progress" }]);
+      expect(updated.snapshotSequence).toBe(8);
     });
   });
 

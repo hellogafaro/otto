@@ -20,6 +20,7 @@ import { OrchestrationEventStoreLive } from "../../../persistence/Layers/Orchest
 import { SqlitePersistenceMemory } from "../../../persistence/Layers/Sqlite.ts";
 import * as RepositoryIdentityResolver from "../../../project/RepositoryIdentityResolver.ts";
 import { OrchestrationEngineService } from "../../Services/OrchestrationEngine.ts";
+import { ProjectionSnapshotQuery } from "../../Services/ProjectionSnapshotQuery.ts";
 import * as ThreadBackgroundLiveness from "../../ThreadBackgroundLiveness.ts";
 import * as ThreadPlanProgress from "../../ThreadPlanProgress.ts";
 import { OrchestrationEngineLive } from "../OrchestrationEngine.ts";
@@ -107,6 +108,14 @@ export async function createRestartSystem() {
 
   return {
     dispatch,
+    readShellSnapshot: () =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const query = yield* ProjectionSnapshotQuery;
+
+          return yield* query.getShellSnapshot();
+        }),
+      ),
     async restart() {
       await Effect.runPromise(Scope.close(scope, Exit.void));
       scope = await Effect.runPromise(Scope.make());

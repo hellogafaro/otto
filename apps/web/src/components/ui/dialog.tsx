@@ -74,14 +74,16 @@ function DialogPopup({
             className,
           )}
           data-slot="dialog-popup"
+          data-close-button={showCloseButton || undefined}
           {...props}
         >
           {children}
           {showCloseButton && (
+            // Otto: A 28px close 14px from the corner, centered on the title's line, its glyph on the 20px content edge.
             <DialogPrimitive.Close
               aria-label="Close"
-              className="absolute end-2 top-2"
-              render={<Button size="icon" variant="ghost" />}
+              className="absolute end-3.5 top-3.5"
+              render={<Button size="icon-sm" variant="ghost-muted" />}
             >
               <RiCloseLine />
             </DialogPrimitive.Close>
@@ -103,8 +105,8 @@ function DialogHeader({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 p-6 in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pb-3 max-sm:pb-4",
-        variant === "directory" && "gap-3 px-6 pt-5 pb-4",
+        "flex flex-col gap-1.5 px-5 pt-4 pb-4 in-data-close-button:pe-12",
+        variant === "directory" && "gap-3",
         variant === "divided" && "border-b",
         className,
       )}
@@ -124,9 +126,8 @@ function DialogFooter({
   return (
     <div
       className={cn(
-        "flex flex-col-reverse gap-2 px-6 sm:flex-row sm:justify-end sm:rounded-b-[calc(var(--radius-xl)-1px)]",
-        variant === "default" && "border-t bg-muted/72 py-4",
-        variant === "bare" && "py-4",
+        "flex flex-col-reverse gap-2 px-5 py-4 sm:flex-row sm:justify-end sm:gap-1.5",
+        variant === "default" && "border-t",
         className,
       )}
       data-slot="dialog-footer"
@@ -144,7 +145,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       className={cn(
-        "font-semibold text-lg leading-tight",
+        "text-base leading-6 font-medium tracking-title-sm text-foreground",
         withIcon && "flex items-center gap-2.5",
         className,
       )}
@@ -184,8 +185,8 @@ function DialogPanel({
     <ScrollArea scrollFade={scrollFade}>
       <div
         className={cn(
-          "p-6 in-[[data-slot=dialog-popup]:has([data-slot=dialog-header])]:pt-1 in-[[data-slot=dialog-popup]:has([data-slot=dialog-footer]:not(.border-t))]:pb-1",
-          variant === "directory" && "px-5 pt-5! pb-5 sm:px-6",
+          "p-5 in-[[data-slot=dialog-popup]:has([data-slot=dialog-header])]:pt-1 in-[[data-slot=dialog-popup]:has([data-slot=dialog-footer]:not(.border-t))]:pb-1",
+          variant === "directory" && "pt-5!",
           tone && "text-sm",
           tone === "muted" && "text-muted-foreground",
           pageBack && "motion-page-back",

@@ -20,6 +20,7 @@ export function createEmptyReadModel(nowIso: string): OrchestrationReadModel {
     routines: [],
     routineRuns: [],
     skillAssignments: [],
+    tasks: [],
     threads: [],
     updatedAt: nowIso,
   };
@@ -41,6 +42,8 @@ export function projectEvent(
     case "project.created":
     case "project.meta-updated":
     case "project.deleted":
+    case "task.created":
+    case "task.updated":
     case "mcp-server.created":
     case "mcp-server.updated":
     case "mcp-server.enabled":

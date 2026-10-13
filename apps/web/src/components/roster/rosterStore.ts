@@ -4,9 +4,7 @@ import { create } from "zustand";
 import {
   moveRosterItemInOrder,
   rosterItemKey,
-  rosterItemsEqual,
   rosterSectionItems,
-  type RosterDropPlan,
   type RosterItemRef,
   type RosterLastMessage,
 } from "./roster.logic";
@@ -182,7 +180,6 @@ interface RosterStore {
   commitBotLayout: (bots: Bot[]) => void;
   nudgeRosterItem: (item: RosterItemRef, delta: -1 | 1) => void;
   setItemPinned: (item: RosterItemRef, pinned: boolean) => void;
-  applyRosterDrop: (plan: RosterDropPlan) => void;
   recordLastMessage: (botId: string, message: RosterLastMessage) => void;
   recordChatPath: (botId: string, path: string) => void;
   forgetChatPath: (botId: string) => void;
@@ -191,6 +188,9 @@ interface RosterStore {
    * remembers the opened chat, so an older remembered chat cannot take its place.
    */
   openBotChat: (botId: string, threadId: string | null, chatPath?: string) => void;
+  /** The bot whose view should start a fresh chat once it can; opening a chat cancels it. */
+  newChatBotId: string | null;
+  requestNewChat: (botId: string | null) => void;
   replaceRoster: (input: {
     environmentId: string;
     bots: Bot[];
@@ -264,6 +264,7 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   selectedBotId: persisted?.selectedBotId ?? null,
   chatPathByBotId: persisted?.chatPathByBotId ?? {},
   openChatByBotId: {},
+  newChatBotId: null,
   pinnedItems: persisted?.pinnedItems ?? [],
   unassignedItems: persisted?.unassignedItems ?? [],
   environmentId: null,
@@ -313,54 +314,6 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
     });
 
     set({ bots: committed });
-    saveState(get());
-  },
-
-  applyRosterDrop: (plan) => {
-    if (plan.kind === "none") return;
-
-    if (plan.kind === "reorder-section") return;
-
-    if (plan.kind === "reorder-pinned") {
-      set({ pinnedItems: [...plan.order] });
-      saveState(get());
-
-      return;
-    }
-
-    if (plan.kind === "pin") {
-      set({ pinnedItems: [...plan.order] });
-      saveState(get());
-
-      return;
-    }
-
-    if (plan.zone !== "unassigned") return;
-    set((state) => {
-      const pinnedItems = plan.unpin
-        ? state.pinnedItems.filter((candidate) => !rosterItemsEqual(candidate, plan.item))
-        : state.pinnedItems;
-
-      const unassignedItems = [...plan.order];
-
-      if (plan.item.kind !== "bot") {
-        return { pinnedItems, unassignedItems };
-      }
-
-      const unassignedIds = plan.order.flatMap((entry) => (entry.kind === "bot" ? [entry.id] : []));
-
-      const unassigned = new Set(unassignedIds);
-      const botsById = new Map(state.bots.map((bot) => [bot.id, bot] as const));
-      let botIndex = 0;
-
-      return {
-        pinnedItems,
-        unassignedItems,
-        bots: state.bots.map((bot) =>
-          unassigned.has(bot.id) ? (botsById.get(unassignedIds[botIndex++]!) ?? bot) : bot,
-        ),
-      };
-    });
     saveState(get());
   },
 
@@ -439,6 +392,8 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   },
 
   openBotChat: (botId, threadId, chatPath) => {
+    if (get().newChatBotId !== null) set({ newChatBotId: null });
+
     if (chatPath !== undefined) get().recordChatPath(botId, chatPath);
     const current = get().openChatByBotId[botId];
 
@@ -449,6 +404,8 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
     else openChatByBotId[botId] = threadId;
     set({ openChatByBotId });
   },
+
+  requestNewChat: (botId) => set({ newChatBotId: botId }),
 
   replaceRoster: (input) => {
     const switchingEnvironment = get().environmentId !== input.environmentId;

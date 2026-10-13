@@ -12,6 +12,7 @@ import { ProjectionBotRepository } from "../../persistence/Services/ProjectionBo
 import { ProjectionGroupRepository } from "../../persistence/Services/ProjectionGroups.ts";
 import { ProjectionPendingApprovalRepository } from "../../persistence/Services/ProjectionPendingApprovals.ts";
 import { ProjectionMcpServerRepository } from "../../persistence/Services/ProjectionMcpServers.ts";
+import { ProjectionTaskRepository } from "../../persistence/Services/ProjectionTasks.ts";
 import { ProjectionProjectRepository } from "../../persistence/Services/ProjectionProjects.ts";
 import { ProjectionStateRepository } from "../../persistence/Services/ProjectionState.ts";
 import { ProjectionThreadActivityRepository } from "../../persistence/Services/ProjectionThreadActivities.ts";
@@ -24,6 +25,7 @@ import { ProjectionBotRepositoryLive } from "../../persistence/Layers/Projection
 import { ProjectionGroupRepositoryLive } from "../../persistence/Layers/ProjectionGroups.ts";
 import { ProjectionPendingApprovalRepositoryLive } from "../../persistence/Layers/ProjectionPendingApprovals.ts";
 import { ProjectionMcpServerRepositoryLive } from "../../persistence/Layers/ProjectionMcpServers.ts";
+import { ProjectionTaskRepositoryLive } from "../../persistence/Layers/ProjectionTasks.ts";
 import { ProjectionProjectRepositoryLive } from "../../persistence/Layers/ProjectionProjects.ts";
 import { ProjectionStateRepositoryLive } from "../../persistence/Layers/ProjectionState.ts";
 import { ProjectionThreadActivityRepositoryLive } from "../../persistence/Layers/ProjectionThreadActivities.ts";
@@ -53,6 +55,7 @@ import { createGroups } from "./projection/Groups.ts";
 import { createDelegations } from "./projection/Delegations.ts";
 import { createRoutines } from "./projection/Routines.ts";
 import { createMcpServers } from "./projection/McpServers.ts";
+import { createTasks } from "./projection/Tasks.ts";
 import { createThreads } from "./projection/Threads.ts";
 import { createMessages } from "./projection/Messages.ts";
 import { createRequests } from "./projection/Requests.ts";
@@ -69,6 +72,7 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
     const projectionBotRepository = yield* ProjectionBotRepository;
     const projectionGroupRepository = yield* ProjectionGroupRepository;
     const projectionMcpServerRepository = yield* ProjectionMcpServerRepository;
+    const projectionTaskRepository = yield* ProjectionTaskRepository;
     const projectionThreadRepository = yield* ProjectionThreadRepository;
     const projectionThreadMessageRepository = yield* ProjectionThreadMessageRepository;
     const projectionThreadProposedPlanRepository = yield* ProjectionThreadProposedPlanRepository;
@@ -85,6 +89,7 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
     const { applyDelegationsProjection, delegationParentLink } = createDelegations({ sql });
     const { applyRoutinesProjection } = createRoutines({ sql });
     const { applyMcpServersProjection } = createMcpServers({ projectionMcpServerRepository });
+    const { applyTasksProjection } = createTasks({ projectionTaskRepository });
 
     const { applyThreadsProjection } = createThreads({
       projectionThreadRepository,
@@ -165,6 +170,11 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
           "mcp-server.deleted",
         ]),
         apply: applyMcpServersProjection,
+      },
+      {
+        name: ORCHESTRATION_PROJECTOR_NAMES.tasks,
+        eventTypes: projectorEventTypes(["task.created", "task.updated"]),
+        apply: applyTasksProjection,
       },
       {
         name: ORCHESTRATION_PROJECTOR_NAMES.routines,
@@ -467,6 +477,7 @@ export const OrchestrationProjectionPipelineLive = Layer.effect(
   Layer.provideMerge(ProjectionBotRepositoryLive),
   Layer.provideMerge(ProjectionGroupRepositoryLive),
   Layer.provideMerge(ProjectionMcpServerRepositoryLive),
+  Layer.provideMerge(ProjectionTaskRepositoryLive),
   Layer.provideMerge(ProjectionThreadRepositoryLive),
   Layer.provideMerge(ProjectionThreadMessageRepositoryLive),
   Layer.provideMerge(ProjectionThreadProposedPlanRepositoryLive),

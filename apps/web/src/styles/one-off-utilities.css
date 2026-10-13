@@ -189,3 +189,17 @@
 @utility transition-entrance-fade {
   transition: opacity 300ms ease;
 }
+
+/* Fades the right edge of single-line text only while it overflows: the
+   scroll timeline is inactive when nothing overflows, so the mask is off. */
+@keyframes mask-fade-r {
+  from,
+  to {
+    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+  }
+}
+
+@utility mask-fade-r {
+  animation: mask-fade-r linear both;
+  animation-timeline: scroll(self inline);
+}

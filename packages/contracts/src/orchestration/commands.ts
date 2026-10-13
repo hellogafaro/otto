@@ -1,3 +1,4 @@
+import { TaskCreateCommand, TaskUpdateCommand } from "./work.ts";
 import * as Schema from "effect/Schema";
 import {
   BotId,
@@ -90,6 +91,8 @@ const DispatchableClientOrchestrationCommand = Schema.Union([
   ProjectCreateCommand,
   ProjectMetaUpdateCommand,
   ProjectDeleteCommand,
+  TaskCreateCommand,
+  TaskUpdateCommand,
   BotCreateCommand,
   BotUpdateCommand,
   BotArchiveCommand,
@@ -145,6 +148,8 @@ export const ClientOrchestrationCommand = Schema.Union([
   ProjectCreateCommand,
   ProjectMetaUpdateCommand,
   ProjectDeleteCommand,
+  TaskCreateCommand,
+  TaskUpdateCommand,
   BotCreateCommand,
   ClientBotUpdateCommand,
   BotArchiveCommand,

@@ -16,7 +16,7 @@ import { useThreadActivities } from "../../state/entities";
 import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { SidebarInset } from "../ui/sidebar";
-import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import { WorkspaceHeaderTitle, WorkspacePageHeader } from "../WorkspacePageHeader";
 import {
   buildReplyPrompt,
   findReplySourceMessageId,
@@ -329,14 +329,12 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
         data-testid="group-thread-landing"
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <WorkspacePageHeader
-            className="border-b border-border"
-            detailsPanelOpen={detailsPanelOpen}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              <GroupMemberStack group={group} bots={bots} />
-              <span className="truncate text-sm font-medium">{group.name}</span>
-            </div>
+          <WorkspacePageHeader detailsPanelOpen={detailsPanelOpen}>
+            <WorkspaceHeaderTitle
+              visual={<GroupMemberStack group={group} bots={bots} sizeClassName="size-4" />}
+            >
+              {group.name}
+            </WorkspaceHeaderTitle>
             <div data-chat-header-actions className="ml-auto flex items-center">
               <ChatActionsMenu threadRef={runtime.linkedThreadRef} />
             </div>

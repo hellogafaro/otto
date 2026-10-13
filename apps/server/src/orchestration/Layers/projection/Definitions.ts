@@ -20,6 +20,7 @@ import { ProjectionBotRepository } from "../../../persistence/Services/Projectio
 import { ProjectionGroupRepository } from "../../../persistence/Services/ProjectionGroups.ts";
 import { ProjectionPendingApprovalRepository } from "../../../persistence/Services/ProjectionPendingApprovals.ts";
 import { ProjectionMcpServerRepository } from "../../../persistence/Services/ProjectionMcpServers.ts";
+import { ProjectionTaskRepository } from "../../../persistence/Services/ProjectionTasks.ts";
 import { ProjectionProjectRepository } from "../../../persistence/Services/ProjectionProjects.ts";
 import { ProjectionStateRepository } from "../../../persistence/Services/ProjectionState.ts";
 import { ProjectionThreadActivityRepository } from "../../../persistence/Services/ProjectionThreadActivities.ts";
@@ -43,6 +44,7 @@ export const ORCHESTRATION_PROJECTOR_NAMES = {
   groups: "projection.groups",
   delegations: "projection.delegations",
   mcpServers: "projection.mcp-servers",
+  tasks: "projection.tasks",
   routines: "projection.routines",
   threads: "projection.threads",
   threadMessages: "projection.thread-messages",
@@ -233,6 +235,7 @@ export interface ProjectionDependencies {
   readonly projectionBotRepository: ProjectionBotRepository["Service"];
   readonly projectionGroupRepository: ProjectionGroupRepository["Service"];
   readonly projectionMcpServerRepository: ProjectionMcpServerRepository["Service"];
+  readonly projectionTaskRepository: ProjectionTaskRepository["Service"];
   readonly projectionThreadRepository: ProjectionThreadRepository["Service"];
   readonly projectionThreadMessageRepository: ProjectionThreadMessageRepository["Service"];
   readonly projectionThreadProposedPlanRepository: ProjectionThreadProposedPlanRepository["Service"];

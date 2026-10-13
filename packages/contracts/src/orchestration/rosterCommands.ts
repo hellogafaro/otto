@@ -27,15 +27,21 @@ import {
   GroupMembershipRole,
   GroupPersonMembership,
 } from "./roster.ts";
+import { WorkDescription, WorkParticipant, WorkResources, WorkStatus } from "./work.ts";
 
 export const ProjectCreateCommand = Schema.Struct({
   type: Schema.Literal("project.create"),
   commandId: CommandId,
   projectId: ProjectId,
   title: TrimmedNonEmptyString,
-  workspaceRoot: TrimmedNonEmptyString,
+  // Absent = the server provisions a managed workspace folder for the project.
+  workspaceRoot: Schema.optional(TrimmedNonEmptyString),
   createWorkspaceRootIfMissing: Schema.optional(Schema.Boolean),
   defaultModelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
+  description: Schema.optional(WorkDescription),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  resources: Schema.optional(WorkResources),
+  status: Schema.optional(WorkStatus),
   createdAt: IsoDateTime,
 });
 
@@ -50,6 +56,10 @@ export const ProjectMetaUpdateCommand = Schema.Struct({
   defaultThreadEnvMode: Schema.optional(Schema.NullOr(ThreadEnvMode)),
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   scripts: Schema.optional(Schema.Array(ProjectScript)),
+  description: Schema.optional(WorkDescription),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  resources: Schema.optional(WorkResources),
+  status: Schema.optional(WorkStatus),
 });
 
 export const ProjectDeleteCommand = Schema.Struct({

@@ -9,6 +9,7 @@ import {
   requireProjectWorkspaceRootAbsent,
   requireProject,
   requireProjectAbsent,
+  requireWorkParticipants,
 } from "../commandInvariants.ts";
 import {
   withEventBase,
@@ -42,12 +43,21 @@ export const decideProjects = Effect.fn("decideProjects")(function* ({
         command,
         projectId: command.projectId,
       });
+
+      if (command.workspaceRoot === undefined) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "A project needs a workspace folder.",
+        });
+      }
+
       yield* requireProjectWorkspaceRootAbsent({
         readModel,
         command,
         workspaceRoot: command.workspaceRoot,
         exceptProjectId: command.projectId,
       });
+      yield* requireWorkParticipants({ readModel, command, participants: [command.owner] });
 
       return {
         ...(yield* withEventBase({
@@ -64,6 +74,10 @@ export const decideProjects = Effect.fn("decideProjects")(function* ({
           defaultModelSelection: command.defaultModelSelection ?? null,
           faviconPath: null,
           scripts: [],
+          description: command.description ?? "",
+          owner: command.owner ?? null,
+          resources: command.resources ?? [],
+          status: command.status ?? "in_progress",
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
         },
@@ -85,6 +99,8 @@ export const decideProjects = Effect.fn("decideProjects")(function* ({
           exceptProjectId: command.projectId,
         });
       }
+
+      yield* requireWorkParticipants({ readModel, command, participants: [command.owner] });
 
       const occurredAt = yield* nowIso;
 
@@ -108,6 +124,10 @@ export const decideProjects = Effect.fn("decideProjects")(function* ({
             : {}),
           ...(command.faviconPath !== undefined ? { faviconPath: command.faviconPath } : {}),
           ...(command.scripts !== undefined ? { scripts: command.scripts } : {}),
+          ...(command.description !== undefined ? { description: command.description } : {}),
+          ...(command.owner !== undefined ? { owner: command.owner } : {}),
+          ...(command.resources !== undefined ? { resources: command.resources } : {}),
+          ...(command.status !== undefined ? { status: command.status } : {}),
           updatedAt: occurredAt,
         },
       };

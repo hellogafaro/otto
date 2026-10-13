@@ -61,7 +61,7 @@
 
 /* Right details asides reveal by width. The column inside keeps its open width
    and hugs the right edge, so it slides out from under the card edge instead of
-   reflowing. `closing` keeps the card join until the width reaches zero. Width
+   reflowing. `opening` and `closing` keep the card join until the width settles. Width
    only eases while opening or closing, so browser expand and collapse stay
    instant for the fixed webview overlay. */
 
@@ -75,8 +75,10 @@
   aside[data-details-panel]:is([data-state="closing"], [data-state="closed"]) {
     width: 0;
   }
+  /* Closing accelerates out, so the last narrow frames, too thin for the
+     card's rounded corners, pass in an instant. */
   aside[data-details-panel][data-state="closing"] {
-    transition: width var(--duration-medium) var(--ease-smooth-out);
+    transition: width var(--duration-medium) var(--ease-in);
   }
   aside[data-details-panel][data-state="closed"] {
     visibility: hidden;

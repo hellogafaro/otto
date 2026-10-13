@@ -28,6 +28,7 @@ import {
   CONVERSATION_MEASURE_CLASS_NAME,
 } from "./botConversationPresentation";
 import type { MessageReplyTarget } from "../chat/MessageControls";
+import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { toastManager } from "../ui/toast";
 import { useI18n } from "../../i18n";
@@ -424,7 +425,7 @@ export function BotPromptComposer({
             data-testid="bot-prompt-composer"
             data-expanded={expanded || undefined}
             className={cn(
-              "relative flex min-h-13 flex-col overflow-hidden rounded-lg border shadow-composer-float transition-composer-shape duration-200 ease-out",
+              "relative flex min-h-11 flex-col overflow-hidden rounded-lg border shadow-composer-float transition-composer-shape duration-200 ease-out",
               quietSurface
                 ? BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME
                 : BOT_COMPOSER_SURFACE_CLASS_NAME,
@@ -449,7 +450,7 @@ export function BotPromptComposer({
                 <button
                   type="button"
                   aria-label={t("Cancel reply")}
-                  className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/8 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/8 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={onCancelReply}
                 >
                   <RiCloseLine className="size-3.5" />
@@ -486,8 +487,8 @@ export function BotPromptComposer({
               aria-controls={mentionTrigger && activeMentionOptionId ? mentionListboxId : undefined}
               aria-activedescendant={(mentionTrigger && activeMentionOptionId) || undefined}
               className={cn(
-                "field-sizing-content max-h-56 w-full resize-none bg-transparent text-base leading-6 outline-none placeholder:text-muted-foreground/70",
-                expanded ? "min-h-16 px-4 pb-13 pt-3" : "min-h-13 px-14 py-0.9rem",
+                "field-sizing-content max-h-56 w-full resize-none bg-transparent text-base leading-5 outline-none placeholder:text-muted-foreground/70 sm:text-sm",
+                expanded ? "min-h-16 px-3.5 pb-11 pt-3" : "min-h-11 px-11 py-3",
               )}
               onChange={(event) => {
                 const { selectionStart, value } = event.currentTarget;
@@ -538,16 +539,16 @@ export function BotPromptComposer({
                   <Tooltip>
                     <TooltipTrigger
                       render={
-                        <button
-                          type="button"
+                        <Button
+                          size="icon-sm"
+                          variant="secondary"
                           aria-label={t("Attach file")}
                           disabled={readOnly}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={() => fileInputRef.current?.click()}
                         />
                       }
                     >
-                      <RiAddLine className="size-5" />
+                      <RiAddLine />
                     </TooltipTrigger>
                     <TooltipPopup side="top">{t("Attach file")}</TooltipPopup>
                   </Tooltip>
@@ -555,15 +556,15 @@ export function BotPromptComposer({
                   <Menu>
                     <MenuTrigger
                       render={
-                        <button
-                          type="button"
+                        <Button
+                          size="icon-sm"
+                          variant="secondary"
                           aria-label={t("Add to prompt")}
                           disabled={readOnly}
-                          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                       }
                     >
-                      <RiAddLine className="size-5" />
+                      <RiAddLine />
                     </MenuTrigger>
                     <MenuPopup align="start" side="top" sideOffset={8}>
                       <MenuItem onClick={() => fileInputRef.current?.click()}>
@@ -595,7 +596,7 @@ export function BotPromptComposer({
               </div>
               {showDictation ? (
                 <div
-                  className="pointer-events-auto size-9 shrink-0"
+                  className="pointer-events-auto size-7 shrink-0"
                   data-bot-prompt-dictation="true"
                 >
                   <DictationControls
@@ -611,8 +612,10 @@ export function BotPromptComposer({
                   />
                 </div>
               ) : (
-                <button
+                <Button
                   type="submit"
+                  size="icon-sm"
+                  variant="primary"
                   aria-label={
                     showBusyMeter ? t("{name} is working", { name: botName }) : t("Send message")
                   }
@@ -623,10 +626,10 @@ export function BotPromptComposer({
                   }
                   data-busy={showBusyMeter || undefined}
                   disabled={!canSubmit || mentionHint !== null}
-                  className="pointer-events-auto flex size-9 items-center justify-center rounded-full bg-foreground text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-25 data-busy:opacity-70"
+                  className="pointer-events-auto"
                 >
-                  {showBusyMeter ? <LoaderMeter /> : <RiArrowUpLine className="size-5" />}
-                </button>
+                  {showBusyMeter ? <LoaderMeter /> : <RiArrowUpLine />}
+                </Button>
               )}
             </div>
           </div>

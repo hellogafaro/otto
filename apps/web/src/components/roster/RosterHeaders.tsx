@@ -1,4 +1,4 @@
-import { RiPencilLine, RiSearchLine, RiRobot3Line, RiAddLine, RiGroupLine } from "@remixicon/react";
+import { RiAddLine, RiGroupLine, RiRobot3Line, RiSearchLine } from "@remixicon/react";
 
 import { Link } from "@tanstack/react-router";
 
@@ -77,8 +77,10 @@ export const RosterSidebarHeader = memo(function RosterSidebarHeader({
 });
 
 /**
- * Header for the roster when it sits inside the experimental rail layout:
- * the wordmark as the panel title, with search and create beside it.
+ * Otto: Header for the roster inside the rail layout. A 16px/500 "Chats"
+ * title like the Settings and Routines panels, inset 16px, then search and
+ * create as 28px quiet buttons 8px from the edge and 6px apart, the same
+ * geometry as the main panel's top bar.
  */
 export function RosterPanelHeader({
   onNewBot,
@@ -94,25 +96,21 @@ export function RosterPanelHeader({
   return (
     <SidebarHeader
       dragRegion={isElectron}
-      className="h-(--workspace-topbar-height) shrink-0 flex-row items-center gap-1 py-0 pl-4 pr-2.5"
+      className="h-(--workspace-topbar-height) shrink-0 flex-row items-center gap-1.5 py-0 pr-2 pl-4"
     >
-      <Link
-        to="/"
-        className="min-w-0 flex-1 rounded-md text-sidebar-foreground outline-none ring-ring focus-visible:ring-2"
-      >
-        <OttoWordmark className="text-26px" />
-      </Link>
+      <h2 className="min-w-0 flex-1 truncate text-base font-medium tracking-title-sm text-sidebar-foreground">
+        {t("Chats")}
+      </h2>
       <Tooltip>
         <TooltipTrigger
           render={
             <Button
               aria-label={t("Search")}
-              className="size-8!"
-              size="icon"
+              size="icon-sm"
               variant="sidebar-ghost"
               onClick={onSearch}
             >
-              <AppIcon icon={RiSearchLine} className="size-4.5" />
+              <AppIcon icon={RiSearchLine} />
             </Button>
           }
         />
@@ -124,11 +122,10 @@ export function RosterPanelHeader({
             <Button
               aria-label={t("Create")}
               data-testid="roster-new-bot"
-              className="size-8!"
-              size="icon"
+              size="icon-sm"
               variant="sidebar-ghost"
             >
-              <AppIcon icon={RiPencilLine} className="size-4.5" />
+              <AppIcon icon={RiAddLine} />
             </Button>
           }
         />

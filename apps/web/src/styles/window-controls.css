@@ -1,5 +1,5 @@
 .wco {
-  --workspace-topbar-height: env(titlebar-area-height, 52px);
+  --workspace-topbar-height: env(titlebar-area-height, 44px);
   --workspace-controls-top: env(titlebar-area-y, 0px);
   --workspace-controls-left: calc(env(titlebar-area-x, 0px) + 0.75rem);
   --workspace-controls-right: calc(

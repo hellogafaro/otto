@@ -1,3 +1,5 @@
+import { ProjectionTaskRepository } from "../../persistence/Services/ProjectionTasks.ts";
+import { ProjectionTaskRepositoryLive } from "../../persistence/Layers/ProjectionTasks.ts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -26,6 +28,7 @@ import { createCommandContext } from "./snapshot-query/CommandContext.ts";
 
 const makeProjectionSnapshotQuery = Effect.gen(function* () {
   const projectionMcpServerRepository = yield* ProjectionMcpServerRepository;
+  const projectionTaskRepository = yield* ProjectionTaskRepository;
   const routineRepository = yield* RoutineRepository;
   const threadBackgroundLiveness = yield* ThreadBackgroundLivenessService;
   const threadPlanProgress = yield* ThreadPlanProgressService;
@@ -107,6 +110,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
     listGroupRows,
     listDelegationRows,
     projectionMcpServerRepository,
+    projectionTaskRepository,
     routineRepository,
     listThreadRows,
     listThreadMessageRows,
@@ -126,6 +130,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
     listGroupRows,
     listShellDelegationRows,
     projectionMcpServerRepository,
+    projectionTaskRepository,
     routineRepository,
     listActiveThreadRows,
     listActiveThreadSessionRows,
@@ -252,6 +257,7 @@ export const OrchestrationProjectionSnapshotQueryLive = Layer.effect(
   makeProjectionSnapshotQuery,
 ).pipe(
   Layer.provideMerge(ProjectionMcpServerRepositoryLive),
+  Layer.provideMerge(ProjectionTaskRepositoryLive),
   Layer.provideMerge(RoutineRepositoryLive),
   Layer.provideMerge(ProjectionThreadMessageRepositoryLive),
 );

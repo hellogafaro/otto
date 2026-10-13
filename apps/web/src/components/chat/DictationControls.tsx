@@ -119,8 +119,10 @@ export function DictationControls({
       type="button"
       className={
         appearance === "send-slot"
-          ? `flex size-full touch-none select-none items-center justify-center rounded-full transition-colors disabled:opacity-50 aria-disabled:opacity-50 ${
-              active ? "bg-destructive text-on-solid" : "bg-foreground text-background"
+          ? `flex size-full touch-none select-none items-center justify-center rounded-(--control-radius) transition-colors disabled:opacity-50 aria-disabled:opacity-50 ${
+              active
+                ? "bg-destructive text-on-solid"
+                : "bg-(--primary-button-background) text-(--primary-button-foreground) hover:opacity-92"
             }`
           : "min-h-11 touch-none select-none rounded-md border px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
       }
@@ -173,11 +175,11 @@ export function DictationControls({
     >
       {appearance === "send-slot" ? (
         status === "transcribing" ? (
-          <RiStopLine className="size-3.5 fill-current" aria-hidden="true" />
+          <RiStopLine className="size-3 fill-current" aria-hidden="true" />
         ) : retry ? (
-          <RiAnticlockwiseLine className="size-4.5" aria-hidden="true" />
+          <RiAnticlockwiseLine className="size-3.5" aria-hidden="true" />
         ) : (
-          <RiMicLine className="size-5" aria-hidden="true" />
+          <RiMicLine className="size-3.5" aria-hidden="true" />
         )
       ) : active ? (
         t("Stop dictation")
@@ -194,7 +196,7 @@ export function DictationControls({
         {active && (
           <button
             type="button"
-            className="absolute top-1/2 right-full mr-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className="absolute top-1/2 right-full mr-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-(--control-radius) border bg-background text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
             aria-label={t("Cancel dictation")}
             onClick={cancel}
           >
@@ -204,7 +206,7 @@ export function DictationControls({
         {retry && (
           <button
             type="button"
-            className="absolute top-1/2 right-full mr-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className="absolute top-1/2 right-full mr-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-(--control-radius) border bg-background text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
             aria-label={t("Dismiss dictation error")}
             onClick={() => cancelCallback.current()}
           >

@@ -5,7 +5,7 @@ import { createTranslator } from "@otto/client-runtime/i18n";
 import type { TimestampFormat } from "@otto/contracts/settings";
 import { threadJumpIndexFromCommand } from "../../keybindings";
 import { formatShortTimestamp, parseTimestampDate } from "../../timestampFormat";
-import type { RosterItemRef } from "./rosterDrop.logic";
+import type { RosterItemRef } from "./rosterItems.logic";
 import type { RosterLastMessage } from "./rosterMessagePreview.logic";
 import type { Bot, Group } from "./types";
 
@@ -29,21 +29,9 @@ export {
   rosterItemKey,
   rosterItemsEqual,
   moveRosterItemInOrder,
-  rosterEntryId,
-  parseRosterEntryId,
   rosterSectionItems,
-  type RosterZone,
-  rosterItemsForZone,
-  type RosterListMarker,
-  rosterMarkerId,
-  parseRosterSectionHeaderId,
-  type RosterListItem,
-  rosterListItemId,
-  buildRosterListItems,
-  resolveRosterDropTarget,
-  type RosterDropPlan,
-  planRosterDrop,
-} from "./rosterDrop.logic";
+  type RosterEntry,
+} from "./rosterItems.logic";
 
 type Translate = (message: string, params?: Record<string, string | number>) => string;
 

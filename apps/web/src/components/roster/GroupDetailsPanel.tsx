@@ -1,4 +1,4 @@
-import { RiCloseLine, RiSidebarFoldLine, RiSideBarLine } from "@remixicon/react";
+import { RiCloseLine, RiListCheck } from "@remixicon/react";
 import { useAtomValue } from "@effect/atom-react";
 import { type EnvironmentId } from "@otto/contracts";
 
@@ -95,7 +95,7 @@ export function GroupDetailsPanel(props: {
                     variant="ghost"
                     onClick={() => setDesktopOpen((open) => !open)}
                   >
-                    <AppIcon icon={RiSidebarFoldLine} />
+                    <AppIcon icon={RiListCheck} />
                   </Button>
                 }
               />
@@ -121,7 +121,7 @@ export function GroupDetailsPanel(props: {
             variant="ghost"
             onClick={() => setDesktopOpen((open) => !open)}
           >
-            <AppIcon icon={RiSideBarLine} />
+            <AppIcon icon={RiListCheck} />
           </Button>
         </div>
       ) : null}
@@ -132,7 +132,7 @@ export function GroupDetailsPanel(props: {
           variant="ghost"
           onClick={() => setMobileOpen(true)}
         >
-          <AppIcon icon={RiSideBarLine} />
+          <AppIcon icon={RiListCheck} />
         </Button>
       </div>
       <Sheet open={mobileOpen} onOpenChange={(open) => setMobileOpen(open)}>

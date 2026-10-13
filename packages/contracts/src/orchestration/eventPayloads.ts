@@ -1,3 +1,4 @@
+import { WorkDescription, WorkParticipant, WorkResources, WorkStatus } from "./work.ts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { RepositoryIdentity, ThreadEnvMode } from "../environment.ts";
@@ -60,6 +61,8 @@ export const OrchestrationEventType = Schema.Literals([
   "project.created",
   "project.meta-updated",
   "project.deleted",
+  "task.created",
+  "task.updated",
   "bot.created",
   "bot.updated",
   "bot.archived",
@@ -129,6 +132,7 @@ export type OrchestrationEventType = typeof OrchestrationEventType.Type;
 
 export const OrchestrationAggregateKind = Schema.Literals([
   "project",
+  "task",
   "bot",
   "group",
   "mcp-server",
@@ -152,6 +156,10 @@ export const ProjectCreatedPayload = Schema.Struct({
   // Optional so persisted events from older servers still decode.
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   scripts: Schema.Array(ProjectScript),
+  description: Schema.optional(WorkDescription),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  resources: Schema.optional(WorkResources),
+  status: Schema.optional(WorkStatus),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -165,6 +173,10 @@ export const ProjectMetaUpdatedPayload = Schema.Struct({
   defaultThreadEnvMode: Schema.optional(Schema.NullOr(ThreadEnvMode)),
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   scripts: Schema.optional(Schema.Array(ProjectScript)),
+  description: Schema.optional(WorkDescription),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  resources: Schema.optional(WorkResources),
+  status: Schema.optional(WorkStatus),
   updatedAt: IsoDateTime,
 });
 

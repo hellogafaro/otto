@@ -144,6 +144,12 @@ function commandToAggregateRef(command: OrchestrationCommand): CommandAggregateR
         aggregateKind: "skill-assignment",
         aggregateId: command.assignmentId,
       };
+    case "task.create":
+    case "task.update":
+      return {
+        aggregateKind: "task",
+        aggregateId: command.taskId,
+      };
     default:
       return {
         aggregateKind: "thread",

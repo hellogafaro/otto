@@ -1,3 +1,4 @@
+import { OrchestrationTaskCreatedPayload, OrchestrationTaskUpdatedPayload } from "./work.ts";
 import * as Schema from "effect/Schema";
 import {
   ApprovalRequestId,
@@ -9,6 +10,7 @@ import {
   IsoDateTime,
   NonNegativeInt,
   ProjectId,
+  TaskId,
   ProviderItemId,
   ThreadId,
   TrimmedNonEmptyString,
@@ -121,6 +123,7 @@ const EventBaseFields = {
   aggregateKind: OrchestrationAggregateKind,
   aggregateId: Schema.Union([
     ProjectId,
+    TaskId,
     BotId,
     GroupId,
     McpServerId,
@@ -217,6 +220,16 @@ export const OrchestrationEvent = Schema.Union([
     ...EventBaseFields,
     type: Schema.Literal("group.boss-set"),
     payload: GroupBossSetPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("task.created"),
+    payload: OrchestrationTaskCreatedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("task.updated"),
+    payload: OrchestrationTaskUpdatedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,

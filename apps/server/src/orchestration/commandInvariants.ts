@@ -11,9 +11,12 @@ import type {
   OrchestrationGroup,
   OrchestrationProject,
   OrchestrationReadModel,
+  OrchestrationTask,
   OrchestrationThread,
   ProjectId,
+  TaskId,
   ThreadId,
+  WorkParticipant,
 } from "@otto/contracts";
 import { normalizeProjectPathForComparison } from "@otto/shared/path";
 import * as Effect from "effect/Effect";
@@ -484,5 +487,83 @@ export function requireThreadAbsent(input: {
       input.command.type,
       `Thread '${input.threadId}' already exists and cannot be created twice.`,
     ),
+  );
+}
+
+export function findTaskById(
+  readModel: OrchestrationReadModel,
+  taskId: TaskId,
+): OrchestrationTask | undefined {
+  return readModel.tasks?.find((task) => task.id === taskId);
+}
+
+export function requireTask(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly taskId: TaskId;
+}): Effect.Effect<OrchestrationTask, OrchestrationCommandInvariantError> {
+  const task = findTaskById(input.readModel, input.taskId);
+
+  if (task) {
+    return Effect.succeed(task);
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Task '${input.taskId}' does not exist for command '${input.command.type}'.`,
+    ),
+  );
+}
+
+export function requireTaskAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly taskId: TaskId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  if (!findTaskById(input.readModel, input.taskId)) {
+    return Effect.void;
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Task '${input.taskId}' already exists and cannot be created twice.`,
+    ),
+  );
+}
+
+export function requireActiveProject(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly projectId: ProjectId;
+}): Effect.Effect<OrchestrationProject, OrchestrationCommandInvariantError> {
+  return requireProject(input).pipe(
+    Effect.flatMap((project) =>
+      project.deletedAt === null
+        ? Effect.succeed(project)
+        : Effect.fail(
+            invariantError(
+              input.command.type,
+              `Project '${input.projectId}' was deleted for command '${input.command.type}'.`,
+            ),
+          ),
+    ),
+  );
+}
+
+/** Bot owners and assignees must be active bots; people carry their own session identity. */
+export function requireWorkParticipants(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly participants: ReadonlyArray<WorkParticipant | null | undefined>;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  return Effect.forEach(
+    input.participants,
+    (participant) =>
+      participant?.kind === "bot"
+        ? requireBotNotArchived({ ...input, botId: participant.botId })
+        : Effect.void,
+    { discard: true },
   );
 }
