@@ -44,6 +44,7 @@ import { OrchestrationReactorLive } from "../../src/orchestration/Layers/Orchest
 import { ProviderCommandReactorLive } from "../../src/orchestration/Layers/ProviderCommandReactor.ts";
 import { ProviderRuntimeIngestionLive } from "../../src/orchestration/Layers/ProviderRuntimeIngestion.ts";
 import { ThreadDeletionReactor } from "../../src/orchestration/Services/ThreadDeletionReactor.ts";
+import { GroupRoundReactor } from "../../src/orchestration/Services/GroupRoundReactor.ts";
 import { type TestProviderAdapterHarness } from "../TestProviderAdapter.integration.ts";
 import { ServerConfig } from "../../src/config.ts";
 import * as WorkspaceEntries from "../../src/workspace/WorkspaceEntries.ts";
@@ -233,6 +234,9 @@ export function createIntegrationLayers({
         drain: Effect.void,
         drainThrough: () => Effect.void,
       }),
+    ),
+    Layer.provideMerge(
+      Layer.succeed(GroupRoundReactor, { start: () => Effect.void, drain: Effect.void }),
     ),
   );
 

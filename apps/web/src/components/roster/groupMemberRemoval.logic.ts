@@ -6,12 +6,11 @@ const englishTranslate: Translate = createTranslator("en").translate;
 
 /**
  * Explains why the member list blocks removal, so the way back out of a group
- * change is always visible. Returns null when every specialist can be removed.
+ * change is always visible. Returns null when every bot can be removed.
  */
 export function groupMemberRemovalHint(
   input: {
     readonly memberCount: number;
-    readonly bossName: string | null;
     readonly canAddBot: boolean;
   },
   t: Translate = englishTranslate,
@@ -22,17 +21,10 @@ export function groupMemberRemovalHint(
       : t("A group needs at least two bots. Create a new bot in the roster before you remove one.");
   }
 
-  if (input.bossName !== null) {
-    return t("To remove {name}, make another bot the boss first.", { name: input.bossName });
-  }
-
   return null;
 }
 
 /** True when the removal hint explains why this row's remove button is disabled. */
-export function isGroupMemberRemovalBlocked(input: {
-  readonly memberCount: number;
-  readonly isBoss: boolean;
-}): boolean {
-  return input.memberCount <= 2 || input.isBoss;
+export function isGroupMemberRemovalBlocked(memberCount: number): boolean {
+  return memberCount <= 2;
 }

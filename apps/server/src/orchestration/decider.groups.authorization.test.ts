@@ -447,6 +447,28 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
     }),
   );
 
+  it.effect("lets an administrator write in a group after signing in again", () =>
+    Effect.gen(function* () {
+      const result = yield* decideOrchestrationCommand({
+        command: {
+          ...startTurnCommand(),
+          senderPersonId: AuthSessionId.make("person-new-sign-in"),
+          senderDisplayName: "Owner",
+          senderCanManageGroups: true,
+        },
+        readModel: makeReadModel({
+          bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
+          groups: [makeGroup()],
+          threads: [makeGroupThread()],
+        }),
+      });
+
+      const events = Array.isArray(result) ? result : [result];
+      expect(events.map((event) => event.type)).not.toContain("group.person-assigned");
+      expect(events.map((event) => event.type)).toContain("thread.message-sent");
+    }),
+  );
+
   it.effect("lets an administrator claim a legacy bot-only group on the first turn", () =>
     Effect.gen(function* () {
       const result = yield* decideOrchestrationCommand({
@@ -473,7 +495,6 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
       expect(events.map((event) => event.type)).toEqual([
         "group.person-assigned",
         "thread.message-sent",
-        "thread.turn-start-requested",
       ]);
       const assigned = events[0];
 

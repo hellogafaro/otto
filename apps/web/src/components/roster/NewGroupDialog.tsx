@@ -1,5 +1,5 @@
 import type { MessageKey } from "@otto/client-runtime/i18n";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { Button } from "../ui/button";
@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
-import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { BotAvatarView } from "./BotAvatarView";
 import type { Bot } from "./types";
 
@@ -24,14 +23,8 @@ export interface NewGroupInput {
   readonly specialistBotIds: readonly string[];
 }
 
-export function canCreateGroup(
-  name: string,
-  selectedIds: readonly string[],
-  bossBotId: string,
-): boolean {
-  return (
-    name.trim().length > 0 && new Set(selectedIds).size >= 2 && selectedIds.includes(bossBotId)
-  );
+export function canCreateGroup(name: string, selectedIds: readonly string[]): boolean {
+  return name.trim().length > 0 && new Set(selectedIds).size >= 2;
 }
 
 /** Hint shown under the bot list until the group has enough members. */
@@ -58,13 +51,7 @@ export function NewGroupDialog({
     activeBots.slice(0, 2).map((bot) => bot.id),
   );
 
-  const [bossBotId, setBossBotId] = useState(selectedIds[0] ?? "");
-  const selectedBots = activeBots.filter((bot) => selectedIds.includes(bot.id));
   const selectionHint = groupSelectionHint(selectedIds);
-
-  useEffect(() => {
-    if (!selectedIds.includes(bossBotId)) setBossBotId(selectedIds[0] ?? "");
-  }, [bossBotId, selectedIds]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -77,18 +64,16 @@ export function NewGroupDialog({
           onSubmit={(event) => {
             event.preventDefault();
 
-            if (!canCreateGroup(name, selectedIds, bossBotId)) return;
-            onCreate({
-              name: name.trim(),
-              bossBotId,
-              specialistBotIds: selectedIds.filter((id) => id !== bossBotId),
-            });
+            if (!canCreateGroup(name, selectedIds)) return;
+            // Groups have no lead; the first bot is only stored as the group's boss.
+            const [bossBotId = "", ...specialistBotIds] = [...new Set(selectedIds)];
+            onCreate({ name: name.trim(), bossBotId, specialistBotIds });
           }}
         >
           <DialogHeader className="shrink-0">
             <DialogTitle>{t("New group")}</DialogTitle>
             <DialogDescription>
-              {t("Choose the bots in this group and which one leads.")}
+              {t("Choose the bots in this group. They all hear every message.")}
             </DialogDescription>
           </DialogHeader>
           <DialogPanel className="space-y-5">
@@ -134,29 +119,12 @@ export function NewGroupDialog({
                 <p className="text-xs text-muted-foreground">{t(selectionHint)}</p>
               ) : null}
             </fieldset>
-            <label className="block space-y-2 text-sm font-medium">
-              {t("Boss")}
-              <Select value={bossBotId} onValueChange={(value) => value && setBossBotId(value)}>
-                <SelectTrigger aria-label={t("Group boss")} className="w-full">
-                  <SelectValue>
-                    {selectedBots.find((bot) => bot.id === bossBotId)?.name ?? t("Choose boss")}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup>
-                  {selectedBots.map((bot) => (
-                    <SelectItem key={bot.id} value={bot.id}>
-                      {bot.name}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            </label>
           </DialogPanel>
           <DialogFooter className="shrink-0">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               {t("Cancel")}
             </Button>
-            <Button type="submit" disabled={!canCreateGroup(name, selectedIds, bossBotId)}>
+            <Button type="submit" disabled={!canCreateGroup(name, selectedIds)}>
               {t("Create group")}
             </Button>
           </DialogFooter>

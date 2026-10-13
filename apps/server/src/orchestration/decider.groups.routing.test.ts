@@ -1,12 +1,5 @@
 import * as Predicate from "effect/Predicate";
-import {
-  BotId,
-  CommandId,
-  EventId,
-  MessageId,
-  OrchestrationEvent,
-  ThreadId,
-} from "@otto/contracts";
+import { BotId, CommandId, EventId, MessageId, ThreadId } from "@otto/contracts";
 import { expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
@@ -29,8 +22,41 @@ import {
   applyCommand,
 } from "./test-support/GroupDeciderFixtures.ts";
 
+const groupTurnCommand = (botId: BotId) =>
+  ({
+    type: "thread.group-turn.start",
+    commandId: CommandId.make(`cmd-group-turn-${botId}`),
+    threadId: ThreadId.make("thread-group"),
+    botId,
+    messageId: MessageId.make("message-1"),
+    input: "Please investigate.",
+    attachments: [],
+    createdAt: NOW,
+  }) as const;
+
 it.layer(NodeServices.layer)("group membership decider", (it) => {
-  it.effect("routes a group turn to the boss by default and a mentioned specialist once", () =>
+  it.effect("records a person's group message without starting a turn", () =>
+    Effect.gen(function* () {
+      const readModel = makeReadModel({
+        bots: [
+          makeBot({ id: BOSS_ID, groupId: GROUP_ID }),
+          makeBot({ id: SPECIALIST_ID, groupId: GROUP_ID }),
+        ],
+        groups: [makeGroup()],
+        threads: [makeGroupThread()],
+      });
+
+      for (const command of [startTurnCommand(), startTurnCommand(SPECIALIST_ID)]) {
+        const result = yield* decideOrchestrationCommand({ command, readModel });
+
+        expect((Array.isArray(result) ? result : [result]).map((event) => event.type)).toEqual([
+          "thread.message-sent",
+        ]);
+      }
+    }),
+  );
+
+  it.effect("starts one bot's group turn with its own engine and the round's input", () =>
     Effect.gen(function* () {
       const readModel = makeReadModel({
         bots: [
@@ -51,84 +77,20 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
         threads: [makeGroupThread()],
       });
 
-      const defaultResult = yield* decideOrchestrationCommand({
-        command: startTurnCommand(),
-        readModel,
+      const started = yield* applyCommand(readModel, groupTurnCommand(SPECIALIST_ID));
+
+      expect(started.events.map((event) => event.type)).toEqual(["thread.turn-start-requested"]);
+      expect(started.events[0]?.payload).toMatchObject({
+        respondingBotId: SPECIALIST_ID,
+        messageId: "message-1",
+        modelSelection: { instanceId: "specialist-provider", model: "specialist-model" },
+        groupInput: { text: "Please investigate.", attachments: [] },
       });
-
-      const mentionedResult = yield* decideOrchestrationCommand({
-        command: startTurnCommand(SPECIALIST_ID),
-        readModel,
-      });
-
-      const defaultEvent = (Array.isArray(defaultResult) ? defaultResult : [defaultResult]).find(
-        (event) => event.type === "thread.turn-start-requested",
-      );
-
-      const mentionedEvent = (
-        Array.isArray(mentionedResult) ? mentionedResult : [mentionedResult]
-      ).find((event) => event.type === "thread.turn-start-requested");
-
-      if (defaultEvent?.type !== "thread.turn-start-requested") {
-        throw new Error("Expected default turn start");
-      }
-
-      if (mentionedEvent?.type !== "thread.turn-start-requested") {
-        throw new Error("Expected mentioned turn start");
-      }
-
-      expect(defaultEvent.payload.respondingBotId).toBe(BOSS_ID);
-      expect(defaultEvent.payload.modelSelection).toEqual({
-        instanceId: "boss-provider",
-        model: "boss-model",
-      });
-      expect(mentionedEvent.payload.respondingBotId).toBe(SPECIALIST_ID);
-      expect(mentionedEvent.payload.modelSelection).toEqual({
-        instanceId: "specialist-provider",
-        model: "specialist-model",
-      });
+      expect(started.readModel.threads[0]?.respondingBotId).toBe(SPECIALIST_ID);
     }),
   );
 
-  it.effect("routes an @bot:<id> token to that member when the client sends no responder", () =>
-    Effect.gen(function* () {
-      const readModel = makeReadModel({
-        bots: [
-          makeBot({ id: BOSS_ID, groupId: GROUP_ID }),
-          makeBot({ id: SPECIALIST_ID, groupId: GROUP_ID }),
-          makeBot({ id: BotId.make("bot-outsider") }),
-        ],
-        groups: [makeGroup()],
-        threads: [makeGroupThread()],
-      });
-
-      const responderFor = (text: string) =>
-        decideOrchestrationCommand({
-          command: {
-            ...startTurnCommand(),
-            message: { ...startTurnCommand().message, text },
-          },
-          readModel,
-        }).pipe(
-          Effect.map((result) => {
-            const event = (Array.isArray(result) ? result : [result]).find(
-              (entry) => entry.type === "thread.turn-start-requested",
-            );
-
-            if (event?.type !== "thread.turn-start-requested") {
-              throw new Error("Expected turn start");
-            }
-
-            return event.payload.respondingBotId;
-          }),
-        );
-
-      expect(yield* responderFor(`@bot:${SPECIALIST_ID} look`)).toBe(SPECIALIST_ID);
-      expect(yield* responderFor("@bot:bot-outsider look")).toBe(BOSS_ID);
-    }),
-  );
-
-  it.effect("rejects a mention for a non-member or archived member", () =>
+  it.effect("refuses a group turn for a non-member or archived member", () =>
     Effect.gen(function* () {
       const outsiderId = BotId.make("bot-outsider");
 
@@ -143,12 +105,12 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
       });
 
       const outsiderError = yield* decideOrchestrationCommand({
-        command: startTurnCommand(outsiderId),
+        command: groupTurnCommand(outsiderId),
         readModel: base,
       }).pipe(Effect.flip);
 
       const archivedError = yield* decideOrchestrationCommand({
-        command: startTurnCommand(SPECIALIST_ID),
+        command: groupTurnCommand(SPECIALIST_ID),
         readModel: base,
       }).pipe(Effect.flip);
 
@@ -156,7 +118,7 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
         !Predicate.isTagged(outsiderError, "OrchestrationCommandInvariantError") ||
         !Predicate.isTagged(archivedError, "OrchestrationCommandInvariantError")
       ) {
-        throw new Error("Expected mention routing invariant errors");
+        throw new Error("Expected group turn invariant errors");
       }
 
       expect(outsiderError.detail).toContain("not a member");
@@ -200,78 +162,47 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
     }),
   );
 
-  it.effect("routes a client @mention to that bot's engine, then back to the boss", () =>
+  it.effect("records the authenticated sender of a client group message", () =>
     Effect.gen(function* () {
-      let model = makeReadModel({
-        bots: [
-          makeBot({ id: BOSS_ID, provider: "claudeAgent", model: "claude-opus-5-5" }),
-          makeBot({ id: SPECIALIST_ID, provider: "grok", model: "grok-5" }),
-        ],
+      const model = makeReadModel({
+        bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
         groups: [makeGroup()],
         threads: [makeGroupThread()],
       });
 
-      const actor = { personId: PERSON_ID, displayName: "Member", canManageGroups: false };
-
-      // The web composer resolves "@bot-specialist" to respondingBotId before it sends.
-      const clientTurn = (messageId: string, text: string, respondingBotId?: BotId) =>
-        Effect.gen(function* () {
-          const decoded = yield* decodeClientCommand({
-            type: "thread.turn.start",
-            commandId: `cmd-${messageId}`,
-            threadId: "thread-group",
-            message: { messageId, role: "user", text, attachments: [] },
-            runtimeMode: "full-access",
-            interactionMode: "default",
-            ...(respondingBotId !== undefined ? { respondingBotId } : {}),
-            // A client cannot claim to be someone else; the server sets the sender.
-            senderPersonId: "person-forged",
-            createdAt: NOW,
-          });
-
-          if (decoded.type !== "thread.turn.start") throw new Error("Expected a turn start");
-
-          return applyAuthenticatedCommandActor(
-            { ...decoded, message: { ...decoded.message, attachments: [] } },
-            actor,
-          );
-        });
-
-      const turnStart = (events: ReadonlyArray<Omit<OrchestrationEvent, "sequence">>) => {
-        const event = events.find((entry) => entry.type === "thread.turn-start-requested");
-
-        if (event?.type !== "thread.turn-start-requested") {
-          throw new Error("Expected thread.turn-start-requested");
-        }
-
-        return event.payload;
-      };
-
-      const mentioned = yield* applyCommand(
-        model,
-        yield* clientTurn("message-mention", "@bot-specialist check the logs", SPECIALIST_ID),
-      );
-
-      model = mentioned.readModel;
-      expect(turnStart(mentioned.events)).toMatchObject({
+      const decoded = yield* decodeClientCommand({
+        type: "thread.turn.start",
+        commandId: "cmd-message-mention",
+        threadId: "thread-group",
+        message: {
+          messageId: "message-mention",
+          role: "user",
+          text: "@bot-specialist check the logs",
+          attachments: [],
+        },
+        runtimeMode: "full-access",
+        interactionMode: "default",
         respondingBotId: SPECIALIST_ID,
-        modelSelection: { instanceId: "grok", model: "grok-5" },
+        // A client cannot claim to be someone else; the server sets the sender.
+        senderPersonId: "person-forged",
+        createdAt: NOW,
       });
-      expect(model.threads[0]?.respondingBotId).toBe(SPECIALIST_ID);
-      expect(
-        mentioned.events.find((entry) => entry.type === "thread.message-sent")?.payload,
-      ).toMatchObject({ authorPersonId: PERSON_ID, text: "@bot-specialist check the logs" });
 
-      const unmentioned = yield* applyCommand(
+      if (decoded.type !== "thread.turn.start") throw new Error("Expected a turn start");
+
+      const sent = yield* applyCommand(
         model,
-        yield* clientTurn("message-plain", "Thanks @Leo, what next?"),
+        applyAuthenticatedCommandActor(
+          { ...decoded, message: { ...decoded.message, attachments: [] } },
+          { personId: PERSON_ID, displayName: "Member", canManageGroups: false },
+        ),
       );
 
-      expect(turnStart(unmentioned.events)).toMatchObject({
-        respondingBotId: BOSS_ID,
-        modelSelection: { instanceId: "claudeAgent", model: "claude-opus-5-5" },
+      expect(sent.events.map((event) => event.type)).toEqual(["thread.message-sent"]);
+      expect(sent.events[0]?.payload).toMatchObject({
+        authorPersonId: PERSON_ID,
+        text: "@bot-specialist check the logs",
       });
-      expect(unmentioned.readModel.threads[0]?.respondingBotId).toBe(BOSS_ID);
     }),
   );
 

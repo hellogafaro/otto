@@ -1,11 +1,12 @@
 import * as Predicate from "effect/Predicate";
 import { ProviderDriverKind, ProviderInstanceId } from "@otto/contracts";
-import { CommandId, DEFAULT_PROVIDER_INTERACTION_MODE, ThreadId } from "@otto/contracts";
+import { CommandId, DEFAULT_PROVIDER_INTERACTION_MODE, EventId, ThreadId } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
 import { it as effectIt } from "@effect/vitest";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { ProviderAdapterRequestError } from "../../provider/Errors.ts";
+import { startupRecoveryInput } from "./provider-command/Recovery.ts";
 import {
   asMessageId,
   asProjectId,
@@ -422,5 +423,53 @@ describe("ProviderCommandReactor", () => {
     const readModel = await harness.readModel();
     const thread = readModel.threads.find((entry) => entry.id === ThreadId.make("thread-1"));
     expect(thread?.messages.filter((message) => message.role === "user")).toHaveLength(1);
+  });
+});
+
+describe("startupRecoveryInput", () => {
+  const threadId = ThreadId.make("thread-1");
+  const turnId = asTurnId("turn-before-reactor");
+
+  const question = {
+    id: EventId.make("activity-question"),
+    tone: "info",
+    kind: "user-input.requested",
+    summary: "User input requested",
+    payload: { requestId: "call-time", questions: [{ question: "What time each day?" }] },
+    turnId,
+    createdAt: "2026-10-13T11:56:58.000Z",
+  } as const;
+
+  const answer = (answerTurnId: typeof turnId) => ({
+    id: asMessageId("user-input:thread-1:call-time"),
+    role: "user" as const,
+    text: "9:00 AM",
+    turnId: answerTurnId,
+    streaming: false,
+    createdAt: "2026-10-13T11:57:01.000Z",
+    updatedAt: "2026-10-13T11:57:01.000Z",
+  });
+
+  it("repeats answers the interrupted turn already received", () => {
+    const input = startupRecoveryInput({
+      threadId,
+      turnId,
+      messages: [answer(turnId)],
+      activities: [question],
+    });
+
+    expect(input).toContain("server restarted");
+    expect(input).toContain('"What time each day?" -> 9:00 AM');
+  });
+
+  it("leaves answers from earlier turns to the durable history", () => {
+    const input = startupRecoveryInput({
+      threadId,
+      turnId,
+      messages: [answer(asTurnId("turn-earlier"))],
+      activities: [question],
+    });
+
+    expect(input).not.toContain("9:00 AM");
   });
 });

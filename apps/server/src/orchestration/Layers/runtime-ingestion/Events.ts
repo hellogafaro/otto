@@ -398,7 +398,10 @@ export function createEvents({
               streamingOnly: false,
             });
 
-          if (!hasVisibleAssistantReply && !finalizedReplyVisibility.some(Boolean)) {
+          // A group bot that passes ends its turn silently.
+          const groupPass = Boolean(thread.groupId) && event.payload.state !== "failed";
+
+          if (!hasVisibleAssistantReply && !finalizedReplyVisibility.some(Boolean) && !groupPass) {
             const fallbackText =
               event.payload.state === "failed"
                 ? "I cannot complete the request. Check the error details."

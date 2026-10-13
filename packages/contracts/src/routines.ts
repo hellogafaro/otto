@@ -47,7 +47,18 @@ export const RoutineLocalTime = Schema.String.check(
 
 export type RoutineLocalTime = typeof RoutineLocalTime.Type;
 
+/** Hour steps that divide the day evenly, so every gap between runs is the same. */
+export const RoutineHourInterval = Schema.Literals([1, 2, 3, 4, 6, 8, 12]);
+
+export type RoutineHourInterval = typeof RoutineHourInterval.Type;
+
 export const RoutineSchedule = Schema.Union([
+  /** Runs at `time` and every `everyHours` hours around the clock from it. */
+  Schema.Struct({
+    kind: Schema.Literal("hourly"),
+    everyHours: RoutineHourInterval,
+    time: RoutineLocalTime,
+  }),
   Schema.Struct({ kind: Schema.Literal("daily"), time: RoutineLocalTime }),
   Schema.Struct({ kind: Schema.Literal("weekdays"), time: RoutineLocalTime }),
   Schema.Struct({

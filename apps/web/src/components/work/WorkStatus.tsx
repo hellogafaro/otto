@@ -114,10 +114,13 @@ export function WorkStatusSelect({
   value,
   onChange,
   className,
+  variant,
 }: {
   readonly value: WorkStatus;
   readonly onChange: (status: WorkStatus) => void;
   readonly className?: string;
+  /** `ghost` is the quiet property row on a task page. */
+  readonly variant?: "ghost";
 }) {
   const { t } = useI18n();
   const label = useWorkStatusLabel();
@@ -129,7 +132,12 @@ export function WorkStatusSelect({
         if (isWorkStatus(next)) onChange(next);
       }}
     >
-      <SelectTrigger size="sm" className={cn("w-auto min-w-0", className)} aria-label={t("Status")}>
+      <SelectTrigger
+        size="sm"
+        variant={variant}
+        className={cn("w-auto min-w-0", className)}
+        aria-label={t("Status")}
+      >
         <SelectValue>
           <span className="flex items-center gap-1.5">
             <WorkStatusIcon status={value} />

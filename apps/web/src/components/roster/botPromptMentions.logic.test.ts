@@ -35,6 +35,26 @@ describe("botPromptMentionTrigger", () => {
 });
 
 describe("buildBotPromptMentionItems", () => {
+  it("offers @everyone only in group chats", () => {
+    const group = buildBotPromptMentionItems({
+      query: "ev",
+      browserAvailable: false,
+      everyone: true,
+      bots,
+      threads,
+    });
+
+    expect(group[0]).toEqual({ kind: "everyone", key: "everyone", label: "everyone" });
+    expect(
+      applyBotPromptMention("hi @ev", { query: "ev", rangeStart: 3, rangeEnd: 6 }, group[0]!).text,
+    ).toBe("hi @everyone ");
+    expect(
+      buildBotPromptMentionItems({ query: "ev", browserAvailable: false, bots, threads }).some(
+        (item) => item.kind === "everyone",
+      ),
+    ).toBe(false);
+  });
+
   it("offers the browser only when browser access is on", () => {
     const enabled = buildBotPromptMentionItems({
       query: "",

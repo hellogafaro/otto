@@ -5,7 +5,9 @@ import {
   type RoutineAdapterFrequency,
   type RoutineAdapterItem,
   type RoutineAdapterProject,
+  ROUTINE_HOUR_INTERVALS,
 } from "@otto/client-runtime/routines";
+import type { RoutineHourInterval } from "@otto/contracts";
 import type { MessageKey } from "@otto/client-runtime/i18n";
 
 import { useI18n } from "../../i18n";
@@ -173,17 +175,20 @@ export function RoutineFormDialog({
                       frequency: event.target.value as RoutineAdapterFrequency,
                       weekday:
                         event.target.value === "weekly" ? (draft.schedule.weekday ?? 1) : null,
+                      everyHours:
+                        event.target.value === "hourly" ? (draft.schedule.everyHours ?? 1) : null,
                     },
                   })
                 }
               >
+                <option value="hourly">{t("Hourly")}</option>
                 <option value="daily">{t("Daily")}</option>
                 <option value="weekdays">{t("Weekdays")}</option>
                 <option value="weekly">{t("Weekly")}</option>
               </select>
             </label>
             <label className="space-y-1.5 text-sm">
-              <span>{t("Time")}</span>
+              <span>{t(draft.schedule.frequency === "hourly" ? "Starting at" : "Time")}</span>
               <Input
                 type="time"
                 value={draft.schedule.time}
@@ -193,6 +198,30 @@ export function RoutineFormDialog({
               />
             </label>
           </div>
+          {draft.schedule.frequency === "hourly" ? (
+            <label className="block space-y-1.5 text-sm">
+              <span>{t("Repeat")}</span>
+              <select
+                className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                value={draft.schedule.everyHours ?? 1}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    schedule: {
+                      ...draft.schedule,
+                      everyHours: Number(event.target.value) as RoutineHourInterval,
+                    },
+                  })
+                }
+              >
+                {ROUTINE_HOUR_INTERVALS.map((hours) => (
+                  <option key={hours} value={hours}>
+                    {hours === 1 ? t("Every hour") : t("Every {count} hours", { count: hours })}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {draft.schedule.frequency === "weekly" ? (
             <label className="block space-y-1.5 text-sm">
               <span>{t("Day")}</span>

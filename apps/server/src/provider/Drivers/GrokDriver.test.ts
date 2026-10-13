@@ -122,7 +122,7 @@ const writeFakeGrokCli = (input: {
         ? "  inspect) exit 1;;"
         : [
             "  inspect)",
-            `    if [ "$PWD" = ${shellQuote(input.workspaceCwd)} ]; then`,
+            `    if [ "$(pwd -P)" = "$(cd ${shellQuote(input.workspaceCwd)} && pwd -P)" ]; then`,
             `      cat ${shellQuote(workspaceSkillsPath)}; exit 0`,
             "    fi",
             `    cat ${shellQuote(machineSkillsPath)}; exit 0;;`,

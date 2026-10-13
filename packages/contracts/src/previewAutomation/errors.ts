@@ -223,7 +223,7 @@ export class PreviewAutomationRemoteUnavailableError extends Schema.TaggedErrorC
   },
 ) {
   override get message(): string {
-    return `Preview automation ${this.operation} is unavailable on client ${this.clientId}.`;
+    return `Preview automation ${this.operation} is unavailable on client ${this.clientId}. The in-app preview needs the desktop app or Browserbase (Settings > Browser); use the browser_* tools instead.`;
   }
 }
 

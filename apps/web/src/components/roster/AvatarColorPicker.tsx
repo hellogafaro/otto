@@ -175,11 +175,14 @@ export function AvatarColorPicker({
   onChange,
   className,
   label,
+  compact = false,
 }: {
   value: string;
   onChange: (color: string) => void;
   className?: string;
   label?: string;
+  /** 20px swatches on one row, for the avatar popover. */
+  compact?: boolean;
 }) {
   const { t } = useI18n();
   const color = resolveBlobColor(value);
@@ -189,7 +192,7 @@ export function AvatarColorPicker({
     <div
       role="group"
       aria-label={label ?? t("Avatar color")}
-      className={cn("flex flex-wrap items-center gap-2.5", className)}
+      className={cn("flex flex-wrap items-center", compact ? "gap-1.5" : "gap-2.5", className)}
     >
       {BLOB_COLORS.map((preset) => (
         <button
@@ -200,7 +203,8 @@ export function AvatarColorPicker({
           onClick={() => onChange(preset)}
           style={{ "--swatch": preset }}
           className={cn(
-            "size-8 cursor-pointer rounded-full swatch-fill border border-foreground/10 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "cursor-pointer rounded-full swatch-fill border border-foreground/10 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            compact ? "size-5" : "size-8",
             color === preset && "ring-2 ring-foreground/30 ring-offset-2 ring-offset-background",
           )}
         />
@@ -214,7 +218,8 @@ export function AvatarColorPicker({
               aria-label={t("Choose a custom avatar color. Current color {color}", { color })}
               aria-pressed={!presetSelected}
               className={cn(
-                "size-8 cursor-pointer rounded-full bg-color-wheel border border-foreground/15 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "cursor-pointer rounded-full bg-color-wheel border border-foreground/15 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                compact ? "size-5" : "size-8",
                 !presetSelected && "ring-2 ring-foreground/30 ring-offset-2 ring-offset-background",
               )}
             />

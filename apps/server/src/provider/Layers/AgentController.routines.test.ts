@@ -37,7 +37,7 @@ describe("AgentControllerLive", () => {
       const created = {
         routineId: RoutineId.make("routine-created"),
         sequence: 1,
-        status: "approved" as const,
+        status: "enabled" as const,
       };
 
       let dispatched = 0;
@@ -226,7 +226,7 @@ describe("AgentControllerLive", () => {
               Effect.as({
                 routineId: RoutineId.make("routine-late"),
                 sequence: 1,
-                status: "approved" as const,
+                status: "enabled" as const,
               }),
             ),
         },
@@ -327,6 +327,28 @@ describe("AgentControllerLive", () => {
             yield* Fiber.join(toolCall),
             Exit.succeed({ status: "cancelled" }),
           );
+          mastra.finishSend();
+        }),
+        mastra,
+        {},
+      );
+    });
+  });
+});
+
+describe("AgentControllerLive", () => {
+  describe("routine review", () => {
+    it.effect("reviews a routine in the server timezone when the turn carries none", () => {
+      const mastra = mastraHarnessFixture();
+      const events: Array<ProviderRuntimeEvent> = [];
+
+      return provideRoutineController(
+        Effect.gen(function* () {
+          yield* openRoutineReview(mastra, events, null);
+          const opened = events.find((event) => event.type === "request.opened");
+          const args = opened?.type === "request.opened" ? opened.payload.args : undefined;
+
+          assert.propertyVal(args, "timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
           mastra.finishSend();
         }),
         mastra,

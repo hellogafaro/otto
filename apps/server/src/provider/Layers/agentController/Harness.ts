@@ -38,6 +38,7 @@ import {
 } from "../../../usage/BotUsageLedger.ts";
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 import { makeOttoMastraHarness } from "../../OttoMastraHarness.ts";
+import { abandonUnpublishedText } from "./Events.ts";
 
 import { OTTO_ROUTINE_REVIEW_TIMEOUT, type PendingWaiters } from "../../PendingWaiters.ts";
 
@@ -172,6 +173,11 @@ export function createHarness(deps: {
         await update;
       },
       getThreadTools: (threadId) => deps.sessionResources.getConnectorTools(threadId),
+      onStreamRetry: (threadId) => {
+        const turn = deps.sessions.get(threadId)?.activeTurn;
+
+        if (turn) abandonUnpublishedText(turn);
+      },
       // Durable queue rows can drain before any client opens the thread (for
       // example right after a server restart), so the activity must not
       // depend on an active provider session; the row's recorded turnId is
@@ -236,11 +242,15 @@ export function createHarness(deps: {
               ),
             createRoutine: (threadId: string, input: OttoCreateRoutineInput) => {
               const active = deps.sessions.get(threadId);
-              const timezone = active?.toolSession.timezone;
 
-              if (!timezone) {
+              if (!active) {
                 return Promise.reject(new Error("Send a message before creating a routine."));
               }
+
+              // Turns the server starts itself, such as restart recovery, carry no
+              // device timezone. The review card shows the timezone before approval.
+              const timezone =
+                active.toolSession.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
               const requestId = `routine-${NodeCrypto.randomUUID()}`;
 

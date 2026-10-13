@@ -3,6 +3,7 @@ import { Predicate, Schema, Option } from "effect";
 
 import { memo } from "react";
 import { createTranslator } from "@otto/client-runtime/i18n";
+import { hourlyScheduleText } from "@otto/client-runtime/routines";
 import { OTTO_CREATE_ROUTINE_TOOL_NAME, OTTO_PRODUCT_FEEDBACK_TOOL_NAME } from "@otto/contracts";
 import { type PendingApproval } from "../../session-logic";
 import { describeCommandApproval } from "~/lib/commandApprovalDetails";
@@ -141,6 +142,14 @@ function routineScheduleText(
   const time = stringField(record, "time");
 
   if (!time) return null;
+
+  if (record.kind === "hourly") {
+    return hourlyScheduleText(
+      Predicate.isNumber(record.everyHours) ? record.everyHours : 1,
+      time,
+      t,
+    );
+  }
 
   if (record.kind === "daily") return t("Every day at {time}", { time });
 
@@ -302,12 +311,22 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
       ? approval.args.command
       : null;
 
+  const argsMessage =
+    approval.args &&
+    Predicate.isObject(approval.args) &&
+    "message" in approval.args &&
+    Predicate.isString(approval.args.message)
+      ? approval.args.message
+      : null;
+
+  // A named tool call is a command only when it carries one; otherwise its
+  // detail is the request, not something to run in a shell.
   const command =
-    approval.requestKind === "command"
+    approval.requestKind === "command" && (argsCommand !== null || !approval.toolName)
       ? (argsCommand ?? (approval.detail?.trim() ? approval.detail : fallbackLabel))
       : null;
 
-  const detail = command ?? approval.detail ?? fallbackLabel;
+  const detail = command ?? argsMessage ?? approval.detail ?? fallbackLabel;
   const details = command ? describeCommandApproval(command, approval.args) : null;
   const firstLine = detail.split("\n", 1)[0] ?? detail;
   const detailLineCount = detail.split("\n").length;
@@ -391,7 +410,10 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
         <div className={cn("flex min-w-0 flex-col", DETAIL_SURFACE_CLASS_NAME)}>
           <code
             aria-label={detailAriaLabel}
-            className="block min-w-0 whitespace-pre-wrap break-words font-mono text-xs leading-5 text-foreground/90"
+            className={cn(
+              "block min-w-0 whitespace-pre-wrap break-words leading-5 text-foreground/90",
+              argsMessage ? "font-sans text-sm" : "font-mono text-xs",
+            )}
             data-approval-detail="complete"
           >
             {detail}

@@ -1,3 +1,4 @@
+import { GROUP_NO_REPLY } from "../../../orchestration/groupResponder.ts";
 import { readSdkRecord } from "../ProtocolJson.ts";
 import * as Match from "effect/Match";
 import { omitNullToolFields } from "./Policy.ts";
@@ -56,6 +57,32 @@ import {
 
 import { nowIso, eventId } from "./EventIdentity.ts";
 import { mcpServerIdForToolName } from "./McpConfiguration.ts";
+
+// A retried model stream starts its message over, but Mastra keeps the failed
+// attempt's text parts in the live message. Parts listed here are left out of
+// the published answer.
+const abandonedTextParts = new WeakSet<object>();
+
+/** Drops text the failed stream attempt produced that was not yet published. */
+export function abandonUnpublishedText(turn: ActiveTurn) {
+  for (const message of turn.assistantMessages.values()) {
+    let published = message.publishedText.length;
+
+    for (const part of message.parts) {
+      if (part.type !== "text" || abandonedTextParts.has(part)) continue;
+
+      if (published >= part.text.length) {
+        published -= part.text.length;
+        continue;
+      }
+
+      abandonedTextParts.add(part);
+      published = 0;
+    }
+
+    message.text = message.publishedText;
+  }
+}
 
 export function createEvents(deps: {
   readonly forkPromise: OttoRuntimeSeam["forkPromise"];
@@ -148,6 +175,13 @@ export function createEvents(deps: {
     turn: ActiveTurn,
     message: ActiveAssistantMessage,
   ) => {
+    // A group bot that passes answers only this word, and nobody sees it.
+    if (message.text.trim() === GROUP_NO_REPLY) {
+      message.publishedText = message.text;
+
+      return;
+    }
+
     const text = message.text.startsWith(message.publishedText)
       ? message.text.slice(message.publishedText.length)
       : message.text;
@@ -201,7 +235,13 @@ export function createEvents(deps: {
     const turn = active.activeTurn;
 
     if (!turn) return;
-    const text = deps.messageText(message);
+    const parts = message.content.parts;
+
+    const text = deps.messageText({
+      ...message,
+      content: { ...message.content, parts: parts.filter((part) => !abandonedTextParts.has(part)) },
+    });
+
     const messageKey = String(message.id);
     let activeMessage = turn.assistantMessages.get(messageKey);
 
@@ -209,6 +249,7 @@ export function createEvents(deps: {
       completeAssistantMessages(threadId, active, turn);
       activeMessage = {
         messageId: messageKey,
+        parts,
         text: "",
         publishedText: "",
         revision: 0,
@@ -216,6 +257,7 @@ export function createEvents(deps: {
       turn.assistantMessages.set(messageKey, activeMessage);
     }
 
+    activeMessage.parts = parts;
     activeMessage.text = text;
 
     if (complete) completeAssistantMessage(threadId, active, turn, activeMessage);

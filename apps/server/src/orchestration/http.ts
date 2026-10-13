@@ -16,13 +16,11 @@ import * as ServerRuntimeStartup from "../serverRuntimeStartup.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProjectionBots from "../persistence/Services/ProjectionBots.ts";
-import * as ProjectionGroups from "../persistence/Services/ProjectionGroups.ts";
 import { OrchestrationCommandReceiptRepository } from "../persistence/Services/OrchestrationCommandReceipts.ts";
 import * as ProviderRegistry from "../provider/Services/ProviderRegistry.ts";
 import { deriveProviderInstanceConfigMap } from "../provider/Layers/ProviderInstanceRegistryHydration.ts";
 import { preflightProvider } from "../provider/providerPreflight.ts";
 import { SubscriptionAuthService } from "../subscription-auth/service.ts";
-import { resolveGroupResponderBotId } from "./groupResponder.ts";
 import { projectThreadDetailSnapshot } from "./ActivityPayloadProjection.ts";
 import {
   applyAuthenticatedCommandActor,
@@ -54,7 +52,6 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
     const orchestrationEngine = yield* OrchestrationEngineService;
     const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
     const projectionBots = yield* ProjectionBots.ProjectionBotRepository;
-    const projectionGroups = yield* ProjectionGroups.ProjectionGroupRepository;
     const commandReceipts = yield* OrchestrationCommandReceiptRepository;
     const providerRegistry = yield* Effect.serviceOption(ProviderRegistry.ProviderRegistry);
     const config = yield* ServerConfig.ServerConfig;
@@ -300,32 +297,10 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
             const bootstrapThread = normalizedCommand.bootstrap?.createThread;
             const groupId = thread?.groupId ?? bootstrapThread?.groupId;
 
-            const group = groupId
-              ? yield* projectionGroups.getById({ groupId }).pipe(
-                  Effect.map(Option.getOrUndefined),
-                  Effect.catch((cause) =>
-                    failEnvironmentInternal("orchestration_dispatch_failed", cause),
-                  ),
-                )
-              : undefined;
-
+            // Every group bot hears a plain message and the round skips any bot that cannot
+            // run, so only an explicitly addressed group bot is checked before sending.
             const botId = groupId
-              ? group
-                ? yield* resolveGroupResponderBotId({
-                    group,
-                    respondingBotId: normalizedCommand.respondingBotId,
-                    text: normalizedCommand.message.text,
-                    isActive: (candidate) =>
-                      projectionBots.getById({ botId: candidate }).pipe(
-                        Effect.map(
-                          (found) => Option.isSome(found) && found.value.archivedAt === null,
-                        ),
-                        Effect.catch((cause) =>
-                          failEnvironmentInternal("orchestration_dispatch_failed", cause),
-                        ),
-                      ),
-                  })
-                : normalizedCommand.respondingBotId
+              ? normalizedCommand.respondingBotId
               : (thread?.botId ?? bootstrapThread?.botId ?? normalizedCommand.respondingBotId);
 
             const bot = botId
@@ -349,7 +324,7 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
             const providerId = selection?.instanceId ?? thread?.session?.providerName;
             const model = selection?.model ?? "";
 
-            if (providerId && model) {
+            if (providerId && model && (!groupId || botId)) {
               const providerInstanceConfig = Option.isSome(serverSettings)
                 ? deriveProviderInstanceConfigMap(
                     yield* serverSettings.value.getSettings.pipe(

@@ -275,25 +275,40 @@ it.layer(NodeServices.layer)("bot delete decider", (it) => {
     }),
   );
 
-  it.effect("rejects deleting a group boss", () =>
+  it.effect("hands the group's first slot to the next bot when that bot is deleted", () =>
     Effect.gen(function* () {
-      const error = yield* decideOrchestrationCommand({
+      const result = yield* decideOrchestrationCommand({
         command: {
           type: "bot.delete",
-          commandId: CommandId.make("cmd-delete-boss"),
+          commandId: CommandId.make("cmd-delete-first"),
           botId: BOT_ID,
         },
         readModel: makeReadModel({
-          bots: [makeBot({ id: BOT_ID }), makeBot({ id: OTHER_BOT_ID })],
-          groups: [makeGroup()],
+          bots: [
+            makeBot({ id: BOT_ID }),
+            makeBot({ id: OTHER_BOT_ID }),
+            makeBot({ id: THIRD_BOT_ID }),
+          ],
+          groups: [
+            makeGroup({
+              members: [
+                { kind: "bot", botId: BOT_ID, role: "boss" },
+                { kind: "bot", botId: OTHER_BOT_ID, role: "specialist" },
+                { kind: "bot", botId: THIRD_BOT_ID, role: "specialist" },
+              ],
+            }),
+          ],
         }),
-      }).pipe(Effect.flip);
+      });
 
-      if (!Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
-        throw new Error("Expected boss delete invariant error");
-      }
+      const events = Array.isArray(result) ? result : [result];
 
-      expect(error.detail).toContain("Set a new boss before deleting it");
+      expect(events[0]?.type).toBe("group.boss-set");
+      expect(events[0]?.payload).toMatchObject({
+        bossBotId: OTHER_BOT_ID,
+        previousBossBotId: BOT_ID,
+      });
+      expect(events.some((event) => event.type === "bot.deleted")).toBe(true);
     }),
   );
 

@@ -44,6 +44,7 @@ export function applyMessageSentEvent(
     authorPersonId: event.payload.authorPersonId ?? null,
     authorDisplayName: event.payload.authorDisplayName ?? null,
     channelOrigin: event.payload.channelOrigin ?? null,
+    ...(event.payload.respondingBotId ? { respondingBotId: event.payload.respondingBotId } : {}),
     streaming: event.payload.streaming,
     createdAt: event.payload.createdAt,
     updatedAt: event.payload.updatedAt,

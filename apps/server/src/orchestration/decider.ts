@@ -210,6 +210,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "thread.approval.respond":
     case "thread.user-input.respond":
     case "thread.turn.diff.complete":
+    case "thread.group-turn.start":
       return yield* decideThreadTurns({
         command,
         readModel,

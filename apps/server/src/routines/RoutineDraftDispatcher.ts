@@ -23,7 +23,7 @@ const decodeRoutineTimeZone = Schema.decodeUnknownEffect(RoutineTimeZone);
 export interface RoutineApprovedResult {
   readonly routineId: RoutineId;
   readonly sequence: number;
-  readonly status: "approved";
+  readonly status: "enabled";
 }
 
 export interface RoutinesDeletedResult {
@@ -146,7 +146,7 @@ const make = Effect.gen(function* () {
       const now = DateTime.formatIso(yield* DateTime.now);
       const routineId = RoutineId.make(uuid);
 
-      const result = yield* engine.dispatch({
+      yield* engine.dispatch({
         type: "routine.create-approved",
         commandId: CommandId.make(`agent:routine.create-approved:${uuid}`),
         routineId,
@@ -165,7 +165,16 @@ const make = Effect.gen(function* () {
         createdAt: now,
       });
 
-      return { routineId, sequence: result.sequence, status: "approved" as const };
+      // The user's approval is the go-ahead, so the routine starts on its schedule
+      // instead of waiting, paused, for a second switch in the routines list.
+      const enabled = yield* engine.dispatch({
+        type: "routine.enable",
+        commandId: CommandId.make(`agent:routine.enable:${uuid}`),
+        routineId,
+        createdAt: now,
+      });
+
+      return { routineId, sequence: enabled.sequence, status: "enabled" as const };
     }).pipe(
       Effect.mapError((cause) =>
         isRoutineDraftError(cause)

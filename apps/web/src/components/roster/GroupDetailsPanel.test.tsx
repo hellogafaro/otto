@@ -4,9 +4,14 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { groupMemberRemovalHint, isGroupMemberRemovalBlocked } from "./GroupDetailsPanel";
 
-/** The panel, its editor, and the removal rules, which together hold the panel's markup. */
+/** The panel, the shared details aside, its editor, and the removal rules, which together hold the panel's markup. */
 function readGroupDetailsSources(): string {
-  return ["./GroupDetailsPanel.tsx", "./GroupEditor.tsx", "./groupMemberRemoval.logic.ts"]
+  return [
+    "./GroupDetailsPanel.tsx",
+    "../DetailsAside.tsx",
+    "./GroupEditor.tsx",
+    "./groupMemberRemoval.logic.ts",
+  ]
     .map((file) => NodeFS.readFileSync(new URL(file, import.meta.url), "utf8"))
     .join("\n");
 }
@@ -29,22 +34,18 @@ describe("GroupDetailsPanel", () => {
   });
 
   it("explains why a bot cannot be removed yet", () => {
-    expect(groupMemberRemovalHint({ memberCount: 2, bossName: "Mori", canAddBot: true })).toBe(
+    expect(groupMemberRemovalHint({ memberCount: 2, canAddBot: true })).toBe(
       "A group needs at least two bots. Add another bot before you remove one.",
     );
-    expect(groupMemberRemovalHint({ memberCount: 2, bossName: "Mori", canAddBot: false })).toBe(
+    expect(groupMemberRemovalHint({ memberCount: 2, canAddBot: false })).toBe(
       "A group needs at least two bots. Create a new bot in the roster before you remove one.",
     );
-    expect(groupMemberRemovalHint({ memberCount: 3, bossName: "Mori", canAddBot: true })).toBe(
-      "To remove Mori, make another bot the boss first.",
-    );
-    expect(groupMemberRemovalHint({ memberCount: 3, bossName: null, canAddBot: true })).toBeNull();
+    expect(groupMemberRemovalHint({ memberCount: 3, canAddBot: true })).toBeNull();
   });
 
   it("links the removal hint only to rows it explains", () => {
-    expect(isGroupMemberRemovalBlocked({ memberCount: 2, isBoss: false })).toBe(true);
-    expect(isGroupMemberRemovalBlocked({ memberCount: 3, isBoss: true })).toBe(true);
-    expect(isGroupMemberRemovalBlocked({ memberCount: 3, isBoss: false })).toBe(false);
+    expect(isGroupMemberRemovalBlocked(2)).toBe(true);
+    expect(isGroupMemberRemovalBlocked(3)).toBe(false);
 
     const source = readGroupDetailsSources();
     expect(source).toContain("aria-describedby={removalHint && blockedByRule ? removalHintId");

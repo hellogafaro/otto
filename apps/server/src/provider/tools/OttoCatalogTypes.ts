@@ -11,6 +11,7 @@ import type { RequestHealthStatus } from "../../subscription-auth/service.ts";
 
 export interface OttoCatalogToolHandlerInput {
   readonly input: unknown;
+  readonly webSearch?: OttoCatalogBackendOptions["webSearch"];
   readonly emitProgress: (
     summary: string,
     details?: { readonly authorizationUrl?: string },

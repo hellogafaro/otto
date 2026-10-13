@@ -241,37 +241,48 @@ export function useGroupThreadRuntime(groupId: string) {
         return false;
       }
 
-      const respondingBotId = requestedBotId ?? group.bossBotId;
-
-      const respondingBot = bots.find(
-        (bot) =>
-          bot.id === respondingBotId && bot.archivedAt === null && groupContainsBot(group, bot.id),
+      // Every member hears a plain message; a mention only narrows who answers.
+      const members = bots.filter(
+        (bot) => bot.archivedAt === null && groupContainsBot(group, bot.id),
       );
 
-      if (!respondingBot) {
+      const mentionedBot = requestedBotId
+        ? members.find((bot) => bot.id === requestedBotId)
+        : undefined;
+
+      if (requestedBotId && !mentionedBot) {
         setError(localFailure("Choose a current group member."));
 
         return false;
       }
 
-      const modelSelection = groupModelSelection(
-        respondingBot.engine,
-        activeProject.defaultModelSelection,
-        appDefaultModelSelection,
-      );
+      const selectionFor = (bot: (typeof members)[number]) => {
+        const selection = groupModelSelection(
+          bot.engine,
+          activeProject.defaultModelSelection,
+          appDefaultModelSelection,
+        );
 
-      if (
-        !modelSelection ||
-        modelSelection.instanceId === NO_PROVIDER_MODEL_SELECTION.instanceId ||
-        !providerEntries.some(
-          (entry) =>
-            entry.instanceId === modelSelection.instanceId &&
-            isProviderInstancePickerSelectable(entry),
-        )
-      ) {
+        return selection &&
+          selection.instanceId !== NO_PROVIDER_MODEL_SELECTION.instanceId &&
+          providerEntries.some(
+            (entry) =>
+              entry.instanceId === selection.instanceId &&
+              isProviderInstancePickerSelectable(entry),
+          )
+          ? selection
+          : null;
+      };
+
+      const respondingBot = mentionedBot ?? members.find((bot) => selectionFor(bot) !== null);
+      const modelSelection = respondingBot ? selectionFor(respondingBot) : null;
+
+      if (!respondingBot || !modelSelection) {
         setError(
           localFailure(
-            "Mention a group member with a connected provider, or connect the boss's provider.",
+            mentionedBot
+              ? "Connect this bot's provider, or mention another group member."
+              : "Connect a provider for a group member.",
           ),
         );
 
@@ -322,7 +333,7 @@ export function useGroupThreadRuntime(groupId: string) {
             environmentId,
             input: buildGroupTurnStartInput({
               groupId: GroupId.make(groupId),
-              respondingBotId: BotId.make(respondingBot.id),
+              ...(mentionedBot ? { respondingBotId: BotId.make(mentionedBot.id) } : {}),
               threadId,
               projectId: activeProject.id,
               title: threadTitle(prompt, files),
@@ -447,7 +458,7 @@ export function useGroupThreadRuntime(groupId: string) {
     pendingUserInputStep,
     setPendingUserInputStep,
     respondingRequestIds,
-    respondingBotId: rememberedThread?.respondingBotId ?? group?.bossBotId ?? null,
+    respondingBotId: rememberedThread?.respondingBotId ?? null,
     resume,
     resuming,
     answerPendingUserInputWithText,

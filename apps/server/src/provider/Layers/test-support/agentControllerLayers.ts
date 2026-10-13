@@ -358,6 +358,7 @@ export const routineInput = {
 export const openRoutineReview = (
   mastra: ReturnType<typeof mastraHarnessFixture>,
   events: Array<ProviderRuntimeEvent>,
+  timezone: string | null = "UTC",
 ) =>
   Effect.gen(function* () {
     const controller = yield* AgentController;
@@ -391,7 +392,7 @@ export const openRoutineReview = (
     yield* controller.sendTurn({
       threadId: codexThreadId,
       input: "Make a routine.",
-      timezone: "UTC",
+      ...(timezone ? { timezone } : {}),
     });
     const createRoutine = mastra.harnessOptions[0]?.createRoutine;
     assert.isDefined(createRoutine);

@@ -14,6 +14,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createTranslator } from "./i18n/index.ts";
 import { zhCNCatalog } from "./i18n/zh-CN.ts";
 import {
+  hourlyScheduleText,
   absoluteRunTime,
   relativeRunTime,
   botRoutinesView,
@@ -279,5 +280,13 @@ describe("routine run timestamps", () => {
 
     expect(absoluteRunTime(value)).toBe(absoluteRunTime(zoned));
     expect(relativeRunTime(value, now)).toBe(relativeRunTime(zoned, now));
+  });
+});
+
+describe("hourlyScheduleText", () => {
+  it("names an hourly schedule by its earliest run of the day", () => {
+    expect(hourlyScheduleText(1, "09:15")).toBe("Every hour at :15");
+    expect(hourlyScheduleText(3, "09:30")).toBe("Every 3 hours from 00:30");
+    expect(hourlyScheduleText(4, "10:00")).toBe("Every 4 hours from 02:00");
   });
 });

@@ -305,8 +305,6 @@ export const settingsCatalog = {
   "Privacy & data": "Privacy & data",
   "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.":
     "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.",
-  "Give your teammate an identity. You can set its model and instructions next.":
-    "Give your teammate an identity. You can set its model and instructions next.",
   "No provider ready": "No provider ready",
   "Bot settings sections": "Bot settings sections",
   "Model & usage": "Model & usage",

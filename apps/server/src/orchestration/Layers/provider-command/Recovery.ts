@@ -4,6 +4,8 @@ import {
   type OttoDelegationRecord,
   CommandId,
   MessageId,
+  type OrchestrationMessage,
+  type OrchestrationThreadActivity,
   ThreadId,
   type TurnId,
 } from "@otto/contracts";
@@ -19,6 +21,46 @@ import type { createDelegations } from "./Delegations.ts";
 import type { createRouting } from "./Routing.ts";
 import type { createTurns } from "./Turns.ts";
 import type { createFailures } from "./Failures.ts";
+
+/**
+ * A question answered while a turn was still running lives only in Otto's
+ * projection until the turn reaches a durable point. The recovery prompt
+ * repeats those answers so the restarted turn does not ask them again.
+ */
+export function startupRecoveryInput(input: {
+  readonly threadId: ThreadId;
+  readonly turnId: TurnId | null;
+  readonly messages: ReadonlyArray<OrchestrationMessage>;
+  readonly activities: ReadonlyArray<OrchestrationThreadActivity>;
+}): string {
+  const answerPrefix = `user-input:${input.threadId}:`;
+  const questions = new Map<string, string>();
+
+  for (const activity of input.activities) {
+    if (activity.kind !== "user-input.requested") continue;
+    const payload = asRecord(activity.payload);
+    const question = asRecord(Array.isArray(payload?.questions) ? payload.questions[0] : null);
+
+    if (Predicate.isString(payload?.requestId) && Predicate.isString(question?.question)) {
+      questions.set(payload.requestId, question.question);
+    }
+  }
+
+  const answers = input.messages.flatMap((message) => {
+    if (message.role !== "user" || input.turnId === null || message.turnId !== input.turnId) {
+      return [];
+    }
+
+    if (!message.id.startsWith(answerPrefix)) return [];
+    const question = questions.get(message.id.slice(answerPrefix.length));
+
+    return [question ? `"${question}" -> ${message.text}` : message.text];
+  });
+
+  if (answers.length === 0) return STARTUP_RECOVERY_INPUT;
+
+  return `${STARTUP_RECOVERY_INPUT} The user already answered these questions in this request, so use the answers instead of asking again: ${answers.join("; ")}.`;
+}
 
 export function createRecovery({
   orchestrationEngine,
@@ -363,7 +405,12 @@ export function createRecovery({
           });
           yield* resumeInterruptedTurn({
             threadId: thread.id,
-            messageText: STARTUP_RECOVERY_INPUT,
+            messageText: startupRecoveryInput({
+              threadId: thread.id,
+              turnId: thread.latestTurn?.turnId ?? null,
+              messages: threadDetail?.messages ?? [],
+              activities: threadDetail?.activities ?? [],
+            }),
             createdAt: recoveredAt,
           }).pipe(
             Effect.tap(() =>

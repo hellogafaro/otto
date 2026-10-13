@@ -140,4 +140,32 @@ describe("BotApprovalPrompt", () => {
     expect(markup).not.toContain("Run this command?");
     expect(markup).not.toContain("Runs once");
   });
+
+  it("shows a message send as the message, not a shell command", () => {
+    const markup = renderToStaticMarkup(
+      <BotApprovalPrompt
+        approval={{
+          requestId: ApprovalRequestId.make("send-to-user"),
+          requestKind: "command",
+          toolName: "SendToUser",
+          createdAt: "2026-10-13T00:00:00.000Z",
+          detail: "Approve this send action with SendToUser?",
+          args: { message: "ping from SendToUser" },
+          options: [
+            { decision: "decline", label: "Decline" },
+            { decision: "accept", label: "Approve" },
+          ],
+        }}
+        pendingCount={1}
+        responding={false}
+        error={null}
+        onRespond={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Send this message?");
+    expect(markup).toContain("ping from SendToUser");
+    expect(markup).not.toContain("Run this command?");
+    expect(markup).not.toContain("Approve this send action");
+  });
 });

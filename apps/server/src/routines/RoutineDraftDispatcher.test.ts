@@ -268,3 +268,34 @@ describe("RoutineDraftDispatcher.deleteForThread", () => {
     }).pipe(Effect.provide(test.layer));
   });
 });
+
+describe("RoutineDraftDispatcher.createApprovedForThread", () => {
+  it.effect("starts the approved routine on its schedule", () => {
+    const test = deleteHarness({ routines: [] });
+
+    return Effect.gen(function* () {
+      const dispatcher = yield* RoutineDraftDispatcher;
+
+      const result = yield* dispatcher.createApprovedForThread(
+        ThreadId.make("thread-1"),
+        "Europe/Madrid",
+        {
+          name: "Daily hello",
+          instructions: "Say hi.",
+          schedule: { kind: "daily", time: "09:00" },
+        },
+      );
+
+      expect(test.commands.map(({ type }) => type)).toEqual([
+        "routine.create-approved",
+        "routine.enable",
+      ]);
+      expect(result).toEqual({
+        routineId:
+          test.commands[0]?.type === "routine.create-approved" && test.commands[0].routineId,
+        sequence: 2,
+        status: "enabled",
+      });
+    }).pipe(Effect.provide(test.layer));
+  });
+});

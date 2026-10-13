@@ -1,5 +1,6 @@
 import {
   acknowledgeOttoDelegation,
+  type BotId,
   isOttoDelegationResultPending,
   MessageId,
   ProviderInstanceId,
@@ -10,7 +11,6 @@ import {
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
-import { resolveGroupResponderBotId } from "../groupResponder.ts";
 import { OrchestrationCommandInvariantError } from "../Errors.ts";
 import type { OrchestrationDispatchActor } from "../Services/OrchestrationEngine.ts";
 import {
@@ -21,12 +21,48 @@ import {
   requireThread,
 } from "../commandInvariants.ts";
 import {
-  activeGroupBotIds,
   withEventBase,
   requireActiveResponder,
   userInputAnswerText,
   type DecideOrchestrationCommandResult,
 } from "./eventBase.ts";
+
+/**
+ * Finished child work this bot has not seen yet rides into its next turn as
+ * context. Stamping acknowledgedAt in the same command makes delivery exactly
+ * once: the next turn start finds nothing pending.
+ */
+const acknowledgeDelegations = Effect.fnUntraced(function* (
+  readModel: OrchestrationReadModel,
+  command: Extract<OrchestrationCommand, { type: "thread.turn.start" | "thread.group-turn.start" }>,
+  respondingBotId: BotId | null,
+) {
+  const acknowledgedDelegations = readModel.delegations
+    .filter(
+      (delegation) =>
+        delegation.parentThreadId === command.threadId &&
+        (respondingBotId === null || delegation.parentBotId === respondingBotId) &&
+        isOttoDelegationResultPending(delegation),
+    )
+    .map((delegation) => acknowledgeOttoDelegation(delegation, command.createdAt));
+
+  const acknowledgementEvents: Array<Omit<OrchestrationEvent, "sequence">> = [];
+
+  for (const delegation of acknowledgedDelegations) {
+    acknowledgementEvents.push({
+      ...(yield* withEventBase({
+        aggregateKind: "delegation",
+        aggregateId: delegation.delegationId,
+        occurredAt: delegation.updatedAt,
+        commandId: command.commandId,
+      })),
+      type: "delegation.updated",
+      payload: { delegation },
+    });
+  }
+
+  return { acknowledgedDelegations, acknowledgementEvents };
+});
 
 export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
   command,
@@ -41,6 +77,7 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
         | "thread.turn.interrupt"
         | "thread.approval.respond"
         | "thread.user-input.respond"
+        | "thread.group-turn.start"
         | "thread.turn.diff.complete";
     }
   >;
@@ -97,12 +134,12 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
         });
       }
 
-      let respondingBotId = targetThread.botId ?? null;
+      const respondingBotId = targetThread.botId ?? null;
       const isGroupThread = targetThread.groupId !== null && targetThread.groupId !== undefined;
 
       // Direct chats refuse archived bots here so a stale client or queued send cannot
       // wake one. Group chats check the responding member below instead.
-      let respondingBot =
+      const respondingBot =
         respondingBotId === null
           ? null
           : isGroupThread
@@ -118,29 +155,6 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
           groupId: targetThread.groupId,
         });
 
-        const activeMemberIds = activeGroupBotIds(readModel, group);
-
-        const selectedBotId = yield* resolveGroupResponderBotId({
-          group,
-          respondingBotId: command.respondingBotId,
-          text: command.message.text,
-          isActive: (botId) => Effect.succeed(activeMemberIds.has(botId)),
-        });
-
-        if (selectedBotId === null) {
-          return yield* new OrchestrationCommandInvariantError({
-            commandType: command.type,
-            detail: `Group '${group.id}' has no boss bot that can respond.`,
-          });
-        }
-
-        respondingBot = yield* requireActiveGroupMember({
-          readModel,
-          command,
-          groupId: group.id,
-          botId: selectedBotId,
-        });
-        respondingBotId = selectedBotId;
         const personMembers = group.members.filter((member) => member.kind === "person");
 
         const senderIsMember = personMembers.some(
@@ -174,7 +188,10 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
                 updatedAt: command.createdAt,
               },
             };
-          } else {
+          } else if (command.senderCanManageGroups !== true) {
+            // Person ids are sign-in sessions, so an administrator who signs in
+            // again is not a listed member. Administrators may already change any
+            // group, so they may also write in it, as group mutations allow.
             return yield* new OrchestrationCommandInvariantError({
               commandType: command.type,
               detail: `Person '${command.senderPersonId}' is not a member of group '${group.id}'.`,
@@ -188,32 +205,9 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
         });
       }
 
-      // Finished child work this bot has not seen yet rides into this turn as
-      // context. Stamping acknowledgedAt in the same command makes delivery
-      // exactly once: the next turn start finds nothing pending.
-      const acknowledgedDelegations = readModel.delegations
-        .filter(
-          (delegation) =>
-            delegation.parentThreadId === command.threadId &&
-            (respondingBotId === null || delegation.parentBotId === respondingBotId) &&
-            isOttoDelegationResultPending(delegation),
-        )
-        .map((delegation) => acknowledgeOttoDelegation(delegation, command.createdAt));
-
-      const acknowledgementEvents: Array<Omit<OrchestrationEvent, "sequence">> = [];
-
-      for (const delegation of acknowledgedDelegations) {
-        acknowledgementEvents.push({
-          ...(yield* withEventBase({
-            aggregateKind: "delegation",
-            aggregateId: delegation.delegationId,
-            occurredAt: delegation.updatedAt,
-            commandId: command.commandId,
-          })),
-          type: "delegation.updated",
-          payload: { delegation },
-        });
-      }
+      const { acknowledgedDelegations, acknowledgementEvents } = isGroupThread
+        ? { acknowledgedDelegations: [], acknowledgementEvents: [] }
+        : yield* acknowledgeDelegations(readModel, command, respondingBotId);
 
       const userMessageEvent: Omit<OrchestrationEvent, "sequence"> = {
         ...(yield* withEventBase({
@@ -327,7 +321,70 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
         ...lifecycleResetEvents,
         ...acknowledgementEvents,
         userMessageEvent,
-        turnStartRequestedEvent,
+        // A group message only lands here; its round then starts each bot's turn.
+        ...(isGroupThread ? [] : [turnStartRequestedEvent]),
+      ];
+    }
+
+    case "thread.group-turn.start": {
+      const thread = yield* requireThread({ readModel, command, threadId: command.threadId });
+
+      if (thread.groupId === null || thread.groupId === undefined) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Thread '${command.threadId}' is not a group chat.`,
+        });
+      }
+
+      const bot = yield* requireActiveGroupMember({
+        readModel,
+        command,
+        groupId: thread.groupId,
+        botId: command.botId,
+      });
+
+      const { acknowledgedDelegations, acknowledgementEvents } = yield* acknowledgeDelegations(
+        readModel,
+        command,
+        command.botId,
+      );
+
+      return [
+        ...acknowledgementEvents,
+        {
+          ...(yield* withEventBase({
+            aggregateKind: "thread",
+            aggregateId: command.threadId,
+            occurredAt: command.createdAt,
+            commandId: command.commandId,
+          })),
+          type: "thread.turn-start-requested",
+          payload: {
+            threadId: command.threadId,
+            messageId: command.messageId,
+            ...(bot.engine
+              ? {
+                  modelSelection: {
+                    instanceId: ProviderInstanceId.make(bot.engine.provider),
+                    model: bot.engine.model,
+                    ...(bot.engine.options ? { options: bot.engine.options } : {}),
+                  },
+                }
+              : {}),
+            runtimeMode: thread.runtimeMode,
+            interactionMode: thread.interactionMode,
+            respondingBotId: command.botId,
+            groupInput: { text: command.input, attachments: command.attachments },
+            ...(acknowledgedDelegations.length > 0
+              ? {
+                  acknowledgedDelegationIds: acknowledgedDelegations.map(
+                    (delegation) => delegation.delegationId,
+                  ),
+                }
+              : {}),
+            createdAt: command.createdAt,
+          },
+        },
       ];
     }
 

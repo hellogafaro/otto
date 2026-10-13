@@ -235,6 +235,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           botName: input.botName || "",
           personalityTone,
           mcpInstructions: formatMcpServerInstructions(mcpServers),
+          groupContext: input.groupContext,
         }),
       );
       const toolSession = { ...existing.configuredToolSession };
@@ -583,6 +584,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           ...(input.botName ? { botName: input.botName } : {}),
           personalityTone,
           mcpInstructions: formatMcpServerInstructions(mcpServers),
+          ...(input.groupContext ? { groupContext: input.groupContext } : {}),
           modelOptions: modelOptions ?? {},
         }),
       );

@@ -6,7 +6,7 @@ import {
   BotId,
   PLACEHOLDER_THREAD_TITLE,
   EnvironmentId,
-  type MessageId,
+  MessageId,
   type ModelSelection,
   type ScopedThreadRef,
 } from "@otto/contracts";
@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { DEFAULT_INTERACTION_MODE } from "../../types";
-import { newMessageId, newThreadId } from "../../lib/utils";
+import { newMessageId, newThreadId, randomUUID } from "../../lib/utils";
 import { resolveAppModelSelectionState } from "../../modelSelection";
 import {
   useAllEnvironmentShellsBootstrapped,
@@ -42,6 +42,7 @@ import {
   shouldTitlePlaceholderChat,
   type RetainedChat,
 } from "./botThreadRuntime.logic";
+import { BOT_INTRO_MESSAGE_PREFIX, isHiddenBotPrompt } from "./botIntro";
 import { parseChatPath } from "./roster.logic";
 import { useRosterStore } from "./rosterStore";
 import { useBotChatTarget } from "./useBotThreadRef";
@@ -376,11 +377,12 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     async (
       prompt: string,
       files: readonly File[],
-      voiceMessageId?: MessageId,
+      options: { readonly messageId?: MessageId; readonly title?: string } = {},
     ): Promise<boolean> => {
       const pendingUserInput = pendingUserInputs[0];
+      const hidden = options.messageId !== undefined && isHiddenBotPrompt(options.messageId);
 
-      if (pendingUserInput && linkedThreadRef && voiceMessageId !== undefined) {
+      if (pendingUserInput && linkedThreadRef && options.messageId !== undefined) {
         setError(localFailure("Answer the bot's question in chat, then keep talking."));
 
         return false;
@@ -431,7 +433,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
           appDefaultModelSelection;
 
         const runtimeMode = bot?.runtimeMode ?? settings.localExecutionMode;
-        const title = threadTitle(prompt, files);
+        const title = options.title ?? threadTitle(prompt, files);
 
         try {
           const attachments = await readThreadTurnAttachments(files);
@@ -482,7 +484,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
               projectId: activeProject.id,
               title,
               message: {
-                messageId: voiceMessageId ?? newMessageId(),
+                messageId: options.messageId ?? newMessageId(),
                 role: "user",
                 text: prompt,
                 attachments,
@@ -554,6 +556,8 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
               );
           }
 
+          if (hidden) return true;
+
           useRosterStore.getState().recordLastMessage(botId, {
             text: prompt || (files.length === 1 ? "Sent an image" : "Sent images"),
             at: createdAt,
@@ -598,8 +602,18 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     async (text: string): Promise<MessageId | null> => {
       const messageId = newMessageId();
 
-      return (await send(text, [], messageId)) ? messageId : null;
+      return (await send(text, [], { messageId })) ? messageId : null;
     },
+    [send],
+  );
+
+  /** Sends a prompt the bot answers but the chat never shows, such as a new bot's introduction. */
+  const sendHidden = useCallback(
+    (prompt: string, title: string) =>
+      send(prompt, [], {
+        messageId: MessageId.make(`${BOT_INTRO_MESSAGE_PREFIX}${randomUUID()}`),
+        title,
+      }),
     [send],
   );
 
@@ -665,6 +679,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     submitPendingUserInputAnswers,
     canStartNewChat,
     send,
+    sendHidden,
     sendVoiceMessage,
     sending,
     startNewChat,

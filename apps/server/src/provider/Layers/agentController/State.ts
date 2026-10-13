@@ -1,3 +1,4 @@
+import type { MastraDBMessage } from "@mastra/core/agent-controller";
 import type { OttoPluginRuntimeOptions } from "../../OttoCatalogToolHandlers.ts";
 import { ProviderDriverKind } from "@otto/contracts";
 import { ProviderInstanceId } from "@otto/contracts";
@@ -41,6 +42,8 @@ export interface ResolvedEngine {
 
 export interface ActiveAssistantMessage {
   readonly messageId: string;
+  /** The live parts Mastra mutates while it streams this message. */
+  parts: MastraDBMessage["content"]["parts"];
   text: string;
   publishedText: string;
   revision: number;

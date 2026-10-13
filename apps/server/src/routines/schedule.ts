@@ -19,6 +19,7 @@ const parseTime = (time: string): readonly [hour: number, minute: number] => {
 
 const matchesDay = (schedule: RoutineSchedule, weekDay: number) => {
   switch (schedule.kind) {
+    case "hourly":
     case "daily":
       return true;
     case "weekdays":
@@ -38,30 +39,34 @@ const weekdays: ReadonlyArray<RoutineWeekday> = [
   "saturday",
 ];
 
-const candidateForDay = (
+/** The local hours a schedule runs on any matching day, earliest first. */
+const hoursOfDay = (schedule: RoutineSchedule, hour: number): ReadonlyArray<number> => {
+  if (schedule.kind !== "hourly") return [hour];
+  const step = schedule.everyHours;
+
+  return Array.from({ length: 24 / step }, (_, index) => (hour % step) + index * step);
+};
+
+const candidatesForDay = (
   day: DateTime.Zoned,
   schedule: RoutineSchedule,
   timezone: string,
-): DateTime.Zoned => {
+): ReadonlyArray<DateTime.Zoned> => {
   const [hour, minute] = parseTime(schedule.time);
   const parts = DateTime.toParts(day);
 
-  const candidate = DateTime.makeZoned(
-    {
-      year: parts.year,
-      month: parts.month,
-      day: parts.day,
-      hour,
-      minute,
-    },
-    { timeZone: timezone, adjustForTimeZone: true },
-  );
+  return hoursOfDay(schedule, hour).map((slotHour) => {
+    const candidate = DateTime.makeZoned(
+      { year: parts.year, month: parts.month, day: parts.day, hour: slotHour, minute },
+      { timeZone: timezone, adjustForTimeZone: true },
+    );
 
-  if (Option.isNone(candidate)) {
-    throw new RoutineScheduleError({ detail: `Invalid routine timezone: ${timezone}` });
-  }
+    if (Option.isNone(candidate)) {
+      throw new RoutineScheduleError({ detail: `Invalid routine timezone: ${timezone}` });
+    }
 
-  return candidate.value;
+    return candidate.value;
+  });
 };
 
 export const latestScheduledFor = (
@@ -79,9 +84,12 @@ export const latestScheduledFor = (
     const day = DateTime.subtract(now.value, { days: daysBack });
 
     if (!matchesDay(schedule, DateTime.toParts(day).weekDay)) continue;
-    const candidate = candidateForDay(day, schedule, timezone);
 
-    if (DateTime.toEpochMillis(candidate) <= nowEpochMillis) return DateTime.formatIso(candidate);
+    const candidate = candidatesForDay(day, schedule, timezone).findLast(
+      (slot) => DateTime.toEpochMillis(slot) <= nowEpochMillis,
+    );
+
+    if (candidate) return DateTime.formatIso(candidate);
   }
 
   throw new RoutineScheduleError({ detail: "Routine schedule has no matching day." });
@@ -102,9 +110,12 @@ export const nextScheduledFor = (
     const day = DateTime.add(after.value, { days: daysAhead });
 
     if (!matchesDay(schedule, DateTime.toParts(day).weekDay)) continue;
-    const candidate = candidateForDay(day, schedule, timezone);
 
-    if (DateTime.toEpochMillis(candidate) > afterEpochMillis) return DateTime.formatIso(candidate);
+    const candidate = candidatesForDay(day, schedule, timezone).find(
+      (slot) => DateTime.toEpochMillis(slot) > afterEpochMillis,
+    );
+
+    if (candidate) return DateTime.formatIso(candidate);
   }
 
   throw new RoutineScheduleError({ detail: "Routine schedule has no matching day." });

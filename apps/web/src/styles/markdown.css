@@ -359,3 +359,46 @@
   max-width: 24rem;
   overflow-wrap: anywhere;
 }
+
+/* Otto: The rich-text description editor reuses chat Markdown type, with
+   bordered editable table cells and a placeholder on the empty first line. */
+
+.rich-text .tableWrapper {
+  margin: 0.65rem 0;
+  overflow-x: auto;
+}
+
+.rich-text table {
+  min-width: 100%;
+  table-layout: fixed;
+  font-size: 0.8125rem;
+}
+
+.rich-text th,
+.rich-text td {
+  position: relative;
+  min-width: 6rem;
+  border: 1px solid color-mix(in srgb, var(--contrast-border) 60%, transparent);
+  vertical-align: top;
+}
+
+.rich-text th > p,
+.rich-text td > p {
+  margin: 0;
+}
+
+.rich-text .selectedCell::after {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.rich-text p.is-editor-empty:first-child::before {
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}

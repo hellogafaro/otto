@@ -82,14 +82,18 @@ import { ThreadRuntimeWarningBanner } from "./ThreadRuntimeWarningBanner";
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
+/**
+ * The member whose provider labels the group composer. Every member hears each message,
+ * so this is only the stored first bot, or any active member once it leaves.
+ */
 export function resolveAvailableGroupBoss<T extends { readonly id: string }>(
   members: ReadonlyArray<T>,
   bossBotId: string | null,
 ): T | null {
-  return members.find((bot) => bot.id === bossBotId) ?? null;
+  return members.find((bot) => bot.id === bossBotId) ?? members[0] ?? null;
 }
 
-/** The bot a group draft goes to: the mentioned member, otherwise the boss. */
+/** The bot a group draft names: the mentioned member, otherwise the first active member. */
 export function resolveGroupAddressedBot<T extends { readonly id: string }>(
   members: ReadonlyArray<T>,
   boss: T | null,
@@ -140,7 +144,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
     : [];
 
   const boss = group ? resolveAvailableGroupBoss(members, group.bossBotId) : null;
-  // The boss answers a group message first, so its provider's skills label sent messages.
+  // The default member's provider skills label sent messages.
   const bossEngine = useBotEngineAvailability(boss?.engine ?? null);
   const bossCatalog = bossEngine.catalog;
   // A mention sends the draft to that member, so the `$` and `/` pickers offer its provider's catalog.
@@ -355,7 +359,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
                   ))}
                 </div>
                 <h1 className="text-lg font-medium">
-                  {boss ? t("Message {name}", { name: group.name }) : t("Group boss unavailable")}
+                  {boss ? t("Message {name}", { name: group.name }) : t("No active bots")}
                 </h1>
               </div>
             ) : (
@@ -479,7 +483,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
           />
           {boss === null ? (
             <div className="px-4 py-2 text-sm text-muted-foreground" role="status">
-              {t("Choose an active group boss in the group sidebar.")}
+              {t("Add an active bot to this group in the group sidebar.")}
             </div>
           ) : null}
           <BotPromptComposer
@@ -513,8 +517,8 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
                       decision,
                     );
 
-                    if (answered && decision === "acceptAlways" && boss) {
-                      await enableAutoReview(boss.id);
+                    if (answered && decision === "acceptAlways" && activeBot) {
+                      await enableAutoReview(activeBot.id);
                     }
 
                     return answered;
@@ -553,6 +557,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
               runtime.defaultProject === null ||
               (!waitingForUserInput && !runtime.providerAvailable)
             }
+            mentionEveryone
             mentionBots={members.map((bot) => ({
               id: bot.id,
               name: bot.name,

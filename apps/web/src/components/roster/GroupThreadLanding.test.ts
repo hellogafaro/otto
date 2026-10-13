@@ -22,9 +22,10 @@ describe("group thread person placement", () => {
   });
 });
 
-describe("group boss availability", () => {
-  it("keeps the landing available when the configured boss is unavailable", () => {
-    expect(resolveAvailableGroupBoss([{ id: "specialist" }], "boss")).toBeNull();
+describe("group default member", () => {
+  it("falls back to any active member when the stored first bot is gone", () => {
+    expect(resolveAvailableGroupBoss([{ id: "specialist" }], "boss")).toEqual({ id: "specialist" });
+    expect(resolveAvailableGroupBoss([], "boss")).toBeNull();
   });
 });
 

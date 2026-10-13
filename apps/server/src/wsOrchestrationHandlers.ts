@@ -26,7 +26,6 @@ import {
   dispatchKeepingAcceptedUploads,
   normalizeDispatchCommand,
 } from "./orchestration/Normalizer.ts";
-import { resolveGroupResponderBotId } from "./orchestration/groupResponder.ts";
 import { readWorkflowScript } from "./orchestration/workflowScriptQuery.ts";
 import { preflightProvider } from "./provider/providerPreflight.ts";
 
@@ -37,7 +36,6 @@ export const createWsOrchestrationHandlers = ({
   currentSessionId,
   projectionSnapshotQuery,
   projectionBots,
-  projectionGroups,
   checkpointDiffQuery,
   providerRegistry,
   subscriptionAuth,
@@ -56,7 +54,6 @@ export const createWsOrchestrationHandlers = ({
   | "currentSessionId"
   | "projectionSnapshotQuery"
   | "projectionBots"
-  | "projectionGroups"
   | "checkpointDiffQuery"
   | "providerRegistry"
   | "subscriptionAuth"
@@ -214,26 +211,10 @@ export const createWsOrchestrationHandlers = ({
             const bootstrapThread = normalizedCommand.bootstrap?.createThread;
             const groupId = thread?.groupId ?? bootstrapThread?.groupId;
 
-            const group = groupId
-              ? yield* projectionGroups.getById({ groupId }).pipe(Effect.map(Option.getOrUndefined))
-              : undefined;
-
+            // Every group bot hears a plain message and the round skips any bot that cannot
+            // run, so only an explicitly addressed group bot is checked before sending.
             const botId = groupId
-              ? group
-                ? yield* resolveGroupResponderBotId({
-                    group,
-                    respondingBotId: normalizedCommand.respondingBotId,
-                    text: normalizedCommand.message.text,
-                    isActive: (candidate) =>
-                      projectionBots
-                        .getById({ botId: candidate })
-                        .pipe(
-                          Effect.map(
-                            (found) => Option.isSome(found) && found.value.archivedAt === null,
-                          ),
-                        ),
-                  })
-                : normalizedCommand.respondingBotId
+              ? normalizedCommand.respondingBotId
               : (thread?.botId ?? bootstrapThread?.botId ?? normalizedCommand.respondingBotId);
 
             const bot = botId
@@ -252,7 +233,7 @@ export const createWsOrchestrationHandlers = ({
             const providerId = selection?.instanceId ?? thread?.session?.providerName;
             const model = selection?.model ?? "";
 
-            if (providerId && model) {
+            if (providerId && model && (!groupId || botId)) {
               const providerInstanceConfig = deriveProviderInstanceConfigMap(
                 yield* serverSettings.getSettings,
               )[ProviderInstanceId.make(providerId)];

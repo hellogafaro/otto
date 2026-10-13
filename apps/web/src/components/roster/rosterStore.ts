@@ -191,6 +191,9 @@ interface RosterStore {
   /** The bot whose view should start a fresh chat once it can; opening a chat cancels it. */
   newChatBotId: string | null;
   requestNewChat: (botId: string | null) => void;
+  /** A bot created moments ago whose view should send its hidden introduction once it can. */
+  introBotId: string | null;
+  requestBotIntro: (botId: string | null) => void;
   replaceRoster: (input: {
     environmentId: string;
     bots: Bot[];
@@ -265,6 +268,7 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   chatPathByBotId: persisted?.chatPathByBotId ?? {},
   openChatByBotId: {},
   newChatBotId: null,
+  introBotId: null,
   pinnedItems: persisted?.pinnedItems ?? [],
   unassignedItems: persisted?.unassignedItems ?? [],
   environmentId: null,
@@ -406,6 +410,8 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   },
 
   requestNewChat: (botId) => set({ newChatBotId: botId }),
+
+  requestBotIntro: (botId) => set({ introBotId: botId }),
 
   replaceRoster: (input) => {
     const switchingEnvironment = get().environmentId !== input.environmentId;

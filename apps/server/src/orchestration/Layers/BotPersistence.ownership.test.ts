@@ -216,6 +216,17 @@ it.layer(TestLayer)("bot persistence", (it) => {
         senderDisplayName: "Routing person",
         createdAt,
       });
+      // A group message starts no turn; the group round starts each bot's turn.
+      yield* engine.dispatch({
+        type: "thread.group-turn.start",
+        commandId: CommandId.make("cmd-routing-group-turn"),
+        threadId,
+        botId: specialistBotId,
+        messageId: MessageId.make("message-routing"),
+        input: "Investigate",
+        attachments: [],
+        createdAt,
+      });
 
       const thread = (yield* snapshots.getShellSnapshot()).threads.find(
         (entry) => entry.id === threadId,

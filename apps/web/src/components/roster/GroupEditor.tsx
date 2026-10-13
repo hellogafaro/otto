@@ -68,11 +68,7 @@ export function GroupEditor({
   const addHintId = useId();
 
   const removalHint = groupMemberRemovalHint(
-    {
-      memberCount: members.length,
-      bossName: members.find((bot) => bot.id === group.bossBotId)?.name ?? null,
-      canAddBot: availableBots.length > 0,
-    },
+    { memberCount: members.length, canAddBot: availableBots.length > 0 },
     t,
   );
 
@@ -133,80 +129,54 @@ export function GroupEditor({
             </Button>
           </div>
         </label>
-        <label className="block space-y-2 text-sm font-medium">
-          {t("Boss")}
-          <Select
-            value={group.bossBotId ?? ""}
-            onValueChange={(botId) => {
-              if (!botId || botId === group.bossBotId) return;
-              void run(
-                () =>
-                  setBoss({
-                    environmentId,
-                    input: {
-                      groupId: GroupId.make(group.id),
-                      bossBotId: BotId.make(botId),
-                      unassignPreviousBoss: false,
-                    },
-                  }),
-                t("Could not change group boss"),
-              );
-            }}
-          >
-            <SelectTrigger aria-label={t("Group boss")} className="w-full">
-              <SelectValue>
-                {members.find((bot) => bot.id === group.bossBotId)?.name ?? t("Choose boss")}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectPopup>
-              {members.map((bot) => (
-                <SelectItem key={bot.id} value={bot.id}>
-                  {bot.name}
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </Select>
-        </label>
         <section className="space-y-2" aria-labelledby="group-bots-heading">
           <h3 id="group-bots-heading" className="text-sm font-medium">
             {t("Bots")}
           </h3>
           <div className="space-y-1 rounded-lg border p-2">
             {members.map((bot) => {
-              const role = group.members.find(
+              const isMember = group.members.some(
                 (member) => isGroupBotMember(member) && member.botId === bot.id,
               );
 
-              const blockedByRule = isGroupMemberRemovalBlocked({
-                memberCount: members.length,
-                isBoss: role?.kind === "bot" && role.role === "boss",
-              });
+              const blockedByRule = isGroupMemberRemovalBlocked(members.length);
+
+              // Groups have no lead in the product. The stored boss only moves to
+              // another member when it leaves, so removal works for every bot.
+              const nextBoss =
+                bot.id === group.bossBotId ? members.find((other) => other.id !== bot.id) : null;
 
               return (
                 <div key={bot.id} className="flex min-h-9 items-center gap-2 rounded-md px-1">
                   <span className="min-w-0 flex-1 truncate text-sm">{bot.name}</span>
-                  <span className="text-xs capitalize text-muted-foreground">
-                    {role?.kind === "bot" && role.role === "boss" ? t("Boss") : t("Specialist")}
-                  </span>
                   <Button
                     aria-describedby={removalHint && blockedByRule ? removalHintId : undefined}
                     aria-label={t("Remove {bot} from {group}", {
                       bot: bot.name,
                       group: group.name,
                     })}
-                    disabled={busy || role?.kind !== "bot" || blockedByRule}
+                    disabled={busy || !isMember || blockedByRule}
                     size="icon-sm"
                     variant="ghost"
                     onClick={() =>
                       void run(
                         () =>
-                          unassignMember({
-                            environmentId,
-                            input: {
-                              groupId: GroupId.make(group.id),
-                              botId: BotId.make(bot.id),
-                            },
-                          }),
+                          nextBoss
+                            ? setBoss({
+                                environmentId,
+                                input: {
+                                  groupId: GroupId.make(group.id),
+                                  bossBotId: BotId.make(nextBoss.id),
+                                  unassignPreviousBoss: true,
+                                },
+                              })
+                            : unassignMember({
+                                environmentId,
+                                input: {
+                                  groupId: GroupId.make(group.id),
+                                  botId: BotId.make(bot.id),
+                                },
+                              }),
                         t("Could not remove {name}", { name: bot.name }),
                       )
                     }

@@ -26,10 +26,10 @@ export function createOttoCatalogToolHandlers(
   return {
     ...(backends.webSearch
       ? {
-          WebSearch: async ({ input }) => {
+          WebSearch: async ({ input, webSearch }) => {
             const request = decodeOttoToolInput("WebSearch", input);
 
-            return backends.webSearch!({
+            return (webSearch ?? backends.webSearch!)({
               query: request.query,
               ...(request.domains ? { domains: request.domains } : {}),
             });

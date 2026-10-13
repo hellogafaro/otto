@@ -1,6 +1,7 @@
 import { channelProviderLabel as sharedChannelProviderLabel } from "@otto/client-runtime/channel-presentation";
 import { formatDate } from "@otto/client-runtime/i18n";
 import type { OrchestrationMessage } from "@otto/contracts";
+import { isHiddenBotPrompt } from "./botIntro";
 import type { RosterPresence } from "./roster.logic";
 
 export const channelProviderLabel = sharedChannelProviderLabel;
@@ -190,7 +191,7 @@ export function visibleBotChatMessages(
   let lastUserIndex = -1;
 
   messages.forEach((message, index) => {
-    if (message.role === "user" && String(message.id).startsWith("routine:")) return;
+    if (message.role === "user" && isHiddenBotPrompt(message.id)) return;
 
     if (message.role === "user") {
       precedingUserId = message.id;
@@ -206,7 +207,7 @@ export function visibleBotChatMessages(
   precedingUserId = "before-first-user";
 
   return messages.filter((message, index) => {
-    if (message.role === "user" && String(message.id).startsWith("routine:")) return false;
+    if (message.role === "user" && isHiddenBotPrompt(message.id)) return false;
 
     if (message.role === "user") {
       precedingUserId = message.id;

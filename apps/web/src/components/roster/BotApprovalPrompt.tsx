@@ -3,6 +3,7 @@ import {
   OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   type ProviderApprovalDecision,
 } from "@otto/contracts";
+import { Predicate } from "effect";
 import { cn } from "~/lib/utils";
 
 import { useI18n } from "../../i18n";
@@ -40,20 +41,27 @@ export function BotApprovalPrompt({
     ) ??
       false);
 
+  const toolCommand =
+    approval.args && Predicate.isObject(approval.args) && "command" in approval.args;
+
   const heading =
-    approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
-      ? t("Review routine")
-      : approval.toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME
-        ? t("Review product feedback")
-        : approval.toolName === "Computer Use"
-          ? t("Use the computer?")
-          : approval.requestKind === "command"
-            ? t("Run this command?")
-            : approval.requestKind === "file-read"
-              ? t("Read this file?")
-              : approval.requestKind === "file-change"
-                ? t("Change this file?")
-                : t("Allow app access?");
+    approval.toolName === "SendToUser"
+      ? t("Send this message?")
+      : approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
+        ? t("Review routine")
+        : approval.toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME
+          ? t("Review product feedback")
+          : approval.toolName === "Computer Use"
+            ? t("Use the computer?")
+            : approval.requestKind === "command" && approval.toolName && !toolCommand
+              ? t("Allow {tool}?", { tool: approval.toolName })
+              : approval.requestKind === "command"
+                ? t("Run this command?")
+                : approval.requestKind === "file-read"
+                  ? t("Read this file?")
+                  : approval.requestKind === "file-change"
+                    ? t("Change this file?")
+                    : t("Allow app access?");
 
   return (
     <section

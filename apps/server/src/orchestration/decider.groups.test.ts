@@ -1,5 +1,12 @@
 import * as Predicate from "effect/Predicate";
-import { AuthSessionId, CommandId, GroupId, type OrchestrationReadModel } from "@otto/contracts";
+import {
+  AuthSessionId,
+  CommandId,
+  GroupId,
+  MessageId,
+  type OrchestrationReadModel,
+  ThreadId,
+} from "@otto/contracts";
 import { expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
@@ -16,7 +23,6 @@ import {
   makeGroupThread,
   applyCommand,
   PERSON_ID,
-  startTurnCommand,
 } from "./test-support/GroupDeciderFixtures.ts";
 
 it.layer(NodeServices.layer)("group membership decider", (it) => {
@@ -160,25 +166,39 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
     }),
   );
 
-  it.effect("rejects archiving a current group boss", () =>
+  it.effect("hands the group's first slot to the next bot when that bot is archived", () =>
     Effect.gen(function* () {
-      const error = yield* decideOrchestrationCommand({
+      const result = yield* decideOrchestrationCommand({
         command: {
           type: "bot.archive",
-          commandId: CommandId.make("cmd-archive-group-boss"),
+          commandId: CommandId.make("cmd-archive-group-first"),
           botId: BOSS_ID,
         },
         readModel: makeReadModel({
-          bots: [makeBot({ id: BOSS_ID })],
-          groups: [makeGroup()],
+          bots: [
+            makeBot({ id: BOSS_ID }),
+            makeBot({ id: SPECIALIST_ID }),
+            makeBot({ id: OTHER_SPECIALIST_ID }),
+          ],
+          groups: [
+            makeGroup({
+              members: [
+                { kind: "bot", botId: BOSS_ID, role: "boss" },
+                { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
+                { kind: "bot", botId: OTHER_SPECIALIST_ID, role: "specialist" },
+              ],
+            }),
+          ],
         }),
-      }).pipe(Effect.flip);
+      });
 
-      if (!Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
-        throw new Error("Expected boss archive invariant error");
-      }
+      const events = Array.isArray(result) ? result : [result];
 
-      expect(error.detail).toContain("Set a new boss before archiving it");
+      expect(events.map((event) => event.type)).toEqual(["group.boss-set", "bot.archived"]);
+      expect(events[0]?.payload).toMatchObject({
+        bossBotId: SPECIALIST_ID,
+        previousBossBotId: BOSS_ID,
+      });
     }),
   );
 
@@ -552,7 +572,16 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
           groups: [makeGroup()],
           threads: [makeGroupThread()],
         }),
-        startTurnCommand(SPECIALIST_ID),
+        {
+          type: "thread.group-turn.start",
+          commandId: CommandId.make("cmd-group-turn"),
+          threadId: ThreadId.make("thread-group"),
+          botId: SPECIALIST_ID,
+          messageId: MessageId.make("message-1"),
+          input: "Please investigate.",
+          attachments: [],
+          createdAt: NOW,
+        },
       );
 
       expect(mentioned.readModel.threads[0]?.respondingBotId).toBe(SPECIALIST_ID);

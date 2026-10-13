@@ -2,6 +2,8 @@ import { OttoDelegationPhase } from "@otto/contracts";
 
 import {
   BALANCED_BOT_PERSONALITY_TONE,
+  type BotId,
+  type CommandId,
   DEFAULT_LOCAL_EXECUTION_MODE,
   DEFAULT_RUNTIME_MODE,
   isGroupBotMember,
@@ -31,6 +33,48 @@ import {
   delegationChildTurnId,
   type DecideOrchestrationCommandResult,
 } from "./eventBase.ts";
+
+/** Hands a group's stored first-bot slot to its next active bot, so no bot is ever stuck as "boss". */
+const handOverGroupSlots = Effect.fnUntraced(function* (input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly botId: BotId;
+  readonly commandId: CommandId;
+  readonly occurredAt: string;
+}) {
+  const events: PlannedOrchestrationEvent[] = [];
+
+  for (const group of input.readModel.groups) {
+    if (group.bossBotId !== input.botId) continue;
+
+    const next = group.members
+      .filter(isGroupBotMember)
+      .find(
+        (member) =>
+          member.botId !== input.botId &&
+          input.readModel.bots.some((bot) => bot.id === member.botId && bot.archivedAt === null),
+      );
+
+    if (!next) continue;
+    events.push({
+      ...(yield* withEventBase({
+        aggregateKind: "group",
+        aggregateId: group.id,
+        occurredAt: input.occurredAt,
+        commandId: input.commandId,
+      })),
+      type: "group.boss-set",
+      payload: {
+        groupId: group.id,
+        bossBotId: next.botId,
+        previousBossBotId: input.botId,
+        previousBossRole: "specialist",
+        updatedAt: input.occurredAt,
+      },
+    });
+  }
+
+  return events;
+});
 
 export const decideBots = Effect.fn("decideBots")(function* ({
   command,
@@ -136,13 +180,6 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         .filter(isGroupBotMember)
         .find((member) => member.botId === bot.id);
 
-      if (sourceGroup && (sourceMembership?.role === "boss" || sourceGroup.bossBotId === bot.id)) {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: `Bot '${bot.id}' is the boss of group '${sourceGroup.id}'. Replace it with 'group.boss.set' before changing its group.`,
-        });
-      }
-
       if (sourceGroup && sourceMembership) {
         const remainingBotIds = activeGroupBotIds(readModel, sourceGroup);
         remainingBotIds.delete(bot.id);
@@ -159,6 +196,14 @@ export const decideBots = Effect.fn("decideBots")(function* ({
       const events: PlannedOrchestrationEvent[] = [];
 
       if (sourceGroup && sourceMembership) {
+        events.push(
+          ...(yield* handOverGroupSlots({
+            readModel,
+            botId: bot.id,
+            commandId: command.commandId,
+            occurredAt,
+          })).filter((event) => event.aggregateId === sourceGroup.id),
+        );
         events.push({
           ...(yield* withEventBase({
             aggregateKind: "group",
@@ -232,14 +277,6 @@ export const decideBots = Effect.fn("decideBots")(function* ({
 
     case "bot.archive": {
       yield* requireBotNotArchived({ readModel, command, botId: command.botId });
-      const bossGroup = readModel.groups.find((group) => group.bossBotId === command.botId);
-
-      if (bossGroup) {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: `Bot '${command.botId}' is the boss of group '${bossGroup.id}'. Set a new boss before archiving it.`,
-        });
-      }
 
       const undersizedGroup = readModel.groups.find((group) => {
         if (
@@ -311,7 +348,14 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         });
       }
 
-      return [...pausedEvents, archivedEvent];
+      const handOvers = yield* handOverGroupSlots({
+        readModel,
+        botId: command.botId,
+        commandId: command.commandId,
+        occurredAt,
+      });
+
+      return [...handOvers, ...pausedEvents, archivedEvent];
     }
 
     case "bot.restore": {
@@ -343,15 +387,6 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         });
       }
 
-      const bossGroup = readModel.groups.find((group) => group.bossBotId === command.botId);
-
-      if (bossGroup) {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: `Bot '${command.botId}' is the boss of group '${bossGroup.id}'. Set a new boss before deleting it.`,
-        });
-      }
-
       const undersizedGroup = readModel.groups.find((group) => {
         if (
           !group.members.some(
@@ -376,6 +411,14 @@ export const decideBots = Effect.fn("decideBots")(function* ({
 
       const occurredAt = yield* nowIso;
       const events: Array<Omit<OrchestrationEvent, "sequence">> = [];
+      events.push(
+        ...(yield* handOverGroupSlots({
+          readModel,
+          botId: command.botId,
+          commandId: command.commandId,
+          occurredAt,
+        })),
+      );
 
       // Canceling interrupts each child turn, so work the bot sent or received stops with it.
       for (const delegation of readModel.delegations) {

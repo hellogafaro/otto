@@ -21,7 +21,14 @@ import {
   MenuPopup,
   MenuTrigger,
 } from "../ui/menu";
-import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import {
+  Select,
+  SelectButton,
+  SelectItem,
+  SelectPopup,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 type Person = Extract<WorkParticipant, { kind: "person" }>;
 
@@ -168,10 +175,13 @@ export function OwnerSelect({
   value,
   onChange,
   participants,
+  variant,
 }: {
   readonly value: WorkParticipant | null;
   readonly onChange: (owner: WorkParticipant | null) => void;
   readonly participants: WorkParticipants;
+  /** `ghost` is the quiet property row on a task page. */
+  readonly variant?: "ghost";
 }) {
   const { t } = useI18n();
 
@@ -182,7 +192,7 @@ export function OwnerSelect({
         onChange(next === null || next === "none" ? null : parseParticipant(next, participants))
       }
     >
-      <SelectTrigger size="sm" className="w-auto min-w-0" aria-label={t("Owner")}>
+      <SelectTrigger size="sm" variant={variant} className="w-auto min-w-0" aria-label={t("Owner")}>
         <SelectValue>
           <span className="flex items-center gap-1.5">
             {value ? (
@@ -231,10 +241,13 @@ export function AssigneesMenu({
   value,
   onChange,
   participants,
+  variant = "outline",
 }: {
   readonly value: readonly WorkParticipant[];
   readonly onChange: (assignees: WorkParticipant[]) => void;
   readonly participants: WorkParticipants;
+  /** `ghost` is the quiet property row on a task page. */
+  readonly variant?: "outline" | "ghost";
 }) {
   const { t } = useI18n();
   const selected = new Set(value.map(workParticipantKey));
@@ -252,14 +265,36 @@ export function AssigneesMenu({
 
   return (
     <Menu>
-      <MenuTrigger render={<Button size="sm" variant="outline" aria-label={t("Assignees")} />}>
-        {value.length > 0 ? (
-          <ParticipantStack participants={value} bots={participants.allBots} />
-        ) : (
-          <RiUserLine aria-hidden />
-        )}
-        {value.length > 0 ? null : t("Assignees")}
-      </MenuTrigger>
+      {variant === "ghost" ? (
+        <MenuTrigger
+          render={
+            <SelectButton
+              size="sm"
+              variant="ghost"
+              className="w-auto min-w-0"
+              aria-label={t("Assignees")}
+            />
+          }
+        >
+          <span className="flex items-center gap-1.5">
+            {value.length > 0 ? (
+              <ParticipantStack participants={value} bots={participants.allBots} />
+            ) : (
+              <RiUserLine aria-hidden className="size-3.5" />
+            )}
+            {value.length > 0 ? null : t("Assignees")}
+          </span>
+        </MenuTrigger>
+      ) : (
+        <MenuTrigger render={<Button size="sm" variant="outline" aria-label={t("Assignees")} />}>
+          {value.length > 0 ? (
+            <ParticipantStack participants={value} bots={participants.allBots} />
+          ) : (
+            <RiUserLine aria-hidden />
+          )}
+          {value.length > 0 ? null : t("Assignees")}
+        </MenuTrigger>
+      )}
       <MenuPopup align="start">
         {participants.people.length > 0 ? (
           <MenuGroup>

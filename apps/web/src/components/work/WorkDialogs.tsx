@@ -17,11 +17,11 @@ import { randomUUID } from "../../lib/utils";
 import { projectEnvironment } from "../../state/projects";
 import { taskEnvironment } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { RichTextEditor } from "../RichTextEditor";
 import { Button } from "../ui/button";
 import { Dialog, DialogFooter, DialogHeader, DialogPopup, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { Textarea } from "../ui/textarea";
 import { projectStatus } from "./work.logic";
 import { AssigneesMenu, OwnerSelect, type WorkParticipants } from "./WorkParticipants";
 import { WorkStatusSelect } from "./WorkStatus";
@@ -139,7 +139,7 @@ function WorkEditor({
       <DialogHeader>
         <DialogTitle>{heading}</DialogTitle>
       </DialogHeader>
-      <div className="flex flex-col gap-3 px-6 pb-5">
+      <div className="flex flex-col gap-3 px-5 pb-5">
         <Input
           autoFocus
           aria-label={t("Title")}
@@ -147,11 +147,11 @@ function WorkEditor({
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
         />
-        <Textarea
-          aria-label={t("Description")}
-          placeholder={t("Add a description…")}
+        <RichTextEditor
           value={description}
-          onChange={(event) => onDescriptionChange(event.target.value)}
+          ariaLabel={t("Description")}
+          placeholder={t("Add a description…")}
+          onChange={onDescriptionChange}
         />
         <div className="flex flex-wrap items-center gap-1.5">{properties}</div>
         <ResourcesEditor drafts={drafts} onChange={onDraftsChange} />
@@ -168,14 +168,17 @@ function WorkEditor({
   );
 }
 
-function ProjectSelect({
+export function ProjectSelect({
   value,
   onChange,
   projects,
+  variant,
 }: {
   readonly value: ProjectId | null;
   readonly onChange: (projectId: ProjectId) => void;
   readonly projects: readonly OrchestrationProjectShell[];
+  /** `ghost` is the quiet property row on a task page. */
+  readonly variant?: "ghost";
 }) {
   const { t } = useI18n();
   const current = projects.find((project) => project.id === value);
@@ -189,7 +192,12 @@ function ProjectSelect({
         if (project) onChange(project.id);
       }}
     >
-      <SelectTrigger size="sm" className="w-auto min-w-0" aria-label={t("Project")}>
+      <SelectTrigger
+        size="sm"
+        variant={variant}
+        className="w-auto min-w-0"
+        aria-label={t("Project")}
+      >
         <SelectValue>
           <span className="flex items-center gap-1.5">
             <RiBox3Line aria-hidden className="size-3.5" />

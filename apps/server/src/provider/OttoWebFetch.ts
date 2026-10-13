@@ -334,9 +334,9 @@ export function createOttoWebFetch(options: OttoWebFetchOptions = {}) {
 }
 
 /**
- * WebSearch has no search index of its own. Mastra-driven providers do not
- * expose a native search call Otto can invoke, so the tool reports that plainly
- * instead of inventing results.
+ * WebSearch has no search index of its own. OpenAI and Anthropic bots search
+ * through their provider's built-in search; other providers get this plain
+ * answer instead of invented results.
  */
 export async function ottoWebSearchUnavailable(input: {
   readonly query: string;
@@ -346,7 +346,8 @@ export async function ottoWebSearchUnavailable(input: {
     status: "unavailable" as const,
     query: input.query,
     results: [],
-    reason: "Web search is not available for this bot's provider in Otto yet.",
+    reason:
+      "Web search needs an OpenAI or Anthropic model; this bot's provider has no built-in web search.",
     suggestion: "Use WebFetch with a URL you already know.",
   };
 }

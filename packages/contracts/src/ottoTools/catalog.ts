@@ -259,7 +259,7 @@ export const OTTO_TOOL_CATALOG = [
   define(
     "Task",
     "bot-workspace",
-    "Start a temporary worker for a bounded subtask. The worker is a copy of this bot with the same tools and no memory writes, runs in a hidden chat, and ends with this turn. Waits for the result unless background is true. Workers cannot start workers, and one turn can run at most 3 at once.",
+    "Start a temporary worker for a bounded subtask. The worker is a copy of this bot with the same tools and no memory writes, runs in a hidden chat, and is canceled when this turn ends. Waits for the result unless background is true; a background worker still needs CheckSubagent with wait before you finish this turn, or its result is lost. Workers cannot start workers, and one turn can run at most 3 at once.",
   ),
   define(
     "CheckSubagent",

@@ -219,10 +219,12 @@ export function createTurns({
 
     if (!reserved) return;
 
+    const input = event.payload.groupInput ?? message;
+
     const sendTurnRequest = yield* buildSendTurnRequestForThread({
       threadId: event.payload.threadId,
-      messageText: message.text,
-      ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+      messageText: input.text,
+      ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),
       ...(event.payload.modelSelection !== undefined
         ? { modelSelection: event.payload.modelSelection }
         : {}),

@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import * as Data from "effect/Data";
+import * as Schema from "effect/Schema";
 
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as ServerPreviewBrowser from "../preview/ServerPreviewBrowser.ts";
@@ -17,6 +18,8 @@ const SERVER_OPERATIONS = PREVIEW_AUTOMATION_OPERATIONS.filter(
   (operation): operation is PreviewAutomationOperation =>
     operation !== "recordingStart" && operation !== "recordingStop",
 );
+
+const isBrowserConfigurationError = Schema.is(ServerPreviewBrowser.BrowserConfigurationError);
 
 const responseForFailure = (input: {
   readonly clientId: string;
@@ -32,9 +35,12 @@ const responseForFailure = (input: {
     requestId: input.requestId,
     ok: false,
     error: {
-      _tag: message.startsWith("No active browser tab")
-        ? "PreviewAutomationTabNotFoundError"
-        : "PreviewAutomationExecutionError",
+      // An unconfigured browser is a setup gap, not a failed operation.
+      _tag: isBrowserConfigurationError(input.cause)
+        ? "PreviewAutomationUnavailableError"
+        : message.startsWith("No active browser tab")
+          ? "PreviewAutomationTabNotFoundError"
+          : "PreviewAutomationExecutionError",
       message,
     },
   };

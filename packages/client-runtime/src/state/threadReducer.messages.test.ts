@@ -51,6 +51,18 @@ describe("applyThreadDetailEvent", () => {
       expect(result.thread.checkpoints).toBe(checkpoints);
     });
 
+    it("keeps the group bot that wrote a live reply", () => {
+      const botId = BotId.make("bot-capy");
+
+      const result = applyThreadDetailEvent(baseThread, {
+        ...streamingEvent,
+        payload: { ...streamingEvent.payload, respondingBotId: botId },
+      });
+
+      assert(result.kind === "updated");
+      expect(result.thread.messages.at(-1)?.respondingBotId).toBe(botId);
+    });
+
     it("copies only checkpoints whose assistant binding changes", () => {
       const unrelated = { ...boundCheckpoint, turnId: TurnId.make("other-turn") };
       const unbound = { ...boundCheckpoint, assistantMessageId: null };

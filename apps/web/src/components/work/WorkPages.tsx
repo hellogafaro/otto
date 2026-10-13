@@ -1,18 +1,11 @@
 import {
   type OrchestrationTask,
-  type ProjectId,
   type ProjectListFilter,
   type TaskListFilter,
   matchesProjectFilter,
   matchesTaskFilter,
 } from "@otto/contracts";
-import {
-  RiAddLine,
-  RiBox3Line,
-  RiExternalLinkLine,
-  RiListCheck3,
-  RiPencilLine,
-} from "@remixicon/react";
+import { RiAddLine, RiBox3Line, RiListCheck3 } from "@remixicon/react";
 import { useAtomValue } from "@effect/atom-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -40,12 +33,12 @@ import { ProjectCover } from "./ProjectCover";
 import { TasksTable } from "./TasksTable";
 import { projectStatus, sortTasks } from "./work.logic";
 import { ProjectDialog, TaskDialog } from "./WorkDialogs";
-import { ParticipantAvatar, participantName, useWorkParticipants } from "./WorkParticipants";
+import { useWorkParticipants } from "./WorkParticipants";
 import { WorkStatusIcon, useWorkStatusLabel } from "./WorkStatus";
 
 const EMPTY_TASKS: readonly OrchestrationTask[] = [];
 
-function useWorkData() {
+export function useWorkData() {
   const environmentId = usePrimaryEnvironmentId();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
@@ -66,20 +59,26 @@ function useWorkData() {
  * A work page: the top bar holds only a sub page's back button and quiet icon
  * actions, and the content scrolls under it like Settings.
  */
-function WorkPage({
+export function WorkPage({
   back,
   actions,
+  detailsPanelOpen,
   children,
 }: {
   /** A sub page's way back, named after the page it returns to. */
   readonly back?: { readonly label: string; readonly onBack: () => void };
   readonly actions?: ReactNode;
+  /** Set when the page has a details sidebar, so its toggle never covers the actions. */
+  readonly detailsPanelOpen?: boolean;
   readonly children: ReactNode;
 }) {
   return (
     <SidebarInset tone="foreground" className="h-dvh min-h-0 overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col text-foreground">
-        <WorkspacePageHeader electron={isElectron}>
+        <WorkspacePageHeader
+          electron={isElectron}
+          {...(detailsPanelOpen === undefined ? {} : { detailsPanelOpen })}
+        >
           <div className="flex min-w-0 flex-1 items-center">
             {back ? <WorkspaceBackButton label={back.label} onBack={back.onBack} /> : null}
           </div>
@@ -133,7 +132,7 @@ function WorkHeaderAction({
   );
 }
 
-function WorkEmpty({
+export function WorkEmpty({
   icon,
   title,
   description,
@@ -225,7 +224,9 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
               projects={projects}
               bots={participants.allBots}
               showProject={filter.project === undefined}
-              onOpenTask={(task) => setDialog({ task })}
+              onOpenTask={(task) =>
+                void navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
+              }
             />
           )}
         </WorkColumn>
@@ -335,176 +336,6 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
             void navigate({ to: "/projects/$projectId", params: { projectId } })
           }
         />
-      ) : null}
-    </WorkPage>
-  );
-}
-
-export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
-  const { t } = useI18n();
-  const navigate = useNavigate();
-  const statusLabel = useWorkStatusLabel();
-  const { environmentId, loaded, projects, tasks, participants } = useWorkData();
-  const [taskDialog, setTaskDialog] = useState<TaskDialogState>(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const project = projects.find((candidate) => candidate.id === projectId);
-
-  const projectTasks = sortTasks(
-    tasks.filter((task) => matchesTaskFilter(task, { project: projectId })),
-  );
-
-  const openCount = projectTasks.filter((task) =>
-    matchesTaskFilter(task, { status: ["backlog", "pending", "in_progress"] }),
-  ).length;
-
-  const back = {
-    label: t("Projects"),
-    onBack: () => void navigate({ to: "/projects" }),
-  };
-
-  if (!loaded) return <WorkPage back={back}>{null}</WorkPage>;
-
-  if (!project) {
-    return (
-      <WorkPage back={back}>
-        <WorkEmpty
-          icon={<RiBox3Line />}
-          title={t("Project not found")}
-          description={t("It may have been deleted, or the link points to another workspace.")}
-        />
-      </WorkPage>
-    );
-  }
-
-  const status = projectStatus(project);
-
-  return (
-    <WorkPage
-      back={back}
-      actions={
-        <>
-          <WorkHeaderAction
-            label={t("Edit project")}
-            icon={RiPencilLine}
-            onClick={() => setEditOpen(true)}
-          />
-          {status !== "archived" ? (
-            <WorkHeaderAction
-              label={t("New task")}
-              icon={RiAddLine}
-              onClick={() => setTaskDialog({ task: null })}
-            />
-          ) : null}
-        </>
-      }
-    >
-      <WorkColumn title={project.title}>
-        <section className="flex flex-col gap-5 px-4 sm:flex-row sm:items-start">
-          <div className="w-full shrink-0 overflow-hidden rounded-lg border border-border sm:w-64">
-            <ProjectCover seed={project.id} />
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            {project.description ? (
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                {project.description}
-              </p>
-            ) : null}
-            <dl className="flex flex-col gap-2 text-13px">
-              <div className="flex gap-4">
-                <dt className="w-24 shrink-0 text-muted-foreground">{t("Status")}</dt>
-                <dd className="flex items-center gap-1.5 text-foreground">
-                  <WorkStatusIcon status={status} />
-                  {statusLabel(status)}
-                </dd>
-              </div>
-              <div className="flex gap-4">
-                <dt className="w-24 shrink-0 text-muted-foreground">{t("Owner")}</dt>
-                <dd className="flex min-w-0 items-center gap-1.5 text-foreground">
-                  {project.owner ? (
-                    <>
-                      <ParticipantAvatar
-                        participant={project.owner}
-                        bots={participants.allBots}
-                        className="size-4"
-                      />
-                      <span className="truncate">
-                        {participantName(project.owner, participants.allBots)}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">{t("No owner")}</span>
-                  )}
-                </dd>
-              </div>
-              <div className="flex gap-4">
-                <dt className="w-24 shrink-0 text-muted-foreground">{t("Open tasks")}</dt>
-                <dd className="text-foreground tabular-nums">{openCount}</dd>
-              </div>
-              {(project.resources ?? []).length > 0 ? (
-                <>
-                  <div className="flex gap-4">
-                    <dt className="w-24 shrink-0 text-muted-foreground">{t("Links")}</dt>
-                    <dd className="flex min-w-0 flex-col gap-1">
-                      {(project.resources ?? []).map((resource) => (
-                        <a
-                          key={resource.url}
-                          href={resource.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex min-w-0 items-center gap-1.5 text-foreground hover:underline"
-                        >
-                          <span className="truncate">{resource.title}</span>
-                          <RiExternalLinkLine
-                            aria-hidden
-                            className="size-3.5 shrink-0 text-muted-foreground"
-                          />
-                        </a>
-                      ))}
-                    </dd>
-                  </div>
-                </>
-              ) : null}
-            </dl>
-          </div>
-        </section>
-        <section className="flex flex-col gap-2">
-          <h2 className="px-4 text-base font-medium tracking-title-sm text-foreground">
-            {t("Tasks")}
-          </h2>
-          {projectTasks.length === 0 ? (
-            <p className="px-4 text-13px text-muted-foreground">
-              {t("No tasks yet. Break the project into the next few steps.")}
-            </p>
-          ) : (
-            <TasksTable
-              tasks={projectTasks}
-              projects={projects}
-              bots={participants.allBots}
-              showProject={false}
-              onOpenTask={(task) => setTaskDialog({ task })}
-            />
-          )}
-        </section>
-      </WorkColumn>
-      {environmentId ? (
-        <>
-          <TaskDialog
-            open={taskDialog !== null}
-            onOpenChange={(open) => !open && setTaskDialog(null)}
-            environmentId={environmentId}
-            task={taskDialog?.task ?? null}
-            defaultProjectId={project.id}
-            projects={projects.filter((candidate) => projectStatus(candidate) !== "archived")}
-            participants={participants}
-          />
-          <ProjectDialog
-            open={editOpen}
-            onOpenChange={setEditOpen}
-            environmentId={environmentId}
-            project={project}
-            participants={participants}
-          />
-        </>
       ) : null}
     </WorkPage>
   );

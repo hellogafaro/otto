@@ -120,7 +120,7 @@ function DataTableSection({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-(--radius) bg-foreground/[0.035] px-2 text-left text-13px font-medium tracking-title-sm text-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&_svg]:shrink-0"
+        className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-md bg-foreground/[0.035] px-2 text-left text-13px font-medium tracking-title-sm text-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&_svg]:shrink-0"
       >
         <span className="flex w-4 shrink-0 items-center justify-center">
           <RiArrowDownSLine

@@ -57,5 +57,12 @@ export function resolveOttoInstructions(
       ? state.mcpInstructions
       : "";
 
-  return [instructions, mcpInstructions, persistentMemoryContext].filter(Boolean).join("\n\n");
+  const groupContext =
+    isBotConversation && "groupContext" in state && Predicate.isString(state.groupContext)
+      ? state.groupContext
+      : "";
+
+  return [instructions, groupContext, mcpInstructions, persistentMemoryContext]
+    .filter(Boolean)
+    .join("\n\n");
 }

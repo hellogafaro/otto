@@ -12,6 +12,7 @@ import {
   RoutineApprovalPolicy,
   RoutineFailureKind,
   RoutineRun,
+  RoutineHourInterval,
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -32,6 +33,11 @@ const RoutineRow = Schema.Struct({
   approvalVersion: Schema.NullOr(Schema.Number),
   schedule: Schema.fromJsonString(
     Schema.Union([
+      Schema.Struct({
+        kind: Schema.Literal("hourly"),
+        everyHours: RoutineHourInterval,
+        time: Schema.String,
+      }),
       Schema.Struct({ kind: Schema.Literals(["daily", "weekdays"]), time: Schema.String }),
       Schema.Struct({
         kind: Schema.Literal("weekly"),

@@ -10,6 +10,11 @@ export const routineToolInputSchema = z.object({
   name: z.string().trim().min(1),
   instructions: z.string().trim().min(1),
   schedule: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("hourly"),
+      everyHours: z.literal([1, 2, 3, 4, 6, 8, 12]),
+      time: routineTime,
+    }),
     z.object({ kind: z.literal("daily"), time: routineTime }),
     z.object({ kind: z.literal("weekdays"), time: routineTime }),
     z.object({

@@ -490,6 +490,10 @@ export const ThreadTurnStartRequestedPayload = Schema.Struct({
   hiddenWake: Schema.optional(Schema.Boolean),
   sourceProposedPlan: Schema.optional(SourceProposedPlanReference),
   respondingBotId: Schema.optional(Schema.NullOr(BotId)),
+  /** A group round's input, sent instead of the message's own text and attachments. */
+  groupInput: Schema.optional(
+    Schema.Struct({ text: Schema.String, attachments: Schema.Array(ChatAttachment) }),
+  ),
   timezone: Schema.optional(TrimmedNonEmptyString),
   /**
    * Finished child delegations acknowledged by this turn start. The same

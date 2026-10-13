@@ -337,6 +337,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           failureCode = "internal";
           result = await catalogHandler({
             input: decoded,
+            ...(input.webSearch ? { webSearch: input.webSearch } : {}),
             emitProgress: (summary, details) =>
               options?.onProgress?.({
                 threadId: input.threadId,

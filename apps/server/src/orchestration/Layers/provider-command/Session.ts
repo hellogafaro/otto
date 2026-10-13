@@ -10,7 +10,9 @@ import {
   ThreadId,
   type ProviderSession,
   SANDBOX_PROVIDER_CREDENTIALS,
+  type BotId,
 } from "@otto/contracts";
+import { groupRosterContext } from "../../groupResponder.ts";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
@@ -292,6 +294,23 @@ export function createSession({
               (group) => group.id === thread.groupId,
             );
 
+    const groupBotNames = new Map<BotId, string>();
+
+    for (const member of respondingGroup?.members.filter(isGroupBotMember) ?? []) {
+      const bot = yield* projectionBotRepository.getById({ botId: member.botId });
+
+      if (Option.isSome(bot)) groupBotNames.set(member.botId, bot.value.name);
+    }
+
+    const groupContext = respondingGroup
+      ? groupRosterContext({
+          groupName: respondingGroup.name,
+          members: respondingGroup.members,
+          respondingBotId,
+          botNames: groupBotNames,
+        })
+      : undefined;
+
     const effectiveSandbox = respondingBot?.sandbox ?? serverSettings.sandbox.defaultProvider;
 
     const sandboxEnvironment =
@@ -351,6 +370,7 @@ export function createSession({
         mcpServers,
         ...(respondingBotId ? { botId: respondingBotId } : {}),
         ...(respondingBot ? { botName: respondingBot.name } : {}),
+        ...(groupContext ? { groupContext } : {}),
         ...(respondingBot?.personalityTone !== undefined
           ? { personalityTone: respondingBot.personalityTone }
           : {}),

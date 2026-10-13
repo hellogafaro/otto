@@ -7,22 +7,26 @@ import { buttonVariants } from "../ui/button";
 describe("NewBotDialog", () => {
   const source = NodeFS.readFileSync(new URL("./NewBotDialog.tsx", import.meta.url), "utf8");
 
-  it("identifies the name as required and explains why creation is unavailable", () => {
+  it("requires a name and blocks creation until there is one", () => {
     expect(source).toContain("required");
-    expect(source).toContain('aria-describedby="new-bot-name-help"');
-    expect(source).toContain("Enter a name to create this bot.");
+    expect(source).toContain("disabled={submitting || trimmedName.length === 0}");
   });
 
-  it("makes the disabled create action visibly distinct", () => {
-    expect(source).toContain('variant="default-muted-disabled"');
-    const classes = buttonVariants({ variant: "default-muted-disabled" });
-    expect(classes).toContain("disabled:bg-muted");
-    expect(classes).toContain("disabled:text-muted-foreground");
-    expect(classes).toContain("disabled:opacity-100");
+  it("creates with the primary action and closes from the corner, with no Cancel", () => {
+    expect(source).toContain('variant="primary"');
+    expect(buttonVariants({ variant: "primary" })).toContain("bg-(--primary-button-background)");
+    expect(source).not.toContain('t("Cancel")');
   });
 
-  it("warns when no provider can run the new bot's default model", () => {
-    expect(source).toContain("useBotEngineAvailability(null)");
+  it("starts on the app default model and creates the bot with the picked engine", () => {
+    expect(source).toContain("useState<BotEngine | null>(null)");
+    expect(source).toContain("useBotEngineAvailability(engine)");
+    expect(source).toContain("<BotModelPicker");
+    expect(source).toContain("<TraitsPicker");
+    expect(source).toContain("onCreate({ name: trimmedName, avatar, engine })");
+  });
+
+  it("warns when no provider can run the picked model", () => {
     expect(source).toContain("<ProviderUnavailableNotice");
   });
 });

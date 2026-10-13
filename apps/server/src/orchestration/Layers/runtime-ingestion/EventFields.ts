@@ -140,8 +140,25 @@ export function boundedApprovalArgs(
     return Exit.isSuccess(decoded) ? decoded.value : undefined;
   }
 
-  return undefined;
+  // Other tools keep only the fields a reviewer reads, cut to a bounded length.
+  const record = asRecord(args);
+
+  const preview = Object.fromEntries(
+    APPROVAL_PREVIEW_FIELDS.flatMap((field) => {
+      const value = record?.[field];
+
+      return Predicate.isString(value) && value.trim()
+        ? [[field, value.slice(0, APPROVAL_PREVIEW_MAX_CHARS)]]
+        : [];
+    }),
+  );
+
+  return Object.keys(preview).length > 0 ? preview : undefined;
 }
+
+const APPROVAL_PREVIEW_FIELDS = ["command", "message", "url", "path"] as const;
+
+const APPROVAL_PREVIEW_MAX_CHARS = 2_000;
 
 export type ChannelSessionDomainEvent = Extract<OrchestrationEvent, { type: "thread.session-set" }>;
 

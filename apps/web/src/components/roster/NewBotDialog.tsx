@@ -1,29 +1,35 @@
-import { useState } from "react";
+import { useAtomValue } from "@effect/atom-react";
+import { ProviderInstanceId, type BotEngine } from "@otto/contracts";
+import { useMemo, useState } from "react";
 
+import { usePrimarySettings } from "../../hooks/useSettings";
 import { useI18n } from "../../i18n";
+import { getCustomModelOptionsByInstance } from "../../modelSelection";
 import { usePrimaryEnvironmentId } from "../../state/environments";
+import { primaryServerProvidersAtom } from "../../state/server";
 import { ProviderUnavailableNotice } from "../chat/ProviderUnavailableNotice";
-
-import { cn } from "../../lib/utils";
-import { readFileAsDataUrl } from "../ChatView.logic";
+import { TraitsPicker } from "../chat/TraitsPicker";
 import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
-import { AvatarColorPicker } from "./AvatarColorPicker";
-import { BotAvatarView } from "./BotAvatarView";
-import { BLOB_SHAPES, blobShapeLabel, randomBotAvatar } from "./roster.logic";
+import { Dialog, DialogFooter, DialogPopup, DialogTitle } from "../ui/dialog";
+import { BotAvatarPopover } from "./BotAvatarPopover";
+import { BotModelPicker } from "./BotModelPicker";
+import { botEngineForModelPick, botEngineForOptions } from "./botEngineSelection";
+import { randomBotAvatar } from "./roster.logic";
 import type { BotAvatar } from "./types";
 import { useBotEngineAvailability } from "./useBotEngineAvailability";
 
-/** A compact bot creation form with all required choices in one view. */
+export interface NewBotInput {
+  readonly name: string;
+  readonly avatar: BotAvatar;
+  /** Null keeps the app's default model, which the bot follows when it changes. */
+  readonly engine: BotEngine | null;
+}
+
+/**
+ * Creates a bot from a name alone: the avatar starts random and the model on
+ * the app default, both changeable here. Everything else lives in the bot's
+ * settings, and the bot asks for context in its first message.
+ */
 export function NewBotDialog({
   open,
   onOpenChange,
@@ -33,167 +39,111 @@ export function NewBotDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (input: { name: string; avatar: BotAvatar }) => void;
+  onCreate: (input: NewBotInput) => void;
   submitting?: boolean;
 }) {
   const { t } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
-  // A new bot answers with the app default. When no provider can run it, say so
-  // here; the bot is still created and can reply once a provider connects.
-  const defaultEngine = useBotEngineAvailability(null);
+  const settings = usePrimarySettings();
+  const providers = useAtomValue(primaryServerProvidersAtom);
   const [name, setName] = useState("");
-  const [blobAvatar, setBlobAvatar] = useState(() => randomBotAvatar());
-  const [avatar, setAvatar] = useState<BotAvatar>(() => blobAvatar);
+  const [avatar, setAvatar] = useState<BotAvatar>(() => randomBotAvatar());
+  const [engine, setEngine] = useState<BotEngine | null>(null);
+  // A bot that no provider can run is still created; it replies once one connects.
+  const { instanceEntries, selection, blocked, unavailability } = useBotEngineAvailability(engine);
   const trimmedName = name.trim();
+  const activeEntry = instanceEntries.find((entry) => entry.instanceId === selection?.instanceId);
 
-  const updateBlobAvatar = (next: typeof blobAvatar) => {
-    setBlobAvatar(next);
-    setAvatar(next);
-  };
-
-  const handleUpload = (file: File | undefined) => {
-    if (!file) return;
-    void readFileAsDataUrl(file).then(
-      (assetPath) => {
-        setAvatar({ kind: "image", assetPath, dithered: false });
-      },
-      (cause: unknown) => {
-        console.error("Could not read avatar image.", cause);
-      },
-    );
-  };
+  const modelOptionsByInstance = useMemo(
+    () =>
+      getCustomModelOptionsByInstance(
+        settings,
+        providers,
+        selection ? ProviderInstanceId.make(selection.instanceId) : null,
+        selection?.model ?? null,
+      ),
+    [providers, selection, settings],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogPopup
-        className="flex max-h-(--spacing-dvh-2rem) max-w-2xl flex-col overflow-hidden"
-        bottomStickOnMobile={false}
-      >
+      <DialogPopup className="max-w-md" bottomStickOnMobile={false}>
         <form
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex flex-col"
           onSubmit={(event) => {
             event.preventDefault();
 
             if (submitting || trimmedName.length === 0) return;
-            onCreate({ name: trimmedName, avatar });
+            onCreate({ name: trimmedName, avatar, engine });
           }}
         >
-          <DialogHeader className="shrink-0">
-            <DialogTitle>{t("New bot")}</DialogTitle>
-            <DialogDescription>
-              {t("Give your teammate an identity. You can set its model and instructions next.")}
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogPanel className="grid gap-6 sm:grid-cols-(--grid-template-columns-12rem-1fr)">
-            {defaultEngine.blocked && defaultEngine.unavailability ? (
-              <div className="sm:col-span-2">
-                <ProviderUnavailableNotice
-                  presentation={defaultEngine.unavailability}
-                  provider={defaultEngine.unavailability.provider}
-                  environmentId={environmentId}
-                />
-              </div>
+          <DialogTitle className="sr-only">{t("New bot")}</DialogTitle>
+          <div className="flex flex-col items-start gap-3 px-5 pt-5 pb-4">
+            <BotAvatarPopover value={avatar} name={trimmedName} onChange={setAvatar} />
+            <input
+              autoFocus
+              required
+              data-testid="new-bot-name-input"
+              maxLength={80}
+              aria-label={t("Bot name")}
+              placeholder={t("Name your bot")}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="w-full bg-transparent text-lg leading-7 font-medium tracking-title-sm text-foreground outline-none placeholder:text-muted-foreground/72"
+            />
+            <p className="text-sm text-muted-foreground">
+              {t("It introduces itself and asks about your work.")}
+            </p>
+            {blocked && unavailability ? (
+              <ProviderUnavailableNotice
+                className="w-full"
+                presentation={unavailability}
+                provider={unavailability.provider}
+                environmentId={environmentId}
+              />
             ) : null}
-            <div className="flex flex-col items-center justify-center rounded-lg border border-border/70 bg-secondary/35 px-4 py-7 text-center">
-              <BotAvatarView avatar={avatar} name={trimmedName} className="size-20" />
-              <div className="mt-4 max-w-full truncate text-sm font-semibold">
-                {trimmedName || t("Your bot")}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("Preview")}</p>
-            </div>
+          </div>
 
-            <div className="min-w-0 space-y-6">
-              <label className="flex flex-col gap-2 text-sm font-medium">
-                {t("Bot name")}
-                <Input
-                  autoFocus
-                  data-testid="new-bot-name-input"
-                  maxLength={80}
-                  placeholder={t("Name your bot")}
-                  required
-                  aria-describedby="new-bot-name-help"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
+          <DialogFooter className="items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-0.5">
+              {selection ? (
+                <BotModelPicker
+                  activeInstanceId={ProviderInstanceId.make(selection.instanceId)}
+                  model={selection.model}
+                  instanceEntries={instanceEntries}
+                  modelOptionsByInstance={modelOptionsByInstance}
+                  disabled={submitting}
+                  onChange={(instanceId, model) =>
+                    setEngine(
+                      botEngineForModelPick({
+                        previous: selection,
+                        instanceId,
+                        model,
+                        instanceEntries,
+                      }),
+                    )
+                  }
                 />
-                <span
-                  id="new-bot-name-help"
-                  className={cn(
-                    "text-xs font-normal",
-                    trimmedName.length === 0 ? "text-destructive" : "text-muted-foreground",
-                  )}
-                >
-                  {trimmedName.length === 0
-                    ? t("Enter a name to create this bot.")
-                    : t("This is how the bot appears in your roster.")}
-                </span>
-              </label>
-
-              <section
-                aria-labelledby="new-bot-avatar-heading"
-                className="space-y-4 border-t border-border/70 pt-5"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <h3 id="new-bot-avatar-heading" className="text-sm font-medium text-foreground">
-                    {t("Appearance")}
-                  </h3>
-                  <label className="cursor-pointer rounded-lg border border-border bg-secondary/60 px-3 py-1.5 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus-within:ring-2 focus-within:ring-foreground/20">
-                    {t("Upload image")}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={(event) => handleUpload(event.currentTarget.files?.[0])}
-                    />
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                  {BLOB_SHAPES.map((shape) => {
-                    const selected = avatar.kind === "blob" && blobAvatar.shape === shape;
-
-                    return (
-                      <Button
-                        key={shape}
-                        variant="avatar-tile"
-                        size="avatar"
-                        aria-label={blobShapeLabel(shape, t)}
-                        aria-pressed={selected}
-                        data-bot-hover
-                        onClick={() => updateBlobAvatar({ ...blobAvatar, shape })}
-                        className="aspect-square"
-                      >
-                        <BotAvatarView
-                          avatar={{ ...blobAvatar, shape }}
-                          name={trimmedName}
-                          className="size-9"
-                        />
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                <AvatarColorPicker
-                  value={blobAvatar.color}
-                  onChange={(color) => updateBlobAvatar({ ...blobAvatar, color })}
+              ) : null}
+              {selection && activeEntry ? (
+                <TraitsPicker
+                  provider={activeEntry.driverKind}
+                  instanceId={activeEntry.instanceId}
+                  models={activeEntry.models}
+                  model={selection.model}
+                  prompt=""
+                  onPromptChange={() => {}}
+                  modelOptions={selection.options}
+                  allowPromptInjectedEffort={false}
+                  onModelOptionsChange={(options) =>
+                    setEngine(botEngineForOptions({ selection, options, instanceEntries }))
+                  }
                 />
-              </section>
+              ) : null}
             </div>
-          </DialogPanel>
-
-          <DialogFooter className="shrink-0">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={submitting}
-              onClick={() => onOpenChange(false)}
-            >
-              {t("Cancel")}
-            </Button>
             <Button
               type="submit"
-              aria-describedby={trimmedName.length === 0 ? "new-bot-name-help" : undefined}
-              variant="default-muted-disabled"
+              variant="primary"
               disabled={submitting || trimmedName.length === 0}
             >
               {submitting ? t("Creating") : t("Create bot")}

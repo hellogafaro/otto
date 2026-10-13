@@ -16,7 +16,9 @@ import { z } from "zod";
 import { createOttoMastraTools } from "../OttoMastraTools.ts";
 import { isCodexComputerUseTool } from "../CodexComputerUse.ts";
 import { type OttoMastraToolOptions } from "./OttoHarnessTypes.ts";
-import { controllerResourceId } from "./OttoMemory.ts";
+import { controllerModelId, controllerResourceId } from "./OttoMemory.ts";
+import type { resolveOttoMastraModel } from "./OttoModels.ts";
+import { ottoNativeWebSearch } from "./OttoWebSearch.ts";
 import { ottoActionNeedsApproval } from "./OttoActions.ts";
 import {
   routineToolInputSchema,
@@ -72,6 +74,7 @@ export const productFeedbackTool = createTool({
 export async function resolveOttoTools(
   requestContext: RequestContext,
   options: OttoMastraToolOptions,
+  resolveModel?: (requestContext: RequestContext) => ReturnType<typeof resolveOttoMastraModel>,
 ): Promise<ToolsInput> {
   const threadId = controllerResourceId(requestContext);
 
@@ -81,7 +84,7 @@ export async function resolveOttoTools(
     ? createTool({
         id: OTTO_CREATE_ROUTINE_TOOL_NAME,
         description:
-          "Create a disabled routine for recurring work in this chat. Call this tool as soon as the routine details are complete. The app previews the tool arguments and asks the user before execution, so do not ask for separate confirmation. Put the timing only in schedule, and make instructions describe only what each run should do. Keep the name short and specific. Use the current chat and device timezone by default. Only name plugins or skills the user explicitly requests.",
+          "Create a routine for recurring work in this chat. Once the user approves it, it runs on its schedule. Call this tool as soon as the routine details are complete. The app previews the tool arguments and asks the user before execution, so do not ask for separate confirmation. Put the timing only in schedule: hourly runs every everyHours hours (1, 2, 3, 4, 6, 8 or 12) around the clock, lined up with time; daily, weekdays and weekly run once at time. Make instructions describe only what each run should do. Keep the name short and specific. Use the current chat and device timezone by default. Only name plugins or skills the user explicitly requests.",
         inputSchema: routineToolInputSchema,
         requireApproval: false,
         execute: async ({ skillNames, connectorNames, ...input }) =>
@@ -185,7 +188,17 @@ export async function resolveOttoTools(
 
   return {
     ...approvalAwareTools(threadId, options.getThreadTools(threadId), options),
-    ...createOttoMastraTools(threadId, options.toolRuntime),
+    ...createOttoMastraTools(
+      threadId,
+      options.toolRuntime,
+      resolveModel &&
+        ((abortSignal) =>
+          ottoNativeWebSearch(
+            controllerModelId(requestContext),
+            () => resolveModel(requestContext),
+            abortSignal,
+          )),
+    ),
     [OTTO_PRODUCT_FEEDBACK_TOOL_NAME]: productFeedbackTool,
     ...(routineTool ? { [OTTO_CREATE_ROUTINE_TOOL_NAME]: routineTool } : {}),
     ...(listRoutinesTool ? { [OTTO_LIST_ROUTINES_TOOL_NAME]: listRoutinesTool } : {}),

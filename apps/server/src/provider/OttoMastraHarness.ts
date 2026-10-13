@@ -218,28 +218,30 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
   // starts a new drain instead of joining one that already finished.
   let drainActive = false;
 
+  const resolveModel = (requestContext: RequestContext) =>
+    resolveOttoMastraModel(
+      controllerModelId(requestContext),
+      options.authStorage,
+      options.getKimiAccess,
+      options.getOpenCodeGoApiKey,
+      controllerModelOptions(requestContext),
+      options.getSubscriptionApiKey,
+      controllerModelConnection(requestContext, options.getModelConnection),
+      options.getSubscriptionOAuth,
+      options.getSubscriptionAccessToken,
+      controllerResourceId(requestContext),
+    );
+
   const agent = new Agent({
     id: "otto-agent",
     name: "Otto",
     instructions: ({ requestContext }) => resolveOttoInstructions(requestContext),
-    model: ({ requestContext }) =>
-      resolveOttoMastraModel(
-        controllerModelId(requestContext),
-        options.authStorage,
-        options.getKimiAccess,
-        options.getOpenCodeGoApiKey,
-        controllerModelOptions(requestContext),
-        options.getSubscriptionApiKey,
-        controllerModelConnection(requestContext, options.getModelConnection),
-        options.getSubscriptionOAuth,
-        options.getSubscriptionAccessToken,
-        controllerResourceId(requestContext),
-      ),
-    tools: ({ requestContext }) => resolveOttoTools(requestContext, options),
+    model: ({ requestContext }) => resolveModel(requestContext),
+    tools: ({ requestContext }) => resolveOttoTools(requestContext, options, resolveModel),
     memory: observationalMemory.memory,
     inputProcessors: [observationalMemory.processor],
     outputProcessors: [observationalMemory.processor],
-    errorProcessors: ottoErrorProcessors(),
+    errorProcessors: [...ottoErrorProcessors(options.onStreamRetry)],
   });
 
   const controller = new MastraAgentController<OttoMastraState>({

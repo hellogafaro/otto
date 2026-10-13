@@ -29,6 +29,8 @@ export interface OttoMastraState {
   readonly personalityTone?: BotPersonalityTone;
   readonly persistentMemoryContext?: string;
   readonly mcpInstructions?: string;
+  // Undefined clears the roster when a reused session leaves its group chat.
+  readonly groupContext?: string | undefined;
   readonly modelOptions?: OttoModelOptions;
 }
 
@@ -94,6 +96,8 @@ export interface OttoMastraHarnessOptions {
     readonly error?: Error;
   }) => Promise<void>;
   readonly getThreadTools: (threadId: string) => ToolsInput;
+  /** Called before a failed model stream for this thread is retried from the start. */
+  readonly onStreamRetry?: (threadId: string) => void;
   readonly syncThreadToolApproval?: (
     threadId: string,
     toolName: string,

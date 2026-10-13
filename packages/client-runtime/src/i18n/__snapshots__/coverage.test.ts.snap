@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1807,
+  "directMessageCount": 1831,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -117,6 +117,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/roster/RoutineFormDialog.tsx": [
       "title)}</DialogTitle>",
+      "draft.schedule.frequency === "hourly" ? "Starting at" : "Time")}</span>",
       "day)}",
       "submitLabel)}",
     ],
@@ -409,6 +410,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/CommandPalette.tsx",
     "apps/web/src/components/CommandPaletteContent.tsx",
     "apps/web/src/components/ConfirmDialogHost.tsx",
+    "apps/web/src/components/DetailsAside.tsx",
+    "apps/web/src/components/RichTextEditor.tsx",
     "apps/web/src/components/auth/PairingPanel.tsx",
     "apps/web/src/components/auth/PairingRouteSurface.tsx",
     "apps/web/src/components/chat/ChatActionsMenu.tsx",
@@ -471,6 +474,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/AvatarPickerDialog.tsx",
     "apps/web/src/components/roster/BotActivityStatus.tsx",
     "apps/web/src/components/roster/BotApprovalPrompt.tsx",
+    "apps/web/src/components/roster/BotAvatarPopover.tsx",
     "apps/web/src/components/roster/BotBrowserPreview.tsx",
     "apps/web/src/components/roster/BotChannelsSheet.tsx",
     "apps/web/src/components/roster/BotChatMessageRows.tsx",
@@ -586,7 +590,10 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/ui/sidebar.tsx",
     "apps/web/src/components/ui/sidebarRail.tsx",
     "apps/web/src/components/ui/toast.tsx",
+    "apps/web/src/components/work/ProjectPage.tsx",
+    "apps/web/src/components/work/TaskPage.tsx",
     "apps/web/src/components/work/TasksTable.tsx",
+    "apps/web/src/components/work/WorkDetail.tsx",
     "apps/web/src/components/work/WorkDialogs.tsx",
     "apps/web/src/components/work/WorkPages.tsx",
     "apps/web/src/components/work/WorkParticipants.tsx",

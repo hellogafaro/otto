@@ -31,7 +31,7 @@ import { Button } from "../ui/button";
 import { SidebarContent, SidebarGroup } from "../ui/sidebar";
 import { toastManager } from "../ui/toast";
 import { DEFAULT_BOT_RUNTIME_MODE } from "./botSandbox";
-import { NewBotDialog } from "./NewBotDialog";
+import { NewBotDialog, type NewBotInput } from "./NewBotDialog";
 import { NewGroupDialog, type NewGroupInput } from "./NewGroupDialog";
 import {
   filterRosterBots,
@@ -49,7 +49,7 @@ import { useRosterStore } from "./rosterStore";
 import { resolveRosterListState } from "./rosterRouteSelection";
 import { RosterLoadStatus } from "./RosterLoadStatus";
 import { useRosterLoadState } from "./useServerRoster";
-import type { Bot, BotAvatar, Group } from "./types";
+import type { Bot, Group } from "./types";
 import { useBotThreadRef } from "./useBotThreadRef";
 import { BotRosterRow, GroupRosterRow, RosterRail, RosterSectionLabel } from "./RosterRows";
 import { RosterPanelHeader, RosterRailCreateMenu, RosterSidebarHeader } from "./RosterHeaders";
@@ -360,7 +360,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   const handleNewBot = () => setNewBotOpen(true);
   const handleNewGroup = () => setNewGroupOpen(true);
 
-  const handleCreateBot = ({ name, avatar }: { name: string; avatar: BotAvatar }) =>
+  const handleCreateBot = ({ name, avatar, engine }: NewBotInput) =>
     runCreateBotOnce(creatingBotRef, async () => {
       if (environmentId === null) {
         toastManager.add({
@@ -385,7 +385,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
             label: null,
             description: null,
             avatar,
-            engine: null,
+            engine,
             sandbox: null,
             runtimeMode: DEFAULT_BOT_RUNTIME_MODE,
             groupId: null,
@@ -397,6 +397,8 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
 
           return;
         }
+
+        useRosterStore.getState().requestBotIntro(botId);
 
         setNewBotOpen(false);
         setPendingCreatedBotId(botId);

@@ -1,4 +1,11 @@
-import { RiAtLine, RiFileLine, RiGlobalLine, RiChat3Line, RiCloseLine } from "@remixicon/react";
+import {
+  RiAtLine,
+  RiTeamLine,
+  RiFileLine,
+  RiGlobalLine,
+  RiChat3Line,
+  RiCloseLine,
+} from "@remixicon/react";
 import { Match } from "effect";
 import type { EnvironmentId } from "@otto/contracts";
 import { rankComposerThreadMentions } from "@otto/shared/composerThreadMentions";
@@ -93,6 +100,7 @@ export function BotPromptMentionMenu({
   trigger,
   scope,
   bots,
+  everyone = false,
   onSelect,
   onClose,
   onActiveOptionChange,
@@ -102,6 +110,7 @@ export function BotPromptMentionMenu({
   trigger: BotPromptMentionTrigger;
   scope: BotPromptMentionScope | null;
   bots: ReadonlyArray<BotPromptMentionBot>;
+  everyone?: boolean;
   onSelect: (item: BotPromptMentionItem) => void;
   onClose: () => void;
   onActiveOptionChange: (optionId: string | null) => void;
@@ -111,6 +120,7 @@ export function BotPromptMentionMenu({
   const mentionKindDescription: Record<Exclude<BotPromptMentionItem["kind"], "path">, string> = {
     browser: t("Preview browser"),
     bot: t("Bot"),
+    everyone: t("Every bot in this group"),
     thread: t("Chat"),
   };
 
@@ -156,6 +166,7 @@ export function BotPromptMentionMenu({
     query: trigger.query,
     browserAvailable: scope !== null && browserAccess,
     browserLabel: t("Browser"),
+    everyone,
     bots,
     threads,
     paths: pathSearch.entries,
@@ -225,6 +236,7 @@ export function BotPromptMentionMenu({
         const Icon = Match.value(item).pipe(
           Match.when({ kind: "browser" }, () => RiGlobalLine),
           Match.when({ kind: "bot" }, () => RiAtLine),
+          Match.when({ kind: "everyone" }, () => RiTeamLine),
           Match.when({ kind: "path" }, () => RiFileLine),
           Match.orElse(() => RiChat3Line),
         );

@@ -81,6 +81,8 @@ export const ProviderSessionStartInput = Schema.Struct({
   mcpServers: Schema.optional(Schema.Array(McpServer)),
   /** Server-owned system context fixed when the native provider session starts. */
   persistentMemoryContext: Schema.optional(Schema.String),
+  /** Who is in the group chat this session answers in, for the bot's system context. */
+  groupContext: Schema.optional(Schema.String),
   runtimeMode: RuntimeMode,
 });
 

@@ -297,8 +297,6 @@ export const settingsCatalog = {
   "Privacy & data": "隐私与数据",
   "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.":
     "此机器人的提供商无法移交工作。它不能把工作发给其他机器人，也不能接收来自它们的工作。",
-  "Give your teammate an identity. You can set its model and instructions next.":
-    "为你的队友设定身份。接下来可以设置它的模型和指令。",
   "No provider ready": "没有可用的提供商",
   "Bot settings sections": "机器人设置分区",
   "Model & usage": "模型与用量",

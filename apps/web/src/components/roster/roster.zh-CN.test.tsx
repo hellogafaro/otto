@@ -194,17 +194,12 @@ describe("roster in Simplified Chinese", () => {
     );
 
     expect(markup).toContain("新建机器人");
-    expect(markup).toContain("为你的队友设定身份");
-    expect(markup).toContain("你的机器人");
-    expect(markup).toContain("预览");
+    expect(markup).toContain("更换头像");
     expect(markup).toContain("机器人名称");
     expect(markup).toContain("为你的机器人命名");
-    expect(markup).toContain("外观");
-    expect(markup).toContain("上传图片");
-    expect(markup).toContain("取消");
-    expect(markup).not.toContain("Your bot");
+    expect(markup).toContain("它会先做自我介绍");
+    expect(markup).toContain("创建机器人");
     expect(markup).not.toContain("Name your bot");
-    expect(markup).not.toContain("Appearance");
   });
 
   it("translates the new group dialog", () => {
@@ -213,7 +208,7 @@ describe("roster in Simplified Chinese", () => {
     );
 
     expect(markup).toContain("新建群组");
-    expect(markup).toContain("选择此群组中的机器人");
+    expect(markup).toContain("选择此群组中的机器人。它们都会收到每条消息。");
     expect(markup).toContain("请至少选择两个机器人。");
     expect(markup).not.toContain("Choose the bots");
     expect(markup).not.toContain("Select at least two bots.");

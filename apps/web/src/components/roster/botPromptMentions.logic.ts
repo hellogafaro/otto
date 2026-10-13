@@ -21,6 +21,7 @@ export interface BotPromptMentionTrigger {
 
 export type BotPromptMentionItem =
   | { readonly kind: "browser"; readonly key: "browser"; readonly label: string }
+  | { readonly kind: "everyone"; readonly key: "everyone"; readonly label: string }
   | {
       readonly kind: "bot";
       readonly key: string;
@@ -113,6 +114,8 @@ export function buildBotPromptMentionItems(input: {
   readonly browserAvailable: boolean;
   /** The browser row's displayed name, so a translated name is searchable too. */
   readonly browserLabel?: string;
+  /** Offers `@everyone`, which wakes every bot in a group chat. */
+  readonly everyone?: boolean;
   readonly bots: ReadonlyArray<BotPromptMentionBot>;
   readonly threads: ReadonlyArray<{ readonly id: string; readonly title: string }>;
   readonly paths?: ReadonlyArray<{ readonly path: string }>;
@@ -128,6 +131,10 @@ export function buildBotPromptMentionItems(input: {
     ("browser".startsWith(query) || input.browserLabel?.toLowerCase().startsWith(query))
   ) {
     items.push({ kind: "browser", key: "browser", label: BROWSER_MENTION_LABEL });
+  }
+
+  if (input.everyone && !threadOnly && "everyone".startsWith(query)) {
+    items.push({ kind: "everyone", key: "everyone", label: "everyone" });
   }
 
   if (!threadOnly) {
@@ -174,6 +181,8 @@ function mentionSource(item: BotPromptMentionItem): string | null {
   switch (item.kind) {
     case "browser":
       return COMPOSER_BROWSER_MENTION;
+    case "everyone":
+      return "@everyone";
     case "bot":
       return item.source;
     case "thread":

@@ -176,4 +176,17 @@ describe("bot conversation presentation", () => {
 
     expect(visibleBotChatMessages(messages).map((entry) => entry.id)).toEqual(["answer"]);
   });
+
+  it("hides a new bot's introduction prompt but keeps its greeting", () => {
+    const messages = [
+      message("intro:abc", "user", false),
+      message("greeting", "assistant", false, "turn-1"),
+      message("reply", "user", false),
+    ];
+
+    expect(visibleBotChatMessages(messages).map((entry) => entry.id)).toEqual([
+      "greeting",
+      "reply",
+    ]);
+  });
 });

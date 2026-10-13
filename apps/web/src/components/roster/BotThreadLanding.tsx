@@ -67,6 +67,7 @@ import { useReplyPlaybackThread } from "~/lib/replyPlaybackThread";
 import { BotVoiceCallButton, useVoiceCall } from "../voice/VoiceCall";
 import { useBotPresence } from "./botPresence";
 import { useMessageArrivals } from "./messageArrival";
+import { botIntroPrompt } from "./botIntro";
 import { useRosterStore } from "./rosterStore";
 import { useBotThreadRuntime } from "./useBotThreadRuntime";
 import { useLocalDay } from "./useLocalDay";
@@ -128,6 +129,19 @@ export function BotThreadLanding({
     useRosterStore.getState().requestNewChat(null);
     void runtime.startNewChat();
   }, [newChatRequested, runtime.canStartNewChat, runtime.startNewChat]);
+
+  // A bot created moments ago greets the user from a hidden prompt in its first chat.
+  const introRequested = useRosterStore((state) => state.introBotId === botId);
+  const botName = bot?.name ?? null;
+  const introReady = introRequested && runtime.botReady && Boolean(runtime.defaultProject);
+  useEffect(() => {
+    // Read the store, not the render: a re-run before the next render must not send twice.
+    const roster = useRosterStore.getState();
+
+    if (!introReady || botName === null || roster.introBotId !== botId) return;
+    roster.requestBotIntro(null);
+    void runtime.sendHidden(botIntroPrompt(botName, locale), t("Meet {name}", { name: botName }));
+  }, [botId, botName, introReady, locale, runtime.sendHidden, t]);
 
   const mentionScope = useBotPromptMentionScope({
     environmentId,

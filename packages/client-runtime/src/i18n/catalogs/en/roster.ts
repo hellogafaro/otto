@@ -88,23 +88,15 @@ export const rosterCatalog = {
   "{count} bot": "{count} bot",
   "{count} bots": "{count} bots",
   "Bot name": "Bot name",
-  "Enter a name to create this bot.": "Enter a name to create this bot.",
-  "This is how the bot appears in your roster.": "This is how the bot appears in your roster.",
   "Create bot": "Create bot",
   "Group name": "Group name",
   "Select at least two bots.": "Select at least two bots.",
-  Boss: "Boss",
-  "Group boss": "Group boss",
-  "Choose boss": "Choose boss",
   "Create group": "Create group",
   "A group needs at least two bots. Add another bot before you remove one.":
     "A group needs at least two bots. Add another bot before you remove one.",
   "A group needs at least two bots. Create a new bot in the roster before you remove one.":
     "A group needs at least two bots. Create a new bot in the roster before you remove one.",
-  "To remove {name}, make another bot the boss first.":
-    "To remove {name}, make another bot the boss first.",
   "Could not rename group": "Could not rename group",
-  "Could not change group boss": "Could not change group boss",
   "Remove {bot} from {group}": "Remove {bot} from {group}",
   "Add bot": "Add bot",
   "Choose bot": "Choose bot",
@@ -135,8 +127,6 @@ export const rosterCatalog = {
   "{count} plugin enabled": "{count} plugin enabled",
   "{count} plugins enabled": "{count} plugins enabled",
   "Add a project before you message a bot.": "Add a project before you message a bot.",
-  "Choose an active group boss in the group sidebar.":
-    "Choose an active group boss in the group sidebar.",
   "Could not create routine": "Could not create routine",
   "Could not delete routine": "Could not delete routine",
   "Could not enable routine": "Could not enable routine",
@@ -147,7 +137,6 @@ export const rosterCatalog = {
   "Could not send to {channel}": "Could not send to {channel}",
   "Could not start routine": "Could not start routine",
   Scheduled: "Scheduled",
-  "Group boss unavailable": "Group boss unavailable",
   "Loading bot…": "Loading bot…",
   "Open Plugins": "Open Plugins",
   "Paused. Fix the cause in Bot inbox, then resume it.":
@@ -295,8 +284,6 @@ export const rosterCatalog = {
   "Turn off {name} for this bot": "Turn off {name} for this bot",
   "Turn on {name} for this bot": "Turn on {name} for this bot",
   "Name your bot": "Name your bot",
-  "Choose the bots in this group and which one leads.":
-    "Choose the bots in this group and which one leads.",
   "Set up how this bot works with you.": "Set up how this bot works with you.",
   "Allow bots to use the in-app browser for research, previews, and interactive web tasks.":
     "Allow bots to use the in-app browser for research, previews, and interactive web tasks.",
@@ -327,4 +314,14 @@ export const rosterCatalog = {
   "No channels set up yet": "No channels set up yet",
   "Deleted group": "Deleted group",
   "Removed bot": "Removed bot",
+  "It introduces itself and asks about your work.":
+    "It introduces itself and asks about your work.",
+  "Meet {name}": "Meet {name}",
+  "Choose another image": "Choose another image",
+  "Choose the bots in this group. They all hear every message.":
+    "Choose the bots in this group. They all hear every message.",
+  "No active bots": "No active bots",
+  "Add an active bot to this group in the group sidebar.":
+    "Add an active bot to this group in the group sidebar.",
+  "Every bot in this group": "Every bot in this group",
 } as const;

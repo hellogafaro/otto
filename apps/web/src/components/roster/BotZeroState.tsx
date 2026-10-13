@@ -20,8 +20,8 @@ import {
 } from "../ui/empty";
 import { toastManager } from "../ui/toast";
 import { DEFAULT_BOT_RUNTIME_MODE } from "./botSandbox";
-import { NewBotDialog } from "./NewBotDialog";
-import type { BotAvatar } from "./types";
+import { NewBotDialog, type NewBotInput } from "./NewBotDialog";
+import { useRosterStore } from "./rosterStore";
 
 /**
  * What a brand-new workspace sees. The old copy named the missing thing and
@@ -36,7 +36,7 @@ export function BotZeroState() {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const handleCreate = async ({ name, avatar }: { name: string; avatar: BotAvatar }) => {
+  const handleCreate = async ({ name, avatar, engine }: NewBotInput) => {
     // A second submit before the first resolves would create a second bot.
     if (creating) return;
 
@@ -47,17 +47,18 @@ export function BotZeroState() {
     }
 
     setCreating(true);
+    const botId = BotId.make(`bot-${randomUUID()}`);
 
     const result = await createBot({
       environmentId,
       input: {
-        botId: BotId.make(`bot-${randomUUID()}`),
+        botId,
         name: name.trim(),
         title: "Assistant",
         label: null,
         description: null,
         avatar,
-        engine: null,
+        engine,
         sandbox: null,
         runtimeMode: DEFAULT_BOT_RUNTIME_MODE,
         groupId: null,
@@ -72,7 +73,8 @@ export function BotZeroState() {
       return;
     }
 
-    // The roster route watches for the new bot and opens its chat.
+    // The roster route watches for the new bot and opens its chat, which sends its introduction.
+    useRosterStore.getState().requestBotIntro(botId);
     setOpen(false);
   };
 

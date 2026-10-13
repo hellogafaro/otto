@@ -9,6 +9,7 @@ import type {
   McpServer,
   Routine,
   RoutineApprovalPolicy,
+  RoutineHourInterval,
   RoutineRun,
   RoutineRunStatus,
   RoutineSandbox,
@@ -45,7 +46,11 @@ export interface RoutineAdapterSchedule {
   readonly time: string;
   readonly timezone: string;
   readonly weekday: number | null;
+  /** Hours between runs of an hourly routine. */
+  readonly everyHours?: RoutineHourInterval | null;
 }
+
+export const ROUTINE_HOUR_INTERVALS: ReadonlyArray<RoutineHourInterval> = [1, 2, 3, 4, 6, 8, 12];
 
 export interface RoutineAdapterRun {
   readonly id: string;
@@ -114,6 +119,14 @@ const WEEKDAY_LABELS: readonly MessageKey[] = [
 ];
 
 export function toRoutineSchedule(draft: RoutineAdapterDraft): RoutineSchedule {
+  if (draft.schedule.frequency === "hourly") {
+    return {
+      kind: "hourly",
+      everyHours: draft.schedule.everyHours ?? 1,
+      time: draft.schedule.time,
+    };
+  }
+
   if (draft.schedule.frequency !== "weekly") {
     return { kind: draft.schedule.frequency, time: draft.schedule.time };
   }
@@ -134,6 +147,7 @@ function toAdapterSchedule(routine: Routine): RoutineAdapterSchedule {
       routine.schedule.kind === "weekly"
         ? WEEKDAY_IDS.indexOf(routine.schedule.weekdays[0] ?? "monday")
         : null,
+    ...(routine.schedule.kind === "hourly" ? { everyHours: routine.schedule.everyHours } : {}),
   };
 }
 
@@ -245,10 +259,37 @@ export type RoutineTranslator = Pick<ReturnType<typeof createTranslator>, "t" | 
 
 const englishTranslator: RoutineTranslator = createTranslator("en");
 
+/**
+ * Names an hourly schedule by its earliest run of the day, since it repeats
+ * around the clock from `time`.
+ */
+export function hourlyScheduleText(
+  everyHours: number,
+  time: string,
+  t: RoutineTranslator["t"] = englishTranslator.t,
+): string {
+  const minute = time.slice(3, 5);
+
+  if (everyHours <= 1) return t("Every hour at :{minute}", { minute });
+  const firstHour = String(Number(time.slice(0, 2)) % everyHours).padStart(2, "0");
+
+  return t("Every {count} hours from {time}", {
+    count: everyHours,
+    time: `${firstHour}:${minute}`,
+  });
+}
+
 export function routineScheduleLabel(
   schedule: RoutineAdapterSchedule,
   i18n: RoutineTranslator = englishTranslator,
 ) {
+  if (schedule.frequency === "hourly") {
+    return i18n.t("{schedule} ({timezone})", {
+      schedule: hourlyScheduleText(schedule.everyHours ?? 1, schedule.time, i18n.t),
+      timezone: schedule.timezone,
+    });
+  }
+
   const frequency = Match.value(schedule.frequency).pipe(
     Match.when("daily", () => i18n.t("Daily")),
     Match.when("weekdays", () => i18n.t("Weekdays")),
@@ -442,7 +483,13 @@ export function routineApprovalSummary(
     Match.orElse(() => t("Daily")),
   );
 
-  const base = time ? t("{schedule} at {time}", { schedule: kind, time }) : null;
+  const everyHours = Predicate.isNumber(schedule?.everyHours) ? schedule.everyHours : 1;
+
+  const base = !time
+    ? null
+    : schedule?.kind === "hourly"
+      ? hourlyScheduleText(everyHours, time, t)
+      : t("{schedule} at {time}", { schedule: kind, time });
 
   const timezone =
     Predicate.isString(record?.timezone) && record.timezone.trim() ? record.timezone.trim() : null;

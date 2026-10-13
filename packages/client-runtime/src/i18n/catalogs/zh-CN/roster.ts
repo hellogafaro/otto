@@ -84,23 +84,15 @@ export const rosterCatalog = {
   "{count} bot": "{count} 个机器人",
   "{count} bots": "{count} 个机器人",
   "Bot name": "机器人名称",
-  "Enter a name to create this bot.": "输入名称以创建此机器人。",
-  "This is how the bot appears in your roster.": "机器人将以此名称显示在你的机器人列表中。",
   "Create bot": "创建机器人",
   "Group name": "群组名称",
   "Select at least two bots.": "请至少选择两个机器人。",
-  Boss: "负责人",
-  "Group boss": "群组负责人",
-  "Choose boss": "选择负责人",
   "Create group": "创建群组",
   "A group needs at least two bots. Add another bot before you remove one.":
     "群组至少需要两个机器人。请先添加另一个机器人，再移除其中一个。",
   "A group needs at least two bots. Create a new bot in the roster before you remove one.":
     "群组至少需要两个机器人。请先在机器人列表中创建一个新机器人，再移除其中一个。",
-  "To remove {name}, make another bot the boss first.":
-    "要移除 {name}，请先将另一个机器人设为负责人。",
   "Could not rename group": "无法重命名群组",
-  "Could not change group boss": "无法更改群组负责人",
   "Remove {bot} from {group}": "将 {bot} 从 {group} 中移除",
   "Add bot": "添加机器人",
   "Choose bot": "选择机器人",
@@ -130,7 +122,6 @@ export const rosterCatalog = {
   "{count} plugin enabled": "已启用 {count} 个插件",
   "{count} plugins enabled": "已启用 {count} 个插件",
   "Add a project before you message a bot.": "请先添加项目，再给机器人发消息。",
-  "Choose an active group boss in the group sidebar.": "请在群组侧边栏中选择一个活跃的群组负责人。",
   "Could not create routine": "无法创建例行任务",
   "Could not delete routine": "无法删除例行任务",
   "Could not enable routine": "无法启用例行任务",
@@ -141,7 +132,6 @@ export const rosterCatalog = {
   "Could not send to {channel}": "无法发送到 {channel}",
   "Could not start routine": "无法启动例行任务",
   Scheduled: "定时",
-  "Group boss unavailable": "群组负责人不可用",
   "Loading bot…": "正在加载机器人…",
   "Open Plugins": "打开插件",
   "Paused. Fix the cause in Bot inbox, then resume it.":
@@ -280,7 +270,6 @@ export const rosterCatalog = {
   "Turn off {name} for this bot": "为此机器人关闭 {name}",
   "Turn on {name} for this bot": "为此机器人开启 {name}",
   "Name your bot": "为你的机器人命名",
-  "Choose the bots in this group and which one leads.": "选择此群组中的机器人，以及由哪一个负责。",
   "Set up how this bot works with you.": "设置这个机器人与你协作的方式。",
   "Allow bots to use the in-app browser for research, previews, and interactive web tasks.":
     "允许机器人使用应用内浏览器进行调研、预览和交互式网页任务。",
@@ -311,4 +300,13 @@ export const rosterCatalog = {
   "No channels set up yet": "尚未设置频道",
   "Deleted group": "已删除的群组",
   "Removed bot": "已移除的机器人",
+  "It introduces itself and asks about your work.": "它会先做自我介绍，并了解你的工作。",
+  "Meet {name}": "认识 {name}",
+  "Choose another image": "选择其他图片",
+  "Choose the bots in this group. They all hear every message.":
+    "选择此群组中的机器人。它们都会收到每条消息。",
+  "No active bots": "没有可用的机器人",
+  "Add an active bot to this group in the group sidebar.":
+    "请在群组侧栏中为此群组添加一个可用的机器人。",
+  "Every bot in this group": "此群组中的所有机器人",
 } as const;

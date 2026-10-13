@@ -15,7 +15,7 @@ import {
   type OttoMemoryToolHandler,
   type OttoMemoryToolId,
 } from "../../memory/BotMemoryToolHandlers.ts";
-import type { OttoCatalogToolHandler } from "./OttoCatalogTypes.ts";
+import type { OttoCatalogBackendOptions, OttoCatalogToolHandler } from "./OttoCatalogTypes.ts";
 import type { OttoBotStateRuntime } from "../OttoBotStateRuntime.ts";
 
 /** Native and plugin tools use the SDK result contract until tool-specific processing. */
@@ -113,6 +113,8 @@ export interface OttoToolExecution {
   readonly toolCallId: string;
   readonly input: unknown;
   readonly approvalMode: "require-grant";
+  /** Search through this turn's model, when its provider has built-in web search. */
+  readonly webSearch?: OttoCatalogBackendOptions["webSearch"];
 }
 
 export interface OttoToolRuntime {

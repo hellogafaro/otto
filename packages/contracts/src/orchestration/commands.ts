@@ -312,6 +312,20 @@ const ThreadTitleRegenerationCompleteCommand = Schema.Struct({
   title: Schema.optional(TrimmedNonEmptyString),
 });
 
+/** Starts one bot's turn in a group round. Sent by the server, never by clients. */
+const ThreadGroupTurnStartCommand = Schema.Struct({
+  type: Schema.Literal("thread.group-turn.start"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  botId: BotId,
+  /** The newest person message the round answers. */
+  messageId: MessageId,
+  /** What this bot receives instead of that message's text. */
+  input: Schema.String,
+  attachments: Schema.Array(ChatAttachment),
+  createdAt: IsoDateTime,
+});
+
 export const DelegationCreateCommand = Schema.Struct({
   type: Schema.Literal("delegation.create"),
   commandId: CommandId,
@@ -336,6 +350,7 @@ const InternalOrchestrationCommand = Schema.Union([
   ThreadHistoryRestoreCommand,
   ThreadRevertCompleteCommand,
   ThreadTitleRegenerationCompleteCommand,
+  ThreadGroupTurnStartCommand,
   DelegationCreateCommand,
   DelegationStateSetCommand,
 ]);

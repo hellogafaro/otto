@@ -552,7 +552,9 @@ const makeOrchestrationEngine = Effect.gen(function* () {
     Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
         const admission =
-          command.type === "thread.turn.start" || command.type === "thread.turn.resume"
+          command.type === "thread.turn.start" ||
+          command.type === "thread.turn.resume" ||
+          command.type === "thread.group-turn.start"
             ? (options?.admission?.retain() ?? tryAdmitTurnStart())
             : undefined;
 
