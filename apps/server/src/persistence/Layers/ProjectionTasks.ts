@@ -1,4 +1,10 @@
-import { OrchestrationTask, TaskAssignees, WorkParticipant, WorkResources } from "@otto/contracts";
+import {
+  OrchestrationTask,
+  TaskAssignees,
+  TaskTimeEntry,
+  WorkParticipant,
+  WorkResources,
+} from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -13,7 +19,7 @@ import {
   type ProjectionTaskRepositoryShape,
 } from "../Services/ProjectionTasks.ts";
 
-const ProjectionTaskDbRow = OrchestrationTask.mapFields(
+const ProjectionTaskDbRow = OrchestrationTask.mapFields(Struct.omit(["timeEntries"])).mapFields(
   Struct.assign({
     owner: Schema.NullOr(Schema.fromJsonString(WorkParticipant)),
     assignees: Schema.fromJsonString(TaskAssignees),
@@ -90,17 +96,75 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
       `,
   });
 
+  const listEntryRows = SqlSchema.findAll({
+    Request: Schema.Void,
+    Result: TaskTimeEntry,
+    execute: () =>
+      sql`
+        SELECT
+          entry_id AS id,
+          task_id AS "taskId",
+          duration_ms AS duration,
+          description,
+          created_by AS "createdBy",
+          created_at AS "createdAt"
+        FROM projection_timesheets
+        ORDER BY created_at ASC, entry_id ASC
+      `,
+  });
+
+  const insertEntryRow = SqlSchema.void({
+    Request: TaskTimeEntry,
+    execute: (entry) =>
+      sql`
+        INSERT INTO projection_timesheets (
+          entry_id, task_id, duration_ms, description, created_by, created_at
+        )
+        VALUES (
+          ${entry.id}, ${entry.taskId}, ${entry.duration}, ${entry.description},
+          ${entry.createdBy}, ${entry.createdAt}
+        )
+        ON CONFLICT (entry_id) DO NOTHING
+      `,
+  });
+
+  const deleteEntryRow = SqlSchema.void({
+    Request: Schema.String,
+    execute: (entryId) => sql`DELETE FROM projection_timesheets WHERE entry_id = ${entryId}`,
+  });
+
   const upsert: ProjectionTaskRepositoryShape["upsert"] = (row) =>
     upsertRow(row).pipe(
       Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.upsert:query")),
     );
 
   const listAll: ProjectionTaskRepositoryShape["listAll"] = () =>
-    listRows().pipe(
+    Effect.all([listRows(), listEntryRows()]).pipe(
+      Effect.map(([tasks, entries]) =>
+        tasks.map((task) => ({
+          ...task,
+          timeEntries: entries.filter((entry) => entry.taskId === task.id),
+        })),
+      ),
       Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.listAll:query")),
     );
 
-  return { upsert, listAll } satisfies ProjectionTaskRepositoryShape;
+  const insertTimeEntry: ProjectionTaskRepositoryShape["insertTimeEntry"] = (entry) =>
+    insertEntryRow(entry).pipe(
+      Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.insertTimeEntry:query")),
+    );
+
+  const deleteTimeEntry: ProjectionTaskRepositoryShape["deleteTimeEntry"] = (entryId) =>
+    deleteEntryRow(entryId).pipe(
+      Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.deleteTimeEntry:query")),
+    );
+
+  return {
+    upsert,
+    listAll,
+    insertTimeEntry,
+    deleteTimeEntry,
+  } satisfies ProjectionTaskRepositoryShape;
 });
 
 export const ProjectionTaskRepositoryLive = Layer.effect(

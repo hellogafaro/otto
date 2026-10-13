@@ -1,8 +1,10 @@
-import { RiCloseLine, RiListCheck } from "@remixicon/react";
+import { RiArrowDownSLine, RiCloseLine, RiListCheck } from "@remixicon/react";
 import { useAtomValue } from "@effect/atom-react";
 
-import { useEffect, useState, type ReactNode } from "react";
+import * as Schema from "effect/Schema";
+import { useEffect, useId, useState, type ReactNode } from "react";
 
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useI18n } from "../i18n";
 import { cn } from "../lib/utils";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
@@ -24,15 +26,12 @@ import { useDetailsPanelState } from "./roster/useDetailsPanelState";
 export function DetailsAside({
   open: desktopOpen,
   onOpenChange,
-  title,
   labels,
   testId,
   children,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (update: (open: boolean) => boolean) => void;
-  /** Centered in the sidebar's own 44px top bar. */
-  readonly title: string;
   readonly labels: {
     readonly sidebar: string;
     readonly open: string;
@@ -79,8 +78,8 @@ export function DetailsAside({
 
   const content = (closeButton?: ReactNode) => (
     <>
-      <header className="relative flex h-(--workspace-topbar-height) shrink-0 items-center justify-center px-4">
-        <h2 className="text-sm font-medium">{title}</h2>
+      <header className="relative flex h-(--workspace-topbar-height) shrink-0 items-center ps-3 pe-12">
+        <DetailsTabs label={labels.sidebar} />
         <div className="absolute right-3 flex items-center min-[981px]:fixed min-[981px]:right-(--workspace-controls-right) min-[981px]:top-(--workspace-controls-top) min-[981px]:z-40 min-[981px]:h-(--workspace-topbar-height)">
           {closeButton}
         </div>
@@ -171,5 +170,88 @@ export function DetailsAside({
         </SheetPopup>
       </Sheet>
     </>
+  );
+}
+
+/**
+ * Otto: The tabs heading every right sidebar, in place of a title: 28px tabs
+ * with a 14px icon and the back button's 13px/500 label, the active one on the
+ * secondary fill.
+ * Details is always the first tab; more (a group's chats, files) join it later.
+ */
+export function DetailsTabs({ label }: { readonly label: string }) {
+  const { t } = useI18n();
+
+  return (
+    <div role="tablist" aria-label={label} className="flex min-w-0 items-center gap-0.5">
+      <button
+        type="button"
+        role="tab"
+        aria-selected
+        className="flex h-7 items-center gap-1.5 rounded-md bg-secondary px-2 text-13px font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <RiListCheck aria-hidden className="size-3.5 shrink-0" />
+        {t("Details")}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Otto: A collapsible group in a details sidebar, headed like the left
+ * sidebar's sections (28px row, 12px/500 at 52%) with a chevron; its open
+ * state is remembered per group id.
+ */
+export function DetailsGroup({
+  id,
+  label,
+  action,
+  children,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly action?: ReactNode;
+  readonly children: ReactNode;
+}) {
+  const [open, setOpen] = useLocalStorage(`otto:details-group:${id}`, true, Schema.Boolean);
+  const headingId = useId();
+
+  return (
+    <section aria-labelledby={headingId}>
+      <div className="flex h-7 items-center gap-1">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className="flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md text-left text-xs font-medium text-foreground/52 outline-none hover:text-foreground/80 focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span id={headingId} className="truncate">
+            {label}
+          </span>
+          <RiArrowDownSLine
+            aria-hidden
+            className={cn("size-3 shrink-0 transition-transform", !open && "-rotate-90")}
+          />
+        </button>
+        {action}
+      </div>
+      {open ? <div className="flex flex-col">{children}</div> : null}
+    </section>
+  );
+}
+
+/** One row in a details group: a muted label on the left and its value or quiet control on the right. */
+export function DetailsRow({
+  label,
+  children,
+}: {
+  readonly label: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-9 items-center gap-2">
+      <span className="w-24 shrink-0 truncate text-sm text-muted-foreground">{label}</span>
+      <div className="flex min-w-0 flex-1 justify-end">{children}</div>
+    </div>
   );
 }

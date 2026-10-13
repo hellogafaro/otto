@@ -22,6 +22,7 @@ import { botPersonalityToneLabel, canonicalizeBotPersonalityTone } from "./botPe
 import { botSandboxChoice, botSandboxLabel } from "./botSandbox";
 import { RoutinePanel, type RoutinePanelProps } from "./RoutinePanel";
 import type { Bot } from "./types";
+import { DetailsTabs } from "../DetailsAside";
 import { useDetailsPanelState } from "./useDetailsPanelState";
 import { useBotDetailsOpen } from "./detailsPanelOpen";
 
@@ -49,8 +50,8 @@ export function BotOverview({
   const modelLabel = resolveBotModelLabel(bot.engine, settings, providers, t);
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-6">
-      <div className="flex flex-col items-center text-center">
+    <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-2">
+      <div className="flex flex-col items-start">
         <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-16" />
         <h3 className="mt-3 text-base font-semibold">{bot.name}</h3>
         {bot.label ? <p className="mt-0.5 text-sm text-muted-foreground">{bot.label}</p> : null}
@@ -207,6 +208,14 @@ export function BotDetailsPanel({
     canExpandBrowser = false,
   ) => (
     <>
+      {!browserExpanded || !canExpandBrowser ? (
+        <header className="relative flex h-(--workspace-topbar-height) shrink-0 items-center ps-3 pe-12">
+          <DetailsTabs label={t("{name} bot sidebar", { name: bot.name })} />
+          <div className="absolute right-3 flex items-center min-[981px]:fixed min-[981px]:right-(--workspace-controls-right) min-[981px]:top-(--workspace-controls-top) min-[981px]:z-40 min-[981px]:h-(--workspace-topbar-height)">
+            {closeButton}
+          </div>
+        </header>
+      ) : null}
       <BotBrowserPreview
         botName={bot.name}
         threadRef={threadRef}
@@ -217,12 +226,6 @@ export function BotDetailsPanel({
       />
       {!browserExpanded || !canExpandBrowser ? (
         <>
-          <header className="relative flex h-(--workspace-topbar-height) shrink-0 items-center justify-center px-4 min-[981px]:h-0">
-            <h2 className="text-sm font-medium min-[981px]:sr-only">{t("Bot")}</h2>
-            <div className="absolute right-3 flex items-center min-[981px]:fixed min-[981px]:right-(--workspace-controls-right) min-[981px]:top-(--workspace-controls-top) min-[981px]:z-40 min-[981px]:h-(--workspace-topbar-height)">
-              {closeButton}
-            </div>
-          </header>
           <BotOverview
             bot={bot}
             routinePanelRef={routinePanelRef}

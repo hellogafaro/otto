@@ -1,4 +1,9 @@
-import { OrchestrationTaskCreatedPayload, OrchestrationTaskUpdatedPayload } from "./work.ts";
+import {
+  OrchestrationTaskCreatedPayload,
+  OrchestrationTaskTimeAddedPayload,
+  OrchestrationTaskTimeRemovedPayload,
+  OrchestrationTaskUpdatedPayload,
+} from "./work.ts";
 import * as Schema from "effect/Schema";
 import {
   ApprovalRequestId,
@@ -230,6 +235,16 @@ export const OrchestrationEvent = Schema.Union([
     ...EventBaseFields,
     type: Schema.Literal("task.updated"),
     payload: OrchestrationTaskUpdatedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("task.time-added"),
+    payload: OrchestrationTaskTimeAddedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("task.time-removed"),
+    payload: OrchestrationTaskTimeRemovedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,

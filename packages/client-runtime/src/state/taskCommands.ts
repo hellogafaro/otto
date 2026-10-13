@@ -3,14 +3,23 @@ import { Atom } from "effect/unstable/reactivity";
 
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import {
+  addTaskTime,
   createTask,
+  removeTaskTime,
   updateTask,
+  type AddTaskTimeInput,
   type CreateTaskInput,
+  type RemoveTaskTimeInput,
   type UpdateTaskInput,
 } from "../operations/commands.ts";
 import { createAtomCommandScheduler, createEnvironmentCommand } from "./runtime.ts";
 
-export type { CreateTaskInput, UpdateTaskInput } from "../operations/commands.ts";
+export type {
+  AddTaskTimeInput,
+  CreateTaskInput,
+  RemoveTaskTimeInput,
+  UpdateTaskInput,
+} from "../operations/commands.ts";
 
 export function createTaskEnvironmentAtoms<R, E>(
   runtime: Atom.AtomRuntime<EnvironmentRegistry | Crypto.Crypto | R, E>,
@@ -33,6 +42,18 @@ export function createTaskEnvironmentAtoms<R, E>(
     update: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:task:update",
       execute: (input: UpdateTaskInput) => updateTask(input),
+      scheduler,
+      concurrency,
+    }),
+    addTime: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:task:time:add",
+      execute: (input: AddTaskTimeInput) => addTaskTime(input),
+      scheduler,
+      concurrency,
+    }),
+    removeTime: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:task:time:remove",
+      execute: (input: RemoveTaskTimeInput) => removeTaskTime(input),
       scheduler,
       concurrency,
     }),

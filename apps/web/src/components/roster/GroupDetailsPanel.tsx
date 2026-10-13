@@ -21,7 +21,6 @@ export function GroupDetailsPanel(props: {
     <DetailsAside
       open={open}
       onOpenChange={setOpen}
-      title={t("Group")}
       testId="group-details-panel"
       labels={{
         sidebar: t("{name} group sidebar", { name: props.group.name }),

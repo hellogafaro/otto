@@ -84,6 +84,8 @@ export const createWsOrchestrationStreams = ({
         );
       case "task.created":
       case "task.updated":
+      case "task.time-added":
+      case "task.time-removed":
         return Effect.succeed(
           Option.some({
             kind: "task-upserted" as const,

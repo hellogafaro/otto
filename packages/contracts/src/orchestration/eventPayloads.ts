@@ -63,6 +63,8 @@ export const OrchestrationEventType = Schema.Literals([
   "project.deleted",
   "task.created",
   "task.updated",
+  "task.time-added",
+  "task.time-removed",
   "bot.created",
   "bot.updated",
   "bot.archived",

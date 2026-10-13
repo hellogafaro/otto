@@ -112,6 +112,8 @@ export function itemForCommand(
         return `skill-assignment:${command.assignmentId}`;
       case "task.create":
       case "task.update":
+      case "task.time.add":
+      case "task.time.remove":
         return `task:${command.taskId}`;
       default:
         return `thread:${command.threadId}`;

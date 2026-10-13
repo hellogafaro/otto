@@ -5,17 +5,13 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useI18n } from "../../i18n";
+import { DetailsGroup, DetailsRow } from "../DetailsAside";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { ProjectCover } from "./ProjectCover";
 import { TasksTable } from "./TasksTable";
 import { projectStatus, sortTasks } from "./work.logic";
-import {
-  PropertyGroup,
-  WorkDetailPage,
-  WorkResourcesSection,
-  WorkSectionHeader,
-} from "./WorkDetail";
+import { WorkDetailPage, WorkResourcesSection, WorkSectionHeader } from "./WorkDetail";
 import { TaskDialog } from "./WorkDialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./WorkPages";
 import { OwnerSelect } from "./WorkParticipants";
@@ -24,9 +20,9 @@ import { WorkStatusSelect, useWorkStatusLabel } from "./WorkStatus";
 type ProjectFields = Omit<UpdateProjectInput, "projectId">;
 
 /**
- * Otto: A project's page, the same pattern as a task's: title, description,
- * resources and its tasks in the main column; status, owner and an overview
- * with the cover and task counts in the details sidebar.
+ * Otto: A project's page, the same pattern as a task's: its cover above the
+ * title, then description, resources and its tasks in the main column; status,
+ * owner and task counts in the details sidebar's Properties group.
  */
 export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
   const { t } = useI18n();
@@ -72,6 +68,7 @@ export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
       <WorkDetailPage
         kind="project"
         back={back}
+        cover={<ProjectCover seed={project.id} />}
         title={project.title}
         onTitleSave={(title) => update({ title })}
         description={project.description ?? ""}
@@ -81,6 +78,7 @@ export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
             key: "resources",
             content: (
               <WorkResourcesSection
+                self={{ type: "project", id: project.id }}
                 resources={project.resources ?? []}
                 onChange={(resources) => update({ resources })}
               />
@@ -116,38 +114,29 @@ export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
           },
         ]}
         aside={
-          <>
-            <PropertyGroup label={t("Properties")}>
+          <DetailsGroup id="project-properties" label={t("Properties")}>
+            <DetailsRow label={t("Status")}>
               <WorkStatusSelect
                 variant="ghost"
                 value={status}
                 onChange={(next) => update({ status: next })}
               />
+            </DetailsRow>
+            <DetailsRow label={t("Owner")}>
               <OwnerSelect
                 variant="ghost"
                 value={project.owner ?? null}
                 onChange={(owner) => update({ owner })}
                 participants={participants}
               />
-            </PropertyGroup>
-            <PropertyGroup label={t("Overview")}>
-              <div className="w-full px-2.5 pt-1">
-                <div className="overflow-hidden rounded-md border border-border">
-                  <ProjectCover seed={project.id} />
-                </div>
-              </div>
-              <dl className="flex w-full flex-col text-sm">
-                <div className="flex h-7 items-center justify-between px-2.5">
-                  <dt className="text-secondary-label">{t("Open tasks")}</dt>
-                  <dd className="text-foreground tabular-nums">{openCount}</dd>
-                </div>
-                <div className="flex h-7 items-center justify-between px-2.5">
-                  <dt className="text-secondary-label">{statusLabel("completed")}</dt>
-                  <dd className="text-foreground tabular-nums">{completedCount}</dd>
-                </div>
-              </dl>
-            </PropertyGroup>
-          </>
+            </DetailsRow>
+            <DetailsRow label={t("Open tasks")}>
+              <span className="px-2.5 text-sm tabular-nums">{openCount}</span>
+            </DetailsRow>
+            <DetailsRow label={statusLabel("completed")}>
+              <span className="px-2.5 text-sm tabular-nums">{completedCount}</span>
+            </DetailsRow>
+          </DetailsGroup>
         }
       />
       <TaskDialog

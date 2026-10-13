@@ -31,7 +31,7 @@ describe("BotDetailsPanel", () => {
     const markup = renderToStaticMarkup(<BotDetailsPanel bot={bot} />);
     // No bot thread yet, so the empty browser preview stays hidden.
     expect(markup).not.toContain('data-testid="bot-browser-preview"');
-    expect(markup).toContain(">Bot</h2>");
+    expect(markup).toContain('role="tab" aria-selected="true"');
     expect(markup).toContain("Otto");
     expect(markup).toContain("Research");
     expect(markup).toContain("Finds evidence and explains what matters.");

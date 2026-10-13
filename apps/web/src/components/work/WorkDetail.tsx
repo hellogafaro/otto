@@ -1,27 +1,33 @@
 import type { WorkResource } from "@otto/contracts";
 import { RiAddLine, RiCloseLine, RiLink } from "@remixicon/react";
+import { Link } from "@tanstack/react-router";
+import * as Match from "effect/Match";
 import * as Schema from "effect/Schema";
 import { Fragment, useState, type ReactNode } from "react";
 
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { useI18n } from "../../i18n";
 import { DetailsAside } from "../DetailsAside";
+import { PickerList, handlePickerKey, type PickerItem } from "../PickerList";
 import { RichTextEditor } from "../RichTextEditor";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
+import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
-import { WorkPage } from "./WorkPages";
+import { internalItemIcon, matchItems, useInternalItems } from "./workLinks";
+import { WorkPage, useWorkData } from "./WorkPages";
 
 /**
  * Otto: A task or project page, like a Linear issue: the main column keeps
- * what matters (title, rich description, then each section split by a 1px
- * rule, 24px apart) and every property sits in the shared details sidebar,
- * open by default and remembered per kind.
+ * what matters (an optional cover, title, rich description, then each section
+ * split by a 1px rule, 24px apart) and every property sits in the shared
+ * details sidebar, open by default and remembered per kind, in collapsible
+ * groups with no card around them.
  */
 export function WorkDetailPage({
   kind,
   back,
   actions,
+  cover,
   title,
   onTitleSave,
   description,
@@ -32,6 +38,8 @@ export function WorkDetailPage({
   readonly kind: "task" | "project";
   readonly back: { readonly label: string; readonly onBack: () => void };
   readonly actions?: ReactNode;
+  /** Shown above the title, full content width. */
+  readonly cover?: ReactNode;
   readonly title: string;
   readonly onTitleSave: (title: string) => void;
   readonly description: string;
@@ -40,6 +48,7 @@ export function WorkDetailPage({
   readonly aside: ReactNode;
 }) {
   const { t } = useI18n();
+  const links = useInternalItems();
 
   const [detailsOpen, setDetailsOpen] = useLocalStorage(
     `otto:${kind}-details-open`,
@@ -69,6 +78,11 @@ export function WorkDetailPage({
       <WorkPage back={back} actions={actions} detailsPanelOpen={detailsOpen}>
         <WorkspacePageContainer width="narrow" className="gap-6 pt-3 pb-16 sm:pt-4">
           <div className="flex flex-col gap-2">
+            {cover ? (
+              <div className="mx-4 mb-4 overflow-hidden rounded-lg border border-border">
+                {cover}
+              </div>
+            ) : null}
             <WorkTitleField key={title} value={title} onSave={onTitleSave} />
             <RichTextEditor
               key={description}
@@ -76,6 +90,7 @@ export function WorkDetailPage({
               value={description}
               placeholder={t("Add a description…")}
               ariaLabel={t("Description")}
+              links={links}
               onBlur={(markdown) => {
                 if (markdown.trim() !== description) onDescriptionSave(markdown.trim());
               }}
@@ -92,11 +107,10 @@ export function WorkDetailPage({
       <DetailsAside
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
-        title={t("Details")}
         testId={`${kind}-details-panel`}
         labels={labels}
       >
-        <div className="flex flex-col gap-6 px-2 pb-4">{aside}</div>
+        <div className="flex flex-col gap-4 px-5 pt-1 pb-6">{aside}</div>
       </DetailsAside>
     </>
   );
@@ -140,108 +154,191 @@ export function WorkTitleField({
   );
 }
 
-/** Links worth keeping next to the work, in 28px rows like the roster's. */
+type ResourceOption = PickerItem & { readonly resource: WorkResource };
+
+const isWebLink = (text: string) => /^https?:\/\/\S+$/i.test(text);
+
+const stripScheme = (url: string) => url.replace(/^https?:\/\//i, "");
+
+const resourceKey = (resource: WorkResource) =>
+  resource.type === "link" ? `link:${resource.url}` : `${resource.type}:${resource.id}`;
+
+const RESOURCE_ROW_CLASS =
+  "flex h-full min-w-0 flex-1 items-center gap-2 rounded-md ps-4 pe-8 text-13px outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground";
+
+/**
+ * Anything worth keeping next to the work, in 28px rows like the roster's:
+ * web links, and other tasks and projects shown by their current title. The
+ * list ends in a quiet "Add link, task or project…" row, also the whole empty
+ * state, whose popover takes a pasted link or searches tasks and projects.
+ */
 export function WorkResourcesSection({
+  self,
   resources,
   onChange,
 }: {
+  /** The page's own task or project, which never lists itself. */
+  readonly self: { readonly type: "task" | "project"; readonly id: string };
   readonly resources: readonly WorkResource[];
   readonly onChange: (resources: WorkResource[]) => void;
 }) {
   const { t } = useI18n();
+  const { tasks, projects } = useWorkData();
+  const internalItems = useInternalItems();
   const [adding, setAdding] = useState(false);
-  const [url, setUrl] = useState("");
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const taken = new Set([...resources.map(resourceKey), `${self.type}:${self.id}`]);
+  const text = query.trim();
 
-  const add = () => {
-    const trimmed = url.trim();
+  const options: ResourceOption[] = [
+    ...(isWebLink(text) && !taken.has(`link:${text}`)
+      ? [
+          {
+            key: `link:${text}`,
+            label: stripScheme(text),
+            icon: <RiLink />,
+            hint: t("Add link"),
+            resource: { type: "link" as const, title: stripScheme(text), url: text },
+          },
+        ]
+      : []),
+    ...matchItems(
+      internalItems.filter((item) => item.type === "task" || item.type === "project"),
+      text,
+      20,
+    )
+      .filter((item) => !taken.has(item.key))
+      .slice(0, 8)
+      .map((item) => ({
+        key: item.key,
+        label: item.label,
+        icon: item.icon,
+        hint: item.hint,
+        resource: {
+          type: item.type === "task" ? ("task" as const) : ("project" as const),
+          id: item.id,
+        },
+      })),
+  ];
 
-    if (!/^https?:\/\//i.test(trimmed)) return;
-    onChange([...resources, { title: trimmed.replace(/^https?:\/\//i, ""), url: trimmed }]);
-    setUrl("");
+  const close = () => {
     setAdding(false);
+    setQuery("");
+    setActive(0);
+  };
+
+  const pick = (option: ResourceOption) => {
+    onChange([...resources, option.resource]);
+    close();
   };
 
   return (
     <section className="flex flex-col gap-0.5">
-      <WorkSectionHeader
-        label={t("Resources")}
-        add={{ label: t("Add link"), onClick: () => setAdding(true) }}
-      />
-      {resources.map((resource) => (
-        <div
-          key={resource.url}
-          className="group/resource relative flex h-7 items-center rounded-md hover:bg-foreground/[0.035]"
-        >
-          <a
-            href={resource.url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-md ps-4 pe-8 text-13px outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <RiLink aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate text-foreground">{resource.title}</span>
-            {resource.title !== resource.url.replace(/^https?:\/\//i, "") ? (
-              <span className="truncate text-muted-foreground">
-                {resource.url.replace(/^https?:\/\//i, "")}
-              </span>
-            ) : null}
-          </a>
-          <span className="absolute top-1/2 right-0.5 -translate-y-1/2 opacity-0 group-focus-within/resource:opacity-100 group-hover/resource:opacity-100">
-            <Button
-              size="icon-row"
-              variant="ghost-muted"
-              aria-label={t("Remove")}
-              onClick={() => onChange(resources.filter((entry) => entry.url !== resource.url))}
-            >
-              <RiCloseLine className="size-3.5" />
-            </Button>
-          </span>
-        </div>
-      ))}
-      {adding ? (
-        <form
-          className="flex items-center gap-1.5 ps-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            add();
-          }}
-        >
-          <Input
-            autoFocus
-            size="sm"
-            type="url"
-            aria-label={t("Link")}
-            placeholder="https://"
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setAdding(false);
-            }}
-          />
-          <Button size="sm" type="submit">
-            {t("Add link")}
-          </Button>
-        </form>
-      ) : resources.length === 0 ? (
-        <p className="ps-4 text-13px text-muted-foreground">{t("No links yet.")}</p>
-      ) : null}
-    </section>
-  );
-}
+      <WorkSectionHeader label={t("Resources")} />
+      {resources.map((resource) => {
+        const key = resourceKey(resource);
 
-export function PropertyGroup({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <section className="flex flex-col items-start gap-0.5">
-      <h2 className="flex h-7 items-center ps-2.5 text-xs font-medium text-muted-foreground">
-        {label}
-      </h2>
-      {children}
+        const label = Match.value(resource).pipe(
+          Match.when({ type: "link" }, (link) => link.title),
+          Match.when(
+            { type: "task" },
+            (item) => tasks.find((task) => task.id === item.id)?.title ?? t("Task"),
+          ),
+          Match.orElse(
+            (item) => projects.find((project) => project.id === item.id)?.title ?? t("Project"),
+          ),
+        );
+
+        return (
+          <div
+            key={key}
+            className="group/resource relative flex h-7 items-center rounded-md hover:bg-foreground/[0.035]"
+          >
+            {Match.value(resource).pipe(
+              Match.when({ type: "link" }, (link) => (
+                <a href={link.url} target="_blank" rel="noreferrer" className={RESOURCE_ROW_CLASS}>
+                  <RiLink aria-hidden />
+                  <span className="truncate text-foreground">{label}</span>
+                  {label !== stripScheme(link.url) ? (
+                    <span className="truncate text-muted-foreground">{stripScheme(link.url)}</span>
+                  ) : null}
+                </a>
+              )),
+              Match.when({ type: "task" }, (item) => (
+                <Link
+                  to="/tasks/$taskId"
+                  params={{ taskId: item.id }}
+                  className={RESOURCE_ROW_CLASS}
+                >
+                  {internalItemIcon("task")}
+                  <span className="truncate text-foreground">{label}</span>
+                </Link>
+              )),
+              Match.orElse((item) => (
+                <Link
+                  to="/projects/$projectId"
+                  params={{ projectId: item.id }}
+                  className={RESOURCE_ROW_CLASS}
+                >
+                  {internalItemIcon("project")}
+                  <span className="truncate text-foreground">{label}</span>
+                </Link>
+              )),
+            )}
+            <span className="absolute top-1/2 right-0.5 -translate-y-1/2 opacity-0 group-focus-within/resource:opacity-100 group-hover/resource:opacity-100">
+              <Button
+                size="icon-row"
+                variant="ghost-muted"
+                aria-label={t("Remove")}
+                onClick={() => onChange(resources.filter((entry) => resourceKey(entry) !== key))}
+              >
+                <RiCloseLine className="size-3.5" />
+              </Button>
+            </span>
+          </div>
+        );
+      })}
+      <Popover open={adding} onOpenChange={(open) => (open ? setAdding(true) : close())}>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              className="flex h-7 w-full items-center gap-2 rounded-md ps-4 text-left text-13px text-muted-foreground outline-none hover:bg-foreground/[0.035] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:text-foreground"
+            />
+          }
+        >
+          <RiAddLine aria-hidden className="size-3.5 shrink-0" />
+          {t("Add link, task or project…")}
+        </PopoverTrigger>
+        <PopoverPopup side="bottom" align="start" viewportPadding="none" className="w-80">
+          <input
+            autoFocus
+            aria-label={t("Add resource")}
+            placeholder={t("Paste a link or search tasks and projects")}
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActive(0);
+            }}
+            onKeyDown={(event) => {
+              if (handlePickerKey(event.key, options, active, setActive, pick)) {
+                event.preventDefault();
+              }
+            }}
+            className="h-9 w-full border-b border-border bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          />
+          <div className="max-h-64 overflow-y-auto p-1">
+            <PickerList
+              items={options}
+              active={active}
+              emptyLabel={t("No results")}
+              onActiveChange={setActive}
+              onPick={pick}
+            />
+          </div>
+        </PopoverPopup>
+      </Popover>
     </section>
   );
 }

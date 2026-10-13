@@ -152,6 +152,8 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
       });
     case "task.create":
     case "task.update":
+    case "task.time.add":
+    case "task.time.remove":
       return yield* decideTasks({
         command,
         readModel,

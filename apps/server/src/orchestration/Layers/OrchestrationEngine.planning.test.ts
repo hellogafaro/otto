@@ -23,7 +23,7 @@ it("persists project planning fields and tasks through restart", async () => {
       projectId,
       description: "Ship the beta",
       owner: { kind: "bot", botId },
-      resources: [{ title: "Spec", url: "https://example.test/spec" }],
+      resources: [{ type: "link", title: "Spec", url: "https://example.test/spec" }],
       status: "pending",
     });
     await system.dispatch({
@@ -50,7 +50,7 @@ it("persists project planning fields and tasks through restart", async () => {
     expect(snapshot.projects.find((project) => project.id === projectId)).toMatchObject({
       description: "Ship the beta",
       owner: { kind: "bot", botId },
-      resources: [{ title: "Spec", url: "https://example.test/spec" }],
+      resources: [{ type: "link", title: "Spec", url: "https://example.test/spec" }],
       status: "pending",
     });
     expect(snapshot.tasks).toEqual([

@@ -39,6 +39,9 @@ export function useWorkParticipants(
     readonly currentPersonDisplayName?: string | undefined;
     readonly environmentHostPersonId?: AuthSessionId | undefined;
     readonly environmentHostDisplayName?: string | undefined;
+    readonly people?:
+      | ReadonlyArray<{ readonly personId: AuthSessionId; readonly displayName: string }>
+      | undefined;
     readonly groups: ReadonlyArray<{
       readonly members: ReadonlyArray<
         | { readonly kind: "bot" }
@@ -64,6 +67,8 @@ export function useWorkParticipants(
 
     add(snapshot?.currentPersonId, snapshot?.currentPersonDisplayName);
     add(snapshot?.environmentHostPersonId, snapshot?.environmentHostDisplayName);
+
+    for (const person of snapshot?.people ?? []) add(person.personId, person.displayName);
 
     for (const group of snapshot?.groups ?? []) {
       for (const member of group.members) {
@@ -282,7 +287,7 @@ export function AssigneesMenu({
             ) : (
               <RiUserLine aria-hidden className="size-3.5" />
             )}
-            {value.length > 0 ? null : t("Assignees")}
+            {value.length > 0 ? null : t("No assignees")}
           </span>
         </MenuTrigger>
       ) : (

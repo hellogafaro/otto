@@ -28,8 +28,12 @@ const uniqueParticipants = (participants: ReadonlyArray<WorkParticipant>) => [
 export const decideTasks = Effect.fn("decideTasks")(function* ({
   command,
   readModel,
+  actor,
 }: {
-  readonly command: Extract<OrchestrationCommand, { type: "task.create" | "task.update" }>;
+  readonly command: Extract<
+    OrchestrationCommand,
+    { type: "task.create" | "task.update" | "task.time.add" | "task.time.remove" }
+  >;
   readonly readModel: OrchestrationReadModel;
   readonly actor?: OrchestrationDispatchActor;
 }): Effect.fn.Return<
@@ -68,6 +72,7 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
             resources: command.resources ?? [],
             dueDate: command.dueDate ?? null,
             status: command.status ?? "backlog",
+            timeEntries: [],
             createdAt: command.createdAt,
             updatedAt: command.createdAt,
           },
@@ -117,5 +122,78 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
         },
       };
     }
+
+    case "task.time.add": {
+      const existing = yield* requireTask({ readModel, command, taskId: command.taskId });
+
+      if (actor === undefined) {
+        return yield* invariant(command.type, "Only a signed-in person can log time.");
+      }
+
+      if (existing.timeEntries.some((entry) => entry.id === command.entryId)) {
+        return yield* invariant(command.type, `Time entry '${command.entryId}' already exists.`);
+      }
+
+      const entry = {
+        id: command.entryId,
+        taskId: existing.id,
+        duration: command.duration,
+        description: command.description ?? "",
+        createdBy: actor.personId,
+        createdAt: command.createdAt,
+      };
+
+      return {
+        ...(yield* withEventBase({
+          aggregateKind: "task",
+          aggregateId: command.taskId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+        })),
+        type: "task.time-added",
+        payload: {
+          task: { ...existing, timeEntries: [...existing.timeEntries, entry] },
+          entry,
+        },
+      };
+    }
+
+    case "task.time.remove": {
+      const existing = yield* requireTask({ readModel, command, taskId: command.taskId });
+      const entry = existing.timeEntries.find((candidate) => candidate.id === command.entryId);
+
+      if (entry === undefined) {
+        return yield* invariant(command.type, `Time entry '${command.entryId}' does not exist.`);
+      }
+
+      if (actor !== undefined && entry.createdBy !== actor.personId) {
+        return yield* invariant(
+          command.type,
+          "Only the person who logged this time can remove it.",
+        );
+      }
+
+      const occurredAt = yield* nowIso;
+
+      return {
+        ...(yield* withEventBase({
+          aggregateKind: "task",
+          aggregateId: command.taskId,
+          occurredAt,
+          commandId: command.commandId,
+        })),
+        type: "task.time-removed",
+        payload: {
+          task: {
+            ...existing,
+            timeEntries: existing.timeEntries.filter((candidate) => candidate.id !== entry.id),
+          },
+          entryId: entry.id,
+        },
+      };
+    }
   }
 });
+
+const invariant = (commandType: string, detail: string) =>
+  Effect.fail(new OrchestrationCommandInvariantError({ commandType, detail }));

@@ -41,10 +41,20 @@ export const WorkParticipant = Schema.Union([
 
 export type WorkParticipant = typeof WorkParticipant.Type;
 
-export const WorkResource = Schema.Struct({
+/** An external web link; resources saved before resource types existed decode as links. */
+export const WorkLinkResource = Schema.Struct({
+  type: Schema.Literal("link").pipe(Schema.withDecodingDefault(Effect.succeed("link" as const))),
   title: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
   url: TrimmedNonEmptyString.check(Schema.isMaxLength(2048), Schema.isPattern(/^https?:\/\//i)),
 });
+
+/** Another Otto item, shown by its current title; new item types join this list. */
+export const WorkItemResource = Schema.Struct({
+  type: Schema.Literals(["task", "project"]),
+  id: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
+});
+
+export const WorkResource = Schema.Union([WorkLinkResource, WorkItemResource]);
 
 export type WorkResource = typeof WorkResource.Type;
 
@@ -63,6 +73,26 @@ export const TaskDueDate = TrimmedNonEmptyString.check(Schema.isPattern(/^\d{4}-
 
 export type TaskDueDate = typeof TaskDueDate.Type;
 
+/** Logged time, millisecond precision so start/stop timers can be added later. */
+export const TaskTimeDuration = Schema.Int.check(
+  Schema.isGreaterThanOrEqualTo(1),
+  Schema.isLessThanOrEqualTo(1000 * 60 * 60 * 1000),
+);
+
+export const TaskTimeEntryId = TrimmedNonEmptyString.check(Schema.isMaxLength(100));
+
+/** One timesheet entry: someone logged this much time on a task, optionally saying on what. */
+export const TaskTimeEntry = Schema.Struct({
+  id: TaskTimeEntryId,
+  taskId: TaskId,
+  duration: TaskTimeDuration,
+  description: TrimmedString.check(Schema.isMaxLength(500)),
+  createdBy: AuthSessionId,
+  createdAt: IsoDateTime,
+});
+
+export type TaskTimeEntry = typeof TaskTimeEntry.Type;
+
 export const OrchestrationTask = Schema.Struct({
   id: TaskId,
   projectId: ProjectId,
@@ -73,6 +103,7 @@ export const OrchestrationTask = Schema.Struct({
   resources: WorkResources,
   dueDate: Schema.NullOr(TaskDueDate),
   status: WorkStatus,
+  timeEntries: Schema.Array(TaskTimeEntry).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -107,6 +138,35 @@ export const TaskUpdateCommand = Schema.Struct({
   resources: Schema.optional(WorkResources),
   dueDate: Schema.optional(Schema.NullOr(TaskDueDate)),
   status: Schema.optional(WorkStatus),
+});
+
+/** The server records the person logging time as the entry's creator. */
+export const TaskTimeAddCommand = Schema.Struct({
+  type: Schema.Literal("task.time.add"),
+  commandId: CommandId,
+  taskId: TaskId,
+  entryId: TaskTimeEntryId,
+  duration: TaskTimeDuration,
+  description: Schema.optional(TrimmedString.check(Schema.isMaxLength(500))),
+  createdAt: IsoDateTime,
+});
+
+/** Only the person who logged an entry removes it. */
+export const TaskTimeRemoveCommand = Schema.Struct({
+  type: Schema.Literal("task.time.remove"),
+  commandId: CommandId,
+  taskId: TaskId,
+  entryId: TaskTimeEntryId,
+});
+
+export const OrchestrationTaskTimeAddedPayload = Schema.Struct({
+  task: OrchestrationTask,
+  entry: TaskTimeEntry,
+});
+
+export const OrchestrationTaskTimeRemovedPayload = Schema.Struct({
+  task: OrchestrationTask,
+  entryId: TaskTimeEntryId,
 });
 
 export const OrchestrationTaskCreatedPayload = Schema.Struct({ task: OrchestrationTask });

@@ -12,6 +12,16 @@ export function createTasks({
           yield* projectionTaskRepository.upsert(event.payload.task);
 
           return;
+        case "task.time-added":
+          yield* projectionTaskRepository.insertTimeEntry(event.payload.entry);
+          yield* projectionTaskRepository.upsert(event.payload.task);
+
+          return;
+        case "task.time-removed":
+          yield* projectionTaskRepository.deleteTimeEntry(event.payload.entryId);
+          yield* projectionTaskRepository.upsert(event.payload.task);
+
+          return;
         default:
           return;
       }

@@ -173,7 +173,12 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
       },
       {
         name: ORCHESTRATION_PROJECTOR_NAMES.tasks,
-        eventTypes: projectorEventTypes(["task.created", "task.updated"]),
+        eventTypes: projectorEventTypes([
+          "task.created",
+          "task.updated",
+          "task.time-added",
+          "task.time-removed",
+        ]),
         apply: applyTasksProjection,
       },
       {

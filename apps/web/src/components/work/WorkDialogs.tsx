@@ -28,19 +28,36 @@ import { WorkStatusSelect } from "./WorkStatus";
 
 type ResourceDraft = { readonly key: string; title: string; url: string };
 
+/** The dialog edits web links; tasks and projects are linked from the page and kept as they are. */
 function toDrafts(resources: readonly WorkResource[] | undefined): ResourceDraft[] {
-  return (resources ?? []).map((resource) => ({ key: randomUUID(), ...resource }));
+  return (resources ?? []).flatMap((resource) =>
+    resource.type === "link"
+      ? [{ key: randomUUID(), title: resource.title, url: resource.url }]
+      : [],
+  );
 }
 
-/** Links worth keeping next to the work; a row without a URL is dropped on save. */
-function toResources(drafts: readonly ResourceDraft[]): WorkResource[] {
-  return drafts.flatMap((draft) => {
-    const url = draft.url.trim();
+/** Saved resources: the kept tasks and projects, then each link row with a URL. */
+function toResources(
+  drafts: readonly ResourceDraft[],
+  saved: readonly WorkResource[] | undefined,
+): WorkResource[] {
+  return [
+    ...(saved ?? []).filter((resource) => resource.type !== "link"),
+    ...drafts.flatMap((draft) => {
+      const url = draft.url.trim();
 
-    if (!/^https?:\/\//i.test(url)) return [];
+      if (!/^https?:\/\//i.test(url)) return [];
 
-    return [{ title: draft.title.trim() || url.replace(/^https?:\/\//i, ""), url }];
-  });
+      return [
+        {
+          type: "link" as const,
+          title: draft.title.trim() || url.replace(/^https?:\/\//i, ""),
+          url,
+        },
+      ];
+    }),
+  ];
 }
 
 function ResourcesEditor({
@@ -295,7 +312,7 @@ function TaskEditor({
       description: description.trim(),
       owner,
       assignees,
-      resources: toResources(drafts),
+      resources: toResources(drafts, task?.resources),
       dueDate: dueDate === "" ? null : dueDate,
       status,
     };
@@ -411,7 +428,7 @@ function ProjectEditor({
       title: title.trim(),
       description: description.trim(),
       owner,
-      resources: toResources(drafts),
+      resources: toResources(drafts, project?.resources),
       status,
     };
 

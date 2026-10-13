@@ -38,6 +38,7 @@
     "@tiptap/pm": "3.31.4",
     "@tiptap/react": "3.31.4",
     "@tiptap/starter-kit": "3.31.4",
+    "@tiptap/suggestion": "3.31.4",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.4",
     "culori": "^4.0.2",

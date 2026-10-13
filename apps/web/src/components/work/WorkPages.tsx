@@ -51,6 +51,8 @@ export function useWorkData() {
     loaded: snapshot !== null && snapshot !== undefined,
     projects: snapshot?.projects ?? [],
     tasks: environmentId ? tasks : EMPTY_TASKS,
+    groups: snapshot?.groups ?? [],
+    currentPersonId: snapshot?.currentPersonId ?? null,
     participants,
   };
 }

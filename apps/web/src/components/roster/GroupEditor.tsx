@@ -8,6 +8,7 @@ import { useEffect, useId, useState } from "react";
 import { canManageChannels } from "../../channelAccess";
 import { useI18n } from "../../i18n";
 import { ensureLocalApi } from "../../localApi";
+import { DetailsGroup } from "../DetailsAside";
 import { botEnvironment, environmentPeopleAtom } from "../../state/bots";
 import { useEnvironmentSessionState } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -149,7 +150,7 @@ export function GroupEditor({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
-      <div className="flex flex-col items-center gap-1 pb-6 pt-6">
+      <div className="flex flex-col items-start gap-1 pb-6 pt-2">
         <GroupMemberStack
           group={group}
           bots={bots}
@@ -188,11 +189,8 @@ export function GroupEditor({
           {t("Add members")}
         </Button>
       </div>
-      <section className="mt-6 space-y-2" aria-labelledby="group-members-heading">
-        <h3 id="group-members-heading" className="text-sm font-medium">
-          {t("Members")}
-        </h3>
-        <div className="space-y-1 rounded-lg border p-2">
+      <div className="mt-6">
+        <DetailsGroup id="group-members" label={t("Members")}>
           {members.map((member) => {
             if (member.kind === "bot") {
               const blockedByRule = isGroupMemberRemovalBlocked(groupBots.length);
@@ -205,7 +203,7 @@ export function GroupEditor({
                   : null;
 
               return (
-                <div key={member.key} className="flex min-h-9 items-center gap-2 rounded-md px-1">
+                <div key={member.key} className="flex min-h-9 items-center gap-2">
                   <BotAvatarView avatar={member.bot.avatar} name={member.name} className="size-6" />
                   <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
                   <Button
@@ -247,7 +245,7 @@ export function GroupEditor({
             const canAct = current ? people.length > 1 : canRemovePeople;
 
             return (
-              <div key={member.key} className="flex min-h-9 items-center gap-2 rounded-md px-1">
+              <div key={member.key} className="flex min-h-9 items-center gap-2">
                 <PersonAvatar name={member.name} className="size-6" />
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {current ? t("{name} (you)", { name: member.name }) : member.name}
@@ -284,13 +282,13 @@ export function GroupEditor({
               </div>
             );
           })}
-        </div>
+        </DetailsGroup>
         {removalHint ? (
-          <p id={removalHintId} className="text-xs text-muted-foreground">
+          <p id={removalHintId} className="mt-1 text-xs text-muted-foreground">
             {removalHint}
           </p>
         ) : null}
-      </section>
+      </div>
       <Button
         className="mt-6 w-full"
         disabled={busy}
@@ -316,6 +314,7 @@ export function GroupEditor({
       <Dialog open={renaming} onOpenChange={setRenaming}>
         <DialogPopup className="max-w-md" bottomStickOnMobile={false}>
           <form
+            className="flex min-h-0 flex-col"
             onSubmit={(event) => {
               event.preventDefault();
               const nextName = name.trim();
