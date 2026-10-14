@@ -26,6 +26,8 @@
   --plugin-connected: var(--color-emerald-500);
   --memory-approval-indicator: var(--color-amber-400);
   --telemetry-status-foreground: var(--color-amber-700);
+  /* Status icons: work in progress and a bot at work. Same value in both modes. */
+  --progress: var(--color-violet-500);
   --success: var(--color-emerald-500);
   --success-foreground: var(--color-emerald-700);
   /* Small confirmation marks, such as a connected-provider check. */

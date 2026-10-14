@@ -196,6 +196,15 @@ export const OttoCreateRoutineInput = Schema.Struct({
 
 export type OttoCreateRoutineInput = typeof OttoCreateRoutineInput.Type;
 
+/** A bot's edit to one of its routines: only the fields the user asked to change. */
+export const OttoUpdateRoutineInput = Schema.Struct({
+  name: Schema.optional(TrimmedNonEmptyString),
+  instructions: Schema.optional(TrimmedNonEmptyString),
+  schedule: Schema.optional(RoutineSchedule),
+});
+
+export type OttoUpdateRoutineInput = typeof OttoUpdateRoutineInput.Type;
+
 export const Routine = Schema.Struct({
   id: RoutineId,
   ...RoutineDefinition.fields,

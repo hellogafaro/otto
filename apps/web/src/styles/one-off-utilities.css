@@ -64,6 +64,35 @@
     linear-gradient(var(--sidebar), var(--sidebar));
 }
 
+/*
+ * Otto: Sidebar row fills that also tell the row's right slot which tint to fade into,
+ * so the slot's gradient always matches the row under it.
+ */
+@utility sidebar-row-plain {
+  --sidebar-row-tint: transparent;
+  background-color: transparent;
+}
+
+@utility sidebar-row-hovered {
+  --sidebar-row-tint: var(--sidebar-row-hover);
+  background-color: var(--sidebar-row-hover);
+}
+
+@utility sidebar-row-current {
+  --sidebar-row-tint: var(--sidebar-row-active);
+  background-color: var(--sidebar-row-active);
+}
+
+/*
+ * Otto: A sidebar row's right slot, like Capy's: titles never ellipsize; they run under
+ * this slot, which fades in over 20px in the row's own fill and is as wide as its content.
+ */
+@utility sidebar-row-trail {
+  background-image:
+    linear-gradient(to right, transparent, var(--sidebar-row-tint, transparent) 1.25rem),
+    linear-gradient(to right, transparent, var(--sidebar) 1.25rem);
+}
+
 /* Sidebar panel drawn as a floating shell card. */
 @utility sidebar-shell-card {
   --sidebar-row-active: color-mix(in srgb, var(--sidebar-foreground) 7%, transparent);

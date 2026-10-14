@@ -26,7 +26,7 @@ import { WorkDetailPage, WorkResourcesSection } from "./WorkDetail";
 import { ProjectSelect } from "./WorkDialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./WorkPages";
 import { AssigneesMenu, OwnerSelect } from "./WorkParticipants";
-import { WorkStatusSelect } from "./WorkStatus";
+import { WorkMoreActions, WorkStatusSelect } from "./WorkStatus";
 
 type TaskFields = Omit<UpdateTaskInput, "taskId">;
 
@@ -63,6 +63,9 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
     <WorkDetailPage
       kind="task"
       back={back}
+      actions={
+        <WorkMoreActions status={task.status} onStatusChange={(status) => update({ status })} />
+      }
       title={task.title}
       onTitleSave={(title) => update({ title })}
       description={task.description}

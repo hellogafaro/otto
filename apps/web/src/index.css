@@ -147,6 +147,7 @@
   --color-memory-approval-indicator: var(--memory-approval-indicator);
   --color-telemetry-status-foreground: var(--telemetry-status-foreground);
   --color-success: var(--success);
+  --color-progress: var(--progress);
   --color-info-foreground: var(--info-foreground);
   --color-info: var(--info);
   --color-destructive-foreground: var(--destructive-foreground);

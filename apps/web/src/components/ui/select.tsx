@@ -209,9 +209,10 @@ function SelectItem({
   size?: "keybinding-command" | "keybinding-condition";
 }) {
   return (
+    // Otto: Select options are 28px on desktop, like menu rows.
     <SelectPrimitive.Item
       className={cn(
-        "flex min-h-9 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-pointer items-center rounded-md px-2 py-1.5 text-base outline-none data-selected:bg-secondary data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-8 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "flex min-h-8 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-pointer items-center rounded-md px-2 py-1 text-base outline-none data-selected:bg-secondary data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         size === "keybinding-command" && "py-1 text-[12px]",
         size === "keybinding-condition" && "py-1 font-mono text-[12px]",
         className,
@@ -231,8 +232,9 @@ function SelectItem({
 
 function SelectSeparator({ className, ...props }: SelectPrimitive.Separator.Props) {
   return (
+    // Otto: Separators run the popup's full width, past its 4px padding.
     <SelectPrimitive.Separator
-      className={cn("mx-2 my-1 h-px bg-border", className)}
+      className={cn("-mx-1 my-1 h-px bg-border", className)}
       data-slot="select-separator"
       {...props}
     />

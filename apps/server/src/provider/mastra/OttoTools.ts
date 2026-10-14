@@ -7,6 +7,7 @@ import {
   OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   OTTO_CREATE_ROUTINE_TOOL_NAME,
   OttoCreateRoutineInput,
+  OttoUpdateRoutineInput,
   ProductFeedbackToolDraft,
   type ProductFeedbackToolDraft as ProductFeedbackToolDraftValue,
 } from "@otto/contracts";
@@ -26,6 +27,11 @@ import {
   routineListOutputSchema,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   routineDeleteResultSchema,
+  OTTO_UPDATE_ROUTINE_TOOL_NAME,
+  routineUpdateInputSchema,
+  routineUpdateResultSchema,
+  OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
+  routinePausedResultSchema,
 } from "./OttoRoutineSchemas.ts";
 
 export const decodeProductFeedbackToolDraft = Schema.decodeUnknownExit(ProductFeedbackToolDraft, {
@@ -33,6 +39,35 @@ export const decodeProductFeedbackToolDraft = Schema.decodeUnknownExit(ProductFe
 });
 
 export const decodeCreateRoutineInput = Schema.decodeUnknownPromise(OttoCreateRoutineInput);
+
+export const decodeUpdateRoutineInput = Schema.decodeUnknownPromise(OttoUpdateRoutineInput);
+
+const confirmSchemas = {
+  suspendSchema: z.object({
+    question: z.string(),
+    options: z.array(z.object({ label: z.string(), description: z.string() })),
+    selectionMode: z.literal("single_select"),
+  }),
+  resumeSchema: z.string(),
+};
+
+/** Plain words for a routine schedule, for the question that confirms an edit. */
+function describeSchedule(
+  schedule: NonNullable<z.infer<typeof routineUpdateInputSchema>["schedule"]>,
+) {
+  switch (schedule.kind) {
+    case "hourly":
+      return schedule.everyHours === 1
+        ? `every hour from ${schedule.time}`
+        : `every ${schedule.everyHours} hours from ${schedule.time}`;
+    case "daily":
+      return `every day at ${schedule.time}`;
+    case "weekdays":
+      return `every weekday at ${schedule.time}`;
+    case "weekly":
+      return `every ${schedule.weekdays.join(", ")} at ${schedule.time}`;
+  }
+}
 
 export const productFeedbackToolJsonSchema = {
   type: "object",
@@ -186,6 +221,79 @@ export async function resolveOttoTools(
         })
       : undefined;
 
+  const updateRoutineTool =
+    options.listRoutines && options.updateRoutine
+      ? createTool({
+          id: OTTO_UPDATE_ROUTINE_TOOL_NAME,
+          description:
+            "Change one of this bot's routines: its name, its instructions or its schedule. Pass the routine ID from otto_list_routines and only the fields the user wants changed; pass instructions as the full new text. This tool asks the user to confirm the change, so do not ask for separate confirmation.",
+          inputSchema: routineUpdateInputSchema,
+          outputSchema: routineUpdateResultSchema,
+          ...confirmSchemas,
+          requireApproval: false,
+          execute: async ({ routineId, name, instructions, schedule }, context) => {
+            const { routines } = await options.listRoutines!(threadId);
+            const routine = routines.find((candidate) => candidate.id === routineId);
+
+            if (!routine) return { status: "not-found" as const };
+
+            const answer = context?.agent?.resumeData;
+
+            if (answer === undefined) {
+              const suspend = context?.agent?.suspend;
+
+              if (!suspend) return { status: "cancelled" as const };
+
+              const changes = [
+                ...(name ? [`name to "${name}"`] : []),
+                ...(schedule ? [`schedule to ${describeSchedule(schedule)}`] : []),
+                ...(instructions ? [`instructions to: ${instructions}`] : []),
+              ];
+
+              await suspend({
+                question: `Change "${routine.name}"? Set the ${changes.join("; ")}.`,
+                options: [
+                  { label: "Save changes", description: "Update the routine." },
+                  { label: "Cancel", description: "Keep the routine as it is." },
+                ],
+                selectionMode: "single_select",
+              });
+
+              return;
+            }
+
+            if (answer !== "Save changes") return { status: "cancelled" as const };
+
+            return options.updateRoutine!(
+              threadId,
+              routineId,
+              await decodeUpdateRoutineInput(
+                {
+                  ...(name ? { name } : {}),
+                  ...(instructions ? { instructions } : {}),
+                  ...(schedule ? { schedule } : {}),
+                },
+                { onExcessProperty: "error" },
+              ),
+            );
+          },
+        })
+      : undefined;
+
+  const setRoutinePausedTool = options.setRoutinePaused
+    ? createTool({
+        id: OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
+        description:
+          "Pause or resume one of this bot's routines. Pass the routine ID from otto_list_routines, with paused true to stop its schedule or false to start it again.",
+        inputSchema: z.object({ routineId: z.string().trim().min(1), paused: z.boolean() }),
+        outputSchema: routinePausedResultSchema,
+        strict: true,
+        requireApproval: false,
+        execute: async ({ routineId, paused }) =>
+          options.setRoutinePaused!(threadId, routineId, paused),
+      })
+    : undefined;
+
   return {
     ...approvalAwareTools(threadId, options.getThreadTools(threadId), options),
     ...createOttoMastraTools(
@@ -203,6 +311,8 @@ export async function resolveOttoTools(
     ...(routineTool ? { [OTTO_CREATE_ROUTINE_TOOL_NAME]: routineTool } : {}),
     ...(listRoutinesTool ? { [OTTO_LIST_ROUTINES_TOOL_NAME]: listRoutinesTool } : {}),
     ...(deleteRoutinesTool ? { [OTTO_DELETE_ROUTINES_TOOL_NAME]: deleteRoutinesTool } : {}),
+    ...(updateRoutineTool ? { [OTTO_UPDATE_ROUTINE_TOOL_NAME]: updateRoutineTool } : {}),
+    ...(setRoutinePausedTool ? { [OTTO_SET_ROUTINE_PAUSED_TOOL_NAME]: setRoutinePausedTool } : {}),
   };
 }
 
@@ -241,6 +351,8 @@ export {
   routineTime,
   OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
+  OTTO_UPDATE_ROUTINE_TOOL_NAME,
+  OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
   routineToolInputSchema,
   routineListOutputSchema,
   type OttoRoutineListResult,

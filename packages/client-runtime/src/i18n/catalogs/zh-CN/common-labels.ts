@@ -348,7 +348,6 @@ export const commonLabelsCatalog = {
   Instructions: "指令",
   Time: "时间",
   Day: "星期",
-  Timezone: "时区",
   Enable: "启用",
   Pause: "暂停",
   Test: "测试",

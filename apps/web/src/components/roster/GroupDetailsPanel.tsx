@@ -48,7 +48,7 @@ export function GroupDetailsPanel(props: {
       }}
     >
       {tab === "library" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <ChatLibraryPanel threadId={thread ? ThreadId.make(thread.threadId) : null} />
         </div>
       ) : (

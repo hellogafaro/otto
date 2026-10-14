@@ -607,6 +607,27 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     [send],
   );
 
+  /** Opens a fresh chat titled after the prompt and sends the prompt there, whatever chat is showing. */
+  const sendInNewChat = useCallback(
+    async (prompt: string): Promise<boolean> => {
+      if (!botReady || !activeProject) return false;
+
+      const pending = {
+        selection: readChatSelection(botId),
+        promise: createBotChat(threadTitle(prompt, [])),
+      };
+
+      pendingNewChatRef.current = pending;
+
+      try {
+        return await send(prompt, []);
+      } finally {
+        if (pendingNewChatRef.current === pending) pendingNewChatRef.current = null;
+      }
+    },
+    [activeProject, botId, botReady, createBotChat, send],
+  );
+
   /** Sends a prompt the bot answers but the chat never shows, such as a new bot's introduction. */
   const sendHidden = useCallback(
     (prompt: string, title: string) =>
@@ -680,6 +701,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     canStartNewChat,
     send,
     sendHidden,
+    sendInNewChat,
     sendVoiceMessage,
     sending,
     startNewChat,

@@ -41,13 +41,10 @@ export const libraryCatalog = {
   "Nothing here yet.": "这里还没有内容。",
   "Only me": "仅自己",
   "Open document details": "打开文档详情",
-  "Open in Library": "在资料库中打开",
   PDF: "PDF",
   Reload: "重新加载",
   "Rename file": "重命名文件",
   "Rename folder": "重命名文件夹",
-  "Send a message first; files saved from this chat appear here.":
-    "请先发送消息；从此聊天保存的文件会显示在这里。",
   "Share with workspace": "与工作区共享",
   Size: "大小",
   "Start writing…": "开始书写…",

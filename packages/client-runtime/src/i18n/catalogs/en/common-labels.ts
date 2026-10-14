@@ -348,7 +348,6 @@ export const commonLabelsCatalog = {
   Instructions: "Instructions",
   Time: "Time",
   Day: "Day",
-  Timezone: "Timezone",
   Enable: "Enable",
   Pause: "Pause",
   Test: "Test",

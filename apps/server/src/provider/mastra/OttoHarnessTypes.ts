@@ -9,13 +9,19 @@ import {
   type OttoConversationMemorySnapshot,
   type BotPersonalityTone,
   type OttoCreateRoutineInput as OttoCreateRoutineInputValue,
+  type OttoUpdateRoutineInput as OttoUpdateRoutineInputValue,
 } from "@otto/contracts";
 import * as Duration from "effect/Duration";
 import type { SubscriptionAuthService } from "../../subscription-auth/service.ts";
 import type { OttoOpenCodeGoAccess } from "../OttoOpenCodeGoProvider.ts";
 import { type OttoKimiAccess } from "../OttoKimiProvider.ts";
 import type { OttoToolRuntime, OttoToolResult } from "../tools/OttoToolTypes.ts";
-import { type OttoRoutineListResult, type OttoRoutineDeleteResult } from "./OttoRoutineSchemas.ts";
+import {
+  type OttoRoutineListResult,
+  type OttoRoutineDeleteResult,
+  type OttoRoutinePausedResult,
+  type OttoRoutineUpdateResult,
+} from "./OttoRoutineSchemas.ts";
 
 import type { OttoModelOptions } from "../ReasoningOptions.ts";
 
@@ -113,6 +119,16 @@ export interface OttoMastraHarnessOptions {
     threadId: string,
     routineIds: ReadonlyArray<string>,
   ) => Promise<OttoRoutineDeleteResult>;
+  readonly updateRoutine?: (
+    threadId: string,
+    routineId: string,
+    input: OttoUpdateRoutineInputValue,
+  ) => Promise<OttoRoutineUpdateResult>;
+  readonly setRoutinePaused?: (
+    threadId: string,
+    routineId: string,
+    paused: boolean,
+  ) => Promise<OttoRoutinePausedResult>;
   readonly onObservationDropped?: (input: {
     /** Stable queue-row id; retried notices reuse it. */
     readonly observationId: string;
@@ -180,4 +196,6 @@ export type OttoMastraToolOptions = Pick<
   | "createRoutine"
   | "listRoutines"
   | "deleteRoutines"
+  | "updateRoutine"
+  | "setRoutinePaused"
 >;

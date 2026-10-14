@@ -22,6 +22,7 @@ import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as TasksTaskIdRouteImport } from './routes/tasks.$taskId'
 import { Route as SettingsSectionRouteImport } from './routes/settings.$section'
 import { Route as SettingsSplatRouteImport } from './routes/settings.$'
+import { Route as RoutinesRoutineIdRouteImport } from './routes/routines.$routineId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as LibraryFileIdRouteImport } from './routes/library.$fileId'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
@@ -97,6 +98,11 @@ const SettingsSplatRoute = SettingsSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => SettingsRoute,
 } as any)
+const RoutinesRoutineIdRoute = RoutinesRoutineIdRouteImport.update({
+  id: '/routines/$routineId',
+  path: '/routines/$routineId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/projects/$projectId',
   path: '/projects/$projectId',
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/routines/$routineId': typeof RoutinesRoutineIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
@@ -183,6 +190,7 @@ export interface FileRoutesByTo {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/routines/$routineId': typeof RoutinesRoutineIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/routines/$routineId': typeof RoutinesRoutineIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
@@ -236,6 +245,7 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/library/$fileId'
     | '/projects/$projectId'
+    | '/routines/$routineId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/library/$fileId'
     | '/projects/$projectId'
+    | '/routines/$routineId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/library/$fileId'
     | '/projects/$projectId'
+    | '/routines/$routineId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
@@ -310,6 +322,7 @@ export interface RootRouteChildren {
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
   LibraryFileIdRoute: typeof LibraryFileIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  RoutinesRoutineIdRoute: typeof RoutinesRoutineIdRoute
   TasksTaskIdRoute: typeof TasksTaskIdRoute
   LibraryIndexRoute: typeof LibraryIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -409,6 +422,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/$'
       preLoaderRoute: typeof SettingsSplatRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/routines/$routineId': {
+      id: '/routines/$routineId'
+      path: '/routines/$routineId'
+      fullPath: '/routines/$routineId'
+      preLoaderRoute: typeof RoutinesRoutineIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/projects/$projectId': {
       id: '/projects/$projectId'
@@ -529,6 +549,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteInvitationIdRoute: InviteInvitationIdRoute,
   LibraryFileIdRoute: LibraryFileIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  RoutinesRoutineIdRoute: RoutinesRoutineIdRoute,
   TasksTaskIdRoute: TasksTaskIdRoute,
   LibraryIndexRoute: LibraryIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,

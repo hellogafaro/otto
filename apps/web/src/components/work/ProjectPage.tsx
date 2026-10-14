@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useI18n } from "../../i18n";
-import { DetailsGroup, DetailsRow } from "../DetailsAside";
+import { DetailsRow } from "../DetailsAside";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { ProjectCover } from "./ProjectCover";
@@ -15,7 +15,7 @@ import { WorkDetailPage, WorkResourcesSection, WorkSectionHeader } from "./WorkD
 import { TaskDialog } from "./WorkDialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./WorkPages";
 import { OwnerSelect } from "./WorkParticipants";
-import { WorkStatusSelect, useWorkStatusLabel } from "./WorkStatus";
+import { WorkMoreActions, WorkStatusSelect, useWorkStatusLabel } from "./WorkStatus";
 
 type ProjectFields = Omit<UpdateProjectInput, "projectId">;
 
@@ -68,6 +68,9 @@ export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
       <WorkDetailPage
         kind="project"
         back={back}
+        actions={
+          <WorkMoreActions status={status} onStatusChange={(next) => update({ status: next })} />
+        }
         cover={<ProjectCover seed={project.id} />}
         title={project.title}
         onTitleSave={(title) => update({ title })}
@@ -114,7 +117,7 @@ export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
           },
         ]}
         aside={
-          <DetailsGroup id="project-properties" label={t("Properties")}>
+          <div className="flex flex-col">
             <DetailsRow label={t("Status")}>
               <WorkStatusSelect
                 variant="ghost"
@@ -136,7 +139,7 @@ export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
             <DetailsRow label={statusLabel("completed")}>
               <span className="px-2.5 text-sm tabular-nums">{completedCount}</span>
             </DetailsRow>
-          </DetailsGroup>
+          </div>
         }
       />
       <TaskDialog

@@ -339,6 +339,7 @@ export function ChatActionsMenu({
             <RiArchiveLine />
             {t("Archive chat")}
           </MenuItem>
+          <MenuSeparator />
           <MenuItem variant="destructive" onClick={() => void actions.delete(threadRef)}>
             <RiDeleteBinLine />
             {t("Delete chat")}

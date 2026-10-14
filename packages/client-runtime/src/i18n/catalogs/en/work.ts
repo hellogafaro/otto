@@ -75,4 +75,6 @@ export const workCatalog = {
   "What did you work on? (optional)": "What did you work on? (optional)",
   "Log {duration}": "Log {duration}",
   "Add link, task or project…": "Add link, task or project…",
+  Waiting: "Waiting",
+  "More actions": "More actions",
 } as const;

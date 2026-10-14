@@ -7,7 +7,11 @@ import { Fragment, useState, type ReactNode } from "react";
 
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { useI18n } from "../../i18n";
+import { cn } from "../../lib/utils";
+import ChatMarkdown from "../ChatMarkdown";
+import { CONTENT_ROW_CLASS } from "../contentRow";
 import { DetailsAside } from "../DetailsAside";
+import { SETTINGS_SECTION_TITLE_CLASS } from "../settings/settingsLayout";
 import { PickerList, handlePickerKey, type PickerItem } from "../PickerList";
 import { RichTextEditor } from "../RichTextEditor";
 import { Button } from "../ui/button";
@@ -17,9 +21,9 @@ import { internalItemIcon, matchItems, useInternalItems } from "./workLinks";
 import { WorkPage, useWorkData } from "./WorkPages";
 
 /**
- * Otto: A task or project page, like a Linear issue: the main column keeps
- * what matters (an optional cover, title, rich description, then each section
- * split by a 1px rule, 24px apart) and every property sits in the shared
+ * Otto: A task, project or routine page, like a Linear issue: the main column keeps
+ * what matters (an optional cover, then title and description 12px apart, then
+ * each section 40px apart with no rules, like Settings) and every property sits in the shared
  * details sidebar, open by default and remembered per kind, in collapsible
  * groups with no card around them.
  */
@@ -35,15 +39,17 @@ export function WorkDetailPage({
   sections,
   aside,
 }: {
-  readonly kind: "task" | "project";
-  readonly back: { readonly label: string; readonly onBack: () => void };
+  readonly kind: "task" | "project" | "routine";
+  /** Omitted when the sidebar already lists the page's siblings, as for routines. */
+  readonly back?: { readonly label: string; readonly onBack: () => void };
   readonly actions?: ReactNode;
   /** Shown above the title, full content width. */
   readonly cover?: ReactNode;
   readonly title: string;
-  readonly onTitleSave: (title: string) => void;
+  /** Omitted for a page whose content changes another way, like a routine through its bot. */
+  readonly onTitleSave?: (title: string) => void;
   readonly description: string;
-  readonly onDescriptionSave: (description: string) => void;
+  readonly onDescriptionSave?: (description: string) => void;
   readonly sections: readonly { readonly key: string; readonly content: ReactNode }[];
   readonly aside: ReactNode;
 }) {
@@ -56,51 +62,63 @@ export function WorkDetailPage({
     Schema.Boolean,
   );
 
-  const labels =
-    kind === "task"
-      ? {
-          sidebar: t("Task details"),
-          open: t("Open task details"),
-          collapse: t("Collapse task details"),
-          close: t("Close task details"),
-          sheetTitle: t("Task details"),
-        }
-      : {
-          sidebar: t("Project details"),
-          open: t("Open project details"),
-          collapse: t("Collapse project details"),
-          close: t("Close project details"),
-          sheetTitle: t("Project details"),
-        };
+  const labels = Match.value(kind).pipe(
+    Match.when("task", () => ({
+      sidebar: t("Task details"),
+      open: t("Open task details"),
+      collapse: t("Collapse task details"),
+      close: t("Close task details"),
+      sheetTitle: t("Task details"),
+    })),
+    Match.when("project", () => ({
+      sidebar: t("Project details"),
+      open: t("Open project details"),
+      collapse: t("Collapse project details"),
+      close: t("Close project details"),
+      sheetTitle: t("Project details"),
+    })),
+    Match.orElse(() => ({
+      sidebar: t("Routine details"),
+      open: t("Open routine details"),
+      collapse: t("Collapse routine details"),
+      close: t("Close routine details"),
+      sheetTitle: t("Routine details"),
+    })),
+  );
 
   return (
     <>
-      <WorkPage back={back} actions={actions} detailsPanelOpen={detailsOpen}>
-        <WorkspacePageContainer width="narrow" className="gap-6 pt-3 pb-16 sm:pt-4">
-          <div className="flex flex-col gap-2">
+      <WorkPage {...(back ? { back } : {})} actions={actions} detailsPanelOpen={detailsOpen}>
+        <WorkspacePageContainer width="narrow" className="gap-10 pt-3 pb-16 sm:pt-4">
+          <div className="flex flex-col gap-3">
             {cover ? (
               <div className="mx-4 mb-4 overflow-hidden rounded-lg border border-border">
                 {cover}
               </div>
             ) : null}
-            <WorkTitleField key={title} value={title} onSave={onTitleSave} />
-            <RichTextEditor
-              key={description}
-              className="px-4"
-              value={description}
-              placeholder={t("Add a description…")}
-              ariaLabel={t("Description")}
-              links={links}
-              onBlur={(markdown) => {
-                if (markdown.trim() !== description) onDescriptionSave(markdown.trim());
-              }}
-            />
+            {onTitleSave ? (
+              <WorkTitleField key={title} value={title} onSave={onTitleSave} />
+            ) : (
+              <h1 className={WORK_TITLE_CLASS}>{title}</h1>
+            )}
+            {onDescriptionSave ? (
+              <RichTextEditor
+                key={description}
+                className="px-4"
+                value={description}
+                placeholder={t("Add a description…")}
+                ariaLabel={t("Description")}
+                links={links}
+                onBlur={(markdown) => {
+                  if (markdown.trim() !== description) onDescriptionSave(markdown.trim());
+                }}
+              />
+            ) : (
+              <ChatMarkdown className="px-4" cwd={undefined} text={description} />
+            )}
           </div>
           {sections.map((section) => (
-            <Fragment key={section.key}>
-              <div role="separator" className="mx-4 border-t border-border" />
-              {section.content}
-            </Fragment>
+            <Fragment key={section.key}>{section.content}</Fragment>
           ))}
         </WorkspacePageContainer>
       </WorkPage>
@@ -115,6 +133,9 @@ export function WorkDetailPage({
     </>
   );
 }
+
+const WORK_TITLE_CLASS =
+  "w-full px-4 text-22px leading-title font-medium tracking-title-lg text-foreground";
 
 /** The page's 22px title, edited in place; an empty title keeps the saved one. Key it by the value. */
 export function WorkTitleField({
@@ -149,7 +170,7 @@ export function WorkTitleField({
           event.currentTarget.blur();
         }
       }}
-      className="w-full bg-transparent px-4 text-22px leading-title font-medium tracking-title-lg text-foreground outline-none"
+      className={cn("bg-transparent outline-none", WORK_TITLE_CLASS)}
     />
   );
 }
@@ -253,7 +274,7 @@ export function WorkResourcesSection({
         return (
           <div
             key={key}
-            className="group/resource relative flex h-7 items-center rounded-md hover:bg-foreground/[0.035]"
+            className="group/resource relative flex h-8 items-center rounded-md hover:bg-foreground/[0.035]"
           >
             {Match.value(resource).pipe(
               Match.when({ type: "link" }, (link) => (
@@ -286,7 +307,7 @@ export function WorkResourcesSection({
                 </Link>
               )),
             )}
-            <span className="absolute top-1/2 right-0.5 -translate-y-1/2 opacity-0 group-focus-within/resource:opacity-100 group-hover/resource:opacity-100">
+            <span className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 group-focus-within/resource:opacity-100 group-hover/resource:opacity-100">
               <Button
                 size="icon-row"
                 variant="ghost-muted"
@@ -304,7 +325,10 @@ export function WorkResourcesSection({
           render={
             <button
               type="button"
-              className="flex h-7 w-full items-center gap-2 rounded-md ps-4 text-left text-13px text-muted-foreground outline-none hover:bg-foreground/[0.035] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:text-foreground"
+              className={cn(
+                CONTENT_ROW_CLASS,
+                "text-muted-foreground hover:text-foreground data-[popup-open]:text-foreground",
+              )}
             />
           }
         >
@@ -343,17 +367,21 @@ export function WorkResourcesSection({
   );
 }
 
-/** A main-column section heading: 13px/500 muted on the content edge, with an optional 24px plus. */
+/** A main-column section heading in the Settings section style, 8px above its rows, with an optional 24px plus. */
 export function WorkSectionHeader({
   label,
+  aside,
   add,
 }: {
   readonly label: string;
+  /** Quiet 13px info on the right, such as a count. */
+  readonly aside?: ReactNode;
   readonly add?: { readonly label: string; readonly onClick: () => void };
 }) {
   return (
-    <div className="flex h-7 items-center gap-1 ps-4 pe-2.5">
-      <h2 className="min-w-0 flex-1 text-13px font-medium text-muted-foreground">{label}</h2>
+    <div className="mb-2 flex h-7 items-center gap-1 ps-4 pe-2.5">
+      <h2 className={cn("min-w-0 flex-1", SETTINGS_SECTION_TITLE_CLASS)}>{label}</h2>
+      {aside ? <span className="text-13px tabular-nums text-muted-foreground">{aside}</span> : null}
       {add ? (
         <Button size="icon-row" variant="ghost-muted" aria-label={add.label} onClick={add.onClick}>
           <RiAddLine className="size-3" />

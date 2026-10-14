@@ -1,0 +1,163 @@
+import { composerActionIsDictation } from "@otto/client-runtime/dictation";
+import { RiArrowUpLine } from "@remixicon/react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+
+import { useI18n } from "../i18n";
+import { useEnvironmentComposerDictation } from "../lib/useEnvironmentComposerDictation";
+import { DictationControls } from "./chat/DictationControls";
+import { Button } from "./ui/button";
+import { Dialog, DialogHeader, DialogPopup, DialogTitle } from "./ui/dialog";
+import { Kbd } from "./ui/kbd";
+import { toastManager } from "./ui/toast";
+
+interface PromptDialogProps {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly title: string;
+  readonly placeholder: string;
+  /** Controls beside the prompt that pick what it goes to, such as a bot. */
+  readonly pickers?: ReactNode;
+  readonly submitLabel: string;
+  /** Whether the pickers are complete enough to send. */
+  readonly canSubmit?: boolean;
+  readonly onSubmit: (prompt: string) => void;
+}
+
+/**
+ * Otto: A composer in a dialog: the dialog's title and close, a borderless
+ * prompt, the caller's pickers at the bottom left and, at the right, the
+ * microphone while the prompt is empty or the send button once it has text,
+ * as in chat. Enter sends, Shift+Enter adds a line, and a footer shows the
+ * Enter and Esc hints. Each opening starts with an empty prompt.
+ */
+export function PromptDialog({ open, onOpenChange, ...body }: PromptDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogPopup className="max-w-2xl" bottomStickOnMobile={false}>
+        <PromptDialogBody {...body} />
+      </DialogPopup>
+    </Dialog>
+  );
+}
+
+function PromptDialogBody({
+  title,
+  placeholder,
+  pickers,
+  submitLabel,
+  canSubmit = true,
+  onSubmit,
+}: Omit<PromptDialogProps, "open" | "onOpenChange">) {
+  const { t } = useI18n();
+  const draftId = useId();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [prompt, setPrompt] = useState("");
+  const ready = canSubmit && prompt.trim().length > 0;
+
+  const dictation = useEnvironmentComposerDictation({
+    threadId: draftId,
+    draftId,
+    generation: 0,
+    getDraft: () => {
+      const input = inputRef.current;
+      const text = input?.value ?? prompt;
+      const start = input?.selectionStart ?? text.length;
+
+      return { text, selection: { start, end: input?.selectionEnd ?? start } };
+    },
+    applyDraft: (next) => {
+      setPrompt(next.text);
+      // Restore the caret after React commits the merged value.
+      window.requestAnimationFrame(() => {
+        const input = inputRef.current;
+
+        if (!input || input.value !== next.text) return;
+        input.focus();
+        input.setSelectionRange(next.selection.start, next.selection.end);
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (dictation.status !== "failed" || !dictation.errorMessage) return;
+    toastManager.add({
+      type: "error",
+      title: t("Could not dictate"),
+      description: dictation.errorMessage,
+    });
+  }, [dictation.errorMessage, dictation.status, t]);
+
+  const showDictation = composerActionIsDictation({
+    hasDraft: prompt.trim().length > 0,
+    status: dictation.status,
+  });
+
+  return (
+    <form
+      className="flex flex-col"
+      onSubmit={(event) => {
+        event.preventDefault();
+
+        if (ready) onSubmit(prompt.trim());
+      }}
+    >
+      <DialogHeader>
+        <DialogTitle>{title}</DialogTitle>
+      </DialogHeader>
+      <textarea
+        ref={inputRef}
+        autoFocus
+        value={prompt}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        rows={5}
+        className="min-h-32 w-full resize-none bg-transparent px-5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
+        onChange={(event) => setPrompt(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+          }
+        }}
+      />
+      <div className="flex items-center justify-between gap-2 px-3 pb-3">
+        <div className="flex min-w-0 items-center gap-1">{pickers}</div>
+        {showDictation ? (
+          <div className="size-7 shrink-0">
+            <DictationControls
+              appearance="send-slot"
+              {...dictation}
+              onBlockedPress={(reason) =>
+                toastManager.add({
+                  type: "info",
+                  title: t("Dictation unavailable"),
+                  description: reason,
+                })
+              }
+            />
+          </div>
+        ) : (
+          <Button
+            type="submit"
+            size="icon-sm"
+            variant="primary"
+            aria-label={submitLabel}
+            disabled={!ready}
+          >
+            <RiArrowUpLine />
+          </Button>
+        )}
+      </div>
+      <div className="flex h-10 items-center justify-end gap-3 border-t px-5 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Kbd>↵</Kbd>
+          {submitLabel}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Kbd>Esc</Kbd>
+          {t("Close")}
+        </span>
+      </div>
+    </form>
+  );
+}

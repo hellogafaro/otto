@@ -1,6 +1,5 @@
 import * as NodeFS from "node:fs";
 
-import { createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -56,7 +55,6 @@ describe("BotDetailsPanel", () => {
     const markup = renderToStaticMarkup(
       <BotOverview
         bot={{ ...bot, engine: { provider: "claudeAgent", model: "claude-fable-5" } }}
-        routinePanelRef={createRef<HTMLDivElement>()}
       />,
     );
 

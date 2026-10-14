@@ -187,6 +187,15 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
 
   const sidebarExperiment = useSidebarExperiment();
   const [sidebarPlace, setSidebarPlace] = useState<SidebarPlace>("chats");
+
+  // A routine page belongs to Routines and a bot or group chat to Chats, so following a
+  // link between them brings the matching list along.
+  useEffect(() => {
+    if (pathname.startsWith("/routines/")) setSidebarPlace("routines");
+    else if (pathname.startsWith("/bots/") || pathname.startsWith("/groups/")) {
+      setSidebarPlace("chats");
+    }
+  }, [pathname]);
   const railOnly = useRailOnly(sidebarPlace);
   const emptyPlace = useEmptyPlace(sidebarPlace);
 

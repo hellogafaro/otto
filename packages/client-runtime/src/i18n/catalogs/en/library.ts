@@ -42,13 +42,10 @@ export const libraryCatalog = {
   "Nothing here yet.": "Nothing here yet.",
   "Only me": "Only me",
   "Open document details": "Open document details",
-  "Open in Library": "Open in Library",
   PDF: "PDF",
   Reload: "Reload",
   "Rename file": "Rename file",
   "Rename folder": "Rename folder",
-  "Send a message first; files saved from this chat appear here.":
-    "Send a message first; files saved from this chat appear here.",
   "Share with workspace": "Share with workspace",
   Size: "Size",
   "Start writing…": "Start writing…",

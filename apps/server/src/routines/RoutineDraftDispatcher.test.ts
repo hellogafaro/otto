@@ -299,3 +299,94 @@ describe("RoutineDraftDispatcher.createApprovedForThread", () => {
     }).pipe(Effect.provide(test.layer));
   });
 });
+
+describe("RoutineDraftDispatcher.updateForThread", () => {
+  it.effect("saves the change as an approved version and keeps a running routine on", () => {
+    const test = deleteHarness({
+      routines: [
+        routine("owned", { enabled: true, lifecycle: "enabled" }),
+        routine("other", { botId: otherBotId }),
+      ],
+    });
+
+    return Effect.gen(function* () {
+      const dispatcher = yield* RoutineDraftDispatcher;
+
+      const result = yield* dispatcher.updateForThread(
+        ThreadId.make("thread-1"),
+        RoutineId.make("owned"),
+        { schedule: { kind: "weekdays", time: "08:30" } },
+      );
+
+      expect(result).toEqual({ routineId: "owned", status: "updated", enabled: true });
+      expect(test.commands.map(({ type }) => type)).toEqual([
+        "routine.draft",
+        "routine.approve",
+        "routine.enable",
+      ]);
+      expect(test.commands[0]).toMatchObject({
+        type: "routine.draft",
+        job: "Routine owned",
+        procedure: "Reply in this chat.",
+        schedule: { kind: "weekdays", time: "08:30" },
+        expectedProcedureVersion: 1,
+      });
+      expect(test.commands[1]).toMatchObject({ type: "routine.approve", procedureVersion: 2 });
+
+      const error = yield* dispatcher
+        .updateForThread(ThreadId.make("thread-1"), RoutineId.make("other"), { name: "Mine" })
+        .pipe(Effect.flip);
+
+      expect(error.message).toBe("That routine is unavailable.");
+      expect(test.commands).toHaveLength(3);
+    }).pipe(Effect.provide(test.layer));
+  });
+
+  it.effect("leaves a paused routine paused after the change", () => {
+    const test = deleteHarness({ routines: [routine("paused", { lifecycle: "paused" })] });
+
+    return Effect.gen(function* () {
+      const dispatcher = yield* RoutineDraftDispatcher;
+
+      yield* dispatcher.updateForThread(ThreadId.make("thread-1"), RoutineId.make("paused"), {
+        name: "Renamed",
+      });
+
+      expect(test.commands.map(({ type }) => type)).toEqual(["routine.draft", "routine.approve"]);
+    }).pipe(Effect.provide(test.layer));
+  });
+});
+
+describe("RoutineDraftDispatcher.setPausedForThread", () => {
+  it.effect("pauses and resumes only the bot's own routines", () => {
+    const test = deleteHarness({
+      routines: [routine("owned"), routine("gone", { lifecycle: "deleted" })],
+    });
+
+    return Effect.gen(function* () {
+      const dispatcher = yield* RoutineDraftDispatcher;
+
+      expect(
+        yield* dispatcher.setPausedForThread(
+          ThreadId.make("thread-1"),
+          RoutineId.make("owned"),
+          true,
+        ),
+      ).toEqual({ routineId: "owned", status: "paused" });
+      expect(
+        yield* dispatcher.setPausedForThread(
+          ThreadId.make("thread-1"),
+          RoutineId.make("owned"),
+          false,
+        ),
+      ).toEqual({ routineId: "owned", status: "resumed" });
+      expect(test.commands.map(({ type }) => type)).toEqual(["routine.pause", "routine.enable"]);
+
+      const error = yield* dispatcher
+        .setPausedForThread(ThreadId.make("thread-1"), RoutineId.make("gone"), true)
+        .pipe(Effect.flip);
+
+      expect(error.message).toBe("That routine is unavailable.");
+    }).pipe(Effect.provide(test.layer));
+  });
+});

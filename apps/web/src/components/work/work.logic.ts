@@ -20,6 +20,9 @@ export const WORK_STATUS_ORDER: readonly WorkStatus[] = [
   "archived",
 ];
 
+/** The statuses a person picks; archiving is its own action. */
+export const WORK_STATUS_CHOICES = WORK_STATUS_ORDER.filter((status) => status !== "archived");
+
 /** Projects saved before planning fields existed read as active. */
 export function projectStatus(project: Pick<OrchestrationProjectShell, "status">): WorkStatus {
   return project.status ?? "in_progress";

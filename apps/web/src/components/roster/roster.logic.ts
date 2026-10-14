@@ -73,6 +73,21 @@ export function resolveBotPresence(shell: PresenceShell | null): RosterPresence 
   return "idle";
 }
 
+/**
+ * A chat row's status icon: working or waiting while the bot is live, completed while a
+ * finished reply is unseen. An idle, seen chat shows none.
+ */
+export function rosterChatStatus(
+  presence: RosterPresence,
+  unread: boolean,
+): "working" | "waiting" | "completed" | null {
+  if (presence === "working") return "working";
+
+  if (presence === "needs-you") return "waiting";
+
+  return unread ? "completed" : null;
+}
+
 export function resolveRosterBotId(
   selectedBotId: string | null,
   bots: ReadonlyArray<Pick<Bot, "id" | "archivedAt">>,
@@ -347,8 +362,9 @@ const browserFormatDate: FormatDate = (value, options) =>
 
 /**
  * Compact roster timestamp, iMessage-style: today shows the clock time,
- * yesterday "Yesterday", the rest of the past week its weekday, older dates
- * the numeric date (with the year once the calendar year differs).
+ * yesterday "Yesterday" and tomorrow "Tomorrow", the rest of the week either
+ * side its weekday, other dates the numeric date (with the year once the
+ * calendar year differs). Future times are a routine's next run.
  */
 export function formatRosterTimestamp(
   isoDate: string,
@@ -366,11 +382,13 @@ export function formatRosterTimestamp(
   const startOfMessageDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const dayDiff = Math.round((startOfToday - startOfMessageDay) / 86_400_000);
 
-  if (dayDiff <= 0) return formatShortTimestamp(isoDate, timestampFormat);
+  if (dayDiff === 0) return formatShortTimestamp(isoDate, timestampFormat);
 
   if (dayDiff === 1) return t("Yesterday");
 
-  if (dayDiff < 7) return formatDate(date, { weekday: "short" });
+  if (dayDiff === -1) return t("Tomorrow");
+
+  if (Math.abs(dayDiff) < 7) return formatDate(date, { weekday: "short" });
 
   return date.getFullYear() === now.getFullYear()
     ? formatDate(date, { month: "numeric", day: "numeric" })

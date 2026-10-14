@@ -20,6 +20,12 @@ function persistedRosterKey(environmentId: string | null): string {
   return environmentId ? `${PERSISTED_ROSTER_KEY}:${environmentId}` : PERSISTED_ROSTER_KEY;
 }
 
+export interface PromptRequest {
+  readonly botId: string;
+  readonly text: string;
+  readonly threadId?: string;
+}
+
 interface PersistedRoster {
   selectedBotId?: string;
   chatPathByBotId?: Record<string, string>;
@@ -194,6 +200,12 @@ interface RosterStore {
   /** A bot created moments ago whose view should send its hidden introduction once it can. */
   introBotId: string | null;
   requestBotIntro: (botId: string | null) => void;
+  /**
+   * A prompt the bot's view sends once it can: in a fresh chat, such as a new routine
+   * request, or in the chat `threadId` names, such as a change to that chat's routine.
+   */
+  promptRequest: PromptRequest | null;
+  requestPrompt: (request: PromptRequest | null) => void;
   replaceRoster: (input: {
     environmentId: string;
     bots: Bot[];
@@ -269,6 +281,7 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   openChatByBotId: {},
   newChatBotId: null,
   introBotId: null,
+  promptRequest: null,
   pinnedItems: persisted?.pinnedItems ?? [],
   unassignedItems: persisted?.unassignedItems ?? [],
   environmentId: null,
@@ -412,6 +425,7 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   requestNewChat: (botId) => set({ newChatBotId: botId }),
 
   requestBotIntro: (botId) => set({ introBotId: botId }),
+  requestPrompt: (request) => set({ promptRequest: request }),
 
   replaceRoster: (input) => {
     const switchingEnvironment = get().environmentId !== input.environmentId;

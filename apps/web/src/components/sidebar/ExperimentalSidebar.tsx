@@ -1,4 +1,5 @@
 import {
+  RiAddLine,
   RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
@@ -18,20 +19,28 @@ import { useShallow } from "zustand/react/shallow";
 import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
 import { useChangedSinceMount } from "../../hooks/useChangedSinceMount";
-import { useClientSettings } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
 import { openPlugins } from "../../pluginsDialogStore";
 import { openSettings } from "../../settingsDialogStore";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
 import BotRosterSidebar from "../roster/BotRosterSidebar";
-import { BotAvatarView } from "../roster/BotAvatarView";
-import { formatRosterTimestamp } from "../roster/roster.logic";
+import { RoutineRow } from "./RoutineRow";
 import { resolveRosterListState } from "../roster/rosterRouteSelection";
 import { useRosterStore } from "../roster/rosterStore";
 import { SettingsPanelNav } from "../settings/SettingsSidebarNav";
 import { AppIcon } from "../ui/app-icon";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../ui/empty";
+import { Button } from "../ui/button";
+import { PromptDialog } from "../PromptDialog";
+import { BotPicker } from "../roster/BotPicker";
 import { SidebarInset, useSidebar } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -109,6 +118,7 @@ function liveRoutines<T extends { readonly lifecycle: string }>(
 
 export function RoutinesZeroState() {
   const { t } = useI18n();
+  const [creating, setCreating] = useState(false);
 
   return (
     <SidebarInset tone="foreground" className="h-dvh min-h-0 overflow-hidden">
@@ -126,7 +136,14 @@ export function RoutinesZeroState() {
               )}
             </EmptyDescription>
           </EmptyHeader>
+          <EmptyContent>
+            <Button onClick={() => setCreating(true)}>
+              <RiAddLine className="size-4" />
+              {t("New routine")}
+            </Button>
+          </EmptyContent>
         </Empty>
+        <NewRoutineDialog open={creating} onOpenChange={setCreating} />
       </div>
     </SidebarInset>
   );
@@ -326,46 +343,57 @@ function RailButton({
   );
 }
 
-function PanelHeader({ title }: { title: string }) {
+function PanelHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div
       className={cn(
-        "flex h-(--workspace-topbar-height) shrink-0 items-center px-4",
+        "flex h-(--workspace-topbar-height) shrink-0 items-center gap-1.5 pr-2 pl-4",
         isElectron && "drag-region",
       )}
     >
-      <h2 className="truncate text-base font-medium tracking-title-sm text-sidebar-foreground">
+      <h2 className="min-w-0 flex-1 truncate text-base font-medium tracking-title-sm text-sidebar-foreground">
         {title}
       </h2>
+      {action}
     </div>
   );
 }
 
-function PanelRow({
-  onClick,
-  leading,
-  title,
-  detail,
+/**
+ * New routine is a conversation: the prompt opens a fresh chat with the chosen
+ * bot, which sets the routine up there for the user to approve.
+ */
+function NewRoutineDialog({
+  open,
+  onOpenChange,
 }: {
-  onClick: () => void;
-  leading: ReactNode;
-  title: string;
-  detail: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
+  const navigate = useNavigate();
+  const bots = useLiveBots();
+  const { t } = useI18n();
+  const [botId, setBotId] = useState<string | null>(null);
+  const chosen = bots.find((bot) => bot.id === botId)?.id ?? bots[0]?.id ?? null;
+
   return (
-    <li className="list-none">
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-left outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {leading}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-sm font-medium text-sidebar-foreground">{title}</span>
-          <span className="truncate text-13px text-sidebar-muted-foreground">{detail}</span>
-        </span>
-      </button>
-    </li>
+    <PromptDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("New routine")}
+      placeholder={t("What should run, and when?")}
+      pickers={<BotPicker bots={bots} value={chosen} onChange={setBotId} />}
+      submitLabel={t("Start")}
+      canSubmit={chosen !== null}
+      onSubmit={(prompt) => {
+        if (chosen === null) return;
+        useRosterStore
+          .getState()
+          .requestPrompt({ botId: chosen, text: t("Set up a routine: {prompt}", { prompt }) });
+        onOpenChange(false);
+        void navigate({ to: "/bots/$botId", params: { botId: chosen } });
+      }}
+    />
   );
 }
 
@@ -387,48 +415,52 @@ function useLiveBots() {
 }
 
 function RoutinesPanel() {
-  const navigate = useNavigate();
   const snapshot = useEnvironmentSnapshot();
   const bots = useLiveBots();
-  const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const { t } = useI18n();
   const routines = liveRoutines(snapshot?.routines);
+  const [creating, setCreating] = useState(false);
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const environmentId = usePrimaryEnvironmentId();
 
   return (
     <>
-      <PanelHeader title={t("Routines")} />
+      <PanelHeader
+        title={t("Routines")}
+        action={
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label={t("New routine")}
+                  size="icon-sm"
+                  variant="sidebar-ghost"
+                  onClick={() => setCreating(true)}
+                >
+                  <AppIcon icon={RiAddLine} />
+                </Button>
+              }
+            />
+            <TooltipPopup>{t("New routine")}</TooltipPopup>
+          </Tooltip>
+        }
+      />
+      <NewRoutineDialog open={creating} onOpenChange={setCreating} />
       <div className="min-h-0 flex-1 overflow-y-auto px-2">
         {routines.length === 0 ? null : (
           <ul className="flex flex-col gap-0.5">
-            {routines.map((routine) => {
-              const bot = bots.find((candidate) => candidate.id === routine.botId);
-
-              const time = routine.nextRunAt
-                ? formatRosterTimestamp(routine.nextRunAt, timestampFormat)
-                : null;
-
-              const when = !routine.enabled
-                ? t("Paused")
-                : time
-                  ? t("Next {time}", { time })
-                  : t("Not scheduled");
-
-              return (
-                <PanelRow
-                  key={routine.id}
-                  onClick={() =>
-                    void navigate({ to: "/bots/$botId", params: { botId: routine.botId } })
-                  }
-                  leading={
-                    bot ? (
-                      <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-9" />
-                    ) : null
-                  }
-                  title={routine.job}
-                  detail={`${bot?.name ?? t("Unknown bot")} · ${when}`}
-                />
-              );
-            })}
+            {routines.map((routine) => (
+              <RoutineRow
+                key={routine.id}
+                environmentId={environmentId}
+                routine={routine}
+                bot={bots.find((candidate) => candidate.id === routine.botId)}
+                active={pathname === `/routines/${routine.id}`}
+                running={(snapshot?.routineRuns ?? []).some(
+                  (run) => run.routineId === routine.id && run.status === "running",
+                )}
+              />
+            ))}
           </ul>
         )}
       </div>

@@ -2,7 +2,7 @@ import { RiCloseLine, RiComputerLine, RiListCheck, RiSettings3Line } from "@remi
 import { useAtomValue } from "@effect/atom-react";
 import type { ScopedThreadRef } from "@otto/contracts";
 
-import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { openComputerViewer } from "../../computerViewerStore";
 import { useI18n } from "../../i18n";
@@ -20,7 +20,6 @@ import { BotBrowserPreview } from "./BotBrowserPreview";
 import { resolveBotModelLabel } from "./botModelLabel";
 import { botPersonalityToneLabel, canonicalizeBotPersonalityTone } from "./botPersonalityTone";
 import { botSandboxChoice, botSandboxLabel } from "./botSandbox";
-import { RoutinePanel, type RoutinePanelProps } from "./RoutinePanel";
 import type { Bot } from "./types";
 import { DetailsTabs } from "../DetailsAside";
 import {
@@ -37,17 +36,11 @@ export function BotOverview({
   bot,
   onOpenSettings,
   onOpenComputer,
-  routinePanel,
-  routinePanelRef,
-  routinePanelRequest = 0,
 }: {
   readonly bot: Bot;
   readonly onOpenSettings?: () => void;
   /** Opens the live computer viewer. Omitted until the bot has a chat to attach it to. */
   readonly onOpenComputer?: () => void;
-  readonly routinePanel?: Omit<RoutinePanelProps, "botName">;
-  readonly routinePanelRequest?: number;
-  readonly routinePanelRef?: Ref<HTMLDivElement>;
 }) {
   const { t } = useI18n();
   const providers = useAtomValue(primaryServerProvidersAtom);
@@ -104,14 +97,6 @@ export function BotOverview({
           <dd className="font-medium">{botSandboxLabel(botSandboxChoice(bot.sandbox), t)}</dd>
         </div>
       </dl>
-
-      <div ref={routinePanelRef}>
-        <RoutinePanel
-          botName={bot.name}
-          listRequest={routinePanelRequest}
-          {...(routinePanel ?? { status: "unavailable" as const })}
-        />
-      </div>
     </div>
   );
 }
@@ -120,15 +105,11 @@ export function BotDetailsPanel({
   bot,
   onOpenSettings,
   threadRef = null,
-  routinePanel,
-  routinePanelRequest = 0,
 }: {
   readonly bot: Bot;
   /** Opens the full bot settings page. Omitted when no router is available. */
   readonly onOpenSettings?: () => void;
   readonly threadRef?: ScopedThreadRef | null;
-  readonly routinePanel?: Omit<RoutinePanelProps, "botName">;
-  readonly routinePanelRequest?: number;
 }) {
   const { t } = useI18n();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
@@ -138,55 +119,7 @@ export function BotDetailsPanel({
   const [tab, setTab] = useState<ChatSidebarTab>("details");
   const tabs = useChatSidebarTabs();
   const desktopPanel = useDetailsPanelState(desktopOpen);
-  const desktopRoutineRef = useRef<HTMLDivElement>(null);
-  const mobileRoutineRef = useRef<HTMLDivElement>(null);
-  const handledRoutineRequest = useRef(0);
   const shortcutLabel = shortcutLabelForCommand(keybindings, "rightPanel.toggle");
-
-  useEffect(() => {
-    if (routinePanelRequest === 0 || handledRoutineRequest.current === routinePanelRequest) return;
-
-    if (tab !== "details") {
-      setTab("details");
-
-      return;
-    }
-
-    const mobile = window.matchMedia(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY).matches;
-
-    if (mobile && !mobileOpen) {
-      setMobileOpen(true);
-
-      return;
-    }
-
-    if (!mobile && !desktopOpen) {
-      setDesktopOpen(true);
-
-      return;
-    }
-
-    if (browserExpanded) {
-      setBrowserExpanded(false);
-
-      return;
-    }
-
-    const panel = mobile ? mobileRoutineRef.current : desktopRoutineRef.current;
-
-    if (!panel || (!mobile && desktopPanel.state !== "open")) return;
-    handledRoutineRequest.current = routinePanelRequest;
-    panel.scrollIntoView({ block: "start" });
-    panel.querySelector<HTMLElement>("h3[tabindex]")?.focus();
-  }, [
-    browserExpanded,
-    desktopOpen,
-    desktopPanel.state,
-    mobileOpen,
-    routinePanelRequest,
-    setDesktopOpen,
-    tab,
-  ]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -216,12 +149,7 @@ export function BotDetailsPanel({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [keybindings, setDesktopOpen]);
 
-  const content = (
-    active: boolean,
-    routinePanelRef: Ref<HTMLDivElement>,
-    closeButton?: ReactNode,
-    canExpandBrowser = false,
-  ) => (
+  const content = (active: boolean, closeButton?: ReactNode, canExpandBrowser = false) => (
     <>
       {!browserExpanded || !canExpandBrowser ? (
         <header className="relative flex h-(--workspace-topbar-height) shrink-0 items-center ps-3 pe-12">
@@ -237,7 +165,7 @@ export function BotDetailsPanel({
         </header>
       ) : null}
       {tab === "library" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <ChatLibraryPanel threadId={threadRef?.threadId ?? null} />
         </div>
       ) : null}
@@ -255,8 +183,6 @@ export function BotDetailsPanel({
         <>
           <BotOverview
             bot={bot}
-            routinePanelRef={routinePanelRef}
-            routinePanelRequest={routinePanelRequest}
             {...(onOpenSettings ? { onOpenSettings } : {})}
             {...(threadRef
               ? {
@@ -269,7 +195,6 @@ export function BotDetailsPanel({
                     }),
                 }
               : {})}
-            {...(routinePanel ? { routinePanel } : {})}
           />
         </>
       ) : null}
@@ -293,7 +218,6 @@ export function BotDetailsPanel({
         <div data-details-column="" className="flex min-h-0 flex-1 flex-col">
           {content(
             desktopPanel.state === "open",
-            desktopRoutineRef,
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -367,7 +291,6 @@ export function BotDetailsPanel({
           <SheetTitle className="sr-only">{t("{name} overview", { name: bot.name })}</SheetTitle>
           {content(
             mobileOpen,
-            mobileRoutineRef,
             <SheetClose
               aria-label={t("Close bot sidebar")}
               render={<Button size="icon-sm" variant="ghost" />}

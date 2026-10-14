@@ -220,12 +220,7 @@ export const connectionsCatalog = {
   "Apply import": "应用导入",
   "Imported {imported}, changed {changed}, skipped {skipped}.":
     "已导入 {imported} 条，更改 {changed} 条，跳过 {skipped} 条。",
-  Connectors: "连接器",
-  "Add a project to this environment before creating a routine.":
-    "请先在此环境中添加项目，再创建例行任务。",
   "Routines are not available for this environment.": "此环境不支持例行任务。",
-  "Routines report to your chat with {botName}. Send {botName} a message to start the chat, then add a routine here.":
-    "例行任务会汇报到你与 {botName} 的聊天中。先给 {botName} 发一条消息开始聊天，再回到这里添加例行任务。",
   "Connect a provider to use skills.": "连接提供方后即可使用技能。",
   "Connect a provider to use its commands.": "连接提供方后即可使用其命令。",
   "No {provider} subscription connected": "未连接 {provider} 订阅",

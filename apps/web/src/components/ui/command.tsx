@@ -211,9 +211,10 @@ function CommandItem({
   variant?: keyof typeof COMMAND_ITEM_VARIANT_CLASSES;
 }) {
   return (
+    // Otto: Command rows are 28px on desktop, like menu and select rows.
     <AutocompleteItem
       className={cn(
-        "py-1.5 data-selected:bg-foreground/[0.06] data-highlighted:bg-foreground/[0.09] data-highlighted:text-foreground [&[data-highlighted][data-selected]]:bg-foreground/[0.09] [&[data-highlighted][data-selected]]:text-foreground",
+        "py-1 data-selected:bg-foreground/[0.06] data-highlighted:bg-foreground/[0.09] data-highlighted:text-foreground [&[data-highlighted][data-selected]]:bg-foreground/[0.09] [&[data-highlighted][data-selected]]:text-foreground",
         COMMAND_ITEM_VARIANT_CLASSES[variant],
         className,
       )}

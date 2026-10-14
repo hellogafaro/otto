@@ -1,11 +1,13 @@
 import {
   BotId,
   CommandId,
+  PositiveInt,
   type Routine,
   RoutineId,
   RoutineTimeZone,
   ThreadId,
   type OttoCreateRoutineInput,
+  type OttoUpdateRoutineInput,
 } from "@otto/contracts";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
@@ -30,6 +32,17 @@ export interface RoutinesDeletedResult {
   readonly routineIds: ReadonlyArray<RoutineId>;
   readonly sequences: ReadonlyArray<number>;
   readonly status: "deleted";
+}
+
+export interface RoutineUpdatedResult {
+  readonly routineId: RoutineId;
+  readonly status: "updated";
+  readonly enabled: boolean;
+}
+
+export interface RoutinePausedResult {
+  readonly routineId: RoutineId;
+  readonly status: "paused" | "resumed";
 }
 
 export type OttoRoutineStatus = Pick<Routine, "id" | "enabled"> & {
@@ -73,6 +86,16 @@ export interface RoutineDraftDispatcherShape {
     threadId: ThreadId,
     routineIds: ReadonlyArray<RoutineId>,
   ) => Effect.Effect<RoutinesDeletedResult, RoutineDraftError>;
+  readonly updateForThread: (
+    threadId: ThreadId,
+    routineId: RoutineId,
+    input: OttoUpdateRoutineInput,
+  ) => Effect.Effect<RoutineUpdatedResult, RoutineDraftError>;
+  readonly setPausedForThread: (
+    threadId: ThreadId,
+    routineId: RoutineId,
+    paused: boolean,
+  ) => Effect.Effect<RoutinePausedResult, RoutineDraftError>;
 }
 
 export class RoutineDraftDispatcher extends Context.Service<
@@ -278,10 +301,135 @@ const make = Effect.gen(function* () {
       ),
     );
 
+  /** The live routine a bot chat may change: owned by the chat's bot and not deleted. */
+  const ownedRoutine = (threadId: ThreadId, routineId: RoutineId) =>
+    Effect.gen(function* () {
+      const thread = Option.getOrUndefined(yield* snapshots.getThreadDetailById(threadId));
+
+      if (!thread || thread.archivedAt !== null) {
+        return yield* fail("The current chat is unavailable.");
+      }
+
+      const botId = thread.respondingBotId ?? thread.botId;
+
+      if (botId === null || botId === undefined) {
+        return yield* fail("Routines can only be changed from a bot chat.");
+      }
+
+      const snapshot = yield* snapshots.getShellSnapshot();
+
+      const routine = (snapshot.routines ?? []).find(
+        (candidate) =>
+          candidate.id === routineId &&
+          candidate.botId === botId &&
+          candidate.lifecycle !== "deleted" &&
+          candidate.deletedAt === null,
+      );
+
+      if (!routine) return yield* fail("That routine is unavailable.");
+
+      return routine;
+    });
+
+  const commandId = (type: string) =>
+    crypto.randomUUIDv4.pipe(Effect.map((uuid) => CommandId.make(`agent:${type}:${uuid}`)));
+
+  const updateForThread: RoutineDraftDispatcherShape["updateForThread"] = (
+    threadId,
+    routineId,
+    input,
+  ) =>
+    Effect.gen(function* () {
+      const routine = yield* ownedRoutine(threadId, routineId);
+      const createdAt = DateTime.formatIso(yield* DateTime.now);
+
+      yield* engine.dispatch({
+        type: "routine.draft",
+        commandId: yield* commandId("routine.draft"),
+        routineId,
+        botId: routine.botId,
+        targetThreadId: routine.targetThreadId,
+        job: input.name ?? routine.job,
+        procedure: input.instructions ?? routine.procedure,
+        schedule: input.schedule ?? routine.schedule,
+        timezone: routine.timezone,
+        skillAssignmentIds: routine.skillAssignmentIds,
+        connectorDependencies: routine.connectorDependencies,
+        projectId: routine.projectId,
+        sandbox: routine.sandbox,
+        approvalPolicy: routine.approvalPolicy,
+        delegateToBotId: routine.delegateToBotId,
+        expectedProcedureVersion: routine.procedureVersion,
+        createdAt,
+      });
+
+      // The user confirmed the change in chat, so it is approved as saved and a
+      // routine that was running on its schedule keeps running.
+      yield* engine.dispatch({
+        type: "routine.approve",
+        commandId: yield* commandId("routine.approve"),
+        routineId,
+        procedureVersion: PositiveInt.make(routine.procedureVersion + 1),
+        createdAt,
+      });
+
+      if (routine.enabled) {
+        yield* engine.dispatch({
+          type: "routine.enable",
+          commandId: yield* commandId("routine.enable"),
+          routineId,
+          createdAt,
+        });
+      }
+
+      return { routineId, status: "updated" as const, enabled: routine.enabled };
+    }).pipe(
+      Effect.mapError((cause) =>
+        isRoutineDraftError(cause)
+          ? cause
+          : fail(cause instanceof Error ? cause.message : String(cause)),
+      ),
+    );
+
+  const setPausedForThread: RoutineDraftDispatcherShape["setPausedForThread"] = (
+    threadId,
+    routineId,
+    paused,
+  ) =>
+    Effect.gen(function* () {
+      yield* ownedRoutine(threadId, routineId);
+      const createdAt = DateTime.formatIso(yield* DateTime.now);
+
+      yield* paused
+        ? engine.dispatch({
+            type: "routine.pause",
+            commandId: yield* commandId("routine.pause"),
+            routineId,
+            reason: "Paused from chat.",
+            createdAt,
+          })
+        : engine.dispatch({
+            type: "routine.enable",
+            commandId: yield* commandId("routine.enable"),
+            routineId,
+            createdAt,
+          });
+
+      return { routineId, status: paused ? ("paused" as const) : ("resumed" as const) };
+    }).pipe(
+      Effect.mapError((cause) =>
+        isRoutineDraftError(cause)
+          ? cause
+          : fail(cause instanceof Error ? cause.message : String(cause)),
+      ),
+    );
+
   return {
     createApprovedForThread,
     listForThread,
     deleteForThread,
+    updateForThread,
+    setPausedForThread,
   } satisfies RoutineDraftDispatcherShape;
 });
 

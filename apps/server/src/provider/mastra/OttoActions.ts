@@ -3,6 +3,8 @@ import * as Predicate from "effect/Predicate";
 import {
   OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
+  OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
+  OTTO_UPDATE_ROUTINE_TOOL_NAME,
 } from "./OttoRoutineSchemas.ts";
 
 export type OttoToolCategory = "read" | "edit" | "execute" | "mcp" | "other";
@@ -274,6 +276,8 @@ export function routineToolNeedsGlobalApproval(toolName: string): boolean {
   return (
     toolName !== OTTO_CREATE_ROUTINE_TOOL_NAME &&
     toolName !== OTTO_LIST_ROUTINES_TOOL_NAME &&
-    toolName !== OTTO_DELETE_ROUTINES_TOOL_NAME
+    toolName !== OTTO_DELETE_ROUTINES_TOOL_NAME &&
+    toolName !== OTTO_UPDATE_ROUTINE_TOOL_NAME &&
+    toolName !== OTTO_SET_ROUTINE_PAUSED_TOOL_NAME
   );
 }

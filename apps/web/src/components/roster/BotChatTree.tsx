@@ -6,7 +6,9 @@ import { useThreadShells } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { formatRelativeTime } from "../../timestampFormat";
 import { buildBotChatRows } from "./botChats.logic";
+import { ThreadStatusIcon } from "./ChatStatusIcon";
 import { listBotChats } from "./botThreadRuntime.logic";
+import { ROSTER_TIME_CLASS, ROSTER_TRAIL_CLASS } from "./rosterRowClasses";
 import { useRosterStore } from "./rosterStore";
 
 /** The bot's chats, newest first; the roster lists them once there are two. */
@@ -61,9 +63,16 @@ export function BotChatTree({
       />
       {rows.map((row) => {
         const relative = formatRelativeTime(row.updatedAt);
+        const shell = chats.find((chat) => chat.id === row.threadId);
 
         return (
-          <li key={row.threadId} className="list-none">
+          <li
+            key={row.threadId}
+            className={cn(
+              "group/row relative list-none rounded-md",
+              row.current ? "sidebar-row-current" : "sidebar-row-plain hover:sidebar-row-hovered",
+            )}
+          >
             <button
               type="button"
               aria-current={row.current || undefined}
@@ -78,17 +87,30 @@ export function BotChatTree({
                 onOpen();
               }}
               className={cn(
-                "flex h-7 w-full cursor-pointer items-center gap-2 rounded-md ps-7.5 pe-2 text-left text-13px outline-none select-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                "flex h-7 w-full cursor-pointer items-center gap-2 rounded-md ps-7.5 pe-2 text-left text-13px outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                 row.current
-                  ? "bg-sidebar-row-active text-sidebar-foreground"
-                  : "text-sidebar-foreground/80 hover:text-sidebar-foreground dark:text-sidebar-foreground/68",
+                  ? "text-sidebar-foreground"
+                  : "text-sidebar-foreground/80 group-hover/row:text-sidebar-foreground dark:text-sidebar-foreground/68",
               )}
             >
-              <span className="min-w-0 flex-1 truncate">{row.title ?? t("Untitled chat")}</span>
-              <span className="flex min-w-6 shrink-0 justify-end text-11px tabular-nums text-sidebar-foreground/52">
-                {relative?.suffix ? relative.value : t("now")}
+              <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+                {row.title ?? t("Untitled chat")}
               </span>
             </button>
+            <span className={ROSTER_TRAIL_CLASS}>
+              <span className="flex items-center gap-2 pe-1.5">
+                {environmentId && shell ? (
+                  <ThreadStatusIcon
+                    environmentId={environmentId}
+                    shell={shell}
+                    current={row.current}
+                  />
+                ) : null}
+                <span className={ROSTER_TIME_CLASS}>
+                  {relative?.suffix ? relative.value : t("now")}
+                </span>
+              </span>
+            </span>
           </li>
         );
       })}

@@ -124,7 +124,7 @@ function WorkHeaderAction({
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button size="icon-sm" variant="ghost-muted" aria-label={label} onClick={onClick}>
+          <Button size="icon" variant="ghost-muted" aria-label={label} onClick={onClick}>
             <Icon aria-hidden className="size-4" />
           </Button>
         }

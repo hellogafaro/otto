@@ -237,13 +237,8 @@ export const connectionsCatalog = {
   "Apply import": "Apply import",
   "Imported {imported}, changed {changed}, skipped {skipped}.":
     "Imported {imported}, changed {changed}, skipped {skipped}.",
-  Connectors: "Connectors",
-  "Add a project to this environment before creating a routine.":
-    "Add a project to this environment before creating a routine.",
   "Routines are not available for this environment.":
     "Routines are not available for this environment.",
-  "Routines report to your chat with {botName}. Send {botName} a message to start the chat, then add a routine here.":
-    "Routines report to your chat with {botName}. Send {botName} a message to start the chat, then add a routine here.",
   "Connect a provider to use skills.": "Connect a provider to use skills.",
   "Connect a provider to use its commands.": "Connect a provider to use its commands.",
   "No {provider} subscription connected": "No {provider} subscription connected",

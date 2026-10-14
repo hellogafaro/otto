@@ -19,6 +19,7 @@ import {
   TurnId,
   type BotId,
   type OttoCreateRoutineInput,
+  type OttoUpdateRoutineInput,
   type ProviderRuntimeEvent,
   ThreadId,
   OTTO_CREATE_ROUTINE_TOOL_NAME,
@@ -239,6 +240,20 @@ export function createHarness(deps: {
                       deletedRoutineIds: [...result.routineIds],
                     })),
                   ),
+              ),
+            updateRoutine: (threadId: string, routineId: string, input: OttoUpdateRoutineInput) =>
+              deps.runPromise(
+                routineDispatcher
+                  .updateForThread(ThreadIdBrand(threadId), RoutineId.make(routineId), input)
+                  .pipe(
+                    Effect.map((result) => ({ status: result.status, enabled: result.enabled })),
+                  ),
+              ),
+            setRoutinePaused: (threadId: string, routineId: string, paused: boolean) =>
+              deps.runPromise(
+                routineDispatcher
+                  .setPausedForThread(ThreadIdBrand(threadId), RoutineId.make(routineId), paused)
+                  .pipe(Effect.map((result) => ({ status: result.status }))),
               ),
             createRoutine: (threadId: string, input: OttoCreateRoutineInput) => {
               const active = deps.sessions.get(threadId);

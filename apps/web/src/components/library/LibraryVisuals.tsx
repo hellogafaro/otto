@@ -87,11 +87,15 @@ export function LibraryFileThumb({
 }) {
   const Icon = LIBRARY_TYPE_ICONS[file.type];
 
-  if (file.type !== "image") {
-    return <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />;
-  }
-
-  return <LibraryRowImage environmentId={environmentId} file={file} />;
+  return (
+    <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+      {file.type === "image" ? (
+        <LibraryRowImage environmentId={environmentId} file={file} />
+      ) : (
+        <Icon aria-hidden className="size-4" />
+      )}
+    </span>
+  );
 }
 
 function LibraryRowImage({
@@ -103,8 +107,7 @@ function LibraryRowImage({
 }) {
   const url = useLibraryFileUrl(environmentId, file.id);
 
-  if (url === null)
-    return <RiImageLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />;
+  if (url === null) return <RiImageLine aria-hidden className="size-4" />;
 
-  return <img src={url} alt="" className="size-5 shrink-0 rounded-sm object-cover" />;
+  return <img src={url} alt="" className="size-5 rounded-sm object-cover" />;
 }

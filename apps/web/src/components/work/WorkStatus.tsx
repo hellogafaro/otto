@@ -1,12 +1,16 @@
 import type { WorkStatus } from "@otto/contracts";
-import { RiArchiveLine } from "@remixicon/react";
+import { RiArchiveLine, RiInboxUnarchiveLine, RiMoreLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { WORK_STATUS_ORDER } from "./work.logic";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { StatusIcon } from "../StatusIcon";
+import { WORK_STATUS_CHOICES } from "./work.logic";
 
-/** Linear-style status glyph: dashed, open, half, done, crossed out, archived. */
+/** A task or project status glyph; archived is not a status choice but still shows. */
 export function WorkStatusIcon({
   status,
   className,
@@ -18,70 +22,12 @@ export function WorkStatusIcon({
     return (
       <RiArchiveLine
         aria-hidden
-        className={cn("size-3.5 shrink-0 text-muted-foreground", className)}
+        className={cn("size-3 shrink-0 text-muted-foreground", className)}
       />
     );
   }
 
-  return (
-    <svg
-      viewBox="0 0 14 14"
-      aria-hidden
-      className={cn(
-        "size-3.5 shrink-0",
-        status === "in_progress" && "text-warning",
-        status === "completed" && "text-success",
-        (status === "backlog" || status === "pending" || status === "cancelled") &&
-          "text-muted-foreground",
-        className,
-      )}
-    >
-      {status === "backlog" ? (
-        <circle
-          cx="7"
-          cy="7"
-          r="6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeDasharray="2.2 2.2"
-        />
-      ) : null}
-      {status === "pending" ? (
-        <circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      ) : null}
-      {status === "in_progress" ? (
-        <>
-          <circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M7 3.5A3.5 3.5 0 0 1 7 10.5Z" fill="currentColor" />
-        </>
-      ) : null}
-      {status === "completed" ? (
-        <>
-          <circle cx="7" cy="7" r="7" fill="currentColor" />
-          <path
-            d="M4.2 7.2 6.1 9l3.7-3.9"
-            fill="none"
-            stroke="var(--background)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </>
-      ) : null}
-      {status === "cancelled" ? (
-        <>
-          <circle cx="7" cy="7" r="7" fill="currentColor" />
-          <path
-            d="m4.9 4.9 4.2 4.2m0-4.2-4.2 4.2"
-            stroke="var(--background)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </>
-      ) : null}
-    </svg>
-  );
+  return <StatusIcon status={status} className={className} />;
 }
 
 export function useWorkStatusLabel(): (status: WorkStatus) => string {
@@ -106,10 +52,13 @@ export function useWorkStatusLabel(): (status: WorkStatus) => string {
 }
 
 function isWorkStatus(value: unknown): value is WorkStatus {
-  return WORK_STATUS_ORDER.some((status) => status === value);
+  return WORK_STATUS_CHOICES.some((status) => status === value);
 }
 
-/** A status pill: the glyph and its name, opening the full status list. */
+/**
+ * A status pill: the glyph and its name, opening the status list. Archive is an action in
+ * the page's More actions menu, not a status to pick.
+ */
 export function WorkStatusSelect({
   value,
   onChange,
@@ -146,7 +95,7 @@ export function WorkStatusSelect({
         </SelectValue>
       </SelectTrigger>
       <SelectPopup alignItemWithTrigger={false}>
-        {WORK_STATUS_ORDER.map((status) => (
+        {WORK_STATUS_CHOICES.map((status) => (
           <SelectItem key={status} hideIndicator value={status}>
             <span className="flex items-center gap-2">
               <WorkStatusIcon status={status} />
@@ -156,5 +105,51 @@ export function WorkStatusSelect({
         ))}
       </SelectPopup>
     </Select>
+  );
+}
+
+/**
+ * A task or project page's More actions menu. Archiving lives here rather than in the
+ * status list; unarchiving puts the work back to Pending.
+ */
+export function WorkMoreActions({
+  status,
+  onStatusChange,
+}: {
+  readonly status: WorkStatus;
+  readonly onStatusChange: (status: WorkStatus) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <Menu>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <MenuTrigger
+              render={
+                <Button size="icon" variant="ghost-muted" aria-label={t("More actions")}>
+                  <RiMoreLine aria-hidden className="size-4" />
+                </Button>
+              }
+            />
+          }
+        />
+        <TooltipPopup side="bottom">{t("More actions")}</TooltipPopup>
+      </Tooltip>
+      <MenuPopup align="end">
+        {status === "archived" ? (
+          <MenuItem onClick={() => onStatusChange("pending")}>
+            <RiInboxUnarchiveLine />
+            {t("Unarchive")}
+          </MenuItem>
+        ) : (
+          <MenuItem onClick={() => onStatusChange("archived")}>
+            <RiArchiveLine />
+            {t("Archive")}
+          </MenuItem>
+        )}
+      </MenuPopup>
+    </Menu>
   );
 }

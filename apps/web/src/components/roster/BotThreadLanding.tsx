@@ -85,13 +85,7 @@ import { ChatActionsMenu, useMarkChatVisited } from "../chat/ChatActionsMenu";
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
-export function BotThreadLanding({
-  botId,
-  onOpenRoutines,
-}: {
-  readonly botId: string;
-  readonly onOpenRoutines?: () => void;
-}) {
+export function BotThreadLanding({ botId }: { readonly botId: string }) {
   const i18n = useI18n();
   const { t, locale } = i18n;
   const navigate = useNavigate();
@@ -142,6 +136,32 @@ export function BotThreadLanding({
     roster.requestBotIntro(null);
     void runtime.sendHidden(botIntroPrompt(botName, locale), t("Meet {name}", { name: botName }));
   }, [botId, botName, introReady, locale, runtime.sendHidden, t]);
+
+  // A prompt asked for elsewhere, such as a new routine, gets a fresh chat of its own.
+  const promptRequested = useRosterStore((state) => state.promptRequest?.botId === botId);
+
+  const promptThreadId = useRosterStore((state) =>
+    state.promptRequest?.botId === botId ? state.promptRequest.threadId : undefined,
+  );
+
+  // A prompt for one chat waits until that chat is the one showing.
+  const promptReady =
+    promptRequested &&
+    runtime.bootstrapped &&
+    runtime.botReady &&
+    Boolean(runtime.defaultProject) &&
+    (promptThreadId === undefined || runtime.linkedThreadRef?.threadId === promptThreadId);
+
+  useEffect(() => {
+    const roster = useRosterStore.getState();
+    const request = roster.promptRequest;
+
+    if (!promptReady || request?.botId !== botId) return;
+    roster.requestPrompt(null);
+    void (request.threadId === undefined
+      ? runtime.sendInNewChat(request.text)
+      : runtime.send(request.text, []));
+  }, [botId, promptReady, runtime.send, runtime.sendInNewChat]);
 
   const mentionScope = useBotPromptMentionScope({
     environmentId,
@@ -446,10 +466,7 @@ export function BotThreadLanding({
                 timelineItems.map((item, timelineIndex) => (
                   <Fragment key={item.key}>
                     {Predicate.isTagged(item, "Receipt") ? (
-                      <RoutineReceiptRow
-                        receipt={item.receipt}
-                        {...(onOpenRoutines ? { onOpenRoutines } : {})}
-                      />
+                      <RoutineReceiptRow receipt={item.receipt} />
                     ) : Predicate.isTagged(item, "Delegation") ? (
                       <DelegationCard
                         delegation={item.delegation}

@@ -12,6 +12,11 @@ describe("formatRosterTimestamp", () => {
     expect(formatRosterTimestamp("2026-01-02T09:30:00", "24-hour", now)).toContain("2");
   });
 
+  it("shows Tomorrow, then the weekday, for a routine's next run", () => {
+    expect(formatRosterTimestamp("2026-08-28T09:30:00", "24-hour", now)).toBe("Tomorrow");
+    expect(formatRosterTimestamp("2026-08-31T09:30:00", "24-hour", now)).not.toContain(":");
+  });
+
   it("returns empty for an invalid date", () => {
     expect(formatRosterTimestamp("nope", "24-hour", now)).toBe("");
   });

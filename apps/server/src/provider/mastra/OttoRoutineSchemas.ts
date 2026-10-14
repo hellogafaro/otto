@@ -6,6 +6,10 @@ export const OTTO_LIST_ROUTINES_TOOL_NAME = "otto_list_routines";
 
 export const OTTO_DELETE_ROUTINES_TOOL_NAME = "otto_delete_routines";
 
+export const OTTO_UPDATE_ROUTINE_TOOL_NAME = "otto_update_routine";
+
+export const OTTO_SET_ROUTINE_PAUSED_TOOL_NAME = "otto_set_routine_paused";
+
 export const routineToolInputSchema = z.object({
   name: z.string().trim().min(1),
   instructions: z.string().trim().min(1),
@@ -59,3 +63,23 @@ export const routineDeleteResultSchema = z.object({
 });
 
 export type OttoRoutineDeleteResult = z.infer<typeof routineDeleteResultSchema>;
+
+export const routineUpdateInputSchema = z.object({
+  routineId: z.string().trim().min(1),
+  name: routineToolInputSchema.shape.name.nullish(),
+  instructions: routineToolInputSchema.shape.instructions.nullish(),
+  schedule: routineToolInputSchema.shape.schedule.nullish(),
+});
+
+export const routineUpdateResultSchema = z.object({
+  status: z.enum(["updated", "cancelled", "not-found"]),
+  enabled: z.boolean().optional(),
+});
+
+export type OttoRoutineUpdateResult = z.infer<typeof routineUpdateResultSchema>;
+
+export const routinePausedResultSchema = z.object({
+  status: z.enum(["paused", "resumed", "not-found"]),
+});
+
+export type OttoRoutinePausedResult = z.infer<typeof routinePausedResultSchema>;

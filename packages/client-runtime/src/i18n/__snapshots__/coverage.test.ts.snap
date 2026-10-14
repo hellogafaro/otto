@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1917,
+  "directMessageCount": 1905,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -84,6 +84,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/BotToolsSection.tsx": [
       "STATUS_LABEL[status])}",
     ],
+    "apps/web/src/components/roster/ChatStatusIcon.tsx": [
+      "CHAT_STATUS_LABEL[status])} />;",
+    ],
     "apps/web/src/components/roster/DurableMemoryPanels.tsx": [
       "label)} className="flex flex-wrap gap-1">",
       "option.label)}",
@@ -113,21 +116,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/RosterRows.tsx": [
       "chatsOpen ? "Hide {name} chats" : "Show {name} chats", {",
     ],
-    "apps/web/src/components/roster/RoutineCards.tsx": [
-      "status.label)}",
-      "runStatusPresentation(latest.status).label)}",
-      "status.label)}",
-      "runStatusPresentation(latest.status).label)}",
-    ],
-    "apps/web/src/components/roster/RoutineFormDialog.tsx": [
-      "title)}</DialogTitle>",
-      "draft.schedule.frequency === "hourly" ? "Starting at" : "Time")}</span>",
-      "day)}",
-      "submitLabel)}",
-    ],
-    "apps/web/src/components/roster/RoutineRunHistory.tsx": [
-      "presentation.label)}</span>",
-      "stateNote)}</p>;",
+    "apps/web/src/components/routines/RoutineHistory.tsx": [
+      "runStatusTone(run.status).label)}",
     ],
     "apps/web/src/components/settings/BackgroundActivitySettings.tsx": [
       "BACKGROUND_ACTIVITY_PROFILE_LABELS[activeProfile])}</SelectValue>",
@@ -415,6 +405,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/CommandPaletteContent.tsx",
     "apps/web/src/components/ConfirmDialogHost.tsx",
     "apps/web/src/components/DetailsAside.tsx",
+    "apps/web/src/components/PromptDialog.tsx",
     "apps/web/src/components/RichTextEditor.tsx",
     "apps/web/src/components/auth/PairingPanel.tsx",
     "apps/web/src/components/auth/PairingRouteSurface.tsx",
@@ -501,6 +492,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/BotMessageAttachments.tsx",
     "apps/web/src/components/roster/BotModelPicker.tsx",
     "apps/web/src/components/roster/BotPersonalityToneField.tsx",
+    "apps/web/src/components/roster/BotPicker.tsx",
     "apps/web/src/components/roster/BotPromptAttachments.tsx",
     "apps/web/src/components/roster/BotPromptCommandMenu.tsx",
     "apps/web/src/components/roster/BotPromptComposer.tsx",
@@ -516,6 +508,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/BotUserInputPrompt.tsx",
     "apps/web/src/components/roster/BotZeroState.tsx",
     "apps/web/src/components/roster/ChannelSendApproval.tsx",
+    "apps/web/src/components/roster/ChatStatusIcon.tsx",
     "apps/web/src/components/roster/DelegationCard.tsx",
     "apps/web/src/components/roster/DelegationDetail.tsx",
     "apps/web/src/components/roster/DurableMemoryPanels.tsx",
@@ -528,11 +521,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/RosterHeaders.tsx",
     "apps/web/src/components/roster/RosterLoadStatus.tsx",
     "apps/web/src/components/roster/RosterRows.tsx",
-    "apps/web/src/components/roster/RoutineCards.tsx",
-    "apps/web/src/components/roster/RoutineFormDialog.tsx",
-    "apps/web/src/components/roster/RoutinePanel.tsx",
     "apps/web/src/components/roster/RoutineReceiptRow.tsx",
-    "apps/web/src/components/roster/RoutineRunHistory.tsx",
     "apps/web/src/components/roster/botEngineSelection.ts",
     "apps/web/src/components/roster/botPersonalityTone.ts",
     "apps/web/src/components/roster/botSandbox.ts",
@@ -543,6 +532,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/useBotLandingTimeline.ts",
     "apps/web/src/components/roster/useBotProfileDraft.ts",
     "apps/web/src/components/roster/useMessageReactionUpdater.ts",
+    "apps/web/src/components/routines/RoutineHistory.tsx",
+    "apps/web/src/components/routines/RoutinePage.tsx",
     "apps/web/src/components/settings/ArchivedBotsSettings.tsx",
     "apps/web/src/components/settings/ArchivedChatsSettings.tsx",
     "apps/web/src/components/settings/BackgroundActivitySettings.tsx",
@@ -593,6 +584,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/useSettingsRestore.ts",
     "apps/web/src/components/settings/useSubscriptionAccounts.ts",
     "apps/web/src/components/sidebar/ExperimentalSidebar.tsx",
+    "apps/web/src/components/sidebar/RoutineRow.tsx",
     "apps/web/src/components/sidebar/SidebarChrome.tsx",
     "apps/web/src/components/sidebar/SidebarProviderUpdatePill.tsx",
     "apps/web/src/components/sidebar/SidebarUpdatePill.tsx",
@@ -613,7 +605,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/hooks/useChatActions.ts",
     "apps/web/src/routes/-RootRouteErrorView.tsx",
     "apps/web/src/routes/__root.tsx",
-    "apps/web/src/routes/_chat.bots.$botId.tsx",
     "packages/client-runtime/src/botInbox.ts",
     "packages/client-runtime/src/channelPresentation.ts",
     "packages/client-runtime/src/durableMemory.ts",

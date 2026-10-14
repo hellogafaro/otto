@@ -6,7 +6,7 @@ import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
   ConditionPopover,
@@ -189,6 +189,7 @@ export function KeybindingListRow({
                   {t("Reset to default")}
                 </MenuItem>
               ) : null}
+              {canReset && canRemove ? <MenuSeparator /> : null}
               {canRemove ? (
                 <MenuItem variant="destructive" disabled={isSaving} onClick={() => onRemove(row)}>
                   {t("Remove shortcut")}
