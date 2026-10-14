@@ -29,6 +29,7 @@ import { environmentMcpServersAtom, mcpServerEnvironment } from "../../state/mcp
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -52,7 +53,6 @@ import {
   validateMcpServerDraft,
 } from "./mcpServerDraft.logic";
 import {
-  PLUGIN_PAGE_COLUMN_CLASS_NAME,
   PluginDirectoryLayout,
   PluginFilterBar,
   PluginSearchField,
@@ -78,7 +78,6 @@ import {
 export {
   PLUGIN_DIRECTORY_HEADER_CLASS_NAME,
   PLUGIN_DIRECTORY_PANEL_CLASS_NAME,
-  PLUGIN_PAGE_COLUMN_CLASS_NAME,
   PluginsPageHeader,
 } from "./PluginDirectoryLayout";
 
@@ -648,11 +647,12 @@ export function PluginsPage() {
         ) : (
           <>
             <PluginsPageHeader />
-            <div className={PLUGIN_PAGE_COLUMN_CLASS_NAME}>
-              <p className="px-2.5 text-15px leading-6 text-muted-foreground">
+            <WorkspacePageContainer width="full" className="gap-10 pt-3 pb-16 sm:pt-4">
+              <WorkspacePageTitle>{t("Plugins")}</WorkspacePageTitle>
+              <p className="px-4 text-13px text-muted-foreground">
                 {t("Connect an environment to manage plugins.")}
               </p>
-            </div>
+            </WorkspacePageContainer>
           </>
         )}
       </div>

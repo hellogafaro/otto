@@ -133,7 +133,7 @@ function RoutineDetail({
   return (
     <>
       <WorkDetailPage
-        kind="routine"
+        type="routine"
         title={routine.job}
         description={routine.procedure}
         actions={

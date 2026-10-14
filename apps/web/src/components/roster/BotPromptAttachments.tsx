@@ -1,4 +1,4 @@
-import { RiCloseLine } from "@remixicon/react";
+import { RiCloseLine, RiFileLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
@@ -74,12 +74,12 @@ export function BotPromptAttachments({
   if (attachments.length === 0) return null;
 
   return (
-    <div className={cn("flex flex-wrap gap-2", className)}>
+    <div className={cn("flex flex-wrap gap-1.5", className)}>
       {attachments.map((attachment) => (
         <div
           key={attachment.id}
           data-testid="bot-prompt-attachment"
-          className="relative size-16 shrink-0 overflow-hidden rounded-lg border border-on-solid/10 bg-background/65"
+          className="relative size-16 shrink-0 overflow-hidden rounded-md border border-on-solid/10 bg-background/65"
         >
           {attachment.previewUrl !== null ? (
             <button
@@ -100,17 +100,12 @@ export function BotPromptAttachments({
                   event.currentTarget.closest("button")?.setAttribute("disabled", "");
                 }}
               />
-              <span
-                hidden
-                className="flex size-full items-center justify-center break-all px-1 text-center text-10px leading-tight text-muted-foreground"
-              >
-                {attachment.file.name}
+              <span hidden className="block size-full">
+                <AttachmentFileFace name={attachment.file.name} />
               </span>
             </button>
           ) : (
-            <span className="flex size-full items-center justify-center break-all px-1 text-center text-10px leading-tight text-muted-foreground">
-              {attachment.file.name}
-            </span>
+            <AttachmentFileFace name={attachment.file.name} />
           )}
           <button
             type="button"
@@ -123,5 +118,17 @@ export function BotPromptAttachments({
         </div>
       ))}
     </div>
+  );
+}
+
+/** A file tile's face: an icon over the name, kept clear of the corner remove button. */
+function AttachmentFileFace({ name }: { name: string }) {
+  return (
+    <span className="flex size-full flex-col items-center justify-end gap-1 px-1 pb-1.5 text-muted-foreground">
+      <RiFileLine aria-hidden="true" className="size-4 shrink-0" />
+      <span className="line-clamp-2 w-full break-words text-center text-10px leading-tight">
+        {name}
+      </span>
+    </span>
   );
 }

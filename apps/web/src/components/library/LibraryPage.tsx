@@ -1,6 +1,7 @@
 import {
   LIBRARY_CHATS_FOLDER_ID,
   LIBRARY_MAX_FOLDER_DEPTH,
+  LIBRARY_PROJECTS_FOLDER_ID,
   type LibraryFile,
   type LibraryFolder,
   LibraryFolderId,
@@ -80,7 +81,10 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   const [naming, setNaming] = useState(false);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const canAddFiles = folderId !== LIBRARY_CHATS_FOLDER_ID;
+
+  const canAddFiles =
+    folderId !== LIBRARY_CHATS_FOLDER_ID && folderId !== LIBRARY_PROJECTS_FOLDER_ID;
+
   const canAddFolder = canAddFiles && path.length < LIBRARY_MAX_FOLDER_DEPTH;
 
   const { folders: shownFolders, files: shownFiles } =
@@ -211,7 +215,6 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
         />
       ) : (
         <WorkspacePageContainer
-          width="readable"
           className={cn(
             "min-h-full gap-6 pt-3 pb-16 sm:pt-4",
             dragging && "rounded-lg ring-2 ring-ring ring-inset",
@@ -262,9 +265,10 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
                 ))}
               </nav>
             ) : null}
-            <div className="px-2">
+            <div className="mt-2 mb-2">
               <DetailsTabs
                 label={t("Library tabs")}
+                size="page"
                 tabs={tabs}
                 value={tab}
                 onValueChange={(value) =>
@@ -336,11 +340,12 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   );
 }
 
-type CardItem =
+export type LibraryCardItem =
   | { readonly kind: "folder"; readonly folder: LibraryFolder }
   | { readonly kind: "file"; readonly file: LibraryFile };
 
-function LibraryCard({
+/** A Library item as a DataGrid card: a 16:9 preview, then its title and who changed it when. */
+export function LibraryCard({
   environmentId,
   data,
   item,
@@ -348,7 +353,7 @@ function LibraryCard({
 }: {
   readonly environmentId: NonNullable<LibraryData["environmentId"]>;
   readonly data: LibraryData;
-  readonly item: CardItem;
+  readonly item: LibraryCardItem;
   readonly onOpen: () => void;
 }) {
   const { t } = useI18n();

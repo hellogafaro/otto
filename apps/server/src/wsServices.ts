@@ -3,6 +3,7 @@ import { ProviderInstanceRegistryMutator } from "./provider/Services/ProviderIns
 import { computerRegistry } from "./provider/computerRegistry.ts";
 import * as Cause from "effect/Cause";
 import * as Crypto from "effect/Crypto";
+import { ActivityStore } from "./activity/ActivityStore.ts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
@@ -154,6 +155,8 @@ export const createWsServices = (
     const projectionGroups = yield* ProjectionGroups.ProjectionGroupRepository;
 
     const projectionLibrary = yield* ProjectionLibraryRepository;
+
+    const activityStore = yield* ActivityStore;
 
     const routineRepository = yield* RoutineRepository;
 
@@ -724,6 +727,7 @@ export const createWsServices = (
       botUsageLedger,
       projectionGroups,
       projectionLibrary,
+      activityStore,
       routineRepository,
       routineRuntime,
       orchestrationEngine,

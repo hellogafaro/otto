@@ -2,18 +2,22 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { cn } from "../lib/utils";
 
-export type WorkspacePageWidth = "narrow" | "readable" | "wide" | "expanded";
+/**
+ * Otto: the three page widths. `narrow` (752px of content) for forms and long
+ * reading, `content` (848px) for every other page, `full` for catalogs and
+ * dense data that use the whole panel.
+ */
+export type WorkspacePageWidth = "narrow" | "content" | "full";
 
 const WIDTH_CLASS: Record<WorkspacePageWidth, string> = {
   narrow: "max-w-200",
-  readable: "max-w-4xl",
-  wide: "max-w-5xl",
-  expanded: "max-w-6xl",
+  content: "max-w-4xl",
+  full: "max-w-none",
 };
 
 /** Shared content frame for workspace pages. */
 export function WorkspacePageContainer({
-  width = "readable",
+  width = "content",
   className,
   ...props
 }: ComponentPropsWithoutRef<"div"> & { readonly width?: WorkspacePageWidth }) {

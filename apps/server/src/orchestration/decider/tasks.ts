@@ -1,7 +1,10 @@
 import {
   type OrchestrationCommand,
   type OrchestrationReadModel,
+  type OrchestrationTask,
+  type TaskChanges,
   type WorkParticipant,
+  workParticipantKey,
 } from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
@@ -24,6 +27,41 @@ const uniqueParticipants = (participants: ReadonlyArray<WorkParticipant>) => [
     ]),
   ).values(),
 ];
+
+const actorFields = (actor: OrchestrationDispatchActor | undefined) =>
+  actor === undefined ? {} : { actor: { type: "person" as const, id: actor.personId } };
+
+const participantsKey = (participants: ReadonlyArray<WorkParticipant>) =>
+  participants.map(workParticipantKey).join(",");
+
+/** The fields an update actually changed; an empty object when it changed nothing. */
+export function taskChanges(before: OrchestrationTask, after: OrchestrationTask): TaskChanges {
+  const ownerKey = (task: OrchestrationTask) =>
+    task.owner === null ? null : workParticipantKey(task.owner);
+
+  return {
+    ...(before.title !== after.title ? { title: { from: before.title, to: after.title } } : {}),
+    ...(before.status !== after.status
+      ? { status: { from: before.status, to: after.status } }
+      : {}),
+    ...(ownerKey(before) !== ownerKey(after)
+      ? { owner: { from: before.owner, to: after.owner } }
+      : {}),
+    ...(participantsKey(before.assignees) !== participantsKey(after.assignees)
+      ? { assignees: { from: before.assignees, to: after.assignees } }
+      : {}),
+    ...(before.dueDate !== after.dueDate
+      ? { dueDate: { from: before.dueDate, to: after.dueDate } }
+      : {}),
+    ...(before.projectId !== after.projectId
+      ? { projectId: { from: before.projectId, to: after.projectId } }
+      : {}),
+    ...(JSON.stringify(before.resources) !== JSON.stringify(after.resources)
+      ? { resources: { from: before.resources, to: after.resources } }
+      : {}),
+    ...(before.description !== after.description ? { description: true as const } : {}),
+  };
+}
 
 export const decideTasks = Effect.fn("decideTasks")(function* ({
   command,
@@ -76,6 +114,7 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
             createdAt: command.createdAt,
             updatedAt: command.createdAt,
           },
+          ...actorFields(actor),
         },
       };
     }
@@ -98,6 +137,19 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
 
       const occurredAt = yield* nowIso;
 
+      const task = {
+        ...existing,
+        ...(command.projectId !== undefined ? { projectId: command.projectId } : {}),
+        ...(command.title !== undefined ? { title: command.title } : {}),
+        ...(command.description !== undefined ? { description: command.description } : {}),
+        ...(command.owner !== undefined ? { owner: command.owner } : {}),
+        ...(assignees !== undefined ? { assignees } : {}),
+        ...(command.resources !== undefined ? { resources: command.resources } : {}),
+        ...(command.dueDate !== undefined ? { dueDate: command.dueDate } : {}),
+        ...(command.status !== undefined ? { status: command.status } : {}),
+        updatedAt: occurredAt,
+      };
+
       return {
         ...(yield* withEventBase({
           aggregateKind: "task",
@@ -106,20 +158,7 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
           commandId: command.commandId,
         })),
         type: "task.updated",
-        payload: {
-          task: {
-            ...existing,
-            ...(command.projectId !== undefined ? { projectId: command.projectId } : {}),
-            ...(command.title !== undefined ? { title: command.title } : {}),
-            ...(command.description !== undefined ? { description: command.description } : {}),
-            ...(command.owner !== undefined ? { owner: command.owner } : {}),
-            ...(assignees !== undefined ? { assignees } : {}),
-            ...(command.resources !== undefined ? { resources: command.resources } : {}),
-            ...(command.dueDate !== undefined ? { dueDate: command.dueDate } : {}),
-            ...(command.status !== undefined ? { status: command.status } : {}),
-            updatedAt: occurredAt,
-          },
-        },
+        payload: { task, changes: taskChanges(existing, task), ...actorFields(actor) },
       };
     }
 

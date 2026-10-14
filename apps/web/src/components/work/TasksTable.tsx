@@ -32,11 +32,6 @@ function taskColumns({
   const today = new Date().toISOString().slice(0, 10);
 
   return [
-    {
-      id: "status",
-      type: "icon",
-      cell: (task) => <WorkStatusIcon status={task.status} />,
-    },
     { id: "title", type: "title", cell: (task) => task.title },
     {
       id: "details",
@@ -89,7 +84,10 @@ function taskColumns({
   ];
 }
 
-/** Tasks on the shared DataTable, grouped by status; a row opens its task. */
+/**
+ * Tasks on the shared DataTable, grouped by status; a row opens its task. The group header
+ * carries the status icon, so rows do not repeat it.
+ */
 export function TasksTable({
   tasks,
   projects,

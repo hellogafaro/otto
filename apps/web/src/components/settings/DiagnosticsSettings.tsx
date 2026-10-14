@@ -324,7 +324,7 @@ export function DiagnosticsSettingsPanel() {
     : false;
 
   return (
-    <SettingsPageContainer width="expanded">
+    <SettingsPageContainer width="full">
       <ResourceTelemetryDiagnostics />
 
       <SettingsSection

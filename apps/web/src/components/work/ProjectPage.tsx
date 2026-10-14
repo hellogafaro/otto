@@ -1,17 +1,30 @@
 import type { UpdateProjectInput } from "@otto/client-runtime/state/projects";
 import { type ProjectId, matchesTaskFilter } from "@otto/contracts";
-import { RiBox3Line } from "@remixicon/react";
+import {
+  RiAddLine,
+  RiBookShelfLine,
+  RiBox3Line,
+  RiChat1Line,
+  RiFileTextLine,
+  RiListCheck3,
+} from "@remixicon/react";
+import * as Match from "effect/Match";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useI18n } from "../../i18n";
-import { DetailsRow } from "../DetailsAside";
+import { DetailsRow, DetailsTabs } from "../DetailsAside";
+import { Button } from "../ui/button";
+import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { ProjectChats, ProjectNewChat } from "./ProjectChats";
 import { ProjectCover } from "./ProjectCover";
+import { ProjectLibrary, ProjectUpload } from "./ProjectLibrary";
 import { TasksTable } from "./TasksTable";
-import { projectStatus, sortTasks } from "./work.logic";
-import { WorkDetailPage, WorkResourcesSection, WorkSectionHeader } from "./WorkDetail";
+import { type ProjectTab, projectStatus, sortTasks } from "./work.logic";
+import { WorkDetailPage, WorkResourcesSection } from "./WorkDetail";
 import { TaskDialog } from "./WorkDialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./WorkPages";
 import { OwnerSelect } from "./WorkParticipants";
@@ -20,11 +33,18 @@ import { WorkMoreActions, WorkStatusSelect, useWorkStatusLabel } from "./WorkSta
 type ProjectFields = Omit<UpdateProjectInput, "projectId">;
 
 /**
- * Otto: A project's page, the same pattern as a task's: its cover above the
- * title, then description, resources and its tasks in the main column; status,
- * owner and task counts in the details sidebar's Properties group.
+ * Otto: A project's page, the same pattern as a task's: its cover, then the Overview, Tasks,
+ * Chats and Library tabs; Overview holds the title, description and resources, the others the
+ * project's tasks, chats and Library folder. Status, owner and task counts sit in the details
+ * sidebar.
  */
-export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
+export function ProjectPage({
+  projectId,
+  tab,
+}: {
+  readonly projectId: ProjectId;
+  readonly tab: ProjectTab;
+}) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const statusLabel = useWorkStatusLabel();
@@ -63,15 +83,92 @@ export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
   const update = (fields: ProjectFields) =>
     void updateProject({ environmentId, input: { projectId: project.id, ...fields } });
 
+  const canAddTask = status !== "archived";
+
+  const tasksView =
+    projectTasks.length === 0 ? (
+      <Empty>
+        <EmptyMedia variant="icon">
+          <RiListCheck3 />
+        </EmptyMedia>
+        <EmptyDescription>
+          {t("No tasks yet. Break the project into the next few steps.")}
+        </EmptyDescription>
+      </Empty>
+    ) : (
+      <TasksTable
+        tasks={projectTasks}
+        projects={projects}
+        bots={participants.allBots}
+        showProject={false}
+        onOpenTask={(task) => void navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })}
+      />
+    );
+
+  /** The open tab's add control, beside More in the top bar; empty tabs have no button of their own. */
+  const tabAction = Match.value(tab).pipe(
+    Match.when("tasks", () =>
+      canAddTask ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon"
+                variant="ghost-muted"
+                aria-label={t("New task")}
+                onClick={() => setNewTaskOpen(true)}
+              >
+                <RiAddLine aria-hidden className="size-4" />
+              </Button>
+            }
+          />
+          <TooltipPopup side="bottom">{t("New task")}</TooltipPopup>
+        </Tooltip>
+      ) : null,
+    ),
+    Match.when("chats", () => <ProjectNewChat projectId={project.id} />),
+    Match.when("library", () => <ProjectUpload projectId={project.id} />),
+    Match.orElse(() => null),
+  );
+
   return (
     <>
       <WorkDetailPage
-        kind="project"
+        type="project"
         back={back}
         actions={
-          <WorkMoreActions status={status} onStatusChange={(next) => update({ status: next })} />
+          <>
+            {tabAction}
+            <WorkMoreActions status={status} onStatusChange={(next) => update({ status: next })} />
+          </>
         }
         cover={<ProjectCover seed={project.id} />}
+        tabs={
+          <DetailsTabs<ProjectTab>
+            label={t("Project sections")}
+            size="page"
+            tabs={[
+              { value: "overview", label: t("Overview"), icon: RiFileTextLine },
+              { value: "tasks", label: t("Tasks"), icon: RiListCheck3 },
+              { value: "chats", label: t("Chats"), icon: RiChat1Line },
+              { value: "library", label: t("Library"), icon: RiBookShelfLine },
+            ]}
+            value={tab}
+            onValueChange={(next) =>
+              void navigate({
+                to: "/projects/$projectId",
+                params: { projectId },
+                search: next === "overview" ? {} : { tab: next },
+              })
+            }
+          />
+        }
+        {...Match.value(tab).pipe(
+          Match.when("tasks", () => ({ view: tasksView })),
+          Match.when("chats", () => ({ view: <ProjectChats projectId={project.id} /> })),
+          Match.when("library", () => ({ view: <ProjectLibrary projectId={project.id} /> })),
+          Match.orElse(() => ({})),
+        )}
         title={project.title}
         onTitleSave={(title) => update({ title })}
         description={project.description ?? ""}
@@ -85,34 +182,6 @@ export function ProjectPage({ projectId }: { readonly projectId: ProjectId }) {
                 resources={project.resources ?? []}
                 onChange={(resources) => update({ resources })}
               />
-            ),
-          },
-          {
-            key: "tasks",
-            content: (
-              <section className="flex flex-col gap-0.5">
-                <WorkSectionHeader
-                  label={t("Tasks")}
-                  {...(status === "archived"
-                    ? {}
-                    : { add: { label: t("New task"), onClick: () => setNewTaskOpen(true) } })}
-                />
-                {projectTasks.length === 0 ? (
-                  <p className="ps-4 text-13px text-muted-foreground">
-                    {t("No tasks yet. Break the project into the next few steps.")}
-                  </p>
-                ) : (
-                  <TasksTable
-                    tasks={projectTasks}
-                    projects={projects}
-                    bots={participants.allBots}
-                    showProject={false}
-                    onOpenTask={(task) =>
-                      void navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
-                    }
-                  />
-                )}
-              </section>
             ),
           },
         ]}

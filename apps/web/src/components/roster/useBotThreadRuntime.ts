@@ -8,6 +8,7 @@ import {
   EnvironmentId,
   MessageId,
   type ModelSelection,
+  type ProjectId,
   type ScopedThreadRef,
 } from "@otto/contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -25,12 +26,13 @@ import {
 } from "../../state/entities";
 import { environmentBotsAtom } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { primaryServerProvidersAtom } from "../../state/server";
+import { primaryServerCwdAtom, primaryServerProvidersAtom } from "../../state/server";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { derivePendingUserInputs } from "../../session-logic";
 import { sortScopedProjectsForSidebar } from "../Sidebar.logic";
 import {
+  chatHomeProject,
   buildBotTurnStartInput,
   createBotTurnSubmissionQueue,
   findLatestBotThreadTarget,
@@ -84,6 +86,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
   const settings = usePrimarySettings();
   const providers = useAtomValue(primaryServerProvidersAtom);
+  const serverCwd = useAtomValue(primaryServerCwdAtom);
   const rememberedPath = useRosterStore((state) => state.chatPathByBotId[botId]);
   const openThreadId = useRosterStore((state) => state.openChatByBotId[botId] ?? null);
   const bot = useRosterStore((state) => state.bots.find((candidate) => candidate.id === botId));
@@ -166,17 +169,16 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
   }, [activities]);
   const pendingUserInputs = useMemo(() => derivePendingUserInputs(activities), [activities]);
 
-  const defaultProject = useMemo(
-    () =>
-      bootstrapped && primaryEnvironmentId
-        ? (sortScopedProjectsForSidebar(
-            projects.filter((project) => project.environmentId === primaryEnvironmentId),
-            primaryThreadShells,
-            "updated_at",
-          )[0] ?? null)
-        : null,
-    [bootstrapped, primaryEnvironmentId, primaryThreadShells, projects],
-  );
+  const defaultProject = useMemo(() => {
+    if (!bootstrapped || !primaryEnvironmentId) return null;
+    const scoped = projects.filter((project) => project.environmentId === primaryEnvironmentId);
+
+    return chatHomeProject(
+      scoped,
+      serverCwd,
+      () => sortScopedProjectsForSidebar(scoped, primaryThreadShells, "updated_at")[0] ?? null,
+    );
+  }, [bootstrapped, primaryEnvironmentId, primaryThreadShells, projects, serverCwd]);
 
   const activeProject =
     projects.find(
@@ -272,22 +274,20 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
   }, [canResume, linkedThreadRef, resumeTurnCommand, resuming]);
 
   const createBotChat = useCallback(
-    async (title: string): Promise<ScopedThreadRef | null> => {
-      if (!activeProject) return null;
+    async (title: string, project = activeProject): Promise<ScopedThreadRef | null> => {
+      if (!project) return null;
       const threadId = newThreadId();
       const selection = readChatSelection(botId);
 
       const result = await createThread({
-        environmentId: activeProject.environmentId,
+        environmentId: project.environmentId,
         input: {
           threadId,
-          projectId: activeProject.id,
+          projectId: project.id,
           botId: BotId.make(botId),
           title,
           modelSelection:
-            effectiveModelSelection ??
-            activeProject.defaultModelSelection ??
-            appDefaultModelSelection,
+            effectiveModelSelection ?? project.defaultModelSelection ?? appDefaultModelSelection,
           runtimeMode: bot?.runtimeMode ?? settings.localExecutionMode,
           interactionMode: DEFAULT_INTERACTION_MODE,
           branch: null,
@@ -297,7 +297,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
       });
 
       if (Predicate.isTagged(result, "Failure")) return null;
-      const threadRef = scopeThreadRef(activeProject.environmentId, threadId);
+      const threadRef = scopeThreadRef(project.environmentId, threadId);
 
       // The user opened another chat while this one was being created; stay there.
       if (readChatSelection(botId) !== selection) return threadRef;
@@ -338,40 +338,82 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
   const canStartNewChat =
     botReady && activeProject !== null && !sending && linkedThreadRef !== null && hasMessages;
 
-  const startNewChat = useCallback(async (): Promise<boolean> => {
-    if (!canStartNewChat || startingNewChatRef.current) return false;
-    // A created chat waits here until its shell arrives; another click would leave it empty.
-    const retained = retainedThreadRef.current;
+  /** Creates an empty chat in the project and shows it; a send titles it later. */
+  const openPlaceholderChat = useCallback(
+    async (project: NonNullable<typeof activeProject>): Promise<boolean> => {
+      // A created chat waits here until its shell arrives; another click would leave it empty.
+      const retained = retainedThreadRef.current;
 
-    if (retained.threadRef !== null && !retained.linked) return false;
-    startingNewChatRef.current = true;
-    setError(null);
-
-    const pending = {
-      selection: readChatSelection(botId),
-      promise: createBotChat(PLACEHOLDER_THREAD_TITLE),
-    };
-
-    pendingNewChatRef.current = pending;
-
-    try {
-      const threadRef = await pending.promise;
-
-      if (!threadRef) {
-        setError(localFailure("Could not start a new chat."));
-
+      if (startingNewChatRef.current || (retained.threadRef !== null && !retained.linked)) {
         return false;
       }
 
-      placeholderChatIdRef.current = threadRef.threadId;
+      startingNewChatRef.current = true;
+      setError(null);
 
-      return true;
-    } finally {
-      startingNewChatRef.current = false;
+      const pending = {
+        selection: readChatSelection(botId),
+        promise: createBotChat(PLACEHOLDER_THREAD_TITLE, project),
+      };
 
-      if (pendingNewChatRef.current === pending) pendingNewChatRef.current = null;
-    }
-  }, [botId, canStartNewChat, createBotChat]);
+      pendingNewChatRef.current = pending;
+
+      try {
+        const threadRef = await pending.promise;
+
+        if (!threadRef) {
+          setError(localFailure("Could not start a new chat."));
+
+          return false;
+        }
+
+        placeholderChatIdRef.current = threadRef.threadId;
+
+        return true;
+      } finally {
+        startingNewChatRef.current = false;
+
+        if (pendingNewChatRef.current === pending) pendingNewChatRef.current = null;
+      }
+    },
+    [botId, createBotChat],
+  );
+
+  const startNewChat = useCallback(
+    async (): Promise<boolean> =>
+      canStartNewChat && activeProject !== null && openPlaceholderChat(activeProject),
+    [activeProject, canStartNewChat, openPlaceholderChat],
+  );
+
+  /**
+   * Opens a fresh chat in a project, as the project page's New chat does. An empty chat already
+   * showing in that project is reused instead of leaving it behind.
+   */
+  const startNewChatInProject = useCallback(
+    async (projectId: ProjectId): Promise<boolean> => {
+      const project = projects.find(
+        (candidate) =>
+          candidate.environmentId === primaryEnvironmentId && candidate.id === projectId,
+      );
+
+      if (!botReady || project === undefined) return false;
+
+      if (linkedThreadRef !== null && !hasMessages && rememberedThread?.projectId === projectId) {
+        return true;
+      }
+
+      return openPlaceholderChat(project);
+    },
+    [
+      botReady,
+      hasMessages,
+      linkedThreadRef,
+      openPlaceholderChat,
+      primaryEnvironmentId,
+      projects,
+      rememberedThread?.projectId,
+    ],
+  );
 
   const send = useCallback(
     async (
@@ -705,5 +747,6 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     sendVoiceMessage,
     sending,
     startNewChat,
+    startNewChatInProject,
   };
 }

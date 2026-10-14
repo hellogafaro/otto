@@ -23,6 +23,7 @@ import { createWsToolHandlers } from "./wsToolHandlers.ts";
 import { createWsDiagnosticHandlers } from "./wsDiagnosticHandlers.ts";
 import { createWsMemoryHandlers } from "./wsMemoryHandlers.ts";
 import { createWsWorkspaceHandlers } from "./wsWorkspaceHandlers.ts";
+import { createWsActivityHandlers } from "./wsActivityHandlers.ts";
 import { createWsLibraryHandlers } from "./wsLibraryHandlers.ts";
 import { type ProviderSubscribeRefreshes, readClientConnectionOrigin } from "./wsSupport.ts";
 
@@ -60,6 +61,7 @@ const createWsRpcLayer = (
         ...createWsDiagnosticHandlers(connection),
         ...createWsMemoryHandlers(connection),
         ...createWsWorkspaceHandlers(connection),
+        ...createWsActivityHandlers(connection),
         ...createWsLibraryHandlers(connection),
       };
     }),

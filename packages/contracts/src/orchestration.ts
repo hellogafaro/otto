@@ -6,6 +6,8 @@ export * from "./orchestration/work.ts";
 
 export * from "./orchestration/library.ts";
 
+export * from "./orchestration/activity.ts";
+
 export {
   ProviderApprovalPolicy,
   ProviderSandboxMode,

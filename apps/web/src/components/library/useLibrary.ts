@@ -11,6 +11,7 @@ import {
   type LibraryFolder,
   type LibraryFolderId,
   LIBRARY_FILE_MAX_BYTES,
+  type ProjectId,
   type ThreadId,
 } from "@otto/contracts";
 import * as Predicate from "effect/Predicate";
@@ -123,8 +124,9 @@ export function useLibraryDownload() {
 }
 
 /**
- * Uploads files one after another into a folder or a chat's folder. Each gets a short-lived
- * signed URL; the server reads the bytes to decide the type and records the file.
+ * Uploads files one after another into a folder, a chat's folder or a project's folder. Each gets a short-lived
+ * signed URL; the server reads the bytes to decide the type and records the file. Resolves
+ * to the ids of the files that were stored.
  */
 export function useLibraryUpload() {
   const { t } = useI18n();
@@ -141,9 +143,15 @@ export function useLibraryUpload() {
     async (
       environmentId: EnvironmentId,
       files: ReadonlyArray<File>,
-      destination: { readonly folderId: LibraryFolderId | null; readonly threadId?: ThreadId },
+      destination: {
+        readonly folderId: LibraryFolderId | null;
+        readonly threadId?: ThreadId;
+        /** Files the project's folder, made on first use; overrides `folderId`. */
+        readonly projectId?: ProjectId;
+      },
     ) => {
       setUploading((count) => count + files.length);
+      const stored: LibraryFileId[] = [];
 
       for (const file of files) {
         try {
@@ -174,17 +182,23 @@ export function useLibraryUpload() {
           const url = resolveAssetUrl(baseUrl, result.value.relativeUrl);
           const response = url === null ? null : await fetch(url, { method: "POST", body: file });
 
-          if (!response?.ok) {
-            toastManager.add({
-              type: "error",
-              title: t("Could not upload {name}", { name: file.name }),
-              ...(response ? { description: await response.text() } : {}),
-            });
+          if (response?.ok) {
+            stored.push(result.value.fileId);
+
+            continue;
           }
+
+          toastManager.add({
+            type: "error",
+            title: t("Could not upload {name}", { name: file.name }),
+            ...(response ? { description: await response.text() } : {}),
+          });
         } finally {
           setUploading((count) => count - 1);
         }
       }
+
+      return stored;
     },
     [createUploadUrl, fail, httpBaseUrl, t],
   );

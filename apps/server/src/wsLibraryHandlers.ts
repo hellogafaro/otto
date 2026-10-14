@@ -55,6 +55,7 @@ export const createWsLibraryHandlers = ({
             title,
             folderId: input.folderId,
             threadId: input.threadId,
+            projectId: input.projectId,
             visibility: input.visibility ?? "workspace",
             by,
           });

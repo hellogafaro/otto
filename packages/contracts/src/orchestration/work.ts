@@ -48,13 +48,13 @@ export const WorkLinkResource = Schema.Struct({
   url: TrimmedNonEmptyString.check(Schema.isMaxLength(2048), Schema.isPattern(/^https?:\/\//i)),
 });
 
-/** Another Otto item, shown by its current title; new item types join this list. */
-export const WorkItemResource = Schema.Struct({
+/** Another Otto entity, shown by its current title; new entity types join this list. */
+export const WorkEntityResource = Schema.Struct({
   type: Schema.Literals(["task", "project"]),
   id: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
 });
 
-export const WorkResource = Schema.Union([WorkLinkResource, WorkItemResource]);
+export const WorkResource = Schema.Union([WorkLinkResource, WorkEntityResource]);
 
 export type WorkResource = typeof WorkResource.Type;
 
@@ -169,9 +169,44 @@ export const OrchestrationTaskTimeRemovedPayload = Schema.Struct({
   entryId: TaskTimeEntryId,
 });
 
-export const OrchestrationTaskCreatedPayload = Schema.Struct({ task: OrchestrationTask });
+/** Who did something: a signed-in person or a bot. */
+export const Actor = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("person"), id: AuthSessionId }),
+  Schema.Struct({ type: Schema.Literal("bot"), id: BotId }),
+]);
 
-export const OrchestrationTaskUpdatedPayload = Schema.Struct({ task: OrchestrationTask });
+export type Actor = typeof Actor.Type;
+
+/** What one task update changed, each field before and after. */
+export const TaskChanges = Schema.Struct({
+  title: Schema.optional(Schema.Struct({ from: WorkTitle, to: WorkTitle })),
+  status: Schema.optional(Schema.Struct({ from: WorkStatus, to: WorkStatus })),
+  owner: Schema.optional(
+    Schema.Struct({ from: Schema.NullOr(WorkParticipant), to: Schema.NullOr(WorkParticipant) }),
+  ),
+  assignees: Schema.optional(Schema.Struct({ from: TaskAssignees, to: TaskAssignees })),
+  dueDate: Schema.optional(
+    Schema.Struct({ from: Schema.NullOr(TaskDueDate), to: Schema.NullOr(TaskDueDate) }),
+  ),
+  projectId: Schema.optional(Schema.Struct({ from: ProjectId, to: ProjectId })),
+  resources: Schema.optional(Schema.Struct({ from: WorkResources, to: WorkResources })),
+  /** Descriptions can be long, so only the fact that it changed is kept. */
+  description: Schema.optional(Schema.Literal(true)),
+});
+
+export type TaskChanges = typeof TaskChanges.Type;
+
+/** Events written before activity existed carry no actor. */
+export const OrchestrationTaskCreatedPayload = Schema.Struct({
+  task: OrchestrationTask,
+  actor: Schema.optional(Actor),
+});
+
+export const OrchestrationTaskUpdatedPayload = Schema.Struct({
+  task: OrchestrationTask,
+  actor: Schema.optional(Actor),
+  changes: Schema.optional(TaskChanges),
+});
 
 /** `bot:<botId>` or `person:<personId>`, the form participants take in URLs and filters. */
 export const WorkParticipantKey = TrimmedNonEmptyString.check(

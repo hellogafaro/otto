@@ -13,14 +13,7 @@ import { BotAvatarView } from "../roster/BotAvatarView";
 import { useRosterStore } from "../roster/rosterStore";
 import type { Bot } from "../roster/types";
 import { Button } from "../ui/button";
-import {
-  Menu,
-  MenuCheckboxItem,
-  MenuGroup,
-  MenuGroupLabel,
-  MenuPopup,
-  MenuTrigger,
-} from "../ui/menu";
+import { Menu, MenuCheckboxItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import {
   Select,
   SelectButton,
@@ -175,6 +168,20 @@ function parseParticipant(value: string, participants: WorkParticipants): WorkPa
   return participants.people.find((person) => person.personId === id) ?? null;
 }
 
+/** People and bots in one list by name: who does the work matters, not what they are. */
+function participantsByName(participants: WorkParticipants): WorkParticipant[] {
+  return [
+    ...participants.people,
+    ...participants.bots.map(
+      (bot): WorkParticipant => ({ kind: "bot", botId: BotId.make(bot.id) }),
+    ),
+  ].toSorted((left, right) =>
+    participantName(left, participants.allBots).localeCompare(
+      participantName(right, participants.allBots),
+    ),
+  );
+}
+
 /** One owner, a person or a bot, or nobody. */
 export function OwnerSelect({
   value,
@@ -217,10 +224,7 @@ export function OwnerSelect({
         <SelectItem hideIndicator value="none">
           {t("No owner")}
         </SelectItem>
-        {[
-          ...participants.people,
-          ...participants.bots.map((bot) => ({ kind: "bot" as const, botId: BotId.make(bot.id) })),
-        ].map((participant) => (
+        {participantsByName(participants).map((participant) => (
           <SelectItem
             key={workParticipantKey(participant)}
             hideIndicator
@@ -264,9 +268,7 @@ export function AssigneesMenu({
         : value.filter((entry) => workParticipantKey(entry) !== workParticipantKey(participant)),
     );
 
-  const bots = participants.bots.map(
-    (bot): WorkParticipant => ({ kind: "bot", botId: BotId.make(bot.id) }),
-  );
+  const everyone = participantsByName(participants);
 
   return (
     <Menu>
@@ -301,48 +303,22 @@ export function AssigneesMenu({
         </MenuTrigger>
       )}
       <MenuPopup align="start">
-        {participants.people.length > 0 ? (
-          <MenuGroup>
-            <MenuGroupLabel>{t("People")}</MenuGroupLabel>
-            {participants.people.map((person) => (
-              <MenuCheckboxItem
-                key={workParticipantKey(person)}
-                checked={selected.has(workParticipantKey(person))}
-                onCheckedChange={(checked) => toggle(person, checked)}
-              >
-                <span className="flex items-center gap-2">
-                  <ParticipantAvatar
-                    participant={person}
-                    bots={participants.allBots}
-                    className="size-4"
-                  />
-                  {person.displayName}
-                </span>
-              </MenuCheckboxItem>
-            ))}
-          </MenuGroup>
-        ) : null}
-        {bots.length > 0 ? (
-          <MenuGroup>
-            <MenuGroupLabel>{t("Bots")}</MenuGroupLabel>
-            {bots.map((bot) => (
-              <MenuCheckboxItem
-                key={workParticipantKey(bot)}
-                checked={selected.has(workParticipantKey(bot))}
-                onCheckedChange={(checked) => toggle(bot, checked)}
-              >
-                <span className="flex items-center gap-2">
-                  <ParticipantAvatar
-                    participant={bot}
-                    bots={participants.allBots}
-                    className="size-4"
-                  />
-                  {participantName(bot, participants.allBots)}
-                </span>
-              </MenuCheckboxItem>
-            ))}
-          </MenuGroup>
-        ) : null}
+        {everyone.map((participant) => (
+          <MenuCheckboxItem
+            key={workParticipantKey(participant)}
+            checked={selected.has(workParticipantKey(participant))}
+            onCheckedChange={(checked) => toggle(participant, checked)}
+          >
+            <span className="flex items-center gap-2">
+              <ParticipantAvatar
+                participant={participant}
+                bots={participants.allBots}
+                className="size-4"
+              />
+              {participantName(participant, participants.allBots)}
+            </span>
+          </MenuCheckboxItem>
+        ))}
       </MenuPopup>
     </Menu>
   );

@@ -86,7 +86,10 @@ vi.mock("../../state/environments", () => ({
   usePrimaryEnvironmentId: () => mocks.primaryEnvironmentId,
 }));
 
-vi.mock("../../state/server", () => ({ primaryServerProvidersAtom: mocks.providersAtom }));
+vi.mock("../../state/server", () => ({
+  primaryServerCwdAtom: null,
+  primaryServerProvidersAtom: mocks.providersAtom,
+}));
 
 vi.mock("../../state/threads", () => ({
   threadEnvironment: { startTurn: mocks.startTurnAtom },

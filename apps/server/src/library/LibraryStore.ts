@@ -9,6 +9,8 @@ import {
   LIBRARY_CHATS_FOLDER_TITLE,
   LIBRARY_DOCUMENT_MAX_BYTES,
   LIBRARY_FILE_MAX_BYTES,
+  LIBRARY_PROJECTS_FOLDER_ID,
+  LIBRARY_PROJECTS_FOLDER_TITLE,
   LIBRARY_UPLOAD_URL_TTL_MS,
   type LibraryCreateUploadUrlInput,
   type LibraryFile,
@@ -20,6 +22,8 @@ import {
   type LibraryViewer,
   type LibraryVisibility,
   normalizeLibraryTitle,
+  type ProjectId,
+  ProjectId as ProjectIdSchema,
   splitLibraryFileName,
   type ThreadId,
   ThreadId as ThreadIdSchema,
@@ -121,9 +125,91 @@ const dispatchLibrary = (
     ),
   );
 
+/** Creates a top-level holder folder (Chats or Projects) unless it already exists. */
+const ensureTopFolder = (
+  folderId: LibraryFolderId,
+  title: string,
+  by: WorkParticipant,
+  createdAt: string,
+) =>
+  Effect.gen(function* () {
+    const folders = yield* (yield* ProjectionLibraryRepository)
+      .listFolders()
+      .pipe(Effect.orElseSucceed(() => []));
+
+    if (folders.some((folder) => folder.id === folderId)) return;
+
+    yield* dispatchLibrary({
+      type: "library.folder.create",
+      commandId: newCommandId(),
+      folderId,
+      parentId: null,
+      title,
+      by,
+      createdAt,
+    }).pipe(Effect.ignore);
+  });
+
 /**
- * A chat's folder, made on first use under the top-level Chats folder and named after the
- * chat. Its creator is the chat's creator: a group's first person, or whoever saved first.
+ * A project's folder, made on first use under the top-level Projects folder and named after
+ * the project. The workspace's own project, where chats go by default, has none.
+ */
+export const ensureProjectFolder = Effect.fn("Library.ensureProjectFolder")(function* (
+  projectId: ProjectId,
+  by: WorkParticipant,
+) {
+  const library = yield* ProjectionLibraryRepository;
+
+  const findExisting = library.listFolders().pipe(
+    Effect.map((folders) => folders.find((folder) => folder.projectId === projectId)),
+    Effect.orElseSucceed(() => undefined),
+  );
+
+  const existing = yield* findExisting;
+
+  if (existing !== undefined) return Option.some(existing.id);
+
+  const snapshots = yield* ProjectionSnapshotQuery;
+  const config = yield* ServerConfig.ServerConfig;
+
+  const [project, home] = yield* Effect.all([
+    snapshots.getProjectShellById(projectId),
+    snapshots.getActiveProjectByWorkspaceRoot(config.cwd),
+  ]).pipe(Effect.orElseSucceed(() => [Option.none(), Option.none()] as const));
+
+  if (Option.isNone(project)) return yield* fail("That project doesn't exist.");
+
+  if (Option.isSome(home) && home.value.id === projectId) return Option.none();
+
+  const createdAt = yield* nowIso;
+  yield* ensureTopFolder(LIBRARY_PROJECTS_FOLDER_ID, LIBRARY_PROJECTS_FOLDER_TITLE, by, createdAt);
+  const folderId = LibraryFolderIdSchema.make(NodeCrypto.randomUUID());
+
+  return yield* dispatchLibrary({
+    type: "library.folder.create",
+    commandId: newCommandId(),
+    folderId,
+    parentId: LIBRARY_PROJECTS_FOLDER_ID,
+    projectId,
+    title: normalizeLibraryTitle(project.value.title),
+    by,
+    createdAt,
+  }).pipe(
+    Effect.as(Option.some(folderId)),
+    Effect.catch((error) =>
+      findExisting.pipe(
+        Effect.flatMap((raced) =>
+          raced ? Effect.succeed(Option.some(raced.id)) : Effect.fail(error),
+        ),
+      ),
+    ),
+  );
+});
+
+/**
+ * A chat's folder, made on first use and named after the chat: inside its project's folder,
+ * or the top-level Chats folder for a chat in the workspace's own project. Its creator is the
+ * chat's creator: a group's first person, or whoever saved first.
  */
 export const ensureChatFolder = Effect.fn("Library.ensureChatFolder")(function* (
   threadId: ThreadId,
@@ -164,19 +250,11 @@ export const ensureChatFolder = Effect.fn("Library.ensureChatFolder")(function* 
       ? { kind: "person", personId: groupCreator.personId, displayName: groupCreator.displayName }
       : by;
 
-  const folders = yield* library.listFolders().pipe(Effect.orElseSucceed(() => []));
   const createdAt = yield* nowIso;
+  const projectFolderId = yield* ensureProjectFolder(thread.value.projectId, creator);
 
-  if (!folders.some((folder) => folder.id === LIBRARY_CHATS_FOLDER_ID)) {
-    yield* dispatchLibrary({
-      type: "library.folder.create",
-      commandId: newCommandId(),
-      folderId: LIBRARY_CHATS_FOLDER_ID,
-      parentId: null,
-      title: LIBRARY_CHATS_FOLDER_TITLE,
-      by: creator,
-      createdAt,
-    }).pipe(Effect.ignore);
+  if (Option.isNone(projectFolderId)) {
+    yield* ensureTopFolder(LIBRARY_CHATS_FOLDER_ID, LIBRARY_CHATS_FOLDER_TITLE, creator, createdAt);
   }
 
   const folderId = LibraryFolderIdSchema.make(NodeCrypto.randomUUID());
@@ -187,7 +265,7 @@ export const ensureChatFolder = Effect.fn("Library.ensureChatFolder")(function* 
     type: "library.folder.create",
     commandId: newCommandId(),
     folderId,
-    parentId: LIBRARY_CHATS_FOLDER_ID,
+    parentId: Option.getOrElse(projectFolderId, () => LIBRARY_CHATS_FOLDER_ID),
     threadId,
     title,
     by: creator,
@@ -202,14 +280,21 @@ export const ensureChatFolder = Effect.fn("Library.ensureChatFolder")(function* 
   );
 });
 
-/** The folder a new file goes in: a chat's own folder, or the given folder. */
-const resolveDestination = (
-  input: { readonly folderId: LibraryFolderId | null; readonly threadId?: ThreadId | undefined },
+/** The folder a new file goes in: a chat's own folder, a project's, or the given folder. */
+const resolveDestination = Effect.fn("Library.resolveDestination")(function* (
+  input: {
+    readonly folderId: LibraryFolderId | null;
+    readonly threadId?: ThreadId | undefined;
+    readonly projectId?: ProjectId | undefined;
+  },
   by: WorkParticipant,
-) =>
-  input.threadId === undefined
-    ? Effect.succeed(input.folderId)
-    : ensureChatFolder(input.threadId, by);
+) {
+  if (input.threadId !== undefined) return yield* ensureChatFolder(input.threadId, by);
+
+  if (input.projectId === undefined) return input.folderId;
+
+  return Option.getOrElse(yield* ensureProjectFolder(input.projectId, by), () => input.folderId);
+});
 
 /**
  * Stores new bytes and records the file. The bytes decide the type; the name gives the title
@@ -222,6 +307,7 @@ export const storeLibraryFile = Effect.fn("Library.storeLibraryFile")(function* 
   readonly title?: string | undefined;
   readonly folderId: LibraryFolderId | null;
   readonly threadId?: ThreadId | undefined;
+  readonly projectId?: ProjectId | undefined;
   readonly visibility: LibraryVisibility;
   readonly by: WorkParticipant;
   readonly fileId?: LibraryFileId | undefined;
@@ -386,6 +472,7 @@ const LibraryUploadClaims = Schema.Struct({
   sizeBytes: Schema.Number,
   folderId: Schema.NullOr(Schema.String),
   threadId: Schema.optional(Schema.String),
+  projectId: Schema.optional(Schema.String),
   visibility: Schema.Literals(["user", "workspace"]),
   personId: Schema.String,
   displayName: Schema.String,
@@ -442,6 +529,7 @@ export const issueLibraryUploadUrl = Effect.fn("Library.issueUploadUrl")(functio
       sizeBytes: input.sizeBytes,
       folderId: input.folderId,
       ...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
+      ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
       visibility: input.visibility ?? "workspace",
       personId: person.personId,
       displayName: person.displayName,
@@ -485,6 +573,8 @@ export const storeLibraryUpload = (claims: LibraryUploadClaims, bytes: Uint8Arra
         fileName: claims.fileName,
         folderId: claims.folderId === null ? null : LibraryFolderIdSchema.make(claims.folderId),
         threadId: claims.threadId === undefined ? undefined : ThreadIdSchema.make(claims.threadId),
+        projectId:
+          claims.projectId === undefined ? undefined : ProjectIdSchema.make(claims.projectId),
         visibility: claims.visibility,
         fileId: LibraryFileId.make(claims.fileId),
         by: {

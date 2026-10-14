@@ -2,6 +2,14 @@ import * as Schema from "effect/Schema";
 import * as Rpc from "effect/unstable/rpc/Rpc";
 import { ComputerError } from "../computer.ts";
 import {
+  ActivityCommentAddInput,
+  ActivityCommentRemoveInput,
+  ActivityEntry,
+  ActivityEntity,
+  ActivityListResult,
+  ActivityRequestError,
+} from "../orchestration/activity.ts";
+import {
   LibraryCreateDocumentInput,
   LibraryCreateDocumentResult,
   LibraryCreateFileUrlInput,
@@ -645,6 +653,26 @@ export const WsAttachmentsCreateUploadUrlRpc = Rpc.make(WS_METHODS.attachmentsCr
 export const WsAttachmentsDeleteRpc = Rpc.make(WS_METHODS.attachmentsDelete, {
   payload: AttachmentDeleteInput,
   error: EnvironmentAuthorizationError,
+});
+
+const activityError = Schema.Union([ActivityRequestError, EnvironmentAuthorizationError]);
+
+export const WsActivityListRpc = Rpc.make(WS_METHODS.activityList, {
+  payload: ActivityEntity,
+  success: ActivityListResult,
+  error: activityError,
+});
+
+export const WsActivityCommentAddRpc = Rpc.make(WS_METHODS.activityCommentAdd, {
+  payload: ActivityCommentAddInput,
+  success: ActivityEntry,
+  error: activityError,
+});
+
+export const WsActivityCommentRemoveRpc = Rpc.make(WS_METHODS.activityCommentRemove, {
+  payload: ActivityCommentRemoveInput,
+  success: Schema.Void,
+  error: activityError,
 });
 
 const libraryError = Schema.Union([LibraryRequestError, EnvironmentAuthorizationError]);

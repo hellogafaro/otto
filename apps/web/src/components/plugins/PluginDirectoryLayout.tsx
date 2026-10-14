@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { AppIcon } from "../ui/app-icon";
 import { DialogHeader, DialogPanel, DialogTitle } from "../ui/dialog";
@@ -21,9 +22,6 @@ const PRIMARY_FILTERS = ["All", "Featured", "Installed"] as const satisfies read
 export const PLUGIN_DIRECTORY_HEADER_CLASS_NAME = "shrink-0";
 
 export const PLUGIN_DIRECTORY_PANEL_CLASS_NAME = "space-y-8";
-
-export const PLUGIN_PAGE_COLUMN_CLASS_NAME =
-  "mx-auto flex w-full max-w-6xl flex-col px-4 pt-0 pb-16 sm:px-10 sm:pt-1";
 
 function isPrimaryFilter(filter: PluginFilter): filter is (typeof PRIMARY_FILTERS)[number] {
   return PRIMARY_FILTERS.some((candidate) => candidate === filter);
@@ -260,26 +258,25 @@ export function PluginDirectoryLayout({
         <span />
       </PluginsPageHeader>
       <ScrollArea className="min-h-0 flex-1" scrollFade>
-        <div
+        <WorkspacePageContainer
+          width="full"
           className={cn(
-            PLUGIN_PAGE_COLUMN_CLASS_NAME,
+            "gap-10 pt-3 pb-16 sm:pt-4",
             returning ? "motion-page-back" : "motion-section-enter",
           )}
         >
-          <div className="px-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {t("Plugins")}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div className="flex flex-col gap-1">
+            <WorkspacePageTitle>{t("Plugins")}</WorkspacePageTitle>
+            <p className="px-4 text-13px text-muted-foreground">
               {t("Connect a listed integration, or follow a setup guide from integrations.sh.")}
             </p>
           </div>
-          <div className="mt-6 mb-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="w-full sm:max-w-sm sm:flex-1">{search}</div>
             <div className="min-w-0 flex-1">{filters}</div>
           </div>
           <div className="space-y-10">{children}</div>
-        </div>
+        </WorkspacePageContainer>
       </ScrollArea>
     </>
   );

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import {
   buildBotTurnStartInput,
   buildGroupTurnStartInput,
+  chatHomeProject,
   createBotTurnSubmissionQueue,
   findLatestBotThreadTarget,
   findLatestGroupThreadIds,
@@ -403,5 +404,19 @@ describe("bot thread runtime", () => {
         },
       ]),
     ).toBeNull();
+  });
+});
+
+describe("chat home project", () => {
+  const home = { id: "home", workspaceRoot: "/srv/otto" };
+  const beta = { id: "beta", workspaceRoot: "/data/projects/beta" };
+
+  it("files new chats in the project at the server's folder", () => {
+    expect(chatHomeProject([beta, home], "/srv/otto", () => beta)).toBe(home);
+  });
+
+  it("falls back to the most recent project when none sits at the server's folder", () => {
+    expect(chatHomeProject([beta], "/srv/otto", () => beta)).toBe(beta);
+    expect(chatHomeProject([beta, home], null, () => beta)).toBe(beta);
   });
 });

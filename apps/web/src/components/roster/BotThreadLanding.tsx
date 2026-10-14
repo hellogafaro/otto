@@ -124,6 +124,18 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
     void runtime.startNewChat();
   }, [newChatRequested, runtime.canStartNewChat, runtime.startNewChat]);
 
+  // A project's New chat opens a fresh chat with this bot filed in that project.
+  const projectChatRequest = useRosterStore((state) =>
+    state.projectChatRequest?.botId === botId ? state.projectChatRequest : null,
+  );
+
+  const projectChatReady = runtime.bootstrapped && runtime.botReady;
+  useEffect(() => {
+    if (projectChatRequest === null || !projectChatReady) return;
+    useRosterStore.getState().requestProjectChat(null);
+    void runtime.startNewChatInProject(projectChatRequest.projectId);
+  }, [projectChatReady, projectChatRequest, runtime.startNewChatInProject]);
+
   // A bot created moments ago greets the user from a hidden prompt in its first chat.
   const introRequested = useRosterStore((state) => state.introBotId === botId);
   const botName = bot?.name ?? null;

@@ -3,6 +3,7 @@ import {
   canSeeLibraryItem,
   LIBRARY_CHATS_FOLDER_ID,
   LIBRARY_MAX_FOLDER_DEPTH,
+  LIBRARY_PROJECTS_FOLDER_ID,
   type LibraryFile,
   type LibraryFileId,
   type LibraryFolder,
@@ -87,7 +88,7 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
       return folder;
     });
 
-  /** Where new things can go: the top, or any visible folder except the Chats folder itself. */
+  /** Where new things can go: the top, or any visible folder except the Chats and Projects folders. */
   const requireDestination = (folderId: LibraryFolderId | null, holdsFolder: boolean) =>
     Effect.gen(function* () {
       if (folderId === null) return null;
@@ -95,6 +96,10 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
 
       if (folderId === LIBRARY_CHATS_FOLDER_ID && !holdsFolder) {
         return yield* invariant(command.type, "The Chats folder only holds chat folders.");
+      }
+
+      if (folderId === LIBRARY_PROJECTS_FOLDER_ID && !holdsFolder) {
+        return yield* invariant(command.type, "The Projects folder only holds project folders.");
       }
 
       return folder;
@@ -124,13 +129,41 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
         return yield* invariant(command.type, `Folder '${command.folderId}' already exists.`);
       }
 
-      if (command.folderId === LIBRARY_CHATS_FOLDER_ID) {
-        if (command.parentId !== null || command.threadId !== undefined) {
-          return yield* invariant(command.type, "The Chats folder sits at the top.");
+      const parent = folders.find((folder) => folder.id === command.parentId);
+
+      if (
+        command.folderId === LIBRARY_CHATS_FOLDER_ID ||
+        command.folderId === LIBRARY_PROJECTS_FOLDER_ID
+      ) {
+        if (
+          command.parentId !== null ||
+          command.threadId !== undefined ||
+          command.projectId !== undefined
+        ) {
+          return yield* invariant(command.type, `The ${command.title} folder sits at the top.`);
+        }
+      } else if (command.projectId !== undefined) {
+        if (command.parentId !== LIBRARY_PROJECTS_FOLDER_ID || command.threadId !== undefined) {
+          return yield* invariant(command.type, "A project folder sits in the Projects folder.");
+        }
+
+        if (
+          !readModel.projects.some(
+            (project) => project.id === command.projectId && project.deletedAt === null,
+          )
+        ) {
+          return yield* invariant(command.type, `Project '${command.projectId}' does not exist.`);
+        }
+
+        if (folders.some((folder) => folder.projectId === command.projectId)) {
+          return yield* invariant(command.type, "This project already has a folder.");
         }
       } else if (command.threadId !== undefined) {
-        if (command.parentId !== LIBRARY_CHATS_FOLDER_ID) {
-          return yield* invariant(command.type, "A chat folder sits in the Chats folder.");
+        if (command.parentId !== LIBRARY_CHATS_FOLDER_ID && parent?.projectId === undefined) {
+          return yield* invariant(
+            command.type,
+            "A chat folder sits in the Chats folder or its project's folder.",
+          );
         }
 
         if (folders.some((folder) => folder.threadId === command.threadId)) {
@@ -138,6 +171,8 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
         }
       } else if (command.parentId === LIBRARY_CHATS_FOLDER_ID) {
         return yield* invariant(command.type, "The Chats folder only holds chat folders.");
+      } else if (command.parentId === LIBRARY_PROJECTS_FOLDER_ID) {
+        return yield* invariant(command.type, "The Projects folder only holds project folders.");
       }
 
       if (command.parentId !== null) yield* requireFolder(command.parentId);
@@ -159,9 +194,12 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
             id: command.folderId,
             parentId: command.parentId,
             ...(command.threadId !== undefined ? { threadId: command.threadId } : {}),
+            ...(command.projectId !== undefined ? { projectId: command.projectId } : {}),
             title: command.title,
             visibility:
-              command.threadId !== undefined ? "workspace" : (command.visibility ?? "workspace"),
+              command.threadId !== undefined || command.projectId !== undefined
+                ? "workspace"
+                : (command.visibility ?? "workspace"),
             createdBy: by,
             createdAt: occurredAt,
             updatedBy: by,
@@ -174,8 +212,8 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
     case "library.folder.update": {
       const folder = yield* requireFolder(command.folderId);
 
-      if (folder.id === LIBRARY_CHATS_FOLDER_ID) {
-        return yield* invariant(command.type, "The Chats folder can't be changed.");
+      if (folder.id === LIBRARY_CHATS_FOLDER_ID || folder.id === LIBRARY_PROJECTS_FOLDER_ID) {
+        return yield* invariant(command.type, `The ${folder.title} folder can't be changed.`);
       }
 
       if (!canEditLibraryItem(folder, folders, viewer)) {
@@ -184,10 +222,13 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
 
       const moves = command.parentId !== undefined && command.parentId !== folder.parentId;
 
-      if (folder.threadId !== undefined && (moves || command.visibility !== undefined)) {
+      if (
+        (folder.threadId !== undefined || folder.projectId !== undefined) &&
+        (moves || command.visibility !== undefined)
+      ) {
         return yield* invariant(
           command.type,
-          "A chat folder can be renamed but not moved or made private.",
+          `A ${folder.threadId === undefined ? "project" : "chat"} folder can be renamed but not moved or made private.`,
         );
       }
 
@@ -236,6 +277,10 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
 
       if (folder.id === LIBRARY_CHATS_FOLDER_ID || folder.threadId !== undefined) {
         return yield* invariant(command.type, "A chat folder can't be deleted.");
+      }
+
+      if (folder.id === LIBRARY_PROJECTS_FOLDER_ID || folder.projectId !== undefined) {
+        return yield* invariant(command.type, "A project folder can't be deleted.");
       }
 
       if (!canEditLibraryItem(folder, folders, viewer)) {

@@ -89,7 +89,7 @@ export function applyAuthenticatedCommandActor(
     case "group.leave":
       return { ...command, personId: actor.personId };
     case "library.folder.create": {
-      const { threadId: _threadId, ...rest } = command;
+      const { threadId: _threadId, projectId: _projectId, ...rest } = command;
 
       return { ...rest, by: actorParticipant(actor) };
     }

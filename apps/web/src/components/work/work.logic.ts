@@ -39,6 +39,20 @@ export const parseProjectSearch = (search: Parameters<typeof decodeProjectSearch
 
 const decodeProjectSearch = Schema.decodeUnknownOption(ProjectListFilter);
 
+/** A project page's tabs; the overview is the default and stays out of the URL. */
+export const PROJECT_TABS = ["overview", "tasks", "chats", "library"] as const;
+
+export type ProjectTab = (typeof PROJECT_TABS)[number];
+
+const ProjectPageSearch = Schema.Struct({ tab: Schema.optional(Schema.Literals(PROJECT_TABS)) });
+
+export type ProjectPageSearch = typeof ProjectPageSearch.Type;
+
+export const parseProjectPageSearch = (search: Parameters<typeof decodeProjectPageSearch>[0]) =>
+  Option.getOrElse(decodeProjectPageSearch(search), (): ProjectPageSearch => ({}));
+
+const decodeProjectPageSearch = Schema.decodeUnknownOption(ProjectPageSearch);
+
 /** What is moving first, then what waits, then what is done; recent first within each. */
 export function sortTasks(tasks: readonly OrchestrationTask[]): OrchestrationTask[] {
   return tasks.toSorted(

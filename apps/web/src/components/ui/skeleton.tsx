@@ -90,9 +90,9 @@ function SkeletonTableRows({
   readonly rows?: number;
 }) {
   return (
-    <SkeletonRegion label={label} className="flex flex-col px-2 pt-1">
+    <SkeletonRegion label={label} className="flex flex-col pt-1">
       {Array.from({ length: rows }, (_, row) => (
-        <div key={row} className="flex h-11 items-center gap-2 px-2">
+        <div key={row} className="flex h-11 items-center gap-2 px-4">
           <Skeleton className="size-3.5 shrink-0 rounded-full" />
           <Skeleton className={cn("h-2.5", TEXT_WIDTHS[row % TEXT_WIDTHS.length])} />
           <Skeleton className="ms-auto h-2.5 w-6 shrink-0" />

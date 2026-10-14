@@ -46,6 +46,7 @@ export const ORCHESTRATION_PROJECTOR_NAMES = {
   delegations: "projection.delegations",
   mcpServers: "projection.mcp-servers",
   tasks: "projection.tasks",
+  activity: "projection.activity",
   library: "projection.library",
   routines: "projection.routines",
   threads: "projection.threads",

@@ -9,7 +9,6 @@ import { cn, randomUUID } from "../../lib/utils";
 import { taskEnvironment } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { DetailsGroup, DetailsRow } from "../DetailsAside";
-import { PersonAvatar } from "../roster/PersonAvatar";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -21,17 +20,19 @@ import {
 } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { useLibraryData } from "../library/useLibrary";
+import { ActivitySection } from "./ActivitySection";
 import { formatDuration, parseDuration, projectStatus } from "./work.logic";
 import { WorkDetailPage, WorkResourcesSection } from "./WorkDetail";
 import { ProjectSelect } from "./WorkDialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./WorkPages";
-import { AssigneesMenu, OwnerSelect } from "./WorkParticipants";
+import { AssigneesMenu, OwnerSelect, ParticipantAvatar } from "./WorkParticipants";
 import { WorkMoreActions, WorkStatusSelect } from "./WorkStatus";
 
 type TaskFields = Omit<UpdateTaskInput, "taskId">;
 
 /**
- * Otto: A task's own page: title, description and resources, with Properties
+ * Otto: A task's own page: title, description, resources and activity, with Properties
  * and Time as collapsible groups in the details sidebar.
  */
 export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
@@ -39,6 +40,7 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
   const navigate = useNavigate();
   const updateTask = useAtomCommand(taskEnvironment.update);
   const { environmentId, loaded, projects, tasks, participants, currentPersonId } = useWorkData();
+  const { files } = useLibraryData();
   const task = tasks.find((candidate) => candidate.id === taskId);
   const back = { label: t("Tasks"), onBack: () => void navigate({ to: "/tasks" }) };
 
@@ -61,7 +63,7 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
 
   return (
     <WorkDetailPage
-      kind="task"
+      type="task"
       back={back}
       actions={
         <WorkMoreActions status={task.status} onStatusChange={(status) => update({ status })} />
@@ -78,6 +80,21 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
               self={{ type: "task", id: task.id }}
               resources={task.resources}
               onChange={(resources) => update({ resources })}
+            />
+          ),
+        },
+        {
+          key: "activity",
+          content: (
+            <ActivitySection
+              environmentId={environmentId}
+              entity={{ entityType: "task", entityId: task.id }}
+              projectId={task.projectId ?? null}
+              refreshKey={`${task.updatedAt}:${task.timeEntries.length}`}
+              participants={participants}
+              projects={projects}
+              files={files}
+              currentPersonId={currentPersonId}
             />
           ),
         },
@@ -201,6 +218,7 @@ function TaskTimeGroup({
     <DetailsGroup
       id="task-time"
       label={t("Time")}
+      summary={total > 0 ? formatDuration(total) : undefined}
       action={
         <Tooltip>
           <TooltipTrigger
@@ -219,18 +237,18 @@ function TaskTimeGroup({
         </Tooltip>
       }
     >
-      <DetailsRow label={t("Total")}>
-        <span className="px-2.5 text-sm tabular-nums">{formatDuration(total)}</span>
-      </DetailsRow>
       {task.timeEntries.toReversed().map((entry) => {
         const name = personName(entry.createdBy);
         const own = entry.createdBy === currentPersonId;
 
         return (
           <div key={entry.id} className="group/time flex min-h-9 items-center gap-2 py-1">
-            <PersonAvatar name={name} className="size-5 shrink-0" />
+            <ParticipantAvatar
+              participant={{ kind: "person", personId: entry.createdBy, displayName: name }}
+              bots={[]}
+            />
             <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm">
+              <span className="truncate text-13px">
                 <span className="text-foreground">{name}</span>
                 <span className="text-muted-foreground">
                   {" · "}
@@ -244,7 +262,7 @@ function TaskTimeGroup({
             <div className="relative flex h-7 shrink-0 items-center">
               <span
                 className={cn(
-                  "px-2.5 text-sm tabular-nums",
+                  "px-2.5 text-13px tabular-nums",
                   own && "group-focus-within/time:invisible group-hover/time:invisible",
                 )}
               >

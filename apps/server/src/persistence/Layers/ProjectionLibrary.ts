@@ -4,6 +4,7 @@ import {
   LibraryFolder,
   LibraryFolderId,
   GroupId,
+  ProjectId,
   ThreadId,
   WorkParticipant,
 } from "@otto/contracts";
@@ -22,9 +23,10 @@ import {
 
 const ParticipantJson = Schema.fromJsonString(WorkParticipant);
 
-const FolderDbRow = LibraryFolder.mapFields(Struct.omit(["threadId"])).mapFields(
+const FolderDbRow = LibraryFolder.mapFields(Struct.omit(["threadId", "projectId"])).mapFields(
   Struct.assign({
     threadId: Schema.NullOr(ThreadId),
+    projectId: Schema.NullOr(ProjectId),
     createdBy: ParticipantJson,
     updatedBy: ParticipantJson,
   }),
@@ -42,11 +44,11 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
     execute: (folder) =>
       sql`
         INSERT INTO projection_library_folders (
-          folder_id, parent_id, thread_id, title, visibility,
+          folder_id, parent_id, thread_id, project_id, title, visibility,
           created_by_json, created_at, updated_by_json, updated_at
         )
         VALUES (
-          ${folder.id}, ${folder.parentId}, ${folder.threadId}, ${folder.title},
+          ${folder.id}, ${folder.parentId}, ${folder.threadId}, ${folder.projectId}, ${folder.title},
           ${folder.visibility}, ${folder.createdBy}, ${folder.createdAt},
           ${folder.updatedBy}, ${folder.updatedAt}
         )
@@ -104,6 +106,7 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
           folder_id AS id,
           parent_id AS "parentId",
           thread_id AS "threadId",
+          project_id AS "projectId",
           title,
           visibility,
           created_by_json AS "createdBy",
@@ -161,7 +164,11 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.listChatThreads:query")),
       ),
     upsertFolder: (folder) =>
-      upsertFolderRow({ ...folder, threadId: folder.threadId ?? null }).pipe(
+      upsertFolderRow({
+        ...folder,
+        threadId: folder.threadId ?? null,
+        projectId: folder.projectId ?? null,
+      }).pipe(
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.upsertFolder:query")),
       ),
     deleteFolder: (folderId) =>
@@ -179,9 +186,11 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
     listFolders: () =>
       listFolderRows().pipe(
         Effect.map((rows) =>
-          rows.map(({ threadId, ...folder }) =>
-            threadId === null ? folder : { ...folder, threadId },
-          ),
+          rows.map(({ threadId, projectId, ...folder }) => ({
+            ...folder,
+            ...(threadId === null ? {} : { threadId }),
+            ...(projectId === null ? {} : { projectId }),
+          })),
         ),
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.listFolders:query")),
       ),

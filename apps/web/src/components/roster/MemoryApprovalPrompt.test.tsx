@@ -124,7 +124,7 @@ describe("MemoryApprovalPrompt", () => {
     expect(markup).toContain("Deploys happen on Fridays.");
     expect(markup).toContain("Available to this bot, Grace");
     // Attaches to the prompt box like the provider approval card.
-    expect(markup).toContain("rounded-t-lg");
+    expect(markup).toContain("rounded-t-xl");
     expect(markup).not.toContain("animate-");
   });
 

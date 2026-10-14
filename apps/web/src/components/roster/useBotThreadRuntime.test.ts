@@ -65,7 +65,10 @@ vi.mock("../../state/environments", () => ({
   usePrimaryEnvironmentId: () => mocks.primaryEnvironmentId,
 }));
 
-vi.mock("../../state/server", () => ({ primaryServerProvidersAtom: null }));
+vi.mock("../../state/server", () => ({
+  primaryServerCwdAtom: null,
+  primaryServerProvidersAtom: null,
+}));
 
 vi.mock("../../state/threads", () => ({
   threadEnvironment: { respondToApproval: mocks.approvalCommand },

@@ -58,6 +58,7 @@ import { createDelegations } from "./projection/Delegations.ts";
 import { createRoutines } from "./projection/Routines.ts";
 import { createMcpServers } from "./projection/McpServers.ts";
 import { createTasks } from "./projection/Tasks.ts";
+import { createActivity } from "./projection/Activity.ts";
 import { createLibrary } from "./projection/Library.ts";
 import { createThreads } from "./projection/Threads.ts";
 import { createMessages } from "./projection/Messages.ts";
@@ -94,6 +95,7 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
     const { applyRoutinesProjection } = createRoutines({ sql });
     const { applyMcpServersProjection } = createMcpServers({ projectionMcpServerRepository });
     const { applyTasksProjection } = createTasks({ projectionTaskRepository });
+    const { applyActivityProjection } = createActivity({ sql });
 
     const { applyLibraryProjection } = createLibrary({
       projectionLibraryRepository,
@@ -191,6 +193,16 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
           "task.time-removed",
         ]),
         apply: applyTasksProjection,
+      },
+      {
+        name: ORCHESTRATION_PROJECTOR_NAMES.activity,
+        eventTypes: projectorEventTypes([
+          "task.created",
+          "task.updated",
+          "task.time-added",
+          "task.time-removed",
+        ]),
+        apply: applyActivityProjection,
       },
       {
         name: ORCHESTRATION_PROJECTOR_NAMES.library,

@@ -97,7 +97,10 @@ vi.mock("../../state/bots", () => ({ environmentBotsAtom: () => null }));
 
 vi.mock("../../state/environments", () => ({ usePrimaryEnvironmentId: () => "env-a" }));
 
-vi.mock("../../state/server", () => ({ primaryServerProvidersAtom: null }));
+vi.mock("../../state/server", () => ({
+  primaryServerCwdAtom: null,
+  primaryServerProvidersAtom: null,
+}));
 
 vi.mock("../../state/threads", () => ({
   threadEnvironment: { create: mocks.commands.create, startTurn: mocks.commands.startTurn },

@@ -17,21 +17,25 @@ import { RichTextEditor } from "../RichTextEditor";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
-import { internalItemIcon, matchItems, useInternalItems } from "./workLinks";
+import { entityIcon, matchItems, useEntities } from "./workLinks";
 import { WorkPage, useWorkData } from "./WorkPages";
 
 /**
  * Otto: A task, project or routine page, like a Linear issue: the main column keeps
  * what matters (an optional cover, then title and description 12px apart, then
  * each section 40px apart with no rules, like Settings) and every property sits in the shared
- * details sidebar, open by default and remembered per kind, in collapsible
- * groups with no card around them.
+ * details sidebar, open by default and remembered per type, in collapsible
+ * groups with no card around them. A page with `tabs` shows them under the cover; a tab
+ * other than the first passes its `view`, which takes the place of the title, description
+ * and sections.
  */
 export function WorkDetailPage({
-  kind,
+  type,
   back,
   actions,
   cover,
+  tabs,
+  view,
   title,
   onTitleSave,
   description,
@@ -39,12 +43,16 @@ export function WorkDetailPage({
   sections,
   aside,
 }: {
-  readonly kind: "task" | "project" | "routine";
+  readonly type: "task" | "project" | "routine";
   /** Omitted when the sidebar already lists the page's siblings, as for routines. */
   readonly back?: { readonly label: string; readonly onBack: () => void };
   readonly actions?: ReactNode;
   /** Shown above the title, full content width. */
   readonly cover?: ReactNode;
+  /** `DetailsTabs` between the cover and the title. */
+  readonly tabs?: ReactNode;
+  /** The open tab's content, when it is not the overview. */
+  readonly view?: ReactNode;
   readonly title: string;
   /** Omitted for a page whose content changes another way, like a routine through its bot. */
   readonly onTitleSave?: (title: string) => void;
@@ -54,15 +62,15 @@ export function WorkDetailPage({
   readonly aside: ReactNode;
 }) {
   const { t } = useI18n();
-  const links = useInternalItems();
+  const links = useEntities();
 
   const [detailsOpen, setDetailsOpen] = useLocalStorage(
-    `otto:${kind}-details-open`,
+    `otto:${type}-details-open`,
     true,
     Schema.Boolean,
   );
 
-  const labels = Match.value(kind).pipe(
+  const labels = Match.value(type).pipe(
     Match.when("task", () => ({
       sidebar: t("Task details"),
       open: t("Open task details"),
@@ -89,43 +97,53 @@ export function WorkDetailPage({
   return (
     <>
       <WorkPage {...(back ? { back } : {})} actions={actions} detailsPanelOpen={detailsOpen}>
-        <WorkspacePageContainer width="narrow" className="gap-10 pt-3 pb-16 sm:pt-4">
+        <WorkspacePageContainer className="gap-10 pt-3 pb-16 sm:pt-4">
           <div className="flex flex-col gap-3">
             {cover ? (
-              <div className="mx-4 mb-4 overflow-hidden rounded-lg border border-border">
+              <div
+                className={cn(
+                  "mx-4 overflow-hidden rounded-lg border border-border",
+                  tabs ? "mb-2" : "mb-4",
+                )}
+              >
                 {cover}
               </div>
             ) : null}
-            {onTitleSave ? (
-              <WorkTitleField key={title} value={title} onSave={onTitleSave} />
-            ) : (
-              <h1 className={WORK_TITLE_CLASS}>{title}</h1>
-            )}
-            {onDescriptionSave ? (
-              <RichTextEditor
-                key={description}
-                className="px-4"
-                value={description}
-                placeholder={t("Add a description…")}
-                ariaLabel={t("Description")}
-                links={links}
-                onBlur={(markdown) => {
-                  if (markdown.trim() !== description) onDescriptionSave(markdown.trim());
-                }}
-              />
-            ) : (
-              <ChatMarkdown className="px-4" cwd={undefined} text={description} />
+            {tabs ? <div className="mb-5 px-4">{tabs}</div> : null}
+            {view ?? (
+              <>
+                {onTitleSave ? (
+                  <WorkTitleField key={title} value={title} onSave={onTitleSave} />
+                ) : (
+                  <h1 className={WORK_TITLE_CLASS}>{title}</h1>
+                )}
+                {onDescriptionSave ? (
+                  <RichTextEditor
+                    key={description}
+                    className="px-4"
+                    value={description}
+                    placeholder={t("Add a description…")}
+                    ariaLabel={t("Description")}
+                    links={links}
+                    onBlur={(markdown) => {
+                      if (markdown.trim() !== description) onDescriptionSave(markdown.trim());
+                    }}
+                  />
+                ) : (
+                  <ChatMarkdown className="px-4" cwd={undefined} text={description} />
+                )}
+              </>
             )}
           </div>
-          {sections.map((section) => (
-            <Fragment key={section.key}>{section.content}</Fragment>
-          ))}
+          {view
+            ? null
+            : sections.map((section) => <Fragment key={section.key}>{section.content}</Fragment>)}
         </WorkspacePageContainer>
       </WorkPage>
       <DetailsAside
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
-        testId={`${kind}-details-panel`}
+        testId={`${type}-details-panel`}
         labels={labels}
       >
         <div className="flex flex-col gap-4 px-5 pt-1 pb-6">{aside}</div>
@@ -205,7 +223,7 @@ export function WorkResourcesSection({
 }) {
   const { t } = useI18n();
   const { tasks, projects } = useWorkData();
-  const internalItems = useInternalItems();
+  const entities = useEntities();
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -225,7 +243,7 @@ export function WorkResourcesSection({
         ]
       : []),
     ...matchItems(
-      internalItems.filter((item) => item.type === "task" || item.type === "project"),
+      entities.filter((item) => item.type === "task" || item.type === "project"),
       text,
       20,
     )
@@ -292,7 +310,7 @@ export function WorkResourcesSection({
                   params={{ taskId: item.id }}
                   className={RESOURCE_ROW_CLASS}
                 >
-                  {internalItemIcon("task")}
+                  {entityIcon("task")}
                   <span className="truncate text-foreground">{label}</span>
                 </Link>
               )),
@@ -302,7 +320,7 @@ export function WorkResourcesSection({
                   params={{ projectId: item.id }}
                   className={RESOURCE_ROW_CLASS}
                 >
-                  {internalItemIcon("project")}
+                  {entityIcon("project")}
                   <span className="truncate text-foreground">{label}</span>
                 </Link>
               )),

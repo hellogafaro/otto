@@ -120,6 +120,10 @@
       "types": "./src/botInbox.ts",
       "default": "./src/botInbox.ts"
     },
+    "./state/activity": {
+      "types": "./src/state/activity.ts",
+      "default": "./src/state/activity.ts"
+    },
     "./state/auth": {
       "types": "./src/state/auth.ts",
       "default": "./src/state/auth.ts"

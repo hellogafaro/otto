@@ -15,6 +15,11 @@ export const WS_METHODS = {
   attachmentsCreateUploadUrl: "attachments.createUploadUrl",
   attachmentsDelete: "attachments.delete",
 
+  // Activity methods
+  activityList: "activity.list",
+  activityCommentAdd: "activity.commentAdd",
+  activityCommentRemove: "activity.commentRemove",
+
   // Library methods
   libraryCreateUploadUrl: "library.createUploadUrl",
   libraryCreateDocument: "library.createDocument",

@@ -7,6 +7,7 @@ import {
   type GroupId,
   IsoDateTime,
   NonNegativeInt,
+  ProjectId,
   ThreadId,
   TrimmedNonEmptyString,
 } from "../baseSchemas.ts";
@@ -54,6 +55,11 @@ export const LIBRARY_CHATS_FOLDER_ID = LibraryFolderId.make("library-chats");
 
 export const LIBRARY_CHATS_FOLDER_TITLE = "Chats";
 
+/** The top-level folder holding one folder per project; a project's chats get theirs inside it. */
+export const LIBRARY_PROJECTS_FOLDER_ID = LibraryFolderId.make("library-projects");
+
+export const LIBRARY_PROJECTS_FOLDER_TITLE = "Projects";
+
 export const LibrarySizeBytes = NonNegativeInt.check(
   Schema.isLessThanOrEqualTo(LIBRARY_FILE_MAX_BYTES),
 );
@@ -63,6 +69,8 @@ export const LibraryFolder = Schema.Struct({
   parentId: Schema.NullOr(LibraryFolderId),
   /** Set only on a chat's own folder. */
   threadId: Schema.optional(ThreadId),
+  /** Set only on a project's own folder. */
+  projectId: Schema.optional(ProjectId),
   title: LibraryTitle,
   visibility: LibraryVisibility,
   createdBy: WorkParticipant,
@@ -96,6 +104,7 @@ export const LibraryFolderCreateCommand = Schema.Struct({
   folderId: LibraryFolderId,
   parentId: Schema.NullOr(LibraryFolderId),
   threadId: Schema.optional(ThreadId),
+  projectId: Schema.optional(ProjectId),
   title: LibraryTitle,
   visibility: Schema.optional(LibraryVisibility),
   by: Schema.optional(WorkParticipant),
@@ -443,10 +452,11 @@ export const sameLibraryParticipant = (left: WorkParticipant, right: WorkPartici
 
 export const LIBRARY_UPLOAD_URL_TTL_MS = 10 * 60_000;
 
-/** Where a new file goes: a folder (or the top), or a chat's own folder. */
+/** Where a new file goes: a folder (or the top), a chat's own folder, or a project's. */
 const LibraryDestination = {
   folderId: Schema.NullOr(LibraryFolderId),
   threadId: Schema.optional(ThreadId),
+  projectId: Schema.optional(ProjectId),
   visibility: Schema.optional(LibraryVisibility),
 };
 

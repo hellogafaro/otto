@@ -4,11 +4,13 @@ import {
   CommandId,
   GroupId,
   LIBRARY_CHATS_FOLDER_ID,
+  LIBRARY_PROJECTS_FOLDER_ID,
   LibraryFileId,
   LibraryFolderId,
   type OrchestrationCommand,
   type OrchestrationEvent,
   type OrchestrationReadModel,
+  ProjectId,
   ThreadId,
   type WorkParticipant,
 } from "@otto/contracts";
@@ -324,6 +326,73 @@ it.layer(NodeServices.layer)("decider library", (it) => {
           by: ana,
         }),
       ).toBe("File 'plan' does not exist.");
+    }),
+  );
+
+  it.effect("keeps one fixed folder per project under Projects, holding its chats", () =>
+    Effect.gen(function* () {
+      const projectId = ProjectId.make("project-beta");
+      const threadId = ThreadId.make("thread-beta");
+
+      const base: OrchestrationReadModel = {
+        ...empty,
+        projects: [{ id: projectId, title: "Beta", deletedAt: null } as never],
+        threads: [{ id: threadId, groupId: null, deletedAt: null } as never],
+      };
+
+      const readModel = yield* applyAll(base, [
+        createFolder(LIBRARY_PROJECTS_FOLDER_ID, null),
+        createFolder("beta", LIBRARY_PROJECTS_FOLDER_ID, ada, { projectId }),
+        createFolder("beta-chat", "beta", ada, { threadId }),
+        createFolder("notes", "beta"),
+      ]);
+
+      expect(readModel.libraryFolders?.find((folder) => folder.id === "beta")?.projectId).toBe(
+        projectId,
+      );
+      expect(readModel.libraryFolders?.find((folder) => folder.id === "beta-chat")?.parentId).toBe(
+        "beta",
+      );
+      expect(yield* rejection(readModel, createFolder("loose", LIBRARY_PROJECTS_FOLDER_ID))).toBe(
+        "The Projects folder only holds project folders.",
+      );
+      expect(
+        yield* rejection(
+          readModel,
+          createFolder("again", LIBRARY_PROJECTS_FOLDER_ID, ada, { projectId }),
+        ),
+      ).toBe("This project already has a folder.");
+      expect(
+        yield* rejection(
+          readModel,
+          createFolder("ghost", LIBRARY_PROJECTS_FOLDER_ID, ada, {
+            projectId: ProjectId.make("project-ghost"),
+          }),
+        ),
+      ).toBe("Project 'project-ghost' does not exist.");
+      expect(
+        yield* rejection(
+          readModel,
+          createFolder("stray-chat", "notes", ada, { threadId: ThreadId.make("thread-other") }),
+        ),
+      ).toBe("A chat folder sits in the Chats folder or its project's folder.");
+      expect(
+        yield* rejection(readModel, {
+          type: "library.folder.update",
+          commandId: cmd(),
+          folderId: folderId("beta"),
+          parentId: null,
+          by: ada,
+        }),
+      ).toBe("A project folder can be renamed but not moved or made private.");
+      expect(
+        yield* rejection(readModel, {
+          type: "library.folder.delete",
+          commandId: cmd(),
+          folderId: folderId("beta"),
+          by: ada,
+        }),
+      ).toBe("A project folder can't be deleted.");
     }),
   );
 

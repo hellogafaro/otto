@@ -16,7 +16,7 @@ import { Button } from "../ui/button";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { WorkTitleField } from "../work/WorkDetail";
 import { WorkEmpty, WorkPage } from "../work/WorkPages";
-import { useInternalItems } from "../work/workLinks";
+import { useEntities } from "../work/workLinks";
 import { LibraryItemMenu } from "./LibraryActions";
 import { LibraryFileDetails } from "./LibraryDetails";
 import {
@@ -85,7 +85,7 @@ function DocumentEditor({
   readonly back: { readonly label: string; readonly onBack: () => void };
 }) {
   const { t } = useI18n();
-  const links = useInternalItems();
+  const links = useEntities();
   const download = useLibraryDownload();
   const fail = useLibraryFailure();
   const readDocument = useAtomCommand(libraryEnvironment.readDocument, { reportFailure: false });

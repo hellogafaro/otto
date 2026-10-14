@@ -9,6 +9,7 @@ import {
   type RosterLastMessage,
 } from "./roster.logic";
 import type { Bot, BotAvatar, Group } from "./types";
+import type { ProjectId } from "@otto/contracts";
 
 export type { RosterItemRef };
 
@@ -18,6 +19,12 @@ const persistedRosterMemory = new Map<string, PersistedRoster>();
 
 function persistedRosterKey(environmentId: string | null): string {
   return environmentId ? `${PERSISTED_ROSTER_KEY}:${environmentId}` : PERSISTED_ROSTER_KEY;
+}
+
+/** A fresh chat with a bot, filed in a project, asked for from the project's page. */
+export interface ProjectChatRequest {
+  readonly botId: string;
+  readonly projectId: ProjectId;
 }
 
 export interface PromptRequest {
@@ -209,6 +216,9 @@ interface RosterStore {
    */
   promptRequest: PromptRequest | null;
   requestPrompt: (request: PromptRequest | null) => void;
+  /** A new chat the bot's view opens in a project once it can, then clears. */
+  projectChatRequest: ProjectChatRequest | null;
+  requestProjectChat: (request: ProjectChatRequest | null) => void;
   replaceRoster: (input: {
     environmentId: string;
     bots: Bot[];
@@ -285,6 +295,7 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   newChatBotId: null,
   introBotId: null,
   promptRequest: null,
+  projectChatRequest: null,
   pinnedItems: persisted?.pinnedItems ?? [],
   unassignedItems: persisted?.unassignedItems ?? [],
   environmentId: null,
@@ -429,6 +440,7 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
 
   requestBotIntro: (botId) => set({ introBotId: botId }),
   requestPrompt: (request) => set({ promptRequest: request }),
+  requestProjectChat: (request) => set({ projectChatRequest: request }),
 
   replaceRoster: (input) => {
     const switchingEnvironment = get().environmentId !== input.environmentId;

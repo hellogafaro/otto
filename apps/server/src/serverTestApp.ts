@@ -1,3 +1,4 @@
+import { ActivityStore } from "./activity/ActivityStore.ts";
 import { ProviderInstanceRegistryMutator } from "./provider/Services/ProviderInstanceRegistryMutator.ts";
 import {
   ProjectionLibraryRepository,
@@ -603,6 +604,11 @@ export const buildAppUnderTest = (options?: {
             deleteById: () => Effect.void,
             ...options?.layers?.projectionGroups,
           } satisfies ProjectionGroups.ProjectionGroupRepositoryShape),
+          Layer.succeed(ActivityStore, {
+            list: () => Effect.succeed({ entries: [] }),
+            addComment: () => Effect.die("Activity is not part of this test."),
+            removeComment: () => Effect.void,
+          }),
           Layer.succeed(ProjectionLibraryRepository, {
             upsertFolder: () => Effect.void,
             deleteFolder: () => Effect.void,

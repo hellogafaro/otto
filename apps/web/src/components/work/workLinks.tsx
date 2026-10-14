@@ -5,11 +5,11 @@ import { useI18n } from "../../i18n";
 import { projectStatus } from "./work.logic";
 import { useWorkData } from "./WorkPages";
 
-export type InternalItemType = "task" | "project" | "bot" | "group";
+export type EntityType = "task" | "project" | "bot" | "group";
 
-export interface InternalItem {
+export interface Entity {
   readonly key: string;
-  readonly type: InternalItemType;
+  readonly type: EntityType;
   readonly id: string;
   readonly label: string;
   readonly href: string;
@@ -17,7 +17,7 @@ export interface InternalItem {
   readonly hint: string;
 }
 
-export function internalItemIcon(type: InternalItemType): ReactNode {
+export function entityIcon(type: EntityType): ReactNode {
   switch (type) {
     case "task":
       return <RiListCheck3 />;
@@ -31,39 +31,35 @@ export function internalItemIcon(type: InternalItemType): ReactNode {
 }
 
 /** Everything an @ or a resource can point at inside Otto: open tasks, projects, bots and groups. */
-export function useInternalItems(): ReadonlyArray<InternalItem> {
+export function useEntities(): ReadonlyArray<Entity> {
   const { t } = useI18n();
   const { tasks, projects, groups, participants } = useWorkData();
 
   return useMemo(() => {
-    const item = (
-      type: InternalItemType,
-      id: string,
-      label: string,
-      href: string,
-      hint: string,
-    ) => ({
+    const entity = (type: EntityType, id: string, label: string, href: string, hint: string) => ({
       key: `${type}:${id}`,
       type,
       id,
       label,
       href,
-      icon: internalItemIcon(type),
+      icon: entityIcon(type),
       hint,
     });
 
     return [
       ...tasks
         .filter((task) => task.status !== "archived")
-        .map((task) => item("task", task.id, task.title, `/tasks/${task.id}`, t("Task"))),
+        .map((task) => entity("task", task.id, task.title, `/tasks/${task.id}`, t("Task"))),
       ...projects
         .filter((project) => projectStatus(project) !== "archived")
         .map((project) =>
-          item("project", project.id, project.title, `/projects/${project.id}`, t("Project")),
+          entity("project", project.id, project.title, `/projects/${project.id}`, t("Project")),
         ),
-      ...participants.bots.map((bot) => item("bot", bot.id, bot.name, `/bots/${bot.id}`, t("Bot"))),
+      ...participants.bots.map((bot) =>
+        entity("bot", bot.id, bot.name, `/bots/${bot.id}`, t("Bot")),
+      ),
       ...groups.map((group) =>
-        item("group", group.id, group.name, `/groups/${group.id}`, t("Group")),
+        entity("group", group.id, group.name, `/groups/${group.id}`, t("Group")),
       ),
     ];
   }, [groups, participants.bots, projects, t, tasks]);

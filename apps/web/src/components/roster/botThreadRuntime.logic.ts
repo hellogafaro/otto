@@ -464,3 +464,15 @@ export function nextRetainedChat(
 
   return current;
 }
+
+/**
+ * Where a chat started outside any project goes: the workspace's own project, the one at the
+ * server's folder, else the most recently active one.
+ */
+export function chatHomeProject<P extends { readonly workspaceRoot: string }>(
+  projects: ReadonlyArray<P>,
+  serverCwd: string | null,
+  mostRecent: () => P | null,
+): P | null {
+  return projects.find((project) => project.workspaceRoot === serverCwd) ?? mostRecent();
+}

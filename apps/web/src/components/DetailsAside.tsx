@@ -199,15 +199,18 @@ export interface DetailsTab<T extends string> {
  * Otto: The tabs heading every right sidebar, in place of a title: 28px tabs
  * with a 14px icon and the back button's 13px/500 label, the active one on the
  * secondary fill. Details is always the first tab; a chat adds its Library.
- * Pages reuse the same tabs to filter what they show.
+ * Pages reuse the same tabs to filter what they show; a tab row that sits on the page rather
+ * than inside a panel uses the 32px `page` size.
  */
 export function DetailsTabs<T extends string>({
   label,
   tabs,
   value,
   onValueChange,
+  size = "default",
 }: {
   readonly label: string;
+  readonly size?: "default" | "page";
   readonly tabs?: ReadonlyArray<DetailsTab<T>>;
   readonly value?: T;
   readonly onValueChange?: (value: T) => void;
@@ -219,7 +222,11 @@ export function DetailsTabs<T extends string>({
   ];
 
   return (
-    <div role="tablist" aria-label={label} className="flex min-w-0 items-center gap-0.5">
+    <div
+      role="tablist"
+      aria-label={label}
+      className={cn("flex min-w-0 items-center", size === "page" ? "gap-1" : "gap-0.5")}
+    >
       {shown.map((tab) => {
         const selected = tabs === undefined || tab.value === value;
         const Icon = tab.icon;
@@ -236,7 +243,8 @@ export function DetailsTabs<T extends string>({
               if (chosen) onValueChange?.(chosen.value);
             }}
             className={cn(
-              "flex h-7 items-center gap-1.5 rounded-md px-2 text-13px font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex items-center gap-1.5 rounded-md text-13px font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              size === "page" ? "h-8 px-2.5" : "h-7 px-2",
               selected
                 ? "bg-secondary text-foreground"
                 : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
@@ -259,11 +267,14 @@ export function DetailsTabs<T extends string>({
 export function DetailsGroup({
   id,
   label,
+  summary,
   action,
   children,
 }: {
   readonly id: string;
   readonly label: string;
+  /** A muted figure beside the label, like a table group's count: a total, a tally. */
+  readonly summary?: string | undefined;
   readonly action?: ReactNode;
   readonly children: ReactNode;
 }) {
@@ -282,6 +293,9 @@ export function DetailsGroup({
           <span id={headingId} className="truncate">
             {label}
           </span>
+          {summary ? (
+            <span className="shrink-0 font-normal tabular-nums text-foreground/40">{summary}</span>
+          ) : null}
           <RiArrowDownSLine
             aria-hidden
             className={cn("size-3 shrink-0 transition-transform", !open && "-rotate-90")}

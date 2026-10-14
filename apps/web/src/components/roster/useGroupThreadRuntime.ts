@@ -24,7 +24,7 @@ import {
   useThreadShells,
 } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { primaryServerProvidersAtom } from "../../state/server";
+import { primaryServerCwdAtom, primaryServerProvidersAtom } from "../../state/server";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { derivePendingUserInputs } from "../../session-logic";
@@ -32,6 +32,7 @@ import { DEFAULT_INTERACTION_MODE } from "../../types";
 import { sortScopedProjectsForSidebar } from "../Sidebar.logic";
 import {
   buildGroupTurnStartInput,
+  chatHomeProject,
   createBotTurnSubmissionQueue,
   findLatestGroupThreadTarget,
   nextRetainedChat,
@@ -61,6 +62,7 @@ export function useGroupThreadRuntime(groupId: string) {
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
   const settings = usePrimarySettings();
   const providers = useAtomValue(primaryServerProvidersAtom);
+  const serverCwd = useAtomValue(primaryServerCwdAtom);
 
   const providerEntries = useMemo(
     () => applyProviderInstanceSettings(deriveProviderInstanceEntries(providers), settings),
@@ -125,17 +127,16 @@ export function useGroupThreadRuntime(groupId: string) {
   const activities = useThreadActivities(linkedThreadRef);
   const pendingUserInputs = useMemo(() => derivePendingUserInputs(activities), [activities]);
 
-  const defaultProject = useMemo(
-    () =>
-      bootstrapped && primaryEnvironmentId
-        ? (sortScopedProjectsForSidebar(
-            projects.filter((project) => project.environmentId === primaryEnvironmentId),
-            primaryThreadShells,
-            "updated_at",
-          )[0] ?? null)
-        : null,
-    [bootstrapped, primaryEnvironmentId, primaryThreadShells, projects],
-  );
+  const defaultProject = useMemo(() => {
+    if (!bootstrapped || !primaryEnvironmentId) return null;
+    const scoped = projects.filter((project) => project.environmentId === primaryEnvironmentId);
+
+    return chatHomeProject(
+      scoped,
+      serverCwd,
+      () => sortScopedProjectsForSidebar(scoped, primaryThreadShells, "updated_at")[0] ?? null,
+    );
+  }, [bootstrapped, primaryEnvironmentId, primaryThreadShells, projects, serverCwd]);
 
   const activeProject =
     projects.find(

@@ -99,6 +99,9 @@ export function BotPromptComposer({
   busy = false,
   pendingActionSlot = null,
   quietSurface = false,
+  layout = "conversation",
+  inputLabel,
+  submitLabel,
   placeholder,
   replyPreview,
   onCancelReply,
@@ -131,6 +134,12 @@ export function BotPromptComposer({
   /** Rendered above the prompt box so a pending decision reads as part of the composer. */
   pendingActionSlot?: ReactNode;
   quietSurface?: boolean;
+  /** `inline` sits in page content, like a comment box, without the conversation gutters. */
+  layout?: "conversation" | "inline";
+  /** Names the text box; defaults to "Message {botName}". */
+  inputLabel?: string;
+  /** Names the send button; defaults to "Send message". */
+  submitLabel?: string;
   placeholder?: string;
   replyPreview?: MessageReplyTarget | null;
   onCancelReply?: () => void;
@@ -338,7 +347,11 @@ export function BotPromptComposer({
       data-chat-composer-form="true"
       data-state={composerState}
       aria-disabled={readOnly || undefined}
-      className="w-full px-gutter-48rem pb-4 pt-2 sm:px-gutter-48rem-wide sm:pb-6"
+      className={
+        layout === "inline"
+          ? "w-full"
+          : "w-full px-gutter-48rem pb-4 pt-2 sm:px-gutter-48rem-wide sm:pb-6"
+      }
       onSubmit={(event) => {
         event.preventDefault();
         submitDraft({
@@ -352,7 +365,7 @@ export function BotPromptComposer({
         });
       }}
     >
-      <div className={CONVERSATION_MEASURE_CLASS_NAME}>
+      <div className={layout === "inline" ? undefined : CONVERSATION_MEASURE_CLASS_NAME}>
         <ComposerBanner.Dock className="relative z-0">
           <ComposerBanner.Column>
             {isStashMenuOpen ? (
@@ -433,7 +446,7 @@ export function BotPromptComposer({
             data-testid="bot-prompt-composer"
             data-expanded={expanded || undefined}
             className={cn(
-              "relative flex min-h-11 flex-col overflow-hidden rounded-lg border shadow-composer-float transition-composer-shape duration-200 ease-out",
+              "relative flex min-h-10 flex-col overflow-hidden rounded-xl border shadow-composer-float transition-composer-shape duration-200 ease-out",
               quietSurface
                 ? BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME
                 : BOT_COMPOSER_SURFACE_CLASS_NAME,
@@ -444,7 +457,7 @@ export function BotPromptComposer({
             {/* One line, always the same height, so starting a reply never resizes the box. */}
             {replyPreview ? (
               <div
-                className="mx-3 mt-3 flex h-8 items-center gap-2 rounded-md bg-foreground/8 px-2.5 text-xs"
+                className="mx-1.5 mt-1.5 flex h-8 items-center gap-2 rounded-md bg-foreground/8 ps-2.5 pe-1 text-xs"
                 data-testid="composer-reply-preview"
               >
                 <RiCornerDownRightLine
@@ -458,7 +471,7 @@ export function BotPromptComposer({
                 <button
                   type="button"
                   aria-label={t("Cancel reply")}
-                  className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/8 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/8 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={onCancelReply}
                 >
                   <RiCloseLine className="size-3.5" />
@@ -467,7 +480,7 @@ export function BotPromptComposer({
             ) : null}
             <BotPromptAttachments
               attachments={attachments}
-              className="px-3 pt-3"
+              className="px-1.5 pt-1.5"
               onExpand={setExpandedAttachmentId}
               onPreviewError={markAttachmentPreviewFailed}
               onRemove={removeAttachment}
@@ -484,9 +497,9 @@ export function BotPromptComposer({
             ) : null}
             <textarea
               ref={promptInputRef}
-              aria-label={t("Message {name}", { name: botName })}
+              aria-label={inputLabel ?? t("Message {name}", { name: botName })}
               data-testid="bot-prompt-input"
-              placeholder={placeholder ?? t("Message {name}", { name: botName })}
+              placeholder={placeholder ?? inputLabel ?? t("Message {name}", { name: botName })}
               rows={1}
               value={draft}
               readOnly={readOnly}
@@ -496,7 +509,7 @@ export function BotPromptComposer({
               aria-activedescendant={(mentionTrigger && activeMentionOptionId) || undefined}
               className={cn(
                 "field-sizing-content max-h-56 w-full resize-none bg-transparent text-base leading-5 outline-none placeholder:text-muted-foreground/70 sm:text-sm",
-                expanded ? "min-h-16 px-3.5 pb-11 pt-3" : "min-h-11 px-11 py-3",
+                expanded ? "min-h-16 px-3.5 pb-10 pt-3" : "min-h-10 px-10.5 py-2.5",
               )}
               onChange={(event) => {
                 const { selectionStart, value } = event.currentTarget;
@@ -539,7 +552,7 @@ export function BotPromptComposer({
               data-testid="bot-prompt-controls"
               /* Pinned to the box corners in every state: growing the draft must not move
              the add or send button out from under the pointer. */
-              className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-between"
+              className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center justify-between"
             >
               <div className="pointer-events-auto flex min-w-0 items-center gap-1">
                 {mentionBots.length === 0 ? (
@@ -625,7 +638,9 @@ export function BotPromptComposer({
                   size="icon-sm"
                   variant="primary"
                   aria-label={
-                    showBusyMeter ? t("{name} is working", { name: botName }) : t("Send message")
+                    showBusyMeter
+                      ? t("{name} is working", { name: botName })
+                      : (submitLabel ?? t("Send message"))
                   }
                   aria-describedby={
                     [mentionHint ? mentionHintId : null, disabled ? sendBlockedDescriptionId : null]

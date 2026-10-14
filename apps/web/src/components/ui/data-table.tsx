@@ -46,9 +46,11 @@ const COLUMN_CLASS: Record<DataTableColumnType, string> = {
 
 /**
  * Otto: The shared data table, copied from Capy's thread list. Rows are 44px
- * with a 2px hit margin, 8px inset, 8px column gap, 6px radius and a 3.5%
- * foreground wash on hover. Groups get Capy's 36px section band (8px radius,
- * the same wash, chevron, 13px label, count) and collapse on click.
+ * with a 2px hit margin, 8px column gap, 6px radius and a 3.5% foreground wash
+ * on hover. Groups get Capy's 36px section band (6px radius, the same wash,
+ * chevron, 13px label, count) and collapse on click. Fills span the whole
+ * column like content rows, with 16px inside, so text and the band's chevron
+ * sit on the content edge and the time ends 16px from the right.
  */
 export function DataTable<T>({
   rows,
@@ -87,7 +89,7 @@ export function DataTable<T>({
   );
 
   return (
-    <div className={cn("@container/list flex flex-col gap-2 px-2", className)}>
+    <div className={cn("@container/list flex flex-col gap-2", className)}>
       {groupBy
         ? groupBy.groups.map((group) => {
             const items = rows.filter((row) => groupBy.getGroupId(row) === group.id);
@@ -120,7 +122,7 @@ function DataTableSection({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-md bg-foreground/[0.035] px-2 text-left text-13px font-medium tracking-title-sm text-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&_svg]:shrink-0"
+        className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-md bg-foreground/[0.035] ps-3.5 pe-4 text-left text-13px font-medium tracking-title-sm text-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&_svg]:shrink-0"
       >
         <span className="flex w-4 shrink-0 items-center justify-center">
           <RiArrowDownSLine
@@ -175,7 +177,7 @@ function DataTableRow<T>({
   ));
 
   const rowClassName =
-    "flex h-11 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-foreground outline-none select-none";
+    "flex h-11 w-full items-center gap-2 rounded-md px-4 text-left text-sm text-foreground outline-none select-none";
 
   return (
     <li className="-m-0.5 list-none p-0.5">

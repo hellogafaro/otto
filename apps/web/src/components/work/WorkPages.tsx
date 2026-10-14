@@ -95,7 +95,7 @@ export function WorkPage({
   );
 }
 
-/** The Settings column: 752px wide, opening with the page's 22px title. */
+/** The content column, opening with the page's 22px title. */
 function WorkColumn({
   title,
   children,
@@ -104,7 +104,7 @@ function WorkColumn({
   readonly children: ReactNode;
 }) {
   return (
-    <WorkspacePageContainer width="narrow" className="gap-10 pt-3 pb-16 sm:pt-4">
+    <WorkspacePageContainer className="gap-10 pt-3 pb-16 sm:pt-4">
       {title ? <WorkspacePageTitle>{title}</WorkspacePageTitle> : null}
       {children}
     </WorkspacePageContainer>

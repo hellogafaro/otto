@@ -4,6 +4,7 @@ import {
   type LibraryFolder,
   type LibraryFolderId,
   LIBRARY_CHATS_FOLDER_ID,
+  LIBRARY_PROJECTS_FOLDER_ID,
   LIBRARY_MAX_FOLDER_DEPTH,
   type LibraryVisibility,
   libraryFolderPath,
@@ -166,7 +167,7 @@ function moveTargets(
       .toSorted((left, right) => left.title.localeCompare(right.title))) {
       if (item.kind === "folder" && folder.id === item.folder.id) continue;
 
-      if (folder.id === LIBRARY_CHATS_FOLDER_ID) {
+      if (folder.id === LIBRARY_CHATS_FOLDER_ID || folder.id === LIBRARY_PROJECTS_FOLDER_ID) {
         options.push({ id: folder.id, title: folder.title, depth, selectable: false });
       } else {
         const fits =
@@ -380,9 +381,17 @@ export function LibraryItemMenu({
   const actions = useLibraryItemActions(environmentId, data, target, onDeleted);
   const download = useLibraryDownload();
   const item = target.kind === "folder" ? target.folder : target.file;
-  const isChatsFolder = target.kind === "folder" && target.folder.id === LIBRARY_CHATS_FOLDER_ID;
-  const isChatFolder = target.kind === "folder" && target.folder.threadId !== undefined;
-  const editable = !isChatsFolder && data.canEdit(item);
+
+  const isHolder =
+    target.kind === "folder" &&
+    (target.folder.id === LIBRARY_CHATS_FOLDER_ID ||
+      target.folder.id === LIBRARY_PROJECTS_FOLDER_ID);
+
+  const isFixedFolder =
+    target.kind === "folder" &&
+    (target.folder.threadId !== undefined || target.folder.projectId !== undefined);
+
+  const editable = !isHolder && data.canEdit(item);
 
   if (target.kind === "folder" && !editable) return null;
 
@@ -415,7 +424,7 @@ export function LibraryItemMenu({
                 <RiEditLine />
                 {t("Rename")}
               </MenuItem>
-              {isChatFolder ? null : (
+              {isFixedFolder ? null : (
                 <>
                   <MenuItem onClick={() => actions.setMoving(true)}>
                     <RiFolderTransferLine />
