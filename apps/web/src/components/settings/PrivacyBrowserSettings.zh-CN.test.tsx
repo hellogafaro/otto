@@ -37,7 +37,7 @@ describe("privacy and browser settings in Simplified Chinese", () => {
   it("translates Privacy sections, rows, and policy links", () => {
     const html = renderInChinese(<PrivacySettingsPanel />);
 
-    for (const label of ["数据共享", "发送匿名分析数据", "备份与迁移", "桌面端更新", "政策"]) {
+    for (const label of ["数据共享", "启用语音通话", "备份与迁移", "桌面端更新", "政策"]) {
       expect(html).toContain(label);
     }
 

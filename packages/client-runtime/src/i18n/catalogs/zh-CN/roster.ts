@@ -219,6 +219,11 @@ export const rosterCatalog = {
   "Or ask {botName} in chat to set one up.": "也可以在聊天中让 {botName} 帮你设置。",
   "Delete routine “{name}”?": "要删除例行任务“{name}”吗？",
   "This removes the schedule and its run history.": "这会删除计划及其运行记录。",
+  "Run finished": "运行完成",
+  "Run failed": "运行失败",
+  "Run canceled": "运行已取消",
+  "Routine created": "已创建例行任务",
+  "Routine deleted": "例行任务已删除",
   "Routine “{name}” was created": "已创建例行任务“{name}”",
   "{scope} skill": "{scope} 技能",
   "{botName} wants to save this": "{botName} 想保存这条内容",
@@ -316,8 +321,6 @@ export const rosterCatalog = {
   "{count} members": "{count} 名成员",
   "Routine not found": "找不到例程",
   History: "历史",
-  "No runs yet. Each run posts its result in the routine's chat.":
-    "还没有运行。每次运行都会把结果发到例程的聊天中。",
   Schedule: "计划",
   "What should change? For example, run at 8:00 instead.": "要改什么？例如：改为 8:00 运行。",
   "Ask {name}": "询问 {name}",
@@ -326,4 +329,6 @@ export const rosterCatalog = {
   "Collapse routine details": "收起例程详情",
   "Close routine details": "关闭例程详情",
   "{passed} of {total} succeeded": "{total} 次中成功 {passed} 次",
+  "No runs yet": "还没有运行",
+  "Loading routines…": "正在加载例程…",
 } as const;

@@ -214,8 +214,8 @@ read the full result.
 
 When a request fails, the chat shows a short card that says what went wrong and what to do next. A
 provider that is turned off or signed out gets a **Settings > Providers** link. A provider account
-limit gets a **Bot settings** button so you can switch the bot to another provider. When the cause is unknown, select **Send feedback** to report it
-with its details. Expand **Technical details** to see the underlying error, or select **Resume**
+limit gets a **Bot settings** button so you can switch the bot to another provider. When the cause is unknown, try sending
+the message again. Expand **Technical details** to see the underlying error, or select **Resume**
 when an interrupted request can continue. If your message was saved but the bot never started, the
 chat says so under your message instead of leaving the reply empty. Group chats do the same and name the bot that was asked to reply. On mobile, the resume card
 shows the same summary.

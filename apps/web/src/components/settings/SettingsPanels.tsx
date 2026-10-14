@@ -12,7 +12,6 @@ import {
 } from "@otto/contracts/settings";
 import { resolveServerBackgroundActivitySettings } from "@otto/shared/backgroundActivitySettings";
 import * as Equal from "effect/Equal";
-import * as Exit from "effect/Exit";
 import {
   resolveEnvironmentIdentificationPillLabel,
   useEnvironmentStageLabel,
@@ -21,9 +20,7 @@ import { openSettings } from "../../settingsDialogStore";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/useSettings";
 import { primaryServerObservabilityAtom } from "../../state/server";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ColorSchemeSettings } from "./ThemeSettings";
 import {
@@ -40,10 +37,7 @@ import {
 import { searchableSetting } from "./settingsSearch";
 import { useI18n } from "../../i18n";
 import type { MessageKey } from "@otto/client-runtime/i18n";
-import {
-  decodeProductFeedbackEndpoint,
-  resetBackgroundActivitySettings,
-} from "./useSettingsRestore";
+import { resetBackgroundActivitySettings } from "./useSettingsRestore";
 import {
   BACKGROUND_ACTIVITY_PROFILE_LABELS,
   BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS,
@@ -322,40 +316,6 @@ export function AdvancedSettingsSections() {
             <Button size="sm" variant="outline" onClick={() => openSettings("diagnostics")}>
               {t("View diagnostics")}
             </Button>
-          }
-        />
-        <SettingsRow
-          title={t("Feedback endpoint")}
-          description={t("Where submitted product feedback is sent. Use HTTPS or loopback HTTP.")}
-          control={
-            <Input
-              aria-label={t("Feedback endpoint")}
-              className="w-full sm:w-80"
-              defaultValue={settings.productFeedbackEndpoint}
-              key={settings.productFeedbackEndpoint}
-              onBlur={(event) => {
-                const decoded = decodeProductFeedbackEndpoint(event.currentTarget.value);
-
-                if (Exit.isFailure(decoded)) {
-                  event.currentTarget.value = settings.productFeedbackEndpoint;
-                  toastManager.add({
-                    type: "error",
-                    title: t("Use HTTPS or loopback HTTP."),
-                  });
-
-                  return;
-                }
-
-                const productFeedbackEndpoint = decoded.value;
-
-                if (
-                  productFeedbackEndpoint &&
-                  productFeedbackEndpoint !== settings.productFeedbackEndpoint
-                ) {
-                  updateSettings({ productFeedbackEndpoint });
-                }
-              }}
-            />
           }
         />
       </SettingsSection>

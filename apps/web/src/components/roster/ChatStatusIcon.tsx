@@ -7,10 +7,10 @@ import { useChatUnread } from "../chat/useChatUnread";
 import { StatusIcon } from "../StatusIcon";
 import { resolveBotPresence, rosterChatStatus, type RosterPresence } from "./roster.logic";
 
-const CHAT_STATUS_LABEL = {
-  working: "Working",
-  waiting: "Waiting",
-  completed: "Completed",
+const CHAT_STATUS = {
+  working: { icon: "in_progress", label: "Working" },
+  waiting: { icon: "waiting", label: "Waiting for you" },
+  completed: { icon: "completed", label: "Completed" },
 } as const;
 
 /** A chat's status icon on the right of its row, or nothing while it is idle and seen. */
@@ -26,7 +26,7 @@ export function ChatStatusIcon({
 
   if (status === null) return null;
 
-  return <StatusIcon status={status} label={t(CHAT_STATUS_LABEL[status])} />;
+  return <StatusIcon status={CHAT_STATUS[status].icon} label={t(CHAT_STATUS[status].label)} />;
 }
 
 /** One chat's status in a bot's chat list; the open chat never counts as unread. */

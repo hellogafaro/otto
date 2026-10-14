@@ -19,7 +19,6 @@ import {
   OTTO_TOOL_CATALOG,
   type ProviderRuntimeEvent,
   ThreadId,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   OTTO_CREATE_ROUTINE_TOOL_NAME,
 } from "@otto/contracts";
 
@@ -436,7 +435,6 @@ export function createEvents(deps: {
           deps.mcpToolNeedsApproval(mcpManager, event.toolName);
 
         if (
-          event.toolName !== OTTO_PRODUCT_FEEDBACK_TOOL_NAME &&
           !oneUseApproval &&
           deps.permissionPolicy(active.runtimeMode, ottoToolCategory(event.toolName)) === "allow"
         ) {
@@ -525,11 +523,9 @@ export function createEvents(deps: {
             target: event.toolName,
             detail: isCodexComputerUseTool(event.toolName)
               ? "Allow Computer Use?"
-              : event.toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME
-                ? "Review product feedback"
-                : event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
-                  ? "Review routine"
-                  : deps.approvalDetail(event.toolName, action, oneUseApproval),
+              : event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
+                ? "Review routine"
+                : deps.approvalDetail(event.toolName, action, oneUseApproval),
             toolName: isCodexComputerUseTool(event.toolName) ? "Computer Use" : event.toolName,
             ...(action ? { action } : {}),
             args: isCodexComputerUseTool(event.toolName) ? undefined : toolInput,
@@ -538,26 +534,21 @@ export function createEvents(deps: {
                   { decision: "accept", label: "Allow" },
                   { decision: "decline", label: "Decline" },
                 ]
-              : event.toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME
+              : event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
                 ? [
-                    { decision: "accept", label: "Add to feedback draft" },
+                    { decision: "accept", label: "Create routine" },
                     { decision: "decline", label: "Cancel" },
                   ]
-                : event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
+                : oneUseApproval
                   ? [
-                      { decision: "accept", label: "Create routine" },
-                      { decision: "decline", label: "Cancel" },
+                      { decision: "decline", label: "Decline" },
+                      { decision: "accept", label: "Approve" },
                     ]
-                  : oneUseApproval
-                    ? [
-                        { decision: "decline", label: "Decline" },
-                        { decision: "accept", label: "Approve" },
-                      ]
-                    : [
-                        { decision: "decline", label: "Decline" },
-                        { decision: "acceptAlways", label: "Enable Auto Review" },
-                        { decision: "accept", label: "Allow" },
-                      ],
+                  : [
+                      { decision: "decline", label: "Decline" },
+                      { decision: "acceptAlways", label: "Enable Auto Review" },
+                      { decision: "accept", label: "Allow" },
+                    ],
           },
         });
 

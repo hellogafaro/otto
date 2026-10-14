@@ -4,7 +4,7 @@ import { Predicate, Schema, Option } from "effect";
 import { memo } from "react";
 import { createTranslator } from "@otto/client-runtime/i18n";
 import { hourlyScheduleText } from "@otto/client-runtime/routines";
-import { OTTO_CREATE_ROUTINE_TOOL_NAME, OTTO_PRODUCT_FEEDBACK_TOOL_NAME } from "@otto/contracts";
+import { OTTO_CREATE_ROUTINE_TOOL_NAME } from "@otto/contracts";
 import { type PendingApproval } from "../../session-logic";
 import { describeCommandApproval } from "~/lib/commandApprovalDetails";
 import { useI18n } from "~/i18n";
@@ -275,32 +275,27 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
   hideLabel = false,
 }: ComposerPendingApprovalPanelProps) {
   const { t, plural } = useI18n();
-  const isProductFeedback = approval.toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME;
   const isRoutine = approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME;
 
   const fallbackLabel = isRoutine
     ? t("Routine approval")
-    : isProductFeedback
-      ? t("Product feedback approval")
-      : approval.requestKind === "mcp-elicitation"
-        ? t("App access approval")
-        : approval.requestKind === "command"
-          ? t("Command approval")
-          : approval.requestKind === "file-read"
-            ? t("File read approval")
-            : t("File change approval");
+    : approval.requestKind === "mcp-elicitation"
+      ? t("App access approval")
+      : approval.requestKind === "command"
+        ? t("Command approval")
+        : approval.requestKind === "file-read"
+          ? t("File read approval")
+          : t("File change approval");
 
   const detailAriaLabel = isRoutine
     ? t("Routine details")
-    : isProductFeedback
-      ? t("Product feedback draft")
-      : approval.requestKind === "mcp-elicitation"
-        ? t("App access request")
-        : approval.requestKind === "command"
-          ? t("Command")
-          : approval.requestKind === "file-read"
-            ? t("File to read")
-            : t("File change");
+    : approval.requestKind === "mcp-elicitation"
+      ? t("App access request")
+      : approval.requestKind === "command"
+        ? t("Command")
+        : approval.requestKind === "file-read"
+          ? t("File to read")
+          : t("File change");
 
   const argsCommand =
     approval.requestKind === "command" &&

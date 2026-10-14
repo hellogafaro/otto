@@ -25,44 +25,6 @@ describe("ServerSettings voice", () => {
   });
 });
 
-describe("ServerSettings product feedback", () => {
-  it("defaults to the Otto endpoint and remains server patchable", () => {
-    expect(decodeServerSettings({})).toMatchObject({
-      productFeedbackEnabled: true,
-      productFeedbackEndpoint: "https://feedback.otto.localhost/v1/feedback",
-    });
-    expect(
-      decodeServerSettingsPatch({
-        productFeedbackEnabled: false,
-        productFeedbackEndpoint: "http://localhost:8787/v1/feedback",
-      }),
-    ).toEqual({
-      productFeedbackEnabled: false,
-      productFeedbackEndpoint: "http://localhost:8787/v1/feedback",
-    });
-  });
-
-  it("rejects insecure non-loopback and relative endpoints", () => {
-    expect(() =>
-      decodeServerSettingsPatch({ productFeedbackEndpoint: "http://feedback.example.test" }),
-    ).toThrow();
-    expect(() => decodeServerSettingsPatch({ productFeedbackEndpoint: "/api/feedback" })).toThrow();
-  });
-});
-
-describe("ServerSettings analytics", () => {
-  it("defaults analytics on and accepts an opt-out patch", () => {
-    expect(decodeServerSettings({}).analyticsEnabled).toBe(true);
-    expect(decodeServerSettingsPatch({ analyticsEnabled: false })).toEqual({
-      analyticsEnabled: false,
-    });
-  });
-
-  it("rejects a non-boolean analytics patch", () => {
-    expect(() => decodeServerSettingsPatch({ analyticsEnabled: "false" })).toThrow();
-  });
-});
-
 describe("policy records", () => {
   it("keeps policy acceptance local", () => {
     expect(decodeClientSettings({})).toMatchObject({

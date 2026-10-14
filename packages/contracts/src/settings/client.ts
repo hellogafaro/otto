@@ -184,22 +184,11 @@ export const FontFamilyPreference = Schema.String.check(Schema.isMaxLength(200))
 
 export type FontFamilyPreference = typeof FontFamilyPreference.Type;
 
-export const DEFAULT_PRODUCT_FEEDBACK_ENDPOINT = "https://feedback.otto.localhost/v1/feedback";
-
 export const OTTO_DOCUMENTATION_URL = "https://github.com/hellogafaro/otto/blob/main";
 
 export const OTTO_PRIVACY_POLICY_VERSION = "2026-08-31";
 
 export const OTTO_TERMS_VERSION = "2026-08-31";
-
-export const ProductFeedbackEndpoint = TrimmedNonEmptyString.check(
-  Schema.isMaxLength(2_048),
-  Schema.isPattern(
-    /^(?:https:\/\/[a-z0-9.-]+(?::\d+)?|http:\/\/(?:localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::\d+)?)(?:\/[^\s]*)?$/i,
-  ),
-);
-
-export type ProductFeedbackEndpoint = typeof ProductFeedbackEndpoint.Type;
 
 /**
  * Defaults for the in-app preview browser, applied whenever a tab is opened

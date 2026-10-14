@@ -12,7 +12,6 @@ import {
   type OttoCreateRoutineInput,
   type ProviderRuntimeEvent,
   ThreadId,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   OTTO_CREATE_ROUTINE_TOOL_NAME,
 } from "@otto/contracts";
 
@@ -231,14 +230,12 @@ export function createApprovals(deps: {
       input.decision === "acceptForSession" &&
       !runtimeToolId &&
       !isCodexComputerUseTool(toolName) &&
-      !ottoActionNeedsApproval(toolName, toolInput) &&
-      toolName !== OTTO_PRODUCT_FEEDBACK_TOOL_NAME;
+      !ottoActionNeedsApproval(toolName, toolInput);
 
     const enableAutoReview =
       input.decision === "acceptAlways" &&
       !isCodexComputerUseTool(toolName) &&
       !ottoActionNeedsApproval(toolName, toolInput) &&
-      toolName !== OTTO_PRODUCT_FEEDBACK_TOOL_NAME &&
       toolName !== OTTO_CREATE_ROUTINE_TOOL_NAME;
 
     const target = pendingApproval.toolName;

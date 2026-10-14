@@ -1,8 +1,4 @@
-import {
-  OTTO_CREATE_ROUTINE_TOOL_NAME,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-  type ProviderApprovalDecision,
-} from "@otto/contracts";
+import { OTTO_CREATE_ROUTINE_TOOL_NAME, type ProviderApprovalDecision } from "@otto/contracts";
 import { Predicate } from "effect";
 import { cn } from "~/lib/utils";
 
@@ -30,9 +26,7 @@ export function BotApprovalPrompt({
 }) {
   const { t } = useI18n();
 
-  const isSpecialReview =
-    approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME ||
-    approval.toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME;
+  const isSpecialReview = approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME;
 
   const oneUse =
     !isSpecialReview &&
@@ -49,24 +43,26 @@ export function BotApprovalPrompt({
       ? t("Send this message?")
       : approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
         ? t("Review routine")
-        : approval.toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME
-          ? t("Review product feedback")
-          : approval.toolName === "Computer Use"
-            ? t("Use the computer?")
-            : approval.requestKind === "command" && approval.toolName && !toolCommand
-              ? t("Allow {tool}?", { tool: approval.toolName })
-              : approval.requestKind === "command"
-                ? t("Run this command?")
-                : approval.requestKind === "file-read"
-                  ? t("Read this file?")
-                  : approval.requestKind === "file-change"
-                    ? t("Change this file?")
-                    : t("Allow app access?");
+        : approval.toolName === "Computer Use"
+          ? t("Use the computer?")
+          : approval.requestKind === "command" && approval.toolName && !toolCommand
+            ? t("Allow {tool}?", { tool: approval.toolName })
+            : approval.requestKind === "command"
+              ? t("Run this command?")
+              : approval.requestKind === "file-read"
+                ? t("Read this file?")
+                : approval.requestKind === "file-change"
+                  ? t("Change this file?")
+                  : t("Allow app access?");
 
   return (
     <section
       aria-label={t("Approval required")}
-      className={cn(BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME, BOT_COMPOSER_DOCKED_PANEL_CLASS_NAME)}
+      className={cn(
+        BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME,
+        BOT_COMPOSER_DOCKED_PANEL_CLASS_NAME,
+        "px-4 pt-4 pb-0",
+      )}
       data-testid="bot-approval-prompt"
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -89,7 +85,12 @@ export function BotApprovalPrompt({
         className="mt-2"
         hideLabel
       />
-      <div className="mt-2.5 flex flex-wrap items-center justify-end gap-1.5">
+      {error ? (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <div className="-mx-4 mt-4 flex flex-wrap items-center justify-end gap-2 border-t px-4 py-3">
         <ComposerPendingApprovalActions
           requestId={approval.requestId}
           requestKind={approval.requestKind}
@@ -99,11 +100,6 @@ export function BotApprovalPrompt({
           onRespondToApproval={(_requestId, decision) => onRespond(decision)}
         />
       </div>
-      {error ? (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {error}
-        </p>
-      ) : null}
     </section>
   );
 }

@@ -124,14 +124,8 @@ describe("settings panels in Simplified Chinese", () => {
           <AdvancedSettingsSections />
         </>,
       ),
-      [zhCNCatalog["Workspace"]!, "后台工作", "故障排除", zhCNCatalog["Feedback endpoint"]!],
-      [
-        ">Workspace<",
-        "Background work",
-        "Troubleshooting",
-        "Feedback endpoint",
-        "View diagnostics",
-      ],
+      [zhCNCatalog["Workspace"]!, "后台工作", "故障排除"],
+      [">Workspace<", "Background work", "Troubleshooting", "View diagnostics"],
     );
   });
 

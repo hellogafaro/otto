@@ -189,19 +189,6 @@
                 "globalTimers": "off"
               }
             }
-          },
-          {
-            // The feedback Worker is a plain Cloudflare fetch handler with no Effect runtime.
-            // fetch, console, Date, and crypto are the Workers platform APIs it is built on.
-            "include": ["**/infra/feedback/**/*.ts"],
-            "options": {
-              "diagnosticSeverity": {
-                "cryptoRandomUUID": "off",
-                "globalConsole": "off",
-                "globalDate": "off",
-                "globalFetch": "off"
-              }
-            }
           }
         ]
       }

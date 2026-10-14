@@ -7,7 +7,6 @@ import {
   OTTO_TOOL_CATALOG,
   BALANCED_BOT_PERSONALITY_TONE,
   DEFAULT_BOT_SANDBOX_BROWSER_SHARING,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   type OttoDelegationAccessGrant,
 } from "@otto/contracts";
 
@@ -613,7 +612,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         new Set([
           ...deps.toolRuntime.toolsForThread(key).map((tool) => tool.id),
           ...Object.keys(deps.sessionResources.getConnectorTools(key)),
-          OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
           "RestartMcpServers",
         ]),
         (toolName) =>

@@ -70,7 +70,7 @@ Codex, Claude, Grok, Kimi For Coding, and OpenCode Go run on the Mastra controll
 
 ## Privacy
 
-Prompts and image bytes stay inside the runtime and the provider request. Orchestration events carry attachment metadata only, usage rows carry provider, model, and tokens, and logs carry the thread id. The tool result returned to the model lists artifact metadata, not bytes or the raw provider response. Nothing about the request reaches analytics, observational memory, entity memory, or product feedback.
+Prompts and image bytes stay inside the runtime and the provider request. Orchestration events carry attachment metadata only, usage rows carry provider, model, and tokens, and logs carry the thread id. The tool result returned to the model lists artifact metadata, not bytes or the raw provider response. Nothing about the request reaches observational memory or entity memory.
 
 ## Attachment actions
 

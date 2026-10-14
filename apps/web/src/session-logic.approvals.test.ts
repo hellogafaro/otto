@@ -27,24 +27,24 @@ describe("derivePendingApprovals", () => {
     expect(approvals[0]).toMatchObject({ requestId: "shell-1", args });
   });
 
-  it("keeps feedback tool arguments for the editable draft", () => {
-    const args = { feedback: "The button is unresponsive." };
+  it("keeps routine tool arguments for the approval preview", () => {
+    const args = { name: "Morning announcement", schedule: { kind: "daily", time: "08:00" } };
 
     const approvals = derivePendingApprovals([
       makeActivity({
         kind: "approval.requested",
         tone: "approval",
         payload: {
-          requestId: "feedback-approval",
+          requestId: "routine-approval",
           requestType: "dynamic_tool_call",
-          toolName: "otto_product_feedback",
+          toolName: "otto_create_routine",
           args,
         },
       }),
     ]);
 
     expect(approvals[0]).toMatchObject({
-      toolName: "otto_product_feedback",
+      toolName: "otto_create_routine",
       args,
     });
   });

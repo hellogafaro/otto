@@ -1,38 +1,81 @@
-import { RiErrorWarningLine, RiCheckboxCircleLine, RiTimeLine } from "@remixicon/react";
+import { RiArrowRightSLine, RiTimeLine } from "@remixicon/react";
+import { Link } from "@tanstack/react-router";
 import { Match } from "effect";
 
 import { cn } from "~/lib/utils";
 
 import { useI18n } from "../../i18n";
-import type { RoutineReceipt } from "./routineReceipts";
+import { StatusIcon, type StatusKind } from "../StatusIcon";
+import type { RoutineReceipt, RoutineReceiptStatus } from "./routineReceipts";
 
-/** A routine run note in the routine's own chat. */
+const STATUS_ICON: Record<Exclude<RoutineReceiptStatus, "created">, StatusKind> = {
+  running: "in_progress",
+  completed: "completed",
+  failed: "error",
+  canceled: "cancelled",
+};
+
+/**
+ * A routine's creation or one of its runs in the routine's chat: a two-line card that opens
+ * the routine, with the run's live status, or why it failed in place of the status word.
+ */
 export function RoutineReceiptRow({ receipt }: { readonly receipt: RoutineReceipt }) {
-  const { formatDate } = useI18n();
+  const { formatDate, t } = useI18n();
+  const time = formatDate(new Date(receipt.settledAt), { hour: "numeric", minute: "2-digit" });
 
-  const Icon = Match.value(receipt).pipe(
-    Match.when({ tone: "error" }, () => RiErrorWarningLine),
-    Match.when({ tone: "success" }, () => RiCheckboxCircleLine),
-    Match.orElse(() => RiTimeLine),
+  const label = Match.value(receipt.status).pipe(
+    Match.when("created", () => (receipt.archived ? t("Routine deleted") : t("Routine created"))),
+    Match.when("running", () => t("Running")),
+    Match.when("completed", () => t("Run finished")),
+    Match.when("failed", () => t("Run failed")),
+    Match.when("canceled", () => t("Run canceled")),
+    Match.exhaustive,
   );
 
-  const error = receipt.tone === "error";
+  const content = (
+    <>
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <RiTimeLine aria-hidden="true" className="size-4" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium text-foreground">{receipt.title}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          {receipt.status === "created" ? null : (
+            <StatusIcon status={STATUS_ICON[receipt.status]} className="size-3 shrink-0" />
+          )}
+          <span className="flex min-w-0">
+            {receipt.detail ? (
+              <span className="min-w-0 truncate text-destructive-foreground">{receipt.detail}</span>
+            ) : (
+              <span className="shrink-0">{label}</span>
+            )}
+            <span className="shrink-0 whitespace-pre"> · {time}</span>
+          </span>
+        </span>
+      </span>
+      {receipt.archived ? null : (
+        <RiArrowRightSLine aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      )}
+    </>
+  );
+
+  const cardClassName =
+    "flex w-full max-w-sm items-center gap-2.5 rounded-lg border bg-card p-2 pr-3 text-left";
 
   return (
-    <div
-      className={cn(
-        "mx-auto flex w-full max-w-3xl items-start gap-2 rounded-md px-2 py-2 text-xs text-muted-foreground",
-        error && "bg-destructive/8 text-destructive-foreground",
+    <div className="mx-auto w-full max-w-3xl py-1" data-testid="routine-receipt">
+      {receipt.archived ? (
+        <div className={cardClassName}>{content}</div>
+      ) : (
+        <Link
+          to="/routines/$routineId"
+          params={{ routineId: receipt.routineId }}
+          aria-label={receipt.text}
+          className={cn(cardClassName, "transition-colors hover:bg-accent")}
+        >
+          {content}
+        </Link>
       )}
-      data-testid="routine-receipt"
-    >
-      <Icon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-      <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-5">
-        {receipt.text}
-      </span>
-      <time className="shrink-0 text-11px text-muted-foreground/60" dateTime={receipt.createdAt}>
-        {formatDate(new Date(receipt.createdAt), { hour: "numeric", minute: "2-digit" })}
-      </time>
     </div>
   );
 }

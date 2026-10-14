@@ -773,7 +773,6 @@ export {
 export { resolveOttoInstructions } from "./mastra/OttoInstructions.ts";
 
 export {
-  productFeedbackToolInputSchema,
   OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,

@@ -9,7 +9,6 @@ import {
   isThreadErrorBannerDismissedForSession,
   shouldShowThreadErrorBanner,
   ThreadErrorBanner,
-  threadErrorFeedbackDraft,
 } from "./ThreadErrorBanner";
 
 describe("ThreadErrorBanner", () => {
@@ -72,7 +71,7 @@ describe("ThreadErrorBanner", () => {
   it("never shows a null error", () => {
     expect(shouldShowThreadErrorBanner("env:thread-e", null, false)).toBe(false);
   });
-  it("shows a concise summary and keeps technical details collapsed", () => {
+  it("shows a concise summary from the first error line only", () => {
     const markup = renderToStaticMarkup(
       <ThreadErrorBanner
         error={"The first error line\ncontinues on a second line"}
@@ -84,38 +83,23 @@ describe("ThreadErrorBanner", () => {
     expect(markup).toContain('role="alert"');
     expect(markup).toContain('aria-label="Dismiss error"');
     expect(markup).toContain("The bot couldn’t finish that request");
-    expect(markup).toContain("Technical details");
+    expect(markup).toContain(">The first error line<");
     expect(markup).not.toContain("continues on a second line");
   });
 
-  it("offers a feedback draft without raw provider details", () => {
+  it("names an unknown failure in its own words, and that line opens the whole error", () => {
+    const error =
+      "Cannot connect to API:\n    at run (file:///home/leo/app.ts:1:2)\nCaused by: ECONNREFUSED";
+
     const markup = renderToStaticMarkup(
-      <ThreadErrorBanner error="Provider crashed" threadKey="env:thread-feedback" />,
+      <ThreadErrorBanner error={error} threadKey="env:thread-unknown" />,
     );
 
-    expect(markup).toContain("Send feedback");
-
-    const draft = threadErrorFeedbackDraft(
-      "Provider crashed on request req-123 at file:///home/leo/private.ts:1 with account passphrase winter-heron",
-    );
-
-    expect(draft).toContain("The bot couldn’t finish that request");
-    expect(draft).not.toContain("req-123");
-    expect(draft).not.toContain("/home/leo");
-    expect(draft).not.toContain("winter-heron");
+    expect(markup).toMatch(/aria-label="Full error"[^>]*><span[^>]*>Cannot connect to API</);
+    expect(markup).not.toContain("/home/leo");
   });
 
-  it("does not ask for feedback about a rate limit or a dropped connection", () => {
-    for (const error of ["429 Too Many Requests", "WebSocket disconnected"]) {
-      const markup = renderToStaticMarkup(
-        <ThreadErrorBanner error={error} threadKey={`env:thread-${error}`} />,
-      );
-
-      expect(markup).not.toContain("Send feedback");
-    }
-  });
-
-  it("offers Resume for a recoverable failed request", () => {
+  it("offers Try again for a recoverable failed request", () => {
     const markup = renderToStaticMarkup(
       <ThreadErrorBanner
         error="Automatic recovery failed"
@@ -124,7 +108,7 @@ describe("ThreadErrorBanner", () => {
       />,
     );
 
-    expect(markup).toContain(">Resume<");
+    expect(markup).toContain(">Try again<");
   });
 
   it("turns a disabled provider exception into an actionable message", () => {
@@ -145,7 +129,6 @@ describe("ThreadErrorBanner", () => {
 
     expect(markup).toContain("ChatGPT is turned off");
     expect(markup).toContain(">Open Providers<");
-    expect(markup).not.toContain("Send feedback");
     expect(markup).not.toContain("AgentController.inspectEngine");
     expect(markup).not.toContain("/home/leo");
 
@@ -174,7 +157,6 @@ describe("ThreadErrorBanner", () => {
     expect(markup).toContain("Claude sign-in expired");
     expect(markup).toContain("Reconnect Claude in Settings &gt; Providers");
     expect(markup).toContain(">Open Providers<");
-    expect(markup).not.toContain("Send feedback");
   });
 
   it("shows the provider's logo and a button straight to its page", () => {

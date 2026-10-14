@@ -3,7 +3,6 @@ import type { TaskAgentLinkage, RuntimeTaskUsage, RuntimeTaskStatus } from "@ott
 import * as Predicate from "effect/Predicate";
 import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   ChatAttachment,
   OttoCreateRoutineInput,
   RoutineTimeZone,
@@ -16,7 +15,6 @@ import {
   TurnId,
   type OrchestrationCheckpointSummary,
   type ProviderRuntimeEvent,
-  ProductFeedbackToolDraft,
 } from "@otto/contracts";
 import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
@@ -97,10 +95,6 @@ export const MAX_BUFFERED_ASSISTANT_CHARS = 24_000;
 export const STRICT_PROVIDER_LIFECYCLE_GUARD =
   process.env.OTTO_LEGACY_STRICT_PROVIDER_LIFECYCLE_GUARD !== "0";
 
-export const decodeProductFeedbackToolDraft = Schema.decodeUnknownExit(ProductFeedbackToolDraft, {
-  onExcessProperty: "error",
-});
-
 export const decodeRuntimeChatAttachment = Schema.decodeUnknownOption(
   Schema.Struct({ chatAttachment: ChatAttachment }),
 );
@@ -127,12 +121,6 @@ export function boundedApprovalArgs(
   args: Extract<ProviderRuntimeEvent, { type: "request.opened" }>["payload"]["args"],
 ) {
   if (args === undefined) return undefined;
-
-  if (toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME) {
-    const decoded = decodeProductFeedbackToolDraft(args);
-
-    return Exit.isSuccess(decoded) ? decoded.value : undefined;
-  }
 
   if (toolName === OTTO_CREATE_ROUTINE_TOOL_NAME) {
     const decoded = decodeCreateRoutineInput(args);

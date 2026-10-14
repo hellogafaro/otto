@@ -447,6 +447,7 @@ export const commonLabelsCatalog = {
   "Wrap lines": "Wrap lines",
   "Checklist progress": "Checklist progress",
   "Copied error": "Copied error",
+  "Full error": "Full error",
   "Copy error": "Copy error",
   "Show details": "Show details",
   "Hide details": "Hide details",

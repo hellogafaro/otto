@@ -1,7 +1,6 @@
 import type { AgentControllerEvent } from "@mastra/core/agent-controller";
 import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   ApprovalRequestId,
   ProviderDriverKind,
   type ProviderRuntimeEvent,
@@ -27,7 +26,7 @@ import {
 import { mastraHarnessFixture } from "./test-support/agentControllerHarness.ts";
 
 describe("AgentControllerLive", () => {
-  it.effect("keeps product feedback approval-gated in full-access mode", () => {
+  it.effect("keeps protected tools approval-gated in full-access mode", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
 
@@ -47,10 +46,6 @@ describe("AgentControllerLive", () => {
         expect(mastra.session.state.set).toHaveBeenCalledWith(
           expect.objectContaining({ yolo: false }),
         );
-        expect(mastra.session.permissions.setForTool).toHaveBeenCalledWith({
-          toolName: OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-          policy: "ask",
-        });
         expect(mastra.session.permissions.setForTool).not.toHaveBeenCalledWith({
           toolName: OTTO_CREATE_ROUTINE_TOOL_NAME,
           policy: expect.anything(),
@@ -59,26 +54,6 @@ describe("AgentControllerLive", () => {
           toolName: "RestartMcpServers",
           policy: "ask",
         });
-
-        yield* controller.sendTurn({ threadId: codexThreadId, input: "Prepare feedback." });
-        mastra.emit({
-          type: "tool_approval_required",
-          toolCallId: "feedback-tool-1",
-          toolName: OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-          args: { feedback: "The button failed." },
-        } as AgentControllerEvent);
-        yield* Effect.yieldNow;
-        yield* controller.respondToRequest({
-          threadId: codexThreadId,
-          requestId: ApprovalRequestId.make("feedback-tool-1"),
-          decision: "acceptForSession",
-        });
-
-        expect(mastra.session.permissions.setForTool).not.toHaveBeenCalledWith({
-          toolName: OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-          policy: "allow",
-        });
-        mastra.finishSend();
       }),
       bridge.service,
       mastra.factory,

@@ -39,7 +39,6 @@ import * as RepositoryIdentityResolver from "../src/project/RepositoryIdentityRe
 import * as ServerLifecycleEvents from "../src/serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "../src/serverRuntimeStartup.ts";
 import * as ServerSettings from "../src/serverSettings.ts";
-import * as AnalyticsService from "../src/telemetry/AnalyticsService.ts";
 
 const providerInstanceId = ProviderInstanceId.make("codex");
 
@@ -112,7 +111,6 @@ const startupDependencies = Layer.mergeAll(
       serve: (() => Effect.void) as HttpServer.HttpServer["Service"]["serve"],
     }),
   ),
-  AnalyticsService.layerTest,
   Layer.succeed(AgentController.AgentController, {
     authenticateMcpServer: () => Effect.die("unused"),
     resolveEngine: () => Effect.die("unused"),

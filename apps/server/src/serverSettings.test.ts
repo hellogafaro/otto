@@ -5,14 +5,10 @@ import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as PlatformError from "effect/PlatformError";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
-import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ServerConfig from "./config.ts";
-import { SqlitePersistenceMemory } from "./persistence/Layers/Sqlite.ts";
 import * as ServerSettingsModule from "./serverSettings.ts";
 
 import {
@@ -37,71 +33,6 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         settingsPath: serverConfig.settingsPath,
       });
     }).pipe(Effect.provide(makeServerSettingsLayer())),
-  );
-
-  it.effect("reports an analytics opt-out deletion failure", () =>
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-
-      const baseDir = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "ottoLegacy-server-settings-analytics-opt-out-",
-      });
-
-      const configLayer = ServerConfig.layerTest(process.cwd(), baseDir);
-      const config = yield* ServerConfig.ServerConfig.pipe(Effect.provide(configLayer));
-
-      const cause = PlatformError.systemError({
-        _tag: "PermissionDenied",
-        module: "FileSystem",
-        method: "remove",
-        pathOrDescriptor: config.analyticsStatePath,
-      });
-
-      let failAnalyticsStateRemoval = true;
-
-      const failingFileSystem = FileSystem.FileSystem.of({
-        ...fileSystem,
-        remove: (path, options) =>
-          failAnalyticsStateRemoval && path === config.analyticsStatePath
-            ? Effect.fail(cause)
-            : fileSystem.remove(path, options),
-      });
-
-      const settingsLayer = ServerSettingsModule.layer.pipe(
-        Layer.provide(ServerSecretStore.layer),
-        Layer.provideMerge(Layer.fresh(SqlitePersistenceMemory)),
-        Layer.provideMerge(configLayer),
-        Layer.provide(Layer.succeed(FileSystem.FileSystem, failingFileSystem)),
-      );
-
-      yield* fileSystem.writeFileString(config.analyticsStatePath, "queued analytics");
-      yield* fileSystem.writeFileString(config.anonymousIdPath, "legacy identity");
-
-      const { error, stateRemained, analyticsEnabled } = yield* Effect.gen(function* () {
-        const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-
-        const error = yield* Effect.flip(
-          serverSettings.updateSettings({ analyticsEnabled: false }),
-        );
-
-        const stateRemained = yield* fileSystem.exists(config.analyticsStatePath);
-        failAnalyticsStateRemoval = false;
-        const settings = yield* serverSettings.updateSettings({ analyticsEnabled: false });
-
-        return { error, stateRemained, analyticsEnabled: settings.analyticsEnabled };
-      }).pipe(Effect.provide(settingsLayer));
-
-      assert.deepInclude(error, {
-        _tag: "ServerSettingsError",
-        operation: "remove-analytics-state",
-        settingsPath: config.analyticsStatePath,
-      });
-      assert.strictEqual(error.cause, cause);
-      assert.isTrue(stateRemained);
-      assert.isFalse(analyticsEnabled);
-      assert.isFalse(yield* fileSystem.exists(config.analyticsStatePath));
-      assert.isFalse(yield* fileSystem.exists(config.anonymousIdPath));
-    }),
   );
 
   it.effect("decodes nested settings patches", () =>

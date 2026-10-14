@@ -1,8 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { ProviderDriverKind } from "@otto/contracts";
-import { DEFAULT_UNIFIED_SETTINGS, ProductFeedbackEndpoint } from "@otto/contracts/settings";
+import { DEFAULT_UNIFIED_SETTINGS } from "@otto/contracts/settings";
 import * as Equal from "effect/Equal";
-import * as Schema from "effect/Schema";
 import { readAppearanceModePreference, useTheme } from "../../hooks/useTheme";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/useSettings";
 import { ensureLocalApi, readLocalApi } from "../../localApi";
@@ -13,8 +12,6 @@ import {
   hasChangedBackgroundActivitySettings,
 } from "./SettingsPanels.logic";
 import { useI18n } from "../../i18n";
-
-export const decodeProductFeedbackEndpoint = Schema.decodeUnknownExit(ProductFeedbackEndpoint);
 
 export const DEFAULT_DRIVER_KIND = ProviderDriverKind.make("codex");
 

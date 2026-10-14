@@ -198,7 +198,7 @@ export class AgentControllerUnsupportedEngineError extends Schema.TaggedErrorCla
     model: Schema.String,
     detail: Schema.String,
     // Set when the user can fix the failure, so the chat names the fix instead
-    // of asking for feedback.
+    // of asking for a retry.
     unavailability: Schema.optional(ServerProviderUnavailability),
     cause: Schema.optional(Schema.Defect()),
   },

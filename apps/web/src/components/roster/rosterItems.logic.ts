@@ -1,4 +1,8 @@
-export type RosterItemRef = { kind: "bot"; id: string } | { kind: "group"; id: string };
+/** A sidebar row: a bot, a group, or one bot chat (its thread id) pinned to Pins. */
+export type RosterItemRef =
+  | { kind: "bot"; id: string }
+  | { kind: "group"; id: string }
+  | { kind: "chat"; id: string };
 
 export function rosterItemKey(item: RosterItemRef): string {
   return `${item.kind}:${item.id}`;

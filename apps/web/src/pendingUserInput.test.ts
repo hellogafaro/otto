@@ -108,7 +108,7 @@ describe("togglePendingUserInputOptionSelection", () => {
 describe("applyPendingUserInputOptionSelection", () => {
   const second = { ...singleSelectQuestion, id: "second" };
 
-  it("sends a lone single-select question on click", () => {
+  it("only selects a lone single-select pick; sending waits for the Send button", () => {
     expect(
       applyPendingUserInputOptionSelection(
         [singleSelectQuestion],
@@ -120,12 +120,11 @@ describe("applyPendingUserInputOptionSelection", () => {
       draftAnswers: {
         scope: { customAnswer: "", selectedOptionLabels: ["Orchestration-first"] },
       },
-      answers: { scope: "Orchestration-first" },
       nextStep: 0,
     });
   });
 
-  it("moves to the next step instead of sending, even once every answer is in", () => {
+  it("moves to the next step once a single pick is in", () => {
     const draftAnswers = { second: { selectedOptionLabels: ["Orchestration-first"] } };
 
     expect(
@@ -135,10 +134,10 @@ describe("applyPendingUserInputOptionSelection", () => {
         "scope",
         "Orchestration-first",
       ),
-    ).toMatchObject({ answers: null, nextStep: 1 });
+    ).toMatchObject({ nextStep: 1 });
   });
 
-  it("sends from the last step once every question is answered", () => {
+  it("stays on the last step without sending once every question is answered", () => {
     const draftAnswers = { scope: { selectedOptionLabels: ["Orchestration-first"] } };
 
     expect(
@@ -148,8 +147,12 @@ describe("applyPendingUserInputOptionSelection", () => {
         "second",
         "Orchestration-first",
       ),
-    ).toMatchObject({
-      answers: { scope: "Orchestration-first", second: "Orchestration-first" },
+    ).toEqual({
+      draftAnswers: {
+        scope: { selectedOptionLabels: ["Orchestration-first"] },
+        second: { customAnswer: "", selectedOptionLabels: ["Orchestration-first"] },
+      },
+      nextStep: 1,
     });
   });
 
@@ -161,7 +164,7 @@ describe("applyPendingUserInputOptionSelection", () => {
         "second",
         "Orchestration-first",
       ),
-    ).toMatchObject({ answers: null, nextStep: 0 });
+    ).toMatchObject({ nextStep: 0 });
   });
 
   it("keeps a multi-select step open while picks toggle", () => {
@@ -172,7 +175,7 @@ describe("applyPendingUserInputOptionSelection", () => {
         "areas",
         multiSelectQuestion.options[0].label,
       ),
-    ).toMatchObject({ answers: null, nextStep: 1 });
+    ).toMatchObject({ nextStep: 1 });
   });
 
   it("ignores options the question does not offer", () => {

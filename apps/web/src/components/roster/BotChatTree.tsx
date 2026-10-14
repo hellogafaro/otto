@@ -1,14 +1,25 @@
-import { useMemo } from "react";
+import { RiArchiveLine, RiDeleteBinLine, RiPushpinLine, RiRadioButtonLine } from "@remixicon/react";
+import { scopeThreadRef } from "@otto/client-runtime/environment";
+import { useMemo, useRef } from "react";
+
+import { useChatActions } from "../../hooks/useChatActions";
 
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { useThreadShells } from "../../state/entities";
+import { MenuItem, MenuSeparator } from "../ui/menu";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { formatRelativeTime } from "../../timestampFormat";
 import { buildBotChatRows } from "./botChats.logic";
 import { ThreadStatusIcon } from "./ChatStatusIcon";
 import { listBotChats } from "./botThreadRuntime.logic";
-import { ROSTER_TIME_CLASS, ROSTER_TRAIL_CLASS } from "./rosterRowClasses";
+import {
+  ROSTER_TIME_CLASS,
+  ROSTER_TRAIL_ACTIONS_CLASS,
+  ROSTER_TRAIL_CLASS,
+  ROSTER_TRAIL_INFO_CLASS,
+} from "./rosterRowClasses";
+import { RosterRowAction, RosterRowMore } from "./RosterRowActions";
 import { useRosterStore } from "./rosterStore";
 
 /** The bot's chats, newest first; the roster lists them once there are two. */
@@ -33,22 +44,31 @@ export function BotChatTree({
   botId,
   chats,
   chatOpen,
+  pinnedIds,
+  botPinned,
   onOpen,
 }: {
   readonly botId: string;
   readonly chats: ReturnType<typeof useBotChats>;
   /** The bot's own chat view is showing, so its open chat is marked. */
   readonly chatOpen: boolean;
+  /** This bot's chats pinned to Pins, which list there instead. */
+  readonly pinnedIds: ReadonlySet<string>;
+  /** The whole bot is in Pins, so its chats are already there and offer no Pin. */
+  readonly botPinned: boolean;
   /** Shows the bot's chat view once the chosen chat is set. */
   readonly onOpen: () => void;
 }) {
   const { t } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
   const openChatId = useRosterStore((state) => state.openChatByBotId[botId] ?? null);
+  const actions = useChatActions();
+  const menuTriggers = useRef(new Map<string, HTMLButtonElement>());
 
   const rows = buildBotChatRows({
     chats,
     currentThreadId: chatOpen ? (openChatId ?? chats[0]?.id ?? null) : null,
+    pinnedIds,
   });
 
   return (
@@ -64,10 +84,19 @@ export function BotChatTree({
       {rows.map((row) => {
         const relative = formatRelativeTime(row.updatedAt);
         const shell = chats.find((chat) => chat.id === row.threadId);
+        const title = row.title ?? t("Untitled chat");
+        const threadRef = environmentId && shell ? scopeThreadRef(environmentId, shell.id) : null;
 
         return (
           <li
             key={row.threadId}
+            onContextMenu={(event) => {
+              const trigger = menuTriggers.current.get(row.threadId);
+
+              if (!trigger) return;
+              event.preventDefault();
+              trigger.click();
+            }}
             className={cn(
               "group/row relative list-none rounded-md",
               row.current ? "sidebar-row-current" : "sidebar-row-plain hover:sidebar-row-hovered",
@@ -93,12 +122,10 @@ export function BotChatTree({
                   : "text-sidebar-foreground/80 group-hover/row:text-sidebar-foreground dark:text-sidebar-foreground/68",
               )}
             >
-              <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
-                {row.title ?? t("Untitled chat")}
-              </span>
+              <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">{title}</span>
             </button>
             <span className={ROSTER_TRAIL_CLASS}>
-              <span className="flex items-center gap-2 pe-1.5">
+              <span className={ROSTER_TRAIL_INFO_CLASS}>
                 {environmentId && shell ? (
                   <ThreadStatusIcon
                     environmentId={environmentId}
@@ -110,6 +137,43 @@ export function BotChatTree({
                   {relative?.suffix ? relative.value : t("now")}
                 </span>
               </span>
+              {threadRef ? (
+                <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
+                  {botPinned ? null : (
+                    <RosterRowAction
+                      label={t("Pin")}
+                      icon={RiPushpinLine}
+                      onClick={() =>
+                        useRosterStore
+                          .getState()
+                          .setItemPinned({ kind: "chat", id: row.threadId }, true)
+                      }
+                    />
+                  )}
+                  <RosterRowAction
+                    label={t("Archive")}
+                    icon={RiArchiveLine}
+                    onClick={() => void actions.archive(threadRef)}
+                  />
+                  <RosterRowMore
+                    label={t("Actions for {name}", { name: title })}
+                    triggerRef={(node) => {
+                      if (node) menuTriggers.current.set(row.threadId, node);
+                      else menuTriggers.current.delete(row.threadId);
+                    }}
+                  >
+                    <MenuItem onClick={() => actions.markUnread(threadRef)}>
+                      <RiRadioButtonLine />
+                      {t("Mark unread")}
+                    </MenuItem>
+                    <MenuSeparator />
+                    <MenuItem variant="destructive" onClick={() => void actions.delete(threadRef)}>
+                      <RiDeleteBinLine />
+                      {t("Delete chat")}
+                    </MenuItem>
+                  </RosterRowMore>
+                </span>
+              ) : null}
             </span>
           </li>
         );

@@ -3,7 +3,6 @@ export const settingsCatalog = {
   "Otto runs locally. Provider prompts and enabled online features still send data to their listed services.":
     "Otto 在本地运行。提供商提示词和已启用的在线功能仍会将数据发送到其列出的服务。",
   "All providers": "全部提供商",
-  Analytics: "分析",
   "Anonymous analytics": "匿名分析",
   "Camera access was denied for this app. Open Settings to enable it.":
     "此应用的相机权限已被拒绝。请打开设置以启用。",
@@ -303,10 +302,6 @@ export const settingsCatalog = {
   "Update confirmation failed.": "更新确认失败。",
   "Automatic updates are not available in this build.": "此版本不支持自动更新。",
   "Update check failed.": "检查更新失败。",
-  "Share anonymous usage counts and app details. Prompts, files, and provider account IDs are excluded.":
-    "共享匿名使用次数和应用信息。不包括提示词、文件和提供商账户 ID。",
-  "anonymous analytics": "匿名分析",
-  "Send anonymous analytics": "发送匿名分析数据",
   "Desktop updates": "桌面端更新",
   "Signed desktop builds contact the configured release host to check for and download updates.":
     "已签名的桌面端版本会联系配置的发布主机，以检查和下载更新。",

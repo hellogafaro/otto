@@ -69,7 +69,7 @@ These chat commands have no default shortcut. Add one from **Settings > Keyboard
 it.
 
 The command palette runs app actions: switch between light and dark mode, toggle the theme editor,
-and open plugins, usage, feedback, archived chats, or settings. While a chat is open, it also lists
+and open plugins, usage, archived chats, or settings. While a chat is open, it also lists
 that chat's actions under **This chat**. Type to filter the list. Typing also searches your chats
 by title and message under **Chats**; see [Organize chats](./chats.md#find-a-chat).
 

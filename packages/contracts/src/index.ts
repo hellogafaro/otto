@@ -8,13 +8,9 @@ export * from "./ottoDelegation.ts";
 
 export * from "./ottoWorkers.ts";
 
-export * from "./productFeedback.ts";
-
 export * from "./ottoMemory.ts";
 
 export * from "./ottoUsage.ts";
-
-export * from "./analytics.ts";
 
 export * from "./routines.ts";
 
@@ -87,4 +83,5 @@ export * from "./portability.ts";
 export * from "./rpc.ts";
 
 export * from "./remoteDiagnostics.ts";
+
 export * from "./organization.ts";

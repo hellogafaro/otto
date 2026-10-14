@@ -29,7 +29,9 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { DetailsTabs } from "../DetailsAside";
 import { Button } from "../ui/button";
 import { DataGrid } from "../ui/data-grid";
+import { SkeletonCards } from "../ui/skeleton";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
 import { participantName } from "../work/WorkParticipants";
 import { WorkEmpty, WorkPage } from "../work/WorkPages";
@@ -132,21 +134,36 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
 
   const newMenu = environmentId ? (
     <Menu>
-      <MenuTrigger
-        render={
-          empty ? (
+      {empty ? (
+        <MenuTrigger
+          render={
             <Button>
               <RiAddLine />
               {t("New")}
             </Button>
-          ) : (
-            <Button size="sm" variant="outline" disabled={uploading}>
-              <RiAddLine />
-              {t("New")}
-            </Button>
-          )
-        }
-      />
+          }
+        />
+      ) : (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <MenuTrigger
+                render={
+                  <Button
+                    size="icon"
+                    variant="ghost-muted"
+                    aria-label={t("New")}
+                    disabled={uploading}
+                  >
+                    <RiAddLine aria-hidden className="size-4" />
+                  </Button>
+                }
+              />
+            }
+          />
+          <TooltipPopup side="bottom">{t("New")}</TooltipPopup>
+        </Tooltip>
+      )}
       <MenuPopup align="end" className="min-w-44">
         <MenuItem disabled={!canAddFiles} onClick={() => void newDocument()}>
           <RiFileTextLine />
@@ -185,7 +202,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
           if (environmentId && chosen.length > 0) void upload(environmentId, chosen, { folderId });
         }}
       />
-      {!loaded ? null : empty ? (
+      {empty ? (
         <WorkEmpty
           icon={<RiBookShelfLine />}
           title={t("No files")}
@@ -245,7 +262,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
                 ))}
               </nav>
             ) : null}
-            <div className="px-3">
+            <div className="px-2">
               <DetailsTabs
                 label={t("Library tabs")}
                 tabs={tabs}
@@ -256,7 +273,9 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
               />
             </div>
           </div>
-          {shownFolders.length === 0 && shownFiles.length === 0 ? (
+          {!loaded ? (
+            <SkeletonCards label={t("Loading files…")} />
+          ) : shownFolders.length === 0 && shownFiles.length === 0 ? (
             <p className="px-4 text-13px text-muted-foreground">
               {tab === "all" ? t("This folder is empty.") : t("Nothing here yet.")}
             </p>

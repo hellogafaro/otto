@@ -67,7 +67,6 @@ describe("command palette in Simplified Chinese", () => {
       "切换到浅色模式",
       "打开插件",
       "打开用量",
-      zhCNCatalog["Send feedback"],
       zhCNCatalog["Open settings"],
       zhCNCatalog["Actions"],
     ]) {

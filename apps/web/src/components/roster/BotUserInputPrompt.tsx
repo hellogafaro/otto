@@ -39,7 +39,11 @@ export function BotUserInputPrompt({
   return (
     <section
       aria-label={t("Question")}
-      className={cn(BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME, BOT_COMPOSER_DOCKED_PANEL_CLASS_NAME)}
+      className={cn(
+        BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME,
+        BOT_COMPOSER_DOCKED_PANEL_CLASS_NAME,
+        "p-0",
+      )}
       data-testid="bot-user-input-prompt"
     >
       <ComposerPendingUserInputPanel

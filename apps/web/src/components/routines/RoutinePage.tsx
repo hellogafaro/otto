@@ -102,11 +102,11 @@ function RoutineDetail({
   const failed = routine.lifecycle === "failed" || routine.lifecycle === "blocked";
 
   const status: { readonly icon: StatusKind; readonly label: string } = running
-    ? { icon: "working", label: t("Running") }
+    ? { icon: "in_progress", label: t("Running") }
     : failed
       ? { icon: "error", label: t("Failed") }
       : routine.enabled
-        ? { icon: "in_progress", label: t("Active") }
+        ? { icon: "pending", label: t("Active") }
         : { icon: "paused", label: t("Paused") };
 
   const botName = bot?.name ?? t("Unknown bot");

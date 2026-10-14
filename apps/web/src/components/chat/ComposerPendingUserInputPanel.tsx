@@ -10,9 +10,21 @@ import {
   resolvePendingUserInputAnswer,
 } from "../../pendingUserInput";
 import { type PendingUserInput } from "../../session-logic";
-import { Button } from "../ui/button";
 import { Card } from "../ui/card";
-import { ChoiceButton, OwnAnswerRow } from "./PendingUserInputChoices";
+import {
+  Questionnaire,
+  QuestionnaireActions,
+  QuestionnaireChoice,
+  QuestionnaireChoiceDescription,
+  QuestionnaireChoices,
+  QuestionnaireInput,
+  QuestionnaireItem,
+  QuestionnaireNext,
+  QuestionnairePrevious,
+  QuestionnaireProgress,
+  QuestionnaireSubmit,
+  QuestionnaireTitle,
+} from "../ui/questionnaire";
 
 interface PendingUserInputPanelProps {
   pendingUserInputs: PendingUserInput[];
@@ -30,10 +42,10 @@ interface PendingUserInputPanelProps {
 }
 
 /**
- * The bot's open question as one card that shows a single question at a time. A single-choice
- * pick moves to the next question and the last one sends; multi-select steps wait for Next.
- * Number keys pick options on the question on screen, other typing goes to the own-answer row,
- * and Enter moves on.
+ * The bot's open question as one card built on shadcn's Questionnaire, one question at a
+ * time. A single-choice pick moves to the next question and the last one sends; multi-select
+ * steps wait for Next. Number keys pick options on the question on screen, other typing goes
+ * to the own-answer field, and Enter moves on.
  */
 export const ComposerPendingUserInputPanel = memo(function ComposerPendingUserInputPanel({
   pendingUserInputs,
@@ -48,13 +60,13 @@ export const ComposerPendingUserInputPanel = memo(function ComposerPendingUserIn
 }: PendingUserInputPanelProps) {
   const activePrompt = pendingUserInputs[0];
 
-  if (!activePrompt) return null;
+  // Once the answer is on its way the card goes at once, so it never sits beside the reply.
+  if (!activePrompt || respondingRequestIds.includes(activePrompt.requestId)) return null;
 
   return (
     <PendingUserInputCard
       key={activePrompt.requestId}
       prompt={activePrompt}
-      isResponding={respondingRequestIds.includes(activePrompt.requestId)}
       answers={answers}
       step={step}
       onStepChange={onStepChange}
@@ -87,7 +99,6 @@ function isInteractiveTarget(target: EventTarget | null) {
 
 function PendingUserInputCard({
   prompt,
-  isResponding,
   answers,
   step: requestedStep,
   onStepChange,
@@ -97,7 +108,6 @@ function PendingUserInputCard({
   surface,
 }: {
   prompt: PendingUserInput;
-  isResponding: boolean;
   answers: Record<string, PendingUserInputDraftAnswer>;
   step: number;
   onStepChange: (step: number) => void;
@@ -117,42 +127,33 @@ function PendingUserInputCard({
     ? resolvePendingUserInputAnswer(question, answers[question.id])
     : null;
 
-  const sendsOnClick = questions.length === 1 && question?.multiSelect === false;
-
-  // Back slides the previous question in from the left; every other move comes from the right.
-  const [shown, setShown] = useState({ step, direction: "forward" });
   const ownAnswerRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLElement>(null);
 
-  if (shown.step !== step) setShown({ step, direction: step < shown.step ? "back" : "forward" });
-
-  const primary = sendsOnClick
-    ? null
-    : isLastStep
-      ? { label: t("Submit"), enabled: complete && onSubmit !== undefined, run: () => onSubmit?.() }
-      : { label: t("Next"), enabled: stepAnswered !== null, run: () => onStepChange(step + 1) };
-
   useEffect(() => {
-    if (!question || isResponding) return;
+    if (!question) return;
 
+    // Keys inside the card belong to the Questionnaire; this takes them from anywhere else.
     const handler = (event: globalThis.KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
 
-      if (event.key === "Enter") {
-        if (event.defaultPrevented || isInteractiveTarget(event.target) || !primary?.enabled) {
-          return;
-        }
+      const target = event.target instanceof Node ? event.target : null;
 
-        event.preventDefault();
-        primary.run();
+      if (cardRef.current?.contains(target) || isInteractiveTarget(event.target)) return;
+
+      if (event.key === "Enter") {
+        if (event.defaultPrevented) return;
+
+        if (isLastStep && complete && onSubmit) {
+          event.preventDefault();
+          onSubmit();
+        } else if (!isLastStep && stepAnswered !== null) {
+          event.preventDefault();
+          onStepChange(step + 1);
+        }
 
         return;
       }
-
-      // A key pressed on some other control on the page belongs to that control.
-      const target = event.target instanceof Node ? event.target : null;
-
-      if (isInteractiveTarget(event.target) && !cardRef.current?.contains(target)) return;
 
       const action = pendingUserInputKeyAction(event.key, question.options.length);
       const option = action?.kind === "pick" ? question.options[action.optionIndex] : undefined;
@@ -169,67 +170,59 @@ function PendingUserInputCard({
     document.addEventListener("keydown", handler);
 
     return () => document.removeEventListener("keydown", handler);
-  }, [question, isResponding, onSelectOption, primary]);
+  }, [complete, isLastStep, onSelectOption, onStepChange, onSubmit, question, step, stepAnswered]);
 
   if (!question) return null;
 
   const body = (
-    <div className="flex flex-col gap-3.5 px-4 pt-3.5 pb-3.5">
+    <Questionnaire
+      items={questions.map((entry) => ({
+        name: entry.id,
+        required: true,
+        choices: entry.options.map((option) => ({ value: option.label })),
+      }))}
+      item={question.id}
+      onItemChange={(name) => {
+        const index = questions.findIndex((entry) => entry.id === name);
+
+        if (index >= 0) onStepChange(index);
+      }}
+      shortcuts="numbers"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+
+        if (complete) onSubmit?.();
+      }}
+    >
       {questions.length > 1 ? (
-        <div className="flex items-center gap-3">
-          <div className="flex flex-1 gap-1" aria-hidden="true">
-            {questions.map((entry, index) => (
-              <span
-                key={entry.id}
-                className="gen-step h-1 flex-1 rounded-full"
-                data-state={
-                  index === step
-                    ? "current"
-                    : resolvePendingUserInputAnswer(entry, answers[entry.id])
-                      ? "done"
-                      : "todo"
-                }
-              />
-            ))}
-          </div>
-          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-            {t("{step} of {total}", { step: String(step + 1), total: String(questions.length) })}
-          </span>
-        </div>
+        <QuestionnaireProgress>
+          {t("{step} of {total}", { step: String(step + 1), total: String(questions.length) })}
+        </QuestionnaireProgress>
       ) : null}
-      <div
-        key={question.id}
-        className={shown.direction === "back" ? "motion-page-back" : "motion-page-forward"}
-      >
+      {questions.map((entry) => (
         <PendingQuestion
-          question={question}
-          draft={answers[question.id]}
-          disabled={isResponding}
+          key={entry.id}
+          question={entry}
+          draft={answers[entry.id]}
           onSelectOption={onSelectOption}
           onAnswerWithText={onAnswerWithText}
-          ownAnswerRef={ownAnswerRef}
+          ownAnswerRef={entry.id === question.id ? ownAnswerRef : undefined}
         />
-      </div>
-      <div className="flex items-center gap-3">
-        {step > 0 ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={isResponding}
-            onClick={() => onStepChange(step - 1)}
-          >
-            <RiArrowLeftSLine />
-            {t("Back")}
-          </Button>
-        ) : null}
-        <span className="flex-1" />
-        {primary ? (
-          <Button size="sm" disabled={isResponding || !primary.enabled} onClick={primary.run}>
-            {primary.label}
-          </Button>
-        ) : null}
-      </div>
-    </div>
+      ))}
+      <QuestionnaireActions>
+        <QuestionnairePrevious size="sm" variant="ghost-muted">
+          <RiArrowLeftSLine />
+          {t("Back")}
+        </QuestionnairePrevious>
+        <QuestionnaireNext size="sm" variant="primary" disabled={stepAnswered === null}>
+          {t("Next")}
+        </QuestionnaireNext>
+        <QuestionnaireSubmit size="sm" variant="primary" disabled={!complete || !onSubmit}>
+          {t("Send")}
+        </QuestionnaireSubmit>
+      </QuestionnaireActions>
+    </Questionnaire>
   );
 
   return (
@@ -245,64 +238,68 @@ function PendingUserInputCard({
   );
 }
 
+/** One question as a Questionnaire item; the item on screen is the one the card is on. */
 function PendingQuestion({
   question,
   draft,
-  disabled,
   onSelectOption,
   onAnswerWithText,
   ownAnswerRef,
 }: {
   question: UserInputQuestion;
   draft: PendingUserInputDraftAnswer | undefined;
-  disabled: boolean;
   onSelectOption: (questionId: string, optionLabel: string) => void;
   onAnswerWithText: (text: string) => void;
-  ownAnswerRef: RefObject<HTMLInputElement | null>;
+  ownAnswerRef: RefObject<HTMLInputElement | null> | undefined;
 }) {
   const { t } = useI18n();
   const customAnswer = draft?.customAnswer?.trim() ?? "";
   const resolved = resolvePendingUserInputAnswer(question, draft);
   const selectedLabels = customAnswer ? [] : [resolved ?? []].flat();
+  const [text, setText] = useState(customAnswer);
+  const [shownAnswer, setShownAnswer] = useState(customAnswer);
+
+  // An answer sent from the composer replaces whatever is in the field.
+  if (shownAnswer !== customAnswer) {
+    setShownAnswer(customAnswer);
+    setText(customAnswer);
+  }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex flex-col gap-0.5">
-        {question.header && question.header !== question.question ? (
-          <span className="text-xs font-medium text-muted-foreground">{question.header}</span>
-        ) : null}
-        <span className="text-sm font-semibold text-foreground">{question.question}</span>
-        {question.multiSelect ? (
-          <span className="text-xs text-muted-foreground">{t("Pick any that apply.")}</span>
-        ) : null}
-      </div>
-      <div
-        className="gen-choices flex flex-col gap-2"
-        data-answered={!question.multiSelect && resolved !== null}
-      >
-        {question.options.map((option, index) => (
-          <ChoiceButton
+    <QuestionnaireItem name={question.id} multiple={question.multiSelect === true} required>
+      <QuestionnaireTitle>{question.question}</QuestionnaireTitle>
+      <QuestionnaireChoices>
+        {question.options.map((option) => (
+          <QuestionnaireChoice
             key={option.label}
-            kind={question.multiSelect ? "checkbox" : "radio"}
-            pressed={selectedLabels.includes(option.label)}
-            disabled={disabled}
-            shortcut={index < 9 ? String(index + 1) : null}
-            onClick={() => onSelectOption(question.id, option.label)}
+            value={option.label}
+            checked={selectedLabels.includes(option.label)}
+            onChange={() => onSelectOption(question.id, option.label)}
           >
-            <span className="text-sm font-medium text-foreground">{option.label}</span>
+            <span className="text-foreground">{option.label}</span>
             {option.description && option.description !== option.label ? (
-              <span className="text-xs text-muted-foreground">{option.description}</span>
+              <QuestionnaireChoiceDescription className="text-xs">
+                {option.description}
+              </QuestionnaireChoiceDescription>
             ) : null}
-          </ChoiceButton>
+          </QuestionnaireChoice>
         ))}
-        <OwnAnswerRow
-          kind={question.multiSelect ? "checkbox" : "radio"}
-          answer={customAnswer}
-          disabled={disabled}
-          inputRef={ownAnswerRef}
-          onAnswer={onAnswerWithText}
+        <QuestionnaireInput
+          ref={ownAnswerRef}
+          aria-label={t("Type your own answer")}
+          placeholder={t("Type your own answer")}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            const trimmed = text.trim();
+
+            if (event.key !== "Enter" || event.nativeEvent.isComposing || !trimmed) return;
+            event.preventDefault();
+            event.stopPropagation();
+            onAnswerWithText(trimmed);
+          }}
         />
-      </div>
-    </div>
+      </QuestionnaireChoices>
+    </QuestionnaireItem>
   );
 }

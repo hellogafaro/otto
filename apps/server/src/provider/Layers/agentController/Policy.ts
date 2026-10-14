@@ -55,8 +55,33 @@ export function isMissingSuspendedRun(detail: string): boolean {
   );
 }
 
+/**
+ * An error's message plus what the provider SDK keeps beside it: the network cause's code or
+ * message and the API host. A failed fetch otherwise reads only "Cannot connect to API: ".
+ */
+function errorDetail(error: Error): string {
+  const message = error.message.trim().replace(/:$/, "");
+  const cause: unknown = error.cause;
+
+  const causeCode =
+    Predicate.isObject(cause) && "code" in cause && Predicate.isString(cause.code)
+      ? cause.code
+      : "";
+
+  const causeMessage = cause instanceof Error ? cause.message.trim() : "";
+
+  const reason = [causeCode, message.includes(causeMessage) ? "" : causeMessage]
+    .filter(Boolean)
+    .join(": ");
+
+  const url = "url" in error && Predicate.isString(error.url) ? URL.parse(error.url) : null;
+  const host = url ? ` (${url.host})` : "";
+
+  return `${reason ? `${message}: ${reason}` : message}${host}`;
+}
+
 export function failureDetail(cause: unknown): string {
-  const detail = cause instanceof Error ? cause.message : String(cause);
+  const detail = cause instanceof Error ? errorDetail(cause) : String(cause);
 
   return isMissingSuspendedRun(detail) ? RESUME_FAILED_MESSAGE : detail;
 }

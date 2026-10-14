@@ -54,50 +54,62 @@ function renderPanel(
   );
 }
 
-const disabledButton = (label: string) =>
-  new RegExp(`<button[^>]*disabled=""[^>]*>${label}</button>`);
+/** Markup without class lists, whose variant names would read as states. */
+const withoutClasses = (markup: string) => markup.replace(/ class="[^"]*"/g, "");
+
+/** The opening tag of the element with this data-slot, its classes left out. */
+const slotTag = (markup: string, slot: string, nth = 0) =>
+  [...withoutClasses(markup).matchAll(new RegExp(`<[a-z]+[^>]*data-slot="${slot}"[^>]*>`, "g"))][
+    nth
+  ]?.[0] ?? "";
 
 describe("ComposerPendingUserInputPanel", () => {
-  it("sends a lone single-choice question on click, so it shows no steps or Submit", () => {
+  it("keeps a lone single-choice question behind Send, so one stray click cannot answer it", () => {
     const markup = renderPanel([approachQuestion]);
 
     expect(markup).toContain('data-testid="pending-user-input-card"');
     expect(markup).toContain('aria-label="Which approach should the migration take?"');
-    expect(markup).toContain(">1</kbd>");
-    expect(markup).toContain(">2</kbd>");
-    expect(markup).not.toContain(">Submit</button>");
-    expect(markup).not.toContain("gen-step");
+    expect(markup).toContain('aria-keyshortcuts="1"');
+    expect(markup).toMatch(/data-slot="questionnaire-choice-shortcut"[^>]*>1</);
+    expect(markup).toMatch(/data-slot="questionnaire-choice-shortcut"[^>]*>2</);
+    expect(markup).not.toContain('role="progressbar"');
+    expect(slotTag(markup, "questionnaire-submit")).toContain('disabled=""');
+    expect(markup).toMatch(/data-slot="questionnaire-submit"[^>]*>Send</);
+
+    const picked = renderPanel([approachQuestion], {
+      "question-1": { selectedOptionLabels: ["Incremental"] },
+    });
+
+    expect(slotTag(picked, "questionnaire-submit")).not.toContain("disabled");
   });
 
   it("shows one question at a time with its place in the set", () => {
     const markup = renderPanel([approachQuestion, areasQuestion]);
 
-    expect(markup).toContain("Which approach should the migration take?");
-    expect(markup).not.toContain("Which areas should it cover first?");
-    expect(markup).toContain("1 of 2");
-    expect(markup).toContain('data-state="current"');
-    expect(markup).not.toContain(">Back</button>");
+    expect(slotTag(markup, "questionnaire-item", 0)).not.toContain("hidden");
+    expect(slotTag(markup, "questionnaire-item", 1)).toContain('hidden=""');
+    expect(markup).toMatch(/role="progressbar"[^>]*>1 of 2</);
+    expect(slotTag(markup, "questionnaire-previous")).toContain('hidden=""');
   });
 
   it("waits for Next on an unanswered step", () => {
     const open = renderPanel([approachQuestion, areasQuestion]);
-    expect(open).toMatch(disabledButton("Next"));
+    expect(slotTag(open, "questionnaire-next")).toContain('disabled=""');
 
     const answered = renderPanel([approachQuestion, areasQuestion], {
       "question-1": { selectedOptionLabels: ["Incremental"] },
     });
 
-    expect(answered).toContain(">Next</button>");
-    expect(answered).not.toMatch(disabledButton("Next"));
+    expect(slotTag(answered, "questionnaire-next")).not.toContain("disabled");
   });
 
-  it("offers Back and Submit on the last step, enabled once every question is answered", () => {
+  it("offers Back and Send on the last step, enabled once every question is answered", () => {
     const partial = renderPanel([approachQuestion, areasQuestion], {}, 1);
 
-    expect(partial).toContain("Which areas should it cover first?");
-    expect(partial).toContain("Pick any that apply.");
-    expect(partial).toMatch(/<svg[^>]*>.*<\/svg>Back<\/button>/);
-    expect(partial).toMatch(disabledButton("Submit"));
+    expect(slotTag(partial, "questionnaire-item", 1)).not.toContain("hidden");
+    expect(partial).toMatch(/<\/svg>Back<\/button>/);
+    expect(slotTag(partial, "questionnaire-previous")).not.toContain("hidden");
+    expect(slotTag(partial, "questionnaire-submit")).toContain('disabled=""');
 
     const complete = renderPanel(
       [approachQuestion, areasQuestion],
@@ -108,37 +120,38 @@ describe("ComposerPendingUserInputPanel", () => {
       1,
     );
 
-    expect(complete).toContain('data-state="done"');
-    expect(complete).toContain(">Submit</button>");
-    expect(complete).not.toMatch(disabledButton("Submit"));
+    expect(slotTag(complete, "questionnaire-submit")).not.toContain("disabled");
   });
 
-  it("dims the other options of an answered single choice, but never of a multi-select", () => {
-    const answers = {
-      "question-1": { selectedOptionLabels: ["Incremental"] },
-      "question-2": { selectedOptionLabels: ["Web"] },
-    };
+  it("marks the picked choices as radios for one answer and checkboxes for many", () => {
+    const markup = renderPanel(
+      [approachQuestion, areasQuestion],
+      {
+        "question-1": { selectedOptionLabels: ["Incremental"] },
+        "question-2": { selectedOptionLabels: ["Web"] },
+      },
+      0,
+    );
 
-    expect(renderPanel([approachQuestion, areasQuestion], answers, 0)).toContain(
-      'data-answered="true"',
-    );
-    expect(renderPanel([approachQuestion, areasQuestion], answers, 1)).toContain(
-      'data-answered="false"',
-    );
+    expect(slotTag(markup, "questionnaire-choice", 0)).toContain('data-type="radio"');
+    expect(slotTag(markup, "questionnaire-choice", 0)).toContain("data-checked");
+    expect(slotTag(markup, "questionnaire-choice", 1)).not.toContain("data-checked");
+    expect(slotTag(markup, "questionnaire-choice", 3)).toContain('data-type="checkbox"');
+    expect(slotTag(markup, "questionnaire-choice", 3)).toContain("data-checked");
   });
 
-  it("offers a row for a typed answer and fills it in once one is typed", () => {
+  it("offers a field for a typed answer and fills it in once one is typed", () => {
     const empty = renderPanel([approachQuestion, areasQuestion], {});
 
     expect(empty).toContain('placeholder="Type your own answer"');
-    expect(empty).not.toContain('data-selected="true"');
+    expect(slotTag(empty, "questionnaire-input")).toContain("data-empty");
 
     const markup = renderPanel([approachQuestion, areasQuestion], {
       "question-1": { customAnswer: "Whatever is safest" },
     });
 
     expect(markup).toContain('value="Whatever is safest"');
-    expect(markup).toContain('data-selected="true"');
-    expect(markup).not.toContain('aria-pressed="true"');
+    expect(slotTag(markup, "questionnaire-input")).toContain("data-filled");
+    expect(withoutClasses(markup)).not.toMatch(/data-checked/);
   });
 });

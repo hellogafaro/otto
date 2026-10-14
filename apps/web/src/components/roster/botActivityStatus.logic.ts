@@ -6,7 +6,6 @@ import {
 } from "@otto/client-runtime/pending-requests";
 import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   type OrchestrationLatestTurn,
   type OrchestrationThreadActivity,
 } from "@otto/contracts";
@@ -17,12 +16,11 @@ export interface BotActivity {
 }
 
 // Keyed by the tool name the runtime reports. Names come from the Otto tool
-// catalog, the routine and feedback contracts, and the memory tool.
+// catalog, the routine contracts, and the memory tool.
 const TOOL_LABELS = {
   [OTTO_CREATE_ROUTINE_TOOL_NAME]: "Adding a routine",
   otto_list_routines: "Checking routines",
   otto_delete_routines: "Removing routines",
-  [OTTO_PRODUCT_FEEDBACK_TOOL_NAME]: "Drafting feedback",
   Shell: "Running a command",
   ExternalShell: "Running a command",
   AwaitShell: "Waiting on a command",

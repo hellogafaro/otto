@@ -125,8 +125,6 @@ import * as UsageService from "./usage/UsageService.ts";
 
 import { BotUsageLedger, type BotUsageLedgerShape } from "./usage/BotUsageLedger.ts";
 
-import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
-
 import { RoutineRepository, type RoutineRepositoryShape } from "./routines/Repository.ts";
 
 import { RoutineRuntime, type RoutineRuntimeShape } from "./routines/Runtime.ts";
@@ -682,11 +680,6 @@ export const buildAppUnderTest = (options?: {
     const appLayer = servedRoutesLayer.pipe(
       Layer.provide(resourceTelemetryLayer),
       Layer.provide(UsageService.layerTest),
-      Layer.provide(
-        Layer.mock(AnalyticsService.AnalyticsService)({
-          flush: Effect.void,
-        }),
-      ),
       Layer.provide(
         Layer.mock(BrowserTraceCollector.BrowserTraceCollector)({
           record: () => Effect.void,

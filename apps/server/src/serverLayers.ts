@@ -5,7 +5,6 @@ import * as HostPowerMonitor from "./background/HostPowerMonitor.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
 import { layerConfig as SqlitePersistenceLayerLive } from "./persistence/Layers/Sqlite.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
-import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
 import { ProviderSessionDirectoryLive } from "./provider/Layers/ProviderSessionDirectory.ts";
 import * as ProviderSessionRuntime from "./persistence/ProviderSessionRuntime.ts";
 import { ProviderAdapterRegistryLive } from "./provider/Layers/ProviderAdapterRegistry.ts";
@@ -77,11 +76,6 @@ export const ApplicationObservabilityLive = ObservabilityLive.pipe(
 export const ServerSettingsLayerLive = ServerSettings.layer.pipe(
   Layer.provide(ServerSecretStore.layer),
   Layer.provideMerge(SqlitePersistenceLayerLive),
-);
-
-export const AnalyticsLayerLive = AnalyticsService.layer.pipe(
-  Layer.provide(ServerSettingsLayerLive),
-  Layer.provide(SqlitePersistenceLayerLive),
 );
 
 export const NativeTelemetryLayerLive = NativeTelemetryClient.layer.pipe(
@@ -295,7 +289,6 @@ export const RuntimeDependenciesLive = RuntimeCoreWithRoutinesLive.pipe(
   Layer.provideMerge(ResourceDiagnosticsLayerLive),
   Layer.provideMerge(UsageLayerLive),
   Layer.provideMerge(TraceDiagnostics.layer),
-  Layer.provideMerge(AnalyticsLayerLive),
   Layer.provideMerge(ExternalLauncher.layer),
   Layer.provideMerge(RemoteOpenTargets.layer),
   Layer.provideMerge(ServerLifecycleEvents.layer),

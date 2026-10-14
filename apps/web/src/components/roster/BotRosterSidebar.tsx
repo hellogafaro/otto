@@ -20,6 +20,7 @@ import { randomUUID } from "../../lib/utils";
 import { isModelPickerOpen } from "../../modelPickerVisibility";
 import { selectActiveRightPanel, useRightPanelStore } from "../../rightPanelStore";
 import { botEnvironment, environmentPeopleAtom } from "../../state/bots";
+import { useThreadShells } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -57,7 +58,13 @@ import { RosterLoadStatus } from "./RosterLoadStatus";
 import { useRosterLoadState } from "./useServerRoster";
 import type { Bot, Group } from "./types";
 import { useBotThreadRef } from "./useBotThreadRef";
-import { BotRosterRow, GroupRosterRow, RosterRail, RosterSectionLabel } from "./RosterRows";
+import {
+  BotRosterRow,
+  ChatRosterRow,
+  GroupRosterRow,
+  RosterRail,
+  RosterSectionLabel,
+} from "./RosterRows";
 import { RosterPanelHeader, RosterRailCreateMenu, RosterSidebarHeader } from "./RosterHeaders";
 import {
   commandFailureMessage,
@@ -86,6 +93,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   const navigate = useNavigate();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const environmentId = usePrimaryEnvironmentId();
+  const threadShells = useThreadShells();
   const people = useAtomValue(environmentPeopleAtom(environmentId ?? NO_PEOPLE_ENVIRONMENT));
 
   const createBotCommand = useAtomCommand(botEnvironment.create, {
@@ -149,9 +157,19 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     (item: RosterItemRef) => {
       if (item.kind === "bot") return visibleBots.some((bot) => bot.id === item.id);
 
+      if (item.kind === "chat") {
+        const shell = threadShells.find((candidate) => candidate.id === item.id);
+
+        return (
+          shell !== undefined &&
+          shell.archivedAt === null &&
+          visibleBots.some((bot) => bot.id === shell.botId)
+        );
+      }
+
       return visibleGroups.some((group) => group.id === item.id);
     },
-    [visibleBots, visibleGroups],
+    [threadShells, visibleBots, visibleGroups],
   );
 
   const visiblePinnedItems = useMemo(() => pinnedItems.filter(liveItem), [liveItem, pinnedItems]);
@@ -601,50 +619,73 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                           )}
                         />
                       ) : null,
-                      item.item.kind === "bot"
-                        ? (() => {
-                            const bot = bots.find((candidate) => candidate.id === item.item.id);
+                      Match.value(item.item).pipe(
+                        Match.when({ kind: "chat" }, (ref) => {
+                          const chatId = ref.id;
+                          const shell = threadShells.find((candidate) => candidate.id === chatId);
+                          const bot = bots.find((candidate) => candidate.id === shell?.botId);
 
-                            if (!bot) return null;
+                          if (!bot) return null;
 
-                            return (
-                              <BotRosterRow
-                                key={rosterItemKey(item.item)}
-                                bot={bot}
-                                lastMessage={lastMessageByBotId[bot.id] ?? null}
-                                isActive={!groupRouteActive && selectedBotId === bot.id}
-                                chatOpen={pathname === `/bots/${bot.id}`}
-                                onSelect={handleSelect}
-                                onOpenSettings={handleOpenBotSettings}
-                                pinned={pinned}
-                                onPin={setRosterItemPinned}
-                                canMoveUp={canMoveUp}
-                                canMoveDown={canMoveDown}
-                                onNudge={nudgeRosterItem}
-                                onArchive={setArchivingBot}
-                              />
-                            );
-                          })()
-                        : (() => {
-                            const group = groups.find((candidate) => candidate.id === item.item.id);
+                          return (
+                            <ChatRosterRow
+                              key={rosterItemKey(item.item)}
+                              threadId={chatId}
+                              bot={bot}
+                              chatOpen={pathname === `/bots/${bot.id}`}
+                              onSelect={handleSelect}
+                              onPin={setRosterItemPinned}
+                              canMoveUp={canMoveUp}
+                              canMoveDown={canMoveDown}
+                              onNudge={nudgeRosterItem}
+                            />
+                          );
+                        }),
+                        Match.when({ kind: "bot" }, (ref) => {
+                          const bot = bots.find((candidate) => candidate.id === ref.id);
 
-                            if (!group) return null;
+                          if (!bot) return null;
 
-                            return (
-                              <GroupRosterRow
-                                key={rosterItemKey(item.item)}
-                                group={group}
-                                bots={bots}
-                                isActive={pathname === `/groups/${group.id}`}
-                                onSelect={handleSelectGroup}
-                                pinned={pinned}
-                                onPin={setRosterItemPinned}
-                                canMoveUp={canMoveUp}
-                                canMoveDown={canMoveDown}
-                                onNudge={nudgeRosterItem}
-                              />
-                            );
-                          })(),
+                          return (
+                            <BotRosterRow
+                              key={rosterItemKey(item.item)}
+                              bot={bot}
+                              lastMessage={lastMessageByBotId[bot.id] ?? null}
+                              isActive={!groupRouteActive && selectedBotId === bot.id}
+                              chatOpen={pathname === `/bots/${bot.id}`}
+                              onSelect={handleSelect}
+                              onOpenSettings={handleOpenBotSettings}
+                              pinned={pinned}
+                              onPin={setRosterItemPinned}
+                              canMoveUp={canMoveUp}
+                              canMoveDown={canMoveDown}
+                              onNudge={nudgeRosterItem}
+                              onArchive={setArchivingBot}
+                            />
+                          );
+                        }),
+                        Match.when({ kind: "group" }, (ref) => {
+                          const group = groups.find((candidate) => candidate.id === ref.id);
+
+                          if (!group) return null;
+
+                          return (
+                            <GroupRosterRow
+                              key={rosterItemKey(item.item)}
+                              group={group}
+                              bots={bots}
+                              isActive={pathname === `/groups/${group.id}`}
+                              onSelect={handleSelectGroup}
+                              pinned={pinned}
+                              onPin={setRosterItemPinned}
+                              canMoveUp={canMoveUp}
+                              canMoveDown={canMoveDown}
+                              onNudge={nudgeRosterItem}
+                            />
+                          );
+                        }),
+                        Match.exhaustive,
+                      ),
                     ];
                   })}
                 </ul>

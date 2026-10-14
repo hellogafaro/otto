@@ -42,6 +42,7 @@ import { Button } from "../ui/button";
 import { PromptDialog } from "../PromptDialog";
 import { BotPicker } from "../roster/BotPicker";
 import { SidebarInset, useSidebar } from "../ui/sidebar";
+import { SkeletonSidebarRows } from "../ui/skeleton";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
@@ -447,7 +448,9 @@ function RoutinesPanel() {
       />
       <NewRoutineDialog open={creating} onOpenChange={setCreating} />
       <div className="min-h-0 flex-1 overflow-y-auto px-2">
-        {routines.length === 0 ? null : (
+        {!snapshot ? (
+          <SkeletonSidebarRows label={t("Loading routines…")} sections={[4]} headings={false} />
+        ) : routines.length === 0 ? null : (
           <ul className="flex flex-col gap-0.5">
             {routines.map((routine) => (
               <RoutineRow

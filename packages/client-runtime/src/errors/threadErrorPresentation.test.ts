@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { presentThreadError } from "./threadErrorPresentation.ts";
+import { fullTechnicalDetails, presentThreadError } from "./threadErrorPresentation.ts";
 
 describe("presentThreadError", () => {
   it("explains provider usage-limit failures instead of showing a generic error", () => {
@@ -35,7 +35,7 @@ describe("presentThreadError", () => {
     });
   });
 
-  it("sends a missing sign-in to Settings instead of asking for feedback", () => {
+  it("sends a missing sign-in to Settings instead of asking for a retry", () => {
     expect(
       presentThreadError("Connect Claude in Settings.", { providerName: "Claude" }),
     ).toMatchObject({
@@ -53,7 +53,7 @@ describe("presentThreadError", () => {
     });
   });
 
-  it("names the credential a custom instance is missing instead of asking for feedback", () => {
+  it("names the credential a custom instance is missing instead of asking for a retry", () => {
     expect(
       presentThreadError("This Codex instance needs OPENAI_API_KEY for the Otto harness.", {
         providerName: "Work Codex",
@@ -83,7 +83,7 @@ describe("presentThreadError", () => {
     });
   });
 
-  it("names the fix for a dropped connection instead of asking for feedback", () => {
+  it("names the fix for a dropped connection instead of asking for a retry", () => {
     expect(presentThreadError("WebSocket disconnected")).toMatchObject({
       title: "Connection interrupted",
       action: "none",
@@ -100,12 +100,21 @@ describe("presentThreadError", () => {
     expect(presentation.technicalDetails.length).toBeLessThanOrEqual(600);
   });
 
-  it("points an unknown failure at feedback in plain words", () => {
+  it("keeps every line of the full error but hides local paths", () => {
+    const full = fullTechnicalDetails(
+      "TypeError: fetch failed\n    at run (file:///home/leo/private/app.ts:1:2)\nCaused by: ECONNREFUSED",
+    );
+
+    expect(full).toContain("Caused by: ECONNREFUSED");
+    expect(full).toContain("at run (file://…)");
+    expect(full).not.toContain("/home/leo");
+  });
+
+  it("describes an unknown failure in the error's own words", () => {
     expect(presentThreadError("MysteryError: something odd")).toMatchObject({
       title: "The bot couldn’t finish that request",
-      description:
-        "Try sending it again. If it keeps happening, send feedback with the technical details.",
-      action: "feedback",
+      description: "MysteryError: something odd",
+      action: "none",
     });
   });
 

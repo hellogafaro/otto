@@ -97,8 +97,6 @@ export function togglePendingUserInputOptionSelection(
 
 export interface PendingUserInputSelectionResult {
   draftAnswers: Record<string, PendingUserInputDraftAnswer>;
-  /** Set when the click settles the last step, so the prompt can be sent right away. */
-  answers: Record<string, string | string[]> | null;
   /** The step to show after this click. */
   nextStep: number;
 }
@@ -144,15 +142,11 @@ export function applyPendingUserInputOptionSelection(
     ),
   };
 
-  if (question.multiSelect)
-    return { draftAnswers: nextDraftAnswers, answers: null, nextStep: step };
-
-  const nextStep = pendingUserInputStepAfterAnswer(questions, nextDraftAnswers, step);
+  if (question.multiSelect) return { draftAnswers: nextDraftAnswers, nextStep: step };
 
   return {
     draftAnswers: nextDraftAnswers,
-    answers: nextStep === null ? buildPendingUserInputAnswers(questions, nextDraftAnswers) : null,
-    nextStep: nextStep ?? step,
+    nextStep: pendingUserInputStepAfterAnswer(questions, nextDraftAnswers, step) ?? step,
   };
 }
 

@@ -1,8 +1,4 @@
-import {
-  OTTO_CREATE_ROUTINE_TOOL_NAME,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-  ApprovalRequestId,
-} from "@otto/contracts";
+import { OTTO_CREATE_ROUTINE_TOOL_NAME, ApprovalRequestId } from "@otto/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -109,37 +105,37 @@ describe("BotApprovalPrompt", () => {
     expect(markup).not.toContain("bg-primary");
   });
 
-  it.each([
-    [OTTO_CREATE_ROUTINE_TOOL_NAME, "Review routine", "Create routine"],
-    [OTTO_PRODUCT_FEEDBACK_TOOL_NAME, "Review product feedback", "Add to feedback draft"],
-  ] as const)("keeps the specific review UI for %s", (toolName, heading, acceptLabel) => {
-    const markup = renderToStaticMarkup(
-      <BotApprovalPrompt
-        approval={{
-          requestId: ApprovalRequestId.make(`review-${toolName}`),
-          requestKind: "command",
-          toolName,
-          appName: "Safari",
-          createdAt: "2026-08-27T00:00:00.000Z",
-          detail: heading,
-          options: [
-            { decision: "accept", label: acceptLabel },
-            { decision: "decline", label: "Cancel" },
-          ],
-        }}
-        pendingCount={1}
-        responding={false}
-        error={null}
-        onRespond={vi.fn()}
-      />,
-    );
+  it.each([[OTTO_CREATE_ROUTINE_TOOL_NAME, "Review routine", "Create routine"]] as const)(
+    "keeps the specific review UI for %s",
+    (toolName, heading, acceptLabel) => {
+      const markup = renderToStaticMarkup(
+        <BotApprovalPrompt
+          approval={{
+            requestId: ApprovalRequestId.make(`review-${toolName}`),
+            requestKind: "command",
+            toolName,
+            appName: "Safari",
+            createdAt: "2026-08-27T00:00:00.000Z",
+            detail: heading,
+            options: [
+              { decision: "accept", label: acceptLabel },
+              { decision: "decline", label: "Cancel" },
+            ],
+          }}
+          pendingCount={1}
+          responding={false}
+          error={null}
+          onRespond={vi.fn()}
+        />,
+      );
 
-    expect(markup).toContain(heading);
-    expect(markup).toContain("Safari");
-    expect(markup).toContain(acceptLabel);
-    expect(markup).not.toContain("Run this command?");
-    expect(markup).not.toContain("Runs once");
-  });
+      expect(markup).toContain(heading);
+      expect(markup).toContain("Safari");
+      expect(markup).toContain(acceptLabel);
+      expect(markup).not.toContain("Run this command?");
+      expect(markup).not.toContain("Runs once");
+    },
+  );
 
   it("shows a message send as the message, not a shell command", () => {
     const markup = renderToStaticMarkup(

@@ -4,11 +4,14 @@ import {
   RiArrowDownLine,
   RiArrowDownSLine,
   RiArrowUpLine,
+  RiDeleteBinLine,
+  RiRadioButtonLine,
   RiPushpinLine,
   RiSettings3Line,
+  RiUnpinLine,
 } from "@remixicon/react";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
-import type { ScopedThreadRef } from "@otto/contracts";
+import { PLACEHOLDER_THREAD_TITLE, type ScopedThreadRef } from "@otto/contracts";
 
 import { memo, useMemo, useRef, useState } from "react";
 
@@ -19,7 +22,7 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { formatRelativeTime } from "../../timestampFormat";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
+import { MenuItem, MenuSeparator } from "../ui/menu";
 import { SidebarGroup } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { BotChatTree, useBotChats } from "./BotChatTree";
@@ -27,7 +30,9 @@ import { BotAvatarView } from "./BotAvatarView";
 import { visibleBotChatMessages } from "./botConversationPresentation";
 import { useBotPresence, useGroupPresence } from "./botPresence";
 import { useBotRosterUnread, useChatUnread } from "../chat/useChatUnread";
-import { ChatStatusIcon } from "./ChatStatusIcon";
+import { ChatStatusIcon, ThreadStatusIcon } from "./ChatStatusIcon";
+import { useChatActions } from "../../hooks/useChatActions";
+import { RosterRowAction, RosterRowMore } from "./RosterRowActions";
 import { GroupMemberStack } from "./GroupMemberStack";
 import {
   resolveLatestRosterMessage,
@@ -182,8 +187,40 @@ export const BotRosterRow = memo(function BotRosterRow({
   const unread = useBotRosterUnread(bot.id, chatRef, chatOpen);
   const chats = useBotChats(bot.id);
   const [chatsOpen, setChatsOpen] = useState(true);
-  const hasChatTree = chats.length > 1;
   const environmentId = usePrimaryEnvironmentId();
+  const pinnedItems = useRosterStore((state) => state.pinnedItems);
+  const openChatId = useRosterStore((state) => state.openChatByBotId[bot.id] ?? null);
+
+  const pinnedIds = useMemo(
+    () =>
+      new Set<string>(
+        chats.flatMap((chat) =>
+          pinnedItems.some((pin) => pin.kind === "chat" && pin.id === chat.id) ? [chat.id] : [],
+        ),
+      ),
+    [chats, pinnedItems],
+  );
+
+  const hasChatTree = chats.length - pinnedIds.size > 1;
+  // A chat pinned to Pins is marked there, so the bot row is not.
+  const pinnedChatOpen = chatOpen && pinnedIds.has(openChatId ?? chats[0]?.id ?? "");
+  const active = isActive && !pinnedChatOpen;
+
+  const startNewChat = () => {
+    const newest = chats[0];
+    const roster = useRosterStore.getState();
+
+    if (newest && environmentId) {
+      roster.openBotChat(bot.id, null, `/${environmentId}/${newest.id}`);
+
+      // An untouched newest chat is already fresh.
+      if (newest.latestUserMessageAt !== null || newest.latestTurn !== null) {
+        roster.requestNewChat(bot.id);
+      }
+    }
+
+    onSelect(bot);
+  };
 
   return (
     <li
@@ -201,7 +238,7 @@ export const BotRosterRow = memo(function BotRosterRow({
         }}
         className={cn(
           "group/row relative flex w-full items-center rounded-md outline-none select-none",
-          isActive
+          active
             ? // With its chats listed, only the open chat's row is filled.
               "sidebar-row-current text-sidebar-foreground group-has-[[data-bot-chat-tree]_[aria-current]]/bot:sidebar-row-plain group-has-[[data-bot-chat-tree]_[aria-current]]/bot:hover:sidebar-row-hovered"
             : "sidebar-row-plain text-sidebar-foreground hover:sidebar-row-hovered",
@@ -210,8 +247,23 @@ export const BotRosterRow = memo(function BotRosterRow({
         <button
           type="button"
           data-roster-row={rosterItemKey({ kind: "bot", id: bot.id })}
-          aria-current={isActive || undefined}
-          onClick={() => onSelect(bot)}
+          aria-current={active || undefined}
+          onClick={() => {
+            const listed = chats.find((chat) => !pinnedIds.has(chat.id));
+
+            // Leaving a pinned chat, the bot row opens the bot's newest listed chat.
+            if (pinnedChatOpen && listed && environmentId) {
+              useRosterStore
+                .getState()
+                .openBotChat(
+                  bot.id,
+                  listed.id === chats[0]?.id ? null : listed.id,
+                  `/${environmentId}/${listed.id}`,
+                );
+            }
+
+            onSelect(bot);
+          }}
           className={cn(
             "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}
@@ -233,7 +285,7 @@ export const BotRosterRow = memo(function BotRosterRow({
             <span
               className={cn(
                 ROSTER_NAME_CLASS,
-                isActive && "text-sidebar-foreground dark:text-sidebar-foreground",
+                active && "text-sidebar-foreground dark:text-sidebar-foreground",
               )}
             >
               {bot.name}
@@ -279,80 +331,48 @@ export const BotRosterRow = memo(function BotRosterRow({
               </time>
             ) : null}
           </span>
-          {/* In the same 24px box as the section plus, so they line up. */}
           <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    size="icon-row"
-                    variant="sidebar-ghost"
-                    aria-label={t("New chat with {name}", { name: bot.name })}
-                    onClick={() => {
-                      const newest = chats[0];
-                      const roster = useRosterStore.getState();
-
-                      if (newest && environmentId) {
-                        roster.openBotChat(bot.id, null, `/${environmentId}/${newest.id}`);
-
-                        // An untouched newest chat is already fresh.
-                        if (newest.latestUserMessageAt !== null || newest.latestTurn !== null) {
-                          roster.requestNewChat(bot.id);
-                        }
-                      }
-
-                      onSelect(bot);
-                    }}
-                  >
-                    <AppIcon icon={RiAddLine} className="size-3" />
-                  </Button>
-                }
-              />
-              <TooltipPopup>{t("New chat")}</TooltipPopup>
-            </Tooltip>
+            <RosterRowAction
+              label={pinned ? t("Unpin") : t("Pin")}
+              icon={pinned ? RiUnpinLine : RiPushpinLine}
+              onClick={() => onPin(item, !pinned)}
+            />
+            <RosterRowAction
+              label={t("Archive bot")}
+              icon={RiArchiveLine}
+              onClick={() => onArchive(bot)}
+            />
+            <RosterRowMore
+              label={t("Actions for {name}", { name: bot.name })}
+              triggerRef={menuTriggerRef}
+            >
+              <MenuItem onClick={startNewChat}>
+                <RiAddLine />
+                {t("New chat")}
+              </MenuItem>
+              <MenuItem onClick={() => onOpenSettings(bot)}>
+                <RiSettings3Line />
+                {t("Bot settings")}
+              </MenuItem>
+              <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
+                <RiArrowUpLine />
+                {t("Move up")}
+              </MenuItem>
+              <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
+                <RiArrowDownLine />
+                {t("Move down")}
+              </MenuItem>
+            </RosterRowMore>
           </span>
         </span>
-        <Menu>
-          <MenuTrigger
-            render={
-              <button
-                ref={menuTriggerRef}
-                type="button"
-                aria-label={t("Actions for {name}", { name: bot.name })}
-                className="absolute right-2 top-1/2 size-px -translate-y-1/2 overflow-hidden opacity-0 outline-none focus-visible:size-7 focus-visible:overflow-visible focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            }
-          />
-          <MenuPopup align="end">
-            <MenuItem onClick={() => onOpenSettings(bot)}>
-              <RiSettings3Line />
-              {t("Bot settings")}
-            </MenuItem>
-            <MenuItem onClick={() => onPin(item, !pinned)}>
-              <RiPushpinLine />
-              {pinned ? t("Unpin") : t("Pin")}
-            </MenuItem>
-            <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
-              <RiArrowUpLine />
-              {t("Move up")}
-            </MenuItem>
-            <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
-              <RiArrowDownLine />
-              {t("Move down")}
-            </MenuItem>
-            <MenuSeparator />
-            <MenuItem variant="destructive" onClick={() => onArchive(bot)}>
-              <RiArchiveLine />
-              {t("Archive bot")}
-            </MenuItem>
-          </MenuPopup>
-        </Menu>
       </div>
       {hasChatTree && chatsOpen ? (
         <BotChatTree
           botId={bot.id}
           chats={chats}
           chatOpen={chatOpen}
+          pinnedIds={pinnedIds}
+          botPinned={pinned}
           onOpen={() => onSelect(bot)}
         />
       ) : null}
@@ -452,6 +472,132 @@ function RailGroupButton({
   );
 }
 
+/**
+ * Otto: A bot chat pinned to Pins, the same 28px row as a bot's: the bot's 16px avatar, the
+ * chat's title, its status and time at rest, and Unpin, Archive and More actions on hover.
+ * Opening it shows the bot on that chat; the bot's own chat list leaves it out.
+ */
+export const ChatRosterRow = memo(function ChatRosterRow({
+  threadId,
+  bot,
+  chatOpen,
+  onSelect,
+  onPin,
+  canMoveUp,
+  canMoveDown,
+  onNudge,
+}: {
+  threadId: string;
+  bot: Bot;
+  /** The bot's chat view is showing. */
+  chatOpen: boolean;
+  onSelect: (bot: Bot) => void;
+  onPin: (item: RosterItemRef, pinned: boolean) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onNudge: (item: RosterItemRef, delta: -1 | 1) => void;
+}) {
+  const { t } = useI18n();
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const item = useMemo(() => ({ kind: "chat" as const, id: threadId }), [threadId]);
+  const environmentId = usePrimaryEnvironmentId();
+  const chats = useBotChats(bot.id);
+  const openChatId = useRosterStore((state) => state.openChatByBotId[bot.id] ?? null);
+  const actions = useChatActions();
+  const shell = chats.find((chat) => chat.id === threadId);
+
+  if (!shell || !environmentId) return null;
+
+  const newest = chats[0]?.id === threadId;
+  const current = chatOpen && (openChatId ?? chats[0]?.id) === threadId;
+  const threadRef = scopeThreadRef(environmentId, shell.id);
+  const relative = formatRelativeTime(shell.updatedAt);
+
+  const title =
+    shell.title === PLACEHOLDER_THREAD_TITLE || shell.title.trim() === ""
+      ? t("Untitled chat")
+      : shell.title;
+
+  return (
+    <li
+      role="listitem"
+      data-roster-item
+      data-pinned
+      onContextMenu={(event) => {
+        event.preventDefault();
+        menuTriggerRef.current?.click();
+      }}
+      className={cn(
+        "group/row relative flex w-full flex-none items-center rounded-md",
+        current ? "sidebar-row-current" : "sidebar-row-plain hover:sidebar-row-hovered",
+      )}
+    >
+      <button
+        type="button"
+        data-roster-row={rosterItemKey(item)}
+        aria-current={current || undefined}
+        onClick={() => {
+          useRosterStore
+            .getState()
+            .openBotChat(bot.id, newest ? null : threadId, `/${environmentId}/${threadId}`);
+          onSelect(bot);
+        }}
+        className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />
+        <span
+          className={cn(
+            ROSTER_NAME_CLASS,
+            current && "text-sidebar-foreground dark:text-sidebar-foreground",
+          )}
+        >
+          {title}
+        </span>
+      </button>
+      <span className={ROSTER_TRAIL_CLASS}>
+        <span className={ROSTER_TRAIL_INFO_CLASS}>
+          <ThreadStatusIcon environmentId={environmentId} shell={shell} current={current} />
+          <span className={ROSTER_TIME_CLASS}>{relative?.suffix ? relative.value : t("now")}</span>
+        </span>
+        <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
+          <RosterRowAction
+            label={t("Unpin")}
+            icon={RiUnpinLine}
+            onClick={() => onPin(item, false)}
+          />
+          <RosterRowAction
+            label={t("Archive")}
+            icon={RiArchiveLine}
+            onClick={() => void actions.archive(threadRef)}
+          />
+          <RosterRowMore
+            label={t("Actions for {name}", { name: title })}
+            triggerRef={menuTriggerRef}
+          >
+            <MenuItem onClick={() => actions.markUnread(threadRef)}>
+              <RiRadioButtonLine />
+              {t("Mark unread")}
+            </MenuItem>
+            <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
+              <RiArrowUpLine />
+              {t("Move up")}
+            </MenuItem>
+            <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
+              <RiArrowDownLine />
+              {t("Move down")}
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem variant="destructive" onClick={() => void actions.delete(threadRef)}>
+              <RiDeleteBinLine />
+              {t("Delete chat")}
+            </MenuItem>
+          </RosterRowMore>
+        </span>
+      </span>
+    </li>
+  );
+});
+
 export const GroupRosterRow = memo(function GroupRosterRow({
   group,
   bots,
@@ -514,36 +660,30 @@ export const GroupRosterRow = memo(function GroupRosterRow({
         </span>
       </button>
       <span className={ROSTER_TRAIL_CLASS}>
-        <span className="flex pe-1.5">
+        <span className={ROSTER_TRAIL_INFO_CLASS}>
           <ChatStatusIcon presence={presence} unread={unread} />
         </span>
+        <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
+          <RosterRowAction
+            label={pinned ? t("Unpin") : t("Pin")}
+            icon={pinned ? RiUnpinLine : RiPushpinLine}
+            onClick={() => onPin(item, !pinned)}
+          />
+          <RosterRowMore
+            label={t("Actions for {name}", { name: group.name })}
+            triggerRef={menuTriggerRef}
+          >
+            <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
+              <RiArrowUpLine />
+              {t("Move up")}
+            </MenuItem>
+            <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
+              <RiArrowDownLine />
+              {t("Move down")}
+            </MenuItem>
+          </RosterRowMore>
+        </span>
       </span>
-      <Menu>
-        <MenuTrigger
-          render={
-            <button
-              ref={menuTriggerRef}
-              type="button"
-              aria-label={t("Actions for {name}", { name: group.name })}
-              className="absolute right-2 top-1/2 size-px -translate-y-1/2 overflow-hidden opacity-0 outline-none focus-visible:size-7 focus-visible:overflow-visible focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          }
-        />
-        <MenuPopup align="end">
-          <MenuItem onClick={() => onPin(item, !pinned)}>
-            <RiPushpinLine />
-            {pinned ? t("Unpin") : t("Pin")}
-          </MenuItem>
-          <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
-            <RiArrowUpLine />
-            {t("Move up")}
-          </MenuItem>
-          <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
-            <RiArrowDownLine />
-            {t("Move down")}
-          </MenuItem>
-        </MenuPopup>
-      </Menu>
     </li>
   );
 });

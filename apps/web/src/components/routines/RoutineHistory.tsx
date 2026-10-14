@@ -15,7 +15,7 @@ import { WorkSectionHeader } from "../work/WorkDetail";
 const RUN_STATUS_ICON = {
   completed: "completed",
   failed: "error",
-  running: "working",
+  running: "in_progress",
   queued: "pending",
   "waiting-for-approval": "waiting",
   blocked: "waiting",
@@ -25,10 +25,10 @@ const RUN_STATUS_ICON = {
 const RUN_BAR_CLASS = {
   completed: "bg-success",
   failed: "bg-destructive",
-  running: "animate-pulse bg-progress motion-reduce:animate-none",
-  queued: "bg-muted-foreground/40",
-  "waiting-for-approval": "bg-info",
-  blocked: "bg-info",
+  running: "bg-progress",
+  queued: "bg-muted-foreground/60",
+  "waiting-for-approval": "bg-warning",
+  blocked: "bg-warning",
   canceled: "bg-muted-foreground/40",
 } as const satisfies Record<RoutineAdapterRunStatus, string>;
 
@@ -45,6 +45,7 @@ const STRIP_SLOTS = 120;
  * with the success count beside the heading. Below, each run is a 32px content row with
  * its status icon, its result without closing punctuation (errors in the destructive tone)
  * and its short date and time on the right. Every row opens the run in the routine's chat.
+ * With no runs yet the all-gray strip sits above one centered muted line, No runs yet.
  */
 export function RoutineHistory({
   runs,
@@ -69,7 +70,7 @@ export function RoutineHistory({
             : undefined
         }
       />
-      <div className="mb-3 ps-4 pe-2.5">
+      <div className="ps-4 pe-2.5">
         {/* Bars that no longer fit wrap out of sight, so the strip ends on a whole bar. */}
         <div aria-hidden className="flex h-6 flex-wrap gap-x-0.5 overflow-hidden">
           {shown.toReversed().map((run) => (
@@ -83,12 +84,8 @@ export function RoutineHistory({
           ))}
         </div>
       </div>
-      {shown.length === 0 ? (
-        <p className="ps-4 text-13px text-muted-foreground">
-          {t("No runs yet. Each run posts its result in the routine's chat.")}
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-0.5">
+      {shown.length > 0 ? (
+        <ul className="mt-3 flex flex-col gap-0.5">
           {shown.map((run) => (
             <li key={run.id} className="list-none">
               <button type="button" onClick={onOpenRun} className={cn(CONTENT_ROW_CLASS, "gap-3")}>
@@ -114,6 +111,8 @@ export function RoutineHistory({
             </li>
           ))}
         </ul>
+      ) : (
+        <p className="mt-6 text-center text-13px text-muted-foreground">{t("No runs yet")}</p>
       )}
     </section>
   );

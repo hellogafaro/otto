@@ -9,13 +9,16 @@ export interface PickerItem {
   readonly hint?: string;
 }
 
-/** The popup surface menus use, for pickers that keep focus in a text field. */
+/**
+ * Otto: The surface of a small floating bar that keeps focus in a text field, like the
+ * editor's formatting toolbar: 6px corners, snug around its 24px buttons and 4px padding.
+ */
 export const PICKER_SURFACE_CLASS =
-  "rounded-lg border border-border/80 bg-popover text-popover-foreground shadow-[0_18px_48px_-24px_rgb(0_0_0/55%)] dark:shadow-[0_22px_56px_-24px_rgb(0_0_0/80%)]";
+  "rounded-md border border-border/80 bg-popover text-popover-foreground shadow-[0_18px_48px_-24px_rgb(0_0_0/55%)] dark:shadow-[0_22px_56px_-24px_rgb(0_0_0/80%)]";
 
 /**
  * Otto: A keyboard-driven list for pickers whose focus stays in a text field
- * (the editor's / and @ menus, Add resource): rows look like menu items and
+ * (the editor's / and @ menus, Add resource): 28px rows like menu items, and
  * the active row follows the arrow keys.
  */
 export function PickerList<Item extends PickerItem>({
@@ -47,7 +50,7 @@ export function PickerList<Item extends PickerItem>({
           onMouseEnter={() => onActiveChange(index)}
           onClick={() => onPick(item)}
           className={cn(
-            "flex min-h-8 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground outline-none [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground",
+            "flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm text-foreground outline-none [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground",
             index === active && "bg-secondary",
           )}
         >

@@ -68,8 +68,11 @@ describe("deriveRoutineReceipts", () => {
       {
         id: "receipt-1",
         createdAt: "2026-09-19T09:01:00.000Z",
-        text: "Routine finished",
-        tone: "success",
+        settledAt: "2026-09-19T09:01:00.000Z",
+        routineId: routine.id,
+        title: "Daily digest",
+        status: "completed",
+        text: "“Daily digest” finished",
       },
     ]);
 
@@ -104,30 +107,30 @@ describe("deriveRoutineReceipts", () => {
     expect(archived.every((receipt) => receipt.archived)).toBe(true);
   });
 
-  it("derives durable creation, enablement, start, and completion rows", () => {
+  it("derives one card for the routine and one per run, settled at its latest status", () => {
     expect(deriveRoutineReceipts(routine.targetThreadId, [routine], [run])).toEqual([
       {
         id: "routine-created:routine-1",
         createdAt: "2026-09-19T08:00:00.000Z",
+        settledAt: "2026-09-19T08:00:00.000Z",
+        routineId: "routine-1",
+        title: "Daily digest",
+        status: "created",
         text: "Routine “Daily digest” was created",
-        tone: "info",
       },
       {
-        id: "routine-run-started:run-1",
+        id: "routine-run:run-1",
         createdAt: "2026-09-19T09:00:00.000Z",
-        text: "“Daily digest” started a run",
-        tone: "info",
-      },
-      {
-        id: "routine-run-finished:run-1",
-        createdAt: "2026-09-19T09:01:00.000Z",
+        settledAt: "2026-09-19T09:01:00.000Z",
+        routineId: "routine-1",
+        title: "Daily digest",
+        status: "completed",
         text: "“Daily digest” finished: 2 files changed",
-        tone: "success",
       },
     ]);
   });
 
-  it("shows a started row while a run is in flight", () => {
+  it("shows a running card while a run is in flight", () => {
     const running = decodeRoutineRun({
       ...run,
       id: "run-2",
@@ -138,9 +141,9 @@ describe("deriveRoutineReceipts", () => {
     });
 
     const receipts = deriveRoutineReceipts(routine.targetThreadId, [routine], [running]);
-    expect(receipts.map((receipt) => receipt.id)).toEqual([
-      "routine-created:routine-1",
-      "routine-run-started:run-2",
+    expect(receipts.map((receipt) => [receipt.id, receipt.status])).toEqual([
+      ["routine-created:routine-1", "created"],
+      ["routine-run:run-2", "running"],
     ]);
     expect(receipts[1]?.text).toBe("“Daily digest” started a run");
   });
@@ -168,7 +171,6 @@ describe("deriveRoutineReceipts", () => {
     const receipts = deriveRoutineReceipts(routine.targetThreadId, [routine], [failed], i18n);
     expect(receipts.map((receipt) => receipt.text)).toEqual([
       "已创建例行任务“Daily digest”",
-      "“Daily digest” started a run",
       "“Daily digest”失败：The workspace is missing",
     ]);
   });
@@ -184,9 +186,10 @@ describe("deriveRoutineReceipts", () => {
     });
 
     const receipts = deriveRoutineReceipts(routine.targetThreadId, [routine], [failed]);
-    expect(receipts[2]).toMatchObject({
+    expect(receipts[1]).toMatchObject({
       text: "“Daily digest” failed: The workspace is missing",
-      tone: "error",
+      status: "failed",
+      detail: "The workspace is missing",
     });
   });
 
@@ -205,10 +208,10 @@ describe("deriveRoutineReceipts", () => {
     });
 
     const receipts = deriveRoutineReceipts(routine.targetThreadId, [routine], [failed]);
-    expect(receipts[2]?.text).toBe("“Daily digest” failed: The workspace is missing");
+    expect(receipts[1]?.detail).toBe("The workspace is missing");
   });
 
-  it("keeps queued and waiting runs out of chat and reports canceled runs neutrally", () => {
+  it("keeps queued and waiting runs out of chat and shows canceled runs as canceled", () => {
     const queued = decodeRoutineRun({
       ...run,
       id: "run-3",
@@ -241,11 +244,10 @@ describe("deriveRoutineReceipts", () => {
       [queued, waiting, canceled],
     );
 
-    expect(receipts.map((receipt) => [receipt.id, receipt.tone])).toEqual([
-      ["routine-created:routine-1", "info"],
-      ["routine-run-started:run-5", "info"],
-      ["routine-run-finished:run-5", "info"],
+    expect(receipts.map((receipt) => [receipt.id, receipt.status])).toEqual([
+      ["routine-created:routine-1", "created"],
+      ["routine-run:run-5", "canceled"],
     ]);
-    expect(receipts[2]?.text).toBe("“Daily digest” was canceled");
+    expect(receipts[1]?.text).toBe("“Daily digest” was canceled");
   });
 });

@@ -1,6 +1,5 @@
 packages:
   - apps/*
-  - infra/*
   - oxlint-plugin-otto
   - oxlint-plugin-anti-slop
   - packages/*

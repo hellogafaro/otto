@@ -202,7 +202,7 @@ export function filterRosterBots(bots: readonly Bot[], query: string): Bot[] {
   );
 }
 
-type RosterShortcutItem = { kind: "bot" | "group"; id: string };
+type RosterShortcutItem = { kind: "bot" | "group" | "chat"; id: string };
 
 type RosterShortcutSection = { botIds: readonly string[] };
 

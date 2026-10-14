@@ -13,19 +13,14 @@ export const memoryCatalog = {
   "Could not send feedback to OpenAI": "Could not send feedback to OpenAI",
   "Feedback sent to OpenAI": "Feedback sent to OpenAI",
   "Routine approval": "Routine approval",
-  "Product feedback approval": "Product feedback approval",
   "App access approval": "App access approval",
   "Command approval": "Command approval",
   "File read approval": "File read approval",
   "File change approval": "File change approval",
-  "Product feedback draft": "Product feedback draft",
   "Waiting for approval": "Waiting for approval",
   "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.":
     "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.",
-  Feedback: "Feedback",
   "Approval required": "Approval required",
-  "Review product feedback": "Review product feedback",
-  "Send feedback": "Send feedback",
   "approval ceiling: {ceiling}": "approval ceiling: {ceiling}",
   "approval required": "approval required",
   "automatic approvals": "automatic approvals",
@@ -117,9 +112,7 @@ export const memoryCatalog = {
   "Save to project memory": "Save to project memory",
   "Save to group memory": "Save to group memory",
   "Save to workspace memory": "Save to workspace memory",
-  "Feedback endpoint": "Feedback endpoint",
-  "Try sending it again. If it keeps happening, send feedback with the technical details.":
-    "Try sending it again. If it keeps happening, send feedback with the technical details.",
+  "Try sending it again.": "Try sending it again.",
   "Bot notes": "Bot notes",
   "Notes and working habits this bot keeps for itself across chats.":
     "Notes and working habits this bot keeps for itself across chats.",
@@ -135,10 +128,5 @@ export const memoryCatalog = {
     "Start a chat with this bot to see and edit what it remembers.",
   "Notes the bot writes on its own as this chat grows, so it can recall earlier parts of a long conversation. They only apply to this chat.":
     "Notes the bot writes on its own as this chat grows, so it can recall earlier parts of a long conversation. They only apply to this chat.",
-  "Allow feedback you submit to reach the Otto feedback service. Submissions may be kept for up to 90 days.":
-    "Allow feedback you submit to reach the Otto feedback service. Submissions may be kept for up to 90 days.",
-  "Enable product feedback": "Enable product feedback",
-  "Where submitted product feedback is sent. Use HTTPS or loopback HTTP.":
-    "Where submitted product feedback is sent. Use HTTPS or loopback HTTP.",
   "Approval pending": "Approval pending",
 } as const;

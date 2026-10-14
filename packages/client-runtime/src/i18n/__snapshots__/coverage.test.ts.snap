@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1905,
+  "directMessageCount": 1898,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -85,7 +85,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "STATUS_LABEL[status])}",
     ],
     "apps/web/src/components/roster/ChatStatusIcon.tsx": [
-      "CHAT_STATUS_LABEL[status])} />;",
+      "CHAT_STATUS[status].label)} />;",
     ],
     "apps/web/src/components/roster/DurableMemoryPanels.tsx": [
       "label)} className="flex flex-wrap gap-1">",
@@ -281,8 +281,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Time format",
       "Usage refresh",
       "Privacy",
-      "Anonymous analytics",
-      "Product feedback",
       "Voice calls",
       "Memory",
       "Private bot memory",
@@ -424,7 +422,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/chat/ModelListRow.tsx",
     "apps/web/src/components/chat/ModelPickerContent.tsx",
     "apps/web/src/components/chat/ModelPickerSidebar.tsx",
-    "apps/web/src/components/chat/PendingUserInputChoices.tsx",
     "apps/web/src/components/chat/PluginSearchResultCard.tsx",
     "apps/web/src/components/chat/ProviderConnectCard.tsx",
     "apps/web/src/components/chat/ProviderModelPicker.tsx",
@@ -437,7 +434,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/chat/ThreadErrorBanner.tsx",
     "apps/web/src/components/chat/TraitsMenuContent.tsx",
     "apps/web/src/components/chat/TraitsPicker.tsx",
-    "apps/web/src/components/chat/UserInputAnswerCard.tsx",
     "apps/web/src/components/chat/chatPaletteActions.ts",
     "apps/web/src/components/chat/composerProviderMenuItems.ts",
     "apps/web/src/components/chat/traitsPicker.logic.ts",
@@ -520,6 +516,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/NewGroupDialog.tsx",
     "apps/web/src/components/roster/RosterHeaders.tsx",
     "apps/web/src/components/roster/RosterLoadStatus.tsx",
+    "apps/web/src/components/roster/RosterRowActions.tsx",
     "apps/web/src/components/roster/RosterRows.tsx",
     "apps/web/src/components/roster/RoutineReceiptRow.tsx",
     "apps/web/src/components/roster/botEngineSelection.ts",

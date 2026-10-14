@@ -6,11 +6,7 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { AuthStorage } from "@mastra/code-sdk/auth/storage";
 import { RequestContext } from "@mastra/core/request-context";
-import {
-  OTTO_CREATE_ROUTINE_TOOL_NAME,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-  OTTO_TOOL_CATALOG,
-} from "@otto/contracts";
+import { OTTO_CREATE_ROUTINE_TOOL_NAME, OTTO_TOOL_CATALOG } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import { assert } from "vite-plus/test";
 import {
@@ -23,7 +19,6 @@ import {
   routineToolInputSchema,
   routineToolNeedsGlobalApproval,
 } from "./OttoMastraHarness.ts";
-import { productFeedbackToolInputSchema } from "./OttoMastraHarness.ts";
 import { makeOttoMastraHarnessTestSupport } from "./test-support/OttoMastraHarness.ts";
 
 const { harnessTest } = makeOttoMastraHarnessTestSupport();
@@ -39,7 +34,9 @@ describe("OttoMastraHarness", () => {
           authStorage: new AuthStorage(NodePath.join(directory, "auth.json")),
           memoryDbPath: NodePath.join(directory, "observational-memory.sqlite"),
           getThreadTools: () => ({}),
-          toolRuntime: toolRuntimeFixture({ toolsForThread: () => [] }),
+          toolRuntime: toolRuntimeFixture({
+            toolsForThread: () => OTTO_TOOL_CATALOG.filter((tool) => tool.id === "Shell"),
+          }),
         });
 
         try {
@@ -94,12 +91,7 @@ describe("OttoMastraHarness", () => {
       toolRuntime: runtime,
     });
 
-    assert.containsAllKeys(tools, [
-      "Shell",
-      "exa_search",
-      "RestartMcpServers",
-      OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-    ]);
+    assert.containsAllKeys(tools, ["Shell", "exa_search", "RestartMcpServers"]);
     assert.notProperty(tools, "Read");
     assert.notProperty(tools, "execute_command");
 
@@ -120,36 +112,6 @@ describe("OttoMastraHarness", () => {
     assert.deepEqual(approvalInputs, [{ command: 'printf "hi\\n"' }]);
     assert.deepEqual(approvalPolicies, [true, true, true, true, false]);
     assert.equal(criticalOttoAction("RestartMcpServers"), "production");
-  });
-
-  it("keeps product feedback draft-only and approval-gated", async () => {
-    const valid = await productFeedbackToolInputSchema["~standard"].validate({
-      feedback: "The button is unresponsive.",
-    });
-
-    const forbidden = await productFeedbackToolInputSchema["~standard"].validate({
-      feedback: "Private payload",
-      conversation: "full thread",
-    });
-
-    assert.isUndefined(valid.issues);
-    assert.isDefined(forbidden.issues);
-
-    const requestContext = new RequestContext();
-    requestContext.setRaw("controller", { resourceId: "thread-1" });
-
-    const tools = await resolveOttoTools(requestContext, {
-      authStorage: new AuthStorage("/tmp/otto-unused-auth.json"),
-      getThreadTools: () => ({}),
-      toolRuntime: toolRuntimeFixture({ toolsForThread: () => [] }),
-    });
-
-    const tool = probeTool(tools[OTTO_PRODUCT_FEEDBACK_TOOL_NAME]);
-
-    assert.isTrue(tool.requireApproval);
-    assert.deepEqual(await tool.execute?.({ feedback: "The button is unresponsive." }, {}), {
-      status: "draft-opened",
-    });
   });
 
   it("creates an approved routine for the current chat after tool approval", async () => {

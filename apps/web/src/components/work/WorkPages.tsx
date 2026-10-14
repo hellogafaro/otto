@@ -26,6 +26,7 @@ import {
   EmptyTitle,
 } from "../ui/empty";
 import { SidebarInset } from "../ui/sidebar";
+import { SkeletonCards, SkeletonTableRows } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
 import { WorkspaceBackButton, WorkspacePageHeader } from "../WorkspacePageHeader";
@@ -195,7 +196,11 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
         ) : null
       }
     >
-      {!loaded ? null : tasks.length === 0 ? (
+      {!loaded ? (
+        <WorkColumn title={t("Tasks")}>
+          <SkeletonTableRows label={t("Loading tasks…")} />
+        </WorkColumn>
+      ) : tasks.length === 0 ? (
         <WorkEmpty
           icon={<RiListCheck3 />}
           title={t("Keep every job in one place")}
@@ -283,7 +288,11 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
         ) : null
       }
     >
-      {!loaded ? null : projects.length === 0 ? (
+      {!loaded ? (
+        <WorkColumn title={t("Projects")}>
+          <SkeletonCards label={t("Loading projects…")} />
+        </WorkColumn>
+      ) : projects.length === 0 ? (
         <WorkEmpty
           icon={<RiBox3Line />}
           title={t("Plan work around an outcome")}

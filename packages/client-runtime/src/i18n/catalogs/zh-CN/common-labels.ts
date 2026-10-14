@@ -447,6 +447,7 @@ export const commonLabelsCatalog = {
   "Wrap lines": "开启自动换行",
   "Checklist progress": "清单进度",
   "Copied error": "已复制错误",
+  "Full error": "完整错误",
   "Copy error": "复制错误",
   "Show details": "显示详情",
   "Hide details": "隐藏详情",

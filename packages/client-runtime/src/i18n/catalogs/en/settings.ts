@@ -3,7 +3,6 @@ export const settingsCatalog = {
   "Otto runs locally. Provider prompts and enabled online features still send data to their listed services.":
     "Otto runs locally. Provider prompts and enabled online features still send data to their listed services.",
   "All providers": "All providers",
-  Analytics: "Analytics",
   "Anonymous analytics": "Anonymous analytics",
   "Camera access was denied for this app. Open Settings to enable it.":
     "Camera access was denied for this app. Open Settings to enable it.",
@@ -312,10 +311,6 @@ export const settingsCatalog = {
   "Automatic updates are not available in this build.":
     "Automatic updates are not available in this build.",
   "Update check failed.": "Update check failed.",
-  "Share anonymous usage counts and app details. Prompts, files, and provider account IDs are excluded.":
-    "Share anonymous usage counts and app details. Prompts, files, and provider account IDs are excluded.",
-  "anonymous analytics": "anonymous analytics",
-  "Send anonymous analytics": "Send anonymous analytics",
   "Desktop updates": "Desktop updates",
   "Signed desktop builds contact the configured release host to check for and download updates.":
     "Signed desktop builds contact the configured release host to check for and download updates.",

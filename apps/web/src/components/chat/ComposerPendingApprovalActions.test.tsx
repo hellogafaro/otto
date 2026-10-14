@@ -1,8 +1,4 @@
-import {
-  OTTO_CREATE_ROUTINE_TOOL_NAME,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-  ApprovalRequestId,
-} from "@otto/contracts";
+import { OTTO_CREATE_ROUTINE_TOOL_NAME, ApprovalRequestId } from "@otto/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -21,7 +17,7 @@ describe("ComposerPendingApprovalActions", () => {
     expect(markup).toContain(">Cancel<");
     expect(markup).toContain("Always allow this session");
     expect(markup).not.toContain(">Always allow<");
-    expect(markup).toContain("h-6");
+    expect(markup).toContain("h-7");
     expect(markup).not.toContain("sm:h-");
     expect(markup).toContain("bg-foreground text-background");
     expect(markup).toContain("text-muted-foreground");
@@ -160,26 +156,5 @@ describe("ComposerPendingApprovalActions", () => {
     expect(fallbackMarkup).toContain("Create routine");
     expect(fallbackMarkup).toContain(">Don&#x27;t create<");
     expect(fallbackMarkup).not.toContain("Enable Auto Review");
-  });
-
-  it("keeps product feedback action labels", () => {
-    const markup = renderToStaticMarkup(
-      <ComposerPendingApprovalActions
-        requestId={ApprovalRequestId.make("approval-feedback")}
-        requestKind="command"
-        toolName={OTTO_PRODUCT_FEEDBACK_TOOL_NAME}
-        isResponding={false}
-        options={[
-          { decision: "accept", label: "Add to feedback draft" },
-          { decision: "decline", label: "Cancel" },
-        ]}
-        onRespondToApproval={async () => undefined}
-      />,
-    );
-
-    expect(markup).toContain("Add to feedback draft");
-    expect(markup).toContain(">Cancel<");
-    expect(markup).not.toContain("Allow once");
-    expect(markup).not.toContain(">Never<");
   });
 });

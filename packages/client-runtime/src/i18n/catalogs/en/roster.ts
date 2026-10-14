@@ -230,6 +230,11 @@ export const rosterCatalog = {
   "Delete routine “{name}”?": "Delete routine “{name}”?",
   "This removes the schedule and its run history.":
     "This removes the schedule and its run history.",
+  "Run finished": "Run finished",
+  "Run failed": "Run failed",
+  "Run canceled": "Run canceled",
+  "Routine created": "Routine created",
+  "Routine deleted": "Routine deleted",
   "Routine “{name}” was created": "Routine “{name}” was created",
   "{scope} skill": "{scope} skill",
   "{botName} wants to save this": "{botName} wants to save this",
@@ -330,8 +335,6 @@ export const rosterCatalog = {
   "{count} members": "{count} members",
   "Routine not found": "Routine not found",
   History: "History",
-  "No runs yet. Each run posts its result in the routine's chat.":
-    "No runs yet. Each run posts its result in the routine's chat.",
   Schedule: "Schedule",
   "What should change? For example, run at 8:00 instead.":
     "What should change? For example, run at 8:00 instead.",
@@ -341,4 +344,6 @@ export const rosterCatalog = {
   "Collapse routine details": "Collapse routine details",
   "Close routine details": "Close routine details",
   "{passed} of {total} succeeded": "{passed} of {total} succeeded",
+  "No runs yet": "No runs yet",
+  "Loading routines…": "Loading routines…",
 } as const;

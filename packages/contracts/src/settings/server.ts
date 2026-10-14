@@ -31,7 +31,6 @@ import {
 } from "../voiceCall.ts";
 import { ImageGenerationSettings, ImageGenerationSettingsPatch } from "../imageGeneration.ts";
 import { ProviderInstanceConfig, ProviderInstanceId } from "../providerInstance.ts";
-import { DEFAULT_PRODUCT_FEEDBACK_ENDPOINT, ProductFeedbackEndpoint } from "./client.ts";
 import {
   CodexSettings,
   ClaudeSettings,
@@ -147,11 +146,6 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(false)),
   ),
   enableProviderUpdateChecks: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-  analyticsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-  productFeedbackEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-  productFeedbackEndpoint: ProductFeedbackEndpoint.pipe(
-    Schema.withDecodingDefault(Effect.succeed(DEFAULT_PRODUCT_FEEDBACK_ENDPOINT)),
-  ),
   botSandboxBrowserSharing: BotSandboxBrowserSharing.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_BOT_SANDBOX_BROWSER_SHARING)),
   ),
@@ -260,7 +254,6 @@ export const ServerSettingsOperation = Schema.Literals([
   "read-secret",
   "remove-secret",
   "remove-stale-secret",
-  "remove-analytics-state",
   "rollback-secret",
   "write-secret",
   "validate-sandbox",
@@ -305,10 +298,7 @@ const ServerSettingsPatchFields = {
   // Server settings
   enableLegacyTokenStreaming: Schema.optionalKey(Schema.Boolean),
   enableProviderUpdateChecks: Schema.optionalKey(Schema.Boolean),
-  analyticsEnabled: Schema.optionalKey(Schema.Boolean),
   localExecutionMode: Schema.optionalKey(LocalExecutionMode),
-  productFeedbackEnabled: Schema.optionalKey(Schema.Boolean),
-  productFeedbackEndpoint: Schema.optionalKey(ProductFeedbackEndpoint),
   botSandboxBrowserSharing: Schema.optionalKey(BotSandboxBrowserSharing),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
   browserProvider: Schema.optionalKey(

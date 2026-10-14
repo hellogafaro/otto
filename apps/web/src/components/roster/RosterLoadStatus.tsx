@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
+import { SkeletonSidebarRows } from "../ui/skeleton";
 import type { RosterLoadState } from "./rosterRouteSelection";
 
 /**
@@ -22,6 +23,10 @@ export function RosterLoadStatus({
   const environmentId = usePrimaryEnvironmentId();
   const retryNow = useAtomCommand(environmentCatalog.retryNow, { reportFailure: false });
   const muted = variant === "sidebar" ? "text-sidebar-muted-foreground" : "text-muted-foreground";
+
+  if (state.kind === "loading" && variant === "sidebar") {
+    return <SkeletonSidebarRows label={t("Loading bots…")} sections={[3, 5]} />;
+  }
 
   return (
     <div

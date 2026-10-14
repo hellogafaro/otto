@@ -4,19 +4,14 @@ import {
   sharedProjectMemoryAutoSaves,
   sharedProjectMemoryMode,
 } from "@otto/client-runtime/durable-memory";
-import { OTTO_DOCUMENTATION_URL, DEFAULT_SERVER_SETTINGS } from "@otto/contracts/settings";
+import { OTTO_DOCUMENTATION_URL } from "@otto/contracts/settings";
 
 import type { MessageKey } from "@otto/client-runtime/i18n";
 
 import { usePrimarySettings, useUpdatePrimarySettings } from "~/hooks/useSettings";
 import { useI18n } from "../../i18n";
 import { Switch } from "../ui/switch";
-import {
-  SettingResetButton,
-  SettingsPageContainer,
-  SettingsRow,
-  SettingsSection,
-} from "./settingsLayout";
+import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
 import { PortabilitySettings } from "./PortabilitySettings";
 import { searchableSetting, type SettingsSearchItemId } from "./settingsSearch";
 
@@ -39,44 +34,6 @@ export function PrivacySettingsPanel() {
   return (
     <SettingsPageContainer>
       <SettingsSection title={t("Data sharing")}>
-        <SettingsRow
-          {...searchableSetting("anonymous-analytics", t)}
-          description={t(
-            "Share anonymous usage counts and app details. Prompts, files, and provider account IDs are excluded.",
-          )}
-          resetAction={
-            settings.analyticsEnabled !== DEFAULT_SERVER_SETTINGS.analyticsEnabled ? (
-              <SettingResetButton
-                label={t("anonymous analytics")}
-                onClick={() =>
-                  updateSettings({ analyticsEnabled: DEFAULT_SERVER_SETTINGS.analyticsEnabled })
-                }
-              />
-            ) : null
-          }
-          control={
-            <Switch
-              checked={settings.analyticsEnabled}
-              onCheckedChange={(checked) => updateSettings({ analyticsEnabled: Boolean(checked) })}
-              aria-label={t("Send anonymous analytics")}
-            />
-          }
-        />
-        <SettingsRow
-          {...searchableSetting("privacy-product-feedback", t)}
-          description={t(
-            "Allow feedback you submit to reach the Otto feedback service. Submissions may be kept for up to 90 days.",
-          )}
-          control={
-            <Switch
-              checked={settings.productFeedbackEnabled}
-              onCheckedChange={(checked) =>
-                updateSettings({ productFeedbackEnabled: Boolean(checked) })
-              }
-              aria-label={t("Enable product feedback")}
-            />
-          }
-        />
         <SettingsRow
           {...searchableSetting("privacy-voice-calls", t)}
           description={t(

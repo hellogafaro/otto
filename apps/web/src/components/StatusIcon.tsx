@@ -1,25 +1,56 @@
+import { useId } from "react";
+
 import { cn } from "../lib/utils";
 
 /**
- * Every status in the app. Tasks and projects use backlog, pending, in progress,
- * completed and cancelled; chats use working, waiting and completed (an idle chat shows
- * none); routines add paused and error.
+ * The one set of statuses every surface maps onto: a task's In progress, a chat's
+ * Working and a routine's Running are all in progress; a task's Pending, a queued run
+ * and an active routine waiting for its next run are all pending.
  */
 export type StatusKind =
   | "backlog"
   | "pending"
   | "in_progress"
+  | "waiting"
+  | "paused"
   | "completed"
   | "cancelled"
-  | "error"
-  | "working"
-  | "waiting"
-  | "paused";
+  | "error";
 
 /**
- * Otto: The one status icon set, Linear-style 12px glyphs: dashed, open and half rings
- * for work not done, filled discs for an outcome, a turning arc while a bot works.
- * In progress and working are violet, completed green, error red, waiting blue.
+ * One color per meaning: gray is not started or was stopped, violet
+ * is happening, yellow needs you, green is done and red failed.
+ */
+const STATUS_TONE = {
+  backlog: "text-muted-foreground",
+  pending: "text-muted-foreground",
+  in_progress: "text-progress",
+  waiting: "text-warning",
+  paused: "text-muted-foreground",
+  completed: "text-success",
+  cancelled: "text-muted-foreground",
+  error: "text-destructive",
+} as const satisfies Record<StatusKind, string>;
+
+/** Outcomes and calls for you are filled discs with this mark cut out of them. */
+const DISC_MARK: Partial<Record<StatusKind, string>> = {
+  completed: "M4.2 7.2 6.1 9l3.7-3.9",
+  cancelled: "m4.9 4.9 4.2 4.2m0-4.2-4.2 4.2",
+  error: "m4.9 4.9 4.2 4.2m0-4.2-4.2 4.2",
+  waiting: "M7 3.7v3.6M7 10.2v.1",
+};
+
+/** Open rings carry this mark inside. */
+const RING_MARK: Partial<Record<StatusKind, string>> = {
+  paused: "M5.6 5v4M8.4 5v4",
+};
+
+/**
+ * Otto: The one status icon set, Linear-style 12px glyphs. Open rings are not finished:
+ * dashed backlog, solid while pending, pause bars while paused, and a still half disc
+ * inside the ring while in progress. Filled discs are an outcome or a call for
+ * you, their mark cut through so any row background shows; cancelled and error share
+ * the cross in gray and red.
  */
 export function StatusIcon({
   status,
@@ -31,28 +62,33 @@ export function StatusIcon({
   readonly label?: string;
   readonly className?: string | undefined;
 }) {
+  const maskId = `status-${useId().replace(/[^\w-]/g, "")}`;
   const named = label ? { role: "img", "aria-label": label } : { "aria-hidden": true };
+  const discMark = DISC_MARK[status];
+  const ringMark = RING_MARK[status];
 
   return (
     <svg
       viewBox="0 0 14 14"
       {...named}
-      className={cn(
-        "size-3 shrink-0",
-        (status === "in_progress" || status === "working") && "text-progress",
-        status === "completed" && "text-success",
-        status === "error" && "text-destructive",
-        status === "waiting" && "text-info",
-        (status === "backlog" ||
-          status === "pending" ||
-          status === "cancelled" ||
-          status === "paused") &&
-          "text-muted-foreground",
-        status === "working" && "animate-spin motion-reduce:animate-none",
-        className,
-      )}
+      className={cn("size-3 shrink-0", STATUS_TONE[status], className)}
     >
-      {status === "backlog" ? (
+      {discMark ? (
+        <>
+          <mask id={maskId}>
+            <circle cx="7" cy="7" r="7" fill="var(--color-zinc-25)" />
+            <path
+              d={discMark}
+              fill="none"
+              stroke="var(--color-black)"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </mask>
+          <circle cx="7" cy="7" r="7" fill="currentColor" mask={`url(#${maskId})`} />
+        </>
+      ) : (
         <circle
           cx="7"
           cy="7"
@@ -60,79 +96,20 @@ export function StatusIcon({
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
-          strokeDasharray="2.2 2.2"
+          strokeDasharray={status === "backlog" ? "2.2 2.2" : undefined}
         />
-      ) : null}
-      {status === "pending" ? (
-        <circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      ) : null}
+      )}
       {status === "in_progress" ? (
-        <>
-          <circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M7 3.5A3.5 3.5 0 0 1 7 10.5Z" fill="currentColor" />
-        </>
+        <path d="M7 3.5A3.5 3.5 0 0 1 7 10.5Z" fill="currentColor" />
       ) : null}
-      {status === "working" ? (
-        <>
-          <circle
-            cx="7"
-            cy="7"
-            r="6"
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity="0.3"
-            strokeWidth="1.5"
-          />
-          <path
-            d="M7 1a6 6 0 0 1 6 6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </>
-      ) : null}
-      {status === "paused" ? (
-        <>
-          <circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <path
-            d="M5.6 5v4M8.4 5v4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </>
-      ) : null}
-      {status === "completed" ||
-      status === "cancelled" ||
-      status === "error" ||
-      status === "waiting" ? (
-        <circle cx="7" cy="7" r="7" fill="currentColor" />
-      ) : null}
-      {status === "completed" ? (
+      {ringMark ? (
         <path
-          d="M4.2 7.2 6.1 9l3.7-3.9"
+          d={ringMark}
           fill="none"
-          stroke="var(--background)"
+          stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-        />
-      ) : null}
-      {status === "cancelled" || status === "error" ? (
-        <path
-          d="m4.9 4.9 4.2 4.2m0-4.2-4.2 4.2"
-          stroke="var(--background)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      ) : null}
-      {status === "waiting" ? (
-        <path
-          d="M4.3 7h.01M7 7h.01M9.7 7h.01"
-          stroke="var(--background)"
-          strokeWidth="1.8"
-          strokeLinecap="round"
         />
       ) : null}
     </svg>

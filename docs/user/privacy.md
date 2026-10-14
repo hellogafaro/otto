@@ -12,10 +12,6 @@ document. See [Bot memory](memory.md).
 
 - Provider requests send the prompt, selected files, tool results, and conversation context to the
   provider that you select. That provider controls its processing and retention.
-- When an owned feedback endpoint is configured, product feedback sends the text and an optional
-  safe interface descriptor to that service. The included Worker can retain accepted feedback for
-  up to 90 days and post it to the configured GitHub repository. This fork's default endpoint is a
-  reserved `.localhost` placeholder, not a deployed service.
 - Voice calls send microphone audio and call state to the ChatGPT Realtime service while a call is
   active.
 - Dictation records microphone audio on the device you dictate from and sends it through the
@@ -30,8 +26,6 @@ document. See [Bot memory](memory.md).
 - The environment server downloads the public model list from models.dev about once an hour, so new
   provider models appear without an app update. The request sends no account or chat data. Turning
   off provider update checks also stops this download.
-- Anonymous analytics send fixed aggregate counters and app, platform, architecture, and client
-  dimensions when analytics is on.
 
 ## Subscription credentials
 
@@ -41,7 +35,7 @@ or client storage. A run receives only the short-lived access that it needs.
 
 ## Privacy controls
 
-Open **Settings > Privacy & data** to control anonymous analytics, product feedback, and voice calls.
+Open **Settings > Privacy & data** to control voice calls.
 You can also export or import environment data under **Backup and
 transfer**. Mobile exposes the sharing controls for the connected environment.
 

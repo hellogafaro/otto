@@ -14,7 +14,8 @@ export interface BotChatRow {
 }
 
 /**
- * The rows of a bot's Chats list: its newest chats, the open one marked. The
+ * The rows of a bot's Chats list: its newest chats, the open one marked, leaving out
+ * chats pinned to the top of the sidebar. The
  * open chat stays listed even when it is older than the ones shown, so the
  * list always says where you are.
  */
@@ -25,12 +26,15 @@ export function buildBotChatRows(input: {
     readonly updatedAt: string;
   }>;
   readonly currentThreadId: string | null;
+  /** Chats pinned to the sidebar's Pins, listed there instead. */
+  readonly pinnedIds?: ReadonlySet<string>;
   readonly limit?: number;
 }): BotChatRow[] {
   const limit = input.limit ?? BOT_CHATS_PANEL_LIMIT;
   const newestId = input.chats[0]?.id ?? null;
-  const shown = input.chats.slice(0, limit);
-  const current = input.chats.find((chat) => chat.id === input.currentThreadId);
+  const listed = input.chats.filter((chat) => !input.pinnedIds?.has(chat.id));
+  const shown = listed.slice(0, limit);
+  const current = listed.find((chat) => chat.id === input.currentThreadId);
 
   if (current && !shown.includes(current)) shown.splice(limit - 1, 1, current);
 

@@ -134,7 +134,7 @@ describe("BotThreadLanding message formatting", () => {
     );
   });
 
-  it("renders routine receipts as readable notes with an explicit failed tone", () => {
+  it("renders routine receipts as cards whose failure reason stays readable", () => {
     const source = NodeFS.readFileSync(new URL("./BotThreadLanding.tsx", import.meta.url), "utf8");
 
     const receiptRow = NodeFS.readFileSync(
@@ -143,11 +143,9 @@ describe("BotThreadLanding message formatting", () => {
     );
 
     expect(source).toContain("<RoutineReceiptRow receipt={item.receipt} />");
-    // The foreground token keeps failed text at WCAG AA on its tinted row in
-    // every built-in theme; the saturated destructive color does not in dark mode.
-    expect(receiptRow).toContain('error && "bg-destructive/8 text-destructive-foreground"');
+    // The foreground token keeps the failure reason at WCAG AA on the card in every
+    // built-in theme; the saturated destructive color does not in dark mode.
+    expect(receiptRow).toContain("truncate text-destructive-foreground");
     expect(receiptRow).not.toMatch(/text-destructive(?!-foreground)/);
-    expect(receiptRow).toContain("whitespace-normal break-words");
-    expect(receiptRow).not.toContain("truncate");
   });
 });

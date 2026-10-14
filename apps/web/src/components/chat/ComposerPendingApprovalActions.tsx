@@ -1,7 +1,6 @@
 import { RiShieldCheckLine } from "@remixicon/react";
 import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   type ApprovalRequestId,
   type ProviderApprovalDecision,
   type ProviderApprovalOption,
@@ -83,11 +82,9 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
 
   const visibleOptions = isRoutine
     ? routineApprovalOptions(t)
-    : toolName === OTTO_PRODUCT_FEEDBACK_TOOL_NAME
-      ? options
-      : requestKind === "command"
-        ? commandApprovalOptions(options, t)
-        : options;
+    : requestKind === "command"
+      ? commandApprovalOptions(options, t)
+      : options;
 
   return (
     <>
@@ -97,7 +94,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
         return (
           <Button
             key={option.decision}
-            size="xs"
+            size="sm"
             variant={
               option.decision === "accept"
                 ? "default"

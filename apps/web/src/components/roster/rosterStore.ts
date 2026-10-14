@@ -48,7 +48,10 @@ function firstAvailableBotId(bots: readonly Bot[]): string | null {
   return bots.find((bot) => bot.archivedAt === null)?.id ?? null;
 }
 
-const RosterItem = Schema.Struct({ kind: Schema.Literals(["bot", "group"]), id: Schema.String });
+const RosterItem = Schema.Struct({
+  kind: Schema.Literals(["bot", "group", "chat"]),
+  id: Schema.String,
+});
 
 const decodeItems = Schema.decodeUnknownOption(Schema.Array(RosterItem));
 

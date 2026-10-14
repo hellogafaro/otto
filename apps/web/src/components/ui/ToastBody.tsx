@@ -75,11 +75,7 @@ function CopyErrorButton({ text }: { text: string }) {
           />
         }
       >
-        {isCopied ? (
-          <RiCheckLine className="size-3 text-success" />
-        ) : (
-          <RiFileCopyLine className="size-3" />
-        )}
+        {isCopied ? <RiCheckLine className="size-3" /> : <RiFileCopyLine className="size-3" />}
       </TooltipTrigger>
       <TooltipPopup side="top">{label}</TooltipPopup>
     </Tooltip>

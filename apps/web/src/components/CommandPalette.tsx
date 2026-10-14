@@ -6,7 +6,6 @@ import {
   RiBarChartLine,
   RiImageLine,
   RiTranslate2,
-  RiChat1Line,
   RiDiscussLine,
   RiMoonLine,
   RiPuzzleLine,
@@ -39,7 +38,6 @@ import {
 import { CommandPaletteContent } from "./CommandPaletteContent";
 import { CommandPaletteResults } from "./CommandPaletteResults";
 import { openSettings } from "~/settingsDialogStore";
-import { openProductFeedback } from "~/productFeedbackStore";
 import { openPlugins } from "~/pluginsDialogStore";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { allEnvironmentRostersAtom } from "../state/bots";
@@ -164,15 +162,6 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
       icon: <RiBarChartLine className={ITEM_ICON_CLASS} />,
       run: async () => {
         openSettings("usage");
-      },
-    },
-    {
-      value: "action:feedback",
-      searchTerms: [t("Send feedback"), "feedback", "help", "bug", "idea"],
-      title: t("Send feedback"),
-      icon: <RiChat1Line className={ITEM_ICON_CLASS} />,
-      run: async () => {
-        openProductFeedback();
       },
     },
     {

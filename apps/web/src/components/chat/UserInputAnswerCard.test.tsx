@@ -1,6 +1,4 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { RiCheckLine, RiPencilLine } from "@remixicon/react";
-import { iconPath } from "../../test/iconPath";
 import { describe, expect, it } from "vite-plus/test";
 
 import { UserInputAnswerCard } from "./UserInputAnswerCard";
@@ -29,32 +27,29 @@ const fix = {
 };
 
 describe("UserInputAnswerCard", () => {
-  it("lists multi-select picks in the order the bot offered them", () => {
+  it("lists multi-select picks once each, in the order the bot offered them", () => {
     const markup = renderToStaticMarkup(
-      <UserInputAnswerCard answered={[{ question: scope, answers: ["Mobile", "Server"] }]} />,
+      <UserInputAnswerCard
+        answered={[{ question: scope, answers: ["Mobile", "Server", "Server"] }]}
+      />,
     );
 
-    expect(markup.indexOf("Server")).toBeLessThan(markup.indexOf("Mobile"));
-    expect(
-      renderToStaticMarkup(
-        <UserInputAnswerCard answered={[{ question: scope, answers: ["Server", "Server"] }]} />,
-      ).match(/>Server</g),
-    ).toHaveLength(1);
-    expect(markup).toContain("Answered");
+    expect(markup).toContain(">Server, Mobile<");
   });
 
-  it("marks a typed answer with a pencil and leaves a single pick plain", () => {
-    const typed = renderToStaticMarkup(
-      <UserInputAnswerCard answered={[{ question: fix, answers: ["Receipts, then delete"] }]} />,
+  it("reads back each question over its answer, typed answers included", () => {
+    const markup = renderToStaticMarkup(
+      <UserInputAnswerCard
+        answered={[
+          { question: fix, answers: ["Receipts, then delete"] },
+          { question: scope, answers: ["Web"] },
+        ]}
+      />,
     );
 
-    const picked = renderToStaticMarkup(
-      <UserInputAnswerCard answered={[{ question: fix, answers: ["Wait on receipts"] }]} />,
+    expect(markup).toMatch(
+      /How should I fix the reaper tests\?<\/dt><dd[^>]*>Receipts, then delete</,
     );
-
-    expect(typed).toContain(iconPath(RiPencilLine));
-    expect(picked).not.toContain(iconPath(RiPencilLine));
-    // Only the header badge carries a check; a single pick reads as plain text.
-    expect(picked.split(iconPath(RiCheckLine))).toHaveLength(2);
+    expect(markup).toMatch(/Which suites should I touch\?<\/dt><dd[^>]*>Web</);
   });
 });

@@ -20,7 +20,7 @@ export type ProviderAvailabilityReason =
   | "missing-provider";
 
 /** One next step. Clients map "providers" to Settings > Providers and "usage" to bot settings. */
-export type ProviderAvailabilityAction = "providers" | "usage" | "feedback" | "none";
+export type ProviderAvailabilityAction = "providers" | "usage" | "none";
 
 export interface ProviderAvailabilityPresentation {
   readonly title: string;

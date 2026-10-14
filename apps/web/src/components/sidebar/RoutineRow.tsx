@@ -65,7 +65,7 @@ export function RoutineRow({
         : t("Not scheduled");
 
   const icon = running
-    ? ({ status: "working", label: t("Running") } as const)
+    ? ({ status: "in_progress", label: t("Running") } as const)
     : failed
       ? ({ status: "error", label: t("Failed") } as const)
       : !routine.enabled

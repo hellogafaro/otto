@@ -121,10 +121,9 @@ Select an image in a chat to open it large. From there you can:
 ## Usage and privacy
 
 Image requests count toward the usage of the bot that made them, under
-**Usage**. Prompts and images are not sent to analytics, bot memory, logs, or
-product feedback. The usage record keeps only the provider, the model, and the
-token counts the provider reports. Grok does not report tokens, so its requests
-count with zero tokens.
+**Usage**. Prompts and images are not sent to bot memory or logs. The usage
+record keeps only the provider, the model, and the token counts the provider
+reports. Grok does not report tokens, so its requests count with zero tokens.
 
 ## Mobile
 

@@ -125,16 +125,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/privacy",
   },
   {
-    id: "anonymous-analytics",
-    title: "Anonymous analytics",
-    to: "/settings/privacy",
-  },
-  {
-    id: "privacy-product-feedback",
-    title: "Product feedback",
-    to: "/settings/privacy",
-  },
-  {
     id: "privacy-voice-calls",
     title: "Voice calls",
     to: "/settings/privacy",

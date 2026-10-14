@@ -6,7 +6,7 @@ LEO-248 owns this transport. LEO-292 may subscribe to ordered action receipts. L
 
 One `WorkspaceComputer` is attached to a persisted native workspace identity. Daytona is the first graphical adapter: its Computer Use desktop is the screen, and one Chromium instance on that display is the bot browser. Lightpanda remains for non-graphical workspaces. The client preview stack is not this computer.
 
-Human frames, leases, and typed input are ephemeral. They are not written to orchestration, chat, routines, analytics, or checkpoints. Provider-visible screenshots still pass through `redactComputerScreenshot`. Action receipts sent to LEO-292 contain only `workspaceId`, `ordinal`, and `category`. They never include text, keys, coordinates, selectors, tokens, or frames.
+Human frames, leases, and typed input are ephemeral. They are not written to orchestration, chat, routines, or checkpoints. Provider-visible screenshots still pass through `redactComputerScreenshot`. Action receipts sent to LEO-292 contain only `workspaceId`, `ordinal`, and `category`. They never include text, keys, coordinates, selectors, tokens, or frames.
 
 ## RPC
 

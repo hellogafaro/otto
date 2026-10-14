@@ -1,17 +1,12 @@
 import * as Predicate from "effect/Predicate";
 import { type ToolsInput } from "@mastra/core/agent";
 import { RequestContext } from "@mastra/core/request-context";
-import type { StandardSchemaWithJSON } from "@mastra/core/schema";
 import { createTool, type NeedsApprovalFn } from "@mastra/core/tools";
 import {
-  OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
   OTTO_CREATE_ROUTINE_TOOL_NAME,
   OttoCreateRoutineInput,
   OttoUpdateRoutineInput,
-  ProductFeedbackToolDraft,
-  type ProductFeedbackToolDraft as ProductFeedbackToolDraftValue,
 } from "@otto/contracts";
-import * as Exit from "effect/Exit";
 import * as Schema from "effect/Schema";
 import { z } from "zod";
 import { createOttoMastraTools } from "../OttoMastraTools.ts";
@@ -33,10 +28,6 @@ import {
   OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
   routinePausedResultSchema,
 } from "./OttoRoutineSchemas.ts";
-
-export const decodeProductFeedbackToolDraft = Schema.decodeUnknownExit(ProductFeedbackToolDraft, {
-  onExcessProperty: "error",
-});
 
 export const decodeCreateRoutineInput = Schema.decodeUnknownPromise(OttoCreateRoutineInput);
 
@@ -68,43 +59,6 @@ function describeSchedule(
       return `every ${schedule.weekdays.join(", ")} at ${schedule.time}`;
   }
 }
-
-export const productFeedbackToolJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    feedback: { type: "string", minLength: 1, maxLength: 4_000 },
-  },
-  required: ["feedback"],
-} as const;
-
-export const productFeedbackToolInputSchema: StandardSchemaWithJSON<ProductFeedbackToolDraftValue> =
-  {
-    "~standard": {
-      version: 1,
-      vendor: "otto-effect",
-      validate: (value) => {
-        const decoded = decodeProductFeedbackToolDraft(value);
-
-        return Exit.isSuccess(decoded)
-          ? { value: decoded.value }
-          : { issues: [{ message: "Invalid product feedback draft." }] };
-      },
-      jsonSchema: {
-        input: () => productFeedbackToolJsonSchema,
-        output: () => productFeedbackToolJsonSchema,
-      },
-    },
-  };
-
-export const productFeedbackTool = createTool({
-  id: OTTO_PRODUCT_FEEDBACK_TOOL_NAME,
-  description:
-    "Draft anonymous Otto product feedback for the user to review and send. This tool never sends feedback.",
-  inputSchema: productFeedbackToolInputSchema,
-  requireApproval: true,
-  execute: async () => ({ status: "draft-opened" as const }),
-});
 
 export async function resolveOttoTools(
   requestContext: RequestContext,
@@ -307,7 +261,6 @@ export async function resolveOttoTools(
             abortSignal,
           )),
     ),
-    [OTTO_PRODUCT_FEEDBACK_TOOL_NAME]: productFeedbackTool,
     ...(routineTool ? { [OTTO_CREATE_ROUTINE_TOOL_NAME]: routineTool } : {}),
     ...(listRoutinesTool ? { [OTTO_LIST_ROUTINES_TOOL_NAME]: listRoutinesTool } : {}),
     ...(deleteRoutinesTool ? { [OTTO_DELETE_ROUTINES_TOOL_NAME]: deleteRoutinesTool } : {}),

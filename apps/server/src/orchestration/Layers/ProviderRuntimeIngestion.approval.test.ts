@@ -42,31 +42,7 @@ describe("runtimeEventToActivities approval details", () => {
     ).not.toHaveProperty("args");
   });
 
-  it("preserves a dynamic tool name and bounded draft arguments", () => {
-    const args = { feedback: "Add a shortcut." };
-
-    const event = {
-      type: "request.opened",
-      eventId: EventId.make("evt-feedback-request"),
-      provider: ProviderDriverKind.make("codex"),
-      createdAt: "2026-08-30T00:00:00.000Z",
-      threadId: ThreadId.make("thread-1"),
-      requestId: RuntimeRequestId.make("approval-feedback"),
-      payload: {
-        requestType: "dynamic_tool_call",
-        toolName: "otto_product_feedback",
-        args,
-      },
-    } satisfies ProviderRuntimeEvent;
-
-    const [activity] = runtimeEventToActivities(event);
-    expect(activity?.payload).toMatchObject({
-      toolName: "otto_product_feedback",
-      args,
-    });
-  });
-
-  it("drops unrelated and invalid tool arguments before persistence", () => {
+  it("drops unrelated tool arguments before persistence", () => {
     const event = {
       type: "request.opened",
       eventId: EventId.make("evt-unrelated-request"),
@@ -81,19 +57,7 @@ describe("runtimeEventToActivities approval details", () => {
       },
     } satisfies ProviderRuntimeEvent;
 
-    const invalidFeedbackEvent = {
-      ...event,
-      eventId: EventId.make("evt-invalid-feedback-request"),
-      requestId: RuntimeRequestId.make("approval-invalid-feedback"),
-      payload: {
-        ...event.payload,
-        toolName: "otto_product_feedback",
-        args: { feedback: "x".repeat(4_001) },
-      },
-    } satisfies ProviderRuntimeEvent;
-
     expect(runtimeEventToActivities(event)[0]?.payload).not.toHaveProperty("args");
-    expect(runtimeEventToActivities(invalidFeedbackEvent)[0]?.payload).not.toHaveProperty("args");
   });
 
   it("preserves complete multiline command details", () => {

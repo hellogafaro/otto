@@ -1,21 +1,30 @@
-import { RiErrorWarningLine, RiCloseLine } from "@remixicon/react";
+import {
+  RiArrowRightSLine,
+  RiCheckLine,
+  RiCloseLine,
+  RiErrorWarningLine,
+  RiFileCopyLine,
+} from "@remixicon/react";
 
 import { memo, useState } from "react";
 
-import { presentThreadError, type ThreadErrorContext } from "@otto/client-runtime/errors";
+import {
+  fullTechnicalDetails,
+  presentThreadError,
+  type ThreadErrorContext,
+} from "@otto/client-runtime/errors";
 import type { EnvironmentId } from "@otto/contracts";
 
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { useI18n } from "../../i18n";
-import { openProductFeedbackWithPrefill } from "../../productFeedbackStore";
+import { cn } from "~/lib/utils";
+
+import { BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME } from "../roster/botConversationPresentation";
 import { Button } from "../ui/button";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { ProviderCatalogEntry } from "../settings/providerCatalog";
 import { ProviderLogoTile, ProviderRepairAction } from "./ProviderUnavailableNotice";
-
-export function threadErrorFeedbackDraft(error: string): string {
-  const presentation = presentThreadError(error);
-
-  return `A request failed in a bot chat.\n\n${presentation.title}\n${presentation.description}`;
-}
 
 export function getThreadErrorBannerKey(threadKey: string, error: string | null): string | null {
   return error === null ? null : `${threadKey}\u0000${error}`;
@@ -83,46 +92,71 @@ export const ThreadErrorBanner = memo(function ThreadErrorBanner({
     onDismiss?.();
   };
 
+  const fullError = fullTechnicalDetails(error);
+
+  const hasRepair =
+    presentation.action === "providers" || (presentation.action === "usage" && !!onOpenUsage);
+
+  // A card like the question and approval cards: what failed and why on top, the whole error
+  // opening full width beneath it, and the fixes in a bordered footer.
   return (
     <div className="mx-auto w-min-46rem-pct-2rem pt-2">
       <section
         aria-atomic="true"
-        className="relative rounded-lg border border-destructive/20 bg-card px-3 py-2.5 pe-10 text-card-foreground shadow-sm"
+        className={cn(
+          BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME,
+          "rounded-lg border text-card-foreground",
+        )}
         role="alert"
       >
-        <Button
-          aria-label={t("Dismiss error")}
-          presentation="muted-dismiss"
-          className="absolute end-2 top-2"
-          onClick={dismiss}
-          size="icon-xs"
-          type="button"
-          variant="ghost"
-        >
-          <RiCloseLine />
-        </Button>
-
-        <div className="flex min-w-0 items-start gap-2.5">
-          {provider ? (
-            <ProviderLogoTile provider={provider} />
-          ) : (
-            <RiErrorWarningLine
-              aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 text-destructive"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium leading-5">{presentation.title}</p>
-            <p className="mt-0.5 text-xs leading-4.5 text-muted-foreground">
-              {presentation.description}
-            </p>
-
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              {onResume ? (
-                <Button size="sm" type="button" onClick={onResume} disabled={resuming}>
-                  {resuming ? t("Resuming…") : t("Resume")}
-                </Button>
-              ) : null}
+        <Collapsible>
+          <div className="flex min-w-0 items-start gap-2.5 p-4">
+            {provider ? (
+              <ProviderLogoTile provider={provider} />
+            ) : (
+              <RiErrorWarningLine
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0 text-destructive"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium leading-5">{presentation.title}</p>
+              <CollapsibleTrigger
+                presentation="inline-disclosure"
+                aria-label={t("Full error")}
+                className="mt-0.5"
+              >
+                <span className="line-clamp-2 text-left break-words">
+                  {presentation.description}
+                </span>
+                <RiArrowRightSLine
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 transition-transform group-data-panel-open/disclosure:rotate-90"
+                />
+              </CollapsibleTrigger>
+            </div>
+            <Button
+              aria-label={t("Dismiss error")}
+              presentation="muted-dismiss"
+              className="-me-1.5 -mt-1"
+              onClick={dismiss}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <RiCloseLine />
+            </Button>
+          </div>
+          <CollapsiblePanel>
+            <div className="relative px-4 pb-4">
+              <pre className="max-h-48 overflow-auto rounded-md bg-muted py-2 ps-3 pe-9 font-mono text-xs leading-5 whitespace-pre-wrap break-words text-muted-foreground">
+                {fullError}
+              </pre>
+              <CopyFullErrorButton text={fullError} />
+            </div>
+          </CollapsiblePanel>
+          {hasRepair || onResume ? (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t px-4 py-3">
               <ProviderRepairAction
                 action={presentation.action}
                 reason={presentation.reason}
@@ -130,29 +164,47 @@ export const ThreadErrorBanner = memo(function ThreadErrorBanner({
                 environmentId={environmentId}
                 onOpenUsage={onOpenUsage}
               />
-              {presentation.action === "feedback" ? (
+              {onResume ? (
                 <Button
                   size="sm"
                   type="button"
-                  variant="outline"
-                  onClick={() => openProductFeedbackWithPrefill(threadErrorFeedbackDraft(error))}
+                  variant="primary"
+                  onClick={onResume}
+                  disabled={resuming}
                 >
-                  {t("Send feedback")}
+                  {resuming ? t("Retrying…") : t("Try again")}
                 </Button>
               ) : null}
             </div>
-
-            <details className="mt-1.5 text-xs text-muted-foreground">
-              <summary className="w-fit cursor-pointer rounded-sm py-0.5 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-                {t("Technical details")}
-              </summary>
-              <pre className="mt-1.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 px-2 py-1.5 font-mono text-11px leading-4 text-foreground/75">
-                {presentation.technicalDetails}
-              </pre>
-            </details>
-          </div>
-        </div>
+          ) : null}
+        </Collapsible>
       </section>
     </div>
   );
 });
+
+function CopyFullErrorButton({ text }: { readonly text: string }) {
+  const { t } = useI18n();
+  const { copyToClipboard, isCopied } = useCopyToClipboard({ target: "error-message" });
+  const label = isCopied ? t("Copied error") : t("Copy error");
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-label={label}
+            className="absolute end-5 top-1"
+            onClick={() => copyToClipboard(text)}
+            size="icon-xs"
+            type="button"
+            variant="ghost-muted"
+          />
+        }
+      >
+        {isCopied ? <RiCheckLine /> : <RiFileCopyLine />}
+      </TooltipTrigger>
+      <TooltipPopup side="top">{label}</TooltipPopup>
+    </Tooltip>
+  );
+}

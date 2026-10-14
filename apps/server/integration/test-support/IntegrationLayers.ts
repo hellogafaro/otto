@@ -31,7 +31,6 @@ import {
   NoOpProviderEventLoggers,
   ProviderEventLoggers,
 } from "../../src/provider/Layers/ProviderEventLoggers.ts";
-import { AnalyticsService } from "../../src/telemetry/Services/AnalyticsService.ts";
 import { CheckpointReactorLive } from "../../src/orchestration/Layers/CheckpointReactor.ts";
 import * as RepositoryIdentityResolver from "../../src/project/RepositoryIdentityResolver.ts";
 import { OrchestrationEngineLive } from "../../src/orchestration/Layers/OrchestrationEngine.ts";
@@ -118,13 +117,11 @@ export function createIntegrationLayers({
     ? ProviderServiceLive.pipe(
         Layer.provide(providerSessionDirectoryLayer),
         Layer.provide(realCodexRegistry),
-        Layer.provide(AnalyticsService.layerTest),
         Layer.provide(providerEventLoggersLayer),
       )
     : ProviderServiceLive.pipe(
         Layer.provide(providerSessionDirectoryLayer),
         Layer.provide(fakeRegistry!),
-        Layer.provide(AnalyticsService.layerTest),
         Layer.provide(providerEventLoggersLayer),
       );
 

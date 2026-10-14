@@ -29,6 +29,7 @@
     "@otto/shared": "workspace:*",
     "@pierre/diffs": "catalog:",
     "@remixicon/react": "4.9.0",
+    "@shadcn/react": "^0.3.1",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-pacer": "^0.19.4",
     "@tanstack/react-router": "^1.160.2",

@@ -30,7 +30,6 @@ import {
 import { SettingsSidebarNav } from "./settings/SettingsSidebarNav";
 import { useServerRosterSync } from "./roster/useServerRoster";
 import { openSettings } from "~/settingsDialogStore";
-import { openProductFeedback } from "~/productFeedbackStore";
 import { useSidebarStageBackdropVariant } from "./SidebarStageBackdrop";
 import { useProjects } from "../state/entities";
 import {
@@ -246,8 +245,6 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
     const unsubscribe = onMenuAction((action) => {
       if (action === "open-settings") {
         openSettings();
-      } else if (action === "open-feedback") {
-        openProductFeedback();
       }
     });
 

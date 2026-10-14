@@ -14,8 +14,8 @@ import { createTranslator } from "../i18n/index.ts";
 
 /**
  * Turns a raw provider or orchestration error into chat-facing copy shared by
- * web and mobile. Only an unexplained failure asks for feedback; known causes
- * name their own fix.
+ * web and mobile. Known causes name their own fix; an unexplained failure asks
+ * for a retry.
  */
 export type ThreadErrorPresentation = ProviderAvailabilityPresentation;
 
@@ -39,6 +39,14 @@ function boundedTechnicalDetails(error: string): string {
   const withoutLocalPaths = withoutStack.replace(/file:\/\/\/[^\s)]+/g, "file://…");
 
   return withoutLocalPaths.slice(0, 600);
+}
+
+/** The whole error, every line and the stack included, with local file paths hidden. */
+export function fullTechnicalDetails(error: string): string {
+  return error
+    .trim()
+    .replace(/file:\/\/\/[^\s)]+/g, "file://…")
+    .slice(0, 8000);
 }
 
 const englishTranslate: ProviderAvailabilityTranslate = createTranslator("en").t;
@@ -155,12 +163,14 @@ export function presentThreadError(
     };
   }
 
+  // Nothing more specific to say, so the error's own words are the most useful description.
+  const technicalDetails = boundedTechnicalDetails(error);
+  const reason = technicalDetails.replace(/[.:。：]$/, "").trim();
+
   return {
     title: t("The bot couldn’t finish that request"),
-    description: t(
-      "Try sending it again. If it keeps happening, send feedback with the technical details.",
-    ),
-    technicalDetails: boundedTechnicalDetails(error),
-    action: "feedback",
+    description: reason || t("Try sending it again."),
+    technicalDetails,
+    action: "none",
   };
 }

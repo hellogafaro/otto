@@ -151,10 +151,8 @@ export function useThreadPendingUserInput(input: {
       if (!selection) return;
       setAnswers(selection.draftAnswers);
       setPendingUserInputStep(selection.nextStep);
-
-      if (selection.answers) void submitPendingUserInput(pending.requestId, selection.answers);
     },
-    [pendingUserInputs, setAnswers, submitPendingUserInput],
+    [pendingUserInputs, setAnswers],
   );
 
   const submitPendingUserInputAnswers = useCallback(async () => {

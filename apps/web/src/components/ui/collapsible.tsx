@@ -27,7 +27,7 @@ function CollapsibleTrigger({
   presentation,
   ...props
 }: CollapsiblePrimitive.Trigger.Props & {
-  presentation?: "settings-section" | "markdown-summary";
+  presentation?: "settings-section" | "markdown-summary" | "inline-disclosure";
 }) {
   return (
     <CollapsiblePrimitive.Trigger
@@ -36,6 +36,9 @@ function CollapsibleTrigger({
         presentation === "settings-section" &&
           "group flex min-h-8 w-full items-center gap-2 px-3 sm:px-4",
         presentation === "markdown-summary" && "gap-2 py-2 text-sm font-medium text-foreground",
+        // Otto: A small muted text toggle inside a card, such as an error's Technical details.
+        presentation === "inline-disclosure" &&
+          "group/disclosure flex w-fit items-center gap-0.5 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
       data-slot="collapsible-trigger"

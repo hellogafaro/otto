@@ -30,7 +30,7 @@ This record covers the authorized Akeru replacement, Otto internal/visible rebra
 
 ## Qualification boundaries
 
-The dev smoke test proves the branded application loads through its existing pairing path and survives reload. It does not prove model execution, creation of a real bot, multiplayer permissions or native device installation. Hosted `.localhost` feedback/release endpoints are placeholders, not deployments. Software copyright and license notices remain factual.
+The dev smoke test proves the branded application loads through its existing pairing path and survives reload. It does not prove model execution, creation of a real bot, multiplayer permissions or native device installation. Hosted `.localhost` release endpoints are placeholders, not deployments. Software copyright and license notices remain factual.
 
 The earlier broad test run failed and is retained in `tests-all.log`. Focused fixes include keeping generic Otto and OttoBot identities separate, preserving opaque data, repairing case-normalized legacy branch prefixes, fixture identities and the Ghostty callback ABI. No existing failing assertions were weakened to make these checks pass.
 

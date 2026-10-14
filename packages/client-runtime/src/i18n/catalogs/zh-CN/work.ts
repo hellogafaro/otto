@@ -75,6 +75,9 @@ export const workCatalog = {
   "What did you work on? (optional)": "做了什么？（可选）",
   "Log {duration}": "记录 {duration}",
   "Add link, task or project…": "添加链接、任务或项目…",
-  Waiting: "等待中",
+  "Waiting for you": "等你回复",
   "More actions": "更多操作",
+  "Loading tasks…": "正在加载任务…",
+  "Loading projects…": "正在加载项目…",
+  "Loading files…": "正在加载文件…",
 } as const;

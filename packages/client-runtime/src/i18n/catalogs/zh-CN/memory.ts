@@ -13,19 +13,14 @@ export const memoryCatalog = {
   "Could not send feedback to OpenAI": "无法向 OpenAI 发送反馈",
   "Feedback sent to OpenAI": "反馈已发送至 OpenAI",
   "Routine approval": "例行任务批准",
-  "Product feedback approval": "产品反馈批准",
   "App access approval": "应用访问批准",
   "Command approval": "命令批准",
   "File read approval": "文件读取批准",
   "File change approval": "文件更改批准",
-  "Product feedback draft": "产品反馈草稿",
   "Waiting for approval": "正在等待批准",
   "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.":
     "机器人会记住你的指令、工具和上下文，你只需交代一次任务，它就会持续推进工作。",
-  Feedback: "反馈",
   "Approval required": "需要批准",
-  "Review product feedback": "审阅产品反馈",
-  "Send feedback": "发送反馈",
   "approval ceiling: {ceiling}": "批准上限：{ceiling}",
   "approval required": "需要批准",
   "automatic approvals": "自动批准",
@@ -113,9 +108,7 @@ export const memoryCatalog = {
   "Save to project memory": "保存到项目记忆",
   "Save to group memory": "保存到群组记忆",
   "Save to workspace memory": "保存到工作区记忆",
-  "Feedback endpoint": "反馈端点",
-  "Try sending it again. If it keeps happening, send feedback with the technical details.":
-    "请重新发送。如果问题持续出现，请附上技术详情发送反馈。",
+  "Try sending it again.": "请重新发送。",
   "Bot notes": "机器人笔记",
   "Notes and working habits this bot keeps for itself across chats.":
     "这个机器人为自己保留、跨聊天使用的笔记和工作习惯。",
@@ -131,10 +124,5 @@ export const memoryCatalog = {
     "与这个机器人开始聊天，即可查看和编辑它记住的内容。",
   "Notes the bot writes on its own as this chat grows, so it can recall earlier parts of a long conversation. They only apply to this chat.":
     "随着聊天变长，机器人会自动写下这些笔记，以便回忆长对话中较早的内容。它们只适用于此聊天。",
-  "Allow feedback you submit to reach the Otto feedback service. Submissions may be kept for up to 90 days.":
-    "允许你提交的反馈发送到 Otto 反馈服务。提交内容最多可能保留 90 天。",
-  "Enable product feedback": "启用产品反馈",
-  "Where submitted product feedback is sent. Use HTTPS or loopback HTTP.":
-    "提交的产品反馈发送到的地址。请使用 HTTPS 或回环 HTTP 地址。",
   "Approval pending": "等待批准",
 } as const;

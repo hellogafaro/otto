@@ -16,7 +16,6 @@ import { VoiceCallProvider } from "../components/voice/VoiceCall";
 import { SlowRpcRequestToastCoordinator } from "../components/SlowRpcRequestToastCoordinator";
 import { SurfaceNavigationCoordinator } from "../components/SurfaceNavigationCoordinator";
 import { ComputerViewerDialog } from "../components/computer/ComputerViewerDialog";
-import { ProductFeedbackDialog } from "../components/productFeedback/ProductFeedbackDialog";
 import { PolicyNotice } from "../components/privacy/PolicyNotice";
 import { TranslatedRootRouteErrorView } from "./-RootRouteErrorView";
 import { useI18n } from "../i18n";
@@ -143,7 +142,6 @@ function RootRouteView() {
         <ReplyPlaybackProvider>
           <VoiceCallProvider>{appShell}</VoiceCallProvider>
         </ReplyPlaybackProvider>
-        <ProductFeedbackDialog />
         <ComputerViewerDialog />
         <PolicyNotice />
       </AnchoredToastProvider>

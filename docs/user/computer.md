@@ -60,8 +60,8 @@ bot's computer is running and asks you to open Otto on a desktop or in a web bro
 ## Privacy
 
 - The picture streams only while the computer window is open and visible.
-- Pictures, your clicks, and the text you type are not saved to the chat, chat history, routines,
-  or usage analytics.
+- Pictures, your clicks, and the text you type are not saved to the chat, chat history, or
+  routines.
 - Commands the bot runs in its terminal can still reach the desktop while you are in control. Stop
   the computer if you need the bot to pause everything.
 

@@ -202,7 +202,6 @@ its reason beside it and only the rules that category needs:
 
 - Tests and test harnesses.
 - Build, release, and dev scripts.
-- The feedback Worker, a plain Cloudflare fetch handler.
 - Platform startup boundaries: Electron preload bundles and standalone launchers run outside
   Effect; pre-ready desktop reads require synchronous startup ordering. The quit-key watchdog
   and server entry detection retain their native platform boundaries.
