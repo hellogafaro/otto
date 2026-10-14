@@ -5,7 +5,7 @@ import {
   RiArrowDownSLine,
   RiFileCopyLine,
   RiDownloadLine,
-  RiLoader4Line,
+  RiLoaderLine,
   RiDeleteBinLine,
 } from "@remixicon/react";
 import type { ProviderConfig } from "./providerConfig";
@@ -437,7 +437,7 @@ export function ProviderInstanceCard({
                           onClick={onRunUpdate}
                         >
                           {isUpdating ? (
-                            <RiLoader4Line className="animate-spin" />
+                            <RiLoaderLine className="animate-spin" />
                           ) : (
                             <RiDownloadLine />
                           )}

@@ -3,8 +3,11 @@ import {
   BROWSER_MENTION_LABEL,
   collectComposerInlineTokens,
   collectComposerMentionDisplays,
+  collectComposerResourceMentions,
   COMPOSER_BROWSER_MENTION,
+  type ComposerResourceMentionKind,
   serializeComposerBotMention,
+  serializeComposerResourceMention,
   serializeComposerThreadMention,
 } from "@otto/shared/composerInlineTokens";
 import { composerBotMentionDetail } from "@otto/shared/composerBotMentions";
@@ -39,6 +42,13 @@ export type BotPromptMentionItem =
       readonly key: string;
       readonly label: string;
       readonly threadId: string;
+    }
+  | {
+      readonly kind: ComposerResourceMentionKind;
+      readonly key: string;
+      readonly label: string;
+      readonly id: string;
+      readonly logoUrl?: string;
     }
   | {
       readonly kind: "path";
@@ -77,6 +87,14 @@ export function isBotPromptPathQuery(query: string): boolean {
   return !isBotPromptThreadQuery(query) && /[/\\.]/.test(query);
 }
 
+/** A skill, connected app, or MCP server the `@` picker offers. */
+export interface BotPromptMentionResource {
+  readonly kind: ComposerResourceMentionKind;
+  readonly id: string;
+  readonly label: string;
+  readonly logoUrl?: string;
+}
+
 export interface BotPromptMentionBot {
   readonly id: string;
   readonly name: string;
@@ -106,7 +124,8 @@ export function botPromptMention(
 
 /**
  * Picker rows for a query: the browser (only when this environment lets bots use it),
- * matching bots (namesakes told apart by a detail), the chats the caller already ranked for the query, then workspace files.
+ * matching bots (namesakes told apart by a detail), skills, apps, and MCP servers whose name
+ * contains the query, the chats the caller already ranked for the query, then workspace files.
  * For a path-like query a chat must match by title, so a chat that only mentions the
  * path in its messages cannot take Enter from the file the user is typing.
  */
@@ -120,6 +139,7 @@ export function buildBotPromptMentionItems(input: {
   /** Other people in a group chat; mentioning only people keeps the bots quiet. */
   readonly people?: ReadonlyArray<{ readonly personId: string; readonly displayName: string }>;
   readonly bots: ReadonlyArray<BotPromptMentionBot>;
+  readonly resources?: ReadonlyArray<BotPromptMentionResource>;
   readonly threads: ReadonlyArray<{ readonly id: string; readonly title: string }>;
   readonly paths?: ReadonlyArray<{ readonly path: string }>;
 }): BotPromptMentionItem[] {
@@ -159,6 +179,13 @@ export function buildBotPromptMentionItems(input: {
           canTakeWork: bot.canTakeWork !== false,
         });
       }
+    }
+  }
+
+  if (!threadOnly && !pathLike) {
+    for (const resource of input.resources ?? []) {
+      if (!resource.label.toLowerCase().includes(query)) continue;
+      items.push({ ...resource, key: `${resource.kind}:${resource.id}` });
     }
   }
 
@@ -202,6 +229,10 @@ function mentionSource(item: BotPromptMentionItem): string | null {
       return serializeComposerThreadMention(item.threadId);
     case "path":
       return serializeComposerFileLink(item.path);
+    case "skill":
+    case "app":
+    case "mcp":
+      return serializeComposerResourceMention(item.kind, item.id);
   }
 }
 
@@ -223,7 +254,7 @@ export function applyBotPromptMention(
 
 export interface BotPromptMentionChip {
   readonly key: string;
-  readonly kind: "browser" | "thread" | "bot";
+  readonly kind: "browser" | "thread" | "bot" | ComposerResourceMentionKind;
   readonly label: string;
   readonly source: string;
   readonly start: number;
@@ -231,15 +262,29 @@ export interface BotPromptMentionChip {
 }
 
 /**
- * The browser, chat, and `@bot:<id>` mentions in a draft, each once, labelled for the
- * chip strip. A chat or bot the client cannot see still gets a chip so the user can remove it.
+ * The browser, chat, `@bot:<id>`, skill, app, and MCP server mentions in a draft, each once,
+ * labelled for the chip strip. Something the client cannot see still gets a chip so the user can remove it.
  */
 export function botPromptMentionChips(
   draft: string,
   threadTitle: (threadId: string) => string | null,
   botName: (botId: string) => string | null = () => null,
+  resourceLabel: (kind: ComposerResourceMentionKind, id: string) => string = (_kind, id) => id,
 ): BotPromptMentionChip[] {
-  return collectComposerMentionDisplays(draft, threadTitle, botName).map((display) => ({
+  const resources = collectComposerResourceMentions(`${draft}\n`)
+    .filter(
+      (mention, index, all) => all.findIndex((other) => other.source === mention.source) === index,
+    )
+    .map((mention) => ({
+      key: `${mention.kind}:${mention.id}`,
+      kind: mention.kind,
+      label: resourceLabel(mention.kind, mention.id),
+      source: mention.source,
+      start: mention.start,
+      end: mention.end,
+    }));
+
+  const displays = collectComposerMentionDisplays(draft, threadTitle, botName).map((display) => ({
     key: Match.value(display).pipe(
       Match.when({ kind: "browser" }, () => "browser"),
       Match.when({ kind: "bot" }, (display) => `bot:${display.botId}`),
@@ -251,17 +296,23 @@ export function botPromptMentionChips(
     start: display.start,
     end: display.end,
   }));
+
+  return [...displays, ...resources].toSorted((left, right) => left.start - right.start);
 }
 
 /** Removes every occurrence of a chip's mention, with the space that followed it. */
 export function removeBotPromptMention(draft: string, chip: BotPromptMentionChip): string {
-  const tokens = collectComposerInlineTokens(`${draft}\n`).filter(
-    (token) =>
-      (token.type === "browser-mention" ||
+  const tokens = [
+    ...collectComposerInlineTokens(`${draft}\n`).filter(
+      (token) =>
+        token.type === "browser-mention" ||
         token.type === "thread-mention" ||
-        token.type === "bot-mention") &&
-      token.source === chip.source,
-  );
+        token.type === "bot-mention",
+    ),
+    ...collectComposerResourceMentions(`${draft}\n`),
+  ]
+    .filter((token) => token.source === chip.source)
+    .toSorted((left, right) => left.start - right.start);
 
   let next = draft;
 

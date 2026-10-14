@@ -16,7 +16,7 @@ import {
   type MemoryApprovalIntent,
 } from "@otto/client-runtime/durable-memory";
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
-import { openPlugins } from "../../pluginsDialogStore";
+import { openCustomize } from "../../customizeNavigation";
 import { openSettings } from "../../settingsDialogStore";
 import { useSettingsEnvironmentId } from "../../settingsDialogStore";
 import { useI18n } from "../../i18n";
@@ -134,7 +134,7 @@ export function InboxIncidentRow({
 
   const openRepair = () => {
     if (action === "plugins") {
-      openPlugins();
+      openCustomize();
 
       return;
     }
@@ -251,7 +251,7 @@ function InboxRowControl({
 
   return (
     <Button size="sm" variant="outline" onClick={onOpenRepair}>
-      {action === "plugins" ? t("Open Plugins") : t("Open Providers")}
+      {action === "plugins" ? t("Open Customize") : t("Open Providers")}
     </Button>
   );
 }

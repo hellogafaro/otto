@@ -44,7 +44,7 @@ const makeSessionStoreLayer = (
 ) =>
   SessionStore.layer.pipe(
     Layer.provide(SqlitePersistenceMemory),
-    Layer.provide(ServerSecretStore.layer),
+    Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
     Layer.provide(makeServerEnvironmentLayer(environmentId)),
     Layer.provide(makeServerConfigLayer(overrides)),
   );
@@ -69,7 +69,7 @@ const failingSessionLookupCredentialLayer = Layer.effect(
   SessionStore.make,
 ).pipe(
   Layer.provide(failingSessionLookupRepositoryLayer),
-  Layer.provide(ServerSecretStore.layer),
+  Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
   Layer.provide(SqlitePersistenceMemory),
   Layer.provide(makeServerEnvironmentLayer(EnvironmentId.make("test-environment"))),
   Layer.provide(makeServerConfigLayer()),

@@ -95,6 +95,13 @@ export const decideBots = Effect.fn("decideBots")(function* ({
     case "bot.create": {
       yield* requireBotAbsent({ readModel, command, botId: command.botId });
 
+      if (command.owner?.kind === "bot") {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "A bot's owner must be a person.",
+        });
+      }
+
       const group =
         command.groupId === null
           ? null
@@ -115,6 +122,7 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           label: command.label ?? null,
           description: command.description ?? null,
           disabledMcpServerIds: command.disabledMcpServerIds ?? [],
+          owner: command.owner ?? null,
           avatar: command.avatar,
           engine: command.engine,
           sandbox: command.sandbox,
@@ -161,6 +169,25 @@ export const decideBots = Effect.fn("decideBots")(function* ({
 
     case "bot.update": {
       const bot = yield* requireBot({ readModel, command, botId: command.botId });
+
+      if (command.owner?.kind === "bot") {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "A bot's owner must be a person.",
+        });
+      }
+
+      if (
+        command.owner !== undefined &&
+        command.by?.kind === "person" &&
+        bot.owner?.kind === "person" &&
+        bot.owner.personId !== command.by.personId
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Only the bot's owner can hand it to someone else.",
+        });
+      }
 
       const targetGroup =
         command.groupId == null
@@ -255,6 +282,7 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           ...(command.disabledMcpServerIds !== undefined
             ? { disabledMcpServerIds: command.disabledMcpServerIds }
             : {}),
+          ...(command.owner !== undefined ? { owner: command.owner } : {}),
           ...(command.avatar !== undefined ? { avatar: command.avatar } : {}),
           ...(command.engine !== undefined ? { engine: command.engine } : {}),
           ...(command.sandbox !== undefined ? { sandbox: command.sandbox } : {}),

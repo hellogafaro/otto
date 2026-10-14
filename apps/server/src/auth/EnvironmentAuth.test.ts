@@ -43,7 +43,7 @@ const makeServerConfigLayer = (overrides?: Partial<ServerConfig.ServerConfig["Se
 const makeEnvironmentAuthLayer = (overrides?: Partial<ServerConfig.ServerConfig["Service"]>) =>
   EnvironmentAuth.layer.pipe(
     Layer.provide(SqlitePersistenceMemory),
-    Layer.provide(ServerSecretStore.layer),
+    Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
     Layer.provide(ServerEnvironment.identityLayer),
     Layer.provide(makeServerConfigLayer(overrides)),
   );
@@ -69,7 +69,7 @@ const makeInterleavingEnvironmentAuthLayer = () =>
     Layer.provideMerge(SessionStore.layer),
     Layer.provideMerge(EnvironmentAuthPolicy.layer),
     Layer.provide(SqlitePersistenceMemory),
-    Layer.provide(ServerSecretStore.layer),
+    Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
     Layer.provide(ServerEnvironment.identityLayer),
     Layer.provide(makeServerConfigLayer()),
   );

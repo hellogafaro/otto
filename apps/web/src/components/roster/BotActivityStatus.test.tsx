@@ -1,5 +1,5 @@
 import { ProviderDriverKind, TurnId, type OrchestrationThreadActivity } from "@otto/contracts";
-import { RiLoader4Line } from "@remixicon/react";
+import { RiLoaderLine } from "@remixicon/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -24,7 +24,7 @@ describe("bot activity status", () => {
     );
 
     expect(markup).toContain("Running a command...");
-    expect(markup).toContain(iconPath(RiLoader4Line));
+    expect(markup).toContain(iconPath(RiLoaderLine));
     expect(markup).toContain("remixicon");
     expect(markup).toContain("motion-safe:animate-spin");
     expect(markup).not.toContain("<rect");

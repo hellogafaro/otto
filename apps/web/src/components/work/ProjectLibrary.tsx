@@ -44,7 +44,7 @@ export function ProjectUpload({ projectId }: { readonly projectId: ProjectId }) 
         <TooltipTrigger
           render={
             <Button
-              size="icon"
+              size="icon-sm"
               variant="ghost-muted"
               aria-label={t("Upload files")}
               disabled={uploading}

@@ -5,7 +5,7 @@ import type { OttoPluginRecommendation, OttoPluginSearchResult } from "@otto/con
 import { memo } from "react";
 
 import { loadDirectoryCatalog } from "../../../../../plugins";
-import { openPlugins } from "../../pluginsDialogStore";
+import { openCustomize } from "../../customizeNavigation";
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 import { Button } from "../ui/button";
@@ -120,7 +120,7 @@ export const PluginSearchResultCard = memo(function PluginSearchResultCard({
         disabled={recommendation.action === "unavailable"}
         size="sm"
         variant="secondary"
-        onClick={() => openPlugins(recommendation.name)}
+        onClick={() => openCustomize("integrations", recommendation.name)}
       >
         {action}
       </Button>

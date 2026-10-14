@@ -64,12 +64,15 @@ export function useWorkData() {
  */
 export function WorkPage({
   back,
+  leading,
   actions,
   detailsPanelOpen,
   children,
 }: {
   /** A sub page's way back, named after the page it returns to. */
   readonly back?: { readonly label: string; readonly onBack: () => void };
+  /** Top-left content when the page has no back button, such as a folder path. */
+  readonly leading?: ReactNode;
   readonly actions?: ReactNode;
   /** Set when the page has a details sidebar, so its toggle never covers the actions. */
   readonly detailsPanelOpen?: boolean;
@@ -83,7 +86,7 @@ export function WorkPage({
           {...(detailsPanelOpen === undefined ? {} : { detailsPanelOpen })}
         >
           <div className="flex min-w-0 flex-1 items-center">
-            {back ? <WorkspaceBackButton label={back.label} onBack={back.onBack} /> : null}
+            {back ? <WorkspaceBackButton label={back.label} onBack={back.onBack} /> : leading}
           </div>
           {actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
         </WorkspacePageHeader>
@@ -125,7 +128,7 @@ function WorkHeaderAction({
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button size="icon" variant="ghost-muted" aria-label={label} onClick={onClick}>
+          <Button size="icon-sm" variant="ghost-muted" aria-label={label} onClick={onClick}>
             <Icon aria-hidden className="size-4" />
           </Button>
         }

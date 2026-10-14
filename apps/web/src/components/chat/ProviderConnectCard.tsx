@@ -1,4 +1,4 @@
-import { RiLoader4Line } from "@remixicon/react";
+import { RiLoaderLine } from "@remixicon/react";
 import type {
   EnvironmentId,
   SubscriptionProviderId,
@@ -68,7 +68,7 @@ export function ProviderConnectCard({
         role="status"
         className="flex items-center justify-center gap-2 px-4 pb-3 text-xs text-muted-foreground"
       >
-        <RiLoader4Line className="size-3.5 animate-spin" />
+        <RiLoaderLine className="size-3.5 animate-spin" />
         {t("Checking your {provider} account…", { provider: definition.label })}
       </div>
     );
@@ -106,7 +106,7 @@ export function ProviderConnectCard({
             onClick={() => void accounts.connect(definition)}
           >
             {accounts.busyProvider === provider ? (
-              <RiLoader4Line className="size-3.5 animate-spin" />
+              <RiLoaderLine className="size-3.5 animate-spin" />
             ) : null}
             {lapsed ? t("Reconnect") : t("Connect")}
           </Button>

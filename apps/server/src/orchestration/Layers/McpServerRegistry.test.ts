@@ -1,4 +1,10 @@
-import { CommandId, McpServerId } from "@otto/contracts";
+import {
+  AuthSessionId,
+  canUseMcpServer,
+  CommandId,
+  McpServerId,
+  resolveBotMcpServers,
+} from "@otto/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -37,6 +43,68 @@ const registryLayer = it.layer(
 );
 
 registryLayer("MCP server registry", (it) => {
+  it.effect("keeps a personal server to its owner and the bots they pick", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngineService;
+      const snapshots = yield* ProjectionSnapshotQuery;
+      const mcpServerId = McpServerId.make("mcp-personal");
+      const ana = { personId: AuthSessionId.make("person-ana"), displayName: "Ana" };
+      const ben = { personId: AuthSessionId.make("person-ben"), displayName: "Ben" };
+
+      yield* engine.dispatch({
+        type: "mcp-server.create",
+        commandId: CommandId.make("cmd-mcp-personal"),
+        mcpServerId,
+        name: "Ana's notes",
+        transport: "url",
+        url: "https://mcp.example.com/notes",
+        visibility: "user",
+        by: ana,
+        createdAt: "2026-10-14T10:00:00.000Z",
+      });
+
+      const rejected = yield* Effect.flip(
+        engine.dispatch({
+          type: "mcp-server.delete",
+          commandId: CommandId.make("cmd-mcp-personal-ben-delete"),
+          mcpServerId,
+          by: ben,
+        }),
+      );
+
+      assert.include(String(rejected.message ?? rejected), "Only the person who added");
+
+      const snapshot = yield* snapshots.getShellSnapshot();
+      const [server] = snapshot.mcpServers ?? [];
+      assert.deepEqual([server?.visibility, server?.createdBy?.personId], ["user", "person-ana"]);
+
+      const servers = snapshot.mcpServers ?? [];
+      assert.lengthOf(resolveBotMcpServers(servers, [], "person-ana"), 1);
+      assert.lengthOf(resolveBotMcpServers(servers, [], "person-ben"), 0);
+      assert.lengthOf(resolveBotMcpServers(servers, [], null), 0);
+      assert.isTrue(canUseMcpServer(servers[0]!, "person-ana"));
+      assert.isFalse(canUseMcpServer(servers[0]!, "person-ben"));
+
+      yield* engine.dispatch({
+        type: "mcp-server.access.set",
+        commandId: CommandId.make("cmd-mcp-personal-share"),
+        mcpServerId,
+        visibility: "workspace",
+        by: ana,
+      });
+
+      const shared = (yield* snapshots.getShellSnapshot()).mcpServers ?? [];
+      assert.lengthOf(resolveBotMcpServers(shared, [], "person-ben"), 1);
+
+      yield* engine.dispatch({
+        type: "mcp-server.delete",
+        commandId: CommandId.make("cmd-mcp-personal-delete"),
+        mcpServerId,
+        by: ana,
+      });
+    }),
+  );
+
   it.effect("creates a disabled MCP server when requested", () =>
     Effect.gen(function* () {
       const engine = yield* OrchestrationEngineService;

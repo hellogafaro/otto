@@ -1,7 +1,7 @@
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import type { ThreadSilentRun } from "@otto/client-runtime/silent-run";
 import type { OrchestrationThreadActivity, TurnId } from "@otto/contracts";
-import { RiLoader4Line } from "@remixicon/react";
+import { RiLoaderLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
 import { cn } from "~/lib/utils";
@@ -83,7 +83,7 @@ export function botActivityUpdate(
 
 function ThinkingGlyph({ className }: { readonly className?: string }) {
   return (
-    <RiLoader4Line
+    <RiLoaderLine
       aria-hidden="true"
       className={cn("size-3.5 shrink-0 motion-safe:animate-spin", className)}
     />

@@ -93,7 +93,6 @@ export const commonLabelsCatalog = {
   Previous: "Previous",
   "Previous question": "Previous question",
   Refine: "Refine",
-  "Reload app": "Reload app",
   "Reset to default": "Reset to default",
   "Stop generation": "Stop generation",
   "Try again": "Try again",
@@ -194,7 +193,6 @@ export const commonLabelsCatalog = {
   "Adjust from what you say about it": "Adjust from what you say about it",
   "Say what you want help with": "Say what you want help with",
   "Give it a name and a look": "Give it a name and a look",
-  "This view failed to load": "This view failed to load",
   "Technical details": "Technical details",
   Create: "Create",
   "Move up": "Move up",
@@ -563,4 +561,8 @@ export const commonLabelsCatalog = {
   "Regenerate title": "Regenerate title",
   "Mark unread": "Mark unread",
   Unread: "Unread",
+  "Something went wrong": "Something went wrong",
+  "This page couldn't load. Try again, or reload Otto if it keeps happening.":
+    "This page couldn't load. Try again, or reload Otto if it keeps happening.",
+  "Reload Otto": "Reload Otto",
 } as const;

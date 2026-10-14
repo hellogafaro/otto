@@ -1,4 +1,4 @@
-import { RiLoader4Line } from "@remixicon/react";
+import { RiLoaderLine } from "@remixicon/react";
 import { Match, Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
 import { isAtomCommandInterrupted } from "@otto/client-runtime/state/runtime";
@@ -493,7 +493,7 @@ export function OnboardingSurface({
                     </p>
                     {!rosterBot ? (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <RiLoader4Line className="size-4 animate-spin motion-reduce:animate-none" />
+                        <RiLoaderLine className="size-4 animate-spin motion-reduce:animate-none" />
                         {t("Waking up {name}", { name: draft.name })}
                       </div>
                     ) : null}

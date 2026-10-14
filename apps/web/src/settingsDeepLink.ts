@@ -5,8 +5,8 @@ import {
   type SettingsDeepLinkId,
 } from "@otto/client-runtime/settings-deep-link";
 
-/** Plugins live in their own dialog rather than a Settings page. */
-export type SettingsDeepLinkSection = SettingsSection | "plugins";
+/** Customize is its own page rather than a Settings section. */
+export type SettingsDeepLinkSection = SettingsSection | "customize";
 
 // Keyed by every shared id so a new Settings section cannot ship without a web destination.
 const destinations: Readonly<
@@ -36,7 +36,7 @@ const destinations: Readonly<
   voice: { section: "providers", label: "Providers > Voice", targetId: "voice" },
   "image-generation": { section: "image-generation", label: "Image generation" },
   browser: { section: "browser", label: "Browser", targetId: "browser" },
-  plugins: { section: "plugins", label: "Plugins" },
+  plugins: { section: "customize", label: "Customize" },
   sandbox: { section: "sandbox", label: "Sandbox" },
   privacy: { section: "privacy", label: "Privacy & data" },
   "archived-chats": { section: "archived", label: "Archived chats" },

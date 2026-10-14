@@ -5,6 +5,7 @@ import {
   GroupId,
   LIBRARY_CHATS_FOLDER_ID,
   LIBRARY_PROJECTS_FOLDER_ID,
+  LIBRARY_SKILLS_FOLDER_ID,
   LibraryFileId,
   LibraryFolderId,
   type OrchestrationCommand,
@@ -393,6 +394,53 @@ it.layer(NodeServices.layer)("decider library", (it) => {
           by: ada,
         }),
       ).toBe("A project folder can't be deleted.");
+    }),
+  );
+
+  it.effect("keeps the Skills folder fixed, holding only skill folders", () =>
+    Effect.gen(function* () {
+      const readModel = yield* applyAll(empty, [
+        createFolder(LIBRARY_SKILLS_FOLDER_ID, null, ada, { title: "Skills" }),
+        createFolder("writing", LIBRARY_SKILLS_FOLDER_ID, ada, { visibility: "user" }),
+        createFile("SKILL", "writing"),
+        createFolder("loose", null),
+      ]);
+
+      expect(readModel.libraryFolders?.find((folder) => folder.id === "writing")?.visibility).toBe(
+        "user",
+      );
+      expect(yield* rejection(readModel, createFile("stray", LIBRARY_SKILLS_FOLDER_ID))).toBe(
+        "The Skills folder only holds skill folders.",
+      );
+      expect(
+        yield* rejection(readModel, {
+          type: "library.folder.delete",
+          commandId: cmd(),
+          folderId: LIBRARY_SKILLS_FOLDER_ID,
+          by: ada,
+        }),
+      ).toBe("The Skills folder can't be deleted.");
+      expect(
+        yield* rejection(readModel, {
+          type: "library.folder.update",
+          commandId: cmd(),
+          folderId: LIBRARY_SKILLS_FOLDER_ID,
+          title: "Recipes",
+          by: ada,
+        }),
+      ).toBe("The Skills folder can't be changed.");
+
+      const moved = yield* apply(readModel, {
+        type: "library.folder.update",
+        commandId: cmd(),
+        folderId: folderId("loose"),
+        parentId: LIBRARY_SKILLS_FOLDER_ID,
+        by: ada,
+      });
+
+      expect(moved.libraryFolders?.find((folder) => folder.id === "loose")?.parentId).toBe(
+        LIBRARY_SKILLS_FOLDER_ID,
+      );
     }),
   );
 

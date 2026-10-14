@@ -20,7 +20,8 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
         | "mcp-server.instructions.set"
         | "mcp-server.delete"
         | "mcp-server.enable"
-        | "mcp-server.disable";
+        | "mcp-server.disable"
+        | "mcp-server.access.set";
     }
   >;
   readonly readModel: OrchestrationReadModel;
@@ -30,6 +31,23 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
   OrchestrationCommandInvariantError | PlatformError.PlatformError,
   Crypto.Crypto
 > {
+  /** A server with a recorded owner is changed only by that person; bots and older servers stay open. */
+  const requireChangeable = (target: Exclude<typeof command, { type: "mcp-server.create" }>) =>
+    requireMcpServer({ readModel, command: target, mcpServerId: target.mcpServerId }).pipe(
+      Effect.flatMap((existing) =>
+        target.by !== undefined &&
+        existing.createdBy !== undefined &&
+        existing.createdBy.personId !== target.by.personId
+          ? Effect.fail(
+              new OrchestrationCommandInvariantError({
+                commandType: target.type,
+                detail: "Only the person who added this MCP server can change it.",
+              }),
+            )
+          : Effect.succeed(existing),
+      ),
+    );
+
   switch (command.type) {
     case "mcp-server.create": {
       yield* requireMcpServerAbsent({
@@ -37,6 +55,11 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
         command,
         mcpServerId: command.mcpServerId,
       });
+
+      const access = {
+        ...(command.visibility ? { visibility: command.visibility } : {}),
+        ...(command.by ? { createdBy: command.by } : {}),
+      };
 
       const mcpServer =
         command.transport === "stdio"
@@ -47,6 +70,7 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
               command: command.command,
               ...(command.args !== undefined ? { args: command.args } : {}),
               enabled: command.enabled ?? true,
+              ...access,
               createdAt: command.createdAt,
               updatedAt: command.createdAt,
             }
@@ -56,6 +80,7 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
               transport: command.transport,
               url: command.url,
               enabled: command.enabled ?? true,
+              ...access,
               createdAt: command.createdAt,
               updatedAt: command.createdAt,
             };
@@ -73,11 +98,12 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
     }
 
     case "mcp-server.update": {
-      const existing = yield* requireMcpServer({
-        readModel,
-        command,
-        mcpServerId: command.mcpServerId,
-      });
+      const existing = yield* requireChangeable(command);
+
+      const access = {
+        ...(existing.visibility ? { visibility: existing.visibility } : {}),
+        ...(existing.createdBy ? { createdBy: existing.createdBy } : {}),
+      };
 
       const occurredAt = yield* nowIso;
 
@@ -93,6 +119,7 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
                 ? { instructions: existing.instructions }
                 : {}),
               enabled: existing.enabled,
+              ...access,
               createdAt: existing.createdAt,
               updatedAt: occurredAt,
             }
@@ -105,6 +132,7 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
                 ? { instructions: existing.instructions }
                 : {}),
               enabled: existing.enabled,
+              ...access,
               createdAt: existing.createdAt,
               updatedAt: occurredAt,
             };
@@ -122,11 +150,7 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
     }
 
     case "mcp-server.instructions.set": {
-      const existing = yield* requireMcpServer({
-        readModel,
-        command,
-        mcpServerId: command.mcpServerId,
-      });
+      const existing = yield* requireChangeable(command);
 
       const occurredAt = yield* nowIso;
       const { instructions: _previous, ...rest } = existing;
@@ -151,11 +175,7 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
     }
 
     case "mcp-server.delete": {
-      yield* requireMcpServer({
-        readModel,
-        command,
-        mcpServerId: command.mcpServerId,
-      });
+      yield* requireChangeable(command);
       const occurredAt = yield* nowIso;
 
       return {
@@ -175,11 +195,7 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
 
     case "mcp-server.enable":
     case "mcp-server.disable": {
-      const existing = yield* requireMcpServer({
-        readModel,
-        command,
-        mcpServerId: command.mcpServerId,
-      });
+      const existing = yield* requireChangeable(command);
 
       const occurredAt = yield* nowIso;
       const enabled = command.type === "mcp-server.enable";
@@ -196,6 +212,30 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
           mcpServer: {
             ...existing,
             enabled,
+            updatedAt: occurredAt,
+          },
+        },
+      };
+    }
+
+    case "mcp-server.access.set": {
+      const existing = yield* requireChangeable(command);
+      const occurredAt = yield* nowIso;
+      const createdBy = existing.createdBy ?? command.by;
+
+      return {
+        ...(yield* withEventBase({
+          aggregateKind: "mcp-server",
+          aggregateId: command.mcpServerId,
+          occurredAt,
+          commandId: command.commandId,
+        })),
+        type: "mcp-server.updated",
+        payload: {
+          mcpServer: {
+            ...existing,
+            visibility: command.visibility,
+            ...(createdBy ? { createdBy } : {}),
             updatedAt: occurredAt,
           },
         },

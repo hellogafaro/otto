@@ -110,6 +110,10 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "UpdateLibraryDocument":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "ListSkills":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "ReadSkillFile":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "AddMcpServer":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "UninstallMcpServer":

@@ -1,6 +1,7 @@
 import { probeTool } from "./test-support/toolProbe.ts";
 import { toolRuntimeFixture } from "./test-support/toolRuntimeFixture.ts";
 import { OTTO_TOOL_CATALOG, OttoToolInputSchemas } from "@otto/contracts";
+import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
@@ -20,6 +21,29 @@ describe("createOttoMastraTools", () => {
     const tools = createOttoMastraTools("thread-all-tools", runtime);
 
     expect(Object.keys(tools)).toEqual(OTTO_TOOL_CATALOG.map((definition) => definition.id));
+  });
+
+  it("gives every Otto tool an object input schema, as model APIs require", () => {
+    const runtime = toolRuntimeFixture({
+      toolsForThread: () => OTTO_TOOL_CATALOG,
+      requiresApproval: vi.fn(async () => false),
+      execute: vi.fn(async () => ({ ok: true })),
+    });
+
+    const nonObjectTools = Object.entries(createOttoMastraTools("thread-schemas", runtime))
+      .map(([toolId, tool]) => {
+        // SAFETY: createOttoMastraTools always builds a Mastra tool whose inputSchema is zod.
+        const schema = z.toJSONSchema((tool as { inputSchema: z.ZodType }).inputSchema);
+        const roots = schema.anyOf ?? [schema];
+
+        return {
+          toolId,
+          types: roots.map((root) => (Predicate.isBoolean(root) ? root : root.type)),
+        };
+      })
+      .filter(({ types }) => types.some((type) => type !== "object"));
+
+    expect(nonObjectTools).toEqual([]);
   });
 
   it("passes an exact call identity and approval mode to the runtime", async () => {

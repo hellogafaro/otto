@@ -8,7 +8,7 @@ import {
   RiTranslate2,
   RiDiscussLine,
   RiMoonLine,
-  RiPuzzleLine,
+  RiShapesLine,
   RiSettings3Line,
   RiSunLine,
 } from "@remixicon/react";
@@ -38,7 +38,7 @@ import {
 import { CommandPaletteContent } from "./CommandPaletteContent";
 import { CommandPaletteResults } from "./CommandPaletteResults";
 import { openSettings } from "~/settingsDialogStore";
-import { openPlugins } from "~/pluginsDialogStore";
+import { openCustomize } from "~/customizeNavigation";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { allEnvironmentRostersAtom } from "../state/bots";
 import { useThreadShells } from "../state/entities";
@@ -147,12 +147,20 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
       icon: <RiRobot2Line className={ITEM_ICON_CLASS} />,
     }),
     {
-      value: "action:plugins",
-      searchTerms: [t("Open plugins"), "plugins", "mcp", "tools", "executor", "composio"],
-      title: t("Open plugins"),
-      icon: <RiPuzzleLine className={ITEM_ICON_CLASS} />,
+      value: "action:customize",
+      searchTerms: [
+        t("Open Customize"),
+        "customize",
+        "plugins",
+        "apps",
+        "mcp",
+        "skills",
+        "composio",
+      ],
+      title: t("Open Customize"),
+      icon: <RiShapesLine className={ITEM_ICON_CLASS} />,
       run: async () => {
-        openPlugins();
+        openCustomize();
       },
     },
     {

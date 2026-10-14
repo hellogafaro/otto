@@ -1,3 +1,7 @@
+import * as Match from "effect/Match";
+
+import type { ComposerResourceMention } from "./composerInlineTokens.ts";
+
 /**
  * Composer `@browser` and `@chat:<id>` mentions: which chats the picker
  * offers, and the bounded context a mention adds to the provider input.
@@ -21,6 +25,9 @@ export const THREAD_MENTION_MAX_THREADS = 3;
 
 /** Distinct chat mentions the server looks up per prompt, including hidden or missing ones. */
 export const THREAD_MENTION_MAX_LOOKUPS = 12;
+
+/** Skill, app, and MCP server mentions explained per prompt. */
+export const RESOURCE_MENTION_MAX = 10;
 
 /** Rows the composer picker shows for chats. */
 export const THREAD_MENTION_PICKER_LIMIT = 6;
@@ -164,9 +171,33 @@ export function appendComposerMentionContext(
   input: {
     readonly browser: "enabled" | "disabled" | null;
     readonly threads: ReadonlyArray<ThreadMentionSource>;
+    readonly resources?: ReadonlyArray<Pick<ComposerResourceMention, "kind" | "id">>;
   },
 ): string {
   const sections: string[] = [];
+
+  for (const resource of (input.resources ?? []).slice(0, RESOURCE_MENTION_MAX)) {
+    sections.push(
+      Match.value(resource.kind).pipe(
+        Match.when(
+          "skill",
+          () =>
+            `The user tagged the skill with skillId ${resource.id}. Read its SKILL.md with ReadSkillFile and follow it for this request.`,
+        ),
+        Match.when(
+          "app",
+          () =>
+            `The user tagged the ${resource.id} app. Use their connected ${resource.id} account through your composio-session tools for this request. If you have none, say the app is not connected for you.`,
+        ),
+        Match.when(
+          "mcp",
+          () =>
+            `The user tagged an MCP server. Use your tools whose names start with "${resource.id}_" for this request. If you have none, say that server is not available to you.`,
+        ),
+        Match.exhaustive,
+      ),
+    );
+  }
 
   if (input.browser === "enabled") {
     sections.push(

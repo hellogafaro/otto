@@ -35,6 +35,8 @@ export interface OttoMastraState {
   readonly personalityTone?: BotPersonalityTone;
   readonly persistentMemoryContext?: string;
   readonly mcpInstructions?: string;
+  // Undefined clears the catalog when the bot no longer has skills.
+  readonly skillsContext?: string | undefined;
   // Undefined clears the roster when a reused session leaves its group chat.
   readonly groupContext?: string | undefined;
   readonly modelOptions?: OttoModelOptions;

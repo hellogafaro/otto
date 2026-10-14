@@ -93,7 +93,6 @@ export const commonLabelsCatalog = {
   Previous: "上一步",
   "Previous question": "上一个问题",
   Refine: "优化",
-  "Reload app": "重新加载应用",
   "Reset to default": "重置为默认",
   "Stop generation": "停止生成",
   "Try again": "重试",
@@ -194,7 +193,6 @@ export const commonLabelsCatalog = {
   "Adjust from what you say about it": "根据你的反馈进行调整",
   "Say what you want help with": "说说你需要什么帮助",
   "Give it a name and a look": "给它起个名字，选个外观",
-  "This view failed to load": "此视图加载失败",
   "Technical details": "技术详情",
   Create: "新建",
   "Move up": "上移",
@@ -563,4 +561,8 @@ export const commonLabelsCatalog = {
   "Regenerate title": "重新生成标题",
   "Mark unread": "标记为未读",
   Unread: "未读",
+  "Something went wrong": "出了点问题",
+  "This page couldn't load. Try again, or reload Otto if it keeps happening.":
+    "此页面无法加载。请重试；如果问题持续，请重新加载 Otto。",
+  "Reload Otto": "重新加载 Otto",
 } as const;

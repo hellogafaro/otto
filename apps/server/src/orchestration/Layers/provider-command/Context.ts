@@ -9,6 +9,8 @@ import {
   providerErrorLabelFromInstanceHint,
 } from "./Fields.ts";
 import type { createDependencies } from "./Dependencies.ts";
+import { ServerSecretStore } from "../../../auth/ServerSecretStore.ts";
+import { withMcpServerCredentials } from "../../../provider/McpServerCredentials.ts";
 
 export function createContext({
   projectionSnapshotQuery,
@@ -16,6 +18,7 @@ export function createContext({
   projectionBotRepository,
   projectionMcpServerRepository,
   composio,
+  secretStore,
   providerRegistry,
 }: Pick<
   Effect.Success<ReturnType<typeof createDependencies>>,
@@ -24,6 +27,7 @@ export function createContext({
   | "projectionBotRepository"
   | "projectionMcpServerRepository"
   | "composio"
+  | "secretStore"
   | "providerRegistry"
 >) {
   const resolveThreadShell = Effect.fnUntraced(function* (threadId: ThreadId) {
@@ -81,10 +85,19 @@ export function createContext({
             .pipe(Effect.map(Option.getOrUndefined));
 
     const servers = yield* projectionMcpServerRepository.listAll();
-    const resolved = resolveBotMcpServers(servers, bot?.disabledMcpServerIds ?? []);
+    const ownerPersonId = bot?.owner?.kind === "person" ? bot.owner.personId : null;
+    const allowed = resolveBotMcpServers(servers, bot?.disabledMcpServerIds ?? [], ownerPersonId);
+
+    const resolved = Option.isSome(secretStore)
+      ? yield* Effect.forEach(allowed, (server) =>
+          withMcpServerCredentials(server).pipe(
+            Effect.provideService(ServerSecretStore, secretStore.value),
+          ),
+        )
+      : allowed;
 
     const composioServer = Option.isSome(composio)
-      ? yield* composio.value.resolveRuntimeMcpServer(thread.id)
+      ? yield* composio.value.resolveRuntimeMcpServer(thread.id, ownerPersonId)
       : undefined;
 
     return composioServer ? [...resolved, composioServer] : resolved;

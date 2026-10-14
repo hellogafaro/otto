@@ -11,7 +11,7 @@ import {
 } from "@otto/contracts";
 import { expect, it } from "@effect/vitest";
 
-import { inLibraryToolScope } from "./LibraryToolRuntime.ts";
+import { botSkills, inLibraryToolScope } from "./LibraryToolRuntime.ts";
 
 const ANA = {
   kind: "person" as const,
@@ -99,4 +99,51 @@ it("keeps private items and everything under a private folder from a bot", () =>
     false,
   );
   expect(inLibraryToolScope(state, caller, file("inside", "private"))).toBe(false);
+});
+
+it("gives a bot workspace skills and its owner's personal ones, with paths inside each skill", () => {
+  const BEN = {
+    kind: "person" as const,
+    personId: AuthSessionId.make("user-ben"),
+    displayName: "Ben",
+  };
+
+  const skills = LibraryFolderId.make("library-skills");
+
+  const skillFolders = [
+    folder("library-skills"),
+    folder("shared-skill", { parentId: skills, title: "Shared" }),
+    folder("ana-skill", { parentId: skills, title: "Ana's", visibility: "user" }),
+    folder("refs", { parentId: LibraryFolderId.make("shared-skill"), title: "references" }),
+    folder("ben-notes", {
+      parentId: LibraryFolderId.make("shared-skill"),
+      title: "notes",
+      visibility: "user",
+      createdBy: BEN,
+    }),
+  ];
+
+  const skillFiles = [
+    file("shared-main", "shared-skill", { title: "SKILL" }),
+    file("shared-guide", "refs", { title: "guide" }),
+    file("ben-private", "ben-notes", { title: "draft", createdBy: BEN, visibility: "user" }),
+    file("run", "refs", { title: "run", type: "file", extension: "py" }),
+    file("ana-main", "ana-skill", { title: "SKILL", visibility: "user" }),
+  ];
+
+  const state = { folders: skillFolders, files: skillFiles };
+
+  const names = (owner: typeof ANA | null) =>
+    botSkills(state, { botId: NOVA, owner }).map(({ skill, files }) => [
+      skill.title,
+      files.map((entry) => entry.path).toSorted(),
+    ]);
+
+  expect(names(ANA)).toEqual([
+    ["Ana's", ["SKILL.md"]],
+    ["Shared", ["SKILL.md", "references/guide.md", "references/run.py"]],
+  ]);
+  expect(names(null)).toEqual([
+    ["Shared", ["SKILL.md", "references/guide.md", "references/run.py"]],
+  ]);
 });

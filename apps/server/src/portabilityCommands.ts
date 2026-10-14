@@ -86,6 +86,7 @@ export function itemForCommand(
       case "mcp-server.delete":
       case "mcp-server.enable":
       case "mcp-server.disable":
+      case "mcp-server.access.set":
         return `mcp-server:${command.mcpServerId}`;
       case "delegation.create":
       case "delegation.state.set":

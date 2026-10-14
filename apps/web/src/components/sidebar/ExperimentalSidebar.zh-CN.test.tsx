@@ -41,7 +41,16 @@ describe("experimental sidebar in Simplified Chinese", () => {
       </LanguageProvider>,
     );
 
-    for (const label of ["主导航", "聊天", "例行任务", "任务", "项目", "资料库", "插件", "设置"]) {
+    for (const label of [
+      "主导航",
+      "聊天",
+      "例行任务",
+      "任务",
+      "项目",
+      "资料库",
+      "自定义",
+      "设置",
+    ]) {
       expect(html).toContain(`aria-label="${label}"`);
     }
 

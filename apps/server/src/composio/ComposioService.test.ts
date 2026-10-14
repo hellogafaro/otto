@@ -5,8 +5,11 @@ import * as Option from "effect/Option";
 import { describe, expect, vi } from "vite-plus/test";
 
 import type { ServerSecretStore } from "../auth/ServerSecretStore.ts";
+
 import { toClaudeMcpServers } from "../provider/McpServerConfig.ts";
-import { make } from "./ComposioService.ts";
+import { inMemoryComposioAccounts, make } from "./ComposioService.ts";
+
+const viewer = { personId: "person-ana", displayName: "Ana" };
 
 function makeSecretStore(initial: Readonly<Record<string, string>> = {}) {
   const values = new Map(
@@ -41,7 +44,14 @@ function fakeClient(input?: {
     readonly toolkit: { readonly slug: string };
     readonly status: "ACTIVE" | "FAILED";
     readonly alias?: string | null;
+    readonly state?: unknown;
   }>;
+  readonly toolkits?: ReadonlyArray<{
+    readonly slug: string;
+    readonly name: string;
+    readonly meta: { readonly toolsCount?: number };
+  }>;
+  readonly tools?: ReadonlyArray<{ readonly slug: string; readonly name: string }>;
   readonly authorize?: () => Promise<{
     readonly id: string;
     readonly redirectUrl?: string;
@@ -75,7 +85,8 @@ function fakeClient(input?: {
   });
 
   const client = {
-    toolkits: { get: vi.fn(async () => []) },
+    toolkits: { get: vi.fn(async () => input?.toolkits ?? []) },
+    tools: { getRawComposioTools: vi.fn(async () => input?.tools ?? []) },
     connectedAccounts: {
       list: vi.fn(async () => ({ items: input?.accounts ?? [], totalPages: 1 })),
       delete: vi.fn(async () => ({})),
@@ -91,9 +102,9 @@ describe("ComposioService", () => {
     Effect.gen(function* () {
       const { store, values } = makeSecretStore();
       const { client } = fakeClient();
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      expect(yield* service.configure(" project-key ")).toEqual({
+      expect(yield* service.configure(" project-key ", viewer)).toEqual({
         configured: true,
         connections: [],
       });
@@ -108,11 +119,79 @@ describe("ComposioService", () => {
       vi.mocked(client.toolkits.get).mockRejectedValueOnce(
         Object.assign(new Error(), { status: 401 }),
       );
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      const error = yield* Effect.flip(service.configure("bad-key"));
+      const error = yield* Effect.flip(service.configure("bad-key", viewer));
       expect(error).toMatchObject({ message: "The Composio API key is invalid." });
       expect(values.has("composio-api-key")).toBe(false);
+    }),
+  );
+
+  it.effect("reads the status the SDK wraps under cause", () =>
+    Effect.gen(function* () {
+      const { store, values } = makeSecretStore();
+      const { client } = fakeClient();
+      vi.mocked(client.toolkits.get).mockRejectedValueOnce(
+        new Error("Failed to fetch toolkits", {
+          cause: Object.assign(new Error(), { status: 401 }),
+        }),
+      );
+      const service = make(store, inMemoryComposioAccounts(), () => client);
+
+      const error = yield* Effect.flip(service.configure("bad-key", viewer));
+      expect(error).toMatchObject({ message: "The Composio API key is invalid." });
+      expect(values.has("composio-api-key")).toBe(false);
+    }),
+  );
+
+  it.effect("names an account by who it signed in as", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore({ "composio-api-key": "project-key" });
+
+      const { client } = fakeClient({
+        accounts: [
+          {
+            id: "connection-gmail",
+            toolkit: { slug: "gmail" },
+            status: "ACTIVE",
+            state: { authScheme: "OAUTH2", val: { displayName: "ana@example.com" } },
+          },
+          { id: "connection-slack", toolkit: { slug: "slack" }, status: "ACTIVE" },
+        ],
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), () => client);
+      const status = yield* service.getStatus(viewer);
+
+      expect(status.connections.map((connection) => connection.accountName)).toEqual([
+        "ana@example.com",
+        undefined,
+      ]);
+    }),
+  );
+
+  it.effect("loads one app with its tools", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore({ "composio-api-key": "project-key" });
+
+      const { client } = fakeClient({
+        toolkits: [{ slug: "gmail", name: "Gmail", meta: { toolsCount: 1 } }],
+        tools: [{ slug: "GMAIL_SEND_EMAIL", name: "Send email" }],
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), () => client);
+
+      expect(yield* service.getToolkit("gmail")).toEqual({
+        toolkit: { slug: "gmail", name: "Gmail", categories: [], toolsCount: 1 },
+        tools: [{ slug: "GMAIL_SEND_EMAIL", name: "Send email" }],
+      });
+      expect(client.tools.getRawComposioTools).toHaveBeenCalledWith({
+        toolkits: ["gmail"],
+        limit: 1000,
+      });
+
+      const missing = yield* Effect.flip(service.getToolkit("nope"));
+      expect(missing.message).toBe("Composio could not load the app.");
     }),
   );
 
@@ -120,9 +199,9 @@ describe("ComposioService", () => {
     Effect.gen(function* () {
       const { store } = makeSecretStore({ "composio-api-key": "project-key" });
       const { client, sessionDeletes } = fakeClient();
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      expect(yield* service.authorize({ toolkitSlug: "gmail" })).toEqual({
+      expect(yield* service.authorize({ toolkitSlug: "gmail" }, viewer)).toEqual({
         connectionId: "connection-new",
         redirectUrl: "https://connect.composio.dev/link",
       });
@@ -138,12 +217,14 @@ describe("ComposioService", () => {
         authorize: () => Promise.reject(new Error("authorization failed")),
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }))).toMatchObject({
-        operation: "start account authorization",
-        message: "Composio could not start account authorization.",
-      });
+      expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }, viewer))).toMatchObject(
+        {
+          operation: "start account authorization",
+          message: "Composio could not start account authorization.",
+        },
+      );
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
     }),
   );
@@ -156,12 +237,14 @@ describe("ComposioService", () => {
         authorize: async () => ({ id: "connection-new" }),
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }))).toMatchObject({
-        operation: "start account authorization",
-        message: "Composio could not start account authorization.",
-      });
+      expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }, viewer))).toMatchObject(
+        {
+          operation: "start account authorization",
+          message: "Composio could not start account authorization.",
+        },
+      );
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
     }),
   );
@@ -183,15 +266,17 @@ describe("ComposioService", () => {
         },
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }))).toMatchObject({
-        operation: "start account authorization",
-        message: "Composio could not start account authorization.",
-      });
+      expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }, viewer))).toMatchObject(
+        {
+          operation: "start account authorization",
+          message: "Composio could not start account authorization.",
+        },
+      );
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
 
-      expect(yield* service.authorize({ toolkitSlug: "gmail" })).toEqual({
+      expect(yield* service.authorize({ toolkitSlug: "gmail" }, viewer)).toEqual({
         connectionId: "connection-new",
         redirectUrl: "https://connect.composio.dev/link",
       });
@@ -213,14 +298,14 @@ describe("ComposioService", () => {
         ],
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      const status = yield* service.getStatus;
+      const status = yield* service.getStatus(viewer);
       expect(status.connections).toHaveLength(3);
 
-      const first = yield* service.resolveRuntimeMcpServer("thread-1");
-      const cached = yield* service.resolveRuntimeMcpServer("thread-1");
-      const secondThread = yield* service.resolveRuntimeMcpServer("thread-2");
+      const first = yield* service.resolveRuntimeMcpServer("thread-1", null);
+      const cached = yield* service.resolveRuntimeMcpServer("thread-1", null);
+      const secondThread = yield* service.resolveRuntimeMcpServer("thread-2", null);
 
       expect(first).toBe(cached);
       expect(secondThread).toBeDefined();
@@ -251,6 +336,69 @@ describe("ComposioService", () => {
     }),
   );
 
+  it.effect("keeps a personal account to its owner and the bots they own", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore({ "composio-api-key": "project-key" });
+      const accounts = inMemoryComposioAccounts();
+      const ben = { personId: "person-ben", displayName: "Ben" };
+
+      const { client, createSession } = fakeClient({
+        accounts: [
+          { id: "connection-new", toolkit: { slug: "gmail" }, status: "ACTIVE" },
+          { id: "slack-team", toolkit: { slug: "slack" }, status: "ACTIVE" },
+        ],
+      });
+
+      const service = make(store, accounts, () => client);
+      yield* service.authorize({ toolkitSlug: "gmail" }, viewer);
+
+      const mine = yield* service.getStatus(viewer);
+      expect(mine.connections.map((connection) => [connection.id, connection.visibility])).toEqual([
+        ["connection-new", "user"],
+        ["slack-team", "workspace"],
+      ]);
+
+      const theirs = yield* service.getStatus(ben);
+      expect(theirs.connections.map((connection) => connection.id)).toEqual(["slack-team"]);
+      expect((yield* Effect.flip(service.disconnect("connection-new", ben))).message).toContain(
+        "Only the person who connected",
+      );
+
+      yield* service.resolveRuntimeMcpServer("thread-1", viewer.personId);
+      expect(createSession).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          connectedAccounts: { gmail: ["connection-new"], slack: ["slack-team"] },
+          manageConnections: false,
+        }),
+      );
+
+      yield* service.resolveRuntimeMcpServer("thread-2", ben.personId);
+      expect(createSession).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({ connectedAccounts: { slack: ["slack-team"] } }),
+      );
+
+      yield* service.resolveRuntimeMcpServer("thread-3", null);
+      expect(createSession).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({ connectedAccounts: { slack: ["slack-team"] } }),
+      );
+
+      const shared = yield* service.updateConnection(
+        { connectionId: "connection-new", visibility: "workspace" },
+        viewer,
+      );
+
+      expect(shared.connections[0]?.visibility).toBe("workspace");
+
+      expect((yield* service.getStatus(ben)).connections.map((c) => c.id)).toEqual([
+        "connection-new",
+        "slack-team",
+      ]);
+    }),
+  );
+
   it.effect("reuses a hosted runtime when account and toolkit order changes", () =>
     Effect.gen(function* () {
       const { store } = makeSecretStore({ "composio-api-key": "project-key" });
@@ -263,9 +411,9 @@ describe("ComposioService", () => {
         ],
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      const first = yield* service.resolveRuntimeMcpServer("thread-1");
+      const first = yield* service.resolveRuntimeMcpServer("thread-1", null);
       vi.mocked(client.connectedAccounts.list).mockResolvedValue({
         items: [
           { id: "gmail-home", toolkit: { slug: "gmail" }, status: "ACTIVE" },
@@ -274,7 +422,7 @@ describe("ComposioService", () => {
         ],
         totalPages: 1,
       } as never);
-      const reordered = yield* service.resolveRuntimeMcpServer("thread-1");
+      const reordered = yield* service.resolveRuntimeMcpServer("thread-1", null);
 
       expect(reordered).toBe(first);
       expect(createSession).toHaveBeenCalledTimes(1);
@@ -293,9 +441,9 @@ describe("ComposioService", () => {
         ],
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      yield* service.resolveRuntimeMcpServer("thread-1");
+      yield* service.resolveRuntimeMcpServer("thread-1", null);
       vi.mocked(client.connectedAccounts.list).mockResolvedValue({
         items: [
           { id: "gmail-work", toolkit: { slug: "gmail" }, status: "ACTIVE" },
@@ -303,7 +451,7 @@ describe("ComposioService", () => {
         ],
         totalPages: 1,
       } as never);
-      yield* service.resolveRuntimeMcpServer("thread-1");
+      yield* service.resolveRuntimeMcpServer("thread-1", null);
 
       expect(createSession).toHaveBeenCalledTimes(2);
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
@@ -319,14 +467,14 @@ describe("ComposioService", () => {
         accounts: [{ id: "gmail-work", toolkit: { slug: "gmail" }, status: "ACTIVE" }],
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      yield* service.resolveRuntimeMcpServer("thread-1");
+      yield* service.resolveRuntimeMcpServer("thread-1", null);
       vi.mocked(client.connectedAccounts.list).mockResolvedValue({
         items: [{ id: "slack-work", toolkit: { slug: "slack" }, status: "ACTIVE" }],
         totalPages: 1,
       } as never);
-      yield* service.resolveRuntimeMcpServer("thread-1");
+      yield* service.resolveRuntimeMcpServer("thread-1", null);
 
       expect(createSession).toHaveBeenCalledTimes(2);
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
@@ -342,9 +490,9 @@ describe("ComposioService", () => {
         accounts: [{ id: "gmail-work", toolkit: { slug: "gmail" }, status: "ACTIVE" }],
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      yield* service.resolveRuntimeMcpServer("thread-1");
+      yield* service.resolveRuntimeMcpServer("thread-1", null);
       sessionDeletes[0]!.mockRejectedValueOnce(new Error("cleanup failed"));
 
       const error = yield* Effect.flip(service.remove);
@@ -368,10 +516,10 @@ describe("ComposioService", () => {
         accounts: [{ id: "gmail-work", toolkit: { slug: "gmail" }, status: "ACTIVE" }],
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
       for (let index = 0; index <= 100; index += 1) {
-        yield* service.resolveRuntimeMcpServer(`thread-${index}`);
+        yield* service.resolveRuntimeMcpServer(`thread-${index}`, null);
       }
 
       expect(createSession).toHaveBeenCalledTimes(101);
@@ -395,11 +543,11 @@ describe("ComposioService", () => {
         sessionCreationGate,
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      const resolving = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1"));
+      const resolving = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", null));
       yield* Effect.promise(() => vi.waitFor(() => expect(createSession).toHaveBeenCalledTimes(1)));
-      yield* service.disconnect("gmail-work");
+      yield* service.disconnect("gmail-work", viewer);
       releaseSessionCreation();
 
       expect(yield* Fiber.join(resolving)).toBeUndefined();
@@ -423,11 +571,11 @@ describe("ComposioService", () => {
       });
 
       const createClient = vi.fn(() => client);
-      const service = make(store, createClient);
+      const service = make(store, inMemoryComposioAccounts(), createClient);
 
-      const first = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1"));
+      const first = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", null));
       yield* Effect.promise(() => vi.waitFor(() => expect(createSession).toHaveBeenCalledTimes(1)));
-      const second = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1"));
+      const second = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", null));
       yield* Effect.promise(() => vi.waitFor(() => expect(createClient).toHaveBeenCalledTimes(2)));
       releaseSessionCreation();
 
@@ -453,13 +601,17 @@ describe("ComposioService", () => {
         sessionCreationGates: [oldSessionCreationGate, Promise.resolve()],
       });
 
-      const service = make(store, () => client);
+      const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      const oldResolution = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1"));
+      const oldResolution = yield* Effect.forkChild(
+        service.resolveRuntimeMcpServer("thread-1", null),
+      );
+
       yield* Effect.promise(() => vi.waitFor(() => expect(createSession).toHaveBeenCalledTimes(1)));
-      yield* service.configure("new-key");
 
-      expect(yield* service.resolveRuntimeMcpServer("thread-1")).toBeDefined();
+      yield* service.configure("new-key", viewer);
+
+      expect(yield* service.resolveRuntimeMcpServer("thread-1", null)).toBeDefined();
       expect(createSession).toHaveBeenCalledTimes(2);
       releaseOldSessionCreation();
       expect(yield* Fiber.join(oldResolution)).toBeUndefined();

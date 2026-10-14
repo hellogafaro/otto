@@ -249,6 +249,11 @@ export const OttoToolInputSchemas = {
     updatedAt: IsoDateTime,
     title: Schema.optional(LibraryTitle),
   }),
+  ListSkills: Schema.Record(Schema.String, Schema.Never),
+  ReadSkillFile: Schema.Struct({
+    skillId: LibraryFolderId,
+    path: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(500))),
+  }),
   AddMcpServer: AddMcpServerInput,
   UninstallMcpServer: Schema.Struct({ serverId: McpServerId }),
   RemoveMcpAccount: Schema.Struct({ serverId: McpServerId }),

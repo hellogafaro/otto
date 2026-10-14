@@ -1,6 +1,10 @@
 import { type McpServerConfig } from "@mastra/code-sdk/mcp/index";
 import { type McpServer, type OrchestrationReadModel } from "@otto/contracts";
-import { getMcpRuntimeHeaders, mcpServerNeedsBrowserAttachment } from "../../McpServerConfig.ts";
+import {
+  getMcpOAuthStorage,
+  getMcpRuntimeHeaders,
+  mcpServerNeedsBrowserAttachment,
+} from "../../McpServerConfig.ts";
 import type { BotBrowserAttachment } from "../../botBrowser.ts";
 
 /** Active bots that lose an MCP server when it goes away: every one that has not turned it off. */
@@ -61,9 +65,12 @@ export function toMcpServerConfig(
         }
       : runtimeHeaders;
 
+  const oauthStorage = getMcpOAuthStorage(server);
+
   return {
     url: server.url,
     ...(Object.keys(browserHeaders).length > 0 ? { headers: browserHeaders } : {}),
+    ...(oauthStorage ? { oauth: { storage: oauthStorage } } : {}),
   };
 }
 

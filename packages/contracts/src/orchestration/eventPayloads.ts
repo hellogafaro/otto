@@ -206,6 +206,7 @@ export const BotCreatedPayload = Schema.Struct({
   disabledMcpServerIds: Schema.Array(McpServerId).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
+  owner: Schema.NullOr(WorkParticipant).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: PersistedBotSandbox,
@@ -232,6 +233,7 @@ export const BotUpdatedPayload = Schema.Struct({
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   avatar: Schema.optional(BotAvatar),
   engine: Schema.optional(Schema.NullOr(BotEngine)),
   sandbox: Schema.optional(PersistedBotSandbox),

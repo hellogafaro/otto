@@ -89,6 +89,14 @@ export interface AgentControllerShape {
     AgentControllerError
   >;
 
+  /** The tools a remote MCP server offers, from a live session or a short-lived connection. */
+  readonly listMcpServerTools?: (input: {
+    readonly server: McpServer;
+  }) => Effect.Effect<
+    { readonly toolNames: readonly string[]; readonly needsSignIn: boolean },
+    AgentControllerError
+  >;
+
   readonly readConversationMemory?: (
     threadId: ThreadId,
   ) => Effect.Effect<OttoConversationMemorySnapshot, AgentControllerError>;

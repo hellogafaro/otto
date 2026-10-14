@@ -41,7 +41,7 @@ export function ProjectNewChat({ projectId }: { readonly projectId: ProjectId })
           render={
             <MenuTrigger
               render={
-                <Button size="icon" variant="ghost-muted" aria-label={t("New chat")}>
+                <Button size="icon-sm" variant="ghost-muted" aria-label={t("New chat")}>
                   <RiAddLine aria-hidden className="size-4" />
                 </Button>
               }

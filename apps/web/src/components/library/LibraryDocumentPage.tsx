@@ -1,4 +1,9 @@
-import type { EnvironmentId, LibraryFile, LibraryFileId } from "@otto/contracts";
+import {
+  splitFrontMatter,
+  type EnvironmentId,
+  type LibraryFile,
+  type LibraryFileId,
+} from "@otto/contracts";
 import { RiDownloadLine, RiFileTextLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import * as Schema from "effect/Schema";
@@ -13,12 +18,14 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { DetailsAside } from "../DetailsAside";
 import { RichTextEditor } from "../RichTextEditor";
 import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { WorkTitleField } from "../work/WorkDetail";
 import { WorkEmpty, WorkPage } from "../work/WorkPages";
 import { useEntities } from "../work/workLinks";
 import { LibraryItemMenu } from "./LibraryActions";
 import { LibraryFileDetails } from "./LibraryDetails";
+import { joinFrontMatter } from "./library.logic";
 import {
   useLibraryData,
   useLibraryDownload,
@@ -97,6 +104,12 @@ function DocumentEditor({
   const base = useRef<string | null>(null);
   const baseContent = useRef("");
   const pending = useRef<string | null>(null);
+
+  const parts = useRef<{ frontMatter: string | null; body: string }>({
+    frontMatter: null,
+    body: "",
+  });
+
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef(false);
   const editable = data.canEdit(file);
@@ -119,6 +132,7 @@ function DocumentEditor({
     base.current = result.value.updatedAt;
     baseContent.current = result.value.content;
     pending.current = null;
+    parts.current = splitFrontMatter(result.value.content);
     setStale(false);
     setLoaded(result.value);
   }, [environmentId, file.id, readDocument]);
@@ -205,8 +219,11 @@ function DocumentEditor({
     [flush],
   );
 
-  const onChange = (markdown: string) => {
-    pending.current = markdown;
+  const shown = loaded && loaded !== "failed" ? splitFrontMatter(loaded.content) : null;
+
+  const onChange = (next: Partial<typeof parts.current>) => {
+    parts.current = { ...parts.current, ...next };
+    pending.current = joinFrontMatter(parts.current.frontMatter, parts.current.body);
 
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), SAVE_DELAY_MS);
@@ -268,17 +285,31 @@ function DocumentEditor({
                 {t("Could not open the document.")}
               </p>
             ) : loaded ? (
-              <RichTextEditor
-                key={loaded.updatedAt}
-                className="px-4"
-                value={loaded.content}
-                placeholder={editable ? t("Start writing…") : t("This document is empty.")}
-                ariaLabel={t("Document")}
-                links={links}
-                editable={editable}
-                onChange={onChange}
-                onBlur={() => void flush()}
-              />
+              <>
+                {shown?.frontMatter == null ? null : (
+                  <div className="px-4">
+                    <Textarea
+                      key={loaded.updatedAt}
+                      aria-label={t("Front matter")}
+                      defaultValue={shown.frontMatter}
+                      readOnly={!editable}
+                      onChange={(event) => onChange({ frontMatter: event.currentTarget.value })}
+                      onBlur={() => void flush()}
+                    />
+                  </div>
+                )}
+                <RichTextEditor
+                  key={loaded.updatedAt}
+                  className="px-4"
+                  value={shown?.body ?? loaded.content}
+                  placeholder={editable ? t("Start writing…") : t("This document is empty.")}
+                  ariaLabel={t("Document")}
+                  links={links}
+                  editable={editable}
+                  onChange={(body) => onChange({ body })}
+                  onBlur={() => void flush()}
+                />
+              </>
             ) : null}
           </div>
         </WorkspacePageContainer>

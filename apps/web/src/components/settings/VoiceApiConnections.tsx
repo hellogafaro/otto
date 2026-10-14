@@ -1,4 +1,4 @@
-import { RiLoader4Line } from "@remixicon/react";
+import { RiLoaderLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import { VOICE_API_PROVIDERS, type EnvironmentId, type VoiceApiProvider } from "@otto/contracts";
 import {
@@ -200,7 +200,7 @@ export function VoiceApiProviderRow({
   const showInput = connected === false || editing;
 
   const spinner = (action: string) =>
-    busyAction === action ? <RiLoader4Line className="size-3 animate-spin" /> : null;
+    busyAction === action ? <RiLoaderLine className="size-3 animate-spin" /> : null;
 
   const submit = async () => {
     const trimmed = apiKey.trim();

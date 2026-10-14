@@ -85,6 +85,10 @@ export interface OttoCatalogBackendOptions {
     readonly updateDocument: (
       input: (typeof OttoToolInputSchemas.UpdateLibraryDocument)["Type"],
     ) => Promise<OttoToolResult>;
+    readonly listSkills: () => Promise<OttoToolResult>;
+    readonly readSkillFile: (
+      input: (typeof OttoToolInputSchemas.ReadSkillFile)["Type"],
+    ) => Promise<OttoToolResult>;
   };
   readonly addMcpServer?: (
     input: (typeof OttoToolInputSchemas.AddMcpServer)["Type"],

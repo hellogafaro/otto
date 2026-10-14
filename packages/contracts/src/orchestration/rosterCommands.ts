@@ -12,7 +12,13 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
 } from "../baseSchemas.ts";
-import { McpServerId, McpServerInstructions, McpServerUrl } from "../mcpServer.ts";
+import {
+  McpServerId,
+  McpServerInstructions,
+  McpServerOwner,
+  McpServerUrl,
+  McpServerVisibility,
+} from "../mcpServer.ts";
 import { ImageProviderId } from "../imageGeneration.ts";
 import { ModelSelection, RuntimeMode } from "./modelSelection.ts";
 import {
@@ -78,6 +84,7 @@ export const BotCreateCommand = Schema.Struct({
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: Schema.NullOr(BotSandbox),
@@ -98,6 +105,9 @@ export const BotUpdateCommand = Schema.Struct({
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  /** Filled in by the server; only the owner hands a bot to someone else. */
+  by: Schema.optional(WorkParticipant),
   avatar: Schema.optional(BotAvatar),
   engine: Schema.optional(Schema.NullOr(BotEngine)),
   sandbox: Schema.optional(Schema.NullOr(BotSandbox)),
@@ -118,6 +128,9 @@ export const ClientBotUpdateCommand = Schema.Struct({
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  /** Filled in by the server; only the owner hands a bot to someone else. */
+  by: Schema.optional(WorkParticipant),
   avatar: Schema.optional(BotAvatar),
   engine: Schema.optional(Schema.NullOr(BotEngine)),
   sandbox: Schema.optional(Schema.NullOr(BotSandbox)),
@@ -409,6 +422,8 @@ export const McpServerCreateCommand = Schema.Union([
     command: TrimmedNonEmptyString,
     args: Schema.optional(Schema.Array(Schema.String)),
     enabled: Schema.optional(Schema.Boolean),
+    visibility: Schema.optional(McpServerVisibility),
+    by: Schema.optional(McpServerOwner),
     createdAt: IsoDateTime,
   }),
   Schema.Struct({
@@ -419,6 +434,8 @@ export const McpServerCreateCommand = Schema.Union([
     transport: Schema.Literal("url"),
     url: McpServerUrl,
     enabled: Schema.optional(Schema.Boolean),
+    visibility: Schema.optional(McpServerVisibility),
+    by: Schema.optional(McpServerOwner),
     createdAt: IsoDateTime,
   }),
 ]);
@@ -432,6 +449,7 @@ export const McpServerUpdateCommand = Schema.Union([
     transport: Schema.Literal("stdio"),
     command: TrimmedNonEmptyString,
     args: Schema.optional(Schema.Array(Schema.String)),
+    by: Schema.optional(McpServerOwner),
   }),
   Schema.Struct({
     type: Schema.Literal("mcp-server.update"),
@@ -440,6 +458,7 @@ export const McpServerUpdateCommand = Schema.Union([
     name: TrimmedNonEmptyString,
     transport: Schema.Literal("url"),
     url: McpServerUrl,
+    by: Schema.optional(McpServerOwner),
   }),
 ]);
 
@@ -449,22 +468,35 @@ export const McpServerInstructionsSetCommand = Schema.Struct({
   mcpServerId: McpServerId,
   // An empty string clears the instructions.
   instructions: McpServerInstructions,
+  by: Schema.optional(McpServerOwner),
 });
 
 export const McpServerDeleteCommand = Schema.Struct({
   type: Schema.Literal("mcp-server.delete"),
   commandId: CommandId,
   mcpServerId: McpServerId,
+  by: Schema.optional(McpServerOwner),
 });
 
 export const McpServerEnableCommand = Schema.Struct({
   type: Schema.Literal("mcp-server.enable"),
   commandId: CommandId,
   mcpServerId: McpServerId,
+  by: Schema.optional(McpServerOwner),
 });
 
 export const McpServerDisableCommand = Schema.Struct({
   type: Schema.Literal("mcp-server.disable"),
   commandId: CommandId,
   mcpServerId: McpServerId,
+  by: Schema.optional(McpServerOwner),
+});
+
+/** The person who added a server shares it with the workspace or keeps it to themselves. */
+export const McpServerAccessSetCommand = Schema.Struct({
+  type: Schema.Literal("mcp-server.access.set"),
+  commandId: CommandId,
+  mcpServerId: McpServerId,
+  visibility: McpServerVisibility,
+  by: Schema.optional(McpServerOwner),
 });

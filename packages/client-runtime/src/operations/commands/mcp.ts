@@ -17,6 +17,8 @@ export type EnableMcpServerInput = CommandInput<"mcp-server.enable">;
 
 export type DisableMcpServerInput = CommandInput<"mcp-server.disable">;
 
+export type SetMcpServerAccessInput = CommandInput<"mcp-server.access.set">;
+
 export const createMcpServer: (input: CreateMcpServerInput) => CommandEffect = Effect.fn(
   "EnvironmentCommands.createMcpServer",
 )(function* (input) {
@@ -85,6 +87,16 @@ export const disableMcpServer: (input: DisableMcpServerInput) => CommandEffect =
   return yield* dispatch({
     ...input,
     type: "mcp-server.disable",
+    commandId: yield* commandId(input),
+  });
+});
+
+export const setMcpServerAccess: (input: SetMcpServerAccessInput) => CommandEffect = Effect.fn(
+  "EnvironmentCommands.setMcpServerAccess",
+)(function* (input) {
+  return yield* dispatch({
+    ...input,
+    type: "mcp-server.access.set",
     commandId: yield* commandId(input),
   });
 });

@@ -1,4 +1,15 @@
-import { IsoDateTime, McpServer, McpServerId, McpServerTransport } from "@otto/contracts";
+import {
+  IsoDateTime,
+  McpServer,
+  McpServerId,
+  McpServerOwner,
+  McpServerTransport,
+  McpServerVisibility,
+} from "@otto/contracts";
+import {
+  mcpServerHeadersSecretName,
+  mcpServerOAuthSecretName,
+} from "../../provider/McpServerCredentials.ts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -23,6 +34,8 @@ const ProjectionMcpServerDbRow = Schema.Struct({
   url: Schema.NullOr(Schema.String),
   instructions: Schema.NullOr(Schema.String),
   enabled: Schema.Number,
+  visibility: McpServerVisibility,
+  createdBy: Schema.NullOr(Schema.fromJsonString(McpServerOwner)),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -34,6 +47,12 @@ const decodeMcpServer = Schema.decodeUnknownEffect(McpServer);
 function decodeRow(row: ProjectionMcpServerDbRow) {
   const instructions = row.instructions !== null ? { instructions: row.instructions } : {};
 
+  // Servers from before access was recorded keep their original shape.
+  const access = {
+    ...(row.visibility === "user" || row.createdBy !== null ? { visibility: row.visibility } : {}),
+    ...(row.createdBy !== null ? { createdBy: row.createdBy } : {}),
+  };
+
   const candidate =
     row.transport === "stdio"
       ? {
@@ -44,6 +63,7 @@ function decodeRow(row: ProjectionMcpServerDbRow) {
           ...(row.args !== null ? { args: row.args } : {}),
           ...instructions,
           enabled: row.enabled === 1,
+          ...access,
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
         }
@@ -54,6 +74,7 @@ function decodeRow(row: ProjectionMcpServerDbRow) {
           url: row.url,
           ...instructions,
           enabled: row.enabled === 1,
+          ...access,
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
         };
@@ -79,6 +100,8 @@ const makeProjectionMcpServerRepository = Effect.gen(function* () {
           url,
           instructions,
           enabled,
+          visibility,
+          created_by_json,
           created_at,
           updated_at
         )
@@ -91,6 +114,8 @@ const makeProjectionMcpServerRepository = Effect.gen(function* () {
           ${row.transport === "url" ? row.url : null},
           ${row.instructions ?? null},
           ${row.enabled ? 1 : 0},
+          ${row.visibility ?? "workspace"},
+          ${row.createdBy ? JSON.stringify(row.createdBy) : null},
           ${row.createdAt},
           ${row.updatedAt}
         )
@@ -103,6 +128,8 @@ const makeProjectionMcpServerRepository = Effect.gen(function* () {
           url = excluded.url,
           instructions = excluded.instructions,
           enabled = excluded.enabled,
+          visibility = excluded.visibility,
+          created_by_json = excluded.created_by_json,
           created_at = excluded.created_at,
           updated_at = excluded.updated_at
       `,
@@ -122,6 +149,8 @@ const makeProjectionMcpServerRepository = Effect.gen(function* () {
           url,
           instructions,
           enabled,
+          visibility,
+          created_by_json AS "createdBy",
           created_at AS "createdAt",
           updated_at AS "updatedAt"
         FROM projection_mcp_servers
@@ -143,6 +172,8 @@ const makeProjectionMcpServerRepository = Effect.gen(function* () {
           url,
           instructions,
           enabled,
+          visibility,
+          created_by_json AS "createdBy",
           created_at AS "createdAt",
           updated_at AS "updatedAt"
         FROM projection_mcp_servers
@@ -156,7 +187,14 @@ const makeProjectionMcpServerRepository = Effect.gen(function* () {
       sql`
         DELETE FROM projection_mcp_servers
         WHERE mcp_server_id = ${mcpServerId}
-      `,
+      `.pipe(
+        Effect.andThen(
+          sql`
+            DELETE FROM secrets
+            WHERE name IN (${mcpServerHeadersSecretName(mcpServerId)}, ${mcpServerOAuthSecretName(mcpServerId)})
+          `,
+        ),
+      ),
   });
 
   const upsert: ProjectionMcpServerRepositoryShape["upsert"] = (row) =>

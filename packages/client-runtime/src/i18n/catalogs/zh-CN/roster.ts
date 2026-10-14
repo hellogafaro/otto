@@ -14,7 +14,6 @@ export const rosterCatalog = {
   "Matching repositories appear as one project.": "匹配的仓库显示为一个项目。",
   "No project scripts": "没有项目脚本",
   "Opens the project picker": "打开项目选择器",
-  Plugins: "插件",
   Project: "项目",
   "Project Grouping": "项目分组",
   "Review Otto policies": "查看 Otto 政策",
@@ -65,8 +64,6 @@ export const rosterCatalog = {
   "your routine": "你的日常安排",
   "Read through the project to find where this belongs": "通读项目，找到该改动的位置",
   "Your bot": "你的机器人",
-  "Retry this view. If it fails again, reload Otto.":
-    "请重试此视图。如果再次失败，请重新加载 Otto。",
   "New bot": "新建机器人",
   "New group": "新建群组",
   "Archive bot": "归档机器人",
@@ -126,7 +123,6 @@ export const rosterCatalog = {
   "Could not start routine": "无法启动例行任务",
   Scheduled: "定时",
   "Loading bot…": "正在加载机器人…",
-  "Open Plugins": "打开插件",
   "Paused. Fix the cause in Bot inbox, then resume it.":
     "已暂停。请在机器人收件箱中解决问题，然后恢复运行。",
   "Fix this in Plugins on the desktop or web app.": "请在桌面端或网页版的插件中修复此问题。",
@@ -254,7 +250,6 @@ export const rosterCatalog = {
     "这个机器人了解到的关于你的长期信息。它会在每次聊天中读取这些内容。",
   "Nothing yet. The bot starts a summary once the chat gets long.":
     "暂无内容。聊天变长后，机器人会开始生成摘要。",
-  "Manage plugins": "管理插件",
   "Turn off {name} for this bot": "为此机器人关闭 {name}",
   "Turn on {name} for this bot": "为此机器人开启 {name}",
   "Name your bot": "为你的机器人命名",
@@ -282,7 +277,6 @@ export const rosterCatalog = {
   "{failures} Restart the affected bot session to retry.":
     "{failures} 请重启受影响的机器人会话后重试。",
   "Could not open skill": "无法打开技能",
-  "Open plugins": "打开插件",
   "Change avatar": "更换头像",
   "Channels are managed on the host": "频道在主机上管理",
   "No channels set up yet": "尚未设置频道",

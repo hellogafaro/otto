@@ -142,6 +142,15 @@ const GROUPED_ROWS_CLASS = cn(
   "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))>[data-settings-row]]:rounded-none",
 );
 
+/** Otto: The grouped card of `SettingsRow`s without a section heading, for detail pages. */
+export function SettingsCard({ children }: { readonly children: ReactNode }) {
+  return (
+    <div className={cn("relative space-y-1 overflow-visible text-foreground", GROUPED_ROWS_CLASS)}>
+      {children}
+    </div>
+  );
+}
+
 /** Otto: Every settings-page section heading, including Usage, shares this 16px/500 style. */
 export const SETTINGS_SECTION_TITLE_CLASS =
   "text-base font-medium tracking-title-sm text-foreground";

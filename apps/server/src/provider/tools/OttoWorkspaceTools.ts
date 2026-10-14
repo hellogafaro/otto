@@ -41,6 +41,8 @@ export const BACKEND_NAMES: Record<
     | "ListLibrary"
     | "ReadLibraryFile"
     | "UpdateLibraryDocument"
+    | "ListSkills"
+    | "ReadSkillFile"
     | "AddMcpServer"
     | "UninstallMcpServer"
     | "RemoveMcpAccount"

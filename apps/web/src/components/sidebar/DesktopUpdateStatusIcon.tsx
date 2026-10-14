@@ -1,8 +1,12 @@
-import { RiCheckLine, RiDownloadLine, RiRefreshLine, RiClockwiseLine } from "@remixicon/react";
+import {
+  RiCheckLine,
+  RiDownloadLine,
+  RiRefreshLine,
+  RiClockwiseLine,
+  RiLoaderLine,
+} from "@remixicon/react";
 
 import type { AnimationEventHandler } from "react";
-
-import { cn } from "../../lib/utils";
 
 const DOWNLOAD_PROGRESS_RADIUS = 8.25;
 
@@ -114,10 +118,12 @@ export function DesktopUpdateStatusIcon({
 
   if (status === "downloaded") return <DesktopUpdateDownloadedIcon />;
 
-  return (
-    <RiRefreshLine
-      className={cn("size-4", status === "checking" && isCheckAnimating && "animate-spin")}
+  return status === "checking" && isCheckAnimating ? (
+    <RiLoaderLine
+      className="size-4 animate-spin"
       onAnimationIteration={onCheckAnimationIteration}
     />
+  ) : (
+    <RiRefreshLine className="size-4" />
   );
 }

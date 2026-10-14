@@ -318,18 +318,23 @@ export const BotRosterRow = memo(function BotRosterRow({
         ) : null}
         <span className={ROSTER_TRAIL_CLASS}>
           <span className={ROSTER_TRAIL_INFO_CLASS}>
-            <ChatStatusIcon presence={presence} unread={unread} />
-            {latestMessage ? (
-              <time
-                dateTime={latestMessage.at}
-                aria-label={t("Last message {time}", {
-                  time: formatRosterFullTimestamp(latestMessage.at),
-                })}
-                className={ROSTER_TIME_CLASS}
-              >
-                {shortRelativeTime(latestMessage.at, t)}
-              </time>
-            ) : null}
+            <ChatStatusIcon
+              presence={presence}
+              unread={unread}
+              fallback={
+                latestMessage ? (
+                  <time
+                    dateTime={latestMessage.at}
+                    aria-label={t("Last message {time}", {
+                      time: formatRosterFullTimestamp(latestMessage.at),
+                    })}
+                    className={ROSTER_TIME_CLASS}
+                  >
+                    {shortRelativeTime(latestMessage.at, t)}
+                  </time>
+                ) : null
+              }
+            />
           </span>
           <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
             <RosterRowAction
@@ -556,8 +561,16 @@ export const ChatRosterRow = memo(function ChatRosterRow({
       </button>
       <span className={ROSTER_TRAIL_CLASS}>
         <span className={ROSTER_TRAIL_INFO_CLASS}>
-          <ThreadStatusIcon environmentId={environmentId} shell={shell} current={current} />
-          <span className={ROSTER_TIME_CLASS}>{relative?.suffix ? relative.value : t("now")}</span>
+          <ThreadStatusIcon
+            environmentId={environmentId}
+            shell={shell}
+            current={current}
+            fallback={
+              <span className={ROSTER_TIME_CLASS}>
+                {relative?.suffix ? relative.value : t("now")}
+              </span>
+            }
+          />
         </span>
         <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
           <RosterRowAction

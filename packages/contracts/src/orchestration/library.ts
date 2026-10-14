@@ -60,6 +60,21 @@ export const LIBRARY_PROJECTS_FOLDER_ID = LibraryFolderId.make("library-projects
 
 export const LIBRARY_PROJECTS_FOLDER_TITLE = "Projects";
 
+/**
+ * The top-level folder holding one folder per skill. A skill folder holds its `SKILL.md`
+ * and any references, scripts or assets; scripts are read, never run.
+ */
+export const LIBRARY_SKILLS_FOLDER_ID = LibraryFolderId.make("library-skills");
+
+export const LIBRARY_SKILLS_FOLDER_TITLE = "Skills";
+
+/** The top-level folders Otto makes; they can't be renamed, moved or deleted. */
+export const LIBRARY_SYSTEM_FOLDER_IDS: ReadonlySet<LibraryFolderId> = new Set([
+  LIBRARY_CHATS_FOLDER_ID,
+  LIBRARY_PROJECTS_FOLDER_ID,
+  LIBRARY_SKILLS_FOLDER_ID,
+]);
+
 export const LibrarySizeBytes = NonNegativeInt.check(
   Schema.isLessThanOrEqualTo(LIBRARY_FILE_MAX_BYTES),
 );
@@ -480,6 +495,84 @@ export const LibraryCreateDocumentInput = Schema.Struct({
 });
 
 export const LibraryCreateDocumentResult = Schema.Struct({ fileId: LibraryFileId });
+
+export const SkillName = TrimmedNonEmptyString.check(
+  Schema.isMaxLength(64),
+  Schema.isPattern(/^[^\n\r]*$/),
+);
+
+export const SkillDescription = TrimmedNonEmptyString.check(Schema.isMaxLength(1024));
+
+/** A new skill folder in Skills with its `SKILL.md`: the given text, or a starter one. */
+export const LibraryCreateSkillInput = Schema.Struct({
+  name: SkillName,
+  description: SkillDescription,
+  visibility: LibraryVisibility,
+  content: Schema.optional(Schema.String.check(Schema.isMaxLength(LIBRARY_DOCUMENT_MAX_BYTES))),
+});
+
+export type LibraryCreateSkillInput = typeof LibraryCreateSkillInput.Type;
+
+export const LibraryCreateSkillResult = Schema.Struct({
+  folderId: LibraryFolderId,
+  fileId: LibraryFileId,
+});
+
+/** A skill's `SKILL.md` sits directly in its folder. */
+export const isSkillFile = (file: Pick<LibraryFile, "title" | "extension">) =>
+  file.extension === "md" && file.title.toUpperCase() === "SKILL";
+
+export interface SkillFrontMatter {
+  readonly name?: string;
+  readonly description?: string;
+}
+
+/** A Markdown document's leading YAML front matter, without its `---` fences, and the rest. */
+export function splitFrontMatter(markdown: string) {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(markdown);
+
+  if (!match) return { frontMatter: null, body: markdown };
+
+  return {
+    frontMatter: match[1] ?? "",
+    body: markdown.slice(match[0].length).replace(/^\s*\n/, ""),
+  };
+}
+
+/** `name` and `description` from a `SKILL.md`'s YAML front matter, when it has them. */
+export function parseSkillFrontMatter(markdown: string): SkillFrontMatter {
+  const block = splitFrontMatter(markdown).frontMatter;
+
+  if (block === null) return {};
+
+  const field = (key: string) => {
+    const value = new RegExp(`^${key}:[ \\t]*(.+)$`, "m").exec(block)?.[1]?.trim();
+
+    return value?.replace(/^(["'])(.*)\1$/, "$2").trim() || undefined;
+  };
+
+  const name = field("name");
+  const description = field("description");
+
+  return { ...(name ? { name } : {}), ...(description ? { description } : {}) };
+}
+
+/** A starter `SKILL.md` for a new skill. */
+export function skillTemplate(input: { readonly name: string; readonly description: string }) {
+  return [
+    "---",
+    `name: ${input.name}`,
+    `description: ${input.description.replace(/\s+/g, " ")}`,
+    "---",
+    "",
+    `# ${input.name}`,
+    "",
+    "Write the steps a bot should follow when this skill applies.",
+    "",
+    "Put longer material in a `references` folder next to this file and mention it here, so the bot reads it only when needed.",
+    "",
+  ].join("\n");
+}
 
 export const LibraryFileInput = Schema.Struct({ fileId: LibraryFileId });
 

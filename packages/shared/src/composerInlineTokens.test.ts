@@ -4,7 +4,9 @@ import {
   collectComposerInlineTokens,
   collectComposerMentionDisplays,
   collectComposerMentionReferences,
+  collectComposerResourceMentions,
   serializeComposerBotMention,
+  serializeComposerResourceMention,
   serializeComposerThreadMention,
 } from "./composerInlineTokens.ts";
 
@@ -253,5 +255,21 @@ describe("composer mention tokens", () => {
       ["bot", "Mika", "bot-2"],
       ["bot", "Unknown bot", "gone"],
     ]);
+  });
+});
+
+describe("collectComposerResourceMentions", () => {
+  it("reads skill, app, and MCP server mentions instead of path mentions", () => {
+    const text = `use ${serializeComposerResourceMention("skill", "skill-1")} with @app:googlecalendar and @mcp:mcp-1 now`;
+
+    expect(collectComposerResourceMentions(text).map(({ kind, id }) => [kind, id])).toEqual([
+      ["skill", "skill-1"],
+      ["app", "googlecalendar"],
+      ["mcp", "mcp-1"],
+    ]);
+    expect(collectComposerInlineTokens(text).filter((token) => token.type === "mention")).toEqual(
+      [],
+    );
+    expect(serializeComposerResourceMention("app", "bad id")).toBeNull();
   });
 });

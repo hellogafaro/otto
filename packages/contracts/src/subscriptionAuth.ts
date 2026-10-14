@@ -335,6 +335,74 @@ export const McpServerAuthenticationProgress = Schema.Union([
 
 export type McpServerAuthenticationProgress = typeof McpServerAuthenticationProgress.Type;
 
+export const McpServerTools = Schema.Struct({
+  toolNames: Schema.Array(Schema.String),
+  /** The server answered but wants an OAuth sign-in before it lists tools. */
+  needsSignIn: Schema.Boolean,
+});
+
+export type McpServerTools = typeof McpServerTools.Type;
+
+export class McpServerToolsError extends Schema.TaggedErrorClass<McpServerToolsError>()(
+  "McpServerToolsError",
+  {
+    mcpServerId: McpServerId,
+    reason: TrimmedNonEmptyString,
+  },
+) {
+  override get message(): string {
+    return this.reason;
+  }
+}
+
+/** An HTTP header name: an RFC 9110 token. */
+export const McpServerHeaderName = TrimmedNonEmptyString.check(
+  Schema.isPattern(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/),
+  Schema.isMaxLength(128),
+);
+
+/** A header value: one line, never echoed back to any client. */
+export const McpServerHeaderValue = Schema.String.check(
+  Schema.isPattern(/^[^\r\n]*$/),
+  Schema.isMinLength(1),
+  Schema.isMaxLength(8_192),
+);
+
+/** The header names saved for a server. Values stay on the server. */
+export const McpServerHeaders = Schema.Struct({
+  names: Schema.Array(McpServerHeaderName),
+});
+
+export type McpServerHeaders = typeof McpServerHeaders.Type;
+
+/**
+ * Replaces a server's headers. A null value keeps the saved value for that name; a name
+ * left out is removed.
+ */
+export const McpServerSetHeadersInput = Schema.Struct({
+  mcpServerId: McpServerId,
+  headers: Schema.Array(
+    Schema.Struct({
+      name: McpServerHeaderName,
+      value: Schema.NullOr(McpServerHeaderValue),
+    }),
+  ).check(Schema.isMaxLength(20)),
+});
+
+export type McpServerSetHeadersInput = typeof McpServerSetHeadersInput.Type;
+
+export class McpServerHeadersError extends Schema.TaggedErrorClass<McpServerHeadersError>()(
+  "McpServerHeadersError",
+  {
+    mcpServerId: McpServerId,
+    reason: TrimmedNonEmptyString,
+  },
+) {
+  override get message(): string {
+    return this.reason;
+  }
+}
+
 export class McpServerAuthenticationError extends Schema.TaggedErrorClass<McpServerAuthenticationError>()(
   "McpServerAuthenticationError",
   {

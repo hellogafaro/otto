@@ -489,6 +489,7 @@ export function BotPromptComposer({
               <BotPromptMentionChips
                 bots={mentionBots}
                 draft={draft}
+                environmentId={mentionScope?.environmentId ?? null}
                 onRemove={(chip) => {
                   persistDraft(removeBotPromptMention(draft, chip));
                   promptInputRef.current?.focus();

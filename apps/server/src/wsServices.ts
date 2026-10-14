@@ -368,7 +368,9 @@ export const createWsServices = (
 
     const composioService = yield* Effect.serviceOption(Composio.ComposioService);
 
-    const composio = Option.getOrElse(composioService, () => Composio.make(secretStore));
+    const composio = Option.getOrElse(composioService, () =>
+      Composio.make(secretStore, Composio.inMemoryComposioAccounts()),
+    );
 
     const commandReceipts = yield* Effect.serviceOption(OrchestrationCommandReceiptRepository);
 

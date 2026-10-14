@@ -1,6 +1,6 @@
 import {
   RiExternalLinkLine,
-  RiLoader4Line,
+  RiLoaderLine,
   RiLogoutBoxRLine,
   RiRefreshLine,
 } from "@remixicon/react";
@@ -40,7 +40,7 @@ function disconnectDescription(
 }
 
 export function BusyIcon({ busy, idle }: { readonly busy: boolean; readonly idle?: ReactNode }) {
-  if (busy) return <RiLoader4Line className="size-3.5 animate-spin" />;
+  if (busy) return <RiLoaderLine className="size-3.5 animate-spin" />;
 
   return idle ?? null;
 }
@@ -325,13 +325,13 @@ export function ActiveLoginPanel({
             className="flex-1"
           />
           <Button disabled={pastedCode.trim().length === 0 || completing} onClick={onComplete}>
-            {completing ? <RiLoader4Line className="size-3.5 animate-spin" /> : null}
+            {completing ? <RiLoaderLine className="size-3.5 animate-spin" /> : null}
             {t("Connect")}
           </Button>
         </div>
       ) : !login.error ? (
         <div className="flex items-center gap-2 text-13px text-muted-foreground">
-          <RiLoader4Line className="size-3.5 animate-spin" />
+          <RiLoaderLine className="size-3.5 animate-spin" />
           {t("Waiting for approval…")}
         </div>
       ) : null}

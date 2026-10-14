@@ -5,7 +5,7 @@ import {
   RiChat1Line,
   RiTimeLine,
   RiListCheck3,
-  RiPuzzleLine,
+  RiShapesLine,
   RiSettings3Line,
   type RemixiconComponentType,
 } from "@remixicon/react";
@@ -20,7 +20,6 @@ import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
 import { useChangedSinceMount } from "../../hooks/useChangedSinceMount";
 import { cn } from "../../lib/utils";
-import { openPlugins } from "../../pluginsDialogStore";
 import { openSettings } from "../../settingsDialogStore";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
@@ -104,9 +103,9 @@ export function useRailOnly(place: SidebarPlace): boolean {
   return emptyPlace || isFullPage(pathname);
 }
 
-/** Plugins, Tasks, Projects and the Library own the whole main panel, so the place panel steps aside. */
+/** Customize, Tasks, Projects and the Library own the whole main panel, so the place panel steps aside. */
 function isFullPage(pathname: string): boolean {
-  return ["/plugins", "/tasks", "/projects", "/library"].some((base) =>
+  return ["/customize", "/tasks", "/projects", "/library"].some((base) =>
     isPathUnder(pathname, base),
   );
 }
@@ -168,7 +167,7 @@ export function ExperimentalSidebar({
   // Settings is a route, not a panel toggle: the URL decides whether it owns
   // the panel, and leaving it goes back to the chat workspace.
   const onSettings = isPathUnder(pathname, "/settings");
-  const onPlugins = isPathUnder(pathname, "/plugins");
+  const onCustomize = isPathUnder(pathname, "/customize");
   const onTasks = isPathUnder(pathname, "/tasks");
   const onProjects = isPathUnder(pathname, "/projects");
   const onLibrary = isPathUnder(pathname, "/library");
@@ -255,11 +254,11 @@ export function ExperimentalSidebar({
               }}
             />
             <RailButton
-              label={t("Plugins")}
-              icon={RiPuzzleLine}
-              active={onPlugins}
+              label={t("Customize")}
+              icon={RiShapesLine}
+              active={onCustomize}
               onClick={() => {
-                if (!onPlugins) openPlugins();
+                if (!onCustomize) void navigate({ to: "/customize" });
               }}
             />
           </div>

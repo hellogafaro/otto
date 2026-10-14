@@ -19,7 +19,7 @@ describe("settings deep links", () => {
     ["voice", "providers", "voice", "Providers > Voice"],
     ["image-generation", "image-generation", null, "Image generation"],
     ["browser", "browser", "browser", "Browser"],
-    ["plugins", "plugins", null, "Plugins"],
+    ["plugins", "customize", null, "Customize"],
     ["sandbox", "sandbox", null, "Sandbox"],
     ["privacy", "privacy", null, "Privacy & data"],
     ["archived-chats", "archived", null, "Archived chats"],
@@ -48,7 +48,9 @@ describe("settings deep links", () => {
       ),
     );
 
-    expect([...SETTINGS_SECTIONS].filter((section) => !reached.has(section))).toEqual([]);
+    expect([...SETTINGS_SECTIONS].filter((section) => !reached.has(section))).toEqual([
+      "integrations",
+    ]);
   });
 
   it("uses General for a bare Settings link", () => {

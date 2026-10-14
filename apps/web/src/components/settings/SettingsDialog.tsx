@@ -12,6 +12,7 @@ import {
   RiLink,
   RiChat3Line,
   RiPaintBrushLine,
+  RiPuzzleLine,
   RiShieldCheckLine,
   RiSettings3Line,
   RiEqualizerLine,
@@ -87,6 +88,10 @@ const AccountSettingsPanel = lazy(async () => ({
   default: (await import("./OrganizationAccountSettings")).AccountSettingsPanel,
 }));
 
+const IntegrationsSettingsPanel = lazy(async () => ({
+  default: (await import("./IntegrationsSettings")).IntegrationsSettingsPanel,
+}));
+
 const OrganizationSettingsPanel = lazy(async () => ({
   default: (await import("./OrganizationAccountSettings")).OrganizationSettingsPanel,
 }));
@@ -98,6 +103,7 @@ const OrganizationMembersSettings = lazy(async () => ({
 const SECTION_PANELS: Readonly<Record<SettingsSection, ComponentType>> = {
   account: AccountSettingsPanel,
   organization: OrganizationSettingsPanel,
+  integrations: IntegrationsSettingsPanel,
   members: OrganizationMembersSettings,
   general: GeneralSettingsPanel,
   usage: UsageSettingsPanel,
@@ -155,6 +161,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
       { section: "appearance", label: "Appearance", icon: RiPaintBrushLine },
       { section: "keybindings", label: "Keyboard", icon: RiKeyboardLine },
       { section: "connections", label: "Connections", icon: RiLink },
+      { section: "integrations", label: "Integrations", icon: RiPuzzleLine },
       { section: "privacy", label: "Privacy & data", icon: RiShieldCheckLine },
       { section: "archived", label: "Archived", icon: RiArchiveLine },
       { section: "advanced", label: "Advanced", icon: RiEqualizerLine },

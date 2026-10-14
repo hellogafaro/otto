@@ -1,4 +1,4 @@
-import { RiLoader4Line, RiAddLine, RiRefreshLine } from "@remixicon/react";
+import { RiLoaderLine, RiAddLine, RiRefreshLine } from "@remixicon/react";
 import { recordLookup } from "../recordLookup";
 import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
@@ -339,7 +339,7 @@ export function ProviderInstancesSection({
               aria-label={t("Refresh {provider} status", { provider: providerLabel })}
             >
               {isRefreshing ? (
-                <RiLoader4Line className="size-3.5 animate-spin" />
+                <RiLoaderLine className="size-3.5 animate-spin" />
               ) : (
                 <RiRefreshLine className="size-3.5" />
               )}

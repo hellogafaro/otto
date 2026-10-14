@@ -61,6 +61,9 @@ export function createOttoCatalogToolHandlers(
             backends.library!.read(decodeOttoToolInput("ReadLibraryFile", input)),
           UpdateLibraryDocument: async ({ input }) =>
             backends.library!.updateDocument(decodeOttoToolInput("UpdateLibraryDocument", input)),
+          ListSkills: async () => backends.library!.listSkills(),
+          ReadSkillFile: async ({ input }) =>
+            backends.library!.readSkillFile(decodeOttoToolInput("ReadSkillFile", input)),
         }
       : {}),
     ...(backends.addMcpServer

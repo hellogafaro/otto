@@ -7,7 +7,7 @@ import type { MessageKey } from "@otto/client-runtime/i18n";
 
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
-import { openPlugins } from "../../pluginsDialogStore";
+import { openCustomize } from "../../customizeNavigation";
 import { SettingsRow, SettingsSection } from "../settings/settingsLayout";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
@@ -127,8 +127,8 @@ export function BotToolsSection({
       id="tools"
       title={t("Tools")}
       headerAction={
-        <Button variant="ghost" size="xs" type="button" onClick={() => openPlugins()}>
-          {t("Manage plugins")}
+        <Button variant="ghost" size="xs" type="button" onClick={() => openCustomize()}>
+          {t("Customize")}
         </Button>
       }
     >

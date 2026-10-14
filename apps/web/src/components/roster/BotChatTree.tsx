@@ -83,6 +83,11 @@ export function BotChatTree({
       />
       {rows.map((row) => {
         const relative = formatRelativeTime(row.updatedAt);
+
+        const time = (
+          <span className={ROSTER_TIME_CLASS}>{relative?.suffix ? relative.value : t("now")}</span>
+        );
+
         const shell = chats.find((chat) => chat.id === row.threadId);
         const title = row.title ?? t("Untitled chat");
         const threadRef = environmentId && shell ? scopeThreadRef(environmentId, shell.id) : null;
@@ -131,11 +136,11 @@ export function BotChatTree({
                     environmentId={environmentId}
                     shell={shell}
                     current={row.current}
+                    fallback={time}
                   />
-                ) : null}
-                <span className={ROSTER_TIME_CLASS}>
-                  {relative?.suffix ? relative.value : t("now")}
-                </span>
+                ) : (
+                  time
+                )}
               </span>
               {threadRef ? (
                 <span className={ROSTER_TRAIL_ACTIONS_CLASS}>

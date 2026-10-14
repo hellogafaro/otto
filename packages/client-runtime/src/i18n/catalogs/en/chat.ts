@@ -171,6 +171,9 @@ export const chatCatalog = {
   "Preview browser": "Preview browser",
   Chat: "Chat",
   "Unknown chat": "Unknown chat",
+  "MCP server": "MCP server",
+  "Unknown skill": "Unknown skill",
+  "Unknown MCP server": "Unknown MCP server",
   "Preview {name}": "Preview {name}",
   "Terminal context expired. Remove and re-add {label} to include it in your message.":
     "Terminal context expired. Remove and re-add {label} to include it in your message.",

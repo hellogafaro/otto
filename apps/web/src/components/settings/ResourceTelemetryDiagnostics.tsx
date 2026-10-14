@@ -9,6 +9,7 @@ import {
   RiRamLine,
   RiRefreshLine,
   RiAnticlockwiseLine,
+  RiLoaderLine,
 } from "@remixicon/react";
 import { Predicate } from "effect";
 import {
@@ -23,7 +24,6 @@ import {
   useResourceTelemetry,
   useResourceTelemetryHistory,
 } from "../../lib/resourceTelemetryState";
-import { cn } from "../../lib/utils";
 import { ensureLocalApi } from "../../localApi";
 import { usePrimaryEnvironment } from "../../state/environments";
 import { serverEnvironment } from "../../state/server";
@@ -228,9 +228,11 @@ export function ResourceTelemetryDiagnostics() {
                     onClick={telemetry.refresh}
                     aria-label="Refresh resource telemetry"
                   >
-                    <RiRefreshLine
-                      className={cn("size-3", telemetry.isPending && "animate-spin")}
-                    />
+                    {telemetry.isPending ? (
+                      <RiLoaderLine className="size-3 animate-spin" />
+                    ) : (
+                      <RiRefreshLine className="size-3" />
+                    )}
                   </Button>
                 }
               />
@@ -353,7 +355,11 @@ export function ResourceTelemetryDiagnostics() {
         headerAction={
           collectorNeedsRetry ? (
             <Button size="xs" variant="outline" disabled={isRetrying} onClick={retryCollector}>
-              <RiAnticlockwiseLine className={cn("size-3", isRetrying && "animate-spin")} />
+              {isRetrying ? (
+                <RiLoaderLine className="size-3 animate-spin" />
+              ) : (
+                <RiAnticlockwiseLine className="size-3" />
+              )}
               Retry monitor
             </Button>
           ) : null
@@ -491,7 +497,11 @@ export function ResourceTelemetryDiagnostics() {
               onClick={history.refresh}
               aria-label="Refresh resource history"
             >
-              <RiRefreshLine className={cn("size-3", history.isPending && "animate-spin")} />
+              {history.isPending ? (
+                <RiLoaderLine className="size-3 animate-spin" />
+              ) : (
+                <RiRefreshLine className="size-3" />
+              )}
             </Button>
           </div>
         }

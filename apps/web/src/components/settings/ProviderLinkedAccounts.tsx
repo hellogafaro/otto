@@ -4,7 +4,7 @@ import {
   RiMoreLine,
   RiExternalLinkLine,
   RiKey2Line,
-  RiLoader4Line,
+  RiLoaderLine,
   RiLogoutBoxRLine,
   RiAddLine,
   RiRefreshLine,
@@ -123,7 +123,7 @@ function LinkedAccountCard({
     case "checking":
       stateText = (
         <span className="inline-flex items-center gap-1 text-muted-foreground">
-          <RiLoader4Line className="size-3 animate-spin" />
+          <RiLoaderLine className="size-3 animate-spin" />
           {t("Checking sign-in")}
         </span>
       );

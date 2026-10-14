@@ -16,6 +16,7 @@ import { ProjectionSnapshotQuery } from "../../Services/ProjectionSnapshotQuery.
 import { ServerSettingsService } from "../../../serverSettings.ts";
 import { GitWorkflowService } from "../../../git/GitWorkflowService.ts";
 import { ComposioService } from "../../../composio/ComposioService.ts";
+import { ServerSecretStore } from "../../../auth/ServerSecretStore.ts";
 import { HANDLED_TURN_REQUEST_KEY_MAX, HANDLED_TURN_REQUEST_KEY_TTL } from "./Fields.ts";
 
 export const createDependencies = Effect.fn("makeprovider-command-Dependencies")(function* () {
@@ -47,6 +48,8 @@ export const createDependencies = Effect.fn("makeprovider-command-Dependencies")
 
   const composio = yield* Effect.serviceOption(ComposioService);
 
+  const secretStore = yield* Effect.serviceOption(ServerSecretStore);
+
   const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
 
   if (agentController.configurePluginRuntime) {
@@ -59,9 +62,7 @@ export const createDependencies = Effect.fn("makeprovider-command-Dependencies")
               readonly query?: string;
               readonly limit?: number;
             }) => {
-              const status = await runPromise(composio.value.getStatus);
-
-              if (!status.configured) {
+              if (!(await runPromise(composio.value.isConfigured))) {
                 return { status: "setup-required" as const, toolkits: [] };
               }
 
@@ -129,6 +130,7 @@ export const createDependencies = Effect.fn("makeprovider-command-Dependencies")
     serverSettingsService,
     botUsageLedger,
     composio,
+    secretStore,
     runPromise,
     serverCommandId,
     serverEventId,

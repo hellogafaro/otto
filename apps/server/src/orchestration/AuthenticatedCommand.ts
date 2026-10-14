@@ -88,6 +88,10 @@ export function applyAuthenticatedCommandActor(
       };
     case "group.leave":
       return { ...command, personId: actor.personId };
+    case "bot.create":
+      return { ...command, owner: actorParticipant(actor) };
+    case "bot.update":
+      return { ...command, by: actorParticipant(actor) };
     case "library.folder.create": {
       const { threadId: _threadId, projectId: _projectId, ...rest } = command;
 
@@ -104,6 +108,14 @@ export function applyAuthenticatedCommandActor(
     case "library.folder.delete":
     case "library.file.delete":
       return { ...command, by: actorParticipant(actor) };
+    case "mcp-server.create":
+    case "mcp-server.update":
+    case "mcp-server.instructions.set":
+    case "mcp-server.delete":
+    case "mcp-server.enable":
+    case "mcp-server.disable":
+    case "mcp-server.access.set":
+      return { ...command, by: { personId: actor.personId, displayName: actor.displayName } };
     case "thread.turn.start":
       return {
         ...command,

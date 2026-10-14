@@ -5,7 +5,11 @@ import {
   resolveCatalogInstallations,
   type PluginDefinition,
 } from "../../../../../plugins";
-import { isBuiltinMcpServer } from "../plugins/pluginRegistry";
+
+/** Servers the plugin catalog installed; people add the rest in Customize. */
+export function isBuiltinMcpServer(server: McpServer): boolean {
+  return server.id.startsWith("builtin-");
+}
 
 const CATALOG = loadCatalog();
 

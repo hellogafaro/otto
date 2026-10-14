@@ -4,7 +4,7 @@ import type { EnvironmentId } from "@otto/contracts";
 import type { MouseEvent, ReactNode } from "react";
 
 import { useI18n } from "../../i18n";
-import { openPlugins } from "../../pluginsDialogStore";
+import { openCustomize } from "../../customizeNavigation";
 import { openSettings } from "../../settingsDialogStore";
 import type { SettingsDeepLinkDestination } from "../../settingsDeepLink";
 import { cn } from "../../lib/utils";
@@ -29,7 +29,11 @@ export function SettingsLinkChip({
   readonly className?: string;
 }) {
   const { t } = useI18n();
-  const tooltip = t("Open Settings > {destination}", { destination: t(destination.label) });
+
+  const tooltip =
+    destination.section === "customize"
+      ? t("Open Customize")
+      : t("Open Settings > {destination}", { destination: t(destination.label) });
 
   return (
     <Tooltip>
@@ -47,7 +51,7 @@ export function SettingsLinkChip({
               event.preventDefault();
               event.stopPropagation();
 
-              if (destination.section === "plugins") openPlugins();
+              if (destination.section === "customize") openCustomize();
               else openSettings(destination.section, destination.targetId, environmentId);
             }}
           >

@@ -39,7 +39,7 @@ import { createTurnRequests } from "./agentController/TurnRequests.ts";
 import { createApprovals } from "./agentController/Approvals.ts";
 import { createConversation } from "./agentController/Conversation.ts";
 
-import { createMcpManager } from "@mastra/code-sdk/mcp/index";
+import { createMcpManager, type McpManager } from "@mastra/code-sdk/mcp/index";
 
 import { TurnId, type ProviderRuntimeEvent, type RuntimeMode, ThreadId } from "@otto/contracts";
 
@@ -731,6 +731,45 @@ const make = (options?: AgentControllerLiveOptions) =>
           });
 
           return { toolCount: status.toolCount, recoveryFailures };
+        }),
+
+      listMcpServerTools: ({ server }) =>
+        runMastra("mcp.listTools", async () => {
+          const serverId = String(server.id);
+
+          const statusOf = (manager: McpManager) =>
+            manager.getServerStatuses().find((status) => status.name === serverId);
+
+          const toolNamesOf = (toolNames: ReadonlyArray<string>) =>
+            toolNames.map((name) => name.replace(`${serverId}_`, ""));
+
+          const live = sessionResources
+            .getMcpManagerSessionsForServer(serverId)
+            .map(({ manager }) => statusOf(manager))
+            .find((status) => status?.connected);
+
+          if (live) return { toolNames: toolNamesOf(live.toolNames), needsSignIn: false };
+
+          const manager = (options?.makeMcpManager ?? createMcpManager)(
+            path.join(config.stateDir, "bot-mcp-runtime"),
+            ".otto-runtime",
+            toMcpServerConfigs([server]),
+          );
+
+          try {
+            await manager.init();
+            const status = statusOf(manager);
+
+            if (status?.needsAuth) return { toolNames: [], needsSignIn: true };
+
+            if (!status?.connected) {
+              throw new Error(status?.error ?? "The server did not connect.");
+            }
+
+            return { toolNames: toolNamesOf(status.toolNames), needsSignIn: false };
+          } finally {
+            await manager.disconnect().catch(() => undefined);
+          }
         }),
 
       resolveEngine,

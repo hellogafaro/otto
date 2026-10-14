@@ -5,6 +5,8 @@ import {
   CommandId,
   canEditLibraryItem,
   canSeeLibraryItem,
+  isSkillFile,
+  LIBRARY_SKILLS_FOLDER_ID,
   type LibraryFile,
   type LibraryFolder,
   type LibraryVisibilityContext,
@@ -14,12 +16,14 @@ import {
   libraryFolderPath,
   normalizeLibraryTitle,
   type OttoToolInputSchemas,
+  parseSkillFrontMatter,
   type ThreadId,
   type WorkParticipant,
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { resolveAttachmentPath } from "../attachmentStore.ts";
@@ -27,6 +31,7 @@ import * as ServerConfig from "../config.ts";
 import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { ProjectionThreadMessageRepositoryLive } from "../persistence/Layers/ProjectionThreadMessages.ts";
+import { ProjectionBotRepository } from "../persistence/Services/ProjectionBots.ts";
 import { ProjectionGroupRepository } from "../persistence/Services/ProjectionGroups.ts";
 import { ProjectionLibraryRepository } from "../persistence/Services/ProjectionLibrary.ts";
 import { ProjectionThreadMessageRepository } from "../persistence/Services/ProjectionThreadMessages.ts";
@@ -63,6 +68,23 @@ const TEXT_EXTENSIONS = new Set([
 
 const TEXT_READ_MAX_BYTES = 1_000_000;
 
+/** What a skill's references and scripts are usually written in; all read as plain text. */
+const SKILL_TEXT_EXTENSIONS = new Set([
+  ...TEXT_EXTENSIONS,
+  "py",
+  "sh",
+  "js",
+  "mjs",
+  "ts",
+  "rb",
+  "sql",
+  "toml",
+  "ini",
+  "css",
+]);
+
+const SKILLS_MAX = 100;
+
 const LIST_DEFAULT_LIMIT = 50;
 
 const fail = (detail: string) => Effect.fail(new LibraryRequestError({ detail }));
@@ -84,6 +106,53 @@ export const inLibraryToolScope = (
   const chatFolder = libraryChatFolder(state.folders, item);
 
   return chatFolder === undefined || chatFolder.threadId === caller.threadId;
+};
+
+/**
+ * The skills a bot uses, each with its files and their paths inside the skill: workspace
+ * skills plus its owner's personal ones, the way it uses its owner's personal connections.
+ * People chatting with the bot use them through it without seeing them.
+ */
+export const botSkills = (
+  state: {
+    readonly folders: ReadonlyArray<LibraryFolder>;
+    readonly files: ReadonlyArray<LibraryFile>;
+  },
+  bot: { readonly botId: BotId; readonly owner: WorkParticipant | null },
+) => {
+  const serves = (node: LibraryFolder | LibraryFile) =>
+    node.visibility === "workspace" ||
+    (node.createdBy.kind === "person"
+      ? bot.owner?.kind === "person" && node.createdBy.personId === bot.owner.personId
+      : node.createdBy.botId === bot.botId);
+
+  return state.folders
+    .filter((folder) => folder.parentId === LIBRARY_SKILLS_FOLDER_ID && serves(folder))
+    .toSorted((left, right) => left.title.localeCompare(right.title))
+    .slice(0, SKILLS_MAX)
+    .map((skill) => {
+      const paths = new Map<string, string>([[skill.id, ""]]);
+      const pending: string[] = [skill.id];
+
+      for (const parentId of pending) {
+        for (const folder of state.folders) {
+          if (folder.parentId !== parentId || !serves(folder)) continue;
+          paths.set(folder.id, `${paths.get(parentId)}${folder.title}/`);
+          pending.push(folder.id);
+        }
+      }
+
+      const files = state.files.flatMap((file) => {
+        const prefix = file.folderId === null ? undefined : paths.get(file.folderId);
+
+        if (prefix === undefined || !serves(file)) return [];
+        const name = file.extension === "" ? file.title : `${file.title}.${file.extension}`;
+
+        return [{ path: `${prefix}${name}`, file }];
+      });
+
+      return { skill, files };
+    });
 };
 
 const describeFile = (state: LibraryState, file: LibraryFile) => ({
@@ -108,6 +177,7 @@ const participantLabel = (participant: WorkParticipant) =>
   participant.kind === "person" ? participant.displayName : `bot ${participant.botId}`;
 
 type LibraryToolServices =
+  | ProjectionBotRepository
   | ProjectionLibraryRepository
   | ProjectionGroupRepository
   | ProjectionSnapshotQuery
@@ -312,6 +382,85 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
       return { saved: true, ...describeFile(next, updated) };
     });
 
+  const skillState = (caller: LibraryToolCaller) =>
+    Effect.gen(function* () {
+      const state = yield* loadLibraryState;
+
+      const owner = yield* (yield* ProjectionBotRepository).getById({ botId: caller.botId }).pipe(
+        Effect.map((bot) => Option.getOrUndefined(bot)?.owner ?? null),
+        Effect.orElseSucceed(() => null),
+      );
+
+      return botSkills(state, { botId: caller.botId, owner });
+    });
+
+  const listSkills = (caller: LibraryToolCaller) =>
+    Effect.gen(function* () {
+      const skills = yield* skillState(caller);
+
+      return {
+        skills: yield* Effect.forEach(skills, ({ skill, files }) =>
+          Effect.gen(function* () {
+            const main = files.find(
+              (entry) => !entry.path.includes("/") && isSkillFile(entry.file),
+            );
+
+            const frontMatter = main
+              ? parseSkillFrontMatter(
+                  yield* readLibraryDocument(main.file).pipe(Effect.orElseSucceed(() => "")),
+                )
+              : {};
+
+            return {
+              skillId: skill.id,
+              name: frontMatter.name ?? skill.title,
+              description: frontMatter.description ?? null,
+              personal: skill.visibility === "user",
+              files: files.map((entry) => entry.path),
+            };
+          }),
+        ),
+      };
+    });
+
+  const readSkillFile = (caller: LibraryToolCaller, input: Input<"ReadSkillFile">) =>
+    Effect.gen(function* () {
+      const found = (yield* skillState(caller)).find(({ skill }) => skill.id === input.skillId);
+
+      if (found === undefined) return yield* fail("That skill doesn't exist.");
+      const { skill, files } = found;
+      const path = (input.path ?? "SKILL.md").replace(/^\.?\//, "");
+
+      const entry =
+        files.find((candidate) => candidate.path === path) ??
+        (path.toUpperCase() === "SKILL.MD"
+          ? files.find((candidate) => !candidate.path.includes("/") && isSkillFile(candidate.file))
+          : undefined);
+
+      if (entry === undefined) {
+        return yield* fail(
+          `This skill has no file '${path}'. It has: ${files.map((candidate) => candidate.path).join(", ")}.`,
+        );
+      }
+
+      const details = { skillId: skill.id, path: entry.path, sizeBytes: entry.file.sizeBytes };
+
+      if (entry.file.type === "document") {
+        return { ...details, content: yield* readLibraryDocument(entry.file) };
+      }
+
+      if (
+        !SKILL_TEXT_EXTENSIONS.has(entry.file.extension) ||
+        entry.file.sizeBytes > TEXT_READ_MAX_BYTES
+      ) {
+        return { ...details, content: null, note: "Only text files up to 1 MB can be read." };
+      }
+
+      const bytes = yield* readLibraryBytes(entry.file);
+
+      return { ...details, content: new TextDecoder().decode(bytes) };
+    });
+
   const run = <A>(effect: Effect.Effect<A, LibraryRequestError, LibraryToolServices>) =>
     effect.pipe(
       Effect.catchTag("LibraryRequestError", (error) => Effect.succeed({ error: error.detail })),
@@ -324,6 +473,28 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
     read: (caller: LibraryToolCaller, input: Input<"ReadLibraryFile">) => run(read(caller, input)),
     updateDocument: (caller: LibraryToolCaller, input: Input<"UpdateLibraryDocument">) =>
       run(updateDocument(caller, input)),
+    listSkills: (caller: LibraryToolCaller) => run(listSkills(caller)),
+    /** The skills this bot can use, as system prompt text; empty when it has none or the read fails. */
+    skillsContext: (caller: LibraryToolCaller) =>
+      listSkills(caller).pipe(
+        Effect.map(({ skills }) =>
+          skills.length === 0
+            ? ""
+            : [
+                "Saved skills you can use. When a request matches a skill's description, read its SKILL.md with ReadSkillFile before you answer, then follow it.",
+                ...skills
+                  .slice(0, 100)
+                  .map(
+                    (skill) =>
+                      `- ${skill.name} (skillId: ${skill.skillId})${skill.description ? `: ${skill.description}` : ""}`,
+                  ),
+              ].join("\n"),
+        ),
+        Effect.orElseSucceed(() => ""),
+        Effect.provide(context),
+      ),
+    readSkillFile: (caller: LibraryToolCaller, input: Input<"ReadSkillFile">) =>
+      run(readSkillFile(caller, input)),
     /** Files a generated image in the chat's Library folder; a failure only logs. */
     saveGeneratedImage: (
       caller: LibraryToolCaller,

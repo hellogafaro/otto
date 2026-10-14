@@ -76,6 +76,8 @@ const buttonVariants = cva(
           "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs before:rounded-[calc(var(--radius-md)-1px)] [&_svg:not([class*='size-'])]:size-3.5",
         // Wraps an avatar or avatar tile: the child sets the size.
         avatar: "p-0",
+        // Otto: One step of a top-bar path, glyph then title: the glyph sits 6px in and 4px from the title.
+        crumb: "h-7 gap-1.5 px-2 text-13px sm:text-13px",
         // Otto: A sub page's 13px back title in the top bar, chevron then title.
         "back-title": "h-7 gap-1 px-[calc(--spacing(1.5)-1px)] text-13px sm:text-13px",
         // Otto: A default button in a settings row or a dialog footer matches the 28px controls.

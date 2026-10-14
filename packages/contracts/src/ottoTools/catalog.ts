@@ -38,6 +38,8 @@ export const OttoToolId = Schema.Literals([
   "ListLibrary",
   "ReadLibraryFile",
   "UpdateLibraryDocument",
+  "ListSkills",
+  "ReadSkillFile",
   "AddMcpServer",
   "UninstallMcpServer",
   "RemoveMcpAccount",
@@ -278,6 +280,19 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Replace a Library document's markdown, and optionally its title. Pass the updatedAt ReadLibraryFile returned; " +
       "if someone changed the document since, the save is rejected, so read it again and merge. Only a document's creator can edit it.",
+  ),
+  define(
+    "ListSkills",
+    "bot-workspace",
+    "List the skills you can use: reusable instructions people saved in the Library's Skills folder, " +
+      "each with a name, a description of when it applies, and its files. " +
+      "Check it when a request might match one, then read the skill's SKILL.md with ReadSkillFile and follow it.",
+  ),
+  define(
+    "ReadSkillFile",
+    "bot-workspace",
+    "Read a file from a skill ListSkills returned: SKILL.md by default, or a path such as references/guide.md. " +
+      "Text files up to 1 MB. Scripts in a skill are references to read; Otto never runs them.",
   ),
   define("AddMcpServer", "bot-workspace", "Add an MCP server account.", { approval: "secrets" }),
   define("UninstallMcpServer", "bot-workspace", "Remove an MCP server.", { approval: "delete" }),

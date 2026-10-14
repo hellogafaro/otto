@@ -418,4 +418,22 @@ describe("OttoMastraHarness", () => {
       `${createOttoAgentInstructions({ now })}\n\nMCP server guidance:\n- Docs (docs): Search first.`,
     );
   });
+
+  it("lists the bot's saved skills after MCP guidance", () => {
+    const now = DateTime.makeUnsafe("2026-09-02T12:00:00.000Z");
+    const context = new RequestContext();
+    context.setRaw("controller", {
+      state: {
+        botConversation: false,
+        mcpInstructions: "MCP server guidance:",
+        skillsContext: "Saved skills you can use.\n- Weekly report (skillId: s1)",
+        persistentMemoryContext: "<memory />",
+      },
+    });
+
+    assert.equal(
+      resolveOttoInstructions(context, now),
+      `${createOttoAgentInstructions({ now })}\n\nMCP server guidance:\n\nSaved skills you can use.\n- Weekly report (skillId: s1)\n\n<memory />`,
+    );
+  });
 });

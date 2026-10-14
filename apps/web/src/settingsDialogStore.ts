@@ -21,6 +21,7 @@ export const SETTINGS_SECTIONS = [
   "appearance",
   "keybindings",
   "connections",
+  "integrations",
   "privacy",
   "archived",
   "advanced",

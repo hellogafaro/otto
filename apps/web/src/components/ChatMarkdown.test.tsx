@@ -373,13 +373,19 @@ describe("ChatMarkdown bot chat forms", () => {
   it.each([
     ["channels", "Channels"],
     ["browser", "Browser"],
-    ["plugins", "Plugins"],
     ["sandbox", "Sandbox"],
     ["privacy", "Privacy &amp; data"],
   ])("renders a Settings chip for %s", (id, label) => {
     const html = render(`[Open](grokbot://app/v1/settings?id=${id})`);
     expect(html).toContain("chat-markdown-settings-link");
     expect(html).toContain(`Open Settings &gt; ${label}`);
+  });
+
+  it("renders the plugins link as a Customize chip", () => {
+    const html = render(`[Open](grokbot://app/v1/settings?id=plugins)`);
+
+    expect(html).toContain("chat-markdown-settings-link");
+    expect(html).toContain("Open Customize");
   });
 
   it.each([

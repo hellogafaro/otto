@@ -131,6 +131,68 @@ it.layer(TestLayer)("bot persistence", (it) => {
     }),
   );
 
+  it.effect("keeps a bot's owner and lets only that owner hand it over", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngineService;
+      const snapshots = yield* ProjectionSnapshotQuery;
+      const botId = BotId.make("bot-owned");
+
+      const ana = {
+        kind: "person" as const,
+        personId: AuthSessionId.make("person-ana"),
+        displayName: "Ana",
+      };
+
+      const ben = {
+        kind: "person" as const,
+        personId: AuthSessionId.make("person-ben"),
+        displayName: "Ben",
+      };
+
+      const ownerOf = () =>
+        snapshots
+          .getShellSnapshot()
+          .pipe(Effect.map((snapshot) => snapshot.bots.find((bot) => bot.id === botId)?.owner));
+
+      yield* engine.dispatch({
+        type: "bot.create",
+        commandId: CommandId.make("cmd-create-owned-bot"),
+        botId,
+        name: "Owned",
+        title: "Assistant",
+        owner: ana,
+        avatar: { kind: "dither", seed: botId },
+        engine: null,
+        sandbox: "local",
+        runtimeMode: "full-access",
+        groupId: null,
+        createdAt: "2026-01-05T00:00:00.000Z",
+      });
+      assert.deepEqual(yield* ownerOf(), ana);
+
+      const rejected = yield* Effect.flip(
+        engine.dispatch({
+          type: "bot.update",
+          commandId: CommandId.make("cmd-ben-takes-bot"),
+          botId,
+          owner: ben,
+          by: ben,
+        }),
+      );
+
+      assert.include(String(rejected.message ?? rejected), "Only the bot's owner");
+
+      yield* engine.dispatch({
+        type: "bot.update",
+        commandId: CommandId.make("cmd-ana-hands-bot"),
+        botId,
+        owner: ben,
+        by: ana,
+      });
+      assert.deepEqual(yield* ownerOf(), ben);
+    }),
+  );
+
   it.effect("persists the selected responder on group turns", () =>
     Effect.gen(function* () {
       const engine = yield* OrchestrationEngineService;

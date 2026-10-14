@@ -1,7 +1,7 @@
 import {
   RiCheckboxCircleLine,
   RiDownloadLine,
-  RiLoader4Line,
+  RiLoaderLine,
   RiAlertLine,
   RiCloseLine,
 } from "@remixicon/react";
@@ -199,7 +199,7 @@ export function SidebarProviderUpdatePill() {
             >
               {Match.value(displayedView).pipe(
                 Match.when({ tone: "loading" }, () => (
-                  <RiLoader4Line className="size-3.5 animate-spin" />
+                  <RiLoaderLine className="size-3.5 animate-spin" />
                 )),
                 Match.when({ tone: "success" }, () => (
                   <RiCheckboxCircleLine className="size-3.5" />

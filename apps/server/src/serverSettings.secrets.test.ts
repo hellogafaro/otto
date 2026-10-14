@@ -76,7 +76,7 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         ...store,
         set: () => Effect.fail(cause),
       })),
-    ).pipe(Layer.provide(ServerSecretStore.layer));
+    ).pipe(Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))));
 
     const settingsLayer = ServerSettingsModule.layer.pipe(
       Layer.provide(secretLayer),
@@ -187,7 +187,9 @@ it.layer(NodeServices.layer)("server settings", (it) => {
           return yield* fresh.getSettings;
         }).pipe(
           Effect.provide(
-            Layer.fresh(ServerSettingsModule.layer).pipe(Layer.provide(ServerSecretStore.layer)),
+            Layer.fresh(ServerSettingsModule.layer).pipe(
+              Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
+            ),
           ),
         );
 
@@ -276,7 +278,7 @@ it.layer(NodeServices.layer)("server settings", (it) => {
           },
         });
       }),
-    ).pipe(Layer.provide(ServerSecretStore.layer));
+    ).pipe(Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))));
 
     const configLayer = Layer.fresh(
       ServerConfig.layerTest(process.cwd(), {

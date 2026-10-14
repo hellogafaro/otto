@@ -11,6 +11,9 @@ import {
   LIBRARY_FILE_MAX_BYTES,
   LIBRARY_PROJECTS_FOLDER_ID,
   LIBRARY_PROJECTS_FOLDER_TITLE,
+  LIBRARY_SKILLS_FOLDER_ID,
+  LIBRARY_SKILLS_FOLDER_TITLE,
+  type LibraryCreateSkillInput,
   LIBRARY_UPLOAD_URL_TTL_MS,
   type LibraryCreateUploadUrlInput,
   type LibraryFile,
@@ -24,6 +27,7 @@ import {
   normalizeLibraryTitle,
   type ProjectId,
   ProjectId as ProjectIdSchema,
+  skillTemplate,
   splitLibraryFileName,
   type ThreadId,
   ThreadId as ThreadIdSchema,
@@ -125,7 +129,7 @@ const dispatchLibrary = (
     ),
   );
 
-/** Creates a top-level holder folder (Chats or Projects) unless it already exists. */
+/** Creates a top-level holder folder (Chats, Projects or Skills) unless it already exists. */
 const ensureTopFolder = (
   folderId: LibraryFolderId,
   title: string,
@@ -278,6 +282,38 @@ export const ensureChatFolder = Effect.fn("Library.ensureChatFolder")(function* 
       ),
     ),
   );
+});
+
+/** A new skill: its folder in the top-level Skills folder, made on first use, and its SKILL.md. */
+export const createSkill = Effect.fn("Library.createSkill")(function* (
+  input: LibraryCreateSkillInput,
+  by: WorkParticipant,
+) {
+  const createdAt = yield* nowIso;
+  yield* ensureTopFolder(LIBRARY_SKILLS_FOLDER_ID, LIBRARY_SKILLS_FOLDER_TITLE, by, createdAt);
+  const folderId = LibraryFolderIdSchema.make(NodeCrypto.randomUUID());
+
+  yield* dispatchLibrary({
+    type: "library.folder.create",
+    commandId: newCommandId(),
+    folderId,
+    parentId: LIBRARY_SKILLS_FOLDER_ID,
+    title: normalizeLibraryTitle(input.name),
+    visibility: input.visibility,
+    by,
+    createdAt,
+  });
+
+  const fileId = yield* storeLibraryFile({
+    bytes: new TextEncoder().encode(input.content ?? skillTemplate(input)),
+    fileName: "SKILL.md",
+    title: "SKILL",
+    folderId,
+    visibility: input.visibility,
+    by,
+  });
+
+  return { folderId, fileId };
 });
 
 /** The folder a new file goes in: a chat's own folder, a project's, or the given folder. */

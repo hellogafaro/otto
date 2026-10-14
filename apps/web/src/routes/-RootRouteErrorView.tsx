@@ -2,9 +2,22 @@ import * as Predicate from "effect/Predicate";
 import { createTranslator, type TranslationParams } from "@otto/client-runtime/i18n";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 
+import { RiErrorWarningLine } from "@remixicon/react";
+import { useContext } from "react";
+
 import { APP_DISPLAY_NAME } from "../branding";
 import { OttoWordmark } from "../components/OttoWordmark";
 import { Button } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
+import { SidebarContext } from "../components/ui/sidebarContext";
+import { WorkPage } from "../components/work/WorkPages";
 import { useI18n } from "../i18n";
 
 type Translate = (message: string, params?: TranslationParams) => string;
@@ -22,8 +35,9 @@ interface RootRouteErrorViewProps extends ErrorComponentProps {
 }
 
 /**
- * The router's error component. Reads the language through `useI18n`, which
- * falls back to English when the failure happened above `LanguageProvider`.
+ * The root route's error component, for failures above the app shell. Reads the language
+ * through `useI18n`, which falls back to English when the failure happened above
+ * `LanguageProvider`.
  */
 export function TranslatedRootRouteErrorView(props: RootRouteErrorViewProps) {
   const { t } = useI18n();
@@ -31,58 +45,77 @@ export function TranslatedRootRouteErrorView(props: RootRouteErrorViewProps) {
   return <RootRouteErrorView {...props} t={t} />;
 }
 
-export function RootRouteErrorView({
-  error,
-  reset,
-  reload = reloadApp,
-  t = english,
-}: RootRouteErrorViewProps) {
-  const details = errorDetails(error, t);
+/**
+ * Every other route's error component: inside the app shell the page fails in place with the
+ * sidebar intact; sign-in and other shell-less pages get the full-page view.
+ */
+export function TranslatedRouteErrorView(props: RootRouteErrorViewProps) {
+  const { t } = useI18n();
+
+  if (useContext(SidebarContext) === null) return <RootRouteErrorView {...props} t={t} />;
 
   return (
-    <main
-      aria-labelledby="root-error-title"
-      className="flex h-full min-h-0 flex-col bg-background text-foreground"
-    >
+    <WorkPage>
+      <RouteErrorState {...props} t={t} />
+    </WorkPage>
+  );
+}
+
+export function RootRouteErrorView(props: RootRouteErrorViewProps) {
+  return (
+    <main className="flex h-full min-h-0 flex-col bg-background text-foreground">
       <header className="flex h-(--workspace-topbar-height) shrink-0 items-center gap-1.5 pl-(--workspace-controls-left) pr-(--workspace-controls-right)">
         <OttoWordmark aria-hidden className="text-2xl text-foreground" />
         <span className="truncate text-sm font-medium tracking-tight text-muted-foreground">
           {APP_DISPLAY_NAME}
         </span>
       </header>
-
-      <section className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6 py-12">
-        <div className="flex w-full max-w-md flex-col items-center text-center">
-          <h1 className="text-xl font-medium tracking-tight" id="root-error-title">
-            {t("This view failed to load")}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t("Retry this view. If it fails again, reload Otto.")}
-          </p>
-
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <Button onClick={() => reset()} size="sm">
-              {t("Retry")}
-            </Button>
-            <Button onClick={reload} size="sm" variant="outline">
-              {t("Reload app")}
-            </Button>
-          </div>
-
-          <details className="group mt-5 w-full text-left">
-            <summary className="flex cursor-pointer list-none items-center justify-center rounded-(--control-radius) px-2 py-1.5 text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
-              {t("Technical details")}
-            </summary>
-            <pre
-              className="mt-2 max-h-52 overflow-auto rounded-lg border border-border bg-card px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-muted-foreground"
-              tabIndex={0}
-            >
-              {details}
-            </pre>
-          </details>
-        </div>
-      </section>
+      <RouteErrorState {...props} />
     </main>
+  );
+}
+
+/**
+ * Otto: A failed page is the shared empty state: the warning glyph, "Something went wrong",
+ * one sentence, Try again and Reload Otto, and the error itself behind a quiet Show details.
+ */
+export function RouteErrorState({
+  error,
+  reset,
+  reload = reloadApp,
+  t = english,
+}: RootRouteErrorViewProps) {
+  return (
+    <Empty aria-labelledby="route-error-title" role="region">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <RiErrorWarningLine />
+        </EmptyMedia>
+        <EmptyTitle id="route-error-title">{t("Something went wrong")}</EmptyTitle>
+        <EmptyDescription>
+          {t("This page couldn't load. Try again, or reload Otto if it keeps happening.")}
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <div className="flex gap-2">
+          <Button onClick={() => reset()}>{t("Try again")}</Button>
+          <Button onClick={reload} variant="outline">
+            {t("Reload Otto")}
+          </Button>
+        </div>
+        <details className="w-full max-w-md">
+          <summary className="cursor-pointer list-none rounded-(--control-radius) px-2 py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            {t("Show details")}
+          </summary>
+          <pre
+            className="mt-2 max-h-52 overflow-auto rounded-lg border border-border bg-card px-3 py-2.5 text-left font-mono text-xs leading-5 whitespace-pre-wrap text-muted-foreground"
+            tabIndex={0}
+          >
+            {errorDetails(error, t)}
+          </pre>
+        </details>
+      </EmptyContent>
+    </Empty>
   );
 }
 

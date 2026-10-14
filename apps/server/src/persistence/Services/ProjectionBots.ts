@@ -10,6 +10,7 @@ import {
   IsoDateTime,
   McpServerId,
   RuntimeMode,
+  WorkParticipant,
 } from "@otto/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -25,6 +26,7 @@ export const ProjectionBot = Schema.Struct({
   label: Schema.NullOr(Schema.String),
   description: Schema.NullOr(Schema.String),
   disabledMcpServerIds: Schema.Array(McpServerId),
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: PersistedBotSandbox,

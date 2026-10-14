@@ -105,6 +105,7 @@ function commandToAggregateRef(command: OrchestrationCommand): CommandAggregateR
     case "mcp-server.delete":
     case "mcp-server.enable":
     case "mcp-server.disable":
+    case "mcp-server.access.set":
       return {
         aggregateKind: "mcp-server",
         aggregateId: command.mcpServerId,

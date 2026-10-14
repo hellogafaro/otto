@@ -4,6 +4,7 @@ import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 
 import { issueLibraryFileUrl } from "./assets/AssetAccess.ts";
 import {
+  createSkill,
   issueLibraryUploadUrl,
   loadLibraryState,
   readLibraryDocument,
@@ -65,6 +66,13 @@ export const createWsLibraryHandlers = ({
         { "rpc.aggregate": "library" },
       ),
 
+    [WS_METHODS.libraryCreateSkill]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.libraryCreateSkill,
+        person.pipe(Effect.flatMap((by) => createSkill(input, by))),
+        { "rpc.aggregate": "library" },
+      ),
+
     [WS_METHODS.libraryReadDocument]: (input) =>
       observeRpcEffect(
         WS_METHODS.libraryReadDocument,
@@ -114,6 +122,7 @@ export const createWsLibraryHandlers = ({
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     | typeof WS_METHODS.libraryCreateUploadUrl
     | typeof WS_METHODS.libraryCreateDocument
+    | typeof WS_METHODS.libraryCreateSkill
     | typeof WS_METHODS.libraryReadDocument
     | typeof WS_METHODS.librarySaveDocument
     | typeof WS_METHODS.libraryCreateFileUrl

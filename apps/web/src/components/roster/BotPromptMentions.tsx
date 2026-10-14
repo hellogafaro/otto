@@ -1,3 +1,4 @@
+import { useAtomValue } from "@effect/atom-react";
 import {
   RiAtLine,
   RiTeamLine,
@@ -6,14 +7,18 @@ import {
   RiGlobalLine,
   RiChat3Line,
   RiCloseLine,
+  RiPuzzleLine,
+  RiSparkling2Line,
 } from "@remixicon/react";
 import { Match } from "effect";
-import type { EnvironmentId } from "@otto/contracts";
+import { type EnvironmentId, LIBRARY_SKILLS_FOLDER_ID } from "@otto/contracts";
+import type { ComposerResourceMentionKind } from "@otto/shared/composerInlineTokens";
 import { rankComposerThreadMentions } from "@otto/shared/composerThreadMentions";
 
 import {
   type KeyboardEvent,
   type Ref,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -25,6 +30,10 @@ import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { useThreadShells } from "../../state/entities";
 import { useComposerPathSearch, useThreadSearch } from "../../state/queries";
+import { useEnvironmentQuery } from "../../state/query";
+import { serverEnvironment } from "../../state/server";
+import { environmentSnapshotAtom } from "../../state/shell";
+import { AppLogo } from "../customize/CustomizeIntegrations";
 import {
   CHAT_INLINE_CHIP_LABEL_CLASS_NAME,
   COMPOSER_INLINE_CHIP_CLASS_NAME,
@@ -35,6 +44,7 @@ import {
   type BotPromptMentionBot,
   type BotPromptMentionChip,
   type BotPromptMentionItem,
+  type BotPromptMentionResource,
   type BotPromptMentionTrigger,
   botPromptMentionChips,
   botPromptThreadQuery,
@@ -87,6 +97,77 @@ const NO_ENVIRONMENT = "" as EnvironmentId;
 
 const NO_ENVIRONMENTS: ReadonlyArray<EnvironmentId> = [];
 
+/**
+ * The skills, connected apps, and enabled MCP servers a person can tag, with their names.
+ * An app with several accounts is one row: the bot picks the account.
+ */
+export function useBotPromptMentionResources(
+  environmentId: EnvironmentId | null,
+): ReadonlyArray<BotPromptMentionResource> {
+  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
+
+  const composio = useEnvironmentQuery(
+    environmentId ? serverEnvironment.composioStatus({ environmentId, input: {} }) : null,
+  );
+
+  return useMemo(() => {
+    const skills = (snapshot?.libraryFolders ?? [])
+      .filter((folder) => folder.parentId === LIBRARY_SKILLS_FOLDER_ID)
+      .map(
+        (folder): BotPromptMentionResource => ({
+          kind: "skill",
+          id: folder.id,
+          label: folder.title,
+        }),
+      );
+
+    const apps = (composio.data?.connections ?? [])
+      .filter((connection) => connection.status === "ACTIVE")
+      .filter(
+        (connection, index, all) =>
+          all.findIndex((other) => other.toolkitSlug === connection.toolkitSlug) === index,
+      )
+      .map(
+        (connection): BotPromptMentionResource => ({
+          kind: "app",
+          id: connection.toolkitSlug,
+          label: connection.toolkitName ?? connection.toolkitSlug,
+          ...(connection.logoUrl ? { logoUrl: connection.logoUrl } : {}),
+        }),
+      );
+
+    const mcps = (snapshot?.mcpServers ?? [])
+      .filter((server) => server.enabled)
+      .map(
+        (server): BotPromptMentionResource => ({
+          kind: "mcp",
+          id: server.id,
+          label: server.name,
+        }),
+      );
+
+    return [...skills, ...apps, ...mcps];
+  }, [composio.data, snapshot]);
+}
+
+/** A tagged skill, app, or MCP server's name, or a stand-in when this person cannot see it. */
+export function useBotPromptResourceLabel(environmentId: EnvironmentId | null) {
+  const { t } = useI18n();
+  const resources = useBotPromptMentionResources(environmentId);
+
+  return useCallback(
+    (kind: ComposerResourceMentionKind, id: string) =>
+      resources.find((resource) => resource.kind === kind && resource.id === id)?.label ??
+      Match.value(kind).pipe(
+        Match.when("skill", () => t("Unknown skill")),
+        Match.when("app", () => id),
+        Match.when("mcp", () => t("Unknown MCP server")),
+        Match.exhaustive,
+      ),
+    [resources, t],
+  );
+}
+
 export function botPromptMentionOptionId(listboxId: string, index: number): string {
   return `${listboxId}-option-${index}`;
 }
@@ -126,6 +207,9 @@ export function BotPromptMentionMenu({
     everyone: t("Every bot in this group"),
     person: t("Person"),
     thread: t("Chat"),
+    skill: t("Skill"),
+    app: t("App"),
+    mcp: t("MCP server"),
   };
 
   const browserAccess = useEnvironmentSettings(
@@ -166,6 +250,8 @@ export function BotPromptMentionMenu({
     query: searchesPaths ? trigger.query : null,
   });
 
+  const resources = useBotPromptMentionResources(scope?.environmentId ?? null);
+
   const items = buildBotPromptMentionItems({
     query: trigger.query,
     browserAvailable: scope !== null && browserAccess,
@@ -173,6 +259,7 @@ export function BotPromptMentionMenu({
     everyone,
     ...(people ? { people } : {}),
     bots,
+    resources,
     threads,
     paths: pathSearch.entries,
   });
@@ -244,6 +331,8 @@ export function BotPromptMentionMenu({
           Match.when({ kind: "everyone" }, () => RiTeamLine),
           Match.when({ kind: "person" }, () => RiUserLine),
           Match.when({ kind: "path" }, () => RiFileLine),
+          Match.when({ kind: "skill" }, () => RiSparkling2Line),
+          Match.when({ kind: "mcp" }, () => RiPuzzleLine),
           Match.orElse(() => RiChat3Line),
         );
 
@@ -264,7 +353,11 @@ export function BotPromptMentionMenu({
             }}
             onClick={() => onSelect(item)}
           >
-            <Icon aria-hidden="true" className="size-4 shrink-0 opacity-70" />
+            {item.kind === "app" ? (
+              <AppLogo src={item.logoUrl} name={item.label} className="size-4" />
+            ) : (
+              <Icon aria-hidden="true" className="size-4 shrink-0 opacity-70" />
+            )}
             <span className="min-w-0 flex-1 truncate">
               {item.kind === "browser" ? t("Browser") : item.label}
             </span>
@@ -284,25 +377,28 @@ export function BotPromptMentionMenu({
   );
 }
 
-const MENTION_CHIP_PATTERN = /(^|\s)@(browser|chat:|bot:)/;
+const MENTION_CHIP_PATTERN = /(^|\s)@(browser|chat:|bot:|skill:|app:|mcp:)/;
 
 /** Cheap check so the chip strip, and its thread shell subscription, mount only when needed. */
 export function draftHasMentionChips(draft: string): boolean {
   return MENTION_CHIP_PATTERN.test(draft);
 }
 
-/** The browser, chat, and exact-bot mentions in the draft, each with a remove button. */
+/** The browser, chat, exact-bot, skill, app, and MCP server mentions in the draft, each with a remove button. */
 export function BotPromptMentionChips({
   draft,
   bots,
+  environmentId = null,
   onRemove,
 }: {
   draft: string;
   bots: ReadonlyArray<BotPromptMentionBot>;
+  environmentId?: EnvironmentId | null;
   onRemove: (chip: BotPromptMentionChip) => void;
 }) {
   const { t } = useI18n();
   const shells = useThreadShells();
+  const resourceLabel = useBotPromptResourceLabel(environmentId);
 
   const chips = useMemo(() => {
     const titles = new Map<string, string>(shells.map((shell) => [shell.id, shell.title]));
@@ -311,8 +407,9 @@ export function BotPromptMentionChips({
       draft,
       (threadId) => titles.get(threadId) ?? t("Unknown chat"),
       (botId) => bots.find((bot) => bot.id === botId)?.name ?? t("Unknown bot"),
+      resourceLabel,
     ).map((chip) => (chip.kind === "browser" ? { ...chip, label: t("Browser") } : chip));
-  }, [bots, draft, shells, t]);
+  }, [bots, draft, resourceLabel, shells, t]);
 
   if (chips.length === 0) return null;
 
@@ -326,6 +423,9 @@ export function BotPromptMentionChips({
         const Icon = Match.value(chip).pipe(
           Match.when({ kind: "browser" }, () => RiGlobalLine),
           Match.when({ kind: "bot" }, () => RiAtLine),
+          Match.when({ kind: "skill" }, () => RiSparkling2Line),
+          Match.when({ kind: "mcp" }, () => RiPuzzleLine),
+          Match.when({ kind: "app" }, () => RiPuzzleLine),
           Match.orElse(() => RiChat3Line),
         );
 

@@ -1,12 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { PluginsPage } from "../components/plugins/PluginsDialog";
-
+/** Plugins became Customize; old links land on its Apps tab. */
 export const Route = createFileRoute("/plugins")({
-  beforeLoad: async ({ context }) => {
-    if (context.authGateState.status !== "authenticated") {
-      throw redirect({ to: "/login", replace: true });
-    }
+  beforeLoad: () => {
+    throw redirect({ to: "/customize", replace: true });
   },
-  component: PluginsPage,
 });

@@ -35,7 +35,7 @@ const makeEnvironmentAuthLayer = (
   overrides?: Partial<Pick<ServerConfig.ServerConfig["Service"], "desktopBootstrapToken">>,
 ) =>
   EnvironmentAuth.layer.pipe(
-    Layer.provideMerge(ServerSecretStore.layer),
+    Layer.provideMerge(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
     Layer.provideMerge(SqlitePersistenceMemory),
     Layer.provide(ServerEnvironment.identityLayer),
     Layer.provide(makeServerConfigLayer(overrides)),

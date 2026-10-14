@@ -1,5 +1,5 @@
 import {
-  RiLoader4Line,
+  RiLoaderLine,
   RiOpenaiFill,
   RiGrokAiFill,
   type RemixiconComponentType,
@@ -300,7 +300,7 @@ export function ImageProviderRow({
                 onClick={onTest}
                 aria-label={`Run ${label} image health test`}
               >
-                {busyAction === "test" ? <RiLoader4Line className="size-3 animate-spin" /> : null}
+                {busyAction === "test" ? <RiLoaderLine className="size-3 animate-spin" /> : null}
                 Test
               </Button>
               {needsReconnect ? (

@@ -1,5 +1,6 @@
 import { createRouter, RouterHistory } from "@tanstack/react-router";
 
+import { TranslatedRouteErrorView } from "./routes/-RootRouteErrorView";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter(history: RouterHistory) {
@@ -7,6 +8,7 @@ export function getRouter(history: RouterHistory) {
     routeTree,
     history,
     context: {},
+    defaultErrorComponent: TranslatedRouteErrorView,
   });
 }
 

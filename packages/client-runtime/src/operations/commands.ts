@@ -89,11 +89,13 @@ export {
   type DeleteMcpServerInput,
   type EnableMcpServerInput,
   type DisableMcpServerInput,
+  type SetMcpServerAccessInput,
   createMcpServer,
   updateMcpServer,
   deleteMcpServer,
   enableMcpServer,
   disableMcpServer,
+  setMcpServerAccess,
 } from "./commands/mcp.ts";
 
 export {

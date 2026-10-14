@@ -132,7 +132,7 @@ const withLiveProjectCliServer = <A, E, R>(baseDir: string, run: () => Effect.Ef
       Layer.provideMerge(
         EnvironmentAuth.layer.pipe(
           Layer.provideMerge(SqlitePersistenceLayerLive),
-          Layer.provide(ServerSecretStore.layer),
+          Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceLayerLive))),
           Layer.provide(ServerEnvironment.identityLayer),
         ),
       ),

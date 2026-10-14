@@ -16,6 +16,7 @@ export function createBots({
             label: event.payload.label,
             description: event.payload.description,
             disabledMcpServerIds: event.payload.disabledMcpServerIds,
+            owner: event.payload.owner,
             avatar: event.payload.avatar,
             engine: event.payload.engine,
             sandbox: event.payload.sandbox,
@@ -46,6 +47,7 @@ export function createBots({
             ...(event.payload.disabledMcpServerIds !== undefined
               ? { disabledMcpServerIds: event.payload.disabledMcpServerIds }
               : {}),
+            ...(event.payload.owner !== undefined ? { owner: event.payload.owner } : {}),
             ...(event.payload.avatar !== undefined ? { avatar: event.payload.avatar } : {}),
             ...(event.payload.engine !== undefined ? { engine: event.payload.engine } : {}),
             ...(event.payload.sandbox !== undefined ? { sandbox: event.payload.sandbox } : {}),

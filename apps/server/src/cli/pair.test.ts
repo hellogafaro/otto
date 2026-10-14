@@ -88,7 +88,7 @@ describe("pair public URL", () => {
 
 const InMemoryEnvironmentAuthLayer = EnvironmentAuth.layer.pipe(
   Layer.provide(SqlitePersistenceMemory),
-  Layer.provide(ServerSecretStore.layer),
+  Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
   Layer.provide(ServerEnvironment.identityLayer),
   Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "ottoLegacy-pair-admin-test-" })),
   Layer.provide(NodeServices.layer),

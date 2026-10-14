@@ -78,8 +78,54 @@ export function serializeComposerThreadMention(threadId: string): string | null 
   return THREAD_MENTION_ID_REGEX.test(threadId) ? `${THREAD_MENTION_PREFIX}${threadId}` : null;
 }
 
+export type ComposerResourceMentionKind = "skill" | "app" | "mcp";
+
+/** An `@skill:<id>`, `@app:<toolkit>`, or `@mcp:<serverId>` mention of something a bot can use. */
+export interface ComposerResourceMention {
+  readonly kind: ComposerResourceMentionKind;
+  readonly id: string;
+  readonly source: string;
+  readonly start: number;
+  readonly end: number;
+}
+
+const RESOURCE_MENTION_TOKEN_REGEX = new RegExp(
+  `(^|\\s)@(skill|app|mcp):(${THREAD_MENTION_ID_PATTERN})(?=\\s)`,
+  "g",
+);
+
+/** Serializes a skill, app, or MCP server mention. Returns null for ids the token grammar cannot carry. */
+export function serializeComposerResourceMention(
+  kind: ComposerResourceMentionKind,
+  id: string,
+): string | null {
+  return THREAD_MENTION_ID_REGEX.test(id) ? `@${kind}:${id}` : null;
+}
+
+/** The skill, app, and MCP server mentions in a text, in order. A token needs whitespace after it. */
+export function collectComposerResourceMentions(text: string): ComposerResourceMention[] {
+  return [...text.matchAll(RESOURCE_MENTION_TOKEN_REGEX)].map((match) => {
+    const start = (match.index ?? 0) + (match[1] ?? "").length;
+    const end = (match.index ?? 0) + match[0].length;
+
+    return {
+      // SAFETY: the regex only captures skill, app, or mcp here.
+      kind: match[2] as ComposerResourceMentionKind,
+      id: match[3] ?? "",
+      source: text.slice(start, end),
+      start,
+      end,
+    };
+  });
+}
+
 function isReservedMentionPath(path: string): boolean {
-  return path === "browser" || path.startsWith("chat:") || path.startsWith("bot:");
+  return (
+    path === "browser" ||
+    path.startsWith("chat:") ||
+    path.startsWith("bot:") ||
+    /^(skill|app|mcp):/.test(path)
+  );
 }
 
 const SKILL_TOKEN_REGEX = /(^|\s)\$([a-zA-Z0-9][a-zA-Z0-9:_-]*)(?=\s)/g;

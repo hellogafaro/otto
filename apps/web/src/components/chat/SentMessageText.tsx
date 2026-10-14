@@ -1,17 +1,29 @@
-import { RiAtLine, RiGlobalLine, RiChat3Line } from "@remixicon/react";
+import {
+  RiAtLine,
+  RiGlobalLine,
+  RiChat3Line,
+  RiPuzzleLine,
+  RiSparkling2Line,
+} from "@remixicon/react";
 import { Match } from "effect";
 import type { ServerProviderSkill } from "@otto/contracts";
-import { collectComposerInlineTokens } from "@otto/shared/composerInlineTokens";
+import {
+  collectComposerInlineTokens,
+  collectComposerResourceMentions,
+  type ComposerResourceMention,
+} from "@otto/shared/composerInlineTokens";
 
 import { type ReactNode, useMemo } from "react";
 
 import { useI18n } from "../../i18n";
 import { useThreadShells } from "../../state/entities";
+import { usePrimaryEnvironmentId } from "../../state/environments";
 import {
   CHAT_INLINE_CHIP_CLASS_NAME,
   CHAT_INLINE_CHIP_LABEL_CLASS_NAME,
   COMPOSER_INLINE_CHIP_ICON_CLASS_NAME,
 } from "../composerInlineChip";
+import { useBotPromptResourceLabel } from "../roster/BotPromptMentions";
 import { useRosterStore } from "../roster/rosterStore";
 import { parseReplyPrompt } from "./MessageControls";
 import { ReplyReference } from "./ReplyReference";
@@ -63,7 +75,10 @@ export function SentMessageText({
 
 const NO_SKILLS: ReadonlyArray<ServerProviderSkill> = [];
 
-/** Shows `@browser`, `@chat:<id>`, `@bot:<id>`, and known `$skill` tokens as chips; copying still yields the raw token. */
+/**
+ * Shows `@browser`, `@chat:<id>`, `@bot:<id>`, skill, app, and MCP server mentions, and known
+ * `$skill` tokens as chips; copying still yields the raw token.
+ */
 function MentionText({
   text,
   skills,
@@ -76,12 +91,18 @@ function MentionText({
   const plain = (segment: string, key: number) =>
     skills.length === 0 ? segment : <SkillInlineText key={key} text={segment} skills={skills} />;
 
-  const tokens = collectComposerInlineTokens(`${text}\n`).filter(
-    (token) =>
-      token.type === "browser-mention" ||
-      token.type === "thread-mention" ||
-      token.type === "bot-mention",
-  );
+  const tokens = [
+    ...collectComposerInlineTokens(`${text}\n`).filter(
+      (token) =>
+        token.type === "browser-mention" ||
+        token.type === "thread-mention" ||
+        token.type === "bot-mention",
+    ),
+    ...collectComposerResourceMentions(`${text}\n`).map((mention) => ({
+      ...mention,
+      type: "resource-mention" as const,
+    })),
+  ].toSorted((left, right) => left.start - right.start);
 
   if (tokens.length === 0) return plain(text, 0);
   const nodes: ReactNode[] = [];
@@ -101,6 +122,9 @@ function MentionText({
         )),
         Match.when({ type: "bot-mention" }, (token) => (
           <BotMentionChip key={token.start} source={token.source} botId={token.value} />
+        )),
+        Match.when({ type: "resource-mention" }, (token) => (
+          <ResourceMentionChip key={token.start} mention={token} />
         )),
         Match.orElse((token) => (
           <ThreadMentionChip key={token.start} source={token.source} threadId={token.value} />
@@ -134,9 +158,31 @@ function BotMentionChip({ source, botId }: { source: string; botId: string }) {
   return <MentionChip source={source} label={name ?? t("Unknown bot")} icon="bot" />;
 }
 
-const MENTION_CHIP_ICONS = { browser: RiGlobalLine, thread: RiChat3Line, bot: RiAtLine };
+function ResourceMentionChip({ mention }: { mention: ComposerResourceMention }) {
+  const label = useBotPromptResourceLabel(usePrimaryEnvironmentId())(mention.kind, mention.id);
 
-function MentionChip(props: { source: string; label: string; icon: "browser" | "thread" | "bot" }) {
+  return (
+    <MentionChip
+      source={mention.source}
+      label={label}
+      icon={mention.kind === "skill" ? "skill" : "integration"}
+    />
+  );
+}
+
+const MENTION_CHIP_ICONS = {
+  browser: RiGlobalLine,
+  thread: RiChat3Line,
+  bot: RiAtLine,
+  skill: RiSparkling2Line,
+  integration: RiPuzzleLine,
+};
+
+function MentionChip(props: {
+  source: string;
+  label: string;
+  icon: keyof typeof MENTION_CHIP_ICONS;
+}) {
   const Icon = MENTION_CHIP_ICONS[props.icon];
 
   return (

@@ -12,6 +12,8 @@ import {
 import {
   LibraryCreateDocumentInput,
   LibraryCreateDocumentResult,
+  LibraryCreateSkillInput,
+  LibraryCreateSkillResult,
   LibraryCreateFileUrlInput,
   LibraryCreateFileUrlResult,
   LibraryCreateUploadUrlInput,
@@ -126,6 +128,11 @@ import {
   McpServerAuthenticateInput,
   McpServerAuthenticationError,
   McpServerAuthenticationProgress,
+  McpServerHeaders,
+  McpServerHeadersError,
+  McpServerSetHeadersInput,
+  McpServerTools,
+  McpServerToolsError,
   SubscriptionAuthAccountOrderInput,
   SubscriptionAuthCompleteInput,
   SubscriptionAuthError,
@@ -182,10 +189,13 @@ import {
   ComposioAuthorizeResult,
   ComposioConfigureInput,
   ComposioDisconnectInput,
+  ComposioUpdateConnectionInput,
   ComposioOperationError,
   ComposioStatus,
   ComposioToolkit,
   ComposioToolkitSearchInput,
+  ComposioGetToolkitInput,
+  ComposioToolkitDetail,
 } from "../composio.ts";
 import { WS_METHODS } from "./methods.ts";
 
@@ -285,6 +295,12 @@ export const WsComposioSearchToolkitsRpc = Rpc.make(WS_METHODS.composioSearchToo
   error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
 });
 
+export const WsComposioGetToolkitRpc = Rpc.make(WS_METHODS.composioGetToolkit, {
+  payload: ComposioGetToolkitInput,
+  success: ComposioToolkitDetail,
+  error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
+});
+
 export const WsComposioAuthorizeRpc = Rpc.make(WS_METHODS.composioAuthorize, {
   payload: ComposioAuthorizeInput,
   success: ComposioAuthorizeResult,
@@ -293,6 +309,12 @@ export const WsComposioAuthorizeRpc = Rpc.make(WS_METHODS.composioAuthorize, {
 
 export const WsComposioDisconnectRpc = Rpc.make(WS_METHODS.composioDisconnect, {
   payload: ComposioDisconnectInput,
+  success: ComposioStatus,
+  error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
+});
+
+export const WsComposioUpdateConnectionRpc = Rpc.make(WS_METHODS.composioUpdateConnection, {
+  payload: ComposioUpdateConnectionInput,
   success: ComposioStatus,
   error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
 });
@@ -365,6 +387,24 @@ export const WsMcpServerAuthenticateRpc = Rpc.make(WS_METHODS.mcpServerAuthentic
   success: McpServerAuthenticationProgress,
   error: Schema.Union([McpServerAuthenticationError, EnvironmentAuthorizationError]),
   stream: true,
+});
+
+export const WsMcpServerListToolsRpc = Rpc.make(WS_METHODS.mcpServerListTools, {
+  payload: McpServerAuthenticateInput,
+  success: McpServerTools,
+  error: Schema.Union([McpServerToolsError, EnvironmentAuthorizationError]),
+});
+
+export const WsMcpServerGetHeadersRpc = Rpc.make(WS_METHODS.mcpServerGetHeaders, {
+  payload: McpServerAuthenticateInput,
+  success: McpServerHeaders,
+  error: Schema.Union([McpServerHeadersError, EnvironmentAuthorizationError]),
+});
+
+export const WsMcpServerSetHeadersRpc = Rpc.make(WS_METHODS.mcpServerSetHeaders, {
+  payload: McpServerSetHeadersInput,
+  success: McpServerHeaders,
+  error: Schema.Union([McpServerHeadersError, EnvironmentAuthorizationError]),
 });
 
 export const WsBotInboxListRpc = Rpc.make(WS_METHODS.botInboxList, {
@@ -686,6 +726,12 @@ export const WsLibraryCreateUploadUrlRpc = Rpc.make(WS_METHODS.libraryCreateUplo
 export const WsLibraryCreateDocumentRpc = Rpc.make(WS_METHODS.libraryCreateDocument, {
   payload: LibraryCreateDocumentInput,
   success: LibraryCreateDocumentResult,
+  error: libraryError,
+});
+
+export const WsLibraryCreateSkillRpc = Rpc.make(WS_METHODS.libraryCreateSkill, {
+  payload: LibraryCreateSkillInput,
+  success: LibraryCreateSkillResult,
   error: libraryError,
 });
 

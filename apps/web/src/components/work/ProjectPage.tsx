@@ -113,7 +113,7 @@ export function ProjectPage({
           <TooltipTrigger
             render={
               <Button
-                size="icon"
+                size="icon-sm"
                 variant="ghost-muted"
                 aria-label={t("New task")}
                 onClick={() => setNewTaskOpen(true)}

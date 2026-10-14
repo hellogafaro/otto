@@ -420,6 +420,21 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.composioSearchToolkits,
       staleTimeMs: 30_000,
     }),
+    composioToolkit: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:composio-toolkit",
+      tag: WS_METHODS.composioGetToolkit,
+      staleTimeMs: 300_000,
+    }),
+    mcpServerTools: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:mcp-server-tools",
+      tag: WS_METHODS.mcpServerListTools,
+      staleTimeMs: 30_000,
+    }),
+    mcpServerHeaders: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:mcp-server-headers",
+      tag: WS_METHODS.mcpServerGetHeaders,
+      staleTimeMs: 30_000,
+    }),
     voiceCall: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:voice-call",
       tag: WS_METHODS.voiceCallGet,
@@ -487,6 +502,10 @@ export function createServerEnvironmentAtoms<R, E>(
       scheduler: configScheduler,
       concurrency: configConcurrency,
     }),
+    setMcpServerHeaders: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:mcp-server-set-headers",
+      tag: WS_METHODS.mcpServerSetHeaders,
+    }),
     configureComposio: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:composio-configure",
       tag: WS_METHODS.composioConfigure,
@@ -502,6 +521,10 @@ export function createServerEnvironmentAtoms<R, E>(
     disconnectComposio: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:composio-disconnect",
       tag: WS_METHODS.composioDisconnect,
+    }),
+    updateComposioConnection: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:composio-update-connection",
+      tag: WS_METHODS.composioUpdateConnection,
     }),
     startSubscriptionAuth: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:subscription-auth:start",

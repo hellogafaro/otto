@@ -4,6 +4,8 @@ import {
   LIBRARY_CHATS_FOLDER_ID,
   LIBRARY_MAX_FOLDER_DEPTH,
   LIBRARY_PROJECTS_FOLDER_ID,
+  LIBRARY_SKILLS_FOLDER_ID,
+  LIBRARY_SYSTEM_FOLDER_IDS,
   type LibraryFile,
   type LibraryFileId,
   type LibraryFolder,
@@ -88,11 +90,20 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
       return folder;
     });
 
-  /** Where new things can go: the top, or any visible folder except the Chats and Projects folders. */
+  /**
+   * Where new things can go: the top, or any visible folder except the Chats and Projects
+   * folders. The Skills folder takes folders (one per skill) but no loose files.
+   */
   const requireDestination = (folderId: LibraryFolderId | null, holdsFolder: boolean) =>
     Effect.gen(function* () {
       if (folderId === null) return null;
       const folder = yield* requireFolder(folderId);
+
+      if (folderId === LIBRARY_SKILLS_FOLDER_ID) {
+        if (holdsFolder) return folder;
+
+        return yield* invariant(command.type, "The Skills folder only holds skill folders.");
+      }
 
       if (folderId === LIBRARY_CHATS_FOLDER_ID && !holdsFolder) {
         return yield* invariant(command.type, "The Chats folder only holds chat folders.");
@@ -131,10 +142,7 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
 
       const parent = folders.find((folder) => folder.id === command.parentId);
 
-      if (
-        command.folderId === LIBRARY_CHATS_FOLDER_ID ||
-        command.folderId === LIBRARY_PROJECTS_FOLDER_ID
-      ) {
+      if (LIBRARY_SYSTEM_FOLDER_IDS.has(command.folderId)) {
         if (
           command.parentId !== null ||
           command.threadId !== undefined ||
@@ -212,7 +220,7 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
     case "library.folder.update": {
       const folder = yield* requireFolder(command.folderId);
 
-      if (folder.id === LIBRARY_CHATS_FOLDER_ID || folder.id === LIBRARY_PROJECTS_FOLDER_ID) {
+      if (LIBRARY_SYSTEM_FOLDER_IDS.has(folder.id)) {
         return yield* invariant(command.type, `The ${folder.title} folder can't be changed.`);
       }
 
@@ -234,7 +242,7 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
 
       if (moves) {
         const parentId = command.parentId ?? null;
-        yield* requireDestination(parentId, false);
+        yield* requireDestination(parentId, parentId === LIBRARY_SKILLS_FOLDER_ID);
 
         if (
           parentId !== null &&
@@ -281,6 +289,10 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
 
       if (folder.id === LIBRARY_PROJECTS_FOLDER_ID || folder.projectId !== undefined) {
         return yield* invariant(command.type, "A project folder can't be deleted.");
+      }
+
+      if (folder.id === LIBRARY_SKILLS_FOLDER_ID) {
+        return yield* invariant(command.type, "The Skills folder can't be deleted.");
       }
 
       if (!canEditLibraryItem(folder, folders, viewer)) {

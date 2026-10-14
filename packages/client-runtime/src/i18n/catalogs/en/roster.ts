@@ -14,7 +14,6 @@ export const rosterCatalog = {
   "Matching repositories appear as one project.": "Matching repositories appear as one project.",
   "No project scripts": "No project scripts",
   "Opens the project picker": "Opens the project picker",
-  Plugins: "Plugins",
   Project: "Project",
   "Project Grouping": "Project Grouping",
   "Review Otto policies": "Review Otto policies",
@@ -68,8 +67,6 @@ export const rosterCatalog = {
   "Read through the project to find where this belongs":
     "Read through the project to find where this belongs",
   "Your bot": "Your bot",
-  "Retry this view. If it fails again, reload Otto.":
-    "Retry this view. If it fails again, reload Otto.",
   "New bot": "New bot",
   "New group": "New group",
   "Archive bot": "Archive bot",
@@ -131,7 +128,6 @@ export const rosterCatalog = {
   "Could not start routine": "Could not start routine",
   Scheduled: "Scheduled",
   "Loading bot…": "Loading bot…",
-  "Open Plugins": "Open Plugins",
   "Paused. Fix the cause in Bot inbox, then resume it.":
     "Paused. Fix the cause in Bot inbox, then resume it.",
   "Fix this in Plugins on the desktop or web app.":
@@ -267,7 +263,6 @@ export const rosterCatalog = {
     "Lasting details this bot has learned about you. It reads them in every chat.",
   "Nothing yet. The bot starts a summary once the chat gets long.":
     "Nothing yet. The bot starts a summary once the chat gets long.",
-  "Manage plugins": "Manage plugins",
   "Turn off {name} for this bot": "Turn off {name} for this bot",
   "Turn on {name} for this bot": "Turn on {name} for this bot",
   "Name your bot": "Name your bot",
@@ -295,7 +290,6 @@ export const rosterCatalog = {
   "{failures} Restart the affected bot session to retry.":
     "{failures} Restart the affected bot session to retry.",
   "Could not open skill": "Could not open skill",
-  "Open plugins": "Open plugins",
   "Change avatar": "Change avatar",
   "Channels are managed on the host": "Channels are managed on the host",
   "No channels set up yet": "No channels set up yet",

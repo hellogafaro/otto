@@ -1,4 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
 import { ThreadId } from "@otto/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -19,7 +20,7 @@ const configLayer = ServerConfig.ServerConfig.layerTest(process.cwd(), {
 const testLayer = Layer.mergeAll(
   configLayer,
   WorkspacePaths.layer,
-  ServerSecretStore.layer.pipe(Layer.provide(configLayer)),
+  ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory), Layer.provide(configLayer)),
 ).pipe(Layer.provideMerge(NodeServices.layer));
 
 describe("AssetAccess", () => {

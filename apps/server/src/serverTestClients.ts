@@ -76,7 +76,7 @@ export const collectQueueUntil = Effect.fn("TransferBudget.collectQueueUntil")(f
 export const authTestLayer = () =>
   EnvironmentAuth.layer.pipe(
     Layer.provide(SqlitePersistenceMemory),
-    Layer.provide(ServerSecretStore.layer),
+    Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
     Layer.provide(
       Layer.mock(ServerEnvironment.ServerEnvironmentIdentity)({
         getEnvironmentId: Effect.succeed(testEnvironmentDescriptor.environmentId),

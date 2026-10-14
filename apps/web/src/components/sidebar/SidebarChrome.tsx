@@ -1,4 +1,4 @@
-import { RiPlugLine, RiSettings3Line } from "@remixicon/react";
+import { RiSettings3Line, RiShapesLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
 
@@ -23,14 +23,14 @@ import { createTranslator, type PluralForms } from "@otto/client-runtime/i18n";
 import { useEnvironmentIdentificationMode } from "../../hooks/useSettings";
 import { useI18n } from "../../i18n";
 import { openSettings } from "../../settingsDialogStore";
-import { openPlugins } from "../../pluginsDialogStore";
+import { openCustomize } from "../../customizeNavigation";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentMcpServersAtom, mcpServerEnvironment } from "../../state/mcpServers";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { OttoWordmark } from "../OttoWordmark";
-import { isBuiltinMcpServer } from "../plugins/pluginRegistry";
+import { isBuiltinMcpServer } from "../roster/botTools.logic";
 import { cn } from "../../lib/utils";
 import {
   resolveEnvironmentIdentificationPillLabel,
@@ -236,12 +236,14 @@ function SidebarPluginButton({
         <TooltipTrigger
           render={
             <SidebarMenuButton
-              aria-label={t("Plugins, {status}", { status: statusLabel })}
+              aria-label={t("Customize, {status}", { status: statusLabel })}
               className="relative overflow-visible!"
               onClick={onClick}
             >
-              <AppIcon className="size-4" icon={RiPlugLine} />
-              <span className="truncate group-data-[collapsible=icon]:hidden">{t("Plugins")}</span>
+              <AppIcon className="size-4" icon={RiShapesLine} />
+              <span className="truncate group-data-[collapsible=icon]:hidden">
+                {t("Customize")}
+              </span>
               {/* Expanded, the count sits inline where it can be read as a
                   number; collapsed, it becomes the badge on the glyph. */}
               {badgeLabel ? (
@@ -257,7 +259,7 @@ function SidebarPluginButton({
         />
         {collapsed ? (
           <TooltipPopup side="right">
-            {t("Plugins · {status}", { status: statusLabel })}
+            {t("Customize · {status}", { status: statusLabel })}
           </TooltipPopup>
         ) : null}
       </Tooltip>
@@ -437,7 +439,7 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
 
   const handlePluginsClick = useCallback(() => {
     closeMobileSidebar();
-    openPlugins();
+    openCustomize();
   }, [closeMobileSidebar]);
 
   const handleSettingsClick = useCallback(() => {

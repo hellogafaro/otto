@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-import { IsoDateTime, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { AuthSessionId, IsoDateTime, TrimmedNonEmptyString } from "./baseSchemas.ts";
 
 export const McpServerId = TrimmedNonEmptyString.pipe(Schema.brand("McpServerId"));
 
@@ -66,8 +66,27 @@ export const McpServerConfiguration = Schema.Union([
 
 export type McpServerConfiguration = typeof McpServerConfiguration.Type;
 
+/** `user` servers belong to the person who added them; `workspace` servers serve every bot. */
+export const McpServerVisibility = Schema.Literals(["user", "workspace"]);
+
+export type McpServerVisibility = typeof McpServerVisibility.Type;
+
+/** The person who added a server, filled in by the server from the signed-in person. */
+export const McpServerOwner = Schema.Struct({
+  personId: AuthSessionId,
+  displayName: TrimmedNonEmptyString,
+});
+
+export type McpServerOwner = typeof McpServerOwner.Type;
+
+/** All absent on servers added before access was recorded, or by a bot: those serve the workspace. */
+const McpServerAccessFields = {
+  visibility: Schema.optional(McpServerVisibility),
+  createdBy: Schema.optional(McpServerOwner),
+};
+
 /**
- * A workspace-level raw MCP server registration. Runtime launch, Mastra tool
+ * A raw MCP server registration. Runtime launch, Mastra tool
  * attachment, Executor, Composio, and per-bot enablement are outside this registry.
  * Credentials stay in external secret storage and never belong in this record.
  */
@@ -77,6 +96,7 @@ export const McpServer = Schema.Union([
     ...StdioMcpServerConfiguration.fields,
     instructions: Schema.optional(McpServerInstructions),
     enabled: Schema.Boolean,
+    ...McpServerAccessFields,
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
   }),
@@ -85,6 +105,7 @@ export const McpServer = Schema.Union([
     ...UrlMcpServerConfiguration.fields,
     instructions: Schema.optional(McpServerInstructions),
     enabled: Schema.Boolean,
+    ...McpServerAccessFields,
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
   }),
@@ -93,14 +114,31 @@ export const McpServer = Schema.Union([
 export type McpServer = typeof McpServer.Type;
 
 /**
- * Resolve the global MCP registry for one bot. Global installation is the
- * default; a bot stores only the server ids it excludes.
+ * Workspace servers serve everyone; a personal one serves the person who added it and the
+ * bots that person owns. People chatting with such a bot use it without seeing it.
+ */
+export function canUseMcpServer(
+  server: Pick<McpServer, "visibility" | "createdBy">,
+  personId: string | null,
+): boolean {
+  return (
+    server.visibility !== "user" || (personId !== null && server.createdBy?.personId === personId)
+  );
+}
+
+/**
+ * Resolve the MCP registry for one bot: enabled workspace servers, plus its owner's
+ * personal servers, minus the ones the bot switched off.
  */
 export function resolveBotMcpServers(
   servers: readonly McpServer[],
   disabledMcpServerIds: readonly McpServerId[],
+  ownerPersonId: string | null = null,
 ): readonly McpServer[] {
   const excluded = new Set(disabledMcpServerIds);
 
-  return servers.filter((server) => server.enabled && !excluded.has(server.id));
+  return servers.filter(
+    (server) =>
+      server.enabled && !excluded.has(server.id) && canUseMcpServer(server, ownerPersonId),
+  );
 }

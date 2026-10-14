@@ -137,6 +137,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "mcp-server.delete":
     case "mcp-server.enable":
     case "mcp-server.disable":
+    case "mcp-server.access.set":
       return yield* decideMcpServers({
         command,
         readModel,

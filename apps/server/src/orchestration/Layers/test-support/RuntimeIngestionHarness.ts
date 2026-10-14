@@ -268,7 +268,7 @@ export function createRuntimeIngestionHarness() {
       Layer.provideMerge(BotUsageLedgerLive.pipe(Layer.provide(SqlitePersistenceMemory))),
       Layer.provideMerge(Layer.succeed(AgentController, provider.service)),
       Layer.provideMerge(ChannelDeliveryStoreLive.pipe(Layer.provide(SqlitePersistenceMemory))),
-      Layer.provideMerge(ServerSecretStore.layer),
+      Layer.provideMerge(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
       Layer.provideMerge(makeTestServerSettingsLayer(options?.serverSettings)),
       Layer.provideMerge(CheckpointStore.layer.pipe(Layer.provide(VcsDriverRegistry.layer))),
       Layer.provideMerge(VcsProcess.layer),

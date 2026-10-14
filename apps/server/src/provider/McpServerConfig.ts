@@ -3,6 +3,15 @@ import type * as EffectAcpSchema from "effect-acp/schema";
 
 const runtimeHeaders = new WeakMap<McpServer, Readonly<Record<string, string>>>();
 
+/** Where one server's OAuth tokens live, the shape the MCP client's OAuth provider reads. */
+export interface McpOAuthStorage {
+  readonly get: (key: string) => Promise<string | undefined>;
+  readonly set: (key: string, value: string) => Promise<void>;
+  readonly delete: (key: string) => Promise<void>;
+}
+
+const runtimeOAuthStorage = new WeakMap<McpServer, McpOAuthStorage>();
+
 const BROWSER_ATTACHMENT_CONNECTORS: ReadonlySet<string> = new Set([
   "builtin-executor",
   "builtin-tinyfish",
@@ -26,6 +35,16 @@ export function withMcpRuntimeHeaders<T extends McpServer>(
   runtimeHeaders.set(server, headers);
 
   return server;
+}
+
+export function withMcpOAuthStorage<T extends McpServer>(server: T, storage: McpOAuthStorage): T {
+  runtimeOAuthStorage.set(server, storage);
+
+  return server;
+}
+
+export function getMcpOAuthStorage(server: McpServer): McpOAuthStorage | undefined {
+  return runtimeOAuthStorage.get(server);
 }
 
 export function getMcpRuntimeHeaders(server: McpServer): Readonly<Record<string, string>> {

@@ -5,6 +5,8 @@ import {
   type LibraryFolderId,
   LIBRARY_CHATS_FOLDER_ID,
   LIBRARY_PROJECTS_FOLDER_ID,
+  LIBRARY_SKILLS_FOLDER_ID,
+  LIBRARY_SYSTEM_FOLDER_IDS,
   LIBRARY_MAX_FOLDER_DEPTH,
   type LibraryVisibility,
   libraryFolderPath,
@@ -167,7 +169,11 @@ function moveTargets(
       .toSorted((left, right) => left.title.localeCompare(right.title))) {
       if (item.kind === "folder" && folder.id === item.folder.id) continue;
 
-      if (folder.id === LIBRARY_CHATS_FOLDER_ID || folder.id === LIBRARY_PROJECTS_FOLDER_ID) {
+      if (
+        folder.id === LIBRARY_CHATS_FOLDER_ID ||
+        folder.id === LIBRARY_PROJECTS_FOLDER_ID ||
+        (folder.id === LIBRARY_SKILLS_FOLDER_ID && item.kind === "file")
+      ) {
         options.push({ id: folder.id, title: folder.title, depth, selectable: false });
       } else {
         const fits =
@@ -382,10 +388,7 @@ export function LibraryItemMenu({
   const download = useLibraryDownload();
   const item = target.kind === "folder" ? target.folder : target.file;
 
-  const isHolder =
-    target.kind === "folder" &&
-    (target.folder.id === LIBRARY_CHATS_FOLDER_ID ||
-      target.folder.id === LIBRARY_PROJECTS_FOLDER_ID);
+  const isHolder = target.kind === "folder" && LIBRARY_SYSTEM_FOLDER_IDS.has(target.folder.id);
 
   const isFixedFolder =
     target.kind === "folder" &&

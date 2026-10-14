@@ -51,6 +51,7 @@ const make = Effect.gen(function* () {
     serverSettingsService,
     botUsageLedger,
     composio,
+    secretStore,
     serverCommandId,
     serverEventId,
     hasHandledTurnRequestRecently,
@@ -84,6 +85,7 @@ const make = Effect.gen(function* () {
     projectionBotRepository,
     projectionMcpServerRepository,
     composio,
+    secretStore,
     providerRegistry,
   });
 

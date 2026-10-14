@@ -96,6 +96,9 @@ export function createSessionCatalogHandlers(
               read: (request) => deps.runPromise(libraryTools.read(libraryCaller, request)),
               updateDocument: (request) =>
                 deps.runPromise(libraryTools.updateDocument(libraryCaller, request)),
+              listSkills: () => deps.runPromise(libraryTools.listSkills(libraryCaller)),
+              readSkillFile: (request) =>
+                deps.runPromise(libraryTools.readSkillFile(libraryCaller, request)),
             },
           }
         : {}),

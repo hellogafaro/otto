@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PluginsRouteImport } from './routes/plugins'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CustomizeRouteImport } from './routes/customize'
 import { Route as ChatRouteImport } from './routes/_chat'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
@@ -26,8 +27,11 @@ import { Route as RoutinesRoutineIdRouteImport } from './routes/routines.$routin
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as LibraryFileIdRouteImport } from './routes/library.$fileId'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
+import { Route as CustomizeAppsIndexRouteImport } from './routes/customize_.apps.index'
 import { Route as SettingsProvidersProviderIdRouteImport } from './routes/settings.providers.$providerId'
 import { Route as SettingsChannelsChannelRouteImport } from './routes/settings.channels.$channel'
+import { Route as CustomizeAppsSlugRouteImport } from './routes/customize_.apps.$slug'
+import { Route as CustomizeTypeIdRouteImport } from './routes/customize_.$type.$id'
 import { Route as BotsBotIdSettingsRouteImport } from './routes/bots.$botId.settings'
 import { Route as ChatGroupsGroupIdRouteImport } from './routes/_chat.groups.$groupId'
 import { Route as ChatDraftDraftIdRouteImport } from './routes/_chat.draft.$draftId'
@@ -57,6 +61,11 @@ const PluginsRoute = PluginsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomizeRoute = CustomizeRouteImport.update({
+  id: '/customize',
+  path: '/customize',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -118,6 +127,11 @@ const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   path: '/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomizeAppsIndexRoute = CustomizeAppsIndexRouteImport.update({
+  id: '/customize_/apps/',
+  path: '/customize/apps/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsProvidersProviderIdRoute =
   SettingsProvidersProviderIdRouteImport.update({
     id: '/providers/$providerId',
@@ -128,6 +142,16 @@ const SettingsChannelsChannelRoute = SettingsChannelsChannelRouteImport.update({
   id: '/channels/$channel',
   path: '/channels/$channel',
   getParentRoute: () => SettingsRoute,
+} as any)
+const CustomizeAppsSlugRoute = CustomizeAppsSlugRouteImport.update({
+  id: '/customize_/apps/$slug',
+  path: '/customize/apps/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomizeTypeIdRoute = CustomizeTypeIdRouteImport.update({
+  id: '/customize_/$type/$id',
+  path: '/customize/$type/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const BotsBotIdSettingsRoute = BotsBotIdSettingsRouteImport.update({
   id: '/bots/$botId/settings',
@@ -158,6 +182,7 @@ const ChatEnvironmentIdThreadIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
+  '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
   '/plugins': typeof PluginsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -178,10 +203,14 @@ export interface FileRoutesByFullPath {
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
   '/groups/$groupId': typeof ChatGroupsGroupIdRoute
   '/bots/$botId/settings': typeof BotsBotIdSettingsRoute
+  '/customize/$type/$id': typeof CustomizeTypeIdRoute
+  '/customize/apps/$slug': typeof CustomizeAppsSlugRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/customize/apps/': typeof CustomizeAppsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
   '/plugins': typeof PluginsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -203,12 +232,16 @@ export interface FileRoutesByTo {
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
   '/groups/$groupId': typeof ChatGroupsGroupIdRoute
   '/bots/$botId/settings': typeof BotsBotIdSettingsRoute
+  '/customize/$type/$id': typeof CustomizeTypeIdRoute
+  '/customize/apps/$slug': typeof CustomizeAppsSlugRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/customize/apps': typeof CustomizeAppsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_chat': typeof ChatRouteWithChildren
+  '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
   '/plugins': typeof PluginsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -230,13 +263,17 @@ export interface FileRoutesById {
   '/_chat/draft/$draftId': typeof ChatDraftDraftIdRoute
   '/_chat/groups/$groupId': typeof ChatGroupsGroupIdRoute
   '/bots/$botId/settings': typeof BotsBotIdSettingsRoute
+  '/customize_/$type/$id': typeof CustomizeTypeIdRoute
+  '/customize_/apps/$slug': typeof CustomizeAppsSlugRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/customize_/apps/': typeof CustomizeAppsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/customize'
     | '/login'
     | '/plugins'
     | '/reset-password'
@@ -257,10 +294,14 @@ export interface FileRouteTypes {
     | '/draft/$draftId'
     | '/groups/$groupId'
     | '/bots/$botId/settings'
+    | '/customize/$type/$id'
+    | '/customize/apps/$slug'
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
+    | '/customize/apps/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/customize'
     | '/login'
     | '/plugins'
     | '/reset-password'
@@ -282,11 +323,15 @@ export interface FileRouteTypes {
     | '/draft/$draftId'
     | '/groups/$groupId'
     | '/bots/$botId/settings'
+    | '/customize/$type/$id'
+    | '/customize/apps/$slug'
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
+    | '/customize/apps'
   id:
     | '__root__'
     | '/_chat'
+    | '/customize'
     | '/login'
     | '/plugins'
     | '/reset-password'
@@ -308,12 +353,16 @@ export interface FileRouteTypes {
     | '/_chat/draft/$draftId'
     | '/_chat/groups/$groupId'
     | '/bots/$botId/settings'
+    | '/customize_/$type/$id'
+    | '/customize_/apps/$slug'
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
+    | '/customize_/apps/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
+  CustomizeRoute: typeof CustomizeRoute
   LoginRoute: typeof LoginRoute
   PluginsRoute: typeof PluginsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -328,6 +377,9 @@ export interface RootRouteChildren {
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
   BotsBotIdSettingsRoute: typeof BotsBotIdSettingsRoute
+  CustomizeTypeIdRoute: typeof CustomizeTypeIdRoute
+  CustomizeAppsSlugRoute: typeof CustomizeAppsSlugRoute
+  CustomizeAppsIndexRoute: typeof CustomizeAppsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -365,6 +417,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customize': {
+      id: '/customize'
+      path: '/customize'
+      fullPath: '/customize'
+      preLoaderRoute: typeof CustomizeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_chat': {
@@ -451,6 +510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customize_/apps/': {
+      id: '/customize_/apps/'
+      path: '/customize/apps'
+      fullPath: '/customize/apps/'
+      preLoaderRoute: typeof CustomizeAppsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/providers/$providerId': {
       id: '/settings/providers/$providerId'
       path: '/providers/$providerId'
@@ -464,6 +530,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/channels/$channel'
       preLoaderRoute: typeof SettingsChannelsChannelRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/customize_/apps/$slug': {
+      id: '/customize_/apps/$slug'
+      path: '/customize/apps/$slug'
+      fullPath: '/customize/apps/$slug'
+      preLoaderRoute: typeof CustomizeAppsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customize_/$type/$id': {
+      id: '/customize_/$type/$id'
+      path: '/customize/$type/$id'
+      fullPath: '/customize/$type/$id'
+      preLoaderRoute: typeof CustomizeTypeIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/bots/$botId/settings': {
       id: '/bots/$botId/settings'
@@ -541,6 +621,7 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
+  CustomizeRoute: CustomizeRoute,
   LoginRoute: LoginRoute,
   PluginsRoute: PluginsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -555,6 +636,9 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsIndexRoute: ProjectsIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
   BotsBotIdSettingsRoute: BotsBotIdSettingsRoute,
+  CustomizeTypeIdRoute: CustomizeTypeIdRoute,
+  CustomizeAppsSlugRoute: CustomizeAppsSlugRoute,
+  CustomizeAppsIndexRoute: CustomizeAppsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

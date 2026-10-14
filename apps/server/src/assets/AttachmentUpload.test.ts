@@ -1,4 +1,5 @@
 import * as NodeFS from "node:fs";
+import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
 import * as NodePath from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -19,6 +20,7 @@ import {
 } from "./AttachmentUpload.ts";
 
 const testLayer = ServerSecretStore.layer.pipe(
+  Layer.provide(SqlitePersistenceMemory),
   Layer.provideMerge(
     ServerConfig.layerTest(process.cwd(), { prefix: "ottoLegacy-attachment-upload-" }),
   ),

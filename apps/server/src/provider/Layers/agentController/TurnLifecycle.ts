@@ -35,6 +35,7 @@ import {
 import { type OttoToolSession } from "../../OttoToolRuntime.ts";
 
 import { AgentControllerRuntimeError } from "../../Errors.ts";
+import { activeLibraryTools } from "../../../library/LibraryToolRuntime.ts";
 
 import { LegacyProviderBridge } from "../../Services/LegacyProviderBridge.ts";
 
@@ -287,6 +288,18 @@ export function createTurnLifecycle(deps: {
 
       if (settings) active.privateBotMemory = settings.privateBotMemory;
       active.memoryAccess = memoryAccess;
+
+      const libraryTools = activeLibraryTools();
+      const botId = pending.toolSession.botId;
+
+      if (libraryTools && botId) {
+        const skillsContext =
+          (await deps.runPromise(libraryTools.skillsContext({ threadId, botId }))) || undefined;
+
+        if (active.session.state.get().skillsContext !== skillsContext) {
+          await active.session.state.set({ ...active.session.state.get(), skillsContext });
+        }
+      }
 
       if (!memoryAccess) {
         // Memory was turned off after the turn was queued: drop the memory

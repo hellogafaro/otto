@@ -316,3 +316,61 @@ describe("botPromptMentionChips", () => {
     expect(removeBotPromptMention(draft, chip!)).toBe("look and now");
   });
 });
+
+describe("skill, app, and MCP server mentions", () => {
+  const resources = [
+    { kind: "skill" as const, id: "skill-1", label: "Weekly report" },
+    { kind: "app" as const, id: "googlecalendar", label: "Google Calendar" },
+    { kind: "mcp" as const, id: "mcp-1", label: "DeepWiki" },
+  ];
+
+  it("offers matching resources after bots, but not for @chat: or path queries", () => {
+    const labels = (query: string) =>
+      buildBotPromptMentionItems({
+        query,
+        browserAvailable: false,
+        bots,
+        resources,
+        threads: [],
+      }).map((item) => [item.kind, item.label]);
+
+    expect(labels("week")).toEqual([["skill", "Weekly report"]]);
+    expect(labels("calendar")).toEqual([["app", "Google Calendar"]]);
+    expect(labels("chat:wiki")).toEqual([]);
+    expect(labels("deep/")).toEqual([]);
+  });
+
+  it("inserts the resource token, labels its chip, and removes it", () => {
+    const [item] = buildBotPromptMentionItems({
+      query: "deep",
+      browserAvailable: false,
+      bots,
+      resources,
+      threads: [],
+    });
+
+    const applied = applyBotPromptMention(
+      "ask @deep",
+      { query: "deep", rangeStart: 4, rangeEnd: 9 },
+      item!,
+    );
+
+    expect(applied.text).toBe("ask @mcp:mcp-1 ");
+
+    const label = (kind: string, id: string) =>
+      resources.find((resource) => resource.kind === kind && resource.id === id)?.label ?? id;
+
+    const chips = botPromptMentionChips(
+      `${applied.text}and @chat:thread-2`,
+      () => "Release plan",
+      undefined,
+      label,
+    );
+
+    expect(chips.map((chip) => [chip.kind, chip.label])).toEqual([
+      ["mcp", "DeepWiki"],
+      ["thread", "Release plan"],
+    ]);
+    expect(removeBotPromptMention(applied.text, chips[0]!)).toBe("ask ");
+  });
+});

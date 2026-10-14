@@ -62,3 +62,10 @@ export function formatLibrarySize(bytes: number): string {
 export function libraryFailureText(message: string): string {
   return message.replace(/^Orchestration command invariant failed \([^)]*\):\s*/, "");
 }
+
+/**
+ * The rich text editor has no front matter, so a document's YAML header (a skill's name and
+ * description) is edited beside it as plain text and put back in front of the body on save.
+ */
+export const joinFrontMatter = (frontMatter: string | null, body: string) =>
+  frontMatter === null ? body : `---\n${frontMatter}\n---\n\n${body}`;

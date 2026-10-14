@@ -65,7 +65,7 @@ describe("command palette in Simplified Chinese", () => {
       'aria-label="命令面板"',
       'placeholder="搜索命令和聊天..."',
       "切换到浅色模式",
-      "打开插件",
+      "打开自定义",
       "打开用量",
       zhCNCatalog["Open settings"],
       zhCNCatalog["Actions"],
@@ -73,7 +73,7 @@ describe("command palette in Simplified Chinese", () => {
       expect(html).toContain(text);
     }
 
-    expect(html).not.toContain("Open plugins");
+    expect(html).not.toContain("Open Customize");
     expect(html).not.toContain("切换主题编辑器");
   });
 });

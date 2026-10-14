@@ -11,6 +11,8 @@ import {
   type DeleteMcpServerInput,
   type DisableMcpServerInput,
   type EnableMcpServerInput,
+  type SetMcpServerAccessInput,
+  setMcpServerAccess,
   type UpdateMcpServerInput,
   updateMcpServer,
 } from "../operations/commands.ts";
@@ -21,6 +23,7 @@ export type {
   DeleteMcpServerInput,
   DisableMcpServerInput,
   EnableMcpServerInput,
+  SetMcpServerAccessInput,
   UpdateMcpServerInput,
 } from "../operations/commands.ts";
 
@@ -63,6 +66,12 @@ export function createMcpServerEnvironmentAtoms<R, E>(
     disable: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:mcp-server:disable",
       execute: (input: DisableMcpServerInput) => disableMcpServer(input),
+      scheduler,
+      concurrency,
+    }),
+    setAccess: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:mcp-server:access",
+      execute: (input: SetMcpServerAccessInput) => setMcpServerAccess(input),
       scheduler,
       concurrency,
     }),

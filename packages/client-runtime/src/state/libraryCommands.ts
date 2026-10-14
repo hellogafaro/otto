@@ -67,6 +67,10 @@ export function createLibraryEnvironmentAtoms<R, E>(
       label: "environment-data:library:create-document",
       tag: WS_METHODS.libraryCreateDocument,
     }),
+    createSkill: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:library:create-skill",
+      tag: WS_METHODS.libraryCreateSkill,
+    }),
     readDocument: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:library:read-document",
       tag: WS_METHODS.libraryReadDocument,
@@ -78,6 +82,11 @@ export function createLibraryEnvironmentAtoms<R, E>(
     createFileUrl: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:library:create-file-url",
       tag: WS_METHODS.libraryCreateFileUrl,
+    }),
+    /** A document's saved text, for a glance such as a skill's description. */
+    document: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:library:document",
+      tag: WS_METHODS.libraryReadDocument,
     }),
     fileUrl: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:library:file-url",

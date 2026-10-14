@@ -293,6 +293,8 @@ export const OrchestrationBot = Schema.Struct({
   disabledMcpServerIds: Schema.Array(McpServerId).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
+  /** The person responsible for the bot, like a task's owner; its personal connections serve it. */
+  owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: PersistedBotSandbox,

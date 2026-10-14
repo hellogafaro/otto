@@ -1,4 +1,4 @@
-import { RiLoader4Line } from "@remixicon/react";
+import { RiLoaderLine } from "@remixicon/react";
 
 import { type ReactNode } from "react";
 import type { EnvironmentId, ProviderInstanceId } from "@otto/contracts";
@@ -89,7 +89,7 @@ export function ProviderAccountSection({
     body = (
       <SettingsMessageRow>
         <span className="inline-flex items-center gap-2">
-          <RiLoader4Line className="size-3.5 animate-spin" />
+          <RiLoaderLine className="size-3.5 animate-spin" />
           {t("Checking account")}
         </span>
       </SettingsMessageRow>

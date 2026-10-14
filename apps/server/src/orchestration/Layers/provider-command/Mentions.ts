@@ -1,5 +1,8 @@
 import { ThreadId } from "@otto/contracts";
-import { collectComposerMentionReferences } from "@otto/shared/composerInlineTokens";
+import {
+  collectComposerMentionReferences,
+  collectComposerResourceMentions,
+} from "@otto/shared/composerInlineTokens";
 import {
   appendComposerMentionContext,
   isHiddenComposerThread,
@@ -20,7 +23,7 @@ export function createMentions({
   "serverSettingsService" | "projectionSnapshotQuery"
 >) {
   /**
-   * Expands composer `@browser` and `@chat:<id>` mentions into a bounded
+   * Expands composer `@browser`, `@chat:<id>`, and skill, app, or MCP server mentions into a bounded
    * context block for the provider. The stored message keeps only the tokens,
    * so clients render chips and the socket never carries the excerpts.
    */
@@ -30,7 +33,11 @@ export function createMentions({
   ) {
     const references = collectComposerMentionReferences(messageText);
 
-    if (!references.browser && references.threadIds.length === 0) {
+    const resources = collectComposerResourceMentions(`${messageText}\n`).filter(
+      (mention, index, all) => all.findIndex((other) => other.source === mention.source) === index,
+    );
+
+    if (!references.browser && references.threadIds.length === 0 && resources.length === 0) {
       return messageText;
     }
 
@@ -78,7 +85,11 @@ export function createMentions({
       });
     }
 
-    return appendComposerMentionContext(messageText, { browser, threads });
+    return appendComposerMentionContext(messageText, {
+      browser,
+      threads,
+      resources,
+    });
   });
 
   return { expandComposerMentions };

@@ -1,7 +1,10 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
-import { acknowledgePluginsNavigation, usePluginsDialogStore } from "../pluginsDialogStore";
+import {
+  acknowledgeCustomizeNavigation,
+  useCustomizeNavigationStore,
+} from "../customizeNavigation";
 import {
   acknowledgeSettingsNavigation,
   clearSettingsEnvironment,
@@ -16,7 +19,7 @@ export function SurfaceNavigationCoordinator() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const settingsSection = useSettingsDialogStore((state) => state.section);
   const settingsTarget = useSettingsDialogStore((state) => state.targetId);
-  const pluginsOpen = usePluginsDialogStore((state) => state.open);
+  const customizeRequest = useCustomizeNavigationStore((state) => state.request);
 
   useEffect(() => {
     if (settingsSection !== null) {
@@ -47,10 +50,16 @@ export function SurfaceNavigationCoordinator() {
   }, [navigate, pathname, settingsSection, settingsTarget]);
 
   useEffect(() => {
-    if (!pluginsOpen) return;
-    void navigate({ to: "/plugins" });
-    acknowledgePluginsNavigation();
-  }, [navigate, pluginsOpen]);
+    if (customizeRequest === null) return;
+
+    void (customizeRequest.query
+      ? navigate({ to: "/customize/apps", search: { q: customizeRequest.query } })
+      : navigate({
+          to: "/customize",
+          search: customizeRequest.tab === "integrations" ? {} : { tab: customizeRequest.tab },
+        }));
+    acknowledgeCustomizeNavigation();
+  }, [navigate, customizeRequest]);
 
   return null;
 }

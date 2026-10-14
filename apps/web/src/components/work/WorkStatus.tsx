@@ -128,7 +128,7 @@ export function WorkMoreActions({
           render={
             <MenuTrigger
               render={
-                <Button size="icon" variant="ghost-muted" aria-label={t("More actions")}>
+                <Button size="icon-sm" variant="ghost-muted" aria-label={t("More actions")}>
                   <RiMoreLine aria-hidden className="size-4" />
                 </Button>
               }

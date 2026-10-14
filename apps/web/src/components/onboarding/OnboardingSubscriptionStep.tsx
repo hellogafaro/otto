@@ -1,4 +1,4 @@
-import { RiArrowRightLine, RiCheckLine, RiExternalLinkLine, RiLoader4Line } from "@remixicon/react";
+import { RiArrowRightLine, RiCheckLine, RiExternalLinkLine, RiLoaderLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import {
   isAtomCommandInterrupted,
@@ -341,14 +341,14 @@ export function SubscriptionStep({
               onClick={() => void complete()}
             >
               {busy ? (
-                <RiLoader4Line className="size-4 animate-spin motion-reduce:animate-none" />
+                <RiLoaderLine className="size-4 animate-spin motion-reduce:animate-none" />
               ) : null}
               {t("Connect")}
             </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <RiLoader4Line className="size-4 animate-spin motion-reduce:animate-none" />
+            <RiLoaderLine className="size-4 animate-spin motion-reduce:animate-none" />
             {t("Waiting for approval")}
           </div>
         )}
@@ -439,7 +439,7 @@ export function SubscriptionStep({
         disabled={busy}
         onClick={connected ? onContinue : () => void connect()}
       >
-        {busy ? <RiLoader4Line className="size-4 animate-spin motion-reduce:animate-none" /> : null}
+        {busy ? <RiLoaderLine className="size-4 animate-spin motion-reduce:animate-none" /> : null}
         {connected ? t("Continue") : t("Connect {provider}", { provider: selected.label })}
         {!busy ? <RiArrowRightLine className="size-4" /> : null}
       </Button>

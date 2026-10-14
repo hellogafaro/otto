@@ -65,6 +65,7 @@ patchedDependencies:
   '@expo/metro-config@56.0.14': 8cb08b5bb7051ed9d2dbe46a2c293c5a1e17f1bd6ddf30de27909e18c921ff46
   '@ff-labs/fff-node@0.9.4': ab9ff544009e1891cfe3930105862d3699007f38922a79f3c98d90018deca368
   '@legendapp/list@3.3.5': 064530db83875fa671559a81ae42dc159726dc2dd6ec4c982da44ff7c7a74706
+  '@mastra/code-sdk@1.5.1': ef4435d13e5989ae914030119c9a985541559c8311c838f416a247d5e63e8693
   '@mastra/mcp@1.17.2': 9b6d63569c5225bf2803a5ce1bbf1e470192f3fc21af9e2a4dd321d64dc9cbc4
   '@modelcontextprotocol/client@2.0.0': 26c067f6d379f934223521f228d8db1557c64cf2a9206d9dc020a0fa59013ebc
   '@pierre/diffs@1.3.0-beta.10': 7ef7cb0cbabb17c15cdb137554068b36f15f6f5265e73fb51452aa3380db91aa
@@ -455,7 +456,7 @@ importers:
         version: 0.9.4(patch_hash=ab9ff544009e1891cfe3930105862d3699007f38922a79f3c98d90018deca368)
       '@mastra/code-sdk':
         specifier: 1.5.1
-        version: 1.5.1(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(bufferutil@4.1.0)(express@5.2.1)(hono@4.12.27)(playwright-core@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(utf-8-validate@6.0.6)
+        version: 1.5.1(patch_hash=ef4435d13e5989ae914030119c9a985541559c8311c838f416a247d5e63e8693)(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(bufferutil@4.1.0)(express@5.2.1)(hono@4.12.27)(playwright-core@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(utf-8-validate@6.0.6)
       '@mastra/core':
         specifier: 1.63.0
         version: 1.63.0(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(ai@6.0.266(zod@4.4.3))(bufferutil@4.1.0)(express@5.2.1)(utf-8-validate@6.0.6)(zod@4.4.3)
@@ -15856,7 +15857,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@mastra/code-sdk@1.5.1(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(bufferutil@4.1.0)(express@5.2.1)(hono@4.12.27)(playwright-core@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(utf-8-validate@6.0.6)':
+  '@mastra/code-sdk@1.5.1(patch_hash=ef4435d13e5989ae914030119c9a985541559c8311c838f416a247d5e63e8693)(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(bufferutil@4.1.0)(express@5.2.1)(hono@4.12.27)(playwright-core@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(utf-8-validate@6.0.6)':
     dependencies:
       '@agentclientprotocol/sdk': 0.21.1(zod@4.6.6)
       '@ai-sdk/amazon-bedrock': 3.0.120(zod@4.6.6)

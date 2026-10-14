@@ -6,7 +6,7 @@ import {
   RiCheckboxCircleLine,
   RiFileCopyLine,
   RiInformationLine,
-  RiLoader4Line,
+  RiLoaderLine,
   RiAlertLine,
 } from "@remixicon/react";
 import { recordLookup } from "../recordLookup";
@@ -25,7 +25,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "./tooltip";
 const TOAST_ICONS = {
   error: RiErrorWarningLine,
   info: RiInformationLine,
-  loading: RiLoader4Line,
+  loading: RiLoaderLine,
   success: RiCheckboxCircleLine,
   warning: RiAlertLine,
 } as const;

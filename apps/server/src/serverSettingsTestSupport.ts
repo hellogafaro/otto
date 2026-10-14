@@ -22,7 +22,7 @@ export const decodeServerSettings = Schema.decodeUnknownEffect(ServerSettings);
 
 export const makeServerSettingsLayer = () =>
   ServerSettingsModule.layer.pipe(
-    Layer.provide(ServerSecretStore.layer),
+    Layer.provide(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
     Layer.provideMerge(Layer.fresh(SqlitePersistenceMemory)),
     Layer.provideMerge(
       Layer.fresh(

@@ -222,19 +222,12 @@ describe("sidebar footer", () => {
     expect(mobileSource).toContain("selectedEnvironmentServerConfig?.settings.localExecutionMode");
   });
 
-  it("keeps short plugin dialogs and the footer independently scrollable", () => {
+  it("keeps the footer independently scrollable", () => {
     const sidebarSource = NodeFS.readFileSync(
       new URL("./SidebarChrome.tsx", import.meta.url),
       "utf8",
     );
 
-    const pluginsSource = NodeFS.readFileSync(
-      new URL("../plugins/PluginsDialog.tsx", import.meta.url),
-      "utf8",
-    );
-
     expect(sidebarSource).toContain("overflow-y-auto overscroll-contain");
-    expect(pluginsSource).toContain("PLUGIN_DIRECTORY_HEADER_CLASS_NAME");
-    expect(pluginsSource).toContain('<DialogPanel className="space-y-4 py-5">');
   });
 });

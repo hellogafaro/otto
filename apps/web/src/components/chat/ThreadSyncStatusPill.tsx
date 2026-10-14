@@ -1,4 +1,4 @@
-import { RiLoader4Line } from "@remixicon/react";
+import { RiLoaderLine } from "@remixicon/react";
 
 import { threadSyncLabel, type ThreadSyncPhase } from "../../threadSync";
 
@@ -12,7 +12,7 @@ export function ThreadSyncStatusPill({ phase }: { readonly phase: ThreadSyncPhas
       data-thread-sync-drawer="true"
       role="status"
     >
-      <RiLoader4Line aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+      <RiLoaderLine aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate">{label}</span>
     </div>
   );

@@ -27,6 +27,8 @@ describe("Otto tool contracts", () => {
       "ListLibrary",
       "ReadLibraryFile",
       "UpdateLibraryDocument",
+      "ListSkills",
+      "ReadSkillFile",
     ] as const) {
       expect(OTTO_TOOL_CATALOG.some((tool) => tool.id === id)).toBe(true);
     }

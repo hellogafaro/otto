@@ -151,6 +151,24 @@ describe("appendComposerMentionContext", () => {
     expect(appendComposerMentionContext("hello", { browser: null, threads: [] })).toBe("hello");
   });
 
+  it("tells the bot how to use each tagged skill, app, and MCP server", () => {
+    const context = appendComposerMentionContext("go", {
+      browser: null,
+      threads: [],
+      resources: [
+        { kind: "skill", id: "skill-1" },
+        { kind: "app", id: "googlecalendar" },
+        { kind: "mcp", id: "mcp-1" },
+      ],
+    });
+
+    expect(context).toContain("skillId skill-1. Read its SKILL.md with ReadSkillFile");
+    expect(context).toContain(
+      "connected googlecalendar account through your composio-session tools",
+    );
+    expect(context).toContain('tools whose names start with "mcp-1_"');
+  });
+
   it("adds browser guidance for each gate state", () => {
     expect(appendComposerMentionContext("go", { browser: "enabled", threads: [] })).toContain(
       "preview browser tools",

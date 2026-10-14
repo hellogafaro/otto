@@ -1,4 +1,4 @@
-import { RiCodeLine, RiRefreshLine } from "@remixicon/react";
+import { RiCodeLine, RiLoaderLine } from "@remixicon/react";
 import { Predicate } from "effect";
 
 import { useAtomValue } from "@effect/atom-react";
@@ -258,7 +258,7 @@ export const DesktopSshHostRow = memo(function DesktopSshHostRow({
             onClick={() => onConnect(target)}
           >
             {connectingHostAlias === target.alias ? (
-              <RiRefreshLine className="size-3 animate-spin" />
+              <RiLoaderLine className="size-3 animate-spin" />
             ) : null}
             {buttonLabel}
           </Button>

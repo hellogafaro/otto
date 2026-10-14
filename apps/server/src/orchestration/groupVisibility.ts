@@ -1,5 +1,6 @@
 import {
   canSeeLibraryItem,
+  canUseMcpServer,
   isGroupPersonMember,
   type LibraryFolder,
   type LibraryVisibilityContext,
@@ -73,7 +74,16 @@ export function visibleShellSnapshot(
   chatThreads: ReadonlyArray<LibraryChatThread>,
 ): OrchestrationShellSnapshot {
   const groups = snapshot.groups.filter((group) => canSeeGroup(group, personId));
-  const library = visibleLibrary(snapshot, personId, chatThreads);
+
+  // Someone else's personal MCP server stays out of sight; their bots still use it.
+  const library = {
+    ...visibleLibrary(snapshot, personId, chatThreads),
+    ...(snapshot.mcpServers
+      ? {
+          mcpServers: snapshot.mcpServers.filter((server) => canUseMcpServer(server, personId)),
+        }
+      : {}),
+  };
 
   if (groups.length === snapshot.groups.length) return { ...snapshot, ...library };
 
@@ -167,6 +177,18 @@ export function withGroupVisibility<E, R>(input: {
         case "library-folder-upserted":
         case "library-folder-removed":
           return fresh;
+        case "mcp-server-upserted":
+          return Effect.succeed(
+            canUseMcpServer(item.mcpServer, personId)
+              ? [item]
+              : [
+                  {
+                    kind: "mcp-server-removed",
+                    sequence: item.sequence,
+                    mcpServerId: item.mcpServer.id,
+                  },
+                ],
+          );
         case "library-file-upserted": {
           const context = libraryContext(folders, [...groups.values()], chatThreads);
 
@@ -192,7 +214,8 @@ export function withGroupVisibility<E, R>(input: {
     const hidesAny =
       initial.groups.some((group) => !canSeeGroup(group, personId)) ||
       (reset.libraryFolders?.length ?? 0) !== (initial.libraryFolders?.length ?? 0) ||
-      (reset.libraryFiles?.length ?? 0) !== (initial.libraryFiles?.length ?? 0);
+      (reset.libraryFiles?.length ?? 0) !== (initial.libraryFiles?.length ?? 0) ||
+      (reset.mcpServers?.length ?? 0) !== (initial.mcpServers?.length ?? 0);
 
     if (!input.resuming || !hidesAny) return filtered;
 

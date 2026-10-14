@@ -787,7 +787,7 @@ export const buildAppUnderTest = (options?: {
             )
           : Layer.empty,
       ),
-      Layer.provideMerge(ServerSecretStore.layer),
+      Layer.provideMerge(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
       Layer.provideMerge(
         options?.layers?.channelRuntime
           ? Layer.mock(ChannelRuntime.ChannelRuntime)(options.layers.channelRuntime)

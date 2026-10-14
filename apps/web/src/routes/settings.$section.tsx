@@ -15,9 +15,9 @@ export const Route = createFileRoute("/settings/$section")({
   beforeLoad: ({ params }) => {
     if (isSettingsSection(params.section)) return;
 
-    // Plugins moved out of Settings into their own page.
+    // Plugins moved out of Settings into Customize.
     if (params.section === "plugins") {
-      throw redirect({ to: "/plugins", replace: true });
+      throw redirect({ to: "/customize", replace: true });
     }
 
     const legacy = Object.entries(LEGACY_SETTINGS_SECTIONS).find(

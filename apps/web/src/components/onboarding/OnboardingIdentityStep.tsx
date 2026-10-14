@@ -1,4 +1,4 @@
-import { RiArrowLeftLine, RiArrowRightLine, RiLoader4Line } from "@remixicon/react";
+import { RiArrowLeftLine, RiArrowRightLine, RiLoaderLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
 import { Button } from "../ui/button";
@@ -82,7 +82,7 @@ export function IdentityStep({
       </section>
       {providerReadiness.status === "loading" ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <RiLoader4Line className="size-4 animate-spin motion-reduce:animate-none" />
+          <RiLoaderLine className="size-4 animate-spin motion-reduce:animate-none" />
           {t("Preparing your provider…")}
         </p>
       ) : providerReadiness.status === "unavailable" ? (
@@ -103,7 +103,7 @@ export function IdentityStep({
           onClick={onContinue}
         >
           {creating ? (
-            <RiLoader4Line className="size-4 animate-spin motion-reduce:animate-none" />
+            <RiLoaderLine className="size-4 animate-spin motion-reduce:animate-none" />
           ) : null}
           {t("Continue")}
           {!creating ? <RiArrowRightLine className="size-4" /> : null}

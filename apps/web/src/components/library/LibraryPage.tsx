@@ -1,7 +1,6 @@
 import {
-  LIBRARY_CHATS_FOLDER_ID,
   LIBRARY_MAX_FOLDER_DEPTH,
-  LIBRARY_PROJECTS_FOLDER_ID,
+  LIBRARY_SYSTEM_FOLDER_IDS,
   type LibraryFile,
   type LibraryFolder,
   LibraryFolderId,
@@ -11,6 +10,7 @@ import {
   RiAddLine,
   RiArrowRightSLine,
   RiBookShelfLine,
+  RiFolderLine,
   RiFileLine,
   RiFileTextLine,
   RiFolderAddLine,
@@ -19,7 +19,7 @@ import {
   RiStackLine,
   RiUploadLine,
 } from "@remixicon/react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useRef, useState, type DragEvent } from "react";
 
@@ -55,8 +55,8 @@ import {
 const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
 /**
- * Otto: The Library, a simple Drive. All browses folders, with the path as a
- * breadcrumb under the title; Documents, Images and Files list every file of
+ * Otto: The Library, a simple Drive. All browses folders, with the path as
+ * quiet 28px buttons at the top bar's left (Library › Chats › Launch crew); Documents, Images and Files list every file of
  * that type wherever it sits. Items are cards in the shared DataGrid: a 16:9
  * preview, then the title and who changed it when. New makes a document or a
  * folder or uploads files, and files dropped on the page upload here too.
@@ -82,8 +82,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const canAddFiles =
-    folderId !== LIBRARY_CHATS_FOLDER_ID && folderId !== LIBRARY_PROJECTS_FOLDER_ID;
+  const canAddFiles = folderId === null || !LIBRARY_SYSTEM_FOLDER_IDS.has(folderId);
 
   const canAddFolder = canAddFiles && path.length < LIBRARY_MAX_FOLDER_DEPTH;
 
@@ -154,7 +153,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
               <MenuTrigger
                 render={
                   <Button
-                    size="icon"
+                    size="icon-sm"
                     variant="ghost-muted"
                     aria-label={t("New")}
                     disabled={uploading}
@@ -192,8 +191,47 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
     { value: "files" as const, label: t("Files"), icon: RiFileLine },
   ];
 
+  const folderPath =
+    tab === "all" && path.length > 0 ? (
+      <nav aria-label={t("Folder path")} className="flex min-w-0 items-center">
+        <Button
+          variant="ghost-muted"
+          size="crumb"
+          className="shrink-0"
+          onClick={() => void navigate({ to: "/library" })}
+        >
+          <RiBookShelfLine aria-hidden className="size-4" />
+          {t("Library")}
+        </Button>
+        {path.map((ancestor) => (
+          <span key={ancestor.id} className="flex min-w-0 items-center">
+            <RiArrowRightSLine aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+            {ancestor.id === folderId ? (
+              <span
+                aria-current="page"
+                className="flex h-7 min-w-0 items-center gap-1 px-1.5 text-13px font-medium text-foreground"
+              >
+                <RiFolderLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{ancestor.title}</span>
+              </span>
+            ) : (
+              <Button
+                variant="ghost-muted"
+                size="crumb"
+                className="min-w-0"
+                onClick={() => void navigate({ to: "/library", search: { folder: ancestor.id } })}
+              >
+                <RiFolderLine aria-hidden className="size-4" />
+                <span className="truncate">{ancestor.title}</span>
+              </Button>
+            )}
+          </span>
+        ))}
+      </nav>
+    ) : null;
+
   return (
-    <WorkPage actions={empty ? null : newMenu}>
+    <WorkPage leading={folderPath} actions={empty ? null : newMenu}>
       <input
         ref={fileInput}
         type="file"
@@ -231,40 +269,6 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
         >
           <div className="flex flex-col gap-3">
             <WorkspacePageTitle>{folder?.title ?? t("Library")}</WorkspacePageTitle>
-            {tab === "all" && path.length > 0 ? (
-              <nav
-                aria-label={t("Folder path")}
-                className="flex min-w-0 flex-wrap items-center gap-0.5 px-4 text-13px"
-              >
-                <Link
-                  to="/library"
-                  className="rounded-md px-1 text-muted-foreground hover:text-foreground"
-                >
-                  {t("Library")}
-                </Link>
-                {path.map((ancestor) => (
-                  <span key={ancestor.id} className="flex min-w-0 items-center gap-0.5">
-                    <RiArrowRightSLine
-                      aria-hidden
-                      className="size-3.5 shrink-0 text-muted-foreground"
-                    />
-                    {ancestor.id === folderId ? (
-                      <span aria-current="page" className="truncate px-1 text-foreground">
-                        {ancestor.title}
-                      </span>
-                    ) : (
-                      <Link
-                        to="/library"
-                        search={{ folder: ancestor.id }}
-                        className="truncate rounded-md px-1 text-muted-foreground hover:text-foreground"
-                      >
-                        {ancestor.title}
-                      </Link>
-                    )}
-                  </span>
-                ))}
-              </nav>
-            ) : null}
             <div className="mt-2 mb-2">
               <DetailsTabs
                 label={t("Library tabs")}

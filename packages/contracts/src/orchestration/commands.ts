@@ -70,6 +70,7 @@ import {
   McpServerDeleteCommand,
   McpServerEnableCommand,
   McpServerDisableCommand,
+  McpServerAccessSetCommand,
 } from "./rosterCommands.ts";
 import {
   ThreadCreateCommand,
@@ -133,6 +134,7 @@ const DispatchableClientOrchestrationCommand = Schema.Union([
   McpServerDeleteCommand,
   McpServerEnableCommand,
   McpServerDisableCommand,
+  McpServerAccessSetCommand,
   ClientRoutineCommand,
   ThreadCreateCommand,
   ThreadDeleteCommand,
@@ -206,6 +208,7 @@ export const ClientOrchestrationCommand = Schema.Union([
   McpServerDeleteCommand,
   McpServerEnableCommand,
   McpServerDisableCommand,
+  McpServerAccessSetCommand,
   ClientRoutineCommand,
   ThreadCreateCommand,
   ThreadDeleteCommand,
