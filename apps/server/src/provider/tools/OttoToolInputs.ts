@@ -102,6 +102,14 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "GenerateImage":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "SaveToLibrary":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "ListLibrary":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "ReadLibraryFile":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "UpdateLibraryDocument":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "AddMcpServer":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "UninstallMcpServer":

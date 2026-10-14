@@ -41,7 +41,7 @@ describe("experimental sidebar in Simplified Chinese", () => {
       </LanguageProvider>,
     );
 
-    for (const label of ["主导航", "聊天", "例行任务", "任务", "项目", "插件", "设置"]) {
+    for (const label of ["主导航", "聊天", "例行任务", "任务", "项目", "资料库", "插件", "设置"]) {
       expect(html).toContain(`aria-label="${label}"`);
     }
 
@@ -51,6 +51,6 @@ describe("experimental sidebar in Simplified Chinese", () => {
     expect(html).not.toContain('aria-label="切换到浅色模式"');
     expect(html).not.toContain('aria-label="反馈"');
     expect(html).not.toContain('aria-label="用量"');
-    expect(html.match(/class="remixicon/g)).toHaveLength(6);
+    expect(html.match(/class="remixicon/g)).toHaveLength(7);
   });
 });

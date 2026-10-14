@@ -62,6 +62,16 @@ export function commandNamesPeople(command: OrchestrationCommand): boolean {
   );
 }
 
+const actorParticipant = (actor: AuthenticatedCommandActor) => ({
+  kind: "person" as const,
+  personId: actor.personId,
+  displayName: actor.displayName,
+});
+
+/** Library commands a client sends always act as the signed-in person. */
+export const isLibraryClientCommand = (command: OrchestrationCommand) =>
+  command.type.startsWith("library.");
+
 export function applyAuthenticatedCommandActor(
   command: OrchestrationCommand,
   actor: AuthenticatedCommandActor,
@@ -78,6 +88,22 @@ export function applyAuthenticatedCommandActor(
       };
     case "group.leave":
       return { ...command, personId: actor.personId };
+    case "library.folder.create": {
+      const { threadId: _threadId, ...rest } = command;
+
+      return { ...rest, by: actorParticipant(actor) };
+    }
+
+    case "library.file.update": {
+      const { sizeBytes: _sizeBytes, expectedUpdatedAt: _expected, ...rest } = command;
+
+      return { ...rest, by: actorParticipant(actor) };
+    }
+
+    case "library.folder.update":
+    case "library.folder.delete":
+    case "library.file.delete":
+      return { ...command, by: actorParticipant(actor) };
     case "thread.turn.start":
       return {
         ...command,

@@ -1,7 +1,15 @@
-import { type EnvironmentId } from "@otto/contracts";
+import { type EnvironmentId, ThreadId } from "@otto/contracts";
+import { useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { DetailsAside } from "../DetailsAside";
+import {
+  ChatLibraryPanel,
+  type ChatSidebarTab,
+  useChatSidebarTabs,
+} from "../library/ChatLibraryPanel";
+import { useThreadShells } from "../../state/entities";
+import { findLatestGroupThreadTarget } from "./botThreadRuntime.logic";
 import type { Bot, Group } from "./types";
 import { useGroupDetailsOpen } from "./detailsPanelOpen";
 import { GroupEditor } from "./GroupEditor";
@@ -16,6 +24,10 @@ export function GroupDetailsPanel(props: {
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useGroupDetailsOpen();
+  const [tab, setTab] = useState<ChatSidebarTab>("details");
+  const tabs = useChatSidebarTabs();
+  const threads = useThreadShells();
+  const thread = findLatestGroupThreadTarget(props.group.id, props.environmentId, threads);
 
   return (
     <DetailsAside
@@ -29,8 +41,19 @@ export function GroupDetailsPanel(props: {
         close: t("Close group sidebar"),
         sheetTitle: t("Edit {name}", { name: props.group.name }),
       }}
+      tabs={{
+        items: tabs,
+        value: tab,
+        onValueChange: (value) => setTab(value === "library" ? "library" : "details"),
+      }}
     >
-      <GroupEditor {...props} />
+      {tab === "library" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <ChatLibraryPanel threadId={thread ? ThreadId.make(thread.threadId) : null} />
+        </div>
+      ) : (
+        <GroupEditor {...props} />
+      )}
     </DetailsAside>
   );
 }

@@ -115,6 +115,14 @@ export function itemForCommand(
       case "task.time.add":
       case "task.time.remove":
         return `task:${command.taskId}`;
+      case "library.folder.create":
+      case "library.folder.update":
+      case "library.folder.delete":
+        return `library-folder:${command.folderId}`;
+      case "library.file.create":
+      case "library.file.update":
+      case "library.file.delete":
+        return `library-file:${command.fileId}`;
       default:
         return `thread:${command.threadId}`;
     }

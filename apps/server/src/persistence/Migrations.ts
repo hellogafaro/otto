@@ -89,6 +89,7 @@ import Migration0073 from "./Migrations/073_RoutineCanceledClaims.ts";
 import Migration0074 from "./Migrations/074_ProjectionPlanning.ts";
 import Migration0075 from "./Migrations/075_GroupPeopleAccounts.ts";
 import Migration0076 from "./Migrations/076_ProjectionTimesheets.ts";
+import Migration0077 from "./Migrations/077_ProjectionLibrary.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -177,6 +178,7 @@ export const migrationEntries = [
   [74, "ProjectionPlanning", Migration0074],
   [75, "GroupPeopleAccounts", Migration0075],
   [76, "ProjectionTimesheets", Migration0076],
+  [77, "ProjectionLibrary", Migration0077],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

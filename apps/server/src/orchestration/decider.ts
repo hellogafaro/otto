@@ -13,6 +13,7 @@ import { decideMcpServers } from "./decider/mcpServers.ts";
 import { decideDelegations } from "./decider/delegations.ts";
 import { decideRoutines } from "./decider/routines.ts";
 import { decideTasks } from "./decider/tasks.ts";
+import { decideLibrary } from "./decider/library.ts";
 import { decideThreadLifecycle } from "./decider/threadLifecycle.ts";
 import { decideThreadVisibility } from "./decider/threadVisibility.ts";
 import { decideThreadTurns } from "./decider/threadTurns.ts";
@@ -159,6 +160,13 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         readModel,
         ...(actor !== undefined ? { actor } : {}),
       });
+    case "library.folder.create":
+    case "library.folder.update":
+    case "library.folder.delete":
+    case "library.file.create":
+    case "library.file.update":
+    case "library.file.delete":
+      return yield* decideLibrary({ command, readModel });
     case "routine.create-approved":
     case "routine.draft":
     case "routine.approve":

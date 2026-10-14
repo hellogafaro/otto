@@ -41,6 +41,7 @@ export function createReadModels({
   listDelegationRows,
   projectionMcpServerRepository,
   projectionTaskRepository,
+  projectionLibraryRepository,
   routineRepository,
   listThreadRows,
   listThreadMessageRows,
@@ -62,6 +63,7 @@ export function createReadModels({
   | "listDelegationRows"
   | "projectionMcpServerRepository"
   | "projectionTaskRepository"
+  | "projectionLibraryRepository"
   | "routineRepository"
   | "listThreadRows"
   | "listThreadMessageRows"
@@ -111,6 +113,8 @@ export function createReadModels({
           ),
           projectionMcpServerRepository.listAll(),
           projectionTaskRepository.listAll(),
+          projectionLibraryRepository.listFolders(),
+          projectionLibraryRepository.listFiles(),
           routineRepository.listAll,
           routineRepository.listAllRuns,
           routineRepository.listSkillAssignments,
@@ -189,6 +193,8 @@ export function createReadModels({
             delegationRows,
             mcpServers,
             tasks,
+            libraryFolders,
+            libraryFiles,
             routines,
             routineRuns,
             skillAssignments,
@@ -395,6 +401,8 @@ export function createReadModels({
                 delegations: delegationRows.map((row) => row.delegation),
                 mcpServers,
                 tasks,
+                libraryFolders,
+                libraryFiles,
                 routines,
                 routineRuns,
                 skillAssignments,
@@ -456,6 +464,8 @@ export function createReadModels({
           ),
           projectionMcpServerRepository.listAll(),
           projectionTaskRepository.listAll(),
+          projectionLibraryRepository.listFolders(),
+          projectionLibraryRepository.listFiles(),
           routineRepository.listAll,
           routineRepository.listAllRuns,
           routineRepository.listSkillAssignments,
@@ -510,6 +520,8 @@ export function createReadModels({
             delegationRows,
             mcpServers,
             tasks,
+            libraryFolders,
+            libraryFiles,
             routines,
             routineRuns,
             skillAssignments,
@@ -711,6 +723,8 @@ export function createReadModels({
                 delegations: delegationRows.map((row) => row.delegation),
                 mcpServers,
                 tasks,
+                libraryFolders,
+                libraryFiles,
                 routines,
                 routineRuns,
                 skillAssignments,

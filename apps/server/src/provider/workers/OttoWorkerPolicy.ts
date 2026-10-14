@@ -95,6 +95,8 @@ export const OTTO_WORKER_EXCLUDED_TOOL_IDS: ReadonlySet<OttoToolId> = new Set([
   "request_box_help",
   "ReactToMessage",
   "UpdateBotProfile",
+  "SaveToLibrary",
+  "UpdateLibraryDocument",
 ]);
 
 /**

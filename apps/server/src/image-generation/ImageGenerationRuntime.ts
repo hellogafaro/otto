@@ -29,6 +29,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { createAttachmentId, resolveAttachmentPath } from "../attachmentStore.ts";
 import { ServerConfig } from "../config.ts";
+import { activeLibraryTools } from "../library/LibraryToolRuntime.ts";
 import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { ProjectionThreadMessageRepositoryLive } from "../persistence/Layers/ProjectionThreadMessages.ts";
@@ -404,6 +405,7 @@ export const makeImageGenerationRuntime = Effect.fn("makeImageGenerationRuntime"
       const attachments: ChatImageAttachment[] = [];
 
       const unpostedPaths = new Set<string>();
+      const libraryImages: Array<{ readonly bytes: Uint8Array; readonly fileName: string }> = [];
       yield* Effect.gen(function* () {
         for (const part of routed.parts) {
           for (const bytes of part.output.images) {
@@ -422,6 +424,7 @@ export const makeImageGenerationRuntime = Effect.fn("makeImageGenerationRuntime"
 
             if (!attachment) continue;
             attachments.push(attachment);
+            libraryImages.push({ bytes, fileName: attachment.name });
             artifacts.push({
               attachmentId: attachment.id,
               mimeType: sniffed.mimeType,
@@ -436,6 +439,17 @@ export const makeImageGenerationRuntime = Effect.fn("makeImageGenerationRuntime"
 
         if (attachments.length > 0) {
           yield* postAttachments({ threadId, turnId, generationId, attachments, unpostedPaths });
+
+          const libraryTools = activeLibraryTools();
+
+          if (botId && libraryTools) {
+            for (const image of libraryImages) {
+              yield* libraryTools.saveGeneratedImage(
+                { threadId, botId },
+                { ...image, title: request.prompt.slice(0, 80) },
+              );
+            }
+          }
         }
       }).pipe(
         Effect.ensuring(

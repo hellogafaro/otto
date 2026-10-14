@@ -26,6 +26,7 @@ import { SubscriptionAuthService } from "../subscription-auth/service.ts";
 import { projectThreadDetailSnapshot } from "./ActivityPayloadProjection.ts";
 import {
   applyAuthenticatedCommandActor,
+  isLibraryClientCommand,
   applyKnownGroupPerson,
   commandNamesPeople,
   sessionPersonId,
@@ -45,6 +46,7 @@ import {
 } from "../auth/http.ts";
 import { OrchestrationEngineService } from "./Services/OrchestrationEngine.ts";
 import { ProjectionGroupRepository } from "../persistence/Services/ProjectionGroups.ts";
+import { ProjectionLibraryRepository } from "../persistence/Services/ProjectionLibrary.ts";
 import { canSeeGroup, visibleShellSnapshot } from "./groupVisibility.ts";
 import { ProjectionSnapshotQuery } from "./Services/ProjectionSnapshotQuery.ts";
 
@@ -56,6 +58,7 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
     const orchestrationEngine = yield* OrchestrationEngineService;
     const accounts = yield* OrganizationAccounts;
     const projectionGroups = yield* ProjectionGroupRepository;
+    const projectionLibrary = yield* ProjectionLibraryRepository;
 
     const canReadThread = (threadId: ThreadId, personId: AuthSessionId) =>
       Effect.gen(function* () {
@@ -68,6 +71,7 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
           ? true
           : canSeeGroup({ id: group.value.groupId, members: group.value.members }, personId);
       });
+
     const projectionBots = yield* ProjectionBots.ProjectionBotRepository;
     const commandReceipts = yield* OrchestrationCommandReceiptRepository;
     const providerRegistry = yield* Effect.serviceOption(ProviderRegistry.ProviderRegistry);
@@ -107,8 +111,12 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
           const people = yield* accounts.listPeople().pipe(Effect.orElseSucceed(() => []));
           const currentPerson = people.find((person) => person.userId === personId);
 
+          const chatThreads = yield* projectionLibrary
+            .listChatThreads()
+            .pipe(Effect.orElseSucceed(() => []));
+
           return yield* projectionSnapshotQuery.getShellSnapshot().pipe(
-            Effect.map((snapshot) => visibleShellSnapshot(snapshot, personId)),
+            Effect.map((snapshot) => visibleShellSnapshot(snapshot, personId, chatThreads)),
             Effect.map((snapshot) => ({
               ...snapshot,
               currentPersonId: personId,
@@ -222,7 +230,8 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
             decodedCommand.type === "group.create" ||
             decodedCommand.type === "group.leave" ||
             decodedCommand.type === "group.person.assign" ||
-            decodedCommand.type === "thread.turn.start";
+            decodedCommand.type === "thread.turn.start" ||
+            isLibraryClientCommand(decodedCommand);
 
           const people = needsPeople
             ? yield* accounts

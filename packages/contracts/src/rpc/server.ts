@@ -1,6 +1,19 @@
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/unstable/rpc/Rpc";
 import { ComputerError } from "../computer.ts";
+import {
+  LibraryCreateDocumentInput,
+  LibraryCreateDocumentResult,
+  LibraryCreateFileUrlInput,
+  LibraryCreateFileUrlResult,
+  LibraryCreateUploadUrlInput,
+  LibraryCreateUploadUrlResult,
+  LibraryFileInput,
+  LibraryReadDocumentResult,
+  LibraryRequestError,
+  LibrarySaveDocumentInput,
+  LibrarySaveDocumentResult,
+} from "../orchestration/library.ts";
 import { OttoBotUsageInput, OttoBotUsageReadError, OttoBotUsageSnapshot } from "../ottoUsage.ts";
 import {
   OttoMemoryOperationError,
@@ -632,6 +645,38 @@ export const WsAttachmentsCreateUploadUrlRpc = Rpc.make(WS_METHODS.attachmentsCr
 export const WsAttachmentsDeleteRpc = Rpc.make(WS_METHODS.attachmentsDelete, {
   payload: AttachmentDeleteInput,
   error: EnvironmentAuthorizationError,
+});
+
+const libraryError = Schema.Union([LibraryRequestError, EnvironmentAuthorizationError]);
+
+export const WsLibraryCreateUploadUrlRpc = Rpc.make(WS_METHODS.libraryCreateUploadUrl, {
+  payload: LibraryCreateUploadUrlInput,
+  success: LibraryCreateUploadUrlResult,
+  error: libraryError,
+});
+
+export const WsLibraryCreateDocumentRpc = Rpc.make(WS_METHODS.libraryCreateDocument, {
+  payload: LibraryCreateDocumentInput,
+  success: LibraryCreateDocumentResult,
+  error: libraryError,
+});
+
+export const WsLibraryReadDocumentRpc = Rpc.make(WS_METHODS.libraryReadDocument, {
+  payload: LibraryFileInput,
+  success: LibraryReadDocumentResult,
+  error: libraryError,
+});
+
+export const WsLibrarySaveDocumentRpc = Rpc.make(WS_METHODS.librarySaveDocument, {
+  payload: LibrarySaveDocumentInput,
+  success: LibrarySaveDocumentResult,
+  error: libraryError,
+});
+
+export const WsLibraryCreateFileUrlRpc = Rpc.make(WS_METHODS.libraryCreateFileUrl, {
+  payload: LibraryCreateFileUrlInput,
+  success: LibraryCreateFileUrlResult,
+  error: libraryError,
 });
 
 export const WsProviderUploadFeedbackRpc = Rpc.make(WS_METHODS.providerUploadFeedback, {

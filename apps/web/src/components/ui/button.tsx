@@ -36,6 +36,9 @@ const buttonPresentations = {
   "markdown-chrome": "chat-markdown-chrome-action",
   "reveal-on-hover":
     "opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100",
+  // Otto: A card's or row's actions menu, shown while the card is hovered or focused or the menu is open.
+  "reveal-in-group":
+    "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-popup-open:opacity-100 max-sm:opacity-100",
   "preview-tool": "[:hover,[data-pressed]]:bg-foreground/10",
   "screen-reveal":
     "opacity-0 transition group-focus-within/screen:opacity-100 group-hover/screen:opacity-100",

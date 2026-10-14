@@ -164,6 +164,10 @@
       "types": "./src/state/taskCommands.ts",
       "default": "./src/state/taskCommands.ts"
     },
+    "./state/library": {
+      "types": "./src/state/libraryCommands.ts",
+      "default": "./src/state/libraryCommands.ts"
+    },
     "./state/mcp-servers": {
       "types": "./src/state/mcpServerCommands.ts",
       "default": "./src/state/mcpServerCommands.ts"

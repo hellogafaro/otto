@@ -93,6 +93,40 @@ export const createWsOrchestrationStreams = ({
             task: event.payload.task,
           }),
         );
+      case "library.folder-created":
+      case "library.folder-updated":
+        return Effect.succeed(
+          Option.some({
+            kind: "library-folder-upserted" as const,
+            sequence: event.sequence,
+            folder: event.payload.folder,
+          }),
+        );
+      case "library.folder-deleted":
+        return Effect.succeed(
+          Option.some({
+            kind: "library-folder-removed" as const,
+            sequence: event.sequence,
+            folderId: event.payload.folderId,
+          }),
+        );
+      case "library.file-created":
+      case "library.file-updated":
+        return Effect.succeed(
+          Option.some({
+            kind: "library-file-upserted" as const,
+            sequence: event.sequence,
+            file: event.payload.file,
+          }),
+        );
+      case "library.file-deleted":
+        return Effect.succeed(
+          Option.some({
+            kind: "library-file-removed" as const,
+            sequence: event.sequence,
+            fileId: event.payload.fileId,
+          }),
+        );
       case "mcp-server.created":
       case "mcp-server.updated":
       case "mcp-server.enabled":

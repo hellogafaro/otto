@@ -117,6 +117,7 @@ export function RichTextEditor({
   ariaLabel,
   className,
   links = NO_LINKS,
+  editable = true,
 }: {
   /** Markdown; read once when the editor mounts, so key the editor to reset it. */
   readonly value: string;
@@ -128,6 +129,8 @@ export function RichTextEditor({
   readonly className?: string;
   /** What @ can link to; each link is stored as a Markdown link to its Otto page. */
   readonly links?: ReadonlyArray<EditorLink>;
+  /** False shows the Markdown read-only; read once on mount like the value. */
+  readonly editable?: boolean;
 }) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -158,6 +161,7 @@ export function RichTextEditor({
     content: value,
     contentType: "markdown",
     immediatelyRender: true,
+    editable,
     editorProps: {
       attributes: {
         "aria-label": ariaLabel,

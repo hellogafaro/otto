@@ -1,4 +1,8 @@
 import { ProviderInstanceRegistryMutator } from "./provider/Services/ProviderInstanceRegistryMutator.ts";
+import {
+  ProjectionLibraryRepository,
+  type ProjectionLibraryRepositoryShape,
+} from "./persistence/Services/ProjectionLibrary.ts";
 import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 
 import { DEFAULT_SERVER_SETTINGS, type PreviewEvent } from "@otto/contracts";
@@ -601,6 +605,15 @@ export const buildAppUnderTest = (options?: {
             deleteById: () => Effect.void,
             ...options?.layers?.projectionGroups,
           } satisfies ProjectionGroups.ProjectionGroupRepositoryShape),
+          Layer.succeed(ProjectionLibraryRepository, {
+            upsertFolder: () => Effect.void,
+            deleteFolder: () => Effect.void,
+            upsertFile: () => Effect.void,
+            deleteFile: () => Effect.void,
+            listFolders: () => Effect.succeed([]),
+            listFiles: () => Effect.succeed([]),
+            listChatThreads: () => Effect.succeed([]),
+          } satisfies ProjectionLibraryRepositoryShape),
           Layer.mock(ProjectionSnapshotQuery.ProjectionSnapshotQuery)({
             getCommandReadModel: () => Effect.succeed(defaultOrchestrationReadModel()),
             getSnapshot: () => Effect.succeed(defaultOrchestrationReadModel()),

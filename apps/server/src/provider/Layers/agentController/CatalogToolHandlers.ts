@@ -7,6 +7,7 @@ import {
   decodeOttoToolInput,
 } from "@otto/contracts";
 import { runImageGenerationTool } from "../../../image-generation/ImageGenerationRuntime.ts";
+import { activeLibraryTools } from "../../../library/LibraryToolRuntime.ts";
 import { createOttoCatalogToolHandlers } from "../../OttoCatalogToolHandlers.ts";
 import { ottoWebSearchUnavailable } from "../../OttoWebFetch.ts";
 import { nowIso } from "./EventIdentity.ts";
@@ -29,6 +30,8 @@ export function createSessionCatalogHandlers(
   },
 ) {
   const { threadId, mcpManager } = input;
+  const libraryTools = activeLibraryTools();
+  const libraryCaller = input.botId ? { threadId, botId: input.botId } : null;
 
   const mcpDependencies =
     input.botId && input.botName
@@ -85,6 +88,17 @@ export function createSessionCatalogHandlers(
 
         return deps.runPromise(generate(threadId, request));
       },
+      ...(libraryTools && libraryCaller
+        ? {
+            library: {
+              save: (request) => deps.runPromise(libraryTools.save(libraryCaller, request)),
+              list: (request) => deps.runPromise(libraryTools.list(libraryCaller, request)),
+              read: (request) => deps.runPromise(libraryTools.read(libraryCaller, request)),
+              updateDocument: (request) =>
+                deps.runPromise(libraryTools.updateDocument(libraryCaller, request)),
+            },
+          }
+        : {}),
       ...(deps.wired().pluginRuntimeOptions
         ? {
             addMcpServer: async (input) => {

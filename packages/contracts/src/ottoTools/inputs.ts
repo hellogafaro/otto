@@ -20,6 +20,12 @@ import { McpServerId, McpServerInstructions, McpServerUrl } from "../mcpServer.t
 import { ImageGenerationRequest } from "../imageGeneration.ts";
 import { BotSandbox } from "../orchestration/roster.ts";
 import { RuntimeMode } from "../orchestration/modelSelection.ts";
+import {
+  LibraryFileId,
+  LibraryFileType,
+  LibraryFolderId,
+  LibraryTitle,
+} from "../orchestration/library.ts";
 import { OttoToolId, OttoToolApprovalClass } from "./catalog.ts";
 
 export const OTTO_COMMAND_MAX_CHARS = 32_000;
@@ -151,6 +157,23 @@ const AgentMessageInput = Schema.Struct({
   approvalCeiling: Schema.optional(OttoToolApprovalClass),
 });
 
+/** The size limit is checked on the saved bytes, so the model sees a plain string. */
+const LibraryText = Schema.String;
+
+const SaveToLibraryInput = Schema.Struct({
+  content: Schema.optional(LibraryText),
+  fileName: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
+  attachmentId: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(128))),
+  title: Schema.optional(LibraryTitle),
+  folderId: Schema.optional(LibraryFolderId),
+}).check(
+  Schema.makeFilter(
+    (input) =>
+      (input.content === undefined) !== (input.attachmentId === undefined) ||
+      new SchemaIssue.InvalidValue({ message: "Pass either content or attachmentId." }),
+  ),
+);
+
 export const OttoToolInputSchemas = {
   Shell: CommandInput,
   Read: PathInput,
@@ -212,6 +235,20 @@ export const OttoToolInputSchemas = {
   WebSearch: WebSearchInput,
   WebFetch: WebFetchInput,
   GenerateImage: ImageGenerationRequest,
+  SaveToLibrary: SaveToLibraryInput,
+  ListLibrary: Schema.Struct({
+    folderId: Schema.optional(LibraryFolderId),
+    type: Schema.optional(LibraryFileType),
+    query: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
+    limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
+  }),
+  ReadLibraryFile: Schema.Struct({ fileId: LibraryFileId }),
+  UpdateLibraryDocument: Schema.Struct({
+    fileId: LibraryFileId,
+    content: LibraryText,
+    updatedAt: IsoDateTime,
+    title: Schema.optional(LibraryTitle),
+  }),
   AddMcpServer: AddMcpServerInput,
   UninstallMcpServer: Schema.Struct({ serverId: McpServerId }),
   RemoveMcpAccount: Schema.Struct({ serverId: McpServerId }),

@@ -23,6 +23,11 @@ import { botSandboxChoice, botSandboxLabel } from "./botSandbox";
 import { RoutinePanel, type RoutinePanelProps } from "./RoutinePanel";
 import type { Bot } from "./types";
 import { DetailsTabs } from "../DetailsAside";
+import {
+  ChatLibraryPanel,
+  type ChatSidebarTab,
+  useChatSidebarTabs,
+} from "../library/ChatLibraryPanel";
 import { useDetailsPanelState } from "./useDetailsPanelState";
 import { useBotDetailsOpen } from "./detailsPanelOpen";
 
@@ -130,6 +135,8 @@ export function BotDetailsPanel({
   const [desktopOpen, setDesktopOpen] = useBotDetailsOpen(bot.id);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [browserExpanded, setBrowserExpanded] = useState(false);
+  const [tab, setTab] = useState<ChatSidebarTab>("details");
+  const tabs = useChatSidebarTabs();
   const desktopPanel = useDetailsPanelState(desktopOpen);
   const desktopRoutineRef = useRef<HTMLDivElement>(null);
   const mobileRoutineRef = useRef<HTMLDivElement>(null);
@@ -138,6 +145,13 @@ export function BotDetailsPanel({
 
   useEffect(() => {
     if (routinePanelRequest === 0 || handledRoutineRequest.current === routinePanelRequest) return;
+
+    if (tab !== "details") {
+      setTab("details");
+
+      return;
+    }
+
     const mobile = window.matchMedia(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY).matches;
 
     if (mobile && !mobileOpen) {
@@ -171,6 +185,7 @@ export function BotDetailsPanel({
     mobileOpen,
     routinePanelRequest,
     setDesktopOpen,
+    tab,
   ]);
 
   useEffect(() => {
@@ -210,21 +225,33 @@ export function BotDetailsPanel({
     <>
       {!browserExpanded || !canExpandBrowser ? (
         <header className="relative flex h-(--workspace-topbar-height) shrink-0 items-center ps-3 pe-12">
-          <DetailsTabs label={t("{name} bot sidebar", { name: bot.name })} />
+          <DetailsTabs
+            label={t("{name} bot sidebar", { name: bot.name })}
+            tabs={tabs}
+            value={tab}
+            onValueChange={setTab}
+          />
           <div className="absolute right-3 flex items-center min-[981px]:fixed min-[981px]:right-(--workspace-controls-right) min-[981px]:top-(--workspace-controls-top) min-[981px]:z-40 min-[981px]:h-(--workspace-topbar-height)">
             {closeButton}
           </div>
         </header>
       ) : null}
-      <BotBrowserPreview
-        botName={bot.name}
-        threadRef={threadRef}
-        expanded={canExpandBrowser && browserExpanded}
-        visible={active}
-        onExpandedChange={setBrowserExpanded}
-        trailingAction={browserExpanded && canExpandBrowser ? closeButton : undefined}
-      />
-      {!browserExpanded || !canExpandBrowser ? (
+      {tab === "library" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <ChatLibraryPanel threadId={threadRef?.threadId ?? null} />
+        </div>
+      ) : null}
+      {tab === "details" ? (
+        <BotBrowserPreview
+          botName={bot.name}
+          threadRef={threadRef}
+          expanded={canExpandBrowser && browserExpanded}
+          visible={active}
+          onExpandedChange={setBrowserExpanded}
+          trailingAction={browserExpanded && canExpandBrowser ? closeButton : undefined}
+        />
+      ) : null}
+      {tab === "details" && (!browserExpanded || !canExpandBrowser) ? (
         <>
           <BotOverview
             bot={bot}

@@ -72,6 +72,20 @@ export interface OttoCatalogBackendOptions {
   readonly generateImage?: (
     input: (typeof OttoToolInputSchemas.GenerateImage)["Type"],
   ) => Promise<OttoToolResult>;
+  readonly library?: {
+    readonly save: (
+      input: (typeof OttoToolInputSchemas.SaveToLibrary)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly list: (
+      input: (typeof OttoToolInputSchemas.ListLibrary)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly read: (
+      input: (typeof OttoToolInputSchemas.ReadLibraryFile)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly updateDocument: (
+      input: (typeof OttoToolInputSchemas.UpdateLibraryDocument)["Type"],
+    ) => Promise<OttoToolResult>;
+  };
   readonly addMcpServer?: (
     input: (typeof OttoToolInputSchemas.AddMcpServer)["Type"],
   ) => Promise<OttoToolResult>;

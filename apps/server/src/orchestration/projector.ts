@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import { type OrchestrationProjectorDecodeError } from "./Errors.ts";
 import { projectEnvironment } from "./projector/Environment.ts";
 import { projectBotsAndGroups } from "./projector/BotsAndGroups.ts";
+import { projectLibrary } from "./projector/Library.ts";
 import { projectThreadLifecycle } from "./projector/ThreadLifecycle.ts";
 import { projectThreadMessages } from "./projector/ThreadMessages.ts";
 import { projectThreadHistory } from "./projector/ThreadHistory.ts";
@@ -21,6 +22,8 @@ export function createEmptyReadModel(nowIso: string): OrchestrationReadModel {
     routineRuns: [],
     skillAssignments: [],
     tasks: [],
+    libraryFolders: [],
+    libraryFiles: [],
     threads: [],
     updatedAt: nowIso,
   };
@@ -64,6 +67,13 @@ export function projectEvent(
     case "skill-assignment.assigned":
     case "skill-assignment.unassigned":
       return projectEnvironment(nextBase, event);
+    case "library.folder-created":
+    case "library.folder-updated":
+    case "library.folder-deleted":
+    case "library.file-created":
+    case "library.file-updated":
+    case "library.file-deleted":
+      return projectLibrary(nextBase, event);
     case "bot.created":
     case "bot.updated":
     case "bot.archived":

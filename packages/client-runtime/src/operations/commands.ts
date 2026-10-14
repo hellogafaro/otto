@@ -21,6 +21,19 @@ export {
 } from "./commands/task.ts";
 
 export {
+  type CreateLibraryFolderInput,
+  type DeleteLibraryFileInput,
+  type DeleteLibraryFolderInput,
+  type UpdateLibraryFileInput,
+  type UpdateLibraryFolderInput,
+  createLibraryFolder,
+  deleteLibraryFile,
+  deleteLibraryFolder,
+  updateLibraryFile,
+  updateLibraryFolder,
+} from "./commands/library.ts";
+
+export {
   type CreateBotInput,
   type UpdateBotInput,
   type ArchiveBotInput,

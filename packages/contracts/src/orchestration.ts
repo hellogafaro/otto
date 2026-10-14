@@ -4,6 +4,8 @@ export { ORCHESTRATION_WS_METHODS } from "./orchestration/methods.ts";
 
 export * from "./orchestration/work.ts";
 
+export * from "./orchestration/library.ts";
+
 export {
   ProviderApprovalPolicy,
   ProviderSandboxMode,

@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1853,
+  "directMessageCount": 1917,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -54,6 +54,10 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/chat/SettingsLinkChip.tsx": [
       "destination.label) });",
+    ],
+    "apps/web/src/components/library/LibraryActions.tsx": [
+      "'Delete the folder "{name}"?', { name: item.title })",
+      "'Delete "{name}"? This can\\'t be undone.', { name: item.title }),",
     ],
     "apps/web/src/components/onboarding/OnboardingSubscriptionStep.tsx": [
       "definition.subscription)}",
@@ -448,6 +452,13 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/chat/traitsPicker.logic.ts",
     "apps/web/src/components/computer/ComputerViewerDialog.tsx",
     "apps/web/src/components/computer/ComputerViewerPanel.tsx",
+    "apps/web/src/components/library/ChatLibraryPanel.tsx",
+    "apps/web/src/components/library/LibraryActions.tsx",
+    "apps/web/src/components/library/LibraryDetails.tsx",
+    "apps/web/src/components/library/LibraryDocumentPage.tsx",
+    "apps/web/src/components/library/LibraryLightbox.tsx",
+    "apps/web/src/components/library/LibraryPage.tsx",
+    "apps/web/src/components/library/useLibrary.ts",
     "apps/web/src/components/markdown/MarkdownCodeBlock.tsx",
     "apps/web/src/components/markdown/MarkdownFileLink.tsx",
     "apps/web/src/components/markdown/MarkdownImages.tsx",

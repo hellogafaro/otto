@@ -17,11 +17,13 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteImport } from './routes/_chat'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
+import { Route as LibraryIndexRouteImport } from './routes/library.index'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as TasksTaskIdRouteImport } from './routes/tasks.$taskId'
 import { Route as SettingsSectionRouteImport } from './routes/settings.$section'
 import { Route as SettingsSplatRouteImport } from './routes/settings.$'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as LibraryFileIdRouteImport } from './routes/library.$fileId'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
 import { Route as SettingsProvidersProviderIdRouteImport } from './routes/settings.providers.$providerId'
 import { Route as SettingsChannelsChannelRouteImport } from './routes/settings.channels.$channel'
@@ -70,6 +72,11 @@ const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   path: '/projects/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryIndexRoute = LibraryIndexRouteImport.update({
+  id: '/library/',
+  path: '/library/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -93,6 +100,11 @@ const SettingsSplatRoute = SettingsSplatRouteImport.update({
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/projects/$projectId',
   path: '/projects/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryFileIdRoute = LibraryFileIdRouteImport.update({
+  id: '/library/$fileId',
+  path: '/library/$fileId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
@@ -146,10 +158,12 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRouteWithChildren
   '/setup': typeof SetupRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
+  '/library/': typeof LibraryIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
@@ -167,11 +181,13 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRouteWithChildren
   '/setup': typeof SetupRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
   '/': typeof ChatIndexRoute
+  '/library': typeof LibraryIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/tasks': typeof TasksIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
@@ -191,11 +207,13 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRouteWithChildren
   '/setup': typeof SetupRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
   '/_chat/': typeof ChatIndexRoute
+  '/library/': typeof LibraryIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/_chat/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
@@ -216,10 +234,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/invite/$invitationId'
+    | '/library/$fileId'
     | '/projects/$projectId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
+    | '/library/'
     | '/projects/'
     | '/tasks/'
     | '/$environmentId/$threadId'
@@ -237,11 +257,13 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/invite/$invitationId'
+    | '/library/$fileId'
     | '/projects/$projectId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
     | '/'
+    | '/library'
     | '/projects'
     | '/tasks'
     | '/$environmentId/$threadId'
@@ -260,11 +282,13 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/invite/$invitationId'
+    | '/library/$fileId'
     | '/projects/$projectId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
     | '/_chat/'
+    | '/library/'
     | '/projects/'
     | '/tasks/'
     | '/_chat/$environmentId/$threadId'
@@ -284,8 +308,10 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRouteWithChildren
   SetupRoute: typeof SetupRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  LibraryFileIdRoute: typeof LibraryFileIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   TasksTaskIdRoute: typeof TasksTaskIdRoute
+  LibraryIndexRoute: typeof LibraryIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
   BotsBotIdSettingsRoute: typeof BotsBotIdSettingsRoute
@@ -349,6 +375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/library/': {
+      id: '/library/'
+      path: '/library'
+      fullPath: '/library/'
+      preLoaderRoute: typeof LibraryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_chat/': {
       id: '/_chat/'
       path: '/'
@@ -382,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId'
       fullPath: '/projects/$projectId'
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library/$fileId': {
+      id: '/library/$fileId'
+      path: '/library/$fileId'
+      fullPath: '/library/$fileId'
+      preLoaderRoute: typeof LibraryFileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$invitationId': {
@@ -487,8 +527,10 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRouteWithChildren,
   SetupRoute: SetupRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
+  LibraryFileIdRoute: LibraryFileIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   TasksTaskIdRoute: TasksTaskIdRoute,
+  LibraryIndexRoute: LibraryIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
   BotsBotIdSettingsRoute: BotsBotIdSettingsRoute,

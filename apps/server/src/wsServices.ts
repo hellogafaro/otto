@@ -51,6 +51,7 @@ import { ThreadDeletionReactor } from "./orchestration/Services/ThreadDeletionRe
 import { OrchestrationCommandReceiptRepository } from "./persistence/Services/OrchestrationCommandReceipts.ts";
 import * as ProjectionBots from "./persistence/Services/ProjectionBots.ts";
 import * as ProjectionGroups from "./persistence/Services/ProjectionGroups.ts";
+import { ProjectionLibraryRepository } from "./persistence/Services/ProjectionLibrary.ts";
 import { BotMemoryStore } from "./memory/BotMemory.ts";
 import { EntityMemoryRepository } from "./memory/Services/EntityMemoryRepository.ts";
 import { MemoryApprovals } from "./memory/MemoryApprovals.ts";
@@ -151,6 +152,8 @@ export const createWsServices = (
     const botUsageLedger = yield* BotUsageLedger;
 
     const projectionGroups = yield* ProjectionGroups.ProjectionGroupRepository;
+
+    const projectionLibrary = yield* ProjectionLibraryRepository;
 
     const routineRepository = yield* RoutineRepository;
 
@@ -396,6 +399,7 @@ export const createWsServices = (
       });
 
     const accounts = yield* OrganizationAccounts;
+
     const authorizeScope = (requiredScope: AuthEnvironmentScope) =>
       accounts.getPrincipal(currentSession.sessionId).pipe(
         Effect.mapError(() => authorizationError(requiredScope)),
@@ -719,6 +723,7 @@ export const createWsServices = (
       projectionBots,
       botUsageLedger,
       projectionGroups,
+      projectionLibrary,
       routineRepository,
       routineRuntime,
       orchestrationEngine,

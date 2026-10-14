@@ -1,5 +1,12 @@
 import * as Predicate from "effect/Predicate";
-import { AuthSessionId, type AssetResource } from "@otto/contracts";
+import {
+  AuthSessionId,
+  type AssetResource,
+  type LibraryFile,
+  libraryContentType,
+  libraryDownloadName,
+  libraryFileDisplaysInline,
+} from "@otto/contracts";
 import {
   AssetAttachmentNotFoundError,
   AssetPreviewTypeValidationError,
@@ -38,6 +45,7 @@ import {
 } from "../auth/utils.ts";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import { resolveAttachmentPathById } from "../attachmentStore.ts";
+import { libraryFilePath } from "../library/libraryPaths.ts";
 import * as ServerConfig from "../config.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
 
@@ -83,6 +91,16 @@ const AssetClaimsSchema = Schema.Union([
     attachmentId: Schema.String,
     expiresAt: Schema.Number,
   }),
+  Schema.Struct({
+    version: Schema.Literal(1),
+    sessionId: Schema.optional(AuthSessionId),
+    kind: Schema.Literal("library-file"),
+    fileId: Schema.String,
+    contentType: Schema.String,
+    inline: Schema.Boolean,
+    downloadName: Schema.String,
+    expiresAt: Schema.Number,
+  }),
 ]);
 
 type AssetClaims = typeof AssetClaimsSchema.Type;
@@ -97,7 +115,47 @@ export type ResolvedAsset = {
   readonly kind: "file";
   readonly path: string;
   readonly sessionId?: AuthSessionId;
+  /** Set for Library files, which carry their own type and download name. */
+  readonly headers?: Readonly<Record<string, string>>;
 };
+
+const LIBRARY_SVG_CONTENT_SECURITY_POLICY =
+  "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
+/**
+ * A signed URL for one Library file. Only images and PDFs open in the browser; everything
+ * else, and any file asked for as a download, saves under its Library title.
+ */
+export const issueLibraryFileUrl = Effect.fn("AssetAccess.issueLibraryFileUrl")(function* (input: {
+  readonly file: LibraryFile;
+  readonly download: boolean;
+  readonly sessionId: AuthSessionId;
+}) {
+  const expiresAt = (yield* Clock.currentTimeMillis) + ASSET_TOKEN_TTL_MS;
+  const secretStore = yield* ServerSecretStore.ServerSecretStore;
+  const signingSecret = yield* secretStore.getOrCreateRandom(SIGNING_SECRET_NAME, 32);
+  const downloadName = libraryDownloadName(input.file);
+
+  const encodedPayload = base64UrlEncode(
+    encodeAssetClaims({
+      version: 1,
+      sessionId: input.sessionId,
+      kind: "library-file",
+      fileId: input.file.id,
+      contentType: libraryContentType(input.file),
+      inline: !input.download && libraryFileDisplaysInline(input.file),
+      downloadName,
+      expiresAt,
+    }),
+  );
+
+  const token = `${encodedPayload}.${signPayload(encodedPayload, signingSecret)}`;
+
+  return {
+    relativeUrl: `${ASSET_ROUTE_PREFIX}/${token}/${encodeURIComponent(downloadName)}`,
+    expiresAt,
+  };
+});
 
 function decodeClaims(encodedPayload: string): AssetClaims | null {
   try {
@@ -339,6 +397,7 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
   const encodedPayload = base64UrlEncode(
     encodeAssetClaims({ ...claims, ...(input.sessionId ? { sessionId: input.sessionId } : {}) }),
   );
+
   const token = `${encodedPayload}.${signPayload(encodedPayload, signingSecret)}`;
 
   return {
@@ -370,6 +429,36 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
   const claims = decodeClaims(encodedPayload);
 
   if (!claims || claims.expiresAt <= (yield* Clock.currentTimeMillis)) return null;
+
+  if (claims.kind === "library-file") {
+    const config = yield* ServerConfig.ServerConfig;
+    const path = yield* Path.Path;
+    const filePath = libraryFilePath(path, config.attachmentsDir, claims.fileId);
+
+    if (filePath === null) return null;
+    const fileSystem = yield* FileSystem.FileSystem;
+
+    const info = yield* optionOnNotFound(fileSystem.stat(filePath)).pipe(
+      Effect.orElseSucceed(() => Option.none()),
+    );
+
+    if (Option.isNone(info) || info.value.type !== "File") return null;
+
+    return {
+      kind: "file",
+      path: filePath,
+      ...(claims.sessionId ? { sessionId: claims.sessionId } : {}),
+      headers: {
+        "Cache-Control": "private, max-age=3600",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Type": claims.contentType,
+        "Content-Disposition": `${claims.inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(claims.downloadName)}`,
+        ...(claims.contentType.startsWith("image/svg")
+          ? { "Content-Security-Policy": LIBRARY_SVG_CONTENT_SECURITY_POLICY }
+          : {}),
+      },
+    } satisfies ResolvedAsset;
+  }
 
   if (claims.kind === "attachment") {
     const config = yield* ServerConfig.ServerConfig;

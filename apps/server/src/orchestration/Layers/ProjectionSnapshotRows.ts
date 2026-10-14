@@ -54,6 +54,7 @@ import { ProjectionCheckpoint } from "../../persistence/Services/ProjectionCheck
 import { ProjectionGroup } from "../../persistence/Services/ProjectionGroups.ts";
 import { ProjectionMcpServerRepository } from "../../persistence/Services/ProjectionMcpServers.ts";
 import { ProjectionTaskRepository } from "../../persistence/Services/ProjectionTasks.ts";
+import { ProjectionLibraryRepository } from "../../persistence/Services/ProjectionLibrary.ts";
 import { RoutineRepository } from "../../routines/Repository.ts";
 import { ThreadBackgroundLivenessService } from "../ThreadBackgroundLiveness.ts";
 import { ThreadPlanProgressService } from "../ThreadPlanProgress.ts";
@@ -585,6 +586,7 @@ export function toPersistenceSqlOrDecodeError(sqlOperation: string, decodeOperat
 export interface ProjectionSnapshotDependencies {
   readonly projectionMcpServerRepository: ProjectionMcpServerRepository["Service"];
   readonly projectionTaskRepository: ProjectionTaskRepository["Service"];
+  readonly projectionLibraryRepository: ProjectionLibraryRepository["Service"];
   readonly routineRepository: RoutineRepository["Service"];
   readonly threadBackgroundLiveness: ThreadBackgroundLivenessService["Service"];
   readonly threadPlanProgress: ThreadPlanProgressService["Service"];

@@ -13,6 +13,7 @@ import { ProjectionGroupRepository } from "../../persistence/Services/Projection
 import { ProjectionPendingApprovalRepository } from "../../persistence/Services/ProjectionPendingApprovals.ts";
 import { ProjectionMcpServerRepository } from "../../persistence/Services/ProjectionMcpServers.ts";
 import { ProjectionTaskRepository } from "../../persistence/Services/ProjectionTasks.ts";
+import { ProjectionLibraryRepository } from "../../persistence/Services/ProjectionLibrary.ts";
 import { ProjectionProjectRepository } from "../../persistence/Services/ProjectionProjects.ts";
 import { ProjectionStateRepository } from "../../persistence/Services/ProjectionState.ts";
 import { ProjectionThreadActivityRepository } from "../../persistence/Services/ProjectionThreadActivities.ts";
@@ -26,6 +27,7 @@ import { ProjectionGroupRepositoryLive } from "../../persistence/Layers/Projecti
 import { ProjectionPendingApprovalRepositoryLive } from "../../persistence/Layers/ProjectionPendingApprovals.ts";
 import { ProjectionMcpServerRepositoryLive } from "../../persistence/Layers/ProjectionMcpServers.ts";
 import { ProjectionTaskRepositoryLive } from "../../persistence/Layers/ProjectionTasks.ts";
+import { ProjectionLibraryRepositoryLive } from "../../persistence/Layers/ProjectionLibrary.ts";
 import { ProjectionProjectRepositoryLive } from "../../persistence/Layers/ProjectionProjects.ts";
 import { ProjectionStateRepositoryLive } from "../../persistence/Layers/ProjectionState.ts";
 import { ProjectionThreadActivityRepositoryLive } from "../../persistence/Layers/ProjectionThreadActivities.ts";
@@ -56,6 +58,7 @@ import { createDelegations } from "./projection/Delegations.ts";
 import { createRoutines } from "./projection/Routines.ts";
 import { createMcpServers } from "./projection/McpServers.ts";
 import { createTasks } from "./projection/Tasks.ts";
+import { createLibrary } from "./projection/Library.ts";
 import { createThreads } from "./projection/Threads.ts";
 import { createMessages } from "./projection/Messages.ts";
 import { createRequests } from "./projection/Requests.ts";
@@ -73,6 +76,7 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
     const projectionGroupRepository = yield* ProjectionGroupRepository;
     const projectionMcpServerRepository = yield* ProjectionMcpServerRepository;
     const projectionTaskRepository = yield* ProjectionTaskRepository;
+    const projectionLibraryRepository = yield* ProjectionLibraryRepository;
     const projectionThreadRepository = yield* ProjectionThreadRepository;
     const projectionThreadMessageRepository = yield* ProjectionThreadMessageRepository;
     const projectionThreadProposedPlanRepository = yield* ProjectionThreadProposedPlanRepository;
@@ -90,6 +94,13 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
     const { applyRoutinesProjection } = createRoutines({ sql });
     const { applyMcpServersProjection } = createMcpServers({ projectionMcpServerRepository });
     const { applyTasksProjection } = createTasks({ projectionTaskRepository });
+
+    const { applyLibraryProjection } = createLibrary({
+      projectionLibraryRepository,
+      fileSystem,
+      path,
+      serverConfig,
+    });
 
     const { applyThreadsProjection } = createThreads({
       projectionThreadRepository,
@@ -180,6 +191,18 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
           "task.time-removed",
         ]),
         apply: applyTasksProjection,
+      },
+      {
+        name: ORCHESTRATION_PROJECTOR_NAMES.library,
+        eventTypes: projectorEventTypes([
+          "library.folder-created",
+          "library.folder-updated",
+          "library.folder-deleted",
+          "library.file-created",
+          "library.file-updated",
+          "library.file-deleted",
+        ]),
+        apply: applyLibraryProjection,
       },
       {
         name: ORCHESTRATION_PROJECTOR_NAMES.routines,
@@ -483,6 +506,7 @@ export const OrchestrationProjectionPipelineLive = Layer.effect(
   Layer.provideMerge(ProjectionGroupRepositoryLive),
   Layer.provideMerge(ProjectionMcpServerRepositoryLive),
   Layer.provideMerge(ProjectionTaskRepositoryLive),
+  Layer.provideMerge(ProjectionLibraryRepositoryLive),
   Layer.provideMerge(ProjectionThreadRepositoryLive),
   Layer.provideMerge(ProjectionThreadMessageRepositoryLive),
   Layer.provideMerge(ProjectionThreadProposedPlanRepositoryLive),

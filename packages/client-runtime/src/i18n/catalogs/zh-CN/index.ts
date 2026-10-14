@@ -5,6 +5,7 @@ import { settingsCatalog } from "./settings.ts";
 import { memoryCatalog } from "./memory.ts";
 import { commonCatalog } from "./common.ts";
 import { workCatalog } from "./work.ts";
+import { libraryCatalog } from "./library.ts";
 
 export const zhCNCatalog = {
   ...rosterCatalog,
@@ -14,4 +15,5 @@ export const zhCNCatalog = {
   ...memoryCatalog,
   ...commonCatalog,
   ...workCatalog,
+  ...libraryCatalog,
 } as const;

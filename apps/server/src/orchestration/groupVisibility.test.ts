@@ -1,5 +1,9 @@
 import {
   AuthSessionId,
+  type LibraryFile,
+  LibraryFileId,
+  type LibraryFolder,
+  LibraryFolderId,
   type OrchestrationGroup,
   type OrchestrationShellSnapshot,
   type OrchestrationShellStreamItem,
@@ -39,11 +43,11 @@ it("shows a group only to its people, and a group with no people to everyone", (
 });
 
 it("drops a hidden group's chats from the shell", () => {
-  expect(visibleShellSnapshot(snapshotWith(anaGroup), BEN)).toMatchObject({
+  expect(visibleShellSnapshot(snapshotWith(anaGroup), BEN, [])).toMatchObject({
     groups: [],
     threads: [],
   });
-  expect(visibleShellSnapshot(snapshotWith(anaGroup), ANA).threads).toHaveLength(1);
+  expect(visibleShellSnapshot(snapshotWith(anaGroup), ANA, []).threads).toHaveLength(1);
 });
 
 it.effect("sends a fresh shell when a person is added to a group", () =>
@@ -70,6 +74,7 @@ it.effect("sends a fresh shell when a person is added to a group", () =>
       ),
       personId: BEN,
       loadSnapshot: Effect.sync(() => current),
+      loadChatThreads: Effect.succeed([]),
       resuming: false,
     });
 
@@ -78,5 +83,82 @@ it.effect("sends a fresh shell when a person is added to a group", () =>
     expect(delivered.map((item) => item.kind)).toEqual(["snapshot", "snapshot"]);
     expect(delivered[0]?.kind === "snapshot" && delivered[0].snapshot.groups).toEqual([]);
     expect(delivered[1]?.kind === "snapshot" && delivered[1].snapshot.threads).toHaveLength(1);
+  }),
+);
+
+const ana = { kind: "person" as const, personId: ANA, displayName: "Ana" };
+
+const chatFolder: LibraryFolder = {
+  id: LibraryFolderId.make("chat-folder"),
+  parentId: null,
+  threadId: makeGroupThread().id,
+  title: "Crew",
+  visibility: "workspace",
+  createdBy: ana,
+  createdAt: "2026-10-13T00:00:00.000Z",
+  updatedBy: ana,
+  updatedAt: "2026-10-13T00:00:00.000Z",
+};
+
+const libraryFile = (overrides: Partial<LibraryFile>): LibraryFile => ({
+  id: LibraryFileId.make("file"),
+  folderId: null,
+  type: "image",
+  title: "Picture",
+  extension: "png",
+  sizeBytes: 10,
+  visibility: "workspace",
+  createdBy: ana,
+  createdAt: "2026-10-13T00:00:00.000Z",
+  updatedBy: ana,
+  updatedAt: "2026-10-13T00:00:00.000Z",
+  ...overrides,
+});
+
+const chatThreads = [{ id: makeGroupThread().id, groupId: anaGroup.id, deletedAt: null }];
+
+it("shows Library items only to the people who may see them", () => {
+  const snapshot: OrchestrationShellSnapshot = {
+    ...snapshotWith(anaGroup),
+    libraryFolders: [chatFolder],
+    libraryFiles: [
+      libraryFile({ id: LibraryFileId.make("open") }),
+      libraryFile({ id: LibraryFileId.make("private"), visibility: "user" }),
+      libraryFile({ id: LibraryFileId.make("in-chat"), folderId: chatFolder.id }),
+    ],
+  };
+
+  expect(
+    visibleShellSnapshot(snapshot, BEN, chatThreads).libraryFiles?.map((file) => file.id),
+  ).toEqual(["open"]);
+  expect(visibleShellSnapshot(snapshot, BEN, chatThreads).libraryFolders).toEqual([]);
+  expect(visibleShellSnapshot(snapshot, ANA, chatThreads).libraryFiles).toHaveLength(3);
+});
+
+it.effect("turns a Library file someone can't see into a removal", () =>
+  Effect.gen(function* () {
+    const snapshot = { ...snapshotWith(anaGroup), libraryFolders: [chatFolder], libraryFiles: [] };
+
+    const hidden = libraryFile({ id: LibraryFileId.make("in-chat"), folderId: chatFolder.id });
+
+    const stream = yield* withGroupVisibility({
+      stream: Stream.fromIterable<OrchestrationShellStreamItem>([
+        { kind: "snapshot", snapshot },
+        { kind: "library-file-upserted", sequence: 2, file: hidden },
+        { kind: "library-file-upserted", sequence: 3, file: libraryFile({}) },
+      ]),
+      personId: BEN,
+      loadSnapshot: Effect.succeed(snapshot),
+      loadChatThreads: Effect.succeed(chatThreads),
+      resuming: false,
+    });
+
+    const delivered = yield* Stream.runCollect(stream);
+
+    expect(delivered.map((item) => item.kind)).toEqual([
+      "snapshot",
+      "library-file-removed",
+      "library-file-upserted",
+    ]);
   }),
 );

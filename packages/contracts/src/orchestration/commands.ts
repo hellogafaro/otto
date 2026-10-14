@@ -4,6 +4,14 @@ import {
   TaskTimeRemoveCommand,
   TaskUpdateCommand,
 } from "./work.ts";
+import {
+  LibraryFileCreateCommand,
+  LibraryFileDeleteCommand,
+  LibraryFileUpdateCommand,
+  LibraryFolderCreateCommand,
+  LibraryFolderDeleteCommand,
+  LibraryFolderUpdateCommand,
+} from "./library.ts";
 import * as Schema from "effect/Schema";
 import {
   BotId,
@@ -100,6 +108,11 @@ const DispatchableClientOrchestrationCommand = Schema.Union([
   TaskUpdateCommand,
   TaskTimeAddCommand,
   TaskTimeRemoveCommand,
+  LibraryFolderCreateCommand,
+  LibraryFolderUpdateCommand,
+  LibraryFolderDeleteCommand,
+  LibraryFileUpdateCommand,
+  LibraryFileDeleteCommand,
   BotCreateCommand,
   BotUpdateCommand,
   BotArchiveCommand,
@@ -159,6 +172,11 @@ export const ClientOrchestrationCommand = Schema.Union([
   TaskUpdateCommand,
   TaskTimeAddCommand,
   TaskTimeRemoveCommand,
+  LibraryFolderCreateCommand,
+  LibraryFolderUpdateCommand,
+  LibraryFolderDeleteCommand,
+  LibraryFileUpdateCommand,
+  LibraryFileDeleteCommand,
   BotCreateCommand,
   ClientBotUpdateCommand,
   BotArchiveCommand,
@@ -349,6 +367,7 @@ export const DelegationStateSetCommand = Schema.Struct({
 
 const InternalOrchestrationCommand = Schema.Union([
   InternalRoutineCommand,
+  LibraryFileCreateCommand,
   ThreadSessionSetCommand,
   ThreadMessageAssistantDeltaCommand,
   ThreadMessageAssistantCompleteCommand,

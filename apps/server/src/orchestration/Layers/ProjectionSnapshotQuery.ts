@@ -1,5 +1,7 @@
 import { ProjectionTaskRepository } from "../../persistence/Services/ProjectionTasks.ts";
 import { ProjectionTaskRepositoryLive } from "../../persistence/Layers/ProjectionTasks.ts";
+import { ProjectionLibraryRepositoryLive } from "../../persistence/Layers/ProjectionLibrary.ts";
+import { ProjectionLibraryRepository } from "../../persistence/Services/ProjectionLibrary.ts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -29,6 +31,7 @@ import { createCommandContext } from "./snapshot-query/CommandContext.ts";
 const makeProjectionSnapshotQuery = Effect.gen(function* () {
   const projectionMcpServerRepository = yield* ProjectionMcpServerRepository;
   const projectionTaskRepository = yield* ProjectionTaskRepository;
+  const projectionLibraryRepository = yield* ProjectionLibraryRepository;
   const routineRepository = yield* RoutineRepository;
   const threadBackgroundLiveness = yield* ThreadBackgroundLivenessService;
   const threadPlanProgress = yield* ThreadPlanProgressService;
@@ -111,6 +114,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
     listDelegationRows,
     projectionMcpServerRepository,
     projectionTaskRepository,
+    projectionLibraryRepository,
     routineRepository,
     listThreadRows,
     listThreadMessageRows,
@@ -131,6 +135,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
     listShellDelegationRows,
     projectionMcpServerRepository,
     projectionTaskRepository,
+    projectionLibraryRepository,
     routineRepository,
     listActiveThreadRows,
     listActiveThreadSessionRows,
@@ -258,6 +263,7 @@ export const OrchestrationProjectionSnapshotQueryLive = Layer.effect(
 ).pipe(
   Layer.provideMerge(ProjectionMcpServerRepositoryLive),
   Layer.provideMerge(ProjectionTaskRepositoryLive),
+  Layer.provideMerge(ProjectionLibraryRepositoryLive),
   Layer.provideMerge(RoutineRepositoryLive),
   Layer.provideMerge(ProjectionThreadMessageRepositoryLive),
 );

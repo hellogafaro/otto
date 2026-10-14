@@ -34,6 +34,10 @@ export const OttoToolId = Schema.Literals([
   "WebSearch",
   "WebFetch",
   "GenerateImage",
+  "SaveToLibrary",
+  "ListLibrary",
+  "ReadLibraryFile",
+  "UpdateLibraryDocument",
   "AddMcpServer",
   "UninstallMcpServer",
   "RemoveMcpAccount",
@@ -248,6 +252,32 @@ export const OTTO_TOOL_CATALOG = [
       "Finished images appear in the chat automatically; do not repeat or describe the file data. " +
       'If the result status is "needs-consent", ask the user before retrying with allowProvider.',
     { approval: "production" },
+  ),
+  define(
+    "SaveToLibrary",
+    "bot-workspace",
+    "Save an artifact to the Otto Library, the workspace's shared folders and files. " +
+      "Pass markdown content to save a .md document (titled after its first # heading unless you give a title), " +
+      'text content with a fileName such as "report.csv" for another text file, or attachmentId to save a file from this chat. ' +
+      "It goes into this chat's Library folder, which only the chat's people see, unless you pass a folderId from ListLibrary.",
+  ),
+  define(
+    "ListLibrary",
+    "bot-workspace",
+    "List the Library folders and files you can see, newest first. Filter by folderId, type " +
+      '("document", "image", "pdf" or "file") or a title query.',
+  ),
+  define(
+    "ReadLibraryFile",
+    "bot-workspace",
+    "Read one Library file: its details, and the text of a document or text file up to 1 MB. " +
+      "Keep the returned updatedAt to edit a document with UpdateLibraryDocument.",
+  ),
+  define(
+    "UpdateLibraryDocument",
+    "bot-workspace",
+    "Replace a Library document's markdown, and optionally its title. Pass the updatedAt ReadLibraryFile returned; " +
+      "if someone changed the document since, the save is rejected, so read it again and merge. Only a document's creator can edit it.",
   ),
   define("AddMcpServer", "bot-workspace", "Add an MCP server account.", { approval: "secrets" }),
   define("UninstallMcpServer", "bot-workspace", "Remove an MCP server.", { approval: "delete" }),

@@ -37,6 +37,7 @@ export const createWsOrchestrationSubscriptions = ({
   loadEnvironmentPeople,
   currentPersonId,
   projectionGroups,
+  projectionLibrary,
   SHELL_COALESCE_WINDOW,
   SHELL_COALESCE_MAX_CHUNK,
   coalesceShellStream,
@@ -51,6 +52,7 @@ export const createWsOrchestrationSubscriptions = ({
   | "loadEnvironmentPeople"
   | "currentPersonId"
   | "projectionGroups"
+  | "projectionLibrary"
   | "SHELL_COALESCE_WINDOW"
   | "SHELL_COALESCE_MAX_CHUNK"
   | "coalesceShellStream"
@@ -252,6 +254,9 @@ export const createWsOrchestrationSubscriptions = ({
               stream,
               personId: currentPersonId,
               loadSnapshot: loadShellSnapshot,
+              loadChatThreads: projectionLibrary
+                .listChatThreads()
+                .pipe(Effect.orElseSucceed(() => [])),
               resuming: input.afterSequence !== undefined,
             }),
           ),

@@ -5,6 +5,7 @@ import { OrchestrationCommandReceiptRepositoryLive } from "../persistence/Layers
 import { OrchestrationEventStoreLive } from "../persistence/Layers/OrchestrationEventStore.ts";
 import { ProjectionBotRepositoryLive } from "../persistence/Layers/ProjectionBots.ts";
 import { ProjectionGroupRepositoryLive } from "../persistence/Layers/ProjectionGroups.ts";
+import { ProjectionLibraryRepositoryLive } from "../persistence/Layers/ProjectionLibrary.ts";
 import { BotUsageLedgerLive } from "../usage/BotUsageLedger.ts";
 import { OrchestrationEngineLive } from "./Layers/OrchestrationEngine.ts";
 import { OrchestrationProjectionPipelineLive } from "./Layers/ProjectionPipeline.ts";
@@ -33,6 +34,7 @@ export const OrchestrationInfrastructureLayerLive = Layer.mergeAll(
   OrchestrationProjectionPipelineLayerLive,
   ProjectionBotRepositoryLive,
   ProjectionGroupRepositoryLive,
+  ProjectionLibraryRepositoryLive,
   BotUsageLedgerLive,
   ChannelDeliveryStoreLive,
   MemoryRepositoriesLive,

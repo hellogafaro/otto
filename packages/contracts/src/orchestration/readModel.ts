@@ -38,6 +38,7 @@ import {
   ProjectPlanningFields,
 } from "./roster.ts";
 import { OrchestrationTask } from "./work.ts";
+import { LibraryFile, LibraryFileId, LibraryFolder, LibraryFolderId } from "./library.ts";
 import {
   OrchestrationSession,
   OrchestrationLatestTurn,
@@ -59,6 +60,8 @@ export const OrchestrationReadModel = Schema.Struct({
   routineRuns: Schema.optional(Schema.Array(RoutineRun)),
   skillAssignments: Schema.optional(Schema.Array(RoutineSkillAssignment)),
   tasks: Schema.optional(Schema.Array(OrchestrationTask)),
+  libraryFolders: Schema.optional(Schema.Array(LibraryFolder)),
+  libraryFiles: Schema.optional(Schema.Array(LibraryFile)),
   threads: Schema.Array(OrchestrationThread),
   updatedAt: IsoDateTime,
 });
@@ -171,6 +174,8 @@ export const OrchestrationShellSnapshot = Schema.Struct({
   routineRuns: Schema.optional(Schema.Array(RoutineRun)),
   skillAssignments: Schema.optional(Schema.Array(RoutineSkillAssignment)),
   tasks: Schema.optional(Schema.Array(OrchestrationTask)),
+  libraryFolders: Schema.optional(Schema.Array(LibraryFolder)),
+  libraryFiles: Schema.optional(Schema.Array(LibraryFile)),
   threads: Schema.Array(OrchestrationThreadShell),
   updatedAt: IsoDateTime,
 });
@@ -212,6 +217,26 @@ export const OrchestrationShellStreamEvent = Schema.Union([
     kind: Schema.Literal("task-upserted"),
     sequence: NonNegativeInt,
     task: OrchestrationTask,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("library-folder-upserted"),
+    sequence: NonNegativeInt,
+    folder: LibraryFolder,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("library-folder-removed"),
+    sequence: NonNegativeInt,
+    folderId: LibraryFolderId,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("library-file-upserted"),
+    sequence: NonNegativeInt,
+    file: LibraryFile,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("library-file-removed"),
+    sequence: NonNegativeInt,
+    fileId: LibraryFileId,
   }),
   Schema.Struct({
     kind: Schema.Literal("mcp-server-upserted"),

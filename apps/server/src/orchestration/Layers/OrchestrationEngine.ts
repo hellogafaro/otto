@@ -152,6 +152,20 @@ function commandToAggregateRef(command: OrchestrationCommand): CommandAggregateR
         aggregateKind: "task",
         aggregateId: command.taskId,
       };
+    case "library.folder.create":
+    case "library.folder.update":
+    case "library.folder.delete":
+      return {
+        aggregateKind: "library-folder",
+        aggregateId: command.folderId,
+      };
+    case "library.file.create":
+    case "library.file.update":
+    case "library.file.delete":
+      return {
+        aggregateKind: "library-file",
+        aggregateId: command.fileId,
+      };
     default:
       return {
         aggregateKind: "thread",

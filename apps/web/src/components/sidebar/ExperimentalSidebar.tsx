@@ -1,4 +1,5 @@
 import {
+  RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
   RiTimeLine,
@@ -93,9 +94,11 @@ export function useRailOnly(place: SidebarPlace): boolean {
   return emptyPlace || isFullPage(pathname);
 }
 
-/** Plugins, Tasks and Projects own the whole main panel, so the place panel steps aside. */
+/** Plugins, Tasks, Projects and the Library own the whole main panel, so the place panel steps aside. */
 function isFullPage(pathname: string): boolean {
-  return ["/plugins", "/tasks", "/projects"].some((base) => isPathUnder(pathname, base));
+  return ["/plugins", "/tasks", "/projects", "/library"].some((base) =>
+    isPathUnder(pathname, base),
+  );
 }
 
 function liveRoutines<T extends { readonly lifecycle: string }>(
@@ -150,6 +153,7 @@ export function ExperimentalSidebar({
   const onPlugins = isPathUnder(pathname, "/plugins");
   const onTasks = isPathUnder(pathname, "/tasks");
   const onProjects = isPathUnder(pathname, "/projects");
+  const onLibrary = isPathUnder(pathname, "/library");
   const onPage = onSettings || isFullPage(pathname);
   const railOnly = useRailOnly(place);
   // Collapsing hides the panel and keeps the rail; picking a place brings it back.
@@ -222,6 +226,14 @@ export function ExperimentalSidebar({
               active={onProjects}
               onClick={() => {
                 if (!onProjects) void navigate({ to: "/projects" });
+              }}
+            />
+            <RailButton
+              label={t("Library")}
+              icon={RiBookShelfLine}
+              active={onLibrary}
+              onClick={() => {
+                if (!onLibrary) void navigate({ to: "/library" });
               }}
             />
             <RailButton

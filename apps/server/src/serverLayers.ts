@@ -64,6 +64,7 @@ import { OrchestrationLayerLive } from "./orchestration/runtimeLayer.ts";
 import * as NetService from "@otto/shared/Net";
 import { RoutineLayerLive } from "./routines/layer.ts";
 import * as ImageGenerationRuntime from "./image-generation/ImageGenerationRuntime.ts";
+import * as LibraryToolRuntime from "./library/LibraryToolRuntime.ts";
 import { RoutineDraftDispatcherLive } from "./routines/RoutineDraftDispatcher.ts";
 import { MemoryApprovalsLive } from "./memory/MemoryApprovals.ts";
 
@@ -285,6 +286,7 @@ export const RuntimeCoreWithRoutinesLive = Layer.mergeAll(
   RuntimeCoreDependenciesLive,
   RoutineLayerLive.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
   ImageGenerationRuntime.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
+  LibraryToolRuntime.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
 );
 
 export const RuntimeDependenciesLive = RuntimeCoreWithRoutinesLive.pipe(

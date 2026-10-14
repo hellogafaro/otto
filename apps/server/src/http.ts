@@ -38,6 +38,11 @@ import {
   storeAttachmentUpload,
   validateAttachmentUploadToken,
 } from "./assets/AttachmentUpload.ts";
+import {
+  LIBRARY_UPLOAD_ROUTE_PREFIX,
+  storeLibraryUpload,
+  validateLibraryUploadToken,
+} from "./library/LibraryStore.ts";
 import * as BrowserTraceCollector from "./observability/BrowserTraceCollector.ts";
 import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
 import {
@@ -252,7 +257,7 @@ export const assetRouteLayer = HttpRouter.add(
 
     return yield* HttpServerResponse.file(asset.path, {
       status: 200,
-      headers: assetResponseHeaders(asset.path),
+      headers: "headers" in asset ? asset.headers : assetResponseHeaders(asset.path),
     }).pipe(
       Effect.orElseSucceed(() => HttpServerResponse.text("Internal Server Error", { status: 500 })),
     );
@@ -308,6 +313,43 @@ export const attachmentUploadRouteLayer = HttpRouter.add(
     return stored.ok
       ? HttpServerResponse.empty({ status: 204 })
       : HttpServerResponse.text(stored.detail, { status: stored.status });
+  }),
+);
+
+export const libraryUploadRouteLayer = HttpRouter.add(
+  "POST",
+  `${LIBRARY_UPLOAD_ROUTE_PREFIX}/*`,
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const url = HttpServerRequest.toURL(request);
+
+    if (Option.isNone(url)) {
+      return HttpServerResponse.text("Bad Request", { status: 400 });
+    }
+
+    const claims = yield* validateLibraryUploadToken(
+      url.value.pathname.slice(`${LIBRARY_UPLOAD_ROUTE_PREFIX}/`.length),
+    );
+
+    if (!claims) {
+      return HttpServerResponse.text("Not Found", { status: 404 });
+    }
+
+    const body = yield* request.arrayBuffer.pipe(
+      Effect.provideService(HttpServerRequest.MaxBodySize, FileSystem.Size(claims.sizeBytes)),
+      Effect.orElseSucceed(() => null),
+    );
+
+    if (body === null) {
+      return HttpServerResponse.text("Failed to read the upload body.", { status: 400 });
+    }
+
+    return yield* storeLibraryUpload(claims, new Uint8Array(body)).pipe(
+      Effect.as(HttpServerResponse.empty({ status: 204 })),
+      Effect.catchTag("LibraryRequestError", (error) =>
+        Effect.succeed(HttpServerResponse.text(error.detail, { status: 400 })),
+      ),
+    );
   }),
 );
 

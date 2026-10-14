@@ -23,6 +23,10 @@ describe("Otto tool contracts", () => {
       "RemoveMcpAccount",
       "RenameMcpAccount",
       "SetMcpInstructions",
+      "SaveToLibrary",
+      "ListLibrary",
+      "ReadLibraryFile",
+      "UpdateLibraryDocument",
     ] as const) {
       expect(OTTO_TOOL_CATALOG.some((tool) => tool.id === id)).toBe(true);
     }

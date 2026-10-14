@@ -15,6 +15,13 @@ export const WS_METHODS = {
   attachmentsCreateUploadUrl: "attachments.createUploadUrl",
   attachmentsDelete: "attachments.delete",
 
+  // Library methods
+  libraryCreateUploadUrl: "library.createUploadUrl",
+  libraryCreateDocument: "library.createDocument",
+  libraryReadDocument: "library.readDocument",
+  librarySaveDocument: "library.saveDocument",
+  libraryCreateFileUrl: "library.createFileUrl",
+
   // Provider methods
   providerUploadFeedback: "provider.uploadFeedback",
 

@@ -28,6 +28,7 @@ export function DetailsAside({
   onOpenChange,
   labels,
   testId,
+  tabs,
   children,
 }: {
   readonly open: boolean;
@@ -40,6 +41,12 @@ export function DetailsAside({
     readonly sheetTitle: string;
   };
   readonly testId?: string;
+  /** More tabs than Details; the caller renders the chosen tab's content as children. */
+  readonly tabs?: {
+    readonly items: ReadonlyArray<DetailsTab<string>>;
+    readonly value: string;
+    readonly onValueChange: (value: string) => void;
+  };
   readonly children: ReactNode;
 }) {
   const { t } = useI18n();
@@ -79,7 +86,16 @@ export function DetailsAside({
   const content = (closeButton?: ReactNode) => (
     <>
       <header className="relative flex h-(--workspace-topbar-height) shrink-0 items-center ps-3 pe-12">
-        <DetailsTabs label={labels.sidebar} />
+        {tabs ? (
+          <DetailsTabs
+            label={labels.sidebar}
+            tabs={tabs.items}
+            value={tabs.value}
+            onValueChange={tabs.onValueChange}
+          />
+        ) : (
+          <DetailsTabs label={labels.sidebar} />
+        )}
         <div className="absolute right-3 flex items-center min-[981px]:fixed min-[981px]:right-(--workspace-controls-right) min-[981px]:top-(--workspace-controls-top) min-[981px]:z-40 min-[981px]:h-(--workspace-topbar-height)">
           {closeButton}
         </div>
@@ -173,26 +189,64 @@ export function DetailsAside({
   );
 }
 
+export interface DetailsTab<T extends string> {
+  readonly value: T;
+  readonly label: string;
+  readonly icon: typeof RiListCheck;
+}
+
 /**
  * Otto: The tabs heading every right sidebar, in place of a title: 28px tabs
  * with a 14px icon and the back button's 13px/500 label, the active one on the
- * secondary fill.
- * Details is always the first tab; more (a group's chats, files) join it later.
+ * secondary fill. Details is always the first tab; a chat adds its Library.
+ * Pages reuse the same tabs to filter what they show.
  */
-export function DetailsTabs({ label }: { readonly label: string }) {
+export function DetailsTabs<T extends string>({
+  label,
+  tabs,
+  value,
+  onValueChange,
+}: {
+  readonly label: string;
+  readonly tabs?: ReadonlyArray<DetailsTab<T>>;
+  readonly value?: T;
+  readonly onValueChange?: (value: T) => void;
+}) {
   const { t } = useI18n();
+
+  const shown: ReadonlyArray<DetailsTab<string>> = tabs ?? [
+    { value: "details", label: t("Details"), icon: RiListCheck },
+  ];
 
   return (
     <div role="tablist" aria-label={label} className="flex min-w-0 items-center gap-0.5">
-      <button
-        type="button"
-        role="tab"
-        aria-selected
-        className="flex h-7 items-center gap-1.5 rounded-md bg-secondary px-2 text-13px font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <RiListCheck aria-hidden className="size-3.5 shrink-0" />
-        {t("Details")}
-      </button>
+      {shown.map((tab) => {
+        const selected = tabs === undefined || tab.value === value;
+        const Icon = tab.icon;
+
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => {
+              const chosen = tabs?.find((candidate) => candidate.value === tab.value);
+
+              if (chosen) onValueChange?.(chosen.value);
+            }}
+            className={cn(
+              "flex h-7 items-center gap-1.5 rounded-md px-2 text-13px font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              selected
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+            )}
+          >
+            <Icon aria-hidden className="size-3.5 shrink-0" />
+            {tab.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

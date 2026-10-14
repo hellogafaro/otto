@@ -51,6 +51,18 @@ export function createOttoCatalogToolHandlers(
             backends.generateImage!(decodeOttoToolInput("GenerateImage", input)),
         }
       : {}),
+    ...(backends.library
+      ? {
+          SaveToLibrary: async ({ input }) =>
+            backends.library!.save(decodeOttoToolInput("SaveToLibrary", input)),
+          ListLibrary: async ({ input }) =>
+            backends.library!.list(decodeOttoToolInput("ListLibrary", input)),
+          ReadLibraryFile: async ({ input }) =>
+            backends.library!.read(decodeOttoToolInput("ReadLibraryFile", input)),
+          UpdateLibraryDocument: async ({ input }) =>
+            backends.library!.updateDocument(decodeOttoToolInput("UpdateLibraryDocument", input)),
+        }
+      : {}),
     ...(backends.addMcpServer
       ? {
           AddMcpServer: async ({ input }) =>

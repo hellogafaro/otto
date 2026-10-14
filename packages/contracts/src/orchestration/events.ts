@@ -4,6 +4,14 @@ import {
   OrchestrationTaskTimeRemovedPayload,
   OrchestrationTaskUpdatedPayload,
 } from "./work.ts";
+import {
+  LibraryFileDeletedPayload,
+  LibraryFileId,
+  LibraryFilePayload,
+  LibraryFolderDeletedPayload,
+  LibraryFolderId,
+  LibraryFolderPayload,
+} from "./library.ts";
 import * as Schema from "effect/Schema";
 import {
   ApprovalRequestId,
@@ -129,6 +137,8 @@ const EventBaseFields = {
   aggregateId: Schema.Union([
     ProjectId,
     TaskId,
+    LibraryFolderId,
+    LibraryFileId,
     BotId,
     GroupId,
     McpServerId,
@@ -245,6 +255,36 @@ export const OrchestrationEvent = Schema.Union([
     ...EventBaseFields,
     type: Schema.Literal("task.time-removed"),
     payload: OrchestrationTaskTimeRemovedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("library.folder-created"),
+    payload: LibraryFolderPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("library.folder-updated"),
+    payload: LibraryFolderPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("library.folder-deleted"),
+    payload: LibraryFolderDeletedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("library.file-created"),
+    payload: LibraryFilePayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("library.file-updated"),
+    payload: LibraryFilePayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("library.file-deleted"),
+    payload: LibraryFileDeletedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,

@@ -18,6 +18,7 @@ import { deriveProviderInstanceConfigMap } from "./provider/Layers/ProviderInsta
 import * as ChannelCommand from "./channels/ChannelCommand.ts";
 import {
   applyAuthenticatedCommandActor,
+  isLibraryClientCommand,
   applyKnownGroupPerson,
   commandNamesPeople,
 } from "./orchestration/AuthenticatedCommand.ts";
@@ -112,7 +113,8 @@ export const createWsOrchestrationHandlers = ({
           const currentPerson =
             decodedCommand.type === "group.create" ||
             decodedCommand.type === "group.leave" ||
-            decodedCommand.type === "thread.turn.start"
+            decodedCommand.type === "thread.turn.start" ||
+            isLibraryClientCommand(decodedCommand)
               ? yield* loadEnvironmentPeople().pipe(Effect.map((people) => people.current))
               : undefined;
 
@@ -442,7 +444,7 @@ export const createWsOrchestrationHandlers = ({
       observeRpcEffect(
         ORCHESTRATION_WS_METHODS.getArchivedShellSnapshot,
         projectionSnapshotQuery.getArchivedShellSnapshot().pipe(
-          Effect.map((snapshot) => visibleShellSnapshot(snapshot, currentPersonId)),
+          Effect.map((snapshot) => visibleShellSnapshot(snapshot, currentPersonId, [])),
           Effect.map((snapshot) => ({
             ...snapshot,
             bots: snapshot.bots.map((bot) => ({
