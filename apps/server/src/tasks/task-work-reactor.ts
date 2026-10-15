@@ -1,0 +1,345 @@
+import * as NodeCrypto from "node:crypto";
+
+import {
+  type Actor,
+  BotId,
+  CommandId,
+  MessageId,
+  type OrchestrationEvent,
+  type OrchestrationTask,
+  ProviderInstanceId,
+  type TaskId,
+  ThreadId,
+  type WorkParticipant,
+} from "@otto/contracts";
+import { makeDrainableWorker } from "@otto/shared/DrainableWorker";
+import * as Context from "effect/Context";
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import type * as Scope from "effect/Scope";
+import * as Stream from "effect/Stream";
+
+import { OrganizationAccounts } from "../auth/organization-accounts.ts";
+import type { AccountPerson } from "../auth/organization-accounts-runtime.ts";
+import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
+import { ProjectionSnapshotQuery } from "../orchestration/services/projection-snapshot-query.ts";
+import { forkParked } from "../server-activation.ts";
+import { escapeComment } from "./task-tool-runtime.ts";
+
+/**
+ * Otto: Each bot works on a task in one chat of its own, reused for every assignment and
+ * mention so it keeps the task's history.
+ */
+export const taskChatId = (taskId: TaskId, botId: BotId) =>
+  ThreadId.make(`task-${taskId}--${botId}`);
+
+const MENTION = /<mention type="([^"]*)" id="([^"]*)">([^<]*)<\/mention>/g;
+
+/** The bots a comment @mentions. */
+export const mentionedBots = (content: string) =>
+  [...content.matchAll(MENTION)].flatMap(([, type, id]) =>
+    type === "bot" && id ? [BotId.make(id)] : [],
+  );
+
+/** A comment as plain text for a bot: mentions as `@Name`, markup unescaped. */
+export const commentText = (content: string) =>
+  content
+    .replace(MENTION, (_tag, _type, _id, label: string) => `@${label}`)
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&amp;", "&");
+
+const botsOf = (participants: ReadonlyArray<WorkParticipant | null>) =>
+  participants.flatMap((participant) => (participant?.kind === "bot" ? [participant.botId] : []));
+
+/** The bots a task event newly gives the task to, except a bot handing work to itself. */
+export const newlyAssignedBots = (event: OrchestrationEvent): ReadonlyArray<BotId> => {
+  if (event.type !== "task.created" && event.type !== "task.updated") return [];
+
+  const { task, actor } = event.payload;
+  const changes = event.type === "task.updated" ? event.payload.changes : undefined;
+
+  const before =
+    event.type === "task.created"
+      ? []
+      : botsOf([
+          ...(changes?.assignees?.from ?? task.assignees),
+          changes?.owner?.from ?? task.owner,
+        ]);
+
+  const after = botsOf([...task.assignees, task.owner]);
+
+  return [...new Set(after)].filter(
+    (botId) => !before.includes(botId) && !(actor?.type === "bot" && actor.id === botId),
+  );
+};
+
+interface Work {
+  readonly taskId: TaskId;
+  readonly botId: BotId;
+  reply: string;
+  replyId: string | null;
+  live: boolean;
+}
+
+export interface TaskWorkReactorShape {
+  /** Start giving bots the tasks they're assigned or mentioned on. */
+  readonly start: () => Effect.Effect<void, never, Scope.Scope>;
+
+  /** Resolves when every received event has been handled. For tests. */
+  readonly drain: Effect.Effect<void>;
+}
+
+export class TaskWorkReactor extends Context.Service<TaskWorkReactor, TaskWorkReactorShape>()(
+  "@otto/server/tasks/task-work-reactor/TaskWorkReactor",
+) {}
+
+/**
+ * Otto: A bot assigned to a task, or @mentioned in one of its comments by a person, gets a turn
+ * in its chat for that task with the task as context; the turn's final reply is posted on the
+ * task as the bot's comment.
+ */
+export const makeTaskWorkReactor = (
+  listPeople: () => Effect.Effect<ReadonlyArray<AccountPerson>>,
+) =>
+  Effect.gen(function* () {
+    const engine = yield* OrchestrationEngineService;
+    const projection = yield* ProjectionSnapshotQuery;
+    const working = new Map<ThreadId, Work>();
+
+    const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
+
+    const actorName = (actor: Actor | undefined, task: OrchestrationTask) =>
+      Effect.gen(function* () {
+        if (actor === undefined) return "Someone";
+
+        if (actor.type === "bot") {
+          const model = yield* projection.getCommandReadModel();
+
+          return model.bots.find((bot) => bot.id === actor.id)?.name ?? "A bot";
+        }
+
+        const known = [task.owner, ...task.assignees].find(
+          (participant) => participant?.kind === "person" && participant.personId === actor.id,
+        );
+
+        if (known?.kind === "person") return known.displayName;
+
+        return (
+          (yield* listPeople()).find((person) => person.userId === actor.id)?.displayName ??
+          "Someone"
+        );
+      });
+
+    const comment = (task: OrchestrationTask, botId: BotId, content: string) =>
+      Effect.gen(function* () {
+        yield* engine.dispatch({
+          type: "task.comment.add",
+          commandId: CommandId.make(`task-work:comment:${NodeCrypto.randomUUID()}`),
+          taskId: task.id,
+          commentId: NodeCrypto.randomUUID(),
+          content: escapeComment(content),
+          fileIds: [],
+          by: { type: "bot", id: botId },
+          createdAt: yield* nowIso,
+        });
+      });
+
+    /** Gives the bot a turn in its chat for the task, creating the chat the first time. */
+    const startWork = (
+      task: OrchestrationTask,
+      botId: BotId,
+      actor: Actor | undefined,
+      text: string,
+    ) =>
+      Effect.gen(function* () {
+        const model = yield* projection.getCommandReadModel();
+        const bot = model.bots.find((candidate) => candidate.id === botId);
+
+        if (bot === undefined || bot.archivedAt !== null) return;
+
+        const project = model.projects.find((candidate) => candidate.id === task.projectId);
+
+        const modelSelection = bot.engine
+          ? {
+              instanceId: ProviderInstanceId.make(bot.engine.provider),
+              model: bot.engine.model,
+              ...(bot.engine.options ? { options: bot.engine.options } : {}),
+            }
+          : project?.defaultModelSelection;
+
+        if (!modelSelection) {
+          return yield* comment(
+            task,
+            botId,
+            "I need a model before I can work on tasks. Ask whoever manages me to pick one.",
+          );
+        }
+
+        const threadId = taskChatId(task.id, botId);
+        const createdAt = yield* nowIso;
+
+        if (Option.isNone(yield* projection.getThreadShellById(threadId))) {
+          yield* engine.dispatch({
+            type: "thread.create",
+            commandId: CommandId.make(`task-work:chat:${threadId}`),
+            threadId,
+            projectId: task.projectId,
+            botId,
+            groupId: null,
+            createdBy: actor?.type === "person" ? actor.id : null,
+            visibility: "organization",
+            title: task.title,
+            modelSelection,
+            runtimeMode: bot.runtimeMode,
+            interactionMode: "default",
+            branch: null,
+            worktreePath: null,
+            createdAt,
+          });
+        }
+
+        working.set(threadId, { taskId: task.id, botId, reply: "", replyId: null, live: false });
+
+        yield* engine.dispatch({
+          type: "thread.turn.start",
+          commandId: CommandId.make(`task-work:turn:${NodeCrypto.randomUUID()}`),
+          threadId,
+          message: {
+            messageId: MessageId.make(`task-work:${NodeCrypto.randomUUID()}`),
+            role: "user",
+            text,
+            attachments: [],
+          },
+          modelSelection,
+          runtimeMode: bot.runtimeMode,
+          interactionMode: "default",
+          createdAt,
+        });
+      });
+
+    const taskLine = (task: OrchestrationTask) => `the task "${task.title}" (taskId: ${task.id})`;
+
+    const REPLY_NOTE =
+      "Read it with ReadTask before you start. Your final reply here is posted on the task as your comment, so write it for the people on the task.";
+
+    const finish = (threadId: ThreadId, work: Work) =>
+      Effect.gen(function* () {
+        working.delete(threadId);
+
+        const reply = work.reply.trim();
+
+        if (reply.length === 0) return;
+
+        const task = ((yield* projection.getCommandReadModel()).tasks ?? []).find(
+          (candidate) => candidate.id === work.taskId,
+        );
+
+        if (task) yield* comment(task, work.botId, reply);
+      });
+
+    const process = Effect.fnUntraced(function* (event: OrchestrationEvent) {
+      if (event.type === "task.created" || event.type === "task.updated") {
+        const { task, actor } = event.payload;
+
+        for (const botId of newlyAssignedBots(event)) {
+          const who = yield* actorName(actor, task);
+
+          yield* startWork(
+            task,
+            botId,
+            actor,
+            `${who} assigned you ${taskLine(task)}. ${REPLY_NOTE} Do the work, or say what you need to get it done.`,
+          );
+        }
+
+        return;
+      }
+
+      if (event.type === "task.commented") {
+        const { task, comment: posted } = event.payload;
+
+        if (posted.actor.type !== "person") return;
+
+        const who = yield* actorName(posted.actor, task);
+
+        for (const botId of new Set(mentionedBots(posted.content))) {
+          yield* startWork(
+            task,
+            botId,
+            posted.actor,
+            `${who} mentioned you in a comment on ${taskLine(task)}:\n\n${commentText(posted.content)}\n\n${REPLY_NOTE}`,
+          );
+        }
+
+        return;
+      }
+
+      if (event.type === "thread.message-sent") {
+        const work = working.get(event.payload.threadId);
+
+        if (work === undefined || event.payload.role !== "assistant") return;
+
+        // Only the turn's last message is its answer; earlier ones narrate the work.
+        if (work.replyId !== event.payload.messageId) {
+          work.replyId = event.payload.messageId;
+          work.reply = "";
+        }
+
+        if (event.payload.streaming) work.reply += event.payload.text;
+        else if (event.payload.text.length > 0) work.reply = event.payload.text;
+
+        return;
+      }
+
+      if (event.type !== "thread.session-set") return;
+
+      const work = working.get(event.payload.threadId);
+
+      if (work === undefined) return;
+
+      const status = event.payload.session.status;
+
+      if (status === "starting" || status === "running") {
+        work.live ||= status === "running";
+
+        return;
+      }
+
+      if (work.live || status === "error") yield* finish(event.payload.threadId, work);
+    });
+
+    const worker = yield* makeDrainableWorker((event: OrchestrationEvent) =>
+      process(event).pipe(
+        Effect.catchCause((cause) => Effect.logWarning("task work failed", { cause })),
+      ),
+    );
+
+    const start: TaskWorkReactorShape["start"] = Effect.fn("TaskWorkReactor.start")(function* () {
+      const events = yield* engine.subscribeDomainEvents;
+
+      yield* forkParked(
+        Stream.runForEach(events, (event) =>
+          event.type === "task.created" ||
+          event.type === "task.updated" ||
+          event.type === "task.commented" ||
+          event.type === "thread.message-sent" ||
+          event.type === "thread.session-set"
+            ? worker.enqueue(event)
+            : Effect.void,
+        ),
+      );
+    });
+
+    return { start, drain: worker.drain } satisfies TaskWorkReactorShape;
+  });
+
+export const TaskWorkReactorLive = Layer.effect(
+  TaskWorkReactor,
+  Effect.flatMap(Effect.service(OrganizationAccounts), (accounts) =>
+    makeTaskWorkReactor(() => accounts.listPeople().pipe(Effect.orElseSucceed(() => []))),
+  ),
+);

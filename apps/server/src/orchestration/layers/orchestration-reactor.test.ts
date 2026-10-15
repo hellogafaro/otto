@@ -11,6 +11,7 @@ import { ProviderRuntimeIngestionService } from "../services/provider-runtime-in
 import { ThreadDeletionReactor } from "../services/thread-deletion-reactor.ts";
 import { GroupRoundReactor } from "../services/group-round-reactor.ts";
 import { OrchestrationReactor } from "../services/orchestration-reactor.ts";
+import { TaskWorkReactor } from "../../tasks/task-work-reactor.ts";
 import { makeOrchestrationReactor } from "./orchestration-reactor.ts";
 
 describe("OrchestrationReactor", () => {
@@ -80,6 +81,16 @@ describe("OrchestrationReactor", () => {
             drain: Effect.void,
           }),
         ),
+        Layer.provideMerge(
+          Layer.succeed(TaskWorkReactor, {
+            start: () => {
+              started.push("task-work-reactor");
+
+              return Effect.void;
+            },
+            drain: Effect.void,
+          }),
+        ),
       ),
     );
 
@@ -93,6 +104,7 @@ describe("OrchestrationReactor", () => {
       "checkpoint-reactor",
       "thread-deletion-reactor",
       "group-round-reactor",
+      "task-work-reactor",
     ]);
 
     await Effect.runPromise(Scope.close(scope, Exit.void));

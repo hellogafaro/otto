@@ -65,6 +65,7 @@ import { RoutineLayerLive } from "./routines/layer.ts";
 import * as ImageGenerationRuntime from "./image-generation/image-generation-runtime.ts";
 import * as LibraryToolRuntime from "./library/library-tool-runtime.ts";
 import * as TaskToolRuntime from "./tasks/task-tool-runtime.ts";
+import { TaskWorkReactorLive } from "./tasks/task-work-reactor.ts";
 import { RoutineDraftDispatcherLive } from "./routines/routine-draft-dispatcher.ts";
 import { MemoryApprovalsLive } from "./memory/memory-approvals.ts";
 
@@ -120,6 +121,7 @@ export const ReactorLayerLive = Layer.empty.pipe(
   Layer.provideMerge(CheckpointReactorLive),
   Layer.provideMerge(ThreadDeletionReactorLive),
   Layer.provideMerge(GroupRoundReactorLive),
+  Layer.provideMerge(TaskWorkReactorLive),
   Layer.provideMerge(RuntimeReceiptBusLive),
   // Channel transports live in this runtime's scope. Ingestion, startup, commands,
   // and the webhook route all resolve the same instance.
