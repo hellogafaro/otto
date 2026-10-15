@@ -1,5 +1,6 @@
 import { ProviderDriverKind } from "@otto/contracts";
 import { ProviderInstanceId } from "@otto/contracts";
+import * as NodeCrypto from "node:crypto";
 import type { OttoToolRuntime } from "../../OttoToolRuntime.ts";
 import type { ProviderServiceError } from "../../Errors.ts";
 import type { OttoRuntimeSeam } from "../../OttoRuntimeSeam.ts";
@@ -172,7 +173,12 @@ export function createTurnLifecycle(deps: {
 
   const beginPendingTurn = (
     active: ActiveSession,
-    { threadId, turnId, botUsage, hiddenWake }: PendingTurn,
+    {
+      threadId,
+      turnId,
+      botUsage,
+      hiddenWake,
+    }: Pick<PendingTurn, "threadId" | "turnId" | "botUsage" | "hiddenWake">,
   ) => {
     const key = String(threadId);
 
@@ -201,6 +207,20 @@ export function createTurnLifecycle(deps: {
       payload: { model: active.model, ...(hiddenWake ? { hiddenWake: true } : {}) },
     });
     deps.publishSessionState(threadId, active, "running");
+  };
+
+  // A message signalled as a run ends makes Mastra start the next run itself.
+  // That run becomes its own turn so its reply is shown and settled.
+  const adoptRun = (threadId: ThreadId, active: ActiveSession) => {
+    if (active.activeTurn || active.admittingTurn) return;
+    const botId = deps.memoryUsageByThread.get(String(threadId))?.botId;
+
+    beginPendingTurn(active, {
+      threadId,
+      turnId: TurnId.make(`mastra-turn-${NodeCrypto.randomUUID()}`),
+      botUsage: botId ? { botId } : undefined,
+      hiddenWake: false,
+    });
   };
 
   const failActiveTurn = async (
@@ -549,6 +569,7 @@ export function createTurnLifecycle(deps: {
     cancelPendingApproval,
     cancelAllPendingApprovals,
     beginPendingTurn,
+    adoptRun,
     failActiveTurn,
     handlePendingTurnFailure,
     startAdmittedPendingTurn,

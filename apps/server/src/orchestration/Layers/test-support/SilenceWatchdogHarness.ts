@@ -123,6 +123,7 @@ export function makeSilenceWatchdogHarness() {
       inspectEngine: () => unsupported(),
       startSession: () => unsupported(),
       sendTurn: () => unsupported(),
+      signalTurn: () => Effect.succeed(false),
       interruptTurn: (input) =>
         Effect.sync(() => {
           if (input.turnId !== undefined) {

@@ -181,6 +181,7 @@ const make = Effect.gen(function* () {
     agentController,
     formatFailureDetail,
     setThreadSession,
+    expandComposerMentions,
   });
 
   const { processApprovalResponseRequested, processUserInputResponseRequested } = createRequests({

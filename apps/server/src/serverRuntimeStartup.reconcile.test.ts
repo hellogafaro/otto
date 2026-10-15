@@ -52,6 +52,7 @@ const makeAgentController = (liveThreadIds: ReadonlyArray<ThreadId> = []) =>
     inspectEngine: () => Effect.die("unused"),
     startSession: () => Effect.die("unused"),
     sendTurn: () => Effect.die("unused"),
+    signalTurn: () => Effect.succeed(false),
     interruptTurn: () => Effect.die("unused"),
     respondToRequest: () => Effect.die("unused"),
     respondToUserInput: () => Effect.die("unused"),

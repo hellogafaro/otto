@@ -128,6 +128,7 @@ export function createAgentControllerHarness(
     inspectEngine: () => unsupported(),
     startSession: () => unsupported(),
     sendTurn: () => unsupported(),
+    signalTurn: () => Effect.succeed(false),
     interruptTurn: () => unsupported(),
     respondToRequest: () => unsupported(),
     respondToUserInput: () => unsupported(),

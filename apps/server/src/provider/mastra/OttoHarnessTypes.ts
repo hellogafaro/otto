@@ -49,6 +49,7 @@ export type OttoControllerSession = Pick<
   OttoMastraSession,
   | "subscribe"
   | "sendMessage"
+  | "sendSignal"
   | "grantTool"
   | "abort"
   | "respondToToolApproval"

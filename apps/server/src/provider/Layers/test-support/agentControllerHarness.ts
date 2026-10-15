@@ -1,5 +1,6 @@
 import type { OttoMastraHarness } from "../../OttoMastraHarness.ts";
 import { sessionFixture } from "./partialFixtures.ts";
+import type { OttoMastraSession } from "../../mastra/OttoHarnessTypes.ts";
 import type { OttoMastraState } from "../../OttoMastraHarness.ts";
 
 import type { AgentControllerEvent, MastraDBMessage } from "@mastra/core/agent-controller";
@@ -70,7 +71,19 @@ export function mastraHarnessFixture() {
     });
   });
 
+  let runId: string | null = null;
+
+  const sendSignal = vi.fn((input: Parameters<OttoMastraSession["sendSignal"]>[0]) => ({
+    id: `signal-${sendSignal.mock.calls.length}`,
+    type: "type" in input ? input.type : ("user" as const),
+    accepted: Promise.resolve({ accepted: true as const, action: "deliver" as const }),
+  }));
+
   const session = sessionFixture({
+    run: {
+      getRunId: () => runId,
+      waitForTeardown: async () => undefined,
+    },
     state: {
       get: () => state,
       set: vi.fn(async (next: OttoMastraState) => {
@@ -100,6 +113,7 @@ export function mastraHarnessFixture() {
       return () => listeners.delete(listener);
     }),
     sendMessage,
+    sendSignal,
     abort: vi.fn(),
     respondToToolApproval: vi.fn(),
     respondToToolSuspension: vi.fn(async () => undefined),
@@ -138,8 +152,13 @@ export function mastraHarnessFixture() {
     createSession,
     deleteSession,
     sendMessage,
+    sendSignal,
     observeExternalTurn,
     emit,
+    /** Marks a Mastra run live, as it is from its first stream chunk to its end. */
+    setRunId: (next: string | null) => {
+      runId = next;
+    },
     waitForSendMessageCount: (count: number) =>
       sendMessageCount >= count
         ? Promise.resolve()

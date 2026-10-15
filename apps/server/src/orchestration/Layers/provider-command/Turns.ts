@@ -18,6 +18,7 @@ import type { createFailures } from "./Failures.ts";
 import type { createWorkspace } from "./Workspace.ts";
 import type { createDelegations } from "./Delegations.ts";
 import type { createSession } from "./Session.ts";
+import type { createMentions } from "./Mentions.ts";
 
 export function createTurns({
   hasHandledTurnRequestRecently,
@@ -38,13 +39,15 @@ export function createTurns({
   agentController,
   formatFailureDetail,
   setThreadSession,
+  expandComposerMentions,
 }: Pick<
   Effect.Success<ReturnType<typeof createDependencies>> &
     ReturnType<typeof createContext> &
     ReturnType<typeof createFailures> &
     ReturnType<typeof createWorkspace> &
     ReturnType<typeof createDelegations> &
-    ReturnType<typeof createSession>,
+    ReturnType<typeof createSession> &
+    ReturnType<typeof createMentions>,
   | "hasHandledTurnRequestRecently"
   | "resolveThreadShell"
   | "projectionSnapshotQuery"
@@ -63,6 +66,7 @@ export function createTurns({
   | "agentController"
   | "formatFailureDetail"
   | "setThreadSession"
+  | "expandComposerMentions"
 >) {
   const processTurnStartRequested = Effect.fn("processTurnStartRequested")(function* (
     event: Extract<ProviderIntentEvent, { type: "thread.turn-start-requested" }>,
@@ -106,6 +110,49 @@ export function createTurns({
     }
 
     const { message, hasOtherUserMessages } = turnStart.value;
+
+    // A message sent while the bot works joins that turn, and the bot reads it at
+    // its next step. Messages that carry their own turn context still start a turn.
+    if (
+      thread.session?.status === "running" &&
+      event.payload.groupInput === undefined &&
+      event.payload.hiddenWake !== true &&
+      event.payload.sourceProposedPlan === undefined &&
+      (event.payload.acknowledgedDelegationIds?.length ?? 0) === 0 &&
+      message.channelOrigin == null
+    ) {
+      const signalled = yield* expandComposerMentions(thread.id, message.text).pipe(
+        Effect.flatMap((input) =>
+          agentController.signalTurn({
+            threadId: thread.id,
+            input,
+            ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+          }),
+        ),
+        Effect.catchCause((cause) =>
+          Effect.logWarning("could not add a message to the running turn", {
+            threadId: thread.id,
+            cause: Cause.pretty(cause),
+          }).pipe(Effect.as(false)),
+        ),
+      );
+
+      if (signalled) {
+        const latest = yield* resolveThreadShell(thread.id);
+
+        // Marking the running session again settles the turn start this message
+        // requested. A run that already ended settles it when Mastra's next run starts.
+        if (latest?.session?.status === "running") {
+          yield* setThreadSession({
+            threadId: thread.id,
+            session: { ...latest.session, updatedAt: event.payload.createdAt },
+            createdAt: event.payload.createdAt,
+          });
+        }
+
+        return;
+      }
+    }
 
     yield* ensureThreadWorktree(thread);
 

@@ -50,6 +50,7 @@ export type ProviderCommandHarnessOptions = {
   readonly startSessionEffect?: (
     session: ProviderSession,
   ) => Effect.Effect<ProviderSession, ProviderAdapterRequestError>;
+  readonly signalTurnDelivers?: boolean;
   readonly sendTurnEffect?: () => Effect.Effect<
     { readonly threadId: ThreadId; readonly turnId: TurnId },
     ProviderAdapterRequestError
@@ -153,6 +154,14 @@ export function createProviderCommandMocks(
             threadId: ThreadId.make("thread-1"),
             turnId: asTurnId("turn-1"),
           });
+    }),
+  );
+
+  const signalTurn = observeMock(
+    vi.fn((_: Parameters<AgentControllerShape["signalTurn"]>[0]) => {
+      notify();
+
+      return Effect.succeed(input?.signalTurnDelivers === true);
     }),
   );
 
@@ -373,6 +382,7 @@ export function createProviderCommandMocks(
     inspectEngine,
     startSession: startSession,
     sendTurn: sendTurn,
+    signalTurn: signalTurn,
     interruptTurn: interruptTurn,
     respondToRequest: respondToRequest,
     respondToUserInput: respondToUserInput,
@@ -393,6 +403,7 @@ export function createProviderCommandMocks(
     modelSelection,
     startSession,
     sendTurn,
+    signalTurn,
     interruptTurn,
     respondToRequest,
     respondToUserInput,

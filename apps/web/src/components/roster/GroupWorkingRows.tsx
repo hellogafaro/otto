@@ -63,7 +63,9 @@ export function GroupWorkingRows({
     peopleNames,
     messages,
     respondingBotId,
-    turnRequestedAt: latestTurn?.requestedAt ?? null,
+    turn: latestTurn
+      ? { requestedAt: latestTurn.requestedAt, completedAt: latestTurn.completedAt }
+      : null,
   });
 
   return rows.map((row) => {

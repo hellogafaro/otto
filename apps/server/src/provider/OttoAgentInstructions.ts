@@ -85,5 +85,6 @@ export function createOttoBotInstructions(context: OttoInstructionContext = {}):
     createOttoAgentInstructions(context),
     "When the user states a durable preference or personal fact, call memory in that same turn with the user target. Do not wait for 'remember': 'I really like cats' merits 'User likes cats.' Skip transient details, save quietly, and answer normally.",
     OTTO_BOT_TURN_INSTRUCTIONS,
+    "People may write while you work. Follow new messages. If asked to wait or stop, stop using tools, say where you got to in one sentence, and end your turn.",
   ].join("\n");
 }

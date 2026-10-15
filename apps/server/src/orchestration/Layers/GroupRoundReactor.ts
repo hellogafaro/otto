@@ -26,6 +26,7 @@ import {
 } from "@otto/shared/groupRound";
 import { groupTurnNote } from "../groupResponder.ts";
 import { forkParked } from "../../serverActivation.ts";
+import { AgentController } from "../../provider/Services/AgentController.ts";
 import { GroupRoundReactor, type GroupRoundReactorShape } from "../Services/GroupRoundReactor.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
@@ -79,6 +80,7 @@ type Input =
 
 const make = Effect.gen(function* () {
   const engine = yield* OrchestrationEngineService;
+  const agentController = yield* AgentController;
   const projection = yield* ProjectionSnapshotQuery;
   const scope = yield* Effect.scope;
   const rounds = new Map<ThreadId, Round>();
@@ -241,6 +243,43 @@ const make = Effect.gen(function* () {
 
     if (Option.isNone(thread) || thread.value.groupId === null) return;
     const round = roundFor(threadId);
+    const running = round.running;
+
+    // The bot answering now reads the message at its next step, unless the
+    // message names only other bots. Bots still waiting are dropped; any other
+    // bot the message calls on answers next and reads it in the history.
+    if (running?.live && round.batch.length === 0) {
+      const plan = groupRound(round.bots, message.text);
+      const forRunning = plan.reason !== "mentioned" || plan.botIds.includes(running.bot.id);
+
+      const signalled =
+        forRunning &&
+        (yield* agentController
+          .signalTurn({ threadId, input: message.text, attachments: message.attachments })
+          .pipe(
+            Effect.catchCause((cause) =>
+              Effect.logWarning("group round could not signal the answering bot", {
+                threadId,
+                botId: running.bot.id,
+                cause,
+              }).pipe(Effect.as(false)),
+            ),
+          ));
+
+      if (signalled) {
+        round.anchor = message.messageId;
+        round.carry = [];
+        round.queue =
+          plan.reason === "plain"
+            ? []
+            : plan.botIds
+                .filter((botId) => botId !== running.bot.id)
+                .map((botId) => ({ botId, reason: plan.reason }));
+
+        return;
+      }
+    }
+
     const now = yield* Clock.currentTimeMillis;
 
     if (round.batch.length === 0) round.firstAt = now;

@@ -121,8 +121,9 @@ function readableDetail(detail: string) {
 
 /**
  * What each finished bot turn did, keyed by turn: its tool calls in order with what they worked
- * on, the thinking between them, and how long the whole turn took (from the message before the
- * reply to the reply). Turns that only thought and answered have no trace.
+ * on, the thinking between them, and how long the whole turn took (from the message that opened
+ * it to the reply). A message sent while the bot worked joins its turn, so the turn opens with
+ * the last message before its first tool call. Turns that only thought and answered have no trace.
  */
 export function buildBotTurnTraces(
   activities: ReadonlyArray<OrchestrationThreadActivity>,
@@ -162,8 +163,20 @@ export function buildBotTurnTraces(
       (activity) => activity.kind === "tool.started" && !TASK_LIST_TOOLS.has(toolName(activity)),
     );
 
-    if (started.length === 0) return;
-    const startAt = Date.parse(previous.createdAt);
+    const first = started[0];
+
+    if (!first) return;
+    const firstAt = Date.parse(first.createdAt);
+
+    const opener =
+      messages
+        .slice(0, index)
+        .findLast(
+          (candidate) =>
+            candidate.turnId !== message.turnId && Date.parse(candidate.createdAt) <= firstAt,
+        ) ?? previous;
+
+    const startAt = Date.parse(opener.createdAt);
     const endAt = Date.parse(message.createdAt);
     const steps: BotTraceStep[] = [];
     let cursor = startAt;

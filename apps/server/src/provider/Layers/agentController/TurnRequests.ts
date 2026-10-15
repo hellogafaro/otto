@@ -8,6 +8,7 @@ import * as NodeCrypto from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 
 import {
+  type ChatAttachment,
   TurnId,
   type ProviderRuntimeEvent,
   ThreadId,
@@ -37,6 +38,7 @@ import { LegacyProviderBridge } from "../../Services/LegacyProviderBridge.ts";
 
 import {
   type ResolvedEngine,
+  type ActiveTurn,
   type PendingTurn,
   type ActiveSession,
   type LegacyTurnMemoryState,
@@ -113,6 +115,101 @@ export function createTurnRequests(deps: {
     errorMessage?: string,
   ) => void;
 }) {
+  const readAttachments = (attachments: ReadonlyArray<ChatAttachment>) =>
+    Effect.forEach(
+      attachments,
+      (attachment) => {
+        const path = resolveAttachmentPath({
+          attachmentsDir: deps.config.attachmentsDir,
+          attachment,
+        });
+
+        if (path === null) {
+          return Effect.fail(
+            new AgentControllerRuntimeError({
+              operation: "sendTurn.attachments",
+              detail: `Attachment '${attachment.id}' has an invalid path.`,
+            }),
+          );
+        }
+
+        const readError = (cause: unknown) =>
+          new AgentControllerRuntimeError({
+            operation: "sendTurn.attachments",
+            detail: `Could not read attachment '${attachment.id}'.`,
+            cause,
+          });
+
+        const read = deps.options?.readAttachment;
+
+        const bytes = read
+          ? Effect.tryPromise({ try: () => read(path), catch: readError })
+          : deps.fileSystem.readFile(path).pipe(Effect.mapError(readError));
+
+        return bytes.pipe(
+          Effect.map((bytes) => ({
+            file: {
+              data: Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString(
+                "base64",
+              ),
+              mediaType: attachment.mimeType,
+              filename: attachment.name,
+            },
+            pathLine: `[Attached ${attachment.type} "${attachment.name}" is saved at: ${path}]`,
+          })),
+        );
+      },
+      { concurrency: 1 },
+    );
+
+  // A turn takes signals only while its Mastra run is live: a turn waiting on an
+  // approval or still being admitted has no run to read them.
+  const takesSignals = (active: ActiveSession, turn: ActiveTurn | null) =>
+    turn !== null &&
+    active.activeTurn === turn &&
+    !turn.finished &&
+    !turn.waiting &&
+    active.status !== "closed" &&
+    active.session.run.getRunId() !== null;
+
+  const signalTurn: AgentControllerShape["signalTurn"] = Effect.fn("AgentController.signalTurn")(
+    function* (input) {
+      const active = deps.sessions.get(String(input.threadId));
+
+      if (!active) return false;
+      const turn = active.activeTurn;
+
+      if (!takesSignals(active, turn)) return false;
+      const attachmentFiles = yield* readAttachments(input.attachments ?? []);
+
+      if (!takesSignals(active, turn)) return false;
+
+      const text = [input.input, ...attachmentFiles.map(({ pathLine }) => pathLine)]
+        .filter((part): part is string => Predicate.isString(part) && part.length > 0)
+        .join("\n\n");
+
+      const accepted = yield* deps.runMastra(
+        "signalTurn",
+        () =>
+          active.session.sendSignal(
+            {
+              type: "user",
+              contents:
+                attachmentFiles.length === 0
+                  ? text
+                  : [
+                      { type: "text", text },
+                      ...attachmentFiles.map(({ file }) => ({ type: "file" as const, ...file })),
+                    ],
+            },
+            { requireDelivery: true },
+          ).accepted,
+      );
+
+      return accepted.action !== "blocked" && accepted.action !== "discard";
+    },
+  );
+
   const sendTurn: AgentControllerShape["sendTurn"] = Effect.fn("AgentController.sendTurn")(
     function* (input) {
       const key = String(input.threadId);
@@ -339,51 +436,7 @@ export function createTurnRequests(deps: {
             }
           }
 
-          const attachmentFiles = yield* Effect.forEach(
-            input.attachments ?? [],
-            (attachment) => {
-              const path = resolveAttachmentPath({
-                attachmentsDir: deps.config.attachmentsDir,
-                attachment,
-              });
-
-              if (path === null) {
-                return Effect.fail(
-                  new AgentControllerRuntimeError({
-                    operation: "sendTurn.attachments",
-                    detail: `Attachment '${attachment.id}' has an invalid path.`,
-                  }),
-                );
-              }
-
-              const readError = (cause: unknown) =>
-                new AgentControllerRuntimeError({
-                  operation: "sendTurn.attachments",
-                  detail: `Could not read attachment '${attachment.id}'.`,
-                  cause,
-                });
-
-              const read = deps.options?.readAttachment;
-
-              const bytes = read
-                ? Effect.tryPromise({ try: () => read(path), catch: readError })
-                : deps.fileSystem.readFile(path).pipe(Effect.mapError(readError));
-
-              return bytes.pipe(
-                Effect.map((bytes) => ({
-                  file: {
-                    data: Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString(
-                      "base64",
-                    ),
-                    mediaType: attachment.mimeType,
-                    filename: attachment.name,
-                  },
-                  pathLine: `[Attached ${attachment.type} "${attachment.name}" is saved at: ${path}]`,
-                })),
-              );
-            },
-            { concurrency: 1 },
-          );
+          const attachmentFiles = yield* readAttachments(input.attachments ?? []);
 
           if (
             deps.sessions.get(key) !== active ||
@@ -500,5 +553,5 @@ export function createTurnRequests(deps: {
     deps.finishTurn(input.threadId, active, "interrupted");
   });
 
-  return { sendTurn, interruptTurn };
+  return { sendTurn, signalTurn, interruptTurn };
 }

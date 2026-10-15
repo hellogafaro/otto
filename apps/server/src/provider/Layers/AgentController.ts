@@ -142,6 +142,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       turnStillWaiting,
       cancelPendingApproval,
       cancelAllPendingApprovals,
+      adoptRun,
       failActiveTurn,
       handlePendingTurnFailure,
       admitPendingTurn,
@@ -434,6 +435,7 @@ const make = (options?: AgentControllerLiveOptions) =>
         approvalDetail,
         sessionFailureDetail,
         finishTurn,
+        adoptRun,
       });
 
     function startPendingTurn(active: ActiveSession, pending: PendingTurn) {
@@ -505,7 +507,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       publishSessionState,
     });
 
-    const { sendTurn, interruptTurn } = createTurnRequests({
+    const { sendTurn, signalTurn, interruptTurn } = createTurnRequests({
       fileSystem,
       resolvedByThread,
       sessions,
@@ -776,6 +778,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       inspectEngine,
       startSession,
       sendTurn,
+      signalTurn,
       interruptTurn,
       respondToRequest,
       respondToUserInput,

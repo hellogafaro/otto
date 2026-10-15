@@ -136,6 +136,14 @@ export interface AgentControllerShape {
     input: AgentControllerSendTurnInput,
   ) => Effect.Effect<ProviderTurnStartResult, AgentControllerError>;
 
+  /**
+   * Adds a person's message to the turn the thread's bot is running, so the bot
+   * reads it at its next step. False when no turn is running to take it.
+   */
+  readonly signalTurn: (
+    input: Pick<ProviderSendTurnInput, "threadId" | "input" | "attachments">,
+  ) => Effect.Effect<boolean, AgentControllerError>;
+
   readonly interruptTurn: (
     input: ProviderInterruptTurnInput,
   ) => Effect.Effect<void, AgentControllerError>;

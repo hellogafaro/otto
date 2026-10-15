@@ -135,6 +135,7 @@ export function createEvents(deps: {
     state: "completed" | "failed" | "interrupted",
     errorMessage?: string,
   ) => void;
+  readonly adoptRun: (threadId: ThreadId, active: ActiveSession) => void;
 }) {
   const baseEvent = (
     threadId: ThreadId,
@@ -295,6 +296,10 @@ export function createEvents(deps: {
     };
 
     switch (event.type) {
+      case "agent_start":
+        deps.adoptRun(threadId, active);
+
+        return;
       case "message_update":
         publishAssistantText(threadId, active, event.message, false);
 

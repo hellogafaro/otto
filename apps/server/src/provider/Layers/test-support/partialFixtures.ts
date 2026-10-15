@@ -4,8 +4,9 @@ import type { OpencodeClient } from "@opencode-ai/sdk/v2";
 import type { OttoMastraState } from "../../OttoMastraHarness.ts";
 
 type SessionFixture = Partial<
-  Omit<Session<OttoMastraState>, "state" | "mode" | "model" | "permissions">
+  Omit<Session<OttoMastraState>, "state" | "mode" | "model" | "permissions" | "run">
 > & {
+  run?: Partial<Session<OttoMastraState>["run"]>;
   state?: Partial<Session<OttoMastraState>["state"]>;
   mode?: Partial<Session<OttoMastraState>["mode"]>;
   model?: Partial<Session<OttoMastraState>["model"]>;

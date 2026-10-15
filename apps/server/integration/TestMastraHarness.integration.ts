@@ -32,6 +32,8 @@ export interface TestMastraHarness {
   readonly getStartCount: () => number;
   readonly listActiveSessionIds: () => ReadonlyArray<ThreadId>;
   readonly getInterruptCalls: (threadId: ThreadId) => ReadonlyArray<TurnId | undefined>;
+  /** Messages signalled into the thread's running turns, oldest first. */
+  readonly getSignals: (threadId: ThreadId) => ReadonlyArray<SignalInput>;
   /** Mastra model ids the thread's sessions switched to, oldest first. */
   readonly getModelSwitches: (threadId: ThreadId) => ReadonlyArray<string>;
   readonly getApprovalResponses: (threadId: ThreadId) => ReadonlyArray<{
@@ -41,8 +43,11 @@ export interface TestMastraHarness {
   }>;
 }
 
+type SignalInput = Parameters<OttoControllerSession["sendSignal"]>[0];
+
 interface SessionState {
   readonly threadId: ThreadId;
+  readonly signals: Array<SignalInput>;
   cwd: string | undefined;
   stateSnapshot: OttoMastraState;
   readonly queuedResponses: Array<TestTurnResponse>;
@@ -275,6 +280,15 @@ export function testMastraHarness(): TestMastraHarness {
           void runTurn(state, response).then(resolve);
         });
       },
+      sendSignal: (input: SignalInput) => {
+        state.signals.push(input);
+
+        return {
+          id: `signal-${state.signals.length}`,
+          type: "type" in input ? input.type : "user",
+          accepted: Promise.resolve({ accepted: true as const, action: "deliver" as const }),
+        };
+      },
       abort: () => {
         state.interruptCalls.push(state.activeTurnId);
         state.activeTurnId = undefined;
@@ -339,6 +353,7 @@ export function testMastraHarness(): TestMastraHarness {
             queuedResponses: queuedResponsesForNextSession.splice(0),
             listeners: new Set(),
             interruptCalls: [],
+            signals: [],
             modelSwitches: modelSwitchesByThread.get(String(threadId)) ?? [],
             approvalResponses: [],
             turnCount: 0,
@@ -373,6 +388,7 @@ export function testMastraHarness(): TestMastraHarness {
     getStartCount: () => sessionStartCount,
     listActiveSessionIds: () => Array.from(sessions.values(), (state) => state.threadId),
     getInterruptCalls: (threadId) => [...(sessions.get(String(threadId))?.interruptCalls ?? [])],
+    getSignals: (threadId) => [...(sessions.get(String(threadId))?.signals ?? [])],
     getModelSwitches: (threadId) => [...(modelSwitchesByThread.get(String(threadId)) ?? [])],
     getApprovalResponses: (threadId) => [
       ...(sessions.get(String(threadId))?.approvalResponses ?? []),

@@ -101,6 +101,19 @@ describe("buildBotTurnTraces", () => {
     });
   });
 
+  it("times a turn from the message that opened it, not one sent while it worked", () => {
+    const trace = buildBotTurnTraces(
+      [
+        tool("tool.started", "WebSearch", 2, "search", { data: { detail: "Madrid weather" } }),
+        tool("tool.completed", "WebSearch", 6, "search", { status: "completed", data: {} }),
+      ],
+      [message("ask", "user", 0), message("wait", "user", 7), message("answer", "assistant", 16)],
+    ).get(TURN);
+
+    expect(trace?.workedMs).toBe(16_000);
+    expect(trace?.steps.map((step) => step.durationMs)).toEqual([2_000, 4_000, 10_000]);
+  });
+
   it("gives no trace to a turn that only answered", () => {
     expect(buildBotTurnTraces([], messages).size).toBe(0);
   });

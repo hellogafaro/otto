@@ -18,6 +18,7 @@ import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import { describe, expect } from "vite-plus/test";
 
+import { AgentController } from "../../provider/Services/AgentController.ts";
 import { GroupRoundReactor } from "../Services/GroupRoundReactor.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
@@ -40,146 +41,163 @@ const ANALYST_ID = BotId.make("bot-analyst");
 
 type GroupTurn = Extract<OrchestrationCommand, { type: "thread.group-turn.start" }>;
 
-const harness = Effect.gen(function* () {
-  const events = yield* PubSub.unbounded<OrchestrationEvent>();
-  const turns: GroupTurn[] = [];
-  let sequence = 0;
+type Signal = Parameters<AgentController["Service"]["signalTurn"]>[0];
 
-  const readModel = makeReadModel({
-    bots: [
-      makeBot({ id: BOSS_ID, groupId: GROUP_ID }),
-      makeBot({ id: SPECIALIST_ID, groupId: GROUP_ID }),
-      makeBot({ id: ANALYST_ID, groupId: GROUP_ID }),
-    ],
-    groups: [
-      makeGroup({
-        members: [
-          { kind: "bot", botId: BOSS_ID, role: "boss" },
-          { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
-          { kind: "bot", botId: ANALYST_ID, role: "specialist" },
-          { kind: "person", personId: PERSON_ID, displayName: "Member" },
-        ],
-      }),
-    ],
-    threads: [makeGroupThread()],
-  });
+const makeHarness = (options: { readonly signalTurnDelivers?: boolean } = {}) =>
+  Effect.gen(function* () {
+    const events = yield* PubSub.unbounded<OrchestrationEvent>();
+    const turns: GroupTurn[] = [];
+    const signals: Signal[] = [];
+    let sequence = 0;
 
-  const engine = Layer.mock(OrchestrationEngineService)({
-    dispatch: (command) =>
-      Effect.sync(() => {
-        if (command.type === "thread.group-turn.start") turns.push(command);
-
-        return { sequence };
-      }),
-    subscribeDomainEvents: PubSub.subscribe(events).pipe(Effect.map(Stream.fromSubscription)),
-  });
-
-  const projection = Layer.mock(ProjectionSnapshotQuery)({
-    getThreadShellById: () =>
-      Effect.succeed(
-        Option.some({
-          ...makeGroupThread(),
-          session: null,
-          archivedAt: null,
-          settledOverride: null,
-          settledAt: null,
-          latestUserMessageAt: null,
-          hasPendingApprovals: false,
-          hasPendingUserInput: false,
-          hasActionableProposedPlan: false,
+    const readModel = makeReadModel({
+      bots: [
+        makeBot({ id: BOSS_ID, groupId: GROUP_ID }),
+        makeBot({ id: SPECIALIST_ID, groupId: GROUP_ID }),
+        makeBot({ id: ANALYST_ID, groupId: GROUP_ID }),
+      ],
+      groups: [
+        makeGroup({
+          members: [
+            { kind: "bot", botId: BOSS_ID, role: "boss" },
+            { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
+            { kind: "bot", botId: ANALYST_ID, role: "specialist" },
+            { kind: "person", personId: PERSON_ID, displayName: "Member" },
+          ],
         }),
+      ],
+      threads: [makeGroupThread()],
+    });
+
+    const engine = Layer.mock(OrchestrationEngineService)({
+      dispatch: (command) =>
+        Effect.sync(() => {
+          if (command.type === "thread.group-turn.start") turns.push(command);
+
+          return { sequence };
+        }),
+      subscribeDomainEvents: PubSub.subscribe(events).pipe(Effect.map(Stream.fromSubscription)),
+    });
+
+    const projection = Layer.mock(ProjectionSnapshotQuery)({
+      getThreadShellById: () =>
+        Effect.succeed(
+          Option.some({
+            ...makeGroupThread(),
+            session: null,
+            archivedAt: null,
+            settledOverride: null,
+            settledAt: null,
+            latestUserMessageAt: null,
+            hasPendingApprovals: false,
+            hasPendingUserInput: false,
+            hasActionableProposedPlan: false,
+          }),
+        ),
+      getCommandReadModel: () => Effect.succeed(readModel),
+    });
+
+    const agentController = Layer.mock(AgentController)({
+      signalTurn: (input) =>
+        Effect.sync(() => {
+          signals.push(input);
+
+          return options.signalTurnDelivers === true;
+        }),
+    });
+
+    const services = yield* Layer.build(
+      GroupRoundReactorLive.pipe(
+        Layer.provide(Layer.mergeAll(engine, projection, agentController)),
       ),
-    getCommandReadModel: () => Effect.succeed(readModel),
+    );
+
+    const reactor = Context.get(services, GroupRoundReactor);
+
+    yield* reactor.start();
+
+    const publish = (type: OrchestrationEvent["type"], payload: OrchestrationEvent["payload"]) =>
+      Effect.gen(function* () {
+        sequence += 1;
+        yield* PubSub.publish(events, {
+          sequence,
+          eventId: EventId.make(`event-${sequence}`),
+          aggregateKind: "thread",
+          aggregateId: threadId,
+          occurredAt: NOW,
+          commandId: CommandId.make(`command-${sequence}`),
+          causationEventId: null,
+          correlationId: null,
+          metadata: {},
+          type,
+          payload,
+          // SAFETY: Each call pairs a type with its own payload shape below.
+        } as OrchestrationEvent);
+        yield* Effect.yieldNow;
+        yield* reactor.drain;
+      });
+
+    const person = (text: string) =>
+      publish("thread.message-sent", {
+        threadId,
+        messageId: MessageId.make(`message-${sequence + 1}`),
+        role: "user",
+        text,
+        attachments: [],
+        turnId: null,
+        authorPersonId: PERSON_ID,
+        authorDisplayName: "Member",
+        streaming: false,
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+
+    const session = (status: OrchestrationSession["status"]) =>
+      publish("thread.session-set", {
+        threadId,
+        session: {
+          threadId,
+          status,
+          providerName: "codex",
+          runtimeMode: "full-access",
+          activeTurnId: null,
+          lastError: null,
+          updatedAt: NOW,
+        },
+      });
+
+    /** Runs the current bot's turn to the end, with or without a visible reply. */
+    const finishTurn = (reply: string | null, end: OrchestrationSession["status"] = "ready") =>
+      Effect.gen(function* () {
+        // Like the live server: the previous bot's session stops before this bot's turn runs.
+        yield* session("starting");
+        yield* session("stopped");
+        yield* session("ready");
+        yield* session("running");
+
+        if (reply !== null) {
+          yield* publish("thread.message-sent", {
+            threadId,
+            messageId: MessageId.make(`reply-${sequence + 1}`),
+            role: "assistant",
+            text: reply,
+            turnId: null,
+            streaming: true,
+            createdAt: NOW,
+            updatedAt: NOW,
+          });
+        }
+
+        yield* session(end);
+      });
+
+    const wait = (millis: number) =>
+      TestClock.adjust(millis).pipe(Effect.andThen(Effect.yieldNow), Effect.andThen(reactor.drain));
+
+    return { turns, signals, person, session, finishTurn, wait };
   });
 
-  const services = yield* Layer.build(
-    GroupRoundReactorLive.pipe(Layer.provide(Layer.merge(engine, projection))),
-  );
-
-  const reactor = Context.get(services, GroupRoundReactor);
-
-  yield* reactor.start();
-
-  const publish = (type: OrchestrationEvent["type"], payload: OrchestrationEvent["payload"]) =>
-    Effect.gen(function* () {
-      sequence += 1;
-      yield* PubSub.publish(events, {
-        sequence,
-        eventId: EventId.make(`event-${sequence}`),
-        aggregateKind: "thread",
-        aggregateId: threadId,
-        occurredAt: NOW,
-        commandId: CommandId.make(`command-${sequence}`),
-        causationEventId: null,
-        correlationId: null,
-        metadata: {},
-        type,
-        payload,
-        // SAFETY: Each call pairs a type with its own payload shape below.
-      } as OrchestrationEvent);
-      yield* Effect.yieldNow;
-      yield* reactor.drain;
-    });
-
-  const person = (text: string) =>
-    publish("thread.message-sent", {
-      threadId,
-      messageId: MessageId.make(`message-${sequence + 1}`),
-      role: "user",
-      text,
-      attachments: [],
-      turnId: null,
-      authorPersonId: PERSON_ID,
-      authorDisplayName: "Member",
-      streaming: false,
-      createdAt: NOW,
-      updatedAt: NOW,
-    });
-
-  const session = (status: OrchestrationSession["status"]) =>
-    publish("thread.session-set", {
-      threadId,
-      session: {
-        threadId,
-        status,
-        providerName: "codex",
-        runtimeMode: "full-access",
-        activeTurnId: null,
-        lastError: null,
-        updatedAt: NOW,
-      },
-    });
-
-  /** Runs the current bot's turn to the end, with or without a visible reply. */
-  const finishTurn = (reply: string | null, end: OrchestrationSession["status"] = "ready") =>
-    Effect.gen(function* () {
-      // Like the live server: the previous bot's session stops before this bot's turn runs.
-      yield* session("starting");
-      yield* session("stopped");
-      yield* session("ready");
-      yield* session("running");
-
-      if (reply !== null) {
-        yield* publish("thread.message-sent", {
-          threadId,
-          messageId: MessageId.make(`reply-${sequence + 1}`),
-          role: "assistant",
-          text: reply,
-          turnId: null,
-          streaming: true,
-          createdAt: NOW,
-          updatedAt: NOW,
-        });
-      }
-
-      yield* session(end);
-    });
-
-  const wait = (millis: number) =>
-    TestClock.adjust(millis).pipe(Effect.andThen(Effect.yieldNow), Effect.andThen(reactor.drain));
-
-  return { turns, person, finishTurn, wait };
-});
+const harness = makeHarness();
 
 const bots = (turns: ReadonlyArray<GroupTurn>) => turns.map((turn) => turn.botId);
 
@@ -314,6 +332,90 @@ describe("GroupRoundReactor", () => {
         yield* wait(2_000);
         yield* finishTurn(null, "interrupted");
         expect(bots(turns)).toEqual([BOSS_ID]);
+      }),
+    ),
+  );
+
+  it.effect("adds a message to the answering bot's turn and drops the bots still waiting", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { turns, signals, person, session, wait } = yield* makeHarness({
+          signalTurnDelivers: true,
+        });
+
+        yield* person("plan the offsite");
+        yield* wait(2_000);
+        yield* session("running");
+        yield* person("wait a minute");
+        expect(signals).toEqual([{ threadId, input: "Member: wait a minute", attachments: [] }]);
+
+        yield* wait(8_000);
+        yield* session("ready");
+        expect(bots(turns)).toEqual([BOSS_ID]);
+      }),
+    ),
+  );
+
+  it.effect("sends @everyone to the answering bot, then asks the others", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { turns, signals, person, session, finishTurn, wait } = yield* makeHarness({
+          signalTurnDelivers: true,
+        });
+
+        yield* person("@bot-boss draft the agenda");
+        yield* wait(2_000);
+        yield* session("running");
+        yield* person("@everyone add your topics too");
+        expect(signals).toHaveLength(1);
+
+        yield* session("ready");
+        expect(bots(turns)).toEqual([BOSS_ID, SPECIALIST_ID]);
+        expect(turns[1]?.messageId).not.toBe(turns[0]?.messageId);
+        expect(turns[1]?.input).toContain("for everyone");
+
+        yield* finishTurn("Mine is hiring.");
+        expect(bots(turns)).toEqual([BOSS_ID, SPECIALIST_ID, ANALYST_ID]);
+      }),
+    ),
+  );
+
+  it.effect("keeps a message for another bot until the answering bot finishes", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { turns, signals, person, session, wait } = yield* makeHarness({
+          signalTurnDelivers: true,
+        });
+
+        yield* person("@bot-boss draft the agenda");
+        yield* wait(2_000);
+        yield* session("running");
+        yield* person("@bot-analyst check the budget");
+        expect(signals).toEqual([]);
+
+        yield* wait(2_000);
+        yield* session("ready");
+        expect(bots(turns)).toEqual([BOSS_ID, ANALYST_ID]);
+        expect(turns[1]?.input).toBe("Member: @bot-analyst check the budget");
+      }),
+    ),
+  );
+
+  it.effect("starts a new round when the answering bot cannot take the message", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { turns, signals, person, session, wait } = yield* harness;
+
+        yield* person("@bot-boss draft the agenda");
+        yield* wait(2_000);
+        yield* session("running");
+        yield* person("and the budget");
+        expect(signals).toHaveLength(1);
+
+        yield* wait(2_000);
+        yield* session("ready");
+        expect(bots(turns)).toEqual([BOSS_ID, BOSS_ID]);
+        expect(turns[1]?.input).toBe("Member: and the budget");
       }),
     ),
   );
