@@ -6,7 +6,7 @@ import {
   type WorkParticipant,
   type WorkStatus,
 } from "@otto/contracts";
-import { RiBox3Line, RiCalendarLine, RiCloseLine, RiImageLine } from "@remixicon/react";
+import { RiBox3Line, RiCalendarLine } from "@remixicon/react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useRef, useState } from "react";
 
@@ -22,8 +22,6 @@ import {
 } from "../chat/composer-control";
 import { PromptDialog } from "../prompt-dialog";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { useProjectCoverUpload } from "./project-cover";
 import { AssigneesMenu, OwnerSelect, type WorkParticipants } from "./work-participants";
 import { WorkStatusSelect } from "./work-status";
 
@@ -175,7 +173,7 @@ export function NewTaskDialog({
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(true) : close())}
       title={t("New task")}
-      titleInput={{ value: title, onChange: setTitle, label: t("Task title") }}
+      titleInput={{ value: title, onChange: setTitle, label: t("Task title"), autoFocus: true }}
       placeholder={t("Add a description…")}
       promptOptional
       pickers={
@@ -211,8 +209,7 @@ export function NewTaskDialog({
 
 /**
  * Otto: New project, the routine composer: the title, then the description as the prompt, with
- * status, owner and an optional cover image as composer controls. The cover is uploaded into
- * the new project's Library folder once the project exists.
+ * status and owner as composer controls. The cover is set on the project's page.
  */
 export function NewProjectDialog({
   open,
@@ -229,18 +226,14 @@ export function NewProjectDialog({
 }) {
   const { t } = useI18n();
   const createProject = useAtomCommand(projectEnvironment.create);
-  const { setCover } = useProjectCoverUpload();
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<WorkStatus>("backlog");
   const [owner, setOwner] = useState<WorkParticipant | null>(null);
-  const [cover, setCoverFile] = useState<File | null>(null);
-  const coverInput = useRef<HTMLInputElement>(null);
 
   const close = () => {
     setTitle("");
     setStatus("backlog");
     setOwner(null);
-    setCoverFile(null);
     onOpenChange(false);
   };
 
@@ -256,8 +249,6 @@ export function NewProjectDialog({
 
     close();
     onCreated?.(projectId);
-
-    if (cover) void setCover(environmentId, projectId, cover);
   };
 
   return (
@@ -265,7 +256,7 @@ export function NewProjectDialog({
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(true) : close())}
       title={t("New project")}
-      titleInput={{ value: title, onChange: setTitle, label: t("Project title") }}
+      titleInput={{ value: title, onChange: setTitle, label: t("Project title"), autoFocus: true }}
       placeholder={t("Add a description…")}
       promptOptional
       pickers={
@@ -277,42 +268,6 @@ export function NewProjectDialog({
             onChange={setOwner}
             participants={participants}
           />
-          <input
-            ref={coverInput}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(event) => {
-              const [file] = event.currentTarget.files ?? [];
-              event.currentTarget.value = "";
-
-              if (file) setCoverFile(file);
-            }}
-          />
-          <ComposerControl
-            aria-label={t("Cover image")}
-            className="max-w-52 min-w-0"
-            onClick={() => coverInput.current?.click()}
-          >
-            <ComposerControlIcon icon={RiImageLine} />
-            <span className="min-w-0 truncate">{cover?.name ?? t("Cover image")}</span>
-          </ComposerControl>
-          {cover ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <ComposerControl
-                    size="icon-sm"
-                    aria-label={t("Remove cover")}
-                    onClick={() => setCoverFile(null)}
-                  />
-                }
-              >
-                <ComposerControlIcon icon={RiCloseLine} />
-              </TooltipTrigger>
-              <TooltipPopup>{t("Remove cover")}</TooltipPopup>
-            </Tooltip>
-          ) : null}
         </>
       }
       submitLabel={t("Create project")}

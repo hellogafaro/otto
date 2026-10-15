@@ -22,6 +22,8 @@ interface PromptDialogProps {
     readonly value: string;
     readonly onChange: (value: string) => void;
     readonly label: string;
+    /** Otto: Opens on the title instead of the prompt, when the title is what must be written. */
+    readonly autoFocus?: boolean;
   };
   readonly placeholder: string;
   /** Controls beside the prompt that pick what it goes to, such as a bot. */
@@ -119,6 +121,7 @@ function PromptDialogBody({
           <>
             <DialogTitle className="sr-only">{title}</DialogTitle>
             <input
+              autoFocus={titleInput.autoFocus}
               value={titleInput.value}
               maxLength={80}
               placeholder={title}
@@ -139,7 +142,7 @@ function PromptDialogBody({
       </DialogHeader>
       <textarea
         ref={inputRef}
-        autoFocus
+        autoFocus={!titleInput?.autoFocus}
         value={prompt}
         placeholder={placeholder}
         aria-label={placeholder}

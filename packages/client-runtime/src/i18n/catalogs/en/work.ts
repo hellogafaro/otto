@@ -43,7 +43,6 @@ export const workCatalog = {
   "Add link": "Add link",
   "Task title": "Task title",
   "Project title": "Project title",
-  "Cover image": "Cover image",
   "Change cover": "Change cover",
   "Remove cover": "Remove cover",
   "Add a description…": "Add a description…",

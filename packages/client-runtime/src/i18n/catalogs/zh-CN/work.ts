@@ -43,7 +43,6 @@ export const workCatalog = {
   "Add link": "添加链接",
   "Task title": "任务标题",
   "Project title": "项目标题",
-  "Cover image": "封面图片",
   "Change cover": "更换封面",
   "Remove cover": "移除封面",
   "Add a description…": "添加描述…",

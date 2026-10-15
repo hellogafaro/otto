@@ -1,11 +1,6 @@
-import type {
-  EnvironmentId,
-  LibraryFileId,
-  OrchestrationProjectShell,
-  ProjectId,
-} from "@otto/contracts";
+import type { EnvironmentId, LibraryFileId, OrchestrationProjectShell } from "@otto/contracts";
 import { RiImageLine } from "@remixicon/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
@@ -144,23 +139,6 @@ function DitheredCover({
   );
 }
 
-/** Uploads an image into the project's Library folder and makes it the project's cover. */
-export function useProjectCoverUpload() {
-  const { upload, uploading } = useLibraryUpload();
-  const updateProject = useAtomCommand(projectEnvironment.update);
-
-  const setCover = useCallback(
-    async (environmentId: EnvironmentId, projectId: ProjectId, file: File) => {
-      const [coverFileId] = await upload(environmentId, [file], { folderId: null, projectId });
-
-      if (coverFileId) await updateProject({ environmentId, input: { projectId, coverFileId } });
-    },
-    [upload, updateProject],
-  );
-
-  return { setCover, uploading };
-}
-
 /**
  * Otto: Change cover and Remove on a project page's cover, shown on hover or focus. Removing
  * goes back to the generated cover and keeps the image in the project's Library.
@@ -173,9 +151,21 @@ export function ProjectCoverControls({
   readonly project: Pick<OrchestrationProjectShell, "id" | "coverFileId">;
 }) {
   const { t } = useI18n();
-  const { setCover, uploading } = useProjectCoverUpload();
+  const { upload, uploading } = useLibraryUpload();
   const updateProject = useAtomCommand(projectEnvironment.update);
   const input = useRef<HTMLInputElement>(null);
+
+  // Otto: The image goes into the project's Library folder, then becomes the cover.
+  const setCover = async (file: File) => {
+    const [coverFileId] = await upload(environmentId, [file], {
+      folderId: null,
+      projectId: project.id,
+    });
+
+    if (coverFileId) {
+      await updateProject({ environmentId, input: { projectId: project.id, coverFileId } });
+    }
+  };
 
   return (
     <div className="absolute right-3 bottom-3 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
@@ -188,7 +178,7 @@ export function ProjectCoverControls({
           const [file] = event.currentTarget.files ?? [];
           event.currentTarget.value = "";
 
-          if (file) void setCover(environmentId, project.id, file);
+          if (file) void setCover(file);
         }}
       />
       <Button
