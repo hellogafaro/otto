@@ -13,8 +13,7 @@ import {
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import { driverSupportsDelegation } from "@otto/shared/delegationProviders";
 
-import { useBlocker } from "@tanstack/react-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { requestConfirmDialog } from "../../confirmDialog";
 import { useEnvironmentSettings } from "../../hooks/useSettings";
@@ -51,7 +50,7 @@ import {
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
-/** Edits one bot's profile as a draft, saved together from the bottom bar. */
+/** Edits one bot's profile, saving it as you go. */
 export function BotSettingsForm({
   bot,
   onSave,
@@ -95,25 +94,6 @@ export function BotSettingsForm({
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [channelsOpen, setChannelsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const deletedRef = useRef(false);
-
-  const shouldBlockNavigation = useCallback(async () => {
-    if (deletedRef.current || !draft.dirty) return false;
-
-    const confirmation = requestConfirmDialog(t("Discard unsaved bot settings?"), {
-      variant: "destructive",
-    });
-
-    if (!confirmation) return true;
-
-    return !(await confirmation);
-  }, [draft.dirty, t]);
-
-  useBlocker({
-    shouldBlockFn: shouldBlockNavigation,
-    enableBeforeUnload: () => draft.dirty,
-    disabled: !draft.dirty,
-  });
 
   const assignedChannels = (bot.channelBindings ?? []).filter(
     (binding) => binding.connectionId || binding.projectId || binding.status !== "disconnected",
@@ -160,225 +140,211 @@ export function BotSettingsForm({
         return;
       }
 
-      deletedRef.current = true;
       onDeleted();
     });
   }, [bot, environmentId, deleteBot, onDeleted, t]);
 
   return (
     <>
-      <SettingsPageContainer>
-        <div className="flex items-center gap-4">
-          <BotAvatarView avatar={bot.avatar} name={draft.name || bot.name} className="size-14" />
-          <div className="min-w-0">
-            <h1 className="truncate text-22px leading-title font-medium tracking-title-lg">
-              {draft.name || bot.name}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t("Set up how this bot works with you.")}
-            </p>
-          </div>
-        </div>
-
-        <BotIdentityFields bot={bot} draft={draft} onChangeAvatar={() => setAvatarOpen(true)} />
-
-        <SettingsSection id="behavior" title={t("Behavior")}>
-          <SettingsRow
-            id="personality"
-            title={t("Personality")}
-            description={t(
-              "Choose how this bot usually sounds. It is a baseline, not a costume. The bot still adapts to you and to the task, so serious work stays serious in every mode.",
-            )}
-          >
-            <div className="mt-3 pb-3.5">
-              <BotPersonalityToneField
-                bot={bot}
-                tone={draft.personalityTone}
-                onToneChange={(tone) => {
-                  draft.setPersonalityTone(tone);
-                  draft.markChanged();
-                }}
-              />
+      {/* Otto: Leaving a field saves at once; edits otherwise save 800ms after the last one. */}
+      <div className="flex min-h-0 flex-1 flex-col" onBlurCapture={draft.flush}>
+        <SettingsPageContainer>
+          <div className="flex items-center gap-4">
+            <BotAvatarView avatar={bot.avatar} name={draft.name || bot.name} className="size-14" />
+            <div className="min-w-0">
+              <h1 className="truncate text-22px leading-title font-medium tracking-title-lg">
+                {draft.name || bot.name}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {t("Set up how this bot works with you.")}
+              </p>
             </div>
-          </SettingsRow>
+          </div>
 
-          <SettingsRow
-            title={t("Voice calls")}
-            description={t(
-              "Let this bot take subscription voice calls. Voice must also be enabled in Settings.",
-            )}
-            control={
-              <Switch
-                checked={draft.voiceEnabled}
-                onCheckedChange={(checked) => {
-                  draft.setVoiceEnabled(Boolean(checked));
-                  draft.markChanged();
-                }}
-                aria-label={
-                  draft.voiceEnabled
-                    ? t("Disable voice calls for {name}", { name: bot.name })
-                    : t("Enable voice calls for {name}", { name: bot.name })
-                }
-              />
-            }
-          />
-        </SettingsSection>
+          <BotIdentityFields bot={bot} draft={draft} onChangeAvatar={() => setAvatarOpen(true)} />
 
-        <BotEngineFields bot={bot} draft={draft} environmentId={environmentId} />
+          <SettingsSection id="behavior" title={t("Behavior")}>
+            <SettingsRow
+              id="personality"
+              title={t("Personality")}
+              description={t(
+                "Choose how this bot usually sounds. It is a baseline, not a costume. The bot still adapts to you and to the task, so serious work stays serious in every mode.",
+              )}
+            >
+              <div className="mt-3 pb-3.5">
+                <BotPersonalityToneField
+                  bot={bot}
+                  tone={draft.personalityTone}
+                  onToneChange={(tone) => {
+                    draft.setPersonalityTone(tone);
+                    draft.markChanged();
+                  }}
+                />
+              </div>
+            </SettingsRow>
 
-        <SettingsSection id="workspace" title={t("Workspace")}>
-          <SettingsRow
-            title={t("Sandbox")}
-            description={t("Where this bot runs commands and edits files.")}
-            control={
-              <Select
-                value={draft.sandbox}
-                onValueChange={(value) => {
-                  if (value === null) return;
+            <SettingsRow
+              title={t("Voice calls")}
+              description={t(
+                "Let this bot take subscription voice calls. Voice must also be enabled in Settings.",
+              )}
+              control={
+                <Switch
+                  checked={draft.voiceEnabled}
+                  onCheckedChange={(checked) => {
+                    draft.setVoiceEnabled(Boolean(checked));
+                    draft.markChanged();
+                  }}
+                  aria-label={
+                    draft.voiceEnabled
+                      ? t("Disable voice calls for {name}", { name: bot.name })
+                      : t("Enable voice calls for {name}", { name: bot.name })
+                  }
+                />
+              }
+            />
+          </SettingsSection>
 
-                  if (
-                    value !== "default" &&
-                    !BOT_SANDBOX_OPTIONS.some((option) => option.value === value)
-                  )
-                    return;
-                  // SAFETY: the value has been checked against default and BOT_SANDBOX_OPTIONS before updating the draft.
-                  draft.setSandbox(value as typeof draft.sandbox);
-                  draft.markChanged();
-                }}
-              >
-                <SelectTrigger className="w-full sm:w-48" aria-label={t("Sandbox provider")}>
-                  <SelectValue>{botSandboxLabel(draft.sandbox, t)}</SelectValue>
-                </SelectTrigger>
-                <SelectPopup align="end" alignItemWithTrigger={false}>
-                  <SelectItem value="default">{botSandboxLabel("default", t)}</SelectItem>
-                  {BOT_SANDBOX_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {botSandboxLabel(option.value, t)}
+          <BotEngineFields bot={bot} draft={draft} environmentId={environmentId} />
+
+          <SettingsSection id="workspace" title={t("Workspace")}>
+            <SettingsRow
+              title={t("Sandbox")}
+              description={t("Where this bot runs commands and edits files.")}
+              control={
+                <Select
+                  value={draft.sandbox}
+                  onValueChange={(value) => {
+                    if (value === null) return;
+
+                    if (
+                      value !== "default" &&
+                      !BOT_SANDBOX_OPTIONS.some((option) => option.value === value)
+                    )
+                      return;
+                    // SAFETY: the value has been checked against default and BOT_SANDBOX_OPTIONS before updating the draft.
+                    draft.setSandbox(value as typeof draft.sandbox);
+                    draft.markChanged();
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-48" aria-label={t("Sandbox provider")}>
+                    <SelectValue>{botSandboxLabel(draft.sandbox, t)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    <SelectItem value="default">{botSandboxLabel("default", t)}</SelectItem>
+                    {BOT_SANDBOX_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {botSandboxLabel(option.value, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              }
+            />
+
+            <SettingsRow
+              title={t("Image generation")}
+              description={t(
+                "Which subscription this bot uses to create images. The chat model above stays the same.",
+              )}
+              control={
+                <Select
+                  value={draft.imageProvider ?? BOT_IMAGE_PROVIDER_DEFAULT}
+                  onValueChange={(value) => {
+                    draft.setImageProvider(botImageProviderFromSelectValue(value));
+                    draft.markChanged();
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-56" aria-label={t("Image provider")}>
+                    <SelectValue>
+                      {draft.imageProvider
+                        ? imageProviderLabel(draft.imageProvider)
+                        : globalDefaultOptionLabel(imageSettings)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value={BOT_IMAGE_PROVIDER_DEFAULT}>
+                      {globalDefaultOptionLabel(imageSettings)}
                     </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
+                    {IMAGE_PROVIDER_IDS.map((provider) => (
+                      <SelectItem key={provider} value={provider}>
+                        {imageProviderLabel(provider)}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              }
+            />
+
+            <SettingsRow
+              title={t("Memory")}
+              description={t("Facts this bot keeps between chats.")}
+              control={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  aria-label={t("Manage bot memory")}
+                  disabled={!threadRef}
+                  onClick={() => setMemoryOpen(true)}
+                >
+                  {t("Facts and history")}
+                </Button>
+              }
+            />
+
+            <SettingsRow
+              title={t("Channels")}
+              description={t("Where this bot answers outside Otto.")}
+              control={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  aria-label={t("Manage bot channels")}
+                  aria-expanded={channelsOpen}
+                  onClick={() => setChannelsOpen(true)}
+                >
+                  {assignedChannels.length === 0
+                    ? t("No channels")
+                    : t("{connected} of {total} connected", {
+                        connected: connectedChannelCount,
+                        total: assignedChannels.length,
+                      })}
+                </Button>
+              }
+            />
+          </SettingsSection>
+
+          <BotToolSwitches
+            bot={bot}
+            environmentId={environmentId}
+            servers={mcpServers}
+            accessStatuses={accessQuery.data?.access ?? []}
+            canDelegate={
+              draft.activeEntry ? driverSupportsDelegation(draft.activeEntry.driverKind) : true
             }
           />
 
-          <SettingsRow
-            title={t("Image generation")}
-            description={t(
-              "Which subscription this bot uses to create images. The chat model above stays the same.",
-            )}
-            control={
-              <Select
-                value={draft.imageProvider ?? BOT_IMAGE_PROVIDER_DEFAULT}
-                onValueChange={(value) => {
-                  draft.setImageProvider(botImageProviderFromSelectValue(value));
-                  draft.markChanged();
-                }}
-              >
-                <SelectTrigger className="w-full sm:w-56" aria-label={t("Image provider")}>
-                  <SelectValue>
-                    {draft.imageProvider
-                      ? imageProviderLabel(draft.imageProvider)
-                      : globalDefaultOptionLabel(imageSettings)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup>
-                  <SelectItem value={BOT_IMAGE_PROVIDER_DEFAULT}>
-                    {globalDefaultOptionLabel(imageSettings)}
-                  </SelectItem>
-                  {IMAGE_PROVIDER_IDS.map((provider) => (
-                    <SelectItem key={provider} value={provider}>
-                      {imageProviderLabel(provider)}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            }
-          />
-
-          <SettingsRow
-            title={t("Memory")}
-            description={t("Facts this bot keeps between chats.")}
-            control={
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                aria-label={t("Manage bot memory")}
-                disabled={!threadRef}
-                onClick={() => setMemoryOpen(true)}
-              >
-                {t("Facts and history")}
-              </Button>
-            }
-          />
-
-          <SettingsRow
-            title={t("Channels")}
-            description={t("Where this bot answers outside Otto.")}
-            control={
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                aria-label={t("Manage bot channels")}
-                aria-expanded={channelsOpen}
-                onClick={() => setChannelsOpen(true)}
-              >
-                {assignedChannels.length === 0
-                  ? t("No channels")
-                  : t("{connected} of {total} connected", {
-                      connected: connectedChannelCount,
-                      total: assignedChannels.length,
-                    })}
-              </Button>
-            }
-          />
-        </SettingsSection>
-
-        <BotToolSwitches
-          bot={bot}
-          environmentId={environmentId}
-          servers={mcpServers}
-          accessStatuses={accessQuery.data?.access ?? []}
-          canDelegate={
-            draft.activeEntry ? driverSupportsDelegation(draft.activeEntry.driverKind) : true
-          }
-        />
-
-        <SettingsSection title={t("Danger")}>
-          <SettingsRow
-            title={t("Delete bot")}
-            description={t("Remove {name} from the roster. Its chats stay in your history.", {
-              name: bot.name,
-            })}
-            control={
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={deleting || !environmentId}
-                onClick={onDeleteBot}
-              >
-                {deleting ? t("Deleting…") : t("Delete")}
-              </Button>
-            }
-          />
-        </SettingsSection>
-      </SettingsPageContainer>
-
-      <div
-        className="flex shrink-0 items-center justify-end gap-3 border-t border-border/70 px-5 py-3 sm:px-6"
-        data-testid="bot-settings-save-bar"
-      >
-        <span aria-live="polite" className="mr-auto text-xs text-muted-foreground">
-          {draft.saved ? (
-            <span className="text-success">{t("Saved")}</span>
-          ) : draft.dirty ? (
-            t("Unsaved changes")
-          ) : null}
-        </span>
-        <Button size="sm" disabled={!draft.canSave || draft.saving} onClick={draft.save}>
-          {draft.saving ? t("Saving") : t("Save")}
-        </Button>
+          <SettingsSection title={t("Danger")}>
+            <SettingsRow
+              title={t("Delete bot")}
+              description={t("Remove {name} from the roster. Its chats stay in your history.", {
+                name: bot.name,
+              })}
+              control={
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={deleting || !environmentId}
+                  onClick={onDeleteBot}
+                >
+                  {deleting ? t("Deleting…") : t("Delete")}
+                </Button>
+              }
+            />
+          </SettingsSection>
+        </SettingsPageContainer>
       </div>
 
       <AvatarPickerDialog bot={bot} open={avatarOpen} onOpenChange={setAvatarOpen} />

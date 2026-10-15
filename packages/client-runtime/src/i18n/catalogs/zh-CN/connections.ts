@@ -551,7 +551,4 @@ export const connectionsCatalog = {
   "No accounts": "没有帐户",
   "Label, like Work or Personal": "标签，例如工作或个人",
   "You already have an account called {label}.": "你已有名为 {label} 的帐户。",
-  "Turn on your {app} account for {bot}? Everyone who chats with {bot} can use it through the bot, without seeing it.":
-    "为 {bot} 开启你的 {app} 帐户？与 {bot} 聊天的每个人都可以通过该机器人使用它，但看不到它。",
-  "Turn on": "开启",
 } as const;

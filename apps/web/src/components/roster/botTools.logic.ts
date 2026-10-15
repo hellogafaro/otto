@@ -159,8 +159,6 @@ export function botMcpServers(
 export interface BotAccountItem {
   readonly connection: ComposioConnection;
   readonly enabled: boolean;
-  /** The viewer's personal account on a bot they don't own: turning it on lends it. */
-  readonly lends: boolean;
 }
 
 /**
@@ -179,7 +177,6 @@ export function buildBotAccountItems(
     .map((connection) => ({
       connection,
       enabled: connection.botAccess[bot.id] ?? (connection.visibility === "workspace" || ownsBot),
-      lends: connection.visibility === "user" && !ownsBot,
     }))
     .toSorted((left, right) =>
       (left.connection.toolkitName ?? left.connection.toolkitSlug).localeCompare(

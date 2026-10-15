@@ -2,7 +2,6 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   BotId,
   isSkillFile,
-  type ComposioConnection,
   type EnvironmentId,
   type LibraryFolderId,
   type McpServer,
@@ -10,10 +9,10 @@ import {
   type ProviderAccessStatus,
 } from "@otto/contracts";
 import { Predicate } from "effect";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { useAutosave } from "../../hooks/useAutosave";
 import { useI18n } from "../../i18n";
-import { ensureLocalApi } from "../../localApi";
 import { botEnvironment, environmentPeopleAtom } from "../../state/bots";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
@@ -24,13 +23,16 @@ import { BotSkillsSection, BotToolsSection } from "./BotToolsSection";
 import { botMcpServers, botSkillFolders, buildBotAccountItems } from "./botTools.logic";
 import type { Bot } from "./types";
 
+const sameIds = (left: readonly string[], right: readonly string[]) =>
+  left.length === right.length && left.every((id) => right.includes(id));
+
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
 /**
- * Otto: A bot's Integrations and Skills with their per-bot switches. They save at once, like
- * Customize's, apart from the profile draft: MCP servers and skills on the bot, app accounts
- * on the account (only its owner lends a personal one to someone else's bot).
+ * Otto: A bot's Integrations and Skills with their per-bot switches, saved like the rest of the
+ * page: MCP servers and skills on the bot, app accounts on the account (only its owner turns a
+ * personal one on for someone else's bot).
  */
 export function BotToolSwitches({
   bot,
@@ -70,61 +72,105 @@ export function BotToolSwitches({
     [bot.id, composioStatus.data, ownerPersonId, people],
   );
 
-  const saveSwitches = (input: {
-    readonly disabledMcpServerIds?: readonly McpServerId[];
-    readonly disabledSkillIds?: readonly LibraryFolderId[];
-  }) => {
-    if (!environmentId) return;
+  // Otto: Switches show their new state at once and save together 800ms after the last flip.
+  const [pendingMcp, setPendingMcp] = useState<readonly McpServerId[] | null>(null);
+  const [pendingSkills, setPendingSkills] = useState<readonly LibraryFolderId[] | null>(null);
+  const [pendingAccounts, setPendingAccounts] = useState<Readonly<Record<string, boolean>>>({});
+  const disabledMcp = pendingMcp ?? bot.disabledMcpServerIds;
+  const disabledSkills = pendingSkills ?? bot.disabledSkillIds ?? [];
 
-    void updateBot({ environmentId, input: { botId: BotId.make(bot.id), ...input } }).then(
-      (result) => {
-        if (Predicate.isTagged(result, "Failure")) {
-          toastManager.add({ type: "error", title: t("Could not save bot settings") });
-        }
-      },
-    );
-  };
+  // A pending choice gives way once the saved bot or account says the same.
+  useEffect(() => {
+    if (pendingMcp && sameIds(pendingMcp, bot.disabledMcpServerIds)) setPendingMcp(null);
+  }, [bot.disabledMcpServerIds, pendingMcp]);
 
-  const switchAccount = async (connection: ComposioConnection, enabled: boolean) => {
-    if (!environmentId) return;
-    const name = connection.toolkitName ?? connection.toolkitSlug;
-    const lends = accounts.some((item) => item.connection.id === connection.id && item.lends);
+  useEffect(() => {
+    if (pendingSkills && sameIds(pendingSkills, bot.disabledSkillIds ?? [])) {
+      setPendingSkills(null);
+    }
+  }, [bot.disabledSkillIds, pendingSkills]);
 
-    if (enabled && lends) {
-      const confirmed = await ensureLocalApi().dialogs.confirm(
-        t(
-          "Turn on your {app} account for {bot}? Everyone who chats with {bot} can use it through the bot, without seeing it.",
-          { app: name, bot: bot.name },
+  useEffect(() => {
+    const settled = accounts.filter((item) => pendingAccounts[item.connection.id] === item.enabled);
+
+    if (settled.length === 0) return;
+
+    setPendingAccounts((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(
+          ([id]) => !settled.some((item) => item.connection.id === id),
         ),
-        { confirmLabel: t("Turn on") },
-      );
+      ),
+    );
+  }, [accounts, pendingAccounts]);
 
-      if (!confirmed) return;
+  const save = () => {
+    if (!environmentId) return;
+
+    if (pendingMcp || pendingSkills) {
+      void updateBot({
+        environmentId,
+        input: {
+          botId: BotId.make(bot.id),
+          ...(pendingMcp ? { disabledMcpServerIds: pendingMcp } : {}),
+          ...(pendingSkills ? { disabledSkillIds: pendingSkills } : {}),
+        },
+      }).then((result) => {
+        if (!Predicate.isTagged(result, "Failure")) return;
+        setPendingMcp(null);
+        setPendingSkills(null);
+        toastManager.add({ type: "error", title: t("Could not save bot settings") });
+      });
     }
 
-    const result = await updateAccount({
-      environmentId,
-      input: { connectionId: connection.id, bot: { botId: bot.id, enabled } },
+    const changed = accounts.filter(
+      (item) =>
+        pendingAccounts[item.connection.id] !== undefined &&
+        pendingAccounts[item.connection.id] !== item.enabled,
+    );
+
+    if (changed.length === 0) return;
+
+    void Promise.all(
+      changed.map((item) =>
+        updateAccount({
+          environmentId,
+          input: {
+            connectionId: item.connection.id,
+            bot: { botId: bot.id, enabled: !item.enabled },
+          },
+        }),
+      ),
+    ).then((results) => {
+      if (results.some((result) => Predicate.isTagged(result, "Failure"))) {
+        setPendingAccounts({});
+        toastManager.add({ type: "error", title: t("Could not save bot settings") });
+      }
+
+      composioStatus.refresh();
     });
-
-    if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({ type: "error", title: t("Could not update {name}", { name }) });
-
-      return;
-    }
-
-    composioStatus.refresh();
   };
+
+  const autosave = useAutosave(save);
 
   return (
     <>
       <BotToolsSection
         servers={botMcpServers(servers, ownerPersonId)}
         accessStatuses={accessStatuses}
-        disabledIds={bot.disabledMcpServerIds}
-        onDisabledIdsChange={(ids) => saveSwitches({ disabledMcpServerIds: ids })}
-        accounts={accounts}
-        onAccountChange={(connection, enabled) => void switchAccount(connection, enabled)}
+        disabledIds={disabledMcp}
+        onDisabledIdsChange={(ids) => {
+          setPendingMcp(ids);
+          autosave.schedule();
+        }}
+        accounts={accounts.map((item) => ({
+          ...item,
+          enabled: pendingAccounts[item.connection.id] ?? item.enabled,
+        }))}
+        onAccountChange={(connection, enabled) => {
+          setPendingAccounts((current) => ({ ...current, [connection.id]: enabled }));
+          autosave.schedule();
+        }}
         canDelegate={canDelegate}
       />
       {environmentId ? (
@@ -134,8 +180,11 @@ export function BotToolSwitches({
             folder,
             main: library.files.find((file) => file.folderId === folder.id && isSkillFile(file)),
           }))}
-          disabledIds={bot.disabledSkillIds ?? []}
-          onDisabledIdsChange={(ids) => saveSwitches({ disabledSkillIds: ids })}
+          disabledIds={disabledSkills}
+          onDisabledIdsChange={(ids) => {
+            setPendingSkills(ids);
+            autosave.schedule();
+          }}
         />
       ) : null}
     </>

@@ -113,8 +113,6 @@ export const settingsCatalog = {
   "Open Providers": "Open Providers",
   "{tokens} tokens": "{tokens} tokens",
   "{tokens} tokens billed to {name}": "{tokens} tokens billed to {name}",
-  "Bot settings saved": "Bot settings saved",
-  "Discard unsaved bot settings?": "Discard unsaved bot settings?",
   "Let this bot take subscription voice calls. Voice must also be enabled in Settings.":
     "Let this bot take subscription voice calls. Voice must also be enabled in Settings.",
   Model: "Model",

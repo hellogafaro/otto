@@ -219,15 +219,12 @@ function selectedLabel(tree: Tree): string {
   return textOf(trigger?.props.children);
 }
 
-function saveButton(tree: Tree) {
-  const button = visitElements(
-    tree,
-    (element) => element.props.onClick !== undefined && textOf(element.props.children) === "Save",
-  );
+/** Leaving a field saves the profile at once, the way the 800ms autosave would. */
+function flushSave(tree: Tree) {
+  const form = visitElements(tree, (element) => Predicate.isFunction(element.props.onBlurCapture));
 
-  expect(button).not.toBeNull();
-
-  return button!.props as { readonly disabled: boolean; readonly onClick: () => void };
+  expect(form).not.toBeNull();
+  (form!.props.onBlurCapture as () => void)();
 }
 
 function modelPicker(tree: Tree) {
@@ -286,13 +283,15 @@ describe("bot settings image provider", () => {
     const tree = renderForm();
     expect(imageSelect(tree).value).toBe("default");
     expect(selectedLabel(tree)).toBe("Use global default (ChatGPT)");
-    expect(saveButton(tree).disabled).toBe(true);
+    flushSave(tree);
+    expect(state.updateBot).not.toHaveBeenCalled();
   });
 
   it("preserves inheritance until Local is explicitly selected", async () => {
     state.bots = [makeBot({ sandbox: null })];
     let tree = renderForm();
-    expect(saveButton(tree).disabled).toBe(true);
+    flushSave(tree);
+    expect(state.updateBot).not.toHaveBeenCalled();
 
     const select = visitElements(
       tree,
@@ -307,8 +306,7 @@ describe("bot settings image provider", () => {
     expect(select?.props.value).toBe("default");
     (select!.props.onValueChange as (value: string) => void)("local");
     tree = renderForm();
-    expect(saveButton(tree).disabled).toBe(false);
-    saveButton(tree).onClick();
+    flushSave(tree);
     await flushPromises();
     expect(state.updateBot).toHaveBeenCalledWith(
       expectedUpdate(state.bots[0]!, { sandbox: "local" }),
@@ -318,7 +316,7 @@ describe("bot settings image provider", () => {
   it("preserves an inherited sandbox while saving another field", async () => {
     state.bots = [makeBot({ sandbox: null })];
     imageSelect(renderForm()).onValueChange("grok");
-    saveButton(renderForm()).onClick();
+    flushSave(renderForm());
     await flushPromises();
     expect(state.updateBot).toHaveBeenCalledWith(
       expectedUpdate(state.bots[0]!, { imageProvider: "grok", sandbox: null }),
@@ -340,7 +338,7 @@ describe("bot settings image provider", () => {
     );
 
     (select!.props.onValueChange as (value: string) => void)("default");
-    saveButton(renderForm()).onClick();
+    flushSave(renderForm());
     await flushPromises();
     expect(state.updateBot).toHaveBeenCalledWith(expectedUpdate(state.bots[0]!, { sandbox: null }));
   });
@@ -360,7 +358,7 @@ describe("bot settings image provider", () => {
 
     imageSelect(tree).onValueChange("grok");
     tree = renderForm();
-    saveButton(tree).onClick();
+    flushSave(tree);
     await flushPromises();
     expect(state.updateBot).toHaveBeenCalledWith(
       expectedUpdate(state.bots[0]!, { imageProvider: "grok" }),
@@ -376,9 +374,7 @@ describe("bot settings image provider", () => {
     let tree = renderForm();
     expect(imageSelect(tree).value).toBe(provider);
     expect(selectedLabel(tree)).toBe(label);
-    expect(saveButton(tree).disabled).toBe(false);
-
-    saveButton(tree).onClick();
+    flushSave(tree);
     await flushPromises();
     expect(state.updateBot).toHaveBeenCalledTimes(1);
     expect(state.updateBot).toHaveBeenCalledWith(
@@ -389,8 +385,9 @@ describe("bot settings image provider", () => {
     state.bots = [makeBot({ imageProvider: provider })];
     tree = renderForm();
     expect(imageSelect(tree).value).toBe(provider);
-    expect(saveButton(tree).disabled).toBe(true);
-    expect(textOf(tree)).toContain("Saved");
+    state.updateBot.mockClear();
+    flushSave(tree);
+    expect(state.updateBot).not.toHaveBeenCalled();
   });
 
   it("clears a saved provider back to the global default", async () => {
@@ -403,7 +400,7 @@ describe("bot settings image provider", () => {
     expect(imageSelect(tree).value).toBe("default");
     expect(selectedLabel(tree)).toBe("Use global default (ChatGPT)");
 
-    saveButton(tree).onClick();
+    flushSave(tree);
     await flushPromises();
     expect(state.updateBot).toHaveBeenCalledWith(
       expectedUpdate(state.bots[0]!, { imageProvider: null }),
@@ -424,7 +421,7 @@ describe("bot settings image provider", () => {
     tree = renderForm();
     expect(modelPicker(tree).model).toBe("gpt-5-mini");
 
-    saveButton(tree).onClick();
+    flushSave(tree);
     await flushPromises();
     expect(state.updateBot).toHaveBeenCalledWith(
       expectedUpdate(state.bots[0]!, {
@@ -440,7 +437,7 @@ describe("bot settings image provider", () => {
     const tree = renderForm();
     expect(imageSelect(tree).value).toBe("grok");
 
-    saveButton(tree).onClick();
+    flushSave(tree);
     await flushPromises();
     expect(state.updateBot).toHaveBeenCalledWith(
       expectedUpdate(state.bots[0]!, {

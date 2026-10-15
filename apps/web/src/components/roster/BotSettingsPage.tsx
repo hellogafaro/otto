@@ -79,8 +79,6 @@ export function BotSettingsPage({ botId }: { readonly botId: string }) {
         return false;
       }
 
-      toastManager.add({ type: "success", title: t("Bot settings saved") });
-
       return true;
     },
     [bot, environmentId, t, updateBot],

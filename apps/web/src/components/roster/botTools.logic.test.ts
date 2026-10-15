@@ -124,22 +124,21 @@ describe("buildBotAccountItems", () => {
 
     expect(
       buildBotAccountItems(connections, { id: "bot-1", ownerPersonId: "ana" }, "ana").map(
-        (item) => [item.connection.id, item.enabled, item.lends],
+        (item) => [item.connection.id, item.enabled],
       ),
     ).toEqual([
-      ["gmail", true, false],
-      ["slack", true, false],
+      ["gmail", true],
+      ["slack", true],
     ]);
 
     expect(
       buildBotAccountItems(connections, { id: "bot-2", ownerPersonId: null }, "ana").map((item) => [
         item.connection.id,
         item.enabled,
-        item.lends,
       ]),
     ).toEqual([
-      ["gmail", false, true],
-      ["slack", true, false],
+      ["gmail", false],
+      ["slack", true],
     ]);
   });
 

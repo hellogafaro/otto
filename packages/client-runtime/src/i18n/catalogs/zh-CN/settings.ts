@@ -109,8 +109,6 @@ export const settingsCatalog = {
   "Open Providers": "打开提供商",
   "{tokens} tokens": "{tokens} 个令牌",
   "{tokens} tokens billed to {name}": "{tokens} 个令牌计入 {name}",
-  "Bot settings saved": "机器人设置已保存",
-  "Discard unsaved bot settings?": "放弃未保存的机器人设置？",
   "Let this bot take subscription voice calls. Voice must also be enabled in Settings.":
     "允许此机器人接听订阅语音通话。还需要在设置中启用语音。",
   Model: "模型",

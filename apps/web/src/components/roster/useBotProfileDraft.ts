@@ -7,6 +7,7 @@ import {
 } from "@otto/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { useAutosave } from "../../hooks/useAutosave";
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { useI18n } from "../../i18n";
 import {
@@ -91,8 +92,6 @@ export function useBotProfileDraft(
   );
 
   const [engineChanged, setEngineChanged] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const previousBot = useRef(bot);
 
   const instanceEntries = useMemo(
@@ -209,8 +208,6 @@ export function useBotProfileDraft(
     );
   }, [bot]);
 
-  const markChanged = () => setSaved(false);
-
   const normalizedLabel = label.trim() || null;
   const normalizedDescription = description.trim() || null;
   const savedTone = canonicalizeBotPersonalityTone(bot.personalityTone);
@@ -245,6 +242,27 @@ export function useBotProfileDraft(
     imageProvider !== (bot.imageProvider ?? null);
 
   const canSave = Boolean(onSave) && dirty && name.trim().length > 0;
+
+  const save = () => {
+    if (!onSave || !canSave) return;
+
+    void onSave({
+      name: name.trim(),
+      label: normalizedLabel,
+      description: normalizedDescription,
+      engine: nextEngine,
+      sandbox: sandbox === "default" ? null : sandbox,
+      personalityTone,
+      voiceEnabled,
+      imageProvider,
+    }).then((success) => {
+      if (success) setEngineChanged(false);
+    });
+  };
+
+  // Otto: The profile saves itself 800ms after the last edit, or as soon as focus leaves it.
+  const autosave = useAutosave(save);
+  const markChanged = () => autosave.schedule();
 
   return {
     // Provider context shared by both model pickers.
@@ -307,28 +325,7 @@ export function useBotProfileDraft(
 
     markChanged,
     dirty,
-    canSave,
-    saving,
-    saved,
-    save: () => {
-      if (!onSave || !canSave) return;
-      setSaving(true);
-      void onSave({
-        name: name.trim(),
-        label: normalizedLabel,
-        description: normalizedDescription,
-        engine: nextEngine,
-        sandbox: sandbox === "default" ? null : sandbox,
-        personalityTone,
-        voiceEnabled,
-        imageProvider,
-      }).then((success) => {
-        setSaving(false);
-        setSaved(success);
-
-        if (success) setEngineChanged(false);
-      });
-    },
+    flush: autosave.flush,
   };
 }
 

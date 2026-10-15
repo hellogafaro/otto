@@ -589,7 +589,4 @@ export const connectionsCatalog = {
   "No accounts": "No accounts",
   "Label, like Work or Personal": "Label, like Work or Personal",
   "You already have an account called {label}.": "You already have an account called {label}.",
-  "Turn on your {app} account for {bot}? Everyone who chats with {bot} can use it through the bot, without seeing it.":
-    "Turn on your {app} account for {bot}? Everyone who chats with {bot} can use it through the bot, without seeing it.",
-  "Turn on": "Turn on",
 } as const;

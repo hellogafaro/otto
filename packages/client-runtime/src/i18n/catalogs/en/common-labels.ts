@@ -269,7 +269,6 @@ export const commonLabelsCatalog = {
   "What it does": "What it does",
   Danger: "Danger",
   Saved: "Saved",
-  "Unsaved changes": "Unsaved changes",
   "App default": "App default",
   "Open sidebar": "Open sidebar",
   Assigned: "Assigned",

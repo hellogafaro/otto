@@ -269,7 +269,6 @@ export const commonLabelsCatalog = {
   "What it does": "它会做什么",
   Danger: "危险操作",
   Saved: "已保存",
-  "Unsaved changes": "有未保存的更改",
   "App default": "应用默认",
   "Open sidebar": "打开侧边栏",
   Assigned: "已分配",

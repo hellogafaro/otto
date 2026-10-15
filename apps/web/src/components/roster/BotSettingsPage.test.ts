@@ -56,26 +56,17 @@ describe("bot settings page", () => {
     // The draft hook builds the payload, so the page cannot invent a shape.
     expect(source).toContain("useBotProfileDraft(bot, onSave)");
     expect(source).toContain('title: t("Could not save bot settings")');
-    expect(source).toContain('title: t("Bot settings saved")');
   });
 
-  it("reports saving, saved, and unsaved state from the shared draft", () => {
+  it("saves as you go, with no Save bar or unsaved-changes prompt", () => {
     const source = readBotSettingsSource();
+    const draft = read("./useBotProfileDraft.ts");
 
-    expect(source).toContain('aria-live="polite"');
-    expect(source).toContain("draft.saved");
-    expect(source).toContain("draft.dirty");
-    expect(source).toContain("disabled={!draft.canSave || draft.saving}");
-    expect(source).toContain('{draft.saving ? t("Saving") : t("Save")}');
-  });
-
-  it("protects unsaved settings from app navigation and page unload", () => {
-    const source = readBotSettingsSource();
-
-    expect(source).toContain("useBlocker({");
-    expect(source).toContain('requestConfirmDialog(t("Discard unsaved bot settings?")');
-    expect(source).toContain("enableBeforeUnload: () => draft.dirty");
-    expect(source).toContain("disabled: !draft.dirty");
+    expect(source).toContain("onBlurCapture={draft.flush}");
+    expect(source).not.toContain("bot-settings-save-bar");
+    expect(source).not.toContain("useBlocker");
+    expect(draft).toContain("useAutosave(save)");
+    expect(draft).toContain("const markChanged = () => autosave.schedule();");
   });
 
   it("owns the three personality choices and anchors them for deep links", () => {
@@ -89,7 +80,7 @@ describe("bot settings page", () => {
     expect(source).toContain("It is a baseline, not a costume.");
   });
 
-  it("lists integrations and skills inline with per-bot switches that save at once", () => {
+  it("lists integrations and skills inline with per-bot switches that autosave", () => {
     const page = readBotSettingsSource();
     const switches = read("./BotToolSwitches.tsx");
     const section = read("./BotToolsSection.tsx");
@@ -97,8 +88,9 @@ describe("bot settings page", () => {
     expect(page).toContain("<BotToolSwitches");
     expect(switches).toContain("<BotToolsSection");
     expect(switches).toContain("<BotSkillsSection");
-    expect(switches).toContain("saveSwitches({ disabledMcpServerIds: ids })");
-    expect(switches).toContain("saveSwitches({ disabledSkillIds: ids })");
+    expect(switches).toContain("setPendingMcp(ids);");
+    expect(switches).toContain("setPendingSkills(ids);");
+    expect(switches).toContain("useAutosave(save)");
     // Tools used to open an overlay sheet; they now live on the page.
     expect(page).not.toContain("BotToolsSheet");
     expect(section).toContain('id="tools"');
