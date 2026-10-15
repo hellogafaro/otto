@@ -2,7 +2,7 @@ import {
   RiExternalLinkLine,
   RiLoaderLine,
   RiLogoutBoxRLine,
-  RiRefreshLine,
+  RiLoopRightLine,
 } from "@remixicon/react";
 
 import { type ReactNode } from "react";
@@ -114,7 +114,7 @@ export function ProviderAccountRows({
                   {t("Reconnect")}
                 </Button>
                 <Button size="sm" variant="outline" disabled={locked} onClick={onTest}>
-                  <BusyIcon busy={busy} idle={<RiRefreshLine className="size-3.5" />} />
+                  <BusyIcon busy={busy} idle={<RiLoopRightLine className="size-3.5" />} />
                   {t("Check")}
                 </Button>
               </>
@@ -143,7 +143,7 @@ export function ProviderAccountRows({
                 {t("Replace key")}
               </Button>
               <Button size="sm" variant="outline" disabled={locked} onClick={onTest}>
-                <BusyIcon busy={busy} idle={<RiRefreshLine className="size-3.5" />} />
+                <BusyIcon busy={busy} idle={<RiLoopRightLine className="size-3.5" />} />
                 {t("Check key")}
               </Button>
             </>

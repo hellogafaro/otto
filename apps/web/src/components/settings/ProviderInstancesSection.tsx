@@ -1,4 +1,4 @@
-import { RiLoaderLine, RiAddLine, RiRefreshLine } from "@remixicon/react";
+import { RiLoaderLine, RiAddLine, RiLoopRightLine } from "@remixicon/react";
 import { recordLookup } from "../recordLookup";
 import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
@@ -341,7 +341,7 @@ export function ProviderInstancesSection({
               {isRefreshing ? (
                 <RiLoaderLine className="size-3.5 animate-spin" />
               ) : (
-                <RiRefreshLine className="size-3.5" />
+                <RiLoopRightLine className="size-3.5" />
               )}
               {t("Refresh")}
             </Button>

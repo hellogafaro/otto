@@ -1,4 +1,4 @@
-import { RiAlertLine, RiFolderOpenLine, RiRefreshLine, RiLoaderLine } from "@remixicon/react";
+import { RiAlertLine, RiFolderOpenLine, RiLoopRightLine, RiLoaderLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import {
   isAtomCommandInterrupted,
@@ -98,7 +98,7 @@ function DiagnosticsRefreshButton({
             {isPending ? (
               <RiLoaderLine className="size-3 animate-spin" />
             ) : (
-              <RiRefreshLine className="size-3" />
+              <RiLoopRightLine className="size-3" />
             )}
           </Button>
         }

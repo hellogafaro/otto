@@ -1,7 +1,7 @@
 import {
   RiCheckLine,
   RiDownloadLine,
-  RiRefreshLine,
+  RiLoopRightLine,
   RiClockwiseLine,
   RiLoaderLine,
 } from "@remixicon/react";
@@ -124,6 +124,6 @@ export function DesktopUpdateStatusIcon({
       onAnimationIteration={onCheckAnimationIteration}
     />
   ) : (
-    <RiRefreshLine className="size-4" />
+    <RiLoopRightLine className="size-4" />
   );
 }

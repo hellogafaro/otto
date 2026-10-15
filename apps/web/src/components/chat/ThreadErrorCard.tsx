@@ -1,4 +1,4 @@
-import { RiErrorWarningLine, RiRefreshLine } from "@remixicon/react";
+import { RiErrorWarningLine, RiLoopRightLine } from "@remixicon/react";
 
 import {
   fullTechnicalDetails,
@@ -104,7 +104,7 @@ export function ThreadErrorCard({
                 />
               }
             >
-              {resuming ? <Spinner /> : <RiRefreshLine />}
+              {resuming ? <Spinner /> : <RiLoopRightLine />}
             </TooltipTrigger>
             <TooltipPopup side="top">{t("Try again")}</TooltipPopup>
           </Tooltip>

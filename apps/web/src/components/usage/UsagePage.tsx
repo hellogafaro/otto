@@ -1,4 +1,4 @@
-import { RiRefreshLine } from "@remixicon/react";
+import { RiLoopRightLine } from "@remixicon/react";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -175,7 +175,7 @@ export function UsagePage() {
           size="icon-sm"
           variant="ghost"
         >
-          <RiRefreshLine className="size-3.5" />
+          <RiLoopRightLine className="size-3.5" />
         </Button>
       </div>
       <div className="ms-auto flex min-w-0 items-center justify-end gap-1 lg:hidden">
@@ -209,7 +209,7 @@ export function UsagePage() {
           size="icon-sm"
           variant="ghost"
         >
-          <RiRefreshLine className="size-3.5" />
+          <RiLoopRightLine className="size-3.5" />
         </Button>
       </div>
     </div>

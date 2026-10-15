@@ -7,8 +7,7 @@ import {
   RiSpeedUpLine,
   RiHardDriveLine,
   RiRamLine,
-  RiRefreshLine,
-  RiAnticlockwiseLine,
+  RiLoopRightLine,
   RiLoaderLine,
 } from "@remixicon/react";
 import { Predicate } from "effect";
@@ -231,7 +230,7 @@ export function ResourceTelemetryDiagnostics() {
                     {telemetry.isPending ? (
                       <RiLoaderLine className="size-3 animate-spin" />
                     ) : (
-                      <RiRefreshLine className="size-3" />
+                      <RiLoopRightLine className="size-3" />
                     )}
                   </Button>
                 }
@@ -358,7 +357,7 @@ export function ResourceTelemetryDiagnostics() {
               {isRetrying ? (
                 <RiLoaderLine className="size-3 animate-spin" />
               ) : (
-                <RiAnticlockwiseLine className="size-3" />
+                <RiLoopRightLine className="size-3" />
               )}
               Retry monitor
             </Button>
@@ -500,7 +499,7 @@ export function ResourceTelemetryDiagnostics() {
               {history.isPending ? (
                 <RiLoaderLine className="size-3 animate-spin" />
               ) : (
-                <RiRefreshLine className="size-3" />
+                <RiLoopRightLine className="size-3" />
               )}
             </Button>
           </div>

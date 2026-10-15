@@ -1,4 +1,4 @@
-import { RiAddLine, RiRefreshLine, RiLoaderLine } from "@remixicon/react";
+import { RiAddLine, RiLoopRightLine, RiLoaderLine } from "@remixicon/react";
 import { Predicate } from "effect";
 
 import { type ReactNode } from "react";
@@ -243,7 +243,7 @@ export function connectionSettingsViews(settings: ReturnType<typeof useDesktopBa
             {isLoadingDiscoveredSshHosts ? (
               <RiLoaderLine className="size-3 animate-spin" />
             ) : (
-              <RiRefreshLine className="size-3" />
+              <RiLoopRightLine className="size-3" />
             )}
             Refresh
           </Button>

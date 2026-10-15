@@ -4,7 +4,7 @@ import {
   RiCameraLine,
   RiExternalLinkLine,
   RiCursorLine,
-  RiClockwiseLine,
+  RiLoopRightLine,
 } from "@remixicon/react";
 
 import {
@@ -18,6 +18,7 @@ import {
 
 import { Button } from "~/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "~/components/ui/input-group";
+import { Spinner } from "~/components/ui/spinner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
 
@@ -156,7 +157,7 @@ export function PreviewChromeRow({
                 />
               }
             >
-              <RiClockwiseLine className={cn(loading && "animate-spin")} />
+              {loading ? <Spinner /> : <RiLoopRightLine />}
             </TooltipTrigger>
             <TooltipPopup>{loading ? "Loading…" : "Refresh"}</TooltipPopup>
           </Tooltip>

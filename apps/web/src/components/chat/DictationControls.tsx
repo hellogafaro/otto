@@ -1,4 +1,4 @@
-import { RiMicLine, RiAnticlockwiseLine, RiStopLine, RiCloseLine } from "@remixicon/react";
+import { RiMicLine, RiStopLine, RiCloseLine, RiLoopRightLine } from "@remixicon/react";
 
 import { useEffect, useId, useRef } from "react";
 
@@ -177,7 +177,7 @@ export function DictationControls({
         status === "transcribing" ? (
           <RiStopLine className="size-3 fill-current" aria-hidden="true" />
         ) : retry ? (
-          <RiAnticlockwiseLine className="size-3.5" aria-hidden="true" />
+          <RiLoopRightLine className="size-3.5" aria-hidden="true" />
         ) : (
           <RiMicLine className="size-3.5" aria-hidden="true" />
         )

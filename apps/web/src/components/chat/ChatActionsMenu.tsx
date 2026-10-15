@@ -7,7 +7,7 @@ import {
   RiPencilLine,
   RiPushpinLine,
   RiUnpinLine,
-  RiRefreshLine,
+  RiLoopRightLine,
   RiEditBoxLine,
   RiSunLine,
   RiDeleteBinLine,
@@ -273,7 +273,7 @@ export function ChatActionsMenu({
               disabled={state.isRegeneratingTitle}
               onClick={() => void actions.regenerateTitle(threadRef)}
             >
-              <RiRefreshLine />
+              <RiLoopRightLine />
               {state.isRegeneratingTitle ? t("Regenerating…") : t("Regenerate title")}
             </MenuItem>
           ) : null}

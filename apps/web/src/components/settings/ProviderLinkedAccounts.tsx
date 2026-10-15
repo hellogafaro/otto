@@ -7,7 +7,7 @@ import {
   RiLoaderLine,
   RiLogoutBoxRLine,
   RiAddLine,
-  RiRefreshLine,
+  RiLoopRightLine,
 } from "@remixicon/react";
 
 import { type ReactNode } from "react";
@@ -164,7 +164,7 @@ function LinkedAccountCard({
   } else if (state.kind === "unreachable") {
     fix = (
       <Button size="sm" variant="outline" disabled={disabled} onClick={onRetry}>
-        <RiRefreshLine className="size-3.5" />
+        <RiLoopRightLine className="size-3.5" />
         {t("Try again")}
       </Button>
     );

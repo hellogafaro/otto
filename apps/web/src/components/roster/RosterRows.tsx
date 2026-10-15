@@ -318,23 +318,25 @@ export const BotRosterRow = memo(function BotRosterRow({
         ) : null}
         <span className={ROSTER_TRAIL_CLASS}>
           <span className={ROSTER_TRAIL_INFO_CLASS}>
-            <ChatStatusIcon
-              presence={presence}
-              unread={unread}
-              fallback={
-                latestMessage ? (
-                  <time
-                    dateTime={latestMessage.at}
-                    aria-label={t("Last message {time}", {
-                      time: formatRosterFullTimestamp(latestMessage.at),
-                    })}
-                    className={ROSTER_TIME_CLASS}
-                  >
-                    {shortRelativeTime(latestMessage.at, t)}
-                  </time>
-                ) : null
-              }
-            />
+            {hasChatTree && chatsOpen ? null : (
+              <ChatStatusIcon
+                presence={presence}
+                unread={unread}
+                fallback={
+                  latestMessage ? (
+                    <time
+                      dateTime={latestMessage.at}
+                      aria-label={t("Last message {time}", {
+                        time: formatRosterFullTimestamp(latestMessage.at),
+                      })}
+                      className={ROSTER_TIME_CLASS}
+                    >
+                      {shortRelativeTime(latestMessage.at, t)}
+                    </time>
+                  ) : null
+                }
+              />
+            )}
           </span>
           <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
             <RosterRowAction
