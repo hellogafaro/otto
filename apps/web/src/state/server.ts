@@ -116,11 +116,6 @@ export const primaryServerKeybindingsConfigPathAtom = Atom.make(
   (get): string | null => get(primaryServerConfigAtom)?.keybindingsConfigPath ?? null,
 ).pipe(Atom.withLabel("web-primary-server-keybindings-config-path"));
 
-/** The server's folder; the project at that folder is the workspace's own, where chats go by default. */
-export const primaryServerCwdAtom = Atom.make(
-  (get): string | null => get(primaryServerConfigAtom)?.cwd ?? null,
-).pipe(Atom.withLabel("web-primary-server-cwd"));
-
 export const primaryServerObservabilityAtom = Atom.make(
   (get): ServerConfig["observability"] | null =>
     get(primaryServerConfigAtom)?.observability ?? null,

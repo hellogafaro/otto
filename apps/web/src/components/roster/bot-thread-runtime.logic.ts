@@ -1,13 +1,14 @@
 import { Predicate } from "effect";
 import type { StartThreadTurnInput } from "@otto/client-runtime/state/threads";
-import type {
-  BotId,
-  GroupId,
-  ModelSelection,
-  ProjectId,
-  ProviderInteractionMode,
-  RuntimeMode,
-  ThreadId,
+import {
+  type BotId,
+  type GroupId,
+  type ModelSelection,
+  type ProjectId,
+  type ProviderInteractionMode,
+  type RuntimeMode,
+  type ThreadId,
+  GENERAL_PROJECT_ID,
 } from "@otto/contracts";
 
 export function createBotTurnSubmissionQueue() {
@@ -255,13 +256,12 @@ export function findUnhandledMcpAuthorization(
 }
 
 /**
- * Where a chat started outside any project goes: the workspace's own project, the one at the
- * server's folder, else the most recently active one.
+ * Where a chat started outside any project goes: the organization's General project, else the
+ * most recently active one.
  */
-export function chatHomeProject<P extends { readonly workspaceRoot: string }>(
+export function chatHomeProject<P extends { readonly id: string }>(
   projects: ReadonlyArray<P>,
-  serverCwd: string | null,
   mostRecent: () => P | null,
 ): P | null {
-  return projects.find((project) => project.workspaceRoot === serverCwd) ?? mostRecent();
+  return projects.find((project) => project.id === GENERAL_PROJECT_ID) ?? mostRecent();
 }

@@ -67,6 +67,9 @@ export const ProjectId = makeEntityId("ProjectId");
 
 export type ProjectId = typeof ProjectId.Type;
 
+/** Otto: The organization's own project, where "No project" chats live, in a folder of its own. */
+export const GENERAL_PROJECT_ID = ProjectId.make("general");
+
 export const TaskId = makeEntityId("TaskId");
 
 export type TaskId = typeof TaskId.Type;

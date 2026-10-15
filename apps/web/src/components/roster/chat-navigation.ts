@@ -24,7 +24,7 @@ import {
   waitForThreadShell,
 } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { primaryServerCwdAtom, primaryServerProvidersAtom } from "../../state/server";
+import { primaryServerProvidersAtom } from "../../state/server";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { DEFAULT_INTERACTION_MODE } from "../../types";
@@ -72,7 +72,6 @@ export function useCreateChat() {
   const projects = useProjects();
   const settings = usePrimarySettings();
   const providers = useAtomValue(primaryServerProvidersAtom);
-  const serverCwd = useAtomValue(primaryServerCwdAtom);
   const createThread = useAtomCommand(threadEnvironment.create, { reportFailure: false });
 
   return useCallback(
@@ -83,7 +82,6 @@ export function useCreateChat() {
         scoped.find((candidate) => candidate.id === options.projectId) ??
         chatHomeProject(
           scoped,
-          serverCwd,
           () => sortScopedProjectsForSidebar(scoped, readThreadShells(), "updated_at")[0] ?? null,
         );
 
@@ -132,7 +130,7 @@ export function useCreateChat() {
 
       return threadId;
     },
-    [createThread, environmentId, projects, providers, serverCwd, settings, t],
+    [createThread, environmentId, projects, providers, settings, t],
   );
 }
 

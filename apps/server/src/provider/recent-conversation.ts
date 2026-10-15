@@ -15,6 +15,40 @@ interface ConversationTurn {
   readonly required: boolean;
 }
 
+/** Otto: The files a model reads directly; any other attachment reaches it as its saved path. */
+export const modelReadsFile = (mediaType: string) =>
+  mediaType.startsWith("image/") || mediaType === "application/pdf";
+
+/**
+ * Otto: A file the model can't read, saved in an older turn, would fail every later turn that
+ * replays it. Its path line stays in the message text, so the bot can still open it.
+ */
+function withoutUnreadableFiles(message: MastraDBMessage): MastraDBMessage {
+  const parts = message.content.parts.filter(
+    (part) => part.type !== "file" || modelReadsFile(part.mimeType),
+  );
+
+  const attachments = message.content.experimental_attachments?.filter((attachment) =>
+    modelReadsFile(attachment.contentType ?? ""),
+  );
+
+  if (
+    parts.length === message.content.parts.length &&
+    attachments?.length === message.content.experimental_attachments?.length
+  ) {
+    return message;
+  }
+
+  return {
+    ...message,
+    content: {
+      ...message.content,
+      parts,
+      ...(attachments ? { experimental_attachments: attachments } : {}),
+    },
+  };
+}
+
 function estimatedTokens(message: MastraDBMessage): number {
   return Math.ceil(JSON.stringify(message.content).length / 4);
 }
@@ -54,7 +88,7 @@ function conversationTurns(
     if (message.role === "system") continue;
 
     if (isUserMessage(message) || turns.length === 0) turns.push([]);
-    turns.at(-1)!.push(message);
+    turns.at(-1)!.push(withoutUnreadableFiles(message));
   }
 
   return turns.flatMap((turn) => {

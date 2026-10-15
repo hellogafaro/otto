@@ -3,6 +3,7 @@ import {
   OttoMemoryUserId,
   type ChatAttachment,
   DEFAULT_PROVIDER_INTERACTION_MODE,
+  GENERAL_PROJECT_ID,
   type ModelSelection,
   isGroupBotMember,
   ProviderDriverKind,
@@ -56,7 +57,6 @@ export function createSession({
   threadRespondingBotIds,
   providerSessionDirectory,
   expandComposerMentions,
-  serverCwd,
 }: Pick<
   ReturnType<typeof createContext> &
     Effect.Success<ReturnType<typeof createDependencies>> &
@@ -72,7 +72,6 @@ export function createSession({
   | "rejectStartedThreadModelChangeIfRequired"
   | "resolveProject"
   | "projectionSnapshotQuery"
-  | "serverCwd"
   | "resolveControllerMcpServers"
   | "serverSettingsService"
   | "projectionBotRepository"
@@ -321,9 +320,9 @@ export function createSession({
       : undefined;
 
     // Otto: the bot knows which project its chat is filed in; the home project at the
-    // server's folder is the general one and needs no introduction.
+    // General project is "No project" and needs no introduction.
     const projectContext =
-      project && Option.getOrUndefined(serverCwd) !== project.workspaceRoot
+      project && project.id !== GENERAL_PROJECT_ID
         ? [`This chat is in the project "${project.title}".`, project.description?.trim()]
             .filter(Boolean)
             .join(" ")

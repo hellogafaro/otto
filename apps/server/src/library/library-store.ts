@@ -2,6 +2,7 @@ import * as NodeCrypto from "node:crypto";
 
 import {
   AuthSessionId,
+  GENERAL_PROJECT_ID,
   canEditLibraryItem,
   canSeeLibraryItem,
   CommandId,
@@ -174,17 +175,13 @@ export const ensureProjectFolder = Effect.fn("Library.ensureProjectFolder")(func
 
   if (existing !== undefined) return Option.some(existing.id);
 
-  const snapshots = yield* ProjectionSnapshotQuery;
-  const config = yield* ServerConfig.ServerConfig;
+  if (projectId === GENERAL_PROJECT_ID) return Option.none();
 
-  const [project, home] = yield* Effect.all([
-    snapshots.getProjectShellById(projectId),
-    snapshots.getActiveProjectByWorkspaceRoot(config.cwd),
-  ]).pipe(Effect.orElseSucceed(() => [Option.none(), Option.none()] as const));
+  const project = yield* (yield* ProjectionSnapshotQuery)
+    .getProjectShellById(projectId)
+    .pipe(Effect.orElseSucceed(() => Option.none()));
 
   if (Option.isNone(project)) return yield* fail("That project doesn't exist.");
-
-  if (Option.isSome(home) && home.value.id === projectId) return Option.none();
 
   const createdAt = yield* nowIso;
   yield* ensureTopFolder(LIBRARY_PROJECTS_FOLDER_ID, LIBRARY_PROJECTS_FOLDER_TITLE, by, createdAt);

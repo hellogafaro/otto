@@ -66,7 +66,6 @@ vi.mock("../../state/environments", () => ({
 }));
 
 vi.mock("../../state/server", () => ({
-  primaryServerCwdAtom: null,
   primaryServerProvidersAtom: null,
 }));
 

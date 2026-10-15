@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import { scopeProjectRef } from "@otto/client-runtime/environment";
-import type { ScopedThreadRef } from "@otto/contracts";
+import { type ScopedThreadRef, GENERAL_PROJECT_ID } from "@otto/contracts";
 import { RiComputerLine, RiSettings3Line } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useShallow } from "zustand/react/shallow";
@@ -10,7 +10,6 @@ import { useChatActions } from "../../hooks/use-chat-actions";
 import { useI18n } from "../../i18n";
 import { environmentPeopleAtom } from "../../state/bots";
 import { useProject, useThreadShell } from "../../state/entities";
-import { primaryServerCwdAtom } from "../../state/server";
 import { DetailsAside, DetailsGroup, DetailsRow } from "../details-aside";
 import { LibraryVisibilitySelect } from "../library/library-actions";
 import { ChatLibrarySection } from "../library/chat-library-section";
@@ -40,7 +39,6 @@ export function ChatDetailsPanel({
   const navigate = useNavigate();
   const [open, setOpen] = useChatDetailsOpen();
   const shell = useThreadShell(threadRef);
-  const serverCwd = useAtomValue(primaryServerCwdAtom);
   const people = useAtomValue(environmentPeopleAtom(threadRef.environmentId));
   const chatActions = useChatActions();
 
@@ -57,9 +55,9 @@ export function ChatDetailsPanel({
 
   const bot = bots.find((candidate) => candidate.id === botId) ?? null;
 
-  // The home project, at the server's own folder, reads as "No project", as in New chat.
+  // The General project reads as "No project", as in New chat.
   const projectLabel =
-    project === null || project.workspaceRoot === serverCwd ? t("No project") : project.title;
+    project === null || project.id === GENERAL_PROJECT_ID ? t("No project") : project.title;
 
   const chatProperties = (
     <DetailsGroup id="chat-properties" label={t("Chat")}>

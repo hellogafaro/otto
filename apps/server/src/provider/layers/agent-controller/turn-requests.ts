@@ -35,6 +35,7 @@ import { cancelActiveImageGenerations } from "../../../image-generation/image-ge
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
+import { modelReadsFile } from "../../recent-conversation.ts";
 
 import {
   type ResolvedEngine,
@@ -153,10 +154,7 @@ export function createTurnRequests(deps: {
             const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
             const pathLine = `[Attached ${attachment.type} "${attachment.name}" is saved at: ${path}]`;
 
-            if (
-              !attachment.mimeType.startsWith("text/") &&
-              attachment.mimeType !== "application/json"
-            ) {
+            if (modelReadsFile(attachment.mimeType)) {
               return {
                 pathLine,
                 file: {

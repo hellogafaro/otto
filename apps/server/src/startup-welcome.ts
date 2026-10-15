@@ -1,6 +1,7 @@
 import {
   CommandId,
   DEFAULT_MODEL,
+  GENERAL_PROJECT_ID,
   DEFAULT_PROVIDER_INTERACTION_MODE,
   type ModelSelection,
   PLACEHOLDER_THREAD_TITLE,
@@ -11,6 +12,7 @@ import {
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as ServerConfig from "./config.ts";
@@ -46,21 +48,42 @@ export const resolveAutoBootstrapWelcomeTargets = Effect.gen(function* () {
   let bootstrapProjectId: ProjectId | undefined;
   let bootstrapThreadId: ThreadId | undefined;
 
-  // Otto always lands in a chat: with no active project, a bot click
-  // would dead-end at the add-project wall, so first run provisions a
-  // workspace from the server cwd even without the explicit flag.
-  let shouldBootstrap = serverConfig.autoBootstrapProjectFromCwd;
+  // Otto always lands in a chat: on first run, with no active project, it opens one in the
+  // General project, so a bot click never dead-ends at the add-project wall.
+  const firstRun = !(yield* projectionReadModelQuery.getCommandReadModel()).projects.some(
+    (project) => project.deletedAt === null,
+  );
 
-  if (!shouldBootstrap) {
-    const readModel = yield* projectionReadModelQuery.getCommandReadModel();
-    shouldBootstrap = !readModel.projects.some((project) => project.deletedAt === null);
+  // Otto: General is where "No project" chats live. Its folder is its own, under the projects
+  // folder, so bots never work in the server's own folder.
+  const general = yield* projectionReadModelQuery.getProjectShellById(GENERAL_PROJECT_ID);
+
+  if (Option.isNone(general)) {
+    const workspaceRoot = path.join(serverConfig.projectsDir, GENERAL_PROJECT_ID);
+
+    yield* (yield* FileSystem.FileSystem).makeDirectory(workspaceRoot, { recursive: true });
+
+    yield* orchestrationEngine.dispatch({
+      type: "project.create",
+      commandId: CommandId.make(yield* randomUUID),
+      projectId: GENERAL_PROJECT_ID,
+      title: "General",
+      workspaceRoot,
+      defaultModelSelection: getAutoBootstrapDefaultModelSelection(),
+      createdAt: DateTime.formatIso(yield* DateTime.now),
+    });
   }
+
+  const shouldBootstrap = serverConfig.autoBootstrapProjectFromCwd || firstRun;
 
   if (shouldBootstrap) {
     yield* Effect.gen(function* () {
-      const existingProject = yield* projectionReadModelQuery.getActiveProjectByWorkspaceRoot(
-        serverConfig.cwd,
-      );
+      const existingProject = serverConfig.autoBootstrapProjectFromCwd
+        ? yield* projectionReadModelQuery.getActiveProjectByWorkspaceRoot(serverConfig.cwd)
+        : Option.some({
+            id: GENERAL_PROJECT_ID,
+            defaultModelSelection: Option.getOrUndefined(general)?.defaultModelSelection,
+          });
 
       let nextProjectId: ProjectId;
       let nextProjectDefaultModelSelection: ModelSelection;

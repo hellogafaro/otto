@@ -383,15 +383,14 @@ describe("bot thread runtime", () => {
 });
 
 describe("chat home project", () => {
-  const home = { id: "home", workspaceRoot: "/srv/otto" };
-  const beta = { id: "beta", workspaceRoot: "/data/projects/beta" };
+  const general = { id: "general" };
+  const beta = { id: "beta" };
 
-  it("files new chats in the project at the server's folder", () => {
-    expect(chatHomeProject([beta, home], "/srv/otto", () => beta)).toBe(home);
+  it("files new chats in the General project", () => {
+    expect(chatHomeProject([beta, general], () => beta)).toBe(general);
   });
 
-  it("falls back to the most recent project when none sits at the server's folder", () => {
-    expect(chatHomeProject([beta], "/srv/otto", () => beta)).toBe(beta);
-    expect(chatHomeProject([beta, home], null, () => beta)).toBe(beta);
+  it("falls back to the most recent project without a General one", () => {
+    expect(chatHomeProject([beta], () => beta)).toBe(beta);
   });
 });

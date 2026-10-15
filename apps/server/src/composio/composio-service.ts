@@ -264,7 +264,14 @@ function operationError(operation: string, cause: unknown): ComposioOperationErr
     Match.when(401, () => "The Composio API key is invalid."),
     Match.when(403, () => "The Composio API key does not have permission for this operation."),
     Match.when(429, () => "Composio rate-limited this request. Try again shortly."),
-    Match.orElse(() => `Composio could not ${operation}.`),
+    Match.orElse(() => {
+      // Otto: keep Composio's own reason so a failed run says why, not just what.
+      const reason = cause instanceof Error ? cause.message.trim().slice(0, 300) : "";
+
+      return reason
+        ? `Composio could not ${operation}: ${reason}`
+        : `Composio could not ${operation}.`;
+    }),
   );
 
   return new ComposioOperationError({ operation, message });

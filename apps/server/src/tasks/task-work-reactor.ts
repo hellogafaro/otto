@@ -21,6 +21,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
+import { ActivityStore } from "../activity/activity-store.ts";
 import { OrganizationAccounts } from "../auth/organization-accounts.ts";
 import type { AccountPerson } from "../auth/organization-accounts-runtime.ts";
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
@@ -42,6 +43,10 @@ export const mentionedBots = (content: string) =>
   [...content.matchAll(MENTION)].flatMap(([, type, id]) =>
     type === "bot" && id ? [BotId.make(id)] : [],
   );
+
+/** The comment a comment replies to, if any. */
+export const repliedComment = (content: string) =>
+  [...content.matchAll(MENTION)].find(([, type, id]) => type === "comment" && id)?.[2];
 
 /** A comment as plain text for a bot: mentions as `@Name`, markup unescaped. */
 export const commentText = (content: string) =>
@@ -80,6 +85,8 @@ export const newlyAssignedBots = (event: OrchestrationEvent): ReadonlyArray<BotI
 interface Work {
   readonly taskId: TaskId;
   readonly botId: BotId;
+  /** The comment that asked, which the bot's reply answers in its thread. */
+  readonly replyTo: { readonly id: string; readonly label: string } | null;
   reply: string;
   replyId: string | null;
   live: boolean;
@@ -98,12 +105,13 @@ export class TaskWorkReactor extends Context.Service<TaskWorkReactor, TaskWorkRe
 ) {}
 
 /**
- * Otto: A bot assigned to a task, or @mentioned in one of its comments by a person, gets a turn
- * in its chat for that task with the task as context; the turn's final reply is posted on the
- * task as the bot's comment.
+ * Otto: A bot assigned to a task, or @mentioned or replied to in one of its comments by a person,
+ * gets a turn in its chat for that task with the task as context; the turn's final reply is
+ * posted on the task as the bot's comment.
  */
 export const makeTaskWorkReactor = (
   listPeople: () => Effect.Effect<ReadonlyArray<AccountPerson>>,
+  commentAuthor: (commentId: string) => Effect.Effect<Actor | null>,
 ) =>
   Effect.gen(function* () {
     const engine = yield* OrchestrationEngineService;
@@ -134,14 +142,23 @@ export const makeTaskWorkReactor = (
         );
       });
 
-    const comment = (task: OrchestrationTask, botId: BotId, content: string) =>
+    const comment = (
+      task: OrchestrationTask,
+      botId: BotId,
+      text: string,
+      replyTo: Work["replyTo"] = null,
+    ) =>
       Effect.gen(function* () {
+        const thread = replyTo
+          ? `<mention type="comment" id="${replyTo.id}">${escapeComment(replyTo.label)}</mention> `
+          : "";
+
         yield* engine.dispatch({
           type: "task.comment.add",
           commandId: CommandId.make(`task-work:comment:${NodeCrypto.randomUUID()}`),
           taskId: task.id,
           commentId: NodeCrypto.randomUUID(),
-          content: escapeComment(content),
+          content: thread + escapeComment(text),
           fileIds: [],
           by: { type: "bot", id: botId },
           createdAt: yield* nowIso,
@@ -154,6 +171,7 @@ export const makeTaskWorkReactor = (
       botId: BotId,
       actor: Actor | undefined,
       text: string,
+      replyTo: Work["replyTo"] = null,
     ) =>
       Effect.gen(function* () {
         const model = yield* projection.getCommandReadModel();
@@ -176,6 +194,7 @@ export const makeTaskWorkReactor = (
             task,
             botId,
             "I need a model before I can work on tasks. Ask whoever manages me to pick one.",
+            replyTo,
           );
         }
 
@@ -202,7 +221,14 @@ export const makeTaskWorkReactor = (
           });
         }
 
-        working.set(threadId, { taskId: task.id, botId, reply: "", replyId: null, live: false });
+        working.set(threadId, {
+          taskId: task.id,
+          botId,
+          replyTo,
+          reply: "",
+          replyId: null,
+          live: false,
+        });
 
         yield* engine.dispatch({
           type: "thread.turn.start",
@@ -238,7 +264,7 @@ export const makeTaskWorkReactor = (
           (candidate) => candidate.id === work.taskId,
         );
 
-        if (task) yield* comment(task, work.botId, reply);
+        if (task) yield* comment(task, work.botId, reply, work.replyTo);
       });
 
     const process = Effect.fnUntraced(function* (event: OrchestrationEvent) {
@@ -265,13 +291,21 @@ export const makeTaskWorkReactor = (
         if (posted.actor.type !== "person") return;
 
         const who = yield* actorName(posted.actor, task);
+        const replied = repliedComment(posted.content);
+        const repliedAuthor = replied === undefined ? null : yield* commentAuthor(replied);
 
-        for (const botId of new Set(mentionedBots(posted.content))) {
+        const bots = new Set([
+          ...mentionedBots(posted.content),
+          ...(repliedAuthor?.type === "bot" ? [repliedAuthor.id] : []),
+        ]);
+
+        for (const botId of bots) {
           yield* startWork(
             task,
             botId,
             posted.actor,
-            `${who} mentioned you in a comment on ${taskLine(task)}:\n\n${commentText(posted.content)}\n\n${REPLY_NOTE}`,
+            `${who} wrote to you in a comment on ${taskLine(task)}:\n\n${commentText(posted.content)}\n\n${REPLY_NOTE}`,
+            { id: posted.id, label: who },
           );
         }
 
@@ -339,7 +373,17 @@ export const makeTaskWorkReactor = (
 
 export const TaskWorkReactorLive = Layer.effect(
   TaskWorkReactor,
-  Effect.flatMap(Effect.service(OrganizationAccounts), (accounts) =>
-    makeTaskWorkReactor(() => accounts.listPeople().pipe(Effect.orElseSucceed(() => []))),
-  ),
+  Effect.gen(function* () {
+    const accounts = yield* OrganizationAccounts;
+    const activity = yield* ActivityStore;
+
+    return yield* makeTaskWorkReactor(
+      () => accounts.listPeople().pipe(Effect.orElseSucceed(() => [])),
+      (commentId) =>
+        activity.getComment(commentId).pipe(
+          Effect.map((entry) => entry.actor),
+          Effect.orElseSucceed(() => null),
+        ),
+    );
+  }),
 );

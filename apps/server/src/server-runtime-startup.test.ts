@@ -1,4 +1,6 @@
 import * as Predicate from "effect/Predicate";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 import * as NodeUtil from "node:util";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -20,6 +22,8 @@ import * as ServerConfig from "./config.ts";
 import * as OrchestrationEngine from "./orchestration/services/orchestration-engine.ts";
 import * as ProjectionSnapshotQuery from "./orchestration/services/projection-snapshot-query.ts";
 import * as ServerRuntimeStartup from "./server-runtime-startup.ts";
+
+const STARTUP_PROJECTS_DIR = NodePath.join(NodeOS.tmpdir(), "otto-startup-projects");
 
 it("uses the canonical Codex default for auto-bootstrapped model selection", () => {
   assert.deepStrictEqual(ServerRuntimeStartup.getAutoBootstrapDefaultModelSelection(), {
@@ -100,10 +104,11 @@ it.effect("resolveAutoBootstrapWelcomeTargets returns existing project and threa
     const targets = yield* ServerRuntimeStartup.resolveAutoBootstrapWelcomeTargets.pipe(
       Effect.provideService(ServerConfig.ServerConfig, {
         cwd: "/tmp/startup-project",
+        projectsDir: STARTUP_PROJECTS_DIR,
         autoBootstrapProjectFromCwd: true,
       } as never),
       Effect.provideService(ProjectionSnapshotQuery.ProjectionSnapshotQuery, {
-        getCommandReadModel: () => Effect.die("unused"),
+        getCommandReadModel: () => Effect.succeed({ projects: [] } as never),
         getSnapshot: () => Effect.die("unused"),
         getShellSnapshot: () => Effect.die("unused"),
         getArchivedShellSnapshot: () => Effect.die("unused"),
@@ -124,7 +129,7 @@ it.effect("resolveAutoBootstrapWelcomeTargets returns existing project and threa
               deletedAt: null,
             }),
           ),
-        getProjectShellById: () => Effect.die("unused"),
+        getProjectShellById: () => Effect.succeed(Option.some({ id: "general" } as never)),
         getFirstActiveThreadIdByProjectId: () => Effect.succeed(Option.some(bootstrapThreadId)),
         getThreadCheckpointContext: () => Effect.succeed(Option.none()),
         getFullThreadDiffContext: () => Effect.succeed(Option.none()),
@@ -165,10 +170,11 @@ it.effect("resolveAutoBootstrapWelcomeTargets creates a project and thread when 
     const targets = yield* ServerRuntimeStartup.resolveAutoBootstrapWelcomeTargets.pipe(
       Effect.provideService(ServerConfig.ServerConfig, {
         cwd: "/tmp/startup-project",
+        projectsDir: STARTUP_PROJECTS_DIR,
         autoBootstrapProjectFromCwd: true,
       } as never),
       Effect.provideService(ProjectionSnapshotQuery.ProjectionSnapshotQuery, {
-        getCommandReadModel: () => Effect.die("unused"),
+        getCommandReadModel: () => Effect.succeed({ projects: [] } as never),
         getSnapshot: () => Effect.die("unused"),
         getShellSnapshot: () => Effect.die("unused"),
         getArchivedShellSnapshot: () => Effect.die("unused"),
@@ -177,7 +183,7 @@ it.effect("resolveAutoBootstrapWelcomeTargets creates a project and thread when 
         getEventReplayStats: () => Effect.die("unused"),
         getOriginalProjectIdByWorkspaceRoot: () => Effect.die("unused"),
         getActiveProjectByWorkspaceRoot: () => Effect.succeed(Option.none()),
-        getProjectShellById: () => Effect.die("unused"),
+        getProjectShellById: () => Effect.succeed(Option.none()),
         getFirstActiveThreadIdByProjectId: () => Effect.succeed(Option.none()),
         getThreadCheckpointContext: () => Effect.succeed(Option.none()),
         getFullThreadDiffContext: () => Effect.succeed(Option.none()),
@@ -205,7 +211,11 @@ it.effect("resolveAutoBootstrapWelcomeTargets creates a project and thread when 
 
     assert.equal(Predicate.isString(targets.bootstrapProjectId), true);
     assert.equal(Predicate.isString(targets.bootstrapThreadId), true);
-    assert.deepStrictEqual(yield* Ref.get(dispatchCalls), ["project.create", "thread.create"]);
+    assert.deepStrictEqual(yield* Ref.get(dispatchCalls), [
+      "project.create",
+      "project.create",
+      "thread.create",
+    ]);
   }),
 );
 
@@ -218,6 +228,7 @@ it.effect(
       const targets = yield* ServerRuntimeStartup.resolveAutoBootstrapWelcomeTargets.pipe(
         Effect.provideService(ServerConfig.ServerConfig, {
           cwd: "/tmp/startup-project",
+          projectsDir: STARTUP_PROJECTS_DIR,
           autoBootstrapProjectFromCwd: false,
         } as never),
         Effect.provideService(ProjectionSnapshotQuery.ProjectionSnapshotQuery, {
@@ -230,7 +241,7 @@ it.effect(
           getEventReplayStats: () => Effect.die("unused"),
           getOriginalProjectIdByWorkspaceRoot: () => Effect.die("unused"),
           getActiveProjectByWorkspaceRoot: () => Effect.succeed(Option.none()),
-          getProjectShellById: () => Effect.die("unused"),
+          getProjectShellById: () => Effect.succeed(Option.none()),
           getFirstActiveThreadIdByProjectId: () => Effect.succeed(Option.none()),
           getThreadCheckpointContext: () => Effect.succeed(Option.none()),
           getFullThreadDiffContext: () => Effect.succeed(Option.none()),
@@ -256,7 +267,7 @@ it.effect(
         Effect.provide(NodeServices.layer),
       );
 
-      assert.equal(Predicate.isString(targets.bootstrapProjectId), true);
+      assert.equal(targets.bootstrapProjectId, "general");
       assert.equal(Predicate.isString(targets.bootstrapThreadId), true);
       assert.deepStrictEqual(yield* Ref.get(dispatchCalls), ["project.create", "thread.create"]);
     }),
@@ -271,6 +282,7 @@ it.effect(
       const targets = yield* ServerRuntimeStartup.resolveAutoBootstrapWelcomeTargets.pipe(
         Effect.provideService(ServerConfig.ServerConfig, {
           cwd: "/tmp/startup-project",
+          projectsDir: STARTUP_PROJECTS_DIR,
           autoBootstrapProjectFromCwd: false,
         } as never),
         Effect.provideService(ProjectionSnapshotQuery.ProjectionSnapshotQuery, {
@@ -284,7 +296,7 @@ it.effect(
           getEventReplayStats: () => Effect.die("unused"),
           getOriginalProjectIdByWorkspaceRoot: () => Effect.die("unused"),
           getActiveProjectByWorkspaceRoot: () => Effect.die("unused"),
-          getProjectShellById: () => Effect.die("unused"),
+          getProjectShellById: () => Effect.succeed(Option.some({ id: "general" } as never)),
           getFirstActiveThreadIdByProjectId: () => Effect.die("unused"),
           getThreadCheckpointContext: () => Effect.succeed(Option.none()),
           getFullThreadDiffContext: () => Effect.succeed(Option.none()),
@@ -331,10 +343,11 @@ it.effect("resolveAutoBootstrapWelcomeTargets preserves typed UUID generation fa
     const error = yield* ServerRuntimeStartup.resolveAutoBootstrapWelcomeTargets.pipe(
       Effect.provideService(ServerConfig.ServerConfig, {
         cwd: "/tmp/startup-project",
+        projectsDir: STARTUP_PROJECTS_DIR,
         autoBootstrapProjectFromCwd: true,
       } as never),
       Effect.provideService(ProjectionSnapshotQuery.ProjectionSnapshotQuery, {
-        getCommandReadModel: () => Effect.die("unused"),
+        getCommandReadModel: () => Effect.succeed({ projects: [] } as never),
         getSnapshot: () => Effect.die("unused"),
         getShellSnapshot: () => Effect.die("unused"),
         getArchivedShellSnapshot: () => Effect.die("unused"),
@@ -343,7 +356,7 @@ it.effect("resolveAutoBootstrapWelcomeTargets preserves typed UUID generation fa
         getEventReplayStats: () => Effect.die("unused"),
         getOriginalProjectIdByWorkspaceRoot: () => Effect.die("unused"),
         getActiveProjectByWorkspaceRoot: () => Effect.succeed(Option.none()),
-        getProjectShellById: () => Effect.die("unused"),
+        getProjectShellById: () => Effect.succeed(Option.none()),
         getFirstActiveThreadIdByProjectId: () => Effect.succeed(Option.none()),
         getThreadCheckpointContext: () => Effect.succeed(Option.none()),
         getFullThreadDiffContext: () => Effect.succeed(Option.none()),

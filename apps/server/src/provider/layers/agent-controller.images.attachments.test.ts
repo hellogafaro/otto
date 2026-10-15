@@ -127,4 +127,57 @@ describe("AgentControllerLive", () => {
       baseDir,
     );
   });
+
+  it.effect("sends XML as text too, since models only read images and PDFs as files", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-mastra-xml-"));
+    const attachmentsDir = NodePath.join(baseDir, "userdata", "attachments");
+    NodeFS.mkdirSync(attachmentsDir, { recursive: true });
+    NodeFS.writeFileSync(NodePath.join(attachmentsDir, "file-1.xml"), "<codename>HERON</codename>");
+
+    return provideController(
+      Effect.gen(function* () {
+        const controller = yield* AgentController;
+        yield* resolveCodex(controller);
+        yield* controller.startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          cwd: process.cwd(),
+          modelSelection: codexSelection,
+          runtimeMode: "full-access",
+        });
+        yield* controller.sendTurn({
+          threadId: codexThreadId,
+          input: "What is the codename?",
+          attachments: [
+            {
+              type: "file",
+              id: "file-1",
+              name: "brief.xml",
+              mimeType: "application/xml",
+              sizeBytes: 20,
+            },
+          ],
+        });
+
+        expect(mastra.sendMessage).toHaveBeenCalledWith({
+          content: [
+            "What is the codename?",
+            `[Attached file "brief.xml" is saved at: ${NodePath.join(attachmentsDir, "file-1.xml")}]`,
+            "[File: brief.xml]\n```\n<codename>HERON</codename>\n```",
+          ].join("\n\n"),
+        });
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(baseDir, { recursive: true, force: true })),
+        ),
+      ),
+      bridge.service,
+      mastra.factory,
+      undefined,
+      baseDir,
+    );
+  });
 });

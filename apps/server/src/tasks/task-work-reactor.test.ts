@@ -30,6 +30,7 @@ import {
   commentText,
   makeTaskWorkReactor,
   mentionedBots,
+  repliedComment,
   taskChatId,
 } from "./task-work-reactor.ts";
 
@@ -80,8 +81,10 @@ const harness = Effect.gen(function* () {
   });
 
   const reactor = yield* Effect.provide(
-    makeTaskWorkReactor(() =>
-      Effect.succeed([{ userId: ADA, displayName: "Ada", email: "ada@example.test" }]),
+    makeTaskWorkReactor(
+      () => Effect.succeed([{ userId: ADA, displayName: "Ada", email: "ada@example.test" }]),
+      (commentId) =>
+        Effect.succeed(commentId === "comment-by-nova" ? { type: "bot" as const, id: NOVA } : null),
     ),
     Layer.mergeAll(engine, projection),
   );
@@ -212,11 +215,40 @@ describe("TaskWorkReactor", () => {
         yield* comment({ type: "person", id: ADA });
 
         expect(ofType(dispatched, "thread.turn.start")[0]?.message.text).toContain(
-          'Ada mentioned you in a comment on the task "Draft the launch post"',
+          'Ada wrote to you in a comment on the task "Draft the launch post"',
         );
 
         expect(ofType(dispatched, "thread.turn.start")[0]?.message.text).toContain(
           "Can you check this, @Nova?",
+        );
+      }),
+    ),
+  );
+
+  it.effect("answers a reply to the bot's comment in that comment's thread", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { dispatched, publish, session, reply } = yield* harness;
+
+        yield* publish("task.commented", {
+          task,
+          comment: {
+            id: "comment-2",
+            content: '<mention type="comment" id="comment-by-nova">Nova</mention> try again',
+            fileIds: [],
+            actor: { type: "person", id: ADA },
+            createdAt: NOW,
+          },
+        });
+
+        expect(ofType(dispatched, "thread.turn.start")).toHaveLength(1);
+
+        yield* session("running");
+        yield* reply("Done.");
+        yield* session("ready");
+
+        expect(ofType(dispatched, "task.comment.add")[0]?.content).toBe(
+          '<mention type="comment" id="comment-2">Ada</mention> Done.',
         );
       }),
     ),
@@ -229,4 +261,5 @@ it("reads mentions and turns a comment into plain text", () => {
 
   expect(mentionedBots(content)).toEqual(["bot-a"]);
   expect(commentText(content)).toBe("Hi @A & @P <3");
+  expect(repliedComment(`<mention type="comment" id="c-1">A</mention> ok`)).toBe("c-1");
 });

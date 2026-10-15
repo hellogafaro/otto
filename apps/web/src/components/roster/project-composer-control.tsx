@@ -1,11 +1,15 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { EnvironmentId, OrchestrationProjectShell, ProjectId } from "@otto/contracts";
+import {
+  type EnvironmentId,
+  type OrchestrationProjectShell,
+  type ProjectId,
+  GENERAL_PROJECT_ID,
+} from "@otto/contracts";
 import { RiBox3Line } from "@remixicon/react";
 import { useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { primaryServerCwdAtom } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import {
   ComposerControl,
@@ -20,7 +24,7 @@ const NO_ENVIRONMENT = "" as EnvironmentId;
 
 export interface ProjectChoice {
   readonly project: OrchestrationProjectShell | null;
-  /** The home project, at the server's own folder, reads as "No project". */
+  /** The General project reads as "No project". */
   readonly home: OrchestrationProjectShell | null;
   readonly projects: readonly OrchestrationProjectShell[];
   readonly choose: (projectId: ProjectId) => void;
@@ -30,17 +34,16 @@ export interface ProjectChoice {
 export function useProjectChoice(presetProjectId?: ProjectId | null): ProjectChoice {
   const environmentId = usePrimaryEnvironmentId();
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
-  const serverCwd = useAtomValue(primaryServerCwdAtom);
   const [chosen, setChosen] = useState<ProjectId | null>(null);
   const projects = snapshot?.projects ?? [];
 
   const project =
     projects.find((candidate) => candidate.id === (chosen ?? presetProjectId)) ??
-    chatHomeProject(projects, serverCwd, () => projects[0] ?? null);
+    chatHomeProject(projects, () => projects[0] ?? null);
 
   return {
     project,
-    home: projects.find((candidate) => candidate.workspaceRoot === serverCwd) ?? null,
+    home: projects.find((candidate) => candidate.id === GENERAL_PROJECT_ID) ?? null,
     projects,
     choose: setChosen,
   };

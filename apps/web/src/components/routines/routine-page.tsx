@@ -12,6 +12,7 @@ import {
   type Routine,
   type RoutineThreadMode,
   type Visibility,
+  GENERAL_PROJECT_ID,
 } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -32,7 +33,6 @@ import { randomUUID } from "../../lib/utils";
 import { hasTag } from "../../lib/tagged-union";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { routineEnvironment } from "../../state/routines";
-import { primaryServerCwdAtom } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { DetailsRow } from "../details-aside";
@@ -126,11 +126,10 @@ function RoutineDetail({
   const run = useAtomCommand(routineEnvironment.run, { reportFailure: false });
   const remove = useAtomCommand(routineEnvironment.delete, { reportFailure: false });
   const update = useAtomCommand(routineEnvironment.update, { reportFailure: false });
-  const serverCwd = useAtomValue(primaryServerCwdAtom);
 
-  // The home project, at the server's own folder, reads as "No project", as in New chat.
+  // The General project reads as "No project", as in New chat.
   const projects = useWorkData().projects.map((project) =>
-    project.workspaceRoot === serverCwd ? { ...project, title: t("No project") } : project,
+    project.id === GENERAL_PROJECT_ID ? { ...project, title: t("No project") } : project,
   );
 
   const running = item.latestRun?.status === "running";

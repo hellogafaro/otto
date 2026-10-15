@@ -195,7 +195,7 @@ describe("ComposioService", () => {
       });
 
       const missing = yield* Effect.flip(service.getToolkit("nope"));
-      expect(missing.message).toBe("Composio could not load the app.");
+      expect(missing.message).toBe("Composio could not load the app: Composio does not list nope.");
     }),
   );
 
@@ -226,7 +226,7 @@ describe("ComposioService", () => {
       expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }, viewer))).toMatchObject(
         {
           operation: "start account authorization",
-          message: "Composio could not start account authorization.",
+          message: "Composio could not start account authorization: authorization failed",
         },
       );
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
@@ -246,7 +246,8 @@ describe("ComposioService", () => {
       expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }, viewer))).toMatchObject(
         {
           operation: "start account authorization",
-          message: "Composio could not start account authorization.",
+          message:
+            "Composio could not start account authorization: Composio did not return an authorization URL.",
         },
       );
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
@@ -275,7 +276,7 @@ describe("ComposioService", () => {
       expect(yield* Effect.flip(service.authorize({ toolkitSlug: "gmail" }, viewer))).toMatchObject(
         {
           operation: "start account authorization",
-          message: "Composio could not start account authorization.",
+          message: "Composio could not start account authorization: cleanup response was lost",
         },
       );
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
@@ -552,7 +553,7 @@ describe("ComposioService", () => {
       const error = yield* Effect.flip(service.remove);
       expect(error).toMatchObject({
         operation: "delete hosted tool sessions",
-        message: "Composio could not delete hosted tool sessions.",
+        message: "Composio could not delete hosted tool sessions: cleanup failed",
       });
       expect(values.has("composio-api-key")).toBe(true);
 

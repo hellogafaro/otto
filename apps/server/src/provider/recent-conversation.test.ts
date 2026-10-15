@@ -25,6 +25,29 @@ const signal = (id: string, text = id, type = "user"): MastraDBMessage =>
   }) as MastraDBMessage;
 
 describe("selectRecentConversation", () => {
+  it("leaves out saved files no model reads, so they can't fail later turns", () => {
+    const withFile = (id: string, mimeType: string): MastraDBMessage =>
+      ({
+        ...message(id, "user"),
+        content: {
+          format: 2,
+          parts: [
+            { type: "text", text: id },
+            { type: "file", mimeType, data: "AAAA" },
+          ],
+        },
+      }) as MastraDBMessage;
+
+    const parts = selectRecentConversation([
+      withFile("text", "text/plain"),
+      message("first-answer", "assistant"),
+      withFile("image", "image/png"),
+      message("second-answer", "assistant"),
+    ]).map((entry) => entry.content.parts.map((part) => part.type));
+
+    expect(parts).toEqual([["text"], ["text"], ["text", "file"], ["text"]]);
+  });
+
   it("drops an incomplete older turn unless observations still require it", () => {
     const messages = [
       message("user-complete", "user", "complete question"),
