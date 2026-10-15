@@ -258,7 +258,7 @@ describe("OttoMastraHarness", () => {
     ]);
   });
 
-  it("shows another group bot's reply as that bot speaking", async () => {
+  it("shows another group bot's reply, or an unnamed older one, as not its own", async () => {
     const processor = new OttoPassiveObservationalMemoryProcessor(
       partialSdkFixture<ObservationalMemory>({
         getThreadContext: vi.fn(() => ({ threadId: "thread-group", resourceId: "thread-group" })),
@@ -299,7 +299,7 @@ describe("OttoMastraHarness", () => {
       ["person", "user", ["Ana: say hi"]],
       ["axo", "user", ["Axo: Hi, I'm Axo."]],
       ["ivy", "assistant", ["Hi, I'm Ivy."]],
-      ["older", "assistant", ["Hello."]],
+      ["older", "user", ["A bot: Hello."]],
     ]);
   });
 });

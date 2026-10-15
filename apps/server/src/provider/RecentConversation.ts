@@ -109,17 +109,17 @@ export function selectRecentConversation(
 /**
  * Group bots share one history. A reply another bot wrote reads as that bot
  * speaking, the way people's messages do, so no bot takes it for its own.
+ * Replies saved before replies were named may be any bot's.
  */
 export function attributeGroupReplies(
   messages: ReadonlyArray<MastraDBMessage>,
   botName: string,
 ): ReadonlyArray<MastraDBMessage> {
   return messages.flatMap((message) => {
-    const author = message.content.metadata?.[OTTO_REPLY_BOT_NAME];
+    const named = message.content.metadata?.[OTTO_REPLY_BOT_NAME];
+    const author = Predicate.isString(named) ? named : "A bot";
 
-    if (message.role !== "assistant" || !Predicate.isString(author) || author === botName) {
-      return [message];
-    }
+    if (message.role !== "assistant" || author === botName) return [message];
 
     const text = messageText(message);
 
