@@ -172,6 +172,8 @@ export const chatCatalog = {
   "MCP server": "MCP 服务器",
   "Unknown skill": "未知技能",
   "Unknown MCP server": "未知 MCP 服务器",
+  "Unknown task": "未知任务",
+  "Unknown project": "未知项目",
   "Preview {name}": "预览 {name}",
   "Terminal context expired. Remove and re-add {label} to include it in your message.":
     "终端上下文已过期。请移除并重新添加 {label}，以将其包含在消息中。",

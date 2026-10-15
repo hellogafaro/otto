@@ -1,5 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import {
+  RiBox3Line,
+  RiCheckboxCircleLine,
   RiAtLine,
   RiTeamLine,
   RiUserLine,
@@ -33,6 +35,7 @@ import { useComposerPathSearch, useThreadSearch } from "../../state/queries";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
+import { environmentTasksAtom } from "../../state/tasks";
 import { AppLogo } from "../customize/customize-integrations";
 import { INLINE_TAG_CLASS_NAME } from "../composer-inline-chip";
 import {
@@ -100,6 +103,7 @@ export function useBotPromptMentionResources(
   environmentId: EnvironmentId | null,
 ): ReadonlyArray<BotPromptMentionResource> {
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
+  const tasks = useAtomValue(environmentTasksAtom(environmentId ?? NO_ENVIRONMENT));
 
   const composio = useEnvironmentQuery(
     environmentId ? serverEnvironment.composioStatus({ environmentId, input: {} }) : null,
@@ -141,9 +145,30 @@ export function useBotPromptMentionResources(
         }),
       );
 
-    return [...skills, ...apps, ...mcps];
-  }, [composio.data, snapshot]);
+    // Otto: tasks and projects can be tagged too; their tokens tell the bot what to read.
+    const projects = (snapshot?.projects ?? []).map(
+      (project): BotPromptMentionResource => ({
+        kind: "project",
+        id: project.id,
+        label: project.title,
+      }),
+    );
+
+    const work = tasks.map(
+      (task): BotPromptMentionResource => ({ kind: "task", id: task.id, label: task.title }),
+    );
+
+    return [...skills, ...apps, ...mcps, ...projects, ...work];
+  }, [composio.data, snapshot, tasks]);
 }
+
+const NO_SHELLS: ReturnType<typeof useThreadShells> = [];
+
+/** Only the tasks and projects among `resources` when `workOnly`. */
+const workResources = (resources: ReadonlyArray<BotPromptMentionResource>, workOnly: boolean) =>
+  workOnly
+    ? resources.filter((resource) => resource.kind === "task" || resource.kind === "project")
+    : resources;
 
 /** A tagged skill, app, or MCP server's name, or a stand-in when this person cannot see it. */
 export function useBotPromptResourceLabel(environmentId: EnvironmentId | null) {
@@ -157,6 +182,8 @@ export function useBotPromptResourceLabel(environmentId: EnvironmentId | null) {
         Match.when("skill", () => t("Unknown skill")),
         Match.when("app", () => id),
         Match.when("mcp", () => t("Unknown MCP server")),
+        Match.when("task", () => t("Unknown task")),
+        Match.when("project", () => t("Unknown project")),
         Match.exhaustive,
       ),
     [resources, t],
@@ -176,6 +203,7 @@ export function BotPromptMentionMenu({
   listboxId,
   trigger,
   scope,
+  workEnvironmentId = null,
   bots,
   everyone = false,
   people,
@@ -187,6 +215,8 @@ export function BotPromptMentionMenu({
   listboxId: string;
   trigger: BotPromptMentionTrigger;
   scope: BotPromptMentionScope | null;
+  /** Without a chat scope, the environment whose tasks and projects can still be tagged. */
+  workEnvironmentId?: EnvironmentId | null;
   bots: ReadonlyArray<BotPromptMentionBot>;
   everyone?: boolean;
   people?: ReadonlyArray<{ readonly personId: string; readonly displayName: string }>;
@@ -205,6 +235,8 @@ export function BotPromptMentionMenu({
     skill: t("Skill"),
     app: t("App"),
     mcp: t("MCP server"),
+    task: t("Task"),
+    project: t("Project"),
   };
 
   const browserAccess = useEnvironmentSettings(
@@ -245,7 +277,10 @@ export function BotPromptMentionMenu({
     query: searchesPaths ? trigger.query : null,
   });
 
-  const resources = useBotPromptMentionResources(scope?.environmentId ?? null);
+  const resources = workResources(
+    useBotPromptMentionResources(scope?.environmentId ?? workEnvironmentId),
+    scope === null,
+  );
 
   const items = buildBotPromptMentionItems({
     query: trigger.query,
@@ -328,6 +363,8 @@ export function BotPromptMentionMenu({
           Match.when({ kind: "path" }, () => RiFileLine),
           Match.when({ kind: "skill" }, () => RiSparkling2Line),
           Match.when({ kind: "mcp" }, () => RiPuzzleLine),
+          Match.when({ kind: "task" }, () => RiCheckboxCircleLine),
+          Match.when({ kind: "project" }, () => RiBox3Line),
           Match.orElse(() => RiChat3Line),
         );
 
@@ -381,10 +418,13 @@ export function useBotPromptMentionNames(input: {
   readonly bots: ReadonlyArray<BotPromptMentionBot>;
   readonly everyone: boolean;
   readonly people?: ReadonlyArray<{ readonly displayName: string }> | undefined;
+  /** Only tasks and projects, for a composer outside any chat. */
+  readonly workOnly?: boolean;
 }): ReadonlyArray<BotPromptMentionName> {
-  const { environmentId, bots, everyone, people } = input;
-  const shells = useThreadShells();
-  const resources = useBotPromptMentionResources(environmentId);
+  const { environmentId, bots, everyone, people, workOnly = false } = input;
+  const allShells = useThreadShells();
+  const shells = workOnly ? NO_SHELLS : allShells;
+  const resources = workResources(useBotPromptMentionResources(environmentId), workOnly);
 
   return useMemo(
     () => [

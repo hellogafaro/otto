@@ -48,10 +48,12 @@ export const mentionedBots = (content: string) =>
 export const repliedComment = (content: string) =>
   [...content.matchAll(MENTION)].find(([, type, id]) => type === "comment" && id)?.[2];
 
-/** A comment as plain text for a bot: mentions as `@Name`, markup unescaped. */
+/** A comment as plain text for a bot: mentions as `@Name`, work with its id, markup unescaped. */
 export const commentText = (content: string) =>
   content
-    .replace(MENTION, (_tag, _type, _id, label: string) => `@${label}`)
+    .replace(MENTION, (_tag, type: string, id: string, label: string) =>
+      type === "task" || type === "project" ? `@${label} (${type}Id: ${id})` : `@${label}`,
+    )
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">")
     .replaceAll("&quot;", '"')

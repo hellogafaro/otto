@@ -7,6 +7,7 @@ import type {
   TaskChanges,
   WorkParticipant,
 } from "@otto/contracts";
+import { useAtomValue } from "@effect/atom-react";
 import { RiAttachment2, RiDeleteBinLine, RiReplyLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { Match } from "effect";
@@ -23,6 +24,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../timestamp-format";
 import ChatMarkdown from "../chat-markdown";
 import { useLibraryUpload } from "../library/use-library";
+import { environmentTasksAtom } from "../../state/tasks";
 import type { MessageReplyTarget } from "../chat/message-controls";
 import { BotPromptComposer } from "../roster/bot-prompt-composer";
 import { Button } from "../ui/button";
@@ -72,6 +74,7 @@ export function ActivitySection({
   readonly currentPersonId: string | null;
 }) {
   const { t } = useI18n();
+  const tasks = useAtomValue(environmentTasksAtom(environmentId));
   const query = useEnvironmentQuery(activityEnvironment.list({ environmentId, input: entity }));
   const addComment = useAtomCommand(activityEnvironment.addComment);
   const { upload } = useLibraryUpload();
@@ -90,6 +93,12 @@ export function ActivitySection({
       label: person.displayName,
     })),
     ...participants.bots.map((bot) => ({ type: "bot" as const, id: bot.id, label: bot.name })),
+    ...projects.map((project) => ({
+      type: "project" as const,
+      id: project.id,
+      label: project.title,
+    })),
+    ...tasks.map((task) => ({ type: "task" as const, id: task.id, label: task.title })),
   ];
 
   const actorParticipant = (actor: Actor | null): WorkParticipant | null =>
@@ -122,6 +131,7 @@ export function ActivitySection({
           submitLabel={t("Post comment")}
           mentionBots={participants.bots}
           mentionPeople={participants.people}
+          mentionWork={environmentId}
           replyPreview={replyTo}
           onCancelReply={() => setReplyTo(null)}
           onSubmit={async (draft, attached) => {
@@ -225,6 +235,8 @@ function EntryTime({ createdAt }: { readonly createdAt: string }) {
 
 /** A comment's Markdown with mention pills, as stored in a comment. */
 function ActivityContent({ content }: { readonly content: string }) {
+  const navigate = useNavigate();
+
   return (
     <ChatMarkdown
       cwd={undefined}
@@ -236,6 +248,22 @@ function ActivityContent({ content }: { readonly content: string }) {
         const mention = parseMentionHref(href);
 
         if (mention === null) return null;
+
+        if (mention.type === "task" || mention.type === "project") {
+          return (
+            <button
+              type="button"
+              className={MENTION_CLASS_NAME}
+              onClick={() =>
+                void (mention.type === "task"
+                  ? navigate({ to: "/tasks/$taskId", params: { taskId: mention.id } })
+                  : navigate({ to: "/projects/$projectId", params: { projectId: mention.id } }))
+              }
+            >
+              @{children}
+            </button>
+          );
+        }
 
         if (mention.type !== "comment") {
           return <span className={MENTION_CLASS_NAME}>@{children}</span>;

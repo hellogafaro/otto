@@ -11,6 +11,8 @@ import { detectComposerTrigger, serializeComposerFileLink } from "@otto/shared/c
 
 const THREAD_QUERY_PREFIX = "chat:";
 
+const TASK_MENTION_LIMIT = 8;
+
 export interface BotPromptMentionTrigger {
   /** Text typed after `@`, used to filter the picker. */
   readonly query: string;
@@ -179,8 +181,16 @@ export function buildBotPromptMentionItems(input: {
   }
 
   if (!threadOnly && !pathLike) {
+    let tasks = 0;
+
     for (const resource of input.resources ?? []) {
       if (!resource.label.toLowerCase().includes(query)) continue;
+
+      // Tasks can run into the hundreds: they show once a name is typed, a few at a time.
+      if (resource.kind === "task" && (query.length === 0 || (tasks += 1) > TASK_MENTION_LIMIT)) {
+        continue;
+      }
+
       items.push({ ...resource, key: `${resource.kind}:${resource.id}` });
     }
   }
@@ -228,6 +238,8 @@ function mentionSource(item: BotPromptMentionItem): string | null {
     case "skill":
     case "app":
     case "mcp":
+    case "task":
+    case "project":
       return serializeComposerResourceMention(item.kind, item.id);
   }
 }
@@ -244,7 +256,9 @@ export function botPromptMentionName(item: BotPromptMentionItem): BotPromptMenti
   return item.kind === "thread" ||
     item.kind === "skill" ||
     item.kind === "app" ||
-    item.kind === "mcp"
+    item.kind === "mcp" ||
+    item.kind === "task" ||
+    item.kind === "project"
     ? { name: item.label, source }
     : null;
 }

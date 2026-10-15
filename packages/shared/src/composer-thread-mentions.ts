@@ -194,6 +194,16 @@ export function appendComposerMentionContext(
           () =>
             `The user tagged an MCP server. Use your tools whose names start with "${resource.id}_" for this request. If you have none, say that server is not available to you.`,
         ),
+        Match.when(
+          "task",
+          () =>
+            `The user tagged the task with taskId ${resource.id}. Read it with ReadTask before acting on it.`,
+        ),
+        Match.when(
+          "project",
+          () =>
+            `The user tagged the project with projectId ${resource.id}. ListTasks with that projectId shows its work.`,
+        ),
         Match.exhaustive,
       ),
     );

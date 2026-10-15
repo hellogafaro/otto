@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   applyBotPromptMention,
+  botPromptMentionName,
   botPromptMentionTrigger,
   botPromptThreadQuery,
   buildBotPromptMentionItems,
@@ -349,5 +350,39 @@ describe("skill, app, and MCP server mentions", () => {
     expect(
       serializeBotPromptMentions(applied.text, [{ name: "DeepWiki", source: "@mcp:mcp-1" }]),
     ).toBe("ask @mcp:mcp-1 ");
+  });
+});
+
+describe("task and project mentions", () => {
+  const tasks = Array.from({ length: 12 }, (_, index) => ({
+    kind: "task" as const,
+    id: `task-${index}`,
+    label: `Launch step ${index}`,
+  }));
+
+  const project = { kind: "project" as const, id: "project-1", label: "Launch" };
+
+  const items = (query: string) =>
+    buildBotPromptMentionItems({
+      query,
+      browserAvailable: false,
+      bots: [],
+      resources: [project, ...tasks],
+      threads: [],
+    }).map((item) => item.key);
+
+  it("offers projects always and tasks only once a name is typed, eight at most", () => {
+    expect(items("")).toEqual(["project:project-1"]);
+    expect(items("launch")).toEqual([
+      "project:project-1",
+      ...tasks.slice(0, 8).map((task) => `task:${task.id}`),
+    ]);
+  });
+
+  it("sends a picked task as its token", () => {
+    expect(botPromptMentionName({ ...tasks[0]!, key: "task:task-0" })).toEqual({
+      name: "Launch step 0",
+      source: "@task:task-0",
+    });
   });
 });

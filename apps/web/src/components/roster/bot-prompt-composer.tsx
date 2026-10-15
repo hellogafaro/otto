@@ -8,6 +8,7 @@ import {
 } from "@remixicon/react";
 import { useAtomValue } from "@effect/atom-react";
 import { composerActionIsDictation } from "@otto/client-runtime/dictation";
+import type { EnvironmentId } from "@otto/contracts";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -95,6 +96,7 @@ export function BotPromptComposer({
   mentionEveryone = false,
   mentionPeople,
   mentionScope = null,
+  mentionWork = null,
   commandCatalog,
   busy = false,
   pendingActionSlot = null,
@@ -122,6 +124,8 @@ export function BotPromptComposer({
   mentionPeople?: ReadonlyArray<{ readonly personId: string; readonly displayName: string }>;
   /** Enables `@browser` and `@chat:` mentions for this chat's environment. */
   mentionScope?: BotPromptMentionScope | null;
+  /** Otto: Without a chat scope, offers this environment's tasks and projects, as in comments. */
+  mentionWork?: EnvironmentId | null;
   /**
    * The answering provider's skills and commands, offered by the `$` and `/` pickers.
    * Null keeps the pickers open with a connect-a-provider line; omit it to turn them off.
@@ -203,10 +207,11 @@ export function BotPromptComposer({
   const expanded = attachments.length > 0 || replyPreview != null || isBotPromptExpanded(draft);
 
   const mentionNames = useBotPromptMentionNames({
-    environmentId: mentionScope?.environmentId ?? null,
+    environmentId: mentionScope?.environmentId ?? mentionWork,
     bots: mentionBots,
     everyone: mentionEveryone,
     people: mentionPeople,
+    workOnly: mentionScope === null,
   });
 
   const draftMentions = useMemo(() => findNameMentions(draft, mentionNames), [draft, mentionNames]);
@@ -218,7 +223,8 @@ export function BotPromptComposer({
     expanded ? "px-3.5 pb-10 pt-3" : "min-h-10 px-10.5 py-2.5",
   );
 
-  const mentionsEnabled = !readOnly && (mentionScope !== null || mentionBots.length > 0);
+  const mentionsEnabled =
+    !readOnly && (mentionScope !== null || mentionWork !== null || mentionBots.length > 0);
 
   const candidateMentionTrigger =
     mentionsEnabled && caret !== null ? botPromptMentionTrigger(draft, caret) : null;
@@ -423,6 +429,7 @@ export function BotPromptComposer({
               listboxId={mentionListboxId}
               trigger={mentionTrigger}
               scope={mentionScope}
+              workEnvironmentId={mentionWork}
               bots={mentionBots}
               everyone={mentionEveryone}
               {...(mentionPeople ? { people: mentionPeople } : {})}

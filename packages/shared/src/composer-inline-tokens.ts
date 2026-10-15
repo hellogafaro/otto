@@ -78,9 +78,12 @@ export function serializeComposerThreadMention(threadId: string): string | null 
   return THREAD_MENTION_ID_REGEX.test(threadId) ? `${THREAD_MENTION_PREFIX}${threadId}` : null;
 }
 
-export type ComposerResourceMentionKind = "skill" | "app" | "mcp";
+export type ComposerResourceMentionKind = "skill" | "app" | "mcp" | "task" | "project";
 
-/** An `@skill:<id>`, `@app:<toolkit>`, or `@mcp:<serverId>` mention of something a bot can use. */
+/**
+ * An `@skill:<id>`, `@app:<toolkit>`, `@mcp:<serverId>`, `@task:<id>` or `@project:<id>` mention of
+ * something a bot can use or work on.
+ */
 export interface ComposerResourceMention {
   readonly kind: ComposerResourceMentionKind;
   readonly id: string;
@@ -90,7 +93,7 @@ export interface ComposerResourceMention {
 }
 
 const RESOURCE_MENTION_TOKEN_REGEX = new RegExp(
-  `(^|\\s)@(skill|app|mcp):(${THREAD_MENTION_ID_PATTERN})(?=\\s)`,
+  `(^|\\s)@(skill|app|mcp|task|project):(${THREAD_MENTION_ID_PATTERN})(?=\\s)`,
   "g",
 );
 
@@ -109,7 +112,7 @@ export function collectComposerResourceMentions(text: string): ComposerResourceM
     const end = (match.index ?? 0) + match[0].length;
 
     return {
-      // SAFETY: the regex only captures skill, app, or mcp here.
+      // SAFETY: the regex only captures the resource kinds here.
       kind: match[2] as ComposerResourceMentionKind,
       id: match[3] ?? "",
       source: text.slice(start, end),

@@ -72,3 +72,17 @@ describe("activityMarkdown", () => {
     expect(parseMentionHref("https://example.com")).toBeNull();
   });
 });
+
+describe("work mentions in comments", () => {
+  it("stores picked tasks and projects as mention tags", () => {
+    const work: ReadonlyArray<MentionTarget> = [
+      ...targets,
+      { type: "task", id: "task-1", label: "Draft <post>" },
+      { type: "project", id: "project-1", label: "Launch" },
+    ];
+
+    expect(toActivityContent("see @task:task-1 in @project:project-1 @task:gone", work)).toBe(
+      'see <mention type="task" id="task-1">Draft &lt;post&gt;</mention> in <mention type="project" id="project-1">Launch</mention> @task:gone',
+    );
+  });
+});

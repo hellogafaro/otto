@@ -261,5 +261,8 @@ it("reads mentions and turns a comment into plain text", () => {
 
   expect(mentionedBots(content)).toEqual(["bot-a"]);
   expect(commentText(content)).toBe("Hi @A & @P <3");
+  expect(commentText('See <mention type="task" id="t-1">Launch</mention>')).toBe(
+    "See @Launch (taskId: t-1)",
+  );
   expect(repliedComment(`<mention type="comment" id="c-1">A</mention> ok`)).toBe("c-1");
 });

@@ -1,6 +1,6 @@
 /** Someone or something a comment can mention. */
 export interface MentionTarget {
-  readonly type: "person" | "bot";
+  readonly type: "person" | "bot" | "task" | "project";
   readonly id: string;
   readonly label: string;
 }
@@ -40,20 +40,36 @@ export const mentionTag = (target: {
 
 /**
  * Turns what the composer holds into stored comment content: `@Name` and `@bot:<id>` for
- * known people and bots become mention tags, and every other `<`, `>` and `&` is escaped.
+ * known people and bots, and `@task:<id>` and `@project:<id>` for known work, become mention
+ * tags, and every other `<`, `>` and `&` is escaped.
  */
 export function toActivityContent(draft: string, targets: ReadonlyArray<MentionTarget>): string {
   const byBotId = new Map(
     targets.flatMap((target) => (target.type === "bot" ? [[target.id, target] as const] : [])),
   );
 
-  const byLabel = new Map(targets.map((target) => [target.label.toLowerCase(), target]));
+  const byWorkId = new Map<string, MentionTarget>(
+    targets.flatMap((target) =>
+      target.type === "task" || target.type === "project"
+        ? [[`${target.type}:${target.id}`, target] as const]
+        : [],
+    ),
+  );
+
+  const byLabel = new Map(
+    targets.flatMap((target) =>
+      target.type === "person" || target.type === "bot"
+        ? [[target.label.toLowerCase(), target] as const]
+        : [],
+    ),
+  );
 
   const labels = [...byLabel.keys()].toSorted((left, right) => right.length - left.length);
 
   const pattern = new RegExp(
     [
       "@bot:([A-Za-z0-9_-]+)",
+      "@((?:task|project):[A-Za-z0-9][A-Za-z0-9._:-]*)",
       ...(labels.length > 0 ? [`@(${labels.map(escapeRegExp).join("|")})(?![\\p{L}\\p{N}_])`] : []),
     ].join("|"),
     "giu",
@@ -69,7 +85,11 @@ export function toActivityContent(draft: string, targets: ReadonlyArray<MentionT
     if (before !== "" && before !== undefined && !/\s|\(/.test(before)) continue;
 
     const target =
-      match[1] === undefined ? byLabel.get(match[2]!.toLowerCase()) : byBotId.get(match[1]);
+      match[1] !== undefined
+        ? byBotId.get(match[1])
+        : match[2] !== undefined
+          ? byWorkId.get(match[2])
+          : byLabel.get(match[3]!.toLowerCase());
 
     if (target === undefined) continue;
 
