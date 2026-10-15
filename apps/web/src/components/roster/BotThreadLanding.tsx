@@ -52,7 +52,7 @@ import { BotPromptComposer } from "./BotPromptComposer";
 import { useAnsweredUserInputs } from "./useAnsweredUserInputs";
 import { useBotPromptMentionScope } from "./BotPromptMentions";
 import { buildBotStepMeters } from "@otto/client-runtime/bot-step-usage";
-import { ThreadErrorBanner } from "../chat/ThreadErrorBanner";
+import { ThreadErrorCard } from "../chat/ThreadErrorCard";
 import { ProviderUnavailableLine } from "../chat/ProviderUnavailableNotice";
 import { ComposerPendingUserInputPanel } from "../chat/ComposerPendingUserInputPanel";
 import { PluginSearchResultCard } from "../chat/PluginSearchResultCard";
@@ -426,6 +426,13 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
     send: (text: string) => runtime.send(text, []),
   };
 
+  const inlineError =
+    connectNeeded ||
+    inboxItems.some((item) => item.lastFailure === runtime.error) ||
+    (sendBlocked && runtime.failure?.unavailability === engineUnavailability?.reason)
+      ? null
+      : runtime.error;
+
   return (
     <ChatReplyContext value={chatReply}>
       <SidebarInset
@@ -595,7 +602,16 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
                   </div>
                 </div>
               ) : null}
-              {!working && runtime.turnFailure && messages.at(-1)?.role === "user" ? (
+              {inlineError ? (
+                <ThreadErrorCard
+                  error={inlineError}
+                  context={failureContext}
+                  environmentId={environmentId}
+                  onOpenUsage={openBotSettings}
+                  {...(runtime.canResume ? { onResume: () => void runtime.resume() } : {})}
+                  resuming={runtime.resuming}
+                />
+              ) : !working && runtime.turnFailure && messages.at(-1)?.role === "user" ? (
                 <BotTurnFailureRow
                   botName={bot.name}
                   title={presentThreadError(runtime.turnFailure.message, failureContext, t).title}
@@ -621,21 +637,6 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
                 className="mt-2"
               />
             ) : null}
-            <ThreadErrorBanner
-              threadKey={`${runtime.linkedThreadRef?.environmentId ?? environmentId ?? "unknown"}:${runtime.linkedThreadRef?.threadId ?? bot.id}`}
-              error={
-                connectNeeded ||
-                inboxItems.some((item) => item.lastFailure === runtime.error) ||
-                (sendBlocked && runtime.failure?.unavailability === engineUnavailability?.reason)
-                  ? null
-                  : runtime.error
-              }
-              context={failureContext}
-              environmentId={environmentId}
-              onOpenUsage={openBotSettings}
-              {...(runtime.canResume ? { onResume: () => void runtime.resume() } : {})}
-              resuming={runtime.resuming}
-            />
             <BotPromptComposer
               typeToFocus={!waitingForUserInput}
               mentionScope={mentionScope}

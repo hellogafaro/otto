@@ -27,7 +27,7 @@ import { useOptionalReplyPlayback } from "../chat/ReplyPlaybackProvider";
 import { useReplyPlaybackThread } from "~/lib/replyPlaybackThread";
 import { useI18n } from "~/i18n";
 import { ProviderUnavailableLine } from "../chat/ProviderUnavailableNotice";
-import { ThreadErrorBanner } from "../chat/ThreadErrorBanner";
+import { ThreadErrorCard } from "../chat/ThreadErrorCard";
 import { useOptionalVoiceCall } from "../voice/VoiceCall";
 import { threadSilentRun } from "@otto/client-runtime/silent-run";
 import { botActivityUpdate, BotActivityStatus } from "./BotActivityStatus";
@@ -292,6 +292,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
   const mentionPeople = groupPersonMembers(group).filter(
     (person) => person.personId !== currentPersonId,
   );
+
   const activeBot = members.find((bot) => bot.id === runtime.respondingBotId) ?? boss;
 
   const inboxItems = selectOpenBotInboxItems(
@@ -327,6 +328,11 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
       !runtime.providerAvailable,
     send: (text: string) => runtime.send(text, []),
   };
+
+  const inlineError =
+    connectNeeded || inboxItems.some((item) => item.lastFailure === runtime.error)
+      ? null
+      : runtime.error;
 
   return (
     <ChatReplyContext value={chatReply}>
@@ -456,7 +462,15 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
                 );
               })
             )}
-            {!working && runtime.turnFailure && messages.at(-1)?.role === "user" ? (
+            {inlineError ? (
+              <ThreadErrorCard
+                error={inlineError}
+                context={failureContext}
+                environmentId={environmentId}
+                {...(runtime.canResume ? { onResume: () => void runtime.resume() } : {})}
+                resuming={runtime.resuming}
+              />
+            ) : !working && runtime.turnFailure && messages.at(-1)?.role === "user" ? (
               <BotTurnFailureRow
                 botName={activeBot?.name ?? group.name}
                 title={presentThreadError(runtime.turnFailure.message, failureContext, t).title}
@@ -482,18 +496,6 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
               className="mt-2"
             />
           ) : null}
-          <ThreadErrorBanner
-            threadKey={`${runtime.linkedThreadRef?.environmentId ?? environmentId ?? "unknown"}:${runtime.linkedThreadRef?.threadId ?? group.id}`}
-            error={
-              connectNeeded || inboxItems.some((item) => item.lastFailure === runtime.error)
-                ? null
-                : runtime.error
-            }
-            context={failureContext}
-            environmentId={environmentId}
-            {...(runtime.canResume ? { onResume: () => void runtime.resume() } : {})}
-            resuming={runtime.resuming}
-          />
           {boss === null ? (
             <div className="px-4 py-2 text-sm text-muted-foreground" role="status">
               {t("Add an active bot to this group in the group sidebar.")}

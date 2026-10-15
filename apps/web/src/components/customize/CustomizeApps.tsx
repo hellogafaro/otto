@@ -39,7 +39,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group"
 import { Spinner } from "../ui/spinner";
 import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
+import { WorkspacePageContainer, PageTitle } from "../WorkspacePageContainer";
 import { WorkEmpty, WorkPage } from "../work/WorkPages";
 import { CustomizeGroup, CustomizeItem, CustomizeRow, LogoTile } from "./CustomizeGroup";
 import { DetailHeader } from "./CustomizeDetail";
@@ -184,7 +184,7 @@ export function CustomizeAppsPage({
   return (
     <WorkPage back={back}>
       <WorkspacePageContainer className="flex-1 gap-6 pt-3 pb-16 sm:pt-4">
-        <WorkspacePageTitle>{t("Apps")}</WorkspacePageTitle>
+        <PageTitle>{t("Apps")}</PageTitle>
         {environmentId ? (
           <AppsBody environmentId={environmentId} query={query} visibility={visibility} />
         ) : null}

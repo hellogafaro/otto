@@ -34,7 +34,7 @@ export function WorkspacePageContainer({
 }
 
 /** Otto: A page's own 22px title on the content edge, where its cards, table bands and grids start. */
-export function WorkspacePageTitle({ children }: { readonly children: ReactNode }) {
+export function PageTitle({ children }: { readonly children: ReactNode }) {
   return (
     <h1 className="text-22px leading-title font-medium tracking-title-lg text-foreground">
       {children}

@@ -33,7 +33,7 @@ import { DataGrid } from "../ui/data-grid";
 import { SkeletonCards } from "../ui/skeleton";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
+import { WorkspacePageContainer, PageTitle } from "../WorkspacePageContainer";
 import { participantName } from "../work/WorkParticipants";
 import { WorkEmpty, WorkPage } from "../work/WorkPages";
 import { LibraryItemMenu, LibraryNameDialog } from "./LibraryActions";
@@ -268,7 +268,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
           onDrop={onDrop}
         >
           <div className="flex flex-col gap-3">
-            <WorkspacePageTitle>{folder?.title ?? t("Library")}</WorkspacePageTitle>
+            <PageTitle>{folder?.title ?? t("Library")}</PageTitle>
             <div className="mt-2 mb-2">
               <DetailsTabs
                 label={t("Library tabs")}

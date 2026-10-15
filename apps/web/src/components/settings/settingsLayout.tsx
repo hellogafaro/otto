@@ -17,7 +17,7 @@ import { useI18n } from "../../i18n";
 import { clearSettingsTarget, useSettingsDialogStore } from "../../settingsDialogStore";
 import {
   WorkspacePageContainer,
-  WorkspacePageTitle,
+  PageTitle,
   type WorkspacePageWidth,
 } from "../WorkspacePageContainer";
 import { Button } from "../ui/button";
@@ -337,7 +337,7 @@ export function SettingsPageContainer({
           width={width}
           className={cn("gap-10 pt-3 pb-16 sm:pt-4", className)}
         >
-          {title ? <WorkspacePageTitle>{title}</WorkspacePageTitle> : null}
+          {title ? <PageTitle>{title}</PageTitle> : null}
           {children}
         </WorkspacePageContainer>
       </div>

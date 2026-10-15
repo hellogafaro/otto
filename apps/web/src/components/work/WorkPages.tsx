@@ -28,7 +28,7 @@ import {
 import { SidebarInset } from "../ui/sidebar";
 import { SkeletonCards, SkeletonTableRows } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
+import { WorkspacePageContainer, PageTitle } from "../WorkspacePageContainer";
 import { WorkspaceBackButton, WorkspacePageHeader } from "../WorkspacePageHeader";
 import { ProjectCover } from "./ProjectCover";
 import { TasksTable } from "./TasksTable";
@@ -108,7 +108,7 @@ function WorkColumn({
 }) {
   return (
     <WorkspacePageContainer className="gap-10 pt-3 pb-16 sm:pt-4">
-      {title ? <WorkspacePageTitle>{title}</WorkspacePageTitle> : null}
+      {title ? <PageTitle>{title}</PageTitle> : null}
       {children}
     </WorkspacePageContainer>
   );

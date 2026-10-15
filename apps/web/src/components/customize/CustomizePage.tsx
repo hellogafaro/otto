@@ -5,7 +5,7 @@ import type { EnvironmentId } from "@otto/contracts";
 import { useI18n } from "../../i18n";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { DetailsTabs } from "../DetailsAside";
-import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
+import { WorkspacePageContainer, PageTitle } from "../WorkspacePageContainer";
 import { WorkPage } from "../work/WorkPages";
 import { CustomizeIntegrations } from "./CustomizeIntegrations";
 import { CustomizeSkills } from "./CustomizeSkills";
@@ -41,7 +41,7 @@ export function CustomizePage({ tab }: { readonly tab: CustomizeTab }) {
     <WorkPage>
       <WorkspacePageContainer className="flex-1 gap-6 pt-3 pb-16 sm:pt-4">
         <div className="flex flex-col gap-3">
-          <WorkspacePageTitle>{t("Customize")}</WorkspacePageTitle>
+          <PageTitle>{t("Customize")}</PageTitle>
           <div className="mt-2 mb-2">
             <DetailsTabs<CustomizeTab>
               label={t("Customize sections")}
