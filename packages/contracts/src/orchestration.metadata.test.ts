@@ -1,6 +1,6 @@
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { MessageId } from "./baseSchemas.ts";
+import { MessageId } from "./base-schemas.ts";
 import {
   decodeThreadTurnStartCommand,
   decodeThreadTurnStartRequestedPayload,

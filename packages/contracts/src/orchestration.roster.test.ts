@@ -1,6 +1,6 @@
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { ChannelConnectionId, ProjectId } from "./baseSchemas.ts";
+import { ChannelConnectionId, ProjectId } from "./base-schemas.ts";
 import { CHANNEL_TRANSPORT_CAPABILITIES } from "./orchestration.ts";
 import {
   decodeBotAvatar,

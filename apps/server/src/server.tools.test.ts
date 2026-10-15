@@ -12,17 +12,17 @@ import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import { HttpBody, HttpClient } from "effect/unstable/http";
 import { vi } from "vite-plus/test";
-import * as AgentController from "./provider/Services/AgentController.ts";
-import { ProviderAdapterRequestError } from "./provider/Errors.ts";
+import * as AgentController from "./provider/services/agent-controller.ts";
+import { ProviderAdapterRequestError } from "./provider/errors.ts";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
 import {
   getWsServerUrl,
   withWsRpcClient,
   crossOriginClientOrigin,
   assertBrowserApiCorsResponseHeaders,
-} from "./serverTestClients.ts";
-import { testEnvironmentDescriptor } from "./serverTestFixtures.ts";
+} from "./server-test-clients.ts";
+import { testEnvironmentDescriptor } from "./server-test-fixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("uploads Codex thread feedback through websocket rpc", () =>

@@ -1,4 +1,4 @@
-import type { PreviewAutomationResponse } from "./previewAutomation.ts";
+import type { PreviewAutomationResponse } from "./preview-automation.ts";
 import {
   PreviewAutomationClickInput,
   PreviewAutomationEvaluateInput,
@@ -6,12 +6,12 @@ import {
   PreviewAutomationScrollInput,
   PreviewAutomationTypeInput,
   PreviewAutomationWaitForInput,
-} from "./previewAutomation/input.ts";
-import { PreviewAutomationSnapshot } from "./previewAutomation/snapshot.ts";
-import { PreviewAutomationStatus } from "./previewAutomation/targets.ts";
-import { EnvironmentId } from "./baseSchemas.ts";
+} from "./preview-automation/input.ts";
+import { PreviewAutomationSnapshot } from "./preview-automation/snapshot.ts";
+import { PreviewAutomationStatus } from "./preview-automation/targets.ts";
+import { EnvironmentId } from "./base-schemas.ts";
 import { AuthAccessTokenResult, AuthSessionState, AuthWebSocketTicketResult } from "./auth.ts";
-import { AdvertisedEndpoint } from "./remoteAccess.ts";
+import { AdvertisedEndpoint } from "./remote-access.ts";
 import { ExecutionEnvironmentDescriptor } from "./environment.ts";
 import { type ClientSettings } from "./settings/client.ts";
 import {
@@ -47,7 +47,7 @@ import {
   type DesktopPreviewScreenshotArtifact,
 } from "./ipc/preview.ts";
 import { type PreviewAnnotationSubmissionResult } from "./ipc/annotations.ts";
-import { type DesktopPreviewTabDefaults } from "./ipc/previewAutomation.ts";
+import { type DesktopPreviewTabDefaults } from "./ipc/preview-automation.ts";
 
 export interface DesktopBridge {
   getAppBranding: () => DesktopAppBranding | null;
@@ -390,4 +390,4 @@ export {
   DesktopPreviewAutomationScrollInputSchema,
   DesktopPreviewAutomationEvaluateInputSchema,
   DesktopPreviewAutomationWaitForInputSchema,
-} from "./ipc/previewAutomation.ts";
+} from "./ipc/preview-automation.ts";

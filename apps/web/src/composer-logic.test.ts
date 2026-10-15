@@ -9,7 +9,7 @@ import {
   isCollapsedCursorAdjacentToInlineToken,
   replaceTextRange,
 } from "./composer-logic";
-import { INLINE_TERMINAL_CONTEXT_PLACEHOLDER } from "./lib/terminalContext";
+import { INLINE_TERMINAL_CONTEXT_PLACEHOLDER } from "./lib/terminal-context";
 
 describe("composerSubmissionIntentForEnter", () => {
   it("submits plain Enter on desktop", () => {

@@ -5,16 +5,16 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
-import { OrchestrationProjectionSnapshotQueryLive } from "../src/orchestration/Layers/ProjectionSnapshotQuery.ts";
-import { ProjectionSnapshotQuery } from "../src/orchestration/Services/ProjectionSnapshotQuery.ts";
-import * as ThreadBackgroundLiveness from "../src/orchestration/ThreadBackgroundLiveness.ts";
-import * as ThreadPlanProgress from "../src/orchestration/ThreadPlanProgress.ts";
-import * as RepositoryIdentityResolver from "../src/project/RepositoryIdentityResolver.ts";
+import { OrchestrationProjectionSnapshotQueryLive } from "../src/orchestration/layers/projection-snapshot-query.ts";
+import { ProjectionSnapshotQuery } from "../src/orchestration/services/projection-snapshot-query.ts";
+import * as ThreadBackgroundLiveness from "../src/orchestration/thread-background-liveness.ts";
+import * as ThreadPlanProgress from "../src/orchestration/thread-plan-progress.ts";
+import * as RepositoryIdentityResolver from "../src/project/repository-identity-resolver.ts";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as Schema from "effect/Schema";
 
-import * as NodeSqliteClient from "../src/persistence/NodeSqliteClient.ts";
-import { runSqliteState } from "./ottoLegacy-sqlite-state.ts";
+import * as NodeSqliteClient from "../src/persistence/node-sqlite-client.ts";
+import { runSqliteState } from "./otto-legacy-sqlite-state.ts";
 import { runUiFixture, UI_FIXTURE_CASES } from "./ui-fixture.ts";
 
 const encodeRuntimePid = Schema.encodeEffect(

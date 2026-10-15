@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { providerCatalogEntry } from "../components/settings/providerCatalog";
-import { ProviderDetailPage } from "../components/settings/ProviderDetailPage";
+import { providerCatalogEntry } from "../components/settings/provider-catalog";
+import { ProviderDetailPage } from "../components/settings/provider-detail-page";
 
 export const Route = createFileRoute("/settings/providers/$providerId")({
   beforeLoad: ({ params }) => {

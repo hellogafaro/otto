@@ -9,11 +9,11 @@ import {
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { OrchestrationListenerCallbackError } from "./orchestration/Errors.ts";
+import { OrchestrationListenerCallbackError } from "./orchestration/errors.ts";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
-import { makeDefaultOrchestrationThreadShell } from "./serverTestFixtures.ts";
-import { getWsServerUrl, withWsRpcClient } from "./serverTestClients.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
+import { makeDefaultOrchestrationThreadShell } from "./server-test-fixtures.ts";
+import { getWsServerUrl, withWsRpcClient } from "./server-test-clients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("stops the provider session after archive", () =>

@@ -1,7 +1,7 @@
 import { CHANNEL_PROVIDERS, type ChannelProvider } from "@otto/contracts";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ChannelDetailPage } from "../components/settings/ChannelDetailPage";
+import { ChannelDetailPage } from "../components/settings/channel-detail-page";
 
 function isChannelProvider(value: string): value is ChannelProvider {
   return CHANNEL_PROVIDERS.some((channel) => channel === value);

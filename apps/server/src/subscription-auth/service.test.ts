@@ -1,8 +1,8 @@
-import { fixture, requestSignal } from "./testUtils/subscriptionAuthStorage.ts";
+import { fixture, requestSignal } from "./test-utils/subscription-auth-storage.ts";
 import * as NodeFS from "node:fs";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { ProviderInstanceId } from "@otto/contracts";
-import { makeTestSubscriptionAuthService } from "./testUtils/subscriptionAuthService.ts";
+import { makeTestSubscriptionAuthService } from "./test-utils/subscription-auth-service.ts";
 
 describe("subscription auth storage", () => {
   it("uses the provider account ID and distinguishes a failed refresh from disconnect", async () => {

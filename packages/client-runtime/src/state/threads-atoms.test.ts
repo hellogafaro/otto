@@ -6,7 +6,7 @@ import { Atom } from "effect/unstable/reactivity";
 
 import { EnvironmentRegistry } from "../connection/registry.ts";
 import { EnvironmentCacheStore } from "../platform/persistence.ts";
-import { THREAD_STATE_IDLE_TTL_MS } from "./threadRetention.ts";
+import { THREAD_STATE_IDLE_TTL_MS } from "./thread-retention.ts";
 import { createEnvironmentThreadStateAtoms, ThreadSnapshotLoader } from "./threads.ts";
 
 describe("createEnvironmentThreadStateAtoms", () => {

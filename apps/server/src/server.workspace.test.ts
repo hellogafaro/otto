@@ -24,9 +24,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as TestClock from "effect/testing/TestClock";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
-import { getWsServerUrl, withWsRpcClient } from "./serverTestClients.ts";
-import { TEST_EPOCH } from "./serverTestFixtures.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
+import { getWsServerUrl, withWsRpcClient } from "./server-test-clients.ts";
+import { TEST_EPOCH } from "./server-test-fixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("routes websocket rpc projects.searchEntries", () =>
@@ -584,7 +584,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     Effect.gen(function* () {
       let revealed:
         | Parameters<
-            import("./process/externalLauncher.ts").ExternalLauncher["Service"]["launchEditor"]
+            import("./process/external-launcher.ts").ExternalLauncher["Service"]["launchEditor"]
           >[0]
         | null = null;
 

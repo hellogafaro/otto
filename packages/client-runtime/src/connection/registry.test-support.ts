@@ -23,7 +23,7 @@ import {
   type ConnectionProfile,
 } from "./catalog.ts";
 import * as Connectivity from "./connectivity.ts";
-import * as ConnectionCredentialStore from "./credentialStore.ts";
+import * as ConnectionCredentialStore from "./credential-store.ts";
 import * as ConnectionDriver from "./driver.ts";
 import {
   ConnectionTransientError,
@@ -35,7 +35,7 @@ import {
   type SupervisorConnectionState,
 } from "./model.ts";
 import * as Persistence from "../platform/persistence.ts";
-import * as ConnectionProfileStore from "./profileStore.ts";
+import * as ConnectionProfileStore from "./profile-store.ts";
 import * as EnvironmentRegistry from "./registry.ts";
 import * as RpcSession from "../rpc/session.ts";
 import * as ConnectionWakeups from "./wakeups.ts";

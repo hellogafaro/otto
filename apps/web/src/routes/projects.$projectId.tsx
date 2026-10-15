@@ -1,7 +1,7 @@
 import { ProjectId } from "@otto/contracts";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ProjectPage } from "../components/work/ProjectPage";
+import { ProjectPage } from "../components/work/project-page";
 import { parseProjectPageSearch } from "../components/work/work.logic";
 
 export const Route = createFileRoute("/projects/$projectId")({

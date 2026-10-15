@@ -3,7 +3,7 @@ import {
   isInstallableManifest,
   loadManifestCatalog,
   type CatalogManifestModules,
-} from "./manifestCatalog.ts";
+} from "./manifest-catalog.ts";
 import type { PluginManifest, PluginSkill } from "./schema.ts";
 
 export interface PluginLogo {

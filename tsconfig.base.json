@@ -66,7 +66,7 @@
               "**/*.integration.ts",
               "**/test/**/*.ts",
               "**/test/**/*.tsx",
-              "**/testUtils/**/*.ts",
+              "**/test-utils/**/*.ts",
               "**/test-support/**/*.ts"
             ],
             "options": {
@@ -86,13 +86,13 @@
             // Desktop pre-ready reads preserve synchronous startup ordering; the native key
             // watchdog and server entry detection also require their platform boundaries.
             "include": [
-              "**/apps/desktop/src/preview/*Preload.ts",
-              "**/apps/desktop/src/preview/AnnotationElementCapture.ts",
-              "**/apps/desktop/src/app/*PreReadyPlatform.ts",
-              "**/apps/desktop/src/window/QuitHold.ts",
-              "**/apps/server/src/serviceLauncher.ts",
-              "**/apps/server/src/serviceLauncherDatabase.ts",
-              "**/apps/server/src/serviceLauncherState.ts",
+              "**/apps/desktop/src/preview/*-preload.ts",
+              "**/apps/desktop/src/preview/annotation-element-capture.ts",
+              "**/apps/desktop/src/app/*-pre-ready-platform.ts",
+              "**/apps/desktop/src/window/quit-hold.ts",
+              "**/apps/server/src/service-launcher.ts",
+              "**/apps/server/src/service-launcher-database.ts",
+              "**/apps/server/src/service-launcher-state.ts",
               "**/apps/server/src/entrypoint.ts"
             ],
             "options": {
@@ -110,16 +110,16 @@
             "include": [
               "**/apps/server/src/bootstrap.ts",
               "**/apps/server/src/http.ts",
-              "**/apps/server/src/orchestration/workflowScriptQuery.ts",
-              "**/apps/server/src/resourceTelemetry/DesktopTelemetryTransport.ts",
-              "**/apps/server/src/memory/BotMemory.ts",
-              "**/apps/server/src/memory/BotMemoryFileStorage.ts",
-              "**/apps/server/src/memory/BotMemoryTypes.ts",
-              "**/apps/server/src/provider/Layers/EventNdjsonLogger.ts",
-              "**/apps/server/src/subscription-auth/credentialStore.ts",
+              "**/apps/server/src/orchestration/workflow-script-query.ts",
+              "**/apps/server/src/resource-telemetry/desktop-telemetry-transport.ts",
+              "**/apps/server/src/memory/bot-memory.ts",
+              "**/apps/server/src/memory/bot-memory-file-storage.ts",
+              "**/apps/server/src/memory/bot-memory-types.ts",
+              "**/apps/server/src/provider/layers/event-ndjson-logger.ts",
+              "**/apps/server/src/subscription-auth/credential-store.ts",
               "**/apps/server/src/subscription-auth/service.ts",
               "**/apps/server/src/remote/diagnostics.ts",
-              "**/packages/shared/src/shell/commandResolution.ts"
+              "**/packages/shared/src/shell/command-resolution.ts"
             ],
             "options": {
               "diagnosticSeverity": {
@@ -132,11 +132,11 @@
             // snapshot dispatch ordering.
             // Promise signatures alone do not justify avoiding Effect services.
             "include": [
-              "**/apps/server/src/provider/OttoPreviewSnapshotAttachment.ts",
-              "**/apps/server/src/provider/OttoWebFetch.ts",
-              "**/apps/server/src/provider/CodexComputerUse.ts",
-              "**/apps/server/src/provider/browser/LightpandaProcess.ts",
-              "**/apps/server/src/voiceCall/ChatGptRealtime.ts"
+              "**/apps/server/src/provider/otto-preview-snapshot-attachment.ts",
+              "**/apps/server/src/provider/otto-web-fetch.ts",
+              "**/apps/server/src/provider/codex-computer-use.ts",
+              "**/apps/server/src/provider/browser/lightpanda-process.ts",
+              "**/apps/server/src/voice-call/chat-gpt-realtime.ts"
             ],
             "options": {
               "diagnosticSeverity": {
@@ -148,7 +148,7 @@
           },
           {
             // The Mastra SDK FileStat interface requires native Date values, including Invalid Date.
-            "include": ["**/apps/server/src/provider/botWorkspaceFilesystem.ts"],
+            "include": ["**/apps/server/src/provider/bot-workspace-filesystem.ts"],
             "options": { "diagnosticSeverity": { "globalDate": "off" } }
           },
           {
@@ -157,16 +157,16 @@
             // terminal child semantics (triage) and measured native streaming performance
             // (usageTranscriptReader). Remove a file once its constraint is addressed.
             "include": [
-              "**/apps/server/src/subscription-auth/healthService.ts",
+              "**/apps/server/src/subscription-auth/health-service.ts",
               "**/packages/shared/src/logging.ts",
               "**/packages/shared/src/shell/environment.ts",
-              "**/apps/server/src/attachmentPaths.ts",
-              "**/apps/server/src/attachmentStore.ts",
+              "**/apps/server/src/attachment-paths.ts",
+              "**/apps/server/src/attachment-store.ts",
               "**/apps/server/src/bot-inbox/service.ts",
               "**/apps/server/src/cli/triage.ts",
-              "**/apps/server/src/usage/usageTranscriptReader.ts",
-              "**/apps/server/src/provider/tools/OttoPluginCatalog.ts",
-              "**/apps/server/src/provider/Layers/agentController/EventIdentity.ts"
+              "**/apps/server/src/usage/usage-transcript-reader.ts",
+              "**/apps/server/src/provider/tools/otto-plugin-catalog.ts",
+              "**/apps/server/src/provider/layers/agent-controller/event-identity.ts"
             ],
             "options": {
               "diagnosticSeverity": {

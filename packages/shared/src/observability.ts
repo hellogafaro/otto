@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import type * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Tracer from "effect/Tracer";
-import { traceSink } from "./observability/traceSink.ts";
+import { traceSink } from "./observability/trace-sink.ts";
 import {
   type EffectTraceRecord,
   type LocalFileTracerOptions,
@@ -151,7 +151,7 @@ export {
   type TraceSinkFlushStats,
   type TraceSink,
   traceSink,
-} from "./observability/traceSink.ts";
+} from "./observability/trace-sink.ts";
 
 export {
   type TraceAttributes,

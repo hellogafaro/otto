@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { IsoDateTime, TrimmedNonEmptyString, TrimmedString } from "../baseSchemas.ts";
+import { IsoDateTime, TrimmedNonEmptyString, TrimmedString } from "../base-schemas.ts";
 import { LibraryFileId } from "./library.ts";
 import { Actor, TaskChanges, TaskTimeDuration } from "./work.ts";
 

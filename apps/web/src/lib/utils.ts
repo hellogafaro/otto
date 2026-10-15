@@ -1,11 +1,11 @@
 import { CommandId, MessageId, ProjectId, ThreadId } from "@otto/contracts";
 import * as Encoding from "effect/Encoding";
-import { DraftId } from "../composerDraftStore";
+import { DraftId } from "../composer-draft-store";
 
 import type { CnFunction } from "cn";
 import { createCn } from "cn/config";
 
-import { scaleClassGroups, scaleTheme } from "./scaleTheme";
+import { scaleClassGroups, scaleTheme } from "./scale-theme";
 
 /** Class merger that knows the extra theme steps declared in styles/scale-tokens.css. */
 export const cn: CnFunction = createCn({

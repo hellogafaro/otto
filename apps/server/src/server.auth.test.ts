@@ -7,7 +7,7 @@ import { assert, it } from "@effect/vitest";
 import { assertInclude } from "@effect/vitest/utils";
 import * as Effect from "effect/Effect";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
 import {
   getHttpServerUrl,
   fetchEffect,
@@ -24,8 +24,8 @@ import {
   getAuthenticatedBearerSessionToken,
   withWsRpcClient,
   appendSessionCookieToWsUrl,
-} from "./serverTestClients.ts";
-import { testEnvironmentDescriptor } from "./serverTestFixtures.ts";
+} from "./server-test-clients.ts";
+import { testEnvironmentDescriptor } from "./server-test-fixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("serves the public environment descriptor without requiring auth", () =>

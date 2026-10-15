@@ -21,23 +21,23 @@ import { EnvironmentSupervisor } from "../connection/supervisor.ts";
 import * as ConnectionWakeups from "../connection/wakeups.ts";
 import { EnvironmentCacheStore } from "../platform/persistence.ts";
 import { subscribeDynamic } from "../rpc/client.ts";
-import { ThreadSnapshotLoader, type ThreadSnapshotWindow } from "./threadSnapshotHttp.ts";
+import { ThreadSnapshotLoader, type ThreadSnapshotWindow } from "./thread-snapshot-http.ts";
 import { parseThreadKey, threadKey } from "./entities.ts";
-import { applyThreadDetailEvent } from "./threadReducer.ts";
-import { THREAD_STATE_IDLE_TTL_MS } from "./threadRetention.ts";
+import { applyThreadDetailEvent } from "./thread-reducer.ts";
+import { THREAD_STATE_IDLE_TTL_MS } from "./thread-retention.ts";
 import { followStreamInEnvironment } from "./runtime.ts";
 import {
   EMPTY_ENVIRONMENT_THREAD_STATE,
   type EnvironmentThreadPageState,
   type EnvironmentThreadState,
   type EnvironmentThreadStatus,
-} from "./threadState.ts";
+} from "./thread-state.ts";
 import {
   INITIAL_THREAD_USER_TURN_LIMIT,
   OLDER_THREAD_PAGE_USER_TURN_LIMIT,
   pageStateFromSnapshot,
   ThreadOlderTurnRequests,
-} from "./threadHistory.ts";
+} from "./thread-history.ts";
 
 function statusWithoutLiveData(data: Option.Option<OrchestrationThread>): EnvironmentThreadStatus {
   return Option.isSome(data) ? "cached" : "empty";
@@ -740,29 +740,29 @@ export function createEnvironmentThreadStateAtoms<R, E>(
   };
 }
 
-export * from "./archivedThreads.ts";
+export * from "./archived-threads.ts";
 
-export * from "./checkpointDiff.ts";
+export * from "./checkpoint-diff.ts";
 
-export * from "./threadSnapshotHttp.ts";
+export * from "./thread-snapshot-http.ts";
 
-export * from "./composerPathSearch.ts";
+export * from "./composer-path-search.ts";
 
-export * from "./threadCommands.ts";
+export * from "./thread-commands.ts";
 
-export * from "./threadFeedback.ts";
+export * from "./thread-feedback.ts";
 
-export * from "./threadDetail.ts";
+export * from "./thread-detail.ts";
 
-export * from "./threadReducer.ts";
+export * from "./thread-reducer.ts";
 
-export * from "./threadShell.ts";
+export * from "./thread-shell.ts";
 
-export * from "./threadState.ts";
+export * from "./thread-state.ts";
 
 export {
   INITIAL_THREAD_USER_TURN_LIMIT,
   OLDER_THREAD_PAGE_USER_TURN_LIMIT,
   ThreadOlderTurnRequests,
   requestOlderThreadTurns,
-} from "./threadHistory.ts";
+} from "./thread-history.ts";

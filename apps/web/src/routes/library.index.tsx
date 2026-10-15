@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { parseLibrarySearch } from "../components/library/library.logic";
-import { LibraryPage } from "../components/library/LibraryPage";
+import { LibraryPage } from "../components/library/library-page";
 
 export const Route = createFileRoute("/library/")({
   validateSearch: parseLibrarySearch,

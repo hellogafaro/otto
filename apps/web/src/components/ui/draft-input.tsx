@@ -1,6 +1,6 @@
 "use client";
 
-import { useCommitOnBlur } from "~/hooks/useCommitOnBlur";
+import { useCommitOnBlur } from "~/hooks/use-commit-on-blur";
 import { Input, type InputProps } from "./input";
 
 export type DraftInputProps = Omit<InputProps, "value" | "onChange" | "defaultValue"> & {

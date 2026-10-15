@@ -12,7 +12,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createTranslator } from "./i18n/index.ts";
-import { zhCNCatalog } from "./i18n/zh-CN.ts";
+import { zhCNCatalog } from "./i18n/zh-cn.ts";
 import {
   hourlyScheduleText,
   absoluteRunTime,

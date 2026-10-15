@@ -1,9 +1,9 @@
-import type { ProviderInstanceConfig } from "../providerInstance.ts";
+import type { ProviderInstanceConfig } from "../provider-instance.ts";
 import * as Predicate from "effect/Predicate";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { TrimmedString } from "../baseSchemas.ts";
-import { binaryPathSetting, providerSettingsSchema } from "./providerForms.ts";
+import { TrimmedString } from "../base-schemas.ts";
+import { binaryPathSetting, providerSettingsSchema } from "./provider-forms.ts";
 
 export const CodexSettings = providerSettingsSchema(
   {

@@ -1,7 +1,7 @@
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import { asRecord } from "./work-log-command.ts";
-import type { PendingApproval } from "./pendingRequests.ts";
+import type { PendingApproval } from "./pending-requests.ts";
 import * as Match from "effect/Match";
 import * as Predicate from "effect/Predicate";
 import type {

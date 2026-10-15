@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { AuthSessionId, BotId, ProjectId, TaskId } from "../baseSchemas.ts";
+import { AuthSessionId, BotId, ProjectId, TaskId } from "../base-schemas.ts";
 import * as Schema from "effect/Schema";
 
 import {

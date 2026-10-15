@@ -17,7 +17,7 @@ import {
   makeBot,
   OTHER_BOT_ID,
   PARENT_THREAD_ID,
-} from "./test-support/DelegationDeciderFixtures.ts";
+} from "./test-support/delegation-decider-fixtures.ts";
 
 it.layer(NodeServices.layer)("delegation decider", (it) => {
   it.effect("creates and projects the full delegation record", () =>

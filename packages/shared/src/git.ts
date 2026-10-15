@@ -9,7 +9,7 @@ import type {
 } from "@otto/contracts";
 import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
-import { detectSourceControlProviderFromRemoteUrl } from "./sourceControl.ts";
+import { detectSourceControlProviderFromRemoteUrl } from "./source-control.ts";
 
 export const WORKTREE_BRANCH_PREFIX = "otto";
 

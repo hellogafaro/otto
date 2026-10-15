@@ -1,9 +1,9 @@
-export * from "./errorTrace.ts";
+export * from "./error-trace.ts";
 
 export * from "./orchestration.ts";
 
-export * from "./safeLog.ts";
+export * from "./safe-log.ts";
 
-export * from "./threadErrorPresentation.ts";
+export * from "./thread-error-presentation.ts";
 
 export * from "./transport.ts";

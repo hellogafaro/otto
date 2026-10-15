@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { RoutinesPage } from "../components/routines/RoutinesPage";
+import { RoutinesPage } from "../components/routines/routines-page";
 
 export const Route = createFileRoute("/routines/")({
   beforeLoad: async ({ context }) => {

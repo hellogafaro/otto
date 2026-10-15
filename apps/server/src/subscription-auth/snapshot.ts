@@ -1,4 +1,4 @@
-import { SUBSCRIPTION_PROVIDER_IDS } from "./serviceTypes.ts";
+import { SUBSCRIPTION_PROVIDER_IDS } from "./service-types.ts";
 import * as Predicate from "effect/Predicate";
 import type {
   BotEngine,

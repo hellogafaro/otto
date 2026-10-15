@@ -2,12 +2,12 @@ import { EnvironmentOwnedDataCleanup } from "@otto/client-runtime/platform";
 import { EnvironmentRpcRequestObserver } from "@otto/client-runtime/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { clearComposerDraftsEnvironment } from "../composerDraftStore";
-import { acknowledgeRpcRequest, trackRpcRequestSent } from "../rpc/requestLatencyState";
+import { clearComposerDraftsEnvironment } from "../composer-draft-store";
+import { acknowledgeRpcRequest, trackRpcRequestSent } from "../rpc/request-latency-state";
 import { connectionStorageLayer } from "./storage";
-import { connectivityLayer, wakeupsLayer } from "./browserSignals";
-import { capabilitiesLayer } from "./desktopCapabilities";
-import { platformConnectionSourceLayer } from "./platformRegistrations";
+import { connectivityLayer, wakeupsLayer } from "./browser-signals";
+import { capabilitiesLayer } from "./desktop-capabilities";
+import { platformConnectionSourceLayer } from "./platform-registrations";
 
 let nextObservedRpcRequestId = 0;
 
@@ -60,7 +60,7 @@ export const connectionPlatformLayer: Layer.Layer<
   rpcRequestObserverLayer,
 );
 
-export { provisionDesktopSshEnvironment } from "./desktopCapabilities";
+export { provisionDesktopSshEnvironment } from "./desktop-capabilities";
 
 export {
   secondaryBearerExpiresAtEpochMs,
@@ -71,4 +71,4 @@ export {
   canReuseCachedPlatformRegistration,
   canRetainCachedPlatformRegistrationAfterRefreshFailure,
   secondaryRegistrationsToRetainAfterTopologyRead,
-} from "./platformRegistrations";
+} from "./platform-registrations";

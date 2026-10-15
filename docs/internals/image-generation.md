@@ -33,7 +33,7 @@ Shared row logic lives in `@otto/client-runtime/image-generation`: the health ba
 
 ## Request contract
 
-`ImageGenerationRequest` in `packages/contracts/src/imageGeneration.ts` is the only tool input: `operation` (`generate` or `edit`), `prompt` (up to 4,000 characters), optional `inputImages` (one to four attachment ids from the calling chat), `aspectRatio`, `quality` (`standard` or `high`), `count` (one to four), `provider`, and `allowProvider`. `decodeImageGenerationRequest` decodes with `onExcessProperty: "error"`, so an unknown option fails as `invalid-request` instead of being dropped.
+`ImageGenerationRequest` in `packages/contracts/src/image-generation.ts` is the only tool input: `operation` (`generate` or `edit`), `prompt` (up to 4,000 characters), optional `inputImages` (one to four attachment ids from the calling chat), `aspectRatio`, `quality` (`standard` or `high`), `count` (one to four), `provider`, and `allowProvider`. `decodeImageGenerationRequest` decodes with `onExcessProperty: "error"`, so an unknown option fails as `invalid-request` instead of being dropped.
 
 `ImageGenerationResult` is a union of `completed` (provider, optional model, artifacts, attempts), `failed` (a normalized kind, message, attempts), and `needs-consent` (the provider the images would go to). An `ImageArtifact` carries the attachment id, MIME type, width, height, byte size, provider, and model when the provider exposes it. Dimensions and MIME type come from sniffing the returned bytes, not from the provider's claims.
 

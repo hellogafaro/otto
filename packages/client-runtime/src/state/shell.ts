@@ -18,12 +18,12 @@ import { EnvironmentRegistry } from "../connection/registry.ts";
 import { connectionProjectionPhase } from "../connection/model.ts";
 import { EnvironmentSupervisor } from "../connection/supervisor.ts";
 import * as ConnectionWakeups from "../connection/wakeups.ts";
-import { safeErrorLogAttributes } from "../errors/safeLog.ts";
+import { safeErrorLogAttributes } from "../errors/safe-log.ts";
 import { EnvironmentCacheStore } from "../platform/persistence.ts";
 import { subscribeDynamic } from "../rpc/client.ts";
 import type { RpcSession } from "../rpc/session.ts";
-import { ShellSnapshotLoader } from "./shellSnapshotHttp.ts";
-import { applyShellStreamEvent } from "./shellReducer.ts";
+import { ShellSnapshotLoader } from "./shell-snapshot-http.ts";
+import { applyShellStreamEvent } from "./shell-reducer.ts";
 import type { EnvironmentCatalogState } from "./connections.ts";
 import { followStreamInEnvironment } from "./runtime.ts";
 
@@ -451,10 +451,10 @@ export function createEnvironmentShellAtoms<R, E>(
 
 export * from "./models.ts";
 
-export * from "./shellCommands.ts";
+export * from "./shell-commands.ts";
 
-export * from "./shellReducer.ts";
+export * from "./shell-reducer.ts";
 
-export * from "./shellSnapshotHttp.ts";
+export * from "./shell-snapshot-http.ts";
 
 export * from "./snapshots.ts";

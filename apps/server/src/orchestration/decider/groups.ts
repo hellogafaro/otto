@@ -7,14 +7,14 @@ import {
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
-import { OrchestrationCommandInvariantError } from "../Errors.ts";
-import type { OrchestrationDispatchActor } from "../Services/OrchestrationEngine.ts";
+import { OrchestrationCommandInvariantError } from "../errors.ts";
+import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import {
   requireBotNotArchived,
   requireGroup,
   requireGroupAbsent,
   requireMutationActorAuthorized,
-} from "../commandInvariants.ts";
+} from "../command-invariants.ts";
 import {
   type PlannedOrchestrationEvent,
   withEventBase,
@@ -22,7 +22,7 @@ import {
   botGroupUpdatedEvent,
   activeGroupBotIds,
   type DecideOrchestrationCommandResult,
-} from "./eventBase.ts";
+} from "./event-base.ts";
 
 export const decideGroups = Effect.fn("decideGroups")(function* ({
   command,

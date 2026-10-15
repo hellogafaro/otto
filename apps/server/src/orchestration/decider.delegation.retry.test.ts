@@ -12,7 +12,7 @@ import {
   LATER,
   makeReadModel,
   PARENT_THREAD_ID,
-} from "./test-support/DelegationDeciderFixtures.ts";
+} from "./test-support/delegation-decider-fixtures.ts";
 
 it.layer(NodeServices.layer)("delegation decider", (it) => {
   it.effect("requests a retry of failed or canceled work without touching the original", () =>

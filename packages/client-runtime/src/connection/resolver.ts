@@ -15,7 +15,7 @@ import {
   type ConnectionCatalogEntry,
   SshConnectionProfile,
 } from "./catalog.ts";
-import * as ConnectionCredentialStore from "./credentialStore.ts";
+import * as ConnectionCredentialStore from "./credential-store.ts";
 import { credentialMissingError, environmentMismatchError, profileMissingError } from "./errors.ts";
 import type {
   BearerConnectionTarget,
@@ -25,7 +25,7 @@ import type {
   SshConnectionTarget,
 } from "./model.ts";
 import { ConnectionBlockedError, type ConnectionAttemptError } from "./model.ts";
-import * as ConnectionProfileStore from "./profileStore.ts";
+import * as ConnectionProfileStore from "./profile-store.ts";
 
 export class ConnectionResolver extends Context.Service<
   ConnectionResolver,

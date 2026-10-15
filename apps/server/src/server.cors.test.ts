@@ -4,7 +4,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
 import {
   exchangeAccessToken,
   getAuthenticatedBearerSessionToken,
@@ -14,7 +14,7 @@ import {
   fetchEffect,
   responseJsonEffect,
   assertBrowserApiCorsPreflightHeaders,
-} from "./serverTestClients.ts";
+} from "./server-test-clients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("includes CORS headers on remote auth success responses", () =>

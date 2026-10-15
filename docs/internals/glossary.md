@@ -33,7 +33,7 @@ The root filesystem path for a project. In [the orchestration model][1], it is t
 
 #### Worktree
 
-A Git worktree used as an isolated workspace for a thread. If a thread has a `worktreePath` in [the contracts][1], it runs there instead of in the main working tree. Clients no longer offer the local/worktree choice or the `defaultThreadEnvMode` setting, so new threads start in the project checkout. The server still honors a thread that was created with a worktree, and names its branch with the default text generation model (`textGenerationModelSelection`). Git operations live behind the VCS driver contract in `apps/server/src/vcs/VcsDriver.ts`, implemented by [GitVcsDriverCore.ts][3].
+A Git worktree used as an isolated workspace for a thread. If a thread has a `worktreePath` in [the contracts][1], it runs there instead of in the main working tree. Clients no longer offer the local/worktree choice or the `defaultThreadEnvMode` setting, so new threads start in the project checkout. The server still honors a thread that was created with a worktree, and names its branch with the default text generation model (`textGenerationModelSelection`). Git operations live behind the VCS driver contract in `apps/server/src/vcs/vcs-driver.ts`, implemented by [git-vcs-driver-core.ts][3].
 
 ### Thread timeline
 
@@ -89,7 +89,7 @@ The domain object a command or event belongs to. In [the contracts][1], that is 
 
 #### Command
 
-A typed request to change domain state. In [the contracts][1], commands are validated in [commandInvariants.ts][9] and turned into events by [decider.ts][8].
+A typed request to change domain state. In [the contracts][1], commands are validated in [command-invariants.ts][9] and turned into events by [decider.ts][8].
 Examples include `thread.create`, `thread.turn.start`, and `thread.checkpoint.revert`.
 
 #### Domain Event
@@ -99,7 +99,7 @@ Examples include `thread.created`, `thread.message-sent`, and `thread.turn-diff-
 
 #### Decider
 
-The pure orchestration logic that turns commands plus current state into events. The core implementation is in [decider.ts][8], with preconditions in [commandInvariants.ts][9].
+The pure orchestration logic that turns commands plus current state into events. The core implementation is in [decider.ts][8], with preconditions in [command-invariants.ts][9].
 
 #### Projection
 
@@ -158,7 +158,7 @@ The per-reply delivery state (`pending`, `sent`, `failed`, `unknown`) mirrored f
 Hold-to-talk capture on the active client that transcribes into the current composer draft. The
 session, identity binding, and draft merging live in `packages/client-runtime/src/dictation`, which
 also binds transcription to the environment's `voice.transcribe` RPC. Browser capture lives in
-`apps/web/src/lib/dictationCapture.ts` and native capture in
+`apps/web/src/lib/dictation-capture.ts` and native capture in
 `apps/mobile/src/lib/expoDictationCapture.ts`. A transcript is applied only while the environment,
 thread, draft, and draft generation still match the ones captured at start.
 
@@ -166,13 +166,13 @@ thread, draft, and draft generation still match the ones captured at start.
 
 The client window that shows a bot's Daytona computer and hands input control between the bot and one
 person. The state machine and the controller that serializes RPC calls live in
-`packages/client-runtime/src/state/computerViewer.ts` and `computerViewerController.ts`. The web
+`packages/client-runtime/src/state/computer-viewer.ts` and `computer-viewer-controller.ts`. The web
 client renders it; mobile only points to desktop or web. See
 [computer-control.md](./computer-control.md#client-lifecycle).
 
 ### Stored-reply playback
 
-Reading an existing assistant message on the current client speaker. Identity, spoken-text conversion, playback ownership, and the client-local automatic-readout preference live in `packages/client-runtime/src/replyPlayback`. Synthesis credentials and the speech operation belong to the live-call voice work, not this module. See [reply-playback.md](./reply-playback.md).
+Reading an existing assistant message on the current client speaker. Identity, spoken-text conversion, playback ownership, and the client-local automatic-readout preference live in `packages/client-runtime/src/reply-playback`. Synthesis credentials and the speech operation belong to the live-call voice work, not this module. See [reply-playback.md](./reply-playback.md).
 
 ### Subscription provider
 
@@ -188,11 +188,11 @@ A client-local preference for interface copy. Web, Electron, and native mobile e
 
 ## Provider runtime
 
-The live backend agent implementation and its event stream. Desktop turns cross [AgentController][25]. Codex, Claude, Grok, Kimi, and OpenCode Go use Otto's Mastra Core controller, custom workspace and MCP tools, exact-instance server-owned access, and normalized Mastra runtime events. Standard OpenCode remains the explicit compatibility runtime because its API exposes an OpenCode-owned agent session rather than a raw model transport. The adapter contract is [ProviderAdapter.ts][15], and the overview is in [providers.md][16].
+The live backend agent implementation and its event stream. Desktop turns cross [AgentController][25]. Codex, Claude, Grok, Kimi, and OpenCode Go use Otto's Mastra Core controller, custom workspace and MCP tools, exact-instance server-owned access, and normalized Mastra runtime events. Standard OpenCode remains the explicit compatibility runtime because its API exposes an OpenCode-owned agent session rather than a raw model transport. The adapter contract is [provider-adapter.ts][15], and the overview is in [providers.md][16].
 
 #### Provider
 
-The backend agent runtime that actually performs work. Six drivers ship built in: Codex, Claude, Grok, Kimi For Coding, OpenCode, and OpenCode Go. See [ProviderService.ts][14], [ProviderAdapter.ts][15], and [CodexAdapter.ts][17] as a representative adapter.
+The backend agent runtime that actually performs work. Six drivers ship built in: Codex, Claude, Grok, Kimi For Coding, OpenCode, and OpenCode Go. See [ProviderService.ts][14], [provider-adapter.ts][15], and [CodexAdapter.ts][17] as a representative adapter.
 
 #### Session
 
@@ -216,7 +216,7 @@ Controls how assistant text reaches the thread timeline. In [the contracts][1], 
 
 #### Snapshot
 
-A point-in-time view of state. The word is used in multiple layers, including orchestration, provider, and checkpointing. See [ProjectionSnapshotQuery.ts][10], [ProviderAdapter.ts][15], and [CheckpointStore.ts][19].
+A point-in-time view of state. The word is used in multiple layers, including orchestration, provider, and checkpointing. See [ProjectionSnapshotQuery.ts][10], [provider-adapter.ts][15], and [checkpoint-store.ts][19].
 
 #### Model routing
 
@@ -242,27 +242,27 @@ The per-driver model list, display names, and current-versus-legacy classificati
 
 ### Checkpointing
 
-Checkpointing captures workspace state over time so the server can diff turns and restore earlier points. Clients no longer include a diff review panel; the server still captures checkpoints and turn summaries. The main pieces are [CheckpointStore.ts][19], [CheckpointDiffQuery.ts][20], and [CheckpointReactor.ts][6].
+Checkpointing captures workspace state over time so the server can diff turns and restore earlier points. Clients no longer include a diff review panel; the server still captures checkpoints and turn summaries. The main pieces are [checkpoint-store.ts][19], [checkpoint-diff-query.ts][20], and [CheckpointReactor.ts][6].
 
 #### Checkpoint
 
-A saved snapshot of a thread workspace at a particular turn. In practice it is a hidden Git ref in [CheckpointStore.ts][19] plus a projected summary from [ProjectionCheckpoints.ts][21]. Capture and lifecycle work happen in [CheckpointReactor.ts][6].
+A saved snapshot of a thread workspace at a particular turn. In practice it is a hidden Git ref in [checkpoint-store.ts][19] plus a projected summary from [ProjectionCheckpoints.ts][21]. Capture and lifecycle work happen in [CheckpointReactor.ts][6].
 
 #### Checkpoint ref
 
-The durable identifier for a filesystem checkpoint, stored as a Git ref. It is typed in [the contracts][1], constructed in [Utils.ts][22], and used by [CheckpointStore.ts][19].
+The durable identifier for a filesystem checkpoint, stored as a Git ref. It is typed in [the contracts][1], constructed in [utils.ts][22], and used by [checkpoint-store.ts][19].
 
 #### Checkpoint baseline
 
-The starting checkpoint for diffing a thread timeline. This flow is surfaced through [RuntimeReceiptBus.ts][13], coordinated in [CheckpointReactor.ts][6], and supported by [Utils.ts][22].
+The starting checkpoint for diffing a thread timeline. This flow is surfaced through [RuntimeReceiptBus.ts][13], coordinated in [CheckpointReactor.ts][6], and supported by [utils.ts][22].
 
 #### Checkpoint diff
 
-The difference between two checkpoints. On-demand diffs stay as patches; automatic turn summaries use NUL-delimited Git numstat. Query logic lives in [CheckpointDiffQuery.ts][20], summary parsing lives in [Diffs.ts][23], and finalization is coordinated by [CheckpointReactor.ts][6].
+The difference between two checkpoints. On-demand diffs stay as patches; automatic turn summaries use NUL-delimited Git numstat. Query logic lives in [checkpoint-diff-query.ts][20], summary parsing lives in [diffs.ts][23], and finalization is coordinated by [CheckpointReactor.ts][6].
 
 #### Turn diff
 
-The file patch and changed-file summary for one turn. It is usually computed in [CheckpointDiffQuery.ts][20], represented in [the contracts][1], and recorded into thread state by [projector.ts][4].
+The file patch and changed-file summary for one turn. It is usually computed in [checkpoint-diff-query.ts][20], represented in [the contracts][1], and recorded into thread state by [projector.ts][4].
 
 ## Practical Shortcuts
 
@@ -281,26 +281,26 @@ The file patch and changed-file summary for one turn. It is usually computed in 
 
 [1]: ../../packages/contracts/src/orchestration.ts
 [2]: ./workspace-layout.md
-[3]: ../../apps/server/src/vcs/GitVcsDriverCore.ts
+[3]: ../../apps/server/src/vcs/git-vcs-driver-core.ts
 [4]: ../../apps/server/src/orchestration/projector.ts
 [5]: ../../apps/server/src/orchestration/Layers/ProviderRuntimeIngestion.ts
 [6]: ../../apps/server/src/orchestration/Layers/CheckpointReactor.ts
 [7]: ../../apps/server/src/orchestration/Layers/OrchestrationEngine.ts
 [8]: ../../apps/server/src/orchestration/decider.ts
-[9]: ../../apps/server/src/orchestration/commandInvariants.ts
+[9]: ../../apps/server/src/orchestration/command-invariants.ts
 [10]: ../../apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.ts
 [11]: ../../apps/server/src/orchestration/Layers/ProjectionPipeline.ts
 [12]: ../../apps/server/src/orchestration/Layers/ProviderCommandReactor.ts
 [13]: ../../apps/server/src/orchestration/Services/RuntimeReceiptBus.ts
 [14]: ../../apps/server/src/provider/Layers/ProviderService.ts
-[15]: ../../apps/server/src/provider/Services/ProviderAdapter.ts
+[15]: ../../apps/server/src/provider/services/provider-adapter.ts
 [16]: ./providers.md
 [17]: ../../apps/server/src/provider/Layers/CodexAdapter.ts
 [18]: ../user/permission-modes.md
-[19]: ../../apps/server/src/checkpointing/CheckpointStore.ts
-[20]: ../../apps/server/src/checkpointing/CheckpointDiffQuery.ts
+[19]: ../../apps/server/src/checkpointing/checkpoint-store.ts
+[20]: ../../apps/server/src/checkpointing/checkpoint-diff-query.ts
 [21]: ../../apps/server/src/persistence/Services/ProjectionCheckpoints.ts
-[22]: ../../apps/server/src/checkpointing/Utils.ts
-[23]: ../../apps/server/src/checkpointing/Diffs.ts
+[22]: ../../apps/server/src/checkpointing/utils.ts
+[23]: ../../apps/server/src/checkpointing/diffs.ts
 [24]: ./overview.md
 [25]: ../../apps/server/src/provider/Services/AgentController.ts

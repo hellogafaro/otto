@@ -55,7 +55,7 @@ Metrics are not written to a local file.
 
 - local persistence: none
 - remote export: OTLP only, when configured
-- current definitions: `apps/server/src/observability/Metrics.ts`
+- current definitions: `apps/server/src/observability/metrics.ts`
 
 If OTLP is not configured, metrics still exist in-process, but you will not have a local artifact to inspect.
 

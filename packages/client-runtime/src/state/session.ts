@@ -10,9 +10,12 @@ import { EnvironmentRegistry } from "../connection/registry.ts";
 import type { PreparedConnection } from "../connection/model.ts";
 import { EnvironmentSupervisor } from "../connection/supervisor.ts";
 import { environmentEndpointUrl } from "../environment/endpoint.ts";
-import { safeErrorLogAttributes } from "../errors/safeLog.ts";
+import { safeErrorLogAttributes } from "../errors/safe-log.ts";
 import { executeEnvironmentHttpRequest, environmentHttpApiClient } from "../rpc/http.ts";
-import { buildEnvironmentAuthHeaders, withEnvironmentCredentials } from "./environmentHttpAuth.ts";
+import {
+  buildEnvironmentAuthHeaders,
+  withEnvironmentCredentials,
+} from "./environment-http-auth.ts";
 import { followStreamInEnvironment } from "./runtime.ts";
 
 export function initialConfigOption<E>(

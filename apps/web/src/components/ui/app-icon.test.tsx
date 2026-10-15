@@ -2,7 +2,7 @@ import { RiCheckLine, RiSettings3Line } from "@remixicon/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
-import { iconPath } from "../../test/iconPath";
+import { iconPath } from "../../test/icon-path";
 import { AppIcon } from "./app-icon";
 
 describe("AppIcon", () => {

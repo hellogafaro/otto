@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { NonNegativeInt, TrimmedNonEmptyString } from "../baseSchemas.ts";
+import { NonNegativeInt, TrimmedNonEmptyString } from "../base-schemas.ts";
 
 export const PROVIDER_SEND_TURN_MAX_INPUT_CHARS = 120_000;
 

@@ -1,15 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 
-import { BotZeroState } from "../components/roster/BotZeroState";
-import { useOpenChat } from "../components/roster/chatNavigation";
+import { BotZeroState } from "../components/roster/bot-zero-state";
+import { useOpenChat } from "../components/roster/chat-navigation";
 import { resolveRosterBotId } from "../components/roster/roster.logic";
-import { isRosterReady } from "../components/roster/rosterRouteSelection";
-import { RosterLoadStatus } from "../components/roster/RosterLoadStatus";
-import { useRosterStore } from "../components/roster/rosterStore";
-import { useRosterLoadState } from "../components/roster/useServerRoster";
+import { isRosterReady } from "../components/roster/roster-route-selection";
+import { RosterLoadStatus } from "../components/roster/roster-load-status";
+import { useRosterStore } from "../components/roster/roster-store";
+import { useRosterLoadState } from "../components/roster/use-server-roster";
 import { SidebarInset } from "../components/ui/sidebar";
-import { WorkspacePageHeader } from "../components/WorkspacePageHeader";
+import { WorkspacePageHeader } from "../components/workspace-page-header";
 import { useAllEnvironmentShellsBootstrapped, useThreadShells } from "../state/entities";
 import { usePrimaryEnvironmentId } from "../state/environments";
 

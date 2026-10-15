@@ -1,8 +1,8 @@
-import { fixture } from "./testUtils/subscriptionAuthStorage.ts";
+import { fixture } from "./test-utils/subscription-auth-storage.ts";
 import * as NodeFS from "node:fs";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { makeTestSubscriptionAuthService } from "./testUtils/subscriptionAuthService.ts";
+import { makeTestSubscriptionAuthService } from "./test-utils/subscription-auth-service.ts";
 
 import { accountScope, isAccountLimitMessage, limitRetryAt } from "./service.ts";
 

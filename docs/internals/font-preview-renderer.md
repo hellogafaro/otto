@@ -7,7 +7,7 @@ settings page draws its terminal font preview with the Ghostty canvas renderer i
 
 ## What remains
 
-`TerminalFontPreview` in `apps/web/src/components/settings/SettingsFontPreviews.tsx` creates a
+`TerminalFontPreview` in `apps/web/src/components/settings/settings-font-previews.tsx` creates a
 `GhosttyTerminalSurface` against a local echo loop, not a server session. It shows the selected
 monospace family and size so the preview matches how the renderer lays out glyphs. Nothing crosses
 the wire.

@@ -18,8 +18,8 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { type HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import { createDeviceCodePollState, stepDeviceCodePoll } from "../deviceCode.ts";
-import type { DeviceCodePollOutcome, DeviceCodePollState } from "../deviceCode.ts";
+import { createDeviceCodePollState, stepDeviceCodePoll } from "../device-code.ts";
+import type { DeviceCodePollOutcome, DeviceCodePollState } from "../device-code.ts";
 import {
   decodeOAuthBody,
   ensureOk,
@@ -29,7 +29,7 @@ import {
   SubscriptionAuthInputError,
   SubscriptionAuthRequestError,
   withOAuthTimeout,
-} from "../oauthHttp.ts";
+} from "../oauth-http.ts";
 import type { OAuthCredentials } from "../types.ts";
 
 const CLIENT_ID = "17e5f671-d194-4dfb-9706-5516cb48c098";

@@ -7,7 +7,7 @@ import { getPropertyName, isIdentifier, unwrapExpression } from "../utils.ts";
 
 const RUNTIME_PROPERTIES = new Set(["platform", "arch"]);
 
-const HOST_PROCESS_REFERENCE_FILE = "packages/shared/src/hostProcess.ts";
+const HOST_PROCESS_REFERENCE_FILE = "packages/shared/src/host-process.ts";
 
 const NODE_OS_MODULES = new Set(["node:os", "os"]);
 

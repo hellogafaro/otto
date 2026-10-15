@@ -28,7 +28,7 @@ import {
   type ServerUpdateStage,
   type ServerUpdateTarget,
   type McpServerAuthenticationTarget,
-} from "./serverTypes.ts";
+} from "./server-types.ts";
 import {
   IDLE_SERVER_UPDATE_STATE,
   EMPTY_SERVER_UPDATE_STATE_ATOM,
@@ -43,13 +43,13 @@ import {
   serverUpdateFailureMessage,
   isLegacyUpdateHandoffLoss,
   resolveServerUpdateProgressResult,
-} from "./serverUpdate.ts";
-import { McpServerAuthenticationClientError } from "./mcpAuthentication.ts";
+} from "./server-update.ts";
+import { McpServerAuthenticationClientError } from "./mcp-authentication.ts";
 import {
   serverConfigStateChanges,
   projectServerWelcome,
   resolveServerConfigValue,
-} from "./serverConfig.ts";
+} from "./server-config.ts";
 
 export function voiceCallHangupConcurrencyKey(input: {
   readonly environmentId: EnvironmentId;
@@ -626,7 +626,7 @@ export {
   type ServerUpdateState,
   type ServerUpdateTarget,
   type McpServerAuthenticationTarget,
-} from "./serverTypes.ts";
+} from "./server-types.ts";
 
 export {
   ServerUpdateResumeTimeoutError,
@@ -639,9 +639,9 @@ export {
   serverUpdateStateForServerVersion,
   isLegacyUpdateHandoffLoss,
   resolveServerUpdateProgressResult,
-} from "./serverUpdate.ts";
+} from "./server-update.ts";
 
-export { McpServerAuthenticationClientError } from "./mcpAuthentication.ts";
+export { McpServerAuthenticationClientError } from "./mcp-authentication.ts";
 
 export {
   type ServerConfigProjection,
@@ -651,4 +651,4 @@ export {
   serverConfigStateChanges,
   projectServerWelcome,
   resolveServerConfigValue,
-} from "./serverConfig.ts";
+} from "./server-config.ts";

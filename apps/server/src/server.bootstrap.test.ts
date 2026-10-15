@@ -17,19 +17,19 @@ import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import { HttpBody, HttpClient } from "effect/unstable/http";
 import { vi } from "vite-plus/test";
-import { OrchestrationListenerCallbackError } from "./orchestration/Errors.ts";
-import * as GitVcsDriver from "./vcs/GitVcsDriver.ts";
-import { finishMaintenance, tryBeginMaintenance } from "./remote/updateGate.ts";
+import { OrchestrationListenerCallbackError } from "./orchestration/errors.ts";
+import * as GitVcsDriver from "./vcs/git-vcs-driver.ts";
+import { finishMaintenance, tryBeginMaintenance } from "./remote/update-gate.ts";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
 import {
   readyDefaultProvider,
   defaultModelSelection,
   defaultProjectId,
   readyWorktreeProvider,
   worktreeTestModelSelection,
-} from "./serverTestFixtures.ts";
-import { getWsServerUrl, withWsRpcClient } from "./serverTestClients.ts";
+} from "./server-test-fixtures.ts";
+import { getWsServerUrl, withWsRpcClient } from "./server-test-clients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect(

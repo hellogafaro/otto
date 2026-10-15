@@ -25,7 +25,7 @@ import {
   type SidebarResolvedResizableOptions,
   useSidebar,
   useSidebarVisibility,
-} from "./sidebarContext";
+} from "./sidebar-context";
 import {
   SidebarGroup,
   SidebarGroupAction,
@@ -40,8 +40,8 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "./sidebarMenu";
-import { SidebarRail } from "./sidebarRail";
+} from "./sidebar-menu";
+import { SidebarRail } from "./sidebar-rail";
 
 function Sidebar({
   side = "left",

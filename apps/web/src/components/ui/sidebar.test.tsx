@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { RiSidebarFoldLine, RiSideBarLine } from "@remixicon/react";
-import { iconPath } from "../../test/iconPath";
+import { iconPath } from "../../test/icon-path";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -12,7 +12,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "./sidebar";
-import { resolveSidebarState } from "./sidebarState";
+import { resolveSidebarState } from "./sidebar-state";
 
 function renderSidebarButton(className?: string) {
   return renderToStaticMarkup(

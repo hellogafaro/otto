@@ -6,13 +6,13 @@ import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { HttpBody, HttpClient } from "effect/unstable/http";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
 import {
   getAuthenticatedSessionCookieHeader,
   jsonRequestBody,
   splitHeaderTokens,
-} from "./serverTestClients.ts";
-import { makeBrowserOtlpPayload } from "./serverTestTracing.ts";
+} from "./server-test-clients.ts";
+import { makeBrowserOtlpPayload } from "./server-test-tracing.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("proxies browser OTLP trace exports through the server", () =>

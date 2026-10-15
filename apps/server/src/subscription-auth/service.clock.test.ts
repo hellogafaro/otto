@@ -5,8 +5,8 @@ import * as NodeFS from "node:fs";
 import { expect, it } from "vite-plus/test";
 
 import { SubscriptionAuthService } from "./service.ts";
-import { fixture } from "./testUtils/subscriptionAuthStorage.ts";
-import { runWithNodeServices } from "./testUtils/subscriptionAuthService.ts";
+import { fixture } from "./test-utils/subscription-auth-storage.ts";
+import { runWithNodeServices } from "./test-utils/subscription-auth-service.ts";
 
 it("uses the creator's clock for default health timestamps and token expiry", async () => {
   const { directory, authPath } = fixture();

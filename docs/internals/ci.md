@@ -14,7 +14,7 @@ Issue-label, PR-vouch, and PR-size jobs also use Tenki Linux runners through Git
   preload output, tests shipped packages and the resource monitor, and
   checks release-only configuration. Relay and mobile-production packages are excluded. The same
   job runs the complete server suite. It excludes
-  `orchestrationEngine.integration.test.ts` until the executor stack
+  `orchestration-engine.integration.test.ts` until the executor stack
   restores its test adapter and stops the fixture from calling OpenAI with a test credential.
 
 The repository ruleset requires the `Repository checks` result before a pull request can

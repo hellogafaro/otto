@@ -13,7 +13,7 @@ const sourcePath = NodePath.join(appRoot, "src", "preview", "Annotation.css");
 
 const previewDirectory = NodePath.join(appRoot, "src", "preview");
 
-const outputPath = NodePath.join(appRoot, "src", "preview", "AnnotationStyles.generated.ts");
+const outputPath = NodePath.join(appRoot, "src", "preview", "annotation-styles.generated.ts");
 
 const require = NodeModule.createRequire(import.meta.url);
 

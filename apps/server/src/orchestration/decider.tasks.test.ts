@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { decideOrchestrationCommand } from "./decider.ts";
 import { createEmptyReadModel, projectEvent } from "./projector.ts";
-import { asProjectId } from "./test-support/ProjectDeciderFixtures.ts";
+import { asProjectId } from "./test-support/project-decider-fixtures.ts";
 
 const now = "2026-01-01T00:00:00.000Z";
 

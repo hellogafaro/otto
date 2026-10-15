@@ -2,7 +2,7 @@ import type * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Tracer from "effect/Tracer";
 import { OtlpTracer } from "effect/unstable/observability";
-import { type TraceSinkOptions, type TraceSink } from "./traceSink.ts";
+import { type TraceSinkOptions, type TraceSink } from "./trace-sink.ts";
 
 export type TraceAttributes = Readonly<Record<string, Schema.Json>>;
 

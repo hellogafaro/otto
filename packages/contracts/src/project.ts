@@ -5,7 +5,7 @@ import {
   PositiveInt,
   TrimmedNonEmptyString,
   TrimmedString,
-} from "./baseSchemas.ts";
+} from "./base-schemas.ts";
 
 const PROJECT_SEARCH_ENTRIES_MAX_LIMIT = 200;
 

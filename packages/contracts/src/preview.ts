@@ -9,7 +9,7 @@ import * as Data from "effect/Data";
  * @module Preview
  */
 import { Schema } from "effect";
-import { NonNegativeInt, PositiveInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { NonNegativeInt, PositiveInt, ThreadId, TrimmedNonEmptyString } from "./base-schemas.ts";
 
 const Viewport = Data.taggedEnum<PreviewViewportSetting>();
 

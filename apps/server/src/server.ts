@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http";
 import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
-import { whatsAppWebhookRouteLayer } from "./channels/ChannelRuntime.ts";
+import { whatsAppWebhookRouteLayer } from "./channels/channel-runtime.ts";
 import * as ServerConfig from "./config.ts";
 import {
   otlpTracesProxyRouteLayer,
@@ -17,33 +17,33 @@ import {
   browserApiCorsLayer,
   httpCompressionLayer,
 } from "./http.ts";
-import { guardHttpResponseWriteErrors } from "./httpResponseErrorGuard.ts";
+import { guardHttpResponseWriteErrors } from "./http-response-error-guard.ts";
 import { fixPath } from "./os-jank.ts";
 import { websocketRpcRouteLayer } from "./ws.ts";
-import { remoteMachineUpdateRouteLayer } from "./remote/updateRoute.ts";
-import * as McpHttpServer from "./mcp/McpHttpServer.ts";
-import * as PreviewAutomationBroker from "./mcp/PreviewAutomationBroker.ts";
-import * as PreviewAutomationServerHost from "./mcp/PreviewAutomationServerHost.ts";
-import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
-import * as VcsProcess from "./vcs/VcsProcess.ts";
+import { remoteMachineUpdateRouteLayer } from "./remote/update-route.ts";
+import * as McpHttpServer from "./mcp/mcp-http-server.ts";
+import * as PreviewAutomationBroker from "./mcp/preview-automation-broker.ts";
+import * as PreviewAutomationServerHost from "./mcp/preview-automation-server-host.ts";
+import * as ServerRuntimeStartup from "./server-runtime-startup.ts";
+import * as VcsProcess from "./vcs/vcs-process.ts";
 import { authHttpApiLayer, environmentAuthenticatedAuthLayer } from "./auth/http.ts";
-import { organizationHttpLayer } from "./auth/organizationHttp.ts";
-import * as ServerSelfUpdate from "./cloud/selfUpdate.ts";
-import * as ServiceLauncherClient from "./cloud/serviceLauncherClient.ts";
+import { organizationHttpLayer } from "./auth/organization-http.ts";
+import * as ServerSelfUpdate from "./cloud/self-update.ts";
+import * as ServiceLauncherClient from "./cloud/service-launcher-client.ts";
 import {
   clearPersistedServerRuntimeState,
   persistedServerRuntimeState,
   persistServerRuntimeState,
-} from "./serverRuntimeState.ts";
+} from "./server-runtime-state.ts";
 import { orchestrationHttpApiLayer } from "./orchestration/http.ts";
 import { disableTailscaleServe, ensureTailscaleServe } from "@otto/tailscale";
-import { ServerActivation } from "./serverActivation.ts";
+import { ServerActivation } from "./server-activation.ts";
 
 import {
   McpSessionRegistryLayerLive,
   RuntimeDependenciesLive,
   ApplicationObservabilityLive,
-} from "./serverLayers.ts";
+} from "./server-layers.ts";
 
 // Effect's default preemptive shutdown waits 20s before finalizing request scopes.
 // OttoLegacy's primary transport is long-lived WebSocket RPC, whose Effect scope finalizer
@@ -310,4 +310,4 @@ export const makeServerLayer = Layer.unwrap(
 // The CLI supplies configuration.
 export const runServer = Layer.launch(makeServerLayer);
 
-export { RuntimeMemoryRepositoriesLive } from "./serverLayers.ts";
+export { RuntimeMemoryRepositoriesLive } from "./server-layers.ts";

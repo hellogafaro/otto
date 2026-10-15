@@ -77,29 +77,29 @@ describe("plugin contribution policy", () => {
 
   it.each([
     ["plugins/entries/exa/plugin.json", ["type:plugin"]],
-    ["apps/server/src/provider/builtInDrivers.ts", ["type:provider"]],
-    ["apps/server/src/provider/builtInProviderCatalog.ts", ["type:provider"]],
-    ["apps/server/src/provider/Drivers/ClaudeDriver.ts", ["type:provider"]],
-    ["apps/server/src/provider/Layers/CodexAdapter.ts", ["type:provider"]],
-    ["apps/server/src/provider/Services/ClaudeAdapter.ts", ["type:provider"]],
-    ["apps/server/src/subscription-auth/providers/openaiCodex.ts", ["type:provider"]],
+    ["apps/server/src/provider/built-in-drivers.ts", ["type:provider"]],
+    ["apps/server/src/provider/built-in-provider-catalog.ts", ["type:provider"]],
+    ["apps/server/src/provider/drivers/claude-driver.ts", ["type:provider"]],
+    ["apps/server/src/provider/layers/codex-adapter.ts", ["type:provider"]],
+    ["apps/server/src/provider/services/claude-adapter.ts", ["type:provider"]],
+    ["apps/server/src/subscription-auth/providers/openai-codex.ts", ["type:provider"]],
     ["apps/web/src/components/plugins/PluginsDialog.tsx", ["area:directory"]],
     ["apps/web/src/pluginsDialogStore.ts", ["area:directory"]],
     ["docs/user/plugins.md", ["area:directory"]],
-    ["apps/web/src/components/sidebar/SidebarChrome.tsx", ["area:directory"]],
-    ["apps/web/src/components/roster/BotToolsSection.tsx", ["area:directory"]],
-    ["apps/web/src/components/roster/botTools.logic.ts", ["area:directory"]],
-    ["apps/server/src/provider/McpServerConfig.ts", ["area:connectors"]],
-    ["apps/server/src/provider/Layers/AgentController.ts", ["type:provider", "area:connectors"]],
-    ["apps/server/src/persistence/Layers/ProjectionMcpServers.ts", ["area:connectors"]],
-    ["apps/server/src/persistence/Services/ProjectionMcpServers.ts", ["area:connectors"]],
-    ["apps/server/src/orchestration/Layers/McpServerRegistry.test.ts", ["area:connectors"]],
-    ["apps/server/src/bot-inbox/connectorIncidents.ts", ["area:connectors"]],
-    ["apps/server/src/bot-inbox/connectorIncidents.test.ts", ["area:connectors"]],
-    ["packages/contracts/src/mcpServer.ts", ["area:connectors"]],
-    ["packages/client-runtime/src/state/mcpServerCommands.ts", ["area:connectors"]],
-    ["apps/web/src/state/mcpServers.ts", ["area:connectors"]],
-    ["apps/server/src/mcp/McpHttpServer.ts", []],
+    ["apps/web/src/components/sidebar/sidebar-chrome.tsx", ["area:directory"]],
+    ["apps/web/src/components/roster/bot-tools-section.tsx", ["area:directory"]],
+    ["apps/web/src/components/roster/bot-tools.logic.ts", ["area:directory"]],
+    ["apps/server/src/provider/mcp-server-config.ts", ["area:connectors"]],
+    ["apps/server/src/provider/layers/agent-controller.ts", ["type:provider", "area:connectors"]],
+    ["apps/server/src/persistence/layers/projection-mcp-servers.ts", ["area:connectors"]],
+    ["apps/server/src/persistence/services/projection-mcp-servers.ts", ["area:connectors"]],
+    ["apps/server/src/orchestration/layers/mcp-server-registry.test.ts", ["area:connectors"]],
+    ["apps/server/src/bot-inbox/connector-incidents.ts", ["area:connectors"]],
+    ["apps/server/src/bot-inbox/connector-incidents.test.ts", ["area:connectors"]],
+    ["packages/contracts/src/mcp-server.ts", ["area:connectors"]],
+    ["packages/client-runtime/src/state/mcp-server-commands.ts", ["area:connectors"]],
+    ["apps/web/src/state/mcp-servers.ts", ["area:connectors"]],
+    ["apps/server/src/mcp/mcp-http-server.ts", []],
     ["apps/mobile/plugins/withAndroidCleartextTraffic.cjs", []],
   ])("maps %s to its contribution labels", (path, expected) => {
     const config = yaml(".github/path-labels.yml") as PathLabelConfig;
@@ -136,7 +136,7 @@ describe("plugin contribution policy", () => {
     expect([...Object.keys(pathLabels), ...mintedLabels]).not.toEqual(
       expect.arrayContaining([expect.stringMatching(/^(?:auth|category):/)]),
     );
-    expect(labelsForPath(pathLabels, "apps/server/src/mcp/McpHttpServer.ts")).toEqual([]);
+    expect(labelsForPath(pathLabels, "apps/server/src/mcp/mcp-http-server.ts")).toEqual([]);
   });
 
   it("runs catalog validation and contribution policy tests in CI", () => {

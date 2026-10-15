@@ -21,8 +21,8 @@ import {
 import * as Schema from "effect/Schema";
 import { Tool, Toolkit } from "effect/unstable/ai";
 
-import * as McpInvocationContext from "../../McpInvocationContext.ts";
-import * as PreviewAutomationBroker from "../../PreviewAutomationBroker.ts";
+import * as McpInvocationContext from "../../mcp-invocation-context.ts";
+import * as PreviewAutomationBroker from "../../preview-automation-broker.ts";
 
 const dependencies = [
   McpInvocationContext.McpInvocationContext,

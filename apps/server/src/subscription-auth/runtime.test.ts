@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   runWithNodeServices,
   testSubscriptionAuthServiceForSecretsDir,
-} from "./testUtils/subscriptionAuthService.ts";
+} from "./test-utils/subscription-auth-service.ts";
 import {
   mergeSubscriptionInstanceEnvironment,
   subscriptionProviderSettingsPatch,

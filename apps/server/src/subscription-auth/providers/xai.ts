@@ -16,8 +16,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import { createDeviceCodePollState, stepDeviceCodePoll } from "../deviceCode.ts";
-import type { DeviceCodePollOutcome, DeviceCodePollState } from "../deviceCode.ts";
+import { createDeviceCodePollState, stepDeviceCodePoll } from "../device-code.ts";
+import type { DeviceCodePollOutcome, DeviceCodePollState } from "../device-code.ts";
 import {
   decodeOAuthBody,
   ensureOk,
@@ -28,7 +28,7 @@ import {
   type SubscriptionAuthRequestError,
   SubscriptionAuthResponseError,
   withOAuthTimeout,
-} from "../oauthHttp.ts";
+} from "../oauth-http.ts";
 import type { OAuthCredentials } from "../types.ts";
 
 const CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828";

@@ -13,14 +13,14 @@ Otto is an independent fork of [Akeru Bot](https://github.com/opencoredev/akeru-
 | Mastra Code                      | Authentication and provider code adapted from `mastra-ai/mastra` | [Mastra Code terms](legal/licenses/Mastra-Code.txt) and [Apache License 2.0](legal/licenses/Apache-2.0.txt)  |
 | Claude Agent SDK                 | Claude provider runtime                                          | [Anthropic Claude Agent SDK terms](legal/licenses/Anthropic-Claude-Agent-SDK.txt)                            |
 | Pierre Trees and Diffs           | File trees, diffs, and generated file icons                      | [Apache License 2.0](legal/licenses/Apache-Pierre.txt) and [Pierre notice](legal/licenses/NOTICE-Pierre.txt) |
-| Project Nayuki QR Code generator | QR code generation in `packages/shared/src/qrCode.ts`            | MIT text retained in the source file                                                                         |
+| Project Nayuki QR Code generator | QR code generation in `packages/shared/src/qr-code.ts`           | MIT text retained in the source file                                                                         |
 | Bluesky markdown text            | Native markdown renderer adapted from Bluesky                    | [MIT](legal/licenses/MIT-Bluesky.txt)                                                                        |
 | Expo composer editor             | Native composer editor adapted from Expo                         | [MIT](legal/licenses/MIT-Expo.txt)                                                                           |
 | Khroma                           | Color utilities bundled through Mermaid                          | [MIT](legal/licenses/MIT-Khroma.txt)                                                                         |
 | Beautiful UI                     | Chat loading state port                                          | [MIT](legal/licenses/MIT-Beautiful-UI.txt)                                                                   |
 
 The "Drive" loading state from Beautiful UI by Shane Levine (<https://www.beautifului.dev/>) is
-adapted in `apps/web/src/components/chat/ResponseLoadingState.tsx`. The file records its source in a
+adapted in `apps/web/src/components/chat/response-loading-state.tsx`. The file records its source in a
 header comment.
 
 Mastra-derived source is under `apps/server/src/subscription-auth`. Its source references are:

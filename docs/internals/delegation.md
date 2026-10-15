@@ -72,7 +72,7 @@ touched.
 
 The watch that settles a delegation lives only in the server process, so a
 restart loses it while the record stays `Queued` or `Running`. Startup
-therefore runs `reconcileDelegations` in `apps/server/src/serverRuntimeStartup.ts`
+therefore runs `reconcileDelegations` in `apps/server/src/server-runtime-startup.ts`
 before the orchestration reactors start. It moves every `Queued` and `Running`
 record to `Failed` with failure code `internal` and the message "The server
 restarted before this work finished." Ownership, child thread and turn ids, and
@@ -94,7 +94,7 @@ such a child's orphaned session as errored.
 ## Child waiters and timeouts
 
 `AgentController` keeps one waiter per running child thread in a
-`PendingWaiters` registry (`apps/server/src/provider/PendingWaiters.ts`). Each
+`PendingWaiters` registry (`apps/server/src/provider/pending-waiters.ts`). Each
 waiter is an Effect `Deferred` awaited under `Effect.timeoutOrElse`, so no wait
 is unbounded:
 
@@ -177,7 +177,7 @@ Canceled delegations have no result to deliver.
 `driverSupportsDelegation` in `@otto/shared/delegationProviders` names the
 drivers in the Mastra rows. `AgentController` uses the same predicate to route
 a turn to the controller, so a driver that gets the Otto tool catalog is
-exactly a driver that can delegate. `delegationProviderMatrix.test.ts` runs
+exactly a driver that can delegate. `delegation-provider-matrix.test.ts` runs
 send, access grant, result, usage, cancel, and the depth cap against each of
 the five.
 
@@ -198,7 +198,7 @@ workspace." and also creates nothing.
 Clients show the same limit before anyone asks. On web, the bot Tools sheet
 shows a note for a bot whose provider cannot hand off work, and the group
 `@` picker marks such a bot with "Cannot take handed-off work"
-(`botEngineTakesDelegatedWork` in `botEngineSelection.ts`). On mobile, the
+(`botEngineTakesDelegatedWork` in `bot-engine-selection.ts`). On mobile, the
 group `@` picker adds the same marker (`groupMentionBots` in
 `composerMentionItems.ts`), and chat settings show the Tools note under
 Options. Both use `driverSupportsDelegation`. A bot without an engine, or
@@ -337,7 +337,7 @@ runtime links the run to its delegation.
   stops future runs.
 - The web **Done by** picker leaves out the routine's own bot and lists bots
   whose provider cannot take handed-off work as disabled options, using
-  `routineDelegateOptions` in `botEngineSelection.ts`. Mobile only shows the
+  `routineDelegateOptions` in `bot-engine-selection.ts`. Mobile only shows the
   saved helper's name, so it has no picker to filter.
 - `checkDependencies` blocks a run up front, with "pick another bot"
   guidance, when the delegate bot is archived or missing, is the routine's own
@@ -348,7 +348,7 @@ runtime links the run to its delegation.
 Scheduled work has no live parent turn. Ending a turn in the routine's chat
 therefore never cancels it.
 
-Routine recovery in `apps/server/src/routines/RuntimeLive.ts` also settles a
+Routine recovery in `apps/server/src/routines/runtime-live.ts` also settles a
 dispatched scheduled run from its persisted delegation. When the scheduled
 delegation whose child chat is the run's `threadRef` has ended, recovery settles
 the run the way the live `delegation.updated` path does. That covers work that

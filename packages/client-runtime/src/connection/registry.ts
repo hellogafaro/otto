@@ -22,8 +22,8 @@ import {
   SshConnectionProfile,
   connectionRegistrationCatalogEntry,
 } from "./catalog.ts";
-import * as ConnectionCredentialStore from "./credentialStore.ts";
-import * as ConnectionProfileStore from "./profileStore.ts";
+import * as ConnectionCredentialStore from "./credential-store.ts";
+import * as ConnectionProfileStore from "./profile-store.ts";
 import * as Connectivity from "./connectivity.ts";
 import type {
   ConnectionAttemptError,

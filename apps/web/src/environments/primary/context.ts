@@ -7,7 +7,7 @@ import type { ExecutionEnvironmentDescriptor } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 
 import { PrimaryEnvironmentRequestError, retryTransientBootstrap } from "./auth";
-import { PrimaryEnvironmentHttpClient } from "./httpClient";
+import { PrimaryEnvironmentHttpClient } from "./http-client";
 
 import { runPrimaryHttp } from "../../lib/runtime";
 import { readPrimaryEnvironmentTarget } from "./target";

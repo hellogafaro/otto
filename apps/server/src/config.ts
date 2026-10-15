@@ -16,7 +16,7 @@ import * as LogLevel from "effect/LogLevel";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { sweepStalePendingAttachments } from "./attachmentStore.ts";
+import { sweepStalePendingAttachments } from "./attachment-store.ts";
 
 export const DEFAULT_PORT = 3773;
 

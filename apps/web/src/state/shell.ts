@@ -11,7 +11,7 @@ import {
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 
-import { hasTag } from "~/lib/taggedUnion";
+import { hasTag } from "~/lib/tagged-union";
 
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";

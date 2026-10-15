@@ -128,7 +128,7 @@ Runtime receipts are a test-only mechanism. `RuntimeReceiptBusLive` in
 [`RuntimeReceiptBus.ts`][receipts] publishes nothing; only the test layer is PubSub-backed. Do not
 build production behavior on receipts.
 
-Provider event logs in [`EventNdjsonLogger.ts`][event-log] drop canonical deltas and native
+Provider event logs in [`event-ndjson-logger.ts`][event-log] drop canonical deltas and native
 streaming chunks (Codex item/realtime methods, Claude content-block deltas, ACP
 `agent_message_chunk`/`agent_thought_chunk`, OpenCode text/reasoning part updates) before
 serialization. ACP request diagnostics stay on by default; full protocol logging is opt-in through
@@ -137,7 +137,7 @@ separately by the desktop log-drain work and is not changed here.
 
 ## Provider drivers
 
-Six drivers ship built in, registered in [`builtInDrivers.ts`][drivers] as `BUILT_IN_DRIVERS`:
+Six drivers ship built in, registered in [`built-in-drivers.ts`][drivers] as `BUILT_IN_DRIVERS`:
 Codex, Claude, Grok, Kimi For Coding, OpenCode, and OpenCode Go. A driver declares its kind and config schema and creates a
 scoped adapter; `ProviderInstanceRegistry` owns live instances and `ProviderAdapterRegistry` resolves
 an instance to its adapter, so `ProviderService` routes session and turn operations without knowing
@@ -150,11 +150,11 @@ captures state as hidden Git refs through the VCS driver's checkpoint operations
 `CheckpointDiffQuery` answers turn and full-thread diff requests; `CheckpointReactor` coordinates
 baseline capture, completed-turn capture, diff projection, and reverting both the workspace and the
 provider conversation. The storage contract is `VcsCheckpointOps` in
-[`VcsDriver.ts`](../../apps/server/src/vcs/VcsDriver.ts), implemented for Git in the same directory.
+[`vcs-driver.ts`](../../apps/server/src/vcs/vcs-driver.ts), implemented for Git in the same directory.
 
 ## Startup
 
-[`serverRuntimeStartup.ts`][startup] runs a fixed lifecycle: start keybindings, settings, and
+[`server-runtime-startup.ts`][startup] runs a fixed lifecycle: start keybindings, settings, and
 reactors; publish welcome; signal command readiness (logged as `Accepting commands`); wait for the
 HTTP listener via `markHttpListening`; publish ready; fork the heartbeat; then either print headless
 output or open the browser. Command readiness precedes the listener, so a socket that opens can
@@ -171,18 +171,18 @@ already dispatch.
 [contracts]: ../../packages/contracts/src/orchestration.ts
 [ws]: ../../apps/server/src/ws.ts
 [session]: ../../packages/client-runtime/src/rpc/session.ts
-[startup]: ../../apps/server/src/serverRuntimeStartup.ts
+[startup]: ../../apps/server/src/server-runtime-startup.ts
 [engine]: ../../apps/server/src/orchestration/Layers/OrchestrationEngine.ts
 [snapshot]: ../../apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.ts
 [decider]: ../../apps/server/src/orchestration/decider.ts
 [projector]: ../../apps/server/src/orchestration/projector.ts
-[worker]: ../../packages/shared/src/DrainableWorker.ts
+[worker]: ../../packages/shared/src/drainable-worker.ts
 [ingest]: ../../apps/server/src/orchestration/Layers/ProviderRuntimeIngestion.ts
-[event-log]: ../../apps/server/src/provider/Layers/EventNdjsonLogger.ts
+[event-log]: ../../apps/server/src/provider/layers/event-ndjson-logger.ts
 [cmd]: ../../apps/server/src/orchestration/Layers/ProviderCommandReactor.ts
 [checkpoint]: ../../apps/server/src/orchestration/Layers/CheckpointReactor.ts
 [receipts]: ../../apps/server/src/orchestration/Layers/RuntimeReceiptBus.ts
-[drivers]: ../../apps/server/src/provider/builtInDrivers.ts
+[drivers]: ../../apps/server/src/provider/built-in-drivers.ts
 
 ## Effect conventions and migration metric
 
@@ -198,7 +198,7 @@ The migration tracks two signals in production `.ts` files under `apps/server/sr
 1. Runtime escapes: `Effect.runPromise`, `Effect.runSync`, and `Effect.runFork` in library code.
 2. Promise bridges: `Effect.tryPromise` and `Effect.promise` used to cross an imperative boundary.
 
-Tests (`*.test.ts`) and the standalone `serviceLauncher.ts` bundle are excluded from both counts.
+Tests (`*.test.ts`) and the standalone `service-launcher.ts` bundle are excluded from both counts.
 Each matching call site counts once. Run `node scripts/effect-migration-metric.ts` for a
 production-source report. It is a reporting tool rather than a CI gate. The 2026-09-22 audit
 counted 58 runtime escapes and 76 Promise bridges.
@@ -209,7 +209,7 @@ categories of code that cannot use Effect services get a config override with a 
 See [Lint](lint.md#effect-diagnostics).
 
 Pure data and mapping modules are not migration targets when they have no I/O or lifetime state.
-`apps/server/src/serviceLauncher.ts` is also excluded: it is a deliberately Node-only standalone
+`apps/server/src/service-launcher.ts` is also excluded: it is a deliberately Node-only standalone
 bundle packed separately by `build:bundle`, and adding Effect imports would break that deployment
 boundary. The audit also leaves type-only provider service shapes and the legitimate
 `returnEffectInGen` cases in place.

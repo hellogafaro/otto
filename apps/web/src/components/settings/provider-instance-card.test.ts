@@ -1,0 +1,50 @@
+import { describe, expect, it } from "vite-plus/test";
+import type { ServerProviderModel } from "@otto/contracts";
+
+import { deriveProviderModelsForDisplay } from "./provider-instance-card";
+
+describe("deriveProviderModelsForDisplay", () => {
+  it("uses current config custom models instead of stale live custom rows", () => {
+    const liveModels: ReadonlyArray<ServerProviderModel> = [
+      {
+        slug: "server-model",
+        name: "Server Model",
+        isCustom: false,
+        capabilities: null,
+      },
+      {
+        slug: "removed-custom",
+        name: "Removed Custom",
+        isCustom: true,
+        capabilities: null,
+      },
+      {
+        slug: "kept-custom",
+        name: "Kept Custom",
+        isCustom: true,
+        capabilities: null,
+      },
+    ];
+
+    expect(
+      deriveProviderModelsForDisplay({
+        liveModels,
+        customModels: ["kept-custom"],
+      }).map((model) => model.slug),
+    ).toEqual(["server-model", "kept-custom"]);
+  });
+
+  it("does not repeat a hand-added slug the live catalog already reports", () => {
+    const liveModels: ReadonlyArray<ServerProviderModel> = [
+      { slug: "gpt-4o-mini", name: "gpt-4o-mini", isCustom: false, capabilities: null },
+      { slug: "local-only", name: "local-only", isCustom: true, capabilities: null },
+    ];
+
+    expect(
+      deriveProviderModelsForDisplay({
+        liveModels,
+        customModels: ["gpt-4o-mini", "local-only"],
+      }).map((model) => model.slug),
+    ).toEqual(["gpt-4o-mini", "local-only"]);
+  });
+});

@@ -21,11 +21,11 @@ import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import { resolveAvailableEditorsForConfig, resolveFileManagerRevealKindForConfig } from "./ws.ts";
-import * as PreviewManager from "./preview/Manager.ts";
+import * as PreviewManager from "./preview/manager.ts";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
-import { getWsServerUrl, withWsRpcClient } from "./serverTestClients.ts";
-import { testEnvironmentDescriptor } from "./serverTestFixtures.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
+import { getWsServerUrl, withWsRpcClient } from "./server-test-clients.ts";
+import { testEnvironmentDescriptor } from "./server-test-fixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("does not block server config when editor discovery never resolves", () =>

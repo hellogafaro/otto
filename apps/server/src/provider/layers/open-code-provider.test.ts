@@ -1,0 +1,424 @@
+import {
+  emptyOpenCodeInventory,
+  openCodeModelFixture,
+} from "./test-support/open-code-inventory.ts";
+import * as NodeAssert from "node:assert/strict";
+
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
+import * as TestClock from "effect/testing/TestClock";
+import { beforeEach } from "vite-plus/test";
+
+import { OpenCodeSettings } from "@otto/contracts";
+import { ServerConfig } from "../../config.ts";
+import {
+  OpenCodeRuntime,
+  OpenCodeRuntimeError,
+  type OpenCodeRuntimeShape,
+} from "../opencode-runtime.ts";
+import { checkOpenCodeProviderStatus } from "./open-code-provider.ts";
+import { OPENCODE_PROVIDER_DEFAULT_VARIANT } from "./opencode/open-code-protocol.ts";
+import type { OpenCodeInventory } from "../opencode-runtime.ts";
+
+const decodeOpenCodeSettings = Schema.decodeSync(OpenCodeSettings);
+
+const DEFAULT_VERSION_STDOUT = "opencode 1.14.19\n";
+
+/**
+ * The legacy `OpenCodeProviderLive` Layer + `OpenCodeProvider` service tag
+ * are deleted. The snapshot-producing logic they wrapped now lives in the
+ * standalone `checkOpenCodeProviderStatus(settings, cwd)` Effect, which
+ * drivers call directly when building their per-instance snapshot
+ * `ServerProviderShape`. Tests mirror that shape: build a settings payload,
+ * invoke the check, assert on the returned snapshot.
+ */
+
+const runtimeMock = {
+  state: {
+    runVersionError: null as Error | null,
+    runVersionPending: false,
+    versionStdout: DEFAULT_VERSION_STDOUT,
+    inventoryError: null as Error | null,
+    inventoryCwd: null as string | null,
+    closeCalls: 0,
+    inventory: emptyOpenCodeInventory(),
+  },
+  reset() {
+    this.state.runVersionError = null;
+    this.state.runVersionPending = false;
+    this.state.versionStdout = DEFAULT_VERSION_STDOUT;
+    this.state.inventoryError = null;
+    this.state.inventoryCwd = null;
+    this.state.closeCalls = 0;
+    this.state.inventory = {
+      providerList: { connected: [], all: [], default: {} },
+      agents: [],
+      skills: [],
+    };
+  },
+};
+
+const OpenCodeRuntimeTestDouble: OpenCodeRuntimeShape = {
+  startOpenCodeServerProcess: () =>
+    Effect.succeed({
+      url: "http://127.0.0.1:4301",
+      exitCode: Effect.never,
+    }),
+  connectToOpenCodeServer: ({ serverUrl }) =>
+    Effect.gen(function* () {
+      if (!serverUrl) {
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            runtimeMock.state.closeCalls += 1;
+          }),
+        );
+      }
+
+      return {
+        url: serverUrl ?? "http://127.0.0.1:4301",
+        exitCode: null,
+        external: Boolean(serverUrl),
+      };
+    }),
+  runOpenCodeCommand: () =>
+    runtimeMock.state.runVersionPending
+      ? Effect.never
+      : runtimeMock.state.runVersionError
+        ? Effect.fail(
+            new OpenCodeRuntimeError({
+              operation: "runOpenCodeCommand",
+              detail: runtimeMock.state.runVersionError.message,
+              cause: runtimeMock.state.runVersionError,
+            }),
+          )
+        : Effect.succeed({ stdout: runtimeMock.state.versionStdout, stderr: "", code: 0 }),
+  createOpenCodeSdkClient: () =>
+    ({}) as ReturnType<OpenCodeRuntimeShape["createOpenCodeSdkClient"]>,
+  loadOpenCodeInventory: () =>
+    runtimeMock.state.inventoryError
+      ? Effect.fail(
+          new OpenCodeRuntimeError({
+            operation: "loadOpenCodeInventory",
+            detail: runtimeMock.state.inventoryError.message,
+            cause: runtimeMock.state.inventoryError,
+          }),
+        )
+      : Effect.succeed(runtimeMock.state.inventory),
+  loadInventoryFromCli: ({ cwd }) => {
+    runtimeMock.state.inventoryCwd = cwd;
+
+    return runtimeMock.state.inventoryError
+      ? Effect.fail(
+          new OpenCodeRuntimeError({
+            operation: "loadInventoryFromCli",
+            detail: runtimeMock.state.inventoryError.message,
+            cause: runtimeMock.state.inventoryError,
+          }),
+        )
+      : Effect.succeed(runtimeMock.state.inventory as OpenCodeInventory);
+  },
+};
+
+// Extra SDK fields are retained in a wire fixture and ignored by skill mapping.
+const noIconSkill = {
+  name: "no-icon",
+  description: "No icon available.",
+  location: "/Users/test/.agents/skills/no-icon/SKILL.md",
+  icon: "should-be-ignored",
+};
+
+beforeEach(() => {
+  runtimeMock.reset();
+});
+
+const testLayer = Layer.succeed(OpenCodeRuntime, OpenCodeRuntimeTestDouble).pipe(
+  Layer.provideMerge(ServerConfig.layerTest(process.cwd(), process.cwd())),
+  Layer.provideMerge(NodeServices.layer),
+);
+
+const makeOpenCodeSettings = (overrides?: Partial<OpenCodeSettings>): OpenCodeSettings =>
+  decodeOpenCodeSettings({
+    enabled: true,
+    binaryPath: "opencode",
+    serverUrl: "",
+    serverPassword: "",
+    customModels: [],
+    ...overrides,
+  });
+
+it.layer(testLayer)("checkOpenCodeProviderStatus", (it) => {
+  it.effect("shows a codex-style missing binary message", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.runVersionError = new Error("spawn opencode ENOENT");
+      const snapshot = yield* checkOpenCodeProviderStatus(makeOpenCodeSettings(), process.cwd());
+
+      NodeAssert.equal(snapshot.status, "error");
+      NodeAssert.equal(snapshot.installed, false);
+      NodeAssert.equal(
+        snapshot.message,
+        "OpenCode CLI (`opencode`) is not installed or not on PATH.",
+      );
+    }),
+  );
+
+  it.effect("hides generic Effect.tryPromise text for local CLI probe failures", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.runVersionError = new Error("An error occurred in Effect.tryPromise");
+      const snapshot = yield* checkOpenCodeProviderStatus(makeOpenCodeSettings(), process.cwd());
+
+      NodeAssert.equal(snapshot.status, "error");
+      NodeAssert.equal(snapshot.installed, true);
+      NodeAssert.equal(snapshot.message, "Failed to execute OpenCode CLI health check.");
+    }),
+  );
+
+  it.effect("times out a hanging local CLI version probe", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.runVersionPending = true;
+
+      const probeFiber = yield* checkOpenCodeProviderStatus(
+        makeOpenCodeSettings(),
+        process.cwd(),
+      ).pipe(Effect.forkChild);
+
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust("4 seconds");
+      const snapshot = yield* Fiber.join(probeFiber);
+
+      NodeAssert.equal(snapshot.status, "error");
+      NodeAssert.equal(snapshot.installed, true);
+      NodeAssert.equal(
+        snapshot.message,
+        "Failed to execute OpenCode CLI health check: OpenCode CLI version probe timed out after 4 seconds.",
+      );
+    }).pipe(Effect.provide(TestClock.layer())),
+  );
+
+  it.effect("offers Provider default ahead of every OpenCode variant", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.inventory = {
+        providerList: {
+          connected: ["openai"],
+          all: [
+            {
+              id: "openai",
+              name: "OpenAI",
+              source: "config",
+              env: [],
+              options: {},
+              models: {
+                "gpt-5.4": openCodeModelFixture({
+                  id: "gpt-5.4",
+                  name: "GPT-5.4",
+                  variants: {
+                    default: {},
+                    none: {},
+                    low: {},
+                    medium: {},
+                    high: {},
+                    xhigh: {},
+                  },
+                }),
+              },
+            },
+          ],
+          default: {},
+        },
+        agents: [
+          { name: "build", hidden: false, mode: "primary", permission: [], options: {} },
+          { name: "plan", hidden: false, mode: "primary", permission: [], options: {} },
+        ],
+        skills: [],
+      };
+
+      const snapshot = yield* checkOpenCodeProviderStatus(makeOpenCodeSettings(), process.cwd());
+      const model = snapshot.models.find((entry) => entry.slug === "openai/gpt-5.4");
+
+      NodeAssert.ok(model);
+
+      const variantDescriptor = model.capabilities?.optionDescriptors?.find(
+        (descriptor) => descriptor.id === "variant" && descriptor.type === "select",
+      );
+
+      NodeAssert.ok(variantDescriptor && variantDescriptor.type === "select");
+      NodeAssert.equal(variantDescriptor.currentValue, OPENCODE_PROVIDER_DEFAULT_VARIANT);
+      NodeAssert.deepEqual(
+        variantDescriptor.options.map((option) => [option.id, option.isDefault === true]),
+        [
+          [OPENCODE_PROVIDER_DEFAULT_VARIANT, true],
+          ["default", false],
+          ["none", false],
+          ["low", false],
+          ["medium", false],
+          ["high", false],
+          ["xhigh", false],
+        ],
+      );
+
+      const agentDescriptor = model.capabilities?.optionDescriptors?.find(
+        (descriptor) => descriptor.id === "agent" && descriptor.type === "select",
+      );
+
+      NodeAssert.ok(agentDescriptor && agentDescriptor.type === "select");
+      NodeAssert.equal(
+        agentDescriptor.options.find((option) => option.isDefault === true)?.id,
+        "build",
+      );
+    }),
+  );
+
+  it.effect("includes OpenCode skills in the provider snapshot", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.inventory = {
+        providerList: {
+          connected: ["openai"],
+          all: [
+            {
+              id: "openai",
+              name: "OpenAI",
+              source: "config",
+              env: [],
+              options: {},
+              models: {
+                "gpt-5.4": openCodeModelFixture({
+                  id: "gpt-5.4",
+                  name: "GPT-5.4",
+                  variants: {},
+                }),
+              },
+            },
+          ],
+          default: {},
+        },
+        agents: [],
+        skills: [
+          {
+            name: "openclaw-review",
+            description: "Review OpenClaw workflow changes.",
+            location: "/Users/test/.agents/skills/openclaw-review/SKILL.md",
+          },
+          {
+            name: "openclaw-triage",
+            description: "Triage OpenClaw routing issues.",
+            location: "/Users/test/.agents/skills/openclaw-triage/SKILL.md",
+          },
+          {
+            name: "missing-location",
+            description: "This incomplete SDK row should be skipped.",
+            location: "",
+          },
+          noIconSkill,
+        ],
+      };
+
+      const snapshot = yield* checkOpenCodeProviderStatus(makeOpenCodeSettings(), process.cwd());
+
+      NodeAssert.deepEqual(
+        snapshot.skills.map((skill) => ({
+          name: skill.name,
+          path: skill.path,
+          enabled: skill.enabled,
+          shortDescription: skill.shortDescription,
+          icon: skill.icon,
+        })),
+        [
+          {
+            name: "openclaw-review",
+            path: "/Users/test/.agents/skills/openclaw-review/SKILL.md",
+            enabled: true,
+            shortDescription: "Review OpenClaw workflow changes.",
+            icon: undefined,
+          },
+          {
+            name: "openclaw-triage",
+            path: "/Users/test/.agents/skills/openclaw-triage/SKILL.md",
+            enabled: true,
+            shortDescription: "Triage OpenClaw routing issues.",
+            icon: undefined,
+          },
+          {
+            name: "no-icon",
+            path: "/Users/test/.agents/skills/no-icon/SKILL.md",
+            enabled: true,
+            shortDescription: "No icon available.",
+            icon: undefined,
+          },
+        ].sort((left, right) => left.name.localeCompare(right.name)),
+      );
+    }),
+  );
+
+  it.effect("does not spawn a local server for health check (uses CLI instead)", () =>
+    Effect.gen(function* () {
+      yield* checkOpenCodeProviderStatus(makeOpenCodeSettings(), process.cwd());
+
+      NodeAssert.equal(runtimeMock.state.closeCalls, 0);
+      NodeAssert.equal(runtimeMock.state.inventoryCwd, process.cwd());
+    }),
+  );
+
+  it.effect("reports local model inventory failures without treating them as empty", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.inventoryError = new Error("opencode models failed");
+      const snapshot = yield* checkOpenCodeProviderStatus(makeOpenCodeSettings(), process.cwd());
+
+      NodeAssert.equal(snapshot.status, "error");
+      NodeAssert.equal(snapshot.installed, true);
+      NodeAssert.equal(snapshot.models.length, 0);
+      NodeAssert.equal(
+        snapshot.message,
+        "Failed to execute OpenCode CLI health check: opencode models failed",
+      );
+    }),
+  );
+});
+
+it.layer(testLayer)("checkOpenCodeProviderStatus with configured server URL", (it) => {
+  it.effect("surfaces a friendly auth error for configured servers", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.inventoryError = new Error("401 Unauthorized");
+
+      const snapshot = yield* checkOpenCodeProviderStatus(
+        makeOpenCodeSettings({
+          serverUrl: "http://127.0.0.1:9999",
+          serverPassword: "secret-password",
+        }),
+        process.cwd(),
+      );
+
+      NodeAssert.equal(snapshot.status, "error");
+      NodeAssert.equal(snapshot.installed, true);
+      NodeAssert.equal(
+        snapshot.message,
+        "OpenCode server rejected authentication. Check the server URL and password.",
+      );
+    }),
+  );
+
+  it.effect("surfaces a friendly connection error for configured servers", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.inventoryError = new Error(
+        "fetch failed: connect ECONNREFUSED 127.0.0.1:9999",
+      );
+
+      const snapshot = yield* checkOpenCodeProviderStatus(
+        makeOpenCodeSettings({
+          serverUrl: "http://127.0.0.1:9999",
+          serverPassword: "secret-password",
+        }),
+        process.cwd(),
+      );
+
+      NodeAssert.equal(snapshot.status, "error");
+      NodeAssert.equal(snapshot.installed, true);
+      NodeAssert.equal(
+        snapshot.message,
+        "Couldn't reach the configured OpenCode server at http://127.0.0.1:9999. Check that the server is running and the URL is correct.",
+      );
+    }),
+  );
+});

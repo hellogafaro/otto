@@ -1,13 +1,13 @@
-import { fixture, requestSignal } from "./testUtils/subscriptionAuthStorage.ts";
+import { fixture, requestSignal } from "./test-utils/subscription-auth-storage.ts";
 import * as NodeFS from "node:fs";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { ProviderInstanceId } from "@otto/contracts";
 import * as Effect from "effect/Effect";
-import type { SubscriptionCredentialStore } from "./credentialStore.ts";
+import type { SubscriptionCredentialStore } from "./credential-store.ts";
 import {
   makeTestSubscriptionAuthService,
   runWithNodeServices,
-} from "./testUtils/subscriptionAuthService.ts";
+} from "./test-utils/subscription-auth-service.ts";
 
 describe("subscription auth storage", () => {
   it("keeps a persisted plan account identity across OAuth refresh and service restarts", async () => {

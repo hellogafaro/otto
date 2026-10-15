@@ -6,7 +6,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import * as PreviewManager from "../../preview/Manager.ts";
+import * as PreviewManager from "../../preview/manager.ts";
 import * as PreviewIpc from "./preview.ts";
 
 const { fromPartition } = vi.hoisted(() => ({

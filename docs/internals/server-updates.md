@@ -104,10 +104,10 @@ manual command; the old detached foreground respawn path no longer exists.
 
 ## Source Map
 
-- Launcher and state machine: `apps/server/src/serviceLauncher.ts`
-- IPC and durable state types: `apps/server/src/cloud/serviceProtocol.ts`
-- Child IPC adapter: `apps/server/src/cloud/serviceLauncherClient.ts`
-- Staging and preflight: `apps/server/src/cloud/pinnedRuntime.ts` and `servicePreflight.ts`
-- Service installation: `apps/server/src/cloud/bootService.ts`
-- Activation boundary: `apps/server/src/serverRuntimeStartup.ts` and `serverActivation.ts`
+- Launcher and state machine: `apps/server/src/service-launcher.ts`
+- IPC and durable state types: `apps/server/src/cloud/service-protocol.ts`
+- Child IPC adapter: `apps/server/src/cloud/service-launcher-client.ts`
+- Staging and preflight: `apps/server/src/cloud/pinned-runtime.ts` and `servicePreflight.ts`
+- Service installation: `apps/server/src/cloud/boot-service.ts`
+- Activation boundary: `apps/server/src/server-runtime-startup.ts` and `server-activation.ts`
 - Client outcome correlation: `packages/client-runtime/src/state/server.ts`

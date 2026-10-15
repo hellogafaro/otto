@@ -1,7 +1,7 @@
 import {
   INLINE_TERMINAL_CONTEXT_PLACEHOLDER,
   type TerminalContextDraft,
-} from "./lib/terminalContext";
+} from "./lib/terminal-context";
 import {
   collectComposerInlineTokens,
   type ComposerInlineToken,

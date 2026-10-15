@@ -27,7 +27,7 @@ import {
   type SupervisorConnectionState,
 } from "./model.ts";
 import * as RpcSession from "../rpc/session.ts";
-import { safeErrorLogAttributes } from "../errors/safeLog.ts";
+import { safeErrorLogAttributes } from "../errors/safe-log.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
 
 const Outcome = Data.taggedEnum<AttemptOutcome>();

@@ -1,0 +1,387 @@
+"use client";
+
+import {
+  RiArchiveLine,
+  RiRobot2Line,
+  RiBarChartLine,
+  RiImageLine,
+  RiTranslate2,
+  RiDiscussLine,
+  RiMoonLine,
+  RiShapesLine,
+  RiSettings3Line,
+  RiSunLine,
+} from "@remixicon/react";
+import { Predicate } from "effect";
+
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useAtomValue } from "@effect/atom-react";
+import { useNavigate } from "@tanstack/react-router";
+
+import { useTheme } from "../hooks/use-theme";
+import { isPreviewFocused } from "../lib/preview-focus";
+import { activeComposerModelPicker } from "../composer-model-picker-registry";
+import { useI18n } from "../i18n";
+import { activeChatPaletteActions } from "../chat-actions-registry";
+import {
+  buildChatCommandPaletteItems,
+  buildChatSearchCommandPaletteItems,
+  buildEnvironmentOwnerNames,
+  buildLanguageCommandPaletteAction,
+  buildModelPickerCommandPaletteAction,
+  filterCommandPaletteGroups,
+  ITEM_ICON_CLASS,
+  type CommandPaletteActionItem,
+  type CommandPaletteChat,
+  type CommandPaletteGroup,
+} from "./command-palette.logic";
+import { CommandPaletteContent } from "./command-palette-content";
+import { CommandPaletteResults } from "./command-palette-results";
+import { openSettings } from "~/settings-dialog-store";
+import { openCustomize } from "~/customize-navigation";
+import { primaryServerKeybindingsAtom } from "../state/server";
+import { allEnvironmentRostersAtom } from "../state/bots";
+import { useThreadShells } from "../state/entities";
+import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
+import { useThreadSearch } from "../state/queries";
+import { findLatestGroupThreadIds, latestGroupThreadKey } from "./roster/bot-thread-runtime.logic";
+import { useRosterStore } from "./roster/roster-store";
+import { resolveShortcutCommand } from "../keybindings";
+import { CommandDialog, CommandDialogPopup } from "./ui/command";
+import { stackedThreadToast, toastManager } from "./ui/toast";
+
+export function CommandPalette({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+
+      // Resolve with the focus context so customized bindings using a
+      // documented `when` condition (e.g. previewFocus) still work.
+      const command = resolveShortcutCommand(event, keybindings, {
+        context: {
+          previewFocus: isPreviewFocused(),
+        },
+      });
+
+      if (command !== "commandPalette.toggle") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen((current) => !current);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [keybindings]);
+
+  return (
+    <CommandDialog open={open} onOpenChange={setOpen}>
+      {children}
+      <CommandPaletteDialog setOpen={setOpen} />
+    </CommandDialog>
+  );
+}
+
+function CommandPaletteDialog(props: { readonly setOpen: (open: boolean) => void }) {
+  const { t } = useI18n();
+
+  return (
+    <CommandDialogPopup
+      aria-label={t("Command palette")}
+      variant="palette"
+      className="overflow-hidden"
+      data-command-palette="true"
+      data-testid="command-palette"
+      finalFocus={false}
+      onBackdropPointerDown={() => {
+        props.setOpen(false);
+      }}
+    >
+      <OpenCommandPaletteDialog setOpen={props.setOpen} />
+    </CommandDialogPopup>
+  );
+}
+
+function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => void }) {
+  const { setOpen } = props;
+  const { t } = useI18n();
+  const [query, setQuery] = useState("");
+  const [highlightedItemValue, setHighlightedItemValue] = useState<string | null>(null);
+  const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const { resolvedTheme, setAppearanceMode } = useTheme();
+
+  // Names the mode you would switch to, so the row reads as a verb.
+  const nextAppearance = resolvedTheme === "dark" ? "light" : "dark";
+
+  const appearanceTitle =
+    nextAppearance === "dark" ? t("Switch to dark mode") : t("Switch to light mode");
+
+  const actionItems: CommandPaletteActionItem[] = [
+    {
+      value: "action:toggle-appearance",
+      searchTerms: [appearanceTitle, "theme", "appearance", "dark", "light", "mode", "toggle"],
+      title: appearanceTitle,
+      icon:
+        nextAppearance === "dark" ? (
+          <RiMoonLine className={ITEM_ICON_CLASS} />
+        ) : (
+          <RiSunLine className={ITEM_ICON_CLASS} />
+        ),
+      run: async () => {
+        setAppearanceMode(nextAppearance);
+      },
+    },
+    buildModelPickerCommandPaletteAction({
+      composerHandle: activeComposerModelPicker(),
+      scheduleAfterClose: (openModelPicker) => {
+        window.requestAnimationFrame(openModelPicker);
+      },
+      title: t("Change model"),
+      icon: <RiRobot2Line className={ITEM_ICON_CLASS} />,
+    }),
+    {
+      value: "action:customize",
+      searchTerms: [
+        t("Open Customize"),
+        "customize",
+        "plugins",
+        "apps",
+        "mcp",
+        "skills",
+        "composio",
+      ],
+      title: t("Open Customize"),
+      icon: <RiShapesLine className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openCustomize();
+      },
+    },
+    {
+      value: "action:usage",
+      searchTerms: [t("Open usage"), "usage", "limits", "quota", "plan", "subscription"],
+      title: t("Open usage"),
+      icon: <RiBarChartLine className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openSettings("usage");
+      },
+    },
+    {
+      value: "action:image-generation-settings",
+      searchTerms: [
+        t("Image generation settings"),
+        "image generation",
+        "images",
+        "pictures",
+        "chatgpt",
+        "grok",
+        "settings",
+      ],
+      title: t("Image generation settings"),
+      icon: <RiImageLine className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openSettings("image-generation");
+      },
+    },
+    buildLanguageCommandPaletteAction({
+      translate: t,
+      openSettings,
+      icon: <RiTranslate2 className={ITEM_ICON_CLASS} />,
+    }),
+    {
+      value: "action:archived-chats",
+      searchTerms: [
+        t("Archived chats"),
+        t("Archived bots"),
+        "archived",
+        "archive",
+        "unarchive",
+        "restore",
+        "chats",
+        "bots",
+      ],
+      title: t("Archived"),
+      icon: <RiArchiveLine className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openSettings("archived");
+      },
+    },
+    {
+      value: "action:settings",
+      searchTerms: [t("Open settings"), "settings", "preferences", "configuration", "keybindings"],
+      title: t("Open settings"),
+      icon: <RiSettings3Line className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openSettings();
+      },
+    },
+  ];
+
+  // Read once per open: the palette mounts fresh each time it opens.
+  const [chatItems] = useState(() =>
+    buildChatCommandPaletteItems({
+      actions: activeChatPaletteActions(),
+      icon: <RiDiscussLine className={ITEM_ICON_CLASS} />,
+    }),
+  );
+
+  const groups: CommandPaletteGroup[] = [
+    ...(chatItems.length > 0 ? [{ value: "chat", label: t("This chat"), items: chatItems }] : []),
+    { value: "actions", label: t("Actions"), items: actionItems },
+  ];
+
+  // Rows follow the query the input shows, so Enter never runs a row from an
+  // earlier query. Message search debounces its own RPC.
+  const chatSearch = useChatSearchItems(query);
+
+  const filteredGroups = [
+    ...filterCommandPaletteGroups({ groups, query }),
+    ...(chatSearch.items.length > 0
+      ? [{ value: "chats", label: t("Chats"), items: chatSearch.items }]
+      : []),
+  ];
+
+  function executeItem(item: CommandPaletteActionItem): void {
+    if (item.disabled) return;
+    setOpen(false);
+    void item.run().catch((cause: unknown) => {
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: t("Unable to run command"),
+          description: cause instanceof Error ? cause.message : t("An unexpected error occurred."),
+        }),
+      );
+    });
+  }
+
+  return (
+    <CommandPaletteContent
+      aria-label={t("Command palette")}
+      autoHighlight="always"
+      footerActionLabel={t("Select")}
+      inputProps={{ placeholder: t("Search commands and chats...") }}
+      mode="none"
+      onItemHighlighted={(value) => {
+        setHighlightedItemValue(Predicate.isString(value) ? value : null);
+      }}
+      onValueChange={(nextQuery: string) => {
+        setHighlightedItemValue(null);
+        setQuery(nextQuery);
+      }}
+      value={query}
+    >
+      <CommandPaletteResults
+        groups={filteredGroups}
+        highlightedItemValue={highlightedItemValue}
+        keybindings={keybindings}
+        onExecuteItem={executeItem}
+        {...(chatSearch.isPending ? { emptyStateMessage: t("Searching chats…") } : {})}
+      />
+    </CommandPaletteContent>
+  );
+}
+
+/**
+ * The palette's Chats group for a typed query: chat titles from the loaded
+ * shells plus message matches from every connected environment. Bot chats open
+ * in the bot's view; a group opens its chat. Chats outside the environment this
+ * client shows are listed but cannot be opened here.
+ */
+function useChatSearchItems(query: string) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const { environments } = useEnvironments();
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const shells = useThreadShells();
+  const bots = useRosterStore((state) => state.bots);
+  const groups = useRosterStore((state) => state.groups);
+  const rosters = useAtomValue(allEnvironmentRostersAtom);
+  const searchQuery = query.startsWith(">") ? "" : query;
+
+  const connectedEnvironmentIds = useMemo(
+    () =>
+      environments.flatMap((environment) =>
+        environment.connection.phase === "connected" ? [environment.environmentId] : [],
+      ),
+    [environments],
+  );
+
+  const search = useThreadSearch(connectedEnvironmentIds, searchQuery);
+
+  const chats = useMemo((): CommandPaletteChat[] => {
+    const connected = new Set<string>(connectedEnvironmentIds);
+
+    const labelById = new Map<string, string>(
+      environments.map((environment) => [environment.environmentId, environment.label] as const),
+    );
+
+    const botById = new Map(bots.map((bot) => [bot.id, bot] as const));
+    const groupById = new Map(groups.map((group) => [group.id, group] as const));
+    const latestGroupThreadIds = findLatestGroupThreadIds(shells);
+    const ownerNameIn = buildEnvironmentOwnerNames(rosters);
+
+    return shells.flatMap((shell): CommandPaletteChat[] => {
+      if (
+        shell.archivedAt !== null ||
+        shell.parentThreadId != null ||
+        !connected.has(shell.environmentId)
+      ) {
+        return [];
+      }
+
+      const base = {
+        environmentId: shell.environmentId,
+        threadId: shell.id,
+        title: shell.title,
+        updatedAt: shell.updatedAt,
+      };
+
+      if (shell.environmentId !== primaryEnvironmentId) {
+        if (shell.botId == null && shell.groupId == null) return [];
+
+        return [
+          {
+            ...base,
+            ownerName: ownerNameIn(shell.environmentId, shell),
+            unavailableIn: labelById.get(shell.environmentId) ?? shell.environmentId,
+          },
+        ];
+      }
+
+      const bot = shell.botId ? botById.get(shell.botId) : undefined;
+
+      if (bot && bot.archivedAt === null) {
+        return [{ ...base, ownerName: bot.name, unavailableIn: null }];
+      }
+
+      // A group shows only its newest chat, so older group chats cannot be opened.
+      const group = shell.groupId ? groupById.get(shell.groupId) : undefined;
+
+      if (
+        group &&
+        latestGroupThreadIds.get(latestGroupThreadKey(shell.environmentId, group.id)) === shell.id
+      ) {
+        return [{ ...base, ownerName: group.name, unavailableIn: null }];
+      }
+
+      return [];
+    });
+  }, [bots, connectedEnvironmentIds, environments, groups, primaryEnvironmentId, rosters, shells]);
+
+  const items = buildChatSearchCommandPaletteItems({
+    query: searchQuery,
+    chats,
+    matches: search.matches,
+    untitledLabel: t("Untitled chat"),
+    unavailableLabel: (environment) => t("In {environment}", { environment }),
+    icon: <RiDiscussLine className={ITEM_ICON_CLASS} />,
+    openChat: async (chat) => {
+      await navigate({ to: "/chats/$threadId", params: { threadId: chat.threadId } });
+    },
+  });
+
+  return { items, isPending: search.isPending };
+}

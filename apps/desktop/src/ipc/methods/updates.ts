@@ -7,9 +7,9 @@ import {
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import * as DesktopUpdates from "../../updates/DesktopUpdates.ts";
+import * as DesktopUpdates from "../../updates/desktop-updates.ts";
 import * as IpcChannels from "../channels.ts";
-import * as DesktopIpc from "../DesktopIpc.ts";
+import * as DesktopIpc from "../desktop-ipc.ts";
 
 export const getUpdateState = DesktopIpc.defineIpcMethod({
   channel: IpcChannels.UPDATE_GET_STATE_CHANNEL,

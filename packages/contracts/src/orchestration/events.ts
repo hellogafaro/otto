@@ -27,8 +27,8 @@ import {
   ProviderItemId,
   ThreadId,
   TrimmedNonEmptyString,
-} from "../baseSchemas.ts";
-import { McpServerId } from "../mcpServer.ts";
+} from "../base-schemas.ts";
+import { McpServerId } from "../mcp-server.ts";
 import {
   RoutineApprovedPayload,
   RoutineBlockedPayload,
@@ -104,7 +104,7 @@ import {
   DelegationCreatedPayload,
   DelegationUpdatedPayload,
   DelegationRetryRequestedPayload,
-} from "./eventPayloads.ts";
+} from "./event-payloads.ts";
 
 /**
  * Which client connection dispatched the command that produced an event.

@@ -23,7 +23,7 @@ import {
   makeGroupThread,
   applyCommand,
   PERSON_ID,
-} from "./test-support/GroupDeciderFixtures.ts";
+} from "./test-support/group-decider-fixtures.ts";
 
 it.layer(NodeServices.layer)("group membership decider", (it) => {
   it.effect("creates a people-only group with no boss", () =>

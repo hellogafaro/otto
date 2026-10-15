@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { parseTaskSearch } from "../components/work/work.logic";
-import { TasksPage } from "../components/work/WorkPages";
+import { TasksPage } from "../components/work/work-pages";
 
 export const Route = createFileRoute("/tasks/")({
   validateSearch: parseTaskSearch,

@@ -1,4 +1,4 @@
-import { hasTag } from "~/lib/taggedUnion";
+import { hasTag } from "~/lib/tagged-union";
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";

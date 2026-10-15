@@ -1,4 +1,4 @@
-import { chartRows, type ChartValue } from "./chartValue";
+import { chartRows, type ChartValue } from "./chart-value";
 import { Predicate } from "effect";
 import type { ScaleLinear } from "d3-scale";
 import { createContext, use, useCallback, useMemo, useState } from "react";

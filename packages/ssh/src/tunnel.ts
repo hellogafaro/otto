@@ -28,9 +28,9 @@ import {
   launchOrReuseRemoteServer,
   issueRemotePairingToken,
   stopRemoteServer,
-} from "./remoteServer.ts";
+} from "./remote-server.ts";
 import { waitForHttpReady } from "./readiness.ts";
-import { reserveLocalTunnelPort, startSshTunnel } from "./tunnelTransport.ts";
+import { reserveLocalTunnelPort, startSshTunnel } from "./tunnel-transport.ts";
 
 // Re-exported from the shared HTTP readiness module so existing importers
 // (notably tunnel.test.ts) keep resolving it from here.
@@ -534,7 +534,7 @@ export {
   launchOrReuseRemoteServer,
   issueRemotePairingToken,
   stopRemoteServer,
-} from "./remoteServer.ts";
+} from "./remote-server.ts";
 
 export {
   REMOTE_PICK_PORT_SCRIPT,
@@ -549,6 +549,6 @@ export {
   buildRemoteLaunchScript,
   buildRemotePairingScript,
   buildRemoteStopScript,
-} from "./remoteScripts.ts";
+} from "./remote-scripts.ts";
 
 export { waitForHttpReady, resolveLoopbackSshHttpBaseUrl } from "./readiness.ts";

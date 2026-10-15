@@ -8,7 +8,7 @@ import { runtimeContextLayer } from "../lib/runtime";
 import {
   backgroundActivityObserverLayer,
   backgroundActivityReporterLayer,
-} from "../lib/backgroundActivityReporter";
+} from "../lib/background-activity-reporter";
 import { connectionPlatformLayer } from "./platform";
 
 const providedConnectionPlatformLayer = connectionPlatformLayer.pipe(

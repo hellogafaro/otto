@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { hasTag } from "~/lib/taggedUnion";
+import { hasTag } from "~/lib/tagged-union";
 import {
   aggregateUsage,
   usageWindowKey,
@@ -21,7 +21,7 @@ import { useCallback, useMemo } from "react";
 
 import { makeWindow } from "@otto/shared/usageFormat";
 import type { MergedUsage } from "@otto/shared/usageMerge";
-import { appAtomRegistry } from "../rpc/atomRegistry";
+import { appAtomRegistry } from "../rpc/atom-registry";
 import { environmentPresentations } from "./presentation";
 import { serverEnvironment } from "./server";
 

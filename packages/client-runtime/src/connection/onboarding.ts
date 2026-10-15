@@ -22,7 +22,7 @@ import {
   SshConnectionProfile,
   SshConnectionRegistration,
 } from "./catalog.ts";
-import * as ConnectionCredentialStore from "./credentialStore.ts";
+import * as ConnectionCredentialStore from "./credential-store.ts";
 import { mapRemoteEnvironmentError } from "./errors.ts";
 import {
   BearerConnectionTarget,

@@ -24,7 +24,7 @@ import {
   makeReadModel,
   PARENT_THREAD_ID,
   OTHER_BOT_ID,
-} from "./test-support/DelegationDeciderFixtures.ts";
+} from "./test-support/delegation-decider-fixtures.ts";
 
 it.layer(NodeServices.layer)("delegation decider", (it) => {
   it.effect("lets a result be acknowledged once without other same-phase changes", () =>

@@ -12,8 +12,8 @@
  */
 import * as Schema from "effect/Schema";
 
-import { ForwardCompatibleArray, NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
-import { SubscriptionProviderId } from "./subscriptionAuth.ts";
+import { ForwardCompatibleArray, NonNegativeInt, TrimmedNonEmptyString } from "./base-schemas.ts";
+import { SubscriptionProviderId } from "./subscription-auth.ts";
 
 /**
  * Bumped whenever the shape of {@link UsageSummary} changes incompatibly. The

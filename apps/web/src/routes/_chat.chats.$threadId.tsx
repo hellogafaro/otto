@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-import { BotThreadLanding } from "../components/roster/BotThreadLanding";
-import { ChatDetailsPanel } from "../components/roster/ChatDetailsPanel";
-import { useRoutedChat } from "../components/roster/chatNavigation";
-import { GroupThreadLanding } from "../components/roster/GroupThreadLanding";
+import { BotThreadLanding } from "../components/roster/bot-thread-landing";
+import { ChatDetailsPanel } from "../components/roster/chat-details-panel";
+import { useRoutedChat } from "../components/roster/chat-navigation";
+import { GroupThreadLanding } from "../components/roster/group-thread-landing";
 import { useAllEnvironmentShellsBootstrapped, useThreadShell } from "../state/entities";
 
 /**

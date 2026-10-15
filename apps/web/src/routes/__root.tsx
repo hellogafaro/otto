@@ -1,4 +1,4 @@
-import { hasTag } from "~/lib/taggedUnion";
+import { hasTag } from "~/lib/tagged-union";
 import { type ServerLifecycleWelcomePayload } from "@otto/contracts";
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import { Outlet, createRootRoute, redirect, useLocation } from "@tanstack/react-router";
@@ -7,18 +7,18 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { APP_BASE_NAME, APP_DISPLAY_NAME, APP_STAGE_LABEL } from "../branding";
 import { resolveServerBackedAppDisplayName } from "../branding.logic";
-import { AppSidebarLayout } from "../components/AppSidebarLayout";
-import { CommandPalette } from "../components/CommandPalette";
-import { ConfirmDialogHost } from "../components/ConfirmDialogHost";
-import { SshPasswordPromptDialog } from "../components/desktop/SshPasswordPromptDialog";
-import { ReplyPlaybackProvider } from "../components/chat/ReplyPlaybackProvider";
-import { VoiceCallProvider } from "../components/voice/VoiceCall";
-import { SlowRpcRequestToastCoordinator } from "../components/SlowRpcRequestToastCoordinator";
-import { SurfaceNavigationCoordinator } from "../components/SurfaceNavigationCoordinator";
-import { ComputerViewerDialog } from "../components/computer/ComputerViewerDialog";
-import { NewChatDialogHost } from "../components/roster/NewChatDialog";
-import { PolicyNotice } from "../components/privacy/PolicyNotice";
-import { TranslatedRootRouteErrorView } from "./-RootRouteErrorView";
+import { AppSidebarLayout } from "../components/app-sidebar-layout";
+import { CommandPalette } from "../components/command-palette";
+import { ConfirmDialogHost } from "../components/confirm-dialog-host";
+import { SshPasswordPromptDialog } from "../components/desktop/ssh-password-prompt-dialog";
+import { ReplyPlaybackProvider } from "../components/chat/reply-playback-provider";
+import { VoiceCallProvider } from "../components/voice/voice-call";
+import { SlowRpcRequestToastCoordinator } from "../components/slow-rpc-request-toast-coordinator";
+import { SurfaceNavigationCoordinator } from "../components/surface-navigation-coordinator";
+import { ComputerViewerDialog } from "../components/computer/computer-viewer-dialog";
+import { NewChatDialogHost } from "../components/roster/new-chat-dialog";
+import { PolicyNotice } from "../components/privacy/policy-notice";
+import { TranslatedRootRouteErrorView } from "./-root-route-error-view";
 import { useI18n } from "../i18n";
 import {
   AnchoredToastProvider,
@@ -26,13 +26,13 @@ import {
   ToastProvider,
   toastManager,
 } from "../components/ui/toast";
-import { resolveAndPersistPreferredEditor } from "../editorPreferences";
-import { applyAppearanceFontVariables } from "~/appearanceFonts";
-import { applyAppearanceContrast } from "~/appearanceContrast";
-import { useClientSettings } from "../hooks/useSettings";
-import { PlanAgentSelectionHeal } from "../planAgentSelectionHeal";
-import { syncBrowserChromeTheme } from "../hooks/useTheme";
-import { configureClientTracing } from "../observability/clientTracing";
+import { resolveAndPersistPreferredEditor } from "../editor-preferences";
+import { applyAppearanceFontVariables } from "~/appearance-fonts";
+import { applyAppearanceContrast } from "~/appearance-contrast";
+import { useClientSettings } from "../hooks/use-settings";
+import { PlanAgentSelectionHeal } from "../plan-agent-selection-heal";
+import { syncBrowserChromeTheme } from "../hooks/use-theme";
+import { configureClientTracing } from "../observability/client-tracing";
 import {
   readPrimaryEnvironmentTarget,
   resolveInitialServerAuthGateState,
@@ -50,7 +50,7 @@ import { setActiveEnvironmentId } from "../state/entities";
 import {
   createKeybindingsUpdateToastController,
   type KeybindingsUpdateToastController,
-} from "../components/KeybindingsUpdateToast.logic";
+} from "../components/keybindings-update-toast.logic";
 
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {

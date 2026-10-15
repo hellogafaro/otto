@@ -19,7 +19,7 @@ import {
   PreviewAutomationResizeInput,
   PreviewAutomationResizeResult,
   PreviewAutomationStatus,
-} from "./previewAutomation.ts";
+} from "./preview-automation.ts";
 
 const decodePreviewEvent = Schema.decodeUnknownSync(PreviewEvent);
 

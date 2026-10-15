@@ -231,6 +231,6 @@ export function canNavigateUp(currentPath: string): boolean {
   return hasTrailingPathSeparator(currentPath) && getBrowseParentPath(currentPath) !== null;
 }
 
-export * from "./projectCommands.ts";
+export * from "./project-commands.ts";
 
-export * from "./projectEntities.ts";
+export * from "./project-entities.ts";

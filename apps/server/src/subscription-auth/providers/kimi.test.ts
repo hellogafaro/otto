@@ -5,8 +5,8 @@ import * as TestClock from "effect/testing/TestClock";
 import { HttpClient } from "effect/unstable/http";
 import { describe } from "vite-plus/test";
 
-import { createDeviceCodePollState } from "../deviceCode.ts";
-import { scriptedHttpClient } from "../testUtils/scriptedHttpClient.ts";
+import { createDeviceCodePollState } from "../device-code.ts";
+import { scriptedHttpClient } from "../test-utils/scripted-http-client.ts";
 import { KimiOAuth, pollKimiDeviceLogin, type KimiDeviceLoginPending } from "./kimi.ts";
 
 const DEVICE_ID = "0123456789abcdef0123456789abcdef";

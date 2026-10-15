@@ -21,7 +21,7 @@ import {
   BOT_ID,
   LATER,
   GROUP_ID,
-} from "./portabilityTestSupport.ts";
+} from "./portability-test-support.ts";
 
 describe("portability import", () => {
   it("plans valid orchestration commands and keeps every restored MCP server disabled", () => {

@@ -16,19 +16,19 @@ import {
   subscribe,
 } from "../rpc/client.ts";
 import { EnvironmentSupervisor } from "../connection/supervisor.ts";
-import { type EnvironmentCommandAtomOptions, type AtomCommand } from "./atomRuntimeTypes.ts";
+import { type EnvironmentCommandAtomOptions, type AtomCommand } from "./atom-runtime-types.ts";
 import {
   runInEnvironment,
   runStreamInEnvironment,
   createEnvironmentQueryAtomFamily,
   createEnvironmentSubscriptionAtomFamily,
-} from "./environmentQueries.ts";
-import { settleAtomCommandResult, executeAtomQuery } from "./atomCommandResult.ts";
+} from "./environment-queries.ts";
+import { settleAtomCommandResult, executeAtomQuery } from "./atom-command-result.ts";
 import {
   type AtomCommandConcurrency,
   type AtomCommandScheduler,
   createAtomCommandScheduler,
-} from "./atomCommandScheduler.ts";
+} from "./atom-command-scheduler.ts";
 
 export function createRuntimeCommand<R, ER, W, A, E>(
   runtime: Atom.AtomRuntime<R, ER>,
@@ -256,7 +256,7 @@ export {
   type AtomCommandOptions,
   type AtomCommandReporter,
   type AtomCommand,
-} from "./atomRuntimeTypes.ts";
+} from "./atom-runtime-types.ts";
 
 export {
   environmentRpcKey,
@@ -265,7 +265,7 @@ export {
   followStreamInEnvironment,
   createEnvironmentQueryAtomFamily,
   createEnvironmentSubscriptionAtomFamily,
-} from "./environmentQueries.ts";
+} from "./environment-queries.ts";
 
 export {
   type SettledAsyncResult,
@@ -281,11 +281,11 @@ export {
   executeAtomQuery,
   reportAtomCommandResult,
   settlePromise,
-} from "./atomCommandResult.ts";
+} from "./atom-command-result.ts";
 
 export {
   type AtomCommandConcurrency,
   type AtomCommandScheduler,
   createAtomCommandScheduler,
   scheduleAtomCommandEffect,
-} from "./atomCommandScheduler.ts";
+} from "./atom-command-scheduler.ts";

@@ -1,8 +1,8 @@
 import * as Predicate from "effect/Predicate";
-import { type GhosttyKeyboardLayoutMap, loadGhosttyKeyboardLayoutMap } from "./keyCodes";
+import { type GhosttyKeyboardLayoutMap, loadGhosttyKeyboardLayoutMap } from "./key-codes";
 import { GhosttyRuntime, loadGhosttyRuntime } from "./runtime";
-import { GhosttyInputEncoder } from "./coreInput";
-import { GhosttySnapshotReader } from "./coreSnapshot";
+import { GhosttyInputEncoder } from "./core-input";
+import { GhosttySnapshotReader } from "./core-snapshot";
 import {
   type GhosttyTheme,
   MAX_SCROLLBACK_ROWS,
@@ -15,7 +15,7 @@ import {
   type GhosttySelectionRange,
   type GhosttySnapshot,
   SELECTION_FORMAT_OPTIONS_SIZE,
-} from "./coreTypes";
+} from "./core-types";
 
 const decoder = new TextDecoder();
 
@@ -651,6 +651,6 @@ export {
   type GhosttyPointInput,
   type GhosttyMouseInput,
   ghosttyColorsEqual,
-} from "./coreTypes";
+} from "./core-types";
 
-export { ghosttyCellText } from "./coreSnapshot";
+export { ghosttyCellText } from "./core-snapshot";

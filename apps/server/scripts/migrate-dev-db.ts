@@ -32,8 +32,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { Command, Flag } from "effect/unstable/cli";
-import { runMigrations } from "../src/persistence/Migrations.ts";
-import * as NodeSqliteClient from "../src/persistence/NodeSqliteClient.ts";
+import { runMigrations } from "../src/persistence/migrations.ts";
+import * as NodeSqliteClient from "../src/persistence/node-sqlite-client.ts";
 
 import {
   type RunMigrateDevDbInput,
@@ -43,9 +43,9 @@ import {
   MigrateDevDbSharedHomeError,
   MigrateDevDbSourceIsDestinationError,
   MigrateDevDbPhaseError,
-} from "./migrateDevDbTypes.ts";
-import { ensureNotInUse } from "./migrateDevDbSafety.ts";
-import { verifyMigrationSlots, pruneSnapshot } from "./migrateDevDbSnapshot.ts";
+} from "./migrate-dev-db-types.ts";
+import { ensureNotInUse } from "./migrate-dev-db-safety.ts";
+import { verifyMigrationSlots, pruneSnapshot } from "./migrate-dev-db-snapshot.ts";
 
 const removeDatabaseFiles = Effect.fn("removeDatabaseFiles")(function* (databasePath: string) {
   const fs = yield* FileSystem.FileSystem;
@@ -153,7 +153,7 @@ export const runMigrateDevDb = Effect.fn("runMigrateDevDb")(function* (
 
     const executed = yield* Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
-      // Mirror server boot (persistence/Layers/Sqlite.ts).
+      // Mirror server boot (persistence/layers/sqlite.ts).
       yield* sql.unsafe("PRAGMA foreign_keys = ON").unprepared;
 
       return yield* runMigrations();
@@ -294,12 +294,12 @@ export {
   MigrateDevDbPhaseError,
   type RunMigrateDevDbInput,
   type RunMigrateDevDbOptions,
-} from "./migrateDevDbTypes.ts";
+} from "./migrate-dev-db-types.ts";
 
 export {
   MigrateDevDbServerRunningError,
   MigrateDevDbDestinationBusyError,
   ensureNotInUse,
-} from "./migrateDevDbSafety.ts";
+} from "./migrate-dev-db-safety.ts";
 
-export { MigrateDevDbSlotCollisionError } from "./migrateDevDbSnapshot.ts";
+export { MigrateDevDbSlotCollisionError } from "./migrate-dev-db-snapshot.ts";

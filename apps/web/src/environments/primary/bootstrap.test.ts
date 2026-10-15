@@ -13,7 +13,7 @@ import {
   resetPrimaryEnvironmentDescriptorForTests,
   writePrimaryEnvironmentDescriptor,
 } from ".";
-import { installEnvironmentHttpTest } from "../../../test/environmentHttpTest";
+import { installEnvironmentHttpTest } from "../../../test/environment-http-test";
 
 const BASE_ENVIRONMENT = {
   environmentId: EnvironmentId.make("environment-local"),

@@ -9,15 +9,15 @@ import {
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
-import { OrchestrationCommandInvariantError } from "../Errors.ts";
-import type { OrchestrationDispatchActor } from "../Services/OrchestrationEngine.ts";
+import { OrchestrationCommandInvariantError } from "../errors.ts";
+import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import {
   requireActiveProject,
   requireTask,
   requireTaskAbsent,
   requireWorkParticipants,
-} from "../commandInvariants.ts";
-import { withEventBase, nowIso, type DecideOrchestrationCommandResult } from "./eventBase.ts";
+} from "../command-invariants.ts";
+import { withEventBase, nowIso, type DecideOrchestrationCommandResult } from "./event-base.ts";
 
 const uniqueParticipants = (participants: ReadonlyArray<WorkParticipant>) => [
   ...new Map(

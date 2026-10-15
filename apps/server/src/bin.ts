@@ -10,8 +10,8 @@ import { sharedServerCommandFlags } from "./cli/config.ts";
 import { isEntrypoint } from "./entrypoint.ts";
 import { runServerCommand, serveCommand, startCommand } from "./cli/server.ts";
 import { serviceCommand } from "./cli/service.ts";
-import { servicePreflightCommand } from "./cli/servicePreflight.ts";
-import { remoteDoctorCommand } from "./cli/remoteDoctor.ts";
+import { servicePreflightCommand } from "./cli/service-preflight.ts";
+import { remoteDoctorCommand } from "./cli/remote-doctor.ts";
 
 const CliRuntimeLayer = Layer.mergeAll(NodeServices.layer, NetService.layer);
 

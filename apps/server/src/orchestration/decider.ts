@@ -2,27 +2,27 @@ import { type OrchestrationCommand, type OrchestrationReadModel } from "@otto/co
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
-import { OrchestrationCommandInvariantError } from "./Errors.ts";
-import type { OrchestrationDispatchActor } from "./Services/OrchestrationEngine.ts";
-import { requireGroupOwnedThreadMutationAuthorized, requireThread } from "./commandInvariants.ts";
+import { OrchestrationCommandInvariantError } from "./errors.ts";
+import type { OrchestrationDispatchActor } from "./services/orchestration-engine.ts";
+import { requireGroupOwnedThreadMutationAuthorized, requireThread } from "./command-invariants.ts";
 import { projectEvent } from "./projector.ts";
 import { decideProjects } from "./decider/projects.ts";
 import { decideBots } from "./decider/bots.ts";
 import { decideGroups } from "./decider/groups.ts";
-import { decideMcpServers } from "./decider/mcpServers.ts";
+import { decideMcpServers } from "./decider/mcp-servers.ts";
 import { decideDelegations } from "./decider/delegations.ts";
 import { decideRoutines } from "./decider/routines.ts";
 import { decideTasks } from "./decider/tasks.ts";
 import { decideLibrary } from "./decider/library.ts";
-import { decideThreadLifecycle } from "./decider/threadLifecycle.ts";
-import { decideThreadVisibility } from "./decider/threadVisibility.ts";
-import { decideThreadTurns } from "./decider/threadTurns.ts";
-import { decideThreadMessages } from "./decider/threadMessages.ts";
-import { decideThreadObservations } from "./decider/threadObservations.ts";
+import { decideThreadLifecycle } from "./decider/thread-lifecycle.ts";
+import { decideThreadVisibility } from "./decider/thread-visibility.ts";
+import { decideThreadTurns } from "./decider/thread-turns.ts";
+import { decideThreadMessages } from "./decider/thread-messages.ts";
+import { decideThreadObservations } from "./decider/thread-observations.ts";
 import {
   type PlannedOrchestrationEvent,
   type DecideOrchestrationCommandResult,
-} from "./decider/eventBase.ts";
+} from "./decider/event-base.ts";
 
 export const decideCommandSequence = Effect.fn("decideCommandSequence")(function* ({
   commands,

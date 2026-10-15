@@ -1,4 +1,4 @@
-import type { ChartValue } from "./chartValue";
+import type { ChartValue } from "./chart-value";
 
 type Row = Record<string, ChartValue>;
 

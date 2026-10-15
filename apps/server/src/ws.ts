@@ -3,35 +3,35 @@ import * as Layer from "effect/Layer";
 import { type OrchestrationClientOrigin, WsRpcGroup } from "@otto/contracts";
 import { HttpRouter, HttpServerRequest, HttpServerRespondable } from "effect/unstable/http";
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
-import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
-import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner.ts";
-import * as ServerSelfUpdate from "./cloud/selfUpdate.ts";
-import * as PreviewAutomationBroker from "./mcp/PreviewAutomationBroker.ts";
-import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
-import * as VoiceCallManager from "./voiceCall/VoiceCallManager.ts";
-import * as SessionStore from "./auth/SessionStore.ts";
+import * as OrchestrationEngine from "./orchestration/services/orchestration-engine.ts";
+import * as ProviderMaintenanceRunner from "./provider/provider-maintenance-runner.ts";
+import * as ServerSelfUpdate from "./cloud/self-update.ts";
+import * as PreviewAutomationBroker from "./mcp/preview-automation-broker.ts";
+import * as EnvironmentAuth from "./auth/environment-auth.ts";
+import * as VoiceCallManager from "./voice-call/voice-call-manager.ts";
+import * as SessionStore from "./auth/session-store.ts";
 import { failEnvironmentAuthInvalid, failEnvironmentInternal } from "./auth/http.ts";
 
-import { createWsConnection } from "./wsConnection.ts";
-import { createWsOrchestrationHandlers } from "./wsOrchestrationHandlers.ts";
-import { createWsOrchestrationSubscriptions } from "./wsOrchestrationSubscriptions.ts";
-import { createWsServerHandlers } from "./wsServerHandlers.ts";
-import { createWsAuthHandlers } from "./wsAuthHandlers.ts";
-import { createWsPortabilityHandlers } from "./wsPortabilityHandlers.ts";
-import { createWsBotServicesHandlers } from "./wsBotServicesHandlers.ts";
-import { createWsToolHandlers } from "./wsToolHandlers.ts";
-import { createWsDiagnosticHandlers } from "./wsDiagnosticHandlers.ts";
-import { createWsMemoryHandlers } from "./wsMemoryHandlers.ts";
-import { createWsWorkspaceHandlers } from "./wsWorkspaceHandlers.ts";
-import { createWsActivityHandlers } from "./wsActivityHandlers.ts";
-import { createWsLibraryHandlers } from "./wsLibraryHandlers.ts";
-import { type ProviderSubscribeRefreshes, readClientConnectionOrigin } from "./wsSupport.ts";
+import { createWsConnection } from "./ws-connection.ts";
+import { createWsOrchestrationHandlers } from "./ws-orchestration-handlers.ts";
+import { createWsOrchestrationSubscriptions } from "./ws-orchestration-subscriptions.ts";
+import { createWsServerHandlers } from "./ws-server-handlers.ts";
+import { createWsAuthHandlers } from "./ws-auth-handlers.ts";
+import { createWsPortabilityHandlers } from "./ws-portability-handlers.ts";
+import { createWsBotServicesHandlers } from "./ws-bot-services-handlers.ts";
+import { createWsToolHandlers } from "./ws-tool-handlers.ts";
+import { createWsDiagnosticHandlers } from "./ws-diagnostic-handlers.ts";
+import { createWsMemoryHandlers } from "./ws-memory-handlers.ts";
+import { createWsWorkspaceHandlers } from "./ws-workspace-handlers.ts";
+import { createWsActivityHandlers } from "./ws-activity-handlers.ts";
+import { createWsLibraryHandlers } from "./ws-library-handlers.ts";
+import { type ProviderSubscribeRefreshes, readClientConnectionOrigin } from "./ws-support.ts";
 
 export {
   isThreadDetailEvent,
   resolveAvailableEditorsForConfig,
   resolveFileManagerRevealKindForConfig,
-} from "./wsSupport.ts";
+} from "./ws-support.ts";
 
 const createWsRpcLayer = (
   currentSession: EnvironmentAuth.AuthenticatedSession,

@@ -3,8 +3,8 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import * as Effect from "effect/Effect";
-import type { SubscriptionCredentialStore } from "./credentialStore.ts";
-import { makeTestSubscriptionAuthService } from "./testUtils/subscriptionAuthService.ts";
+import type { SubscriptionCredentialStore } from "./credential-store.ts";
+import { makeTestSubscriptionAuthService } from "./test-utils/subscription-auth-service.ts";
 
 const directories: string[] = [];
 

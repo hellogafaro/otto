@@ -1,6 +1,6 @@
-export { VisualStudioCode, VisualStudioCodeInsiders, VSCodium, Zed } from "./icons/EditorIcons";
+export { VisualStudioCode, VisualStudioCodeInsiders, VSCodium, Zed } from "./icons/editor-icons";
 
-export { type Icon } from "./icons/iconTypes";
+export { type Icon } from "./icons/icon-types";
 
 export {
   ClaudeAI,
@@ -9,7 +9,7 @@ export {
   KimiIcon,
   OpenAI,
   OpenCodeIcon,
-} from "./icons/ProviderIcons";
+} from "./icons/provider-icons";
 
 export {
   DiscordIcon,
@@ -17,7 +17,7 @@ export {
   SlackIcon,
   TelegramIcon,
   WhatsAppIcon,
-} from "./icons/ChannelIcons";
+} from "./icons/channel-icons";
 
 export {
   AzureDevOpsIcon,
@@ -25,4 +25,4 @@ export {
   GitHubIcon,
   GitIcon,
   GitLabIcon,
-} from "./icons/SourceHostIcons";
+} from "./icons/source-host-icons";

@@ -7,14 +7,14 @@ import { assertTrue } from "@effect/vitest/utils";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
-import { PersistenceSqlError } from "./persistence/Errors.ts";
+import { PersistenceSqlError } from "./persistence/errors.ts";
 
 import {
   defaultModelSelection,
   makeDefaultOrchestrationThreadShell,
-} from "./serverTestFixtures.ts";
-import { buildAppUnderTest } from "./serverTestApp.ts";
-import { getWsServerUrl, withWsRpcClient } from "./serverTestClients.ts";
+} from "./server-test-fixtures.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
+import { getWsServerUrl, withWsRpcClient } from "./server-test-clients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("routes websocket rpc orchestration methods", () =>

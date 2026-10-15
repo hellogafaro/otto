@@ -3,7 +3,7 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { describe, expect } from "vite-plus/test";
 import { createEmptyReadModel, projectEvent } from "./projector.ts";
-import { makeEvent } from "./test-support/ProjectorFixtures.ts";
+import { makeEvent } from "./test-support/projector-fixtures.ts";
 
 describe("orchestration projector", () => {
   it.effect("prunes reverted turn messages from in-memory thread snapshot", () =>

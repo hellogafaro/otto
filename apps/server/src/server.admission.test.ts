@@ -19,19 +19,19 @@ import * as Stream from "effect/Stream";
 import { HttpBody, HttpClient } from "effect/unstable/http";
 import { vi } from "vite-plus/test";
 import * as ServerConfig from "./config.ts";
-import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
+import * as OrchestrationEngine from "./orchestration/services/orchestration-engine.ts";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
 import {
   readyDefaultProvider,
   defaultProjectId,
   defaultModelSelection,
-} from "./serverTestFixtures.ts";
+} from "./server-test-fixtures.ts";
 import {
   getWsServerUrl,
   withWsRpcClient,
   getAuthenticatedBearerSessionToken,
-} from "./serverTestClients.ts";
+} from "./server-test-clients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("checks a new chat's bootstrap model before creating its thread", () =>

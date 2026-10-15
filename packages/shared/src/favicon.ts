@@ -1,4 +1,4 @@
-import { isPublicFaviconHost } from "./hostClassification.ts";
+import { isPublicFaviconHost } from "./host-classification.ts";
 
 /** Return a public favicon URL without disclosing private or reserved hosts. */
 export function faviconUrlForOrigin(rawUrl: string | null | undefined, size = 32): string | null {

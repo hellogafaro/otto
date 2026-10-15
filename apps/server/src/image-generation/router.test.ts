@@ -23,7 +23,7 @@ import {
   imageRoutePlan,
   routeImageRequest,
 } from "./router.ts";
-import { pngBytes } from "./testImages.ts";
+import { pngBytes } from "./test-images.ts";
 
 const bothEnabled: ImageGenerationSettings = {
   chatgptEnabled: true,

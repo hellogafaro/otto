@@ -1,0 +1,315 @@
+import * as ChildProcess from "effect/unstable/process/ChildProcess";
+import { assert, describe, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as PlatformError from "effect/PlatformError";
+import * as Sink from "effect/Sink";
+import * as Stream from "effect/Stream";
+import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+
+import * as DesktopEnvironment from "./desktop-environment.ts";
+import * as DesktopLinuxUrlHandler from "./desktop-linux-url-handler.ts";
+
+interface RecordedRegistration {
+  readonly directories: string[];
+  readonly files: Array<{ readonly path: string; readonly content: string }>;
+  readonly commands: Array<{ readonly command: string; readonly args: ReadonlyArray<string> }>;
+}
+
+const makeEnvironment = (
+  overrides: Partial<DesktopEnvironment.DesktopEnvironment["Service"]> = {},
+) =>
+  DesktopEnvironment.DesktopEnvironment.of({
+    platform: "linux",
+    isPackaged: true,
+    isDevelopment: false,
+    displayName: "Otto (Alpha)",
+    linuxWmClass: "otto",
+    linuxApplicationsDir: "/home/alice/.local/share/applications",
+    appDataDirectory: "/home/alice/.config",
+    appImagePath: Option.some("/home/alice/Applications/Otto-Legacy.AppImage"),
+    path: { join: (...parts: ReadonlyArray<string>) => parts.join("/") },
+    ...overrides,
+  } as DesktopEnvironment.DesktopEnvironment["Service"]);
+
+const mockProcess = (exitCode: number) =>
+  ChildProcessSpawner.makeHandle({
+    pid: ChildProcessSpawner.ProcessId(1),
+    exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(exitCode)),
+    isRunning: Effect.succeed(false),
+    kill: () => Effect.void,
+    unref: Effect.succeed(Effect.void),
+    stdin: Sink.drain,
+    stdout: Stream.empty,
+    stderr: Stream.empty,
+    all: Stream.empty,
+    getInputFd: () => Sink.drain,
+    getOutputFd: () => Stream.empty,
+  });
+
+const makeHandlerLayer = (
+  recorded: RecordedRegistration,
+  input: {
+    readonly environment?: Partial<DesktopEnvironment.DesktopEnvironment["Service"]>;
+    readonly xdgMimeExitCode?: number;
+    readonly writeError?: PlatformError.PlatformError;
+    readonly mimeappsContent?: string;
+  } = {},
+) =>
+  DesktopLinuxUrlHandler.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.succeed(DesktopEnvironment.DesktopEnvironment, makeEnvironment(input.environment)),
+        FileSystem.layerNoop({
+          makeDirectory: (path) =>
+            Effect.sync(() => {
+              recorded.directories.push(path);
+            }),
+          readFileString: (path) =>
+            input.mimeappsContent === undefined
+              ? Effect.fail(
+                  PlatformError.systemError({
+                    _tag: "NotFound",
+                    module: "FileSystem",
+                    method: "readFileString",
+                    description: "no mimeapps.list",
+                    pathOrDescriptor: path,
+                  }),
+                )
+              : Effect.succeed(input.mimeappsContent),
+          writeFileString: (path, content) =>
+            input.writeError
+              ? Effect.fail(input.writeError)
+              : Effect.sync(() => {
+                  recorded.files.push({ path, content });
+                }),
+        }),
+        Layer.succeed(
+          ChildProcessSpawner.ChildProcessSpawner,
+          ChildProcessSpawner.make((command) => {
+            if (!ChildProcess.isStandardCommand(command))
+              return Effect.die("Expected a standard command");
+            const childProcess = command;
+
+            recorded.commands.push({
+              command: childProcess.command,
+              args: childProcess.args,
+            });
+
+            return Effect.succeed(mockProcess(input.xdgMimeExitCode ?? 0));
+          }),
+        ),
+      ),
+    ),
+  );
+
+const runRegister = (
+  recorded: RecordedRegistration,
+  input: Parameters<typeof makeHandlerLayer>[1] = {},
+) =>
+  Effect.gen(function* () {
+    const handler = yield* DesktopLinuxUrlHandler.DesktopLinuxUrlHandler;
+    yield* handler.register;
+  }).pipe(Effect.provide(makeHandlerLayer(recorded, input)));
+
+const emptyRecording = (): RecordedRegistration => ({
+  directories: [],
+  files: [],
+  commands: [],
+});
+
+describe("DesktopLinuxUrlHandler", () => {
+  it("renders a scheme-handler desktop entry with freedesktop Exec quoting", () => {
+    const entry = DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
+      displayName: "Otto (Dev)",
+      execTarget: '/home/al ice/Apps/OttoLegacy "100%" $HOME\\x.AppImage',
+      schemes: ["otto"],
+    });
+
+    assert.include(entry, "[Desktop Entry]");
+    assert.include(entry, "Name=Otto (Dev)");
+    // Exec composes both escaping layers: a literal backslash becomes four
+    // backslashes in the file, a quote three characters, a dollar sign two
+    // backslashes plus the sign.
+    assert.include(
+      entry,
+      'Exec="/home/al ice/Apps/OttoLegacy \\\\"100%%\\\\" \\\\$HOME\\\\\\\\x.AppImage" %U',
+    );
+    assert.include(entry, "NoDisplay=true");
+    assert.notInclude(entry, "StartupWMClass=");
+    assert.include(entry, "MimeType=x-scheme-handler/otto;");
+  });
+
+  it("carries structured context on registration errors", () => {
+    const writeError = new DesktopLinuxUrlHandler.DesktopLinuxUrlHandlerRegistrationError({
+      step: "write-desktop-entry",
+      scheme: "otto",
+      desktopEntryPath: "/home/alice/.local/share/applications/otto-url-handler.desktop",
+      cause: new Error("boom"),
+    });
+
+    assert.equal(
+      writeError.message,
+      "Failed to register the otto:// URL handler (step: write-desktop-entry).",
+    );
+    assert.equal(
+      writeError.desktopEntryPath,
+      "/home/alice/.local/share/applications/otto-url-handler.desktop",
+    );
+
+    const exitError = new DesktopLinuxUrlHandler.DesktopLinuxUrlHandlerRegistrationError({
+      step: "set-default-handler",
+      scheme: "otto",
+      exitCode: 4,
+    });
+
+    assert.equal(
+      exitError.message,
+      "Failed to register the otto:// URL handler (step: set-default-handler, xdg-mime exit code 4).",
+    );
+  });
+
+  it.effect("writes the handler entry and claims the scheme default via xdg-mime", () => {
+    const recorded = emptyRecording();
+
+    return Effect.gen(function* () {
+      yield* runRegister(recorded);
+
+      assert.deepEqual(recorded.directories, ["/home/alice/.local/share/applications"]);
+      assert.equal(recorded.files.length, 1);
+      assert.equal(
+        recorded.files[0]?.path,
+        "/home/alice/.local/share/applications/otto-url-handler.desktop",
+      );
+      assert.include(
+        recorded.files[0]?.content,
+        'Exec="/home/alice/Applications/Otto-Legacy.AppImage" %U',
+      );
+      assert.include(recorded.files[0]?.content, "MimeType=x-scheme-handler/otto;");
+      assert.deepEqual(recorded.commands, [
+        {
+          command: "xdg-mime",
+          args: ["default", "otto-url-handler.desktop", "x-scheme-handler/otto"],
+        },
+      ]);
+    });
+  });
+
+  it("releases only retired schemes that point at our handler entry", () => {
+    const cleaned = DesktopLinuxUrlHandler.removeRetiredSchemeAssociations(
+      [
+        "[Default Applications]",
+        "x-scheme-handler/ottoLegacy=otto-url-handler.desktop",
+        "x-scheme-handler/ottoLegacy-dev=otto-url-handler.desktop;other.desktop;",
+        "x-scheme-handler/otto=otto-url-handler.desktop",
+        "x-scheme-handler/ottoLegacy=ottoLegacy-url-handler.desktop",
+        "text/html=firefox.desktop",
+      ].join("\n"),
+    );
+
+    assert.equal(
+      cleaned,
+      [
+        "[Default Applications]",
+        "x-scheme-handler/ottoLegacy-dev=other.desktop;",
+        "x-scheme-handler/otto=otto-url-handler.desktop",
+        "x-scheme-handler/ottoLegacy=ottoLegacy-url-handler.desktop",
+        "text/html=firefox.desktop",
+      ].join("\n"),
+    );
+    assert.isNull(
+      DesktopLinuxUrlHandler.removeRetiredSchemeAssociations(
+        "x-scheme-handler/otto=otto-url-handler.desktop\n",
+      ),
+    );
+  });
+
+  it.effect("rewrites mimeapps.list when a retired scheme still points at Otto", () => {
+    const recorded = emptyRecording();
+
+    return Effect.gen(function* () {
+      yield* runRegister(recorded, {
+        mimeappsContent: [
+          "[Default Applications]",
+          "x-scheme-handler/ottoLegacy=otto-url-handler.desktop",
+          "x-scheme-handler/otto=otto-url-handler.desktop",
+        ].join("\n"),
+      });
+
+      const mimeappsWrite = recorded.files.find(
+        (file) => file.path === "/home/alice/.config/mimeapps.list",
+      );
+
+      assert.equal(
+        mimeappsWrite?.content,
+        ["[Default Applications]", "x-scheme-handler/otto=otto-url-handler.desktop"].join("\n"),
+      );
+    });
+  });
+
+  it.effect("leaves mimeapps.list alone when no retired scheme points at Otto", () => {
+    const recorded = emptyRecording();
+
+    return Effect.gen(function* () {
+      yield* runRegister(recorded, {
+        mimeappsContent: "x-scheme-handler/ottoLegacy=ottoLegacy-url-handler.desktop\n",
+      });
+
+      assert.isUndefined(
+        recorded.files.find((file) => file.path === "/home/alice/.config/mimeapps.list"),
+      );
+    });
+  });
+
+  it.effect("falls back to the process executable outside an AppImage", () => {
+    const recorded = emptyRecording();
+
+    return Effect.gen(function* () {
+      yield* runRegister(recorded, { environment: { appImagePath: Option.none() } });
+
+      assert.include(
+        recorded.files[0]?.content,
+        `Exec=${DesktopLinuxUrlHandler.escapeDesktopEntryExecArgument(process.execPath)} %U`,
+      );
+    });
+  });
+
+  it.effect("does nothing on other platforms or unpackaged builds", () => {
+    const nonLinux = emptyRecording();
+    const unpackaged = emptyRecording();
+
+    return Effect.gen(function* () {
+      yield* runRegister(nonLinux, { environment: { platform: "darwin" } });
+      yield* runRegister(unpackaged, { environment: { isPackaged: false } });
+
+      for (const recorded of [nonLinux, unpackaged]) {
+        assert.deepEqual(recorded.directories, []);
+        assert.deepEqual(recorded.files, []);
+        assert.deepEqual(recorded.commands, []);
+      }
+    });
+  });
+
+  it.effect("never fails startup when registration cannot complete", () => {
+    const xdgMimeFailed = emptyRecording();
+    const writeFailed = emptyRecording();
+
+    return Effect.gen(function* () {
+      yield* runRegister(xdgMimeFailed, { xdgMimeExitCode: 1 });
+      yield* runRegister(writeFailed, {
+        writeError: PlatformError.systemError({
+          _tag: "PermissionDenied",
+          module: "FileSystem",
+          method: "writeFileString",
+          description: "read-only filesystem",
+          pathOrDescriptor: "/home/alice/.local/share/applications/ottoLegacy-url-handler.desktop",
+        }),
+      });
+
+      assert.equal(xdgMimeFailed.files.length, 1);
+      assert.deepEqual(writeFailed.commands, []);
+    });
+  });
+});

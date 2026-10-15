@@ -1,0 +1,96 @@
+import * as Schema from "effect/Schema";
+import { OttoMemoryArchiveV1, OttoMemoryArchiveV2 } from "./otto-memory/transfer.ts";
+
+export const OttoMemoryArchive = Schema.Union([OttoMemoryArchiveV1, OttoMemoryArchiveV2]);
+
+export type OttoMemoryArchive = typeof OttoMemoryArchive.Type;
+
+export {
+  OTTO_MEMORY_PACKET_MAX_FACTS,
+  OTTO_MEMORY_PACKET_MAX_CHARS,
+  OTTO_MEMORY_PACKET_MAX_ESTIMATED_TOKENS,
+  OTTO_MEMORY_FACT_MAX_CHARS,
+  OTTO_USER_MEMORY_MAX_CHARS,
+  OTTO_BOT_MEMORY_MAX_CHARS,
+  OTTO_GROUP_MEMORY_MAX_CHARS,
+  OttoMemoryId,
+  OttoMemoryRootId,
+  OttoMemoryCandidateId,
+  OttoMemoryTenantId,
+  OttoMemoryUserId,
+  OttoMemoryEntityId,
+  OttoMemoryPartitionId,
+  OttoMemoryScope,
+  OttoMemoryVisibility,
+  OttoMemoryApprovalState,
+  OttoMemoryCandidateStatus,
+  OttoMemoryCandidateUpdate,
+  OttoMemoryTargetScope,
+  OttoMemoryDeletionState,
+  OttoMemoryKind,
+  OttoMemoryEntityKind,
+  OttoMemoryConfidence,
+  OttoMemoryPartition,
+  OttoMemoryRevision,
+  OttoMemoryCandidate,
+  OttoMemoryCandidateDecision,
+  OttoMemoryDecisionReceipt,
+  OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY,
+  OTTO_MEMORY_APPROVAL_RESOLVED_ACTIVITY,
+  OttoMemoryApprovalRequest,
+} from "./otto-memory/base.ts";
+
+export {
+  OttoMemoryDocumentTarget,
+  OttoMemoryFileOperation,
+  OttoMemoryDocument,
+  OttoBotMemorySnapshot,
+  OttoMemoryFileMutationInput,
+  OttoMemoryFileMutationResult,
+  OttoMemoryDocumentsInspectInput,
+  OttoMemoryDocumentsSnapshot,
+  OttoMemoryDocumentReplaceInput,
+  OttoMemoryObservationsClearInput,
+} from "./otto-memory/documents.ts";
+
+export {
+  OttoMemoryShareScope,
+  OttoMemoryArchiveFile,
+  OttoMemoryArchiveV1,
+  OttoMemoryArchiveTarget,
+  OttoMemoryArchiveRevision,
+  OttoMemoryInspectInput,
+  OttoConversationMemoryRecord,
+  OttoConversationMemorySnapshot,
+  OttoMarkdownMemoryArchiveDocument,
+  OttoMarkdownMemoryArchiveV3,
+  OttoMarkdownMemoryExportInput,
+  OttoMarkdownMemoryImportPreviewInput,
+  OttoMarkdownMemoryImportPreviewItem,
+  OttoMarkdownMemoryImportPreview,
+  OttoMarkdownMemoryImportApplyInput,
+  OttoMarkdownMemoryImportApplyResult,
+  OttoMemoryArchiveConversation,
+  OttoMemoryArchiveV2,
+  OttoMemorySnapshot,
+  OttoMemoryExportInput,
+  OttoMemoryImportClassification,
+  OttoMemoryImportPreviewItem,
+  OttoMemoryImportPreviewInput,
+  OttoMemoryImportPreview,
+  OttoMemoryImportApplyInput,
+  OttoMemoryImportApplyResult,
+} from "./otto-memory/transfer.ts";
+
+export {
+  OttoMemoryMutation,
+  OttoMemoryMutateInput,
+  OttoMemoryMutationResult,
+  OttoMemoryFactsListInput,
+  OttoMemoryFactRead,
+  OttoMemoryFactsListResult,
+  OttoMemoryOperationError,
+  OttoMemoryPacketFact,
+  OttoMemoryPacket,
+  OttoMemoryThreadAccess,
+} from "./otto-memory/facts.ts";

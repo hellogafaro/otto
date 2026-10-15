@@ -28,7 +28,7 @@ import {
 } from "@otto/contracts";
 
 import type { SubscriptionAuthService } from "../subscription-auth/service.ts";
-import { ImageResponseTooLargeError, readBoundedText } from "./boundedResponse.ts";
+import { ImageResponseTooLargeError, readBoundedText } from "./bounded-response.ts";
 
 export const CHATGPT_RESPONSES_URL = "https://chatgpt.com/backend-api/codex/responses";
 

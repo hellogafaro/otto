@@ -1,4 +1,4 @@
-import type { ChartValue } from "./chartValue";
+import type { ChartValue } from "./chart-value";
 import { BarCanvas } from "./bar-canvas";
 import { type CartesianChartProps, CartesianRoot } from "./cartesian-root";
 

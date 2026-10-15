@@ -88,7 +88,7 @@ Those messages show up as span events because `Logger.tracerLogger` is installed
 `withMetrics(...)` is the default way to attach a counter and timer to an effect:
 
 ```ts
-import { someCounter, someDuration, withMetrics } from "../observability/Metrics.ts";
+import { someCounter, someDuration, withMetrics } from "../observability/metrics.ts";
 
 const program = doWork().pipe(
   withMetrics({
@@ -105,7 +105,7 @@ const program = doWork().pipe(
 
 ### Runtime Wiring
 
-The server observability layer is assembled in `apps/server/src/observability/Layers/Observability.ts`.
+The server observability layer is assembled in `apps/server/src/observability/layers/observability.ts`.
 
 It provides:
 
@@ -144,7 +144,7 @@ If the OTLP URLs are unset, local tracing still works and metrics stay in-proces
 Current high-value span and metric boundaries include:
 
 - Effect RPC websocket request spans from `effect/rpc`
-- RPC request metrics in `apps/server/src/observability/RpcInstrumentation.ts`
+- RPC request metrics in `apps/server/src/observability/rpc-instrumentation.ts`
 - startup phases
 - orchestration command processing
 - orchestration command acknowledgment latency

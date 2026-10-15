@@ -10,7 +10,7 @@ import {
   TaskId,
   TrimmedNonEmptyString,
   TrimmedString,
-} from "../baseSchemas.ts";
+} from "../base-schemas.ts";
 
 /** One lifecycle shared by projects and tasks; archived hides an item from lists. */
 export const WorkStatus = Schema.Literals([

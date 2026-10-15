@@ -31,8 +31,8 @@ import * as HttpEffect from "effect/unstable/http/HttpEffect";
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
 
-import * as EnvironmentAuth from "./EnvironmentAuth.ts";
-import * as SessionStore from "./SessionStore.ts";
+import * as EnvironmentAuth from "./environment-auth.ts";
+import * as SessionStore from "./session-store.ts";
 import { deriveAuthClientMetadata } from "./utils.ts";
 
 const CREDENTIAL_RESPONSE_HEADERS = {

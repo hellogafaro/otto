@@ -11,13 +11,13 @@ export {
   type PluginSkill,
 } from "./catalog";
 
-export { integrationsShListing, isListedIntegration } from "./integrationsSh";
+export { integrationsShListing, isListedIntegration } from "./integrations-sh";
 
 export {
   isInstallableManifest,
   loadManifestCatalog,
   type CatalogManifestModules,
-} from "./manifestCatalog";
+} from "./manifest-catalog";
 
 export {
   PLUGIN_APPROVAL_CLASSES,

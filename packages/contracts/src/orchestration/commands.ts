@@ -23,8 +23,8 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
   TurnId,
-} from "../baseSchemas.ts";
-import { OttoDelegationRecord } from "../ottoDelegation.ts";
+} from "../base-schemas.ts";
+import { OttoDelegationRecord } from "../otto-delegation.ts";
 import { ClientRoutineCommand, InternalRoutineCommand } from "../routines.ts";
 import { ChatAttachment } from "./attachments.ts";
 import {
@@ -71,7 +71,7 @@ import {
   McpServerEnableCommand,
   McpServerDisableCommand,
   McpServerAccessSetCommand,
-} from "./rosterCommands.ts";
+} from "./roster-commands.ts";
 import {
   ThreadCreateCommand,
   ThreadDeleteCommand,
@@ -99,7 +99,7 @@ import {
   DelegationCancelCommand,
   DelegationRetryCommand,
   ThreadMessageReactionSetCommand,
-} from "./threadCommands.ts";
+} from "./thread-commands.ts";
 
 const DispatchableClientOrchestrationCommand = Schema.Union([
   ProjectCreateCommand,

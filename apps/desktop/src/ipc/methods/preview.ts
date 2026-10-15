@@ -26,11 +26,11 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as NodeURL from "node:url";
 
-import * as ElectronWindow from "../../electron/ElectronWindow.ts";
-import * as PreviewManager from "../../preview/Manager.ts";
-import { PREVIEW_WEBVIEW_PREFERENCES } from "../../preview/WebviewPreferences.ts";
+import * as ElectronWindow from "../../electron/electron-window.ts";
+import * as PreviewManager from "../../preview/manager.ts";
+import { PREVIEW_WEBVIEW_PREFERENCES } from "../../preview/webview-preferences.ts";
 import * as IpcChannels from "../channels.ts";
-import * as DesktopIpc from "../DesktopIpc.ts";
+import * as DesktopIpc from "../desktop-ipc.ts";
 
 export const installPreviewEventForwarding = Effect.fn(
   "desktop.ipc.preview.installEventForwarding",

@@ -4,7 +4,7 @@ import { hasSpecificFileIconForFileName, syntheticFileNameForLanguageId } from "
 import { resolveFileIconKind } from "@otto/client-runtime/file-icons";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { FileEntryIcon } from "./components/chat/FileEntryIcon";
+import { FileEntryIcon } from "./components/chat/file-entry-icon";
 
 describe("Remix file icons", () => {
   it("preserves exact filename and extension classification", () => {

@@ -8,7 +8,7 @@ import {
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { BLOB_COLORS, BLOB_SHAPES, DEFAULT_BLOB_SHAPE } from "../roster/rosterAvatar.logic";
+import { BLOB_COLORS, BLOB_SHAPES, DEFAULT_BLOB_SHAPE } from "../roster/roster-avatar.logic";
 
 /** Linear's order: what is moving first, then what is waiting, then what is done. */
 export const WORK_STATUS_ORDER: readonly WorkStatus[] = [

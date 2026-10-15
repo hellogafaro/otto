@@ -1,0 +1,123 @@
+import type { TestProps, TestValue } from "../test-support/react-tree";
+import { Predicate } from "effect";
+import type { ReactElement } from "react";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+import { visitElements } from "../test-support/react-tree";
+import { reactHookHarness as hooks } from "../../test/react-hook-harness";
+
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  const { reactHookHarness } = await import("../../test/react-hook-harness");
+
+  return {
+    ...actual,
+    useCallback: reactHookHarness.useCallback,
+    useMemo: reactHookHarness.useMemo,
+    useRef: reactHookHarness.useRef,
+    useState: reactHookHarness.useState,
+  };
+});
+
+vi.mock("react/compiler-runtime", async () => {
+  const { reactHookHarness } = await import("../../test/react-hook-harness");
+
+  return { c: reactHookHarness.useMemoCache };
+});
+
+const i18nLocale = vi.hoisted(() => ({ current: "en" as "en" | "zh-CN" }));
+
+vi.mock("../../i18n", async () => {
+  const { catalogRegistry, createTranslator } = await import("@otto/client-runtime/i18n");
+
+  const translators = {
+    en: createTranslator("en"),
+    "zh-CN": createTranslator("zh-CN", await catalogRegistry["zh-CN"]!()),
+  };
+
+  return {
+    useI18n: () => {
+      const translator = translators[i18nLocale.current];
+
+      return { ...translator, t: translator.translate };
+    },
+  };
+});
+
+import { BotSandboxBrowserSharingSettings } from "./settings-panels";
+
+function renderSetting(
+  value: "separate" | "shared",
+  onChange: (value: "separate" | "shared") => void,
+) {
+  hooks.beginRender();
+
+  return BotSandboxBrowserSharingSettings({ value, onChange }) as ReactElement<TestProps>;
+}
+
+function findElement(tree: ReactElement<TestProps>, predicate: (props: TestProps) => boolean) {
+  const element = visitElements(tree, ({ props }) => predicate(props));
+
+  if (!element) throw new Error("Expected setting element was not rendered.");
+
+  return element;
+}
+
+function call(handler: TestValue, ...args: ReadonlyArray<TestValue>) {
+  if (!Predicate.isFunction(handler)) throw new Error("Expected an event handler.");
+  const invoke = handler as (...values: ReadonlyArray<TestValue>) => void;
+  invoke(...args);
+}
+
+describe("BotSandboxBrowserSharingSettings", () => {
+  beforeEach(() => {
+    hooks.reset();
+    i18nLocale.current = "en";
+  });
+
+  it("asks before changing the workspace mode", () => {
+    const onChange = vi.fn();
+    let tree = renderSetting("separate", onChange);
+    call(
+      findElement(tree, (props) => props.onValueChange !== undefined).props.onValueChange,
+      "shared",
+    );
+    tree = renderSetting("separate", onChange);
+
+    expect(onChange).not.toHaveBeenCalled();
+    call(findElement(tree, (props) => props.children === "Change mode").props.onClick);
+    expect(onChange).toHaveBeenCalledWith("shared");
+  });
+
+  it("asks in Chinese before changing the workspace mode", () => {
+    i18nLocale.current = "zh-CN";
+    const onChange = vi.fn();
+    let tree = renderSetting("shared", onChange);
+    call(
+      findElement(tree, (props) => props.onValueChange !== undefined).props.onValueChange,
+      "separate",
+    );
+    tree = renderSetting("shared", onChange);
+
+    findElement(tree, (props) => props.children === "更改机器人工作区模式？");
+    findElement(
+      tree,
+      (props) =>
+        Predicate.isString(props.children) &&
+        props.children.includes("会为每个机器人创建独立的工作区和浏览器"),
+    );
+    findElement(tree, (props) => props.children === "取消");
+    call(findElement(tree, (props) => props.children === "更改模式").props.onClick);
+    expect(onChange).toHaveBeenCalledWith("separate");
+  });
+
+  it("ignores invalid values", () => {
+    const onChange = vi.fn();
+    const tree = renderSetting("separate", onChange);
+    call(
+      findElement(tree, (props) => props.onValueChange !== undefined).props.onValueChange,
+      "per-thread",
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});

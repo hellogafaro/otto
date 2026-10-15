@@ -19,8 +19,8 @@ import {
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
-import { OrchestrationCommandInvariantError } from "../Errors.ts";
-import { withEventBase, nowIso, type DecideOrchestrationCommandResult } from "./eventBase.ts";
+import { OrchestrationCommandInvariantError } from "../errors.ts";
+import { withEventBase, nowIso, type DecideOrchestrationCommandResult } from "./event-base.ts";
 
 type LibraryCommand = Extract<
   OrchestrationCommand,

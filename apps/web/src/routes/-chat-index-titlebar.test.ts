@@ -1,0 +1,29 @@
+// Regression coverage compares the empty workspace header with the shared titlebar contract.
+import * as NodeFS from "node:fs";
+
+import { describe, expect, it } from "vite-plus/test";
+
+describe("empty bot workspace header", () => {
+  it("uses the shared workspace topbar geometry", () => {
+    const routeSource = NodeFS.readFileSync(new URL("./_chat.index.tsx", import.meta.url), "utf8");
+    const onboardingStart = routeSource.indexOf("function ChatIndexRedirect()");
+    const onboardingEnd = routeSource.indexOf("<BotZeroState />", onboardingStart);
+
+    expect(onboardingStart).toBeGreaterThanOrEqual(0);
+    expect(onboardingEnd).toBeGreaterThan(onboardingStart);
+
+    const onboardingHeader = routeSource.slice(onboardingStart, onboardingEnd);
+
+    expect(onboardingHeader).toContain("<WorkspacePageHeader");
+    expect(onboardingHeader).not.toMatch(/(?:^|\s)(?:[\w-]+:)*py-/);
+
+    const headerSource = NodeFS.readFileSync(
+      new URL("../components/workspace-page-header.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(headerSource).toContain("h-(--workspace-topbar-height)");
+    expect(headerSource).toContain("min-h-(--workspace-topbar-height)");
+    expect(headerSource).toContain("COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS");
+  });
+});

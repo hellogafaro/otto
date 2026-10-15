@@ -8,7 +8,7 @@ import * as Keybindings from "./keybindings.ts";
 import {
   encodeResolvedKeybindingFromConfig,
   decodeResolvedKeybindingFromConfigExit,
-} from "./keybindingsTestSupport.ts";
+} from "./keybindings-test-support.ts";
 
 it.layer(NodeServices.layer)("keybindings", (it) => {
   it.effect("parses shortcuts including plus key", () =>

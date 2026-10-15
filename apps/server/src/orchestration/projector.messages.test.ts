@@ -3,7 +3,7 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { describe, expect } from "vite-plus/test";
 import { createEmptyReadModel, projectEvent } from "./projector.ts";
-import { makeEvent } from "./test-support/ProjectorFixtures.ts";
+import { makeEvent } from "./test-support/projector-fixtures.ts";
 
 describe("orchestration projector", () => {
   it.effect("marks assistant messages completed with non-streaming updates", () =>

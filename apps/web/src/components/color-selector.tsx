@@ -1,6 +1,6 @@
 "use client";
 
-import { recordLookup } from "./recordLookup";
+import { recordLookup } from "./record-lookup";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 

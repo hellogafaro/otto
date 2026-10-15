@@ -11,15 +11,15 @@ import {
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { HttpBody, HttpClient } from "effect/unstable/http";
-import * as ChannelRuntime from "./channels/ChannelRuntime.ts";
+import * as ChannelRuntime from "./channels/channel-runtime.ts";
 
-import { makeChannelTestBot } from "./serverTestFixtures.ts";
-import { buildAppUnderTest } from "./serverTestApp.ts";
+import { makeChannelTestBot } from "./server-test-fixtures.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
 import {
   getWsServerUrl,
   withWsRpcClient,
   getMemberBearerSessionToken,
-} from "./serverTestClients.ts";
+} from "./server-test-clients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("keeps channel management host-only and serves channel health over HTTP", () =>

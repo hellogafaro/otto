@@ -1,7 +1,7 @@
 import { LibraryFileId } from "@otto/contracts";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { LibraryDocumentPage } from "../components/library/LibraryDocumentPage";
+import { LibraryDocumentPage } from "../components/library/library-document-page";
 
 export const Route = createFileRoute("/library/$fileId")({
   beforeLoad: async ({ context }) => {

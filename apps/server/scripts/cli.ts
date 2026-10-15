@@ -28,7 +28,7 @@ import {
   ServerCliDevelopmentIconTargetMissingError,
   ServerCliPublishIconSourceMissingError,
   ServerCliPublishIconTargetMissingError,
-} from "./cliErrors.ts";
+} from "./cli-errors.ts";
 
 interface PackageJson {
   name: string;

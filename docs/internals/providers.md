@@ -7,23 +7,23 @@ orchestration layer does not know which one is behind a thread.
 
 ## Built-in drivers
 
-[`builtInDrivers.ts`][drivers] exports `BUILT_IN_DRIVERS` with seven entries:
+[`built-in-drivers.ts`][drivers] exports `BUILT_IN_DRIVERS` with seven entries:
 
-| Driver kind    | Driver source                                    |
-| -------------- | ------------------------------------------------ |
-| `codex`        | [`Drivers/CodexDriver.ts`][codex]                |
-| `claudeAgent`  | [`Drivers/ClaudeDriver.ts`][claude]              |
-| `grok`         | [`Drivers/GrokDriver.ts`][grok]                  |
-| `kimi`         | [`Drivers/KimiDriver.ts`][kimi]                  |
-| `opencode`     | [`Drivers/OpenCodeDriver.ts`][opencode]          |
-| `opencodeGo`   | [`Drivers/OpenCodeGoDriver.ts`][opencode-go]     |
-| `customOpenai` | [`Drivers/CustomOpenaiDriver.ts`][custom-openai] |
+| Driver kind    | Driver source                                      |
+| -------------- | -------------------------------------------------- |
+| `codex`        | [`drivers/codex-driver.ts`][codex]                 |
+| `claudeAgent`  | [`drivers/claude-driver.ts`][claude]               |
+| `grok`         | [`drivers/grok-driver.ts`][grok]                   |
+| `kimi`         | [`drivers/kimi-driver.ts`][kimi]                   |
+| `opencode`     | [`drivers/open-code-driver.ts`][opencode]          |
+| `opencodeGo`   | [`drivers/open-code-go-driver.ts`][opencode-go]    |
+| `customOpenai` | [`drivers/custom-openai-driver.ts`][custom-openai] |
 
 Each driver declares its `driverKind`, a `configSchema`, and a `create` function that builds a
 provider instance in a child scope. The five subscription drivers and Custom API supply a Mastra
 connection; standard OpenCode supplies a legacy adapter. Adapter implementations live beside them in
-`apps/server/src/provider/Layers/` (`CodexAdapter.ts`, `ClaudeAdapter.ts`, and so on) and conform to
-[`ProviderAdapter.ts`][adapter]. Read the driver plus its adapter to see how a specific agent's
+`apps/server/src/provider/layers/` (`CodexAdapter.ts`, `ClaudeAdapter.ts`, and so on) and conform to
+[`provider-adapter.ts`][adapter]. Read the driver plus its adapter to see how a specific agent's
 transport, config, and event shapes are mapped.
 
 ## Registry and routing
@@ -90,7 +90,7 @@ while standard OpenCode remains on the legacy bridge and does not advertise cata
 legacy-path provider must not claim WebSearch, WebFetch, image generation, or MCP account mutations
 unless it is routed through the shared Mastra runtime.
 
-Mastra sessions wire four network and media catalog backends. `OttoWebFetch.ts` owns WebFetch.
+Mastra sessions wire four network and media catalog backends. `otto-web-fetch.ts` owns WebFetch.
 Each hop is resolved once and rejected if any address is loopback, private, link-local, CGNAT,
 multicast, or IPv4-mapped. The socket is then pinned to the validated address through a custom
 `lookup`, so the connection never asks DNS again and a rebinding resolver cannot swap the target.
@@ -171,7 +171,7 @@ never sent to an arbitrary URL. A base URL alone makes the instance ready, becau
 such as Ollama take no key.
 
 The web settings write that key for the user. The add dialog offers presets from
-`apps/web/src/components/settings/customApiPresets.ts` that fill `baseUrl` and the instance name,
+`apps/web/src/components/settings/custom-api-presets.ts` that fill `baseUrl` and the instance name,
 and an **API key** field that saves `CUSTOM_OPENAI_API_KEY` as a sensitive variable. Presets are a
 client convenience: the server stores only the URL, and the card matches the URL back to a preset
 to word its key hint. A key is bound to its endpoint on the client: switching presets in the dialog
@@ -192,7 +192,7 @@ hand-added copy leaves the endpoint's model in place.
 
 ### Harness-native readiness
 
-Codex, Claude, and Grok use `HarnessProviderStatus.ts`, not their CLI health checks, to publish
+Codex, Claude, and Grok use `harness-provider-status.ts`, not their CLI health checks, to publish
 readiness. Like Kimi and OpenCode Go, they report the bundled runtime as installed even when no
 provider binary exists. The initial snapshot and each refresh reload `SubscriptionAuthService`
 from the environment's `subscription-auth.json`. A connected saved credential makes the instance
@@ -252,7 +252,7 @@ requires `OPENAI_API_KEY`, Claude requires `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_
 A CLI login or custom CLI home alone cannot make that instance ready. Ambient credentials remain
 available to saved-credential instances, matching the harness's transport precedence.
 
-`HarnessTextGeneration.ts` generates chat titles and branch names through
+`harness-text-generation.ts` generates chat titles and branch names through
 `resolveOttoMastraModel`, the same transport resolver as turns. It reloads saved credentials for
 each operation and preserves instance scoping, Codex reasoning effort and service tier, and Claude
 effort and context-window selections. Claude's 1M context selection uses the same `[1m]` model
@@ -277,11 +277,11 @@ stored under the bare provider key in `subscription-auth.json`; each added accou
 `acct-<hex>` id stored under `account:<provider>:<id>`. Separately named provider instances keep
 their own `instance:<provider>:<instanceId>` key and never join the backup order.
 
-`SubscriptionAccountState` (`apps/server/src/subscription-auth/accountState.ts`) owns the order,
+`SubscriptionAccountState` (`apps/server/src/subscription-auth/account-state.ts`) owns the order,
 persisted next to the credentials as `subscription-auth.json.accounts`. Credential reads for the
 default instance resolve to the first ready account: one is skipped while its `nextRetryAt` is in
 the future or its last failure was a revoked sign-in. When a request fails with a usage-limit
-message, `accountLimits.ts` benches that account until the reset time the provider gave, or for an
+message, `account-limits.ts` benches that account until the reset time the provider gave, or for an
 hour. Every credential read takes the thread id, and outcomes are recorded on the account that
 served that thread, so concurrent chats on different accounts do not claim each other's failures.
 Order and health files are re-read when another server process rewrites them.
@@ -339,8 +339,8 @@ serializes to `$name`.
 Task, CheckSubagent, MessageSubagent, and StopSubagent let a bot hand a bounded subtask to a
 short-lived worker during its own turn. They are separate from bot-to-bot delegation through
 SendToAgent: a worker has no bot identity of its own and belongs to the parent turn that started it.
-The contracts live in [`ottoWorkers.ts`][workers-contract] and the runtime in
-[`OttoWorkerRuntime.ts`][workers-runtime].
+The contracts live in [`otto-workers.ts`][workers-contract] and the runtime in
+[`otto-worker-runtime.ts`][workers-runtime].
 
 Task creates a child thread for the calling bot, with the parent's project, model, runtime mode, and
 workspace, and starts a turn with the task text. The child is always a direct thread with the
@@ -366,7 +366,7 @@ When the parent turn finishes, fails, or is interrupted, every worker it still o
 `Canceled` with `parent-turn-ended` and its child turn is interrupted. Background workers do not
 outlive the turn. A worker id only resolves from the chat that started it.
 
-`workerAccess` in [`OttoWorkerRuntime.ts`][workers-runtime] narrows the parent's delegation
+`workerAccess` in [`otto-worker-runtime.ts`][workers-runtime] narrows the parent's delegation
 grant. Workers get no memory scopes, an approval ceiling of `none`, no access to the user's
 computer, and the parent's sandbox or the local workspace. `OTTO_WORKER_EXCLUDED_TOOL_IDS` removes
 the worker tools, the agent tools (CreateAgent, CheckAgent, MessageAgent, StopAgent, SendToAgent),
@@ -472,7 +472,7 @@ orchestration, contract, or client change is required for the common case.
 ## Model catalog
 
 Model lists, display names, and the picker's legacy section come from
-[models.dev](https://models.dev). `modelCatalogData.ts` maps each driver to a models.dev provider
+[models.dev](https://models.dev). `model-catalog-data.ts` maps each driver to a models.dev provider
 (`codex` to `openai`, `claudeAgent` to `anthropic`, `grok` to `xai`, `kimi` to
 `kimi-code-plan-global`, `opencodeGo` to `opencode-go`) and keeps only models a coding agent can
 run: tool calling, text output, no dated Claude snapshots, and for Codex only GPT reasoning models
@@ -480,7 +480,7 @@ outside the Pro and nano tiers. For Codex, Claude, and Grok, a model is current 
 newest non-deprecated model in its family and was released within 180 days of the provider's
 newest model. Kimi For Coding and OpenCode Go list every non-deprecated model as current.
 
-The `ModelCatalog` service (`ModelCatalog.ts`) runs its own loop that refetches models.dev
+The `ModelCatalog` service (`model-catalog.ts`) runs its own loop that refetches models.dev
 hourly, retries a failed fetch after five minutes, and respects `enableProviderUpdateChecks`.
 Preference order is the last fetch, then its on-disk copy (`model-catalog.json` in the state
 directory), then the bundled `apps/server/src/provider/model-catalog.json`. A fetch that omits a
@@ -514,7 +514,7 @@ Provider output comes back as internal commands such as `thread.message.assistan
 ## Server-side workers
 
 Provider work flows through three queue-backed workers. All three are built with
-`makeDrainableWorker` from [`DrainableWorker.ts`][worker] and expose `drain` for deterministic test
+`makeDrainableWorker` from [`drainable-worker.ts`][worker] and expose `drain` for deterministic test
 synchronization.
 
 1. [`ProviderRuntimeIngestion`][ingest] consumes provider runtime streams and emits orchestration
@@ -533,25 +533,25 @@ spills the whole accumulated text as one delta. The buffer also flushes at inter
 when a request opens (approval) or user input is requested, via
 `flushBufferedAssistantMessagesForTurn`.
 
-[drivers]: ../../apps/server/src/provider/builtInDrivers.ts
-[codex]: ../../apps/server/src/provider/Drivers/CodexDriver.ts
-[claude]: ../../apps/server/src/provider/Drivers/ClaudeDriver.ts
-[grok]: ../../apps/server/src/provider/Drivers/GrokDriver.ts
-[kimi]: ../../apps/server/src/provider/Drivers/KimiDriver.ts
-[opencode]: ../../apps/server/src/provider/Drivers/OpenCodeDriver.ts
-[opencode-go]: ../../apps/server/src/provider/Drivers/OpenCodeGoDriver.ts
-[custom-openai]: ../../apps/server/src/provider/Drivers/CustomOpenaiDriver.ts
-[adapter]: ../../apps/server/src/provider/Services/ProviderAdapter.ts
-[instances]: ../../apps/server/src/provider/Services/ProviderInstanceRegistry.ts
+[drivers]: ../../apps/server/src/provider/built-in-drivers.ts
+[codex]: ../../apps/server/src/provider/drivers/codex-driver.ts
+[claude]: ../../apps/server/src/provider/drivers/claude-driver.ts
+[grok]: ../../apps/server/src/provider/drivers/grok-driver.ts
+[kimi]: ../../apps/server/src/provider/drivers/kimi-driver.ts
+[opencode]: ../../apps/server/src/provider/drivers/open-code-driver.ts
+[opencode-go]: ../../apps/server/src/provider/drivers/open-code-go-driver.ts
+[custom-openai]: ../../apps/server/src/provider/drivers/custom-openai-driver.ts
+[adapter]: ../../apps/server/src/provider/services/provider-adapter.ts
+[instances]: ../../apps/server/src/provider/services/provider-instance-registry.ts
 [registry]: ../../apps/server/src/provider/Services/ProviderAdapterRegistry.ts
 [service]: ../../apps/server/src/provider/Layers/ProviderService.ts
 [controller]: ../../apps/server/src/provider/Layers/AgentController.ts
-[seam]: ../../apps/server/src/provider/OttoRuntimeSeam.ts
+[seam]: ../../apps/server/src/provider/otto-runtime-seam.ts
 [bridge]: ../../apps/server/src/provider/Layers/LegacyProviderBridge.ts
 [contracts]: ../../packages/contracts/src/orchestration.ts
-[workers-contract]: ../../packages/contracts/src/ottoWorkers.ts
-[workers-runtime]: ../../apps/server/src/provider/OttoWorkerRuntime.ts
-[worker]: ../../packages/shared/src/DrainableWorker.ts
+[workers-contract]: ../../packages/contracts/src/otto-workers.ts
+[workers-runtime]: ../../apps/server/src/provider/otto-worker-runtime.ts
+[worker]: ../../packages/shared/src/drainable-worker.ts
 [ingest]: ../../apps/server/src/orchestration/Layers/ProviderRuntimeIngestion.ts
 [cmd]: ../../apps/server/src/orchestration/Layers/ProviderCommandReactor.ts
 [checkpoint]: ../../apps/server/src/orchestration/Layers/CheckpointReactor.ts

@@ -1,0 +1,512 @@
+import * as Data from "effect/Data";
+
+import * as Match from "effect/Match";
+import * as Predicate from "effect/Predicate";
+import {
+  type PreviewCloseInput,
+  type PreviewEvent,
+  type PreviewEventsSubscribeInput,
+  type PreviewError,
+  type PreviewFrame,
+  PreviewInvalidUrlError,
+  type PreviewListInput,
+  type PreviewListResult,
+  type PreviewNavigateInput,
+  type PreviewOpenInput,
+  type PreviewRefreshInput,
+  type PreviewReportStatusInput,
+  type PreviewResizeInput,
+  FILL_PREVIEW_VIEWPORT,
+  PreviewSessionLookupError,
+  type PreviewSessionSnapshot,
+  type PreviewViewportSetting,
+} from "@otto/contracts";
+import {
+  isPreviewUrlNormalizationError,
+  newPreviewTabId,
+  normalizePreviewUrl,
+} from "@otto/shared/preview";
+import * as NodeCrypto from "node:crypto";
+import * as Context from "effect/Context";
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as PubSub from "effect/PubSub";
+import * as Scope from "effect/Scope";
+import * as Stream from "effect/Stream";
+import * as SynchronizedRef from "effect/SynchronizedRef";
+
+export class PreviewManager extends Context.Service<
+  PreviewManager,
+  {
+    readonly open: (input: PreviewOpenInput) => Effect.Effect<PreviewSessionSnapshot, PreviewError>;
+    readonly navigate: (
+      input: PreviewNavigateInput,
+    ) => Effect.Effect<PreviewSessionSnapshot, PreviewError>;
+    readonly reportStatus: (input: PreviewReportStatusInput) => Effect.Effect<void, PreviewError>;
+    readonly reportFrame: (input: {
+      readonly threadId: string;
+      readonly tabId: string;
+      readonly frame: PreviewFrame;
+    }) => Effect.Effect<void, PreviewError>;
+    readonly resize: (
+      input: PreviewResizeInput,
+    ) => Effect.Effect<PreviewSessionSnapshot, PreviewError>;
+    readonly refresh: (input: PreviewRefreshInput) => Effect.Effect<void, PreviewError>;
+    readonly close: (input: PreviewCloseInput) => Effect.Effect<void, PreviewError>;
+    readonly list: (input: PreviewListInput) => Effect.Effect<PreviewListResult>;
+    /** Live events, filtered to one chat when the subscriber names it. */
+    readonly streamEvents: (input: PreviewEventsSubscribeInput) => Stream.Stream<PreviewEvent>;
+    readonly subscribeEvents: Effect.Effect<PubSub.Subscription<PreviewEvent>, never, Scope.Scope>;
+  }
+>()("@otto/server/preview/manager/PreviewManager") {}
+
+/**
+ * Frame events carry a full-viewport PNG, so a subscriber scoped to one chat
+ * must never receive another chat's frames. Filter before RPC serialization.
+ */
+export const previewEventMatchesSubscription =
+  (input: PreviewEventsSubscribeInput) =>
+  (event: PreviewEvent): boolean =>
+    input.threadId === undefined || event.threadId === input.threadId;
+
+interface PreviewSessionState {
+  readonly threadId: string;
+  readonly tabId: string;
+  readonly snapshot: PreviewSessionSnapshot;
+}
+
+interface ManagerState {
+  /** All sessions across every thread, keyed by `${threadId}\u0000${tabId}`. */
+  readonly sessions: ReadonlyMap<string, PreviewSessionState>;
+  /** Global monotonic revision establishing list/event ordering. */
+  readonly revision: number;
+}
+
+const initialState: ManagerState = { sessions: new Map(), revision: 0 };
+
+type PreviewEventDraft = PreviewEvent extends infer Event
+  ? Event extends { readonly revision: number }
+    ? Omit<Event, "revision" | "serverEpoch">
+    : never
+  : never;
+
+const compositeKey = (threadId: string, tabId: string): string => `${threadId}\u0000${tabId}`;
+
+const sessionsForThread = (
+  state: ManagerState,
+  threadId: string,
+): ReadonlyArray<PreviewSessionState> => {
+  const out: PreviewSessionState[] = [];
+
+  for (const session of state.sessions.values()) {
+    if (session.threadId === threadId) out.push(session);
+  }
+
+  return out;
+};
+
+const normalizeUrl = (rawUrl: string): Effect.Effect<string, PreviewInvalidUrlError> =>
+  Effect.try({
+    try: () => normalizePreviewUrl(rawUrl),
+    catch: (cause) => {
+      if (isPreviewUrlNormalizationError(cause)) {
+        return new PreviewInvalidUrlError({
+          inputLength: cause.inputLength,
+          reason: cause.reason,
+          protocol: cause.protocol,
+          cause,
+        });
+      }
+
+      return new PreviewInvalidUrlError({
+        inputLength: rawUrl.length,
+        reason: "unexpected",
+        cause,
+      });
+    },
+  });
+
+const currentIsoTimestamp = DateTime.now.pipe(Effect.map(DateTime.formatIso));
+
+const buildLoadingSnapshot = (input: {
+  readonly threadId: string;
+  readonly tabId: string;
+  readonly url: string;
+  readonly title: string;
+  readonly viewport: PreviewViewportSetting;
+  readonly updatedAt: string;
+}): PreviewSessionSnapshot => ({
+  threadId: input.threadId,
+  tabId: input.tabId,
+  navStatus: Navigation["Loading"]({ url: input.url, title: input.title }),
+  canGoBack: false,
+  canGoForward: false,
+  viewport: input.viewport,
+  updatedAt: input.updatedAt,
+});
+
+const buildIdleSnapshot = (input: {
+  readonly threadId: string;
+  readonly tabId: string;
+  readonly viewport: PreviewViewportSetting;
+  readonly updatedAt: string;
+}): PreviewSessionSnapshot => ({
+  threadId: input.threadId,
+  tabId: input.tabId,
+  navStatus: Navigation["Idle"](),
+  canGoBack: false,
+  canGoForward: false,
+  viewport: input.viewport,
+  updatedAt: input.updatedAt,
+});
+
+export const make = Effect.gen(function* PreviewManagerMake() {
+  const serverEpoch = NodeCrypto.randomUUID();
+  const stateRef = yield* SynchronizedRef.make<ManagerState>(initialState);
+  // Unbounded so a slow subscriber never blocks publishers or loses a
+  // lifecycle event. Frame events are not tiny (base64 PNGs): a subscriber
+  // that stops pulling retains every event published in the meantime, and
+  // its chat filter runs only as it pulls.
+  const eventsPubSub = yield* PubSub.unbounded<PreviewEvent>();
+
+  const streamEvents: PreviewManager["Service"]["streamEvents"] = (input) =>
+    Stream.fromPubSub(eventsPubSub).pipe(Stream.filter(previewEventMatchesSubscription(input)));
+
+  /**
+   * Atomic read-modify-write over the session for `(threadId, tabId)`. The
+   * mutator runs under the SynchronizedRef so concurrent writers cannot
+   * interleave. Lookup failures travel through the modify result so both
+   * branches yield the same `[A, S]` shape `modifyEffect` requires.
+   *
+   * The event is published INSIDE the lock so observers see events in the
+   * same order as the underlying state transitions. Publishing an unbounded
+   * PubSub is non-blocking, so this is cheap.
+   */
+  const mutateExistingSession = <R, E>(
+    threadId: string,
+    tabId: string,
+    mutator: (
+      session: PreviewSessionState,
+    ) => Effect.Effect<{ next: PreviewSessionState; emit: PreviewEventDraft | null; result: R }, E>,
+  ): Effect.Effect<R, E | PreviewSessionLookupError> => {
+    type ModifyResult =
+      | { kind: "fail"; error: PreviewSessionLookupError }
+      | { kind: "ok"; result: R };
+
+    return SynchronizedRef.modifyEffect(stateRef, (state) => {
+      const session = state.sessions.get(compositeKey(threadId, tabId));
+
+      if (!session) {
+        return Effect.succeed<readonly [ModifyResult, ManagerState]>([
+          { kind: "fail", error: new PreviewSessionLookupError({ threadId, tabId }) },
+          state,
+        ]);
+      }
+
+      return mutator(session).pipe(
+        Effect.flatMap(
+          Effect.fn("PreviewManager.commitMutation")(function* ({
+            next,
+            emit,
+            result,
+          }): Effect.fn.Return<readonly [ModifyResult, ManagerState]> {
+            const revision = emit ? state.revision + 1 : state.revision;
+
+            if (emit) {
+              yield* PubSub.publish(eventsPubSub, {
+                ...emit,
+                revision,
+                serverEpoch,
+              });
+            }
+
+            const sessions = new Map(state.sessions);
+            sessions.set(compositeKey(threadId, tabId), next);
+
+            return [
+              { kind: "ok", result },
+              { sessions, revision },
+            ];
+          }),
+        ),
+      );
+    }).pipe(
+      Effect.flatMap((modify) =>
+        modify.kind === "fail" ? Effect.fail(modify.error) : Effect.succeed(modify.result),
+      ),
+    );
+  };
+
+  const open: PreviewManager["Service"]["open"] = Effect.fn("PreviewManager.open")(
+    function* (input) {
+      const tabId = newPreviewTabId();
+      const updatedAt = yield* currentIsoTimestamp;
+      // Clients with a configured default send the viewport up front so the
+      // session is born at the right size; older clients omit it and keep the
+      // historical fill-panel behaviour.
+      const viewport = input.viewport ?? FILL_PREVIEW_VIEWPORT;
+
+      const snapshot = input.url
+        ? buildLoadingSnapshot({
+            threadId: input.threadId,
+            tabId,
+            url: yield* normalizeUrl(input.url),
+            title: "",
+            viewport,
+            updatedAt,
+          })
+        : buildIdleSnapshot({ threadId: input.threadId, tabId, viewport, updatedAt });
+
+      yield* SynchronizedRef.modifyEffect(stateRef, (state) =>
+        Effect.gen(function* () {
+          const revision = state.revision + 1;
+          const sessions = new Map(state.sessions);
+          sessions.set(compositeKey(input.threadId, tabId), {
+            threadId: input.threadId,
+            tabId,
+            snapshot,
+          });
+          yield* PubSub.publish(eventsPubSub, {
+            type: "opened",
+            threadId: input.threadId,
+            tabId,
+            createdAt: snapshot.updatedAt,
+            serverEpoch,
+            revision,
+            snapshot,
+          });
+
+          return [snapshot, { sessions, revision }] as const;
+        }),
+      );
+
+      return snapshot;
+    },
+  );
+
+  const navigate: PreviewManager["Service"]["navigate"] = Effect.fn("PreviewManager.navigate")(
+    function* (input) {
+      const url = yield* normalizeUrl(input.url);
+
+      return yield* mutateExistingSession(
+        input.threadId,
+        input.tabId,
+        Effect.fn("PreviewManager.navigateSession")(function* (session) {
+          const updatedAt = yield* currentIsoTimestamp;
+
+          const previousTitle = Match.value(session.snapshot.navStatus).pipe(
+            Match.tag("Idle", () => ""),
+            Match.orElse((navigation) => navigation.title),
+          );
+
+          const resolvedTitle = input.resolvedTitle ?? previousTitle;
+
+          const snapshot: PreviewSessionSnapshot = {
+            threadId: session.threadId,
+            tabId: session.tabId,
+            navStatus: Navigation["Success"]({ url, title: resolvedTitle }),
+            canGoBack: session.snapshot.canGoBack,
+            canGoForward: session.snapshot.canGoForward,
+            viewport: session.snapshot.viewport ?? FILL_PREVIEW_VIEWPORT,
+            updatedAt,
+          };
+
+          return {
+            next: { ...session, snapshot },
+            emit: {
+              type: "navigated",
+              threadId: session.threadId,
+              tabId: session.tabId,
+              createdAt: snapshot.updatedAt,
+              snapshot,
+            },
+            result: snapshot,
+          };
+        }),
+      );
+    },
+  );
+
+  const reportStatus: PreviewManager["Service"]["reportStatus"] = Effect.fn(
+    "PreviewManager.reportStatus",
+  )(function* (input) {
+    yield* mutateExistingSession(
+      input.threadId,
+      input.tabId,
+      Effect.fn("PreviewManager.reportSessionStatus")(function* (session) {
+        const updatedAt = yield* currentIsoTimestamp;
+
+        const snapshot: PreviewSessionSnapshot = {
+          threadId: session.threadId,
+          tabId: session.tabId,
+          navStatus: input.navStatus,
+          canGoBack: input.canGoBack,
+          canGoForward: input.canGoForward,
+          viewport: session.snapshot.viewport ?? FILL_PREVIEW_VIEWPORT,
+          updatedAt,
+        };
+
+        const emit: PreviewEventDraft = Predicate.isTagged(input.navStatus, "LoadFailed")
+          ? {
+              type: "failed",
+              threadId: session.threadId,
+              tabId: session.tabId,
+              createdAt: snapshot.updatedAt,
+              url: input.navStatus.url,
+              title: input.navStatus.title,
+              code: input.navStatus.code,
+              description: input.navStatus.description,
+            }
+          : {
+              type: "navigated",
+              threadId: session.threadId,
+              tabId: session.tabId,
+              createdAt: snapshot.updatedAt,
+              snapshot,
+            };
+
+        return {
+          next: { ...session, snapshot },
+          emit,
+          result: undefined,
+        };
+      }),
+    );
+  });
+
+  const reportFrame: PreviewManager["Service"]["reportFrame"] = Effect.fn(
+    "PreviewManager.reportFrame",
+  )(function* (input) {
+    yield* mutateExistingSession(input.threadId, input.tabId, (session) =>
+      currentIsoTimestamp.pipe(
+        Effect.map((createdAt) => ({
+          next: session,
+          emit: {
+            type: "frame" as const,
+            threadId: session.threadId,
+            tabId: session.tabId,
+            createdAt,
+            frame: input.frame,
+          },
+          result: undefined,
+        })),
+      ),
+    );
+  });
+
+  const resize: PreviewManager["Service"]["resize"] = Effect.fn("PreviewManager.resize")(
+    function* (input) {
+      return yield* mutateExistingSession(
+        input.threadId,
+        input.tabId,
+        Effect.fn("PreviewManager.resizeSession")(function* (session) {
+          const updatedAt = yield* currentIsoTimestamp;
+
+          const snapshot: PreviewSessionSnapshot = {
+            ...session.snapshot,
+            viewport: input.viewport,
+            updatedAt,
+          };
+
+          return {
+            next: { ...session, snapshot },
+            emit: {
+              type: "resized",
+              threadId: session.threadId,
+              tabId: session.tabId,
+              createdAt: snapshot.updatedAt,
+              snapshot,
+            },
+            result: snapshot,
+          };
+        }),
+      );
+    },
+  );
+
+  const refresh: PreviewManager["Service"]["refresh"] = Effect.fn("PreviewManager.refresh")(
+    function* (input) {
+      // Verify the session exists; the desktop bridge handles the actual reload
+      // and will report progress back via `reportStatus`. No event emitted.
+      yield* mutateExistingSession(input.threadId, input.tabId, (session) =>
+        Effect.succeed({ next: session, emit: null, result: undefined }),
+      );
+    },
+  );
+
+  const close: PreviewManager["Service"]["close"] = Effect.fn("PreviewManager.close")(
+    function* (input) {
+      const createdAt = yield* currentIsoTimestamp;
+      yield* SynchronizedRef.modifyEffect(stateRef, (state) => {
+        const eventsToEmit: PreviewEvent[] = [];
+        const sessions = new Map(state.sessions);
+
+        const targets = input.tabId
+          ? [state.sessions.get(compositeKey(input.threadId, input.tabId))].filter(
+              (entry): entry is PreviewSessionState => entry !== undefined,
+            )
+          : sessionsForThread(state, input.threadId);
+
+        let revision = state.revision;
+
+        for (const target of targets) {
+          revision += 1;
+          sessions.delete(compositeKey(target.threadId, target.tabId));
+          eventsToEmit.push({
+            type: "closed",
+            threadId: target.threadId,
+            tabId: target.tabId,
+            createdAt,
+            serverEpoch,
+            revision,
+          });
+        }
+
+        if (eventsToEmit.length === 0) {
+          return Effect.succeed([undefined, state] as const);
+        }
+
+        return Effect.as(
+          Effect.forEach(eventsToEmit, (event) => PubSub.publish(eventsPubSub, event), {
+            discard: true,
+          }),
+          [undefined, { sessions, revision }] as const,
+        );
+      });
+    },
+  );
+
+  const list: PreviewManager["Service"]["list"] = Effect.fn("PreviewManager.list")(
+    function* (input) {
+      return yield* SynchronizedRef.get(stateRef).pipe(
+        Effect.map(
+          (state): PreviewListResult => ({
+            sessions: sessionsForThread(state, input.threadId)
+              .map((s) => s.snapshot)
+              .toSorted((a, b) => a.updatedAt.localeCompare(b.updatedAt)),
+            serverEpoch,
+            revision: state.revision,
+          }),
+        ),
+      );
+    },
+  );
+
+  return PreviewManager.of({
+    open,
+    navigate,
+    reportStatus,
+    reportFrame,
+    resize,
+    refresh,
+    close,
+    list,
+    streamEvents,
+    subscribeEvents: PubSub.subscribe(eventsPubSub),
+  });
+}).pipe(Effect.withSpan("PreviewManager.make"));
+
+export const layer = Layer.effect(PreviewManager, make);
+
+const Navigation = Data.taggedEnum<PreviewSessionSnapshot["navStatus"]>();

@@ -5,36 +5,36 @@
   "type": "module",
   "exports": {
     "./themePalettes": {
-      "types": "./src/themePalettes.ts",
-      "import": "./src/themePalettes.ts"
+      "types": "./src/theme-palettes.ts",
+      "import": "./src/theme-palettes.ts"
     },
     "./channelProject": {
-      "types": "./src/channelProject.ts",
-      "import": "./src/channelProject.ts"
+      "types": "./src/channel-project.ts",
+      "import": "./src/channel-project.ts"
     },
     "./errorText": {
-      "types": "./src/errorText.ts",
-      "import": "./src/errorText.ts"
+      "types": "./src/error-text.ts",
+      "import": "./src/error-text.ts"
     },
     "./model": {
       "types": "./src/model.ts",
       "import": "./src/model.ts"
     },
     "./advertisedEndpoint": {
-      "types": "./src/advertisedEndpoint.ts",
-      "import": "./src/advertisedEndpoint.ts"
+      "types": "./src/advertised-endpoint.ts",
+      "import": "./src/advertised-endpoint.ts"
     },
     "./agentAwareness": {
-      "types": "./src/agentAwareness.ts",
-      "import": "./src/agentAwareness.ts"
+      "types": "./src/agent-awareness.ts",
+      "import": "./src/agent-awareness.ts"
     },
     "./git": {
       "types": "./src/git.ts",
       "import": "./src/git.ts"
     },
     "./sourceControl": {
-      "types": "./src/sourceControl.ts",
-      "import": "./src/sourceControl.ts"
+      "types": "./src/source-control.ts",
+      "import": "./src/source-control.ts"
     },
     "./logging": {
       "types": "./src/logging.ts",
@@ -53,64 +53,64 @@
       "import": "./src/semver.ts"
     },
     "./Net": {
-      "types": "./src/Net.ts",
-      "import": "./src/Net.ts"
+      "types": "./src/net.ts",
+      "import": "./src/net.ts"
     },
     "./delegationProviders": {
-      "types": "./src/delegationProviders.ts",
-      "import": "./src/delegationProviders.ts"
+      "types": "./src/delegation-providers.ts",
+      "import": "./src/delegation-providers.ts"
     },
     "./delegationSummaryText": {
-      "types": "./src/delegationSummaryText.ts",
-      "import": "./src/delegationSummaryText.ts"
+      "types": "./src/delegation-summary-text.ts",
+      "import": "./src/delegation-summary-text.ts"
     },
     "./DrainableWorker": {
-      "types": "./src/DrainableWorker.ts",
-      "import": "./src/DrainableWorker.ts"
+      "types": "./src/drainable-worker.ts",
+      "import": "./src/drainable-worker.ts"
     },
     "./KeyedCoalescingWorker": {
-      "types": "./src/KeyedCoalescingWorker.ts",
-      "import": "./src/KeyedCoalescingWorker.ts"
+      "types": "./src/keyed-coalescing-worker.ts",
+      "import": "./src/keyed-coalescing-worker.ts"
     },
     "./schemaJson": {
-      "types": "./src/schemaJson.ts",
-      "import": "./src/schemaJson.ts"
+      "types": "./src/schema-json.ts",
+      "import": "./src/schema-json.ts"
     },
     "./schemaYaml": {
-      "types": "./src/schemaYaml.ts",
-      "import": "./src/schemaYaml.ts"
+      "types": "./src/schema-yaml.ts",
+      "import": "./src/schema-yaml.ts"
     },
     "./toolActivity": {
-      "types": "./src/toolActivity.ts",
-      "import": "./src/toolActivity.ts"
+      "types": "./src/tool-activity.ts",
+      "import": "./src/tool-activity.ts"
     },
     "./Struct": {
-      "types": "./src/Struct.ts",
-      "import": "./src/Struct.ts"
+      "types": "./src/struct.ts",
+      "import": "./src/struct.ts"
     },
     "./serverSettings": {
-      "types": "./src/serverSettings.ts",
-      "import": "./src/serverSettings.ts"
+      "types": "./src/server-settings.ts",
+      "import": "./src/server-settings.ts"
     },
     "./sensitiveDataRedaction": {
-      "types": "./src/sensitiveDataRedaction.ts",
-      "import": "./src/sensitiveDataRedaction.ts"
+      "types": "./src/sensitive-data-redaction.ts",
+      "import": "./src/sensitive-data-redaction.ts"
     },
     "./backgroundActivitySettings": {
-      "types": "./src/backgroundActivitySettings.ts",
-      "import": "./src/backgroundActivitySettings.ts"
+      "types": "./src/background-activity-settings.ts",
+      "import": "./src/background-activity-settings.ts"
     },
     "./String": {
-      "types": "./src/String.ts",
-      "import": "./src/String.ts"
+      "types": "./src/string.ts",
+      "import": "./src/string.ts"
     },
     "./projectScripts": {
-      "types": "./src/projectScripts.ts",
-      "import": "./src/projectScripts.ts"
+      "types": "./src/project-scripts.ts",
+      "import": "./src/project-scripts.ts"
     },
     "./orchestrationTiming": {
-      "types": "./src/orchestrationTiming.ts",
-      "import": "./src/orchestrationTiming.ts"
+      "types": "./src/orchestration-timing.ts",
+      "import": "./src/orchestration-timing.ts"
     },
     "./remote": {
       "types": "./src/remote.ts",
@@ -121,20 +121,20 @@
       "import": "./src/relay.ts"
     },
     "./oauthScope": {
-      "types": "./src/oauthScope.ts",
-      "import": "./src/oauthScope.ts"
+      "types": "./src/oauth-scope.ts",
+      "import": "./src/oauth-scope.ts"
     },
     "./searchRanking": {
-      "types": "./src/searchRanking.ts",
-      "import": "./src/searchRanking.ts"
+      "types": "./src/search-ranking.ts",
+      "import": "./src/search-ranking.ts"
     },
     "./qrCode": {
-      "types": "./src/qrCode.ts",
-      "import": "./src/qrCode.ts"
+      "types": "./src/qr-code.ts",
+      "import": "./src/qr-code.ts"
     },
     "./cliArgs": {
-      "types": "./src/cliArgs.ts",
-      "import": "./src/cliArgs.ts"
+      "types": "./src/cli-args.ts",
+      "import": "./src/cli-args.ts"
     },
     "./path": {
       "types": "./src/path.ts",
@@ -145,76 +145,76 @@
       "import": "./src/keybindings.ts"
     },
     "./composerTrigger": {
-      "types": "./src/composerTrigger.ts",
-      "import": "./src/composerTrigger.ts"
+      "types": "./src/composer-trigger.ts",
+      "import": "./src/composer-trigger.ts"
     },
     "./composerThreadMentions": {
-      "types": "./src/composerThreadMentions.ts",
-      "import": "./src/composerThreadMentions.ts"
+      "types": "./src/composer-thread-mentions.ts",
+      "import": "./src/composer-thread-mentions.ts"
     },
     "./composerBotMentions": {
-      "types": "./src/composerBotMentions.ts",
-      "import": "./src/composerBotMentions.ts"
+      "types": "./src/composer-bot-mentions.ts",
+      "import": "./src/composer-bot-mentions.ts"
     },
     "./composerInlineTokens": {
-      "types": "./src/composerInlineTokens.ts",
-      "import": "./src/composerInlineTokens.ts"
+      "types": "./src/composer-inline-tokens.ts",
+      "import": "./src/composer-inline-tokens.ts"
     },
     "./groupRound": {
-      "types": "./src/groupRound.ts",
-      "import": "./src/groupRound.ts"
+      "types": "./src/group-round.ts",
+      "import": "./src/group-round.ts"
     },
     "./preview": {
       "types": "./src/preview.ts",
       "import": "./src/preview.ts"
     },
     "./previewViewport": {
-      "types": "./src/previewViewport.ts",
-      "import": "./src/previewViewport.ts"
+      "types": "./src/preview-viewport.ts",
+      "import": "./src/preview-viewport.ts"
     },
     "./filePreview": {
-      "types": "./src/filePreview.ts",
-      "import": "./src/filePreview.ts"
+      "types": "./src/file-preview.ts",
+      "import": "./src/file-preview.ts"
     },
     "./imageDimensions": {
-      "types": "./src/imageDimensions.ts",
-      "import": "./src/imageDimensions.ts"
+      "types": "./src/image-dimensions.ts",
+      "import": "./src/image-dimensions.ts"
     },
     "./chatList": {
-      "types": "./src/chatList.ts",
-      "import": "./src/chatList.ts"
+      "types": "./src/chat-list.ts",
+      "import": "./src/chat-list.ts"
     },
     "./hostProcess": {
-      "types": "./src/hostProcess.ts",
-      "import": "./src/hostProcess.ts"
+      "types": "./src/host-process.ts",
+      "import": "./src/host-process.ts"
     },
     "./httpReadiness": {
-      "types": "./src/httpReadiness.ts",
-      "import": "./src/httpReadiness.ts"
+      "types": "./src/http-readiness.ts",
+      "import": "./src/http-readiness.ts"
     },
     "./devHome": {
-      "types": "./src/devHome.ts",
-      "import": "./src/devHome.ts"
+      "types": "./src/dev-home.ts",
+      "import": "./src/dev-home.ts"
     },
     "./devProxy": {
-      "types": "./src/devProxy.ts",
-      "import": "./src/devProxy.ts"
+      "types": "./src/dev-proxy.ts",
+      "import": "./src/dev-proxy.ts"
     },
     "./usageMerge": {
-      "types": "./src/usageMerge.ts",
-      "import": "./src/usageMerge.ts"
+      "types": "./src/usage-merge.ts",
+      "import": "./src/usage-merge.ts"
     },
     "./usageFormat": {
-      "types": "./src/usageFormat.ts",
-      "import": "./src/usageFormat.ts"
+      "types": "./src/usage-format.ts",
+      "import": "./src/usage-format.ts"
     },
     "./claudeCompaction": {
-      "types": "./src/claudeCompaction.ts",
-      "import": "./src/claudeCompaction.ts"
+      "types": "./src/claude-compaction.ts",
+      "import": "./src/claude-compaction.ts"
     },
     "./hostClassification": {
-      "types": "./src/hostClassification.ts",
-      "import": "./src/hostClassification.ts"
+      "types": "./src/host-classification.ts",
+      "import": "./src/host-classification.ts"
     },
     "./favicon": {
       "types": "./src/favicon.ts",

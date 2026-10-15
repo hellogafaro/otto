@@ -19,7 +19,7 @@ import { AsyncResult, Atom } from "effect/unstable/reactivity";
 
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
-import { primaryEnvironmentIdAtom } from "./primaryEnvironment";
+import { primaryEnvironmentIdAtom } from "./primary-environment";
 import { environmentSession } from "./session";
 
 export const serverEnvironment = createServerEnvironmentAtoms(connectionAtomRuntime, {

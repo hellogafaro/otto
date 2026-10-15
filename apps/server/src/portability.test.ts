@@ -29,7 +29,7 @@ import {
   LATER,
   GROUP_ID,
   URL_MCP_ID,
-} from "./portabilityTestSupport.ts";
+} from "./portability-test-support.ts";
 
 describe("portability archive", () => {
   it("creates deterministic sorted records and an exact manifest", () => {

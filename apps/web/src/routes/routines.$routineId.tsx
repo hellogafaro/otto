@@ -1,7 +1,7 @@
 import { RoutineId } from "@otto/contracts";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { RoutinePage } from "../components/routines/RoutinePage";
+import { RoutinePage } from "../components/routines/routine-page";
 
 export const Route = createFileRoute("/routines/$routineId")({
   beforeLoad: async ({ context }) => {

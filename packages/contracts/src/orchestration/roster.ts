@@ -12,12 +12,12 @@ import {
   MessageId,
   ProjectId,
   TrimmedNonEmptyString,
-} from "../baseSchemas.ts";
-import { McpServerId } from "../mcpServer.ts";
+} from "../base-schemas.ts";
+import { McpServerId } from "../mcp-server.ts";
 import { LibraryFolderId } from "./library.ts";
 import { WorkDescription, WorkParticipant, WorkResources, WorkStatus } from "./work.ts";
-import { ImageProviderId } from "../imageGeneration.ts";
-import { ModelSelection, RuntimeMode, DEFAULT_RUNTIME_MODE } from "./modelSelection.ts";
+import { ImageProviderId } from "../image-generation.ts";
+import { ModelSelection, RuntimeMode, DEFAULT_RUNTIME_MODE } from "./model-selection.ts";
 
 export const ProjectScriptIcon = Schema.Literals([
   "play",

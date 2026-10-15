@@ -17,7 +17,7 @@ import {
   SETTLED_AT,
   NOW,
   createSession,
-} from "./test-support/SettledDeciderFixtures.ts";
+} from "./test-support/settled-decider-fixtures.ts";
 
 it.layer(NodeServices.layer)("settled thread decider", (it) => {
   it.effect("settles awake threads without a redundant wake and re-emits idempotently", () =>

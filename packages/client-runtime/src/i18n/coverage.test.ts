@@ -24,13 +24,13 @@ const read = (file: string) => readFileSync(new URL(file, root), "utf8");
 
 function readSurface(file: string): string {
   const modules =
-    file === "packages/client-runtime/src/durableMemory.ts"
+    file === "packages/client-runtime/src/durable-memory.ts"
       ? [
           file,
-          "packages/client-runtime/src/durableMemory/types.ts",
-          "packages/client-runtime/src/durableMemory/facts.ts",
-          "packages/client-runtime/src/durableMemory/import.ts",
-          "packages/client-runtime/src/durableMemory/approvals.ts",
+          "packages/client-runtime/src/durable-memory/types.ts",
+          "packages/client-runtime/src/durable-memory/facts.ts",
+          "packages/client-runtime/src/durable-memory/import.ts",
+          "packages/client-runtime/src/durable-memory/approvals.ts",
         ]
       : [file];
 
@@ -107,8 +107,8 @@ function literals(source: string, pattern: RegExp): string[] {
 }
 
 function finiteLabelSources() {
-  const settings = read("apps/web/src/components/settings/settingsSearch.ts");
-  const dialog = read("apps/web/src/components/settings/SettingsDialog.tsx");
+  const settings = read("apps/web/src/components/settings/settings-search.ts");
+  const dialog = read("apps/web/src/components/settings/settings-dialog.tsx");
   const dictation = read("apps/mobile/src/components/DictationControls.tsx");
 
   return {
@@ -157,21 +157,21 @@ describe("discovered interface message coverage", () => {
     const surfaces = [
       ...discover("apps/mobile/src"),
       ...discover("apps/web/src"),
-      "apps/web/src/components/CommandPalette.logic.ts",
-      "apps/web/src/components/chat/composerProviderMenuItems.ts",
+      "apps/web/src/components/command-palette.logic.ts",
+      "apps/web/src/components/chat/composer-provider-menu-items.ts",
       "apps/mobile/src/features/updates/app-updates.ts",
-      "apps/web/src/components/onboarding/desktopOnboarding.logic.ts",
-      "apps/web/src/components/onboarding/goalPlan.logic.ts",
-      "packages/client-runtime/src/botInbox.ts",
-      "packages/client-runtime/src/channelPresentation.ts",
-      "packages/client-runtime/src/durableMemory.ts",
-      "packages/client-runtime/src/errors/threadErrorPresentation.ts",
-      "packages/client-runtime/src/imageGeneration.ts",
-      "packages/client-runtime/src/providerAccessGuide.ts",
-      "packages/client-runtime/src/providerAvailability.ts",
-      "apps/web/src/components/roster/botEngineSelection.ts",
-      "apps/web/src/components/roster/routineReceipts.ts",
-      "apps/web/src/components/settings/SettingsPanels.logic.ts",
+      "apps/web/src/components/onboarding/desktop-onboarding.logic.ts",
+      "apps/web/src/components/onboarding/goal-plan.logic.ts",
+      "packages/client-runtime/src/bot-inbox.ts",
+      "packages/client-runtime/src/channel-presentation.ts",
+      "packages/client-runtime/src/durable-memory.ts",
+      "packages/client-runtime/src/errors/thread-error-presentation.ts",
+      "packages/client-runtime/src/image-generation.ts",
+      "packages/client-runtime/src/provider-access-guide.ts",
+      "packages/client-runtime/src/provider-availability.ts",
+      "apps/web/src/components/roster/bot-engine-selection.ts",
+      "apps/web/src/components/roster/routine-receipts.ts",
+      "apps/web/src/components/settings/settings-panels.logic.ts",
     ].sort();
 
     const missing: string[] = [];

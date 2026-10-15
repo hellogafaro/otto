@@ -7,9 +7,9 @@ import * as Option from "effect/Option";
 import * as RemoteEnvironmentAuthorization from "../authorization/service.ts";
 import * as ClientCapabilities from "../platform/capabilities.ts";
 import { BearerConnectionCredential, BearerConnectionProfile } from "./catalog.ts";
-import * as ConnectionCredentialStore from "./credentialStore.ts";
+import * as ConnectionCredentialStore from "./credential-store.ts";
 import { BearerConnectionTarget } from "./model.ts";
-import * as ConnectionProfileStore from "./profileStore.ts";
+import * as ConnectionProfileStore from "./profile-store.ts";
 import * as ConnectionResolver from "./resolver.ts";
 
 const target = new BearerConnectionTarget({

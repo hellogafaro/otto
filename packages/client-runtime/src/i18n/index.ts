@@ -14,13 +14,13 @@ export { translate, plural, createTranslator } from "./translator.ts";
 
 export { formatNumber, formatDate } from "./formatters.ts";
 
-export { type CatalogRegistry, catalogRegistry, createCatalogLoader } from "./catalogLoader.ts";
+export { type CatalogRegistry, catalogRegistry, createCatalogLoader } from "./catalog-loader.ts";
 
-export { validateCatalog } from "./catalogValidation.ts";
+export { validateCatalog } from "./catalog-validation.ts";
 
 export {
   type ConnectionFailureMessageCode,
   connectionFailureMessage,
   translateConnectionStatus,
   translateConnectionStatusWithDiagnostic,
-} from "./connectionStatus.ts";
+} from "./connection-status.ts";

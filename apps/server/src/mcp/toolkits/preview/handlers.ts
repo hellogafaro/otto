@@ -12,8 +12,8 @@ import type {
   PreviewTabId,
 } from "@otto/contracts";
 
-import * as McpInvocationContext from "../../McpInvocationContext.ts";
-import * as PreviewAutomationBroker from "../../PreviewAutomationBroker.ts";
+import * as McpInvocationContext from "../../mcp-invocation-context.ts";
+import * as PreviewAutomationBroker from "../../preview-automation-broker.ts";
 import { PreviewSnapshotToolkit, PreviewStandardToolkit, PreviewToolkit } from "./tools.ts";
 
 /**

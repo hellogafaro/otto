@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { NonNegativeInt, PositiveInt, TrimmedNonEmptyString } from "../baseSchemas.ts";
+import { NonNegativeInt, PositiveInt, TrimmedNonEmptyString } from "../base-schemas.ts";
 
 export const ServerProcessSignal = Schema.Literals(["SIGINT", "SIGKILL"]);
 

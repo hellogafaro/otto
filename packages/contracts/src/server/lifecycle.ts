@@ -6,7 +6,7 @@ import {
   ProjectId,
   ThreadId,
   TrimmedNonEmptyString,
-} from "../baseSchemas.ts";
+} from "../base-schemas.ts";
 
 /** Terminal selection recorded by the service launcher for one update. */
 export const ServerSelfUpdateOutcome = Schema.Struct({

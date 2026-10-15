@@ -92,7 +92,7 @@ line on stdout:
 
 The protocol version is defined by
 `RESOURCE_MONITOR_PROTOCOL_VERSION` in
-`packages/contracts/src/resourceTelemetry.ts`.
+`packages/contracts/src/resource-telemetry.ts`.
 
 ### Collection
 
@@ -222,7 +222,7 @@ WebSocket and are recreated for every backend restart.
 
 ## Server Effect services
 
-The implementation is under `apps/server/src/resourceTelemetry`.
+The implementation is under `apps/server/src/resource-telemetry`.
 
 ### `ResourceMonitorBinary`
 

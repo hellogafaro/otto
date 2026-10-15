@@ -1,0 +1,319 @@
+import * as Predicate from "effect/Predicate";
+import type {
+  ProviderDriverKind,
+  ModelCapabilities,
+  ServerProvider,
+  ServerProviderAuth,
+  ServerProviderSkill,
+  ServerProviderSlashCommand,
+  ServerProviderModel,
+  ServerProviderState,
+  ServerProviderUnavailability,
+} from "@otto/contracts";
+import * as Effect from "effect/Effect";
+import * as PlatformError from "effect/PlatformError";
+import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { normalizeCustomModelSlug } from "@otto/shared/model";
+import { isWindowsCommandNotFound } from "../process-runner.ts";
+import { createProviderVersionAdvisory } from "./provider-maintenance.ts";
+import { collectUint8StreamText } from "../stream/collect-uint8-stream-text.ts";
+
+export const DEFAULT_TIMEOUT_MS = 4_000;
+
+// Auth status checks involve disk/network lookups and can be slow on first run (especially Windows)
+export const AUTH_PROBE_TIMEOUT_MS = 10_000;
+
+export interface CommandResult {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly code: number;
+}
+
+export class ProviderCommandNotFoundError extends Schema.TaggedErrorClass<ProviderCommandNotFoundError>()(
+  "ProviderCommandNotFoundError",
+  {
+    binaryPath: Schema.String,
+    exitCode: Schema.Number,
+    stdoutLength: Schema.Number,
+    stderrLength: Schema.Number,
+  },
+) {
+  override get message(): string {
+    return `Provider command ${this.binaryPath} was not found (exit code ${this.exitCode}).`;
+  }
+}
+
+const isProviderCommandNotFoundError = Schema.is(ProviderCommandNotFoundError);
+
+export interface ProviderProbeResult {
+  readonly installed: boolean;
+  readonly version: string | null;
+  readonly status: Exclude<ServerProviderState, "disabled">;
+  readonly auth: ServerProviderAuth;
+  readonly message?: string;
+}
+
+/** Maps provider text once at the adapter boundary; unknown text stays useful. */
+export function providerUnavailabilityFromDetail(
+  driver: string,
+  detail: string,
+): ServerProviderUnavailability {
+  const text = detail.toLowerCase();
+
+  const mappings = new Map<string, ReadonlyArray<readonly [RegExp, ServerProviderUnavailability]>>(
+    Object.entries({
+      codex: [
+        [/refresh token|token expired|login expired/, "expired-login"],
+        [
+          /not logged in|not authenticated|authentication required|unauthorized|api key/,
+          "missing-login",
+        ],
+        [/model .*not found|unknown model|invalid model/, "unsupported-model"],
+        [/usage cap|spending limit|budget exceeded/, "usage-cap"],
+        [/rate limit|too many requests|quota/, "limit-reached"],
+      ],
+      claudeAgent: [
+        [/oauth token.*expired|token expired|session expired/, "expired-login"],
+        [/please run.*login|not authenticated|authentication required/, "missing-login"],
+        [/model.*not found|invalid model/, "unsupported-model"],
+        [/max usage|spending limit|budget exceeded/, "usage-cap"],
+        [/rate limit|overloaded|too many requests/, "limit-reached"],
+      ],
+      grok: [
+        [/expired|login expired|oauth.*invalid/, "expired-login"],
+        [/unauthorized|authentication|api key/, "missing-login"],
+        [/unknown model|model.*not found|invalid model/, "unsupported-model"],
+        [/usage cap|billing limit|budget exceeded/, "usage-cap"],
+        [/rate limit|too many requests|capacity/, "limit-reached"],
+      ],
+      kimi: [
+        [/token expired|session expired|login expired/, "expired-login"],
+        [/unauthorized|please login|authentication required|api key/, "missing-login"],
+        [/model.*not found|unsupported model|invalid model/, "unsupported-model"],
+        [/usage cap|quota exceeded|spending limit/, "usage-cap"],
+        [/rate limit|too many requests/, "limit-reached"],
+      ],
+      opencodeGo: [
+        [/session expired|token expired|re-authenticate/, "expired-login"],
+        [/not authenticated|unauthorized|sign in|api key/, "missing-login"],
+        [/model.*not found|unknown model|unsupported model/, "unsupported-model"],
+        [/usage cap|spending limit|budget exceeded/, "usage-cap"],
+        [/rate limit|too many requests|capacity/, "limit-reached"],
+      ],
+      // OpenCode's adapter reports the driver as `opencode`; keep this alias
+      // alongside the subscription-flavoured `opencodeGo` instance id.
+      opencode: [
+        [/session expired|token expired|re-authenticate|authentication expired/, "expired-login"],
+        [/not authenticated|unauthorized|sign in|api key/, "missing-login"],
+        [/model.*not found|unknown model|unsupported model/, "unsupported-model"],
+        [/usage cap|spending limit|budget exceeded/, "usage-cap"],
+        [/rate limit|too many requests|capacity/, "limit-reached"],
+      ],
+    } satisfies Record<string, ReadonlyArray<readonly [RegExp, ServerProviderUnavailability]>>),
+  );
+
+  return mappings.get(driver)?.find(([pattern]) => pattern.test(text))?.[1] ?? "temporary-failure";
+}
+
+export interface ServerProviderPresentation {
+  readonly displayName: string;
+  readonly badgeLabel?: string;
+  readonly showInteractionModeToggle?: boolean;
+  readonly requiresNewThreadForModelChange?: boolean;
+}
+
+export type ServerProviderDraft = Omit<ServerProvider, "instanceId" | "driver">;
+
+export function nonEmptyTrimmed(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+export function isCommandMissingCause(cause: unknown): boolean {
+  if (isProviderCommandNotFoundError(cause)) return true;
+
+  return (
+    cause instanceof PlatformError.PlatformError && Predicate.isTagged(cause.reason, "NotFound")
+  );
+}
+
+export const spawnAndCollect = (binaryPath: string, command: ChildProcess.Command) =>
+  Effect.gen(function* () {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const child = yield* spawner.spawn(command);
+
+    const [stdout, stderr, exitCode] = yield* Effect.all(
+      [
+        collectStreamAsString(child.stdout),
+        collectStreamAsString(child.stderr),
+        child.exitCode.pipe(Effect.map(Number)),
+      ],
+      { concurrency: "unbounded" },
+    );
+
+    const result: CommandResult = { stdout, stderr, code: exitCode };
+
+    if (yield* isWindowsCommandNotFound(exitCode, stderr)) {
+      return yield* new ProviderCommandNotFoundError({
+        binaryPath,
+        exitCode,
+        stdoutLength: stdout.length,
+        stderrLength: stderr.length,
+      });
+    }
+
+    return result;
+  }).pipe(Effect.scoped);
+
+export function parseGenericCliVersion(output: string): string | null {
+  const match = output.match(/\b(\d+\.\d+\.\d+)\b/);
+
+  return match?.[1] ?? null;
+}
+
+export function providerModelsFromSettings(
+  builtInModels: ReadonlyArray<ServerProviderModel>,
+  customModels: ReadonlyArray<string>,
+  customModelCapabilities: ModelCapabilities,
+): ReadonlyArray<ServerProviderModel> {
+  const resolvedBuiltInModels = [...builtInModels];
+  const seen = new Set(resolvedBuiltInModels.map((model) => model.slug));
+  const customEntries: ServerProviderModel[] = [];
+
+  for (const candidate of customModels) {
+    const normalized = normalizeCustomModelSlug(candidate);
+
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    customEntries.push({
+      slug: normalized,
+      name: normalized,
+      isCustom: true,
+      capabilities: customModelCapabilities,
+    });
+  }
+
+  return [...resolvedBuiltInModels, ...customEntries];
+}
+
+export function buildSelectOptionDescriptor(input: {
+  readonly id: string;
+  readonly label: string;
+  readonly options:
+    | ReadonlyArray<{
+        value: string;
+        label: string;
+        description?: string | undefined;
+        isDefault?: boolean | undefined;
+      }>
+    | undefined;
+  readonly description?: string;
+  readonly promptInjectedValues?: ReadonlyArray<string>;
+}) {
+  const options = (input.options ?? []).map((option) => ({
+    id: option.value,
+    label: option.label,
+    ...(option.description ? { description: option.description } : {}),
+    ...(option.isDefault ? { isDefault: true } : {}),
+  }));
+
+  const currentValue = options.find((option) => option.isDefault)?.id;
+
+  return {
+    id: input.id,
+    label: input.label,
+    type: "select" as const,
+    options,
+    ...(currentValue ? { currentValue } : {}),
+    ...(input.description ? { description: input.description } : {}),
+    ...(input.promptInjectedValues && input.promptInjectedValues.length > 0
+      ? { promptInjectedValues: [...input.promptInjectedValues] }
+      : {}),
+  };
+}
+
+export function buildBooleanOptionDescriptor(input: {
+  readonly id: string;
+  readonly label: string;
+  readonly currentValue?: boolean;
+  readonly description?: string;
+}) {
+  return {
+    id: input.id,
+    label: input.label,
+    type: "boolean" as const,
+    ...(input.description ? { description: input.description } : {}),
+    ...(Predicate.isBoolean(input.currentValue) ? { currentValue: input.currentValue } : {}),
+  };
+}
+
+// Probes also report informational messages ("not checked yet", upgrade
+// notices) on usable providers. Only an error probe falls back to
+// "temporary-failure"; other states count only when the message names a
+// specific cause.
+function probeUnavailability(driver: string, probe: ProviderProbeResult) {
+  if (probe.message && probe.status !== "ready") {
+    const category = providerUnavailabilityFromDetail(driver, probe.message);
+
+    if (probe.status === "error" || category !== "temporary-failure") return category;
+  }
+
+  return probe.auth.status === "unauthenticated" ? ("missing-login" as const) : undefined;
+}
+
+export function buildServerProvider(input: {
+  driver?: ProviderDriverKind;
+  presentation: ServerProviderPresentation;
+  enabled: boolean;
+  checkedAt: string;
+  models: ReadonlyArray<ServerProviderModel>;
+  slashCommands?: ReadonlyArray<ServerProviderSlashCommand>;
+  skills?: ReadonlyArray<ServerProviderSkill>;
+  probe: ProviderProbeResult;
+}): ServerProviderDraft {
+  const versionAdvisory = input.driver
+    ? createProviderVersionAdvisory({
+        driver: input.driver,
+        currentVersion: input.probe.version,
+        checkedAt: input.checkedAt,
+      })
+    : undefined;
+
+  const unavailability = probeUnavailability(input.driver ?? "unknown", input.probe);
+
+  return {
+    displayName: input.presentation.displayName,
+    ...(input.presentation.badgeLabel ? { badgeLabel: input.presentation.badgeLabel } : {}),
+    ...(Predicate.isBoolean(input.presentation.showInteractionModeToggle)
+      ? { showInteractionModeToggle: input.presentation.showInteractionModeToggle }
+      : {}),
+    ...(Predicate.isBoolean(input.presentation.requiresNewThreadForModelChange)
+      ? { requiresNewThreadForModelChange: input.presentation.requiresNewThreadForModelChange }
+      : {}),
+    enabled: input.enabled,
+    installed: input.probe.installed,
+    version: input.probe.version,
+    status: input.enabled ? input.probe.status : "disabled",
+    auth: input.probe.auth,
+    checkedAt: input.checkedAt,
+    ...(input.probe.message ? { message: input.probe.message } : {}),
+    ...(unavailability ? { unavailability } : {}),
+    models: input.models,
+    slashCommands: [...(input.slashCommands ?? [])],
+    skills: [...(input.skills ?? [])],
+    ...(versionAdvisory ? { versionAdvisory } : {}),
+  };
+}
+
+export const collectStreamAsString = <E>(
+  stream: Stream.Stream<Uint8Array, E>,
+  options?: { readonly maxBytes?: number | undefined },
+): Effect.Effect<string, E> =>
+  collectUint8StreamText({ stream, ...options }).pipe(Effect.map((collected) => collected.text));

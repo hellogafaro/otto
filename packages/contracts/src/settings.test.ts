@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { ProviderInstanceId } from "./providerInstance.ts";
+import { ProviderInstanceId } from "./provider-instance.ts";
 import {
   decodeClientSettings,
   decodeClientSettingsPatch,

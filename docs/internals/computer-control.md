@@ -39,9 +39,9 @@ Sleep, missing workspaces, and replacement recovery remain LEO-284 / LEO-399. Th
 
 ## Client lifecycle
 
-`packages/client-runtime/src/state/computerViewer.ts` is a pure reducer over the server state, the local lease, the latest frame, and connection and visibility. `deriveComputerViewer` turns it into one phase and one owner (`bot`, `you`, `someone-else`, or `nobody`). The owner is derived from the lease and the server status, so a client never shows two owners at once. `explainComputerCapability` explains an unavailable computer from the bot's sandbox and engine instead of a generic error.
+`packages/client-runtime/src/state/computer-viewer.ts` is a pure reducer over the server state, the local lease, the latest frame, and connection and visibility. `deriveComputerViewer` turns it into one phase and one owner (`bot`, `you`, `someone-else`, or `nobody`). The owner is derived from the lease and the server status, so a client never shows two owners at once. `explainComputerCapability` explains an unavailable computer from the bot's sandbox and engine instead of a generic error.
 
-`computerViewerController.ts` owns the RPC order through a port the web client binds to atom commands:
+`computer-viewer-controller.ts` owns the RPC order through a port the web client binds to atom commands:
 
 - `show` reads state and opens the stream. `hide` calls `close`, which hands control back to the bot and keeps the computer running.
 - Input goes through one serialized queue capped at 32 actions. Consecutive scrolls coalesce, and a full queue drops the oldest pointer move, or the new action when no move is queued. Sequence numbers are assigned only when an action is sent.

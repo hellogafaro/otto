@@ -1,7 +1,7 @@
 import { TaskId } from "@otto/contracts";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { TaskPage } from "../components/work/TaskPage";
+import { TaskPage } from "../components/work/task-page";
 
 export const Route = createFileRoute("/tasks/$taskId")({
   beforeLoad: async ({ context }) => {

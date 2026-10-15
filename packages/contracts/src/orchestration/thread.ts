@@ -16,9 +16,9 @@ import {
   TrimmedNonEmptyString,
   TurnId,
   Visibility,
-} from "../baseSchemas.ts";
-import { ProviderDriverKind, ProviderInstanceId } from "../providerInstance.ts";
-import { McpServerId } from "../mcpServer.ts";
+} from "../base-schemas.ts";
+import { ProviderDriverKind, ProviderInstanceId } from "../provider-instance.ts";
+import { McpServerId } from "../mcp-server.ts";
 import { DelegationIdSchema } from "./identities.ts";
 import {
   ModelSelection,
@@ -26,7 +26,7 @@ import {
   DEFAULT_RUNTIME_MODE,
   ProviderInteractionMode,
   DEFAULT_PROVIDER_INTERACTION_MODE,
-} from "./modelSelection.ts";
+} from "./model-selection.ts";
 import { ChatAttachment } from "./attachments.ts";
 import { ChannelProvider } from "./roster.ts";
 

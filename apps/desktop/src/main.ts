@@ -20,48 +20,48 @@ import { resolveRemoteOttoLegacyCliPackageSpec } from "@otto/ssh/command";
 import type { RemoteOttoLegacyRunnerOptions } from "@otto/ssh/tunnel";
 import serverPackageJson from "../../server/package.json" with { type: "json" };
 
-import * as DesktopIpc from "./ipc/DesktopIpc.ts";
-import * as ElectronApp from "./electron/ElectronApp.ts";
-import * as ElectronDialog from "./electron/ElectronDialog.ts";
-import * as ElectronMenu from "./electron/ElectronMenu.ts";
-import * as ElectronPowerMonitor from "./electron/ElectronPowerMonitor.ts";
-import * as ElectronProtocol from "./electron/ElectronProtocol.ts";
-import * as ElectronSafeStorage from "./electron/ElectronSafeStorage.ts";
-import * as ElectronShell from "./electron/ElectronShell.ts";
-import * as ElectronTheme from "./electron/ElectronTheme.ts";
-import * as ElectronUpdater from "./electron/ElectronUpdater.ts";
-import * as ElectronWindow from "./electron/ElectronWindow.ts";
-import * as DesktopApp from "./app/DesktopApp.ts";
-import * as DesktopAppIdentity from "./app/DesktopAppIdentity.ts";
-import * as DesktopConnectionCatalogStore from "./app/DesktopConnectionCatalogStore.ts";
-import * as DesktopApplicationMenu from "./window/DesktopApplicationMenu.ts";
-import * as DesktopAssets from "./app/DesktopAssets.ts";
-import * as DesktopBackendConfiguration from "./backend/DesktopBackendConfiguration.ts";
-import * as DesktopBackendPool from "./backend/DesktopBackendPool.ts";
-import * as DesktopLocalEnvironmentAuth from "./backend/DesktopLocalEnvironmentAuth.ts";
-import * as DesktopNetworkInterfaces from "./backend/DesktopNetworkInterfaces.ts";
-import * as DesktopEnvironment from "./app/DesktopEnvironment.ts";
-import * as DesktopLifecycle from "./app/DesktopLifecycle.ts";
-import * as DesktopLinuxUrlHandler from "./app/DesktopLinuxUrlHandler.ts";
-import * as DesktopShutdown from "./app/DesktopShutdown.ts";
-import * as DesktopObservability from "./app/DesktopObservability.ts";
-import * as DesktopServerExposure from "./backend/DesktopServerExposure.ts";
-import * as DesktopClientSettings from "./settings/DesktopClientSettings.ts";
-import * as DesktopSavedEnvironments from "./settings/DesktopSavedEnvironments.ts";
-import * as DesktopAppSettings from "./settings/DesktopAppSettings.ts";
-import * as DesktopPreReadyPlatform from "./app/DesktopPreReadyPlatform.ts";
-import * as DesktopShellEnvironment from "./shell/DesktopShellEnvironment.ts";
-import * as DesktopSshEnvironment from "./ssh/DesktopSshEnvironment.ts";
-import * as DesktopSshPasswordPrompts from "./ssh/DesktopSshPasswordPrompts.ts";
-import * as DesktopState from "./app/DesktopState.ts";
-import * as DesktopTelemetryPublisher from "./telemetry/DesktopTelemetryPublisher.ts";
-import * as DesktopUpdates from "./updates/DesktopUpdates.ts";
-import * as BrowserSession from "./preview/BrowserSession.ts";
-import * as PreviewManager from "./preview/Manager.ts";
-import * as DesktopWindow from "./window/DesktopWindow.ts";
-import * as DesktopWslBackend from "./wsl/DesktopWslBackend.ts";
-import * as DesktopWslEnvironment from "./wsl/DesktopWslEnvironment.ts";
-import * as DesktopWslServerTree from "./wsl/DesktopWslServerTree.ts";
+import * as DesktopIpc from "./ipc/desktop-ipc.ts";
+import * as ElectronApp from "./electron/electron-app.ts";
+import * as ElectronDialog from "./electron/electron-dialog.ts";
+import * as ElectronMenu from "./electron/electron-menu.ts";
+import * as ElectronPowerMonitor from "./electron/electron-power-monitor.ts";
+import * as ElectronProtocol from "./electron/electron-protocol.ts";
+import * as ElectronSafeStorage from "./electron/electron-safe-storage.ts";
+import * as ElectronShell from "./electron/electron-shell.ts";
+import * as ElectronTheme from "./electron/electron-theme.ts";
+import * as ElectronUpdater from "./electron/electron-updater.ts";
+import * as ElectronWindow from "./electron/electron-window.ts";
+import * as DesktopApp from "./app/desktop-app.ts";
+import * as DesktopAppIdentity from "./app/desktop-app-identity.ts";
+import * as DesktopConnectionCatalogStore from "./app/desktop-connection-catalog-store.ts";
+import * as DesktopApplicationMenu from "./window/desktop-application-menu.ts";
+import * as DesktopAssets from "./app/desktop-assets.ts";
+import * as DesktopBackendConfiguration from "./backend/desktop-backend-configuration.ts";
+import * as DesktopBackendPool from "./backend/desktop-backend-pool.ts";
+import * as DesktopLocalEnvironmentAuth from "./backend/desktop-local-environment-auth.ts";
+import * as DesktopNetworkInterfaces from "./backend/desktop-network-interfaces.ts";
+import * as DesktopEnvironment from "./app/desktop-environment.ts";
+import * as DesktopLifecycle from "./app/desktop-lifecycle.ts";
+import * as DesktopLinuxUrlHandler from "./app/desktop-linux-url-handler.ts";
+import * as DesktopShutdown from "./app/desktop-shutdown.ts";
+import * as DesktopObservability from "./app/desktop-observability.ts";
+import * as DesktopServerExposure from "./backend/desktop-server-exposure.ts";
+import * as DesktopClientSettings from "./settings/desktop-client-settings.ts";
+import * as DesktopSavedEnvironments from "./settings/desktop-saved-environments.ts";
+import * as DesktopAppSettings from "./settings/desktop-app-settings.ts";
+import * as DesktopPreReadyPlatform from "./app/desktop-pre-ready-platform.ts";
+import * as DesktopShellEnvironment from "./shell/desktop-shell-environment.ts";
+import * as DesktopSshEnvironment from "./ssh/desktop-ssh-environment.ts";
+import * as DesktopSshPasswordPrompts from "./ssh/desktop-ssh-password-prompts.ts";
+import * as DesktopState from "./app/desktop-state.ts";
+import * as DesktopTelemetryPublisher from "./telemetry/desktop-telemetry-publisher.ts";
+import * as DesktopUpdates from "./updates/desktop-updates.ts";
+import * as BrowserSession from "./preview/browser-session.ts";
+import * as PreviewManager from "./preview/manager.ts";
+import * as DesktopWindow from "./window/desktop-window.ts";
+import * as DesktopWslBackend from "./wsl/desktop-wsl-backend.ts";
+import * as DesktopWslEnvironment from "./wsl/desktop-wsl-environment.ts";
+import * as DesktopWslServerTree from "./wsl/desktop-wsl-server-tree.ts";
 
 const desktopEnvironmentLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -169,7 +169,7 @@ const desktopWindowLayer = DesktopWindow.layer.pipe(
 // primary instance and exposes it via pool.primary. Consumers go through
 // the pool now; the legacy DesktopBackendManager service is gone. The
 // WSL second instance gets registered later in the migration. See
-// DesktopBackendPool.ts header for the full rollout plan.
+// desktop-backend-pool.ts header for the full rollout plan.
 const desktopBackendLayer = DesktopBackendPool.layer.pipe(
   Layer.provideMerge(DesktopAppIdentity.layer),
   Layer.provideMerge(DesktopBackendConfiguration.layer),

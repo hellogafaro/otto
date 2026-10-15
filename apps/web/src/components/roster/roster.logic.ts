@@ -4,9 +4,9 @@ import { isGroupBotMember, isGroupPersonMember, type GroupPersonMembership } fro
 import { createTranslator } from "@otto/client-runtime/i18n";
 import type { TimestampFormat } from "@otto/contracts/settings";
 import { threadJumpIndexFromCommand } from "../../keybindings";
-import { formatShortTimestamp, parseTimestampDate } from "../../timestampFormat";
-import type { RosterItemRef } from "./rosterItems.logic";
-import type { RosterLastMessage } from "./rosterMessagePreview.logic";
+import { formatShortTimestamp, parseTimestampDate } from "../../timestamp-format";
+import type { RosterItemRef } from "./roster-items.logic";
+import type { RosterLastMessage } from "./roster-message-preview.logic";
 import type { Bot, Group } from "./types";
 
 export {
@@ -20,9 +20,9 @@ export {
   resolveBlobRendering,
   randomBotAvatar,
   botAvatarSeed,
-} from "./rosterAvatar.logic";
+} from "./roster-avatar.logic";
 
-export { type RosterLastMessage, resolveLatestRosterMessage } from "./rosterMessagePreview.logic";
+export { type RosterLastMessage, resolveLatestRosterMessage } from "./roster-message-preview.logic";
 
 export {
   type RosterItemRef,
@@ -31,7 +31,7 @@ export {
   moveRosterItemInOrder,
   rosterSectionItems,
   type RosterEntry,
-} from "./rosterItems.logic";
+} from "./roster-items.logic";
 
 type Translate = (message: string, params?: Record<string, string | number>) => string;
 

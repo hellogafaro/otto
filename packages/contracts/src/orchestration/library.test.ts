@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { AuthSessionId, BotId, GroupId, ThreadId } from "../baseSchemas.ts";
+import { AuthSessionId, BotId, GroupId, ThreadId } from "../base-schemas.ts";
 import {
   canEditLibraryItem,
   canSeeDirectChat,

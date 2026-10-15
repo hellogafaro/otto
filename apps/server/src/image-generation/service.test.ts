@@ -6,10 +6,10 @@ import {
   seedApiKey,
   baseSettings,
   rows,
-} from "./testUtils/imageService.ts";
+} from "./test-utils/image-service.ts";
 import { describe, expect, it } from "vite-plus/test";
 import { DEFAULT_SERVER_SETTINGS, type ImageGenerationSettings } from "@otto/contracts";
-import { makeTestSubscriptionAuthService } from "../subscription-auth/testUtils/subscriptionAuthService.ts";
+import { makeTestSubscriptionAuthService } from "../subscription-auth/test-utils/subscription-auth-service.ts";
 import { imageProviderStatuses, normalizeImageGenerationPatch } from "./service.ts";
 
 describe("image provider rows", () => {

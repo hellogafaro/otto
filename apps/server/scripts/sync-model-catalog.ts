@@ -15,7 +15,7 @@ import {
   catalogFromModelsDev,
   MODELS_DEV_URL,
   ModelsDevPayload,
-} from "../src/provider/modelCatalogData.ts";
+} from "../src/provider/model-catalog-data.ts";
 
 const source = process.argv[2];
 

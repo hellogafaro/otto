@@ -9,7 +9,7 @@ import { useMemo } from "react";
 
 import { environmentCatalog } from "../connection/catalog";
 import { environmentPresentations, useEnvironmentPresentation } from "./presentation";
-import { primaryEnvironmentIdAtom } from "./primaryEnvironment";
+import { primaryEnvironmentIdAtom } from "./primary-environment";
 import { useEnvironmentQuery } from "./query";
 import { usePreparedConnection } from "./session";
 

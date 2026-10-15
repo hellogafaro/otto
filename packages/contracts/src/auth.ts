@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import * as HttpApiSchema from "effect/unstable/httpapi/HttpApiSchema";
 
-import { AuthSessionId, ClientSurface, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { AuthSessionId, ClientSurface, TrimmedNonEmptyString } from "./base-schemas.ts";
 
 /**
  * Declares the server's overall authentication posture.

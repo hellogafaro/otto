@@ -16,25 +16,25 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import * as DesktopBackendPool from "../../backend/DesktopBackendPool.ts";
-import * as DesktopLocalEnvironmentAuth from "../../backend/DesktopLocalEnvironmentAuth.ts";
-import * as DesktopEnvironment from "../../app/DesktopEnvironment.ts";
-import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
-import * as DesktopWslBackend from "../../wsl/DesktopWslBackend.ts";
-import * as DesktopWslEnvironment from "../../wsl/DesktopWslEnvironment.ts";
-import * as ElectronApp from "../../electron/ElectronApp.ts";
-import * as ElectronDialog from "../../electron/ElectronDialog.ts";
-import * as ElectronMenu from "../../electron/ElectronMenu.ts";
-import * as ElectronShell from "../../electron/ElectronShell.ts";
-import * as ElectronTheme from "../../electron/ElectronTheme.ts";
-import * as ElectronWindow from "../../electron/ElectronWindow.ts";
+import * as DesktopBackendPool from "../../backend/desktop-backend-pool.ts";
+import * as DesktopLocalEnvironmentAuth from "../../backend/desktop-local-environment-auth.ts";
+import * as DesktopEnvironment from "../../app/desktop-environment.ts";
+import * as DesktopAppSettings from "../../settings/desktop-app-settings.ts";
+import * as DesktopWslBackend from "../../wsl/desktop-wsl-backend.ts";
+import * as DesktopWslEnvironment from "../../wsl/desktop-wsl-environment.ts";
+import * as ElectronApp from "../../electron/electron-app.ts";
+import * as ElectronDialog from "../../electron/electron-dialog.ts";
+import * as ElectronMenu from "../../electron/electron-menu.ts";
+import * as ElectronShell from "../../electron/electron-shell.ts";
+import * as ElectronTheme from "../../electron/electron-theme.ts";
+import * as ElectronWindow from "../../electron/electron-window.ts";
 import * as IpcChannels from "../channels.ts";
-import * as DesktopIpc from "../DesktopIpc.ts";
+import * as DesktopIpc from "../desktop-ipc.ts";
 import {
   extractDistroFromUncPath,
   resolveWslPickFolderDefaultPath,
   wslUncPathToLinuxPath,
-} from "../../wsl/wslPathParsing.ts";
+} from "../../wsl/wsl-path-parsing.ts";
 
 const ContextMenuPosition = Schema.Struct({
   x: Schema.Number,

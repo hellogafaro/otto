@@ -1,10 +1,10 @@
 import { providerInstanceConfigEnabledFlag } from "./providers.ts";
-import type { ProviderDriverKind } from "../providerInstance.ts";
+import type { ProviderDriverKind } from "../provider-instance.ts";
 import * as Effect from "effect/Effect";
 import * as Duration from "effect/Duration";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
-import { ChannelConnectionId, TrimmedNonEmptyString, TrimmedString } from "../baseSchemas.ts";
+import { ChannelConnectionId, TrimmedNonEmptyString, TrimmedString } from "../base-schemas.ts";
 import { ThreadEnvMode } from "../environment.ts";
 import {
   DEFAULT_TEXT_GENERATION_MODEL,
@@ -20,7 +20,7 @@ import {
   DEFAULT_LOCAL_EXECUTION_MODE,
   LocalExecutionMode,
   ModelSelection,
-} from "../orchestration/modelSelection.ts";
+} from "../orchestration/model-selection.ts";
 import {
   VoiceProvider,
   ChatGptRealtimeVoice,
@@ -28,9 +28,9 @@ import {
   VoiceApiProvider,
   VoiceTranscriptionProvider,
   VoiceSynthesisVoices,
-} from "../voiceCall.ts";
-import { ImageGenerationSettings, ImageGenerationSettingsPatch } from "../imageGeneration.ts";
-import { ProviderInstanceConfig, ProviderInstanceId } from "../providerInstance.ts";
+} from "../voice-call.ts";
+import { ImageGenerationSettings, ImageGenerationSettingsPatch } from "../image-generation.ts";
+import { ProviderInstanceConfig, ProviderInstanceId } from "../provider-instance.ts";
 import {
   CodexSettings,
   ClaudeSettings,
@@ -230,7 +230,7 @@ export const ServerSettings = Schema.Struct({
   // are `ProviderInstanceConfig` envelopes. The driver-specific config blob
   // is `Schema.Unknown` at this layer so envelopes with unknown drivers
   // (forks, downgrades, in-flight PR branches) round-trip without loss.
-  // See providerInstance.ts for the forward/backward compatibility invariant.
+  // See provider-instance.ts for the forward/backward compatibility invariant.
   providerInstances: Schema.Record(ProviderInstanceId, ProviderInstanceConfig).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),

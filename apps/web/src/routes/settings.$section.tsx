@@ -1,11 +1,11 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { SettingsPanelForSection } from "../components/settings/SettingsDialog";
+import { SettingsPanelForSection } from "../components/settings/settings-dialog";
 import {
   LEGACY_SETTINGS_SECTIONS,
   SETTINGS_SECTIONS,
   type SettingsSection,
-} from "../settingsDialogStore";
+} from "../settings-dialog-store";
 
 function isSettingsSection(value: string): value is SettingsSection {
   return SETTINGS_SECTIONS.some((section) => section === value);

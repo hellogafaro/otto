@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { ForwardCompatibleArray, TrimmedString } from "./baseSchemas.ts";
+import { ForwardCompatibleArray, TrimmedString } from "./base-schemas.ts";
 
 export const MAX_KEYBINDING_VALUE_LENGTH = 64;
 

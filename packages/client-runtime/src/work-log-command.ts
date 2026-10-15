@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { TrimmedNonEmptyString } from "@otto/contracts";
 import * as Predicate from "effect/Predicate";
 import { isToolLifecycleItemType } from "@otto/contracts";
-import { requestKindFromRequestType } from "./pendingRequests.ts";
+import { requestKindFromRequestType } from "./pending-requests.ts";
 
 // Tool data is an opaque provider object; each presentation field is decoded separately.
 const RuntimeRecord = Schema.declare(Predicate.isObject);

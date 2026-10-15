@@ -11,9 +11,9 @@ import {
   ProjectId,
   ThreadId,
   TrimmedNonEmptyString,
-} from "./baseSchemas.ts";
+} from "./base-schemas.ts";
 import { ThreadEnvMode } from "./environment.ts";
-import { McpServerConfiguration, McpServerId, McpServerInstructions } from "./mcpServer.ts";
+import { McpServerConfiguration, McpServerId, McpServerInstructions } from "./mcp-server.ts";
 import {
   BotAvatar,
   BotEngine,
@@ -26,9 +26,9 @@ import {
   ModelSelection,
   ProviderInteractionMode,
   RuntimeMode,
-} from "./orchestration/modelSelection.ts";
+} from "./orchestration/model-selection.ts";
 import { OrchestrationMessageRole, OrchestrationProposedPlanId } from "./orchestration/thread.ts";
-import { ImageProviderId } from "./imageGeneration.ts";
+import { ImageProviderId } from "./image-generation.ts";
 import {
   BackgroundActivityProfile,
   BackgroundActivityProfileSelection,

@@ -101,7 +101,7 @@ export default defineConfig({
       "**/routeTree.gen.ts",
       "apps/mobile/android/**",
       "apps/mobile/ios/**",
-      "apps/web/public/mockServiceWorker.js",
+      "apps/web/public/mock-service-worker.js",
       "apps/web/src/lib/vendor/qrcodegen.ts",
       "apps/mobile/uniwind-types.d.ts",
       "*.icon/**",
@@ -196,9 +196,18 @@ export default defineConfig({
       "otto/namespace-node-imports": "error",
       "typescript/no-explicit-any": "error",
       "eslint/max-lines": ["error", { max: 800, skipBlankLines: true, skipComments: true }],
+      // Otto: Every source file name is kebab-case; exported names keep their own casing.
+      "unicorn/filename-case": ["error", { case: "kebabCase" }],
       ...ANTI_SLOP_RULES,
     },
     overrides: [
+      {
+        // TanStack Router derives routes from these file names; mobile keeps its own convention.
+        files: ["apps/web/src/routes/**", "apps/mobile/**", "apps/web/public/**", "**/*.gen.ts"],
+        rules: {
+          "unicorn/filename-case": "off",
+        },
+      },
       {
         // Generated and vendored code is fixed at its source, not at the call site.
         files: ["**/_generated/**", "**/*.gen.ts", "**/vendor/**"],
@@ -210,7 +219,7 @@ export default defineConfig({
       {
         // Tests build partial fixtures and tagged values by hand on purpose; a SAFETY comment on
         // every fixture cast or a constructor for every literal error adds noise, not safety.
-        files: ["**/*.test.{ts,tsx}", "**/test/**", "**/testUtils/**", "**/test-support/**"],
+        files: ["**/*.test.{ts,tsx}", "**/test/**", "**/test-utils/**", "**/test-support/**"],
         rules: {
           "anti-slop/require-safety-comment-for-type-assertion": "off",
           "anti-slop-effect/no-manual-tagged-construction": "off",
@@ -227,7 +236,7 @@ export default defineConfig({
           "**/*.test.{ts,tsx,mjs}",
           "**/*.test-support.{ts,tsx}",
           "**/test/**",
-          "**/testUtils/**",
+          "**/test-utils/**",
           "**/test-support/**",
         ],
         rules: {
@@ -240,16 +249,16 @@ export default defineConfig({
         // session runtime, so these files call the make* constructors directly instead of
         // yielding a singleton service.
         files: [
-          "apps/server/src/provider/Drivers/**",
-          "apps/server/src/provider/Layers/*Adapter.ts",
-          "apps/server/src/provider/Layers/AgentController.ts",
-          "apps/server/src/provider/Layers/GrokProvider.ts",
-          "apps/server/src/provider/Layers/agentController/Harness.ts",
-          "apps/server/src/provider/Layers/agentController/Workers.ts",
-          "apps/server/src/provider/Layers/grok/GrokSessionLifecycle.ts",
-          "apps/server/src/provider/acp/GrokAcpSupport.ts",
-          "apps/server/src/provider/providerMaintenanceRunner.ts",
-          "apps/server/src/textGeneration/GrokTextGeneration.ts",
+          "apps/server/src/provider/drivers/**",
+          "apps/server/src/provider/layers/*-adapter.ts",
+          "apps/server/src/provider/layers/agent-controller.ts",
+          "apps/server/src/provider/layers/grok-provider.ts",
+          "apps/server/src/provider/layers/agent-controller/harness.ts",
+          "apps/server/src/provider/layers/agent-controller/workers.ts",
+          "apps/server/src/provider/layers/grok/grok-session-lifecycle.ts",
+          "apps/server/src/provider/acp/grok-acp-support.ts",
+          "apps/server/src/provider/provider-maintenance-runner.ts",
+          "apps/server/src/text-generation/grok-text-generation.ts",
         ],
         rules: {
           "anti-slop-effect/no-service-constructor-imports": "off",

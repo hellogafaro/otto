@@ -3,12 +3,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import * as DesktopLifecycle from "../../app/DesktopLifecycle.ts";
-import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
-import * as DesktopWslBackend from "../../wsl/DesktopWslBackend.ts";
-import * as DesktopWslEnvironment from "../../wsl/DesktopWslEnvironment.ts";
+import * as DesktopLifecycle from "../../app/desktop-lifecycle.ts";
+import * as DesktopAppSettings from "../../settings/desktop-app-settings.ts";
+import * as DesktopWslBackend from "../../wsl/desktop-wsl-backend.ts";
+import * as DesktopWslEnvironment from "../../wsl/desktop-wsl-environment.ts";
 import * as IpcChannels from "../channels.ts";
-import { defineIpcMethod } from "../DesktopIpc.ts";
+import { defineIpcMethod } from "../desktop-ipc.ts";
 
 const readWslState: Effect.Effect<
   DesktopWslState,

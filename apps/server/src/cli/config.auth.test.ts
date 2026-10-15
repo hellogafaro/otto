@@ -2,7 +2,7 @@ import {
   deriveExplicitServerPaths,
   encodeDesktopBootstrap,
   makeDesktopBootstrap,
-} from "./testUtils/config.ts";
+} from "./test-utils/config.ts";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import { assert, expect, it } from "@effect/vitest";

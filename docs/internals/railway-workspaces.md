@@ -1,6 +1,6 @@
 # Railway workspace adapter
 
-`apps/server/src/provider/botWorkspace.ts` uses the official `railway` SDK. Creation and saved-ID reattachment receive explicit `RAILWAY_API_TOKEN` and `RAILWAY_ENVIRONMENT_ID` values from the environment's sandbox settings, not ambient process credentials. The token follows the existing secret-store and client-redaction path.
+`apps/server/src/provider/bot-workspace.ts` uses the official `railway` SDK. Creation and saved-ID reattachment receive explicit `RAILWAY_API_TOKEN` and `RAILWAY_ENVIRONMENT_ID` values from the environment's sandbox settings, not ambient process credentials. The token follows the existing secret-store and client-redaction path.
 
 The shared identity file persists the Railway sandbox ID. Reattachment uses `Sandbox.connect` and verifies live status; unavailable identities fail closed without creating a replacement. `refresh` maps running, creating, and terminal states to the existing workspace state model. Only `SandboxNotFoundError` is converted to missing; authorization and network failures propagate.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as Match from "effect/Match";
-import { desktopArtifactFlags } from "./lib/desktop-build/cliFlags.ts";
+import { desktopArtifactFlags } from "./lib/desktop-build/cli-flags.ts";
 import { HostProcessPlatform } from "@otto/shared/hostProcess";
 
 import { resolveSpawnCommand } from "@otto/shared/shell";

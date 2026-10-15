@@ -21,7 +21,7 @@ import {
   PreviewAutomationHostFocus,
   PreviewAutomationResponse,
   PreviewAutomationStreamEvent,
-} from "../previewAutomation.ts";
+} from "../preview-automation.ts";
 import { WS_METHODS } from "./methods.ts";
 
 export const WsPreviewOpenRpc = Rpc.make(WS_METHODS.previewOpen, {

@@ -144,7 +144,7 @@
 }
 
 /* Bot avatars. Flat SVG blobs moved by the spring engine in
-   botAvatarMotion.ts, which writes the body transform here and the eye
+   bot-avatar-motion.ts, which writes the body transform here and the eye
    transforms on the SVG. The body transform stays on an HTML wrapper so it
    composites; cutout eyes live in an SVG mask, which repaints only while
    they move. */

@@ -21,7 +21,7 @@ import {
   ensureClientSettingsHydrated,
   useClientSettings,
   useUpdateClientSettings,
-} from "./hooks/useSettings";
+} from "./hooks/use-settings";
 
 export { availableLanguages };
 

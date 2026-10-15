@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { TrimmedNonEmptyString, Visibility } from "./baseSchemas.ts";
+import { TrimmedNonEmptyString, Visibility } from "./base-schemas.ts";
 
 export const ComposioConnectionStatus = Schema.Literals([
   "INITIALIZING",

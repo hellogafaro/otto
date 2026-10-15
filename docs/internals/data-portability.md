@@ -10,7 +10,7 @@ memory has a separate version 3 archive. It contains `USER.md`, `MEMORY.md`, the
 manifest are checksummed. Import preview is bound to both the archive and current memory state, and
 apply restores the observational record rather than treating it as metadata-only.
 
-`packages/contracts/src/usage.ts` defines a read result, not an Otto repository. `apps/server/src/usage/UsageService.ts` scans provider-owned Claude and Codex transcript files. It has no write or import operation, so the main portability archive does not include usage history.
+`packages/contracts/src/usage.ts` defines a read result, not an Otto repository. `apps/server/src/usage/usage-service.ts` scans provider-owned Claude and Codex transcript files. It has no write or import operation, so the main portability archive does not include usage history.
 
 Restore preflights the full command list before the first write. Each command still has its own SQLite transaction. Apply results therefore report failed and partly applied records instead of claiming the whole archive succeeded.
 

@@ -6,7 +6,7 @@ import {
   loadTerminalFontFamily,
   terminalFontFamily,
   terminalFontSize,
-} from "./surfaceFont";
+} from "./surface-font";
 
 describe("shouldBlinkTerminalCursor", () => {
   const blinking = {

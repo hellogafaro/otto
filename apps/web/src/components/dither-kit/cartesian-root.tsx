@@ -1,4 +1,4 @@
-import type { ChartValue } from "./chartValue";
+import type { ChartValue } from "./chart-value";
 import { Predicate } from "effect";
 import { Children, type ComponentType, isValidElement, type ReactNode } from "react";
 import {

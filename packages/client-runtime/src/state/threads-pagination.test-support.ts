@@ -32,7 +32,7 @@ import {
 import * as EnvironmentSupervisor from "../connection/supervisor.ts";
 import * as Persistence from "../platform/persistence.ts";
 import * as RpcSession from "../rpc/session.ts";
-import type { ThreadSnapshotWindow } from "./threadSnapshotHttp.ts";
+import type { ThreadSnapshotWindow } from "./thread-snapshot-http.ts";
 import {
   environmentThreadState,
   ThreadSnapshotLoader,

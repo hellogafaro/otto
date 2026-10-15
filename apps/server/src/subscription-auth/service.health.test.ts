@@ -2,16 +2,16 @@ import * as Schema from "effect/Schema";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 
-import { fixture } from "./testUtils/subscriptionAuthStorage.ts";
+import { fixture } from "./test-utils/subscription-auth-storage.ts";
 import * as NodeFS from "node:fs";
 import { expect, it } from "@effect/vitest";
 import { describe, vi } from "vite-plus/test";
 import { ProviderInstanceId } from "@otto/contracts";
-import { HEALTH_CHECK_TIMEOUT_MS } from "./serviceTypes.ts";
+import { HEALTH_CHECK_TIMEOUT_MS } from "./service-types.ts";
 import {
   makeTestSubscriptionAuthService,
   runWithNodeServices,
-} from "./testUtils/subscriptionAuthService.ts";
+} from "./test-utils/subscription-auth-service.ts";
 
 describe("provider health checks", () => {
   const kimiDeviceId = "0123456789abcdef0123456789abcdef";

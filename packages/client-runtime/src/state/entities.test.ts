@@ -22,11 +22,11 @@ import {
 } from "./entities.ts";
 import type { EnvironmentShellState } from "./shell.ts";
 import { EMPTY_ENVIRONMENT_THREAD_STATE, type EnvironmentThreadState } from "./threads.ts";
-import { createEnvironmentProjectAtoms } from "./projectEntities.ts";
+import { createEnvironmentProjectAtoms } from "./project-entities.ts";
 import { createEnvironmentSnapshotAtom } from "./snapshots.ts";
-import { createEnvironmentThreadDetailAtoms } from "./threadDetail.ts";
-import { mergeEnvironmentThread } from "./threadDetail.ts";
-import { createEnvironmentThreadShellAtoms } from "./threadShell.ts";
+import { createEnvironmentThreadDetailAtoms } from "./thread-detail.ts";
+import { mergeEnvironmentThread } from "./thread-detail.ts";
+import { createEnvironmentThreadShellAtoms } from "./thread-shell.ts";
 
 const ENVIRONMENT_ID = EnvironmentId.make("environment-1");
 

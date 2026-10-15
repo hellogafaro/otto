@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
-import { TrimmedNonEmptyString, TrimmedString } from "../baseSchemas.ts";
+import { TrimmedNonEmptyString, TrimmedString } from "../base-schemas.ts";
 import {
   DEFAULT_PREVIEW_APPEARANCE,
   DEFAULT_PREVIEW_ZOOM_FACTOR,
@@ -10,7 +10,7 @@ import {
   PreviewViewportSetting,
   PreviewZoomFactor,
 } from "../preview.ts";
-import { ProviderInstanceId } from "../providerInstance.ts";
+import { ProviderInstanceId } from "../provider-instance.ts";
 
 // ── Client Settings (local-only) ───────────────────────────────
 

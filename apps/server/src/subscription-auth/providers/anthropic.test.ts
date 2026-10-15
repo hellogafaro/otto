@@ -5,7 +5,7 @@ import * as TestClock from "effect/testing/TestClock";
 import { HttpClient } from "effect/unstable/http";
 import { describe } from "vite-plus/test";
 
-import { scriptedHttpClient } from "../testUtils/scriptedHttpClient.ts";
+import { scriptedHttpClient } from "../test-utils/scripted-http-client.ts";
 import { AnthropicOAuth } from "./anthropic.ts";
 
 const tokens = { access_token: "access", refresh_token: "refresh", expires_in: 3600 };

@@ -1,0 +1,569 @@
+import { isGroupBotMember } from "@otto/contracts";
+import type {
+  OttoDelegationRecord,
+  BotId,
+  DelegationId,
+  GroupId,
+  OrchestrationBot,
+  McpServer,
+  McpServerId,
+  OrchestrationCommand,
+  OrchestrationGroup,
+  OrchestrationProject,
+  OrchestrationReadModel,
+  OrchestrationTask,
+  OrchestrationThread,
+  ProjectId,
+  TaskId,
+  ThreadId,
+  WorkParticipant,
+} from "@otto/contracts";
+import { normalizeProjectPathForComparison } from "@otto/shared/path";
+import * as Effect from "effect/Effect";
+
+import { OrchestrationCommandInvariantError } from "./errors.ts";
+import { findProjectedThread } from "./projector.ts";
+import type { OrchestrationDispatchActor } from "./services/orchestration-engine.ts";
+
+function invariantError(commandType: string, detail: string): OrchestrationCommandInvariantError {
+  return new OrchestrationCommandInvariantError({
+    commandType,
+    detail,
+  });
+}
+
+export function findThreadById(
+  readModel: OrchestrationReadModel,
+  threadId: ThreadId,
+): OrchestrationThread | undefined {
+  return findProjectedThread(readModel.threads, threadId);
+}
+
+export function findProjectById(
+  readModel: OrchestrationReadModel,
+  projectId: ProjectId,
+): OrchestrationProject | undefined {
+  return readModel.projects.find((project) => project.id === projectId);
+}
+
+export function findBotById(
+  readModel: OrchestrationReadModel,
+  botId: BotId,
+): OrchestrationBot | undefined {
+  return readModel.bots.find((bot) => bot.id === botId);
+}
+
+export function findGroupById(
+  readModel: OrchestrationReadModel,
+  groupId: GroupId,
+): OrchestrationGroup | undefined {
+  return readModel.groups.find((group) => group.id === groupId);
+}
+
+export function findMcpServerById(
+  readModel: OrchestrationReadModel,
+  mcpServerId: McpServerId,
+): McpServer | undefined {
+  return readModel.mcpServers?.find((mcpServer) => mcpServer.id === mcpServerId);
+}
+
+export function findDelegationById(
+  readModel: OrchestrationReadModel,
+  delegationId: DelegationId,
+): OttoDelegationRecord | undefined {
+  return readModel.delegations.find((delegation) => delegation.delegationId === delegationId);
+}
+
+export function listThreadsByProjectId(
+  readModel: OrchestrationReadModel,
+  projectId: ProjectId,
+): ReadonlyArray<OrchestrationThread> {
+  return readModel.threads.filter((thread) => thread.projectId === projectId);
+}
+
+export function requireProject(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly projectId: ProjectId;
+}): Effect.Effect<OrchestrationProject, OrchestrationCommandInvariantError> {
+  const project = findProjectById(input.readModel, input.projectId);
+
+  if (project) {
+    return Effect.succeed(project);
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Project '${input.projectId}' does not exist for command '${input.command.type}'.`,
+    ),
+  );
+}
+
+export function requireProjectAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly projectId: ProjectId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  if (!findProjectById(input.readModel, input.projectId)) {
+    return Effect.void;
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Project '${input.projectId}' already exists and cannot be created twice.`,
+    ),
+  );
+}
+
+export function requireProjectWorkspaceRootAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly workspaceRoot: string;
+  readonly exceptProjectId?: ProjectId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  const normalizedWorkspaceRoot = normalizeProjectPathForComparison(input.workspaceRoot);
+
+  const existingProject = input.readModel.projects.find(
+    (project) =>
+      normalizeProjectPathForComparison(project.workspaceRoot) === normalizedWorkspaceRoot &&
+      project.id !== input.exceptProjectId,
+  );
+
+  if (existingProject === undefined) {
+    return Effect.void;
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Project '${existingProject.id}' already owns workspace root '${normalizedWorkspaceRoot}'.`,
+    ),
+  );
+}
+
+export function requireBot(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly botId: BotId;
+}): Effect.Effect<OrchestrationBot, OrchestrationCommandInvariantError> {
+  const bot = findBotById(input.readModel, input.botId);
+
+  return bot
+    ? Effect.succeed(bot)
+    : Effect.fail(
+        invariantError(
+          input.command.type,
+          `Bot '${input.botId}' does not exist for command '${input.command.type}'.`,
+        ),
+      );
+}
+
+export function requireBotAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly botId: BotId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  return findBotById(input.readModel, input.botId)
+    ? Effect.fail(
+        invariantError(
+          input.command.type,
+          `Bot '${input.botId}' already exists and cannot be created twice.`,
+        ),
+      )
+    : Effect.void;
+}
+
+export function requireDelegation(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly delegationId: DelegationId;
+}): Effect.Effect<OttoDelegationRecord, OrchestrationCommandInvariantError> {
+  const delegation = findDelegationById(input.readModel, input.delegationId);
+
+  return delegation
+    ? Effect.succeed(delegation)
+    : Effect.fail(
+        invariantError(
+          input.command.type,
+          `Delegation '${input.delegationId}' does not exist for command '${input.command.type}'.`,
+        ),
+      );
+}
+
+export function requireDelegationAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly delegationId: DelegationId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  return findDelegationById(input.readModel, input.delegationId)
+    ? Effect.fail(
+        invariantError(
+          input.command.type,
+          `Delegation '${input.delegationId}' already exists and cannot be created twice.`,
+        ),
+      )
+    : Effect.void;
+}
+
+export function requireBotArchived(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly botId: BotId;
+}): Effect.Effect<OrchestrationBot, OrchestrationCommandInvariantError> {
+  return requireBot(input).pipe(
+    Effect.flatMap((bot) =>
+      bot.archivedAt !== null
+        ? Effect.succeed(bot)
+        : Effect.fail(
+            invariantError(
+              input.command.type,
+              `Bot '${input.botId}' is not archived for command '${input.command.type}'.`,
+            ),
+          ),
+    ),
+  );
+}
+
+export function requireMcpServer(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly mcpServerId: McpServerId;
+}): Effect.Effect<McpServer, OrchestrationCommandInvariantError> {
+  const mcpServer = findMcpServerById(input.readModel, input.mcpServerId);
+
+  if (mcpServer) {
+    return Effect.succeed(mcpServer);
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `MCP server '${input.mcpServerId}' does not exist for command '${input.command.type}'.`,
+    ),
+  );
+}
+
+export function requireBotNotArchived(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly botId: BotId;
+}): Effect.Effect<OrchestrationBot, OrchestrationCommandInvariantError> {
+  return requireBot(input).pipe(
+    Effect.flatMap((bot) =>
+      bot.archivedAt === null
+        ? Effect.succeed(bot)
+        : Effect.fail(
+            invariantError(
+              input.command.type,
+              `Bot '${input.botId}' is archived for command '${input.command.type}'.`,
+            ),
+          ),
+    ),
+  );
+}
+
+export function requireMcpServerAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly mcpServerId: McpServerId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  if (!findMcpServerById(input.readModel, input.mcpServerId)) {
+    return Effect.void;
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `MCP server '${input.mcpServerId}' already exists and cannot be created twice.`,
+    ),
+  );
+}
+
+export function requireGroup(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly groupId: GroupId;
+}): Effect.Effect<OrchestrationGroup, OrchestrationCommandInvariantError> {
+  const group = findGroupById(input.readModel, input.groupId);
+
+  return group
+    ? Effect.succeed(group)
+    : Effect.fail(
+        invariantError(
+          input.command.type,
+          `Group '${input.groupId}' does not exist for command '${input.command.type}'.`,
+        ),
+      );
+}
+
+export function requireMutationActorAuthorized(input: {
+  readonly group: OrchestrationGroup;
+  readonly command: OrchestrationCommand;
+  readonly actor: OrchestrationDispatchActor | undefined;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  const actor = input.actor;
+
+  if (
+    actor === undefined ||
+    actor.canManageGroups ||
+    input.group.members.some(
+      (member) => member.kind === "person" && member.personId === actor.personId,
+    )
+  ) {
+    return Effect.void;
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Person '${actor.personId}' is not a member of group '${input.group.id}'.`,
+    ),
+  );
+}
+
+export function requireGroupThreadCreateAuthorized(input: {
+  readonly group: OrchestrationGroup;
+  readonly command: Extract<OrchestrationCommand, { readonly type: "thread.create" }>;
+  readonly actor: OrchestrationDispatchActor | undefined;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  return requireMutationActorAuthorized(input);
+}
+
+export function requireGroupOwnedThreadMutationAuthorized(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly thread: OrchestrationThread;
+  readonly command: OrchestrationCommand;
+  readonly actor: OrchestrationDispatchActor | undefined;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  if (input.thread.groupId == null) return Effect.void;
+  const group = findGroupById(input.readModel, input.thread.groupId);
+
+  if (!group) {
+    return Effect.fail(
+      invariantError(
+        input.command.type,
+        `Group '${input.thread.groupId}' does not exist for command '${input.command.type}'.`,
+      ),
+    );
+  }
+
+  return requireMutationActorAuthorized({ group, command: input.command, actor: input.actor });
+}
+
+export function requireGroupAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly groupId: GroupId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  return findGroupById(input.readModel, input.groupId)
+    ? Effect.fail(
+        invariantError(
+          input.command.type,
+          `Group '${input.groupId}' already exists and cannot be created twice.`,
+        ),
+      )
+    : Effect.void;
+}
+
+export function requireGroupMember(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly groupId: GroupId;
+  readonly botId: BotId;
+}): Effect.Effect<OrchestrationBot, OrchestrationCommandInvariantError> {
+  return Effect.gen(function* () {
+    const group = yield* requireGroup(input);
+
+    const member = group.members.find(
+      (entry) => isGroupBotMember(entry) && entry.botId === input.botId,
+    );
+
+    if (!member) {
+      return yield* invariantError(
+        input.command.type,
+        `Bot '${input.botId}' is not a member of group '${input.groupId}'.`,
+      );
+    }
+
+    return yield* requireBot(input);
+  });
+}
+
+export function requireActiveGroupMember(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly groupId: GroupId;
+  readonly botId: BotId;
+}): Effect.Effect<OrchestrationBot, OrchestrationCommandInvariantError> {
+  return requireGroupMember(input).pipe(
+    Effect.flatMap((bot) =>
+      bot.archivedAt === null
+        ? Effect.succeed(bot)
+        : Effect.fail(
+            invariantError(
+              input.command.type,
+              `Bot '${input.botId}' is archived and cannot respond for group '${input.groupId}'.`,
+            ),
+          ),
+    ),
+  );
+}
+
+export function requireThread(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly threadId: ThreadId;
+}): Effect.Effect<OrchestrationThread, OrchestrationCommandInvariantError> {
+  const thread = findThreadById(input.readModel, input.threadId);
+
+  if (thread) {
+    return Effect.succeed(thread);
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Thread '${input.threadId}' does not exist for command '${input.command.type}'.`,
+    ),
+  );
+}
+
+export function requireThreadArchived(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly threadId: ThreadId;
+}): Effect.Effect<OrchestrationThread, OrchestrationCommandInvariantError> {
+  return requireThread(input).pipe(
+    Effect.flatMap((thread) =>
+      thread.archivedAt !== null
+        ? Effect.succeed(thread)
+        : Effect.fail(
+            invariantError(
+              input.command.type,
+              `Thread '${input.threadId}' is not archived for command '${input.command.type}'.`,
+            ),
+          ),
+    ),
+  );
+}
+
+export function requireThreadNotArchived(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly threadId: ThreadId;
+}): Effect.Effect<OrchestrationThread, OrchestrationCommandInvariantError> {
+  return requireThread(input).pipe(
+    Effect.flatMap((thread) =>
+      thread.archivedAt === null
+        ? Effect.succeed(thread)
+        : Effect.fail(
+            invariantError(
+              input.command.type,
+              `Thread '${input.threadId}' is already archived and cannot handle command '${input.command.type}'.`,
+            ),
+          ),
+    ),
+  );
+}
+
+export function requireThreadAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly threadId: ThreadId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  // Thread deletion is a soft delete and a draft keeps its client-minted id
+  // across retries, so only a live row blocks creation. Projectors reset the
+  // thread's rows when the id is created again.
+  const existing = findThreadById(input.readModel, input.threadId);
+
+  if (existing === undefined || existing.deletedAt !== null) {
+    return Effect.void;
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Thread '${input.threadId}' already exists and cannot be created twice.`,
+    ),
+  );
+}
+
+export function findTaskById(
+  readModel: OrchestrationReadModel,
+  taskId: TaskId,
+): OrchestrationTask | undefined {
+  return readModel.tasks?.find((task) => task.id === taskId);
+}
+
+export function requireTask(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly taskId: TaskId;
+}): Effect.Effect<OrchestrationTask, OrchestrationCommandInvariantError> {
+  const task = findTaskById(input.readModel, input.taskId);
+
+  if (task) {
+    return Effect.succeed(task);
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Task '${input.taskId}' does not exist for command '${input.command.type}'.`,
+    ),
+  );
+}
+
+export function requireTaskAbsent(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly taskId: TaskId;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  if (!findTaskById(input.readModel, input.taskId)) {
+    return Effect.void;
+  }
+
+  return Effect.fail(
+    invariantError(
+      input.command.type,
+      `Task '${input.taskId}' already exists and cannot be created twice.`,
+    ),
+  );
+}
+
+export function requireActiveProject(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly projectId: ProjectId;
+}): Effect.Effect<OrchestrationProject, OrchestrationCommandInvariantError> {
+  return requireProject(input).pipe(
+    Effect.flatMap((project) =>
+      project.deletedAt === null
+        ? Effect.succeed(project)
+        : Effect.fail(
+            invariantError(
+              input.command.type,
+              `Project '${input.projectId}' was deleted for command '${input.command.type}'.`,
+            ),
+          ),
+    ),
+  );
+}
+
+/** Bot owners and assignees must be active bots; people carry their own session identity. */
+export function requireWorkParticipants(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly command: OrchestrationCommand;
+  readonly participants: ReadonlyArray<WorkParticipant | null | undefined>;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  return Effect.forEach(
+    input.participants,
+    (participant) =>
+      participant?.kind === "bot"
+        ? requireBotNotArchived({ ...input, botId: participant.botId })
+        : Effect.void,
+    { discard: true },
+  );
+}

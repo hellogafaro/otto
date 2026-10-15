@@ -11,8 +11,8 @@ import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
 import { HttpClient } from "effect/unstable/http";
 
-import { buildAppUnderTest } from "./serverTestApp.ts";
-import { getHttpServerUrl, fetchEffect } from "./serverTestClients.ts";
+import { buildAppUnderTest } from "./server-test-app.ts";
+import { getHttpServerUrl, fetchEffect } from "./server-test-clients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("parks HTTP ingress until command readiness", () =>

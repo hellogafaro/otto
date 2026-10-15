@@ -4,11 +4,11 @@ import {
   terminalLinkAtColumn,
   terminalLinkAtPosition,
   terminalLinkAtPositionWithRange,
-} from "./surfaceGeometry";
+} from "./surface-geometry";
 import {
   advanceTerminalSelectionClickSequence,
   isTerminalLinkPointerGesture,
-} from "./surfaceInput";
+} from "./surface-input";
 import { cell } from "./surface.test-support";
 
 describe("terminalLinkAtColumn", () => {

@@ -2,7 +2,7 @@ export * from "./catalog.ts";
 
 export * as Connectivity from "./connectivity.ts";
 
-export * as CredentialStore from "./credentialStore.ts";
+export * as CredentialStore from "./credential-store.ts";
 
 export {
   ConnectionDriver,
@@ -31,7 +31,7 @@ export {
 
 export * from "./presentation.ts";
 
-export * as ProfileStore from "./profileStore.ts";
+export * as ProfileStore from "./profile-store.ts";
 
 export {
   EnvironmentNotRegisteredError,

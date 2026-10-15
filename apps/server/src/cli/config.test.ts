@@ -1,4 +1,4 @@
-import { deriveExplicitServerPaths } from "./testUtils/config.ts";
+import { deriveExplicitServerPaths } from "./test-utils/config.ts";
 import * as NodeOS from "node:os";
 import { assert, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";

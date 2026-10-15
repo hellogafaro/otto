@@ -1,5 +1,5 @@
 import type { AuthSessionState } from "@otto/contracts";
-import { fetchSessionState } from "./authBootstrap";
+import { fetchSessionState } from "./auth-bootstrap";
 
 type ServerAuthGateState =
   | { status: "authenticated" }
@@ -63,13 +63,13 @@ export function __resetServerAuthBootstrapForTests() {
   resolvedAuthenticatedGateState = null;
 }
 
-export { PrimaryEnvironmentRequestError, isPrimaryEnvironmentRequestError } from "./authErrors";
+export { PrimaryEnvironmentRequestError, isPrimaryEnvironmentRequestError } from "./auth-errors";
 
 export {
   type ServerClientSessionRecord,
   listServerClientSessions,
   revokeServerClientSession,
   revokeOtherServerClientSessions,
-} from "./authAdministration";
+} from "./auth-administration";
 
-export { fetchSessionState, retryTransientBootstrap } from "./authBootstrap";
+export { fetchSessionState, retryTransientBootstrap } from "./auth-bootstrap";

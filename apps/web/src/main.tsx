@@ -9,8 +9,8 @@ import { getRouter } from "./router";
 import {
   syncDocumentElectronPlatformClasses,
   syncDocumentWindowControlsOverlayClass,
-} from "./lib/windowControlsOverlay";
-import { AppRoot } from "./AppRoot";
+} from "./lib/window-controls-overlay";
+import { AppRoot } from "./app-root";
 import { LanguageProvider, type TestLanguageCatalog } from "./i18n";
 
 // Browser verification injects this before navigation; production builds ignore it.

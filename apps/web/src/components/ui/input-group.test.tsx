@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { reactHookHarness } from "../../test/reactHookHarness";
+import { reactHookHarness } from "../../test/react-hook-harness";
 import { InputGroupAddon } from "./input-group";
 
 vi.mock("react/compiler-runtime", async () => {
-  const { reactHookHarness } = await import("../../test/reactHookHarness");
+  const { reactHookHarness } = await import("../../test/react-hook-harness");
 
   return { c: reactHookHarness.useMemoCache };
 });

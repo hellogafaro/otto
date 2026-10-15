@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-import { EnvironmentId, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { EnvironmentId, TrimmedNonEmptyString } from "./base-schemas.ts";
 
 /** Version negotiated by a relay and its attached environment. */
 export const RelayProtocolVersion = Schema.Literal("1");

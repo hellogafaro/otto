@@ -1,0 +1,178 @@
+import type { EnvironmentId, ServerConfig, ServerSelfUpdateCapability } from "@otto/contracts";
+import { compareSemverVersions, parseSemver } from "@otto/shared/semver";
+import * as Schema from "effect/Schema";
+
+import { APP_VERSION } from "./branding";
+import { getFirstLocalStorageItem, setLocalStorageItem } from "./hooks/use-local-storage";
+
+export interface VersionMismatch {
+  readonly clientVersion: string;
+  readonly serverVersion: string;
+  readonly hint: string;
+}
+
+export const VERSION_MISMATCH_DISMISSALS_STORAGE_KEY = "otto:version-mismatch-dismissals:v1";
+
+// Pre-rebrand key, read as a fallback so dismissed banners stay dismissed.
+const LEGACY_VERSION_MISMATCH_DISMISSALS_STORAGE_KEY = "ottoLegacy:version-mismatch-dismissals:v1";
+
+const VersionMismatchDismissalsSchema = Schema.Struct({
+  keys: Schema.Array(Schema.String),
+});
+
+type VersionMismatchDismissals = typeof VersionMismatchDismissalsSchema.Type;
+
+function normalizeVersion(version: string | null | undefined): string | null {
+  const trimmed = version?.trim();
+
+  return trimmed && trimmed.length > 0 ? trimmed : null;
+}
+
+/** Core `major.minor.patch`, dropping any prerelease or build suffix. */
+function versionCore(version: string): string {
+  return version.replace(/[-+].*$/, "");
+}
+
+/**
+ * The skew a user can act on: the connected server runs an older Otto than
+ * this client, so the server is the side that needs updating.
+ *
+ * Versions compare their core `major.minor.patch` only.
+ * A server ahead of the client does not need an update. Versions that do not
+ * parse as semver fall back to plain string inequality.
+ */
+export function resolveVersionMismatch(
+  serverVersion: string | null | undefined,
+): VersionMismatch | null {
+  const normalizedClientVersion = normalizeVersion(APP_VERSION);
+  const normalizedServerVersion = normalizeVersion(serverVersion);
+
+  if (!normalizedClientVersion || !normalizedServerVersion) {
+    return null;
+  }
+
+  const clientCore = versionCore(normalizedClientVersion);
+  const serverCore = versionCore(normalizedServerVersion);
+
+  const serverIsBehind =
+    parseSemver(clientCore) && parseSemver(serverCore)
+      ? compareSemverVersions(serverCore, clientCore) < 0
+      : normalizedServerVersion !== normalizedClientVersion;
+
+  if (!serverIsBehind) {
+    return null;
+  }
+
+  return {
+    clientVersion: normalizedClientVersion,
+    serverVersion: normalizedServerVersion,
+    hint: "Version mismatch. Try syncing the client and server to the same Otto version.",
+  };
+}
+
+export function resolveServerConfigVersionMismatch(
+  serverConfig: Pick<ServerConfig, "environment"> | null | undefined,
+): VersionMismatch | null {
+  return resolveVersionMismatch(serverConfig?.environment.serverVersion);
+}
+
+/** The update path the connected server offers, or null when it only
+    supports a manual relaunch (older servers, dev checkouts, Windows). */
+export function resolveServerSelfUpdateCapability(
+  serverConfig: Pick<ServerConfig, "environment"> | null | undefined,
+): ServerSelfUpdateCapability | null {
+  return serverConfig?.environment.capabilities.serverSelfUpdate ?? null;
+}
+
+/** One sentence telling the user how to resolve version skew for a server,
+    matched to the update path it offers. */
+export function serverUpdateGuidance(
+  capability: ServerSelfUpdateCapability | null,
+  serverLabel: string,
+): string {
+  switch (capability) {
+    case "boot-service":
+    case "respawn":
+      return `Update the ${serverLabel} so they stay in sync.`;
+    case "desktop-managed":
+      return `Update the desktop app that runs the ${serverLabel}.`;
+    default:
+      return `Update the ${serverLabel} from your trusted Otto source and relaunch it to sync them.`;
+  }
+}
+
+export function buildVersionMismatchDismissalKey(
+  environmentId: EnvironmentId,
+  mismatch: Pick<VersionMismatch, "clientVersion" | "serverVersion">,
+): string {
+  return `${environmentId}:${mismatch.clientVersion}:${mismatch.serverVersion}`;
+}
+
+function readVersionMismatchDismissals(): VersionMismatchDismissals {
+  return (
+    getFirstLocalStorageItem(
+      [VERSION_MISMATCH_DISMISSALS_STORAGE_KEY, LEGACY_VERSION_MISMATCH_DISMISSALS_STORAGE_KEY],
+      VersionMismatchDismissalsSchema,
+      (error) => console.error("Could not read version-mismatch dismissals.", error),
+    ) ?? { keys: [] }
+  );
+}
+
+function writeVersionMismatchDismissals(document: VersionMismatchDismissals): void {
+  try {
+    setLocalStorageItem(
+      VERSION_MISMATCH_DISMISSALS_STORAGE_KEY,
+      document,
+      VersionMismatchDismissalsSchema,
+    );
+
+    try {
+      window.localStorage.removeItem(LEGACY_VERSION_MISMATCH_DISMISSALS_STORAGE_KEY);
+    } catch {
+      // Draining the legacy key is best-effort.
+    }
+  } catch (error) {
+    console.error("Could not persist version-mismatch dismissals.", error);
+  }
+}
+
+export function isVersionMismatchDismissed(dismissalKey: string | null | undefined): boolean {
+  if (!dismissalKey) {
+    return false;
+  }
+
+  return readVersionMismatchDismissals().keys.includes(dismissalKey);
+}
+
+export function dismissVersionMismatch(dismissalKey: string | null | undefined): void {
+  if (!dismissalKey) {
+    return;
+  }
+
+  const document = readVersionMismatchDismissals();
+
+  if (document.keys.includes(dismissalKey)) {
+    return;
+  }
+
+  writeVersionMismatchDismissals({
+    keys: [...document.keys, dismissalKey],
+  });
+}
+
+export function appendVersionMismatchHint(
+  message: string | null | undefined,
+  mismatch: VersionMismatch | null | undefined,
+): string | null {
+  const normalizedMessage = normalizeVersion(message);
+
+  if (!normalizedMessage) {
+    return mismatch?.hint ?? null;
+  }
+
+  if (!mismatch) {
+    return normalizedMessage;
+  }
+
+  return `${normalizedMessage} Hint: ${mismatch.hint}`;
+}

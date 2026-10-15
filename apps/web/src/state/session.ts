@@ -1,4 +1,4 @@
-import { hasTag } from "~/lib/taggedUnion";
+import { hasTag } from "~/lib/tagged-union";
 import { useAtomValue } from "@effect/atom-react";
 import { createEnvironmentSessionAtoms } from "@otto/client-runtime/state/session";
 import type { EnvironmentId } from "@otto/contracts";
@@ -6,7 +6,7 @@ import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 
 import { connectionAtomRuntime } from "../connection/runtime";
-import { appAtomRegistry } from "../rpc/atomRegistry";
+import { appAtomRegistry } from "../rpc/atom-registry";
 
 export const environmentSession = createEnvironmentSessionAtoms(connectionAtomRuntime);
 

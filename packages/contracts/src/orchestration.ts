@@ -23,7 +23,7 @@ export {
   ProviderApprovalDecision,
   ProviderApprovalOption,
   ProviderUserInputAnswers,
-} from "./orchestration/modelSelection.ts";
+} from "./orchestration/model-selection.ts";
 
 export {
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
@@ -117,9 +117,9 @@ export {
   OrchestrationThreadDetailWindow,
   OrchestrationThreadDetailPage,
   OrchestrationThreadDetailSnapshot,
-} from "./orchestration/readModel.ts";
+} from "./orchestration/read-model.ts";
 
-export { ProjectCreateCommand } from "./orchestration/rosterCommands.ts";
+export { ProjectCreateCommand } from "./orchestration/roster-commands.ts";
 
 export {
   type ThreadTurnStartBootstrap,
@@ -127,7 +127,7 @@ export {
   ThreadVoiceTranscriptAppendCommand,
   DelegationCancelCommand,
   DelegationRetryCommand,
-} from "./orchestration/threadCommands.ts";
+} from "./orchestration/thread-commands.ts";
 
 export {
   type DispatchableClientOrchestrationCommand,
@@ -195,7 +195,7 @@ export {
   DelegationCreatedPayload,
   DelegationUpdatedPayload,
   DelegationRetryRequestedPayload,
-} from "./orchestration/eventPayloads.ts";
+} from "./orchestration/event-payloads.ts";
 
 export {
   OrchestrationClientOrigin,
@@ -203,7 +203,7 @@ export {
   OrchestrationEvent,
 } from "./orchestration/events.ts";
 
-export { OrchestrationThreadStreamItem } from "./orchestration/threadStream.ts";
+export { OrchestrationThreadStreamItem } from "./orchestration/thread-stream.ts";
 
 export {
   OrchestrationCommandReceiptStatus,

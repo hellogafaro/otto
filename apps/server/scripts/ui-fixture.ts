@@ -12,10 +12,10 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { SHOWCASE_THREADS } from "../../../scripts/mobile-showcase-environment.ts";
-import { runMigrations } from "../src/persistence/Migrations.ts";
-import * as NodeSqliteClient from "../src/persistence/NodeSqliteClient.ts";
+import { runMigrations } from "../src/persistence/migrations.ts";
+import * as NodeSqliteClient from "../src/persistence/node-sqlite-client.ts";
 import { ensureNotInUse } from "./migrate-dev-db.ts";
-import { backupSqliteState, guardSqliteStateHome } from "./ottoLegacy-sqlite-state.ts";
+import { backupSqliteState, guardSqliteStateHome } from "./otto-legacy-sqlite-state.ts";
 
 export const UI_FIXTURE_CASES = ["empty", "populated", "edge"] as const;
 

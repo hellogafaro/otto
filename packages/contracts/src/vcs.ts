@@ -1,6 +1,6 @@
 import * as Match from "effect/Match";
 import * as Schema from "effect/Schema";
-import { NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { NonNegativeInt, TrimmedNonEmptyString } from "./base-schemas.ts";
 
 export const VcsDriverKind = Schema.Literals(["git", "jj", "unknown"]);
 

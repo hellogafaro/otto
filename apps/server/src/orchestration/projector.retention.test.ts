@@ -1,10 +1,10 @@
-import type { ActivityRecord } from "./ActivityPayloadBounds.ts";
+import type { ActivityRecord } from "./activity-payload-bounds.ts";
 import { ProviderDriverKind, type OrchestrationEvent } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { describe, expect } from "vite-plus/test";
 import { createEmptyReadModel, projectEvent } from "./projector.ts";
-import { makeEvent } from "./test-support/ProjectorFixtures.ts";
+import { makeEvent } from "./test-support/projector-fixtures.ts";
 
 describe("orchestration projector", () => {
   it.effect("caps message and checkpoint retention for long-lived threads", () =>

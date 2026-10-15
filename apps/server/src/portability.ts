@@ -1,25 +1,25 @@
-export { canonicalJson, portabilityChecksum } from "./portabilityChecksums.ts";
+export { canonicalJson, portabilityChecksum } from "./portability-checksums.ts";
 
-export { safeServerSettings } from "./portabilitySafety.ts";
+export { safeServerSettings } from "./portability-safety.ts";
 
 export {
   portableRecords,
   createPortabilityArchive,
   serializePortabilityArchive,
-} from "./portabilityArchive.ts";
+} from "./portability-archive.ts";
 
-export { parsePortabilityArchive } from "./portabilityParse.ts";
+export { parsePortabilityArchive } from "./portability-parse.ts";
 
-export { normalizePortabilityProjectFolders } from "./portabilityProjectRestore.ts";
+export { normalizePortabilityProjectFolders } from "./portability-project-restore.ts";
 
 export {
   portabilityStateChecksum,
   isPortabilityPreviewCurrent,
   previewPortabilityImport,
-} from "./portabilityPreview.ts";
+} from "./portability-preview.ts";
 
 export {
   type PortabilityApplyOutcome,
   summarizePortabilityApply,
   commandsForPortabilityImport,
-} from "./portabilityCommands.ts";
+} from "./portability-commands.ts";

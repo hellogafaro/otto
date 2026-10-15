@@ -31,7 +31,7 @@ Start the target runtime once before seeding so all migrations have run. Use an 
 List tables:
 
 ```bash
-node apps/server/scripts/ottoLegacy-sqlite-state.ts query \
+node apps/server/scripts/otto-legacy-sqlite-state.ts query \
   --base-dir <base-dir> \
   --sql "SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name"
 ```
@@ -39,7 +39,7 @@ node apps/server/scripts/ottoLegacy-sqlite-state.ts query \
 Inspect current columns before writing a fixture:
 
 ```bash
-node apps/server/scripts/ottoLegacy-sqlite-state.ts query \
+node apps/server/scripts/otto-legacy-sqlite-state.ts query \
   --base-dir <base-dir> \
   --sql "PRAGMA table_info(projection_threads)"
 ```
@@ -47,7 +47,7 @@ node apps/server/scripts/ottoLegacy-sqlite-state.ts query \
 Apply a SQL fixture from a file:
 
 ```bash
-node apps/server/scripts/ottoLegacy-sqlite-state.ts exec \
+node apps/server/scripts/otto-legacy-sqlite-state.ts exec \
   --base-dir <base-dir> \
   --file /tmp/ottoLegacy-seed.sql
 ```
@@ -67,7 +67,7 @@ The web UI primarily reads these projection tables:
 - `projection_pending_approvals`
 - `projection_thread_proposed_plans`
 
-Inspect `PRAGMA table_info(<table>)` and the current migrations under `apps/server/src/persistence/Migrations/` before constructing inserts. Keep identifiers unique, timestamps as ISO strings, JSON columns valid, and related project/thread/turn IDs consistent.
+Inspect `PRAGMA table_info(<table>)` and the current migrations under `apps/server/src/persistence/migrations/` before constructing inserts. Keep identifiers unique, timestamps as ISO strings, JSON columns valid, and related project/thread/turn IDs consistent.
 
 For a substantial current example, inspect `seedDatabase` in `scripts/mobile-showcase-environment.ts`. Adapt its column set to the target database instead of assuming copied SQL remains current.
 

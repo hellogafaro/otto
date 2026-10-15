@@ -1,0 +1,297 @@
+import * as Match from "effect/Match";
+import * as Schema from "effect/Schema";
+import type {
+  DesktopAppBranding,
+  DesktopAppStageLabel,
+  DesktopRuntimeArch,
+  DesktopRuntimeInfo,
+} from "@otto/contracts";
+import * as Config from "effect/Config";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+
+import * as DesktopAppSettings from "../settings/desktop-app-settings.ts";
+import * as DesktopConfig from "./desktop-config.ts";
+import { resolveDesktopBaseDir, resolveDesktopStateDir } from "./desktop-state-paths.ts";
+
+export interface MakeDesktopEnvironmentInput {
+  readonly dirname: string;
+  readonly homeDirectory: string;
+  readonly platform: NodeJS.Platform;
+  readonly processArch: string;
+  readonly appVersion: string;
+  readonly appPath: string;
+  readonly isPackaged: boolean;
+  readonly resourcesPath: string;
+  readonly runningUnderArm64Translation: boolean;
+}
+
+const decodeFolderOptions = Schema.decodeUnknownOption(
+  Schema.Struct({ initialPath: Schema.String }),
+);
+
+export class DesktopEnvironment extends Context.Service<
+  DesktopEnvironment,
+  {
+    readonly path: Path.Path;
+    readonly dirname: string;
+    readonly platform: NodeJS.Platform;
+    readonly processArch: string;
+    readonly isPackaged: boolean;
+    readonly isDevelopment: boolean;
+    readonly appVersion: string;
+    readonly appPath: string;
+    readonly resourcesPath: string;
+    readonly homeDirectory: string;
+    readonly appDataDirectory: string;
+    readonly baseDir: string;
+    readonly stateDir: string;
+    readonly desktopSettingsPath: string;
+    readonly clientSettingsPath: string;
+    readonly savedEnvironmentRegistryPath: string;
+    readonly serverSettingsPath: string;
+    readonly logDir: string;
+    readonly browserArtifactsDir: string;
+    readonly rootDir: string;
+    readonly appRoot: string;
+    // Root of the tree containing apps/server/dist and node_modules for the
+    // backend. Equals appRoot everywhere except packaged Windows, where the
+    // server tree ships as the resources/server.asar sidecar (see
+    // scripts/build-desktop-artifact.ts) that the asar-aware
+    // ELECTRON_RUN_AS_NODE primary reads in place and the WSL backend
+    // extracts on demand (see DesktopWslServerTree).
+    readonly serverRoot: string;
+    readonly backendEntryPath: string;
+    readonly backendCwd: string;
+    readonly preloadPath: string;
+    readonly appUpdateYmlPath: string;
+    readonly devServerUrl: Option.Option<URL>;
+    readonly devRemoteOttoLegacyServerEntryPath: Option.Option<string>;
+    readonly configuredBackendPort: Option.Option<number>;
+    readonly commitHashOverride: Option.Option<string>;
+    readonly otlpTracesUrl: Option.Option<string>;
+    readonly otlpExportIntervalMs: number;
+    readonly branding: DesktopAppBranding;
+    readonly displayName: string;
+    readonly appUserModelId: string;
+    readonly linuxDesktopEntryName: string;
+    readonly linuxWmClass: string;
+    readonly linuxApplicationsDir: string;
+    readonly appImagePath: Option.Option<string>;
+    readonly userDataDirName: string;
+    readonly legacyUserDataDirName: string;
+    readonly defaultDesktopSettings: DesktopAppSettings.DesktopSettings;
+    readonly runtimeInfo: DesktopRuntimeInfo;
+    readonly resolvePickFolderDefaultPath: <Input>(rawOptions: Input) => Option.Option<string>;
+    readonly resolveResourcePathCandidates: (fileName: string) => readonly string[];
+  }
+>()("@otto/desktop/app/desktop-environment/DesktopEnvironment") {}
+
+const APP_BASE_NAME = "Otto";
+
+function resolveDesktopAppStageLabel(input: {
+  readonly isDevelopment: boolean;
+  readonly appVersion: string;
+}): DesktopAppStageLabel {
+  if (input.isDevelopment) {
+    return "Dev";
+  }
+
+  return "Alpha";
+}
+
+function resolveDesktopAppBranding(input: {
+  readonly isDevelopment: boolean;
+  readonly isPackaged: boolean;
+  readonly appVersion: string;
+}): DesktopAppBranding {
+  const stageLabel = resolveDesktopAppStageLabel(input);
+
+  return {
+    baseName: APP_BASE_NAME,
+    stageLabel,
+    displayName: `${APP_BASE_NAME} (${stageLabel})`,
+    isPackaged: input.isPackaged,
+  };
+}
+
+function normalizeDesktopArch(arch: string): DesktopRuntimeArch {
+  if (arch === "arm64") return "arm64";
+
+  if (arch === "x64") return "x64";
+
+  return "other";
+}
+
+function resolveDesktopRuntimeInfo(input: {
+  readonly platform: NodeJS.Platform;
+  readonly processArch: string;
+  readonly runningUnderArm64Translation: boolean;
+}): DesktopRuntimeInfo {
+  const appArch = normalizeDesktopArch(input.processArch);
+
+  if (input.platform !== "darwin") {
+    return {
+      hostArch: appArch,
+      appArch,
+      runningUnderArm64Translation: false,
+    };
+  }
+
+  const hostArch = appArch === "arm64" || input.runningUnderArm64Translation ? "arm64" : appArch;
+
+  return {
+    hostArch,
+    appArch,
+    runningUnderArm64Translation: input.runningUnderArm64Translation,
+  };
+}
+
+const make = Effect.fn("desktop.environment.make")(function* (
+  input: MakeDesktopEnvironmentInput,
+): Effect.fn.Return<DesktopEnvironment["Service"], Config.ConfigError, Path.Path> {
+  const path = yield* Path.Path;
+  const config = yield* DesktopConfig.DesktopConfig;
+  const homeDirectory = input.homeDirectory;
+  const devServerUrl = config.devServerUrl;
+  const isDevelopment = Option.isSome(devServerUrl);
+
+  const appDataDirectory = Match.value(input.platform).pipe(
+    Match.when("win32", () =>
+      Option.getOrElse(config.appDataDirectory, () =>
+        path.join(homeDirectory, "AppData", "Roaming"),
+      ),
+    ),
+    Match.when("darwin", () => path.join(homeDirectory, "Library", "Application Support")),
+    Match.orElse(() =>
+      Option.getOrElse(config.xdgConfigHome, () => path.join(homeDirectory, ".config")),
+    ),
+  );
+
+  const baseDir = resolveDesktopBaseDir({
+    homeDirectory,
+    joinPath: path.join,
+    ottoLegacyHome: config.ottoLegacyHome,
+  });
+
+  const rootDir = path.resolve(input.dirname, "../../..");
+  const appRoot = input.isPackaged ? input.appPath : rootDir;
+
+  const serverRoot =
+    input.isPackaged && input.platform === "win32"
+      ? path.join(input.resourcesPath, "server.asar")
+      : appRoot;
+
+  const branding = resolveDesktopAppBranding({
+    isDevelopment,
+    isPackaged: input.isPackaged,
+    appVersion: input.appVersion,
+  });
+
+  const displayName = branding.displayName;
+
+  const stateDir = resolveDesktopStateDir({
+    baseDir,
+    isDevelopment,
+    joinPath: path.join,
+    ottoLegacyHome: config.ottoLegacyHome,
+  });
+
+  const userDataDirName = isDevelopment ? "otto-dev" : "otto";
+  const legacyUserDataDirName = isDevelopment ? "Otto (Dev)" : "Otto (Alpha)";
+
+  const linuxApplicationsDir = path.join(
+    Option.getOrElse(config.xdgDataHome, () => path.join(homeDirectory, ".local", "share")),
+    "applications",
+  );
+
+  const resourcesPath = input.resourcesPath;
+
+  return DesktopEnvironment.of({
+    path,
+    dirname: input.dirname,
+    platform: input.platform,
+    processArch: input.processArch,
+    isPackaged: input.isPackaged,
+    isDevelopment,
+    appVersion: input.appVersion,
+    appPath: input.appPath,
+    resourcesPath,
+    homeDirectory,
+    appDataDirectory,
+    baseDir,
+    stateDir,
+    desktopSettingsPath: path.join(stateDir, "desktop-settings.json"),
+    clientSettingsPath: path.join(stateDir, "client-settings.json"),
+    savedEnvironmentRegistryPath: path.join(stateDir, "saved-environments.json"),
+    serverSettingsPath: path.join(stateDir, "settings.json"),
+    logDir: path.join(stateDir, "logs"),
+    browserArtifactsDir: path.join(stateDir, "browser-artifacts"),
+    rootDir,
+    appRoot,
+    serverRoot,
+    backendEntryPath: path.join(serverRoot, "apps/server/dist/bin.mjs"),
+    backendCwd: input.isPackaged ? homeDirectory : appRoot,
+    preloadPath: path.join(input.dirname, "preload.cjs"),
+    appUpdateYmlPath: input.isPackaged
+      ? path.join(resourcesPath, "app-update.yml")
+      : path.join(input.appPath, "dev-app-update.yml"),
+    devServerUrl,
+    devRemoteOttoLegacyServerEntryPath: config.devRemoteOttoLegacyServerEntryPath,
+    configuredBackendPort: input.isPackaged ? Option.none() : config.configuredBackendPort,
+    commitHashOverride: config.commitHashOverride,
+    otlpTracesUrl: config.otlpTracesUrl,
+    otlpExportIntervalMs: config.otlpExportIntervalMs,
+    branding,
+    displayName,
+    appUserModelId: Option.getOrElse(config.appUserModelIdOverride, () =>
+      isDevelopment ? "studio.hellogafaro.otto.dev" : "studio.hellogafaro.otto",
+    ),
+    linuxDesktopEntryName: isDevelopment ? "otto-dev.desktop" : "otto.desktop",
+    linuxWmClass: isDevelopment ? "otto-dev" : "otto",
+    linuxApplicationsDir,
+    appImagePath: config.appImagePath,
+    userDataDirName,
+    legacyUserDataDirName,
+    defaultDesktopSettings: DesktopAppSettings.resolveDefaultDesktopSettings(input.appVersion),
+    runtimeInfo: resolveDesktopRuntimeInfo({
+      platform: input.platform,
+      processArch: input.processArch,
+      runningUnderArm64Translation: input.runningUnderArm64Translation,
+    }),
+    resolvePickFolderDefaultPath: (rawOptions) => {
+      const parsed = decodeFolderOptions(rawOptions);
+
+      if (Option.isNone(parsed)) return Option.none();
+      const { initialPath } = parsed.value;
+
+      const trimmedPath = initialPath.trim();
+
+      if (trimmedPath.length === 0) {
+        return Option.none();
+      }
+
+      if (trimmedPath === "~") {
+        return Option.some(homeDirectory);
+      }
+
+      if (trimmedPath.startsWith("~/") || trimmedPath.startsWith("~\\")) {
+        return Option.some(path.join(homeDirectory, trimmedPath.slice(2)));
+      }
+
+      return Option.some(path.resolve(trimmedPath));
+    },
+    resolveResourcePathCandidates: (fileName) => [
+      path.join(input.dirname, "../resources", fileName),
+      path.join(input.dirname, "../prod-resources", fileName),
+      path.join(resourcesPath, "resources", fileName),
+      path.join(resourcesPath, fileName),
+    ],
+  });
+});
+
+export const layer = (input: MakeDesktopEnvironmentInput) =>
+  Layer.effect(DesktopEnvironment, make(input));

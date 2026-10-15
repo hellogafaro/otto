@@ -1,9 +1,9 @@
 import { isJsonValue } from "./json.ts";
-import { decodePluginManifest } from "./decodeManifest.ts";
-import type { PluginManifest } from "./manifestTypes.ts";
-import { validateManifest } from "./validateManifest.ts";
+import { decodePluginManifest } from "./decode-manifest.ts";
+import type { PluginManifest } from "./manifest-types.ts";
+import { validateManifest } from "./validate-manifest.ts";
 
-export { PLUGIN_SCHEMA_VERSION, type PluginManifest, type PluginSkill } from "./manifestTypes.ts";
+export { PLUGIN_SCHEMA_VERSION, type PluginManifest, type PluginSkill } from "./manifest-types.ts";
 
 export function parsePluginManifest<T>(input: T, source = "plugin manifest"): PluginManifest {
   try {

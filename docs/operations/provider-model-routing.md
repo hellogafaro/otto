@@ -6,9 +6,9 @@ Otto routes each bot's saved model to its provider at turn time. This runbook ex
 the evidence available for a live turn and its limits. Trace attributes expose the selection
 on standard OpenCode's legacy bridge, but do not prove the effective wire model for Mastra drivers.
 Mocked transport regressions verify wire-format routing in
-`apps/server/src/provider/Layers/AgentController.test.ts`
+`apps/server/src/provider/layers/agent-controller.test.ts`
 ("per-driver wire-format model routing") and
-`apps/server/src/orchestration/Layers/ProviderCommandReactor.test.ts`.
+`apps/server/src/orchestration/layers/provider-command-reactor.test.ts`.
 
 ## What routing means
 
@@ -62,8 +62,8 @@ call is not a traced event or child span. Missing attributes do not establish th
 a model selection. A saved bot engine is configuration, not proof of the model sent on the wire.
 
 Until that instrumentation exists, use the "per-driver wire-format model routing" tests in
-`apps/server/src/provider/Layers/AgentController.test.ts` and the independent-bot routing tests in
-`apps/server/src/orchestration/Layers/ProviderCommandReactor.test.ts`. These are mocked regression
+`apps/server/src/provider/layers/agent-controller.test.ts` and the independent-bot routing tests in
+`apps/server/src/orchestration/layers/provider-command-reactor.test.ts`. These are mocked regression
 checks, not evidence that a live provider accepted a particular model.
 
 Runtime events such as `turn.started` (with `payload.model`, the model the session is actually
@@ -116,5 +116,5 @@ Capture the failing span (`jq` the trace file by `traceId`) and record the bot's
 For standard OpenCode, compare it to `provider.model` on the legacy `sendTurn` span. For Mastra
 drivers, record available runtime events and reproduce the mismatch in the mocked wire-format
 tests rather than treating absent trace attributes as a routing failure. File the mismatch against the owning driver in
-`apps/server/src/provider/Drivers/`; the fix belongs at the adapter boundary, not in the
+`apps/server/src/provider/drivers/`; the fix belongs at the adapter boundary, not in the
 orchestration layer.

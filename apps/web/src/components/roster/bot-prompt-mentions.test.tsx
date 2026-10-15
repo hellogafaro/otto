@@ -1,0 +1,90 @@
+import type { EnvironmentId } from "@otto/contracts";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+import { BotPromptMentionHighlights, BotPromptMentionMenu } from "./bot-prompt-mentions";
+
+function renderMenu(
+  scope: Parameters<typeof BotPromptMentionMenu>[0]["scope"],
+  bots: Parameters<typeof BotPromptMentionMenu>[0]["bots"] = [{ id: "bot-1", name: "Mika" }],
+) {
+  return renderToStaticMarkup(
+    <BotPromptMentionMenu
+      ref={null}
+      listboxId="mentions"
+      trigger={{ query: "", rangeStart: 0, rangeEnd: 1 }}
+      scope={scope}
+      bots={bots}
+      onSelect={vi.fn()}
+      onClose={vi.fn()}
+      onActiveOptionChange={vi.fn()}
+    />,
+  );
+}
+
+describe("BotPromptMentionMenu", () => {
+  it("renders an accessible listbox with the browser when the environment allows it", () => {
+    const markup = renderMenu({
+      environmentId: "environment-1" as EnvironmentId,
+      threadId: null,
+      projectId: null,
+      cwd: null,
+    });
+
+    expect(markup).toContain('role="listbox"');
+    expect(markup).toContain('id="mentions-option-0"');
+    expect(markup).toContain('aria-selected="true"');
+    expect(markup).toContain("Browser");
+    expect(markup).toContain("Mika");
+  });
+
+  it("hides the browser without a chat environment to gate it", () => {
+    const markup = renderMenu(null);
+
+    expect(markup).not.toContain("Browser");
+    expect(markup).toContain("Mika");
+  });
+});
+
+describe("BotPromptMentionMenu handed-off work", () => {
+  it("marks only the bot whose provider cannot take handed-off work", () => {
+    const markup = renderMenu(null, [
+      { id: "bot-1", name: "Mika", title: "Designer", canTakeWork: false },
+      { id: "bot-2", name: "Mika", title: "Reviewer" },
+    ]);
+
+    expect(markup).toContain("Designer, Cannot take handed-off work");
+    expect(markup).toContain("Reviewer");
+    expect(markup.match(/Cannot take handed-off work/g)).toHaveLength(1);
+  });
+});
+
+describe("BotPromptMentionMenu namesakes", () => {
+  it("shows both bots named Mika with the role that tells them apart", () => {
+    const markup = renderMenu(null, [
+      { id: "bot-1", name: "Mika", title: "Designer" },
+      { id: "bot-2", name: "Mika", title: "Reviewer" },
+    ]);
+
+    expect(markup.match(/role="option"/g)).toHaveLength(2);
+    expect(markup).toContain("Designer");
+    expect(markup).toContain("Reviewer");
+  });
+});
+
+describe("BotPromptMentionHighlights", () => {
+  it("paints each mention as a tag and keeps the rest of the draft as plain text", () => {
+    const markup = renderToStaticMarkup(
+      <BotPromptMentionHighlights
+        ref={null}
+        text="ask @Mika now"
+        mentions={[{ start: 4, end: 9 }]}
+        className=""
+      />,
+    );
+
+    expect(markup).toContain(">@Mika</span>");
+    expect(markup).toContain("ask ");
+    expect(markup).toContain(" now ");
+  });
+});

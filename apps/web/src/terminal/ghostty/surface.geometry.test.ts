@@ -4,8 +4,8 @@ import {
   terminalScrollbarGeometry,
   terminalScrollbarOffsetAtPointer,
   terminalContentOriginY,
-} from "./surfaceGeometry";
-import { terminalWheelArrowData, terminalWheelDeltaRows } from "./surfaceInput";
+} from "./surface-geometry";
+import { terminalWheelArrowData, terminalWheelDeltaRows } from "./surface-input";
 
 describe("terminalGridCellAt", () => {
   const options = {

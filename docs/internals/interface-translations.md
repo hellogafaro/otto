@@ -49,17 +49,17 @@ English extraction is incremental. A catalog's existence is not evidence that ev
 | Routines                            | Routine panel, routine form, and routine receipts in chat                        | Chat settings routine screen, approvals, and receipts |
 | Approved non-English catalogs       | Simplified Chinese (`zh-CN`)                                                     | Simplified Chinese (`zh-CN`)                          |
 
-The coverage test scans every file that imports `useI18n` or `useMobileI18n`, plus a short explicit list of plain modules that translate through a passed-in or module-level translator: `CommandPalette.logic.ts`, `composerProviderMenuItems.ts`, the mobile `app-updates.ts`, the onboarding logic modules, `botInbox.ts`, `durableMemory.ts`, `imageGeneration.ts`, `providerAvailability.ts`, and `errors/threadErrorPresentation.ts` in client-runtime, and `botEngineSelection.ts`, `routineReceipts.ts`, and `SettingsPanels.logic.ts` in the web app. Plural forms passed to `plural` are extracted as messages too. Mobile code outside React uses `translateOutsideReact` from `apps/mobile/src/lib/i18n.tsx`, which follows the mounted language provider.
+The coverage test scans every file that imports `useI18n` or `useMobileI18n`, plus a short explicit list of plain modules that translate through a passed-in or module-level translator: `command-palette.logic.ts`, `composer-provider-menu-items.ts`, the mobile `app-updates.ts`, the onboarding logic modules, `botInbox.ts`, `durable-memory.ts`, `imageGeneration.ts`, `provider-availability.ts`, and `errors/thread-error-presentation.ts` in client-runtime, and `bot-engine-selection.ts`, `routine-receipts.ts`, and `settings-panels.logic.ts` in the web app. Plural forms passed to `plural` are extracted as messages too. Mobile code outside React uses `translateOutsideReact` from `apps/mobile/src/lib/i18n.tsx`, which follows the mounted language provider.
 
 ### Untranslated exceptions
 
 These surfaces render English in every language. Each is a known gap, not a claim of coverage.
 
-- Desktop native shell: the application menu, context menus built in the main process, updater dialogs, and the startup splash (`DesktopApplicationMenu.ts`, `DesktopWindow.ts`, startup assets). Electron's built-in menu roles follow the operating system. Translating them needs a client-local preference bridge into the main process, a menu rebuild on change, and Electron restart verification.
+- Desktop native shell: the application menu, context menus built in the main process, updater dialogs, and the startup splash (`desktop-application-menu.ts`, `desktop-window.ts`, startup assets). Electron's built-in menu roles follow the operating system. Translating them needs a client-local preference bridge into the main process, a menu rebuild on change, and Electron restart verification.
 - Web workspace tools: the file browser, code-block diffs, project scripts, and preview panels. Font previews in Settings also render English sample text.
 - Web Settings section bodies outside General. Row titles translate everywhere through Settings search, but descriptions, controls, and dialogs in Appearance and the theme editor, Keybindings, Bot channels setup, Voice, Image generation, Browser, Plugins, Sandbox, Privacy (except Memory), Connections access details, Source control and writing style, Errors, Diagnostics, and project settings render English.
-- Desktop update tooltips and toasts built in `desktopUpdate.logic.ts` and `providerUpdates.logic.ts`.
-- Web roster timestamps and the chat timestamp tooltip format with the browser or host locale, not the interface language (`roster.logic.ts`, `BotRosterSidebar.tsx`, `timestampFormat.ts`).
+- Desktop update tooltips and toasts built in `desktop-update.logic.ts` and `provider-updates.logic.ts`.
+- Web roster timestamps and the chat timestamp tooltip format with the browser or host locale, not the interface language (`roster.logic.ts`, `bot-roster-sidebar.tsx`, `timestamp-format.ts`).
 - Channel origin labels and shared composer mention labels in `packages/client-runtime` and `packages/shared`.
 - Mobile screens: chat channels, the composer command popover, files, usage and bot usage, image generation settings, legal documents, and the activity widget.
 - Mobile relative times in chat lists and archived chats (`lib/time.ts` `relativeTime`) stay English.
@@ -69,7 +69,7 @@ These surfaces render English in every language. Each is a known gap, not a clai
 
 Content that is never translated, by design, is listed under Content boundary above. In memory and routine screens that includes fact text, memory documents, the `USER.md`, `MEMORY.md`, and `GROUP.md` file names, routine names and instructions, run summaries, and timezone names.
 
-Shared helpers that build copy outside React, such as the durable memory labels in `packages/client-runtime/src/durableMemory.ts` and the routine schedule and receipt helpers on web, export catalog keys or take an optional translator that defaults to English. Components pass the active translator; tests and non-React callers get English. Durable fact failures return a catalog message chosen from the failure's stable tag, with the raw server detail kept separate and appended as received.
+Shared helpers that build copy outside React, such as the durable memory labels in `packages/client-runtime/src/durable-memory.ts` and the routine schedule and receipt helpers on web, export catalog keys or take an optional translator that defaults to English. Components pass the active translator; tests and non-React callers get English. Durable fact failures return a catalog message chosen from the failure's stable tag, with the raw server detail kept separate and appended as received.
 
 ### Bundle cost
 

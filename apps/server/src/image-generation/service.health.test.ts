@@ -5,11 +5,11 @@ import {
   seedApiKey,
   baseSettings,
   rows,
-} from "./testUtils/imageService.ts";
+} from "./test-utils/image-service.ts";
 import * as NodeFS from "node:fs";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { type ImageGenerationSettings } from "@otto/contracts";
-import { makeTestSubscriptionAuthService } from "../subscription-auth/testUtils/subscriptionAuthService.ts";
+import { makeTestSubscriptionAuthService } from "../subscription-auth/test-utils/subscription-auth-service.ts";
 import { normalizeImageGenerationPatch, runImageProviderHealthTest } from "./service.ts";
 
 describe("image provider rows", () => {

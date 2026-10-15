@@ -54,15 +54,15 @@ export { derivePendingApprovals, derivePendingUserInputs };
 
 export { formatDuration, formatElapsed } from "@otto/shared/orchestrationTiming";
 
-export { deriveWorkLogEntries } from "./session/workLogEntries";
+export { deriveWorkLogEntries } from "./session/work-log-entries";
 
 export {
   workLogEntryIsToolLike,
   pluginSearchResultForWorkEntry,
   workEntryDisplayIndicatesToolFailure,
-} from "./session/workLogStatus";
+} from "./session/work-log-status";
 
-export { isLatestTurnSettled, deriveActiveWorkStartedAt } from "./session/turnTiming";
+export { isLatestTurnSettled, deriveActiveWorkStartedAt } from "./session/turn-timing";
 
 export {
   type WorkLogToolLifecycleStatus,
@@ -70,4 +70,4 @@ export {
   type ActivePlanState,
   type TimelineEntry,
   type TurnPlanEntry,
-} from "./session/workLogTypes";
+} from "./session/work-log-types";

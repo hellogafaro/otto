@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { SettingsRoutePage } from "../components/settings/SettingsRoutePage";
-import { DEFAULT_SETTINGS_SECTION } from "../settingsDialogStore";
+import { SettingsRoutePage } from "../components/settings/settings-route-page";
+import { DEFAULT_SETTINGS_SECTION } from "../settings-dialog-store";
 
 export const Route = createFileRoute("/settings")({
   beforeLoad: async ({ context, location }) => {

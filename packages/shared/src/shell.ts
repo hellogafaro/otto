@@ -11,7 +11,7 @@ import {
   readWindowsEnvironmentSafely,
   mergeWindowsEnv,
 } from "./shell/environment.ts";
-import { type CommandAvailabilityChecker, isCommandAvailable } from "./shell/commandResolution.ts";
+import { type CommandAvailabilityChecker, isCommandAvailable } from "./shell/command-resolution.ts";
 import { resolveKnownWindowsCliDirs } from "./shell/windows.ts";
 
 export const WindowsShellEnvironment = Context.Reference<WindowsShellEnvironmentReader>(
@@ -95,6 +95,6 @@ export {
   resolveCommandPath,
   resolveSpawnCommand,
   isCommandAvailable,
-} from "./shell/commandResolution.ts";
+} from "./shell/command-resolution.ts";
 
 export { resolveKnownWindowsCliDirs } from "./shell/windows.ts";

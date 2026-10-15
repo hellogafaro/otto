@@ -16,7 +16,7 @@ import { Argument, Flag } from "effect/unstable/cli";
 
 import { readBootstrapEnvelope } from "../bootstrap.ts";
 import * as ServerConfig from "../config.ts";
-import { aliasedEnv } from "./envAliases.ts";
+import { aliasedEnv } from "./env-aliases.ts";
 import { expandHomePath, resolveBaseDir } from "../os-jank.ts";
 
 /** An http(s) origin with no credentials, path, query, or fragment, normalized to `URL.origin`. */
@@ -134,7 +134,7 @@ const envWithDefault = <A>(read: (name: string) => Config.Config<A>, suffix: str
   aliasedEnv(read, suffix).pipe(Config.map(Option.getOrElse(() => fallback)));
 
 // Every server variable reads `OTTO_<name>` first and `OTTO_LEGACY_<name>` as a
-// fallback alias; see envAliases.ts.
+// fallback alias; see env-aliases.ts.
 const EnvServerConfig = Config.all({
   logLevel: envWithDefault(Config.logLevel, "LOG_LEVEL", "Info"),
   traceMinLevel: envWithDefault(Config.logLevel, "TRACE_MIN_LEVEL", "Info"),

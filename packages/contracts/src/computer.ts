@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { NonNegativeInt, PositiveInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { NonNegativeInt, PositiveInt, ThreadId, TrimmedNonEmptyString } from "./base-schemas.ts";
 
 /** Ephemeral workspace computer transport. Never persist frames, input, or session tokens. */
 export const COMPUTER_FRAME_MAX_BYTES = 256 * 1024;

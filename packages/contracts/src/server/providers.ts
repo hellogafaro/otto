@@ -5,9 +5,9 @@ import {
   IsoDateTime,
   NonNegativeInt,
   TrimmedNonEmptyString,
-} from "../baseSchemas.ts";
+} from "../base-schemas.ts";
 import { ModelCapabilities } from "../model.ts";
-import { ProviderDriverKind, ProviderInstanceId } from "../providerInstance.ts";
+import { ProviderDriverKind, ProviderInstanceId } from "../provider-instance.ts";
 
 const KeybindingsMalformedConfigIssue = Schema.Struct({
   kind: Schema.Literal("keybindings.malformed-config"),

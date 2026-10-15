@@ -1,8 +1,8 @@
-import { SurfaceKeyboardController } from "./surfaceKeyboard";
-import { SurfacePointerController } from "./surfacePointer";
-import { SurfaceScrollbarController } from "./surfaceScrollbar";
-import { mountGhosttySurfaceElements } from "./surfaceElements";
-import type { GhosttySelectionPosition, GhosttyTerminalSurfaceOptions } from "./surfaceTypes";
+import { SurfaceKeyboardController } from "./surface-keyboard";
+import { SurfacePointerController } from "./surface-pointer";
+import { SurfaceScrollbarController } from "./surface-scrollbar";
+import { mountGhosttySurfaceElements } from "./surface-elements";
+import type { GhosttySelectionPosition, GhosttyTerminalSurfaceOptions } from "./surface-types";
 
 import { GhosttyTerminalCore, type GhosttySnapshot, type GhosttyTheme } from "./core";
 import {
@@ -17,9 +17,9 @@ import {
   terminalFontSize,
   ensureTerminalSymbolsFont,
   loadTerminalFontFamily,
-} from "./surfaceFont";
-import { SurfaceFontController } from "./surfaceFontState";
-import { CONTENT_PADDING, terminalContentOriginY } from "./surfaceGeometry";
+} from "./surface-font";
+import { SurfaceFontController } from "./surface-font-state";
+import { CONTENT_PADDING, terminalContentOriginY } from "./surface-geometry";
 
 /** Half a blink cycle: the visible and hidden phases are equally long. */
 const CURSOR_BLINK_INTERVAL_MS = 500;
@@ -740,4 +740,4 @@ export class GhosttyTerminalSurface {
   }
 }
 
-export type { GhosttySelectionPosition, GhosttyTerminalSurfaceOptions } from "./surfaceTypes";
+export type { GhosttySelectionPosition, GhosttyTerminalSurfaceOptions } from "./surface-types";

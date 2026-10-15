@@ -17,7 +17,7 @@ import {
   PROJECT_ID,
   URL_MCP_ID,
   STDIO_MCP_ID,
-} from "./portabilityTestSupport.ts";
+} from "./portability-test-support.ts";
 
 describe("portability import", () => {
   it("conflicts with different existing conversation history", () => {

@@ -8,11 +8,11 @@ Milestone 13 keeps catalog discovery separate from connection verification. An e
 
 The lifecycle matrix does not copy runtime tests. These focused tests own the runtime behavior:
 
-- `apps/server/src/orchestration/Layers/McpServerRegistry.test.ts` covers create, update, disable, enable, delete, missing IDs, and independent raw MCP state.
-- `apps/server/src/provider/Layers/AgentController.test.ts` covers selected MCP registration, exact tool-to-server attribution, startup failure, and request failure or recovery at the runtime event boundary.
+- `apps/server/src/orchestration/layers/mcp-server-registry.test.ts` covers create, update, disable, enable, delete, missing IDs, and independent raw MCP state.
+- `apps/server/src/provider/layers/agent-controller.test.ts` covers selected MCP registration, exact tool-to-server attribution, startup failure, and request failure or recovery at the runtime event boundary.
 - `apps/server/src/subscription-auth/service.test.ts` persists MCP failure and recovery without tool output or tokens.
 - `apps/server/src/subscription-auth/snapshot.test.ts` keeps a built-in MCP detected until a real request passes, reports healthy and disabled state, and lists dependent bots.
-- `apps/server/src/bot-inbox/connectorIncidents.test.ts` covers provider and MCP first-request failure, recovery, and stale dependent cleanup.
+- `apps/server/src/bot-inbox/connector-incidents.test.ts` covers provider and MCP first-request failure, recovery, and stale dependent cleanup.
 
 Bot-facing MCP controls use the same session-scoped Mastra `McpManager`. `GetMcpServerStatus` returns the manager connection plus persisted request evidence. `TestMcpServer` and `ReconnectMcpServer` use the manager's real per-server reconnect result, then update the same health and inbox records. A connected manager without a completed request or connection test reports `not-run`, not healthy.
 
@@ -22,7 +22,7 @@ Run the matrix with the catalog, schema, runtime, and validator checks. Do not c
 
 ## Lifecycle matrix execution
 
-`apps/server/src/provider/PluginLifecycleMatrix.test.ts` runs the install → connect → health → disconnect → reconnect → remove sequence through the same Mastra `McpManager` used by bot sessions. The Codex Computer Use stdio recipe (`otto-codex-computer-use mcp`) runs against a newline-delimited JSON-RPC fixture because the CLI is not on PATH in CI. URL recipes (including Executor 2's authenticated `https://executor.sh/mcp` recipe) run against a loopback Streamable HTTP fake that stands in for the vendor endpoint. The Executor fixture requires a bearer header, so discovery is not treated as an unauthenticated socket probe.
+`apps/server/src/provider/plugin-lifecycle-matrix.test.ts` runs the install → connect → health → disconnect → reconnect → remove sequence through the same Mastra `McpManager` used by bot sessions. The Codex Computer Use stdio recipe (`otto-codex-computer-use mcp`) runs against a newline-delimited JSON-RPC fixture because the CLI is not on PATH in CI. URL recipes (including Executor 2's authenticated `https://executor.sh/mcp` recipe) run against a loopback Streamable HTTP fake that stands in for the vendor endpoint. The Executor fixture requires a bearer header, so discovery is not treated as an unauthenticated socket probe.
 
 Fixtures prove the lifecycle wiring, not vendor behavior. A fixture pass never moves an entry out of `verification-pending`; only a run against the real CLI or endpoint does.
 

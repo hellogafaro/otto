@@ -12,8 +12,8 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
   Visibility,
-} from "./baseSchemas.ts";
-import { McpServerId } from "./mcpServer.ts";
+} from "./base-schemas.ts";
+import { McpServerId } from "./mcp-server.ts";
 
 export const RoutineId = TrimmedNonEmptyString.pipe(Schema.brand("RoutineId"));
 

@@ -5,8 +5,8 @@ import * as Layer from "effect/Layer";
 import * as Socket from "effect/unstable/socket/Socket";
 
 import { remoteHttpClientLayer } from "@otto/client-runtime/rpc";
-import * as PrimaryEnvironmentHttpClient from "../environments/primary/httpClient";
-import { primaryEnvironmentHttpLayer } from "../environments/primary/httpLayer";
+import * as PrimaryEnvironmentHttpClient from "../environments/primary/http-client";
+import { primaryEnvironmentHttpLayer } from "../environments/primary/http-layer";
 
 const httpClientLayer = remoteHttpClientLayer((input, init) => globalThis.fetch(input, init));
 

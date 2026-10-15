@@ -1,0 +1,364 @@
+import * as Predicate from "effect/Predicate";
+/**
+ * ClaudeTextGeneration – Text generation layer using the Claude CLI.
+ *
+ * Implements the same TextGeneration service contract as CodexTextGeneration but
+ * delegates to the `claude` CLI (`claude -p`) with structured JSON output
+ * instead of the `codex exec` CLI.
+ *
+ * @module ClaudeTextGeneration
+ */
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+
+import { type ClaudeSettings, type ModelSelection } from "@otto/contracts";
+import { sanitizeBranchFragment } from "@otto/shared/git";
+import { resolveSpawnCommand } from "@otto/shared/shell";
+
+import { TextGenerationError } from "@otto/contracts";
+import * as TextGeneration from "./text-generation.ts";
+import { buildBranchNamePrompt, buildThreadTitlePrompt } from "./text-generation-prompts.ts";
+import {
+  normalizeCliError,
+  sanitizeThreadTitle,
+  toJsonSchemaObject,
+} from "./text-generation-utils.ts";
+import {
+  getModelSelectionStringOptionValue,
+  getProviderOptionDescriptors,
+} from "@otto/shared/model";
+import {
+  getClaudeModelCapabilities,
+  isClaudeUltracodeEffort,
+  normalizeClaudeCliEffort,
+  resolveClaudeApiModelId,
+  resolveClaudeEffort,
+} from "../provider/layers/claude-provider.ts";
+import { claudeEnvironmentForConfig } from "../provider/drivers/claude-home.ts";
+import { subscriptionRuntimeEnvironment } from "../subscription-auth/runtime.ts";
+
+const CLAUDE_TIMEOUT_MS = 180_000;
+
+/**
+ * Schema for the wrapper JSON returned by `claude -p --output-format json`.
+ * Verbose mode wraps the result in an array of conversation messages.
+ */
+const ClaudeOutputEnvelope = Schema.Struct({
+  structured_output: Schema.Unknown,
+});
+
+const ClaudeOutputMessage = Schema.Struct({
+  type: Schema.String,
+  structured_output: Schema.optionalKey(Schema.Unknown),
+});
+
+const isClaudeOutputEnvelope = Schema.is(ClaudeOutputEnvelope);
+
+const encodeJsonString = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+
+const decodeClaudeOutput = Schema.decodeEffect(
+  Schema.fromJsonString(Schema.Union([ClaudeOutputEnvelope, Schema.Array(ClaudeOutputMessage)])),
+);
+
+export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(function* (
+  claudeSettings: ClaudeSettings,
+  environment?: NodeJS.ProcessEnv,
+  secretsDir?: string,
+  instanceId?: string,
+) {
+  const commandSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const fileSystem = yield* FileSystem.FileSystem;
+  const claudeEnvironment = yield* claudeEnvironmentForConfig(claudeSettings, environment);
+
+  const readStreamAsString = <E>(
+    operation: string,
+    stream: Stream.Stream<Uint8Array, E>,
+  ): Effect.Effect<string, TextGenerationError> =>
+    stream.pipe(
+      Stream.decodeText(),
+      Stream.runFold(
+        () => "",
+        (acc, chunk) => acc + chunk,
+      ),
+      Effect.mapError((cause) =>
+        normalizeCliError("claude", operation, cause, "Failed to collect process output"),
+      ),
+    );
+
+  const encodeJsonForOperation = (
+    operation: "generateBranchName" | "generateThreadTitle",
+    value:
+      | ReturnType<typeof toJsonSchemaObject>
+      | {
+          readonly disableAllHooks: boolean;
+          readonly alwaysThinkingEnabled?: boolean;
+          readonly fastMode?: boolean;
+        },
+    detail: string,
+  ): Effect.Effect<string, TextGenerationError> =>
+    encodeJsonString(value).pipe(
+      Effect.mapError(
+        (cause) =>
+          new TextGenerationError({
+            operation,
+            detail,
+            cause,
+          }),
+      ),
+    );
+
+  /**
+   * Spawn the Claude CLI with structured JSON output and return the parsed,
+   * schema-validated result.
+   */
+  const runClaudeJson = Effect.fn("runClaudeJson")(function* <S extends Schema.Top>({
+    operation,
+    cwd,
+    prompt,
+    outputSchemaJson,
+    modelSelection,
+  }: {
+    operation: "generateBranchName" | "generateThreadTitle";
+    cwd: string;
+    prompt: string;
+    outputSchemaJson: S;
+    modelSelection: ModelSelection;
+  }): Effect.fn.Return<S["Type"], TextGenerationError, S["DecodingServices"]> {
+    const jsonSchemaStr = yield* encodeJsonForOperation(
+      operation,
+      toJsonSchemaObject(outputSchemaJson),
+      "Failed to encode structured output schema.",
+    );
+
+    const caps = getClaudeModelCapabilities(modelSelection.model);
+
+    const descriptors = getProviderOptionDescriptors({
+      caps,
+      selections: modelSelection.options,
+    });
+
+    const findDescriptor = (id: string) => descriptors.find((descriptor) => descriptor.id === id);
+    const rawEffortSelection = getModelSelectionStringOptionValue(modelSelection, "effort");
+    const resolvedEffort = resolveClaudeEffort(caps, rawEffortSelection);
+    const cliEffort = normalizeClaudeCliEffort(resolvedEffort, modelSelection.model);
+    const ultracode = isClaudeUltracodeEffort(resolvedEffort);
+    const thinkingDescriptor = findDescriptor("thinking");
+    const fastModeDescriptor = findDescriptor("fastMode");
+
+    const thinking =
+      thinkingDescriptor?.type === "boolean" ? thinkingDescriptor.currentValue : undefined;
+
+    const fastMode =
+      fastModeDescriptor?.type === "boolean" ? fastModeDescriptor.currentValue : undefined;
+
+    const settings = {
+      disableAllHooks: true,
+      ...(Predicate.isBoolean(thinking) ? { alwaysThinkingEnabled: thinking } : {}),
+      ...(fastMode ? { fastMode: true } : {}),
+      ...(ultracode ? { ultracode: true } : {}),
+    };
+
+    const settingsJson = yield* encodeJsonForOperation(
+      operation,
+      settings,
+      "Failed to encode Claude CLI settings.",
+    );
+
+    const runClaudeCommand = Effect.fn("runClaudeJson.runClaudeCommand")(function* () {
+      const requestEnvironment = secretsDir
+        ? yield* subscriptionRuntimeEnvironment(
+            secretsDir,
+            "anthropic",
+            claudeEnvironment,
+            instanceId,
+          )
+        : claudeEnvironment;
+
+      // Titles need only the supplied prompt, not configuration from the checkout.
+      const workingDirectory =
+        operation === "generateThreadTitle"
+          ? yield* fileSystem
+              .makeTempDirectoryScoped({ prefix: "otto-claude-title-" })
+              .pipe(
+                Effect.mapError((cause) =>
+                  normalizeCliError("claude", operation, cause, "Failed to create title directory"),
+                ),
+              )
+          : cwd;
+
+      const spawnCommand = yield* resolveSpawnCommand(
+        claudeSettings.binaryPath || "claude",
+        [
+          "-p",
+          "--output-format",
+          "json",
+          "--json-schema",
+          jsonSchemaStr,
+          "--model",
+          resolveClaudeApiModelId(modelSelection),
+          ...(cliEffort ? ["--effort", cliEffort] : []),
+          "--settings",
+          settingsJson,
+          // Metadata prompts need no executable capabilities, even when they contain a skill name.
+          "--tools",
+          "",
+          "--disable-slash-commands",
+          "--strict-mcp-config",
+          "--permission-mode",
+          "dontAsk",
+        ],
+        { env: requestEnvironment },
+      );
+
+      const command = ChildProcess.make(spawnCommand.command, spawnCommand.args, {
+        env: requestEnvironment,
+        cwd: workingDirectory,
+        shell: spawnCommand.shell,
+        stdin: {
+          stream: Stream.encodeText(Stream.make(prompt)),
+        },
+      });
+
+      const child = yield* commandSpawner
+        .spawn(command)
+        .pipe(
+          Effect.mapError((cause) =>
+            normalizeCliError("claude", operation, cause, "Failed to spawn Claude CLI process"),
+          ),
+        );
+
+      const [stdout, stderr, exitCode] = yield* Effect.all(
+        [
+          readStreamAsString(operation, child.stdout),
+          readStreamAsString(operation, child.stderr),
+          child.exitCode.pipe(
+            Effect.mapError((cause) =>
+              normalizeCliError("claude", operation, cause, "Failed to read Claude CLI exit code"),
+            ),
+          ),
+        ],
+        { concurrency: "unbounded" },
+      );
+
+      if (exitCode !== 0) {
+        const stderrDetail = stderr.trim();
+        const stdoutDetail = stdout.trim();
+        const detail = stderrDetail.length > 0 ? stderrDetail : stdoutDetail;
+
+        return yield* new TextGenerationError({
+          operation,
+          detail:
+            detail.length > 0
+              ? `Claude CLI command failed: ${detail}`
+              : `Claude CLI command failed with code ${exitCode}.`,
+        });
+      }
+
+      return stdout;
+    });
+
+    const rawStdout = yield* runClaudeCommand().pipe(
+      Effect.scoped,
+      Effect.timeoutOption(CLAUDE_TIMEOUT_MS),
+      Effect.flatMap(
+        Option.match({
+          onNone: () =>
+            Effect.fail(
+              new TextGenerationError({ operation, detail: "Claude CLI request timed out." }),
+            ),
+          onSome: (value) => Effect.succeed(value),
+        }),
+      ),
+    );
+
+    const output = yield* decodeClaudeOutput(rawStdout).pipe(
+      Effect.catchTags({
+        SchemaError: (cause) =>
+          Effect.fail(
+            new TextGenerationError({
+              operation,
+              detail: "Claude CLI returned unexpected output format.",
+              cause,
+            }),
+          ),
+      }),
+    );
+
+    const envelope = isClaudeOutputEnvelope(output)
+      ? output
+      : output.findLast((message) => message.type === "result");
+
+    const decodeOutput = Schema.decodeEffect(outputSchemaJson);
+
+    return yield* decodeOutput(envelope?.structured_output).pipe(
+      Effect.catchTags({
+        SchemaError: (cause) =>
+          Effect.fail(
+            new TextGenerationError({
+              operation,
+              detail: "Claude returned invalid structured output.",
+              cause,
+            }),
+          ),
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // TextGeneration service methods
+  // ---------------------------------------------------------------------------
+
+  const generateBranchName: TextGeneration.TextGeneration["Service"]["generateBranchName"] =
+    Effect.fn("ClaudeTextGeneration.generateBranchName")(function* (input) {
+      const { prompt, outputSchema } = buildBranchNamePrompt({
+        message: input.message,
+        attachments: input.attachments,
+      });
+
+      const generated = yield* runClaudeJson({
+        operation: "generateBranchName",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+      });
+
+      return {
+        branch: sanitizeBranchFragment(generated.branch),
+      };
+    });
+
+  const generateThreadTitle: TextGeneration.TextGeneration["Service"]["generateThreadTitle"] =
+    Effect.fn("ClaudeTextGeneration.generateThreadTitle")(function* (input) {
+      const { prompt, outputSchema } = buildThreadTitlePrompt({
+        message: input.message,
+        previousTitle: input.previousTitle,
+        attachments: input.attachments,
+      });
+
+      const generated = yield* runClaudeJson({
+        operation: "generateThreadTitle",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+      });
+
+      return {
+        title: sanitizeThreadTitle(generated.title),
+      };
+    });
+
+  return {
+    generateBranchName,
+    generateThreadTitle,
+  } satisfies TextGeneration.TextGeneration["Service"];
+});
+
+export const layerWithSettings = (settings: ClaudeSettings, environment?: NodeJS.ProcessEnv) =>
+  Layer.effect(TextGeneration.TextGeneration, makeClaudeTextGeneration(settings, environment));

@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
-import { TrimmedNonEmptyString } from "./baseSchemas.ts";
-import { McpServer, McpServerId } from "./mcpServer.ts";
+import { TrimmedNonEmptyString } from "./base-schemas.ts";
+import { McpServer, McpServerId } from "./mcp-server.ts";
 import {
   BotId,
   ApprovalRequestId,
@@ -9,7 +9,7 @@ import {
   ProviderItemId,
   ThreadId,
   TurnId,
-} from "./baseSchemas.ts";
+} from "./base-schemas.ts";
 import {
   BotSandbox,
   BotSandboxBrowserSharing,
@@ -29,8 +29,8 @@ import {
   ProviderSandboxMode,
   ProviderUserInputAnswers,
   RuntimeMode,
-} from "./orchestration/modelSelection.ts";
-import { ProviderInstanceId, ProviderDriverKind } from "./providerInstance.ts";
+} from "./orchestration/model-selection.ts";
+import { ProviderInstanceId, ProviderDriverKind } from "./provider-instance.ts";
 
 const ProviderSessionStatus = Schema.Literals([
   "connecting",

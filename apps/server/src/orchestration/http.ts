@@ -12,31 +12,31 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
 
-import * as ChannelCommand from "../channels/ChannelCommand.ts";
-import * as ChannelRuntime from "../channels/ChannelRuntime.ts";
-import * as ServerRuntimeStartup from "../serverRuntimeStartup.ts";
-import * as ServerSettings from "../serverSettings.ts";
+import * as ChannelCommand from "../channels/channel-command.ts";
+import * as ChannelRuntime from "../channels/channel-runtime.ts";
+import * as ServerRuntimeStartup from "../server-runtime-startup.ts";
+import * as ServerSettings from "../server-settings.ts";
 import * as ServerConfig from "../config.ts";
-import * as ProjectionBots from "../persistence/Services/ProjectionBots.ts";
-import { OrchestrationCommandReceiptRepository } from "../persistence/Services/OrchestrationCommandReceipts.ts";
-import * as ProviderRegistry from "../provider/Services/ProviderRegistry.ts";
-import { deriveProviderInstanceConfigMap } from "../provider/Layers/ProviderInstanceRegistryHydration.ts";
-import { preflightProvider } from "../provider/providerPreflight.ts";
+import * as ProjectionBots from "../persistence/services/projection-bots.ts";
+import { OrchestrationCommandReceiptRepository } from "../persistence/services/orchestration-command-receipts.ts";
+import * as ProviderRegistry from "../provider/services/provider-registry.ts";
+import { deriveProviderInstanceConfigMap } from "../provider/layers/provider-instance-registry-hydration.ts";
+import { preflightProvider } from "../provider/provider-preflight.ts";
 import { SubscriptionAuthService } from "../subscription-auth/service.ts";
-import { projectThreadDetailSnapshot } from "./ActivityPayloadProjection.ts";
+import { projectThreadDetailSnapshot } from "./activity-payload-projection.ts";
 import {
   applyAuthenticatedCommandActor,
   isLibraryClientCommand,
   applyKnownGroupPerson,
   commandNamesPeople,
   sessionPersonId,
-} from "./AuthenticatedCommand.ts";
+} from "./authenticated-command.ts";
 import {
   cleanupFailedUploadedAttachments,
   dispatchKeepingAcceptedUploads,
   normalizeDispatchCommand,
-} from "./Normalizer.ts";
-import { OrganizationAccounts } from "../auth/OrganizationAccounts.ts";
+} from "./normalizer.ts";
+import { OrganizationAccounts } from "../auth/organization-accounts.ts";
 import {
   annotateEnvironmentRequest,
   failEnvironmentInternal,
@@ -44,11 +44,11 @@ import {
   failEnvironmentNotFound,
   requireEnvironmentScope,
 } from "../auth/http.ts";
-import { OrchestrationEngineService } from "./Services/OrchestrationEngine.ts";
-import { ProjectionGroupRepository } from "../persistence/Services/ProjectionGroups.ts";
-import { ProjectionLibraryRepository } from "../persistence/Services/ProjectionLibrary.ts";
-import { canSeeThreadById, visibleShellSnapshot } from "./groupVisibility.ts";
-import { ProjectionSnapshotQuery } from "./Services/ProjectionSnapshotQuery.ts";
+import { OrchestrationEngineService } from "./services/orchestration-engine.ts";
+import { ProjectionGroupRepository } from "../persistence/services/projection-groups.ts";
+import { ProjectionLibraryRepository } from "../persistence/services/projection-library.ts";
+import { canSeeThreadById, visibleShellSnapshot } from "./group-visibility.ts";
+import { ProjectionSnapshotQuery } from "./services/projection-snapshot-query.ts";
 
 export const orchestrationHttpApiLayer = HttpApiBuilder.group(
   EnvironmentHttpApi,

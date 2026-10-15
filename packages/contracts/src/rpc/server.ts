@@ -24,14 +24,14 @@ import {
   LibrarySaveDocumentInput,
   LibrarySaveDocumentResult,
 } from "../orchestration/library.ts";
-import { OttoBotUsageInput, OttoBotUsageReadError, OttoBotUsageSnapshot } from "../ottoUsage.ts";
+import { OttoBotUsageInput, OttoBotUsageReadError, OttoBotUsageSnapshot } from "../otto-usage.ts";
 import {
   OttoMemoryOperationError,
   OttoMemoryFactsListInput,
   OttoMemoryFactsListResult,
   OttoMemoryMutateInput,
   OttoMemoryMutationResult,
-} from "../ottoMemory/facts.ts";
+} from "../otto-memory/facts.ts";
 import {
   OttoMemoryArchiveV2,
   OttoMemoryExportInput,
@@ -45,14 +45,14 @@ import {
   OttoMarkdownMemoryImportApplyResult,
   OttoMarkdownMemoryImportPreview,
   OttoMarkdownMemoryImportPreviewInput,
-} from "../ottoMemory/transfer.ts";
+} from "../otto-memory/transfer.ts";
 import {
   OttoMemoryDocumentsInspectInput,
   OttoMemoryDocumentsSnapshot,
   OttoMemoryDocumentReplaceInput,
   OttoMemoryDocument,
   OttoMemoryObservationsClearInput,
-} from "../ottoMemory/documents.ts";
+} from "../otto-memory/documents.ts";
 import { ExternalLauncherError, LaunchEditorInput } from "../editor.ts";
 import {
   AuthAccessStreamError,
@@ -81,7 +81,7 @@ import {
   ProviderUploadFeedbackInput,
   ProviderUploadFeedbackResult,
 } from "../provider.ts";
-import { ProviderInstanceId } from "../providerInstance.ts";
+import { ProviderInstanceId } from "../provider-instance.ts";
 import { DiscoveredLocalServerList, ConfiguredLocalServerUrls } from "../preview.ts";
 import {
   ServerConfigStreamEvent,
@@ -114,13 +114,13 @@ import {
   ResourceTelemetryHistoryInput,
   ResourceTelemetryRetryResult,
   ResourceTelemetrySnapshot,
-} from "../resourceTelemetry.ts";
+} from "../resource-telemetry.ts";
 import { UsageReadError, UsageSummary, UsageSummaryInput } from "../usage.ts";
 import {
   RemoteDoctorError,
   RemoteDoctorRepairInput,
   RemoteDoctorStatus,
-} from "../remoteDiagnostics.ts";
+} from "../remote-diagnostics.ts";
 import { ServerSettings, ServerSettingsError, ServerSettingsRpcPatch } from "../settings/server.ts";
 import {
   BotInboxItem,
@@ -143,12 +143,12 @@ import {
   SubscriptionAuthStartInput,
   SubscriptionAuthStartResult,
   SubscriptionAuthStatuses,
-} from "../subscriptionAuth.ts";
+} from "../subscription-auth.ts";
 import {
   ImageGenerationError,
   ImageProviderHealthTestInput,
   ImageProviderListResult,
-} from "../imageGeneration.ts";
+} from "../image-generation.ts";
 import {
   VoiceCallError,
   VoiceCallHangupInput,
@@ -167,7 +167,7 @@ import {
   VoiceSynthesizeResult,
   VoiceCancelInput,
   VoiceCancelResult,
-} from "../voiceCall.ts";
+} from "../voice-call.ts";
 import {
   PortabilityApplyImportInput,
   PortabilityApplyImportResult,

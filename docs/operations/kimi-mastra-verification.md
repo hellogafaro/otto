@@ -5,9 +5,9 @@
 Kimi For Coding runs entirely on Otto's in-process Mastra harness (`OttoMastraHarness` +
 `OttoKimiProvider`). It never spawns a provider CLI and never touches the legacy adapter bridge.
 The automated suite covers this with mocked transports in
-`apps/server/src/provider/Layers/AgentController.test.ts` ("Kimi Mastra normalization" and the
+`apps/server/src/provider/layers/agent-controller.test.ts` ("Kimi Mastra normalization" and the
 fake-transport end-to-end case) and
-`apps/server/src/provider/Layers/ProviderInstanceRegistryLive.test.ts` ("Kimi never reaches the
+`apps/server/src/provider/layers/provider-instance-registry-live.test.ts` ("Kimi never reaches the
 legacy bridge"). This runbook verifies the same behaviors against a real Kimi For Coding
 subscription. Each step lists the observable signal that proves the Mastra path handled it.
 

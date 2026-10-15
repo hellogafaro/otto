@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { HttpClientRequest } from "effect/unstable/http";
 
-import { parseAuthorizationInput } from "../authorizationInput.ts";
+import { parseAuthorizationInput } from "../authorization-input.ts";
 import {
   decodeOAuthBody,
   ensureOk,
@@ -25,7 +25,7 @@ import {
   sendOAuthRequest,
   SubscriptionAuthInputError,
   withOAuthTimeout,
-} from "../oauthHttp.ts";
+} from "../oauth-http.ts";
 import { generatePKCE } from "../pkce.ts";
 import { ClaudeProfile, claudePlanLabel } from "../plan.ts";
 import type { OAuthCredentials } from "../types.ts";

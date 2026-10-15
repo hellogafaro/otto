@@ -35,7 +35,7 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as Semaphore from "effect/Semaphore";
 import * as ServerConfig from "./config.ts";
-import { writeFileStringAtomically } from "./atomicWrite.ts";
+import { writeFileStringAtomically } from "./atomic-write.ts";
 import {
   DEFAULT_KEYBINDINGS,
   compileResolvedKeybindingRule,
@@ -55,14 +55,14 @@ import {
   encodeKeybindingsConfigPrettyJson,
   mergeWithDefaultKeybindings,
   RETIRED_DEFAULT_KEYBINDINGS,
-} from "./keybindingConfig.ts";
+} from "./keybinding-config.ts";
 import {
   isSameKeybindingRule,
   hasSameShortcutContext,
   keybindingRuleFromUpsertInput,
   replaceTargetFromUpsertInput,
   keybindingRuleFromRemoveInput,
-} from "./keybindingRules.ts";
+} from "./keybinding-rules.ts";
 
 export {
   DEFAULT_KEYBINDINGS,
@@ -614,6 +614,6 @@ const make = Effect.gen(function* () {
 
 export const layer = Layer.effect(Keybindings, make);
 
-export { ResolvedKeybindingFromConfig, ResolvedKeybindingsFromConfig } from "./keybindingRules.ts";
+export { ResolvedKeybindingFromConfig, ResolvedKeybindingsFromConfig } from "./keybinding-rules.ts";
 
-export { type KeybindingsConfigState, type KeybindingsChangeEvent } from "./keybindingConfig.ts";
+export { type KeybindingsConfigState, type KeybindingsChangeEvent } from "./keybinding-config.ts";

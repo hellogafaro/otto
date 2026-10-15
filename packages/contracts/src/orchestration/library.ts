@@ -11,7 +11,7 @@ import {
   ProjectId,
   ThreadId,
   TrimmedNonEmptyString,
-} from "../baseSchemas.ts";
+} from "../base-schemas.ts";
 import type { GroupMembership } from "./roster.ts";
 import { WorkParticipant, workParticipantKey } from "./work.ts";
 

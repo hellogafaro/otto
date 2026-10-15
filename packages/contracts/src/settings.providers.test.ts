@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { ProviderDriverKind, ProviderInstanceId } from "./providerInstance.ts";
+import { ProviderDriverKind, ProviderInstanceId } from "./provider-instance.ts";
 import {
   DEFAULT_SERVER_SETTINGS,
   defaultEnabledForDriver,

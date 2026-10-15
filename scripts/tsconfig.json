@@ -9,9 +9,9 @@
     "**/*.ts",
     "../plugins/categories.ts",
     "../plugins/schema.ts",
-    "../plugins/manifestTypes.ts",
-    "../plugins/decodeManifest.ts",
+    "../plugins/manifest-types.ts",
+    "../plugins/decode-manifest.ts",
     "../plugins/json.ts",
-    "../plugins/validateManifest.ts"
+    "../plugins/validate-manifest.ts"
   ]
 }

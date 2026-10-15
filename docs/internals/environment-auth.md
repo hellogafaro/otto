@@ -63,7 +63,7 @@ WebSocket ticket. The client sends its bearer token in the HTTP authorization he
 only the ticket in the WebSocket URL.
 
 Each RPC method maps to one required scope in
-`apps/server/src/auth/RpcAuthorization.ts`. Creating a ticket does not authorize every RPC.
+`apps/server/src/auth/rpc-authorization.ts`. Creating a ticket does not authorize every RPC.
 
 ## Pairing records
 

@@ -7,8 +7,8 @@ import {
   ensureClientSettingsHydrated,
   getClientSettings,
   useUpdateClientSettings,
-} from "./hooks/useSettings";
-import { CLIENT_SETTINGS_STORAGE_KEY } from "./clientPersistenceStorage";
+} from "./hooks/use-settings";
+import { CLIENT_SETTINGS_STORAGE_KEY } from "./client-persistence-storage";
 
 const subscriptions = vi.hoisted(() => new Set<(listener: () => void) => () => void>());
 

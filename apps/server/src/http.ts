@@ -31,28 +31,28 @@ import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
 import { OtlpTracer } from "effect/unstable/observability";
 
 import * as ServerConfig from "./config.ts";
-import { ASSET_ROUTE_PREFIX, resolveAsset } from "./assets/AssetAccess.ts";
-import { OrganizationAccounts } from "./auth/OrganizationAccounts.ts";
+import { ASSET_ROUTE_PREFIX, resolveAsset } from "./assets/asset-access.ts";
+import { OrganizationAccounts } from "./auth/organization-accounts.ts";
 import {
   ATTACHMENT_UPLOAD_ROUTE_PREFIX,
   storeAttachmentUpload,
   validateAttachmentUploadToken,
-} from "./assets/AttachmentUpload.ts";
+} from "./assets/attachment-upload.ts";
 import {
   LIBRARY_UPLOAD_ROUTE_PREFIX,
   storeLibraryUpload,
   validateLibraryUploadToken,
-} from "./library/LibraryStore.ts";
-import * as BrowserTraceCollector from "./observability/BrowserTraceCollector.ts";
-import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
+} from "./library/library-store.ts";
+import * as BrowserTraceCollector from "./observability/browser-trace-collector.ts";
+import * as EnvironmentAuth from "./auth/environment-auth.ts";
 import {
   annotateEnvironmentRequest,
   failEnvironmentScopeRequired,
   failEnvironmentAuthInvalid,
   failEnvironmentInternal,
 } from "./auth/http.ts";
-import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
-import { browserApiCorsAllowedHeaders, browserApiCorsAllowedMethods } from "./httpCors.ts";
+import * as ServerEnvironment from "./environment/server-environment.ts";
+import { browserApiCorsAllowedHeaders, browserApiCorsAllowedMethods } from "./http-cors.ts";
 
 const OTLP_TRACES_PROXY_PATH = "/api/observability/v1/traces";
 

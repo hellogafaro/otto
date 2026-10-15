@@ -11,8 +11,8 @@ import {
   TrimmedNonEmptyString,
   TrimmedString,
   TurnId,
-} from "../baseSchemas.ts";
-import { ProviderApprovalDecision } from "./modelSelection.ts";
+} from "../base-schemas.ts";
+import { ProviderApprovalDecision } from "./model-selection.ts";
 import { ChannelFailureCategory } from "./roster.ts";
 import { OrchestrationCheckpointFile, OrchestrationCheckpointStatus } from "./thread.ts";
 import {
@@ -20,9 +20,9 @@ import {
   OrchestrationShellStreamItem,
   OrchestrationSubscribeShellInput,
   OrchestrationSubscribeThreadInput,
-} from "./readModel.ts";
+} from "./read-model.ts";
 import { ClientOrchestrationCommand } from "./commands.ts";
-import { OrchestrationThreadStreamItem } from "./threadStream.ts";
+import { OrchestrationThreadStreamItem } from "./thread-stream.ts";
 
 export const OrchestrationCommandReceiptStatus = Schema.Literals(["accepted", "rejected"]);
 

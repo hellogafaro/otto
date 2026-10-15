@@ -5,9 +5,9 @@ import * as Option from "effect/Option";
 
 import type * as Electron from "electron";
 
-import * as DesktopBackendManager from "../../backend/DesktopBackendManager.ts";
-import * as DesktopBackendPool from "../../backend/DesktopBackendPool.ts";
-import * as ElectronWindow from "../../electron/ElectronWindow.ts";
+import * as DesktopBackendManager from "../../backend/desktop-backend-manager.ts";
+import * as DesktopBackendPool from "../../backend/desktop-backend-pool.ts";
+import * as ElectronWindow from "../../electron/electron-window.ts";
 import { getLocalEnvironmentBootstraps, getWindowFullscreenState } from "./window.ts";
 
 const readyWslConfig: DesktopBackendManager.DesktopBackendStartConfig = {

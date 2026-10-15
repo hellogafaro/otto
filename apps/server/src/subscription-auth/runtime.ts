@@ -10,7 +10,7 @@ import {
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { mergeProviderInstanceEnvironment } from "../provider/ProviderInstanceEnvironment.ts";
+import { mergeProviderInstanceEnvironment } from "../provider/provider-instance-environment.ts";
 import {
   anthropicApiBaseUrl,
   SubscriptionAuthService,

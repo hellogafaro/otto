@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { CustomizeAppsPage } from "../components/customize/CustomizeApps";
+import { CustomizeAppsPage } from "../components/customize/customize-apps";
 import { parseCustomizeAppsSearch } from "../components/customize/customize.logic";
 
 export const Route = createFileRoute("/settings/integrations/apps/")({

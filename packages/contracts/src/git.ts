@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
-import { NonNegativeInt, PositiveInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
-import { SourceControlProviderInfo } from "./sourceControl.ts";
+import { NonNegativeInt, PositiveInt, TrimmedNonEmptyString } from "./base-schemas.ts";
+import { SourceControlProviderInfo } from "./source-control.ts";
 import { VcsDriverKind } from "./vcs.ts";
 
 const TrimmedNonEmptyStringSchema = TrimmedNonEmptyString;

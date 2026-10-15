@@ -1,0 +1,54 @@
+import { createTranslator } from "@otto/client-runtime/i18n";
+import type { ServerProvider } from "@otto/contracts";
+import type { UnifiedSettings } from "@otto/contracts/settings";
+
+import { resolveAppModelSelectionState } from "../../model-selection";
+import {
+  applyProviderInstanceSettings,
+  deriveProviderInstanceEntries,
+  sortProviderInstanceEntries,
+} from "../../provider-instances";
+import { getTriggerDisplayModelName } from "../chat/provider-icon-utils";
+import { resolveStickyBotEngine } from "./bot-engine-selection";
+import type { Bot } from "./types";
+
+type Translate = ReturnType<typeof createTranslator>["t"];
+
+const translateEnglish: Translate = createTranslator("en").t;
+
+/**
+ * Names the model a bot's next turn runs on. It resolves through the same
+ * sticky engine the chat sends, so a bot without its own engine shows the
+ * concrete fallback model marked "(default)" instead of a placeholder.
+ */
+export function resolveBotModelLabel(
+  engine: Bot["engine"],
+  settings: UnifiedSettings,
+  providers: ReadonlyArray<ServerProvider>,
+  t: Translate = translateEnglish,
+): string {
+  const instanceEntries = sortProviderInstanceEntries(
+    applyProviderInstanceSettings(deriveProviderInstanceEntries(providers), settings),
+  );
+
+  const selection = resolveStickyBotEngine({
+    engine,
+    instanceEntries,
+    settings,
+    providers,
+    defaultSelection: resolveAppModelSelectionState(settings, providers),
+  });
+
+  if (!selection?.model) return engine?.model ?? t("No provider ready");
+
+  const model = instanceEntries
+    .find((entry) => entry.instanceId === selection.instanceId)
+    ?.models.find((candidate) => candidate.slug === selection.model);
+
+  const name = model ? getTriggerDisplayModelName(model) : selection.model;
+
+  const usesOwnEngine =
+    engine !== null && engine.provider === selection.instanceId && engine.model === selection.model;
+
+  return usesOwnEngine ? name : t("{name} (default)", { name });
+}

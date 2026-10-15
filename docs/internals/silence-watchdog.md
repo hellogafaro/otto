@@ -6,7 +6,7 @@ A running turn that stops producing output is reported as a typed silent-run sta
 
 The watchdog lives in `ProviderRuntimeIngestion`, after provider events are normalized into `ProviderRuntimeEvent`s. Every provider passes through that point. Codex, Claude, Grok, Kimi For Coding, and OpenCode Go arrive through the Mastra `AgentController`, and standard OpenCode arrives through the legacy adapter bridge. None of the providers needs its own watchdog code.
 
-The timer itself is `startSilenceWatchdog` in `apps/server/src/orchestration/SilenceWatchdog.ts`. It is a fiber forked into the ingestion scope, driven by a signal queue and `Clock`, so tests control it with `TestClock`. The silent interval is the named constant `SILENCE_WATCHDOG_SILENT_MS` (90 seconds).
+The timer itself is `startSilenceWatchdog` in `apps/server/src/orchestration/silence-watchdog.ts`. It is a fiber forked into the ingestion scope, driven by a signal queue and `Clock`, so tests control it with `TestClock`. The silent interval is the named constant `SILENCE_WATCHDOG_SILENT_MS` (90 seconds).
 
 ## Lifecycle
 
@@ -25,4 +25,4 @@ The incident key is `silence:<threadId>:<turnId>`, so a turn has at most one inb
 
 ## Clients
 
-`packages/client-runtime/src/silentRun.ts` exports `threadSilentRun(activities, turnId)`. It returns the provider, its display name, and the last output time when the latest silent-run activity for the running turn is `turn.silent`, and `null` otherwise. Web passes the result to `BotActivityStatus`, which replaces the working shimmer with "No response from <provider>" and a timer counted from the last output. Mobile shows the same state in the working row of the thread feed. Both clients keep silent-run activities out of the work log.
+`packages/client-runtime/src/silent-run.ts` exports `threadSilentRun(activities, turnId)`. It returns the provider, its display name, and the last output time when the latest silent-run activity for the running turn is `turn.silent`, and `null` otherwise. Web passes the result to `BotActivityStatus`, which replaces the working shimmer with "No response from <provider>" and a timer counted from the last output. Mobile shows the same state in the working row of the thread feed. Both clients keep silent-run activities out of the work log.

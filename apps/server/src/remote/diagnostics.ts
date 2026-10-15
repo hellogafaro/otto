@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
-import { BOOT_SERVICE_LAUNCHD_LABEL, BOOT_SERVICE_UNIT_FILE } from "../cloud/bootService.ts";
+import { BOOT_SERVICE_LAUNCHD_LABEL, BOOT_SERVICE_UNIT_FILE } from "../cloud/boot-service.ts";
 
 const decodeReport = Schema.decodeUnknownSync(RemoteDoctorReport);
 

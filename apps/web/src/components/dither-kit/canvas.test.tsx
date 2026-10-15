@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { reactHookHarness } from "../../test/reactHookHarness";
+import { reactHookHarness } from "../../test/react-hook-harness";
 import { seedOfColor } from "./palette";
 
 const hooks = vi.hoisted(() => ({
@@ -9,7 +9,7 @@ const hooks = vi.hoisted(() => ({
 
 vi.mock("react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react")>();
-  const { reactHookHarness } = await import("../../test/reactHookHarness");
+  const { reactHookHarness } = await import("../../test/react-hook-harness");
 
   return {
     ...actual,
@@ -38,7 +38,7 @@ vi.mock("react", async (importOriginal) => {
 });
 
 vi.mock("react/compiler-runtime", async () => {
-  const { reactHookHarness } = await import("../../test/reactHookHarness");
+  const { reactHookHarness } = await import("../../test/react-hook-harness");
 
   return { c: reactHookHarness.useMemoCache };
 });

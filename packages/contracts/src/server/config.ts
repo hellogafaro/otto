@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 import { ExecutionEnvironmentDescriptor } from "../environment.ts";
 import { ServerAuthDescriptor } from "../auth.ts";
-import { ForwardCompatibleArray, TrimmedNonEmptyString } from "../baseSchemas.ts";
+import { ForwardCompatibleArray, TrimmedNonEmptyString } from "../base-schemas.ts";
 import {
   KeybindingCommand,
   KeybindingValue,

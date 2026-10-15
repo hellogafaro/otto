@@ -28,7 +28,7 @@ import {
   stripNullDefaults,
   buildJsonSchemaFiles,
   rewriteExternalRefs,
-} from "./generate/jsonSchema.ts";
+} from "./generate/json-schema.ts";
 import {
   parseRequestEntries,
   parseNotificationEntries,

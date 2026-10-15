@@ -21,7 +21,7 @@ The environment server owns credentials. It writes them to:
 
 The directory uses mode `0700`. The file uses mode `0600`. Clients submit API keys through `subscriptionAuth.complete`; the server never returns saved keys. OAuth access tokens and refresh tokens never cross the WebSocket contract. Status includes the authentication method and custom base URL, but no credentials.
 
-`apps/server/src/subscription-auth/credentialStore.ts` owns the file. It reads and writes through the Effect `FileSystem` and `Path` services and decodes with Schema. Known provider entries must match the OAuth or API key shape. Other keys, such as the `apikey:<provider>` records Mastra's `AuthStorage` writes to the same file, pass through and survive rewrites.
+`apps/server/src/subscription-auth/credential-store.ts` owns the file. It reads and writes through the Effect `FileSystem` and `Path` services and decodes with Schema. Known provider entries must match the OAuth or API key shape. Other keys, such as the `apikey:<provider>` records Mastra's `AuthStorage` writes to the same file, pass through and survive rewrites.
 
 Every `SubscriptionAuthService` in the process shares one store per resolved path, so a login through one service is visible to every other service in the process at once. An update rereads the file, applies the change, writes a temporary file with mode `0600` in the same directory, and renames it over the original. Updates and reloads hold one semaphore, so concurrent updates run one at a time and none is lost.
 
@@ -46,7 +46,7 @@ Local desktop, a remote server, and a future hosted control plane use the same b
 
 ## Access copy in Settings
 
-`providerAccessGuide` in `packages/client-runtime/src/providerAccessGuide.ts` turns a `SubscriptionProviderStatus` into the access lines that web and mobile Settings show: what unlocks the provider, the other credential, whether the subscription includes API access, published limits, what the environment has saved, and one next step. Web renders it in `ProviderAccessDetails` and mobile in `ProviderAccessSummary`. Both pass their locale's translator, so the copy lives once in the shared catalogs.
+`providerAccessGuide` in `packages/client-runtime/src/provider-access-guide.ts` turns a `SubscriptionProviderStatus` into the access lines that web and mobile Settings show: what unlocks the provider, the other credential, whether the subscription includes API access, published limits, what the environment has saved, and one next step. Web renders it in `ProviderAccessDetails` and mobile in `ProviderAccessSummary`. Both pass their locale's translator, so the copy lives once in the shared catalogs.
 
 The guide calls access ready only when `health` is `healthy` or `recovered`, meaning the server recorded a successful provider request. `detected` stays "Not verified yet", and the optional `healthChecking` flag shows "Checking access" while the post-login check runs. Subscription statuses never report `unsupported` or `disabled`, so the guide has no state for them. The guide does not run checks; the server's health test owns that. Model names come from the default instance's `ServerProvider.models` in the environment config, so the list matches the environment the user is looking at. Custom instances keep their own credentials and are not listed.
 
@@ -79,13 +79,13 @@ Pending login state stays on the environment server. It is bounded and contains 
 
 ## Upstream requests
 
-Each module in `apps/server/src/subscription-auth/providers/` exports an Effect API (`AnthropicOAuth`, `CodexOAuth`, `KimiOAuth`, `XAIOAuth`) that requires an `HttpClient`, plus Promise wrappers that `SubscriptionAuthService` calls. The wrappers run the Effect API with the fetch-backed client from `oauthHttp.ts`.
+Each module in `apps/server/src/subscription-auth/providers/` exports an Effect API (`AnthropicOAuth`, `CodexOAuth`, `KimiOAuth`, `XAIOAuth`) that requires an `HttpClient`, plus Promise wrappers that `SubscriptionAuthService` calls. The wrappers run the Effect API with the fetch-backed client from `oauth-http.ts`.
 
 Response bodies are decoded with Schema. Failures use three tagged errors: `SubscriptionAuthRequestError` for transport failures, timeouts, and non-2xx responses; `SubscriptionAuthResponseError` for bodies with the wrong shape; and `SubscriptionAuthInputError` for unusable pasted codes or device ids. A request error message includes the HTTP status, because the service classifies revoked grants by matching `401`, `403`, `invalid_grant`, or `revoked` in the message. Every upstream operation has an `Effect.timeout` bound: 15 seconds for Anthropic and 30 seconds for the others. Kimi For Coding refresh retries transport failures, timeouts, 429, and 5xx responses after 1, 2, and 4 seconds.
 
-`deviceCode.ts` folds one RFC 8628 poll into the serializable state and reads time from the Effect `Clock`. `subscriptionAuth.poll` runs one step per request. `pollDeviceCodeUntilSettled` runs the same steps on a `Schedule` that waits the server interval and grows it after `slow_down`. The Codex device endpoint is not RFC 8628: it reports a pending login as 403 or 404 and uses a fixed 15-minute deadline.
+`device-code.ts` folds one RFC 8628 poll into the serializable state and reads time from the Effect `Clock`. `subscriptionAuth.poll` runs one step per request. `pollDeviceCodeUntilSettled` runs the same steps on a `Schedule` that waits the server interval and grows it after `slow_down`. The Codex device endpoint is not RFC 8628: it reports a pending login as 403 or 404 and uses a fixed 15-minute deadline.
 
-Tests replace the client with `testUtils/scriptedHttpClient.ts` and drive timeouts, retries, and poll intervals with `TestClock`.
+Tests replace the client with `test-utils/scripted-http-client.ts` and drive timeouts, retries, and poll intervals with `TestClock`.
 
 ## Runtime integration
 

@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { EnvironmentId } from "../baseSchemas.ts";
+import { EnvironmentId } from "../base-schemas.ts";
 import {
   DesktopSshEnvironmentTargetSchema,
   DesktopSshEnvironmentBootstrapSchema,

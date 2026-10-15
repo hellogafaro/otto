@@ -12,8 +12,8 @@ import {
   parseChatGptImageStream,
   unsupportedReason,
 } from "./adapters.ts";
-import { sniffImage } from "./imageBytes.ts";
-import { base64, jpegBytes, pngBytes } from "./testImages.ts";
+import { sniffImage } from "./image-bytes.ts";
+import { base64, jpegBytes, pngBytes } from "./test-images.ts";
 
 const request = (overrides: Partial<ImageAdapterRequest> = {}): ImageAdapterRequest => ({
   operation: "generate",

@@ -1,0 +1,480 @@
+import * as Schema from "effect/Schema";
+import { describe, expect, it } from "vite-plus/test";
+import { EventId, type OrchestrationThreadActivity } from "@otto/contracts";
+import { projectActivityPayload } from "./activity-payload-projection.ts";
+
+function activity(payload: Record<string, Schema.Json>): OrchestrationThreadActivity {
+  return {
+    id: EventId.make("activity-1"),
+    tone: "tool",
+    kind: "tool.completed",
+    summary: "Tool",
+    payload,
+    turnId: null,
+    createdAt: "2026-08-01T10:00:00.000Z",
+  };
+}
+
+/**
+ * Wire-survival regression: the slimming pass rewrites payload.data but must
+ * never strip the top-level per-agent fields the subagent fold depends on.
+ * If slimming ever moves to an allowlist over the whole payload, these
+ * assertions are the tripwire.
+ */
+describe("projectActivityPayload", () => {
+  it("drops deeply nested discarded JSON without walking its descendants", () => {
+    let discarded: Schema.Json = null;
+
+    for (let depth = 0; depth < 1_000; depth += 1) {
+      discarded = { child: discarded };
+    }
+
+    const projected = projectActivityPayload(
+      activity({ itemType: "command_execution", data: { command: "echo hello", discarded } }),
+    );
+
+    expect(projected.payload).toEqual({
+      itemType: "command_execution",
+      data: { command: "echo hello" },
+    });
+  });
+
+  it("truncates deeply nested retained MCP input at the projection depth limit", () => {
+    let input: Schema.Json = null;
+
+    for (let depth = 0; depth < 1_000; depth += 1) {
+      input = { child: input };
+    }
+
+    const projected = projectActivityPayload(
+      activity({ itemType: "mcp_tool_call", data: { input } }),
+    );
+
+    expect(projected.payload).toEqual({
+      itemType: "mcp_tool_call",
+      data: { input: { child: { child: { child: { child: "[truncated]" } } } } },
+    });
+  });
+
+  it.each([
+    ["x".repeat(4094) + "😀z", "x".repeat(4094) + "…"],
+    ["x".repeat(4093) + "😀zz", "x".repeat(4093) + "😀…"],
+    ["x".repeat(4094) + "😀", "x".repeat(4094) + "😀"],
+    ["x".repeat(4097), "x".repeat(4095) + "…"],
+  ])("preserves Unicode at the MCP string budget", (text, expected) => {
+    const projected = projectActivityPayload(
+      activity({ itemType: "mcp_tool_call", data: { input: { text } } }),
+    );
+
+    expect(projected.payload).toMatchObject({ data: { input: { text: expected } } });
+    expect(expected.isWellFormed()).toBe(true);
+  });
+  it("keeps a Mastra command while dropping its unused arguments", () => {
+    const projected = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        data: { args: { command: 'printf "hi\\n"', cwd: null, background: null } },
+      }),
+    );
+
+    const data = (projected.payload as Record<string, Schema.Json>).data as Record<
+      string,
+      Schema.Json
+    >;
+
+    expect(data).toEqual({ command: 'printf "hi\\n"' });
+  });
+
+  it("names what a web search or fetch worked on, and nothing more", () => {
+    const search = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: { args: { query: "Madrid  population\n2025", domains: null } },
+      }),
+      kind: "tool.started",
+      summary: "WebSearch started",
+    });
+
+    expect((search.payload as Record<string, Schema.Json>).data).toEqual({
+      detail: "Madrid population 2025",
+    });
+
+    const fetched = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: { result: { text: "<html>…</html>" } },
+      }),
+      summary: "WebFetch",
+    });
+
+    expect((fetched.payload as Record<string, Schema.Json>).data).toEqual({});
+  });
+
+  it("keeps a Composio call's app slugs but not its arguments", () => {
+    const call = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: {
+          args: {
+            tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { query: "from:boss" } }],
+            thought: "private",
+          },
+        },
+      }),
+      kind: "tool.started",
+      summary: "composio-session_COMPOSIO_MULTI_EXECUTE_TOOL started",
+    });
+
+    expect((call.payload as Record<string, Schema.Json>).data).toEqual({
+      args: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS" }] },
+    });
+  });
+
+  it("keeps trace fields when a snapshot is projected twice", () => {
+    const once = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: { args: { query: "Madrid population" } },
+      }),
+      kind: "tool.started",
+      summary: "WebSearch started",
+    });
+
+    const command = projectActivityPayload(
+      activity({ itemType: "command_execution", data: { result: "/workspace\n" } }),
+    );
+
+    expect(projectActivityPayload(once).payload).toEqual(once.payload);
+    expect(projectActivityPayload(command).payload).toEqual(command.payload);
+  });
+
+  it("keeps the start of a command's output", () => {
+    const done = projectActivityPayload(
+      activity({ itemType: "command_execution", data: { result: `${"x".repeat(2_000)}\n` } }),
+    );
+
+    const output = ((done.payload as Record<string, Schema.Json>).data as Record<string, string>)
+      .output;
+
+    expect(output).toHaveLength(1_500);
+    expect(output?.endsWith("…")).toBe(true);
+  });
+
+  it("tells memory writes from reads without shipping the notes", () => {
+    const write = projectActivityPayload(
+      activity({
+        itemType: "dynamic_tool_call",
+        data: { args: { operations: [{ op: "add", text: "secret" }] } },
+      }),
+    );
+
+    expect((write.payload as Record<string, Schema.Json>).data).toEqual({
+      memoryOperationCount: 1,
+    });
+  });
+
+  it("preserves tool attribution (agentId/parentToolUseId) through data slimming", () => {
+    const projected = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        agentId: "task-123",
+        parentToolUseId: "toolu_abc",
+        data: {
+          toolName: "Bash",
+          input: { command: "ls" },
+          command: "ls",
+          rawOutput: { content: "x".repeat(10) },
+          somethingClientNeverReads: { big: "blob" },
+        },
+      }),
+    );
+
+    const payload = projected.payload as Record<string, Schema.Json>;
+    expect(payload.agentId).toBe("task-123");
+    expect(payload.parentToolUseId).toBe("toolu_abc");
+    // Slimming itself still applies to data.
+    const data = payload.data as Record<string, Schema.Json>;
+    expect(data.somethingClientNeverReads).toBeUndefined();
+  });
+
+  it("keeps a bounded Codex command output summary", () => {
+    const projected = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        data: {
+          item: {
+            command: "/bin/zsh -lc 'printf hello'",
+            aggregatedOutput: `hello from codex\n${"x".repeat(5000)}`,
+          },
+        },
+      }),
+    );
+
+    const data = (projected.payload as Record<string, Schema.Json>).data as Record<
+      string,
+      Schema.Json
+    >;
+
+    expect(data.item).toEqual({
+      command: "/bin/zsh -lc 'printf hello'",
+      aggregatedOutput: "hello from codex",
+    });
+    expect(JSON.stringify(projected.payload).length).toBeLessThan(500);
+  });
+
+  it("scans tool output without retaining the full text behind its preview", () => {
+    const preview = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        data: { rawOutput: `\`\`\`\n  actual\tresult  \n${"x".repeat(5000)}` },
+      }),
+    );
+
+    const fences = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        data: { rawOutput: "```\r\n \t \n```\n" },
+      }),
+    );
+
+    expect((preview.payload as { data: { rawOutput: unknown } }).data.rawOutput).toEqual({
+      content: "actual result",
+    });
+    expect((fences.payload as { data: { rawOutput: unknown } }).data.rawOutput).toEqual({
+      content: "2 lines",
+    });
+  });
+
+  it("keeps bounded Claude and ACP command output summaries", () => {
+    const claude = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        data: {
+          command: "printf hello",
+          rawOutput: { stdout: `hello from claude\n${"y".repeat(5000)}` },
+        },
+      }),
+    );
+
+    const acp = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        data: {
+          command: "printf hello",
+          content: [
+            {
+              type: "content",
+              content: { type: "text", text: `hello from acp\n${"z".repeat(5000)}` },
+            },
+          ],
+        },
+      }),
+    );
+
+    const claudeData = (claude.payload as Record<string, Schema.Json>).data as Record<
+      string,
+      Schema.Json
+    >;
+
+    const acpData = (acp.payload as Record<string, Schema.Json>).data as Record<
+      string,
+      Schema.Json
+    >;
+
+    expect(claudeData.rawOutput).toEqual({ content: "hello from claude" });
+    expect(acpData.rawOutput).toEqual({ content: "hello from acp" });
+    expect(JSON.stringify(claude.payload).length).toBeLessThan(500);
+    expect(JSON.stringify(acp.payload).length).toBeLessThan(500);
+  });
+
+  it("normalizes Claude and OpenCode command inputs before slimming provider data", () => {
+    const claude = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        toolCallId: "claude-call-1",
+        data: {
+          toolName: "Bash",
+          input: { command: "vp test run" },
+          result: { content: "x".repeat(5_000) },
+        },
+      }),
+    );
+
+    const openCode = projectActivityPayload(
+      activity({
+        itemType: "command_execution",
+        toolCallId: "opencode-call-1",
+        data: {
+          tool: "bash",
+          state: {
+            status: "running",
+            input: { command: "vp lint" },
+            output: "x".repeat(5_000),
+          },
+        },
+      }),
+    );
+
+    expect(claude.payload).toMatchObject({
+      toolCallId: "claude-call-1",
+      data: { command: "vp test run" },
+    });
+    expect(openCode.payload).toMatchObject({
+      toolCallId: "opencode-call-1",
+      data: { command: "vp lint" },
+    });
+    expect(JSON.stringify(claude.payload).length).toBeLessThan(200);
+    expect(JSON.stringify(openCode.payload).length).toBeLessThan(200);
+  });
+
+  it("slims Codex-shaped mcp_tool_call items to rendered fields plus a result summary", () => {
+    const projected = projectActivityPayload(
+      activity({
+        itemType: "mcp_tool_call",
+        data: {
+          item: {
+            type: "mcpToolCall",
+            id: "item-1",
+            tool: "fetch_pr",
+            server: "github",
+            status: "completed",
+            arguments: { pr: 42 },
+            durationMs: 1200,
+            result: {
+              content: [{ type: "text", text: `PR body line one\n${"x".repeat(5000)}` }],
+              structuredContent: { huge: "y".repeat(5000) },
+            },
+            _meta: { internal: true },
+          },
+        },
+      }),
+    );
+
+    const data = (projected.payload as Record<string, Schema.Json>).data as Record<
+      string,
+      Schema.Json
+    >;
+
+    const item = data.item as Record<string, Schema.Json>;
+    expect(item.tool).toBe("fetch_pr");
+    expect(item.server).toBe("github");
+    expect(item.arguments).toEqual({ pr: 42 });
+    expect(item._meta).toBeUndefined();
+    expect(item.result).toEqual({ content: "PR body line one" });
+    expect(JSON.stringify(projected.payload).length).toBeLessThan(500);
+  });
+
+  it("slims Claude-shaped mcp_tool_call data (toolName/input/result block)", () => {
+    const projected = projectActivityPayload(
+      activity({
+        itemType: "mcp_tool_call",
+        data: {
+          toolName: "mcp__github__fetch_pr",
+          input: { pr: 42 },
+          result: {
+            type: "tool_result",
+            tool_use_id: "toolu_1",
+            content: [{ type: "text", text: `first line of output\n${"z".repeat(5000)}` }],
+          },
+        },
+      }),
+    );
+
+    const data = (projected.payload as Record<string, Schema.Json>).data as Record<
+      string,
+      Schema.Json
+    >;
+
+    expect(data.toolName).toBe("mcp__github__fetch_pr");
+    expect(data.input).toEqual({ pr: 42 });
+    expect(data.result).toEqual({ content: "first line of output" });
+    expect(JSON.stringify(projected.payload).length).toBeLessThan(500);
+  });
+
+  it("bounds large MCP arguments and inputs in client projections", () => {
+    const oversized = "x".repeat(10_000_000);
+
+    const codex = projectActivityPayload(
+      activity({
+        itemType: "mcp_tool_call",
+        data: {
+          item: {
+            type: "mcpToolCall",
+            tool: "write_file",
+            arguments: { content: oversized },
+          },
+        },
+      }),
+    );
+
+    const claude = projectActivityPayload(
+      activity({
+        itemType: "mcp_tool_call",
+        data: { toolName: "mcp__files__write", input: { content: oversized } },
+      }),
+    );
+
+    expect(JSON.stringify(codex.payload).length).toBeLessThan(5_000);
+    expect(JSON.stringify(claude.payload).length).toBeLessThan(5_000);
+    expect(
+      (codex.payload as { data: { item: { arguments: { content: string } } } }).data.item.arguments
+        .content.length,
+    ).toBe(4_096);
+  });
+
+  it("passes task lifecycle payloads (no data field) through untouched", () => {
+    const source = activity({
+      taskId: "task-9",
+      title: "Audit auth",
+      role: "explorer",
+      model: "opus",
+      effort: "high",
+      workflowName: "audit-flow",
+      phases: [{ index: 0, title: "Audit" }],
+      typedUsage: { totalTokens: 1200 },
+      runHandles: { runId: "run-1", scriptPath: "/tmp/wf.js" },
+      timelineBypass: true,
+    });
+
+    const projected = projectActivityPayload(source);
+    expect(projected.payload).toEqual(source.payload);
+  });
+
+  it("keeps bounded plugin recommendations for the chat card", () => {
+    const projected = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: {
+          result: {
+            kind: "plugin-search-results",
+            query: "email",
+            total: 1,
+            sources: { directory: "available", composio: "available" },
+            recommendations: [
+              {
+                id: "composio:gmail",
+                source: "composio",
+                name: "Gmail",
+                description: "Read and send email.",
+                action: "connect",
+                logoUrl: "https://logos.composio.dev/api/gmail",
+              },
+            ],
+          },
+        },
+      }),
+      summary: "SearchPlugins",
+    });
+
+    const data = (projected.payload as Record<string, Schema.Json>).data as Record<
+      string,
+      Schema.Json
+    >;
+
+    expect(data.result).toMatchObject({
+      kind: "plugin-search-results",
+      recommendations: [expect.objectContaining({ id: "composio:gmail" })],
+    });
+    expect(JSON.stringify(projected.payload).length).toBeLessThan(2_000);
+  });
+});

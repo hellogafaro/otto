@@ -100,7 +100,7 @@ from app configuration rather than copied identifiers.
 - `vp run typecheck`: Strict TypeScript checks for all packages.
 - `vp run test`: Runs workspace tests.
 - `vp run lint:mobile`: Mobile native static analysis (`scripts/mobile-native-static-check.ts`).
-- `node apps/server/scripts/ottoLegacy-sqlite-state.ts <query|exec> --base-dir <path> ...`: Inspects or seeds
+- `node apps/server/scripts/otto-legacy-sqlite-state.ts <query|exec> --base-dir <path> ...`: Inspects or seeds
   an isolated OttoLegacy SQLite database; writes create a private backup first.
 
 ## Desktop artifacts

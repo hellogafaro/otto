@@ -3,7 +3,7 @@ import { BotId, CommandId, EventId, MessageId, ThreadId } from "@otto/contracts"
 import { expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
-import { applyAuthenticatedCommandActor } from "./AuthenticatedCommand.ts";
+import { applyAuthenticatedCommandActor } from "./authenticated-command.ts";
 import { decideOrchestrationCommand } from "./decider.ts";
 import { createEmptyReadModel, projectEvent } from "./projector.ts";
 import {
@@ -20,7 +20,7 @@ import {
   PERSON_ID,
   decodeClientCommand,
   applyCommand,
-} from "./test-support/GroupDeciderFixtures.ts";
+} from "./test-support/group-decider-fixtures.ts";
 
 const groupTurnCommand = (botId: BotId) =>
   ({

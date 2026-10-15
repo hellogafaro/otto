@@ -1,4 +1,4 @@
-import { formatWorkspaceRelativePath } from "./filePathDisplay";
+import { formatWorkspaceRelativePath } from "./file-path-display";
 import {
   isTerminalLinkActivation,
   resolvePathLinkTarget,

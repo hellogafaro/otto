@@ -229,7 +229,7 @@ export function createDevRunnerEnv({
     // this script was itself spawned by the machine's managed ottoLegacy service (an
     // agent working inside Otto Legacy), these leak through and the child server
     // fails startup with "The service launcher started a different ottoLegacy version"
-    // (serviceLauncherClient.ts resolveStartup).
+    // (service-launcher-client.ts resolveStartup).
     delete output.OTTO_LEGACY_SERVICE_LAUNCHER_CONTEXT;
     delete output.OTTO_LEGACY_BOOT_SERVICE_UNIT;
 

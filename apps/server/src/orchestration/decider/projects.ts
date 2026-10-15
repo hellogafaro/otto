@@ -2,21 +2,21 @@ import { type OrchestrationCommand, type OrchestrationReadModel } from "@otto/co
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
-import { OrchestrationCommandInvariantError } from "../Errors.ts";
-import type { OrchestrationDispatchActor } from "../Services/OrchestrationEngine.ts";
+import { OrchestrationCommandInvariantError } from "../errors.ts";
+import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import {
   listThreadsByProjectId,
   requireProjectWorkspaceRootAbsent,
   requireProject,
   requireProjectAbsent,
   requireWorkParticipants,
-} from "../commandInvariants.ts";
+} from "../command-invariants.ts";
 import {
   withEventBase,
   nowIso,
   type DecideOrchestrationCommandResult,
   type DecideCommandSequence,
-} from "./eventBase.ts";
+} from "./event-base.ts";
 
 export const decideProjects = Effect.fn("decideProjects")(function* ({
   command,

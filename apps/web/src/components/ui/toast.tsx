@@ -6,7 +6,7 @@ import { useEffect, type CSSProperties } from "react";
 
 import { cn } from "~/lib/utils";
 import { useI18n } from "~/i18n";
-import { AnchoredToastProvider } from "./AnchoredToasts";
+import { AnchoredToastProvider } from "./anchored-toasts";
 import {
   buildVisibleToastLayout,
   shouldHideCollapsedToastContent,
@@ -17,20 +17,20 @@ import {
   ToastBodyContent,
   toastCornerDismissClass,
   toastCornerOrbClass,
-} from "./ToastBody";
+} from "./toast-body";
 import {
   anchoredToastManager,
   handleToastDismissClick,
   type ThreadToastData,
   threadToastVisibleTimeoutRemainingMs,
   toastManager,
-} from "./toastState";
+} from "./toast-state";
 import {
   ThreadToastVisibleAutoDismiss,
   useActiveThreadRefFromRoute,
-} from "./ThreadToastVisibleAutoDismiss";
+} from "./thread-toast-visible-auto-dismiss";
 
-export type { ThreadToastData } from "./toastState";
+export type { ThreadToastData } from "./toast-state";
 
 type ToastPosition =
   | "top-left"
@@ -225,9 +225,9 @@ function Toasts({ position }: { position: ToastPosition }) {
   );
 }
 
-export { hiddenToastActionProps, stackedThreadToast } from "./toastHelpers";
+export { hiddenToastActionProps, stackedThreadToast } from "./toast-helpers";
 
-export type { StackedThreadToastOptions } from "./toastHelpers";
+export type { StackedThreadToastOptions } from "./toast-helpers";
 
 export {
   ToastProvider,

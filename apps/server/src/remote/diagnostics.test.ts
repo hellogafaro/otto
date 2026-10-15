@@ -5,7 +5,7 @@ import * as NodeSqlite from "node:sqlite";
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { BOOT_SERVICE_UNIT_FILE } from "../cloud/bootService.ts";
+import { BOOT_SERVICE_UNIT_FILE } from "../cloud/boot-service.ts";
 import { runRemoteDoctor, writeRemoteSupportBundle } from "./diagnostics.ts";
 
 describe("Otto Remote diagnostics", () => {

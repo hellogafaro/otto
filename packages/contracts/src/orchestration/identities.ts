@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { CommandId, TrimmedNonEmptyString } from "../baseSchemas.ts";
+import { CommandId, TrimmedNonEmptyString } from "../base-schemas.ts";
 
 // Keep this schema local to avoid evaluating the delegation module's
 // orchestration import while defining the orchestration contracts.

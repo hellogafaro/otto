@@ -1,7 +1,7 @@
-import { startSubscriptionLogin } from "./loginStart.ts";
-import { SubscriptionAccountState } from "./accountState.ts";
+import { startSubscriptionLogin } from "./login-start.ts";
+import { SubscriptionAccountState } from "./account-state.ts";
 import * as DateTime from "effect/DateTime";
-import { decodePendingLogins } from "./persistedSchemas.ts";
+import { decodePendingLogins } from "./persisted-schemas.ts";
 import * as Predicate from "effect/Predicate";
 import * as NodeFS from "node:fs";
 import * as NodeCrypto from "node:crypto";
@@ -18,9 +18,9 @@ import {
   subscriptionCredentialStore,
   type SubscriptionAuthData,
   type SubscriptionCredentialStore,
-} from "./credentialStore.ts";
+} from "./credential-store.ts";
 import { completeAnthropicLogin } from "./providers/anthropic.ts";
-import { pollCodexDeviceLogin } from "./providers/openaiCodex.ts";
+import { pollCodexDeviceLogin } from "./providers/openai-codex.ts";
 import { pollKimiDeviceLogin } from "./providers/kimi.ts";
 import { pollXAIDeviceLogin } from "./providers/xai.ts";
 import type { ApiKeyCredential, OAuthCredential, OAuthCredentials } from "./types.ts";
@@ -41,10 +41,10 @@ import {
   isDefaultScope,
   credentialAt,
   PENDING_LOGIN_CAP,
-} from "./serviceTypes.ts";
-import { SubscriptionHealthService } from "./healthService.ts";
-import { SubscriptionCredentialAccess } from "./credentialAccess.ts";
-import { providerStatuses, linkedAccountStatuses } from "./providerStatuses.ts";
+} from "./service-types.ts";
+import { SubscriptionHealthService } from "./health-service.ts";
+import { SubscriptionCredentialAccess } from "./credential-access.ts";
+import { providerStatuses, linkedAccountStatuses } from "./provider-statuses.ts";
 
 export class SubscriptionAuthService {
   private readonly accounts: SubscriptionAccountState;
@@ -798,6 +798,6 @@ export {
   type LoginPollStatus,
   type ProviderStatus,
   type RequestHealthStatus,
-} from "./serviceTypes.ts";
+} from "./service-types.ts";
 
-export { isAccountLimitMessage, limitRetryAt } from "./accountLimits.ts";
+export { isAccountLimitMessage, limitRetryAt } from "./account-limits.ts";

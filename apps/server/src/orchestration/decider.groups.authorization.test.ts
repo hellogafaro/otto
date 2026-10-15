@@ -25,7 +25,7 @@ import {
   GROUP_ID,
   makeGroupThread,
   startTurnCommand,
-} from "./test-support/GroupDeciderFixtures.ts";
+} from "./test-support/group-decider-fixtures.ts";
 
 it.layer(NodeServices.layer)("group membership decider", (it) => {
   it.effect("keeps people outside a group from changing it or opening its chats", () =>

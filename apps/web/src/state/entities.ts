@@ -20,7 +20,7 @@ import type {
 import type { EnvironmentId, ThreadId } from "@otto/contracts";
 import { Atom } from "effect/unstable/reactivity";
 import { useMemo } from "react";
-import { appAtomRegistry } from "../rpc/atomRegistry";
+import { appAtomRegistry } from "../rpc/atom-registry";
 import { environmentProjects } from "./projects";
 import { environmentServerConfigsAtom } from "./server";
 import { allEnvironmentShellsBootstrappedAtom } from "./shell";

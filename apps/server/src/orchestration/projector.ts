@@ -1,14 +1,14 @@
 import type { OrchestrationEvent, OrchestrationReadModel } from "@otto/contracts";
 import * as Effect from "effect/Effect";
-import { type OrchestrationProjectorDecodeError } from "./Errors.ts";
-import { projectEnvironment } from "./projector/Environment.ts";
-import { projectBotsAndGroups } from "./projector/BotsAndGroups.ts";
-import { projectLibrary } from "./projector/Library.ts";
-import { projectThreadLifecycle } from "./projector/ThreadLifecycle.ts";
-import { projectThreadMessages } from "./projector/ThreadMessages.ts";
-import { projectThreadHistory } from "./projector/ThreadHistory.ts";
+import { type OrchestrationProjectorDecodeError } from "./errors.ts";
+import { projectEnvironment } from "./projector/environment.ts";
+import { projectBotsAndGroups } from "./projector/bots-and-groups.ts";
+import { projectLibrary } from "./projector/library.ts";
+import { projectThreadLifecycle } from "./projector/thread-lifecycle.ts";
+import { projectThreadMessages } from "./projector/thread-messages.ts";
+import { projectThreadHistory } from "./projector/thread-history.ts";
 
-export { findProjectedThread } from "./projector/Updates.ts";
+export { findProjectedThread } from "./projector/updates.ts";
 
 export function createEmptyReadModel(nowIso: string): OrchestrationReadModel {
   return {

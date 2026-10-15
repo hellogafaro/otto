@@ -1,4 +1,4 @@
-import type { ChartValue } from "./chartValue";
+import type { ChartValue } from "./chart-value";
 import { Predicate } from "effect";
 import { scaleBand, scaleLinear, scalePoint } from "d3-scale";
 import { stack as d3Stack, stackOffsetExpand, stackOffsetNone } from "d3-shape";

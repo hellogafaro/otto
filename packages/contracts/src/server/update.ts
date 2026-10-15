@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 import { ServerSelfUpdateMethod } from "../environment.ts";
-import { TrimmedNonEmptyString } from "../baseSchemas.ts";
-import { ProviderDriverKind, ProviderInstanceId } from "../providerInstance.ts";
+import { TrimmedNonEmptyString } from "../base-schemas.ts";
+import { ProviderDriverKind, ProviderInstanceId } from "../provider-instance.ts";
 import { ServerProviders } from "./providers.ts";
 
 export const ServerProviderUpdatedPayload = Schema.Struct({

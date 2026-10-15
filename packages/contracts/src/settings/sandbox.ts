@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { TrimmedString } from "../baseSchemas.ts";
+import { TrimmedString } from "../base-schemas.ts";
 import { BotSandbox } from "../orchestration/roster.ts";
-import { ProviderInstanceEnvironmentVariable } from "../providerInstance.ts";
+import { ProviderInstanceEnvironmentVariable } from "../provider-instance.ts";
 
 export const SandboxProvider = BotSandbox;
 

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { OpenChatRedirect } from "../components/roster/OpenChatRedirect";
+import { OpenChatRedirect } from "../components/roster/open-chat-redirect";
 
 function BotChatRedirect() {
   const { botId } = Route.useParams();

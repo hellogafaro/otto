@@ -14,15 +14,15 @@ import {
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
-import { OrchestrationCommandInvariantError } from "../Errors.ts";
-import type { OrchestrationDispatchActor } from "../Services/OrchestrationEngine.ts";
+import { OrchestrationCommandInvariantError } from "../errors.ts";
+import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import {
   requireBot,
   requireBotAbsent,
   requireBotArchived,
   requireBotNotArchived,
   requireGroup,
-} from "../commandInvariants.ts";
+} from "../command-invariants.ts";
 import {
   type PlannedOrchestrationEvent,
   withEventBase,
@@ -32,7 +32,7 @@ import {
   delegationChildThreadId,
   delegationChildTurnId,
   type DecideOrchestrationCommandResult,
-} from "./eventBase.ts";
+} from "./event-base.ts";
 
 /** Hands a group's stored first-bot slot to its next active bot, so no bot is ever stuck as "boss". */
 const handOverGroupSlots = Effect.fnUntraced(function* (input: {

@@ -2,8 +2,8 @@ import * as Predicate from "effect/Predicate";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
-import { TrimmedNonEmptyString } from "./baseSchemas.ts";
-import { ProviderDriverKind } from "./providerInstance.ts";
+import { TrimmedNonEmptyString } from "./base-schemas.ts";
+import { ProviderDriverKind } from "./provider-instance.ts";
 
 export const ProviderOptionDescriptorType = Schema.Literals(["select", "boolean"]);
 

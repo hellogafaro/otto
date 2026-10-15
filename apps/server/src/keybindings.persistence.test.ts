@@ -15,7 +15,7 @@ import {
   makeKeybindingsLayer,
   writeKeybindingsConfig,
   toDetailResult,
-} from "./keybindingsTestSupport.ts";
+} from "./keybindings-test-support.ts";
 
 it.layer(NodeServices.layer)("keybindings", (it) => {
   it.effect("bootstraps default keybindings when config file is missing", () =>

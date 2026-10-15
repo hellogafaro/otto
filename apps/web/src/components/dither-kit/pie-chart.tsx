@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChartValue } from "./chartValue";
+import type { ChartValue } from "./chart-value";
 
 import type { ReactNode } from "react";
 import type { ChartConfig, Margins } from "./chart-context";

@@ -1,4 +1,4 @@
-import { hasTag } from "~/lib/taggedUnion";
+import { hasTag } from "~/lib/tagged-union";
 import * as Predicate from "effect/Predicate";
 import {
   ConnectionPersistenceError,
@@ -34,9 +34,9 @@ import {
   removeDatabaseValue,
   removeDatabaseValuesInRange,
   threadCacheKey,
-} from "./indexedDbStorage";
-import { migrateLegacyConnectionDatabase } from "./legacyDatabaseMigration";
-import { catalogBackendForDatabase, cachedCatalogStore } from "./catalogStorage";
+} from "./indexed-db-storage";
+import { migrateLegacyConnectionDatabase } from "./legacy-database-migration";
+import { catalogBackendForDatabase, cachedCatalogStore } from "./catalog-storage";
 
 const SHELL_SNAPSHOT_CACHE_SCHEMA_VERSION = 1;
 
@@ -343,10 +343,10 @@ export const connectionStorageLayer = Layer.effectContext(
   }),
 );
 
-export { migrateLegacyConnectionDatabase } from "./legacyDatabaseMigration";
+export { migrateLegacyConnectionDatabase } from "./legacy-database-migration";
 
 export {
   type CatalogBackend,
   catalogBackendForDatabase,
   cachedCatalogStore,
-} from "./catalogStorage";
+} from "./catalog-storage";

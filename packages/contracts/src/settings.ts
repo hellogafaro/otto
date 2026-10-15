@@ -78,7 +78,7 @@ export {
   type ProviderSettingsFormSchemaAnnotation,
   type ProviderSettingsOrder,
   providerSettingsSchema,
-} from "./settings/providerForms.ts";
+} from "./settings/provider-forms.ts";
 
 export {
   CodexSettings,

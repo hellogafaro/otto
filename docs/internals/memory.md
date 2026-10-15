@@ -211,7 +211,7 @@ project scope. The server collapses each root to its current revision, including
 pending, rejected, and forgotten facts, and fills `supersededFact` from the previous
 revision's text; chat snapshots never cross the wire on this path. Client action
 rules (`durableFactActions`, `durableFactMutation`) live in
-`packages/client-runtime/src/durableMemory.ts` and always send the fact's
+`packages/client-runtime/src/durable-memory.ts` and always send the fact's
 `expectedRevision`, so a stale edit fails with a revision conflict instead of
 overwriting a newer one. Mutations go through
 `memory.facts.mutate`, which also serves `candidate.decide` for shared memory
@@ -254,11 +254,11 @@ promoted into active observations on restore so Mastra's chunk-based storage ret
 
 Bots save shared facts through the same `memory` tool: an optional `share`
 field (`{ fact, scope: "project" | "group" | "workspace", sensitive? }`) is
-handled in `BotMemoryToolHandlers.ts` and forwarded to the agent controller's
+handled in `bot-memory-tool-handlers.ts` and forwarded to the agent controller's
 `shareFact`. Because the handler set is shared, the Mastra controller (Codex, Claude,
 Grok, Kimi, OpenCode Go) and the MCP bridge for the legacy adapter (standard
 OpenCode) take the same path. `shareFact` checks the bot's scope grant and calls
-`MemoryApprovals.propose` (`apps/server/src/memory/MemoryApprovals.ts`) with
+`MemoryApprovals.propose` (`apps/server/src/memory/memory-approvals.ts`) with
 the `sharedProjectMemory` mode.
 
 In `"auto"` mode a non-sensitive fact is written directly with
@@ -278,7 +278,7 @@ A repeat decision for the same candidate returns the first receipt, so the
 chat card and inbox cannot double-apply.
 
 Clients derive open requests with `pendingMemoryApprovals` in
-`packages/client-runtime/src/durableMemory.ts`: a requested activity with no
+`packages/client-runtime/src/durable-memory.ts`: a requested activity with no
 resolved activity for the same `candidateId`. Because this reads persisted
 activities, pending cards survive reload. The web chat renders
 `MemoryApprovalPrompt` in the composer's pending-action slot; web Settings and

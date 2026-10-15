@@ -6,8 +6,8 @@ import {
   RpcClientId,
   ThreadId,
   TrimmedNonEmptyString,
-} from "./baseSchemas.ts";
-import { ProviderInstanceId } from "./providerInstance.ts";
+} from "./base-schemas.ts";
+import { ProviderInstanceId } from "./provider-instance.ts";
 
 export const BackgroundBooleanState = Schema.Literals(["true", "false", "unknown"]);
 

@@ -3,10 +3,10 @@ import { type OrchestrationCommand, type OrchestrationReadModel } from "@otto/co
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
-import { OrchestrationCommandInvariantError } from "../Errors.ts";
-import type { OrchestrationDispatchActor } from "../Services/OrchestrationEngine.ts";
+import { OrchestrationCommandInvariantError } from "../errors.ts";
+import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import { nextScheduledFor } from "../../routines/schedule.ts";
-import { withEventBase, type DecideOrchestrationCommandResult } from "./eventBase.ts";
+import { withEventBase, type DecideOrchestrationCommandResult } from "./event-base.ts";
 
 export const decideRoutines = Effect.fn("decideRoutines")(function* ({
   command,

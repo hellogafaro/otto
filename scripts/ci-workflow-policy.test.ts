@@ -138,7 +138,7 @@ describe("CI workflow budget", () => {
 
     expect(serverCommand).toContain("vp run --filter @otto/server test");
     expect(serverCommand).toContain(
-      "--exclude integration/orchestrationEngine.integration.test.ts",
+      "--exclude integration/orchestration-engine.integration.test.ts",
     );
     expect(serverCommand).not.toContain("--shard");
   });

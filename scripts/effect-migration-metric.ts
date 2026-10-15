@@ -42,7 +42,9 @@ const filesUnder = async (directory: string): Promise<string[]> => {
     .flat()
     .filter(
       (path) =>
-        path.endsWith(".ts") && !path.endsWith(".test.ts") && !path.endsWith("/serviceLauncher.ts"),
+        path.endsWith(".ts") &&
+        !path.endsWith(".test.ts") &&
+        !path.endsWith("/service-launcher.ts"),
     );
 };
 

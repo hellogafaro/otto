@@ -25,8 +25,8 @@ import {
   grokAcpModels,
   modelState,
   scenarioState,
-} from "./acpMockConfig.ts";
-import { createPromptScenario } from "./acpMockPromptScenarios.ts";
+} from "./acp-mock-config.ts";
+import { createPromptScenario } from "./acp-mock-prompt-scenarios.ts";
 
 const requestLogPath = configuredRequestLogPath;
 

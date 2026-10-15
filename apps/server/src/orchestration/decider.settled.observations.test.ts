@@ -11,7 +11,7 @@ import { assert, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { decideOrchestrationCommand } from "./decider.ts";
 import { projectEvent } from "./projector.ts";
-import { NOW, makeReadModel, createSession } from "./test-support/SettledDeciderFixtures.ts";
+import { NOW, makeReadModel, createSession } from "./test-support/settled-decider-fixtures.ts";
 
 it.layer(NodeServices.layer)("settled thread decider", (it) => {
   it.effect("prepends activity unsets for turn starts and live session updates", () =>

@@ -1,16 +1,16 @@
-export * from "./baseSchemas.ts";
+export * from "./base-schemas.ts";
 
 export * from "./background.ts";
 
-export * from "./ottoTools.ts";
+export * from "./otto-tools.ts";
 
-export * from "./ottoDelegation.ts";
+export * from "./otto-delegation.ts";
 
-export * from "./ottoWorkers.ts";
+export * from "./otto-workers.ts";
 
-export * from "./ottoMemory.ts";
+export * from "./otto-memory.ts";
 
-export * from "./ottoUsage.ts";
+export * from "./otto-usage.ts";
 
 export * from "./routines.ts";
 
@@ -18,11 +18,11 @@ export * from "./auth.ts";
 
 export * from "./environment.ts";
 
-export * from "./environmentHttp.ts";
+export * from "./environment-http.ts";
 
-export * from "./desktopBootstrap.ts";
+export * from "./desktop-bootstrap.ts";
 
-export * from "./remoteAccess.ts";
+export * from "./remote-access.ts";
 
 export * from "./relay.ts";
 
@@ -30,13 +30,13 @@ export * from "./ipc.ts";
 
 export * from "./provider.ts";
 
-export * from "./providerInstance.ts";
+export * from "./provider-instance.ts";
 
-export * from "./providerRuntime.ts";
+export * from "./provider-runtime.ts";
 
 export * from "./model.ts";
 
-export * from "./mcpServer.ts";
+export * from "./mcp-server.ts";
 
 export * from "./composio.ts";
 
@@ -48,17 +48,17 @@ export * from "./server.ts";
 
 export * from "./settings.ts";
 
-export * from "./subscriptionAuth.ts";
+export * from "./subscription-auth.ts";
 
-export * from "./providerCredential.ts";
+export * from "./provider-credential.ts";
 
-export * from "./imageGeneration.ts";
+export * from "./image-generation.ts";
 
 export * from "./git.ts";
 
 export * from "./vcs.ts";
 
-export * from "./sourceControl.ts";
+export * from "./source-control.ts";
 
 export * from "./orchestration.ts";
 
@@ -70,18 +70,18 @@ export * from "./assets.ts";
 
 export * from "./preview.ts";
 
-export * from "./previewAutomation.ts";
+export * from "./preview-automation.ts";
 
-export * from "./resourceTelemetry.ts";
+export * from "./resource-telemetry.ts";
 
 export * from "./usage.ts";
 
-export * from "./voiceCall.ts";
+export * from "./voice-call.ts";
 
 export * from "./portability.ts";
 
 export * from "./rpc.ts";
 
-export * from "./remoteDiagnostics.ts";
+export * from "./remote-diagnostics.ts";
 
 export * from "./organization.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { zhCNCatalog } from "./zh-CN.ts";
+import { zhCNCatalog } from "./zh-cn.ts";
 import {
   availableLanguages,
   catalogIdForLocale,
