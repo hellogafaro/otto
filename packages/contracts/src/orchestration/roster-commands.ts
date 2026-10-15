@@ -20,7 +20,7 @@ import {
   McpServerVisibility,
 } from "../mcp-server.ts";
 import { ImageProviderId } from "../image-generation.ts";
-import { LibraryFolderId } from "./library.ts";
+import { LibraryFileId, LibraryFolderId } from "./library.ts";
 import { ModelSelection, RuntimeMode } from "./model-selection.ts";
 import {
   ProjectScript,
@@ -67,6 +67,7 @@ export const ProjectMetaUpdateCommand = Schema.Struct({
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   resources: Schema.optional(WorkResources),
   status: Schema.optional(WorkStatus),
+  coverFileId: Schema.optional(Schema.NullOr(LibraryFileId)),
 });
 
 export const ProjectDeleteCommand = Schema.Struct({

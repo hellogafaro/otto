@@ -29,6 +29,8 @@ interface PromptDialogProps {
   readonly submitLabel: string;
   /** Whether the pickers are complete enough to send. */
   readonly canSubmit?: boolean;
+  /** Otto: Sends with an empty prompt too, when the prompt is an optional description. */
+  readonly promptOptional?: boolean;
   readonly onSubmit: (prompt: string) => void;
 }
 
@@ -56,13 +58,14 @@ function PromptDialogBody({
   pickers,
   submitLabel,
   canSubmit = true,
+  promptOptional = false,
   onSubmit,
 }: Omit<PromptDialogProps, "open" | "onOpenChange">) {
   const { t } = useI18n();
   const draftId = useId();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [prompt, setPrompt] = useState("");
-  const ready = canSubmit && prompt.trim().length > 0;
+  const ready = canSubmit && (promptOptional || prompt.trim().length > 0);
 
   const dictation = useEnvironmentComposerDictation({
     threadId: draftId,
@@ -98,7 +101,7 @@ function PromptDialogBody({
   }, [dictation.errorMessage, dictation.status, t]);
 
   const showDictation = composerActionIsDictation({
-    hasDraft: prompt.trim().length > 0,
+    hasDraft: prompt.trim().length > 0 || ready,
     status: dictation.status,
   });
 

@@ -37,6 +37,7 @@ import {
   WorkParticipant,
   WorkResources,
   type WorkStatus,
+  type LibraryFileId,
   ProjectId,
   ThreadLinkedPullRequest,
   ThreadId,
@@ -123,6 +124,7 @@ export function mapProjectPlanning(row: {
   readonly owner?: WorkParticipant | null | undefined;
   readonly resources?: WorkResources | null | undefined;
   readonly status?: WorkStatus | null | undefined;
+  readonly coverFileId?: LibraryFileId | null | undefined;
 }) {
   if (row.status == null) {
     return {};
@@ -133,6 +135,7 @@ export function mapProjectPlanning(row: {
     owner: row.owner ?? null,
     resources: row.resources ?? [],
     status: row.status,
+    coverFileId: row.coverFileId ?? null,
   };
 }
 

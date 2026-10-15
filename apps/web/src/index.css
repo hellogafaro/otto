@@ -13,6 +13,11 @@
 
 @custom-variant wco (&:is(.wco, .wco *));
 
+/* Otto: Scales a dithered project cover up without smoothing its dots. */
+@utility project-cover-pixels {
+  image-rendering: pixelated;
+}
+
 @utility otto-wordmark-symbol {
   width: 1em;
   height: 1em;

@@ -5,7 +5,8 @@ import {
   parseDuration,
   parseProjectSearch,
   parseTaskSearch,
-  ditheredCover,
+  coverGradient,
+  ditherPixels,
   projectCover,
 } from "./work.logic";
 
@@ -52,21 +53,21 @@ describe("projectCover", () => {
     expect(projectCover("launch")).toEqual(projectCover("launch"));
   });
 
-  it("dithers every pixel to one of the cover's three tones", () => {
-    const pixels = ditheredCover("launch", 24, 16);
-    const colors = new Set<string>();
+  it("dithers to whole brightness levels while keeping each pixel's hue", () => {
+    const pixels = ditherPixels(coverGradient("launch", 24, 16), 24);
+    const levels = new Set<number>();
 
     for (let offset = 0; offset < pixels.length; offset += 4) {
-      colors.add(
-        `#${[...pixels.slice(offset, offset + 3)].map((value) => value.toString(16).padStart(2, "0").toUpperCase()).join("")}`,
+      levels.add(
+        Math.round(
+          (0.2126 * pixels[offset]! + 0.7152 * pixels[offset + 1]! + 0.0722 * pixels[offset + 2]!) /
+            (255 / 7),
+        ),
       );
     }
 
-    expect(
-      [...colors].every((color) => projectCover("launch").tones.includes(color as never)),
-    ).toBe(true);
-
-    expect(colors.size).toBeGreaterThan(1);
+    expect(levels.size).toBeGreaterThan(1);
+    expect(levels.size).toBeLessThanOrEqual(8);
   });
 });
 

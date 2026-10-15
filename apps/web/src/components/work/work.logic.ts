@@ -76,8 +76,8 @@ function hashSeed(seed: string): number {
 }
 
 /**
- * Otto: Generated covers are a gradient through three tones of one colour family, ordered-dithered
- * so every pixel is one of the three, the way a halftone print looks.
+ * Otto: Generated covers are a soft gradient through three tones of one colour family; every
+ * cover, generated or uploaded, is then ordered-dithered like a halftone print.
  */
 const COVER_PALETTES = [
   ["#0B2E44", "#1B7FAF", "#7FD0E6"],
@@ -89,13 +89,6 @@ const COVER_PALETTES = [
   ["#200F47", "#6538C9", "#C9A6FF"],
   ["#351C02", "#C97C17", "#FFD585"],
 ] as const;
-
-/** The 8x8 Bayer matrix: each cell's threshold for switching to the next tone. */
-const BAYER = [
-  0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28,
-  52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7,
-  39, 13, 45, 5, 37, 63, 31, 55, 23, 61, 29, 53, 21,
-];
 
 /** A project's generated cover is drawn from its id, so it stays the same everywhere. */
 export function projectCover(seed: string) {
@@ -109,32 +102,71 @@ export function projectCover(seed: string) {
   };
 }
 
-/**
- * The cover's pixels, RGBA rows of `width` by `height`: a linear sweep along the cover's angle
- * lifted by a soft glow, each pixel snapped to one of the three tones by the Bayer threshold.
- */
-export function ditheredCover(seed: string, width: number, height: number) {
+/** The generated cover's RGBA pixels: a sweep along its angle, lifted by a soft glow. */
+export function coverGradient(seed: string, width: number, height: number) {
   const { tones, angle, glow } = projectCover(seed);
   const rgb = tones.map((tone) => [1, 3, 5].map((at) => parseInt(tone.slice(at, at + 2), 16)));
   const radians = (angle * Math.PI) / 180;
   const dx = Math.cos(radians);
   const dy = Math.sin(radians);
-  const reach = (Math.abs(dx) + Math.abs(dy)) / 2;
+  const reach = Math.abs(dx) + Math.abs(dy);
   const pixels = new Uint8ClampedArray(width * height * 4);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const u = x / Math.max(1, width - 1);
       const v = y / Math.max(1, height - 1);
-      const sweep = ((u - 0.5) * dx + (v - 0.5) * dy) / (2 * reach) + 0.5;
+      const sweep = ((u - 0.5) * dx + (v - 0.5) * dy) / reach + 0.5;
       const lift = Math.max(0, 1 - Math.hypot(u - glow.x, (v - glow.y) * 0.5625) * 1.6);
       const level = Math.min(1, Math.max(0, sweep * 0.75 + lift * 0.4)) * (rgb.length - 1);
       const base = Math.min(rgb.length - 2, Math.floor(level));
-      const threshold = (BAYER[(y % 8) * 8 + (x % 8)]! + 0.5) / 64;
-      const color = rgb[level - base > threshold ? base + 1 : base]!;
+      const from = rgb[base]!;
+      const to = rgb[base + 1]!;
       const offset = (y * width + x) * 4;
 
-      pixels.set([color[0]!, color[1]!, color[2]!, 255], offset);
+      for (let channel = 0; channel < 3; channel++) {
+        pixels[offset + channel] =
+          from[channel]! + (to[channel]! - from[channel]!) * (level - base);
+      }
+
+      pixels[offset + 3] = 255;
+    }
+  }
+
+  return pixels;
+}
+
+/** The 8x8 Bayer matrix: each cell's threshold for stepping up to the next brightness level. */
+const BAYER = [
+  0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28,
+  52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7,
+  39, 13, 45, 5, 37, 63, 31, 55, 23, 61, 29, 53, 21,
+];
+
+const DITHER_LEVELS = 8;
+
+/**
+ * Ordered dither in place: each pixel's brightness snaps to one of eight levels by the Bayer
+ * threshold and the whole colour shifts with it, so the dots keep the picture's hues.
+ */
+export function ditherPixels(pixels: Uint8ClampedArray, width: number) {
+  const step = 255 / (DITHER_LEVELS - 1);
+
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    const x = (offset / 4) % width;
+    const y = Math.floor(offset / 4 / width);
+
+    const threshold = (BAYER[(y % 8) * 8 + (x % 8)]! + 0.5) / 64;
+
+    const luma =
+      0.2126 * pixels[offset]! + 0.7152 * pixels[offset + 1]! + 0.0722 * pixels[offset + 2]!;
+
+    const level = Math.floor(luma / step);
+
+    const shift = (luma / step - level > threshold ? level + 1 : level) * step - luma;
+
+    for (let channel = 0; channel < 3; channel++) {
+      pixels[offset + channel] = pixels[offset + channel]! + shift;
     }
   }
 

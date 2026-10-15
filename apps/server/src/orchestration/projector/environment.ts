@@ -113,6 +113,9 @@ export function projectEnvironment(
                   ...(payload.owner !== undefined ? { owner: payload.owner } : {}),
                   ...(payload.resources !== undefined ? { resources: payload.resources } : {}),
                   ...(payload.status !== undefined ? { status: payload.status } : {}),
+                  ...(payload.coverFileId !== undefined
+                    ? { coverFileId: payload.coverFileId }
+                    : {}),
                   updatedAt: payload.updatedAt,
                 }
               : project,

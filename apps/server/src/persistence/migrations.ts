@@ -14,8 +14,12 @@ import * as Layer from "effect/Layer";
 
 // Otto: One baseline until MVP; schema changes after it get numbered migrations.
 import Migration0001 from "./migrations/001_Baseline.gen.ts";
+import Migration0002 from "./migrations/002-project-cover.ts";
 
-const migrationEntries = [[1, "Baseline", Migration0001]] as const;
+const migrationEntries = [
+  [1, "Baseline", Migration0001],
+  [2, "ProjectCover", Migration0002],
+] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);
 

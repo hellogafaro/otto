@@ -14,7 +14,7 @@ import {
   TrimmedNonEmptyString,
 } from "../base-schemas.ts";
 import { McpServerId } from "../mcp-server.ts";
-import { LibraryFolderId } from "./library.ts";
+import { LibraryFileId, LibraryFolderId } from "./library.ts";
 import { WorkDescription, WorkParticipant, WorkResources, WorkStatus } from "./work.ts";
 import { ImageProviderId } from "../image-generation.ts";
 import { ModelSelection, RuntimeMode, DEFAULT_RUNTIME_MODE } from "./model-selection.ts";
@@ -64,6 +64,8 @@ export const ProjectPlanningFields = {
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   resources: Schema.optional(WorkResources),
   status: Schema.optional(WorkStatus),
+  // Otto: An uploaded cover image, a Library file in the project's folder; absent or null draws one.
+  coverFileId: Schema.optional(Schema.NullOr(LibraryFileId)),
 };
 
 export const OrchestrationProject = Schema.Struct({

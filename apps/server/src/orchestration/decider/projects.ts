@@ -102,6 +102,28 @@ export const decideProjects = Effect.fn("decideProjects")(function* ({
 
       yield* requireWorkParticipants({ readModel, command, participants: [command.owner] });
 
+      // Otto: A cover is an organization-visible image in the project's own Library folder.
+      if (command.coverFileId != null) {
+        const file = readModel.libraryFiles?.find(
+          (candidate) => candidate.id === command.coverFileId,
+        );
+
+        const folder = readModel.libraryFolders?.find(
+          (candidate) => candidate.id === file?.folderId,
+        );
+
+        if (
+          file?.type !== "image" ||
+          file.visibility !== "organization" ||
+          folder?.projectId !== command.projectId
+        ) {
+          return yield* new OrchestrationCommandInvariantError({
+            commandType: command.type,
+            detail: "A project cover must be an image in the project's folder.",
+          });
+        }
+      }
+
       const occurredAt = yield* nowIso;
 
       return {
@@ -128,6 +150,7 @@ export const decideProjects = Effect.fn("decideProjects")(function* ({
           ...(command.owner !== undefined ? { owner: command.owner } : {}),
           ...(command.resources !== undefined ? { resources: command.resources } : {}),
           ...(command.status !== undefined ? { status: command.status } : {}),
+          ...(command.coverFileId !== undefined ? { coverFileId: command.coverFileId } : {}),
           updatedAt: occurredAt,
         },
       };

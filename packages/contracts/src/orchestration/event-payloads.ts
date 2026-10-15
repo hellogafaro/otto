@@ -20,7 +20,7 @@ import {
 import { McpServer, McpServerId } from "../mcp-server.ts";
 import { OttoDelegationRecord } from "../otto-delegation.ts";
 import { ImageProviderId } from "../image-generation.ts";
-import { LibraryFolderId } from "./library.ts";
+import { LibraryFileId, LibraryFolderId } from "./library.ts";
 import { DelegationIdSchema } from "./identities.ts";
 import {
   ModelSelection,
@@ -190,6 +190,7 @@ export const ProjectMetaUpdatedPayload = Schema.Struct({
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   resources: Schema.optional(WorkResources),
   status: Schema.optional(WorkStatus),
+  coverFileId: Schema.optional(Schema.NullOr(LibraryFileId)),
   updatedAt: IsoDateTime,
 });
 

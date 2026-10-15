@@ -20,12 +20,12 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { ProjectChats, ProjectNewChat } from "./project-chats";
-import { ProjectCover } from "./project-cover";
+import { ProjectCover, ProjectCoverControls } from "./project-cover";
 import { ProjectLibrary, ProjectUpload } from "./project-library";
 import { TasksTable } from "./tasks-table";
 import { type ProjectTab, projectStatus, sortTasks } from "./work.logic";
 import { WorkDetailPage, WorkResourcesSection } from "./work-detail";
-import { TaskDialog } from "./work-dialogs";
+import { NewTaskDialog } from "./work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./work-pages";
 import { OwnerSelect } from "./work-participants";
 import { WorkMoreActions, WorkStatusSelect, useWorkStatusLabel } from "./work-status";
@@ -142,7 +142,16 @@ export function ProjectPage({
             <WorkMoreActions status={status} onStatusChange={(next) => update({ status: next })} />
           </>
         }
-        cover={<ProjectCover seed={project.id} />}
+        cover={
+          <div className="group relative">
+            <ProjectCover
+              environmentId={environmentId}
+              project={project}
+              className="aspect-auto h-44"
+            />
+            <ProjectCoverControls environmentId={environmentId} project={project} />
+          </div>
+        }
         tabs={
           <DetailsTabs<ProjectTab>
             label={t("Project sections")}
@@ -211,11 +220,10 @@ export function ProjectPage({
           </div>
         }
       />
-      <TaskDialog
+      <NewTaskDialog
         open={newTaskOpen}
         onOpenChange={setNewTaskOpen}
         environmentId={environmentId}
-        task={null}
         defaultProjectId={project.id}
         projects={projects.filter((candidate) => projectStatus(candidate) !== "archived")}
         participants={participants}

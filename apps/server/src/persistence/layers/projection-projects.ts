@@ -45,6 +45,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           owner_json,
           resources_json,
           status,
+          cover_file_id,
           created_at,
           updated_at,
           deleted_at
@@ -61,6 +62,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           ${row.owner != null ? JSON.stringify(row.owner) : null},
           ${row.resources != null ? JSON.stringify(row.resources) : null},
           ${row.status ?? null},
+          ${row.coverFileId ?? null},
           ${row.createdAt},
           ${row.updatedAt},
           ${row.deletedAt}
@@ -77,6 +79,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           owner_json = excluded.owner_json,
           resources_json = excluded.resources_json,
           status = excluded.status,
+          cover_file_id = excluded.cover_file_id,
           created_at = excluded.created_at,
           updated_at = excluded.updated_at,
           deleted_at = excluded.deleted_at
@@ -100,6 +103,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           owner_json AS "owner",
           resources_json AS "resources",
           status,
+          cover_file_id AS "coverFileId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -125,6 +129,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           owner_json AS "owner",
           resources_json AS "resources",
           status,
+          cover_file_id AS "coverFileId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"

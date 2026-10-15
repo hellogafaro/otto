@@ -7,6 +7,7 @@ import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { ComposerSelectControl } from "../chat/composer-control";
 import { StatusIcon } from "../status-icon";
 import { WORK_STATUS_CHOICES } from "./work.logic";
 
@@ -68,11 +69,12 @@ export function WorkStatusSelect({
   readonly value: WorkStatus;
   readonly onChange: (status: WorkStatus) => void;
   readonly className?: string;
-  /** `ghost` is the quiet property row on a task page. */
-  readonly variant?: "ghost";
+  /** `ghost` is the quiet property row on a task page; `composer` a composer control. */
+  readonly variant?: "ghost" | "composer";
 }) {
   const { t } = useI18n();
   const label = useWorkStatusLabel();
+  const Trigger = variant === "composer" ? ComposerSelectControl : SelectTrigger;
 
   return (
     <Select
@@ -81,9 +83,9 @@ export function WorkStatusSelect({
         if (isWorkStatus(next)) onChange(next);
       }}
     >
-      <SelectTrigger
+      <Trigger
         size="sm"
-        variant={variant}
+        variant={variant === "ghost" ? "ghost" : undefined}
         className={cn("w-auto min-w-0", className)}
         aria-label={t("Status")}
       >
@@ -93,7 +95,7 @@ export function WorkStatusSelect({
             {label(value)}
           </span>
         </SelectValue>
-      </SelectTrigger>
+      </Trigger>
       <SelectPopup alignItemWithTrigger={false}>
         {WORK_STATUS_CHOICES.map((status) => (
           <SelectItem key={status} hideIndicator value={status}>

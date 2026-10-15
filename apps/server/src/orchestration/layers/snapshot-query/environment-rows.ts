@@ -40,6 +40,7 @@ export function createEnvironmentRows({ sql }: Pick<ProjectionSnapshotDependenci
           owner_json AS "owner",
           resources_json AS "resources",
           status,
+          cover_file_id AS "coverFileId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"

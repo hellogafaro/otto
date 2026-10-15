@@ -60,6 +60,9 @@ export function createProjects({
           ...(event.payload.owner !== undefined ? { owner: event.payload.owner } : {}),
           ...(event.payload.resources !== undefined ? { resources: event.payload.resources } : {}),
           ...(event.payload.status !== undefined ? { status: event.payload.status } : {}),
+          ...(event.payload.coverFileId !== undefined
+            ? { coverFileId: event.payload.coverFileId }
+            : {}),
           updatedAt: event.payload.updatedAt,
         });
 

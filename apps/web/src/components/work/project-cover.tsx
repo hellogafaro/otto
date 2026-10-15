@@ -1,65 +1,219 @@
-import { useEffect, useRef } from "react";
+import type {
+  EnvironmentId,
+  LibraryFileId,
+  OrchestrationProjectShell,
+  ProjectId,
+} from "@otto/contracts";
+import { RiImageLine } from "@remixicon/react";
+import { useCallback, useEffect, useRef } from "react";
 
+import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
-import { ditheredCover } from "./work.logic";
+import { projectEnvironment } from "../../state/projects";
+import { useAtomCommand } from "../../state/use-atom-command";
+import { useLibraryFileUrl, useLibraryUpload } from "../library/use-library";
+import { Button } from "../ui/button";
+import { coverGradient, ditherPixels } from "./work.logic";
 
-/** CSS pixels per dither cell, so the dot grid reads the same on a card and on a page. */
-const COVER_CELL_PX = 2;
+/** Device pixels per dither cell: about one and a half CSS pixels, never under two device pixels. */
+function cellSize() {
+  return Math.max(2, Math.round(1.5 * window.devicePixelRatio));
+}
 
 /**
- * Otto: A 16:9 project cover: the uploaded image, or a dithered gradient drawn from the
- * project id at one cell per two CSS pixels and scaled up without smoothing.
+ * Otto: A project cover, 16:9 unless the caller sizes it: the uploaded image or a generated
+ * gradient, both ordered-dithered on a canvas at one dot per cell and scaled up unsmoothed.
  */
 export function ProjectCover({
+  environmentId,
+  project,
+  className,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly project: Pick<OrchestrationProjectShell, "id" | "coverFileId">;
+  readonly className?: string;
+}) {
+  if (project.coverFileId) {
+    return (
+      <UploadedCover
+        environmentId={environmentId}
+        fileId={project.coverFileId}
+        seed={project.id}
+        className={className}
+      />
+    );
+  }
+
+  return <DitheredCover seed={project.id} imageUrl={null} className={className} />;
+}
+
+function UploadedCover({
+  environmentId,
+  fileId,
+  seed,
+  className,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly fileId: LibraryFileId;
+  readonly seed: string;
+  readonly className: string | undefined;
+}) {
+  const imageUrl = useLibraryFileUrl(environmentId, fileId);
+
+  return <DitheredCover seed={seed} imageUrl={imageUrl} className={className} />;
+}
+
+/** Draws the image, or the gradient until there is one, then dithers it whenever the size changes. */
+function DitheredCover({
   seed,
   imageUrl,
   className,
 }: {
   readonly seed: string;
-  readonly imageUrl?: string | null;
-  readonly className?: string;
+  readonly imageUrl: string | null;
+  readonly className: string | undefined;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
 
-    if (canvas === null || typeof ResizeObserver === "undefined") return;
+    if (!canvas || !context || typeof ResizeObserver === "undefined") return;
 
-    const observer = new ResizeObserver(() => {
-      const width = Math.max(1, Math.round(canvas.clientWidth / COVER_CELL_PX));
-      const height = Math.max(1, Math.round(canvas.clientHeight / COVER_CELL_PX));
+    const image = imageUrl ? new Image() : null;
+
+    const draw = () => {
+      const cell = cellSize();
+      const width = Math.max(1, Math.round((canvas.clientWidth * window.devicePixelRatio) / cell));
+
+      const height = Math.max(
+        1,
+        Math.round((canvas.clientHeight * window.devicePixelRatio) / cell),
+      );
 
       canvas.width = width;
       canvas.height = height;
 
-      canvas
-        .getContext("2d")
-        ?.putImageData(new ImageData(ditheredCover(seed, width, height), width, height), 0, 0);
-    });
+      if (!image?.complete || image.naturalWidth === 0) {
+        const pixels = coverGradient(seed, width, height);
+        ditherPixels(pixels, width);
+        context.putImageData(new ImageData(pixels, width, height), 0, 0);
 
+        return;
+      }
+
+      const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+      const drawnWidth = image.naturalWidth * scale;
+      const drawnHeight = image.naturalHeight * scale;
+
+      context.drawImage(
+        image,
+        (width - drawnWidth) / 2,
+        (height - drawnHeight) / 2,
+        drawnWidth,
+        drawnHeight,
+      );
+
+      const frame = context.getImageData(0, 0, width, height);
+      ditherPixels(frame.data, width);
+      context.putImageData(frame, 0, 0);
+    };
+
+    const observer = new ResizeObserver(draw);
     observer.observe(canvas);
 
-    return () => observer.disconnect();
-  }, [seed, imageUrl]);
+    if (image && imageUrl) {
+      image.crossOrigin = "anonymous";
+      image.addEventListener("load", draw);
+      image.src = imageUrl;
+    }
 
-  if (imageUrl) {
-    return (
-      <img
-        src={imageUrl}
-        alt=""
-        aria-hidden
-        className={cn("block aspect-video w-full object-cover", className)}
-      />
-    );
-  }
+    return () => {
+      observer.disconnect();
+      image?.removeEventListener("load", draw);
+    };
+  }, [seed, imageUrl]);
 
   return (
     <canvas
       ref={canvasRef}
       aria-hidden
-      className={cn("block aspect-video w-full", className)}
-      style={{ imageRendering: "pixelated" }}
+      className={cn("project-cover-pixels block aspect-video w-full", className)}
     />
+  );
+}
+
+/** Uploads an image into the project's Library folder and makes it the project's cover. */
+export function useProjectCoverUpload() {
+  const { upload, uploading } = useLibraryUpload();
+  const updateProject = useAtomCommand(projectEnvironment.update);
+
+  const setCover = useCallback(
+    async (environmentId: EnvironmentId, projectId: ProjectId, file: File) => {
+      const [coverFileId] = await upload(environmentId, [file], { folderId: null, projectId });
+
+      if (coverFileId) await updateProject({ environmentId, input: { projectId, coverFileId } });
+    },
+    [upload, updateProject],
+  );
+
+  return { setCover, uploading };
+}
+
+/**
+ * Otto: Change cover and Remove on a project page's cover, shown on hover or focus. Removing
+ * goes back to the generated cover and keeps the image in the project's Library.
+ */
+export function ProjectCoverControls({
+  environmentId,
+  project,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly project: Pick<OrchestrationProjectShell, "id" | "coverFileId">;
+}) {
+  const { t } = useI18n();
+  const { setCover, uploading } = useProjectCoverUpload();
+  const updateProject = useAtomCommand(projectEnvironment.update);
+  const input = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="absolute right-3 bottom-3 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(event) => {
+          const [file] = event.currentTarget.files ?? [];
+          event.currentTarget.value = "";
+
+          if (file) void setCover(environmentId, project.id, file);
+        }}
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={uploading}
+        onClick={() => input.current?.click()}
+      >
+        <RiImageLine aria-hidden />
+        {t("Change cover")}
+      </Button>
+      {project.coverFileId ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            void updateProject({
+              environmentId,
+              input: { projectId: project.id, coverFileId: null },
+            })
+          }
+        >
+          {t("Remove cover")}
+        </Button>
+      ) : null}
+    </div>
   );
 }

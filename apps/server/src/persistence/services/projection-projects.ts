@@ -16,6 +16,7 @@ import {
   WorkParticipant,
   WorkResources,
   WorkStatus,
+  LibraryFileId,
 } from "@otto/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -37,6 +38,7 @@ export const ProjectionProject = Schema.Struct({
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   resources: Schema.optional(Schema.NullOr(WorkResources)),
   status: Schema.optional(Schema.NullOr(WorkStatus)),
+  coverFileId: Schema.optional(Schema.NullOr(LibraryFileId)),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   deletedAt: Schema.NullOr(IsoDateTime),

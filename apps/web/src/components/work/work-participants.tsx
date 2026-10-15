@@ -11,7 +11,11 @@ import { useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { BotAvatarView } from "../roster/bot-avatar-view";
-import { ComposerControl, ComposerControlChevron } from "../chat/composer-control";
+import {
+  ComposerControl,
+  ComposerControlChevron,
+  ComposerSelectControl,
+} from "../chat/composer-control";
 import { useRosterStore } from "../roster/roster-store";
 import type { Bot } from "../roster/types";
 import { Button } from "../ui/button";
@@ -209,10 +213,11 @@ export function OwnerSelect({
   readonly value: WorkParticipant | null;
   readonly onChange: (owner: WorkParticipant | null) => void;
   readonly participants: WorkParticipants;
-  /** `ghost` is the quiet property row on a task page. */
-  readonly variant?: "ghost";
+  /** `ghost` is the quiet property row on a task page; `composer` a composer control. */
+  readonly variant?: "ghost" | "composer";
 }) {
   const { t } = useI18n();
+  const Trigger = variant === "composer" ? ComposerSelectControl : SelectTrigger;
 
   return (
     <Select
@@ -221,7 +226,12 @@ export function OwnerSelect({
         onChange(next === null || next === "none" ? null : parseParticipant(next, participants))
       }
     >
-      <SelectTrigger size="sm" variant={variant} className="w-auto min-w-0" aria-label={t("Owner")}>
+      <Trigger
+        size="sm"
+        variant={variant === "ghost" ? "ghost" : undefined}
+        className="w-auto min-w-0"
+        aria-label={t("Owner")}
+      >
         <SelectValue>
           <span className="flex items-center gap-1.5">
             {value ? (
@@ -236,7 +246,7 @@ export function OwnerSelect({
             {value ? participantName(value, participants.allBots) : t("No owner")}
           </span>
         </SelectValue>
-      </SelectTrigger>
+      </Trigger>
       <SelectPopup alignItemWithTrigger={false}>
         <SelectItem hideIndicator value="none">
           {t("No owner")}

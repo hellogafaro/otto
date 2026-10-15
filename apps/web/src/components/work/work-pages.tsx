@@ -33,7 +33,7 @@ import { WorkspaceBackButton, WorkspacePageHeader } from "../workspace-page-head
 import { ProjectCover } from "./project-cover";
 import { TasksTable } from "./tasks-table";
 import { projectStatus, sortTasks } from "./work.logic";
-import { ProjectDialog, TaskDialog } from "./work-dialogs";
+import { NewProjectDialog, NewTaskDialog } from "./work-dialogs";
 import { useWorkParticipants } from "./work-participants";
 import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
 
@@ -161,8 +161,6 @@ export function WorkEmpty({
   );
 }
 
-type TaskDialogState = { readonly task: OrchestrationTask | null } | null;
-
 /** A filter matches nothing once something is set; the page then offers to clear it. */
 function NoMatches({ to }: { readonly to: "/tasks" | "/projects" }) {
   const { t } = useI18n();
@@ -181,7 +179,7 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const { environmentId, loaded, projects, tasks, participants } = useWorkData();
-  const [dialog, setDialog] = useState<TaskDialogState>(null);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const activeProjects = projects.filter((project) => projectStatus(project) !== "archived");
   const canCreate = environmentId !== null && activeProjects.length > 0;
@@ -194,7 +192,7 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
           <WorkHeaderAction
             label={t("New task")}
             icon={RiAddLine}
-            onClick={() => setDialog({ task: null })}
+            onClick={() => setTaskDialogOpen(true)}
           />
         ) : null
       }
@@ -212,7 +210,7 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
           )}
           action={
             canCreate ? (
-              <Button onClick={() => setDialog({ task: null })}>
+              <Button onClick={() => setTaskDialogOpen(true)}>
                 <RiAddLine />
                 {t("New task")}
               </Button>
@@ -243,20 +241,18 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
       )}
       {environmentId ? (
         <>
-          <TaskDialog
-            open={dialog !== null}
-            onOpenChange={(open) => !open && setDialog(null)}
+          <NewTaskDialog
+            open={taskDialogOpen}
+            onOpenChange={setTaskDialogOpen}
             environmentId={environmentId}
-            task={dialog?.task ?? null}
             defaultProjectId={filter.project ?? null}
             projects={activeProjects}
             participants={participants}
           />
-          <ProjectDialog
+          <NewProjectDialog
             open={projectDialogOpen}
             onOpenChange={setProjectDialogOpen}
             environmentId={environmentId}
-            project={null}
             participants={participants}
             onCreated={(projectId) =>
               void navigate({ to: "/projects/$projectId", params: { projectId } })
@@ -326,7 +322,9 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
                   className="group flex flex-col gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md">
-                    <ProjectCover seed={project.id} />
+                    {environmentId ? (
+                      <ProjectCover environmentId={environmentId} project={project} />
+                    ) : null}
                   </div>
                   <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
                     <WorkStatusIcon status={projectStatus(project)} />
@@ -340,11 +338,10 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
         </WorkColumn>
       )}
       {environmentId ? (
-        <ProjectDialog
+        <NewProjectDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           environmentId={environmentId}
-          project={null}
           participants={participants}
           onCreated={(projectId) =>
             void navigate({ to: "/projects/$projectId", params: { projectId } })
