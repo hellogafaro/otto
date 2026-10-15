@@ -70,6 +70,7 @@ import { useMessageArrivals } from "./messageArrival";
 import { botIntroPrompt } from "./botIntro";
 import { useRosterStore } from "./rosterStore";
 import { useBotThreadRuntime } from "./useBotThreadRuntime";
+import { buildBotTurnTraces } from "./botTurnTrace.logic";
 import { useLocalDay } from "./useLocalDay";
 import { useRosterPendingApproval } from "./useRosterPendingApproval";
 import { useEnableBotAutoReview, useRosterLoadState } from "./useServerRoster";
@@ -296,6 +297,11 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
         runtime.latestTurn?.state === "running" ? runtime.latestTurn.turnId : null,
       ),
     [runtime.messages, runtime.latestTurn],
+  );
+
+  const turnTraces = useMemo(
+    () => buildBotTurnTraces(activities, messages),
+    [activities, messages],
   );
 
   const answeredUserInputs = useAnsweredUserInputs(activities, messages);
@@ -525,6 +531,12 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
                                     ? undefined
                                     : stepMeters.get(message.turnId)
                                 }
+                                trace={
+                                  message.turnId === null
+                                    ? undefined
+                                    : turnTraces.get(message.turnId)
+                                }
+                                environmentId={environmentId ?? null}
                                 pluginResults={
                                   message.turnId === null
                                     ? undefined

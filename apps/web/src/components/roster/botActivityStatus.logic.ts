@@ -115,19 +115,19 @@ function payloadRecord(activity: OrchestrationThreadActivity) {
   return Option.getOrNull(decodeActivityPayload(activity.payload));
 }
 
-function toolCallId(activity: OrchestrationThreadActivity): string {
+export function toolCallId(activity: OrchestrationThreadActivity): string {
   const id = payloadRecord(activity)?.toolCallId;
 
   return Predicate.isString(id) ? id : activity.id;
 }
 
-function toolName(activity: OrchestrationThreadActivity): string {
+export function toolName(activity: OrchestrationThreadActivity): string {
   // `tool.started` summaries are "<tool name> started"; the name is not stored elsewhere.
   return activity.summary.replace(/ started$/, "");
 }
 
 // Task-list tools only update the bot's plan, so they never change the label.
-const TASK_LIST_TOOLS = new Set(["task_write", "task_update", "TodoWrite"]);
+export const TASK_LIST_TOOLS = new Set(["task_write", "task_update", "TodoWrite"]);
 
 function memoryLabel(activity: OrchestrationThreadActivity): MessageKey {
   const count = Option.getOrNull(
@@ -144,8 +144,10 @@ const MCP_TOOL_NAME = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 
 function composioActivity(activity: OrchestrationThreadActivity, name: string): BotActivity {
   if (name.endsWith("SEARCH_TOOLS")) return { label: "Looking for the right app" };
+
   const calls =
     Option.getOrNull(decodeComposioCalls(payloadRecord(activity)?.data))?.args.tools ?? [];
+
   const slug = calls[0]?.tool_slug.split("_", 1)[0]?.toLowerCase();
 
   return slug

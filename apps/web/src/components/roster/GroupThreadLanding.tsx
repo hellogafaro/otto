@@ -73,6 +73,7 @@ import { useRosterStore } from "./rosterStore";
 import { useGroupThreadRuntime } from "./useGroupThreadRuntime";
 import { ChatActionsMenu, useMarkChatVisited } from "../chat/ChatActionsMenu";
 import { useBotEngineAvailability } from "./useBotEngineAvailability";
+import { buildBotTurnTraces } from "./botTurnTrace.logic";
 import { useLocalDay } from "./useLocalDay";
 import { useRosterPendingApproval } from "./useRosterPendingApproval";
 import { useEnableBotAutoReview, useRosterLoadState } from "./useServerRoster";
@@ -249,6 +250,11 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
     [runtime.messages, runtime.latestTurn],
   );
 
+  const turnTraces = useMemo(
+    () => buildBotTurnTraces(activities, messages),
+    [activities, messages],
+  );
+
   const answeredUserInputs = useAnsweredUserInputs(activities, messages);
 
   const today = useLocalDay();
@@ -414,6 +420,8 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
                         stepMeter={
                           message.turnId === null ? undefined : stepMeters.get(message.turnId)
                         }
+                        trace={message.turnId === null ? undefined : turnTraces.get(message.turnId)}
+                        environmentId={environmentId ?? null}
                         pluginResults={undefined}
                         currentPersonId={currentPersonId}
                         playback={replyPlayback}

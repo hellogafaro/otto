@@ -27,6 +27,7 @@ import { BotAvatarView } from "./BotAvatarView";
 import { PersonAvatar } from "./PersonAvatar";
 import { BotMessageAttachments } from "./BotMessageAttachments";
 import { BotStepMeter } from "./BotStepMeter";
+import { BotTurnTrace } from "./BotTurnTrace";
 import {
   type AssistantMessageRowProps,
   assistantRowPropsEqual,
@@ -160,6 +161,8 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
   cwd,
   threadRef,
   stepMeter,
+  trace,
+  environmentId,
   pluginResults,
   currentPersonId,
   playback,
@@ -228,6 +231,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
         <div className="relative w-fit min-w-56 max-w-full">
           {startsGroup ? <div className="text-sm font-medium">{author.name}</div> : null}
           <BotStepMeter meter={stepMeter} />
+          <BotTurnTrace trace={trace} environmentId={environmentId} />
           {markdown}
           <div className={toolbarClass(startsGroup)}>
             <MessageControls

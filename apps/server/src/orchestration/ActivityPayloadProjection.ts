@@ -104,6 +104,64 @@ function projectAcpContent(value: ActivityValue): ActivityRecord | undefined {
   return summary ? { content: summary } : undefined;
 }
 
+/**
+ * The argument that names what an Otto tool worked on, shown beside the step in a reply's trace.
+ * Only arguments that say what a step touched, never content: memory notes, messages, questions
+ * and anything from a person's connected accounts stay out.
+ */
+const TOOL_DETAIL_ARGS = {
+  WebSearch: "query",
+  WebFetch: "url",
+  SearchPlugins: "query",
+  GetPlugin: "pluginId",
+  Read: "path",
+  ExternalRead: "path",
+  SaveToLibrary: "title",
+  otto_create_routine: "name",
+  browser_navigate: "url",
+  preview_open: "url",
+} as const satisfies Readonly<Record<string, string>>;
+
+const MAX_TRACE_DETAIL_LENGTH = 160;
+
+/** A command's output in a reply's trace: the start of it, never the whole run log. */
+const MAX_TRACE_OUTPUT_LENGTH = 1_500;
+
+const COMPOSIO_TOOL_PREFIX = "composio-session_";
+
+function clip(value: string, max: number) {
+  return value.length <= max
+    ? value
+    : `${Array.from(value.slice(0, max - 1))
+        .join("")
+        .trimEnd()}…`;
+}
+
+function projectToolDetail(toolName: string, args: ActivityValue): string | undefined {
+  // SAFETY: `toolName` is an own key of TOOL_DETAIL_ARGS whenever the lookup runs.
+  const key = Object.hasOwn(TOOL_DETAIL_ARGS, toolName)
+    ? TOOL_DETAIL_ARGS[toolName as keyof typeof TOOL_DETAIL_ARGS]
+    : undefined;
+
+  const value = key ? asTrimmedString(asRecord(args)?.[key]) : null;
+
+  return value ? clip(value.replace(/\s+/g, " "), MAX_TRACE_DETAIL_LENGTH) : undefined;
+}
+
+/** Which apps a Composio call used, so the step can say "Using Google Calendar". */
+function projectComposioTools(args: ActivityValue): ActivityRecord | undefined {
+  const tools = asRecord(args)?.tools;
+
+  if (!Array.isArray(tools)) return undefined;
+
+  const slugs = tools
+    .map((tool) => asTrimmedString(asRecord(tool)?.tool_slug))
+    .filter((slug): slug is string => slug !== null)
+    .slice(0, 8);
+
+  return slugs.length > 0 ? { tools: slugs.map((slug) => ({ tool_slug: slug })) } : undefined;
+}
+
 function projectPluginSearchResult(value: ActivityValue): OttoPluginSearchResult | undefined {
   const decoded = decodePluginSearchResult(value);
 
@@ -196,6 +254,32 @@ export function projectActivityPayload(
 
   if (memoryOperationCount !== undefined) {
     projectedData.memoryOperationCount = memoryOperationCount;
+  }
+
+  const toolName = activity.summary.replace(/ started$/, "");
+  // Snapshots can be projected twice (detail read, then the HTTP response), so keep what a
+  // previous pass already kept.
+  const detail = projectToolDetail(toolName, data.args) ?? asTrimmedString(data.detail);
+
+  if (detail) {
+    projectedData.detail = detail;
+  }
+
+  const composioTools = toolName.startsWith(COMPOSIO_TOOL_PREFIX)
+    ? projectComposioTools(data.args)
+    : undefined;
+
+  if (composioTools) {
+    projectedData.args = composioTools;
+  }
+
+  const commandOutput =
+    payload.itemType === "command_execution"
+      ? (asTrimmedString(data.result) ?? asTrimmedString(data.output))
+      : null;
+
+  if (commandOutput) {
+    projectedData.output = clip(commandOutput, MAX_TRACE_OUTPUT_LENGTH);
   }
 
   const rawOutput = projectRawOutput(data.rawOutput) ?? projectAcpContent(data.content);

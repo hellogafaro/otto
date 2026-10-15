@@ -85,6 +85,81 @@ describe("projectActivityPayload", () => {
     expect(data).toEqual({ command: 'printf "hi\\n"' });
   });
 
+  it("names what a web search or fetch worked on, and nothing more", () => {
+    const search = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: { args: { query: "Madrid  population\n2025", domains: null } },
+      }),
+      kind: "tool.started",
+      summary: "WebSearch started",
+    });
+
+    expect((search.payload as Record<string, Schema.Json>).data).toEqual({
+      detail: "Madrid population 2025",
+    });
+
+    const fetched = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: { result: { text: "<html>…</html>" } },
+      }),
+      summary: "WebFetch",
+    });
+
+    expect((fetched.payload as Record<string, Schema.Json>).data).toEqual({});
+  });
+
+  it("keeps a Composio call's app slugs but not its arguments", () => {
+    const call = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: {
+          args: {
+            tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { query: "from:boss" } }],
+            thought: "private",
+          },
+        },
+      }),
+      kind: "tool.started",
+      summary: "composio-session_COMPOSIO_MULTI_EXECUTE_TOOL started",
+    });
+
+    expect((call.payload as Record<string, Schema.Json>).data).toEqual({
+      args: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS" }] },
+    });
+  });
+
+  it("keeps trace fields when a snapshot is projected twice", () => {
+    const once = projectActivityPayload({
+      ...activity({
+        itemType: "dynamic_tool_call",
+        data: { args: { query: "Madrid population" } },
+      }),
+      kind: "tool.started",
+      summary: "WebSearch started",
+    });
+
+    const command = projectActivityPayload(
+      activity({ itemType: "command_execution", data: { result: "/workspace\n" } }),
+    );
+
+    expect(projectActivityPayload(once).payload).toEqual(once.payload);
+    expect(projectActivityPayload(command).payload).toEqual(command.payload);
+  });
+
+  it("keeps the start of a command's output", () => {
+    const done = projectActivityPayload(
+      activity({ itemType: "command_execution", data: { result: `${"x".repeat(2_000)}\n` } }),
+    );
+
+    const output = ((done.payload as Record<string, Schema.Json>).data as Record<string, string>)
+      .output;
+
+    expect(output).toHaveLength(1_500);
+    expect(output?.endsWith("…")).toBe(true);
+  });
+
   it("tells memory writes from reads without shipping the notes", () => {
     const write = projectActivityPayload(
       activity({

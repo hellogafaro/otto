@@ -1,4 +1,5 @@
 import type {
+  EnvironmentId,
   OttoPluginSearchResult,
   MessageId,
   OrchestrationMessage,
@@ -7,6 +8,7 @@ import type {
 import type { ReplyPlaybackSession } from "@otto/client-runtime/reply-playback";
 
 import type { BotStepMeterData } from "@otto/client-runtime/bot-step-usage";
+import type { BotTurnTrace } from "./botTurnTrace.logic";
 import type { ChannelApprovalTarget } from "./ChannelSendApproval";
 import type { Bot } from "./types";
 import type { MessageReactionHandler } from "./useMessageReactionUpdater";
@@ -30,6 +32,10 @@ export interface AssistantMessageRowProps {
   readonly cwd: string | undefined;
   readonly threadRef: ScopedThreadRef | undefined;
   readonly stepMeter: BotStepMeterData | undefined;
+  /** What the turn behind this reply did, when it used tools. */
+  readonly trace: BotTurnTrace | undefined;
+  /** Names the apps and MCP servers in the trace. */
+  readonly environmentId: EnvironmentId | null;
   readonly pluginResults: ReadonlyArray<PluginResultEntry> | undefined;
   readonly currentPersonId: string | null | undefined;
   readonly playback: ReplyPlaybackSession | null;
@@ -59,6 +65,25 @@ function stepMetersEqual(a: BotStepMeterData | undefined, b: BotStepMeterData | 
   return a.tokens === b.tokens && a.costUsd === b.costUsd && shallowEqual(a.engine, b.engine);
 }
 
+function tracesEqual(a: BotTurnTrace | undefined, b: BotTurnTrace | undefined) {
+  if (a === b) return true;
+
+  if (!a || !b || a.workedMs !== b.workedMs || a.steps.length !== b.steps.length) return false;
+
+  return a.steps.every((step, index) => {
+    const other = b.steps[index];
+
+    if (!other || step.kind !== other.kind) return false;
+
+    if (step.kind === "thought" || other.kind === "thought") return shallowEqual(step, other);
+
+    return (
+      shallowEqual({ ...step, subject: null }, { ...other, subject: null }) &&
+      shallowEqual(step.subject, other.subject)
+    );
+  });
+}
+
 function pluginResultsEqual(
   a: ReadonlyArray<PluginResultEntry> | undefined,
   b: ReadonlyArray<PluginResultEntry> | undefined,
@@ -83,6 +108,8 @@ export function assistantRowPropsEqual(
     switch (key) {
       case "stepMeter":
         return stepMetersEqual(previous.stepMeter, next.stepMeter);
+      case "trace":
+        return tracesEqual(previous.trace, next.trace);
       case "pluginResults":
         return pluginResultsEqual(previous.pluginResults, next.pluginResults);
       case "channelApproval":

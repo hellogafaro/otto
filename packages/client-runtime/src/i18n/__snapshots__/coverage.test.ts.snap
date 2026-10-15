@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1913,
+  "directMessageCount": 1916,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -84,6 +84,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/roster/BotToolsSection.tsx": [
       "STATUS_LABEL[status])}",
+    ],
+    "apps/web/src/components/roster/BotTurnTrace.tsx": [
+      "step.label)}",
     ],
     "apps/web/src/components/roster/ChatStatusIcon.tsx": [
       "CHAT_STATUS[status].label)} />;",
@@ -501,6 +504,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/BotToolSwitches.tsx",
     "apps/web/src/components/roster/BotToolsSection.tsx",
     "apps/web/src/components/roster/BotTurnFailureRow.tsx",
+    "apps/web/src/components/roster/BotTurnTrace.tsx",
     "apps/web/src/components/roster/BotUsageSection.tsx",
     "apps/web/src/components/roster/BotUserInputPrompt.tsx",
     "apps/web/src/components/roster/BotZeroState.tsx",
@@ -589,6 +593,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/sidebar/SidebarUpdatePill.tsx",
     "apps/web/src/components/ui/AnchoredToasts.tsx",
     "apps/web/src/components/ui/ToastBody.tsx",
+    "apps/web/src/components/ui/code-block.tsx",
     "apps/web/src/components/ui/sidebar.tsx",
     "apps/web/src/components/ui/sidebarRail.tsx",
     "apps/web/src/components/ui/toast.tsx",
