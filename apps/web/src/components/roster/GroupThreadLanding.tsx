@@ -30,7 +30,7 @@ import { ProviderUnavailableLine } from "../chat/ProviderUnavailableNotice";
 import { ThreadErrorCard } from "../chat/ThreadErrorCard";
 import { useOptionalVoiceCall } from "../voice/VoiceCall";
 import { threadSilentRun } from "@otto/client-runtime/silent-run";
-import { botActivityUpdate, BotActivityStatus } from "./BotActivityStatus";
+import { BotActivityStatus, useActivitySubjectName } from "./BotActivityStatus";
 import { ChatReplyContext } from "../markdown/generative/chatReplyContext";
 import { deriveBotActivity } from "./botActivityStatus.logic";
 import { BotApprovalPrompt } from "./BotApprovalPrompt";
@@ -198,6 +198,8 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
     [activities, runtime.latestTurn],
   );
 
+  const activitySubjectName = useActivitySubjectName(environmentId ?? null, botActivity.subject);
+
   const runtimeWarning = useMemo(
     () => activeThreadRuntimeWarning(activities, runtime.latestTurn),
     [activities, runtime.latestTurn],
@@ -232,8 +234,6 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
     turnRunning: runtime.latestTurn?.state === "running",
     waitingForUserInput,
   });
-
-  const workingUpdate = botActivityUpdate(activities, runtime.latestTurn?.turnId ?? null, t);
 
   const silentRun = runtime.latestTurn?.completedAt
     ? null
@@ -512,9 +512,12 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
             activitySlot={
               working && activeBot && !waitingForUserInput && pendingApproval === null ? (
                 <BotActivityStatus
-                  name={activeBot.name}
+                  bot={activeBot}
                   activity={botActivity}
-                  update={workingUpdate}
+                  startedAt={
+                    runtime.latestTurn?.startedAt ?? runtime.latestTurn?.requestedAt ?? null
+                  }
+                  subjectName={activitySubjectName}
                   silentRun={silentRun}
                 />
               ) : null

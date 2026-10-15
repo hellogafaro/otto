@@ -37,7 +37,7 @@ describe("BotThreadLanding message formatting", () => {
 
     const assistantRow = rowComponent(readSibling("BotChatMessageRows.tsx"), "AssistantMessageRow");
     expect(assistantRow).toContain("<ChatMarkdown");
-    expect(assistantRow).toContain('className="min-w-0 flex-1"');
+    expect(assistantRow).toContain('className="relative min-w-0 flex-1"');
     expect(assistantRow).not.toContain("onTaskListChange");
     const userRow = rowComponent(readSibling("BotChatMessageRows.tsx"), "UserMessageRow");
     // Sent text goes through SentMessageText, which keeps a reply's backlink compact.
@@ -90,7 +90,7 @@ describe("BotThreadLanding message formatting", () => {
       const row = rowComponent(source, name);
       const controls = row.split("<MessageControls").slice(1);
       expect(controls.length).toBeGreaterThan(0);
-      expect(row).toContain("HOVER_CONTROLS_CLASS");
+      expect(row).toContain("MESSAGE_TOOLBAR_CLASS");
 
       for (const block of controls) {
         const props = block.slice(0, block.indexOf("/>"));

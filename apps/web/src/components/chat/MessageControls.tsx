@@ -111,8 +111,6 @@ export function findReplySourceMessageId(
 export function MessageControls(props: {
   readonly copyText: string;
   readonly align?: "start" | "end";
-  /** Pull the first control left by its inner padding so its glyph sits on the text edge. */
-  readonly flushStart?: boolean;
   readonly selectedReaction?: MessageReactionOption | null;
   readonly onReply?: () => void;
   readonly onReactionChange?: (reaction: MessageReactionOption | null) => void;
@@ -139,13 +137,7 @@ export function MessageControls(props: {
 
   return (
     <div
-      className={cn(
-        "flex flex-wrap items-center gap-0.5",
-        props.align === "end" && "justify-end",
-        // Read aloud leads with an xs text button (8px to its icon); otherwise an
-        // icon-xs button (6px, 5px from sm).
-        props.flushStart && (props.readAloud ? "-ms-2" : "-ms-1.5 sm:-ms-1.25"),
-      )}
+      className={cn("flex flex-wrap items-center gap-0.5", props.align === "end" && "justify-end")}
       data-message-controls="true"
     >
       {props.readAloud ? <ReplyPlaybackControls {...props.readAloud} /> : null}

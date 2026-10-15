@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1921,
+  "directMessageCount": 1912,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -61,6 +61,10 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/onboarding/OnboardingSubscriptionStep.tsx": [
       "definition.subscription)}",
+    ],
+    "apps/web/src/components/roster/BotActivityStatus.tsx": [
+      "THINKING_VERBS[index % THINKING_VERBS.length] ?? "Thinking");",
+      "activity.label);",
     ],
     "apps/web/src/components/roster/BotDurableMemory.tsx": [
       "failure.message)}",

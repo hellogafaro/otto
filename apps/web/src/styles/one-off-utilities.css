@@ -40,6 +40,8 @@
 @utility content-visibility-row {
   content-visibility: auto;
   contain-intrinsic-size: auto 96px;
+  /* Paint containment would clip the floating message toolbar above the row's top edge. */
+  overflow-clip-margin: 24px;
 }
 
 @utility will-change-opacity-transform {

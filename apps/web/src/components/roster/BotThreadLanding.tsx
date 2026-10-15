@@ -20,7 +20,7 @@ import { SidebarInset } from "../ui/sidebar";
 import { Spinner } from "../ui/spinner";
 import { WorkspaceHeaderTitle, WorkspacePageHeader } from "../WorkspacePageHeader";
 import { threadSilentRun } from "@otto/client-runtime/silent-run";
-import { botActivityUpdate, BotActivityStatus } from "./BotActivityStatus";
+import { BotActivityStatus, useActivitySubjectName } from "./BotActivityStatus";
 import { deriveBotActivity } from "./botActivityStatus.logic";
 import { BotApprovalPrompt } from "./BotApprovalPrompt";
 import { MemoryApprovalPrompt } from "./MemoryApprovalPrompt";
@@ -216,6 +216,8 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
     [activities, runtime.latestTurn],
   );
 
+  const activitySubjectName = useActivitySubjectName(environmentId ?? null, botActivity.subject);
+
   const runtimeWarning = useMemo(
     () => activeThreadRuntimeWarning(activities, runtime.latestTurn),
     [activities, runtime.latestTurn],
@@ -282,8 +284,6 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
     turnRunning: runtime.latestTurn?.state === "running",
     waitingForUserInput,
   });
-
-  const workingUpdate = botActivityUpdate(activities, runtime.latestTurn?.turnId ?? null, t);
 
   const silentRun = runtime.latestTurn?.completedAt
     ? null
@@ -647,9 +647,12 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
               activitySlot={
                 working && !waitingForUserInput && pendingApproval === null ? (
                   <BotActivityStatus
-                    name={bot.name}
+                    bot={bot}
                     activity={botActivity}
-                    update={workingUpdate}
+                    startedAt={
+                      runtime.latestTurn?.startedAt ?? runtime.latestTurn?.requestedAt ?? null
+                    }
+                    subjectName={activitySubjectName}
                     silentRun={silentRun}
                   />
                 ) : null

@@ -1,99 +1,87 @@
+import { useAtomValue } from "@effect/atom-react";
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import type { ThreadSilentRun } from "@otto/client-runtime/silent-run";
-import type { OrchestrationThreadActivity, TurnId } from "@otto/contracts";
-import { RiLoaderLine } from "@remixicon/react";
+import type { EnvironmentId } from "@otto/contracts";
+import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "../../i18n";
+import { environmentMcpServersAtom } from "../../state/mcpServers";
+import { useEnvironmentQuery } from "../../state/query";
+import { serverEnvironment } from "../../state/server";
 import { cn } from "~/lib/utils";
 
-import { ResponseLoadingState } from "../chat/ResponseLoadingState";
-import type { BotActivity } from "./botActivityStatus.logic";
+import { formatLoadingElapsed, ResponseLoadingState } from "../chat/ResponseLoadingState";
+import { BotAvatarView } from "./BotAvatarView";
+import type { BotActivity, BotActivitySubject } from "./botActivityStatus.logic";
+import type { Bot } from "./types";
 
-const HIDDEN_ACTIVITY_KINDS = new Set([
-  "checkpoint.captured",
-  "context-window.updated",
-  "thread.started",
-  "turn.started",
-]);
+/** Playful stand-ins while the bot thinks with no tool running. */
+export const THINKING_VERBS = [
+  "Thinking",
+  "Noodling",
+  "Percolating",
+  "Mulling it over",
+  "Connecting the dots",
+  "Rummaging",
+  "Pondering",
+  "Scheming",
+  "Consulting the rubber duck",
+  "Untangling",
+] as const satisfies readonly MessageKey[];
 
-/**
- * The one short phrase describing what the bot is doing right now, or null when the
- * latest action already finished and there is nothing more specific than "working".
- * Provider tool names are mapped to plain language; anything unrecognized is trimmed
- * rather than dropped, so a new tool still says something true. Pass the view's `t` so
- * the plain-language phrases follow the interface language; provider summaries stay raw.
- */
-export function botActivityUpdate(
-  activities: ReadonlyArray<OrchestrationThreadActivity>,
-  turnId: TurnId | null,
-  t: (key: MessageKey) => string = (key) => key,
+const THINKING_VERB_MS = 3200;
+
+// SAFETY: An empty id names no environment; the atom and query hold nothing for it.
+const NO_ENVIRONMENT = "" as EnvironmentId;
+
+/** The connected app's or MCP server's name a running tool works on, once known. */
+export function useActivitySubjectName(
+  environmentId: EnvironmentId | null,
+  subject: BotActivitySubject | undefined,
 ): string | null {
-  if (!turnId) return null;
+  const servers = useAtomValue(environmentMcpServersAtom(environmentId ?? NO_ENVIRONMENT));
 
-  const activity = activities.findLast(
-    (candidate) =>
-      candidate.turnId === turnId &&
-      !HIDDEN_ACTIVITY_KINDS.has(candidate.kind) &&
-      (candidate.tone === "tool" || candidate.kind.startsWith("task.")),
+  const composio = useEnvironmentQuery(
+    environmentId && subject?.kind === "app"
+      ? serverEnvironment.composioStatus({ environmentId, input: {} })
+      : null,
   );
 
-  if (!activity) return null;
-
-  if (
-    /(?:completed|failed|stopped)$/i.test(activity.kind) ||
-    /\s+(?:completed|failed|stopped)$/i.test(activity.summary)
-  ) {
-    return null;
+  if (subject?.kind === "server") {
+    return servers.find((server) => server.id === subject.id)?.name ?? null;
   }
 
-  const summary = activity.summary
-    .replace(/\s+started$/i, "")
-    .replaceAll("_", " ")
-    .trim();
+  if (subject?.kind !== "app") return null;
 
-  const normalized = summary.toLowerCase();
-
-  if (/ask user|user input|structured question/.test(normalized)) return null;
-
-  if (/browser snapshot|snapshot/.test(normalized)) return t("Reading the page");
-
-  if (/browser navigate|preview open|open browser/.test(normalized)) return t("Opening a page");
-
-  if (/browser click/.test(normalized)) return t("Using the page");
-
-  if (/browser type/.test(normalized)) return t("Entering text");
-
-  if (/search|web query/.test(normalized)) return t("Searching the web");
-
-  if (/test|typecheck|lint|check/.test(normalized)) return t("Running checks");
-
-  if (/patch|edit|write/.test(normalized)) return t("Editing files");
-
-  if (/command|shell|exec/.test(normalized)) return t("Running a command");
-
-  if (/read|fetch|open/.test(normalized)) return t("Reading a source");
-
-  if (/task|agent/.test(normalized)) return t("Coordinating work");
-
-  if (!summary) return null;
-  const label = `${summary[0]?.toUpperCase() ?? ""}${summary.slice(1)}`;
-
-  return label.length > 56 ? `${label.slice(0, 55).trimEnd()}…` : label;
+  return (
+    composio.data?.connections.find((connection) => connection.toolkitSlug === subject.slug)
+      ?.toolkitName ?? null
+  );
 }
 
-function ThinkingGlyph({ className }: { readonly className?: string }) {
-  return (
-    <RiLoaderLine
-      aria-hidden="true"
-      className={cn("size-3.5 shrink-0 motion-safe:animate-spin", className)}
-    />
-  );
+/** Runs this short need no timer; past it, each row shows how long its bot has been at it. */
+export const ACTIVITY_TIMER_AFTER_MS = 10_000;
+
+/** One playful verb at a time, crossfading to the next every few seconds. */
+function ThinkingVerb() {
+  const { t } = useI18n();
+  const [index, setIndex] = useState(() => Math.floor(Date.now() / THINKING_VERB_MS));
+
+  useEffect(() => {
+    const id = window.setInterval(() => setIndex((current) => current + 1), THINKING_VERB_MS);
+
+    return () => window.clearInterval(id);
+  }, []);
+
+  const verb = t(THINKING_VERBS[index % THINKING_VERBS.length] ?? "Thinking");
+
+  return <ShimmerText key={verb} className="motion-fade-in" text={`${verb}...`} />;
 }
 
 /** Text with a soft sheen sweeping across it while work is in progress. */
 function ShimmerText({ text, className }: { readonly text: string; readonly className?: string }) {
   return (
-    <span className={cn("bot-shimmer-text", className)}>
+    <span className={cn("bot-shimmer-text min-w-0 truncate", className)}>
       {text}
       <span aria-hidden="true" className="bot-shimmer-sheen">
         <span className="bot-shimmer-sheen-text">{text}</span>
@@ -102,24 +90,72 @@ function ShimmerText({ text, className }: { readonly text: string; readonly clas
   );
 }
 
+/** Time since the turn started, appearing once it passes ten seconds; ticks without committing React. */
+function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const update = () => {
+      const node = textRef.current;
+
+      if (!node) return;
+      const elapsed = Date.now() - startedAt;
+
+      node.hidden = elapsed < ACTIVITY_TIMER_AFTER_MS;
+      node.textContent = formatLoadingElapsed(elapsed);
+    };
+
+    update();
+    const id = window.setInterval(update, 1000);
+
+    return () => window.clearInterval(id);
+  }, [startedAt]);
+
+  const elapsed = Date.now() - startedAt;
+
+  return (
+    <span
+      ref={textRef}
+      hidden={elapsed < ACTIVITY_TIMER_AFTER_MS}
+      className="shrink-0 text-xs tabular-nums text-muted-foreground"
+      data-testid="bot-activity-time"
+    >
+      {formatLoadingElapsed(elapsed)}
+    </span>
+  );
+}
+
 /**
- * The moving diamond and a short update. What the bot is doing in detail stays out of view.
- * `activity` comes from the reported tool action; `update` is the older summary-based
- * phrase and fills in when no tool action is known yet. A run the provider went quiet
- * on replaces both with a stalled timer counting from the last output.
+ * Otto: A working bot shows itself where its reply will appear: its own 28px avatar, awake and
+ * ringed by a soft pulse, then one line saying what the run is really doing ("Reading a skill",
+ * "Using Google Calendar"). While it only thinks, playful verbs rotate in that line. Past ten
+ * seconds the row shows its own elapsed time. A run its provider went quiet on instead shows
+ * the stalled timer counting from the last output.
  */
 export function BotActivityStatus({
-  name,
-  activity = null,
-  update = null,
+  bot,
+  activity,
+  startedAt,
+  subjectName = null,
   silentRun = null,
 }: {
-  readonly name: string;
-  readonly activity?: BotActivity | null;
-  readonly update?: string | null;
+  readonly bot: Pick<Bot, "name" | "avatar">;
+  readonly activity: BotActivity;
+  /** When the turn started, for the elapsed time. */
+  readonly startedAt: string | null;
+  /** The app's or MCP server's name for a tool working on one. */
+  readonly subjectName?: string | null;
   readonly silentRun?: ThreadSilentRun | null;
 }) {
   const { t } = useI18n();
+  const started = startedAt ? Date.parse(startedAt) : Number.NaN;
+
+  const avatar = (
+    <span className="relative flex size-7 shrink-0 items-center justify-center">
+      <span aria-hidden="true" className="bot-awake-ring absolute inset-0 rounded-full" />
+      <BotAvatarView avatar={bot.avatar} name={bot.name} state="working" className="size-7" />
+    </span>
+  );
 
   if (silentRun) {
     return (
@@ -128,9 +164,7 @@ export function BotActivityStatus({
         data-testid="bot-activity-status"
         data-silent-run=""
       >
-        <span className="flex w-7 shrink-0 justify-center">
-          <ThinkingGlyph className="text-muted-foreground" />
-        </span>
+        {avatar}
         <ResponseLoadingState
           createdAt={silentRun.lastActivityAt}
           label={t("No response from {provider}", { provider: silentRun.providerName })}
@@ -140,7 +174,8 @@ export function BotActivityStatus({
     );
   }
 
-  const label = activity?.label ?? update ?? t("{name} is working", { name });
+  const label =
+    activity.subject && subjectName ? t("Using {name}", { name: subjectName }) : t(activity.label);
 
   return (
     <div
@@ -148,16 +183,12 @@ export function BotActivityStatus({
       className="flex w-full min-w-0 items-center gap-3 py-1 text-sm"
       data-testid="bot-activity-status"
     >
-      {/* Same 28px column as a message avatar, so the text lines up with message text. */}
-      <span className="flex w-7 shrink-0 justify-center">
-        <ThinkingGlyph className="text-foreground" />
+      {avatar}
+      <span className="sr-only">{bot.name}: </span>
+      <span className="flex min-w-0 flex-1 items-center gap-2 font-medium text-foreground">
+        {activity.thinking ? <ThinkingVerb /> : <ShimmerText key={label} text={`${label}...`} />}
+        {Number.isFinite(started) ? <ActivityElapsed startedAt={started} /> : null}
       </span>
-      <span className="sr-only">{name}: </span>
-      <ShimmerText
-        className="min-w-0 truncate font-medium text-foreground"
-        key={label}
-        text={`${label}...`}
-      />
     </div>
   );
 }

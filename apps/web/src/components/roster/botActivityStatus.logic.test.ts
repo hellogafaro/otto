@@ -56,8 +56,8 @@ const completed = (name: string, id: string) =>
   activity("tool.completed", name, { itemType: "dynamic_tool_call", toolCallId: id });
 
 describe("deriveBotActivity", () => {
-  it("says the bot is working before its first step", () => {
-    expect(deriveBotActivity([], runningTurn)).toEqual({ label: "Working" });
+  it("says the bot is thinking before its first step", () => {
+    expect(deriveBotActivity([], runningTurn)).toEqual({ label: "Working", thinking: true });
   });
 
   it("names the routine tool while it runs", () => {
@@ -66,13 +66,13 @@ describe("deriveBotActivity", () => {
     ).toMatchObject({ label: "Adding a routine" });
   });
 
-  it("returns to working after a tool finishes", () => {
+  it("returns to thinking after a tool finishes", () => {
     expect(
       deriveBotActivity(
         [started("otto_list_routines", "call-1"), completed("otto_list_routines", "call-1")],
         runningTurn,
       ),
-    ).toMatchObject({ label: "Working" });
+    ).toEqual({ label: "Working", thinking: true });
   });
 
   it("labels routine deletes by name even though the item type says file change", () => {
@@ -98,6 +98,47 @@ describe("deriveBotActivity", () => {
         runningTurn,
       ).label,
     ).toBe("Running a command");
+  });
+
+  it("labels skill reads by name even though the item type says file change", () => {
+    expect(
+      deriveBotActivity(
+        [started("ReadSkillFile", "call-1", { itemType: "file_change" })],
+        runningTurn,
+      ).label,
+    ).toBe("Reading a skill");
+  });
+
+  it("names the connected app a Composio call uses", () => {
+    const call = started("composio-session_COMPOSIO_MULTI_EXECUTE_TOOL", "call-1", {
+      data: {
+        args: {
+          tools: [{ tool_slug: "GOOGLECALENDAR_LIST_CALENDARS", arguments: {} }],
+          thought: "Count the calendars",
+        },
+      },
+    });
+
+    expect(deriveBotActivity([call], runningTurn)).toEqual({
+      label: "Using an app",
+      subject: { kind: "app", slug: "googlecalendar" },
+    });
+
+    expect(
+      deriveBotActivity([started("composio-session_COMPOSIO_SEARCH_TOOLS", "call-2")], runningTurn),
+    ).toEqual({ label: "Looking for the right app" });
+  });
+
+  it("names the MCP server a tool belongs to", () => {
+    expect(
+      deriveBotActivity(
+        [started("c40e19b3-1d7d-4651-af2c-2c6eed280962_ask_wiki_question", "call-1")],
+        runningTurn,
+      ),
+    ).toEqual({
+      label: "Using a tool",
+      subject: { kind: "server", id: "c40e19b3-1d7d-4651-af2c-2c6eed280962" },
+    });
   });
 
   it("shows the newest open tool when calls overlap", () => {
@@ -137,7 +178,7 @@ describe("deriveBotActivity", () => {
         ...runningTurn,
         turnId: TurnId.make("turn-2"),
       }),
-    ).toEqual({ label: "Working" });
+    ).toEqual({ label: "Working", thinking: true });
   });
 
   it("does not claim progress before a turn is running", () => {

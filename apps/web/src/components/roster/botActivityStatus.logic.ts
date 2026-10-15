@@ -1,3 +1,4 @@
+import type { MessageKey } from "@otto/client-runtime/i18n";
 import { recordLookup } from "../recordLookup";
 import { Predicate, Schema, Option } from "effect";
 import {
@@ -10,9 +11,18 @@ import {
   type OrchestrationThreadActivity,
 } from "@otto/contracts";
 
+/** What a tool works on, named by the view: a connected app by toolkit slug or an MCP server by id. */
+export type BotActivitySubject =
+  | { readonly kind: "app"; readonly slug: string }
+  | { readonly kind: "server"; readonly id: string };
+
 export interface BotActivity {
   /** Short present-tense update for what the bot is doing, without trailing dots. */
-  readonly label: string;
+  readonly label: MessageKey;
+  /** No tool is running: the bot is thinking between steps. */
+  readonly thinking?: true;
+  /** Shown as "Using {name}" once the view knows the subject's name. */
+  readonly subject?: BotActivitySubject;
 }
 
 // Keyed by the tool name the runtime reports. Names come from the Otto tool
@@ -21,6 +31,24 @@ const TOOL_LABELS = {
   [OTTO_CREATE_ROUTINE_TOOL_NAME]: "Adding a routine",
   otto_list_routines: "Checking routines",
   otto_delete_routines: "Removing routines",
+  otto_update_routine: "Updating a routine",
+  otto_set_routine_paused: "Updating a routine",
+  ListSkills: "Checking skills",
+  ReadSkillFile: "Reading a skill",
+  ListLibrary: "Browsing the library",
+  ReadLibraryFile: "Reading the library",
+  SaveToLibrary: "Saving to the library",
+  UpdateLibraryDocument: "Editing a document",
+  WebSearch: "Searching the web",
+  WebFetch: "Reading a web page",
+  GenerateImage: "Making an image",
+  Task: "Starting a helper",
+  CheckSubagent: "Checking on a helper",
+  MessageSubagent: "Messaging a helper",
+  StopSubagent: "Stopping a helper",
+  AddMcpServer: "Adding a connection",
+  UninstallMcpServer: "Removing a connection",
+  ask_user: "Waiting for your answer",
   Shell: "Running a command",
   ExternalShell: "Running a command",
   AwaitShell: "Waiting on a command",
@@ -51,7 +79,7 @@ const TOOL_LABELS = {
   RestartMcpServers: "Restarting connections",
   UpdateBotProfile: "Updating profile",
   "Computer Use": "Using the computer",
-} satisfies Readonly<Record<string, string>>;
+} satisfies Readonly<Record<string, MessageKey>>;
 
 const ITEM_TYPE_LABELS = {
   command_execution: "Running a command",
@@ -61,13 +89,19 @@ const ITEM_TYPE_LABELS = {
   collab_agent_tool_call: "Starting a helper",
   mcp_tool_call: "Using a tool",
   dynamic_tool_call: "Using a tool",
-} satisfies Readonly<Record<string, string>>;
+} satisfies Readonly<Record<string, MessageKey>>;
 
 const decodeActivityPayload = Schema.decodeUnknownOption(
   Schema.Struct({
     toolCallId: Schema.optionalKey(Schema.Unknown),
     itemType: Schema.optionalKey(Schema.Unknown),
     data: Schema.optionalKey(Schema.Unknown),
+  }),
+);
+
+const decodeComposioCalls = Schema.decodeUnknownOption(
+  Schema.Struct({
+    args: Schema.Struct({ tools: Schema.Array(Schema.Struct({ tool_slug: Schema.String })) }),
   }),
 );
 
@@ -95,7 +129,7 @@ function toolName(activity: OrchestrationThreadActivity): string {
 // Task-list tools only update the bot's plan, so they never change the label.
 const TASK_LIST_TOOLS = new Set(["task_write", "task_update", "TodoWrite"]);
 
-function memoryLabel(activity: OrchestrationThreadActivity): string {
+function memoryLabel(activity: OrchestrationThreadActivity): MessageKey {
   const count = Option.getOrNull(
     decodeMemoryData(payloadRecord(activity)?.data),
   )?.memoryOperationCount;
@@ -103,22 +137,46 @@ function memoryLabel(activity: OrchestrationThreadActivity): string {
   return Predicate.isNumber(count) && count > 0 ? "Saving to memory" : "Reading memory";
 }
 
-/** Maps a `tool.started` activity to the label shown while that tool runs. */
-export function botToolActivityLabel(activity: OrchestrationThreadActivity): string {
+const COMPOSIO_TOOL_PREFIX = "composio-session_";
+
+/** MCP tools reach the bot as `<server id>_<tool>`, and Otto's server ids are UUIDs. */
+const MCP_TOOL_NAME = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_/i;
+
+function composioActivity(activity: OrchestrationThreadActivity, name: string): BotActivity {
+  if (name.endsWith("SEARCH_TOOLS")) return { label: "Looking for the right app" };
+  const calls =
+    Option.getOrNull(decodeComposioCalls(payloadRecord(activity)?.data))?.args.tools ?? [];
+  const slug = calls[0]?.tool_slug.split("_", 1)[0]?.toLowerCase();
+
+  return slug
+    ? { label: "Using an app", subject: { kind: "app", slug } }
+    : { label: "Using an app" };
+}
+
+/** Maps a `tool.started` activity to what the bot is shown doing while that tool runs. */
+export function botToolActivity(activity: OrchestrationThreadActivity): BotActivity {
   const name = toolName(activity);
 
-  if (name === "memory") return memoryLabel(activity);
+  if (name === "memory") return { label: memoryLabel(activity) };
 
-  if (name.startsWith("preview_")) return "Using the browser";
+  if (name.startsWith("preview_") || name.startsWith("browser_")) {
+    return { label: "Using the browser" };
+  }
+
+  if (name.startsWith(COMPOSIO_TOOL_PREFIX)) return composioActivity(activity, name);
+  const server = MCP_TOOL_NAME.exec(name)?.[1];
+
+  if (server) return { label: "Using a tool", subject: { kind: "server", id: server } };
   const known = recordLookup(TOOL_LABELS, name);
 
-  if (known) return known;
+  if (known) return { label: known };
   const itemType = payloadRecord(activity)?.itemType;
 
-  return (
-    (Predicate.isString(itemType) ? recordLookup(ITEM_TYPE_LABELS, itemType) : undefined) ??
-    "Using a tool"
-  );
+  return {
+    label:
+      (Predicate.isString(itemType) ? recordLookup(ITEM_TYPE_LABELS, itemType) : undefined) ??
+      "Using a tool",
+  };
 }
 
 /**
@@ -151,5 +209,5 @@ export function deriveBotActivity(
 
   const openTool = [...openTools.values()].at(-1);
 
-  return { label: openTool ? botToolActivityLabel(openTool) : "Working" };
+  return openTool ? botToolActivity(openTool) : { label: "Working", thinking: true };
 }

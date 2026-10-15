@@ -140,15 +140,4 @@ describe("message controls", () => {
     expect(html).toContain(iconPath(RiFileCopyLine));
     expect(html).not.toContain("More message actions");
   });
-
-  it("pulls the first control onto the text edge when flush", () => {
-    const flush = renderToStaticMarkup(
-      createElement(MessageControls, { copyText: "Hello", flushStart: true }),
-    );
-
-    const inset = renderToStaticMarkup(createElement(MessageControls, { copyText: "Hello" }));
-
-    expect(flush).toContain("-ms-1.5");
-    expect(inset).not.toContain("-ms-1.5");
-  });
 });
