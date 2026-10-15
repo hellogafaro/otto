@@ -1,8 +1,3 @@
-/**
- * shadcn Trace (base registry): one line per step an agent took, which can expand into detail.
- * Otto: `cn` comes from the app's utils and the running shimmer utility is left out, since the
- * live step shows in the bot's own working row instead.
- */
 import * as React from "react";
 import { cn } from "~/lib/utils";
 
@@ -34,7 +29,7 @@ function TraceLine({
       data-slot="trace-line"
       data-status={status}
       className={cn(
-        "flex w-fit max-w-full min-w-0 items-center gap-2 text-xs/relaxed text-muted-foreground transition-colors in-[a,button]:cursor-pointer in-[a:hover,button:hover]:text-foreground data-[status=error]:text-destructive data-[status=error]:in-[a:hover,button:hover]:text-destructive data-[status=pending]:opacity-60",
+        "flex w-fit max-w-full min-w-0 items-center gap-2 text-xs/relaxed text-muted-foreground transition-colors in-[a,button]:cursor-pointer in-[a:hover,button:hover]:text-foreground data-[status=error]:text-destructive data-[status=error]:in-[a:hover,button:hover]:text-destructive data-[status=pending]:opacity-60 data-[status=running]:*:data-[slot=trace-title]:shimmer",
         className,
       )}
       {...props}
@@ -57,7 +52,13 @@ function TraceIcon({ className, ...props }: React.ComponentProps<"span">) {
 }
 
 function TraceTitle({ className, ...props }: React.ComponentProps<"span">) {
-  return <span data-slot="trace-title" className={cn("min-w-0 truncate", className)} {...props} />;
+  return (
+    <span
+      data-slot="trace-title"
+      className={cn("min-w-0 truncate motion-reduce:shimmer-none", className)}
+      {...props}
+    />
+  );
 }
 
 function TraceDescription({ className, ...props }: React.ComponentProps<"span">) {

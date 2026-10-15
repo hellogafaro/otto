@@ -76,6 +76,8 @@ minimumReleaseAgeExclude:
   - "@mastra/core@1.63.0"
   - "@mastra/observability@1.17.3"
   - cn@0.2.4
+  - "@shadcn/registry@0.1.4"
+  - shadcn@4.21.5
 
 overrides:
   # The SDK always receives the user's Claude executable, so its bundled binaries are unused.
