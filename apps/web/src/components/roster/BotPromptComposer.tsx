@@ -465,14 +465,21 @@ export function BotPromptComposer({
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">
                   {replyPreview.text}
                 </span>
-                <button
-                  type="button"
-                  aria-label={t("Cancel reply")}
-                  className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/8 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={onCancelReply}
-                >
-                  <RiCloseLine className="size-3.5" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        size="icon-row"
+                        variant="ghost"
+                        aria-label={t("Cancel reply")}
+                        onClick={onCancelReply}
+                      />
+                    }
+                  >
+                    <RiCloseLine />
+                  </TooltipTrigger>
+                  <TooltipPopup side="top">{t("Cancel reply")}</TooltipPopup>
+                </Tooltip>
               </div>
             ) : null}
             <BotPromptAttachments
@@ -496,7 +503,9 @@ export function BotPromptComposer({
                 ref={promptInputRef}
                 aria-label={inputLabel ?? t("Message {name}", { name: botName })}
                 data-testid="bot-prompt-input"
-                placeholder={placeholder ?? inputLabel ?? t("Message {name}", { name: botName })}
+                placeholder={
+                  placeholder ?? inputLabel ?? t("Message {name}, @ for context", { name: botName })
+                }
                 rows={1}
                 value={draft}
                 readOnly={readOnly}

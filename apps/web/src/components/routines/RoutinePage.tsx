@@ -4,7 +4,15 @@ import {
   toRoutinePanelItem,
   type RoutineAdapterItem,
 } from "@otto/client-runtime/routines";
-import { RoutineId, RoutineRunId, type EnvironmentId, type Routine } from "@otto/contracts";
+import {
+  RoutineId,
+  RoutineRunId,
+  type EnvironmentId,
+  type ProjectId,
+  type Routine,
+  type RoutineThreadMode,
+  type Visibility,
+} from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
   RiDeleteBinLine,
@@ -24,9 +32,11 @@ import { randomUUID } from "../../lib/utils";
 import { hasTag } from "../../lib/taggedUnion";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { routineEnvironment } from "../../state/routines";
+import { primaryServerCwdAtom } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { DetailsRow } from "../DetailsAside";
+import { LibraryVisibilitySelect } from "../library/LibraryActions";
 import { PromptDialog } from "../PromptDialog";
 import { BotAvatarView } from "../roster/BotAvatarView";
 import { useRosterStore } from "../roster/rosterStore";
@@ -35,18 +45,24 @@ import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { projectStatus } from "../work/work.logic";
 import { WorkDetailPage } from "../work/WorkDetail";
+import { ProjectSelect } from "../work/WorkDialogs";
+import { WorkEmpty, WorkPage, useWorkData } from "../work/WorkPages";
+import { RoutineChatSelect } from "./RoutineChatOptions";
 import { RoutineHistory } from "./RoutineHistory";
-import { WorkEmpty, WorkPage } from "../work/WorkPages";
 
 /**
- * Otto: A routine's own page, the task/project pattern read-only: its name and
- * instructions in the main column, then its run history; bot, schedule, status and
- * run times in the details sidebar. The bot owns every change: Edit asks for one, then
- * opens the routine's chat with the request sent, and the bot answers with a review card.
+ * Otto: A routine's own page, the task/project pattern: its title (edited in place; a
+ * cleared title is generated again from the instructions) and instructions in the main
+ * column, then its run history; bot, chat, project, schedule, status and run times in the
+ * details sidebar. Instructions and schedule change through the bot: Edit asks for one,
+ * then opens the routine's chat with the request sent, and the bot answers with a review card.
  */
 export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const back = { label: t("Routines"), onBack: () => void navigate({ to: "/routines" }) };
   const environmentId = usePrimaryEnvironmentId();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
@@ -55,11 +71,11 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
     (candidate) => candidate.id === routineId && candidate.lifecycle !== "deleted",
   );
 
-  if (!snapshot) return <WorkPage>{null}</WorkPage>;
+  if (!snapshot) return <WorkPage back={back}>{null}</WorkPage>;
 
   if (!routine || environmentId === null) {
     return (
-      <WorkPage>
+      <WorkPage back={back}>
         <WorkEmpty
           icon={<RiTimeLine />}
           title={t("Routine not found")}
@@ -76,17 +92,29 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
     snapshot.mcpServers ?? [],
   );
 
-  return <RoutineDetail environmentId={environmentId} routine={routine} item={item} />;
+  return (
+    <RoutineDetail
+      environmentId={environmentId}
+      routine={routine}
+      item={item}
+      back={back}
+      currentPersonId={snapshot.currentPersonId ?? null}
+    />
+  );
 }
 
 function RoutineDetail({
   environmentId,
   routine,
   item,
+  back,
+  currentPersonId,
 }: {
   readonly environmentId: EnvironmentId;
+  readonly currentPersonId: string | null;
   readonly routine: Routine;
   readonly item: RoutineAdapterItem;
+  readonly back: { readonly label: string; readonly onBack: () => void };
 }) {
   const i18n = useI18n();
   const { t } = i18n;
@@ -97,6 +125,13 @@ function RoutineDetail({
   const enable = useAtomCommand(routineEnvironment.enable, { reportFailure: false });
   const run = useAtomCommand(routineEnvironment.run, { reportFailure: false });
   const remove = useAtomCommand(routineEnvironment.delete, { reportFailure: false });
+  const update = useAtomCommand(routineEnvironment.update, { reportFailure: false });
+  const serverCwd = useAtomValue(primaryServerCwdAtom);
+
+  // The home project, at the server's own folder, reads as "No project", as in New chat.
+  const projects = useWorkData().projects.map((project) =>
+    project.workspaceRoot === serverCwd ? { ...project, title: t("No project") } : project,
+  );
 
   const running = item.latestRun?.status === "running";
   const failed = routine.lifecycle === "failed" || routine.lifecycle === "blocked";
@@ -111,17 +146,8 @@ function RoutineDetail({
 
   const botName = bot?.name ?? t("Unknown bot");
 
-  const openChat = () => {
-    useRosterStore
-      .getState()
-      .openBotChat(
-        routine.botId,
-        routine.targetThreadId,
-        `/${environmentId}/${routine.targetThreadId}`,
-      );
-
-    void navigate({ to: "/bots/$botId", params: { botId: routine.botId } });
-  };
+  const openChat = (threadId: string = routine.targetThreadId) =>
+    void navigate({ to: "/chats/$threadId", params: { threadId } });
 
   const act = async (result: Promise<{ readonly _tag: string }>, failure: string) => {
     if (!hasTag(await result, "Success")) toastManager.add({ type: "error", title: failure });
@@ -130,11 +156,29 @@ function RoutineDetail({
   const createdAt = () => new Date().toISOString();
   const routineIdValue = RoutineId.make(routine.id);
 
+  const save = (fields: {
+    readonly job?: string;
+    readonly regenerateTitle?: true;
+    readonly threadMode?: RoutineThreadMode;
+    readonly projectId?: ProjectId;
+    readonly visibility?: Visibility;
+  }) =>
+    act(
+      update({
+        environmentId,
+        input: { routineId: routineIdValue, ...fields, createdAt: createdAt() },
+      }),
+      t("Could not update routine"),
+    );
+
   return (
     <>
       <WorkDetailPage
         type="routine"
+        back={back}
         title={routine.job}
+        onTitleSave={(job) => void save({ job })}
+        onTitleClear={() => void save({ regenerateTitle: true })}
         description={routine.procedure}
         actions={
           <>
@@ -265,7 +309,12 @@ function RoutineDetail({
         sections={[
           {
             key: "history",
-            content: <RoutineHistory runs={item.runHistory} onOpenRun={openChat} />,
+            content: (
+              <RoutineHistory
+                runs={item.runHistory}
+                onOpenRun={(entry) => openChat(entry.threadId ?? undefined)}
+              />
+            ),
           },
         ]}
         aside={
@@ -277,12 +326,42 @@ function RoutineDetail({
               </span>
             </DetailsRow>
             <DetailsRow label={t("Bot")}>
-              <Button size="sm" variant="ghost" onClick={openChat}>
+              <Button size="sm" variant="ghost" onClick={() => openChat()}>
                 {bot ? (
                   <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />
                 ) : null}
                 {botName}
               </Button>
+            </DetailsRow>
+            <DetailsRow label={t("Chat")}>
+              <RoutineChatSelect
+                value={routine.threadMode}
+                onChange={(threadMode) => void save({ threadMode })}
+              />
+            </DetailsRow>
+            <DetailsRow label={t("Project")}>
+              {routine.threadMode === "per-run" ? (
+                <ProjectSelect
+                  variant="ghost"
+                  value={routine.projectId}
+                  onChange={(projectId) => void save({ projectId })}
+                  projects={projects.filter(
+                    (project) =>
+                      project.id === routine.projectId || projectStatus(project) !== "archived",
+                  )}
+                />
+              ) : (
+                <span className="truncate px-2.5 text-sm text-foreground">
+                  {projects.find((project) => project.id === routine.projectId)?.title ?? ""}
+                </span>
+              )}
+            </DetailsRow>
+            <DetailsRow label={t("Visibility")}>
+              <LibraryVisibilitySelect
+                value={routine.visibility}
+                editable={routine.createdBy != null && routine.createdBy === currentPersonId}
+                onChange={(visibility) => void save({ visibility })}
+              />
             </DetailsRow>
             <DetailsRow label={t("Schedule")}>
               <span className="px-2.5 text-end text-sm">
@@ -312,7 +391,6 @@ function RoutineDetail({
         submitLabel={t("Ask {name}", { name: botName })}
         onSubmit={(prompt) => {
           useRosterStore.getState().requestPrompt({
-            botId: routine.botId,
             threadId: routine.targetThreadId,
             text: t("Change the routine \u201c{name}\u201d: {prompt}", {
               name: routine.job,

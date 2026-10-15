@@ -243,6 +243,8 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
           group_id AS "groupId",
           parent_thread_id AS "parentThreadId",
           parent_delegation_id AS "parentDelegationId",
+          created_by AS "createdBy",
+          visibility,
           responding_bot_id AS "respondingBotId",
           title,
           model_selection_json AS "modelSelection",

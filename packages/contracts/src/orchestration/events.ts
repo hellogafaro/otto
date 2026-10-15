@@ -39,6 +39,7 @@ import {
   RoutineFailedPayload,
   RoutineId,
   RoutinePausedPayload,
+  RoutineUpdatedPayload,
   RoutineRunCanceledPayload,
   RoutineRunId,
   RoutineRunningPayload,
@@ -335,6 +336,11 @@ export const OrchestrationEvent = Schema.Union([
     ...EventBaseFields,
     type: Schema.Literal("routine.paused"),
     payload: RoutinePausedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("routine.updated"),
+    payload: RoutineUpdatedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,

@@ -1,19 +1,20 @@
 import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
 
-import { CustomizeDetailPage } from "../components/customize/CustomizeDetail";
-import { isCustomizeEntityType } from "../components/customize/customize.logic";
-
+// Otto: servers moved under Settings > Integrations and skills under Settings > Skills.
 export const Route = createFileRoute("/customize_/$type/$id")({
-  beforeLoad: async ({ context, params }) => {
-    if (context.authGateState.status !== "authenticated") {
-      throw redirect({ to: "/login", replace: true });
+  beforeLoad: ({ params }) => {
+    if (params.type === "mcp") {
+      throw redirect({
+        to: "/settings/integrations/mcp/$id",
+        params: { id: params.id },
+        replace: true,
+      });
     }
 
-    if (!isCustomizeEntityType(params.type)) throw notFound();
-  },
-  component: function CustomizeDetailRoute() {
-    const { type, id } = Route.useParams();
+    if (params.type === "skill") {
+      throw redirect({ to: "/settings/skills/$id", params: { id: params.id }, replace: true });
+    }
 
-    return isCustomizeEntityType(type) ? <CustomizeDetailPage type={type} id={id} /> : null;
+    throw notFound();
   },
 });

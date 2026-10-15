@@ -44,11 +44,7 @@ import { allEnvironmentRostersAtom } from "../state/bots";
 import { useThreadShells } from "../state/entities";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { useThreadSearch } from "../state/queries";
-import {
-  findLatestBotThreadTarget,
-  findLatestGroupThreadIds,
-  latestGroupThreadKey,
-} from "./roster/botThreadRuntime.logic";
+import { findLatestGroupThreadIds, latestGroupThreadKey } from "./roster/botThreadRuntime.logic";
 import { useRosterStore } from "./roster/rosterStore";
 import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
@@ -383,25 +379,7 @@ function useChatSearchItems(query: string) {
     unavailableLabel: (environment) => t("In {environment}", { environment }),
     icon: <RiDiscussLine className={ITEM_ICON_CLASS} />,
     openChat: async (chat) => {
-      const shell = shells.find(
-        (candidate) =>
-          candidate.environmentId === chat.environmentId && candidate.id === chat.threadId,
-      );
-
-      if (shell?.botId) {
-        const botId = shell.botId;
-        const newest = findLatestBotThreadTarget(botId, chat.environmentId, shells);
-        const roster = useRosterStore.getState();
-        roster.selectBot(botId);
-        roster.openBotChat(
-          botId,
-          newest?.threadId === chat.threadId ? null : chat.threadId,
-          `/${chat.environmentId}/${chat.threadId}`,
-        );
-        await navigate({ to: "/bots/$botId", params: { botId } });
-      } else if (shell?.groupId) {
-        await navigate({ to: "/groups/$groupId", params: { groupId: shell.groupId } });
-      }
+      await navigate({ to: "/chats/$threadId", params: { threadId: chat.threadId } });
     },
   });
 

@@ -7,58 +7,32 @@ import { useThreadShells } from "../../state/entities";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
 import { CONTENT_ROW_CLASS } from "../contentRow";
 import { BotAvatarView } from "../roster/BotAvatarView";
-import { findLatestBotThreadTarget } from "../roster/botThreadRuntime.logic";
 import { GroupMemberStack } from "../roster/GroupMemberStack";
 import { useRosterStore } from "../roster/rosterStore";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
-/** Starts a chat with a bot, filed in the project: the top bar's quiet 28px plus opens the bots. */
+/** Opens New chat filed in the project: the top bar's quiet 28px plus. */
 export function ProjectNewChat({ projectId }: { readonly projectId: ProjectId }) {
   const { t } = useI18n();
-  const navigate = useNavigate();
-  const bots = useRosterStore((state) => state.bots);
-
-  const activeBots = bots
-    .filter((bot) => bot.archivedAt === null)
-    .toSorted((left, right) => left.name.localeCompare(right.name));
-
-  if (activeBots.length === 0) return null;
-
-  const start = (botId: string) => {
-    const roster = useRosterStore.getState();
-    roster.requestProjectChat({ botId, projectId });
-    roster.selectBot(botId);
-    void navigate({ to: "/bots/$botId", params: { botId } });
-  };
 
   return (
-    <Menu>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <MenuTrigger
-              render={
-                <Button size="icon-sm" variant="ghost-muted" aria-label={t("New chat")}>
-                  <RiAddLine aria-hidden className="size-4" />
-                </Button>
-              }
-            />
-          }
-        />
-        <TooltipPopup side="bottom">{t("New chat")}</TooltipPopup>
-      </Tooltip>
-      <MenuPopup align="end" className="min-w-44">
-        {activeBots.map((bot) => (
-          <MenuItem key={bot.id} onClick={() => start(bot.id)}>
-            <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />
-            {bot.name}
-          </MenuItem>
-        ))}
-      </MenuPopup>
-    </Menu>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon-sm"
+            variant="ghost-muted"
+            aria-label={t("New chat")}
+            onClick={() => useRosterStore.getState().openNewChat({ projectId })}
+          >
+            <RiAddLine aria-hidden className="size-4" />
+          </Button>
+        }
+      />
+      <TooltipPopup side="bottom">{t("New chat")}</TooltipPopup>
+    </Tooltip>
   );
 }
 
@@ -92,25 +66,8 @@ export function ProjectChats({ projectId }: { readonly projectId: ProjectId }) {
     );
   }
 
-  const openChat = (shell: (typeof chats)[number]) => {
-    const roster = useRosterStore.getState();
-
-    if (shell.botId) {
-      const newest = findLatestBotThreadTarget(shell.botId, shell.environmentId, shells);
-      roster.selectBot(shell.botId);
-      roster.openBotChat(
-        shell.botId,
-        newest?.threadId === shell.id ? null : shell.id,
-        `/${shell.environmentId}/${shell.id}`,
-      );
-
-      return void navigate({ to: "/bots/$botId", params: { botId: shell.botId } });
-    }
-
-    if (shell.groupId) {
-      void navigate({ to: "/groups/$groupId", params: { groupId: shell.groupId } });
-    }
-  };
+  const openChat = (shell: (typeof chats)[number]) =>
+    void navigate({ to: "/chats/$threadId", params: { threadId: shell.id } });
 
   return (
     <ul className="flex flex-col">
@@ -130,9 +87,7 @@ export function ProjectChats({ projectId }: { readonly projectId: ProjectId }) {
                 {bot ? (
                   <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />
                 ) : null}
-                {!bot && group ? (
-                  <GroupMemberStack group={group} bots={bots} sizeClassName="size-4" />
-                ) : null}
+                {!bot && group ? <GroupMemberStack group={group} bots={bots} /> : null}
               </span>
               <span className="min-w-0 flex-1 truncate text-foreground">{title}</span>
               <span className="shrink-0 text-xs text-muted-foreground">

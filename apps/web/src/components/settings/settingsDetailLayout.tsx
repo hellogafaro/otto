@@ -1,4 +1,4 @@
-import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
+import { RiArrowRightSLine } from "@remixicon/react";
 import {
   Link,
   type LinkComponentProps,
@@ -121,7 +121,6 @@ export function SettingsLinkRow<TRouter extends RegisteredRouter, TOptions>({
 
 /** Header of a settings subpage: a way back, then what the page is about. */
 export function SettingsDetailHeader({
-  back,
   icon,
   title,
   tone,
@@ -129,7 +128,6 @@ export function SettingsDetailHeader({
   description,
   action,
 }: {
-  readonly back: { readonly section: "providers" | "channels"; readonly label: string };
   readonly icon: Icon;
   readonly title: string;
   readonly tone: ConnectionTone;
@@ -139,14 +137,6 @@ export function SettingsDetailHeader({
 }) {
   return (
     <header className="space-y-4 px-4">
-      <Link
-        to="/settings/$section"
-        params={{ section: back.section }}
-        className="-ms-1 inline-flex h-6 items-center gap-0.5 rounded-md pe-1.5 text-13px text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <RiArrowLeftSLine aria-hidden className="size-4" />
-        {back.label}
-      </Link>
       <div className="flex items-center gap-3.5">
         <IconTile icon={icon} size="lg" />
         <div className="min-w-0 flex-1 space-y-0.5">

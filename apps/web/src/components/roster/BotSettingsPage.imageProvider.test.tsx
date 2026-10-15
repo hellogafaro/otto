@@ -99,7 +99,7 @@ vi.mock("./rosterStore", () => ({
   useRosterStore: <T,>(selector: (store: { bots: Bot[] }) => T) => selector({ bots: state.bots }),
 }));
 
-vi.mock("./useBotThreadRef", () => ({ useBotThreadRef: () => null }));
+vi.mock("./useBotThreadRef", () => ({ useLatestBotChatRef: () => null }));
 
 vi.mock("../ui/toast", () => ({ toastManager: { add: vi.fn() } }));
 

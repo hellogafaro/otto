@@ -70,6 +70,7 @@ import { isRemoteInstall } from "./remote/remoteMode.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
 import * as ServerSettings from "./serverSettings.ts";
+import { TextGeneration } from "./textGeneration/TextGeneration.ts";
 import { RoutineRepository } from "./routines/Repository.ts";
 import { RoutineRuntime } from "./routines/Runtime.ts";
 import * as PreviewAutomationBroker from "./mcp/PreviewAutomationBroker.ts";
@@ -279,6 +280,8 @@ export const createWsServices = (
     const lifecycleEvents = yield* ServerLifecycleEvents.ServerLifecycleEvents;
 
     const serverSettings = yield* ServerSettings.ServerSettingsService;
+
+    const textGeneration = yield* Effect.serviceOption(TextGeneration);
 
     const refreshChangedSubscriptionProviders = subscriptionProviderMutation(
       subscriptionAuth,
@@ -759,6 +762,7 @@ export const createWsServices = (
       botInbox,
       lifecycleEvents,
       serverSettings,
+      textGeneration,
       syncSubscriptionProviderSettings,
       refreshChangedSubscriptionProviders,
       resetChangedApiKeySessions,

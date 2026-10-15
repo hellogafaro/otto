@@ -1,5 +1,6 @@
 import { RiArchiveLine, RiDeleteBinLine, RiPushpinLine, RiRadioButtonLine } from "@remixicon/react";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef } from "react";
 
 import { useChatActions } from "../../hooks/useChatActions";
@@ -41,33 +42,28 @@ export function useBotChats(botId: string) {
  * center and is drawn above the row fills, so it never breaks.
  */
 export function BotChatTree({
-  botId,
   chats,
-  chatOpen,
+  openThreadId,
   pinnedIds,
   botPinned,
-  onOpen,
 }: {
-  readonly botId: string;
   readonly chats: ReturnType<typeof useBotChats>;
-  /** The bot's own chat view is showing, so its open chat is marked. */
-  readonly chatOpen: boolean;
+  /** This bot's chat on screen, if one is, marked in the list. */
+  readonly openThreadId: string | null;
   /** This bot's chats pinned to Pins, which list there instead. */
   readonly pinnedIds: ReadonlySet<string>;
   /** The whole bot is in Pins, so its chats are already there and offer no Pin. */
   readonly botPinned: boolean;
-  /** Shows the bot's chat view once the chosen chat is set. */
-  readonly onOpen: () => void;
 }) {
   const { t } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
-  const openChatId = useRosterStore((state) => state.openChatByBotId[botId] ?? null);
+  const navigate = useNavigate();
   const actions = useChatActions();
   const menuTriggers = useRef(new Map<string, HTMLButtonElement>());
 
   const rows = buildBotChatRows({
     chats,
-    currentThreadId: chatOpen ? (openChatId ?? chats[0]?.id ?? null) : null,
+    currentThreadId: openThreadId,
     pinnedIds,
   });
 
@@ -110,16 +106,9 @@ export function BotChatTree({
             <button
               type="button"
               aria-current={row.current || undefined}
-              onClick={() => {
-                useRosterStore
-                  .getState()
-                  .openBotChat(
-                    botId,
-                    row.newest ? null : row.threadId,
-                    `/${environmentId}/${row.threadId}`,
-                  );
-                onOpen();
-              }}
+              onClick={() =>
+                void navigate({ to: "/chats/$threadId", params: { threadId: row.threadId } })
+              }
               className={cn(
                 "flex h-7 w-full cursor-pointer items-center gap-2 rounded-md ps-7.5 pe-2 text-left text-13px outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                 row.current

@@ -7,7 +7,9 @@ import {
   isOttoDelegationTerminal,
   CommandId,
   type DelegationId,
-  type ThreadId,
+  type ModelSelection,
+  ProviderInstanceId,
+  ThreadId,
   MessageId,
   type OrchestrationCommand,
 } from "@otto/contracts";
@@ -80,19 +82,38 @@ const make = Effect.gen(function* () {
 
   const dispatch = (command: OrchestrationCommand) => engine.dispatch(command);
 
+  // Otto: A chat started for one run uses the bot's own engine, else the routine chat's model.
+  const perRunModelSelection = (routine: Routine) =>
+    Effect.gen(function* () {
+      const engine = Option.getOrNull(yield* bots.getById({ botId: routine.botId }))?.engine;
+
+      if (engine) {
+        return {
+          instanceId: ProviderInstanceId.make(engine.provider),
+          model: engine.model,
+          ...(engine.options ? { options: engine.options } : {}),
+        } satisfies ModelSelection;
+      }
+
+      return Option.getOrNull(yield* snapshots.getThreadShellById(routine.targetThreadId))
+        ?.modelSelection;
+    });
+
   const isTargetBusy: RoutineRuntimeAdapterShape["isTargetBusy"] = (routine) =>
-    snapshots.getThreadShellById(routine.targetThreadId).pipe(
-      Effect.map(
-        Option.match({
-          onNone: () => false,
-          onSome: (thread) =>
-            thread.latestTurn?.state === "running" ||
-            thread.session?.status === "starting" ||
-            thread.session?.status === "running",
-        }),
-      ),
-      Effect.orDie,
-    );
+    routine.threadMode === "per-run"
+      ? Effect.succeed(false)
+      : snapshots.getThreadShellById(routine.targetThreadId).pipe(
+          Effect.map(
+            Option.match({
+              onNone: () => false,
+              onSome: (thread) =>
+                thread.latestTurn?.state === "running" ||
+                thread.session?.status === "starting" ||
+                thread.session?.status === "running",
+            }),
+          ),
+          Effect.orDie,
+        );
 
   const checkDependencies: RoutineRuntimeAdapterShape["checkDependencies"] = (routine) =>
     Effect.gen(function* () {
@@ -149,10 +170,11 @@ const make = Effect.gen(function* () {
       const target = yield* snapshots.getThreadShellById(routine.targetThreadId);
 
       if (
-        Option.isNone(target) ||
-        target.value.archivedAt !== null ||
-        target.value.projectId !== routine.projectId ||
-        target.value.botId !== routine.botId
+        routine.threadMode === "target" &&
+        (Option.isNone(target) ||
+          target.value.archivedAt !== null ||
+          target.value.projectId !== routine.projectId ||
+          target.value.botId !== routine.botId)
       ) {
         return {
           kind: "workspace",
@@ -236,13 +258,17 @@ const make = Effect.gen(function* () {
         } satisfies RoutineDependencyFailure;
       }
 
-      const providerInstanceId = target.value.modelSelection.instanceId;
+      const providerInstanceId =
+        routine.threadMode === "target"
+          ? Option.getOrNull(target)?.modelSelection.instanceId
+          : (yield* perRunModelSelection(routine))?.instanceId;
+
       const providerSnapshots = yield* providers.getProviders;
 
       if (!providerSnapshots.some((provider) => provider.instanceId === providerInstanceId)) {
         return {
           kind: "provider",
-          reason: `Provider '${providerInstanceId}' is unavailable.`,
+          reason: `Provider '${providerInstanceId ?? routine.botId}' is unavailable.`,
           nextAction: "Reconnect the provider, then resume the routine.",
         } satisfies RoutineDependencyFailure;
       }
@@ -481,14 +507,59 @@ const make = Effect.gen(function* () {
       return { threadRef } satisfies RoutineDispatchResult;
     });
 
+  // Otto: A per-run routine starts its own chat with the bot, named after the routine,
+  // keyed by the run so a retried dispatch reuses it.
+  const runThread = (routine: Routine, run: RoutineRun, createdAt: string) =>
+    Effect.gen(function* () {
+      if (routine.threadMode === "target") return routine.targetThreadId;
+      const threadId = ThreadId.make(`routine-run-${run.id}`);
+
+      if (Option.isSome(yield* snapshots.getThreadShellById(threadId))) return threadId;
+      const modelSelection = yield* perRunModelSelection(routine);
+
+      if (!modelSelection) return null;
+
+      yield* dispatch({
+        type: "thread.create",
+        commandId: CommandId.make(`server:routine.thread:${run.id}`),
+        threadId,
+        projectId: routine.projectId,
+        botId: routine.botId,
+        groupId: null,
+        title: routine.job,
+        // Otto: A run's chat is seen by whoever sees its routine.
+        createdBy: routine.createdBy,
+        visibility: routine.visibility,
+        modelSelection,
+        runtimeMode: routine.approvalPolicy,
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+        createdAt,
+      });
+
+      return threadId;
+    });
+
   const dispatchTurn: RoutineRuntimeAdapterShape["dispatchTurn"] = (routine, run) =>
     Effect.gen(function* () {
       if (routine.delegateToBotId !== null) {
         return yield* dispatchDelegatedTurn(routine, run, routine.delegateToBotId);
       }
 
-      const threadRef = routine.targetThreadId;
       const createdAt = DateTime.formatIso(yield* DateTime.now);
+      const threadRef = yield* runThread(routine, run, createdAt);
+
+      if (threadRef === null) {
+        return {
+          failure: {
+            kind: "provider",
+            reason: "The bot has no model to start a chat with.",
+            nextAction: "Pick a model for the bot, then resume the routine.",
+          },
+        } as const;
+      }
+
       const bot = yield* bots.getById({ botId: routine.botId });
 
       if (Option.isSome(bot)) {

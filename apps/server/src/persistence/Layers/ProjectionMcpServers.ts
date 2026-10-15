@@ -114,7 +114,7 @@ const makeProjectionMcpServerRepository = Effect.gen(function* () {
           ${row.transport === "url" ? row.url : null},
           ${row.instructions ?? null},
           ${row.enabled ? 1 : 0},
-          ${row.visibility ?? "workspace"},
+          ${row.visibility ?? "organization"},
           ${row.createdBy ? JSON.stringify(row.createdBy) : null},
           ${row.createdAt},
           ${row.updatedAt}

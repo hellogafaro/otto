@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   subTriggers: new Map<string, Item>(),
   actions: {
     rename: vi.fn(),
+    setVisibility: vi.fn(),
     regenerateTitle: vi.fn(),
     pin: vi.fn(),
     unpin: vi.fn(),
@@ -259,15 +260,9 @@ describe("ChatActionsMenu", () => {
     expect(mocks.items.get("Mark unread")?.disabled).toBe(true);
   });
 
-  it("starts a new chat with the bot only once the current chat has messages", () => {
-    const start = vi.fn(async () => true);
-    render({ threadRef, newChat: { canStart: false, start } });
-    expect(mocks.items.get("New chat")?.disabled).toBe(true);
-
-    render({ threadRef, newChat: { canStart: true, start } });
-    expect(menuLabels()[0]).toBe("New chat");
-    click("New chat");
-    expect(start).toHaveBeenCalledTimes(1);
+  it("leaves starting a chat to New chat, outside the chat menu", () => {
+    render({ threadRef, newChat: { canStart: true, start: vi.fn() } });
+    expect(menuLabels()).not.toContain("New chat");
   });
 });
 

@@ -98,6 +98,9 @@ import Migration0082 from "./Migrations/082_McpServerAccess.ts";
 import Migration0083 from "./Migrations/083_BotOwner.ts";
 import Migration0084 from "./Migrations/084_Secrets.ts";
 import Migration0085 from "./Migrations/085_BotToolAccess.ts";
+import Migration0086 from "./Migrations/086_RoutineThreadMode.ts";
+import Migration0087 from "./Migrations/087_ChatVisibility.ts";
+import Migration0088 from "./Migrations/088_RoutineVisibility.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -195,6 +198,9 @@ export const migrationEntries = [
   [83, "BotOwner", Migration0083],
   [84, "Secrets", Migration0084],
   [85, "BotToolAccess", Migration0085],
+  [86, "RoutineThreadMode", Migration0086],
+  [87, "ChatVisibility", Migration0087],
+  [88, "RoutineVisibility", Migration0088],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

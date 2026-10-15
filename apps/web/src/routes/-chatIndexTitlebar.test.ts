@@ -6,7 +6,7 @@ import { describe, expect, it } from "vite-plus/test";
 describe("empty bot workspace header", () => {
   it("uses the shared workspace topbar geometry", () => {
     const routeSource = NodeFS.readFileSync(new URL("./_chat.index.tsx", import.meta.url), "utf8");
-    const onboardingStart = routeSource.indexOf("function BotIndexRedirect()");
+    const onboardingStart = routeSource.indexOf("function ChatIndexRedirect()");
     const onboardingEnd = routeSource.indexOf("<BotZeroState />", onboardingStart);
 
     expect(onboardingStart).toBeGreaterThanOrEqual(0);

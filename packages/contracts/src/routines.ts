@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import {
+  AuthSessionId,
   OttoUsageReservationId,
   BotId,
   CommandId,
@@ -10,6 +11,7 @@ import {
   ProjectId,
   ThreadId,
   TrimmedNonEmptyString,
+  Visibility,
 } from "./baseSchemas.ts";
 import { McpServerId } from "./mcpServer.ts";
 
@@ -166,9 +168,18 @@ export const RoutineSkillAssignment = Schema.Struct({
 
 export type RoutineSkillAssignment = typeof RoutineSkillAssignment.Type;
 
+/**
+ * Otto: Where each run posts: `target` is the routine's one chat, `per-run` starts a new
+ * chat with the bot in the routine's project every run.
+ */
+export const RoutineThreadMode = Schema.Literals(["target", "per-run"]);
+
+export type RoutineThreadMode = typeof RoutineThreadMode.Type;
+
 export const RoutineDefinition = Schema.Struct({
   botId: BotId,
   targetThreadId: ThreadId,
+  threadMode: RoutineThreadMode.pipe(Schema.withDecodingDefault(Effect.succeed("target" as const))),
   job: TrimmedNonEmptyString,
   procedure: TrimmedNonEmptyString,
   schedule: RoutineSchedule,
@@ -180,6 +191,10 @@ export const RoutineDefinition = Schema.Struct({
   approvalPolicy: RoutineApprovalPolicy,
   /** When set, each run delegates the job to this bot from the target thread's owner. */
   delegateToBotId: Schema.NullOr(BotId).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  /** Otto: The person who started the chat the routine was set up in. */
+  createdBy: Schema.NullOr(AuthSessionId).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  /** Otto: `user` keeps the routine, and its run chats, to its creator. */
+  visibility: Visibility.pipe(Schema.withDecodingDefault(Effect.succeed("organization" as const))),
 });
 
 export type RoutineDefinition = typeof RoutineDefinition.Type;
@@ -192,6 +207,8 @@ export const OttoCreateRoutineInput = Schema.Struct({
   schedule: RoutineSchedule,
   skillNames: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   connectorNames: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
+  /** Otto: Each run starts its own chat with the bot instead of posting here. */
+  newChatEachRun: Schema.optional(Schema.Boolean),
 });
 
 export type OttoCreateRoutineInput = typeof OttoCreateRoutineInput.Type;
@@ -334,6 +351,24 @@ export const RoutineRunCommand = Schema.Struct({
   createdAt: IsoDateTime,
 });
 
+/**
+ * Otto: A person's direct edit of a routine's title and where it runs. `regenerateTitle`
+ * asks the server for a new title from the instructions instead of `job`.
+ */
+export const RoutineUpdateCommand = Schema.Struct({
+  type: Schema.Literal("routine.update"),
+  ...RoutineCommandFields,
+  job: Schema.optional(TrimmedNonEmptyString),
+  regenerateTitle: Schema.optional(Schema.Literal(true)),
+  threadMode: Schema.optional(RoutineThreadMode),
+  projectId: Schema.optional(ProjectId),
+  /** Only the routine's creator changes who sees it. */
+  visibility: Schema.optional(Visibility),
+  /** Set by the server to the signed-in person. */
+  by: Schema.optional(AuthSessionId),
+  createdAt: IsoDateTime,
+});
+
 export const RoutineDeleteCommand = Schema.Struct({
   type: Schema.Literal("routine.delete"),
   ...RoutineCommandFields,
@@ -365,6 +400,7 @@ export const ClientRoutineCommand = Schema.Union([
   RoutineEnableCommand,
   RoutinePauseCommand,
   RoutineRunCommand,
+  RoutineUpdateCommand,
   RoutineDeleteCommand,
   RoutineSkillAssignCommand,
   RoutineSkillUnassignCommand,
@@ -468,6 +504,8 @@ export const RoutineFailedPayload = Schema.Struct({ routine: Routine, run: Routi
 export const RoutineCompletedPayload = Schema.Struct({ routine: Routine, run: RoutineRun });
 
 export const RoutineRunCanceledPayload = Schema.Struct({ routine: Routine, run: RoutineRun });
+
+export const RoutineUpdatedPayload = Schema.Struct({ routine: Routine });
 
 export const RoutineDeletedPayload = Schema.Struct({ routine: Routine });
 

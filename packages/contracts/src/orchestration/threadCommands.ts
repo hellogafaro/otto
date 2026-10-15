@@ -13,6 +13,7 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
   TurnId,
+  Visibility,
 } from "../baseSchemas.ts";
 import { DelegationIdSchema } from "./identities.ts";
 import {
@@ -40,6 +41,9 @@ export const ThreadCreateCommand = Schema.Struct({
   groupId: Schema.optional(Schema.NullOr(GroupId)),
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),
   parentDelegationId: Schema.optional(Schema.NullOr(DelegationIdSchema)),
+  /** Set by the server: the signed-in person for a client, the source chat's for server work. */
+  createdBy: Schema.optional(Schema.NullOr(AuthSessionId)),
+  visibility: Schema.optional(Visibility),
   title: TrimmedNonEmptyString,
   modelSelection: ModelSelection,
   runtimeMode: RuntimeMode,
@@ -149,6 +153,10 @@ export const ThreadMetaUpdateCommand = Schema.Struct({
   expectedBranch: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   worktreePath: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
+  /** Only the chat's creator changes who sees it. */
+  visibility: Schema.optional(Visibility),
+  /** Set by the server to the signed-in person. */
+  by: Schema.optional(AuthSessionId),
 }).check(
   Schema.makeFilter(
     (input) =>

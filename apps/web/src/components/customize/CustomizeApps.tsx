@@ -38,20 +38,13 @@ import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group";
 import { Spinner } from "../ui/spinner";
 import { toastManager } from "../ui/toast";
+import { SettingsPageContainer } from "../settings/settingsLayout";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { WorkspacePageContainer, PageTitle } from "../WorkspacePageContainer";
-import { WorkEmpty, WorkPage } from "../work/WorkPages";
+import { PageTitle } from "../WorkspacePageContainer";
+import { WorkEmpty } from "../work/WorkPages";
 import { CustomizeGroup, CustomizeItem, CustomizeRow, LogoTile } from "./CustomizeGroup";
 import { DetailHeader } from "./CustomizeDetail";
 import { AppLogo, ConnectionStatus, useComposio } from "./CustomizeIntegrations";
-
-/** Both app pages return to Customize: the catalog is only a picker. */
-function useBack() {
-  const { t } = useI18n();
-  const navigate = useNavigate();
-
-  return { label: t("Customize"), onBack: () => void navigate({ to: "/customize" }) };
-}
 
 /** Shown instead of the catalog until someone adds a Composio key. */
 function NotConfigured({ environmentId }: { readonly environmentId: EnvironmentId }) {
@@ -131,7 +124,7 @@ function AppsList({
               detail={toolkit.description}
               onOpen={() =>
                 void navigate({
-                  to: "/customize/apps/$slug",
+                  to: "/settings/integrations/apps/$slug",
                   params: { slug: toolkit.slug },
                   search: { visibility },
                 })
@@ -165,7 +158,7 @@ function AppsBody({
 }
 
 /**
- * Otto: The app catalog at /customize/apps: Composio's apps, most used first, on the `content`
+ * Otto: The app catalog at /settings/integrations/apps: Composio's apps, most used first, on the `content`
  * column under a 32px title and a search field, one card of rows (logo, name, the app's own
  * description, chevron). A row opens that app's page. `?visibility=` carries the group a new
  * account joins, from the Customize group whose plus opened the catalog.
@@ -179,17 +172,14 @@ export function CustomizeAppsPage({
 }) {
   const { t } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
-  const back = useBack();
 
   return (
-    <WorkPage back={back}>
-      <WorkspacePageContainer className="flex-1 gap-6 pt-3 pb-16 sm:pt-4">
-        <PageTitle>{t("Apps")}</PageTitle>
-        {environmentId ? (
-          <AppsBody environmentId={environmentId} query={query} visibility={visibility} />
-        ) : null}
-      </WorkspacePageContainer>
-    </WorkPage>
+    <SettingsPageContainer className="gap-6">
+      <PageTitle>{t("Apps")}</PageTitle>
+      {environmentId ? (
+        <AppsBody environmentId={environmentId} query={query} visibility={visibility} />
+      ) : null}
+    </SettingsPageContainer>
   );
 }
 
@@ -494,7 +484,7 @@ function AppBody({
 }
 
 /**
- * Otto: One app at /customize/apps/$slug, on the `narrow` column: the 40px logo tile beside
+ * Otto: One app at /settings/integrations/apps/$slug, on the `narrow` column: the 40px logo tile beside
  * the 22px name and the app's description, then its Accounts card (count, an outline Connect
  * button, one row per account managed in place: label or signed-in account, status pill, owner
  * select and a trash glyph; there is no account page or dialog), then the
@@ -509,15 +499,12 @@ export function CustomizeAppPage({
   readonly visibility: ComposioVisibility;
 }) {
   const environmentId = usePrimaryEnvironmentId();
-  const back = useBack();
 
   return (
-    <WorkPage back={back}>
-      <WorkspacePageContainer width="narrow" className="flex-1 gap-10 pt-3 pb-16 sm:pt-4">
-        {environmentId ? (
-          <AppBody environmentId={environmentId} slug={slug} visibility={visibility} />
-        ) : null}
-      </WorkspacePageContainer>
-    </WorkPage>
+    <SettingsPageContainer>
+      {environmentId ? (
+        <AppBody environmentId={environmentId} slug={slug} visibility={visibility} />
+      ) : null}
+    </SettingsPageContainer>
   );
 }

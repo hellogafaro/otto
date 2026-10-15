@@ -10,25 +10,21 @@ function read(relativePath: string): string {
 }
 
 describe("bot settings page", () => {
-  it("is a real route in the generated tree", () => {
-    const route = read("../../routes/bots.$botId.settings.tsx");
+  it("is a Settings subpage, and the old link redirects to it", () => {
+    const route = read("../../routes/settings.bots.$botId.tsx");
+    const legacy = read("../../routes/bots.$botId.settings.tsx");
     const tree = read("../../routeTree.gen.ts");
 
-    expect(route).toContain('createFileRoute("/bots/$botId/settings")');
+    expect(route).toContain('createFileRoute("/settings/bots/$botId")');
     expect(route).toContain("<BotSettingsPage");
     expect(route).toContain("Route.useParams().botId");
-    // Same auth gate as the other full-page surfaces.
-    expect(route).toContain('throw redirect({ to: "/login", replace: true })');
-    expect(tree).not.toContain("'/pair'");
-    expect(tree).toContain("'/bots/$botId/settings'");
-    expect(tree).toContain("./routes/bots.$botId.settings");
+    expect(legacy).toContain('to: "/settings/bots/$botId"');
+    expect(tree).toContain("'/settings/bots/$botId'");
   });
 
-  it("renders in the main content area with the shared settings primitives", () => {
+  it("renders in the Settings layout with the shared settings primitives", () => {
     const source = readBotSettingsSource();
 
-    expect(source).toContain("<SidebarInset");
-    expect(source).toContain("<WorkspacePageHeader");
     expect(source).toContain("<SettingsPageContainer>");
     expect(source).toContain("<SettingsSection");
     expect(source).toContain("<SettingsRow");
@@ -109,7 +105,7 @@ describe("bot settings entry points", () => {
   it("opens from the chat header bot identity", () => {
     const source = read("./ActiveBotHeaderChip.tsx");
 
-    expect(source).toContain('to: "/bots/$botId/settings"');
+    expect(source).toContain('to: "/settings/bots/$botId"');
     expect(source).toContain("params: { botId: bot.id }");
     expect(source).toContain("aria-label={`Settings for ${bot.name}`}");
     // The avatar keeps its existing job.
@@ -122,38 +118,30 @@ describe("bot settings entry points", () => {
     expect(source).toContain("Bot settings");
     expect(source).toContain("onOpenSettings(bot)");
     expect(source).toContain("const handleOpenBotSettings");
-    expect(source).toContain('to: "/bots/$botId/settings"');
+    expect(source).toContain('to: "/settings/bots/$botId"');
     expect(source).toContain("onOpenSettings={handleOpenBotSettings}");
   });
 
-  it("keeps the in-chat panel compact and hands off to the full page", () => {
-    const panel = read("./BotDetailsPanel.tsx");
-    const route = read("../../routes/_chat.bots.$botId.tsx");
+  it("keeps the chat panel about the chat and hands bot setup to Settings", () => {
+    const panel = read("./ChatDetailsPanel.tsx");
 
-    expect(panel).toContain(
-      "botPersonalityToneLabel(canonicalizeBotPersonalityTone(bot.personalityTone), t)",
-    );
-    expect(panel).toContain("Open bot settings");
+    expect(panel).toContain('to: "/settings/bots/$botId"');
+    expect(panel).toContain('t("Project")');
+    expect(panel).toContain('t("Members")');
+    expect(panel).not.toContain("botPersonalityToneLabel");
     expect(panel).not.toContain("<BotModelPicker");
-    expect(panel).not.toContain("<Input");
     expect(panel).not.toContain("BotPersonalityToneField");
-    // The panel stays router-free; the route supplies navigation.
-    expect(panel).not.toContain("@tanstack/react-router");
-    expect(route).toContain("onOpenSettings={() =>");
-    expect(route).toContain('to: "/bots/$botId/settings"');
   });
 
-  it("does not add a permanent settings section for bots", () => {
+  it("lists bots in Settings, where each opens its own settings page", () => {
     const settingsStore = read("../../settingsDialogStore.ts");
+    const botsPage = read("../settings/BotsSettings.tsx");
 
     const sections = /SETTINGS_SECTIONS = \[(?<body>[\s\S]*?)\] as const;/u.exec(settingsStore)
       ?.groups?.body;
 
-    expect(sections).toBeDefined();
-    // Per-bot settings are reached from the bot, not from a global nav entry.
-    // The legacy `/settings/bots` deep link still redirects, and stays.
-    expect(sections).not.toContain("bots");
-    expect(settingsStore).toContain('bots: { section: "channels" }');
+    expect(sections).toContain('"bots"');
+    expect(botsPage).toContain('to: "/settings/bots/$botId"');
   });
 });
 

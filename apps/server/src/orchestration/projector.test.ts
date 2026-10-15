@@ -119,6 +119,8 @@ describe("orchestration projector", () => {
           parentDelegationId: null,
           respondingBotId: null,
           title: "demo",
+          createdBy: null,
+          visibility: "organization",
           modelSelection: {
             instanceId: "codex",
             model: "gpt-5-codex",

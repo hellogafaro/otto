@@ -30,7 +30,7 @@ describe("BotThreadLanding message formatting", () => {
       expect(assistantStart).toBeGreaterThan(-1);
       expect(userStart).toBeGreaterThan(assistantStart);
       expect(source.lastIndexOf("<AssistantMessageRow", assistantStart)).toBeGreaterThan(-1);
-      expect(assistantSource).toContain("cwd={runtime.defaultProject?.workspaceRoot}");
+      expect(assistantSource).toContain("cwd={runtime.project?.workspaceRoot}");
       expect(assistantSource).toContain("threadRef={runtime.linkedThreadRef ?? undefined}");
       expect(source.lastIndexOf("<UserMessageRow", userStart)).toBeGreaterThan(assistantStart);
     }

@@ -44,7 +44,7 @@ const STRIP_SLOTS = 120;
  * slots still to come out to the column's edge,
  * with the success count beside the heading. Below, each run is a 32px content row with
  * its status icon, its result without closing punctuation (errors in the destructive tone)
- * and its short date and time on the right. Every row opens the run in the routine's chat.
+ * and its short date and time on the right. Every row opens the chat the run posted into.
  * With no runs yet the all-gray strip sits above one centered muted line, No runs yet.
  */
 export function RoutineHistory({
@@ -52,7 +52,7 @@ export function RoutineHistory({
   onOpenRun,
 }: {
   readonly runs: readonly RoutineAdapterRun[];
-  readonly onOpenRun: () => void;
+  readonly onOpenRun: (run: RoutineAdapterRun) => void;
 }) {
   const i18n = useI18n();
   const { t } = i18n;
@@ -88,7 +88,11 @@ export function RoutineHistory({
         <ul className="mt-3 flex flex-col gap-0.5">
           {shown.map((run) => (
             <li key={run.id} className="list-none">
-              <button type="button" onClick={onOpenRun} className={cn(CONTENT_ROW_CLASS, "gap-3")}>
+              <button
+                type="button"
+                onClick={() => onOpenRun(run)}
+                className={cn(CONTENT_ROW_CLASS, "gap-3")}
+              >
                 <StatusIcon
                   status={RUN_STATUS_ICON[run.status]}
                   label={t(runStatusTone(run.status).label)}

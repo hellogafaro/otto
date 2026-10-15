@@ -10,7 +10,6 @@ import {
   findLatestGroupThreadIds,
   findLatestGroupThreadTarget,
   findUnhandledMcpAuthorization,
-  joinOrStartThreadCreate,
   latestGroupThreadKey,
 } from "./botThreadRuntime.logic";
 
@@ -184,30 +183,6 @@ describe("bot thread runtime", () => {
 
     await expect(failed).rejects.toThrow("dispatch failed");
     await expect(followUp).resolves.toBe("sent");
-  });
-
-  it("shares concurrent initial thread creation", async () => {
-    let retained: { threadId: string } | null = null;
-    const inFlight = { current: null as Promise<{ threadId: string } | null> | null };
-    let starts = 0;
-
-    const start = async () => {
-      starts += 1;
-      await Promise.resolve();
-      retained = { threadId: "thread-otto" };
-
-      return retained;
-    };
-
-    const join = () => joinOrStartThreadCreate({ getRetained: () => retained, inFlight, start });
-
-    const [first, second] = await Promise.all([join(), join()]);
-    expect(starts).toBe(1);
-    expect(first).toBe(retained);
-    expect(second).toBe(retained);
-
-    expect(await join()).toBe(retained);
-    expect(starts).toBe(1);
   });
 
   it("associates the first durable thread with its bot", () => {

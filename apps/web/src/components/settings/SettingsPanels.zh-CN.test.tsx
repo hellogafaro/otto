@@ -149,8 +149,8 @@ describe("settings panels in Simplified Chinese", () => {
   it("translates the provider detail page without an environment", () => {
     expectTranslated(
       renderInChinese(<ProviderDetailPage entry={PROVIDER_CATALOG[0]!} />),
-      ["账户", zhCNCatalog["Unavailable"]!, zhCNCatalog["Providers"]!],
-      [">Account<", ">Unavailable<", ">Providers<", "Connect to an environment"],
+      ["账户", zhCNCatalog["Unavailable"]!],
+      [">Account<", ">Unavailable<", "Connect to an environment"],
     );
   });
 

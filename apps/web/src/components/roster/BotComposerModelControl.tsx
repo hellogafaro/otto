@@ -25,7 +25,7 @@ export function BotComposerModelControl({
     if (disabled) return;
 
     const openModelSettings = () =>
-      void navigate({ to: "/bots/$botId/settings", params: { botId }, hash: "model" });
+      void navigate({ to: "/settings/bots/$botId", params: { botId }, hash: "model" });
 
     const unregister = registerComposerModelPicker({ openModelPicker: openModelSettings });
 

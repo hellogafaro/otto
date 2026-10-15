@@ -26,24 +26,28 @@ import {
 } from "./test-support/GroupDeciderFixtures.ts";
 
 it.layer(NodeServices.layer)("group membership decider", (it) => {
-  it.effect("rejects group creation without a boss", () =>
+  it.effect("creates a people-only group with no boss", () =>
     Effect.gen(function* () {
-      const error = yield* decideOrchestrationCommand({
+      const result = yield* decideOrchestrationCommand({
         command: {
           type: "group.create",
           commandId: CommandId.make("cmd-group-create"),
           groupId: GROUP_ID,
           name: "Product",
+          people: [{ kind: "person", personId: PERSON_ID, displayName: "Member" }],
           createdAt: NOW,
         },
         readModel: makeReadModel({}),
-      }).pipe(Effect.flip);
+      });
 
-      if (!Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
-        throw new Error("Expected group creation invariant error");
-      }
+      const events = Array.isArray(result) ? result : [result];
+      const created = events[0];
 
-      expect(error.detail).toContain("requires a boss");
+      if (created?.type !== "group.created") throw new Error("Expected group.created");
+      expect(created.payload.bossBotId).toBeNull();
+      expect(created.payload.members).toEqual([
+        { kind: "person", personId: PERSON_ID, displayName: "Member" },
+      ]);
     }),
   );
 
@@ -328,7 +332,7 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
     }),
   );
 
-  it.effect("rejects unassigning the last boss", () =>
+  it.effect("rejects unassigning the boss while other bots remain", () =>
     Effect.gen(function* () {
       const error = yield* decideOrchestrationCommand({
         command: {
@@ -338,47 +342,47 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
           botId: BOSS_ID,
         },
         readModel: makeReadModel({
-          bots: [makeBot({ id: BOSS_ID, groupId: GROUP_ID })],
-          groups: [makeGroup({ members: [{ kind: "bot", botId: BOSS_ID, role: "boss" }] })],
+          bots: [makeBot({ id: BOSS_ID, groupId: GROUP_ID }), makeBot({ id: SPECIALIST_ID })],
+          groups: [makeGroup()],
         }),
       }).pipe(Effect.flip);
 
       if (!Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
-        throw new Error("Expected last boss invariant error");
+        throw new Error("Expected boss invariant error");
       }
 
-      expect(error.detail).toContain("last boss");
+      expect(error.detail).toContain("is the boss");
       expect(error.detail).toContain("group.boss.set");
     }),
   );
 
-  it.effect("rejects unassigning a group's only bot", () =>
+  it.effect("unassigns the last bot, leaving the group people only", () =>
     Effect.gen(function* () {
-      const error = yield* decideOrchestrationCommand({
-        command: {
-          type: "group.member.unassign",
-          commandId: CommandId.make("cmd-member-unassign-specialist"),
-          groupId: GROUP_ID,
-          botId: SPECIALIST_ID,
-        },
-        readModel: makeReadModel({
-          bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
-          groups: [
-            makeGroup({
-              members: [
-                { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
-                { kind: "person", personId: PERSON_ID, displayName: "Member" },
-              ],
-            }),
-          ],
-        }),
-      }).pipe(Effect.flip);
+      const readModel = makeReadModel({
+        bots: [makeBot({ id: BOSS_ID, groupId: GROUP_ID })],
+        groups: [
+          makeGroup({
+            members: [
+              { kind: "bot", botId: BOSS_ID, role: "boss" },
+              { kind: "person", personId: PERSON_ID, displayName: "Member" },
+            ],
+          }),
+        ],
+      });
 
-      if (!Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
-        throw new Error("Expected minimum group size invariant error");
-      }
+      const { readModel: next } = yield* applyCommand(readModel, {
+        type: "group.member.unassign",
+        commandId: CommandId.make("cmd-member-unassign-last"),
+        groupId: GROUP_ID,
+        botId: BOSS_ID,
+      });
 
-      expect(error.detail).toContain("at least one active bot");
+      const group = next.groups.find((candidate) => candidate.id === GROUP_ID);
+
+      expect(group?.bossBotId).toBeNull();
+      expect(group?.members).toEqual([
+        { kind: "person", personId: PERSON_ID, displayName: "Member" },
+      ]);
     }),
   );
 

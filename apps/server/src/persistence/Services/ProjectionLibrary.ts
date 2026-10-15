@@ -6,6 +6,9 @@ import type {
   LibraryFolder,
   LibraryFolderId,
   ThreadId,
+  AuthSessionId,
+  BotId,
+  Visibility,
 } from "@otto/contracts";
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
@@ -34,6 +37,9 @@ export interface ProjectionLibraryRepositoryShape {
 export interface LibraryChatThread {
   readonly id: ThreadId;
   readonly groupId: GroupId | null;
+  readonly botId?: BotId | null;
+  readonly createdBy?: AuthSessionId | null;
+  readonly visibility?: Visibility;
   readonly deletedAt: string | null;
 }
 

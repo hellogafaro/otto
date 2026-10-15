@@ -55,28 +55,19 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
     case "group.create": {
       yield* requireGroupAbsent({ readModel, command, groupId: command.groupId });
 
-      if (command.bossBotId === undefined) {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: "A group requires a boss bot.",
-        });
-      }
-
+      // Otto: a group can be people only; its first bot, when there is one, is stored as boss.
       const memberBotIds = [
-        command.bossBotId,
-        ...new Set((command.specialistBotIds ?? []).filter((botId) => botId !== command.bossBotId)),
+        ...new Set([
+          ...(command.bossBotId === undefined ? [] : [command.bossBotId]),
+          ...(command.specialistBotIds ?? []),
+        ]),
       ];
+
+      const bossBotId = memberBotIds[0] ?? null;
 
       yield* Effect.forEach(memberBotIds, (botId) =>
         requireBotNotArchived({ readModel, command, botId }),
       );
-
-      if (memberBotIds.length < 1) {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: `Group '${command.groupId}' requires at least one active bot.`,
-        });
-      }
 
       const groupCreatedEvent: PlannedOrchestrationEvent = {
         ...(yield* withEventBase({
@@ -89,12 +80,12 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
         payload: {
           groupId: command.groupId,
           name: command.name,
-          bossBotId: command.bossBotId,
+          bossBotId,
           members: [
             ...memberBotIds.map((botId) => ({
               kind: "bot" as const,
               botId,
-              role: botId === command.bossBotId ? ("boss" as const) : ("specialist" as const),
+              role: botId === bossBotId ? ("boss" as const) : ("specialist" as const),
             })),
             ...(command.creator === undefined ? [] : [command.creator]),
             ...(command.people ?? []).filter(
@@ -222,7 +213,12 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
         type: "group.member-assigned",
         payload: {
           groupId: group.id,
-          member: { kind: "bot", botId: bot.id, role: command.role },
+          // Otto: the first bot to join a people-only group becomes its boss.
+          member: {
+            kind: "bot",
+            botId: bot.id,
+            role: group.bossBotId === null ? "boss" : command.role,
+          },
           updatedAt: occurredAt,
         },
       };
@@ -245,20 +241,17 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
         });
       }
 
-      if (member.role === "boss" || group.bossBotId === command.botId) {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: `Bot '${command.botId}' is the last boss of group '${group.id}'. Set a new boss and unassign the previous boss with one 'group.boss.set' command.`,
-        });
-      }
-
       const remainingBotIds = activeGroupBotIds(readModel, group);
       remainingBotIds.delete(command.botId);
 
-      if (remainingBotIds.size < 1) {
+      // Otto: the last bot may leave, which makes the group people only.
+      if (
+        remainingBotIds.size > 0 &&
+        (member.role === "boss" || group.bossBotId === command.botId)
+      ) {
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
-          detail: `Group '${group.id}' requires at least one active bot.`,
+          detail: `Bot '${command.botId}' is the boss of group '${group.id}'. Set a new boss and unassign the previous boss with one 'group.boss.set' command.`,
         });
       }
 

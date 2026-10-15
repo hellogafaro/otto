@@ -21,6 +21,7 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         | "routine.approve"
         | "routine.enable"
         | "routine.pause"
+        | "routine.update"
         | "routine.run"
         | "routine.run.scheduled"
         | "routine.run.start"
@@ -57,6 +58,7 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         id: command.routineId,
         botId: command.botId,
         targetThreadId: command.targetThreadId,
+        threadMode: command.threadMode,
         job: command.job,
         procedure: command.procedure,
         schedule: command.schedule,
@@ -67,6 +69,8 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         sandbox: command.sandbox,
         approvalPolicy: command.approvalPolicy,
         delegateToBotId: command.delegateToBotId,
+        createdBy: command.createdBy,
+        visibility: command.visibility,
         procedureVersion: 1,
         approvalVersion: 1,
         enabled: false as const,
@@ -121,6 +125,7 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         id: command.routineId,
         botId: command.botId,
         targetThreadId: command.targetThreadId,
+        threadMode: command.threadMode,
         job: command.job,
         procedure: command.procedure,
         schedule: command.schedule,
@@ -131,6 +136,8 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         sandbox: command.sandbox,
         approvalPolicy: command.approvalPolicy,
         delegateToBotId: command.delegateToBotId,
+        createdBy: command.createdBy,
+        visibility: command.visibility,
         procedureVersion,
         approvalVersion: null,
         enabled: false as const,
@@ -261,6 +268,84 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
           commandId: command.commandId,
         })),
         type: "routine.paused",
+        payload: { routine },
+      };
+    }
+
+    case "routine.update": {
+      const existing = (readModel.routines ?? []).find(
+        (routine) => routine.id === command.routineId,
+      );
+
+      if (existing === undefined || existing.lifecycle === "deleted") {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Routine '${command.routineId}' does not exist.`,
+        });
+      }
+
+      // Otto: Who sees a routine is its creator's call.
+      if (
+        command.visibility !== undefined &&
+        (existing.createdBy == null || existing.createdBy !== command.by)
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Only the person who set up this routine can change who sees it.",
+        });
+      }
+
+      const threadMode = command.threadMode ?? existing.threadMode;
+      const target = readModel.threads.find((thread) => thread.id === existing.targetThreadId);
+
+      // Otto: The routine's chat is a live chat with its bot; posting into it puts the
+      // routine in that chat's project, so only per-run routines pick a project.
+      if (
+        threadMode === "target" &&
+        (target === undefined ||
+          target.deletedAt !== null ||
+          target.archivedAt !== null ||
+          target.botId !== existing.botId)
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Routine '${command.routineId}' needs a live chat with its bot.`,
+        });
+      }
+
+      const projectId =
+        threadMode === "target" && target !== undefined
+          ? target.projectId
+          : (command.projectId ?? existing.projectId);
+
+      if (
+        !readModel.projects.some(
+          (project) => project.id === projectId && project.deletedAt === null,
+        )
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Project '${projectId}' does not exist.`,
+        });
+      }
+
+      const routine = {
+        ...existing,
+        job: command.job ?? existing.job,
+        threadMode,
+        projectId,
+        visibility: command.visibility ?? existing.visibility,
+        updatedAt: command.createdAt,
+      };
+
+      return {
+        ...(yield* withEventBase({
+          aggregateKind: "routine",
+          aggregateId: command.routineId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+        })),
+        type: "routine.updated",
         payload: { routine },
       };
     }

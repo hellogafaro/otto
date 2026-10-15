@@ -89,7 +89,7 @@ registryLayer("MCP server registry", (it) => {
         type: "mcp-server.access.set",
         commandId: CommandId.make("cmd-mcp-personal-share"),
         mcpServerId,
-        visibility: "workspace",
+        visibility: "organization",
         by: ana,
       });
 

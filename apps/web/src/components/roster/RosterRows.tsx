@@ -1,5 +1,4 @@
 import {
-  RiAddLine,
   RiArchiveLine,
   RiArrowDownLine,
   RiArrowDownSLine,
@@ -13,6 +12,7 @@ import {
 import { scopeThreadRef } from "@otto/client-runtime/environment";
 import { PLACEHOLDER_THREAD_TITLE, type ScopedThreadRef } from "@otto/contracts";
 
+import { useNavigate } from "@tanstack/react-router";
 import { memo, useMemo, useRef, useState } from "react";
 
 import { useI18n } from "../../i18n";
@@ -20,7 +20,6 @@ import { cn } from "../../lib/utils";
 import { useLatestGroupThreadId, useThreadMessages } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { formatRelativeTime } from "../../timestampFormat";
-import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import { MenuItem, MenuSeparator } from "../ui/menu";
 import { SidebarGroup } from "../ui/sidebar";
@@ -44,7 +43,7 @@ import {
 } from "./roster.logic";
 import { useRosterStore } from "./rosterStore";
 import type { Bot, Group } from "./types";
-import { useBotChatTarget, useBotThreadCandidate } from "./useBotThreadRef";
+import { useLatestBotChatRef } from "./useBotThreadRef";
 import {
   ROSTER_NAME_CLASS,
   ROSTER_REVEAL_CLASS,
@@ -93,8 +92,7 @@ function useLatestBotMessage(
   message: RosterLastMessage | null;
   threadRef: ScopedThreadRef | null;
 } {
-  const candidate = useBotThreadCandidate(botId);
-  const { ref: threadRef } = useBotChatTarget(botId, candidate);
+  const threadRef = useLatestBotChatRef(botId);
   const messages = useThreadMessages(threadRef);
   const visibleMessages = useMemo(() => visibleBotChatMessages(messages), [messages]);
 
@@ -152,8 +150,7 @@ function shortRelativeTime(isoDate: string, t: ReturnType<typeof useI18n>["t"]):
 export const BotRosterRow = memo(function BotRosterRow({
   bot,
   lastMessage,
-  isActive,
-  chatOpen,
+  openThreadId,
   onSelect,
   onOpenSettings,
   pinned,
@@ -165,9 +162,8 @@ export const BotRosterRow = memo(function BotRosterRow({
 }: {
   bot: Bot;
   lastMessage: RosterLastMessage | null;
-  isActive: boolean;
-  /** Only an open chat counts as seen; bot settings still show unread replies. */
-  chatOpen: boolean;
+  /** This bot's chat on screen, if one is: it marks the row and counts as seen. */
+  openThreadId: string | null;
   onSelect: (bot: Bot) => void;
   onOpenSettings: (bot: Bot) => void;
   pinned: boolean;
@@ -184,12 +180,11 @@ export const BotRosterRow = memo(function BotRosterRow({
 
   const { message: latestMessage, threadRef: chatRef } = useLatestBotMessage(bot.id, lastMessage);
 
-  const unread = useBotRosterUnread(bot.id, chatRef, chatOpen);
+  const unread = useBotRosterUnread(bot.id, chatRef, openThreadId === chatRef?.threadId);
   const chats = useBotChats(bot.id);
   const [chatsOpen, setChatsOpen] = useState(true);
-  const environmentId = usePrimaryEnvironmentId();
+  const navigate = useNavigate();
   const pinnedItems = useRosterStore((state) => state.pinnedItems);
-  const openChatId = useRosterStore((state) => state.openChatByBotId[bot.id] ?? null);
 
   const pinnedIds = useMemo(
     () =>
@@ -203,24 +198,8 @@ export const BotRosterRow = memo(function BotRosterRow({
 
   const hasChatTree = chats.length - pinnedIds.size > 1;
   // A chat pinned to Pins is marked there, so the bot row is not.
-  const pinnedChatOpen = chatOpen && pinnedIds.has(openChatId ?? chats[0]?.id ?? "");
-  const active = isActive && !pinnedChatOpen;
-
-  const startNewChat = () => {
-    const newest = chats[0];
-    const roster = useRosterStore.getState();
-
-    if (newest && environmentId) {
-      roster.openBotChat(bot.id, null, `/${environmentId}/${newest.id}`);
-
-      // An untouched newest chat is already fresh.
-      if (newest.latestUserMessageAt !== null || newest.latestTurn !== null) {
-        roster.requestNewChat(bot.id);
-      }
-    }
-
-    onSelect(bot);
-  };
+  const pinnedChatOpen = openThreadId !== null && pinnedIds.has(openThreadId);
+  const active = openThreadId !== null && !pinnedChatOpen;
 
   return (
     <li
@@ -249,20 +228,11 @@ export const BotRosterRow = memo(function BotRosterRow({
           data-roster-row={rosterItemKey({ kind: "bot", id: bot.id })}
           aria-current={active || undefined}
           onClick={() => {
+            // The row opens the bot's newest chat listed under it; its pinned chats list in Pins.
             const listed = chats.find((chat) => !pinnedIds.has(chat.id));
 
-            // Leaving a pinned chat, the bot row opens the bot's newest listed chat.
-            if (pinnedChatOpen && listed && environmentId) {
-              useRosterStore
-                .getState()
-                .openBotChat(
-                  bot.id,
-                  listed.id === chats[0]?.id ? null : listed.id,
-                  `/${environmentId}/${listed.id}`,
-                );
-            }
-
-            onSelect(bot);
+            if (listed) void navigate({ to: "/chats/$threadId", params: { threadId: listed.id } });
+            else onSelect(bot);
           }}
           className={cn(
             "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -353,10 +323,6 @@ export const BotRosterRow = memo(function BotRosterRow({
               label={t("Actions for {name}", { name: bot.name })}
               triggerRef={menuTriggerRef}
             >
-              <MenuItem onClick={startNewChat}>
-                <RiAddLine />
-                {t("New chat")}
-              </MenuItem>
               <MenuItem onClick={() => onOpenSettings(bot)}>
                 <RiSettings3Line />
                 {t("Bot settings")}
@@ -375,12 +341,10 @@ export const BotRosterRow = memo(function BotRosterRow({
       </div>
       {hasChatTree && chatsOpen ? (
         <BotChatTree
-          botId={bot.id}
           chats={chats}
-          chatOpen={chatOpen}
+          openThreadId={openThreadId}
           pinnedIds={pinnedIds}
           botPinned={pinned}
-          onOpen={() => onSelect(bot)}
         />
       ) : null}
     </li>
@@ -390,20 +354,19 @@ export const BotRosterRow = memo(function BotRosterRow({
 /** One avatar in the icon-collapsed rail, with a name tooltip. */
 function RailBotButton({
   bot,
-  isActive,
-  chatOpen,
+  openThreadId,
   onSelect,
 }: {
   bot: Bot;
-  isActive: boolean;
-  /** Only an open chat counts as seen; bot settings still show unread replies. */
-  chatOpen: boolean;
+  /** This bot's chat on screen, if one is: it marks the button and counts as seen. */
+  openThreadId: string | null;
   onSelect: (bot: Bot) => void;
 }) {
   const presence = useBotPresence(bot.id);
   // The collapsed rail marks unread replies like the expanded row does.
-  const { ref: chatRef } = useBotChatTarget(bot.id, useBotThreadCandidate(bot.id));
-  const unread = useBotRosterUnread(bot.id, chatRef, chatOpen);
+  const chatRef = useLatestBotChatRef(bot.id);
+  const unread = useBotRosterUnread(bot.id, chatRef, openThreadId === chatRef?.threadId);
+  const isActive = openThreadId !== null;
 
   return (
     <Tooltip>
@@ -465,7 +428,7 @@ function RailGroupButton({
               isActive ? "bg-sidebar-row-active" : "hover:bg-sidebar-row-hover",
             )}
           >
-            <GroupMemberStack group={group} bots={bots} sizeClassName="size-5" />
+            <GroupMemberStack group={group} bots={bots} size="md" ringClassName="ring-sidebar" />
             {unread ? (
               <span className="absolute top-0.5 right-0.5 flex">
                 <UnreadDot />
@@ -487,8 +450,7 @@ function RailGroupButton({
 export const ChatRosterRow = memo(function ChatRosterRow({
   threadId,
   bot,
-  chatOpen,
-  onSelect,
+  openThreadId,
   onPin,
   canMoveUp,
   canMoveDown,
@@ -496,9 +458,8 @@ export const ChatRosterRow = memo(function ChatRosterRow({
 }: {
   threadId: string;
   bot: Bot;
-  /** The bot's chat view is showing. */
-  chatOpen: boolean;
-  onSelect: (bot: Bot) => void;
+  /** The chat on screen, if any. */
+  openThreadId: string | null;
   onPin: (item: RosterItemRef, pinned: boolean) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -509,14 +470,13 @@ export const ChatRosterRow = memo(function ChatRosterRow({
   const item = useMemo(() => ({ kind: "chat" as const, id: threadId }), [threadId]);
   const environmentId = usePrimaryEnvironmentId();
   const chats = useBotChats(bot.id);
-  const openChatId = useRosterStore((state) => state.openChatByBotId[bot.id] ?? null);
+  const navigate = useNavigate();
   const actions = useChatActions();
   const shell = chats.find((chat) => chat.id === threadId);
 
   if (!shell || !environmentId) return null;
 
-  const newest = chats[0]?.id === threadId;
-  const current = chatOpen && (openChatId ?? chats[0]?.id) === threadId;
+  const current = openThreadId === threadId;
   const threadRef = scopeThreadRef(environmentId, shell.id);
   const relative = formatRelativeTime(shell.updatedAt);
 
@@ -543,12 +503,7 @@ export const ChatRosterRow = memo(function ChatRosterRow({
         type="button"
         data-roster-row={rosterItemKey(item)}
         aria-current={current || undefined}
-        onClick={() => {
-          useRosterStore
-            .getState()
-            .openBotChat(bot.id, newest ? null : threadId, `/${environmentId}/${threadId}`);
-          onSelect(bot);
-        }}
+        onClick={() => void navigate({ to: "/chats/$threadId", params: { threadId } })}
         className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />
@@ -664,7 +619,7 @@ export const GroupRosterRow = memo(function GroupRosterRow({
           "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
-        <GroupMemberStack group={group} bots={bots} sizeClassName="size-4" />
+        <GroupMemberStack group={group} bots={bots} ringClassName="ring-sidebar" />
         <span
           className={cn(
             ROSTER_NAME_CLASS,
@@ -705,21 +660,17 @@ export const GroupRosterRow = memo(function GroupRosterRow({
 
 /**
  * Otto: A roster section heading, copied from Capy's sidebar: a 28px row with
- * a 12px/500 label at 52% inset 6px, on the avatars' edge, and an optional 24px quiet plus with a
- * 12px glyph inset 2px on the right, the same box as a bot row's new-chat plus,
- * so they line up. Pins, Groups and DMs share it, and their rows share one
- * pattern.
+ * a 12px/500 label at 52% inset 6px, on the avatars' edge. Pins, Groups and
+ * DMs share it, and their rows share one pattern. Sections carry no actions;
+ * the header's plus starts every chat.
  */
 export function RosterSectionLabel({
   label,
-  add,
   first,
 }: {
   /** The list's first section sits flush; later ones get 12px above. */
   readonly first: boolean;
   readonly label: string;
-  /** Omitted for Pinned, which gains rows from each row's menu. */
-  readonly add?: { readonly label: string; readonly onClick: () => void };
 }) {
   return (
     <li
@@ -733,23 +684,6 @@ export function RosterSectionLabel({
       <span className="min-w-0 flex-1 truncate text-xs font-medium text-sidebar-foreground/52">
         {label}
       </span>
-      {add ? (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label={add.label}
-                size="icon-row"
-                variant="sidebar-ghost"
-                onClick={add.onClick}
-              >
-                <AppIcon icon={RiAddLine} className="size-3" />
-              </Button>
-            }
-          />
-          <TooltipPopup>{add.label}</TooltipPopup>
-        </Tooltip>
-      ) : null}
     </li>
   );
 }
@@ -759,17 +693,19 @@ export function RosterRail({
   groups,
   bots,
   visibleBots,
-  pathname,
-  activeBotId,
+  openChat,
   onSelectBot,
   onSelectGroup,
 }: {
   groups: readonly Group[];
   bots: readonly Bot[];
   visibleBots: readonly Bot[];
-  pathname: string;
-  /** The selected bot, or null while a group route is open. */
-  activeBotId: string | null;
+  /** The chat on screen, and who it is with. */
+  openChat: {
+    readonly threadId: string;
+    readonly botId: string | null;
+    readonly groupId: string | null;
+  } | null;
   onSelectBot: (bot: Bot) => void;
   onSelectGroup: (group: Group) => void;
 }) {
@@ -781,7 +717,7 @@ export function RosterRail({
             <RailGroupButton
               group={group}
               bots={bots}
-              isActive={pathname === `/groups/${group.id}`}
+              isActive={openChat?.groupId === group.id}
               onSelect={onSelectGroup}
             />
           </li>
@@ -790,8 +726,7 @@ export function RosterRail({
           <li key={bot.id} className="list-none">
             <RailBotButton
               bot={bot}
-              isActive={activeBotId === bot.id}
-              chatOpen={pathname === `/bots/${bot.id}`}
+              openThreadId={openChat?.botId === bot.id ? openChat.threadId : null}
               onSelect={onSelectBot}
             />
           </li>

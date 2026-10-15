@@ -21,9 +21,6 @@ import {
   ExperimentalSidebar,
   EXPERIMENTAL_RAIL_ONLY_WIDTH,
   EXPERIMENTAL_SIDEBAR_WIDTH,
-  RoutinesZeroState,
-  type SidebarPlace,
-  useEmptyPlace,
   useRailOnly,
   useSidebarExperiment,
 } from "./sidebar/ExperimentalSidebar";
@@ -185,18 +182,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   });
 
   const sidebarExperiment = useSidebarExperiment();
-  const [sidebarPlace, setSidebarPlace] = useState<SidebarPlace>("chats");
-
-  // A routine page belongs to Routines and a bot or group chat to Chats, so following a
-  // link between them brings the matching list along.
-  useEffect(() => {
-    if (pathname.startsWith("/routines/")) setSidebarPlace("routines");
-    else if (pathname.startsWith("/bots/") || pathname.startsWith("/groups/")) {
-      setSidebarPlace("chats");
-    }
-  }, [pathname]);
-  const railOnly = useRailOnly(sidebarPlace);
-  const emptyPlace = useEmptyPlace(sidebarPlace);
+  const railOnly = useRailOnly();
 
   // SAFETY: React CSSProperties omits custom properties; these values are CSS variables consumed by the component stylesheet.
   const sidebarProviderStyle = {
@@ -278,7 +264,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         }}
       >
         {sidebarExperiment ? (
-          <ExperimentalSidebar place={sidebarPlace} onPlaceChange={setSidebarPlace} />
+          <ExperimentalSidebar />
         ) : isOnSettings ? (
           <SettingsSidebarNav />
         ) : (
@@ -286,11 +272,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         )}
         {sidebarExperiment ? null : <SidebarRail onDoubleClick={resetSidebarWidth} />}
       </Sidebar>
-      {sidebarExperiment && emptyPlace && sidebarPlace === "routines" ? (
-        <RoutinesZeroState />
-      ) : (
-        children
-      )}
+      {children}
       <SidebarControl stageArtworkVisible={stageArtworkVisible} />
       <DesktopOnboarding />
     </SidebarProvider>

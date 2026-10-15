@@ -6,11 +6,9 @@ import {
   squashAtomCommandFailure,
 } from "@otto/client-runtime/state/runtime";
 import { pinOrderKeyBetween } from "@otto/client-runtime/state/thread-sort";
-import type { ScopedThreadRef } from "@otto/contracts";
+import type { ScopedThreadRef, Visibility } from "@otto/contracts";
 import { useCallback, useMemo } from "react";
 
-import { shouldForgetChatPath } from "../components/chat/chatActions.logic";
-import { useRosterStore } from "../components/roster/rosterStore";
 import { toastManager } from "../components/ui/toast";
 import { useI18n } from "../i18n";
 import { refreshArchivedThreadsForEnvironment } from "../lib/archivedThreadsState";
@@ -47,24 +45,6 @@ function topOfPinnedRunOrderKey(
 
 function input(threadRef: ScopedThreadRef) {
   return { environmentId: threadRef.environmentId, input: { threadId: threadRef.threadId } };
-}
-
-/**
- * Captures, before a chat is archived or deleted, how to drop its bot's
- * remembered path. Run the result once the command lands: the chat's shell,
- * which names the bot, is gone by then.
- */
-function chatPathForgetter(threadRef: ScopedThreadRef): () => void {
-  const botId = readThreadShell(threadRef)?.botId;
-
-  return () => {
-    if (!botId) return;
-    const roster = useRosterStore.getState();
-
-    if (shouldForgetChatPath(roster.chatPathByBotId[botId], threadRef)) {
-      roster.forgetChatPath(botId);
-    }
-  };
 }
 
 /**
@@ -125,6 +105,14 @@ export function useChatActions() {
             input: { threadId: threadRef.threadId, title },
           }),
         ),
+      // Otto: Only the person who started a DM changes who sees it.
+      setVisibility: (threadRef: ScopedThreadRef, visibility: Visibility) =>
+        report(t("Could not change who sees this chat"), () =>
+          updateMetadata({
+            environmentId: threadRef.environmentId,
+            input: { threadId: threadRef.threadId, visibility },
+          }),
+        ),
       regenerateTitle: (threadRef: ScopedThreadRef) =>
         report(t("Could not regenerate title"), () =>
           updateMetadata({
@@ -177,13 +165,9 @@ export function useChatActions() {
         markThreadUnread(scopedThreadKey(threadRef), completedAt);
       },
       archive: async (threadRef: ScopedThreadRef) => {
-        const forgetChatPath = chatPathForgetter(threadRef);
         const archived = await report(t("Could not archive chat"), () => archive(input(threadRef)));
 
-        if (archived) {
-          forgetChatPath();
-          refreshArchivedThreadsForEnvironment(threadRef.environmentId);
-        }
+        if (archived) refreshArchivedThreadsForEnvironment(threadRef.environmentId);
 
         return archived;
       },
@@ -218,13 +202,9 @@ export function useChatActions() {
           if (!stopped) return false;
         }
 
-        const forgetChatPath = chatPathForgetter(threadRef);
         const deleted = await report(t("Could not delete chat"), () => remove(input(threadRef)));
 
-        if (deleted) {
-          forgetChatPath();
-          refreshArchivedThreadsForEnvironment(threadRef.environmentId);
-        }
+        if (deleted) refreshArchivedThreadsForEnvironment(threadRef.environmentId);
 
         return deleted;
       },

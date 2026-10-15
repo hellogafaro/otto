@@ -160,6 +160,7 @@ export const createWsOrchestrationStreams = ({
       case "routine.enabled":
       case "routine.running":
       case "routine.paused":
+      case "routine.updated":
       case "routine.blocked":
       case "routine.failed":
       case "routine.completed":

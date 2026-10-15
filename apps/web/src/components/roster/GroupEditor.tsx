@@ -3,7 +3,7 @@ import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
 import { AuthSessionId, BotId, GroupId, type EnvironmentId } from "@otto/contracts";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { canManageChannels } from "../../channelAccess";
 import { useI18n } from "../../i18n";
@@ -30,18 +30,23 @@ import { GroupMemberStack } from "./GroupMemberStack";
 import { PersonAvatar } from "./PersonAvatar";
 import { groupBotMembers, groupContainsBot, groupPersonMembers } from "./roster.logic";
 import type { Bot, Group } from "./types";
-import { groupMemberRemovalHint, isGroupMemberRemovalBlocked } from "./groupMemberRemoval.logic";
 
 export function GroupEditor({
   environmentId,
   group,
   bots,
   onDeleted,
+  children,
+  trailing,
 }: {
   readonly environmentId: EnvironmentId;
   readonly group: Group;
   readonly bots: readonly Bot[];
   readonly onDeleted: () => void;
+  /** Otto: the open chat's own details, shown above the members. */
+  readonly children?: ReactNode;
+  /** Otto: chat sections shown below the members; each brings its own spacing. */
+  readonly trailing?: ReactNode;
 }) {
   const { t, plural } = useI18n();
 
@@ -82,7 +87,6 @@ export function GroupEditor({
   const [name, setName] = useState(group.name);
   const [adding, setAdding] = useState(false);
   const [toAdd, setToAdd] = useState<ReadonlyArray<string>>([]);
-  const removalHintId = useId();
   const activeBots = bots.filter((bot) => bot.archivedAt === null);
   const groupBots = groupBotMembers(group, activeBots);
   const people = groupPersonMembers(group);
@@ -96,11 +100,6 @@ export function GroupEditor({
     peopleIdentity.directory.filter(
       (person) => !people.some((member) => member.personId === person.personId),
     ),
-  );
-
-  const removalHint = groupMemberRemovalHint(
-    { memberCount: groupBots.length, canAddBot: addable.some(({ kind }) => kind === "bot") },
-    t,
   );
 
   useEffect(() => setName(group.name), [group.name]);
@@ -151,13 +150,7 @@ export function GroupEditor({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
       <div className="flex flex-col items-start gap-1 pb-6 pt-2">
-        <GroupMemberStack
-          group={group}
-          bots={bots}
-          sizeClassName="size-16"
-          className="mb-2"
-          initials
-        />
+        <GroupMemberStack group={group} bots={bots} size="lg" className="mb-2" />
         <h2 className="max-w-full truncate text-base font-medium">{group.name}</h2>
         <span className="text-sm text-muted-foreground">
           {plural(members.length, { one: "{count} member", other: "{count} members" })}
@@ -189,14 +182,14 @@ export function GroupEditor({
           {t("Add members")}
         </Button>
       </div>
+      {children ? <div className="mt-6">{children}</div> : null}
       <div className="mt-6">
         <DetailsGroup id="group-members" label={t("Members")}>
           {members.map((member) => {
             if (member.kind === "bot") {
-              const blockedByRule = isGroupMemberRemovalBlocked(groupBots.length);
-
               // Groups have no lead in the product. The stored boss only moves to
-              // another member when it leaves, so removal works for every bot.
+              // another member when it leaves, so removal works for every bot; the
+              // last bot leaving makes the group people only.
               const nextBoss =
                 member.bot.id === group.bossBotId
                   ? groupBots.find((other) => other.id !== member.bot.id)
@@ -207,12 +200,11 @@ export function GroupEditor({
                   <BotAvatarView avatar={member.bot.avatar} name={member.name} className="size-6" />
                   <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
                   <Button
-                    aria-describedby={removalHint && blockedByRule ? removalHintId : undefined}
                     aria-label={t("Remove {name} from {group}", {
                       name: member.name,
                       group: group.name,
                     })}
-                    disabled={busy || blockedByRule}
+                    disabled={busy}
                     size="icon-sm"
                     variant="ghost"
                     onClick={() =>
@@ -283,12 +275,8 @@ export function GroupEditor({
             );
           })}
         </DetailsGroup>
-        {removalHint ? (
-          <p id={removalHintId} className="mt-1 text-xs text-muted-foreground">
-            {removalHint}
-          </p>
-        ) : null}
       </div>
+      {trailing}
       <Button
         className="mt-6 w-full"
         disabled={busy}

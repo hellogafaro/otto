@@ -5,11 +5,13 @@ import {
   workParticipantKey,
 } from "@otto/contracts";
 import { RiUserLine } from "@remixicon/react";
+import { Match } from "effect";
 import { useMemo } from "react";
 
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { BotAvatarView } from "../roster/BotAvatarView";
+import { ComposerControl, ComposerControlChevron } from "../chat/ComposerControl";
 import { useRosterStore } from "../roster/rosterStore";
 import type { Bot } from "../roster/types";
 import { Button } from "../ui/button";
@@ -96,6 +98,10 @@ export function participantName(participant: WorkParticipant, bots: readonly Bot
   return bots.find((bot) => bot.id === participant.botId)?.name ?? participant.botId;
 }
 
+/**
+ * Otto: A participant is always a perfect circle on a backing fill, its face clipped inside, so
+ * image, blob and initials avatars line up in rows and stacks.
+ */
 export function ParticipantAvatar({
   participant,
   bots,
@@ -105,35 +111,43 @@ export function ParticipantAvatar({
   readonly bots: readonly Bot[];
   readonly className?: string;
 }) {
-  if (participant.kind === "bot") {
-    const bot = bots.find((candidate) => candidate.id === participant.botId);
-
-    if (bot)
-      return (
-        <BotAvatarView avatar={bot.avatar} name={bot.name} className={cn("size-5", className)} />
-      );
-  }
+  const bot =
+    participant.kind === "bot"
+      ? bots.find((candidate) => candidate.id === participant.botId)
+      : undefined;
 
   return (
     <span
       aria-hidden
       className={cn(
-        "flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-9px font-medium text-secondary-foreground",
+        "isolate flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-9px font-medium text-secondary-foreground",
         className,
       )}
     >
-      {participant.kind === "person" ? initials(participant.displayName) : "?"}
+      {bot ? (
+        <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-full" />
+      ) : participant.kind === "person" ? (
+        initials(participant.displayName)
+      ) : (
+        "?"
+      )}
     </span>
   );
 }
 
-/** Overlapping avatars, the way Linear shows a few assignees in a narrow column. */
+/**
+ * Overlapping avatars, the way Linear shows a few assignees in a narrow column. The first sits
+ * on top, and each face is cut out of the surface behind it by a ring in that surface's colour.
+ */
 export function ParticipantStack({
   participants,
   bots,
+  avatarClassName,
 }: {
   readonly participants: readonly WorkParticipant[];
   readonly bots: readonly Bot[];
+  /** Sizes the avatars and colours their ring after the surface, such as `size-4 ring-popover`. */
+  readonly avatarClassName?: string;
 }) {
   const shown = participants.slice(0, 3);
   const extra = participants.length - shown.length;
@@ -143,14 +157,17 @@ export function ParticipantStack({
       <span className="sr-only">
         {participants.map((participant) => participantName(participant, bots)).join(", ")}
       </span>
-      {shown.map((participant) => (
-        <ParticipantAvatar
-          key={workParticipantKey(participant)}
-          participant={participant}
-          bots={bots}
-          className="-ms-1 rounded-full ring-2 ring-background first:ms-0"
-        />
-      ))}
+      {/* Reversed in the DOM so later faces paint first and the first face lands on top. */}
+      <span className="flex flex-row-reverse">
+        {shown.toReversed().map((participant) => (
+          <ParticipantAvatar
+            key={workParticipantKey(participant)}
+            participant={participant}
+            bots={bots}
+            className={cn("-ms-1 ring-2 ring-background last:ms-0", avatarClassName)}
+          />
+        ))}
+      </span>
       {extra > 0 ? <span className="ms-1 text-xs text-muted-foreground">+{extra}</span> : null}
     </span>
   );
@@ -251,12 +268,18 @@ export function AssigneesMenu({
   onChange,
   participants,
   variant = "outline",
+  label,
 }: {
   readonly value: readonly WorkParticipant[];
   readonly onChange: (assignees: WorkParticipant[]) => void;
   readonly participants: WorkParticipants;
-  /** `ghost` is the quiet property row on a task page. */
-  readonly variant?: "outline" | "ghost";
+  /**
+   * `ghost` is the quiet property row on a task page; `composer` is a composer control that
+   * names who is chosen, as New chat's members.
+   */
+  readonly variant?: "outline" | "ghost" | "composer";
+  /** Names the menu in place of Assignees. */
+  readonly label?: string;
 }) {
   const { t } = useI18n();
   const selected = new Set(value.map(workParticipantKey));
@@ -269,38 +292,65 @@ export function AssigneesMenu({
     );
 
   const everyone = participantsByName(participants);
+  const menuLabel = label ?? t("Assignees");
 
   return (
     <Menu>
-      {variant === "ghost" ? (
-        <MenuTrigger
-          render={
-            <SelectButton
-              size="sm"
-              variant="ghost"
-              className="w-auto min-w-0"
-              aria-label={t("Assignees")}
-            />
-          }
-        >
-          <span className="flex items-center gap-1.5">
+      {Match.value(variant).pipe(
+        Match.when("composer", () => (
+          <MenuTrigger
+            render={<ComposerControl aria-label={menuLabel} className="max-w-64 min-w-0" />}
+          >
+            {value.length > 0 ? (
+              <ParticipantStack
+                participants={value.slice(0, 3)}
+                bots={participants.allBots}
+                avatarClassName="size-4.5 ring-popover"
+              />
+            ) : (
+              <RiUserLine aria-hidden />
+            )}
+            <span className="min-w-0 truncate">
+              {value.length > 0
+                ? value
+                    .map((participant) => participantName(participant, participants.allBots))
+                    .join(", ")
+                : menuLabel}
+            </span>
+            <ComposerControlChevron />
+          </MenuTrigger>
+        )),
+        Match.when("ghost", () => (
+          <MenuTrigger
+            render={
+              <SelectButton
+                size="sm"
+                variant="ghost"
+                className="w-auto min-w-0"
+                aria-label={menuLabel}
+              />
+            }
+          >
+            <span className="flex items-center gap-1.5">
+              {value.length > 0 ? (
+                <ParticipantStack participants={value} bots={participants.allBots} />
+              ) : (
+                <RiUserLine aria-hidden className="size-3.5" />
+              )}
+              {value.length > 0 ? null : t("No assignees")}
+            </span>
+          </MenuTrigger>
+        )),
+        Match.orElse(() => (
+          <MenuTrigger render={<Button size="sm" variant="outline" aria-label={menuLabel} />}>
             {value.length > 0 ? (
               <ParticipantStack participants={value} bots={participants.allBots} />
             ) : (
-              <RiUserLine aria-hidden className="size-3.5" />
+              <RiUserLine aria-hidden />
             )}
-            {value.length > 0 ? null : t("No assignees")}
-          </span>
-        </MenuTrigger>
-      ) : (
-        <MenuTrigger render={<Button size="sm" variant="outline" aria-label={t("Assignees")} />}>
-          {value.length > 0 ? (
-            <ParticipantStack participants={value} bots={participants.allBots} />
-          ) : (
-            <RiUserLine aria-hidden />
-          )}
-          {value.length > 0 ? null : t("Assignees")}
-        </MenuTrigger>
+            {value.length > 0 ? null : menuLabel}
+          </MenuTrigger>
+        )),
       )}
       <MenuPopup align="start">
         {everyone.map((participant) => (

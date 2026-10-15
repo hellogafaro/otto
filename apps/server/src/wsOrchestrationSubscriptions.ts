@@ -13,7 +13,7 @@ import {
   projectActivityEvent,
   projectThreadDetailSnapshot,
 } from "./orchestration/ActivityPayloadProjection.ts";
-import { canSeeGroup, withGroupVisibility } from "./orchestration/groupVisibility.ts";
+import { canSeeThread, withGroupVisibility } from "./orchestration/groupVisibility.ts";
 import { threadLiveEventCoalescer } from "./orchestration/ThreadLiveEventCoalescer.ts";
 import { liveStreamBudget, type RetainedLiveItem } from "./orchestration/LiveStreamBudget.ts";
 
@@ -280,11 +280,18 @@ export const createWsOrchestrationSubscriptions = ({
               : Option.none();
 
           if (
-            Option.isSome(group) &&
-            !canSeeGroup({ id: group.value.groupId, members: group.value.members }, currentPersonId)
+            Option.isSome(shell) &&
+            !canSeeThread(
+              shell.value,
+              Option.match(group, {
+                onNone: () => [],
+                onSome: (found) => [{ id: found.groupId, members: found.members }],
+              }),
+              currentPersonId,
+            )
           ) {
             return yield* new OrchestrationGetSnapshotError({
-              message: "This chat is private to its members.",
+              message: "This chat is private.",
             });
           }
 

@@ -1,20 +1,14 @@
 import {
-  RiAddLine,
   RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
   RiTimeLine,
   RiListCheck3,
-  RiShapesLine,
   RiSettings3Line,
   type RemixiconComponentType,
 } from "@remixicon/react";
-import { Match } from "effect";
-import { useAtomValue } from "@effect/atom-react";
-
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, type ReactNode } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { useState, type ReactNode } from "react";
 
 import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
@@ -22,27 +16,12 @@ import { useChangedSinceMount } from "../../hooks/useChangedSinceMount";
 import { cn } from "../../lib/utils";
 import { openSettings } from "../../settingsDialogStore";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { environmentSnapshotAtom } from "../../state/shell";
 import BotRosterSidebar from "../roster/BotRosterSidebar";
-import { RoutineRow } from "./RoutineRow";
 import { resolveRosterListState } from "../roster/rosterRouteSelection";
 import { useRosterStore } from "../roster/rosterStore";
 import { SettingsPanelNav } from "../settings/SettingsSidebarNav";
 import { AppIcon } from "../ui/app-icon";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "../ui/empty";
-import { Button } from "../ui/button";
-import { PromptDialog } from "../PromptDialog";
-import { BotPicker } from "../roster/BotPicker";
-import { SidebarInset, useSidebar } from "../ui/sidebar";
-import { SkeletonSidebarRows } from "../ui/skeleton";
-import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import { useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 /**
@@ -79,73 +58,27 @@ export const EXPERIMENTAL_SIDEBAR_WIDTH = RAIL_WIDTH + PANEL_WIDTH;
 /** Full-width pages and a place with nothing to list show only the rail. */
 export const EXPERIMENTAL_RAIL_ONLY_WIDTH = RAIL_WIDTH;
 
-/** Whether the chosen place has nothing to list, so the main panel carries its empty state. */
-export function useEmptyPlace(place: SidebarPlace): boolean {
+/**
+ * Full-width pages, and Chats with no bot to list (the main panel carries its empty state),
+ * show only the rail.
+ */
+export function useRailOnly(): boolean {
   const pathname = useLocation({ select: (location) => location.pathname });
   const environmentId = usePrimaryEnvironmentId();
-  const snapshot = useEnvironmentSnapshot();
 
   const noBots = useRosterStore(
     (state) => resolveRosterListState(environmentId, state.environmentId, state.bots) === "empty",
   );
 
-  if (isFullPage(pathname) || isPathUnder(pathname, "/settings")) return false;
+  if (isFullPage(pathname)) return true;
 
-  if (place === "chats") return noBots;
-
-  return Boolean(snapshot) && liveRoutines(snapshot?.routines).length === 0;
+  return !isPathUnder(pathname, "/settings") && noBots;
 }
 
-export function useRailOnly(place: SidebarPlace): boolean {
-  const pathname = useLocation({ select: (location) => location.pathname });
-  const emptyPlace = useEmptyPlace(place);
-
-  return emptyPlace || isFullPage(pathname);
-}
-
-/** Customize, Tasks, Projects and the Library own the whole main panel, so the place panel steps aside. */
+/** Routines, Tasks, Projects and the Library own the whole main panel, so the panel steps aside. */
 function isFullPage(pathname: string): boolean {
-  return ["/customize", "/tasks", "/projects", "/library"].some((base) =>
+  return ["/routines", "/tasks", "/projects", "/library"].some((base) =>
     isPathUnder(pathname, base),
-  );
-}
-
-function liveRoutines<T extends { readonly lifecycle: string }>(
-  routines: readonly T[] | undefined,
-): readonly T[] {
-  return (routines ?? []).filter((routine) => routine.lifecycle !== "deleted");
-}
-
-export function RoutinesZeroState() {
-  const { t } = useI18n();
-  const [creating, setCreating] = useState(false);
-
-  return (
-    <SidebarInset tone="foreground" className="h-dvh min-h-0 overflow-hidden">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <WorkspacePageHeader className="border-b border-border" />
-        <Empty className="flex-1">
-          <EmptyHeader className="max-w-md">
-            <EmptyMedia variant="icon">
-              <RiTimeLine />
-            </EmptyMedia>
-            <EmptyTitle>{t("Put recurring work on autopilot")}</EmptyTitle>
-            <EmptyDescription>
-              {t(
-                "Ask any bot for a morning briefing, a weekly report, or a regular check, and it runs on time without you.",
-              )}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button onClick={() => setCreating(true)}>
-              <RiAddLine className="size-4" />
-              {t("New routine")}
-            </Button>
-          </EmptyContent>
-        </Empty>
-        <NewRoutineDialog open={creating} onOpenChange={setCreating} />
-      </div>
-    </SidebarInset>
   );
 }
 
@@ -153,26 +86,18 @@ function isPathUnder(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
-export type SidebarPlace = "chats" | "routines";
-
-export function ExperimentalSidebar({
-  place,
-  onPlaceChange,
-}: {
-  place: SidebarPlace;
-  onPlaceChange: (place: SidebarPlace) => void;
-}) {
+export function ExperimentalSidebar() {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   // Settings is a route, not a panel toggle: the URL decides whether it owns
   // the panel, and leaving it goes back to the chat workspace.
   const onSettings = isPathUnder(pathname, "/settings");
-  const onCustomize = isPathUnder(pathname, "/customize");
+  const onRoutines = isPathUnder(pathname, "/routines");
   const onTasks = isPathUnder(pathname, "/tasks");
   const onProjects = isPathUnder(pathname, "/projects");
   const onLibrary = isPathUnder(pathname, "/library");
   const onPage = onSettings || isFullPage(pathname);
-  const railOnly = useRailOnly(place);
+  const railOnly = useRailOnly();
   // Collapsing hides the panel and keeps the rail; picking a place brings it back.
   const { state: sidebarState, setOpen: setSidebarOpen, isMobile } = useSidebar();
 
@@ -180,14 +105,13 @@ export function ExperimentalSidebar({
     if (sidebarState === "collapsed") setSidebarOpen(true);
   };
 
-  const choosePlace = (next: SidebarPlace) => {
-    onPlaceChange(next);
+  const openChats = () => {
     revealPanel();
 
     if (onPage) void navigate({ to: "/" });
   };
 
-  const panel = onSettings ? "settings" : place;
+  const panel = onSettings ? "settings" : "chats";
   // Only rail switches animate; the first paint of the panel stays still.
   const panelSwitched = useChangedSinceMount(panel);
   const { t } = useI18n();
@@ -220,14 +144,16 @@ export function ExperimentalSidebar({
             <RailButton
               label={t("Chats")}
               icon={RiChat1Line}
-              active={!onPage && place === "chats"}
-              onClick={() => choosePlace("chats")}
+              active={!onPage}
+              onClick={openChats}
             />
             <RailButton
               label={t("Routines")}
               icon={RiTimeLine}
-              active={!onPage && place === "routines"}
-              onClick={() => choosePlace("routines")}
+              active={onRoutines}
+              onClick={() => {
+                if (!onRoutines) void navigate({ to: "/routines" });
+              }}
             />
             <RailButton
               label={t("Tasks")}
@@ -251,14 +177,6 @@ export function ExperimentalSidebar({
               active={onLibrary}
               onClick={() => {
                 if (!onLibrary) void navigate({ to: "/library" });
-              }}
-            />
-            <RailButton
-              label={t("Customize")}
-              icon={RiShapesLine}
-              active={onCustomize}
-              onClick={() => {
-                if (!onCustomize) void navigate({ to: "/customize" });
               }}
             />
           </div>
@@ -289,15 +207,13 @@ export function ExperimentalSidebar({
               key={panel}
               className={cn("flex min-h-0 flex-1 flex-col", panelSwitched && "motion-place-enter")}
             >
-              {Match.value(panel).pipe(
-                Match.when("settings", () => (
-                  <>
-                    <PanelHeader title={t("Settings")} />
-                    <SettingsPanelNav />
-                  </>
-                )),
-                Match.when("chats", () => <BotRosterSidebar chrome="panel" />),
-                Match.orElse(() => <RoutinesPanel />),
+              {onSettings ? (
+                <>
+                  <PanelHeader title={t("Settings")} />
+                  <SettingsPanelNav />
+                </>
+              ) : (
+                <BotRosterSidebar chrome="panel" />
               )}
             </div>
           </div>
@@ -357,122 +273,4 @@ function PanelHeader({ title, action }: { title: string; action?: ReactNode }) {
       {action}
     </div>
   );
-}
-
-/**
- * New routine is a conversation: the prompt opens a fresh chat with the chosen
- * bot, which sets the routine up there for the user to approve.
- */
-function NewRoutineDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const navigate = useNavigate();
-  const bots = useLiveBots();
-  const { t } = useI18n();
-  const [botId, setBotId] = useState<string | null>(null);
-  const chosen = bots.find((bot) => bot.id === botId)?.id ?? bots[0]?.id ?? null;
-
-  return (
-    <PromptDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t("New routine")}
-      placeholder={t("What should run, and when?")}
-      pickers={<BotPicker bots={bots} value={chosen} onChange={setBotId} />}
-      submitLabel={t("Start")}
-      canSubmit={chosen !== null}
-      onSubmit={(prompt) => {
-        if (chosen === null) return;
-        useRosterStore
-          .getState()
-          .requestPrompt({ botId: chosen, text: t("Set up a routine: {prompt}", { prompt }) });
-        onOpenChange(false);
-        void navigate({ to: "/bots/$botId", params: { botId: chosen } });
-      }}
-    />
-  );
-}
-
-function useLiveBots() {
-  const { bots, pinnedItems } = useRosterStore(
-    useShallow((state) => ({ bots: state.bots, pinnedItems: state.pinnedItems })),
-  );
-
-  return useMemo(() => {
-    const live = bots.filter((bot) => bot.archivedAt === null);
-    // Pinned bots lead, in pin order; everything else keeps roster order.
-    const pinnedIds = pinnedItems.flatMap((item) => (item.kind === "bot" ? [item.id] : []));
-
-    return [
-      ...pinnedIds.flatMap((id) => live.filter((bot) => bot.id === id)),
-      ...live.filter((bot) => !pinnedIds.includes(bot.id)),
-    ];
-  }, [bots, pinnedItems]);
-}
-
-function RoutinesPanel() {
-  const snapshot = useEnvironmentSnapshot();
-  const bots = useLiveBots();
-  const { t } = useI18n();
-  const routines = liveRoutines(snapshot?.routines);
-  const [creating, setCreating] = useState(false);
-  const pathname = useLocation({ select: (location) => location.pathname });
-  const environmentId = usePrimaryEnvironmentId();
-
-  return (
-    <>
-      <PanelHeader
-        title={t("Routines")}
-        action={
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  aria-label={t("New routine")}
-                  size="icon-sm"
-                  variant="sidebar-ghost"
-                  onClick={() => setCreating(true)}
-                >
-                  <AppIcon icon={RiAddLine} />
-                </Button>
-              }
-            />
-            <TooltipPopup>{t("New routine")}</TooltipPopup>
-          </Tooltip>
-        }
-      />
-      <NewRoutineDialog open={creating} onOpenChange={setCreating} />
-      <div className="min-h-0 flex-1 overflow-y-auto px-2">
-        {!snapshot ? (
-          <SkeletonSidebarRows label={t("Loading routines…")} sections={[4]} headings={false} />
-        ) : routines.length === 0 ? null : (
-          <ul className="flex flex-col gap-0.5">
-            {routines.map((routine) => (
-              <RoutineRow
-                key={routine.id}
-                environmentId={environmentId}
-                routine={routine}
-                bot={bots.find((candidate) => candidate.id === routine.botId)}
-                active={pathname === `/routines/${routine.id}`}
-                running={(snapshot?.routineRuns ?? []).some(
-                  (run) => run.routineId === routine.id && run.status === "running",
-                )}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
-    </>
-  );
-}
-
-function useEnvironmentSnapshot() {
-  const environmentId = usePrimaryEnvironmentId();
-
-  // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
-  return useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
 }

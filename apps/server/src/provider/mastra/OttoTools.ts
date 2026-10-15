@@ -73,10 +73,10 @@ export async function resolveOttoTools(
     ? createTool({
         id: OTTO_CREATE_ROUTINE_TOOL_NAME,
         description:
-          "Create a routine for recurring work in this chat. Once the user approves it, it runs on its schedule. Call this tool as soon as the routine details are complete. The app previews the tool arguments and asks the user before execution, so do not ask for separate confirmation. Put the timing only in schedule: hourly runs every everyHours hours (1, 2, 3, 4, 6, 8 or 12) around the clock, lined up with time; daily, weekdays and weekly run once at time. Make instructions describe only what each run should do. Keep the name short and specific. Use the current chat and device timezone by default. Only name plugins or skills the user explicitly requests.",
+          "Create a routine for recurring work in this chat. Once the user approves it, it runs on its schedule. Call this tool as soon as the routine details are complete. The app previews the tool arguments and asks the user before execution, so do not ask for separate confirmation. Put the timing only in schedule: hourly runs every everyHours hours (1, 2, 3, 4, 6, 8 or 12) around the clock, lined up with time; daily, weekdays and weekly run once at time. Make instructions describe only what each run should do. Keep the name short and specific. Use the current chat and device timezone by default. Only name plugins or skills the user explicitly requests. Set newChatEachRun when the user wants every run in a new chat.",
         inputSchema: routineToolInputSchema,
         requireApproval: false,
-        execute: async ({ skillNames, connectorNames, ...input }) =>
+        execute: async ({ skillNames, connectorNames, newChatEachRun, ...input }) =>
           options.createRoutine!(
             threadId,
             await decodeCreateRoutineInput(
@@ -84,6 +84,7 @@ export async function resolveOttoTools(
                 ...input,
                 ...(skillNames ? { skillNames } : {}),
                 ...(connectorNames ? { connectorNames } : {}),
+                ...(newChatEachRun ? { newChatEachRun } : {}),
               },
               {
                 onExcessProperty: "error",

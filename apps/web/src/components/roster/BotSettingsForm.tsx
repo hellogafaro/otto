@@ -39,7 +39,7 @@ import { BotPersonalityToneField } from "./BotPersonalityToneField";
 import { BotToolSwitches } from "./BotToolSwitches";
 import { BOT_SANDBOX_OPTIONS, botSandboxLabel } from "./botSandbox";
 import type { Bot } from "./types";
-import { useBotThreadRef } from "./useBotThreadRef";
+import { useLatestBotChatRef } from "./useBotThreadRef";
 import {
   BOT_IMAGE_PROVIDER_DEFAULT,
   botImageProviderFromSelectValue,
@@ -81,7 +81,7 @@ export function BotSettingsForm({
       imageProviders.data?.providers.find((status) => status.provider === provider),
     );
 
-  const threadRef = useBotThreadRef(bot.id);
+  const threadRef = useLatestBotChatRef(bot.id);
 
   const accessQuery = useEnvironmentQuery(
     environmentId === null
@@ -149,17 +149,23 @@ export function BotSettingsForm({
       {/* Otto: Leaving a field saves at once; edits otherwise save 800ms after the last one. */}
       <div className="flex min-h-0 flex-1 flex-col" onBlurCapture={draft.flush}>
         <SettingsPageContainer>
-          <div className="flex items-center gap-4">
-            <BotAvatarView avatar={bot.avatar} name={draft.name || bot.name} className="size-14" />
-            <div className="min-w-0">
-              <h1 className="truncate text-22px leading-title font-medium tracking-title-lg">
-                {draft.name || bot.name}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {t("Set up how this bot works with you.")}
-              </p>
+          <header>
+            <div className="flex items-center gap-4">
+              <BotAvatarView
+                avatar={bot.avatar}
+                name={draft.name || bot.name}
+                className="size-14"
+              />
+              <div className="min-w-0">
+                <h1 className="truncate text-22px leading-title font-medium tracking-title-lg">
+                  {draft.name || bot.name}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {t("Set up how this bot works with you.")}
+                </p>
+              </div>
             </div>
-          </div>
+          </header>
 
           <BotIdentityFields bot={bot} draft={draft} onChangeAvatar={() => setAvatarOpen(true)} />
 

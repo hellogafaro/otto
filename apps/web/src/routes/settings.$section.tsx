@@ -17,7 +17,11 @@ export const Route = createFileRoute("/settings/$section")({
 
     // Plugins moved out of Settings into Customize.
     if (params.section === "plugins") {
-      throw redirect({ to: "/customize", replace: true });
+      throw redirect({
+        to: "/settings/$section",
+        params: { section: "integrations" },
+        replace: true,
+      });
     }
 
     const legacy = Object.entries(LEGACY_SETTINGS_SECTIONS).find(

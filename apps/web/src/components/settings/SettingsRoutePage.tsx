@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from "@tanstack/react-router";
+import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 
 import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
@@ -10,16 +10,19 @@ import {
   WorkspaceBreadcrumbItem,
   WorkspaceBreadcrumbSeparator,
 } from "../WorkspaceBreadcrumb";
-import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import { WorkspaceBackButton, WorkspacePageHeader } from "../WorkspacePageHeader";
 import { settingsSectionLabel } from "./SettingsDialog";
 import { SettingsPageTitleContext } from "./settingsLayout";
 
 export function SettingsRoutePage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   const sidebarExperiment = useSidebarExperiment();
   const section = settingsSectionFromPathname(pathname);
   const label = t(settingsSectionLabel(section));
+  // Otto: a subpage (a bot, a provider, an app) returns to its section from the top bar.
+  const subpage = pathname !== `/settings/${section}`;
 
   return (
     <SidebarInset
@@ -29,7 +32,14 @@ export function SettingsRoutePage() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col text-foreground">
         {sidebarExperiment ? (
           // The panel already says "Settings" and the page opens with its own title.
-          <WorkspacePageHeader electron={isElectron} />
+          <WorkspacePageHeader electron={isElectron}>
+            {subpage ? (
+              <WorkspaceBackButton
+                label={label}
+                onBack={() => void navigate({ to: "/settings/$section", params: { section } })}
+              />
+            ) : null}
+          </WorkspacePageHeader>
         ) : (
           <WorkspacePageHeader electron={isElectron} className="border-b border-border/70">
             <WorkspaceBreadcrumb ariaLabel={t("Settings breadcrumb")}>
@@ -42,7 +52,7 @@ export function SettingsRoutePage() {
           </WorkspacePageHeader>
         )}
         <div className="flex min-h-0 flex-1 flex-col">
-          <SettingsPageTitleContext value={pathname === `/settings/${section}` ? label : null}>
+          <SettingsPageTitleContext value={subpage ? null : label}>
             <Outlet />
           </SettingsPageTitleContext>
         </div>

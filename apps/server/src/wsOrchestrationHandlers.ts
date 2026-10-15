@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   AuthAccessWriteScope,
+  type ClientOrchestrationCommand,
   CommandId,
   OrchestrationDispatchCommandError,
   OrchestrationGetFullThreadDiffError,
@@ -29,8 +30,9 @@ import {
 } from "./orchestration/Normalizer.ts";
 import { readWorkflowScript } from "./orchestration/workflowScriptQuery.ts";
 import {
-  canSeeGroup,
+  canSeeRoutine,
   canSeeThread,
+  canSeeThreadById,
   visibleShellSnapshot,
 } from "./orchestration/groupVisibility.ts";
 import { preflightProvider } from "./provider/providerPreflight.ts";
@@ -48,6 +50,7 @@ export const createWsOrchestrationHandlers = ({
   providerRegistry,
   subscriptionAuth,
   serverSettings,
+  textGeneration,
   startup,
   commandReceipts,
   channelRuntime,
@@ -67,6 +70,7 @@ export const createWsOrchestrationHandlers = ({
   | "providerRegistry"
   | "subscriptionAuth"
   | "serverSettings"
+  | "textGeneration"
   | "startup"
   | "commandReceipts"
   | "channelRuntime"
@@ -76,8 +80,44 @@ export const createWsOrchestrationHandlers = ({
   | "loadEnvironmentPeople"
   | "currentSession"
   | "dispatchNormalizedCommand"
->) =>
-  ({
+>) => {
+  // Otto: A cleared routine title comes back generated from the routine's instructions.
+  const withRegeneratedRoutineTitle = (command: ClientOrchestrationCommand) =>
+    Effect.gen(function* () {
+      if (command.type !== "routine.update" || command.regenerateTitle !== true) return command;
+      const { regenerateTitle: _, ...update } = command;
+
+      const routine = (yield* projectionSnapshotQuery.getShellSnapshot()).routines?.find(
+        (candidate) => candidate.id === command.routineId,
+      );
+
+      if (routine === undefined || Option.isNone(textGeneration)) {
+        return yield* new OrchestrationDispatchCommandError({
+          message: "That routine title cannot be generated here.",
+        });
+      }
+
+      const { textGenerationModelSelection: modelSelection } = yield* serverSettings.getSettings;
+
+      const { title } = yield* textGeneration.value.generateThreadTitle({
+        cwd: process.cwd(),
+        message: routine.procedure,
+        modelSelection,
+      });
+
+      return { ...update, job: title };
+    }).pipe(
+      Effect.mapError((cause) =>
+        isOrchestrationDispatchCommandError(cause)
+          ? cause
+          : new OrchestrationDispatchCommandError({
+              message: "Could not generate a routine title.",
+              cause,
+            }),
+      ),
+    );
+
+  return {
     [ORCHESTRATION_WS_METHODS.dispatchCommand]: (command) =>
       observeRpcEffect(
         ORCHESTRATION_WS_METHODS.dispatchCommand,
@@ -108,7 +148,9 @@ export const createWsOrchestrationHandlers = ({
             );
           }
 
-          const decodedCommand = yield* normalizeDispatchCommand(command);
+          const decodedCommand = yield* normalizeDispatchCommand(
+            yield* withRegeneratedRoutineTitle(command),
+          );
 
           const currentPerson =
             decodedCommand.type === "group.create" ||
@@ -125,6 +167,38 @@ export const createWsOrchestrationHandlers = ({
           });
 
           let normalizedCommand = actorCommand;
+
+          // Otto: Nobody acts on a chat they cannot see.
+          const targetThreadId =
+            "threadId" in actorCommand && actorCommand.type !== "thread.create"
+              ? actorCommand.threadId
+              : undefined;
+
+          if (
+            targetThreadId !== undefined &&
+            !(yield* canSeeThreadById(
+              { projectionSnapshotQuery, projectionGroups },
+              targetThreadId,
+              currentPersonId,
+            ))
+          ) {
+            return yield* new OrchestrationDispatchCommandError({
+              message: "This chat is private to the person who started it.",
+            });
+          }
+
+          // Otto: Nor on a routine kept private by the person who set it up.
+          if ("routineId" in actorCommand) {
+            const routine = (yield* projectionSnapshotQuery.getShellSnapshot()).routines?.find(
+              (candidate) => candidate.id === actorCommand.routineId,
+            );
+
+            if (routine !== undefined && !canSeeRoutine(routine, currentPersonId)) {
+              return yield* new OrchestrationDispatchCommandError({
+                message: "This routine is private to the person who set it up.",
+              });
+            }
+          }
 
           if (commandNamesPeople(actorCommand)) {
             const people = yield* accounts
@@ -412,8 +486,6 @@ export const createWsOrchestrationHandlers = ({
                 members: group.members,
               }));
 
-              if (groups.every((group) => canSeeGroup(group, currentPersonId))) return result;
-
               const matches = yield* Effect.filter(result.matches, (match) =>
                 projectionSnapshotQuery
                   .getThreadShellById(match.threadId)
@@ -465,7 +537,7 @@ export const createWsOrchestrationHandlers = ({
         ),
         { "rpc.aggregate": "orchestration" },
       ),
-  }) satisfies Pick<
+  } satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     | typeof ORCHESTRATION_WS_METHODS.dispatchCommand
     | typeof ORCHESTRATION_WS_METHODS.getWorkflowScript
@@ -474,3 +546,4 @@ export const createWsOrchestrationHandlers = ({
     | typeof ORCHESTRATION_WS_METHODS.searchThreads
     | typeof ORCHESTRATION_WS_METHODS.getArchivedShellSnapshot
   >;
+};

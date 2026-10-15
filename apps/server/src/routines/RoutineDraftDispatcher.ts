@@ -175,6 +175,7 @@ const make = Effect.gen(function* () {
         routineId,
         botId,
         targetThreadId: threadId,
+        threadMode: input.newChatEachRun === true ? "per-run" : "target",
         job: input.name,
         procedure: input.instructions,
         schedule: input.schedule,
@@ -185,6 +186,9 @@ const make = Effect.gen(function* () {
         sandbox: "local",
         approvalPolicy: thread.runtimeMode,
         delegateToBotId: null,
+        // Otto: A routine belongs to whoever started its chat and is seen as that chat is.
+        createdBy: thread.createdBy ?? null,
+        visibility: thread.groupId == null ? (thread.visibility ?? "organization") : "organization",
         createdAt: now,
       });
 
@@ -349,6 +353,7 @@ const make = Effect.gen(function* () {
         routineId,
         botId: routine.botId,
         targetThreadId: routine.targetThreadId,
+        threadMode: routine.threadMode,
         job: input.name ?? routine.job,
         procedure: input.instructions ?? routine.procedure,
         schedule: input.schedule ?? routine.schedule,
@@ -359,6 +364,8 @@ const make = Effect.gen(function* () {
         sandbox: routine.sandbox,
         approvalPolicy: routine.approvalPolicy,
         delegateToBotId: routine.delegateToBotId,
+        createdBy: routine.createdBy,
+        visibility: routine.visibility,
         expectedProcedureVersion: routine.procedureVersion,
         createdAt,
       });

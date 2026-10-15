@@ -264,6 +264,27 @@ export function readThreadShell(ref: ScopedThreadRef): EnvironmentThreadShell | 
   return appAtomRegistry.get(environmentThreadShells.threadShellAtom(ref));
 }
 
+/** Otto: resolves once a just-created thread's shell arrives, or false after the timeout. */
+export function waitForThreadShell(ref: ScopedThreadRef, timeoutMs: number): Promise<boolean> {
+  const shellAtom = environmentThreadShells.threadShellAtom(ref);
+
+  if (appAtomRegistry.get(shellAtom) !== null) return Promise.resolve(true);
+
+  return new Promise<boolean>((resolve) => {
+    const finish = (arrived: boolean) => {
+      globalThis.clearTimeout(timeoutId);
+      unsubscribe();
+      resolve(arrived);
+    };
+
+    const unsubscribe = appAtomRegistry.subscribe(shellAtom, (shell) => {
+      if (shell !== null) finish(true);
+    });
+
+    const timeoutId = globalThis.setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
 /** Whether the environment's server understands thread.settle/unsettle.
     False for pre-settlement servers (capability defaults false on decode),
     so clients under version skew fall back instead of erroring. */

@@ -39,9 +39,9 @@ import { SettingsCard, SettingsRow } from "../settings/settingsLayout";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
 import { Switch } from "../ui/switch";
+import { SettingsPageContainer } from "../settings/settingsLayout";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { WorkspacePageContainer } from "../WorkspacePageContainer";
-import { WorkEmpty, WorkPage } from "../work/WorkPages";
+import { WorkEmpty } from "../work/WorkPages";
 import { CustomizeGroup, CustomizeItem, CustomizeRow } from "./CustomizeGroup";
 import { serverHost } from "./CustomizeIntegrations";
 import { deleteSkill, skillContents } from "./CustomizeSkills";
@@ -53,10 +53,13 @@ export function DetailHeader({
   logo,
   title,
   description,
+  actions,
 }: {
   readonly logo: ReactNode;
   readonly title: string;
   readonly description: string | null;
+  /** Quiet icon actions at the header's right, such as Edit and Remove. */
+  readonly actions?: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-4">
@@ -71,6 +74,7 @@ export function DetailHeader({
           <p className="line-clamp-2 text-13px leading-copy text-muted-foreground">{description}</p>
         ) : null}
       </div>
+      {actions ? <div className="ms-auto flex shrink-0 items-center gap-1.5">{actions}</div> : null}
     </div>
   );
 }
@@ -100,7 +104,7 @@ function OwnerRow({
   );
 }
 
-/** A quiet 28px icon action in the top bar with its tooltip, like every page's top bar. */
+/** A quiet 28px icon action with its tooltip, at the right of the page header. */
 function TopAction({
   icon,
   label,
@@ -124,41 +128,18 @@ function TopAction({
   );
 }
 
-function DetailLayout({
-  type,
-  actions,
-  children,
-}: {
-  readonly type: CustomizeEntityType;
-  readonly actions?: ReactNode;
-  readonly children: ReactNode;
-}) {
-  const { t } = useI18n();
-  const navigate = useNavigate();
-
-  const back = {
-    label: t("Customize"),
-    onBack: () =>
-      void navigate({ to: "/customize", search: type === "skill" ? { tab: "skills" } : {} }),
-  };
-
-  return (
-    <WorkPage back={back} actions={actions}>
-      <WorkspacePageContainer width="narrow" className="flex-1 gap-10 pt-3 pb-16 sm:pt-4">
-        {children}
-      </WorkspacePageContainer>
-    </WorkPage>
-  );
+function DetailLayout({ children }: { readonly children: ReactNode }) {
+  return <SettingsPageContainer>{children}</SettingsPageContainer>;
 }
 
 const personName = (participant: WorkParticipant | undefined) =>
   participant?.kind === "person" ? participant.displayName : null;
 
-function NotFound({ type }: { readonly type: CustomizeEntityType }) {
+function NotFound() {
   const { t } = useI18n();
 
   return (
-    <DetailLayout type={type}>
+    <DetailLayout>
       <WorkEmpty
         icon={<RiShapesLine />}
         title={t("Not found")}
@@ -298,7 +279,7 @@ function McpDetail({
   const [edits, setEdits] = useState(0);
   const server: McpServer | undefined = servers.find((candidate) => candidate.id === id);
 
-  if (!server) return <NotFound type="mcp" />;
+  if (!server) return <NotFound />;
   const manageable = server.createdBy === undefined || server.createdBy.personId === personId;
 
   const toggle = async (enabled: boolean) => {
@@ -334,7 +315,7 @@ function McpDetail({
     const result = await commands.remove({ environmentId, input: { mcpServerId: server.id } });
 
     if (!commands.failed(t("Could not remove {name}", { name: server.name }), result)) {
-      void navigate({ to: "/customize" });
+      void navigate({ to: "/settings/$section", params: { section: "integrations" } });
     }
   };
 
@@ -342,31 +323,29 @@ function McpDetail({
   const host = serverHost(server, t);
 
   return (
-    <DetailLayout
-      type="mcp"
-      actions={
-        manageable ? (
-          <>
-            {address ? (
-              <TopAction
-                icon={<RiPencilLine aria-hidden className="size-4" />}
-                label={t("Edit")}
-                onClick={() => setEditing(true)}
-              />
-            ) : null}
-            <TopAction
-              icon={<RiDeleteBinLine aria-hidden className="size-4" />}
-              label={t("Remove")}
-              onClick={() => void remove()}
-            />
-          </>
-        ) : null
-      }
-    >
+    <DetailLayout>
       <DetailHeader
         logo={<RiPuzzleLine aria-hidden className="size-5" />}
         title={server.name}
         description={t("MCP server · {host}", { host })}
+        actions={
+          manageable ? (
+            <>
+              {address ? (
+                <TopAction
+                  icon={<RiPencilLine aria-hidden className="size-4" />}
+                  label={t("Edit")}
+                  onClick={() => setEditing(true)}
+                />
+              ) : null}
+              <TopAction
+                icon={<RiDeleteBinLine aria-hidden className="size-4" />}
+                label={t("Remove")}
+                onClick={() => void remove()}
+              />
+            </>
+          ) : null
+        }
       />
       <SettingsCard>
         <SettingsRow
@@ -382,7 +361,7 @@ function McpDetail({
           }
         />
         <OwnerRow
-          visibility={server.visibility ?? "workspace"}
+          visibility={server.visibility ?? "organization"}
           editable={manageable}
           owner={manageable ? null : (server.createdBy?.displayName ?? null)}
           onChange={(visibility) => void setVisibility(visibility)}
@@ -442,9 +421,9 @@ function SkillDetail({
     if (savedAt) refreshDocument();
   }, [savedAt, refreshDocument]);
 
-  if (!data.loaded) return <DetailLayout type="skill">{null}</DetailLayout>;
+  if (!data.loaded) return <DetailLayout>{null}</DetailLayout>;
 
-  if (!skill) return <NotFound type="skill" />;
+  if (!skill) return <NotFound />;
   const editable = data.canEdit(skill);
   const contents = skillContents(skill, data.folders, data.files);
   const frontMatter = document.data ? parseSkillFrontMatter(document.data.content) : {};
@@ -495,42 +474,40 @@ function SkillDetail({
       fail: (result) => fail(result, t("Could not delete {name}", { name: skill.title })),
     });
 
-    if (removed) void navigate({ to: "/customize", search: { tab: "skills" } });
+    if (removed) void navigate({ to: "/settings/$section", params: { section: "skills" } });
   };
 
   const creator = personName(skill.createdBy);
 
   return (
-    <DetailLayout
-      type="skill"
-      actions={
-        <>
-          {main ? (
-            <TopAction
-              icon={<RiPencilLine aria-hidden className="size-4" />}
-              label={t("Edit SKILL.md")}
-              onClick={() => openFile(main)}
-            />
-          ) : null}
-          <TopAction
-            icon={<RiFolderOpenLine aria-hidden className="size-4" />}
-            label={t("Open folder")}
-            onClick={() => void navigate({ to: "/library", search: { folder: skill.id } })}
-          />
-          {editable ? (
-            <TopAction
-              icon={<RiDeleteBinLine aria-hidden className="size-4" />}
-              label={t("Delete")}
-              onClick={() => void remove()}
-            />
-          ) : null}
-        </>
-      }
-    >
+    <DetailLayout>
       <DetailHeader
         logo={<RiSparkling2Line aria-hidden className="size-5" />}
         title={frontMatter.name ?? skill.title}
         description={frontMatter.description ?? (main ? null : t("No SKILL.md yet"))}
+        actions={
+          <>
+            {main ? (
+              <TopAction
+                icon={<RiPencilLine aria-hidden className="size-4" />}
+                label={t("Edit SKILL.md")}
+                onClick={() => openFile(main)}
+              />
+            ) : null}
+            <TopAction
+              icon={<RiFolderOpenLine aria-hidden className="size-4" />}
+              label={t("Open folder")}
+              onClick={() => void navigate({ to: "/library", search: { folder: skill.id } })}
+            />
+            {editable ? (
+              <TopAction
+                icon={<RiDeleteBinLine aria-hidden className="size-4" />}
+                label={t("Delete")}
+                onClick={() => void remove()}
+              />
+            ) : null}
+          </>
+        }
       />
       <SettingsCard>
         <OwnerRow
@@ -577,7 +554,7 @@ function DetailBody({
  * on the `narrow` column: a 40px logo tile beside the 22px name and its type line, then one
  * Settings-style card (Status with its switch or state, Owner, and a server's Address), then
  * a server's tools or a skill's files. Actions (Edit, Remove, Disconnect, Delete) are quiet 28px
- * icons with tooltips in the top bar, never a menu.
+ * icons with tooltips at the header's right, never a menu.
  */
 export function CustomizeDetailPage({
   type,
@@ -588,7 +565,7 @@ export function CustomizeDetailPage({
 }) {
   const environmentId = usePrimaryEnvironmentId();
 
-  if (!environmentId) return <DetailLayout type={type}>{null}</DetailLayout>;
+  if (!environmentId) return <DetailLayout>{null}</DetailLayout>;
 
   return <DetailBody type={type} environmentId={environmentId} id={id} />;
 }

@@ -117,7 +117,7 @@ export function composioAccountVisibleTo(
 ): boolean {
   return (
     record === undefined ||
-    record.visibility === "workspace" ||
+    record.visibility === "organization" ||
     (personId !== null && record.createdBy === personId)
   );
 }
@@ -469,7 +469,7 @@ export function make(
               ...connection,
               ...(app ? { toolkitName: app.name } : {}),
               ...(app?.logoUrl ? { logoUrl: app.logoUrl } : {}),
-              visibility: record?.visibility ?? "workspace",
+              visibility: record?.visibility ?? "organization",
               manageable: manageableBy(record, viewer.personId),
               ...(!mine && record?.createdByName ? { ownerName: record.createdByName } : {}),
               botAccess: record?.botAccess ?? {},
@@ -661,7 +661,8 @@ export function make(
       // Otto: Anyone switches a team account for a bot; only its owner changes who it is for
       // or lends a personal account to a bot.
       const record =
-        input.visibility === undefined && (existing?.visibility ?? "workspace") === "workspace"
+        input.visibility === undefined &&
+        (existing?.visibility ?? "organization") === "organization"
           ? existing
           : yield* requireManageable(input.connectionId, viewer.personId);
 
@@ -674,7 +675,7 @@ export function make(
         createdBy: record?.createdBy ?? (input.visibility === undefined ? null : viewer.personId),
         createdByName:
           record?.createdByName ?? (input.visibility === undefined ? null : viewer.displayName),
-        visibility: input.visibility ?? record?.visibility ?? "workspace",
+        visibility: input.visibility ?? record?.visibility ?? "organization",
         botAccess,
       });
       yield* tryComposio("delete hosted tool sessions", invalidateHostedSessions);

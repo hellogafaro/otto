@@ -49,15 +49,13 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   Link: ({ children }: { readonly children?: ReactNode }) => <a>{children}</a>,
 }));
 
-import { BotDetailsPanel } from "./BotDetailsPanel";
 import { BotMemorySheet } from "./BotMemorySheet";
 import { RosterPanelHeader } from "./BotRosterSidebar";
 import { BotStepMeter } from "./BotStepMeter";
 import { BotToolsSection } from "./BotToolsSection";
 import { BotUsageSection } from "./BotUsageSection";
-import { GroupDetailsPanel } from "./GroupDetailsPanel";
+import { GroupEditor } from "./GroupEditor";
 import { NewBotDialog } from "./NewBotDialog";
-import { NewGroupDialog } from "./NewGroupDialog";
 import type { Bot, Group } from "./types";
 
 // The shipped catalog, loaded the same way the language selector loads it.
@@ -97,16 +95,7 @@ const otto = makeBot("bot-otto", "Otto");
 const mori = makeBot("bot-mori", "Mori");
 
 describe("roster in Simplified Chinese", () => {
-  it("translates the bot details panel", () => {
-    const markup = renderInChinese(<BotDetailsPanel bot={otto} />);
-    expect(markup).toContain("打开 Otto 机器人侧边栏");
-    expect(markup).toContain("收起 Otto 机器人侧边栏");
-    expect(markup).toContain("没有可用的提供商");
-    expect(markup).not.toContain("No provider ready");
-    expect(markup).not.toContain("Open bot settings");
-  });
-
-  it("translates the group details panel", () => {
+  it("translates the group editor", () => {
     const group: Group = {
       id: "group-1",
       name: "Research",
@@ -120,7 +109,7 @@ describe("roster in Simplified Chinese", () => {
     };
 
     const markup = renderInChinese(
-      <GroupDetailsPanel
+      <GroupEditor
         environmentId={EnvironmentId.make("environment-1")}
         group={group}
         bots={[otto, mori]}
@@ -130,7 +119,6 @@ describe("roster in Simplified Chinese", () => {
 
     expect(markup).toContain("删除群组");
     expect(markup).not.toContain("Delete group");
-    expect(markup).not.toContain("Collapse");
   });
 
   it("translates the step meter", () => {
@@ -202,38 +190,12 @@ describe("roster in Simplified Chinese", () => {
     expect(markup).not.toContain("Name your bot");
   });
 
-  it("translates the new group dialog", () => {
-    const markup = renderInChinese(
-      <NewGroupDialog
-        open
-        bots={[]}
-        people={[
-          { personId: "user-me", displayName: "Me" },
-          { personId: "user-ana", displayName: "Ana" },
-        ]}
-        currentPersonId="user-me"
-        onOpenChange={() => {}}
-        onCreate={() => {}}
-      />,
-    );
-
-    expect(markup).toContain("新建群组");
-    expect(markup).toContain("选择此群组的成员。每个机器人都会收到每条消息。");
-    expect(markup).toContain("请至少选择一个机器人。");
-    expect(markup).toContain("成员");
-    expect(markup).toContain("Ana");
-    expect(markup).not.toContain("Choose who is in");
-    expect(markup).not.toContain("Select at least one bot.");
-  });
-
   it("translates the roster panel header", () => {
-    const markup = renderInChinese(
-      <RosterPanelHeader onNewBot={() => {}} onNewGroup={() => {}} onSearch={() => {}} />,
-    );
+    const markup = renderInChinese(<RosterPanelHeader onNewChat={() => {}} onSearch={() => {}} />);
 
     expect(markup).toContain('aria-label="搜索"');
-    expect(markup).toContain('aria-label="新建"');
+    expect(markup).toContain('aria-label="新聊天"');
     expect(markup).not.toContain('aria-label="Search"');
-    expect(markup).not.toContain('aria-label="Create"');
+    expect(markup).not.toContain('aria-label="New chat"');
   });
 });

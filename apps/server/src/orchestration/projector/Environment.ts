@@ -11,6 +11,7 @@ import {
   RoutineEnabledPayload,
   RoutineFailedPayload,
   RoutinePausedPayload,
+  RoutineUpdatedPayload,
   RoutineRunCanceledPayload,
   RoutineRunningPayload,
   RoutineSkillAssignedPayload,
@@ -187,12 +188,14 @@ export function projectEnvironment(
     case "routine.approved":
     case "routine.enabled":
     case "routine.paused":
+    case "routine.updated":
     case "routine.deleted": {
       const schema = Match.value(event.type).pipe(
         Match.when("routine.drafted", () => RoutineDraftedPayload),
         Match.when("routine.approved", () => RoutineApprovedPayload),
         Match.when("routine.enabled", () => RoutineEnabledPayload),
         Match.when("routine.paused", () => RoutinePausedPayload),
+        Match.when("routine.updated", () => RoutineUpdatedPayload),
         Match.orElse(() => RoutineDeletedPayload),
       );
 

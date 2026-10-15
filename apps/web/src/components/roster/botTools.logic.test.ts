@@ -108,7 +108,7 @@ describe("bot tool status", () => {
 describe("buildBotAccountItems", () => {
   const account = (
     id: string,
-    visibility: "user" | "workspace",
+    visibility: "user" | "organization",
     botAccess: Record<string, boolean> = {},
   ) => ({
     id,
@@ -120,7 +120,7 @@ describe("buildBotAccountItems", () => {
   });
 
   it("turns team accounts on for every bot and personal ones only for the owner's bots", () => {
-    const connections = [account("slack", "workspace"), account("gmail", "user")];
+    const connections = [account("slack", "organization"), account("gmail", "user")];
 
     expect(
       buildBotAccountItems(connections, { id: "bot-1", ownerPersonId: "ana" }, "ana").map(
@@ -144,7 +144,7 @@ describe("buildBotAccountItems", () => {
 
   it("lets a per-bot switch override the default", () => {
     const connections = [
-      account("slack", "workspace", { "bot-1": false }),
+      account("slack", "organization", { "bot-1": false }),
       account("gmail", "user", { "bot-1": true }),
     ];
 

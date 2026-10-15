@@ -176,7 +176,8 @@ export function buildBotAccountItems(
   return connections
     .map((connection) => ({
       connection,
-      enabled: connection.botAccess[bot.id] ?? (connection.visibility === "workspace" || ownsBot),
+      enabled:
+        connection.botAccess[bot.id] ?? (connection.visibility === "organization" || ownsBot),
     }))
     .toSorted((left, right) =>
       (left.connection.toolkitName ?? left.connection.toolkitSlug).localeCompare(
@@ -194,7 +195,7 @@ export function botSkillFolders(
     .filter(
       (folder) =>
         folder.parentId === LIBRARY_SKILLS_FOLDER_ID &&
-        (folder.visibility === "workspace" ||
+        (folder.visibility === "organization" ||
           (folder.createdBy.kind === "person" &&
             ownerPersonId !== null &&
             folder.createdBy.personId === ownerPersonId)),

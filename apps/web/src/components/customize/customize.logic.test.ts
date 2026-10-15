@@ -46,9 +46,9 @@ describe("parseCustomizePageSearch", () => {
 
 describe("parseCustomizeAppsSearch", () => {
   it("keeps the filter and a known group", () => {
-    expect(parseCustomizeAppsSearch({ q: "gm", visibility: "workspace" })).toEqual({
+    expect(parseCustomizeAppsSearch({ q: "gm", visibility: "organization" })).toEqual({
       q: "gm",
-      visibility: "workspace",
+      visibility: "organization",
     });
     expect(parseCustomizeAppsSearch({ visibility: "everyone" })).toEqual({});
   });

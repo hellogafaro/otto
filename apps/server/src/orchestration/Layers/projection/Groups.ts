@@ -76,6 +76,9 @@ export function createGroups({
             members: existing.value.members.filter(
               (member) => !isGroupBotMember(member) || member.botId !== event.payload.botId,
             ),
+            // Otto: the last bot leaving a group leaves it people only, with no boss.
+            bossBotId:
+              existing.value.bossBotId === event.payload.botId ? null : existing.value.bossBotId,
             updatedAt: event.payload.updatedAt,
           });
 

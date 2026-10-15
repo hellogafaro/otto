@@ -10,11 +10,12 @@ import { cn } from "~/lib/utils";
 const buttonPresentations = {
   "toolbar-toggle-on": "bg-accent text-foreground",
   "toolbar-sticky": "bg-background/95",
+  // Otto: composer pickers are compact like Capy's: 13px labels, 8px sides and 4px gaps.
   "composer-control":
-    "gap-1.5 rounded-(--control-radius) px-2.5 text-secondary-label transition-none hover:text-foreground",
+    "gap-1 rounded-(--control-radius) px-2 text-13px sm:text-13px text-secondary-label transition-none hover:text-foreground",
   // A composer picker trigger placed in a settings row, in near-full foreground ink.
   "composer-control-settings-row":
-    "gap-1.5 rounded-(--control-radius) px-2.5 text-foreground/90 transition-none hover:text-foreground",
+    "gap-1 rounded-(--control-radius) px-2 text-13px sm:text-13px text-foreground/90 transition-none hover:text-foreground",
   "stash-badge": "gap-1 px-1.5",
   "stash-badge-active": "gap-1 px-1.5 [--control-icon-color:currentColor] text-foreground",
   "approval-accept":

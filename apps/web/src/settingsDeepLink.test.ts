@@ -50,6 +50,8 @@ describe("settings deep links", () => {
 
     expect([...SETTINGS_SECTIONS].filter((section) => !reached.has(section))).toEqual([
       "integrations",
+      "bots",
+      "skills",
     ]);
   });
 

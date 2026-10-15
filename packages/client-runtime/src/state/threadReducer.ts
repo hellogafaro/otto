@@ -195,6 +195,9 @@ export function applyThreadDetailEvent(
           ...(event.payload.linkedPullRequest !== undefined
             ? { linkedPullRequest: event.payload.linkedPullRequest }
             : {}),
+          ...(event.payload.visibility !== undefined
+            ? { visibility: event.payload.visibility }
+            : {}),
           updatedAt: event.payload.updatedAt,
         },
       };

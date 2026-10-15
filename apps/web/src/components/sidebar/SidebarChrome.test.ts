@@ -177,7 +177,7 @@ describe("sidebar footer", () => {
 
   it("creates manual bots with approval required without adding a first-run bot", () => {
     const rosterSource = NodeFS.readFileSync(
-      new URL("../roster/BotRosterSidebar.tsx", import.meta.url),
+      new URL("../roster/useCreateBot.ts", import.meta.url),
       "utf8",
     );
 

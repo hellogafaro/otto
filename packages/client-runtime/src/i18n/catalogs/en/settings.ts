@@ -122,7 +122,6 @@ export const settingsCatalog = {
   "Which subscription this bot uses to create images. The chat model above stays the same.":
     "Which subscription this bot uses to create images. The chat model above stays the same.",
   "Image provider": "Image provider",
-  "Open bot settings": "Open bot settings",
   "Open sidebar ({shortcut})": "Open sidebar ({shortcut})",
   "Could not update channel": "Could not update channel",
   "Open provider": "Open provider",

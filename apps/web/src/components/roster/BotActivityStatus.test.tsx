@@ -37,22 +37,6 @@ describe("bot activity status", () => {
     expect(markup).not.toContain("<button");
   });
 
-  it("shows a bot queued behind another as still and waiting, without a timer", () => {
-    const markup = renderToStaticMarkup(
-      <BotActivityStatus
-        bot={bot}
-        activity={{ label: "Reading a skill" }}
-        startedAt={null}
-        waiting
-      />,
-    );
-
-    expect(markup).toContain('data-bot-state="idle"');
-    expect(markup).toContain("Waiting to reply");
-    expect(markup).not.toContain("shimmer");
-    expect(markup).not.toContain("bot-activity-time");
-  });
-
   it("names the app or MCP server a tool works on once its name is known", () => {
     const app = {
       label: "Using an app",

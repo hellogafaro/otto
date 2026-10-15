@@ -523,6 +523,7 @@ export const connectionsCatalog = {
   "No tools": "没有工具",
   "Local servers aren't supported.": "不支持本地服务器。",
   "No integrations": "没有集成",
+  "No bots": "没有机器人",
   "No skills": "没有技能",
   "Connect apps like Slack and Gmail.": "连接 Slack 和 Gmail 等应用。",
   "Accounts stay connected when the key is from the same Composio project.":

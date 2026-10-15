@@ -1,14 +1,8 @@
 import { RiSearchLine } from "@remixicon/react";
 import { Match, Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
-import {
-  ARCHIVED_BOT_RETENTION_DAYS,
-  AuthSessionId,
-  BotId,
-  GroupId,
-  type EnvironmentId,
-} from "@otto/contracts";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { ARCHIVED_BOT_RETENTION_DAYS, BotId } from "@otto/contracts";
+import { useNavigate } from "@tanstack/react-router";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -16,10 +10,9 @@ import { useShallow } from "zustand/react/shallow";
 import { useI18n } from "../../i18n";
 import { resolveShortcutCommand } from "../../keybindings";
 import { isPreviewFocused } from "../../lib/previewFocus";
-import { randomUUID } from "../../lib/utils";
 import { isModelPickerOpen } from "../../modelPickerVisibility";
 import { selectActiveRightPanel, useRightPanelStore } from "../../rightPanelStore";
-import { botEnvironment, environmentPeopleAtom } from "../../state/bots";
+import { botEnvironment } from "../../state/bots";
 import { useThreadShells } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { primaryServerKeybindingsAtom } from "../../state/server";
@@ -37,13 +30,9 @@ import {
 import { Button } from "../ui/button";
 import { SidebarContent, SidebarGroup } from "../ui/sidebar";
 import { toastManager } from "../ui/toast";
-import { DEFAULT_BOT_RUNTIME_MODE } from "./botSandbox";
-import { NewBotDialog, type NewBotInput } from "./NewBotDialog";
-import { NewGroupDialog, type NewGroupInput } from "./NewGroupDialog";
 import {
   filterRosterBots,
   filterRosterGroups,
-  isRecordableChatPath,
   rosterItemKey,
   rosterItemsEqual,
   orderRosterBotsForShortcuts,
@@ -57,7 +46,7 @@ import { resolveRosterListState } from "./rosterRouteSelection";
 import { RosterLoadStatus } from "./RosterLoadStatus";
 import { useRosterLoadState } from "./useServerRoster";
 import type { Bot, Group } from "./types";
-import { useBotThreadRef } from "./useBotThreadRef";
+import { useOpenChat, useRoutedChat } from "./chatNavigation";
 import {
   BotRosterRow,
   ChatRosterRow,
@@ -65,20 +54,14 @@ import {
   RosterRail,
   RosterSectionLabel,
 } from "./RosterRows";
-import { RosterPanelHeader, RosterRailCreateMenu, RosterSidebarHeader } from "./RosterHeaders";
-import {
-  commandFailureMessage,
-  focusTargetAfterRosterArchive,
-  runCreateBotOnce,
-} from "./rosterCommands.logic";
+import { RosterPanelHeader, RosterRailNewChat, RosterSidebarHeader } from "./RosterHeaders";
+import { commandFailureMessage, focusTargetAfterRosterArchive } from "./rosterCommands.logic";
 
 export { focusTargetAfterRosterArchive, runCreateBotOnce } from "./rosterCommands.logic";
 
 export { RosterPanelHeader } from "./RosterHeaders";
 
 /** Stable row actions, so memoized rows skip re-rendering when the sidebar does. */
-// SAFETY: the empty ID is an inactive sentinel; its snapshot is absent, so no people load.
-const NO_PEOPLE_ENVIRONMENT = "" as EnvironmentId;
 
 const setRosterItemPinned = (item: RosterItemRef, pinned: boolean) =>
   useRosterStore.getState().setItemPinned(item, pinned);
@@ -94,39 +77,37 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const environmentId = usePrimaryEnvironmentId();
   const threadShells = useThreadShells();
-  const people = useAtomValue(environmentPeopleAtom(environmentId ?? NO_PEOPLE_ENVIRONMENT));
-
-  const createBotCommand = useAtomCommand(botEnvironment.create, {
-    reportFailure: false,
-  });
-
-  const createGroupCommand = useAtomCommand(botEnvironment.groups.create, {
-    reportFailure: false,
-  });
 
   const archiveBotCommand = useAtomCommand(botEnvironment.archive, { reportFailure: false });
-  const pathname = useLocation({ select: (location) => location.pathname });
+  const routed = useRoutedChat();
+  const openChat = useOpenChat();
 
-  const { bots, groups, lastMessageByBotId, selectedBotId, pinnedItems, unassignedItems } =
-    useRosterStore(
-      useShallow((state) => ({
-        bots: state.bots,
-        groups: state.groups,
-        lastMessageByBotId: state.lastMessageByBotId,
-        selectedBotId: state.selectedBotId,
-        pinnedItems: state.pinnedItems,
-        unassignedItems: state.unassignedItems,
-      })),
-    );
+  const routedChat = useMemo(
+    () =>
+      routed
+        ? { threadId: routed.threadRef.threadId, botId: routed.botId, groupId: routed.groupId }
+        : null,
+    [routed],
+  );
+
+  const routedBotId = routed?.botId ?? null;
+
+  const { bots, groups, lastMessageByBotId, pinnedItems, unassignedItems } = useRosterStore(
+    useShallow((state) => ({
+      bots: state.bots,
+      groups: state.groups,
+      lastMessageByBotId: state.lastMessageByBotId,
+      pinnedItems: state.pinnedItems,
+      unassignedItems: state.unassignedItems,
+    })),
+  );
 
   const rosterEnvironmentId = useRosterStore((state) => state.environmentId);
   const rosterListState = resolveRosterListState(environmentId, rosterEnvironmentId, bots);
   const rosterLoadState = useRosterLoadState();
   const [query, setQuery] = useState("");
 
-  const activeBotThreadRef = useBotThreadRef(
-    pathname.startsWith("/bots/") ? (selectedBotId ?? "") : "",
-  );
+  const activeBotThreadRef = routed?.threadRef ?? null;
 
   const previewOpen = useRightPanelStore((state) =>
     activeBotThreadRef
@@ -144,8 +125,6 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     [bots, groups, query],
   );
 
-  const groupRouteActive = pathname.startsWith("/groups/");
-  const botRouteActive = pathname.startsWith("/bots/");
   const searching = query.trim().length > 0;
 
   const pinnedKeys = useMemo(
@@ -218,37 +197,15 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     [visiblePinnedItems, visibleUnassignedItems],
   );
 
-  // Remember the chat route the selected bot lands on, so re-selecting the
-  // bot returns to its conversation. The first run after a selection change
-  // is skipped: the route still belongs to the previously selected bot.
-  const lastSelectedBotIdRef = useRef<string | null>(selectedBotId);
-  const pendingClickedBotIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    const selectionChanged = lastSelectedBotIdRef.current !== selectedBotId;
-    const selectionCameFromClick = pendingClickedBotIdRef.current === selectedBotId;
-    lastSelectedBotIdRef.current = selectedBotId;
-
-    if (selectionCameFromClick) pendingClickedBotIdRef.current = null;
-
-    if ((selectionChanged && selectionCameFromClick) || selectedBotId === null) return;
-
-    if (!isRecordableChatPath(pathname)) return;
-    useRosterStore.getState().recordChatPath(selectedBotId, pathname);
-  }, [pathname, selectedBotId]);
-
   const handleSelect = useCallback(
-    (bot: Bot) => {
-      pendingClickedBotIdRef.current = bot.id;
-      useRosterStore.getState().selectBot(bot.id);
-      void navigate({ to: "/bots/$botId", params: { botId: bot.id } });
-    },
-    [navigate],
+    (bot: Bot) => void openChat({ kind: "bot", id: bot.id }),
+    [openChat],
   );
 
   const handleOpenBotSettings = useCallback(
     (bot: Bot) => {
       useRosterStore.getState().selectBot(bot.id);
-      void navigate({ to: "/bots/$botId/settings", params: { botId: bot.id } });
+      void navigate({ to: "/settings/bots/$botId", params: { botId: bot.id } });
     },
     [navigate],
   );
@@ -272,28 +229,20 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
 
       const bot =
         resolveRosterShortcutBot(command ?? "", shortcutBots) ??
-        resolveAdjacentRosterBot(
-          command ?? "",
-          shortcutBots,
-          botRouteActive ? useRosterStore.getState().selectedBotId : null,
-        );
+        resolveAdjacentRosterBot(command ?? "", shortcutBots, routedBotId);
 
       if (!bot) return;
 
       event.preventDefault();
       event.stopPropagation();
-      pendingClickedBotIdRef.current = bot.id;
-      useRosterStore.getState().selectBot(bot.id);
-      void navigate({ to: "/bots/$botId", params: { botId: bot.id } });
+      void openChat({ kind: "bot", id: bot.id });
     };
 
     window.addEventListener("keydown", onWindowKeyDown);
 
     return () => window.removeEventListener("keydown", onWindowKeyDown);
-  }, [botRouteActive, keybindings, navigate, previewOpen, shortcutBots]);
+  }, [keybindings, openChat, previewOpen, routedBotId, shortcutBots]);
 
-  const [newBotOpen, setNewBotOpen] = useState(false);
-  const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [archivingBot, setArchivingBot] = useState<Bot | null>(null);
   const [pendingArchivedBotId, setPendingArchivedBotId] = useState<string | null>(null);
   // Archiving is the one close that cannot go back where it came from: the row
@@ -377,133 +326,22 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     setPendingArchivedBotId(null);
     focusRosterRow(focusTarget);
 
-    if (useRosterStore.getState().selectedBotId === pendingArchivedBotId) {
-      void navigate({ to: "/", replace: true });
-    }
-  }, [bots, focusRosterRow, navigate, pendingArchivedBotId]);
+    if (routedBotId === pendingArchivedBotId) void navigate({ to: "/", replace: true });
+  }, [bots, focusRosterRow, navigate, pendingArchivedBotId, routedBotId]);
 
-  const [pendingCreatedBotId, setPendingCreatedBotId] = useState<string | null>(null);
-  const [creatingBot, setCreatingBot] = useState(false);
-  const creatingBotRef = useRef(false);
-  const handleNewBot = () => setNewBotOpen(true);
-  const handleNewGroup = () => setNewGroupOpen(true);
-
-  const handleCreateBot = ({ name, avatar, engine }: NewBotInput) =>
-    runCreateBotOnce(creatingBotRef, async () => {
-      if (environmentId === null) {
-        toastManager.add({
-          type: "error",
-          title: t("Connect an environment first"),
-        });
-
-        return;
-      }
-
-      setCreatingBot(true);
-
-      try {
-        const botId = BotId.make(`bot-${randomUUID()}`);
-
-        const result = await createBotCommand({
-          environmentId,
-          input: {
-            botId,
-            name: name.trim(),
-            title: "Assistant",
-            label: null,
-            description: null,
-            avatar,
-            engine,
-            sandbox: null,
-            runtimeMode: DEFAULT_BOT_RUNTIME_MODE,
-            groupId: null,
-          },
-        });
-
-        if (Predicate.isTagged(result, "Failure")) {
-          toastManager.add({ type: "error", title: t("Could not create bot") });
-
-          return;
-        }
-
-        useRosterStore.getState().requestBotIntro(botId);
-
-        setNewBotOpen(false);
-        setPendingCreatedBotId(botId);
-      } finally {
-        setCreatingBot(false);
-      }
-    });
-
-  const handleCreateGroup = async (input: NewGroupInput) => {
-    if (environmentId === null) {
-      toastManager.add({
-        type: "error",
-        title: t("Connect an environment first"),
-      });
-
-      return;
-    }
-
-    const groupId = GroupId.make(`group-${randomUUID()}`);
-
-    const result = await createGroupCommand({
-      environmentId,
-      input: {
-        groupId,
-        name: input.name,
-        bossBotId: BotId.make(input.bossBotId),
-        specialistBotIds: input.specialistBotIds.map((botId) => BotId.make(botId)),
-        ...(input.people.length > 0
-          ? {
-              people: input.people.map((person) => ({
-                kind: "person" as const,
-                personId: AuthSessionId.make(person.personId),
-                displayName: person.displayName,
-              })),
-            }
-          : {}),
-      },
-    });
-
-    if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({ type: "error", title: t("Could not create group") });
-
-      return;
-    }
-
-    setNewGroupOpen(false);
-    void navigate({ to: "/groups/$groupId", params: { groupId } });
-  };
+  const handleNewChat = () => useRosterStore.getState().openNewChat({});
 
   const handleSelectGroup = useCallback(
-    (group: Group) => {
-      void navigate({ to: "/groups/$groupId", params: { groupId: group.id } });
-    },
-    [navigate],
+    (group: Group) => void openChat({ kind: "group", id: group.id }),
+    [openChat],
   );
-
-  useEffect(() => {
-    if (pendingCreatedBotId === null) return;
-    const bot = bots.find((candidate) => candidate.id === pendingCreatedBotId);
-
-    if (!bot) return;
-    const store = useRosterStore.getState();
-    store.selectBot(bot.id);
-    setPendingCreatedBotId(null);
-    void navigate({ to: "/", replace: true });
-  }, [bots, navigate, pendingCreatedBotId]);
 
   return (
     <>
       {chrome === "panel" ? (
-        <RosterPanelHeader
-          onNewBot={handleNewBot}
-          onNewGroup={handleNewGroup}
-          onSearch={() => setSearchOpen(true)}
-        />
+        <RosterPanelHeader onNewChat={handleNewChat} onSearch={() => setSearchOpen(true)} />
       ) : (
-        <RosterSidebarHeader onNewBot={handleNewBot} onNewGroup={handleNewGroup} />
+        <RosterSidebarHeader onNewChat={handleNewChat} />
       )}
       <SidebarContent
         scrollAnchoring={false}
@@ -541,7 +379,10 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
       >
         {Match.value(rosterListState).pipe(
           Match.when("loading", () => (
-            <RosterLoadStatus state={rosterLoadState} variant="sidebar" />
+            // Same inset as the list it stands in for, so rows don't shift when it lands.
+            <SidebarGroup className="px-(--sidebar-content-inset) pb-1 pt-1 group-data-[collapsible=icon]:hidden">
+              <RosterLoadStatus state={rosterLoadState} variant="sidebar" />
+            </SidebarGroup>
           )),
           Match.when("empty", () => (
             <div className="px-2 py-6 text-center text-sm text-sidebar-muted-foreground">
@@ -555,8 +396,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                 groups={visibleGroups}
                 bots={bots}
                 visibleBots={visibleBots}
-                pathname={pathname}
-                activeBotId={groupRouteActive ? null : selectedBotId}
+                openChat={routedChat}
                 onSelectBot={handleSelect}
                 onSelectGroup={handleSelectGroup}
               />
@@ -598,21 +438,14 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                       : item.zone === "pinned"
                         ? { label: t("Pins") }
                         : item.item.kind === "group"
-                          ? {
-                              label: t("Groups"),
-                              add: { label: t("New group"), onClick: handleNewGroup },
-                            }
-                          : {
-                              label: t("DMs"),
-                              add: { label: t("New bot"), onClick: handleNewBot },
-                            };
+                          ? { label: t("Groups") }
+                          : { label: t("DMs") };
 
                     return [
                       sectionLabel ? (
                         <RosterSectionLabel
                           key={`label:${rosterItemKey(item.item)}`}
                           label={sectionLabel.label}
-                          {...("add" in sectionLabel ? { add: sectionLabel.add } : {})}
                           first={rosterItemsEqual(
                             item.item,
                             (visiblePinnedItems[0] ?? visibleUnassignedItems[0])!,
@@ -632,8 +465,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                               key={rosterItemKey(item.item)}
                               threadId={chatId}
                               bot={bot}
-                              chatOpen={pathname === `/bots/${bot.id}`}
-                              onSelect={handleSelect}
+                              openThreadId={routedChat?.threadId ?? null}
                               onPin={setRosterItemPinned}
                               canMoveUp={canMoveUp}
                               canMoveDown={canMoveDown}
@@ -651,8 +483,9 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                               key={rosterItemKey(item.item)}
                               bot={bot}
                               lastMessage={lastMessageByBotId[bot.id] ?? null}
-                              isActive={!groupRouteActive && selectedBotId === bot.id}
-                              chatOpen={pathname === `/bots/${bot.id}`}
+                              openThreadId={
+                                routedBotId === bot.id ? (routedChat?.threadId ?? null) : null
+                              }
                               onSelect={handleSelect}
                               onOpenSettings={handleOpenBotSettings}
                               pinned={pinned}
@@ -674,7 +507,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                               key={rosterItemKey(item.item)}
                               group={group}
                               bots={bots}
-                              isActive={pathname === `/groups/${group.id}`}
+                              isActive={routed?.groupId === group.id}
                               onSelect={handleSelectGroup}
                               pinned={pinned}
                               onPin={setRosterItemPinned}
@@ -700,26 +533,8 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
         )}
         {/* Archiving is reversible, so the way back stays in the roster itself. */}
       </SidebarContent>
-      {/* Rail create menu sits above the footer, like the expanded header's plus. */}
-      <RosterRailCreateMenu onNewBot={handleNewBot} onNewGroup={handleNewGroup} />
-      {newBotOpen ? (
-        <NewBotDialog
-          open
-          submitting={creatingBot}
-          onOpenChange={setNewBotOpen}
-          onCreate={(input) => void handleCreateBot(input)}
-        />
-      ) : null}
-      {newGroupOpen ? (
-        <NewGroupDialog
-          open
-          bots={bots}
-          people={people.directory}
-          currentPersonId={people.current?.id ?? null}
-          onOpenChange={setNewGroupOpen}
-          onCreate={(input) => void handleCreateGroup(input)}
-        />
-      ) : null}
+      {/* The rail's New chat sits above the footer, like the expanded header's plus. */}
+      <RosterRailNewChat onNewChat={handleNewChat} />
       <AlertDialog
         open={archivingBot !== null}
         onOpenChange={(open) => {

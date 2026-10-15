@@ -139,10 +139,10 @@ export function CustomizeIntegrations({
 
   if (!composio.status.data) return null;
 
-  const groups = (["user", "workspace"] as const).map((visibility) => {
+  const groups = (["user", "organization"] as const).map((visibility) => {
     const apps = connections.filter((connection) => connection.visibility === visibility);
 
-    const mcps = servers.filter((server) => (server.visibility ?? "workspace") === visibility);
+    const mcps = servers.filter((server) => (server.visibility ?? "organization") === visibility);
 
     const count = apps.length + mcps.length;
 
@@ -163,7 +163,9 @@ export function CustomizeIntegrations({
           <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to team")}>
             {configured ? (
               <MenuItem
-                onClick={() => void navigate({ to: "/customize/apps", search: { visibility } })}
+                onClick={() =>
+                  void navigate({ to: "/settings/integrations/apps", search: { visibility } })
+                }
               >
                 {t("Connect an app")}
               </MenuItem>
@@ -184,7 +186,7 @@ export function CustomizeIntegrations({
               status={<ConnectionStatus connection={connection} />}
               onOpen={() =>
                 void navigate({
-                  to: "/customize/apps/$slug",
+                  to: "/settings/integrations/apps/$slug",
                   params: { slug: connection.toolkitSlug },
                   search: { visibility },
                 })
@@ -204,8 +206,8 @@ export function CustomizeIntegrations({
               status={server.enabled ? null : <Badge variant="quiet">{t("Off")}</Badge>}
               onOpen={() =>
                 void navigate({
-                  to: "/customize/$type/$id",
-                  params: { type: "mcp", id: server.id },
+                  to: "/settings/integrations/mcp/$id",
+                  params: { id: server.id },
                 })
               }
             />

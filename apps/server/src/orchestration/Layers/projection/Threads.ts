@@ -71,6 +71,8 @@ export function createThreads({
             ? {
                 parentThreadId: event.payload.parentThreadId,
                 parentDelegationId: event.payload.parentDelegationId ?? null,
+                createdBy: event.payload.createdBy ?? null,
+                visibility: event.payload.visibility ?? "organization",
               }
             : yield* delegationParentLink(event.payload.threadId);
 
@@ -335,6 +337,9 @@ export function createThreads({
               : {}),
             ...(event.payload.linkedPullRequest !== undefined
               ? { linkedPullRequest: event.payload.linkedPullRequest }
+              : {}),
+            ...(event.payload.visibility !== undefined
+              ? { visibility: event.payload.visibility }
               : {}),
             updatedAt: event.payload.updatedAt,
           });

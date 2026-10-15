@@ -70,7 +70,19 @@ export function resolveOttoInstructions(
       ? state.groupContext
       : "";
 
-  return [instructions, groupContext, mcpInstructions, skillsContext, persistentMemoryContext]
+  const projectContext =
+    isBotConversation && "projectContext" in state && Predicate.isString(state.projectContext)
+      ? state.projectContext
+      : "";
+
+  return [
+    instructions,
+    projectContext,
+    groupContext,
+    mcpInstructions,
+    skillsContext,
+    persistentMemoryContext,
+  ]
     .filter(Boolean)
     .join("\n\n");
 }

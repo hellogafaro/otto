@@ -21,21 +21,23 @@ function persistedRosterKey(environmentId: string | null): string {
   return environmentId ? `${PERSISTED_ROSTER_KEY}:${environmentId}` : PERSISTED_ROSTER_KEY;
 }
 
-/** A fresh chat with a bot, filed in a project, asked for from the project's page. */
-export interface ProjectChatRequest {
-  readonly botId: string;
-  readonly projectId: ProjectId;
+/** What the New chat dialog opens with: a project's page names the project, a chat its members. */
+export interface NewChatPreset {
+  readonly projectId?: ProjectId;
+  /** Member keys as `groupCandidates` makes them, such as `bot:<id>` and `person:<id>`. */
+  readonly memberKeys?: ReadonlyArray<string>;
 }
 
+/** A first message a chat sends once it opens and can. */
 export interface PromptRequest {
-  readonly botId: string;
+  readonly threadId: string;
   readonly text: string;
-  readonly threadId?: string;
+  /** Sent without showing it, as a new bot's introduction is. */
+  readonly hidden?: boolean;
 }
 
 interface PersistedRoster {
   selectedBotId?: string;
-  chatPathByBotId?: Record<string, string>;
   botLayout?: Array<{ id: string; pinned: boolean }>;
   sections?: LegacyRosterSection[];
   pinnedItems?: RosterItemRef[];
@@ -79,14 +81,11 @@ const decodeSections = Schema.decodeUnknownOption(
   ),
 );
 
-const decodePaths = Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.String));
-
 const decodeString = Schema.decodeUnknownOption(Schema.String);
 
 const decodeStoredRoster = Schema.decodeUnknownSync(
   Schema.Struct({
     selectedBotId: Schema.optionalKey(Schema.Unknown),
-    chatPathByBotId: Schema.optionalKey(Schema.Unknown),
     botLayout: Schema.optionalKey(Schema.Unknown),
     sections: Schema.optionalKey(Schema.Unknown),
     pinnedItems: Schema.optionalKey(Schema.Unknown),
@@ -108,7 +107,6 @@ function readPersistedRoster(environmentId: string | null = null): PersistedRost
     if (raw === null) return null;
     const parsed = decodeStoredRoster(JSON.parse(raw));
     const selectedBotId = Option.getOrUndefined(decodeString(parsed.selectedBotId));
-    const chatPathByBotId = Option.getOrUndefined(decodePaths(parsed.chatPathByBotId));
     const botLayout = Option.getOrUndefined(decodeBotLayout(parsed.botLayout));
     const sections = Option.getOrUndefined(decodeSections(parsed.sections));
     const pinnedItems = Option.getOrUndefined(decodeItems(parsed.pinnedItems));
@@ -116,7 +114,6 @@ function readPersistedRoster(environmentId: string | null = null): PersistedRost
 
     return {
       ...(selectedBotId === undefined ? {} : { selectedBotId }),
-      ...(chatPathByBotId === undefined ? {} : { chatPathByBotId: { ...chatPathByBotId } }),
       ...(botLayout === undefined ? {} : { botLayout: [...botLayout] }),
       ...(sections === undefined
         ? {}
@@ -180,14 +177,8 @@ interface RosterStore {
   bots: Bot[];
   groups: Group[];
   lastMessageByBotId: Record<string, RosterLastMessage>;
+  /** The bot the user last chatted with, which New chat offers first. */
   selectedBotId: string | null;
-  chatPathByBotId: Record<string, string>;
-  /**
-   * The older chat the user opened for a bot, by thread id. Session-only: the
-   * bot's view falls back to its newest chat when this is unset or no longer
-   * one of the bot's active chats.
-   */
-  openChatByBotId: Record<string, string>;
   pinnedItems: RosterItemRef[];
   unassignedItems: RosterItemRef[];
   environmentId: string | null;
@@ -197,28 +188,12 @@ interface RosterStore {
   nudgeRosterItem: (item: RosterItemRef, delta: -1 | 1) => void;
   setItemPinned: (item: RosterItemRef, pinned: boolean) => void;
   recordLastMessage: (botId: string, message: RosterLastMessage) => void;
-  recordChatPath: (botId: string, path: string) => void;
-  forgetChatPath: (botId: string) => void;
-  /**
-   * Opens one of the bot's chats; null returns the bot to its newest chat. `chatPath` also
-   * remembers the opened chat, so an older remembered chat cannot take its place.
-   */
-  openBotChat: (botId: string, threadId: string | null, chatPath?: string) => void;
-  /** The bot whose view should start a fresh chat once it can; opening a chat cancels it. */
-  newChatBotId: string | null;
-  requestNewChat: (botId: string | null) => void;
-  /** A bot created moments ago whose view should send its hidden introduction once it can. */
-  introBotId: string | null;
-  requestBotIntro: (botId: string | null) => void;
-  /**
-   * A prompt the bot's view sends once it can: in a fresh chat, such as a new routine
-   * request, or in the chat `threadId` names, such as a change to that chat's routine.
-   */
+  /** The open New chat dialog and what it starts with; null when it is closed. */
+  newChat: NewChatPreset | null;
+  openNewChat: (preset: NewChatPreset | null) => void;
+  /** A first message, such as a new chat's or a routine change, its chat sends once it can. */
   promptRequest: PromptRequest | null;
   requestPrompt: (request: PromptRequest | null) => void;
-  /** A new chat the bot's view opens in a project once it can, then clears. */
-  projectChatRequest: ProjectChatRequest | null;
-  requestProjectChat: (request: ProjectChatRequest | null) => void;
   replaceRoster: (input: {
     environmentId: string;
     bots: Bot[];
@@ -263,18 +238,12 @@ export function reorderVisibleRosterBots(
 function saveState(
   state: Pick<
     RosterStore,
-    | "bots"
-    | "selectedBotId"
-    | "chatPathByBotId"
-    | "pinnedItems"
-    | "unassignedItems"
-    | "environmentId"
+    "bots" | "selectedBotId" | "pinnedItems" | "unassignedItems" | "environmentId"
   >,
 ) {
   persistRoster(
     {
       ...(state.selectedBotId === null ? {} : { selectedBotId: state.selectedBotId }),
-      chatPathByBotId: state.chatPathByBotId,
       botLayout: state.bots.map((bot) => ({ id: bot.id, pinned: bot.pinned })),
       pinnedItems: state.pinnedItems,
       unassignedItems: state.unassignedItems,
@@ -290,12 +259,8 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   groups: [],
   lastMessageByBotId: {},
   selectedBotId: persisted?.selectedBotId ?? null,
-  chatPathByBotId: persisted?.chatPathByBotId ?? {},
-  openChatByBotId: {},
-  newChatBotId: null,
-  introBotId: null,
+  newChat: null,
   promptRequest: null,
-  projectChatRequest: null,
   pinnedItems: persisted?.pinnedItems ?? [],
   unassignedItems: persisted?.unassignedItems ?? [],
   environmentId: null,
@@ -406,41 +371,9 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
     }));
   },
 
-  recordChatPath: (botId, path) => {
-    if (get().chatPathByBotId[botId] === path) return;
-    set((state) => ({
-      chatPathByBotId: { ...state.chatPathByBotId, [botId]: path },
-    }));
-    saveState(get());
-  },
+  openNewChat: (preset) => set({ newChat: preset }),
 
-  forgetChatPath: (botId) => {
-    if (get().chatPathByBotId[botId] === undefined) return;
-    const chatPathByBotId = { ...get().chatPathByBotId };
-    delete chatPathByBotId[botId];
-    set({ chatPathByBotId });
-    saveState(get());
-  },
-
-  openBotChat: (botId, threadId, chatPath) => {
-    if (get().newChatBotId !== null) set({ newChatBotId: null });
-
-    if (chatPath !== undefined) get().recordChatPath(botId, chatPath);
-    const current = get().openChatByBotId[botId];
-
-    if ((current ?? null) === threadId) return;
-    const openChatByBotId = { ...get().openChatByBotId };
-
-    if (threadId === null) delete openChatByBotId[botId];
-    else openChatByBotId[botId] = threadId;
-    set({ openChatByBotId });
-  },
-
-  requestNewChat: (botId) => set({ newChatBotId: botId }),
-
-  requestBotIntro: (botId) => set({ introBotId: botId }),
   requestPrompt: (request) => set({ promptRequest: request }),
-  requestProjectChat: (request) => set({ projectChatRequest: request }),
 
   replaceRoster: (input) => {
     const switchingEnvironment = get().environmentId !== input.environmentId;
@@ -496,10 +429,6 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
       environmentId: input.environmentId,
       bots,
       groups: input.groups,
-      chatPathByBotId: switchingEnvironment
-        ? (targetPersisted?.chatPathByBotId ?? {})
-        : get().chatPathByBotId,
-      openChatByBotId: switchingEnvironment ? {} : get().openChatByBotId,
       pinnedItems: targetPinnedItems.filter(liveItem),
       unassignedItems: targetUnassignedItems.filter(liveItem),
       selectedBotId,

@@ -88,7 +88,10 @@ describe("legacy settings deep links", () => {
     expect(settingsSectionFromPathname("/settings/source-control")).toBe("general");
     expect(settingsSectionFromPathname("/settings/errors")).toBe("advanced");
     expect(settingsSectionFromPathname("/settings/voice")).toBe("providers");
-    expect(settingsSectionFromPathname("/settings/bots")).toBe("channels");
+  });
+
+  it("opens the Bots list under Customize", () => {
+    expect(settingsSectionFromPathname("/settings/bots")).toBe("bots");
   });
 
   it("opens archived chat links on the Archived chats page", () => {

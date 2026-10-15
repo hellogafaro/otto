@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { EnvironmentId, ThreadId } from "@otto/contracts";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
@@ -122,6 +123,11 @@ vi.mock("./browserVoiceAudio", () => ({
 
 import { VoiceCallProvider, useVoiceCall } from "./VoiceCall";
 
+const chatRef = {
+  environmentId: EnvironmentId.make("env-1"),
+  threadId: ThreadId.make("thread-call"),
+};
+
 type VoiceControls = ReturnType<typeof useVoiceCall>;
 
 class TestDataChannel extends EventTarget {
@@ -237,8 +243,8 @@ describe("voice call provider", () => {
     });
     const controls = renderControls();
 
-    controls.startOrReturn(mocks.bot as never);
-    controls.startOrReturn({ ...mocks.bot, id: "bot-other", name: "Other" } as never);
+    controls.startOrReturn(mocks.bot as never, chatRef);
+    controls.startOrReturn({ ...mocks.bot, id: "bot-other", name: "Other" } as never, chatRef);
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledOnce();
 
     controls.hangup();
@@ -254,16 +260,15 @@ describe("voice call provider", () => {
     });
     const controls = renderControls();
 
-    controls.startOrReturn(mocks.bot as never);
+    controls.startOrReturn(mocks.bot as never, chatRef);
     await flushVoiceStart();
     expect(mocks.startVoiceCall).toHaveBeenCalledOnce();
 
-    controls.startOrReturn(mocks.bot as never);
+    controls.startOrReturn(mocks.bot as never, chatRef);
     expect(mocks.startVoiceCall).toHaveBeenCalledOnce();
-    expect(mocks.selectBot).toHaveBeenCalledWith(mocks.bot.id);
     expect(mocks.navigate).toHaveBeenCalledWith({
-      to: "/bots/$botId",
-      params: { botId: mocks.bot.id },
+      to: "/chats/$threadId",
+      params: { threadId: chatRef.threadId },
     });
   });
 
@@ -273,7 +278,7 @@ describe("voice call provider", () => {
     });
     const controls = renderControls();
 
-    controls.startOrReturn(mocks.bot as never);
+    controls.startOrReturn(mocks.bot as never, chatRef);
     await flushVoiceStart();
 
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({
@@ -309,7 +314,7 @@ describe("voice call provider", () => {
       mediaDevices: { getUserMedia: vi.fn(async () => microphone) },
     });
     const controls = renderControls();
-    controls.startOrReturn(mocks.bot as never);
+    controls.startOrReturn(mocks.bot as never, chatRef);
     await flushVoiceStart();
 
     const event = new MessageEvent("message", {
@@ -336,7 +341,7 @@ describe("voice call provider", () => {
       mediaDevices: { getUserMedia: vi.fn(async () => microphone) },
     });
     const controls = renderControls();
-    controls.startOrReturn(mocks.bot as never);
+    controls.startOrReturn(mocks.bot as never, chatRef);
     await flushVoiceStart();
 
     const replayed = new MessageEvent("message", {
@@ -372,7 +377,7 @@ describe("voice call provider", () => {
     });
     const controls = renderControls();
 
-    controls.startOrReturn(mocks.bot as never);
+    controls.startOrReturn(mocks.bot as never, chatRef);
     await flushVoiceStart();
 
     expect(mocks.startVoiceCall).toHaveBeenCalledWith({
@@ -398,7 +403,7 @@ describe("voice call provider", () => {
     });
     const controls = renderControls();
 
-    controls.startOrReturn(mocks.bot as never);
+    controls.startOrReturn(mocks.bot as never, chatRef);
     await flushVoiceStart();
 
     expect(mocks.captureSignals).toHaveLength(0);

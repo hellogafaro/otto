@@ -126,7 +126,7 @@ export const botSkills = (
   },
 ) => {
   const serves = (node: LibraryFolder | LibraryFile) =>
-    node.visibility === "workspace" ||
+    node.visibility === "organization" ||
     (node.createdBy.kind === "person"
       ? bot.owner?.kind === "person" && node.createdBy.personId === bot.owner.personId
       : node.createdBy.botId === bot.botId);
@@ -253,7 +253,7 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
       const fileId = yield* storeLibraryFile({
         ...source,
         ...destination,
-        visibility: "workspace",
+        visibility: "organization",
         by: by(caller),
       });
 
@@ -520,7 +520,7 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
         title: image.title,
         folderId: null,
         threadId: caller.threadId,
-        visibility: "workspace",
+        visibility: "organization",
         by: by(caller),
       }).pipe(
         Effect.asVoid,

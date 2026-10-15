@@ -58,6 +58,7 @@ export function projectEvent(
     case "routine.approved":
     case "routine.enabled":
     case "routine.paused":
+    case "routine.updated":
     case "routine.deleted":
     case "routine.running":
     case "routine.blocked":

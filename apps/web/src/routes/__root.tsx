@@ -16,6 +16,7 @@ import { VoiceCallProvider } from "../components/voice/VoiceCall";
 import { SlowRpcRequestToastCoordinator } from "../components/SlowRpcRequestToastCoordinator";
 import { SurfaceNavigationCoordinator } from "../components/SurfaceNavigationCoordinator";
 import { ComputerViewerDialog } from "../components/computer/ComputerViewerDialog";
+import { NewChatDialogHost } from "../components/roster/NewChatDialog";
 import { PolicyNotice } from "../components/privacy/PolicyNotice";
 import { TranslatedRootRouteErrorView } from "./-RootRouteErrorView";
 import { useI18n } from "../i18n";
@@ -143,6 +144,7 @@ function RootRouteView() {
           <VoiceCallProvider>{appShell}</VoiceCallProvider>
         </ReplyPlaybackProvider>
         <ComputerViewerDialog />
+        {primaryEnvironmentAuthenticated ? <NewChatDialogHost /> : null}
         <PolicyNotice />
       </AnchoredToastProvider>
     </ToastProvider>

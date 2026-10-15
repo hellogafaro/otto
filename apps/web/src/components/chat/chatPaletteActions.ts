@@ -9,9 +9,10 @@ import { useI18n } from "../../i18n";
 import { type ChatMenuState } from "./chatActions.logic";
 
 /** Starts a fresh chat with the open bot. Groups keep a single chat, so they pass none. */
+/** Opens the New chat dialog, set up from the chat on screen. */
 export interface NewChatControl {
   readonly canStart: boolean;
-  readonly start: () => Promise<boolean>;
+  readonly start: () => void;
 }
 
 export function snoozePresetLabel(id: SnoozePresetId, t: ReturnType<typeof useI18n>["t"]) {
@@ -58,9 +59,7 @@ export function buildChatPaletteActions({
       title: t("New chat"),
       searchTerms: ["new chat", "fresh", "start over"],
       shortcutCommand: "chat.new",
-      run: async () => {
-        await newChat.start();
-      },
+      run: () => newChat.start(),
     });
   }
 

@@ -23,6 +23,7 @@ import { ServerSettingsService } from "../../../serverSettings.ts";
 import { GitWorkflowService } from "../../../git/GitWorkflowService.ts";
 import { ComposioService } from "../../../composio/ComposioService.ts";
 import { ServerSecretStore } from "../../../auth/ServerSecretStore.ts";
+import * as ServerConfig from "../../../config.ts";
 import { HANDLED_TURN_REQUEST_KEY_MAX, HANDLED_TURN_REQUEST_KEY_TTL } from "./Fields.ts";
 
 export const createDependencies = Effect.fn("makeprovider-command-Dependencies")(function* () {
@@ -55,6 +56,10 @@ export const createDependencies = Effect.fn("makeprovider-command-Dependencies")
   const composio = yield* Effect.serviceOption(ComposioService);
 
   const secretStore = yield* Effect.serviceOption(ServerSecretStore);
+
+  const serverCwd = (yield* Effect.serviceOption(ServerConfig.ServerConfig)).pipe(
+    Option.map((config) => config.cwd),
+  );
 
   const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
 
@@ -146,6 +151,7 @@ export const createDependencies = Effect.fn("makeprovider-command-Dependencies")
     botUsageLedger,
     composio,
     secretStore,
+    serverCwd,
     runPromise,
     serverCommandId,
     serverEventId,

@@ -36,12 +36,13 @@ import { replaceBinding, withChannelOperation } from "./ChannelOperations.ts";
  */
 export const channelReplyTextWithFooter = (
   text: string,
-  botId: BotId,
+  threadId: ThreadId,
   provider: ChannelProvider,
   publicOrigin: string | undefined,
 ): string => {
   if (publicOrigin === undefined) return text;
-  const url = `${publicOrigin.replace(/\/$/, "")}/bots/${botId}`;
+  // Otto: the link opens the chat the reply came from, at its one address.
+  const url = `${publicOrigin.replace(/\/$/, "")}/chats/${threadId}`;
 
   // Posts go out as plain strings; only Discord renders Markdown link syntax.
   return provider === "discord"
@@ -328,7 +329,7 @@ export const sendChannelMessage = (
           const posted = yield* Effect.exit(
             runtime.post(
               origin.externalThreadId,
-              channelReplyTextWithFooter(text, input.botId, origin.provider, deps.publicOrigin),
+              channelReplyTextWithFooter(text, input.threadId, origin.provider, deps.publicOrigin),
             ),
           );
 

@@ -2,7 +2,7 @@ import { Predicate } from "effect";
 import { pendingMemoryApprovals } from "@otto/client-runtime/durable-memory";
 import { useAtomValue } from "@effect/atom-react";
 import { presentThreadError } from "@otto/client-runtime/errors";
-import { BotId, type EnvironmentId, type TurnId } from "@otto/contracts";
+import { BotId, type EnvironmentId, type ScopedThreadRef, type TurnId } from "@otto/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { Fragment, useCallback, useEffect, useId, useMemo, useState } from "react";
 
@@ -10,7 +10,7 @@ import { selectOpenBotInboxItems } from "../../botInbox";
 import { canManageChannels, connectedChannelBinding } from "../../channelAccess";
 import { useI18n } from "../../i18n";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { useThreadActivities } from "../../state/entities";
+import { useThreadActivities, useThreadShell } from "../../state/entities";
 import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useEnvironmentQuery } from "../../state/query";
@@ -28,7 +28,7 @@ import { BotInboxAlertStack } from "./BotInboxAlertStack";
 import { ChatReplyContext } from "../markdown/generative/chatReplyContext";
 import { BotAvatarView } from "./BotAvatarView";
 import { BotConversationScrollArea } from "./BotConversationScrollArea";
-import { useBotDetailsOpen } from "./detailsPanelOpen";
+import { useChatDetailsOpen } from "./detailsPanelOpen";
 import { DelegationCard } from "./DelegationCard";
 import {
   AssistantMessageRow,
@@ -65,12 +65,11 @@ import { ConversationSeparator } from "../chat/ConversationSeparator";
 import { useOptionalReplyPlayback } from "../chat/ReplyPlaybackProvider";
 import { useReplyPlaybackThread } from "~/lib/replyPlaybackThread";
 import { BotVoiceCallButton, useVoiceCall } from "../voice/VoiceCall";
-import { useBotPresence } from "./botPresence";
 import { useMessageArrivals } from "./messageArrival";
-import { botIntroPrompt } from "./botIntro";
 import { useRosterStore } from "./rosterStore";
 import { useBotThreadRuntime } from "./useBotThreadRuntime";
 import { buildBotTurnTraces } from "./botTurnTrace.logic";
+import { resolveBotPresence } from "./roster.logic";
 import { useLocalDay } from "./useLocalDay";
 import { useRosterPendingApproval } from "./useRosterPendingApproval";
 import { useEnableBotAutoReview, useRosterLoadState } from "./useServerRoster";
@@ -86,7 +85,13 @@ import { ChatActionsMenu, useMarkChatVisited } from "../chat/ChatActionsMenu";
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
-export function BotThreadLanding({ botId }: { readonly botId: string }) {
+export function BotThreadLanding({
+  botId,
+  threadRef,
+}: {
+  readonly botId: string;
+  readonly threadRef: ScopedThreadRef;
+}) {
   const i18n = useI18n();
   const { t, locale } = i18n;
   const navigate = useNavigate();
@@ -109,78 +114,50 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
     catalog: engineCatalog,
   } = useBotEngineAvailability(bot?.engine ?? null);
 
-  const runtime = useBotThreadRuntime(botId, stickyEngine);
+  const runtime = useBotThreadRuntime(botId, threadRef, stickyEngine);
   useMarkChatVisited(runtime.linkedThreadRef);
 
+  // New chat opens the New chat dialog with this bot and this chat's project.
+  const newChatProjectId = runtime.project?.id;
+
   const newChat = useMemo(
-    () => ({ canStart: runtime.canStartNewChat, start: runtime.startNewChat }),
-    [runtime.canStartNewChat, runtime.startNewChat],
+    () => ({
+      canStart: true,
+      start: () =>
+        useRosterStore.getState().openNewChat({
+          memberKeys: [`bot:${botId}`],
+          ...(newChatProjectId ? { projectId: newChatProjectId } : {}),
+        }),
+    }),
+    [botId, newChatProjectId],
   );
 
-  // The roster's per-bot plus asks for a fresh chat; start it once the open chat allows one.
-  const newChatRequested = useRosterStore((state) => state.newChatBotId === botId);
-  useEffect(() => {
-    if (!newChatRequested || !runtime.canStartNewChat) return;
-    useRosterStore.getState().requestNewChat(null);
-    void runtime.startNewChat();
-  }, [newChatRequested, runtime.canStartNewChat, runtime.startNewChat]);
-
-  // A project's New chat opens a fresh chat with this bot filed in that project.
-  const projectChatRequest = useRosterStore((state) =>
-    state.projectChatRequest?.botId === botId ? state.projectChatRequest : null,
+  // A first message asked for elsewhere, such as New chat's, sends once this chat can.
+  const prompt = useRosterStore((state) =>
+    state.promptRequest?.threadId === threadRef.threadId ? state.promptRequest : null,
   );
 
-  const projectChatReady = runtime.bootstrapped && runtime.botReady;
-  useEffect(() => {
-    if (projectChatRequest === null || !projectChatReady) return;
-    useRosterStore.getState().requestProjectChat(null);
-    void runtime.startNewChatInProject(projectChatRequest.projectId);
-  }, [projectChatReady, projectChatRequest, runtime.startNewChatInProject]);
-
-  // A bot created moments ago greets the user from a hidden prompt in its first chat.
-  const introRequested = useRosterStore((state) => state.introBotId === botId);
-  const botName = bot?.name ?? null;
-  const introReady = introRequested && runtime.botReady && Boolean(runtime.defaultProject);
-  useEffect(() => {
-    // Read the store, not the render: a re-run before the next render must not send twice.
-    const roster = useRosterStore.getState();
-
-    if (!introReady || botName === null || roster.introBotId !== botId) return;
-    roster.requestBotIntro(null);
-    void runtime.sendHidden(botIntroPrompt(botName, locale), t("Meet {name}", { name: botName }));
-  }, [botId, botName, introReady, locale, runtime.sendHidden, t]);
-
-  // A prompt asked for elsewhere, such as a new routine, gets a fresh chat of its own.
-  const promptRequested = useRosterStore((state) => state.promptRequest?.botId === botId);
-
-  const promptThreadId = useRosterStore((state) =>
-    state.promptRequest?.botId === botId ? state.promptRequest.threadId : undefined,
-  );
-
-  // A prompt for one chat waits until that chat is the one showing.
   const promptReady =
-    promptRequested &&
-    runtime.bootstrapped &&
+    prompt !== null &&
     runtime.botReady &&
-    Boolean(runtime.defaultProject) &&
-    (promptThreadId === undefined || runtime.linkedThreadRef?.threadId === promptThreadId);
+    runtime.linkedThreadRef !== null &&
+    runtime.project !== null;
 
   useEffect(() => {
     const roster = useRosterStore.getState();
     const request = roster.promptRequest;
 
-    if (!promptReady || request?.botId !== botId) return;
+    // Read the store, not the render: a re-run before the next render must not send twice.
+    if (!promptReady || request?.threadId !== threadRef.threadId) return;
     roster.requestPrompt(null);
-    void (request.threadId === undefined
-      ? runtime.sendInNewChat(request.text)
-      : runtime.send(request.text, []));
-  }, [botId, promptReady, runtime.send, runtime.sendInNewChat]);
+    void (request.hidden ? runtime.sendHidden(request.text) : runtime.send(request.text, []));
+  }, [promptReady, runtime.send, runtime.sendHidden, threadRef.threadId]);
 
   const mentionScope = useBotPromptMentionScope({
     environmentId,
     threadRef: runtime.linkedThreadRef,
-    projectId: runtime.defaultProject?.id,
-    cwd: runtime.defaultProject?.workspaceRoot,
+    projectId: runtime.project?.id,
+    cwd: runtime.project?.workspaceRoot,
   });
 
   const engineNoticeId = useId();
@@ -205,7 +182,7 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
     subscriptionToConnect !== null &&
     providerConnectStep(subscriptionStatuses.get(subscriptionToConnect)) !== null;
 
-  const openBotSettings = () => void navigate({ to: "/bots/$botId/settings", params: { botId } });
+  const openBotSettings = () => void navigate({ to: "/settings/bots/$botId", params: { botId } });
   const approvalState = useRosterPendingApproval(runtime.linkedThreadRef);
   const enableAutoReview = useEnableBotAutoReview();
   const activities = useThreadActivities(runtime.linkedThreadRef);
@@ -247,7 +224,7 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
 
   const voiceCall = useVoiceCall();
   const replyPlayback = useOptionalReplyPlayback();
-  const presence = useBotPresence(botId);
+  const presence = resolveBotPresence(useThreadShell(threadRef));
 
   const inboxQuery = useEnvironmentQuery(
     environmentId === null
@@ -323,7 +300,7 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
   );
 
   const available = bot?.archivedAt === null;
-  const [detailsPanelOpen] = useBotDetailsOpen(bot?.id ?? botId);
+  const [detailsPanelOpen] = useChatDetailsOpen();
 
   const playbackKey = useReplyPlaybackThread({
     environmentId: available ? (runtime.linkedThreadRef?.environmentId ?? environmentId) : null,
@@ -462,6 +439,7 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
               <div data-chat-header-actions className="ml-auto flex items-center gap-1.5">
                 <BotVoiceCallButton
                   bot={bot}
+                  threadRef={threadRef}
                   disabled={runtime.sending || runtime.latestTurn?.state === "running"}
                 />
                 {available ? (
@@ -524,7 +502,7 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
                                 author={bot}
                                 testId="bot-provider-message"
                                 startsGroup={startsGroup || startsAfterReceipt}
-                                cwd={runtime.defaultProject?.workspaceRoot}
+                                cwd={runtime.project?.workspaceRoot}
                                 threadRef={runtime.linkedThreadRef ?? undefined}
                                 stepMeter={
                                   message.turnId === null
@@ -712,8 +690,7 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
                 voiceCall.startingBotId === bot.id ||
                 sendBlocked ||
                 !runtime.botReady ||
-                !runtime.bootstrapped ||
-                runtime.defaultProject === null
+                runtime.project === null
               }
               replyPreview={replyTarget}
               onCancelReply={() => setReplyTarget(null)}
@@ -738,7 +715,7 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
               <p className="px-4 pb-3 text-center text-xs text-muted-foreground">
                 {t("Connecting bot…")}
               </p>
-            ) : runtime.bootstrapped && runtime.defaultProject === null ? (
+            ) : runtime.bootstrapped && runtime.project === null ? (
               <p className="px-4 pb-3 text-center text-xs text-muted-foreground">
                 {t("Your workspace is still loading. Try again in a moment.")}
               </p>

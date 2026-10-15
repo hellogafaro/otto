@@ -60,6 +60,8 @@ export interface RoutineAdapterRun {
   readonly summary: string | null;
   readonly error: string | null;
   readonly usage: string | null;
+  /** The chat the run posted into. */
+  readonly threadId: string | null;
 }
 
 /** A routine as clients render it: names resolved, runs attached newest first. */
@@ -160,6 +162,7 @@ function toAdapterRun(run: RoutineRun): RoutineAdapterRun {
     summary: run.result?.summary ?? null,
     error: run.failure ? withoutErrorStack(run.failure.message) : null,
     usage: run.usageRef,
+    threadId: run.threadRef,
   };
 }
 
@@ -279,6 +282,23 @@ export function hourlyScheduleText(
   });
 }
 
+/** How often a routine runs, without its time or timezone: Daily, Weekdays, Monday, Hourly. */
+export function routineFrequencyLabel(
+  schedule: RoutineAdapterSchedule,
+  i18n: RoutineTranslator = englishTranslator,
+) {
+  const everyHours = schedule.everyHours ?? 1;
+
+  return Match.value(schedule.frequency).pipe(
+    Match.when("hourly", () =>
+      everyHours <= 1 ? i18n.t("Hourly") : i18n.t("Every {count} hours", { count: everyHours }),
+    ),
+    Match.when("daily", () => i18n.t("Daily")),
+    Match.when("weekdays", () => i18n.t("Weekdays")),
+    Match.orElse(() => i18n.t(WEEKDAY_LABELS[schedule.weekday ?? 1] ?? "Monday")),
+  );
+}
+
 export function routineScheduleLabel(
   schedule: RoutineAdapterSchedule,
   i18n: RoutineTranslator = englishTranslator,
@@ -290,14 +310,8 @@ export function routineScheduleLabel(
     });
   }
 
-  const frequency = Match.value(schedule.frequency).pipe(
-    Match.when("daily", () => i18n.t("Daily")),
-    Match.when("weekdays", () => i18n.t("Weekdays")),
-    Match.orElse(() => i18n.t(WEEKDAY_LABELS[schedule.weekday ?? 1] ?? "Monday")),
-  );
-
   return i18n.t("{frequency} at {time} ({timezone})", {
-    frequency,
+    frequency: routineFrequencyLabel(schedule, i18n),
     time: schedule.time,
     timezone: schedule.timezone,
   });

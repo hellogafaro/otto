@@ -1,4 +1,4 @@
-import type { VoiceCallSnapshot } from "@otto/contracts";
+import type { ScopedThreadRef, VoiceCallSnapshot } from "@otto/contracts";
 import { createContext, useContext } from "react";
 
 import type { Bot } from "../roster/types";
@@ -10,7 +10,8 @@ export interface VoiceCallContextValue {
   readonly activeCall: ActiveVoiceCall | null;
   readonly reconnecting: boolean;
   readonly startingBotId: string | null;
-  readonly startOrReturn: (bot: Bot) => void;
+  /** Otto: a call belongs to the chat it starts from; its words land there. */
+  readonly startOrReturn: (bot: Bot, threadRef: ScopedThreadRef) => void;
   readonly hangup: () => void;
   readonly returnToCall: () => void;
 }

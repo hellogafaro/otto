@@ -294,7 +294,7 @@ export function LibraryMoveDialog({
   );
 }
 
-/** Workspace or only you, as a quiet property row; read-only text for anyone but the creator. */
+/** The team or only you, as a quiet property row; read-only text for anyone but the creator. */
 export function LibraryVisibilitySelect({
   value,
   editable,
@@ -306,7 +306,7 @@ export function LibraryVisibilitySelect({
 }) {
   const { t } = useI18n();
 
-  const labels = { workspace: t("Team"), user: t("Only me") } satisfies Record<
+  const labels = { organization: t("Team"), user: t("Only me") } satisfies Record<
     LibraryVisibility,
     string
   >;
@@ -331,7 +331,7 @@ export function LibraryVisibilitySelect({
     <Select
       value={value}
       onValueChange={(next) => {
-        if (next === "user" || next === "workspace") onChange(next);
+        if (next === "user" || next === "organization") onChange(next);
       }}
     >
       <SelectTrigger
@@ -348,7 +348,7 @@ export function LibraryVisibilitySelect({
         </SelectValue>
       </SelectTrigger>
       <SelectPopup alignItemWithTrigger={false}>
-        {(["workspace", "user"] as const).map((visibility) => (
+        {(["organization", "user"] as const).map((visibility) => (
           <SelectItem key={visibility} hideIndicator value={visibility}>
             <span className="flex items-center gap-2">
               {icon(visibility)}
@@ -435,11 +435,11 @@ export function LibraryItemMenu({
                   </MenuItem>
                   <MenuItem
                     onClick={() =>
-                      actions.setVisibility(item.visibility === "user" ? "workspace" : "user")
+                      actions.setVisibility(item.visibility === "user" ? "organization" : "user")
                     }
                   >
                     {item.visibility === "user" ? <RiGlobalLine /> : <RiLockLine />}
-                    {item.visibility === "user" ? t("Share with workspace") : t("Make private")}
+                    {item.visibility === "user" ? t("Share with team") : t("Make private")}
                   </MenuItem>
                   <MenuSeparator />
                   <MenuItem variant="destructive" onClick={() => void actions.remove()}>

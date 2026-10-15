@@ -118,7 +118,6 @@ export const settingsCatalog = {
   "Which subscription this bot uses to create images. The chat model above stays the same.":
     "此机器人用哪个订阅生成图片。上方的聊天模型保持不变。",
   "Image provider": "图片提供商",
-  "Open bot settings": "打开机器人设置",
   "Open sidebar ({shortcut})": "打开侧边栏（{shortcut}）",
   "Could not update channel": "无法更新频道",
   "Open provider": "打开提供商",

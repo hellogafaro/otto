@@ -88,10 +88,10 @@ vi.mock("./botConversationMessageProjection", () => ({
 }));
 
 vi.mock("./rosterStore", () => ({
-  useRosterStore: <T>(
-    selector: (state: { bots: []; chatPathByBotId: {}; openChatByBotId: {} }) => T,
-  ) => selector({ bots: [], chatPathByBotId: {}, openChatByBotId: {} }),
+  useRosterStore: <T>(selector: (state: { bots: [] }) => T) => selector({ bots: [] }),
 }));
+
+const chatRef = { environmentId: EnvironmentId.make("env-a"), threadId: ThreadId.make("thread-1") };
 
 beforeEach(() => {
   hooks.reset();
@@ -113,7 +113,7 @@ beforeEach(() => {
 describe("bot runtime approval ownership", () => {
   it("does not derive approvals or acquire an unused approval command", () => {
     hooks.beginRender();
-    const runtime = useBotThreadRuntime("bot-1", null);
+    const runtime = useBotThreadRuntime("bot-1", null, null);
     expect(mocks.derivePendingApprovals).not.toHaveBeenCalled();
     expect(
       mocks.useAtomCommand.mock.calls.filter(([command]) => command === mocks.approvalCommand),
@@ -135,7 +135,7 @@ describe("bot runtime approval ownership", () => {
       { requestId, requestKind: "command", createdAt: "2026-08-27T00:00:00.000Z" },
     ]);
     hooks.beginRender();
-    useBotThreadRuntime("bot-1", null);
+    useBotThreadRuntime("bot-1", null, null);
     const approval = useRosterPendingApproval(threadRef);
     expect(mocks.derivePendingApprovals).toHaveBeenCalledTimes(1);
     expect(
@@ -178,7 +178,7 @@ describe("bot runtime errors", () => {
       lastUserMessageAt: "2026-09-18T01:00:00.000Z",
     };
     hooks.beginRender();
-    const runtime = useBotThreadRuntime("bot-1", null);
+    const runtime = useBotThreadRuntime("bot-1", chatRef, null);
     expect(runtime.turnFailure?.message).toBe("Routine failed before starting.");
   });
 
@@ -202,7 +202,7 @@ describe("bot runtime errors", () => {
     mocks.messageProjection = { ...mocks.messageProjection, lastMessageRole: "user" };
 
     hooks.beginRender();
-    const runtime = useBotThreadRuntime("bot-1", null);
+    const runtime = useBotThreadRuntime("bot-1", chatRef, null);
 
     expect(runtime.canResume).toBe(true);
   });
@@ -225,7 +225,7 @@ describe("bot runtime errors", () => {
     };
 
     hooks.beginRender();
-    const runtime = useBotThreadRuntime("bot-1", null);
+    const runtime = useBotThreadRuntime("bot-1", chatRef, null);
 
     expect(runtime.error).toBe("Provider rejected the request.");
   });

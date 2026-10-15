@@ -10,9 +10,11 @@ import {
   WsRpcGroup,
 } from "@otto/contracts";
 
+import { canSeeRoutine } from "./orchestration/groupVisibility.ts";
 import type { WsConnection } from "./wsConnection.ts";
 
 export const createWsBotServicesHandlers = ({
+  currentPersonId,
   projectionBots,
   botUsageLedger,
   routineRepository,
@@ -23,6 +25,7 @@ export const createWsBotServicesHandlers = ({
   observeRpcEffect,
 }: Pick<
   WsConnection,
+  | "currentPersonId"
   | "projectionBots"
   | "botUsageLedger"
   | "routineRepository"
@@ -36,7 +39,13 @@ export const createWsBotServicesHandlers = ({
     [WS_METHODS.routinesListRuns]: (input) =>
       observeRpcEffect(
         WS_METHODS.routinesListRuns,
-        routineRepository.listRuns(input.routineId).pipe(
+        routineRepository.getById(input.routineId).pipe(
+          // Otto: A private routine's runs stay with the person who set it up.
+          Effect.flatMap((routine) =>
+            routine !== null && !canSeeRoutine(routine, currentPersonId)
+              ? Effect.succeed([])
+              : routineRepository.listRuns(input.routineId),
+          ),
           Effect.map((runs) => ({ runs })),
           Effect.mapError(
             (cause) =>

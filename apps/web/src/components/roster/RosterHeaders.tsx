@@ -1,4 +1,4 @@
-import { RiAddLine, RiGroupLine, RiRobot3Line, RiSearchLine } from "@remixicon/react";
+import { RiAddLine, RiSearchLine } from "@remixicon/react";
 
 import { Link } from "@tanstack/react-router";
 
@@ -9,23 +9,20 @@ import { useI18n } from "../../i18n";
 import { OttoWordmark } from "../OttoWordmark";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { SidebarHeader, SidebarTrigger } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 /**
  * Minimal roster chrome: traffic-light drag space, an optional environment
- * pill, and the new-bot button. No brand row and no stage artwork. The
+ * pill, and the New chat button. No brand row and no stage artwork. The
  * fixed SidebarControl trigger overlays the left edge on desktop, so content
  * starts at the titlebar inset. Icon-collapsed mode empties the row and the
- * rail supplies its own new-bot button.
+ * rail supplies its own New chat button.
  */
 export const RosterSidebarHeader = memo(function RosterSidebarHeader({
-  onNewBot,
-  onNewGroup,
+  onNewChat,
 }: {
-  onNewBot: () => void;
-  onNewGroup: () => void;
+  onNewChat: () => void;
 }) {
   const { t } = useI18n();
 
@@ -45,31 +42,23 @@ export const RosterSidebarHeader = memo(function RosterSidebarHeader({
           <OttoWordmark />
         </Link>
         <div className="flex items-center justify-end">
-          <Menu>
-            <MenuTrigger
+          <Tooltip>
+            <TooltipTrigger
               render={
                 <Button
-                  aria-label={t("Create")}
-                  data-testid="roster-new-bot"
+                  aria-label={t("New chat")}
+                  data-testid="roster-new-chat"
                   className="size-(--workspace-titlebar-control-size)!"
                   size="icon"
                   variant="ghost"
+                  onClick={onNewChat}
                 >
                   <RiAddLine />
                 </Button>
               }
             />
-            <MenuPopup align="end">
-              <MenuItem onClick={onNewBot}>
-                <RiRobot3Line />
-                {t("New bot")}
-              </MenuItem>
-              <MenuItem onClick={onNewGroup}>
-                <RiGroupLine />
-                {t("New group")}
-              </MenuItem>
-            </MenuPopup>
-          </Menu>
+            <TooltipPopup>{t("New chat")}</TooltipPopup>
+          </Tooltip>
         </div>
       </div>
     </SidebarHeader>
@@ -83,12 +72,10 @@ export const RosterSidebarHeader = memo(function RosterSidebarHeader({
  * geometry as the main panel's top bar.
  */
 export function RosterPanelHeader({
-  onNewBot,
-  onNewGroup,
+  onNewChat,
   onSearch,
 }: {
-  onNewBot: () => void;
-  onNewGroup: () => void;
+  onNewChat: () => void;
   onSearch: () => void;
 }) {
   const { t } = useI18n();
@@ -116,69 +103,47 @@ export function RosterPanelHeader({
         />
         <TooltipPopup>{t("Search")}</TooltipPopup>
       </Tooltip>
-      <Menu>
-        <MenuTrigger
+      <Tooltip>
+        <TooltipTrigger
           render={
             <Button
-              aria-label={t("Create")}
-              data-testid="roster-new-bot"
+              aria-label={t("New chat")}
+              data-testid="roster-new-chat"
               size="icon-sm"
               variant="sidebar-ghost"
+              onClick={onNewChat}
             >
               <AppIcon icon={RiAddLine} />
             </Button>
           }
         />
-        <MenuPopup align="end">
-          <MenuItem onClick={onNewBot}>
-            <RiRobot3Line />
-            {t("New bot")}
-          </MenuItem>
-          <MenuItem onClick={onNewGroup}>
-            <RiGroupLine />
-            {t("New group")}
-          </MenuItem>
-        </MenuPopup>
-      </Menu>
+        <TooltipPopup>{t("New chat")}</TooltipPopup>
+      </Tooltip>
     </SidebarHeader>
   );
 }
 
-/** Create menu for the icon-collapsed rail, pinned above the sidebar footer. */
-export function RosterRailCreateMenu({
-  onNewBot,
-  onNewGroup,
-}: {
-  onNewBot: () => void;
-  onNewGroup: () => void;
-}) {
+/** New chat for the icon-collapsed rail, pinned above the sidebar footer. */
+export function RosterRailNewChat({ onNewChat }: { onNewChat: () => void }) {
   const { t } = useI18n();
 
   return (
     <div className="hidden shrink-0 flex-col items-center pb-1 group-data-[collapsible=icon]:flex">
-      <Menu>
-        <MenuTrigger
+      <Tooltip>
+        <TooltipTrigger
           render={
             <button
               type="button"
-              aria-label={t("Create")}
+              aria-label={t("New chat")}
               className="flex size-9 cursor-pointer items-center justify-center rounded-lg text-sidebar-muted-foreground outline-none select-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={onNewChat}
             >
               <RiAddLine className="size-4" />
             </button>
           }
         />
-        <MenuPopup align="end" side="right">
-          <MenuItem onClick={onNewBot}>
-            <RiRobot3Line />
-            {t("New bot")}
-          </MenuItem>
-          <MenuItem onClick={onNewGroup}>
-            <RiGroupLine />
-            {t("New group")}
-          </MenuItem>
-        </MenuPopup>
-      </Menu>
+        <TooltipPopup side="right">{t("New chat")}</TooltipPopup>
+      </Tooltip>
     </div>
   );
 }

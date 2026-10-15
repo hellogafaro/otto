@@ -1,4 +1,8 @@
-import type { OrchestrationProjectShell, OrchestrationTask } from "@otto/contracts";
+import {
+  type OrchestrationProjectShell,
+  type OrchestrationTask,
+  workParticipantKey,
+} from "@otto/contracts";
 import { RiBox3Line, RiCalendarLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
@@ -32,7 +36,22 @@ function taskColumns({
   const today = new Date().toISOString().slice(0, 10);
 
   return [
-    { id: "title", type: "title", cell: (task) => task.title },
+    {
+      id: "title",
+      type: "title",
+      cell: (task) => task.title,
+      after: (task) => {
+        // The owner leads, then the assignees; someone who is both shows once.
+        const people = [...(task.owner ? [task.owner] : []), ...task.assignees].filter(
+          (participant, index, all) =>
+            all.findIndex(
+              (other) => workParticipantKey(other) === workParticipantKey(participant),
+            ) === index,
+        );
+
+        return people.length > 0 ? <ParticipantStack participants={people} bots={bots} /> : null;
+      },
+    },
     {
       id: "details",
       type: "chips",
@@ -64,13 +83,6 @@ function taskColumns({
           </>
         );
       },
-    },
-    {
-      id: "assignees",
-      cell: (task) =>
-        task.assignees.length > 0 ? (
-          <ParticipantStack participants={task.assignees} bots={bots} />
-        ) : null,
     },
     {
       id: "updated",

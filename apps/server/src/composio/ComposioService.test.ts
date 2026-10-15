@@ -403,7 +403,7 @@ describe("ComposioService", () => {
       const mine = yield* service.getStatus(viewer);
       expect(mine.connections.map((connection) => [connection.id, connection.visibility])).toEqual([
         ["connection-new", "user"],
-        ["slack-team", "workspace"],
+        ["slack-team", "organization"],
       ]);
 
       const theirs = yield* service.getStatus(ben);
@@ -440,11 +440,11 @@ describe("ComposioService", () => {
       );
 
       const shared = yield* service.updateConnection(
-        { connectionId: "connection-new", visibility: "workspace" },
+        { connectionId: "connection-new", visibility: "organization" },
         viewer,
       );
 
-      expect(shared.connections[0]?.visibility).toBe("workspace");
+      expect(shared.connections[0]?.visibility).toBe("organization");
 
       expect((yield* service.getStatus(ben)).connections.map((c) => c.id)).toEqual([
         "connection-new",

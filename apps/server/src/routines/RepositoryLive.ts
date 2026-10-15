@@ -1,5 +1,7 @@
 import { flow } from "effect/Function";
 import {
+  AuthSessionId,
+  Visibility,
   BotId,
   McpServerId,
   ProjectId,
@@ -9,6 +11,7 @@ import {
   SkillAssignmentId,
   SkillId,
   RoutineSandbox,
+  RoutineThreadMode,
   RoutineApprovalPolicy,
   RoutineFailureKind,
   RoutineRun,
@@ -62,6 +65,9 @@ const RoutineRow = Schema.Struct({
   sandbox: RoutineSandbox,
   approvalPolicy: RoutineApprovalPolicy,
   delegateToBotId: Schema.NullOr(BotId),
+  createdBy: Schema.NullOr(AuthSessionId),
+  visibility: Visibility,
+  threadMode: RoutineThreadMode,
   enabled: Schema.Number,
   lifecycle: Schema.Literals([
     "draft",
@@ -137,13 +143,14 @@ const make = Effect.gen(function* () {
   const readRoutines = (parameter?: string) =>
     parameter === undefined
       ? sql<typeof RoutineRow.Encoded>`
-          SELECT routine_id AS id, bot_id AS "botId", target_thread_id AS "targetThreadId",
+          SELECT routine_id AS id, bot_id AS "botId", target_thread_id AS "targetThreadId", thread_mode AS "threadMode",
             project_id AS "projectId", job,
             procedure, procedure_version AS "procedureVersion",
             approval_version AS "approvalVersion", schedule_json AS schedule, timezone,
             skill_assignment_ids_json AS "skillAssignmentIds",
             connector_dependencies_json AS "connectorDependencies", sandbox,
             approval_policy AS "approvalPolicy", delegate_to_bot_id AS "delegateToBotId",
+            created_by AS "createdBy", visibility,
             enabled, lifecycle,
             next_run_at AS "nextRunAt", last_run_at AS "lastRunAt",
             latest_result_json AS "latestResult", latest_failure_json AS "latestFailure",
@@ -151,13 +158,14 @@ const make = Effect.gen(function* () {
           FROM projection_routines ORDER BY created_at, routine_id
         `
       : sql<typeof RoutineRow.Encoded>`
-          SELECT routine_id AS id, bot_id AS "botId", target_thread_id AS "targetThreadId",
+          SELECT routine_id AS id, bot_id AS "botId", target_thread_id AS "targetThreadId", thread_mode AS "threadMode",
             project_id AS "projectId", job,
             procedure, procedure_version AS "procedureVersion",
             approval_version AS "approvalVersion", schedule_json AS schedule, timezone,
             skill_assignment_ids_json AS "skillAssignmentIds",
             connector_dependencies_json AS "connectorDependencies", sandbox,
             approval_policy AS "approvalPolicy", delegate_to_bot_id AS "delegateToBotId",
+            created_by AS "createdBy", visibility,
             enabled, lifecycle,
             next_run_at AS "nextRunAt", last_run_at AS "lastRunAt",
             latest_result_json AS "latestResult", latest_failure_json AS "latestFailure",

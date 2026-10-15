@@ -125,15 +125,3 @@ export function watchChatVisits(input: {
     window.removeEventListener("focus", markIfSeen);
   };
 }
-
-/**
- * The bot's remembered chat path after one of its chats leaves the shell list.
- * The path is forgotten only when it points at that chat, so the bot falls back
- * to its next newest chat, or none, instead of reopening the one just removed.
- */
-export function shouldForgetChatPath(
-  rememberedPath: string | undefined,
-  removed: { readonly environmentId: string; readonly threadId: string },
-): boolean {
-  return rememberedPath === `/${removed.environmentId}/${removed.threadId}`;
-}

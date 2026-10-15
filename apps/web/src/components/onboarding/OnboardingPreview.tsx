@@ -1,10 +1,14 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { scopeThreadRef } from "@otto/client-runtime/environment";
+import type { ThreadId } from "@otto/contracts";
+import { useEffect, useMemo, useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { BotAvatarView } from "../roster/BotAvatarView";
 import { BotPromptComposer } from "../roster/BotPromptComposer";
+import { useCreateChat } from "../roster/chatNavigation";
 import { useBotThreadRuntime } from "../roster/useBotThreadRuntime";
+import { usePrimaryEnvironmentId } from "../../state/environments";
 import { SUBSCRIPTION_PROVIDERS } from "../settings/subscriptionProviders";
 import { OnboardingHandoff } from "./OnboardingHandoff";
 import {
@@ -81,7 +85,18 @@ function FirstMessageComposer({
   readonly onComplete: (message: string) => void;
   readonly onDestinationReady: () => void;
 }) {
-  const runtime = useBotThreadRuntime(botId, modelSelection);
+  const createChat = useCreateChat();
+  const environmentId = usePrimaryEnvironmentId();
+  const [threadId, setThreadId] = useState<ThreadId | null>(null);
+  // The first message waits for its new chat to load, then goes out with its files.
+  const [pending, setPending] = useState<{ prompt: string; files: readonly File[] } | null>(null);
+
+  const threadRef = useMemo(
+    () => (environmentId && threadId ? scopeThreadRef(environmentId, threadId) : null),
+    [environmentId, threadId],
+  );
+
+  const runtime = useBotThreadRuntime(botId, threadRef, modelSelection);
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
 
@@ -98,12 +113,25 @@ function FirstMessageComposer({
     if (destinationReady) onDestinationReady();
   }, [destinationReady, onDestinationReady]);
 
+  const sendReady =
+    pending !== null && runtime.linkedThreadRef !== null && runtime.project !== null;
+
+  useEffect(() => {
+    if (!sendReady || pending === null) return;
+    setPending(null);
+
+    void runtime.send(pending.prompt, pending.files).then((sent) => {
+      if (sent) onComplete(pending.prompt);
+      else setError(runtime.error ?? t("Could not send the message."));
+    });
+  }, [onComplete, pending, runtime, sendReady, t]);
+
   return (
     <div className="w-full">
       <BotPromptComposer
         botName={botName}
         draftKey={`onboarding:${botId}`}
-        disabled={!captureMode && (!runtime.botReady || runtime.defaultProject === null)}
+        disabled={!captureMode && (!runtime.botReady || pending !== null)}
         onSubmit={async (prompt, files) => {
           if (captureMode) {
             onComplete(prompt);
@@ -111,15 +139,12 @@ function FirstMessageComposer({
             return true;
           }
 
-          const sent = await runtime.send(prompt, files);
+          setError(null);
+          const created = threadId ?? (await createChat({ kind: "bot", id: botId }));
 
-          if (!sent) {
-            setError(runtime.error ?? t("Could not send the message."));
-
-            return false;
-          }
-
-          onComplete(prompt);
+          if (created === null) return false;
+          setThreadId(created);
+          setPending({ prompt, files });
 
           return true;
         }}

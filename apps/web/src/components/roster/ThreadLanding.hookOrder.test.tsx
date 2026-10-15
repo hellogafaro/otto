@@ -83,8 +83,7 @@ vi.mock("../../state/environments", () => ({
 }));
 
 vi.mock("./detailsPanelOpen", () => ({
-  useBotDetailsOpen: () => [false, () => undefined],
-  useGroupDetailsOpen: () => [false, () => undefined],
+  useChatDetailsOpen: () => [false, () => undefined],
 }));
 
 vi.mock("../chat/ChatActionsMenu", () => ({
@@ -92,7 +91,10 @@ vi.mock("../chat/ChatActionsMenu", () => ({
   useMarkChatVisited: () => undefined,
 }));
 
-vi.mock("../../state/entities", () => ({ useThreadActivities: () => [] }));
+vi.mock("../../state/entities", () => ({
+  useThreadActivities: () => [],
+  useThreadShell: () => null,
+}));
 
 vi.mock("../../state/query", () => ({
   useEnvironmentQuery: () => ({ data: mocks.queryData, refresh: mocks.refreshHistory }),
@@ -170,7 +172,7 @@ vi.mock("./useBotThreadRuntime", () => ({
     messages: mocks.messages,
     error: null,
     latestTurn: null,
-    defaultProject: null,
+    project: null,
     botReady: true,
     bootstrapped: true,
     linkedThreadRef: {
@@ -192,7 +194,7 @@ vi.mock("./useGroupThreadRuntime", () => ({
     respondingRequestIds: [],
     messages: mocks.messages,
     error: null,
-    defaultProject: null,
+    project: null,
     groupReady: true,
     bootstrapped: true,
     respondingBotId: null,
@@ -260,6 +262,11 @@ class TestNode {
   removeAttribute() {}
 }
 
+const chatRef = {
+  environmentId: EnvironmentId.make("environment-1"),
+  threadId: ThreadId.make("thread-parent"),
+};
+
 const group: Group = {
   id: "perf-group",
   name: "Performance",
@@ -326,7 +333,7 @@ afterEach(async () => {
 });
 
 async function render() {
-  await act(async () => root.render(<GroupThreadLanding groupId={group.id} />));
+  await act(async () => root.render(<GroupThreadLanding groupId={group.id} threadRef={chatRef} />));
 }
 
 describe("thread landing reply playback hook order", () => {
@@ -347,7 +354,7 @@ describe("thread landing reply playback hook order", () => {
     });
 
     const renderBot = async () => {
-      await act(async () => root.render(<BotThreadLanding botId={bot.id} />));
+      await act(async () => root.render(<BotThreadLanding botId={bot.id} threadRef={chatRef} />));
     };
 
     await renderBot();
@@ -378,7 +385,7 @@ describe("thread landing reply playback hook order", () => {
       mocks.messages = [message];
 
       const renderBot = async () => {
-        await act(async () => root.render(<BotThreadLanding botId={bot.id} />));
+        await act(async () => root.render(<BotThreadLanding botId={bot.id} threadRef={chatRef} />));
       };
 
       await renderBot();

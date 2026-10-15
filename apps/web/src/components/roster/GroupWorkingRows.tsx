@@ -13,10 +13,13 @@ import type { Bot } from "./types";
  */
 const ROUND_START_MS = 10_000;
 
+/** Before the round's first turn starts, its first bot simply thinks, as a DM's bot does. */
+const ROUND_STARTING: BotActivity = { label: "Working", thinking: true };
+
 /**
- * Otto: Every bot answering a person's message in a group shows at once at the end of the history:
- * the one answering now with its live step and own timer, the ones after it waiting. Each reply
- * lands above the rows as it arrives, and a bot with nothing to add just leaves.
+ * Otto: A group shows the same working row as a DM, at the end of the history: the bot answering
+ * now, with its live step and own timer. Each reply lands above it, and the next bot in the round
+ * takes the row when its turn starts; a bot with nothing to add just finishes.
  */
 export function GroupWorkingRows({
   members,
@@ -68,32 +71,27 @@ export function GroupWorkingRows({
       : null,
   });
 
-  return rows.map((row) => {
-    const bot = members.find((member) => member.id === row.botId);
+  // Only the bot answering now shows, exactly as in a DM. Bots later in the round show once
+  // their turn starts; listing them earlier promised replies a bot with nothing to add never sends.
+  const [current] = rows;
+  const bot = members.find((member) => member.id === current?.botId);
 
-    if (!bot) return null;
+  if (!current || !bot || !showCurrent) return null;
 
-    if (row.state === "waiting") {
-      return (
-        <BotActivityStatus key={row.botId} bot={bot} activity={activity} startedAt={null} waiting />
-      );
-    }
+  const started = current.state === "working" && latestTurn && !latestTurn.completedAt;
 
-    return showCurrent ? (
-      <BotActivityStatus
-        key={row.botId}
-        bot={bot}
-        activity={activity}
-        startedAt={
-          // Otto: A finished turn's start would flash a stale time before the new turn lands.
-          latestTurn && !latestTurn.completedAt
-            ? (latestTurn.startedAt ?? latestTurn.requestedAt ?? null)
-            : null
-        }
-        subjectName={subjectName}
-        silentRun={silentRun}
-        continuesReply={last?.role === "assistant" && last.respondingBotId === bot.id}
-      />
-    ) : null;
-  });
+  return (
+    <BotActivityStatus
+      key={bot.id}
+      bot={bot}
+      activity={started ? activity : ROUND_STARTING}
+      startedAt={
+        // Otto: A finished turn's start would flash a stale time before the new turn lands.
+        started ? (latestTurn.startedAt ?? latestTurn.requestedAt ?? null) : null
+      }
+      subjectName={started ? subjectName : null}
+      silentRun={started ? silentRun : null}
+      continuesReply={last?.role === "assistant" && last.respondingBotId === bot.id}
+    />
+  );
 }

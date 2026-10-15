@@ -101,8 +101,7 @@ vi.mock("../../state/environments", () => ({
 }));
 
 vi.mock("./detailsPanelOpen", () => ({
-  useBotDetailsOpen: () => [false, () => undefined],
-  useGroupDetailsOpen: () => [false, () => undefined],
+  useChatDetailsOpen: () => [false, () => undefined],
 }));
 
 vi.mock("../chat/ChatActionsMenu", () => ({
@@ -112,6 +111,7 @@ vi.mock("../chat/ChatActionsMenu", () => ({
 
 vi.mock("../../state/entities", () => ({
   useThreadActivities: () => mocks.activities,
+  useThreadShell: () => null,
 }));
 
 vi.mock("../../state/query", () => ({ useEnvironmentQuery: () => ({ data: { inbox: [] } }) }));
@@ -208,7 +208,7 @@ vi.mock("./useBotThreadRuntime", () => ({
     submitPendingUserInputAnswers: vi.fn(),
     messages: mocks.messages,
     error: null,
-    defaultProject: null,
+    project: null,
     botReady: true,
     bootstrapped: true,
     linkedThreadRef: {
@@ -226,7 +226,7 @@ vi.mock("./useGroupThreadRuntime", () => ({
     respondingRequestIds: [],
     messages: mocks.groupMessages,
     error: null,
-    defaultProject: null,
+    project: null,
     groupReady: true,
     bootstrapped: true,
     respondingBotId: "bot-parent",
@@ -254,6 +254,11 @@ import { DelegationCard } from "./DelegationCard";
 import { GroupThreadLanding } from "./GroupThreadLanding";
 import { BotUserInputPrompt } from "./BotUserInputPrompt";
 import { ThreadRuntimeWarningBanner } from "./ThreadRuntimeWarningBanner";
+
+const chatRef = {
+  environmentId: EnvironmentId.make("environment-1"),
+  threadId: ThreadId.make("thread-parent"),
+};
 
 const decodeDelegation = Schema.decodeUnknownSync(OttoDelegationRecord);
 
@@ -403,8 +408,8 @@ describe("thread landing delegations", () => {
   });
 
   it.each([
-    ["bot", () => BotThreadLanding({ botId: parentBot.id })],
-    ["group", () => GroupThreadLanding({ groupId: group.id })],
+    ["bot", () => BotThreadLanding({ botId: parentBot.id, threadRef: chatRef })],
+    ["group", () => GroupThreadLanding({ groupId: group.id, threadRef: chatRef })],
   ])("renders the shared card for the matching %s thread delegation", (_kind, render) => {
     hooks.beginRender();
 
@@ -418,8 +423,8 @@ describe("thread landing delegations", () => {
   });
 
   it.each([
-    ["bot", () => BotThreadLanding({ botId: parentBot.id })],
-    ["group", () => GroupThreadLanding({ groupId: group.id })],
+    ["bot", () => BotThreadLanding({ botId: parentBot.id, threadRef: chatRef })],
+    ["group", () => GroupThreadLanding({ groupId: group.id, threadRef: chatRef })],
   ])("places three delegations from three turns at three points in the %s chat", (kind, render) => {
     if (kind === "bot") mocks.messages = THREE_TURNS;
     else mocks.groupMessages = THREE_TURNS;
@@ -464,7 +469,7 @@ describe("thread landing delegations", () => {
     };
 
     hooks.beginRender();
-    expect(timelineOrder(BotThreadLanding({ botId: parentBot.id }))).toEqual([
+    expect(timelineOrder(BotThreadLanding({ botId: parentBot.id, threadRef: chatRef }))).toEqual([
       "user-1",
       "reply-1",
       "card:by-turn",
@@ -481,14 +486,14 @@ describe("thread landing delegations", () => {
     hooks.beginRender();
 
     const groupCard = visitElements(
-      GroupThreadLanding({ groupId: group.id }),
+      GroupThreadLanding({ groupId: group.id, threadRef: chatRef }),
       (element) => element.type === DelegationCard,
     ) as ReactElement<Parameters<typeof DelegationCard>[0]> | null;
 
     hooks.reset();
 
     const botCard = visitElements(
-      BotThreadLanding({ botId: parentBot.id }),
+      BotThreadLanding({ botId: parentBot.id, threadRef: chatRef }),
       (element) => element.type === DelegationCard,
     ) as ReactElement<Parameters<typeof DelegationCard>[0]> | null;
 
@@ -557,7 +562,7 @@ describe("thread landing delegations", () => {
     hooks.beginRender();
 
     const row = visitElements(
-      BotThreadLanding({ botId: parentBot.id }),
+      BotThreadLanding({ botId: parentBot.id, threadRef: chatRef }),
       (element) => element.type === AssistantMessageRow,
     ) as ReactElement<Parameters<typeof AssistantMessageRow>[0]> | null;
 
@@ -591,7 +596,7 @@ describe("thread landing delegations", () => {
     hooks.beginRender();
 
     const card = visitElements(
-      BotThreadLanding({ botId: parentBot.id }),
+      BotThreadLanding({ botId: parentBot.id, threadRef: chatRef }),
       (element) => element.type === ComposerPendingUserInputPanel,
     ) as ReactElement<Parameters<typeof ComposerPendingUserInputPanel>[0]> | null;
 
@@ -620,7 +625,7 @@ describe("thread landing delegations", () => {
     hooks.beginRender();
 
     const prompt = visitElements(
-      GroupThreadLanding({ groupId: group.id }),
+      GroupThreadLanding({ groupId: group.id, threadRef: chatRef }),
       (element) => element.type === BotUserInputPrompt,
     ) as ReactElement<Parameters<typeof BotUserInputPrompt>[0]> | null;
 
@@ -663,7 +668,7 @@ describe("thread landing delegations", () => {
     };
 
     hooks.beginRender();
-    const rendered = GroupThreadLanding({ groupId: group.id });
+    const rendered = GroupThreadLanding({ groupId: group.id, threadRef: chatRef });
 
     const provider = visitElements(
       rendered,
@@ -707,7 +712,7 @@ describe("thread landing delegations", () => {
     hooks.beginRender();
 
     const provider = visitElements(
-      GroupThreadLanding({ groupId: group.id }),
+      GroupThreadLanding({ groupId: group.id, threadRef: chatRef }),
       (element) => element.props.testId === "group-provider-message",
     );
 
@@ -715,8 +720,8 @@ describe("thread landing delegations", () => {
   });
 
   it.each([
-    ["bot", () => BotThreadLanding({ botId: parentBot.id })],
-    ["group", () => GroupThreadLanding({ groupId: group.id })],
+    ["bot", () => BotThreadLanding({ botId: parentBot.id, threadRef: chatRef })],
+    ["group", () => GroupThreadLanding({ groupId: group.id, threadRef: chatRef })],
   ])("does not report the %s composer as sending while an approval waits", (_kind, render) => {
     const timestamp = "2026-09-11T12:00:00.000Z";
     mocks.latestTurn = {
@@ -751,8 +756,8 @@ describe("thread landing delegations", () => {
   });
 
   it.each([
-    ["bot", () => BotThreadLanding({ botId: parentBot.id })],
-    ["group", () => GroupThreadLanding({ groupId: group.id })],
+    ["bot", () => BotThreadLanding({ botId: parentBot.id, threadRef: chatRef })],
+    ["group", () => GroupThreadLanding({ groupId: group.id, threadRef: chatRef })],
   ])("reports the %s composer as sending while a turn runs", (_kind, render) => {
     const timestamp = "2026-09-11T12:00:00.000Z";
     mocks.latestTurn = {
@@ -782,8 +787,8 @@ describe("thread landing delegations", () => {
   });
 
   it.each([
-    ["bot", () => BotThreadLanding({ botId: parentBot.id })],
-    ["group", () => GroupThreadLanding({ groupId: group.id })],
+    ["bot", () => BotThreadLanding({ botId: parentBot.id, threadRef: chatRef })],
+    ["group", () => GroupThreadLanding({ groupId: group.id, threadRef: chatRef })],
   ])("renders an active runtime warning in the %s conversation", (_kind, render) => {
     const turnId = TurnId.make("turn-warning");
     const timestamp = "2026-09-11T12:00:00.000Z";

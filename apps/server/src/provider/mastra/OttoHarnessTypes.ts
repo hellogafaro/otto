@@ -39,6 +39,8 @@ export interface OttoMastraState {
   readonly skillsContext?: string | undefined;
   // Undefined clears the roster when a reused session leaves its group chat.
   readonly groupContext?: string | undefined;
+  // Otto: undefined clears the project when a reused session moves to the general project.
+  readonly projectContext?: string | undefined;
   readonly modelOptions?: OttoModelOptions;
 }
 

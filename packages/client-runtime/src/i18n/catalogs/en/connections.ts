@@ -561,6 +561,7 @@ export const connectionsCatalog = {
   "No tools": "No tools",
   "Local servers aren't supported.": "Local servers aren't supported.",
   "No integrations": "No integrations",
+  "No bots": "No bots",
   "No skills": "No skills",
   "Connect apps like Slack and Gmail.": "Connect apps like Slack and Gmail.",
   "Accounts stay connected when the key is from the same Composio project.":

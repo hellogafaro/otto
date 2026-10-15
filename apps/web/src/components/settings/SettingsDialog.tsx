@@ -13,6 +13,8 @@ import {
   RiChat3Line,
   RiPaintBrushLine,
   RiPuzzleLine,
+  RiRobot3Line,
+  RiSparkling2Line,
   RiShieldCheckLine,
   RiSettings3Line,
   RiEqualizerLine,
@@ -92,6 +94,14 @@ const IntegrationsSettingsPanel = lazy(async () => ({
   default: (await import("./IntegrationsSettings")).IntegrationsSettingsPanel,
 }));
 
+const SkillsSettingsPanel = lazy(async () => ({
+  default: (await import("./IntegrationsSettings")).SkillsSettingsPanel,
+}));
+
+const BotsSettingsPanel = lazy(async () => ({
+  default: (await import("./BotsSettings")).BotsSettingsPanel,
+}));
+
 const OrganizationSettingsPanel = lazy(async () => ({
   default: (await import("./OrganizationAccountSettings")).OrganizationSettingsPanel,
 }));
@@ -104,6 +114,8 @@ const SECTION_PANELS: Readonly<Record<SettingsSection, ComponentType>> = {
   account: AccountSettingsPanel,
   organization: OrganizationSettingsPanel,
   integrations: IntegrationsSettingsPanel,
+  bots: BotsSettingsPanel,
+  skills: SkillsSettingsPanel,
   members: OrganizationMembersSettings,
   general: GeneralSettingsPanel,
   usage: UsageSettingsPanel,
@@ -161,7 +173,6 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
       { section: "appearance", label: "Appearance", icon: RiPaintBrushLine },
       { section: "keybindings", label: "Keyboard", icon: RiKeyboardLine },
       { section: "connections", label: "Connections", icon: RiLink },
-      { section: "integrations", label: "Integrations", icon: RiPuzzleLine },
       { section: "privacy", label: "Privacy & data", icon: RiShieldCheckLine },
       { section: "archived", label: "Archived", icon: RiArchiveLine },
       { section: "advanced", label: "Advanced", icon: RiEqualizerLine },
@@ -173,6 +184,15 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
       { section: "account", label: "Account", icon: RiUserLine },
       { section: "organization", label: "Organization", icon: RiBuildingLine },
       { section: "members", label: "Members", icon: RiGroupLine },
+    ],
+  },
+  {
+    // Otto: what bots are and can use; they change rarely, so they live here, not in the sidebar.
+    label: "Customize",
+    items: [
+      { section: "bots", label: "Bots", icon: RiRobot3Line },
+      { section: "skills", label: "Skills", icon: RiSparkling2Line },
+      { section: "integrations", label: "Integrations", icon: RiPuzzleLine },
     ],
   },
   {

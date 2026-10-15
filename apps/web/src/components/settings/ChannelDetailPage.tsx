@@ -66,7 +66,6 @@ export function ChannelDetailPage({ provider }: { readonly provider: ChannelProv
   return (
     <SettingsPageContainer>
       <SettingsDetailHeader
-        back={{ section: "channels", label: t("Channels") }}
         icon={meta.icon}
         title={meta.label}
         tone={state.tone}

@@ -83,6 +83,8 @@ export const ProviderSessionStartInput = Schema.Struct({
   persistentMemoryContext: Schema.optional(Schema.String),
   /** Who is in the group chat this session answers in, for the bot's system context. */
   groupContext: Schema.optional(Schema.String),
+  /** Otto: the project the chat is filed in, for the bot's system context. */
+  projectContext: Schema.optional(Schema.String),
   runtimeMode: RuntimeMode,
 });
 

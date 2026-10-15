@@ -22,6 +22,8 @@ export const SETTINGS_SECTIONS = [
   "keybindings",
   "connections",
   "integrations",
+  "bots",
+  "skills",
   "privacy",
   "archived",
   "advanced",
@@ -112,7 +114,6 @@ export function clearSettingsEnvironment(): void {
  * links and bookmarks keep working.
  */
 export const LEGACY_SETTINGS_SECTIONS = {
-  bots: { section: "channels" },
   inbox: { section: "advanced", targetId: "errors" },
   errors: { section: "advanced", targetId: "errors" },
   voice: { section: "providers", targetId: "voice" },

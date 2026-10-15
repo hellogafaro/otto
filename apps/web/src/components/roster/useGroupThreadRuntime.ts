@@ -1,12 +1,11 @@
 import { Predicate } from "effect";
 import { useBotConversationMessageProjection } from "./botConversationMessageProjection";
 import { useAtomValue } from "@effect/atom-react";
-import { scopeThreadRef } from "@otto/client-runtime/environment";
-import { BotId, EnvironmentId, GroupId, ThreadId, type ScopedThreadRef } from "@otto/contracts";
+import { BotId, EnvironmentId, GroupId, type ScopedThreadRef } from "@otto/contracts";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
-import { newMessageId, newThreadId } from "../../lib/utils";
+import { newMessageId } from "../../lib/utils";
 import { resolveAppModelSelectionState } from "../../modelSelection";
 import {
   applyProviderInstanceSettings,
@@ -21,27 +20,19 @@ import {
   readEnvironmentSupportsFileAttachments,
   useThreadActivities,
   useThreadShell,
-  useThreadShells,
 } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { primaryServerCwdAtom, primaryServerProvidersAtom } from "../../state/server";
+import { primaryServerProvidersAtom } from "../../state/server";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { derivePendingUserInputs } from "../../session-logic";
 import { DEFAULT_INTERACTION_MODE } from "../../types";
-import { sortScopedProjectsForSidebar } from "../Sidebar.logic";
-import {
-  buildGroupTurnStartInput,
-  chatHomeProject,
-  createBotTurnSubmissionQueue,
-  findLatestGroupThreadTarget,
-  nextRetainedChat,
-  type RetainedChat,
-} from "./botThreadRuntime.logic";
+import { buildGroupTurnStartInput, createBotTurnSubmissionQueue } from "./botThreadRuntime.logic";
 import { groupContainsBot } from "./roster.logic";
 import { useRosterStore } from "./rosterStore";
 import { resolveBotFileAttachment } from "./botFileAttachment";
 import { readThreadTurnAttachments, threadTitle } from "./threadRuntimeAttachments";
+import { usePlaceholderTitle } from "./usePlaceholderTitle";
 import { useThreadPendingUserInput } from "./useThreadPendingUserInput";
 import { groupModelSelection } from "./groupThreadModel.logic";
 import {
@@ -54,15 +45,14 @@ import {
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
-export function useGroupThreadRuntime(groupId: string) {
+/** Otto: One group chat: the route's thread, created before it opened. */
+export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRef) {
   const projects = useProjects();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const serverGroups = useAtomValue(environmentGroupsAtom(primaryEnvironmentId ?? NO_ENVIRONMENT));
-  const threadShells = useThreadShells();
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
   const settings = usePrimarySettings();
   const providers = useAtomValue(primaryServerProvidersAtom);
-  const serverCwd = useAtomValue(primaryServerCwdAtom);
 
   const providerEntries = useMemo(
     () => applyProviderInstanceSettings(deriveProviderInstanceEntries(providers), settings),
@@ -75,51 +65,9 @@ export function useGroupThreadRuntime(groupId: string) {
     state.groups.find((candidate) => candidate.id === groupId),
   );
 
-  const primaryThreadShells = useMemo(
-    () =>
-      primaryEnvironmentId
-        ? threadShells.filter((thread) => thread.environmentId === primaryEnvironmentId)
-        : [],
-    [primaryEnvironmentId, threadShells],
-  );
-
-  const serverTarget = primaryEnvironmentId
-    ? findLatestGroupThreadTarget(groupId, primaryEnvironmentId, primaryThreadShells)
-    : null;
-
-  const targetEnvironmentId = serverTarget?.environmentId;
-  const targetThreadId = serverTarget?.threadId;
-
-  const rememberedThreadRef = useMemo<ScopedThreadRef | null>(
-    () =>
-      targetEnvironmentId && targetThreadId
-        ? scopeThreadRef(EnvironmentId.make(targetEnvironmentId), ThreadId.make(targetThreadId))
-        : null,
-    [targetEnvironmentId, targetThreadId],
-  );
-
-  const rememberedThread = useThreadShell(rememberedThreadRef);
-  const linkedThreadRef = rememberedThread ? rememberedThreadRef : null;
-
-  const retainedThreadRef = useRef<RetainedChat>({
-    ownerId: groupId,
-    threadRef: null,
-    linked: false,
-  });
-
-  // Chats created by queued sends, keyed by the retention state they were submitted from, so
-  // sends queued together share one chat even after the user leaves the group.
-  const createdChatsRef = useRef(new WeakMap<RetainedChat, ScopedThreadRef>());
-
-  if (retainedThreadRef.current.ownerId !== groupId) {
-    retainedThreadRef.current = { ownerId: groupId, threadRef: null, linked: false };
-  }
-
-  retainedThreadRef.current = nextRetainedChat(
-    retainedThreadRef.current,
-    linkedThreadRef,
-    bootstrapped,
-  );
+  const rememberedThread = useThreadShell(threadRef);
+  const linkedThreadRef = rememberedThread ? threadRef : null;
+  const titleFromFirstMessage = usePlaceholderTitle(linkedThreadRef, rememberedThread?.title);
 
   const { messages, lastMessageRole, lastUserMessageAt } =
     useBotConversationMessageProjection(linkedThreadRef);
@@ -127,23 +75,13 @@ export function useGroupThreadRuntime(groupId: string) {
   const activities = useThreadActivities(linkedThreadRef);
   const pendingUserInputs = useMemo(() => derivePendingUserInputs(activities), [activities]);
 
-  const defaultProject = useMemo(() => {
-    if (!bootstrapped || !primaryEnvironmentId) return null;
-    const scoped = projects.filter((project) => project.environmentId === primaryEnvironmentId);
-
-    return chatHomeProject(
-      scoped,
-      serverCwd,
-      () => sortScopedProjectsForSidebar(scoped, primaryThreadShells, "updated_at")[0] ?? null,
-    );
-  }, [bootstrapped, primaryEnvironmentId, primaryThreadShells, projects, serverCwd]);
-
+  // The chat's own project. A chat always has one; "No project" is the home project.
   const activeProject =
     projects.find(
       (project) =>
         project.environmentId === rememberedThread?.environmentId &&
         project.id === rememberedThread.projectId,
-    ) ?? defaultProject;
+    ) ?? null;
 
   const appDefaultModelSelection = useMemo(
     () => resolveAppModelSelectionState(settings, providers),
@@ -219,7 +157,9 @@ export function useGroupThreadRuntime(groupId: string) {
         return false;
       }
 
-      if (!activeProject) {
+      const project = activeProject;
+
+      if (!project || !linkedThreadRef) {
         setError(localFailure("Your workspace is still loading. Try again in a moment."));
 
         return false;
@@ -235,7 +175,7 @@ export function useGroupThreadRuntime(groupId: string) {
 
       if (
         files.some((file) => resolveBotFileAttachment(file)?.type === "file") &&
-        !readEnvironmentSupportsFileAttachments(activeProject.environmentId)
+        !readEnvironmentSupportsFileAttachments(project.environmentId)
       ) {
         setError(localFailure("Update the connected Otto server to attach files."));
 
@@ -260,7 +200,7 @@ export function useGroupThreadRuntime(groupId: string) {
       const selectionFor = (bot: (typeof members)[number]) => {
         const selection = groupModelSelection(
           bot.engine,
-          activeProject.defaultModelSelection,
+          project.defaultModelSelection,
           appDefaultModelSelection,
         );
 
@@ -276,9 +216,15 @@ export function useGroupThreadRuntime(groupId: string) {
       };
 
       const respondingBot = mentionedBot ?? members.find((bot) => selectionFor(bot) !== null);
-      const modelSelection = respondingBot ? selectionFor(respondingBot) : null;
 
-      if (!respondingBot || !modelSelection) {
+      // Otto: a people-only group has no bot to answer; its messages only reach its people.
+      const modelSelection = respondingBot
+        ? selectionFor(respondingBot)
+        : members.length === 0
+          ? (project.defaultModelSelection ?? appDefaultModelSelection)
+          : null;
+
+      if (!modelSelection || (members.length > 0 && !respondingBot)) {
         setError(
           localFailure(
             mentionedBot
@@ -293,31 +239,21 @@ export function useGroupThreadRuntime(groupId: string) {
       queuedSendCountRef.current += 1;
       setSending(true);
       setError(null);
-      // Bind the queued send to the chat selected at submission; the ref moves on if the user
-      // switches groups.
-      const queuedRetained = retainedThreadRef.current;
-      const queuedThreadRef = queuedRetained.threadRef;
+      // The chat on screen when the message was submitted, so it lands where it was typed.
+      const currentThreadRef = linkedThreadRef;
 
       return sendQueueRef.current.enqueue(async () => {
         setError(null);
         const createdAt = new Date().toISOString();
-        // Leaving and returning to this group replaces the ref. A send queued before the
-        // group had a chat joins the one an earlier send created there.
-        const live = retainedThreadRef.current;
-
-        const currentThreadRef =
-          queuedThreadRef ??
-          createdChatsRef.current.get(queuedRetained) ??
-          (live.ownerId === groupId ? live.threadRef : null);
-
-        const threadId = currentThreadRef?.threadId ?? newThreadId();
-        const runtimeMode = respondingBot.runtimeMode;
+        const threadId = currentThreadRef.threadId;
+        const title = threadTitle(prompt, files);
+        const runtimeMode = respondingBot?.runtimeMode ?? settings.localExecutionMode;
 
         try {
           const attachments = await readThreadTurnAttachments(files);
-          const environmentId = currentThreadRef?.environmentId ?? activeProject.environmentId;
+          const environmentId = currentThreadRef.environmentId;
 
-          if (currentThreadRef && rememberedThread?.runtimeMode !== runtimeMode) {
+          if (rememberedThread?.runtimeMode !== runtimeMode) {
             const modeResult = await setRuntimeMode({
               environmentId,
               input: { threadId, runtimeMode },
@@ -336,8 +272,8 @@ export function useGroupThreadRuntime(groupId: string) {
               groupId: GroupId.make(groupId),
               ...(mentionedBot ? { respondingBotId: BotId.make(mentionedBot.id) } : {}),
               threadId,
-              projectId: activeProject.id,
-              title: threadTitle(prompt, files),
+              projectId: project.id,
+              title,
               message: {
                 messageId: newMessageId(),
                 role: "user",
@@ -348,7 +284,7 @@ export function useGroupThreadRuntime(groupId: string) {
               runtimeMode,
               interactionMode: DEFAULT_INTERACTION_MODE,
               createdAt,
-              createThread: currentThreadRef === null,
+              createThread: false,
             }),
           });
 
@@ -358,20 +294,7 @@ export function useGroupThreadRuntime(groupId: string) {
             return false;
           }
 
-          // Only a new chat restarts retention; a chat the shell list already showed stays
-          // linked so archiving it releases it. Skip it if the user moved to another group.
-          if (currentThreadRef === null) {
-            const createdThreadRef = scopeThreadRef(environmentId, threadId);
-            createdChatsRef.current.set(queuedRetained, createdThreadRef);
-
-            if (retainedThreadRef.current.ownerId === groupId) {
-              retainedThreadRef.current = {
-                ownerId: groupId,
-                threadRef: createdThreadRef,
-                linked: false,
-              };
-            }
-          }
+          titleFromFirstMessage(title);
 
           return true;
         } catch (cause) {
@@ -402,6 +325,7 @@ export function useGroupThreadRuntime(groupId: string) {
       settings.localExecutionMode,
       setRuntimeMode,
       startTurn,
+      titleFromFirstMessage,
     ],
   );
 
@@ -445,7 +369,7 @@ export function useGroupThreadRuntime(groupId: string) {
   return {
     bootstrapped,
     canResume,
-    defaultProject: activeProject,
+    project: activeProject,
     error: failure?.message ?? null,
     failure,
     turnFailure,

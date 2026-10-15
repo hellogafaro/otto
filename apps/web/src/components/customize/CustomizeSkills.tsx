@@ -144,8 +144,8 @@ function SkillDialog({
     setSaving(false);
     onClose();
     void navigate({
-      to: "/customize/$type/$id",
-      params: { type: "skill", id: created.value.folderId },
+      to: "/settings/skills/$id",
+      params: { id: created.value.folderId },
     });
   };
 
@@ -328,9 +328,7 @@ function SkillRow({
       logo={<RiSparkling2Line aria-hidden className="size-4" />}
       name={frontMatter.name ?? skill.title}
       detail={frontMatter.description ?? (main ? t("Skill") : t("No SKILL.md yet"))}
-      onOpen={() =>
-        void navigate({ to: "/customize/$type/$id", params: { type: "skill", id: skill.id } })
-      }
+      onOpen={() => void navigate({ to: "/settings/skills/$id", params: { id: skill.id } })}
     />
   );
 }
@@ -385,7 +383,7 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
 
   return (
     <div className="flex flex-col gap-10">
-      {(["user", "workspace"] as const).map((visibility) => {
+      {(["user", "organization"] as const).map((visibility) => {
         const group = skills.filter((skill) => skill.visibility === visibility);
 
         return (

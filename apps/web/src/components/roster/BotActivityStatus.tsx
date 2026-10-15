@@ -117,8 +117,8 @@ function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
 /**
  * Otto: A working bot shows itself in the chat history, where its reply will appear: its own 28px
  * avatar in the working pose, then one shimmering line, without trailing dots, saying what the run
- * is really doing ("Reading a skill", "Using Google Calendar"). A bot queued behind it in a group
- * round shows a still avatar and a muted "Waiting to reply". Under the bot's own streaming reply the avatar
+ * is really doing ("Reading a skill", "Using Google Calendar"), the same in a DM and a group. Under
+ * the bot's own streaming reply the avatar
  * gives way to the message's indent. While it only thinks, playful verbs rotate in that line.
  * The row shows its own elapsed time from 0s. A run its provider went quiet on instead
  * shows the stalled timer counting from the last output.
@@ -130,7 +130,6 @@ export function BotActivityStatus({
   subjectName = null,
   silentRun = null,
   continuesReply = false,
-  waiting = false,
 }: {
   readonly bot: Pick<Bot, "name" | "avatar">;
   readonly activity: BotActivity;
@@ -141,8 +140,6 @@ export function BotActivityStatus({
   readonly silentRun?: ThreadSilentRun | null;
   /** The bot's reply is already streaming above, so the row continues it without the avatar. */
   readonly continuesReply?: boolean;
-  /** Queued behind another bot in a group round: still, muted and without a timer. */
-  readonly waiting?: boolean;
 }) {
   const { t } = useI18n();
 
@@ -159,20 +156,10 @@ export function BotActivityStatus({
     <BotAvatarView
       avatar={bot.avatar}
       name={bot.name}
-      state={waiting ? "idle" : "working"}
+      state="working"
       className="size-7 shrink-0"
     />
   );
-
-  if (waiting) {
-    return (
-      <div className={rowClass} data-testid="bot-activity-status" data-waiting="">
-        {avatar}
-        <span className="sr-only">{bot.name}: </span>
-        <span className="min-w-0 truncate text-muted-foreground">{t("Waiting to reply")}</span>
-      </div>
-    );
-  }
 
   if (silentRun) {
     return (

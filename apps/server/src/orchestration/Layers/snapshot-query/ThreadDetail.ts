@@ -294,6 +294,8 @@ export function createThreadDetail({
         groupId: threadRow.value.groupId,
         parentThreadId: threadRow.value.parentThreadId ?? null,
         parentDelegationId: threadRow.value.parentDelegationId ?? null,
+        createdBy: threadRow.value.createdBy ?? null,
+        visibility: threadRow.value.visibility ?? "organization",
         respondingBotId: threadRow.value.respondingBotId ?? null,
         title: threadRow.value.title,
         modelSelection: threadRow.value.modelSelection,

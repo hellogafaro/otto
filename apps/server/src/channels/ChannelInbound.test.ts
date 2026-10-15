@@ -575,7 +575,7 @@ describe("channel runtime", () => {
       expect(posts).toEqual([
         {
           externalThreadId,
-          text: `Approved answer\n\nOpen in Otto: https://otto.example/bots/${BOT_ID}`,
+          text: `Approved answer\n\nOpen in Otto: https://otto.example/chats/${threadId}`,
         },
       ]);
     }),

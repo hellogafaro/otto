@@ -1,3 +1,4 @@
+import type { ScopedThreadRef } from "@otto/contracts";
 import { RiPhoneFill, RiPhoneLine } from "@remixicon/react";
 
 import { useEffect, useState } from "react";
@@ -64,9 +65,12 @@ export function BotVoiceCallButtonView({
 
 export function BotVoiceCallButton({
   bot,
+  threadRef,
   disabled = false,
 }: {
   readonly bot: Bot;
+  /** The chat the call belongs to. */
+  readonly threadRef: ScopedThreadRef;
   readonly disabled?: boolean;
 }) {
   const { activeCall, startingBotId, startOrReturn } = useVoiceCall();
@@ -82,19 +86,9 @@ export function BotVoiceCallButton({
       disabled={disabled || blocked || startingBotId !== null}
       disabledReason={blocked ? (engine.unavailability?.title ?? null) : null}
       globallyEnabled={globallyEnabled}
-      onClick={() => startOrReturn(bot)}
+      onClick={() => startOrReturn(bot, threadRef)}
     />
   );
-}
-
-export function SelectedBotVoiceCallButton() {
-  const bot = useRosterStore((state) =>
-    state.selectedBotId === null
-      ? null
-      : (state.bots.find((candidate) => candidate.id === state.selectedBotId) ?? null),
-  );
-
-  return bot ? <BotVoiceCallButton bot={bot} /> : null;
 }
 
 export function VoiceCallBar() {

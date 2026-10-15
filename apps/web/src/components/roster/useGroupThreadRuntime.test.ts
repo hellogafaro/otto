@@ -111,6 +111,8 @@ vi.mock("./rosterStore", () => ({
     selector({ bots: mocks.bots, groups: mocks.groups }),
 }));
 
+const chatRef = { environmentId: EnvironmentId.make("env-a"), threadId: ThreadId.make("thread-1") };
+
 beforeEach(() => {
   hooks.reset();
   mocks.messageProjection = {
@@ -156,7 +158,7 @@ describe("group runtime errors", () => {
       lastUserMessageAt: "2026-09-18T01:00:00.000Z",
     };
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
     expect(runtime.turnFailure?.message).toBe("Routine failed before starting.");
   });
 
@@ -180,7 +182,7 @@ describe("group runtime errors", () => {
     ];
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
 
     expect(runtime.providerAvailable).toBe(true);
   });
@@ -205,7 +207,7 @@ describe("group runtime errors", () => {
     ];
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
 
     expect(runtime.providerAvailable).toBe(true);
   });
@@ -234,7 +236,7 @@ describe("group runtime errors", () => {
     ];
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
 
     expect(runtime.providerAvailable).toBe(false);
   });
@@ -260,7 +262,7 @@ describe("group runtime errors", () => {
     ];
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
 
     expect(runtime.providerAvailable).toBe(false);
   });
@@ -274,6 +276,14 @@ describe("group runtime errors", () => {
         defaultModelSelection: null,
       },
     ];
+    // The chat exists before anyone sends into it.
+    mocks.threadShell = {
+      environmentId: chatRef.environmentId,
+      id: chatRef.threadId,
+      projectId: "project-1",
+      archivedAt: null,
+      updatedAt: "2026-09-13T00:00:00.000Z",
+    };
     mocks.groups = [
       {
         id: "group-1",
@@ -294,7 +304,7 @@ describe("group runtime errors", () => {
     ];
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
 
     expect(runtime.providerAvailable).toBe(true);
     expect(await runtime.send("@Scout, check this", [], "bot-2")).toBe(true);
@@ -323,6 +333,14 @@ describe("group runtime errors", () => {
         defaultModelSelection: null,
       },
     ];
+    // The chat exists before anyone sends into it.
+    mocks.threadShell = {
+      environmentId: chatRef.environmentId,
+      id: chatRef.threadId,
+      projectId: "project-1",
+      archivedAt: null,
+      updatedAt: "2026-09-13T00:00:00.000Z",
+    };
     mocks.groups = [
       {
         id: "group-1",
@@ -343,7 +361,7 @@ describe("group runtime errors", () => {
     ];
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
     const first = runtime.send("Compare A and B", []);
     const followUp = runtime.send("Also include C", []);
     await firstStartedPromise;
@@ -354,7 +372,8 @@ describe("group runtime errors", () => {
     expect(mocks.startTurn).toHaveBeenCalledTimes(2);
     const firstInput = mocks.startTurn.mock.calls[0]?.[0].input;
     const secondInput = mocks.startTurn.mock.calls[1]?.[0].input;
-    expect(firstInput.bootstrap?.createThread.groupId).toBe("group-1");
+    expect(firstInput.bootstrap).toBeUndefined();
+    expect(firstInput.threadId).toBe(chatRef.threadId);
     expect(secondInput.bootstrap).toBeUndefined();
     expect(secondInput.threadId).toBe(firstInput.threadId);
   });
@@ -381,6 +400,14 @@ describe("group runtime errors", () => {
         defaultModelSelection: null,
       },
     ];
+    // The chat exists before anyone sends into it.
+    mocks.threadShell = {
+      environmentId: chatRef.environmentId,
+      id: chatRef.threadId,
+      projectId: "project-1",
+      archivedAt: null,
+      updatedAt: "2026-09-13T00:00:00.000Z",
+    };
     mocks.groups = ["group-1", "group-2"].map((id) => ({
       id,
       name: id,
@@ -399,11 +426,11 @@ describe("group runtime errors", () => {
     ];
 
     hooks.beginRender();
-    const first = useGroupThreadRuntime("group-1").send("Compare A and B", []);
+    const first = useGroupThreadRuntime("group-1", chatRef).send("Compare A and B", []);
     hooks.beginRender();
-    useGroupThreadRuntime("group-2");
+    useGroupThreadRuntime("group-2", { ...chatRef, threadId: ThreadId.make("thread-2") });
     hooks.beginRender();
-    const followUp = useGroupThreadRuntime("group-1").send("Also include C", []);
+    const followUp = useGroupThreadRuntime("group-1", chatRef).send("Also include C", []);
     await firstStartedPromise;
 
     acceptFirst();
@@ -436,6 +463,14 @@ describe("group runtime errors", () => {
         defaultModelSelection: null,
       },
     ];
+    // The chat exists before anyone sends into it.
+    mocks.threadShell = {
+      environmentId: chatRef.environmentId,
+      id: chatRef.threadId,
+      projectId: "project-1",
+      archivedAt: null,
+      updatedAt: "2026-09-13T00:00:00.000Z",
+    };
     mocks.groups = ["group-1", "group-2"].map((id) => ({
       id,
       name: id,
@@ -454,12 +489,12 @@ describe("group runtime errors", () => {
     ];
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
     const first = runtime.send("Compare A and B", []);
     const queued = runtime.send("Also include C", []);
     await firstStartedPromise;
     hooks.beginRender();
-    useGroupThreadRuntime("group-2");
+    useGroupThreadRuntime("group-2", { ...chatRef, threadId: ThreadId.make("thread-2") });
 
     acceptFirst();
     expect(await Promise.all([first, queued])).toEqual([true, true]);
@@ -467,78 +502,6 @@ describe("group runtime errors", () => {
     const secondInput = mocks.startTurn.mock.calls[1]?.[0].input;
     expect(secondInput.bootstrap).toBeUndefined();
     expect(secondInput.threadId).toBe(firstInput.threadId);
-  });
-
-  it("keeps a queued message in its chat when a newer chat appears after switching groups", async () => {
-    let acceptFirst!: () => void;
-    let firstStarted!: () => void;
-    const firstAccepted = new Promise<void>((resolve) => (acceptFirst = resolve));
-    const firstStartedPromise = new Promise<void>((resolve) => (firstStarted = resolve));
-    mocks.startTurn = vi
-      .fn()
-      .mockImplementationOnce(async () => {
-        firstStarted();
-        await firstAccepted;
-
-        return { _tag: "Success" };
-      })
-      .mockResolvedValue({ _tag: "Success" });
-    mocks.serverGroups = [{ id: "group-1" }, { id: "group-2" }];
-    mocks.projects = [
-      {
-        id: "project-1",
-        environmentId: mocks.primaryEnvironmentId,
-        defaultModelSelection: null,
-      },
-    ];
-    mocks.groups = ["group-1", "group-2"].map((id) => ({
-      id,
-      name: id,
-      bossBotId: "bot-1",
-      members: [{ kind: "bot", botId: BotId.make("bot-1"), role: "boss" }],
-      createdAt: "2026-09-13T00:00:00.000Z",
-      updatedAt: "2026-09-13T00:00:00.000Z",
-    })) as Group[];
-    mocks.bots = [
-      {
-        id: "bot-1",
-        engine: { provider: "codex", model: "gpt-5.6-sol" },
-        archivedAt: null,
-        runtimeMode: "full-access" as const,
-      } as Bot,
-    ];
-
-    const chat = (id: string, updatedAt: string) => ({
-      environmentId: mocks.primaryEnvironmentId,
-      id: ThreadId.make(id),
-      groupId: "group-1",
-      updatedAt,
-      archivedAt: null,
-      runtimeMode: "full-access" as const,
-    });
-
-    mocks.threadShells = [chat("thread-x", "2026-09-13T00:00:00.000Z")];
-    mocks.threadShell = mocks.threadShells[0]!;
-
-    hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
-    const first = runtime.send("Compare A and B", []);
-    const queued = runtime.send("Also include C", []);
-    await firstStartedPromise;
-    hooks.beginRender();
-    useGroupThreadRuntime("group-2");
-    // Another device starts a newer chat in the group before the queue drains.
-    mocks.threadShells = [
-      chat("thread-x", "2026-09-13T00:00:00.000Z"),
-      chat("thread-y", "2026-09-13T00:01:00.000Z"),
-    ];
-    mocks.threadShell = mocks.threadShells[1]!;
-    hooks.beginRender();
-    useGroupThreadRuntime("group-1");
-
-    acceptFirst();
-    expect(await Promise.all([first, queued])).toEqual([true, true]);
-    expect(mocks.startTurn.mock.calls[1]?.[0].input.threadId).toBe("thread-x");
   });
 
   it("surfaces the persisted provider error for a failed turn", () => {
@@ -557,7 +520,7 @@ describe("group runtime errors", () => {
     };
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
 
     expect(runtime.error).toBe("Provider rejected the request.");
   });
@@ -587,7 +550,7 @@ describe("group runtime errors", () => {
     };
 
     hooks.beginRender();
-    const runtime = useGroupThreadRuntime("group-1");
+    const runtime = useGroupThreadRuntime("group-1", chatRef);
 
     expect(runtime.failure).toEqual({
       message: "Claude authentication failed.",

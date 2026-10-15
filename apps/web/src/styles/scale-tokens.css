@@ -9,6 +9,14 @@
    Tailwind's grid-cols-N, while "grow" is a bare 1fr. */
 
 @theme inline {
+  /* Otto: Linear's type scale (11 micro, 12 mini, 13 small, 15 regular, 18 large): body text is
+     13px like Capy and Linear, and the named steps stay in rem so the Appearance size setting
+     still scales them. Line heights keep their 20px and 24px rows. */
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: calc(1.25 / 0.8125);
+  --text-base: 0.9375rem;
+  --text-base--line-height: calc(1.5 / 0.9375);
+
   --text-7px: 7px;
   --text-8px: 8px;
   --text-9px: 9px;

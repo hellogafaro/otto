@@ -107,43 +107,41 @@ describe("channel runtime", () => {
 
   it.effect("appends the Open in Otto footer only from a server-advertised public origin", () =>
     Effect.gen(function* () {
-      const url = `https://otto.example.com/bots/${BOT_ID}`;
-
       const cases = [
         {
           provider: "whatsapp" as const,
           externalThreadId: "whatsapp:phone-number-id:15551234567",
           externalSenderId: "15551234567",
           connect: whatsappConnect(BOT_ID),
-          withOrigin: `Approved answer\n\nOpen in Otto: ${url}`,
+          withOrigin: (url: string) => `Approved answer\n\nOpen in Otto: ${url}`,
         },
         {
           provider: "slack" as const,
           externalThreadId: "slack:C1:1.000",
           externalSenderId: "U1",
           connect: slackConnect(BOT_ID),
-          withOrigin: `Approved answer\n\nOpen in Otto: ${url}`,
+          withOrigin: (url: string) => `Approved answer\n\nOpen in Otto: ${url}`,
         },
         {
           provider: "telegram" as const,
           externalThreadId: "telegram:42:7",
           externalSenderId: "42",
           connect: telegramConnect(BOT_ID),
-          withOrigin: `Approved answer\n\nOpen in Otto: ${url}`,
+          withOrigin: (url: string) => `Approved answer\n\nOpen in Otto: ${url}`,
         },
         {
           provider: "imessage" as const,
           externalThreadId: "imessage:any;+15551234567",
           externalSenderId: "+15551234567",
           connect: imessageConnect(BOT_ID),
-          withOrigin: `Approved answer\n\nOpen in Otto: ${url}`,
+          withOrigin: (url: string) => `Approved answer\n\nOpen in Otto: ${url}`,
         },
         {
           provider: "discord" as const,
           externalThreadId: "discord:guild-1:channel-1",
           externalSenderId: "user-1",
           connect: discordConnect(BOT_ID),
-          withOrigin: `Approved answer\n\n[Open in Otto](${url})`,
+          withOrigin: (url: string) => `Approved answer\n\n[Open in Otto](${url})`,
         },
       ];
 
@@ -197,7 +195,10 @@ describe("channel runtime", () => {
           messageId: withOrigin.messageId,
         });
         expect(withOrigin.posts).toEqual([
-          { externalThreadId: entry.externalThreadId, text: entry.withOrigin },
+          {
+            externalThreadId: entry.externalThreadId,
+            text: entry.withOrigin(`https://otto.example.com/chats/${withOrigin.threadId}`),
+          },
         ]);
       }
     }),

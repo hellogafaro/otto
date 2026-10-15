@@ -8,7 +8,6 @@ import {
   RiPushpinLine,
   RiUnpinLine,
   RiLoopRightLine,
-  RiEditBoxLine,
   RiSunLine,
   RiDeleteBinLine,
   RiArrowGoBackLine,
@@ -173,7 +172,7 @@ export function ChatActionsMenu({
         event.preventDefault();
         event.stopPropagation();
 
-        if (control.canStart) void control.start();
+        if (control.canStart) control.start();
 
         return;
       }
@@ -258,12 +257,6 @@ export function ChatActionsMenu({
           <TooltipPopup side="bottom">{t("Chat actions")}</TooltipPopup>
         </Tooltip>
         <MenuPopup align="end" data-testid="chat-actions-menu">
-          {newChat ? (
-            <MenuItem disabled={!newChat.canStart} onClick={() => void newChat.start()}>
-              <RiEditBoxLine />
-              {t("New chat")}
-            </MenuItem>
-          ) : null}
           <MenuItem onClick={openRename}>
             <RiPencilLine />
             {t("Rename chat")}

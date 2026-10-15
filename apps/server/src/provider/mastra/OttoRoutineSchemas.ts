@@ -33,6 +33,7 @@ export const routineToolInputSchema = z.object({
   ]),
   skillNames: z.array(z.string().trim().min(1)).nullish(),
   connectorNames: z.array(z.string().trim().min(1)).nullish(),
+  newChatEachRun: z.boolean().nullish(),
 });
 
 export const routineListOutputSchema = z.object({

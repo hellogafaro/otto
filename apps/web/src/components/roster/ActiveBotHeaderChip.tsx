@@ -37,7 +37,7 @@ export function ActiveBotHeaderChip() {
               aria-label={`Settings for ${bot.name}`}
               data-bot-hover
               onClick={() => {
-                void navigate({ to: "/bots/$botId/settings", params: { botId: bot.id } });
+                void navigate({ to: "/settings/bots/$botId", params: { botId: bot.id } });
               }}
               className="max-w-32 cursor-pointer truncate rounded-sm text-sm font-medium text-foreground outline-none transition-colors hover:text-foreground/80 focus-visible:ring-2 focus-visible:ring-ring"
             >

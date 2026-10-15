@@ -7,6 +7,9 @@ import {
   ProjectId,
   ThreadId,
   WorkParticipant,
+  AuthSessionId,
+  BotId,
+  Visibility,
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -145,6 +148,9 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
     Result: Schema.Struct({
       id: ThreadId,
       groupId: Schema.NullOr(GroupId),
+      botId: Schema.NullOr(BotId),
+      createdBy: Schema.NullOr(AuthSessionId),
+      visibility: Visibility,
       deletedAt: Schema.NullOr(Schema.String),
     }),
     execute: () =>
@@ -152,6 +158,9 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
         SELECT
           threads.thread_id AS id,
           threads.group_id AS "groupId",
+          threads.bot_id AS "botId",
+          threads.created_by AS "createdBy",
+          threads.visibility,
           threads.deleted_at AS "deletedAt"
         FROM projection_library_folders AS folders
         JOIN projection_threads AS threads ON threads.thread_id = folders.thread_id

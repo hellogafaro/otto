@@ -120,11 +120,8 @@ function ProviderHeader({
   readonly state: ProviderConnectionState;
   readonly plan: string;
 }) {
-  const { t } = useI18n();
-
   return (
     <SettingsDetailHeader
-      back={{ section: "providers", label: t("Providers") }}
       icon={entry.icon}
       title={entry.label}
       tone={state.tone}

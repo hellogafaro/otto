@@ -105,6 +105,27 @@ export type TurnId = typeof TurnId.Type;
 
 export const AuthSessionId = makeEntityId("AuthSessionId");
 
+const VisibilityValue = Schema.Literals(["user", "organization"]);
+
+/** Records saved before Otto said organization still read `workspace`. */
+const LegacyWorkspaceVisibility = Schema.Literal("workspace").pipe(
+  Schema.decodeTo(
+    VisibilityValue,
+    SchemaTransformation.transform<typeof VisibilityValue.Type, "workspace">({
+      decode: () => "organization",
+      encode: () => "workspace",
+    }),
+  ),
+);
+
+/**
+ * Otto: Who sees a record: `user` only the person who made it, `organization` everyone in
+ * the organization (still within any chat, group or folder that holds it).
+ */
+export const Visibility = Schema.Union([VisibilityValue, LegacyWorkspaceVisibility]);
+
+export type Visibility = typeof Visibility.Type;
+
 export type AuthSessionId = typeof AuthSessionId.Type;
 
 export const RpcClientId = NonNegativeInt.pipe(Schema.brand("RpcClientId"));

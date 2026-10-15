@@ -4,7 +4,7 @@ import { botChatTimeline } from "@otto/client-runtime/state/bot-chat-timeline";
 import { pendingMemoryApprovals } from "@otto/client-runtime/durable-memory";
 import { useAtomValue } from "@effect/atom-react";
 import { presentThreadError } from "@otto/client-runtime/errors";
-import { type EnvironmentId } from "@otto/contracts";
+import { type EnvironmentId, type ScopedThreadRef } from "@otto/contracts";
 import { Fragment, useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { selectOpenBotInboxItems } from "../../botInbox";
@@ -37,7 +37,6 @@ import { BotApprovalPrompt } from "./BotApprovalPrompt";
 import { MemoryApprovalPrompt } from "./MemoryApprovalPrompt";
 import { BotUserInputPrompt } from "./BotUserInputPrompt";
 import { BotInboxAlertStack } from "./BotInboxAlertStack";
-import { BotAvatarView } from "./BotAvatarView";
 import { BotConversationScrollArea } from "./BotConversationScrollArea";
 import { DelegationCard } from "./DelegationCard";
 import { RosterLoadStatus } from "./RosterLoadStatus";
@@ -77,7 +76,7 @@ import { buildBotTurnTraces } from "./botTurnTrace.logic";
 import { useLocalDay } from "./useLocalDay";
 import { useRosterPendingApproval } from "./useRosterPendingApproval";
 import { useEnableBotAutoReview, useRosterLoadState } from "./useServerRoster";
-import { useGroupDetailsOpen } from "./detailsPanelOpen";
+import { useChatDetailsOpen } from "./detailsPanelOpen";
 import { activeThreadRuntimeWarning } from "./threadRuntimeWarning.logic";
 import { ThreadRuntimeWarningBanner } from "./ThreadRuntimeWarningBanner";
 
@@ -104,7 +103,13 @@ export function resolveGroupAddressedBot<T extends { readonly id: string }>(
   return members.find((bot) => bot.id === addressedBotId) ?? boss;
 }
 
-export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
+export function GroupThreadLanding({
+  groupId,
+  threadRef,
+}: {
+  readonly groupId: string;
+  readonly threadRef: ScopedThreadRef;
+}) {
   const { t, locale } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
 
@@ -119,15 +124,15 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
 
   const rosterLoadState = useRosterLoadState();
   const bots = useRosterStore((state) => state.bots);
-  const runtime = useGroupThreadRuntime(groupId);
+  const runtime = useGroupThreadRuntime(groupId, threadRef);
   useMarkChatVisited(runtime.linkedThreadRef);
-  const [detailsPanelOpen] = useGroupDetailsOpen();
+  const [detailsPanelOpen] = useChatDetailsOpen();
 
   const mentionScope = useBotPromptMentionScope({
     environmentId,
     threadRef: runtime.linkedThreadRef,
-    projectId: runtime.defaultProject?.id,
-    cwd: runtime.defaultProject?.workspaceRoot,
+    projectId: runtime.project?.id,
+    cwd: runtime.project?.workspaceRoot,
   });
 
   const respondingBot = bots.find((bot) => bot.id === runtime.respondingBotId) ?? null;
@@ -146,6 +151,31 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
     : [];
 
   const boss = group ? resolveAvailableGroupBoss(members, group.bossBotId) : null;
+  // Otto: a people-only group has no bot to answer, so it needs no provider.
+  const needsProvider = members.length > 0;
+
+  // A first message from New chat goes out once the chat can send.
+  const prompt = useRosterStore((state) =>
+    state.promptRequest?.threadId === threadRef.threadId ? state.promptRequest : null,
+  );
+
+  const promptReady =
+    prompt !== null &&
+    group !== undefined &&
+    runtime.groupReady &&
+    runtime.linkedThreadRef !== null &&
+    runtime.project !== null;
+
+  useEffect(() => {
+    const roster = useRosterStore.getState();
+    const request = roster.promptRequest;
+
+    // Read the store, not the render: a re-run before the next render must not send twice.
+    if (!promptReady || request?.threadId !== threadRef.threadId) return;
+    roster.requestPrompt(null);
+    void runtime.send(request.text, []);
+  }, [promptReady, runtime.send, threadRef.threadId]);
+
   // The default member's provider skills label sent messages.
   const bossEngine = useBotEngineAvailability(boss?.engine ?? null);
   const bossCatalog = bossEngine.catalog;
@@ -355,9 +385,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <WorkspacePageHeader detailsPanelOpen={detailsPanelOpen}>
-            <WorkspaceHeaderTitle
-              visual={<GroupMemberStack group={group} bots={bots} sizeClassName="size-4" />}
-            >
+            <WorkspaceHeaderTitle visual={<GroupMemberStack group={group} bots={bots} />}>
               {group.name}
             </WorkspaceHeaderTitle>
             <div data-chat-header-actions className="ml-auto flex items-center gap-1.5">
@@ -369,18 +397,11 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
           >
             {timeline.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12">
-                <div className="flex -space-x-3">
-                  {members.slice(0, 3).map((bot) => (
-                    <BotAvatarView
-                      key={bot.id}
-                      avatar={bot.avatar}
-                      name={bot.name}
-                      className="size-14 ring-4 ring-background"
-                    />
-                  ))}
-                </div>
+                <GroupMemberStack group={group} bots={bots} size="lg" />
                 <h1 className="text-lg font-medium">
-                  {boss ? t("Message {name}", { name: group.name }) : t("No active bots")}
+                  {boss || !needsProvider
+                    ? t("Message {name}", { name: group.name })
+                    : t("No active bots")}
                 </h1>
               </div>
             ) : (
@@ -415,7 +436,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
                         author={respondingBot ?? null}
                         testId="group-provider-message"
                         startsGroup={startsGroup}
-                        cwd={runtime.defaultProject?.workspaceRoot}
+                        cwd={runtime.project?.workspaceRoot}
                         threadRef={runtime.linkedThreadRef ?? undefined}
                         stepMeter={
                           message.turnId === null ? undefined : stepMeters.get(message.turnId)
@@ -521,11 +542,6 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
               className="mt-2"
             />
           ) : null}
-          {boss === null ? (
-            <div className="px-4 py-2 text-sm text-muted-foreground" role="status">
-              {t("Add an active bot to this group in the group sidebar.")}
-            </div>
-          ) : null}
           <BotPromptComposer
             typeToFocus={!waitingForUserInput}
             mentionScope={mentionScope}
@@ -583,9 +599,8 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
               pendingApproval !== null ||
               runtime.respondingRequestIds.length > 0 ||
               !runtime.groupReady ||
-              !runtime.bootstrapped ||
-              runtime.defaultProject === null ||
-              (!waitingForUserInput && !runtime.providerAvailable)
+              runtime.project === null ||
+              (!waitingForUserInput && needsProvider && !runtime.providerAvailable)
             }
             mentionEveryone
             mentionPeople={mentionPeople}
@@ -601,7 +616,9 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
             replyPreview={replyTarget}
             onCancelReply={() => setReplyTarget(null)}
             sendBlockedDescriptionId={
-              runtime.providerAvailable || waitingForUserInput ? undefined : noProviderNoticeId
+              runtime.providerAvailable || waitingForUserInput || !needsProvider
+                ? undefined
+                : noProviderNoticeId
             }
             onSubmit={async (prompt, files, respondingBotId) => {
               const sent = await runtime.send(
@@ -615,7 +632,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
               return sent;
             }}
           />
-          {!runtime.providerAvailable && !connectNeeded ? (
+          {needsProvider && !runtime.providerAvailable && !connectNeeded ? (
             <ProviderUnavailableLine
               id={noProviderNoticeId}
               presentation={{

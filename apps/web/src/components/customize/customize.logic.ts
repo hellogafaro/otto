@@ -27,7 +27,7 @@ const decodeCustomizePageSearch = Schema.decodeUnknownOption(CustomizePageSearch
 /** The app catalog's search: a filter, and the group a new account joins. */
 const CustomizeAppsSearch = Schema.Struct({
   q: Schema.optional(Schema.String),
-  visibility: Schema.optional(Schema.Literals(["user", "workspace"])),
+  visibility: Schema.optional(Schema.Literals(["user", "organization"])),
 });
 
 export type CustomizeAppsSearch = typeof CustomizeAppsSearch.Type;

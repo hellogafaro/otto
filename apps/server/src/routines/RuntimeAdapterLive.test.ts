@@ -41,6 +41,9 @@ const routine = (overrides: Partial<Routine> = {}): Routine => ({
   id: RoutineId.make("routine-1"),
   botId: BotId.make("bot-owner"),
   targetThreadId: ThreadId.make("thread-owner"),
+  threadMode: "target",
+  createdBy: null,
+  visibility: "organization",
   projectId: ProjectId.make("project-1"),
   job: "Morning research",
   procedure: "Prepare the morning research brief.",
@@ -144,7 +147,9 @@ const makeLayer = (options: {
             Effect.succeed(Option.fromNullishOr(options.bots.find((bot) => bot.botId === botId))),
         } as never),
         Layer.succeed(ProjectionMcpServerRepository, {} as never),
-        Layer.succeed(ProjectionSnapshotQuery, {} as never),
+        Layer.succeed(ProjectionSnapshotQuery, {
+          getThreadShellById: () => Effect.succeed(Option.none()),
+        } as never),
         Layer.succeed(ProviderRegistry, {
           getProviders: Effect.succeed([
             {
@@ -271,6 +276,41 @@ it.effect("starts a routine when its zero-token usage record fails", () => {
       }),
     ),
   );
+});
+
+it.effect("starts a new chat with the bot for a per-run routine", () => {
+  const commands: Array<OrchestrationCommand> = [];
+
+  return Effect.gen(function* () {
+    const adapter = yield* RoutineRuntimeAdapter;
+    const value = routine({ delegateToBotId: null, threadMode: "per-run" });
+    const result = yield* adapter.dispatchTurn(value, run);
+    const threadId = ThreadId.make(`routine-run-${run.id}`);
+
+    assert.deepEqual(result, { threadRef: threadId });
+    assert.deepEqual(
+      commands.map((command) => command.type),
+      ["thread.create", "routine.run.start", "thread.turn.start"],
+    );
+
+    const [create, , turn] = commands;
+
+    assert.deepEqual(
+      create?.type === "thread.create"
+        ? [create.threadId, create.projectId, create.botId, create.title, create.modelSelection]
+        : null,
+      [
+        threadId,
+        value.projectId,
+        value.botId,
+        value.job,
+        { instanceId: ProviderInstanceId.make("codex"), model: "model-1" },
+      ],
+    );
+
+    assert.equal(turn?.type === "thread.turn.start" ? turn.threadId : null, threadId);
+    assert.isFalse(yield* adapter.isTargetBusy(value));
+  }).pipe(Effect.provide(makeLayer({ bots: [bot("bot-owner", "Ada", "codex")], commands })));
 });
 
 it.effect("blocks a routine whose helper bot cannot take bot work", () =>

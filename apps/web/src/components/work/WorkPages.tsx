@@ -99,7 +99,7 @@ export function WorkPage({
 }
 
 /** The content column, opening with the page's 22px title. */
-function WorkColumn({
+export function WorkColumn({
   title,
   children,
 }: {
@@ -115,7 +115,7 @@ function WorkColumn({
 }
 
 /** A quiet 28px icon action in the top bar, named by its tooltip. */
-function WorkHeaderAction({
+export function WorkHeaderAction({
   label,
   icon: Icon,
   onClick,

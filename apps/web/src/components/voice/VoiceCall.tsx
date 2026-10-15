@@ -7,7 +7,7 @@ import {
   type VoiceCallChatHandlers,
   type VoiceCallScope,
 } from "@otto/client-runtime/voice";
-import { BotId } from "@otto/contracts";
+import { BotId, type ScopedThreadRef } from "@otto/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import * as Cause from "effect/Cause";
 import {
@@ -75,7 +75,6 @@ export {
 export {
   BotVoiceCallButton,
   BotVoiceCallButtonView,
-  SelectedBotVoiceCallButton,
   VoiceCallBarView,
   VoiceCallStartingBarView,
 } from "./VoiceCallControls";
@@ -84,6 +83,8 @@ export { useOptionalVoiceCall, useVoiceCall } from "./voiceCallContext";
 
 interface ActiveBrowserCall {
   readonly call: ActiveVoiceCall;
+  /** Otto: the chat the call started from, where its words land. */
+  readonly threadRef: ScopedThreadRef;
   readonly environmentId: NonNullable<ReturnType<typeof usePrimaryEnvironmentId>>;
   /** Cancels every capture, provider request, reply wait, and playback owned by this call. */
   readonly scope: VoiceCallScope;
@@ -168,6 +169,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
   const [activeCall, dispatchCall] = useReducer(reduceVoiceCallUiState, null);
   const [reconnecting, setReconnecting] = useState(false);
   const [startingBotId, setStartingBotId] = useState<string | null>(null);
+  const [callThreadRef, setCallThreadRef] = useState<ScopedThreadRef | null>(null);
   const sessionBotId = startingBotId ?? activeCall?.botId ?? null;
 
   const sessionBot = useRosterStore((state) =>
@@ -206,7 +208,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
     [defaultSelection, instanceEntries, providers, sessionBot, settings],
   );
 
-  const runtime = useBotThreadRuntime(sessionBotId ?? "", sessionModelSelection);
+  const runtime = useBotThreadRuntime(sessionBotId ?? "", callThreadRef, sessionModelSelection);
   const runtimeRef = useRef(runtime);
   runtimeRef.current = runtime;
   const settingsRef = useRef(settings);
@@ -313,15 +315,14 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
   }, [endBrowserCall, environmentConnection.data, environmentId]);
 
   const returnToCall = useCallback(() => {
-    const call = activeRef.current?.call;
+    const current = activeRef.current;
 
-    if (!call) return;
-    useRosterStore.getState().selectBot(call.botId);
-    void navigate({ to: "/bots/$botId", params: { botId: call.botId } });
+    if (!current) return;
+    void navigate({ to: "/chats/$threadId", params: { threadId: current.threadRef.threadId } });
   }, [navigate]);
 
   const startOrReturn = useCallback(
-    (bot: Bot) => {
+    (bot: Bot, threadRef: ScopedThreadRef) => {
       const current = activeRef.current;
 
       if (current !== null) {
@@ -351,6 +352,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
 
       startingBotRef.current = bot.id;
       setStartingBotId(bot.id);
+      setCallThreadRef(threadRef);
       void (async () => {
         const pending: PendingBrowserCall = {
           cancelled: false,
@@ -448,6 +450,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
             if (result.value.transport !== "composed") throw new Error(VOICE_MODE_CHANGED_MESSAGE);
 
             const browserCall: ActiveBrowserCall = {
+              threadRef,
               call: result.value.call,
               environmentId,
               scope,
@@ -609,6 +612,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
           const eventListeners = new AbortController();
 
           const browserCall: ActiveBrowserCall = {
+            threadRef,
             call: result.value.call,
             environmentId,
             scope,

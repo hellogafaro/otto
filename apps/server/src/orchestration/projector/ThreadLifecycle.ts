@@ -44,6 +44,8 @@ export function projectThreadLifecycle(
             groupId: payload.groupId ?? null,
             parentThreadId: payload.parentThreadId ?? null,
             parentDelegationId: payload.parentDelegationId ?? null,
+            createdBy: payload.createdBy ?? null,
+            visibility: payload.visibility ?? "organization",
             respondingBotId: null,
             title: payload.title,
             modelSelection: payload.modelSelection,
@@ -235,6 +237,7 @@ export function projectThreadLifecycle(
             ...(payload.linkedPullRequest !== undefined
               ? { linkedPullRequest: payload.linkedPullRequest }
               : {}),
+            ...(payload.visibility !== undefined ? { visibility: payload.visibility } : {}),
             updatedAt: payload.updatedAt,
           }),
         })),

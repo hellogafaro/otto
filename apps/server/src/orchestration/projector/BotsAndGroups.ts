@@ -190,18 +190,22 @@ export function projectBotsAndGroups(
         event.type,
         "payload",
       ).pipe(
-        Effect.map((payload) => ({
-          ...nextBase,
-          groups: updateGroup(nextBase.groups, payload.groupId, {
-            members:
-              nextBase.groups
-                .find((group) => group.id === payload.groupId)
-                ?.members.filter(
+        Effect.map((payload) => {
+          const group = nextBase.groups.find((candidate) => candidate.id === payload.groupId);
+
+          return {
+            ...nextBase,
+            groups: updateGroup(nextBase.groups, payload.groupId, {
+              members:
+                group?.members.filter(
                   (member) => !isGroupBotMember(member) || member.botId !== payload.botId,
                 ) ?? [],
-            updatedAt: payload.updatedAt,
-          }),
-        })),
+              // Otto: the last bot leaving a group leaves it people only, with no boss.
+              bossBotId: group?.bossBotId === payload.botId ? null : (group?.bossBotId ?? null),
+              updatedAt: payload.updatedAt,
+            }),
+          };
+        }),
       );
     case "group.person-assigned":
       return decodeForEvent(GroupPersonAssignedPayload, event.payload, event.type, "payload").pipe(

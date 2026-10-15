@@ -109,7 +109,7 @@ const createFile = (
   title: id,
   extension: "md",
   sizeBytes: 3,
-  visibility: "workspace",
+  visibility: "organization",
   by,
   createdAt: now,
   ...extra,

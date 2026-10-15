@@ -68,7 +68,7 @@ describe("settings dialog navigation", () => {
       SETTINGS_NAV_GROUPS.filter((group) => group.label !== "Organization").flatMap(
         (group) => group.items,
       ).length,
-    ).toBe(14);
+    ).toBe(16);
     expect(new Set(sections).size).toBe(sections.length);
     expect(sections).not.toContain("source-control");
     expect(sections).not.toContain("diagnostics");

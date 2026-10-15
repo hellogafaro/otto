@@ -1,12 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { BotSettingsPage } from "../components/roster/BotSettingsPage";
-
+// Otto: a bot's settings moved under Settings > Bots; old links land there.
 export const Route = createFileRoute("/bots/$botId/settings")({
-  beforeLoad: async ({ context }) => {
-    if (context.authGateState.status !== "authenticated") {
-      throw redirect({ to: "/login", replace: true });
-    }
+  beforeLoad: ({ params, location }) => {
+    throw redirect({
+      to: "/settings/bots/$botId",
+      params: { botId: params.botId },
+      hash: location.hash,
+      replace: true,
+    });
   },
-  component: () => <BotSettingsPage botId={Route.useParams().botId} />,
 });

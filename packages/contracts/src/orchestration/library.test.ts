@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { AuthSessionId, BotId, GroupId, ThreadId } from "../baseSchemas.ts";
 import {
   canEditLibraryItem,
+  canSeeDirectChat,
   canSeeLibraryItem,
   type LibraryFile,
   LibraryFileId,
@@ -28,7 +29,7 @@ const folder = (overrides: Partial<LibraryFolder> = {}): LibraryFolder => ({
   id: LibraryFolderId.make("folder"),
   parentId: null,
   title: "Folder",
-  visibility: "workspace",
+  visibility: "organization",
   createdBy: ada,
   createdAt: "2026-10-01T00:00:00.000Z",
   updatedBy: ada,
@@ -43,7 +44,7 @@ const file = (overrides: Partial<LibraryFile> = {}): LibraryFile => ({
   title: "Notes",
   extension: "md",
   sizeBytes: 10,
-  visibility: "workspace",
+  visibility: "organization",
   createdBy: ada,
   createdAt: "2026-10-01T00:00:00.000Z",
   updatedBy: ada,
@@ -179,5 +180,23 @@ describe("library visibility and editing", () => {
     expect(canEditLibraryItem(botFile, [chatFolder], ana)).toBe(false);
     expect(canEditLibraryItem(botFile, [chatFolder], scout)).toBe(true);
     expect(canEditLibraryItem(file({ createdBy: scout }), [], ada)).toBe(false);
+  });
+});
+
+describe("direct chat visibility", () => {
+  const chat = { createdBy: ada.personId, botId: scout.botId, visibility: "user" as const };
+
+  it("shows a private chat to its creator and its bot only", () => {
+    expect(canSeeDirectChat(chat, { kind: "person", personId: ada.personId })).toBe(true);
+    expect(canSeeDirectChat(chat, { kind: "bot", botId: scout.botId })).toBe(true);
+    expect(canSeeDirectChat(chat, { kind: "person", personId: ana.personId })).toBe(false);
+    expect(canSeeDirectChat(chat, { kind: "bot", botId: BotId.make("other") })).toBe(false);
+  });
+
+  it("shows an organization chat, or one nobody started, to everyone", () => {
+    const viewer = { kind: "person" as const, personId: ana.personId };
+
+    expect(canSeeDirectChat({ ...chat, visibility: "organization" }, viewer)).toBe(true);
+    expect(canSeeDirectChat({ ...chat, createdBy: null }, viewer)).toBe(true);
   });
 });

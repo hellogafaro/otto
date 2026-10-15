@@ -20,6 +20,8 @@ import {
   ThreadLinkedPullRequest,
   ThreadId,
   TurnId,
+  AuthSessionId,
+  Visibility,
 } from "@otto/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -36,6 +38,8 @@ export const ProjectionThread = Schema.Struct({
   respondingBotId: Schema.optional(Schema.NullOr(BotId)),
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),
   parentDelegationId: Schema.optional(Schema.NullOr(DelegationId)),
+  createdBy: Schema.optional(Schema.NullOr(AuthSessionId)),
+  visibility: Schema.optional(Visibility),
   title: Schema.String,
   modelSelection: ModelSelection,
   runtimeMode: RuntimeMode,

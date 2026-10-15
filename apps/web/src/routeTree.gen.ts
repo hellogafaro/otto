@@ -17,6 +17,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as CustomizeRouteImport } from './routes/customize'
 import { Route as ChatRouteImport } from './routes/_chat'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as RoutinesIndexRouteImport } from './routes/routines.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as LibraryIndexRouteImport } from './routes/library.index'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
@@ -28,15 +29,21 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projec
 import { Route as LibraryFileIdRouteImport } from './routes/library.$fileId'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
 import { Route as CustomizeAppsIndexRouteImport } from './routes/customize_.apps.index'
+import { Route as SettingsSkillsIdRouteImport } from './routes/settings.skills.$id'
 import { Route as SettingsProvidersProviderIdRouteImport } from './routes/settings.providers.$providerId'
 import { Route as SettingsChannelsChannelRouteImport } from './routes/settings.channels.$channel'
+import { Route as SettingsBotsBotIdRouteImport } from './routes/settings.bots.$botId'
 import { Route as CustomizeAppsSlugRouteImport } from './routes/customize_.apps.$slug'
 import { Route as CustomizeTypeIdRouteImport } from './routes/customize_.$type.$id'
 import { Route as BotsBotIdSettingsRouteImport } from './routes/bots.$botId.settings'
 import { Route as ChatGroupsGroupIdRouteImport } from './routes/_chat.groups.$groupId'
 import { Route as ChatDraftDraftIdRouteImport } from './routes/_chat.draft.$draftId'
+import { Route as ChatChatsThreadIdRouteImport } from './routes/_chat.chats.$threadId'
 import { Route as ChatBotsBotIdRouteImport } from './routes/_chat.bots.$botId'
 import { Route as ChatEnvironmentIdThreadIdRouteImport } from './routes/_chat.$environmentId.$threadId'
+import { Route as SettingsIntegrationsAppsIndexRouteImport } from './routes/settings.integrations.apps.index'
+import { Route as SettingsIntegrationsMcpIdRouteImport } from './routes/settings.integrations.mcp.$id'
+import { Route as SettingsIntegrationsAppsSlugRouteImport } from './routes/settings.integrations.apps.$slug'
 
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
@@ -75,6 +82,11 @@ const ChatRoute = ChatRouteImport.update({
 const TasksIndexRoute = TasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoutinesIndexRoute = RoutinesIndexRouteImport.update({
+  id: '/routines/',
+  path: '/routines/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
@@ -132,6 +144,11 @@ const CustomizeAppsIndexRoute = CustomizeAppsIndexRouteImport.update({
   path: '/customize/apps/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsSkillsIdRoute = SettingsSkillsIdRouteImport.update({
+  id: '/skills/$id',
+  path: '/skills/$id',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsProvidersProviderIdRoute =
   SettingsProvidersProviderIdRouteImport.update({
     id: '/providers/$providerId',
@@ -141,6 +158,11 @@ const SettingsProvidersProviderIdRoute =
 const SettingsChannelsChannelRoute = SettingsChannelsChannelRouteImport.update({
   id: '/channels/$channel',
   path: '/channels/$channel',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBotsBotIdRoute = SettingsBotsBotIdRouteImport.update({
+  id: '/bots/$botId',
+  path: '/bots/$botId',
   getParentRoute: () => SettingsRoute,
 } as any)
 const CustomizeAppsSlugRoute = CustomizeAppsSlugRouteImport.update({
@@ -168,6 +190,11 @@ const ChatDraftDraftIdRoute = ChatDraftDraftIdRouteImport.update({
   path: '/draft/$draftId',
   getParentRoute: () => ChatRoute,
 } as any)
+const ChatChatsThreadIdRoute = ChatChatsThreadIdRouteImport.update({
+  id: '/chats/$threadId',
+  path: '/chats/$threadId',
+  getParentRoute: () => ChatRoute,
+} as any)
 const ChatBotsBotIdRoute = ChatBotsBotIdRouteImport.update({
   id: '/bots/$botId',
   path: '/bots/$botId',
@@ -178,6 +205,24 @@ const ChatEnvironmentIdThreadIdRoute =
     id: '/$environmentId/$threadId',
     path: '/$environmentId/$threadId',
     getParentRoute: () => ChatRoute,
+  } as any)
+const SettingsIntegrationsAppsIndexRoute =
+  SettingsIntegrationsAppsIndexRouteImport.update({
+    id: '/integrations/apps/',
+    path: '/integrations/apps/',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsIntegrationsMcpIdRoute =
+  SettingsIntegrationsMcpIdRouteImport.update({
+    id: '/integrations/mcp/$id',
+    path: '/integrations/mcp/$id',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsIntegrationsAppsSlugRoute =
+  SettingsIntegrationsAppsSlugRouteImport.update({
+    id: '/integrations/apps/$slug',
+    path: '/integrations/apps/$slug',
+    getParentRoute: () => SettingsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -197,17 +242,24 @@ export interface FileRoutesByFullPath {
   '/tasks/$taskId': typeof TasksTaskIdRoute
   '/library/': typeof LibraryIndexRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/routines/': typeof RoutinesIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/bots/$botId': typeof ChatBotsBotIdRoute
+  '/chats/$threadId': typeof ChatChatsThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
   '/groups/$groupId': typeof ChatGroupsGroupIdRoute
   '/bots/$botId/settings': typeof BotsBotIdSettingsRoute
   '/customize/$type/$id': typeof CustomizeTypeIdRoute
   '/customize/apps/$slug': typeof CustomizeAppsSlugRoute
+  '/settings/bots/$botId': typeof SettingsBotsBotIdRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/settings/skills/$id': typeof SettingsSkillsIdRoute
   '/customize/apps/': typeof CustomizeAppsIndexRoute
+  '/settings/integrations/apps/$slug': typeof SettingsIntegrationsAppsSlugRoute
+  '/settings/integrations/mcp/$id': typeof SettingsIntegrationsMcpIdRoute
+  '/settings/integrations/apps/': typeof SettingsIntegrationsAppsIndexRoute
 }
 export interface FileRoutesByTo {
   '/customize': typeof CustomizeRoute
@@ -226,17 +278,24 @@ export interface FileRoutesByTo {
   '/': typeof ChatIndexRoute
   '/library': typeof LibraryIndexRoute
   '/projects': typeof ProjectsIndexRoute
+  '/routines': typeof RoutinesIndexRoute
   '/tasks': typeof TasksIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/bots/$botId': typeof ChatBotsBotIdRoute
+  '/chats/$threadId': typeof ChatChatsThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
   '/groups/$groupId': typeof ChatGroupsGroupIdRoute
   '/bots/$botId/settings': typeof BotsBotIdSettingsRoute
   '/customize/$type/$id': typeof CustomizeTypeIdRoute
   '/customize/apps/$slug': typeof CustomizeAppsSlugRoute
+  '/settings/bots/$botId': typeof SettingsBotsBotIdRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/settings/skills/$id': typeof SettingsSkillsIdRoute
   '/customize/apps': typeof CustomizeAppsIndexRoute
+  '/settings/integrations/apps/$slug': typeof SettingsIntegrationsAppsSlugRoute
+  '/settings/integrations/mcp/$id': typeof SettingsIntegrationsMcpIdRoute
+  '/settings/integrations/apps': typeof SettingsIntegrationsAppsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -257,17 +316,24 @@ export interface FileRoutesById {
   '/_chat/': typeof ChatIndexRoute
   '/library/': typeof LibraryIndexRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/routines/': typeof RoutinesIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/_chat/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/_chat/bots/$botId': typeof ChatBotsBotIdRoute
+  '/_chat/chats/$threadId': typeof ChatChatsThreadIdRoute
   '/_chat/draft/$draftId': typeof ChatDraftDraftIdRoute
   '/_chat/groups/$groupId': typeof ChatGroupsGroupIdRoute
   '/bots/$botId/settings': typeof BotsBotIdSettingsRoute
   '/customize_/$type/$id': typeof CustomizeTypeIdRoute
   '/customize_/apps/$slug': typeof CustomizeAppsSlugRoute
+  '/settings/bots/$botId': typeof SettingsBotsBotIdRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/settings/skills/$id': typeof SettingsSkillsIdRoute
   '/customize_/apps/': typeof CustomizeAppsIndexRoute
+  '/settings/integrations/apps/$slug': typeof SettingsIntegrationsAppsSlugRoute
+  '/settings/integrations/mcp/$id': typeof SettingsIntegrationsMcpIdRoute
+  '/settings/integrations/apps/': typeof SettingsIntegrationsAppsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -288,17 +354,24 @@ export interface FileRouteTypes {
     | '/tasks/$taskId'
     | '/library/'
     | '/projects/'
+    | '/routines/'
     | '/tasks/'
     | '/$environmentId/$threadId'
     | '/bots/$botId'
+    | '/chats/$threadId'
     | '/draft/$draftId'
     | '/groups/$groupId'
     | '/bots/$botId/settings'
     | '/customize/$type/$id'
     | '/customize/apps/$slug'
+    | '/settings/bots/$botId'
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
+    | '/settings/skills/$id'
     | '/customize/apps/'
+    | '/settings/integrations/apps/$slug'
+    | '/settings/integrations/mcp/$id'
+    | '/settings/integrations/apps/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/customize'
@@ -317,17 +390,24 @@ export interface FileRouteTypes {
     | '/'
     | '/library'
     | '/projects'
+    | '/routines'
     | '/tasks'
     | '/$environmentId/$threadId'
     | '/bots/$botId'
+    | '/chats/$threadId'
     | '/draft/$draftId'
     | '/groups/$groupId'
     | '/bots/$botId/settings'
     | '/customize/$type/$id'
     | '/customize/apps/$slug'
+    | '/settings/bots/$botId'
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
+    | '/settings/skills/$id'
     | '/customize/apps'
+    | '/settings/integrations/apps/$slug'
+    | '/settings/integrations/mcp/$id'
+    | '/settings/integrations/apps'
   id:
     | '__root__'
     | '/_chat'
@@ -347,17 +427,24 @@ export interface FileRouteTypes {
     | '/_chat/'
     | '/library/'
     | '/projects/'
+    | '/routines/'
     | '/tasks/'
     | '/_chat/$environmentId/$threadId'
     | '/_chat/bots/$botId'
+    | '/_chat/chats/$threadId'
     | '/_chat/draft/$draftId'
     | '/_chat/groups/$groupId'
     | '/bots/$botId/settings'
     | '/customize_/$type/$id'
     | '/customize_/apps/$slug'
+    | '/settings/bots/$botId'
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
+    | '/settings/skills/$id'
     | '/customize_/apps/'
+    | '/settings/integrations/apps/$slug'
+    | '/settings/integrations/mcp/$id'
+    | '/settings/integrations/apps/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -375,6 +462,7 @@ export interface RootRouteChildren {
   TasksTaskIdRoute: typeof TasksTaskIdRoute
   LibraryIndexRoute: typeof LibraryIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
+  RoutinesIndexRoute: typeof RoutinesIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
   BotsBotIdSettingsRoute: typeof BotsBotIdSettingsRoute
   CustomizeTypeIdRoute: typeof CustomizeTypeIdRoute
@@ -438,6 +526,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks/'
       preLoaderRoute: typeof TasksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/routines/': {
+      id: '/routines/'
+      path: '/routines'
+      fullPath: '/routines/'
+      preLoaderRoute: typeof RoutinesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/': {
@@ -517,6 +612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomizeAppsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/skills/$id': {
+      id: '/settings/skills/$id'
+      path: '/skills/$id'
+      fullPath: '/settings/skills/$id'
+      preLoaderRoute: typeof SettingsSkillsIdRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/providers/$providerId': {
       id: '/settings/providers/$providerId'
       path: '/providers/$providerId'
@@ -529,6 +631,13 @@ declare module '@tanstack/react-router' {
       path: '/channels/$channel'
       fullPath: '/settings/channels/$channel'
       preLoaderRoute: typeof SettingsChannelsChannelRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/bots/$botId': {
+      id: '/settings/bots/$botId'
+      path: '/bots/$botId'
+      fullPath: '/settings/bots/$botId'
+      preLoaderRoute: typeof SettingsBotsBotIdRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/customize_/apps/$slug': {
@@ -566,6 +675,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatDraftDraftIdRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/_chat/chats/$threadId': {
+      id: '/_chat/chats/$threadId'
+      path: '/chats/$threadId'
+      fullPath: '/chats/$threadId'
+      preLoaderRoute: typeof ChatChatsThreadIdRouteImport
+      parentRoute: typeof ChatRoute
+    }
     '/_chat/bots/$botId': {
       id: '/_chat/bots/$botId'
       path: '/bots/$botId'
@@ -580,6 +696,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatEnvironmentIdThreadIdRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/settings/integrations/apps/': {
+      id: '/settings/integrations/apps/'
+      path: '/integrations/apps'
+      fullPath: '/settings/integrations/apps/'
+      preLoaderRoute: typeof SettingsIntegrationsAppsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/integrations/mcp/$id': {
+      id: '/settings/integrations/mcp/$id'
+      path: '/integrations/mcp/$id'
+      fullPath: '/settings/integrations/mcp/$id'
+      preLoaderRoute: typeof SettingsIntegrationsMcpIdRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/integrations/apps/$slug': {
+      id: '/settings/integrations/apps/$slug'
+      path: '/integrations/apps/$slug'
+      fullPath: '/settings/integrations/apps/$slug'
+      preLoaderRoute: typeof SettingsIntegrationsAppsSlugRouteImport
+      parentRoute: typeof SettingsRoute
+    }
   }
 }
 
@@ -587,6 +724,7 @@ interface ChatRouteChildren {
   ChatIndexRoute: typeof ChatIndexRoute
   ChatEnvironmentIdThreadIdRoute: typeof ChatEnvironmentIdThreadIdRoute
   ChatBotsBotIdRoute: typeof ChatBotsBotIdRoute
+  ChatChatsThreadIdRoute: typeof ChatChatsThreadIdRoute
   ChatDraftDraftIdRoute: typeof ChatDraftDraftIdRoute
   ChatGroupsGroupIdRoute: typeof ChatGroupsGroupIdRoute
 }
@@ -595,6 +733,7 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatIndexRoute: ChatIndexRoute,
   ChatEnvironmentIdThreadIdRoute: ChatEnvironmentIdThreadIdRoute,
   ChatBotsBotIdRoute: ChatBotsBotIdRoute,
+  ChatChatsThreadIdRoute: ChatChatsThreadIdRoute,
   ChatDraftDraftIdRoute: ChatDraftDraftIdRoute,
   ChatGroupsGroupIdRoute: ChatGroupsGroupIdRoute,
 }
@@ -604,15 +743,25 @@ const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
 interface SettingsRouteChildren {
   SettingsSplatRoute: typeof SettingsSplatRoute
   SettingsSectionRoute: typeof SettingsSectionRoute
+  SettingsBotsBotIdRoute: typeof SettingsBotsBotIdRoute
   SettingsChannelsChannelRoute: typeof SettingsChannelsChannelRoute
   SettingsProvidersProviderIdRoute: typeof SettingsProvidersProviderIdRoute
+  SettingsSkillsIdRoute: typeof SettingsSkillsIdRoute
+  SettingsIntegrationsAppsSlugRoute: typeof SettingsIntegrationsAppsSlugRoute
+  SettingsIntegrationsMcpIdRoute: typeof SettingsIntegrationsMcpIdRoute
+  SettingsIntegrationsAppsIndexRoute: typeof SettingsIntegrationsAppsIndexRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsSplatRoute: SettingsSplatRoute,
   SettingsSectionRoute: SettingsSectionRoute,
+  SettingsBotsBotIdRoute: SettingsBotsBotIdRoute,
   SettingsChannelsChannelRoute: SettingsChannelsChannelRoute,
   SettingsProvidersProviderIdRoute: SettingsProvidersProviderIdRoute,
+  SettingsSkillsIdRoute: SettingsSkillsIdRoute,
+  SettingsIntegrationsAppsSlugRoute: SettingsIntegrationsAppsSlugRoute,
+  SettingsIntegrationsMcpIdRoute: SettingsIntegrationsMcpIdRoute,
+  SettingsIntegrationsAppsIndexRoute: SettingsIntegrationsAppsIndexRoute,
 }
 
 const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
@@ -634,6 +783,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksTaskIdRoute: TasksTaskIdRoute,
   LibraryIndexRoute: LibraryIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
+  RoutinesIndexRoute: RoutinesIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
   BotsBotIdSettingsRoute: BotsBotIdSettingsRoute,
   CustomizeTypeIdRoute: CustomizeTypeIdRoute,

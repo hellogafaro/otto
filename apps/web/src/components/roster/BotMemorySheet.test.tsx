@@ -1,11 +1,9 @@
 import * as NodeFS from "node:fs";
 
-import { EnvironmentId, ThreadId } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { memoryDocumentCopy } from "./botMemoryCopy";
 import { memoryErrorMessage } from "./BotMemorySheet";
-import { resolveBotThreadTarget } from "./botThreadRuntime.logic";
 
 describe("BotMemorySheet", () => {
   it("renders direct document editors, limits, and chat summary controls", () => {
@@ -61,50 +59,10 @@ describe("BotMemorySheet", () => {
     expect(memoryErrorMessage(null)).toBeNull();
   });
 
-  it("wires the authorized bot thread into the panel", () => {
-    const route = NodeFS.readFileSync(
-      new URL("../../routes/_chat.bots.$botId.tsx", import.meta.url),
-      "utf8",
-    );
+  it("binds memory to the bot's latest chat from its settings", () => {
+    const form = NodeFS.readFileSync(new URL("./BotSettingsForm.tsx", import.meta.url), "utf8");
 
-    expect(route).toContain("useBotThreadRef(botId)");
-    expect(route).toContain("threadRef={threadRef}");
-  });
-
-  it("keeps memory and chat bound to the chat the user picked", () => {
-    expect(
-      resolveBotThreadTarget(
-        "bot-1",
-        "env-1",
-        [
-          {
-            environmentId: "env-1",
-            id: "thread-selected",
-            botId: "bot-1",
-            updatedAt: "2026-08-30T00:00:00.000Z",
-            archivedAt: null,
-            deletedAt: null,
-          },
-          {
-            environmentId: "env-1",
-            id: "thread-newer",
-            botId: "bot-1",
-            updatedAt: "2026-08-31T00:00:00.000Z",
-            archivedAt: null,
-            deletedAt: null,
-          },
-        ],
-        "/env-1/thread-selected",
-      ),
-    ).toMatchObject({ threadId: ThreadId.make("thread-selected") });
-
-    expect(EnvironmentId.make("env-1")).toBe("env-1");
-
-    const runtime = NodeFS.readFileSync(
-      new URL("./useBotThreadRuntime.ts", import.meta.url),
-      "utf8",
-    );
-
-    expect(runtime).toContain("resolveBotThreadTarget(");
+    expect(form).toContain("useLatestBotChatRef(bot.id)");
+    expect(form).toContain("threadRef={threadRef}");
   });
 });

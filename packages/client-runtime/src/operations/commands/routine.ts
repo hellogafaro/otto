@@ -16,6 +16,8 @@ export type PauseRoutineInput = CommandInput<"routine.pause">;
 
 export type RunRoutineInput = CommandInput<"routine.run">;
 
+export type UpdateRoutineInput = CommandInput<"routine.update">;
+
 export type DeleteRoutineInput = CommandInput<"routine.delete">;
 
 export type AssignRoutineSkillInput = CommandInput<"routine.skill.assign">;
@@ -82,6 +84,19 @@ export const runRoutine: (input: RunRoutineInput) => CommandEffect = Effect.fn(
   return yield* dispatch({
     ...input,
     type: "routine.run",
+    commandId: metadata.commandId,
+    createdAt: metadata.createdAt,
+  });
+});
+
+export const updateRoutine: (input: UpdateRoutineInput) => CommandEffect = Effect.fn(
+  "EnvironmentCommands.updateRoutine",
+)(function* (input) {
+  const metadata = yield* timestampedCommandMetadata(input);
+
+  return yield* dispatch({
+    ...input,
+    type: "routine.update",
     commandId: metadata.commandId,
     createdAt: metadata.createdAt,
   });

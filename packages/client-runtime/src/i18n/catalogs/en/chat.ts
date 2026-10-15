@@ -163,6 +163,7 @@ export const chatCatalog = {
   "The prompt was restored or deleted before its images finished saving.":
     "The prompt was restored or deleted before its images finished saving.",
   "Message {name}": "Message {name}",
+  "Message {name}, @ for context": "Message {name}, @ for context",
   "Add to prompt": "Add to prompt",
   "Attach file": "Attach file",
   "Attach files": "Attach files",
@@ -448,9 +449,13 @@ export const chatCatalog = {
   "Copy this code, then open the sign-in page and enter it.":
     "Copy this code, then open the sign-in page and enter it.",
   "Chat actions": "Chat actions",
+  "What do you want to work on?": "What do you want to work on?",
+  "Could not start the chat": "Could not start the chat",
+  "No project": "No project",
   "Rename chat": "Rename chat",
   "Chat title": "Chat title",
   "Could not rename chat": "Could not rename chat",
+  "Could not change who sees this chat": "Could not change who sees this chat",
   "Pin chat": "Pin chat",
   "Unpin chat": "Unpin chat",
   "Settle chat": "Settle chat",

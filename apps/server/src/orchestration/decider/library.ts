@@ -206,8 +206,8 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
             title: command.title,
             visibility:
               command.threadId !== undefined || command.projectId !== undefined
-                ? "workspace"
-                : (command.visibility ?? "workspace"),
+                ? "organization"
+                : (command.visibility ?? "organization"),
             createdBy: by,
             createdAt: occurredAt,
             updatedBy: by,

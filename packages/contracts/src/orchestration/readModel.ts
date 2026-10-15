@@ -11,6 +11,7 @@ import {
   ProjectId,
   ThreadId,
   TrimmedNonEmptyString,
+  Visibility,
 } from "../baseSchemas.ts";
 import { McpServer, McpServerId } from "../mcpServer.ts";
 import { OttoDelegationRecord } from "../ottoDelegation.ts";
@@ -93,6 +94,10 @@ export const OrchestrationThreadShell = Schema.Struct({
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),
   parentDelegationId: Schema.optional(Schema.NullOr(DelegationIdSchema)),
   respondingBotId: Schema.optional(Schema.NullOr(BotId)),
+  /** Otto: The person who started the chat; null for server-started chats and older ones. */
+  createdBy: Schema.optional(Schema.NullOr(AuthSessionId)),
+  /** Otto: `user` shows a DM only to its creator; absent reads as `organization`. */
+  visibility: Schema.optional(Visibility),
   title: TrimmedNonEmptyString,
   modelSelection: ModelSelection,
   runtimeMode: RuntimeMode,

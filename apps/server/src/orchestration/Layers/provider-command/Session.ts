@@ -56,6 +56,7 @@ export function createSession({
   threadRespondingBotIds,
   providerSessionDirectory,
   expandComposerMentions,
+  serverCwd,
 }: Pick<
   ReturnType<typeof createContext> &
     Effect.Success<ReturnType<typeof createDependencies>> &
@@ -71,6 +72,7 @@ export function createSession({
   | "rejectStartedThreadModelChangeIfRequired"
   | "resolveProject"
   | "projectionSnapshotQuery"
+  | "serverCwd"
   | "resolveControllerMcpServers"
   | "serverSettingsService"
   | "projectionBotRepository"
@@ -296,12 +298,17 @@ export function createSession({
               (group) => group.id === thread.groupId,
             );
 
-    const groupBotNames = new Map<BotId, string>();
+    const groupBots = new Map<BotId, { readonly name: string; readonly role: string | null }>();
 
     for (const member of respondingGroup?.members.filter(isGroupBotMember) ?? []) {
       const bot = yield* projectionBotRepository.getById({ botId: member.botId });
 
-      if (Option.isSome(bot)) groupBotNames.set(member.botId, bot.value.name);
+      if (Option.isSome(bot)) {
+        groupBots.set(member.botId, {
+          name: bot.value.name,
+          role: bot.value.description || bot.value.label,
+        });
+      }
     }
 
     const groupContext = respondingGroup
@@ -309,9 +316,18 @@ export function createSession({
           groupName: respondingGroup.name,
           members: respondingGroup.members,
           respondingBotId,
-          botNames: groupBotNames,
+          bots: groupBots,
         })
       : undefined;
+
+    // Otto: the bot knows which project its chat is filed in; the home project at the
+    // server's folder is the general one and needs no introduction.
+    const projectContext =
+      project && Option.getOrUndefined(serverCwd) !== project.workspaceRoot
+        ? [`This chat is in the project "${project.title}".`, project.description?.trim()]
+            .filter(Boolean)
+            .join(" ")
+        : undefined;
 
     const effectiveSandbox = respondingBot?.sandbox ?? serverSettings.sandbox.defaultProvider;
 
@@ -373,6 +389,7 @@ export function createSession({
         ...(respondingBotId ? { botId: respondingBotId } : {}),
         ...(respondingBot ? { botName: respondingBot.name } : {}),
         ...(groupContext ? { groupContext } : {}),
+        ...(projectContext ? { projectContext } : {}),
         ...(respondingBot?.personalityTone !== undefined
           ? { personalityTone: respondingBot.personalityTone }
           : {}),

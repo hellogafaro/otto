@@ -52,6 +52,7 @@ const make = Effect.gen(function* () {
     botUsageLedger,
     composio,
     secretStore,
+    serverCwd,
     serverCommandId,
     serverEventId,
     hasHandledTurnRequestRecently,
@@ -156,6 +157,7 @@ const make = Effect.gen(function* () {
     threadRespondingBotIds,
     providerSessionDirectory,
     expandComposerMentions,
+    serverCwd,
   });
 
   const {

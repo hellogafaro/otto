@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { TrimmedNonEmptyString, Visibility } from "./baseSchemas.ts";
 
 export const ComposioConnectionStatus = Schema.Literals([
   "INITIALIZING",
@@ -15,8 +15,8 @@ export const ComposioConnectionStatus = Schema.Literals([
 
 export type ComposioConnectionStatus = typeof ComposioConnectionStatus.Type;
 
-/** `user` accounts stay with the person who connected them; `workspace` accounts serve every bot. */
-export const ComposioVisibility = Schema.Literals(["user", "workspace"]);
+/** `user` accounts stay with the person who connected them; `organization` accounts serve every bot. */
+export const ComposioVisibility = Visibility;
 
 export type ComposioVisibility = typeof ComposioVisibility.Type;
 
@@ -30,7 +30,9 @@ export const ComposioConnection = Schema.Struct({
   /** The app's name and logo from Composio's catalog, when it lists the toolkit. */
   toolkitName: Schema.optional(TrimmedNonEmptyString),
   logoUrl: Schema.optional(TrimmedNonEmptyString),
-  visibility: ComposioVisibility.pipe(Schema.withDecodingDefault(Effect.succeed("workspace"))),
+  visibility: ComposioVisibility.pipe(
+    Schema.withDecodingDefault(Effect.succeed("organization" as const)),
+  ),
   /** The viewer connected it (or nobody is recorded), so they may change or disconnect it. */
   manageable: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   /** Who connected a workspace account, when it is someone else. */

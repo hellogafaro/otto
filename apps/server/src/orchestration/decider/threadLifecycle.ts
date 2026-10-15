@@ -96,6 +96,11 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
           groupId: command.groupId ?? null,
           parentThreadId: command.parentThreadId ?? null,
           parentDelegationId: command.parentDelegationId ?? null,
+          createdBy: command.createdBy ?? null,
+          // Otto: A DM someone starts is private to them until they share it.
+          visibility:
+            command.visibility ??
+            (command.createdBy != null && command.groupId == null ? "user" : "organization"),
           title: command.title,
           modelSelection: command.modelSelection,
           runtimeMode: command.runtimeMode,
@@ -329,6 +334,17 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
         threadId: command.threadId,
       });
 
+      // Otto: Who sees a DM is its creator's call; a group chat follows its group's people.
+      if (
+        command.visibility !== undefined &&
+        (thread.groupId != null || thread.createdBy == null || thread.createdBy !== command.by)
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Only the person who started this chat can change who sees it.",
+        });
+      }
+
       const branch =
         command.branch !== undefined &&
         command.expectedBranch !== undefined &&
@@ -370,6 +386,7 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
           ...(command.linkedPullRequest !== undefined
             ? { linkedPullRequest: command.linkedPullRequest }
             : {}),
+          ...(command.visibility !== undefined ? { visibility: command.visibility } : {}),
           updatedAt: occurredAt,
         },
       };

@@ -13,6 +13,7 @@ import {
   pauseRoutine,
   runRoutine,
   unassignRoutineSkill,
+  updateRoutine,
 } from "../operations/commands.ts";
 import { createAtomCommandScheduler, createEnvironmentCommand } from "./runtime.ts";
 
@@ -25,6 +26,7 @@ export type {
   PauseRoutineInput,
   RunRoutineInput,
   UnassignRoutineSkillInput,
+  UpdateRoutineInput,
 } from "../operations/commands.ts";
 
 export function createRoutineEnvironmentAtoms<R, E>(
@@ -49,6 +51,7 @@ export function createRoutineEnvironmentAtoms<R, E>(
     enable: command("environment-data:commands:routine:enable", enableRoutine),
     pause: command("environment-data:commands:routine:pause", pauseRoutine),
     run: command("environment-data:commands:routine:run", runRoutine),
+    update: command("environment-data:commands:routine:update", updateRoutine),
     delete: command("environment-data:commands:routine:delete", deleteRoutine),
     assignSkill: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:routine:skill:assign",

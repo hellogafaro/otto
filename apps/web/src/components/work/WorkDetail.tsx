@@ -38,13 +38,14 @@ export function WorkDetailPage({
   view,
   title,
   onTitleSave,
+  onTitleClear,
   description,
   onDescriptionSave,
   sections,
   aside,
 }: {
   readonly type: "task" | "project" | "routine";
-  /** Omitted when the sidebar already lists the page's siblings, as for routines. */
+  /** The way back to the list the page belongs to. */
   readonly back?: { readonly label: string; readonly onBack: () => void };
   readonly actions?: ReactNode;
   /** Shown above the title, full content width. */
@@ -56,6 +57,8 @@ export function WorkDetailPage({
   readonly title: string;
   /** Omitted for a page whose content changes another way, like a routine through its bot. */
   readonly onTitleSave?: (title: string) => void;
+  /** Called when the title is cleared; without it a cleared title keeps the saved one. */
+  readonly onTitleClear?: () => void;
   readonly description: string;
   readonly onDescriptionSave?: (description: string) => void;
   readonly sections: readonly { readonly key: string; readonly content: ReactNode }[];
@@ -113,7 +116,12 @@ export function WorkDetailPage({
             {view ?? (
               <>
                 {onTitleSave ? (
-                  <WorkTitleField key={title} value={title} onSave={onTitleSave} />
+                  <WorkTitleField
+                    key={title}
+                    value={title}
+                    onSave={onTitleSave}
+                    {...(onTitleClear ? { onClear: onTitleClear } : {})}
+                  />
                 ) : (
                   <h1 className={WORK_TITLE_CLASS}>{title}</h1>
                 )}
@@ -155,13 +163,18 @@ export function WorkDetailPage({
 const WORK_TITLE_CLASS =
   "w-full px-4 text-22px leading-title font-medium tracking-title-lg text-foreground";
 
-/** The page's 22px title, edited in place; an empty title keeps the saved one. Key it by the value. */
+/**
+ * The page's 22px title, edited in place; an empty title keeps the saved one, after
+ * `onClear` when given. Key it by the value.
+ */
 export function WorkTitleField({
   value,
   onSave,
+  onClear,
 }: {
   readonly value: string;
   readonly onSave: (title: string) => void;
+  readonly onClear?: () => void;
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState(value);
@@ -169,7 +182,12 @@ export function WorkTitleField({
   const commit = () => {
     const title = draft.trim();
 
-    if (title.length === 0) return setDraft(value);
+    if (title.length === 0) {
+      setDraft(value);
+      onClear?.();
+
+      return;
+    }
 
     if (title !== value) onSave(title);
   };

@@ -116,6 +116,11 @@ export function applyAuthenticatedCommandActor(
     case "mcp-server.disable":
     case "mcp-server.access.set":
       return { ...command, by: { personId: actor.personId, displayName: actor.displayName } };
+    case "thread.create":
+      return { ...command, createdBy: actor.personId };
+    case "thread.meta.update":
+    case "routine.update":
+      return { ...command, by: actor.personId };
     case "thread.turn.start":
       return {
         ...command,

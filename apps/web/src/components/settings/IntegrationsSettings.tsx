@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useI18n } from "../../i18n";
 import { ensureLocalApi } from "../../localApi";
 import { useSettingsEnvironmentId } from "../../settingsDialogStore";
-import { useComposio } from "../customize/CustomizeIntegrations";
+import { CustomizeIntegrations, useComposio } from "../customize/CustomizeIntegrations";
+import { CustomizeSkills } from "../customize/CustomizeSkills";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -160,6 +161,10 @@ function ComposioRow({ environmentId }: { readonly environmentId: EnvironmentId 
  * Otto: Settings → Integrations holds the workspace's integration accounts, for now the
  * Composio key that lets members connect apps from Customize.
  */
+/**
+ * Otto: Integrations, under Settings' Customize: the Composio account, then the apps and
+ * remote MCP servers bots can use, as Customize showed them.
+ */
 export function IntegrationsSettingsPanel() {
   const { t } = useI18n();
   const environmentId = useSettingsEnvironmentId();
@@ -167,12 +172,26 @@ export function IntegrationsSettingsPanel() {
   return (
     <SettingsPageContainer>
       {environmentId ? (
-        <SettingsSection title={t("Integrations")}>
-          <ComposioRow environmentId={environmentId} />
-        </SettingsSection>
+        <>
+          <SettingsSection title={t("Integrations")}>
+            <ComposioRow environmentId={environmentId} />
+          </SettingsSection>
+          <CustomizeIntegrations environmentId={environmentId} />
+        </>
       ) : (
         <Spinner />
       )}
+    </SettingsPageContainer>
+  );
+}
+
+/** Otto: Skills, under Settings' Customize, as Customize showed them. */
+export function SkillsSettingsPanel() {
+  const environmentId = useSettingsEnvironmentId();
+
+  return (
+    <SettingsPageContainer>
+      {environmentId ? <CustomizeSkills environmentId={environmentId} /> : <Spinner />}
     </SettingsPageContainer>
   );
 }

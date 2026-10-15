@@ -5,7 +5,6 @@ import {
   type ChatActionSupport,
   hasUnseenCompletion,
   resolveChatMenuState,
-  shouldForgetChatPath,
   watchChatVisits,
 } from "./chatActions.logic";
 
@@ -280,14 +279,5 @@ describe("watchChatVisits", () => {
     stop();
     expect(fake.listeners.visibilitychange.size).toBe(0);
     expect(fake.listeners.focus.size).toBe(0);
-  });
-});
-
-describe("shouldForgetChatPath", () => {
-  it("forgets the remembered path only when it points at the removed chat", () => {
-    const removed = { environmentId: "env-1", threadId: "thread-1" };
-    expect(shouldForgetChatPath("/env-1/thread-1", removed)).toBe(true);
-    expect(shouldForgetChatPath("/env-1/thread-2", removed)).toBe(false);
-    expect(shouldForgetChatPath(undefined, removed)).toBe(false);
   });
 });

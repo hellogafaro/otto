@@ -1,5 +1,7 @@
 import {
+  canSeeDirectChat,
   canSeeLibraryItem,
+  type DirectChatAccess,
   canUseMcpServer,
   isGroupPersonMember,
   type LibraryFolder,
@@ -9,10 +11,15 @@ import {
   type GroupMembership,
   type OrchestrationShellSnapshot,
   type OrchestrationShellStreamItem,
+  type Routine,
+  type ThreadId,
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
+import type { ProjectionGroupRepository } from "../persistence/Services/ProjectionGroups.ts";
 import type { LibraryChatThread } from "../persistence/Services/ProjectionLibrary.ts";
+import type { ProjectionSnapshotQuery } from "./Services/ProjectionSnapshotQuery.ts";
 
 interface GroupMembers {
   readonly id: GroupId;
@@ -29,17 +36,54 @@ export function canSeeGroup(group: GroupMembers, personId: AuthSessionId): boole
   return people.length === 0 || people.some((person) => person.personId === personId);
 }
 
-/** Whether a thread is readable: any non-group thread, or a thread of a visible group. */
+/** Whether a thread is readable: a DM its creator shares or made, or a visible group's chat. */
 export function canSeeThread(
-  thread: { readonly groupId?: GroupId | null | undefined },
+  thread: DirectChatAccess & { readonly groupId?: GroupId | null | undefined },
   groups: ReadonlyArray<GroupMembers>,
   personId: AuthSessionId,
 ): boolean {
-  if (thread.groupId == null) return true;
+  if (thread.groupId == null) return canSeeDirectChat(thread, { kind: "person", personId });
   const group = groups.find((candidate) => candidate.id === thread.groupId);
 
   return group === undefined || canSeeGroup(group, personId);
 }
+
+/** Otto: A private routine, like a private DM, is seen by its creator and its bot only. */
+export const canSeeRoutine = (
+  routine: Pick<Routine, "createdBy" | "botId" | "visibility">,
+  personId: AuthSessionId,
+) => canSeeDirectChat(routine, { kind: "person", personId });
+
+/** Whether a person may read or act on a chat; an unknown chat is left to its own checks. */
+export const canSeeThreadById = (
+  services: {
+    readonly projectionSnapshotQuery: ProjectionSnapshotQuery["Service"];
+    readonly projectionGroups: ProjectionGroupRepository["Service"];
+  },
+  threadId: ThreadId,
+  personId: AuthSessionId,
+) =>
+  Effect.gen(function* () {
+    const thread = yield* services.projectionSnapshotQuery
+      .getThreadShellById(threadId)
+      .pipe(Effect.orElseSucceed(() => Option.none()));
+
+    if (Option.isNone(thread)) return true;
+
+    const group =
+      thread.value.groupId == null
+        ? Option.none()
+        : yield* services.projectionGroups
+            .getById({ groupId: thread.value.groupId })
+            .pipe(Effect.orElseSucceed(() => Option.none()));
+
+    const groups = Option.match(group, {
+      onNone: () => [],
+      onSome: (found) => [{ id: found.groupId, members: found.members }],
+    });
+
+    return canSeeThread(thread.value, groups, personId);
+  });
 
 /** Library items a person may see; a chat's folder follows that chat's people. */
 function visibleLibrary(
@@ -85,11 +129,19 @@ export function visibleShellSnapshot(
       : {}),
   };
 
-  if (groups.length === snapshot.groups.length) return { ...snapshot, ...library };
+  const routines = snapshot.routines?.filter((routine) => canSeeRoutine(routine, personId));
 
   return {
     ...snapshot,
     ...library,
+    ...(routines !== undefined ? { routines } : {}),
+    ...(snapshot.routineRuns !== undefined && routines !== undefined
+      ? {
+          routineRuns: snapshot.routineRuns.filter((run) =>
+            routines.some((routine) => routine.id === run.routineId),
+          ),
+        }
+      : {}),
     groups,
     threads: snapshot.threads.filter((thread) => canSeeThread(thread, snapshot.groups, personId)),
   };
@@ -168,15 +220,30 @@ export function withGroupVisibility<E, R>(input: {
           if (chatThreads.some((thread) => thread.groupId === item.groupId)) return fresh;
 
           return Effect.succeed([item]);
+        // Otto: A hidden group's chat stays unsent; a chat made private leaves everyone
+        // else's list, since they may already hold it.
         case "thread-upserted":
+          if (canSeeThread(item.thread, [...groups.values()], personId)) {
+            return Effect.succeed([item]);
+          }
+
           return Effect.succeed(
-            item.thread.groupId != null && !visible(item.thread.groupId) ? [] : [item],
+            item.thread.groupId == null
+              ? [{ kind: "thread-removed", sequence: item.sequence, threadId: item.thread.id }]
+              : [],
           );
         case "thread-removed":
           return isChatThread(item.threadId) ? fresh : Effect.succeed([item]);
         case "library-folder-upserted":
         case "library-folder-removed":
           return fresh;
+        // Otto: A routine made private leaves everyone else's routines.
+        case "routine-upserted":
+          return Effect.succeed(
+            canSeeRoutine(item.routine, personId)
+              ? [item]
+              : [{ kind: "routine-removed", sequence: item.sequence, routineId: item.routine.id }],
+          );
         case "mcp-server-upserted":
           return Effect.succeed(
             canUseMcpServer(item.mcpServer, personId)
@@ -213,9 +280,11 @@ export function withGroupVisibility<E, R>(input: {
 
     const hidesAny =
       initial.groups.some((group) => !canSeeGroup(group, personId)) ||
+      reset.threads.length !== initial.threads.length ||
       (reset.libraryFolders?.length ?? 0) !== (initial.libraryFolders?.length ?? 0) ||
       (reset.libraryFiles?.length ?? 0) !== (initial.libraryFiles?.length ?? 0) ||
-      (reset.mcpServers?.length ?? 0) !== (initial.mcpServers?.length ?? 0);
+      (reset.mcpServers?.length ?? 0) !== (initial.mcpServers?.length ?? 0) ||
+      (reset.routines?.length ?? 0) !== (initial.routines?.length ?? 0);
 
     if (!input.resuming || !hidesAny) return filtered;
 

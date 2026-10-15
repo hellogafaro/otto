@@ -160,6 +160,7 @@ export const chatCatalog = {
   "The prompt was restored or deleted before its images finished saving.":
     "图片保存完成前，该提示已被恢复或删除。",
   "Message {name}": "给 {name} 发消息",
+  "Message {name}, @ for context": "给 {name} 发消息，@ 添加上下文",
   "Add to prompt": "添加到提示",
   "Attach file": "附加文件",
   "Attach files": "附加文件",
@@ -435,9 +436,13 @@ export const chatCatalog = {
   "Copy this code, then open the sign-in page and enter it.":
     "复制此代码，然后打开登录页面并输入。",
   "Chat actions": "聊天操作",
+  "What do you want to work on?": "想做点什么？",
+  "Could not start the chat": "无法开始聊天",
+  "No project": "无项目",
   "Rename chat": "重命名聊天",
   "Chat title": "聊天标题",
   "Could not rename chat": "无法重命名聊天",
+  "Could not change who sees this chat": "无法更改此聊天的可见范围",
   "Pin chat": "置顶聊天",
   "Unpin chat": "取消置顶聊天",
   "Settle chat": "结束聊天",

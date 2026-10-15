@@ -43,8 +43,6 @@ beforeEach(() => {
     groups: [],
     lastMessageByBotId: {},
     selectedBotId: null,
-    chatPathByBotId: {},
-    openChatByBotId: {},
     pinnedItems: [],
     unassignedItems: [],
     environmentId: null,
@@ -57,8 +55,6 @@ afterEach(() => {
     groups: initialState.groups,
     lastMessageByBotId: initialState.lastMessageByBotId,
     selectedBotId: initialState.selectedBotId,
-    chatPathByBotId: initialState.chatPathByBotId,
-    openChatByBotId: initialState.openChatByBotId,
     pinnedItems: initialState.pinnedItems,
     unassignedItems: initialState.unassignedItems,
     environmentId: initialState.environmentId,
@@ -89,43 +85,6 @@ describe("bot selection", () => {
     useRosterStore.getState().recordLastMessage("otto", message);
 
     expect(useRosterStore.getState().lastMessageByBotId.otto).toEqual(message);
-  });
-
-  it("keeps each bot's remembered thread path", () => {
-    useRosterStore.getState().recordChatPath("otto", "/env-1/thread-1");
-    useRosterStore.getState().recordChatPath("mori", "/draft/draft-2");
-
-    expect(useRosterStore.getState().chatPathByBotId).toEqual({
-      otto: "/env-1/thread-1",
-      mori: "/draft/draft-2",
-    });
-
-    useRosterStore.getState().forgetChatPath("otto");
-    expect(useRosterStore.getState().chatPathByBotId).toEqual({
-      mori: "/draft/draft-2",
-    });
-  });
-
-  it("opens an older chat and returns to the newest one", () => {
-    useRosterStore.getState().openBotChat("otto", "thread-old");
-    expect(useRosterStore.getState().openChatByBotId).toEqual({ otto: "thread-old" });
-
-    useRosterStore.getState().openBotChat("otto", null);
-    expect(useRosterStore.getState().openChatByBotId).toEqual({});
-  });
-
-  it("remembers the opened chat so an older remembered chat cannot replace the newest", () => {
-    useRosterStore.getState().recordChatPath("otto", "/env-one/thread-old");
-    useRosterStore.getState().openBotChat("otto", null, "/env-one/thread-new");
-    expect(useRosterStore.getState().openChatByBotId).toEqual({});
-    expect(useRosterStore.getState().chatPathByBotId.otto).toBe("/env-one/thread-new");
-  });
-
-  it("drops opened chats when the roster switches environment", () => {
-    useRosterStore.getState().replaceRoster({ environmentId: "env-one", bots: [], groups: [] });
-    useRosterStore.getState().openBotChat("otto", "thread-old");
-    useRosterStore.getState().replaceRoster({ environmentId: "env-two", bots: [], groups: [] });
-    expect(useRosterStore.getState().openChatByBotId).toEqual({});
   });
 });
 

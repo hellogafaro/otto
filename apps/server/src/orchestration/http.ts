@@ -47,7 +47,7 @@ import {
 import { OrchestrationEngineService } from "./Services/OrchestrationEngine.ts";
 import { ProjectionGroupRepository } from "../persistence/Services/ProjectionGroups.ts";
 import { ProjectionLibraryRepository } from "../persistence/Services/ProjectionLibrary.ts";
-import { canSeeGroup, visibleShellSnapshot } from "./groupVisibility.ts";
+import { canSeeThreadById, visibleShellSnapshot } from "./groupVisibility.ts";
 import { ProjectionSnapshotQuery } from "./Services/ProjectionSnapshotQuery.ts";
 
 export const orchestrationHttpApiLayer = HttpApiBuilder.group(
@@ -61,16 +61,7 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
     const projectionLibrary = yield* ProjectionLibraryRepository;
 
     const canReadThread = (threadId: ThreadId, personId: AuthSessionId) =>
-      Effect.gen(function* () {
-        const thread = yield* projectionSnapshotQuery.getThreadShellById(threadId);
-
-        if (Option.isNone(thread) || thread.value.groupId == null) return true;
-        const group = yield* projectionGroups.getById({ groupId: thread.value.groupId });
-
-        return Option.isNone(group)
-          ? true
-          : canSeeGroup({ id: group.value.groupId, members: group.value.members }, personId);
-      });
+      canSeeThreadById({ projectionSnapshotQuery, projectionGroups }, threadId, personId);
 
     const projectionBots = yield* ProjectionBots.ProjectionBotRepository;
     const commandReceipts = yield* OrchestrationCommandReceiptRepository;

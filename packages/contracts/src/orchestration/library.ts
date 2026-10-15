@@ -2,6 +2,7 @@ import * as Schema from "effect/Schema";
 
 import {
   type AuthSessionId,
+  Visibility,
   type BotId,
   CommandId,
   type GroupId,
@@ -26,8 +27,8 @@ export const LibraryFileId = TrimmedNonEmptyString.check(Schema.isMaxLength(100)
 
 export type LibraryFileId = typeof LibraryFileId.Type;
 
-/** `user` is private to the creator; `workspace` is everyone who can see the folder it sits in. */
-export const LibraryVisibility = Schema.Literals(["user", "workspace"]);
+/** `user` is private to the creator; `organization` is everyone who can see its folder. */
+export const LibraryVisibility = Visibility;
 
 export type LibraryVisibility = typeof LibraryVisibility.Type;
 
@@ -344,15 +345,36 @@ type LibraryNode = Pick<LibraryFolder, "visibility" | "createdBy"> & {
 
 export interface LibraryVisibilityContext {
   readonly folders: ReadonlyArray<LibraryFolder>;
-  readonly threads: ReadonlyArray<{
-    readonly id: ThreadId;
-    readonly groupId?: GroupId | null | undefined;
-    readonly deletedAt?: string | null | undefined;
-  }>;
+  readonly threads: ReadonlyArray<
+    DirectChatAccess & {
+      readonly id: ThreadId;
+      readonly groupId?: GroupId | null | undefined;
+      readonly deletedAt?: string | null | undefined;
+    }
+  >;
   readonly groups: ReadonlyArray<{
     readonly id: GroupId;
     readonly members: ReadonlyArray<GroupMembership>;
   }>;
+}
+
+/** What decides who sees a chat that is not a group chat. */
+export interface DirectChatAccess {
+  readonly botId?: BotId | null | undefined;
+  readonly createdBy?: AuthSessionId | null | undefined;
+  readonly visibility?: Visibility | undefined;
+}
+
+/**
+ * Otto: A DM is the organization's unless its creator made it `user`: then only they, and
+ * its own bot, see it. A chat with no recorded creator stays the organization's.
+ */
+export function canSeeDirectChat(chat: DirectChatAccess, viewer: LibraryViewer): boolean {
+  if (chat.visibility !== "user" || chat.createdBy == null) return true;
+
+  return viewer.kind === "person"
+    ? viewer.personId === chat.createdBy
+    : viewer.botId === chat.botId;
 }
 
 export type LibraryViewer =
@@ -377,7 +399,7 @@ function canSeeChatFolder(
 
   if (thread === undefined || thread.deletedAt != null) return isViewer(folder.createdBy, viewer);
 
-  if (thread.groupId == null) return true;
+  if (thread.groupId == null) return canSeeDirectChat(thread, viewer);
   const group = context.groups.find((candidate) => candidate.id === thread.groupId);
 
   if (group === undefined) return isViewer(folder.createdBy, viewer);

@@ -8,8 +8,8 @@ import { cn } from "~/lib/utils";
  * A column's role sets its geometry and type, as in Capy's thread list:
  * `icon` a 16px slot with a 14px glyph, `title` the 13px line that takes the
  * remaining width and fades out when it overflows, `meta` 13px secondary
- * text, `chips` a row of pills that hides in narrow lists, `time` a 56px
- * right-aligned 12px stamp. Without a type the cell is laid out by `className`.
+ * text, `chips` a row of pills 6px apart that hides in narrow lists, `time` a
+ * 12px stamp. Without a type the cell is laid out by `className`.
  * There is no header row: the row's `getRowLabel` names it for assistive tech.
  */
 export type DataTableColumnType = "icon" | "title" | "meta" | "chips" | "time";
@@ -18,6 +18,11 @@ export interface DataTableColumn<T> {
   readonly id: string;
   readonly type?: DataTableColumnType;
   readonly cell: (row: T) => React.ReactNode;
+  /**
+   * Otto: on a `title` column, content that follows the title text at the column gap, such as
+   * who it belongs to, instead of a column at the far right; it never fades with the title.
+   */
+  readonly after?: (row: T) => React.ReactNode;
   readonly className?: string;
 }
 
@@ -38,15 +43,12 @@ const COLUMN_CLASS: Record<DataTableColumnType, string> = {
     SECONDARY_TEXT,
   ),
   chips: "hidden gap-1.5 @lg/list:flex",
-  time: cn(
-    "w-14 min-w-6 justify-end text-xs font-normal whitespace-nowrap tabular-nums",
-    SECONDARY_TEXT,
-  ),
+  time: cn("justify-end text-xs font-normal whitespace-nowrap tabular-nums", SECONDARY_TEXT),
 };
 
 /**
  * Otto: The shared data table, copied from Capy's thread list. Rows are 44px
- * with a 2px hit margin, 8px column gap, 6px radius and a 3.5% foreground wash
+ * with a 2px hit margin, a left and a right group at least 24px apart, 6px radius and a 3.5% foreground wash
  * on hover. Groups get Capy's 36px section band (6px radius, the same wash,
  * chevron, 13px label, count) and collapse on click. Fills span the whole
  * column like content rows, with 16px inside, so text and the band's chevron
@@ -157,7 +159,7 @@ function DataTableRow<T>({
   readonly label: string;
   readonly onClick: ((row: T) => void) | undefined;
 }) {
-  const cells = columns.map((column) => (
+  const cell = (column: DataTableColumn<T>) => (
     <span
       key={column.id}
       className={cn(
@@ -167,17 +169,36 @@ function DataTableRow<T>({
       )}
     >
       {column.type === "title" ? (
-        <span className="mask-fade-r min-w-0 overflow-hidden whitespace-nowrap">
-          {column.cell(row)}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="mask-fade-r min-w-0 overflow-hidden whitespace-nowrap">
+            {column.cell(row)}
+          </span>
+          {column.after ? <span className="flex shrink-0">{column.after(row)}</span> : null}
         </span>
       ) : (
         column.cell(row)
       )}
     </span>
-  ));
+  );
+
+  // Otto: Linear's two root groups. The title and what leads it sit left; the rest sit right as
+  // their own groups (chips, time) 12px apart, while items inside a group stay 6-8px apart.
+  const titleIndex = columns.findIndex((column) => column.type === "title");
+  const right = titleIndex === -1 ? [] : columns.slice(titleIndex + 1);
+
+  const cells = (
+    <>
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        {columns.slice(0, titleIndex === -1 ? columns.length : titleIndex + 1).map(cell)}
+      </span>
+      {right.length > 0 ? (
+        <span className="flex shrink-0 items-center gap-3">{right.map(cell)}</span>
+      ) : null}
+    </>
+  );
 
   const rowClassName =
-    "flex h-11 w-full items-center gap-2 rounded-md px-4 text-left text-sm text-foreground outline-none select-none";
+    "flex h-11 w-full items-center gap-6 rounded-md px-4 text-left text-sm text-foreground outline-none select-none";
 
   return (
     <li className="-m-0.5 list-none p-0.5">

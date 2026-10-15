@@ -1,56 +1,43 @@
 import { Predicate } from "effect";
 import { useBotConversationMessageProjection } from "./botConversationMessageProjection";
 import { useAtomValue } from "@effect/atom-react";
-import { scopeThreadRef } from "@otto/client-runtime/environment";
 import {
   BotId,
-  PLACEHOLDER_THREAD_TITLE,
   EnvironmentId,
   MessageId,
   type ModelSelection,
-  type ProjectId,
   type ScopedThreadRef,
 } from "@otto/contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { DEFAULT_INTERACTION_MODE } from "../../types";
-import { newMessageId, newThreadId, randomUUID } from "../../lib/utils";
+import { newMessageId, randomUUID } from "../../lib/utils";
 import { resolveAppModelSelectionState } from "../../modelSelection";
 import {
   useAllEnvironmentShellsBootstrapped,
   useProjects,
   readEnvironmentSupportsFileAttachments,
   useThreadActivities,
-  useThreadShells,
+  useThreadShell,
 } from "../../state/entities";
 import { environmentBotsAtom } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { primaryServerCwdAtom, primaryServerProvidersAtom } from "../../state/server";
+import { primaryServerProvidersAtom } from "../../state/server";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { derivePendingUserInputs } from "../../session-logic";
-import { sortScopedProjectsForSidebar } from "../Sidebar.logic";
 import {
-  chatHomeProject,
   buildBotTurnStartInput,
   createBotTurnSubmissionQueue,
-  findLatestBotThreadTarget,
   findUnhandledMcpAuthorization,
-  joinOrStartThreadCreate,
-  nextRetainedChat,
-  preferRetainedChatTarget,
-  resolveBotThreadTarget,
-  shouldTitlePlaceholderChat,
-  type RetainedChat,
 } from "./botThreadRuntime.logic";
 import { BOT_INTRO_MESSAGE_PREFIX, isHiddenBotPrompt } from "./botIntro";
-import { parseChatPath } from "./roster.logic";
 import { useRosterStore } from "./rosterStore";
-import { useBotChatTarget } from "./useBotThreadRef";
 import { ensureLocalApi } from "../../localApi";
 import { resolveBotFileAttachment } from "./botFileAttachment";
 import { readThreadTurnAttachments, threadTitle } from "./threadRuntimeAttachments";
+import { usePlaceholderTitle } from "./usePlaceholderTitle";
 import { useThreadPendingUserInput } from "./useThreadPendingUserInput";
 import {
   type BotThreadFailure,
@@ -63,96 +50,25 @@ import {
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
 /**
- * The bot's chosen chat, compared across an await to spot an explicit switch.
- * A pinned chat and the same chat recorded as the path compare equal, so the
- * pin released when that chat becomes the newest does not count as a switch.
+ * Otto: One chat with one bot. The chat is the route's thread, created before it opened; the
+ * runtime only sends into it. Null while a call or setup has no chat yet.
  */
-function readChatSelection(botId: string): string {
-  const roster = useRosterStore.getState();
-  const opened = roster.openChatByBotId[botId];
-
-  if (opened !== undefined) return opened;
-  const path = roster.chatPathByBotId[botId] ?? "";
-  const parsed = parseChatPath(path);
-
-  return parsed?.kind === "thread" ? parsed.threadId : path;
-}
-
-export function useBotThreadRuntime(botId: string, effectiveModelSelection: ModelSelection | null) {
+export function useBotThreadRuntime(
+  botId: string,
+  threadRef: ScopedThreadRef | null,
+  effectiveModelSelection: ModelSelection | null,
+) {
   const projects = useProjects();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const serverBots = useAtomValue(environmentBotsAtom(primaryEnvironmentId ?? NO_ENVIRONMENT));
-  const threadShells = useThreadShells();
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
   const settings = usePrimarySettings();
   const providers = useAtomValue(primaryServerProvidersAtom);
-  const serverCwd = useAtomValue(primaryServerCwdAtom);
-  const rememberedPath = useRosterStore((state) => state.chatPathByBotId[botId]);
-  const openThreadId = useRosterStore((state) => state.openChatByBotId[botId] ?? null);
   const bot = useRosterStore((state) => state.bots.find((candidate) => candidate.id === botId));
+  const rememberedThread = useThreadShell(threadRef);
+  const linkedThreadRef = rememberedThread ? threadRef : null;
 
-  const primaryThreadShells = useMemo(
-    () =>
-      primaryEnvironmentId
-        ? threadShells.filter((thread) => thread.environmentId === primaryEnvironmentId)
-        : [],
-    [primaryEnvironmentId, threadShells],
-  );
-
-  // An opened chat that has become the newest, after a send say, no longer
-  // needs pinning; keeping the pin would hide a later chat from the default view.
-  const latestThreadId = primaryEnvironmentId
-    ? (findLatestBotThreadTarget(botId, primaryEnvironmentId, primaryThreadShells)?.threadId ??
-      null)
-    : null;
-
-  useEffect(() => {
-    if (openThreadId !== null && openThreadId === latestThreadId) {
-      useRosterStore
-        .getState()
-        .openBotChat(botId, null, `/${primaryEnvironmentId}/${latestThreadId}`);
-    }
-  }, [botId, latestThreadId, openThreadId, primaryEnvironmentId]);
-
-  // Holds a just-created chat until its shell arrives. A chat that was linked
-  // and then left the shell list was archived or deleted, so it is dropped
-  // rather than sent into.
-  const retainedThreadRef = useRef<RetainedChat>({
-    ownerId: botId,
-    threadRef: null,
-    linked: false,
-  });
-
-  if (retainedThreadRef.current.ownerId !== botId) {
-    retainedThreadRef.current = { ownerId: botId, threadRef: null, linked: false };
-  }
-
-  const target = preferRetainedChatTarget(
-    retainedThreadRef.current,
-    primaryEnvironmentId
-      ? resolveBotThreadTarget(
-          botId,
-          primaryEnvironmentId,
-          primaryThreadShells,
-          rememberedPath,
-          openThreadId,
-        )
-      : null,
-    primaryThreadShells,
-  );
-
-  const { ref: rememberedThreadRef, shell: rememberedThread } = useBotChatTarget(botId, target);
-  const linkedThreadRef = rememberedThread ? rememberedThreadRef : null;
-  const threadShellsRef = useRef(primaryThreadShells);
-  threadShellsRef.current = primaryThreadShells;
-  retainedThreadRef.current = nextRetainedChat(
-    retainedThreadRef.current,
-    linkedThreadRef,
-    bootstrapped,
-    openThreadId,
-  );
-
-  const { messages, lastMessageRole, hasMessages, lastUserMessageAt } =
+  const { messages, lastMessageRole, lastUserMessageAt } =
     useBotConversationMessageProjection(linkedThreadRef);
 
   const activities = useThreadActivities(linkedThreadRef);
@@ -169,23 +85,13 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
   }, [activities]);
   const pendingUserInputs = useMemo(() => derivePendingUserInputs(activities), [activities]);
 
-  const defaultProject = useMemo(() => {
-    if (!bootstrapped || !primaryEnvironmentId) return null;
-    const scoped = projects.filter((project) => project.environmentId === primaryEnvironmentId);
-
-    return chatHomeProject(
-      scoped,
-      serverCwd,
-      () => sortScopedProjectsForSidebar(scoped, primaryThreadShells, "updated_at")[0] ?? null,
-    );
-  }, [bootstrapped, primaryEnvironmentId, primaryThreadShells, projects, serverCwd]);
-
+  // The chat's own project. A chat always has one; "No project" is the home project.
   const activeProject =
     projects.find(
       (project) =>
         project.environmentId === rememberedThread?.environmentId &&
         project.id === rememberedThread.projectId,
-    ) ?? defaultProject;
+    ) ?? null;
 
   const appDefaultModelSelection = useMemo(
     () => resolveAppModelSelectionState(settings, providers),
@@ -203,27 +109,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     reportFailure: false,
   });
 
-  const createThread = useAtomCommand(threadEnvironment.create, { reportFailure: false });
-
-  const updateMetadata = useAtomCommand(threadEnvironment.updateMetadata, {
-    reportFailure: false,
-  });
-
-  const ensureThreadRef = useRef<Promise<ScopedThreadRef | null> | null>(null);
-  const startingNewChatRef = useRef(false);
-
-  // Sends made while New chat is still creating wait for it instead of reaching the old chat.
-  // `selection` is the chosen chat when New chat was clicked; a send made after
-  // the user opened another chat follows that chat instead.
-  const pendingNewChatRef = useRef<{
-    promise: Promise<ScopedThreadRef | null>;
-    selection: string;
-  } | null>(null);
-
-  // The chat New chat created with a placeholder title, until a send titles it.
-  const placeholderChatIdRef = useRef<string | null>(null);
-  // The chat whose first send already requested its title, so a quick second send keeps it.
-  const titledChatIdRef = useRef<string | null>(null);
+  const titleFromFirstMessage = usePlaceholderTitle(linkedThreadRef, rememberedThread?.title);
   const botReady = serverBots.some((candidate) => candidate.id === botId);
   const sendQueueRef = useRef(createBotTurnSubmissionQueue());
   const queuedSendCountRef = useRef(0);
@@ -273,153 +159,11 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     return true;
   }, [canResume, linkedThreadRef, resumeTurnCommand, resuming]);
 
-  const createBotChat = useCallback(
-    async (title: string, project = activeProject): Promise<ScopedThreadRef | null> => {
-      if (!project) return null;
-      const threadId = newThreadId();
-      const selection = readChatSelection(botId);
-
-      const result = await createThread({
-        environmentId: project.environmentId,
-        input: {
-          threadId,
-          projectId: project.id,
-          botId: BotId.make(botId),
-          title,
-          modelSelection:
-            effectiveModelSelection ?? project.defaultModelSelection ?? appDefaultModelSelection,
-          runtimeMode: bot?.runtimeMode ?? settings.localExecutionMode,
-          interactionMode: DEFAULT_INTERACTION_MODE,
-          branch: null,
-          worktreePath: null,
-          createdAt: new Date().toISOString(),
-        },
-      });
-
-      if (Predicate.isTagged(result, "Failure")) return null;
-      const threadRef = scopeThreadRef(project.environmentId, threadId);
-
-      // The user opened another chat while this one was being created; stay there.
-      if (readChatSelection(botId) !== selection) return threadRef;
-      retainedThreadRef.current = { ownerId: botId, threadRef, linked: false };
-      const roster = useRosterStore.getState();
-      roster.recordChatPath(botId, `/${threadRef.environmentId}/${threadRef.threadId}`);
-      // A new chat is the newest one, so the bot stops showing an older chat.
-      roster.openBotChat(botId, null);
-
-      return threadRef;
-    },
-    [
-      activeProject,
-      appDefaultModelSelection,
-      bot,
-      botId,
-      createThread,
-      effectiveModelSelection,
-      settings.localExecutionMode,
-    ],
-  );
-
-  const ensureTranscriptThread = useCallback(
-    async (title = `Call with ${bot?.name ?? "bot"}`): Promise<ScopedThreadRef | null> => {
-      if (!activeProject || !botReady) return null;
-
-      return joinOrStartThreadCreate({
-        getRetained: () => retainedThreadRef.current.threadRef,
-        inFlight: ensureThreadRef,
-        start: () => createBotChat(title),
-      });
-    },
-    [activeProject, bot?.name, botReady, createBotChat],
-  );
-
-  // A fresh chat only makes sense once the current one has a message; an empty
-  // chat is already fresh, and creating another would leave it behind.
-  const canStartNewChat =
-    botReady && activeProject !== null && !sending && linkedThreadRef !== null && hasMessages;
-
-  /** Creates an empty chat in the project and shows it; a send titles it later. */
-  const openPlaceholderChat = useCallback(
-    async (project: NonNullable<typeof activeProject>): Promise<boolean> => {
-      // A created chat waits here until its shell arrives; another click would leave it empty.
-      const retained = retainedThreadRef.current;
-
-      if (startingNewChatRef.current || (retained.threadRef !== null && !retained.linked)) {
-        return false;
-      }
-
-      startingNewChatRef.current = true;
-      setError(null);
-
-      const pending = {
-        selection: readChatSelection(botId),
-        promise: createBotChat(PLACEHOLDER_THREAD_TITLE, project),
-      };
-
-      pendingNewChatRef.current = pending;
-
-      try {
-        const threadRef = await pending.promise;
-
-        if (!threadRef) {
-          setError(localFailure("Could not start a new chat."));
-
-          return false;
-        }
-
-        placeholderChatIdRef.current = threadRef.threadId;
-
-        return true;
-      } finally {
-        startingNewChatRef.current = false;
-
-        if (pendingNewChatRef.current === pending) pendingNewChatRef.current = null;
-      }
-    },
-    [botId, createBotChat],
-  );
-
-  const startNewChat = useCallback(
-    async (): Promise<boolean> =>
-      canStartNewChat && activeProject !== null && openPlaceholderChat(activeProject),
-    [activeProject, canStartNewChat, openPlaceholderChat],
-  );
-
-  /**
-   * Opens a fresh chat in a project, as the project page's New chat does. An empty chat already
-   * showing in that project is reused instead of leaving it behind.
-   */
-  const startNewChatInProject = useCallback(
-    async (projectId: ProjectId): Promise<boolean> => {
-      const project = projects.find(
-        (candidate) =>
-          candidate.environmentId === primaryEnvironmentId && candidate.id === projectId,
-      );
-
-      if (!botReady || project === undefined) return false;
-
-      if (linkedThreadRef !== null && !hasMessages && rememberedThread?.projectId === projectId) {
-        return true;
-      }
-
-      return openPlaceholderChat(project);
-    },
-    [
-      botReady,
-      hasMessages,
-      linkedThreadRef,
-      openPlaceholderChat,
-      primaryEnvironmentId,
-      projects,
-      rememberedThread?.projectId,
-    ],
-  );
-
   const send = useCallback(
     async (
       prompt: string,
       files: readonly File[],
-      options: { readonly messageId?: MessageId; readonly title?: string } = {},
+      options: { readonly messageId?: MessageId } = {},
     ): Promise<boolean> => {
       const pendingUserInput = pendingUserInputs[0];
       const hidden = options.messageId !== undefined && isHiddenBotPrompt(options.messageId);
@@ -454,13 +198,15 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
         return Promise.resolve(false);
       }
 
-      const pendingNewChat = pendingNewChatRef.current;
-      // A send made after opening another chat during New chat goes to that chat.
-      const submittedSelection = readChatSelection(botId);
-      const sendsToNewChat = pendingNewChat?.selection === submittedSelection;
-      // The chat on screen when the message was submitted. Reading attachments and
-      // waiting behind earlier sends takes time, and the user may open another chat.
-      const submittedThreadRef = retainedThreadRef.current.threadRef;
+      // The chat on screen when the message was submitted, so it lands where it was typed.
+      const currentThreadRef = linkedThreadRef;
+
+      if (!currentThreadRef) {
+        setError(localFailure("The chat is still loading. Try again in a moment."));
+
+        return false;
+      }
+
       queuedSendCountRef.current += 1;
       setSending(true);
       setError(null);
@@ -475,26 +221,10 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
           appDefaultModelSelection;
 
         const runtimeMode = bot?.runtimeMode ?? settings.localExecutionMode;
-        const title = options.title ?? threadTitle(prompt, files);
+        const title = threadTitle(prompt, files);
 
         try {
           const attachments = await readThreadTurnAttachments(files);
-          const newChatRef = sendsToNewChat ? await pendingNewChat.promise : null;
-
-          if (sendsToNewChat && !newChatRef) {
-            setError(localFailure("Could not start a new chat."));
-
-            return false;
-          }
-
-          const currentThreadRef =
-            newChatRef ?? submittedThreadRef ?? (await ensureTranscriptThread(title));
-
-          if (!currentThreadRef) {
-            setError(localFailure("Could not send the message."));
-
-            return false;
-          }
 
           if (
             files.some((file) => resolveBotFileAttachment(file)?.type === "file") &&
@@ -545,58 +275,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
             return false;
           }
 
-          const shellTitle = threadShellsRef.current.find(
-            (shell) => shell.id === currentThreadRef.threadId,
-          )?.title;
-
-          if (
-            shouldTitlePlaceholderChat(
-              currentThreadRef.threadId,
-              shellTitle,
-              placeholderChatIdRef.current,
-              titledChatIdRef.current,
-            )
-          ) {
-            const titledChatId = currentThreadRef.threadId;
-
-            if (placeholderChatIdRef.current === titledChatId) {
-              placeholderChatIdRef.current = null;
-            }
-
-            titledChatIdRef.current = titledChatId;
-            // Best effort: the turn already started, so a failed rename only keeps the
-            // placeholder, and the next send may try again.
-            void updateMetadata({
-              environmentId: currentThreadRef.environmentId,
-              input: { threadId: titledChatId, title },
-            }).then((result) => {
-              if (
-                Predicate.isTagged(result, "Failure") &&
-                titledChatIdRef.current === titledChatId
-              ) {
-                titledChatIdRef.current = null;
-              }
-            });
-          }
-
-          // Another chat was opened, or New chat adopted its chat, while this message
-          // was on its way. It still goes where it was typed, but the view stays put.
-          if (readChatSelection(botId) === submittedSelection) {
-            if (retainedThreadRef.current.threadRef !== currentThreadRef) {
-              retainedThreadRef.current = {
-                ownerId: botId,
-                threadRef: currentThreadRef,
-                linked: false,
-              };
-            }
-
-            useRosterStore
-              .getState()
-              .recordChatPath(
-                botId,
-                `/${currentThreadRef.environmentId}/${currentThreadRef.threadId}`,
-              );
-          }
+          if (!hidden) titleFromFirstMessage(title);
 
           if (hidden) return true;
 
@@ -627,15 +306,14 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
       botId,
       effectiveModelSelection,
       botReady,
-      ensureTranscriptThread,
       rememberedThread?.runtimeMode,
+      titleFromFirstMessage,
       settings.localExecutionMode,
       setRuntimeMode,
       linkedThreadRef,
       answerPendingUserInputWithPrompt,
       pendingUserInputs,
       startTurn,
-      updateMetadata,
     ],
   );
 
@@ -649,34 +327,10 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     [send],
   );
 
-  /** Opens a fresh chat titled after the prompt and sends the prompt there, whatever chat is showing. */
-  const sendInNewChat = useCallback(
-    async (prompt: string): Promise<boolean> => {
-      if (!botReady || !activeProject) return false;
-
-      const pending = {
-        selection: readChatSelection(botId),
-        promise: createBotChat(threadTitle(prompt, [])),
-      };
-
-      pendingNewChatRef.current = pending;
-
-      try {
-        return await send(prompt, []);
-      } finally {
-        if (pendingNewChatRef.current === pending) pendingNewChatRef.current = null;
-      }
-    },
-    [activeProject, botId, botReady, createBotChat, send],
-  );
-
   /** Sends a prompt the bot answers but the chat never shows, such as a new bot's introduction. */
   const sendHidden = useCallback(
-    (prompt: string, title: string) =>
-      send(prompt, [], {
-        messageId: MessageId.make(`${BOT_INTRO_MESSAGE_PREFIX}${randomUUID()}`),
-        title,
-      }),
+    (prompt: string) =>
+      send(prompt, [], { messageId: MessageId.make(`${BOT_INTRO_MESSAGE_PREFIX}${randomUUID()}`) }),
     [send],
   );
 
@@ -684,14 +338,11 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     async (role: "user" | "assistant", text: string) => {
       const trimmed = text.trim();
 
-      if (trimmed.length === 0) return;
-      const threadRef = retainedThreadRef.current.threadRef ?? (await ensureTranscriptThread());
-
-      if (!threadRef) return;
+      if (trimmed.length === 0 || !linkedThreadRef) return;
       void appendVoiceTranscript({
-        environmentId: threadRef.environmentId,
+        environmentId: linkedThreadRef.environmentId,
         input: {
-          threadId: threadRef.threadId,
+          threadId: linkedThreadRef.threadId,
           messageId: newMessageId(),
           role,
           text: trimmed,
@@ -699,7 +350,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
         },
       });
     },
-    [appendVoiceTranscript, botId, ensureTranscriptThread],
+    [appendVoiceTranscript, botId, linkedThreadRef],
   );
 
   const session = rememberedThread?.session ?? null;
@@ -723,7 +374,7 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     bootstrapped,
     botReady,
     canResume,
-    defaultProject: activeProject,
+    project: activeProject,
     error: failure?.message ?? null,
     failure,
     turnFailure,
@@ -740,13 +391,9 @@ export function useBotThreadRuntime(botId: string, effectiveModelSelection: Mode
     answerPendingUserInputWithText,
     selectPendingUserInputOption,
     submitPendingUserInputAnswers,
-    canStartNewChat,
     send,
     sendHidden,
-    sendInNewChat,
     sendVoiceMessage,
     sending,
-    startNewChat,
-    startNewChatInProject,
   };
 }

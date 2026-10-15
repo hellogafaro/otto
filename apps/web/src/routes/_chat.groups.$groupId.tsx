@@ -1,39 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useShallow } from "zustand/react/shallow";
 
-import { GroupDetailsPanel } from "../components/roster/GroupDetailsPanel";
-import { GroupThreadLanding } from "../components/roster/GroupThreadLanding";
-import { useRosterStore } from "../components/roster/rosterStore";
-import { usePrimaryEnvironmentId } from "../state/environments";
+import { OpenChatRedirect } from "../components/roster/OpenChatRedirect";
 
-function GroupThreadRouteView() {
+function GroupChatRedirect() {
   const { groupId } = Route.useParams();
-  const navigate = Route.useNavigate();
-  const environmentId = usePrimaryEnvironmentId();
 
-  const { group, bots } = useRosterStore(
-    useShallow((state) => ({
-      group: state.groups.find((candidate) => candidate.id === groupId) ?? null,
-      bots: state.bots,
-    })),
-  );
-
-  return (
-    <>
-      <GroupThreadLanding groupId={groupId} />
-      {environmentId && group ? (
-        <GroupDetailsPanel
-          key={group.id}
-          environmentId={environmentId}
-          group={group}
-          bots={bots}
-          onDeleted={() => void navigate({ to: "/" })}
-        />
-      ) : null}
-    </>
-  );
+  return <OpenChatRedirect owner={{ kind: "group", id: groupId }} />;
 }
 
+/** Otto: a link to a group opens its latest chat, at /chats/$threadId. */
 export const Route = createFileRoute("/_chat/groups/$groupId")({
-  component: GroupThreadRouteView,
+  component: GroupChatRedirect,
 });

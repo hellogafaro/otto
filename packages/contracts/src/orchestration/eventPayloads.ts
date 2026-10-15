@@ -15,6 +15,7 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
   TurnId,
+  Visibility,
 } from "../baseSchemas.ts";
 import { McpServer, McpServerId } from "../mcpServer.ts";
 import { OttoDelegationRecord } from "../ottoDelegation.ts";
@@ -99,6 +100,7 @@ export const OrchestrationEventType = Schema.Literals([
   "routine.failed",
   "routine.completed",
   "routine.run-canceled",
+  "routine.updated",
   "routine.deleted",
   "skill-assignment.assigned",
   "skill-assignment.unassigned",
@@ -346,6 +348,10 @@ export const ThreadCreatedPayload = Schema.Struct({
   groupId: Schema.optional(Schema.NullOr(GroupId)),
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),
   parentDelegationId: Schema.optional(Schema.NullOr(DelegationIdSchema)),
+  /** Otto: The person who started the chat; null for server-started chats and older ones. */
+  createdBy: Schema.optional(Schema.NullOr(AuthSessionId)),
+  /** Otto: `user` shows a DM only to its creator; absent reads as `organization`. */
+  visibility: Schema.optional(Visibility),
   title: TrimmedNonEmptyString,
   modelSelection: ModelSelection,
   runtimeMode: RuntimeMode.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_RUNTIME_MODE))),
@@ -444,6 +450,7 @@ export const ThreadMetaUpdatedPayload = Schema.Struct({
   branch: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   worktreePath: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
+  visibility: Schema.optional(Visibility),
   updatedAt: IsoDateTime,
 });
 

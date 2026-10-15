@@ -53,13 +53,13 @@ export function SurfaceNavigationCoordinator() {
     if (customizeRequest === null) return;
 
     void (customizeRequest.app
-      ? navigate({ to: "/customize/apps/$slug", params: { slug: customizeRequest.app } })
+      ? navigate({
+          to: "/settings/integrations/apps/$slug",
+          params: { slug: customizeRequest.app },
+        })
       : customizeRequest.query
-        ? navigate({ to: "/customize/apps", search: { q: customizeRequest.query } })
-        : navigate({
-            to: "/customize",
-            search: customizeRequest.tab === "integrations" ? {} : { tab: customizeRequest.tab },
-          }));
+        ? navigate({ to: "/settings/integrations/apps", search: { q: customizeRequest.query } })
+        : navigate({ to: "/settings/$section", params: { section: customizeRequest.tab } }));
     acknowledgeCustomizeNavigation();
   }, [navigate, customizeRequest]);
 

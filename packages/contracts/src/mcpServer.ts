@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-import { AuthSessionId, IsoDateTime, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { AuthSessionId, IsoDateTime, TrimmedNonEmptyString, Visibility } from "./baseSchemas.ts";
 
 export const McpServerId = TrimmedNonEmptyString.pipe(Schema.brand("McpServerId"));
 
@@ -66,8 +66,8 @@ export const McpServerConfiguration = Schema.Union([
 
 export type McpServerConfiguration = typeof McpServerConfiguration.Type;
 
-/** `user` servers belong to the person who added them; `workspace` servers serve every bot. */
-export const McpServerVisibility = Schema.Literals(["user", "workspace"]);
+/** `user` servers belong to the person who added them; `organization` servers serve every bot. */
+export const McpServerVisibility = Visibility;
 
 export type McpServerVisibility = typeof McpServerVisibility.Type;
 

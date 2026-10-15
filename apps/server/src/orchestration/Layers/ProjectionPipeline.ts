@@ -226,6 +226,7 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
           "routine.enabled",
           "routine.running",
           "routine.paused",
+          "routine.updated",
           "routine.blocked",
           "routine.failed",
           "routine.completed",

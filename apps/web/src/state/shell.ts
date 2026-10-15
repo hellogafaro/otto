@@ -11,6 +11,8 @@ import {
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 
+import { hasTag } from "~/lib/taggedUnion";
+
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
 
@@ -32,7 +34,7 @@ export const allEnvironmentShellsBootstrappedAtom = Atom.make((get) => {
     return false;
   }
 
-  for (const environmentId of catalog.value.entries.keys()) {
+  for (const [environmentId, entry] of catalog.value.entries) {
     if (Option.isSome(get(environmentShell.stateValueAtom(environmentId)).snapshot)) {
       continue;
     }
@@ -41,6 +43,12 @@ export const allEnvironmentShellsBootstrappedAtom = Atom.make((get) => {
       AsyncResult.value(get(environmentCatalog.stateAtom(environmentId))),
       () => AVAILABLE_CONNECTION_STATE,
     );
+
+    // Otto: the primary environment always connects; before its first attempt it is on its way,
+    // not settled without a snapshot.
+    if (hasTag(entry.target, "PrimaryConnectionTarget") && connection.generation === 0) {
+      return false;
+    }
 
     if (connectionProjectionPhase(connection) !== "disconnected") {
       return false;
