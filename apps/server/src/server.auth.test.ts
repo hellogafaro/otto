@@ -25,7 +25,7 @@ import {
   withWsRpcClient,
   appendSessionCookieToWsUrl,
 } from "./server-test-clients.ts";
-import { testEnvironmentDescriptor } from "./server-test-fixtures.ts";
+import { defaultTestAccount, testEnvironmentDescriptor } from "./server-test-fixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("serves the public environment descriptor without requiring auth", () =>
@@ -70,6 +70,40 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       assert.equal(response.headers["content-encoding"], "gzip");
       assert.equal(response.headers.vary, "Accept-Encoding");
       assert.deepEqual(body, descriptor);
+    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
+  );
+
+  it.effect("signs the desktop app in with a bearer session from its own origin", () =>
+    Effect.gen(function* () {
+      yield* buildAppUnderTest();
+
+      const signIn = yield* fetchEffect(yield* getHttpServerUrl("/api/accounts/sign-in/email"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "otto://app",
+          "sec-fetch-site": "cross-site",
+          "sec-fetch-mode": "cors",
+        },
+        body: JSON.stringify({
+          email: defaultTestAccount.email,
+          password: defaultTestAccount.password,
+        }),
+      });
+
+      const token = signIn.headers["set-auth-token"];
+
+      assert.equal(signIn.status, 200);
+      assertInclude(signIn.headers["access-control-expose-headers"] ?? "", "set-auth-token");
+      assert.isString(token);
+
+      const session = yield* fetchEffect(yield* getHttpServerUrl("/api/auth/session"), {
+        headers: { authorization: `Bearer ${token}`, origin: "otto://app" },
+      });
+
+      const body = yield* responseJsonEffect<{ readonly authenticated: boolean }>(session);
+
+      assert.isTrue(body.authenticated);
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 

@@ -61,7 +61,10 @@ export const Route = createRootRoute({
       authGateState.auth.bootstrapMethods.includes("email-password")
     ) {
       const baseURL = readPrimaryEnvironmentTarget()?.target.httpBaseUrl ?? window.location.origin;
-      const account = await getOrganizationAccountState(baseURL);
+
+      const account = await getOrganizationAccountState(baseURL, undefined, {
+        bearer: Boolean(window.desktopBridge),
+      });
 
       if (!account.organization && location.pathname !== "/setup") {
         throw redirect({ to: "/setup", hash: location.hash, replace: true });

@@ -7,6 +7,10 @@ import {
 } from "@otto/client-runtime/authorization";
 import type { OrganizationAccountState } from "@otto/contracts";
 import { readPrimaryEnvironmentTarget } from "~/environments/primary";
+import {
+  readDesktopSessionToken,
+  storeDesktopSessionToken,
+} from "~/environments/primary/desktop-auth";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Field, FieldError, FieldLabel } from "../ui/field";
@@ -80,7 +84,14 @@ export function OrganizationAccountGate({
   readonly invitationId?: string;
 }) {
   const baseURL = readPrimaryEnvironmentTarget()?.target.httpBaseUrl ?? window.location.origin;
-  const client = useMemo(() => createOrganizationAccountsClient(baseURL), [baseURL]);
+  const [desktopToken] = useState(readDesktopSessionToken);
+  const desktopAccounts = { bearer: Boolean(window.desktopBridge) };
+
+  const client = useMemo(
+    () => createOrganizationAccountsClient(baseURL, desktopToken ?? undefined, desktopAccounts),
+    [baseURL, desktopToken],
+  );
+
   const [state, setState] = useState<OrganizationAccountState | null>(null);
 
   const [mode, setMode] = useState<"login" | "signup" | "forgot">(
@@ -102,7 +113,7 @@ export function OrganizationAccountGate({
 
   useEffect(() => {
     let cancelled = false;
-    void getOrganizationAccountState(baseURL)
+    void getOrganizationAccountState(baseURL, desktopToken ?? undefined, desktopAccounts)
       .then((value) => {
         if (cancelled) return;
 
@@ -125,11 +136,16 @@ export function OrganizationAccountGate({
     return () => {
       cancelled = true;
     };
-  }, [baseURL, page]);
+  }, [baseURL, desktopToken, page]);
 
-  const acceptInvitation = async () => {
+  const acceptInvitation = async (token: string | undefined) => {
     if (!invitationId) return;
-    const result = await client.organization.acceptInvitation({ invitationId });
+
+    const result = await createOrganizationAccountsClient(
+      baseURL,
+      token,
+      desktopAccounts,
+    ).organization.acceptInvitation({ invitationId });
 
     if (result.error) throw new Error(result.error.message ?? "Could not accept the invitation.");
   };
@@ -207,14 +223,22 @@ export function OrganizationAccountGate({
             "Check your email to verify your account, then sign in to accept the invitation.",
           );
         } else {
-          const result = await client.signIn.email({
-            email: value.email,
-            password: value.password,
-          });
+          let signedInToken: string | undefined;
+
+          const result = await client.signIn.email(
+            { email: value.email, password: value.password },
+            {
+              onSuccess: (context) => {
+                signedInToken = context.response.headers.get("set-auth-token") ?? undefined;
+              },
+            },
+          );
 
           if (result.error) throw new Error(result.error.message ?? "Could not sign in.");
-          await acceptInvitation();
-          const current = await getOrganizationAccountState(baseURL);
+          const token = window.desktopBridge ? signedInToken : undefined;
+          storeDesktopSessionToken(token ?? null);
+          await acceptInvitation(token);
+          const current = await getOrganizationAccountState(baseURL, token, desktopAccounts);
 
           if (!current.role)
             throw new Error(
@@ -337,7 +361,7 @@ export function OrganizationAccountGate({
                     setError(null);
 
                     try {
-                      if (!state.role) await acceptInvitation();
+                      if (!state.role) await acceptInvitation(desktopToken ?? undefined);
                       window.location.replace("/");
                     } catch (cause) {
                       setError(cause instanceof Error ? cause.message : "Could not join.");
@@ -361,6 +385,7 @@ export function OrganizationAccountGate({
                       return;
                     }
 
+                    storeDesktopSessionToken(null);
                     window.location.reload();
                   }}
                 >

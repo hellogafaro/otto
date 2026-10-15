@@ -5,6 +5,7 @@ import { Form } from "../ui/form";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Spinner } from "../ui/spinner";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settings-layout";
+import { storeDesktopSessionToken } from "~/environments/primary/desktop-auth";
 import { useOrganizationAccounts } from "./use-organization-accounts";
 
 export function AccountSettingsPanel() {
@@ -199,6 +200,7 @@ export function AccountSettingsPanel() {
                   return;
                 }
 
+                storeDesktopSessionToken(null);
                 window.location.assign("/login");
               }}
             >

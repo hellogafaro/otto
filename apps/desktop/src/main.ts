@@ -38,7 +38,6 @@ import * as DesktopApplicationMenu from "./window/desktop-application-menu.ts";
 import * as DesktopAssets from "./app/desktop-assets.ts";
 import * as DesktopBackendConfiguration from "./backend/desktop-backend-configuration.ts";
 import * as DesktopBackendPool from "./backend/desktop-backend-pool.ts";
-import * as DesktopLocalEnvironmentAuth from "./backend/desktop-local-environment-auth.ts";
 import * as DesktopNetworkInterfaces from "./backend/desktop-network-interfaces.ts";
 import * as DesktopEnvironment from "./app/desktop-environment.ts";
 import * as DesktopLifecycle from "./app/desktop-lifecycle.ts";
@@ -186,21 +185,13 @@ const desktopWslBackendLayer = DesktopWslBackend.layer.pipe(
   Layer.provideMerge(desktopBackendLayer),
 );
 
-const desktopLocalEnvironmentAuthLayer = DesktopLocalEnvironmentAuth.layer.pipe(
-  Layer.provideMerge(desktopBackendLayer),
-);
-
 const desktopApplicationLayer = Layer.mergeAll(
   DesktopLifecycle.layer,
   DesktopApplicationMenu.layer,
   DesktopLinuxUrlHandler.layer,
   DesktopShellEnvironment.layer,
   desktopSshLayer,
-).pipe(
-  Layer.provideMerge(DesktopUpdates.layer),
-  Layer.provideMerge(desktopWslBackendLayer),
-  Layer.provideMerge(desktopLocalEnvironmentAuthLayer),
-);
+).pipe(Layer.provideMerge(DesktopUpdates.layer), Layer.provideMerge(desktopWslBackendLayer));
 
 const desktopApplicationRuntimeLayer = desktopApplicationLayer.pipe(
   Layer.provideMerge(NodeServices.layer),

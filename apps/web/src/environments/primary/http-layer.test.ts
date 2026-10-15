@@ -3,12 +3,10 @@ import { afterEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { HttpClient } from "effect/unstable/http";
 
-import { __resetDesktopPrimaryAuthForTests } from "./desktop-auth";
 import { makePrimaryEnvironmentHttpLayer } from "./http-layer";
 
 describe.sequential("primary environment HTTP layer", () => {
   afterEach(() => {
-    __resetDesktopPrimaryAuthForTests();
     Reflect.deleteProperty(globalThis, "window");
     vi.unstubAllGlobals();
   });
@@ -42,14 +40,16 @@ describe.sequential("primary environment HTTP layer", () => {
       configurable: true,
       value: {
         location: { origin: "otto://app" },
+        localStorage: {
+          getItem: (key: string) =>
+            key === "otto:desktop-session-token" ? "account-session-token" : null,
+        },
         desktopBridge: {
           getLocalEnvironmentBootstrap: () => ({
             label: "Local environment",
             httpBaseUrl: "http://127.0.0.1:3773",
             wsBaseUrl: "ws://127.0.0.1:3773",
-            bootstrapToken: "desktop-bootstrap-token",
           }),
-          getLocalEnvironmentBearerToken: vi.fn().mockResolvedValue("desktop-bearer-token"),
         } as Partial<DesktopBridge>,
       },
     });
@@ -59,7 +59,7 @@ describe.sequential("primary environment HTTP layer", () => {
 
       const request = new Request(fetchMock.mock.calls[0]?.[0], fetchMock.mock.calls[0]?.[1]);
       expect(request.credentials).not.toBe("include");
-      expect(request.headers.get("authorization")).toBe("Bearer desktop-bearer-token");
+      expect(request.headers.get("authorization")).toBe("Bearer account-session-token");
     }).pipe(Effect.provide(makePrimaryEnvironmentHttpLayer()));
   });
 });

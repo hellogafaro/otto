@@ -4,12 +4,17 @@ import { adminAc, memberAc } from "better-auth/plugins/organization/access";
 import { OrganizationAccountState } from "@otto/contracts";
 import * as Schema from "effect/Schema";
 
-export function createOrganizationAccountsClient(baseURL: string, bearerToken?: string) {
+// Otto: A bearer client (the desktop app) never sends cookies, even before it has signed in.
+export function createOrganizationAccountsClient(
+  baseURL: string,
+  bearerToken?: string,
+  options?: { readonly bearer?: boolean },
+) {
   return createAuthClient({
     baseURL,
     basePath: "/api/accounts",
     fetchOptions: {
-      credentials: bearerToken ? "omit" : "include",
+      credentials: bearerToken || options?.bearer ? "omit" : "include",
       ...(bearerToken ? { headers: { authorization: `Bearer ${bearerToken}` } } : {}),
     },
     plugins: [
@@ -24,11 +29,17 @@ export function createOrganizationAccountsClient(baseURL: string, bearerToken?: 
   });
 }
 
-export async function getOrganizationAccountState(baseURL: string, bearerToken?: string) {
-  const response = await createOrganizationAccountsClient(baseURL, bearerToken).$fetch(
+export async function getOrganizationAccountState(
+  baseURL: string,
+  bearerToken?: string,
+  options?: { readonly bearer?: boolean },
+) {
+  const response = await createOrganizationAccountsClient(baseURL, bearerToken, options).$fetch(
     new URL("/api/organization", baseURL).toString(),
     { timeout: 10_000 },
   );
+
   if (response.error) throw new Error("Could not load the organization.");
+
   return Schema.decodeUnknownSync(OrganizationAccountState)(response.data);
 }

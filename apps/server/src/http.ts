@@ -33,6 +33,7 @@ import { OtlpTracer } from "effect/unstable/observability";
 import * as ServerConfig from "./config.ts";
 import { ASSET_ROUTE_PREFIX, resolveAsset } from "./assets/asset-access.ts";
 import { OrganizationAccounts } from "./auth/organization-accounts.ts";
+import { DESKTOP_RENDERER_ORIGINS } from "./auth/organization-accounts-runtime.ts";
 import {
   ATTACHMENT_UPLOAD_ROUTE_PREFIX,
   storeAttachmentUpload,
@@ -57,8 +58,6 @@ import { browserApiCorsAllowedHeaders, browserApiCorsAllowedMethods } from "./ht
 const OTLP_TRACES_PROXY_PATH = "/api/observability/v1/traces";
 
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "::1", "localhost"]);
-
-const DESKTOP_RENDERER_ORIGINS = ["otto://app", "otto-dev://app"];
 
 const SVG_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 

@@ -62,6 +62,9 @@ export interface AccountMail {
   readonly text: string;
 }
 
+/** Otto: The desktop app's renderer origins; they sign in with bearer sessions, not cookies. */
+export const DESKTOP_RENDERER_ORIGINS = ["otto://app", "otto-dev://app"];
+
 export async function createOrganizationAccountsRuntime(options: {
   readonly database: NodeSqlite.DatabaseSync;
   readonly secret: string;
@@ -104,7 +107,7 @@ export async function createOrganizationAccountsRuntime(options: {
     basePath: "/api/accounts",
     database,
     secret: options.secret,
-    trustedOrigins: [origin],
+    trustedOrigins: [origin, ...DESKTOP_RENDERER_ORIGINS],
     user: {
       modelName: "users",
       additionalFields: {
