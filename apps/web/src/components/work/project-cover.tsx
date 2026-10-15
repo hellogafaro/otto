@@ -1,40 +1,65 @@
+import { useEffect, useRef } from "react";
+
 import { cn } from "../../lib/utils";
-import { BLOB_BODY_PATHS } from "../roster/bot-avatar-view";
-import { projectCover } from "./work.logic";
+import { ditheredCover } from "./work.logic";
+
+/** CSS pixels per dither cell, so the dot grid reads the same on a card and on a page. */
+const COVER_CELL_PX = 2;
 
 /**
- * A generated 16:9 cover: a tinted field with a dot grid and one large blob
- * from the bot avatar set, all picked from the project id.
+ * Otto: A 16:9 project cover: the uploaded image, or a dithered gradient drawn from the
+ * project id at one cell per two CSS pixels and scaled up without smoothing.
  */
 export function ProjectCover({
   seed,
+  imageUrl,
   className,
 }: {
   readonly seed: string;
+  readonly imageUrl?: string | null;
   readonly className?: string;
 }) {
-  const cover = projectCover(seed);
-  const patternId = `project-cover-dots-${seed}`;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+
+    if (canvas === null || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      const width = Math.max(1, Math.round(canvas.clientWidth / COVER_CELL_PX));
+      const height = Math.max(1, Math.round(canvas.clientHeight / COVER_CELL_PX));
+
+      canvas.width = width;
+      canvas.height = height;
+
+      canvas
+        .getContext("2d")
+        ?.putImageData(new ImageData(ditheredCover(seed, width, height), width, height), 0, 0);
+    });
+
+    observer.observe(canvas);
+
+    return () => observer.disconnect();
+  }, [seed, imageUrl]);
+
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        aria-hidden
+        className={cn("block aspect-video w-full object-cover", className)}
+      />
+    );
+  }
 
   return (
-    <svg
-      viewBox="0 0 320 180"
-      preserveAspectRatio="xMidYMid slice"
+    <canvas
+      ref={canvasRef}
       aria-hidden
-      className={cn("block aspect-video w-full text-(--cover-color)", className)}
-      style={{ "--cover-color": cover.color }}
-    >
-      <rect width="320" height="180" className="fill-card" />
-      <rect width="320" height="180" fill="currentColor" fillOpacity="0.14" />
-      <defs>
-        <pattern id={patternId} width="12" height="12" patternUnits="userSpaceOnUse">
-          <circle cx="2" cy="2" r="1" fill="currentColor" fillOpacity="0.28" />
-        </pattern>
-      </defs>
-      <rect width="320" height="180" fill={`url(#${patternId})`} />
-      <g transform={`translate(176 44) scale(1.5) rotate(${cover.rotate} 50 50)`}>
-        <path d={BLOB_BODY_PATHS[cover.shape]} fill="currentColor" fillOpacity="0.88" />
-      </g>
-    </svg>
+      className={cn("block aspect-video w-full", className)}
+      style={{ imageRendering: "pixelated" }}
+    />
   );
 }

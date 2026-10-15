@@ -8,8 +8,6 @@ import {
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { BLOB_COLORS, BLOB_SHAPES, DEFAULT_BLOB_SHAPE } from "../roster/roster-avatar.logic";
-
 /** Linear's order: what is moving first, then what is waiting, then what is done. */
 export const WORK_STATUS_ORDER: readonly WorkStatus[] = [
   "in_progress",
@@ -62,26 +60,85 @@ export function sortTasks(tasks: readonly OrchestrationTask[]): OrchestrationTas
   );
 }
 
+/** FNV-1a with a final mix, so neighbouring ids still land on different covers. */
 function hashSeed(seed: string): number {
-  let hash = 0;
+  let hash = 0x811c9dc5;
 
   for (let index = 0; index < seed.length; index++) {
-    hash = (hash * 31 + seed.charCodeAt(index)) | 0;
+    hash = Math.imul(hash ^ seed.charCodeAt(index), 0x01000193);
   }
 
-  return Math.abs(hash);
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 0x2c1b3c6d);
+  hash ^= hash >>> 12;
+
+  return hash >>> 0;
 }
 
-/** A project's cover is drawn from its id, so it never changes and never needs an upload. */
+/**
+ * Otto: Generated covers are a gradient through three tones of one colour family, ordered-dithered
+ * so every pixel is one of the three, the way a halftone print looks.
+ */
+const COVER_PALETTES = [
+  ["#0B2E44", "#1B7FAF", "#7FD0E6"],
+  ["#15124F", "#3F4BC9", "#A9B6FF"],
+  ["#2A0C40", "#8E3592", "#F29AC4"],
+  ["#3A0E0B", "#C2432A", "#FFB06B"],
+  ["#0B2A20", "#2A8456", "#A6E09C"],
+  ["#161C2A", "#46577A", "#B5C3DD"],
+  ["#200F47", "#6538C9", "#C9A6FF"],
+  ["#351C02", "#C97C17", "#FFD585"],
+] as const;
+
+/** The 8x8 Bayer matrix: each cell's threshold for switching to the next tone. */
+const BAYER = [
+  0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28,
+  52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7,
+  39, 13, 45, 5, 37, 63, 31, 55, 23, 61, 29, 53, 21,
+];
+
+/** A project's generated cover is drawn from its id, so it stays the same everywhere. */
 export function projectCover(seed: string) {
   const hash = hashSeed(seed);
+  const pick = (salt: number, size: number) => Math.floor(hash / salt) % size;
 
   return {
-    color: BLOB_COLORS[hash % (BLOB_COLORS.length - 1)] ?? "#8E8E93",
-    shape:
-      BLOB_SHAPES[Math.floor(hash / BLOB_COLORS.length) % BLOB_SHAPES.length] ?? DEFAULT_BLOB_SHAPE,
-    rotate: (Math.floor(hash / 97) % 7) * 8 - 24,
+    tones: COVER_PALETTES[hash % COVER_PALETTES.length]!,
+    angle: pick(3, 8) * 45,
+    glow: { x: 0.2 + pick(29, 7) / 10, y: 0.2 + pick(31, 7) / 10 },
   };
+}
+
+/**
+ * The cover's pixels, RGBA rows of `width` by `height`: a linear sweep along the cover's angle
+ * lifted by a soft glow, each pixel snapped to one of the three tones by the Bayer threshold.
+ */
+export function ditheredCover(seed: string, width: number, height: number) {
+  const { tones, angle, glow } = projectCover(seed);
+  const rgb = tones.map((tone) => [1, 3, 5].map((at) => parseInt(tone.slice(at, at + 2), 16)));
+  const radians = (angle * Math.PI) / 180;
+  const dx = Math.cos(radians);
+  const dy = Math.sin(radians);
+  const reach = (Math.abs(dx) + Math.abs(dy)) / 2;
+  const pixels = new Uint8ClampedArray(width * height * 4);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const u = x / Math.max(1, width - 1);
+      const v = y / Math.max(1, height - 1);
+      const sweep = ((u - 0.5) * dx + (v - 0.5) * dy) / (2 * reach) + 0.5;
+      const lift = Math.max(0, 1 - Math.hypot(u - glow.x, (v - glow.y) * 0.5625) * 1.6);
+      const level = Math.min(1, Math.max(0, sweep * 0.75 + lift * 0.4)) * (rgb.length - 1);
+      const base = Math.min(rgb.length - 2, Math.floor(level));
+      const threshold = (BAYER[(y % 8) * 8 + (x % 8)]! + 0.5) / 64;
+      const color = rgb[level - base > threshold ? base + 1 : base]!;
+      const offset = (y * width + x) * 4;
+
+      pixels.set([color[0]!, color[1]!, color[2]!, 255], offset);
+    }
+  }
+
+  return pixels;
 }
 
 const MINUTE_MS = 60_000;

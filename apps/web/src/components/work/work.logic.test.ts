@@ -5,6 +5,7 @@ import {
   parseDuration,
   parseProjectSearch,
   parseTaskSearch,
+  ditheredCover,
   projectCover,
 } from "./work.logic";
 
@@ -49,6 +50,23 @@ describe("parseProjectSearch", () => {
 describe("projectCover", () => {
   it("is stable per seed", () => {
     expect(projectCover("launch")).toEqual(projectCover("launch"));
+  });
+
+  it("dithers every pixel to one of the cover's three tones", () => {
+    const pixels = ditheredCover("launch", 24, 16);
+    const colors = new Set<string>();
+
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      colors.add(
+        `#${[...pixels.slice(offset, offset + 3)].map((value) => value.toString(16).padStart(2, "0").toUpperCase()).join("")}`,
+      );
+    }
+
+    expect(
+      [...colors].every((color) => projectCover("launch").tones.includes(color as never)),
+    ).toBe(true);
+
+    expect(colors.size).toBeGreaterThan(1);
   });
 });
 
