@@ -3,7 +3,9 @@ import type {
   ChannelBinding,
   GroupMembership,
   ImageProviderId,
+  LibraryFolderId,
   McpServerId,
+  WorkParticipant,
 } from "@otto/contracts";
 
 /**
@@ -35,6 +37,10 @@ export interface Bot {
   label: string | null;
   description: string | null;
   disabledMcpServerIds: readonly McpServerId[];
+  /** Skills (Library folder ids) switched off for this bot. */
+  disabledSkillIds?: readonly LibraryFolderId[] | undefined;
+  /** The person responsible for the bot; its personal connections and skills serve it. */
+  owner?: WorkParticipant | null | undefined;
   avatar: BotAvatar;
   engine: BotEngine | null;
   sandbox:

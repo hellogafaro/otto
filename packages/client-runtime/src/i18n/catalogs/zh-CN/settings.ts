@@ -120,8 +120,6 @@ export const settingsCatalog = {
   "Which subscription this bot uses to create images. The chat model above stays the same.":
     "此机器人用哪个订阅生成图片。上方的聊天模型保持不变。",
   "Image provider": "图片提供商",
-  "Open image generation settings": "打开图片生成设置",
-  "Image settings": "图片设置",
   "Open bot settings": "打开机器人设置",
   "Open sidebar ({shortcut})": "打开侧边栏（{shortcut}）",
   "Could not update channel": "无法更新频道",
@@ -297,7 +295,6 @@ export const settingsCatalog = {
   "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.":
     "此机器人的提供商无法移交工作。它不能把工作发给其他机器人，也不能接收来自它们的工作。",
   "No provider ready": "没有可用的提供商",
-  "Bot settings sections": "机器人设置分区",
   "Model & usage": "模型与用量",
   "Update confirmation failed.": "更新确认失败。",
   "Automatic updates are not available in this build.": "此版本不支持自动更新。",

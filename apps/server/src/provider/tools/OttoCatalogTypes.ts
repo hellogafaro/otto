@@ -55,8 +55,8 @@ export interface OttoPluginRuntimeOptions {
   readonly searchComposioToolkits?: (input: {
     readonly query?: string;
     readonly limit?: number;
-    /** The bot owner, whose personal accounts count as connected along with workspace ones. */
-    readonly personId?: string | null;
+    /** The searching bot and its owner, whose accounts count as connected. */
+    readonly bot?: { readonly botId: string; readonly ownerPersonId: string | null };
   }) => Promise<{
     readonly status: "available" | "setup-required" | "unavailable";
     readonly toolkits: readonly ComposioToolkit[];

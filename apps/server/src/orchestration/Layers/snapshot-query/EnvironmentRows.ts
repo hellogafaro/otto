@@ -54,7 +54,7 @@ export function createEnvironmentRows({ sql }: Pick<ProjectionSnapshotDependenci
     execute: () => sql`
       SELECT
         bot_id AS "botId", name, title, label, description,
-        disabled_mcp_server_ids_json AS "disabledMcpServerIds", owner_json AS "owner", avatar_json AS "avatar",
+        disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", owner_json AS "owner", avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
         personality_tone AS "personalityTone",
@@ -129,7 +129,7 @@ export function createEnvironmentRows({ sql }: Pick<ProjectionSnapshotDependenci
     execute: ({ botId }) => sql`
       SELECT
         bot_id AS "botId", name, title, label, description,
-        disabled_mcp_server_ids_json AS "disabledMcpServerIds", owner_json AS "owner", avatar_json AS "avatar",
+        disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", owner_json AS "owner", avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         voice_enabled AS "voiceEnabled",
         personality_tone AS "personalityTone",

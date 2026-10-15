@@ -97,6 +97,7 @@ import Migration0081 from "./Migrations/081_ComposioAccounts.ts";
 import Migration0082 from "./Migrations/082_McpServerAccess.ts";
 import Migration0083 from "./Migrations/083_BotOwner.ts";
 import Migration0084 from "./Migrations/084_Secrets.ts";
+import Migration0085 from "./Migrations/085_BotToolAccess.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -193,6 +194,7 @@ export const migrationEntries = [
   [82, "McpServerAccess", Migration0082],
   [83, "BotOwner", Migration0083],
   [84, "Secrets", Migration0084],
+  [85, "BotToolAccess", Migration0085],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

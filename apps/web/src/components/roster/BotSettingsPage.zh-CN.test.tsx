@@ -189,11 +189,8 @@ describe("bot settings in Simplified Chinese", () => {
     state.providers = [codexProvider()];
   });
 
-  it("translates the section titles and navigation", () => {
+  it("translates the section titles", () => {
     const form = renderForm();
-    const nav = visitElements(form, (element) => element.type === "nav");
-    expect(nav?.props["aria-label"]).toBe("机器人设置分区");
-    expect(textOf(nav)).toBe("身份行为模型与用量工作区工具");
     expect(textOf(form)).toContain("设置这个机器人与你协作的方式。");
 
     const titles: unknown[] = [];

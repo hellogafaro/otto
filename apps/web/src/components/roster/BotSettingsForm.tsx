@@ -1,4 +1,3 @@
-import { RiBrainLine, RiLink } from "@remixicon/react";
 import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -20,7 +19,6 @@ import { useCallback, useRef, useState } from "react";
 import { requestConfirmDialog } from "../../confirmDialog";
 import { useEnvironmentSettings } from "../../hooks/useSettings";
 import { useI18n } from "../../i18n";
-import { openSettings } from "../../settingsDialogStore";
 import { botEnvironment } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentMcpServersAtom } from "../../state/mcpServers";
@@ -28,7 +26,6 @@ import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "../settings/settingsLayout";
-import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
@@ -40,7 +37,7 @@ import { BotEngineFields } from "./BotEngineFields";
 import { BotIdentityFields } from "./BotIdentityFields";
 import { BotMemorySheet } from "./BotMemorySheet";
 import { BotPersonalityToneField } from "./BotPersonalityToneField";
-import { BotToolsSection } from "./BotToolsSection";
+import { BotToolSwitches } from "./BotToolSwitches";
 import { BOT_SANDBOX_OPTIONS, botSandboxLabel } from "./botSandbox";
 import type { Bot } from "./types";
 import { useBotThreadRef } from "./useBotThreadRef";
@@ -171,7 +168,7 @@ export function BotSettingsForm({
   return (
     <>
       <SettingsPageContainer>
-        <div className="flex items-center gap-4 px-4">
+        <div className="flex items-center gap-4">
           <BotAvatarView avatar={bot.avatar} name={draft.name || bot.name} className="size-14" />
           <div className="min-w-0">
             <h1 className="truncate text-22px leading-title font-medium tracking-title-lg">
@@ -182,32 +179,6 @@ export function BotSettingsForm({
             </p>
           </div>
         </div>
-        <nav
-          aria-label={t("Bot settings sections")}
-          className="flex gap-1 overflow-x-auto px-2 sm:px-3"
-        >
-          {(
-            [
-              ["identity", t("Identity")],
-              ["behavior", t("Behavior")],
-              ["model", t("Model & usage")],
-              ["workspace", t("Workspace")],
-              ["tools", t("Tools")],
-            ] as const
-          ).map(([id, label]) => (
-            <a
-              key={id}
-              href={`#${id}`}
-              className="shrink-0 rounded-lg px-3 py-2 text-sm text-muted-foreground outline-none hover:bg-secondary/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={(event) => {
-                event.preventDefault();
-                document.getElementById(id)?.scrollIntoView({ block: "start" });
-              }}
-            >
-              {label}
-            </a>
-          ))}
-        </nav>
 
         <BotIdentityFields bot={bot} draft={draft} onChangeAvatar={() => setAvatarOpen(true)} />
 
@@ -219,7 +190,7 @@ export function BotSettingsForm({
               "Choose how this bot usually sounds. It is a baseline, not a costume. The bot still adapts to you and to the task, so serious work stays serious in every mode.",
             )}
           >
-            <div className="mt-3 max-w-2xl pb-3.5">
+            <div className="mt-3 pb-3.5">
               <BotPersonalityToneField
                 bot={bot}
                 tone={draft.personalityTone}
@@ -296,42 +267,31 @@ export function BotSettingsForm({
               "Which subscription this bot uses to create images. The chat model above stays the same.",
             )}
             control={
-              <div className="flex items-center gap-1.5">
-                <Select
-                  value={draft.imageProvider ?? BOT_IMAGE_PROVIDER_DEFAULT}
-                  onValueChange={(value) => {
-                    draft.setImageProvider(botImageProviderFromSelectValue(value));
-                    draft.markChanged();
-                  }}
-                >
-                  <SelectTrigger className="w-full sm:w-56" aria-label={t("Image provider")}>
-                    <SelectValue>
-                      {draft.imageProvider
-                        ? imageProviderLabel(draft.imageProvider)
-                        : globalDefaultOptionLabel(imageSettings)}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectPopup>
-                    <SelectItem value={BOT_IMAGE_PROVIDER_DEFAULT}>
-                      {globalDefaultOptionLabel(imageSettings)}
+              <Select
+                value={draft.imageProvider ?? BOT_IMAGE_PROVIDER_DEFAULT}
+                onValueChange={(value) => {
+                  draft.setImageProvider(botImageProviderFromSelectValue(value));
+                  draft.markChanged();
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-56" aria-label={t("Image provider")}>
+                  <SelectValue>
+                    {draft.imageProvider
+                      ? imageProviderLabel(draft.imageProvider)
+                      : globalDefaultOptionLabel(imageSettings)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value={BOT_IMAGE_PROVIDER_DEFAULT}>
+                    {globalDefaultOptionLabel(imageSettings)}
+                  </SelectItem>
+                  {IMAGE_PROVIDER_IDS.map((provider) => (
+                    <SelectItem key={provider} value={provider}>
+                      {imageProviderLabel(provider)}
                     </SelectItem>
-                    {IMAGE_PROVIDER_IDS.map((provider) => (
-                      <SelectItem key={provider} value={provider}>
-                        {imageProviderLabel(provider)}
-                      </SelectItem>
-                    ))}
-                  </SelectPopup>
-                </Select>
-                <Button
-                  variant="ghost-muted"
-                  size="xs"
-                  type="button"
-                  onClick={() => openSettings("image-generation", null, environmentId)}
-                  aria-label={t("Open image generation settings")}
-                >
-                  {t("Image settings")}
-                </Button>
-              </div>
+                  ))}
+                </SelectPopup>
+              </Select>
             }
           />
 
@@ -341,13 +301,12 @@ export function BotSettingsForm({
             control={
               <Button
                 variant="outline"
-                size="xs"
+                size="sm"
                 type="button"
                 aria-label={t("Manage bot memory")}
                 disabled={!threadRef}
                 onClick={() => setMemoryOpen(true)}
               >
-                <AppIcon className="size-3.5" icon={RiBrainLine} />
                 {t("Facts and history")}
               </Button>
             }
@@ -359,13 +318,12 @@ export function BotSettingsForm({
             control={
               <Button
                 variant="outline"
-                size="xs"
+                size="sm"
                 type="button"
                 aria-label={t("Manage bot channels")}
                 aria-expanded={channelsOpen}
                 onClick={() => setChannelsOpen(true)}
               >
-                <AppIcon className="size-3.5" icon={RiLink} />
                 {assignedChannels.length === 0
                   ? t("No channels")
                   : t("{connected} of {total} connected", {
@@ -377,14 +335,11 @@ export function BotSettingsForm({
           />
         </SettingsSection>
 
-        <BotToolsSection
+        <BotToolSwitches
+          bot={bot}
+          environmentId={environmentId}
           servers={mcpServers}
           accessStatuses={accessQuery.data?.access ?? []}
-          disabledIds={draft.disabledMcpServerIds}
-          onDisabledIdsChange={(ids) => {
-            draft.setDisabledMcpServerIds(ids);
-            draft.markChanged();
-          }}
           canDelegate={
             draft.activeEntry ? driverSupportsDelegation(draft.activeEntry.driverKind) : true
           }

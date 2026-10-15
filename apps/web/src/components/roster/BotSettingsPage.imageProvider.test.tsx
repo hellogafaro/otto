@@ -263,7 +263,6 @@ function expectedUpdate(bot: Bot, overrides: TestProps) {
       personalityTone: 50,
       voiceEnabled: false,
       imageProvider: null,
-      disabledMcpServerIds: [],
       ...overrides,
     },
   };

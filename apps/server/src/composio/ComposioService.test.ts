@@ -11,6 +11,10 @@ import { inMemoryComposioAccounts, make } from "./ComposioService.ts";
 
 const viewer = { personId: "person-ana", displayName: "Ana" };
 
+const noBot = { botId: null, ownerPersonId: null };
+
+const botOwnedBy = (ownerPersonId: string) => ({ botId: `bot-${ownerPersonId}`, ownerPersonId });
+
 function makeSecretStore(initial: Readonly<Record<string, string>> = {}) {
   const values = new Map(
     Object.entries(initial).map(([name, value]) => [name, new TextEncoder().encode(value)]),
@@ -303,9 +307,9 @@ describe("ComposioService", () => {
       const status = yield* service.getStatus(viewer);
       expect(status.connections).toHaveLength(3);
 
-      const first = yield* service.resolveRuntimeMcpServer("thread-1", null);
-      const cached = yield* service.resolveRuntimeMcpServer("thread-1", null);
-      const secondThread = yield* service.resolveRuntimeMcpServer("thread-2", null);
+      const first = yield* service.resolveRuntimeMcpServer("thread-1", noBot);
+      const cached = yield* service.resolveRuntimeMcpServer("thread-1", noBot);
+      const secondThread = yield* service.resolveRuntimeMcpServer("thread-2", noBot);
 
       expect(first).toBe(cached);
       expect(secondThread).toBeDefined();
@@ -333,6 +337,50 @@ describe("ComposioService", () => {
         createdAt: "1970-01-01T00:00:00.000Z",
         updatedAt: "1970-01-01T00:00:00.000Z",
       });
+    }),
+  );
+
+  it.effect("switches accounts per bot, lending a personal one only by its owner", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore({ "composio-api-key": "project-key" });
+      const ben = { personId: "person-ben", displayName: "Ben" };
+      const bensBot = { botId: "bot-ben", ownerPersonId: ben.personId };
+
+      const { client, createSession } = fakeClient({
+        accounts: [
+          { id: "connection-new", toolkit: { slug: "gmail" }, status: "ACTIVE" },
+          { id: "slack-team", toolkit: { slug: "slack" }, status: "ACTIVE" },
+        ],
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), () => client);
+      yield* service.authorize({ toolkitSlug: "gmail" }, viewer);
+
+      expect(yield* service.connectedToolkits(bensBot)).toEqual(["slack"]);
+
+      yield* service.updateConnection(
+        { connectionId: "slack-team", bot: { botId: bensBot.botId, enabled: false } },
+        ben,
+      );
+
+      expect(yield* service.connectedToolkits(bensBot)).toEqual([]);
+      expect(yield* service.connectedToolkits(botOwnedBy(ben.personId))).toEqual(["slack"]);
+
+      const lend = { connectionId: "connection-new", bot: { botId: bensBot.botId, enabled: true } };
+      expect((yield* Effect.flip(service.updateConnection(lend, ben))).message).toContain(
+        "Only the person who connected",
+      );
+
+      const status = yield* service.updateConnection(lend, viewer);
+      expect(status.connections[0]?.botAccess).toEqual({ [bensBot.botId]: true });
+      expect(status.connections[0]?.visibility).toBe("user");
+      expect(yield* service.connectedToolkits(bensBot)).toEqual(["gmail"]);
+
+      yield* service.resolveRuntimeMcpServer("thread-ben", bensBot);
+      expect(createSession).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({ connectedAccounts: { gmail: ["connection-new"] } }),
+      );
     }),
   );
 
@@ -364,7 +412,7 @@ describe("ComposioService", () => {
         "Only the person who connected",
       );
 
-      yield* service.resolveRuntimeMcpServer("thread-1", viewer.personId);
+      yield* service.resolveRuntimeMcpServer("thread-1", botOwnedBy(viewer.personId));
       expect(createSession).toHaveBeenLastCalledWith(
         expect.any(String),
         expect.objectContaining({
@@ -373,16 +421,19 @@ describe("ComposioService", () => {
         }),
       );
 
-      yield* service.resolveRuntimeMcpServer("thread-2", ben.personId);
+      yield* service.resolveRuntimeMcpServer("thread-2", botOwnedBy(ben.personId));
       expect(createSession).toHaveBeenLastCalledWith(
         expect.any(String),
         expect.objectContaining({ connectedAccounts: { slack: ["slack-team"] } }),
       );
 
-      expect(yield* service.connectedToolkits(viewer.personId)).toEqual(["gmail", "slack"]);
-      expect(yield* service.connectedToolkits(ben.personId)).toEqual(["slack"]);
+      expect(yield* service.connectedToolkits(botOwnedBy(viewer.personId))).toEqual([
+        "gmail",
+        "slack",
+      ]);
+      expect(yield* service.connectedToolkits(botOwnedBy(ben.personId))).toEqual(["slack"]);
 
-      yield* service.resolveRuntimeMcpServer("thread-3", null);
+      yield* service.resolveRuntimeMcpServer("thread-3", noBot);
       expect(createSession).toHaveBeenLastCalledWith(
         expect.any(String),
         expect.objectContaining({ connectedAccounts: { slack: ["slack-team"] } }),
@@ -416,7 +467,7 @@ describe("ComposioService", () => {
 
       const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      const first = yield* service.resolveRuntimeMcpServer("thread-1", null);
+      const first = yield* service.resolveRuntimeMcpServer("thread-1", noBot);
       vi.mocked(client.connectedAccounts.list).mockResolvedValue({
         items: [
           { id: "gmail-home", toolkit: { slug: "gmail" }, status: "ACTIVE" },
@@ -425,7 +476,7 @@ describe("ComposioService", () => {
         ],
         totalPages: 1,
       } as never);
-      const reordered = yield* service.resolveRuntimeMcpServer("thread-1", null);
+      const reordered = yield* service.resolveRuntimeMcpServer("thread-1", noBot);
 
       expect(reordered).toBe(first);
       expect(createSession).toHaveBeenCalledTimes(1);
@@ -446,7 +497,7 @@ describe("ComposioService", () => {
 
       const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      yield* service.resolveRuntimeMcpServer("thread-1", null);
+      yield* service.resolveRuntimeMcpServer("thread-1", noBot);
       vi.mocked(client.connectedAccounts.list).mockResolvedValue({
         items: [
           { id: "gmail-work", toolkit: { slug: "gmail" }, status: "ACTIVE" },
@@ -454,7 +505,7 @@ describe("ComposioService", () => {
         ],
         totalPages: 1,
       } as never);
-      yield* service.resolveRuntimeMcpServer("thread-1", null);
+      yield* service.resolveRuntimeMcpServer("thread-1", noBot);
 
       expect(createSession).toHaveBeenCalledTimes(2);
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
@@ -472,12 +523,12 @@ describe("ComposioService", () => {
 
       const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      yield* service.resolveRuntimeMcpServer("thread-1", null);
+      yield* service.resolveRuntimeMcpServer("thread-1", noBot);
       vi.mocked(client.connectedAccounts.list).mockResolvedValue({
         items: [{ id: "slack-work", toolkit: { slug: "slack" }, status: "ACTIVE" }],
         totalPages: 1,
       } as never);
-      yield* service.resolveRuntimeMcpServer("thread-1", null);
+      yield* service.resolveRuntimeMcpServer("thread-1", noBot);
 
       expect(createSession).toHaveBeenCalledTimes(2);
       expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
@@ -495,7 +546,7 @@ describe("ComposioService", () => {
 
       const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      yield* service.resolveRuntimeMcpServer("thread-1", null);
+      yield* service.resolveRuntimeMcpServer("thread-1", noBot);
       sessionDeletes[0]!.mockRejectedValueOnce(new Error("cleanup failed"));
 
       const error = yield* Effect.flip(service.remove);
@@ -522,7 +573,7 @@ describe("ComposioService", () => {
       const service = make(store, inMemoryComposioAccounts(), () => client);
 
       for (let index = 0; index <= 100; index += 1) {
-        yield* service.resolveRuntimeMcpServer(`thread-${index}`, null);
+        yield* service.resolveRuntimeMcpServer(`thread-${index}`, noBot);
       }
 
       expect(createSession).toHaveBeenCalledTimes(101);
@@ -548,7 +599,7 @@ describe("ComposioService", () => {
 
       const service = make(store, inMemoryComposioAccounts(), () => client);
 
-      const resolving = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", null));
+      const resolving = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", noBot));
       yield* Effect.promise(() => vi.waitFor(() => expect(createSession).toHaveBeenCalledTimes(1)));
       yield* service.disconnect("gmail-work", viewer);
       releaseSessionCreation();
@@ -576,9 +627,9 @@ describe("ComposioService", () => {
       const createClient = vi.fn(() => client);
       const service = make(store, inMemoryComposioAccounts(), createClient);
 
-      const first = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", null));
+      const first = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", noBot));
       yield* Effect.promise(() => vi.waitFor(() => expect(createSession).toHaveBeenCalledTimes(1)));
-      const second = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", null));
+      const second = yield* Effect.forkChild(service.resolveRuntimeMcpServer("thread-1", noBot));
       yield* Effect.promise(() => vi.waitFor(() => expect(createClient).toHaveBeenCalledTimes(2)));
       releaseSessionCreation();
 
@@ -607,14 +658,14 @@ describe("ComposioService", () => {
       const service = make(store, inMemoryComposioAccounts(), () => client);
 
       const oldResolution = yield* Effect.forkChild(
-        service.resolveRuntimeMcpServer("thread-1", null),
+        service.resolveRuntimeMcpServer("thread-1", noBot),
       );
 
       yield* Effect.promise(() => vi.waitFor(() => expect(createSession).toHaveBeenCalledTimes(1)));
 
       yield* service.configure("new-key", viewer);
 
-      expect(yield* service.resolveRuntimeMcpServer("thread-1", null)).toBeDefined();
+      expect(yield* service.resolveRuntimeMcpServer("thread-1", noBot)).toBeDefined();
       expect(createSession).toHaveBeenCalledTimes(2);
       releaseOldSessionCreation();
       expect(yield* Fiber.join(oldResolution)).toBeUndefined();

@@ -14,6 +14,7 @@ import {
   TrimmedNonEmptyString,
 } from "../baseSchemas.ts";
 import { McpServerId } from "../mcpServer.ts";
+import { LibraryFolderId } from "./library.ts";
 import { WorkDescription, WorkParticipant, WorkResources, WorkStatus } from "./work.ts";
 import { ImageProviderId } from "../imageGeneration.ts";
 import { ModelSelection, RuntimeMode, DEFAULT_RUNTIME_MODE } from "./modelSelection.ts";
@@ -293,6 +294,8 @@ export const OrchestrationBot = Schema.Struct({
   disabledMcpServerIds: Schema.Array(McpServerId).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
+  /** Skills (their Library folder ids) the bot leaves off; every other skill it can use is on. */
+  disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
   /** The person responsible for the bot, like a task's owner; its personal connections serve it. */
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   avatar: BotAvatar,

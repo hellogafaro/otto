@@ -116,7 +116,7 @@ describe("Otto catalog MCP tool handlers", () => {
     );
   });
 
-  it("marks an app connected when the bot's owner can use one of its accounts", async () => {
+  it("marks an app connected when the bot can use one of its accounts", async () => {
     const searchComposioToolkits = vi.fn(async () => ({
       status: "available" as const,
       toolkits: [
@@ -138,7 +138,7 @@ describe("Otto catalog MCP tool handlers", () => {
     const result = await runtime.search({ query: "mail", limit: 5 }, [], "bot-1");
 
     expect(searchComposioToolkits).toHaveBeenCalledWith(
-      expect.objectContaining({ personId: "person-1" }),
+      expect.objectContaining({ bot: { botId: "bot-1", ownerPersonId: "person-1" } }),
     );
     expect(result.recommendations).toEqual(
       expect.arrayContaining([

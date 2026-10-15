@@ -20,6 +20,7 @@ import {
   McpServerVisibility,
 } from "../mcpServer.ts";
 import { ImageProviderId } from "../imageGeneration.ts";
+import { LibraryFolderId } from "./library.ts";
 import { ModelSelection, RuntimeMode } from "./modelSelection.ts";
 import {
   ProjectScript,
@@ -105,6 +106,7 @@ export const BotUpdateCommand = Schema.Struct({
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
+  disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   /** Filled in by the server; only the owner hands a bot to someone else. */
   by: Schema.optional(WorkParticipant),
@@ -128,6 +130,7 @@ export const ClientBotUpdateCommand = Schema.Struct({
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
+  disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   /** Filled in by the server; only the owner hands a bot to someone else. */
   by: Schema.optional(WorkParticipant),

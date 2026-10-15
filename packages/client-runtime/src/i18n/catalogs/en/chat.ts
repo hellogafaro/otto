@@ -384,7 +384,6 @@ export const chatCatalog = {
   "Unable to unlink pull request": "Unable to unlink pull request",
   "Chat summary": "Chat summary",
   "Could not clear the chat summary": "Could not clear the chat summary",
-  "No tools yet": "No tools yet",
   Preview: "Preview",
   "How often the {link} reloads plan limits.": "How often the {link} reloads plan limits.",
   "Enable Browserbase": "Enable Browserbase",

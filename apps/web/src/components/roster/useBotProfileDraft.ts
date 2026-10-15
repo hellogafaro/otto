@@ -4,7 +4,6 @@ import {
   isImageProviderId,
   type BotEngine,
   type ImageProviderId,
-  type McpServerId,
 } from "@otto/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -35,8 +34,6 @@ import type { Bot } from "./types";
 
 type BotModelOptions = BotEngine["options"];
 
-const TOOL_ID_SEPARATOR = "\u0000";
-
 export function rebaseUneditedValue<T>(
   current: T,
   previous: T,
@@ -44,10 +41,6 @@ export function rebaseUneditedValue<T>(
   equal: (left: T, right: T) => boolean = Object.is,
 ): T {
   return equal(current, previous) ? next : current;
-}
-
-function mcpServerIdsKey(ids: readonly McpServerId[]): string {
-  return [...ids].sort().join(TOOL_ID_SEPARATOR);
 }
 
 export interface BotProfileUpdate {
@@ -59,7 +52,6 @@ export interface BotProfileUpdate {
   readonly personalityTone: number;
   readonly voiceEnabled: boolean;
   readonly imageProvider: ImageProviderId | null;
-  readonly disabledMcpServerIds: readonly McpServerId[];
 }
 
 /** Select value for "use the global default" in the bot image provider picker. */
@@ -96,10 +88,6 @@ export function useBotProfileDraft(
 
   const [imageProvider, setImageProvider] = useState<ImageProviderId | null>(
     bot.imageProvider ?? null,
-  );
-
-  const [disabledMcpServerIds, setDisabledMcpServerIds] = useState<readonly McpServerId[]>(
-    bot.disabledMcpServerIds,
   );
 
   const [engineChanged, setEngineChanged] = useState(false);
@@ -219,14 +207,6 @@ export function useBotProfileDraft(
     setImageProvider((current) =>
       rebaseUneditedValue(current, previous.imageProvider ?? null, bot.imageProvider ?? null),
     );
-    setDisabledMcpServerIds((current) =>
-      rebaseUneditedValue(
-        current,
-        previous.disabledMcpServerIds,
-        bot.disabledMcpServerIds,
-        (a, b) => mcpServerIdsKey(a) === mcpServerIdsKey(b),
-      ),
-    );
   }, [bot]);
 
   const markChanged = () => setSaved(false);
@@ -252,9 +232,6 @@ export function useBotProfileDraft(
       allowPromptInjectedEffort: false,
     });
 
-  const toolOverridesDirty =
-    mcpServerIdsKey(disabledMcpServerIds) !== mcpServerIdsKey(bot.disabledMcpServerIds);
-
   const sandboxDirty = sandbox !== botSandboxChoice(bot.sandbox);
 
   const dirty =
@@ -265,8 +242,7 @@ export function useBotProfileDraft(
     sandboxDirty ||
     personalityTone !== savedTone ||
     voiceEnabled !== bot.voiceEnabled ||
-    imageProvider !== (bot.imageProvider ?? null) ||
-    toolOverridesDirty;
+    imageProvider !== (bot.imageProvider ?? null);
 
   const canSave = Boolean(onSave) && dirty && name.trim().length > 0;
 
@@ -295,8 +271,6 @@ export function useBotProfileDraft(
     setVoiceEnabled,
     imageProvider,
     setImageProvider,
-    disabledMcpServerIds,
-    setDisabledMcpServerIds,
     model,
     modelOptions,
 
@@ -348,7 +322,6 @@ export function useBotProfileDraft(
         personalityTone,
         voiceEnabled,
         imageProvider,
-        disabledMcpServerIds,
       }).then((success) => {
         setSaving(false);
         setSaved(success);

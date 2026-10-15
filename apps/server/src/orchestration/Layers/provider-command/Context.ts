@@ -97,7 +97,10 @@ export function createContext({
       : allowed;
 
     const composioServer = Option.isSome(composio)
-      ? yield* composio.value.resolveRuntimeMcpServer(thread.id, ownerPersonId)
+      ? yield* composio.value.resolveRuntimeMcpServer(thread.id, {
+          botId: respondingBotId,
+          ownerPersonId,
+        })
       : undefined;
 
     return composioServer ? [...resolved, composioServer] : resolved;

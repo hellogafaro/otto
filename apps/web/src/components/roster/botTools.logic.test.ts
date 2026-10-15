@@ -2,7 +2,12 @@ import { McpServerId, type McpServer, type ProviderAccessStatus } from "@otto/co
 import { describe, expect, it } from "vite-plus/test";
 
 import { loadDirectoryCatalog } from "../../../../../plugins";
-import { botToolStatus, buildBotToolItems, planBotToolToggle } from "./botTools.logic";
+import {
+  botToolStatus,
+  buildBotAccountItems,
+  buildBotToolItems,
+  planBotToolToggle,
+} from "./botTools.logic";
 
 const exa = loadDirectoryCatalog().find((plugin) => plugin.id === "exa");
 
@@ -97,5 +102,61 @@ describe("bot tool status", () => {
       "needs-setup",
     );
     expect(botToolStatus(item, [access("failed", { pluginId: "exa" })])).toBe("error");
+  });
+});
+
+describe("buildBotAccountItems", () => {
+  const account = (
+    id: string,
+    visibility: "user" | "workspace",
+    botAccess: Record<string, boolean> = {},
+  ) => ({
+    id,
+    toolkitSlug: id,
+    status: "ACTIVE" as const,
+    visibility,
+    manageable: true,
+    botAccess,
+  });
+
+  it("turns team accounts on for every bot and personal ones only for the owner's bots", () => {
+    const connections = [account("slack", "workspace"), account("gmail", "user")];
+
+    expect(
+      buildBotAccountItems(connections, { id: "bot-1", ownerPersonId: "ana" }, "ana").map(
+        (item) => [item.connection.id, item.enabled, item.lends],
+      ),
+    ).toEqual([
+      ["gmail", true, false],
+      ["slack", true, false],
+    ]);
+
+    expect(
+      buildBotAccountItems(connections, { id: "bot-2", ownerPersonId: null }, "ana").map((item) => [
+        item.connection.id,
+        item.enabled,
+        item.lends,
+      ]),
+    ).toEqual([
+      ["gmail", false, true],
+      ["slack", true, false],
+    ]);
+  });
+
+  it("lets a per-bot switch override the default", () => {
+    const connections = [
+      account("slack", "workspace", { "bot-1": false }),
+      account("gmail", "user", { "bot-1": true }),
+    ];
+
+    expect(
+      buildBotAccountItems(connections, { id: "bot-1", ownerPersonId: null }, "ana").map((item) => [
+        item.connection.id,
+        item.enabled,
+      ]),
+    ).toEqual([
+      ["gmail", true],
+      ["slack", false],
+    ]);
   });
 });

@@ -40,6 +40,7 @@ import {
   ProjectId,
   ThreadLinkedPullRequest,
   ThreadId,
+  LibraryFolderId,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
@@ -92,6 +93,7 @@ export const ProjectionBotDbRowSchema = ProjectionBot.mapFields(
     engine: Schema.NullOr(Schema.fromJsonString(BotEngine)),
     personalityTone: Schema.Number,
     disabledMcpServerIds: Schema.fromJsonString(Schema.Array(McpServerId)),
+    disabledSkillIds: Schema.optional(Schema.fromJsonString(Schema.Array(LibraryFolderId))),
     owner: Schema.NullOr(Schema.fromJsonString(WorkParticipant)),
     channelBindings: Schema.fromJsonString(Schema.Array(ChannelBinding)),
     voiceEnabled: Schema.Number,
@@ -494,6 +496,7 @@ export function mapBotRow(
     label: row.label,
     description: row.description,
     disabledMcpServerIds: row.disabledMcpServerIds,
+    ...(row.disabledSkillIds?.length ? { disabledSkillIds: row.disabledSkillIds } : {}),
     owner: row.owner,
     avatar: row.avatar,
     engine: row.engine,

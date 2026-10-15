@@ -282,6 +282,9 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           ...(command.disabledMcpServerIds !== undefined
             ? { disabledMcpServerIds: command.disabledMcpServerIds }
             : {}),
+          ...(command.disabledSkillIds !== undefined
+            ? { disabledSkillIds: command.disabledSkillIds }
+            : {}),
           ...(command.owner !== undefined ? { owner: command.owner } : {}),
           ...(command.avatar !== undefined ? { avatar: command.avatar } : {}),
           ...(command.engine !== undefined ? { engine: command.engine } : {}),

@@ -146,4 +146,11 @@ it("gives a bot workspace skills and its owner's personal ones, with paths insid
   expect(names(null)).toEqual([
     ["Shared", ["SKILL.md", "references/guide.md", "references/run.py"]],
   ]);
+  expect(
+    botSkills(state, {
+      botId: NOVA,
+      owner: ANA,
+      disabledSkillIds: [LibraryFolderId.make("shared-skill")],
+    }).map(({ skill }) => skill.title),
+  ).toEqual(["Ana's"]);
 });

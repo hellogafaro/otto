@@ -110,15 +110,20 @@ export const inLibraryToolScope = (
 
 /**
  * The skills a bot uses, each with its files and their paths inside the skill: workspace
- * skills plus its owner's personal ones, the way it uses its owner's personal connections.
- * People chatting with the bot use them through it without seeing them.
+ * skills plus its owner's personal ones, the way it uses its owner's personal connections,
+ * minus the ones switched off for it. People chatting with the bot use them through it
+ * without seeing them.
  */
 export const botSkills = (
   state: {
     readonly folders: ReadonlyArray<LibraryFolder>;
     readonly files: ReadonlyArray<LibraryFile>;
   },
-  bot: { readonly botId: BotId; readonly owner: WorkParticipant | null },
+  bot: {
+    readonly botId: BotId;
+    readonly owner: WorkParticipant | null;
+    readonly disabledSkillIds?: ReadonlyArray<string> | undefined;
+  },
 ) => {
   const serves = (node: LibraryFolder | LibraryFile) =>
     node.visibility === "workspace" ||
@@ -127,7 +132,12 @@ export const botSkills = (
       : node.createdBy.botId === bot.botId);
 
   return state.folders
-    .filter((folder) => folder.parentId === LIBRARY_SKILLS_FOLDER_ID && serves(folder))
+    .filter(
+      (folder) =>
+        folder.parentId === LIBRARY_SKILLS_FOLDER_ID &&
+        serves(folder) &&
+        !bot.disabledSkillIds?.includes(folder.id),
+    )
     .toSorted((left, right) => left.title.localeCompare(right.title))
     .slice(0, SKILLS_MAX)
     .map((skill) => {
@@ -386,12 +396,16 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
     Effect.gen(function* () {
       const state = yield* loadLibraryState;
 
-      const owner = yield* (yield* ProjectionBotRepository).getById({ botId: caller.botId }).pipe(
-        Effect.map((bot) => Option.getOrUndefined(bot)?.owner ?? null),
-        Effect.orElseSucceed(() => null),
+      const bot = yield* (yield* ProjectionBotRepository).getById({ botId: caller.botId }).pipe(
+        Effect.map(Option.getOrUndefined),
+        Effect.orElseSucceed(() => undefined),
       );
 
-      return botSkills(state, { botId: caller.botId, owner });
+      return botSkills(state, {
+        botId: caller.botId,
+        owner: bot?.owner ?? null,
+        disabledSkillIds: bot?.disabledSkillIds,
+      });
     });
 
   const listSkills = (caller: LibraryToolCaller) =>

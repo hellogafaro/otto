@@ -35,6 +35,7 @@ export function projectBotsAndGroups(
             label: payload.label,
             description: payload.description,
             disabledMcpServerIds: payload.disabledMcpServerIds,
+            ...(payload.disabledSkillIds ? { disabledSkillIds: payload.disabledSkillIds } : {}),
             owner: payload.owner,
             avatar: payload.avatar,
             engine: payload.engine,
@@ -71,6 +72,9 @@ export function projectBotsAndGroups(
             ...(payload.description !== undefined ? { description: payload.description } : {}),
             ...(payload.disabledMcpServerIds !== undefined
               ? { disabledMcpServerIds: payload.disabledMcpServerIds }
+              : {}),
+            ...(payload.disabledSkillIds !== undefined
+              ? { disabledSkillIds: payload.disabledSkillIds }
               : {}),
             ...(payload.owner !== undefined ? { owner: payload.owner } : {}),
             ...(payload.avatar !== undefined ? { avatar: payload.avatar } : {}),

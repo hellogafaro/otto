@@ -1,4 +1,12 @@
-import type { McpServer, McpServerId, ProviderAccessStatus } from "@otto/contracts";
+import {
+  canUseMcpServer,
+  LIBRARY_SKILLS_FOLDER_ID,
+  type ComposioConnection,
+  type LibraryFolder,
+  type McpServer,
+  type McpServerId,
+  type ProviderAccessStatus,
+} from "@otto/contracts";
 
 import {
   loadCatalog,
@@ -25,11 +33,11 @@ export interface BotToolItem {
 
 export type BotToolStatus = "connected" | "needs-setup" | "error";
 
-export function planBotToolToggle(
-  disabledIds: readonly McpServerId[],
-  id: McpServerId,
+export function planBotToolToggle<Id extends string>(
+  disabledIds: readonly Id[],
+  id: Id,
   enabled: boolean,
-): readonly McpServerId[] {
+): readonly Id[] {
   const next = new Set(disabledIds);
 
   if (enabled) next.delete(id);
@@ -137,4 +145,62 @@ export function botToolStatus(
     case "unsupported":
       return "error";
   }
+}
+
+/** The MCP servers a bot can use before its own switches: team ones and its owner's personal ones. */
+export function botMcpServers(
+  servers: readonly McpServer[],
+  ownerPersonId: string | null,
+): readonly McpServer[] {
+  return servers.filter((server) => canUseMcpServer(server, ownerPersonId));
+}
+
+/** One connected app account in a bot's Integrations, as the viewer sees it. */
+export interface BotAccountItem {
+  readonly connection: ComposioConnection;
+  readonly enabled: boolean;
+  /** The viewer's personal account on a bot they don't own: turning it on lends it. */
+  readonly lends: boolean;
+}
+
+/**
+ * The viewer's app accounts for one bot. A per-bot switch wins; otherwise a team account
+ * serves every bot and a personal one (always the viewer's, since nobody sees another
+ * person's) the bots its owner owns.
+ */
+export function buildBotAccountItems(
+  connections: readonly ComposioConnection[],
+  bot: { readonly id: string; readonly ownerPersonId: string | null },
+  viewerPersonId: string | null,
+): readonly BotAccountItem[] {
+  const ownsBot = viewerPersonId !== null && bot.ownerPersonId === viewerPersonId;
+
+  return connections
+    .map((connection) => ({
+      connection,
+      enabled: connection.botAccess[bot.id] ?? (connection.visibility === "workspace" || ownsBot),
+      lends: connection.visibility === "user" && !ownsBot,
+    }))
+    .toSorted((left, right) =>
+      (left.connection.toolkitName ?? left.connection.toolkitSlug).localeCompare(
+        right.connection.toolkitName ?? right.connection.toolkitSlug,
+      ),
+    );
+}
+
+/** The skills a bot uses that the viewer can see: team skills, and the viewer's own on their bots. */
+export function botSkillFolders(
+  folders: readonly LibraryFolder[],
+  ownerPersonId: string | null,
+): readonly LibraryFolder[] {
+  return folders
+    .filter(
+      (folder) =>
+        folder.parentId === LIBRARY_SKILLS_FOLDER_ID &&
+        (folder.visibility === "workspace" ||
+          (folder.createdBy.kind === "person" &&
+            ownerPersonId !== null &&
+            folder.createdBy.personId === ownerPersonId)),
+    )
+    .toSorted((left, right) => left.title.localeCompare(right.title));
 }

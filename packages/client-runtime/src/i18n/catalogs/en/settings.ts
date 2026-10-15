@@ -124,8 +124,6 @@ export const settingsCatalog = {
   "Which subscription this bot uses to create images. The chat model above stays the same.":
     "Which subscription this bot uses to create images. The chat model above stays the same.",
   "Image provider": "Image provider",
-  "Open image generation settings": "Open image generation settings",
-  "Image settings": "Image settings",
   "Open bot settings": "Open bot settings",
   "Open sidebar ({shortcut})": "Open sidebar ({shortcut})",
   "Could not update channel": "Could not update channel",
@@ -305,7 +303,6 @@ export const settingsCatalog = {
   "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.":
     "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.",
   "No provider ready": "No provider ready",
-  "Bot settings sections": "Bot settings sections",
   "Model & usage": "Model & usage",
   "Update confirmation failed.": "Update confirmation failed.",
   "Automatic updates are not available in this build.":

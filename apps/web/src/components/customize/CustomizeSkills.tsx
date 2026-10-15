@@ -294,18 +294,8 @@ export async function deleteSkill(input: {
 }
 
 /** One skill in its group card: its name and when to use it, from SKILL.md. */
-function SkillRow({
-  environmentId,
-  skill,
-  main,
-}: {
-  readonly environmentId: EnvironmentId;
-  readonly skill: LibraryFolder;
-  readonly main: LibraryFile | undefined;
-}) {
-  const { t } = useI18n();
-  const navigate = useNavigate();
-
+/** A skill's SKILL.md front matter (its name and when to use it), reloaded when the file saves. */
+export function useSkillFrontMatter(environmentId: EnvironmentId, main: LibraryFile | undefined) {
   const document = useEnvironmentQuery(
     main ? libraryEnvironment.document({ environmentId, input: { fileId: main.id } }) : null,
   );
@@ -317,7 +307,21 @@ function SkillRow({
     if (savedAt) refreshDocument();
   }, [savedAt, refreshDocument]);
 
-  const frontMatter = document.data ? parseSkillFrontMatter(document.data.content) : {};
+  return document.data ? parseSkillFrontMatter(document.data.content) : {};
+}
+
+function SkillRow({
+  environmentId,
+  skill,
+  main,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly skill: LibraryFolder;
+  readonly main: LibraryFile | undefined;
+}) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const frontMatter = useSkillFrontMatter(environmentId, main);
 
   return (
     <CustomizeRow

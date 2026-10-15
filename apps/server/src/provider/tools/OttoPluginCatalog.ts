@@ -260,6 +260,7 @@ export function createOttoPluginRuntime(
     const limit = input.limit ?? 20;
     const snapshot = await options.readSnapshot();
     const owner = snapshot.bots.find((bot) => bot.id === botId)?.owner;
+    const ownerPersonId = owner?.kind === "person" ? owner.personId : null;
 
     let composioSearch: ComposioSearchResult = { status: "unavailable", toolkits: [] };
 
@@ -268,7 +269,7 @@ export function createOttoPluginRuntime(
         composioSearch = await options.searchComposioToolkits({
           ...(query ? { query } : {}),
           limit,
-          personId: owner?.kind === "person" ? owner.personId : null,
+          ...(botId === undefined ? {} : { bot: { botId, ownerPersonId } }),
         });
       } catch {
         composioSearch = { status: "unavailable", toolkits: [] };

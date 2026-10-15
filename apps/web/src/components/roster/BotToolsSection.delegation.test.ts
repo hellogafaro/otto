@@ -19,6 +19,8 @@ const render = (canDelegate?: boolean) =>
       accessStatuses: [],
       disabledIds: [],
       onDisabledIdsChange: () => {},
+      accounts: [],
+      onAccountChange: () => {},
       ...(canDelegate === undefined ? {} : { canDelegate }),
     }),
   );

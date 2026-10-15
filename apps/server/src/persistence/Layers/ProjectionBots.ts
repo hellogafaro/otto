@@ -2,6 +2,7 @@ import {
   BotAvatar,
   BotEngine,
   ChannelBinding,
+  LibraryFolderId,
   McpServerId,
   WorkParticipant,
 } from "@otto/contracts";
@@ -27,6 +28,7 @@ const ProjectionBotDbRow = ProjectionBot.mapFields(
     engine: Schema.NullOr(Schema.fromJsonString(BotEngine)),
     personalityTone: Schema.Number,
     disabledMcpServerIds: Schema.fromJsonString(Schema.Array(McpServerId)),
+    disabledSkillIds: Schema.optional(Schema.fromJsonString(Schema.Array(LibraryFolderId))),
     owner: Schema.NullOr(Schema.fromJsonString(WorkParticipant)),
     channelBindings: Schema.fromJsonString(Schema.Array(ChannelBinding)),
     voiceEnabled: Schema.Number,
@@ -44,13 +46,14 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     Request: ProjectionBot,
     execute: (row) => sql`
       INSERT INTO projection_bots (
-        bot_id, name, title, label, description, disabled_mcp_server_ids_json, owner_json,
+        bot_id, name, title, label, description, disabled_mcp_server_ids_json,
+        disabled_skill_ids_json, owner_json,
         avatar_json, engine_json, sandbox, runtime_mode, image_provider,
         voice_enabled, personality_tone, channel_bindings_json,
         group_id, archived_at, created_at, updated_at
       ) VALUES (
         ${row.botId}, ${row.name}, ${row.title}, ${row.label}, ${row.description},
-        ${JSON.stringify(row.disabledMcpServerIds)},
+        ${JSON.stringify(row.disabledMcpServerIds)}, ${JSON.stringify(row.disabledSkillIds ?? [])},
         ${row.owner ? JSON.stringify(row.owner) : null}, ${JSON.stringify(row.avatar)},
         ${row.engine === null ? null : JSON.stringify(row.engine)}, ${row.sandbox},
         ${row.runtimeMode}, ${row.imageProvider},
@@ -65,6 +68,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
         label = excluded.label,
         description = excluded.description,
         disabled_mcp_server_ids_json = excluded.disabled_mcp_server_ids_json,
+        disabled_skill_ids_json = excluded.disabled_skill_ids_json,
         owner_json = excluded.owner_json,
         avatar_json = excluded.avatar_json,
         engine_json = excluded.engine_json,
@@ -87,7 +91,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     execute: ({ botId }) => sql`
       SELECT
         bot_id AS "botId", name, title, label, description,
-        disabled_mcp_server_ids_json AS "disabledMcpServerIds", owner_json AS "owner", avatar_json AS "avatar",
+        disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", owner_json AS "owner", avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
         personality_tone AS "personalityTone",
@@ -104,7 +108,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     execute: () => sql`
       SELECT
         bot_id AS "botId", name, title, label, description,
-        disabled_mcp_server_ids_json AS "disabledMcpServerIds", owner_json AS "owner", avatar_json AS "avatar",
+        disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", owner_json AS "owner", avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
         personality_tone AS "personalityTone",

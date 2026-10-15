@@ -19,6 +19,7 @@ import {
 import { McpServer, McpServerId } from "../mcpServer.ts";
 import { OttoDelegationRecord } from "../ottoDelegation.ts";
 import { ImageProviderId } from "../imageGeneration.ts";
+import { LibraryFolderId } from "./library.ts";
 import { DelegationIdSchema } from "./identities.ts";
 import {
   ModelSelection,
@@ -206,6 +207,7 @@ export const BotCreatedPayload = Schema.Struct({
   disabledMcpServerIds: Schema.Array(McpServerId).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
+  disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
   owner: Schema.NullOr(WorkParticipant).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
@@ -233,6 +235,7 @@ export const BotUpdatedPayload = Schema.Struct({
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
+  disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   avatar: Schema.optional(BotAvatar),
   engine: Schema.optional(Schema.NullOr(BotEngine)),

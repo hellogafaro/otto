@@ -343,8 +343,6 @@ export const connectionsCatalog = {
   "Not connected": "Not connected",
   "OAuth connected": "OAuth connected",
   "Sandbox > Local execution": "Sandbox > Local execution",
-  "Add a plugin or an MCP server in Plugins. It shows up here, and you can turn it on or off for this bot.":
-    "Add a plugin or an MCP server in Plugins. It shows up here, and you can turn it on or off for this bot.",
   "The environment rejected the change.": "The environment rejected the change.",
   "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.":
     "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.",
@@ -591,4 +589,7 @@ export const connectionsCatalog = {
   "No accounts": "No accounts",
   "Label, like Work or Personal": "Label, like Work or Personal",
   "You already have an account called {label}.": "You already have an account called {label}.",
+  "Turn on your {app} account for {bot}? Everyone who chats with {bot} can use it through the bot, without seeing it.":
+    "Turn on your {app} account for {bot}? Everyone who chats with {bot} can use it through the bot, without seeing it.",
+  "Turn on": "Turn on",
 } as const;

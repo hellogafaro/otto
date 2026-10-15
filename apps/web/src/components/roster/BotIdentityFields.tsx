@@ -82,7 +82,7 @@ export function BotIdentityFields({
           "A note to yourself about what this bot is for. Searchable from the roster.",
         )}
       >
-        <div className="mt-3 max-w-2xl pb-3.5">
+        <div className="mt-3 pb-3.5">
           <Textarea
             aria-label={t("Bot description")}
             value={draft.description}

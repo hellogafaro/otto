@@ -42,7 +42,7 @@ export function BotEngineFields({
       >
         {draft.engineUnavailability ? (
           <ProviderUnavailableNotice
-            className="mt-3 mb-2.5 max-w-2xl"
+            className="mt-3 mb-2.5"
             presentation={draft.engineUnavailability}
             provider={draft.engineUnavailability.provider}
             environmentId={environmentId}
@@ -71,7 +71,7 @@ export function BotEngineFields({
       ) : null}
 
       <SettingsRow title={t("Usage")} description={t("What this bot has spent so far.")}>
-        <div className="mt-3 max-w-2xl pb-3.5">
+        <div className="mt-3 pb-3.5">
           <BotUsageSection environmentId={environmentId} botId={bot.id} />
         </div>
       </SettingsRow>

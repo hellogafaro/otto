@@ -163,16 +163,16 @@ describe("roster in Simplified Chinese", () => {
         accessStatuses={[]}
         disabledIds={[]}
         onDisabledIdsChange={() => {}}
+        accounts={[]}
+        onAccountChange={() => {}}
         canDelegate={false}
       />,
     );
 
-    expect(empty).toContain("工具");
-    expect(empty).toContain("自定义");
-    expect(empty).toContain("还没有工具");
+    expect(empty).toContain("集成");
+    expect(empty).toContain("没有集成");
     expect(empty).toContain("此机器人的提供商无法移交工作。");
-    expect(empty).not.toContain("Customize");
-    expect(empty).not.toContain("No tools yet");
+    expect(empty).not.toContain("No integrations");
     expect(empty).not.toContain("cannot hand off work");
   });
 

@@ -90,6 +90,8 @@ export interface ComposioAccountRecord {
   readonly createdBy: string | null;
   readonly createdByName: string | null;
   readonly visibility: ComposioVisibility;
+  /** Per-bot choices that differ from the default, by bot id. */
+  readonly botAccess: Readonly<Record<string, boolean>>;
 }
 
 export interface ComposioAccountStore {
@@ -120,6 +122,29 @@ export function composioAccountVisibleTo(
   );
 }
 
+/** The bot a chat runs as: which one, and the person who owns it. */
+export interface ComposioBot {
+  readonly botId: string | null;
+  readonly ownerPersonId: string | null;
+}
+
+/**
+ * Whether an account serves a bot: its per-bot switch when set, else the default (team
+ * accounts serve every bot, a personal account the bots its owner owns).
+ */
+export function composioAccountServesBot(
+  record: ComposioAccountRecord | undefined,
+  bot: ComposioBot,
+): boolean {
+  const choice = bot.botId === null ? undefined : record?.botAccess[bot.botId];
+
+  return choice ?? composioAccountVisibleTo(record, bot.ownerPersonId);
+}
+
+const decodeBotAccess = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Record(Schema.String, Schema.Boolean)),
+);
+
 function manageableBy(record: ComposioAccountRecord | undefined, personId: string): boolean {
   return record === undefined || record.createdBy === null || record.createdBy === personId;
 }
@@ -144,7 +169,8 @@ const sqlComposioAccounts = Effect.gen(function* () {
       readonly created_by: string | null;
       readonly created_by_name: string | null;
       readonly visibility: ComposioVisibility;
-    }>`SELECT connection_id, created_by, created_by_name, visibility FROM composio_accounts`.pipe(
+      readonly bot_access_json: string;
+    }>`SELECT connection_id, created_by, created_by_name, visibility, bot_access_json FROM composio_accounts`.pipe(
       Effect.map((rows) =>
         rows.map(
           (row): ComposioAccountRecord => ({
@@ -152,6 +178,7 @@ const sqlComposioAccounts = Effect.gen(function* () {
             createdBy: row.created_by,
             createdByName: row.created_by_name,
             visibility: row.visibility,
+            botAccess: Option.getOrElse(decodeBotAccess(row.bot_access_json), () => ({})),
           }),
         ),
       ),
@@ -159,10 +186,11 @@ const sqlComposioAccounts = Effect.gen(function* () {
     ),
     save: (record) =>
       sql`
-        INSERT INTO composio_accounts (connection_id, created_by, created_by_name, visibility, created_at)
-        VALUES (${record.connectionId}, ${record.createdBy}, ${record.createdByName}, ${record.visibility}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        INSERT INTO composio_accounts (connection_id, created_by, created_by_name, visibility, bot_access_json, created_at)
+        VALUES (${record.connectionId}, ${record.createdBy}, ${record.createdByName}, ${record.visibility}, ${JSON.stringify(record.botAccess)}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         ON CONFLICT (connection_id) DO UPDATE SET
           visibility = excluded.visibility,
+          bot_access_json = excluded.bot_access_json,
           created_by = COALESCE(composio_accounts.created_by, excluded.created_by),
           created_by_name = COALESCE(composio_accounts.created_by_name, excluded.created_by_name)
       `.pipe(Effect.asVoid, Effect.mapError(fail("save the account owner"))),
@@ -205,14 +233,14 @@ export interface ComposioServiceShape {
     input: ComposioUpdateConnectionInput,
     viewer: ComposioViewer,
   ) => Effect.Effect<ComposioStatus, ComposioOperationError>;
-  /** Apps with an active account a bot owned by this person can use: workspace accounts plus the owner's. */
+  /** Apps with an active account the bot can use. */
   readonly connectedToolkits: (
-    ownerPersonId: string | null,
+    bot: ComposioBot,
   ) => Effect.Effect<readonly string[], ComposioOperationError>;
-  /** The hosted MCP server for one chat: workspace accounts plus the bot owner's personal ones. */
+  /** The hosted MCP server for one chat, with the accounts its bot can use. */
   readonly resolveRuntimeMcpServer: (
     resourceId: string,
-    ownerPersonId: string | null,
+    bot: ComposioBot,
   ) => Effect.Effect<McpServer | undefined, ComposioOperationError>;
 }
 
@@ -444,6 +472,7 @@ export function make(
               visibility: record?.visibility ?? "workspace",
               manageable: manageableBy(record, viewer.personId),
               ...(!mine && record?.createdByName ? { ownerName: record.createdByName } : {}),
+              botAccess: record?.botAccess ?? {},
             },
           ];
         }),
@@ -604,6 +633,7 @@ export function make(
           createdBy: viewer.personId,
           createdByName: viewer.displayName,
           visibility: input.visibility ?? "user",
+          botAccess: {},
         }),
       ),
     );
@@ -625,13 +655,27 @@ export function make(
 
   const updateConnection: ComposioServiceShape["updateConnection"] = (input, viewer) =>
     Effect.gen(function* () {
-      const record = yield* requireManageable(input.connectionId, viewer.personId);
+      const records = yield* accounts.list;
+      const existing = records.find((candidate) => candidate.connectionId === input.connectionId);
+
+      // Otto: Anyone switches a team account for a bot; only its owner changes who it is for
+      // or lends a personal account to a bot.
+      const record =
+        input.visibility === undefined && (existing?.visibility ?? "workspace") === "workspace"
+          ? existing
+          : yield* requireManageable(input.connectionId, viewer.personId);
+
+      const botAccess = { ...record?.botAccess };
+
+      if (input.bot) botAccess[input.bot.botId] = input.bot.enabled;
 
       yield* accounts.save({
         connectionId: input.connectionId,
-        createdBy: record?.createdBy ?? viewer.personId,
-        createdByName: record?.createdByName ?? viewer.displayName,
-        visibility: input.visibility,
+        createdBy: record?.createdBy ?? (input.visibility === undefined ? null : viewer.personId),
+        createdByName:
+          record?.createdByName ?? (input.visibility === undefined ? null : viewer.displayName),
+        visibility: input.visibility ?? record?.visibility ?? "workspace",
+        botAccess,
       });
       yield* tryComposio("delete hosted tool sessions", invalidateHostedSessions);
 
@@ -651,7 +695,7 @@ export function make(
       Effect.andThen(getStatus(viewer)),
     );
 
-  const connectedToolkits: ComposioServiceShape["connectedToolkits"] = (ownerPersonId) =>
+  const connectedToolkits: ComposioServiceShape["connectedToolkits"] = (bot) =>
     Effect.flatMap(accounts.list, (records) => {
       const owners = new Map(records.map((record) => [record.connectionId, record]));
 
@@ -661,7 +705,7 @@ export function make(
             .filter(
               (connection) =>
                 connection.status === "ACTIVE" &&
-                composioAccountVisibleTo(owners.get(connection.id), ownerPersonId),
+                composioAccountServesBot(owners.get(connection.id), bot),
             )
             .map((connection) => connection.toolkitSlug),
         ),
@@ -670,7 +714,7 @@ export function make(
 
   const resolveRuntimeMcpServer: ComposioServiceShape["resolveRuntimeMcpServer"] = (
     resourceId,
-    ownerPersonId,
+    bot,
   ) =>
     Effect.flatMap(accounts.list, (records) => {
       const owners = new Map(records.map((record) => [record.connectionId, record]));
@@ -685,7 +729,7 @@ export function make(
           const connections = (await listConnections(client, userId)).filter(
             (connection) =>
               connection.status === "ACTIVE" &&
-              composioAccountVisibleTo(owners.get(connection.id), ownerPersonId),
+              composioAccountServesBot(owners.get(connection.id), bot),
           );
 
           if (connections.length === 0) {

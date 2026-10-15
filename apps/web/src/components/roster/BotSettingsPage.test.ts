@@ -44,7 +44,8 @@ describe("bot settings page", () => {
     expect(source).toContain('id="behavior" title={t("Behavior")}');
     expect(source).toContain('id="model" title={t("Model & usage")}');
     expect(source).toContain('title={t("Workspace")}');
-    expect(source).toContain('aria-label={t("Bot settings sections")}');
+    // Sections stack as titled cards, with no tab strip above them.
+    expect(source).not.toContain("<nav");
   });
 
   it("saves through the shared bot update command", () => {
@@ -88,18 +89,21 @@ describe("bot settings page", () => {
     expect(source).toContain("It is a baseline, not a costume.");
   });
 
-  it("lists tools inline with per-bot switches that save with the page", () => {
+  it("lists integrations and skills inline with per-bot switches that save at once", () => {
     const page = readBotSettingsSource();
+    const switches = read("./BotToolSwitches.tsx");
     const section = read("./BotToolsSection.tsx");
 
-    expect(page).toContain("<BotToolsSection");
-    expect(page).toContain('["tools", t("Tools")]');
-    expect(page).toContain("draft.setDisabledMcpServerIds(ids)");
+    expect(page).toContain("<BotToolSwitches");
+    expect(switches).toContain("<BotToolsSection");
+    expect(switches).toContain("<BotSkillsSection");
+    expect(switches).toContain("saveSwitches({ disabledMcpServerIds: ids })");
+    expect(switches).toContain("saveSwitches({ disabledSkillIds: ids })");
     // Tools used to open an overlay sheet; they now live on the page.
     expect(page).not.toContain("BotToolsSheet");
     expect(section).toContain('id="tools"');
     expect(section).toContain("<Switch");
-    expect(section).toContain('t("No tools yet")');
+    expect(section).toContain('t("No integrations")');
     expect(section).not.toContain("BotSideSheet");
   });
 

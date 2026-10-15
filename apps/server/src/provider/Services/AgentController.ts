@@ -62,7 +62,7 @@ export interface AgentControllerShape {
     readonly searchComposioToolkits?: (input: {
       readonly query?: string;
       readonly limit?: number;
-      readonly personId?: string | null;
+      readonly bot?: { readonly botId: string; readonly ownerPersonId: string | null };
     }) => Promise<{
       readonly status: "available" | "setup-required" | "unavailable";
       readonly toolkits: readonly ComposioToolkit[];

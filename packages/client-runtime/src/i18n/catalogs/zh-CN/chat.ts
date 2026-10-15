@@ -376,7 +376,6 @@ export const chatCatalog = {
   "Unable to unlink pull request": "无法取消关联拉取请求",
   "Chat summary": "聊天摘要",
   "Could not clear the chat summary": "无法清除聊天摘要",
-  "No tools yet": "还没有工具",
   Preview: "预览",
   "How often the {link} reloads plan limits.": "{link}重新加载套餐限额的频率。",
   "Enable Browserbase": "启用 Browserbase",

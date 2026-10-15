@@ -321,8 +321,6 @@ export const connectionsCatalog = {
   "Not connected": "未连接",
   "OAuth connected": "已通过 OAuth 连接",
   "Sandbox > Local execution": "沙盒 > 本地执行",
-  "Add a plugin or an MCP server in Plugins. It shows up here, and you can turn it on or off for this bot.":
-    "在“插件”中添加插件或 MCP 服务器。它会显示在这里，你可以为此机器人开启或关闭它。",
   "The environment rejected the change.": "环境拒绝了此更改。",
   "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.":
     "托管浏览器会话在此环境中运行，可以从网页端、桌面端或远程客户端控制。",
@@ -553,4 +551,7 @@ export const connectionsCatalog = {
   "No accounts": "没有帐户",
   "Label, like Work or Personal": "标签，例如工作或个人",
   "You already have an account called {label}.": "你已有名为 {label} 的帐户。",
+  "Turn on your {app} account for {bot}? Everyone who chats with {bot} can use it through the bot, without seeing it.":
+    "为 {bot} 开启你的 {app} 帐户？与 {bot} 聊天的每个人都可以通过该机器人使用它，但看不到它。",
+  "Turn on": "开启",
 } as const;
