@@ -92,7 +92,6 @@ import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
 import { BotUsageLedger } from "./usage/BotUsageLedger.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import * as VoiceCallManager from "./voiceCall/VoiceCallManager.ts";
-import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
 import * as SessionStore from "./auth/SessionStore.ts";
 import {
   isOrchestrationDispatchCommandError,
@@ -385,8 +384,6 @@ export const createWsServices = (
         onSome: (runtime) => runtime.channelBindingsForRuntime(bindings),
       });
 
-    const bootstrapCredentials = yield* PairingGrantStore.PairingGrantStore;
-
     const sessions = yield* SessionStore.SessionStore;
 
     const processDiagnostics = yield* ProcessDiagnostics.ProcessDiagnostics;
@@ -530,7 +527,11 @@ export const createWsServices = (
         authorizeScope(requiredScope).pipe(
           Effect.as(
             stream.pipe(
-              Stream.mapEffect((value) => authorizeScope(requiredScope).pipe(Effect.as(value))),
+              // Otto: Recheck access once per chunk; a per-item check split every batch
+              // into single-event WebSocket frames.
+              Stream.mapArrayEffect((chunk) =>
+                authorizeScope(requiredScope).pipe(Effect.as(chunk)),
+              ),
             ),
           ),
         ),
@@ -634,7 +635,6 @@ export const createWsServices = (
 
     const loadAuthAccessSnapshot = () =>
       Effect.all({
-        pairingLinks: serverAuth.listPairingLinks(),
         clientSessions: serverAuth.listClientSessions(currentSessionId),
       }).pipe(
         Effect.mapError(
@@ -780,7 +780,6 @@ export const createWsServices = (
       commandReceipts,
       channelRuntime,
       channelBindingsForRuntime,
-      bootstrapCredentials,
       sessions,
       processDiagnostics,
       processResourceMonitor,

@@ -18,7 +18,6 @@ const makeDesktopBootstrap = (
   port: 4888,
   ottoLegacyHome: "/tmp/ottoLegacy-bootstrap-home",
   host: "127.0.0.1",
-  desktopBootstrapToken: "desktop-bootstrap-token",
   tailscaleServeEnabled: false,
   tailscaleServePort: 443,
   ...overrides,

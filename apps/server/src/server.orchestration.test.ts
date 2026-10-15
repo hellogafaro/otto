@@ -5,10 +5,14 @@ import { CommandId, ORCHESTRATION_WS_METHODS, ProjectId, ThreadId } from "@otto/
 import { assert, it } from "@effect/vitest";
 import { assertTrue } from "@effect/vitest/utils";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import { PersistenceSqlError } from "./persistence/Errors.ts";
 
-import { defaultModelSelection } from "./serverTestFixtures.ts";
+import {
+  defaultModelSelection,
+  makeDefaultOrchestrationThreadShell,
+} from "./serverTestFixtures.ts";
 import { buildAppUnderTest } from "./serverTestApp.ts";
 import { getWsServerUrl, withWsRpcClient } from "./serverTestClients.ts";
 
@@ -65,6 +69,16 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         layers: {
           projectionSnapshotQuery: {
             getSnapshot: () => Effect.succeed(snapshot),
+            // Otto: Search keeps only matches whose chat the caller can see.
+            getThreadShellById: () =>
+              Effect.succeed(
+                Option.some(
+                  makeDefaultOrchestrationThreadShell({
+                    id: ThreadId.make("thread-1"),
+                    projectId: ProjectId.make("project-a"),
+                  }),
+                ),
+              ),
             searchThreads: () =>
               Effect.succeed({
                 matches: [

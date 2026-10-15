@@ -19,8 +19,6 @@ import {
   WsRpcGroup,
 } from "@otto/contracts";
 import { runImageProviderHealthTest } from "./image-generation/service.ts";
-import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
-import * as SessionStore from "./auth/SessionStore.ts";
 
 import {
   readMcpServerHeaders,
@@ -43,7 +41,6 @@ export const createWsAuthHandlers = ({
   validateAccountInstance,
   composio,
   secretStore,
-  bootstrapCredentials,
   sessions,
   getAccessHealthSnapshot,
   getImageProviderSnapshot,
@@ -64,7 +61,6 @@ export const createWsAuthHandlers = ({
   | "validateAccountInstance"
   | "composio"
   | "secretStore"
-  | "bootstrapCredentials"
   | "sessions"
   | "getAccessHealthSnapshot"
   | "getImageProviderSnapshot"
@@ -433,11 +429,7 @@ export const createWsAuthHandlers = ({
           const initialSnapshot = yield* loadAuthAccessSnapshot();
           const revisionRef = yield* Ref.make(1);
 
-          const accessChanges: Stream.Stream<
-            PairingGrantStore.BootstrapCredentialChange | SessionStore.SessionCredentialChange
-          > = Stream.merge(bootstrapCredentials.streamChanges, sessions.streamChanges);
-
-          const liveEvents: Stream.Stream<AuthAccessStreamEvent> = accessChanges.pipe(
+          const liveEvents: Stream.Stream<AuthAccessStreamEvent> = sessions.streamChanges.pipe(
             Stream.mapEffect((change) =>
               Ref.updateAndGet(revisionRef, (revision) => revision + 1).pipe(
                 Effect.map((revision) =>

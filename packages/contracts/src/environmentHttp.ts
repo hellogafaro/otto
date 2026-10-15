@@ -10,14 +10,8 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 
 import {
   AuthAccessTokenResult,
-  AuthBrowserSessionRequest,
-  AuthBrowserSessionResult,
   AuthClientSession,
-  AuthCreatePairingCredentialInput,
-  AuthPairingCredentialResult,
-  AuthPairingLink,
   AuthRevokeClientSessionInput,
-  AuthRevokePairingLinkInput,
   AuthEnvironmentScope,
   AuthTokenExchangeRequest,
   AuthSessionState,
@@ -62,13 +56,8 @@ export type EnvironmentOperationForbiddenReason = typeof EnvironmentOperationFor
 
 export const EnvironmentInternalErrorReason = Schema.Literals([
   "bootstrap_validation_failed",
-  "browser_session_issuance_failed",
-  "browser_session_cookie_failed",
   "access_token_issuance_failed",
   "websocket_ticket_issuance_failed",
-  "pairing_credential_issuance_failed",
-  "pairing_links_load_failed",
-  "pairing_link_revoke_failed",
   "client_sessions_load_failed",
   "client_session_revoke_failed",
   "orchestration_snapshot_failed",
@@ -270,11 +259,6 @@ export class EnvironmentHttpConflictError extends Schema.TaggedErrorClass<Enviro
   }
 }
 
-const EnvironmentSessionCreationErrors = [
-  EnvironmentAuthInvalidError,
-  EnvironmentInternalError,
-] as const;
-
 const EnvironmentTokenExchangeErrors = [
   EnvironmentRequestInvalidError,
   EnvironmentAuthInvalidError,
@@ -284,11 +268,6 @@ const EnvironmentTokenExchangeErrors = [
 const EnvironmentScopedOperationErrors = [
   EnvironmentScopeRequiredError,
   EnvironmentInternalError,
-] as const;
-
-const EnvironmentPairingCredentialErrors = [
-  EnvironmentRequestInvalidError,
-  ...EnvironmentScopedOperationErrors,
 ] as const;
 
 const EnvironmentSessionRevokeErrors = [
@@ -334,12 +313,6 @@ export class EnvironmentAuthenticatedAuth extends HttpApiMiddleware.Service<
   error: EnvironmentAuthenticationErrors,
 }) {}
 
-export const AuthPairingLinkRevokeResult = Schema.Struct({
-  revoked: Schema.Boolean,
-});
-
-export type AuthPairingLinkRevokeResult = typeof AuthPairingLinkRevokeResult.Type;
-
 export const AuthClientSessionRevokeResult = Schema.Struct({
   revoked: Schema.Boolean,
 });
@@ -367,13 +340,6 @@ export class EnvironmentAuthHttpApi extends HttpApiGroup.make("auth")
     }),
   )
   .add(
-    HttpApiEndpoint.post("browserSession", "/api/auth/browser-session", {
-      payload: AuthBrowserSessionRequest,
-      success: AuthBrowserSessionResult,
-      error: EnvironmentSessionCreationErrors,
-    }),
-  )
-  .add(
     HttpApiEndpoint.post("token", "/oauth/token", {
       headers: OptionalBearerHeaders,
       payload: AuthTokenExchangeRequest,
@@ -386,29 +352,6 @@ export class EnvironmentAuthHttpApi extends HttpApiGroup.make("auth")
       headers: OptionalBearerHeaders,
       success: AuthWebSocketTicketResult,
       error: [EnvironmentInternalError],
-    }).middleware(EnvironmentAuthenticatedAuth),
-  )
-  .add(
-    HttpApiEndpoint.post("pairingCredential", "/api/auth/pairing-token", {
-      headers: OptionalBearerHeaders,
-      payload: AuthCreatePairingCredentialInput,
-      success: AuthPairingCredentialResult,
-      error: EnvironmentPairingCredentialErrors,
-    }).middleware(EnvironmentAuthenticatedAuth),
-  )
-  .add(
-    HttpApiEndpoint.get("pairingLinks", "/api/auth/pairing-links", {
-      headers: OptionalBearerHeaders,
-      success: Schema.Array(AuthPairingLink),
-      error: EnvironmentScopedOperationErrors,
-    }).middleware(EnvironmentAuthenticatedAuth),
-  )
-  .add(
-    HttpApiEndpoint.post("revokePairingLink", "/api/auth/pairing-links/revoke", {
-      headers: OptionalBearerHeaders,
-      payload: AuthRevokePairingLinkInput,
-      success: AuthPairingLinkRevokeResult,
-      error: EnvironmentScopedOperationErrors,
     }).middleware(EnvironmentAuthenticatedAuth),
   )
   .add(

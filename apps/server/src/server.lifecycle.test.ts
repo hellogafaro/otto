@@ -147,7 +147,9 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       );
 
       assert.equal(dispatchResult.sequence, 1);
+      // Otto: The first lookup checks the chat is visible to the caller.
       assert.deepEqual(effects, [
+        "query:thread-shell:active",
         "query:thread-shell:active",
         "dispatch:thread.archive",
         "dispatch:thread.session.stop",

@@ -12,7 +12,6 @@ import { subscribe } from "../rpc/client.ts";
 import { createEnvironmentSubscriptionAtomFamily } from "./runtime.ts";
 
 export const EMPTY_AUTH_ACCESS_SNAPSHOT: AuthAccessSnapshot = {
-  pairingLinks: [],
   clientSessions: [],
 };
 
@@ -33,16 +32,6 @@ export function applyAuthAccessStreamEvent(
   switch (event.type) {
     case "snapshot":
       return event.payload;
-    case "pairingLinkUpserted":
-      return {
-        ...current,
-        pairingLinks: upsertByKey(current.pairingLinks, event.payload, (value) => value.id),
-      };
-    case "pairingLinkRemoved":
-      return {
-        ...current,
-        pairingLinks: current.pairingLinks.filter((value) => value.id !== event.payload.id),
-      };
     case "clientUpserted":
       return {
         ...current,

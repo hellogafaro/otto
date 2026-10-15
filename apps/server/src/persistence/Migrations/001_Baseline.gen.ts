@@ -326,25 +326,6 @@ const statements = [
       ON projection_threads(deleted_at, archived_at, project_id, thread_id)
   `,
   `
-    CREATE TABLE auth_pairing_links (
-      id TEXT PRIMARY KEY,
-      credential TEXT NOT NULL UNIQUE,
-      method TEXT NOT NULL,
-      scopes TEXT NOT NULL,
-      subject TEXT NOT NULL,
-      label TEXT,
-      created_at TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      consumed_at TEXT,
-      revoked_at TEXT,
-      proof_key_thumbprint TEXT
-    )
-  `,
-  `
-    CREATE INDEX idx_auth_pairing_links_active
-      ON auth_pairing_links(revoked_at, consumed_at, expires_at)
-  `,
-  `
     CREATE TABLE auth_sessions (
       session_id TEXT PRIMARY KEY,
       subject TEXT NOT NULL,

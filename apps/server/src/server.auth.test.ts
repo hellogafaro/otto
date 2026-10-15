@@ -6,7 +6,6 @@ import { AuthAccessTokenType, WS_METHODS } from "@otto/contracts";
 import { assert, it } from "@effect/vitest";
 import { assertInclude } from "@effect/vitest/utils";
 import * as Effect from "effect/Effect";
-import { HttpBody, HttpClient } from "effect/unstable/http";
 
 import { buildAppUnderTest } from "./serverTestApp.ts";
 import {
@@ -15,10 +14,10 @@ import {
   responseJsonEffect,
   crossOriginClientOrigin,
   assertBrowserApiCorsResponseHeaders,
-  bootstrapBrowserSession,
-  extractSessionTokenFromSetCookie,
+  signInTestAccount,
   exchangeAccessToken,
-  getAuthenticatedSessionCookieHeader,
+  getMemberBearerSessionToken,
+  getWsServerUrlForBearer,
   parseSessionCookieFromWsUrl,
   getWsServerUrl,
   NodeHttpServerTestWithWsDeflate,
@@ -26,7 +25,7 @@ import {
   withWsRpcClient,
   appendSessionCookieToWsUrl,
 } from "./serverTestClients.ts";
-import { testEnvironmentDescriptor, defaultDesktopBootstrapToken } from "./serverTestFixtures.ts";
+import { testEnvironmentDescriptor } from "./serverTestFixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("serves the public environment descriptor without requiring auth", () =>
@@ -114,7 +113,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       assert.equal(response.status, 200);
       assert.equal(body.authenticated, false);
       assert.equal(body.auth.policy, "desktop-managed-local");
-      assert.deepEqual(body.auth.bootstrapMethods, ["desktop-bootstrap"]);
+      assert.deepEqual(body.auth.bootstrapMethods, ["email-password"]);
       assert.deepEqual(body.auth.sessionMethods, ["browser-session-cookie", "bearer-access-token"]);
       // Desktop, so port-scoped: instances scan for a free port and share
       // 127.0.0.1, and cookies are not scoped by port.
@@ -122,29 +121,13 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
-  it.effect("bootstraps a browser session and authenticates the session endpoint via cookie", () =>
+  it.effect("signs in with email and authenticates the session endpoint via cookie", () =>
     Effect.gen(function* () {
       yield* buildAppUnderTest();
 
-      const {
-        response: bootstrapResponse,
-        body: bootstrapBody,
-        cookie: setCookie,
-      } = yield* bootstrapBrowserSession();
-
-      assert.equal(bootstrapResponse.status, 200);
-      assert.equal(bootstrapBody.authenticated, true);
-      assert.equal(bootstrapBody.sessionMethod, "browser-session-cookie");
-      assert.isUndefined((bootstrapBody as { readonly sessionToken?: string }).sessionToken);
-      assert.isDefined(setCookie);
-
+      const { cookie } = yield* signInTestAccount();
       const sessionUrl = yield* getHttpServerUrl("/api/auth/session");
-
-      const sessionResponse = yield* fetchEffect(sessionUrl, {
-        headers: {
-          cookie: setCookie?.split(";")[0] ?? "",
-        },
-      });
+      const sessionResponse = yield* fetchEffect(sessionUrl, { headers: { cookie } });
 
       const sessionBody = yield* responseJsonEffect<{
         readonly authenticated: boolean;
@@ -161,8 +144,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     Effect.gen(function* () {
       yield* buildAppUnderTest({ config: { mode: "web", host: "192.168.1.50" } });
 
-      const { cookie } = yield* bootstrapBrowserSession();
-      const currentCookie = cookie?.split(";")[0] ?? "";
+      const { cookie: currentCookie } = yield* signInTestAccount();
 
       const legacyCookie = currentCookie.replace(
         /^ottoLegacy_session_[^=]+=/,
@@ -178,7 +160,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       const body = yield* responseJsonEffect<{ readonly authenticated: boolean }>(response);
 
       assert.equal(body.authenticated, true);
-      assert.equal(response.headers["set-cookie"], cookie);
+      assert.isTrue(response.headers["set-cookie"]?.startsWith(`${currentCookie};`));
       assert.equal(response.headers["cache-control"], "no-store");
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
@@ -189,9 +171,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       Effect.gen(function* () {
         yield* buildAppUnderTest({ config: { mode: "web", host: "192.168.1.50" } });
 
-        const { cookie } = yield* bootstrapBrowserSession();
-        const sessionCookie = cookie?.split(";")[0] ?? "";
-        const sessionToken = extractSessionTokenFromSetCookie(cookie ?? "");
+        const { cookie: sessionCookie, token: sessionToken } = yield* signInTestAccount();
         const sessionUrl = yield* getHttpServerUrl("/api/auth/session");
 
         const response = yield* fetchEffect(sessionUrl, {
@@ -208,11 +188,13 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
-  it.effect("exchanges a bootstrap grant for a scoped bearer access token", () =>
+  it.effect("exchanges an account token for a bearer access token", () =>
     Effect.gen(function* () {
       yield* buildAppUnderTest();
 
-      const { response: tokenResponse, body: tokenBody } = yield* exchangeAccessToken();
+      const { response: tokenResponse, body: tokenBody } = yield* exchangeAccessToken(
+        yield* getAuthenticatedBearerSessionToken(),
+      );
 
       assert.equal(tokenResponse.status, 200);
       assert.equal(tokenBody.issued_token_type, AuthAccessTokenType);
@@ -249,71 +231,6 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
-  it.effect("persists token exchange client display metadata for authorized-client listings", () =>
-    Effect.gen(function* () {
-      yield* buildAppUnderTest({
-        config: {
-          host: "0.0.0.0",
-        },
-      });
-
-      const ownerCookie = yield* getAuthenticatedSessionCookieHeader();
-
-      const pairingResponse = yield* HttpClient.post("/api/auth/pairing-token", {
-        headers: {
-          cookie: ownerCookie,
-        },
-        body: yield* HttpBody.json({}),
-      });
-
-      const pairingBody = (yield* pairingResponse.json) as {
-        readonly credential: string;
-      };
-
-      const { response } = yield* exchangeAccessToken(pairingBody.credential, {
-        headers: {
-          "user-agent": "undici",
-        },
-        scope: "orchestration:read orchestration:operate",
-        clientMetadata: {
-          label: "Otto Legacy Mobile",
-          deviceType: "mobile",
-          os: "iOS",
-        },
-      });
-
-      const clientsResponse = yield* HttpClient.get("/api/auth/clients", {
-        headers: {
-          cookie: ownerCookie,
-        },
-      });
-
-      const clients = (yield* clientsResponse.json) as ReadonlyArray<{
-        readonly current: boolean;
-        readonly client: {
-          readonly label?: string;
-          readonly deviceType: string;
-          readonly ipAddress?: string;
-          readonly os?: string;
-          readonly userAgent?: string;
-        };
-      }>;
-
-      const mobileClient = clients.find((client) => !client.current);
-
-      assert.equal(pairingResponse.status, 200);
-      assert.equal(response.status, 200);
-      assert.equal(clientsResponse.status, 200);
-      assert.deepInclude(mobileClient?.client, {
-        label: "Otto Legacy Mobile",
-        deviceType: "mobile",
-        os: "iOS",
-        ipAddress: "127.0.0.1",
-        userAgent: "undici",
-      });
-    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
-  );
-
   it.effect(
     "accepts the retired review:write and terminal:operate scopes from older clients and drops them",
     () =>
@@ -324,22 +241,12 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
           },
         });
 
-        const ownerCookie = yield* getAuthenticatedSessionCookieHeader();
-
-        const pairingResponse = yield* HttpClient.post("/api/auth/pairing-token", {
-          headers: {
-            cookie: ownerCookie,
+        const { response, body } = yield* exchangeAccessToken(
+          yield* getMemberBearerSessionToken(),
+          {
+            scope: "orchestration:read orchestration:operate terminal:operate review:write",
           },
-          body: yield* HttpBody.json({}),
-        });
-
-        const pairingBody = (yield* pairingResponse.json) as {
-          readonly credential: string;
-        };
-
-        const { response, body } = yield* exchangeAccessToken(pairingBody.credential, {
-          scope: "orchestration:read orchestration:operate terminal:operate review:write",
-        });
+        );
 
         assert.equal(response.status, 200);
         assert.equal(body.scope, "orchestration:read orchestration:operate");
@@ -406,16 +313,8 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     Effect.gen(function* () {
       yield* buildAppUnderTest();
 
-      const { body: tokenBody } = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:read orchestration:operate terminal:operate review:write",
-      });
-
-      const ticketResponse = yield* HttpClient.post("/api/auth/websocket-ticket", {
-        headers: { authorization: `Bearer ${tokenBody.access_token ?? ""}` },
-      });
-
-      const ticketBody = (yield* ticketResponse.json) as { readonly ticket: string };
-      const standardWsUrl = `${yield* getWsServerUrl("/ws", { authenticated: false })}?wsTicket=${encodeURIComponent(ticketBody.ticket)}`;
+      // Otto: A member gets the standard client scopes; only an organization admin gets access:*.
+      const standardWsUrl = yield* getWsServerUrlForBearer(yield* getMemberBearerSessionToken());
 
       const deniedRead = yield* Effect.flip(
         Effect.scoped(
@@ -450,34 +349,15 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
-  it.effect("allows reusing the desktop bootstrap credential", () =>
-    Effect.gen(function* () {
-      // The desktop-bootstrap grant is delivered over trusted IPC at
-      // backend launch and needs to stay claimable after a renderer
-      // refresh, so it's intentionally reusable (unlike user-facing
-      // one-time pairing credentials).
-      yield* buildAppUnderTest();
-
-      const first = yield* bootstrapBrowserSession();
-      const second = yield* bootstrapBrowserSession();
-
-      assert.equal(first.response.status, 200);
-      assert.equal(second.response.status, 200);
-    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
-  );
-
-  it.effect("accepts websocket rpc handshake with a bootstrapped browser session cookie", () =>
+  it.effect("accepts websocket rpc handshake with a signed-in session cookie", () =>
     Effect.gen(function* () {
       yield* buildAppUnderTest();
 
-      const { response: bootstrapResponse, cookie } = yield* bootstrapBrowserSession();
-
-      assert.equal(bootstrapResponse.status, 200);
-      assert.isDefined(cookie);
+      const { cookie } = yield* signInTestAccount();
 
       const wsUrl = appendSessionCookieToWsUrl(
         yield* getWsServerUrl("/ws", { authenticated: false }),
-        cookie?.split(";")[0] ?? "",
+        cookie,
       );
 
       const response = yield* Effect.scoped(
@@ -504,11 +384,11 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         },
       });
 
-      const { cookie } = yield* bootstrapBrowserSession();
+      const { cookie } = yield* signInTestAccount();
 
       const wsUrl = appendSessionCookieToWsUrl(
         yield* getWsServerUrl("/ws", { authenticated: false }),
-        cookie?.split(";")[0] ?? "",
+        cookie,
       );
 
       const response = yield* Effect.scoped(
@@ -527,9 +407,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       Effect.gen(function* () {
         yield* buildAppUnderTest();
 
-        const { cookie } = yield* bootstrapBrowserSession();
-        assert.isDefined(cookie);
-        const sessionToken = extractSessionTokenFromSetCookie(cookie ?? "");
+        const { token: sessionToken } = yield* signInTestAccount();
         const wsUrl = `${yield* getWsServerUrl("/ws", { authenticated: false })}?token=${encodeURIComponent(sessionToken)}`;
 
         const error = yield* Effect.flip(

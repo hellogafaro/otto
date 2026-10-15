@@ -11,7 +11,8 @@ export const DesktopBackendBootstrap = Schema.Struct({
   // own home directory instead.
   ottoLegacyHome: Schema.optional(Schema.String),
   host: Schema.String,
-  desktopBootstrapToken: Schema.String,
+  // Otto: The server no longer reads this; the desktop still sends it until it signs in with an account.
+  desktopBootstrapToken: Schema.optionalKey(Schema.String),
   tailscaleServeEnabled: Schema.Boolean,
   tailscaleServePort: PortSchema,
   otlpTracesUrl: Schema.optional(Schema.String),

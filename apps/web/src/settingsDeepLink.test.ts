@@ -23,7 +23,7 @@ describe("settings deep links", () => {
     ["sandbox", "sandbox", null, "Sandbox"],
     ["privacy", "privacy", null, "Privacy & data"],
     ["archived-chats", "archived", null, "Archived chats"],
-    ["connections", "connections", null, "Connections"],
+    ["connections", "general", null, "General"],
     ["source-control", "general", null, "General"],
     ["bot-inbox", "advanced", "errors", "Advanced > Bot inbox"],
     ["diagnostics", "diagnostics", null, "Diagnostics"],

@@ -2,17 +2,11 @@ import * as Predicate from "effect/Predicate";
 import {
   AuthAccessTokenType,
   AuthAccessWriteScope,
-  AuthAdministrativeScopes,
-  AuthStandardClientScopes,
   AuthEnvironmentScopes,
   type AuthAccessTokenResult,
-  type AuthBrowserSessionResult,
   type AuthClientMetadata,
   type AuthClientSession,
-  type AuthCreatePairingCredentialInput,
   type AuthEnvironmentScope,
-  type AuthPairingLink,
-  type AuthPairingCredentialResult,
   AuthSessionId,
   type AuthSessionState,
   type ServerAuthDescriptor,
@@ -21,41 +15,23 @@ import {
 import { encodeOAuthScope } from "@otto/shared/oauthScope";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Semaphore from "effect/Semaphore";
 import * as HttpServerRequest from "effect/unstable/http/HttpServerRequest";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
-import { hasPairedAdminClient } from "./adminClients.ts";
 import * as EnvironmentAuthPolicy from "./EnvironmentAuthPolicy.ts";
-import * as PairingGrantStore from "./PairingGrantStore.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 import * as SessionStore from "./SessionStore.ts";
 import * as OrganizationAccounts from "./OrganizationAccounts.ts";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as Schema from "effect/Schema";
 import { layerConfig as SqlitePersistenceLayer } from "../persistence/Layers/Sqlite.ts";
+import { type AuthenticatedSession } from "./EnvironmentAuthTypes.ts";
 import {
-  DEFAULT_SESSION_SUBJECT,
-  INTERNAL_ADMINISTRATIVE_BOOTSTRAP_SUBJECT,
-  type IssuedPairingLink,
-  type IssuedBearerSession,
-  type AuthenticatedSession,
-} from "./EnvironmentAuthTypes.ts";
-import {
-  ServerAuthBootstrapCredentialValidationError,
   ServerAuthSessionCredentialValidationError,
-  ServerAuthAuthenticatedSessionIssueError,
-  ServerAuthAuthenticatedAccessTokenIssueError,
-  ServerAuthPairingLinkCreationError,
-  ServerAuthPairingLinksListError,
-  ServerAuthPairingLinkRevocationError,
-  ServerAuthSessionTokenIssueError,
   ServerAuthSessionsListError,
   ServerAuthSessionRevocationError,
-  ServerAuthOtherSessionsRevocationError,
   ServerAuthWebSocketTokenIssueError,
   ServerAuthInternalError,
   ServerAuthMissingCredentialError,
@@ -74,16 +50,6 @@ export class EnvironmentAuth extends Context.Service<
     readonly getSessionState: (
       request: HttpServerRequest.HttpServerRequest,
     ) => Effect.Effect<AuthSessionState, ServerAuthInternalError>;
-    readonly createBrowserSession: (
-      credential: string,
-      requestMetadata: AuthClientMetadata,
-    ) => Effect.Effect<
-      {
-        readonly response: AuthBrowserSessionResult;
-        readonly sessionToken: string;
-      },
-      ServerAuthInvalidCredentialError | ServerAuthInternalError
-    >;
     readonly exchangeBootstrapCredentialForAccessToken: (
       credential: string,
       requestedScopes: ReadonlyArray<AuthEnvironmentScope> | undefined,
@@ -92,30 +58,6 @@ export class EnvironmentAuth extends Context.Service<
       AuthAccessTokenResult,
       ServerAuthInvalidCredentialError | ServerAuthInvalidRequestError | ServerAuthInternalError
     >;
-    readonly createPairingLink: (input?: {
-      readonly ttl?: Duration.Duration;
-      readonly label?: string;
-      readonly scopes?: ReadonlyArray<AuthEnvironmentScope>;
-      readonly subject?: string;
-      readonly purpose?: "startup";
-    }) => Effect.Effect<IssuedPairingLink, ServerAuthInternalError>;
-    readonly issuePairingCredential: (
-      input?: AuthCreatePairingCredentialInput,
-    ) => Effect.Effect<AuthPairingCredentialResult, ServerAuthInternalError>;
-    readonly issueStartupPairingCredential: () => Effect.Effect<
-      AuthPairingCredentialResult,
-      ServerAuthInternalError
-    >;
-    readonly listPairingLinks: (input?: {
-      readonly excludeSubjects?: ReadonlyArray<string>;
-    }) => Effect.Effect<ReadonlyArray<AuthPairingLink>, ServerAuthInternalError>;
-    readonly revokePairingLink: (id: string) => Effect.Effect<boolean, ServerAuthInternalError>;
-    readonly issueSession: (input?: {
-      readonly ttl?: Duration.Duration;
-      readonly subject?: string;
-      readonly scopes?: ReadonlyArray<AuthEnvironmentScope>;
-      readonly label?: string;
-    }) => Effect.Effect<IssuedBearerSession, ServerAuthInternalError>;
     readonly listSessions: () => Effect.Effect<
       ReadonlyArray<AuthClientSession>,
       ServerAuthInternalError
@@ -145,16 +87,8 @@ export class EnvironmentAuth extends Context.Service<
     readonly issueWebSocketTicket: (
       session: Pick<AuthenticatedSession, "sessionId">,
     ) => Effect.Effect<AuthWebSocketTicketResult, ServerAuthInternalError>;
-    readonly issueStartupPairingUrl: (
-      baseUrl: string,
-    ) => Effect.Effect<string, ServerAuthInternalError>;
   }
 >()("@otto/server/auth/EnvironmentAuth") {}
-
-type BootstrapExchangeResult = {
-  readonly response: AuthBrowserSessionResult;
-  readonly sessionToken: string;
-};
 
 const AUTHORIZATION_PREFIX = "Bearer ";
 
@@ -174,18 +108,6 @@ const bySessionPriority = (left: AuthClientSession, right: AuthClientSession) =>
 
   return right.issuedAt.epochMilliseconds - left.issuedAt.epochMilliseconds;
 };
-
-export function toBootstrapExchangeError(
-  cause: PairingGrantStore.BootstrapCredentialError,
-): ServerAuthInvalidCredentialError | ServerAuthInternalError {
-  if (PairingGrantStore.isBootstrapCredentialInternalError(cause)) {
-    return new ServerAuthBootstrapCredentialValidationError({ cause });
-  }
-
-  return new ServerAuthInvalidCredentialError({
-    cause,
-  });
-}
 
 const mapSessionVerificationErrors = <A, R>(
   effect: Effect.Effect<A, SessionStore.SessionCredentialError, R>,
@@ -240,14 +162,10 @@ export function selectRequestCredential(
 
 export const make = Effect.gen(function* () {
   const policy = yield* EnvironmentAuthPolicy.EnvironmentAuthPolicy;
-  const bootstrapCredentials = yield* PairingGrantStore.PairingGrantStore;
   const sessions = yield* SessionStore.SessionStore;
   const accounts = yield* OrganizationAccounts.OrganizationAccounts;
   const sql = yield* SqlClient.SqlClient;
   const descriptor = yield* policy.getDescriptor();
-  // Pairing redemptions run one at a time, so a first admin revokes other admin
-  // links before a concurrent redemption can consume one.
-  const redeemLock = yield* Semaphore.make(1);
 
   const authenticateToken = Effect.fn("EnvironmentAuth.authenticateAccount")(function* (
     token: string,
@@ -262,6 +180,7 @@ export const make = Effect.gen(function* () {
     const scopes = OrganizationAccounts.organizationRoleScopes(principal.role);
     const now = DateTime.formatIso(yield* DateTime.now);
     const expiresAt = DateTime.makeUnsafe(principal.expiresAt);
+
     const encodedScopes = yield* Schema.encodeEffect(Schema.fromJsonString(AuthEnvironmentScopes))(
       scopes,
     ).pipe(Effect.mapError((cause) => new ServerAuthSessionCredentialValidationError({ cause })));
@@ -324,11 +243,6 @@ export const make = Effect.gen(function* () {
       Effect.withSpan("EnvironmentAuth.getSessionState"),
     );
 
-  const createBrowserSession: EnvironmentAuth["Service"]["createBrowserSession"] = () =>
-    Effect.fail(
-      new ServerAuthInvalidCredentialError({ diagnostic: "Sign in to the organization." }),
-    );
-
   const exchangeBootstrapCredentialForAccessToken: EnvironmentAuth["Service"]["exchangeBootstrapCredentialForAccessToken"] =
     (credential, requestedScopes) =>
       Effect.gen(function* () {
@@ -352,92 +266,6 @@ export const make = Effect.gen(function* () {
           scope: encodeOAuthScope(grantedScopes),
         } satisfies AuthAccessTokenResult;
       });
-
-  const issuePairingCredentialForSubject = (input: {
-    readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
-    readonly subject: string;
-    readonly label?: string;
-    readonly purpose?: "startup";
-  }) =>
-    createPairingLink({
-      scopes: input.scopes,
-      subject: input.subject,
-      ...(input.label ? { label: input.label } : {}),
-      ...(input.purpose ? { purpose: input.purpose } : {}),
-    }).pipe(
-      Effect.map(
-        (issued) =>
-          ({
-            id: issued.id,
-            credential: issued.credential,
-            ...(issued.label ? { label: issued.label } : {}),
-            expiresAt: issued.expiresAt,
-          }) satisfies AuthPairingCredentialResult,
-      ),
-    );
-
-  const createPairingLink: EnvironmentAuth["Service"]["createPairingLink"] = Effect.fn(
-    "EnvironmentAuth.createPairingLink",
-  )(
-    function* (input) {
-      if (accounts.runtime.getOrganization()) {
-        return yield* new ServerAuthPairingLinkCreationError({
-          cause: "Organization setup is complete. Use account sign-in.",
-        });
-      }
-
-      const createdAt = yield* DateTime.now;
-
-      const issued = yield* bootstrapCredentials.issueOneTimeToken({
-        scopes: AuthAdministrativeScopes,
-        subject: input?.subject ?? "one-time-token",
-        ...(input?.ttl ? { ttl: input.ttl } : {}),
-        ...(input?.label ? { label: input.label } : {}),
-        ...(input?.purpose ? { purpose: input.purpose } : {}),
-      });
-
-      return {
-        id: issued.id,
-        credential: issued.credential,
-        scopes: AuthAdministrativeScopes,
-        subject: input?.subject ?? "one-time-token",
-        ...(issued.label ? { label: issued.label } : {}),
-        createdAt: DateTime.toUtc(createdAt),
-        expiresAt: DateTime.toUtc(issued.expiresAt),
-      } satisfies IssuedPairingLink;
-    },
-    Effect.mapError((cause) => new ServerAuthPairingLinkCreationError({ cause })),
-  );
-
-  const listPairingLinks: EnvironmentAuth["Service"]["listPairingLinks"] = (input) =>
-    bootstrapCredentials.listActive().pipe(
-      Effect.map((pairingLinks) => {
-        const excludedSubjects = input?.excludeSubjects ?? [
-          INTERNAL_ADMINISTRATIVE_BOOTSTRAP_SUBJECT,
-        ];
-
-        return pairingLinks
-          .filter((pairingLink) => !excludedSubjects.includes(pairingLink.subject))
-          .toSorted(
-            (left, right) => right.createdAt.epochMilliseconds - left.createdAt.epochMilliseconds,
-          );
-      }),
-      Effect.mapError((cause) => new ServerAuthPairingLinksListError({ cause })),
-      Effect.withSpan("EnvironmentAuth.listPairingLinks"),
-    );
-
-  const revokePairingLink: EnvironmentAuth["Service"]["revokePairingLink"] = (id) =>
-    bootstrapCredentials.revoke(id).pipe(
-      Effect.mapError((cause) => new ServerAuthPairingLinkRevocationError({ cause })),
-      Effect.withSpan("EnvironmentAuth.revokePairingLink"),
-    );
-
-  const issueSession: EnvironmentAuth["Service"]["issueSession"] = () =>
-    Effect.fail(
-      new ServerAuthSessionTokenIssueError({
-        cause: new Error("Account sign-in is required. Legacy token issuance is disabled."),
-      }),
-    );
 
   const listSessions: EnvironmentAuth["Service"]["listSessions"] = () =>
     sessions.listActive().pipe(
@@ -470,21 +298,6 @@ export const make = Effect.gen(function* () {
       Effect.map((revoked) => revoked.filter(Boolean).length),
     );
 
-  const issuePairingCredential: EnvironmentAuth["Service"]["issuePairingCredential"] = (input) =>
-    issuePairingCredentialForSubject({
-      scopes: input?.scopes ?? AuthStandardClientScopes,
-      subject: "one-time-token",
-      ...(input?.label ? { label: input.label } : {}),
-    }).pipe(Effect.withSpan("EnvironmentAuth.issuePairingCredential"));
-
-  const issueStartupPairingCredential: EnvironmentAuth["Service"]["issueStartupPairingCredential"] =
-    () =>
-      issuePairingCredentialForSubject({
-        scopes: AuthAdministrativeScopes,
-        subject: INTERNAL_ADMINISTRATIVE_BOOTSTRAP_SUBJECT,
-        purpose: "startup",
-      }).pipe(Effect.withSpan("EnvironmentAuth.issueStartupPairingCredential"));
-
   const listClientSessions: EnvironmentAuth["Service"]["listClientSessions"] = (currentSessionId) =>
     listSessions().pipe(
       Effect.map((clientSessions) =>
@@ -514,21 +327,6 @@ export const make = Effect.gen(function* () {
     revokeOtherSessionsExcept(currentSessionId).pipe(
       Effect.withSpan("EnvironmentAuth.revokeOtherClientSessions"),
     );
-
-  const issueStartupPairingUrl: EnvironmentAuth["Service"]["issueStartupPairingUrl"] = (baseUrl) =>
-    accounts.runtime.getOrganization()
-      ? Effect.succeed(new URL("/login", baseUrl).toString())
-      : issueStartupPairingCredential().pipe(
-          Effect.map((issued) => {
-            const url = new URL(baseUrl);
-            url.pathname = "/setup";
-            url.searchParams.delete("token");
-            url.hash = new URLSearchParams([["token", issued.credential]]).toString();
-
-            return url.toString();
-          }),
-          Effect.withSpan("EnvironmentAuth.issueStartupPairingUrl"),
-        );
 
   const issueWebSocketTicket: EnvironmentAuth["Service"]["issueWebSocketTicket"] = (session) =>
     sessions.issueWebSocketToken(session.sessionId).pipe(
@@ -587,14 +385,7 @@ export const make = Effect.gen(function* () {
     getDescriptor: () =>
       Effect.succeed(descriptor).pipe(Effect.withSpan("EnvironmentAuth.getDescriptor")),
     getSessionState,
-    createBrowserSession,
     exchangeBootstrapCredentialForAccessToken,
-    createPairingLink,
-    issuePairingCredential,
-    issueStartupPairingCredential,
-    listPairingLinks,
-    revokePairingLink,
-    issueSession,
     listSessions,
     revokeSession,
     revokeOtherSessionsExcept,
@@ -604,13 +395,11 @@ export const make = Effect.gen(function* () {
     authenticateHttpRequest,
     authenticateWebSocketUpgrade,
     issueWebSocketTicket,
-    issueStartupPairingUrl,
   });
 });
 
 export const layer = Layer.effect(EnvironmentAuth, make).pipe(
   Layer.provideMerge(OrganizationAccounts.layer),
-  Layer.provideMerge(PairingGrantStore.layer),
   Layer.provideMerge(SessionStore.layer),
   Layer.provideMerge(EnvironmentAuthPolicy.layer),
 );
@@ -624,15 +413,7 @@ export const runtimeLayer = layer.pipe(
   Layer.provideMerge(ServerEnvironment.identityLayer),
 );
 
-export { DEFAULT_SESSION_SUBJECT } from "./EnvironmentAuthTypes.ts";
-
-export { INTERNAL_ADMINISTRATIVE_BOOTSTRAP_SUBJECT } from "./EnvironmentAuthTypes.ts";
-
 export { isEnvironmentHostSessionSubject } from "./EnvironmentAuthTypes.ts";
-
-export type { IssuedPairingLink } from "./EnvironmentAuthTypes.ts";
-
-export type { IssuedBearerSession } from "./EnvironmentAuthTypes.ts";
 
 export type { AuthenticatedSession } from "./EnvironmentAuthTypes.ts";
 
@@ -643,14 +424,6 @@ export { ServerAuthSessionCredentialValidationError } from "./EnvironmentAuthErr
 export { ServerAuthAuthenticatedSessionIssueError } from "./EnvironmentAuthErrors.ts";
 
 export { ServerAuthAuthenticatedAccessTokenIssueError } from "./EnvironmentAuthErrors.ts";
-
-export { ServerAuthPairingLinkCreationError } from "./EnvironmentAuthErrors.ts";
-
-export { ServerAuthPairingLinksListError } from "./EnvironmentAuthErrors.ts";
-
-export { ServerAuthPairingLinkRevocationError } from "./EnvironmentAuthErrors.ts";
-
-export { ServerAuthSessionTokenIssueError } from "./EnvironmentAuthErrors.ts";
 
 export { ServerAuthSessionsListError } from "./EnvironmentAuthErrors.ts";
 

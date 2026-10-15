@@ -9,7 +9,6 @@ import {
   RiHardDriveLine,
   RiImageLine,
   RiKeyboardLine,
-  RiLink,
   RiChat3Line,
   RiPaintBrushLine,
   RiPuzzleLine,
@@ -66,10 +65,6 @@ const PrivacySettingsPanel = lazy(async () => ({
   default: (await import("./PrivacySettings")).PrivacySettingsPanel,
 }));
 
-const ConnectionsSettings = lazy(async () => ({
-  default: (await import("./ConnectionsSettings")).ConnectionsSettings,
-}));
-
 const KeybindingsSettingsPanel = lazy(async () => ({
   default: (await import("./KeybindingsSettings")).KeybindingsSettingsPanel,
 }));
@@ -121,7 +116,6 @@ const SECTION_PANELS: Readonly<Record<SettingsSection, ComponentType>> = {
   usage: UsageSettingsPanel,
   appearance: AppearanceSettingsPanel,
   keybindings: KeybindingsSettingsPanel,
-  connections: ConnectionsSettings,
   privacy: PrivacySettingsPanel,
   archived: ArchivedChatsSettingsPanel,
   advanced: AdvancedSettingsPage,
@@ -172,7 +166,6 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
       { section: "usage", label: "Usage", icon: RiBarChartLine },
       { section: "appearance", label: "Appearance", icon: RiPaintBrushLine },
       { section: "keybindings", label: "Keyboard", icon: RiKeyboardLine },
-      { section: "connections", label: "Connections", icon: RiLink },
       { section: "privacy", label: "Privacy & data", icon: RiShieldCheckLine },
       { section: "archived", label: "Archived", icon: RiArchiveLine },
       { section: "advanced", label: "Advanced", icon: RiEqualizerLine },

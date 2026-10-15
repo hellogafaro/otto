@@ -350,7 +350,6 @@ export const resolveServerConfig = (
       () => mode === "desktop",
     );
 
-    const desktopBootstrapToken = bootstrap?.desktopBootstrapToken;
     const desktopTelemetryFd = bootstrap?.desktopTelemetryFd;
     const desktopTelemetryControlFd = bootstrap?.desktopTelemetryControlFd;
     const resourceMonitorPath = bootstrap?.resourceMonitorPath;
@@ -440,7 +439,6 @@ export const resolveServerConfig = (
       devAllowedOrigins: env.devAllowedOrigins,
       noBrowser,
       startupPresentation,
-      desktopBootstrapToken,
       desktopTelemetryFd,
       desktopTelemetryControlFd,
       resourceMonitorPath,

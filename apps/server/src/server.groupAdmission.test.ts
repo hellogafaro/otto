@@ -26,10 +26,13 @@ import {
   makeDefaultOrchestrationThreadShell,
   defaultThreadId,
   defaultModelSelection,
-  defaultDesktopBootstrapToken,
 } from "./serverTestFixtures.ts";
 import { buildAppUnderTest } from "./serverTestApp.ts";
-import { getWsServerUrl, withWsRpcClient, exchangeAccessToken } from "./serverTestClients.ts";
+import {
+  getWsServerUrl,
+  withWsRpcClient,
+  getAuthenticatedBearerSessionToken,
+} from "./serverTestClients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("checks the responding group bot's engine before dispatch", () =>
@@ -189,6 +192,8 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         text: `@bot:${memberId} run the tests`,
         attachments: [],
       },
+      // Otto: Groups have no boss; the composer addresses a mentioned bot explicitly.
+      respondingBotId: memberId,
       modelSelection: defaultModelSelection,
       runtimeMode: "full-access" as const,
       interactionMode: "default" as const,
@@ -208,7 +213,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       }).pipe(Effect.provide(NodeHttpServer.layerTest)),
     );
 
-    it.effect("checks the mentioned member rather than a healthy boss", () =>
+    it.effect("checks the addressed member before sending", () =>
       Effect.gen(function* () {
         const dispatch = yield* buildGroupApp(memberId);
         const wsUrl = yield* getWsServerUrl("/ws");
@@ -230,12 +235,10 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       Effect.gen(function* () {
         const dispatch = yield* buildGroupApp(memberId);
 
-        const { body: tokenBody } = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-          scope: "orchestration:operate",
-        });
+        const bearerToken = yield* getAuthenticatedBearerSessionToken();
 
         const response = yield* HttpClient.post("/api/orchestration/dispatch", {
-          headers: { authorization: `Bearer ${tokenBody.access_token ?? ""}` },
+          headers: { authorization: `Bearer ${bearerToken}` },
           body: yield* HttpBody.json(mentionTurn("cmd-http-mention-unavailable")),
         });
 

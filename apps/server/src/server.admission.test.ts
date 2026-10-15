@@ -26,9 +26,12 @@ import {
   readyDefaultProvider,
   defaultProjectId,
   defaultModelSelection,
-  defaultDesktopBootstrapToken,
 } from "./serverTestFixtures.ts";
-import { getWsServerUrl, withWsRpcClient, exchangeAccessToken } from "./serverTestClients.ts";
+import {
+  getWsServerUrl,
+  withWsRpcClient,
+  getAuthenticatedBearerSessionToken,
+} from "./serverTestClients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("checks a new chat's bootstrap model before creating its thread", () =>
@@ -104,12 +107,10 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         },
       });
 
-      const { body: tokenBody } = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:operate",
-      });
+      const bearerToken = yield* getAuthenticatedBearerSessionToken();
 
       const response = yield* HttpClient.post("/api/orchestration/dispatch", {
-        headers: { authorization: `Bearer ${tokenBody.access_token ?? ""}` },
+        headers: { authorization: `Bearer ${bearerToken}` },
         body: yield* HttpBody.json({
           type: "thread.turn.start",
           commandId: CommandId.make("cmd-http-bootstrap-unavailable-provider"),
@@ -200,12 +201,10 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
           },
         });
 
-        const { body: tokenBody } = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-          scope: "orchestration:operate",
-        });
+        const bearerToken = yield* getAuthenticatedBearerSessionToken();
 
         const response = yield* HttpClient.post("/api/orchestration/dispatch", {
-          headers: { authorization: `Bearer ${tokenBody.access_token ?? ""}` },
+          headers: { authorization: `Bearer ${bearerToken}` },
           body: yield* HttpBody.json({
             type: "thread.turn.start",
             commandId: CommandId.make("cmd-http-instance-credential"),
@@ -271,12 +270,10 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         },
       });
 
-      const { body: tokenBody } = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:operate",
-      });
+      const bearerToken = yield* getAuthenticatedBearerSessionToken();
 
       const response = yield* HttpClient.post("/api/orchestration/dispatch", {
-        headers: { authorization: `Bearer ${tokenBody.access_token ?? ""}` },
+        headers: { authorization: `Bearer ${bearerToken}` },
         body: yield* HttpBody.json({
           type: "thread.turn.start",
           commandId,

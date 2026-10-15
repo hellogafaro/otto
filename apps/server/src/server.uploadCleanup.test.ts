@@ -14,8 +14,12 @@ import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import { HttpBody, HttpClient } from "effect/unstable/http";
 import { buildAppUnderTest } from "./serverTestApp.ts";
-import { exchangeAccessToken, getWsServerUrl, withWsRpcClient } from "./serverTestClients.ts";
-import { defaultDesktopBootstrapToken, defaultThreadId } from "./serverTestFixtures.ts";
+import {
+  getWsServerUrl,
+  withWsRpcClient,
+  getAuthenticatedBearerSessionToken,
+} from "./serverTestClients.ts";
+import { defaultThreadId } from "./serverTestFixtures.ts";
 
 // The interruption case comes from the engine itself, so the turn never
 // committed and its claimed upload must go. A caller cancelling a turn the
@@ -77,12 +81,10 @@ it.layer(NodeServices.layer)("dispatch upload cleanup", (it) => {
           } satisfies ClientOrchestrationCommand;
 
           if (transport === "HTTP") {
-            const { body: tokenBody } = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-              scope: "orchestration:operate",
-            });
+            const bearerToken = yield* getAuthenticatedBearerSessionToken();
 
             const response = yield* HttpClient.post("/api/orchestration/dispatch", {
-              headers: { authorization: `Bearer ${tokenBody.access_token ?? ""}` },
+              headers: { authorization: `Bearer ${bearerToken}` },
               body: yield* HttpBody.json(command),
             });
 

@@ -20,7 +20,6 @@ export const SETTINGS_SECTIONS = [
   "usage",
   "appearance",
   "keybindings",
-  "connections",
   "integrations",
   "bots",
   "skills",

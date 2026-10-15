@@ -15,16 +15,11 @@ import * as OrchestrationReactor from "./orchestration/Services/OrchestrationRea
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerSettings from "./serverSettings.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
-import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
 import * as ProviderSessionReaper from "./provider/Services/ProviderSessionReaper.ts";
 import { forkParked } from "./serverActivation.ts";
 import * as ServiceLauncherClient from "./cloud/serviceLauncherClient.ts";
 import { isRemoteInstall } from "./remote/remoteMode.ts";
-import {
-  announceRemoteStartup,
-  formatHeadlessServeOutput,
-  issueHeadlessServeAccessInfo,
-} from "./startupAccess.ts";
+import { formatHeadlessServeOutput, resolveHeadlessServeUrl } from "./startupAccess.ts";
 import { RoutineRuntime } from "./routines/Runtime.ts";
 
 import { type StartupOptions, restoreExternalChannels } from "./startupChannels.ts";
@@ -184,31 +179,21 @@ export const make = (options?: StartupOptions) =>
 
       yield* forkParked(
         Effect.gen(function* () {
-          if (isRemoteInstall({ launcherManaged: launcher.managed, env: process.env })) {
-            // Remote installs run headless under the boot service or in a container, so the
-            // first admin link goes to stdout, which `otto remote logs` and `docker logs` show.
-            const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
-            yield* runStartupPhase(
-              "remote.first-boot",
-              announceRemoteStartup({
-                listSessions: serverAuth.listSessions(),
-                issueAccessInfo: issueHeadlessServeAccessInfo(),
-                print: Console.log,
-              }),
-            );
-          } else if (serverConfig.startupPresentation === "headless") {
-            const accessInfo = yield* issueHeadlessServeAccessInfo();
-            yield* runStartupPhase(
-              "headless.output",
-              Console.log(formatHeadlessServeOutput(accessInfo)),
-            );
+          // Otto: Remote installs run headless under the boot service or in a container, so the
+          // address goes to stdout, which `otto remote logs` and `docker logs` show.
+          if (
+            isRemoteInstall({ launcherManaged: launcher.managed, env: process.env }) ||
+            serverConfig.startupPresentation === "headless"
+          ) {
+            const url = yield* resolveHeadlessServeUrl();
+            yield* runStartupPhase("headless.output", Console.log(formatHeadlessServeOutput(url)));
           } else {
             const startupBrowserTarget = yield* resolveStartupBrowserTarget;
 
             if (serverConfig.mode !== "desktop") {
-              yield* Effect.logInfo(
-                "Authentication required. Open Otto using the pairing URL.",
-              ).pipe(Effect.annotateLogs({ pairingUrl: startupBrowserTarget }));
+              yield* Effect.logInfo("Otto is ready.").pipe(
+                Effect.annotateLogs({ url: startupBrowserTarget }),
+              );
             }
 
             yield* runStartupPhase("browser.open", maybeOpenBrowser(startupBrowserTarget));

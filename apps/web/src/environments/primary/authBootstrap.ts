@@ -1,19 +1,8 @@
-import { hasTag } from "~/lib/taggedUnion";
-import type { AuthBrowserSessionResult, AuthSessionState } from "@otto/contracts";
+import type { AuthSessionState } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import { PrimaryEnvironmentHttpClient } from "./httpClient";
 import { runPrimaryHttp } from "../../lib/runtime";
-import {
-  PrimaryEnvironmentRequestError,
-  isPrimaryEnvironmentRequestError,
-  PrimaryEnvironmentPairingCredentialRejectedError,
-  PrimaryEnvironmentAuthSessionTimeoutError,
-  isEnvironmentHttpCommonError,
-} from "./authErrors";
-
-const AUTH_SESSION_ESTABLISH_TIMEOUT_MS = 2_000;
-
-const AUTH_SESSION_ESTABLISH_STEP_MS = 100;
+import { PrimaryEnvironmentRequestError, isPrimaryEnvironmentRequestError } from "./authErrors";
 
 export async function fetchSessionState(): Promise<AuthSessionState> {
   return retryTransientBootstrap(async () => {
@@ -30,59 +19,6 @@ export async function fetchSessionState(): Promise<AuthSessionState> {
       });
     }
   });
-}
-
-export async function exchangeBootstrapCredential(
-  credential: string,
-): Promise<AuthBrowserSessionResult> {
-  return retryTransientBootstrap(async () => {
-    try {
-      return await runPrimaryHttp(
-        PrimaryEnvironmentHttpClient.pipe(
-          Effect.flatMap((client) => client.auth.browserSession({ payload: { credential } })),
-        ),
-      );
-    } catch (error) {
-      if (
-        isEnvironmentHttpCommonError(error) &&
-        hasTag(error, "EnvironmentAuthInvalidError") &&
-        error.reason === "invalid_credential"
-      ) {
-        throw new PrimaryEnvironmentPairingCredentialRejectedError({
-          providedLength: credential.length,
-          cause: error,
-        });
-      }
-
-      throw PrimaryEnvironmentRequestError.fromCause({
-        operation: "exchange-bootstrap-credential",
-        cause: error,
-      });
-    }
-  });
-}
-
-export async function waitForAuthenticatedSessionAfterBootstrap(): Promise<AuthSessionState> {
-  const startedAt = Date.now();
-
-  while (true) {
-    const session = await fetchSessionState();
-
-    if (session.authenticated) {
-      return session;
-    }
-
-    const elapsedMs = Date.now() - startedAt;
-
-    if (elapsedMs >= AUTH_SESSION_ESTABLISH_TIMEOUT_MS) {
-      throw new PrimaryEnvironmentAuthSessionTimeoutError({
-        timeoutMs: AUTH_SESSION_ESTABLISH_TIMEOUT_MS,
-        elapsedMs,
-      });
-    }
-
-    await waitForBootstrapRetry(AUTH_SESSION_ESTABLISH_STEP_MS);
-  }
 }
 
 const TRANSIENT_BOOTSTRAP_STATUS_CODES = new Set([502, 503, 504]);

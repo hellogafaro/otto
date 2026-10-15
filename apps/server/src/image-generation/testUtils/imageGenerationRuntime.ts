@@ -241,7 +241,6 @@ const sendUserMessage = (
       type: "thread.turn.start",
       commandId: CommandId.make(`cmd-turn-${id}`),
       threadId,
-      ...(group ? { respondingBotId: group.respondingBotId } : {}),
       message: {
         messageId: MessageId.make(`message-${id}`),
         role: "user",
@@ -253,6 +252,20 @@ const sendUserMessage = (
       ...(group ? { senderPersonId: group.personId, senderDisplayName: "Designer" } : {}),
       createdAt,
     });
+
+    // Otto: A group's bots answer in rounds; the group round wakes the responding bot.
+    if (group) {
+      yield* engine.dispatch({
+        type: "thread.group-turn.start",
+        commandId: CommandId.make(`cmd-group-turn-${id}`),
+        threadId,
+        botId: group.respondingBotId,
+        messageId: MessageId.make(`message-${id}`),
+        input: "Make me an image",
+        attachments,
+        createdAt,
+      });
+    }
   });
 
 /** Saves a user image the way uploads land on disk. */

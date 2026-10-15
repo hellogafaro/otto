@@ -1,5 +1,4 @@
 import {
-  AuthAccessWriteScope,
   AuthAdministrativeScopes,
   AuthStandardClientScopes,
   type AuthEnvironmentScope,
@@ -15,7 +14,6 @@ import * as NodeSqlite from "node:sqlite";
 import * as Nodemailer from "nodemailer";
 import { ZodError } from "zod";
 import { ServerConfig } from "../config.ts";
-import { PairingGrantStore } from "./PairingGrantStore.ts";
 import { ServerSecretStore } from "./ServerSecretStore.ts";
 import { resolveSessionCookieName } from "./utils.ts";
 import { ServerEnvironmentIdentity } from "../environment/ServerEnvironment.ts";
@@ -61,10 +59,9 @@ export const layer = Layer.effect(
     const config = yield* ServerConfig;
     const environment = yield* ServerEnvironmentIdentity;
     const secrets = yield* ServerSecretStore;
-    const grants = yield* PairingGrantStore;
     const clock = yield* Clock.Clock;
     const variables = yield* HostProcessEnvironment;
-    const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
+
     const database = yield* Effect.acquireRelease(
       Effect.try(() => new NodeSqlite.DatabaseSync(config.dbPath)),
       (connection) => Effect.sync(() => connection.close()),
@@ -73,9 +70,12 @@ export const layer = Layer.effect(
     database.exec(
       "PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;",
     );
+
     const origin =
       config.publicOrigin ?? config.devUrl?.origin ?? `http://localhost:${config.port}`;
+
     const mailConfigured = Boolean(variables.OTTO_SMTP_HOST && variables.OTTO_MAIL_FROM);
+
     const mailer = Nodemailer.createTransport({
       host: variables.OTTO_SMTP_HOST,
       port: Number(variables.OTTO_SMTP_PORT ?? "587"),
@@ -91,6 +91,7 @@ export const layer = Layer.effect(
     yield* Effect.addFinalizer(() => Effect.sync(() => mailer.close()));
     const secret = yield* secrets.getOrCreateRandom("organization-account-signing-key", 32);
     const environmentId = yield* environment.getEnvironmentId;
+
     const runtime = yield* Effect.tryPromise(() =>
       createOrganizationAccountsRuntime({
         database,
@@ -116,22 +117,6 @@ export const layer = Layer.effect(
             });
           }
         },
-        consumeSetupCredential: (credential) =>
-          runPromise(
-            grants
-              .consume(credential)
-              .pipe(
-                Effect.flatMap((grant) =>
-                  grant.scopes.includes(AuthAccessWriteScope)
-                    ? Effect.void
-                    : Effect.fail(new OrganizationAccountsError({})),
-                ),
-              ),
-          ).catch(() => {
-            throw new APIError("FORBIDDEN", {
-              message: "A valid administrative setup link is required.",
-            });
-          }),
       }),
     );
 

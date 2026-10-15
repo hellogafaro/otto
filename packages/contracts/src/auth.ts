@@ -171,21 +171,6 @@ export const ServerAuthDescriptor = Schema.Struct({
 
 export type ServerAuthDescriptor = typeof ServerAuthDescriptor.Type;
 
-export const AuthBrowserSessionRequest = Schema.Struct({
-  credential: TrimmedNonEmptyString,
-});
-
-export type AuthBrowserSessionRequest = typeof AuthBrowserSessionRequest.Type;
-
-export const AuthBrowserSessionResult = Schema.Struct({
-  authenticated: Schema.Literal(true),
-  scopes: AuthEnvironmentScopes,
-  sessionMethod: ServerAuthSessionMethod,
-  expiresAt: Schema.DateTimeUtc,
-});
-
-export type AuthBrowserSessionResult = typeof AuthBrowserSessionResult.Type;
-
 export const AuthClientMetadataDeviceType = Schema.Literals([
   "desktop",
   "mobile",
@@ -238,27 +223,6 @@ export const AuthWebSocketTicketResult = Schema.Struct({
 
 export type AuthWebSocketTicketResult = typeof AuthWebSocketTicketResult.Type;
 
-export const AuthPairingCredentialResult = Schema.Struct({
-  id: TrimmedNonEmptyString,
-  credential: TrimmedNonEmptyString,
-  label: Schema.optionalKey(TrimmedNonEmptyString),
-  expiresAt: Schema.DateTimeUtc,
-});
-
-export type AuthPairingCredentialResult = typeof AuthPairingCredentialResult.Type;
-
-export const AuthPairingLink = Schema.Struct({
-  id: TrimmedNonEmptyString,
-  credential: TrimmedNonEmptyString,
-  scopes: AuthEnvironmentScopes,
-  subject: TrimmedNonEmptyString,
-  label: Schema.optionalKey(TrimmedNonEmptyString),
-  createdAt: Schema.DateTimeUtc,
-  expiresAt: Schema.DateTimeUtc,
-});
-
-export type AuthPairingLink = typeof AuthPairingLink.Type;
-
 export const AuthClientMetadata = Schema.Struct({
   label: Schema.optionalKey(TrimmedNonEmptyString),
   ipAddress: Schema.optionalKey(TrimmedNonEmptyString),
@@ -286,7 +250,6 @@ export const AuthClientSession = Schema.Struct({
 export type AuthClientSession = typeof AuthClientSession.Type;
 
 export const AuthAccessSnapshot = Schema.Struct({
-  pairingLinks: Schema.Array(AuthPairingLink),
   clientSessions: Schema.Array(AuthClientSession),
 });
 
@@ -300,28 +263,6 @@ export const AuthAccessStreamSnapshotEvent = Schema.Struct({
 });
 
 export type AuthAccessStreamSnapshotEvent = typeof AuthAccessStreamSnapshotEvent.Type;
-
-export const AuthAccessStreamPairingLinkUpsertedEvent = Schema.Struct({
-  version: Schema.Literal(1),
-  revision: Schema.Number,
-  type: Schema.Literal("pairingLinkUpserted"),
-  payload: AuthPairingLink,
-});
-
-export type AuthAccessStreamPairingLinkUpsertedEvent =
-  typeof AuthAccessStreamPairingLinkUpsertedEvent.Type;
-
-export const AuthAccessStreamPairingLinkRemovedEvent = Schema.Struct({
-  version: Schema.Literal(1),
-  revision: Schema.Number,
-  type: Schema.Literal("pairingLinkRemoved"),
-  payload: Schema.Struct({
-    id: TrimmedNonEmptyString,
-  }),
-});
-
-export type AuthAccessStreamPairingLinkRemovedEvent =
-  typeof AuthAccessStreamPairingLinkRemovedEvent.Type;
 
 export class AuthAccessStreamError extends Schema.TaggedErrorClass<AuthAccessStreamError>()(
   "AuthAccessStreamError",
@@ -360,32 +301,17 @@ export type AuthAccessStreamClientRemovedEvent = typeof AuthAccessStreamClientRe
 
 export const AuthAccessStreamEvent = Schema.Union([
   AuthAccessStreamSnapshotEvent,
-  AuthAccessStreamPairingLinkUpsertedEvent,
-  AuthAccessStreamPairingLinkRemovedEvent,
   AuthAccessStreamClientUpsertedEvent,
   AuthAccessStreamClientRemovedEvent,
 ]);
 
 export type AuthAccessStreamEvent = typeof AuthAccessStreamEvent.Type;
 
-export const AuthRevokePairingLinkInput = Schema.Struct({
-  id: TrimmedNonEmptyString,
-});
-
-export type AuthRevokePairingLinkInput = typeof AuthRevokePairingLinkInput.Type;
-
 export const AuthRevokeClientSessionInput = Schema.Struct({
   sessionId: AuthSessionId,
 });
 
 export type AuthRevokeClientSessionInput = typeof AuthRevokeClientSessionInput.Type;
-
-export const AuthCreatePairingCredentialInput = Schema.Struct({
-  label: Schema.optionalKey(TrimmedNonEmptyString),
-  scopes: Schema.optionalKey(AuthEnvironmentScopes),
-});
-
-export type AuthCreatePairingCredentialInput = typeof AuthCreatePairingCredentialInput.Type;
 
 export const AuthSessionState = Schema.Struct({
   authenticated: Schema.Boolean,

@@ -28,15 +28,10 @@ import { buildAppUnderTest } from "./serverTestApp.ts";
 import {
   getWsServerUrl,
   withWsRpcClient,
-  exchangeAccessToken,
-  fetchEffect,
-  getHttpServerUrl,
-  responseJsonEffect,
+  getMemberBearerSessionToken,
+  getWsServerUrlForBearer,
 } from "./serverTestClients.ts";
-import {
-  defaultDesktopBootstrapToken,
-  makeDefaultOrchestrationThreadShell,
-} from "./serverTestFixtures.ts";
+import { makeDefaultOrchestrationThreadShell } from "./serverTestFixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("routes durable memory archive RPCs through thread authorization", () =>
@@ -113,24 +108,8 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
 
       assert.equal(v3Error._tag, "OttoMemoryOperationError");
 
-      // A read-scoped token can export and preview, while apply requires the
-      // operate scope declared by RpcAuthorization.
-      const readToken = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:read",
-      });
-
-      assert.equal(readToken.response.status, 200);
-
-      const ticketResponse = yield* fetchEffect(
-        yield* getHttpServerUrl("/api/auth/websocket-ticket"),
-        {
-          method: "POST",
-          headers: { authorization: `Bearer ${readToken.body.access_token ?? ""}` },
-        },
-      );
-
-      const ticketBody = yield* responseJsonEffect<{ readonly ticket: string }>(ticketResponse);
-      const readWsUrl = `${yield* getWsServerUrl("/ws", { authenticated: false })}?wsTicket=${encodeURIComponent(ticketBody.ticket)}`;
+      // Otto: Whole-memory archives are organization admin operations, so a member is denied.
+      const readWsUrl = yield* getWsServerUrlForBearer(yield* getMemberBearerSessionToken());
 
       const deniedApply = yield* Effect.flip(
         Effect.scoped(
@@ -297,28 +276,12 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       assert.isDefined(repositoryRef);
       const repository = repositoryRef!;
 
-      // A read-scoped token can export and preview, while apply requires the
-      // operate scope declared by RpcAuthorization.
-      const readToken = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:read",
-      });
-
-      assert.equal(readToken.response.status, 200);
-
-      const ticketResponse = yield* fetchEffect(
-        yield* getHttpServerUrl("/api/auth/websocket-ticket"),
-        {
-          method: "POST",
-          headers: { authorization: `Bearer ${readToken.body.access_token ?? ""}` },
-        },
-      );
-
-      const ticketBody = yield* responseJsonEffect<{ readonly ticket: string }>(ticketResponse);
-      const readWsUrl = `${yield* getWsServerUrl("/ws", { authenticated: false })}?wsTicket=${encodeURIComponent(ticketBody.ticket)}`;
+      // Otto: Whole-memory archives are organization admin operations, so a member is denied.
+      const memberWsUrl = yield* getWsServerUrlForBearer(yield* getMemberBearerSessionToken());
       const wsUrl = yield* getWsServerUrl("/ws");
 
       const archive = yield* Effect.scoped(
-        withWsRpcClient(readWsUrl, (client) =>
+        withWsRpcClient(wsUrl, (client) =>
           client[WS_METHODS.memoryArchiveExport]({
             threadId,
             target: "thread",
@@ -351,7 +314,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       assert.deepEqual(yield* exportIds("all"), [botRevision.id, seededThreadRevision.id].sort());
 
       const preview = yield* Effect.scoped(
-        withWsRpcClient(readWsUrl, (client) =>
+        withWsRpcClient(wsUrl, (client) =>
           client[WS_METHODS.memoryArchivePreviewImport]({
             threadId,
             target: "thread",
@@ -380,7 +343,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       });
 
       const conflictedPreview = yield* Effect.scoped(
-        withWsRpcClient(readWsUrl, (client) =>
+        withWsRpcClient(wsUrl, (client) =>
           client[WS_METHODS.memoryArchivePreviewImport]({
             threadId,
             target: "thread",
@@ -396,7 +359,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
 
       const deniedApply = yield* Effect.flip(
         Effect.scoped(
-          withWsRpcClient(readWsUrl, (client) =>
+          withWsRpcClient(memberWsUrl, (client) =>
             client[WS_METHODS.memoryArchiveApplyImport]({
               threadId,
               target: "thread",
@@ -518,7 +481,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       for (const candidate of mismatchedArchives) {
         const previewError = yield* Effect.flip(
           Effect.scoped(
-            withWsRpcClient(readWsUrl, (client) =>
+            withWsRpcClient(wsUrl, (client) =>
               client[WS_METHODS.memoryArchivePreviewImport]({
                 threadId,
                 target: "thread",

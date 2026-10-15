@@ -17,15 +17,9 @@ import { AuthSurfaceShell, AuthSurfaceSection } from "./AuthSurfaceShell";
 
 type AccountPage = "setup" | "login" | "invite" | "reset";
 
-type SetupStep = "token" | "account" | "organization";
+type SetupStep = "account" | "organization";
 
 const accountFields = {
-  credential: {
-    label: "Setup token",
-    type: "password",
-    autoComplete: "off",
-    schema: z.string().trim().min(1, "Enter your setup token.").max(512),
-  },
   firstName: {
     label: "First name",
     type: "text",
@@ -61,22 +55,16 @@ const accountFields = {
 type AccountFieldName = keyof typeof accountFields;
 
 const setupSteps = {
-  token: {
-    title: "Enter your setup token",
-    description: "Use the token from your server terminal to authorize setup.",
-    number: 1,
-    fields: ["credential"],
-  },
   account: {
     title: "Create your account",
     description: "You’ll be the first admin of this organization.",
-    number: 2,
+    number: 1,
     fields: ["firstName", "lastName", "email", "password"],
   },
   organization: {
     title: "Name your organization",
     description: "Your organization and its data will be saved on this server.",
-    number: 3,
+    number: 2,
     fields: ["organizationName"],
   },
 } satisfies Record<
@@ -101,11 +89,8 @@ export function OrganizationAccountGate({
       : "login",
   );
 
-  const [setupToken] = useState(
-    () => new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "",
-  );
-
-  const [setupStep, setSetupStep] = useState<SetupStep>(setupToken ? "account" : "token");
+  // Otto: A fresh server's first visitor sets it up; no token, the owner has the server.
+  const [setupStep, setSetupStep] = useState<SetupStep>("account");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -151,7 +136,6 @@ export function OrganizationAccountGate({
 
   const form = useForm({
     defaultValues: {
-      credential: setupToken,
       firstName: "",
       lastName: "",
       email: "",
@@ -164,7 +148,7 @@ export function OrganizationAccountGate({
 
       if (page === "setup" && setupStep !== "organization") {
         form.reset(value, { keepDefaultValues: true });
-        setSetupStep(setupStep === "token" ? "account" : "organization");
+        setSetupStep("organization");
 
         return;
       }
@@ -175,22 +159,14 @@ export function OrganizationAccountGate({
             new URL("/api/organization/setup", baseURL).toString(),
             {
               method: "POST",
-              body: { ...value, credential: value.credential.trim() },
+              body: value,
             },
           );
 
-          if (result.error) {
-            if (result.error.status === 403) {
-              form.reset(value, { keepDefaultValues: true });
-              setSetupStep("token");
-            }
-
-            throw new Error(result.error.message ?? "Organization setup failed.");
-          }
+          if (result.error) throw new Error(result.error.message ?? "Organization setup failed.");
 
           window.history.replaceState({}, "", "/setup");
           form.setFieldValue("password", "");
-          form.setFieldValue("credential", "");
           setNotice(
             "Your organization is ready. Check your email to verify your account, then sign in.",
           );
@@ -309,7 +285,7 @@ export function OrganizationAccountGate({
     <AuthSurfaceShell>
       <AuthSurfaceSection className="gap-2">
         {page === "setup" && !notice ? (
-          <p className="text-xs text-muted-foreground">Step {step.number} of 3</p>
+          <p className="text-xs text-muted-foreground">Step {step.number} of 2</p>
         ) : null}
         <h1 ref={heading} tabIndex={-1} className="text-xl leading-title font-medium outline-none">
           {notice ? (page === "reset" ? "Password reset" : "Check your email") : title}
@@ -458,7 +434,7 @@ export function OrganizationAccountGate({
                   {busy ? <Spinner /> : null}
                   {submitLabel}
                 </Button>
-                {page === "setup" && setupStep !== "token" ? (
+                {page === "setup" && setupStep === "organization" ? (
                   <Button
                     type="button"
                     variant="link"
@@ -467,7 +443,7 @@ export function OrganizationAccountGate({
                     onClick={() => {
                       setError(null);
                       form.reset(form.state.values, { keepDefaultValues: true });
-                      setSetupStep(setupStep === "organization" ? "account" : "token");
+                      setSetupStep("account");
                     }}
                   >
                     Back

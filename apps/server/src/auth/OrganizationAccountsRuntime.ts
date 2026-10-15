@@ -17,7 +17,6 @@ const personName = z
 
 export const OrganizationSetupInput = z
   .object({
-    credential: z.string().min(1).max(512),
     organizationName: personName,
     firstName: personName,
     lastName: personName,
@@ -30,6 +29,7 @@ export const OrganizationSetupInput = z
   .strict();
 
 const organizationRow = z.object({ id: z.string(), name: z.string() });
+
 const principalRow = z.object({
   sessionId: z.string(),
   userId: z.string(),
@@ -70,7 +70,6 @@ export async function createOrganizationAccountsRuntime(options: {
   readonly mailConfigured: boolean;
   readonly now: () => number;
   readonly sendEmail: (mail: AccountMail) => Promise<void>;
-  readonly consumeSetupCredential: (credential: string) => Promise<void>;
 }) {
   const database = options.database;
   const origin = new URL(options.origin).origin;
@@ -170,7 +169,7 @@ export async function createOrganizationAccountsRuntime(options: {
           member: { modelName: "members" },
           invitation: { modelName: "invitations" },
         },
-        sendInvitationEmail: async ({ id, email, organization: organization }) => {
+        sendInvitationEmail: async ({ id, email, organization }) => {
           requireMail();
           const url = new URL(`/invite/${encodeURIComponent(id)}`, origin);
           await options.sendEmail({
@@ -182,6 +181,7 @@ export async function createOrganizationAccountsRuntime(options: {
         organizationHooks: {
           beforeCreateInvitation: async ({ invitation }) => {
             requireMail();
+
             if (invitation.role !== "admin" && invitation.role !== "member") {
               throw new APIError("BAD_REQUEST", { message: "Choose admin or member." });
             }
@@ -190,6 +190,7 @@ export async function createOrganizationAccountsRuntime(options: {
             if (newRole !== "admin" && newRole !== "member") {
               throw new APIError("BAD_REQUEST", { message: "Choose admin or member." });
             }
+
             if (newRole !== "admin") preserveLastAdmin(member);
           },
           beforeRemoveMember: async ({ member }) => preserveLastAdmin(member),
@@ -228,6 +229,7 @@ export async function createOrganizationAccountsRuntime(options: {
   `);
 
   const selectOrganization = database.prepare("SELECT id, name FROM organizations LIMIT 1");
+
   const selectPrincipal = database.prepare(`
     SELECT s.id AS sessionId, s.userId, u.email, u.firstName, u.lastName,
       m.organizationId AS organizationId, m.role, s.expiresAt
@@ -240,6 +242,7 @@ export async function createOrganizationAccountsRuntime(options: {
 
   const getOrganization = () => {
     const row = selectOrganization.get();
+
     return row ? organizationRow.parse(row) : null;
   };
 
@@ -268,22 +271,24 @@ export async function createOrganizationAccountsRuntime(options: {
       sessionId,
       DateTime.formatIso(DateTime.makeUnsafe(options.now())),
     );
+
     return row ? principalRow.parse(row) : null;
   };
 
   const authenticate = async (headers: Headers) => {
     const result = await auth.api.getSession({ headers });
+
     return result ? getPrincipal(result.session.id) : null;
   };
 
   const setup = async (value: unknown) => {
     const input = OrganizationSetupInput.parse(value);
     requireMail();
+
     if (getOrganization()) {
       throw new APIError("CONFLICT", { message: "This organization is already set up. Sign in." });
     }
 
-    await options.consumeSetupCredential(input.credential);
     const context = await auth.$context;
 
     await runWithTransaction(context.adapter, async () => {
@@ -321,6 +326,7 @@ export async function createOrganizationAccountsRuntime(options: {
     "/organization/accept-invitation",
     "/organization/get-invitation",
   ]);
+
   const memberEndpoints = new Set([
     "/update-user",
     "/change-password",
@@ -329,6 +335,7 @@ export async function createOrganizationAccountsRuntime(options: {
     "/revoke-other-sessions",
     "/organization/list-members",
   ]);
+
   const adminEndpoints = new Set([
     "/organization/invite-member",
     "/organization/list-invitations",
@@ -345,6 +352,7 @@ export async function createOrganizationAccountsRuntime(options: {
       requireMail();
       const body = (await request.clone().json()) as Record<string, unknown>;
       const email = z.email().safeParse(body.email);
+
       const invitation =
         typeof body.invitationId === "string"
           ? database
@@ -367,6 +375,7 @@ export async function createOrganizationAccountsRuntime(options: {
       }
     } else if (memberEndpoints.has(path) || adminEndpoints.has(path)) {
       const principal = await authenticate(request.headers);
+
       if (!principal || (adminEndpoints.has(path) && principal.role !== "admin")) {
         return Response.json({ message: "Organization access required." }, { status: 403 });
       }

@@ -166,12 +166,7 @@ export const runUiFixture = Effect.fn("runUiFixture")(function* (
 
     // Refuse protected state before migrations or backups touch the database.
     // A table missing from a partially migrated database counts as empty.
-    for (const table of [
-      "orchestration_events",
-      "auth_sessions",
-      "auth_pairing_links",
-      "provider_session_runtime",
-    ]) {
+    for (const table of ["orchestration_events", "auth_sessions", "provider_session_runtime"]) {
       const present = yield* sql<{ count: number }>`SELECT COUNT(*) AS count
         FROM sqlite_master WHERE type = 'table' AND name = ${table}`;
 

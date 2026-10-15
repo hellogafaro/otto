@@ -20,7 +20,21 @@ export const defaultProjectId = ProjectId.make("project-default");
 
 export const defaultThreadId = ThreadId.make("thread-default");
 
-export const defaultDesktopBootstrapToken = "test-desktop-bootstrap-token";
+/** Otto: The verified organization admin every router test signs in as. */
+export const defaultTestAccount = {
+  email: "admin@example.test",
+  password: "otto-test-password",
+  firstName: "Test",
+  lastName: "Admin",
+} as const;
+
+/** Otto: A non-admin organization member, for checks that need standard client scopes. */
+export const defaultTestMemberAccount = {
+  email: "member@example.test",
+  password: defaultTestAccount.password,
+  firstName: "Test",
+  lastName: "Member",
+} as const;
 
 export const defaultModelSelection = {
   instanceId: ProviderInstanceId.make("codex"),

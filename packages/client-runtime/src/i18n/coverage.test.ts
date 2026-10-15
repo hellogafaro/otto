@@ -109,7 +109,6 @@ function literals(source: string, pattern: RegExp): string[] {
 function finiteLabelSources() {
   const settings = read("apps/web/src/components/settings/settingsSearch.ts");
   const dialog = read("apps/web/src/components/settings/SettingsDialog.tsx");
-  const pairing = read("apps/web/src/components/auth/PairingRouteSurface.tsx");
   const dictation = read("apps/mobile/src/components/DictationControls.tsx");
 
   return {
@@ -120,10 +119,6 @@ function finiteLabelSources() {
     "SettingsDialog: group.label and item.label (SETTINGS_NAV_GROUPS)": literals(
       between(dialog, "export const SETTINGS_NAV_GROUPS:", "\n];"),
       /\blabel:\s*("(?:[^"\\]|\\.)*")/g,
-    ),
-    "PairingRouteSurface: describeAuthGate / describeSupportedMethods": literals(
-      pairing.slice(pairing.indexOf("function describeAuthGate(")),
-      /\breturn\s*("(?:[^"\\]|\\.)*")/g,
     ),
     "DictationControls (mobile): announcements[status]": literals(
       between(dictation, "const announcements = {", "\n};"),

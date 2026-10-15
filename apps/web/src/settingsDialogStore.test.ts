@@ -76,7 +76,6 @@ describe("settings dialog store", () => {
 
 describe("legacy settings deep links", () => {
   it("maps a known settings path onto its section", () => {
-    expect(settingsSectionFromPathname("/settings/connections")).toBe("connections");
     expect(settingsSectionFromPathname("/settings/advanced")).toBe("advanced");
     expect(settingsSectionFromPathname("/settings/channels")).toBe("channels");
     expect(settingsSectionFromPathname("/settings/sandbox")).toBe("sandbox");

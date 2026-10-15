@@ -1,10 +1,4 @@
-import {
-  EnvironmentAuthInvalidError,
-  type AuthBrowserSessionResult,
-  type AuthCreatePairingCredentialInput,
-  type AuthSessionState,
-  type DesktopBridge,
-} from "@otto/contracts";
+import { type AuthSessionState, type DesktopBridge } from "@otto/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import { HttpClientError, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
@@ -23,14 +17,14 @@ type TestWindow = {
 
 const LOOPBACK_AUTH = {
   policy: "loopback-browser",
-  bootstrapMethods: ["one-time-token"],
+  bootstrapMethods: ["email-password"],
   sessionMethods: ["browser-session-cookie"],
   sessionCookieName: "ottoLegacy_session",
 } as const;
 
 const DESKTOP_AUTH = {
   policy: "desktop-managed-local",
-  bootstrapMethods: ["desktop-bootstrap"],
+  bootstrapMethods: ["email-password"],
   sessionMethods: ["browser-session-cookie"],
   sessionCookieName: "ottoLegacy_session",
 } as const;
@@ -45,13 +39,6 @@ const unauthenticatedSession = (auth: AuthSessionState["auth"]): AuthSessionStat
 const authenticatedSession = (auth: AuthSessionState["auth"]): AuthSessionState => ({
   authenticated: true,
   auth,
-  sessionMethod: "browser-session-cookie",
-  expiresAt: SESSION_EXPIRES_AT,
-});
-
-const browserSession = (scopes: AuthBrowserSessionResult["scopes"]): AuthBrowserSessionResult => ({
-  authenticated: true,
-  scopes,
   sessionMethod: "browser-session-cookie",
   expiresAt: SESSION_EXPIRES_AT,
 });
@@ -72,21 +59,6 @@ function installTestBrowser(url: string) {
   return testWindow;
 }
 
-function installDesktopBootstrap() {
-  const testWindow = installTestBrowser("http://localhost/");
-  testWindow.desktopBridge = {
-    getLocalEnvironmentBootstraps: () => [
-      {
-        id: "primary",
-        label: "Local environment",
-        httpBaseUrl: "http://localhost:3773",
-        wsBaseUrl: "ws://localhost:3773",
-        bootstrapToken: "desktop-bootstrap-token",
-      },
-    ],
-  };
-}
-
 function sequence<A>(...values: ReadonlyArray<A>) {
   let index = 0;
 
@@ -95,27 +67,10 @@ function sequence<A>(...values: ReadonlyArray<A>) {
 
 let disposeHttpTest: (() => Promise<void>) | undefined;
 
-async function installAuthApi(input: {
-  readonly session?: () => AuthSessionState;
-  readonly browserSession?: (
-    credential: string,
-  ) => Effect.Effect<AuthBrowserSessionResult, EnvironmentAuthInvalidError>;
-  readonly pairingCredential?: (payload: AuthCreatePairingCredentialInput) => Effect.Effect<{
-    readonly id: string;
-    readonly credential: string;
-    readonly label?: string;
-    readonly expiresAt: DateTime.Utc;
-  }>;
-}) {
-  const testApi = await installEnvironmentHttpTest({
-    ...(input.session ? { session: () => Effect.succeed(input.session!()) } : {}),
-    ...(input.browserSession
-      ? { browserSession: (payload) => input.browserSession!(payload.credential) }
-      : {}),
-    ...(input.pairingCredential
-      ? { pairingCredential: (payload) => input.pairingCredential!(payload) }
-      : {}),
-  });
+async function installAuthApi(input: { readonly session?: () => AuthSessionState }) {
+  const testApi = await installEnvironmentHttpTest(
+    input.session ? { session: () => Effect.succeed(input.session!()) } : {},
+  );
 
   disposeHttpTest = testApi.dispose;
 
@@ -140,36 +95,17 @@ describe("resolveInitialServerAuthGateState", () => {
     vi.restoreAllMocks();
   });
 
-  it("reuses an in-flight silent bootstrap attempt", async () => {
-    const nextSession = sequence(
-      unauthenticatedSession(DESKTOP_AUTH),
-      authenticatedSession(DESKTOP_AUTH),
-    );
-
+  it("reuses an in-flight session read", async () => {
     const testApi = await installAuthApi({
-      session: nextSession,
-      browserSession: () => Effect.succeed(browserSession(["orchestration:read", "access:write"])),
+      session: sequence(authenticatedSession(LOOPBACK_AUTH), unauthenticatedSession(LOOPBACK_AUTH)),
     });
-
-    const testWindow = installTestBrowser("http://localhost/");
-    testWindow.desktopBridge = {
-      getLocalEnvironmentBootstraps: () => [
-        {
-          id: "primary",
-          label: "Windows",
-          httpBaseUrl: "http://localhost:3773",
-          wsBaseUrl: "ws://localhost:3773",
-          bootstrapToken: "desktop-bootstrap-token",
-        },
-      ],
-    };
 
     const { resolveInitialServerAuthGateState } = await import("./environments/primary");
 
-    await Promise.all([resolveInitialServerAuthGateState(), resolveInitialServerAuthGateState()]);
-
-    expect(testApi.calls.session).toBe(2);
-    expect(testApi.calls.browserSession).toEqual([{ credential: "desktop-bootstrap-token" }]);
+    await expect(
+      Promise.all([resolveInitialServerAuthGateState(), resolveInitialServerAuthGateState()]),
+    ).resolves.toEqual([{ status: "authenticated" }, { status: "authenticated" }]);
+    expect(testApi.calls.session).toBe(1);
   });
 
   it("uses https urls when the primary environment uses wss", async () => {
@@ -233,7 +169,7 @@ describe("resolveInitialServerAuthGateState", () => {
     );
   });
 
-  it("returns a requires-auth state instead of throwing when no bootstrap credential exists", async () => {
+  it("returns a requires-auth state instead of throwing when nobody is signed in", async () => {
     await installAuthApi({ session: () => unauthenticatedSession(LOOPBACK_AUTH) });
     const { resolveInitialServerAuthGateState } = await import("./environments/primary");
 
@@ -279,196 +215,21 @@ describe("resolveInitialServerAuthGateState", () => {
     expect(attempts).toBe(4);
   });
 
-  it("takes a pairing token from the location hash and strips it immediately", async () => {
-    const testWindow = installTestBrowser("http://localhost/#token=pairing-token");
-    const { takePairingTokenFromUrl } = await import("./environments/primary");
-
-    expect(takePairingTokenFromUrl()).toBe("pairing-token");
-    expect(testWindow.location.hash).toBe("");
-    expect(testWindow.location.searchParams.get("token")).toBeNull();
-  });
-
-  it("exchanges an explicit pairing token when a browser session already exists", async () => {
-    const testWindow = installTestBrowser("http://localhost/#token=admin-bootstrap-token");
-
-    const testApi = await installAuthApi({
-      session: () => authenticatedSession(LOOPBACK_AUTH),
-      browserSession: () => Effect.succeed(browserSession(["orchestration:read", "access:write"])),
-    });
-
-    const { resolveInitialServerAuthGateState } = await import("./environments/primary");
-
-    await expect(resolveInitialServerAuthGateState()).resolves.toEqual({
-      status: "authenticated",
-    });
-    expect(testApi.calls.browserSession).toEqual([{ credential: "admin-bootstrap-token" }]);
-    expect(testWindow.location.hash).toBe("");
-  });
-
-  it("accepts query-string pairing tokens as a backward-compatible fallback", async () => {
-    const testWindow = installTestBrowser("http://localhost/?token=pairing-token");
-    const { takePairingTokenFromUrl } = await import("./environments/primary");
-
-    expect(takePairingTokenFromUrl()).toBe("pairing-token");
-    expect(testWindow.location.searchParams.get("token")).toBeNull();
-  });
-
-  it("allows manual token submission after the initial auth check requires pairing", async () => {
-    const nextSession = sequence(
-      unauthenticatedSession(LOOPBACK_AUTH),
-      authenticatedSession(LOOPBACK_AUTH),
-    );
-
-    const testApi = await installAuthApi({
-      session: nextSession,
-      browserSession: () => Effect.succeed(browserSession(["orchestration:read"])),
-    });
-
-    const { resolveInitialServerAuthGateState, submitServerAuthCredential } =
-      await import("./environments/primary");
-
-    await expect(resolveInitialServerAuthGateState()).resolves.toEqual({
-      status: "requires-auth",
-      auth: LOOPBACK_AUTH,
-    });
-    await expect(submitServerAuthCredential("retry-token")).resolves.toBeUndefined();
-    await expect(resolveInitialServerAuthGateState()).resolves.toEqual({
-      status: "authenticated",
-    });
-    expect(testApi.calls.browserSession).toEqual([{ credential: "retry-token" }]);
-    expect(testApi.calls.session).toBe(2);
-  });
-
-  it("rejects a blank pairing token with a structured validation error", async () => {
-    const { PrimaryEnvironmentPairingCredentialRequiredError, submitServerAuthCredential } =
-      await import("./environments/primary/auth");
-
-    const error = await submitServerAuthCredential("   ").then(
-      () => null,
-      (cause: unknown) => cause,
-    );
-
-    expect(error).toBeInstanceOf(PrimaryEnvironmentPairingCredentialRequiredError);
-    expect(error).toMatchObject({
-      _tag: "PrimaryEnvironmentPairingCredentialRequiredError",
-      providedLength: 3,
-      message: "Enter a pairing token to continue.",
-    });
-  });
-
-  it("surfaces a friendly error message when an invalid pairing token is submitted", async () => {
-    const cause = new EnvironmentAuthInvalidError({
-      code: "auth_invalid",
-      reason: "invalid_credential",
-      traceId: "trace-invalid-credential",
-    });
-
-    const testApi = await installAuthApi({
-      browserSession: () => Effect.fail(cause),
-    });
-
-    const { isPrimaryEnvironmentPairingCredentialRejectedError, submitServerAuthCredential } =
-      await import("./environments/primary");
-
-    const error = await submitServerAuthCredential("bad-token").then(
-      () => null,
-      (cause: unknown) => cause,
-    );
-
-    expect(error).toMatchObject({
-      _tag: "PrimaryEnvironmentPairingCredentialRejectedError",
-      providedLength: 9,
-      message: "Invalid pairing token. Check the token and try again.",
-    });
-    expect(isPrimaryEnvironmentPairingCredentialRejectedError(error)).toBe(true);
-
-    if (!isPrimaryEnvironmentPairingCredentialRejectedError(error)) {
-      throw new Error("Expected a structured rejected pairing credential error.");
-    }
-
-    expect(error.cause).toMatchObject({
-      _tag: "EnvironmentAuthInvalidError",
-      code: "auth_invalid",
-      reason: "invalid_credential",
-      traceId: "trace-invalid-credential",
-    });
-    expect(testApi.calls.browserSession).toEqual([{ credential: "bad-token" }]);
-  });
-
   it("derives primary request messages from structural request context", async () => {
     const cause = new Error("private transport detail");
     const { PrimaryEnvironmentRequestError } = await import("./environments/primary");
 
     const error = PrimaryEnvironmentRequestError.fromCause({
-      operation: "list-pairing-links",
+      operation: "list-client-sessions",
       cause,
     });
 
     expect(error.status).toBe(500);
     expect(error.cause).toBe(cause);
     expect(error.message).toBe(
-      "Primary environment request failed during list-pairing-links (HTTP 500).",
+      "Primary environment request failed during list-client-sessions (HTTP 500).",
     );
     expect(error.message).not.toContain(cause.message);
-  });
-
-  it("waits for the authenticated session to become observable after silent desktop bootstrap", async () => {
-    vi.useFakeTimers();
-
-    const nextSession = sequence(
-      unauthenticatedSession(DESKTOP_AUTH),
-      unauthenticatedSession(DESKTOP_AUTH),
-      authenticatedSession(DESKTOP_AUTH),
-    );
-
-    const testApi = await installAuthApi({
-      session: nextSession,
-      browserSession: () => Effect.succeed(browserSession(["orchestration:read", "access:write"])),
-    });
-
-    const testWindow = installTestBrowser("http://localhost/");
-    testWindow.desktopBridge = {
-      getLocalEnvironmentBootstraps: () => [
-        {
-          id: "primary",
-          label: "Windows",
-          httpBaseUrl: "http://localhost:3773",
-          wsBaseUrl: "ws://localhost:3773",
-          bootstrapToken: "desktop-bootstrap-token",
-        },
-      ],
-    };
-
-    const { resolveInitialServerAuthGateState } = await import("./environments/primary");
-
-    const gateStatePromise = resolveInitialServerAuthGateState();
-    await vi.advanceTimersByTimeAsync(100);
-
-    await expect(gateStatePromise).resolves.toEqual({ status: "authenticated" });
-    expect(testApi.calls.session).toBe(3);
-  });
-
-  it("preserves the timeout message when a bootstrapped session never becomes observable", async () => {
-    vi.useFakeTimers();
-
-    const testApi = await installAuthApi({
-      session: () => unauthenticatedSession(DESKTOP_AUTH),
-      browserSession: () => Effect.succeed(browserSession(["orchestration:read", "access:write"])),
-    });
-
-    installDesktopBootstrap();
-
-    const { resolveInitialServerAuthGateState } = await import("./environments/primary");
-
-    const gateStatePromise = resolveInitialServerAuthGateState();
-    await vi.advanceTimersByTimeAsync(2_000);
-
-    await expect(gateStatePromise).resolves.toEqual({
-      status: "requires-auth",
-      auth: DESKTOP_AUTH,
-      errorMessage: "Timed out waiting for authenticated session after bootstrap.",
-    });
-    expect(testApi.calls.browserSession).toEqual([{ credential: "desktop-bootstrap-token" }]);
   });
 
   it("memoizes the authenticated gate state after the first successful read", async () => {
@@ -485,34 +246,5 @@ describe("resolveInitialServerAuthGateState", () => {
       status: "authenticated",
     });
     expect(testApi.calls.session).toBe(1);
-  });
-
-  it("creates a pairing credential from the authenticated auth endpoint", async () => {
-    const testApi = await installAuthApi({
-      pairingCredential: (payload) =>
-        Effect.succeed({
-          id: "pairing-link-1",
-          credential: "pairing-token",
-          ...(payload.label === undefined ? {} : { label: payload.label }),
-          expiresAt: SESSION_EXPIRES_AT,
-        }),
-    });
-
-    const { createServerPairingCredential } = await import("./environments/primary");
-
-    const credential = await createServerPairingCredential({
-      label: "Julius iPhone",
-      scopes: ["orchestration:read"],
-    });
-
-    expect(credential).toMatchObject({
-      id: "pairing-link-1",
-      credential: "pairing-token",
-      label: "Julius iPhone",
-    });
-    expect(DateTime.formatIso(credential.expiresAt)).toBe("2026-04-05T00:00:00.000Z");
-    expect(testApi.calls.pairingCredential).toEqual([
-      { label: "Julius iPhone", scopes: ["orchestration:read"] },
-    ]);
   });
 });

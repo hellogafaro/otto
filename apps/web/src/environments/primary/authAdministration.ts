@@ -1,7 +1,6 @@
 import type {
   AuthClientMetadata,
   AuthEnvironmentScope,
-  AuthPairingCredentialResult,
   ServerAuthSessionMethod,
   AuthSessionId,
 } from "@otto/contracts";
@@ -10,16 +9,6 @@ import * as Effect from "effect/Effect";
 import { PrimaryEnvironmentHttpClient } from "./httpClient";
 import { runPrimaryHttp } from "../../lib/runtime";
 import { PrimaryEnvironmentRequestError } from "./authErrors";
-
-export interface ServerPairingLinkRecord {
-  readonly id: string;
-  readonly credential: string;
-  readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
-  readonly subject: string;
-  readonly label?: string;
-  readonly createdAt: string;
-  readonly expiresAt: string;
-}
 
 export interface ServerClientSessionRecord {
   readonly sessionId: AuthSessionId;
@@ -32,93 +21,6 @@ export interface ServerClientSessionRecord {
   readonly lastConnectedAt: string | null;
   readonly connected: boolean;
   readonly current: boolean;
-}
-
-export async function createServerPairingCredential(input?: {
-  readonly label?: string;
-  readonly scopes?: ReadonlyArray<AuthEnvironmentScope>;
-}): Promise<AuthPairingCredentialResult> {
-  const trimmedLabel = input?.label?.trim();
-
-  try {
-    return await runPrimaryHttp(
-      PrimaryEnvironmentHttpClient.pipe(
-        Effect.flatMap((client) =>
-          client.auth.pairingCredential({
-            headers: {},
-            payload: {
-              ...(trimmedLabel ? { label: trimmedLabel } : {}),
-              ...(input?.scopes ? { scopes: input.scopes } : {}),
-            },
-          }),
-        ),
-      ),
-    );
-  } catch (error) {
-    throw PrimaryEnvironmentRequestError.fromCause({
-      operation: "create-pairing-credential",
-      cause: error,
-    });
-  }
-}
-
-export async function listServerPairingLinks(): Promise<ReadonlyArray<ServerPairingLinkRecord>> {
-  try {
-    const pairingLinks = await runPrimaryHttp(
-      PrimaryEnvironmentHttpClient.pipe(
-        Effect.flatMap((client) => client.auth.pairingLinks({ headers: {} })),
-      ),
-    );
-
-    return pairingLinks.map((pairingLink) => {
-      const timestamps = {
-        createdAt: DateTime.formatIso(pairingLink.createdAt),
-        expiresAt: DateTime.formatIso(pairingLink.expiresAt),
-      };
-
-      if (pairingLink.label === undefined) {
-        return {
-          id: pairingLink.id,
-          credential: pairingLink.credential,
-          scopes: pairingLink.scopes,
-          subject: pairingLink.subject,
-          createdAt: timestamps.createdAt,
-          expiresAt: timestamps.expiresAt,
-        };
-      }
-
-      return {
-        id: pairingLink.id,
-        credential: pairingLink.credential,
-        scopes: pairingLink.scopes,
-        subject: pairingLink.subject,
-        label: pairingLink.label,
-        createdAt: timestamps.createdAt,
-        expiresAt: timestamps.expiresAt,
-      };
-    });
-  } catch (error) {
-    throw PrimaryEnvironmentRequestError.fromCause({
-      operation: "list-pairing-links",
-      cause: error,
-    });
-  }
-}
-
-export async function revokeServerPairingLink(id: string): Promise<void> {
-  try {
-    await runPrimaryHttp(
-      PrimaryEnvironmentHttpClient.pipe(
-        Effect.flatMap((client) => client.auth.revokePairingLink({ headers: {}, payload: { id } })),
-      ),
-    );
-  } catch (error) {
-    throw PrimaryEnvironmentRequestError.fromCause({
-      operation: "revoke-pairing-link",
-      pairingLinkId: id,
-      cause: error,
-    });
-  }
 }
 
 export async function listServerClientSessions(): Promise<

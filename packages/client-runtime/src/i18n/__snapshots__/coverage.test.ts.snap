@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1915,
+  "directMessageCount": 1886,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -47,10 +47,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "status.label)}",
       "stateNote)}</Text> : null}",
       "tone.label)}",
-    ],
-    "apps/web/src/components/auth/PairingRouteSurface.tsx": [
-      "describeAuthGate(auth.bootstrapMethods))}",
-      "supportedMethodsNote)}",
     ],
     "apps/web/src/components/chat/SettingsLinkChip.tsx": [
       "destination.label) });",
@@ -239,19 +235,12 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Dictation canceled.",
       "Dictation failed. Try again.",
     ],
-    "PairingRouteSurface: describeAuthGate / describeSupportedMethods": [
-      "Paste the pairing credential from the desktop app to connect.",
-      "Paste the pairing token from your link to connect.",
-      "This environment accepts desktop pairing and one-time pairing tokens.",
-      "The desktop app manages this environment. Open it there, or paste a credential it issued.",
-    ],
     "SettingsDialog: group.label and item.label (SETTINGS_NAV_GROUPS)": [
       "App",
       "General",
       "Usage",
       "Appearance",
       "Keyboard",
-      "Connections",
       "Privacy & data",
       "Archived",
       "Advanced",
@@ -323,7 +312,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Default browser zoom",
       "Default browser appearance",
       "Bot channels",
-      "Remote environments",
     ],
   },
   "surfaces": [
@@ -410,8 +398,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/DetailsAside.tsx",
     "apps/web/src/components/PromptDialog.tsx",
     "apps/web/src/components/RichTextEditor.tsx",
-    "apps/web/src/components/auth/PairingPanel.tsx",
-    "apps/web/src/components/auth/PairingRouteSurface.tsx",
     "apps/web/src/components/chat/ChatActionsMenu.tsx",
     "apps/web/src/components/chat/ComposerBannerStack.tsx",
     "apps/web/src/components/chat/ComposerPendingApprovalActions.tsx",
@@ -551,7 +537,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/ChannelProjectSelect.tsx",
     "apps/web/src/components/settings/ChannelSetupDialog.tsx",
     "apps/web/src/components/settings/ChannelStatus.tsx",
-    "apps/web/src/components/settings/DesktopBackendRows.tsx",
     "apps/web/src/components/settings/GeneralSettingsPanel.tsx",
     "apps/web/src/components/settings/ImageGenerationSettings.tsx",
     "apps/web/src/components/settings/InboxPanel.tsx",
@@ -588,7 +573,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/portabilityPresentation.ts",
     "apps/web/src/components/settings/settingsLayout.tsx",
     "apps/web/src/components/settings/subscriptionProviders.ts",
-    "apps/web/src/components/settings/useDesktopBackendSettings.ts",
     "apps/web/src/components/settings/useSettingsRestore.ts",
     "apps/web/src/components/settings/useSubscriptionAccounts.ts",
     "apps/web/src/components/sidebar/ExperimentalSidebar.tsx",

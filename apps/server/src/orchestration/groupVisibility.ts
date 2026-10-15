@@ -157,15 +157,17 @@ export function withGroupVisibility<E, R>(input: {
   readonly personId: AuthSessionId;
   readonly loadSnapshot: Effect.Effect<OrchestrationShellSnapshot, E, R>;
   readonly loadChatThreads: Effect.Effect<ReadonlyArray<LibraryChatThread>, E, R>;
-  /** Resuming clients may hold groups cached before they were hidden. */
+  /**
+   * Resuming clients may hold groups cached before they were hidden. Otto: Set only when the
+   * stream replays events instead of opening with a snapshot, which seeds the filter itself.
+   */
   readonly resuming: boolean;
 }): Effect.Effect<Stream.Stream<OrchestrationShellStreamItem, E, R>, E, R> {
   return Effect.gen(function* () {
     const { personId } = input;
-    const initial = yield* input.loadSnapshot;
-    let chatThreads = yield* input.loadChatThreads;
-    const groups = new Map<GroupId, GroupMembers>(initial.groups.map((group) => [group.id, group]));
-    let folders = initial.libraryFolders ?? [];
+    let chatThreads: ReadonlyArray<LibraryChatThread> = [];
+    const groups = new Map<GroupId, GroupMembers>();
+    let folders: ReadonlyArray<LibraryFolder> = [];
 
     const visible = (groupId: GroupId) => {
       const group = groups.get(groupId);
@@ -276,7 +278,11 @@ export function withGroupVisibility<E, R>(input: {
       Stream.flatMap((items) => Stream.fromIterable<OrchestrationShellStreamItem>(items)),
     );
 
-    const reset = visibleShellSnapshot(initial, personId, chatThreads);
+    if (!input.resuming) return filtered;
+
+    const initial = yield* input.loadSnapshot;
+    chatThreads = yield* input.loadChatThreads;
+    const reset = remember(initial);
 
     const hidesAny =
       initial.groups.some((group) => !canSeeGroup(group, personId)) ||
@@ -286,7 +292,7 @@ export function withGroupVisibility<E, R>(input: {
       (reset.mcpServers?.length ?? 0) !== (initial.mcpServers?.length ?? 0) ||
       (reset.routines?.length ?? 0) !== (initial.routines?.length ?? 0);
 
-    if (!input.resuming || !hidesAny) return filtered;
+    if (!hidesAny) return filtered;
 
     return Stream.concat(Stream.make({ kind: "snapshot" as const, snapshot: reset }), filtered);
   });

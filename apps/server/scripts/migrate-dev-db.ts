@@ -8,8 +8,8 @@
  *      most recently updated projects and, per project, the most recent
  *      threads that have fully stopped. Working, settled, and monitored
  *      threads are skipped so the dev server never adopts live work.
- *      Auth sessions, pairing links, command receipts, and provider
- *      runtime rows are dropped — pair a fresh browser against dev.
+ *      Auth sessions, command receipts, and provider runtime rows are
+ *      dropped — sign in again against dev.
  *   3. Runs migrations on the result. Because the clone carries the real
  *      `effect_sql_migrations` table, this proves a new migration applies
  *      on top of the real applied set, and the slot check below catches

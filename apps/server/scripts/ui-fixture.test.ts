@@ -97,7 +97,6 @@ it.layer(NodeServices.layer)("ui-fixture", (it) => {
             sql: `SELECT
           (SELECT COUNT(*) FROM orchestration_events) AS events,
           (SELECT COUNT(*) FROM auth_sessions) AS sessions,
-          (SELECT COUNT(*) FROM auth_pairing_links) AS links,
           (SELECT COUNT(*) FROM provider_session_runtime) AS providers,
           (SELECT COUNT(*) FROM projection_thread_messages) AS messages`,
           });
@@ -107,7 +106,6 @@ it.layer(NodeServices.layer)("ui-fixture", (it) => {
               {
                 events: 0,
                 sessions: 0,
-                links: 0,
                 providers: 0,
                 messages: scenario === "empty" ? 0 : 4,
               },
@@ -210,9 +208,9 @@ it.layer(NodeServices.layer)("ui-fixture", (it) => {
         yield* runSqliteState({
           operation: "exec",
           baseDir,
-          sql: `INSERT INTO auth_pairing_links
-        (id, credential, method, scopes, subject, created_at, expires_at)
-        VALUES ('synthetic', 'not-a-real-credential', 'pairing', '[]', 'test', '2026-01-01', '2026-01-02')`,
+          sql: `INSERT INTO auth_sessions
+        (session_id, subject, scopes, method, issued_at, expires_at)
+        VALUES ('synthetic', 'test', '[]', 'browser-session-cookie', '2026-01-01', '2026-01-02')`,
         });
         const before = yield* fs.readDirectory(path.dirname(fixture.database));
         const error = yield* runUiFixture({ baseDir, scenario: "empty" }).pipe(Effect.flip);

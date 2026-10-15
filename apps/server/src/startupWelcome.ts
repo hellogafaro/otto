@@ -17,7 +17,6 @@ import * as ServerConfig from "./config.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
 import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
 import * as ProjectionSnapshotQuery from "./orchestration/Services/ProjectionSnapshotQuery.ts";
-import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
 import { formatHostForUrl, isWildcardHost } from "./startupAccess.ts";
 
 export const getAutoBootstrapDefaultModelSelection = (): ModelSelection => ({
@@ -122,7 +121,6 @@ export const resolveAutoBootstrapWelcomeTargets = Effect.gen(function* () {
 
 export const resolveStartupBrowserTarget = Effect.gen(function* () {
   const serverConfig = yield* ServerConfig.ServerConfig;
-  const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
   const localUrl = `http://localhost:${serverConfig.port}`;
 
   const bindUrl =
@@ -130,13 +128,8 @@ export const resolveStartupBrowserTarget = Effect.gen(function* () {
       ? `http://${formatHostForUrl(serverConfig.host)}:${serverConfig.port}`
       : localUrl;
 
-  const baseTarget = serverConfig.publicOrigin ?? serverConfig.devUrl?.toString() ?? bindUrl;
-
-  return yield* Effect.succeed(serverConfig.mode === "desktop" ? baseTarget : undefined).pipe(
-    Effect.flatMap((target) =>
-      target ? Effect.succeed(target) : serverAuth.issueStartupPairingUrl(baseTarget),
-    ),
-  );
+  // Otto: The app itself shows setup until an owner claims it, then sign-in.
+  return serverConfig.publicOrigin ?? serverConfig.devUrl?.toString() ?? bindUrl;
 });
 
 export const maybeOpenBrowser = (target: string) =>

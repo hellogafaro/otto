@@ -1,3 +1,6 @@
+import { hashPassword } from "better-auth/crypto";
+import * as NodeSqlite from "node:sqlite";
+
 import { ActivityStore } from "./activity/ActivityStore.ts";
 import { ProviderInstanceRegistryMutator } from "./provider/Services/ProviderInstanceRegistryMutator.ts";
 import {
@@ -131,7 +134,8 @@ import { RoutineRepository, type RoutineRepositoryShape } from "./routines/Repos
 import { RoutineRuntime, type RoutineRuntimeShape } from "./routines/Runtime.ts";
 
 import {
-  defaultDesktopBootstrapToken,
+  defaultTestMemberAccount,
+  defaultTestAccount,
   TEST_EPOCH,
   defaultOrchestrationReadModel,
   defaultThreadId,
@@ -140,7 +144,72 @@ import {
 
 import { authTestLayer } from "./serverTestClients.ts";
 
+// Otto: Hashing once keeps every router test from paying for scrypt.
+let testPasswordHash: Promise<string> | undefined;
+
+/**
+ * Otto: Seeds a verified admin and a member in one organization, as finished setup and an
+ * accepted invite leave it, so router tests sign in through the real accounts endpoint.
+ */
+const seedTestAccount = (dbPath: string) =>
+  Effect.promise(async () => {
+    testPasswordHash ??= hashPassword(defaultTestAccount.password);
+    const password = await testPasswordHash;
+    const database = new NodeSqlite.DatabaseSync(dbPath);
+    const now = "2026-01-01T00:00:00.000Z";
+
+    try {
+      database.exec("BEGIN");
+      database
+        .prepare(
+          `INSERT INTO organizations (id, name, slug, createdAt)
+           VALUES ('organization-test', 'Test organization', 'organization', ?)`,
+        )
+        .run(now);
+
+      for (const [key, account, role] of [
+        ["admin", defaultTestAccount, "admin"],
+        ["member", defaultTestMemberAccount, "member"],
+      ] as const) {
+        const userId = `user-test-${key}`;
+
+        database
+          .prepare(
+            `INSERT INTO users (id, name, email, emailVerified, createdAt, updatedAt, firstName, lastName)
+             VALUES (?, ?, ?, 1, ?, ?, ?, ?)`,
+          )
+          .run(
+            userId,
+            `${account.firstName} ${account.lastName}`,
+            account.email,
+            now,
+            now,
+            account.firstName,
+            account.lastName,
+          );
+        database
+          .prepare(
+            `INSERT INTO accounts (id, accountId, providerId, userId, password, createdAt, updatedAt)
+             VALUES (?, ?, 'credential', ?, ?, ?, ?)`,
+          )
+          .run(`account-test-${key}`, userId, userId, password, now, now);
+        database
+          .prepare(
+            `INSERT INTO members (id, organizationId, userId, role, createdAt)
+             VALUES (?, 'organization-test', ?, ?, ?)`,
+          )
+          .run(`member-test-${key}`, userId, role, now);
+      }
+
+      database.exec("COMMIT");
+    } finally {
+      database.close();
+    }
+  });
+
 export const buildAppUnderTest = (options?: {
+  /** Leaves the organization unset, for setup tests. */
+  seedAccount?: boolean;
   durableMemory?: {
     readonly seed?: (
       repository: EntityMemoryRepositoryShape,
@@ -216,7 +285,6 @@ export const buildAppUnderTest = (options?: {
       devAllowedOrigins: [],
       noBrowser: true,
       startupPresentation: "browser",
-      desktopBootstrapToken: defaultDesktopBootstrapToken,
       autoBootstrapProjectFromCwd: false,
       logWebSocketEvents: false,
       tailscaleServeEnabled: false,
@@ -808,6 +876,8 @@ export const buildAppUnderTest = (options?: {
     );
 
     yield* Layer.build(Layer.fresh(appLayer));
+
+    if (options?.seedAccount !== false) yield* seedTestAccount(config.dbPath);
 
     return config;
   });

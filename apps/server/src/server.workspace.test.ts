@@ -68,9 +68,9 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "otto-ws-close-" });
-      const target = path.join(cwd, "read.txt");
-
-      yield* fs.writeFileString(target, "content");
+      yield* fs.writeFileString(path.join(cwd, "read.txt"), "content");
+      // Otto: macOS temp dirs sit behind a /var symlink, and reads open the real path.
+      const target = yield* fs.realPath(path.join(cwd, "read.txt"));
 
       const closeError = PlatformError.systemError({
         _tag: "Unknown",

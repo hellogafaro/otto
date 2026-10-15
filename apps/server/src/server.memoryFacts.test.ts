@@ -20,18 +20,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type EntityMemoryRepositoryShape } from "./memory/Services/EntityMemoryRepository.ts";
 
-import {
-  makeDefaultOrchestrationThreadShell,
-  defaultDesktopBootstrapToken,
-} from "./serverTestFixtures.ts";
+import { makeDefaultOrchestrationThreadShell } from "./serverTestFixtures.ts";
 import { buildAppUnderTest } from "./serverTestApp.ts";
 import {
-  exchangeAccessToken,
-  fetchEffect,
-  getHttpServerUrl,
-  responseJsonEffect,
   getWsServerUrl,
   withWsRpcClient,
+  getMemberBearerSessionToken,
+  getWsServerUrlForBearer,
 } from "./serverTestClients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
@@ -169,23 +164,8 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         },
       });
 
-      // A read-scoped token is enough to list durable facts.
-      const readToken = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:read",
-      });
-
-      assert.equal(readToken.response.status, 200);
-
-      const ticketResponse = yield* fetchEffect(
-        yield* getHttpServerUrl("/api/auth/websocket-ticket"),
-        {
-          method: "POST",
-          headers: { authorization: `Bearer ${readToken.body.access_token ?? ""}` },
-        },
-      );
-
-      const ticketBody = yield* responseJsonEffect<{ readonly ticket: string }>(ticketResponse);
-      const readWsUrl = `${yield* getWsServerUrl("/ws", { authenticated: false })}?wsTicket=${encodeURIComponent(ticketBody.ticket)}`;
+      // Otto: A member's standard client scopes are enough to list durable facts.
+      const readWsUrl = yield* getWsServerUrlForBearer(yield* getMemberBearerSessionToken());
 
       const listed = yield* Effect.scoped(
         withWsRpcClient(readWsUrl, (client) =>
@@ -336,42 +316,6 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       assert.isDefined(repositoryRef);
       const repository = repositoryRef!;
       const wsUrl = yield* getWsServerUrl("/ws");
-
-      // A read-scoped token cannot mutate durable facts.
-      const readToken = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:read",
-      });
-
-      assert.equal(readToken.response.status, 200);
-
-      const ticketResponse = yield* fetchEffect(
-        yield* getHttpServerUrl("/api/auth/websocket-ticket"),
-        {
-          method: "POST",
-          headers: { authorization: `Bearer ${readToken.body.access_token ?? ""}` },
-        },
-      );
-
-      const ticketBody = yield* responseJsonEffect<{ readonly ticket: string }>(ticketResponse);
-      const readWsUrl = `${yield* getWsServerUrl("/ws", { authenticated: false })}?wsTicket=${encodeURIComponent(ticketBody.ticket)}`;
-
-      const denied = yield* Effect.flip(
-        Effect.scoped(
-          withWsRpcClient(readWsUrl, (client) =>
-            client[WS_METHODS.memoryFactMutate]({
-              threadId,
-              mutation: {
-                operation: "fact.pin",
-                memoryId: seeded.rootId,
-                expectedRevision: 1,
-                pinned: true,
-              },
-            }),
-          ),
-        ),
-      );
-
-      assert.equal(denied._tag, "EnvironmentAuthorizationError");
 
       const edited = yield* Effect.scoped(
         withWsRpcClient(wsUrl, (client) =>

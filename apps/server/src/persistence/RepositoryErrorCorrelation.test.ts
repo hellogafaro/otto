@@ -5,7 +5,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
-import * as AuthPairingLinks from "./AuthPairingLinks.ts";
 import * as AuthSessions from "./AuthSessions.ts";
 import * as PersistenceErrors from "./Errors.ts";
 import { SqlitePersistenceMemory } from "./Layers/Sqlite.ts";
@@ -20,10 +19,6 @@ const now = DateTime.makeUnsafe("2026-06-21T00:00:00.000Z");
 const scopes: ReadonlyArray<AuthEnvironmentScope> = ["access:read"];
 
 const authSessionLayer = AuthSessions.layer.pipe(Layer.provideMerge(SqlitePersistenceMemory));
-
-const authPairingLinkLayer = AuthPairingLinks.layer.pipe(
-  Layer.provideMerge(SqlitePersistenceMemory),
-);
 
 const providerSessionRuntimeLayer = ProviderSessionRuntime.layer.pipe(
   Layer.provideMerge(SqlitePersistenceMemory),
@@ -110,85 +105,6 @@ describe("persistence error correlation", () => {
       );
       assert.notInclude(revokeOtherError.message, DateTime.formatIso(now));
     }).pipe(Effect.provide(authSessionLayer)),
-  );
-
-  it.effect("correlates pairing-link create and revoke failures by id only", () =>
-    Effect.gen(function* () {
-      const pairingLinks = yield* AuthPairingLinks.AuthPairingLinkRepository;
-      const sql = yield* SqlClient.SqlClient;
-      const id = "pairing-link-correlation";
-      const credential = "pairing-credential-secret-sentinel";
-      const subject = "pairing-subject-secret-sentinel";
-      const scopesPayload = "pairing-scopes-secret-sentinel";
-
-      yield* sql`
-        INSERT INTO auth_pairing_links (
-          id,
-          credential,
-          method,
-          scopes,
-          subject,
-          label,
-          proof_key_thumbprint,
-          created_at,
-          expires_at,
-          consumed_at,
-          revoked_at
-        )
-        VALUES (
-          ${id},
-          ${credential},
-          ${"one-time-token"},
-          ${scopesPayload},
-          ${subject},
-          NULL,
-          NULL,
-          ${DateTime.formatIso(issuedAt)},
-          ${DateTime.formatIso(expiresAt)},
-          NULL,
-          NULL
-        )
-      `;
-
-      const decodeError = yield* Effect.flip(pairingLinks.getByCredential({ credential }));
-      assert.instanceOf(decodeError, PersistenceErrors.PersistenceDecodeError);
-      assert.deepStrictEqual(decodeError.correlation, { pairingLinkId: id });
-      assert.equal(
-        decodeError.message,
-        `Decode error in AuthPairingLinkRepository.getByCredential:decodeRow: ${decodeError.issue}`,
-      );
-      assert.notInclude(decodeError.issue, credential);
-      assert.notInclude(decodeError.issue, subject);
-      assert.notInclude(decodeError.issue, scopesPayload);
-      assert.notInclude(decodeError.message, DateTime.formatIso(issuedAt));
-
-      yield* sql`DROP TABLE auth_pairing_links`;
-
-      const createError = yield* Effect.flip(
-        pairingLinks.create({
-          id,
-          credential,
-          method: "one-time-token",
-          scopes,
-          subject,
-          label: null,
-          createdAt: issuedAt,
-          expiresAt,
-        }),
-      );
-
-      assert.instanceOf(createError, PersistenceErrors.PersistenceSqlError);
-      assert.deepStrictEqual(createError.correlation, { pairingLinkId: id });
-      assert.notInclude(createError.message, credential);
-      assert.notInclude(createError.message, subject);
-      assert.notInclude(createError.message, DateTime.formatIso(issuedAt));
-
-      const revokeError = yield* Effect.flip(pairingLinks.revoke({ id, revokedAt: now }));
-      assert.instanceOf(revokeError, PersistenceErrors.PersistenceSqlError);
-      assert.deepStrictEqual(revokeError.correlation, { pairingLinkId: id });
-      assert.notInclude(revokeError.message, credential);
-      assert.notInclude(revokeError.message, DateTime.formatIso(now));
-    }).pipe(Effect.provide(authPairingLinkLayer)),
   );
 
   it.effect("skips undecodable provider runtime rows and correlates SQL failures by thread", () =>

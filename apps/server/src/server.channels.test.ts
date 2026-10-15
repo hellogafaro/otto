@@ -13,9 +13,13 @@ import * as Effect from "effect/Effect";
 import { HttpBody, HttpClient } from "effect/unstable/http";
 import * as ChannelRuntime from "./channels/ChannelRuntime.ts";
 
-import { makeChannelTestBot, defaultDesktopBootstrapToken } from "./serverTestFixtures.ts";
+import { makeChannelTestBot } from "./serverTestFixtures.ts";
 import { buildAppUnderTest } from "./serverTestApp.ts";
-import { exchangeAccessToken, getWsServerUrl, withWsRpcClient } from "./serverTestClients.ts";
+import {
+  getWsServerUrl,
+  withWsRpcClient,
+  getMemberBearerSessionToken,
+} from "./serverTestClients.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("keeps channel management host-only and serves channel health over HTTP", () =>
@@ -64,11 +68,9 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         },
       });
 
-      const { body: tokenBody } = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:read orchestration:operate terminal:operate review:write",
-      });
+      const bearerToken = yield* getMemberBearerSessionToken();
 
-      const authorization = `Bearer ${tokenBody.access_token ?? ""}`;
+      const authorization = `Bearer ${bearerToken}`;
 
       const command = {
         type: "channel.disconnect" as const,

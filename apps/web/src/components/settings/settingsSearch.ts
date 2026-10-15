@@ -10,7 +10,6 @@ export type SettingsPath =
   | "/settings/appearance"
   | "/settings/keybindings"
   | "/settings/image-generation"
-  | "/settings/connections"
   | "/settings/privacy"
   | "/settings/archived"
   | "/settings/advanced";
@@ -346,11 +345,6 @@ export const SETTINGS_SEARCH_ITEMS = [
       "webhook",
       "credentials",
     ],
-  },
-  {
-    id: "remote-environments",
-    title: "Remote environments",
-    to: "/settings/connections",
   },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
 

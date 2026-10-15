@@ -60,7 +60,7 @@ describe("DesktopBackendConfiguration", () => {
         assert.equal(first.bootstrap.ottoLegacyHome, environment.baseDir);
         assert.equal(first.bootstrap.tailscaleServeEnabled, true);
         assert.equal(first.bootstrap.tailscaleServePort, 8443);
-        assert.match(first.bootstrap.desktopBootstrapToken, /^[0-9a-f]{48}$/i);
+        assert.match(first.bootstrap.desktopBootstrapToken ?? "", /^[0-9a-f]{48}$/i);
         assert.equal(second.bootstrap.desktopBootstrapToken, first.bootstrap.desktopBootstrapToken);
       }),
     ),

@@ -133,7 +133,6 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
 
       assert.equal(defaultsByCommand.get("thread.jump.1"), "mod+1");
       assert.equal(defaultsByCommand.get("thread.jump.9"), "mod+9");
-      assert.equal(defaultsByCommand.get("themeEditor.toggle"), "mod+alt+shift+t");
       assert.equal(defaultsByCommand.get("commandPalette.toggle"), "mod+k");
       assert.equal(defaultsByCommand.get("composer.stash"), "mod+s");
       assert.equal(defaultsByCommand.get("sidebar.toggle"), "mod+b");
@@ -143,6 +142,7 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       assert.equal(defaultsByCommand.get("modelPicker.jump.9"), "mod+9");
 
       for (const retiredCommand of [
+        "themeEditor.toggle",
         "terminal.toggle",
         "terminal.split",
         "terminal.splitVertical",

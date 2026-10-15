@@ -22,7 +22,6 @@ export const SETTINGS_DEEP_LINK_IDS = [
   "sandbox",
   "privacy",
   "archived-chats",
-  "connections",
   "bot-inbox",
   "diagnostics",
 ] as const;
@@ -34,6 +33,7 @@ const settingsDeepLinkIds = new Set<string>(SETTINGS_DEEP_LINK_IDS);
 /** Retired sections whose old chips still open a live page. */
 const RETIRED_SETTINGS_DEEP_LINK_IDS = new Map<string, SettingsDeepLinkId>([
   ["source-control", "general"],
+  ["connections", "general"],
 ]);
 
 export function parseSettingsDeepLinkId(href: string | undefined): SettingsDeepLinkId | null {

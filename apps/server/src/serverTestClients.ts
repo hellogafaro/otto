@@ -45,7 +45,11 @@ import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
 
 import * as Data from "effect/Data";
 
-import { defaultDesktopBootstrapToken, testEnvironmentDescriptor } from "./serverTestFixtures.ts";
+import {
+  defaultTestMemberAccount,
+  defaultTestAccount,
+  testEnvironmentDescriptor,
+} from "./serverTestFixtures.ts";
 
 export const decodeTransferThreadSnapshot = Schema.decodeUnknownEffect(
   Schema.fromJsonString(OrchestrationThreadDetailSnapshot),
@@ -181,55 +185,15 @@ export const getHttpServerUrl = (pathname = "") =>
     return `http://127.0.0.1:${address.port}${pathname}`;
   });
 
-export const bootstrapBrowserSession = (
-  credential = defaultDesktopBootstrapToken,
-  options?: {
-    readonly headers?: Record<string, string>;
-  },
-) =>
-  Effect.gen(function* () {
-    const bootstrapUrl = yield* getHttpServerUrl("/api/auth/browser-session");
-
-    const response = yield* fetchEffect(bootstrapUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...options?.headers,
-      },
-      body: jsonRequestBody({
-        credential,
-      }),
-    });
-
-    const body = yield* responseJsonEffect<{
-      readonly authenticated: boolean;
-      readonly sessionMethod: string;
-      readonly expiresAt: string;
-    }>(response);
-
-    return {
-      response,
-      body,
-      cookie: response.headers["set-cookie"],
-    };
-  });
-
 export const exchangeAccessToken = (
-  credential = defaultDesktopBootstrapToken,
+  credential: string,
   options?: {
-    readonly headers?: Record<string, string>;
     readonly scope?: string;
-    readonly clientMetadata?: {
-      readonly label?: string;
-      readonly deviceType?: string;
-      readonly os?: string;
-    };
+    readonly headers?: Record<string, string>;
   },
 ) =>
   Effect.gen(function* () {
-    const tokenUrl = yield* getHttpServerUrl("/oauth/token");
-
-    const response = yield* fetchEffect(tokenUrl, {
+    const response = yield* fetchEffect(yield* getHttpServerUrl("/oauth/token"), {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
@@ -242,11 +206,6 @@ export const exchangeAccessToken = (
         requested_token_type: AuthAccessTokenType,
         scope:
           options?.scope ?? "orchestration:read orchestration:operate access:read access:write",
-        ...(options?.clientMetadata?.label ? { client_label: options.clientMetadata.label } : {}),
-        ...(options?.clientMetadata?.deviceType
-          ? { client_device_type: options.clientMetadata.deviceType }
-          : {}),
-        ...(options?.clientMetadata?.os ? { client_os: options.clientMetadata.os } : {}),
       }).toString(),
     });
 
@@ -254,18 +213,10 @@ export const exchangeAccessToken = (
       readonly access_token?: string;
       readonly issued_token_type?: string;
       readonly token_type?: string;
-      readonly expires_in?: number;
       readonly scope?: string;
-      readonly _tag?: string;
-      readonly code?: string;
-      readonly reason?: string;
-      readonly traceId?: string;
     }>(response);
 
-    return {
-      response,
-      body,
-    };
+    return { response, body };
   });
 
 export class AuthenticationGetterError extends Data.TaggedError("AuthenticationGetterError")<{
@@ -327,42 +278,52 @@ export const responseJsonEffect = <A>(response: HttpClientResponse.HttpClientRes
 export const responseOk = (response: HttpClientResponse.HttpClientResponse) =>
   response.status >= 200 && response.status < 300;
 
-export const getAuthenticatedSessionCookieHeader = (credential = defaultDesktopBootstrapToken) =>
+/** Otto: Signs in through the accounts endpoint, as the web app does, as the seeded admin. */
+export const signInTestAccount = (
+  account: { readonly email: string; readonly password: string } = defaultTestAccount,
+) =>
   Effect.gen(function* () {
-    const { response, cookie } = yield* bootstrapBrowserSession(credential);
+    const url = yield* getHttpServerUrl("/api/accounts/sign-in/email");
 
-    if (!responseOk(response)) {
+    const response = yield* fetchEffect(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: jsonRequestBody({ email: account.email, password: account.password }),
+    });
+
+    const cookie = response.headers["set-cookie"];
+    const token = response.headers["set-auth-token"];
+
+    if (!responseOk(response) || !cookie || !token) {
       return yield* new AuthenticationGetterError({
-        message: `Expected bootstrap session response to succeed, got ${response.status}`,
+        message: `Expected account sign-in to succeed, got ${response.status}`,
       });
     }
 
-    if (!cookie) {
-      return yield* new AuthenticationGetterError({
-        message: "Expected bootstrap session response to set a cookie.",
-      });
-    }
-
-    return cookie.split(";")[0] ?? cookie;
+    return { cookie: cookie.split(";")[0] ?? cookie, token };
   });
 
-export const getAuthenticatedBearerSessionToken = (credential = defaultDesktopBootstrapToken) =>
+export const getAuthenticatedSessionCookieHeader = () =>
+  signInTestAccount().pipe(Effect.map(({ cookie }) => cookie));
+
+export const getAuthenticatedBearerSessionToken = () =>
+  signInTestAccount().pipe(Effect.map(({ token }) => token));
+
+/** Otto: A non-admin member's bearer token, which carries the standard client scopes. */
+export const getMemberBearerSessionToken = () =>
+  signInTestAccount(defaultTestMemberAccount).pipe(Effect.map(({ token }) => token));
+
+/** Opens the WebSocket with a ticket issued to this bearer token instead of the admin cookie. */
+export const getWsServerUrlForBearer = (bearerToken: string) =>
   Effect.gen(function* () {
-    const { response, body } = yield* exchangeAccessToken(credential);
+    const response = yield* fetchEffect(yield* getHttpServerUrl("/api/auth/websocket-ticket"), {
+      method: "POST",
+      headers: { authorization: `Bearer ${bearerToken}` },
+    });
 
-    if (!responseOk(response)) {
-      return yield* new AuthenticationGetterError({
-        message: `Expected bearer bootstrap response to succeed, got ${response.status}`,
-      });
-    }
+    const { ticket } = yield* responseJsonEffect<{ readonly ticket: string }>(response);
 
-    if (!body.access_token) {
-      return yield* new AuthenticationGetterError({
-        message: "Expected token exchange response to include an access token.",
-      });
-    }
-
-    return body.access_token;
+    return `${yield* getWsServerUrl("/ws", { authenticated: false })}?wsTicket=${encodeURIComponent(ticket)}`;
   });
 
 export const extractSessionTokenFromSetCookie = (cookieHeader: string): string => {
@@ -420,10 +381,7 @@ export const assertBrowserApiCorsPreflightHeaders = (
 
 export const crossOriginClientOrigin = "http://remote-client.test:3773";
 
-export const getWsServerUrl = (
-  pathname = "",
-  options?: { authenticated?: boolean; credential?: string },
-) =>
+export const getWsServerUrl = (pathname = "", options?: { authenticated?: boolean }) =>
   Effect.gen(function* () {
     const server = yield* HttpServer.HttpServer;
     const address = server.address;
@@ -436,10 +394,7 @@ export const getWsServerUrl = (
       return baseUrl;
     }
 
-    return appendSessionCookieToWsUrl(
-      baseUrl,
-      yield* getAuthenticatedSessionCookieHeader(options?.credential),
-    );
+    return appendSessionCookieToWsUrl(baseUrl, yield* getAuthenticatedSessionCookieHeader());
   });
 
 // Mirrors NodeHttpServer.layerTest, which does not expose server options,

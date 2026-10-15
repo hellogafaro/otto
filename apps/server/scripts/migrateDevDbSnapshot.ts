@@ -114,7 +114,6 @@ export const pruneSnapshot = Effect.fn("pruneDevDbSnapshot")(function* (
       yield* sql`DELETE FROM orchestration_command_receipts`;
       yield* sql`DELETE FROM provider_session_runtime`;
       yield* sql`DELETE FROM auth_sessions`;
-      yield* sql`DELETE FROM auth_pairing_links`;
     }),
   );
 

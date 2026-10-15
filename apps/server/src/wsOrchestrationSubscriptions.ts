@@ -213,10 +213,13 @@ export const createWsOrchestrationSubscriptions = ({
             ) {
               const snapshot = yield* loadSnapshot;
 
-              return Stream.concat(
-                Stream.make({ kind: "snapshot" as const, snapshot }),
-                synchronizedThenLive,
-              );
+              return {
+                replaying: false,
+                stream: Stream.concat(
+                  Stream.make({ kind: "snapshot" as const, snapshot }),
+                  synchronizedThenLive,
+                ),
+              };
             }
 
             const catchUpStream = coalesceShellStream(
@@ -236,20 +239,24 @@ export const createWsOrchestrationSubscriptions = ({
               ),
             );
 
-            return Stream.concat(catchUpStream, synchronizedThenLive);
+            return { replaying: true, stream: Stream.concat(catchUpStream, synchronizedThenLive) };
           }
 
           const snapshot = yield* loadSnapshot;
 
-          return Stream.concat(
-            Stream.make({
-              kind: "snapshot" as const,
-              snapshot,
-            }),
-            synchronizedThenLive,
-          );
+          return {
+            replaying: false,
+            stream: Stream.concat(
+              Stream.make({
+                kind: "snapshot" as const,
+                snapshot,
+              }),
+              synchronizedThenLive,
+            ),
+          };
         }).pipe(
-          Effect.flatMap((stream) =>
+          // Otto: Only a replayed resume lacks an opening snapshot to seed visibility.
+          Effect.flatMap(({ replaying, stream }) =>
             withGroupVisibility({
               stream,
               personId: currentPersonId,
@@ -257,7 +264,7 @@ export const createWsOrchestrationSubscriptions = ({
               loadChatThreads: projectionLibrary
                 .listChatThreads()
                 .pipe(Effect.orElseSucceed(() => [])),
-              resuming: input.afterSequence !== undefined,
+              resuming: replaying,
             }),
           ),
         ),

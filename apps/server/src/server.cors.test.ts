@@ -1,16 +1,13 @@
 import * as Predicate from "effect/Predicate";
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { WS_METHODS } from "@otto/contracts";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { HttpBody, HttpClient } from "effect/unstable/http";
 
 import { buildAppUnderTest } from "./serverTestApp.ts";
 import {
   exchangeAccessToken,
-  getWsServerUrl,
-  withWsRpcClient,
+  getAuthenticatedBearerSessionToken,
   crossOriginClientOrigin,
   assertBrowserApiCorsResponseHeaders,
   getHttpServerUrl,
@@ -18,65 +15,8 @@ import {
   responseJsonEffect,
   assertBrowserApiCorsPreflightHeaders,
 } from "./serverTestClients.ts";
-import { defaultDesktopBootstrapToken } from "./serverTestFixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
-  it.effect("does not allow management-only access tokens to operate the environment", () =>
-    Effect.gen(function* () {
-      yield* buildAppUnderTest();
-
-      const { response: exchangeResponse, body: tokenBody } = yield* exchangeAccessToken(
-        defaultDesktopBootstrapToken,
-        { scope: "access:write" },
-      );
-
-      assert.equal(exchangeResponse.status, 200);
-      assert.equal(tokenBody.scope, "access:write");
-      assert.isDefined(tokenBody.access_token);
-
-      const overbroadPairingResponse = yield* HttpClient.post("/api/auth/pairing-token", {
-        headers: {
-          authorization: `Bearer ${tokenBody.access_token ?? ""}`,
-        },
-        body: yield* HttpBody.json({}),
-      });
-
-      const overbroadPairingBody = (yield* overbroadPairingResponse.json) as {
-        readonly requiredScope: string;
-      };
-
-      const pairingResponse = yield* HttpClient.post("/api/auth/pairing-token", {
-        headers: {
-          authorization: `Bearer ${tokenBody.access_token ?? ""}`,
-        },
-        body: yield* HttpBody.json({ scopes: ["access:write"] }),
-      });
-
-      const wsTicketResponse = yield* HttpClient.post("/api/auth/websocket-ticket", {
-        headers: {
-          authorization: `Bearer ${tokenBody.access_token ?? ""}`,
-        },
-      });
-
-      const wsTicketBody = (yield* wsTicketResponse.json) as { readonly ticket: string };
-      assert.equal(overbroadPairingResponse.status, 403);
-      assert.equal(overbroadPairingBody.requiredScope, "orchestration:read");
-      assert.equal(pairingResponse.status, 200);
-      assert.equal(wsTicketResponse.status, 200);
-      const wsUrl = `${yield* getWsServerUrl("/ws", { authenticated: false })}?wsTicket=${encodeURIComponent(wsTicketBody.ticket)}`;
-
-      const rpcError = yield* Effect.flip(
-        Effect.scoped(withWsRpcClient(wsUrl, (client) => client[WS_METHODS.serverGetConfig]({}))),
-      );
-
-      assert.equal(rpcError._tag, "EnvironmentAuthorizationError");
-
-      if (Predicate.isTagged(rpcError, "EnvironmentAuthorizationError")) {
-        assert.equal(rpcError.requiredScope, "orchestration:read");
-      }
-    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
-  );
-
   it.effect("includes CORS headers on remote auth success responses", () =>
     Effect.gen(function* () {
       yield* buildAppUnderTest();
@@ -84,7 +24,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       const origin = crossOriginClientOrigin;
 
       const { response: tokenResponse, body: tokenBody } = yield* exchangeAccessToken(
-        defaultDesktopBootstrapToken,
+        yield* getAuthenticatedBearerSessionToken(),
         {
           headers: { origin },
         },

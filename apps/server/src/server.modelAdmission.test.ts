@@ -27,11 +27,12 @@ import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngi
 import * as ProjectionBots from "./persistence/Services/ProjectionBots.ts";
 
 import { buildAppUnderTest } from "./serverTestApp.ts";
-import { getWsServerUrl, withWsRpcClient, exchangeAccessToken } from "./serverTestClients.ts";
 import {
-  defaultDesktopBootstrapToken,
-  makeDefaultOrchestrationThreadShell,
-} from "./serverTestFixtures.ts";
+  getWsServerUrl,
+  withWsRpcClient,
+  getAuthenticatedBearerSessionToken,
+} from "./serverTestClients.ts";
+import { makeDefaultOrchestrationThreadShell } from "./serverTestFixtures.ts";
 
 it.describe("ws bot engine model routing preflight", () => {
   const now = "2026-01-01T00:00:00.000Z";
@@ -187,12 +188,10 @@ it.describe("ws bot engine model routing preflight", () => {
         },
       });
 
-      const { body: tokenBody } = yield* exchangeAccessToken(defaultDesktopBootstrapToken, {
-        scope: "orchestration:operate",
-      });
+      const bearerToken = yield* getAuthenticatedBearerSessionToken();
 
       const response = yield* HttpClient.post("/api/orchestration/dispatch", {
-        headers: { authorization: `Bearer ${tokenBody.access_token ?? ""}` },
+        headers: { authorization: `Bearer ${bearerToken}` },
         body: yield* HttpBody.json({
           type: "bot.create",
           commandId: CommandId.make("cmd-http-bot-create-bad-model"),

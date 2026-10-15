@@ -20,7 +20,7 @@ describe("RPC authorization scopes", () => {
       AuthOrchestrationReadScope,
     );
     expect(requiredScopeForRpcMethod(WS_METHODS.serverReportHostPowerState)).toBe(
-      AuthOrchestrationOperateScope,
+      AuthAccessWriteScope,
     );
     expect(requiredScopeForRpcMethod(WS_METHODS.serverGetBackgroundPolicy)).toBe(
       AuthOrchestrationReadScope,
@@ -30,14 +30,12 @@ describe("RPC authorization scopes", () => {
     );
   });
 
+  // Otto: Whole-memory export and import are organization admin operations.
   it("separates memory reads from memory changes", () => {
-    expect(requiredScopeForRpcMethod(WS_METHODS.memoryExport)).toBe(AuthOrchestrationReadScope);
-    expect(requiredScopeForRpcMethod(WS_METHODS.memoryImportPreview)).toBe(
-      AuthOrchestrationReadScope,
-    );
-    expect(requiredScopeForRpcMethod(WS_METHODS.memoryImportApply)).toBe(
-      AuthOrchestrationOperateScope,
-    );
+    expect(requiredScopeForRpcMethod(WS_METHODS.memoryExport)).toBe(AuthAccessReadScope);
+    expect(requiredScopeForRpcMethod(WS_METHODS.memoryImportPreview)).toBe(AuthAccessWriteScope);
+    expect(requiredScopeForRpcMethod(WS_METHODS.memoryImportApply)).toBe(AuthAccessWriteScope);
+    expect(requiredScopeForRpcMethod(WS_METHODS.memoryFactsList)).toBe(AuthOrchestrationReadScope);
     expect(requiredScopeForRpcMethod(WS_METHODS.memoryDocumentReplace)).toBe(
       AuthOrchestrationOperateScope,
     );
