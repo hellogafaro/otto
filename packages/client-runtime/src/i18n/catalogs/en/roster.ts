@@ -364,6 +364,7 @@ export const rosterCatalog = {
   Pondering: "Pondering",
   Reacting: "Reacting",
   "Reading a skill": "Reading a skill",
+  "Waiting to reply": "Waiting to reply",
   "Reading a web page": "Reading a web page",
   "Reading files": "Reading files",
   "Reading the library": "Reading the library",

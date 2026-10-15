@@ -246,6 +246,8 @@ vi.mock("./useGroupThreadRuntime", () => ({
 
 import { AssistantMessageRow } from "./BotChatMessageRows";
 import { BotThreadLanding } from "./BotThreadLanding";
+import { BotActivityStatus } from "./BotActivityStatus";
+import { GroupWorkingRows } from "./GroupWorkingRows";
 import { BotPromptComposer } from "./BotPromptComposer";
 import { ComposerPendingUserInputPanel } from "../chat/ComposerPendingUserInputPanel";
 import { DelegationCard } from "./DelegationCard";
@@ -737,14 +739,15 @@ describe("thread landing delegations", () => {
     };
 
     hooks.beginRender();
+    const tree = render();
 
     const composer = visitElements(
-      render(),
+      tree,
       (element) => element.type === BotPromptComposer,
     ) as ReactElement<Parameters<typeof BotPromptComposer>[0]> | null;
 
     expect(composer?.props.busy).toBe(false);
-    expect(composer?.props.activitySlot).toBeNull();
+    expect(visitElements(tree, (element) => element.type === BotActivityStatus)).toBeNull();
   });
 
   it.each([
@@ -762,14 +765,20 @@ describe("thread landing delegations", () => {
     };
 
     hooks.beginRender();
+    const tree = render();
 
     const composer = visitElements(
-      render(),
+      tree,
       (element) => element.type === BotPromptComposer,
     ) as ReactElement<Parameters<typeof BotPromptComposer>[0]> | null;
 
     expect(composer?.props.busy).toBe(true);
-    expect(composer?.props.activitySlot).not.toBeNull();
+    expect(
+      visitElements(
+        tree,
+        (element) => element.type === BotActivityStatus || element.type === GroupWorkingRows,
+      ),
+    ).not.toBeNull();
   });
 
   it.each([

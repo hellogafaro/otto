@@ -1,10 +1,36 @@
 import { describe, expect, it } from "vite-plus/test";
-import { MessageId, ThreadId, TurnId } from "@otto/contracts";
+import { BotId, MessageId, ThreadId, TurnId } from "@otto/contracts";
 import type { OrchestrationThread } from "@otto/contracts";
 import { applyThreadDetailEvent } from "./threadReducer.ts";
 import { baseEventFields, baseThread } from "./threadReducer.test-support.ts";
 
 describe("applyThreadDetailEvent", () => {
+  describe("thread.turn-start-requested", () => {
+    it("records which group bot the next turn is for", () => {
+      const result = applyThreadDetailEvent(
+        { ...baseThread, respondingBotId: BotId.make("bot-axo") },
+        {
+          ...baseEventFields,
+          sequence: 9,
+          occurredAt: "2026-04-01T08:00:00.000Z",
+          aggregateKind: "thread",
+          aggregateId: ThreadId.make("thread-1"),
+          type: "thread.turn-start-requested",
+          payload: {
+            threadId: ThreadId.make("thread-1"),
+            messageId: MessageId.make("msg-1"),
+            runtimeMode: "full-access",
+            interactionMode: "default",
+            respondingBotId: BotId.make("bot-capy"),
+            createdAt: "2026-04-01T08:00:00.000Z",
+          },
+        },
+      );
+
+      expect(result.kind === "updated" && result.thread.respondingBotId).toBe("bot-capy");
+    });
+  });
+
   describe("thread.session-set", () => {
     it("settles a running latestTurn when the session leaves the running status", () => {
       const threadWithRunningTurn: OrchestrationThread = {

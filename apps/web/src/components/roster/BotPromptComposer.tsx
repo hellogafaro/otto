@@ -95,7 +95,6 @@ export function BotPromptComposer({
   mentionPeople,
   mentionScope = null,
   commandCatalog,
-  activitySlot = null,
   busy = false,
   pendingActionSlot = null,
   quietSurface = false,
@@ -127,8 +126,6 @@ export function BotPromptComposer({
    * Null keeps the pickers open with a connect-a-provider line; omit it to turn them off.
    */
   commandCatalog?: ComposerProviderCatalog | null;
-  /** Live turn status, docked above the prompt box where it stays visible without scrolling. */
-  activitySlot?: ReactNode;
   /** A turn is still running, so sending again would queue behind it. */
   busy?: boolean;
   /** Rendered above the prompt box so a pending decision reads as part of the composer. */
@@ -390,21 +387,6 @@ export function BotPromptComposer({
           <BotComposerModelControl botId={composerBotId} disabled={readOnly} />
         ) : null}
         <AnimatePresence initial={false}>
-          {activitySlot ? (
-            <motion.div
-              key="activity"
-              className="mb-2 px-1"
-              data-testid="bot-composer-activity"
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 2 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.16, ease: "easeOut" }}
-            >
-              {activitySlot}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-        <AnimatePresence initial={false}>
           {pendingActionSlot ? (
             <motion.div
               key="pending-action"
@@ -450,7 +432,6 @@ export function BotPromptComposer({
               quietSurface
                 ? BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME
                 : BOT_COMPOSER_SURFACE_CLASS_NAME,
-              expanded && "min-h-28",
               pendingActionSlot ? "rounded-t-md border-t-transparent" : undefined,
             )}
           >
@@ -510,7 +491,7 @@ export function BotPromptComposer({
               aria-activedescendant={(mentionTrigger && activeMentionOptionId) || undefined}
               className={cn(
                 "field-sizing-content max-h-56 w-full resize-none bg-transparent text-base leading-5 outline-none placeholder:text-muted-foreground/70 sm:text-sm",
-                expanded ? "min-h-16 px-3.5 pb-10 pt-3" : "min-h-10 px-10.5 py-2.5",
+                expanded ? "px-3.5 pb-10 pt-3" : "min-h-10 px-10.5 py-2.5",
               )}
               onChange={(event) => {
                 const { selectionStart, value } = event.currentTarget;

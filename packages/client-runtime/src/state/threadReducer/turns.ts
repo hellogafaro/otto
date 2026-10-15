@@ -157,6 +157,7 @@ export function applyTurnStartRequestedEvent(
         : {}),
       runtimeMode: event.payload.runtimeMode,
       interactionMode: event.payload.interactionMode,
+      respondingBotId: event.payload.respondingBotId ?? null,
       updatedAt: event.occurredAt,
     },
   };

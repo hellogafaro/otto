@@ -255,26 +255,3 @@
     display: none;
   }
 }
-
-/* A working bot's avatar is ringed by a soft pulse, so the row reads as awake. */
-
-.bot-awake-ring {
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--foreground) 22%, transparent);
-  animation: bot-awake-ring 2400ms ease-out infinite;
-}
-
-@keyframes bot-awake-ring {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--foreground) 22%, transparent);
-  }
-  70%,
-  100% {
-    box-shadow: 0 0 0 6px color-mix(in srgb, var(--foreground) 0%, transparent);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bot-awake-ring {
-    animation: none;
-  }
-}

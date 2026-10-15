@@ -179,12 +179,14 @@ export function buildBotConversationEntries(
 
 /**
  * Bot chat shows each user message and one final assistant answer per turn.
- * Provider progress and intermediate assistant records stay behind the working
- * status so one provider turn cannot appear as several bot replies.
+ * Provider progress and intermediate assistant records of the running turn stay
+ * behind the working status so one provider turn cannot appear as several bot
+ * replies; answers from turns that already ended show at once, so in a group
+ * each bot's reply lands while the next bot works.
  */
 export function visibleBotChatMessages(
   messages: ReadonlyArray<OrchestrationMessage>,
-  working = false,
+  runningTurnId: string | null = null,
 ): ReadonlyArray<OrchestrationMessage> {
   const latestAssistantIndexByResponse = new Map<string, number>();
   let precedingUserId = "before-first-user";
@@ -217,7 +219,9 @@ export function visibleBotChatMessages(
 
     if (message.role !== "assistant" || message.streaming) return false;
 
-    if (working && index > lastUserIndex) return false;
+    if (runningTurnId !== null && (message.turnId ?? null) === runningTurnId) return false;
+
+    if (runningTurnId !== null && !message.turnId && index > lastUserIndex) return false;
 
     return latestAssistantIndexByResponse.get(message.turnId ?? precedingUserId) === index;
   });

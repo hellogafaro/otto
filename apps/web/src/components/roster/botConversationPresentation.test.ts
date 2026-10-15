@@ -161,10 +161,23 @@ describe("bot conversation presentation", () => {
       message("active-intermediate", "assistant", false, "turn-2"),
     ];
 
-    expect(visibleBotChatMessages(messages, true).map((entry) => entry.id)).toEqual([
+    expect(visibleBotChatMessages(messages, "turn-2").map((entry) => entry.id)).toEqual([
       "first-user",
       "first-answer",
       "active-user",
+    ]);
+  });
+
+  it("shows a group bot's finished reply while the next bot works", () => {
+    const messages = [
+      message("ask", "user", false),
+      message("axo-answer", "assistant", false, "turn-axo"),
+      message("capy-progress", "assistant", false, "turn-capy"),
+    ];
+
+    expect(visibleBotChatMessages(messages, "turn-capy").map((entry) => entry.id)).toEqual([
+      "ask",
+      "axo-answer",
     ]);
   });
 

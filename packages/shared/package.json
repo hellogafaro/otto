@@ -160,6 +160,10 @@
       "types": "./src/composerInlineTokens.ts",
       "import": "./src/composerInlineTokens.ts"
     },
+    "./groupRound": {
+      "types": "./src/groupRound.ts",
+      "import": "./src/groupRound.ts"
+    },
     "./preview": {
       "types": "./src/preview.ts",
       "import": "./src/preview.ts"

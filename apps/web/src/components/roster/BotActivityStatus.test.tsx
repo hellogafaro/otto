@@ -29,11 +29,28 @@ describe("bot activity status", () => {
       />,
     );
 
-    expect(markup).toContain("bot-awake-ring");
-    expect(markup).toContain("Reading a skill...");
+    expect(markup).toContain('data-bot-state="working"');
+    expect(markup).toContain("Reading a skill");
+    expect(markup).not.toContain("...");
     expect(markup).toContain("bot-shimmer-text");
     expect(markup).not.toContain("animate-spin");
     expect(markup).not.toContain("<button");
+  });
+
+  it("shows a bot queued behind another as still and waiting, without a timer", () => {
+    const markup = renderToStaticMarkup(
+      <BotActivityStatus
+        bot={bot}
+        activity={{ label: "Reading a skill" }}
+        startedAt={null}
+        waiting
+      />,
+    );
+
+    expect(markup).toContain('data-bot-state="idle"');
+    expect(markup).toContain("Waiting to reply");
+    expect(markup).not.toContain("bot-shimmer-text");
+    expect(markup).not.toContain("bot-activity-time");
   });
 
   it("names the app or MCP server a tool works on once its name is known", () => {
@@ -51,10 +68,10 @@ describe("bot activity status", () => {
           subjectName="Google Calendar"
         />,
       ),
-    ).toContain("Using Google Calendar...");
+    ).toContain(">Using Google Calendar<");
     expect(
       renderToStaticMarkup(<BotActivityStatus bot={bot} activity={app} startedAt={null} />),
-    ).toContain("Using an app...");
+    ).toContain(">Using an app<");
   });
 
   it("rotates playful verbs while the bot only thinks", () => {
@@ -66,8 +83,8 @@ describe("bot activity status", () => {
       />,
     );
 
-    expect(THINKING_VERBS.some((verb) => markup.includes(`${verb}...`))).toBe(true);
-    expect(markup).not.toContain("Working...");
+    expect(THINKING_VERBS.some((verb) => markup.includes(`>${verb}<`))).toBe(true);
+    expect(markup).not.toContain("...");
   });
 
   it("shows its own elapsed time only after ten seconds", () => {

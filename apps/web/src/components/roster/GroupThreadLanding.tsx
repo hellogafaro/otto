@@ -30,7 +30,7 @@ import { ProviderUnavailableLine } from "../chat/ProviderUnavailableNotice";
 import { ThreadErrorCard } from "../chat/ThreadErrorCard";
 import { useOptionalVoiceCall } from "../voice/VoiceCall";
 import { threadSilentRun } from "@otto/client-runtime/silent-run";
-import { BotActivityStatus, useActivitySubjectName } from "./BotActivityStatus";
+import { useActivitySubjectName } from "./BotActivityStatus";
 import { ChatReplyContext } from "../markdown/generative/chatReplyContext";
 import { deriveBotActivity } from "./botActivityStatus.logic";
 import { BotApprovalPrompt } from "./BotApprovalPrompt";
@@ -66,6 +66,7 @@ import { ProviderConnectCard, providerConnectStep } from "../chat/ProviderConnec
 import { useSubscriptionStatuses } from "../settings/ProvidersPanel";
 import { buildBotStepMeters } from "@otto/client-runtime/bot-step-usage";
 import { useGroupPresence } from "./botPresence";
+import { GroupWorkingRows } from "./GroupWorkingRows";
 import { groupBotMembers, groupPersonMembers, isCurrentGroupPerson } from "./roster.logic";
 import { useMessageArrivals } from "./messageArrival";
 import { useRosterStore } from "./rosterStore";
@@ -240,8 +241,12 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
     : threadSilentRun(activities, runtime.latestTurn?.turnId);
 
   const messages = useMemo(
-    () => visibleBotChatMessages(runtime.messages, working),
-    [runtime.messages, working],
+    () =>
+      visibleBotChatMessages(
+        runtime.messages,
+        runtime.latestTurn?.state === "running" ? runtime.latestTurn.turnId : null,
+      ),
+    [runtime.messages, runtime.latestTurn],
   );
 
   const answeredUserInputs = useAnsweredUserInputs(activities, messages);
@@ -462,6 +467,18 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
                 );
               })
             )}
+            <GroupWorkingRows
+              members={members}
+              peopleNames={groupPersonMembers(group).map((person) => person.displayName)}
+              messages={messages}
+              respondingBotId={runtime.respondingBotId}
+              latestTurn={runtime.latestTurn}
+              activity={botActivity}
+              subjectName={activitySubjectName}
+              silentRun={silentRun}
+              working={working}
+              showCurrent={!waitingForUserInput && pendingApproval === null}
+            />
             {inlineError ? (
               <ThreadErrorCard
                 error={inlineError}
@@ -509,19 +526,6 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
             botName={group.name}
             draftKey={`group:${group.id}`}
             busy={working && pendingApproval === null}
-            activitySlot={
-              working && activeBot && !waitingForUserInput && pendingApproval === null ? (
-                <BotActivityStatus
-                  bot={activeBot}
-                  activity={botActivity}
-                  startedAt={
-                    runtime.latestTurn?.startedAt ?? runtime.latestTurn?.requestedAt ?? null
-                  }
-                  subjectName={activitySubjectName}
-                  silentRun={silentRun}
-                />
-              ) : null
-            }
             pendingActionSlot={
               pendingApproval ? (
                 <BotApprovalPrompt

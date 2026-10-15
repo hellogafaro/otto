@@ -37,7 +37,7 @@ describe("BotThreadLanding message formatting", () => {
 
     const assistantRow = rowComponent(readSibling("BotChatMessageRows.tsx"), "AssistantMessageRow");
     expect(assistantRow).toContain("<ChatMarkdown");
-    expect(assistantRow).toContain('className="relative min-w-0 flex-1"');
+    expect(assistantRow).toContain('className="relative w-fit min-w-56 max-w-full"');
     expect(assistantRow).not.toContain("onTaskListChange");
     const userRow = rowComponent(readSibling("BotChatMessageRows.tsx"), "UserMessageRow");
     // Sent text goes through SentMessageText, which keeps a reply's backlink compact.
@@ -90,7 +90,7 @@ describe("BotThreadLanding message formatting", () => {
       const row = rowComponent(source, name);
       const controls = row.split("<MessageControls").slice(1);
       expect(controls.length).toBeGreaterThan(0);
-      expect(row).toContain("MESSAGE_TOOLBAR_CLASS");
+      expect(row).toContain("toolbarClass(startsGroup)");
 
       for (const block of controls) {
         const props = block.slice(0, block.indexOf("/>"));
@@ -104,6 +104,8 @@ describe("BotThreadLanding message formatting", () => {
     const assistantControls = rowComponent(source, "AssistantMessageRow").split("<MessageControls");
     expect(assistantControls[2]).toContain("{...reactions.controls}");
     expect(rowComponent(source, "UserMessageRow")).toContain("{...reactions.controls}");
+    // Your own messages keep their time, Copy and Reply beside the bubble, with no reactions.
+    expect(rowComponent(source, "UserMessageRow")).toContain("OWN_ACTIONS_CLASS");
   });
 
   it("mounts the voice action in the live bot chat header", () => {

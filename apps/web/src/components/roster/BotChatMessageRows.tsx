@@ -8,6 +8,8 @@ import { useI18n } from "~/i18n";
 import { channelOriginLabel } from "@otto/client-runtime/channel-origin-presentation";
 import { replyPlaybackControlProps } from "~/lib/replyPlaybackThread";
 import { cn } from "~/lib/utils";
+import { formatShortTimestamp } from "~/timestampFormat";
+import { useClientSettings } from "../../hooks/useSettings";
 import ChatMarkdown from "../ChatMarkdown";
 import {
   MessageControls,
@@ -49,9 +51,10 @@ export {
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
-// Otto: A message's actions float in a small toolbar over its top right corner on hover or focus,
-// taking no space in the transcript. Held open while a control's menu is, so the controls never
-// slip out from under the pointer. Touch and narrow screens keep them inline under the message.
+// Otto: Others' messages (bots and other people) carry their actions in a small toolbar floating
+// over the top right of their own text block (at least 224px wide) on hover or focus, taking no space in the transcript:
+// level with the author's name on a group's first message, over the gap above on later ones. Held
+// open while a control's menu is. Touch and narrow screens keep them inline under the message.
 const MESSAGE_TOOLBAR_CLASS = cn(
   "flex opacity-0 transition-opacity pointer-events-none",
   "group-hover/message:opacity-100 group-hover/message:pointer-events-auto",
@@ -59,8 +62,20 @@ const MESSAGE_TOOLBAR_CLASS = cn(
   "has-[[aria-expanded=true]]:opacity-100 has-[[aria-expanded=true]]:pointer-events-auto",
   "has-[[data-popup-open]]:opacity-100 has-[[data-popup-open]]:pointer-events-auto",
   "pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 max-md:pointer-events-auto max-md:opacity-100 max-md:mt-0.5 pointer-coarse:mt-0.5",
-  "pointer-fine:md:absolute pointer-fine:md:-top-4 pointer-fine:md:end-0 pointer-fine:md:z-10 pointer-fine:md:rounded-lg pointer-fine:md:border pointer-fine:md:border-border/70 pointer-fine:md:bg-popover pointer-fine:md:p-0.5 pointer-fine:md:shadow-md",
+  "pointer-fine:md:absolute pointer-fine:md:end-0 pointer-fine:md:z-10 pointer-fine:md:rounded-lg pointer-fine:md:border pointer-fine:md:border-border/70 pointer-fine:md:bg-popover pointer-fine:md:p-0.5 pointer-fine:md:shadow-md",
 );
+
+/** Level with the author's name on a group's first message, over the gap above on later ones. */
+function toolbarClass(startsGroup: boolean) {
+  return cn(
+    MESSAGE_TOOLBAR_CLASS,
+    startsGroup ? "pointer-fine:md:-top-1.5" : "pointer-fine:md:-top-4",
+  );
+}
+
+// Your own messages show their time, Copy and Reply beside the bubble on hover, like Capy.
+const OWN_ACTIONS_CLASS =
+  "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover/message:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 max-md:opacity-100";
 
 // Offscreen rows skip layout and paint; the intrinsic size keeps the scrollbar steady.
 const ROW_VISIBILITY_CLASS = "content-visibility-row";
@@ -167,14 +182,14 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
         id={`chat-message-${message.id}`}
         tabIndex={-1}
         className={cn(
-          `group/message relative mt-3 max-w-17/20 first:mt-0 ${ROW_VISIBILITY_CLASS}`,
+          `group/message relative mt-3 w-fit min-w-56 max-w-17/20 first:mt-0 ${ROW_VISIBILITY_CLASS}`,
           arrived && "motion-message-enter",
         )}
         data-testid={testId}
       >
         <div className="text-sm font-medium">{label}</div>
         {markdown}
-        <div className={MESSAGE_TOOLBAR_CLASS}>
+        <div className={toolbarClass(true)}>
           <MessageControls
             copyText={copyText}
             {...(readAloud ? { readAloud } : {})}
@@ -209,25 +224,27 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
       ) : (
         <div aria-hidden="true" className="size-7 shrink-0" />
       )}
-      <div className="relative min-w-0 flex-1">
-        {startsGroup ? <div className="text-sm font-medium">{author.name}</div> : null}
-        <BotStepMeter meter={stepMeter} />
-        {markdown}
+      <div className="min-w-0 flex-1">
+        <div className="relative w-fit min-w-56 max-w-full">
+          {startsGroup ? <div className="text-sm font-medium">{author.name}</div> : null}
+          <BotStepMeter meter={stepMeter} />
+          {markdown}
+          <div className={toolbarClass(startsGroup)}>
+            <MessageControls
+              copyText={copyText}
+              {...(readAloud ? { readAloud } : {})}
+              selectedReaction={selectedReaction}
+              onReply={() => onReply(message.id, label, copyText)}
+              {...reactions.controls}
+            />
+            {!onReactionChange ? (
+              <UnavailableReactionControl selectedReaction={selectedReaction} />
+            ) : null}
+          </div>
+        </div>
         {pluginResults?.map(({ id, result }) => (
           <PluginSearchResultCard className="mt-3" key={id} result={result} />
         ))}
-        <div className={MESSAGE_TOOLBAR_CLASS}>
-          <MessageControls
-            copyText={copyText}
-            {...(readAloud ? { readAloud } : {})}
-            selectedReaction={selectedReaction}
-            onReply={() => onReply(message.id, label, copyText)}
-            {...reactions.controls}
-          />
-          {!onReactionChange ? (
-            <UnavailableReactionControl selectedReaction={selectedReaction} />
-          ) : null}
-        </div>
         <MessageReactions
           reactions={message.reactions ?? []}
           selectedEmoji={selectedReaction}
@@ -287,6 +304,7 @@ export const UserMessageRow = memo(function UserMessageRow({
   readonly onReactionChange: MessageReactionHandler | null;
 }) {
   const copyText = userMessageCopyText(message);
+  const timestampFormat = useClientSettings((settings) => settings.timestampFormat);
   const selectedReaction = selectedReactionForPerson(message.reactions, currentPersonId);
   const reactions = reactionProps(message, selectedReaction, onReactionChange);
 
@@ -308,9 +326,11 @@ export const UserMessageRow = memo(function UserMessageRow({
         ) : (
           <div aria-hidden="true" className="size-7 shrink-0" />
         )}
-        <div className="relative flex min-w-0 max-w-39/50 flex-col items-start">
+        <div className="relative flex min-w-56 max-w-39/50 flex-col items-start">
           {startsGroup ? <div className="text-sm font-medium">{authorName}</div> : null}
-          <div className="mt-0.5 rounded-2xl bg-foreground/10 px-3.5 py-2 text-sm leading-6">
+          {/* Otto: Someone else's message is an outlined bubble, so a glance tells it from your
+              filled one on the right and from a bot's plain reply. */}
+          <div className="mt-0.5 rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
             {message.text ? (
               <SentMessageText
                 text={message.text}
@@ -327,7 +347,7 @@ export const UserMessageRow = memo(function UserMessageRow({
               </div>
             ) : null}
           </div>
-          <div className={MESSAGE_TOOLBAR_CLASS}>
+          <div className={toolbarClass(startsGroup)}>
             <MessageControls
               copyText={copyText}
               selectedReaction={selectedReaction}
@@ -353,14 +373,27 @@ export const UserMessageRow = memo(function UserMessageRow({
       id={`chat-message-${message.id}`}
       tabIndex={-1}
       className={cn(
-        "group/message flex justify-end",
+        "group/message flex items-start justify-end gap-2",
         startsGroup ? "mt-3 first:mt-0" : "mt-1",
         ROW_VISIBILITY_CLASS,
         arrived && "motion-message-enter",
       )}
       data-testid={testId}
     >
-      <div className="relative flex max-w-39/50 flex-col items-end">
+      <div className={cn(OWN_ACTIONS_CLASS, "mt-1.5")}>
+        <time
+          dateTime={message.createdAt}
+          className="text-xs whitespace-nowrap tabular-nums text-muted-foreground"
+        >
+          {formatShortTimestamp(message.createdAt, timestampFormat)}
+        </time>
+        <MessageControls
+          align="end"
+          copyText={copyText}
+          onReply={() => onReply(message.id, replyLabel, copyText)}
+        />
+      </div>
+      <div className="flex max-w-39/50 flex-col items-end">
         {answered ? (
           <UserInputAnswerCard answered={answered} />
         ) : (
@@ -387,18 +420,6 @@ export const UserMessageRow = memo(function UserMessageRow({
             ) : null}
           </div>
         )}
-        <div className={MESSAGE_TOOLBAR_CLASS}>
-          <MessageControls
-            align="end"
-            copyText={copyText}
-            selectedReaction={selectedReaction}
-            onReply={() => onReply(message.id, replyLabel, copyText)}
-            {...reactions.controls}
-          />
-          {!onReactionChange ? (
-            <UnavailableReactionControl selectedReaction={selectedReaction} />
-          ) : null}
-        </div>
         <MessageReactions
           align="end"
           reactions={message.reactions ?? []}

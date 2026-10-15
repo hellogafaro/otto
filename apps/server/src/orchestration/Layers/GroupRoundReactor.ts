@@ -23,8 +23,8 @@ import {
   type GroupTurnReason,
   groupMentions,
   groupRound,
-  groupTurnNote,
-} from "../groupResponder.ts";
+} from "@otto/shared/groupRound";
+import { groupTurnNote } from "../groupResponder.ts";
 import { forkParked } from "../../serverActivation.ts";
 import { GroupRoundReactor, type GroupRoundReactorShape } from "../Services/GroupRoundReactor.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";

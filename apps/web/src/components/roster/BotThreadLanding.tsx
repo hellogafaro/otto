@@ -290,8 +290,12 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
     : threadSilentRun(activities, runtime.latestTurn?.turnId);
 
   const messages = useMemo(
-    () => visibleBotChatMessages(runtime.messages, working),
-    [runtime.messages, working],
+    () =>
+      visibleBotChatMessages(
+        runtime.messages,
+        runtime.latestTurn?.state === "running" ? runtime.latestTurn.turnId : null,
+      ),
+    [runtime.messages, runtime.latestTurn],
   );
 
   const answeredUserInputs = useAnsweredUserInputs(activities, messages);
@@ -602,6 +606,18 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
                   </div>
                 </div>
               ) : null}
+              {working && !waitingForUserInput && pendingApproval === null ? (
+                <BotActivityStatus
+                  bot={bot}
+                  activity={botActivity}
+                  startedAt={
+                    runtime.latestTurn?.startedAt ?? runtime.latestTurn?.requestedAt ?? null
+                  }
+                  subjectName={activitySubjectName}
+                  silentRun={silentRun}
+                  continuesReply={messages.at(-1)?.role === "assistant"}
+                />
+              ) : null}
               {inlineError ? (
                 <ThreadErrorCard
                   error={inlineError}
@@ -644,19 +660,6 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
               botName={bot.name}
               draftKey={bot.id}
               busy={working && pendingApproval === null}
-              activitySlot={
-                working && !waitingForUserInput && pendingApproval === null ? (
-                  <BotActivityStatus
-                    bot={bot}
-                    activity={botActivity}
-                    startedAt={
-                      runtime.latestTurn?.startedAt ?? runtime.latestTurn?.requestedAt ?? null
-                    }
-                    subjectName={activitySubjectName}
-                    silentRun={silentRun}
-                  />
-                ) : null
-              }
               pendingActionSlot={
                 pendingApproval ? (
                   <BotApprovalPrompt

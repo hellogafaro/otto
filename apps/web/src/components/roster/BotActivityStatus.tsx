@@ -75,7 +75,7 @@ function ThinkingVerb() {
 
   const verb = t(THINKING_VERBS[index % THINKING_VERBS.length] ?? "Thinking");
 
-  return <ShimmerText key={verb} className="motion-fade-in" text={`${verb}...`} />;
+  return <ShimmerText key={verb} className="motion-fade-in" text={verb} />;
 }
 
 /** Text with a soft sheen sweeping across it while work is in progress. */
@@ -126,11 +126,13 @@ function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
 }
 
 /**
- * Otto: A working bot shows itself where its reply will appear: its own 28px avatar, awake and
- * ringed by a soft pulse, then one line saying what the run is really doing ("Reading a skill",
- * "Using Google Calendar"). While it only thinks, playful verbs rotate in that line. Past ten
- * seconds the row shows its own elapsed time. A run its provider went quiet on instead shows
- * the stalled timer counting from the last output.
+ * Otto: A working bot shows itself in the chat history, where its reply will appear: its own 28px
+ * avatar in the working pose, then one shimmering line, without trailing dots, saying what the run
+ * is really doing ("Reading a skill", "Using Google Calendar"). A bot queued behind it in a group
+ * round shows a still avatar and a muted "Waiting to reply". Under the bot's own streaming reply the avatar
+ * gives way to the message's indent. While it only thinks, playful verbs rotate in that line.
+ * Past ten seconds the row shows its own elapsed time. A run its provider went quiet on instead
+ * shows the stalled timer counting from the last output.
  */
 export function BotActivityStatus({
   bot,
@@ -138,6 +140,8 @@ export function BotActivityStatus({
   startedAt,
   subjectName = null,
   silentRun = null,
+  continuesReply = false,
+  waiting = false,
 }: {
   readonly bot: Pick<Bot, "name" | "avatar">;
   readonly activity: BotActivity;
@@ -146,24 +150,44 @@ export function BotActivityStatus({
   /** The app's or MCP server's name for a tool working on one. */
   readonly subjectName?: string | null;
   readonly silentRun?: ThreadSilentRun | null;
+  /** The bot's reply is already streaming above, so the row continues it without the avatar. */
+  readonly continuesReply?: boolean;
+  /** Queued behind another bot in a group round: still, muted and without a timer. */
+  readonly waiting?: boolean;
 }) {
   const { t } = useI18n();
+
+  const rowClass = cn(
+    "motion-message-enter flex w-full min-w-0 items-center gap-3 text-sm",
+    continuesReply ? "mt-1" : "mt-3",
+  );
+
   const started = startedAt ? Date.parse(startedAt) : Number.NaN;
 
-  const avatar = (
-    <span className="relative flex size-7 shrink-0 items-center justify-center">
-      <span aria-hidden="true" className="bot-awake-ring absolute inset-0 rounded-full" />
-      <BotAvatarView avatar={bot.avatar} name={bot.name} state="working" className="size-7" />
-    </span>
+  const avatar = continuesReply ? (
+    <span aria-hidden="true" className="size-7 shrink-0" />
+  ) : (
+    <BotAvatarView
+      avatar={bot.avatar}
+      name={bot.name}
+      state={waiting ? "idle" : "working"}
+      className="size-7 shrink-0"
+    />
   );
+
+  if (waiting) {
+    return (
+      <div className={rowClass} data-testid="bot-activity-status" data-waiting="">
+        {avatar}
+        <span className="sr-only">{bot.name}: </span>
+        <span className="min-w-0 truncate text-muted-foreground">{t("Waiting to reply")}</span>
+      </div>
+    );
+  }
 
   if (silentRun) {
     return (
-      <div
-        className="flex w-full min-w-0 items-center gap-3 py-1 text-sm"
-        data-testid="bot-activity-status"
-        data-silent-run=""
-      >
+      <div className={rowClass} data-testid="bot-activity-status" data-silent-run="">
         {avatar}
         <ResponseLoadingState
           createdAt={silentRun.lastActivityAt}
@@ -178,15 +202,11 @@ export function BotActivityStatus({
     activity.subject && subjectName ? t("Using {name}", { name: subjectName }) : t(activity.label);
 
   return (
-    <div
-      aria-live="polite"
-      className="flex w-full min-w-0 items-center gap-3 py-1 text-sm"
-      data-testid="bot-activity-status"
-    >
+    <div aria-live="polite" className={rowClass} data-testid="bot-activity-status">
       {avatar}
       <span className="sr-only">{bot.name}: </span>
       <span className="flex min-w-0 flex-1 items-center gap-2 font-medium text-foreground">
-        {activity.thinking ? <ThinkingVerb /> : <ShimmerText key={label} text={`${label}...`} />}
+        {activity.thinking ? <ThinkingVerb /> : <ShimmerText key={label} text={label} />}
         {Number.isFinite(started) ? <ActivityElapsed startedAt={started} /> : null}
       </span>
     </div>

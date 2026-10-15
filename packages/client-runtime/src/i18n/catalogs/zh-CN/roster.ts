@@ -349,6 +349,7 @@ export const rosterCatalog = {
   Pondering: "正在沉思",
   Reacting: "正在回应",
   "Reading a skill": "正在阅读技能",
+  "Waiting to reply": "等待回复",
   "Reading a web page": "正在阅读网页",
   "Reading files": "正在阅读文件",
   "Reading the library": "正在阅读资料库",
