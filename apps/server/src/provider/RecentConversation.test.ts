@@ -1,6 +1,7 @@
 import type { MastraDBMessage } from "@mastra/core/agent-controller";
 import { describe, expect, it } from "vite-plus/test";
 
+import { GROUP_NO_REPLY, groupTurnNote } from "../orchestration/groupResponder.ts";
 import { selectRecentConversation } from "./RecentConversation.ts";
 
 const message = (id: string, role: MastraDBMessage["role"], text = id): MastraDBMessage =>
@@ -11,6 +12,16 @@ const message = (id: string, role: MastraDBMessage["role"], text = id): MastraDB
     createdAt: new Date("2026-09-13T12:00:00.000Z"),
     threadId: "thread-1",
     resourceId: "thread-1",
+  }) as MastraDBMessage;
+
+const signal = (id: string, text = id, type = "user"): MastraDBMessage =>
+  ({
+    ...message(id, "signal", text),
+    content: {
+      format: 2,
+      parts: [{ type: "text", text }],
+      metadata: { signal: { id, type, tagName: type } },
+    },
   }) as MastraDBMessage;
 
 describe("selectRecentConversation", () => {
@@ -96,6 +107,48 @@ describe("selectRecentConversation", () => {
       "assistant-7",
       "user-8",
       "assistant-8",
+    ]);
+  });
+
+  it("starts a turn at each user signal, as Mastra stores user messages", () => {
+    const history = Array.from({ length: 32 }, (_, index) => [
+      signal(`user-${index}`),
+      message(`assistant-${index}`, "assistant"),
+    ]).flat();
+
+    expect(selectRecentConversation(history).map(({ id }) => id)).toEqual(
+      history.slice(4).map(({ id }) => id),
+    );
+  });
+
+  it("keeps a reminder signal inside the turn it arrived in", () => {
+    const history = [
+      signal("user"),
+      signal("reminder", "keep going", "system-reminder"),
+      message("assistant", "assistant"),
+    ];
+
+    expect(selectRecentConversation(history, { turnLimit: 0 }).map(({ id }) => id)).toEqual([
+      "user",
+      "reminder",
+      "assistant",
+    ]);
+  });
+
+  it("drops group passes but keeps the message nobody answered", () => {
+    const history = [
+      signal("person", "Ana: @Ivy what is 7 times 8?"),
+      message("first-pass", "assistant", GROUP_NO_REPLY),
+      signal("note", groupTurnNote("plain")),
+      message("second-pass", "assistant", ` ${GROUP_NO_REPLY}\n`),
+      signal("handoff", `Ana: hi\n\n${groupTurnNote("handoff", "Axo")}`),
+      message("answer", "assistant", "Hi Ana."),
+    ];
+
+    expect(selectRecentConversation(history).map(({ id }) => id)).toEqual([
+      "person",
+      "handoff",
+      "answer",
     ]);
   });
 });

@@ -115,7 +115,9 @@ export function createTurnRequests(deps: {
     errorMessage?: string,
   ) => void;
 }) {
-  const readAttachments = (attachments: ReadonlyArray<ChatAttachment>) =>
+  // Text files go inline as decoded text, which every model reads; other files
+  // go as file parts. The path line lets tools open the saved copy.
+  const readTurnContent = (input: string | undefined, attachments: ReadonlyArray<ChatAttachment>) =>
     Effect.forEach(
       attachments,
       (attachment) => {
@@ -147,19 +149,49 @@ export function createTurnRequests(deps: {
           : deps.fileSystem.readFile(path).pipe(Effect.mapError(readError));
 
         return bytes.pipe(
-          Effect.map((bytes) => ({
-            file: {
-              data: Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString(
-                "base64",
-              ),
-              mediaType: attachment.mimeType,
-              filename: attachment.name,
-            },
-            pathLine: `[Attached ${attachment.type} "${attachment.name}" is saved at: ${path}]`,
-          })),
+          Effect.map((bytes) => {
+            const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            const pathLine = `[Attached ${attachment.type} "${attachment.name}" is saved at: ${path}]`;
+
+            if (
+              !attachment.mimeType.startsWith("text/") &&
+              attachment.mimeType !== "application/json"
+            ) {
+              return {
+                pathLine,
+                file: {
+                  data: buffer.toString("base64"),
+                  mediaType: attachment.mimeType,
+                  filename: attachment.name,
+                },
+              };
+            }
+
+            const text = buffer.toString("utf8");
+
+            const longestRun = Math.max(
+              0,
+              ...Array.from(text.matchAll(/`+/g), (run) => run[0].length),
+            );
+
+            const fence = "`".repeat(Math.max(3, longestRun + 1));
+
+            return { pathLine, inline: `[File: ${attachment.name}]\n${fence}\n${text}\n${fence}` };
+          }),
         );
       },
       { concurrency: 1 },
+    ).pipe(
+      Effect.map((read) => ({
+        text: [
+          input,
+          ...read.map(({ pathLine }) => pathLine),
+          ...read.flatMap((entry) => ("inline" in entry ? [entry.inline] : [])),
+        ]
+          .filter((part): part is string => Predicate.isString(part) && part.length > 0)
+          .join("\n\n"),
+        files: read.flatMap((entry) => ("file" in entry ? [entry.file] : [])),
+      })),
     );
 
   // A turn takes signals only while its Mastra run is live: a turn waiting on an
@@ -180,13 +212,9 @@ export function createTurnRequests(deps: {
       const turn = active.activeTurn;
 
       if (!takesSignals(active, turn)) return false;
-      const attachmentFiles = yield* readAttachments(input.attachments ?? []);
+      const { text, files } = yield* readTurnContent(input.input, input.attachments ?? []);
 
       if (!takesSignals(active, turn)) return false;
-
-      const text = [input.input, ...attachmentFiles.map(({ pathLine }) => pathLine)]
-        .filter((part): part is string => Predicate.isString(part) && part.length > 0)
-        .join("\n\n");
 
       const accepted = yield* deps.runMastra(
         "signalTurn",
@@ -195,11 +223,11 @@ export function createTurnRequests(deps: {
             {
               type: "user",
               contents:
-                attachmentFiles.length === 0
+                files.length === 0
                   ? text
                   : [
                       { type: "text", text },
-                      ...attachmentFiles.map(({ file }) => ({ type: "file" as const, ...file })),
+                      ...files.map((file) => ({ type: "file" as const, ...file })),
                     ],
             },
             { requireDelivery: true },
@@ -436,7 +464,10 @@ export function createTurnRequests(deps: {
             }
           }
 
-          const attachmentFiles = yield* readAttachments(input.attachments ?? []);
+          const { text: content, files } = yield* readTurnContent(
+            input.input,
+            input.attachments ?? [],
+          );
 
           if (
             deps.sessions.get(key) !== active ||
@@ -449,11 +480,6 @@ export function createTurnRequests(deps: {
             });
           }
 
-          const content = [input.input, ...attachmentFiles.map(({ pathLine }) => pathLine)]
-            .filter((part): part is string => Predicate.isString(part) && part.length > 0)
-            .join("\n\n");
-
-          const files = attachmentFiles.map(({ file }) => file);
           const turnId = TurnId.make(`mastra-turn-${NodeCrypto.randomUUID()}`);
           active.pendingTurns.push({
             threadId: input.threadId,

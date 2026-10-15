@@ -5,6 +5,7 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { AuthStorage } from "@mastra/code-sdk/auth/storage";
 import { MessageList } from "@mastra/core/agent";
+import { RequestContext } from "@mastra/core/request-context";
 import { Memory } from "@mastra/memory";
 import { ObservationalMemory } from "@mastra/memory/processors";
 import * as DateTime from "effect/DateTime";
@@ -14,7 +15,27 @@ import {
   OttoPassiveObservationalMemoryProcessor,
   createOttoMastraMemory,
 } from "./OttoMastraHarness.ts";
-import { OTTO_RECENT_TURN_LIMIT } from "./RecentConversation.ts";
+import { OTTO_RECENT_TURN_LIMIT, OTTO_REPLY_BOT_NAME } from "./RecentConversation.ts";
+
+const groupBot = (botName: string) => {
+  const requestContext = new RequestContext();
+  requestContext.set("controller", { state: { botName, groupContext: "Group: Mates." } });
+
+  return requestContext;
+};
+
+const stored = (id: string, role: "user" | "assistant", text: string, author?: string) => ({
+  id,
+  role,
+  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-08-31T20:00:00.000Z")),
+  content: {
+    format: 2 as const,
+    parts: [{ type: "text" as const, text }],
+    ...(author ? { metadata: { [OTTO_REPLY_BOT_NAME]: author } } : {}),
+  },
+  threadId: "thread-group",
+  resourceId: "thread-group",
+});
 
 describe("OttoMastraHarness", () => {
   it("restores a bounded recent message window after reopening", async () => {
@@ -208,6 +229,77 @@ describe("OttoMastraHarness", () => {
     expect(persistMessages).toHaveBeenCalledWith([
       expect.objectContaining({ id: "user-current" }),
       expect.objectContaining({ id: "assistant-current" }),
+    ]);
+  });
+
+  it("names the bot that wrote each reply", async () => {
+    const persistMessages = vi.fn(async () => undefined);
+
+    const processor = new OttoPassiveObservationalMemoryProcessor(
+      partialSdkFixture<ObservationalMemory>({}),
+      partialSdkFixture<Memory>({ persistMessages }),
+    );
+
+    const messageList = new MessageList({ threadId: "thread-group", resourceId: "thread-group" });
+    messageList.add(stored("person", "user", "Ana: hi"), "input");
+    messageList.add(stored("reply", "assistant", "Hi Ana."), "response");
+
+    await processor.processOutputResult({ messageList, requestContext: groupBot("Ivy") } as never);
+
+    expect(persistMessages).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "person",
+        content: expect.not.objectContaining({ metadata: expect.anything() }),
+      }),
+      expect.objectContaining({
+        id: "reply",
+        content: expect.objectContaining({ metadata: { [OTTO_REPLY_BOT_NAME]: "Ivy" } }),
+      }),
+    ]);
+  });
+
+  it("shows another group bot's reply as that bot speaking", async () => {
+    const processor = new OttoPassiveObservationalMemoryProcessor(
+      partialSdkFixture<ObservationalMemory>({
+        getThreadContext: vi.fn(() => ({ threadId: "thread-group", resourceId: "thread-group" })),
+        loadUnobservedMessages: vi.fn(async () => []),
+        getOrCreateRecord: vi.fn(async () => ({ activeObservations: "" })),
+        buildContextSystemMessages: vi.fn(async () => []),
+      }),
+      partialSdkFixture<Memory>({
+        recall: vi.fn(async () => ({
+          messages: [
+            stored("person", "user", "Ana: say hi"),
+            stored("axo", "assistant", "Hi, I'm Axo.", "Axo"),
+            stored("ivy", "assistant", "Hi, I'm Ivy.", "Ivy"),
+            stored("older", "assistant", "Hello."),
+          ],
+        })),
+      }),
+    );
+
+    const messageList = new MessageList({ threadId: "thread-group", resourceId: "thread-group" });
+    messageList.add(stored("current", "user", "Ana: who are you?"), "input");
+
+    await processor.processInputStep({
+      stepNumber: 0,
+      messageList,
+      requestContext: groupBot("Ivy"),
+    } as never);
+
+    expect(
+      messageList.get.remembered
+        .db()
+        .map((message) => [
+          message.id,
+          message.role,
+          message.content.parts.map((part) => (part.type === "text" ? part.text : part.type)),
+        ]),
+    ).toEqual([
+      ["person", "user", ["Ana: say hi"]],
+      ["axo", "user", ["Axo: Hi, I'm Axo."]],
+      ["ivy", "assistant", ["Hi, I'm Ivy."]],
+      ["older", "assistant", ["Hello."]],
     ]);
   });
 });

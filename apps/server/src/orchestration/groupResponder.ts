@@ -4,19 +4,26 @@ import { GROUP_EVERYONE_MENTION, type GroupTurnReason } from "@otto/shared/group
 /** A bot's reply that is exactly this word is never shown. */
 export const GROUP_NO_REPLY = "NO_REPLY";
 
+const GROUP_TURN_NOTE_PREFIX = "(Group: ";
+
+/** Whether a message is only a hidden group turn note. */
+export function isGroupTurnNote(text: string): boolean {
+  return text.startsWith(GROUP_TURN_NOTE_PREFIX) && text.endsWith(")") && !text.includes("\n");
+}
+
 /** The hidden note that tells a bot why it is answering now. */
 export function groupTurnNote(reason: GroupTurnReason, from?: string): string {
   switch (reason) {
     case "plain":
-      return `(Group: your turn. Answer the message above only if it is for you, otherwise reply ${GROUP_NO_REPLY}.)`;
+      return `${GROUP_TURN_NOTE_PREFIX}your turn. Answer the message above only if it is for you, otherwise reply ${GROUP_NO_REPLY}.)`;
     case "mentioned":
-      return "(Group: you were mentioned. Answer the message above.)";
+      return `${GROUP_TURN_NOTE_PREFIX}you were mentioned. Answer the message above.)`;
     case "everyone":
-      return "(Group: the message above is for everyone. Answer it briefly.)";
+      return `${GROUP_TURN_NOTE_PREFIX}the message above is for everyone. Answer it briefly.)`;
     case "handoff":
-      return `(Group: ${from ?? "another bot"} mentioned you above. Answer it.)`;
+      return `${GROUP_TURN_NOTE_PREFIX}${from ?? "another bot"} mentioned you above. Answer it.)`;
     case "fallback":
-      return "(Group: no other bot answered. Answer the message above.)";
+      return `${GROUP_TURN_NOTE_PREFIX}no other bot answered. Answer the message above.)`;
   }
 }
 

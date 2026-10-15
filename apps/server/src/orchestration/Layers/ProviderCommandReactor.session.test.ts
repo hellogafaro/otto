@@ -1,11 +1,19 @@
 import { ProviderDriverKind, ProviderInstanceId } from "@otto/contracts";
 import { createModelSelection } from "@otto/shared/model";
-import { BotId, CommandId, DEFAULT_PROVIDER_INTERACTION_MODE, ThreadId } from "@otto/contracts";
+import {
+  AuthSessionId,
+  BotId,
+  CommandId,
+  DEFAULT_PROVIDER_INTERACTION_MODE,
+  GroupId,
+  ThreadId,
+} from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import { it as effectIt } from "@effect/vitest";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   asMessageId,
+  asProjectId,
   createProviderCommandHarness,
 } from "./test-support/ProviderCommandHarness.ts";
 
@@ -13,6 +21,88 @@ describe("ProviderCommandReactor", () => {
   const testScope = createProviderCommandHarness();
   const { createHarness } = testScope;
   afterEach(testScope.dispose);
+  it("switches a shared group session to the bot answering next", async () => {
+    const harness = await createHarness({
+      botEngine: { provider: "codex", model: "gpt-5-codex" },
+      secondBot: { engine: { provider: "codex", model: "gpt-5-codex" } },
+      botSandboxBrowserSharing: "shared",
+    });
+
+    const now = "2026-01-01T00:00:00.000Z";
+    const threadId = ThreadId.make("thread-group");
+
+    await harness.run(
+      harness.engine.dispatch({
+        type: "group.create",
+        commandId: CommandId.make("cmd-group-create"),
+        groupId: GroupId.make("group-1"),
+        name: "Mates",
+        bossBotId: BotId.make("bot-1"),
+        specialistBotIds: [BotId.make("bot-2")],
+        createdAt: now,
+      }),
+    );
+    await harness.run(
+      harness.engine.dispatch({
+        type: "thread.create",
+        commandId: CommandId.make("cmd-group-thread-create"),
+        threadId,
+        projectId: asProjectId("project-1"),
+        groupId: GroupId.make("group-1"),
+        title: "Mates",
+        modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5-codex"),
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        branch: null,
+        worktreePath: null,
+        createdAt: now,
+      }),
+    );
+
+    await harness.run(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.make("cmd-group-person-message"),
+        threadId,
+        message: {
+          messageId: asMessageId("person-message"),
+          role: "user",
+          text: "@Second bot what is 7 times 8?",
+          attachments: [],
+        },
+        senderPersonId: AuthSessionId.make("person-1"),
+        senderDisplayName: "Ana",
+        senderCanManageGroups: true,
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: now,
+      }),
+    );
+
+    for (const [index, botId] of [BotId.make("bot-1"), BotId.make("bot-2")].entries()) {
+      await harness.run(
+        harness.engine.dispatch({
+          type: "thread.group-turn.start",
+          commandId: CommandId.make(`cmd-group-turn-${index}`),
+          threadId,
+          botId,
+          messageId: asMessageId("person-message"),
+          input: "Ana: @Second bot what is 7 times 8?",
+          attachments: [],
+          createdAt: now,
+        }),
+      );
+
+      await harness.waitFor(() => harness.sendTurn.mock.calls.length === index + 1);
+    }
+
+    expect(harness.startSession.mock.calls.map((call) => call[1].botName)).toEqual([
+      "Configured bot",
+      "Second bot",
+    ]);
+    expect(harness.startSession.mock.calls[1]?.[1].groupContext).toContain("Second bot (bot, you)");
+  });
+
   it("preserves the active session model when in-session model switching is unsupported", async () => {
     const harness = await createHarness({ sessionModelSwitch: "unsupported" });
     const now = "2026-01-01T00:00:00.000Z";

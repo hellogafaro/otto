@@ -53,6 +53,7 @@ export function createSession({
   threadModelSelections,
   threadMcpServers,
   threadBotWorkspaceKeys,
+  threadRespondingBotIds,
   providerSessionDirectory,
   expandComposerMentions,
 }: Pick<
@@ -76,6 +77,7 @@ export function createSession({
   | "threadModelSelections"
   | "threadMcpServers"
   | "threadBotWorkspaceKeys"
+  | "threadRespondingBotIds"
   | "providerSessionDirectory"
   | "expandComposerMentions"
 >) {
@@ -470,14 +472,20 @@ export function createSession({
       const botWorkspaceChanged =
         previousBotWorkspaceKey !== undefined && previousBotWorkspaceKey !== botWorkspaceKey;
 
+      // Group bots take turns on one session, which must carry the answering bot's
+      // name and roster. An unknown previous bot (after a restart) counts as a change.
+      const respondingBotChanged =
+        thread.groupId != null && threadRespondingBotIds.get(threadId) !== respondingBotId;
+
       const activeTurnId = activeSession?.activeTurnId;
 
-      if (botWorkspaceChanged && activeTurnId !== undefined) {
+      if ((botWorkspaceChanged || respondingBotChanged) && activeTurnId !== undefined) {
         yield* Effect.logInfo("provider command reactor deferred bot workspace migration", {
           threadId,
           activeTurnId,
           previousBotWorkspaceKey,
           botWorkspaceKey,
+          respondingBotChanged,
         });
 
         return { threadId: existingSessionThreadId, engine: desiredEngine };
@@ -490,9 +498,11 @@ export function createSession({
         !shouldRestartForModelChange &&
         !shouldRestartForModelSelectionChange &&
         !mcpServersChanged &&
-        !botWorkspaceChanged
+        !botWorkspaceChanged &&
+        !respondingBotChanged
       ) {
         threadBotWorkspaceKeys.set(threadId, botWorkspaceKey);
+        threadRespondingBotIds.set(threadId, respondingBotId);
         threadMcpServers.set(threadId, mcpServers);
 
         return { threadId: existingSessionThreadId, engine: desiredEngine };
@@ -523,6 +533,7 @@ export function createSession({
         shouldRestartForModelSelectionChange,
         mcpServersChanged,
         botWorkspaceChanged,
+        respondingBotChanged,
         hasResumeCursor: resumeCursor !== undefined,
       });
 
@@ -544,6 +555,7 @@ export function createSession({
       });
       yield* bindSessionToThread(restartedSession);
       threadBotWorkspaceKeys.set(threadId, botWorkspaceKey);
+      threadRespondingBotIds.set(threadId, respondingBotId);
       threadMcpServers.set(threadId, mcpServers);
 
       return { threadId: restartedSession.threadId, engine: desiredEngine };
@@ -575,6 +587,7 @@ export function createSession({
 
     yield* bindSessionToThread(startedSession);
     threadBotWorkspaceKeys.set(threadId, botWorkspaceKey);
+    threadRespondingBotIds.set(threadId, respondingBotId);
     threadMcpServers.set(threadId, mcpServers);
 
     return { threadId: startedSession.threadId, engine: desiredEngine };

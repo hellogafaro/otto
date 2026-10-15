@@ -164,6 +164,58 @@ describe("AgentControllerLive signals", () => {
     );
   });
 
+  it.effect("inlines a text file, which models only take as text", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-signal-text-"));
+    const attachmentsDir = NodePath.join(baseDir, "userdata", "attachments");
+    NodeFS.mkdirSync(attachmentsDir, { recursive: true });
+    NodeFS.writeFileSync(NodePath.join(attachmentsDir, "file-1.txt"), "Codename: ```HERON```");
+
+    return provideController(
+      Effect.gen(function* () {
+        const { controller, eventsFiber } = yield* startCodex;
+        yield* controller.sendTurn({ threadId: codexThreadId, input: "Plan a trip" });
+        mastra.setRunId("run-1");
+
+        yield* controller.signalTurn({
+          threadId: codexThreadId,
+          input: "Use this",
+          attachments: [
+            {
+              type: "file",
+              id: "file-1",
+              name: "notes.txt",
+              mimeType: "text/plain",
+              sizeBytes: 21,
+            },
+          ],
+        });
+
+        expect(mastra.sendSignal).toHaveBeenCalledWith(
+          {
+            type: "user",
+            contents: [
+              "Use this",
+              `[Attached file "notes.txt" is saved at: ${NodePath.join(attachmentsDir, "file-1.txt")}]`,
+              "[File: notes.txt]\n````\nCodename: ```HERON```\n````",
+            ].join("\n\n"),
+          },
+          { requireDelivery: true },
+        );
+        yield* Fiber.interrupt(eventsFiber);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(baseDir, { recursive: true, force: true })),
+        ),
+      ),
+      bridge.service,
+      mastra.factory,
+      undefined,
+      baseDir,
+    );
+  });
+
   it.effect("shows a run Mastra starts for a late signal as its own turn", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();

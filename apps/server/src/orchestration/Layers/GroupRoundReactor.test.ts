@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest";
 import {
+  AuthSessionId,
   BotId,
   CommandId,
   EventId,
@@ -39,6 +40,8 @@ const threadId = ThreadId.make("thread-group");
 
 const ANALYST_ID = BotId.make("bot-analyst");
 
+const SECOND_PERSON_ID = AuthSessionId.make("person-ana");
+
 type GroupTurn = Extract<OrchestrationCommand, { type: "thread.group-turn.start" }>;
 
 type Signal = Parameters<AgentController["Service"]["signalTurn"]>[0];
@@ -63,6 +66,7 @@ const makeHarness = (options: { readonly signalTurnDelivers?: boolean } = {}) =>
             { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
             { kind: "bot", botId: ANALYST_ID, role: "specialist" },
             { kind: "person", personId: PERSON_ID, displayName: "Member" },
+            { kind: "person", personId: SECOND_PERSON_ID, displayName: "Ana" },
           ],
         }),
       ],
@@ -137,7 +141,7 @@ const makeHarness = (options: { readonly signalTurnDelivers?: boolean } = {}) =>
         yield* reactor.drain;
       });
 
-    const person = (text: string) =>
+    const person = (text: string, author = { id: PERSON_ID, name: "Member" }) =>
       publish("thread.message-sent", {
         threadId,
         messageId: MessageId.make(`message-${sequence + 1}`),
@@ -145,8 +149,8 @@ const makeHarness = (options: { readonly signalTurnDelivers?: boolean } = {}) =>
         text,
         attachments: [],
         turnId: null,
-        authorPersonId: PERSON_ID,
-        authorDisplayName: "Member",
+        authorPersonId: author.id,
+        authorDisplayName: author.name,
         streaming: false,
         createdAt: NOW,
         updatedAt: NOW,
@@ -416,6 +420,30 @@ describe("GroupRoundReactor", () => {
         yield* session("ready");
         expect(bots(turns)).toEqual([BOSS_ID, BOSS_ID]);
         expect(turns[1]?.input).toBe("Member: and the budget");
+      }),
+    ),
+  );
+
+  it.effect("adds what two people write to the answering bot's turn", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { turns, signals, person, session, wait } = yield* makeHarness({
+          signalTurnDelivers: true,
+        });
+
+        yield* person("@bot-boss draft the agenda");
+        yield* wait(2_000);
+        yield* session("running");
+        yield* person("put lunch first");
+        yield* person("and keep it short", { id: SECOND_PERSON_ID, name: "Ana" });
+        expect(signals.map((signal) => signal.input)).toEqual([
+          "Member: put lunch first",
+          "Ana: and keep it short",
+        ]);
+
+        yield* wait(8_000);
+        yield* session("ready");
+        expect(bots(turns)).toEqual([BOSS_ID]);
       }),
     ),
   );

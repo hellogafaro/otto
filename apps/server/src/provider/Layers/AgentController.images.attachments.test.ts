@@ -74,4 +74,57 @@ describe("AgentControllerLive", () => {
       baseDir,
     );
   });
+
+  it.effect("sends a text attachment as text, which every model reads", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-mastra-text-"));
+    const attachmentsDir = NodePath.join(baseDir, "userdata", "attachments");
+    NodeFS.mkdirSync(attachmentsDir, { recursive: true });
+    NodeFS.writeFileSync(NodePath.join(attachmentsDir, "file-1.json"), '{"codename":"HERON"}');
+
+    return provideController(
+      Effect.gen(function* () {
+        const controller = yield* AgentController;
+        yield* resolveCodex(controller);
+        yield* controller.startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          cwd: process.cwd(),
+          modelSelection: codexSelection,
+          runtimeMode: "full-access",
+        });
+        yield* controller.sendTurn({
+          threadId: codexThreadId,
+          input: "What is the codename?",
+          attachments: [
+            {
+              type: "file",
+              id: "file-1",
+              name: "project.json",
+              mimeType: "application/json",
+              sizeBytes: 20,
+            },
+          ],
+        });
+
+        expect(mastra.sendMessage).toHaveBeenCalledWith({
+          content: [
+            "What is the codename?",
+            `[Attached file "project.json" is saved at: ${NodePath.join(attachmentsDir, "file-1.json")}]`,
+            '[File: project.json]\n```\n{"codename":"HERON"}\n```',
+          ].join("\n\n"),
+        });
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(baseDir, { recursive: true, force: true })),
+        ),
+      ),
+      bridge.service,
+      mastra.factory,
+      undefined,
+      baseDir,
+    );
+  });
 });

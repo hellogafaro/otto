@@ -16,7 +16,11 @@ import {
   OBSERVATION_CONTINUATION_HINT,
   type ObserveHooks,
 } from "@mastra/memory/processors";
-import { selectRecentConversation } from "../RecentConversation.ts";
+import {
+  attributeGroupReplies,
+  OTTO_REPLY_BOT_NAME,
+  selectRecentConversation,
+} from "../RecentConversation.ts";
 import { type OttoMastraHarnessOptions, type OttoMastraState } from "./OttoHarnessTypes.ts";
 import { DEFAULT_MODEL_ID, resolveOttoMastraModel } from "./OttoModels.ts";
 
@@ -120,6 +124,19 @@ export function controllerResourceId(requestContext: RequestContext): string | u
   return Predicate.isString(value) ? value : undefined;
 }
 
+function controllerBot(requestContext: RequestContext | undefined) {
+  const state = requestContext ? controllerContext(requestContext)?.state : undefined;
+
+  if (!Predicate.isObject(state) || !("botName" in state) || !Predicate.isString(state.botName)) {
+    return undefined;
+  }
+
+  return {
+    name: state.botName,
+    inGroup: "groupContext" in state && Predicate.isString(state.groupContext),
+  };
+}
+
 export class OttoPassiveObservationalMemoryProcessor implements Processor<"observational-memory"> {
   readonly id = "observational-memory" as const;
   readonly name = "Otto Observational Memory";
@@ -146,8 +163,10 @@ export class OttoPassiveObservationalMemoryProcessor implements Processor<"obser
     ]);
 
     const requiredMessageIds = new Set(unobserved.map((message) => message.id));
+    const bot = controllerBot(args.requestContext);
+    const recent = selectRecentConversation(history.messages, { requiredMessageIds });
 
-    for (const message of selectRecentConversation(history.messages, { requiredMessageIds })) {
+    for (const message of bot?.inGroup ? attributeGroupReplies(recent, bot.name) : recent) {
       if (message.role !== "system") args.messageList.add(message, "memory");
     }
 
@@ -173,6 +192,13 @@ export class OttoPassiveObservationalMemoryProcessor implements Processor<"obser
       ...args.messageList.get.input.db(),
       ...args.messageList.get.response.db(),
     ].filter((message) => args.messageList.isNewMessage(message));
+
+    const botName = controllerBot(args.requestContext)?.name;
+
+    for (const message of messages) {
+      if (message.role !== "assistant" || !botName) continue;
+      message.content.metadata = { ...message.content.metadata, [OTTO_REPLY_BOT_NAME]: botName };
+    }
 
     if (messages.length > 0) await this.memory.persistMessages(messages);
 
