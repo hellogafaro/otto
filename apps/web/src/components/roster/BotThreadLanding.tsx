@@ -459,7 +459,7 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
               >
                 {bot.name}
               </WorkspaceHeaderTitle>
-              <div data-chat-header-actions className="ml-auto flex items-center">
+              <div data-chat-header-actions className="ml-auto flex items-center gap-1.5">
                 <BotVoiceCallButton
                   bot={bot}
                   disabled={runtime.sending || runtime.latestTurn?.state === "running"}
@@ -623,7 +623,11 @@ export function BotThreadLanding({ botId }: { readonly botId: string }) {
                   bot={bot}
                   activity={botActivity}
                   startedAt={
-                    runtime.latestTurn?.startedAt ?? runtime.latestTurn?.requestedAt ?? null
+                    // Otto: Right after a send the latest turn is still the finished one; its
+                    // start would flash a stale time, so the timer waits for the new turn.
+                    runtime.latestTurn && !runtime.latestTurn.completedAt
+                      ? (runtime.latestTurn.startedAt ?? runtime.latestTurn.requestedAt ?? null)
+                      : null
                   }
                   subjectName={activitySubjectName}
                   silentRun={silentRun}

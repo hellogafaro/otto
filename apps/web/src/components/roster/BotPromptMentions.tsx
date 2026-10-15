@@ -6,7 +6,6 @@ import {
   RiFileLine,
   RiGlobalLine,
   RiChat3Line,
-  RiCloseLine,
   RiPuzzleLine,
   RiSparkling2Line,
 } from "@remixicon/react";
@@ -17,6 +16,7 @@ import { rankComposerThreadMentions } from "@otto/shared/composerThreadMentions"
 
 import {
   type KeyboardEvent,
+  type ReactNode,
   type Ref,
   useCallback,
   useEffect,
@@ -34,19 +34,14 @@ import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { AppLogo } from "../customize/CustomizeIntegrations";
-import {
-  CHAT_INLINE_CHIP_LABEL_CLASS_NAME,
-  COMPOSER_INLINE_CHIP_CLASS_NAME,
-  COMPOSER_INLINE_CHIP_DISMISS_BUTTON_CLASS_NAME,
-  COMPOSER_INLINE_CHIP_ICON_CLASS_NAME,
-} from "../composerInlineChip";
+import { INLINE_TAG_CLASS_NAME } from "../composerInlineChip";
 import {
   type BotPromptMentionBot,
-  type BotPromptMentionChip,
   type BotPromptMentionItem,
   type BotPromptMentionResource,
   type BotPromptMentionTrigger,
-  botPromptMentionChips,
+  botPromptMentionName,
+  type BotPromptMentionName,
   botPromptThreadQuery,
   buildBotPromptMentionItems,
   isBotPromptThreadQuery,
@@ -377,73 +372,86 @@ export function BotPromptMentionMenu({
   );
 }
 
-const MENTION_CHIP_PATTERN = /(^|\s)@(browser|chat:|bot:|skill:|app:|mcp:)/;
+/**
+ * The names a draft shows as tags: bots, people and `@everyone`, plus the chats, skills, apps and
+ * MCP servers a person can pick, each with the token it is sent as.
+ */
+export function useBotPromptMentionNames(input: {
+  readonly environmentId: EnvironmentId | null;
+  readonly bots: ReadonlyArray<BotPromptMentionBot>;
+  readonly everyone: boolean;
+  readonly people?: ReadonlyArray<{ readonly displayName: string }> | undefined;
+}): ReadonlyArray<BotPromptMentionName> {
+  const { environmentId, bots, everyone, people } = input;
+  const shells = useThreadShells();
+  const resources = useBotPromptMentionResources(environmentId);
 
-/** Cheap check so the chip strip, and its thread shell subscription, mount only when needed. */
-export function draftHasMentionChips(draft: string): boolean {
-  return MENTION_CHIP_PATTERN.test(draft);
+  return useMemo(
+    () => [
+      ...(everyone ? [{ name: "everyone" }] : []),
+      ...bots.map((bot) => ({ name: bot.name })),
+      ...(people ?? []).map((person) => ({ name: person.displayName })),
+      ...shells
+        .filter((shell) => shell.environmentId === environmentId)
+        .flatMap((shell) => {
+          const name = botPromptMentionName({
+            kind: "thread",
+            key: shell.id,
+            label: shell.title,
+            threadId: shell.id,
+          });
+
+          return name ? [name] : [];
+        }),
+      ...resources.flatMap((resource) => {
+        const name = botPromptMentionName({ ...resource, key: resource.id });
+
+        return name ? [name] : [];
+      }),
+    ],
+    [bots, environmentId, everyone, people, resources, shells],
+  );
 }
 
-/** The browser, chat, exact-bot, skill, app, and MCP server mentions in the draft, each with a remove button. */
-export function BotPromptMentionChips({
-  draft,
-  bots,
-  environmentId = null,
-  onRemove,
+/**
+ * Otto: Paints a draft's mentions as blue tags behind a textarea whose own text is transparent.
+ * A negative margin cancels the tag's side padding so every character keeps its place.
+ */
+export function BotPromptMentionHighlights({
+  ref,
+  text,
+  mentions,
+  className,
 }: {
-  draft: string;
-  bots: ReadonlyArray<BotPromptMentionBot>;
-  environmentId?: EnvironmentId | null;
-  onRemove: (chip: BotPromptMentionChip) => void;
+  ref: Ref<HTMLDivElement>;
+  text: string;
+  mentions: ReadonlyArray<{ readonly start: number; readonly end: number }>;
+  className: string;
 }) {
-  const { t } = useI18n();
-  const shells = useThreadShells();
-  const resourceLabel = useBotPromptResourceLabel(environmentId);
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
 
-  const chips = useMemo(() => {
-    const titles = new Map<string, string>(shells.map((shell) => [shell.id, shell.title]));
-
-    return botPromptMentionChips(
-      draft,
-      (threadId) => titles.get(threadId) ?? t("Unknown chat"),
-      (botId) => bots.find((bot) => bot.id === botId)?.name ?? t("Unknown bot"),
-      resourceLabel,
-    ).map((chip) => (chip.kind === "browser" ? { ...chip, label: t("Browser") } : chip));
-  }, [bots, draft, resourceLabel, shells, t]);
-
-  if (chips.length === 0) return null;
+  for (const mention of mentions) {
+    nodes.push(text.slice(cursor, mention.start));
+    nodes.push(
+      <span key={mention.start} className={cn(INLINE_TAG_CLASS_NAME, "-mx-0.75")}>
+        {text.slice(mention.start, mention.end)}
+      </span>,
+    );
+    cursor = mention.end;
+  }
 
   return (
-    <ul
-      aria-label={t("Mentions")}
-      className="flex flex-wrap gap-1.5 px-3 pt-3 text-15px"
-      data-testid="bot-prompt-mention-chips"
+    <div
+      ref={ref}
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute inset-0 overflow-hidden break-words whitespace-pre-wrap text-foreground",
+        className,
+      )}
     >
-      {chips.map((chip) => {
-        const Icon = Match.value(chip).pipe(
-          Match.when({ kind: "browser" }, () => RiGlobalLine),
-          Match.when({ kind: "bot" }, () => RiAtLine),
-          Match.when({ kind: "skill" }, () => RiSparkling2Line),
-          Match.when({ kind: "mcp" }, () => RiPuzzleLine),
-          Match.when({ kind: "app" }, () => RiPuzzleLine),
-          Match.orElse(() => RiChat3Line),
-        );
-
-        return (
-          <li key={chip.key} className={COMPOSER_INLINE_CHIP_CLASS_NAME}>
-            <Icon aria-hidden="true" className={COMPOSER_INLINE_CHIP_ICON_CLASS_NAME} />
-            <span className={CHAT_INLINE_CHIP_LABEL_CLASS_NAME}>{chip.label}</span>
-            <button
-              type="button"
-              aria-label={t("Remove {name}", { name: chip.label })}
-              className={COMPOSER_INLINE_CHIP_DISMISS_BUTTON_CLASS_NAME}
-              onClick={() => onRemove(chip)}
-            >
-              <RiCloseLine aria-hidden="true" className="size-full" />
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+      {nodes}
+      {`${text.slice(cursor)} `}
+    </div>
   );
 }

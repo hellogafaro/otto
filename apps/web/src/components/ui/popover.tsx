@@ -61,7 +61,8 @@ function PopoverPopup({
   viewportPadding = "default",
   side = "bottom",
   align = "center",
-  sideOffset = 4,
+  // Otto: Every popup opens 6px from its trigger, the panel gap, so it never touches it.
+  sideOffset = 6,
   alignOffset = 0,
   tooltipStyle = false,
   anchor,

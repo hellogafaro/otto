@@ -34,7 +34,7 @@ export function MessageReactions({
 
   return (
     <div
-      className={cn("mt-1.5 flex flex-wrap gap-1.5", align === "end" && "justify-end")}
+      className={cn("mt-1 flex flex-wrap gap-1", align === "end" && "justify-end")}
       data-testid="message-reactions"
     >
       {[...counts].map(([emoji, count]) => {
@@ -49,9 +49,10 @@ export function MessageReactions({
           </>
         );
 
+        // Otto: A 24px pill at body size, like the message toolbar; yours is a shade filled.
         const className = cn(
-          "inline-flex min-h-8 items-center gap-1 rounded-full border px-2.5 py-1 text-lg leading-none font-emoji",
-          mine ? "border-primary/40 bg-primary/10" : "border-border/80 bg-background/70",
+          "inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-sm leading-none font-emoji",
+          mine ? "border-foreground/16 bg-foreground/8" : "border-border/70",
         );
 
         if (!onToggle || reactionOptionFromEmoji(emoji) === null) {
@@ -70,7 +71,7 @@ export function MessageReactions({
             aria-pressed={mine}
             className={cn(
               className,
-              "cursor-pointer transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "cursor-pointer transition-colors hover:bg-foreground/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
             data-reaction-emoji={emoji}
             key={emoji}

@@ -1,9 +1,5 @@
-import { Match } from "effect";
 import {
   BROWSER_MENTION_LABEL,
-  collectComposerInlineTokens,
-  collectComposerMentionDisplays,
-  collectComposerResourceMentions,
   COMPOSER_BROWSER_MENTION,
   type ComposerResourceMentionKind,
   serializeComposerBotMention,
@@ -236,13 +232,86 @@ function mentionSource(item: BotPromptMentionItem): string | null {
   }
 }
 
+/**
+ * What the draft shows for a picked mention and the token it sends. Chats, skills, apps and
+ * MCP servers read as `@Label` while typing; the token goes back in when the message is sent.
+ */
+export function botPromptMentionName(item: BotPromptMentionItem): BotPromptMentionName | null {
+  const source = mentionSource(item);
+
+  if (source === null) return null;
+
+  return item.kind === "thread" ||
+    item.kind === "skill" ||
+    item.kind === "app" ||
+    item.kind === "mcp"
+    ? { name: item.label, source }
+    : null;
+}
+
+export interface BotPromptMentionName {
+  readonly name: string;
+  /** The token sent for `@name`; absent for a name that is only highlighted. */
+  readonly source?: string;
+}
+
+/**
+ * Typed `@Name` mentions of the given names, on the word boundaries groups use to decide who
+ * answers. Longer names win, so `@Icon Preview` is one mention rather than `@Icon`.
+ */
+export function findNameMentions<Name extends { readonly name: string }>(
+  text: string,
+  names: ReadonlyArray<Name>,
+): Array<Name & { readonly start: number; readonly end: number }> {
+  const lower = text.toLowerCase();
+  const found: Array<Name & { readonly start: number; readonly end: number }> = [];
+
+  for (const mention of names.toSorted((left, right) => right.name.length - left.name.length)) {
+    if (mention.name.length === 0) continue;
+    const needle = `@${mention.name.toLowerCase()}`;
+
+    for (let start = lower.indexOf(needle); start >= 0; start = lower.indexOf(needle, start + 1)) {
+      const end = start + needle.length;
+      const before = text[start - 1];
+      const after = text[end];
+
+      if (before !== undefined && !/\s/.test(before)) continue;
+
+      if (after !== undefined && !/[\s.,!?:;)]/.test(after)) continue;
+
+      if (found.some((other) => start < other.end && other.start < end)) continue;
+      found.push({ ...mention, start, end });
+    }
+  }
+
+  return found.toSorted((left, right) => left.start - right.start);
+}
+
+/** Puts each readable `@Label` back as the token bots read, so the send carries the exact mention. */
+export function serializeBotPromptMentions(
+  text: string,
+  names: ReadonlyArray<BotPromptMentionName>,
+): string {
+  let next = text;
+
+  for (const mention of findNameMentions(
+    text,
+    names.filter((name) => name.source !== undefined),
+  ).toReversed()) {
+    next = `${next.slice(0, mention.start)}${mention.source}${next.slice(mention.end)}`;
+  }
+
+  return next;
+}
+
 /** Replaces the typed `@query` with the chosen mention and a trailing space. */
 export function applyBotPromptMention(
   draft: string,
   trigger: BotPromptMentionTrigger,
   item: BotPromptMentionItem,
 ) {
-  const source = mentionSource(item);
+  const name = botPromptMentionName(item);
+  const source = name ? `@${name.name}` : mentionSource(item);
 
   if (source === null) return { text: draft, caret: trigger.rangeEnd };
   const before = draft.slice(0, trigger.rangeStart);
@@ -250,76 +319,4 @@ export function applyBotPromptMention(
   const inserted = `${source} `;
 
   return { text: `${before}${inserted}${after}`, caret: before.length + inserted.length };
-}
-
-export interface BotPromptMentionChip {
-  readonly key: string;
-  readonly kind: "browser" | "thread" | "bot" | ComposerResourceMentionKind;
-  readonly label: string;
-  readonly source: string;
-  readonly start: number;
-  readonly end: number;
-}
-
-/**
- * The browser, chat, `@bot:<id>`, skill, app, and MCP server mentions in a draft, each once,
- * labelled for the chip strip. Something the client cannot see still gets a chip so the user can remove it.
- */
-export function botPromptMentionChips(
-  draft: string,
-  threadTitle: (threadId: string) => string | null,
-  botName: (botId: string) => string | null = () => null,
-  resourceLabel: (kind: ComposerResourceMentionKind, id: string) => string = (_kind, id) => id,
-): BotPromptMentionChip[] {
-  const resources = collectComposerResourceMentions(`${draft}\n`)
-    .filter(
-      (mention, index, all) => all.findIndex((other) => other.source === mention.source) === index,
-    )
-    .map((mention) => ({
-      key: `${mention.kind}:${mention.id}`,
-      kind: mention.kind,
-      label: resourceLabel(mention.kind, mention.id),
-      source: mention.source,
-      start: mention.start,
-      end: mention.end,
-    }));
-
-  const displays = collectComposerMentionDisplays(draft, threadTitle, botName).map((display) => ({
-    key: Match.value(display).pipe(
-      Match.when({ kind: "browser" }, () => "browser"),
-      Match.when({ kind: "bot" }, (display) => `bot:${display.botId}`),
-      Match.orElse((display) => `thread:${display.threadId}`),
-    ),
-    kind: display.kind,
-    label: display.label,
-    source: display.source,
-    start: display.start,
-    end: display.end,
-  }));
-
-  return [...displays, ...resources].toSorted((left, right) => left.start - right.start);
-}
-
-/** Removes every occurrence of a chip's mention, with the space that followed it. */
-export function removeBotPromptMention(draft: string, chip: BotPromptMentionChip): string {
-  const tokens = [
-    ...collectComposerInlineTokens(`${draft}\n`).filter(
-      (token) =>
-        token.type === "browser-mention" ||
-        token.type === "thread-mention" ||
-        token.type === "bot-mention",
-    ),
-    ...collectComposerResourceMentions(`${draft}\n`),
-  ]
-    .filter((token) => token.source === chip.source)
-    .toSorted((left, right) => left.start - right.start);
-
-  let next = draft;
-
-  for (const token of tokens.toReversed()) {
-    const end = next[token.end] === " " ? token.end + 1 : token.end;
-    next = `${next.slice(0, token.start)}${next.slice(end)}`;
-  }
-
-  return next;
 }

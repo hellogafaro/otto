@@ -1,12 +1,5 @@
-import {
-  RiAtLine,
-  RiGlobalLine,
-  RiChat3Line,
-  RiPuzzleLine,
-  RiSparkling2Line,
-} from "@remixicon/react";
 import { Match } from "effect";
-import type { ServerProviderSkill } from "@otto/contracts";
+import { isGroupPersonMember, type ServerProviderSkill } from "@otto/contracts";
 import {
   collectComposerInlineTokens,
   collectComposerResourceMentions,
@@ -18,12 +11,9 @@ import { type ReactNode, useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { useThreadShells } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import {
-  CHAT_INLINE_CHIP_CLASS_NAME,
-  CHAT_INLINE_CHIP_LABEL_CLASS_NAME,
-  COMPOSER_INLINE_CHIP_ICON_CLASS_NAME,
-} from "../composerInlineChip";
+import { INLINE_TAG_CLASS_NAME } from "../composerInlineChip";
 import { useBotPromptResourceLabel } from "../roster/BotPromptMentions";
+import { findNameMentions } from "../roster/botPromptMentions.logic";
 import { useRosterStore } from "../roster/rosterStore";
 import { parseReplyPrompt } from "./MessageControls";
 import { ReplyReference } from "./ReplyReference";
@@ -87,6 +77,19 @@ function MentionText({
   readonly skills: ReadonlyArray<ServerProviderSkill>;
 }) {
   const { t } = useI18n();
+  const bots = useRosterStore((state) => state.bots);
+  const groups = useRosterStore((state) => state.groups);
+
+  const names = useMemo<ReadonlyArray<{ readonly name: string }>>(
+    () => [
+      { name: "everyone" },
+      ...bots.map((bot) => ({ name: bot.name })),
+      ...groups.flatMap((group) =>
+        group.members.filter(isGroupPersonMember).map((member) => ({ name: member.displayName })),
+      ),
+    ],
+    [bots, groups],
+  );
 
   const plain = (segment: string, key: number) =>
     skills.length === 0 ? segment : <SkillInlineText key={key} text={segment} skills={skills} />;
@@ -102,6 +105,11 @@ function MentionText({
       ...mention,
       type: "resource-mention" as const,
     })),
+    ...findNameMentions(text, names).map((mention) => ({
+      ...mention,
+      type: "name-mention" as const,
+      source: text.slice(mention.start, mention.end),
+    })),
   ].toSorted((left, right) => left.start - right.start);
 
   if (tokens.length === 0) return plain(text, 0);
@@ -109,22 +117,22 @@ function MentionText({
   let cursor = 0;
 
   for (const token of tokens) {
+    if (token.start < cursor) continue;
+
     if (token.start > cursor) nodes.push(plain(text.slice(cursor, token.start), -token.start - 1));
     nodes.push(
       Match.value(token).pipe(
         Match.when({ type: "browser-mention" }, (token) => (
-          <MentionChip
-            key={token.start}
-            source={token.source}
-            label={t("Browser")}
-            icon="browser"
-          />
+          <MentionChip key={token.start} source={token.source} label={t("Browser")} />
         )),
         Match.when({ type: "bot-mention" }, (token) => (
           <BotMentionChip key={token.start} source={token.source} botId={token.value} />
         )),
         Match.when({ type: "resource-mention" }, (token) => (
           <ResourceMentionChip key={token.start} mention={token} />
+        )),
+        Match.when({ type: "name-mention" }, (token) => (
+          <MentionChip key={token.start} source={token.source} label={token.name} />
         )),
         Match.orElse((token) => (
           <ThreadMentionChip key={token.start} source={token.source} threadId={token.value} />
@@ -148,49 +156,26 @@ function ThreadMentionChip({ source, threadId }: { source: string; threadId: str
     [shells, threadId],
   );
 
-  return <MentionChip source={source} label={title ?? t("Unknown chat")} icon="thread" />;
+  return <MentionChip source={source} label={title ?? t("Unknown chat")} />;
 }
 
 function BotMentionChip({ source, botId }: { source: string; botId: string }) {
   const { t } = useI18n();
   const name = useRosterStore((state) => state.bots.find((bot) => bot.id === botId)?.name ?? null);
 
-  return <MentionChip source={source} label={name ?? t("Unknown bot")} icon="bot" />;
+  return <MentionChip source={source} label={name ?? t("Unknown bot")} />;
 }
 
 function ResourceMentionChip({ mention }: { mention: ComposerResourceMention }) {
   const label = useBotPromptResourceLabel(usePrimaryEnvironmentId())(mention.kind, mention.id);
 
-  return (
-    <MentionChip
-      source={mention.source}
-      label={label}
-      icon={mention.kind === "skill" ? "skill" : "integration"}
-    />
-  );
+  return <MentionChip source={mention.source} label={label} />;
 }
 
-const MENTION_CHIP_ICONS = {
-  browser: RiGlobalLine,
-  thread: RiChat3Line,
-  bot: RiAtLine,
-  skill: RiSparkling2Line,
-  integration: RiPuzzleLine,
-};
-
-function MentionChip(props: {
-  source: string;
-  label: string;
-  icon: keyof typeof MENTION_CHIP_ICONS;
-}) {
-  const Icon = MENTION_CHIP_ICONS[props.icon];
-
+function MentionChip(props: { source: string; label: string }) {
   return (
-    <span className="inline-flex align-middle leading-none" data-markdown-copy={props.source}>
-      <span className={CHAT_INLINE_CHIP_CLASS_NAME}>
-        <Icon aria-hidden="true" className={COMPOSER_INLINE_CHIP_ICON_CLASS_NAME} />
-        <span className={CHAT_INLINE_CHIP_LABEL_CLASS_NAME}>{props.label}</span>
-      </span>
+    <span className={INLINE_TAG_CLASS_NAME} data-markdown-copy={props.source}>
+      @{props.label}
     </span>
   );
 }

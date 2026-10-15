@@ -10,7 +10,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { composerActionIsDictation } from "@otto/client-runtime/dictation";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { shortcutLabelForCommand } from "../../keybindings";
 import { useEnvironmentComposerDictation } from "../../lib/useEnvironmentComposerDictation";
@@ -51,17 +51,18 @@ import {
   botPromptMention,
   botPromptMentionTrigger,
   type BotPromptMentionItem,
-  removeBotPromptMention,
+  findNameMentions,
+  serializeBotPromptMentions,
 } from "./botPromptMentions.logic";
 import { applyBotPromptCommand, botPromptCommandTrigger } from "./botPromptCommands.logic";
 import { BotPromptCommandMenu, type BotPromptCommandMenuHandle } from "./BotPromptCommandMenu";
 import type { ComposerProviderCatalog } from "../chat/composerProviderMenuItems";
 import {
-  BotPromptMentionChips,
+  BotPromptMentionHighlights,
   BotPromptMentionMenu,
   type BotPromptMentionMenuHandle,
   type BotPromptMentionScope,
-  draftHasMentionChips,
+  useBotPromptMentionNames,
 } from "./BotPromptMentions";
 import { useBotComposerDraft } from "./useBotComposerDraft";
 import { useBotComposerKeyboard } from "./useBotComposerKeyboard";
@@ -171,6 +172,7 @@ export function BotPromptComposer({
     expandedPreview,
     addFiles,
     removeAttachment,
+    failedAttachmentIds,
     markAttachmentPreviewFailed,
     isStashMenuOpen,
     setIsStashMenuOpen,
@@ -198,10 +200,23 @@ export function BotPromptComposer({
   const [dismissedCommandStart, setDismissedCommandStart] = useState<number | null>(null);
   const [activeMentionOptionId, setActiveMentionOptionId] = useState<string | null>(null);
 
-  const hasMentionChips = mentionScope !== null && draftHasMentionChips(draft);
+  const expanded = attachments.length > 0 || replyPreview != null || isBotPromptExpanded(draft);
 
-  const expanded =
-    attachments.length > 0 || replyPreview != null || hasMentionChips || isBotPromptExpanded(draft);
+  const mentionNames = useBotPromptMentionNames({
+    environmentId: mentionScope?.environmentId ?? null,
+    bots: mentionBots,
+    everyone: mentionEveryone,
+    people: mentionPeople,
+  });
+
+  const draftMentions = useMemo(() => findNameMentions(draft, mentionNames), [draft, mentionNames]);
+
+  const mentionHighlightsRef = useRef<HTMLDivElement>(null);
+
+  const promptTextClassName = cn(
+    "text-base leading-5 sm:text-sm",
+    expanded ? "px-3.5 pb-10 pt-3" : "min-h-10 px-10.5 py-2.5",
+  );
 
   const mentionsEnabled = !readOnly && (mentionScope !== null || mentionBots.length > 0);
 
@@ -354,7 +369,8 @@ export function BotPromptComposer({
         submitDraft({
           disabled,
           mentionBots,
-          onSubmit,
+          onSubmit: (prompt, files, respondingBotId) =>
+            onSubmit(serializeBotPromptMentions(prompt, mentionNames), files, respondingBotId),
           // Sending with Enter settles a failed dictation, so the empty composer returns to the mic.
           onCleared: () => {
             if (dictation.status === "failed") dictation.onCancel();
@@ -461,75 +477,83 @@ export function BotPromptComposer({
             ) : null}
             <BotPromptAttachments
               attachments={attachments}
+              failedIds={failedAttachmentIds}
               className="px-1.5 pt-1.5"
               onExpand={setExpandedAttachmentId}
               onPreviewError={markAttachmentPreviewFailed}
               onRemove={removeAttachment}
             />
-            {hasMentionChips ? (
-              <BotPromptMentionChips
-                bots={mentionBots}
-                draft={draft}
-                environmentId={mentionScope?.environmentId ?? null}
-                onRemove={(chip) => {
-                  persistDraft(removeBotPromptMention(draft, chip));
-                  promptInputRef.current?.focus();
+            <div className="relative">
+              {draftMentions.length > 0 ? (
+                <BotPromptMentionHighlights
+                  ref={mentionHighlightsRef}
+                  text={draft}
+                  mentions={draftMentions}
+                  className={promptTextClassName}
+                />
+              ) : null}
+              <textarea
+                ref={promptInputRef}
+                aria-label={inputLabel ?? t("Message {name}", { name: botName })}
+                data-testid="bot-prompt-input"
+                placeholder={placeholder ?? inputLabel ?? t("Message {name}", { name: botName })}
+                rows={1}
+                value={draft}
+                readOnly={readOnly}
+                tabIndex={readOnly ? -1 : undefined}
+                aria-autocomplete={mentionsEnabled ? "list" : undefined}
+                aria-controls={
+                  mentionTrigger && activeMentionOptionId ? mentionListboxId : undefined
+                }
+                aria-activedescendant={(mentionTrigger && activeMentionOptionId) || undefined}
+                className={cn(
+                  "field-sizing-content relative block max-h-56 w-full resize-none bg-transparent outline-none placeholder:text-muted-foreground/70",
+                  promptTextClassName,
+                  draftMentions.length > 0 && "text-transparent caret-foreground",
+                )}
+                onScroll={(event) => {
+                  if (mentionHighlightsRef.current) {
+                    mentionHighlightsRef.current.scrollTop = event.currentTarget.scrollTop;
+                  }
+                }}
+                onChange={(event) => {
+                  const { selectionStart, value } = event.currentTarget;
+                  persistDraft(value);
+                  setCaret(selectionStart);
+
+                  if (botPromptMentionTrigger(value, selectionStart) === null) {
+                    setDismissedMentionStart(null);
+                  }
+
+                  if (botPromptCommandTrigger(value, selectionStart) === null) {
+                    setDismissedCommandStart(null);
+                  }
+                }}
+                onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
+                onBlur={() => setCaret(null)}
+                onKeyDown={(event) => {
+                  if (
+                    (mentionTrigger && mentionMenuRef.current?.handleKeyDown(event)) ||
+                    (commandTrigger && commandMenuRef.current?.handleKeyDown(event))
+                  ) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    return;
+                  }
+
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                onPaste={(event) => {
+                  if (!readOnly && event.clipboardData.files.length > 0) {
+                    addFiles(event.clipboardData.files);
+                  }
                 }}
               />
-            ) : null}
-            <textarea
-              ref={promptInputRef}
-              aria-label={inputLabel ?? t("Message {name}", { name: botName })}
-              data-testid="bot-prompt-input"
-              placeholder={placeholder ?? inputLabel ?? t("Message {name}", { name: botName })}
-              rows={1}
-              value={draft}
-              readOnly={readOnly}
-              tabIndex={readOnly ? -1 : undefined}
-              aria-autocomplete={mentionsEnabled ? "list" : undefined}
-              aria-controls={mentionTrigger && activeMentionOptionId ? mentionListboxId : undefined}
-              aria-activedescendant={(mentionTrigger && activeMentionOptionId) || undefined}
-              className={cn(
-                "field-sizing-content max-h-56 w-full resize-none bg-transparent text-base leading-5 outline-none placeholder:text-muted-foreground/70 sm:text-sm",
-                expanded ? "px-3.5 pb-10 pt-3" : "min-h-10 px-10.5 py-2.5",
-              )}
-              onChange={(event) => {
-                const { selectionStart, value } = event.currentTarget;
-                persistDraft(value);
-                setCaret(selectionStart);
-
-                if (botPromptMentionTrigger(value, selectionStart) === null) {
-                  setDismissedMentionStart(null);
-                }
-
-                if (botPromptCommandTrigger(value, selectionStart) === null) {
-                  setDismissedCommandStart(null);
-                }
-              }}
-              onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
-              onBlur={() => setCaret(null)}
-              onKeyDown={(event) => {
-                if (
-                  (mentionTrigger && mentionMenuRef.current?.handleKeyDown(event)) ||
-                  (commandTrigger && commandMenuRef.current?.handleKeyDown(event))
-                ) {
-                  event.preventDefault();
-                  event.stopPropagation();
-
-                  return;
-                }
-
-                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-              onPaste={(event) => {
-                if (!readOnly && event.clipboardData.files.length > 0) {
-                  addFiles(event.clipboardData.files);
-                }
-              }}
-            />
+            </div>
             <div
               data-testid="bot-prompt-controls"
               /* Pinned to the box corners in every state: growing the draft must not move

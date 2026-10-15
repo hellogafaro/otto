@@ -174,48 +174,6 @@
   background-clip: text;
 }
 
-/* A light band slides across in-progress text. The band is a masked copy of the
-   text that moves with transform while its inner text counter-moves to stay aligned. */
-
-.bot-shimmer-text {
-  position: relative;
-  overflow: hidden;
-  --bot-shimmer-duration: 1800ms;
-}
-
-.bot-shimmer-sheen {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  mask-image: linear-gradient(90deg, transparent 25%, #000 50%, transparent 75%);
-}
-
-.bot-shimmer-sheen-text {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: color-mix(in srgb, var(--background) 62%, transparent);
-}
-
-@keyframes bot-shimmer-sheen {
-  from {
-    transform: translateX(-75%);
-  }
-  to {
-    transform: translateX(75%);
-  }
-}
-
-@keyframes bot-shimmer-sheen-counter {
-  from {
-    transform: translateX(75%);
-  }
-  to {
-    transform: translateX(-75%);
-  }
-}
-
 /* Loading meter pixels ("Drive" wavefront), played once: each cell flashes lit,
    then settles to its resting opacity. Lit cells rest as a chevron, the rest dim.
    The sweep replays only when the meter remounts on a step change. */
@@ -247,11 +205,5 @@
 @media (prefers-reduced-motion: reduce) {
   .response-loading-pixel {
     animation: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bot-shimmer-sheen {
-    display: none;
   }
 }

@@ -200,7 +200,7 @@ export function MessageControls(props: {
               }
             >
               {props.selectedReaction ? (
-                <span className="text-xl font-emoji">{props.selectedReaction}</span>
+                <span className="text-sm font-emoji">{props.selectedReaction}</span>
               ) : (
                 <RiEmotionHappyLine className="size-3.5" />
               )}
@@ -211,12 +211,11 @@ export function MessageControls(props: {
               being reacted to. Picking the selected emoji again removes the reaction. */}
           <MenuPopup
             align={props.align === "end" ? "end" : "start"}
-            presentation="padded"
             className="min-w-0"
             side="top"
             sideOffset={8}
           >
-            <div aria-label={t("Choose a reaction")} className="flex gap-1" role="group">
+            <div aria-label={t("Choose a reaction")} className="flex gap-0.5" role="group">
               {MESSAGE_REACTION_OPTIONS.map((option) => (
                 <Button
                   key={option}
@@ -227,8 +226,7 @@ export function MessageControls(props: {
                   }
                   aria-pressed={props.selectedReaction === option}
                   presentation="reaction-emoji"
-                  className="size-11 sm:size-11"
-                  size="icon-sm"
+                  size="icon-xs"
                   variant={props.selectedReaction === option ? "secondary" : "ghost"}
                   onClick={() => chooseReaction(option)}
                 >

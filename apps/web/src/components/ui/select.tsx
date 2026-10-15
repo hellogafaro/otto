@@ -132,7 +132,8 @@ function SelectPopup({
   popupClassName,
   children,
   side = "bottom",
-  sideOffset = 4,
+  // Otto: Every popup opens 6px from its trigger, the panel gap, so it never touches it.
+  sideOffset = 6,
   align = "start",
   alignOffset = 0,
   alignItemWithTrigger = true,

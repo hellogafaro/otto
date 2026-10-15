@@ -1,17 +1,9 @@
 import { Predicate } from "effect";
 import { Children, cloneElement, isValidElement, type ReactNode } from "react";
 import type { ServerProviderSkill } from "@otto/contracts";
-import {
-  formatProviderSkillDisplayName,
-  resolveProviderSkillTextIcon,
-} from "@otto/client-runtime/providerSkills";
+import { formatProviderSkillDisplayName } from "@otto/client-runtime/providerSkills";
 
-import {
-  CHAT_INLINE_CHIP_LABEL_CLASS_NAME,
-  CHAT_INLINE_SKILL_CHIP_CLASS_NAME,
-  INLINE_SKILL_CHIP_ICON_CLASS_NAME,
-  SKILL_CHIP_ICON_SVG,
-} from "../composerInlineChip";
+import { CHAT_INLINE_SKILL_CHIP_CLASS_NAME } from "../composerInlineChip";
 
 const SKILL_TOKEN_REGEX = /(^|\s)\$([a-zA-Z0-9][a-zA-Z0-9:_-]*)(?=\s|$)/g;
 
@@ -85,26 +77,9 @@ export function renderSkillInlineMarkdownChildren(
 }
 
 function SkillChip(props: { skill: InlineSkill; rawText: string }) {
-  const textIcon = resolveProviderSkillTextIcon(props.skill);
-
   return (
-    <span className="inline-flex align-middle leading-none" data-markdown-copy={props.rawText}>
-      <span className={CHAT_INLINE_SKILL_CHIP_CLASS_NAME}>
-        {textIcon ? (
-          <span aria-hidden="true" className={INLINE_SKILL_CHIP_ICON_CLASS_NAME}>
-            {textIcon}
-          </span>
-        ) : (
-          <span
-            aria-hidden="true"
-            className={INLINE_SKILL_CHIP_ICON_CLASS_NAME}
-            dangerouslySetInnerHTML={{ __html: SKILL_CHIP_ICON_SVG }}
-          />
-        )}
-        <span className={CHAT_INLINE_CHIP_LABEL_CLASS_NAME}>
-          {formatProviderSkillDisplayName(props.skill)}
-        </span>
-      </span>
+    <span className={CHAT_INLINE_SKILL_CHIP_CLASS_NAME} data-markdown-copy={props.rawText}>
+      {formatProviderSkillDisplayName(props.skill)}
     </span>
   );
 }

@@ -109,7 +109,7 @@ export function BotConversationScrollArea({
     <div className="flex min-h-0 flex-1 flex-col" data-testid="bot-conversation-scroll-area">
       <div
         ref={viewportRef}
-        className="topbar-scroll-fade topbar-scroll-fade-compact min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-6 pb-1 scrollbar-gutter-stable-both sm:px-6"
+        className="min-h-0 flex-1 scroll-fade-y overflow-y-auto overscroll-contain px-4 pt-6 pb-1 scrollbar-gutter-stable-both sm:px-6"
         data-testid="bot-conversation-viewport"
         onWheel={(event) => {
           if (event.deltaY < 0) dispatch({ type: "user-navigation" });

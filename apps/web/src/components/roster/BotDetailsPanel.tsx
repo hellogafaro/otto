@@ -228,7 +228,7 @@ export function BotDetailsPanel({
                     variant="ghost"
                     onClick={() => setDesktopOpen(false)}
                   >
-                    <AppIcon icon={RiListCheck} />
+                    <AppIcon icon={RiCloseLine} />
                   </Button>
                 }
               />

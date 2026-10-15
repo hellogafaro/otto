@@ -127,7 +127,7 @@ export function DetailsAside({
                     variant="ghost"
                     onClick={() => setDesktopOpen((open) => !open)}
                   >
-                    <AppIcon icon={RiListCheck} />
+                    <AppIcon icon={RiCloseLine} />
                   </Button>
                 }
               />

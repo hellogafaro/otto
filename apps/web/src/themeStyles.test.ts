@@ -119,7 +119,6 @@ it.effect("uses parity tokens and opacities at the reviewed component sites", ()
         "bg-computer-control-indicator",
       ],
       ["components/QuitHoldOverlay.tsx", "bg-quit-prompt/95", "text-on-solid"],
-      ["components/roster/BotPromptAttachments.tsx", "border-on-solid/10"],
       ["components/roster/MemoryApprovalPrompt.tsx", "bg-memory-approval-indicator"],
       ["components/settings/ProcessResourceHistory.tsx", "bg-telemetry-monitor/90"],
       ["components/settings/ResourceTelemetrySummary.tsx", "bg-telemetry-monitor"],

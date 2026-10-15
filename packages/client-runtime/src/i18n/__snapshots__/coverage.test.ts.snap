@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1916,
+  "directMessageCount": 1921,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -451,10 +451,10 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/customize/CustomizeSkills.tsx",
     "apps/web/src/components/customize/McpServerDialog.tsx",
     "apps/web/src/components/library/ChatLibraryPanel.tsx",
+    "apps/web/src/components/library/FileLightbox.tsx",
     "apps/web/src/components/library/LibraryActions.tsx",
     "apps/web/src/components/library/LibraryDetails.tsx",
     "apps/web/src/components/library/LibraryDocumentPage.tsx",
-    "apps/web/src/components/library/LibraryLightbox.tsx",
     "apps/web/src/components/library/LibraryPage.tsx",
     "apps/web/src/components/library/useLibrary.ts",
     "apps/web/src/components/markdown/MarkdownCodeBlock.tsx",
@@ -597,6 +597,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/ui/sidebar.tsx",
     "apps/web/src/components/ui/sidebarRail.tsx",
     "apps/web/src/components/ui/toast.tsx",
+    "apps/web/src/components/voice/VoiceCallControls.tsx",
     "apps/web/src/components/work/ActivitySection.tsx",
     "apps/web/src/components/work/ProjectChats.tsx",
     "apps/web/src/components/work/ProjectLibrary.tsx",

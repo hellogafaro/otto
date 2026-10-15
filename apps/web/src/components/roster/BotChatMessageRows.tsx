@@ -334,23 +334,24 @@ export const UserMessageRow = memo(function UserMessageRow({
           {startsGroup ? <div className="text-sm font-medium">{authorName}</div> : null}
           {/* Otto: Someone else's message is an outlined bubble, so a glance tells it from your
               filled one on the right and from a bot's plain reply. */}
-          <div className="mt-0.5 rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
-            {message.text ? (
+          {message.text ? (
+            <div className="mt-0.5 rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
               <SentMessageText
                 text={message.text}
                 skills={skills}
                 replySourceMessageId={replySourceMessageId}
               />
-            ) : null}
-            {message.attachments?.length ? (
-              <div className={message.text ? "mt-2" : undefined}>
-                <BotMessageAttachments
-                  attachments={message.attachments}
-                  environmentId={environmentId ?? NO_ENVIRONMENT}
-                />
-              </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
+          {/* Otto: Attachments sit under the bubble as cards, like Capy. */}
+          {message.attachments?.length ? (
+            <div className="mt-1.5">
+              <BotMessageAttachments
+                attachments={message.attachments}
+                environmentId={environmentId ?? NO_ENVIRONMENT}
+              />
+            </div>
+          ) : null}
           <div className={toolbarClass(startsGroup)}>
             <MessageControls
               copyText={copyText}
@@ -400,8 +401,8 @@ export const UserMessageRow = memo(function UserMessageRow({
       <div className="flex max-w-39/50 flex-col items-end">
         {answered ? (
           <UserInputAnswerCard answered={answered} />
-        ) : (
-          <div className="w-full rounded-2xl bg-foreground/10 px-3.5 py-2 text-sm leading-6">
+        ) : message.text || (showChannelOrigin && message.channelOrigin) ? (
+          <div className="max-w-full rounded-2xl bg-foreground/10 px-3.5 py-2 text-sm leading-6">
             {showChannelOrigin && message.channelOrigin ? (
               <div className="mb-1 text-xs font-medium text-muted-foreground">
                 {channelOriginLabel(message.channelOrigin, message.authorDisplayName)}
@@ -414,16 +415,17 @@ export const UserMessageRow = memo(function UserMessageRow({
                 replySourceMessageId={replySourceMessageId}
               />
             ) : null}
-            {message.attachments?.length ? (
-              <div className={message.text ? "mt-2" : undefined}>
-                <BotMessageAttachments
-                  attachments={message.attachments}
-                  environmentId={environmentId ?? NO_ENVIRONMENT}
-                />
-              </div>
-            ) : null}
           </div>
-        )}
+        ) : null}
+        {message.attachments?.length ? (
+          <div className="mt-1.5">
+            <BotMessageAttachments
+              attachments={message.attachments}
+              environmentId={environmentId ?? NO_ENVIRONMENT}
+              align="end"
+            />
+          </div>
+        ) : null}
         <MessageReactions
           align="end"
           reactions={message.reactions ?? []}

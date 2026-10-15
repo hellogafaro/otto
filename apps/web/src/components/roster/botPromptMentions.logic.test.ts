@@ -2,11 +2,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   applyBotPromptMention,
-  botPromptMentionChips,
   botPromptMentionTrigger,
   botPromptThreadQuery,
   buildBotPromptMentionItems,
-  removeBotPromptMention,
+  findNameMentions,
+  serializeBotPromptMentions,
 } from "./botPromptMentions.logic";
 
 const bots = [{ id: "bot-1", name: "Mika" }];
@@ -256,8 +256,8 @@ describe("applyBotPromptMention", () => {
     });
 
     expect(applyBotPromptMention("check @rel now", trigger, thread!)).toEqual({
-      text: "check @chat:thread-2 now",
-      caret: 21,
+      text: "check @Release plan now",
+      caret: 20,
     });
 
     const browserTrigger = botPromptMentionTrigger("@b", 2)!;
@@ -285,35 +285,25 @@ describe("applyBotPromptMention", () => {
   });
 });
 
-describe("botPromptMentionChips", () => {
-  const title = (id: string) => (id === "thread-2" ? "Release plan" : null);
+describe("readable mentions", () => {
+  const names = [
+    { name: "Mika" },
+    { name: "Release plan", source: "@chat:thread-2" },
+    { name: "Release", source: "@chat:thread-3" },
+  ];
 
-  it("labels each mention once and round trips through the plain-text draft", () => {
-    const draft = "look @browser at @chat:thread-2 and @chat:thread-2 plus @chat:gone";
-    const chips = botPromptMentionChips(draft, title);
-    expect(chips.map((chip) => [chip.kind, chip.label])).toEqual([
-      ["browser", "Browser"],
-      ["thread", "Release plan"],
-      ["thread", "Unknown chat"],
-    ]);
-    // The draft store keeps the text, so restoring it yields the same chips.
-    expect(botPromptMentionChips(String(draft), title)).toEqual(chips);
+  it("finds whole @names, longest first, at word boundaries", () => {
+    expect(
+      findNameMentions("@mika, see @Release plan. mail a@Mika or @Mikael", names).map(
+        (mention) => mention.name,
+      ),
+    ).toEqual(["Mika", "Release plan"]);
   });
 
-  it("labels an exact-bot mention with the bot's name", () => {
-    const name = (id: string) => (id === "bot-2" ? "Mika" : null);
-    const chips = botPromptMentionChips("ask @bot:bot-2 and @bot:gone ", title, name);
-    expect(chips.map((chip) => [chip.key, chip.label])).toEqual([
-      ["bot:bot-2", "Mika"],
-      ["bot:gone", "Unknown bot"],
-    ]);
-    expect(removeBotPromptMention("ask @bot:bot-2 now", chips[0]!)).toBe("ask now");
-  });
-
-  it("removes every copy of a chip's mention", () => {
-    const draft = "look @chat:thread-2 and @chat:thread-2 now";
-    const [chip] = botPromptMentionChips(draft, title);
-    expect(removeBotPromptMention(draft, chip!)).toBe("look and now");
+  it("sends each picked name as its token and leaves plain names alone", () => {
+    expect(serializeBotPromptMentions("@Mika read @Release plan and @Release", names)).toBe(
+      "@Mika read @chat:thread-2 and @chat:thread-3",
+    );
   });
 });
 
@@ -340,7 +330,7 @@ describe("skill, app, and MCP server mentions", () => {
     expect(labels("deep/")).toEqual([]);
   });
 
-  it("inserts the resource token, labels its chip, and removes it", () => {
+  it("inserts the resource name and sends its token", () => {
     const [item] = buildBotPromptMentionItems({
       query: "deep",
       browserAvailable: false,
@@ -355,22 +345,9 @@ describe("skill, app, and MCP server mentions", () => {
       item!,
     );
 
-    expect(applied.text).toBe("ask @mcp:mcp-1 ");
-
-    const label = (kind: string, id: string) =>
-      resources.find((resource) => resource.kind === kind && resource.id === id)?.label ?? id;
-
-    const chips = botPromptMentionChips(
-      `${applied.text}and @chat:thread-2`,
-      () => "Release plan",
-      undefined,
-      label,
-    );
-
-    expect(chips.map((chip) => [chip.kind, chip.label])).toEqual([
-      ["mcp", "DeepWiki"],
-      ["thread", "Release plan"],
-    ]);
-    expect(removeBotPromptMention(applied.text, chips[0]!)).toBe("ask ");
+    expect(applied.text).toBe("ask @DeepWiki ");
+    expect(
+      serializeBotPromptMentions(applied.text, [{ name: "DeepWiki", source: "@mcp:mcp-1" }]),
+    ).toBe("ask @mcp:mcp-1 ");
   });
 });

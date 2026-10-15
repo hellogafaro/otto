@@ -360,7 +360,7 @@ export function GroupThreadLanding({ groupId }: { readonly groupId: string }) {
             >
               {group.name}
             </WorkspaceHeaderTitle>
-            <div data-chat-header-actions className="ml-auto flex items-center">
+            <div data-chat-header-actions className="ml-auto flex items-center gap-1.5">
               <ChatActionsMenu threadRef={runtime.linkedThreadRef} />
             </div>
           </WorkspacePageHeader>

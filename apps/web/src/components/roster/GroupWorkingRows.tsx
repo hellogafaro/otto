@@ -84,7 +84,12 @@ export function GroupWorkingRows({
         key={row.botId}
         bot={bot}
         activity={activity}
-        startedAt={latestTurn?.startedAt ?? latestTurn?.requestedAt ?? null}
+        startedAt={
+          // Otto: A finished turn's start would flash a stale time before the new turn lands.
+          latestTurn && !latestTurn.completedAt
+            ? (latestTurn.startedAt ?? latestTurn.requestedAt ?? null)
+            : null
+        }
         subjectName={subjectName}
         silentRun={silentRun}
         continuesReply={last?.role === "assistant" && last.respondingBotId === bot.id}

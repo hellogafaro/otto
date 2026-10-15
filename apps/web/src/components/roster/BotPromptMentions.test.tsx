@@ -2,11 +2,7 @@ import type { EnvironmentId } from "@otto/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import {
-  BotPromptMentionChips,
-  BotPromptMentionMenu,
-  draftHasMentionChips,
-} from "./BotPromptMentions";
+import { BotPromptMentionHighlights, BotPromptMentionMenu } from "./BotPromptMentions";
 
 function renderMenu(
   scope: Parameters<typeof BotPromptMentionMenu>[0]["scope"],
@@ -76,26 +72,19 @@ describe("BotPromptMentionMenu namesakes", () => {
   });
 });
 
-describe("BotPromptMentionChips", () => {
-  it("shows a removable chip per mention", () => {
+describe("BotPromptMentionHighlights", () => {
+  it("paints each mention as a tag and keeps the rest of the draft as plain text", () => {
     const markup = renderToStaticMarkup(
-      <BotPromptMentionChips
-        draft="use @browser and @chat:thread-9 with @bot:bot-2 "
-        bots={[{ id: "bot-2", name: "Mika" }]}
-        onRemove={vi.fn()}
+      <BotPromptMentionHighlights
+        ref={null}
+        text="ask @Mika now"
+        mentions={[{ start: 4, end: 9 }]}
+        className=""
       />,
     );
 
-    expect(markup).toContain('aria-label="Remove Browser"');
-    expect(markup).toContain('aria-label="Remove Unknown chat"');
-    expect(markup).toContain('aria-label="Remove Mika"');
-  });
-
-  it("mounts only for drafts that carry a browser or chat mention", () => {
-    expect(draftHasMentionChips("hello @browser")).toBe(true);
-    expect(draftHasMentionChips("see @chat:abc")).toBe(true);
-    expect(draftHasMentionChips("ask @bot:bot-2")).toBe(true);
-    expect(draftHasMentionChips("mail me@browser.dev")).toBe(false);
-    expect(draftHasMentionChips("hello @Mika")).toBe(false);
+    expect(markup).toContain(">@Mika</span>");
+    expect(markup).toContain("ask ");
+    expect(markup).toContain(" now ");
   });
 });

@@ -390,21 +390,20 @@ describe("bot prompt composer", () => {
     expect(onRemove).toHaveBeenCalledWith("attachment-1");
     expect(onExpand).toHaveBeenCalledOnce();
 
-    const removeAttribute = vi.fn();
-    const setAttribute = vi.fn();
-
-    const currentTarget = {
-      hidden: false,
-      nextElementSibling: { removeAttribute },
-      closest: () => ({ setAttribute }),
-    };
-
-    (
-      image?.props.onError as ((event: { currentTarget: typeof currentTarget }) => void) | undefined
-    )?.({ currentTarget });
-    expect(currentTarget.hidden).toBe(true);
+    (image?.props.onError as (() => void) | undefined)?.();
     expect(onPreviewError).toHaveBeenCalledWith("attachment-1");
-    expect(removeAttribute).toHaveBeenCalledWith("hidden");
-    expect(setAttribute).toHaveBeenCalledWith("disabled", "");
+
+    const failed = renderToStaticMarkup(
+      BotPromptAttachments({
+        attachments: [attachment],
+        failedIds: new Set(["attachment-1"]),
+        onExpand,
+        onPreviewError,
+        onRemove,
+      }),
+    );
+
+    expect(failed).not.toContain('src="blob:preview"');
+    expect(failed).not.toContain('aria-label="Preview preview.png"');
   });
 });

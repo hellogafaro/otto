@@ -206,13 +206,7 @@ function ProviderCustomColorPicker(props: {
           </button>
         }
       />
-      <PopoverPopup
-        side="bottom"
-        align="start"
-        sideOffset={6}
-        className="overflow-hidden"
-        variant="accent-picker"
-      >
+      <PopoverPopup side="bottom" align="start" className="overflow-hidden" variant="accent-picker">
         <ProviderCustomColorPanel value={normalized} onCommit={props.onCommit} />
       </PopoverPopup>
     </Popover>

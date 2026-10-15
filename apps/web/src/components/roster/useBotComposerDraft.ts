@@ -459,6 +459,7 @@ export function useBotComposerDraft(input: {
     expandedPreview,
     addFiles,
     removeAttachment,
+    failedAttachmentIds,
     markAttachmentPreviewFailed,
     isStashMenuOpen,
     setIsStashMenuOpen,

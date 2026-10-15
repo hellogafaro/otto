@@ -1,10 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  CHAT_INLINE_SKILL_CHIP_CLASS_NAME,
-  INLINE_SKILL_CHIP_ICON_CLASS_NAME,
-} from "../composerInlineChip";
+import { CHAT_INLINE_SKILL_CHIP_CLASS_NAME } from "../composerInlineChip";
 import { SkillInlineText } from "./SkillInlineText";
 
 const skills = [
@@ -24,21 +21,13 @@ describe("SkillInlineText", () => {
     expect(markup).toContain(CHAT_INLINE_SKILL_CHIP_CLASS_NAME);
   });
 
-  it("gives emoji and fallback icons the same box", () => {
+  it("shows only the skill's name, with no icon", () => {
     const markup = renderToStaticMarkup(
       <SkillInlineText text="$review-follow-up $deploy" skills={skills} />,
     );
 
-    const iconClass = INLINE_SKILL_CHIP_ICON_CLASS_NAME.replaceAll("&", "&amp;").replaceAll(
-      ">",
-      "&gt;",
-    );
-
-    const emojiIcon = `<span aria-hidden="true" class="${iconClass}">🔧</span>`;
-    const fallbackIcon = `<span aria-hidden="true" class="${iconClass}"><svg`;
-
-    expect(markup).toContain(emojiIcon);
-    expect(markup).toContain(fallbackIcon);
-    expect(markup).not.toContain("/icons/deploy.png");
+    expect(markup).toContain(">Review Follow-up</span>");
+    expect(markup).not.toContain("🔧");
+    expect(markup).not.toContain("<svg");
   });
 });

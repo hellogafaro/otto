@@ -1,41 +1,44 @@
-import { RiFileTextLine } from "@remixicon/react";
+import { RiFilePdf2Line, RiFileTextLine, RiImageLine } from "@remixicon/react";
 import type { ChatAttachment, EnvironmentId } from "@otto/contracts";
 
 import { useMemo, useState } from "react";
 
 import { useAssetUrls } from "../../assets/assetUrls";
 import { useI18n } from "../../i18n";
-import { ExpandedImageDialog } from "../chat/ExpandedImageDialog";
-import { buildExpandedImagePreview, type ExpandedImagePreview } from "../chat/ExpandedImagePreview";
+import { cn } from "../../lib/utils";
+import { FileLightbox } from "../library/FileLightbox";
+import {
+  Attachment,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+  AttachmentTrigger,
+} from "../ui/attachment";
 
-export function buildBotMessageAttachmentPreview(
-  attachments: ReadonlyArray<ChatAttachment>,
-  urls: ReadonlyArray<string | null>,
-  selectedAttachmentId: string,
-  failedIds: ReadonlySet<string> = new Set(),
-): ExpandedImagePreview | null {
-  return buildExpandedImagePreview(
-    attachments.flatMap((attachment, index) =>
-      attachment.type === "image"
-        ? [
-            {
-              id: attachment.id,
-              name: attachment.name,
-              ...(urls[index] && !failedIds.has(attachment.id) ? { previewUrl: urls[index] } : {}),
-            },
-          ]
-        : [],
-    ),
-    selectedAttachmentId,
-  );
+/** The size and type under an attachment's name, like `139 KB · PNG`. */
+export function attachmentDetails(attachment: Pick<ChatAttachment, "name" | "sizeBytes">) {
+  const type = attachment.name.includes(".") ? (attachment.name.split(".").at(-1) ?? "") : "";
+
+  const size =
+    attachment.sizeBytes < 1_024
+      ? `${attachment.sizeBytes} B`
+      : attachment.sizeBytes < 1_024 * 1_024
+        ? `${Math.round(attachment.sizeBytes / 1_024)} KB`
+        : `${(attachment.sizeBytes / (1_024 * 1_024)).toFixed(1)} MB`;
+
+  return type ? `${size} · ${type.toUpperCase()}` : size;
 }
 
 export function BotMessageAttachments({
   attachments,
   environmentId,
+  align = "start",
 }: {
   readonly attachments: ReadonlyArray<ChatAttachment>;
   readonly environmentId: EnvironmentId;
+  /** Your own message's cards sit at the right, under its bubble. */
+  readonly align?: "start" | "end";
 }) {
   const { t } = useI18n();
 
@@ -50,75 +53,84 @@ export function BotMessageAttachments({
 
   const urls = useAssetUrls(environmentId, resources);
   const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [preview, setPreview] = useState<ExpandedImagePreview | null>(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   if (attachments.length === 0) return null;
+  const open = openIndex === null ? undefined : attachments[openIndex];
+  const openUrl = openIndex === null ? null : (urls[openIndex] ?? null);
 
   return (
     <>
-      <div className="grid max-w-105 grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className={cn("flex flex-wrap gap-1.5", align === "end" && "justify-end")}>
         {attachments.map((attachment, index) => {
-          const url = urls[index];
+          const url = urls[index] ?? null;
 
-          const canPreview =
-            attachment.type === "image" && url !== null && !failedIds.has(attachment.id);
-
-          if (attachment.type === "file") {
-            return (
-              <a
-                key={attachment.id}
-                data-testid="bot-message-attachment"
-                className="flex min-h-14 items-center gap-2 rounded-lg border border-border/70 bg-background/45 px-3 py-2 text-sm hover:bg-muted/50"
-                href={url ?? undefined}
-                download={attachment.name}
-              >
-                <RiFileTextLine className="size-5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 truncate">{attachment.name}</span>
-              </a>
-            );
-          }
+          const thumbnail =
+            attachment.type === "image" && url !== null && !failedIds.has(attachment.id)
+              ? url
+              : null;
 
           return (
-            <div
-              key={attachment.id}
-              data-testid="bot-message-attachment"
-              className="aspect-4/3 min-h-20 overflow-hidden rounded-lg border border-border/70 bg-background/45"
-            >
-              {canPreview ? (
-                <button
-                  type="button"
-                  aria-label={t("Preview {name}", { name: attachment.name })}
-                  className="size-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  onClick={() =>
-                    setPreview(
-                      buildBotMessageAttachmentPreview(attachments, urls, attachment.id, failedIds),
-                    )
-                  }
-                >
+            <Attachment key={attachment.id} size="xs" data-testid="bot-message-attachment">
+              <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
+                {thumbnail ? (
                   <img
-                    src={url}
-                    alt={attachment.name}
-                    className="size-full max-h-55 object-cover"
+                    src={thumbnail}
+                    alt=""
                     draggable={false}
                     onError={() => setFailedIds((current) => new Set(current).add(attachment.id))}
                   />
-                </button>
-              ) : (
-                <span className="flex size-full items-center justify-center text-xs text-muted-foreground">
-                  {t("Image unavailable")}
-                </span>
-              )}
-            </div>
+                ) : attachment.type === "image" ? (
+                  <RiImageLine aria-hidden="true" />
+                ) : (
+                  <RiFileTextLine aria-hidden="true" />
+                )}
+              </AttachmentMedia>
+              <AttachmentContent>
+                <AttachmentTitle>{attachment.name}</AttachmentTitle>
+                <AttachmentDescription>{attachmentDetails(attachment)}</AttachmentDescription>
+              </AttachmentContent>
+              <AttachmentTrigger
+                aria-label={t("Preview {name}", { name: attachment.name })}
+                onClick={() => setOpenIndex(index)}
+              />
+            </Attachment>
           );
         })}
       </div>
-      {preview ? (
-        <ExpandedImageDialog
-          preview={preview}
-          environmentId={environmentId}
-          onClose={() => setPreview(null)}
-        />
-      ) : null}
+      <FileLightbox
+        file={open ? attachmentLightboxFile(open, openUrl) : null}
+        hasSiblings={attachments.length > 1}
+        onPrevious={
+          openIndex !== null && openIndex > 0 ? () => setOpenIndex(openIndex - 1) : undefined
+        }
+        onNext={
+          openIndex !== null && openIndex < attachments.length - 1
+            ? () => setOpenIndex(openIndex + 1)
+            : undefined
+        }
+        onDownload={() => {
+          if (!open || !openUrl) return;
+          const link = document.createElement("a");
+          link.href = openUrl;
+          link.download = open.name;
+          link.click();
+        }}
+        onClose={() => setOpenIndex(null)}
+      />
     </>
   );
+}
+
+/** Otto: A chat attachment opens in the Library's file lightbox: images and PDFs preview, the rest download. */
+function attachmentLightboxFile(attachment: ChatAttachment, url: string | null) {
+  if (attachment.type === "image") {
+    return { title: attachment.name, kind: "image" as const, url, icon: RiImageLine };
+  }
+
+  if (attachment.mimeType === "application/pdf") {
+    return { title: attachment.name, kind: "pdf" as const, url, icon: RiFilePdf2Line };
+  }
+
+  return { title: attachment.name, kind: "file" as const, url, icon: RiFileTextLine };
 }

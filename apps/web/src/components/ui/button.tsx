@@ -23,7 +23,8 @@ const buttonPresentations = {
     "font-medium border-border bg-muted/40 text-foreground [:hover,[data-pressed]]:bg-muted/70",
   "approval-other": "font-medium text-muted-foreground [:hover,[data-pressed]]:text-foreground",
   "image-nav": "text-on-solid/90 hover:bg-on-solid/10 hover:text-on-solid",
-  "reaction-emoji": "text-2xl sm:text-2xl font-emoji",
+  // Otto: Reaction emoji sit in the message toolbar's 24px buttons at body size.
+  "reaction-emoji": "text-base sm:text-base font-emoji",
   "model-favorite-toggle":
     "text-muted-foreground/70 opacity-64 transition-color-opacity hover:text-foreground hover:opacity-100 group-hover:opacity-100",
   "model-favorite-toggle-on":

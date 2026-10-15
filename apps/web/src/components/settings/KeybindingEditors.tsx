@@ -236,7 +236,7 @@ export function ConditionPopover({
           />
         ) : null}
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={6}>
+      <PopoverContent align="start">
         <WhenExpressionBuilder
           value={whenDraft}
           variables={variables}

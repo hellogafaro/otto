@@ -59,9 +59,6 @@ export function useActivitySubjectName(
   );
 }
 
-/** Runs this short need no timer; past it, each row shows how long its bot has been at it. */
-export const ACTIVITY_TIMER_AFTER_MS = 10_000;
-
 /** One playful verb at a time, crossfading to the next every few seconds. */
 function ThinkingVerb() {
   const { t } = useI18n();
@@ -75,22 +72,20 @@ function ThinkingVerb() {
 
   const verb = t(THINKING_VERBS[index % THINKING_VERBS.length] ?? "Thinking");
 
-  return <ShimmerText key={verb} className="motion-fade-in" text={verb} />;
-}
-
-/** Text with a soft sheen sweeping across it while work is in progress. */
-function ShimmerText({ text, className }: { readonly text: string; readonly className?: string }) {
+  // The fade-in sits on a wrapper: both it and the shimmer are CSS animations on one property.
   return (
-    <span className={cn("bot-shimmer-text min-w-0 truncate", className)}>
-      {text}
-      <span aria-hidden="true" className="bot-shimmer-sheen">
-        <span className="bot-shimmer-sheen-text">{text}</span>
-      </span>
+    <span key={verb} className="flex min-w-0 motion-fade-in">
+      <ShimmerText text={verb} />
     </span>
   );
 }
 
-/** Time since the turn started, appearing once it passes ten seconds; ticks without committing React. */
+/** Otto: In-progress text runs shadcn's shimmer utility, held still for reduced motion. */
+function ShimmerText({ text }: { readonly text: string }) {
+  return <span className="min-w-0 truncate shimmer motion-reduce:shimmer-none">{text}</span>;
+}
+
+/** Time since the turn started, shown from 0s; ticks without committing React. */
 function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
   const textRef = useRef<HTMLSpanElement>(null);
 
@@ -99,10 +94,7 @@ function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
       const node = textRef.current;
 
       if (!node) return;
-      const elapsed = Date.now() - startedAt;
-
-      node.hidden = elapsed < ACTIVITY_TIMER_AFTER_MS;
-      node.textContent = formatLoadingElapsed(elapsed);
+      node.textContent = formatLoadingElapsed(Date.now() - startedAt);
     };
 
     update();
@@ -111,16 +103,13 @@ function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
     return () => window.clearInterval(id);
   }, [startedAt]);
 
-  const elapsed = Date.now() - startedAt;
-
   return (
     <span
       ref={textRef}
-      hidden={elapsed < ACTIVITY_TIMER_AFTER_MS}
       className="shrink-0 text-xs tabular-nums text-muted-foreground"
       data-testid="bot-activity-time"
     >
-      {formatLoadingElapsed(elapsed)}
+      {formatLoadingElapsed(Date.now() - startedAt)}
     </span>
   );
 }
@@ -131,7 +120,7 @@ function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
  * is really doing ("Reading a skill", "Using Google Calendar"). A bot queued behind it in a group
  * round shows a still avatar and a muted "Waiting to reply". Under the bot's own streaming reply the avatar
  * gives way to the message's indent. While it only thinks, playful verbs rotate in that line.
- * Past ten seconds the row shows its own elapsed time. A run its provider went quiet on instead
+ * The row shows its own elapsed time from 0s. A run its provider went quiet on instead
  * shows the stalled timer counting from the last output.
  */
 export function BotActivityStatus({
@@ -205,7 +194,9 @@ export function BotActivityStatus({
     <div aria-live="polite" className={rowClass} data-testid="bot-activity-status">
       {avatar}
       <span className="sr-only">{bot.name}: </span>
-      <span className="flex min-w-0 flex-1 items-center gap-2 font-medium text-foreground">
+      {/* Otto: The shimmer brightens its own text color, so the line is muted (white has no brighter
+          shade in dark mode); the time shares the label's baseline. */}
+      <span className="flex min-w-0 flex-1 items-baseline gap-2 font-medium text-muted-foreground">
         {activity.thinking ? <ThinkingVerb /> : <ShimmerText key={label} text={label} />}
         {Number.isFinite(started) ? <ActivityElapsed startedAt={started} /> : null}
       </span>

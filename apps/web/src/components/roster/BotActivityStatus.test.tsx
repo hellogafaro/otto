@@ -32,7 +32,7 @@ describe("bot activity status", () => {
     expect(markup).toContain('data-bot-state="working"');
     expect(markup).toContain("Reading a skill");
     expect(markup).not.toContain("...");
-    expect(markup).toContain("bot-shimmer-text");
+    expect(markup).toContain("shimmer");
     expect(markup).not.toContain("animate-spin");
     expect(markup).not.toContain("<button");
   });
@@ -49,7 +49,7 @@ describe("bot activity status", () => {
 
     expect(markup).toContain('data-bot-state="idle"');
     expect(markup).toContain("Waiting to reply");
-    expect(markup).not.toContain("bot-shimmer-text");
+    expect(markup).not.toContain("shimmer");
     expect(markup).not.toContain("bot-activity-time");
   });
 
@@ -87,7 +87,7 @@ describe("bot activity status", () => {
     expect(markup).not.toContain("...");
   });
 
-  it("shows its own elapsed time only after ten seconds", () => {
+  it("shows its own elapsed time from the start", () => {
     const early = renderToStaticMarkup(
       <BotActivityStatus
         bot={bot}
@@ -104,7 +104,8 @@ describe("bot activity status", () => {
       />,
     );
 
-    expect(early).toMatch(/hidden=""[^>]*data-testid="bot-activity-time"/);
+    expect(early).toContain('data-testid="bot-activity-time">4s');
+    expect(early).not.toContain('hidden=""');
     expect(later).toContain('data-testid="bot-activity-time">1m 15s');
     expect(later).not.toMatch(/hidden=""[^>]*data-testid="bot-activity-time"/);
   });

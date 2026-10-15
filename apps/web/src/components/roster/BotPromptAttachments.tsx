@@ -3,6 +3,17 @@ import { RiCloseLine, RiFileLine } from "@remixicon/react";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { buildExpandedImagePreview, type ExpandedImagePreview } from "../chat/ExpandedImagePreview";
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+  AttachmentTrigger,
+} from "../ui/attachment";
+import { attachmentDetails } from "./BotMessageAttachments";
 
 /** A staged composer file plus the object URL that backs its live thumbnail. */
 export interface BotPromptAttachment {
@@ -56,14 +67,18 @@ export function buildBotPromptAttachmentPreview(
   );
 }
 
+/** Otto: Staged files are the shadcn Attachment at xs, like sent ones, with a remove action. */
 export function BotPromptAttachments({
   attachments,
+  failedIds = NO_FAILED_IDS,
   onExpand,
   onPreviewError,
   onRemove,
   className,
 }: {
   attachments: ReadonlyArray<BotPromptAttachment>;
+  /** Images whose thumbnail failed to load show the file icon and cannot be expanded. */
+  failedIds?: ReadonlySet<string>;
   onExpand: (attachmentId: string) => void;
   onPreviewError: (attachmentId: string) => void;
   onRemove: (attachmentId: string) => void;
@@ -75,60 +90,49 @@ export function BotPromptAttachments({
 
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>
-      {attachments.map((attachment) => (
-        <div
-          key={attachment.id}
-          data-testid="bot-prompt-attachment"
-          className="relative size-16 shrink-0 overflow-hidden rounded-md border border-on-solid/10 bg-background/65"
-        >
-          {attachment.previewUrl !== null ? (
-            <button
-              type="button"
-              aria-label={t("Preview {name}", { name: attachment.file.name })}
-              className="size-full cursor-zoom-in"
-              onClick={() => onExpand(attachment.id)}
-            >
-              <img
-                src={attachment.previewUrl}
-                alt={attachment.file.name}
-                className="size-full object-cover"
-                draggable={false}
-                onError={(event) => {
-                  onPreviewError(attachment.id);
-                  event.currentTarget.hidden = true;
-                  event.currentTarget.nextElementSibling?.removeAttribute("hidden");
-                  event.currentTarget.closest("button")?.setAttribute("disabled", "");
-                }}
+      {attachments.map((attachment) => {
+        const thumbnail = failedIds.has(attachment.id) ? null : attachment.previewUrl;
+
+        return (
+          <Attachment key={attachment.id} size="xs" data-testid="bot-prompt-attachment">
+            <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
+              {thumbnail ? (
+                <img
+                  src={thumbnail}
+                  alt={attachment.file.name}
+                  draggable={false}
+                  onError={() => onPreviewError(attachment.id)}
+                />
+              ) : (
+                <RiFileLine aria-hidden="true" />
+              )}
+            </AttachmentMedia>
+            <AttachmentContent>
+              <AttachmentTitle>{attachment.file.name}</AttachmentTitle>
+              <AttachmentDescription>
+                {attachmentDetails({ name: attachment.file.name, sizeBytes: attachment.file.size })}
+              </AttachmentDescription>
+            </AttachmentContent>
+            <AttachmentActions>
+              <AttachmentAction
+                aria-label={t("Remove {name}", { name: attachment.file.name })}
+                onClick={() => onRemove(attachment.id)}
+              >
+                <RiCloseLine />
+              </AttachmentAction>
+            </AttachmentActions>
+            {thumbnail ? (
+              <AttachmentTrigger
+                aria-label={t("Preview {name}", { name: attachment.file.name })}
+                className="cursor-zoom-in"
+                onClick={() => onExpand(attachment.id)}
               />
-              <span hidden className="block size-full">
-                <AttachmentFileFace name={attachment.file.name} />
-              </span>
-            </button>
-          ) : (
-            <AttachmentFileFace name={attachment.file.name} />
-          )}
-          <button
-            type="button"
-            aria-label={t("Remove {name}", { name: attachment.file.name })}
-            onClick={() => onRemove(attachment.id)}
-            className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground"
-          >
-            <RiCloseLine className="size-3" />
-          </button>
-        </div>
-      ))}
+            ) : null}
+          </Attachment>
+        );
+      })}
     </div>
   );
 }
 
-/** A file tile's face: an icon over the name, kept clear of the corner remove button. */
-function AttachmentFileFace({ name }: { name: string }) {
-  return (
-    <span className="flex size-full flex-col items-center justify-end gap-1 px-1 pb-1.5 text-muted-foreground">
-      <RiFileLine aria-hidden="true" className="size-4 shrink-0" />
-      <span className="line-clamp-2 w-full break-words text-center text-10px leading-tight">
-        {name}
-      </span>
-    </span>
-  );
-}
+const NO_FAILED_IDS: ReadonlySet<string> = new Set();

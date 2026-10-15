@@ -89,9 +89,9 @@ vi.mock("./rosterStore", () => ({
 vi.mock("./BotComposerModelControl", () => ({ BotComposerModelControl: () => null }));
 
 vi.mock("./BotPromptMentions", () => ({
-  BotPromptMentionChips: () => null,
+  BotPromptMentionHighlights: () => null,
   BotPromptMentionMenu: () => null,
-  draftHasMentionChips: () => false,
+  useBotPromptMentionNames: () => [],
 }));
 
 vi.mock("../ui/toast", () => ({ toastManager: { add: vi.fn() } }));

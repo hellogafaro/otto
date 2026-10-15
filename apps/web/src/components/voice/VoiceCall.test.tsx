@@ -353,14 +353,18 @@ describe("voice call UI", () => {
     expect(html).toContain('aria-label="Hang up"');
     expect(html).toContain("Reconnecting");
     expect(html).toContain("1:05");
+    expect(html).toContain("bg-warning");
   });
 
   it("keeps a cancel control visible while a call starts", () => {
     const html = renderToStaticMarkup(
-      <VoiceCallStartingBarView botName="Otto" onCancel={() => {}} />,
+      <VoiceCallStartingBarView botName="Otto" startedAt={0} now={7_000} onCancel={() => {}} />,
     );
 
-    expect(html).toContain("Calling Otto");
+    expect(html).toContain('aria-label="Calling Otto"');
+    expect(html).toContain("0:07");
+    expect(html).toContain("bg-warning");
+    expect(html).toContain("shimmer");
     expect(html).toContain('aria-label="Cancel call to Otto"');
   });
 });

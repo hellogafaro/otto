@@ -26,7 +26,8 @@ function MenuTrigger({ className, children, ...props }: MenuPrimitive.Trigger.Pr
 function MenuPopup({
   children,
   className,
-  sideOffset = 4,
+  // Otto: Every popup opens 6px from its trigger, the panel gap, so it never touches it.
+  sideOffset = 6,
   align = "center",
   alignOffset,
   side = "bottom",
