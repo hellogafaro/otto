@@ -216,7 +216,7 @@ export function CustomizeIntegrations({
   });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-10">
       {configured ? null : (
         <Alert>
           <AlertTitle>{t("Connect apps with Composio")}</AlertTitle>

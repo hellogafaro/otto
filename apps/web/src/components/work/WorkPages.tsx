@@ -168,7 +168,7 @@ function NoMatches({ to }: { readonly to: "/tasks" | "/projects" }) {
   const { t } = useI18n();
 
   return (
-    <p className="px-4 text-13px text-muted-foreground">
+    <p className="text-13px text-muted-foreground">
       {t("Nothing matches these filters.")}{" "}
       <Link to={to} className="text-foreground underline-offset-2 hover:underline">
         {t("Clear filters")}
@@ -328,7 +328,7 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
                   <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md">
                     <ProjectCover seed={project.id} />
                   </div>
-                  <span className="flex min-w-0 items-center gap-2 px-4 text-sm font-medium text-foreground">
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
                     <WorkStatusIcon status={projectStatus(project)} />
                     <span className="sr-only">{statusLabel(projectStatus(project))}: </span>
                     <span className="truncate">{project.title}</span>

@@ -384,7 +384,7 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-10">
       {(["user", "workspace"] as const).map((visibility) => {
         const group = skills.filter((skill) => skill.visibility === visibility);
 

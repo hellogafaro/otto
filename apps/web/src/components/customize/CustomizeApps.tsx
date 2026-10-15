@@ -184,7 +184,7 @@ export function CustomizeAppsPage({
   return (
     <WorkPage back={back}>
       <WorkspacePageContainer className="flex-1 gap-6 pt-3 pb-16 sm:pt-4">
-        <WorkspacePageTitle flush>{t("Apps")}</WorkspacePageTitle>
+        <WorkspacePageTitle>{t("Apps")}</WorkspacePageTitle>
         {environmentId ? (
           <AppsBody environmentId={environmentId} query={query} visibility={visibility} />
         ) : null}
@@ -513,7 +513,7 @@ export function CustomizeAppPage({
 
   return (
     <WorkPage back={back}>
-      <WorkspacePageContainer width="narrow" className="flex-1 gap-6 pt-3 pb-16 sm:pt-4">
+      <WorkspacePageContainer width="narrow" className="flex-1 gap-10 pt-3 pb-16 sm:pt-4">
         {environmentId ? (
           <AppBody environmentId={environmentId} slug={slug} visibility={visibility} />
         ) : null}

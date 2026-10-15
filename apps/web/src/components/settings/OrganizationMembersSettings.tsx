@@ -223,7 +223,7 @@ export function OrganizationMembersSettings() {
           </Table>
         )}
         {loaded && visibleMembers.length === 0 ? (
-          <p className="px-4 text-13px text-muted-foreground">No members match this search.</p>
+          <p className="text-13px text-muted-foreground">No members match this search.</p>
         ) : null}
       </section>
       {admin && invitations.length > 0 ? (

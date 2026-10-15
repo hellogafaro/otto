@@ -144,7 +144,7 @@ function DetailLayout({
 
   return (
     <WorkPage back={back} actions={actions}>
-      <WorkspacePageContainer width="narrow" className="flex-1 gap-6 pt-3 pb-16 sm:pt-4">
+      <WorkspacePageContainer width="narrow" className="flex-1 gap-10 pt-3 pb-16 sm:pt-4">
         {children}
       </WorkspacePageContainer>
     </WorkPage>

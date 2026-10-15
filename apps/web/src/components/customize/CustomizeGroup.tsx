@@ -1,9 +1,7 @@
 import { RiAddLine, RiArrowRightSLine } from "@remixicon/react";
 import type { ReactNode } from "react";
 
-import { cn } from "../../lib/utils";
-
-import { SettingsCard } from "../settings/settingsLayout";
+import { SettingsSection } from "../settings/settingsLayout";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
@@ -77,8 +75,8 @@ export function CustomizeItem({
 }
 
 /**
- * Otto: A Customize group is one settings card with no heading above it: its first 48px row names
- * the group, then its muted count and its action (a quiet plus menu or one button) at the right.
+ * Otto: A Customize group is a settings section: its 16px title above the card on the card edge,
+ * its muted count and its action (a quiet plus menu or one button) at the right of that title.
  * An empty card holds the icon-and-description empty state.
  */
 export function CustomizeGroup({
@@ -96,17 +94,17 @@ export function CustomizeGroup({
   readonly children?: ReactNode;
 }) {
   return (
-    <SettingsCard>
-      <div
-        data-settings-row=""
-        className={cn("flex h-12 items-center gap-2 ps-4", action ? "pe-2.5" : "pe-4")}
-      >
-        <h2 className="min-w-0 flex-1 truncate text-13px font-medium text-foreground">{title}</h2>
-        {count === undefined ? null : (
-          <span className="text-13px tabular-nums text-muted-foreground">{count}</span>
-        )}
-        {action}
-      </div>
+    <SettingsSection
+      title={title}
+      headerAction={
+        <span className="flex items-center gap-2">
+          {count === undefined ? null : (
+            <span className="text-13px tabular-nums text-muted-foreground">{count}</span>
+          )}
+          {action}
+        </span>
+      }
+    >
       {empty ? (
         <div data-settings-row="">
           <Empty>
@@ -117,7 +115,7 @@ export function CustomizeGroup({
       ) : (
         children
       )}
-    </SettingsCard>
+    </SettingsSection>
   );
 }
 

@@ -203,7 +203,7 @@ export function ImageGenerationSettingsContent({
           />
         ))}
         {error ? (
-          <p role="alert" className="px-3 text-xs text-destructive sm:px-4">
+          <p role="alert" className="text-xs text-destructive">
             {error}
           </p>
         ) : null}

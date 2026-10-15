@@ -395,9 +395,7 @@ export function KeybindingsSettingsPanel() {
 
           {groups.map((group) => (
             <div key={group.id} role="group" aria-label={group.title} className="space-y-2">
-              <h3 className="px-3 text-12px font-medium text-muted-foreground sm:px-4">
-                {group.title}
-              </h3>
+              <h3 className="text-12px font-medium text-muted-foreground">{group.title}</h3>
               <div className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/70 bg-settings-surface">
                 {group.items.map((item) => {
                   if (item.type === "row") return renderRow(item.row);

@@ -284,7 +284,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
           {!loaded ? (
             <SkeletonCards label={t("Loading files…")} />
           ) : shownFolders.length === 0 && shownFiles.length === 0 ? (
-            <p className="px-4 text-13px text-muted-foreground">
+            <p className="text-13px text-muted-foreground">
               {tab === "all" ? t("This folder is empty.") : t("Nothing here yet.")}
             </p>
           ) : (
@@ -379,7 +379,7 @@ export function LibraryCard({
             <LibraryFileTile environmentId={environmentId} file={item.file} />
           )}
         </div>
-        <span className="flex min-w-0 flex-col gap-0.5 ps-4 pe-10">
+        <span className="flex min-w-0 flex-col gap-0.5 pe-10">
           <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
             <span className="truncate">{entry.title}</span>
             {entry.visibility === "user" ? (

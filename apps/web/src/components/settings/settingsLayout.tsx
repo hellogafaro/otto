@@ -302,7 +302,7 @@ export const SettingsPageTitleContext = createContext<string | null>(null);
 
 /**
  * Otto: Settings pages are a 752px column. A section's own page opens with a
- * 22px title inset 16px, on the same edge as card content.
+ * 22px title on the card edge, with no inset.
  */
 export function SettingsPageContainer({
   children,
@@ -337,7 +337,7 @@ export function SettingsPageContainer({
           width={width}
           className={cn("gap-10 pt-3 pb-16 sm:pt-4", className)}
         >
-          {title ? <WorkspacePageTitle flush>{title}</WorkspacePageTitle> : null}
+          {title ? <WorkspacePageTitle>{title}</WorkspacePageTitle> : null}
           {children}
         </WorkspacePageContainer>
       </div>
