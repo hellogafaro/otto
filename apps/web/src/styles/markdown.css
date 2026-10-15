@@ -6,47 +6,12 @@
   margin-bottom: 0;
 }
 
-.chat-markdown p,
-.chat-markdown ul,
-.chat-markdown ol,
-.chat-markdown blockquote,
-.chat-markdown pre,
-.chat-markdown .chat-markdown-table-container {
-  margin: 0.65rem 0;
-}
+/* Otto: chat uses a compact typeset preset; typeset owns paragraphs, headings and lists. */
 
-.chat-markdown h1,
-.chat-markdown h2,
-.chat-markdown h3,
-.chat-markdown h4,
-.chat-markdown h5,
-.chat-markdown h6 {
-  margin: 1.25rem 0 0.5rem;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--contrast-foreground);
-}
-
-.chat-markdown h1 {
-  font-size: 1.25rem;
-}
-
-.chat-markdown h2 {
-  font-size: 1.125rem;
-}
-
-.chat-markdown h3 {
-  font-size: 1rem;
-}
-
-.chat-markdown h4,
-.chat-markdown h5,
-.chat-markdown h6 {
-  font-size: 0.875rem;
-}
-
-.chat-markdown h6 {
-  color: var(--contrast-muted-foreground);
+.typeset-chat {
+  --typeset-size: 0.875rem;
+  --typeset-leading: 1.625;
+  --typeset-flow: 0.75em;
 }
 
 .chat-markdown .katex-display {
@@ -62,60 +27,16 @@
   margin-inline: auto;
 }
 
-.chat-markdown ul {
-  /* Reset for nested uls under a widened ol — --list-gutter is an inherited
-     custom property, so without this a task-list under a 3+ digit ordered
-     list would inherit the outer gutter instead of its own default. */
-  --list-gutter: 1.25rem;
-  padding-left: 1.25rem;
-  list-style-type: disc;
-}
-
-/* --list-gutter defaults to the same 1.25rem as .chat-markdown ul, but
-   ChatMarkdown's `ol` renderer widens it (via inline style) for lists whose
-   widest marker is 3+ characters, so item 100+ isn't clipped by list-style-position:
-   outside painting the marker past the padding box. Reset it here too so a
-   nested ol without its own widened marker doesn't inherit the outer one. */
+/* ChatMarkdown's `ol` renderer widens --list-gutter for 3+ character markers, so item 100+
+   isn't clipped; a nested ol resets it to typeset's indent. */
 
 .chat-markdown ol {
-  --list-gutter: 1.25rem;
-  padding-left: var(--list-gutter, 1.25rem);
-  list-style-type: decimal;
+  --list-gutter: 1.5em;
+  padding-inline-start: var(--list-gutter);
 }
 
 .chat-markdown ol > li::marker {
   font-variant-numeric: tabular-nums;
-}
-
-.chat-markdown ul ul {
-  list-style-type: circle;
-}
-
-.chat-markdown ul ul ul {
-  list-style-type: square;
-}
-
-.chat-markdown ol ol {
-  list-style-type: lower-alpha;
-}
-
-.chat-markdown ol ol ol {
-  list-style-type: lower-roman;
-}
-
-.chat-markdown li + li {
-  margin-top: 0.25rem;
-}
-
-/* GitHub-style task lists: the checkbox replaces the list marker. */
-
-.chat-markdown li.task-list-item {
-  list-style-type: none;
-}
-
-.chat-markdown li.task-list-item input[type="checkbox"] {
-  margin: 0 0.35em 0.15em calc(-1 * var(--list-gutter, 1.25rem));
-  vertical-align: middle;
 }
 
 /* Checklist summary above a list with two or more tasks. Static: the fill
@@ -169,8 +90,6 @@
 }
 
 .chat-markdown blockquote {
-  border-left: 2px solid var(--contrast-border);
-  padding-left: 0.8rem;
   color: var(--contrast-muted-foreground);
 }
 

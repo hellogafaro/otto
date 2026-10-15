@@ -18,7 +18,7 @@ export function findTaskListMarkerOffset(markdown: string, listItemStart: number
 }
 
 /**
- * The default `1.25rem` marker gutter (`.chat-markdown ol`) fits markers up to
+ * The default `1.5em` marker gutter (`.chat-markdown ol`) fits markers up to
  * two characters wide. Once a marker reaches three characters (item 100+),
  * `list-style-position: outside` paints it wider than that gutter and clips
  * the leading character against the item's own overflow. Rather than widening

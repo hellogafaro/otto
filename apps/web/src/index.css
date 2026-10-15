@@ -325,7 +325,10 @@
 
 @import "./styles/chrome.css";
 
-/* Chat markdown rendering */
+/* Chat markdown rendering: shadcn/typeset sets the prose rhythm; markdown.css keeps Otto's
+   own pieces (code blocks, tables, file links, task progress) on top of it. */
+
+@import "./styles/typeset.css";
 
 @import "./styles/markdown.css";
 

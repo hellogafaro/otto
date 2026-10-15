@@ -114,6 +114,32 @@ export function parseActivityContent(content: string): ReadonlyArray<ActivityCon
 }
 
 /** A comment's text with mentions as `@Name`, for a one-line preview. */
+/** Where a comment's mention points once its content is Markdown: `#mention/<type>/<id>`. */
+export const MENTION_HREF_PREFIX = "#mention/";
+
+/**
+ * Otto: A comment as Markdown, so a bot's headings and lists render; each mention becomes a
+ * `#mention/<type>/<id>` link its renderer draws as a pill.
+ */
+export function activityMarkdown(content: string): string {
+  return parseActivityContent(content)
+    .map((segment) =>
+      segment.type === "text"
+        ? segment.text
+        : `[${segment.label.replaceAll(/[[\]\\]/g, "\\$&")}](${MENTION_HREF_PREFIX}${segment.mentionType}/${encodeURIComponent(segment.id)})`,
+    )
+    .join("");
+}
+
+/** The mention a `#mention/<type>/<id>` link names. */
+export function parseMentionHref(href: string) {
+  if (!href.startsWith(MENTION_HREF_PREFIX)) return null;
+
+  const [type, id] = href.slice(MENTION_HREF_PREFIX.length).split("/");
+
+  return type && id ? { type, id: decodeURIComponent(id) } : null;
+}
+
 export function activityPlainText(content: string): string {
   return parseActivityContent(content)
     .map((segment) => (segment.type === "text" ? segment.text : `@${segment.label}`))

@@ -4,7 +4,12 @@ import type { EnvironmentId, ScopedThreadRef, ServerProviderSkill } from "@otto/
 import { useAtomValue } from "@effect/atom-react";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useCallback, useMemo, type ClipboardEvent as ReactClipboardEvent } from "react";
+import {
+  type ClipboardEvent as ReactClipboardEvent,
+  type ReactNode,
+  useCallback,
+  useMemo,
+} from "react";
 import { defaultUrlTransform } from "react-markdown";
 import {
   BrowserPreviewUnavailableError,
@@ -67,6 +72,8 @@ export interface ChatMarkdownProps {
   lineBreaks?: boolean;
   /** Parse sanitized raw HTML instead of displaying its source text. */
   parseRawHtml?: boolean;
+  /** Otto: Renders a link its host owns, such as a comment's mention; null falls through. */
+  renderLink?: ((href: string, children: ReactNode) => ReactNode | null) | undefined;
 }
 
 const FENCED_CODE_SEGMENT_PATTERN = /(```[\s\S]*?(?:```|$))/;
@@ -96,6 +103,7 @@ export function useChatMarkdownState({
   onTaskListChange,
   isStreaming = false,
   skills = EMPTY_MARKDOWN_SKILLS,
+  renderLink,
 }: ChatMarkdownProps) {
   const { resolvedTheme } = useTheme();
 
@@ -396,6 +404,7 @@ export function useChatMarkdownState({
       markdownFileLinkMetaByHref,
       onTaskListChange,
       openExternalLinkInPreview,
+      renderLink,
       resolvedTheme,
       skills,
       text,
@@ -411,6 +420,7 @@ export function useChatMarkdownState({
       markdownFileLinkMetaByHref,
       onTaskListChange,
       openExternalLinkInPreview,
+      renderLink,
       resolvedTheme,
       skills,
       text,

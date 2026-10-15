@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { type MentionTarget, parseActivityContent, toActivityContent } from "./activity.logic";
+import {
+  type MentionTarget,
+  parseActivityContent,
+  toActivityContent,
+  activityMarkdown,
+  parseMentionHref,
+} from "./activity.logic";
 
 const targets: ReadonlyArray<MentionTarget> = [
   { type: "person", id: "session-ana", label: "Ana Lopez" },
@@ -49,5 +55,20 @@ describe("parseActivityContent", () => {
         label: "Nova",
       }),
     ]);
+  });
+});
+
+describe("activityMarkdown", () => {
+  it("keeps a comment's Markdown and turns mentions into links its renderer owns", () => {
+    const content =
+      '<mention type="comment" id="c-1">Nova</mention> # Plan &lt;now&gt; for <mention type="bot" id="bot-a">A [x]</mention>';
+
+    const markdown = activityMarkdown(content);
+
+    expect(markdown).toBe(
+      "[Nova](#mention/comment/c-1) # Plan <now> for [A \\[x\\]](#mention/bot/bot-a)",
+    );
+    expect(parseMentionHref("#mention/bot/bot-a")).toEqual({ type: "bot", id: "bot-a" });
+    expect(parseMentionHref("https://example.com")).toBeNull();
   });
 });

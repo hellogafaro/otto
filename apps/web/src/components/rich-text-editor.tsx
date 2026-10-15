@@ -165,7 +165,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         "aria-label": ariaLabel,
-        class: "rich-text chat-markdown min-h-6 text-sm leading-relaxed outline-none",
+        class: "rich-text chat-markdown typeset typeset-chat min-h-6 outline-none",
       },
       // Links to Otto pages open in place; web links keep their own behavior.
       handleClick: (_view, _pos, event) => {

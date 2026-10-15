@@ -227,7 +227,12 @@ const CHAT_MARKDOWN_COMPONENTS: Components = {
       threadRef,
       openExternalLinkInPreview,
       fileLinkChip,
+      renderLink,
     } = use(ChatMarkdownRendererContext);
+
+    const owned = href && renderLink ? renderLink(href, children) : null;
+
+    if (owned !== null) return owned;
 
     const normalizedHref = href ? normalizeMarkdownLinkHrefKey(href) : "";
     const settingsDestination = parseSettingsDeepLink(normalizedHref);
@@ -469,7 +474,7 @@ function ChatMarkdown({
   return (
     <div
       className={cn(
-        "chat-markdown w-full min-w-0 text-sm leading-relaxed text-foreground/80 wrap-anywhere word-break-word",
+        "chat-markdown typeset typeset-chat w-full min-w-0 text-foreground/80 wrap-anywhere word-break-word",
         className,
       )}
       onCopy={handleCopy}

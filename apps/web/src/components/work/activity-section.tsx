@@ -11,7 +11,7 @@ import { RiAttachment2, RiDeleteBinLine, RiReplyLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { Match } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { requestConfirmDialog } from "../../confirm-dialog";
 import { useClientSettings } from "../../hooks/use-settings";
@@ -21,16 +21,18 @@ import { activityEnvironment } from "../../state/activity";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../timestamp-format";
+import ChatMarkdown from "../chat-markdown";
 import { useLibraryUpload } from "../library/use-library";
 import type { MessageReplyTarget } from "../chat/message-controls";
 import { BotPromptComposer } from "../roster/bot-prompt-composer";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
+  activityMarkdown,
   activityPlainText,
   type MentionTarget,
   mentionTag,
-  parseActivityContent,
+  parseMentionHref,
   toActivityContent,
 } from "./activity.logic";
 import { formatDuration } from "./work.logic";
@@ -221,34 +223,40 @@ function EntryTime({ createdAt }: { readonly createdAt: string }) {
   );
 }
 
-/** Text with mention pills, as stored in a comment. */
+/** A comment's Markdown with mention pills, as stored in a comment. */
 function ActivityContent({ content }: { readonly content: string }) {
   return (
-    <p className="whitespace-pre-wrap text-13px leading-5 text-foreground">
-      {parseActivityContent(content).map((segment) =>
-        segment.type === "text" ? (
-          <Fragment key={segment.start}>{segment.text}</Fragment>
-        ) : segment.mentionType === "comment" ? (
+    <ChatMarkdown
+      cwd={undefined}
+      text={activityMarkdown(content)}
+      lineBreaks
+      parseRawHtml={false}
+      className="text-13px text-foreground"
+      renderLink={(href, children) => {
+        const mention = parseMentionHref(href);
+
+        if (mention === null) return null;
+
+        if (mention.type !== "comment") {
+          return <span className={MENTION_CLASS_NAME}>@{children}</span>;
+        }
+
+        return (
           <button
-            key={segment.start}
             type="button"
             className={cn(MENTION_CLASS_NAME, "inline-flex items-center gap-0.5 align-bottom")}
             onClick={() =>
               document
-                .getElementById(`activity-${segment.id}`)
+                .getElementById(`activity-${mention.id}`)
                 ?.scrollIntoView({ behavior: "smooth", block: "center" })
             }
           >
             <RiReplyLine aria-hidden className="size-3.5" />
-            {segment.label}
+            {children}
           </button>
-        ) : (
-          <span key={segment.start} className={MENTION_CLASS_NAME}>
-            @{segment.label}
-          </span>
-        ),
-      )}
-    </p>
+        );
+      }}
+    />
   );
 }
 
