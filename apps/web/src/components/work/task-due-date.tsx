@@ -7,11 +7,20 @@ import { Calendar } from "../ui/calendar";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { SelectButton } from "../ui/select";
 
-const dueDateFormatter = new Intl.DateTimeFormat(undefined, {
+const dueDateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
+const dueDateWithYearFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
   day: "numeric",
   year: "numeric",
 });
+
+/** "Oct 14" this year, "Jan 3, 2027" in any other. */
+function formatDueDate(date: Date) {
+  return date.getFullYear() === new Date().getFullYear()
+    ? dueDateFormatter.format(date)
+    : dueDateWithYearFormatter.format(date);
+}
 
 /**
  * Otto: A task's due day, picked from the calendar in a popover; picking the chosen day again
@@ -36,7 +45,7 @@ export function TaskDueDate({
       {variant === "composer" ? (
         <PopoverTrigger render={<ComposerControl aria-label={t("Due date")} />}>
           <ComposerControlIcon icon={RiCalendarLine} />
-          {selected ? dueDateFormatter.format(selected) : t("Due date")}
+          {selected ? formatDueDate(selected) : t("Due date")}
         </PopoverTrigger>
       ) : (
         <PopoverTrigger
@@ -51,7 +60,7 @@ export function TaskDueDate({
         >
           <span className="flex items-center gap-1.5">
             <RiCalendarLine aria-hidden className="size-3.5" />
-            {selected ? dueDateFormatter.format(selected) : t("No due date")}
+            {selected ? formatDueDate(selected) : t("No due date")}
           </span>
         </PopoverTrigger>
       )}

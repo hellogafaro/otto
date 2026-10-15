@@ -156,8 +156,9 @@ function PromptDialogBody({
           }
         }}
       />
-      <div className="flex items-center justify-between gap-2 px-3 pb-3">
-        <div className="flex min-w-0 items-center gap-1">{pickers}</div>
+      {/* Otto: Controls keep their full labels and wrap onto another line instead of cropping. */}
+      <div className="flex items-end justify-between gap-2 px-3 pb-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-1 *:shrink-0">{pickers}</div>
         {showDictation ? (
           <div className="size-7 shrink-0">
             <DictationControls
