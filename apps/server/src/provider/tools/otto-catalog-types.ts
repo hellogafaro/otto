@@ -96,6 +96,24 @@ export interface OttoCatalogBackendOptions {
       input: (typeof OttoToolInputSchemas.ReadSkillFile)["Type"],
     ) => Promise<OttoToolResult>;
   };
+  /** Otto: The organization's Tasks page, as the calling bot. */
+  readonly tasks?: {
+    readonly list: (
+      input: (typeof OttoToolInputSchemas.ListTasks)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly read: (
+      input: (typeof OttoToolInputSchemas.ReadTask)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly create: (
+      input: (typeof OttoToolInputSchemas.CreateTask)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly update: (
+      input: (typeof OttoToolInputSchemas.UpdateTask)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly comment: (
+      input: (typeof OttoToolInputSchemas.CommentOnTask)["Type"],
+    ) => Promise<OttoToolResult>;
+  };
   readonly addMcpServer?: (
     input: (typeof OttoToolInputSchemas.AddMcpServer)["Type"],
   ) => Promise<OttoToolResult>;

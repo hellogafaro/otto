@@ -116,6 +116,7 @@ export function itemForCommand(
       case "task.update":
       case "task.time.add":
       case "task.time.remove":
+      case "task.comment.add":
         return `task:${command.taskId}`;
       case "library.folder.create":
       case "library.folder.update":

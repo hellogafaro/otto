@@ -40,6 +40,11 @@ export const OttoToolId = Schema.Literals([
   "UpdateLibraryDocument",
   "ListSkills",
   "ReadSkillFile",
+  "ListTasks",
+  "ReadTask",
+  "CreateTask",
+  "UpdateTask",
+  "CommentOnTask",
   "AddMcpServer",
   "UninstallMcpServer",
   "RemoveMcpAccount",
@@ -293,6 +298,40 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Read a file from a skill ListSkills returned: SKILL.md by default, or a path such as references/guide.md. " +
       "Text files up to 1 MB. Scripts in a skill are references to read; Otto never runs them.",
+  ),
+  define(
+    "ListTasks",
+    "bot-workspace",
+    "List the organization's tasks (the Tasks page, not your own subagent work), most recently " +
+      'updated first. Filter by projectId, status, assignee ("me" for tasks assigned to you, ' +
+      'or a participant key such as "person:…") or a title query. Archived tasks only show when ' +
+      "you ask for that status.",
+  ),
+  define(
+    "ReadTask",
+    "bot-workspace",
+    "Read one task: its fields, description, links, the people involved with their participant " +
+      "keys, and its latest comments and changes.",
+  ),
+  define(
+    "CreateTask",
+    "bot-workspace",
+    "Create a task on the Tasks page. It goes into this chat's project unless you pass a " +
+      'projectId. Assign it with participant keys from ReadTask or ListTasks, or "me". ' +
+      "Only people mark tasks completed, and the owner is left for a person to set.",
+  ),
+  define(
+    "UpdateTask",
+    "bot-workspace",
+    "Change a task's title, description, status, due date (null clears it), project or " +
+      "assignees; fields you leave out stay as they are. You can't mark a task completed or " +
+      "change its owner; ask a person to.",
+  ),
+  define(
+    "CommentOnTask",
+    "bot-workspace",
+    "Post a comment on a task's activity as yourself, in plain text. Use it to report progress " +
+      "or answer someone on the task.",
   ),
   define("AddMcpServer", "bot-workspace", "Add an MCP server account.", { approval: "secrets" }),
   define("UninstallMcpServer", "bot-workspace", "Remove an MCP server.", { approval: "delete" }),

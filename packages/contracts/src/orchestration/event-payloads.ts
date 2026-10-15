@@ -67,6 +67,7 @@ export const OrchestrationEventType = Schema.Literals([
   "task.updated",
   "task.time-added",
   "task.time-removed",
+  "task.commented",
   "library.folder-created",
   "library.folder-updated",
   "library.folder-deleted",

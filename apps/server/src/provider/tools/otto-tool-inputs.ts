@@ -114,6 +114,16 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "ReadSkillFile":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "ListTasks":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "ReadTask":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "CreateTask":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "UpdateTask":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "CommentOnTask":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "AddMcpServer":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "UninstallMcpServer":

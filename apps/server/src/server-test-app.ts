@@ -674,7 +674,7 @@ export const buildAppUnderTest = (options?: {
           } satisfies ProjectionGroups.ProjectionGroupRepositoryShape),
           Layer.succeed(ActivityStore, {
             list: () => Effect.succeed({ entries: [] }),
-            addComment: () => Effect.die("Activity is not part of this test."),
+            getComment: () => Effect.die("Activity is not part of this test."),
             removeComment: () => Effect.void,
           }),
           Layer.succeed(ProjectionLibraryRepository, {

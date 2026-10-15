@@ -3,6 +3,8 @@ import * as SchemaIssue from "effect/SchemaIssue";
 import {
   BotId,
   GroupId,
+  ProjectId,
+  TaskId,
   IsoDateTime,
   MessageId,
   NonNegativeInt,
@@ -26,6 +28,14 @@ import {
   LibraryFolderId,
   LibraryTitle,
 } from "../orchestration/library.ts";
+import {
+  TaskDueDate,
+  WorkDescription,
+  WorkParticipantKey,
+  WorkStatus,
+  WorkTitle,
+} from "../orchestration/work.ts";
+import { ActivityContent } from "../orchestration/activity.ts";
 import { OttoToolId, OttoToolApprovalClass } from "./catalog.ts";
 
 export const OTTO_COMMAND_MAX_CHARS = 32_000;
@@ -174,6 +184,16 @@ const SaveToLibraryInput = Schema.Struct({
   ),
 );
 
+/** Otto: Someone work goes to: `me` for the calling bot, or a `bot:…` / `person:…` key. */
+const TaskParticipantRef = Schema.Union([Schema.Literal("me"), WorkParticipantKey]);
+
+const TaskToolFields = {
+  description: Schema.optional(WorkDescription),
+  status: Schema.optional(WorkStatus),
+  dueDate: Schema.optional(Schema.NullOr(TaskDueDate)),
+  assignees: Schema.optional(Schema.Array(TaskParticipantRef).check(Schema.isMaxLength(20))),
+};
+
 export const OttoToolInputSchemas = {
   Shell: CommandInput,
   Read: PathInput,
@@ -254,6 +274,26 @@ export const OttoToolInputSchemas = {
     skillId: LibraryFolderId,
     path: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(500))),
   }),
+  ListTasks: Schema.Struct({
+    projectId: Schema.optional(ProjectId),
+    status: Schema.optional(Schema.Array(WorkStatus)),
+    assignee: Schema.optional(TaskParticipantRef),
+    query: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
+    limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
+  }),
+  ReadTask: Schema.Struct({ taskId: TaskId }),
+  CreateTask: Schema.Struct({
+    title: WorkTitle,
+    projectId: Schema.optional(ProjectId),
+    ...TaskToolFields,
+  }),
+  UpdateTask: Schema.Struct({
+    taskId: TaskId,
+    title: Schema.optional(WorkTitle),
+    projectId: Schema.optional(ProjectId),
+    ...TaskToolFields,
+  }),
+  CommentOnTask: Schema.Struct({ taskId: TaskId, content: ActivityContent }),
   AddMcpServer: AddMcpServerInput,
   UninstallMcpServer: Schema.Struct({ serverId: McpServerId }),
   RemoveMcpAccount: Schema.Struct({ serverId: McpServerId }),

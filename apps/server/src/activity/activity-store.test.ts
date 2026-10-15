@@ -1,4 +1,4 @@
-import { AuthSessionId, CommandId, LibraryFileId, ProjectId, TaskId } from "@otto/contracts";
+import { AuthSessionId, BotId, CommandId, LibraryFileId, ProjectId, TaskId } from "@otto/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -142,33 +142,72 @@ it.live("shows logged time until its entry is removed", () =>
   ),
 );
 
+/** Posts a comment the way the activity RPC and bot tools do: as a task event. */
+const comment = (input: {
+  readonly id: string;
+  readonly entityId?: string;
+  readonly content: string;
+  readonly fileIds?: ReadonlyArray<LibraryFileId>;
+  readonly by?: { readonly type: "bot"; readonly id: BotId };
+}) =>
+  Effect.flatMap(Effect.service(OrchestrationEngineService), (engine) =>
+    engine.dispatch(
+      {
+        type: "task.comment.add",
+        commandId: CommandId.make(`comment:${input.id}`),
+        taskId: TaskId.make(input.entityId ?? taskId),
+        commentId: input.id,
+        content: input.content,
+        fileIds: [...(input.fileIds ?? [])],
+        by: input.by ?? { type: "person", id: ada },
+        createdAt: "2026-01-03T00:00:00.000Z",
+      },
+      input.by ? {} : { actor: { personId: ada, canManageGroups: false } },
+    ),
+  );
+
 it.live("lets only a comment's author delete it", () =>
   withTask(
     Effect.gen(function* () {
       const store = yield* Effect.service(ActivityStore);
 
-      const comment = yield* store.addComment({
-        ...task,
+      yield* comment({
+        id: "comment-1",
         content: 'Ask <mention type="person" id="session-bob">Bob</mention> to review',
         fileIds: [LibraryFileId.make("file-1")],
-        personId: ada,
       });
 
-      expect(comment).toMatchObject({
+      expect(yield* store.getComment("comment-1")).toMatchObject({
         type: "comment",
         actor: { type: "person", id: ada },
         fileIds: ["file-1"],
       });
 
       const cannotDelete = yield* Effect.flip(
-        store.removeComment({ id: comment.id, personId: bob }),
+        store.removeComment({ id: "comment-1", personId: bob }),
       );
 
       expect(cannotDelete.message).toBe("Only the person who wrote this comment can change it.");
 
-      yield* store.removeComment({ id: comment.id, personId: ada });
+      yield* store.removeComment({ id: "comment-1", personId: ada });
 
       expect((yield* entries).map((entry) => entry.type)).toEqual(["created"]);
+    }),
+  ),
+);
+
+it.live("records a bot's comment as the bot, and a person's as the signed-in person", () =>
+  withTask(
+    Effect.gen(function* () {
+      const nova = BotId.make("bot-nova");
+
+      yield* comment({ id: "from-bot", content: "Started on it.", by: { type: "bot", id: nova } });
+
+      expect((yield* entries).at(-1)).toMatchObject({
+        type: "comment",
+        actor: { type: "bot", id: nova },
+        content: "Started on it.",
+      });
     }),
   ),
 );
@@ -176,25 +215,15 @@ it.live("lets only a comment's author delete it", () =>
 it.live("refuses empty comments and comments on a task that doesn't exist", () =>
   withTask(
     Effect.gen(function* () {
-      const store = yield* Effect.service(ActivityStore);
+      const empty = yield* Effect.flip(comment({ id: "empty", content: "" }));
 
-      const empty = yield* Effect.flip(
-        store.addComment({ ...task, content: "", fileIds: [], personId: ada }),
-      );
-
-      expect(empty.message).toBe("A comment needs text or a file.");
+      expect(empty.message).toContain("A comment needs text or a file.");
 
       const missing = yield* Effect.flip(
-        store.addComment({
-          entityType: "task",
-          entityId: "missing-task",
-          content: "Hello",
-          fileIds: [],
-          personId: ada,
-        }),
+        comment({ id: "missing", entityId: "missing-task", content: "Hello" }),
       );
 
-      expect(missing.message).toBe("That task doesn't exist.");
+      expect(missing.message).toContain("missing-task");
     }),
   ),
 );

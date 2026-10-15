@@ -1,7 +1,13 @@
 import * as Schema from "effect/Schema";
-import { IsoDateTime, TrimmedNonEmptyString, TrimmedString } from "../base-schemas.ts";
+import {
+  CommandId,
+  IsoDateTime,
+  TaskId,
+  TrimmedNonEmptyString,
+  TrimmedString,
+} from "../base-schemas.ts";
 import { LibraryFileId } from "./library.ts";
-import { Actor, TaskChanges, TaskTimeDuration } from "./work.ts";
+import { Actor, OrchestrationTask, TaskChanges, TaskTimeDuration } from "./work.ts";
 
 /** What an activity entry is about; new entity types join this list. */
 export const ActivityEntityType = Schema.Literals(["task"]);
@@ -61,6 +67,33 @@ export const ActivityCommentAddInput = Schema.Struct({
   entityId: ActivityEntityId,
   content: ActivityContent,
   fileIds: Schema.optional(ActivityFileIds),
+});
+
+/**
+ * Otto: A comment on a task, by a person (the RPC) or a bot (its tools), dispatched by the
+ * server so every viewer's timeline refreshes. `by` is who wrote it.
+ */
+export const TaskCommentAddCommand = Schema.Struct({
+  type: Schema.Literal("task.comment.add"),
+  commandId: CommandId,
+  taskId: TaskId,
+  commentId: ActivityEntryId,
+  content: ActivityContent,
+  fileIds: ActivityFileIds,
+  by: Actor,
+  createdAt: IsoDateTime,
+});
+
+/** The task with its updated time moved to the comment's, and the comment. */
+export const OrchestrationTaskCommentedPayload = Schema.Struct({
+  task: OrchestrationTask,
+  comment: Schema.Struct({
+    id: ActivityEntryId,
+    content: ActivityContent,
+    fileIds: ActivityFileIds,
+    actor: Actor,
+    createdAt: IsoDateTime,
+  }),
 });
 
 export const ActivityCommentRemoveInput = Schema.Struct({ id: ActivityEntryId });

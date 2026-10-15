@@ -1,4 +1,3 @@
-import * as NodeCrypto from "node:crypto";
 import {
   type Actor,
   ActivityEntry,
@@ -6,7 +5,6 @@ import {
   type ActivityEntityType,
   ActivityRequestError,
   type AuthSessionId,
-  type LibraryFileId,
   TaskChanges,
   TaskTimeDuration,
 } from "@otto/contracts";
@@ -135,38 +133,9 @@ const makeActivityStore = Effect.gen(function* () {
     return { entries: rows.flatMap((row) => Option.toArray(toEntry(row))) };
   });
 
-  /** Adds a comment by this person to an existing entity. */
-  const addComment = Effect.fn("ActivityStore.addComment")(function* (
-    input: ActivityEntity & {
-      readonly content: string;
-      readonly fileIds: ReadonlyArray<LibraryFileId>;
-      readonly personId: AuthSessionId;
-    },
-  ) {
-    const [task] = yield* sql<{ readonly task_id: string }>`
-      SELECT task_id FROM projection_tasks WHERE task_id = ${input.entityId}
-    `.pipe(queryFailed("Could not load the task."));
-
-    if (task === undefined) return yield* fail("That task doesn't exist.");
-
-    if (input.content.length === 0 && input.fileIds.length === 0) {
-      return yield* fail("A comment needs text or a file.");
-    }
-
-    const row: ActivityRow = {
-      id: NodeCrypto.randomUUID(),
-      entityType: input.entityType,
-      entityId: input.entityId,
-      type: "comment",
-      actor: { type: "person", id: input.personId },
-      content: input.content,
-      data: { fileIds: input.fileIds },
-      createdAt: yield* nowIso,
-    };
-
-    yield* insertActivityRow(sql, row).pipe(queryFailed("Could not save the comment."));
-
-    return yield* requireEntry(yield* readComment(row.id));
+  /** One comment as its timeline shows it. */
+  const getComment = Effect.fn("ActivityStore.getComment")(function* (id: string) {
+    return yield* requireEntry(yield* readComment(id));
   });
 
   /** Hides a comment this person wrote; the row stays for the record. */
@@ -181,10 +150,10 @@ const makeActivityStore = Effect.gen(function* () {
     `.pipe(queryFailed("Could not delete the comment."));
   });
 
-  return { list, addComment, removeComment };
+  return { list, getComment, removeComment };
 });
 
-/** Reads timelines and keeps people's comments; task events are written by the projector. */
+/** Reads timelines and hides comments; the projector writes them from task events. */
 export class ActivityStore extends Context.Service<
   ActivityStore,
   Effect.Success<typeof makeActivityStore>

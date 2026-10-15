@@ -1,4 +1,5 @@
 import {
+  type Actor,
   type OrchestrationCommand,
   type OrchestrationReadModel,
   type OrchestrationTask,
@@ -28,8 +29,16 @@ const uniqueParticipants = (participants: ReadonlyArray<WorkParticipant>) => [
   ).values(),
 ];
 
-const actorFields = (actor: OrchestrationDispatchActor | undefined) =>
-  actor === undefined ? {} : { actor: { type: "person" as const, id: actor.personId } };
+/**
+ * Otto: Who a task change is by: the signed-in person who sent it, or for a command the server
+ * dispatches, the bot it names. A client's own `by` is never trusted over its session.
+ */
+const commandActor = (
+  actor: OrchestrationDispatchActor | undefined,
+  by: Actor | undefined,
+): Actor | undefined => (actor === undefined ? by : { type: "person", id: actor.personId });
+
+const actorFields = (actor: Actor | undefined) => (actor === undefined ? {} : { actor });
 
 const participantsKey = (participants: ReadonlyArray<WorkParticipant>) =>
   participants.map(workParticipantKey).join(",");
@@ -70,7 +79,14 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
 }: {
   readonly command: Extract<
     OrchestrationCommand,
-    { type: "task.create" | "task.update" | "task.time.add" | "task.time.remove" }
+    {
+      type:
+        | "task.create"
+        | "task.update"
+        | "task.time.add"
+        | "task.time.remove"
+        | "task.comment.add";
+    }
   >;
   readonly readModel: OrchestrationReadModel;
   readonly actor?: OrchestrationDispatchActor;
@@ -85,6 +101,10 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
       yield* requireActiveProject({ readModel, command, projectId: command.projectId });
 
       const assignees = uniqueParticipants(command.assignees ?? []);
+      const by = commandActor(actor, command.by);
+
+      yield* requireHumanDone(command, by, command.status);
+
       yield* requireWorkParticipants({
         readModel,
         command,
@@ -114,7 +134,7 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
             createdAt: command.createdAt,
             updatedAt: command.createdAt,
           },
-          ...actorFields(actor),
+          ...actorFields(by),
         },
       };
     }
@@ -128,6 +148,14 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
 
       const assignees =
         command.assignees === undefined ? undefined : uniqueParticipants(command.assignees);
+
+      const by = commandActor(actor, command.by);
+
+      yield* requireHumanDone(command, by, command.status);
+
+      if (by?.type === "bot" && command.owner !== undefined) {
+        return yield* invariant(command.type, "Only a person can change a task's owner.");
+      }
 
       yield* requireWorkParticipants({
         readModel,
@@ -158,7 +186,7 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
           commandId: command.commandId,
         })),
         type: "task.updated",
-        payload: { task, changes: taskChanges(existing, task), ...actorFields(actor) },
+        payload: { task, changes: taskChanges(existing, task), ...actorFields(by) },
       };
     }
 
@@ -231,8 +259,46 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
         },
       };
     }
+
+    case "task.comment.add": {
+      const existing = yield* requireTask({ readModel, command, taskId: command.taskId });
+
+      if (command.content.length === 0 && command.fileIds.length === 0) {
+        return yield* invariant(command.type, "A comment needs text or a file.");
+      }
+
+      return {
+        ...(yield* withEventBase({
+          aggregateKind: "task",
+          aggregateId: command.taskId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+        })),
+        type: "task.commented",
+        payload: {
+          task: { ...existing, updatedAt: command.createdAt },
+          comment: {
+            id: command.commentId,
+            content: command.content,
+            fileIds: command.fileIds,
+            actor: commandActor(actor, command.by) ?? command.by,
+            createdAt: command.createdAt,
+          },
+        },
+      };
+    }
   }
 });
+
+/** Otto: Marking work done stays a person's call; bots report progress instead. */
+const requireHumanDone = (
+  command: OrchestrationCommand,
+  by: Actor | undefined,
+  status: OrchestrationTask["status"] | undefined,
+) =>
+  by?.type === "bot" && status === "completed"
+    ? invariant(command.type, "Only a person can mark a task completed.")
+    : Effect.void;
 
 const invariant = (commandType: string, detail: string) =>
   Effect.fail(new OrchestrationCommandInvariantError({ commandType, detail }));

@@ -8,6 +8,7 @@ import {
 } from "@otto/contracts";
 import { runImageGenerationTool } from "../../../image-generation/image-generation-runtime.ts";
 import { activeLibraryTools } from "../../../library/library-tool-runtime.ts";
+import { activeTaskTools } from "../../../tasks/task-tool-runtime.ts";
 import { createOttoCatalogToolHandlers } from "../../otto-catalog-tool-handlers.ts";
 import { ottoWebSearchUnavailable } from "../../otto-web-fetch.ts";
 import { nowIso } from "./event-identity.ts";
@@ -32,6 +33,7 @@ export function createSessionCatalogHandlers(
   const { threadId, mcpManager } = input;
   const libraryTools = activeLibraryTools();
   const libraryCaller = input.botId ? { threadId, botId: input.botId } : null;
+  const taskTools = activeTaskTools();
 
   const mcpDependencies =
     input.botId && input.botName
@@ -100,6 +102,17 @@ export function createSessionCatalogHandlers(
               listSkills: () => deps.runPromise(libraryTools.listSkills(libraryCaller)),
               readSkillFile: (request) =>
                 deps.runPromise(libraryTools.readSkillFile(libraryCaller, request)),
+            },
+          }
+        : {}),
+      ...(taskTools && libraryCaller
+        ? {
+            tasks: {
+              list: (request) => deps.runPromise(taskTools.list(libraryCaller, request)),
+              read: (request) => deps.runPromise(taskTools.read(libraryCaller, request)),
+              create: (request) => deps.runPromise(taskTools.create(libraryCaller, request)),
+              update: (request) => deps.runPromise(taskTools.update(libraryCaller, request)),
+              comment: (request) => deps.runPromise(taskTools.comment(libraryCaller, request)),
             },
           }
         : {}),

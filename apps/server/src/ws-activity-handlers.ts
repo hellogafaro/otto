@@ -1,4 +1,8 @@
-import { WS_METHODS, WsRpcGroup } from "@otto/contracts";
+import * as NodeCrypto from "node:crypto";
+
+import { ActivityRequestError, CommandId, TaskId, WS_METHODS, WsRpcGroup } from "@otto/contracts";
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 
 import type { WsConnection } from "./ws-connection.ts";
@@ -7,8 +11,12 @@ import type { WsConnection } from "./ws-connection.ts";
 export const createWsActivityHandlers = ({
   activityStore,
   currentPersonId,
+  dispatchFromClient,
   observeRpcEffect,
-}: Pick<WsConnection, "activityStore" | "currentPersonId" | "observeRpcEffect">) =>
+}: Pick<
+  WsConnection,
+  "activityStore" | "currentPersonId" | "dispatchFromClient" | "observeRpcEffect"
+>) =>
   ({
     [WS_METHODS.activityList]: (input) =>
       observeRpcEffect(WS_METHODS.activityList, activityStore.list(input), {
@@ -18,10 +26,22 @@ export const createWsActivityHandlers = ({
     [WS_METHODS.activityCommentAdd]: (input) =>
       observeRpcEffect(
         WS_METHODS.activityCommentAdd,
-        activityStore.addComment({
-          ...input,
-          fileIds: input.fileIds ?? [],
-          personId: currentPersonId,
+        // Otto: A comment is a task event, so every open timeline refreshes and bots can react.
+        Effect.gen(function* () {
+          const commentId = NodeCrypto.randomUUID();
+
+          yield* dispatchFromClient({
+            type: "task.comment.add",
+            commandId: CommandId.make(`comment:${commentId}`),
+            taskId: TaskId.make(input.entityId),
+            commentId,
+            content: input.content,
+            fileIds: input.fileIds ?? [],
+            by: { type: "person", id: currentPersonId },
+            createdAt: DateTime.formatIso(yield* DateTime.now),
+          }).pipe(Effect.mapError((error) => new ActivityRequestError({ detail: error.message })));
+
+          return yield* activityStore.getComment(commentId);
         }),
         { "rpc.aggregate": "activity" },
       ),

@@ -110,6 +110,14 @@ export const OrchestrationTask = Schema.Struct({
 
 export type OrchestrationTask = typeof OrchestrationTask.Type;
 
+/** Who did something: a signed-in person or a bot. */
+export const Actor = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("person"), id: AuthSessionId }),
+  Schema.Struct({ type: Schema.Literal("bot"), id: BotId }),
+]);
+
+export type Actor = typeof Actor.Type;
+
 export const TaskCreateCommand = Schema.Struct({
   type: Schema.Literal("task.create"),
   commandId: CommandId,
@@ -122,6 +130,8 @@ export const TaskCreateCommand = Schema.Struct({
   resources: Schema.optional(WorkResources),
   dueDate: Schema.optional(Schema.NullOr(TaskDueDate)),
   status: Schema.optional(WorkStatus),
+  /** Otto: The bot acting, for commands the server dispatches; a person's command is theirs. */
+  by: Schema.optional(Actor),
   createdAt: IsoDateTime,
 });
 
@@ -138,6 +148,7 @@ export const TaskUpdateCommand = Schema.Struct({
   resources: Schema.optional(WorkResources),
   dueDate: Schema.optional(Schema.NullOr(TaskDueDate)),
   status: Schema.optional(WorkStatus),
+  by: Schema.optional(Actor),
 });
 
 /** The server records the person logging time as the entry's creator. */
@@ -168,14 +179,6 @@ export const OrchestrationTaskTimeRemovedPayload = Schema.Struct({
   task: OrchestrationTask,
   entryId: TaskTimeEntryId,
 });
-
-/** Who did something: a signed-in person or a bot. */
-export const Actor = Schema.Union([
-  Schema.Struct({ type: Schema.Literal("person"), id: AuthSessionId }),
-  Schema.Struct({ type: Schema.Literal("bot"), id: BotId }),
-]);
-
-export type Actor = typeof Actor.Type;
 
 /** What one task update changed, each field before and after. */
 export const TaskChanges = Schema.Struct({

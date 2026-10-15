@@ -49,6 +49,7 @@ export function projectEvent(
     case "task.updated":
     case "task.time-added":
     case "task.time-removed":
+    case "task.commented":
     case "mcp-server.created":
     case "mcp-server.updated":
     case "mcp-server.enabled":

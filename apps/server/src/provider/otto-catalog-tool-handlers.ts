@@ -66,6 +66,20 @@ export function createOttoCatalogToolHandlers(
             backends.library!.readSkillFile(decodeOttoToolInput("ReadSkillFile", input)),
         }
       : {}),
+    ...(backends.tasks
+      ? {
+          ListTasks: async ({ input }) =>
+            backends.tasks!.list(decodeOttoToolInput("ListTasks", input)),
+          ReadTask: async ({ input }) =>
+            backends.tasks!.read(decodeOttoToolInput("ReadTask", input)),
+          CreateTask: async ({ input }) =>
+            backends.tasks!.create(decodeOttoToolInput("CreateTask", input)),
+          UpdateTask: async ({ input }) =>
+            backends.tasks!.update(decodeOttoToolInput("UpdateTask", input)),
+          CommentOnTask: async ({ input }) =>
+            backends.tasks!.comment(decodeOttoToolInput("CommentOnTask", input)),
+        }
+      : {}),
     ...(backends.addMcpServer
       ? {
           AddMcpServer: async ({ input }) =>

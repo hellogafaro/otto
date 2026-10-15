@@ -9,6 +9,7 @@ export function createTasks({
       switch (event.type) {
         case "task.created":
         case "task.updated":
+        case "task.commented":
           yield* projectionTaskRepository.upsert(event.payload.task);
 
           return;

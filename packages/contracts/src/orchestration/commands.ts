@@ -4,6 +4,7 @@ import {
   TaskTimeRemoveCommand,
   TaskUpdateCommand,
 } from "./work.ts";
+import { TaskCommentAddCommand } from "./activity.ts";
 import {
   LibraryFileCreateCommand,
   LibraryFileDeleteCommand,
@@ -370,6 +371,7 @@ export const DelegationStateSetCommand = Schema.Struct({
 
 const InternalOrchestrationCommand = Schema.Union([
   InternalRoutineCommand,
+  TaskCommentAddCommand,
   LibraryFileCreateCommand,
   ThreadSessionSetCommand,
   ThreadMessageAssistantDeltaCommand,

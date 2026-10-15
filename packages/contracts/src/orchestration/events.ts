@@ -4,6 +4,7 @@ import {
   OrchestrationTaskTimeRemovedPayload,
   OrchestrationTaskUpdatedPayload,
 } from "./work.ts";
+import { OrchestrationTaskCommentedPayload } from "./activity.ts";
 import {
   LibraryFileDeletedPayload,
   LibraryFileId,
@@ -256,6 +257,11 @@ export const OrchestrationEvent = Schema.Union([
     ...EventBaseFields,
     type: Schema.Literal("task.time-removed"),
     payload: OrchestrationTaskTimeRemovedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("task.commented"),
+    payload: OrchestrationTaskCommentedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,

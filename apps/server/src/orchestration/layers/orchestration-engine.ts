@@ -150,6 +150,7 @@ function commandToAggregateRef(command: OrchestrationCommand): CommandAggregateR
     case "task.update":
     case "task.time.add":
     case "task.time.remove":
+    case "task.comment.add":
       return {
         aggregateKind: "task",
         aggregateId: command.taskId,

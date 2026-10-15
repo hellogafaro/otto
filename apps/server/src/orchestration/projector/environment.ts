@@ -141,6 +141,7 @@ export function projectEnvironment(
     case "task.updated":
     case "task.time-added":
     case "task.time-removed":
+    case "task.commented":
       return decodeForEvent(
         OrchestrationTaskCreatedPayload,
         event.payload,

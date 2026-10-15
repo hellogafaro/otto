@@ -3,7 +3,7 @@ import { insertActivityRow } from "../../../activity/activity-store.ts";
 import { toPersistenceSqlError } from "../../../persistence/errors.ts";
 import { type ProjectionDependencies, type ProjectorDefinition } from "./definitions.ts";
 
-/** Writes what happened to a task into its timeline; comments are written directly. */
+/** Writes what happened to a task, and its comments, into its timeline. */
 export function createActivity({ sql }: Pick<ProjectionDependencies, "sql">) {
   const applyActivityProjection: ProjectorDefinition["apply"] = Effect.fn(
     "applyActivityProjection",
@@ -54,6 +54,21 @@ export function createActivity({ sql }: Pick<ProjectionDependencies, "sql">) {
           content: "",
           data: { duration: entry.duration, description: entry.description },
           createdAt: entry.createdAt,
+        });
+      }
+
+      case "task.commented": {
+        const comment = event.payload.comment;
+
+        return yield* write({
+          id: comment.id,
+          entityType: "task",
+          entityId: event.payload.task.id,
+          type: "comment",
+          actor: comment.actor,
+          content: comment.content,
+          data: { fileIds: comment.fileIds },
+          createdAt: comment.createdAt,
         });
       }
 
