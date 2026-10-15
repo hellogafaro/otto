@@ -6,22 +6,19 @@ import {
   type WorkParticipant,
   type WorkStatus,
 } from "@otto/contracts";
-import { RiBox3Line, RiCalendarLine } from "@remixicon/react";
+import { RiBox3Line } from "@remixicon/react";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { randomUUID } from "../../lib/utils";
 import { projectEnvironment } from "../../state/projects";
 import { taskEnvironment } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
-import {
-  ComposerControl,
-  ComposerControlIcon,
-  ComposerSelectControl,
-} from "../chat/composer-control";
+import { ComposerSelectControl } from "../chat/composer-control";
 import { PromptDialog } from "../prompt-dialog";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { TaskDueDate } from "./task-due-date";
 import { AssigneesMenu, OwnerSelect, type WorkParticipants } from "./work-participants";
 import { WorkStatusSelect } from "./work-status";
 
@@ -71,41 +68,6 @@ export function ProjectSelect({
         ))}
       </SelectPopup>
     </Select>
-  );
-}
-
-const dueDateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-
-/** A due day as a composer control over the native date picker. */
-function DueDateControl({
-  value,
-  onChange,
-}: {
-  readonly value: string | null;
-  readonly onChange: (dueDate: string | null) => void;
-}) {
-  const { t } = useI18n();
-  const input = useRef<HTMLInputElement>(null);
-  const [year, month, day] = (value ?? "").split("-").map(Number);
-
-  return (
-    <span className="relative">
-      <ComposerControl aria-label={t("Due date")} onClick={() => input.current?.showPicker?.()}>
-        <ComposerControlIcon icon={RiCalendarLine} />
-        {value && year && month && day
-          ? dueDateFormatter.format(new Date(year, month - 1, day))
-          : t("Due date")}
-      </ComposerControl>
-      <input
-        ref={input}
-        type="date"
-        tabIndex={-1}
-        aria-hidden
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value === "" ? null : event.target.value)}
-        className="pointer-events-none absolute inset-0 opacity-0"
-      />
-    </span>
   );
 }
 
@@ -197,7 +159,7 @@ export function NewTaskDialog({
             onChange={setAssignees}
             participants={participants}
           />
-          <DueDateControl value={dueDate} onChange={setDueDate} />
+          <TaskDueDate variant="composer" value={dueDate} onChange={setDueDate} />
         </>
       }
       submitLabel={t("Create task")}

@@ -57,6 +57,7 @@
     "micromark-extension-gfm": "^3.0.0",
     "motion": "^13.1.1",
     "react": "19.2.6",
+    "react-day-picker": "^10.0.2",
     "react-dom": "19.2.6",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",

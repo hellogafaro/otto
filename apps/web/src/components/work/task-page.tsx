@@ -1,6 +1,6 @@
 import type { UpdateTaskInput } from "@otto/client-runtime/state/tasks";
 import type { OrchestrationTask, TaskId } from "@otto/contracts";
-import { RiAddLine, RiCalendarLine, RiCloseLine, RiListCheck3 } from "@remixicon/react";
+import { RiAddLine, RiCloseLine, RiListCheck3 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -23,6 +23,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { useLibraryData } from "../library/use-library";
 import { ActivitySection } from "./activity-section";
 import { formatDuration, parseDuration, projectStatus } from "./work.logic";
+import { TaskDueDate } from "./task-due-date";
 import { WorkDetailPage, WorkResourcesSection } from "./work-detail";
 import { ProjectSelect } from "./work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./work-pages";
@@ -126,7 +127,11 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
               />
             </DetailsRow>
             <DetailsRow label={t("Due date")}>
-              <TaskDueDate value={task.dueDate} onChange={(dueDate) => update({ dueDate })} />
+              <TaskDueDate
+                variant="ghost"
+                value={task.dueDate}
+                onChange={(dueDate) => update({ dueDate })}
+              />
             </DetailsRow>
             <DetailsRow label={t("Project")}>
               <ProjectSelect
@@ -151,41 +156,6 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
         </>
       }
     />
-  );
-}
-
-const dueDateFormatter = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
-
-/** A due day as a quiet property row that opens the native date picker; clearing it removes the date. */
-function TaskDueDate({
-  value,
-  onChange,
-}: {
-  readonly value: string | null;
-  readonly onChange: (dueDate: string | null) => void;
-}) {
-  const { t } = useI18n();
-  const [year, month, day] = (value ?? "").split("-").map(Number);
-
-  return (
-    <label className="relative flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm text-secondary-label hover:bg-secondary hover:text-foreground">
-      <RiCalendarLine aria-hidden className="size-4 shrink-0" />
-      {value && year && month && day
-        ? dueDateFormatter.format(new Date(year, month - 1, day))
-        : t("No due date")}
-      <input
-        type="date"
-        aria-label={t("Due date")}
-        value={value ?? ""}
-        onClick={(event) => event.currentTarget.showPicker?.()}
-        onChange={(event) => onChange(event.target.value === "" ? null : event.target.value)}
-        className="absolute inset-0 cursor-pointer opacity-0"
-      />
-    </label>
   );
 }
 
