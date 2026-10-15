@@ -61,15 +61,18 @@ export const createDependencies = Effect.fn("makeprovider-command-Dependencies")
             searchComposioToolkits: async (input: {
               readonly query?: string;
               readonly limit?: number;
+              readonly personId?: string | null;
             }) => {
               if (!(await runPromise(composio.value.isConfigured))) {
                 return { status: "setup-required" as const, toolkits: [] };
               }
 
-              return {
-                status: "available" as const,
-                toolkits: await runPromise(composio.value.searchToolkits(input)),
-              };
+              const [toolkits, connectedToolkits] = await Promise.all([
+                runPromise(composio.value.searchToolkits(input)),
+                runPromise(composio.value.connectedToolkits(input.personId ?? null)),
+              ]);
+
+              return { status: "available" as const, toolkits, connectedToolkits };
             },
           }
         : {}),

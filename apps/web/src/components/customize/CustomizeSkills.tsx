@@ -339,7 +339,7 @@ function SkillRow({
  * by bots, never run.
  */
 export function CustomizeSkills({ environmentId }: { readonly environmentId: EnvironmentId }) {
-  const { t, plural } = useI18n();
+  const { t } = useI18n();
   const data = useLibraryData();
   const [draft, setDraft] = useState<SkillDraft | null>(null);
   const importVisibility = useRef<LibraryVisibility>("user");
@@ -380,15 +380,15 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
   };
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       {(["user", "workspace"] as const).map((visibility) => {
         const group = skills.filter((skill) => skill.visibility === visibility);
 
         return (
           <CustomizeGroup
             key={visibility}
-            title={visibility === "user" ? t("Yours") : t("Workspace")}
-            count={plural(group.length, { one: "{count} skill", other: "{count} skills" })}
+            title={visibility === "user" ? t("Yours") : t("Team")}
+            count={group.length}
             empty={
               group.length === 0
                 ? {
@@ -398,7 +398,7 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
                 : null
             }
             action={
-              <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to workspace")}>
+              <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to team")}>
                 <MenuItem
                   onClick={() => setDraft({ name: "", description: "", visibility, source: null })}
                 >

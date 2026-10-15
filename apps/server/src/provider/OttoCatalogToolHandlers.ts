@@ -99,7 +99,11 @@ export function createOttoCatalogToolHandlers(
     ...(pluginRuntime
       ? {
           SearchPlugins: async ({ input }) =>
-            pluginRuntime.search(decodeOttoToolInput("SearchPlugins", input), statuses()),
+            pluginRuntime.search(
+              decodeOttoToolInput("SearchPlugins", input),
+              statuses(),
+              backends.botId,
+            ),
           GetPlugin: async ({ input }) =>
             pluginRuntime.getPlugin(requiredString(input, "pluginId"), statuses()),
           InstallPlugin: async ({ input, emitProgress }) => {

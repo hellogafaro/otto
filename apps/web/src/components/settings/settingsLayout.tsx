@@ -172,33 +172,41 @@ export function SettingsSection({
   // Otto: A page's first section that repeats the page title keeps that heading for screen readers only.
   const repeatsPageTitle = title === useContext(SettingsPageTitleContext);
 
+  // Otto: The title is the card's first 48px row (13px/500, the action at the right), like
+  // Customize's groups. A title that repeats the page title stays for screen readers only.
+  const hiddenTitle = repeatsPageTitle && !headerAction;
+
+  const header = hiddenTitle ? null : (
+    <div
+      data-settings-row=""
+      data-slot="settings-section-header"
+      className={cn("flex h-12 items-center gap-2 ps-4", headerAction ? "pe-2.5" : "pe-4")}
+    >
+      <h2
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2 text-13px font-medium text-foreground",
+          repeatsPageTitle && "sr-only",
+        )}
+      >
+        {icon}
+        {title}
+      </h2>
+      {headerAction}
+    </div>
+  );
+
   return (
     <section
       {...sectionProps}
       ref={targetRef}
       tabIndex={sectionProps.id ? -1 : sectionProps.tabIndex}
-      className={cn(
-        "space-y-3",
-        repeatsPageTitle &&
-          (headerAction
-            ? "[&:first-of-type>[data-slot=settings-section-header]>h2]:sr-only"
-            : "[&:first-of-type>[data-slot=settings-section-header]]:sr-only"),
-        className,
-      )}
+      className={className}
     >
-      <div
-        data-slot="settings-section-header"
-        className="flex min-h-7 items-center justify-between gap-4 px-4"
-      >
-        <h2 className={cn("flex items-center gap-2", SETTINGS_SECTION_TITLE_CLASS)}>
-          {icon}
-          {title}
-        </h2>
-        <div className="ms-auto flex min-h-7 min-w-7 items-center justify-end">{headerAction}</div>
-      </div>
+      {hiddenTitle ? <h2 className="sr-only">{title}</h2> : null}
       <div
         className={cn("relative space-y-1 overflow-visible text-foreground", GROUPED_ROWS_CLASS)}
       >
+        {header}
         {children}
       </div>
     </section>
@@ -336,7 +344,7 @@ export function SettingsPageContainer({
           width={width}
           className={cn("gap-10 pt-3 pb-16 sm:pt-4", className)}
         >
-          {title ? <WorkspacePageTitle>{title}</WorkspacePageTitle> : null}
+          {title ? <WorkspacePageTitle flush>{title}</WorkspacePageTitle> : null}
           {children}
         </WorkspacePageContainer>
       </div>

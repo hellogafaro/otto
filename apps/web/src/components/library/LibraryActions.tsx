@@ -306,7 +306,7 @@ export function LibraryVisibilitySelect({
 }) {
   const { t } = useI18n();
 
-  const labels = { workspace: t("Workspace"), user: t("Only me") } satisfies Record<
+  const labels = { workspace: t("Team"), user: t("Only me") } satisfies Record<
     LibraryVisibility,
     string
   >;

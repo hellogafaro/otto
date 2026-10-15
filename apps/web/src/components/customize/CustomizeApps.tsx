@@ -40,7 +40,6 @@ import { Spinner } from "../ui/spinner";
 import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageContainer, WorkspacePageTitle } from "../WorkspacePageContainer";
-import { WorkSectionHeader } from "../work/WorkDetail";
 import { WorkEmpty, WorkPage } from "../work/WorkPages";
 import { CustomizeGroup, CustomizeItem, CustomizeRow, LogoTile } from "./CustomizeGroup";
 import { DetailHeader } from "./CustomizeDetail";
@@ -111,13 +110,13 @@ function AppsList({
         />
       </InputGroup>
       {toolkits.error ? (
-        <p className="px-4 text-13px text-destructive-foreground">
+        <p className="text-13px text-destructive-foreground">
           {t("Could not reach Composio: {error}", { error: String(toolkits.error) })}
         </p>
       ) : toolkits.data === undefined ? (
         <Spinner className="mx-auto" />
       ) : apps.length === 0 ? (
-        <p className="px-4 text-13px text-muted-foreground">
+        <p className="text-13px text-muted-foreground">
           {deferredSearch
             ? t("No apps match “{query}”.", { query: deferredSearch })
             : t("Composio lists no apps for this key.")}
@@ -127,7 +126,7 @@ function AppsList({
           {apps.map((toolkit) => (
             <CustomizeRow
               key={toolkit.slug}
-              logo={<AppLogo src={toolkit.logoUrl} name={toolkit.name} className="size-5" />}
+              logo={<AppLogo src={toolkit.logoUrl} name={toolkit.name} className="size-4" />}
               name={toolkit.name}
               detail={toolkit.description}
               onOpen={() =>
@@ -185,7 +184,7 @@ export function CustomizeAppsPage({
   return (
     <WorkPage back={back}>
       <WorkspacePageContainer className="flex-1 gap-6 pt-3 pb-16 sm:pt-4">
-        <WorkspacePageTitle>{t("Apps")}</WorkspacePageTitle>
+        <WorkspacePageTitle flush>{t("Apps")}</WorkspacePageTitle>
         {environmentId ? (
           <AppsBody environmentId={environmentId} query={query} visibility={visibility} />
         ) : null}
@@ -402,7 +401,7 @@ function AppBody({
   readonly slug: string;
   readonly visibility: ComposioVisibility;
 }) {
-  const { t, plural } = useI18n();
+  const { t } = useI18n();
   const composio = useComposio(environmentId);
   const [connecting, setConnecting] = useState(false);
 
@@ -439,13 +438,13 @@ function AppBody({
   return (
     <>
       <DetailHeader
-        logo={<AppLogo src={toolkit.logoUrl} name={toolkit.name} className="size-6" />}
+        logo={<AppLogo src={toolkit.logoUrl} name={toolkit.name} className="size-5" />}
         title={toolkit.name}
         description={toolkit.description ?? null}
       />
       <CustomizeGroup
         title={t("Accounts")}
-        count={plural(connections.length, { one: "{count} account", other: "{count} accounts" })}
+        count={connections.length}
         empty={
           connections.length === 0
             ? { icon: <RiPuzzleLine />, description: t("No accounts") }
@@ -463,27 +462,24 @@ function AppBody({
             key={connection.id}
             environmentId={environmentId}
             connection={connection}
-            logo={<AppLogo src={toolkit.logoUrl} name={toolkit.name} className="size-5" />}
+            logo={<AppLogo src={toolkit.logoUrl} name={toolkit.name} className="size-4" />}
           />
         ))}
       </CustomizeGroup>
-      <section className="flex flex-col gap-1">
-        <WorkSectionHeader label={t("Tools")} aside={tools.length} />
-        {tools.length === 0 ? (
-          <p className="px-4 text-13px text-muted-foreground">{t("No tools")}</p>
-        ) : (
-          <SettingsCard>
-            {tools.map((tool) => (
-              <CustomizeItem
-                key={tool.slug}
-                icon={<RiToolsLine aria-hidden className="size-4" />}
-                name={tool.name}
-                description={tool.description}
-              />
-            ))}
-          </SettingsCard>
-        )}
-      </section>
+      <CustomizeGroup
+        title={t("Tools")}
+        count={tools.length}
+        empty={tools.length === 0 ? { icon: <RiToolsLine />, description: t("No tools") } : null}
+      >
+        {tools.map((tool) => (
+          <CustomizeItem
+            key={tool.slug}
+            icon={<RiToolsLine aria-hidden className="size-4" />}
+            name={tool.name}
+            description={tool.description}
+          />
+        ))}
+      </CustomizeGroup>
       {connecting ? (
         <ConnectDialog
           environmentId={environmentId}

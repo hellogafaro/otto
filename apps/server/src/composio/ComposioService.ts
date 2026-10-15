@@ -205,6 +205,10 @@ export interface ComposioServiceShape {
     input: ComposioUpdateConnectionInput,
     viewer: ComposioViewer,
   ) => Effect.Effect<ComposioStatus, ComposioOperationError>;
+  /** Apps with an active account a bot owned by this person can use: workspace accounts plus the owner's. */
+  readonly connectedToolkits: (
+    ownerPersonId: string | null,
+  ) => Effect.Effect<readonly string[], ComposioOperationError>;
   /** The hosted MCP server for one chat: workspace accounts plus the bot owner's personal ones. */
   readonly resolveRuntimeMcpServer: (
     resourceId: string,
@@ -647,6 +651,23 @@ export function make(
       Effect.andThen(getStatus(viewer)),
     );
 
+  const connectedToolkits: ComposioServiceShape["connectedToolkits"] = (ownerPersonId) =>
+    Effect.flatMap(accounts.list, (records) => {
+      const owners = new Map(records.map((record) => [record.connectionId, record]));
+
+      return withClient("list connected apps", async (client, userId) => [
+        ...new Set(
+          (await listConnections(client, userId))
+            .filter(
+              (connection) =>
+                connection.status === "ACTIVE" &&
+                composioAccountVisibleTo(owners.get(connection.id), ownerPersonId),
+            )
+            .map((connection) => connection.toolkitSlug),
+        ),
+      ]);
+    });
+
   const resolveRuntimeMcpServer: ComposioServiceShape["resolveRuntimeMcpServer"] = (
     resourceId,
     ownerPersonId,
@@ -776,6 +797,7 @@ export function make(
     authorize,
     disconnect,
     updateConnection,
+    connectedToolkits,
     resolveRuntimeMcpServer,
   };
 }

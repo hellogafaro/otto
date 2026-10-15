@@ -1,7 +1,9 @@
 import { RiAddLine, RiArrowRightSLine } from "@remixicon/react";
 import type { ReactNode } from "react";
 
-import { SETTINGS_SECTION_TITLE_CLASS, SettingsCard } from "../settings/settingsLayout";
+import { cn } from "../../lib/utils";
+
+import { SettingsCard } from "../settings/settingsLayout";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
@@ -75,7 +77,8 @@ export function CustomizeItem({
 }
 
 /**
- * Otto: A Customize group copies Capy's MCP & plugins page: a 16px title, then a card whose first row counts what it holds beside its action, a quiet plus menu or one button.
+ * Otto: A Customize group is one settings card with no heading above it: its first 48px row names
+ * the group, then its muted count and its action (a quiet plus menu or one button) at the right.
  * An empty card holds the icon-and-description empty state.
  */
 export function CustomizeGroup({
@@ -86,32 +89,35 @@ export function CustomizeGroup({
   children,
 }: {
   readonly title: string;
-  readonly count: string;
+  readonly count?: number | undefined;
   /** Shown as the icon-and-description empty state while the group holds nothing. */
   readonly empty: { readonly icon: ReactNode; readonly description: string } | null;
-  readonly action: ReactNode;
-  readonly children: ReactNode;
+  readonly action?: ReactNode;
+  readonly children?: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className={`px-4 ${SETTINGS_SECTION_TITLE_CLASS}`}>{title}</h2>
-      <SettingsCard>
-        <div data-settings-row="" className="flex h-12 items-center gap-2 ps-4 pe-2.5">
-          <span className="flex-1 text-13px font-medium text-foreground">{count}</span>
-          {action}
-        </div>
-        {empty ? (
-          <div data-settings-row="">
-            <Empty>
-              <EmptyMedia variant="icon">{empty.icon}</EmptyMedia>
-              <EmptyDescription>{empty.description}</EmptyDescription>
-            </Empty>
-          </div>
-        ) : (
-          children
+    <SettingsCard>
+      <div
+        data-settings-row=""
+        className={cn("flex h-12 items-center gap-2 ps-4", action ? "pe-2.5" : "pe-4")}
+      >
+        <h2 className="min-w-0 flex-1 truncate text-13px font-medium text-foreground">{title}</h2>
+        {count === undefined ? null : (
+          <span className="text-13px tabular-nums text-muted-foreground">{count}</span>
         )}
-      </SettingsCard>
-    </section>
+        {action}
+      </div>
+      {empty ? (
+        <div data-settings-row="">
+          <Empty>
+            <EmptyMedia variant="icon">{empty.icon}</EmptyMedia>
+            <EmptyDescription>{empty.description}</EmptyDescription>
+          </Empty>
+        </div>
+      ) : (
+        children
+      )}
+    </SettingsCard>
   );
 }
 

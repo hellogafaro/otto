@@ -16,8 +16,6 @@ import { Grid } from "../dither-kit/grid";
 import { Tooltip } from "../dither-kit/tooltip";
 import { XAxis } from "../dither-kit/x-axis";
 import { YAxis } from "../dither-kit/y-axis";
-import { cn } from "../../lib/utils";
-import { SETTINGS_SECTION_TITLE_CLASS } from "../settings/settingsLayout";
 import { ClaudeAI, GrokIcon, KimiIcon, OpenCodeIcon, type Icon, OpenAI } from "../icons";
 import { PROVIDER_ORDER, PROVIDER_PRESENTATION, providersWithUsage } from "./usageProviders";
 
@@ -79,53 +77,52 @@ export function UsagePlanMeters(props: { readonly limits: UsageProviderPlanLimit
       : `${presentation.label} · ${props.limits.plan}`;
 
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <h2 className={cn("flex items-center gap-2 px-4", SETTINGS_SECTION_TITLE_CLASS)}>
+    // Otto: The plan title is the card's first 48px row, like Settings sections and Customize groups.
+    <section className="min-w-0 divide-y divide-border/50 overflow-hidden rounded-lg border border-border/70">
+      <h2 className="flex h-12 items-center gap-2 px-4 text-13px font-medium text-foreground">
         <ProviderMark icon={presentation.icon} />
         {title}
       </h2>
       {props.limits.windows.length === 0 ? (
-        <p className="rounded-lg border border-border/70 px-4 py-5 text-sm text-muted-foreground">
+        <p className="px-4 py-5 text-sm text-muted-foreground">
           {props.limits.message ?? "No limit data yet."}
         </p>
       ) : (
-        <div className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/70">
-          {props.limits.windows.map((window) => {
-            const left = remainingPercent(window);
+        props.limits.windows.map((window) => {
+          const left = remainingPercent(window);
 
-            return (
-              <div
-                key={`${window.kind}:${window.label}`}
-                className="grid gap-3 px-4 py-4 md:grid-cols-10rem-1fr-7rem md:items-center md:gap-5"
-              >
-                <div className="flex items-baseline justify-between gap-3 md:block">
-                  <span className="text-sm font-medium text-foreground">{window.label}</span>
-                  <span className="text-2xl font-semibold text-foreground tabular-nums md:mt-1 md:block">
-                    {Math.round(left)}%
-                    <span className="ms-1 text-xs font-normal text-muted-foreground">left</span>
-                  </span>
-                </div>
-                <div
-                  role="img"
-                  aria-label={`${window.label}: ${Math.round(left)}% left`}
-                  className="relative h-7 overflow-hidden rounded-md bg-muted/70"
-                >
-                  <div
-                    className="absolute inset-y-0 start-0 w-(--share-width) rounded-md bg-(--share-color) opacity-75"
-                    style={{
-                      "--share-width": `${left}%`,
-                      "--share-color": `var(--color-${presentation.color}-500, var(--foreground))`,
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-hatched opacity-30" />
-                </div>
-                <span className="text-xs text-muted-foreground tabular-nums md:text-end">
-                  {formatReset(window.resetsAt)}
+          return (
+            <div
+              key={`${window.kind}:${window.label}`}
+              className="grid gap-3 px-4 py-4 md:grid-cols-10rem-1fr-7rem md:items-center md:gap-5"
+            >
+              <div className="flex items-baseline justify-between gap-3 md:block">
+                <span className="text-sm font-medium text-foreground">{window.label}</span>
+                <span className="text-2xl font-semibold text-foreground tabular-nums md:mt-1 md:block">
+                  {Math.round(left)}%
+                  <span className="ms-1 text-xs font-normal text-muted-foreground">left</span>
                 </span>
               </div>
-            );
-          })}
-        </div>
+              <div
+                role="img"
+                aria-label={`${window.label}: ${Math.round(left)}% left`}
+                className="relative h-7 overflow-hidden rounded-md bg-muted/70"
+              >
+                <div
+                  className="absolute inset-y-0 start-0 w-(--share-width) rounded-md bg-(--share-color) opacity-75"
+                  style={{
+                    "--share-width": `${left}%`,
+                    "--share-color": `var(--color-${presentation.color}-500, var(--foreground))`,
+                  }}
+                />
+                <div className="absolute inset-0 bg-hatched opacity-30" />
+              </div>
+              <span className="text-xs text-muted-foreground tabular-nums md:text-end">
+                {formatReset(window.resetsAt)}
+              </span>
+            </div>
+          );
+        })
       )}
     </section>
   );

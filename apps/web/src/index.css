@@ -143,7 +143,6 @@
   --color-markdown-caution-foreground: var(--markdown-caution-foreground);
   --color-computer-control-indicator: var(--computer-control-indicator);
   --color-quit-prompt: var(--quit-prompt);
-  --color-plugin-connected: var(--plugin-connected);
   --color-memory-approval-indicator: var(--memory-approval-indicator);
   --color-telemetry-status-foreground: var(--telemetry-status-foreground);
   --color-success: var(--success);

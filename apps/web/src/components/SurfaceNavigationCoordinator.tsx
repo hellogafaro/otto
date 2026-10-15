@@ -52,12 +52,14 @@ export function SurfaceNavigationCoordinator() {
   useEffect(() => {
     if (customizeRequest === null) return;
 
-    void (customizeRequest.query
-      ? navigate({ to: "/customize/apps", search: { q: customizeRequest.query } })
-      : navigate({
-          to: "/customize",
-          search: customizeRequest.tab === "integrations" ? {} : { tab: customizeRequest.tab },
-        }));
+    void (customizeRequest.app
+      ? navigate({ to: "/customize/apps/$slug", params: { slug: customizeRequest.app } })
+      : customizeRequest.query
+        ? navigate({ to: "/customize/apps", search: { q: customizeRequest.query } })
+        : navigate({
+            to: "/customize",
+            search: customizeRequest.tab === "integrations" ? {} : { tab: customizeRequest.tab },
+          }));
     acknowledgeCustomizeNavigation();
   }, [navigate, customizeRequest]);
 

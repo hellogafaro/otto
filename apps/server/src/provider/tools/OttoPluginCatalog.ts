@@ -1,6 +1,7 @@
 interface ComposioSearchResult {
   readonly status: "available" | "setup-required" | "unavailable";
   readonly toolkits: readonly ComposioToolkit[];
+  readonly connectedToolkits?: readonly string[];
 }
 
 import * as Predicate from "effect/Predicate";
@@ -195,7 +196,10 @@ export function recommendationForPlugin(
   };
 }
 
-export function recommendationForToolkit(toolkit: ComposioToolkit): OttoPluginRecommendation {
+export function recommendationForToolkit(
+  toolkit: ComposioToolkit,
+  connected = false,
+): OttoPluginRecommendation {
   return {
     id: `composio:${toolkit.slug}`,
     source: "composio",
@@ -203,7 +207,7 @@ export function recommendationForToolkit(toolkit: ComposioToolkit): OttoPluginRe
     description: toolkit.description ?? `${toolkit.toolsCount} tools through Composio.`,
     ...(toolkit.categories[0] ? { category: toolkit.categories[0] } : {}),
     ...(toolkit.logoUrl ? { logoUrl: toolkit.logoUrl } : {}),
-    action: "connect",
+    action: connected ? "open" : "connect",
   };
 }
 
@@ -249,11 +253,13 @@ export function createOttoPluginRuntime(
   const search = async (
     input: (typeof OttoToolInputSchemas.SearchPlugins)["Type"],
     statuses: readonly McpRuntimeStatus[] = [],
+    botId?: string,
   ) => {
     const query = input.query ?? "";
     const matches = catalog.filter((plugin) => pluginMatches(plugin, query));
     const limit = input.limit ?? 20;
     const snapshot = await options.readSnapshot();
+    const owner = snapshot.bots.find((bot) => bot.id === botId)?.owner;
 
     let composioSearch: ComposioSearchResult = { status: "unavailable", toolkits: [] };
 
@@ -262,6 +268,7 @@ export function createOttoPluginRuntime(
         composioSearch = await options.searchComposioToolkits({
           ...(query ? { query } : {}),
           limit,
+          personId: owner?.kind === "person" ? owner.personId : null,
         });
       } catch {
         composioSearch = { status: "unavailable", toolkits: [] };
@@ -270,7 +277,12 @@ export function createOttoPluginRuntime(
 
     const recommendations = [
       ...matches.map((plugin) => recommendationForPlugin(plugin, snapshot)),
-      ...composioSearch.toolkits.map(recommendationForToolkit),
+      ...composioSearch.toolkits.map((toolkit) =>
+        recommendationForToolkit(
+          toolkit,
+          composioSearch.connectedToolkits?.includes(toolkit.slug) === true,
+        ),
+      ),
     ];
 
     const uniqueRecommendations = [

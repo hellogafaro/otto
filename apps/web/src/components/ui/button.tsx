@@ -28,7 +28,6 @@ const buttonPresentations = {
     "text-muted-foreground/70 opacity-64 transition-color-opacity hover:text-foreground hover:opacity-100 group-hover:opacity-100",
   "model-favorite-toggle-on":
     "text-muted-foreground/70 opacity-64 transition-color-opacity hover:text-foreground hover:opacity-100 group-hover:opacity-100 text-foreground opacity-100",
-  "plugin-action": "rounded-full px-3.5 text-xs",
   "muted-dismiss": "text-muted-foreground hover:text-foreground",
   // Otto: A secondary text action under a form, such as Forgot password.
   "quiet-link":

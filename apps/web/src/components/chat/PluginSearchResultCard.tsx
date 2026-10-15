@@ -1,31 +1,28 @@
-import { RiCheckboxCircleLine, RiToolsLine } from "@remixicon/react";
+import { RiAddLine } from "@remixicon/react";
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import type { OttoPluginRecommendation, OttoPluginSearchResult } from "@otto/contracts";
 
 import { memo } from "react";
 
 import { loadDirectoryCatalog } from "../../../../../plugins";
-import { openCustomize } from "../../customizeNavigation";
+import { openCustomize, openCustomizeApp } from "../../customizeNavigation";
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
+import { LogoTile } from "../customize/CustomizeGroup";
+import { AppLogo } from "../customize/CustomizeIntegrations";
+import { SettingsCard } from "../settings/settingsLayout";
 import { Button } from "../ui/button";
 
 const DIRECTORY_PLUGINS = new Map(loadDirectoryCatalog().map((plugin) => [plugin.id, plugin]));
 
 function recommendationActionLabel(
   recommendation: OttoPluginRecommendation,
-  composioStatus: OttoPluginSearchResult["sources"]["composio"],
+  setupRequired: boolean,
   t: (key: MessageKey) => string,
 ): string {
   if (recommendation.action === "install") return t("Install");
 
-  if (
-    recommendation.action === "connect" &&
-    recommendationUsesComposio(recommendation) &&
-    composioStatus === "setup-required"
-  ) {
-    return t("Set up");
-  }
+  if (setupRequired) return t("Set up");
 
   if (recommendation.action === "connect") return t("Connect");
 
@@ -34,31 +31,33 @@ function recommendationActionLabel(
   return t("Manage");
 }
 
+function composioSlug(recommendation: OttoPluginRecommendation): string | null {
+  return recommendation.source === "composio" ? recommendation.id.replace(/^composio:/, "") : null;
+}
+
 function recommendationLogo(recommendation: OttoPluginRecommendation): string | undefined {
   if (recommendation.logoUrl) return recommendation.logoUrl;
 
-  if (recommendation.source === "composio") {
-    const slug = recommendation.id.replace(/^composio:/, "");
+  const slug = composioSlug(recommendation);
 
-    return `https://logos.composio.dev/api/${encodeURIComponent(slug)}`;
-  }
+  if (slug) return `https://logos.composio.dev/api/${encodeURIComponent(slug)}`;
 
   return recommendation.source === "directory"
     ? DIRECTORY_PLUGINS.get(recommendation.id)?.logo.src
     : undefined;
 }
 
-function recommendationProviderLabel(recommendation: OttoPluginRecommendation): string {
-  if (recommendation.source === "composio") return "Composio";
+function recommendationUsesComposio(recommendation: OttoPluginRecommendation): boolean {
+  if (recommendation.source === "composio") return true;
   const plugin = DIRECTORY_PLUGINS.get(recommendation.id);
 
-  return plugin?.connection.type === "brokered" ? plugin.connection.broker.name : "Otto";
+  return plugin?.connection.type === "brokered" && plugin.connection.broker.name === "Composio";
 }
 
-function recommendationUsesComposio(recommendation: OttoPluginRecommendation): boolean {
-  return recommendationProviderLabel(recommendation) === "Composio";
-}
-
+/**
+ * Otto: The app a bot suggests, as one Customize row in a card: the logo tile, the name over one
+ * muted line, and an outline action that opens the app's page, where accounts are connected.
+ */
 export const PluginSearchResultCard = memo(function PluginSearchResultCard({
   result,
   className,
@@ -71,59 +70,58 @@ export const PluginSearchResultCard = memo(function PluginSearchResultCard({
 
   if (!recommendation) return null;
 
-  const logo = recommendationLogo(recommendation);
-  const action = recommendationActionLabel(recommendation, result.sources.composio, t);
-  const connected = recommendation.action === "open";
-
   const setupRequired =
     recommendation.action === "connect" &&
     recommendationUsesComposio(recommendation) &&
     result.sources.composio === "setup-required";
 
+  const action = recommendationActionLabel(recommendation, setupRequired, t);
+  const slug = composioSlug(recommendation);
+
+  const detail = setupRequired
+    ? t("Set up Composio first")
+    : recommendation.action === "open"
+      ? t("Connected")
+      : recommendation.description;
+
   return (
     <section
       aria-label={t("{name} plugin", { name: recommendation.name })}
-      className={cn(
-        "flex max-w-xl min-w-0 items-center gap-3 rounded-lg border border-border/70 bg-card/55 px-3 py-2.5",
-        className,
-      )}
+      className={cn("max-w-xl min-w-0", className)}
     >
-      <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted p-1.5">
-        {logo ? (
-          <img alt="" className="size-full object-contain" src={logo} />
-        ) : (
-          <RiToolsLine aria-hidden="true" className="size-4 text-muted-foreground" />
-        )}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium">{recommendation.name}</p>
-          <span className="shrink-0 text-11px text-muted-foreground">
-            {recommendationProviderLabel(recommendation)}
+      <SettingsCard>
+        <div data-settings-row="" className="flex items-center gap-3 py-3 ps-4 pe-3">
+          <LogoTile>
+            <AppLogo
+              src={recommendationLogo(recommendation)}
+              name={recommendation.name}
+              className="size-4"
+            />
+          </LogoTile>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-13px font-medium text-foreground">
+              {recommendation.name}
+            </span>
+            {detail ? (
+              <span className="block truncate text-xs text-muted-foreground">{detail}</span>
+            ) : null}
           </span>
+          <Button
+            aria-label={t("{action} {name}", { action, name: recommendation.name })}
+            disabled={recommendation.action === "unavailable"}
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              slug ? openCustomizeApp(slug) : openCustomize("integrations", recommendation.name)
+            }
+          >
+            {recommendation.action === "connect" && !setupRequired ? (
+              <RiAddLine aria-hidden />
+            ) : null}
+            {action}
+          </Button>
         </div>
-        {connected ? (
-          <p className="flex items-center gap-1 text-xs text-plugin-connected">
-            <RiCheckboxCircleLine aria-hidden="true" className="size-3" />
-            {t("Connected")}
-          </p>
-        ) : (
-          <p className="truncate text-xs text-muted-foreground">
-            {setupRequired ? t("Set up Composio first") : recommendation.description}
-          </p>
-        )}
-      </div>
-      <Button
-        aria-label={t("{action} {name}", { action, name: recommendation.name })}
-        presentation="plugin-action"
-        className="h-8"
-        disabled={recommendation.action === "unavailable"}
-        size="sm"
-        variant="secondary"
-        onClick={() => openCustomize("integrations", recommendation.name)}
-      >
-        {action}
-      </Button>
+      </SettingsCard>
     </section>
   );
 });

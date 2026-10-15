@@ -75,7 +75,6 @@ it.effect("preserves nominal indicator and alert colors in both default appearan
       ["markdown-caution-foreground", "red-600", "red-400"],
       ["computer-control-indicator", "amber-500", "amber-500"],
       ["quit-prompt", "neutral-700", "neutral-700"],
-      ["plugin-connected", "emerald-500", "emerald-500"],
       ["memory-approval-indicator", "amber-400", "amber-400"],
       ["telemetry-status-foreground", "amber-700", "amber-300"],
     ];
@@ -120,7 +119,6 @@ it.effect("uses parity tokens and opacities at the reviewed component sites", ()
         "bg-computer-control-indicator",
       ],
       ["components/QuitHoldOverlay.tsx", "bg-quit-prompt/95", "text-on-solid"],
-      ["components/chat/PluginSearchResultCard.tsx", "text-plugin-connected"],
       ["components/roster/BotPromptAttachments.tsx", "border-on-solid/10"],
       ["components/roster/MemoryApprovalPrompt.tsx", "bg-memory-approval-indicator"],
       ["components/settings/ProcessResourceHistory.tsx", "bg-telemetry-monitor/90"],

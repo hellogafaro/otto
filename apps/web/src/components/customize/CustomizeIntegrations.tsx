@@ -120,7 +120,7 @@ export function CustomizeIntegrations({
 }: {
   readonly environmentId: EnvironmentId;
 }) {
-  const { t, plural } = useI18n();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const composio = useComposio(environmentId);
   const servers = useAtomValue(environmentMcpServersAtom(environmentId));
@@ -149,8 +149,8 @@ export function CustomizeIntegrations({
     return (
       <CustomizeGroup
         key={visibility}
-        title={visibility === "user" ? t("Yours") : t("Workspace")}
-        count={plural(count, { one: "{count} integration", other: "{count} integrations" })}
+        title={visibility === "user" ? t("Yours") : t("Team")}
+        count={count}
         empty={
           count === 0
             ? {
@@ -160,7 +160,7 @@ export function CustomizeIntegrations({
             : null
         }
         action={
-          <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to workspace")}>
+          <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to team")}>
             {configured ? (
               <MenuItem
                 onClick={() => void navigate({ to: "/customize/apps", search: { visibility } })}
@@ -178,7 +178,7 @@ export function CustomizeIntegrations({
           return (
             <CustomizeRow
               key={`app:${connection.id}`}
-              logo={<AppLogo src={connection.logoUrl} name={name} className="size-5" />}
+              logo={<AppLogo src={connection.logoUrl} name={name} className="size-4" />}
               name={name}
               detail={connection.alias ?? connection.accountName}
               status={<ConnectionStatus connection={connection} />}
@@ -216,7 +216,7 @@ export function CustomizeIntegrations({
   });
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       {configured ? null : (
         <Alert>
           <AlertTitle>{t("Connect apps with Composio")}</AlertTitle>

@@ -23,7 +23,6 @@
   --markdown-caution-foreground: var(--color-red-600);
   --computer-control-indicator: var(--color-amber-500);
   --quit-prompt: var(--color-neutral-700);
-  --plugin-connected: var(--color-emerald-500);
   --memory-approval-indicator: var(--color-amber-400);
   --telemetry-status-foreground: var(--color-amber-700);
   /* Status icons: work in progress and a bot at work. Same value in both modes. */

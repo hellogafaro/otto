@@ -34,9 +34,18 @@ export function WorkspacePageContainer({
 }
 
 /** Otto: A page's own 22px title, inset 16px to sit on the content edge. */
-export function WorkspacePageTitle({ children }: { readonly children: ReactNode }) {
+export function WorkspacePageTitle({
+  children,
+  flush = false,
+}: {
+  readonly children: ReactNode;
+  /** Starts on the content edge instead of the row-text inset, for pages of cards such as Customize. */
+  readonly flush?: boolean;
+}) {
   return (
-    <h1 className="px-4 text-22px leading-title font-medium tracking-title-lg text-foreground">
+    <h1
+      className={`${flush ? "" : "px-4 "}text-22px leading-title font-medium tracking-title-lg text-foreground`}
+    >
       {children}
     </h1>
   );

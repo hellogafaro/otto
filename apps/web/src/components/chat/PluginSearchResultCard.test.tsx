@@ -44,7 +44,7 @@ describe("PluginSearchResultCard", () => {
     expect(markup).toContain("Gmail");
     expect(markup).not.toContain("Slack");
     expect(markup).not.toContain("Notion");
-    expect(markup).toContain("Composio");
+    expect(markup).not.toContain(">Composio<");
     expect(markup).not.toContain("Email and inbox");
     expect(markup).toContain("Set up Gmail");
     expect(markup).toContain("Set up Composio first");

@@ -83,6 +83,7 @@ export function createSessionCatalogHandlers(
       webFetch: deps.webFetch,
       // The router bounds each provider attempt and interruptTurn cancels
       // in-flight requests, so there is no outer deadline here.
+      ...(input.botId ? { botId: input.botId } : {}),
       generateImage: async (request) => {
         const generate = deps.options?.generateImage ?? runImageGenerationTool;
 

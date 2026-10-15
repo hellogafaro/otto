@@ -41,9 +41,8 @@ import { Spinner } from "../ui/spinner";
 import { Switch } from "../ui/switch";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
-import { WorkSectionHeader } from "../work/WorkDetail";
 import { WorkEmpty, WorkPage } from "../work/WorkPages";
-import { CustomizeItem, CustomizeRow } from "./CustomizeGroup";
+import { CustomizeGroup, CustomizeItem, CustomizeRow } from "./CustomizeGroup";
 import { serverHost } from "./CustomizeIntegrations";
 import { deleteSkill, skillContents } from "./CustomizeSkills";
 import type { CustomizeEntityType } from "./customize.logic";
@@ -60,7 +59,7 @@ export function DetailHeader({
   readonly description: string | null;
 }) {
   return (
-    <div className="flex items-center gap-4 px-4">
+    <div className="flex items-center gap-4">
       <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card text-muted-foreground">
         {logo}
       </span>
@@ -259,34 +258,27 @@ function McpTools({
             : null;
 
   return (
-    <section>
-      <WorkSectionHeader
-        label={t("Tools")}
-        aside={
-          needsSignIn ? (
-            <Button size="sm" variant="outline" disabled={signingIn} onClick={() => void signIn()}>
-              {signingIn ? <Spinner /> : null}
-              {t("Sign in")}
-            </Button>
-          ) : tools.data ? (
-            names.length
-          ) : undefined
-        }
-      />
-      {note ? (
-        <p className="px-4 text-13px text-muted-foreground">{note}</p>
-      ) : (
-        <SettingsCard>
-          {names.map((name) => (
-            <CustomizeItem
-              key={name}
-              icon={<RiToolsLine aria-hidden className="size-4" />}
-              name={name}
-            />
-          ))}
-        </SettingsCard>
-      )}
-    </section>
+    <CustomizeGroup
+      title={t("Tools")}
+      count={tools.data && !needsSignIn ? names.length : undefined}
+      empty={note ? { icon: <RiToolsLine />, description: note } : null}
+      action={
+        needsSignIn ? (
+          <Button size="sm" variant="outline" disabled={signingIn} onClick={() => void signIn()}>
+            {signingIn ? <Spinner /> : null}
+            {t("Sign in")}
+          </Button>
+        ) : undefined
+      }
+    >
+      {names.map((name) => (
+        <CustomizeItem
+          key={name}
+          icon={<RiToolsLine aria-hidden className="size-4" />}
+          name={name}
+        />
+      ))}
+    </CustomizeGroup>
   );
 }
 
@@ -548,20 +540,17 @@ function SkillDetail({
           onChange={(visibility) => void setVisibility(visibility)}
         />
       </SettingsCard>
-      <section className="flex flex-col gap-1">
-        <WorkSectionHeader label={t("Files")} aside={files.length} />
-        <SettingsCard>
-          {files.map(({ file, path }) => (
-            <CustomizeRow
-              key={file.id}
-              logo={<RiFileTextLine aria-hidden className="size-4" />}
-              name={path}
-              detail={formatLibrarySize(file.sizeBytes)}
-              onOpen={() => openFile(file)}
-            />
-          ))}
-        </SettingsCard>
-      </section>
+      <CustomizeGroup title={t("Files")} count={files.length} empty={null}>
+        {files.map(({ file, path }) => (
+          <CustomizeRow
+            key={file.id}
+            logo={<RiFileTextLine aria-hidden className="size-4" />}
+            name={path}
+            detail={formatLibrarySize(file.sizeBytes)}
+            onOpen={() => openFile(file)}
+          />
+        ))}
+      </CustomizeGroup>
     </DetailLayout>
   );
 }

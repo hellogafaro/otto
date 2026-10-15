@@ -41,7 +41,7 @@ export function CustomizePage({ tab }: { readonly tab: CustomizeTab }) {
     <WorkPage>
       <WorkspacePageContainer className="flex-1 gap-6 pt-3 pb-16 sm:pt-4">
         <div className="flex flex-col gap-3">
-          <WorkspacePageTitle>{t("Customize")}</WorkspacePageTitle>
+          <WorkspacePageTitle flush>{t("Customize")}</WorkspacePageTitle>
           <div className="mt-2 mb-2">
             <DetailsTabs<CustomizeTab>
               label={t("Customize sections")}
@@ -63,7 +63,7 @@ export function CustomizePage({ tab }: { readonly tab: CustomizeTab }) {
         {environmentId ? (
           <CustomizeTabBody tab={tab} environmentId={environmentId} />
         ) : (
-          <p className="px-4 text-13px text-muted-foreground">
+          <p className="text-13px text-muted-foreground">
             {t("Connect an environment to customize your bots.")}
           </p>
         )}

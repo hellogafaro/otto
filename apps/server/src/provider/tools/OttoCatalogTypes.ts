@@ -55,15 +55,21 @@ export interface OttoPluginRuntimeOptions {
   readonly searchComposioToolkits?: (input: {
     readonly query?: string;
     readonly limit?: number;
+    /** The bot owner, whose personal accounts count as connected along with workspace ones. */
+    readonly personId?: string | null;
   }) => Promise<{
     readonly status: "available" | "setup-required" | "unavailable";
     readonly toolkits: readonly ComposioToolkit[];
+    /** Apps with an active account the bot can use. */
+    readonly connectedToolkits?: readonly string[];
   }>;
   readonly now?: () => string;
   readonly id?: () => string;
 }
 
 export interface OttoCatalogBackendOptions {
+  /** The bot calling the tools, so plugin search can tell which apps it already has. */
+  readonly botId?: string;
   readonly webSearch?: (input: {
     readonly query: string;
     readonly domains?: readonly string[];

@@ -379,6 +379,9 @@ describe("ComposioService", () => {
         expect.objectContaining({ connectedAccounts: { slack: ["slack-team"] } }),
       );
 
+      expect(yield* service.connectedToolkits(viewer.personId)).toEqual(["gmail", "slack"]);
+      expect(yield* service.connectedToolkits(ben.personId)).toEqual(["slack"]);
+
       yield* service.resolveRuntimeMcpServer("thread-3", null);
       expect(createSession).toHaveBeenLastCalledWith(
         expect.any(String),
