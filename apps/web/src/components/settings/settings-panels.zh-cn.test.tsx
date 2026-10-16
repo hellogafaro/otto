@@ -52,6 +52,8 @@ vi.mock("../../state/query", () => ({
   }),
 }));
 
+vi.mock("../../state/entities", () => ({ useServerConfigs: () => new Map() }));
+
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => () => undefined }));
 
 vi.mock("../chat/provider-model-picker", () => ({ ProviderModelPicker: () => null }));
