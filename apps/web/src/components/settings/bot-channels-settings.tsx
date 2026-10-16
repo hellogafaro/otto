@@ -25,13 +25,14 @@ import { useEnvironmentSettings } from "../../hooks/use-settings";
 import { botEnvironment, environmentBotsAtom } from "../../state/bots";
 import { useEnvironmentSessionState } from "../../state/session";
 import { environmentSnapshotAtom } from "../../state/shell";
-import { useSettingsEnvironmentId } from "../../settings-dialog-store";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { LogoTile } from "../customize/customize-group";
+import { Badge } from "../ui/badge";
 import { Spinner } from "../ui/spinner";
 import { toast } from "sonner";
 import { CHANNEL_PROVIDER_META } from "./channel-provider-meta";
 import type { ProviderConnectionState } from "./provider-status";
-import { SettingsLinkRow, SettingsMessageRow } from "./settings-detail-layout";
+import { SettingsMessageRow } from "./settings-detail-layout";
 import { SettingsPageContainer, SettingsSection } from "./settings-layout";
 import { searchableSetting } from "./settings-search";
 
@@ -513,34 +514,34 @@ export function ChannelAccessRow({
   return null;
 }
 
-/** The Channels overview: one row per channel kind, each opening its subpage. */
+/**
+ * Otto: Channels are not part of the MVP. The page lists the services that are coming, each
+ * with a Coming soon badge and nothing to open or connect.
+ */
 export function BotChannelsSettingsPanel() {
-  const environmentId = useSettingsEnvironmentId();
-  const { t, plural } = useI18n();
-  const { access, bots, connections, liveProjects } = useChannelSettings(environmentId);
+  const { t } = useI18n();
 
   return (
     <SettingsPageContainer>
-      <SettingsSection {...searchableSetting("bot-channels", t)}>
-        {access === "allowed" ? (
-          CHANNEL_PROVIDER_META.map((meta) => {
-            const state = channelState(meta.provider, connections, bots, liveProjects, t, plural);
-
-            return (
-              <SettingsLinkRow
-                key={meta.provider}
-                link={{ to: "/settings/channels/$channel", params: { channel: meta.provider } }}
-                icon={meta.icon}
-                title={meta.label}
-                description={meta.tagline}
-                tone={state.tone}
-                statusLabel={state.label}
-              />
-            );
-          })
-        ) : (
-          <ChannelAccessRow access={access} />
-        )}
+      <SettingsSection id={searchableSetting("bot-channels").id} title={t("Channels")}>
+        {CHANNEL_PROVIDER_META.map((meta) => (
+          <div
+            key={meta.provider}
+            data-settings-row=""
+            className="flex items-center gap-3 px-4 py-3"
+          >
+            <LogoTile>
+              <meta.icon aria-hidden className="size-4" />
+            </LogoTile>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-13px font-medium text-foreground">
+                {meta.label}
+              </span>
+              <span className="block truncate text-xs text-muted-foreground">{meta.tagline}</span>
+            </span>
+            <Badge variant="quiet">{t("Coming soon")}</Badge>
+          </div>
+        ))}
       </SettingsSection>
     </SettingsPageContainer>
   );

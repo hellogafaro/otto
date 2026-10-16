@@ -24,13 +24,13 @@ import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "../settings/settings-layout";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { toast } from "sonner";
 import { AvatarPickerDialog } from "./avatar-picker-dialog";
 import { BotAvatarView } from "./bot-avatar-view";
-import { BotChannelsSheet } from "./bot-channels-sheet";
 import { BotEngineFields } from "./bot-engine-fields";
 import { BotIdentityFields } from "./bot-identity-fields";
 import { BotMemorySheet } from "./bot-memory-sheet";
@@ -91,16 +91,7 @@ export function BotSettingsForm({
   const draft = useBotProfileDraft(bot, onSave);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
-  const [channelsOpen, setChannelsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  const assignedChannels = (bot.channelBindings ?? []).filter(
-    (binding) => binding.connectionId || binding.projectId || binding.status !== "disconnected",
-  );
-
-  const connectedChannelCount = assignedChannels.filter(
-    (binding) => binding.status === "connected",
-  ).length;
 
   const onDeleteBot = useCallback(() => {
     if (!environmentId) return;
@@ -296,23 +287,7 @@ export function BotSettingsForm({
             <SettingsRow
               title={t("Channels")}
               description={t("Where this bot answers outside Otto.")}
-              control={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  aria-label={t("Manage bot channels")}
-                  aria-expanded={channelsOpen}
-                  onClick={() => setChannelsOpen(true)}
-                >
-                  {assignedChannels.length === 0
-                    ? t("No channels")
-                    : t("{connected} of {total} connected", {
-                        connected: connectedChannelCount,
-                        total: assignedChannels.length,
-                      })}
-                </Button>
-              }
+              control={<Badge variant="quiet">{t("Coming soon")}</Badge>}
             />
           </SettingsSection>
 
@@ -349,7 +324,6 @@ export function BotSettingsForm({
 
       <AvatarPickerDialog bot={bot} open={avatarOpen} onOpenChange={setAvatarOpen} />
       <BotMemorySheet open={memoryOpen} onOpenChange={setMemoryOpen} threadRef={threadRef} />
-      <BotChannelsSheet bot={bot} open={channelsOpen} onOpenChange={setChannelsOpen} />
     </>
   );
 }

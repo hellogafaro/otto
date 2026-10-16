@@ -186,18 +186,13 @@ beforeEach(() => {
 });
 
 describe("channel overview", () => {
-  it("lists every channel kind with its status", () => {
+  it("lists every channel kind as coming soon with nothing to open", () => {
     const html = renderToStaticMarkup(<BotChannelsSettingsPanel />);
-    expect(html).toContain("iMessage: 1 connection");
-    expect(html).toContain("Telegram: Not set up");
-    expect(html).toContain("Discord: Not set up");
-    expect(html).not.toContain("Choose a bot");
-  });
-
-  it("flags a channel whose connection needs a new project", () => {
-    fixtures.bots = [boundBot("blocked")];
-    const html = renderToStaticMarkup(<BotChannelsSettingsPanel />);
-    expect(html).toContain("iMessage: Needs attention");
+    expect(html).toContain("Telegram");
+    expect(html).toContain("Discord");
+    expect(html.match(/Coming soon/g)).toHaveLength(5);
+    expect(html).not.toContain("href=");
+    expect(html).not.toContain("<button");
   });
 });
 

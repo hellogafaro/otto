@@ -1,24 +1,8 @@
-import { CHANNEL_PROVIDERS, type ChannelProvider } from "@otto/contracts";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ChannelDetailPage } from "../components/settings/channel-detail-page";
-
-function isChannelProvider(value: string): value is ChannelProvider {
-  return CHANNEL_PROVIDERS.some((channel) => channel === value);
-}
-
+// Otto: Channels are coming soon, so a channel has no page yet; old links land on Channels.
 export const Route = createFileRoute("/settings/channels/$channel")({
-  beforeLoad: ({ params }) => {
-    if (isChannelProvider(params.channel)) return;
+  beforeLoad: () => {
     throw redirect({ to: "/settings/$section", params: { section: "channels" }, replace: true });
   },
-  component: ChannelSettingsRoute,
 });
-
-function ChannelSettingsRoute() {
-  const { channel } = Route.useParams();
-
-  if (!isChannelProvider(channel)) return null;
-
-  return <ChannelDetailPage key={channel} provider={channel} />;
-}
