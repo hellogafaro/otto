@@ -35,6 +35,7 @@ import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
 import { WorkStatusIcon } from "../work/work-status";
 import { ParticipantAvatar, participantName } from "../work/work-participants";
 import { WorkPage, useWorkData } from "../work/work-pages";
+import { HomeDither } from "./home-dither";
 import { pickGreeting, routinesToday, routineTime, tasksDue } from "./home.logic";
 
 type ChatState = "needs" | "working" | "ready";
@@ -184,12 +185,16 @@ export function HomePage() {
   };
 
   return (
-    <WorkPage>
+    <WorkPage backdrop={<HomeDither seed={currentPersonId ?? "otto"} />}>
       <WorkspacePageContainer className="gap-10 pt-3 pb-16 sm:pt-4">
         <div className="flex flex-col items-center gap-1 text-center">
           <PageTitle>{title}</PageTitle>
           <p className="text-13px text-muted-foreground">
-            {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+            {now.toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
           </p>
         </div>
         {!loaded ? (

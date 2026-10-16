@@ -61,7 +61,7 @@ export function sortTasks(tasks: readonly OrchestrationTask[]): OrchestrationTas
 }
 
 /** FNV-1a with a final mix, so neighbouring ids still land on different covers. */
-function hashSeed(seed: string): number {
+export function hashSeed(seed: string): number {
   let hash = 0x811c9dc5;
 
   for (let index = 0; index < seed.length; index++) {
@@ -145,6 +145,11 @@ const BAYER = [
 
 const DITHER_LEVELS = 8;
 
+/** The Bayer threshold, between 0 and 1, for the cell at x, y. */
+export function bayerThreshold(x: number, y: number) {
+  return (BAYER[(y % 8) * 8 + (x % 8)]! + 0.5) / 64;
+}
+
 /**
  * Ordered dither in place: each pixel's brightness snaps to one of eight levels by the Bayer
  * threshold and the whole colour shifts with it, so the dots keep the picture's hues.
@@ -156,7 +161,7 @@ export function ditherPixels(pixels: Uint8ClampedArray, width: number) {
     const x = (offset / 4) % width;
     const y = Math.floor(offset / 4 / width);
 
-    const threshold = (BAYER[(y % 8) * 8 + (x % 8)]! + 0.5) / 64;
+    const threshold = bayerThreshold(x, y);
 
     const luma =
       0.2126 * pixels[offset]! + 0.7152 * pixels[offset + 1]! + 0.0722 * pixels[offset + 2]!;

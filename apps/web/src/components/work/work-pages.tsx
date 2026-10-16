@@ -67,6 +67,7 @@ export function WorkPage({
   leading,
   actions,
   detailsPanelOpen,
+  backdrop,
   children,
 }: {
   /** A sub page's way back, named after the page it returns to. */
@@ -76,11 +77,14 @@ export function WorkPage({
   readonly actions?: ReactNode;
   /** Set when the page has a details sidebar, so its toggle never covers the actions. */
   readonly detailsPanelOpen?: boolean;
+  /** Otto: Art behind the whole panel, top bar included, that stays put while the page scrolls. */
+  readonly backdrop?: ReactNode;
   readonly children: ReactNode;
 }) {
   return (
     <SidebarInset tone="foreground" className="h-dvh min-h-0 overflow-hidden">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col text-foreground">
+      <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col text-foreground">
+        {backdrop}
         <WorkspacePageHeader
           electron={isElectron}
           {...(detailsPanelOpen === undefined ? {} : { detailsPanelOpen })}

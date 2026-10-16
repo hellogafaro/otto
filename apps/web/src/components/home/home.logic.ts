@@ -87,3 +87,36 @@ export function routinesToday(routines: readonly Routine[], today: string): Rout
       (routineTime(left, today) ?? "").localeCompare(routineTime(right, today) ?? ""),
     );
 }
+
+/** A person's own pattern: where their waves start and how they lean, from their id. */
+export function ditherWaves(seed: number) {
+  const pick = (salt: number, size: number) => (Math.floor(seed / salt) % size) / size;
+
+  return {
+    phase: pick(7, 97) * Math.PI * 2,
+    tilt: 0.6 + pick(13, 89) * 0.8,
+    scale: 2.2 + pick(17, 83) * 1.6,
+  };
+}
+
+/**
+ * How dense Home's dither is at a point, from 0 to 1: slow drifting waves, strongest at the top
+ * and fading to nothing at the bottom and towards the sides, so it never reaches the cards.
+ */
+export function ditherDensity(
+  u: number,
+  v: number,
+  seconds: number,
+  waves: ReturnType<typeof ditherWaves>,
+) {
+  const t = seconds * 0.12 + waves.phase;
+
+  const wave =
+    Math.sin(u * waves.scale + v * waves.tilt * 2 + t) * 0.5 +
+    Math.sin(u * waves.scale * 0.6 - v * 3.1 - t * 0.8) * 0.3 +
+    Math.cos((u - v) * waves.scale * 1.4 + t * 0.6) * 0.2;
+
+  const fade = (1 - v) ** 1.6 * Math.min(1, u * 4, (1 - u) * 4);
+
+  return Math.max(0, Math.min(1, (0.5 + wave * 0.5) * fade * 0.85));
+}
