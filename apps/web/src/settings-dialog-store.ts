@@ -20,7 +20,7 @@ export const SETTINGS_SECTIONS = [
   "integrations",
   "bots",
   "skills",
-  "privacy",
+  "memory",
   "archived",
   "providers",
   "channels",

@@ -44,11 +44,11 @@ describe("settings in Simplified Chinese", () => {
       </SidebarProvider>,
     );
 
-    for (const label of ["通用", "隐私与数据", "外观", "模型", "返回聊天"]) {
+    for (const label of ["通用", "记忆", "外观", "模型", "返回聊天"]) {
       expect(html).toContain(label);
     }
 
-    for (const label of ["Privacy &amp; data", "Appearance", "Back to chats"]) {
+    for (const label of ["Memory", "Appearance", "Back to chats"]) {
       expect(html).not.toContain(label);
     }
   });

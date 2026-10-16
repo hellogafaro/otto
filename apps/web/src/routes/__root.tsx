@@ -16,7 +16,6 @@ import { SlowRpcRequestToastCoordinator } from "../components/slow-rpc-request-t
 import { SurfaceNavigationCoordinator } from "../components/surface-navigation-coordinator";
 import { ComputerViewerDialog } from "../components/computer/computer-viewer-dialog";
 import { NewChatDialogHost } from "../components/roster/new-chat-dialog";
-import { PolicyNotice } from "../components/privacy/policy-notice";
 import { TranslatedRouteErrorView } from "./-root-route-error-view";
 import { useI18n } from "../i18n";
 import { toast } from "sonner";
@@ -140,7 +139,6 @@ function RootRouteView() {
       </ReplyPlaybackProvider>
       <ComputerViewerDialog />
       {primaryEnvironmentAuthenticated ? <NewChatDialogHost /> : null}
-      <PolicyNotice />
       <Toaster />
     </>
   );

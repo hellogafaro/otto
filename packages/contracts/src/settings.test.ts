@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { ProviderInstanceId } from "./provider-instance.ts";
 import {
-  decodeClientSettings,
-  decodeClientSettingsPatch,
   decodeServerSettings,
   decodeServerSettingsPatch,
   encodeServerSettings,
@@ -21,24 +19,6 @@ describe("ServerSettings voice", () => {
     expect(decodeServerSettingsPatch({ voice: { enabled: false, voice: "marin" } }).voice).toEqual({
       enabled: false,
       voice: "marin",
-    });
-  });
-});
-
-describe("policy records", () => {
-  it("keeps policy acceptance local", () => {
-    expect(decodeClientSettings({})).toMatchObject({
-      reviewedPrivacyPolicyVersion: "",
-      reviewedTermsVersion: "",
-    });
-    expect(
-      decodeClientSettingsPatch({
-        reviewedPrivacyPolicyVersion: "2026-08-31",
-        reviewedTermsVersion: "2026-08-31",
-      }),
-    ).toEqual({
-      reviewedPrivacyPolicyVersion: "2026-08-31",
-      reviewedTermsVersion: "2026-08-31",
     });
   });
 });

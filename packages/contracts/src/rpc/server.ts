@@ -160,14 +160,6 @@ import {
   VoiceCancelResult,
 } from "../voice-call.ts";
 import {
-  PortabilityApplyImportInput,
-  PortabilityApplyImportResult,
-  PortabilityArchiveError,
-  PortabilityExportResult,
-  PortabilityImportPreview,
-  PortabilityPreviewImportInput,
-} from "../portability.ts";
-import {
   RoutineListRunsInput,
   RoutineListRunsResult,
   RoutineListThreadRunsResult,
@@ -581,24 +573,6 @@ export const WsBotUsageRpc = Rpc.make(WS_METHODS.botUsage, {
   payload: OttoBotUsageInput,
   success: OttoBotUsageSnapshot,
   error: Schema.Union([OttoBotUsageReadError, EnvironmentAuthorizationError]),
-});
-
-export const WsPortabilityExportRpc = Rpc.make(WS_METHODS.portabilityExport, {
-  payload: Schema.Struct({}),
-  success: PortabilityExportResult,
-  error: Schema.Union([PortabilityArchiveError, EnvironmentAuthorizationError]),
-});
-
-export const WsPortabilityPreviewImportRpc = Rpc.make(WS_METHODS.portabilityPreviewImport, {
-  payload: PortabilityPreviewImportInput,
-  success: PortabilityImportPreview,
-  error: Schema.Union([PortabilityArchiveError, EnvironmentAuthorizationError]),
-});
-
-export const WsPortabilityApplyImportRpc = Rpc.make(WS_METHODS.portabilityApplyImport, {
-  payload: PortabilityApplyImportInput,
-  success: PortabilityApplyImportResult,
-  error: Schema.Union([PortabilityArchiveError, EnvironmentAuthorizationError]),
 });
 
 export const WsRoutinesListRunsRpc = Rpc.make(WS_METHODS.routinesListRuns, {

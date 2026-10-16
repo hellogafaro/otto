@@ -14,8 +14,6 @@ import * as DesktopClientSettings from "./desktop-client-settings.ts";
 
 const clientSettings: ClientSettings = {
   language: "en",
-  reviewedPrivacyPolicyVersion: "",
-  reviewedTermsVersion: "",
   browserDefaultViewport: { _tag: "preset", width: 1024, height: 600, presetId: "nest-hub" },
   browserDefaultZoomFactor: 1.25,
   browserDefaultAppearance: "dark",

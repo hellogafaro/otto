@@ -21,7 +21,7 @@ describe("settings deep links", () => {
     ["browser", "computer", "browser", "Computer > Browser"],
     ["plugins", "customize", null, "Customize"],
     ["sandbox", "computer", null, "Computer"],
-    ["privacy", "privacy", null, "Privacy & data"],
+    ["privacy", "memory", null, "Memory"],
     ["archived-chats", "archived", null, "Archived chats"],
     ["connections", "general", null, "General"],
     ["source-control", "general", null, "General"],

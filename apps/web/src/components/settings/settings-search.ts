@@ -8,7 +8,7 @@ export type SettingsPath =
   | "/settings/usage"
   | "/settings/appearance"
   | "/settings/keybindings"
-  | "/settings/privacy"
+  | "/settings/memory"
   | "/settings/archived";
 
 export interface SettingsSearchItem {
@@ -78,31 +78,21 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/general",
   },
   {
-    id: "privacy",
-    title: "Privacy",
-    to: "/settings/privacy",
-  },
-  {
-    id: "privacy-voice-calls",
-    title: "Voice calls",
-    to: "/settings/privacy",
-  },
-  {
     id: "memory-enabled",
     title: "Memory",
-    to: "/settings/privacy",
+    to: "/settings/memory",
     keywords: ["durable facts", "remember"],
   },
   {
     id: "memory-private-bot",
     title: "Private bot memory",
-    to: "/settings/privacy",
+    to: "/settings/memory",
     keywords: ["memory"],
   },
   {
     id: "memory-shared-project",
-    title: "Save shared project memory automatically",
-    to: "/settings/privacy",
+    title: "Ask before saving project memory",
+    to: "/settings/memory",
     keywords: ["memory", "approval"],
   },
   {
@@ -195,11 +185,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/general",
     keywords: ["confirmation", "desktop", "exit", "direct", "hold", "double click", "press twice"],
     desktopOnly: true,
-  },
-  {
-    id: "data-portability",
-    title: "Data portability",
-    to: "/settings/privacy",
   },
   {
     id: "keybindings",

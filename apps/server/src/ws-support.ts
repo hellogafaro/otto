@@ -4,7 +4,6 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import {
@@ -14,17 +13,12 @@ import {
   ClientSurface,
   type FileManagerRevealKind,
   type OrchestrationClientOrigin,
-  type OrchestrationReadModel,
   OrchestrationDispatchCommandError,
   type OrchestrationEvent,
   type OrchestrationShellStreamEvent,
-  PortabilityArchiveError,
-  type PortabilityArchive,
-  type PortabilityProjectFolderMap,
   type ProjectEntriesFailure,
   type ProjectFileFailure,
   type ProjectFileOperation,
-  type ServerProvider,
   SubscriptionProviderId,
   McpServerAuthenticationError,
   ThreadId,
@@ -33,7 +27,6 @@ import { HttpServerRequest } from "effect/unstable/http";
 import * as WorkspaceEntries from "./workspace/workspace-entries.ts";
 import * as WorkspaceFileSystem from "./workspace/workspace-file-system.ts";
 import * as WorkspacePaths from "./workspace/workspace-paths.ts";
-import * as Portability from "./portability.ts";
 import * as SessionStore from "./auth/session-store.ts";
 
 export const isOrchestrationDispatchCommandError = Schema.is(OrchestrationDispatchCommandError);
@@ -57,12 +50,6 @@ export const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
 
 export const CONFIG_DISCOVERY_TIMEOUT = Duration.seconds(5);
 
-export const portabilityError = (operation: "export" | "preview" | "apply", cause: unknown) =>
-  new PortabilityArchiveError({
-    operation,
-    message: cause instanceof Error ? cause.message : String(cause),
-  });
-
 export const memoryOperationError = (operation: string, cause: unknown) =>
   new OttoMemoryOperationError({
     operation,
@@ -73,53 +60,6 @@ export const memoryOperationError = (operation: string, cause: unknown) =>
           ? cause
           : "The memory operation failed.",
   });
-
-export const availablePortabilityProviderIds = (providers: ReadonlyArray<ServerProvider>) =>
-  new Set(
-    providers.flatMap((provider) =>
-      provider.enabled &&
-      provider.installed &&
-      provider.availability !== "unavailable" &&
-      provider.auth.status !== "unauthenticated"
-        ? [provider.instanceId]
-        : [],
-    ),
-  );
-
-export const validatePortabilityProjectFolders = Effect.fn("validatePortabilityProjectFolders")(
-  function* (
-    archive: PortabilityArchive,
-    snapshot: OrchestrationReadModel,
-    projectFolders: PortabilityProjectFolderMap,
-    operation: "preview" | "apply",
-  ) {
-    const workspacePaths = yield* WorkspacePaths.WorkspacePaths;
-    const path = yield* Path.Path;
-
-    for (const [projectId, destination] of Object.entries(projectFolders)) {
-      if (!path.isAbsolute(destination) || path.dirname(destination) === destination) {
-        return yield* portabilityError(
-          operation,
-          new Error(`Project '${projectId}' destination must be an absolute non-root path.`),
-        );
-      }
-    }
-
-    const normalized = Portability.normalizePortabilityProjectFolders(
-      archive,
-      snapshot,
-      projectFolders,
-    );
-
-    return Object.fromEntries(
-      yield* Effect.forEach(Object.entries(normalized), ([projectId, workspaceRoot]) =>
-        workspacePaths
-          .normalizeWorkspaceRoot(workspaceRoot)
-          .pipe(Effect.map((normalizedRoot) => [projectId, normalizedRoot] as const)),
-      ),
-    );
-  },
-);
 
 export const resolveDiscoveryForConfig = <A, E, R>(
   discovery: Effect.Effect<A, E, R>,

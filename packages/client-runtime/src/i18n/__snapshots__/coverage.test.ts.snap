@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1767,
+  "directMessageCount": 1730,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -135,12 +135,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "QUIT_CONFIRMATION_MODE_LABELS[settings.confirmQuit])}",
       "label)}",
     ],
-    "apps/web/src/components/settings/privacy-settings.tsx": [
-      "description)",
-      "description)} \${t(MEMORY_SETTING_DISABLED_HINT)}\`;",
-      "MEMORY_SETTING_DISABLED_HINT)}\`;",
-      "SHARED_PROJECT_MEMORY_SETTING.label)}",
-    ],
     "apps/web/src/components/settings/provider-account-controls.tsx": [
       "definition.subscription)}",
       "problem)}</span> : undefined",
@@ -220,11 +214,11 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Profile",
       "Appearance",
       "Shortcuts",
-      "Privacy & data",
       "Archived",
       "Bots",
       "Bots",
       "Skills",
+      "Memory",
       "Integrations",
       "Models",
       "Channels",
@@ -242,11 +236,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Code font size",
       "Sandbox and browser sharing",
       "Time format",
-      "Privacy",
-      "Voice calls",
       "Memory",
       "Private bot memory",
-      "Save shared project memory automatically",
+      "Ask before saving project memory",
       "Local execution",
       "Voice",
       "Voice provider",
@@ -263,7 +255,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Image fallback order",
       "Read new replies aloud",
       "Quit shortcut",
-      "Data portability",
       "Keybindings",
       "Archived chats",
       "Archived bots",
@@ -507,9 +498,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/keybinding-presentation.tsx",
     "apps/web/src/components/settings/keybindings-settings.tsx",
     "apps/web/src/components/settings/language-setting.tsx",
-    "apps/web/src/components/settings/portability-import-preview.tsx",
-    "apps/web/src/components/settings/portability-settings.tsx",
-    "apps/web/src/components/settings/privacy-settings.tsx",
+    "apps/web/src/components/settings/memory-settings.tsx",
     "apps/web/src/components/settings/provider-access-details.tsx",
     "apps/web/src/components/settings/provider-account-controls.tsx",
     "apps/web/src/components/settings/provider-detail-page.tsx",

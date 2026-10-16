@@ -14,14 +14,12 @@ vi.mock("~/hooks/use-settings", async (importOriginal) => ({
 
 vi.mock("@tanstack/react-router", () => ({
   useLocation: ({ select }: { select: (location: { pathname: string; hash: string }) => string }) =>
-    select({ pathname: "/settings/privacy", hash: "" }),
+    select({ pathname: "/settings/memory", hash: "" }),
   useNavigate: () => () => undefined,
 }));
 
-vi.mock("./portability-settings", () => ({ PortabilitySettings: () => null }));
-
 import { BrowserSettingsSection } from "./browser-settings";
-import { PrivacySettingsPanel } from "./privacy-settings";
+import { MemorySettingsPanel } from "./memory-settings";
 
 const zhCNCatalog = await catalogRegistry["zh-CN"]!();
 
@@ -33,15 +31,15 @@ function renderInChinese(children: ReactNode) {
   );
 }
 
-describe("privacy and browser settings in Simplified Chinese", () => {
-  it("translates Privacy sections, rows, and policy links", () => {
-    const html = renderInChinese(<PrivacySettingsPanel />);
+describe("memory and browser settings in Simplified Chinese", () => {
+  it("translates Memory rows", () => {
+    const html = renderInChinese(<MemorySettingsPanel />);
 
-    for (const label of ["数据共享", "启用语音通话", "备份与迁移", "桌面端更新", "政策"]) {
+    for (const label of ["机器人私有记忆", "保存项目记忆前先询问"]) {
       expect(html).toContain(label);
     }
 
-    for (const label of ["Data sharing", "Backup and transfer", "Desktop updates", "Policies"]) {
+    for (const label of ["Private bot memory", "Ask before saving project memory"]) {
       expect(html).not.toContain(label);
     }
   });

@@ -139,8 +139,6 @@ export const DEFAULT_BROWSER_VIEWPORT: PreviewViewportSetting = FILL_PREVIEW_VIE
 
 export const ClientSettingsSchema = Schema.Struct({
   language: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed("system"))),
-  reviewedPrivacyPolicyVersion: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-  reviewedTermsVersion: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   browserDefaultViewport: PreviewViewportSetting.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_BROWSER_VIEWPORT)),
   ),
@@ -223,8 +221,6 @@ export const DEFAULT_CLIENT_SETTINGS: ClientSettings = Schema.decodeSync(ClientS
 
 export const ClientSettingsPatch = Schema.Struct({
   language: Schema.optionalKey(TrimmedString),
-  reviewedPrivacyPolicyVersion: Schema.optionalKey(TrimmedString),
-  reviewedTermsVersion: Schema.optionalKey(TrimmedString),
   browserDefaultViewport: Schema.optionalKey(PreviewViewportSetting),
   browserDefaultZoomFactor: Schema.optionalKey(PreviewZoomFactor),
   browserDefaultAppearance: Schema.optionalKey(PreviewAppearancePreference),

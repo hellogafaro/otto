@@ -12,7 +12,7 @@ import {
   RiPuzzleLine,
   RiRobot3Line,
   RiSparkling2Line,
-  RiShieldCheckLine,
+  RiLightbulbLine,
   RiSettings3Line,
   type RemixiconComponentType,
 } from "@remixicon/react";
@@ -54,8 +54,8 @@ const BotChannelsSettingsPanel = lazy(async () => ({
   default: (await import("./bot-channels-settings")).BotChannelsSettingsPanel,
 }));
 
-const PrivacySettingsPanel = lazy(async () => ({
-  default: (await import("./privacy-settings")).PrivacySettingsPanel,
+const MemorySettingsPanel = lazy(async () => ({
+  default: (await import("./memory-settings")).MemorySettingsPanel,
 }));
 
 const KeybindingsSettingsPanel = lazy(async () => ({
@@ -101,7 +101,7 @@ const SECTION_PANELS: Readonly<Record<SettingsSection, ComponentType>> = {
   usage: UsageSettingsPanel,
   appearance: AppearanceSettingsPanel,
   keybindings: KeybindingsSettingsPanel,
-  privacy: PrivacySettingsPanel,
+  memory: MemorySettingsPanel,
   archived: ArchivedChatsSettingsPanel,
   providers: ProvidersSettingsPage,
   channels: BotChannelsSettingsPanel,
@@ -143,7 +143,6 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
       { section: "account", label: "Profile", icon: RiUserLine },
       { section: "appearance", label: "Appearance", icon: RiPaintBrushLine },
       { section: "keybindings", label: "Shortcuts", icon: RiKeyboardLine },
-      { section: "privacy", label: "Privacy & data", icon: RiShieldCheckLine },
       { section: "archived", label: "Archived", icon: RiArchiveLine },
     ],
   },
@@ -152,6 +151,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
     items: [
       { section: "bots", label: "Bots", icon: RiRobot3Line },
       { section: "skills", label: "Skills", icon: RiSparkling2Line },
+      { section: "memory", label: "Memory", icon: RiLightbulbLine },
       { section: "integrations", label: "Integrations", icon: RiPuzzleLine },
       { section: "providers", label: "Models", icon: RiBrainLine },
       { section: "channels", label: "Channels", icon: RiChat3Line },

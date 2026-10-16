@@ -1,5 +1,4 @@
 import { describe, expect, it } from "@effect/vitest";
-import { canonicalJson, canonicalValue } from "./portability-checksums.ts";
 import { encodeMemoryArchiveJson } from "./memory/memory-archive-json.ts";
 import { stripDefaultServerSettings } from "./server-settings-persistence.ts";
 
@@ -11,8 +10,6 @@ describe("opaque metadata serialization", () => {
       omitted: undefined,
     };
 
-    expect(canonicalValue(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY);
-    expect(canonicalJson(metadata)).toBe('{"a":{"a":null,"z":null},"z":[null,null]}');
     expect(encodeMemoryArchiveJson(metadata)).toBe('{"a":{"a":null,"z":null},"z":[null,null]}');
     expect(stripDefaultServerSettings(metadata, { z: [], a: { z: 0, a: 0 } })).toEqual({
       z: [Number.POSITIVE_INFINITY, undefined],

@@ -125,4 +125,7 @@ export const memoryCatalog = {
   "Notes the bot writes on its own as this chat grows, so it can recall earlier parts of a long conversation. They only apply to this chat.":
     "随着聊天变长，机器人会自动写下这些笔记，以便回忆长对话中较早的内容。它们只适用于此聊天。",
   "Approval pending": "等待批准",
+  "Ask before saving project memory": "保存项目记忆前先询问",
+  "Bots wait for your approval before saving facts to a shared project.":
+    "机器人将事实保存到共享项目前，需要你批准。",
 } as const;

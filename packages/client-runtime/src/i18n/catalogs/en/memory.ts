@@ -129,4 +129,7 @@ export const memoryCatalog = {
   "Notes the bot writes on its own as this chat grows, so it can recall earlier parts of a long conversation. They only apply to this chat.":
     "Notes the bot writes on its own as this chat grows, so it can recall earlier parts of a long conversation. They only apply to this chat.",
   "Approval pending": "Approval pending",
+  "Ask before saving project memory": "Ask before saving project memory",
+  "Bots wait for your approval before saving facts to a shared project.":
+    "Bots wait for your approval before saving facts to a shared project.",
 } as const;

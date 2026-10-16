@@ -42,7 +42,8 @@ const destinations: Readonly<
   browser: { section: "computer", label: "Computer > Browser", targetId: "browser" },
   plugins: { section: "customize", label: "Customize" },
   sandbox: { section: "computer", label: "Computer" },
-  privacy: { section: "privacy", label: "Privacy & data" },
+  // Otto: The Privacy page is gone; its only live settings are on Memory.
+  privacy: { section: "memory", label: "Memory" },
   "archived-chats": { section: "archived", label: "Archived chats" },
   // Otto: The bot inbox and Diagnostics pages are gone; old chips open General.
   "bot-inbox": { section: "general", label: "General" },

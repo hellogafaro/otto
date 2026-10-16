@@ -17,7 +17,6 @@ import { createWsOrchestrationHandlers } from "./ws-orchestration-handlers.ts";
 import { createWsOrchestrationSubscriptions } from "./ws-orchestration-subscriptions.ts";
 import { createWsServerHandlers } from "./ws-server-handlers.ts";
 import { createWsAuthHandlers } from "./ws-auth-handlers.ts";
-import { createWsPortabilityHandlers } from "./ws-portability-handlers.ts";
 import { createWsBotServicesHandlers } from "./ws-bot-services-handlers.ts";
 import { createWsToolHandlers } from "./ws-tool-handlers.ts";
 import { createWsMemoryHandlers } from "./ws-memory-handlers.ts";
@@ -55,7 +54,6 @@ const createWsRpcLayer = (
         ...createWsOrchestrationSubscriptions(connection),
         ...createWsServerHandlers(connection),
         ...createWsAuthHandlers(connection),
-        ...createWsPortabilityHandlers(connection),
         ...createWsBotServicesHandlers(connection),
         ...createWsToolHandlers(connection),
         ...createWsServerStatusHandlers(connection),

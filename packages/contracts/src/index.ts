@@ -78,8 +78,6 @@ export * from "./usage.ts";
 
 export * from "./voice-call.ts";
 
-export * from "./portability.ts";
-
 export * from "./rpc.ts";
 
 export * from "./remote-diagnostics.ts";

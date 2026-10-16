@@ -122,9 +122,6 @@ export const WS_METHODS = {
   memoryDocumentReplace: "memory.document.replace",
   memoryObservationsClear: "memory.observations.clear",
   botUsage: "bot.usage",
-  portabilityExport: "portability.export",
-  portabilityPreviewImport: "portability.previewImport",
-  portabilityApplyImport: "portability.applyImport",
   routinesListRuns: "routines.listRuns",
   routinesListThreadRuns: "routines.listThreadRuns",
 

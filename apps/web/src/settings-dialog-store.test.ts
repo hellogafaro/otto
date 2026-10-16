@@ -20,8 +20,8 @@ describe("settings dialog store", () => {
   });
 
   it("closes back to no section", () => {
-    openSettings("privacy");
-    expect(useSettingsDialogStore.getState().section).toBe("privacy");
+    openSettings("memory");
+    expect(useSettingsDialogStore.getState().section).toBe("memory");
     expect(useSettingsDialogStore.getState().targetId).toBeNull();
     closeSettings();
     expect(useSettingsDialogStore.getState().section).toBeNull();
@@ -76,7 +76,7 @@ describe("settings dialog store", () => {
 
 describe("legacy settings deep links", () => {
   it("maps a known settings path onto its section", () => {
-    expect(settingsSectionFromPathname("/settings/privacy")).toBe("privacy");
+    expect(settingsSectionFromPathname("/settings/memory")).toBe("memory");
     expect(settingsSectionFromPathname("/settings/channels")).toBe("channels");
     expect(settingsSectionFromPathname("/settings/computer")).toBe("computer");
   });

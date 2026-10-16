@@ -16,7 +16,7 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
   {
     id: "network-access",
     title: "Network access",
-    to: "/settings/privacy",
+    to: "/settings/computer",
   },
   {
     id: "providers",
@@ -180,21 +180,14 @@ describe("searchSettings", () => {
     });
   });
 
-  it("routes privacy controls to Privacy settings", () => {
-    expect(searchSettings("voice calls")[0]).toMatchObject({
-      id: "privacy-voice-calls",
-      to: "/settings/privacy",
-    });
-  });
-
-  it("routes memory controls to Privacy settings", () => {
-    expect(searchSettings("shared project memory")[0]).toMatchObject({
+  it("routes memory controls to Memory settings", () => {
+    expect(searchSettings("ask before saving")[0]).toMatchObject({
       id: "memory-shared-project",
-      to: "/settings/privacy",
+      to: "/settings/memory",
     });
     expect(searchSettings("private bot memory")[0]).toMatchObject({
       id: "memory-private-bot",
-      to: "/settings/privacy",
+      to: "/settings/memory",
     });
   });
 

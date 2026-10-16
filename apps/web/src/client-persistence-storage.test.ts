@@ -50,8 +50,6 @@ describe("clientPersistenceStorage", () => {
 
     const settings = {
       ...DEFAULT_CLIENT_SETTINGS,
-      reviewedPrivacyPolicyVersion: "2026-08-31",
-      reviewedTermsVersion: "2026-08-31",
       timestampFormat: "24-hour" as const,
     };
 

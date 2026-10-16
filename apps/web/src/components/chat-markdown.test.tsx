@@ -374,7 +374,7 @@ describe("ChatMarkdown bot chat forms", () => {
     ["channels", "Channels"],
     ["browser", "Computer &gt; Browser"],
     ["sandbox", "Computer"],
-    ["privacy", "Privacy &amp; data"],
+    ["privacy", "Memory"],
   ])("renders a Settings chip for %s", (id, label) => {
     const html = render(`[Open](grokbot://app/v1/settings?id=${id})`);
     expect(html).toContain("chat-markdown-settings-link");
