@@ -63,6 +63,7 @@ interface MutableBucket {
 
 interface MutableMember {
   personId: string | null;
+  botId: string | null;
   displayName: string | null;
   latestMs: number;
   totals: UsageTokenTotals;
@@ -83,7 +84,7 @@ export interface AggregateOptions {
 
 export interface AggregateResult {
   readonly buckets: readonly UsageBucket[];
-  /** Usage per person who started it, most expensive first. */
+  /** Usage per member (a person, else the bot that worked on its own), most expensive first. */
   readonly members: readonly UsageMember[];
   /** Records dropped because an earlier record carried the same dedupe key. */
   readonly duplicatesDropped: number;
@@ -208,10 +209,12 @@ export class UsageAggregator {
 
     if (record.sessionId.length > 0) bucket.sessions.add(record.sessionId);
     const person = record.person ?? null;
-    const memberKey = person?.id ?? "";
+    const botId = person === null ? (record.botId ?? null) : null;
+    const memberKey = person ? `person:${person.id}` : `bot:${botId ?? ""}`;
 
     const member = this.#members.get(memberKey) ?? {
       personId: person?.id ?? null,
+      botId,
       displayName: null,
       latestMs: Number.NEGATIVE_INFINITY,
       totals: EMPTY_TOTALS,
@@ -270,6 +273,7 @@ export class UsageAggregator {
     const members: UsageMember[] = [...this.#members.values()]
       .map((member) => ({
         personId: member.personId,
+        botId: member.botId,
         displayName: member.displayName,
         totals: member.totals,
         costUsd: member.costUsd,

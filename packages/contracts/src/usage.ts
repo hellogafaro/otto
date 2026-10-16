@@ -197,12 +197,14 @@ export const UsageProviderPlanLimits = Schema.Struct({
 export type UsageProviderPlanLimits = typeof UsageProviderPlanLimits.Type;
 
 /**
- * One person's share of a window: the work their messages started, across every
- * provider and model. A null `personId` is work bots did on their own, such as
- * routines and follow-ups no message started.
+ * One member's share of a window, across every provider and model. Each record is counted
+ * once: for the person whose message (else chat) started the work, otherwise for the bot that
+ * did it on its own, such as a routine.
  */
 export const UsageMember = Schema.Struct({
   personId: Schema.NullOr(TrimmedNonEmptyString),
+  /** The bot, for work no person started; null on a person's row. */
+  botId: Schema.NullOr(TrimmedNonEmptyString),
   /** The name on the person's latest message in the window. */
   displayName: Schema.NullOr(TrimmedNonEmptyString),
   totals: UsageTokenTotals,

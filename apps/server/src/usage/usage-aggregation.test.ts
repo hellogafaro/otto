@@ -77,7 +77,7 @@ describe("UsageAggregator", () => {
     ).toThrow("requires exact time bounds");
   });
 
-  it("totals usage per person who started it, with bot-only work apart", () => {
+  it("totals usage per person who started it, else per bot that did it on its own", () => {
     const ana = { id: "person-ana", displayName: "Ana" };
 
     const result = aggregate([
@@ -87,7 +87,7 @@ describe("UsageAggregator", () => {
         sessionId: "chat-2",
         timestampMs: Date.parse("2026-08-08T10:00:00.000Z"),
       }),
-      record({ person: null, sessionId: "routine" }),
+      record({ person: null, botId: "bot-nova", sessionId: "routine" }),
       record({ person: ana, timestampMs: Date.parse("2026-09-02T10:00:00.000Z") }),
     ]);
 
@@ -99,7 +99,8 @@ describe("UsageAggregator", () => {
       sessions: 2,
       totals: { outputTokens: 100 },
     });
-    expect(result.members[1]).toMatchObject({ personId: null, displayName: null, records: 1 });
+    expect(result.members[1]).toMatchObject({ personId: null, botId: "bot-nova", records: 1 });
+    expect(result.members[0]?.botId).toBeNull();
     expect(result.members[0]?.costUsd).toBeCloseTo(2 * (result.members[1]?.costUsd ?? 0));
   });
 

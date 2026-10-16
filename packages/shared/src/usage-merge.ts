@@ -41,9 +41,10 @@ export interface ModelTotals {
   readonly costShare: number;
 }
 
-/** One person's usage; a null `personId` is work bots did on their own. */
+/** One member's usage: a person, or a bot for work no person started. */
 export interface MemberTotals {
   readonly personId: string | null;
+  readonly botId: string | null;
   readonly displayName: string | null;
   readonly costUsd: number;
   readonly totalTokens: number;
@@ -316,6 +317,7 @@ export function mergeUsage(
     string,
     {
       personId: string | null;
+      botId: string | null;
       displayName: string | null;
       costUsd: number;
       totalTokens: number;
@@ -334,10 +336,12 @@ export function mergeUsage(
     // Otto: people are counted only from environments whose usage store counted, so a store two
     // environments share is not split per person twice.
     for (const member of buckets.length > 0 ? (environment.summary.members ?? []) : []) {
-      const key = member.personId ?? "";
+      const key =
+        member.personId === null ? `bot:${member.botId ?? ""}` : `person:${member.personId}`;
 
       const totals = memberAccumulator.get(key) ?? {
         personId: member.personId,
+        botId: member.botId,
         displayName: member.displayName,
         costUsd: 0,
         totalTokens: 0,

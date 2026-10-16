@@ -133,6 +133,7 @@ export function usageRecordFromEntry(
     },
     reportedCostUsd: null,
     dedupeKey: entry.reservationId,
+    botId: entry.botId,
   };
 }
 

@@ -113,8 +113,12 @@ export function DataTable<T>({
   };
   readonly className?: string;
 }) {
-  const list = (items: readonly T[]) => (
-    <ul className="flex flex-col pt-1">
+  const hasHeader = columns.some((column) => column.header !== undefined);
+
+  // Otto: rows sit 4px under a group band, but straight under a header band, whose own height
+  // already spaces them; a header is part of its table, not a section of it.
+  const list = (items: readonly T[], spaced: boolean) => (
+    <ul className={cn("flex flex-col", spaced && "pt-1")}>
       {items.map((row) => (
         <DataTableRow
           key={getRowKey(row)}
@@ -128,8 +132,8 @@ export function DataTable<T>({
   );
 
   return (
-    <div className={cn("@container/list flex flex-col gap-2", className)}>
-      {columns.some((column) => column.header !== undefined) ? (
+    <div className={cn("@container/list flex flex-col", !hasHeader && "gap-2", className)}>
+      {hasHeader ? (
         <div
           data-slot="data-table-header"
           className={cn(
@@ -139,7 +143,13 @@ export function DataTable<T>({
           )}
         >
           <RowGroups
-            columns={columns}
+            // Otto: header-less columns before the title (icons, avatars) give their room to the
+            // title's label, so it starts on the content edge.
+            columns={columns.filter(
+              (column, index) =>
+                index >= columns.findIndex((candidate) => candidate.type === "title") ||
+                column.header !== undefined,
+            )}
             render={(column) => (
               <span
                 key={column.id}
@@ -161,11 +171,11 @@ export function DataTable<T>({
 
             return items.length === 0 ? null : (
               <DataTableSection key={group.id} group={group} count={items.length}>
-                {list(items)}
+                {list(items, true)}
               </DataTableSection>
             );
           })
-        : list(rows)}
+        : list(rows, !hasHeader)}
     </div>
   );
 }

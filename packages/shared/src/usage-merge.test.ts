@@ -131,6 +131,7 @@ describe("mergeUsage", () => {
 
     const ana = (costUsd: number) => ({
       personId: "person-ana",
+      botId: null,
       displayName: "Ana",
       totals,
       costUsd,
@@ -138,7 +139,7 @@ describe("mergeUsage", () => {
       sessions: 1,
     });
 
-    const bots = { ...ana(5), personId: null, displayName: null };
+    const bots = { ...ana(5), personId: null, botId: "bot-nova", displayName: null };
 
     const merged = mergeUsage(
       [
@@ -157,7 +158,7 @@ describe("mergeUsage", () => {
 
     expect(merged.members).toEqual([
       expect.objectContaining({ personId: "person-ana", costUsd: 7, records: 2, costShare: 0.35 }),
-      expect.objectContaining({ personId: null, costUsd: 5, totalTokens: 1160 }),
+      expect.objectContaining({ personId: null, botId: "bot-nova", costUsd: 5, totalTokens: 1160 }),
     ]);
   });
 

@@ -1,7 +1,10 @@
-import { RiBarChartLine, RiLoopRightLine, RiRobot3Line } from "@remixicon/react";
+import { RiBarChartLine, RiLoopRightLine } from "@remixicon/react";
+import { useAtomValue } from "@effect/atom-react";
+import type { ServerProvider } from "@otto/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
+import { formatModelSlug } from "@otto/shared/model";
 import type { MemberTotals, ModelTotals } from "@otto/shared/usageMerge";
 import {
   enumerateDays,
@@ -15,8 +18,13 @@ import {
   makeWindow,
 } from "@otto/shared/usageFormat";
 
+import { primaryServerProvidersAtom } from "../../state/server";
 import { useUsage } from "../../state/usage";
+import { getDisplayModelName } from "../chat/provider-icon-utils";
+import { BotAvatarView } from "../roster/bot-avatar-view";
 import { PersonAvatar } from "../roster/person-avatar";
+import { useRosterStore } from "../roster/roster-store";
+import type { Bot } from "../roster/types";
 import { SETTINGS_SECTION_TITLE_CLASS, SettingsPageContainer } from "../settings/settings-layout";
 import { Button } from "../ui/button";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
@@ -89,36 +97,59 @@ function figureColumns<T extends { readonly costUsd: number; readonly totalToken
   ];
 }
 
-/** A model row: its provider's mark and its name, then the shared figures. */
-function modelColumns(metric: UsageMetric, totalTokens: number): DataTableColumn<ModelTotals>[] {
+/** A model row: its provider's mark and the name the model pickers show, then the shared figures. */
+function modelColumns(
+  metric: UsageMetric,
+  totalTokens: number,
+  providers: readonly ServerProvider[],
+): DataTableColumn<ModelTotals>[] {
+  const modelName = (slug: string) => {
+    const model = providers
+      .flatMap((provider) => provider.models)
+      .find((candidate) => candidate.slug === slug);
+
+    return model ? getDisplayModelName(model) : formatModelSlug(slug);
+  };
+
   return [
     {
       id: "provider",
       type: "icon",
       cell: (model) => <ProviderMark provider={model.provider} className="size-3.5" />,
     },
-    { id: "model", type: "title", header: "Model", cell: (model) => model.model },
+    { id: "model", type: "title", header: "Model", cell: (model) => modelName(model.model) },
     ...figureColumns<ModelTotals>(metric, totalTokens, (model) => model.costShare),
   ];
 }
 
-const memberName = (member: MemberTotals) =>
-  member.personId === null ? "Bots on their own" : (member.displayName ?? "Unnamed person");
+/** A member's row: a person with their initials, or a bot with its avatar, named from the roster. */
+function memberColumns(
+  metric: UsageMetric,
+  totalTokens: number,
+  bots: readonly Bot[],
+): DataTableColumn<MemberTotals>[] {
+  const botOf = (member: MemberTotals) => bots.find((bot) => bot.id === member.botId);
 
-/** A person's row, or the row for work bots did on their own, with the chats it ran in. */
-function memberColumns(metric: UsageMetric, totalTokens: number): DataTableColumn<MemberTotals>[] {
   return [
     {
       id: "avatar",
       className: "w-5 justify-center",
-      cell: (member) =>
-        member.personId === null ? (
-          <RiRobot3Line aria-hidden className="size-3.5 text-muted-foreground" />
+      cell: (member) => {
+        const bot = botOf(member);
+
+        return bot ? (
+          <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-5" />
         ) : (
           <PersonAvatar name={member.displayName ?? "?"} className="size-5 text-9px" />
-        ),
+        );
+      },
     },
-    { id: "name", type: "title", header: "Member", cell: memberName },
+    {
+      id: "name",
+      type: "title",
+      header: "Member",
+      cell: (member) => botOf(member)?.name ?? member.displayName ?? "Unknown",
+    },
     {
       id: "chats",
       type: "meta",
@@ -132,6 +163,8 @@ function memberColumns(metric: UsageMetric, totalTokens: number): DataTableColum
 
 export function UsagePage() {
   const navigate = useNavigate();
+  const rosterBots = useRosterStore((state) => state.bots);
+  const providers = useAtomValue(primaryServerProvidersAtom);
   const [preferences, setPreferences] = useState(readUsagePagePreferences);
 
   const [windowSelection, setWindowSelection] = useState(() => ({
@@ -330,7 +363,7 @@ export function UsagePage() {
             ) : (
               <DataTable
                 rows={merged.models}
-                columns={modelColumns(metric, merged.totalTokens)}
+                columns={modelColumns(metric, merged.totalTokens, providers)}
                 getRowKey={(model) => `${model.provider}:${model.model}`}
                 getRowLabel={(model) =>
                   `${PROVIDER_PRESENTATION[model.provider].label} ${model.model}, ${formatUsd(model.costUsd)}`
@@ -344,9 +377,11 @@ export function UsagePage() {
               <h2 className={SETTINGS_SECTION_TITLE_CLASS}>By member</h2>
               <DataTable
                 rows={merged.members}
-                columns={memberColumns(metric, merged.totalTokens)}
-                getRowKey={(member) => member.personId ?? "bots"}
-                getRowLabel={(member) => `${memberName(member)}, ${formatUsd(member.costUsd)}`}
+                columns={memberColumns(metric, merged.totalTokens, rosterBots)}
+                getRowKey={(member) => member.personId ?? `bot:${member.botId ?? ""}`}
+                getRowLabel={(member) =>
+                  `${rosterBots.find((bot) => bot.id === member.botId)?.name ?? member.displayName ?? "Unknown"}, ${formatUsd(member.costUsd)}`
+                }
               />
             </section>
           ) : null}

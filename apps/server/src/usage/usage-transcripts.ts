@@ -26,6 +26,8 @@ export interface UsageRecord {
   readonly dedupeKey: string | null;
   /** Who started the work, when Otto's ledger knows; transcripts never do. */
   readonly person?: { readonly id: string; readonly displayName: string | null } | null;
+  /** The Otto bot that did the work; transcripts have none. */
+  readonly botId?: string;
 }
 
 const EMPTY_TOTALS: UsageTokenTotals = {

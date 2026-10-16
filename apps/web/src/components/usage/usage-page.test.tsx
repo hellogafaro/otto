@@ -17,6 +17,12 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("../ui/button", () => ({ Button: "button" }));
 
+vi.mock("../roster/roster-store", () => ({
+  useRosterStore: <T,>(select: (state: { bots: readonly [] }) => T): T => select({ bots: [] }),
+}));
+
+vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
+
 vi.mock("../ui/dialog", () => ({
   DialogHeader: "header",
   DialogPanel: "div",
@@ -261,14 +267,16 @@ describe("UsagePage", () => {
     const at = (text: string) => markup.indexOf(text);
 
     expect(at(">Model<")).toBeGreaterThan(-1);
-    expect(at(">Model<")).toBeLessThan(at("claude-opus-5"));
-    expect(at("claude-opus-5")).toBeLessThan(at("gpt-5.6-sol"));
+    expect(at(">Model<")).toBeLessThan(at("Claude Opus 5"));
+    expect(at("Claude Opus 5")).toBeLessThan(at("GPT-5.6 Sol"));
     expect(markup).toContain("31M");
+    expect(markup).toContain("Claude Opus 5");
   });
 
-  it("lists usage by member, with work bots did on their own apart", () => {
+  it("lists people and bots as members of one table", () => {
     const member = (personId: string | null, displayName: string | null, costUsd: number) => ({
       personId,
+      botId: personId === null ? "bot-nova" : null,
       displayName,
       costUsd,
       totalTokens: 1_000,
@@ -282,7 +290,7 @@ describe("UsagePage", () => {
         ...mergeUsage([], USAGE_CONTRACT_VERSION),
         costUsd: 10,
         connectedProviders: ["openai-codex" as const],
-        members: [member("person-ana", "Ana Lopez", 7), member(null, null, 3)],
+        members: [member("person-ana", "Ana Lopez", 7), member(null, "Nova", 3)],
       },
       environments: [
         {
@@ -302,10 +310,11 @@ describe("UsagePage", () => {
 
     expect(markup).toContain("By member");
     expect(markup).toContain("Ana Lopez");
-    expect(markup).toContain("Bots on their own");
+    expect(markup).not.toContain("Bots on their own");
     expect(markup).toContain("$7.00");
     expect(markup).toContain("70.0%");
-    expect(markup.indexOf("Ana Lopez")).toBeLessThan(markup.indexOf("Bots on their own"));
+    expect(markup).toContain("Nova");
+    expect(markup.indexOf("Ana Lopez")).toBeLessThan(markup.indexOf("Nova"));
   });
 
   it("does not show machine-wide transcript costs when no provider is connected", () => {
