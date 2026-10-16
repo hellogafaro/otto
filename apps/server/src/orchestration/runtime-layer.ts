@@ -1,6 +1,7 @@
 import * as Layer from "effect/Layer";
 
 import { ActivityStoreLive } from "../activity/activity-store.ts";
+import { NotificationStoreLive } from "../notifications/notification-store.ts";
 import { ChannelDeliveryStoreLive } from "../channels/channel-delivery-store.ts";
 import { OrchestrationCommandReceiptRepositoryLive } from "../persistence/layers/orchestration-command-receipts.ts";
 import { OrchestrationEventStoreLive } from "../persistence/layers/orchestration-event-store.ts";
@@ -37,6 +38,7 @@ export const OrchestrationInfrastructureLayerLive = Layer.mergeAll(
   ProjectionGroupRepositoryLive,
   ProjectionLibraryRepositoryLive,
   ActivityStoreLive,
+  NotificationStoreLive,
   BotUsageLedgerLive,
   ChannelDeliveryStoreLive,
   MemoryRepositoriesLive,

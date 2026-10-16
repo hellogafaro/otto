@@ -124,6 +124,10 @@
       "types": "./src/state/activity.ts",
       "default": "./src/state/activity.ts"
     },
+    "./state/notifications": {
+      "types": "./src/state/notifications.ts",
+      "default": "./src/state/notifications.ts"
+    },
     "./state/auth": {
       "types": "./src/state/auth.ts",
       "default": "./src/state/auth.ts"

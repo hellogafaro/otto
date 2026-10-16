@@ -10,12 +10,17 @@ import type { WsConnection } from "./ws-connection.ts";
 /** Timelines are read by anyone who can read the workspace; comments act as the signed-in person. */
 export const createWsActivityHandlers = ({
   activityStore,
+  notificationStore,
   currentPersonId,
   dispatchFromClient,
   observeRpcEffect,
 }: Pick<
   WsConnection,
-  "activityStore" | "currentPersonId" | "dispatchFromClient" | "observeRpcEffect"
+  | "activityStore"
+  | "notificationStore"
+  | "currentPersonId"
+  | "dispatchFromClient"
+  | "observeRpcEffect"
 >) =>
   ({
     [WS_METHODS.activityList]: (input) =>
@@ -52,9 +57,24 @@ export const createWsActivityHandlers = ({
         activityStore.removeComment({ ...input, personId: currentPersonId }),
         { "rpc.aggregate": "activity" },
       ),
+
+    // Otto: A person only ever sees and clears their own notifications.
+    [WS_METHODS.notificationsList]: () =>
+      observeRpcEffect(WS_METHODS.notificationsList, notificationStore.list(currentPersonId), {
+        "rpc.aggregate": "notifications",
+      }),
+
+    [WS_METHODS.notificationsMarkRead]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.notificationsMarkRead,
+        notificationStore.markRead({ personId: currentPersonId, ids: input.ids }),
+        { "rpc.aggregate": "notifications" },
+      ),
   }) satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     | typeof WS_METHODS.activityList
     | typeof WS_METHODS.activityCommentAdd
     | typeof WS_METHODS.activityCommentRemove
+    | typeof WS_METHODS.notificationsList
+    | typeof WS_METHODS.notificationsMarkRead
   >;

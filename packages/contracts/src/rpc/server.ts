@@ -10,6 +10,11 @@ import {
   ActivityRequestError,
 } from "../orchestration/activity.ts";
 import {
+  NotificationListResult,
+  NotificationMarkReadInput,
+  NotificationRequestError,
+} from "../orchestration/notifications.ts";
+import {
   LibraryCreateDocumentInput,
   LibraryCreateDocumentResult,
   LibraryCreateSkillInput,
@@ -713,6 +718,20 @@ export const WsActivityCommentRemoveRpc = Rpc.make(WS_METHODS.activityCommentRem
   payload: ActivityCommentRemoveInput,
   success: Schema.Void,
   error: activityError,
+});
+
+const notificationError = Schema.Union([NotificationRequestError, EnvironmentAuthorizationError]);
+
+export const WsNotificationsListRpc = Rpc.make(WS_METHODS.notificationsList, {
+  payload: Schema.Struct({}),
+  success: NotificationListResult,
+  error: notificationError,
+});
+
+export const WsNotificationsMarkReadRpc = Rpc.make(WS_METHODS.notificationsMarkRead, {
+  payload: NotificationMarkReadInput,
+  success: Schema.Void,
+  error: notificationError,
 });
 
 const libraryError = Schema.Union([LibraryRequestError, EnvironmentAuthorizationError]);

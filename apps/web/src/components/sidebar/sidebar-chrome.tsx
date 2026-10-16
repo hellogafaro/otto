@@ -90,7 +90,7 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
               "flex items-center justify-center rounded-md outline-none ring-ring focus-visible:ring-2 app-region-no-drag",
               backdropVariant ? "text-on-solid" : "text-sidebar-foreground",
             )}
-            to="/"
+            to="/chats"
           >
             <OttoWordmark />
           </Link>

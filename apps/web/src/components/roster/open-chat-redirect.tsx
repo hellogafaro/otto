@@ -31,7 +31,7 @@ export function OpenChatRedirect({ owner }: { readonly owner: ChatOwner }) {
     opened.current = true;
 
     void (exists ? openChat(owner, { replace: true }) : Promise.resolve(false)).then((open) => {
-      if (!open) void navigate({ to: "/", replace: true });
+      if (!open) void navigate({ to: "/chats", replace: true });
     });
   }, [bootstrapped, exists, navigate, openChat, owner, rosterReady]);
 

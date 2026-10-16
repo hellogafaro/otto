@@ -89,7 +89,7 @@ export function ChatDetailsPanel({
         environmentId={threadRef.environmentId}
         group={group}
         bots={bots}
-        onDeleted={() => void navigate({ to: "/" })}
+        onDeleted={() => void navigate({ to: "/chats" })}
         trailing={library}
       >
         {chatProperties}

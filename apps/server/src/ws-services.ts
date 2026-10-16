@@ -4,6 +4,7 @@ import { computerRegistry } from "./provider/computer-registry.ts";
 import * as Cause from "effect/Cause";
 import * as Crypto from "effect/Crypto";
 import { ActivityStore } from "./activity/activity-store.ts";
+import { NotificationStore } from "./notifications/notification-store.ts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
@@ -157,6 +158,8 @@ export const createWsServices = (
     const projectionLibrary = yield* ProjectionLibraryRepository;
 
     const activityStore = yield* ActivityStore;
+
+    const notificationStore = yield* NotificationStore;
 
     const routineRepository = yield* RoutineRepository;
 
@@ -733,6 +736,7 @@ export const createWsServices = (
       projectionGroups,
       projectionLibrary,
       activityStore,
+      notificationStore,
       routineRepository,
       routineRuntime,
       orchestrationEngine,

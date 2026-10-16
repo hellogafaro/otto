@@ -32,6 +32,11 @@ export interface DataTableGroup {
   readonly icon?: React.ReactNode;
 }
 
+export interface DataTableGroupBy<T> {
+  readonly groups: readonly DataTableGroup[];
+  readonly getGroupId: (row: T) => string;
+}
+
 const SECONDARY_TEXT = "text-foreground/52";
 
 const COLUMN_CLASS: Record<DataTableColumnType, string> = {
@@ -70,10 +75,7 @@ export function DataTable<T>({
   readonly getRowLabel: (row: T) => string;
   readonly onRowClick?: (row: T) => void;
   /** Groups in display order; a group without rows is skipped. */
-  readonly groupBy?: {
-    readonly groups: readonly DataTableGroup[];
-    readonly getGroupId: (row: T) => string;
-  };
+  readonly groupBy?: DataTableGroupBy<T>;
   readonly className?: string;
 }) {
   const list = (items: readonly T[]) => (

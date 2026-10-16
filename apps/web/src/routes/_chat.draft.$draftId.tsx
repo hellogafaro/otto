@@ -5,7 +5,7 @@ function RemovedDraftRoute() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    void navigate({ to: "/", replace: true });
+    void navigate({ to: "/chats", replace: true });
   }, [navigate]);
 
   return null;

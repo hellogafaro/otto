@@ -79,6 +79,15 @@ function getTimestampFormatter(
   return formatter;
 }
 
+/** Otto: The `YYYY-MM-DD` day a moment falls on where the person is, the form due dates take. */
+export function localDateKey(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export function parseTimestampDate(isoDate: string): Date | null {
   const date = new Date(isoDate);
 

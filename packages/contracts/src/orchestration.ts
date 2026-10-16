@@ -8,6 +8,8 @@ export * from "./orchestration/library.ts";
 
 export * from "./orchestration/activity.ts";
 
+export * from "./orchestration/notifications.ts";
+
 export {
   ProviderApprovalPolicy,
   ProviderSandboxMode,

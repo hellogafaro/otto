@@ -13,7 +13,7 @@ import { WorkspacePageHeader } from "../components/workspace-page-header";
 import { useAllEnvironmentShellsBootstrapped, useThreadShells } from "../state/entities";
 import { usePrimaryEnvironmentId } from "../state/environments";
 
-/** Otto: home opens your latest chat, else a chat with the bot you last talked to. */
+/** Otto: Chats opens your latest chat, else a chat with the bot you last talked to. */
 function ChatIndexRedirect() {
   const navigate = useNavigate();
   const openChat = useOpenChat();
@@ -71,6 +71,6 @@ function ChatIndexRedirect() {
   );
 }
 
-export const Route = createFileRoute("/_chat/")({
+export const Route = createFileRoute("/_chat/chats/")({
   component: ChatIndexRedirect,
 });

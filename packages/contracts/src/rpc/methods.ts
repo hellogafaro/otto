@@ -20,6 +20,10 @@ export const WS_METHODS = {
   activityCommentAdd: "activity.commentAdd",
   activityCommentRemove: "activity.commentRemove",
 
+  // Notification methods
+  notificationsList: "notifications.list",
+  notificationsMarkRead: "notifications.markRead",
+
   // Library methods
   libraryCreateUploadUrl: "library.createUploadUrl",
   libraryCreateDocument: "library.createDocument",

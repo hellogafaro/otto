@@ -2,6 +2,7 @@ import { hashPassword } from "better-auth/crypto";
 import * as NodeSqlite from "node:sqlite";
 
 import { ActivityStore } from "./activity/activity-store.ts";
+import { NotificationStore } from "./notifications/notification-store.ts";
 import { ProviderInstanceRegistryMutator } from "./provider/services/provider-instance-registry-mutator.ts";
 import {
   ProjectionLibraryRepository,
@@ -676,6 +677,11 @@ export const buildAppUnderTest = (options?: {
             list: () => Effect.succeed({ entries: [] }),
             getComment: () => Effect.die("Activity is not part of this test."),
             removeComment: () => Effect.void,
+          }),
+          Layer.succeed(NotificationStore, {
+            insert: () => Effect.void,
+            list: () => Effect.succeed({ notifications: [], unread: 0 }),
+            markRead: () => Effect.void,
           }),
           Layer.succeed(ProjectionLibraryRepository, {
             upsertFolder: () => Effect.void,

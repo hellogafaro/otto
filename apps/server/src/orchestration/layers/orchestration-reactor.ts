@@ -11,6 +11,7 @@ import { ProviderRuntimeIngestionService } from "../services/provider-runtime-in
 import { ThreadDeletionReactor } from "../services/thread-deletion-reactor.ts";
 import { GroupRoundReactor } from "../services/group-round-reactor.ts";
 import { TaskWorkReactor } from "../../tasks/task-work-reactor.ts";
+import { NotificationReactor } from "../../notifications/notification-reactor.ts";
 
 export const makeOrchestrationReactor = Effect.gen(function* () {
   const providerRuntimeIngestion = yield* ProviderRuntimeIngestionService;
@@ -19,6 +20,7 @@ export const makeOrchestrationReactor = Effect.gen(function* () {
   const threadDeletionReactor = yield* ThreadDeletionReactor;
   const groupRoundReactor = yield* GroupRoundReactor;
   const taskWorkReactor = yield* TaskWorkReactor;
+  const notificationReactor = yield* NotificationReactor;
 
   const start: OrchestrationReactorShape["start"] = Effect.fn("start")(function* () {
     yield* providerRuntimeIngestion.start();
@@ -27,6 +29,7 @@ export const makeOrchestrationReactor = Effect.gen(function* () {
     yield* threadDeletionReactor.start();
     yield* groupRoundReactor.start();
     yield* taskWorkReactor.start();
+    yield* notificationReactor.start();
   });
 
   return {

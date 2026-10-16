@@ -2,6 +2,7 @@ import {
   RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
+  RiHome5Line,
   RiTimeLine,
   RiListCheck3,
   RiSettings3Line,
@@ -16,6 +17,8 @@ import { useChangedSinceMount } from "../../hooks/use-changed-since-mount";
 import { cn } from "../../lib/utils";
 import { openSettings } from "../../settings-dialog-store";
 import { usePrimaryEnvironmentId } from "../../state/environments";
+import { notificationEnvironment } from "../../state/notifications";
+import { useEnvironmentQuery } from "../../state/query";
 import BotRosterSidebar from "../roster/bot-roster-sidebar";
 import { resolveRosterListState } from "../roster/roster-route-selection";
 import { useRosterStore } from "../roster/roster-store";
@@ -75,8 +78,10 @@ export function useRailOnly(): boolean {
   return !isPathUnder(pathname, "/settings") && noBots;
 }
 
-/** Routines, Tasks, Projects and the Library own the whole main panel, so the panel steps aside. */
+/** Home, Routines, Tasks, Projects and the Library own the whole main panel, so the panel steps aside. */
 function isFullPage(pathname: string): boolean {
+  if (pathname === "/") return true;
+
   return ["/routines", "/tasks", "/projects", "/library"].some((base) =>
     isPathUnder(pathname, base),
   );
@@ -92,6 +97,7 @@ export function ExperimentalSidebar() {
   // Settings is a route, not a panel toggle: the URL decides whether it owns
   // the panel, and leaving it goes back to the chat workspace.
   const onSettings = isPathUnder(pathname, "/settings");
+  const onHome = pathname === "/";
   const onRoutines = isPathUnder(pathname, "/routines");
   const onTasks = isPathUnder(pathname, "/tasks");
   const onProjects = isPathUnder(pathname, "/projects");
@@ -108,13 +114,20 @@ export function ExperimentalSidebar() {
   const openChats = () => {
     revealPanel();
 
-    if (onPage) void navigate({ to: "/" });
+    if (onPage) void navigate({ to: "/chats" });
   };
 
   const panel = onSettings ? "settings" : "chats";
   // Only rail switches animate; the first paint of the panel stays still.
   const panelSwitched = useChangedSinceMount(panel);
   const { t } = useI18n();
+  const environmentId = usePrimaryEnvironmentId();
+
+  const notifications = useEnvironmentQuery(
+    environmentId ? notificationEnvironment.list({ environmentId, input: {} }) : null,
+  );
+
+  const unread = notifications.data?.unread ?? 0;
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
@@ -141,6 +154,15 @@ export function ExperimentalSidebar() {
             )}
           />
           <div className="flex flex-col items-center gap-1">
+            <RailButton
+              label={unread > 0 ? t("Home, {count} unread", { count: unread }) : t("Home")}
+              icon={RiHome5Line}
+              active={onHome}
+              badge={unread > 0}
+              onClick={() => {
+                if (!onHome) void navigate({ to: "/" });
+              }}
+            />
             <RailButton
               label={t("Chats")}
               icon={RiChat1Line}
@@ -227,11 +249,14 @@ function RailButton({
   label,
   icon,
   active = false,
+  badge = false,
   onClick,
 }: {
   label: string;
   icon: RemixiconComponentType;
   active?: boolean;
+  /** Otto: A dot for something new behind this place, such as unread notifications. */
+  badge?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -244,13 +269,19 @@ function RailButton({
             aria-current={active || undefined}
             onClick={onClick}
             className={cn(
-              "flex size-8 cursor-pointer items-center justify-center rounded-md outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag",
+              "relative flex size-8 cursor-pointer items-center justify-center rounded-md outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag",
               active
                 ? "bg-(--shell-card) text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
                 : "text-sidebar-muted-foreground hover:bg-sidebar-wash hover:text-sidebar-foreground",
             )}
           >
             <AppIcon icon={icon} className="size-4" />
+            {badge ? (
+              <span
+                aria-hidden
+                className="absolute top-1 right-1 size-1.5 rounded-full bg-primary"
+              />
+            ) : null}
           </button>
         }
       />

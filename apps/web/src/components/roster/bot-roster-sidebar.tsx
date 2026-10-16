@@ -326,7 +326,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     setPendingArchivedBotId(null);
     focusRosterRow(focusTarget);
 
-    if (routedBotId === pendingArchivedBotId) void navigate({ to: "/", replace: true });
+    if (routedBotId === pendingArchivedBotId) void navigate({ to: "/chats", replace: true });
   }, [bots, focusRosterRow, navigate, pendingArchivedBotId, routedBotId]);
 
   const handleNewChat = () => useRosterStore.getState().openNewChat({});

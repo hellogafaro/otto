@@ -242,7 +242,7 @@ export function BotThreadLanding({
     if (routedBot.status === "loading") return;
 
     if (routedBot.status === "missing") {
-      void navigate({ to: "/", replace: true });
+      void navigate({ to: "/chats", replace: true });
 
       return;
     }

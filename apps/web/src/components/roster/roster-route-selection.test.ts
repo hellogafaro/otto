@@ -112,7 +112,7 @@ describe("resolveRosterListState", () => {
     );
 
     const index = NodeFS.readFileSync(
-      new URL("../../routes/_chat.index.tsx", import.meta.url),
+      new URL("../../routes/_chat.chats.index.tsx", import.meta.url),
       "utf8",
     );
 

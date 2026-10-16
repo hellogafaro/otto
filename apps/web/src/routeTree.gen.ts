@@ -16,11 +16,11 @@ import { Route as PluginsRouteImport } from './routes/plugins'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CustomizeRouteImport } from './routes/customize'
 import { Route as ChatRouteImport } from './routes/_chat'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
 import { Route as RoutinesIndexRouteImport } from './routes/routines.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as LibraryIndexRouteImport } from './routes/library.index'
-import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as TasksTaskIdRouteImport } from './routes/tasks.$taskId'
 import { Route as SettingsSectionRouteImport } from './routes/settings.$section'
 import { Route as SettingsSplatRouteImport } from './routes/settings.$'
@@ -29,6 +29,7 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projec
 import { Route as LibraryFileIdRouteImport } from './routes/library.$fileId'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
 import { Route as CustomizeAppsIndexRouteImport } from './routes/customize_.apps.index'
+import { Route as ChatChatsIndexRouteImport } from './routes/_chat.chats.index'
 import { Route as SettingsSkillsIdRouteImport } from './routes/settings.skills.$id'
 import { Route as SettingsProvidersProviderIdRouteImport } from './routes/settings.providers.$providerId'
 import { Route as SettingsChannelsChannelRouteImport } from './routes/settings.channels.$channel'
@@ -79,6 +80,11 @@ const ChatRoute = ChatRouteImport.update({
   id: '/_chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TasksIndexRoute = TasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
@@ -98,11 +104,6 @@ const LibraryIndexRoute = LibraryIndexRouteImport.update({
   id: '/library/',
   path: '/library/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const ChatIndexRoute = ChatIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ChatRoute,
 } as any)
 const TasksTaskIdRoute = TasksTaskIdRouteImport.update({
   id: '/tasks/$taskId',
@@ -143,6 +144,11 @@ const CustomizeAppsIndexRoute = CustomizeAppsIndexRouteImport.update({
   id: '/customize_/apps/',
   path: '/customize/apps/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ChatChatsIndexRoute = ChatChatsIndexRouteImport.update({
+  id: '/chats/',
+  path: '/chats/',
+  getParentRoute: () => ChatRoute,
 } as any)
 const SettingsSkillsIdRoute = SettingsSkillsIdRouteImport.update({
   id: '/skills/$id',
@@ -226,7 +232,7 @@ const SettingsIntegrationsAppsSlugRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof ChatIndexRoute
+  '/': typeof IndexRoute
   '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
   '/plugins': typeof PluginsRoute
@@ -256,12 +262,14 @@ export interface FileRoutesByFullPath {
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
   '/settings/skills/$id': typeof SettingsSkillsIdRoute
+  '/chats/': typeof ChatChatsIndexRoute
   '/customize/apps/': typeof CustomizeAppsIndexRoute
   '/settings/integrations/apps/$slug': typeof SettingsIntegrationsAppsSlugRoute
   '/settings/integrations/mcp/$id': typeof SettingsIntegrationsMcpIdRoute
   '/settings/integrations/apps/': typeof SettingsIntegrationsAppsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
   '/plugins': typeof PluginsRoute
@@ -275,7 +283,6 @@ export interface FileRoutesByTo {
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
-  '/': typeof ChatIndexRoute
   '/library': typeof LibraryIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/routines': typeof RoutinesIndexRoute
@@ -292,6 +299,7 @@ export interface FileRoutesByTo {
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
   '/settings/skills/$id': typeof SettingsSkillsIdRoute
+  '/chats': typeof ChatChatsIndexRoute
   '/customize/apps': typeof CustomizeAppsIndexRoute
   '/settings/integrations/apps/$slug': typeof SettingsIntegrationsAppsSlugRoute
   '/settings/integrations/mcp/$id': typeof SettingsIntegrationsMcpIdRoute
@@ -299,6 +307,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_chat': typeof ChatRouteWithChildren
   '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
@@ -313,7 +322,6 @@ export interface FileRoutesById {
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
-  '/_chat/': typeof ChatIndexRoute
   '/library/': typeof LibraryIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/routines/': typeof RoutinesIndexRoute
@@ -330,6 +338,7 @@ export interface FileRoutesById {
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
   '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
   '/settings/skills/$id': typeof SettingsSkillsIdRoute
+  '/_chat/chats/': typeof ChatChatsIndexRoute
   '/customize_/apps/': typeof CustomizeAppsIndexRoute
   '/settings/integrations/apps/$slug': typeof SettingsIntegrationsAppsSlugRoute
   '/settings/integrations/mcp/$id': typeof SettingsIntegrationsMcpIdRoute
@@ -368,12 +377,14 @@ export interface FileRouteTypes {
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
     | '/settings/skills/$id'
+    | '/chats/'
     | '/customize/apps/'
     | '/settings/integrations/apps/$slug'
     | '/settings/integrations/mcp/$id'
     | '/settings/integrations/apps/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/customize'
     | '/login'
     | '/plugins'
@@ -387,7 +398,6 @@ export interface FileRouteTypes {
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
-    | '/'
     | '/library'
     | '/projects'
     | '/routines'
@@ -404,12 +414,14 @@ export interface FileRouteTypes {
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
     | '/settings/skills/$id'
+    | '/chats'
     | '/customize/apps'
     | '/settings/integrations/apps/$slug'
     | '/settings/integrations/mcp/$id'
     | '/settings/integrations/apps'
   id:
     | '__root__'
+    | '/'
     | '/_chat'
     | '/customize'
     | '/login'
@@ -424,7 +436,6 @@ export interface FileRouteTypes {
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
-    | '/_chat/'
     | '/library/'
     | '/projects/'
     | '/routines/'
@@ -441,6 +452,7 @@ export interface FileRouteTypes {
     | '/settings/channels/$channel'
     | '/settings/providers/$providerId'
     | '/settings/skills/$id'
+    | '/_chat/chats/'
     | '/customize_/apps/'
     | '/settings/integrations/apps/$slug'
     | '/settings/integrations/mcp/$id'
@@ -448,6 +460,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRouteWithChildren
   CustomizeRoute: typeof CustomizeRoute
   LoginRoute: typeof LoginRoute
@@ -521,6 +534,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tasks/': {
       id: '/tasks/'
       path: '/tasks'
@@ -548,13 +568,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/library/'
       preLoaderRoute: typeof LibraryIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_chat/': {
-      id: '/_chat/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof ChatIndexRouteImport
-      parentRoute: typeof ChatRoute
     }
     '/tasks/$taskId': {
       id: '/tasks/$taskId'
@@ -611,6 +624,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/customize/apps/'
       preLoaderRoute: typeof CustomizeAppsIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_chat/chats/': {
+      id: '/_chat/chats/'
+      path: '/chats'
+      fullPath: '/chats/'
+      preLoaderRoute: typeof ChatChatsIndexRouteImport
+      parentRoute: typeof ChatRoute
     }
     '/settings/skills/$id': {
       id: '/settings/skills/$id'
@@ -721,21 +741,21 @@ declare module '@tanstack/react-router' {
 }
 
 interface ChatRouteChildren {
-  ChatIndexRoute: typeof ChatIndexRoute
   ChatEnvironmentIdThreadIdRoute: typeof ChatEnvironmentIdThreadIdRoute
   ChatBotsBotIdRoute: typeof ChatBotsBotIdRoute
   ChatChatsThreadIdRoute: typeof ChatChatsThreadIdRoute
   ChatDraftDraftIdRoute: typeof ChatDraftDraftIdRoute
   ChatGroupsGroupIdRoute: typeof ChatGroupsGroupIdRoute
+  ChatChatsIndexRoute: typeof ChatChatsIndexRoute
 }
 
 const ChatRouteChildren: ChatRouteChildren = {
-  ChatIndexRoute: ChatIndexRoute,
   ChatEnvironmentIdThreadIdRoute: ChatEnvironmentIdThreadIdRoute,
   ChatBotsBotIdRoute: ChatBotsBotIdRoute,
   ChatChatsThreadIdRoute: ChatChatsThreadIdRoute,
   ChatDraftDraftIdRoute: ChatDraftDraftIdRoute,
   ChatGroupsGroupIdRoute: ChatGroupsGroupIdRoute,
+  ChatChatsIndexRoute: ChatChatsIndexRoute,
 }
 
 const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
@@ -769,6 +789,7 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   ChatRoute: ChatRouteWithChildren,
   CustomizeRoute: CustomizeRoute,
   LoginRoute: LoginRoute,

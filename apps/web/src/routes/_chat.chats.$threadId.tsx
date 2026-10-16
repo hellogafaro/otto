@@ -26,7 +26,7 @@ function ChatRouteView() {
       (shell.botId == null && shell.groupId == null));
 
   useEffect(() => {
-    if (gone) void navigate({ to: "/", replace: true });
+    if (gone) void navigate({ to: "/chats", replace: true });
   }, [gone, navigate]);
 
   if (chat === null || shell === null || gone) return null;
