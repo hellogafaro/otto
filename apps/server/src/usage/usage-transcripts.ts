@@ -24,6 +24,8 @@ export interface UsageRecord {
    * unique and needs no dedup.
    */
   readonly dedupeKey: string | null;
+  /** Who started the work, when Otto's ledger knows; transcripts never do. */
+  readonly person?: { readonly id: string; readonly displayName: string | null } | null;
 }
 
 const EMPTY_TOTALS: UsageTokenTotals = {

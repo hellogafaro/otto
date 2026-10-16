@@ -67,7 +67,7 @@ const connectedPlanLimits = [
 ];
 
 beforeEach(() => {
-  saveUsagePagePreferences({ metric: "limits", windowDays: 30 });
+  saveUsagePagePreferences({ metric: "cost", windowDays: 30 });
   testState.useUsage.mockReturnValue({
     merged: {
       ...mergeUsage([], USAGE_CONTRACT_VERSION),
@@ -204,12 +204,24 @@ describe("UsagePage", () => {
     expect(markup).toContain("anthropic");
   });
 
-  it("labels model activity by its recorded provider, not its model name", () => {
+  it("groups model activity under its recorded provider, not its model name", () => {
     saveUsagePagePreferences({ metric: "tokens", windowDays: 30 });
+
+    const provider = (kind: "codex" | "claude", totalTokens: number) => ({
+      provider: kind,
+      costUsd: 0,
+      totalTokens,
+      records: 1,
+      sessions: 1,
+      costShare: 0,
+      tokenShare: 0,
+    });
+
     testState.useUsage.mockReturnValue({
       merged: {
         ...mergeUsage([], USAGE_CONTRACT_VERSION),
         connectedProviders: ["openai-codex" as const, "anthropic" as const],
+        providers: [provider("codex", 31_000_000), provider("claude", 1_000)],
         models: [
           {
             provider: "codex" as const,
@@ -245,9 +257,54 @@ describe("UsagePage", () => {
 
     const markup = renderToStaticMarkup(<UsagePage />);
 
-    expect(markup).toContain("Codex · claude-opus-5");
-    expect(markup).toContain("Claude · gpt-5.6-sol");
-    expect(markup).not.toContain("Claude · claude-opus-5");
+    const at = (text: string) => markup.indexOf(text);
+
+    expect(at(">Codex<")).toBeGreaterThan(-1);
+    expect(at(">Codex<")).toBeLessThan(at("claude-opus-5"));
+    expect(at("claude-opus-5")).toBeLessThan(at(">Claude<"));
+    expect(at(">Claude<")).toBeLessThan(at("gpt-5.6-sol"));
+  });
+
+  it("lists usage by member, with work bots did on their own apart", () => {
+    const member = (personId: string | null, displayName: string | null, costUsd: number) => ({
+      personId,
+      displayName,
+      costUsd,
+      totalTokens: 1_000,
+      records: 1,
+      sessions: 2,
+      costShare: costUsd / 10,
+    });
+
+    testState.useUsage.mockReturnValue({
+      merged: {
+        ...mergeUsage([], USAGE_CONTRACT_VERSION),
+        costUsd: 10,
+        connectedProviders: ["openai-codex" as const],
+        members: [member("person-ana", "Ana Lopez", 7), member(null, null, 3)],
+      },
+      environments: [
+        {
+          environmentId: "env-1",
+          label: "This Mac",
+          isPending: false,
+          error: null,
+          summary: { contractVersion: USAGE_CONTRACT_VERSION },
+        },
+      ],
+      isPending: false,
+      isPartial: false,
+      refresh: vi.fn(),
+    });
+
+    const markup = renderToStaticMarkup(<UsagePage />);
+
+    expect(markup).toContain("By member");
+    expect(markup).toContain("Ana Lopez");
+    expect(markup).toContain("Bots on their own");
+    expect(markup).toContain("$7.00");
+    expect(markup).toContain("70.0%");
+    expect(markup.indexOf("Ana Lopez")).toBeLessThan(markup.indexOf("Bots on their own"));
   });
 
   it("does not show machine-wide transcript costs when no provider is connected", () => {
@@ -323,7 +380,7 @@ describe("UsagePage", () => {
     const markup = renderToStaticMarkup(<UsagePage />);
 
     expect(markup).not.toContain("$12.34");
-    expect(markup).toContain("Connect a provider in Settings");
+    expect(markup).toContain("No usage yet");
   });
 
   it("explains stale environment coverage before suggesting a provider connection", () => {
@@ -371,6 +428,6 @@ describe("UsagePage", () => {
     const markup = renderToStaticMarkup(<UsagePage />);
 
     expect(markup).toContain("This Mac runs an older server version");
-    expect(markup).not.toContain("Connect a provider in Settings");
+    expect(markup).not.toContain("No usage yet");
   });
 });

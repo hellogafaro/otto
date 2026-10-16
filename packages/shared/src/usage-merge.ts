@@ -41,6 +41,17 @@ export interface ModelTotals {
   readonly costShare: number;
 }
 
+/** One person's usage; a null `personId` is work bots did on their own. */
+export interface MemberTotals {
+  readonly personId: string | null;
+  readonly displayName: string | null;
+  readonly costUsd: number;
+  readonly totalTokens: number;
+  readonly records: number;
+  readonly sessions: number;
+  readonly costShare: number;
+}
+
 export interface DailyTotals {
   readonly day: string;
   readonly costUsd: number;
@@ -75,6 +86,7 @@ export interface MergedUsage {
   readonly sessions: number;
   readonly providers: readonly ProviderTotals[];
   readonly models: readonly ModelTotals[];
+  readonly members: readonly MemberTotals[];
   readonly daily: readonly DailyTotals[];
   readonly hourly: readonly HourlyTotals[];
   readonly costQuality: CostQuality;
@@ -216,6 +228,7 @@ const EMPTY_MERGED: MergedUsage = {
   sessions: 0,
   providers: [],
   models: [],
+  members: [],
   daily: [],
   hourly: [],
   costQuality: {
@@ -299,12 +312,50 @@ export function mergeUsage(
     }
   >();
 
+  const memberAccumulator = new Map<
+    string,
+    {
+      personId: string | null;
+      displayName: string | null;
+      costUsd: number;
+      totalTokens: number;
+      records: number;
+      sessions: number;
+    }
+  >();
+
   const contributingEnvironments: EnvironmentId[] = [];
 
   for (const environment of current) {
     const { buckets, sessionsByProvider } = ownedContribution(environment, ownerByFingerprint);
 
     if (buckets.length > 0) contributingEnvironments.push(environment.environmentId);
+
+    // Otto: people are counted only from environments whose usage store counted, so a store two
+    // environments share is not split per person twice.
+    for (const member of buckets.length > 0 ? (environment.summary.members ?? []) : []) {
+      const key = member.personId ?? "";
+
+      const totals = memberAccumulator.get(key) ?? {
+        personId: member.personId,
+        displayName: member.displayName,
+        costUsd: 0,
+        totalTokens: 0,
+        records: 0,
+        sessions: 0,
+      };
+
+      totals.displayName ??= member.displayName;
+      totals.costUsd += member.costUsd;
+      totals.totalTokens +=
+        member.totals.uncachedInputTokens +
+        member.totals.cachedInputTokens +
+        member.totals.cacheCreationTokens +
+        member.totals.outputTokens;
+      totals.records += member.records;
+      totals.sessions += member.sessions;
+      memberAccumulator.set(key, totals);
+    }
 
     for (const [providerKind, providerSessions] of sessionsByProvider) {
       sessions += providerSessions;
@@ -427,6 +478,10 @@ export function mergeUsage(
     }))
     .sort((a, b) => b.costUsd - a.costUsd || b.totalTokens - a.totalTokens);
 
+  const members: MemberTotals[] = [...memberAccumulator.values()]
+    .map((totals) => ({ ...totals, costShare: costUsd === 0 ? 0 : totals.costUsd / costUsd }))
+    .sort((a, b) => b.costUsd - a.costUsd || b.totalTokens - a.totalTokens);
+
   const daily: DailyTotals[] = [...dailyAccumulator.entries()]
     .map(([day, totals]) => ({
       day,
@@ -452,6 +507,7 @@ export function mergeUsage(
     sessions,
     providers,
     models,
+    members,
     daily,
     hourly,
     costQuality: {

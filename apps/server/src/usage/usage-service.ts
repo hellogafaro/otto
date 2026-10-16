@@ -428,8 +428,9 @@ export const make = Effect.gen(function* () {
 
     const sessionsByProvider = new Map<UsageProviderKind, Set<string>>();
 
-    for (const entry of entries) {
-      const record = usageRecordFromEntry(entry, connectedSet);
+    for (const { entry, person } of entries) {
+      const ledgerRecord = usageRecordFromEntry(entry, connectedSet);
+      const record = ledgerRecord === null ? null : { ...ledgerRecord, person };
 
       if (record === null || !aggregator.add(record)) continue;
       const sessions = sessionsByProvider.get(record.provider) ?? new Set<string>();
@@ -472,6 +473,7 @@ export const make = Effect.gen(function* () {
       sources,
       planLimits,
       connectedProviders,
+      members: aggregated.members,
       pricing: {
         status: ratesStatus,
         source: LITELLM_RATES_URL,

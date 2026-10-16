@@ -77,6 +77,32 @@ describe("UsageAggregator", () => {
     ).toThrow("requires exact time bounds");
   });
 
+  it("totals usage per person who started it, with bot-only work apart", () => {
+    const ana = { id: "person-ana", displayName: "Ana" };
+
+    const result = aggregate([
+      record({ person: ana, sessionId: "chat-1" }),
+      record({
+        person: { id: "person-ana", displayName: "Ana Lopez" },
+        sessionId: "chat-2",
+        timestampMs: Date.parse("2026-08-08T10:00:00.000Z"),
+      }),
+      record({ person: null, sessionId: "routine" }),
+      record({ person: ana, timestampMs: Date.parse("2026-09-02T10:00:00.000Z") }),
+    ]);
+
+    expect(result.members).toHaveLength(2);
+    expect(result.members[0]).toMatchObject({
+      personId: "person-ana",
+      displayName: "Ana Lopez",
+      records: 2,
+      sessions: 2,
+      totals: { outputTokens: 100 },
+    });
+    expect(result.members[1]).toMatchObject({ personId: null, displayName: null, records: 1 });
+    expect(result.members[0]?.costUsd).toBeCloseTo(2 * (result.members[1]?.costUsd ?? 0));
+  });
+
   it("keeps only the first record for a repeated dedupe key", () => {
     const result = aggregate([
       record({ dedupeKey: "msg_1:" }),

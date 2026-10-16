@@ -9,7 +9,13 @@
  */
 import * as DateTime from "effect/DateTime";
 
-import type { UsageBucket, UsageDay, UsageResolution, UsageTokenTotals } from "@otto/contracts";
+import type {
+  UsageBucket,
+  UsageDay,
+  UsageMember,
+  UsageResolution,
+  UsageTokenTotals,
+} from "@otto/contracts";
 
 import { addTotals, EMPTY_TOTALS, type UsageRecord } from "./usage-transcripts.ts";
 import { cacheSavingsUsd, priceUsage, type RateTable } from "./usage-pricing.ts";
@@ -55,6 +61,16 @@ interface MutableBucket {
   sessions: Set<string>;
 }
 
+interface MutableMember {
+  personId: string | null;
+  displayName: string | null;
+  latestMs: number;
+  totals: UsageTokenTotals;
+  costUsd: number;
+  records: number;
+  sessions: Set<string>;
+}
+
 export interface AggregateOptions {
   readonly timeZone: string;
   readonly sinceDay: string;
@@ -67,6 +83,8 @@ export interface AggregateOptions {
 
 export interface AggregateResult {
   readonly buckets: readonly UsageBucket[];
+  /** Usage per person who started it, most expensive first. */
+  readonly members: readonly UsageMember[];
   /** Records dropped because an earlier record carried the same dedupe key. */
   readonly duplicatesDropped: number;
   /** Records whose day fell outside the requested window. */
@@ -82,6 +100,7 @@ export interface AggregateResult {
  */
 export class UsageAggregator {
   readonly #buckets = new Map<string, MutableBucket>();
+  readonly #members = new Map<string, MutableMember>();
   readonly #seen = new Set<string>();
   readonly #toDay: (timestampMs: number) => string;
   readonly #hourlyWindow: { readonly sinceTimeMs: number; readonly untilTimeMs: number } | null;
@@ -188,6 +207,31 @@ export class UsageAggregator {
     if (priced.costSource === "providerReported") bucket.providerReportedRecords += 1;
 
     if (record.sessionId.length > 0) bucket.sessions.add(record.sessionId);
+    const person = record.person ?? null;
+    const memberKey = person?.id ?? "";
+
+    const member = this.#members.get(memberKey) ?? {
+      personId: person?.id ?? null,
+      displayName: null,
+      latestMs: Number.NEGATIVE_INFINITY,
+      totals: EMPTY_TOTALS,
+      costUsd: 0,
+      records: 0,
+      sessions: new Set<string>(),
+    };
+
+    // A person can rename; the name on their latest message wins.
+    if (person?.displayName && record.timestampMs >= member.latestMs) {
+      member.displayName = person.displayName;
+      member.latestMs = record.timestampMs;
+    }
+
+    member.totals = addTotals(member.totals, record.totals);
+    member.costUsd += priced.costUsd;
+    member.records += 1;
+
+    if (record.sessionId.length > 0) member.sessions.add(record.sessionId);
+    this.#members.set(memberKey, member);
 
     return true;
   }
@@ -223,8 +267,20 @@ export class UsageAggregator {
         a.model.localeCompare(b.model),
     );
 
+    const members: UsageMember[] = [...this.#members.values()]
+      .map((member) => ({
+        personId: member.personId,
+        displayName: member.displayName,
+        totals: member.totals,
+        costUsd: member.costUsd,
+        records: member.records,
+        sessions: member.sessions.size,
+      }))
+      .sort((a, b) => b.costUsd - a.costUsd || b.records - a.records);
+
     return {
       buckets,
+      members,
       duplicatesDropped: this.#duplicatesDropped,
       outOfWindow: this.#outOfWindow,
     };

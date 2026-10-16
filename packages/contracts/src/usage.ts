@@ -196,6 +196,24 @@ export const UsageProviderPlanLimits = Schema.Struct({
 
 export type UsageProviderPlanLimits = typeof UsageProviderPlanLimits.Type;
 
+/**
+ * One person's share of a window: the work their messages started, across every
+ * provider and model. A null `personId` is work bots did on their own, such as
+ * routines and follow-ups no message started.
+ */
+export const UsageMember = Schema.Struct({
+  personId: Schema.NullOr(TrimmedNonEmptyString),
+  /** The name on the person's latest message in the window. */
+  displayName: Schema.NullOr(TrimmedNonEmptyString),
+  totals: UsageTokenTotals,
+  costUsd: Schema.Number,
+  records: NonNegativeInt,
+  /** Distinct Otto chats the person's work ran in. */
+  sessions: NonNegativeInt,
+});
+
+export type UsageMember = typeof UsageMember.Type;
+
 export const UsageSummaryInput = Schema.Struct({
   /** Inclusive first day of the window, in `timeZone`. */
   sinceDay: UsageDay,
@@ -234,6 +252,8 @@ export const UsageSummary = Schema.Struct({
   planLimits: Schema.optional(ForwardCompatibleArray(UsageProviderPlanLimits)),
   /** Settings -> Providers connections that may contribute usage. Absent on older servers. */
   connectedProviders: Schema.optional(ForwardCompatibleArray(SubscriptionProviderId)),
+  /** Usage per person who started it. Absent on older servers. */
+  members: Schema.optional(ForwardCompatibleArray(UsageMember)),
 });
 
 export type UsageSummary = typeof UsageSummary.Type;

@@ -1,44 +1,10 @@
 import { RiCheckLine, RiCloseLine } from "@remixicon/react";
-import type { UsageProviderKind, UsageProviderPlanLimits } from "@otto/contracts";
+import type { UsageProviderKind } from "@otto/contracts";
 
 import { cn } from "../../lib/utils";
-import { SETTINGS_SECTION_TITLE_CLASS } from "../settings/settings-layout";
 import type { EnvironmentUsageStatus } from "@otto/client-runtime/usage";
-import { Skeleton } from "../ui/skeleton";
-import { UsagePlanMeters } from "./usage-charts";
-import { PROVIDER_ORDER, PROVIDER_PRESENTATION } from "./usage-providers";
-
-export function UsageLimitsOverview({
-  planLimits,
-  environments,
-  isPending,
-}: {
-  readonly planLimits: readonly UsageProviderPlanLimits[];
-  readonly environments: readonly EnvironmentUsageStatus[];
-  readonly isPending: boolean;
-}) {
-  if (isPending && planLimits.length === 0) {
-    return <UsageSkeleton />;
-  }
-
-  return (
-    <div className="flex flex-col gap-9">
-      {environments.length > 1 ? <UsageDeviceStrip environments={environments} /> : null}
-      {planLimits.length > 0 ? (
-        planLimits.map((limits) => <UsagePlanMeters key={limits.provider} limits={limits} />)
-      ) : environments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Connect an environment to see usage.</p>
-      ) : (
-        <div className="space-y-0.5 rounded-lg border border-border/70 bg-settings-surface p-4">
-          <h2 className="text-13px font-medium text-foreground">No subscription limits yet</h2>
-          <p className="text-13px leading-copy text-muted-foreground/80">
-            Connect a provider subscription in Settings, then refresh this page.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
+import { Skeleton, SkeletonTableRows } from "../ui/skeleton";
+import { PROVIDER_PRESENTATION } from "./usage-providers";
 
 /** Brand mark for the harness a row belongs to. */
 export function ProviderMark({
@@ -51,15 +17,6 @@ export function ProviderMark({
   const Mark = PROVIDER_PRESENTATION[provider].mark;
 
   return <Mark className={cn("shrink-0", className)} aria-hidden />;
-}
-
-export function Metric({ label, value }: { readonly label: string; readonly value: string }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-base font-medium text-foreground tabular-nums">{value}</span>
-    </div>
-  );
 }
 
 /**
@@ -167,64 +124,20 @@ export function UsageDeviceStrip({
 }
 
 /**
- * Stand-in with the loaded page's shape, using the shared `Skeleton` bars so it
- * remains static like other long-lived loading states.
- * Blocks fill in exactly once when the last device answers.
+ * Stand-in with the loaded page's shape: the total and chart card, then the breakdown rows.
+ * Static like other long-lived loading states; it fills in once when the last device answers.
  */
 export function UsageSkeleton() {
   return (
     <>
-      <section className="grid gap-6 lg:grid-cols-18rem-1fr">
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1">
-            <Skeleton className="h-10 w-36" />
-            <Skeleton className="h-4 w-32" />
-          </div>
-          {PROVIDER_ORDER.map((provider) => (
-            <div key={provider} className="flex flex-col gap-1">
-              <div className="flex min-h-5 items-center justify-between gap-4">
-                <span className="flex items-center gap-2">
-                  <Skeleton className="size-2 shrink-0 rounded-full" />
-                  <Skeleton className="size-4 shrink-0 rounded-full" />
-                  <Skeleton className="h-3.5 w-20" />
-                </span>
-                <Skeleton className="h-3.5 w-14" />
-              </div>
-              <Skeleton className="h-4 w-36" />
-            </div>
-          ))}
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-settings-surface p-4">
+        <div className="flex flex-col gap-1">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-4 w-48" />
         </div>
-
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-5 w-24" />
-          <div className="flex flex-col gap-1">
-            <Skeleton tone="faint" className="ml-16 h-56" />
-            <Skeleton tone="faint" className="ml-16 h-4" />
-          </div>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className={SETTINGS_SECTION_TITLE_CLASS}>Totals</h2>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-1 md:grid-cols-5">
-          {["Processed tokens", "Cached input", "Uncached input", "Output", "Cache savings"].map(
-            (label) => (
-              <div key={label} className="flex flex-col gap-0.5">
-                <span className="text-xs text-muted-foreground">{label}</span>
-                <Skeleton className="h-6 w-16" />
-              </div>
-            ),
-          )}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className={SETTINGS_SECTION_TITLE_CLASS}>Breakdown</h2>
-          <Skeleton className="h-7 w-28 rounded-lg" />
-        </div>
-        <Skeleton tone="faint" className="h-44" />
-      </section>
+        <Skeleton tone="faint" className="h-56" />
+      </div>
+      <SkeletonTableRows label="Loading usage" rows={4} />
     </>
   );
 }

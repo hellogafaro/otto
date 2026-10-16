@@ -4,15 +4,15 @@ import { getLocalStorageItem, setLocalStorageItem } from "../../hooks/use-local-
 import type { UsageChartMetric } from "./usage-provider-chart";
 
 const UsagePagePreferencesSchema = Schema.Struct({
-  metric: Schema.Literals(["cost", "tokens", "limits"]),
+  metric: Schema.Literals(["cost", "tokens"]),
   windowDays: Schema.Literals([1, 7, 30, 90]),
 });
 
 export type UsagePagePreferences = typeof UsagePagePreferencesSchema.Type;
 
-const STORAGE_KEY = "otto:usage-page-preferences:v1";
+const STORAGE_KEY = "otto:usage-page-preferences:v2";
 
-const DEFAULT_PREFERENCES: UsagePagePreferences = { metric: "limits", windowDays: 30 };
+const DEFAULT_PREFERENCES: UsagePagePreferences = { metric: "cost", windowDays: 30 };
 
 export function readUsagePagePreferences(): UsagePagePreferences {
   try {
@@ -34,12 +34,11 @@ export function saveUsagePagePreferences(preferences: UsagePagePreferences): voi
   }
 }
 
-export type UsageMetric = UsageChartMetric | "limits";
+export type UsageMetric = UsageChartMetric;
 
 export const METRIC_OPTIONS = [
   { value: "cost", label: "Cost" },
   { value: "tokens", label: "Tokens" },
-  { value: "limits", label: "Limits" },
 ] as const satisfies readonly { value: UsageMetric; label: string }[];
 
 export const WINDOW_OPTIONS = [

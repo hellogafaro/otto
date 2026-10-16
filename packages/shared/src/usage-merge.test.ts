@@ -125,6 +125,42 @@ describe("mergeUsage", () => {
     expect(merged.contributingEnvironments).toEqual(["env-a"]);
   });
 
+  it("totals people across environments and counts a shared store's people once", () => {
+    const shared = { provider: "claude" as const, hostId: "mac", homePath: "/home/theo/.claude" };
+    const totals = { ...bucket().totals };
+
+    const ana = (costUsd: number) => ({
+      personId: "person-ana",
+      displayName: "Ana",
+      totals,
+      costUsd,
+      records: 1,
+      sessions: 1,
+    });
+
+    const bots = { ...ana(5), personId: null, displayName: null };
+
+    const merged = mergeUsage(
+      [
+        environment("env-a", {
+          ...summary([bucket()], [shared]),
+          members: [ana(4), bots],
+        }),
+        environment("env-b", { ...summary([bucket()], [shared]), members: [ana(4)] }),
+        environment("env-c", {
+          ...summary([bucket()], [{ provider: "claude", hostId: "linux", homePath: "/b" }]),
+          members: [ana(3)],
+        }),
+      ],
+      USAGE_CONTRACT_VERSION,
+    );
+
+    expect(merged.members).toEqual([
+      expect.objectContaining({ personId: "person-ana", costUsd: 7, records: 2, costShare: 0.35 }),
+      expect.objectContaining({ personId: null, costUsd: 5, totalTokens: 1160 }),
+    ]);
+  });
+
   it("drops only the duplicated provider, keeping the environment's other one", () => {
     const sharedClaude = {
       provider: "claude" as const,
