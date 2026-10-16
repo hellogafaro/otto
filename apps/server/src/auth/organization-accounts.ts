@@ -19,6 +19,7 @@ import { resolveSessionCookieName } from "./utils.ts";
 import { ServerEnvironmentIdentity } from "../environment/server-environment.ts";
 import {
   createOrganizationAccountsRuntime,
+  DESKTOP_RENDERER_ORIGINS,
   type AccountPerson,
   type AccountPrincipal,
   type OrganizationAccountsRuntime,
@@ -152,7 +153,11 @@ export const layer = Layer.effect(
         }
 
         if (path === "/api/organization/setup" && request.method === "POST") {
-          if (request.headers.get("origin") !== new URL(origin).origin) {
+          if (
+            ![new URL(origin).origin, ...DESKTOP_RENDERER_ORIGINS].includes(
+              request.headers.get("origin") ?? "",
+            )
+          ) {
             return Response.json({ message: "Invalid request origin." }, { status: 403 });
           }
 

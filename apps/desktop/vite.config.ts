@@ -2,6 +2,19 @@ import { defineConfig } from "vite-plus";
 
 const shouldLaunchElectronAfterPack = process.env.OTTO_LEGACY_DESKTOP_DEV === "1";
 
+// Otto: Electron runs a sandboxed preload inside a function whose parameters include
+// setImmediate and require, so a bundled top-level declaration with one of those names
+// (effect declares setImmediate) is a SyntaxError and the preload never loads. A closure
+// gives the bundle its own scope.
+const sandboxedPreload = {
+  format: "cjs",
+  outDir: "dist-electron",
+  sourcemap: true,
+  outExtensions: () => ({ js: ".cjs" }),
+  banner: "(() => {",
+  footer: "})();",
+} as const;
+
 export default defineConfig({
   run: {
     tasks: {
@@ -41,10 +54,7 @@ export default defineConfig({
       ...(shouldLaunchElectronAfterPack ? { onSuccess: "node scripts/dev-electron.mjs" } : {}),
     },
     {
-      format: "cjs",
-      outDir: "dist-electron",
-      sourcemap: true,
-      outExtensions: () => ({ js: ".cjs" }),
+      ...sandboxedPreload,
       entry: ["src/preload.ts"],
       deps: {
         // Sandboxed preloads can require Electron only, so bundle the contract decoders.
@@ -53,20 +63,14 @@ export default defineConfig({
       },
     },
     {
-      format: "cjs",
-      outDir: "dist-electron",
-      sourcemap: true,
-      outExtensions: () => ({ js: ".cjs" }),
+      ...sandboxedPreload,
       entry: ["src/preview-pick-preload.ts"],
       deps: {
         alwaysBundle: (id) => id === "react-grab" || id.startsWith("react-grab/"),
       },
     },
     {
-      format: "cjs",
-      outDir: "dist-electron",
-      sourcemap: true,
-      outExtensions: () => ({ js: ".cjs" }),
+      ...sandboxedPreload,
       entry: ["src/preview-pip-preload.ts"],
       deps: {
         // Sandboxed preloads can require Electron only, so bundle the contract decoders.
