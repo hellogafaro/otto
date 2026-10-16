@@ -1,4 +1,5 @@
 import {
+  AuthSessionId,
   BotId,
   CommandId,
   DelegationId,
@@ -143,6 +144,54 @@ it.layer(
           parentDelegationId: "delegation-first",
         },
       ]);
+    }),
+  );
+
+  it.effect("keeps the creator and visibility of a chat without a parent", () =>
+    Effect.gen(function* () {
+      const projectionPipeline = yield* OrchestrationProjectionPipeline;
+      const eventStore = yield* OrchestrationEventStore;
+      const sql = yield* SqlClient.SqlClient;
+      const now = "2026-01-01T00:00:00.000Z";
+      const threadId = ThreadId.make("thread-private-dm");
+
+      yield* eventStore
+        .append({
+          type: "thread.created",
+          eventId: EventId.make("evt-private-dm"),
+          aggregateKind: "thread",
+          aggregateId: threadId,
+          occurredAt: now,
+          commandId: CommandId.make("cmd-private-dm"),
+          causationEventId: null,
+          correlationId: CommandId.make("cmd-private-dm"),
+          metadata: {},
+          payload: {
+            threadId,
+            projectId: ProjectId.make("project-1"),
+            botId: BotId.make("bot-private"),
+            groupId: null,
+            parentThreadId: null,
+            createdBy: AuthSessionId.make("person-ana"),
+            visibility: "user",
+            title: "Private chat",
+            modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5-codex" },
+            runtimeMode: "full-access",
+            branch: null,
+            worktreePath: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        })
+        .pipe(Effect.flatMap(projectionPipeline.projectEvent));
+
+      const rows = yield* sql<{ readonly createdBy: string | null; readonly visibility: string }>`
+        SELECT created_by AS "createdBy", visibility
+        FROM projection_threads
+        WHERE thread_id = ${threadId}
+      `;
+
+      assert.deepEqual(rows, [{ createdBy: "person-ana", visibility: "user" }]);
     }),
   );
 });

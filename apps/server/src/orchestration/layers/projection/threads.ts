@@ -71,8 +71,6 @@ export function createThreads({
             ? {
                 parentThreadId: event.payload.parentThreadId,
                 parentDelegationId: event.payload.parentDelegationId ?? null,
-                createdBy: event.payload.createdBy ?? null,
-                visibility: event.payload.visibility ?? "organization",
               }
             : yield* delegationParentLink(event.payload.threadId);
 
@@ -82,6 +80,8 @@ export function createThreads({
             botId: event.payload.botId ?? null,
             groupId: event.payload.groupId ?? null,
             ...parentLink,
+            createdBy: event.payload.createdBy ?? null,
+            visibility: event.payload.visibility ?? "organization",
             respondingBotId: null,
             title: event.payload.title,
             modelSelection: event.payload.modelSelection,
