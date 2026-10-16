@@ -19,6 +19,7 @@ import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { WorkspacePageContainer } from "../workspace-page-container";
 import { entityIcon, matchItems, useEntities } from "./work-links";
 import { WorkPage, useWorkData } from "./work-pages";
+import { useDesktopTabTitle } from "../../desktop-tabs-store";
 
 /**
  * Otto: A task, project or routine page, like a Linear issue: the main column keeps
@@ -66,6 +67,7 @@ export function WorkDetailPage({
 }) {
   const { t } = useI18n();
   const links = useEntities();
+  useDesktopTabTitle(title);
 
   const [detailsOpen, setDetailsOpen] = useLocalStorage(
     `otto:${type}-details-open`,

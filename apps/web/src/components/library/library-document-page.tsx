@@ -28,6 +28,7 @@ import { LibraryItemMenu } from "./library-actions";
 import { LibraryFileDetails } from "./library-details";
 import { joinFrontMatter } from "./library.logic";
 import { useLibraryData, useLibraryDownload, type LibraryData } from "./use-library";
+import { useDesktopTabTitle } from "../../desktop-tabs-store";
 
 const SAVE_DELAY_MS = 800;
 
@@ -42,6 +43,7 @@ export function LibraryDocumentPage({ fileId }: { readonly fileId: LibraryFileId
   const navigate = useNavigate();
   const data = useLibraryData();
   const file = data.files.find((candidate) => candidate.id === fileId);
+  useDesktopTabTitle(file?.title);
 
   const back = {
     label: t("Library"),

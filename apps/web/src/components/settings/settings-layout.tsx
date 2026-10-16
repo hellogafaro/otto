@@ -23,6 +23,7 @@ import {
 import { Button } from "../ui/button";
 import { SkeletonSettingsSections } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { useDesktopTabTitle } from "../../desktop-tabs-store";
 
 interface SettingsSearchTargetContextValue {
   readonly targetId: string | null;
@@ -302,6 +303,7 @@ export function SettingsPageContainer({
   width?: WorkspacePageWidth;
 }) {
   const title = useContext(SettingsPageTitleContext);
+  useDesktopTabTitle(title);
   const navigate = useNavigate();
   const hash = useLocation({ select: (location) => location.hash });
   const dialogTargetId = useSettingsDialogStore((state) => state.targetId);

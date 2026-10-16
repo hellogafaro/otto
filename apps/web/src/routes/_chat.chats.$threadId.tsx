@@ -5,6 +5,7 @@ import { BotThreadLanding } from "../components/roster/bot-thread-landing";
 import { ChatDetailsPanel } from "../components/roster/chat-details-panel";
 import { useRoutedChat } from "../components/roster/chat-navigation";
 import { GroupThreadLanding } from "../components/roster/group-thread-landing";
+import { useDesktopTabTitle } from "../desktop-tabs-store";
 import { useAllEnvironmentShellsBootstrapped, useThreadShell } from "../state/entities";
 
 /**
@@ -16,6 +17,7 @@ function ChatRouteView() {
   const chat = useRoutedChat();
   const shell = useThreadShell(chat?.threadRef ?? null);
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
+  useDesktopTabTitle(shell?.title);
 
   const gone =
     chat !== null &&
