@@ -1,4 +1,5 @@
 import { Predicate } from "effect";
+import { DEFAULT_BOT_RUNTIME_MODE } from "./bot-sandbox";
 import { useBotConversationMessageProjection } from "./bot-conversation-message-projection";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -220,7 +221,7 @@ export function useBotThreadRuntime(
           activeProject.defaultModelSelection ??
           appDefaultModelSelection;
 
-        const runtimeMode = bot?.runtimeMode ?? settings.localExecutionMode;
+        const runtimeMode = DEFAULT_BOT_RUNTIME_MODE;
         const title = threadTitle(prompt, files);
 
         try {
@@ -308,7 +309,6 @@ export function useBotThreadRuntime(
       botReady,
       rememberedThread?.runtimeMode,
       titleFromFirstMessage,
-      settings.localExecutionMode,
       setRuntimeMode,
       linkedThreadRef,
       answerPendingUserInputWithPrompt,

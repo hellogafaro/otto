@@ -592,4 +592,15 @@ export const connectionsCatalog = {
     "机器人可以使用应用内浏览器进行研究和预览。",
   "Hosted browser sessions for bots": "供机器人使用的托管浏览器会话",
   "Use Browserbase": "使用 Browserbase",
+  "One per bot": "每个机器人一台",
+  "Shared by all": "全部共享",
+  "Bot computers": "机器人电脑",
+  "bot computers": "机器人电脑",
+  "One per bot gives each bot its own files and browser logins. Shared by all lets every bot use the same ones.":
+    "“每个机器人一台”让每个机器人拥有自己的文件和浏览器登录。“全部共享”让所有机器人使用同一套。",
+  "Change bot computers?": "更改机器人电脑？",
+  "Bots finish what they are doing first. From their next turn, every bot uses one shared computer. Files and browser logins on their own computers do not move.":
+    "机器人会先完成手头的工作。从下一轮开始，所有机器人共用一台电脑。它们各自电脑上的文件和浏览器登录不会迁移。",
+  "Bots finish what they are doing first. From their next turn, each bot gets its own computer with its own files and browser logins. The shared computer's files stay where they are.":
+    "机器人会先完成手头的工作。从下一轮开始，每个机器人都有自己的电脑，拥有独立的文件和浏览器登录。共享电脑上的文件保留在原处。",
 } as const;

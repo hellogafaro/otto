@@ -1,4 +1,3 @@
-import { Match } from "effect";
 import { useState } from "react";
 import type { BotSandboxBrowserSharing } from "@otto/contracts";
 import { DEFAULT_UNIFIED_SETTINGS } from "@otto/contracts/settings";
@@ -19,8 +18,8 @@ import { useI18n } from "../../i18n";
 import type { MessageKey } from "@otto/client-runtime/i18n";
 
 const BOT_SANDBOX_BROWSER_SHARING_LABELS: Record<BotSandboxBrowserSharing, MessageKey> = {
-  shared: "Shared",
-  separate: "Separate",
+  separate: "One per bot",
+  shared: "Shared by all",
 };
 
 export function BotSandboxBrowserSharingSettings({
@@ -38,12 +37,12 @@ export function BotSandboxBrowserSharingSettings({
       <SettingsRow
         {...searchableSetting("sandbox-browser-sharing", t)}
         description={t(
-          "Shared uses one sandbox and browser for every bot. Separate gives each bot its own sandbox and browser profile.",
+          "One per bot gives each bot its own files and browser logins. Shared by all lets every bot use the same ones.",
         )}
         resetAction={
           value !== DEFAULT_UNIFIED_SETTINGS.botSandboxBrowserSharing ? (
             <SettingResetButton
-              label={t("sandbox and browser sharing")}
+              label={t("bot computers")}
               onClick={() => setPendingValue(DEFAULT_UNIFIED_SETTINGS.botSandboxBrowserSharing)}
             />
           ) : null
@@ -57,15 +56,15 @@ export function BotSandboxBrowserSharingSettings({
               }
             }}
           >
-            <SelectTrigger className="w-full sm:w-40" aria-label={t("Sandbox and browser sharing")}>
+            <SelectTrigger className="w-full sm:w-40" aria-label={t("Bot computers")}>
               <SelectValue>{t(BOT_SANDBOX_BROWSER_SHARING_LABELS[value])}</SelectValue>
             </SelectTrigger>
             <SelectPopup align="end" alignItemWithTrigger={false}>
-              <SelectItem hideIndicator value="shared">
-                {t(BOT_SANDBOX_BROWSER_SHARING_LABELS.shared)}
-              </SelectItem>
               <SelectItem hideIndicator value="separate">
                 {t(BOT_SANDBOX_BROWSER_SHARING_LABELS.separate)}
+              </SelectItem>
+              <SelectItem hideIndicator value="shared">
+                {t(BOT_SANDBOX_BROWSER_SHARING_LABELS.shared)}
               </SelectItem>
             </SelectPopup>
           </Select>
@@ -75,14 +74,14 @@ export function BotSandboxBrowserSharingSettings({
       <Dialog open={pendingValue !== null} onOpenChange={(open) => !open && setPendingValue(null)}>
         <DialogPopup>
           <DialogHeader>
-            <DialogTitle>{t("Change bot workspace mode?")}</DialogTitle>
+            <DialogTitle>{t("Change bot computers?")}</DialogTitle>
             <DialogDescription>
               {pendingValue === "shared"
                 ? t(
-                    "Active bot work keeps its current workspace. The next turn moves each bot into the shared workspace and browser. Files and cookies do not move.",
+                    "Bots finish what they are doing first. From their next turn, every bot uses one shared computer. Files and browser logins on their own computers do not move.",
                   )
                 : t(
-                    "Active bot work keeps its current workspace. The next turn creates a separate workspace and browser for each bot. Shared files and cookies stay in the shared workspace.",
+                    "Bots finish what they are doing first. From their next turn, each bot gets its own computer with its own files and browser logins. The shared computer's files stay where they are.",
                   )}
             </DialogDescription>
           </DialogHeader>
@@ -107,7 +106,10 @@ export function BotSandboxBrowserSharingSettings({
   );
 }
 
-/** Environment-wide workspace policy shared by every bot. */
+/**
+ * Otto: Environment-wide workspace policy. Bots always run with full access (that is what
+ * sandboxes are for), so the only choice left is whether each bot gets its own computer.
+ */
 export function BotWorkspaceSettingsSection() {
   const { t } = useI18n();
   const settings = usePrimarySettings();
@@ -118,53 +120,6 @@ export function BotWorkspaceSettingsSection() {
       <BotSandboxBrowserSharingSettings
         value={settings.botSandboxBrowserSharing}
         onChange={(value) => updateSettings({ botSandboxBrowserSharing: value })}
-      />
-      <SettingsRow
-        {...searchableSetting("local-execution", t)}
-        description={t("Auto review runs safe actions and asks before sensitive ones.")}
-        resetAction={
-          settings.localExecutionMode !== DEFAULT_UNIFIED_SETTINGS.localExecutionMode ? (
-            <SettingResetButton
-              label={t("local execution")}
-              onClick={() =>
-                updateSettings({
-                  localExecutionMode: DEFAULT_UNIFIED_SETTINGS.localExecutionMode,
-                })
-              }
-            />
-          ) : null
-        }
-        control={
-          <Select
-            value={settings.localExecutionMode}
-            onValueChange={(value) => {
-              if (value === "approval-required" || value === "auto" || value === "full-access") {
-                updateSettings({ localExecutionMode: value });
-              }
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-40" aria-label={t("Local execution")}>
-              <SelectValue>
-                {Match.value(settings).pipe(
-                  Match.when({ localExecutionMode: "full-access" }, () => t("Full access")),
-                  Match.when({ localExecutionMode: "approval-required" }, () => t("Ask first")),
-                  Match.orElse(() => t("Auto review")),
-                )}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectPopup align="end" alignItemWithTrigger={false}>
-              <SelectItem hideIndicator value="auto">
-                {t("Auto review")}
-              </SelectItem>
-              <SelectItem hideIndicator value="approval-required">
-                {t("Ask first")}
-              </SelectItem>
-              <SelectItem hideIndicator value="full-access">
-                {t("Full access")}
-              </SelectItem>
-            </SelectPopup>
-          </Select>
-        }
       />
     </SettingsSection>
   );

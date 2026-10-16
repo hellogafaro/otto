@@ -1,8 +1,4 @@
-import {
-  DEFAULT_LOCAL_EXECUTION_MODE,
-  type LocalExecutionMode,
-  type RuntimeMode,
-} from "@otto/contracts";
+import { DEFAULT_LOCAL_EXECUTION_MODE, type RuntimeMode } from "@otto/contracts";
 import { createTranslator } from "@otto/client-runtime/i18n";
 
 import type { useI18n } from "../../i18n";
@@ -40,11 +36,4 @@ export function botSandboxLabel(
   const option = BOT_SANDBOX_OPTIONS.find((candidate) => candidate.value === sandbox);
 
   return !option || option.value === "local" ? t("Local") : option.label;
-}
-
-export function resolveBotRuntimeMode(
-  sandbox: Bot["sandbox"],
-  localExecutionMode: LocalExecutionMode,
-): RuntimeMode {
-  return sandbox === null || sandbox === "local" ? localExecutionMode : "full-access";
 }

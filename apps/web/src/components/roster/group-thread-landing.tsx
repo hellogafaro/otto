@@ -74,7 +74,7 @@ import { useBotEngineAvailability } from "./use-bot-engine-availability";
 import { buildBotTurnTraces } from "./bot-turn-trace.logic";
 import { useLocalDay } from "./use-local-day";
 import { useRosterPendingApproval } from "./use-roster-pending-approval";
-import { useEnableBotAutoReview, useRosterLoadState } from "./use-server-roster";
+import { useRosterLoadState } from "./use-server-roster";
 import { useChatDetailsOpen } from "./details-panel-open";
 import { activeThreadRuntimeWarning } from "./thread-runtime-warning.logic";
 import { ThreadRuntimeWarningBanner } from "./thread-runtime-warning-banner";
@@ -219,7 +219,6 @@ export function GroupThreadLanding({
   const voiceCall = useOptionalVoiceCall();
   const [replyTarget, setReplyTarget] = useState<MessageReplyTarget | null>(null);
   const approvalState = useRosterPendingApproval(runtime.linkedThreadRef);
-  const enableAutoReview = useEnableBotAutoReview();
   const activities = useThreadActivities(runtime.linkedThreadRef);
   const memoryApprovals = useMemo(() => pendingMemoryApprovals(activities), [activities]);
   const stepMeters = useMemo(() => buildBotStepMeters(activities), [activities]);
@@ -553,18 +552,9 @@ export function GroupThreadLanding({
                   pendingCount={approvalState.pendingCount}
                   responding={approvalState.responding}
                   error={approvalState.responseError}
-                  onRespond={async (decision) => {
-                    const answered = await approvalState.respond(
-                      pendingApproval.requestId,
-                      decision,
-                    );
-
-                    if (answered && decision === "acceptAlways" && activeBot) {
-                      await enableAutoReview(activeBot.id);
-                    }
-
-                    return answered;
-                  }}
+                  onRespond={(decision) =>
+                    approvalState.respond(pendingApproval.requestId, decision)
+                  }
                 />
               ) : waitingForUserInput ? (
                 <BotUserInputPrompt

@@ -75,7 +75,7 @@ describe("BotSandboxBrowserSharingSettings", () => {
     i18nLocale.current = "en";
   });
 
-  it("asks before changing the workspace mode", () => {
+  it("asks before changing bot computers", () => {
     const onChange = vi.fn();
     let tree = renderSetting("separate", onChange);
     call(
@@ -89,7 +89,7 @@ describe("BotSandboxBrowserSharingSettings", () => {
     expect(onChange).toHaveBeenCalledWith("shared");
   });
 
-  it("asks in Chinese before changing the workspace mode", () => {
+  it("asks in Chinese before changing bot computers", () => {
     i18nLocale.current = "zh-CN";
     const onChange = vi.fn();
     let tree = renderSetting("shared", onChange);
@@ -99,12 +99,11 @@ describe("BotSandboxBrowserSharingSettings", () => {
     );
     tree = renderSetting("shared", onChange);
 
-    findElement(tree, (props) => props.children === "更改机器人工作区模式？");
+    findElement(tree, (props) => props.children === "更改机器人电脑？");
     findElement(
       tree,
       (props) =>
-        Predicate.isString(props.children) &&
-        props.children.includes("会为每个机器人创建独立的工作区和浏览器"),
+        Predicate.isString(props.children) && props.children.includes("每个机器人都有自己的电脑"),
     );
     findElement(tree, (props) => props.children === "取消");
     call(findElement(tree, (props) => props.children === "更改模式").props.onClick);

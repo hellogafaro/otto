@@ -24,8 +24,8 @@ describe("ServerSettings voice", () => {
 });
 
 describe("ServerSettings local execution", () => {
-  it("auto-reviews local execution by default and accepts each supported policy", () => {
-    expect(decodeServerSettings({}).localExecutionMode).toBe("auto");
+  it("runs local execution with full access by default and accepts each supported policy", () => {
+    expect(decodeServerSettings({}).localExecutionMode).toBe("full-access");
     expect(
       decodeServerSettingsPatch({ localExecutionMode: "approval-required" }).localExecutionMode,
     ).toBe("approval-required");
@@ -43,8 +43,8 @@ describe("ServerSettings local execution", () => {
 });
 
 describe("ServerSettings local execution", () => {
-  it("keeps auto review as the unified default", () => {
-    expect(decodeServerSettings({}).localExecutionMode).toBe("auto");
+  it("keeps full access as the unified default", () => {
+    expect(decodeServerSettings({}).localExecutionMode).toBe("full-access");
     expect(decodeServerSettingsPatch({ localExecutionMode: "auto" }).localExecutionMode).toBe(
       "auto",
     );

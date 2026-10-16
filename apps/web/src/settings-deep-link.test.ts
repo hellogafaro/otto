@@ -8,7 +8,7 @@ describe("settings deep links", () => {
   it.each([
     ["general", "general", null, "General"],
     ["usage", "usage", null, "Usage"],
-    ["local-execution", "computer", "local-execution", "Computer > Local execution"],
+    ["local-execution", "computer", null, "Computer"],
     ["appearance", "appearance", null, "Appearance"],
     ["keybindings", "keybindings", null, "Shortcuts"],
     ["account", "account", null, "Profile"],

@@ -110,7 +110,8 @@ export const LocalExecutionMode = Schema.Literals(["approval-required", "auto", 
 
 export type LocalExecutionMode = typeof LocalExecutionMode.Type;
 
-export const DEFAULT_LOCAL_EXECUTION_MODE: LocalExecutionMode = "auto";
+/** Otto: Bots always run with full access; sandboxes are what keep them contained. */
+export const DEFAULT_LOCAL_EXECUTION_MODE: LocalExecutionMode = "full-access";
 
 export const ProviderInteractionMode = Schema.Literals(["default", "plan"]);
 

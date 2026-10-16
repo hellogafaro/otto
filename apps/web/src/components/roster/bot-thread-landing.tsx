@@ -71,7 +71,7 @@ import { buildBotTurnTraces } from "./bot-turn-trace.logic";
 import { resolveBotPresence } from "./roster.logic";
 import { useLocalDay } from "./use-local-day";
 import { useRosterPendingApproval } from "./use-roster-pending-approval";
-import { useEnableBotAutoReview, useRosterLoadState } from "./use-server-roster";
+import { useRosterLoadState } from "./use-server-roster";
 import { RosterLoadStatus } from "./roster-load-status";
 import { deriveWorkLogEntries, pluginSearchResultForWorkEntry } from "../../session-logic";
 import { activeThreadRuntimeWarning } from "./thread-runtime-warning.logic";
@@ -183,7 +183,6 @@ export function BotThreadLanding({
 
   const openBotSettings = () => void navigate({ to: "/settings/bots/$botId", params: { botId } });
   const approvalState = useRosterPendingApproval(runtime.linkedThreadRef);
-  const enableAutoReview = useEnableBotAutoReview();
   const activities = useThreadActivities(runtime.linkedThreadRef);
   const memoryApprovals = useMemo(() => pendingMemoryApprovals(activities), [activities]);
   const stepMeters = useMemo(() => buildBotStepMeters(activities), [activities]);
@@ -657,18 +656,9 @@ export function BotThreadLanding({
                     pendingCount={approvalState.pendingCount}
                     responding={approvalState.responding}
                     error={approvalState.responseError}
-                    onRespond={async (decision) => {
-                      const answered = await approvalState.respond(
-                        pendingApproval.requestId,
-                        decision,
-                      );
-
-                      if (answered && decision === "acceptAlways" && bot) {
-                        await enableAutoReview(bot.id);
-                      }
-
-                      return answered;
-                    }}
+                    onRespond={(decision) =>
+                      approvalState.respond(pendingApproval.requestId, decision)
+                    }
                   />
                 ) : memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
                   <MemoryApprovalPrompt

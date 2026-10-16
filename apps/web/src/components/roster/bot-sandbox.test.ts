@@ -5,7 +5,6 @@ import {
   DEFAULT_BOT_RUNTIME_MODE,
   botSandboxChoice,
   botSandboxLabel,
-  resolveBotRuntimeMode,
 } from "./bot-sandbox";
 
 describe("botSandbox", () => {
@@ -16,16 +15,8 @@ describe("botSandbox", () => {
     expect(botSandboxChoice("vercel")).toBe("vercel");
   });
 
-  it("auto-reviews local tools unless another mode is selected", () => {
-    expect(DEFAULT_BOT_RUNTIME_MODE).toBe("auto");
-    expect(resolveBotRuntimeMode(null, "approval-required")).toBe("approval-required");
-    expect(resolveBotRuntimeMode("local", "full-access")).toBe("full-access");
-  });
-
-  it("runs cloud sandbox tools without a local approval prompt", () => {
-    for (const { value: sandbox } of BOT_SANDBOX_OPTIONS.slice(1)) {
-      expect(resolveBotRuntimeMode(sandbox, "approval-required")).toBe("full-access");
-    }
+  it("always runs bots with full access", () => {
+    expect(DEFAULT_BOT_RUNTIME_MODE).toBe("full-access");
   });
 
   it("lists the first sandbox providers", () => {
@@ -40,14 +31,5 @@ describe("botSandbox", () => {
       "tenki",
     ]);
     expect(botSandboxLabel("vercel")).toBe("Vercel Sandbox");
-  });
-
-  it("uses the local setting only for local workspaces", () => {
-    expect(resolveBotRuntimeMode(null, "approval-required")).toBe("approval-required");
-    expect(resolveBotRuntimeMode("local", "full-access")).toBe("full-access");
-
-    for (const { value: sandbox } of BOT_SANDBOX_OPTIONS.slice(1)) {
-      expect(resolveBotRuntimeMode(sandbox, "approval-required")).toBe("full-access");
-    }
   });
 });

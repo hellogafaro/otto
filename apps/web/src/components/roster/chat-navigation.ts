@@ -30,6 +30,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { DEFAULT_INTERACTION_MODE } from "../../types";
 import { sortScopedProjectsForSidebar } from "../sidebar.logic";
 import { toast } from "sonner";
+import { DEFAULT_BOT_RUNTIME_MODE } from "./bot-sandbox";
 import {
   chatHomeProject,
   findLatestBotThreadTarget,
@@ -91,11 +92,6 @@ export function useCreateChat() {
         return null;
       }
 
-      const bot =
-        owner.kind === "bot"
-          ? useRosterStore.getState().bots.find((candidate) => candidate.id === owner.id)
-          : undefined;
-
       const threadId = newThreadId();
 
       const result = await createThread({
@@ -110,7 +106,7 @@ export function useCreateChat() {
           ...(owner.kind === "bot" && options.visibility ? { visibility: options.visibility } : {}),
           modelSelection:
             project.defaultModelSelection ?? resolveAppModelSelectionState(settings, providers),
-          runtimeMode: bot?.runtimeMode ?? settings.localExecutionMode,
+          runtimeMode: DEFAULT_BOT_RUNTIME_MODE,
           interactionMode: DEFAULT_INTERACTION_MODE,
           branch: null,
           worktreePath: null,

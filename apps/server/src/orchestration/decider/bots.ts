@@ -4,7 +4,6 @@ import {
   BALANCED_BOT_PERSONALITY_TONE,
   type BotId,
   type CommandId,
-  DEFAULT_LOCAL_EXECUTION_MODE,
   DEFAULT_RUNTIME_MODE,
   isGroupBotMember,
   type OrchestrationCommand,
@@ -126,11 +125,7 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           avatar: command.avatar,
           engine: command.engine,
           sandbox: command.sandbox,
-          runtimeMode:
-            command.runtimeMode ??
-            (command.sandbox === null || command.sandbox === "local"
-              ? DEFAULT_LOCAL_EXECUTION_MODE
-              : DEFAULT_RUNTIME_MODE),
+          runtimeMode: command.runtimeMode ?? DEFAULT_RUNTIME_MODE,
           imageProvider: command.imageProvider ?? null,
           personalityTone: command.personalityTone ?? BALANCED_BOT_PERSONALITY_TONE,
           voiceEnabled: command.voiceEnabled ?? false,

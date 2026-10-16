@@ -78,10 +78,7 @@ describe("searchSettings", () => {
   it("matches normalized title substrings", () => {
     expect(searchSettings("  WORD   WRAP  ", ITEMS).map((item) => item.id)).toEqual(["word-wrap"]);
     expect(searchSettings("glass").map((item) => item.id)).toEqual([]);
-    expect(searchSettings("local execution")[0]).toMatchObject({
-      id: "local-execution",
-      to: "/settings/computer",
-    });
+    expect(searchSettings("local execution")).toEqual([]);
     expect(searchSettings("xyzzy")).toEqual([]);
   });
 
@@ -125,8 +122,8 @@ describe("searchSettings", () => {
     });
   });
 
-  it("routes sandbox and browser sharing to the Computer page", () => {
-    expect(searchSettings("sandbox and browser sharing")[0]).toMatchObject({
+  it("routes bot computers to the Computer page", () => {
+    expect(searchSettings("bot computers")[0]).toMatchObject({
       id: "sandbox-browser-sharing",
       to: "/settings/computer",
     });

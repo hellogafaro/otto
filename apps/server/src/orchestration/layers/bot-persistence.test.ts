@@ -276,7 +276,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
     }),
   );
 
-  it.effect("defaults omitted bot runtime modes by sandbox", () =>
+  it.effect("defaults omitted bot runtime modes to full access", () =>
     Effect.gen(function* () {
       const engine = yield* OrchestrationEngineService;
       const snapshots = yield* ProjectionSnapshotQuery;
@@ -299,11 +299,11 @@ it.layer(TestLayer)("bot persistence", (it) => {
       const bots = (yield* snapshots.getShellSnapshot()).bots;
       assert.equal(
         bots.find((bot) => bot.id === BotId.make("bot-default-null"))?.runtimeMode,
-        "auto",
+        "full-access",
       );
       assert.equal(
         bots.find((bot) => bot.id === BotId.make("bot-default-local"))?.runtimeMode,
-        "auto",
+        "full-access",
       );
       assert.equal(
         bots.find((bot) => bot.id === BotId.make("bot-default-vercel"))?.runtimeMode,

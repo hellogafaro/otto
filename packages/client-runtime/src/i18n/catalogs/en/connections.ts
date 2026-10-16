@@ -633,4 +633,15 @@ export const connectionsCatalog = {
     "Bots can use the in-app browser for research and previews.",
   "Hosted browser sessions for bots": "Hosted browser sessions for bots",
   "Use Browserbase": "Use Browserbase",
+  "One per bot": "One per bot",
+  "Shared by all": "Shared by all",
+  "Bot computers": "Bot computers",
+  "bot computers": "bot computers",
+  "One per bot gives each bot its own files and browser logins. Shared by all lets every bot use the same ones.":
+    "One per bot gives each bot its own files and browser logins. Shared by all lets every bot use the same ones.",
+  "Change bot computers?": "Change bot computers?",
+  "Bots finish what they are doing first. From their next turn, every bot uses one shared computer. Files and browser logins on their own computers do not move.":
+    "Bots finish what they are doing first. From their next turn, every bot uses one shared computer. Files and browser logins on their own computers do not move.",
+  "Bots finish what they are doing first. From their next turn, each bot gets its own computer with its own files and browser logins. The shared computer's files stay where they are.":
+    "Bots finish what they are doing first. From their next turn, each bot gets its own computer with its own files and browser logins. The shared computer's files stay where they are.",
 } as const;

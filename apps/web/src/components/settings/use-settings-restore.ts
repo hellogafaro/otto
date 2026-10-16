@@ -57,12 +57,9 @@ export function useSettingsRestore(onRestored?: () => void) {
         ? ["Stream token by token"]
         : []),
       ...(settings.botSandboxBrowserSharing !== DEFAULT_UNIFIED_SETTINGS.botSandboxBrowserSharing
-        ? ["Sandbox and browser sharing"]
+        ? ["Bot computers"]
         : []),
       ...(isBackgroundActivityDirty ? ["Background activity"] : []),
-      ...(settings.localExecutionMode !== DEFAULT_UNIFIED_SETTINGS.localExecutionMode
-        ? ["Local execution"]
-        : []),
       ...(settings.addProjectBaseDirectory !== DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory
         ? ["Add project base directory"]
         : []),
@@ -84,7 +81,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.voice,
       settings.confirmQuit,
       settings.addProjectBaseDirectory,
-      settings.localExecutionMode,
       settings.diffIgnoreWhitespace,
       settings.fontSizeCode,
       settings.fontSizeInterface,
@@ -134,7 +130,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       backgroundActivityProfile: DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile,
       automaticGitFetchInterval: DEFAULT_UNIFIED_SETTINGS.automaticGitFetchInterval,
       providerHealthRefreshInterval: DEFAULT_UNIFIED_SETTINGS.providerHealthRefreshInterval,
-      localExecutionMode: DEFAULT_UNIFIED_SETTINGS.localExecutionMode,
       addProjectBaseDirectory: DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory,
       confirmQuit: DEFAULT_UNIFIED_SETTINGS.confirmQuit,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,

@@ -1,4 +1,5 @@
 import { Predicate } from "effect";
+import { DEFAULT_BOT_RUNTIME_MODE } from "./bot-sandbox";
 import { useBotConversationMessageProjection } from "./bot-conversation-message-projection";
 import { useAtomValue } from "@effect/atom-react";
 import { BotId, EnvironmentId, GroupId, type ScopedThreadRef } from "@otto/contracts";
@@ -247,7 +248,7 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
         const createdAt = new Date().toISOString();
         const threadId = currentThreadRef.threadId;
         const title = threadTitle(prompt, files);
-        const runtimeMode = respondingBot?.runtimeMode ?? settings.localExecutionMode;
+        const runtimeMode = DEFAULT_BOT_RUNTIME_MODE;
 
         try {
           const attachments = await readThreadTurnAttachments(files);
@@ -322,7 +323,6 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
       pendingUserInputs,
       providerEntries,
       rememberedThread?.runtimeMode,
-      settings.localExecutionMode,
       setRuntimeMode,
       startTurn,
       titleFromFirstMessage,

@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1721,
+  "directMessageCount": 1717,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -123,8 +123,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/settings/bot-workspace-settings.tsx": [
       "BOT_SANDBOX_BROWSER_SHARING_LABELS[value])}</SelectValue>",
-      "BOT_SANDBOX_BROWSER_SHARING_LABELS.shared)}",
       "BOT_SANDBOX_BROWSER_SHARING_LABELS.separate)}",
+      "BOT_SANDBOX_BROWSER_SHARING_LABELS.shared)}",
     ],
     "apps/web/src/components/settings/general-settings-panel.tsx": [
       "recordLookup(actionLabel, action) ??",
@@ -223,12 +223,11 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Color scheme",
       "Interface font size",
       "Code font size",
-      "Sandbox and browser sharing",
+      "Bot computers",
       "Time format",
       "Memory",
       "Private bot memory",
       "Ask before saving project memory",
-      "Local execution",
       "Voice calls",
       "Voice provider",
       "Voice selection",

@@ -21,11 +21,8 @@ const destinations: Readonly<
 > = {
   general: { section: "general", label: "General" },
   usage: { section: "usage", label: "Usage" },
-  "local-execution": {
-    section: "computer",
-    label: "Computer > Local execution",
-    targetId: "local-execution",
-  },
+  // Otto: Bots always run with full access, so there is no Local execution row; old chips open Computer.
+  "local-execution": { section: "computer", label: "Computer" },
   appearance: { section: "appearance", label: "Appearance" },
   keybindings: { section: "keybindings", label: "Shortcuts" },
   account: { section: "account", label: "Profile" },

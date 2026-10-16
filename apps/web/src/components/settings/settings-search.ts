@@ -71,7 +71,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "sandbox-browser-sharing",
-    title: "Sandbox and browser sharing",
+    title: "Bot computers",
     to: "/settings/computer",
   },
   {
@@ -96,11 +96,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Ask before saving project memory",
     to: "/settings/memory",
     keywords: ["memory", "approval"],
-  },
-  {
-    id: "local-execution",
-    title: "Local execution",
-    to: "/settings/computer",
   },
   {
     id: "voice-enabled",
