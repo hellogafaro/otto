@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { DailyTotals, HourlyTotals } from "@otto/shared/usageMerge";
 
-import { useClientSettings } from "../../hooks/use-settings";
 import { useUsage } from "../../state/usage";
 import {
   enumerateDays,
@@ -43,6 +42,9 @@ import {
   UsageSkeleton,
 } from "./usage-page-sections";
 
+// Otto: plan limits reload every 5 minutes; there is no setting for it.
+const USAGE_REFRESH_MS = 5 * 60 * 1000;
+
 export function UsagePage() {
   const [preferences, setPreferences] = useState(readUsagePagePreferences);
 
@@ -61,17 +63,16 @@ export function UsagePage() {
   const { days: windowDays, window } = windowSelection;
   const isPast24Hours = windowDays === 1;
   const { merged, environments, isPending, isPartial, refresh } = useUsage(window);
-  const refreshMinutes = useClientSettings((settings) => settings.usageRefreshMinutes);
 
   const planLimits = PLAN_PROVIDER_ORDER.map((provider) =>
     merged.planLimits.find((entry) => entry.provider === provider && entry.status === "ok"),
   ).filter((entry) => entry !== undefined);
 
   useEffect(() => {
-    const timer = globalThis.setInterval(refresh, Math.max(1, refreshMinutes) * 60 * 1000);
+    const timer = globalThis.setInterval(refresh, USAGE_REFRESH_MS);
 
     return () => globalThis.clearInterval(timer);
-  }, [refresh, refreshMinutes]);
+  }, [refresh]);
 
   const days = useMemo(
     () => enumerateDays(window.sinceDay, window.untilDay),

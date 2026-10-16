@@ -19,10 +19,6 @@ export const DEFAULT_UNIFIED_SETTINGS: UnifiedSettings = {
 export {
   TimestampFormat,
   DEFAULT_TIMESTAMP_FORMAT,
-  MIN_USAGE_REFRESH_MINUTES,
-  MAX_USAGE_REFRESH_MINUTES,
-  DEFAULT_USAGE_REFRESH_MINUTES,
-  UsageRefreshMinutes,
   SidebarProjectSortOrder,
   DEFAULT_SIDEBAR_PROJECT_SORT_ORDER,
   SidebarThreadSortOrder,

@@ -60,19 +60,12 @@ describe("settings in Simplified Chinese", () => {
       "语言",
       "时间格式",
       "系统默认会跟随浏览器或操作系统的时钟偏好。",
-      "用量刷新",
-      "5 分钟",
       "版本",
     ]) {
       expect(html).toContain(label);
     }
 
-    for (const label of [
-      "Time format",
-      "System default follows",
-      "Usage refresh",
-      "reloads plan limits",
-    ]) {
+    for (const label of ["Time format", "System default follows"]) {
       expect(html).not.toContain(label);
     }
 

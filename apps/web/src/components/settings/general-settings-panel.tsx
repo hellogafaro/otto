@@ -1,6 +1,5 @@
 import { recordLookup } from "../record-lookup";
 import { Predicate } from "effect";
-import { Link } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import { DEFAULT_UNIFIED_SETTINGS, type QuitConfirmationMode } from "@otto/contracts/settings";
@@ -211,29 +210,6 @@ function AboutVersionSection() {
   );
 }
 
-/** "How often the usage page reloads plan limits.", with the page name as a link. */
-function UsageRefreshDescription() {
-  const { t } = useI18n();
-
-  const [beforeLink, afterLink = ""] = t("How often the {link} reloads plan limits.", {
-    link: "\u0000",
-  }).split("\u0000");
-
-  return (
-    <>
-      {beforeLink}
-      <Link
-        to="/settings/$section"
-        params={{ section: "usage" }}
-        className="text-foreground underline underline-offset-2"
-      >
-        {t("usage page")}
-      </Link>
-      {afterLink}
-    </>
-  );
-}
-
 export function GeneralSettingsPanel() {
   const { t } = useI18n();
   const settings = usePrimarySettings();
@@ -280,55 +256,6 @@ export function GeneralSettingsPanel() {
                 </SelectItem>
                 <SelectItem hideIndicator value="24-hour">
                   {t(TIMESTAMP_FORMAT_LABELS["24-hour"])}
-                </SelectItem>
-              </SelectPopup>
-            </Select>
-          }
-        />
-
-        <SettingsRow
-          {...searchableSetting("usage-refresh", t)}
-          description={<UsageRefreshDescription />}
-          resetAction={
-            settings.usageRefreshMinutes !== DEFAULT_UNIFIED_SETTINGS.usageRefreshMinutes ? (
-              <SettingResetButton
-                label={t("usage refresh")}
-                onClick={() =>
-                  updateSettings({
-                    usageRefreshMinutes: DEFAULT_UNIFIED_SETTINGS.usageRefreshMinutes,
-                  })
-                }
-              />
-            ) : null
-          }
-          control={
-            <Select
-              value={String(settings.usageRefreshMinutes)}
-              onValueChange={(value) => {
-                const minutes = Number(value);
-
-                if (minutes === 1 || minutes === 5 || minutes === 15 || minutes === 30) {
-                  updateSettings({ usageRefreshMinutes: minutes });
-                }
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-40" aria-label={t("Usage refresh")}>
-                <SelectValue>
-                  {t("{count} min", { count: settings.usageRefreshMinutes })}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectPopup align="end" alignItemWithTrigger={false}>
-                <SelectItem hideIndicator value="1">
-                  {t("{count} min", { count: 1 })}
-                </SelectItem>
-                <SelectItem hideIndicator value="5">
-                  {t("{count} min", { count: 5 })}
-                </SelectItem>
-                <SelectItem hideIndicator value="15">
-                  {t("{count} min", { count: 15 })}
-                </SelectItem>
-                <SelectItem hideIndicator value="30">
-                  {t("{count} min", { count: 30 })}
                 </SelectItem>
               </SelectPopup>
             </Select>

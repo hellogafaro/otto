@@ -357,7 +357,6 @@ export const chatCatalog = {
   "The file could not be read.": "The file could not be read.",
   "System default follows your browser or OS clock preference.":
     "System default follows your browser or OS clock preference.",
-  "How often the Usage page reloads plan limits.": "How often the Usage page reloads plan limits.",
   "Set whether the diff panel ignores whitespace-only edits by default.":
     "Set whether the diff panel ignores whitespace-only edits by default.",
   "diff whitespace changes": "diff whitespace changes",
@@ -386,7 +385,6 @@ export const chatCatalog = {
   "Chat summary": "Chat summary",
   "Could not clear the chat summary": "Could not clear the chat summary",
   Preview: "Preview",
-  "How often the {link} reloads plan limits.": "How often the {link} reloads plan limits.",
   "Enable Browserbase": "Enable Browserbase",
   "Browserbase API key": "Browserbase API key",
   "Agent browser access": "Agent browser access",

@@ -49,9 +49,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.timestampFormat !== DEFAULT_UNIFIED_SETTINGS.timestampFormat
         ? ["Time format"]
         : []),
-      ...(settings.usageRefreshMinutes !== DEFAULT_UNIFIED_SETTINGS.usageRefreshMinutes
-        ? ["Usage refresh"]
-        : []),
       ...(settings.sidebarThreadPreviewCount !== DEFAULT_UNIFIED_SETTINGS.sidebarThreadPreviewCount
         ? ["Visible chats"]
         : []),
@@ -114,7 +111,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.sidebarThreadPreviewCount,
       settings.showSkillsInSlashMenu,
       settings.timestampFormat,
-      settings.usageRefreshMinutes,
       settings.wordWrap,
       appearanceMode,
     ],
@@ -151,7 +147,6 @@ export function useSettingsRestore(onRestored?: () => void) {
     updateSettings({
       appearanceContrast: DEFAULT_UNIFIED_SETTINGS.appearanceContrast,
       timestampFormat: DEFAULT_UNIFIED_SETTINGS.timestampFormat,
-      usageRefreshMinutes: DEFAULT_UNIFIED_SETTINGS.usageRefreshMinutes,
       wordWrap: DEFAULT_UNIFIED_SETTINGS.wordWrap,
       diffIgnoreWhitespace: DEFAULT_UNIFIED_SETTINGS.diffIgnoreWhitespace,
       showSkillsInSlashMenu: DEFAULT_UNIFIED_SETTINGS.showSkillsInSlashMenu,

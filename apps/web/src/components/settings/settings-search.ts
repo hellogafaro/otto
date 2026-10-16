@@ -111,11 +111,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/general",
   },
   {
-    id: "usage-refresh",
-    title: "Usage refresh",
-    to: "/settings/general",
-  },
-  {
     id: "privacy",
     title: "Privacy",
     to: "/settings/privacy",

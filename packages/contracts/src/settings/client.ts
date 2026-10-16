@@ -20,21 +20,6 @@ export type TimestampFormat = typeof TimestampFormat.Type;
 
 export const DEFAULT_TIMESTAMP_FORMAT: TimestampFormat = "locale";
 
-export const MIN_USAGE_REFRESH_MINUTES = 1;
-
-export const MAX_USAGE_REFRESH_MINUTES = 60;
-
-export const DEFAULT_USAGE_REFRESH_MINUTES = 5;
-
-export const UsageRefreshMinutes = Schema.Int.check(
-  Schema.isBetween({
-    minimum: MIN_USAGE_REFRESH_MINUTES,
-    maximum: MAX_USAGE_REFRESH_MINUTES,
-  }),
-);
-
-export type UsageRefreshMinutes = typeof UsageRefreshMinutes.Type;
-
 export const SidebarProjectSortOrder = Schema.Literals(["updated_at", "created_at", "manual"]);
 
 export type SidebarProjectSortOrder = typeof SidebarProjectSortOrder.Type;
@@ -295,9 +280,6 @@ export const ClientSettingsSchema = Schema.Struct({
   timestampFormat: TimestampFormat.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_TIMESTAMP_FORMAT)),
   ),
-  usageRefreshMinutes: UsageRefreshMinutes.pipe(
-    Schema.withDecodingDefault(Effect.succeed(DEFAULT_USAGE_REFRESH_MINUTES)),
-  ),
   wordWrap: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
 });
 
@@ -358,7 +340,6 @@ export const ClientSettingsPatch = Schema.Struct({
   sidebarThreadSortOrder: Schema.optionalKey(SidebarThreadSortOrder),
   sidebarThreadPreviewCount: Schema.optionalKey(SidebarThreadPreviewCount),
   timestampFormat: Schema.optionalKey(TimestampFormat),
-  usageRefreshMinutes: Schema.optionalKey(UsageRefreshMinutes),
   wordWrap: Schema.optionalKey(Schema.Boolean),
 });
 

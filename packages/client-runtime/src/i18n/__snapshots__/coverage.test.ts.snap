@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1852,
+  "directMessageCount": 1845,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -178,7 +178,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "settingsSectionLabel(section));",
     ],
     "apps/web/src/components/settings/settings-sidebar-nav.tsx": [
-      "result.title)}",
       "group.label)}",
       "item.label)}",
       "group.label)}</SidebarGroupLabel> : null}",
@@ -256,7 +255,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Word wrap",
       "Sandbox and browser sharing",
       "Time format",
-      "Usage refresh",
       "Privacy",
       "Voice calls",
       "Memory",

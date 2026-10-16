@@ -349,7 +349,6 @@ export const chatCatalog = {
   "The file could not be read.": "无法读取该文件。",
   "System default follows your browser or OS clock preference.":
     "系统默认会跟随浏览器或操作系统的时钟偏好。",
-  "How often the Usage page reloads plan limits.": "“用量”页面重新加载套餐限额的频率。",
   "Set whether the diff panel ignores whitespace-only edits by default.":
     "设置差异面板是否默认忽略仅涉及空白字符的修改。",
   "diff whitespace changes": "差异中的空白修改",
@@ -378,7 +377,6 @@ export const chatCatalog = {
   "Chat summary": "聊天摘要",
   "Could not clear the chat summary": "无法清除聊天摘要",
   Preview: "预览",
-  "How often the {link} reloads plan limits.": "{link}重新加载套餐限额的频率。",
   "Enable Browserbase": "启用 Browserbase",
   "Browserbase API key": "Browserbase API 密钥",
   "Agent browser access": "智能体浏览器访问",
