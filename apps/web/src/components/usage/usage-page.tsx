@@ -2,7 +2,6 @@ import { RiBarChartLine, RiLoopRightLine, RiRobot3Line } from "@remixicon/react"
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
-import type { UsageProviderKind } from "@otto/contracts";
 import type { MemberTotals, ModelTotals } from "@otto/shared/usageMerge";
 import {
   enumerateDays,
@@ -30,7 +29,7 @@ import {
   EmptyTitle,
 } from "../ui/empty";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
-import { PLAN_PROVIDER_ORDER, UsagePlanMeters } from "./usage-charts";
+import { PLAN_PROVIDER_ORDER, UsagePlanLimits } from "./usage-charts";
 import {
   isUsageMetric,
   isUsageWindowDays,
@@ -62,13 +61,15 @@ function figureColumns<T extends { readonly costUsd: number; readonly totalToken
     {
       id: "tokens",
       type: "meta",
+      header: "Tokens",
       className: "w-24 justify-end",
-      cell: (row) => `${formatTokens(row.totalTokens)} tokens`,
+      cell: (row) => formatTokens(row.totalTokens),
     },
     {
       id: "share",
       type: "meta",
-      className: "w-12 justify-end",
+      header: "Share",
+      className: "w-14 justify-end",
       cell: (row) =>
         formatPercent(
           metric === "cost"
@@ -81,16 +82,22 @@ function figureColumns<T extends { readonly costUsd: number; readonly totalToken
     {
       id: "cost",
       type: "meta",
+      header: "Cost",
       className: "w-20 justify-end",
       cell: (row) => formatUsd(row.costUsd),
     },
   ];
 }
 
-/** A model row: its name, then the shared figures; its provider is the group band above it. */
+/** A model row: its provider's mark and its name, then the shared figures. */
 function modelColumns(metric: UsageMetric, totalTokens: number): DataTableColumn<ModelTotals>[] {
   return [
-    { id: "model", type: "title", cell: (model) => model.model },
+    {
+      id: "provider",
+      type: "icon",
+      cell: (model) => <ProviderMark provider={model.provider} className="size-3.5" />,
+    },
+    { id: "model", type: "title", header: "Model", cell: (model) => model.model },
     ...figureColumns<ModelTotals>(metric, totalTokens, (model) => model.costShare),
   ];
 }
@@ -103,20 +110,21 @@ function memberColumns(metric: UsageMetric, totalTokens: number): DataTableColum
   return [
     {
       id: "avatar",
-      type: "icon",
+      className: "w-5 justify-center",
       cell: (member) =>
         member.personId === null ? (
-          <RiRobot3Line aria-hidden />
+          <RiRobot3Line aria-hidden className="size-3.5 text-muted-foreground" />
         ) : (
           <PersonAvatar name={member.displayName ?? "?"} className="size-5 text-9px" />
         ),
     },
-    { id: "name", type: "title", cell: memberName },
+    { id: "name", type: "title", header: "Member", cell: memberName },
     {
       id: "chats",
       type: "meta",
-      cell: (member) =>
-        `${formatCount(member.sessions)} ${member.sessions === 1 ? "chat" : "chats"}`,
+      header: "Chats",
+      className: "w-16 justify-end",
+      cell: (member) => formatCount(member.sessions),
     },
     ...figureColumns<MemberTotals>(metric, totalTokens, (member) => member.costShare),
   ];
@@ -204,13 +212,7 @@ export function UsagePage() {
 
   return (
     <SettingsPageContainer>
-      {planLimits.length > 0 ? (
-        <div className="flex flex-col gap-9">
-          {planLimits.map((limits) => (
-            <UsagePlanMeters key={limits.provider} limits={limits} />
-          ))}
-        </div>
-      ) : null}
+      {planLimits.length > 0 ? <UsagePlanLimits planLimits={planLimits} /> : null}
 
       <div id="usage" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -333,14 +335,6 @@ export function UsagePage() {
                 getRowLabel={(model) =>
                   `${PROVIDER_PRESENTATION[model.provider].label} ${model.model}, ${formatUsd(model.costUsd)}`
                 }
-                groupBy={{
-                  groups: activeProviders.map((provider: UsageProviderKind) => ({
-                    id: provider,
-                    label: PROVIDER_PRESENTATION[provider].label,
-                    icon: <ProviderMark provider={provider} className="size-3.5" />,
-                  })),
-                  getGroupId: (model) => model.provider,
-                }}
               />
             )}
           </section>

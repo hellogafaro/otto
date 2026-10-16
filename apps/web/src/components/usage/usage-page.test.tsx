@@ -29,16 +29,17 @@ vi.mock("./usage-charts", async (importOriginal) => {
 
   return {
     ...actual,
-    UsagePlanMeters: (props: {
-      limits: { provider: string; windows: { label: string; usedPercent: number }[] };
-    }) => (
-      <div>
-        {props.limits.provider}{" "}
-        {props.limits.windows
-          .map((window) => `${window.label} ${Math.round(100 - window.usedPercent)}% left`)
-          .join(" ")}
-      </div>
-    ),
+    UsagePlanLimits: (props: {
+      planLimits: { provider: string; windows: { label: string; usedPercent: number }[] }[];
+    }) =>
+      props.planLimits.map((limits) => (
+        <div key={limits.provider}>
+          {limits.provider}{" "}
+          {limits.windows
+            .map((window) => `${window.label} ${Math.round(100 - window.usedPercent)}% left`)
+            .join(" ")}
+        </div>
+      )),
     UsageActivityChart: () => <div>activity-chart</div>,
   };
 });
@@ -204,7 +205,7 @@ describe("UsagePage", () => {
     expect(markup).toContain("anthropic");
   });
 
-  it("groups model activity under its recorded provider, not its model name", () => {
+  it("lists each model once under the Model column, whatever its provider", () => {
     saveUsagePagePreferences({ metric: "tokens", windowDays: 30 });
 
     const provider = (kind: "codex" | "claude", totalTokens: number) => ({
@@ -259,10 +260,10 @@ describe("UsagePage", () => {
 
     const at = (text: string) => markup.indexOf(text);
 
-    expect(at(">Codex<")).toBeGreaterThan(-1);
-    expect(at(">Codex<")).toBeLessThan(at("claude-opus-5"));
-    expect(at("claude-opus-5")).toBeLessThan(at(">Claude<"));
-    expect(at(">Claude<")).toBeLessThan(at("gpt-5.6-sol"));
+    expect(at(">Model<")).toBeGreaterThan(-1);
+    expect(at(">Model<")).toBeLessThan(at("claude-opus-5"));
+    expect(at("claude-opus-5")).toBeLessThan(at("gpt-5.6-sol"));
+    expect(markup).toContain("31M");
   });
 
   it("lists usage by member, with work bots did on their own apart", () => {

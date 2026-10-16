@@ -10,7 +10,8 @@ import { cn } from "~/lib/utils";
  * remaining width and fades out when it overflows, `meta` 13px secondary
  * text, `chips` a row of pills 6px apart that hides in narrow lists, `time` a
  * 12px stamp. Without a type the cell is laid out by `className`.
- * There is no header row: the row's `getRowLabel` names it for assistive tech.
+ * A table has no header row unless a column names one with `header`; the row's `getRowLabel`
+ * names it for assistive tech either way.
  */
 export type DataTableColumnType = "icon" | "title" | "meta" | "chips" | "time";
 
@@ -18,6 +19,8 @@ export interface DataTableColumn<T> {
   readonly id: string;
   readonly type?: DataTableColumnType;
   readonly cell: (row: T) => React.ReactNode;
+  /** Otto: the column's label in the header band; any column with one turns the band on. */
+  readonly header?: React.ReactNode;
   /**
    * Otto: on a `title` column, content that follows the title text at the column gap, such as
    * who it belongs to, instead of a column at the far right; it never fades with the title.
@@ -34,17 +37,51 @@ export interface DataTableGroup {
 
 const SECONDARY_TEXT = "text-foreground/52";
 
-const COLUMN_CLASS: Record<DataTableColumnType, string> = {
-  icon: cn("w-4 justify-center translate-y-px [&_svg]:size-3.5", SECONDARY_TEXT),
-  title:
-    "min-w-0 flex-1 text-13px font-normal tracking-title-sm text-foreground/80 dark:text-foreground/68",
-  meta: cn(
-    "text-13px font-normal tracking-title-sm whitespace-nowrap tabular-nums",
-    SECONDARY_TEXT,
-  ),
+/** Where a column sits and how wide it is, shared by its cells and its header. */
+const COLUMN_LAYOUT: Record<DataTableColumnType, string> = {
+  icon: "w-4 justify-center",
+  title: "min-w-0 flex-1",
+  meta: "whitespace-nowrap",
   chips: "hidden gap-1.5 @lg/list:flex",
-  time: cn("justify-end text-xs font-normal whitespace-nowrap tabular-nums", SECONDARY_TEXT),
+  time: "justify-end whitespace-nowrap",
 };
+
+const COLUMN_TEXT: Record<DataTableColumnType, string> = {
+  icon: cn("translate-y-px [&_svg]:size-3.5", SECONDARY_TEXT),
+  title: "text-13px font-normal tracking-title-sm text-foreground/80 dark:text-foreground/68",
+  meta: cn("text-13px font-normal tracking-title-sm tabular-nums", SECONDARY_TEXT),
+  chips: "",
+  time: cn("text-xs font-normal tabular-nums", SECONDARY_TEXT),
+};
+
+const ROW_CLASS = "flex w-full items-center gap-6 rounded-md px-4 text-left";
+
+/**
+ * Otto: Linear's two root groups. The title and what leads it sit left; the rest sit right as
+ * their own groups (chips, time) 12px apart, while items inside a group stay 6-8px apart.
+ * Header bands and rows split columns the same way, so a header sits over its cells.
+ */
+function RowGroups<T>({
+  columns,
+  render,
+}: {
+  readonly columns: readonly DataTableColumn<T>[];
+  readonly render: (column: DataTableColumn<T>) => React.ReactNode;
+}) {
+  const titleIndex = columns.findIndex((column) => column.type === "title");
+  const right = titleIndex === -1 ? [] : columns.slice(titleIndex + 1);
+
+  return (
+    <>
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        {columns.slice(0, titleIndex === -1 ? columns.length : titleIndex + 1).map(render)}
+      </span>
+      {right.length > 0 ? (
+        <span className="flex shrink-0 items-center gap-3">{right.map(render)}</span>
+      ) : null}
+    </>
+  );
+}
 
 /**
  * Otto: The shared data table, copied from Capy's thread list. Rows are 44px
@@ -92,6 +129,32 @@ export function DataTable<T>({
 
   return (
     <div className={cn("@container/list flex flex-col gap-2", className)}>
+      {columns.some((column) => column.header !== undefined) ? (
+        <div
+          data-slot="data-table-header"
+          className={cn(
+            ROW_CLASS,
+            "h-9 bg-foreground/[0.035] text-xs font-normal tracking-title-sm select-none",
+            SECONDARY_TEXT,
+          )}
+        >
+          <RowGroups
+            columns={columns}
+            render={(column) => (
+              <span
+                key={column.id}
+                className={cn(
+                  "flex shrink-0 items-center",
+                  column.type && COLUMN_LAYOUT[column.type],
+                  column.className,
+                )}
+              >
+                {column.header}
+              </span>
+            )}
+          />
+        </div>
+      ) : null}
       {groupBy
         ? groupBy.groups.map((group) => {
             const items = rows.filter((row) => groupBy.getGroupId(row) === group.id);
@@ -164,7 +227,8 @@ function DataTableRow<T>({
       key={column.id}
       className={cn(
         "flex shrink-0 items-center",
-        column.type && COLUMN_CLASS[column.type],
+        column.type && COLUMN_LAYOUT[column.type],
+        column.type && COLUMN_TEXT[column.type],
         column.className,
       )}
     >
@@ -181,24 +245,8 @@ function DataTableRow<T>({
     </span>
   );
 
-  // Otto: Linear's two root groups. The title and what leads it sit left; the rest sit right as
-  // their own groups (chips, time) 12px apart, while items inside a group stay 6-8px apart.
-  const titleIndex = columns.findIndex((column) => column.type === "title");
-  const right = titleIndex === -1 ? [] : columns.slice(titleIndex + 1);
-
-  const cells = (
-    <>
-      <span className="flex min-w-0 flex-1 items-center gap-2">
-        {columns.slice(0, titleIndex === -1 ? columns.length : titleIndex + 1).map(cell)}
-      </span>
-      {right.length > 0 ? (
-        <span className="flex shrink-0 items-center gap-3">{right.map(cell)}</span>
-      ) : null}
-    </>
-  );
-
-  const rowClassName =
-    "flex h-11 w-full items-center gap-6 rounded-md px-4 text-left text-sm text-foreground outline-none select-none";
+  const cells = <RowGroups columns={columns} render={cell} />;
+  const rowClassName = cn(ROW_CLASS, "h-11 text-sm text-foreground outline-none select-none");
 
   return (
     <li className="-m-0.5 list-none p-0.5">
