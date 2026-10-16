@@ -10,18 +10,21 @@ import {
 } from "@remixicon/react";
 import { useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Toaster as Sonner, type ToasterProps } from "sonner";
+import { Toaster as Sonner, type ToasterProps, useSonner } from "sonner";
 
 import { useI18n } from "~/i18n";
 import { buttonVariants } from "./button";
 
-// Otto: 16px from the main panel's edges, like Linear and Capy.
+// Otto: The composer's bottom padding (pb-4, sm:pb-6), so a toast's bottom lines up with the composer's.
 const TOAST_INSET = 16;
+
+const TOAST_INSET_SM = 24;
 
 /**
  * Otto: shadcn's Sonner, styled like Capy and Linear: one line on the popover
  * surface, a status icon, the title, at most one outline action and an inline
- * ghost close. It stacks bottom right, 16px inside the main panel's corner, with
+ * ghost close. It stacks bottom right inside the main panel's corner, as far from
+ * its edges as the composer sits from the bottom (16px, 24px from `sm`), with
  * a radius below the panel's so it reads as the smaller, inner shape
  * (`--toast-radius`). Its buttons keep the normal control radius and sit 4px
  * from the edges and 4px apart.
@@ -37,7 +40,8 @@ function Toaster(props: ToasterProps) {
       theme="light"
       position="bottom-right"
       offset={offset}
-      mobileOffset={TOAST_INSET}
+      // Sonner widens a phone toast by the left offset on both sides.
+      mobileOffset={{ ...offset, left: offset.right }}
       gap={8}
       closeButton
       containerAriaLabel={t("Notifications")}
@@ -75,20 +79,37 @@ function Toaster(props: ToasterProps) {
   );
 }
 
-/** The main panel's distance from the window's right and bottom edges, plus the 16px inset. */
+/**
+ * The main panel's inner right and bottom edges, measured from the window's, plus the
+ * composer's inset. It measures again whenever the stack appears, because the panel
+ * mounts after the Toaster (behind sign-in and loading).
+ */
 function useMainPanelOffset(): { right: number; bottom: number } {
   const pathname = useLocation({ select: (location) => location.pathname });
+  const visible = useSonner().toasts.length > 0;
   const [offset, setOffset] = useState({ right: TOAST_INSET, bottom: TOAST_INSET });
 
   useEffect(() => {
     const panel = document.querySelector<HTMLElement>("main[data-slot=sidebar-inset]");
 
     const measure = () => {
-      const rect = panel?.getBoundingClientRect();
+      const inset = window.matchMedia("(min-width: 40rem)").matches ? TOAST_INSET_SM : TOAST_INSET;
+
+      if (!panel) {
+        setOffset({ right: inset, bottom: inset });
+
+        return;
+      }
+
+      const rect = panel.getBoundingClientRect();
 
       setOffset({
-        right: TOAST_INSET + (rect ? Math.max(0, window.innerWidth - rect.right) : 0),
-        bottom: TOAST_INSET + (rect ? Math.max(0, window.innerHeight - rect.bottom) : 0),
+        right:
+          inset +
+          Math.max(0, window.innerWidth - (rect.left + panel.clientLeft + panel.clientWidth)),
+        bottom:
+          inset +
+          Math.max(0, window.innerHeight - (rect.top + panel.clientTop + panel.clientHeight)),
       });
     };
 
@@ -102,7 +123,7 @@ function useMainPanelOffset(): { right: number; bottom: number } {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [pathname]);
+  }, [pathname, visible]);
 
   return offset;
 }
