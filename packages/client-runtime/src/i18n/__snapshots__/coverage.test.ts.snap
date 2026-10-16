@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1742,
+  "directMessageCount": 1734,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -135,22 +135,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "QUIT_CONFIRMATION_MODE_LABELS[settings.confirmQuit])}",
       "label)}",
     ],
-    "apps/web/src/components/settings/provider-account-controls.tsx": [
+    "apps/web/src/components/settings/models-settings.tsx": [
       "definition.subscription)}",
-      "problem)}</span> : undefined",
-      "definition.description)",
-      "problem)}</span> : undefined",
-    ],
-    "apps/web/src/components/settings/provider-detail-page.tsx": [
-      "entry.planHint),",
-      "entry.planHint));",
-      "state.label) };",
-      "entry.planHint)} />",
-      "entry.planHint)}",
-      "entry.planHint)}",
-    ],
-    "apps/web/src/components/settings/provider-linked-accounts.tsx": [
-      "state.label)}</span>;",
+      "label)}</Badge>",
     ],
     "apps/web/src/components/settings/sandbox-settings-panel.tsx": [
       "definition.description)}",
@@ -222,6 +209,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Integrations",
       "Models",
       "Voice",
+      "Images",
       "Channels",
       "Computer",
       "Organization",
@@ -253,7 +241,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "ChatGPT images",
       "Grok images",
       "Default image provider",
-      "Image fallback order",
       "Read new replies aloud",
       "Quit shortcut",
       "Keybindings",
@@ -500,12 +487,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/keybindings-settings.tsx",
     "apps/web/src/components/settings/language-setting.tsx",
     "apps/web/src/components/settings/memory-settings.tsx",
-    "apps/web/src/components/settings/provider-access-details.tsx",
+    "apps/web/src/components/settings/models-settings.tsx",
     "apps/web/src/components/settings/provider-account-controls.tsx",
-    "apps/web/src/components/settings/provider-detail-page.tsx",
-    "apps/web/src/components/settings/provider-instances-section.tsx",
-    "apps/web/src/components/settings/provider-linked-accounts.tsx",
-    "apps/web/src/components/settings/providers-panel.tsx",
     "apps/web/src/components/settings/sandbox-settings-panel.tsx",
     "apps/web/src/components/settings/settings-dialog.tsx",
     "apps/web/src/components/settings/settings-layout.tsx",

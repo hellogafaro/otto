@@ -546,4 +546,28 @@ export const connectionsCatalog = {
   "Remove the {name} key? Voice features that use {name} stop working until you connect it again.":
     "移除 {name} 密钥？重新连接之前，使用 {name} 的语音功能将无法使用。",
   "Voice connections couldn't be loaded": "无法加载语音连接",
+  "{provider} API key": "{provider} API 密钥",
+  "Disconnect {name}? Bots stop using it.": "断开 {name}？机器人将停止使用它。",
+  "Custom API": "自定义 API",
+  "Connections couldn't be loaded": "无法加载连接",
+  "Back at {time}": "{time} 恢复",
+  Unreachable: "无法访问",
+  "Connect a provider so bots can reply.": "连接一个提供商，机器人才能回复。",
+  "{name} has been saved": "{name} 已保存",
+  "Any OpenAI-compatible endpoint. The key stays on this environment.":
+    "任何兼容 OpenAI 的端点。密钥保存在此环境中。",
+  "Base URL": "基础 URL",
+  "Saved key, type to replace it": "已保存密钥，输入以替换",
+  "Model IDs": "模型 ID",
+  "Model IDs, one per line": "模型 ID，每行一个",
+  "Connect to an environment to set up image generation.": "请先连接环境，再设置图像生成。",
+  "Bots can't create images in chats yet. Choose which subscriptions they will use.":
+    "机器人暂时还不能在聊天中创建图像。请选择它们将使用的订阅。",
+  "Image providers couldn't be loaded": "无法加载图像提供商",
+  "Uses your {provider} connection": "使用你的 {provider} 连接",
+  "Connect {provider} in Models first": "请先在模型中连接 {provider}",
+  "Use {provider} for images": "使用 {provider} 生成图像",
+  "Default provider": "默认提供商",
+  "Bots try this one first and use the other when it fails.":
+    "机器人会先使用这个，失败时改用另一个。",
 } as const;

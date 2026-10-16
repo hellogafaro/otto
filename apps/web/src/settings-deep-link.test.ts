@@ -17,7 +17,7 @@ describe("settings deep links", () => {
     ["providers", "models", null, "Models"],
     ["channels", "channels", null, "Channels"],
     ["voice", "voice", null, "Voice"],
-    ["image-generation", "models", "image-generation", "Models > Image generation"],
+    ["image-generation", "images", null, "Images"],
     ["browser", "computer", "browser", "Computer > Browser"],
     ["plugins", "customize", null, "Customize"],
     ["sandbox", "computer", null, "Computer"],

@@ -182,7 +182,7 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
       title: t("Image generation settings"),
       icon: <RiImageLine className={ITEM_ICON_CLASS} />,
       run: async () => {
-        openSettings("models", "image-generation");
+        openSettings("images");
       },
     },
     buildLanguageCommandPaletteAction({

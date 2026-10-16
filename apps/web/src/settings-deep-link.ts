@@ -35,9 +35,8 @@ const destinations: Readonly<
   channels: { section: "channels", label: "Channels" },
   voice: { section: "voice", label: "Voice" },
   "image-generation": {
-    section: "models",
-    label: "Models > Image generation",
-    targetId: "image-generation",
+    section: "images",
+    label: "Images",
   },
   browser: { section: "computer", label: "Computer > Browser", targetId: "browser" },
   plugins: { section: "customize", label: "Customize" },

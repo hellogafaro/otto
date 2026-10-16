@@ -85,7 +85,7 @@ describe("legacy settings deep links", () => {
   it("maps retired sections onto the page that now owns them", () => {
     expect(settingsSectionFromPathname("/settings/source-control")).toBe("general");
     expect(settingsSectionFromPathname("/settings/providers")).toBe("models");
-    expect(settingsSectionFromPathname("/settings/image-generation")).toBe("models");
+    expect(settingsSectionFromPathname("/settings/image-generation")).toBe("images");
     expect(settingsSectionFromPathname("/settings/sandbox")).toBe("computer");
     expect(settingsSectionFromPathname("/settings/browser")).toBe("computer");
   });

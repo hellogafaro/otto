@@ -9,7 +9,6 @@ import {
   botImageProviderOptionLabel,
   effectiveDefaultProvider,
   effectiveFallbackOrder,
-  fallbackOrderError,
   globalDefaultOptionLabel,
   imageProviderAccessLabel,
   imageProviderGenerationLabel,
@@ -159,21 +158,6 @@ describe("imageProviderTogglePatch", () => {
 });
 
 describe("fallback order", () => {
-  it("accepts a valid order", () => {
-    expect(fallbackOrderError(["grok", "chatgpt"], BOTH)).toBeNull();
-  });
-
-  it("rejects empty, duplicate, oversized and disabled orders", () => {
-    expect(fallbackOrderError([], BOTH)).toBe("Choose at least one provider.");
-    expect(fallbackOrderError(["grok", "grok"], BOTH)).toBe("Each provider can appear only once.");
-    expect(fallbackOrderError(["grok", "chatgpt", "grok"], BOTH)).toBe(
-      "The order lists too many providers.",
-    );
-    expect(fallbackOrderError(["grok"], { ...BOTH, grokEnabled: false })).toBe(
-      "Grok is turned off.",
-    );
-  });
-
   it("derives the effective order and default from enabled providers", () => {
     const grokFirst = { ...BOTH, fallbackOrder: ["grok"] as const, defaultProvider: null };
     expect(effectiveFallbackOrder(grokFirst)).toEqual(["grok", "chatgpt"]);

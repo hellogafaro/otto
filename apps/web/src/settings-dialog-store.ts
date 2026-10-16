@@ -24,6 +24,7 @@ export const SETTINGS_SECTIONS = [
   "archived",
   "models",
   "voice",
+  "images",
   "channels",
   "computer",
 ] as const;
@@ -109,7 +110,7 @@ export function clearSettingsEnvironment(): void {
 export const LEGACY_SETTINGS_SECTIONS = {
   providers: { section: "models" },
   "source-control": { section: "general" },
-  "image-generation": { section: "models", targetId: "image-generation" },
+  "image-generation": { section: "images" },
   sandbox: { section: "computer" },
   browser: { section: "computer", targetId: "browser" },
 } as const satisfies Record<string, { section: SettingsSection; targetId?: string }>;

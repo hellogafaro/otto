@@ -58,9 +58,6 @@ vi.mock("../chat/provider-model-picker", () => ({ ProviderModelPicker: () => nul
 
 vi.mock("../chat/traits-picker", () => ({ TraitsPicker: () => null }));
 
-import { ProviderDetailPage } from "./provider-detail-page";
-import { ProviderInstancesSection } from "./provider-instances-section";
-import { PROVIDER_CATALOG } from "./provider-catalog";
 import { SandboxSettingsPanel } from "./sandbox-settings-panel";
 import { AppearanceSettingsPanel, BotWorkspaceSettingsSection } from "./settings-panels";
 
@@ -127,42 +124,6 @@ describe("settings panels in Simplified Chinese", () => {
       renderInChinese(<SandboxSettingsPanel />),
       ["沙盒提供商", zhCNCatalog["Default sandbox"]!, zhCNCatalog["Not connected"]!],
       ["Sandbox providers", "Default sandbox", "Not connected", ">Connect<"],
-    );
-  });
-
-  it("translates the provider detail page without an environment", () => {
-    expectTranslated(
-      renderInChinese(<ProviderDetailPage entry={PROVIDER_CATALOG[0]!} />),
-      ["账户", zhCNCatalog["Unavailable"]!],
-      [">Account<", ">Unavailable<", "Connect to an environment"],
-    );
-  });
-
-  it("translates the provider detail page without instance configuration", () => {
-    environment.id = ENVIRONMENT_ID;
-    expectTranslated(
-      renderInChinese(<ProviderDetailPage entry={PROVIDER_CATALOG[0]!} />),
-      [">配置<", "添加单独账户", "刷新 ChatGPT 状态", ">刷新<"],
-      [">Configuration<", "Add separate account", ">Refresh<", "Refresh ChatGPT status"],
-    );
-  });
-
-  it("translates the missing runtime message in the instances section", () => {
-    expectTranslated(
-      renderInChinese(
-        <ProviderInstancesSection
-          environmentId={ENVIRONMENT_ID}
-          drivers={[]}
-          providerLabel="Example"
-        />,
-      ),
-      [
-        ">配置<",
-        zhCNCatalog[
-          "This environment has no {provider} runtime. Update the environment server to configure it here."
-        ]!.replace("{provider}", "Example"),
-      ],
-      [">Configuration<", "This environment has no", "Add account"],
     );
   });
 });

@@ -191,18 +191,18 @@ describe("searchSettings", () => {
     });
   });
 
-  it("finds image generation on the Models page", () => {
+  it("finds image generation on the Images page", () => {
     expect(searchSettings("image generation")[0]).toMatchObject({
       id: "image-generation",
-      to: "/settings/models",
+      to: "/settings/images",
     });
     expect(searchSettings("Grok images")[0]).toMatchObject({
       id: "image-provider-grok",
-      to: "/settings/models",
+      to: "/settings/images",
     });
     expect(searchSettings("image fallback")[0]).toMatchObject({
-      id: "image-fallback-order",
-      to: "/settings/models",
+      id: "image-default-provider",
+      to: "/settings/images",
     });
   });
 });

@@ -3,6 +3,7 @@ import { isElectron } from "~/env";
 export type SettingsPath =
   | "/settings/models"
   | "/settings/voice"
+  | "/settings/images"
   | "/settings/channels"
   | "/settings/computer"
   | "/settings/general"
@@ -148,31 +149,26 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "image-generation",
     title: "Image generation",
-    to: "/settings/models",
-    keywords: ["images", "pictures", "ChatGPT", "Grok", "health test"],
+    to: "/settings/images",
+    keywords: ["images", "pictures", "ChatGPT", "Grok"],
   },
   {
     id: "image-provider-chatgpt",
     title: "ChatGPT images",
-    to: "/settings/models",
+    to: "/settings/images",
     keywords: ["image", "OpenAI", "subscription"],
   },
   {
     id: "image-provider-grok",
     title: "Grok images",
-    to: "/settings/models",
+    to: "/settings/images",
     keywords: ["image", "xAI", "subscription"],
   },
   {
     id: "image-default-provider",
     title: "Default image provider",
-    to: "/settings/models",
-  },
-  {
-    id: "image-fallback-order",
-    title: "Image fallback order",
-    to: "/settings/models",
-    keywords: ["retry", "backup"],
+    to: "/settings/images",
+    keywords: ["image fallback", "retry", "backup"],
   },
   {
     id: "voice-read-aloud",

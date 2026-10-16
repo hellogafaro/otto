@@ -144,23 +144,6 @@ export function effectiveDefaultProvider(
   return effectiveFallbackOrder(settings)[0] ?? null;
 }
 
-/** Returns why an order cannot be saved, or null when it can. */
-export function fallbackOrderError(
-  order: ReadonlyArray<ImageProviderId>,
-  settings: ImageGenerationSettings,
-): string | null {
-  if (order.length === 0) return "Choose at least one provider.";
-
-  if (order.length > IMAGE_PROVIDER_IDS.length) return "The order lists too many providers.";
-
-  if (new Set(order).size !== order.length) return "Each provider can appear only once.";
-  const disabled = order.find((id) => !isImageProviderEnabled(settings, id));
-
-  if (disabled) return `${IMAGE_PROVIDER_LABELS[disabled]} is turned off.`;
-
-  return null;
-}
-
 /**
  * Patch for turning one provider on or off. It keeps the default and the
  * fallback order coherent so the optimistic settings match what the server

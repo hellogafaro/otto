@@ -584,4 +584,29 @@ export const connectionsCatalog = {
   "Remove the {name} key? Voice features that use {name} stop working until you connect it again.":
     "Remove the {name} key? Voice features that use {name} stop working until you connect it again.",
   "Voice connections couldn't be loaded": "Voice connections couldn't be loaded",
+  "{provider} API key": "{provider} API key",
+  "Disconnect {name}? Bots stop using it.": "Disconnect {name}? Bots stop using it.",
+  "Custom API": "Custom API",
+  "Connections couldn't be loaded": "Connections couldn't be loaded",
+  "Back at {time}": "Back at {time}",
+  Unreachable: "Unreachable",
+  "Connect a provider so bots can reply.": "Connect a provider so bots can reply.",
+  "{name} has been saved": "{name} has been saved",
+  "Any OpenAI-compatible endpoint. The key stays on this environment.":
+    "Any OpenAI-compatible endpoint. The key stays on this environment.",
+  "Base URL": "Base URL",
+  "Saved key, type to replace it": "Saved key, type to replace it",
+  "Model IDs": "Model IDs",
+  "Model IDs, one per line": "Model IDs, one per line",
+  "Connect to an environment to set up image generation.":
+    "Connect to an environment to set up image generation.",
+  "Bots can't create images in chats yet. Choose which subscriptions they will use.":
+    "Bots can't create images in chats yet. Choose which subscriptions they will use.",
+  "Image providers couldn't be loaded": "Image providers couldn't be loaded",
+  "Uses your {provider} connection": "Uses your {provider} connection",
+  "Connect {provider} in Models first": "Connect {provider} in Models first",
+  "Use {provider} for images": "Use {provider} for images",
+  "Default provider": "Default provider",
+  "Bots try this one first and use the other when it fails.":
+    "Bots try this one first and use the other when it fails.",
 } as const;

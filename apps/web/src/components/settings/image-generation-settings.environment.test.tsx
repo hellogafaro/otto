@@ -12,16 +12,6 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { visitElements } from "../test-support/react-tree";
 import { reactHookHarness as hooks } from "../../test/react-hook-harness";
 
-const atoms = vi.hoisted(() => ({
-  testImageProvider: Symbol("testImageProvider"),
-  logoutSubscriptionAuth: Symbol("logoutSubscriptionAuth"),
-}));
-
-const commands = vi.hoisted(() => ({
-  test: vi.fn(),
-  logout: vi.fn(),
-}));
-
 const query = vi.hoisted(() => ({
   lastAtom: null as { imageProviders: { environmentId: EnvironmentId; input: {} } } | null,
   providers: null as ReadonlyArray<ImageProviderStatus> | null,
@@ -36,8 +26,6 @@ const settingsState = vi.hoisted(() => ({
 }));
 
 const navigation = vi.hoisted(() => ({ openSettings: vi.fn() }));
-
-const confirm = vi.hoisted(() => ({ request: vi.fn() }));
 
 vi.mock("react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react")>();
@@ -61,8 +49,6 @@ vi.mock("react/compiler-runtime", async () => {
 vi.mock("../../state/server", () => ({
   serverEnvironment: {
     imageProviders: <T,>(args: T) => ({ imageProviders: args }),
-    testImageProvider: atoms.testImageProvider,
-    logoutSubscriptionAuth: atoms.logoutSubscriptionAuth,
   },
 }));
 
@@ -79,11 +65,6 @@ vi.mock("../../state/query", () => ({
   },
 }));
 
-vi.mock("../../state/use-atom-command", () => ({
-  useAtomCommand: (atom: symbol) =>
-    atom === atoms.testImageProvider ? commands.test : commands.logout,
-}));
-
 vi.mock("../../hooks/use-settings", () => ({
   useEnvironmentSettings: <T,>(
     _environmentId: EnvironmentId,
@@ -96,18 +77,24 @@ vi.mock("../../hooks/use-settings", () => ({
   useUpdateEnvironmentSettings: () => settingsState.updateSettings,
 }));
 
+vi.mock("../../i18n", () => ({
+  useI18n: () => ({
+    t: (message: string, params: Record<string, string> = {}) =>
+      message.replace(/{(w+)}/g, (_, name: string) => params[name] ?? ""),
+  }),
+}));
+
 vi.mock("../../settings-dialog-store", () => ({
   openSettings: navigation.openSettings,
   useSettingsEnvironmentId: () => null,
 }));
 
-vi.mock("../../confirm-dialog", () => ({ requestConfirmDialog: confirm.request }));
-
 import {
-  ImageGenerationRoutingSection,
+  ImageDefaultProviderRow,
   ImageGenerationSettingsContent,
   ImageProviderRow,
 } from "./image-generation-settings";
+import { SettingsMessageRow } from "./settings-detail-layout";
 
 const environmentId = EnvironmentId.make("remote-device");
 
@@ -144,14 +131,15 @@ function findRow(tree: TestValue, provider: ImageProviderStatus["provider"]) {
     readonly status: ImageProviderStatus | undefined;
     readonly loadFailed: boolean;
     readonly onToggle: (enabled: boolean) => void;
-    readonly onTest: () => void;
-    readonly onDisconnect: () => void;
     readonly onConnect: () => void;
   };
 }
 
-async function flushPromises(): Promise<void> {
-  for (let index = 0; index < 4; index += 1) await Promise.resolve();
+function findErrorRow(tree: TestValue) {
+  return visitElements(
+    tree,
+    (element) => element.type === SettingsMessageRow && element.props.tone === "error",
+  );
 }
 
 describe("ImageGenerationSettingsContent environment wiring", () => {
@@ -169,10 +157,7 @@ describe("ImageGenerationSettingsContent environment wiring", () => {
       fallbackOrder: ["chatgpt"],
     };
     settingsState.updateSettings.mockReset();
-    commands.test.mockReset().mockResolvedValue({ _tag: "Success" });
-    commands.logout.mockReset().mockResolvedValue({ _tag: "Success" });
     navigation.openSettings.mockReset();
-    confirm.request.mockReset().mockResolvedValue(true);
   });
 
   it("lists image providers for the selected environment", () => {
@@ -188,56 +173,33 @@ describe("ImageGenerationSettingsContent environment wiring", () => {
     });
   });
 
-  it("persists routing changes", () => {
-    const routing = visitElements(
+  it("shows the default only with both providers on and saves it with its fallback", () => {
+    expect(
+      visitElements(renderContent(), (element) => element.type === ImageDefaultProviderRow),
+    ).toBeNull();
+
+    settingsState.imageGeneration = {
+      chatgptEnabled: true,
+      grokEnabled: true,
+      defaultProvider: "chatgpt",
+      fallbackOrder: ["chatgpt", "grok"],
+    };
+
+    const row = visitElements(
       renderContent(),
-      (element) => element.type === ImageGenerationRoutingSection,
+      (element) => element.type === ImageDefaultProviderRow,
     );
 
-    (routing!.props.onChange as (patch: Partial<ImageGenerationSettings>) => void)({
+    (row!.props.onChange as (patch: Partial<ImageGenerationSettings>) => void)({
       defaultProvider: "grok",
+      fallbackOrder: ["grok", "chatgpt"],
     });
     expect(settingsState.updateSettings).toHaveBeenCalledWith({
-      imageGeneration: { defaultProvider: "grok" },
+      imageGeneration: { defaultProvider: "grok", fallbackOrder: ["grok", "chatgpt"] },
     });
   });
 
-  it("runs the health test in this environment and refreshes provider status", async () => {
-    findRow(renderContent(), "grok").onTest();
-    await flushPromises();
-    expect(commands.test).toHaveBeenCalledWith({ environmentId, input: { provider: "grok" } });
-    expect(query.refresh).toHaveBeenCalledTimes(1);
-  });
-
-  it("disconnects the matching subscription after confirmation", async () => {
-    findRow(renderContent(), "chatgpt").onDisconnect();
-    await flushPromises();
-    expect(confirm.request).toHaveBeenCalledTimes(1);
-    expect(commands.logout).toHaveBeenCalledWith({
-      environmentId,
-      input: { provider: "openai-codex" },
-    });
-    expect(query.refresh).toHaveBeenCalledTimes(1);
-
-    findRow(renderContent(), "grok").onDisconnect();
-    await flushPromises();
-    expect(commands.logout).toHaveBeenLastCalledWith({ environmentId, input: { provider: "xai" } });
-  });
-
-  it("keeps the subscription when the user cancels or no confirm host answers", async () => {
-    confirm.request.mockResolvedValueOnce(false);
-    findRow(renderContent(), "grok").onDisconnect();
-    await flushPromises();
-
-    confirm.request.mockReturnValueOnce(null);
-    findRow(renderContent(), "grok").onDisconnect();
-    await flushPromises();
-
-    expect(commands.logout).not.toHaveBeenCalled();
-    expect(query.refresh).not.toHaveBeenCalled();
-  });
-
-  it("opens the provider login row in the same environment", () => {
+  it("opens the provider connection on Models in the same environment", () => {
     findRow(renderContent(), "grok").onConnect();
     expect(navigation.openSettings).toHaveBeenCalledWith(
       "models",
@@ -259,12 +221,7 @@ describe("ImageGenerationSettingsContent environment wiring", () => {
     const row = findRow(tree, "grok");
     expect(row.status).toBeUndefined();
     expect(row.loadFailed).toBe(false);
-    expect(
-      visitElements(
-        tree,
-        (element) => element.props["aria-label"] === "Retry loading image providers",
-      ),
-    ).toBeNull();
+    expect(findErrorRow(tree)).toBeNull();
   });
 
   it("reports a load failure and retries the provider query", () => {
@@ -273,13 +230,8 @@ describe("ImageGenerationSettingsContent environment wiring", () => {
     const tree = renderContent();
     expect(findRow(tree, "grok").loadFailed).toBe(true);
 
-    const retry = visitElements(
-      tree,
-      (element) => element.props["aria-label"] === "Retry loading image providers",
-    );
-
-    expect(retry).not.toBeNull();
-    (retry!.props.onClick as () => void)();
+    const action = findErrorRow(tree)!.props.action as ReactElement<TestProps>;
+    (action.props.onClick as () => void)();
     expect(query.refresh).toHaveBeenCalledTimes(1);
   });
 });
