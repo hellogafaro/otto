@@ -12,10 +12,10 @@ describe("NewBotDialog", () => {
     expect(source).toContain("disabled={submitting || trimmedName.length === 0}");
   });
 
-  it("creates with the primary action and closes from the corner, with no Cancel", () => {
+  it("creates with the primary action beside a ghost Cancel", () => {
     expect(source).toContain('variant="primary"');
     expect(buttonVariants({ variant: "primary" })).toContain("bg-(--primary-button-background)");
-    expect(source).not.toContain('t("Cancel")');
+    expect(source).toContain('variant="ghost" onClick={() => onOpenChange(false)}');
   });
 
   it("starts on the app default model and creates the bot with the picked engine", () => {
