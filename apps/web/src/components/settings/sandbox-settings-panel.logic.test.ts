@@ -69,6 +69,13 @@ describe("sandbox settings", () => {
     expect(selectableSandboxProviders(DEFAULT_SERVER_SETTINGS.sandbox)).toEqual(["local"]);
   });
 
+  it("offers Boat when the server's environment connects it", () => {
+    expect(selectableSandboxProviders(DEFAULT_SERVER_SETTINGS.sandbox, true)).toEqual([
+      "local",
+      "boat",
+    ]);
+  });
+
   it("connects E2B and makes it available as a default", () => {
     const sandbox = saveSandboxProviderConnection({
       settings: DEFAULT_SERVER_SETTINGS.sandbox,

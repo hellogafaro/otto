@@ -1,5 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { DEFAULT_SERVER_SETTINGS, ProviderDriverKind, ProviderInstanceId } from "@otto/contracts";
+import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 import { createModelSelection } from "@otto/shared/model";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -600,5 +601,35 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         environmentVariable: "VERCEL_PROJECT_ID",
       });
     }).pipe(Effect.provide(makeServerSettingsLayer())),
+  );
+
+  it.effect("accepts Boat as the default sandbox only when the server has BOAT_API_KEY", () =>
+    Effect.gen(function* () {
+      const chooseBoat = Effect.gen(function* () {
+        const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
+
+        return yield* serverSettings.updateSettings({ sandbox: { defaultProvider: "boat" } });
+      });
+
+      const error = yield* Effect.flip(
+        chooseBoat.pipe(
+          Effect.provide(makeServerSettingsLayer()),
+          Effect.provideService(HostProcessEnvironment, {}),
+        ),
+      );
+
+      assert.deepInclude(error, {
+        operation: "validate-sandbox",
+        environmentVariable: "BOAT_API_KEY",
+      });
+
+      const saved = yield* chooseBoat.pipe(
+        Effect.provide(makeServerSettingsLayer()),
+        Effect.provideService(HostProcessEnvironment, { BOAT_API_KEY: "server-boat-key" }),
+      );
+
+      assert.equal(saved.sandbox.defaultProvider, "boat");
+      assert.deepEqual(saved.sandbox.providers.boat.environment, []);
+    }),
   );
 });

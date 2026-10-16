@@ -1,3 +1,4 @@
+import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 import * as Predicate from "effect/Predicate";
 import { createSettingsSecretReads } from "./server-settings-secret-reads.ts";
 import { createSettingsSecretWrites } from "./server-settings-secret-writes.ts";
@@ -256,7 +257,7 @@ const make = Effect.gen(function* () {
     validatePersistedSandboxSecrets,
     validateSandboxSettings,
     materializeAllSecrets,
-  } = createSettingsSecretReads(secretStore, settingsPath);
+  } = createSettingsSecretReads(secretStore, settingsPath, yield* HostProcessEnvironment);
 
   // Hot paths (runtime ingestion reads settings per streamed delta) must not
   // hit the secret store every call. The materialized result is reused while

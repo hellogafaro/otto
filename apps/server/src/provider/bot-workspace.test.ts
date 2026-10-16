@@ -590,6 +590,30 @@ describe("createBotWorkspace", () => {
     NodeFS.rmSync(baseDir, { recursive: true, force: true });
   });
 
+  it("runs Local commands without the server's environment", async () => {
+    const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-local-env-"));
+    process.env.OTTO_LOCAL_ENV_PROBE = "server-only";
+
+    try {
+      const workspace = await createBotWorkspace({
+        io: workspaceIO,
+        threadId: "bot-env",
+        localRoot: root,
+        workspaceId: "otto-env",
+        sandbox: "local",
+      });
+
+      assert.isDefined(workspace);
+      const result = await workspace.workspace.sandbox?.executeCommand?.("env");
+      expect(result?.stdout).toContain("PATH=");
+      expect(result?.stdout).not.toContain("OTTO_LOCAL_ENV_PROBE");
+      await workspace.destroy();
+    } finally {
+      delete process.env.OTTO_LOCAL_ENV_PROBE;
+      NodeFS.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("passes stable identity to an injected remote provider", async () => {
     const remote = new Workspace({
       filesystem: new LocalFilesystem({ basePath: process.cwd() }),

@@ -13,6 +13,7 @@ import {
   SANDBOX_PROVIDER_CREDENTIALS,
   type BotId,
 } from "@otto/contracts";
+import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 import { groupRosterContext } from "../../group-responder.ts";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -410,15 +411,22 @@ export function createSession({
 
     const effectiveSandbox = respondingBot?.sandbox ?? serverSettings.sandbox.defaultProvider;
 
-    const sandboxEnvironment =
+    // Otto: a Boat key saved in Settings wins; BOAT_API_KEY in the server's environment is the fallback.
+    const serverBoatKey = (yield* HostProcessEnvironment).BOAT_API_KEY?.trim();
+
+    const sandboxEnvironment: Readonly<Record<string, string>> | undefined =
       effectiveSandbox === "local"
         ? undefined
-        : Object.fromEntries(
-            serverSettings.sandbox.providers[effectiveSandbox].environment.map((variable) => [
-              variable.name,
-              variable.value,
-            ]),
-          );
+        : {
+            ...(effectiveSandbox === "boat" && serverBoatKey
+              ? { BOAT_API_KEY: serverBoatKey }
+              : {}),
+            ...Object.fromEntries(
+              serverSettings.sandbox.providers[effectiveSandbox].environment.flatMap((variable) =>
+                variable.value.trim() ? [[variable.name, variable.value]] : [],
+              ),
+            ),
+          };
 
     if (effectiveSandbox !== "local") {
       const missingCredential = SANDBOX_PROVIDER_CREDENTIALS[effectiveSandbox].find(

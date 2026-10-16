@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { useEnvironmentSettings } from "../../hooks/use-settings";
+import { useServerConfigs } from "../../state/entities";
 import { useSettingsEnvironmentId } from "../../settings-dialog-store";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -89,6 +90,13 @@ function EnvironmentSandboxSettingsPanel({
   const [editingProvider, setEditingProvider] = useState<CloudSandboxProvider | null>(null);
   const [saving, setSaving] = useState(false);
   const [railwayChange, setRailwayChange] = useState<RailwayConnectionChange | null>(null);
+  // Otto: BOAT_API_KEY in the server's environment connects Boat; a key saved here still wins.
+  const boatFromServer = useServerConfigs().get(environmentId)?.boatConnectedByServer === true;
+
+  const connectedByServer = (provider: CloudSandboxProvider) =>
+    provider === "boat" && boatFromServer && !isSandboxProviderConnected(sandbox, "boat");
+
+  const selectable = selectableSandboxProviders(sandbox, boatFromServer);
 
   const persist = async (next: SandboxSettings) => {
     setSaving(true);
@@ -137,12 +145,13 @@ function EnvironmentSandboxSettingsPanel({
       );
   };
 
-  const connectedDefinitions = SANDBOX_PROVIDER_DEFINITIONS.filter((definition) =>
-    isSandboxProviderConnected(sandbox, definition.id),
+  const connectedDefinitions = SANDBOX_PROVIDER_DEFINITIONS.filter(
+    (definition) =>
+      isSandboxProviderConnected(sandbox, definition.id) || connectedByServer(definition.id),
   );
 
   const availableDefinitions = SANDBOX_PROVIDER_DEFINITIONS.filter(
-    (definition) => !isSandboxProviderConnected(sandbox, definition.id),
+    (definition) => !connectedDefinitions.includes(definition),
   );
 
   const editingDefinition = editingProvider ? sandboxProviderDefinition(editingProvider) : null;
@@ -199,26 +208,32 @@ function EnvironmentSandboxSettingsPanel({
                   {definition.label}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  {t(definition.description)}
+                  {connectedByServer(definition.id)
+                    ? t("Connected by the server")
+                    : t(definition.description)}
                 </span>
               </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={saving}
-                onClick={() => void remove(definition.id)}
-              >
-                {t("Remove")}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={saving}
-                aria-label={t("Edit {name}", { name: definition.label })}
-                onClick={() => setEditingProvider(definition.id)}
-              >
-                {t("Edit")}
-              </Button>
+              {connectedByServer(definition.id) ? null : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={saving}
+                    onClick={() => void remove(definition.id)}
+                  >
+                    {t("Remove")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={saving}
+                    aria-label={t("Edit {name}", { name: definition.label })}
+                    onClick={() => setEditingProvider(definition.id)}
+                  >
+                    {t("Edit")}
+                  </Button>
+                </>
+              )}
             </div>
           );
         })}
@@ -238,7 +253,7 @@ function EnvironmentSandboxSettingsPanel({
                   // SAFETY: the value is checked against selectableSandboxProviders before persistence.
                   const provider = value as SandboxProvider;
 
-                  if (!selectableSandboxProviders(sandbox).includes(provider)) return;
+                  if (!selectable.includes(provider)) return;
 
                   void persist({ ...sandbox, defaultProvider: provider }).then((saved) => {
                     if (!saved) toast.error(t("Default sandbox couldn't be saved"));
@@ -249,7 +264,7 @@ function EnvironmentSandboxSettingsPanel({
                   <SelectValue>{providerLabel(sandbox.defaultProvider)}</SelectValue>
                 </SelectTrigger>
                 <SelectPopup>
-                  {selectableSandboxProviders(sandbox).map((provider) => (
+                  {selectable.map((provider) => (
                     <SelectItem key={provider} value={provider}>
                       {providerLabel(provider)}
                     </SelectItem>

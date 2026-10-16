@@ -82,11 +82,17 @@ export function isSandboxProviderConnected(
   });
 }
 
-export function selectableSandboxProviders(settings: SandboxSettings) {
+export function selectableSandboxProviders(
+  settings: SandboxSettings,
+  boatConnectedByServer = false,
+) {
   return [
     "local" as const,
     ...SANDBOX_PROVIDER_DEFINITIONS.flatMap((definition) =>
-      isSandboxProviderConnected(settings, definition.id) ? [definition.id] : [],
+      isSandboxProviderConnected(settings, definition.id) ||
+      (definition.id === "boat" && boatConnectedByServer)
+        ? [definition.id]
+        : [],
     ),
   ];
 }

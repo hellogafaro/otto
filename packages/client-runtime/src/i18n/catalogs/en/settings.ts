@@ -346,6 +346,7 @@ export const settingsCatalog = {
   "Finish signing in to {provider} in the browser.":
     "Finish signing in to {provider} in the browser.",
   "Check your email": "Check your email",
+  "Connected by the server": "Connected by the server",
   "Could not send a code.": "Could not send a code.",
   "Enter the code we sent to {email}.": "Enter the code we sent to {email}.",
   "Enter the setup code from the server’s OTTO_SETUP_TOKEN setting.":

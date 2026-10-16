@@ -1,6 +1,7 @@
 import { subscriptionProviderMutation } from "./subscription-auth/provider-mutation.ts";
 import { ProviderInstanceRegistryMutator } from "./provider/services/provider-instance-registry-mutator.ts";
 import { computerRegistry } from "./provider/computer-registry.ts";
+import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 import * as Cause from "effect/Cause";
 import * as Crypto from "effect/Crypto";
 import { ActivityStore } from "./activity/activity-store.ts";
@@ -690,6 +691,7 @@ export const createWsServices = (
             }),
         threadResumeCompletionMarker: true,
         threadSnapshotPagination: true,
+        boatConnectedByServer: Boolean((yield* HostProcessEnvironment).BOAT_API_KEY?.trim()),
       };
     });
 

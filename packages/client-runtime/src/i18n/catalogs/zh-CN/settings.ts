@@ -335,6 +335,7 @@ export const settingsCatalog = {
   "Pay per request instead of using the subscription.": "按请求付费，而不使用订阅。",
   "Finish signing in to {provider} in the browser.": "在浏览器中完成 {provider} 的登录。",
   "Check your email": "查看你的邮箱",
+  "Connected by the server": "已由服务器连接",
   "Could not send a code.": "无法发送验证码。",
   "Enter the code we sent to {email}.": "输入我们发送到 {email} 的验证码。",
   "Enter the setup code from the server’s OTTO_SETUP_TOKEN setting.":

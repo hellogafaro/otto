@@ -46,6 +46,8 @@ export const ServerConfig = Schema.Struct({
    * fields to servers that don't advertise this.
    */
   threadSnapshotPagination: Schema.optionalKey(Schema.Boolean),
+  /** BOAT_API_KEY is set in the server's environment, so Boat works without a saved key. */
+  boatConnectedByServer: Schema.optionalKey(Schema.Boolean),
 });
 
 export type ServerConfig = typeof ServerConfig.Type;
