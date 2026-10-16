@@ -182,29 +182,6 @@ export const chatCatalog = {
   "Code copied": "Code copied",
   "Couldn't copy the code. Select it and copy it manually.":
     "Couldn't copy the code. Select it and copy it manually.",
-  "Paste authorization code": "Paste authorization code",
-  "Your goal and the plan for it, written out. Edit it however you like, then send. This is the real conversation, not a demo.":
-    "Your goal and the plan for it, written out. Edit it however you like, then send. This is the real conversation, not a demo.",
-  "Message sent": "Message sent",
-  "Working out where to start": "Working out where to start",
-  "Draft a first batch of posts for {focus}, in your voice":
-    "Draft a first batch of posts for {focus}, in your voice",
-  "Draft a first batch of posts in your voice": "Draft a first batch of posts in your voice",
-  "I'll ask which accounts to post from once there's a draft worth posting.":
-    "I'll ask which accounts to post from once there's a draft worth posting.",
-  invoices: "invoices",
-  paperwork: "paperwork",
-  "Draft the replies and the filing for you to check":
-    "Draft the replies and the filing for you to check",
-  "I'll ask for access when something is ready to send.":
-    "I'll ask for access when something is ready to send.",
-  "Turn it into an order you can follow": "Turn it into an order you can follow",
-  "Make the smallest change that proves it works": "Make the smallest change that proves it works",
-  "Show you the diff before anything else": "Show you the diff before anything else",
-  "I'll ask about your setup when I need to run something.":
-    "I'll ask about your setup when I need to run something.",
-  "Work out what a good result looks like here": "Work out what a good result looks like here",
-  "Send the first message": "Send the first message",
   "Could not send the message.": "Could not send the message.",
   "Last message {time}": "Last message {time}",
   Unpin: "Unpin",

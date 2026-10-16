@@ -102,7 +102,6 @@ const buttonVariants = cva(
         "row-relaxed": "h-7 gap-3 px-2 font-normal",
         micro:
           "h-5 gap-1 rounded-sm px-[calc(--spacing(1.5)-1px)] text-[11px] before:rounded-[calc(var(--radius-sm)-1px)] sm:text-[11px] [&_svg:not([class*='size-'])]:size-3 sm:[&_svg:not([class*='size-'])]:size-3",
-        onboarding: "h-8 rounded-xl px-[calc(--spacing(3)-1px)]",
         pill: "h-7 gap-1.5 rounded-full px-3.5 text-[13px]",
         "pill-dense": "h-7 gap-1.5 rounded-full px-3 text-xs",
         "pill-short": "h-7 gap-1.5 rounded-full px-[calc(--spacing(2.5)-1px)]",

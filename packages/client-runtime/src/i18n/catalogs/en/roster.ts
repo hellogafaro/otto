@@ -50,20 +50,7 @@ export const rosterCatalog = {
   "Routine details": "Routine details",
   "Review routine": "Review routine",
   "{schedule} at {time}": "{schedule} at {time}",
-  "You will call on this bot by name every day. Pick one that sounds like a teammate.":
-    "You will call on this bot by name every day. Pick one that sounds like a teammate.",
   Avatar: "Avatar",
-  "{shape} avatar": "{shape} avatar",
-  "Could not create your bot.": "Could not create your bot.",
-  "Set up Otto": "Set up Otto",
-  "your bot": "your bot",
-  "Personal planning": "Personal planning",
-  "One or two sentences is plenty. Your bot works the rest out from there.":
-    "One or two sentences is plenty. Your bot works the rest out from there.",
-  "I want my bot to…": "I want my bot to…",
-  "your routine": "your routine",
-  "Read through the project to find where this belongs":
-    "Read through the project to find where this belongs",
   "Your bot": "Your bot",
   "New bot": "New bot",
   "Archive bot": "Archive bot",

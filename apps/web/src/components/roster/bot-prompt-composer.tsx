@@ -155,7 +155,7 @@ export function BotPromptComposer({
   const prefersReducedMotion = useReducedMotion();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
 
-  // A bot chat keys its draft by bot id; group and onboarding composers namespace
+  // A bot chat keys its draft by bot id; group composers namespace
   // theirs, so a key that names a live bot is the one composer that speaks for it.
   const composerBotId = useRosterStore((state) =>
     draftKey !== undefined &&

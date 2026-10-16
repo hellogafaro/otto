@@ -79,10 +79,6 @@ export const settingsCatalog = {
   "Change model": "Change model",
   "Nothing stashed yet. Press {shortcut} with a prompt in the composer to stash it.":
     "Nothing stashed yet. Press {shortcut} with a prompt in the composer to stash it.",
-  "Finish signing in on the provider page.": "Finish signing in on the provider page.",
-  "Preparing your provider…": "Preparing your provider…",
-  "your budget": "your budget",
-  "Pick the subscription that powers your bot": "Pick the subscription that powers your bot",
   "Open keybindings.json": "Open keybindings.json",
   "Bot settings": "Bot settings",
   "Collapse ({shortcut})": "Collapse ({shortcut})",

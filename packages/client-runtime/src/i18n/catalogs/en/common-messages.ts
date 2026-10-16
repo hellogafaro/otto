@@ -60,36 +60,7 @@ export const commonMessagesCatalog = {
   "The request failed.": "The request failed.",
   "The key was not saved. Try again.": "The key was not saved. Try again.",
   "Checking health…": "Checking health…",
-  "Nova, Scout, Dispatch…": "Nova, Scout, Dispatch…",
-  "Say hello to {name}": "Say hello to {name}",
-  "Waking up {name}": "Waking up {name}",
   "Step {number} of {total}": "Step {number} of {total}",
-  "Skip setup?": "Skip setup?",
-  "Waking {name} up": "Waking {name} up",
-  "I'll start by…": "I'll start by…",
-  "What do you want help with?": "What do you want help with?",
-  "Show them to you before anything goes out": "Show them to you before anything goes out",
-  "Gather what is already out there on {focus}": "Gather what is already out there on {focus}",
-  "Gather what is already out there on this": "Gather what is already out there on this",
-  "Flag what changed instead of making you re-read it":
-    "Flag what changed instead of making you re-read it",
-  "I'll ask where that page should live once there's something on it.":
-    "I'll ask where that page should live once there's something on it.",
-  "Go through what is sitting in your {focus}": "Go through what is sitting in your {focus}",
-  "Separate what actually needs you from what does not":
-    "Separate what actually needs you from what does not",
-  "Lay out what is actually on your plate for {focus}":
-    "Lay out what is actually on your plate for {focus}",
-  "Lay out what is actually on your plate": "Lay out what is actually on your plate",
-  "I'll ask about your calendar when putting it there would help.":
-    "I'll ask about your calendar when putting it there would help.",
-  "Read through {focus} to find where this belongs":
-    "Read through {focus} to find where this belongs",
-  "Take the first real step and show you what came of it":
-    "Take the first real step and show you what came of it",
-  "I'll ask for whatever I need, at the point I need it.":
-    "I'll ask for whatever I need, at the point I need it.",
-  "{first} and {second}": "{first} and {second}",
   "No additional error details are available.": "No additional error details are available.",
   "Actions for {name}": "Actions for {name}",
   "Restore {name}": "Restore {name}",

@@ -177,28 +177,6 @@ export const chatCatalog = {
   "Copy sign-in code": "复制登录代码",
   "Code copied": "代码已复制",
   "Couldn't copy the code. Select it and copy it manually.": "无法复制代码。请选中后手动复制。",
-  "Paste authorization code": "粘贴授权码",
-  "Your goal and the plan for it, written out. Edit it however you like, then send. This is the real conversation, not a demo.":
-    "这里写好了你的目标和对应的计划。随意修改后发送。这是真实的聊天，不是演示。",
-  "Message sent": "消息已发送",
-  "Working out where to start": "正在确定从哪里开始",
-  "Draft a first batch of posts for {focus}, in your voice":
-    "用你的语气，为 {focus} 起草第一批帖子",
-  "Draft a first batch of posts in your voice": "用你的语气起草第一批帖子",
-  "I'll ask which accounts to post from once there's a draft worth posting.":
-    "等有值得发布的草稿时，我会问你用哪些账号发布。",
-  invoices: "发票",
-  paperwork: "文书",
-  "Draft the replies and the filing for you to check": "起草回复和归档，交给你检查",
-  "I'll ask for access when something is ready to send.":
-    "等有内容可以发送时，我会向你申请访问权限。",
-  "Turn it into an order you can follow": "排成你可以照着做的顺序",
-  "Make the smallest change that proves it works": "做出能证明可行的最小改动",
-  "Show you the diff before anything else": "在做其他事之前先给你看差异",
-  "I'll ask about your setup when I need to run something.":
-    "等需要运行什么时，我会问你的环境配置。",
-  "Work out what a good result looks like here": "弄清楚这里怎样才算好的结果",
-  "Send the first message": "发送第一条消息",
   "Could not send the message.": "无法发送消息。",
   "Last message {time}": "最后一条消息 {time}",
   Unpin: "取消置顶",

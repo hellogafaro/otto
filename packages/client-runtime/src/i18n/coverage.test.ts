@@ -160,8 +160,6 @@ describe("discovered interface message coverage", () => {
       "apps/web/src/components/command-palette.logic.ts",
       "apps/web/src/components/chat/composer-provider-menu-items.ts",
       "apps/mobile/src/features/updates/app-updates.ts",
-      "apps/web/src/components/onboarding/desktop-onboarding.logic.ts",
-      "apps/web/src/components/onboarding/goal-plan.logic.ts",
       "packages/client-runtime/src/bot-inbox.ts",
       "packages/client-runtime/src/channel-presentation.ts",
       "packages/client-runtime/src/durable-memory.ts",

@@ -147,15 +147,8 @@ export const connectionsCatalog = {
   "Retry import": "Retry import",
   "Remove environment?": "Remove environment?",
   "Disconnect and forget {label} on this device.": "Disconnect and forget {label} on this device.",
-  "Connect {provider} with an API key": "Connect {provider} with an API key",
-  "Finish connecting {provider}": "Finish connecting {provider}",
   "Connect your provider": "Connect your provider",
   "Connect {provider}": "Connect {provider}",
-  "This provider is not ready. Go back and reconnect it.":
-    "This provider is not ready. Go back and reconnect it.",
-  "You can connect a subscription and create a bot later.":
-    "You can connect a subscription and create a bot later.",
-  "Opening your workspace": "Opening your workspace",
   "Connect an environment first": "Connect an environment first",
   "Connect an environment to create one.": "Connect an environment to create one.",
   "Connect an environment": "Connect an environment",

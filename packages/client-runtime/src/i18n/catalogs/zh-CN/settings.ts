@@ -77,10 +77,6 @@ export const settingsCatalog = {
   "Change model": "更改模型",
   "Nothing stashed yet. Press {shortcut} with a prompt in the composer to stash it.":
     "暂无暂存内容。在输入框中输入提示后按 {shortcut} 即可暂存。",
-  "Finish signing in on the provider page.": "请在提供商页面完成登录。",
-  "Preparing your provider…": "正在准备你的提供商…",
-  "your budget": "你的预算",
-  "Pick the subscription that powers your bot": "选择为你的机器人提供支持的订阅",
   "Open keybindings.json": "打开 keybindings.json",
   "Bot settings": "机器人设置",
   "Collapse ({shortcut})": "折叠（{shortcut}）",
