@@ -175,25 +175,16 @@ function PromptDialogBody({
           </Button>
         )}
       </div>
-      <PromptDialogHints submitLabel={submitLabel} />
+      <div className="flex h-10 items-center justify-end gap-3 border-t px-5 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Kbd>↵</Kbd>
+          {submitLabel}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Kbd>Esc</Kbd>
+          {t("Close")}
+        </span>
+      </div>
     </form>
-  );
-}
-
-/** Otto: The composer dialogs' footer: the Enter and Esc hints, never buttons. */
-export function PromptDialogHints({ submitLabel }: { readonly submitLabel: string }) {
-  const { t } = useI18n();
-
-  return (
-    <div className="flex h-10 items-center justify-end gap-3 border-t px-5 text-xs text-muted-foreground">
-      <span className="flex items-center gap-1.5">
-        <Kbd>↵</Kbd>
-        {submitLabel}
-      </span>
-      <span className="flex items-center gap-1.5">
-        <Kbd>Esc</Kbd>
-        {t("Close")}
-      </span>
-    </div>
   );
 }

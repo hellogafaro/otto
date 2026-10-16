@@ -1,6 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
 import { ProviderInstanceId, type BotEngine } from "@otto/contracts";
-import { RiArrowUpLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/use-settings";
@@ -11,8 +10,7 @@ import { primaryServerProvidersAtom } from "../../state/server";
 import { ProviderUnavailableNotice } from "../chat/provider-unavailable-notice";
 import { TraitsPicker } from "../chat/traits-picker";
 import { Button } from "../ui/button";
-import { Dialog, DialogPopup, DialogTitle } from "../ui/dialog";
-import { PromptDialogHints } from "../prompt-dialog";
+import { Dialog, DialogFooter, DialogPopup, DialogTitle } from "../ui/dialog";
 import { BotAvatarPopover } from "./bot-avatar-popover";
 import { BotModelPicker } from "./bot-model-picker";
 import { botEngineForModelPick, botEngineForOptions } from "./bot-engine-selection";
@@ -31,8 +29,7 @@ export interface NewBotInput {
  * Creates a bot from a name alone: the avatar starts random and the model on
  * the app default, both changeable here. Everything else lives in the bot's
  * settings, and the bot asks for context in its first message.
- * Otto: Laid out like the routine composer: model pickers at the bottom left,
- * the round send button at the right, and the Enter and Esc hints below.
+ * Otto: The model pickers sit in the body under the name; the footer holds Cancel and Create bot.
  */
 export function NewBotDialog({
   open,
@@ -98,18 +95,7 @@ export function NewBotDialog({
             <p className="text-sm text-muted-foreground">
               {t("It introduces itself and asks about your work.")}
             </p>
-            {blocked && unavailability ? (
-              <ProviderUnavailableNotice
-                className="w-full"
-                presentation={unavailability}
-                provider={unavailability.provider}
-                environmentId={environmentId}
-              />
-            ) : null}
-          </div>
-
-          <div className="flex items-end justify-between gap-2 px-3 pb-3">
-            <div className="flex min-w-0 flex-wrap items-center gap-1 *:shrink-0">
+            <div className="-ms-2 flex min-w-0 flex-wrap items-center gap-1 *:shrink-0">
               {selection ? (
                 <BotModelPicker
                   activeInstanceId={ProviderInstanceId.make(selection.instanceId)}
@@ -145,17 +131,28 @@ export function NewBotDialog({
                 />
               ) : null}
             </div>
+            {blocked && unavailability ? (
+              <ProviderUnavailableNotice
+                className="w-full"
+                presentation={unavailability}
+                provider={unavailability.provider}
+                environmentId={environmentId}
+              />
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              {t("Cancel")}
+            </Button>
             <Button
               type="submit"
-              size="icon-sm"
               variant="primary"
-              aria-label={submitting ? t("Creating") : t("Create bot")}
               disabled={submitting || trimmedName.length === 0}
             >
-              <RiArrowUpLine />
+              {submitting ? t("Creating") : t("Create bot")}
             </Button>
-          </div>
-          <PromptDialogHints submitLabel={t("Create bot")} />
+          </DialogFooter>
         </form>
       </DialogPopup>
     </Dialog>
