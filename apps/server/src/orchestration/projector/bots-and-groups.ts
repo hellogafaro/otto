@@ -34,6 +34,7 @@ export function projectBotsAndGroups(
             title: payload.title,
             label: payload.label,
             description: payload.description,
+            instructions: payload.instructions,
             disabledMcpServerIds: payload.disabledMcpServerIds,
             ...(payload.disabledSkillIds ? { disabledSkillIds: payload.disabledSkillIds } : {}),
             owner: payload.owner,
@@ -42,7 +43,6 @@ export function projectBotsAndGroups(
             sandbox: payload.sandbox,
             runtimeMode: payload.runtimeMode,
             imageProvider: payload.imageProvider,
-            personalityTone: payload.personalityTone,
             voiceEnabled: payload.voiceEnabled,
             channelBindings: payload.channelBindings,
             groupId: payload.groupId,
@@ -70,6 +70,7 @@ export function projectBotsAndGroups(
             ...(payload.title !== undefined ? { title: payload.title } : {}),
             ...(payload.label !== undefined ? { label: payload.label } : {}),
             ...(payload.description !== undefined ? { description: payload.description } : {}),
+            ...(payload.instructions !== undefined ? { instructions: payload.instructions } : {}),
             ...(payload.disabledMcpServerIds !== undefined
               ? { disabledMcpServerIds: payload.disabledMcpServerIds }
               : {}),
@@ -83,9 +84,6 @@ export function projectBotsAndGroups(
             ...(payload.runtimeMode !== undefined ? { runtimeMode: payload.runtimeMode } : {}),
             ...(payload.imageProvider !== undefined
               ? { imageProvider: payload.imageProvider }
-              : {}),
-            ...(payload.personalityTone !== undefined
-              ? { personalityTone: payload.personalityTone }
               : {}),
             ...(payload.voiceEnabled !== undefined ? { voiceEnabled: payload.voiceEnabled } : {}),
             ...(payload.channelBindings !== undefined

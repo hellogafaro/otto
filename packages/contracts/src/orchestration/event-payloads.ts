@@ -38,8 +38,7 @@ import {
   BotAvatar,
   BotEngine,
   PersistedBotSandbox,
-  BALANCED_BOT_PERSONALITY_TONE,
-  BotPersonalityTone,
+  BotInstructions,
   ChannelBinding,
   GroupBotMembership,
   GroupPersonMembership,
@@ -208,6 +207,9 @@ export const BotCreatedPayload = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   description: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  instructions: Schema.NullOr(BotInstructions).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
   disabledMcpServerIds: Schema.Array(McpServerId).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
@@ -219,9 +221,6 @@ export const BotCreatedPayload = Schema.Struct({
   runtimeMode: RuntimeMode.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_RUNTIME_MODE))),
   imageProvider: Schema.NullOr(ImageProviderId).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
-  ),
-  personalityTone: BotPersonalityTone.pipe(
-    Schema.withDecodingDefault(Effect.succeed(BALANCED_BOT_PERSONALITY_TONE)),
   ),
   voiceEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   channelBindings: Schema.Array(ChannelBinding).pipe(
@@ -238,6 +237,7 @@ export const BotUpdatedPayload = Schema.Struct({
   title: Schema.optional(TrimmedNonEmptyString),
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
+  instructions: Schema.optional(Schema.NullOr(BotInstructions)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
   disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
@@ -246,7 +246,6 @@ export const BotUpdatedPayload = Schema.Struct({
   sandbox: Schema.optional(PersistedBotSandbox),
   runtimeMode: Schema.optional(RuntimeMode),
   imageProvider: Schema.optional(Schema.NullOr(ImageProviderId)),
-  personalityTone: Schema.optional(BotPersonalityTone),
   voiceEnabled: Schema.optional(Schema.Boolean),
   channelBindings: Schema.optional(Schema.Array(ChannelBinding)),
   groupId: Schema.optional(Schema.NullOr(GroupId)),

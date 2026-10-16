@@ -8,49 +8,21 @@ import {
 
 const now = DateTime.makeUnsafe("2026-09-15T13:37:00.000Z");
 
-describe("Otto personality instructions", () => {
-  it.each([
-    {
-      tone: 0 as const,
-      blend: "100% chill and 0% professional",
-      baseline: "short, relaxed messages",
-    },
-    {
-      tone: 50 as const,
-      blend: "50% chill and 50% professional",
-      baseline: "Start natural and direct",
-    },
-    {
-      tone: 100 as const,
-      blend: "0% chill and 100% professional",
-      baseline: "concise, professional replies",
-    },
-  ])("builds the $tone style as an adaptive baseline", ({ tone, blend, baseline }) => {
-    const instructions = createOttoBotInstructions({ name: "Mina", now, personalityTone: tone });
+describe("Otto bot instructions", () => {
+  it("adds the bot owner's instructions as their own section", () => {
+    const instructions = createOttoBotInstructions({
+      name: "Mina",
+      now,
+      instructions: "  Answer in Spanish.  ",
+    });
 
-    expect(instructions).toContain(`Personality preference: ${tone}/100`);
-    expect(instructions).toContain(blend);
-    expect(instructions).toContain(baseline);
-    expect(instructions).toContain("This is a baseline, not a character to perform.");
-    expect(instructions).toContain("The center may range widely");
+    expect(instructions).toContain("You are Mina");
+    expect(instructions).toContain("<instructions>\nAnswer in Spanish.\n</instructions>");
+    expect(instructions).toContain("Direct and friendly, never performative");
   });
 
-  it("represents intermediate slider values as real blends", () => {
-    const instructions = createOttoBotInstructions({ now, personalityTone: 40 });
-
-    expect(instructions).toContain("40/100, a 60% chill and 40% professional blend");
-    expect(instructions).toContain("relaxed, direct messages");
-  });
-
-  it("keeps every style human without forcing jokes or casual casing", () => {
-    for (const personalityTone of [0, 50, 100] as const) {
-      const instructions = createOttoBotInstructions({ now, personalityTone });
-      expect(instructions).toContain("Keep standard casing for names, code, drafts");
-      expect(instructions).toContain("Professional is clear, not stiff");
-      expect(instructions).toContain("Do not hunt for a joke");
-      expect(instructions).toContain("literal is better than clever");
-      expect(instructions).toContain("exactly one short sentence with no question mark");
-    }
+  it("leaves the section out when the bot has no instructions", () => {
+    expect(createOttoBotInstructions({ now, instructions: "   " })).not.toContain("<instructions>");
   });
 
   it("builds the useful unslop rules into every bot prompt", () => {
@@ -62,7 +34,6 @@ describe("Otto personality instructions", () => {
     expect(instructions).toContain("stock metaphors");
     expect(instructions).toContain("lines that could fit any topic");
     expect(instructions).toContain("Do not praise the user for asking");
-    expect(instructions).toContain("contains an emoji character");
     expect(instructions).toContain("Answer only what was asked");
     expect(instructions).toContain("use 45 words or fewer");
     expect(instructions).toContain("No follow-up questions or offers after a complete answer");
@@ -71,7 +42,7 @@ describe("Otto personality instructions", () => {
   });
 
   it("keeps the repeated legacy-provider turn prompt compact", () => {
-    const instructions = createOttoBotTurnInstructions({ personalityTone: 50 });
+    const instructions = createOttoBotTurnInstructions({});
 
     expect(instructions.length).toBeLessThan(1_800);
     expect(instructions).toContain("Before you use a tool");

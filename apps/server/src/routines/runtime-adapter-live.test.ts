@@ -89,6 +89,7 @@ const bot = (botId: string, name: string, provider: string): ProjectionBot => ({
   title: name,
   label: null,
   description: null,
+  instructions: null,
   disabledMcpServerIds: [],
   avatar: { kind: "blob", shape: "circle", color: "blue" },
   sandbox: "local",

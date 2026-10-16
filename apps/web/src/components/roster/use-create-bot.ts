@@ -29,7 +29,7 @@ export function useCreateBot(onCreated: () => void) {
   const creatingRef = useRef(false);
 
   const create = useCallback(
-    ({ name, avatar, engine }: NewBotInput) =>
+    ({ name, avatar, engine, instructions }: NewBotInput) =>
       runCreateBotOnce(creatingRef, async () => {
         if (environmentId === null) {
           toast.error(t("Connect an environment first"));
@@ -50,6 +50,7 @@ export function useCreateBot(onCreated: () => void) {
               title: "Assistant",
               label: null,
               description: null,
+              instructions,
               avatar,
               engine,
               sandbox: null,

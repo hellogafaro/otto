@@ -3,11 +3,7 @@ import { createSessionCatalogHandlers } from "./catalog-tool-handlers.ts";
 import type { SessionLifecycleDependencies } from "./session-lifecycle-dependencies.ts";
 import { ProviderDriverKind } from "@otto/contracts";
 
-import {
-  OTTO_TOOL_CATALOG,
-  BALANCED_BOT_PERSONALITY_TONE,
-  type OttoDelegationAccessGrant,
-} from "@otto/contracts";
+import { OTTO_TOOL_CATALOG, type OttoDelegationAccessGrant } from "@otto/contracts";
 
 import * as Deferred from "effect/Deferred";
 
@@ -140,13 +136,12 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       });
     }
 
-    const personalityTone =
-      input.personalityTone ?? bot?.personalityTone ?? BALANCED_BOT_PERSONALITY_TONE;
+    const botInstructions = (input.botInstructions ?? bot?.instructions)?.trim() || undefined;
 
     deps.resolvedByThread.set(key, {
       ...resolved,
       ...(input.botName ? { botName: input.botName } : {}),
-      personalityTone,
+      ...(botInstructions ? { botInstructions } : {}),
     });
 
     if (deps.usesMastraCode(resolved.provider)) {
@@ -233,7 +228,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           yolo: false,
           botConversation: resolved.botConversation,
           botName: input.botName || "",
-          personalityTone,
+          botInstructions,
           mcpInstructions: formatMcpServerInstructions(mcpServers),
           groupContext: input.groupContext,
           projectContext: input.projectContext,
@@ -318,7 +313,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       existingLegacy.provider === resolved.provider &&
       existingLegacy.providerInstanceId === resolved.providerInstanceId &&
       existingLegacy.botName === input.botName &&
-      existingLegacy.personalityTone === personalityTone &&
+      existingLegacy.botInstructions === botInstructions &&
       existingLegacy.memoryAccessKey === deps.memoryAccessKey(nextMemoryAccess)
     ) {
       const live = (yield* deps.legacyProviderBridge.listSessions()).find(
@@ -428,7 +423,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       return yield* deps.legacyProviderBridge
         .startSession(threadId, {
           ...input,
-          personalityTone,
+          ...(botInstructions ? { botInstructions } : {}),
           ...(combinedMemoryContext ? { persistentMemoryContext: combinedMemoryContext } : {}),
         })
         .pipe(
@@ -440,7 +435,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                 provider: resolved.provider,
                 providerInstanceId: resolved.providerInstanceId,
                 botName: input.botName,
-                personalityTone,
+                botInstructions,
                 memoryAccess: nextMemoryAccess,
                 entityMemoryAccess: input.memoryAccess,
                 memoryAccessKey: deps.memoryAccessKey(nextMemoryAccess),
@@ -583,7 +578,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           yolo: false,
           botConversation: resolved.botConversation,
           ...(input.botName ? { botName: input.botName } : {}),
-          personalityTone,
+          ...(botInstructions ? { botInstructions } : {}),
           mcpInstructions: formatMcpServerInstructions(mcpServers),
           ...(input.groupContext ? { groupContext: input.groupContext } : {}),
           ...(input.projectContext ? { projectContext: input.projectContext } : {}),

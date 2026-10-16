@@ -15,6 +15,7 @@ export function createBots({
             title: event.payload.title,
             label: event.payload.label,
             description: event.payload.description,
+            instructions: event.payload.instructions,
             disabledMcpServerIds: event.payload.disabledMcpServerIds,
             ...(event.payload.disabledSkillIds
               ? { disabledSkillIds: event.payload.disabledSkillIds }
@@ -25,7 +26,6 @@ export function createBots({
             sandbox: event.payload.sandbox,
             runtimeMode: event.payload.runtimeMode,
             imageProvider: event.payload.imageProvider,
-            personalityTone: event.payload.personalityTone,
             voiceEnabled: event.payload.voiceEnabled,
             channelBindings: event.payload.channelBindings,
             groupId: event.payload.groupId,
@@ -47,6 +47,9 @@ export function createBots({
             ...(event.payload.description !== undefined
               ? { description: event.payload.description }
               : {}),
+            ...(event.payload.instructions !== undefined
+              ? { instructions: event.payload.instructions }
+              : {}),
             ...(event.payload.disabledMcpServerIds !== undefined
               ? { disabledMcpServerIds: event.payload.disabledMcpServerIds }
               : {}),
@@ -62,9 +65,6 @@ export function createBots({
               : {}),
             ...(event.payload.imageProvider !== undefined
               ? { imageProvider: event.payload.imageProvider }
-              : {}),
-            ...(event.payload.personalityTone !== undefined
-              ? { personalityTone: event.payload.personalityTone }
               : {}),
             ...(event.payload.voiceEnabled !== undefined
               ? { voiceEnabled: event.payload.voiceEnabled }

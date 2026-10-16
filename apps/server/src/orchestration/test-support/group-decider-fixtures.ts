@@ -68,6 +68,7 @@ export function makeBot(input: {
     title: "Agent",
     label: null,
     description: null,
+    instructions: null,
     disabledMcpServerIds: [],
     avatar: { kind: "dither", seed: input.id },
     engine: input.provider && input.model ? { provider: input.provider, model: input.model } : null,

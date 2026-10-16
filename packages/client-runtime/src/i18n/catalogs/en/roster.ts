@@ -145,11 +145,11 @@ export const rosterCatalog = {
   "What you call this bot in chats and mentions.": "What you call this bot in chats and mentions.",
   "Bot label": "Bot label",
   "Bot description": "Bot description",
+  "What this bot should do and how it should work. Added to every chat.":
+    "What this bot should do and how it should work. Added to every chat.",
+  "Bot instructions": "Bot instructions",
+  "Review pull requests and keep replies short": "Review pull requests and keep replies short",
   "What this bot is for": "What this bot is for",
-  "Voice and personality": "Voice and personality",
-  Personality: "Personality",
-  "Choose how this bot usually sounds. It is a baseline, not a costume. The bot still adapts to you and to the task, so serious work stays serious in every mode.":
-    "Choose how this bot usually sounds. It is a baseline, not a costume. The bot still adapts to you and to the task, so serious work stays serious in every mode.",
   "Delete bot": "Delete bot",
   "Remove {name} from the roster. Its chats stay in your history.":
     "Remove {name} from the roster. Its chats stay in your history.",
@@ -190,9 +190,6 @@ export const rosterCatalog = {
   "It cannot send work to other bots or receive work from them.":
     "It cannot send work to other bots or receive work from them.",
   "Search bot tools": "Search bot tools",
-  "Personality for {name}": "Personality for {name}",
-  "Short, relaxed messages. Lowercase reads as natural, like a teammate texting.":
-    "Short, relaxed messages. Lowercase reads as natural, like a teammate texting.",
   "From {source} · Bots: {bots}": "From {source} · Bots: {bots}",
   "Bots: {bots}": "Bots: {bots}",
   "this bot": "this bot",

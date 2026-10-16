@@ -273,18 +273,6 @@ export const chatCatalog = {
   "Cannot take handed-off work": "无法接收移交的工作",
   "Search tools": "搜索工具",
   "No tools match your search.": "没有与搜索匹配的工具。",
-  "on it. migration step timed out again. want me to retry, or find out why first?":
-    "在看了。迁移步骤又超时了。要我重试，还是先查原因？",
-  "Looking now. The migration step timed out again. Want a retry, or should I find the cause first?":
-    "正在看。迁移步骤又超时了。要重试，还是我先找出原因？",
-  "Natural and direct. Follows your tone and the task more than either endpoint.":
-    "自然而直接。更多地跟随你的语气和任务，而不是偏向任何一端。",
-  "Checking now. The migration step timed out again. I can retry it or trace the cause.":
-    "正在检查。迁移步骤又超时了。我可以重试，也可以追查原因。",
-  "I'm checking that now. The migration step timed out again. I can retry the deploy, or trace the cause before we try again.":
-    "我正在检查。迁移步骤又超时了。我可以重试部署，也可以在重试前先追查原因。",
-  "I'm looking into it. The migration step timed out again. I'd trace the cause before retrying, since a retry will likely hit the same timeout.":
-    "我在排查。迁移步骤又超时了。我建议先追查原因再重试，因为重试很可能会遇到同样的超时。",
   "Your prompt contains {keyword} in the text. Remove it to change this option.":
     "你的提示词正文中包含 {keyword}。请将其删除后再更改此选项。",
   "Source chat": "来源聊天",

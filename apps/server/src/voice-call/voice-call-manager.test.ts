@@ -105,6 +105,7 @@ const bot = {
   title: "Generalist",
   label: null,
   description: "Helps Leo get work done.",
+  instructions: null,
   disabledMcpServerIds: [],
   avatar: { kind: "blob" as const, shape: "circle" as const, color: "#5B7FD4" },
   engine: null,

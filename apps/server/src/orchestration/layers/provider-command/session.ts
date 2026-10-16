@@ -387,8 +387,8 @@ export function createSession({
         ...(respondingBot ? { botName: respondingBot.name } : {}),
         ...(groupContext ? { groupContext } : {}),
         ...(projectContext ? { projectContext } : {}),
-        ...(respondingBot?.personalityTone !== undefined
-          ? { personalityTone: respondingBot.personalityTone }
+        ...(respondingBot?.instructions?.trim()
+          ? { botInstructions: respondingBot.instructions.trim() }
           : {}),
         ...(project
           ? {

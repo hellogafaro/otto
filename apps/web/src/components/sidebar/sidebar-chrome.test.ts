@@ -71,6 +71,7 @@ describe("sidebar footer", () => {
           title: "Operator",
           label: null,
           description: "",
+          instructions: null,
           engine: null,
           sandbox: null,
           runtimeMode: "approval-required",

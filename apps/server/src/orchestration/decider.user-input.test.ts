@@ -35,6 +35,7 @@ const archivedBot: OrchestrationBot = {
   title: "Agent",
   label: null,
   description: null,
+  instructions: null,
   disabledMcpServerIds: [],
   avatar: { kind: "dither", seed: BOT_ID },
   engine: null,

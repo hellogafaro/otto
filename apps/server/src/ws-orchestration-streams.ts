@@ -3,7 +3,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import {
-  BALANCED_BOT_PERSONALITY_TONE,
   BotId,
   GroupId,
   type OrchestrationEvent,
@@ -295,6 +294,7 @@ export const createWsOrchestrationStreams = ({
                   title: nextBot.title,
                   label: nextBot.label,
                   description: nextBot.description,
+                  instructions: nextBot.instructions,
                   disabledMcpServerIds: nextBot.disabledMcpServerIds,
                   ...(nextBot.disabledSkillIds?.length
                     ? { disabledSkillIds: nextBot.disabledSkillIds }
@@ -305,7 +305,6 @@ export const createWsOrchestrationStreams = ({
                   sandbox: nextBot.sandbox,
                   runtimeMode: nextBot.runtimeMode,
                   imageProvider: nextBot.imageProvider,
-                  personalityTone: nextBot.personalityTone ?? BALANCED_BOT_PERSONALITY_TONE,
                   voiceEnabled: nextBot.voiceEnabled,
                   channelBindings: channelBindingsForRuntime(nextBot.channelBindings ?? []),
                   groupId: nextBot.groupId,

@@ -281,18 +281,6 @@ export const chatCatalog = {
   "Cannot take handed-off work": "Cannot take handed-off work",
   "Search tools": "Search tools",
   "No tools match your search.": "No tools match your search.",
-  "on it. migration step timed out again. want me to retry, or find out why first?":
-    "on it. migration step timed out again. want me to retry, or find out why first?",
-  "Looking now. The migration step timed out again. Want a retry, or should I find the cause first?":
-    "Looking now. The migration step timed out again. Want a retry, or should I find the cause first?",
-  "Natural and direct. Follows your tone and the task more than either endpoint.":
-    "Natural and direct. Follows your tone and the task more than either endpoint.",
-  "Checking now. The migration step timed out again. I can retry it or trace the cause.":
-    "Checking now. The migration step timed out again. I can retry it or trace the cause.",
-  "I'm checking that now. The migration step timed out again. I can retry the deploy, or trace the cause before we try again.":
-    "I'm checking that now. The migration step timed out again. I can retry the deploy, or trace the cause before we try again.",
-  "I'm looking into it. The migration step timed out again. I'd trace the cause before retrying, since a retry will likely hit the same timeout.":
-    "I'm looking into it. The migration step timed out again. I'd trace the cause before retrying, since a retry will likely hit the same timeout.",
   "Your prompt contains {keyword} in the text. Remove it to change this option.":
     "Your prompt contains {keyword} in the text. Remove it to change this option.",
   "Source chat": "Source chat",

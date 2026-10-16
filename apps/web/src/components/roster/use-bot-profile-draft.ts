@@ -29,7 +29,6 @@ import {
   botEngineForOptions,
   botEngineUnavailability,
 } from "./bot-engine-selection";
-import { canonicalizeBotPersonalityTone } from "./bot-personality-tone";
 import { botSandboxChoice, type BotSandboxChoice } from "./bot-sandbox";
 import type { Bot } from "./types";
 
@@ -50,7 +49,7 @@ export interface BotProfileUpdate {
   readonly description: string | null;
   readonly engine: Bot["engine"];
   readonly sandbox: Bot["sandbox"];
-  readonly personalityTone: number;
+  readonly instructions: string | null;
   readonly voiceEnabled: boolean;
   readonly imageProvider: ImageProviderId | null;
 }
@@ -79,11 +78,8 @@ export function useBotProfileDraft(
   const [name, setName] = useState(bot.name);
   const [label, setLabel] = useState(bot.label ?? "");
   const [description, setDescription] = useState(bot.description ?? "");
+  const [instructions, setInstructions] = useState(bot.instructions ?? "");
   const [sandbox, setSandbox] = useState<BotSandboxChoice>(() => botSandboxChoice(bot.sandbox));
-
-  const [personalityTone, setPersonalityTone] = useState(() =>
-    canonicalizeBotPersonalityTone(bot.personalityTone),
-  );
 
   const [voiceEnabled, setVoiceEnabled] = useState(bot.voiceEnabled);
 
@@ -193,12 +189,8 @@ export function useBotProfileDraft(
         botSandboxChoice(bot.sandbox),
       ),
     );
-    setPersonalityTone((current) =>
-      rebaseUneditedValue(
-        current,
-        canonicalizeBotPersonalityTone(previous.personalityTone),
-        canonicalizeBotPersonalityTone(bot.personalityTone),
-      ),
+    setInstructions((current) =>
+      rebaseUneditedValue(current, previous.instructions ?? "", bot.instructions ?? ""),
     );
     setVoiceEnabled((current) =>
       rebaseUneditedValue(current, previous.voiceEnabled, bot.voiceEnabled),
@@ -210,7 +202,7 @@ export function useBotProfileDraft(
 
   const normalizedLabel = label.trim() || null;
   const normalizedDescription = description.trim() || null;
-  const savedTone = canonicalizeBotPersonalityTone(bot.personalityTone);
+  const normalizedInstructions = instructions.trim() || null;
 
   const nextEngine: Bot["engine"] =
     engineChanged && model
@@ -237,7 +229,7 @@ export function useBotProfileDraft(
     normalizedDescription !== bot.description ||
     engineChanged ||
     sandboxDirty ||
-    personalityTone !== savedTone ||
+    normalizedInstructions !== bot.instructions ||
     voiceEnabled !== bot.voiceEnabled ||
     imageProvider !== (bot.imageProvider ?? null);
 
@@ -252,7 +244,7 @@ export function useBotProfileDraft(
       description: normalizedDescription,
       engine: nextEngine,
       sandbox: sandbox === "default" ? null : sandbox,
-      personalityTone,
+      instructions: normalizedInstructions,
       voiceEnabled,
       imageProvider,
     }).then((success) => {
@@ -283,8 +275,8 @@ export function useBotProfileDraft(
     setDescription,
     sandbox,
     setSandbox,
-    personalityTone,
-    setPersonalityTone,
+    instructions,
+    setInstructions,
     voiceEnabled,
     setVoiceEnabled,
     imageProvider,

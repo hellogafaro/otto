@@ -25,6 +25,7 @@ const bot: Bot = {
   title: "Generalist",
   label: null,
   description: null,
+  instructions: null,
   disabledMcpServerIds: [],
   avatar: { kind: "blob", shape: "circle", color: "#5B7FD4" },
   engine: null,

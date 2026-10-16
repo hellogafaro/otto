@@ -23,7 +23,14 @@ describe("NewBotDialog", () => {
     expect(source).toContain("useBotEngineAvailability(engine)");
     expect(source).toContain("<BotModelPicker");
     expect(source).toContain("<TraitsPicker");
-    expect(source).toContain("onCreate({ name: trimmedName, avatar, engine })");
+    expect(source).toContain("name: trimmedName,");
+    expect(source).toContain("engine,");
+  });
+
+  it("offers optional instructions, limited in length, and sends blank as null", () => {
+    expect(source).toContain('<FieldLabel>{t("Instructions")}</FieldLabel>');
+    expect(source).toContain("maxLength={BOT_INSTRUCTIONS_MAX_CHARS}");
+    expect(source).toContain("instructions: instructions.trim() || null,");
   });
 
   it("warns when no provider can run the picked model", () => {

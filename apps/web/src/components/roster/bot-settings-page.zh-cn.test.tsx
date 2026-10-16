@@ -142,7 +142,7 @@ function makeBot(overrides: Partial<Bot> = {}): Bot {
     engine: { provider: codexId, model: "gpt-5" },
     sandbox: "local",
     runtimeMode: "full-access",
-    personalityTone: 50,
+    instructions: null,
     voiceEnabled: false,
     imageProvider: null,
     groupId: null,
@@ -203,7 +203,9 @@ describe("bot settings in Simplified Chinese", () => {
 
       return false;
     });
-    expect(titles).toEqual(expect.arrayContaining(["身份", "行为", "模型与用量", "工作区"]));
+    expect(titles).toEqual(
+      expect.arrayContaining(["身份", "行为", "指令", "模型与用量", "工作区"]),
+    );
     expect(titles).not.toContain("Identity");
   });
 });

@@ -1,7 +1,6 @@
 import { OttoDelegationPhase } from "@otto/contracts";
 
 import {
-  BALANCED_BOT_PERSONALITY_TONE,
   type BotId,
   type CommandId,
   DEFAULT_RUNTIME_MODE,
@@ -120,6 +119,7 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           title: command.title,
           label: command.label ?? null,
           description: command.description ?? null,
+          instructions: command.instructions ?? null,
           disabledMcpServerIds: command.disabledMcpServerIds ?? [],
           owner: command.owner ?? null,
           avatar: command.avatar,
@@ -127,7 +127,6 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           sandbox: command.sandbox,
           runtimeMode: command.runtimeMode ?? DEFAULT_RUNTIME_MODE,
           imageProvider: command.imageProvider ?? null,
-          personalityTone: command.personalityTone ?? BALANCED_BOT_PERSONALITY_TONE,
           voiceEnabled: command.voiceEnabled ?? false,
           channelBindings: [],
           groupId: command.groupId,
@@ -274,6 +273,7 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           ...(command.title !== undefined ? { title: command.title } : {}),
           ...(command.label !== undefined ? { label: command.label } : {}),
           ...(command.description !== undefined ? { description: command.description } : {}),
+          ...(command.instructions !== undefined ? { instructions: command.instructions } : {}),
           ...(command.disabledMcpServerIds !== undefined
             ? { disabledMcpServerIds: command.disabledMcpServerIds }
             : {}),
@@ -286,9 +286,6 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           ...(command.sandbox !== undefined ? { sandbox: command.sandbox } : {}),
           ...(command.runtimeMode !== undefined ? { runtimeMode: command.runtimeMode } : {}),
           ...(command.imageProvider !== undefined ? { imageProvider: command.imageProvider } : {}),
-          ...(command.personalityTone !== undefined
-            ? { personalityTone: command.personalityTone }
-            : {}),
           ...(command.voiceEnabled !== undefined ? { voiceEnabled: command.voiceEnabled } : {}),
           ...(command.channelBindings !== undefined
             ? { channelBindings: command.channelBindings }

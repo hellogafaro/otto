@@ -10,7 +10,7 @@ import {
   ThreadId,
   TurnId,
 } from "./base-schemas.ts";
-import { BotSandbox, BotPersonalityTone } from "./orchestration/roster.ts";
+import { BotSandbox, BotInstructions } from "./orchestration/roster.ts";
 import {
   ChatAttachment,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
@@ -70,7 +70,7 @@ export const ProviderSessionStartInput = Schema.Struct({
   sandboxMode: Schema.optional(ProviderSandboxMode),
   botId: Schema.optional(BotId),
   botName: Schema.optional(TrimmedNonEmptyString),
-  personalityTone: Schema.optional(BotPersonalityTone),
+  botInstructions: Schema.optional(BotInstructions),
   botSandbox: Schema.optional(Schema.NullOr(BotSandbox)),
   botSandboxEnvironment: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   mcpServers: Schema.optional(Schema.Array(McpServer)),

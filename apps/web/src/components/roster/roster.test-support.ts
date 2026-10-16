@@ -5,6 +5,7 @@ export function bot(input: Partial<Bot> & Pick<Bot, "id" | "name">): Bot {
     title: "Bot",
     label: null,
     description: null,
+    instructions: null,
     disabledMcpServerIds: [],
     avatar: { kind: "blob", shape: "circle", color: "#5B7FD4" },
     engine: null,

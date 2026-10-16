@@ -92,7 +92,6 @@ export const ProjectionBotDbRowSchema = ProjectionBot.mapFields(
   Struct.assign({
     avatar: Schema.fromJsonString(BotAvatar),
     engine: Schema.NullOr(Schema.fromJsonString(BotEngine)),
-    personalityTone: Schema.Number,
     disabledMcpServerIds: Schema.fromJsonString(Schema.Array(McpServerId)),
     disabledSkillIds: Schema.optional(Schema.fromJsonString(Schema.Array(LibraryFolderId))),
     owner: Schema.NullOr(Schema.fromJsonString(WorkParticipant)),
@@ -498,6 +497,7 @@ export function mapBotRow(
     title: row.title,
     label: row.label,
     description: row.description,
+    instructions: row.instructions,
     disabledMcpServerIds: row.disabledMcpServerIds,
     ...(row.disabledSkillIds?.length ? { disabledSkillIds: row.disabledSkillIds } : {}),
     owner: row.owner,
@@ -506,7 +506,6 @@ export function mapBotRow(
     sandbox: row.sandbox,
     runtimeMode: row.runtimeMode,
     imageProvider: row.imageProvider,
-    personalityTone: row.personalityTone,
     voiceEnabled: row.voiceEnabled === 1,
     channelBindings: row.channelBindings ?? [],
     groupId: row.groupId,

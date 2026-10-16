@@ -298,6 +298,7 @@ function makeBot(
     title: "Agent",
     label: null,
     description: null,
+    instructions: null,
     disabledMcpServerIds: [],
     avatar: { kind: "dither", seed: id },
     engine: null,

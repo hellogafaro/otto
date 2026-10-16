@@ -68,15 +68,14 @@ describe("bot settings page", () => {
     expect(draft).toContain("const markChanged = () => autosave.schedule();");
   });
 
-  it("owns the three personality choices and anchors them for deep links", () => {
+  it("owns the instructions textarea, limits it and autosaves it, with no personality control", () => {
     const source = readBotSettingsSource();
 
-    expect(source).toContain("<BotPersonalityToneField");
-    expect(source).toContain('id="personality"');
-    expect(source).toContain("tone={draft.personalityTone}");
-    expect(source).toContain("draft.setPersonalityTone(tone)");
-    // The baseline promise has to be on the page, not only in this test.
-    expect(source).toContain("It is a baseline, not a costume.");
+    expect(source).toContain('id="instructions"');
+    expect(source).toContain("maxLength={BOT_INSTRUCTIONS_MAX_CHARS}");
+    expect(source).toContain("draft.setInstructions(event.currentTarget.value);");
+    expect(source).toContain("draft.markChanged();");
+    expect(source.toLowerCase()).not.toContain("personality");
   });
 
   it("lists integrations and skills inline with per-bot switches that autosave", () => {
@@ -131,9 +130,7 @@ describe("bot settings entry points", () => {
     expect(panel).toContain('to: "/settings/bots/$botId"');
     expect(panel).toContain('t("Project")');
     expect(panel).toContain('t("Members")');
-    expect(panel).not.toContain("botPersonalityToneLabel");
     expect(panel).not.toContain("<BotModelPicker");
-    expect(panel).not.toContain("BotPersonalityToneField");
   });
 
   it("lists bots in Settings, where each opens its own settings page", () => {

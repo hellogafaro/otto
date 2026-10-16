@@ -62,6 +62,7 @@ export function bot(id: BotId, overrides: Partial<OrchestrationBot> = {}): Orche
     title: "Agent",
     label: null,
     description: null,
+    instructions: null,
     disabledMcpServerIds: [],
     avatar: { kind: "dither", seed: id },
     engine: null,

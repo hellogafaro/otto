@@ -292,14 +292,14 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
-  it.effect("adds compact personality instructions to legacy bot turns", () => {
+  it.effect("adds the bot's own instructions to legacy bot turns", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
 
     return provideController(
       Effect.gen(function* () {
         const controller = yield* AgentController;
-        const threadId = ThreadId.make("thread-legacy-personality");
+        const threadId = ThreadId.make("thread-legacy-instructions");
         const instanceId = ProviderInstanceId.make("legacyCustom");
         const selection = { instanceId, model: "legacy-model" };
         yield* controller.resolveEngine({
@@ -317,7 +317,7 @@ describe("AgentControllerLive", () => {
           runtimeMode: "full-access",
           botId: BotId.make("bot-grok"),
           botName: "Mina",
-          personalityTone: 20,
+          botInstructions: "Answer in Spanish.",
         });
         yield* controller.resolveEngine({
           threadId,
@@ -330,7 +330,7 @@ describe("AgentControllerLive", () => {
 
         expect(bridge.sendTurn).toHaveBeenCalledWith(
           expect.objectContaining({
-            input: expect.stringContaining("20/100, a 80% chill and 20% professional blend"),
+            input: expect.stringContaining("<instructions>\nAnswer in Spanish.\n</instructions>"),
           }),
         );
         expect(bridge.sendTurn.mock.calls[0]?.[0].input).toContain("hey what's up");

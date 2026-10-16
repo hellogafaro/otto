@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { ProviderInstanceId, type BotEngine } from "@otto/contracts";
+import { BOT_INSTRUCTIONS_MAX_CHARS, ProviderInstanceId, type BotEngine } from "@otto/contracts";
 import { useMemo, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/use-settings";
@@ -11,6 +11,8 @@ import { ProviderUnavailableNotice } from "../chat/provider-unavailable-notice";
 import { TraitsPicker } from "../chat/traits-picker";
 import { Button } from "../ui/button";
 import { Dialog, DialogFooter, DialogPopup, DialogTitle } from "../ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "../ui/field";
+import { Textarea } from "../ui/textarea";
 import { BotAvatarPopover } from "./bot-avatar-popover";
 import { BotModelPicker } from "./bot-model-picker";
 import { botEngineForModelPick, botEngineForOptions } from "./bot-engine-selection";
@@ -23,6 +25,8 @@ export interface NewBotInput {
   readonly avatar: BotAvatar;
   /** Null keeps the app's default model, which the bot follows when it changes. */
   readonly engine: BotEngine | null;
+  /** Null when left blank. */
+  readonly instructions: string | null;
 }
 
 /**
@@ -50,6 +54,7 @@ export function NewBotDialog({
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState<BotAvatar>(() => randomBotAvatar());
   const [engine, setEngine] = useState<BotEngine | null>(null);
+  const [instructions, setInstructions] = useState("");
   // A bot that no provider can run is still created; it replies once one connects.
   const { instanceEntries, selection, blocked, unavailability } = useBotEngineAvailability(engine);
   const trimmedName = name.trim();
@@ -75,7 +80,12 @@ export function NewBotDialog({
             event.preventDefault();
 
             if (submitting || trimmedName.length === 0) return;
-            onCreate({ name: trimmedName, avatar, engine });
+            onCreate({
+              name: trimmedName,
+              avatar,
+              engine,
+              instructions: instructions.trim() || null,
+            });
           }}
         >
           <DialogTitle className="sr-only">{t("New bot")}</DialogTitle>
@@ -131,6 +141,21 @@ export function NewBotDialog({
                 />
               ) : null}
             </div>
+            <Field className="w-full">
+              <FieldLabel>{t("Instructions")}</FieldLabel>
+              <Textarea
+                value={instructions}
+                placeholder={t("Review pull requests and keep replies short")}
+                rows={4}
+                maxLength={BOT_INSTRUCTIONS_MAX_CHARS}
+                disabled={submitting}
+                className="resize-none"
+                onChange={(event) => setInstructions(event.target.value)}
+              />
+              <FieldDescription>
+                {t("What this bot should do and how it should work. Added to every chat.")}
+              </FieldDescription>
+            </Field>
             {blocked && unavailability ? (
               <ProviderUnavailableNotice
                 className="w-full"

@@ -24,21 +24,21 @@ export function resolveOttoInstructions(
       ? state.botName
       : "Otto";
 
-  const personalityTone =
-    isBotConversation && "personalityTone" in state && Predicate.isNumber(state.personalityTone)
-      ? state.personalityTone
+  const instructions =
+    isBotConversation && "botInstructions" in state && Predicate.isString(state.botInstructions)
+      ? state.botInstructions
       : undefined;
 
-  const instructions = isBotConversation
+  const botPrompt = isBotConversation
     ? createOttoBotInstructions({
         name,
         now,
-        ...(personalityTone !== undefined ? { personalityTone } : {}),
+        ...(instructions ? { instructions } : {}),
       })
     : createOttoAgentInstructions({
         name,
         now,
-        ...(personalityTone !== undefined ? { personalityTone } : {}),
+        ...(instructions ? { instructions } : {}),
       });
 
   const persistentMemoryContext =
@@ -76,7 +76,7 @@ export function resolveOttoInstructions(
       : "";
 
   return [
-    instructions,
+    botPrompt,
     projectContext,
     groupContext,
     mcpInstructions,

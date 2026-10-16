@@ -16,11 +16,13 @@ import * as Layer from "effect/Layer";
 import Migration0001 from "./migrations/001_Baseline.gen.ts";
 import Migration0002 from "./migrations/002-project-cover.ts";
 import Migration0003 from "./migrations/003-notifications.ts";
+import Migration0004 from "./migrations/004-bot-instructions.ts";
 
 const migrationEntries = [
   [1, "Baseline", Migration0001],
   [2, "ProjectCover", Migration0002],
   [3, "Notifications", Migration0003],
+  [4, "BotInstructions", Migration0004],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

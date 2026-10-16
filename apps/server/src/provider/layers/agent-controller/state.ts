@@ -7,7 +7,6 @@ import type { RuntimeMode } from "@otto/contracts";
 
 import {
   TurnId,
-  type BotPersonalityTone,
   type McpServer,
   type ModelSelection,
   type ProviderRuntimeEvent,
@@ -37,7 +36,7 @@ export interface ResolvedEngine {
   readonly mastraModelId: string;
   readonly botConversation: boolean;
   readonly botName?: string;
-  readonly personalityTone?: BotPersonalityTone;
+  readonly botInstructions?: string;
 }
 
 export interface ActiveAssistantMessage {
@@ -140,7 +139,7 @@ export interface LegacyResourceIdentity {
   memoryAccess: BotMemoryAccess | undefined;
   entityMemoryAccess: OttoMemoryThreadAccess | undefined;
   readonly botName: string | undefined;
-  readonly personalityTone: BotPersonalityTone;
+  readonly botInstructions: string | undefined;
   readonly memoryAccessKey: string | undefined;
   privateBotMemory: boolean;
 }

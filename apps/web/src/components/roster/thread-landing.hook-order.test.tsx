@@ -282,6 +282,7 @@ const bot: Bot = {
   title: "Teammate",
   label: null,
   description: null,
+  instructions: null,
   disabledMcpServerIds: [],
   avatar: { kind: "dither", seed: "bot-1" },
   engine: null,

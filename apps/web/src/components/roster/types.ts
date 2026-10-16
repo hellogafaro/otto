@@ -45,8 +45,8 @@ export interface Bot {
   engine: BotEngine | null;
   sandbox: "local" | "e2b" | "daytona" | "vercel" | "railway" | "boat" | null;
   runtimeMode: "approval-required" | "auto-accept-edits" | "auto" | "full-access";
-  /** Personality baseline, 0 (chill) to 100 (professional). Absent on bots saved before the field existed. */
-  personalityTone?: number;
+  /** What this bot should do and how it should work; the server adds it to every chat. */
+  instructions: string | null;
   voiceEnabled: boolean;
   /** Image provider override; null or absent uses the environment's image generation default. */
   imageProvider?: ImageProviderId | null;

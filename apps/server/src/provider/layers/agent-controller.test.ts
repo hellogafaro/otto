@@ -477,27 +477,26 @@ describe("AgentControllerLive", () => {
         yield* controller.startSession(codexThreadId, {
           ...input,
           botName: "Research bot",
-          personalityTone: 20,
+          botInstructions: "Cite sources.",
         });
         expect(mastra.session.state.set).toHaveBeenLastCalledWith(
           expect.objectContaining({
             botConversation: true,
             botName: "Research bot",
-            personalityTone: 20,
+            botInstructions: "Cite sources.",
           }),
         );
 
         yield* controller.startSession(codexThreadId, {
           ...input,
           botName: "Mina",
-          personalityTone: 80,
         });
         expect(mastra.createSession).toHaveBeenCalledOnce();
         expect(mastra.session.state.set).toHaveBeenLastCalledWith(
           expect.objectContaining({
             botConversation: true,
             botName: "Mina",
-            personalityTone: 80,
+            botInstructions: undefined,
           }),
         );
       }),

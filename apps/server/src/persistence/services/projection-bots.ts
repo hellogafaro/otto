@@ -3,7 +3,6 @@ import {
   BotEngine,
   BotId,
   ImageProviderId,
-  BotPersonalityTone,
   PersistedBotSandbox,
   ChannelBinding,
   GroupId,
@@ -26,6 +25,7 @@ export const ProjectionBot = Schema.Struct({
   title: Schema.String,
   label: Schema.NullOr(Schema.String),
   description: Schema.NullOr(Schema.String),
+  instructions: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   disabledMcpServerIds: Schema.Array(McpServerId),
   disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
@@ -36,7 +36,6 @@ export const ProjectionBot = Schema.Struct({
   imageProvider: Schema.NullOr(ImageProviderId).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
-  personalityTone: Schema.optionalKey(BotPersonalityTone),
   voiceEnabled: Schema.Boolean,
   channelBindings: Schema.optional(Schema.Array(ChannelBinding)),
   groupId: Schema.NullOr(GroupId),

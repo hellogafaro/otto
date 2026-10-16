@@ -26,7 +26,6 @@ const ProjectionBotDbRow = ProjectionBot.mapFields(
   Struct.assign({
     avatar: Schema.fromJsonString(BotAvatar),
     engine: Schema.NullOr(Schema.fromJsonString(BotEngine)),
-    personalityTone: Schema.Number,
     disabledMcpServerIds: Schema.fromJsonString(Schema.Array(McpServerId)),
     disabledSkillIds: Schema.optional(Schema.fromJsonString(Schema.Array(LibraryFolderId))),
     owner: Schema.NullOr(Schema.fromJsonString(WorkParticipant)),
@@ -46,18 +45,19 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     Request: ProjectionBot,
     execute: (row) => sql`
       INSERT INTO projection_bots (
-        bot_id, name, title, label, description, disabled_mcp_server_ids_json,
+        bot_id, name, title, label, description, instructions, disabled_mcp_server_ids_json,
         disabled_skill_ids_json, owner_json,
         avatar_json, engine_json, sandbox, runtime_mode, image_provider,
-        voice_enabled, personality_tone, channel_bindings_json,
+        voice_enabled, channel_bindings_json,
         group_id, archived_at, created_at, updated_at
       ) VALUES (
         ${row.botId}, ${row.name}, ${row.title}, ${row.label}, ${row.description},
+        ${row.instructions},
         ${JSON.stringify(row.disabledMcpServerIds)}, ${JSON.stringify(row.disabledSkillIds ?? [])},
         ${row.owner ? JSON.stringify(row.owner) : null}, ${JSON.stringify(row.avatar)},
         ${row.engine === null ? null : JSON.stringify(row.engine)}, ${row.sandbox},
         ${row.runtimeMode}, ${row.imageProvider},
-        ${row.voiceEnabled ? 1 : 0}, ${row.personalityTone ?? 50},
+        ${row.voiceEnabled ? 1 : 0},
         ${JSON.stringify(row.channelBindings ?? [])}, ${row.groupId},
         ${row.archivedAt}, ${row.createdAt},
         ${row.updatedAt}
@@ -67,6 +67,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
         title = excluded.title,
         label = excluded.label,
         description = excluded.description,
+        instructions = excluded.instructions,
         disabled_mcp_server_ids_json = excluded.disabled_mcp_server_ids_json,
         disabled_skill_ids_json = excluded.disabled_skill_ids_json,
         owner_json = excluded.owner_json,
@@ -76,7 +77,6 @@ const makeProjectionBotRepository = Effect.gen(function* () {
         runtime_mode = excluded.runtime_mode,
         image_provider = excluded.image_provider,
         voice_enabled = excluded.voice_enabled,
-        personality_tone = excluded.personality_tone,
         channel_bindings_json = excluded.channel_bindings_json,
         group_id = excluded.group_id,
         archived_at = excluded.archived_at,
@@ -90,11 +90,10 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     Result: ProjectionBotDbRow,
     execute: ({ botId }) => sql`
       SELECT
-        bot_id AS "botId", name, title, label, description,
+        bot_id AS "botId", name, title, label, description, instructions,
         disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", owner_json AS "owner", avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
-        personality_tone AS "personalityTone",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
         archived_at AS "archivedAt", created_at AS "createdAt", updated_at AS "updatedAt"
       FROM projection_bots
@@ -107,11 +106,10 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     Result: ProjectionBotDbRow,
     execute: () => sql`
       SELECT
-        bot_id AS "botId", name, title, label, description,
+        bot_id AS "botId", name, title, label, description, instructions,
         disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", owner_json AS "owner", avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
-        personality_tone AS "personalityTone",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
         archived_at AS "archivedAt", created_at AS "createdAt", updated_at AS "updatedAt"
       FROM projection_bots

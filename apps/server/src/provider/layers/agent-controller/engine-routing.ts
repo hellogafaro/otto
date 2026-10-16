@@ -180,9 +180,7 @@ export function createEngineRouting(deps: {
           ),
           botConversation: input.botConversation,
           ...(previous?.botName ? { botName: previous.botName } : {}),
-          ...(previous?.personalityTone !== undefined
-            ? { personalityTone: previous.personalityTone }
-            : {}),
+          ...(previous?.botInstructions ? { botInstructions: previous.botInstructions } : {}),
         };
 
         deps.resolvedByThread.set(String(input.threadId), resolved);

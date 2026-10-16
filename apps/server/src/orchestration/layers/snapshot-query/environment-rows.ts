@@ -54,11 +54,10 @@ export function createEnvironmentRows({ sql }: Pick<ProjectionSnapshotDependenci
     Result: ProjectionBotDbRowSchema,
     execute: () => sql`
       SELECT
-        bot_id AS "botId", name, title, label, description,
+        bot_id AS "botId", name, title, label, description, instructions,
         disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", owner_json AS "owner", avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
-        personality_tone AS "personalityTone",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
         archived_at AS "archivedAt", created_at AS "createdAt", updated_at AS "updatedAt"
       FROM projection_bots
@@ -129,11 +128,10 @@ export function createEnvironmentRows({ sql }: Pick<ProjectionSnapshotDependenci
     Result: ProjectionBotDbRowSchema,
     execute: ({ botId }) => sql`
       SELECT
-        bot_id AS "botId", name, title, label, description,
+        bot_id AS "botId", name, title, label, description, instructions,
         disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", owner_json AS "owner", avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         voice_enabled AS "voiceEnabled",
-        personality_tone AS "personalityTone",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
         archived_at AS "archivedAt", created_at AS "createdAt", updated_at AS "updatedAt"
       FROM projection_bots

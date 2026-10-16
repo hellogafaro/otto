@@ -1,6 +1,7 @@
 import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
 import {
+  BOT_INSTRUCTIONS_MAX_CHARS,
   BotId,
   IMAGE_PROVIDER_IDS,
   type EnvironmentId,
@@ -28,13 +29,13 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
+import { Textarea } from "../ui/textarea";
 import { toast } from "sonner";
 import { AvatarPickerDialog } from "./avatar-picker-dialog";
 import { BotAvatarView } from "./bot-avatar-view";
 import { BotEngineFields } from "./bot-engine-fields";
 import { BotIdentityFields } from "./bot-identity-fields";
 import { BotMemorySheet } from "./bot-memory-sheet";
-import { BotPersonalityToneField } from "./bot-personality-tone-field";
 import { BotToolSwitches } from "./bot-tool-switches";
 import { BOT_SANDBOX_OPTIONS, botSandboxLabel } from "./bot-sandbox";
 import type { Bot } from "./types";
@@ -156,18 +157,22 @@ export function BotSettingsForm({
 
           <SettingsSection id="behavior" title={t("Behavior")}>
             <SettingsRow
-              id="personality"
-              title={t("Personality")}
+              id="instructions"
+              title={t("Instructions")}
               description={t(
-                "Choose how this bot usually sounds. It is a baseline, not a costume. The bot still adapts to you and to the task, so serious work stays serious in every mode.",
+                "What this bot should do and how it should work. Added to every chat.",
               )}
             >
               <div className="mt-3 pb-3.5">
-                <BotPersonalityToneField
-                  bot={bot}
-                  tone={draft.personalityTone}
-                  onToneChange={(tone) => {
-                    draft.setPersonalityTone(tone);
+                <Textarea
+                  aria-label={t("Bot instructions")}
+                  value={draft.instructions}
+                  placeholder={t("Review pull requests and keep replies short")}
+                  rows={8}
+                  maxLength={BOT_INSTRUCTIONS_MAX_CHARS}
+                  className="min-h-40 resize-none"
+                  onChange={(event) => {
+                    draft.setInstructions(event.currentTarget.value);
                     draft.markChanged();
                   }}
                 />

@@ -268,6 +268,7 @@ const parentBot: Bot = {
   title: "Boss",
   label: null,
   description: null,
+  instructions: null,
   disabledMcpServerIds: [],
   avatar: { kind: "dither", seed: "parent" },
   engine: null,

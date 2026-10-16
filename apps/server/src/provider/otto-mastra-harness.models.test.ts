@@ -392,16 +392,16 @@ describe("OttoMastraHarness", () => {
     regular.setRaw("controller", { state: { botConversation: false } });
     const bot = new RequestContext();
     bot.setRaw("controller", {
-      state: { botConversation: true, botName: "Mina", personalityTone: 20 },
+      state: { botConversation: true, botName: "Mina", botInstructions: "Answer in Spanish." },
     });
 
     assert.equal(resolveOttoInstructions(regular, now), createOttoAgentInstructions({ now }));
     assert.equal(
       resolveOttoInstructions(bot, now),
-      createOttoBotInstructions({ name: "Mina", now, personalityTone: 20 }),
+      createOttoBotInstructions({ name: "Mina", now, instructions: "Answer in Spanish." }),
     );
     assert.include(resolveOttoInstructions(bot, now), "You are Mina");
-    assert.include(resolveOttoInstructions(bot, now), "20/100, a 80% chill");
+    assert.include(resolveOttoInstructions(bot, now), "Answer in Spanish.");
     assert.include(resolveOttoInstructions(bot, now), "Before you use a tool");
     assert.include(resolveOttoInstructions(bot, now), "automatic continuation");
   });

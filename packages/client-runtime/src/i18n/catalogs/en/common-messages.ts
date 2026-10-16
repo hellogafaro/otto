@@ -136,15 +136,6 @@ export const commonMessagesCatalog = {
   "Assign {name}": "Assign {name}",
   "Loading…": "Loading…",
   "{percent}% of pool": "{percent}% of pool",
-  "How {name} might sound": "How {name} might sound",
-  "An illustration of the band, not a live reply.":
-    "An illustration of the band, not a live reply.",
-  "Relaxed and direct. Casual wording can sit next to serious thinking.":
-    "Relaxed and direct. Casual wording can sit next to serious thinking.",
-  "Clear and composed replies, loosening up when you do.":
-    "Clear and composed replies, loosening up when you do.",
-  "Concise and professional, using contractions and ordinary words. Never corporate.":
-    "Concise and professional, using contractions and ordinary words. Never corporate.",
   "{name} is not available right now.": "{name} is not available right now.",
   "{name} is not ready yet.": "{name} is not ready yet.",
   "{name}, new": "{name}, new",

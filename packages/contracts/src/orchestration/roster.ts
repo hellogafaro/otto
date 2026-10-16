@@ -146,20 +146,10 @@ export const PersistedBotSandbox = Schema.Union([
   ),
 );
 
-export const MIN_BOT_PERSONALITY_TONE = 0;
+export const BOT_INSTRUCTIONS_MAX_CHARS = 8_000;
 
-export const BALANCED_BOT_PERSONALITY_TONE = 50;
-
-export const MAX_BOT_PERSONALITY_TONE = 100;
-
-export const BotPersonalityTone = Schema.Int.check(
-  Schema.isBetween({
-    minimum: MIN_BOT_PERSONALITY_TONE,
-    maximum: MAX_BOT_PERSONALITY_TONE,
-  }),
-);
-
-export type BotPersonalityTone = typeof BotPersonalityTone.Type;
+/** What the bot's owner tells it to do and how to work, added to its prompt. */
+export const BotInstructions = Schema.String.check(Schema.isMaxLength(BOT_INSTRUCTIONS_MAX_CHARS));
 
 export const CHANNEL_PROVIDERS = ["telegram", "imessage", "whatsapp", "slack", "discord"] as const;
 
@@ -283,6 +273,9 @@ export const OrchestrationBot = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   description: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  instructions: Schema.NullOr(BotInstructions).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
   disabledMcpServerIds: Schema.Array(McpServerId).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
@@ -302,7 +295,6 @@ export const OrchestrationBot = Schema.Struct({
   imageProvider: Schema.NullOr(ImageProviderId).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
-  personalityTone: Schema.optionalKey(BotPersonalityTone),
   voiceEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   channelBindings: Schema.Array(ChannelBinding).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),

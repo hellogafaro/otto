@@ -3,6 +3,7 @@ import { decodeServerProvider } from "../test-support/fixtures";
 import { Predicate } from "effect";
 import { isValidElement, type ReactElement } from "react";
 import {
+  BOT_INSTRUCTIONS_MAX_CHARS,
   DEFAULT_UNIFIED_SETTINGS,
   EnvironmentId,
   ProviderDriverKind,
@@ -150,7 +151,7 @@ function makeBot(overrides: Partial<Bot> = {}): Bot {
     engine: { provider: codexId, model: "gpt-5" },
     sandbox: "local",
     runtimeMode: "full-access",
-    personalityTone: 50,
+    instructions: null,
     voiceEnabled: false,
     imageProvider: null,
     groupId: null,
@@ -229,6 +230,21 @@ function flushSave(tree: Tree) {
   (form!.props.onBlurCapture as () => void)();
 }
 
+function instructionsField(tree: Tree) {
+  const field = visitElements(
+    tree,
+    (element) => element.props["aria-label"] === "Bot instructions",
+  );
+
+  expect(field).not.toBeNull();
+
+  return field!.props as {
+    readonly value: string;
+    readonly maxLength: number;
+    readonly onChange: (event: { currentTarget: { value: string } }) => void;
+  };
+}
+
 function modelPicker(tree: Tree) {
   const picker = visitElements(
     tree,
@@ -259,7 +275,7 @@ function expectedUpdate(bot: Bot, overrides: TestProps) {
       description: null,
       engine: bot.engine,
       sandbox: bot.sandbox,
-      personalityTone: 50,
+      instructions: null,
       voiceEnabled: false,
       imageProvider: null,
       ...overrides,
@@ -430,6 +446,43 @@ describe("bot settings image provider", () => {
         engine: { provider: codexId, model: "gpt-5-mini" },
         imageProvider: "chatgpt",
       }),
+    );
+  });
+
+  it("limits the instructions to the contract maximum", () => {
+    expect(instructionsField(renderForm()).maxLength).toBe(BOT_INSTRUCTIONS_MAX_CHARS);
+  });
+
+  it("saves typed instructions through bot.update, trimmed", async () => {
+    instructionsField(renderForm()).onChange({
+      currentTarget: { value: "  Review pull requests.  " },
+    });
+
+    const tree = renderForm();
+    expect(instructionsField(tree).value).toBe("  Review pull requests.  ");
+
+    flushSave(tree);
+    await flushPromises();
+    expect(state.updateBot).toHaveBeenCalledTimes(1);
+    expect(state.updateBot).toHaveBeenCalledWith(
+      expectedUpdate(state.bots[0]!, { instructions: "Review pull requests." }),
+    );
+
+    state.bots = [makeBot({ instructions: "Review pull requests." })];
+    state.updateBot.mockClear();
+    flushSave(renderForm());
+    expect(state.updateBot).not.toHaveBeenCalled();
+  });
+
+  it("saves empty or whitespace-only instructions as null", async () => {
+    state.bots = [makeBot({ instructions: "Be brief." })];
+    expect(instructionsField(renderForm()).value).toBe("Be brief.");
+
+    instructionsField(renderForm()).onChange({ currentTarget: { value: " \n  " } });
+    flushSave(renderForm());
+    await flushPromises();
+    expect(state.updateBot).toHaveBeenCalledWith(
+      expectedUpdate(state.bots[0]!, { instructions: null }),
     );
   });
 

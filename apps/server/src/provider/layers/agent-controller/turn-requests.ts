@@ -360,9 +360,7 @@ export function createTurnRequests(deps: {
         const turnInstructions = resolved?.botConversation
           ? createOttoBotTurnInstructions({
               ...(resolved.botName ? { name: resolved.botName } : {}),
-              ...(resolved.personalityTone !== undefined
-                ? { personalityTone: resolved.personalityTone }
-                : {}),
+              ...(resolved.botInstructions ? { instructions: resolved.botInstructions } : {}),
             })
           : "";
 

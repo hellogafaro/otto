@@ -286,9 +286,7 @@ export function createClaudeSessionLifecycle(deps: {
           append: input.botId
             ? createOttoBotInstructions({
                 ...(input.botName ? { name: input.botName } : {}),
-                ...(input.personalityTone !== undefined
-                  ? { personalityTone: input.personalityTone }
-                  : {}),
+                ...(input.botInstructions ? { instructions: input.botInstructions } : {}),
               })
             : createOttoAgentInstructions(),
         },

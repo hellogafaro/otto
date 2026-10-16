@@ -75,13 +75,13 @@ describe("ProviderSessionStartInput", () => {
       provider: "codex",
       botId: "bot-one",
       botName: "Research bot",
-      personalityTone: 40,
+      botInstructions: "Answer in Spanish.",
       runtimeMode: "full-access",
     });
 
     expect(parsed.botId).toBe("bot-one");
     expect(parsed.botName).toBe("Research bot");
-    expect(parsed.personalityTone).toBe(40);
+    expect(parsed.botInstructions).toBe("Answer in Spanish.");
   });
 
   it("rejects payloads without runtime mode", () => {

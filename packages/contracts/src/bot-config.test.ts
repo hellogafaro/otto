@@ -1,11 +1,15 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 
-import { BotCreatedPayload, BotPersonalityTone } from "./orchestration.ts";
+import {
+  BOT_INSTRUCTIONS_MAX_CHARS,
+  BotCreatedPayload,
+  BotUpdatedPayload,
+} from "./orchestration.ts";
 
 const decodeCreated = Schema.decodeUnknownSync(BotCreatedPayload);
 
-const decodePersonalityTone = Schema.decodeUnknownSync(BotPersonalityTone);
+const decodeUpdated = Schema.decodeUnknownSync(BotUpdatedPayload);
 
 describe("BotCreatedPayload", () => {
   it("defaults old bot events to full access", () => {
@@ -26,7 +30,31 @@ describe("BotCreatedPayload", () => {
     expect(bot.description).toBeNull();
     expect(bot.disabledMcpServerIds).toEqual([]);
     expect(bot.voiceEnabled).toBe(false);
-    expect(bot.personalityTone).toBe(50);
+    expect(bot.instructions).toBeNull();
+  });
+
+  it("drops the retired personality tone from older bot events", () => {
+    const bot = decodeCreated({
+      botId: "bot-toned",
+      name: "Toned bot",
+      title: "Generalist",
+      avatar: { kind: "blob", shape: "circle", color: "#5B7FD4" },
+      engine: null,
+      sandbox: null,
+      personalityTone: 80,
+      groupId: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    const update = decodeUpdated({
+      botId: "bot-toned",
+      personalityTone: 20,
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+
+    expect(bot).not.toHaveProperty("personalityTone");
+    expect(update).not.toHaveProperty("personalityTone");
   });
 
   it("ignores the retired token cap on older bot events", () => {
@@ -65,12 +93,19 @@ describe("BotCreatedPayload", () => {
   });
 });
 
-describe("BotPersonalityTone", () => {
-  it("accepts the slider range and rejects values outside it", () => {
-    for (const tone of [0, 40, 50, 100]) expect(decodePersonalityTone(tone)).toBe(tone);
+describe("BotUpdatedPayload instructions", () => {
+  it("accepts instructions up to the limit and rejects longer ones", () => {
+    const at = "2026-01-02T00:00:00.000Z";
+    const limit = "a".repeat(BOT_INSTRUCTIONS_MAX_CHARS);
 
-    for (const tone of [-1, 101, 49.5, Number.NaN]) {
-      expect(() => decodePersonalityTone(tone)).toThrow();
-    }
+    expect(decodeUpdated({ botId: "bot-1", instructions: limit, updatedAt: at }).instructions).toBe(
+      limit,
+    );
+    expect(decodeUpdated({ botId: "bot-1", instructions: null, updatedAt: at }).instructions).toBe(
+      null,
+    );
+    expect(() =>
+      decodeUpdated({ botId: "bot-1", instructions: `${limit}a`, updatedAt: at }),
+    ).toThrow();
   });
 });

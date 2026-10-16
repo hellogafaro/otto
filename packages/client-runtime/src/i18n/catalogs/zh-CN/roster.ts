@@ -137,12 +137,12 @@ export const rosterCatalog = {
   "Change bot avatar": "更换机器人头像",
   "What you call this bot in chats and mentions.": "你在聊天和提及中对此机器人的称呼。",
   "Bot label": "机器人标签",
+  "What this bot should do and how it should work. Added to every chat.":
+    "这个机器人该做什么、该怎么做。会加入每次对话。",
+  "Bot instructions": "机器人指令",
+  "Review pull requests and keep replies short": "审查拉取请求，回复保持简短",
   "Bot description": "机器人描述",
   "What this bot is for": "此机器人的用途",
-  "Voice and personality": "语音与性格",
-  Personality: "性格",
-  "Choose how this bot usually sounds. It is a baseline, not a costume. The bot still adapts to you and to the task, so serious work stays serious in every mode.":
-    "选择此机器人通常的说话风格。这是一个基调，而不是一套戏服。机器人仍会根据你和任务进行调整，因此在任何模式下，严肃的工作依然严肃。",
   "Delete bot": "删除机器人",
   "Remove {name} from the roster. Its chats stay in your history.":
     "从名单中移除 {name}。其聊天记录会保留在历史中。",
@@ -181,9 +181,6 @@ export const rosterCatalog = {
   "It cannot send work to other bots or receive work from them.":
     "它无法把工作交给其他机器人，也无法接收其他机器人交来的工作。",
   "Search bot tools": "搜索机器人工具",
-  "Personality for {name}": "{name} 的性格",
-  "Short, relaxed messages. Lowercase reads as natural, like a teammate texting.":
-    "简短、轻松的消息。读起来很自然，就像队友发来的短信。",
   "From {source} · Bots: {bots}": "来自 {source} · 机器人：{bots}",
   "Bots: {bots}": "机器人：{bots}",
   "this bot": "此机器人",

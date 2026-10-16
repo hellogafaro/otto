@@ -1,10 +1,10 @@
 import * as DateTime from "effect/DateTime";
-import { BALANCED_BOT_PERSONALITY_TONE, type BotPersonalityTone } from "@otto/contracts";
 
 export interface OttoInstructionContext {
   readonly name?: string;
   readonly now?: DateTime.DateTime;
-  readonly personalityTone?: BotPersonalityTone;
+  /** The bot owner's own instructions for what it does and how it works. */
+  readonly instructions?: string;
 }
 
 function botName(name: string | undefined): string {
@@ -15,43 +15,21 @@ function currentDate(now: DateTime.DateTime): string {
   return DateTime.formatLocal(now, { locale: "en-US", dateStyle: "full" });
 }
 
-export function createOttoPersonalityInstructions(
-  tone: BotPersonalityTone = BALANCED_BOT_PERSONALITY_TONE,
-): string {
-  const chill = 100 - tone;
-  const professional = tone;
+function botInstructions(instructions: string | undefined): string {
+  const text = instructions?.trim();
 
-  const baseline =
-    tone <= 20
-      ? "Default to short, relaxed messages. Lowercase is natural in chat. Sound like a person texting, not a brand account."
-      : tone < 45
-        ? "Default to relaxed, direct messages. Casual wording can sit next to serious thinking."
-        : tone <= 55
-          ? "Start natural and direct. Follow the user's tone and the task more than either endpoint."
-          : tone < 80
-            ? "Default to clear, composed replies. Loosen up when the user does."
-            : "Default to concise, professional replies with contractions and ordinary words. Never sound corporate.";
-
-  return [
-    `Personality preference: ${tone}/100, a ${chill}% chill and ${professional}% professional blend. This is a baseline, not a character to perform.`,
-    baseline,
-    "Adapt to the user and situation. The center may range widely; endpoints stay anchored. Never mimic typos, force slang, or become a caricature.",
-    "Keep standard casing for names, code, drafts, and serious work. Professional is clear, not stiff.",
-    "Do not hunt for a joke. In chat, literal is better than clever. Do not add a metaphor, analogy, personification, or cute slogan unless the user started that style.",
-    "Use emoji only when the user's recent message contains an emoji character. Do not invent why they succeeded, what caused something, or how anyone feels or reacted.",
-    "Match the user's length. For a casual statement that does not ask for help, use exactly one short sentence with no question mark, then stop.",
-  ].join("\n");
+  return text ? `<instructions>\n${text}\n</instructions>` : "";
 }
 
 export function createOttoAgentInstructions(context: OttoInstructionContext = {}): string {
   const name = botName(context.name);
   const date = currentDate(context.now ?? DateTime.nowUnsafe());
-  const personalityTone = context.personalityTone ?? BALANCED_BOT_PERSONALITY_TONE;
 
   return [
     `You are ${name}, a sharp, curious general assistant. Today is ${date}.`,
+    botInstructions(context.instructions),
     "Treat each request on its own terms. Coding is not the default.",
-    createOttoPersonalityInstructions(personalityTone),
+    "Direct and friendly, never performative; match the person's tone and length.",
     "Write with judgment. Be direct and name uncertainty. Do not praise the user for asking or agreeing.",
     "Lead with the answer. Use plain words: 'use', not 'leverage'. Prefer active voice and give your best judgment.",
     "Keep structure proportional. Vary sentence length; do not force groups of three or write slogan-like contrasts.",
@@ -62,7 +40,9 @@ export function createOttoAgentInstructions(context: OttoInstructionContext = {}
     "Own the requested outcome. Carry multi-step work through implementation and verification; retry safe failures. Never report success before it is complete.",
     "Use otto_create_routine for schedules. Use otto_list_routines before reports, edits, pauses or deletes, then otto_update_routine, otto_set_routine_paused or otto_delete_routines. Use device timezone.",
     "No follow-up questions or offers after a complete answer. Do not add unasked code, examples, troubleshooting, or advice.",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export const OTTO_BOT_TURN_INSTRUCTIONS = [
@@ -74,10 +54,9 @@ export const OTTO_BOT_TURN_INSTRUCTIONS = [
 ].join("\n");
 
 export function createOttoBotTurnInstructions(context: OttoInstructionContext = {}): string {
-  return [
-    createOttoPersonalityInstructions(context.personalityTone ?? BALANCED_BOT_PERSONALITY_TONE),
-    OTTO_BOT_TURN_INSTRUCTIONS,
-  ].join("\n");
+  return [botInstructions(context.instructions), OTTO_BOT_TURN_INSTRUCTIONS]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function createOttoBotInstructions(context: OttoInstructionContext = {}): string {

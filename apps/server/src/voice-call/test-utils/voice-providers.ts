@@ -26,6 +26,7 @@ const repository = {
         title: "Generalist",
         label: null,
         description: null,
+        instructions: null,
         disabledMcpServerIds: [],
         avatar: { kind: "blob" as const, shape: "circle" as const, color: "#123456" },
         engine: null,

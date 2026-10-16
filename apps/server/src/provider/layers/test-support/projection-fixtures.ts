@@ -24,6 +24,7 @@ export function providerBotFixture(
     title: "Agent",
     label: null,
     description: null,
+    instructions: null,
     disabledMcpServerIds: [],
     avatar: { kind: "dither", seed: input.id },
     engine: null,

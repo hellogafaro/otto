@@ -98,7 +98,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
         sandbox: null,
         runtimeMode: "approval-required",
         imageProvider: "chatgpt",
-        personalityTone: 50,
+        instructions: "Answer in Spanish.",
         voiceEnabled: true,
       });
       yield* engine.dispatch({
@@ -160,6 +160,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
         title: "Staff researcher",
         label: "Discovery",
         description: "Investigates the highest-risk assumptions.",
+        instructions: "Answer in Spanish.",
         disabledMcpServerIds: [McpServerId.make("mcp-github")],
         owner: null,
         avatar: { kind: "dither", seed: "pathfinder" },
@@ -174,7 +175,6 @@ it.layer(TestLayer)("bot persistence", (it) => {
         sandbox: null,
         runtimeMode: "approval-required",
         imageProvider: "chatgpt",
-        personalityTone: 50,
         voiceEnabled: true,
         channelBindings: [],
         groupId: null,

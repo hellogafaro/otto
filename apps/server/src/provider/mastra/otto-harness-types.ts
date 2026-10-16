@@ -7,7 +7,6 @@ import {
 } from "@mastra/core/agent-controller";
 import {
   type OttoConversationMemorySnapshot,
-  type BotPersonalityTone,
   type OttoCreateRoutineInput as OttoCreateRoutineInputValue,
   type OttoUpdateRoutineInput as OttoUpdateRoutineInputValue,
 } from "@otto/contracts";
@@ -32,7 +31,8 @@ export interface OttoMastraState {
   readonly yolo?: boolean;
   readonly botConversation?: boolean;
   readonly botName?: string;
-  readonly personalityTone?: BotPersonalityTone;
+  // Undefined clears the instructions when the bot's owner removes them.
+  readonly botInstructions?: string | undefined;
   readonly persistentMemoryContext?: string;
   readonly mcpInstructions?: string;
   // Undefined clears the catalog when the bot no longer has skills.

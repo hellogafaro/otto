@@ -127,13 +127,6 @@ export const commonMessagesCatalog = {
   "Assign {name}": "分配 {name}",
   "Loading…": "正在加载…",
   "{percent}% of pool": "额度池的 {percent}%",
-  "How {name} might sound": "{name} 可能的说话方式",
-  "An illustration of the band, not a live reply.": "这是该风格的示例，不是实时回复。",
-  "Relaxed and direct. Casual wording can sit next to serious thinking.":
-    "轻松而直接。随意的措辞也可以配合严肃的思考。",
-  "Clear and composed replies, loosening up when you do.": "清晰、沉稳的回复，你放松时它也会放松。",
-  "Concise and professional, using contractions and ordinary words. Never corporate.":
-    "简洁专业，用词平实，从不打官腔。",
   "{name} is not available right now.": "{name} 目前不可用。",
   "{name} is not ready yet.": "{name} 尚未就绪。",
   "{name}, new": "{name}，新",
