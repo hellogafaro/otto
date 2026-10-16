@@ -6,15 +6,9 @@ import {
 import { RiBox3Line, RiCalendarLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
-import { formatRelativeTime } from "../../timestamp-format";
+import { formatRelativeTime, localDateKey } from "../../timestamp-format";
 import type { Bot } from "../roster/types";
-import {
-  DataTable,
-  DataTableChip,
-  type DataTableColumn,
-  type DataTableGroupBy,
-} from "../ui/data-table";
-import { localDateKey } from "../../timestamp-format";
+import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import { WORK_STATUS_ORDER } from "./work.logic";
 import { ParticipantStack } from "./work-participants";
 import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
@@ -112,15 +106,12 @@ export function TasksTable({
   bots,
   showProject,
   onOpenTask,
-  groupBy,
 }: {
   readonly tasks: readonly OrchestrationTask[];
   readonly projects: readonly OrchestrationProjectShell[];
   readonly bots: readonly Bot[];
   readonly showProject: boolean;
   readonly onOpenTask: (task: OrchestrationTask) => void;
-  /** Otto: Bands other than status, such as Home's overdue and today. */
-  readonly groupBy?: DataTableGroupBy<OrchestrationTask>;
 }) {
   const { t } = useI18n();
   const statusLabel = useWorkStatusLabel();
@@ -132,16 +123,14 @@ export function TasksTable({
       getRowKey={(task) => task.id}
       getRowLabel={(task) => `${task.title}, ${statusLabel(task.status)}`}
       onRowClick={onOpenTask}
-      groupBy={
-        groupBy ?? {
-          groups: WORK_STATUS_ORDER.map((status) => ({
-            id: status,
-            label: statusLabel(status),
-            icon: <WorkStatusIcon status={status} />,
-          })),
-          getGroupId: (task) => task.status,
-        }
-      }
+      groupBy={{
+        groups: WORK_STATUS_ORDER.map((status) => ({
+          id: status,
+          label: statusLabel(status),
+          icon: <WorkStatusIcon status={status} />,
+        })),
+        getGroupId: (task) => task.status,
+      }}
     />
   );
 }
