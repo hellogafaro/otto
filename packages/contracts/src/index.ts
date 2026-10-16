@@ -10,6 +10,8 @@ export * from "./otto-workers.ts";
 
 export * from "./otto-memory.ts";
 
+export * from "./memory.ts";
+
 export * from "./otto-usage.ts";
 
 export * from "./routines.ts";

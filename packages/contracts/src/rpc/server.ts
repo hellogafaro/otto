@@ -31,6 +31,16 @@ import {
 } from "../orchestration/library.ts";
 import { OttoBotUsageInput, OttoBotUsageReadError, OttoBotUsageSnapshot } from "../otto-usage.ts";
 import {
+  Memory,
+  MemoryCreateInput,
+  MemoryDecideInput,
+  MemoryDeleteInput,
+  MemoryError,
+  MemoryListInput,
+  MemoryListResult,
+  MemoryUpdateInput,
+} from "../memory.ts";
+import {
   OttoMemoryOperationError,
   OttoMemoryFactsListInput,
   OttoMemoryFactsListResult,
@@ -577,6 +587,36 @@ export const WsMemoryDocumentReplaceRpc = Rpc.make(WS_METHODS.memoryDocumentRepl
 export const WsMemoryObservationsClearRpc = Rpc.make(WS_METHODS.memoryObservationsClear, {
   payload: OttoMemoryObservationsClearInput,
   error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
+});
+
+const MemoryRpcError = Schema.Union([MemoryError, EnvironmentAuthorizationError]);
+
+export const WsMemoryListRpc = Rpc.make(WS_METHODS.memoryList, {
+  payload: MemoryListInput,
+  success: MemoryListResult,
+  error: MemoryRpcError,
+});
+
+export const WsMemoryCreateRpc = Rpc.make(WS_METHODS.memoryCreate, {
+  payload: MemoryCreateInput,
+  success: Memory,
+  error: MemoryRpcError,
+});
+
+export const WsMemoryUpdateRpc = Rpc.make(WS_METHODS.memoryUpdate, {
+  payload: MemoryUpdateInput,
+  success: Memory,
+  error: MemoryRpcError,
+});
+
+export const WsMemoryDeleteRpc = Rpc.make(WS_METHODS.memoryDelete, {
+  payload: MemoryDeleteInput,
+  error: MemoryRpcError,
+});
+
+export const WsMemoryDecideRpc = Rpc.make(WS_METHODS.memoryDecide, {
+  payload: MemoryDecideInput,
+  error: MemoryRpcError,
 });
 
 export const WsBotUsageRpc = Rpc.make(WS_METHODS.botUsage, {
