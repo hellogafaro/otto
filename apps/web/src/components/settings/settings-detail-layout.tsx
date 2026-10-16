@@ -79,6 +79,7 @@ function IconTile({ icon, size }: { readonly icon: Icon; readonly size: "sm" | "
  * A list row that opens a subpage. Several of these in one `SettingsSection`
  * group into a single card, like plain `SettingsRow`s.
  */
+// Otto: A link row is a CustomizeRow: the hover fills the whole row, never an inset pill.
 export function SettingsLinkRow<TRouter extends RegisteredRouter, TOptions>({
   id,
   link,
@@ -103,28 +104,17 @@ export function SettingsLinkRow<TRouter extends RegisteredRouter, TOptions>({
       {...(link as LinkComponentProps)}
       {...(id ? { id } : {})}
       data-settings-row=""
-      className="group relative flex min-h-14 items-center gap-3 rounded-lg px-4 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-foreground/3.5 focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-1.5 inset-y-1 rounded-lg transition-colors group-hover:bg-muted/50"
-      />
-      <span className="relative flex min-w-0 flex-1 items-center gap-3">
-        <IconTile icon={icon} size="sm" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-foreground">{title}</span>
-          {description ? (
-            <span className="block truncate text-13px text-muted-foreground/80">{description}</span>
-          ) : null}
-        </span>
-        {tone === "neutral" ? null : (
-          <Badge variant={TONE_BADGE_VARIANT[tone]}>{statusLabel}</Badge>
-        )}
-        <RiArrowRightSLine
-          aria-hidden
-          className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-muted-foreground"
-        />
+      <IconTile icon={icon} size="sm" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-13px font-medium text-foreground">{title}</span>
+        {description ? (
+          <span className="block truncate text-xs text-muted-foreground">{description}</span>
+        ) : null}
       </span>
+      {tone === "neutral" ? null : <Badge variant={TONE_BADGE_VARIANT[tone]}>{statusLabel}</Badge>}
+      <RiArrowRightSLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />
     </Link>
   );
 }
