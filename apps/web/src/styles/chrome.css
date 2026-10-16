@@ -36,6 +36,10 @@ body {
   padding-right: var(--desktop-window-right-resize-inset);
 }
 
+.electron {
+  --app-titlebar-height: var(--workspace-topbar-height);
+}
+
 .electron-windows {
   --desktop-window-right-resize-inset: 6px;
 }

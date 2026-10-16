@@ -130,125 +130,104 @@ export function ExperimentalSidebar() {
   const unread = notifications.data?.unread ?? 0;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-      {/* The macOS traffic lights are wider than the rail, so while they show
-          they get a titlebar strip across rail and panel. Fullscreen hides
-          them and drops the strip. */}
+    <div className="flex h-full min-h-0 w-full overflow-hidden">
+      <nav
+        aria-label={t("Main")}
+        className="flex h-full w-(--rail-width) shrink-0 flex-col items-center pb-3"
+        style={{ "--rail-width": `${RAIL_WIDTH}px` }}
+      >
+        {/* The first icon centers on the panel title row. */}
+        <div className={cn("h-topbar-spacer w-full shrink-0", isElectron && "drag-region")} />
+        <div className="flex flex-col items-center gap-1">
+          {/* Otto: The Otto mark is the rail's first button, a ghost button like the rest, and a second way home. */}
+          <button
+            type="button"
+            aria-label="Otto"
+            onClick={() => {
+              if (!onHome) void navigate({ to: "/" });
+            }}
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none hover:bg-sidebar-wash motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag"
+          >
+            <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-xl" />
+          </button>
+          <RailButton
+            label={unread > 0 ? t("Home, {count} unread", { count: unread }) : t("Home")}
+            icon={RiHome5Line}
+            active={onHome}
+            badge={unread > 0}
+            onClick={() => {
+              if (!onHome) void navigate({ to: "/" });
+            }}
+          />
+          <RailButton label={t("Chats")} icon={RiChat1Line} active={!onPage} onClick={openChats} />
+          <RailButton
+            label={t("Routines")}
+            icon={RiTimeLine}
+            active={onRoutines}
+            onClick={() => {
+              if (!onRoutines) void navigate({ to: "/routines" });
+            }}
+          />
+          <RailButton
+            label={t("Tasks")}
+            icon={RiListCheck3}
+            active={onTasks}
+            onClick={() => {
+              if (!onTasks) void navigate({ to: "/tasks" });
+            }}
+          />
+          <RailButton
+            label={t("Projects")}
+            icon={RiBox3Line}
+            active={onProjects}
+            onClick={() => {
+              if (!onProjects) void navigate({ to: "/projects" });
+            }}
+          />
+          <RailButton
+            label={t("Library")}
+            icon={RiBookShelfLine}
+            active={onLibrary}
+            onClick={() => {
+              if (!onLibrary) void navigate({ to: "/library" });
+            }}
+          />
+        </div>
+        <div className="mt-auto flex flex-col items-center gap-1">
+          <RailButton
+            label={t("Settings")}
+            icon={RiSettings3Line}
+            active={onSettings}
+            onClick={() => {
+              revealPanel();
+
+              if (!onSettings) openSettings();
+            }}
+          />
+        </div>
+      </nav>
+      {/* The panel is a raised card; its row tokens are re-based on the card surface. */}
+      {/* Fixed width so collapsing clips the panel instead of squeezing its rows. */}
       <div
         className={cn(
-          "hidden h-(--workspace-topbar-height) w-full shrink-0 in-data-[macos-traffic-lights]:block",
-          isElectron && "drag-region",
+          "flex w-(--panel-width) shrink-0 py-panel-gap pr-panel-gap",
+          railOnly && !isMobile && "hidden",
         )}
-      />
-      <div className="flex min-h-0 w-full flex-1 overflow-hidden">
-        <nav
-          aria-label={t("Main")}
-          className="flex h-full w-(--rail-width) shrink-0 flex-col items-center pb-3"
-          style={{ "--rail-width": `${RAIL_WIDTH}px` }}
-        >
-          {/* The first icon centers on the panel title row. */}
+        style={{ "--panel-width": `${PANEL_WIDTH}px` }}
+      >
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border/70 bg-sidebar shadow-(--shell-card-shadow) sidebar-shell-card">
           <div
-            className={cn(
-              "h-topbar-spacer w-full shrink-0 in-data-[macos-traffic-lights]:h-0",
-              isElectron && "drag-region",
+            key={panel}
+            className={cn("flex min-h-0 flex-1 flex-col", panelSwitched && "motion-place-enter")}
+          >
+            {onSettings ? (
+              <>
+                <PanelHeader title={t("Settings")} />
+                <SettingsPanelNav />
+              </>
+            ) : (
+              <BotRosterSidebar chrome="panel" />
             )}
-          />
-          <div className="flex flex-col items-center gap-1">
-            {/* Otto: The Otto mark is the rail's first button, a ghost button like the rest, and a second way home. */}
-            <button
-              type="button"
-              aria-label="Otto"
-              onClick={() => {
-                if (!onHome) void navigate({ to: "/" });
-              }}
-              className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none hover:bg-sidebar-wash motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag"
-            >
-              <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-xl" />
-            </button>
-            <RailButton
-              label={unread > 0 ? t("Home, {count} unread", { count: unread }) : t("Home")}
-              icon={RiHome5Line}
-              active={onHome}
-              badge={unread > 0}
-              onClick={() => {
-                if (!onHome) void navigate({ to: "/" });
-              }}
-            />
-            <RailButton
-              label={t("Chats")}
-              icon={RiChat1Line}
-              active={!onPage}
-              onClick={openChats}
-            />
-            <RailButton
-              label={t("Routines")}
-              icon={RiTimeLine}
-              active={onRoutines}
-              onClick={() => {
-                if (!onRoutines) void navigate({ to: "/routines" });
-              }}
-            />
-            <RailButton
-              label={t("Tasks")}
-              icon={RiListCheck3}
-              active={onTasks}
-              onClick={() => {
-                if (!onTasks) void navigate({ to: "/tasks" });
-              }}
-            />
-            <RailButton
-              label={t("Projects")}
-              icon={RiBox3Line}
-              active={onProjects}
-              onClick={() => {
-                if (!onProjects) void navigate({ to: "/projects" });
-              }}
-            />
-            <RailButton
-              label={t("Library")}
-              icon={RiBookShelfLine}
-              active={onLibrary}
-              onClick={() => {
-                if (!onLibrary) void navigate({ to: "/library" });
-              }}
-            />
-          </div>
-          <div className="mt-auto flex flex-col items-center gap-1">
-            <RailButton
-              label={t("Settings")}
-              icon={RiSettings3Line}
-              active={onSettings}
-              onClick={() => {
-                revealPanel();
-
-                if (!onSettings) openSettings();
-              }}
-            />
-          </div>
-        </nav>
-        {/* The panel is a raised card; its row tokens are re-based on the card surface. */}
-        {/* Fixed width so collapsing clips the panel instead of squeezing its rows. */}
-        <div
-          className={cn(
-            "flex w-(--panel-width) shrink-0 py-panel-gap pr-panel-gap in-data-[macos-traffic-lights]:pt-0",
-            railOnly && !isMobile && "hidden",
-          )}
-          style={{ "--panel-width": `${PANEL_WIDTH}px` }}
-        >
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border/70 bg-sidebar shadow-(--shell-card-shadow) sidebar-shell-card">
-            <div
-              key={panel}
-              className={cn("flex min-h-0 flex-1 flex-col", panelSwitched && "motion-place-enter")}
-            >
-              {onSettings ? (
-                <>
-                  <PanelHeader title={t("Settings")} />
-                  <SettingsPanelNav />
-                </>
-              ) : (
-                <BotRosterSidebar chrome="panel" />
-              )}
-            </div>
           </div>
         </div>
       </div>

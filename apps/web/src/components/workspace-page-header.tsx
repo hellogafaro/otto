@@ -24,13 +24,11 @@ export function detailsToggleInsetClass(detailsPanelOpen: boolean | undefined): 
  */
 export function WorkspacePageHeader({
   electron = false,
-  reserveNativeControls = electron,
   detailsPanelOpen,
   className,
   ...props
 }: ComponentPropsWithoutRef<"header"> & {
   readonly electron?: boolean;
-  readonly reserveNativeControls?: boolean;
   /** Set on pages with a bot or group details panel so its toggle never covers header actions. */
   readonly detailsPanelOpen?: boolean;
 }) {
@@ -40,7 +38,6 @@ export function WorkspacePageHeader({
       className={cn(
         "flex h-(--workspace-topbar-height) min-h-(--workspace-topbar-height) shrink-0 items-center gap-1.5 pl-safe-left-0.5rem pr-safe-right-0.5rem transition-padding-left duration-200 ease-linear motion-reduce:transition-none",
         electron && "drag-region",
-        reserveNativeControls && "wco:pr-(--workspace-native-controls-inset)",
         COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
         // Below md the main sidebar hides and a fixed toggle sits at the left
         // edge of the top bar, so the title starts after it.

@@ -30,7 +30,7 @@
    The join holds from opening until closing ends. */
 
 [data-sidebar-experiment] {
-  --workspace-controls-top: calc(var(--panel-gap) + 1px);
+  --workspace-controls-top: calc(var(--app-titlebar-height) + var(--panel-gap) + 1px);
   /* Top-bar controls sit 8px inside the card's 1px border, 6px apart. */
   --workspace-controls-right: calc(env(safe-area-inset-right) + var(--panel-gap) + 1px + 0.5rem);
   --workspace-controls-header-right: calc(env(safe-area-inset-right) + 0.5rem);

@@ -1,0 +1,281 @@
+import type { MessageKey } from "@otto/client-runtime/i18n";
+import {
+  RiAddLine,
+  RiBookShelfLine,
+  RiBox3Line,
+  RiChat1Line,
+  RiCloseLine,
+  RiHome5Line,
+  RiListCheck3,
+  RiSettings3Line,
+  RiShapesLine,
+  RiTimeLine,
+  type RemixiconComponentType,
+} from "@remixicon/react";
+import { useLocation, useRouter, type AnyRouter } from "@tanstack/react-router";
+import { Predicate } from "effect";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+
+import {
+  activateDesktopTab,
+  activeDesktopTab,
+  closeDesktopTab,
+  desktopTabPathname,
+  moveDesktopTab,
+  openDesktopTab,
+  openNextNavigationInNewTab,
+  syncDesktopTab,
+  useDesktopTabs,
+  type DesktopTab,
+} from "../../desktop-tabs-store";
+import { useI18n } from "../../i18n";
+import { cn, isMacPlatform } from "../../lib/utils";
+import { isModelPickerOpen } from "../../model-picker-visibility";
+import { AppIcon } from "../ui/app-icon";
+import { Button } from "../ui/button";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+
+const isMac = isMacPlatform(navigator.platform);
+
+interface TabPlace {
+  readonly label: MessageKey;
+  readonly icon: RemixiconComponentType;
+}
+
+const PLACES: ReadonlyArray<TabPlace & { readonly base: string }> = [
+  { base: "/settings", label: "Settings", icon: RiSettings3Line },
+  { base: "/tasks", label: "Tasks", icon: RiListCheck3 },
+  { base: "/projects", label: "Projects", icon: RiBox3Line },
+  { base: "/routines", label: "Routines", icon: RiTimeLine },
+  { base: "/library", label: "Library", icon: RiBookShelfLine },
+  { base: "/customize", label: "Customize", icon: RiShapesLine },
+];
+
+/** A route's place: the rail's glyph and name, which a page's own title replaces. */
+function tabPlace(href: string): TabPlace {
+  const pathname = desktopTabPathname(href);
+
+  if (pathname === "/") return { label: "Home", icon: RiHome5Line };
+
+  return (
+    PLACES.find((place) => pathname === place.base || pathname.startsWith(`${place.base}/`)) ?? {
+      label: "Chats",
+      icon: RiChat1Line,
+    }
+  );
+}
+
+function showRoute(router: AnyRouter, next: string | null): void {
+  if (next !== null) router.history.push(next);
+}
+
+/**
+ * Otto: A ⌘- or middle-click in the sidebar opens what it points at in a new tab. The click
+ * is replayed as a plain one, so every row keeps its own navigation.
+ */
+export function openSidebarClickInNewTab(event: MouseEvent<HTMLElement>): void {
+  const middle = event.type === "auxclick" && event.button === 1;
+  const modified = event.type === "click" && (isMac ? event.metaKey : event.ctrlKey);
+
+  if (!middle && !modified) return;
+
+  const target =
+    event.target instanceof Element
+      ? event.target.closest<HTMLElement>("a, button, [role=button], [role=link]")
+      : null;
+
+  if (!target) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openNextNavigationInNewTab();
+  target.click();
+}
+
+/**
+ * Otto: The desktop titlebar row: the window controls, then one tab per open route and a
+ * button for a new one. The row drags the window everywhere but its controls.
+ */
+export function DesktopTabStrip() {
+  const { t } = useI18n();
+  const trafficLights = useMacTrafficLights();
+  const router = useRouter();
+  const href = useLocation({ select: (location) => location.href });
+  const tabs = useDesktopTabs((state) => state.tabs);
+  const activeId = useDesktopTabs((state) => state.activeId);
+  const titles = useDesktopTabs((state) => state.titles);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  // The app starts on its first route; the saved open tab wins once.
+  const restoreHref = useRef<string | null | undefined>(undefined);
+
+  if (restoreHref.current === undefined) {
+    const active = activeDesktopTab();
+    restoreHref.current = active && active.href !== href ? active.href : null;
+  }
+
+  useEffect(() => {
+    const restore = restoreHref.current;
+
+    if (restore && restore !== href) {
+      router.history.replace(restore);
+
+      return;
+    }
+
+    restoreHref.current = null;
+    syncDesktopTab(href);
+  }, [href, router]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey) return;
+
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-keybinding-capture]")
+      ) {
+        return;
+      }
+
+      const { tabs: open, activeId: openId } = useDesktopTabs.getState();
+      const index = open.findIndex((tab) => tab.id === openId);
+      const mod = isMac ? event.metaKey : event.ctrlKey;
+      const key = event.key.toLowerCase();
+      let next: DesktopTab | undefined;
+
+      if (event.ctrlKey && key === "tab") {
+        next = open.at((index + (event.shiftKey ? -1 : 1)) % open.length);
+      } else if (mod && !event.shiftKey && key === "t") {
+        event.preventDefault();
+        showRoute(router, openDesktopTab("/"));
+
+        return;
+      } else if (mod && !event.shiftKey && key === "w") {
+        // The last tab leaves ⌘W to the window, which closes it.
+        if (open.length === 1) return;
+        event.preventDefault();
+        showRoute(router, closeDesktopTab(openId ?? ""));
+
+        return;
+      } else if (mod && !event.shiftKey && /^[1-9]$/.test(key) && !isModelPickerOpen()) {
+        next = key === "9" ? open.at(-1) : open[Number(key) - 1];
+      } else {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (next) showRoute(router, activateDesktopTab(next.id));
+    };
+
+    // Capture, so tabs win ⌘1–9 over the sidebar's chat shortcuts and editors.
+    window.addEventListener("keydown", onKeyDown, true);
+
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [router]);
+
+  const show = (next: string | null) => showRoute(router, next);
+  const shortcut = isMac ? "⌘T" : "Ctrl+T";
+
+  return (
+    <div
+      className={cn(
+        "drag-region fixed inset-x-0 top-0 z-20 flex h-(--app-titlebar-height) items-center gap-1 pr-2 wco:pr-(--workspace-native-controls-inset)",
+        trafficLights ? "pl-22" : "pl-2",
+      )}
+    >
+      <div role="tablist" aria-label={t("Tabs")} className="flex min-w-0 items-center gap-1">
+        {tabs.map((tab, index) => {
+          const place = tabPlace(tab.href);
+          const active = tab.id === activeId;
+
+          return (
+            <div
+              key={tab.id}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                setDragIndex(index);
+              }}
+              onDragOver={(event) => {
+                if (dragIndex !== null) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+
+                if (dragIndex !== null) moveDesktopTab(dragIndex, index);
+                setDragIndex(null);
+              }}
+              onDragEnd={() => setDragIndex(null)}
+              className={cn(
+                "group/tab flex h-7 w-48 min-w-20 shrink items-center rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
+                active
+                  ? "bg-card text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
+                  : "text-sidebar-muted-foreground hover:bg-sidebar-wash hover:text-sidebar-foreground",
+              )}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => show(activateDesktopTab(tab.id))}
+                className="flex h-full min-w-0 flex-1 cursor-default items-center gap-1.5 rounded-md pl-2 text-13px font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <AppIcon icon={place.icon} className="size-3.5 shrink-0" />
+                <span className="truncate">
+                  {titles[desktopTabPathname(tab.href)] ?? t(place.label)}
+                </span>
+              </button>
+              {tabs.length > 1 ? (
+                <span className="mr-1 flex opacity-0 group-hover/tab:opacity-100 focus-within:opacity-100">
+                  <Button
+                    variant="ghost-muted"
+                    size="icon-micro"
+                    aria-label={t("Close tab")}
+                    onClick={() => show(closeDesktopTab(tab.id))}
+                  >
+                    <RiCloseLine aria-hidden />
+                  </Button>
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost-muted"
+              size="icon-sm"
+              aria-label={t("New tab")}
+              onClick={() => show(openDesktopTab("/"))}
+            >
+              <RiAddLine aria-hidden />
+            </Button>
+          }
+        />
+        <TooltipPopup side="bottom">{t("New tab ({shortcut})", { shortcut })}</TooltipPopup>
+      </Tooltip>
+    </div>
+  );
+}
+
+/** True while the macOS traffic lights show, which full screen hides. */
+function useMacTrafficLights(): boolean {
+  const bridge = window.desktopBridge;
+
+  const [fullscreen, setFullscreen] = useState(() =>
+    Predicate.isFunction(bridge?.getWindowFullscreenState)
+      ? bridge.getWindowFullscreenState()
+      : false,
+  );
+
+  useEffect(() => {
+    if (!isMac || !Predicate.isFunction(bridge?.onWindowFullscreenStateChange)) return;
+
+    return bridge.onWindowFullscreenStateChange(setFullscreen);
+  }, [bridge]);
+
+  return isMac && Boolean(bridge) && !fullscreen;
+}

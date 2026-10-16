@@ -44,7 +44,9 @@
   --glass-saturation: 1.14;
   --desktop-window-right-resize-inset: 0px;
   --workspace-topbar-height: 44px;
-  --workspace-controls-top: 0px;
+  /* Otto: The desktop titlebar row of tabs; the browser has none. */
+  --app-titlebar-height: 0px;
+  --workspace-controls-top: var(--app-titlebar-height);
   --workspace-controls-left: calc(env(safe-area-inset-left) + 0.75rem);
   --workspace-controls-right: calc(env(safe-area-inset-right) + 0.75rem);
   /* The same right control measured from the top bar's own edge. */

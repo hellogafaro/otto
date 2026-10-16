@@ -149,8 +149,9 @@ export function SidebarProvider({
   return (
     <SidebarContext value={contextValue}>
       <div
+        // Otto: The app starts under the desktop titlebar row, which is 0 in the browser.
         className={cn(
-          "group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar",
+          "group/sidebar-wrapper flex min-h-svh w-full pt-(--app-titlebar-height) has-data-[variant=inset]:bg-sidebar",
           className,
         )}
         data-sidebar-state={state}

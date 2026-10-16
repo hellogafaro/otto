@@ -7,14 +7,15 @@ import { cn } from "~/lib/utils";
 /**
  * Otto: A full-screen preview over everything, on the page background. The
  * caller lays out its top bar, the preview and any sidebar inside; Escape and
- * the backdrop close it like any dialog.
+ * the backdrop close it like any dialog. On desktop it starts under the titlebar row, clear
+ * of the window controls.
  */
 function LightboxPopup({ className, children, ...props }: DialogPrimitive.Popup.Props) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Popup
         className={cn(
-          "fixed inset-0 z-50 flex flex-col bg-background text-foreground outline-none transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0",
+          "fixed inset-x-0 top-(--app-titlebar-height) bottom-0 z-50 flex flex-col bg-background text-foreground outline-none transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0",
           className,
         )}
         data-slot="lightbox-popup"

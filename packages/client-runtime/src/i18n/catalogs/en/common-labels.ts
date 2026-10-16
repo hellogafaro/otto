@@ -505,4 +505,8 @@ export const commonLabelsCatalog = {
   Unread: "Unread",
   "Something went wrong": "Something went wrong",
   "Otto hit an error. Reload to try again.": "Otto hit an error. Reload to try again.",
+  Tabs: "Tabs",
+  "New tab": "New tab",
+  "New tab ({shortcut})": "New tab ({shortcut})",
+  "Close tab": "Close tab",
 } as const;

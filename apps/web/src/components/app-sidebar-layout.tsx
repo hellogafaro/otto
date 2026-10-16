@@ -14,7 +14,6 @@ import { isElectron } from "../env";
 import { getLocalStorageItem, removeLocalStorageItem } from "../hooks/use-local-storage";
 import { useI18n } from "../i18n";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
-import { isMacPlatform } from "../lib/utils";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import BotRosterSidebar from "./roster/bot-roster-sidebar";
 import {
@@ -46,9 +45,8 @@ import {
 } from "./ui/sidebar";
 import { SIDEBAR_WIDTH_ICON } from "./ui/sidebar-context";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
+import { DesktopTabStrip, openSidebarClickInNewTab } from "./desktop/desktop-tab-strip";
 import { Onboarding, useOnboarding } from "./onboarding/onboarding";
-
-const MACOS_TRAFFIC_LIGHTS_LEFT_INSET = "90px";
 
 function subscribeToViewportWidth(onChange: () => void): () => void {
   window.addEventListener("resize", onChange);
@@ -156,7 +154,6 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const pathname = useLocation({ select: (location) => location.pathname });
   const isOnSettings = pathname === "/settings" || pathname.startsWith("/settings/");
   const stageArtworkVisible = false;
-  const isMacosDesktop = isElectron && isMacPlatform(navigator.platform);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialThreadSidebarWidth);
   // Subscribed rather than read once: the clamp must track live window size,
   // and a clamped drag ends with an unchanged width, which skips the re-render
@@ -174,14 +171,6 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
     setSidebarWidth(resolveInitialThreadSidebarWidth(null, viewportWidth));
   };
 
-  const [isWindowFullscreen, setIsWindowFullscreen] = useState(() => {
-    const getWindowFullscreenState = window.desktopBridge?.getWindowFullscreenState;
-
-    return isMacosDesktop && Predicate.isFunction(getWindowFullscreenState)
-      ? getWindowFullscreenState()
-      : false;
-  });
-
   const sidebarExperiment = useSidebarExperiment();
   const railOnly = useRailOnly();
 
@@ -198,29 +187,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
     "--sidebar-width-icon": sidebarExperiment
       ? `${EXPERIMENTAL_RAIL_ONLY_WIDTH}px`
       : SIDEBAR_WIDTH_ICON,
-    "--workspace-controls-left":
-      isMacosDesktop && !isWindowFullscreen ? MACOS_TRAFFIC_LIGHTS_LEFT_INSET : undefined,
   } satisfies CSSProperties;
-
-  useEffect(() => {
-    if (!isMacosDesktop) return;
-    const bridge = window.desktopBridge;
-
-    if (!bridge) return;
-    const { getWindowFullscreenState, onWindowFullscreenStateChange } = bridge;
-
-    if (
-      !Predicate.isFunction(getWindowFullscreenState) ||
-      !Predicate.isFunction(onWindowFullscreenStateChange)
-    ) {
-      return;
-    }
-
-    const unsubscribe = onWindowFullscreenStateChange(setIsWindowFullscreen);
-    setIsWindowFullscreen(getWindowFullscreenState());
-
-    return unsubscribe;
-  }, [isMacosDesktop]);
 
   useEffect(() => {
     const onMenuAction = window.desktopBridge?.onMenuAction;
@@ -248,15 +215,17 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
     <SidebarProvider
       className="h-dvh! min-h-0!"
       data-sidebar-experiment={sidebarExperiment ? "" : undefined}
-      data-macos-traffic-lights={isMacosDesktop && !isWindowFullscreen ? "" : undefined}
       defaultOpen
       style={sidebarProviderStyle}
     >
+      {isElectron ? <DesktopTabStrip /> : null}
       <ProjectProjectionRetention />
       <Sidebar
         side="left"
         collapsible="icon"
         data-app-sidebar=""
+        onClickCapture={isElectron ? openSidebarClickInNewTab : undefined}
+        onAuxClickCapture={isElectron ? openSidebarClickInNewTab : undefined}
         surface={sidebarExperiment ? "app" : "app-bordered"}
         resizable={{
           maxWidth: sidebarMaximumWidth,
