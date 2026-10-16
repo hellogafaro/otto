@@ -582,4 +582,14 @@ export const connectionsCatalog = {
   "{count} providers": "{count} 个提供商",
   "Add provider": "添加提供商",
   "Add a provider for API voice calls and dictation.": "添加提供商以使用 API 语音通话和听写。",
+  Sandboxes: "沙盒",
+  "{count} sandbox": "{count} 个沙盒",
+  "{count} sandboxes": "{count} 个沙盒",
+  "Add sandbox": "添加沙盒",
+  "Bots run on this computer until you add a sandbox.": "添加沙盒前，机器人在这台计算机上运行。",
+  "Default sandbox couldn't be saved": "无法保存默认沙盒",
+  "Bots can use the in-app browser for research and previews.":
+    "机器人可以使用应用内浏览器进行研究和预览。",
+  "Hosted browser sessions for bots": "供机器人使用的托管浏览器会话",
+  "Use Browserbase": "使用 Browserbase",
 } as const;

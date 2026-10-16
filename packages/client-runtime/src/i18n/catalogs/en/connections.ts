@@ -622,4 +622,15 @@ export const connectionsCatalog = {
   "Add provider": "Add provider",
   "Add a provider for API voice calls and dictation.":
     "Add a provider for API voice calls and dictation.",
+  Sandboxes: "Sandboxes",
+  "{count} sandbox": "{count} sandbox",
+  "{count} sandboxes": "{count} sandboxes",
+  "Add sandbox": "Add sandbox",
+  "Bots run on this computer until you add a sandbox.":
+    "Bots run on this computer until you add a sandbox.",
+  "Default sandbox couldn't be saved": "Default sandbox couldn't be saved",
+  "Bots can use the in-app browser for research and previews.":
+    "Bots can use the in-app browser for research and previews.",
+  "Hosted browser sessions for bots": "Hosted browser sessions for bots",
+  "Use Browserbase": "Use Browserbase",
 } as const;

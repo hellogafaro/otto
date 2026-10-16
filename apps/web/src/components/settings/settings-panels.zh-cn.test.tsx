@@ -113,17 +113,17 @@ describe("settings panels in Simplified Chinese", () => {
   it("translates the Sandbox panel without an environment", () => {
     expectTranslated(
       renderInChinese(<SandboxSettingsPanel />),
-      [zhCNCatalog["Sandbox"]!, zhCNCatalog["Connect to an environment first."]!],
-      [">Sandbox<", "Connect to an environment first."],
+      [zhCNCatalog["Sandboxes"]!, zhCNCatalog["Connect to an environment first."]!],
+      [">Sandboxes<", "Connect to an environment first."],
     );
   });
 
-  it("translates the Sandbox panel providers", () => {
+  it("translates the Sandboxes card", () => {
     environment.id = ENVIRONMENT_ID;
     expectTranslated(
       renderInChinese(<SandboxSettingsPanel />),
-      ["沙盒提供商", zhCNCatalog["Default sandbox"]!, zhCNCatalog["Not connected"]!],
-      ["Sandbox providers", "Default sandbox", "Not connected", ">Connect<"],
+      ["0 个沙盒", zhCNCatalog["Bots run on this computer until you add a sandbox."]!],
+      ["0 sandboxes", "Bots run on this computer until you add a sandbox.", ">Connect<"],
     );
   });
 });

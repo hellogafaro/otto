@@ -226,18 +226,13 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "sandbox",
-    title: "Sandbox",
+    title: "Sandboxes",
     to: "/settings/computer",
     keywords: ["computer", "machine"],
   },
   {
     id: "default-sandbox",
     title: "Default sandbox",
-    to: "/settings/computer",
-  },
-  {
-    id: "sandbox-auto-idle",
-    title: "Sandbox auto-idle",
     to: "/settings/computer",
   },
   {

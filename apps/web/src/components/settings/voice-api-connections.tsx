@@ -14,19 +14,9 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { AddMenu, CardCountRow, LogoTile } from "../customize/customize-group";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
 import { MenuItem } from "../ui/menu";
-import { Spinner } from "../ui/spinner";
 import { SettingsSection } from "./settings-layout";
+import { ApiKeyDialog } from "./api-key-dialog";
 import { SettingsMessageRow } from "./settings-detail-layout";
 import { searchableSetting } from "./settings-search";
 import { useI18n } from "../../i18n";
@@ -209,8 +199,9 @@ export function VoiceApiConnectionsSection({
         </SettingsMessageRow>
       ) : null}
       {dialog ? (
-        <VoiceKeyDialog
-          provider={dialog.provider}
+        <ApiKeyDialog
+          name={VOICE_API_PROVIDER_LABELS[dialog.provider]}
+          keyLabel={t("{api} key", { api: VOICE_API_NAMES[dialog.provider] })}
           replacing={dialog.replacing}
           onSave={(apiKey) => saveKey(dialog.provider, apiKey)}
           onClose={() => setDialog(null)}
@@ -259,78 +250,5 @@ export function VoiceApiProviderRow({
         </Button>
       ) : null}
     </div>
-  );
-}
-
-function VoiceKeyDialog({
-  provider,
-  replacing,
-  onSave,
-  onClose,
-}: {
-  readonly provider: VoiceApiProvider;
-  readonly replacing: boolean;
-  readonly onSave: (apiKey: string) => Promise<boolean>;
-  readonly onClose: () => void;
-}) {
-  const { t } = useI18n();
-  const name = VOICE_API_PROVIDER_LABELS[provider];
-  const keyLabel = t("{api} key", { api: VOICE_API_NAMES[provider] });
-  const [apiKey, setApiKey] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const save = async () => {
-    const trimmed = apiKey.trim();
-
-    if (!trimmed) return;
-    setSaving(true);
-    const saved = await onSave(trimmed);
-    setSaving(false);
-
-    if (saved) onClose();
-  };
-
-  return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogPopup className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {replacing ? t("Replace {name} key", { name }) : t("Connect {name}", { name })}
-          </DialogTitle>
-          <DialogDescription>
-            {t("The key stays on this environment. {name} bills its API usage.", { name })}
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className="contents"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
-        >
-          <DialogPanel>
-            <Input
-              autoFocus
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              aria-label={keyLabel}
-              placeholder={keyLabel}
-              value={apiKey}
-              onChange={(event) => setApiKey(event.currentTarget.value)}
-            />
-          </DialogPanel>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
-              {t("Cancel")}
-            </Button>
-            <Button type="submit" disabled={!apiKey.trim() || saving}>
-              {saving ? <Spinner /> : null}
-              {replacing ? t("Replace key") : t("Save key")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogPopup>
-    </Dialog>
   );
 }

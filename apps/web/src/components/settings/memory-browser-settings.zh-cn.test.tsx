@@ -44,14 +44,17 @@ describe("memory and browser settings in Simplified Chinese", () => {
     }
   });
 
-  it("translates Browser rows and status labels", () => {
+  it("translates Browser rows", () => {
     const html = renderInChinese(<BrowserSettingsSection />);
 
-    for (const label of ["需要 API 密钥", "智能体浏览器访问", "浏览器使用方式", "托管会话"]) {
+    for (const label of [
+      zhCNCatalog["Bot browser access"]!,
+      zhCNCatalog["Hosted browser sessions for bots"]!,
+    ]) {
       expect(html).toContain(label);
     }
 
-    for (const label of ["API key required", "Agent browser access", "Hosted sessions"]) {
+    for (const label of ["Bot browser access", "Hosted browser sessions for bots", ">Connect<"]) {
       expect(html).not.toContain(label);
     }
 

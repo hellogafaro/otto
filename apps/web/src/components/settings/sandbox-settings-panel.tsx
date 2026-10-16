@@ -1,12 +1,15 @@
+import { RiCloudLine, RiVercelFill } from "@remixicon/react";
 import { Predicate } from "effect";
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import type { EnvironmentId, SandboxProvider, SandboxSettings } from "@otto/contracts";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { useEnvironmentSettings } from "../../hooks/use-settings";
 import { useSettingsEnvironmentId } from "../../settings-dialog-store";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { AddMenu, CardCountRow, LogoTile } from "../customize/customize-group";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -17,8 +20,9 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
+import { MenuItem } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { Switch } from "../ui/switch";
+import { SettingsMessageRow } from "./settings-detail-layout";
 import { SettingsRow, SettingsSection } from "./settings-layout";
 import { searchableSetting } from "./settings-search";
 import {
@@ -63,7 +67,7 @@ export function SandboxSettingsPanel() {
 
   if (environmentId === null) {
     return (
-      <SettingsSection title={t("Sandbox")}>
+      <SettingsSection {...searchableSetting("sandbox", t)}>
         <SettingsRow title={t("Connect to an environment first.")} />
       </SettingsSection>
     );
@@ -72,12 +76,17 @@ export function SandboxSettingsPanel() {
   return <EnvironmentSandboxSettingsPanel key={environmentId} environmentId={environmentId} />;
 }
 
+/**
+ * Otto: Sandboxes is built like the Models Connections card: a count row whose plus adds a cloud
+ * sandbox with its credentials in a dialog, one row per connected sandbox (Remove, Edit), and a
+ * Default sandbox row once there is more than Local to choose from.
+ */
 function EnvironmentSandboxSettingsPanel({
   environmentId,
 }: {
   readonly environmentId: EnvironmentId;
 }) {
-  const { t } = useI18n();
+  const { t, plural } = useI18n();
   const sandbox = useEnvironmentSettings(environmentId, (settings) => settings.sandbox);
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
   const [editingProvider, setEditingProvider] = useState<CloudSandboxProvider | null>(null);
@@ -129,8 +138,36 @@ function EnvironmentSandboxSettingsPanel({
       return;
     }
 
-    if (await persist(next)) closeConnection();
+    if (!(await persist(next))) return;
+
+    toast.success(
+      t("{name} has been connected", { name: SANDBOX_PROVIDER_LABELS[editingProvider] }),
+    );
+    closeConnection();
   };
+
+  const remove = async (provider: CloudSandboxProvider) => {
+    if (provider === "railway") {
+      setRailwayChange({ kind: "disconnect" });
+
+      return;
+    }
+
+    if (await persist(disconnectSandboxProvider(sandbox, provider)))
+      toast.success(t("{name} has been disconnected", { name: SANDBOX_PROVIDER_LABELS[provider] }));
+    else
+      toast.error(
+        t("{name} couldn't be disconnected", { name: SANDBOX_PROVIDER_LABELS[provider] }),
+      );
+  };
+
+  const connectedDefinitions = SANDBOX_PROVIDER_DEFINITIONS.filter((definition) =>
+    isSandboxProviderConnected(sandbox, definition.id),
+  );
+
+  const availableDefinitions = SANDBOX_PROVIDER_DEFINITIONS.filter(
+    (definition) => !isSandboxProviderConnected(sandbox, definition.id),
+  );
 
   const editingDefinition = editingProvider ? sandboxProviderDefinition(editingProvider) : null;
 
@@ -144,94 +181,109 @@ function EnvironmentSandboxSettingsPanel({
   return (
     <>
       <SettingsSection {...searchableSetting("sandbox", t)}>
-        <SettingsRow
-          {...searchableSetting("default-sandbox", t)}
-          description={t("Bots without an override use this sandbox.")}
-          control={
-            <Select
-              value={sandbox.defaultProvider}
-              onValueChange={(value) => {
-                if (value === null) return;
-                // SAFETY: the value is checked against selectableSandboxProviders before persistence.
-                const provider = value as SandboxProvider;
+        <CardCountRow
+          label={plural(connectedDefinitions.length, {
+            one: "{count} sandbox",
+            other: "{count} sandboxes",
+          })}
+          action={
+            availableDefinitions.length === 0 ? null : (
+              <AddMenu label={t("Add sandbox")}>
+                {availableDefinitions.map((definition) => {
+                  const Icon = definition.id === "vercel" ? RiVercelFill : RiCloudLine;
 
-                if (!selectableSandboxProviders(sandbox).includes(provider)) return;
-                void persist({ ...sandbox, defaultProvider: provider });
-              }}
-            >
-              <SelectTrigger className="w-44" aria-label={t("Default sandbox")}>
-                <SelectValue>{providerLabel(sandbox.defaultProvider)}</SelectValue>
-              </SelectTrigger>
-              <SelectPopup>
-                {selectableSandboxProviders(sandbox).map((provider) => (
-                  <SelectItem key={provider} value={provider}>
-                    {providerLabel(provider)}
-                  </SelectItem>
-                ))}
-              </SelectPopup>
-            </Select>
+                  return (
+                    <MenuItem
+                      key={definition.id}
+                      disabled={saving}
+                      onClick={() => openConnection(definition.id)}
+                    >
+                      <Icon aria-hidden />
+                      {definition.label}
+                    </MenuItem>
+                  );
+                })}
+              </AddMenu>
+            )
           }
         />
-        <SettingsRow
-          {...searchableSetting("sandbox-auto-idle", t)}
-          description={t(
-            "Otto pauses idle remote sandboxes when supported. Railway VMs keep running until cleanup.",
-          )}
-          control={<Switch checked disabled aria-label={t("Auto-idle")} />}
-        />
-      </SettingsSection>
-
-      <SettingsSection title={t("Sandbox providers")}>
-        <SettingsRow
-          title={t("Local")}
-          description={t(
-            "Run bots on the environment computer. Always available; no credentials needed.",
-          )}
-          status={t("Available")}
-        />
-        {SANDBOX_PROVIDER_DEFINITIONS.map((definition) => {
-          const connected = isSandboxProviderConnected(sandbox, definition.id);
+        {connectedDefinitions.map((definition) => {
+          const Icon = definition.id === "vercel" ? RiVercelFill : RiCloudLine;
 
           return (
-            <SettingsRow
+            <div
               key={definition.id}
-              title={definition.label}
-              description={t(definition.description)}
-              status={connected ? t("Connected") : t("Not connected")}
-              control={
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={saving}
-                    aria-label={
-                      connected
-                        ? t("Edit {name}", { name: definition.label })
-                        : t("Connect {name}", { name: definition.label })
-                    }
-                    onClick={() => openConnection(definition.id)}
-                  >
-                    {connected ? t("Edit") : t("Connect")}
-                  </Button>
-                  {connected ? (
-                    <Button
-                      size="sm"
-                      variant="ghost-muted"
-                      aria-label={t("Disconnect {name}", { name: definition.label })}
-                      disabled={saving}
-                      onClick={() => {
-                        if (definition.id === "railway") setRailwayChange({ kind: "disconnect" });
-                        else void persist(disconnectSandboxProvider(sandbox, definition.id));
-                      }}
-                    >
-                      {t("Disconnect")}
-                    </Button>
-                  ) : null}
-                </div>
-              }
-            />
+              data-settings-row=""
+              className="flex items-center gap-3 px-4 py-3"
+            >
+              <LogoTile>
+                <Icon aria-hidden className="size-4" />
+              </LogoTile>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-13px font-medium text-foreground">
+                  {definition.label}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {t(definition.description)}
+                </span>
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={saving}
+                onClick={() => void remove(definition.id)}
+              >
+                {t("Remove")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={saving}
+                aria-label={t("Edit {name}", { name: definition.label })}
+                onClick={() => openConnection(definition.id)}
+              >
+                {t("Edit")}
+              </Button>
+            </div>
           );
         })}
+        {connectedDefinitions.length === 0 ? (
+          <SettingsMessageRow>
+            {t("Bots run on this computer until you add a sandbox.")}
+          </SettingsMessageRow>
+        ) : (
+          <SettingsRow
+            {...searchableSetting("default-sandbox", t)}
+            description={t("Bots without an override use this sandbox.")}
+            control={
+              <Select
+                value={sandbox.defaultProvider}
+                onValueChange={(value) => {
+                  if (value === null) return;
+                  // SAFETY: the value is checked against selectableSandboxProviders before persistence.
+                  const provider = value as SandboxProvider;
+
+                  if (!selectableSandboxProviders(sandbox).includes(provider)) return;
+
+                  void persist({ ...sandbox, defaultProvider: provider }).then((saved) => {
+                    if (!saved) toast.error(t("Default sandbox couldn't be saved"));
+                  });
+                }}
+              >
+                <SelectTrigger className="w-44" aria-label={t("Default sandbox")}>
+                  <SelectValue>{providerLabel(sandbox.defaultProvider)}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  {selectableSandboxProviders(sandbox).map((provider) => (
+                    <SelectItem key={provider} value={provider}>
+                      {providerLabel(provider)}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            }
+          />
+        )}
       </SettingsSection>
 
       <Dialog

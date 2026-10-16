@@ -11,16 +11,25 @@ vi.mock("~/hooks/use-settings", () => ({
 import { BrowserSettingsSection } from "./browser-settings";
 
 describe("Browser settings", () => {
-  it("requires a saved key before enabling hosted browsing", () => {
+  it("offers Connect instead of a Browserbase switch until a key is saved", () => {
     browser.enabled = false;
     browser.browserbaseApiKeyRedacted = false;
     const markup = renderToStaticMarkup(<BrowserSettingsSection />);
-    expect(markup).toContain("API key required");
-    expect(markup).toMatch(/<span data-disabled=""[^>]*role="switch"/);
+    expect(markup).toContain(">Connect</button>");
+    expect(markup).not.toContain('aria-label="Use Browserbase"');
+    expect(markup).not.toContain('type="password"');
 
     browser.browserbaseApiKeyRedacted = true;
-    const configuredMarkup = renderToStaticMarkup(<BrowserSettingsSection />);
-    expect(configuredMarkup).toContain("Configured");
-    expect(configuredMarkup).not.toMatch(/<span data-disabled=""[^>]*role="switch"/);
+    const connected = renderToStaticMarkup(<BrowserSettingsSection />);
+    expect(connected).not.toContain(">Connect</button>");
+    expect(connected).toContain(">Remove</button>");
+    expect(connected).toContain('aria-label="Use Browserbase"');
+  });
+
+  it("keeps Bot browser access as a plain switch with no status line", () => {
+    const markup = renderToStaticMarkup(<BrowserSettingsSection />);
+    expect(markup).toContain("Bot browser access");
+    expect(markup).not.toContain("Allowed");
+    expect(markup).not.toContain("How browser use works");
   });
 });
