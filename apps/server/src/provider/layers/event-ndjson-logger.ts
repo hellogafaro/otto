@@ -142,16 +142,11 @@ async function drainPending(input: {
   readonly close: boolean;
 }): Promise<readonly [DrainResult, StoreState]> {
   if (input.state.closed) {
-    return [{ attributions: [], failures: [] }, input.state];
+    return [{ failures: [] }, input.state];
   }
 
   const sinks = new Map(input.state.sinks);
   const failures: Array<FileOperationFailure> = [];
-
-  const attributionByStream = new Map<
-    EventNdjsonStream,
-    { count: number; logicalWriteBytes: number }
-  >();
 
   const recordsBySegment = new Map<string, Array<PendingRecord>>();
 
@@ -181,19 +176,7 @@ async function drainPending(input: {
     }
 
     try {
-      await writeBatchedMessages(sink, records, input.options.maxBytes, (writtenRecords) => {
-        for (const record of writtenRecords) {
-          const current = attributionByStream.get(record.stream) ?? {
-            count: 0,
-            logicalWriteBytes: 0,
-          };
-
-          attributionByStream.set(record.stream, {
-            count: current.count + 1,
-            logicalWriteBytes: current.logicalWriteBytes + record.bytes,
-          });
-        }
-      });
+      await writeBatchedMessages(sink, records, input.options.maxBytes);
     } catch (cause) {
       await sink.close().catch(() => undefined);
       sinks.delete(threadSegment);
@@ -237,10 +220,6 @@ async function drainPending(input: {
 
   return [
     {
-      attributions: Array.from(attributionByStream, ([stream, value]) => ({
-        stream,
-        ...value,
-      })),
       failures: [...failures, ...retention.failures],
     },
     {
@@ -314,38 +293,12 @@ export const makeEventNdjsonLogStore = Effect.fnUntraced(function* (
       }),
     );
 
-  const reportDrain = Effect.fnUntraced(function* (result: DrainResult, startedAt: number) {
+  const reportDrain = Effect.fnUntraced(function* (result: DrainResult) {
     for (const failure of result.failures) {
       yield* logWarning("provider event log write or retention failed", {
         filePath: failure.filePath,
         errorTag: errorTag(failure.cause),
       });
-    }
-
-    if (resolved.attribution && result.attributions.length > 0) {
-      const completedAt = yield* Clock.currentTimeMillis;
-      const durationMs = Math.max(0, completedAt - startedAt);
-
-      const totalBytes = result.attributions.reduce(
-        (total, entry) => total + entry.logicalWriteBytes,
-        0,
-      );
-
-      yield* Effect.forEach(
-        result.attributions,
-        (entry) =>
-          resolved.attribution?.record({
-            component: "provider-event-log",
-            operation: `${entry.stream}.append`,
-            logicalWriteBytes: entry.logicalWriteBytes,
-            count: entry.count,
-            durationMs:
-              totalBytes === 0
-                ? 0
-                : Math.round(durationMs * (entry.logicalWriteBytes / totalBytes)),
-          }) ?? Effect.void,
-        { discard: true },
-      );
     }
   });
 
@@ -356,7 +309,7 @@ export const makeEventNdjsonLogStore = Effect.fnUntraced(function* (
       drain(state, startedAt, timerFired, close),
     );
 
-    yield* reportDrain(result, startedAt);
+    yield* reportDrain(result);
   }, Effect.uninterruptible);
 
   const scheduleFlush = Effect.fnUntraced(function* () {
@@ -436,7 +389,7 @@ export const makeEventNdjsonLogStore = Effect.fnUntraced(function* (
         }),
       ).pipe(Effect.uninterruptible);
 
-      for (const result of results) yield* reportDrain(result, startedAt);
+      for (const result of results) yield* reportDrain(result);
     });
 
     const view = { filePath, write, close: () => Effect.void } satisfies EventNdjsonLogger;

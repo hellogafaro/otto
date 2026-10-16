@@ -6,8 +6,6 @@ import * as FileSystem from "effect/FileSystem";
 
 import * as Effect from "effect/Effect";
 
-import * as Path from "effect/Path";
-
 import {
   BuildCommandFailedError,
   DesktopDmgBackgroundSourceMissingError,
@@ -21,7 +19,6 @@ import {
   DESKTOP_WEB_ASSET_BRAND,
   stageLinuxIconSize,
   stageDesktopDmgBackground,
-  stageResourceMonitor,
   WINDOWS_SERVER_ASAR_IGNORE_GLOBS,
   WINDOWS_SERVER_EXTRA_RESOURCES,
   WINDOWS_SERVER_ASAR_UNPACK_GLOB,
@@ -120,10 +117,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       assert.equal(linux.artifactName, "Otto-Bot-${version}-x64.${ext}");
       assert.deepStrictEqual(win.extraResources, [
         {
-          from: "apps/desktop/prod-resources/resource-monitor",
-          to: "resource-monitor",
-        },
-        {
           from: DESKTOP_PLUGIN_CATALOG_RESOURCE_SOURCE_DIR,
           to: "plugins",
         },
@@ -184,51 +177,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
 
       assert.deepStrictEqual(mac.electronLanguages, DESKTOP_ELECTRON_LANGUAGES);
     }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })))),
-  );
-
-  it.effect("stages a cached resource monitor without invoking Cargo", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-
-        const repoRoot = yield* fs.makeTempDirectoryScoped({
-          prefix: "ottoLegacy-resource-monitor-cache-test-",
-        });
-
-        const binaryPath = path.join(
-          repoRoot,
-          "native/resource-monitor/target/x86_64-unknown-linux-gnu/release/ottoLegacy-resource-monitor",
-        );
-
-        const stageResourcesDir = path.join(repoRoot, "stage");
-        yield* fs.makeDirectory(path.dirname(binaryPath), { recursive: true });
-        yield* fs.writeFileString(binaryPath, "cached monitor");
-
-        yield* stageResourceMonitor({
-          repoRoot,
-          stageResourcesDir,
-          platform: "linux",
-          arch: "x64",
-          verbose: false,
-        }).pipe(
-          Effect.provide(
-            ConfigProvider.layer(
-              ConfigProvider.fromEnv({
-                env: { OTTO_LEGACY_DESKTOP_REUSE_RESOURCE_MONITOR: "true" },
-              }),
-            ),
-          ),
-        );
-
-        assert.equal(
-          yield* fs.readFileString(
-            path.join(stageResourcesDir, "resource-monitor/ottoLegacy-resource-monitor"),
-          ),
-          "cached monitor",
-        );
-      }),
-    ),
   );
 
   it.effect("preserves both Linux icon resize failures with structural context", () => {

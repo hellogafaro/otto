@@ -28,10 +28,7 @@ import {
   resolveMacStageDependencies,
   resolveFffNativeDependencies,
   resolveBuildOptions,
-  resolveResourceMonitorRustTargets,
-  resolveResourceMonitorCargoBuildArgs,
   resolveWindowsServerAsarIgnoreGlobs,
-  resourceMonitorExecutableName,
   validateWindowsPackagedPayload,
   WindowsPrimaryNativeProbeError,
   WindowsPackagedPayloadValidationError,
@@ -510,29 +507,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         assert.deepStrictEqual(nativeError.missingFiles, [
           "server.asar.unpacked/node_modules/native/addon.node",
         ]);
-
-        yield* fs.remove(nativePath, { recursive: true });
-        yield* fs.writeFileString(nativePath, "native-binary");
-
-        const resourceMonitorPath = path.join(
-          fixture.packagedAppDir,
-          "resources/resource-monitor/ottoLegacy-resource-monitor.exe",
-        );
-
-        yield* fs.remove(resourceMonitorPath);
-        yield* fs.makeDirectory(resourceMonitorPath);
-
-        const resourceMonitorError = yield* validateWindowsPackagedPayload({
-          stageDistDir: fixture.stageDistDir,
-          appExecutableName: fixture.appExecutableName,
-          targetArch: "x64",
-        }).pipe(Effect.flip);
-
-        assert.instanceOf(resourceMonitorError, WindowsPackagedPayloadValidationError);
-        assert.equal(resourceMonitorError.reason, "resource-monitor-missing");
-        assert.deepStrictEqual(resourceMonitorError.missingFiles, [
-          "resource-monitor/ottoLegacy-resource-monitor.exe",
-        ]);
       }),
     ),
   );
@@ -619,44 +593,10 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
   it("stages runtime resources outside app.asar", () => {
     assert.deepStrictEqual(DESKTOP_EXTRA_RESOURCES, [
       {
-        from: "apps/desktop/prod-resources/resource-monitor",
-        to: "resource-monitor",
-      },
-      {
         from: DESKTOP_PLUGIN_CATALOG_RESOURCE_SOURCE_DIR,
         to: "plugins",
       },
     ]);
-    assert.deepStrictEqual(resolveResourceMonitorRustTargets("mac", "universal"), [
-      "aarch64-apple-darwin",
-      "x86_64-apple-darwin",
-    ]);
-    assert.deepStrictEqual(resolveResourceMonitorRustTargets("linux", "x64"), [
-      "x86_64-unknown-linux-gnu",
-    ]);
-    assert.deepStrictEqual(resolveResourceMonitorRustTargets("win", "arm64"), [
-      "aarch64-pc-windows-msvc",
-    ]);
-    assert.equal(resourceMonitorExecutableName("mac"), "ottoLegacy-resource-monitor");
-    assert.equal(resourceMonitorExecutableName("win"), "ottoLegacy-resource-monitor.exe");
-    assert.deepStrictEqual(
-      resolveResourceMonitorCargoBuildArgs(
-        "/repo/native/resource-monitor/Cargo.toml",
-        "/repo/native/resource-monitor/target",
-        "aarch64-apple-darwin",
-      ),
-      [
-        "build",
-        "--locked",
-        "--release",
-        "--manifest-path",
-        "/repo/native/resource-monitor/Cargo.toml",
-        "--target-dir",
-        "/repo/native/resource-monitor/target",
-        "--target",
-        "aarch64-apple-darwin",
-      ],
-    );
   });
 
   it("promotes target fff binaries to direct staged dependencies", () => {

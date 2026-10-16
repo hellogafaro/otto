@@ -24,7 +24,6 @@
   --computer-control-indicator: var(--color-amber-500);
   --quit-prompt: var(--color-neutral-700);
   --memory-approval-indicator: var(--color-amber-400);
-  --telemetry-status-foreground: var(--color-amber-700);
   /* Status icons: work in progress and a bot at work. Same value in both modes. */
   --progress: var(--color-violet-500);
   --success: var(--color-emerald-500);
@@ -40,18 +39,6 @@
   --favorite-hover-foreground: var(--color-yellow-600);
   /* Cautionary inline notices and stats that are not themeable warnings. */
   --caution-foreground: var(--color-amber-600);
-  --telemetry-warning-foreground: var(--color-amber-600);
-  /* Resource telemetry I/O columns: reads and writes. */
-  --telemetry-read-foreground: var(--color-sky-700);
-  --telemetry-write-foreground: var(--color-amber-700);
-  /* Resource telemetry chart series. Nominal data colors, the same in both modes. */
-  --telemetry-read: var(--color-sky-500);
-  --telemetry-write: var(--color-amber-500);
-  --telemetry-monitor: var(--color-amber-500);
-  --telemetry-electron: var(--color-sky-500);
-  --telemetry-server: var(--color-violet-500);
-  --telemetry-server-total: var(--color-emerald-500);
-  --telemetry-child: var(--color-emerald-500);
   /* Dark mat and scrim behind live browser media. Same value in both modes. */
   --media-mat: var(--color-zinc-950);
   --media-mat-foreground: var(--color-zinc-300);
@@ -103,14 +90,10 @@
     --markdown-important-foreground: var(--color-neutral-300);
     --markdown-warning-foreground: var(--color-amber-500);
     --markdown-caution-foreground: var(--color-red-400);
-    --telemetry-status-foreground: var(--color-amber-300);
     --success-foreground: var(--color-emerald-400);
     --success-indicator-foreground: var(--color-emerald-400);
     --caution-foreground: var(--color-amber-400);
     --tint: var(--color-white);
-    --telemetry-warning-foreground: var(--color-amber-300);
-    --telemetry-read-foreground: var(--color-sky-300);
-    --telemetry-write-foreground: var(--color-amber-300);
     --skill-foreground: var(--color-blue-300);
     --brand-grok: #f5f5f5;
     --control: var(--card);

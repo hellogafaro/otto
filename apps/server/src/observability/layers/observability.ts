@@ -9,7 +9,6 @@ import * as OtlpSerialization from "effect/unstable/observability/OtlpSerializat
 import * as OtlpTracer from "effect/unstable/observability/OtlpTracer";
 
 import * as ServerConfig from "../../config.ts";
-import * as ResourceAttribution from "../../resource-telemetry/resource-attribution.ts";
 import { ServerLoggerLive } from "../../server-logger.ts";
 import * as BrowserTraceCollector from "../browser-trace-collector.ts";
 
@@ -18,7 +17,6 @@ const otlpSerializationLayer = OtlpSerialization.layerJson;
 export const ObservabilityLive = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* ServerConfig.ServerConfig;
-    const attribution = yield* ResourceAttribution.ResourceAttribution;
 
     const traceReferencesLayer = Layer.mergeAll(
       Layer.succeed(Tracer.MinimumTraceLevel, config.traceMinLevel),
@@ -32,14 +30,6 @@ export const ObservabilityLive = Layer.unwrap(
           maxBytes: config.traceMaxBytes,
           maxFiles: config.traceMaxFiles,
           batchWindowMs: config.traceBatchWindowMs,
-          onFlush: (stats) =>
-            attribution.record({
-              component: "server-trace",
-              operation: "append",
-              logicalWriteBytes: stats.logicalWriteBytes,
-              count: stats.count,
-              durationMs: stats.durationMs,
-            }),
         });
 
         const delegate =

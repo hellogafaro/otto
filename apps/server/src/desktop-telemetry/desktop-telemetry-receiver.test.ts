@@ -211,7 +211,7 @@ describe("DesktopTelemetryReceiver", () => {
       }),
       ({ fd, path }) =>
         Effect.gen(function* () {
-          const payload = Buffer.from('{"type":"setDiagnosticsDemand","enabled":true}\n');
+          const payload = Buffer.from('{"type":"setHostPowerIntervals"}\n');
           yield* writeAllToFileDescriptor(fd, payload);
           NodeFS.fsyncSync(fd);
 

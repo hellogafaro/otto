@@ -75,20 +75,6 @@ export class BuildCommandFailedError extends Schema.TaggedErrorClass<BuildComman
   }
 }
 
-export class ResourceMonitorBuildOutputMissingError extends Schema.TaggedErrorClass<ResourceMonitorBuildOutputMissingError>()(
-  "ResourceMonitorBuildOutputMissingError",
-  {
-    binaryPath: Schema.String,
-    rustTarget: Schema.String,
-    platform: BuildPlatform,
-    arch: BuildArch,
-  },
-) {
-  override get message(): string {
-    return `Resource monitor build for ${this.rustTarget} did not produce ${this.binaryPath}.`;
-  }
-}
-
 const desktopIconPlatformNames = {
   mac: "macOS",
   linux: "Linux",
@@ -325,7 +311,6 @@ const WindowsPackagedPayloadValidationReason = Schema.Literals([
   "sidecar-missing",
   "sidecar-invalid",
   "unpacked-native-missing",
-  "resource-monitor-missing",
   "file-limit-exceeded",
 ]);
 
@@ -347,10 +332,6 @@ export class WindowsPackagedPayloadValidationError extends Schema.TaggedErrorCla
 
     if (this.reason === "unpacked-native-missing") {
       return `Windows server sidecar is missing ${String(this.missingFiles?.length ?? 0)} unpacked native files.`;
-    }
-
-    if (this.reason === "resource-monitor-missing") {
-      return "Windows packaged payload is missing the resource monitor executable.";
     }
 
     if (this.reason === "sidecar-invalid") {

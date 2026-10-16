@@ -49,7 +49,6 @@ policy in [CONTRIBUTING.md](../CONTRIBUTING.md); agent rules in [AGENTS.md](../A
 - [Plugin lifecycle verification](./internals/plugin-lifecycle-verification.md)
 - [Remote environments](./internals/remote.md)
 - [Server updates](./internals/server-updates.md)
-- [Resource telemetry](./internals/resource-telemetry.md)
 - [Observability instrumentation](./internals/observability.md)
 - [Font preview renderer](./internals/font-preview-renderer.md)
 - [Environment auth](./internals/environment-auth.md)

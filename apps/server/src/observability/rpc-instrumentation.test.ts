@@ -184,7 +184,7 @@ describe("RpcInstrumentation", () => {
       const events = yield* Effect.gen(function* () {
         const fiber = yield* Stream.runCollect(
           observeRpcStream(
-            WS_METHODS.serverGetProcessDiagnostics,
+            WS_METHODS.serverGetUsageSummary,
             Stream.fromEffect(Effect.sleep(duration).pipe(Effect.as("ok"))),
             {
               "rpc.aggregate": "test",
@@ -203,7 +203,7 @@ describe("RpcInstrumentation", () => {
       const snapshots = yield* Metric.snapshot;
 
       const snapshot = findHistogramSnapshot(snapshots, "ottoLegacy_rpc_request_duration", {
-        method: WS_METHODS.serverGetProcessDiagnostics,
+        method: WS_METHODS.serverGetUsageSummary,
       });
 
       assert.equal(snapshot?.state.count, 1);
@@ -257,62 +257,6 @@ describe("RpcInstrumentation", () => {
 
       assert.equal(spanNames.includes("ws.rpc.rpc.instrumentation.traced.stream"), true);
       assert.equal(spanNames.includes("rpc.instrumentation.traced.stream.child"), true);
-    }),
-  );
-
-  it.effect("does not create spans for disabled unary RPC handlers", () =>
-    Effect.gen(function* () {
-      const spanNames = yield* collectSpanNames(
-        observeRpcEffect(
-          WS_METHODS.serverGetTraceDiagnostics,
-          Effect.succeed("ok").pipe(Effect.withSpan("rpc.instrumentation.disabled.unary.child")),
-          { "rpc.aggregate": "test" },
-        ),
-      );
-
-      assert.deepStrictEqual(spanNames, []);
-    }),
-  );
-
-  it.effect("does not create spans for disabled direct stream RPC handlers", () =>
-    Effect.gen(function* () {
-      const spanNames = yield* collectSpanNames(
-        Stream.runCollect(
-          observeRpcStream(
-            WS_METHODS.serverGetTraceDiagnostics,
-            Stream.fromEffect(
-              Effect.succeed("ok").pipe(
-                Effect.withSpan("rpc.instrumentation.disabled.stream.child"),
-              ),
-            ),
-            { "rpc.aggregate": "test" },
-          ),
-        ),
-      );
-
-      assert.deepStrictEqual(spanNames, []);
-    }),
-  );
-
-  it.effect("does not create spans for disabled stream effect RPC handlers", () =>
-    Effect.gen(function* () {
-      const spanNames = yield* collectSpanNames(
-        Stream.runCollect(
-          observeRpcStreamEffect(
-            WS_METHODS.serverGetTraceDiagnostics,
-            Effect.succeed(
-              Stream.fromEffect(
-                Effect.succeed("ok").pipe(
-                  Effect.withSpan("rpc.instrumentation.disabled.stream.effect.consume"),
-                ),
-              ),
-            ).pipe(Effect.withSpan("rpc.instrumentation.disabled.stream.effect.create")),
-            { "rpc.aggregate": "test" },
-          ),
-        ),
-      );
-
-      assert.deepStrictEqual(spanNames, []);
     }),
   );
 });

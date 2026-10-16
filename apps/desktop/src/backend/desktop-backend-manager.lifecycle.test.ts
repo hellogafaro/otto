@@ -46,7 +46,6 @@ describe("DesktopBackendManager", () => {
         let shutdownCount = 0;
         let persistedFailureCount = 0;
         let discardedSessionCount = 0;
-        let removedTelemetrySources = 0;
 
         const spawnerLayer = Layer.succeed(
           ChildProcessSpawner.ChildProcessSpawner,
@@ -99,12 +98,6 @@ describe("DesktopBackendManager", () => {
               discardedSessionCount += 1;
             }),
           },
-          desktopTelemetryPublisher: {
-            removeControlSource: () =>
-              Effect.sync(() => {
-                removedTelemetrySources += 1;
-              }),
-          },
         });
 
         assert.isTrue(Option.isNone(yield* instance.currentConfig));
@@ -129,7 +122,6 @@ describe("DesktopBackendManager", () => {
         assert.equal(closedCount, 1);
         assert.equal(persistedFailureCount, 0);
         assert.equal(discardedSessionCount, 1);
-        assert.equal(removedTelemetrySources, 1);
 
         const stoppedSnapshot = yield* instance.snapshot;
         assert.isFalse(yield* Ref.get(backendReadyFlag));

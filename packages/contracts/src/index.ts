@@ -72,7 +72,7 @@ export * from "./preview.ts";
 
 export * from "./preview-automation.ts";
 
-export * from "./resource-telemetry.ts";
+export * from "./desktop-telemetry.ts";
 
 export * from "./usage.ts";
 

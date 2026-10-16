@@ -114,7 +114,7 @@ export function KeybindingListRow({
             >
               {title}
             </TooltipTrigger>
-            <TooltipPopup side="top" variant="diagnostics-mono">
+            <TooltipPopup side="top" variant="mono">
               {row.command}
             </TooltipPopup>
           </Tooltip>

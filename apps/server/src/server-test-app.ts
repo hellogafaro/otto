@@ -112,20 +112,6 @@ import * as ChannelDeliveryStore from "./channels/channel-delivery-store.ts";
 
 import * as ChannelRuntime from "./channels/channel-runtime.ts";
 
-import * as ProcessDiagnostics from "./diagnostics/process-diagnostics.ts";
-
-import * as ProcessResourceMonitor from "./diagnostics/process-resource-monitor.ts";
-
-import * as TraceDiagnostics from "./diagnostics/trace-diagnostics.ts";
-
-import * as DesktopTelemetryReceiver from "./resource-telemetry/desktop-telemetry-receiver.ts";
-
-import * as NativeTelemetryClient from "./resource-telemetry/native-telemetry-client.ts";
-
-import * as ResourceAttribution from "./resource-telemetry/resource-attribution.ts";
-
-import * as ResourceTelemetry from "./resource-telemetry/resource-telemetry.ts";
-
 import * as UsageService from "./usage/usage-service.ts";
 
 import { BotUsageLedger, type BotUsageLedgerShape } from "./usage/bot-usage-ledger.ts";
@@ -246,10 +232,6 @@ export const buildAppUnderTest = (options?: {
     serverEnvironment?: Partial<ServerEnvironment.ServerEnvironment["Service"]>;
     repositoryIdentityResolver?: Partial<
       RepositoryIdentityResolver.RepositoryIdentityResolver["Service"]
-    >;
-    nativeTelemetryClient?: Partial<NativeTelemetryClient.NativeTelemetryClient["Service"]>;
-    desktopTelemetryReceiver?: Partial<
-      DesktopTelemetryReceiver.DesktopTelemetryReceiver["Service"]
     >;
   };
 }) =>
@@ -416,16 +398,6 @@ export const buildAppUnderTest = (options?: {
       Layer.provideMerge(gitVcsDriverLayer),
     );
 
-    const resourceTelemetryLayer = ResourceTelemetry.layer.pipe(
-      Layer.provide(
-        Layer.mergeAll(
-          NativeTelemetryClient.layerTest(options?.layers?.nativeTelemetryClient),
-          DesktopTelemetryReceiver.layerTest(options?.layers?.desktopTelemetryReceiver),
-          ResourceAttribution.layer,
-        ),
-      ),
-    );
-
     const serviceLauncherClientLayer = ServiceLauncherClient.layer.pipe(
       Layer.provide(Layer.succeed(HostProcessEnvironment, {})),
     );
@@ -489,68 +461,6 @@ export const buildAppUnderTest = (options?: {
             resolveTargets: () => Effect.succeed([]),
           }),
         ),
-      ),
-      Layer.provide(
-        Layer.mock(ProcessDiagnostics.ProcessDiagnostics)({
-          read: Effect.succeed({
-            serverPid: process.pid,
-            readAt: TEST_EPOCH,
-            processCount: 0,
-            totalRssBytes: 0,
-            totalCpuPercent: 0,
-            processes: [],
-            error: Option.none(),
-          }),
-          signal: (input) =>
-            Effect.succeed({
-              pid: input.pid,
-              signal: input.signal,
-              signaled: true,
-              message: Option.none(),
-            }),
-        }),
-      ),
-      Layer.provide(
-        Layer.mock(ProcessResourceMonitor.ProcessResourceMonitor)({
-          readHistory: (input) =>
-            Effect.succeed({
-              readAt: TEST_EPOCH,
-              windowMs: input.windowMs,
-              bucketMs: input.bucketMs,
-              sampleIntervalMs: 5_000,
-              retainedSampleCount: 0,
-              totalCpuSecondsApprox: 0,
-              buckets: [],
-              topProcesses: [],
-              error: Option.none(),
-            }),
-        }),
-      ),
-      Layer.provide(
-        Layer.mock(TraceDiagnostics.TraceDiagnostics)({
-          read: () =>
-            Effect.succeed({
-              traceFilePath: "",
-              scannedFilePaths: [],
-              readAt: TEST_EPOCH,
-              recordCount: 0,
-              parseErrorCount: 0,
-              firstSpanAt: Option.none(),
-              lastSpanAt: Option.none(),
-              failureCount: 0,
-              interruptionCount: 0,
-              slowSpanThresholdMs: 1_000,
-              slowSpanCount: 0,
-              logLevelCounts: {},
-              topSpansByCount: [],
-              slowestSpans: [],
-              commonFailures: [],
-              latestFailures: [],
-              latestWarningAndErrorLogs: [],
-              partialFailure: Option.none(),
-              error: Option.none(),
-            }),
-        }),
       ),
       Layer.provide(gitVcsDriverLayer),
       Layer.provide(gitWorkflowLayer),
@@ -758,7 +668,6 @@ export const buildAppUnderTest = (options?: {
     );
 
     const appLayer = servedRoutesLayer.pipe(
-      Layer.provide(resourceTelemetryLayer),
       Layer.provide(UsageService.layerTest),
       Layer.provide(
         Layer.mock(BrowserTraceCollector.BrowserTraceCollector)({

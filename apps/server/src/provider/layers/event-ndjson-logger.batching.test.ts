@@ -6,13 +6,11 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { ThreadId } from "@otto/contracts";
-import { assert, describe, expect, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as TestClock from "effect/testing/TestClock";
-import * as ResourceAttribution from "../../resource-telemetry/resource-attribution.ts";
-import { type PendingRecord, writeBatchedMessages } from "./event-ndjson-logger.ts";
 import { encodeUnknownJson, ownedLogPath, parseLogLine } from "./test-support/event-logs.ts";
 
 describe("EventNdjsonLogger", () => {
@@ -211,44 +209,6 @@ describe("EventNdjsonLogger", () => {
 });
 
 describe("EventNdjsonLogger", () => {
-  it("attributes batches that were written before a later chunk fails", async () => {
-    const records: ReadonlyArray<PendingRecord> = [
-      {
-        stream: "native",
-        threadSegment: "thread",
-        line: "first",
-        bytes: 5,
-      },
-      {
-        stream: "canonical",
-        threadSegment: "thread",
-        line: "second",
-        bytes: 6,
-      },
-    ];
-
-    const attributed: Array<PendingRecord> = [];
-    let writes = 0;
-
-    await expect(
-      writeBatchedMessages(
-        {
-          write: async () => {
-            writes += 1;
-
-            if (writes === 2) throw new Error("simulated disk exhaustion");
-          },
-        },
-        records,
-        5,
-        (written) => attributed.push(...written),
-      ),
-    ).rejects.toThrow("simulated disk exhaustion");
-    assert.deepEqual(attributed, [records[0]]);
-  });
-});
-
-describe("EventNdjsonLogger", () => {
   it.effect(
     "backpressures concurrent batches within byte and record limits and flushes in order",
     () =>
@@ -303,45 +263,5 @@ describe("EventNdjsonLogger", () => {
           NodeFS.rmSync(tempDir, { recursive: true, force: true });
         }
       }),
-  );
-});
-
-describe("EventNdjsonLogger", () => {
-  it.effect("reports logical provider log writes to resource attribution", () =>
-    Effect.gen(function* () {
-      const tempDir = NodeFS.mkdtempSync(
-        NodePath.join(NodeOS.tmpdir(), "ottoLegacy-provider-log-"),
-      );
-
-      const basePath = NodePath.join(tempDir, "provider-native.ndjson");
-
-      try {
-        const attribution = yield* ResourceAttribution.make();
-
-        const logger = yield* makeEventNdjsonLogger(basePath, {
-          stream: "native",
-          batchWindowMs: 0,
-          attribution,
-        });
-
-        assert.notEqual(logger, undefined);
-
-        if (!logger) {
-          return;
-        }
-
-        yield* logger.write({ id: "attributed-event" }, ThreadId.make("thread-attribution"));
-        yield* logger.close();
-
-        const snapshot = yield* attribution.snapshot;
-        assert.equal(snapshot.entries.length, 1);
-        assert.equal(snapshot.entries[0]?.component, "provider-event-log");
-        assert.equal(snapshot.entries[0]?.operation, "native.append");
-        assert.equal(snapshot.entries[0]?.count, 1);
-        assert.isAbove(snapshot.entries[0]?.logicalWriteBytes ?? 0, 0);
-      } finally {
-        NodeFS.rmSync(tempDir, { recursive: true, force: true });
-      }
-    }),
   );
 });

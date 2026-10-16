@@ -1,4 +1,4 @@
-import { type ResourceTelemetrySourceStatus } from "@otto/contracts";
+import { type DesktopTelemetryStatus } from "@otto/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -109,7 +109,7 @@ export type DesktopTelemetryControlError =
   | DesktopTelemetryControlStalled;
 
 export interface DesktopTelemetryReceiverHealth {
-  readonly status: ResourceTelemetrySourceStatus;
+  readonly status: DesktopTelemetryStatus;
   readonly lastSampleAt: Option.Option<DateTime.Utc>;
   readonly lastError: Option.Option<string>;
 }

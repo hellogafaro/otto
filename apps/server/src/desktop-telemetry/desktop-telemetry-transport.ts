@@ -48,7 +48,7 @@ const decodeVersion = Schema.decodeUnknownOption(Schema.Struct({ version: Schema
 export const messageVersion = flow(decodeVersion, Option.getOrUndefined, (value) => value?.version);
 
 export const writeAllToFileDescriptor = Effect.fn(
-  "resourceTelemetry.desktopTelemetryReceiver.writeAllToFileDescriptor",
+  "desktopTelemetry.receiver.writeAllToFileDescriptor",
 )(function* (fd: number, payload: Buffer) {
   let offset = 0;
 

@@ -104,12 +104,6 @@ export const WS_METHODS = {
   voiceCallGet: "voiceCall.get",
   voiceCallStart: "voiceCall.start",
   voiceCallHangup: "voiceCall.hangup",
-  serverGetTraceDiagnostics: "server.getTraceDiagnostics",
-  serverGetProcessDiagnostics: "server.getProcessDiagnostics",
-  serverGetProcessResourceHistory: "server.getProcessResourceHistory",
-  serverGetResourceTelemetryHistory: "server.getResourceTelemetryHistory",
-  serverRetryResourceTelemetry: "server.retryResourceTelemetry",
-  serverSignalProcess: "server.signalProcess",
   serverReportClientActivity: "server.reportClientActivity",
   serverReportHostPowerState: "server.reportHostPowerState",
   serverGetBackgroundPolicy: "server.getBackgroundPolicy",
@@ -141,5 +135,4 @@ export const WS_METHODS = {
   subscribeServerLifecycle: "subscribeServerLifecycle",
   subscribeAuthAccess: "subscribeAuthAccess",
   subscribeBackgroundPolicy: "subscribeBackgroundPolicy",
-  subscribeResourceTelemetry: "subscribeResourceTelemetry",
 } as const;

@@ -18,27 +18,7 @@ export {
   ServerProviders,
   isProviderAvailable,
   ServerObservability,
-  ServerTraceDiagnosticsErrorKind,
-  ServerTraceDiagnosticsSpanSummary,
-  ServerTraceDiagnosticsFailureSummary,
-  ServerTraceDiagnosticsRecentFailure,
-  ServerTraceDiagnosticsSpanOccurrence,
-  ServerTraceDiagnosticsLogEvent,
-  ServerTraceDiagnosticsResult,
 } from "./server/providers.ts";
-
-export {
-  ServerProcessSignal,
-  ServerProcessDiagnosticsEntry,
-  ServerProcessDiagnosticsResult,
-  ServerProcessResourceHistoryInput,
-  ServerProcessResourceHistoryBucket,
-  ServerProcessResourceHistorySummary,
-  ServerProcessResourceHistoryFailureTag,
-  ServerProcessResourceHistoryResult,
-  ServerSignalProcessInput,
-  ServerSignalProcessResult,
-} from "./server/resources.ts";
 
 export {
   ServerConfig,

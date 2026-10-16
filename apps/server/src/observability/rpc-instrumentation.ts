@@ -1,11 +1,9 @@
 import type { RawMetricAttributes } from "./attributes.ts";
-import { WS_METHODS } from "@otto/contracts";
 import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Metric from "effect/Metric";
-import * as References from "effect/References";
 import * as Stream from "effect/Stream";
 
 import { outcomeFromExit } from "./attributes.ts";
@@ -18,17 +16,6 @@ const DEFAULT_RPC_SPAN_ATTRIBUTES = {
   "rpc.system": "effect-rpc",
 } as const;
 
-const RPC_METHODS_WITH_TRACING_DISABLED: ReadonlySet<string> = new Set([
-  WS_METHODS.serverGetTraceDiagnostics,
-  WS_METHODS.serverGetProcessDiagnostics,
-  WS_METHODS.serverGetProcessResourceHistory,
-  WS_METHODS.serverSignalProcess,
-]);
-
-function shouldTraceRpc(method: string): boolean {
-  return !RPC_METHODS_WITH_TRACING_DISABLED.has(method);
-}
-
 const rpcSpanAttributes = (method: string, traceAttributes?: RawMetricAttributes) => ({
   ...DEFAULT_RPC_SPAN_ATTRIBUTES,
   "rpc.method": method,
@@ -40,26 +27,22 @@ const withRpcEffectTracing = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   traceAttributes?: RawMetricAttributes,
 ): Effect.Effect<A, E, R> =>
-  shouldTraceRpc(method)
-    ? effect.pipe(
-        Effect.withSpan(`${RPC_SPAN_PREFIX}.${method}`, {
-          attributes: rpcSpanAttributes(method, traceAttributes),
-        }),
-      )
-    : effect.pipe(Effect.provideService(References.TracerEnabled, false));
+  effect.pipe(
+    Effect.withSpan(`${RPC_SPAN_PREFIX}.${method}`, {
+      attributes: rpcSpanAttributes(method, traceAttributes),
+    }),
+  );
 
 const withRpcStreamTracing = <A, E, R>(
   method: string,
   stream: Stream.Stream<A, E, R>,
   traceAttributes?: RawMetricAttributes,
 ): Stream.Stream<A, E, R> =>
-  shouldTraceRpc(method)
-    ? stream.pipe(
-        Stream.withSpan(`${RPC_SPAN_PREFIX}.${method}`, {
-          attributes: rpcSpanAttributes(method, traceAttributes),
-        }),
-      )
-    : stream.pipe(Stream.provideService(References.TracerEnabled, false));
+  stream.pipe(
+    Stream.withSpan(`${RPC_SPAN_PREFIX}.${method}`, {
+      attributes: rpcSpanAttributes(method, traceAttributes),
+    }),
+  );
 
 const recordRpcStreamMetrics = <A, E>(
   method: string,

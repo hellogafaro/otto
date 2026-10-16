@@ -385,13 +385,6 @@ export const runBackendProcess = Effect.fn("runBackendProcess")(function* (
           cause: Cause.pretty(cause),
         }),
       ),
-      Effect.ensuring(
-        handleControl({
-          version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: false,
-        }),
-      ),
       Effect.forkScoped,
     );
   }

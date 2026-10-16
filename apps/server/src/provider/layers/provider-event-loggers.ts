@@ -29,7 +29,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { ServerConfig } from "../../config.ts";
-import * as ResourceAttribution from "../../resource-telemetry/resource-attribution.ts";
 import * as EventNdjsonLogger from "./event-ndjson-logger.ts";
 
 /**
@@ -64,11 +63,8 @@ export const NoOpProviderEventLoggers: ProviderEventLoggers["Service"] = {
  */
 export const make = Effect.gen(function* () {
   const { providerEventLogPath } = yield* ServerConfig;
-  const attribution = yield* ResourceAttribution.ResourceAttribution;
 
-  const store = yield* EventNdjsonLogger.makeEventNdjsonLogStore(providerEventLogPath, {
-    attribution,
-  }).pipe(
+  const store = yield* EventNdjsonLogger.makeEventNdjsonLogStore(providerEventLogPath).pipe(
     Effect.catch((error) =>
       Effect.logWarning(error.message, { error }).pipe(
         Effect.annotateLogs({ scope: "provider-observability" }),

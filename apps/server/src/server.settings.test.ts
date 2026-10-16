@@ -10,13 +10,11 @@ import {
   WS_METHODS,
 } from "@otto/contracts";
 import { assert, it } from "@effect/vitest";
-import { assertTrue } from "@effect/vitest/utils";
 import * as Deferred from "effect/Deferred";
 import * as Exit from "effect/Exit";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
@@ -214,24 +212,6 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         type: "keybindingsUpdated",
         payload: { keybindings: [], issues: [] },
       });
-    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
-  );
-
-  it.effect("routes websocket resource telemetry through the subscription", () =>
-    Effect.gen(function* () {
-      yield* buildAppUnderTest();
-
-      const wsUrl = yield* getWsServerUrl("/ws");
-
-      const snapshot = yield* Effect.scoped(
-        withWsRpcClient(wsUrl, (client) =>
-          client[WS_METHODS.subscribeResourceTelemetry]({}).pipe(Stream.runHead),
-        ),
-      );
-
-      assertTrue(Option.isSome(snapshot));
-      assert.equal(snapshot.value.processes.length, 0);
-      assert.equal(snapshot.value.groups.backend.processCount, 0);
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 

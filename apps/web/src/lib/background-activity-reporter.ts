@@ -1,9 +1,5 @@
 import { EnvironmentRegistry } from "@otto/client-runtime/connection";
-import {
-  EnvironmentRpcSubscriptionObserver,
-  request,
-  type EnvironmentRpcSubscriptionObservation,
-} from "@otto/client-runtime/rpc";
+import { request } from "@otto/client-runtime/rpc";
 import {
   type BackgroundScope,
   type ClientActivityReportInput,
@@ -30,41 +26,6 @@ const LEASE_TTL_MS = 45_000;
 const RECENT_INTERACTION_WINDOW_MS = LEASE_TTL_MS;
 
 const BASELINE_SCOPES: ReadonlyArray<BackgroundScope> = [{ type: "provider-status" }];
-
-interface RetainedScope {
-  readonly environmentId: EnvironmentId;
-  readonly scope: BackgroundScope;
-  refCount: number;
-}
-
-const retainedScopes = new Map<string, RetainedScope>();
-
-const retainedScopeListeners = new Set<() => void>();
-
-function notifyRetainedScopesChanged(): void {
-  for (const listener of retainedScopeListeners) {
-    try {
-      listener();
-    } catch {
-      // A failing observer must not corrupt retained-scope lifetime.
-    }
-  }
-}
-
-function stableScopeKey(environmentId: EnvironmentId, scope: BackgroundScope): string {
-  switch (scope.type) {
-    case "server-config":
-    case "diagnostics":
-      return JSON.stringify([environmentId, scope.type]);
-    case "provider-status":
-      return JSON.stringify([environmentId, scope.type, scope.instanceId ?? null]);
-    case "vcs-status":
-    case "git-refs":
-      return JSON.stringify([environmentId, scope.type, scope.cwd]);
-    case "thread":
-      return JSON.stringify([environmentId, scope.type, scope.threadId]);
-  }
-}
 
 function getClientId(): string {
   try {
@@ -96,14 +57,6 @@ function createActivityReport(
   lastInteractionAtMs: number,
   observedAtMs: number,
 ): ClientActivityReportInput {
-  const scopes = [...BASELINE_SCOPES];
-
-  for (const entry of retainedScopes.values()) {
-    if (entry.environmentId === environmentId) {
-      scopes.push(entry.scope);
-    }
-  }
-
   return {
     environmentId,
     clientId: getClientId(),
@@ -112,74 +65,11 @@ function createActivityReport(
     focused: document.hasFocus(),
     recentlyInteracted: wasRecentlyInteracted(lastInteractionAtMs, observedAtMs),
     appState: document.visibilityState === "visible" ? "active" : "background",
-    scopes,
+    scopes: BASELINE_SCOPES,
     ttlMs: LEASE_TTL_MS,
     observedAt: DateTime.makeUnsafe(observedAtMs),
   };
 }
-
-function scopeForSubscription(
-  observation: EnvironmentRpcSubscriptionObservation,
-): BackgroundScope | null {
-  return observation.method === WS_METHODS.subscribeResourceTelemetry
-    ? { type: "diagnostics" }
-    : null;
-}
-
-function retainBackgroundScope(environmentId: EnvironmentId, scope: BackgroundScope): () => void {
-  const key = stableScopeKey(environmentId, scope);
-  const existing = retainedScopes.get(key);
-
-  if (existing) {
-    existing.refCount += 1;
-  } else {
-    retainedScopes.set(key, { environmentId, scope, refCount: 1 });
-    notifyRetainedScopesChanged();
-  }
-
-  return () => {
-    const current = retainedScopes.get(key);
-
-    if (!current) return;
-    current.refCount -= 1;
-
-    if (current.refCount <= 0) {
-      retainedScopes.delete(key);
-      notifyRetainedScopesChanged();
-    }
-  };
-}
-
-export function observeBackgroundActivitySubscription(
-  observation: EnvironmentRpcSubscriptionObservation,
-): Effect.Effect<Effect.Effect<void>> {
-  const scope = scopeForSubscription(observation);
-
-  if (scope === null) {
-    return Effect.succeed(Effect.void);
-  }
-
-  return Effect.sync(() => {
-    const release = retainBackgroundScope(EnvironmentId.make(observation.environmentId), scope);
-
-    return Effect.sync(release);
-  });
-}
-
-export function retainedBackgroundScopes(
-  environmentId: EnvironmentId,
-): ReadonlyArray<BackgroundScope> {
-  return Array.from(retainedScopes.values(), (entry) =>
-    entry.environmentId === environmentId ? entry.scope : null,
-  ).filter((scope): scope is BackgroundScope => scope !== null);
-}
-
-export const backgroundActivityObserverLayer = Layer.succeed(
-  EnvironmentRpcSubscriptionObserver,
-  EnvironmentRpcSubscriptionObserver.of({
-    observe: observeBackgroundActivitySubscription,
-  }),
-);
 
 export const backgroundActivityReporterLayer = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -226,7 +116,6 @@ export const backgroundActivityReporterLayer = Layer.effectDiscard(
 
     yield* Effect.acquireRelease(
       Effect.sync(() => {
-        retainedScopeListeners.add(requestReport);
         document.addEventListener("visibilitychange", requestReport);
         window.addEventListener("focus", requestReport);
         window.addEventListener("blur", requestReport);
@@ -238,7 +127,6 @@ export const backgroundActivityReporterLayer = Layer.effectDiscard(
       }),
       () =>
         Effect.sync(() => {
-          retainedScopeListeners.delete(requestReport);
           document.removeEventListener("visibilitychange", requestReport);
           window.removeEventListener("focus", requestReport);
           window.removeEventListener("blur", requestReport);

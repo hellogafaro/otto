@@ -2,7 +2,6 @@ import type { ThreadId } from "@otto/contracts";
 import { RotatingFileSink } from "@otto/shared/logging";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import type { ResourceAttribution } from "../../../resource-telemetry/resource-attribution.ts";
 
 export const MEBIBYTE = 1024 * 1024;
 
@@ -52,7 +51,6 @@ export interface EventNdjsonLogStoreOptions {
   readonly retentionCheckIntervalMs?: number;
   readonly maxBufferedBytes?: number;
   readonly maxBufferedRecords?: number;
-  readonly attribution?: ResourceAttribution["Service"];
 }
 
 export interface EventNdjsonLoggerOptions extends EventNdjsonLogStoreOptions {
@@ -98,7 +96,6 @@ export interface ResolvedOptions {
   readonly retentionCheckIntervalMs: number;
   readonly maxBufferedBytes: number;
   readonly maxBufferedRecords: number;
-  readonly attribution: ResourceAttribution["Service"] | undefined;
 }
 
 export interface PendingRecord {
@@ -117,12 +114,6 @@ export interface StoreState {
   readonly lastRetentionAt: number;
 }
 
-export interface AttributionSummary {
-  readonly stream: EventNdjsonStream;
-  readonly count: number;
-  readonly logicalWriteBytes: number;
-}
-
 export interface FileOperationFailure {
   readonly filePath: string;
   readonly cause: unknown;
@@ -133,6 +124,5 @@ export interface RetentionResult {
 }
 
 export interface DrainResult {
-  readonly attributions: ReadonlyArray<AttributionSummary>;
   readonly failures: ReadonlyArray<FileOperationFailure>;
 }

@@ -11,7 +11,7 @@ Issue-label, PR-vouch, and PR-size jobs also use Tenki Linux runners through Git
 - **Repository checks.** The job rejects external local dependencies, installs the committed
   lockfile once, checks lint and formatting, runs workspace type checks,
   validates the plugin directory and contribution policy, builds the desktop pipeline, checks the
-  preload output, tests shipped packages and the resource monitor, and
+  preload output, tests shipped packages, and
   checks release-only configuration. Relay and mobile-production packages are excluded. The same
   job runs the complete server suite. It excludes
   `orchestration-engine.integration.test.ts` until the executor stack

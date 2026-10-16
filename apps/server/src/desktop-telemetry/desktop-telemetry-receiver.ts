@@ -38,7 +38,6 @@ import {
   DesktopTelemetryStale,
   type DesktopTelemetryReceiverError,
   DesktopTelemetryControlFailed,
-  type DesktopTelemetryControlError,
   type DesktopTelemetryReceiverHealth,
 } from "./desktop-telemetry-types.ts";
 import {
@@ -74,13 +73,10 @@ export class DesktopTelemetryReceiver extends Context.Service<
       never,
       Scope.Scope
     >;
-    readonly setDiagnosticsDemand: (
-      enabled: boolean,
-    ) => Effect.Effect<void, DesktopTelemetryControlError>;
   }
->()("@otto/server/resource-telemetry/desktop-telemetry-receiver/DesktopTelemetryReceiver") {}
+>()("@otto/server/desktop-telemetry/desktop-telemetry-receiver/DesktopTelemetryReceiver") {}
 
-export const make = Effect.fn("resourceTelemetry.desktopTelemetryReceiver.make")(function* () {
+export const make = Effect.fn("desktopTelemetry.receiver.make")(function* () {
   const config = yield* ServerConfig;
   const serverSettings = yield* ServerSettingsService;
   const latest = yield* Ref.make(Option.none<DesktopHostTelemetrySnapshot>());
@@ -162,15 +158,6 @@ export const make = Effect.fn("resourceTelemetry.desktopTelemetryReceiver.make")
         );
       }),
     );
-
-  const setDiagnosticsDemand: DesktopTelemetryReceiver["Service"]["setDiagnosticsDemand"] = (
-    enabled,
-  ) =>
-    sendControlMessage({
-      version: 1,
-      type: "setDiagnosticsDemand",
-      enabled,
-    });
 
   const sendHostPowerIntervals = (
     settings: Parameters<typeof resolveServerBackgroundActivitySettings>[0],
@@ -421,7 +408,6 @@ export const make = Effect.fn("resourceTelemetry.desktopTelemetryReceiver.make")
     ),
     health: Ref.get(health),
     subscribeHealth: subscribeBeforeSnapshotWithoutMutex(healthChanges, Ref.get(health)),
-    setDiagnosticsDemand,
   });
 });
 
@@ -463,7 +449,6 @@ export const layerTest = (
             changes: Stream.empty,
           })),
         ),
-      setDiagnosticsDemand: () => Effect.void,
       ...overrides,
     }),
   );

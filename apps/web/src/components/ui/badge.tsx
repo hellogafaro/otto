@@ -15,8 +15,6 @@ const badgeVariants = cva(
     },
     variants: {
       size: {
-        "telemetry-health":
-          "shrink justify-start gap-1.5 whitespace-normal rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]",
         default:
           "h-5.5 min-w-5.5 px-[calc(--spacing(1)-1px)] text-sm sm:h-4.5 sm:min-w-4.5 sm:text-xs",
         lg: "h-6.5 min-w-6.5 px-[calc(--spacing(1.5)-1px)] text-base sm:h-5.5 sm:min-w-5.5 sm:text-sm",
@@ -27,12 +25,6 @@ const badgeVariants = cva(
           "bg-secondary text-foreground [button&,a&]:hover:bg-accent/80 font-normal text-muted-foreground/70",
         "keybinding-custom":
           "bg-secondary text-foreground [button&,a&]:hover:bg-accent/80 font-normal text-muted-foreground",
-        "telemetry-neutral": "border-border/70 bg-muted/45 text-muted-foreground",
-        "telemetry-healthy":
-          "border-success/25 bg-success/10 text-success-foreground dark:text-success-bright-foreground",
-        "telemetry-warning":
-          "border-telemetry-monitor/30 bg-telemetry-monitor/10 text-telemetry-status-foreground",
-        "telemetry-danger": "border-destructive/30 bg-destructive/10 text-destructive",
         default:
           "bg-message-action text-message-action-foreground [button&,a&]:hover:bg-message-action/90",
         destructive: "bg-destructive text-on-solid [button&,a&]:hover:bg-destructive/90",

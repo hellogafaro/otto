@@ -96,20 +96,12 @@ import {
 
 import { BUNDLE_SELF_CONTAINED_SENTINEL } from "./lib/desktop-build/bundle-verification.ts";
 
-import { stageResourceMonitor } from "./lib/desktop-build/resource-monitor.ts";
-
 import {
   stageWindowsServerSidecar,
   validateWindowsPackagedPayload,
 } from "./lib/desktop-build/windows-payload.ts";
 
 export { DESKTOP_PACKAGE_NAME } from "./lib/desktop-build/model.ts";
-
-export { resolveResourceMonitorRustTargets } from "./lib/desktop-build/resource-monitor.ts";
-
-export { resourceMonitorExecutableName } from "./lib/desktop-build/resource-monitor.ts";
-
-export { resolveResourceMonitorCargoBuildArgs } from "./lib/desktop-build/resource-monitor.ts";
 
 export { UnsupportedHostBuildPlatformError } from "./lib/desktop-build/errors.ts";
 
@@ -118,8 +110,6 @@ export { UnsupportedDesktopBuildArchitectureError } from "./lib/desktop-build/er
 export { InvalidMockUpdateServerPortError } from "./lib/desktop-build/errors.ts";
 
 export { BuildCommandFailedError } from "./lib/desktop-build/errors.ts";
-
-export { ResourceMonitorBuildOutputMissingError } from "./lib/desktop-build/errors.ts";
 
 export { DesktopIconSourceMissingError } from "./lib/desktop-build/errors.ts";
 
@@ -204,8 +194,6 @@ export { resolveBuildOptions } from "./lib/desktop-build/options.ts";
 export { ancestorNodeModulesPaths } from "./lib/desktop-build/workspace.ts";
 
 export { copyDirectoryPreservingSymlinks } from "./lib/desktop-build/workspace.ts";
-
-export { stageResourceMonitor } from "./lib/desktop-build/resource-monitor.ts";
 
 export { stageDesktopDmgBackground } from "./lib/desktop-build/assets.ts";
 
@@ -458,14 +446,6 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   if (options.platform !== "win") {
     yield* fs.copy(distDirs.serverDist, path.join(stageAppDir, "apps/server/dist"));
   }
-
-  yield* stageResourceMonitor({
-    repoRoot,
-    stageResourcesDir,
-    platform: options.platform,
-    arch: options.arch,
-    verbose: options.verbose,
-  });
 
   yield* assertPlatformBuildResources(
     options.platform,

@@ -63,45 +63,6 @@ export const logBackendObservabilitySettingsReadFailure = (
   );
 };
 
-export function resourceMonitorBinaryName(platform: NodeJS.Platform): string {
-  return platform === "win32" ? "ottoLegacy-resource-monitor.exe" : "ottoLegacy-resource-monitor";
-}
-
-export const resolveResourceMonitorPath = Effect.fn(
-  "desktop.backendConfiguration.resolveResourceMonitorPath",
-)(function* () {
-  const environment = yield* DesktopEnvironment.DesktopEnvironment;
-  const fileSystem = yield* FileSystem.FileSystem;
-  const binaryName = resourceMonitorBinaryName(environment.platform);
-
-  const candidates = environment.isDevelopment
-    ? [
-        environment.path.join(
-          environment.rootDir,
-          "native/resource-monitor/target/release",
-          binaryName,
-        ),
-        environment.path.join(
-          environment.rootDir,
-          "native/resource-monitor/target/debug",
-          binaryName,
-        ),
-      ]
-    : environment.isPackaged
-      ? [environment.path.join(environment.resourcesPath, "resource-monitor", binaryName)]
-      : environment.resolveResourcePathCandidates(
-          environment.path.join("resource-monitor", binaryName),
-        );
-
-  for (const candidate of candidates) {
-    if (yield* fileSystem.exists(candidate).pipe(Effect.orElseSucceed(() => false))) {
-      return Option.some(candidate);
-    }
-  }
-
-  return Option.none<string>();
-});
-
 export const readPersistedBackendObservabilitySettings = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const environment = yield* DesktopEnvironment.DesktopEnvironment;

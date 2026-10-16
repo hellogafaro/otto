@@ -111,7 +111,7 @@
               "**/apps/server/src/bootstrap.ts",
               "**/apps/server/src/http.ts",
               "**/apps/server/src/orchestration/workflow-script-query.ts",
-              "**/apps/server/src/resource-telemetry/desktop-telemetry-transport.ts",
+              "**/apps/server/src/desktop-telemetry/desktop-telemetry-transport.ts",
               "**/apps/server/src/memory/bot-memory.ts",
               "**/apps/server/src/memory/bot-memory-file-storage.ts",
               "**/apps/server/src/memory/bot-memory-types.ts",

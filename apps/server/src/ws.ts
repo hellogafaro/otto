@@ -20,8 +20,8 @@ import { createWsAuthHandlers } from "./ws-auth-handlers.ts";
 import { createWsPortabilityHandlers } from "./ws-portability-handlers.ts";
 import { createWsBotServicesHandlers } from "./ws-bot-services-handlers.ts";
 import { createWsToolHandlers } from "./ws-tool-handlers.ts";
-import { createWsDiagnosticHandlers } from "./ws-diagnostic-handlers.ts";
 import { createWsMemoryHandlers } from "./ws-memory-handlers.ts";
+import { createWsServerStatusHandlers } from "./ws-server-status-handlers.ts";
 import { createWsWorkspaceHandlers } from "./ws-workspace-handlers.ts";
 import { createWsActivityHandlers } from "./ws-activity-handlers.ts";
 import { createWsLibraryHandlers } from "./ws-library-handlers.ts";
@@ -58,7 +58,7 @@ const createWsRpcLayer = (
         ...createWsPortabilityHandlers(connection),
         ...createWsBotServicesHandlers(connection),
         ...createWsToolHandlers(connection),
-        ...createWsDiagnosticHandlers(connection),
+        ...createWsServerStatusHandlers(connection),
         ...createWsMemoryHandlers(connection),
         ...createWsWorkspaceHandlers(connection),
         ...createWsActivityHandlers(connection),

@@ -171,7 +171,6 @@ describe("DesktopBackendConfiguration", () => {
           assert.equal(config.bootstrap.host, "0.0.0.0");
           assert.equal(config.bootstrap.tailscaleServeEnabled, false);
           assert.notProperty(config.bootstrap, "desktopTelemetryFd");
-          assert.notProperty(config.bootstrap, "resourceMonitorPath");
           // httpBaseUrl uses the resolved distro IP from the test stub,
           // not localhost — the renderer reaches the backend directly to
           // avoid relying on wslhost forwarding.

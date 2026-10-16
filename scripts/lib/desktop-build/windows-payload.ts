@@ -46,8 +46,6 @@ import { runCommand } from "./process.ts";
 
 import { WINDOWS_SERVER_ASAR_RESOURCE } from "./config.ts";
 
-import { resourceMonitorExecutableName } from "./resource-monitor.ts";
-
 import { verifyPackagedBundleIsSelfContained } from "./bundle-verification.ts";
 
 const decodeNodePtyManifest = Schema.decodeUnknownEffect(
@@ -553,20 +551,6 @@ export const validateWindowsPackagedPayload = Effect.fn(
       reason: "unpacked-native-missing",
       packagedAppDir,
       missingFiles,
-    });
-  }
-
-  const resourceMonitorPath = path.join(
-    resourcesDir,
-    "resource-monitor",
-    resourceMonitorExecutableName("win"),
-  );
-
-  if (!(yield* isFile(resourceMonitorPath))) {
-    return yield* new WindowsPackagedPayloadValidationError({
-      reason: "resource-monitor-missing",
-      packagedAppDir,
-      missingFiles: ["resource-monitor/ottoLegacy-resource-monitor.exe"],
     });
   }
 

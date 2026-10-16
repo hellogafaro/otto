@@ -169,9 +169,6 @@ export function makeTestInstance(input: MakeInstanceInput) {
       changes: Stream.empty,
       encoded: input.desktopTelemetryStream ?? Stream.empty,
       handleControl: () => Effect.void,
-      handleControlForSource: (_sourceId, message) =>
-        (input.desktopTelemetryPublisher?.handleControl ?? (() => Effect.void))(message),
-      removeControlSource: () => Effect.void,
       ...input.desktopTelemetryPublisher,
     }),
   );

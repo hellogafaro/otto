@@ -106,20 +106,6 @@ import {
   ServerSelfUpdateResult,
 } from "../server/update.ts";
 import { ServerLifecycleStreamEvent } from "../server/lifecycle.ts";
-import { ServerTraceDiagnosticsResult } from "../server/providers.ts";
-import {
-  ServerProcessDiagnosticsResult,
-  ServerProcessResourceHistoryInput,
-  ServerProcessResourceHistoryResult,
-  ServerSignalProcessInput,
-  ServerSignalProcessResult,
-} from "../server/resources.ts";
-import {
-  ResourceTelemetryHistory,
-  ResourceTelemetryHistoryInput,
-  ResourceTelemetryRetryResult,
-  ResourceTelemetrySnapshot,
-} from "../resource-telemetry.ts";
 import { UsageReadError, UsageSummary, UsageSummaryInput } from "../usage.ts";
 import {
   RemoteDoctorError,
@@ -492,42 +478,6 @@ export const WsVoiceCallHangupRpc = Rpc.make(WS_METHODS.voiceCallHangup, {
   error: Schema.Union([VoiceCallError, EnvironmentAuthorizationError]),
 });
 
-export const WsServerGetTraceDiagnosticsRpc = Rpc.make(WS_METHODS.serverGetTraceDiagnostics, {
-  payload: Schema.Struct({}),
-  success: ServerTraceDiagnosticsResult,
-  error: EnvironmentAuthorizationError,
-});
-
-export const WsServerGetProcessDiagnosticsRpc = Rpc.make(WS_METHODS.serverGetProcessDiagnostics, {
-  payload: Schema.Struct({}),
-  success: ServerProcessDiagnosticsResult,
-  error: EnvironmentAuthorizationError,
-});
-
-export const WsServerGetProcessResourceHistoryRpc = Rpc.make(
-  WS_METHODS.serverGetProcessResourceHistory,
-  {
-    payload: ServerProcessResourceHistoryInput,
-    success: ServerProcessResourceHistoryResult,
-    error: EnvironmentAuthorizationError,
-  },
-);
-
-export const WsServerGetResourceTelemetryHistoryRpc = Rpc.make(
-  WS_METHODS.serverGetResourceTelemetryHistory,
-  {
-    payload: ResourceTelemetryHistoryInput,
-    success: ResourceTelemetryHistory,
-    error: EnvironmentAuthorizationError,
-  },
-);
-
-export const WsServerRetryResourceTelemetryRpc = Rpc.make(WS_METHODS.serverRetryResourceTelemetry, {
-  payload: Schema.Struct({}),
-  success: ResourceTelemetryRetryResult,
-  error: EnvironmentAuthorizationError,
-});
-
 export const WsServerGetUsageSummaryRpc = Rpc.make(WS_METHODS.serverGetUsageSummary, {
   payload: UsageSummaryInput,
   success: UsageSummary,
@@ -544,12 +494,6 @@ export const WsServerRepairRemoteDoctorRpc = Rpc.make(WS_METHODS.serverRepairRem
   payload: RemoteDoctorRepairInput,
   success: RemoteDoctorStatus,
   error: Schema.Union([EnvironmentAuthorizationError, RemoteDoctorError]),
-});
-
-export const WsServerSignalProcessRpc = Rpc.make(WS_METHODS.serverSignalProcess, {
-  payload: ServerSignalProcessInput,
-  success: ServerSignalProcessResult,
-  error: EnvironmentAuthorizationError,
 });
 
 export const WsServerReportClientActivityRpc = Rpc.make(WS_METHODS.serverReportClientActivity, {
@@ -816,13 +760,6 @@ export const WsSubscribeAuthAccessRpc = Rpc.make(WS_METHODS.subscribeAuthAccess,
 export const WsSubscribeBackgroundPolicyRpc = Rpc.make(WS_METHODS.subscribeBackgroundPolicy, {
   payload: Schema.Struct({}),
   success: BackgroundPolicySnapshot,
-  error: EnvironmentAuthorizationError,
-  stream: true,
-});
-
-export const WsSubscribeResourceTelemetryRpc = Rpc.make(WS_METHODS.subscribeResourceTelemetry, {
-  payload: Schema.Struct({}),
-  success: ResourceTelemetrySnapshot,
   error: EnvironmentAuthorizationError,
   stream: true,
 });

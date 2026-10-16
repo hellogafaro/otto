@@ -20,7 +20,6 @@ import {
   buildObservabilityFragment,
   backendChildEnvPatch,
   readPersistedBackendObservabilitySettings,
-  resolveResourceMonitorPath,
 } from "./backend-bootstrap-config.ts";
 import { resolveWslStartConfig } from "./wsl-start-configuration.ts";
 
@@ -59,9 +58,7 @@ export class DesktopBackendConfiguration extends Context.Service<
 
 const resolvePrimaryStartConfig = Effect.fn("desktop.backendConfiguration.resolvePrimary")(
   function* (
-    input: SharedBootstrapInput & {
-      readonly resourceMonitorPath: Option.Option<string>;
-    },
+    input: SharedBootstrapInput,
   ): Effect.fn.Return<
     DesktopBackendManager.DesktopBackendStartConfig,
     never,
@@ -82,10 +79,6 @@ const resolvePrimaryStartConfig = Effect.fn("desktop.backendConfiguration.resolv
       tailscaleServePort: backendExposure.tailscaleServePort,
       desktopTelemetryFd: 4,
       desktopTelemetryControlFd: 5,
-      ...Option.match(input.resourceMonitorPath, {
-        onNone: () => ({}),
-        onSome: (resourceMonitorPath) => ({ resourceMonitorPath }),
-      }),
       ...buildObservabilityFragment(input.observabilitySettings),
     };
 
@@ -183,12 +176,7 @@ export const make = Effect.gen(function* () {
   const buildWindowsPrimaryConfig = Effect.gen(function* () {
     const shared = yield* sharedInputs;
 
-    const resourceMonitorPath = yield* resolveResourceMonitorPath().pipe(
-      Effect.provideService(FileSystem.FileSystem, fileSystem),
-      Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
-    );
-
-    return yield* resolvePrimaryStartConfig({ ...shared, resourceMonitorPath }).pipe(
+    return yield* resolvePrimaryStartConfig(shared).pipe(
       Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
       Effect.provideService(DesktopServerExposure.DesktopServerExposure, serverExposure),
     );

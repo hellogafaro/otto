@@ -6,16 +6,13 @@ export async function writeBatchedMessages(
   sink: Pick<RotatingFileSink, "write">,
   records: ReadonlyArray<PendingRecord>,
   maxBytes: number,
-  onWritten: (records: ReadonlyArray<PendingRecord>) => void,
 ): Promise<void> {
   let pendingRecords: Array<PendingRecord> = [];
   let pendingBytes = 0;
 
   const flush = async () => {
     if (pendingRecords.length === 0) return;
-    const writtenRecords = pendingRecords;
-    await sink.write(writtenRecords.map((record) => record.line).join(""));
-    onWritten(writtenRecords);
+    await sink.write(pendingRecords.map((record) => record.line).join(""));
     pendingRecords = [];
     pendingBytes = 0;
   };

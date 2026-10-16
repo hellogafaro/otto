@@ -48,14 +48,7 @@ import * as RemoteOpenTargets from "./environment/remote-open-targets.ts";
 import * as ServerSecretStore from "./auth/server-secret-store.ts";
 import * as EnvironmentAuth from "./auth/environment-auth.ts";
 import * as Composio from "./composio/composio-service.ts";
-import * as ProcessDiagnostics from "./diagnostics/process-diagnostics.ts";
-import * as ProcessResourceMonitor from "./diagnostics/process-resource-monitor.ts";
-import * as TraceDiagnostics from "./diagnostics/trace-diagnostics.ts";
-import * as DesktopTelemetryReceiver from "./resource-telemetry/desktop-telemetry-receiver.ts";
-import * as NativeTelemetryClient from "./resource-telemetry/native-telemetry-client.ts";
-import * as ResourceAttribution from "./resource-telemetry/resource-attribution.ts";
-import * as ResourceMonitorBinary from "./resource-telemetry/resource-monitor-binary.ts";
-import * as ResourceTelemetry from "./resource-telemetry/resource-telemetry.ts";
+import * as DesktopTelemetryReceiver from "./desktop-telemetry/desktop-telemetry-receiver.ts";
 import * as UsageService from "./usage/usage-service.ts";
 import { EntityMemoryRepositoryLive } from "./memory/layers/entity-memory-repository.ts";
 import { MemoryRevisionWriteLockLive } from "./memory/services/memory-revision-write-lock.ts";
@@ -70,28 +63,15 @@ import { NotificationReactorLive } from "./notifications/notification-reactor.ts
 import { RoutineDraftDispatcherLive } from "./routines/routine-draft-dispatcher.ts";
 import { MemoryApprovalsLive } from "./memory/memory-approvals.ts";
 
-export const ResourceAttributionLayerLive = ResourceAttribution.layer;
-
-export const ApplicationObservabilityLive = ObservabilityLive.pipe(
-  Layer.provideMerge(ResourceAttributionLayerLive),
-);
+export const ApplicationObservabilityLive = ObservabilityLive;
 
 export const ServerSettingsLayerLive = ServerSettings.layer.pipe(
   Layer.provide(ServerSecretStore.layer),
   Layer.provideMerge(SqlitePersistenceLayerLive),
 );
 
-export const NativeTelemetryLayerLive = NativeTelemetryClient.layer.pipe(
-  Layer.provide(ResourceMonitorBinary.layer),
-);
-
 export const DesktopTelemetryReceiverLayerLive = DesktopTelemetryReceiver.layer.pipe(
   Layer.provideMerge(ServerSettingsLayerLive),
-);
-
-export const ResourceTelemetryLayerLive = ResourceTelemetry.layer.pipe(
-  Layer.provideMerge(NativeTelemetryLayerLive),
-  Layer.provideMerge(DesktopTelemetryReceiverLayerLive),
 );
 
 export const HostPowerMonitorLayerLive = HostPowerMonitor.layer.pipe(
@@ -108,12 +88,6 @@ export const ProviderUsageHistoryLayerLive = ProviderUsageHistory.layer.pipe(
 );
 
 export const UsageLayerLive = UsageService.layer.pipe(Layer.provide(ProviderUsageHistoryLayerLive));
-
-export const ResourceDiagnosticsLayerLive = Layer.mergeAll(
-  ResourceTelemetryLayerLive,
-  ProcessDiagnostics.layer.pipe(Layer.provide(ResourceTelemetryLayerLive)),
-  ProcessResourceMonitor.layer.pipe(Layer.provide(ResourceTelemetryLayerLive)),
-);
 
 export const ReactorLayerLive = Layer.empty.pipe(
   Layer.provideMerge(OrchestrationReactorLive),
@@ -292,9 +266,7 @@ export const RuntimeCoreWithRoutinesLive = Layer.mergeAll(
 export const RuntimeDependenciesLive = RuntimeCoreWithRoutinesLive.pipe(
   // Misc.
   Layer.provideMerge(BackgroundLayerLive),
-  Layer.provideMerge(ResourceDiagnosticsLayerLive),
   Layer.provideMerge(UsageLayerLive),
-  Layer.provideMerge(TraceDiagnostics.layer),
   Layer.provideMerge(ExternalLauncher.layer),
   Layer.provideMerge(RemoteOpenTargets.layer),
   Layer.provideMerge(ServerLifecycleEvents.layer),

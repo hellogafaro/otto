@@ -194,7 +194,6 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
         startupPresentation: "browser",
         desktopTelemetryFd: 4,
         desktopTelemetryControlFd: 5,
-        resourceMonitorPath: undefined,
         autoBootstrapProjectFromCwd: false,
         logWebSocketEvents: false,
         tailscaleServeEnabled: false,

@@ -20,12 +20,6 @@ import * as Stream from "effect/Stream";
 import * as ElectronApp from "../electron/electron-app.ts";
 import * as ElectronPowerMonitor from "../electron/electron-power-monitor.ts";
 
-const LIVE_SAMPLE_INTERVAL = Duration.seconds(1);
-
-const BATTERY_SAMPLE_INTERVAL = Duration.seconds(5);
-
-const CONSTRAINED_SAMPLE_INTERVAL = Duration.seconds(15);
-
 const DEFAULT_HOST_POWER_ACTIVE_INTERVAL = Duration.seconds(30);
 
 const DEFAULT_HOST_POWER_IDLE_INTERVAL = Duration.minutes(2);
@@ -67,11 +61,6 @@ export class DesktopTelemetryPublisher extends Context.Service<
     readonly changes: Stream.Stream<DesktopHostTelemetrySnapshot>;
     readonly encoded: Stream.Stream<Uint8Array>;
     readonly handleControl: (message: DesktopTelemetryControlMessage) => Effect.Effect<void>;
-    readonly handleControlForSource: (
-      sourceId: string,
-      message: DesktopTelemetryControlMessage,
-    ) => Effect.Effect<void>;
-    readonly removeControlSource: (sourceId: string) => Effect.Effect<void>;
   }
 >()("@otto/desktop/telemetry/desktop-telemetry-publisher/DesktopTelemetryPublisher") {}
 
@@ -120,27 +109,11 @@ function updatePowerState(state: PowerState, event: PowerEvent): PowerState {
 
 function sampleInterval(
   power: PowerState,
-  diagnosticsDemand: boolean,
   hostPowerIntervals: HostPowerIntervals,
 ): Duration.Duration {
-  if (!diagnosticsDemand) {
-    return power.suspended || power.locked === "true" || power.idle === "true"
-      ? hostPowerIntervals.idle
-      : hostPowerIntervals.active;
-  }
-
-  if (
-    power.suspended ||
-    power.locked === "true" ||
-    power.thermalState === "serious" ||
-    power.thermalState === "critical"
-  ) {
-    return CONSTRAINED_SAMPLE_INTERVAL;
-  }
-
-  if (power.onBattery === "true") return BATTERY_SAMPLE_INTERVAL;
-
-  return LIVE_SAMPLE_INTERVAL;
+  return power.suspended || power.locked === "true" || power.idle === "true"
+    ? hostPowerIntervals.idle
+    : hostPowerIntervals.active;
 }
 
 export const make = Effect.fn("desktop.telemetryPublisher.make")(function* () {
@@ -169,7 +142,6 @@ export const make = Effect.fn("desktop.telemetryPublisher.make")(function* () {
 
   const powerEvents = yield* Queue.unbounded<PowerEvent>();
   const sampleTriggers = yield* Queue.sliding<void>(1);
-  const diagnosticsDemandSources = yield* Ref.make<ReadonlySet<string>>(new Set());
   const latest = yield* Ref.make(Option.none<DesktopHostTelemetrySnapshot>());
   const changes = yield* PubSub.sliding<DesktopHostTelemetrySnapshot>(8);
   const sequence = yield* Ref.make(0);
@@ -202,15 +174,13 @@ export const make = Effect.fn("desktop.telemetryPublisher.make")(function* () {
     Effect.gen(function* () {
       const sampledAt = yield* DateTime.now;
       const sampledAtUnixMs = DateTime.toEpochMillis(sampledAt);
-      const demand = (yield* Ref.get(diagnosticsDemandSources)).size > 0;
 
-      const [currentPower, idleSeconds, systemIdleState, onBattery, metrics] = yield* Effect.all(
+      const [currentPower, idleSeconds, systemIdleState, onBattery] = yield* Effect.all(
         [
           Ref.get(powerState),
           powerMonitor.getSystemIdleTime,
           powerMonitor.getSystemIdleState(IDLE_THRESHOLD_SECONDS),
           powerMonitor.isOnBatteryPower,
-          demand ? electronApp.getAppMetrics : Effect.succeed([]),
         ],
         { concurrency: "unbounded" },
       );
@@ -277,20 +247,6 @@ export const make = Effect.fn("desktop.telemetryPublisher.make")(function* () {
           updatedAt: sampledAt,
         },
         speedLimitPercent: observedPower.speedLimitPercent,
-        electronProcesses: metrics.map((metric) => ({
-          pid: metric.pid,
-          creationTimeMs: Math.max(0, Math.round(metric.creationTime)),
-          type: metric.type,
-          ...(metric.name === undefined ? {} : { name: metric.name }),
-          ...(metric.serviceName === undefined ? {} : { serviceName: metric.serviceName }),
-          cpuPercent: metric.cpu.percentCPUUsage,
-          ...(metric.cpu.cumulativeCPUUsage === undefined
-            ? {}
-            : { cumulativeCpuSeconds: metric.cpu.cumulativeCPUUsage }),
-          idleWakeupsPerSecond: metric.cpu.idleWakeupsPerSecond,
-          workingSetBytes: Math.max(0, Math.round(metric.memory.workingSetSize * 1024)),
-          peakWorkingSetBytes: Math.max(0, Math.round(metric.memory.peakWorkingSetSize * 1024)),
-        })),
       };
 
       yield* Ref.set(latest, Option.some(snapshot));
@@ -309,72 +265,25 @@ export const make = Effect.fn("desktop.telemetryPublisher.make")(function* () {
     yield* sampleOnce(false);
 
     while (true) {
-      const [currentPower, demand, intervals] = yield* Effect.all([
+      const [currentPower, intervals] = yield* Effect.all([
         Ref.get(powerState),
-        Ref.get(diagnosticsDemandSources).pipe(Effect.map((sources) => sources.size > 0)),
         Ref.get(hostPowerIntervals),
       ]);
 
       const allowSuspendRecovery = yield* Effect.raceFirst(
         Queue.take(sampleTriggers).pipe(Effect.as(false)),
-        Effect.sleep(sampleInterval(currentPower, demand, intervals)).pipe(Effect.as(true)),
+        Effect.sleep(sampleInterval(currentPower, intervals)).pipe(Effect.as(true)),
       );
 
       yield* sampleOnce(allowSuspendRecovery);
     }
   }).pipe(Effect.forkScoped);
 
-  const handleControlForSource: DesktopTelemetryPublisher["Service"]["handleControlForSource"] = (
-    sourceId,
-    message,
-  ) => {
-    switch (message.type) {
-      case "setDiagnosticsDemand":
-        return Ref.modify(diagnosticsDemandSources, (sources) => {
-          const previous = sources.size > 0;
-          const next = new Set(sources);
-
-          if (message.enabled) {
-            next.add(sourceId);
-          } else {
-            next.delete(sourceId);
-          }
-
-          return [[previous, next.size > 0] as const, next] as const;
-        }).pipe(
-          Effect.flatMap(([previous, enabled]) =>
-            previous === enabled
-              ? Effect.void
-              : Queue.offer(sampleTriggers, undefined).pipe(Effect.asVoid),
-          ),
-        );
-      case "setHostPowerIntervals":
-        return Ref.set(hostPowerIntervals, {
-          active: Duration.millis(message.activeIntervalMs),
-          idle: Duration.millis(message.idleIntervalMs),
-        }).pipe(Effect.andThen(Queue.offer(sampleTriggers, undefined)), Effect.asVoid);
-    }
-  };
-
-  const removeControlSource: DesktopTelemetryPublisher["Service"]["removeControlSource"] = (
-    sourceId,
-  ) =>
-    Ref.modify(diagnosticsDemandSources, (sources) => {
-      const previous = sources.size > 0;
-      const next = new Set(sources);
-      next.delete(sourceId);
-
-      return [[previous, next.size > 0] as const, next] as const;
-    }).pipe(
-      Effect.flatMap(([previous, enabled]) =>
-        previous === enabled
-          ? Effect.void
-          : Queue.offer(sampleTriggers, undefined).pipe(Effect.asVoid),
-      ),
-    );
-
   const handleControl: DesktopTelemetryPublisher["Service"]["handleControl"] = (message) =>
-    handleControlForSource("legacy", message);
+    Ref.set(hostPowerIntervals, {
+      active: Duration.millis(message.activeIntervalMs),
+      idle: Duration.millis(message.idleIntervalMs),
+    }).pipe(Effect.andThen(Queue.offer(sampleTriggers, undefined)), Effect.asVoid);
 
   const snapshots = Stream.unwrap(
     Effect.gen(function* () {
@@ -405,8 +314,6 @@ export const make = Effect.fn("desktop.telemetryPublisher.make")(function* () {
     changes: Stream.fromPubSub(changes),
     encoded,
     handleControl,
-    handleControlForSource,
-    removeControlSource,
   });
 });
 

@@ -39,7 +39,6 @@ export function resolveOptions(
       options.retentionCheckIntervalMs ?? DEFAULT_RETENTION_CHECK_INTERVAL_MS,
     maxBufferedBytes: options.maxBufferedBytes ?? DEFAULT_MAX_BUFFERED_BYTES,
     maxBufferedRecords: options.maxBufferedRecords ?? DEFAULT_MAX_BUFFERED_RECORDS,
-    attribution: options.attribution,
   } satisfies ResolvedOptions;
 
   const validations = [

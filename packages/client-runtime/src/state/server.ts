@@ -366,28 +366,6 @@ export function createServerEnvironmentAtoms<R, E>(
     updateStateAtom,
     settingsValueAtom,
     providersValueAtom,
-    traceDiagnostics: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:trace-diagnostics",
-      tag: WS_METHODS.serverGetTraceDiagnostics,
-    }),
-    processDiagnostics: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:process-diagnostics",
-      tag: WS_METHODS.serverGetProcessDiagnostics,
-    }),
-    processResourceHistory: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:process-resource-history",
-      tag: WS_METHODS.serverGetProcessResourceHistory,
-    }),
-    resourceTelemetry: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
-      label: "environment-data:server:resource-telemetry",
-      tag: WS_METHODS.subscribeResourceTelemetry,
-      idleTtlMs: 0,
-    }),
-    resourceTelemetryHistory: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:resource-telemetry-history",
-      tag: WS_METHODS.serverGetResourceTelemetryHistory,
-      staleTimeMs: 5_000,
-    }),
     // A cold transcript scan is measured in seconds, so keep the result around
     // long enough that switching windows or re-rendering does not rescan.
     usageSummary: createEnvironmentRpcQueryAtomFamily(runtime, {
@@ -605,18 +583,6 @@ export function createServerEnvironmentAtoms<R, E>(
     cancelVoice: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:voice:cancel",
       tag: WS_METHODS.voiceCancel,
-    }),
-    signalProcess: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:signal-process",
-      tag: WS_METHODS.serverSignalProcess,
-    }),
-    retryResourceTelemetry: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:retry-resource-telemetry",
-      tag: WS_METHODS.serverRetryResourceTelemetry,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId }) => environmentId,
-      },
     }),
   };
 }

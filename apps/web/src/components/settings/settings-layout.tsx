@@ -110,7 +110,7 @@ export function useRelativeTimeTick(intervalMs = 1_000) {
  * Otto: A section whose direct children are all `SettingsRow`s reads as one
  * 8px card with 1px border and dividers, filled with
  * `--settings-surface`. Sections that mix in custom content (tables, provider
- * cards, diagnostics) keep the open layout so cards never nest.
+ * cards) keep the open layout so cards never nest.
  */
 const GROUPED_ROWS_CLASS = cn(
   "[&:has(>[data-settings-row]):not(:has(>:not([data-settings-row])))]:space-y-0",

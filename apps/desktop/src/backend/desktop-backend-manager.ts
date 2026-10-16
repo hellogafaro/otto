@@ -486,8 +486,6 @@ export const makeBackendInstance = Effect.fn("makeBackendInstance")(function* (
                 );
 
               if (isCurrentRun) {
-                yield* desktopTelemetryPublisher.removeControlSource(spec.id);
-
                 if (Option.isSome(pid)) {
                   if (exitObserved && !stopRequested) {
                     yield* backendOutputLog.persistFailure({
@@ -513,8 +511,7 @@ export const makeBackendInstance = Effect.fn("makeBackendInstance")(function* (
         const program = runBackendProcess({
           ...config.value,
           desktopTelemetryStream: desktopTelemetryPublisher.encoded,
-          onDesktopTelemetryControl: (message) =>
-            desktopTelemetryPublisher.handleControlForSource(spec.id, message),
+          onDesktopTelemetryControl: desktopTelemetryPublisher.handleControl,
           onStarted: Effect.fn("desktop.backendInstance.onStarted")(function* (pid) {
             yield* updateActiveRun(runId, (run) => ({
               ...run,
@@ -738,7 +735,6 @@ export const makeBackendInstance = Effect.fn("makeBackendInstance")(function* (
           );
 
           if (cleanup.needsCleanup) {
-            yield* desktopTelemetryPublisher.removeControlSource(spec.id);
             yield* backendOutputLog.discardSession;
           }
 

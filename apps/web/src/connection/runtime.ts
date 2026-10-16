@@ -5,10 +5,7 @@ import * as Layer from "effect/Layer";
 import { Atom } from "effect/unstable/reactivity";
 
 import { runtimeContextLayer } from "../lib/runtime";
-import {
-  backgroundActivityObserverLayer,
-  backgroundActivityReporterLayer,
-} from "../lib/background-activity-reporter";
+import { backgroundActivityReporterLayer } from "../lib/background-activity-reporter";
 import { connectionPlatformLayer } from "./platform";
 
 const providedConnectionPlatformLayer = connectionPlatformLayer.pipe(
@@ -22,17 +19,10 @@ type ConnectionLayerSource =
   | typeof snapshotLoaderLayer
   | typeof runtimeContextLayer
   | typeof connectionPlatformLayer
-  | typeof backgroundActivityObserverLayer
   | typeof backgroundActivityReporterLayer;
 
 const providedClientConnectionLayer = Layer.merge(Connection.layer, snapshotLoaderLayer).pipe(
-  Layer.provideMerge(
-    Layer.mergeAll(
-      runtimeContextLayer,
-      providedConnectionPlatformLayer,
-      backgroundActivityObserverLayer,
-    ),
-  ),
+  Layer.provideMerge(Layer.mergeAll(runtimeContextLayer, providedConnectionPlatformLayer)),
 );
 
 const connectionLayer = backgroundActivityReporterLayer.pipe(

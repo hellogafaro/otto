@@ -96,7 +96,6 @@ export const makeWindowsPayloadFixture = Effect.fn("test.makeWindowsPayloadFixtu
     const stageDistDir = path.join(tempDir, "dist");
     const packagedAppDir = path.join(stageDistDir, "win-unpacked");
     const resourcesDir = path.join(packagedAppDir, "resources");
-    yield* fs.makeDirectory(path.join(resourcesDir, "resource-monitor"), { recursive: true });
     yield* fs.makeDirectory(path.join(resourcesDir, "plugins/entries/example"), {
       recursive: true,
     });
@@ -109,10 +108,6 @@ export const makeWindowsPayloadFixture = Effect.fn("test.makeWindowsPayloadFixtu
       );
     }
 
-    yield* fs.writeFileString(
-      path.join(resourcesDir, "resource-monitor/ottoLegacy-resource-monitor.exe"),
-      "monitor",
-    );
     yield* fs.writeFileString(path.join(resourcesDir, "plugins/entries/example/plugin.json"), "{}");
     const appExecutableName = "ottoLegacy.exe";
     yield* fs.writeFileString(path.join(packagedAppDir, appExecutableName), "electron");

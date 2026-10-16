@@ -124,8 +124,6 @@ describe("CI workflow budget", () => {
       "vp run build:desktop",
       "apps/desktop/dist-electron/preload.cjs",
       "vp run --parallel --concurrency-limit 4",
-      "cargo fmt --manifest-path native/resource-monitor/Cargo.toml -- --check",
-      "cargo test --locked --manifest-path native/resource-monitor/Cargo.toml",
       "vp run release:smoke",
     ]) {
       expect(commands.some((candidate) => candidate.includes(command))).toBe(true);

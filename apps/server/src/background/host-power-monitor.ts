@@ -8,7 +8,7 @@ import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
-import * as DesktopTelemetryReceiver from "../resource-telemetry/desktop-telemetry-receiver.ts";
+import * as DesktopTelemetryReceiver from "../desktop-telemetry/desktop-telemetry-receiver.ts";
 
 export class HostPowerMonitor extends Context.Service<
   HostPowerMonitor,

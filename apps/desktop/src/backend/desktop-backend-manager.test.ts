@@ -451,12 +451,13 @@ describe("DesktopBackendManager", () => {
   it.effect("continues routing desktop telemetry control messages after an invalid line", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        const handled = yield* Deferred.make<boolean>();
+        const handled = yield* Deferred.make<number>();
 
         const controlMessage = encodeDesktopTelemetryControl({
           version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: true,
+          type: "setHostPowerIntervals",
+          activeIntervalMs: 7_000,
+          idleIntervalMs: 11_000,
         });
 
         const spawnerLayer = Layer.succeed(
@@ -478,14 +479,12 @@ describe("DesktopBackendManager", () => {
           spawnerLayer,
           desktopTelemetryPublisher: {
             handleControl: (message) =>
-              message.type === "setDiagnosticsDemand"
-                ? Deferred.succeed(handled, message.enabled).pipe(Effect.asVoid)
-                : Effect.void,
+              Deferred.succeed(handled, message.activeIntervalMs).pipe(Effect.asVoid),
           },
         });
 
         yield* instance.start;
-        assert.isTrue(yield* Deferred.await(handled));
+        assert.equal(yield* Deferred.await(handled), 7_000);
       }),
     ),
   );

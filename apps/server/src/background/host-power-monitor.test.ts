@@ -6,10 +6,9 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
-import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
-import * as DesktopTelemetryReceiver from "../resource-telemetry/desktop-telemetry-receiver.ts";
+import * as DesktopTelemetryReceiver from "../desktop-telemetry/desktop-telemetry-receiver.ts";
 import * as HostPowerMonitor from "./host-power-monitor.ts";
 
 describe("HostPowerMonitor", () => {
@@ -86,11 +85,9 @@ describe("HostPowerMonitor", () => {
     Effect.gen(function* () {
       const sampledAt = DateTime.makeUnsafe("2026-06-17T12:00:00.000Z");
       const desktopChanges = yield* PubSub.sliding<DesktopHostTelemetrySnapshot>(1);
-      const diagnosticsDemandWrites = yield* Ref.make(0);
 
       const receiverLayer = DesktopTelemetryReceiver.layerTest({
         changes: Stream.fromPubSub(desktopChanges),
-        setDiagnosticsDemand: () => Ref.update(diagnosticsDemandWrites, (count) => count + 1),
       });
 
       const layer = HostPowerMonitor.layer.pipe(Layer.provide(receiverLayer));
@@ -118,11 +115,9 @@ describe("HostPowerMonitor", () => {
             updatedAt: sampledAt,
           },
           speedLimitPercent: Option.none(),
-          electronProcesses: [],
         });
 
         expect(Option.getOrThrow(yield* Fiber.join(nextPower)).onBattery).toBe("true");
-        expect(yield* Ref.get(diagnosticsDemandWrites)).toBe(0);
       }).pipe(Effect.provide(layer));
     }),
   );
@@ -152,7 +147,6 @@ describe("HostPowerMonitor", () => {
             updatedAt: sampledAt,
           },
           speedLimitPercent: Option.none(),
-          electronProcesses: [],
         };
 
         const updated: DesktopHostTelemetrySnapshot = {

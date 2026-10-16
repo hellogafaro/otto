@@ -43,7 +43,7 @@ export function initialDesktopTelemetryContactAt(
 }
 
 export const recordDesktopTelemetrySampleHealth = Effect.fn(
-  "resourceTelemetry.desktopTelemetryReceiver.recordSampleHealth",
+  "desktopTelemetry.receiver.recordSampleHealth",
 )(function* (
   health: Ref.Ref<DesktopTelemetryReceiverHealth>,
   healthChanges: PubSub.PubSub<DesktopTelemetryReceiverHealth>,

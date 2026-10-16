@@ -13,44 +13,32 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 
-import type * as Electron from "electron";
-
 import * as ElectronApp from "../electron/electron-app.ts";
 import * as ElectronPowerMonitor from "../electron/electron-power-monitor.ts";
 import * as DesktopTelemetryPublisher from "./desktop-telemetry-publisher.ts";
 
-function makeElectronAppLayer(
-  metrics: ReadonlyArray<Electron.ProcessMetric>,
-  onMetricsRead: () => void = () => undefined,
-) {
-  return Layer.succeed(ElectronApp.ElectronApp, {
-    metadata: Effect.die("unexpected metadata read"),
-    name: Effect.succeed("Otto Legacy"),
-    systemLocale: Effect.succeed("en-US"),
-    whenReady: Effect.void,
-    quit: Effect.void,
-    requestSingleInstanceLock: Effect.succeed(true),
-    exit: () => Effect.void,
-    relaunch: () => Effect.void,
-    setPath: () => Effect.void,
-    setName: () => Effect.void,
-    setAboutPanelOptions: () => Effect.void,
-    setAppUserModelId: () => Effect.void,
-    getAppMetrics: Effect.sync(() => {
-      onMetricsRead();
-
-      return metrics;
-    }),
-    isDefaultProtocolClient: () => Effect.succeed(false),
-    setAsDefaultProtocolClient: () => Effect.succeed(true),
-    setDesktopName: () => Effect.void,
-    setDockIcon: () => Effect.void,
-    appendCommandLineSwitch: () => Effect.void,
-    removeCommandLineSwitch: () => Effect.void,
-    onBeforeQuitForUpdate: () => Effect.void,
-    on: () => Effect.void,
-  } satisfies ElectronApp.ElectronApp["Service"]);
-}
+const electronAppLayer = Layer.succeed(ElectronApp.ElectronApp, {
+  metadata: Effect.die("unexpected metadata read"),
+  name: Effect.succeed("Otto Legacy"),
+  systemLocale: Effect.succeed("en-US"),
+  whenReady: Effect.void,
+  quit: Effect.void,
+  requestSingleInstanceLock: Effect.succeed(true),
+  exit: () => Effect.void,
+  relaunch: () => Effect.void,
+  setPath: () => Effect.void,
+  setName: () => Effect.void,
+  setAboutPanelOptions: () => Effect.void,
+  setAppUserModelId: () => Effect.void,
+  isDefaultProtocolClient: () => Effect.succeed(false),
+  setAsDefaultProtocolClient: () => Effect.succeed(true),
+  setDesktopName: () => Effect.void,
+  setDockIcon: () => Effect.void,
+  appendCommandLineSwitch: () => Effect.void,
+  removeCommandLineSwitch: () => Effect.void,
+  onBeforeQuitForUpdate: () => Effect.void,
+  on: () => Effect.void,
+} satisfies ElectronApp.ElectronApp["Service"]);
 
 describe("DesktopTelemetryPublisher", () => {
   it.effect("stops when its scope closes during an Electron telemetry sample", () =>
@@ -75,7 +63,7 @@ describe("DesktopTelemetryPublisher", () => {
       );
 
       const layer = DesktopTelemetryPublisher.layer.pipe(
-        Layer.provide(Layer.mergeAll(makeElectronAppLayer([]), powerLayer)),
+        Layer.provide(Layer.mergeAll(electronAppLayer, powerLayer)),
       );
 
       const scope = yield* Scope.make();
@@ -91,36 +79,17 @@ describe("DesktopTelemetryPublisher", () => {
     }),
   );
 
-  it.effect("publishes Electron metrics and event-driven power state over NDJSON", () =>
+  it.effect("publishes event-driven power state over NDJSON", () =>
     Effect.gen(function* () {
       const onBattery = yield* Ref.make(false);
       const systemIdleState = yield* Ref.make<ElectronPowerMonitor.ElectronIdleState>("active");
       let beforeSystemIdleState: Effect.Effect<void> = Effect.void;
-      let metricsReadCount = 0;
       const simpleListeners = new Map<string, () => void>();
 
       let thermalListener: ((state: ElectronPowerMonitor.ElectronThermalState) => void) | null =
         null;
 
       let speedLimitListener: ((limit: number) => void) | null = null;
-
-      const metrics = [
-        {
-          pid: 4_242,
-          type: "Browser",
-          creationTime: 1_000.75,
-          name: "electron",
-          cpu: {
-            percentCPUUsage: 12.5,
-            cumulativeCPUUsage: 3.25,
-            idleWakeupsPerSecond: 7,
-          },
-          memory: {
-            workingSetSize: 2_048,
-            peakWorkingSetSize: 4_096,
-          },
-        } as Electron.ProcessMetric,
-      ];
 
       const powerLayer = Layer.succeed(
         ElectronPowerMonitor.ElectronPowerMonitor,
@@ -146,18 +115,16 @@ describe("DesktopTelemetryPublisher", () => {
       );
 
       const layer = DesktopTelemetryPublisher.layer.pipe(
-        Layer.provide(
-          Layer.mergeAll(
-            makeElectronAppLayer(metrics, () => {
-              metricsReadCount += 1;
-            }),
-            powerLayer,
-          ),
-        ),
+        Layer.provide(Layer.mergeAll(electronAppLayer, powerLayer)),
       );
 
       yield* Effect.gen(function* () {
         const publisher = yield* DesktopTelemetryPublisher.DesktopTelemetryPublisher;
+
+        const latestSequence = publisher.latest.pipe(
+          Effect.map((snapshot) => Option.getOrThrow(snapshot).sequence),
+        );
+
         const encoded = yield* publisher.encoded.pipe(Stream.take(2), Stream.runCollect);
         const decoder = new TextDecoder();
 
@@ -177,54 +144,7 @@ describe("DesktopTelemetryPublisher", () => {
           return assert.fail("Expected the second telemetry message to be a snapshot.");
         }
 
-        assert.deepEqual(initialSnapshot.electronProcesses, []);
         assert.equal(initialSnapshot.electronPid, process.pid);
-        assert.equal(metricsReadCount, 0);
-
-        const nextSnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(Effect.forkChild);
-        yield* Effect.yieldNow;
-        yield* publisher.handleControl({
-          version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: true,
-        });
-        const demandedSnapshot = Option.getOrThrow(yield* Fiber.join(nextSnapshotFiber));
-        assert.equal(demandedSnapshot.electronProcesses[0]?.pid, 4_242);
-        assert.equal(demandedSnapshot.electronProcesses[0]?.creationTimeMs, 1_001);
-        assert.equal(demandedSnapshot.electronProcesses[0]?.cpuPercent, 12.5);
-        assert.equal(demandedSnapshot.electronProcesses[0]?.workingSetBytes, 2_048 * 1_024);
-        assert.equal(metricsReadCount, 1);
-        yield* publisher.handleControlForSource("secondary-backend", {
-          version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: true,
-        });
-        yield* publisher.handleControl({
-          version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: false,
-        });
-        yield* publisher.handleControlForSource("old-backend", {
-          version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: true,
-        });
-        yield* publisher.handleControlForSource("secondary-backend", {
-          version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: false,
-        });
-        yield* Effect.all(
-          [
-            publisher.removeControlSource("old-backend"),
-            publisher.handleControlForSource("replacement-backend", {
-              version: 1,
-              type: "setDiagnosticsDemand",
-              enabled: true,
-            }),
-          ],
-          { concurrency: "unbounded", discard: true },
-        );
 
         const batterySnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(
           Effect.forkChild,
@@ -236,20 +156,15 @@ describe("DesktopTelemetryPublisher", () => {
         assert.equal(batterySnapshot.power.onBattery, "true");
         yield* Ref.set(onBattery, true);
 
-        const metricsAfterBatteryEvent = metricsReadCount;
-        yield* TestClock.adjust(Duration.millis(4_999));
-        assert.equal(metricsReadCount, metricsAfterBatteryEvent);
+        yield* TestClock.adjust(Duration.millis(29_999));
+        assert.equal(yield* latestSequence, batterySnapshot.sequence);
         yield* TestClock.adjust(Duration.millis(1));
-        assert.equal(metricsReadCount, metricsAfterBatteryEvent + 1);
+        assert.equal(yield* latestSequence, batterySnapshot.sequence + 1);
         assert.equal((yield* publisher.latest).pipe(Option.getOrThrow).power.onBattery, "true");
 
         yield* Ref.set(onBattery, false);
-        const metricsBeforePolledAc = metricsReadCount;
-        yield* TestClock.adjust(Duration.seconds(5));
-        assert.equal(metricsReadCount, metricsBeforePolledAc + 1);
+        yield* TestClock.adjust(Duration.seconds(30));
         assert.equal((yield* publisher.latest).pipe(Option.getOrThrow).power.onBattery, "false");
-        yield* TestClock.adjust(Duration.seconds(1));
-        assert.equal(metricsReadCount, metricsBeforePolledAc + 2);
 
         const suspendedSnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(
           Effect.forkChild,
@@ -260,26 +175,23 @@ describe("DesktopTelemetryPublisher", () => {
         const suspendedSnapshot = Option.getOrThrow(yield* Fiber.join(suspendedSnapshotFiber));
         assert.isTrue(suspendedSnapshot.power.suspended);
 
-        const constrainedSnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(
+        const thermalSnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(
           Effect.forkChild,
         );
 
         yield* Effect.yieldNow;
         thermalListener?.("serious");
-        const constrainedSnapshot = Option.getOrThrow(yield* Fiber.join(constrainedSnapshotFiber));
-        assert.equal(constrainedSnapshot.power.thermalState, "serious");
-        assert.isTrue(constrainedSnapshot.power.suspended);
-
-        const metricsAfterThermalEvent = metricsReadCount;
+        const thermalSnapshot = Option.getOrThrow(yield* Fiber.join(thermalSnapshotFiber));
+        assert.equal(thermalSnapshot.power.thermalState, "serious");
+        assert.isTrue(thermalSnapshot.power.suspended);
 
         const recoveredSnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(
           Effect.forkChild,
         );
 
-        yield* TestClock.adjust(Duration.millis(14_999));
-        assert.equal(metricsReadCount, metricsAfterThermalEvent);
+        yield* TestClock.adjust(Duration.millis(119_999));
+        assert.equal(yield* latestSequence, thermalSnapshot.sequence);
         yield* TestClock.adjust(Duration.millis(1));
-        assert.equal(metricsReadCount, metricsAfterThermalEvent + 1);
         const recoveredSnapshot = Option.getOrThrow(yield* Fiber.join(recoveredSnapshotFiber));
         assert.isFalse(recoveredSnapshot.power.suspended);
 
@@ -300,30 +212,6 @@ describe("DesktopTelemetryPublisher", () => {
         }
 
         assert.equal(Option.getOrNull(decodedSpeedLimit.speedLimitPercent), 65);
-        assert.equal(decodedSpeedLimit.electronProcesses[0]?.pid, 4_242);
-        assert.equal(decodedSpeedLimit.electronProcesses[0]?.creationTimeMs, 1_001);
-
-        const metricsBeforeSecondaryOnlySample = metricsReadCount;
-        yield* TestClock.adjust(Duration.seconds(15));
-        assert.equal(metricsReadCount, metricsBeforeSecondaryOnlySample + 1);
-        assert.equal(
-          (yield* publisher.latest).pipe(Option.getOrThrow).electronProcesses[0]?.pid,
-          4_242,
-        );
-
-        const stoppedSnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(
-          Effect.forkChild,
-        );
-
-        yield* Effect.yieldNow;
-        yield* publisher.handleControlForSource("replacement-backend", {
-          version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: false,
-        });
-        const stoppedSnapshot = Option.getOrThrow(yield* Fiber.join(stoppedSnapshotFiber));
-        assert.deepEqual(stoppedSnapshot.electronProcesses, []);
-        const metricsAfterStopping = metricsReadCount;
 
         const configuredSnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(
           Effect.forkChild,
@@ -342,29 +230,18 @@ describe("DesktopTelemetryPublisher", () => {
         ).sequence;
 
         yield* TestClock.adjust(Duration.millis(6_999));
-        assert.equal(
-          (yield* publisher.latest).pipe(Option.getOrThrow).sequence,
-          configuredSequence,
-        );
-        assert.equal(metricsReadCount, metricsAfterStopping);
+        assert.equal(yield* latestSequence, configuredSequence);
         yield* TestClock.adjust(Duration.millis(1));
-        assert.equal(
-          (yield* publisher.latest).pipe(Option.getOrThrow).sequence,
-          configuredSequence + 1,
-        );
-        assert.equal(metricsReadCount, metricsAfterStopping);
+        assert.equal(yield* latestSequence, configuredSequence + 1);
 
         yield* Ref.set(systemIdleState, "locked");
         yield* TestClock.adjust(Duration.seconds(7));
-        const lockedSequence = (yield* publisher.latest).pipe(Option.getOrThrow).sequence;
+        const lockedSequence = yield* latestSequence;
         assert.equal((yield* publisher.latest).pipe(Option.getOrThrow).power.locked, "true");
         yield* TestClock.adjust(Duration.millis(10_999));
-        assert.equal((yield* publisher.latest).pipe(Option.getOrThrow).sequence, lockedSequence);
+        assert.equal(yield* latestSequence, lockedSequence);
         yield* TestClock.adjust(Duration.millis(1));
-        assert.equal(
-          (yield* publisher.latest).pipe(Option.getOrThrow).sequence,
-          lockedSequence + 1,
-        );
+        assert.equal(yield* latestSequence, lockedSequence + 1);
 
         yield* Ref.set(systemIdleState, "active");
         yield* TestClock.adjust(Duration.seconds(11));
@@ -373,15 +250,9 @@ describe("DesktopTelemetryPublisher", () => {
         assert.equal(unlockedSnapshot.power.idle, "false");
 
         yield* TestClock.adjust(Duration.millis(6_999));
-        assert.equal(
-          (yield* publisher.latest).pipe(Option.getOrThrow).sequence,
-          unlockedSnapshot.sequence,
-        );
+        assert.equal(yield* latestSequence, unlockedSnapshot.sequence);
         yield* TestClock.adjust(Duration.millis(1));
-        assert.equal(
-          (yield* publisher.latest).pipe(Option.getOrThrow).sequence,
-          unlockedSnapshot.sequence + 1,
-        );
+        assert.equal(yield* latestSequence, unlockedSnapshot.sequence + 1);
 
         const pollStarted = yield* Deferred.make<void>();
         const releasePoll = yield* Deferred.make<void>();
@@ -396,8 +267,9 @@ describe("DesktopTelemetryPublisher", () => {
         yield* Effect.yieldNow;
         yield* publisher.handleControl({
           version: 1,
-          type: "setDiagnosticsDemand",
-          enabled: true,
+          type: "setHostPowerIntervals",
+          activeIntervalMs: 7_000,
+          idleIntervalMs: 11_000,
         });
         yield* Deferred.await(pollStarted);
         simpleListeners.get("lock-screen")?.();

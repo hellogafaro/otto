@@ -76,7 +76,6 @@ it.effect("preserves nominal indicator and alert colors in both default appearan
       ["computer-control-indicator", "amber-500", "amber-500"],
       ["quit-prompt", "neutral-700", "neutral-700"],
       ["memory-approval-indicator", "amber-400", "amber-400"],
-      ["telemetry-status-foreground", "amber-700", "amber-300"],
     ];
 
     for (const [role, light, dark] of roles) {
@@ -90,7 +89,6 @@ it.effect("preserves nominal indicator and alert colors in both default appearan
     }
 
     expect(css).toContain("--on-solid: var(--color-white)");
-    expect(css).toContain("--telemetry-monitor: var(--color-amber-500)");
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 
@@ -120,14 +118,6 @@ it.effect("uses parity tokens and opacities at the reviewed component sites", ()
       ],
       ["components/quit-hold-overlay.tsx", "bg-quit-prompt/95", "text-on-solid"],
       ["components/roster/memory-approval-prompt.tsx", "bg-memory-approval-indicator"],
-      ["components/settings/process-resource-history.tsx", "bg-telemetry-monitor/90"],
-      ["components/settings/resource-telemetry-summary.tsx", "bg-telemetry-monitor"],
-      [
-        "components/ui/badge.tsx",
-        "border-telemetry-monitor/30",
-        "bg-telemetry-monitor/10",
-        "text-telemetry-status-foreground",
-      ],
     ];
 
     for (const [path, ...classes] of consumers) {

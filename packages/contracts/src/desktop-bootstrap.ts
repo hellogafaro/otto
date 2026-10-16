@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-import { PortSchema, PositiveInt, TrimmedNonEmptyString } from "./base-schemas.ts";
+import { PortSchema, PositiveInt } from "./base-schemas.ts";
 
 export const DesktopBackendBootstrap = Schema.Struct({
   mode: Schema.Literal("desktop"),
@@ -19,7 +19,6 @@ export const DesktopBackendBootstrap = Schema.Struct({
   otlpMetricsUrl: Schema.optional(Schema.String),
   desktopTelemetryFd: Schema.optionalKey(PositiveInt),
   desktopTelemetryControlFd: Schema.optionalKey(PositiveInt),
-  resourceMonitorPath: Schema.optionalKey(TrimmedNonEmptyString),
 });
 
 export type DesktopBackendBootstrap = typeof DesktopBackendBootstrap.Type;

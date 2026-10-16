@@ -87,9 +87,6 @@ import * as EnvironmentAuth from "./auth/environment-auth.ts";
 import * as ServerSecretStore from "./auth/server-secret-store.ts";
 import * as Composio from "./composio/composio-service.ts";
 import { requiredScopeForRpcMethod } from "./auth/rpc-authorization.ts";
-import * as ProcessDiagnostics from "./diagnostics/process-diagnostics.ts";
-import * as ProcessResourceMonitor from "./diagnostics/process-resource-monitor.ts";
-import * as ResourceTelemetry from "./resource-telemetry/resource-telemetry.ts";
 import { BotUsageLedger } from "./usage/bot-usage-ledger.ts";
 import * as UsageService from "./usage/usage-service.ts";
 import * as VoiceCallManager from "./voice-call/voice-call-manager.ts";
@@ -388,12 +385,6 @@ export const createWsServices = (
       });
 
     const sessions = yield* SessionStore.SessionStore;
-
-    const processDiagnostics = yield* ProcessDiagnostics.ProcessDiagnostics;
-
-    const processResourceMonitor = yield* ProcessResourceMonitor.ProcessResourceMonitor;
-
-    const resourceTelemetry = yield* ResourceTelemetry.ResourceTelemetry;
 
     const usage = yield* UsageService.UsageService;
 
@@ -785,9 +776,6 @@ export const createWsServices = (
       channelRuntime,
       channelBindingsForRuntime,
       sessions,
-      processDiagnostics,
-      processResourceMonitor,
-      resourceTelemetry,
       usage,
       resolveMemoryAccess,
       resolveBotMemoryAccess,
