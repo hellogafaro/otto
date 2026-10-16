@@ -168,11 +168,21 @@ export const makeTaskToolRuntime = (
           .filter((task) => query === undefined || task.title.toLowerCase().includes(query))
           .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 
+        const people = yield* listPeople();
+
+        // Otto: The projects and people to pick from, so a task can go anywhere and to anyone.
         return {
           tasks: matching
             .slice(0, input.limit ?? LIST_DEFAULT)
             .map((task) => summarize(model, caller, task)),
           total: matching.length,
+          projects: model.projects
+            .filter((project) => project.deletedAt === null && project.status !== "archived")
+            .map((project) => ({ projectId: project.id, title: project.title })),
+          people: people.map((person) => ({
+            key: `person:${person.userId}`,
+            name: person.displayName,
+          })),
         };
       });
 

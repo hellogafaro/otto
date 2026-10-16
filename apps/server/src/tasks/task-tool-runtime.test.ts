@@ -105,7 +105,12 @@ it.live("creates, finds, updates and comments on a task as the bot", () =>
       const taskId = TaskId.make((created as { taskId: string }).taskId);
       const mine = yield* tools.list(caller, { assignee: "me" });
 
-      expect(mine).toMatchObject({ total: 1, tasks: [{ taskId }] });
+      expect(mine).toMatchObject({
+        total: 1,
+        tasks: [{ taskId }],
+        projects: [{ projectId, title: "Launch" }],
+        people: [{ key: `person:${ada}`, name: "Ada" }],
+      });
 
       expect(yield* tools.update(caller, { taskId, dueDate: "2026-02-01" })).toMatchObject({
         updated: true,

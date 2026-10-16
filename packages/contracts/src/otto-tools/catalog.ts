@@ -305,7 +305,8 @@ export const OTTO_TOOL_CATALOG = [
     "List the organization's tasks (the Tasks page, not your own subagent work), most recently " +
       'updated first. Filter by projectId, status, assignee ("me" for tasks assigned to you, ' +
       'or a participant key such as "person:…") or a title query. Archived tasks only show when ' +
-      "you ask for that status.",
+      "you ask for that status. It also lists every project with its projectId and every person " +
+      "with their key, for CreateTask and UpdateTask.",
   ),
   define(
     "ReadTask",
@@ -317,7 +318,7 @@ export const OTTO_TOOL_CATALOG = [
     "CreateTask",
     "bot-workspace",
     "Create a task on the Tasks page. It goes into this chat's project unless you pass a " +
-      'projectId. Assign it with participant keys from ReadTask or ListTasks, or "me". ' +
+      'projectId (ListTasks lists them). Assign it with participant keys from ListTasks, or "me". ' +
       "Only people mark tasks completed, and the owner is left for a person to set.",
   ),
   define(

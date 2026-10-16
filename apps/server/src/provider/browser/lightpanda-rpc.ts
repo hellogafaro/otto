@@ -55,6 +55,9 @@ export function rpcResultText(value: JsonRpcResponse["result"]): string {
     .join("\n");
 }
 
+/** The browser is up and answered, but refused the call; not a reason to call it dead. */
+class BrowserToolError extends Error {}
+
 export class LightpandaRpc implements BotBrowserRpc {
   private readonly input: BotBrowserProcessInput;
   private nextId = 1;
@@ -72,7 +75,14 @@ export class LightpandaRpc implements BotBrowserRpc {
 
   async call(name: string, arguments_: BrowserRpcParams): Promise<string> {
     try {
-      const result = await this.request("tools/call", { name, arguments: arguments_ });
+      await this.ensureStarted();
+    } catch (error) {
+      this.input.onFailure?.(error);
+      throw error;
+    }
+
+    try {
+      const { result } = await this.send("tools/call", { name, arguments: arguments_ });
 
       if (name === "goto" || name === "click" || name === "fill") {
         await this.rememberCurrentUrl().catch(() => undefined);
@@ -82,7 +92,10 @@ export class LightpandaRpc implements BotBrowserRpc {
 
       return rpcResultText(result);
     } catch (error) {
-      this.input.onFailure?.(error);
+      // Otto: The browser answered with a tool error (such as no page loaded yet): it is alive.
+      if (error instanceof BrowserToolError) this.input.onReady?.();
+      else this.input.onFailure?.(error);
+
       throw error;
     }
   }
@@ -268,15 +281,6 @@ export class LightpandaRpc implements BotBrowserRpc {
       : new Error("Sandbox browser did not become ready.");
   }
 
-  private async request(
-    method: string,
-    params: BrowserRpcParams,
-  ): Promise<JsonRpcResponse["result"]> {
-    await this.ensureStarted();
-
-    return (await this.send(method, params)).result;
-  }
-
   private async send(
     method: string,
     params: BrowserRpcParams,
@@ -299,7 +303,7 @@ export class LightpandaRpc implements BotBrowserRpc {
     const parsed = decodeRpcResponse(JSON.parse(response.body));
 
     if (parsed.error) {
-      throw new Error(browserRpcErrorMessage(parsed.error));
+      throw new BrowserToolError(browserRpcErrorMessage(parsed.error));
     }
 
     return {
