@@ -104,6 +104,7 @@ export class VoiceCallManager extends Context.Service<
     readonly start: (
       input: VoiceCallStartInput,
       ownerId: string,
+      personId?: string,
     ) => Effect.Effect<VoiceCallStartResult, VoiceCallError>;
     readonly hangup: (
       callId: string,
@@ -444,6 +445,7 @@ const make = (options?: VoiceCallManagerOptions) =>
     const start = Effect.fn("VoiceCallManager.start")(function* (
       input: VoiceCallStartInput,
       ownerId: string,
+      personId?: string,
     ) {
       const voiceSettings = yield* serverSettings.getSettings.pipe(
         Effect.map((settings) => settings.voice),
@@ -468,6 +470,12 @@ const make = (options?: VoiceCallManagerOptions) =>
 
       const claimed = yield* lock.withPermits(1)(
         Effect.gen(function* () {
+          // Otto: A closed tab or browser cannot always hang up, so a person's new call replaces their own earlier one.
+          if (active !== null && personId !== undefined && active.personId === personId) {
+            active.abortController.abort();
+            active = null;
+          }
+
           if (active !== null) {
             return yield* new VoiceCallError({
               reason: "already-active",
@@ -508,6 +516,7 @@ const make = (options?: VoiceCallManagerOptions) =>
           const call: ActiveVoiceCall = {
             callId: NodeCrypto.randomUUID(),
             ownerId,
+            ...(personId === undefined ? {} : { personId }),
             botId: bot.value.botId,
             botName: bot.value.name,
             startedAt,

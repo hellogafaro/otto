@@ -7,6 +7,7 @@ import type { WsConnection } from "./ws-connection.ts";
 
 export const createWsToolHandlers = ({
   voiceCallOwnerId,
+  currentPersonId,
   computerClient,
   computerOperation,
   previewManager,
@@ -18,6 +19,7 @@ export const createWsToolHandlers = ({
 }: Pick<
   WsConnection,
   | "voiceCallOwnerId"
+  | "currentPersonId"
   | "computerClient"
   | "computerOperation"
   | "previewManager"
@@ -50,9 +52,13 @@ export const createWsToolHandlers = ({
       }),
 
     [WS_METHODS.voiceCallStart]: (input) =>
-      observeRpcEffect(WS_METHODS.voiceCallStart, voiceCalls.start(input, voiceCallOwnerId), {
-        "rpc.aggregate": "voice-call",
-      }),
+      observeRpcEffect(
+        WS_METHODS.voiceCallStart,
+        voiceCalls.start(input, voiceCallOwnerId, currentPersonId),
+        {
+          "rpc.aggregate": "voice-call",
+        },
+      ),
 
     [WS_METHODS.voiceCallHangup]: ({ callId }) =>
       observeRpcEffect(WS_METHODS.voiceCallHangup, voiceCalls.hangup(callId, voiceCallOwnerId), {

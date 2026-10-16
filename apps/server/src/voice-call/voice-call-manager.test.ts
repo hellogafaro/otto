@@ -330,6 +330,28 @@ it.layer(TestLayer)("VoiceCallManager", (it) => {
     }),
   );
 
+  it.effect("lets a person's new call replace their own call that was never hung up", () =>
+    Effect.gen(function* () {
+      const manager = yield* VoiceCallManager;
+      const abandoned = yield* manager.start({ botId, sdp: "offer-sdp" }, "closed-tab", "person-1");
+
+      const other = yield* Effect.result(
+        manager.start({ botId, sdp: "other-offer" }, "client-2", "person-2"),
+      );
+
+      assert.equal(other._tag, "Failure");
+
+      const replacement = yield* manager.start({ botId, sdp: "new-offer" }, "new-tab", "person-1");
+      assert.notEqual(replacement.call.callId, abandoned.call.callId);
+      assert.equal(replacement.call.status, "live");
+
+      const stale = yield* Effect.result(manager.hangup(abandoned.call.callId, "closed-tab"));
+      assert.equal(stale._tag, "Failure");
+      yield* manager.hangup(replacement.call.callId, "new-tab");
+      assert.deepEqual(yield* manager.get, { status: "idle" });
+    }),
+  );
+
   it.effect("refuses a second call until hangup and clears the active call", () =>
     Effect.gen(function* () {
       const manager = yield* VoiceCallManager;

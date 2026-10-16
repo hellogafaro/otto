@@ -8,6 +8,8 @@ import {
 export interface ActiveVoiceCall {
   readonly callId: string;
   readonly ownerId: string;
+  /** The person who started the call; their next start replaces it. */
+  readonly personId?: string;
   readonly botId: BotId;
   readonly botName: string;
   readonly startedAt: string;
