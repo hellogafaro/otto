@@ -189,7 +189,7 @@ export function KeybindingsSettingsPanel() {
                 }
                 control={
                   series.rangeKey ? (
-                    <KeyCaps value={series.rangeKey} className="px-1" />
+                    <KeyCaps value={series.rangeKey} className="px-0.75" />
                   ) : (
                     <span className="text-12px text-muted-foreground">
                       {t("{count} shortcuts", { count: series.rows.length })}
@@ -238,7 +238,6 @@ function ShortcutRow({
             value={value}
             resetKey={value}
             isRecording={isRecording}
-            hasConflict={conflicts.length > 0}
             onRecordingChange={setIsRecording}
             onChange={(key) => {
               if (key !== value) onRecord(key);

@@ -256,7 +256,7 @@ export const commonMessagesCatalog = {
   "Negate {name}": "Negate {name}",
   "Fix the expression above to continue editing visually.":
     "Fix the expression above to continue editing visually.",
-  "Press keys…": "Press keys…",
+  "Press keys": "Press keys",
   "Press the new key combination with at least one modifier. Escape cancels.":
     "Press the new key combination with at least one modifier. Escape cancels.",
   "{count} custom": "{count} custom",

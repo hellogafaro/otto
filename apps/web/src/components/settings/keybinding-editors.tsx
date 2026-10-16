@@ -2,7 +2,7 @@ import { type ServerRemoveKeybindingInput } from "@otto/contracts";
 
 import { type KeyboardEvent, useEffect, useId, useRef } from "react";
 import { useI18n } from "../../i18n";
-import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { KeyCaps, spokenKeybinding } from "./keybinding-presentation";
 import { type KeybindingRow, keybindingFromKeyboardEvent } from "./keybindings-settings.logic";
@@ -24,7 +24,6 @@ export function ShortcutRecorder({
   value,
   resetKey,
   isRecording,
-  hasConflict,
   onRecordingChange,
   onChange,
 }: {
@@ -32,7 +31,6 @@ export function ShortcutRecorder({
   value: string;
   resetKey: string;
   isRecording: boolean;
-  hasConflict: boolean;
   onRecordingChange: (recording: boolean) => void;
   onChange: (key: string) => void;
 }) {
@@ -77,9 +75,8 @@ export function ShortcutRecorder({
           aria-label={t("Record shortcut for {command}", { command: commandTitle })}
           aria-describedby={hintId}
           value=""
-          placeholder={t("Press keys…")}
+          placeholder={t("Press keys")}
           size="compact"
-          variant="keybinding-capture"
           className="w-36"
           onBlur={() => onRecordingChange(false)}
           onKeyDown={captureKeybinding}
@@ -92,9 +89,11 @@ export function ShortcutRecorder({
   }
 
   return (
-    <button
+    <Button
       ref={buttonRef}
       type="button"
+      variant="ghost"
+      size={value ? "keys" : "sm"}
       onClick={() => onRecordingChange(true)}
       aria-label={
         value
@@ -104,16 +103,8 @@ export function ShortcutRecorder({
             })
           : t("Record shortcut for {command}", { command: commandTitle })
       }
-      className={cn(
-        "inline-flex h-7 min-w-16 items-center justify-end rounded-md border border-transparent px-1 outline-none transition-colors hover:border-border/70 hover:bg-accent/50 focus-visible:border-foreground/30 focus-visible:ring-3 focus-visible:ring-ring/24",
-        hasConflict && "border-warning/40 bg-warning/5",
-      )}
     >
-      {value ? (
-        <KeyCaps value={value} />
-      ) : (
-        <span className="px-1 text-12px text-muted-foreground">{t("Record shortcut")}</span>
-      )}
-    </button>
+      {value ? <KeyCaps value={value} /> : t("Record shortcut")}
+    </Button>
   );
 }

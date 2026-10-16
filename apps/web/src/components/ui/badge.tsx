@@ -21,10 +21,6 @@ const badgeVariants = cva(
         sm: "h-5 min-w-5 rounded-[.25rem] px-[calc(--spacing(1)-1px)] text-xs sm:h-4 sm:min-w-4 sm:text-[.625rem]",
       },
       variant: {
-        "keybinding-default":
-          "bg-secondary text-foreground [button&,a&]:hover:bg-accent/80 font-normal text-muted-foreground/70",
-        "keybinding-custom":
-          "bg-secondary text-foreground [button&,a&]:hover:bg-accent/80 font-normal text-muted-foreground",
         default:
           "bg-message-action text-message-action-foreground [button&,a&]:hover:bg-message-action/90",
         destructive: "bg-destructive text-on-solid [button&,a&]:hover:bg-destructive/90",

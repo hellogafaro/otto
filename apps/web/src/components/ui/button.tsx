@@ -94,6 +94,8 @@ const buttonVariants = cva(
         // Otto: a 24px icon button nested 2px inside a 28px row, its 4px radius concentric with the row's 6px.
         "icon-row":
           "size-6 rounded-sm before:rounded-[calc(var(--radius-sm)-1px)] not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-4 sm:not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-3.5",
+        // Otto: Key caps as a ghost button, padded the same 3px on every side around 22px caps.
+        keys: "h-7 gap-0.5 px-[calc(--spacing(0.75)-1px)]",
         "icon-xs":
           "size-6 not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-4 sm:not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 px-[calc(--spacing(3.5)-1px)]",
@@ -121,8 +123,6 @@ const buttonVariants = cva(
         // A square pickable avatar tile; aria-pressed marks the chosen one.
         "avatar-tile":
           "rounded-xl border-transparent transition-colors focus-visible:ring-foreground/20 focus-visible:ring-offset-0 not-aria-pressed:hover:bg-secondary/70 aria-pressed:border-border aria-pressed:bg-secondary [&_svg]:mx-0",
-        "keybinding-action":
-          "[--control-icon-color:var(--contrast-muted-foreground)] border-transparent text-foreground data-pressed:bg-accent [:hover,[data-pressed]]:bg-accent text-muted-foreground hover:text-foreground",
         default:
           "border-transparent bg-foreground text-background [:active,[data-pressed]]:bg-foreground/80 [:hover,[data-pressed]]:bg-foreground/88",
         // Primary action that turns into a quiet muted block while disabled.

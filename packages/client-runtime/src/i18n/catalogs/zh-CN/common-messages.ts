@@ -243,7 +243,7 @@ export const commonMessagesCatalog = {
   "Negate {name}": "取反 {name}",
   "Fix the expression above to continue editing visually.":
     "请先修正上方的表达式，才能继续可视化编辑。",
-  "Press keys…": "请按键…",
+  "Press keys": "请按键",
   "Press the new key combination with at least one modifier. Escape cancels.":
     "请按下至少包含一个修饰键的新组合键。按 Escape 取消。",
   "{count} custom": "{count} 个自定义",
