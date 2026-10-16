@@ -94,7 +94,9 @@ vi.mock("./bot-prompt-mentions", () => ({
   useBotPromptMentionNames: () => [],
 }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: vi.fn() } }));
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+}));
 
 // The real session runs behind the environment binding: capture succeeds, transcription fails.
 vi.mock("../../lib/use-environment-composer-dictation", async () => {

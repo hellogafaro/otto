@@ -4,8 +4,8 @@ const testState = vi.hoisted(() => ({
   addToast: vi.fn(),
 }));
 
-vi.mock("./ui/toast", () => ({
-  toastManager: { add: testState.addToast },
+vi.mock("sonner", () => ({
+  toast: { success: testState.addToast },
 }));
 
 import { showDesktopUpdateDownloadedToast } from "./desktop-update.toast";
@@ -19,10 +19,6 @@ describe("showDesktopUpdateDownloadedToast", () => {
     showDesktopUpdateDownloadedToast();
 
     expect(testState.addToast).toHaveBeenCalledTimes(1);
-    expect(testState.addToast).toHaveBeenCalledWith({
-      type: "success",
-      title: "Update downloaded",
-      description: "Restart the app from the update button to install it.",
-    });
+    expect(testState.addToast).toHaveBeenCalledWith("Update has been downloaded");
   });
 });

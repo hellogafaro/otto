@@ -1,16 +1,3 @@
-import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
-
-import type { useI18n } from "../../i18n";
-
-export function commandFailureMessage(
-  result: Parameters<typeof squashAtomCommandFailure>[0],
-  t: ReturnType<typeof useI18n>["t"],
-): string {
-  const error = squashAtomCommandFailure(result);
-
-  return error instanceof Error ? error.message : t("The environment rejected the change.");
-}
-
 /**
  * The roster row focus lands on once an archived one is gone: the row that takes
  * its place, else the row above it, else nothing — meaning the roster list

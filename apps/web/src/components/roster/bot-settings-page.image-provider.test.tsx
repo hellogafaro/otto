@@ -101,7 +101,9 @@ vi.mock("./roster-store", () => ({
 
 vi.mock("./use-bot-thread-ref", () => ({ useLatestBotChatRef: () => null }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: vi.fn() } }));
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+}));
 
 vi.mock("../../i18n", async () => {
   const { createTranslator } = await import("@otto/client-runtime/i18n");

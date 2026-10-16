@@ -24,7 +24,7 @@ import type { Bot } from "../roster/types";
 import { resolveStickyBotEngine } from "../roster/bot-engine-selection";
 import { useBotThreadRuntime } from "../roster/use-bot-thread-runtime";
 import { useRosterStore } from "../roster/roster-store";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { usePrimarySettings } from "../../hooks/use-settings";
 import { resolveAppModelSelectionState } from "../../model-selection";
 import {
@@ -46,7 +46,7 @@ import {
   VOICE_MODE_CHANGED_MESSAGE,
   voiceConnectionStateAction,
   voiceEnvironmentConnectionLost,
-  voiceStartErrorDescription,
+  voiceMicrophoneErrorTitle,
   waitForIceGathering,
 } from "./voice-call.logic";
 import { VoiceCallBar } from "./voice-call-controls";
@@ -66,7 +66,7 @@ export {
   VOICE_MODE_CHANGED_MESSAGE,
   voiceConnectionStateAction,
   voiceEnvironmentConnectionLost,
-  voiceStartErrorDescription,
+  voiceMicrophoneErrorTitle,
   type VoiceCallUiAction,
   type VoiceCallUiState,
   waitForIceGathering,
@@ -233,7 +233,6 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
       notice?: {
         readonly type: "warning" | "error";
         readonly title: string;
-        readonly description?: string;
       },
     ) => {
       if (activeRef.current !== current) return;
@@ -246,7 +245,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
         input: { callId: current.call.callId },
       });
 
-      if (notice) toastManager.add(notice);
+      if (notice) toast[notice.type](notice.title);
     },
     [],
   );
@@ -274,8 +273,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
     if (environmentId !== current.environmentId) {
       endBrowserCall(current, {
         type: "warning",
-        title: "Call ended",
-        description: "The active environment changed.",
+        title: "The call ended because the environment changed",
       });
 
       return;
@@ -296,8 +294,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
     if (current.peer === null) {
       endBrowserCall(current, {
         type: "warning",
-        title: "Call connection lost",
-        description: "Start a new call after the environment reconnects.",
+        title: "Call connection has been lost",
       });
 
       return;
@@ -308,8 +305,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
       current.environmentDisconnectTimer = null;
       endBrowserCall(current, {
         type: "warning",
-        title: "Call connection lost",
-        description: "Start a new call after the environment reconnects.",
+        title: "Call connection has been lost",
       });
     }, 5_000);
   }, [endBrowserCall, environmentConnection.data, environmentId]);
@@ -327,7 +323,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
 
       if (current !== null) {
         if (current.call.botId === bot.id) returnToCall();
-        else toastManager.add({ type: "warning", title: "A call is already active" });
+        else toast.warning("A call is already active");
 
         return;
       }
@@ -335,17 +331,13 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
       if (startingBotRef.current !== null) return;
 
       if (environmentId === null) {
-        toastManager.add({ type: "error", title: "Voice is unavailable" });
+        toast.error("Voice isn't available");
 
         return;
       }
 
       if (!projects.some((project) => project.environmentId === environmentId)) {
-        toastManager.add({
-          type: "error",
-          title: "Voice is unavailable",
-          description: "Your workspace is still loading. Try again in a moment.",
-        });
+        toast.error("Voice isn't available yet");
 
         return;
       }
@@ -385,8 +377,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
             () =>
               endBrowserCall(browserCall, {
                 type: "warning",
-                title: "Microphone disconnected",
-                description: "Connect a microphone, then start a new call.",
+                title: "Microphone has been disconnected",
               }),
           );
         };
@@ -490,8 +481,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
               if (scope.signal.aborted) return;
               endBrowserCall(browserCall, {
                 type: "error",
-                title: "Voice call ended",
-                description: voiceStartErrorDescription(cause),
+                title: voiceMicrophoneErrorTitle(cause) ?? "Call couldn't be continued",
               });
             });
 
@@ -545,8 +535,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
               if (active?.scope === scope) {
                 endBrowserCall(active, {
                   type: "error",
-                  title: "Voice session failed",
-                  description: message,
+                  title: "Voice session couldn't be continued",
                 });
 
                 return;
@@ -635,8 +624,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
             () =>
               endBrowserCall(browserCall, {
                 type: "error",
-                title: "Call connection failed",
-                description: "Start a new call to continue.",
+                title: "Call couldn't be connected",
               }),
             callListeners,
           );
@@ -645,8 +633,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
             () =>
               endBrowserCall(browserCall, {
                 type: "warning",
-                title: "Call ended",
-                description: "The voice session closed.",
+                title: "Call has ended",
               }),
             callListeners,
           );
@@ -674,8 +661,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
                   if (!recovered) {
                     endBrowserCall(browserCall, {
                       type: "warning",
-                      title: "Call connection lost",
-                      description: "Start a new call to continue.",
+                      title: "Call connection has been lost",
                     });
                   }
                 },
@@ -687,8 +673,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
             if (action === "end") {
               endBrowserCall(browserCall, {
                 type: "error",
-                title: "Call connection failed",
-                description: "Start a new call to continue.",
+                title: "Call couldn't be connected",
               });
             }
           };
@@ -700,11 +685,7 @@ export function VoiceCallProvider({ children }: { readonly children: ReactNode }
           }
 
           if (pending.cancelled) return;
-          toastManager.add({
-            type: "error",
-            title: "Could not start call",
-            description: voiceStartErrorDescription(error),
-          });
+          toast.error(voiceMicrophoneErrorTitle(error) ?? "Call couldn't be started");
         } finally {
           if (pendingStartRef.current === pending) pendingStartRef.current = null;
 

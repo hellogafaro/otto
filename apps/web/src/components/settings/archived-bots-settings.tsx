@@ -10,9 +10,8 @@ import { useI18n } from "../../i18n";
 import { botEnvironment, environmentBotsAtom } from "../../state/bots";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { BotAvatarView } from "../roster/bot-avatar-view";
-import { commandFailureMessage } from "../roster/roster-commands.logic";
 import { Button } from "../ui/button";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { SettingsRow, SettingsSection } from "./settings-layout";
 
 /** Archived bots, newest archive first. Restoring returns a bot to the roster. */
@@ -57,11 +56,7 @@ export function ArchivedBotsSection({ environmentId }: { readonly environmentId:
     );
 
     if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({
-        type: "error",
-        title: t("Could not restore {name}", { name: bot.name }),
-        description: commandFailureMessage(result, t),
-      });
+      toast.error(t("{name} couldn't be restored", { name: bot.name }));
     }
   };
 
@@ -80,11 +75,7 @@ export function ArchivedBotsSection({ environmentId }: { readonly environmentId:
     );
 
     if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({
-        type: "error",
-        title: t("Could not delete {name}", { name: bot.name }),
-        description: commandFailureMessage(result, t),
-      });
+      toast.error(t("{name} couldn't be deleted", { name: bot.name }));
     }
   };
 

@@ -3,13 +3,12 @@ import { scopedThreadKey } from "@otto/client-runtime/environment";
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
-  squashAtomCommandFailure,
 } from "@otto/client-runtime/state/runtime";
 import { pinOrderKeyBetween } from "@otto/client-runtime/state/thread-sort";
 import type { ScopedThreadRef, Visibility } from "@otto/contracts";
 import { useCallback, useMemo } from "react";
 
-import { toastManager } from "../components/ui/toast";
+import { toast } from "sonner";
 import { useI18n } from "../i18n";
 import { refreshArchivedThreadsForEnvironment } from "../lib/archived-threads-state";
 import { ensureLocalApi } from "../local-api";
@@ -83,12 +82,7 @@ export function useChatActions() {
       if (hasTag(result, "Success")) return true;
 
       if (!isAtomCommandInterrupted(result)) {
-        const error = squashAtomCommandFailure(result);
-        toastManager.add({
-          type: "error",
-          title,
-          description: error instanceof Error ? error.message : t("An unexpected error occurred."),
-        });
+        toast.error(title);
       }
 
       return false;
@@ -99,7 +93,7 @@ export function useChatActions() {
   return useMemo(
     () => ({
       rename: (threadRef: ScopedThreadRef, title: string) =>
-        report(t("Could not rename chat"), () =>
+        report(t("Chat couldn't be renamed"), () =>
           updateMetadata({
             environmentId: threadRef.environmentId,
             input: { threadId: threadRef.threadId, title },
@@ -107,14 +101,14 @@ export function useChatActions() {
         ),
       // Otto: Only the person who started a DM changes who sees it.
       setVisibility: (threadRef: ScopedThreadRef, visibility: Visibility) =>
-        report(t("Could not change who sees this chat"), () =>
+        report(t("Chat visibility couldn't be changed"), () =>
           updateMetadata({
             environmentId: threadRef.environmentId,
             input: { threadId: threadRef.threadId, visibility },
           }),
         ),
       regenerateTitle: (threadRef: ScopedThreadRef) =>
-        report(t("Could not regenerate title"), () =>
+        report(t("Title couldn't be regenerated"), () =>
           updateMetadata({
             environmentId: threadRef.environmentId,
             input: { threadId: threadRef.threadId, regenerateTitle: true },
@@ -125,7 +119,7 @@ export function useChatActions() {
           ? topOfPinnedRunOrderKey(threadRef.environmentId)
           : undefined;
 
-        return report(t("Could not pin chat"), () =>
+        return report(t("Chat couldn't be pinned"), () =>
           pin({
             environmentId: threadRef.environmentId,
             input: {
@@ -136,25 +130,25 @@ export function useChatActions() {
         );
       },
       unpin: (threadRef: ScopedThreadRef) =>
-        report(t("Could not unpin chat"), () => unpin(input(threadRef))),
+        report(t("Chat couldn't be unpinned"), () => unpin(input(threadRef))),
       settle: (threadRef: ScopedThreadRef) =>
-        report(t("Could not settle chat"), () => settle(input(threadRef))),
+        report(t("Chat couldn't be settled"), () => settle(input(threadRef))),
       unsettle: (threadRef: ScopedThreadRef) =>
-        report(t("Could not un-settle chat"), () =>
+        report(t("Chat couldn't be unsettled"), () =>
           unsettle({
             environmentId: threadRef.environmentId,
             input: { threadId: threadRef.threadId, reason: "user" },
           }),
         ),
       snooze: (threadRef: ScopedThreadRef, snoozedUntil: string) =>
-        report(t("Could not snooze chat"), () =>
+        report(t("Chat couldn't be snoozed"), () =>
           snooze({
             environmentId: threadRef.environmentId,
             input: { threadId: threadRef.threadId, snoozedUntil },
           }),
         ),
       unsnooze: (threadRef: ScopedThreadRef) =>
-        report(t("Could not wake chat"), () =>
+        report(t("Chat couldn't be woken"), () =>
           unsnooze({
             environmentId: threadRef.environmentId,
             input: { threadId: threadRef.threadId, reason: "user" },
@@ -165,14 +159,16 @@ export function useChatActions() {
         markThreadUnread(scopedThreadKey(threadRef), completedAt);
       },
       archive: async (threadRef: ScopedThreadRef) => {
-        const archived = await report(t("Could not archive chat"), () => archive(input(threadRef)));
+        const archived = await report(t("Chat couldn't be archived"), () =>
+          archive(input(threadRef)),
+        );
 
         if (archived) refreshArchivedThreadsForEnvironment(threadRef.environmentId);
 
         return archived;
       },
       unarchive: async (threadRef: ScopedThreadRef) => {
-        const restored = await report(t("Could not unarchive chat"), () =>
+        const restored = await report(t("Chat couldn't be unarchived"), () =>
           unarchive(input(threadRef)),
         );
 
@@ -195,14 +191,14 @@ export function useChatActions() {
 
         if (shell?.session && shell.session.status !== "stopped") {
           // A session that did not stop would keep running without its chat.
-          const stopped = await report(t("Could not delete chat"), () =>
+          const stopped = await report(t("Chat couldn't be deleted"), () =>
             stopSession(input(threadRef)),
           );
 
           if (!stopped) return false;
         }
 
-        const deleted = await report(t("Could not delete chat"), () => remove(input(threadRef)));
+        const deleted = await report(t("Chat couldn't be deleted"), () => remove(input(threadRef)));
 
         if (deleted) refreshArchivedThreadsForEnvironment(threadRef.environmentId);
 

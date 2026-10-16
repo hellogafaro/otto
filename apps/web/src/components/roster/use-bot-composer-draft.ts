@@ -9,12 +9,11 @@ import { useI18n } from "../../i18n";
 import { compressImageForStash } from "../../lib/image-compression";
 import { randomUUID } from "../../lib/utils";
 import {
-  MAX_STASH_ENTRIES,
   partitionStashAttachments,
   usePromptStashStore,
   type PromptStashEntry,
 } from "../../prompt-stash-store";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { clearBotDraft, readBotDraft, writeBotDraft } from "./bot-draft-store";
 import {
   buildBotPromptAttachmentPreview,
@@ -40,7 +39,7 @@ export function useBotComposerDraft(input: {
   readonly promptInputRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const { draftKey, promptInputRef } = input;
-  const { t, plural } = useI18n();
+  const { t } = useI18n();
   const [draft, setDraft] = useState(() => (draftKey ? readBotDraft(draftKey) : ""));
   // Bumped whenever the draft is sent, stashed, or swapped, so a late transcript is dropped.
   const [dictationGeneration, setDictationGeneration] = useState(0);
@@ -204,27 +203,16 @@ export function useBotComposerDraft(input: {
         (unique.length - restoredFiles.length);
 
       if (missingImageCount > 0) {
-        toastManager.add({
-          type: "warning",
-          title: t("Some images were not restored"),
-          description: plural(missingImageCount, {
-            one: "{count} image was unavailable or over the attachment limit.",
-            other: "{count} images were unavailable or over the attachment limit.",
-          }),
-        });
+        toast.warning(t("Some images couldn't be restored"));
       }
 
       if (!durable) {
-        toastManager.add({
-          type: "warning",
-          title: t("Stash entry may come back"),
-          description: t("Browser storage rejected the update."),
-        });
+        toast.warning(t("Stash change couldn't be saved"));
       }
 
       window.requestAnimationFrame(() => promptInputRef.current?.focus());
     },
-    [draft, persistDraft, plural, promptInputRef, t, takeStashEntry],
+    [draft, persistDraft, promptInputRef, t, takeStashEntry],
   );
 
   const deleteStashEntry = useCallback(
@@ -232,11 +220,7 @@ export function useBotComposerDraft(input: {
       const { durable } = takeStashEntry(entry.id);
 
       if (!durable) {
-        toastManager.add({
-          type: "warning",
-          title: t("Stash entry may come back"),
-          description: t("Browser storage rejected the delete."),
-        });
+        toast.warning(t("Stash change couldn't be saved"));
       }
     },
     [t, takeStashEntry],
@@ -274,11 +258,7 @@ export function useBotComposerDraft(input: {
       });
 
       if (!written) {
-        toastManager.add({
-          type: "error",
-          title: t("Could not stash this prompt"),
-          description: t("Browser storage rejected the write, so the message was left in place."),
-        });
+        toast.error(t("Prompt couldn't be stashed"));
 
         return;
       }
@@ -306,22 +286,11 @@ export function useBotComposerDraft(input: {
       pulseStashBadge();
 
       if (!durable) {
-        toastManager.add({
-          type: "warning",
-          title: t("Stashed prompt will not survive a reload"),
-          description: t("Browser storage is unavailable, so the stash is kept for this session."),
-        });
+        toast.warning(t("Stashed prompt won't survive a reload"));
       }
 
       if (evicted) {
-        toastManager.add({
-          type: "warning",
-          title: t("Oldest stashed prompt discarded"),
-          description: plural(MAX_STASH_ENTRIES, {
-            one: "The stash holds {count} prompt.",
-            other: "The stash holds {count} prompts.",
-          }),
-        });
+        toast.warning(t("Oldest stashed prompt has been discarded"));
       }
 
       const persistedImages: PersistedComposerImageAttachment[] = [];
@@ -356,17 +325,9 @@ export function useBotComposerDraft(input: {
       });
 
       if (attached && !imagesDurable && durable && stashedFiles.length > 0) {
-        toastManager.add({
-          type: "warning",
-          title: t("Stashed images were not saved"),
-          description: t("The text was saved, but the images may be missing after a reload."),
-        });
+        toast.warning(t("Stashed images couldn't be saved"));
       } else if (!attached && kept.length > 0) {
-        toastManager.add({
-          type: "warning",
-          title: t("Stashed images did not attach"),
-          description: t("The prompt was restored or deleted before its images finished saving."),
-        });
+        toast.warning(t("Stashed images couldn't be attached"));
       }
     } finally {
       stashInFlightRef.current.delete(snapshotKey);
@@ -377,7 +338,6 @@ export function useBotComposerDraft(input: {
     expandedAttachmentId,
     finalizeStashEntryImages,
     persistDraft,
-    plural,
     pulseStashBadge,
     releaseAttachments,
     stashEntryToQueue,

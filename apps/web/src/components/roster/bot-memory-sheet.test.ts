@@ -61,7 +61,14 @@ vi.mock("../../state/query", () => ({ useEnvironmentQuery: controls.query }));
 
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => controls.mutate }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: controls.toast } }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: controls.toast,
+    error: controls.toast,
+    warning: controls.toast,
+    info: controls.toast,
+  },
+}));
 
 import { BotMemorySheet } from "./bot-memory-sheet";
 

@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { BotAvatarView } from "./bot-avatar-view";
 import { GroupMemberChecklist, groupCandidates } from "./group-member-checklist";
 import { GroupMemberStack } from "./group-member-stack";
@@ -110,7 +110,7 @@ export function GroupEditor({
     setBusy(false);
 
     if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({ type: "error", title: failure });
+      toast.error(failure);
 
       return false;
     }
@@ -140,7 +140,7 @@ export function GroupEditor({
                   },
                 },
               }),
-        t("Could not add {name}", { name: candidate.name }),
+        t("{name} couldn't be added", { name: candidate.name }),
       );
     }
 
@@ -223,7 +223,7 @@ export function GroupEditor({
                                 environmentId,
                                 input: { groupId, botId: BotId.make(member.bot.id) },
                               }),
-                        t("Could not remove {name}", { name: member.name }),
+                        t("{name} couldn't be removed", { name: member.name }),
                       )
                     }
                   >
@@ -263,8 +263,8 @@ export function GroupEditor({
                             },
                           }),
                         current
-                          ? t("Could not leave group")
-                          : t("Could not remove {name}", { name: member.name }),
+                          ? t("Group couldn't be left")
+                          : t("{name} couldn't be removed", { name: member.name }),
                       ).then((success) => success && current && onDeleted())
                     }
                   >
@@ -291,7 +291,7 @@ export function GroupEditor({
 
           const success = await run(
             () => deleteGroup({ environmentId, input: { groupId } }),
-            t("Could not delete group"),
+            t("Group couldn't be deleted"),
           );
 
           if (success) onDeleted();
@@ -313,7 +313,7 @@ export function GroupEditor({
               if (nextName !== group.name) {
                 void run(
                   () => renameGroup({ environmentId, input: { groupId, name: nextName } }),
-                  t("Could not rename group"),
+                  t("Group couldn't be renamed"),
                 );
               }
             }}

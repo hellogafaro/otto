@@ -48,7 +48,7 @@ import { findLatestGroupThreadIds, latestGroupThreadKey } from "./roster/bot-thr
 import { useRosterStore } from "./roster/roster-store";
 import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
-import { stackedThreadToast, toastManager } from "./ui/toast";
+import { toast } from "sonner";
 
 export function CommandPalette({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -246,14 +246,8 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
   function executeItem(item: CommandPaletteActionItem): void {
     if (item.disabled) return;
     setOpen(false);
-    void item.run().catch((cause: unknown) => {
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: t("Unable to run command"),
-          description: cause instanceof Error ? cause.message : t("An unexpected error occurred."),
-        }),
-      );
+    void item.run().catch(() => {
+      toast.error(t("Command couldn't be run"));
     });
   }
 

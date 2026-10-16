@@ -19,7 +19,7 @@ import { ensureLocalApi } from "../../local-api";
 import { useDesktopUpdateState } from "../../state/desktop-update";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { stackedThreadToast, toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
   SettingResetButton,
@@ -70,14 +70,8 @@ function AboutVersionSection() {
     const action = updateState ? resolveDesktopUpdateButtonAction(updateState) : "none";
 
     if (action === "download") {
-      void bridge.downloadUpdate().catch((cause: unknown) => {
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Could not download update"),
-            description: cause instanceof Error ? cause.message : t("Download failed."),
-          }),
-        );
+      void bridge.downloadUpdate().catch(() => {
+        toast.error(t("Update couldn't be downloaded"));
       });
 
       return;
@@ -94,15 +88,9 @@ function AboutVersionSection() {
             updateState ?? { availableVersion: null, downloadedVersion: null },
           ),
         );
-      } catch (error) {
+      } catch {
         setIsUpdateActionPending(false);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Could not confirm update"),
-            description: error instanceof Error ? error.message : t("Update confirmation failed."),
-          }),
-        );
+        toast.error(t("Update couldn't be confirmed"));
 
         return;
       }
@@ -115,14 +103,8 @@ function AboutVersionSection() {
 
       void bridge
         .installUpdate()
-        .catch((cause: unknown) => {
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: t("Could not install update"),
-              description: cause instanceof Error ? cause.message : t("Install failed."),
-            }),
-          );
+        .catch(() => {
+          toast.error(t("Update couldn't be installed"));
         })
         .finally(() => setIsUpdateActionPending(false));
 
@@ -134,24 +116,11 @@ function AboutVersionSection() {
       .checkForUpdate()
       .then((result) => {
         if (!result.checked) {
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: t("Could not check for updates"),
-              description:
-                result.state.message ?? t("Automatic updates are not available in this build."),
-            }),
-          );
+          toast.error(t("Updates couldn't be checked"));
         }
       })
-      .catch((cause: unknown) => {
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Could not check for updates"),
-            description: cause instanceof Error ? cause.message : t("Update check failed."),
-          }),
-        );
+      .catch(() => {
+        toast.error(t("Updates couldn't be checked"));
       });
   }, [isUpdateActionPending, t, updateState]);
 

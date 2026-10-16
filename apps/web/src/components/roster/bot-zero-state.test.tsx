@@ -16,7 +16,9 @@ vi.mock("../../state/bots", () => ({ botEnvironment: { create: "create-bot-atom"
 
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => testState.createBot }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: vi.fn() } }));
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+}));
 
 import { BotZeroState } from "./bot-zero-state";
 

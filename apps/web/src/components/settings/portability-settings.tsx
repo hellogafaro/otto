@@ -21,7 +21,7 @@ import {
   DialogPopup,
   DialogTitle,
 } from "../ui/dialog";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import {
   canApplyPortabilityPreview,
   portabilityArchiveFileError,
@@ -30,11 +30,7 @@ import {
 } from "./portability-settings.logic";
 import { SettingsRow } from "./settings-layout";
 import { searchableSetting } from "./settings-search";
-import {
-  ImportPreviewState,
-  ImportPreview,
-  importResultDescription,
-} from "./portability-import-preview";
+import { ImportPreviewState, ImportPreview } from "./portability-import-preview";
 import { downloadArchive, reportFailure } from "./portability-presentation";
 
 export function PortabilitySettings() {
@@ -74,13 +70,13 @@ export function PortabilitySettings() {
     setPending(null);
 
     if (Predicate.isTagged(result, "Failure")) {
-      reportFailure(t("Could not export archive"), result, t);
+      reportFailure(t("Archive couldn't be exported"), result);
 
       return;
     }
 
     downloadArchive(result.value.filename, result.value.contents);
-    toastManager.add({ type: "success", title: t("Archive exported") });
+    toast.success(t("Archive has been exported"));
   };
 
   const handleFile = async (file: File) => {
@@ -89,11 +85,7 @@ export function PortabilitySettings() {
     const fileError = portabilityArchiveFileError(file.size);
 
     if (fileError) {
-      toastManager.add({
-        type: "error",
-        title: t("Could not read archive"),
-        description: fileError,
-      });
+      toast.error(t("Archive is larger than 20 MB"));
 
       return;
     }
@@ -111,20 +103,16 @@ export function PortabilitySettings() {
       setPending(null);
 
       if (Predicate.isTagged(result, "Failure")) {
-        reportFailure(t("Could not preview archive"), result, t);
+        reportFailure(t("Archive couldn't be previewed"), result);
 
         return;
       }
 
       setImportState({ contents, filename: file.name, preview: result.value, projectFolders: {} });
-    } catch (error) {
+    } catch {
       if (requestId !== previewRequestIdRef.current) return;
       setPending(null);
-      toastManager.add({
-        type: "error",
-        title: t("Could not read archive"),
-        description: error instanceof Error ? error.message : t("The file could not be read."),
-      });
+      toast.error(t("Archive couldn't be read"));
     }
   };
 
@@ -161,7 +149,7 @@ export function PortabilitySettings() {
           ? { ...current, projectFolders: reviewedProjectFolders }
           : current,
       );
-      reportFailure(t("Could not use project folder"), result, t);
+      reportFailure(t("Project folder couldn't be used"), result);
 
       return;
     }
@@ -178,11 +166,7 @@ export function PortabilitySettings() {
     const importSessionId = importSessionIdRef.current;
 
     if (!window.desktopBridge || projectPickerTarget === undefined) {
-      toastManager.add({
-        type: "error",
-        title: t("Folder picker unavailable"),
-        description: t("Enter an absolute folder path, or open Otto on desktop."),
-      });
+      toast.error(t("Folder picker isn't available"));
 
       return;
     }
@@ -206,14 +190,9 @@ export function PortabilitySettings() {
       if (picked && importSessionId === importSessionIdRef.current) {
         await handleProjectFolder(projectId, picked);
       }
-    } catch (error) {
+    } catch {
       if (importSessionId !== importSessionIdRef.current) return;
-      toastManager.add({
-        type: "error",
-        title: t("Could not choose project folder"),
-        description:
-          error instanceof Error ? error.message : t("The folder could not be selected."),
-      });
+      toast.error(t("Project folder couldn't be chosen"));
     }
   };
 
@@ -234,7 +213,7 @@ export function PortabilitySettings() {
     setPending(null);
 
     if (Predicate.isTagged(result, "Failure")) {
-      reportFailure(t("Could not import archive"), result, t);
+      reportFailure(t("Archive couldn't be imported"), result);
 
       return;
     }
@@ -248,11 +227,8 @@ export function PortabilitySettings() {
       setImportState(null);
     }
 
-    toastManager.add({
-      type: hasFailures ? "error" : "success",
-      title: hasFailures ? t("Archive partly restored") : t("Archive restored"),
-      description: importResultDescription(result.value, t),
-    });
+    if (hasFailures) toast.error(t("Archive has been partly restored"));
+    else toast.success(t("Archive has been restored"));
   };
 
   return (

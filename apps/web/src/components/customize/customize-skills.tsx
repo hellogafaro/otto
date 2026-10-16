@@ -21,7 +21,7 @@ import { randomUUID } from "../../lib/utils";
 import { libraryEnvironment } from "../../state/library";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { useLibraryData, useLibraryFailure, useLibraryUpload } from "../library/use-library";
+import { useLibraryData, useLibraryUpload } from "../library/use-library";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -35,7 +35,7 @@ import { Field, FieldError, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import { MenuItem } from "../ui/menu";
 import { Textarea } from "../ui/textarea";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
 import { AddMenu, CustomizeGroup, CustomizeRow } from "./customize-group";
 import { planSkillImport } from "./customize.logic";
@@ -74,7 +74,6 @@ function SkillDialog({
   const createSkill = useAtomCommand(libraryEnvironment.createSkill, { reportFailure: false });
   const createFolder = useAtomCommand(libraryEnvironment.createFolder, { reportFailure: false });
   const { upload } = useLibraryUpload();
-  const fail = useLibraryFailure();
   const [draft, setDraft] = useState(initial);
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -103,7 +102,7 @@ function SkillDialog({
 
     if (!AsyncResult.isSuccess(created)) {
       setSaving(false);
-      fail(created, t("Could not create the skill"));
+      toast.error(t("Skill couldn't be created"));
 
       return;
     }
@@ -368,13 +367,9 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
         return;
       }
 
-      toastManager.add({
-        type: "error",
-        title: t("Not a skill"),
-        description: t("A skill needs a SKILL.md file."),
-      });
+      toast.error(t("A skill needs a SKILL.md file"));
     } catch {
-      toastManager.add({ type: "error", title: t("Could not read that skill") });
+      toast.error(t("Skill couldn't be read"));
     }
   };
 

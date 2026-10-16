@@ -49,7 +49,7 @@ import {
   subscribeBrowserViewportChange,
 } from "~/browser/browser-viewport-actions";
 import { previewRuntimeTabId } from "~/browser/preview-runtime-tab-id";
-import { toastManager } from "~/components/ui/toast";
+import { toast } from "sonner";
 import { AgentBrowserCursor } from "./agent-browser-cursor";
 import { openPreviewSession } from "./open-preview-session";
 import { subscribePreviewAction } from "./preview-action-bus";
@@ -243,11 +243,7 @@ export function PreviewView({
 
       if (isTagged(result, "Failure")) {
         const error = squashAtomCommandFailure(result);
-        toastManager.add({
-          type: "error",
-          title: "Unable to resize browser viewport",
-          description: error instanceof Error ? error.message : "An error occurred.",
-        });
+        toast.error("Browser viewport couldn't be resized");
         throw error;
       }
 
@@ -301,12 +297,8 @@ export function PreviewView({
       ? previewBridge.pictureInPicture.close
       : previewBridge.pictureInPicture.open;
 
-    void operation(runtimeTabId).catch((error) => {
-      toastManager.add({
-        type: "error",
-        title: "Unable to update popped-out preview",
-        description: error instanceof Error ? error.message : "An error occurred.",
-      });
+    void operation(runtimeTabId).catch(() => {
+      toast.error("Popped-out preview couldn't be updated");
     });
   }, [desktopOverlay?.pictureInPicture, runtimeTabId]);
 

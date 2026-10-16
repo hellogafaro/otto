@@ -29,7 +29,7 @@ import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { DEFAULT_INTERACTION_MODE } from "../../types";
 import { sortScopedProjectsForSidebar } from "../sidebar.logic";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import {
   chatHomeProject,
   findLatestBotThreadTarget,
@@ -86,7 +86,7 @@ export function useCreateChat() {
         );
 
       if (environmentId === null || project === null) {
-        toastManager.add({ type: "error", title: t("Could not start the chat") });
+        toast.error(t("Chat couldn't be started"));
 
         return null;
       }
@@ -123,7 +123,7 @@ export function useCreateChat() {
         Predicate.isTagged(result, "Failure") ||
         !(await waitForThreadShell(scopeThreadRef(environmentId, threadId), SHELL_ARRIVAL_MS))
       ) {
-        toastManager.add({ type: "error", title: t("Could not start the chat") });
+        toast.error(t("Chat couldn't be started"));
 
         return null;
       }

@@ -180,9 +180,6 @@ export const connectionsCatalog = {
   "Could not connect with the new credentials. The old connection is unchanged.":
     "无法使用新凭据连接。原连接保持不变。",
   "The old connection could not be restored.": "无法恢复旧连接。",
-  "New credentials connected": "新凭据已连接",
-  "The old connection could not be removed. Delete it from the channel list.":
-    "无法移除旧连接。请从频道列表中删除它。",
   "{name} is saved but could not connect. {reason}": "{name} 已保存，但无法连接。{reason}",
   "{name} is saved but could not connect. Try again or check the connection settings.":
     "{name} 已保存，但无法连接。请重试或检查连接设置。",
@@ -200,8 +197,6 @@ export const connectionsCatalog = {
     "发送私信，或在 Discord 服务器中提及 {name}。",
   Disconnected: "已断开",
   "Unassign the channel already connected to this bot first": "请先取消分配已连接到此机器人的频道",
-  "Could not disconnect channel": "无法断开频道",
-  "Could not reconnect channel": "无法重新连接频道",
   "{count} connection": "{count} 个连接",
   "{count} connections": "{count} 个连接",
   "Add connection": "添加连接",
@@ -228,9 +223,6 @@ export const connectionsCatalog = {
   "Connect a provider in Settings > Providers so this bot can reply.":
     "请在“设置 > 提供商”中连接一个提供商，以便此机器人回复。",
   "Refresh remote branch status in the background.": "在后台刷新远程分支状态。",
-  "Archive exported": "归档已导出",
-  "Could not export archive": "无法导出归档",
-  "Could not import archive": "无法导入归档",
   "{filename}. Review what Otto will restore on this environment.":
     "{filename}。请查看 Otto 将在此环境中恢复的内容。",
   "After restore, sign in to providers and reconnect imported MCP servers on this device.":
@@ -321,7 +313,6 @@ export const connectionsCatalog = {
   "Not connected": "未连接",
   "OAuth connected": "已通过 OAuth 连接",
   "Computer > Local execution": "计算机 > 本地执行",
-  "The environment rejected the change.": "环境拒绝了此更改。",
   "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.":
     "托管浏览器会话在此环境中运行，可以从网页端、桌面端或远程客户端控制。",
   "Stored by the environment server. Add a key before enabling Browserbase.":
@@ -403,7 +394,6 @@ export const connectionsCatalog = {
   "Remove the Composio API key from this environment? Bots lose access to Composio apps until you add a key again.":
     "要从此环境中移除 Composio API 密钥吗？在你重新添加密钥之前，机器人将无法使用 Composio 应用。",
   "Disconnect {name}? Bots stop using this account.": "要断开 {name} 吗？机器人将停止使用此账号。",
-  "Could not disconnect {name}": "无法断开 {name}",
   "Search above to find Composio apps. Composio handles each app's sign-in, and your bots can use connected accounts.":
     "在上方搜索 Composio 应用。Composio 负责各应用的登录，你的机器人可以使用已连接的账号。",
   "Add your own Composio API key to connect apps such as Slack or Notion. Composio handles each app's sign-in.":
@@ -417,11 +407,8 @@ export const connectionsCatalog = {
   "Store credentials outside the server URL.": "请不要把凭据放在服务器 URL 中。",
   "Connect a listed integration, or follow a setup guide from integrations.sh.":
     "连接列表中的集成，或按照 integrations.sh 上的设置指南操作。",
-  "Could not connect {name}": "无法连接 {name}",
   "Could not enable MCP server": "无法启用 MCP 服务器",
   "Could not disable MCP server": "无法停用 MCP 服务器",
-  "Could not update MCP server": "无法更新 MCP 服务器",
-  "Could not add MCP server": "无法添加 MCP 服务器",
   "Could not remove MCP server": "无法移除 MCP 服务器",
   "Browse integrations.sh for MCP endpoints and setup instructions. Add the server here once you have its URL or command.":
     "在 integrations.sh 上浏览 MCP 端点和设置说明。拿到服务器的 URL 或命令后，在这里添加它。",
@@ -469,8 +456,6 @@ export const connectionsCatalog = {
   "Not found": "未找到",
   "It may have been removed, or it isn't shared with you.": "它可能已被移除，或未与你共享。",
   "Needs reconnecting": "需要重新连接",
-  "Could not turn on {name}": "无法开启 {name}",
-  "Could not turn off {name}": "无法关闭 {name}",
   "Remove {name}? Bots stop using its tools.": "移除 {name}？机器人将停止使用它的工具。",
   "Local command, not supported": "本地命令，不受支持",
   "Use {name}": "使用 {name}",
@@ -488,7 +473,6 @@ export const connectionsCatalog = {
   Integrations: "集成",
   "Connect an environment to customize your bots.": "连接一个环境以自定义你的机器人。",
   "Say when bots should use it.": "说明机器人何时应使用它。",
-  "Could not create the skill": "无法创建技能",
   "Import skill": "导入技能",
   "New skill": "新建技能",
   "Weekly report": "周报",
@@ -496,9 +480,6 @@ export const connectionsCatalog = {
   "Use when someone asks for the weekly numbers.": "当有人询问每周数据时使用。",
   "SKILL.md and {count} more files.": "SKILL.md 以及另外 {count} 个文件。",
   "Create skill": "创建技能",
-  "Not a skill": "不是技能",
-  "A skill needs a SKILL.md file.": "技能需要一个 SKILL.md 文件。",
-  "Could not read that skill": "无法读取该技能",
   "No SKILL.md yet": "还没有 SKILL.md",
   Personal: "个人",
   "Use an https:// address.": "请使用 https:// 地址。",
@@ -537,14 +518,12 @@ export const connectionsCatalog = {
   "Use a header name like Authorization.": "请使用类似 Authorization 的请求头名称。",
   "Each header name can be used once.": "每个请求头名称只能使用一次。",
   "Enter a value for {name}.": "请输入 {name} 的值。",
-  "Could not save the headers": "无法保存请求头",
   Headers: "请求头",
   "Header name": "请求头名称",
   "Header value": "请求头值",
   Value: "值",
   "Remove header": "移除请求头",
   "Add header": "添加请求头",
-  "Could not sign in to {name}": "无法登录 {name}",
   "Sign in to see its tools.": "登录后即可查看其工具。",
   "Sign in": "登录",
   Apps: "应用",

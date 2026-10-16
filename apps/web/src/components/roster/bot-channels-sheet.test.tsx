@@ -60,7 +60,14 @@ vi.mock("../../settings-dialog-store", () => ({
   openSettings: fixtures.openSettings,
 }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: fixtures.toast } }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: fixtures.toast,
+    error: fixtures.toast,
+    warning: fixtures.toast,
+    info: fixtures.toast,
+  },
+}));
 
 vi.mock("../../state/session", () => ({
   useEnvironmentSessionState: () => ({
@@ -280,11 +287,7 @@ describe("BotChannelsSheet health and repair", () => {
     fixtures.buttons.get("Connect")?.onClick?.();
     await fixtures.commands.attach.mock.results[0]!.value;
     await Promise.resolve();
-    expect(fixtures.toast).toHaveBeenCalledWith({
-      type: "error",
-      title: "Could not update channel",
-      description: "Another bot already uses this account. Unassign it there, then connect again.",
-    });
+    expect(fixtures.toast).toHaveBeenCalledWith("Another bot already uses this account");
   });
 
   it("keeps the generic toast for other failures", async () => {
@@ -294,10 +297,7 @@ describe("BotChannelsSheet health and repair", () => {
     fixtures.buttons.get("Connect")?.onClick?.();
     await fixtures.commands.attach.mock.results[0]!.value;
     await Promise.resolve();
-    expect(fixtures.toast).toHaveBeenCalledWith({
-      type: "error",
-      title: "Could not update channel",
-    });
+    expect(fixtures.toast).toHaveBeenCalledWith("Channel couldn't be updated");
   });
 
   it("hides channels from a client without write access", () => {

@@ -1,15 +1,12 @@
 import { Predicate } from "effect";
 import type { EnvironmentId, ServerSelfUpdateCapability } from "@otto/contracts";
 import type { ServerUpdateStage, ServerUpdateState } from "@otto/client-runtime/state/server";
-import {
-  isAtomCommandInterrupted,
-  squashAtomCommandFailure,
-} from "@otto/client-runtime/state/runtime";
+import { isAtomCommandInterrupted } from "@otto/client-runtime/state/runtime";
 
 import { serverEnvironment } from "~/state/server";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { Button } from "./ui/button";
-import { toastManager } from "./ui/toast";
+import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 // The wire "installing" stage is a sub-second launcher handoff, so the UI
@@ -25,10 +22,6 @@ const pendingUpdateEnvironmentIds = new Set<EnvironmentId>();
 
 export function serverUpdateStageLabel(stage: ServerUpdateStage): string {
   return UPDATE_STAGE_LABELS[stage];
-}
-
-function updateFailureMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : "Server update failed.";
 }
 
 /**
@@ -107,20 +100,12 @@ export function ServerUpdateAction({
           return;
         }
 
-        toastManager.add({
-          type: "error",
-          title: "Server update failed",
-          description: updateFailureMessage(squashAtomCommandFailure(result)),
-        });
+        toast.error("Server couldn't be updated");
 
         return;
       }
 
-      toastManager.add({
-        type: "success",
-        title: `${serverLabel} updated`,
-        description: `Reconnected on Otto ${result.value.targetVersion}.`,
-      });
+      toast.success(`${serverLabel} has been updated`);
     } finally {
       pendingUpdateEnvironmentIds.delete(environmentId);
     }

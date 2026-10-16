@@ -1,8 +1,5 @@
 import { Predicate } from "effect";
-import {
-  isAtomCommandInterrupted,
-  squashAtomCommandFailure,
-} from "@otto/client-runtime/state/runtime";
+import { isAtomCommandInterrupted } from "@otto/client-runtime/state/runtime";
 import { type KeybindingCommand, type ServerUpsertKeybindingInput } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 
@@ -11,7 +8,7 @@ import { useI18n } from "../../i18n";
 import { usePrimaryEnvironment } from "../../state/environments";
 import { primaryServerKeybindingsAtom, serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { rowKeybindingTarget, ShortcutRecorder } from "./keybinding-editors";
 import { KeybindingConflictWarning, KeyCaps } from "./keybinding-presentation";
 import {
@@ -70,12 +67,7 @@ export function KeybindingsSettingsPanel() {
 
         if (Predicate.isTagged(result, "Success") || isAtomCommandInterrupted(result)) return;
 
-        const error = squashAtomCommandFailure(result);
-        toastManager.add({
-          title: t("Unable to save keybinding"),
-          description: error instanceof Error ? error.message : t("The keybinding was not saved."),
-          type: "error",
-        });
+        toast.error(t("Shortcut couldn't be saved"));
       })();
     },
     [primaryEnvironment, t, upsertKeybinding],
@@ -92,13 +84,7 @@ export function KeybindingsSettingsPanel() {
 
         if (Predicate.isTagged(result, "Success") || isAtomCommandInterrupted(result)) return;
 
-        const error = squashAtomCommandFailure(result);
-        toastManager.add({
-          title: t("Unable to remove keybinding"),
-          description:
-            error instanceof Error ? error.message : t("The keybinding was not removed."),
-          type: "error",
-        });
+        toast.error(t("Shortcut couldn't be removed"));
       })();
     },
     [primaryEnvironment, removeKeybindingMutation, t],

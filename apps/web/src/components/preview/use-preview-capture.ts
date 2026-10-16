@@ -1,14 +1,13 @@
 import { type ScopedThreadRef } from "@otto/contracts";
 
 import { useCallback } from "react";
+import { toast } from "sonner";
 
 import { previewBridge } from "./preview-bridge";
 
 import { revealInFileExplorerLabel } from "./file-explorer-label";
 
 import { startBrowserRecording, stopBrowserRecording } from "~/browser/browser-recording";
-
-import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 
 export function usePreviewCapture({
   recordingRuntimeTabId,
@@ -30,92 +29,16 @@ export function usePreviewCapture({
         void stopBrowserRecording(recordingRuntimeTabId).then(
           (artifact) => {
             if (!artifact) return;
-            let pathCopied = false;
-            let toastId: ReturnType<typeof toastManager.add>;
 
-            const copyPath = () => {
-              if (!navigator.clipboard?.writeText) {
-                toastManager.update(
-                  toastId,
-                  stackedThreadToast({
-                    type: "error",
-                    title: "Unable to copy recording path",
-                    description: "Clipboard API unavailable.",
-                    actionProps: revealAction,
-                  }),
-                );
-
-                return;
-              }
-
-              void navigator.clipboard.writeText(artifact.path).then(
-                () => {
-                  pathCopied = true;
-                  updateRecordingToast();
-                  window.setTimeout(() => {
-                    pathCopied = false;
-                    updateRecordingToast();
-                  }, 2_000);
-                },
-                (error) => {
-                  toastManager.update(
-                    toastId,
-                    stackedThreadToast({
-                      type: "error",
-                      title: "Unable to copy recording path",
-                      description: error instanceof Error ? error.message : "An error occurred.",
-                      actionProps: revealAction,
-                    }),
-                  );
-                },
-              );
-            };
-
-            const revealAction = {
-              children: revealInFileExplorerLabel(navigator.platform),
-              onClick: () => void bridge.revealArtifact(artifact.path),
-            };
-
-            const updateRecordingToast = () => {
-              toastManager.update(
-                toastId,
-                stackedThreadToast({
-                  type: "success",
-                  title: "Recording saved",
-                  actionProps: revealAction,
-                  data: {
-                    secondaryActionProps: {
-                      children: pathCopied ? "Copied!" : "Copy path",
-                      disabled: pathCopied,
-                      onClick: copyPath,
-                    },
-                    secondaryActionVariant: "outline",
-                  },
-                }),
-              );
-            };
-
-            toastId = toastManager.add(
-              stackedThreadToast({
-                type: "success",
-                title: "Recording saved",
-                actionProps: revealAction,
-                data: {
-                  secondaryActionProps: {
-                    children: "Copy path",
-                    onClick: copyPath,
-                  },
-                  secondaryActionVariant: "outline",
-                },
-              }),
-            );
-          },
-          (error) => {
-            toastManager.add({
-              type: "error",
-              title: "Unable to stop recording",
-              description: error instanceof Error ? error.message : "An error occurred.",
+            toast.success("Recording has been saved", {
+              action: {
+                label: revealInFileExplorerLabel(navigator.platform),
+                onClick: () => void bridge.revealArtifact(artifact.path),
+              },
             });
+          },
+          () => {
+            toast.error("Recording couldn't be stopped");
           },
         );
 
@@ -123,12 +46,8 @@ export function usePreviewCapture({
       }
 
       if (record) {
-        void startBrowserRecording(runtimeTabId, threadRef, tabId).catch((error) => {
-          toastManager.add({
-            type: "error",
-            title: "Unable to start recording",
-            description: error instanceof Error ? error.message : "An error occurred.",
-          });
+        void startBrowserRecording(runtimeTabId, threadRef, tabId).catch(() => {
+          toast.error("Recording couldn't be started");
         });
 
         return;
@@ -136,133 +55,19 @@ export function usePreviewCapture({
 
       void bridge.captureScreenshot(runtimeTabId).then(
         (artifact) => {
-          const revealAction = {
-            children: revealInFileExplorerLabel(navigator.platform),
-            onClick: () => void bridge.revealArtifact(artifact.path),
-          };
-
-          let pathCopied = false;
-          let imageCopied = false;
-          let toastId: ReturnType<typeof toastManager.add>;
-
-          const updateScreenshotToast = (
-            type: "success" | "error" = "success",
-            title = "Screenshot saved",
-            description?: string,
-          ) => {
-            toastManager.update(
-              toastId,
-              stackedThreadToast({
-                type,
-                title,
-                description,
-                actionProps: {
-                  children: imageCopied ? "Copied!" : "Copy image",
-                  disabled: imageCopied,
-                  onClick: copyImage,
-                },
-                data: {
-                  additionalActions: [
-                    {
-                      id: "copy-path",
-                      props: {
-                        children: pathCopied ? "Copied!" : "Copy path",
-                        disabled: pathCopied,
-                        onClick: copyPath,
-                      },
-                    },
-                  ],
-                  secondaryActionProps: {
-                    ...revealAction,
-                  },
-                  secondaryActionVariant: "outline",
-                },
-              }),
-            );
-          };
-
-          const copyPath = () => {
-            if (!navigator.clipboard?.writeText) {
-              updateScreenshotToast(
-                "error",
-                "Unable to copy screenshot path",
-                "Clipboard API unavailable.",
-              );
-
-              return;
-            }
-
-            void navigator.clipboard.writeText(artifact.path).then(
-              () => {
-                pathCopied = true;
-                updateScreenshotToast();
-                window.setTimeout(() => {
-                  pathCopied = false;
-                  updateScreenshotToast();
-                }, 2_000);
-              },
-              (error) => {
-                updateScreenshotToast(
-                  "error",
-                  "Unable to copy screenshot path",
-                  error instanceof Error ? error.message : "An error occurred.",
-                );
-              },
-            );
-          };
-
-          const copyImage = () => {
-            void bridge.copyArtifactToClipboard(artifact.path).then(
-              () => {
-                imageCopied = true;
-                updateScreenshotToast();
-                window.setTimeout(() => {
-                  imageCopied = false;
-                  updateScreenshotToast();
-                }, 2_000);
-              },
-              (error) => {
-                updateScreenshotToast(
-                  "error",
-                  "Unable to copy screenshot",
-                  error instanceof Error ? error.message : "An error occurred.",
-                );
-              },
-            );
-          };
-
-          toastId = toastManager.add(
-            stackedThreadToast({
-              type: "success",
-              title: "Screenshot saved",
-              actionProps: {
-                children: "Copy image",
-                onClick: copyImage,
-              },
-              data: {
-                additionalActions: [
-                  {
-                    id: "copy-path",
-                    props: {
-                      children: "Copy path",
-                      onClick: copyPath,
-                    },
-                  },
-                ],
-                secondaryActionProps: {
-                  ...revealAction,
-                },
-                secondaryActionVariant: "outline",
-              },
-            }),
-          );
-        },
-        (error) => {
-          toastManager.add({
-            type: "error",
-            title: "Unable to capture screenshot",
-            description: error instanceof Error ? error.message : "An error occurred.",
+          const toastId = toast.success("Screenshot has been saved", {
+            action: {
+              label: "Copy image",
+              onClick: () =>
+                void bridge.copyArtifactToClipboard(artifact.path).then(
+                  () => toast.success("Screenshot has been copied", { id: toastId }),
+                  () => toast.error("Screenshot couldn't be copied", { id: toastId }),
+                ),
+            },
           });
+        },
+        () => {
+          toast.error("Screenshot couldn't be captured");
         },
       );
     },

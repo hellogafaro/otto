@@ -15,7 +15,7 @@ import { cn } from "~/lib/utils";
 import { botEnvironment } from "../../state/bots";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { channelProviderLabel } from "./bot-conversation-presentation";
 
 const DELIVERY_TONE_CLASS: Record<
@@ -105,10 +105,7 @@ export function ChannelSendApproval({
               setBusy(false);
 
               if (Predicate.isTagged(result, "Failure")) {
-                toastManager.add({
-                  type: "error",
-                  title: t("Could not send to {channel}", { channel: label }),
-                });
+                toast.error(t("Message couldn't be sent to {channel}", { channel: label }));
               } else {
                 setSubmitted(true);
               }

@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { Button } from "../ui/button";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { writeBotDraft } from "../roster/bot-draft-store";
 import { DEFAULT_BOT_RUNTIME_MODE } from "../roster/bot-sandbox";
 import { useRosterStore } from "../roster/roster-store";
@@ -330,11 +330,7 @@ export function OnboardingSurface({
 
           void navigate({ to: "/bots/$botId", params: { botId: draft.botId }, replace: true }).then(
             opened,
-            () =>
-              toastManager.add({
-                type: "error",
-                title: `Could not open ${draft.name}'s chat. Open it from the roster or reload to retry.`,
-              }),
+            () => toast.error(`${draft.name}'s chat couldn't be opened`),
           );
         }, stage.atMs),
       );

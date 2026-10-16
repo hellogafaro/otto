@@ -114,7 +114,9 @@ vi.mock("../ui/input", () => ({
   },
 }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: mocks.toast } }));
+vi.mock("sonner", () => ({
+  toast: { success: mocks.toast, error: mocks.toast, warning: mocks.toast, info: mocks.toast },
+}));
 
 import { DesktopOnboarding, SubscriptionStep } from "./desktop-onboarding";
 

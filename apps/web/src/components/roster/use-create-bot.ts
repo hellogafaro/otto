@@ -7,7 +7,7 @@ import { randomUUID } from "../../lib/utils";
 import { botEnvironment } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { botIntroPrompt } from "./bot-intro";
 import { DEFAULT_BOT_RUNTIME_MODE } from "./bot-sandbox";
 import { useStartChat } from "./chat-navigation";
@@ -32,7 +32,7 @@ export function useCreateBot(onCreated: () => void) {
     ({ name, avatar, engine }: NewBotInput) =>
       runCreateBotOnce(creatingRef, async () => {
         if (environmentId === null) {
-          toastManager.add({ type: "error", title: t("Connect an environment first") });
+          toast.error(t("Connect an environment first"));
 
           return;
         }
@@ -59,7 +59,7 @@ export function useCreateBot(onCreated: () => void) {
           });
 
           if (Predicate.isTagged(result, "Failure")) {
-            toastManager.add({ type: "error", title: t("Could not create bot") });
+            toast.error(t("Bot couldn't be created"));
 
             return;
           }

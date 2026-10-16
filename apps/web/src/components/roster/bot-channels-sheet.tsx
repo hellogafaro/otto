@@ -41,7 +41,7 @@ import {
 } from "../settings/channel-status";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { BotSideSheet, BotSideSheetEmpty } from "./bot-side-sheet";
 import type { Bot } from "./types";
 
@@ -149,17 +149,11 @@ export function BotChannelsSheet({
     setBusyId(null);
 
     if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({
-        type: "error",
-        title: t("Could not update channel"),
-        ...(isChannelIdentityConflict(result)
-          ? {
-              description: t(
-                "Another bot already uses this account. Unassign it there, then connect again.",
-              ),
-            }
-          : {}),
-      });
+      toast.error(
+        isChannelIdentityConflict(result)
+          ? t("Another bot already uses this account")
+          : t("Channel couldn't be updated"),
+      );
     }
   };
 
@@ -209,7 +203,7 @@ export function BotChannelsSheet({
     setBusyId(null);
 
     if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({ type: "error", title: t("Could not unassign channel") });
+      toast.error(t("Channel couldn't be unassigned"));
     }
   };
 

@@ -152,9 +152,8 @@ vi.mock("~/browser/browser-surface-store", () => ({
   ) => select({ byTabId: {} }),
 }));
 
-vi.mock("~/components/ui/toast", () => ({
-  stackedThreadToast: vi.fn(),
-  toastManager: { add: vi.fn() },
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }));
 
 vi.mock("./preview-bridge", () => ({

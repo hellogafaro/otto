@@ -8,7 +8,7 @@ import { botEnvironment } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { SettingsPageContainer } from "../settings/settings-layout";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { BotSettingsForm } from "./bot-settings-form";
 import { useRosterStore } from "./roster-store";
 import type { BotProfileUpdate } from "./use-bot-profile-draft";
@@ -37,7 +37,7 @@ export function BotSettingsPage({ botId }: { readonly botId: string }) {
       });
 
       if (Predicate.isTagged(result, "Failure")) {
-        toastManager.add({ type: "error", title: t("Could not save bot settings") });
+        toast.error(t("Bot settings couldn't be saved"));
 
         return false;
       }

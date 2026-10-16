@@ -68,7 +68,14 @@ vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => fixtures.
 
 vi.mock("../../hooks/use-settings", () => ({ useEnvironmentSettings: () => fixtures.connections }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: fixtures.toast } }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: fixtures.toast,
+    error: fixtures.toast,
+    warning: fixtures.toast,
+    info: fixtures.toast,
+  },
+}));
 
 vi.mock("../../settings-dialog-store", () => ({ useSettingsEnvironmentId: () => "environment-1" }));
 
@@ -183,11 +190,7 @@ describe("channel identity conflicts", () => {
     fixtures.selects[0]!.onValueChange?.("bot-uuid");
     await fixtures.command.mock.results[0]!.value;
     await Promise.resolve();
-    expect(fixtures.toast).toHaveBeenCalledWith({
-      type: "error",
-      title: "Could not assign channel",
-      description: "Another bot already uses this account. Unassign it there, then connect again.",
-    });
+    expect(fixtures.toast).toHaveBeenCalledWith("Another bot already uses this account");
   });
 });
 

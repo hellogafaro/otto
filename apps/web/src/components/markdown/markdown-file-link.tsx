@@ -1,7 +1,6 @@
 import { Predicate } from "effect";
 import {
   isAtomCommandInterrupted,
-  squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@otto/client-runtime/state/runtime";
 import { memo, useCallback, type MouseEvent as ReactMouseEvent } from "react";
@@ -10,7 +9,7 @@ import { cn } from "../../lib/utils";
 import { readLocalApi } from "../../local-api";
 import { shouldOpenMarkdownFileLinkInEditor } from "../../markdown-links";
 import { CHAT_FILE_TAG_CHIP_CLASS_NAME, FileTagChipContent } from "../chat/file-tag-chip";
-import { stackedThreadToast, toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { reportMarkdownActionFailure } from "./markdown-action-failure";
 import {
@@ -146,26 +145,13 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
           { operation: "open-file-in-editor", target: targetPath },
           result.cause,
         );
-        const error = squashAtomCommandFailure(result);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Unable to open file"),
-            description: error instanceof Error ? error.message : t("An error occurred."),
-          }),
-        );
+        toast.error(t("File couldn't be opened"));
       } catch (cause) {
         reportMarkdownActionFailure(
           { operation: "open-file-in-editor", target: targetPath },
           cause,
         );
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Unable to open file"),
-            description: cause instanceof Error ? cause.message : t("An error occurred."),
-          }),
-        );
+        toast.error(t("File couldn't be opened"));
       }
     })();
   }, [onOpen, t, targetPath]);
@@ -187,26 +173,13 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
           { operation: "open-file-in-browser", target: targetPath },
           result.cause,
         );
-        const error = squashAtomCommandFailure(result);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Unable to open file in browser"),
-            description: error instanceof Error ? error.message : t("An error occurred."),
-          }),
-        );
+        toast.error(t("File couldn't be opened in the browser"));
       } catch (cause) {
         reportMarkdownActionFailure(
           { operation: "open-file-in-browser", target: targetPath },
           cause,
         );
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Unable to open file in browser"),
-            description: cause instanceof Error ? cause.message : t("An error occurred."),
-          }),
-        );
+        toast.error(t("File couldn't be opened in the browser"));
       }
     })();
   }, [onOpenInBrowser, t, targetPath]);
@@ -228,26 +201,13 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
           { operation: "reveal-file-in-file-manager", target: targetPath },
           result.cause,
         );
-        const error = squashAtomCommandFailure(result);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Unable to reveal file"),
-            description: error instanceof Error ? error.message : t("An error occurred."),
-          }),
-        );
+        toast.error(t("File couldn't be revealed"));
       } catch (cause) {
         reportMarkdownActionFailure(
           { operation: "reveal-file-in-file-manager", target: targetPath },
           cause,
         );
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Unable to reveal file"),
-            description: cause instanceof Error ? cause.message : t("An error occurred."),
-          }),
-        );
+        toast.error(t("File couldn't be revealed"));
       }
     })();
   }, [onReveal, t, targetPath]);
@@ -256,42 +216,29 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
     (value: string, copyTarget: "Relative path" | "Full path") => {
       const failedTitle =
         copyTarget === "Relative path"
-          ? t("Failed to copy relative path")
-          : t("Failed to copy full path");
+          ? t("Relative path couldn't be copied")
+          : t("Full path couldn't be copied");
 
       if (typeof window === "undefined" || !navigator.clipboard?.writeText) {
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: failedTitle,
-            description: t("Clipboard API unavailable."),
-          }),
-        );
+        toast.error(failedTitle);
 
         return;
       }
 
       void navigator.clipboard.writeText(value).then(
         () => {
-          toastManager.add({
-            type: "success",
-            title:
-              copyTarget === "Relative path" ? t("Relative path copied") : t("Full path copied"),
-            description: value,
-          });
+          toast.success(
+            copyTarget === "Relative path"
+              ? t("Relative path has been copied")
+              : t("Full path has been copied"),
+          );
         },
         (error) => {
           reportMarkdownActionFailure(
             { operation: "copy-file-path", target: targetPath, copyTarget },
             error,
           );
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: failedTitle,
-              description: error instanceof Error ? error.message : t("An error occurred."),
-            }),
-          );
+          toast.error(failedTitle);
         },
       );
     },

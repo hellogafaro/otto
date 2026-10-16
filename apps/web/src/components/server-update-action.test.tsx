@@ -22,8 +22,13 @@ vi.mock("~/state/use-atom-command", () => ({
   useAtomCommand: () => testState.updateServer,
 }));
 
-vi.mock("./ui/toast", () => ({
-  toastManager: { add: testState.toast },
+vi.mock("sonner", () => ({
+  toast: {
+    success: testState.toast,
+    error: testState.toast,
+    warning: testState.toast,
+    info: testState.toast,
+  },
 }));
 
 import { ServerUpdateAction, ServerUpdateProgress } from "./server-update-action";
@@ -81,11 +86,7 @@ describe("ServerUpdateAction", () => {
       environmentId: "env-test",
       input: { targetVersion: "0.0.31" },
     });
-    expect(testState.toast).toHaveBeenCalledWith({
-      type: "success",
-      title: "Test server updated",
-      description: "Reconnected on Otto 0.0.31.",
-    });
+    expect(testState.toast).toHaveBeenCalledWith("Test server has been updated");
   });
 
   it("reports one result when the update action is double-clicked", async () => {

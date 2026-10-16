@@ -54,7 +54,7 @@ describe("bot settings page", () => {
     expect(source).toContain("botId: BotId.make(bot.id)");
     // The draft hook builds the payload, so the page cannot invent a shape.
     expect(source).toContain("useBotProfileDraft(bot, onSave)");
-    expect(source).toContain('title: t("Could not save bot settings")');
+    expect(source).toContain('toast.error(t("Bot settings couldn\'t be saved"))');
   });
 
   it("saves as you go, with no Save bar or unsaved-changes prompt", () => {

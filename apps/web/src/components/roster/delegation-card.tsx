@@ -12,7 +12,6 @@ import {
   presentDelegation,
 } from "@otto/client-runtime/delegation-presentation";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
-import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import { formatDuration } from "@otto/shared/orchestrationTiming";
 import { formatTokens } from "@otto/shared/usageFormat";
 import { useMemo, useState, type ReactNode } from "react";
@@ -24,7 +23,7 @@ import { useThreadActivities, useThreadShell } from "../../state/entities";
 import { orchestrationEnvironment } from "../../state/orchestration";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { BotAvatarView } from "./bot-avatar-view";
 import {
   DelegationDetail,
@@ -67,12 +66,6 @@ function DelegationElapsed({
   const elapsed = delegationElapsedMs(delegation, now);
 
   return elapsed === null ? null : <span className="tabular-nums">{formatDuration(elapsed)}</span>;
-}
-
-function commandFailureMessage(result: Parameters<typeof squashAtomCommandFailure>[0]) {
-  const error = squashAtomCommandFailure(result);
-
-  return error instanceof Error ? error.message : undefined;
 }
 
 /**
@@ -118,13 +111,7 @@ function DelegationActions({
 
     return request
       .then((result) => {
-        if (!isTagged(result, "Failure")) return;
-        const description = commandFailureMessage(result);
-        toastManager.add({
-          type: "error",
-          title: actionCopy(action, t, childName).failure,
-          ...(description ? { description } : {}),
-        });
+        if (isTagged(result, "Failure")) toast.error(actionCopy(action, t, childName).failure);
       })
       .finally(() => setPending(null));
   };
@@ -157,19 +144,19 @@ function actionCopy(action: DelegationAction, t: Translate, name: string) {
       return {
         label: t("Let it finish"),
         ariaLabel: t("Let {name} finish the work", { name }),
-        failure: t("Could not let the work finish"),
+        failure: t("Work couldn't be kept running"),
       };
     case "cancel":
       return {
         label: t("Cancel"),
         ariaLabel: t("Cancel delegation to {name}", { name }),
-        failure: t("Could not cancel delegation"),
+        failure: t("Delegation couldn't be cancelled"),
       };
     case "retry":
       return {
         label: t("Try again"),
         ariaLabel: t("Ask {name} to try again", { name }),
-        failure: t("Could not retry the work"),
+        failure: t("Work couldn't be retried"),
       };
   }
 }

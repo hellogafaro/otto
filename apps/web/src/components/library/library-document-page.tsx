@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import {
   splitFrontMatter,
   type EnvironmentId,
@@ -26,12 +27,7 @@ import { useEntities } from "../work/work-links";
 import { LibraryItemMenu } from "./library-actions";
 import { LibraryFileDetails } from "./library-details";
 import { joinFrontMatter } from "./library.logic";
-import {
-  useLibraryData,
-  useLibraryDownload,
-  useLibraryFailure,
-  type LibraryData,
-} from "./use-library";
+import { useLibraryData, useLibraryDownload, type LibraryData } from "./use-library";
 
 const SAVE_DELAY_MS = 800;
 
@@ -94,7 +90,6 @@ function DocumentEditor({
   const { t } = useI18n();
   const links = useEntities();
   const download = useLibraryDownload();
-  const fail = useLibraryFailure();
   const readDocument = useAtomCommand(libraryEnvironment.readDocument, { reportFailure: false });
   const saveDocument = useAtomCommand(libraryEnvironment.saveDocument, { reportFailure: false });
   const updateFile = useAtomCommand(libraryEnvironment.updateFile);
@@ -205,9 +200,9 @@ function DocumentEditor({
         return;
       }
 
-      fail(result, t("Could not save the document"));
+      toast.error(t("Document couldn't be saved"));
     },
-    [environmentId, fail, file.id, reconcile, saveDocument, t],
+    [environmentId, file.id, reconcile, saveDocument, t],
   );
 
   useEffect(

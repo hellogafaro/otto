@@ -31,7 +31,7 @@ import {
 import type { MessageReplyTarget } from "../chat/message-controls";
 import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { useI18n } from "../../i18n";
 import { BotComposerModelControl } from "./bot-composer-model-control";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -345,11 +345,7 @@ export function BotPromptComposer({
 
   useEffect(() => {
     if (dictation.status !== "failed" || !dictation.errorMessage) return;
-    toastManager.add({
-      type: "error",
-      title: t("Could not dictate"),
-      description: dictation.errorMessage,
-    });
+    toast.error(t("Dictation couldn't be completed"));
   }, [dictation.errorMessage, dictation.status, t]);
 
   const showDictation =
@@ -645,13 +641,7 @@ export function BotPromptComposer({
                   <DictationControls
                     appearance="send-slot"
                     {...dictation}
-                    onBlockedPress={(reason) =>
-                      toastManager.add({
-                        type: "info",
-                        title: t("Dictation unavailable"),
-                        description: reason,
-                      })
-                    }
+                    onBlockedPress={() => toast.info(t("Dictation isn't available"))}
                   />
                 </div>
               ) : (

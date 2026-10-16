@@ -5,7 +5,7 @@ import * as Equal from "effect/Equal";
 import { readAppearanceModePreference, useTheme } from "../../hooks/use-theme";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/use-settings";
 import { ensureLocalApi, readLocalApi } from "../../local-api";
-import { stackedThreadToast, toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import {
   getChangedBrowserSettingLabels,
   getChangedTypographySettingLabels,
@@ -116,13 +116,7 @@ export function useSettingsRestore(onRestored?: () => void) {
     if (!confirmed) return;
 
     if (readAppearanceModePreference("otto-paper") !== "system" && !setAppearanceMode("system")) {
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: t("Couldn’t restore theme settings"),
-          description: t("Try again."),
-        }),
-      );
+      toast.error(t("Theme settings couldn't be restored"));
 
       return;
     }

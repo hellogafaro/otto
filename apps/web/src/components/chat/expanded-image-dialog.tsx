@@ -21,7 +21,7 @@ import {
   revealInFileExplorerLabelForOs,
 } from "../preview/file-explorer-label";
 import { Button } from "../ui/button";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { copyExpandedImage, saveExpandedImage } from "./expanded-image-actions";
 import type { ExpandedImageItem, ExpandedImagePreview } from "./expanded-image-preview";
 
@@ -73,13 +73,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
   const reveal = useRevealAttachment(environmentId);
 
   const runAction = useCallback((title: string, action: () => Promise<void>) => {
-    action().catch((cause: unknown) =>
-      toastManager.add({
-        type: "error",
-        title,
-        ...(cause instanceof Error ? { description: cause.message } : {}),
-      }),
-    );
+    action().catch(() => toast.error(title));
   }, []);
 
   const openImage = (item: ExpandedImageItem) =>
@@ -169,7 +163,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
             type="button"
             size="icon-xs"
             variant="ghost"
-            onClick={() => runAction(t("Could not save the image"), () => saveExpandedImage(item))}
+            onClick={() => runAction(t("Image couldn't be saved"), () => saveExpandedImage(item))}
             aria-label={t("Save image")}
             title={t("Save image")}
           >
@@ -180,9 +174,9 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
             size="icon-xs"
             variant="ghost"
             onClick={() =>
-              runAction(t("Could not copy the image"), async () => {
+              runAction(t("Image couldn't be copied"), async () => {
                 await copyExpandedImage(item);
-                toastManager.add({ type: "success", title: t("Image copied") });
+                toast.success(t("Image has been copied"));
               })
             }
             aria-label={t("Copy image")}
@@ -196,7 +190,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
               size="icon-xs"
               variant="ghost"
               onClick={() =>
-                runAction(t("Could not reveal the image"), () => reveal.reveal(item.id))
+                runAction(t("Image couldn't be revealed"), () => reveal.reveal(item.id))
               }
               aria-label={reveal.label}
               title={reveal.label}

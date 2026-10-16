@@ -87,7 +87,9 @@ vi.mock("../../state/use-atom-command", () => ({
   useAtomCommand: (command: string) => (command === "retryDelegation" ? mocks.retry : mocks.cancel),
 }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: mocks.toast } }));
+vi.mock("sonner", () => ({
+  toast: { success: mocks.toast, error: mocks.toast, warning: mocks.toast, info: mocks.toast },
+}));
 
 vi.mock("./roster-store", () => ({
   useRosterStore: { getState: () => ({ recordChatPath: mocks.recordChatPath }) },
@@ -564,11 +566,7 @@ describe("DelegationCard", () => {
     const retry = findByLabel(cardElement("failed"), "Ask Mori to try again");
     await (retry?.props.onClick as (() => Promise<void>) | undefined)?.();
     expect(mocks.setState).toHaveBeenLastCalledWith(null);
-    expect(mocks.toast).toHaveBeenCalledWith({
-      type: "error",
-      title: "Could not retry the work",
-      description: "This bot already has 3 bot work items running.",
-    });
+    expect(mocks.toast).toHaveBeenCalledWith("Work couldn't be retried");
   });
 
   it("opens the read-only work view from the card", () => {

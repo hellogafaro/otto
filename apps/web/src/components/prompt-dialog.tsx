@@ -8,7 +8,7 @@ import { DictationControls } from "./chat/dictation-controls";
 import { Button } from "./ui/button";
 import { Dialog, DialogHeader, DialogPopup, DialogTitle } from "./ui/dialog";
 import { Kbd } from "./ui/kbd";
-import { toastManager } from "./ui/toast";
+import { toast } from "sonner";
 
 interface PromptDialogProps {
   readonly open: boolean;
@@ -95,11 +95,7 @@ function PromptDialogBody({
 
   useEffect(() => {
     if (dictation.status !== "failed" || !dictation.errorMessage) return;
-    toastManager.add({
-      type: "error",
-      title: t("Could not dictate"),
-      description: dictation.errorMessage,
-    });
+    toast.error(t("Dictation couldn't be completed"));
   }, [dictation.errorMessage, dictation.status, t]);
 
   const showDictation = composerActionIsDictation({
@@ -164,13 +160,7 @@ function PromptDialogBody({
             <DictationControls
               appearance="send-slot"
               {...dictation}
-              onBlockedPress={(reason) =>
-                toastManager.add({
-                  type: "info",
-                  title: t("Dictation unavailable"),
-                  description: reason,
-                })
-              }
+              onBlockedPress={() => toast.info(t("Dictation isn't available"))}
             />
           </div>
         ) : (

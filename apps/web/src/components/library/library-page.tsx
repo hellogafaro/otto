@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import {
   LIBRARY_MAX_FOLDER_DEPTH,
   LIBRARY_SYSTEM_FOLDER_IDS,
@@ -45,12 +46,7 @@ import {
   matchesLibraryTab,
   sortLibraryItems,
 } from "./library.logic";
-import {
-  useLibraryData,
-  useLibraryFailure,
-  useLibraryUpload,
-  type LibraryData,
-} from "./use-library";
+import { useLibraryData, useLibraryUpload, type LibraryData } from "./use-library";
 
 const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
@@ -71,7 +67,6 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   const folderId = folder?.id ?? null;
   const path = libraryFolderPath(folders, folderId).toReversed();
   const { upload, uploading } = useLibraryUpload();
-  const fail = useLibraryFailure();
   const createFolder = useAtomCommand(libraryEnvironment.createFolder, { reportFailure: false });
 
   const createDocument = useAtomCommand(libraryEnvironment.createDocument, {
@@ -119,7 +114,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
     if (AsyncResult.isSuccess(result)) {
       void navigate({ to: "/library/$fileId", params: { fileId: result.value.fileId } });
     } else {
-      fail(result, t("Could not create the document"));
+      toast.error(t("Document couldn't be created"));
     }
   };
 
@@ -326,7 +321,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
                 environmentId,
                 input: { folderId: LibraryFolderId.make(randomUUID()), parentId: folderId, title },
               }).then((result) => {
-                if (!AsyncResult.isSuccess(result)) fail(result, t("Could not create the folder"));
+                if (!AsyncResult.isSuccess(result)) toast.error(t("Folder couldn't be created"));
               })
             }
           />

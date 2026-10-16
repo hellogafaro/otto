@@ -193,9 +193,6 @@ export const connectionsCatalog = {
   "Could not connect with the new credentials. The old connection is unchanged.":
     "Could not connect with the new credentials. The old connection is unchanged.",
   "The old connection could not be restored.": "The old connection could not be restored.",
-  "New credentials connected": "New credentials connected",
-  "The old connection could not be removed. Delete it from the channel list.":
-    "The old connection could not be removed. Delete it from the channel list.",
   "{name} is saved but could not connect. {reason}":
     "{name} is saved but could not connect. {reason}",
   "{name} is saved but could not connect. Try again or check the connection settings.":
@@ -215,8 +212,6 @@ export const connectionsCatalog = {
   Disconnected: "Disconnected",
   "Unassign the channel already connected to this bot first":
     "Unassign the channel already connected to this bot first",
-  "Could not disconnect channel": "Could not disconnect channel",
-  "Could not reconnect channel": "Could not reconnect channel",
   "{count} connection": "{count} connection",
   "{count} connections": "{count} connections",
   "Add connection": "Add connection",
@@ -247,9 +242,6 @@ export const connectionsCatalog = {
     "Connect a provider in Settings > Providers so this bot can reply.",
   "Refresh remote branch status in the background.":
     "Refresh remote branch status in the background.",
-  "Archive exported": "Archive exported",
-  "Could not export archive": "Could not export archive",
-  "Could not import archive": "Could not import archive",
   "{filename}. Review what Otto will restore on this environment.":
     "{filename}. Review what Otto will restore on this environment.",
   "After restore, sign in to providers and reconnect imported MCP servers on this device.":
@@ -343,7 +335,6 @@ export const connectionsCatalog = {
   "Not connected": "Not connected",
   "OAuth connected": "OAuth connected",
   "Computer > Local execution": "Computer > Local execution",
-  "The environment rejected the change.": "The environment rejected the change.",
   "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.":
     "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.",
   "Stored by the environment server. Add a key before enabling Browserbase.":
@@ -432,7 +423,6 @@ export const connectionsCatalog = {
     "Remove the Composio API key from this environment? Bots lose access to Composio apps until you add a key again.",
   "Disconnect {name}? Bots stop using this account.":
     "Disconnect {name}? Bots stop using this account.",
-  "Could not disconnect {name}": "Could not disconnect {name}",
   "Search above to find Composio apps. Composio handles each app's sign-in, and your bots can use connected accounts.":
     "Search above to find Composio apps. Composio handles each app's sign-in, and your bots can use connected accounts.",
   "Add your own Composio API key to connect apps such as Slack or Notion. Composio handles each app's sign-in.":
@@ -446,11 +436,8 @@ export const connectionsCatalog = {
   "Store credentials outside the server URL.": "Store credentials outside the server URL.",
   "Connect a listed integration, or follow a setup guide from integrations.sh.":
     "Connect a listed integration, or follow a setup guide from integrations.sh.",
-  "Could not connect {name}": "Could not connect {name}",
   "Could not enable MCP server": "Could not enable MCP server",
   "Could not disable MCP server": "Could not disable MCP server",
-  "Could not update MCP server": "Could not update MCP server",
-  "Could not add MCP server": "Could not add MCP server",
   "Could not remove MCP server": "Could not remove MCP server",
   "Browse integrations.sh for MCP endpoints and setup instructions. Add the server here once you have its URL or command.":
     "Browse integrations.sh for MCP endpoints and setup instructions. Add the server here once you have its URL or command.",
@@ -505,8 +492,6 @@ export const connectionsCatalog = {
   "It may have been removed, or it isn't shared with you.":
     "It may have been removed, or it isn't shared with you.",
   "Needs reconnecting": "Needs reconnecting",
-  "Could not turn on {name}": "Could not turn on {name}",
-  "Could not turn off {name}": "Could not turn off {name}",
   "Remove {name}? Bots stop using its tools.": "Remove {name}? Bots stop using its tools.",
   "Local command, not supported": "Local command, not supported",
   "Use {name}": "Use {name}",
@@ -526,7 +511,6 @@ export const connectionsCatalog = {
   "Connect an environment to customize your bots.":
     "Connect an environment to customize your bots.",
   "Say when bots should use it.": "Say when bots should use it.",
-  "Could not create the skill": "Could not create the skill",
   "Import skill": "Import skill",
   "New skill": "New skill",
   "Weekly report": "Weekly report",
@@ -534,9 +518,6 @@ export const connectionsCatalog = {
   "Use when someone asks for the weekly numbers.": "Use when someone asks for the weekly numbers.",
   "SKILL.md and {count} more files.": "SKILL.md and {count} more files.",
   "Create skill": "Create skill",
-  "Not a skill": "Not a skill",
-  "A skill needs a SKILL.md file.": "A skill needs a SKILL.md file.",
-  "Could not read that skill": "Could not read that skill",
   "No SKILL.md yet": "No SKILL.md yet",
   Personal: "Personal",
   "Use an https:// address.": "Use an https:// address.",
@@ -575,14 +556,12 @@ export const connectionsCatalog = {
   "Use a header name like Authorization.": "Use a header name like Authorization.",
   "Each header name can be used once.": "Each header name can be used once.",
   "Enter a value for {name}.": "Enter a value for {name}.",
-  "Could not save the headers": "Could not save the headers",
   Headers: "Headers",
   "Header name": "Header name",
   "Header value": "Header value",
   Value: "Value",
   "Remove header": "Remove header",
   "Add header": "Add header",
-  "Could not sign in to {name}": "Could not sign in to {name}",
   "Sign in to see its tools.": "Sign in to see its tools.",
   "Sign in": "Sign in",
   Apps: "Apps",

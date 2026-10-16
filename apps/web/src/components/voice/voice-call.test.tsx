@@ -12,7 +12,7 @@ import {
   scheduleVoiceDisconnectTimeout,
   voiceConnectionStateAction,
   voiceEnvironmentConnectionLost,
-  voiceStartErrorDescription,
+  voiceMicrophoneErrorTitle,
   waitForIceGathering,
   VoiceCallBarView,
   VoiceCallStartingBarView,
@@ -232,12 +232,12 @@ describe("voice call UI", () => {
     }
   });
 
-  it("turns microphone permission and device errors into actions", () => {
-    expect(voiceStartErrorDescription(new DOMException("denied", "NotAllowedError"))).toBe(
-      "Allow microphone access, then try again.",
+  it("names microphone permission and device errors", () => {
+    expect(voiceMicrophoneErrorTitle(new DOMException("denied", "NotAllowedError"))).toBe(
+      "Microphone access isn't allowed",
     );
-    expect(voiceStartErrorDescription(new DOMException("missing", "NotFoundError"))).toBe(
-      "Connect a microphone, then try again.",
+    expect(voiceMicrophoneErrorTitle(new DOMException("missing", "NotFoundError"))).toBe(
+      "No microphone is connected",
     );
   });
 

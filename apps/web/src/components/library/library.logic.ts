@@ -58,11 +58,6 @@ export function formatLibrarySize(bytes: number): string {
   return `${sizeFormatter.format(bytes / 1_000_000)} MB`;
 }
 
-/** The server's reason for a refused change, without the internal command prefix. */
-export function libraryFailureText(message: string): string {
-  return message.replace(/^Orchestration command invariant failed \([^)]*\):\s*/, "");
-}
-
 /**
  * The rich text editor has no front matter, so a document's YAML header (a skill's name and
  * description) is edited beside it as plain text and put back in front of the body on save.

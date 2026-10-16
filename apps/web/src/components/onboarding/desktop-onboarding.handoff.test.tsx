@@ -54,7 +54,9 @@ vi.mock("../../state/bots", () => ({
   environmentRosterLoadedAtom: () => "rosterLoaded",
 }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: mocks.toast } }));
+vi.mock("sonner", () => ({
+  toast: { success: mocks.toast, error: mocks.toast, warning: mocks.toast, info: mocks.toast },
+}));
 
 vi.mock("../../state/environments", () => ({
   usePrimaryEnvironmentId: () => mocks.environmentId,
@@ -389,12 +391,7 @@ describe("onboarding handoff", () => {
 
     expect(storage.has(DESKTOP_ONBOARDING_HANDOFF_STORAGE_KEY)).toBe(false);
     expect(mocks.navigate).not.toHaveBeenCalled();
-    expect(mocks.toast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "error",
-        title: "Your new bot was archived before its chat opened. Create or select another bot.",
-      }),
-    );
+    expect(mocks.toast).toHaveBeenCalledWith("Your new bot was archived before its chat opened");
   });
 
   it("does not open a bot archived during the active handoff", async () => {
@@ -419,9 +416,7 @@ describe("onboarding handoff", () => {
     await mount();
     expect(mocks.navigate).toHaveBeenCalledOnce();
     expect(storage.get(DESKTOP_ONBOARDING_HANDOFF_STORAGE_KEY)).toBe(HANDOFF);
-    expect(mocks.toast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Could not reopen your new chat. Reload to try again." }),
-    );
+    expect(mocks.toast).toHaveBeenCalledWith("Your new chat couldn't be reopened");
 
     await act(async () => root.unmount());
     await mount();

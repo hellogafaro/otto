@@ -8,7 +8,7 @@ import { isElectron } from "../../env";
 import { environmentBotsAtom, environmentRosterLoadedAtom } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentShell } from "../../state/shell";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { useRosterStore } from "../roster/roster-store";
 import {
   clearDesktopOnboardingHandoff,
@@ -125,10 +125,7 @@ export function DesktopOnboarding({
 
     if (handoffBot?.archivedAt) {
       clearDesktopOnboardingHandoff(window.localStorage);
-      toastManager.add({
-        type: "error",
-        title: "Your new bot was archived before its chat opened. Create or select another bot.",
-      });
+      toast.error("Your new bot was archived before its chat opened");
 
       return;
     }
@@ -142,11 +139,7 @@ export function DesktopOnboarding({
     useRosterStore.getState().selectBot(botId);
     void navigate({ to: "/bots/$botId", params: { botId }, replace: true }).then(
       () => clearDesktopOnboardingHandoff(window.localStorage),
-      () =>
-        toastManager.add({
-          type: "error",
-          title: "Could not reopen your new chat. Reload to try again.",
-        }),
+      () => toast.error("Your new chat couldn't be reopened"),
     );
   }, [environmentId, navigate, rosterLoaded, serverBots]);
 

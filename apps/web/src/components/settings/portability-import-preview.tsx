@@ -1,5 +1,4 @@
 import type {
-  PortabilityApplyImportResult,
   PortabilityImportItem,
   PortabilityImportPreview,
   PortabilityProjectFolderMap,
@@ -8,7 +7,6 @@ import type {
 import { useI18n } from "../../i18n";
 import { Button } from "../ui/button";
 import { DraftInput } from "../ui/draft-input";
-import { Translate } from "./portability-presentation";
 
 export interface ImportPreviewState {
   readonly contents: string;
@@ -148,20 +146,4 @@ export function ImportPreview({
       ) : null}
     </div>
   );
-}
-
-export function importResultDescription(
-  result: PortabilityApplyImportResult,
-  t: Translate,
-): string {
-  const counts = [
-    t("{count} restored.", { count: result.applied }),
-    ...(result.skipped > 0 ? [t("{count} skipped.", { count: result.skipped })] : []),
-    ...(result.failed > 0 ? [t("{count} failed.", { count: result.failed })] : []),
-    ...(result.partial > 0 ? [t("{count} partly restored.", { count: result.partial })] : []),
-  ];
-
-  const firstFailure = result.failures[0];
-
-  return `${counts.join(" ")}${firstFailure ? ` ${firstFailure.title}: ${firstFailure.message}` : ""}`;
 }

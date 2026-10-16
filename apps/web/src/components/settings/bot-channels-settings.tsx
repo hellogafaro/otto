@@ -1,9 +1,6 @@
 import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
-import {
-  channelBindingNeedsProject,
-  channelFailureReason,
-} from "@otto/client-runtime/channel-presentation";
+import { channelBindingNeedsProject } from "@otto/client-runtime/channel-presentation";
 import {
   createTranslator,
   type PluralForms,
@@ -21,11 +18,7 @@ import {
 } from "@otto/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  channelFailureCategoryOf,
-  isChannelIdentityConflict,
-  resolveChannelSettingsAccess,
-} from "../../channel-access";
+import { isChannelIdentityConflict, resolveChannelSettingsAccess } from "../../channel-access";
 import { requestConfirmDialog } from "../../confirm-dialog";
 import { useI18n } from "../../i18n";
 import { useEnvironmentSettings } from "../../hooks/use-settings";
@@ -35,7 +28,7 @@ import { environmentSnapshotAtom } from "../../state/shell";
 import { useSettingsEnvironmentId } from "../../settings-dialog-store";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Spinner } from "../ui/spinner";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { CHANNEL_PROVIDER_META } from "./channel-provider-meta";
 import type { ProviderConnectionState } from "./provider-status";
 import { SettingsLinkRow, SettingsMessageRow } from "./settings-detail-layout";
@@ -255,23 +248,9 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
       ? "no-environment"
       : resolveChannelSettingsAccess({ isPending: session.isPending, session: session.data });
 
-  // Toast detail for a failed channel command: the conflict or the category's reason, if known.
-  const failureDescription = (
-    result: Parameters<typeof channelFailureCategoryOf>[0],
-    provider: ChannelProvider,
-  ) => {
-    if (isChannelIdentityConflict(result)) {
-      return {
-        description: t(
-          "Another bot already uses this account. Unassign it there, then connect again.",
-        ),
-      };
-    }
-
-    const category = channelFailureCategoryOf(result);
-
-    return category ? { description: channelFailureReason(category, provider, t) } : {};
-  };
+  // A failed channel command names the identity conflict when that is the cause.
+  const failureTitle = (result: Parameters<typeof isChannelIdentityConflict>[0], title: string) =>
+    isChannelIdentityConflict(result) ? t("Another bot already uses this account") : title;
 
   useEffect(() => {
     if (!pendingProfile) return;
@@ -306,7 +285,7 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
     if (Predicate.isTagged(result, "Failure")) {
       mutationRef.current = false;
       setBusy(false);
-      toastManager.add({ type: "error", title: t("Unassign this channel before deleting it") });
+      toast.error(t("Unassign this channel before deleting it"));
 
       return;
     }
@@ -344,10 +323,7 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
         : destinationBinding.status !== "disconnected");
 
     if (destinationOccupied) {
-      toastManager.add({
-        type: "error",
-        title: t("Unassign the channel already connected to this bot first"),
-      });
+      toast.error(t("Unassign the channel already connected to this bot first"));
 
       return;
     }
@@ -362,7 +338,7 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
 
       if (Predicate.isTagged(result, "Failure")) {
         setBusyConnectionId(null);
-        toastManager.add({ type: "error", title: t("Could not unassign channel") });
+        toast.error(t("Channel couldn't be unassigned"));
 
         return;
       }
@@ -422,16 +398,16 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
               })
             : null;
 
-        toastManager.add({
-          type: "error",
-          title:
+        toast.error(
+          failureTitle(
+            result,
             Predicate.isTagged(released ?? {}, "Failure") ||
-            Predicate.isTagged(restored ?? {}, "Failure") ||
-            Predicate.isTagged(stopped ?? {}, "Failure")
-              ? t("Could not assign or restore channel")
-              : t("Could not assign channel"),
-          ...failureDescription(result, connection.provider),
-        });
+              Predicate.isTagged(restored ?? {}, "Failure") ||
+              Predicate.isTagged(stopped ?? {}, "Failure")
+              ? t("Channel couldn't be assigned or restored")
+              : t("Channel couldn't be assigned"),
+          ),
+        );
       }
     }
 
@@ -454,11 +430,7 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
     setBusyConnectionId(null);
 
     if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({
-        type: "error",
-        title: t("Could not move channel to this project"),
-        ...failureDescription(result, connection.provider),
-      });
+      toast.error(failureTitle(result, t("Channel couldn't be moved to this project")));
     }
   };
 
@@ -466,7 +438,7 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
     command: typeof disconnect,
     connection: ChannelConnectionProfile,
     botId: BotId,
-    failureTitle: string,
+    title: string,
   ) => {
     if (!environmentId || busyConnectionId) return;
     setBusyConnectionId(connection.id);
@@ -479,11 +451,7 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
     setBusyConnectionId(null);
 
     if (Predicate.isTagged(result, "Failure")) {
-      toastManager.add({
-        type: "error",
-        title: failureTitle,
-        ...failureDescription(result, connection.provider),
-      });
+      toast.error(failureTitle(result, title));
     }
   };
 
@@ -502,9 +470,9 @@ export function useChannelSettings(environmentId: EnvironmentId | null) {
     updateAssignment,
     moveToProject,
     disconnectConnection: (connection: ChannelConnectionProfile, botId: BotId) =>
-      runBindingCommand(disconnect, connection, botId, t("Could not disconnect channel")),
+      runBindingCommand(disconnect, connection, botId, t("Channel couldn't be disconnected")),
     reconnectConnection: (connection: ChannelConnectionProfile, botId: BotId) =>
-      runBindingCommand(reconnect, connection, botId, t("Could not reconnect channel")),
+      runBindingCommand(reconnect, connection, botId, t("Channel couldn't be reconnected")),
     /** Hold the page busy until a connection the setup dialog saved shows up. */
     awaitSavedConnection: (connectionId: string) =>
       setPendingProfile({ id: connectionId, present: true }),

@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1779,
+  "directMessageCount": 1767,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -473,7 +473,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/new-bot-dialog.tsx",
     "apps/web/src/components/roster/new-chat-dialog.tsx",
     "apps/web/src/components/roster/project-composer-control.tsx",
-    "apps/web/src/components/roster/roster-commands.logic.ts",
     "apps/web/src/components/roster/roster-headers.tsx",
     "apps/web/src/components/roster/roster-load-status.tsx",
     "apps/web/src/components/roster/roster-row-actions.tsx",
@@ -509,7 +508,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/keybindings-settings.tsx",
     "apps/web/src/components/settings/language-setting.tsx",
     "apps/web/src/components/settings/portability-import-preview.tsx",
-    "apps/web/src/components/settings/portability-presentation.ts",
     "apps/web/src/components/settings/portability-settings.tsx",
     "apps/web/src/components/settings/privacy-settings.tsx",
     "apps/web/src/components/settings/provider-access-details.tsx",
@@ -539,12 +537,10 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/sidebar/sidebar-chrome.tsx",
     "apps/web/src/components/sidebar/sidebar-provider-update-pill.tsx",
     "apps/web/src/components/sidebar/sidebar-update-pill.tsx",
-    "apps/web/src/components/ui/anchored-toasts.tsx",
     "apps/web/src/components/ui/code-block.tsx",
     "apps/web/src/components/ui/sidebar-rail.tsx",
     "apps/web/src/components/ui/sidebar.tsx",
-    "apps/web/src/components/ui/toast-body.tsx",
-    "apps/web/src/components/ui/toast.tsx",
+    "apps/web/src/components/ui/sonner.tsx",
     "apps/web/src/components/voice/voice-call-controls.tsx",
     "apps/web/src/components/work/activity-section.tsx",
     "apps/web/src/components/work/project-chats.tsx",

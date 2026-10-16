@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import type { DriverOption } from "./provider-driver-meta";
 import { ProviderSettingsForm, readProviderConfigString } from "./provider-settings-form";
 import { AnimatedHeight } from "../animated-height";
@@ -160,18 +160,10 @@ export function AddProviderInstanceDialog({
 
     try {
       updateSettings({ providerInstances: nextMap });
-      toastManager.add({
-        type: "success",
-        title: "Account added",
-        description: `${accountName} was added. Sign in or connect it from its card.`,
-      });
+      toast.success(`${accountName} has been added`);
       onOpenChange(false);
-    } catch (error) {
-      toastManager.add({
-        type: "error",
-        title: "Could not add account",
-        description: error instanceof Error ? error.message : "Update failed.",
-      });
+    } catch {
+      toast.error("Account couldn't be added");
     }
   };
 

@@ -2,7 +2,6 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
-  squashAtomCommandFailure,
 } from "@otto/client-runtime/state/runtime";
 import type {
   ComposioConnection,
@@ -27,13 +26,11 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { MenuItem } from "../ui/menu";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { AddMenu, CustomizeGroup, CustomizeRow } from "./customize-group";
 import { McpServerDialog } from "./mcp-server-dialog";
 
 export function useComposio(environmentId: EnvironmentId) {
-  const { t } = useI18n();
-
   const status = useEnvironmentQuery(
     serverEnvironment.composioStatus({ environmentId, input: {} }),
   );
@@ -52,13 +49,8 @@ export function useComposio(environmentId: EnvironmentId) {
     if (!Predicate.isTagged(result, "Failure")) return false;
 
     if (isAtomCommandInterrupted(result)) return true;
-    const error = squashAtomCommandFailure(result);
 
-    toastManager.add({
-      type: "error",
-      title,
-      description: error instanceof Error ? error.message : t("The command failed."),
-    });
+    toast.error(title);
 
     return true;
   };

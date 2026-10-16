@@ -2,7 +2,7 @@ import { RiComputerLine, RiMoonLine, RiSunLine } from "@remixicon/react";
 import { useI18n } from "../../i18n";
 import { useTheme } from "../../hooks/use-theme";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
-import { stackedThreadToast, toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { SettingsRow } from "./settings-layout";
 
 const modes = [
@@ -28,12 +28,7 @@ export function ColorSchemeSettings() {
             const mode = modes.find((option) => option.mode === next[0])?.mode;
 
             if (mode && !setAppearanceMode(mode)) {
-              toastManager.add(
-                stackedThreadToast({
-                  type: "error",
-                  title: t("Could not save preferences. Try again."),
-                }),
-              );
+              toast.error(t("Preferences couldn't be saved"));
             }
           }}
         >

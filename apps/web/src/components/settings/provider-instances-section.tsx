@@ -37,7 +37,7 @@ import {
   type ProviderUpdateCandidate,
 } from "../provider-updates.logic";
 import { Button } from "../ui/button";
-import { stackedThreadToast, toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { AddProviderInstanceDialog } from "./add-provider-instance-dialog";
 import { ProviderInstanceCard } from "./provider-instance-card";
 import { ProviderAccountSection } from "./providers-panel";
@@ -213,17 +213,9 @@ export function ProviderInstancesSection({
       });
 
       if (Predicate.isTagged(result, "Failure") && !isAtomCommandInterrupted(result)) {
-        const error = squashAtomCommandFailure(result);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Could not update {provider}", {
-              provider: PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver,
-            }),
-            description:
-              error instanceof Error
-                ? error.message
-                : t("The provider update command could not be started."),
+        toast.error(
+          t("{provider} couldn't be updated", {
+            provider: PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver,
           }),
         );
       }

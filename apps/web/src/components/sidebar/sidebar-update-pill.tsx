@@ -7,7 +7,7 @@ import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { ensureLocalApi } from "../../local-api";
 import { useDesktopUpdateState } from "../../state/desktop-update";
-import { stackedThreadToast, toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import {
   canCheckForUpdate,
   getArm64IntelBuildWarningDescription,
@@ -150,22 +150,10 @@ function SidebarUpdateControl() {
           const actionError = getDesktopUpdateActionError(result);
 
           if (!actionError) return;
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: t("Could not download update"),
-              description: actionError,
-            }),
-          );
+          toast.error(t("Update couldn't be downloaded"));
         })
-        .catch((error) => {
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: t("Could not start update download"),
-              description: error instanceof Error ? error.message : "An unexpected error occurred.",
-            }),
-          );
+        .catch(() => {
+          toast.error(t("Update couldn't be downloaded"));
         })
         .finally(() => setIsActionPending(false));
 
@@ -179,15 +167,9 @@ function SidebarUpdateControl() {
         confirmed = await ensureLocalApi().dialogs.confirm(
           getDesktopUpdateInstallConfirmationMessage(state),
         );
-      } catch (error) {
+      } catch {
         setIsActionPending(false);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Could not confirm update"),
-            description: error instanceof Error ? error.message : "Update confirmation failed.",
-          }),
-        );
+        toast.error(t("Update couldn't be confirmed"));
 
         return;
       }
@@ -205,22 +187,10 @@ function SidebarUpdateControl() {
           const actionError = getDesktopUpdateActionError(result);
 
           if (!actionError) return;
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: t("Could not install update"),
-              description: actionError,
-            }),
-          );
+          toast.error(t("Update couldn't be installed"));
         })
-        .catch((error) => {
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: t("Could not install update"),
-              description: error instanceof Error ? error.message : "An unexpected error occurred.",
-            }),
-          );
+        .catch(() => {
+          toast.error(t("Update couldn't be installed"));
         })
         .finally(() => setIsActionPending(false));
 
@@ -236,23 +206,10 @@ function SidebarUpdateControl() {
       .checkForUpdate()
       .then((result) => {
         if (result.checked) return;
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Could not check for updates"),
-            description:
-              result.state.message ?? "Automatic updates are not available in this build.",
-          }),
-        );
+        toast.error(t("Updates couldn't be checked"));
       })
-      .catch((error) => {
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: t("Could not check for updates"),
-            description: error instanceof Error ? error.message : "Update check failed.",
-          }),
-        );
+      .catch(() => {
+        toast.error(t("Updates couldn't be checked"));
       })
       .finally(() => setIsActionPending(false));
   }, [action, isInteractionDisabled, prefersReducedMotion, state, t]);

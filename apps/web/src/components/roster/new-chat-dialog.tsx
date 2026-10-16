@@ -18,7 +18,7 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { PromptDialog } from "../prompt-dialog";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { AssigneesMenu, useWorkParticipants } from "../work/work-participants";
 import { useStartChat } from "./chat-navigation";
 import { ProjectComposerControl, useProjectChoice } from "./project-composer-control";
@@ -111,7 +111,7 @@ function NewChatDialog({ preset }: { readonly preset: NewChatPreset }) {
       }
 
       if (environmentId === null) {
-        toastManager.add({ type: "error", title: t("Connect an environment first") });
+        toast.error(t("Connect an environment first"));
 
         return;
       }
@@ -139,7 +139,7 @@ function NewChatDialog({ preset }: { readonly preset: NewChatPreset }) {
       });
 
       if (Predicate.isTagged(result, "Failure")) {
-        toastManager.add({ type: "error", title: t("Could not start the chat") });
+        toast.error(t("Chat couldn't be started"));
 
         return;
       }

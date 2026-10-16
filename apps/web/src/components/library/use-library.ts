@@ -1,9 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
 import {
-  type AtomCommandResult,
-  squashAtomCommandFailure,
-} from "@otto/client-runtime/state/runtime";
-import {
   canEditLibraryItem,
   type EnvironmentId,
   type LibraryFile,
@@ -14,7 +10,6 @@ import {
   type ProjectId,
   type ThreadId,
 } from "@otto/contracts";
-import * as Predicate from "effect/Predicate";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useCallback, useMemo, useRef, useState } from "react";
 
@@ -26,9 +21,8 @@ import { libraryEnvironment } from "../../state/library";
 import { usePreparedConnection } from "../../state/session";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { useWorkParticipants } from "../work/work-participants";
-import { libraryFailureText } from "./library.logic";
 
 const EMPTY_FOLDERS: readonly LibraryFolder[] = [];
 
@@ -64,19 +58,6 @@ export function useLibraryData() {
 
 export type LibraryData = ReturnType<typeof useLibraryData>;
 
-/** Why a Library change failed, as the server put it. */
-export function useLibraryFailure() {
-  return useCallback((result: AtomCommandResult<unknown, unknown>, title: string) => {
-    const error = Predicate.isTagged(result, "Failure") ? squashAtomCommandFailure(result) : null;
-
-    toastManager.add({
-      type: "error",
-      title,
-      ...(error instanceof Error ? { description: libraryFailureText(error.message) } : {}),
-    });
-  }, []);
-}
-
 /** A signed URL for showing one file; it refreshes before it expires. */
 export function useLibraryFileUrl(environmentId: EnvironmentId, fileId: LibraryFileId) {
   const preparedConnection = usePreparedConnection(environmentId);
@@ -103,7 +84,6 @@ function useHttpBaseUrl() {
 export function useLibraryDownload() {
   const { t } = useI18n();
   const createFileUrl = useAtomCommand(libraryEnvironment.createFileUrl, { reportFailure: false });
-  const fail = useLibraryFailure();
   const httpBaseUrl = useHttpBaseUrl();
 
   return useCallback(
@@ -112,14 +92,14 @@ export function useLibraryDownload() {
       const baseUrl = httpBaseUrl.current;
 
       if (!AsyncResult.isSuccess(result) || baseUrl === null) {
-        return fail(result, t("Could not download the file"));
+        return toast.error(t("File couldn't be downloaded"));
       }
 
       const url = resolveAssetUrl(baseUrl, result.value.relativeUrl);
 
       if (url !== null) window.location.assign(url);
     },
-    [createFileUrl, fail, httpBaseUrl, t],
+    [createFileUrl, httpBaseUrl, t],
   );
 }
 
@@ -135,7 +115,6 @@ export function useLibraryUpload() {
     reportFailure: false,
   });
 
-  const fail = useLibraryFailure();
   const httpBaseUrl = useHttpBaseUrl();
   const [uploading, setUploading] = useState(0);
 
@@ -156,12 +135,11 @@ export function useLibraryUpload() {
       for (const file of files) {
         try {
           if (file.size === 0 || file.size > LIBRARY_FILE_MAX_BYTES) {
-            toastManager.add({
-              type: "error",
-              title: t("Could not upload {name}", { name: file.name }),
-              description:
-                file.size === 0 ? t("That file is empty.") : t("Files can be at most 100 MB."),
-            });
+            toast.error(
+              file.size === 0
+                ? t("{name} is empty", { name: file.name })
+                : t("{name} is larger than 100 MB", { name: file.name }),
+            );
 
             continue;
           }
@@ -174,7 +152,7 @@ export function useLibraryUpload() {
           const baseUrl = httpBaseUrl.current;
 
           if (!AsyncResult.isSuccess(result) || baseUrl === null) {
-            fail(result, t("Could not upload {name}", { name: file.name }));
+            toast.error(t("{name} couldn't be uploaded", { name: file.name }));
 
             continue;
           }
@@ -188,11 +166,7 @@ export function useLibraryUpload() {
             continue;
           }
 
-          toastManager.add({
-            type: "error",
-            title: t("Could not upload {name}", { name: file.name }),
-            ...(response ? { description: await response.text() } : {}),
-          });
+          toast.error(t("{name} couldn't be uploaded", { name: file.name }));
         } finally {
           setUploading((count) => count - 1);
         }
@@ -200,7 +174,7 @@ export function useLibraryUpload() {
 
       return stored;
     },
-    [createUploadUrl, fail, httpBaseUrl, t],
+    [createUploadUrl, httpBaseUrl, t],
   );
 
   return useMemo(() => ({ upload, uploading: uploading > 0 }), [upload, uploading]);

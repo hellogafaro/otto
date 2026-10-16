@@ -1,7 +1,6 @@
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
-  squashAtomCommandFailure,
 } from "@otto/client-runtime/state/runtime";
 import {
   type EnvironmentId,
@@ -31,7 +30,7 @@ import {
 import { Field, FieldError, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
 
 interface Draft {
@@ -83,8 +82,6 @@ function headersError(headers: readonly HeaderDraft[], t: ReturnType<typeof useI
 }
 
 export function useMcpCommands() {
-  const { t } = useI18n();
-
   const commands = {
     create: useAtomCommand(mcpServerEnvironment.create, { reportFailure: false }),
     update: useAtomCommand(mcpServerEnvironment.update, { reportFailure: false }),
@@ -100,12 +97,7 @@ export function useMcpCommands() {
     if (!Predicate.isTagged(result, "Failure")) return false;
 
     if (isAtomCommandInterrupted(result)) return true;
-    const error = squashAtomCommandFailure(result);
-    toastManager.add({
-      type: "error",
-      title,
-      description: error instanceof Error ? error.message : t("The command failed."),
-    });
+    toast.error(title);
 
     return true;
   };
@@ -195,7 +187,7 @@ export function McpServerDialog({
 
     if (
       commands.failed(
-        server ? t("Could not update MCP server") : t("Could not add MCP server"),
+        server ? t("MCP server couldn't be updated") : t("MCP server couldn't be added"),
         result,
       )
     ) {
@@ -216,7 +208,7 @@ export function McpServerDialog({
         },
       });
 
-      if (commands.failed(t("Could not save the headers"), saved)) {
+      if (commands.failed(t("Headers couldn't be saved"), saved)) {
         setSaving(false);
 
         return;

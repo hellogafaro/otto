@@ -107,7 +107,9 @@ vi.mock("../roster/roster-store", () => {
   };
 });
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: mocks.toast } }));
+vi.mock("sonner", () => ({
+  toast: { success: mocks.toast, error: mocks.toast, warning: mocks.toast, info: mocks.toast },
+}));
 
 vi.mock("./browser-voice-audio", () => ({
   // A silent microphone: capture waits until the call scope is cancelled.
@@ -412,11 +414,6 @@ describe("voice call provider", () => {
       environmentId: "env-1",
       input: { callId: "call-1" },
     });
-    expect(mocks.toast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Could not start call",
-        description: "Voice settings changed while the call was starting. Start the call again.",
-      }),
-    );
+    expect(mocks.toast).toHaveBeenCalledWith("Call couldn't be started");
   });
 });

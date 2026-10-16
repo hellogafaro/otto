@@ -91,7 +91,9 @@ vi.mock("../../state/use-atom-command", () => ({
 
 vi.mock("./bot-channels-settings", () => ({ parsePhotonHostedCredentials: vi.fn() }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: mocks.toast } }));
+vi.mock("sonner", () => ({
+  toast: { success: mocks.toast, error: mocks.toast, warning: mocks.toast, info: mocks.toast },
+}));
 
 vi.mock("../ui/button", () => ({
   Button: (props: { children: ReactNode; onClick?: () => void; disabled?: boolean }) => {

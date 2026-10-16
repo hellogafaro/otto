@@ -73,7 +73,14 @@ vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => fixtures.
 
 vi.mock("../../hooks/use-settings", () => ({ useEnvironmentSettings: () => fixtures.connections }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: fixtures.toast } }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: fixtures.toast,
+    error: fixtures.toast,
+    warning: fixtures.toast,
+    info: fixtures.toast,
+  },
+}));
 
 vi.mock("../../settings-dialog-store", () => ({ useSettingsEnvironmentId: () => "environment-1" }));
 
@@ -310,10 +317,9 @@ describe("channel project selection", () => {
     renderPage();
     fixtures.selects[0]!.onValueChange?.("bot-other");
     expect(fixtures.command).not.toHaveBeenCalled();
-    expect(fixtures.toast).toHaveBeenCalledWith({
-      type: "error",
-      title: "Unassign the channel already connected to this bot first",
-    });
+    expect(fixtures.toast).toHaveBeenCalledWith(
+      "Unassign the channel already connected to this bot first",
+    );
   });
 
   it("assigns a connection to a bot whose own channel was detached", async () => {

@@ -1,9 +1,5 @@
-import { toastManager } from "./ui/toast";
+import { toast } from "sonner";
 
 export function showDesktopUpdateDownloadedToast(): void {
-  toastManager.add({
-    type: "success",
-    title: "Update downloaded",
-    description: "Restart the app from the update button to install it.",
-  });
+  toast.success("Update has been downloaded");
 }

@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import {
   type EnvironmentId,
   type LibraryFile,
@@ -43,7 +44,7 @@ import {
 import { Input } from "../ui/input";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { useLibraryDownload, useLibraryFailure, type LibraryData } from "./use-library";
+import { useLibraryDownload, type LibraryData } from "./use-library";
 
 /** One short line of text: a new folder's name or anything's new title. */
 export function LibraryNameDialog({
@@ -465,7 +466,6 @@ export function useLibraryItemActions(
   onDeleted?: () => void,
 ) {
   const { t } = useI18n();
-  const fail = useLibraryFailure();
   const updateFolder = useAtomCommand(libraryEnvironment.updateFolder, { reportFailure: false });
   const deleteFolder = useAtomCommand(libraryEnvironment.deleteFolder, { reportFailure: false });
   const updateFile = useAtomCommand(libraryEnvironment.updateFile, { reportFailure: false });
@@ -500,7 +500,7 @@ export function useLibraryItemActions(
             },
           });
 
-    if (!AsyncResult.isSuccess(result)) fail(result, t("Could not save the change"));
+    if (!AsyncResult.isSuccess(result)) toast.error(t("Change couldn't be saved"));
   };
 
   const remove = async () => {
@@ -519,7 +519,7 @@ export function useLibraryItemActions(
         : await deleteFile({ environmentId, input: { fileId: target.file.id } });
 
     if (AsyncResult.isSuccess(result)) onDeleted?.();
-    else fail(result, t("Could not delete it"));
+    else toast.error(t("{name} couldn't be deleted", { name: item.title }));
   };
 
   return {

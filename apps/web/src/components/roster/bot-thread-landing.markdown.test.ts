@@ -39,6 +39,7 @@ describe("BotThreadLanding message formatting", () => {
       readSibling("bot-chat-message-rows.tsx"),
       "AssistantMessageRow",
     );
+
     expect(assistantRow).toContain("<ChatMarkdown");
     expect(assistantRow).toContain('className="relative w-fit min-w-56 max-w-full"');
     expect(assistantRow).not.toContain("onTaskListChange");
@@ -56,6 +57,7 @@ describe("BotThreadLanding message formatting", () => {
       readSibling("bot-chat-message-rows.tsx"),
       "AssistantMessageRow",
     );
+
     expect(assistantRow).toContain("<BotStepMeter meter={stepMeter} />");
   });
 
@@ -134,6 +136,7 @@ describe("BotThreadLanding message formatting", () => {
       new URL("./bot-thread-landing.tsx", import.meta.url),
       "utf8",
     );
+
     const rows = readSibling("bot-chat-message-rows.tsx");
 
     expect(source).toContain(
@@ -144,7 +147,7 @@ describe("BotThreadLanding message formatting", () => {
     expect(rows).toContain("disabled:pointer-events-auto");
     expect(rows).toContain("if (!onReactionChange) return { controls: {}, chips: {} };");
     expect(source).not.toContain(
-      'if (!threadRef) {\n      toastManager.add({ type: "error", title: t("Could not update reaction") });',
+      'if (!threadRef) {\n      toast.error(t("Reaction couldn\'t be updated"));',
     );
   });
 

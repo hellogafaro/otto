@@ -10,7 +10,6 @@ import {
   botImageProviderOptionLabel,
   globalDefaultOptionLabel,
 } from "@otto/client-runtime/image-generation";
-import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import { driverSupportsDelegation } from "@otto/shared/delegationProviders";
 
 import { useCallback, useState } from "react";
@@ -28,7 +27,7 @@ import { SettingsPageContainer, SettingsRow, SettingsSection } from "../settings
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { AvatarPickerDialog } from "./avatar-picker-dialog";
 import { BotAvatarView } from "./bot-avatar-view";
 import { BotChannelsSheet } from "./bot-channels-sheet";
@@ -130,12 +129,7 @@ export function BotSettingsForm({
       setDeleting(false);
 
       if (Predicate.isTagged(result, "Failure")) {
-        const error = squashAtomCommandFailure(result);
-        toastManager.add({
-          type: "error",
-          title: t("Could not delete {name}", { name: bot.name }),
-          description: error instanceof Error ? error.message : t("The command failed."),
-        });
+        toast.error(t("{name} couldn't be deleted", { name: bot.name }));
 
         return;
       }

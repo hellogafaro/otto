@@ -2,12 +2,8 @@ import { Predicate } from "effect";
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
-  squashAtomCommandFailure,
 } from "@otto/client-runtime/state/runtime";
-import { useI18n } from "../../i18n";
-import { toastManager } from "../ui/toast";
-
-export type Translate = ReturnType<typeof useI18n>["t"];
+import { toast } from "sonner";
 
 export function downloadArchive(filename: string, contents: string): void {
   const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
@@ -18,16 +14,7 @@ export function downloadArchive(filename: string, contents: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export function reportFailure(
-  title: string,
-  result: AtomCommandResult<unknown, unknown>,
-  t: Translate,
-): void {
+export function reportFailure(title: string, result: AtomCommandResult<unknown, unknown>): void {
   if (!Predicate.isTagged(result, "Failure") || isAtomCommandInterrupted(result)) return;
-  const error = squashAtomCommandFailure(result);
-  toastManager.add({
-    type: "error",
-    title,
-    description: error instanceof Error ? error.message : t("The command failed."),
-  });
+  toast.error(title);
 }

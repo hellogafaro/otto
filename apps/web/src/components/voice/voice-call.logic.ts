@@ -19,21 +19,21 @@ export function reduceVoiceCallUiState(
 export const VOICE_MODE_CHANGED_MESSAGE =
   "Voice settings changed while the call was starting. Start the call again.";
 
-export function voiceStartErrorDescription(cause: unknown): string {
-  if (cause instanceof DOMException) {
-    switch (cause.name) {
-      case "NotAllowedError":
-      case "SecurityError":
-        return "Allow microphone access, then try again.";
-      case "NotFoundError":
-        return "Connect a microphone, then try again.";
-      case "NotReadableError":
-      case "AbortError":
-        return "The microphone is unavailable. Close other audio apps, then try again.";
-    }
-  }
+export function voiceMicrophoneErrorTitle(cause: unknown): string | null {
+  if (!(cause instanceof DOMException)) return null;
 
-  return cause instanceof Error ? cause.message : "Check microphone access, then try again.";
+  switch (cause.name) {
+    case "NotAllowedError":
+    case "SecurityError":
+      return "Microphone access isn't allowed";
+    case "NotFoundError":
+      return "No microphone is connected";
+    case "NotReadableError":
+    case "AbortError":
+      return "Microphone isn't available";
+    default:
+      return null;
+  }
 }
 
 export function listenForMicrophoneLoss(

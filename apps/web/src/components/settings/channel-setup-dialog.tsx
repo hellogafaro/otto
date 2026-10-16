@@ -26,7 +26,7 @@ import { Dialog, DialogHeader, DialogPopup, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Textarea } from "../ui/textarea";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { parsePhotonHostedCredentials } from "./bot-channels-settings";
 import { ChannelProjectSelect } from "./channel-project-select";
 import { channelProviderMeta, discordInviteUrl, slackPasteTarget } from "./channel-provider-meta";
@@ -192,7 +192,7 @@ export function ChannelSetupDialog({
 
     if (Predicate.isTagged(saved, "Failure")) {
       setBusy(false);
-      toastManager.add({ type: "error", title: "Could not save channel" });
+      toast.error(t("Channel couldn't be saved"));
 
       return;
     }
@@ -277,11 +277,7 @@ export function ChannelSetupDialog({
     });
 
     if (Predicate.isTagged(removedOld, "Failure")) {
-      toastManager.add({
-        type: "warning",
-        title: t("New credentials connected"),
-        description: t("The old connection could not be removed. Delete it from the channel list."),
-      });
+      toast.warning(t("Old connection couldn't be removed"));
     }
 
     finish(connectionId);
@@ -317,7 +313,7 @@ export function ChannelSetupDialog({
 
       if (Predicate.isTagged(result, "Failure")) {
         setBusy(false);
-        toastManager.add({ type: "error", title: "Could not save channel" });
+        toast.error(t("Channel couldn't be saved"));
 
         return;
       }

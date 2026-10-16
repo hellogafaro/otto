@@ -21,7 +21,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
 import { Textarea } from "../ui/textarea";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 
 /** The server's own error text, shown as received, or null when it sent none. */
 export function memoryErrorMessage(cause: unknown) {
@@ -164,7 +164,7 @@ export function BotMemorySheet({
     if (Predicate.isTagged(result, "Failure")) {
       const message = failureMessage(result) ?? t("Memory request failed.");
       setError(message);
-      toastManager.add({ type: "error", title: t("Could not save memory"), description: message });
+      toast.error(t("Memory couldn't be saved"));
     }
 
     return !Predicate.isTagged(result, "Failure");
@@ -242,11 +242,7 @@ export function BotMemorySheet({
                     if (Predicate.isTagged(result, "Failure")) {
                       const message = failureMessage(result);
                       setError(message);
-                      toastManager.add({
-                        type: "error",
-                        title: t("Could not clear the chat summary"),
-                        description: message,
-                      });
+                      toast.error(t("Chat summary couldn't be cleared"));
                     } else setClearPending(false);
                   });
                 }}

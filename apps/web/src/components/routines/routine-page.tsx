@@ -43,7 +43,7 @@ import { useRosterStore } from "../roster/roster-store";
 import { StatusIcon, type StatusKind } from "../status-icon";
 import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { projectStatus } from "../work/work.logic";
 import { WorkDetailPage } from "../work/work-detail";
@@ -149,7 +149,7 @@ function RoutineDetail({
     void navigate({ to: "/chats/$threadId", params: { threadId } });
 
   const act = async (result: Promise<{ readonly _tag: string }>, failure: string) => {
-    if (!hasTag(await result, "Success")) toastManager.add({ type: "error", title: failure });
+    if (!hasTag(await result, "Success")) toast.error(failure);
   };
 
   const createdAt = () => new Date().toISOString();
@@ -167,7 +167,7 @@ function RoutineDetail({
         environmentId,
         input: { routineId: routineIdValue, ...fields, createdAt: createdAt() },
       }),
-      t("Could not update routine"),
+      t("Routine couldn't be updated"),
     );
 
   return (
@@ -215,7 +215,7 @@ function RoutineDetail({
                             createdAt: createdAt(),
                           },
                         }),
-                        t("Could not start routine"),
+                        t("Routine couldn't be started"),
                       )
                     }
                   >
@@ -253,7 +253,7 @@ function RoutineDetail({
                             createdAt: createdAt(),
                           },
                         }),
-                        t("Could not pause routine"),
+                        t("Routine couldn't be paused"),
                       )
                     }
                   >
@@ -268,7 +268,7 @@ function RoutineDetail({
                           environmentId,
                           input: { routineId: routineIdValue, createdAt: createdAt() },
                         }),
-                        t("Could not resume routine"),
+                        t("Routine couldn't be resumed"),
                       )
                     }
                   >
@@ -294,7 +294,7 @@ function RoutineDetail({
                         environmentId,
                         input: { routineId: routineIdValue, createdAt: createdAt() },
                       }),
-                      t("Could not delete routine"),
+                      t("Routine couldn't be deleted"),
                     );
                   }}
                 >

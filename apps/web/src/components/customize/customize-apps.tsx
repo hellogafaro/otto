@@ -38,7 +38,7 @@ import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group";
 import { Spinner } from "../ui/spinner";
 import { SkeletonSettingsSections } from "../ui/skeleton";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { SettingsPageContainer } from "../settings/settings-layout";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { PageTitle } from "../workspace-page-container";
@@ -219,7 +219,7 @@ function ConnectDialog({
     setConnecting(false);
 
     if (Predicate.isTagged(result, "Failure")) {
-      composio.failed(t("Could not connect {name}", { name: toolkit.name }), result);
+      composio.failed(t("{name} couldn't be connected", { name: toolkit.name }), result);
 
       return;
     }
@@ -227,11 +227,7 @@ function ConnectDialog({
     const url = new URL(result.value.redirectUrl);
 
     if (url.protocol !== "https:") {
-      toastManager.add({
-        type: "error",
-        title: t("Could not connect {name}", { name: toolkit.name }),
-        description: t("Composio returned a sign-in link that does not use HTTPS."),
-      });
+      toast.error(t("{name} couldn't be connected", { name: toolkit.name }));
 
       return;
     }
@@ -240,12 +236,7 @@ function ConnectDialog({
     onClose();
     void ensureLocalApi()
       .shell.openExternal(url.toString())
-      .catch(() =>
-        toastManager.add({
-          type: "error",
-          title: t("Could not open {name} sign-in", { name: toolkit.name }),
-        }),
-      );
+      .catch(() => toast.error(t("{name} sign-in couldn't be opened", { name: toolkit.name })));
   };
 
   return (
@@ -320,7 +311,8 @@ function AccountRow({
       input: { connectionId: connection.id, visibility },
     });
 
-    if (!composio.failed(t("Could not update {name}", { name }), result)) composio.status.refresh();
+    if (!composio.failed(t("{name} couldn't be updated", { name }), result))
+      composio.status.refresh();
   };
 
   const disconnect = async () => {
@@ -336,7 +328,7 @@ function AccountRow({
       input: { connectionId: connection.id },
     });
 
-    if (!composio.failed(t("Could not disconnect {name}", { name }), result)) {
+    if (!composio.failed(t("{name} couldn't be disconnected", { name }), result)) {
       composio.status.refresh();
     }
   };

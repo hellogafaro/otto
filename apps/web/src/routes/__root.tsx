@@ -1,6 +1,5 @@
 import { hasTag } from "~/lib/tagged-union";
 import { type ServerLifecycleWelcomePayload } from "@otto/contracts";
-import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import { Outlet, createRootRoute, redirect, useLocation } from "@tanstack/react-router";
 import { getOrganizationAccountState } from "@otto/client-runtime/authorization";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
@@ -20,12 +19,8 @@ import { NewChatDialogHost } from "../components/roster/new-chat-dialog";
 import { PolicyNotice } from "../components/privacy/policy-notice";
 import { TranslatedRouteErrorView } from "./-root-route-error-view";
 import { useI18n } from "../i18n";
-import {
-  AnchoredToastProvider,
-  stackedThreadToast,
-  ToastProvider,
-  toastManager,
-} from "../components/ui/toast";
+import { toast } from "sonner";
+import { Toaster } from "../components/ui/sonner";
 import { resolveAndPersistPreferredEditor } from "../editor-preferences";
 import { applyAppearanceFontVariables } from "~/appearance-fonts";
 import { useClientSettings } from "../hooks/use-settings";
@@ -130,25 +125,24 @@ function RootRouteView() {
   );
 
   return (
-    <ToastProvider>
-      <AnchoredToastProvider>
-        <DocumentTitleSync />
-        <FontAppearanceSync />
-        {primaryEnvironmentAuthenticated ? <AuthenticatedTracingBootstrap /> : null}
-        <SshPasswordPromptDialog />
-        <ConfirmDialogHost />
-        <SlowRpcRequestToastCoordinator />
-        <SurfaceNavigationCoordinator />
-        {primaryEnvironmentAuthenticated ? <EventRouter /> : null}
-        {primaryEnvironmentAuthenticated ? <PlanAgentSelectionHeal /> : null}
-        <ReplyPlaybackProvider>
-          <VoiceCallProvider>{appShell}</VoiceCallProvider>
-        </ReplyPlaybackProvider>
-        <ComputerViewerDialog />
-        {primaryEnvironmentAuthenticated ? <NewChatDialogHost /> : null}
-        <PolicyNotice />
-      </AnchoredToastProvider>
-    </ToastProvider>
+    <>
+      <DocumentTitleSync />
+      <FontAppearanceSync />
+      {primaryEnvironmentAuthenticated ? <AuthenticatedTracingBootstrap /> : null}
+      <SshPasswordPromptDialog />
+      <ConfirmDialogHost />
+      <SlowRpcRequestToastCoordinator />
+      <SurfaceNavigationCoordinator />
+      {primaryEnvironmentAuthenticated ? <EventRouter /> : null}
+      {primaryEnvironmentAuthenticated ? <PlanAgentSelectionHeal /> : null}
+      <ReplyPlaybackProvider>
+        <VoiceCallProvider>{appShell}</VoiceCallProvider>
+      </ReplyPlaybackProvider>
+      <ComputerViewerDialog />
+      {primaryEnvironmentAuthenticated ? <NewChatDialogHost /> : null}
+      <PolicyNotice />
+      <Toaster />
+    </>
   );
 }
 
@@ -223,61 +217,43 @@ function EventRouter() {
     }
 
     if (hasTag(decision, "Success")) {
-      toastManager.add({
-        type: "success",
-        title: t("Keybindings updated"),
-        description: t("Keybindings configuration reloaded successfully."),
-      });
+      toast.success(t("Shortcuts have been updated"));
 
       return;
     }
 
-    toastManager.add(
-      stackedThreadToast({
-        type: "warning",
-        title: t("Invalid keybindings configuration"),
-        description: decision.message,
-        actionVariant: "outline",
-        actionProps: {
-          children: t("Open keybindings.json"),
-          onClick: () => {
-            if (!serverConfig || !primaryEnvironment) {
+    toast.warning(t("Shortcuts file isn't valid"), {
+      action: {
+        label: t("Open keybindings.json"),
+        onClick: () => {
+          if (!serverConfig || !primaryEnvironment) {
+            return;
+          }
+
+          const editor = resolveAndPersistPreferredEditor(serverConfig.availableEditors);
+
+          if (!editor) {
+            return;
+          }
+
+          void (async () => {
+            const result = await openInEditor({
+              environmentId: primaryEnvironment.environmentId,
+              input: {
+                cwd: serverConfig.keybindingsConfigPath,
+                editor,
+              },
+            });
+
+            if (hasTag(result, "Success")) {
               return;
             }
 
-            const editor = resolveAndPersistPreferredEditor(serverConfig.availableEditors);
-
-            if (!editor) {
-              return;
-            }
-
-            void (async () => {
-              const result = await openInEditor({
-                environmentId: primaryEnvironment.environmentId,
-                input: {
-                  cwd: serverConfig.keybindingsConfigPath,
-                  editor,
-                },
-              });
-
-              if (hasTag(result, "Success")) {
-                return;
-              }
-
-              const error = squashAtomCommandFailure(result);
-              toastManager.add(
-                stackedThreadToast({
-                  type: "error",
-                  title: t("Unable to open keybindings file"),
-                  description:
-                    error instanceof Error ? error.message : t("Unknown error opening file."),
-                }),
-              );
-            })();
-          },
+            toast.error(t("Shortcuts file couldn't be opened"));
+          })();
         },
-      }),
-    );
+      },
+    });
   });
 
   useEffect(() => {

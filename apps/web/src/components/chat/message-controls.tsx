@@ -6,7 +6,7 @@ import { ReplyPlaybackControls, type ReplyPlaybackControlsProps } from "./reply-
 import { cn } from "~/lib/utils";
 import { Button } from "../ui/button";
 import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 export const MESSAGE_REACTION_OPTIONS = ["👍", "👎", "❤️", "😂", "🎉", "😮"] as const;
@@ -121,12 +121,8 @@ export function MessageControls(props: {
   const { copyToClipboard, isCopied } = useCopyToClipboard({
     target: "message",
     timeout: 1200,
-    onError: (error) => {
-      toastManager.add({
-        type: "error",
-        title: t("Failed to copy message"),
-        description: error.message,
-      });
+    onError: () => {
+      toast.error(t("Message couldn't be copied"));
     },
   });
 

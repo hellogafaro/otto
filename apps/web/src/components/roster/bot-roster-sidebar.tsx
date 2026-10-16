@@ -29,7 +29,7 @@ import {
 } from "../ui/alert-dialog";
 import { Button } from "../ui/button";
 import { SidebarContent, SidebarGroup } from "../ui/sidebar";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import {
   filterRosterBots,
   filterRosterGroups,
@@ -55,7 +55,7 @@ import {
   RosterSectionLabel,
 } from "./roster-rows";
 import { RosterPanelHeader, RosterRailNewChat, RosterSidebarHeader } from "./roster-headers";
-import { commandFailureMessage, focusTargetAfterRosterArchive } from "./roster-commands.logic";
+import { focusTargetAfterRosterArchive } from "./roster-commands.logic";
 
 export { focusTargetAfterRosterArchive, runCreateBotOnce } from "./roster-commands.logic";
 
@@ -280,7 +280,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     if (environmentId === null) {
       // Nothing was archived, so the dialog restores focus to the row menu itself.
       setArchivingBot(null);
-      toastManager.add({ type: "error", title: t("Connect an environment first") });
+      toast.error(t("Connect an environment first"));
 
       return;
     }
@@ -299,11 +299,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
       archivedFocusTarget.current = undefined;
       focusRosterRow(botKey);
       // Archiving is refused with a reason (a group boss, a group left too small), so say it.
-      toastManager.add({
-        type: "error",
-        title: t("Could not archive {name}", { name: bot.name }),
-        description: commandFailureMessage(result, t),
-      });
+      toast.error(t("{name} couldn't be archived", { name: bot.name }));
 
       return;
     }

@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useAtomValue } from "@effect/atom-react";
 import {
   type EnvironmentId,
@@ -34,7 +35,7 @@ import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { LibraryVisibilitySelect } from "../library/library-actions";
 import { formatLibrarySize } from "../library/library.logic";
-import { useLibraryData, useLibraryFailure } from "../library/use-library";
+import { useLibraryData } from "../library/use-library";
 import { SettingsCard, SettingsRow } from "../settings/settings-layout";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
@@ -221,7 +222,9 @@ function McpTools({
 
     setSigningIn(false);
 
-    if (!commands.failed(t("Could not sign in to {name}", { name: server.name }), result)) {
+    if (
+      !commands.failed(t("{name} sign-in couldn't be completed", { name: server.name }), result)
+    ) {
       tools.refresh();
     }
   };
@@ -290,8 +293,8 @@ function McpDetail({
 
     commands.failed(
       enabled
-        ? t("Could not turn on {name}", { name: server.name })
-        : t("Could not turn off {name}", { name: server.name }),
+        ? t("{name} couldn't be turned on", { name: server.name })
+        : t("{name} couldn't be turned off", { name: server.name }),
       result,
     );
   };
@@ -302,7 +305,7 @@ function McpDetail({
       input: { mcpServerId: server.id, visibility },
     });
 
-    commands.failed(t("Could not update {name}", { name: server.name }), result);
+    commands.failed(t("{name} couldn't be updated", { name: server.name }), result);
   };
 
   const remove = async () => {
@@ -314,7 +317,7 @@ function McpDetail({
     if (!confirmed) return;
     const result = await commands.remove({ environmentId, input: { mcpServerId: server.id } });
 
-    if (!commands.failed(t("Could not remove {name}", { name: server.name }), result)) {
+    if (!commands.failed(t("{name} couldn't be removed", { name: server.name }), result)) {
       void navigate({ to: "/settings/$section", params: { section: "integrations" } });
     }
   };
@@ -406,7 +409,6 @@ function SkillDetail({
   const updateFolder = useAtomCommand(libraryEnvironment.updateFolder, { reportFailure: false });
   const deleteFolder = useAtomCommand(libraryEnvironment.deleteFolder, { reportFailure: false });
   const deleteFile = useAtomCommand(libraryEnvironment.deleteFile, { reportFailure: false });
-  const fail = useLibraryFailure();
   const skill: LibraryFolder | undefined = data.folders.find((folder) => folder.id === id);
   const main = data.files.find((file) => file.folderId === id && isSkillFile(file));
 
@@ -457,7 +459,7 @@ function SkillDetail({
     const result = await updateFolder({ environmentId, input: { folderId: skill.id, visibility } });
 
     if (!AsyncResult.isSuccess(result)) {
-      fail(result, t("Could not update {name}", { name: skill.title }));
+      toast.error(t("{name} couldn't be updated", { name: skill.title }));
     }
   };
 
@@ -471,7 +473,7 @@ function SkillDetail({
         ),
       deleteFile: (fileId) => deleteFile({ environmentId, input: { fileId } }),
       deleteFolder: (folderId) => deleteFolder({ environmentId, input: { folderId } }),
-      fail: (result) => fail(result, t("Could not delete {name}", { name: skill.title })),
+      fail: () => toast.error(t("{name} couldn't be deleted", { name: skill.title })),
     });
 
     if (removed) void navigate({ to: "/settings/$section", params: { section: "skills" } });

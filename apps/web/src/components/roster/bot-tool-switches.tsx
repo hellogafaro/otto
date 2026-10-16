@@ -18,7 +18,7 @@ import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useLibraryData } from "../library/use-library";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { BotSkillsSection, BotToolsSection } from "./bot-tools-section";
 import { botMcpServers, botSkillFolders, buildBotAccountItems } from "./bot-tools.logic";
 import type { Bot } from "./types";
@@ -119,7 +119,7 @@ export function BotToolSwitches({
         if (!Predicate.isTagged(result, "Failure")) return;
         setPendingMcp(null);
         setPendingSkills(null);
-        toastManager.add({ type: "error", title: t("Could not save bot settings") });
+        toast.error(t("Bot settings couldn't be saved"));
       });
     }
 
@@ -144,7 +144,7 @@ export function BotToolSwitches({
     ).then((results) => {
       if (results.some((result) => Predicate.isTagged(result, "Failure"))) {
         setPendingAccounts({});
-        toastManager.add({ type: "error", title: t("Could not save bot settings") });
+        toast.error(t("Bot settings couldn't be saved"));
       }
 
       composioStatus.refresh();

@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
 import { SkeletonSettingsSections } from "../ui/skeleton";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settings-layout";
@@ -47,7 +47,7 @@ function ComposioKeyDialog({
     const result = await composio.configure({ environmentId, input: { apiKey: trimmed } });
     setSaving(false);
 
-    if (composio.failed(t("Could not save the Composio key"), result)) return;
+    if (composio.failed(t("Composio key couldn't be saved"), result)) return;
     composio.status.refresh();
     onClose();
   };
@@ -67,9 +67,7 @@ function ComposioKeyDialog({
               onClick={() =>
                 void ensureLocalApi()
                   .shell.openExternal(COMPOSIO_API_KEYS_URL)
-                  .catch(() =>
-                    toastManager.add({ type: "error", title: t("Could not open Composio") }),
-                  )
+                  .catch(() => toast.error(t("Composio couldn't be opened")))
               }
             >
               {t("Get a key")}
@@ -126,7 +124,7 @@ function ComposioRow({ environmentId }: { readonly environmentId: EnvironmentId 
     if (!confirmed) return;
     const result = await composio.remove({ environmentId, input: {} });
 
-    if (!composio.failed(t("Could not remove the Composio key"), result)) {
+    if (!composio.failed(t("Composio key couldn't be removed"), result)) {
       composio.status.refresh();
     }
   };

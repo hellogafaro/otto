@@ -80,7 +80,14 @@ vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => fixtures.
 
 vi.mock("../../hooks/use-settings", () => ({ useEnvironmentSettings: () => fixtures.connections }));
 
-vi.mock("../ui/toast", () => ({ toastManager: { add: fixtures.toast } }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: fixtures.toast,
+    error: fixtures.toast,
+    warning: fixtures.toast,
+    info: fixtures.toast,
+  },
+}));
 
 vi.mock("../../settings-dialog-store", () => ({ useSettingsEnvironmentId: () => "environment-1" }));
 
@@ -394,11 +401,7 @@ describe("failed channel attempts", () => {
       { botId: "bot-other", provider: "imessage" },
       expect.objectContaining({ botId: "bot-uuid", connectionId: "profile-1" }),
     ]);
-    expect(fixtures.toast).toHaveBeenCalledWith({
-      type: "error",
-      title: "Could not assign channel",
-      description: "Photon rejected the connection credentials.",
-    });
+    expect(fixtures.toast).toHaveBeenCalledWith("Channel couldn't be assigned");
   });
 
   it("keeps a disconnected channel disconnected after a failed move", async () => {

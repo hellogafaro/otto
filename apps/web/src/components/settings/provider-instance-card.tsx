@@ -30,7 +30,7 @@ import { DraftInput } from "../ui/draft-input";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { ScrollArea } from "../ui/scroll-area";
 import { Switch } from "../ui/switch";
-import { stackedThreadToast, toastManager } from "../ui/toast";
+import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { DriverOption } from "./provider-driver-meta";
 import { ProviderSettingsForm, readProviderConfigString } from "./provider-settings-form";
@@ -169,20 +169,10 @@ export function ProviderInstanceCard({
 
   const { copyToClipboard } = useCopyToClipboard<{ providerName: string }>({
     onCopy: ({ providerName }) => {
-      toastManager.add({
-        type: "success",
-        title: `${providerName} update command copied`,
-        description: "Run it in a terminal when you are ready to update.",
-      });
+      toast.success(`${providerName} update command has been copied`);
     },
     onError: (error, { providerName }) => {
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: `Could not copy ${providerName} update command`,
-          description: error.message,
-        }),
-      );
+      toast.error(`${providerName} update command couldn't be copied`);
     },
   });
 
@@ -247,11 +237,7 @@ export function ProviderInstanceCard({
     const environment = withoutCustomApiKey(next.environment ?? []);
     const { environment: _omitEnvironment, ...withoutEnvironment } = next;
     onUpdate(environment.length > 0 ? { ...next, environment } : withoutEnvironment);
-    toastManager.add({
-      type: "info",
-      title: "API key removed",
-      description: "The new address is a different service. Paste its key to connect.",
-    });
+    toast.info("API key has been removed");
   };
 
   const updateConfig = (nextConfig: ProviderConfig | undefined) => {

@@ -6,7 +6,7 @@ import { useI18n } from "~/i18n";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import type { MessageReactionOption } from "../chat/message-controls";
-import { toastManager } from "../ui/toast";
+import { toast } from "sonner";
 
 export type MessageReactionHandler = (
   messageId: MessageId,
@@ -37,7 +37,7 @@ export function useMessageReactionUpdater(threadRef: ScopedThreadRef | null) {
           const removed = await dispatch(current, false);
 
           if (Predicate.isTagged(removed, "Failure")) {
-            toastManager.add({ type: "error", title: t("Could not update reaction") });
+            toast.error(t("Reaction couldn't be updated"));
 
             return;
           }
@@ -47,7 +47,7 @@ export function useMessageReactionUpdater(threadRef: ScopedThreadRef | null) {
           const added = await dispatch(next, true);
 
           if (Predicate.isTagged(added, "Failure")) {
-            toastManager.add({ type: "error", title: t("Could not update reaction") });
+            toast.error(t("Reaction couldn't be updated"));
           }
         }
       })();
