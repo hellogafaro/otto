@@ -1,4 +1,4 @@
-import type { UsageProviderKind } from "@otto/contracts";
+import type { UsageBucketProvider } from "@otto/contracts";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { DailyTotals, HourlyTotals } from "@otto/shared/usageMerge";
@@ -9,7 +9,7 @@ import {
   formatTokens,
   formatUsd,
 } from "@otto/shared/usageFormat";
-import { PROVIDER_ORDER, PROVIDER_PRESENTATION } from "./usage-providers";
+import { PROVIDER_ORDER, PROVIDER_PRESENTATION, useProviderLabels } from "./usage-providers";
 
 const VIEW_WIDTH = 960;
 
@@ -22,7 +22,7 @@ const PLOT_TOP = 8;
 export type UsageChartMetric = "tokens" | "cost";
 
 interface UsageProviderChartProps {
-  readonly providers: readonly UsageProviderKind[];
+  readonly providers: readonly UsageBucketProvider[];
   readonly days: readonly string[];
   readonly daily: readonly DailyTotals[];
   readonly hours: readonly string[];
@@ -36,7 +36,7 @@ interface UsageProviderChartProps {
 /** One day's per-provider values, shared by the paths and the hover readout. */
 export interface DayColumn {
   readonly bands: readonly {
-    readonly provider: UsageProviderKind;
+    readonly provider: UsageBucketProvider;
     readonly value: number;
   }[];
   readonly total: number;
@@ -49,7 +49,7 @@ interface Point {
 
 function valueFor(
   totals: DailyTotals | HourlyTotals | undefined,
-  provider: UsageProviderKind,
+  provider: UsageBucketProvider,
   metric: UsageChartMetric,
 ): number {
   const entry = totals?.byProvider.get(provider);
@@ -218,6 +218,7 @@ export function UsageProviderChart({
   resolution,
   timeZone,
 }: UsageProviderChartProps) {
+  const labels = useProviderLabels();
   const periods = resolution === "hour" ? hours : days;
 
   const byPeriod = useMemo(
@@ -469,13 +470,13 @@ export function UsageProviderChart({
             >
               <div className="mb-1 text-muted-foreground">{formatTooltipPeriod(hoveredPeriod)}</div>
               {providers.map((provider) => {
-                const { label, mark: Mark } = PROVIDER_PRESENTATION[provider];
+                const Mark = PROVIDER_PRESENTATION[provider].mark;
 
                 return (
                   <div key={provider} className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <Mark className="size-3 shrink-0" aria-hidden />
-                      {label}
+                      {labels[provider]}
                     </span>
                     <span className="text-foreground tabular-nums">
                       {format(

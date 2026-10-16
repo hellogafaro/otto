@@ -540,6 +540,8 @@ export const connectionsCatalog = {
   "{provider} API key": "{provider} API 密钥",
   "Disconnect {name}? Bots stop using it.": "断开 {name}？机器人将停止使用它。",
   "Custom API": "自定义 API",
+  "Anthropic API": "Anthropic API",
+  "OpenAI API": "OpenAI API",
   "Connections couldn't be loaded": "无法加载连接",
   "Back at {time}": "{time} 恢复",
   Unreachable: "无法访问",

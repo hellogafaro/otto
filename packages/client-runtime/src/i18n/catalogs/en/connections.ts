@@ -577,6 +577,8 @@ export const connectionsCatalog = {
   "{provider} API key": "{provider} API key",
   "Disconnect {name}? Bots stop using it.": "Disconnect {name}? Bots stop using it.",
   "Custom API": "Custom API",
+  "Anthropic API": "Anthropic API",
+  "OpenAI API": "OpenAI API",
   "Connections couldn't be loaded": "Connections couldn't be loaded",
   "Back at {time}": "Back at {time}",
   Unreachable: "Unreachable",

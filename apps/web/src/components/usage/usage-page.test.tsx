@@ -46,7 +46,6 @@ vi.mock("./usage-charts", async (importOriginal) => {
             .join(" ")}
         </div>
       )),
-    UsageActivityChart: () => <div>activity-chart</div>,
   };
 });
 
@@ -271,6 +270,45 @@ describe("UsagePage", () => {
     expect(at("Claude Opus 5")).toBeLessThan(at("GPT-5.6 Sol"));
     expect(markup).toContain("31M");
     expect(markup).toContain("Claude Opus 5");
+  });
+
+  it("names the API provider of each model, with a custom endpoint's usage alone", () => {
+    const model = (provider: "customOpenai" | "anthropic", name: string, costUsd: number) => ({
+      provider,
+      model: name,
+      costUsd,
+      totalTokens: 1_000,
+      records: 1,
+      costShare: costUsd / 3,
+    });
+
+    testState.useUsage.mockReturnValue({
+      merged: {
+        ...mergeUsage([], USAGE_CONTRACT_VERSION),
+        costUsd: 3,
+        records: 2,
+        models: [model("anthropic", "claude-opus-5", 2), model("customOpenai", "llama-4", 1)],
+      },
+      environments: [
+        {
+          environmentId: "env-1",
+          label: "This Mac",
+          isPending: false,
+          error: null,
+          summary: { contractVersion: USAGE_CONTRACT_VERSION },
+        },
+      ],
+      isPending: false,
+      isPartial: false,
+      refresh: vi.fn(),
+    });
+
+    const markup = renderToStaticMarkup(<UsagePage />);
+
+    expect(markup).not.toContain("No usage yet");
+    expect(markup).toContain("Anthropic API");
+    expect(markup).toContain("Custom API");
+    expect(markup).toContain("$3.00");
   });
 
   it("lists people and bots as members of one table", () => {

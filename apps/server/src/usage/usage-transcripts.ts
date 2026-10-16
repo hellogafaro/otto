@@ -1,7 +1,7 @@
 import { isJsonObject, decodeJsonString } from "../json.ts";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
-import type { UsageProviderKind, UsageTokenTotals } from "@otto/contracts";
+import type { UsageBucketProvider, UsageProviderKind, UsageTokenTotals } from "@otto/contracts";
 
 /**
  * Pure parsers for the provider CLIs' on-disk session transcripts.
@@ -13,7 +13,7 @@ import type { UsageProviderKind, UsageTokenTotals } from "@otto/contracts";
  */
 
 export interface UsageRecord {
-  readonly provider: UsageProviderKind;
+  readonly provider: UsageBucketProvider;
   readonly timestampMs: number;
   readonly model: string;
   readonly sessionId: string;

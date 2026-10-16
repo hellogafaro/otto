@@ -10,7 +10,7 @@ import type {
   EnvironmentId,
   SubscriptionProviderId,
   UsageBucket,
-  UsageProviderKind,
+  UsageBucketProvider,
   UsageProviderPlanLimits,
   UsageSourceFingerprint,
   UsageSummary,
@@ -23,7 +23,7 @@ export interface EnvironmentUsage {
 }
 
 export interface ProviderTotals {
-  readonly provider: UsageProviderKind;
+  readonly provider: UsageBucketProvider;
   readonly costUsd: number;
   readonly totalTokens: number;
   readonly records: number;
@@ -34,7 +34,7 @@ export interface ProviderTotals {
 
 export interface ModelTotals {
   readonly model: string;
-  readonly provider: UsageProviderKind;
+  readonly provider: UsageBucketProvider;
   readonly costUsd: number;
   readonly totalTokens: number;
   readonly records: number;
@@ -57,7 +57,7 @@ export interface DailyTotals {
   readonly day: string;
   readonly costUsd: number;
   readonly totalTokens: number;
-  readonly byProvider: ReadonlyMap<UsageProviderKind, { costUsd: number; totalTokens: number }>;
+  readonly byProvider: ReadonlyMap<UsageBucketProvider, { costUsd: number; totalTokens: number }>;
 }
 
 export interface HourlyTotals {
@@ -65,7 +65,7 @@ export interface HourlyTotals {
   readonly hourStart: string;
   readonly costUsd: number;
   readonly totalTokens: number;
-  readonly byProvider: ReadonlyMap<UsageProviderKind, { costUsd: number; totalTokens: number }>;
+  readonly byProvider: ReadonlyMap<UsageBucketProvider, { costUsd: number; totalTokens: number }>;
 }
 
 export interface CostQuality {
@@ -156,23 +156,16 @@ function claimSources(environments: readonly EnvironmentUsage[]): ClaimSourcesRe
 /** Sources this environment owns after fingerprint claims, plus their buckets. */
 type OwnedContributionResult = {
   readonly buckets: readonly UsageBucket[];
-  readonly sessionsByProvider: ReadonlyMap<UsageProviderKind, number>;
+  readonly sessionsByProvider: ReadonlyMap<UsageBucketProvider, number>;
 };
 
 function ownedContribution(
   environment: EnvironmentUsage,
   ownerByFingerprint: ReadonlyMap<string, EnvironmentId>,
 ): OwnedContributionResult {
-  const ownedProviders = new Set<UsageProviderKind>();
-  const connectedUsageProviders = new Set<UsageProviderKind>();
-
-  for (const provider of environment.summary.connectedProviders ?? []) {
-    const usageProvider = USAGE_PROVIDER_BY_CONNECTION[provider];
-
-    if (usageProvider !== undefined) connectedUsageProviders.add(usageProvider);
-  }
-
-  const sessionsByProvider = new Map<UsageProviderKind, number>();
+  const ownedProviders = new Set<UsageBucketProvider>();
+  const connected = new Set(environment.summary.connectedProviders ?? []);
+  const sessionsByProvider = new Map<UsageBucketProvider, number>();
 
   for (const source of environment.summary.sources) {
     if (source.status === "missing") continue;
@@ -191,20 +184,27 @@ function ownedContribution(
   }
 
   return {
-    buckets: environment.summary.buckets.filter(
-      (bucket) =>
-        ownedProviders.has(bucket.provider) && connectedUsageProviders.has(bucket.provider),
-    ),
+    buckets: environment.summary.buckets.filter((bucket) => {
+      const connection = CONNECTION_BY_USAGE_PROVIDER[bucket.provider];
+
+      return (
+        ownedProviders.has(bucket.provider) && (connection === null || connected.has(connection))
+      );
+    }),
     sessionsByProvider,
   };
 }
 
-const USAGE_PROVIDER_BY_CONNECTION: Partial<Record<SubscriptionProviderId, UsageProviderKind>> = {
-  anthropic: "claude",
-  "openai-codex": "codex",
-  xai: "grok",
-  "kimi-for-coding": "kimi",
-  "opencode-go": "opencode",
+/** The Settings account a provider's usage comes through; a custom endpoint has none. */
+const CONNECTION_BY_USAGE_PROVIDER: Record<UsageBucketProvider, SubscriptionProviderId | null> = {
+  claude: "anthropic",
+  anthropic: "anthropic",
+  codex: "openai-codex",
+  openai: "openai-codex",
+  grok: "xai",
+  kimi: "kimi-for-coding",
+  opencode: "opencode-go",
+  customOpenai: null,
 };
 
 function bucketTokens(bucket: UsageBucket): number {
@@ -284,13 +284,13 @@ export function mergeUsage(
   let unpricedRecords = 0;
 
   const providerAccumulator = new Map<
-    UsageProviderKind,
+    UsageBucketProvider,
     { costUsd: number; totalTokens: number; records: number; sessions: number }
   >();
 
   const modelAccumulator = new Map<
     string,
-    { provider: UsageProviderKind; costUsd: number; totalTokens: number; records: number }
+    { provider: UsageBucketProvider; costUsd: number; totalTokens: number; records: number }
   >();
 
   const dailyAccumulator = new Map<
@@ -298,7 +298,7 @@ export function mergeUsage(
     {
       costUsd: number;
       totalTokens: number;
-      byProvider: Map<UsageProviderKind, { costUsd: number; totalTokens: number }>;
+      byProvider: Map<UsageBucketProvider, { costUsd: number; totalTokens: number }>;
     }
   >();
 
@@ -309,7 +309,7 @@ export function mergeUsage(
       hourStart: string;
       costUsd: number;
       totalTokens: number;
-      byProvider: Map<UsageProviderKind, { costUsd: number; totalTokens: number }>;
+      byProvider: Map<UsageBucketProvider, { costUsd: number; totalTokens: number }>;
     }
   >();
 
@@ -421,7 +421,7 @@ export function mergeUsage(
       const day = dailyAccumulator.get(bucket.day) ?? {
         costUsd: 0,
         totalTokens: 0,
-        byProvider: new Map<UsageProviderKind, { costUsd: number; totalTokens: number }>(),
+        byProvider: new Map<UsageBucketProvider, { costUsd: number; totalTokens: number }>(),
       };
 
       day.costUsd += bucket.costUsd;
@@ -438,7 +438,7 @@ export function mergeUsage(
           hourStart: bucket.hourStart,
           costUsd: 0,
           totalTokens: 0,
-          byProvider: new Map<UsageProviderKind, { costUsd: number; totalTokens: number }>(),
+          byProvider: new Map<UsageBucketProvider, { costUsd: number; totalTokens: number }>(),
         };
 
         hour.costUsd += bucket.costUsd;

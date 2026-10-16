@@ -1,25 +1,13 @@
 import type {
   SubscriptionProviderId,
   UsagePlanWindow,
-  UsageProviderKind,
   UsageProviderPlanLimits,
 } from "@otto/contracts";
-import { enumerateDays, formatDayShort, formatTokens } from "@otto/shared/usageFormat";
-import type { DailyTotals } from "@otto/shared/usageMerge";
-
-import { Line } from "../dither-kit/area";
-import { LineChart } from "../dither-kit/area-chart";
-import { BlockLegend } from "../dither-kit/block-legend";
 
 import type { DitherColor } from "../dither-kit/palette";
-import { Grid } from "../dither-kit/grid";
-import { Tooltip } from "../dither-kit/tooltip";
-import { XAxis } from "../dither-kit/x-axis";
-import { YAxis } from "../dither-kit/y-axis";
 import { cn } from "../../lib/utils";
 import { SettingsRow, SettingsSection } from "../settings/settings-layout";
 import { ClaudeAI, GrokIcon, KimiIcon, OpenCodeIcon, type Icon, OpenAI } from "../icons";
-import { PROVIDER_ORDER, PROVIDER_PRESENTATION, providersWithUsage } from "./usage-providers";
 
 type LiveSubscriptionProviderId = Exclude<SubscriptionProviderId, "cursor">;
 
@@ -159,77 +147,5 @@ export function UsagePlanLimits({
         );
       })}
     </SettingsSection>
-  );
-}
-
-const ACTIVITY_COLOR: Record<UsageProviderKind, DitherColor> = {
-  claude: "orange",
-  codex: "green",
-  grok: "grey",
-  kimi: "blue",
-  opencode: "green",
-};
-
-export function UsageActivityChart(props: {
-  readonly sinceDay: string;
-  readonly untilDay: string;
-  readonly daily: readonly DailyTotals[];
-  readonly providers: readonly {
-    readonly provider: UsageProviderKind;
-    readonly costUsd: number;
-    readonly totalTokens: number;
-  }[];
-}) {
-  const active = providersWithUsage(props.providers);
-  const days = enumerateDays(props.sinceDay, props.untilDay);
-  const byDay = new Map(props.daily.map((entry) => [entry.day, entry]));
-
-  const data = days.map((day) => {
-    const totals = byDay.get(day);
-
-    const row = {
-      label: formatDayShort(day),
-      ...Object.fromEntries(
-        PROVIDER_ORDER.map((provider) => [
-          provider,
-          totals?.byProvider.get(provider)?.totalTokens ?? 0,
-        ]),
-      ),
-    };
-
-    return row;
-  });
-
-  const config = Object.fromEntries(
-    active.map((provider) => [
-      provider,
-      { label: PROVIDER_PRESENTATION[provider].label, color: ACTIVITY_COLOR[provider] },
-    ]),
-  );
-
-  if (active.length === 0 || days.length === 0) {
-    return <p className="text-sm text-muted-foreground">No activity in this window.</p>;
-  }
-
-  return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <LineChart
-        data={data}
-        config={config}
-        animate={false}
-        bloom="off"
-        className="h-52 w-full"
-        margins={{ top: 8, right: 8, bottom: 22, left: 44 }}
-      >
-        <Grid vertical={false} />
-        <XAxis dataKey="label" maxTicks={6} />
-        <YAxis tickFormatter={formatTokens} tickCount={4} />
-        <Tooltip valueFormatter={(value) => formatTokens(value)} />
-        {active.map((provider) => (
-          <Line key={provider} dataKey={provider} />
-        ))}
-      </LineChart>
-      <BlockLegend config={config} align="start" />
-    </div>
   );
 }

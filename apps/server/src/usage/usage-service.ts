@@ -12,8 +12,9 @@ import * as NodeOS from "node:os";
 import {
   USAGE_CONTRACT_VERSION,
   type OttoUsageEntry,
+  type SubscriptionAuthMode,
   type SubscriptionProviderId,
-  type UsageProviderKind,
+  type UsageBucketProvider,
   type UsageSource,
   type UsageSummary,
   type UsageProviderPlanLimits,
@@ -66,16 +67,24 @@ const decodeRatesCache = Schema.decodeUnknownEffect(Schema.fromJsonString(RatesC
 
 const encodeRatesCache = Schema.encodeEffect(Schema.fromJsonString(RatesCacheFile));
 
+// Otto: the ledger records the driver, not the billing channel, so a Claude or ChatGPT account
+// connected with an API key reports its usage as that API provider. A custom OpenAI-compatible
+// endpoint always runs on a key saved in Otto, so it needs no account.
 const DRIVER_CONNECTIONS = {
-  claudeAgent: { provider: "claude", connection: "anthropic" },
-  codex: { provider: "codex", connection: "openai-codex" },
+  claudeAgent: { provider: "claude", apiKeyProvider: "anthropic", connection: "anthropic" },
+  codex: { provider: "codex", apiKeyProvider: "openai", connection: "openai-codex" },
   grok: { provider: "grok", connection: "xai" },
   kimi: { provider: "kimi", connection: "kimi-for-coding" },
   opencode: { provider: "opencode", connection: "opencode-go" },
   opencodeGo: { provider: "opencode", connection: "opencode-go" },
+  customOpenai: { provider: "customOpenai", connection: null },
 } as const satisfies Record<
   string,
-  { readonly provider: UsageProviderKind; readonly connection: SubscriptionProviderId }
+  {
+    readonly provider: UsageBucketProvider;
+    readonly apiKeyProvider?: UsageBucketProvider;
+    readonly connection: SubscriptionProviderId | null;
+  }
 >;
 
 export interface PriceStepUsageInput {
@@ -95,18 +104,21 @@ export class UsageService extends Context.Service<
   }
 >()("@otto/server/usage/usage-service/UsageService") {}
 
-/** Maps one ledger row only when its Otto provider connection is active. */
+/** Maps one ledger row only when its Otto provider connection is active, by how it connected. */
 export function usageRecordFromEntry(
   entry: OttoUsageEntry,
-  connectedProviders: ReadonlySet<SubscriptionProviderId>,
+  connections: ReadonlyMap<SubscriptionProviderId, SubscriptionAuthMode>,
 ): UsageRecord | null {
   if (entry.provider === null || entry.model === null) return null;
 
-  const mapping = Object.entries(DRIVER_CONNECTIONS).find(
-    ([driver]) => driver === entry.provider,
-  )?.[1];
+  const mapping: (typeof DRIVER_CONNECTIONS)[keyof typeof DRIVER_CONNECTIONS] | undefined =
+    Object.entries(DRIVER_CONNECTIONS).find(([driver]) => driver === entry.provider)?.[1];
 
-  if (mapping === undefined || !connectedProviders.has(mapping.connection)) return null;
+  if (mapping === undefined) return null;
+
+  const authMode = mapping.connection === null ? "api-key" : connections.get(mapping.connection);
+
+  if (authMode === undefined) return null;
 
   const timestamp = DateTime.make(entry.createdAt);
 
@@ -115,7 +127,10 @@ export function usageRecordFromEntry(
   const outputTokens = entry.outputTokens ?? 0;
 
   return {
-    provider: mapping.provider,
+    provider:
+      authMode === "api-key" && "apiKeyProvider" in mapping
+        ? mapping.apiKeyProvider
+        : mapping.provider,
     timestampMs: DateTime.toEpochMillis(timestamp.value),
     model: entry.model,
     sessionId: entry.threadId ?? entry.botId,
@@ -387,12 +402,14 @@ export const make = Effect.gen(function* () {
     yield* ensureRates();
     yield* subscriptionAuth.reload();
 
-    const connectedProviders = subscriptionAuth
-      .statuses()
-      .filter((status) => status.connected)
-      .map((status) => status.provider);
+    const connections = new Map(
+      subscriptionAuth
+        .statuses()
+        .filter((status) => status.connected)
+        .map((status) => [status.provider, status.authMode ?? "oauth"] as const),
+    );
 
-    const connectedSet = new Set<SubscriptionProviderId>(connectedProviders);
+    const connectedProviders = [...connections.keys()];
 
     const querySince = hourlyWindow
       ? DateTime.makeUnsafe(hourlyWindow.sinceTimeMs)
@@ -427,10 +444,10 @@ export const make = Effect.gen(function* () {
       rates,
     });
 
-    const sessionsByProvider = new Map<UsageProviderKind, Set<string>>();
+    const sessionsByProvider = new Map<UsageBucketProvider, Set<string>>();
 
     for (const { entry, person } of entries) {
-      const ledgerRecord = usageRecordFromEntry(entry, connectedSet);
+      const ledgerRecord = usageRecordFromEntry(entry, connections);
       const record = ledgerRecord === null ? null : { ...ledgerRecord, person };
 
       if (record === null || !aggregator.add(record)) continue;
@@ -443,19 +460,13 @@ export const make = Effect.gen(function* () {
     const hostId = NodeOS.hostname();
     const volumeId = yield* readUsageStoreVolumeId(fileSystem, usageDatabasePath);
 
-    const sources: UsageSource[] = [
-      ...new Set(
-        Object.values(DRIVER_CONNECTIONS)
-          .filter((mapping) => connectedSet.has(mapping.connection))
-          .map((mapping) => mapping.provider),
-      ),
-    ].map((provider) => ({
+    const sources: UsageSource[] = [...sessionsByProvider].map(([provider, sessions]) => ({
       fingerprint: { hostId, provider, resolvedHomePath: usageDatabasePath, volumeId },
       status: "ok",
       scannedFiles: 0,
       skippedFiles: 0,
       malformedRecords: 0,
-      distinctSessions: sessionsByProvider.get(provider)?.size ?? 0,
+      distinctSessions: sessions.size,
       message: null,
     }));
 

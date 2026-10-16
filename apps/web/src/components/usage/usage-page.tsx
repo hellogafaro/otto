@@ -1,6 +1,6 @@
 import { RiBarChartLine, RiLoopRightLine } from "@remixicon/react";
 import { useAtomValue } from "@effect/atom-react";
-import type { ServerProvider } from "@otto/contracts";
+import type { ServerProvider, UsageBucketProvider } from "@otto/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
@@ -54,7 +54,7 @@ import {
   UsageSkeleton,
 } from "./usage-page-sections";
 import { UsageProviderChart } from "./usage-provider-chart";
-import { PROVIDER_PRESENTATION, providersWithUsage } from "./usage-providers";
+import { providersWithUsage, useProviderLabels } from "./usage-providers";
 
 // Otto: plan limits reload every 5 minutes; there is no setting for it.
 const USAGE_REFRESH_MS = 5 * 60 * 1000;
@@ -97,11 +97,15 @@ function figureColumns<T extends { readonly costUsd: number; readonly totalToken
   ];
 }
 
-/** A model row: its provider's mark and the name the model pickers show, then the shared figures. */
+/**
+ * A model row: its provider's mark, the name the model pickers show and the provider it ran on,
+ * so a subscription and an API key stay apart, then the shared figures.
+ */
 function modelColumns(
   metric: UsageMetric,
   totalTokens: number,
   providers: readonly ServerProvider[],
+  labels: Record<UsageBucketProvider, string>,
 ): DataTableColumn<ModelTotals>[] {
   const modelName = (slug: string) => {
     const model = providers
@@ -117,7 +121,13 @@ function modelColumns(
       type: "icon",
       cell: (model) => <ProviderMark provider={model.provider} className="size-3.5" />,
     },
-    { id: "model", type: "title", header: "Model", cell: (model) => modelName(model.model) },
+    {
+      id: "model",
+      type: "title",
+      header: "Model",
+      cell: (model) => modelName(model.model),
+      after: (model) => <span className="text-muted-foreground">{labels[model.provider]}</span>,
+    },
     ...figureColumns<ModelTotals>(metric, totalTokens, (model) => model.costShare),
   ];
 }
@@ -165,6 +175,7 @@ export function UsagePage() {
   const navigate = useNavigate();
   const rosterBots = useRosterStore((state) => state.bots);
   const providers = useAtomValue(primaryServerProvidersAtom);
+  const providerLabels = useProviderLabels();
   const [preferences, setPreferences] = useState(readUsagePagePreferences);
 
   const [windowSelection, setWindowSelection] = useState(() => ({
@@ -203,6 +214,9 @@ export function UsagePage() {
         : enumerateHourStarts(window.sinceTime, window.untilTime),
     [window.sinceTime, window.untilTime],
   );
+
+  // Otto: a custom API key belongs to no account, so its usage alone counts as connected.
+  const connected = merged.connectedProviders.length > 0 || merged.records > 0;
 
   const activeProviders = useMemo(() => providersWithUsage(merged.providers), [merged.providers]);
 
@@ -298,7 +312,7 @@ export function UsagePage() {
 
         {isPending ? (
           <UsageSkeleton />
-        ) : merged.connectedProviders.length === 0 ? (
+        ) : !connected ? (
           merged.staleEnvironments.length > 0 ? null : (
             <Empty>
               <EmptyHeader>
@@ -354,7 +368,7 @@ export function UsagePage() {
         )}
       </div>
 
-      {!isPending && merged.connectedProviders.length > 0 ? (
+      {!isPending && connected ? (
         <>
           <section className="flex flex-col gap-3">
             <h2 className={SETTINGS_SECTION_TITLE_CLASS}>Breakdown</h2>
@@ -363,10 +377,10 @@ export function UsagePage() {
             ) : (
               <DataTable
                 rows={merged.models}
-                columns={modelColumns(metric, merged.totalTokens, providers)}
+                columns={modelColumns(metric, merged.totalTokens, providers, providerLabels)}
                 getRowKey={(model) => `${model.provider}:${model.model}`}
                 getRowLabel={(model) =>
-                  `${PROVIDER_PRESENTATION[model.provider].label} ${model.model}, ${formatUsd(model.costUsd)}`
+                  `${providerLabels[model.provider]} ${model.model}, ${formatUsd(model.costUsd)}`
                 }
               />
             )}

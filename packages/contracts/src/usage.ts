@@ -27,6 +27,18 @@ export const UsageProviderKind = Schema.Literals(["claude", "codex", "grok", "ki
 export type UsageProviderKind = typeof UsageProviderKind.Type;
 
 /**
+ * Who a bucket's tokens went to: a subscription harness, or a provider billed per token through a
+ * pasted API key (Anthropic, OpenAI or an OpenAI-compatible endpoint), which has no plan limits.
+ * The harness kinds stay a type of their own for clients keyed by them.
+ */
+export const UsageBucketProvider = Schema.Union([
+  UsageProviderKind,
+  Schema.Literals(["anthropic", "openai", "customOpenai"]),
+]);
+
+export type UsageBucketProvider = typeof UsageBucketProvider.Type;
+
+/**
  * A calendar day in the reporting time zone, formatted `YYYY-MM-DD`.
  *
  * Days are bucketed server-side so that a turn always lands on the day the user
@@ -78,15 +90,16 @@ export type UsageTokenTotals = typeof UsageTokenTotals.Type;
  * One `(day, hourStart?, provider, model)` cell. `hourStart` is the UTC start
  * instant of a rolling bucket and is present only for hourly requests.
  *
- * `costUsd` is the raw API-equivalent cost of these tokens. It is not money
- * spent: subscription plans bill separately. `unpricedRecords` counts records
+ * `costUsd` is the raw API-equivalent cost of these tokens. For a subscription it is not money
+ * spent, since plans bill separately; for an API-key provider it estimates the bill.
+ * `unpricedRecords` counts records
  * whose tokens are included in the token totals but which contributed nothing
  * to `costUsd`.
  */
 export const UsageBucket = Schema.Struct({
   day: UsageDay,
   hourStart: Schema.optional(TrimmedNonEmptyString),
-  provider: UsageProviderKind,
+  provider: UsageBucketProvider,
   model: TrimmedNonEmptyString,
   totals: UsageTokenTotals,
   costUsd: Schema.Number,
@@ -115,7 +128,7 @@ export type UsageBucket = typeof UsageBucket.Type;
  */
 export const UsageSourceFingerprint = Schema.Struct({
   hostId: TrimmedNonEmptyString,
-  provider: UsageProviderKind,
+  provider: UsageBucketProvider,
   resolvedHomePath: TrimmedNonEmptyString,
   /**
    * Filesystem identity of the usage store, as `device:inode`.

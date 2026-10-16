@@ -2,8 +2,8 @@ import {
   USAGE_CONTRACT_VERSION,
   type EnvironmentId,
   type UsageBucket,
+  type UsageBucketProvider,
   type UsageDay,
-  type UsageProviderKind,
   type UsageSummary,
 } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
@@ -35,7 +35,7 @@ function bucket(overrides: Partial<UsageBucket> = {}): UsageBucket {
 function summary(
   buckets: readonly UsageBucket[],
   sources: readonly {
-    provider: UsageProviderKind;
+    provider: UsageBucketProvider;
     hostId: string;
     homePath: string;
     volumeId?: string;
@@ -45,11 +45,13 @@ function summary(
 ): UsageSummary {
   const connectionByProvider = {
     claude: "anthropic",
+    anthropic: "anthropic",
     codex: "openai-codex",
-    cursor: "cursor",
+    openai: "openai-codex",
     grok: "xai",
     kimi: "kimi-for-coding",
     opencode: "opencode-go",
+    customOpenai: null,
   } as const;
 
   return {
@@ -76,7 +78,7 @@ function summary(
     pricing: { status: "fresh", source: "litellm", fetchedAt: null, knownModels: 10 },
     scanDurationMs: 1,
     connectedProviders: [
-      ...new Set(sources.map((source) => connectionByProvider[source.provider])),
+      ...new Set(sources.flatMap((source) => connectionByProvider[source.provider] ?? [])),
     ],
   };
 }
@@ -104,6 +106,36 @@ describe("mergeUsage", () => {
     expect(merged.costUsd).toBe(20);
     expect(merged.records).toBe(10);
     expect(merged.duplicateSources).toHaveLength(0);
+  });
+
+  it("counts API-key providers beside subscriptions, a custom endpoint without an account", () => {
+    const merged = mergeUsage(
+      [
+        environment(
+          "env-a",
+          summary(
+            [
+              bucket(),
+              bucket({ provider: "openai", model: "gpt-6.1-sol", costUsd: 4 }),
+              bucket({ provider: "customOpenai", model: "llama-4", costUsd: 1 }),
+            ],
+            [
+              { provider: "claude", hostId: "mac", homePath: "/state.sqlite" },
+              { provider: "openai", hostId: "mac", homePath: "/state.sqlite" },
+              { provider: "customOpenai", hostId: "mac", homePath: "/state.sqlite" },
+            ],
+          ),
+        ),
+      ],
+      USAGE_CONTRACT_VERSION,
+    );
+
+    expect(merged.costUsd).toBe(15);
+    expect(merged.models.map((model) => model.provider)).toEqual([
+      "claude",
+      "openai",
+      "customOpenai",
+    ]);
   });
 
   it("counts a shared transcript directory once", () => {

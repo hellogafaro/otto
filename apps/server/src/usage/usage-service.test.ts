@@ -6,6 +6,7 @@ import {
   ProviderDriverKind,
   ThreadId,
   type OttoUsageEntry,
+  type SubscriptionAuthMode,
   type SubscriptionProviderId,
 } from "@otto/contracts";
 import * as Deferred from "effect/Deferred";
@@ -126,7 +127,7 @@ function entry(provider: string): OttoUsageEntry {
 
 describe("usageRecordFromEntry", () => {
   it("drops ledger usage when its provider is not connected in Otto", () => {
-    expect(UsageService.usageRecordFromEntry(entry("codex"), new Set())).toBeNull();
+    expect(UsageService.usageRecordFromEntry(entry("codex"), new Map())).toBeNull();
   });
 
   it.each([
@@ -137,12 +138,43 @@ describe("usageRecordFromEntry", () => {
     ["opencode", "opencode-go", "opencode"],
     ["opencodeGo", "opencode-go", "opencode"],
   ] as const)("maps %s usage through its %s connection", (driver, connection, provider) => {
-    const connected = new Set<SubscriptionProviderId>([connection]);
+    const connected = new Map<SubscriptionProviderId, SubscriptionAuthMode>([
+      [connection, "oauth"],
+    ]);
+
     expect(UsageService.usageRecordFromEntry(entry(driver), connected)).toMatchObject({
       provider,
       model: "test-model",
       sessionId: "thread-1",
       totals: { uncachedInputTokens: 100, outputTokens: 20, reasoningTokens: 5 },
+    });
+  });
+
+  it.each([
+    ["claudeAgent", "anthropic", "anthropic"],
+    ["codex", "openai-codex", "openai"],
+  ] as const)(
+    "reports %s usage on a %s API key as that API provider",
+    (driver, connection, provider) => {
+      const connected = new Map<SubscriptionProviderId, SubscriptionAuthMode>([
+        [connection, "api-key"],
+      ]);
+
+      expect(UsageService.usageRecordFromEntry(entry(driver), connected)).toMatchObject({
+        provider,
+      });
+    },
+  );
+
+  it("counts a custom OpenAI-compatible endpoint without an account, cache tokens apart", () => {
+    expect(
+      UsageService.usageRecordFromEntry(
+        { ...entry("customOpenai"), cachedInputTokens: 60, cacheCreationTokens: 10 },
+        new Map(),
+      ),
+    ).toMatchObject({
+      provider: "customOpenai",
+      totals: { uncachedInputTokens: 30, cachedInputTokens: 60, cacheCreationTokens: 10 },
     });
   });
 });

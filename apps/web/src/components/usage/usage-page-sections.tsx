@@ -1,5 +1,5 @@
 import { RiCheckLine, RiCloseLine } from "@remixicon/react";
-import type { UsageProviderKind } from "@otto/contracts";
+import type { UsageBucketProvider } from "@otto/contracts";
 
 import { cn } from "../../lib/utils";
 import type { EnvironmentUsageStatus } from "@otto/client-runtime/usage";
@@ -11,7 +11,7 @@ export function ProviderMark({
   provider,
   className,
 }: {
-  readonly provider: UsageProviderKind;
+  readonly provider: UsageBucketProvider;
   readonly className: string;
 }) {
   const Mark = PROVIDER_PRESENTATION[provider].mark;
