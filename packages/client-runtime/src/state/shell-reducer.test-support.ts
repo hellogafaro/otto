@@ -104,6 +104,7 @@ export const stubBot = {
   title: "Backend engineer",
   label: null,
   description: null,
+  instructions: null,
   disabledMcpServerIds: [],
   avatar: { kind: "dither" as const, seed: "builder" },
   engine: null,

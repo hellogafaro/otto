@@ -3,8 +3,8 @@ import * as Schema from "effect/Schema";
 const decodeArchive = Schema.decodeUnknownSync(OttoMemoryArchiveV2);
 
 import {
-  OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY,
-  OTTO_MEMORY_APPROVAL_RESOLVED_ACTIVITY,
+  MEMORY_APPROVAL_REQUESTED_ACTIVITY,
+  MEMORY_APPROVAL_RESOLVED_ACTIVITY,
   OttoMemoryCandidateId,
   BotId,
   ThreadId,
@@ -433,27 +433,29 @@ describe("shared memory approvals", () => {
     affectedBotIds: [BotId.make("bot-ada")],
   });
 
-  it("keeps only requests without a decision, once each, and ignores malformed payloads", () => {
-    const first = request("candidate-1", "Deploys happen on Fridays.");
-    const second = request("candidate-2", "The team uses pnpm.");
+  it("keeps only proposals without a decision, once each, and ignores malformed payloads", () => {
+    const proposal = (memoryId: string, text: string) => ({
+      memoryId,
+      scope: "project" as const,
+      action: "add" as const,
+      text,
+      previousText: null,
+      title: "Otto",
+      authorBotId: BotId.make("bot-ada"),
+    });
+
+    const first = proposal("m_first", "Deploys happen on Fridays.");
+    const second = proposal("m_second", "The team uses pnpm.");
 
     const activities = [
-      { kind: OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY, payload: first },
-      { kind: OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY, payload: second },
-      { kind: OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY, payload: second },
-      { kind: OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY, payload: { candidateId: 3 } },
+      { kind: MEMORY_APPROVAL_REQUESTED_ACTIVITY, payload: first },
+      { kind: MEMORY_APPROVAL_REQUESTED_ACTIVITY, payload: second },
+      { kind: MEMORY_APPROVAL_REQUESTED_ACTIVITY, payload: second },
+      { kind: MEMORY_APPROVAL_REQUESTED_ACTIVITY, payload: request("candidate-3", "Old shape.") },
       { kind: "tool.completed", payload: first },
       {
-        kind: OTTO_MEMORY_APPROVAL_RESOLVED_ACTIVITY,
-        payload: {
-          candidateId: first.candidateId,
-          status: "approved",
-          fact: first.fact,
-          scope: "project",
-          affectedBotIds: first.affectedBotIds,
-          memoryRootId: null,
-          createdAt: "2026-09-23T08:00:00.000Z",
-        },
+        kind: MEMORY_APPROVAL_RESOLVED_ACTIVITY,
+        payload: { memoryId: first.memoryId, status: "approved" },
       },
     ];
 

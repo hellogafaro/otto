@@ -132,4 +132,40 @@ export const memoryCatalog = {
   "Ask before saving project memory": "Ask before saving project memory",
   "Bots wait for your approval before saving facts to a shared project.":
     "Bots wait for your approval before saving facts to a shared project.",
+  "Used only in your private chats.": "Used only in your private chats.",
+  "Its role and how it works. Used in every chat.":
+    "Its role and how it works. Used in every chat.",
+  "Shared with everyone in this group chat.": "Shared with everyone in this group chat.",
+  "Shared with every bot in this project.": "Shared with every bot in this project.",
+  "Shared with every bot in the workspace.": "Shared with every bot in the workspace.",
+  "Edit memory": "Edit memory",
+  "Delete: {text}": "Delete: {text}",
+  "Memory actions": "Memory actions",
+  "Confirm delete": "Confirm delete",
+  "Memory couldn't be deleted": "Memory couldn't be deleted",
+  "Memory has been deleted": "Memory has been deleted",
+  "What {bot} remembers. Only you see what it remembers about you.":
+    "What {bot} remembers. Only you see what it remembers about you.",
+  "Memory is off. Turn it on in Settings to change what bots remember.":
+    "Memory is off. Turn it on in Settings to change what bots remember.",
+  "No memories yet": "No memories yet",
+  "{bot} saves what it learns here. You can change or delete anything.":
+    "{bot} saves what it learns here. You can change or delete anything.",
+  "Add memory": "Add memory",
+  "Almost full": "Almost full",
+  "Add to {name}": "Add to {name}",
+  "New memory": "New memory",
+  "Deleting a memory does not remove it from past chats.":
+    "Deleting a memory does not remove it from past chats.",
+  "What {bot} remembers.": "What {bot} remembers.",
+  View: "View",
+  "Bots remember facts across chats.": "Bots remember facts across chats.",
+  "the workspace": "the workspace",
+  "Update project memory?": "Update project memory?",
+  "Delete from project memory?": "Delete from project memory?",
+  "Update workspace memory?": "Update workspace memory?",
+  "Delete from workspace memory?": "Delete from workspace memory?",
+  "{botName} wants to remember this for {target}": "{botName} wants to remember this for {target}",
+  "A bot wants to remember this for {target}": "A bot wants to remember this for {target}",
+  "Replaces: {text}": "Replaces: {text}",
 } as const;

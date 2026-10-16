@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1688,
+  "directMessageCount": 1670,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -67,21 +67,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "THINKING_VERBS[index % THINKING_VERBS.length] ?? "Thinking");",
       "activity.label);",
     ],
-    "apps/web/src/components/roster/bot-durable-memory.tsx": [
-      "failure.message)}",
-      "readOnlyReason)}</p> : null}",
-    ],
     "apps/web/src/components/roster/bot-inbox-alerts.tsx": [
       "botInboxKindLabel(item.kind))}",
-    ],
-    "apps/web/src/components/roster/bot-memory-sheet.tsx": [
-      "copy.title)}",
-      "copy.description)}",
-      "copy.title) })}",
-    ],
-    "apps/web/src/components/roster/bot-memory-transfer.tsx": [
-      "exportDescription) })",
-      "NOTES_CLASSIFICATION_LABELS[item.classification]),",
     ],
     "apps/web/src/components/roster/bot-tools-section.tsx": [
       "STATUS_LABEL[status])}",
@@ -92,28 +79,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/chat-status-icon.tsx": [
       "CHAT_STATUS[status].label)} />;",
     ],
-    "apps/web/src/components/roster/durable-memory-panels.tsx": [
-      "label)} className="flex flex-wrap gap-1">",
-      "option.label)}",
-      "DURABLE_MEMORY_APPROVAL_LABELS[fact.approvalState])}",
-      "DURABLE_MEMORY_DELETION_LABELS[fact.deletionState])}",
-      "DURABLE_MEMORY_SCOPE_LABELS[fact.scope])}</dd>",
-      "DURABLE_FACT_DELETE_CONFIRM.title)} {t(DURABLE_FACT_DELETE_CONFIRM.message)}",
-      "DURABLE_FACT_DELETE_CONFIRM.message)}",
-      "DURABLE_FACT_DELETE_CONFIRM.confirm)}",
-      "DURABLE_FACT_DELETE_CONFIRM.cancel)}",
-      "option.label)}",
-      "SIMPLE_ACTION_LABELS[action])}",
-      "DURABLE_MEMORY_APPROVAL_LABELS[fact.approvalState]),",
-      "DURABLE_MEMORY_DELETION_LABELS[fact.deletionState]),",
-      "IMPORT_CLASSIFICATION_LABELS[group.classification]),",
-      "choice.label)}",
-    ],
     "apps/web/src/components/roster/group-editor.tsx": [
       "'Delete "{name}"? Its bots stay in your roster.', { name: group.name }),",
-    ],
-    "apps/web/src/components/roster/memory-approval-prompt.tsx": [
-      "describeDurableFactFailure(squashAtomCommandFailure(result)).message),",
     ],
     "apps/web/src/components/roster/roster-rows.tsx": [
       "chatsOpen ? "Hide {name} chats" : "Show {name} chats", {",
@@ -220,8 +187,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Code font size",
       "Time format",
       "Memory",
-      "Private bot memory",
-      "Ask before saving project memory",
       "Voice calls",
       "Voice provider",
       "Voice selection",
@@ -403,13 +368,11 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/bot-chat-message-rows.tsx",
     "apps/web/src/components/roster/bot-chat-tree.tsx",
     "apps/web/src/components/roster/bot-conversation-scroll-area.tsx",
-    "apps/web/src/components/roster/bot-durable-memory.tsx",
     "apps/web/src/components/roster/bot-engine-fields.tsx",
     "apps/web/src/components/roster/bot-engine-selection.ts",
     "apps/web/src/components/roster/bot-identity-fields.tsx",
     "apps/web/src/components/roster/bot-inbox-alerts.tsx",
     "apps/web/src/components/roster/bot-memory-sheet.tsx",
-    "apps/web/src/components/roster/bot-memory-transfer.tsx",
     "apps/web/src/components/roster/bot-message-attachments.tsx",
     "apps/web/src/components/roster/bot-model-picker.tsx",
     "apps/web/src/components/roster/bot-picker.tsx",
@@ -436,7 +399,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/chat-status-icon.tsx",
     "apps/web/src/components/roster/delegation-card.tsx",
     "apps/web/src/components/roster/delegation-detail.tsx",
-    "apps/web/src/components/roster/durable-memory-panels.tsx",
     "apps/web/src/components/roster/group-editor.tsx",
     "apps/web/src/components/roster/group-thread-landing.tsx",
     "apps/web/src/components/roster/memory-approval-prompt.tsx",

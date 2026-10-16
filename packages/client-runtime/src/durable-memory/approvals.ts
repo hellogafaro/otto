@@ -1,8 +1,9 @@
 import {
-  OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY,
-  OTTO_MEMORY_APPROVAL_RESOLVED_ACTIVITY,
-  OttoMemoryApprovalRequest,
-  OttoMemoryDecisionReceipt,
+  MEMORY_APPROVAL_REQUESTED_ACTIVITY,
+  MEMORY_APPROVAL_RESOLVED_ACTIVITY,
+  MemoryApprovalRequest,
+  MemoryApprovalResolution,
+  type OttoMemoryApprovalRequest,
   type OttoMemoryMutation,
   type OttoMemoryTargetScope,
 } from "@otto/contracts";
@@ -33,48 +34,37 @@ export const memoryApprovalHeading = (
   i18n: Pick<DurableMemoryTranslator, "t"> = englishTranslator,
 ) => i18n.t(MEMORY_APPROVAL_HEADINGS[scope]);
 
-const isApprovalRequest = Schema.is(OttoMemoryApprovalRequest);
+const isApprovalRequest = Schema.is(MemoryApprovalRequest);
 
-const isDecisionReceipt = Schema.is(OttoMemoryDecisionReceipt);
+const isResolution = Schema.is(MemoryApprovalResolution);
 
 /**
- * Shared facts a bot asked to save in this chat that nobody has approved or
- * rejected yet, oldest first. Derived from thread activities, so the list
- * survives reloads and clears when either the chat card or the inbox decides.
+ * Project and workspace changes a bot proposed in this chat that nobody has approved or
+ * rejected yet, oldest first. Derived from thread activities, so the list survives reloads.
  */
 export function pendingMemoryApprovals(
   activities: ReadonlyArray<{ readonly kind: string; readonly payload: unknown }>,
-): ReadonlyArray<OttoMemoryApprovalRequest> {
-  const resolved = new Set<string>();
+): ReadonlyArray<MemoryApprovalRequest> {
+  const resolved = new Set(
+    activities.flatMap((activity) =>
+      activity.kind === MEMORY_APPROVAL_RESOLVED_ACTIVITY && isResolution(activity.payload)
+        ? [activity.payload.memoryId]
+        : [],
+    ),
+  );
+
+  const pending = new Map<string, MemoryApprovalRequest>();
 
   for (const activity of activities) {
-    if (
-      activity.kind === OTTO_MEMORY_APPROVAL_RESOLVED_ACTIVITY &&
-      isDecisionReceipt(activity.payload)
-    ) {
-      resolved.add(activity.payload.candidateId);
-    }
+    if (activity.kind !== MEMORY_APPROVAL_REQUESTED_ACTIVITY) continue;
+
+    if (!isApprovalRequest(activity.payload)) continue;
+
+    if (resolved.has(activity.payload.memoryId)) continue;
+    pending.set(activity.payload.memoryId, activity.payload);
   }
 
-  const pending: OttoMemoryApprovalRequest[] = [];
-  const seen = new Set<string>();
-
-  for (const activity of activities) {
-    if (
-      activity.kind !== OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY ||
-      !isApprovalRequest(activity.payload)
-    ) {
-      continue;
-    }
-
-    const request = activity.payload;
-
-    if (resolved.has(request.candidateId) || seen.has(request.candidateId)) continue;
-    seen.add(request.candidateId);
-    pending.push(request);
-  }
-
-  return pending;
+  return [...pending.values()];
 }
 
 export type MemoryApprovalIntent =

@@ -1,8 +1,7 @@
 import { assert, describe, expect, it } from "vite-plus/test";
 import {
-  OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY,
-  OTTO_MEMORY_APPROVAL_RESOLVED_ACTIVITY,
-  OttoMemoryCandidateId,
+  MEMORY_APPROVAL_REQUESTED_ACTIVITY,
+  MEMORY_APPROVAL_RESOLVED_ACTIVITY,
   BotId,
   EventId,
   ThreadId,
@@ -47,13 +46,13 @@ describe("applyThreadDetailEvent", () => {
 
     it("opens a memory approval card on request and clears it on decision", () => {
       const request = {
-        candidateId: OttoMemoryCandidateId.make("candidate-1"),
-        fact: "Deploys happen on Fridays.",
+        memoryId: "m_deploys",
         scope: "project" as const,
-        sensitive: false,
-        sourceThreadId: ThreadId.make("thread-1"),
+        action: "add" as const,
+        text: "Deploys happen on Fridays.",
+        previousText: null,
+        title: "Otto",
         authorBotId: BotId.make("bot-1"),
-        affectedBotIds: [BotId.make("bot-1")],
       };
 
       const append = (
@@ -88,17 +87,12 @@ describe("applyThreadDetailEvent", () => {
         return result.thread;
       };
 
-      const requested = append(baseThread, 20, OTTO_MEMORY_APPROVAL_REQUESTED_ACTIVITY, request);
+      const requested = append(baseThread, 20, MEMORY_APPROVAL_REQUESTED_ACTIVITY, request);
       expect(pendingMemoryApprovals(requested.activities)).toEqual([request]);
 
-      const resolved = append(requested, 21, OTTO_MEMORY_APPROVAL_RESOLVED_ACTIVITY, {
-        candidateId: request.candidateId,
+      const resolved = append(requested, 21, MEMORY_APPROVAL_RESOLVED_ACTIVITY, {
+        memoryId: request.memoryId,
         status: "approved",
-        fact: request.fact,
-        scope: "project",
-        affectedBotIds: request.affectedBotIds,
-        memoryRootId: "memory-1",
-        createdAt: "2026-04-01T11:00:01.000Z",
       });
 
       expect(pendingMemoryApprovals(resolved.activities)).toEqual([]);

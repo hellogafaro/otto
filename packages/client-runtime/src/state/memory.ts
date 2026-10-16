@@ -1,4 +1,5 @@
 import {
+  type BotId,
   type OttoMemoryFactsListInput,
   type EnvironmentId,
   type ThreadId,
@@ -115,7 +116,57 @@ export function createMemoryEnvironmentAtoms<R, E>(
       }
     });
 
+  const listFamily = createEnvironmentRpcQueryAtomFamily(runtime, {
+    label: "environment-data:memory:list",
+    tag: WS_METHODS.memoryList,
+    staleTimeMs: 5_000,
+  });
+
+  // Person, group, project and workspace memory are shared by several bots, so a change
+  // refreshes every bot's list this client has opened in the environment.
+  const listedBotIds = new Map<EnvironmentId, Set<BotId>>();
+
+  const list: typeof listFamily = (target) => {
+    const botIds = listedBotIds.get(target.environmentId) ?? new Set<BotId>();
+    botIds.add(target.input.botId);
+    listedBotIds.set(target.environmentId, botIds);
+
+    return listFamily(target);
+  };
+
+  const refreshLists = (
+    target: { readonly environmentId: EnvironmentId },
+    registry: AtomRegistry.AtomRegistry,
+  ) =>
+    Effect.sync(() => {
+      for (const botId of listedBotIds.get(target.environmentId) ?? []) {
+        registry.refresh(listFamily({ environmentId: target.environmentId, input: { botId } }));
+      }
+    });
+
+  const memoryCommand = <
+    TTag extends
+      | typeof WS_METHODS.memoryCreate
+      | typeof WS_METHODS.memoryUpdate
+      | typeof WS_METHODS.memoryDelete
+      | typeof WS_METHODS.memoryDecide,
+  >(
+    label: string,
+    tag: TTag,
+  ) =>
+    createEnvironmentRpcCommand(runtime, {
+      label: `environment-data:memory:${label}`,
+      tag,
+      scheduler,
+      onSettled: refreshLists,
+    });
+
   return {
+    list,
+    create: memoryCommand("create", WS_METHODS.memoryCreate),
+    update: memoryCommand("update", WS_METHODS.memoryUpdate),
+    remove: memoryCommand("delete", WS_METHODS.memoryDelete),
+    decide: memoryCommand("decide", WS_METHODS.memoryDecide),
     inspectDocuments,
     listFacts,
     mutateFact: createEnvironmentRpcCommand(runtime, {
