@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import { ProviderInstanceId, type BotEngine } from "@otto/contracts";
+import { RiArrowUpLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/use-settings";
@@ -10,7 +11,8 @@ import { primaryServerProvidersAtom } from "../../state/server";
 import { ProviderUnavailableNotice } from "../chat/provider-unavailable-notice";
 import { TraitsPicker } from "../chat/traits-picker";
 import { Button } from "../ui/button";
-import { Dialog, DialogFooter, DialogPopup, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogPopup, DialogTitle } from "../ui/dialog";
+import { PromptDialogHints } from "../prompt-dialog";
 import { BotAvatarPopover } from "./bot-avatar-popover";
 import { BotModelPicker } from "./bot-model-picker";
 import { botEngineForModelPick, botEngineForOptions } from "./bot-engine-selection";
@@ -29,6 +31,8 @@ export interface NewBotInput {
  * Creates a bot from a name alone: the avatar starts random and the model on
  * the app default, both changeable here. Everything else lives in the bot's
  * settings, and the bot asks for context in its first message.
+ * Otto: Laid out like the routine composer: model pickers at the bottom left,
+ * the round send button at the right, and the Enter and Esc hints below.
  */
 export function NewBotDialog({
   open,
@@ -104,8 +108,8 @@ export function NewBotDialog({
             ) : null}
           </div>
 
-          <DialogFooter className="items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-0.5">
+          <div className="flex items-end justify-between gap-2 px-3 pb-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-1 *:shrink-0">
               {selection ? (
                 <BotModelPicker
                   activeInstanceId={ProviderInstanceId.make(selection.instanceId)}
@@ -143,12 +147,15 @@ export function NewBotDialog({
             </div>
             <Button
               type="submit"
+              size="icon-sm"
               variant="primary"
+              aria-label={submitting ? t("Creating") : t("Create bot")}
               disabled={submitting || trimmedName.length === 0}
             >
-              {submitting ? t("Creating") : t("Create bot")}
+              <RiArrowUpLine />
             </Button>
-          </DialogFooter>
+          </div>
+          <PromptDialogHints submitLabel={t("Create bot")} />
         </form>
       </DialogPopup>
     </Dialog>
