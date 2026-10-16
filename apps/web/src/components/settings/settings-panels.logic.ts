@@ -1,8 +1,6 @@
 import { recordLookup } from "../record-lookup";
 import { isTagged } from "../tagged";
 import type {
-  BackgroundActivityProfile,
-  BackgroundActivitySettings,
   ProviderDriverKind,
   ProviderInstanceConfig,
   PreviewViewportSetting,
@@ -11,22 +9,8 @@ import type {
   SidebarProjectGroupingMode,
   UnifiedSettings,
 } from "@otto/contracts";
-import {
-  createTranslator,
-  type MessageKey,
-  type TranslationParams,
-} from "@otto/client-runtime/i18n";
 import { DEFAULT_UNIFIED_SETTINGS } from "@otto/contracts/settings";
-import {
-  getBackgroundActivityBaseProfile,
-  normalizeBackgroundActivitySettings,
-  normalizeServerBackgroundActivitySettings,
-  resolveServerBackgroundActivitySettings,
-} from "@otto/shared/backgroundActivitySettings";
-import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
-
-const englishTranslate = createTranslator("en").t;
 
 export function isProjectGroupingEnabled(mode: SidebarProjectGroupingMode): boolean {
   return mode !== "separate";
@@ -172,103 +156,6 @@ export function getChangedBrowserSettingLabels(settings: BrowserDefaultSettings)
   ];
 }
 
-export function resolveBackgroundActivityProfileOption(
-  settings: ServerSettings,
-): BackgroundActivityProfile | "advanced" {
-  const resolved = resolveServerBackgroundActivitySettings(settings);
-
-  const normalized = normalizeBackgroundActivitySettings({
-    schemaVersion: 1,
-    profile: "custom",
-    baseProfile: resolved.profile,
-    overrides: {
-      automaticGitFetchInterval: resolved.automaticGitFetchInterval,
-      providerHealthRefreshInterval: resolved.providerHealthRefreshInterval,
-      hostPowerMonitorActiveInterval: resolved.hostPowerMonitorActiveInterval,
-      hostPowerMonitorIdleInterval: resolved.hostPowerMonitorIdleInterval,
-      idleClientTtl: resolved.idleClientTtl,
-      pauseWhenHostLocked: resolved.pauseWhenHostLocked,
-      pauseWhenHostLowPower: resolved.pauseWhenHostLowPower,
-      pauseWhenClientLowPower: resolved.pauseWhenClientLowPower,
-      pauseWhenOnBattery: resolved.pauseWhenOnBattery,
-    },
-  });
-
-  return normalized.profile === "custom" ? "advanced" : normalized.profile;
-}
-
-export function backgroundActivitySharedPolicySettings(
-  settings: ServerSettings,
-  profile: BackgroundActivityProfile,
-): BackgroundActivitySettings {
-  const normalized = normalizeServerBackgroundActivitySettings(settings);
-
-  return {
-    schemaVersion: 1,
-    profile: "custom",
-    baseProfile: profile,
-    overrides: normalized.profile === "custom" ? normalized.overrides : {},
-  };
-}
-
-function collapseOtelSignalsUrl(input: {
-  readonly tracesUrl: string;
-  readonly metricsUrl: string;
-}): string | null {
-  const tracesSuffix = "/traces";
-  const metricsSuffix = "/metrics";
-
-  if (!input.tracesUrl.endsWith(tracesSuffix) || !input.metricsUrl.endsWith(metricsSuffix)) {
-    return null;
-  }
-
-  const tracesBase = input.tracesUrl.slice(0, -tracesSuffix.length);
-  const metricsBase = input.metricsUrl.slice(0, -metricsSuffix.length);
-
-  if (tracesBase !== metricsBase) {
-    return null;
-  }
-
-  return `${tracesBase}/{traces,metrics}`;
-}
-
-export function formatDiagnosticsDescription(
-  input: {
-    readonly localTracingEnabled: boolean;
-    readonly otlpTracesEnabled: boolean;
-    readonly otlpTracesUrl?: string | undefined;
-    readonly otlpMetricsEnabled: boolean;
-    readonly otlpMetricsUrl?: string | undefined;
-  },
-  t: (message: MessageKey, params?: TranslationParams) => string = englishTranslate,
-): string {
-  const mode = input.localTracingEnabled ? t("Local trace file") : t("Terminal logs only");
-  const tracesUrl = input.otlpTracesEnabled ? input.otlpTracesUrl : undefined;
-  const metricsUrl = input.otlpMetricsEnabled ? input.otlpMetricsUrl : undefined;
-
-  if (tracesUrl && metricsUrl) {
-    const collapsedUrl = collapseOtelSignalsUrl({ tracesUrl, metricsUrl });
-
-    return collapsedUrl
-      ? t("{mode}. Exporting OTEL to {url}.", { mode, url: collapsedUrl })
-      : t("{mode}. Exporting OTEL traces to {tracesUrl} and metrics to {metricsUrl}.", {
-          mode,
-          tracesUrl,
-          metricsUrl,
-        });
-  }
-
-  if (tracesUrl) {
-    return t("{mode}. Exporting OTEL traces to {url}.", { mode, url: tracesUrl });
-  }
-
-  if (metricsUrl) {
-    return t("{mode}. Exporting OTEL metrics to {url}.", { mode, url: metricsUrl });
-  }
-
-  return t("{mode}.", { mode });
-}
-
 export function buildProviderInstanceUpdatePatch(input: {
   readonly settings: Pick<ServerSettings, "providers" | "providerInstances">;
   readonly instanceId: ProviderInstanceId;
@@ -301,65 +188,5 @@ export function buildProviderInstanceUpdatePatch(input: {
     ...(input.textGenerationModelSelection !== undefined
       ? { textGenerationModelSelection: input.textGenerationModelSelection }
       : {}),
-  };
-}
-
-// ── Background-activity interval helpers ─────────────────────────────
-// Shared by the General panel's interval rows and the Providers panel's
-// health-check row.
-
-export const PROVIDER_HEALTH_INTERVAL_STEP_SECONDS = 30;
-
-type BackgroundActivityOverridePatch = Partial<{
-  [K in keyof BackgroundActivitySettings["overrides"]]:
-    | BackgroundActivitySettings["overrides"][K]
-    | undefined;
-}>;
-
-export function durationToSeconds(duration: Duration.Duration): number {
-  return Math.round(Duration.toMillis(duration) / 1_000);
-}
-
-export function normalizeIntervalSeconds(value: number | null, minimum = 0): number {
-  if (value === null || !Number.isFinite(value)) {
-    return minimum;
-  }
-
-  return Math.max(minimum, Math.round(value));
-}
-
-export function backgroundActivityOverrideSettings(
-  current: BackgroundActivitySettings,
-  resolved: ReturnType<typeof resolveServerBackgroundActivitySettings>,
-  overrides: BackgroundActivityOverridePatch,
-) {
-  const nextOverrides: BackgroundActivityOverridePatch = {
-    automaticGitFetchInterval: resolved.automaticGitFetchInterval,
-    providerHealthRefreshInterval: resolved.providerHealthRefreshInterval,
-    hostPowerMonitorActiveInterval: resolved.hostPowerMonitorActiveInterval,
-    hostPowerMonitorIdleInterval: resolved.hostPowerMonitorIdleInterval,
-    idleClientTtl: resolved.idleClientTtl,
-    pauseWhenHostLocked: resolved.pauseWhenHostLocked,
-    pauseWhenHostLowPower: resolved.pauseWhenHostLowPower,
-    pauseWhenClientLowPower: resolved.pauseWhenClientLowPower,
-    pauseWhenOnBattery: resolved.pauseWhenOnBattery,
-    ...overrides,
-  };
-
-  for (const [key, value] of Object.entries(nextOverrides)) {
-    if (value === undefined) {
-      // SAFETY: Object.entries supplies only own keys of nextOverrides; deletion removes explicitly undefined fields.
-      delete nextOverrides[key as keyof typeof nextOverrides];
-    }
-  }
-
-  // SAFETY: the preceding loop removes every explicitly undefined override, satisfying the exact optional settings type.
-  return {
-    backgroundActivity: {
-      schemaVersion: 1 as const,
-      profile: "custom" as const,
-      baseProfile: getBackgroundActivityBaseProfile(current),
-      overrides: nextOverrides as BackgroundActivitySettings["overrides"],
-    },
   };
 }

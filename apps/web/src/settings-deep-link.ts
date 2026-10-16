@@ -40,8 +40,9 @@ const destinations: Readonly<
   sandbox: { section: "sandbox", label: "Sandbox" },
   privacy: { section: "privacy", label: "Privacy & data" },
   "archived-chats": { section: "archived", label: "Archived chats" },
-  "bot-inbox": { section: "advanced", label: "Advanced > Bot inbox", targetId: "errors" },
-  diagnostics: { section: "diagnostics", label: "Diagnostics" },
+  // Otto: The bot inbox and Diagnostics pages are gone; old chips open General.
+  "bot-inbox": { section: "general", label: "General" },
+  diagnostics: { section: "general", label: "General" },
 };
 
 export interface SettingsDeepLinkDestination {

@@ -1,4 +1,4 @@
-import { RiInformationLine, RiArrowGoBackLine } from "@remixicon/react";
+import { RiArrowGoBackLine } from "@remixicon/react";
 
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
@@ -92,25 +92,6 @@ function useSettingsSearchTarget<T extends HTMLElement>(id: string | undefined) 
   );
 
   return targetRef;
-}
-
-/** Info affordance explaining how a setting interacts with the shared background policy. */
-export function PolicyTooltip({ children }: { readonly children: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        delay={200}
-        render={
-          <Button size="icon-micro" variant="ghost-muted" aria-label="Background policy details">
-            <RiInformationLine className="size-3.5" />
-          </Button>
-        }
-      />
-      <TooltipPopup side="top" className="max-w-72">
-        {children}
-      </TooltipPopup>
-    </Tooltip>
-  );
 }
 
 /** Re-render every `intervalMs`; return a stable timestamp snapshot for render-time relative labels. */

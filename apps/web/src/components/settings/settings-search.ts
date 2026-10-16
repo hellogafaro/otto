@@ -11,8 +11,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/image-generation"
   | "/settings/privacy"
-  | "/settings/archived"
-  | "/settings/advanced";
+  | "/settings/archived";
 
 export interface SettingsSearchItem {
   readonly id: string;
@@ -241,30 +240,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "data-portability",
     title: "Data portability",
     to: "/settings/privacy",
-  },
-  {
-    id: "background-activity",
-    title: "Background work",
-    to: "/settings/advanced",
-    keywords: ["background activity", "battery", "performance"],
-  },
-  {
-    // The bot inbox section carries this anchor; old inbox and error links map here.
-    id: "errors",
-    title: "Bot inbox",
-    to: "/settings/advanced",
-    keywords: ["inbox", "memory approvals", "failures", "incidents"],
-  },
-  {
-    id: "diagnostics",
-    title: "Diagnostics",
-    to: "/settings/advanced",
-    keywords: ["errors", "failures", "troubleshooting", "logs"],
-  },
-  {
-    id: "legacy-token-streaming",
-    title: "Stream token by token (legacy)",
-    to: "/settings/advanced",
   },
   {
     id: "keybindings",

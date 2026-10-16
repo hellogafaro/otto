@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1898,
+  "directMessageCount": 1850,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -121,14 +121,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/routines/routine-history.tsx": [
       "runStatusTone(run.status).label)}",
     ],
-    "apps/web/src/components/settings/background-activity-settings.tsx": [
-      "BACKGROUND_ACTIVITY_PROFILE_LABELS[activeProfile])}</SelectValue>",
-      "BACKGROUND_ACTIVITY_PROFILE_LABELS.balanced)}",
-      "BACKGROUND_ACTIVITY_PROFILE_LABELS.performance)}",
-      "BACKGROUND_ACTIVITY_PROFILE_LABELS["battery-saver"])}",
-      "label)}</span>",
-      "label)}",
-    ],
     "apps/web/src/components/settings/bot-workspace-settings.tsx": [
       "BOT_SANDBOX_BROWSER_SHARING_LABELS[value])}</SelectValue>",
       "BOT_SANDBOX_BROWSER_SHARING_LABELS.shared)}",
@@ -142,9 +134,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "TIMESTAMP_FORMAT_LABELS["24-hour"])}",
       "QUIT_CONFIRMATION_MODE_LABELS[settings.confirmQuit])}",
       "label)}",
-    ],
-    "apps/web/src/components/settings/inbox-panel.tsx": [
-      "describeDurableFactFailure(squashAtomCommandFailure(result)).message,",
     ],
     "apps/web/src/components/settings/keybindings-settings.tsx": [
       "FILTER_LABELS[option])}",
@@ -184,13 +173,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/settings-panels.tsx": [
       "ENVIRONMENT_IDENTIFICATION_LABELS[settings.environmentIdentificationMode])}",
       "label)}",
-      "BACKGROUND_ACTIVITY_PROFILE_LABELS[activeBackgroundActivityProfile]) },",
-      "BACKGROUND_ACTIVITY_PROFILE_DESCRIPTIONS[resolvedBackgroundActivity.profile]);",
-      "BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS[backgroundActivityProfileOption])}",
-      "BACKGROUND_ACTIVITY_PROFILE_LABELS.balanced)}",
-      "BACKGROUND_ACTIVITY_PROFILE_LABELS.performance)}",
-      "BACKGROUND_ACTIVITY_PROFILE_LABELS["battery-saver"])}",
-      "BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS.advanced)}",
     ],
     "apps/web/src/components/settings/settings-route-page.tsx": [
       "settingsSectionLabel(section));",
@@ -248,7 +230,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Keyboard",
       "Privacy & data",
       "Archived",
-      "Advanced",
       "Organization",
       "Account",
       "Organization",
@@ -301,10 +282,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Read new replies aloud",
       "Quit shortcut",
       "Data portability",
-      "Background work",
-      "Bot inbox",
-      "Diagnostics",
-      "Stream token by token (legacy)",
       "Keybindings",
       "Archived chats",
       "Archived bots",
@@ -534,7 +511,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/routines/routines-page.tsx",
     "apps/web/src/components/settings/archived-bots-settings.tsx",
     "apps/web/src/components/settings/archived-chats-settings.tsx",
-    "apps/web/src/components/settings/background-activity-settings.tsx",
     "apps/web/src/components/settings/bot-channels-settings.tsx",
     "apps/web/src/components/settings/bot-workspace-settings.tsx",
     "apps/web/src/components/settings/bots-settings.tsx",
@@ -545,7 +521,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/channel-status.tsx",
     "apps/web/src/components/settings/general-settings-panel.tsx",
     "apps/web/src/components/settings/image-generation-settings.tsx",
-    "apps/web/src/components/settings/inbox-panel.tsx",
     "apps/web/src/components/settings/integrations-settings.tsx",
     "apps/web/src/components/settings/keybinding-editors.tsx",
     "apps/web/src/components/settings/keybinding-presentation.tsx",
@@ -553,7 +528,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/keybinding-when-editor.tsx",
     "apps/web/src/components/settings/keybindings-settings.tsx",
     "apps/web/src/components/settings/language-setting.tsx",
-    "apps/web/src/components/settings/legacy-feature-settings.tsx",
     "apps/web/src/components/settings/portability-import-preview.tsx",
     "apps/web/src/components/settings/portability-presentation.ts",
     "apps/web/src/components/settings/portability-settings.tsx",

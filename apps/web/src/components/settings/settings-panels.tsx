@@ -1,8 +1,4 @@
-import { RiSettings3Line } from "@remixicon/react";
-
 import type { CSSProperties } from "react";
-import { useState } from "react";
-import { useAtomValue } from "@effect/atom-react";
 import {
   DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
   DEFAULT_UNIFIED_SETTINGS,
@@ -10,25 +6,14 @@ import {
   MAX_APPEARANCE_CONTRAST,
   MIN_APPEARANCE_CONTRAST,
 } from "@otto/contracts/settings";
-import { resolveServerBackgroundActivitySettings } from "@otto/shared/backgroundActivitySettings";
-import * as Equal from "effect/Equal";
 import {
   resolveEnvironmentIdentificationPillLabel,
   useEnvironmentStageLabel,
 } from "../sidebar-stage-backdrop";
-import { openSettings } from "../../settings-dialog-store";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/use-settings";
-import { primaryServerObservabilityAtom } from "../../state/server";
-import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ColorSchemeSettings } from "./theme-settings";
 import {
-  formatDiagnosticsDescription,
-  resolveBackgroundActivityProfileOption,
-} from "./settings-panels.logic";
-import {
-  PolicyTooltip,
   SettingResetButton,
   SettingsPageContainer,
   SettingsRow,
@@ -37,16 +22,7 @@ import {
 import { searchableSetting } from "./settings-search";
 import { useI18n } from "../../i18n";
 import type { MessageKey } from "@otto/client-runtime/i18n";
-import { resetBackgroundActivitySettings } from "./use-settings-restore";
-import {
-  BACKGROUND_ACTIVITY_PROFILE_LABELS,
-  BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS,
-  BACKGROUND_ACTIVITY_PROFILE_DESCRIPTIONS,
-  backgroundActivityProfileSettings,
-  BackgroundActivityAdvancedDialog,
-} from "./background-activity-settings";
 import { TypographySection } from "./typography-settings";
-import { LegacyFeaturesSection } from "./legacy-feature-settings";
 
 const ENVIRONMENT_IDENTIFICATION_LABELS: Record<EnvironmentIdentificationMode, MessageKey> = {
   artwork: "Artwork",
@@ -174,154 +150,6 @@ export function AppearanceSettingsPanel() {
 
       <TypographySection />
     </SettingsPageContainer>
-  );
-}
-
-/** Performance and troubleshooting controls for the Advanced page. */
-export function AdvancedSettingsSections() {
-  const { t } = useI18n();
-  const settings = usePrimarySettings();
-  const updateSettings = useUpdatePrimarySettings();
-  const [backgroundActivityDialogOpen, setBackgroundActivityDialogOpen] = useState(false);
-  const observability = useAtomValue(primaryServerObservabilityAtom);
-
-  const diagnosticsDescription = formatDiagnosticsDescription(
-    {
-      localTracingEnabled: observability?.localTracingEnabled ?? false,
-      otlpTracesEnabled: observability?.otlpTracesEnabled ?? false,
-      otlpTracesUrl: observability?.otlpTracesUrl,
-      otlpMetricsEnabled: observability?.otlpMetricsEnabled ?? false,
-      otlpMetricsUrl: observability?.otlpMetricsUrl,
-    },
-    t,
-  );
-
-  const resolvedBackgroundActivity = resolveServerBackgroundActivitySettings(settings);
-  const activeBackgroundActivityProfile = resolvedBackgroundActivity.profile;
-  const backgroundActivityProfileOption = resolveBackgroundActivityProfileOption(settings);
-
-  const backgroundActivityDescription =
-    backgroundActivityProfileOption === "advanced"
-      ? t(
-          "Uses custom background intervals with the selected shared power policy. Current shared policy: {profile}.",
-          { profile: t(BACKGROUND_ACTIVITY_PROFILE_LABELS[activeBackgroundActivityProfile]) },
-        )
-      : t(BACKGROUND_ACTIVITY_PROFILE_DESCRIPTIONS[resolvedBackgroundActivity.profile]);
-
-  const canResetBackgroundActivity = !Equal.equals(
-    settings.backgroundActivity,
-    DEFAULT_UNIFIED_SETTINGS.backgroundActivity,
-  );
-
-  return (
-    <>
-      <SettingsSection title={t("Performance")}>
-        <SettingsRow
-          id={searchableSetting("background-activity").id}
-          title={
-            <span className="inline-flex items-center gap-1.5">
-              {t("Background work")}
-              <PolicyTooltip>
-                {t(
-                  "This shared policy gates background work such as Git refreshes and provider health probes after their individual intervals elapse.",
-                )}
-              </PolicyTooltip>
-            </span>
-          }
-          description={backgroundActivityDescription}
-          resetAction={
-            canResetBackgroundActivity ? (
-              <SettingResetButton
-                label={t("background work")}
-                onClick={() => updateSettings(resetBackgroundActivitySettings())}
-              />
-            ) : null
-          }
-          control={
-            <>
-              <Select
-                value={backgroundActivityProfileOption}
-                onValueChange={(value) => {
-                  if (value === "advanced") {
-                    setBackgroundActivityDialogOpen(true);
-
-                    return;
-                  }
-
-                  if (
-                    value === "balanced" ||
-                    value === "performance" ||
-                    value === "battery-saver"
-                  ) {
-                    updateSettings(backgroundActivityProfileSettings(value));
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full sm:w-40" aria-label={t("Background work profile")}>
-                  <SelectValue>
-                    {t(BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS[backgroundActivityProfileOption])}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup align="end" alignItemWithTrigger={false}>
-                  <SelectItem hideIndicator value="balanced">
-                    {t(BACKGROUND_ACTIVITY_PROFILE_LABELS.balanced)}
-                  </SelectItem>
-                  <SelectItem hideIndicator value="performance">
-                    {t(BACKGROUND_ACTIVITY_PROFILE_LABELS.performance)}
-                  </SelectItem>
-                  <SelectItem hideIndicator value="battery-saver">
-                    {t(BACKGROUND_ACTIVITY_PROFILE_LABELS["battery-saver"])}
-                  </SelectItem>
-                  <SelectItem hideIndicator value="advanced">
-                    {t(BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS.advanced)}
-                  </SelectItem>
-                </SelectPopup>
-              </Select>
-              {backgroundActivityProfileOption === "advanced" ? (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        size="icon-sm"
-                        variant="outline"
-                        aria-label={t("Configure advanced background activity")}
-                        onClick={() => setBackgroundActivityDialogOpen(true)}
-                      >
-                        <RiSettings3Line className="size-4" />
-                      </Button>
-                    }
-                  />
-                  <TooltipPopup side="top">{t("Configure background activity")}</TooltipPopup>
-                </Tooltip>
-              ) : null}
-              <BackgroundActivityAdvancedDialog
-                open={backgroundActivityDialogOpen}
-                onOpenChange={setBackgroundActivityDialogOpen}
-              />
-            </>
-          }
-        />
-      </SettingsSection>
-
-      <SettingsSection title={t("Troubleshooting")}>
-        <SettingsRow
-          {...searchableSetting("diagnostics", t)}
-          description={
-            <>
-              {t("Inspect logs, resource use, and tracing for this environment.")}{" "}
-              {diagnosticsDescription}
-            </>
-          }
-          control={
-            <Button size="sm" variant="outline" onClick={() => openSettings("diagnostics")}>
-              {t("View diagnostics")}
-            </Button>
-          }
-        />
-      </SettingsSection>
-
-      <LegacyFeaturesSection />
-    </>
   );
 }
 

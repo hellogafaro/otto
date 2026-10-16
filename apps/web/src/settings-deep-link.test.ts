@@ -25,8 +25,8 @@ describe("settings deep links", () => {
     ["archived-chats", "archived", null, "Archived chats"],
     ["connections", "general", null, "General"],
     ["source-control", "general", null, "General"],
-    ["bot-inbox", "advanced", "errors", "Advanced > Bot inbox"],
-    ["diagnostics", "diagnostics", null, "Diagnostics"],
+    ["bot-inbox", "general", null, "General"],
+    ["diagnostics", "general", null, "General"],
   ] as const)("maps %s to %s and target %s", (id, section, targetId, label) => {
     expect(parseSettingsDeepLink(`grokbot://app/v1/settings?id=${id}`)).toEqual({
       section,

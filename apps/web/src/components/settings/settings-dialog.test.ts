@@ -68,10 +68,11 @@ describe("settings dialog navigation", () => {
       SETTINGS_NAV_GROUPS.filter((group) => group.label !== "Organization").flatMap(
         (group) => group.items,
       ).length,
-    ).toBe(15);
+    ).toBe(14);
     expect(new Set(sections).size).toBe(sections.length);
     expect(sections).not.toContain("source-control");
     expect(sections).not.toContain("diagnostics");
+    expect(sections).not.toContain("advanced");
   });
 
   it("labels every page, listed or not", () => {

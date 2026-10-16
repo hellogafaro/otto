@@ -7,7 +7,6 @@ describe("settingsSectionLabel", () => {
   it("matches the nav label instead of title-casing the section", () => {
     expect(settingsSectionLabel("image-generation")).toBe("Image generation");
     expect(settingsSectionLabel("privacy")).toBe("Privacy & data");
-    expect(settingsSectionLabel("diagnostics")).toBe("Diagnostics");
   });
 
   it("returns a catalog key the breadcrumb translates", async () => {

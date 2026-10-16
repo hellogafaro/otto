@@ -16,7 +16,7 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
   {
     id: "network-access",
     title: "Network access",
-    to: "/settings/advanced",
+    to: "/settings/privacy",
   },
   {
     id: "providers",
@@ -120,7 +120,6 @@ describe("searchSettings", () => {
 
   it("serves anchor props to panels from the catalog", () => {
     expect(searchableSetting("word-wrap")).toEqual({ id: "word-wrap", title: "Word wrap" });
-    expect(searchableSetting("diagnostics")).toEqual({ id: "diagnostics", title: "Diagnostics" });
   });
 
   it("routes sandbox and browser sharing to the Sandbox page", () => {
@@ -140,15 +139,9 @@ describe("searchSettings", () => {
     );
   });
 
-  it("routes bot errors and troubleshooting to diagnostics on the Advanced page", () => {
-    expect(searchSettings("errors")[0]).toMatchObject({
-      id: "diagnostics",
-      to: "/settings/advanced",
-    });
-    expect(searchSettings("diagnostics")[0]).toMatchObject({
-      id: "diagnostics",
-      to: "/settings/advanced",
-    });
+  it("has no Advanced page or diagnostics left to find", () => {
+    expect(SETTINGS_SEARCH_ITEMS.map((item) => item.to)).not.toContain("/settings/advanced");
+    expect(searchSettings("diagnostics")).toEqual([]);
   });
 
   it("drops coding-agent leftovers from the index", () => {

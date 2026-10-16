@@ -68,11 +68,7 @@ import { ProviderDetailPage } from "./provider-detail-page";
 import { ProviderInstancesSection } from "./provider-instances-section";
 import { PROVIDER_CATALOG } from "./provider-catalog";
 import { SandboxSettingsPanel } from "./sandbox-settings-panel";
-import {
-  AdvancedSettingsSections,
-  AppearanceSettingsPanel,
-  BotWorkspaceSettingsSection,
-} from "./settings-panels";
+import { AppearanceSettingsPanel, BotWorkspaceSettingsSection } from "./settings-panels";
 
 const zhCNCatalog = await catalogRegistry["zh-CN"]!();
 
@@ -116,16 +112,11 @@ describe("settings panels in Simplified Chinese", () => {
     );
   });
 
-  it("translates the Workspace and Advanced sections", () => {
+  it("translates the Workspace section", () => {
     expectTranslated(
-      renderInChinese(
-        <>
-          <BotWorkspaceSettingsSection />
-          <AdvancedSettingsSections />
-        </>,
-      ),
-      [zhCNCatalog["Workspace"]!, "后台工作", "故障排除"],
-      [">Workspace<", "Background work", "Troubleshooting", "View diagnostics"],
+      renderInChinese(<BotWorkspaceSettingsSection />),
+      [zhCNCatalog["Workspace"]!],
+      [">Workspace<"],
     );
   });
 

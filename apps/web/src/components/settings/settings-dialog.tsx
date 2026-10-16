@@ -16,7 +16,6 @@ import {
   RiSparkling2Line,
   RiShieldCheckLine,
   RiSettings3Line,
-  RiEqualizerLine,
   type RemixiconComponentType,
 } from "@remixicon/react";
 
@@ -57,10 +56,6 @@ const BrowserSettingsPage = lazy(async () => ({
   default: (await import("./settings-pages")).BrowserSettingsPage,
 }));
 
-const AdvancedSettingsPage = lazy(async () => ({
-  default: (await import("./settings-pages")).AdvancedSettingsPage,
-}));
-
 const BotChannelsSettingsPanel = lazy(async () => ({
   default: (await import("./bot-channels-settings")).BotChannelsSettingsPanel,
 }));
@@ -79,10 +74,6 @@ const ImageGenerationSettingsPanel = lazy(async () => ({
 
 const ArchivedChatsSettingsPanel = lazy(async () => ({
   default: (await import("./archived-chats-settings")).ArchivedChatsSettingsPanel,
-}));
-
-const DiagnosticsSettingsPanel = lazy(async () => ({
-  default: (await import("./diagnostics-settings")).DiagnosticsSettingsPanel,
 }));
 
 const AccountSettingsPanel = lazy(async () => ({
@@ -122,13 +113,11 @@ const SECTION_PANELS: Readonly<Record<SettingsSection, ComponentType>> = {
   keybindings: KeybindingsSettingsPanel,
   privacy: PrivacySettingsPanel,
   archived: ArchivedChatsSettingsPanel,
-  advanced: AdvancedSettingsPage,
   providers: ProvidersSettingsPage,
   channels: BotChannelsSettingsPanel,
   sandbox: SandboxSettingsPage,
   browser: BrowserSettingsPage,
   "image-generation": ImageGenerationSettingsPanel,
-  diagnostics: DiagnosticsSettingsPanel,
 };
 
 export function SettingsPanelForSection({ section }: { readonly section: SettingsSection }) {
@@ -156,8 +145,7 @@ export interface SettingsNavItem {
 
 /**
  * Nav rows in display order, grouped. App comes first so General, the default
- * page, heads the list. Diagnostics has no row; it opens from links inside
- * other pages.
+ * page, heads the list.
  */
 export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
   readonly label: MessageKey;
@@ -172,7 +160,6 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
       { section: "keybindings", label: "Keyboard", icon: RiKeyboardLine },
       { section: "privacy", label: "Privacy & data", icon: RiShieldCheckLine },
       { section: "archived", label: "Archived", icon: RiArchiveLine },
-      { section: "advanced", label: "Advanced", icon: RiEqualizerLine },
     ],
   },
   {
@@ -208,18 +195,9 @@ export const SETTINGS_NAV_ITEMS: ReadonlyArray<SettingsNavItem> = SETTINGS_NAV_G
   (group) => group.items,
 );
 
-/** Header labels for pages without a nav row. */
-const UNLISTED_SECTION_LABELS: Readonly<Partial<Record<SettingsSection, MessageKey>>> = {
-  diagnostics: "Diagnostics",
-};
-
 /** Catalog key naming a section; callers translate it with `t`. */
 export function settingsSectionLabel(section: SettingsSection): MessageKey {
-  return (
-    SETTINGS_NAV_ITEMS.find((item) => item.section === section)?.label ??
-    UNLISTED_SECTION_LABELS[section] ??
-    "Settings"
-  );
+  return SETTINGS_NAV_ITEMS.find((item) => item.section === section)?.label ?? "Settings";
 }
 
 export function SettingsDialog() {

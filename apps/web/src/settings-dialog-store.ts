@@ -25,13 +25,11 @@ export const SETTINGS_SECTIONS = [
   "skills",
   "privacy",
   "archived",
-  "advanced",
   "providers",
   "channels",
   "sandbox",
   "browser",
   "image-generation",
-  "diagnostics",
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -113,8 +111,6 @@ export function clearSettingsEnvironment(): void {
  * links and bookmarks keep working.
  */
 export const LEGACY_SETTINGS_SECTIONS = {
-  inbox: { section: "advanced", targetId: "errors" },
-  errors: { section: "advanced", targetId: "errors" },
   voice: { section: "providers", targetId: "voice" },
   "source-control": { section: "general" },
 } as const satisfies Record<string, { section: SettingsSection; targetId?: string }>;

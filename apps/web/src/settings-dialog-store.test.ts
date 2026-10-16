@@ -20,8 +20,8 @@ describe("settings dialog store", () => {
   });
 
   it("closes back to no section", () => {
-    openSettings("advanced");
-    expect(useSettingsDialogStore.getState().section).toBe("advanced");
+    openSettings("privacy");
+    expect(useSettingsDialogStore.getState().section).toBe("privacy");
     expect(useSettingsDialogStore.getState().targetId).toBeNull();
     closeSettings();
     expect(useSettingsDialogStore.getState().section).toBeNull();
@@ -48,7 +48,7 @@ describe("settings dialog store", () => {
 
   it("keeps the originating environment while navigating Settings", () => {
     const environmentId = EnvironmentId.make("env-secondary");
-    openSettings("advanced", "errors", environmentId);
+    openSettings("sandbox", "local-execution", environmentId);
     useSettingsDialogStore.getState().openSettings("providers");
 
     expect(useSettingsDialogStore.getState()).toMatchObject({
@@ -63,7 +63,7 @@ describe("settings dialog store", () => {
   it("replaces a stale environment when an entry point names its environment", () => {
     const secondaryEnvironmentId = EnvironmentId.make("env-secondary");
     const primaryEnvironmentId = EnvironmentId.make("env-primary");
-    openSettings("advanced", "errors", secondaryEnvironmentId);
+    openSettings("sandbox", "local-execution", secondaryEnvironmentId);
 
     openSettings("providers", null, primaryEnvironmentId);
 
@@ -76,16 +76,14 @@ describe("settings dialog store", () => {
 
 describe("legacy settings deep links", () => {
   it("maps a known settings path onto its section", () => {
-    expect(settingsSectionFromPathname("/settings/advanced")).toBe("advanced");
+    expect(settingsSectionFromPathname("/settings/privacy")).toBe("privacy");
     expect(settingsSectionFromPathname("/settings/channels")).toBe("channels");
     expect(settingsSectionFromPathname("/settings/sandbox")).toBe("sandbox");
     expect(settingsSectionFromPathname("/settings/browser")).toBe("browser");
   });
 
   it("maps retired sections onto the page that now owns them", () => {
-    expect(settingsSectionFromPathname("/settings/inbox")).toBe("advanced");
     expect(settingsSectionFromPathname("/settings/source-control")).toBe("general");
-    expect(settingsSectionFromPathname("/settings/errors")).toBe("advanced");
     expect(settingsSectionFromPathname("/settings/voice")).toBe("providers");
   });
 

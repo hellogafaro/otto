@@ -115,8 +115,3 @@ export const primaryServerAvailableEditorsAtom = Atom.make(
 export const primaryServerKeybindingsConfigPathAtom = Atom.make(
   (get): string | null => get(primaryServerConfigAtom)?.keybindingsConfigPath ?? null,
 ).pipe(Atom.withLabel("web-primary-server-keybindings-config-path"));
-
-export const primaryServerObservabilityAtom = Atom.make(
-  (get): ServerConfig["observability"] | null =>
-    get(primaryServerConfigAtom)?.observability ?? null,
-).pipe(Atom.withLabel("web-primary-server-observability"));
