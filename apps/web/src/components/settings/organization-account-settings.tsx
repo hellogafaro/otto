@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Form } from "../ui/form";
@@ -7,6 +7,7 @@ import { Spinner } from "../ui/spinner";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settings-layout";
 import { storeDesktopSessionToken } from "~/environments/primary/desktop-auth";
 import { useOrganizationAccounts } from "./use-organization-accounts";
+import { useAutosave } from "~/hooks/use-autosave";
 
 export function AccountSettingsPanel() {
   const { client, state, error: loadError, refresh } = useOrganizationAccounts();
@@ -18,34 +19,32 @@ export function AccountSettingsPanel() {
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  // Otto: names autosave like every other setting; only a changed, non-empty name is sent.
+  const autosaveProfile = useAutosave(() => {
+    const user = state?.user;
+
+    if (!client || !user) return;
+    const first = (firstName ?? user.firstName).trim();
+    const last = (lastName ?? user.lastName).trim();
+
+    if (!first || !last || (first === user.firstName && last === user.lastName)) return;
+    setError(null);
+
+    void client
+      .updateUser({ firstName: first, lastName: last, name: `${first} ${last}` })
+      .then(async (result) => {
+        if (result.error) {
+          setError(result.error.message ?? "Could not save your account.");
+
+          return;
+        }
+
+        await refresh();
+      });
+  });
+
   if (!client || !state?.user)
     return <SettingsPageContainer>{loadError ?? <Spinner />}</SettingsPageContainer>;
-
-  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setPending(true);
-    setError(null);
-    setNotice(null);
-
-    try {
-      const first = firstName ?? state.user!.firstName;
-      const last = lastName ?? state.user!.lastName;
-
-      const result = await client.updateUser({
-        firstName: first,
-        lastName: last,
-        name: `${first} ${last}`,
-      });
-
-      if (result.error) throw new Error(result.error.message ?? "Could not save your account.");
-      await refresh();
-      setNotice("Account saved.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save your account.");
-    } finally {
-      setPending(false);
-    }
-  };
 
   return (
     <SettingsPageContainer>
@@ -59,60 +58,59 @@ export function AccountSettingsPanel() {
           <AlertDescription>{notice}</AlertDescription>
         </Alert>
       ) : null}
-      <Form onSubmit={saveProfile} className="contents">
-        <SettingsSection
-          title="Profile"
-          headerAction={
-            <Button type="submit" size="sm" disabled={pending}>
-              Save
-            </Button>
+      <SettingsSection title="Profile">
+        <SettingsRow
+          title="First name"
+          control={
+            <Input
+              id="account-first-name"
+              aria-label="First name"
+              className="sm:w-64"
+              value={firstName ?? state.user.firstName}
+              onChange={(event) => {
+                setFirstName(event.target.value);
+                autosaveProfile.schedule();
+              }}
+              onBlur={autosaveProfile.flush}
+              required
+              maxLength={80}
+              autoComplete="given-name"
+            />
           }
-        >
-          <SettingsRow
-            title="First name"
-            control={
-              <Input
-                id="account-first-name"
-                aria-label="First name"
-                className="sm:w-64"
-                value={firstName ?? state.user.firstName}
-                onChange={(event) => setFirstName(event.target.value)}
-                required
-                maxLength={80}
-                autoComplete="given-name"
-              />
-            }
-          />
-          <SettingsRow
-            title="Last name"
-            control={
-              <Input
-                id="account-last-name"
-                aria-label="Last name"
-                className="sm:w-64"
-                value={lastName ?? state.user.lastName}
-                onChange={(event) => setLastName(event.target.value)}
-                required
-                maxLength={80}
-                autoComplete="family-name"
-              />
-            }
-          />
-          <SettingsRow
-            title="Email"
-            control={
-              <Input
-                id="account-email"
-                aria-label="Email"
-                className="sm:w-64"
-                type="email"
-                value={state.user.email}
-                readOnly
-              />
-            }
-          />
-        </SettingsSection>
-      </Form>
+        />
+        <SettingsRow
+          title="Last name"
+          control={
+            <Input
+              id="account-last-name"
+              aria-label="Last name"
+              className="sm:w-64"
+              value={lastName ?? state.user.lastName}
+              onChange={(event) => {
+                setLastName(event.target.value);
+                autosaveProfile.schedule();
+              }}
+              onBlur={autosaveProfile.flush}
+              required
+              maxLength={80}
+              autoComplete="family-name"
+            />
+          }
+        />
+        <SettingsRow
+          title="Email"
+          control={
+            <Input
+              id="account-email"
+              aria-label="Email"
+              className="sm:w-64"
+              type="email"
+              value={state.user.email}
+              readOnly
+            />
+          }
+        />
+      </SettingsSection>
       <Form
         className="contents"
         onSubmit={async (event) => {
@@ -216,69 +214,63 @@ export function AccountSettingsPanel() {
 export function OrganizationSettingsPanel() {
   const { client, state, error: loadError, refresh } = useOrganizationAccounts();
   const [name, setName] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Otto: the name autosaves like every other setting.
+  const autosaveName = useAutosave(() => {
+    const organization = state?.organization;
+
+    if (!client || !organization || state.role !== "admin") return;
+    const next = (name ?? organization.name).trim();
+
+    if (!next || next === organization.name) return;
+    setMessage(null);
+
+    void client.organization
+      .update({ organizationId: organization.id, data: { name: next } })
+      .then(async (result) => {
+        if (result.error) {
+          setMessage(result.error.message ?? "Could not save the organization.");
+
+          return;
+        }
+
+        await refresh();
+      });
+  });
 
   if (!client || !state?.organization)
     return <SettingsPageContainer>{loadError ?? <Spinner />}</SettingsPageContainer>;
 
   return (
     <SettingsPageContainer>
-      <Form
-        className="contents"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          setPending(true);
-          setMessage(null);
-
-          try {
-            const result = await client.organization.update({
-              organizationId: state.organization!.id,
-              data: { name: name ?? state.organization!.name },
-            });
-
-            if (result.error)
-              throw new Error(result.error.message ?? "Could not save the organization.");
-            await refresh();
-            setMessage("Organization saved.");
-          } catch (cause) {
-            setMessage(cause instanceof Error ? cause.message : "Could not save the organization.");
-          } finally {
-            setPending(false);
+      <SettingsSection title="Organization">
+        <SettingsRow
+          title="Organization name"
+          description={
+            state.role === "admin"
+              ? "Shown to everyone in this organization."
+              : "Only admins can rename the organization."
           }
-        }}
-      >
-        <SettingsSection title="Organization">
-          <SettingsRow
-            title="Organization name"
-            description={
-              state.role === "admin"
-                ? "Shown to everyone in this organization."
-                : "Only admins can rename the organization."
-            }
-            status={message ? <span role="status">{message}</span> : null}
-            control={
-              <>
-                <Input
-                  id="organization-name"
-                  aria-label="Organization name"
-                  className="sm:w-64"
-                  value={name ?? state.organization.name}
-                  onChange={(event) => setName(event.target.value)}
-                  required
-                  maxLength={80}
-                  readOnly={state.role !== "admin"}
-                />
-                {state.role === "admin" ? (
-                  <Button type="submit" disabled={pending}>
-                    Save
-                  </Button>
-                ) : null}
-              </>
-            }
-          />
-        </SettingsSection>
-      </Form>
+          status={message ? <span role="status">{message}</span> : null}
+          control={
+            <Input
+              id="organization-name"
+              aria-label="Organization name"
+              className="sm:w-64"
+              value={name ?? state.organization.name}
+              onChange={(event) => {
+                setName(event.target.value);
+                autosaveName.schedule();
+              }}
+              onBlur={autosaveName.flush}
+              required
+              maxLength={80}
+              readOnly={state.role !== "admin"}
+            />
+          }
+        />
+      </SettingsSection>
     </SettingsPageContainer>
   );
 }

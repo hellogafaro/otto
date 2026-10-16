@@ -71,7 +71,7 @@ describe("chat markdown controls in Simplified Chinese", () => {
 
   it("translates the settings link tooltip", () => {
     const html = renderInChinese("[Providers](grokbot://app/v1/settings?id=providers)");
-    expect(html).toContain("打开“设置 &gt; 提供商”");
+    expect(html).toContain("打开“设置 &gt; 模型”");
     expect(html).not.toContain("Open Settings");
   });
 });

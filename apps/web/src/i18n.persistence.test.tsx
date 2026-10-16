@@ -5,6 +5,7 @@ import { LanguageProvider, useI18n } from "./i18n";
 import {
   __resetClientSettingsPersistenceForTests,
   ensureClientSettingsHydrated,
+  flushPendingSettings,
   getClientSettings,
   useUpdateClientSettings,
 } from "./hooks/use-settings";
@@ -37,6 +38,12 @@ function storage() {
     },
     clear: () => values.clear(),
   };
+}
+
+// Settings are written after a debounce; tests write them now and let the write land.
+async function flushSettings() {
+  flushPendingSettings();
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 let current: ReturnType<typeof useI18n>;
@@ -111,12 +118,14 @@ describe("language client settings persistence", () => {
     const change = current.setPreference("system");
     updateOther({ timestampFormat: "12-hour" });
     await change;
+    await flushSettings();
     expect(disk).toMatchObject({
       language: "system",
       timestampFormat: "12-hour",
       environmentIdentificationMode: "none",
     });
     await current.setPreference("en");
+    await flushSettings();
     expect(disk.language).toBe("en");
 
     resetRenderer();
@@ -130,6 +139,7 @@ describe("language client settings persistence", () => {
     expect(render()).toContain('lang="en">en');
     expect(bridge.getClientSettings).toHaveBeenCalledTimes(2);
     await current.setPreference("system");
+    await flushSettings();
     expect(disk).toMatchObject({
       language: "system",
       timestampFormat: "12-hour",
@@ -159,6 +169,7 @@ describe("language client settings persistence", () => {
     expect(setClientSettings).not.toHaveBeenCalled();
     resolveDisk({ ...DEFAULT_CLIENT_SETTINGS, timestampFormat: "24-hour" });
     await change;
+    await flushSettings();
     expect(setClientSettings).toHaveBeenCalledWith(
       expect.objectContaining({ language: "en", timestampFormat: "24-hour" }),
     );
@@ -172,11 +183,13 @@ describe("language client settings persistence", () => {
     subscribe();
     await ensureClientSettingsHydrated();
     await current.setPreference("en");
+    await flushSettings();
     expect(JSON.parse(localStorage.getItem(CLIENT_SETTINGS_STORAGE_KEY)!)).toMatchObject({
       language: "en",
     });
     expect(localStorage.getItem("otto:language")).toBeNull();
     await current.setPreference("system");
+    await flushSettings();
     expect(JSON.parse(localStorage.getItem(CLIENT_SETTINGS_STORAGE_KEY)!)).toMatchObject({
       language: "system",
     });

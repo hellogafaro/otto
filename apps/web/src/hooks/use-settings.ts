@@ -9,8 +9,9 @@
  * access is intentionally named as such so environment-sensitive consumers
  * cannot silently read the wrong server's settings.
  */
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useAtomValue } from "@effect/atom-react";
+import { Debouncer } from "@tanstack/react-pacer";
 import {
   DEFAULT_SERVER_SETTINGS,
   type EnvironmentId,
@@ -25,12 +26,16 @@ import {
   type UnifiedSettings,
 } from "@otto/contracts/settings";
 import { safeErrorLogAttributes } from "@otto/client-runtime/errors";
+import { applyServerSettingsPatch } from "@otto/shared/serverSettings";
+import { AUTOSAVE_WAIT_MS } from "./use-autosave";
 import { ensureLocalApi } from "~/local-api";
 import {
   CLIENT_SETTINGS_STORAGE_KEY,
   readBrowserClientSettings,
 } from "../client-persistence-storage";
 import * as Struct from "effect/Struct";
+import { appAtomRegistry } from "~/rpc/atom-registry";
+import { primaryEnvironmentIdAtom } from "~/state/primary-environment";
 import { primaryServerSettingsAtom, serverEnvironment } from "~/state/server";
 import { usePrimaryEnvironment } from "~/state/environments";
 import { useAtomCommand } from "~/state/use-atom-command";
@@ -167,17 +172,169 @@ async function hydrateClientSettings(): Promise<void> {
   return clientSettingsHydrationPromise;
 }
 
+// Otto: every settings change shows at once but is written 800ms after the last one, like
+// every form in the app, so dragging a slider or flicking through options saves once.
+const clientSettingsWriter = new Debouncer(
+  () => {
+    void ensureLocalApi()
+      .persistence.setClientSettings(clientSettingsSnapshot)
+      .catch((error) => {
+        console.error(`${CLIENT_SETTINGS_PERSISTENCE_ERROR_SCOPE} persist failed`, {
+          operation: "persist",
+          ...safeErrorLogAttributes(error),
+        });
+      });
+  },
+  { wait: AUTOSAVE_WAIT_MS },
+);
+
 function persistClientSettings(settings: ClientSettings): void {
   clientSettingsLocalWrites += 1;
   replaceClientSettingsSnapshot(settings);
-  void ensureLocalApi()
-    .persistence.setClientSettings(settings)
-    .catch((error) => {
-      console.error(`${CLIENT_SETTINGS_PERSISTENCE_ERROR_SCOPE} persist failed`, {
-        operation: "persist",
-        ...safeErrorLogAttributes(error),
-      });
+  clientSettingsWriter.maybeExecute();
+}
+
+// ── Debounced server settings ────────────────────────────────────────
+
+interface PendingServerSettings {
+  /** Changes waiting for the debounce, oldest first. */
+  readonly queued: ReadonlyArray<ServerSettingsPatch>;
+  /** Changes sent and not yet answered; they stay visible until the server confirms. */
+  readonly inFlight: ReadonlyArray<ServerSettingsPatch>;
+}
+
+interface ServerSettingsWriter {
+  readonly debouncer: Debouncer<() => void>;
+  send: (patch: ServerSettingsPatch) => Promise<void>;
+}
+
+const pendingServerSettings = new Map<EnvironmentId, PendingServerSettings>();
+
+const pendingServerSettingsListeners = new Set<() => void>();
+
+const serverSettingsWriters = new Map<EnvironmentId, ServerSettingsWriter>();
+
+// Patch keys that are not settings fields but rewrite `backgroundActivity`.
+const BACKGROUND_ACTIVITY_PATCH_KEYS = new Set([
+  "automaticGitFetchInterval",
+  "providerHealthRefreshInterval",
+  "backgroundActivityProfile",
+]);
+
+function setPendingServerSettings(environmentId: EnvironmentId, next: PendingServerSettings) {
+  if (next.queued.length === 0 && next.inFlight.length === 0) {
+    pendingServerSettings.delete(environmentId);
+  } else {
+    pendingServerSettings.set(environmentId, next);
+  }
+
+  for (const listener of pendingServerSettingsListeners) listener();
+}
+
+function subscribePendingServerSettings(listener: () => void): () => void {
+  pendingServerSettingsListeners.add(listener);
+
+  return () => {
+    pendingServerSettingsListeners.delete(listener);
+  };
+}
+
+function applyPendingServerSettings(
+  settings: ServerSettings,
+  pending: PendingServerSettings | undefined,
+): ServerSettings {
+  if (!pending) return settings;
+
+  return [...pending.inFlight, ...pending.queued].reduce(applyServerSettingsPatch, settings);
+}
+
+/**
+ * One patch with the resolved value of every field the queued changes touched, so a burst of
+ * edits is a single write that lands exactly where the screen already shows it.
+ */
+function combineServerSettingsPatches(
+  resolved: ServerSettings,
+  queued: ReadonlyArray<ServerSettingsPatch>,
+): ServerSettingsPatch {
+  const keys = new Set(
+    queued.flatMap((patch) =>
+      Object.keys(patch).map((key) =>
+        BACKGROUND_ACTIVITY_PATCH_KEYS.has(key) ? "backgroundActivity" : key,
+      ),
+    ),
+  );
+
+  // SAFETY: every key came from a ServerSettingsPatch, with the background-activity aliases
+  // mapped onto their ServerSettings field, so each entry is that field's resolved value.
+  return Object.fromEntries(
+    [...keys].map((key) => [key, resolved[key as keyof ServerSettings]]),
+  ) as ServerSettingsPatch;
+}
+
+function flushServerSettings(environmentId: EnvironmentId): void {
+  const pending = pendingServerSettings.get(environmentId);
+  const writer = serverSettingsWriters.get(environmentId);
+
+  if (!pending || pending.queued.length === 0 || !writer) return;
+
+  const current =
+    appAtomRegistry.get(serverEnvironment.settingsValueAtom(environmentId)) ??
+    DEFAULT_SERVER_SETTINGS;
+
+  const resolved = applyPendingServerSettings(current, pending);
+  const patch = combineServerSettingsPatches(resolved, pending.queued);
+
+  setPendingServerSettings(environmentId, {
+    queued: [],
+    inFlight: [...pending.inFlight, patch],
+  });
+
+  void writer.send(patch).finally(() => {
+    const latest = pendingServerSettings.get(environmentId);
+
+    if (!latest) return;
+    setPendingServerSettings(environmentId, {
+      ...latest,
+      inFlight: latest.inFlight.filter((entry) => entry !== patch),
     });
+  });
+}
+
+function queueServerSettings(environmentId: EnvironmentId, patch: ServerSettingsPatch): void {
+  const pending = pendingServerSettings.get(environmentId) ?? { queued: [], inFlight: [] };
+
+  setPendingServerSettings(environmentId, { ...pending, queued: [...pending.queued, patch] });
+  serverSettingsWriters.get(environmentId)?.debouncer.maybeExecute();
+}
+
+/** Write every waiting settings change now, as the page hides or closes. */
+export function flushPendingSettings(): void {
+  clientSettingsWriter.flush();
+
+  for (const environmentId of serverSettingsWriters.keys()) {
+    serverSettingsWriters.get(environmentId)?.debouncer.cancel();
+    flushServerSettings(environmentId);
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", flushPendingSettings);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushPendingSettings();
+  });
+}
+
+function usePendingServerSettings(
+  environmentId: EnvironmentId | null,
+  settings: ServerSettings,
+): ServerSettings {
+  const pending = useSyncExternalStore(
+    subscribePendingServerSettings,
+    () => (environmentId ? pendingServerSettings.get(environmentId) : undefined),
+    () => undefined,
+  );
+
+  return useMemo(() => applyPendingServerSettings(settings, pending), [pending, settings]);
 }
 
 // ── Key sets for routing patches ─────────────────────────────────────
@@ -307,7 +464,10 @@ export function useEnvironmentSettings<T>(
 ): T | UnifiedSettings {
   const serverSettings = useAtomValue(serverEnvironment.settingsValueAtom(environmentId));
 
-  return useMergedSettings(serverSettings ?? DEFAULT_SERVER_SETTINGS, selector);
+  return useMergedSettings(
+    usePendingServerSettings(environmentId, serverSettings ?? DEFAULT_SERVER_SETTINGS),
+    selector,
+  );
 }
 
 /** Primary-only settings access for the settings UI and other explicitly global surfaces. */
@@ -316,14 +476,19 @@ export function usePrimarySettings<T>(selector: (settings: UnifiedSettings) => T
 export function usePrimarySettings<T>(
   selector?: (settings: UnifiedSettings) => T,
 ): T | UnifiedSettings {
-  return useMergedSettings(useAtomValue(primaryServerSettingsAtom), selector);
+  const environmentId = useAtomValue(primaryEnvironmentIdAtom);
+
+  return useMergedSettings(
+    usePendingServerSettings(environmentId, useAtomValue(primaryServerSettingsAtom)),
+    selector,
+  );
 }
 
 /**
  * Returns an updater that routes each key to the correct backing store.
  *
- * Server keys are optimistically patched in atom-backed server state, then
- * persisted via RPC. Client keys go through client persistence.
+ * Both kinds show at once. Server keys are written over RPC and client keys to
+ * client persistence, each 800ms after the last change.
  */
 function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
   const persistServerSettings = useAtomCommand(
@@ -331,17 +496,29 @@ function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
     "server settings update",
   );
 
+  useEffect(() => {
+    if (!environmentId) return;
+
+    const writer = serverSettingsWriters.get(environmentId) ?? {
+      debouncer: new Debouncer(() => flushServerSettings(environmentId), {
+        wait: AUTOSAVE_WAIT_MS,
+      }),
+      send: () => Promise.resolve(),
+    };
+
+    writer.send = async (patch) => {
+      await persistServerSettings({ environmentId, input: { patch } });
+    };
+
+    serverSettingsWriters.set(environmentId, writer);
+  });
+
   const updateSettings = useCallback(
     (patch: UnifiedSettingsPatch) => {
       const { serverPatch, clientPatch } = splitPatch(patch);
 
-      if (Object.keys(serverPatch).length > 0) {
-        if (environmentId) {
-          void persistServerSettings({
-            environmentId,
-            input: { patch: serverPatch },
-          });
-        }
+      if (Object.keys(serverPatch).length > 0 && environmentId) {
+        queueServerSettings(environmentId, serverPatch);
       }
 
       if (Object.keys(clientPatch).length > 0) {
@@ -351,7 +528,7 @@ function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
         });
       }
     },
-    [environmentId, persistServerSettings],
+    [environmentId],
   );
 
   return updateSettings;
@@ -375,6 +552,7 @@ export function useUpdateClientSettings() {
 }
 
 export function __resetClientSettingsPersistenceForTests(): void {
+  clientSettingsWriter.cancel();
   clientSettingsHydrationGeneration += 1;
   clientSettingsSnapshot = DEFAULT_CLIENT_SETTINGS;
   clientSettingsHydrated = false;
