@@ -550,7 +550,5 @@ export const commonLabelsCatalog = {
   "Mark unread": "标记为未读",
   Unread: "未读",
   "Something went wrong": "出了点问题",
-  "This page couldn't load. Try again, or reload Otto if it keeps happening.":
-    "此页面无法加载。请重试；如果问题持续，请重新加载 Otto。",
-  "Reload Otto": "重新加载 Otto",
+  "Otto hit an error. Reload to try again.": "Otto 出错了。请重新加载后再试。",
 } as const;

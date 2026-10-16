@@ -16,6 +16,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "../../i18n";
+import { SkeletonSettingsSections } from "../ui/skeleton";
 import { randomUUID } from "../../lib/utils";
 import { libraryEnvironment } from "../../state/library";
 import { useEnvironmentQuery } from "../../state/query";
@@ -352,7 +353,8 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
     .filter((folder) => folder.parentId === LIBRARY_SKILLS_FOLDER_ID)
     .toSorted((left, right) => left.title.localeCompare(right.title));
 
-  if (!data.loaded) return null;
+  if (!data.loaded)
+    return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 2]} />;
 
   const importSkill = async (
     read: () => Promise<ReadonlyArray<{ readonly path: string; readonly value: File }>>,

@@ -3,12 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { Button } from "../components/ui/button";
-import {
-  errorDetails,
-  errorMessage,
-  RootRouteErrorView,
-  RouteErrorState,
-} from "./-root-route-error-view";
+import { errorDetails, RouteErrorView } from "./-root-route-error-view";
 
 interface ActionElementProps {
   readonly children?: ReactNode;
@@ -22,54 +17,42 @@ function findButtons(node: ReactNode): ReactElement<ActionElementProps>[] {
   return [...match, ...Children.toArray(node.props.children).flatMap(findButtons)];
 }
 
-describe("RootRouteErrorView", () => {
-  it("leads with the plain empty state and keeps the error behind Show details", () => {
+describe("RouteErrorView", () => {
+  it("shows the whole error trace in a copyable code block, with no logo", () => {
+    const error = new TypeError("bots.filter is not a function");
+
     const markup = renderToStaticMarkup(
-      <RootRouteErrorView
-        error={new TypeError("bots.filter is not a function")}
-        reload={() => {}}
-        reset={() => {}}
-      />,
+      <RouteErrorView error={error} reload={() => {}} reset={() => {}} />,
     );
 
     expect(markup).toContain('aria-labelledby="route-error-title"');
     expect(markup).toContain("Something went wrong");
-    expect(markup).toContain(
-      "This page couldn&#x27;t load. Try again, or reload Otto if it keeps happening.",
-    );
-    expect(markup).toContain("<details");
-    expect(markup).toContain("Show details");
+    expect(markup).toContain('data-slot="code-block-content"');
+    expect(markup).toContain('data-slot="code-block-copy-button"');
     expect(markup).toContain("bots.filter is not a function");
-    expect(markup).toContain('tabindex="0"');
-    expect(markup).not.toContain('role="alert"');
-    expect(markup.indexOf("Something went wrong")).toBeLessThan(markup.indexOf("Show details"));
+    expect(markup).not.toContain("<details");
+    expect(markup).not.toContain("wordmark");
   });
 
-  it("offers try again and a full reload as separate recovery actions", () => {
-    const reset = vi.fn();
+  it("offers a single Reload", () => {
     const reload = vi.fn();
-    const view = RouteErrorState({ error: new Error("Failed to load"), reload, reset });
-    const [retryButton, reloadButton] = findButtons(view);
 
-    expect(Children.toArray(retryButton?.props.children)).toContain("Try again");
-    expect(Children.toArray(reloadButton?.props.children)).toContain("Reload Otto");
+    const buttons = findButtons(
+      RouteErrorView({ error: new Error("Failed to load"), reload, reset: () => {} }),
+    );
 
-    retryButton?.props.onClick?.();
-    reloadButton?.props.onClick?.();
-
-    expect(reset).toHaveBeenCalledOnce();
+    expect(buttons).toHaveLength(1);
+    expect(Children.toArray(buttons[0]?.props.children)).toContain("Reload");
+    buttons[0]?.props.onClick?.();
     expect(reload).toHaveBeenCalledOnce();
   });
 
-  it("provides useful fallbacks for unknown and unserializable errors", () => {
+  it("provides a fallback for unserializable errors", () => {
     type CircularFixture = { self?: CircularFixture };
 
     const circular: CircularFixture = {};
     circular.self = circular;
 
-    expect(errorMessage(new Error("boom"))).toBe("boom");
-    expect(errorMessage("failed to connect")).toBe("failed to connect");
-    expect(errorMessage("   ")).toBe("An unexpected error stopped this view from loading.");
     expect(errorDetails("failed to connect")).toBe("failed to connect");
     expect(errorDetails(circular)).toBe("No additional error details are available.");
   });

@@ -19,6 +19,7 @@ import {
 import { Input } from "../ui/input";
 import { toastManager } from "../ui/toast";
 import { Spinner } from "../ui/spinner";
+import { SkeletonSettingsSections } from "../ui/skeleton";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settings-layout";
 
 const COMPOSIO_API_KEYS_URL = "https://app.composio.dev/settings/api-keys";
@@ -179,7 +180,7 @@ export function IntegrationsSettingsPanel() {
           <CustomizeIntegrations environmentId={environmentId} />
         </>
       ) : (
-        <Spinner />
+        <SkeletonSettingsSections label={t("Loading settings")} />
       )}
     </SettingsPageContainer>
   );
@@ -187,11 +188,16 @@ export function IntegrationsSettingsPanel() {
 
 /** Otto: Skills, under Settings' Customize, as Customize showed them. */
 export function SkillsSettingsPanel() {
+  const { t } = useI18n();
   const environmentId = useSettingsEnvironmentId();
 
   return (
     <SettingsPageContainer>
-      {environmentId ? <CustomizeSkills environmentId={environmentId} /> : <Spinner />}
+      {environmentId ? (
+        <CustomizeSkills environmentId={environmentId} />
+      ) : (
+        <SkeletonSettingsSections label={t("Loading settings")} />
+      )}
     </SettingsPageContainer>
   );
 }

@@ -11,7 +11,9 @@ import { useCreateBot } from "../roster/use-create-bot";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { SettingsPageContainer, SettingsSection } from "./settings-layout";
+import { SettingsPageContainer, SettingsPageSkeleton, SettingsSection } from "./settings-layout";
+import { isRosterReady } from "../roster/roster-route-selection";
+import { useSettingsEnvironmentId } from "~/settings-dialog-store";
 
 /**
  * Otto: Bots live in Settings, as they change rarely: one card like Skills, each bot a row with
@@ -25,6 +27,10 @@ export function BotsSettingsPanel() {
   const bots = useRosterStore((state) => state.bots);
   const [creatingOpen, setCreatingOpen] = useState(false);
   const { creating, canCreate, create } = useCreateBot(() => setCreatingOpen(false));
+  const environmentId = useSettingsEnvironmentId();
+  const rosterEnvironmentId = useRosterStore((state) => state.environmentId);
+
+  if (!isRosterReady(environmentId, rosterEnvironmentId)) return <SettingsPageSkeleton />;
 
   const live = bots
     .filter((bot) => bot.archivedAt === null)

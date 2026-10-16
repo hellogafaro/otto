@@ -16,6 +16,7 @@ import { Predicate } from "effect";
 import { useEffect, useState } from "react";
 
 import { useI18n } from "../../i18n";
+import { SkeletonSettingsSections } from "../ui/skeleton";
 import { cn } from "../../lib/utils";
 import { environmentMcpServersAtom } from "../../state/mcp-servers";
 import { useEnvironmentQuery } from "../../state/query";
@@ -137,7 +138,8 @@ export function CustomizeIntegrations({
     return () => window.removeEventListener("focus", refreshStatus);
   }, [refreshStatus]);
 
-  if (!composio.status.data) return null;
+  if (!composio.status.data)
+    return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 2]} />;
 
   const groups = (["user", "organization"] as const).map((visibility) => {
     const apps = connections.filter((connection) => connection.visibility === visibility);

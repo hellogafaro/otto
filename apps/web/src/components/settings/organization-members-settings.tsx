@@ -7,6 +7,7 @@ import { Field, FieldLabel } from "../ui/field";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Spinner } from "../ui/spinner";
+import { SkeletonTableRows } from "../ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import {
   Select,
@@ -25,7 +26,7 @@ import {
   DialogPopup,
   DialogTitle,
 } from "../ui/dialog";
-import { SettingsPageContainer, SettingsSection } from "./settings-layout";
+import { SettingsPageContainer, SettingsPageSkeleton, SettingsSection } from "./settings-layout";
 import { useOrganizationAccounts } from "./use-organization-accounts";
 
 type AccountsClient = ReturnType<typeof createOrganizationAccountsClient>;
@@ -102,7 +103,11 @@ export function OrganizationMembersSettings() {
   };
 
   if (!client || !state?.organization)
-    return <SettingsPageContainer>{loadError ?? <Spinner />}</SettingsPageContainer>;
+    return loadError ? (
+      <SettingsPageContainer>{loadError}</SettingsPageContainer>
+    ) : (
+      <SettingsPageSkeleton />
+    );
   const adminCount = members.filter((member) => member.role === "admin").length;
   const query = search.trim().toLowerCase();
 
@@ -143,7 +148,7 @@ export function OrganizationMembersSettings() {
           ) : null}
         </div>
         {!loaded ? (
-          <Spinner />
+          <SkeletonTableRows label="Loading members" rows={4} />
         ) : (
           <Table>
             <TableHeader>

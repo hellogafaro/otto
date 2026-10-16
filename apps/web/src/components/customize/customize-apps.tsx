@@ -37,6 +37,7 @@ import { Field, FieldError } from "../ui/field";
 import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group";
 import { Spinner } from "../ui/spinner";
+import { SkeletonSettingsSections } from "../ui/skeleton";
 import { toastManager } from "../ui/toast";
 import { SettingsPageContainer } from "../settings/settings-layout";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -107,7 +108,7 @@ function AppsList({
           {t("Could not reach Composio: {error}", { error: String(toolkits.error) })}
         </p>
       ) : toolkits.data === undefined ? (
-        <Spinner className="mx-auto" />
+        <SkeletonSettingsSections label={t("Loading settings")} sections={[6]} headings={false} />
       ) : apps.length === 0 ? (
         <p className="text-13px text-muted-foreground">
           {deferredSearch
@@ -418,7 +419,8 @@ function AppBody({
     );
   }
 
-  if (!detail.data) return <Spinner className="mx-auto" />;
+  if (!detail.data)
+    return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 4]} />;
   const { toolkit, tools } = detail.data;
 
   const connections = (composio.status.data?.connections ?? []).filter(

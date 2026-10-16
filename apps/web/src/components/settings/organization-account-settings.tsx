@@ -3,8 +3,22 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Form } from "../ui/form";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Spinner } from "../ui/spinner";
-import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settings-layout";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+} from "../ui/dialog";
+import { Field, FieldLabel } from "../ui/field";
+import {
+  SettingsPageContainer,
+  SettingsPageSkeleton,
+  SettingsRow,
+  SettingsSection,
+} from "./settings-layout";
 import { storeDesktopSessionToken } from "~/environments/primary/desktop-auth";
 import { useOrganizationAccounts } from "./use-organization-accounts";
 import { useAutosave } from "~/hooks/use-autosave";
@@ -13,11 +27,9 @@ export function AccountSettingsPanel() {
   const { client, state, error: loadError, refresh } = useOrganizationAccounts();
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
 
   // Otto: names autosave like every other setting; only a changed, non-empty name is sent.
   const autosaveProfile = useAutosave(() => {
@@ -44,7 +56,11 @@ export function AccountSettingsPanel() {
   });
 
   if (!client || !state?.user)
-    return <SettingsPageContainer>{loadError ?? <Spinner />}</SettingsPageContainer>;
+    return loadError ? (
+      <SettingsPageContainer>{loadError}</SettingsPageContainer>
+    ) : (
+      <SettingsPageSkeleton />
+    );
 
   return (
     <SettingsPageContainer>
@@ -110,77 +126,16 @@ export function AccountSettingsPanel() {
             />
           }
         />
-      </SettingsSection>
-      <Form
-        className="contents"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          setPending(true);
-          setError(null);
-          setNotice(null);
-
-          try {
-            const result = await client.changePassword({
-              currentPassword,
-              newPassword,
-              revokeOtherSessions: true,
-            });
-
-            if (result.error)
-              throw new Error(result.error.message ?? "Could not change your password.");
-            setCurrentPassword("");
-            setNewPassword("");
-            setNotice("Password changed. Other sessions have been signed out.");
-          } catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Could not change your password.");
-          } finally {
-            setPending(false);
-          }
-        }}
-      >
-        <SettingsSection
+        <SettingsRow
           title="Password"
-          headerAction={
-            <Button type="submit" size="sm" disabled={pending}>
+          description="Changing it signs you out everywhere else."
+          control={
+            <Button variant="outline" onClick={() => setPasswordOpen(true)}>
               Change password
             </Button>
           }
-        >
-          <SettingsRow
-            title="Current password"
-            control={
-              <Input
-                id="current-password"
-                aria-label="Current password"
-                className="sm:w-64"
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                required
-                autoComplete="current-password"
-              />
-            }
-          />
-          <SettingsRow
-            title="New password"
-            description="At least 8 characters. Other sessions are signed out."
-            control={
-              <Input
-                id="new-password"
-                aria-label="New password"
-                className="sm:w-64"
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                required
-                minLength={8}
-                maxLength={128}
-                autoComplete="new-password"
-              />
-            }
-          />
-        </SettingsSection>
-      </Form>
+        />
+      </SettingsSection>
       <SettingsSection title="Session">
         <SettingsRow
           title="Sign out"
@@ -188,7 +143,6 @@ export function AccountSettingsPanel() {
           control={
             <Button
               variant="outline"
-              disabled={pending}
               onClick={async () => {
                 const result = await client.signOut();
 
@@ -207,7 +161,125 @@ export function AccountSettingsPanel() {
           }
         />
       </SettingsSection>
+      <ChangePasswordDialog
+        open={passwordOpen}
+        onOpenChange={setPasswordOpen}
+        changePassword={async (currentPassword, newPassword) => {
+          const result = await client.changePassword({
+            currentPassword,
+            newPassword,
+            revokeOtherSessions: true,
+          });
+
+          if (result.error) return result.error.message ?? "Could not change your password.";
+          setNotice("Password changed. Other sessions have been signed out.");
+
+          return null;
+        }}
+      />
     </SettingsPageContainer>
+  );
+}
+
+/** Otto: Change password is a deliberate action, so it asks in a dialog rather than inline. */
+function ChangePasswordDialog({
+  open,
+  onOpenChange,
+  changePassword,
+}: {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  /** Resolves to an error message, or null once the password changed. */
+  readonly changePassword: (currentPassword: string, newPassword: string) => Promise<string | null>;
+}) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const close = () => {
+    onOpenChange(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setError(null);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!pending && !next) close();
+      }}
+    >
+      <DialogPopup>
+        <DialogHeader>
+          <DialogTitle>Change password</DialogTitle>
+          <DialogDescription>
+            At least 8 characters. Other sessions are signed out.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogPanel>
+          <Form
+            id="change-password"
+            onSubmit={async (event) => {
+              event.preventDefault();
+
+              if (pending) return;
+              setPending(true);
+              setError(null);
+              const failure = await changePassword(currentPassword, newPassword);
+              setPending(false);
+
+              if (failure) {
+                setError(failure);
+
+                return;
+              }
+
+              close();
+            }}
+          >
+            <Field>
+              <FieldLabel htmlFor="current-password">Current password</FieldLabel>
+              <Input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="new-password">New password</FieldLabel>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                required
+                minLength={8}
+                maxLength={128}
+                autoComplete="new-password"
+              />
+            </Field>
+            {error ? (
+              <Alert variant="error">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+          </Form>
+        </DialogPanel>
+        <DialogFooter>
+          <Button variant="ghost" disabled={pending} onClick={close}>
+            Cancel
+          </Button>
+          <Button type="submit" form="change-password" disabled={pending}>
+            Change password
+          </Button>
+        </DialogFooter>
+      </DialogPopup>
+    </Dialog>
   );
 }
 
@@ -240,7 +312,11 @@ export function OrganizationSettingsPanel() {
   });
 
   if (!client || !state?.organization)
-    return <SettingsPageContainer>{loadError ?? <Spinner />}</SettingsPageContainer>;
+    return loadError ? (
+      <SettingsPageContainer>{loadError}</SettingsPageContainer>
+    ) : (
+      <SettingsPageSkeleton />
+    );
 
   return (
     <SettingsPageContainer>

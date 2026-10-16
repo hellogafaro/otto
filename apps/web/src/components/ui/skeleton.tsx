@@ -23,6 +23,8 @@ const TEXT_WIDTHS = ["w-3/5", "w-2/5", "w-1/2", "w-3/4", "w-1/3", "w-2/3"] as co
 
 const DEFAULT_SECTIONS = [3, 5] as const;
 
+const DEFAULT_SETTINGS_SECTIONS = [3, 2] as const;
+
 /** Announces the loading region once; the blocks themselves are hidden from assistive tech. */
 function SkeletonRegion({
   label,
@@ -121,4 +123,53 @@ function SkeletonCards({ label, items = 6 }: { readonly label: string; readonly 
   );
 }
 
-export { Skeleton, SkeletonCards, SkeletonSidebarRows, SkeletonTableRows };
+/**
+ * Otto: Stand-in settings sections: a 15px title bar 12px above a card of rows, each row a label
+ * and description bar on the left and a 28px control on the right, so loaded cards land in place.
+ */
+function SkeletonSettingsSections({
+  label,
+  sections = DEFAULT_SETTINGS_SECTIONS,
+  headings = true,
+}: {
+  readonly label: string;
+  /** Rows per section. */
+  readonly sections?: readonly number[];
+  /** Whether each section starts with a title bar. */
+  readonly headings?: boolean;
+}) {
+  return (
+    <SkeletonRegion label={label} className="flex flex-col gap-10">
+      {Array.from({ length: sections.length }, (_, section) => (
+        <div key={section} className="flex flex-col gap-3">
+          {headings ? (
+            <div className="flex h-7 items-center">
+              <Skeleton className="h-3 w-28" />
+            </div>
+          ) : null}
+          <div className="divide-y divide-border/50 rounded-lg border border-border/70 bg-settings-surface">
+            {Array.from({ length: sections[section] ?? 0 }, (_, row) => (
+              <div key={row} className="flex items-center gap-4 p-4">
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <Skeleton
+                    className={cn("h-2.5", TEXT_WIDTHS[(section * 3 + row) % TEXT_WIDTHS.length])}
+                  />
+                  <Skeleton className="h-2 w-1/2" tone="faint" />
+                </div>
+                <Skeleton className="h-7 w-28 shrink-0 rounded-md" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </SkeletonRegion>
+  );
+}
+
+export {
+  Skeleton,
+  SkeletonCards,
+  SkeletonSettingsSections,
+  SkeletonSidebarRows,
+  SkeletonTableRows,
+};

@@ -21,6 +21,7 @@ import {
   type WorkspacePageWidth,
 } from "../workspace-page-container";
 import { Button } from "../ui/button";
+import { SkeletonSettingsSections } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 interface SettingsSearchTargetContextValue {
@@ -339,4 +340,15 @@ export function scrollToSettingsTarget(targetId: string): boolean {
   scrollAndFocusSettingsTarget(target);
 
   return true;
+}
+
+/** Otto: Every settings page loads as this, never a spinner: its title, then stand-in cards. */
+export function SettingsPageSkeleton() {
+  const { t } = useI18n();
+
+  return (
+    <SettingsPageContainer>
+      <SkeletonSettingsSections label={t("Loading settings")} />
+    </SettingsPageContainer>
+  );
 }

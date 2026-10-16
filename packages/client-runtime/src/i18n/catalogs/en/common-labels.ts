@@ -550,7 +550,5 @@ export const commonLabelsCatalog = {
   "Mark unread": "Mark unread",
   Unread: "Unread",
   "Something went wrong": "Something went wrong",
-  "This page couldn't load. Try again, or reload Otto if it keeps happening.":
-    "This page couldn't load. Try again, or reload Otto if it keeps happening.",
-  "Reload Otto": "Reload Otto",
+  "Otto hit an error. Reload to try again.": "Otto hit an error. Reload to try again.",
 } as const;

@@ -3,11 +3,15 @@ import { createTranslator, type TranslationParams } from "@otto/client-runtime/i
 import type { ErrorComponentProps } from "@tanstack/react-router";
 
 import { RiErrorWarningLine } from "@remixicon/react";
-import { useContext } from "react";
+import { createPortal } from "react-dom";
 
-import { APP_DISPLAY_NAME } from "../branding";
-import { OttoWordmark } from "../components/otto-wordmark";
 import { Button } from "../components/ui/button";
+import {
+  CodeBlock,
+  CodeBlockActions,
+  CodeBlockContent,
+  CodeBlockCopyButton,
+} from "../components/ui/code-block";
 import {
   Empty,
   EmptyContent,
@@ -16,8 +20,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import { SidebarContext } from "../components/ui/sidebar-context";
-import { WorkPage } from "../components/work/work-pages";
 import { useI18n } from "../i18n";
 
 type Translate = (message: string, params?: TranslationParams) => string;
@@ -28,107 +30,54 @@ function reloadApp() {
   window.location.reload();
 }
 
-interface RootRouteErrorViewProps extends ErrorComponentProps {
+interface RouteErrorViewProps extends ErrorComponentProps {
   readonly reload?: () => void;
   /** Interface copy lookup. Defaults to English; the raw error is never translated. */
   readonly t?: Translate;
 }
 
 /**
- * The root route's error component, for failures above the app shell. Reads the language
- * through `useI18n`, which falls back to English when the failure happened above
- * `LanguageProvider`.
+ * Every route's error component, the root's included. Reads the language through `useI18n`,
+ * which falls back to English when the failure happened above `LanguageProvider`. It portals
+ * to the body so a failure inside a panel still covers the whole window.
  */
-export function TranslatedRootRouteErrorView(props: RootRouteErrorViewProps) {
+export function TranslatedRouteErrorView(props: RouteErrorViewProps) {
   const { t } = useI18n();
 
-  return <RootRouteErrorView {...props} t={t} />;
+  return createPortal(<RouteErrorView {...props} t={t} />, document.body);
 }
 
 /**
- * Every other route's error component: inside the app shell the page fails in place with the
- * sidebar intact; sign-in and other shell-less pages get the full-page view.
+ * Otto: The one error screen, full window, no logo: the warning glyph, "Something went wrong",
+ * one sentence, a single Reload, and the whole error trace in a code block with a copy button.
  */
-export function TranslatedRouteErrorView(props: RootRouteErrorViewProps) {
-  const { t } = useI18n();
-
-  if (useContext(SidebarContext) === null) return <RootRouteErrorView {...props} t={t} />;
+export function RouteErrorView({ error, reload = reloadApp, t = english }: RouteErrorViewProps) {
+  const details = errorDetails(error, t);
 
   return (
-    <WorkPage>
-      <RouteErrorState {...props} t={t} />
-    </WorkPage>
-  );
-}
-
-export function RootRouteErrorView(props: RootRouteErrorViewProps) {
-  return (
-    <main className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <header className="flex h-(--workspace-topbar-height) shrink-0 items-center gap-1.5 pl-(--workspace-controls-left) pr-(--workspace-controls-right)">
-        <OttoWordmark aria-hidden className="text-2xl text-foreground" />
-        <span className="truncate text-sm font-medium tracking-tight text-muted-foreground">
-          {APP_DISPLAY_NAME}
-        </span>
-      </header>
-      <RouteErrorState {...props} />
+    <main className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-background p-6 text-foreground">
+      <Empty aria-labelledby="route-error-title" role="region" className="w-full max-w-xl">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <RiErrorWarningLine />
+          </EmptyMedia>
+          <EmptyTitle id="route-error-title">{t("Something went wrong")}</EmptyTitle>
+          <EmptyDescription>{t("Otto hit an error. Reload to try again.")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="w-full max-w-xl">
+          <Button onClick={reload}>{t("Reload")}</Button>
+          <CodeBlock size="sm" className="text-left">
+            <CodeBlockActions>
+              <CodeBlockCopyButton value={details} />
+            </CodeBlockActions>
+            <CodeBlockContent wrap className="max-h-64" tabIndex={0}>
+              {details}
+            </CodeBlockContent>
+          </CodeBlock>
+        </EmptyContent>
+      </Empty>
     </main>
   );
-}
-
-/**
- * Otto: A failed page is the shared empty state: the warning glyph, "Something went wrong",
- * one sentence, Try again and Reload Otto, and the error itself behind a quiet Show details.
- */
-export function RouteErrorState({
-  error,
-  reset,
-  reload = reloadApp,
-  t = english,
-}: RootRouteErrorViewProps) {
-  return (
-    <Empty aria-labelledby="route-error-title" role="region">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <RiErrorWarningLine />
-        </EmptyMedia>
-        <EmptyTitle id="route-error-title">{t("Something went wrong")}</EmptyTitle>
-        <EmptyDescription>
-          {t("This page couldn't load. Try again, or reload Otto if it keeps happening.")}
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <div className="flex gap-2">
-          <Button onClick={() => reset()}>{t("Try again")}</Button>
-          <Button onClick={reload} variant="outline">
-            {t("Reload Otto")}
-          </Button>
-        </div>
-        <details className="w-full max-w-md">
-          <summary className="cursor-pointer list-none rounded-(--control-radius) px-2 py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-            {t("Show details")}
-          </summary>
-          <pre
-            className="mt-2 max-h-52 overflow-auto rounded-lg border border-border bg-card px-3 py-2.5 text-left font-mono text-xs leading-5 whitespace-pre-wrap text-muted-foreground"
-            tabIndex={0}
-          >
-            {errorDetails(error, t)}
-          </pre>
-        </details>
-      </EmptyContent>
-    </Empty>
-  );
-}
-
-export function errorMessage(cause: unknown): string {
-  if (cause instanceof Error && cause.message.trim().length > 0) {
-    return cause.message;
-  }
-
-  if (Predicate.isString(cause) && cause.trim().length > 0) {
-    return cause;
-  }
-
-  return "An unexpected error stopped this view from loading.";
 }
 
 export function errorDetails(cause: unknown, t: Translate = english): string {

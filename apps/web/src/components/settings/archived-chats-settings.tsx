@@ -12,7 +12,7 @@ import { useArchivedThreadSnapshots } from "../../lib/archived-threads-state";
 import { useSettingsEnvironmentId } from "../../settings-dialog-store";
 import { environmentBotsAtom, environmentGroupsAtom } from "../../state/bots";
 import { Button } from "../ui/button";
-import { Spinner } from "../ui/spinner";
+import { SkeletonSettingsSections } from "../ui/skeleton";
 import { ArchivedBotsSection } from "./archived-bots-settings";
 import { buildArchivedChatSections, type ArchivedChat } from "./archived-chats-settings.logic";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settings-layout";
@@ -74,26 +74,19 @@ function ArchivedChatsContent({ environmentId }: { readonly environmentId: Envir
     }
   };
 
+  if (sections.length === 0 && isLoading) {
+    return <SkeletonSettingsSections label={t("Loading archive…")} sections={[4]} />;
+  }
+
   if (sections.length === 0) {
     return (
       <SettingsSection id="archived-chats" title={t("Archived chats")}>
         <SettingsRow
-          title={
-            <span className="inline-flex items-center gap-2">
-              {isLoading ? <Spinner className="size-3.5" /> : null}
-              {isLoading
-                ? t("Loading archive…")
-                : error
-                  ? t("Could not load archived chats")
-                  : t("No archived chats")}
-            </span>
-          }
+          title={error ? t("Could not load archived chats") : t("No archived chats")}
           description={
-            isLoading
-              ? undefined
-              : error
-                ? t("Check the connection to this environment, then reopen this page.")
-                : t("Chats you archive will appear here.")
+            error
+              ? t("Check the connection to this environment, then reopen this page.")
+              : t("Chats you archive will appear here.")
           }
         />
       </SettingsSection>

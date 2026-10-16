@@ -24,13 +24,13 @@ import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 import { Dialog, DialogPopup, DialogTitle } from "~/components/ui/dialog";
 import { AppIcon } from "~/components/ui/app-icon";
-import { Spinner } from "~/components/ui/spinner";
 import {
   closeSettings,
   useSettingsDialogStore,
   type SettingsSection,
 } from "~/settings-dialog-store";
 import { GeneralSettingsPanel } from "./general-settings-panel";
+import { SettingsPageSkeleton } from "./settings-layout";
 
 // General, the default page, is imported eagerly so it never waits on a chunk.
 // The other pages load on demand.
@@ -112,13 +112,7 @@ export function SettingsPanelForSection({ section }: { readonly section: Setting
   const Panel = SECTION_PANELS[section];
 
   return (
-    <Suspense
-      fallback={
-        <div className="flex flex-1 items-center justify-center">
-          <Spinner />
-        </div>
-      }
-    >
+    <Suspense fallback={<SettingsPageSkeleton />}>
       <Panel />
     </Suspense>
   );

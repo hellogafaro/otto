@@ -18,7 +18,7 @@ import { SurfaceNavigationCoordinator } from "../components/surface-navigation-c
 import { ComputerViewerDialog } from "../components/computer/computer-viewer-dialog";
 import { NewChatDialogHost } from "../components/roster/new-chat-dialog";
 import { PolicyNotice } from "../components/privacy/policy-notice";
-import { TranslatedRootRouteErrorView } from "./-root-route-error-view";
+import { TranslatedRouteErrorView } from "./-root-route-error-view";
 import { useI18n } from "../i18n";
 import {
   AnchoredToastProvider,
@@ -80,7 +80,7 @@ export const Route = createRootRoute({
     };
   },
   component: RootRouteView,
-  errorComponent: TranslatedRootRouteErrorView,
+  errorComponent: TranslatedRouteErrorView,
   head: () => ({
     meta: [{ name: "title", content: APP_DISPLAY_NAME }],
   }),
