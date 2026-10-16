@@ -40,7 +40,7 @@ export function useCreateBot(onCreated: () => void) {
         setCreating(true);
 
         try {
-          const botId = BotId.make(`bot-${randomUUID()}`);
+          const botId = BotId.make(randomUUID());
 
           const result = await createBotCommand({
             environmentId,

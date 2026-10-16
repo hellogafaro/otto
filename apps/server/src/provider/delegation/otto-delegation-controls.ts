@@ -64,7 +64,7 @@ export function createOttoDelegationControls(
       throw new Error(`A bot named '${request.name}' already exists.`);
     }
 
-    const botId = BotId.make(`bot-${id()}`);
+    const botId = BotId.make(id());
     await dispatch({
       type: "bot.create",
       commandId: commandId("bot-create"),

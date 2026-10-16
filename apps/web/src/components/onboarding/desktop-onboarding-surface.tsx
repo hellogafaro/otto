@@ -238,7 +238,7 @@ export function OnboardingSurface({
   const create = async () => {
     setCreating(true);
     setCreateError(null);
-    const botId = BotId.make(`bot-${randomUUID()}`);
+    const botId = BotId.make(randomUUID());
     const goal = desktopOnboardingBotBrief(draft.goal);
 
     if (providerReadiness.status !== "ready") {
