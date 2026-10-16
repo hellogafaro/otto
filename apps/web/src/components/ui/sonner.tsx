@@ -21,9 +21,10 @@ const TOAST_INSET = 16;
 /**
  * Otto: shadcn's Sonner, styled like Capy and Linear: one line on the popover
  * surface, a status icon, the title, at most one outline action and an inline
- * ghost close. It stacks bottom right, 16px inside the main panel's corner. A
- * gap that wide cannot nest concentrically, so the toast repeats the panel's
- * radius and its controls nest inside it (`--toast-radius`, `--toast-control-radius`).
+ * ghost close. It stacks bottom right, 16px inside the main panel's corner, with
+ * a radius below the panel's so it reads as the smaller, inner shape. Its
+ * controls sit 4px from the edges and 4px apart, nested inside it
+ * (`--toast-radius`, `--toast-control-radius`).
  */
 function Toaster(props: ToasterProps) {
   const { t } = useI18n();
@@ -53,9 +54,9 @@ function Toaster(props: ToasterProps) {
         closeButtonAriaLabel: t("Dismiss notification"),
         classNames: {
           toast:
-            "dropdown-glass flex w-full items-center gap-2.5 rounded-(--toast-radius) [--control-radius:var(--toast-control-radius)] py-1.5 pr-1.5 pl-3.5 text-13px text-popover-foreground shadow-xl shadow-shade/25",
-          icon: "flex size-4 shrink-0 items-center justify-center",
-          content: "min-w-0 flex-1",
+            "dropdown-glass flex w-full items-center gap-1 rounded-(--toast-radius) [--control-radius:var(--toast-control-radius)] py-1 pr-1 pl-3 text-13px text-popover-foreground shadow-xl shadow-shade/25",
+          icon: "me-1.5 flex size-4 shrink-0 items-center justify-center",
+          content: "me-1 min-w-0 flex-1",
           title: "wrap-break-word",
           actionButton: buttonVariants({
             variant: "outline",
