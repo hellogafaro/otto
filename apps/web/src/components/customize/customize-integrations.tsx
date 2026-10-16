@@ -27,7 +27,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { MenuItem } from "../ui/menu";
 import { toast } from "sonner";
-import { AddMenu, CustomizeGroup, CustomizeRow } from "./customize-group";
+import { AddMenu, CardCountRow, CustomizeGroup, CustomizeRow } from "./customize-group";
 import { McpServerDialog } from "./mcp-server-dialog";
 
 export function useComposio(environmentId: EnvironmentId) {
@@ -104,8 +104,9 @@ export const serverHost = (server: McpServer, t: ReturnType<typeof useI18n>["t"]
 /**
  * Otto: Customize's Integrations tab: everything that gives bots tools, Composio apps and remote
  * MCP servers alike, since an app is a hosted MCP server. Two groups copy Capy's MCP & plugins
- * page: Yours (only you and the bots you own) and Workspace (every member's bots), each a card
- * with its count and a plus to connect an app or add a server for that group. The Composio key
+ * page: Yours (only you and the bots you own) and Team (every member's bots). Like Bots, each
+ * card's first row counts its integrations and holds the plus to connect an app or add a server
+ * for that group. The Composio key
  * itself lives in Settings → Integrations, and Connect an app opens the app catalog.
  */
 export function CustomizeIntegrations({
@@ -113,7 +114,7 @@ export function CustomizeIntegrations({
 }: {
   readonly environmentId: EnvironmentId;
 }) {
-  const { t } = useI18n();
+  const { t, plural } = useI18n();
   const navigate = useNavigate();
   const composio = useComposio(environmentId);
   const servers = useAtomValue(environmentMcpServersAtom(environmentId));
@@ -144,7 +145,6 @@ export function CustomizeIntegrations({
       <CustomizeGroup
         key={visibility}
         title={visibility === "user" ? t("Yours") : t("Team")}
-        count={count}
         empty={
           count === 0
             ? {
@@ -153,19 +153,24 @@ export function CustomizeIntegrations({
               }
             : null
         }
-        action={
-          <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to team")}>
-            {configured ? (
-              <MenuItem
-                onClick={() =>
-                  void navigate({ to: "/settings/integrations/apps", search: { visibility } })
-                }
-              >
-                {t("Connect an app")}
-              </MenuItem>
-            ) : null}
-            <MenuItem onClick={() => setMcpDialog(visibility)}>{t("Add MCP server")}</MenuItem>
-          </AddMenu>
+        header={
+          <CardCountRow
+            label={plural(count, { one: "{count} integration", other: "{count} integrations" })}
+            action={
+              <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to team")}>
+                {configured ? (
+                  <MenuItem
+                    onClick={() =>
+                      void navigate({ to: "/settings/integrations/apps", search: { visibility } })
+                    }
+                  >
+                    {t("Connect an app")}
+                  </MenuItem>
+                ) : null}
+                <MenuItem onClick={() => setMcpDialog(visibility)}>{t("Add MCP server")}</MenuItem>
+              </AddMenu>
+            }
+          />
         }
       >
         {apps.map((connection) => {

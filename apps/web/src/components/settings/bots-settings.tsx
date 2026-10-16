@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useI18n } from "../../i18n";
-import { CustomizeRow } from "../customize/customize-group";
+import { CardCountRow, CustomizeRow } from "../customize/customize-group";
 import { BotAvatarView } from "../roster/bot-avatar-view";
 import { NewBotDialog } from "../roster/new-bot-dialog";
 import { useRosterStore } from "../roster/roster-store";
@@ -39,27 +39,27 @@ export function BotsSettingsPanel() {
   return (
     <SettingsPageContainer>
       <SettingsSection title={t("Bots")}>
-        <div data-settings-row="" className="flex items-center justify-between gap-3 px-4 py-3">
-          <span className="text-13px font-medium text-foreground">
-            {plural(live.length, { one: "{count} bot", other: "{count} bots" })}
-          </span>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon-sm"
-                  variant="ghost-muted"
-                  aria-label={t("New bot")}
-                  disabled={!canCreate}
-                  onClick={() => setCreatingOpen(true)}
-                >
-                  <RiAddLine aria-hidden className="size-4" />
-                </Button>
-              }
-            />
-            <TooltipPopup side="bottom">{t("New bot")}</TooltipPopup>
-          </Tooltip>
-        </div>
+        <CardCountRow
+          label={plural(live.length, { one: "{count} bot", other: "{count} bots" })}
+          action={
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-sm"
+                    variant="ghost-muted"
+                    aria-label={t("New bot")}
+                    disabled={!canCreate}
+                    onClick={() => setCreatingOpen(true)}
+                  >
+                    <RiAddLine aria-hidden className="size-4" />
+                  </Button>
+                }
+              />
+              <TooltipPopup side="bottom">{t("New bot")}</TooltipPopup>
+            </Tooltip>
+          }
+        />
         {live.length === 0 ? (
           <div data-settings-row="">
             <Empty>

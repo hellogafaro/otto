@@ -80,9 +80,29 @@ export function CustomizeItem({
 }
 
 /**
+ * Otto: A card's first row, as on Bots and Skills: how many items the card holds and, at the
+ * right, the plus that adds one. It stays while the card is empty.
+ */
+export function CardCountRow({
+  label,
+  action,
+}: {
+  readonly label: string;
+  readonly action: ReactNode;
+}) {
+  return (
+    <div data-settings-row="" className="flex items-center justify-between gap-3 px-4 py-3">
+      <span className="text-13px font-medium text-foreground">{label}</span>
+      {action}
+    </div>
+  );
+}
+
+/**
  * Otto: A Customize group is a settings section: its 16px title above the card on the card edge,
  * its count in a lighter weight right after the title, and its action (a quiet plus menu or one
  * button) at the right.
+ * A `header` row, such as CardCountRow, leads the card and replaces the count and action.
  * An empty card holds the icon-and-description empty state.
  */
 export function CustomizeGroup({
@@ -90,6 +110,7 @@ export function CustomizeGroup({
   count,
   empty,
   action,
+  header,
   children,
 }: {
   readonly title: string;
@@ -97,10 +118,12 @@ export function CustomizeGroup({
   /** Shown as the icon-and-description empty state while the group holds nothing. */
   readonly empty: { readonly icon: ReactNode; readonly description: string } | null;
   readonly action?: ReactNode;
+  readonly header?: ReactNode;
   readonly children?: ReactNode;
 }) {
   return (
     <SettingsSection title={title} count={count} headerAction={action}>
+      {header}
       {empty ? (
         <div data-settings-row="">
           <Empty>

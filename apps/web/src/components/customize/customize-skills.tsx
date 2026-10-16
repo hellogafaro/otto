@@ -37,7 +37,7 @@ import { MenuItem } from "../ui/menu";
 import { Textarea } from "../ui/textarea";
 import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
-import { AddMenu, CustomizeGroup, CustomizeRow } from "./customize-group";
+import { AddMenu, CardCountRow, CustomizeGroup, CustomizeRow } from "./customize-group";
 import { planSkillImport } from "./customize.logic";
 
 /** What an import brings besides its SKILL.md: files by their path inside the skill. */
@@ -336,12 +336,13 @@ function SkillRow({
 /**
  * Otto: Customize's Skills tab: the Library's Skills folder, one folder per skill holding its
  * SKILL.md and any references, scripts or assets. Two group cards like Integrations: Yours (you
- * and the bots you own; anyone chatting with them uses it without seeing it here) and Workspace,
- * each with a plus to write a skill or import a folder or zip into that group. Scripts are read
+ * and the bots you own; anyone chatting with them uses it without seeing it here) and Team. Like
+ * Bots, each card's first row counts its skills and holds the plus to write a skill or import a
+ * folder or zip into that group. Scripts are read
  * by bots, never run.
  */
 export function CustomizeSkills({ environmentId }: { readonly environmentId: EnvironmentId }) {
-  const { t } = useI18n();
+  const { t, plural } = useI18n();
   const data = useLibraryData();
   const [draft, setDraft] = useState<SkillDraft | null>(null);
   const importVisibility = useRef<LibraryVisibility>("user");
@@ -387,7 +388,6 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
           <CustomizeGroup
             key={visibility}
             title={visibility === "user" ? t("Yours") : t("Team")}
-            count={group.length}
             empty={
               group.length === 0
                 ? {
@@ -396,23 +396,30 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
                   }
                 : null
             }
-            action={
-              <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to team")}>
-                <MenuItem
-                  onClick={() => setDraft({ name: "", description: "", visibility, source: null })}
-                >
-                  <RiSparkling2Line />
-                  {t("New skill")}
-                </MenuItem>
-                <MenuItem onClick={() => pick(visibility, folderInput.current)}>
-                  <RiFolderUploadLine />
-                  {t("Import folder")}
-                </MenuItem>
-                <MenuItem onClick={() => pick(visibility, zipInput.current)}>
-                  <RiUploadLine />
-                  {t("Import .zip")}
-                </MenuItem>
-              </AddMenu>
+            header={
+              <CardCountRow
+                label={plural(group.length, { one: "{count} skill", other: "{count} skills" })}
+                action={
+                  <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to team")}>
+                    <MenuItem
+                      onClick={() =>
+                        setDraft({ name: "", description: "", visibility, source: null })
+                      }
+                    >
+                      <RiSparkling2Line />
+                      {t("New skill")}
+                    </MenuItem>
+                    <MenuItem onClick={() => pick(visibility, folderInput.current)}>
+                      <RiFolderUploadLine />
+                      {t("Import folder")}
+                    </MenuItem>
+                    <MenuItem onClick={() => pick(visibility, zipInput.current)}>
+                      <RiUploadLine />
+                      {t("Import .zip")}
+                    </MenuItem>
+                  </AddMenu>
+                }
+              />
             }
           >
             {group.map((skill) => (

@@ -506,6 +506,10 @@ export const connectionsCatalog = {
   "No integrations": "没有集成",
   "No bots": "没有机器人",
   "No skills": "没有技能",
+  "{count} integration": "{count} 个集成",
+  "{count} integrations": "{count} 个集成",
+  "{count} skill": "{count} 个技能",
+  "{count} skills": "{count} 个技能",
   "Connect apps like Slack and Gmail.": "连接 Slack 和 Gmail 等应用。",
   "Accounts stay connected when the key is from the same Composio project.":
     "若新密钥属于同一 Composio 项目，账号会保持连接。",
