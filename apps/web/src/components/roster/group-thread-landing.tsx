@@ -575,7 +575,6 @@ export function GroupThreadLanding({
                 <MemoryApprovalPrompt
                   threadRef={runtime.linkedThreadRef}
                   approvals={memoryApprovals}
-                  currentBotId={activeBot?.id ?? null}
                 />
               ) : null
             }

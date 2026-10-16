@@ -1,194 +1,316 @@
-import { RiBrainLine } from "@remixicon/react";
+import { RiAddLine, RiBrainLine, RiMore2Line } from "@remixicon/react";
+import { useAtomValue } from "@effect/atom-react";
 import { Predicate } from "effect";
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
-import type {
-  OttoMemoryDocument,
-  OttoMemoryDocumentTarget,
-  ScopedThreadRef,
+import {
+  type BotId,
+  type EnvironmentId,
+  type Memory,
+  type MemorySection,
+  MEMORY_TEXT_MAX_CHARS,
 } from "@otto/contracts";
+import { useState } from "react";
+import { toast } from "sonner";
 
-import { useEffect, useState } from "react";
-
-import { BotDurableMemory } from "./bot-durable-memory";
-import { memoryDocumentCopy } from "./bot-memory-copy";
-import { BotMemoryTransfer } from "./bot-memory-transfer";
 import { BotSideSheet, BotSideSheetEmpty, BotSideSheetSection } from "./bot-side-sheet";
 
+import { usePrimarySettings } from "~/hooks/use-settings";
 import { useI18n } from "../../i18n";
+import { environmentBotsAtom, environmentPeopleAtom } from "../../state/bots";
 import { memoryEnvironment } from "../../state/memory";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Spinner } from "../ui/spinner";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { Skeleton, SkeletonRegion } from "../ui/skeleton";
 import { Textarea } from "../ui/textarea";
-import { toast } from "sonner";
 
 /** The server's own error text, shown as received, or null when it sent none. */
 export function memoryErrorMessage(cause: unknown) {
   return cause instanceof Error ? cause.message : null;
 }
 
-function failureMessage(result: Parameters<typeof squashAtomCommandFailure>[0]) {
-  return memoryErrorMessage(squashAtomCommandFailure(result));
+/** A scope at 90% of its cap is close enough to full to say so. */
+export const isAlmostFull = (section: Pick<MemorySection, "used" | "cap">) =>
+  section.used >= section.cap * 0.9;
+
+/** "Juno · Launch plan · Oct 16": who wrote an entry, in which chat, and when. */
+export function memoryEntryMeta(
+  memory: Pick<Memory, "botId" | "personId" | "threadTitle" | "updatedAt">,
+  names: {
+    readonly currentPersonId: string | null;
+    readonly bots: ReadonlyMap<string, string>;
+    readonly people: ReadonlyMap<string, string>;
+  },
+  i18n: Pick<ReturnType<typeof useI18n>, "t" | "formatDate">,
+) {
+  const writer = memory.botId
+    ? names.bots.get(memory.botId)
+    : memory.personId === names.currentPersonId
+      ? i18n.t("You")
+      : memory.personId
+        ? names.people.get(memory.personId)
+        : undefined;
+
+  return [
+    writer,
+    memory.threadTitle,
+    i18n.formatDate(new Date(memory.updatedAt), { month: "short", day: "numeric" }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-function MemoryDocumentEditor({
-  document,
+function MemoryDraft({
+  initial,
+  label,
   busy,
+  onCancel,
   onSave,
 }: {
-  readonly document: OttoMemoryDocument;
+  readonly initial: string;
+  readonly label: string;
   readonly busy: boolean;
-  readonly onSave: (
-    target: OttoMemoryDocumentTarget,
-    content: string,
-    expectedContent: string,
-  ) => Promise<boolean>;
+  readonly onCancel: () => void;
+  readonly onSave: (text: string) => void;
 }) {
-  const [draft, setDraft] = useState(document.content);
-  useEffect(() => setDraft(document.content), [document.content, document.updatedAt]);
-  const changed = draft !== document.content;
-  const overLimit = draft.length > document.charLimit;
-  const copy = memoryDocumentCopy[document.target];
-  const { t, formatNumber } = useI18n();
+  const { t } = useI18n();
+  const [text, setText] = useState(initial);
+  const trimmed = text.trim();
 
   return (
-    <BotSideSheetSection
-      title={t(copy.title)}
-      description={t(copy.description)}
-      action={
-        <span
-          className={
-            overLimit
-              ? "whitespace-nowrap text-xs tabular-nums text-destructive"
-              : "whitespace-nowrap text-xs tabular-nums text-muted-foreground"
-          }
-          aria-label={t("{used} of {limit} characters used", {
-            used: formatNumber(draft.length),
-            limit: formatNumber(document.charLimit),
-          })}
-        >
-          {formatNumber(draft.length)} / {formatNumber(document.charLimit)}
-        </span>
-      }
-    >
+    <div className="space-y-2">
       <Textarea
-        aria-label={t("Edit {name}", { name: t(copy.title) })}
-        className="min-h-32"
-        placeholder={t("Nothing saved yet. Add a note in plain text or Markdown.")}
-        value={draft}
-        onChange={(event) => setDraft(event.currentTarget.value)}
+        aria-label={label}
+        autoFocus
+        size="sm"
+        maxLength={MEMORY_TEXT_MAX_CHARS}
+        value={text}
         disabled={busy}
+        onChange={(event) => setText(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          event.stopPropagation();
+          onCancel();
+        }}
       />
-      <div className="flex justify-end gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy || !changed}
-          onClick={() => setDraft(document.content)}
-        >
-          {t("Reset")}
+      <div className="flex justify-end gap-1.5">
+        <Button size="xs" variant="ghost" disabled={busy} onClick={onCancel}>
+          {t("Cancel")}
         </Button>
         <Button
-          size="sm"
-          disabled={busy || !changed || overLimit}
-          onClick={() => void onSave(document.target, draft, document.content)}
+          size="xs"
+          disabled={busy || trimmed.length === 0 || trimmed === initial.trim()}
+          onClick={() => onSave(trimmed)}
         >
           {t("Save")}
         </Button>
       </div>
-    </BotSideSheetSection>
+    </div>
   );
 }
 
 export function BotMemorySheet({
   open,
   onOpenChange,
-  threadRef,
+  environmentId,
+  botId,
+  botName,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly threadRef: ScopedThreadRef | null;
+  readonly environmentId: EnvironmentId;
+  readonly botId: BotId;
+  readonly botName: string;
 }) {
-  const { t, plural, formatNumber } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
+  const writable = usePrimarySettings((settings) => settings.memory.enabled);
+  const bots = useAtomValue(environmentBotsAtom(environmentId));
+  const people = useAtomValue(environmentPeopleAtom(environmentId));
 
   const query = useEnvironmentQuery(
-    open && threadRef
-      ? memoryEnvironment.inspectDocuments({
-          environmentId: threadRef.environmentId,
-          input: { threadId: threadRef.threadId },
-        })
-      : null,
+    open ? memoryEnvironment.list({ environmentId, input: { botId } }) : null,
   );
 
-  const replaceDocument = useAtomCommand(memoryEnvironment.replaceDocument, {
-    reportFailure: false,
-  });
-
-  const clearObservations = useAtomCommand(memoryEnvironment.clearObservations, {
-    reportFailure: false,
-  });
+  const create = useAtomCommand(memoryEnvironment.create, { reportFailure: false });
+  const update = useAtomCommand(memoryEnvironment.update, { reportFailure: false });
+  const remove = useAtomCommand(memoryEnvironment.remove, { reportFailure: false });
+  const decide = useAtomCommand(memoryEnvironment.decide, { reportFailure: false });
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clearPending, setClearPending] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const previousObservations = query.data?.conversation.current
-    ? query.data.conversation.history.filter(
-        (item) => item.generationCount !== query.data!.conversation.current!.generationCount,
-      )
-    : [];
+  const names = {
+    currentPersonId: people.current?.id ?? null,
+    bots: new Map(bots.map((bot) => [String(bot.id), bot.name])),
+    people: new Map(people.directory.map((person) => [person.personId, person.displayName])),
+  };
 
-  const save = async (
-    target: OttoMemoryDocumentTarget,
-    content: string,
-    expectedContent: string,
+  /** Runs one change; a failure keeps the draft open and shows the server's reason. */
+  const run = async (
+    change: () => Promise<Parameters<typeof squashAtomCommandFailure>[0] | { _tag: "Success" }>,
+    failureToast: string,
   ) => {
-    if (!threadRef || !query.data) return false;
     setBusy(true);
     setError(null);
-
-    const result = await replaceDocument({
-      environmentId: threadRef.environmentId,
-      input: {
-        threadId: threadRef.threadId,
-        expectedBotId: query.data.botId,
-        expectedContent,
-        target,
-        content,
-      },
-    });
-
+    const result = await change();
     setBusy(false);
 
     if (Predicate.isTagged(result, "Failure")) {
-      const message = failureMessage(result) ?? t("Memory request failed.");
-      setError(message);
-      toast.error(t("Memory couldn't be saved"));
+      setError(memoryErrorMessage(squashAtomCommandFailure(result)) ?? t("Memory request failed."));
+      toast.error(failureToast);
+
+      return false;
     }
 
-    return !Predicate.isTagged(result, "Failure");
+    return true;
   };
 
-  const current = query.data?.conversation.current ?? null;
-  const summary = current?.activeObservations.trim() ?? "";
+  const sectionKey = (section: MemorySection) => `${section.scope}:${section.scopeId}`;
+
+  const sectionCopy = (section: MemorySection) => {
+    switch (section.scope) {
+      case "person":
+        return { title: t("About you"), description: t("Used only in your private chats.") };
+      case "bot":
+        return {
+          title: botName,
+          description: t("Its role and how it works. Used in every chat."),
+        };
+      case "group":
+        return {
+          title: section.title,
+          description: t("Shared with everyone in this group chat."),
+        };
+      case "project":
+        return {
+          title: section.title,
+          description: t("Shared with every bot in this project."),
+        };
+      case "workspace":
+        return { title: t("Workspace"), description: t("Shared with every bot in the workspace.") };
+    }
+  };
+
+  const sections = query.data?.sections ?? [];
+  const empty = sections.every((section) => section.memories.length === 0) && adding === null;
+
+  const entry = (section: MemorySection, memory: Memory) => {
+    const meta = memoryEntryMeta(memory, names, i18n);
+
+    if (editing === memory.id) {
+      return (
+        <MemoryDraft
+          key={memory.id}
+          initial={memory.text}
+          label={t("Edit memory")}
+          busy={busy}
+          onCancel={() => setEditing(null)}
+          onSave={(text) =>
+            void run(
+              () => update({ environmentId, input: { id: memory.id, text } }),
+              t("Memory couldn't be saved"),
+            ).then((saved) => saved && setEditing(null))
+          }
+        />
+      );
+    }
+
+    const replaced = section.memories.find((candidate) => candidate.id === memory.replacesId);
+
+    return (
+      <li key={memory.id} className="group/memory flex items-start gap-2 py-1.5">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="text-13px whitespace-pre-wrap text-foreground">
+            {memory.status === "pending" && memory.text === ""
+              ? t("Delete: {text}", { text: replaced?.text ?? "" })
+              : memory.text}
+          </p>
+          <p className="text-xs text-muted-foreground">{meta}</p>
+          {memory.status === "pending" ? (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <Badge variant="warning">{t("Waiting for approval")}</Badge>
+              {writable ? (
+                <>
+                  <Button
+                    size="xs"
+                    variant="ghost-muted"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          decide({ environmentId, input: { id: memory.id, decision: "reject" } }),
+                        t("Memory couldn't be saved"),
+                      )
+                    }
+                  >
+                    {t("Reject")}
+                  </Button>
+                  <Button
+                    size="xs"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          decide({ environmentId, input: { id: memory.id, decision: "approve" } }),
+                        t("Memory couldn't be saved"),
+                      )
+                    }
+                  >
+                    {t("Approve")}
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        {writable && memory.status === "active" ? (
+          <Menu onOpenChange={(menuOpen) => !menuOpen && setConfirmDelete(null)}>
+            <MenuTrigger
+              render={
+                <Button size="icon-sm" variant="ghost-muted" aria-label={t("Memory actions")} />
+              }
+            >
+              <RiMore2Line />
+            </MenuTrigger>
+            <MenuPopup align="end">
+              <MenuItem onClick={() => setEditing(memory.id)}>{t("Edit")}</MenuItem>
+              <MenuItem
+                variant="destructive"
+                closeOnClick={confirmDelete === memory.id}
+                onClick={() => {
+                  if (confirmDelete !== memory.id) return setConfirmDelete(memory.id);
+
+                  void run(
+                    () => remove({ environmentId, input: { id: memory.id } }),
+                    t("Memory couldn't be deleted"),
+                  ).then((deleted) => deleted && toast.success(t("Memory has been deleted")));
+                }}
+              >
+                {confirmDelete === memory.id ? t("Confirm delete") : t("Delete")}
+              </MenuItem>
+            </MenuPopup>
+          </Menu>
+        ) : null}
+      </li>
+    );
+  };
 
   return (
     <BotSideSheet
       open={open}
       onOpenChange={onOpenChange}
       title={t("Memory")}
-      description={t(
-        "What this bot remembers between chats. Edit anything that is wrong or out of date.",
-      )}
+      description={t("What {bot} remembers. Only you see what it remembers about you.", {
+        bot: botName,
+      })}
     >
-      {!threadRef ? (
-        <BotSideSheetEmpty
-          icon={RiBrainLine}
-          title={t("No memory yet")}
-          description={t("Start a chat with this bot to see and edit what it remembers.")}
-        />
-      ) : null}
       {(error ?? query.error) ? (
         <div
           role="alert"
@@ -197,110 +319,119 @@ export function BotMemorySheet({
           {error ?? query.error}
         </div>
       ) : null}
-      {query.isPending && !query.data ? (
-        <div className="flex justify-center py-12">
-          <Spinner aria-label={t("Loading memory…")} />
-        </div>
+      {!writable ? (
+        <p className="text-sm text-muted-foreground">
+          {t("Memory is off. Turn it on in Settings to change what bots remember.")}
+        </p>
       ) : null}
-      {query.data ? (
-        <>
-          <div
-            key={`${threadRef?.environmentId}:${threadRef?.threadId}:${query.data.botId}`}
-            className="space-y-6"
-            data-testid="memory-documents"
-          >
-            <MemoryDocumentEditor document={query.data.user} busy={busy} onSave={save} />
-            <MemoryDocumentEditor document={query.data.memory} busy={busy} onSave={save} />
-            {query.data.group ? (
-              <MemoryDocumentEditor document={query.data.group} busy={busy} onSave={save} />
-            ) : null}
+      {query.isPending && !query.data ? (
+        <SkeletonRegion label={t("Loading memory…")}>
+          <div className="space-y-6">
+            {[t("About you"), botName].map((title) => (
+              <BotSideSheetSection key={title} title={title}>
+                {[0, 1].map((row) => (
+                  <div key={row} className="space-y-1.5 py-1.5">
+                    <Skeleton className={row === 0 ? "h-3 w-3/4" : "h-3 w-1/2"} />
+                    <Skeleton className="h-2.5 w-1/3" />
+                  </div>
+                ))}
+              </BotSideSheetSection>
+            ))}
           </div>
-
-          <BotSideSheetSection
-            className="border-t pt-6"
-            title={t("Chat summary")}
-            description={t(
-              "Notes the bot writes on its own as this chat grows, so it can recall earlier parts of a long conversation. They only apply to this chat.",
-            )}
-            action={
+        </SkeletonRegion>
+      ) : null}
+      {query.data && empty ? (
+        <BotSideSheetEmpty
+          icon={RiBrainLine}
+          title={t("No memories yet")}
+          description={t("{bot} saves what it learns here. You can change or delete anything.", {
+            bot: botName,
+          })}
+          action={
+            writable ? (
               <Button
-                size="sm"
-                variant={clearPending ? "destructive" : "outline"}
-                disabled={busy || !current}
+                variant="outline"
                 onClick={() => {
-                  if (!clearPending) return setClearPending(true);
+                  const person = sections.find((section) => section.scope === "person");
 
-                  if (!threadRef) return;
-                  setBusy(true);
-                  setError(null);
-                  void clearObservations({
-                    environmentId: threadRef.environmentId,
-                    input: { threadId: threadRef.threadId },
-                  }).then((result) => {
-                    setBusy(false);
-
-                    if (Predicate.isTagged(result, "Failure")) {
-                      const message = failureMessage(result);
-                      setError(message);
-                      toast.error(t("Chat summary couldn't be cleared"));
-                    } else setClearPending(false);
-                  });
+                  if (person) setAdding(sectionKey(person));
                 }}
               >
-                {clearPending ? t("Confirm clear") : t("Clear summary")}
+                {t("Add memory")}
               </Button>
-            }
-          >
-            {current && summary.length > 0 ? (
-              <div className="space-y-3 text-sm">
-                <p className="whitespace-pre-wrap rounded-lg bg-secondary px-3 py-2">{summary}</p>
-                {current.generationCount > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    {plural(current.generationCount, {
-                      one: "Condensed {count} time to stay short.",
-                      other: "Condensed {count} times to stay short.",
-                    })}
-                  </p>
-                ) : null}
-                {previousObservations.length > 0 ? (
-                  <details>
-                    <summary className="cursor-pointer text-xs text-muted-foreground">
-                      {t("Earlier summaries ({count})", {
-                        count: formatNumber(previousObservations.length),
-                      })}
-                    </summary>
-                    <div className="mt-2 space-y-3">
-                      {previousObservations.map((item) => (
-                        <p
-                          className="whitespace-pre-wrap text-xs text-muted-foreground"
-                          key={`${item.generationCount}-${item.updatedAt}`}
-                        >
-                          {item.activeObservations}
-                        </p>
-                      ))}
-                    </div>
-                  </details>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t("Nothing yet. The bot starts a summary once the chat gets long.")}
-              </p>
-            )}
-          </BotSideSheetSection>
-          {threadRef ? (
-            <BotDurableMemory
-              key={`durable:${threadRef.environmentId}:${threadRef.threadId}`}
-              threadRef={threadRef}
-              botId={query.data.botId}
-            />
-          ) : null}
-          {threadRef ? (
-            <BotMemoryTransfer
-              key={`${threadRef.environmentId}:${threadRef.threadId}`}
-              threadRef={threadRef}
-            />
-          ) : null}
+            ) : undefined
+          }
+        />
+      ) : null}
+      {query.data && !empty ? (
+        <>
+          {sections
+            .filter(
+              (section) =>
+                section.memories.length > 0 ||
+                section.scope === "person" ||
+                section.scope === "bot",
+            )
+            .map((section) => {
+              const copy = sectionCopy(section);
+              const key = sectionKey(section);
+
+              return (
+                <BotSideSheetSection
+                  key={key}
+                  title={
+                    <span className="flex items-center gap-1.5">
+                      {copy.title}
+                      <span className="text-muted-foreground tabular-nums">
+                        {i18n.formatNumber(section.memories.length)}
+                      </span>
+                      {isAlmostFull(section) ? (
+                        <Badge variant="warning">{t("Almost full")}</Badge>
+                      ) : null}
+                    </span>
+                  }
+                  description={copy.description}
+                  action={
+                    writable ? (
+                      <Button
+                        size="icon-sm"
+                        variant="ghost-muted"
+                        aria-label={t("Add to {name}", { name: copy.title })}
+                        disabled={busy}
+                        onClick={() => setAdding(key)}
+                      >
+                        <RiAddLine />
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  {section.memories.length > 0 ? (
+                    <ul>{section.memories.map((memory) => entry(section, memory))}</ul>
+                  ) : null}
+                  {adding === key ? (
+                    <MemoryDraft
+                      initial=""
+                      label={t("New memory")}
+                      busy={busy}
+                      onCancel={() => setAdding(null)}
+                      onSave={(text) =>
+                        void run(
+                          () =>
+                            create({
+                              environmentId,
+                              input: { scope: section.scope, scopeId: section.scopeId, text },
+                            }),
+                          t("Memory couldn't be saved"),
+                        ).then((saved) => saved && setAdding(null))
+                      }
+                    />
+                  ) : null}
+                </BotSideSheetSection>
+              );
+            })}
+          <p className="text-xs text-muted-foreground">
+            {t("Deleting a memory does not remove it from past chats.")}
+          </p>
         </>
       ) : null}
     </BotSideSheet>

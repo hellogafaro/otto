@@ -165,16 +165,20 @@ describe("roster in Simplified Chinese", () => {
     expect(empty).not.toContain("cannot hand off work");
   });
 
-  it("translates the memory sheet empty state", () => {
+  it("translates the memory sheet while it loads", () => {
     const markup = renderInChinese(
-      <BotMemorySheet open onOpenChange={() => {}} threadRef={null} />,
+      <BotMemorySheet
+        open
+        onOpenChange={() => {}}
+        environmentId={EnvironmentId.make("environment-zh")}
+        botId={BotId.make("bot-zh")}
+        botName="Ada"
+      />,
     );
 
     expect(markup).toContain("记忆");
-    expect(markup).toContain("还没有记忆");
-    expect(markup).toContain("与这个机器人开始聊天");
-    expect(markup).not.toContain("No memory yet");
-    expect(markup).not.toContain("What this bot remembers");
+    expect(markup).toContain("Ada 记住的内容。只有你能看到它记住的关于你的内容。");
+    expect(markup).not.toContain("What Ada remembers");
   });
 
   it("translates the new bot dialog", () => {

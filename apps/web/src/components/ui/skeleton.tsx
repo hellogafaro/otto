@@ -169,6 +169,7 @@ function SkeletonSettingsSections({
 export {
   Skeleton,
   SkeletonCards,
+  SkeletonRegion,
   SkeletonSettingsSections,
   SkeletonSidebarRows,
   SkeletonTableRows,

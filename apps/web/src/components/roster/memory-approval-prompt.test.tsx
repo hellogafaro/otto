@@ -1,16 +1,10 @@
-import {
-  OttoMemoryCandidateId,
-  BotId,
-  EnvironmentId,
-  ThreadId,
-  type OttoMemoryApprovalRequest,
-} from "@otto/contracts";
+import { BotId, EnvironmentId, ThreadId, type MemoryApprovalRequest } from "@otto/contracts";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
-  mutateFact: vi.fn(async <T,>(_input: T) => ({ _tag: "Success" as const })),
+  decide: vi.fn(async <T,>(_input: T) => ({ _tag: "Success" as const })),
   // State the next render starts from, in hook order; empty means each hook's initial value.
   states: [] as unknown[],
   setState: vi.fn(<T,>(_value: T) => {}),
@@ -43,9 +37,9 @@ vi.mock("../../i18n", async () => {
 
 vi.mock("../../state/bots", () => ({ environmentBotsAtom: () => Symbol("bots") }));
 
-vi.mock("../../state/memory", () => ({ memoryEnvironment: { mutateFact: Symbol("mutate") } }));
+vi.mock("../../state/memory", () => ({ memoryEnvironment: { decide: Symbol("decide") } }));
 
-vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => mocks.mutateFact }));
+vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => mocks.decide }));
 
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
@@ -88,103 +82,104 @@ const threadRef = {
 };
 
 const approval = (
-  candidateId: string,
-  sensitive = false,
-  authorBotId: string | null = "bot-ada",
-): OttoMemoryApprovalRequest => ({
-  candidateId: OttoMemoryCandidateId.make(candidateId),
-  fact: "Deploys happen on Fridays.",
+  memoryId: string,
+  authorBotId: string | null = "bot-grace",
+  overrides: Partial<MemoryApprovalRequest> = {},
+): MemoryApprovalRequest => ({
+  memoryId,
   scope: "project",
-  sensitive,
-  sourceThreadId: threadRef.threadId,
+  action: "add",
+  text: "Deploys happen on Fridays.",
+  previousText: null,
+  title: "Otto",
   authorBotId: authorBotId === null ? null : BotId.make(authorBotId),
-  affectedBotIds: [BotId.make("bot-ada"), BotId.make("bot-grace")],
+  ...overrides,
 });
 
 describe("MemoryApprovalPrompt", () => {
   beforeEach(() => {
-    mocks.mutateFact.mockClear();
+    mocks.decide.mockClear();
     mocks.setState.mockClear();
     mocks.states = [];
   });
 
-  it("shows the oldest pending fact with who can read it", () => {
+  it("shows the oldest pending proposal and where it would be saved", () => {
     const markup = renderToStaticMarkup(
       <MemoryApprovalPrompt
         threadRef={threadRef}
-        approvals={[approval("candidate-1", true), approval("candidate-2")]}
-        currentBotId="bot-ada"
+        approvals={[approval("m_first"), approval("m_second")]}
       />,
     );
 
     expect(markup).toContain('data-testid="memory-approval-prompt"');
     expect(markup).toContain("Save to project memory?");
-    expect(markup).toContain("Sensitive, always needs approval");
+    expect(markup).toContain("Grace wants to remember this for Otto");
     expect(markup).toContain("1 of 2");
     expect(markup).toContain("Deploys happen on Fridays.");
-    expect(markup).toContain("Available to this bot, Grace");
     // Attaches to the prompt box like the provider approval card.
     expect(markup).toContain("rounded-t-xl");
     expect(markup).not.toContain("animate-");
   });
 
-  it("names the bot that proposed the fact, with a fallback when it is unknown", () => {
-    const render = (authorBotId: string | null) =>
-      renderToStaticMarkup(
-        <MemoryApprovalPrompt
-          threadRef={threadRef}
-          approvals={[approval("candidate-1", false, authorBotId)]}
-          currentBotId="bot-ada"
-        />,
-      );
+  it("names the change for updates and deletes in the workspace", () => {
+    const update = renderToStaticMarkup(
+      <MemoryApprovalPrompt
+        threadRef={threadRef}
+        approvals={[
+          approval("m_update", null, {
+            scope: "workspace",
+            action: "update",
+            text: "Deploys happen on Mondays.",
+            previousText: "Deploys happen on Fridays.",
+            title: "",
+          }),
+        ]}
+      />,
+    );
 
-    expect(render("bot-grace")).toContain("Grace wants to save this");
-    expect(render("bot-missing")).toContain("A bot wants to save this");
-    expect(render(null)).toContain("A bot wants to save this");
-    expect(render("bot-grace")).not.toContain("Sensitive");
+    expect(update).toContain("Update workspace memory?");
+    expect(update).toContain("A bot wants to remember this for the workspace");
+    expect(update).toContain("Replaces: Deploys happen on Fridays.");
+
+    const remove = MemoryApprovalPrompt({
+      threadRef,
+      approvals: [
+        approval("m_delete", "bot-grace", {
+          action: "delete",
+          text: "",
+          previousText: "Deploys happen on Fridays.",
+        }),
+      ],
+    });
+
+    expect(renderToStaticMarkup(remove)).toContain("Delete from project memory?");
+    expect(buttons(remove).map((item) => item.props.children)).toEqual(["Reject", "Approve"]);
   });
 
-  it("renders nothing once every request is decided", () => {
+  it("renders nothing once every proposal is decided", () => {
     expect(
-      renderToStaticMarkup(
-        <MemoryApprovalPrompt threadRef={threadRef} approvals={[]} currentBotId={null} />,
-      ),
+      renderToStaticMarkup(<MemoryApprovalPrompt threadRef={threadRef} approvals={[]} />),
     ).toBe("");
   });
 
-  it.each([
-    ["Approve", { candidateId: "candidate-1", decision: "approve" }],
-    ["Reject", { candidateId: "candidate-1", decision: "reject" }],
-  ] as const)("%s decides the candidate for this chat", async (label, decision) => {
-    const tree = MemoryApprovalPrompt({
-      threadRef,
-      approvals: [approval("candidate-1")],
-      currentBotId: "bot-ada",
-    });
-
+  it.each(["Approve", "Reject"] as const)("%s decides the proposal", async (label) => {
+    const tree = MemoryApprovalPrompt({ threadRef, approvals: [approval("m_first")] });
     const target = buttons(tree).find((item) => item.props.children === label);
     expect(target).toBeDefined();
     target?.props.onClick();
-    await vi.waitFor(() => expect(mocks.mutateFact).toHaveBeenCalledTimes(1));
-    expect(mocks.mutateFact).toHaveBeenCalledWith({
+    await vi.waitFor(() => expect(mocks.decide).toHaveBeenCalledTimes(1));
+    expect(mocks.decide).toHaveBeenCalledWith({
       environmentId: threadRef.environmentId,
-      input: {
-        threadId: threadRef.threadId,
-        mutation: { operation: "candidate.decide", decision },
-      },
+      input: { id: "m_first", decision: label === "Approve" ? "approve" : "reject" },
     });
   });
 
   it("cancels an edit on Escape without letting the key reach other UI", () => {
     const escape = (isComposing: boolean) => {
-      mocks.states = [{ candidateId: "candidate-1", fact: "Deploys happen on Mondays." }];
+      mocks.states = [{ memoryId: "m_first", text: "Deploys happen on Mondays." }];
       mocks.setState.mockClear();
 
-      const tree = MemoryApprovalPrompt({
-        threadRef,
-        approvals: [approval("candidate-1")],
-        currentBotId: "bot-ada",
-      });
+      const tree = MemoryApprovalPrompt({ threadRef, approvals: [approval("m_first")] });
 
       const event = {
         key: "Escape",

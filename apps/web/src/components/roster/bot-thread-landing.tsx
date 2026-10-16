@@ -664,7 +664,6 @@ export function BotThreadLanding({
                   <MemoryApprovalPrompt
                     threadRef={runtime.linkedThreadRef}
                     approvals={memoryApprovals}
-                    currentBotId={bot.id}
                   />
                 ) : null
               }

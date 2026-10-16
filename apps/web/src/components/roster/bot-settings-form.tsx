@@ -39,7 +39,6 @@ import { BotMemorySheet } from "./bot-memory-sheet";
 import { BotToolSwitches } from "./bot-tool-switches";
 import { BOT_SANDBOX_OPTIONS, botSandboxLabel } from "./bot-sandbox";
 import type { Bot } from "./types";
-import { useLatestBotChatRef } from "./use-bot-thread-ref";
 import {
   BOT_IMAGE_PROVIDER_DEFAULT,
   botImageProviderFromSelectValue,
@@ -80,8 +79,6 @@ export function BotSettingsForm({
       imageSettings,
       imageProviders.data?.providers.find((status) => status.provider === provider),
     );
-
-  const threadRef = useLatestBotChatRef(bot.id);
 
   const accessQuery = useEnvironmentQuery(
     environmentId === null
@@ -274,17 +271,17 @@ export function BotSettingsForm({
 
             <SettingsRow
               title={t("Memory")}
-              description={t("Facts this bot keeps between chats.")}
+              description={t("What {bot} remembers.", { bot: bot.name })}
               control={
                 <Button
                   variant="outline"
                   size="sm"
                   type="button"
                   aria-label={t("Manage bot memory")}
-                  disabled={!threadRef}
+                  disabled={!environmentId}
                   onClick={() => setMemoryOpen(true)}
                 >
-                  {t("Facts and history")}
+                  {t("View")}
                 </Button>
               }
             />
@@ -328,7 +325,15 @@ export function BotSettingsForm({
       </div>
 
       <AvatarPickerDialog bot={bot} open={avatarOpen} onOpenChange={setAvatarOpen} />
-      <BotMemorySheet open={memoryOpen} onOpenChange={setMemoryOpen} threadRef={threadRef} />
+      {environmentId ? (
+        <BotMemorySheet
+          open={memoryOpen}
+          onOpenChange={setMemoryOpen}
+          environmentId={environmentId}
+          botId={BotId.make(bot.id)}
+          botName={bot.name}
+        />
+      ) : null}
     </>
   );
 }

@@ -1,16 +1,8 @@
 import { Predicate } from "effect";
-import {
-  canSaveDurableFactEdit,
-  describeDurableFactFailure,
-  durableFactBotsLabel,
-  memoryApprovalHeading,
-  memoryApprovalMutation,
-  type MemoryApprovalIntent,
-} from "@otto/client-runtime/durable-memory";
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
-import type { OttoMemoryApprovalRequest, ScopedThreadRef } from "@otto/contracts";
+import type { MemoryApprovalRequest, ScopedThreadRef } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { environmentBotsAtom } from "../../state/bots";
@@ -24,57 +16,71 @@ import {
   BOT_COMPOSER_SURFACE_CLASS_NAME,
 } from "./bot-conversation-presentation";
 
-// Asks the user to approve a shared fact a bot wants to save. Shown above the
-// composer while the chat has undecided requests; the inbox resolves the same ones.
+// Asks a person to approve a project or workspace memory change a bot proposed. Shown above
+// the composer while the chat has undecided proposals.
 export function MemoryApprovalPrompt({
   threadRef,
   approvals,
-  currentBotId,
 }: {
   readonly threadRef: ScopedThreadRef;
-  readonly approvals: ReadonlyArray<OttoMemoryApprovalRequest>;
-  readonly currentBotId: string | null;
+  readonly approvals: ReadonlyArray<MemoryApprovalRequest>;
 }) {
-  const i18n = useI18n();
-  const { t } = i18n;
+  const { t } = useI18n();
   const approval = approvals[0];
   const bots = useAtomValue(environmentBotsAtom(threadRef.environmentId));
-  const botNames = useMemo(() => new Map(bots.map((bot) => [bot.id, bot.name])), [bots]);
-  const mutateFact = useAtomCommand(memoryEnvironment.mutateFact, { reportFailure: false });
+  const decide = useAtomCommand(memoryEnvironment.decide, { reportFailure: false });
 
-  const [draft, setDraft] = useState<{
-    readonly candidateId: string;
-    readonly fact: string;
-  } | null>(null);
+  const [draft, setDraft] = useState<{ readonly memoryId: string; readonly text: string } | null>(
+    null,
+  );
 
   const [responding, setResponding] = useState(false);
 
   const [failure, setFailure] = useState<{
-    readonly candidateId: string;
+    readonly memoryId: string;
     readonly message: string;
   } | null>(null);
 
   if (!approval) return null;
 
-  const editing = draft?.candidateId === approval.candidateId ? draft : null;
-  const error = failure?.candidateId === approval.candidateId ? failure.message : null;
-  const sharedWith = durableFactBotsLabel(approval, { currentBotId, botNames }, i18n);
-  const authorName = approval.authorBotId ? botNames.get(approval.authorBotId) : undefined;
+  const editing = draft?.memoryId === approval.memoryId ? draft : null;
+  const error = failure?.memoryId === approval.memoryId ? failure.message : null;
+  const authorName = bots.find((bot) => bot.id === approval.authorBotId)?.name;
+  const target = approval.scope === "project" ? approval.title : t("the workspace");
 
-  const respond = async (intent: MemoryApprovalIntent) => {
+  const heading = {
+    project: {
+      add: t("Save to project memory?"),
+      update: t("Update project memory?"),
+      delete: t("Delete from project memory?"),
+    },
+    workspace: {
+      add: t("Save to workspace memory?"),
+      update: t("Update workspace memory?"),
+      delete: t("Delete from workspace memory?"),
+    },
+  }[approval.scope][approval.action];
+
+  const respond = async (decision: "approve" | "reject", text?: string) => {
     setResponding(true);
     setFailure(null);
 
     try {
-      const result = await mutateFact({
+      const result = await decide({
         environmentId: threadRef.environmentId,
-        input: { threadId: threadRef.threadId, mutation: memoryApprovalMutation(approval, intent) },
+        input: {
+          id: approval.memoryId,
+          decision,
+          ...(text !== undefined && text !== approval.text ? { text } : {}),
+        },
       });
 
       if (Predicate.isTagged(result, "Failure")) {
+        const cause = squashAtomCommandFailure(result);
+
         setFailure({
-          candidateId: approval.candidateId,
-          message: t(describeDurableFactFailure(squashAtomCommandFailure(result)).message),
+          memoryId: approval.memoryId,
+          message: cause instanceof Error ? cause.message : t("Memory request failed."),
         });
 
         return;
@@ -97,14 +103,7 @@ export function MemoryApprovalPrompt({
           aria-hidden="true"
           className="size-1.5 shrink-0 rounded-full bg-memory-approval-indicator"
         />
-        <p className="text-sm font-semibold text-foreground">
-          {memoryApprovalHeading(approval.scope, i18n)}
-        </p>
-        {approval.sensitive ? (
-          <span className="text-xs text-muted-foreground">
-            {t("Sensitive, always needs approval")}
-          </span>
-        ) : null}
+        <p className="text-sm font-semibold text-foreground">{heading}</p>
         {approvals.length > 1 ? (
           <span className="ml-auto text-11px font-medium text-muted-foreground tabular-nums">
             {t("1 of {count}", { count: approvals.length })}
@@ -113,19 +112,17 @@ export function MemoryApprovalPrompt({
       </div>
       <p className="mt-0.5 text-xs text-muted-foreground">
         {authorName
-          ? t("{botName} wants to save this", { botName: authorName })
-          : t("A bot wants to save this")}
+          ? t("{botName} wants to remember this for {target}", { botName: authorName, target })
+          : t("A bot wants to remember this for {target}", { target })}
       </p>
       {editing ? (
         <Textarea
-          aria-label={t("Fact to save")}
+          aria-label={t("Memory to save")}
           className="mt-2"
           size="sm"
-          value={editing.fact}
+          value={editing.text}
           disabled={responding}
-          onChange={(event) =>
-            setDraft({ candidateId: approval.candidateId, fact: event.target.value })
-          }
+          onChange={(event) => setDraft({ memoryId: approval.memoryId, text: event.target.value })}
           onKeyDown={(event) => {
             // Escape cancels the edit like the Cancel button; an IME keeps its own Escape.
             if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
@@ -135,11 +132,13 @@ export function MemoryApprovalPrompt({
           }}
         />
       ) : (
-        <p className="mt-2 text-sm whitespace-pre-wrap text-foreground">{approval.fact}</p>
+        <p className="mt-2 text-sm whitespace-pre-wrap text-foreground">
+          {approval.action === "delete" ? approval.previousText : approval.text}
+        </p>
       )}
-      {sharedWith ? (
+      {approval.action === "update" && approval.previousText ? (
         <p className="mt-1 text-xs text-muted-foreground">
-          {t("Available to {bots}", { bots: sharedWith })}
+          {t("Replaces: {text}", { text: approval.previousText })}
         </p>
       ) : null}
       <div className="mt-2.5 flex flex-wrap items-center justify-end gap-1.5">
@@ -155,8 +154,8 @@ export function MemoryApprovalPrompt({
             </Button>
             <Button
               size="xs"
-              disabled={responding || !canSaveDurableFactEdit(approval, editing.fact)}
-              onClick={() => void respond({ action: "approve", fact: editing.fact })}
+              disabled={responding || editing.text.trim().length === 0}
+              onClick={() => void respond("approve", editing.text.trim())}
             >
               {t("Approve edit")}
             </Button>
@@ -167,23 +166,21 @@ export function MemoryApprovalPrompt({
               size="xs"
               variant="ghost-muted"
               disabled={responding}
-              onClick={() => void respond({ action: "reject" })}
+              onClick={() => void respond("reject")}
             >
               {t("Reject")}
             </Button>
-            <Button
-              size="xs"
-              variant="outline"
-              disabled={responding}
-              onClick={() => setDraft({ candidateId: approval.candidateId, fact: approval.fact })}
-            >
-              {t("Edit")}
-            </Button>
-            <Button
-              size="xs"
-              disabled={responding}
-              onClick={() => void respond({ action: "approve" })}
-            >
+            {approval.action === "delete" ? null : (
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={responding}
+                onClick={() => setDraft({ memoryId: approval.memoryId, text: approval.text })}
+              >
+                {t("Edit")}
+              </Button>
+            )}
+            <Button size="xs" disabled={responding} onClick={() => void respond("approve")}>
               {t("Approve")}
             </Button>
           </>

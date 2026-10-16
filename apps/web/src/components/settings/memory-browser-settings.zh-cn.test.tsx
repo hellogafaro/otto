@@ -35,13 +35,8 @@ describe("memory and browser settings in Simplified Chinese", () => {
   it("translates Memory rows", () => {
     const html = renderInChinese(<MemorySettingsPanel />);
 
-    for (const label of ["机器人私有记忆", "保存项目记忆前先询问"]) {
-      expect(html).toContain(label);
-    }
-
-    for (const label of ["Private bot memory", "Ask before saving project memory"]) {
-      expect(html).not.toContain(label);
-    }
+    expect(html).toContain("机器人会跨聊天记住事实。");
+    expect(html).not.toContain("Bots remember facts across chats.");
   });
 
   it("translates Browser rows", () => {

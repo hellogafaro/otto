@@ -171,12 +171,8 @@ describe("searchSettings", () => {
   });
 
   it("routes memory controls to Memory settings", () => {
-    expect(searchSettings("ask before saving")[0]).toMatchObject({
-      id: "memory-shared-project",
-      to: "/settings/memory",
-    });
-    expect(searchSettings("private bot memory")[0]).toMatchObject({
-      id: "memory-private-bot",
+    expect(searchSettings("remember")[0]).toMatchObject({
+      id: "memory-enabled",
       to: "/settings/memory",
     });
   });

@@ -81,18 +81,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     keywords: ["durable facts", "remember"],
   },
   {
-    id: "memory-private-bot",
-    title: "Private bot memory",
-    to: "/settings/memory",
-    keywords: ["memory"],
-  },
-  {
-    id: "memory-shared-project",
-    title: "Ask before saving project memory",
-    to: "/settings/memory",
-    keywords: ["memory", "approval"],
-  },
-  {
     id: "voice-enabled",
     title: "Voice calls",
     to: "/settings/voice",

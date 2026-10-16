@@ -1,34 +1,19 @@
-import { Predicate } from "effect";
-import { EnvironmentId, ThreadId } from "@otto/contracts";
+import {
+  AuthSessionId,
+  BotId,
+  EnvironmentId,
+  type Memory,
+  type MemoryListResult,
+} from "@otto/contracts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const controls = vi.hoisted(() => ({
-  buttons: [] as Array<{ readonly label: string; readonly onClick?: () => void }>,
-  inspect: vi.fn(() => "inspect-documents"),
-  listFacts: vi.fn(() => "list-facts"),
-  mutate: vi.fn(async <T>(_input: T) => ({ _tag: "Success", value: {} })),
+  list: vi.fn(() => "memory-list"),
   query: vi.fn(),
-  toast: vi.fn(),
+  enabled: true,
 }));
-
-vi.mock("../ui/button", async () => {
-  const React = await import("react");
-
-  return {
-    Button: ({ children, onClick, ...props }: React.ComponentProps<"button">) => {
-      const label = React.Children.toArray(children)
-        .filter((child): child is string => Predicate.isString(child))
-        .join("")
-        .trim();
-
-      controls.buttons.push({ label, ...(onClick ? { onClick: () => onClick({} as never) } : {}) });
-
-      return React.createElement("button", { ...props, onClick }, children);
-    },
-  };
-});
 
 vi.mock("../ui/sheet", async () => {
   const React = await import("react");
@@ -47,113 +32,156 @@ vi.mock("../ui/sheet", async () => {
   };
 });
 
+vi.mock("@effect/atom-react", () => ({
+  useAtomValue: (atom: string) =>
+    atom === "people"
+      ? {
+          current: { id: "person-ana", displayName: "Ana" },
+          directory: [{ personId: "person-icon", displayName: "Icon" }],
+        }
+      : [{ id: "bot-juno", name: "Juno" }],
+}));
+
+vi.mock("../../state/bots", () => ({
+  environmentBotsAtom: () => "bots",
+  environmentPeopleAtom: () => "people",
+}));
+
+vi.mock("~/hooks/use-settings", () => ({
+  usePrimarySettings: (select: (settings: { memory: { enabled: boolean } }) => boolean) =>
+    select({ memory: { enabled: controls.enabled } }),
+}));
+
 vi.mock("../../state/memory", () => ({
   memoryEnvironment: {
-    inspectDocuments: controls.inspect,
-    listFacts: controls.listFacts,
-    mutateFact: "mutate-fact",
-    replaceDocument: "replace-document",
-    clearObservations: "clear-observations",
+    list: controls.list,
+    create: "create",
+    update: "update",
+    remove: "remove",
+    decide: "decide",
   },
 }));
 
 vi.mock("../../state/query", () => ({ useEnvironmentQuery: controls.query }));
 
-vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => controls.mutate }));
-
-vi.mock("sonner", () => ({
-  toast: {
-    success: controls.toast,
-    error: controls.toast,
-    warning: controls.toast,
-    info: controls.toast,
-  },
-}));
+vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => vi.fn() }));
 
 import { BotMemorySheet } from "./bot-memory-sheet";
 
-const document = (target: "user" | "memory" | "group", content: string, charLimit: number) => ({
-  target,
-  content,
-  charCount: content.length,
-  charLimit,
-  updatedAt: "2026-08-31T00:00:00.000Z",
+const props = {
+  open: true,
+  onOpenChange: vi.fn(),
+  environmentId: EnvironmentId.make("environment-1"),
+  botId: BotId.make("bot-juno"),
+  botName: "Juno",
+};
+
+const memory = (id: string, text: string, overrides: Partial<Memory> = {}) => ({
+  id,
+  scope: "person" as const,
+  scopeId: "person-ana",
+  text,
+  status: "active" as const,
+  replacesId: null,
+  botId: BotId.make("bot-juno"),
+  personId: null,
+  threadId: null,
+  threadTitle: "Launch plan",
+  createdAt: "2026-10-16T09:00:00.000Z",
+  updatedAt: "2026-10-16T09:00:00.000Z",
+  ...overrides,
+});
+
+const loaded = (sections: MemoryListResult["sections"]) => ({
+  data: { sections },
+  error: null,
+  isPending: false,
+});
+
+const section = (scope: "person" | "bot" | "project", memories: ReturnType<typeof memory>[]) => ({
+  scope,
+  scopeId: { person: "person-ana", bot: "bot-juno", project: "project-otto" }[scope],
+  title: scope === "project" ? "Otto" : "",
+  used: memories.reduce((total, row) => total + row.text.length, 0),
+  cap: scope === "project" ? 2_000 : 1_500,
+  memories,
 });
 
 describe("BotMemorySheet", () => {
   beforeEach(() => {
-    controls.buttons.length = 0;
-    controls.inspect.mockClear();
-    controls.mutate.mockClear();
-    controls.query.mockImplementation((input) => {
-      if (input === "list-facts") {
-        return { data: { facts: [] }, error: null, isPending: false, refresh: vi.fn() };
-      }
-
-      return {
-        data: {
-          botId: "bot-1",
-          groupId: "group-1",
-          user: document("user", "The user prefers short answers.", 1_375),
-          memory: document("memory", "Use the release checklist.", 2_200),
-          group: document("group", "The group ships on Fridays.", 2_200),
-          conversation: {
-            current: input
-              ? {
-                  generationCount: 2,
-                  activeObservations: "Thread observation",
-                  createdAt: "2026-08-31T00:00:00.000Z",
-                  updatedAt: "2026-08-31T00:00:00.000Z",
-                }
-              : null,
-            history: [],
-          },
-        },
-        error: null,
-        isPending: false,
-        refresh: vi.fn(),
-      };
-    });
-    vi.stubGlobal("window", {
-      confirm: vi.fn(() => true),
-      prompt: vi.fn(() => "Edited fact"),
-    });
+    controls.list.mockClear();
+    controls.query.mockReset();
+    controls.enabled = true;
   });
 
-  it("does not inspect memory while closed", () => {
-    renderToStaticMarkup(
-      createElement(BotMemorySheet, {
-        open: false,
-        onOpenChange: vi.fn(),
-        threadRef: {
-          environmentId: EnvironmentId.make("environment-1"),
-          threadId: ThreadId.make("thread-1"),
-        },
-      }),
-    );
+  it("does not list memory while closed", () => {
+    controls.query.mockReturnValue({ data: undefined, error: null, isPending: true });
+    renderToStaticMarkup(createElement(BotMemorySheet, { ...props, open: false }));
 
-    expect(controls.inspect).not.toHaveBeenCalled();
+    expect(controls.list).not.toHaveBeenCalled();
   });
 
-  it("inspects and renders memory while open", () => {
-    const markup = renderToStaticMarkup(
-      createElement(BotMemorySheet, {
-        open: true,
-        onOpenChange: vi.fn(),
-        threadRef: {
-          environmentId: EnvironmentId.make("environment-1"),
-          threadId: ThreadId.make("thread-1"),
-        },
-      }),
-    );
+  it("shows skeleton rows under the real section titles while loading", () => {
+    controls.query.mockReturnValue({ data: undefined, error: null, isPending: true });
+    const markup = renderToStaticMarkup(createElement(BotMemorySheet, props));
 
-    expect(markup).toContain("Thread observation");
-    expect(markup).toContain("Condensed 2 times to stay short.");
+    expect(controls.list).toHaveBeenCalledWith({
+      environmentId: props.environmentId,
+      input: { botId: props.botId },
+    });
+    expect(markup).toContain('data-slot="skeleton"');
     expect(markup).toContain("About you");
-    expect(markup).not.toContain("generations");
-    expect(markup).toContain("The user prefers short answers.");
-    expect(markup).toContain("Use the release checklist.");
-    expect(markup).toContain("The group ships on Fridays.");
-    expect(controls.inspect).toHaveBeenCalledOnce();
+    expect(markup).toContain("Juno");
+  });
+
+  it("shows the empty state when no scope holds anything", () => {
+    controls.query.mockReturnValue(loaded([section("person", []), section("bot", [])]));
+    const markup = renderToStaticMarkup(createElement(BotMemorySheet, props));
+
+    expect(markup).toContain("No memories yet");
+    expect(markup).toContain("Add memory");
+  });
+
+  it("lists entries by scope with their writer, pending approvals and a full warning", () => {
+    controls.query.mockReturnValue(
+      loaded([
+        section("person", [memory("m_one", "Likes durian.")]),
+        section("bot", []),
+        section("project", [
+          memory("m_two", "Releases ship on Thursdays.", {
+            scope: "project",
+            scopeId: "project-otto",
+            status: "pending",
+          }),
+          memory("m_three", "x".repeat(1_800), {
+            scope: "project",
+            scopeId: "project-otto",
+            botId: null,
+            personId: AuthSessionId.make("person-icon"),
+            threadTitle: null,
+          }),
+        ]),
+      ]),
+    );
+
+    const markup = renderToStaticMarkup(createElement(BotMemorySheet, props));
+
+    expect(markup).toContain("Likes durian.");
+    expect(markup).toContain("Juno · Launch plan · Oct 16");
+    expect(markup).toContain("Icon · Oct 16");
+    expect(markup).toContain("Otto");
+    expect(markup).toContain("Waiting for approval");
+    expect(markup).toContain("Almost full");
+    expect(markup).toContain("Deleting a memory does not remove it from past chats.");
+  });
+
+  it("is read-only while Memory is off", () => {
+    controls.enabled = false;
+    controls.query.mockReturnValue(loaded([section("person", [memory("m_one", "Likes durian.")])]));
+    const markup = renderToStaticMarkup(createElement(BotMemorySheet, props));
+
+    expect(markup).toContain("Memory is off.");
+    expect(markup).not.toContain('aria-label="Memory actions"');
+    expect(markup).not.toContain('aria-label="Add to About you"');
   });
 });

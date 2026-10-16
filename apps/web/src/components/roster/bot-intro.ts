@@ -21,7 +21,7 @@ export function botIntroPrompt(name: string, locale: string): string {
     `Write in the language for locale ${locale}. Do not use a tool in this reply. This one reply may run to 90 words and use a short list.`,
     `Open with "Hey, I'm ${name}." and say you would like some context before you start, so you can work well with them over time. Do not ask for a first task.`,
     "Then ask, as a short list, for: what they do and what they want you to own; the tools and apps they use for that work; and how they like you to work with them (tone, length, when to check in).",
-    "When they answer, write concise working instructions with the memory tool to the memory target: your role, what you own, their tools, and their preferences, as short declarative lines. Ask at most one follow-up only if something essential is missing. Then confirm in one sentence what you will do and ask what to start on.",
+    "When they answer, save what you learned with memory_update as short declarative entries: your role and what you own with scope bot, their tools and preferences with scope person. Ask at most one follow-up only if something essential is missing. Then confirm in one sentence what you will do and ask what to start on.",
     "</bot-introduction>",
   ].join("\n");
 }
