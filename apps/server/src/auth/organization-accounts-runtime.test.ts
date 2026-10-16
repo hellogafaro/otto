@@ -334,6 +334,7 @@ describe("setup code and email sign-in", () => {
 
   it("mails no code to unknown addresses and limits how often codes are sent", async () => {
     const { request, emails } = await fixture();
+
     const send = () =>
       request("/email-otp/send-verification-otp", {
         email: "nobody@example.test",

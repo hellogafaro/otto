@@ -295,6 +295,7 @@ export function OrganizationAccountGate({
   const isSubmitting = useStore(form.store, (value) => value.isSubmitting);
   const busy = pending || isSubmitting;
   const step = setupSteps[setupStep];
+
   const setupBlocked =
     page === "setup" &&
     setupStep === "organization" &&
@@ -303,6 +304,7 @@ export function OrganizationAccountGate({
 
   const codeSignIn =
     page !== "setup" && page !== "reset" && mode === "login" && state?.mailConfigured;
+
   const codeStep = codeSignIn && codeEmail !== null;
 
   const visibleFields: AccountFieldName[] =

@@ -186,6 +186,7 @@ export const createSettingsSecretReads = (
 
         for (const credential of credentials) {
           if ((values.get(credential.name) ?? "").trim().length > 0) continue;
+
           if (provider === "boat" && hostEnvironment.BOAT_API_KEY?.trim()) continue;
 
           return yield* sandboxValidationError(
