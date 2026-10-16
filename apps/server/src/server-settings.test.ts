@@ -516,22 +516,6 @@ it.layer(NodeServices.layer)("server settings", (it) => {
     }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
 
-  it.effect("persists shared bot sandbox and browser sharing", () =>
-    Effect.gen(function* () {
-      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-      const serverConfig = yield* ServerConfig.ServerConfig;
-      const fileSystem = yield* FileSystem.FileSystem;
-
-      const next = yield* serverSettings.updateSettings({
-        botSandboxBrowserSharing: "shared",
-      });
-
-      assert.equal(next.botSandboxBrowserSharing, "shared");
-      const raw = yield* fileSystem.readFileString(serverConfig.settingsPath);
-      assert.equal(JSON.parse(raw).botSandboxBrowserSharing, "shared");
-    }).pipe(Effect.provide(makeServerSettingsLayer())),
-  );
-
   it.effect("writes non-default settings and explicit optional provider defaults to disk", () =>
     Effect.gen(function* () {
       const serverSettings = yield* ServerSettingsModule.ServerSettingsService;

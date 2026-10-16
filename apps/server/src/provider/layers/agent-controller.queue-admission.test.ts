@@ -527,7 +527,6 @@ describe("AgentControllerLive", () => {
           provider: ProviderDriverKind.make("codex"),
           providerInstanceId: codexInstanceId,
           modelSelection: codexSelection,
-          botSandboxBrowserSharing: "shared" as const,
           runtimeMode: "full-access" as const,
         };
 

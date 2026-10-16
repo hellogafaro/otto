@@ -7,7 +7,7 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
 } from "@otto/contracts";
-import { type BotSandboxBrowserSharing, ThreadId, TurnId } from "@otto/contracts";
+import { ThreadId, TurnId } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as PubSub from "effect/PubSub";
 import * as Stream from "effect/Stream";
@@ -65,7 +65,6 @@ export type ProviderCommandHarnessOptions = {
   readonly disabledEngine?: boolean;
   readonly composioResolveRuntimeMcpServer?: ComposioServiceShape["resolveRuntimeMcpServer"];
   readonly enableAgentBrowserAccess?: boolean;
-  readonly botSandboxBrowserSharing?: BotSandboxBrowserSharing;
   readonly startReactor?: boolean;
   readonly dispatchDelegation?: AgentControllerShape["dispatchDelegation"];
 };

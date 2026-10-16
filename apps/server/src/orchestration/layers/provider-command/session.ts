@@ -278,7 +278,6 @@ export function createSession({
 
     const mcpServers = yield* resolveControllerMcpServers(thread);
     const serverSettings = yield* serverSettingsService.getSettings;
-    const botSandboxBrowserSharing = serverSettings.botSandboxBrowserSharing;
     const respondingBotId = resolveControllerBotId(thread);
 
     const respondingBot =
@@ -361,7 +360,6 @@ export function createSession({
 
     const botWorkspaceKey = botWorkspaceResourceKey({
       resourceScope: botRuntimeResourceScope({
-        sharing: botSandboxBrowserSharing,
         ...(respondingBotId ? { botId: respondingBotId } : {}),
         threadId,
       }),
@@ -414,7 +412,6 @@ export function createSession({
           : {}),
         botSandbox: effectiveSandbox,
         ...(sandboxEnvironment ? { botSandboxEnvironment: sandboxEnvironment } : {}),
-        botSandboxBrowserSharing,
         ...(input?.resumeCursor !== undefined ? { resumeCursor: input.resumeCursor } : {}),
         runtimeMode: desiredRuntimeMode,
       });

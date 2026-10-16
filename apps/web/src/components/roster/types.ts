@@ -43,16 +43,7 @@ export interface Bot {
   owner?: WorkParticipant | null | undefined;
   avatar: BotAvatar;
   engine: BotEngine | null;
-  sandbox:
-    | "local"
-    | "e2b"
-    | "daytona"
-    | "vercel"
-    | "upstash"
-    | "ascii"
-    | "railway"
-    | "tenki"
-    | null;
+  sandbox: "local" | "e2b" | "daytona" | "vercel" | "railway" | "boat" | null;
   runtimeMode: "approval-required" | "auto-accept-edits" | "auto" | "full-access";
   /** Personality baseline, 0 (chill) to 100 (professional). Absent on bots saved before the field existed. */
   personalityTone?: number;

@@ -124,37 +124,27 @@ export const BotEngine = Schema.Struct({
 
 export type BotEngine = typeof BotEngine.Type;
 
-export const BotSandbox = Schema.Literals([
-  "local",
-  "e2b",
-  "daytona",
-  "vercel",
-  "upstash",
-  "ascii",
-  "railway",
-  "tenki",
-]);
+export const BotSandbox = Schema.Literals(["local", "e2b", "daytona", "vercel", "railway", "boat"]);
 
 export type BotSandbox = typeof BotSandbox.Type;
 
+/** Retired sandboxes: Ascii Box became Boat; the rest fall back to the default sandbox. */
+const RetiredBotSandbox = Schema.Literals(["otto-cloud", "upstash", "tenki", "ascii"]);
+
+const isRetiredBotSandbox = Schema.is(RetiredBotSandbox);
+
 export const PersistedBotSandbox = Schema.Union([
   Schema.NullOr(BotSandbox),
-  Schema.Literal("otto-cloud"),
+  RetiredBotSandbox,
 ]).pipe(
   Schema.decodeTo(
     Schema.NullOr(BotSandbox),
     SchemaTransformation.transform({
-      decode: (value) => (value === "otto-cloud" ? null : value),
+      decode: (value) => (value === "ascii" ? "boat" : isRetiredBotSandbox(value) ? null : value),
       encode: (value) => value,
     }),
   ),
 );
-
-export const BotSandboxBrowserSharing = Schema.Literals(["shared", "separate"]);
-
-export type BotSandboxBrowserSharing = typeof BotSandboxBrowserSharing.Type;
-
-export const DEFAULT_BOT_SANDBOX_BROWSER_SHARING: BotSandboxBrowserSharing = "separate";
 
 export const MIN_BOT_PERSONALITY_TONE = 0;
 

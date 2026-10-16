@@ -1,6 +1,6 @@
 import * as Match from "effect/Match";
 import * as Predicate from "effect/Predicate";
-import type { Sandbox } from "@daytona/sdk";
+import type { DaytonaSandbox } from "@mastra/daytona";
 import { Schema } from "effect";
 import { ComputerFrame, type ComputerAction, COMPUTER_FRAME_MAX_BYTES } from "@otto/contracts";
 import {
@@ -12,9 +12,13 @@ const decodeFrame = Schema.decodeUnknownSync(ComputerFrame);
 
 /** Native desktop only; credentials and screenshots never leave the server except via computer events. */
 export class DaytonaComputer {
-  private readonly sandbox: Sandbox;
-  constructor(sandbox: Sandbox) {
-    this.sandbox = sandbox;
+  private readonly instance: () => DaytonaSandbox["instance"];
+  constructor(instance: () => DaytonaSandbox["instance"]) {
+    this.instance = instance;
+  }
+
+  private get sandbox() {
+    return this.instance();
   }
 
   async open() {

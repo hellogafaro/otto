@@ -3,15 +3,7 @@ import { Workspace } from "@mastra/core/workspace";
 import type { BotSandbox } from "@otto/contracts";
 import { WorkspaceComputer } from "../workspace-computer.ts";
 
-export const REMOTE_BOT_SANDBOXES = [
-  "e2b",
-  "daytona",
-  "vercel",
-  "upstash",
-  "ascii",
-  "railway",
-  "tenki",
-] as const;
+export const REMOTE_BOT_SANDBOXES = ["e2b", "daytona", "vercel", "railway", "boat"] as const;
 
 export type RemoteBotSandbox = (typeof REMOTE_BOT_SANDBOXES)[number];
 

@@ -101,7 +101,6 @@ export {
   SANDBOX_PROVIDER_CREDENTIALS,
   SandboxProviderConnection,
   SandboxSettings,
-  BrowserProviderSettings,
 } from "./settings/sandbox.ts";
 
 export {

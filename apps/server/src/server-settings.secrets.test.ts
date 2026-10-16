@@ -424,8 +424,8 @@ it.layer(NodeServices.layer)("server settings", (it) => {
                 { name: "RAILWAY_ENVIRONMENT_ID", value: "environment-id", sensitive: false },
               ],
             },
-            tenki: {
-              environment: [{ name: "TENKI_API_KEY", value: "tenki-secret", sensitive: true }],
+            boat: {
+              environment: [{ name: "BOAT_API_KEY", value: "boat-secret", sensitive: true }],
             },
           },
         },
@@ -434,11 +434,11 @@ it.layer(NodeServices.layer)("server settings", (it) => {
       assert.equal(next.sandbox.providers.e2b.environment[0]?.value, "e2b-secret");
       assert.equal(next.sandbox.providers.railway.environment[0]?.value, "railway-secret");
       assert.equal(next.sandbox.providers.railway.environment[1]?.value, "environment-id");
-      assert.equal(next.sandbox.providers.tenki.environment[0]?.value, "tenki-secret");
+      assert.equal(next.sandbox.providers.boat.environment[0]?.value, "boat-secret");
       const raw = yield* fileSystem.readFileString(serverConfig.settingsPath);
       assert.notInclude(raw, "e2b-secret");
       assert.notInclude(raw, "railway-secret");
-      assert.notInclude(raw, "tenki-secret");
+      assert.notInclude(raw, "boat-secret");
 
       const clientSettings = ServerSettingsModule.redactServerSettingsForClient(next);
       assert.deepInclude(clientSettings.sandbox.providers.e2b.environment[0], {
@@ -453,7 +453,7 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         value: "environment-id",
         sensitive: false,
       });
-      assert.deepInclude(clientSettings.sandbox.providers.tenki.environment[0], {
+      assert.deepInclude(clientSettings.sandbox.providers.boat.environment[0], {
         value: "",
         valueRedacted: true,
       });
@@ -465,45 +465,7 @@ it.layer(NodeServices.layer)("server settings", (it) => {
       assert.equal(roundTripped.sandbox.providers.e2b.environment[0]?.value, "e2b-secret");
       assert.equal(roundTripped.sandbox.providers.railway.environment[0]?.value, "railway-secret");
       assert.equal(roundTripped.sandbox.providers.railway.environment[1]?.value, "environment-id");
-      assert.equal(roundTripped.sandbox.providers.tenki.environment[0]?.value, "tenki-secret");
-    }).pipe(Effect.provide(makeServerSettingsLayer())),
-  );
-
-  it.effect("stores and redacts the Browserbase API key outside settings.json", () =>
-    Effect.gen(function* () {
-      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-      const serverConfig = yield* ServerConfig.ServerConfig;
-      const fileSystem = yield* FileSystem.FileSystem;
-
-      const next = yield* serverSettings.updateSettings({
-        browserProvider: {
-          enabled: true,
-          browserbaseApiKey: "browserbase-secret",
-          browserbaseApiKeyRedacted: false,
-        },
-      });
-
-      assert.deepInclude(next.browserProvider, {
-        enabled: true,
-        browserbaseApiKey: "browserbase-secret",
-        browserbaseApiKeyRedacted: true,
-      });
-      const raw = yield* fileSystem.readFileString(serverConfig.settingsPath);
-      assert.notInclude(raw, "browserbase-secret");
-
-      const redacted = ServerSettingsModule.redactServerSettingsForClient(next);
-      assert.deepInclude(redacted.browserProvider, {
-        enabled: true,
-        browserbaseApiKey: "",
-        browserbaseApiKeyRedacted: true,
-      });
-
-      const preserved = yield* serverSettings.updateSettings({
-        browserProvider: { enabled: false },
-      });
-
-      assert.equal(preserved.browserProvider.browserbaseApiKey, "browserbase-secret");
-      assert.isFalse(preserved.browserProvider.enabled);
+      assert.equal(roundTripped.sandbox.providers.boat.environment[0]?.value, "boat-secret");
     }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
 });

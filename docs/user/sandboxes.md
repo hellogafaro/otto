@@ -1,18 +1,21 @@
 # Configure sandboxes
 
-Open **Settings > Sandbox** to connect E2B, Daytona, Vercel Sandbox, Upstash Box, Tenki, Railway, or Ascii Box. Local workspaces
-need no credential and are always available.
+Open **Settings > Computer** to connect E2B, Daytona, Vercel Sandbox, Railway, or Boat. E2B, Daytona,
+Vercel Sandbox and Railway run on Mastra's official sandbox packages. Local workspaces need no
+credential and are always available.
 
-Tenki runs coding agents in full Linux VMs and supports public previews, disk and memory snapshots,
-and persistence until you clean up the sandbox. Connect it with your `TENKI_API_KEY`.
-Tenki previews are public: anyone with a preview URL can access it. Pausing preserves VM memory
-and disk but clears `/tmp`; keep durable files under `/home/tenki`.
-The sandbox browser is not available on Tenki: Otto does not expose browser control through a public
-preview URL. This does not prevent agents from running commands in the VM.
-Executor and Tinyfish connectors can still start, but receive no sandbox browser connection.
+Every bot gets its own computer. A bot's sandbox is keyed to the bot, so its files and browser logins
+are never shared with another bot.
 
 Select **Connect** and enter the provider credentials. The environment stores secret values outside
 `settings.json`. Clients receive only a redacted marker after a secret is saved.
+
+## Local
+
+Local workspaces run on the environment's own machine. Where the host supports it (sandbox-exec on
+macOS, bubblewrap on Linux), commands run inside Mastra's native isolation: writes are limited to the
+bot's workspace and temporary directories, and network access stays on. Reads are not restricted on
+macOS. Hosts without an isolation backend run Local commands unisolated.
 
 ## Choose the default
 
@@ -24,28 +27,26 @@ so connect that service before you start the bot.
 
 ## Session behavior
 
-Otto pauses remote sandboxes other than Railway while bots are idle and reconnects to the saved provider workspace when
-bot work resumes.
-If a remote pause fails, Otto keeps the workspace and retries the pause while it remains idle,
-except on Ascii Box, where it reconnects to the saved VM on the next use.
+Otto stops remote sandboxes other than Railway while bots are idle and reconnects to the saved
+provider workspace when bot work resumes. E2B pauses, Vercel Sandbox snapshots its filesystem, and
+Daytona stops the sandbox. If a remote pause fails, Otto keeps the workspace and retries the pause
+while it remains idle, except on Boat, where it reconnects to the saved VM on the next use.
 
 Railway VMs remain running while idle and can continue accruing charges. Connect with a
 `RAILWAY_API_TOKEN` and `RAILWAY_ENVIRONMENT_ID`. Previews require a Railway CLI tunnel;
 Otto cannot attach its sandbox browser. See [Railway workspaces](railway-sandboxes.md)
 for credential rotation and VM cleanup.
 
-Ascii Box runs persistent Linux VMs. Stopping a VM saves a native lifecycle snapshot; resuming it
-restores that workspace. Ascii Box supports public previews by default, so do not expose sensitive
-services. Otto requests protected, token-authenticated access for its browser-control endpoint.
-If session setup fails, Otto preserves the VM and waits for snapshot cleanup before reporting the
-error. Snapshot archival can take up to five minutes; retries wait for that cleanup to finish.
-New VMs do not inherit credentials from your Ascii account environment.
-Ascii Box commands support timeouts of up to ten minutes. Requests for longer timeouts are rejected
+Boat runs persistent Linux VMs. Stopping a VM saves a native lifecycle snapshot; resuming it
+restores that workspace. Otto requests protected, token-authenticated access for its browser-control
+endpoint. If session setup fails, Otto preserves the VM and waits for snapshot cleanup before
+reporting the error. Snapshot archival can take up to five minutes; retries wait for that cleanup to
+finish. New VMs do not inherit credentials from your Boat account environment.
+Boat commands support timeouts of up to ten minutes. Requests for longer timeouts are rejected
 before the command starts rather than silently shortened.
-If Ascii confirms that a saved VM no longer exists, Otto creates a replacement on the next use.
+If Boat confirms that a saved VM no longer exists, Otto creates a replacement on the next use.
 Connection failures and permission errors retain the saved VM identity rather than replacing it.
-Connect it with a Box API key. Ascii Box is now Boat; this integration uses the legacy Box API, which
-the provider supports until its announced sunset. See the [migration notice](https://docs.boat.dev/migrating-from-box).
+Connect it with a Boat API key.
 
 Changing a provider credential replaces active sessions that use the connection. A running session
 cannot continue with the old credential.

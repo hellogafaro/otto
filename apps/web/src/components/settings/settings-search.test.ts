@@ -122,13 +122,6 @@ describe("searchSettings", () => {
     });
   });
 
-  it("routes bot computers to the Computer page", () => {
-    expect(searchSettings("bot computers")[0]).toMatchObject({
-      id: "sandbox-browser-sharing",
-      to: "/settings/computer",
-    });
-  });
-
   it("routes voice to the Voice page without offering a fallback model control", () => {
     expect(searchSettings("voice provider")[0]).toMatchObject({
       id: "voice-provider",

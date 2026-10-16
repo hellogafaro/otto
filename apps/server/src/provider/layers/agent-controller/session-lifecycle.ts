@@ -6,7 +6,6 @@ import { ProviderDriverKind } from "@otto/contracts";
 import {
   OTTO_TOOL_CATALOG,
   BALANCED_BOT_PERSONALITY_TONE,
-  DEFAULT_BOT_SANDBOX_BROWSER_SHARING,
   type OttoDelegationAccessGrant,
 } from "@otto/contracts";
 
@@ -116,7 +115,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           : "cloud";
 
     const resourceScope = botRuntimeResourceScope({
-      sharing: input.botSandboxBrowserSharing ?? DEFAULT_BOT_SANDBOX_BROWSER_SHARING,
       ...(botId ? { botId } : {}),
       threadId: key,
     });

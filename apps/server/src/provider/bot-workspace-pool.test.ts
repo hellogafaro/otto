@@ -19,19 +19,9 @@ describe("BotWorkspacePool", () => {
   effectIt.effect("derives workspace identities", () =>
     Effect.sync(() => {
       expect(
-        botRuntimeResourceScope({
-          sharing: "shared",
-          botId: BotId.make("bot-one"),
-          threadId: "thread-one",
-        }),
-      ).toBe("shared");
-      expect(
-        botRuntimeResourceScope({
-          sharing: "separate",
-          botId: BotId.make("bot-one"),
-          threadId: "thread-one",
-        }),
+        botRuntimeResourceScope({ botId: BotId.make("bot-one"), threadId: "thread-one" }),
       ).toBe("bot-bot-one");
+      expect(botRuntimeResourceScope({ threadId: "thread-one" })).toBe("thread-thread-one");
       expect(botWorkspaceIdentity("local:/private:bot-one")).not.toContain("private");
       expect(botWorkspaceCredentialFingerprint({ E2B_API_KEY: "first" })).not.toBe(
         botWorkspaceCredentialFingerprint({ E2B_API_KEY: "second" }),

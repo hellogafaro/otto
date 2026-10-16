@@ -1,6 +1,6 @@
 import { DateTime } from "effect";
 import { vi } from "vite-plus/test";
-import { ascii, type OttoRemoteSession } from "../bot-workspace.ts";
+import { boat, type OttoRemoteSession } from "../bot-workspace.ts";
 
 export function makebotWorkspaceTestSupport() {
   function remoteSession(providerId: string): OttoRemoteSession {
@@ -17,27 +17,27 @@ export function makebotWorkspaceTestSupport() {
 
   const deleted = {
     ok: true,
-    type: "box.deleting",
+    type: "sandbox.deleting",
     operation: {
       id: "deletion",
-      kind: "box",
-      targetId: "ascii-id",
+      kind: "sandbox",
+      targetId: "boat-id",
       reason: "explicit",
       status: "completed",
       attemptCount: 0,
       requestedAt: DateTime.toDate(DateTime.makeUnsafe(0)),
       completedAt: null,
     },
-  } satisfies import("@asciidev/box-sdk").DeletionOperationResponse;
+  } satisfies import("@boatdev/sdk").DeletionOperationResponse;
 
   async function setup() {
-    const { BoxApi, Configuration } = await import("@asciidev/box-sdk");
-    const client = new BoxApi(new Configuration({ accessToken: "test-key" }));
+    const { BoatApi, Configuration } = await import("@boatdev/sdk");
+    const client = new BoatApi(new Configuration({ accessToken: "test-key" }));
 
     const get = vi.spyOn(client, "get").mockResolvedValue({
-      type: "box.info",
-      box: {
-        id: "ascii-id",
+      type: "sandbox.info",
+      sandbox: {
+        id: "boat-id",
         name: "test",
         state: "idle",
         desktopAvailable: false,
@@ -46,7 +46,7 @@ export function makebotWorkspaceTestSupport() {
       ok: true,
     });
 
-    return { client, get, session: ascii(client, "ascii-id") };
+    return { client, get, session: boat(client, "boat-id") };
   }
 
   return { remoteSession, deleted, setup };

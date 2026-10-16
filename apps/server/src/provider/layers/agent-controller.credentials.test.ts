@@ -269,7 +269,7 @@ describe("AgentControllerLive", () => {
         }),
       );
       expect(destroy).not.toHaveBeenCalled();
-      yield* controller.startSession(codexThreadId, { ...input, botSandbox: "upstash" });
+      yield* controller.startSession(codexThreadId, { ...input, botSandbox: "e2b" });
       expect(destroy).toHaveBeenCalledOnce();
     }).pipe(Effect.provide(layer), Effect.orDie);
   });

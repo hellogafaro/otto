@@ -10,11 +10,7 @@ import {
   ThreadId,
   TurnId,
 } from "./base-schemas.ts";
-import {
-  BotSandbox,
-  BotSandboxBrowserSharing,
-  BotPersonalityTone,
-} from "./orchestration/roster.ts";
+import { BotSandbox, BotPersonalityTone } from "./orchestration/roster.ts";
 import {
   ChatAttachment,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
@@ -77,7 +73,6 @@ export const ProviderSessionStartInput = Schema.Struct({
   personalityTone: Schema.optional(BotPersonalityTone),
   botSandbox: Schema.optional(Schema.NullOr(BotSandbox)),
   botSandboxEnvironment: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-  botSandboxBrowserSharing: Schema.optional(BotSandboxBrowserSharing),
   mcpServers: Schema.optional(Schema.Array(McpServer)),
   /** Server-owned system context fixed when the native provider session starts. */
   persistentMemoryContext: Schema.optional(Schema.String),

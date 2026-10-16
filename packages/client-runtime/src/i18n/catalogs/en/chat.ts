@@ -348,8 +348,6 @@ export const chatCatalog = {
   "Unable to unlink pull request": "Unable to unlink pull request",
   "Chat summary": "Chat summary",
   Preview: "Preview",
-  "Enable Browserbase": "Enable Browserbase",
-  "Browserbase API key": "Browserbase API key",
   "Agent browser access": "Agent browser access",
   "Allow agent browser access": "Allow agent browser access",
   "How browser use works": "How browser use works",

@@ -70,11 +70,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/appearance",
   },
   {
-    id: "sandbox-browser-sharing",
-    title: "Bot computers",
-    to: "/settings/computer",
-  },
-  {
     id: "time-format",
     title: "Time format",
     to: "/settings/general",

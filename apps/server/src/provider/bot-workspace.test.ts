@@ -14,7 +14,7 @@ import { makebotWorkspaceTestSupport } from "./test-support/bot-workspace.ts";
 
 const { remoteSession, deleted, setup } = makebotWorkspaceTestSupport();
 
-describe("Ascii Box", () => {
+describe("Boat", () => {
   it("waits for pending VM deletion to complete", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "performance"] });
 
@@ -26,7 +26,7 @@ describe("Ascii Box", () => {
         operation: { ...deleted.operation, status: "pending" as const },
       };
 
-      vi.spyOn(client, "deleteBox").mockResolvedValue(pending);
+      vi.spyOn(client, "deleteSandbox").mockResolvedValue(pending);
 
       const poll = vi
         .spyOn(client, "getDeletionOperation")
@@ -61,7 +61,7 @@ describe("Ascii Box", () => {
         operation: { ...deleted.operation, status: "pending" as const },
       };
 
-      vi.spyOn(client, "deleteBox").mockResolvedValue(pending);
+      vi.spyOn(client, "deleteSandbox").mockResolvedValue(pending);
       vi.spyOn(client, "getDeletionOperation").mockResolvedValue(pending);
       const failure = expect(session.destroy()).rejects.toThrow("deletion timed out");
       await vi.advanceTimersByTimeAsync(300_000);
@@ -76,23 +76,26 @@ describe("Ascii Box", () => {
 
     const stop = vi
       .spyOn(client, "stop")
-      .mockResolvedValue({ ok: true, type: "box.stopped", id: "ascii-id", status: "archived" });
+      .mockResolvedValue({ ok: true, type: "sandbox.stopped", id: "boat-id", status: "archived" });
 
     const resume = vi
       .spyOn(client, "resume")
-      .mockResolvedValue({ ok: true, type: "box.resumed", id: "ascii-id", status: "ready" });
+      .mockResolvedValue({ ok: true, type: "sandbox.resumed", id: "boat-id", status: "ready" });
 
-    const remove = vi.spyOn(client, "deleteBox").mockResolvedValue(deleted);
-    const current = await client.get({ boxId: "ascii-id" });
-    get.mockResolvedValueOnce({ ...current, box: { ...current.box, state: "archived" } });
+    const remove = vi.spyOn(client, "deleteSandbox").mockResolvedValue(deleted);
+    const current = await client.get({ sandboxId: "boat-id" });
+    get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
     await session.sleep();
-    expect(stop).toHaveBeenCalledWith({ boxId: "ascii-id" });
-    get.mockResolvedValueOnce({ ...current, box: { ...current.box, state: "archived" } });
+    expect(stop).toHaveBeenCalledWith({ sandboxId: "boat-id" });
+    get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
     await session.wake();
-    expect(resume).toHaveBeenCalledWith({ boxId: "ascii-id", resumeRequest: { ttlSeconds: null } });
+    expect(resume).toHaveBeenCalledWith({
+      sandboxId: "boat-id",
+      resumeRequest: { ttlSeconds: null },
+    });
     expect(await session.inspect()).toBe("running");
     await session.destroy();
-    expect(remove).toHaveBeenCalledWith({ boxId: "ascii-id", xAsciiConfirmDelete: "ascii-id" });
+    expect(remove).toHaveBeenCalledWith({ sandboxId: "boat-id", xAsciiConfirmDelete: "boat-id" });
   });
 
   it.each(["sleep", "wake"] as const)(
@@ -102,20 +105,28 @@ describe("Ascii Box", () => {
 
       try {
         const { client, get, session } = await setup();
-        const current = await client.get({ boxId: "ascii-id" });
-        const archiving = { ...current, box: { ...current.box, state: "archiving" as const } };
-        const archived = { ...current, box: { ...current.box, state: "archived" as const } };
+        const current = await client.get({ sandboxId: "boat-id" });
+
+        const archiving = {
+          ...current,
+          sandbox: { ...current.sandbox, state: "archiving" as const },
+        };
+
+        const archived = {
+          ...current,
+          sandbox: { ...current.sandbox, state: "archived" as const },
+        };
 
         const stop = vi.spyOn(client, "stop").mockResolvedValue({
           ok: true,
-          type: "box.stopped",
-          id: "ascii-id",
+          type: "sandbox.stopped",
+          id: "boat-id",
           status: "archiving",
         });
 
         const resume = vi
           .spyOn(client, "resume")
-          .mockResolvedValue({ ok: true, type: "box.resumed", id: "ascii-id", status: "ready" });
+          .mockResolvedValue({ ok: true, type: "sandbox.resumed", id: "boat-id", status: "ready" });
 
         if (action === "wake") get.mockResolvedValueOnce(archiving);
         get.mockResolvedValueOnce(archiving).mockResolvedValueOnce(archived);
@@ -133,7 +144,7 @@ describe("Ascii Box", () => {
 
         if (action === "wake")
           expect(resume).toHaveBeenCalledWith({
-            boxId: "ascii-id",
+            sandboxId: "boat-id",
             resumeRequest: { ttlSeconds: null },
           });
         else expect(stop).toHaveBeenCalledOnce();
@@ -145,16 +156,16 @@ describe("Ascii Box", () => {
 
   it("surfaces snapshot errors without force-stopping or deleting the VM", async () => {
     const { client, get, session } = await setup();
-    const current = await client.get({ boxId: "ascii-id" });
-    get.mockResolvedValue({ ...current, box: { ...current.box, state: "error" } });
+    const current = await client.get({ sandboxId: "boat-id" });
+    get.mockResolvedValue({ ...current, sandbox: { ...current.sandbox, state: "error" } });
 
     const stop = vi
       .spyOn(client, "stop")
-      .mockResolvedValue({ ok: true, type: "box.stopped", id: "ascii-id", status: "archiving" });
+      .mockResolvedValue({ ok: true, type: "sandbox.stopped", id: "boat-id", status: "archiving" });
 
-    const remove = vi.spyOn(client, "deleteBox");
+    const remove = vi.spyOn(client, "deleteSandbox");
     await expect(session.sleep()).rejects.toThrow("snapshot archival failed");
-    expect(stop).toHaveBeenCalledWith({ boxId: "ascii-id" });
+    expect(stop).toHaveBeenCalledWith({ sandboxId: "boat-id" });
     expect(remove).not.toHaveBeenCalled();
   });
 
@@ -163,14 +174,14 @@ describe("Ascii Box", () => {
 
     try {
       const { client, get, session } = await setup();
-      const current = await client.get({ boxId: "ascii-id" });
+      const current = await client.get({ sandboxId: "boat-id" });
       get
-        .mockResolvedValueOnce({ ...current, box: { ...current.box, state: "archiving" } })
-        .mockResolvedValue({ ...current, box: { ...current.box, state: "error" } });
+        .mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archiving" } })
+        .mockResolvedValue({ ...current, sandbox: { ...current.sandbox, state: "error" } });
       vi.spyOn(client, "stop").mockResolvedValue({
         ok: true,
-        type: "box.stopped",
-        id: "ascii-id",
+        type: "sandbox.stopped",
+        id: "boat-id",
         status: "archiving",
       });
       const failure = expect(session.sleep()).rejects.toThrow("snapshot archival failed");
@@ -187,10 +198,10 @@ describe("Ascii Box", () => {
 
     try {
       const { client, get, session } = await setup();
-      const current = await client.get({ boxId: "ascii-id" });
-      get.mockResolvedValue({ ...current, box: { ...current.box, state: "archiving" } });
+      const current = await client.get({ sandboxId: "boat-id" });
+      get.mockResolvedValue({ ...current, sandbox: { ...current.sandbox, state: "archiving" } });
       const resume = vi.spyOn(client, "resume");
-      const remove = vi.spyOn(client, "deleteBox");
+      const remove = vi.spyOn(client, "deleteSandbox");
       const failure = expect(session.wake()).rejects.toThrow("snapshot archival timed out");
       await vi.advanceTimersByTimeAsync(300_000);
       await failure;
@@ -211,13 +222,13 @@ describe("Ascii Box", () => {
     "error",
   ] as const)("does not report %s VMs as running", async (state) => {
     const { client, get, session } = await setup();
-    const current = await client.get({ boxId: "ascii-id" });
-    get.mockResolvedValue({ ...current, box: { ...current.box, state } });
+    const current = await client.get({ sandboxId: "boat-id" });
+    get.mockResolvedValue({ ...current, sandbox: { ...current.sandbox, state } });
     expect(await session.inspect()).toBe(state === "error" ? "missing" : "sleeping");
   });
 
   it("distinguishes missing VMs from credential or transport errors", async () => {
-    const { ResponseError } = await import("@asciidev/box-sdk");
+    const { ResponseError } = await import("@boatdev/sdk");
     const { get, session } = await setup();
     get.mockRejectedValue(new ResponseError(new Response(null, { status: 404 })));
     expect(await session.inspect()).toBe("missing");
@@ -246,7 +257,7 @@ describe("Ascii Box", () => {
       }),
     ).toEqual({ exitCode: 7, stdout: "out", stderr: "err" });
     expect(command).toHaveBeenCalledWith({
-      boxId: "ascii-id",
+      sandboxId: "boat-id",
       commandRequest: {
         command: "cd '/workspace/my files' && env 'VALUE=x; echo unsafe' 'printf' 'a'\\''b'",
         timeoutSeconds: 2,
@@ -263,12 +274,12 @@ describe("Ascii Box", () => {
     });
     expect((await session.run("sleep", ["2"])).exitCode).toBe(124);
     expect(command).toHaveBeenLastCalledWith({
-      boxId: "ascii-id",
+      sandboxId: "boat-id",
       commandRequest: { command: "'sleep' '2'", timeoutSeconds: 600 },
     });
     await session.run("sleep", ["2"], { timeout: 600_000 });
     expect(command).toHaveBeenLastCalledWith({
-      boxId: "ascii-id",
+      sandboxId: "boat-id",
       commandRequest: { command: "'sleep' '2'", timeoutSeconds: 600 },
     });
   });
@@ -280,7 +291,7 @@ describe("Ascii Box", () => {
       const command = vi.spyOn(client, "command");
 
       await expect(session.run("sleep", ["900"], { timeout })).rejects.toThrow(
-        "Ascii Box command timeout must be greater than 0 and at most 600000 ms.",
+        "Boat command timeout must be greater than 0 and at most 600000 ms.",
       );
       expect(command).not.toHaveBeenCalled();
     },
@@ -288,14 +299,14 @@ describe("Ascii Box", () => {
 
   it("bounds readiness polling without deleting the VM", async () => {
     const { client, get, session } = await setup();
-    const current = await client.get({ boxId: "ascii-id" });
-    get.mockResolvedValue({ ...current, box: { ...current.box, state: "provisioning" } });
-    const deleteBox = vi.spyOn(client, "deleteBox");
+    const current = await client.get({ sandboxId: "boat-id" });
+    get.mockResolvedValue({ ...current, sandbox: { ...current.sandbox, state: "provisioning" } });
+    const deleteSandbox = vi.spyOn(client, "deleteSandbox");
     const clock = vi.spyOn(Date, "now").mockReturnValueOnce(0).mockReturnValue(300_001);
 
     try {
-      await expect(session.wake()).rejects.toThrow("Timed out waiting for Box state");
-      expect(deleteBox).not.toHaveBeenCalled();
+      await expect(session.wake()).rejects.toThrow("Timed out waiting for sandbox state");
+      expect(deleteSandbox).not.toHaveBeenCalled();
     } finally {
       clock.mockRestore();
     }
@@ -316,7 +327,7 @@ describe("Ascii Box", () => {
       requestHeaders: {},
     });
     expect(hostPort).toHaveBeenCalledWith({
-      boxId: "ascii-id",
+      sandboxId: "boat-id",
       hostPortRequest: { port: 9223, _public: false },
     });
     hostPort.mockResolvedValue({ ok: true, type: "host_port" });
@@ -338,32 +349,32 @@ describe("Ascii Box", () => {
   });
 
   it("creates once with the configured credential and reattaches by saved VM identity", async () => {
-    const { BoxApi } = await import("@asciidev/box-sdk");
-    const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-ascii-"));
+    const { BoatApi } = await import("@boatdev/sdk");
+    const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-boat-"));
 
     const box = {
-      id: "ascii-id",
+      id: "boat-id",
       name: "test",
       state: "idle" as const,
       desktopAvailable: false,
       snapshotAvailable: true,
     };
 
-    const create = vi.spyOn(BoxApi.prototype, "create").mockResolvedValue({
+    const create = vi.spyOn(BoatApi.prototype, "create").mockResolvedValue({
       ok: true,
-      type: "box.created",
+      type: "sandbox.created",
       status: "provisioning",
       ttlSeconds: null,
-      box,
+      sandbox: box,
     });
 
     const get = vi
-      .spyOn(BoxApi.prototype, "get")
-      .mockResolvedValue({ ok: true, type: "box.info", box });
+      .spyOn(BoatApi.prototype, "get")
+      .mockResolvedValue({ ok: true, type: "sandbox.info", sandbox: box });
 
-    const remove = vi.spyOn(BoxApi.prototype, "deleteBox").mockResolvedValue(deleted);
+    const remove = vi.spyOn(BoatApi.prototype, "deleteSandbox").mockResolvedValue(deleted);
 
-    const command = vi.spyOn(BoxApi.prototype, "command").mockResolvedValue({
+    const command = vi.spyOn(BoatApi.prototype, "command").mockResolvedValue({
       ok: true,
       type: "command.finished",
       success: true,
@@ -377,25 +388,27 @@ describe("Ascii Box", () => {
       const input = {
         io: workspaceIO,
         threadId: "thread",
-        sandbox: "ascii" as const,
+        sandbox: "boat" as const,
         workspaceId: "workspace",
         identityFile: NodePath.join(root, "identity.json"),
-        environment: { BOX_API_KEY: "configured-key" },
+        environment: { BOAT_API_KEY: "configured-key" },
       };
 
       const first = await createRemoteBotWorkspace(input);
-      expect(create).toHaveBeenCalledWith({ createBoxRequest: { ttlSeconds: null, noEnv: true } });
-      const client = create.mock.contexts[0] as import("@asciidev/box-sdk").BoxApi;
+      expect(create).toHaveBeenCalledWith({
+        createSandboxRequest: { ttlSeconds: null, noEnv: true },
+      });
+      const client = create.mock.contexts[0] as import("@boatdev/sdk").BoatApi;
       expect((await client.createRequestOpts({})).headers.Authorization).toBe(
         "Bearer configured-key",
       );
-      expect(first.providerId).toBe("ascii-id");
+      expect(first.providerId).toBe("boat-id");
       get.mockRejectedValueOnce(new Error("VM unavailable"));
       await expect(createRemoteBotWorkspace(input)).rejects.toThrow("missing or unavailable");
       expect(create).toHaveBeenCalledOnce();
       const second = await createRemoteBotWorkspace(input);
       expect(create).toHaveBeenCalledOnce();
-      expect(get).toHaveBeenCalledWith({ boxId: "ascii-id" });
+      expect(get).toHaveBeenCalledWith({ sandboxId: "boat-id" });
       await second.wake();
       remove.mockResolvedValueOnce({
         ...deleted,
@@ -403,8 +416,8 @@ describe("Ascii Box", () => {
       });
       await expect(second.destroy()).rejects.toThrow("deletion is blocked");
       expect(JSON.parse(await NodeFS.promises.readFile(input.identityFile, "utf8"))).toEqual({
-        provider: "ascii",
-        providerId: "ascii-id",
+        provider: "boat",
+        providerId: "boat-id",
       });
       await second.destroy();
       expect(remove).toHaveBeenCalledTimes(2);
@@ -423,21 +436,21 @@ describe("Ascii Box", () => {
   it.each([404, 401, 403, 500])(
     "reconciles saved VM identity only for a confirmed 404, not %s errors",
     async (status) => {
-      const { BoxApi, ResponseError } = await import("@asciidev/box-sdk");
-      const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-ascii-"));
+      const { BoatApi, ResponseError } = await import("@boatdev/sdk");
+      const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-boat-"));
       const identityFile = NodePath.join(root, "identity.json");
-      const previous = { provider: "ascii", providerId: "deleted-id" };
+      const previous = { provider: "boat", providerId: "deleted-id" };
 
       const get = vi
-        .spyOn(BoxApi.prototype, "get")
+        .spyOn(BoatApi.prototype, "get")
         .mockRejectedValue(new ResponseError(new Response(null, { status })));
 
-      const create = vi.spyOn(BoxApi.prototype, "create").mockResolvedValue({
+      const create = vi.spyOn(BoatApi.prototype, "create").mockResolvedValue({
         ok: true,
-        type: "box.created",
+        type: "sandbox.created",
         status: "provisioning",
         ttlSeconds: null,
-        box: {
+        sandbox: {
           id: "replacement-id",
           name: "test",
           state: "idle",
@@ -452,10 +465,10 @@ describe("Ascii Box", () => {
         const input = {
           io: workspaceIO,
           threadId: "thread",
-          sandbox: "ascii" as const,
+          sandbox: "boat" as const,
           workspaceId: "workspace",
           identityFile,
-          environment: { BOX_API_KEY: "configured-key" },
+          environment: { BOAT_API_KEY: "configured-key" },
         };
 
         if (status === 404) {
@@ -467,11 +480,11 @@ describe("Ascii Box", () => {
           const workspace = await createRemoteBotWorkspace(input);
           expect(workspace.providerId).toBe("replacement-id");
           expect(JSON.parse(await NodeFS.promises.readFile(identityFile, "utf8"))).toEqual({
-            provider: "ascii",
+            provider: "boat",
             providerId: "replacement-id",
           });
           expect(create).toHaveBeenLastCalledWith({
-            createBoxRequest: { ttlSeconds: null, noEnv: true },
+            createSandboxRequest: { ttlSeconds: null, noEnv: true },
           });
         } else {
           await expect(createRemoteBotWorkspace(input)).rejects.toThrow("missing or unavailable");
@@ -488,22 +501,53 @@ describe("Ascii Box", () => {
     },
   );
 
-  it("rejects a missing credential before creating a VM", async () => {
-    const { BoxApi } = await import("@asciidev/box-sdk");
-    const create = vi.spyOn(BoxApi.prototype, "create");
-    const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-ascii-"));
+  it("surfaces Boat's own message when it refuses to create a VM", async () => {
+    const { BoatApi, ResponseError } = await import("@boatdev/sdk");
+
+    const refusal = new Response(
+      JSON.stringify({ ok: false, message: "Start the $20/month Boat plan to create sandboxes." }),
+      { status: 402 },
+    );
+
+    const create = vi
+      .spyOn(BoatApi.prototype, "create")
+      .mockRejectedValue(new ResponseError(refusal, "Response returned an error code"));
+
+    const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-boat-"));
 
     try {
       await expect(
         createRemoteBotWorkspace({
           io: workspaceIO,
           threadId: "thread",
-          sandbox: "ascii",
+          sandbox: "boat",
+          workspaceId: "workspace",
+          identityFile: NodePath.join(root, "identity.json"),
+          environment: { BOAT_API_KEY: "configured-key" },
+        }),
+      ).rejects.toThrow("Boat: Start the $20/month Boat plan to create sandboxes.");
+    } finally {
+      create.mockRestore();
+      await NodeFS.promises.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a missing credential before creating a VM", async () => {
+    const { BoatApi } = await import("@boatdev/sdk");
+    const create = vi.spyOn(BoatApi.prototype, "create");
+    const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-boat-"));
+
+    try {
+      await expect(
+        createRemoteBotWorkspace({
+          io: workspaceIO,
+          threadId: "thread",
+          sandbox: "boat",
           workspaceId: "workspace",
           identityFile: NodePath.join(root, "identity.json"),
           environment: {},
         }),
-      ).rejects.toThrow("BOX_API_KEY");
+      ).rejects.toThrow("BOAT_API_KEY");
       expect(create).not.toHaveBeenCalled();
     } finally {
       create.mockRestore();
@@ -516,7 +560,7 @@ describe("createBotWorkspace", () => {
   it("classifies every managed provider", () => {
     expect(isRemoteBotSandbox("local")).toBe(false);
 
-    for (const sandbox of ["e2b", "daytona", "vercel", "upstash", "ascii", "railway"] as const) {
+    for (const sandbox of ["e2b", "daytona", "vercel", "railway", "boat"] as const) {
       expect(isRemoteBotSandbox(sandbox)).toBe(true);
     }
   });

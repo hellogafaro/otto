@@ -17,13 +17,11 @@ import {
   credential,
 } from "./workspace/bot-workspace-lifecycle.ts";
 import { RemoteSandbox } from "./workspace/remote-sandbox.ts";
-import { ascii } from "./workspace/adapters/ascii.ts";
+import { boat, boatFailure } from "./workspace/adapters/boat.ts";
 import { e2b } from "./workspace/adapters/e2b.ts";
 import { daytona } from "./workspace/adapters/daytona.ts";
-import { vercel } from "./workspace/adapters/vercel.ts";
+import { vercel, vercelCredentials } from "./workspace/adapters/vercel.ts";
 import { railway, railwayCredentials } from "./workspace/adapters/railway.ts";
-import { tenki } from "./workspace/adapters/tenki.ts";
-import { upstash } from "./workspace/adapters/upstash.ts";
 
 export function isRemoteBotSandbox(
   value: BotSandbox | null | undefined,
@@ -51,12 +49,18 @@ export async function createBotWorkspace(
 
   if (!root) return undefined;
   await input.io.mkdir(root);
+  const isolation = LocalSandbox.detectIsolation();
 
   const workspace = new Workspace({
     id: input.workspaceId ?? `otto-${input.threadId}`,
     name: `Otto ${input.threadId}`,
     filesystem: new LocalFilesystem({ basePath: root }),
-    sandbox: new LocalSandbox({ workingDirectory: root }),
+    sandbox: new LocalSandbox({
+      workingDirectory: root,
+      ...(isolation.available
+        ? { isolation: isolation.backend, nativeSandbox: { allowNetwork: true } }
+        : {}),
+    }),
     tools: TOOL_NAME_OVERRIDES,
   });
 
@@ -80,9 +84,7 @@ export async function createRemoteBotWorkspace(
   try {
     session = input.openSession
       ? await input.openSession(persisted?.providerId)
-      : persisted
-        ? await open(input.sandbox, persisted.providerId, input.environment)
-        : await create(input.sandbox, input.workspaceId, input.environment);
+      : await connect(input.sandbox, input.workspaceId, input.environment, persisted?.providerId);
   } catch (cause) {
     if (!persisted) throw cause;
     throw new Error(
@@ -132,150 +134,87 @@ export async function createRemoteBotWorkspace(
   };
 }
 
-async function create(
+async function connect(
   provider: RemoteBotSandbox,
   id: string,
   environment: Readonly<Record<string, string>> = {},
+  providerId?: string,
 ): Promise<OttoRemoteSession> {
-  if (provider === "ascii") {
-    const { BoxApi, Configuration } = await import("@asciidev/box-sdk");
-
-    const client = new BoxApi(
-      new Configuration({ accessToken: credential(environment, "BOX_API_KEY") }),
-    );
-
-    const { box } = await client.create({ createBoxRequest: { ttlSeconds: null, noEnv: true } });
-
-    return ascii(client, box.id);
-  }
+  const reattach = providerId ? { sandboxId: providerId, reattach: "required" as const } : {};
 
   if (provider === "e2b") {
-    const { Sandbox } = await import("e2b");
+    const { E2BSandbox } = await import("@mastra/e2b");
     const apiKey = credential(environment, "E2B_API_KEY");
 
-    return e2b(
-      await Sandbox.create({
-        apiKey,
-        lifecycle: { onTimeout: "pause" },
-        network: { allowPublicTraffic: false },
-      }),
+    const sandbox = new E2BSandbox({
+      id,
       apiKey,
-    );
+      lifecycle: { onTimeout: "pause" },
+      network: { allowPublicTraffic: false },
+      ...reattach,
+    });
+
+    await sandbox._start();
+
+    return e2b(sandbox, apiKey);
   }
 
   if (provider === "daytona") {
-    const { Daytona } = await import("@daytona/sdk");
-    const client = new Daytona({ apiKey: credential(environment, "DAYTONA_API_KEY") });
+    const { DaytonaSandbox } = await import("@mastra/daytona");
 
-    return daytona(client, await client.create({ name: id }));
+    const sandbox = new DaytonaSandbox({
+      id,
+      name: id,
+      apiKey: credential(environment, "DAYTONA_API_KEY"),
+    });
+
+    await sandbox._start();
+
+    return daytona(sandbox);
   }
 
   if (provider === "vercel") {
-    const { Sandbox } = await import("@vercel/sandbox");
+    const { VercelSandbox } = await import("@mastra/vercel");
+    const credentials = vercelCredentials(environment);
+    const sandbox = new VercelSandbox({ id, sandboxName: id, ...credentials });
+    await sandbox._start();
 
-    return vercel(
-      await Sandbox.create({
-        name: id,
-        persistent: true,
-        token: credential(environment, "VERCEL_TOKEN"),
-        teamId: credential(environment, "VERCEL_TEAM_ID"),
-        projectId: credential(environment, "VERCEL_PROJECT_ID"),
-      }),
-      environment,
-    );
+    return vercel(sandbox, credentials);
   }
 
   if (provider === "railway") {
-    const { Sandbox } = await import("railway");
+    const { RailwaySandbox } = await import("@mastra/railway");
+    const credentials = railwayCredentials(environment);
+    const sandbox = new RailwaySandbox({ id, ...credentials, ...reattach });
+    await sandbox._start();
 
-    return railway(await Sandbox.create(railwayCredentials(environment)));
+    return railway(sandbox, credentials);
   }
 
-  if (provider === "tenki") {
-    const { TenkiSandbox } = await import("@tenkicloud/sandbox");
-    const client = new TenkiSandbox({ apiKey: credential(environment, "TENKI_API_KEY") });
+  const { BoatApi, Configuration, ResponseError } = await import("@boatdev/sdk");
 
-    // Persist the VM identity before wake waits for readiness, which can fail transiently.
-    return tenki(await client.create({ name: id, sticky: true, waitReady: false }));
-  }
+  const client = new BoatApi(
+    new Configuration({ accessToken: credential(environment, "BOAT_API_KEY") }),
+  );
 
-  const { Box } = await import("@upstash/box");
-
-  return upstash(await Box.create({ apiKey: credential(environment, "UPSTASH_BOX_API_KEY") }));
-}
-
-async function open(
-  provider: RemoteBotSandbox,
-  id: string,
-  environment: Readonly<Record<string, string>> = {},
-): Promise<OttoRemoteSession> {
-  if (provider === "ascii") {
-    const { BoxApi, Configuration, ResponseError } = await import("@asciidev/box-sdk");
-
-    const client = new BoxApi(
-      new Configuration({ accessToken: credential(environment, "BOX_API_KEY") }),
-    );
-
+  if (providerId) {
     try {
-      await client.get({ boxId: id });
+      await client.get({ sandboxId: providerId });
+
+      return boat(client, providerId);
     } catch (cause) {
-      if (!(cause instanceof ResponseError) || cause.response.status !== 404) throw cause;
       // A timed-out deletion can finish later; only confirmed absence permits replacement.
-      const { box } = await client.create({ createBoxRequest: { ttlSeconds: null, noEnv: true } });
-
-      return ascii(client, box.id);
+      if (!(cause instanceof ResponseError) || cause.response.status !== 404) throw cause;
     }
-
-    return ascii(client, id);
   }
 
-  if (provider === "e2b") {
-    const { Sandbox } = await import("e2b");
-    const apiKey = credential(environment, "E2B_API_KEY");
+  const { sandbox } = await client
+    .create({ createSandboxRequest: { ttlSeconds: null, noEnv: true } })
+    .catch(async (cause: unknown) => {
+      throw await boatFailure(cause);
+    });
 
-    return e2b(await Sandbox.connect(id, { apiKey }), apiKey);
-  }
-
-  if (provider === "daytona") {
-    const { Daytona } = await import("@daytona/sdk");
-    const client = new Daytona({ apiKey: credential(environment, "DAYTONA_API_KEY") });
-
-    return daytona(client, await client.get(id));
-  }
-
-  if (provider === "vercel") {
-    const { Sandbox } = await import("@vercel/sandbox");
-
-    return vercel(
-      await Sandbox.get({
-        name: id,
-        resume: true,
-        token: credential(environment, "VERCEL_TOKEN"),
-        teamId: credential(environment, "VERCEL_TEAM_ID"),
-        projectId: credential(environment, "VERCEL_PROJECT_ID"),
-      }),
-      environment,
-    );
-  }
-
-  if (provider === "railway") {
-    const { Sandbox } = await import("railway");
-    const session = railway(await Sandbox.connect(id, railwayCredentials(environment)));
-    await session.wake();
-
-    return session;
-  }
-
-  if (provider === "tenki") {
-    const { TenkiSandbox } = await import("@tenkicloud/sandbox");
-    const client = new TenkiSandbox({ apiKey: credential(environment, "TENKI_API_KEY") });
-
-    return tenki(await client.get(id));
-  }
-
-  const { Box } = await import("@upstash/box");
-
-  return upstash(await Box.get(id, { apiKey: credential(environment, "UPSTASH_BOX_API_KEY") }));
+  return boat(client, sandbox.id);
 }
 
 export {
@@ -291,14 +230,10 @@ export {
 
 export { railway, railwayWorkspaceState } from "./workspace/adapters/railway.ts";
 
-export { ascii } from "./workspace/adapters/ascii.ts";
-
-export { tenki, tenkiWorkspaceState } from "./workspace/adapters/tenki.ts";
+export { boat } from "./workspace/adapters/boat.ts";
 
 export { e2b } from "./workspace/adapters/e2b.ts";
 
 export { daytona } from "./workspace/adapters/daytona.ts";
 
 export { vercelWorkspaceState, vercel } from "./workspace/adapters/vercel.ts";
-
-export { upstash, upstashWorkspaceState } from "./workspace/adapters/upstash.ts";

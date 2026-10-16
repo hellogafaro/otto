@@ -533,7 +533,7 @@ describe("AgentControllerLive", () => {
     const access: OttoDelegationAccessGrant = {
       allowedToolIds: ["Shell", "Read"],
       memoryScopes: [],
-      sandbox: "upstash",
+      sandbox: "e2b",
       runtimeMode: "full-access",
       hasUserComputer: false,
       enabledMcpServerIds: [],
@@ -594,7 +594,7 @@ describe("AgentControllerLive", () => {
         providerInstanceId: codexInstanceId,
         modelSelection: codexSelection,
         runtimeMode: "full-access",
-        botSandbox: "upstash",
+        botSandbox: "e2b",
         botSandboxEnvironment: {
           UPSTASH_REDIS_REST_URL: "https://sandbox.example",
           UPSTASH_REDIS_REST_TOKEN: "sandbox-token",
@@ -608,7 +608,7 @@ describe("AgentControllerLive", () => {
         providerInstanceId: codexInstanceId,
         modelSelection: codexSelection,
         runtimeMode: "full-access",
-        botSandbox: "upstash",
+        botSandbox: "e2b",
         botSandboxEnvironment: {
           UPSTASH_REDIS_REST_URL: "https://sandbox.example",
           UPSTASH_REDIS_REST_TOKEN: "sandbox-token",
@@ -622,7 +622,7 @@ describe("AgentControllerLive", () => {
       expect(makeRemoteWorkspace).toHaveBeenCalledWith(
         expect.objectContaining({
           threadId: `thread-${codexThreadId}`,
-          sandbox: "upstash",
+          sandbox: "e2b",
           environment: {
             UPSTASH_REDIS_REST_URL: "https://sandbox.example",
             UPSTASH_REDIS_REST_TOKEN: "sandbox-token",

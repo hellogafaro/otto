@@ -54,8 +54,6 @@ export {
   BotEngine,
   BotSandbox,
   PersistedBotSandbox,
-  BotSandboxBrowserSharing,
-  DEFAULT_BOT_SANDBOX_BROWSER_SHARING,
   MIN_BOT_PERSONALITY_TONE,
   BALANCED_BOT_PERSONALITY_TONE,
   MAX_BOT_PERSONALITY_TONE,

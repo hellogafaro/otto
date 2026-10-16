@@ -62,30 +62,26 @@ describe("ProviderSessionStartInput", () => {
       provider: "codex",
       botSandbox: "vercel",
       botId: "bot-one",
-      botSandboxBrowserSharing: "shared",
       runtimeMode: "full-access",
     });
 
     expect(parsed.botSandbox).toBe("vercel");
     expect(parsed.botId).toBe("bot-one");
-    expect(parsed.botSandboxBrowserSharing).toBe("shared");
   });
 
-  it("accepts bot-scoped sandbox and browser sharing", () => {
+  it("accepts the bot identity a session runs as", () => {
     const parsed = decodeProviderSessionStartInput({
       threadId: "thread-1",
       provider: "codex",
       botId: "bot-one",
       botName: "Research bot",
       personalityTone: 40,
-      botSandboxBrowserSharing: "separate",
       runtimeMode: "full-access",
     });
 
     expect(parsed.botId).toBe("bot-one");
     expect(parsed.botName).toBe("Research bot");
     expect(parsed.personalityTone).toBe(40);
-    expect(parsed.botSandboxBrowserSharing).toBe("separate");
   });
 
   it("rejects payloads without runtime mode", () => {

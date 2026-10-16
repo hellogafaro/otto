@@ -11,11 +11,7 @@ import {
   DEFAULT_TEXT_GENERATION_REASONING_EFFORT,
   ProviderOptionSelections,
 } from "../model.ts";
-import {
-  BotSandboxBrowserSharing,
-  DEFAULT_BOT_SANDBOX_BROWSER_SHARING,
-  ChannelProvider,
-} from "../orchestration/roster.ts";
+import { ChannelProvider } from "../orchestration/roster.ts";
 import {
   DEFAULT_LOCAL_EXECUTION_MODE,
   LocalExecutionMode,
@@ -47,7 +43,7 @@ import {
   CustomOpenaiSettingsPatch,
   OpenCodeSettingsPatch,
 } from "./providers.ts";
-import { SandboxSettings, BrowserProviderSettings, SandboxSettingsPatch } from "./sandbox.ts";
+import { SandboxSettings, SandboxSettingsPatch } from "./sandbox.ts";
 import { MemorySettings, MemorySettingsPatch } from "./memory.ts";
 
 export const ObservabilitySettings = Schema.Struct({
@@ -146,9 +142,6 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(false)),
   ),
   enableProviderUpdateChecks: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-  botSandboxBrowserSharing: BotSandboxBrowserSharing.pipe(
-    Schema.withDecodingDefault(Effect.succeed(DEFAULT_BOT_SANDBOX_BROWSER_SHARING)),
-  ),
   localExecutionMode: LocalExecutionMode.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_LOCAL_EXECUTION_MODE)),
   ),
@@ -164,7 +157,6 @@ export const ServerSettings = Schema.Struct({
    * between a desktop window and a phone attached to the same server.
    */
   enableAgentBrowserAccess: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-  browserProvider: BrowserProviderSettings,
   voice: VoiceSettings,
   imageGeneration: ImageGenerationSettings,
   backgroundActivity: BackgroundActivitySettings,
@@ -299,15 +291,7 @@ const ServerSettingsPatchFields = {
   enableLegacyTokenStreaming: Schema.optionalKey(Schema.Boolean),
   enableProviderUpdateChecks: Schema.optionalKey(Schema.Boolean),
   localExecutionMode: Schema.optionalKey(LocalExecutionMode),
-  botSandboxBrowserSharing: Schema.optionalKey(BotSandboxBrowserSharing),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
-  browserProvider: Schema.optionalKey(
-    Schema.Struct({
-      enabled: Schema.optionalKey(Schema.Boolean),
-      browserbaseApiKey: Schema.optionalKey(TrimmedString),
-      browserbaseApiKeyRedacted: Schema.optionalKey(Schema.Boolean),
-    }),
-  ),
   voice: Schema.optionalKey(
     Schema.Struct({
       enabled: Schema.optionalKey(Schema.Boolean),

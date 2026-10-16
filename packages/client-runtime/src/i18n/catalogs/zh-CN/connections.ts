@@ -313,13 +313,6 @@ export const connectionsCatalog = {
   "Not connected": "未连接",
   "OAuth connected": "已通过 OAuth 连接",
   "Computer > Local execution": "计算机 > 本地执行",
-  "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.":
-    "托管浏览器会话在此环境中运行，可以从网页端、桌面端或远程客户端控制。",
-  "Stored by the environment server. Add a key before enabling Browserbase.":
-    "由环境服务器保存。启用 Browserbase 前请先添加密钥。",
-  "Bots can open pages and inspect them in a sandboxed preview. Browserbase is only needed for hosted sessions.":
-    "机器人可以在沙箱预览中打开并检查页面。只有托管会话才需要 Browserbase。",
-  "Use Browserbase when a remote browser is needed.": "需要远程浏览器时使用 Browserbase。",
   "Allow calls through ChatGPT Realtime. Microphone audio and call data leave this environment during a call.":
     "允许通过 ChatGPT Realtime 进行通话。通话期间，麦克风音频和通话数据会离开此环境。",
   "Other connections": "其他连接",
@@ -347,13 +340,11 @@ export const connectionsCatalog = {
   "Browser viewport": "浏览器视口",
   "Cloud workspaces managed by E2B. Requires an API key.":
     "由 E2B 管理的云端工作区。需要 API 密钥。",
+  "Persistent Linux VMs managed by Boat. Requires an API key.":
+    "由 Boat 管理的持久 Linux 虚拟机。需要 API 密钥。",
   "Cloud workspaces managed by Daytona. Requires an API key.":
     "由 Daytona 管理的云端工作区。需要 API 密钥。",
   "Cloud workspaces in your Vercel team and project.": "位于你的 Vercel 团队和项目中的云端工作区。",
-  "Cloud workspaces managed by Upstash Box. Requires an API key.":
-    "由 Upstash Box 管理的云端工作区。需要 API 密钥。",
-  "Cloud workspaces managed by Tenki. Requires an API key.":
-    "由 Tenki 管理的云端工作区。需要 API 密钥。",
   "Network access": "访问网络",
   "No models available. Check your provider connection in Settings.":
     "没有可用的模型。请在设置中检查提供商连接。",
@@ -590,17 +581,4 @@ export const connectionsCatalog = {
   "Default sandbox couldn't be saved": "无法保存默认沙盒",
   "Bots can use the in-app browser for research and previews.":
     "机器人可以使用应用内浏览器进行研究和预览。",
-  "Hosted browser sessions for bots": "供机器人使用的托管浏览器会话",
-  "Use Browserbase": "使用 Browserbase",
-  "One per bot": "每个机器人一台",
-  "Shared by all": "全部共享",
-  "Bot computers": "机器人电脑",
-  "bot computers": "机器人电脑",
-  "One per bot gives each bot its own files and browser logins. Shared by all lets every bot use the same ones.":
-    "“每个机器人一台”让每个机器人拥有自己的文件和浏览器登录。“全部共享”让所有机器人使用同一套。",
-  "Change bot computers?": "更改机器人电脑？",
-  "Bots finish what they are doing first. From their next turn, every bot uses one shared computer. Files and browser logins on their own computers do not move.":
-    "机器人会先完成手头的工作。从下一轮开始，所有机器人共用一台电脑。它们各自电脑上的文件和浏览器登录不会迁移。",
-  "Bots finish what they are doing first. From their next turn, each bot gets its own computer with its own files and browser logins. The shared computer's files stay where they are.":
-    "机器人会先完成手头的工作。从下一轮开始，每个机器人都有自己的电脑，拥有独立的文件和浏览器登录。共享电脑上的文件保留在原处。",
 } as const;

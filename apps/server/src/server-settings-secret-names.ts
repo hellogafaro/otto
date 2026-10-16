@@ -9,8 +9,6 @@ export const textEncoder = new TextEncoder();
 
 export const textDecoder = new TextDecoder();
 
-export const BROWSERBASE_API_KEY_SECRET = "browser-provider-browserbase-api-key";
-
 export function providerEnvironmentSecretName(input: {
   readonly instanceId: string;
   readonly name: string;
@@ -62,8 +60,6 @@ export function redactServerSettingsForClient(settings: ServerSettings): ServerS
     ]),
   );
 
-  const browserProvider = settings.browserProvider;
-
   return {
     ...settings,
     providerInstances,
@@ -73,18 +69,9 @@ export function redactServerSettingsForClient(settings: ServerSettings): ServerS
         e2b: redactSandboxProviderConnection(settings.sandbox.providers.e2b),
         daytona: redactSandboxProviderConnection(settings.sandbox.providers.daytona),
         vercel: redactSandboxProviderConnection(settings.sandbox.providers.vercel),
-        upstash: redactSandboxProviderConnection(settings.sandbox.providers.upstash),
-        ascii: redactSandboxProviderConnection(settings.sandbox.providers.ascii),
         railway: redactSandboxProviderConnection(settings.sandbox.providers.railway),
-        tenki: redactSandboxProviderConnection(settings.sandbox.providers.tenki),
+        boat: redactSandboxProviderConnection(settings.sandbox.providers.boat),
       },
-    },
-    browserProvider: {
-      ...browserProvider,
-      browserbaseApiKey: "",
-      ...(browserProvider.browserbaseApiKey.length > 0 || browserProvider.browserbaseApiKeyRedacted
-        ? { browserbaseApiKeyRedacted: true }
-        : {}),
     },
   };
 }

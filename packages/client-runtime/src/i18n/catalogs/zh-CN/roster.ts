@@ -1,6 +1,4 @@
 export const rosterCatalog = {
-  "Run bots in a persistent Linux VM. Public previews are enabled by default.":
-    "在持久化 Linux 虚拟机中运行机器人。默认启用公开预览。",
   "Add project starts in": "添加项目的起始目录",
   "All projects": "全部项目",
   "Bot browser access": "机器人浏览器访问",

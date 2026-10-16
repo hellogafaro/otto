@@ -15,7 +15,6 @@ import * as ServerSecretStore from "./auth/server-secret-store.ts";
 
 import {
   textDecoder,
-  BROWSERBASE_API_KEY_SECRET,
   providerEnvironmentSecretName,
   sandboxEnvironmentSecretName,
 } from "./server-settings-secret-names.ts";
@@ -120,32 +119,6 @@ export const createSettingsSecretReads = (
       };
     });
 
-  const materializeBrowserProviderSecret = (
-    settings: ServerSettings,
-  ): Effect.Effect<ServerSettings, ServerSettingsError> => {
-    if (!settings.browserProvider.browserbaseApiKeyRedacted) return Effect.succeed(settings);
-
-    return secretStore.get(BROWSERBASE_API_KEY_SECRET).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ServerSettingsError({
-            settingsPath,
-            operation: "read-secret",
-            providerInstanceId: "browser:browserbase",
-            environmentVariable: "BROWSERBASE_API_KEY",
-            cause,
-          }),
-      ),
-      Effect.map((secret) => ({
-        ...settings,
-        browserProvider: {
-          ...settings.browserProvider,
-          browserbaseApiKey: Option.isSome(secret) ? textDecoder.decode(secret.value) : "",
-        },
-      })),
-    );
-  };
-
   const sandboxValidationError = (
     provider: CloudSandboxProvider,
     environmentVariable: string,
@@ -225,13 +198,11 @@ export const createSettingsSecretReads = (
   const materializeAllSecrets = (settings: ServerSettings) =>
     materializeProviderEnvironmentSecrets(settings).pipe(
       Effect.flatMap(materializeSandboxEnvironmentSecrets),
-      Effect.flatMap(materializeBrowserProviderSecret),
     );
 
   return {
     materializeProviderEnvironmentSecrets,
     materializeSandboxEnvironmentSecrets,
-    materializeBrowserProviderSecret,
     sandboxValidationError,
     validatePersistedSandboxSecrets,
     validateSandboxSettings,

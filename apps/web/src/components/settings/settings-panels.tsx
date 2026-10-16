@@ -17,8 +17,3 @@ export function AppearanceSettingsPanel() {
 }
 
 export { useSettingsRestore } from "./use-settings-restore";
-
-export {
-  BotSandboxBrowserSharingSettings,
-  BotWorkspaceSettingsSection,
-} from "./bot-workspace-settings";

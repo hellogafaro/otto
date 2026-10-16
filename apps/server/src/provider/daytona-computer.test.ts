@@ -20,7 +20,7 @@ describe("DaytonaComputer", () => {
       },
     } as never;
 
-    const frame = await new DaytonaComputer(sandbox).capture();
+    const frame = await new DaytonaComputer(() => sandbox).capture();
     expect(frame.mimeType).toBe("image/png");
     expect(frame.data).not.toBe(screenshot);
     expect(Buffer.from(frame.data, "base64").byteLength).toBeLessThan(256 * 1024);

@@ -12,7 +12,6 @@ import * as ServerSecretStore from "./auth/server-secret-store.ts";
 
 import {
   textEncoder,
-  BROWSERBASE_API_KEY_SECRET,
   providerEnvironmentSecretName,
   sandboxEnvironmentSecretName,
   redactProviderEnvironmentVariable,
@@ -245,50 +244,8 @@ export const createSettingsSecretWrites = (
       };
     });
 
-  const persistBrowserProviderSecret = (
-    next: ServerSettings,
-  ): Effect.Effect<ServerSettings, ServerSettingsError> => {
-    const browserProvider = next.browserProvider;
-
-    if (browserProvider.browserbaseApiKeyRedacted) return Effect.succeed(next);
-
-    const persist = browserProvider.browserbaseApiKey
-      ? secretStore.set(
-          BROWSERBASE_API_KEY_SECRET,
-          textEncoder.encode(browserProvider.browserbaseApiKey),
-        )
-      : secretStore.remove(BROWSERBASE_API_KEY_SECRET);
-
-    return persist.pipe(
-      Effect.mapError(
-        (cause) =>
-          new ServerSettingsError({
-            settingsPath,
-            operation: browserProvider.browserbaseApiKey ? "write-secret" : "remove-secret",
-            providerInstanceId: "browser:browserbase",
-            environmentVariable: "BROWSERBASE_API_KEY",
-            cause,
-          }),
-      ),
-      Effect.map(() => {
-        const { browserbaseApiKeyRedacted: _redacted, ...browserProviderWithoutRedaction } =
-          browserProvider;
-
-        return {
-          ...next,
-          browserProvider: {
-            ...browserProviderWithoutRedaction,
-            browserbaseApiKey: "",
-            ...(browserProvider.browserbaseApiKey ? { browserbaseApiKeyRedacted: true } : {}),
-          },
-        };
-      }),
-    );
-  };
-
   return {
     persistProviderEnvironmentSecrets,
     persistSandboxEnvironmentSecrets,
-    persistBrowserProviderSecret,
   };
 };

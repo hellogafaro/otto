@@ -59,7 +59,7 @@ vi.mock("../chat/provider-model-picker", () => ({ ProviderModelPicker: () => nul
 vi.mock("../chat/traits-picker", () => ({ TraitsPicker: () => null }));
 
 import { SandboxSettingsPanel } from "./sandbox-settings-panel";
-import { AppearanceSettingsPanel, BotWorkspaceSettingsSection } from "./settings-panels";
+import { AppearanceSettingsPanel } from "./settings-panels";
 
 const zhCNCatalog = await catalogRegistry["zh-CN"]!();
 
@@ -99,14 +99,6 @@ describe("settings panels in Simplified Chinese", () => {
         "Reset to default",
         zhCNCatalog["Glass opacity"]!,
       ],
-    );
-  });
-
-  it("translates the Workspace section", () => {
-    expectTranslated(
-      renderInChinese(<BotWorkspaceSettingsSection />),
-      [zhCNCatalog["Workspace"]!],
-      [">Workspace<"],
     );
   });
 

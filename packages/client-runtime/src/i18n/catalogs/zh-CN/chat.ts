@@ -340,8 +340,6 @@ export const chatCatalog = {
   "Unable to unlink pull request": "无法取消关联拉取请求",
   "Chat summary": "聊天摘要",
   Preview: "预览",
-  "Enable Browserbase": "启用 Browserbase",
-  "Browserbase API key": "Browserbase API 密钥",
   "Agent browser access": "智能体浏览器访问",
   "Allow agent browser access": "允许智能体访问浏览器",
   "How browser use works": "浏览器使用方式",

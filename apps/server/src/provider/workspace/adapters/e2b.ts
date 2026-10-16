@@ -1,47 +1,30 @@
+import type { E2BSandbox } from "@mastra/e2b";
 import { type OttoRemoteSession } from "../bot-workspace-types.ts";
-import { commandLine } from "../bot-workspace-lifecycle.ts";
+import { mastraSession } from "./mastra.ts";
 
-export function e2b(initial: import("e2b").Sandbox, apiKey?: string): OttoRemoteSession {
-  let sandbox = initial;
+export function e2b(sandbox: E2BSandbox, apiKey: string): OttoRemoteSession {
   const providerId = sandbox.sandboxId;
-  const options = apiKey ? { apiKey } : {};
 
-  return {
+  if (!providerId) throw new Error(`E2B workspace '${sandbox.id}' is not started.`);
+
+  return mastraSession(sandbox, {
     providerId,
     inspect: async () => {
       const { Sandbox } = await import("e2b");
-      const info = await Sandbox.getInfo(providerId, options);
+      const info = await Sandbox.getInfo(providerId, { apiKey });
 
       return info.state === "paused" ? "sleeping" : "running";
     },
-    run: async (command, args, options) => {
-      const result = await sandbox.commands.run(commandLine(command, args), {
-        ...(options?.cwd ? { cwd: options.cwd } : {}),
-        ...(options?.env ? { envs: options.env } : {}),
-        ...(options?.timeout ? { timeoutMs: options.timeout } : {}),
-      });
-
-      return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
-    },
     browserEndpoint: async (port) => {
-      const token = sandbox.trafficAccessToken?.trim();
+      const instance = sandbox.instance;
+      const token = instance.trafficAccessToken?.trim();
 
       if (!token) throw new Error(`E2B workspace '${providerId}' has no traffic access token.`);
 
       return {
-        url: `https://${sandbox.getHost(port)}`,
+        url: `https://${instance.getHost(port)}`,
         requestHeaders: { "e2b-traffic-access-token": token },
       };
     },
-    wake: async () => {
-      const { Sandbox } = await import("e2b");
-      sandbox = await Sandbox.connect(providerId, options);
-    },
-    sleep: async () => {
-      await sandbox.pause();
-    },
-    destroy: async () => {
-      await sandbox.kill();
-    },
-  };
+  });
 }

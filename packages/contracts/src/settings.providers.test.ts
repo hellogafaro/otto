@@ -57,10 +57,8 @@ describe("ServerSettings sandbox providers", () => {
         e2b: { environment: [] },
         daytona: { environment: [] },
         vercel: { environment: [] },
-        upstash: { environment: [] },
-        ascii: { environment: [] },
         railway: { environment: [] },
-        tenki: { environment: [] },
+        boat: { environment: [] },
       },
     });
   });
@@ -87,32 +85,30 @@ describe("ServerSettings sandbox providers", () => {
     });
   });
 
-  it("accepts the Ascii Box credential", () => {
-    expect(
-      decodeServerSettingsPatch({
-        sandbox: {
-          providers: {
-            ascii: {
-              environment: [{ name: "BOX_API_KEY", value: "secret", sensitive: true }],
-            },
-          },
-        },
-      }).sandbox?.providers?.ascii?.environment,
-    ).toEqual([{ name: "BOX_API_KEY", value: "secret", sensitive: true }]);
-  });
-
-  it("accepts Tenki's secret API key", () => {
+  it("accepts the Boat credential", () => {
     expect(
       decodeServerSettingsRpcPatch({
         sandbox: {
           providers: {
-            tenki: {
-              environment: [{ name: "TENKI_API_KEY", value: "secret", sensitive: true }],
+            boat: {
+              environment: [{ name: "BOAT_API_KEY", value: "secret", sensitive: true }],
             },
           },
         },
-      }).sandbox?.providers?.tenki?.environment,
-    ).toEqual([{ name: "TENKI_API_KEY", value: "secret", sensitive: true }]);
+      }).sandbox?.providers?.boat?.environment,
+    ).toEqual([{ name: "BOAT_API_KEY", value: "secret", sensitive: true }]);
+  });
+
+  it("moves a retired default sandbox to its successor or to Local", () => {
+    expect(decodeServerSettings({ sandbox: { defaultProvider: "ascii" } }).sandbox).toMatchObject({
+      defaultProvider: "boat",
+    });
+
+    for (const retired of ["upstash", "tenki"]) {
+      expect(
+        decodeServerSettings({ sandbox: { defaultProvider: retired } }).sandbox.defaultProvider,
+      ).toBe("local");
+    }
   });
 
   it("keeps automatic idle cleanup enabled", () => {

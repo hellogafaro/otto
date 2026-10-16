@@ -149,16 +149,6 @@ describe("bot settings entry points", () => {
 });
 
 describe("global settings stay global", () => {
-  it("leaves the shared sandbox and browser sharing policy in Settings", () => {
-    const workspace = read("../settings/bot-workspace-settings.tsx");
-    const botSettings = readBotSettingsSource();
-
-    // This is one environment-wide policy for every bot, not per-bot data.
-    expect(workspace).toContain("<BotSandboxBrowserSharingSettings");
-    expect(workspace).toContain("settings.botSandboxBrowserSharing");
-    expect(botSettings).not.toContain("botSandboxBrowserSharing");
-  });
-
   it("keeps the app-wide voice toggle out of per-bot settings", () => {
     const voice = read("../settings/voice-settings.tsx");
     const botSettings = readBotSettingsSource();

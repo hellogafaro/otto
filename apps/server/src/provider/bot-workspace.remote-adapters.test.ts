@@ -1,22 +1,25 @@
 import { workspaceIO } from "./test-support/workspace-io.ts";
 import { partialSdkFixture } from "./test-support/partial-sdk-fixture.ts";
-import { SandboxState } from "@daytona/sdk";
 import { describe } from "vite-plus/test";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { expect, it, vi } from "vite-plus/test";
+import type { DaytonaSandbox } from "@mastra/daytona";
+import type { E2BSandbox } from "@mastra/e2b";
+import type { RailwaySandbox } from "@mastra/railway";
+import type { VercelSandbox } from "@mastra/vercel";
 import {
   createRemoteBotWorkspace,
   daytona,
   e2b,
   railway,
   railwayWorkspaceState,
-  upstash,
-  upstashWorkspaceState,
   vercel,
   vercelWorkspaceState,
 } from "./bot-workspace.ts";
+
+const railwayCredentials = { token: "token", environmentId: "env" };
 
 describe("createBotWorkspace", () => {
   it("creates and reattaches Railway identities with explicit credentials and cleans up", async () => {
@@ -28,7 +31,7 @@ describe("createBotWorkspace", () => {
     const sandbox = partialSdkFixture<import("railway").Sandbox>({
       id: "railway-id",
       status: "RUNNING",
-      refresh: vi.fn(async () => ({ id: "railway-id" })),
+      createdAt: "2026-01-01T00:00:00.000Z",
       destroy,
     });
 
@@ -51,8 +54,9 @@ describe("createBotWorkspace", () => {
       expect(destroy).not.toHaveBeenCalled();
       const second = await createRemoteBotWorkspace(input);
       expect(second.providerId).toBe("railway-id");
-      expect(create).toHaveBeenCalledExactlyOnceWith({ token: "token", environmentId: "env" });
-      expect(connect).toHaveBeenCalledWith("railway-id", { token: "token", environmentId: "env" });
+      expect(create).toHaveBeenCalledOnce();
+      expect(create.mock.calls[0]?.[0]).toMatchObject(railwayCredentials);
+      expect(connect).toHaveBeenCalledWith("railway-id", railwayCredentials);
       connect.mockRejectedValueOnce(new Error("unavailable"));
       await expect(createRemoteBotWorkspace(input)).rejects.toThrow("missing or unavailable");
       expect(create).toHaveBeenCalledTimes(1);
@@ -75,55 +79,61 @@ describe("createBotWorkspace", () => {
     }
   });
 
-  it("executes Railway commands and refuses automatic browser ingress", async () => {
-    const exec = vi.fn(
-      async (): Promise<{ exitCode: number | null; stdout: string; stderr: string }> => ({
-        exitCode: 7,
-        stdout: "output",
-        stderr: "error",
+  it("executes Railway commands through Mastra and refuses automatic browser ingress", async () => {
+    const { Sandbox, SandboxNotFoundError } = await import("railway");
+
+    const executeCommand = vi.fn(async () => ({
+      success: false,
+      exitCode: 7,
+      stdout: "output",
+      stderr: "error",
+      executionTimeMs: 1,
+    }));
+
+    const remote = { status: "RUNNING" as import("railway").SandboxStatus };
+
+    const connect = vi
+      .spyOn(Sandbox, "connect")
+      .mockImplementation(async () => partialSdkFixture<import("railway").Sandbox>(remote));
+
+    const session = railway(
+      partialSdkFixture<RailwaySandbox>({
+        id: "otto-railway",
+        sandboxId: "railway-id",
+        executeCommand,
       }),
+      railwayCredentials,
     );
 
-    const refresh = vi.fn(async () => ({ id: "railway-id" }));
-
-    type RailwayFixture = {
-      id: string;
-      status: import("railway").SandboxStatus;
-      exec: typeof exec;
-      refresh: typeof refresh;
-    };
-
-    const sandbox: RailwayFixture = { id: "railway-id", status: "RUNNING", exec, refresh };
-    const session = railway(partialSdkFixture<import("railway").Sandbox>(sandbox));
-    expect(
-      await session.run("echo", ["it's private"], {
+    try {
+      expect(
+        await session.run("echo", ["it's private"], {
+          cwd: "/tmp",
+          env: { HELLO: "world" },
+          timeout: 1501,
+        }),
+      ).toMatchObject({ exitCode: 7, stdout: "output", stderr: "error" });
+      expect(executeCommand).toHaveBeenCalledWith("echo", ["it's private"], {
         cwd: "/tmp",
         env: { HELLO: "world" },
         timeout: 1501,
-      }),
-    ).toEqual({ exitCode: 7, stdout: "output", stderr: "error" });
-    expect(exec).toHaveBeenCalledWith("'echo' 'it'\\''s private'", {
-      cwd: "/tmp",
-      env: { HELLO: "world" },
-      timeoutSec: 2,
-    });
-    await expect(session.browserEndpoint(9223)).rejects.toThrow("Railway CLI tunnel");
-    exec.mockResolvedValueOnce({ exitCode: null, stdout: "partial", stderr: "terminated" });
-    await expect(session.run("false", [])).resolves.toEqual({
-      exitCode: 1,
-      stdout: "partial",
-      stderr: "terminated",
-    });
-    await expect(session.inspect()).resolves.toBe("running");
-    sandbox.status = "DESTROYED";
-    await expect(session.wake()).rejects.toThrow("not running");
-    const { SandboxNotFoundError } = await import("railway");
-    refresh.mockRejectedValueOnce(
-      new SandboxNotFoundError({ id: "railway-id", environmentId: "env" }),
-    );
-    await expect(session.inspect()).resolves.toBe("missing");
-    refresh.mockRejectedValueOnce(new Error("unauthorized"));
-    await expect(session.inspect()).rejects.toThrow("unauthorized");
+        maxRetainedBytes: 16 * 1024 * 1024,
+      });
+      await expect(session.browserEndpoint(9223)).rejects.toThrow("Railway CLI tunnel");
+      await expect(session.inspect()).resolves.toBe("running");
+      await session.sleep();
+      remote.status = "DESTROYED";
+      await expect(session.wake()).rejects.toThrow("not running");
+      connect.mockRejectedValueOnce(
+        new SandboxNotFoundError({ id: "railway-id", environmentId: "env" }),
+      );
+      await expect(session.inspect()).resolves.toBe("missing");
+      connect.mockRejectedValueOnce(new Error("unauthorized"));
+      await expect(session.inspect()).rejects.toThrow("unauthorized");
+    } finally {
+      connect.mockRestore();
+    }
+
     expect(railwayWorkspaceState("CREATING")).toBe("sleeping");
 
     for (const status of ["DESTROYING", "DESTROYED", "FAILED"] as const) {
@@ -131,45 +141,46 @@ describe("createBotWorkspace", () => {
     }
   });
 
-  it("pauses and restarts Daytona workspaces", async () => {
-    let state: NonNullable<import("@daytona/sdk").Sandbox["state"]> = SandboxState.STARTED;
+  it("stops and restarts Daytona workspaces through Mastra", async () => {
+    let status: DaytonaSandbox["status"] = "running";
 
-    const pause = vi.fn(async () => {
-      state = SandboxState.PAUSED;
+    const _stop = vi.fn(async () => {
+      status = "stopped";
     });
 
-    const start = vi.fn(async () => {
-      state = SandboxState.STARTED;
+    const _start = vi.fn(async () => {
+      status = "running";
     });
 
-    const sandbox = partialSdkFixture<import("@daytona/sdk").Sandbox>({
+    const instance = partialSdkFixture<DaytonaSandbox["instance"]>({
       id: "daytona-id",
-      get state() {
-        return state;
-      },
+      state: "started" as NonNullable<DaytonaSandbox["instance"]["state"]>,
       refreshData: vi.fn(async () => undefined),
-      pause,
-      start,
-      delete: vi.fn(async () => undefined),
       getPreviewLink: vi.fn(async () => ({
         url: "https://9223-daytona.example",
         token: "daytona-token",
       })),
-      process: { executeCommand: vi.fn() },
     });
 
-    const client = partialSdkFixture<import("@daytona/sdk").Daytona>({
-      [Symbol.asyncDispose]: vi.fn(async () => undefined),
-    });
-
-    const session = daytona(client, sandbox);
+    const session = daytona(
+      partialSdkFixture<DaytonaSandbox>({
+        get status() {
+          return status;
+        },
+        instance,
+        _start,
+        _stop,
+      }),
+    );
 
     await session.sleep();
     expect(await session.inspect()).toBe("sleeping");
     await session.wake();
 
-    expect(pause).toHaveBeenCalledOnce();
-    expect(start).toHaveBeenCalledOnce();
+    expect(_stop).toHaveBeenCalledOnce();
+    expect(_start).toHaveBeenCalledOnce();
+    expect(session.providerId).toBe("daytona-id");
+    expect(session.computer?.workspaceId).toBe("daytona-id");
     expect(await session.inspect()).toBe("running");
     await expect(session.browserEndpoint(9223)).resolves.toEqual({
       url: "https://9223-daytona.example/?DAYTONA_SANDBOX_AUTH_KEY=daytona-token",
@@ -179,16 +190,17 @@ describe("createBotWorkspace", () => {
 
   it("keeps E2B browser ingress private", async () => {
     const session = e2b(
-      partialSdkFixture<import("e2b").Sandbox>({
+      partialSdkFixture<E2BSandbox>({
         sandboxId: "e2b-id",
-        trafficAccessToken: "e2b-token",
-        getHost: (port: number) => `${port}-e2b.example`,
-        commands: { run: vi.fn() },
-        pause: vi.fn(),
-        kill: vi.fn(),
+        instance: {
+          trafficAccessToken: "e2b-token",
+          getHost: (port: number) => `${port}-e2b.example`,
+        },
       }),
+      "e2b-key",
     );
 
+    expect(session.providerId).toBe("e2b-id");
     await expect(session.browserEndpoint(9223)).resolves.toEqual({
       url: "https://9223-e2b.example",
       requestHeaders: { "e2b-traffic-access-token": "e2b-token" },
@@ -199,18 +211,18 @@ describe("createBotWorkspace", () => {
     const update = vi.fn(async () => undefined);
 
     const session = vercel(
-      partialSdkFixture<import("@vercel/sandbox").Sandbox>({
-        name: "vercel-id",
-        status: "running",
-        routes: [{ port: 3000 }],
-        update,
-        domain: (port: number) => `https://${port}-vercel.example`,
-        runCommand: vi.fn(),
-        stop: vi.fn(),
-        delete: vi.fn(),
+      partialSdkFixture<VercelSandbox>({
+        sandbox: {
+          name: "vercel-id",
+          routes: [{ port: 3000 }],
+          update,
+          domain: (port: number) => `https://${port}-vercel.example`,
+        },
       }),
+      { token: "token", teamId: "team", projectId: "project" },
     );
 
+    expect(session.providerId).toBe("vercel-id");
     await expect(session.browserEndpoint(9223)).resolves.toEqual({
       url: "https://9223-vercel.example",
       requestHeaders: {},
@@ -218,66 +230,21 @@ describe("createBotWorkspace", () => {
     expect(update).toHaveBeenCalledWith({ ports: [3000, 9223] });
   });
 
-  it("resumes a paused Upstash workspace after reattach", async () => {
-    let status = "paused";
-
-    const resume = vi.fn(async () => {
-      status = "running";
-    });
-
-    const box = partialSdkFixture<import("@upstash/box").Box>({
-      id: "upstash-id",
-      getStatus: vi.fn(async () => ({ status })),
-      resume,
-      pause: vi.fn(async () => undefined),
-      delete: vi.fn(async () => undefined),
-      getPublicURL: vi.fn(async () => ({
-        url: "https://9223-upstash.example",
-        port: 9223,
-        token: "upstash-token",
-      })),
-      exec: { command: vi.fn() },
-    });
-
-    const session = upstash(box);
-
-    await session.wake();
-
-    expect(resume).toHaveBeenCalledOnce();
-    expect(await session.inspect()).toBe("running");
-    await expect(session.browserEndpoint(9223)).resolves.toEqual({
-      url: "https://9223-upstash.example",
-      requestHeaders: { authorization: "Bearer upstash-token" },
-    });
-  });
-
   it("fails closed when a remote provider omits browser credentials", async () => {
     const e2bSession = e2b(
-      partialSdkFixture<import("e2b").Sandbox>({
+      partialSdkFixture<E2BSandbox>({
         sandboxId: "e2b-id",
-        trafficAccessToken: "",
-        getHost: vi.fn(),
-        commands: { run: vi.fn() },
-        pause: vi.fn(),
-        kill: vi.fn(),
+        instance: { trafficAccessToken: "", getHost: vi.fn() },
       }),
-    );
-
-    const upstashSession = upstash(
-      partialSdkFixture<import("@upstash/box").Box>({
-        id: "upstash-id",
-        getPublicURL: vi.fn(async () => ({ url: "https://upstash.example", port: 9223 })),
-      }),
+      "e2b-key",
     );
 
     const daytonaSession = daytona(
-      {} as import("@daytona/sdk").Daytona,
-      partialSdkFixture<import("@daytona/sdk").Sandbox>({
-        id: "daytona-id",
-        getPreviewLink: vi.fn(async () => ({
-          url: "https://daytona.example",
-          token: "",
-        })),
+      partialSdkFixture<DaytonaSandbox>({
+        instance: {
+          id: "daytona-id",
+          getPreviewLink: vi.fn(async () => ({ url: "https://daytona.example", token: "" })),
+        },
       }),
     );
 
@@ -285,15 +252,9 @@ describe("createBotWorkspace", () => {
     await expect(daytonaSession.browserEndpoint(9223)).rejects.toThrow(
       "no authenticated preview URL",
     );
-    await expect(upstashSession.browserEndpoint(9223)).rejects.toThrow(
-      "no authenticated public URL",
-    );
   });
 
   it("does not classify unavailable provider states as running", () => {
-    expect(upstashWorkspaceState("creating")).toBe("sleeping");
-    expect(upstashWorkspaceState("error")).toBe("missing");
-    expect(upstashWorkspaceState("deleted")).toBe("missing");
     expect(vercelWorkspaceState("failed")).toBe("missing");
     expect(vercelWorkspaceState("aborted")).toBe("missing");
     expect(vercelWorkspaceState("stopped")).toBe("sleeping");

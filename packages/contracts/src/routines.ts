@@ -84,13 +84,7 @@ export const RoutineTimeZone = TrimmedNonEmptyString.check(
 
 export type RoutineTimeZone = typeof RoutineTimeZone.Type;
 
-export const RoutineSandbox = Schema.Literals([
-  "local",
-  "e2b",
-  "daytona",
-  "vercel-sandbox",
-  "upstash-box",
-]);
+export const RoutineSandbox = Schema.Literals(["local", "e2b", "daytona", "vercel-sandbox"]);
 
 export type RoutineSandbox = typeof RoutineSandbox.Type;
 

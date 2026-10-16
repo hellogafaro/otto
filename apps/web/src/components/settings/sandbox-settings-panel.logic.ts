@@ -45,18 +45,6 @@ const SANDBOX_PROVIDER_DEFINITION_BY_ID: Readonly<
       { name: "VERCEL_PROJECT_ID", label: "Project ID", secret: false },
     ],
   },
-  upstash: {
-    id: "upstash",
-    label: "Upstash Box",
-    description: "Cloud workspaces managed by Upstash Box. Requires an API key.",
-    fields: [{ name: "UPSTASH_BOX_API_KEY", label: "API key", secret: true }],
-  },
-  ascii: {
-    id: "ascii",
-    label: "Ascii Box",
-    description: "Run bots in a persistent Linux VM. Public previews are enabled by default.",
-    fields: [{ name: "BOX_API_KEY", label: "API key", secret: true }],
-  },
   railway: {
     id: "railway",
     label: "Railway",
@@ -67,11 +55,11 @@ const SANDBOX_PROVIDER_DEFINITION_BY_ID: Readonly<
       { name: "RAILWAY_ENVIRONMENT_ID", label: "Environment ID", secret: false },
     ],
   },
-  tenki: {
-    id: "tenki",
-    label: "Tenki",
-    description: "Cloud workspaces managed by Tenki. Requires an API key.",
-    fields: [{ name: "TENKI_API_KEY", label: "API key", secret: true }],
+  boat: {
+    id: "boat",
+    label: "Boat",
+    description: "Persistent Linux VMs managed by Boat. Requires an API key.",
+    fields: [{ name: "BOAT_API_KEY", label: "API key", secret: true }],
   },
 };
 

@@ -23,7 +23,6 @@ import { websocketRpcRouteLayer } from "./ws.ts";
 import { remoteMachineUpdateRouteLayer } from "./remote/update-route.ts";
 import * as McpHttpServer from "./mcp/mcp-http-server.ts";
 import * as PreviewAutomationBroker from "./mcp/preview-automation-broker.ts";
-import * as PreviewAutomationServerHost from "./mcp/preview-automation-server-host.ts";
 import * as ServerRuntimeStartup from "./server-runtime-startup.ts";
 import * as VcsProcess from "./vcs/vcs-process.ts";
 import { authHttpApiLayer, environmentAuthenticatedAuthLayer } from "./auth/http.ts";
@@ -288,7 +287,6 @@ export const makeServerLayer = Layer.unwrap(
 
     const serverApplicationLayer = Layer.mergeAll(
       routesLayer,
-      PreviewAutomationServerHost.layer,
       httpListeningLayer,
       runtimeStateLayer,
       tailscaleServeLayer,

@@ -2,7 +2,6 @@ import { BrowserSettingsSection } from "./browser-settings";
 import { ImageGenerationSettingsSection } from "./image-generation-settings";
 import { DefaultModelSection, ModelsConnectionsSection } from "./models-settings";
 import { SandboxSettingsPanel } from "./sandbox-settings-panel";
-import { BotWorkspaceSettingsSection } from "./settings-panels";
 import { SettingsPageContainer } from "./settings-layout";
 import { VoiceSettingsSection } from "./voice-settings";
 
@@ -37,11 +36,10 @@ export function VoiceSettingsPage() {
   );
 }
 
-// Otto: Computer is what a bot's machine can do: its workspace, sandbox and browser.
+// Otto: Computer is what a bot's machine can do: its sandbox and browser.
 export function ComputerSettingsPage() {
   return (
     <SettingsPageContainer>
-      <BotWorkspaceSettingsSection />
       <SandboxSettingsPanel />
       <BrowserSettingsSection />
     </SettingsPageContainer>

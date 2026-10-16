@@ -4,7 +4,6 @@ import * as Option from "effect/Option";
 import * as ServerSecretStore from "./auth/server-secret-store.ts";
 
 import {
-  BROWSERBASE_API_KEY_SECRET,
   providerEnvironmentSecretName,
   sandboxEnvironmentSecretName,
 } from "./server-settings-secret-names.ts";
@@ -46,11 +45,6 @@ export const createSettingsSecretRollback = (
           }
         }
       }
-
-      references.set(BROWSERBASE_API_KEY_SECRET, {
-        providerInstanceId: "browser:browserbase",
-        environmentVariable: "BROWSERBASE_API_KEY",
-      });
 
       const snapshots: SecretSnapshot[] = [];
 

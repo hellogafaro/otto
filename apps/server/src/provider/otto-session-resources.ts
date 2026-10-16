@@ -44,7 +44,6 @@ export class OttoSessionResources {
   private readonly workspacePool = new BotWorkspacePool();
   private readonly computerRegistrations = new Map<string, () => void>();
   private readonly computerUseTemporaryDirectories = new Map<string, string>();
-  private readonly tenkiThreads = new Set<string>();
   private controllingThreadId: string | undefined;
   private shuttingDown = false;
 
@@ -273,11 +272,11 @@ export class OttoSessionResources {
       const previewMcpServerConfig = this.options.getPreviewMcpServerConfig?.(key);
 
       if (input.mcpServers.length > 0 || previewMcpServerConfig) {
-        const attachment =
-          input.botSandbox !== "tenki" &&
-          input.mcpServers.some((server) => mcpServerNeedsBrowserAttachment(server, remote))
-            ? await browser.attachment()
-            : undefined;
+        const attachment = input.mcpServers.some((server) =>
+          mcpServerNeedsBrowserAttachment(server, remote),
+        )
+          ? await browser.attachment()
+          : undefined;
 
         const configs = this.options.toMcpServerConfigs(input.mcpServers, attachment);
 
@@ -351,8 +350,6 @@ export class OttoSessionResources {
         }
       }
 
-      if (input.botSandbox === "tenki") this.tenkiThreads.add(key);
-
       return {
         workspace:
           userComputerWorkspaceLease?.workspace.workspace ?? workspaceLease.workspace.workspace,
@@ -360,10 +357,7 @@ export class OttoSessionResources {
       };
     } catch (cause) {
       await this.releaseOnce(key, {
-        destroy:
-          input.botSandbox !== "railway" &&
-          input.botSandbox !== "tenki" &&
-          input.botSandbox !== "ascii",
+        destroy: input.botSandbox !== "railway" && input.botSandbox !== "boat",
       }).catch(() => undefined);
       throw cause;
     }
@@ -373,7 +367,7 @@ export class OttoSessionResources {
     const browserTools = this.browsers.threadBrowsers.get(threadId)?.tools;
 
     const tools: ToolsInput = {
-      ...(!this.tenkiThreads.has(threadId) ? browserTools : undefined),
+      ...browserTools,
       ...this.mcpManagers.get(threadId)?.getTools(),
     };
 
@@ -448,7 +442,6 @@ export class OttoSessionResources {
     const failures: unknown[] = [];
     const manager = this.mcpManagers.get(threadId);
     this.mcpManagers.delete(threadId);
-    this.tenkiThreads.delete(threadId);
 
     if (manager) await manager.disconnect().catch((cause) => failures.push(cause));
     const computerUseTemporaryDirectory = this.computerUseTemporaryDirectories.get(threadId);

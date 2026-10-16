@@ -6,7 +6,6 @@ import * as NodePath from "node:path";
 import { McpServerId } from "@otto/contracts";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 import { OttoSessionResources } from "./otto-session-resources.ts";
-import { createBotBrowserTools } from "./bot-browser.ts";
 import { CODEX_COMPUTER_USE_SERVER_ID } from "./codex-computer-use.ts";
 import { createBotBrowser } from "./bot-browser.ts";
 import {
@@ -42,7 +41,7 @@ describe("OttoSessionResources", () => {
     directories.clear();
   });
 
-  it.each(["local", "vercel", "e2b", "daytona", "upstash", "railway", "tenki"] as const)(
+  it.each(["local", "vercel", "e2b", "daytona", "railway", "boat"] as const)(
     "acquires only usable connector browser attachments in %s workspaces",
     async (botSandbox) => {
       for (const transport of ["stdio", "url"] as const) {
@@ -79,7 +78,6 @@ describe("OttoSessionResources", () => {
 
           try {
             const requiresBrowser =
-              botSandbox !== "tenki" &&
               (id === "builtin-executor" || id === "builtin-tinyfish") &&
               (transport === "stdio" || botSandbox !== "local");
 
@@ -152,43 +150,8 @@ describe("OttoSessionResources", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it("does not advertise browser tools for Tenki while retaining MCP tools", async () => {
-    const resources = new OttoSessionResources({
-      io: workspaceIO,
-      stateDir: stateDir(),
-      makeRemoteWorkspace: async () => workspace(),
-      makeBotBrowser: () => ({
-        ...browser(),
-        tools: createBotBrowserTools({
-          call: async () => "",
-          attachment: async () => undefined,
-          reconnect: async () => undefined,
-          close: async () => undefined,
-        }),
-      }),
-      makeMcpManager: () =>
-        mcpManager({ connected: true, toolCount: 1 }, { exa_search: {}, other_tool: {} }) as never,
-      toMcpServerConfigs: () => ({}),
-    });
-
-    try {
-      await resources.acquire({
-        ...remoteInput,
-        botSandbox: "tenki",
-        threadId: "tenki-tools",
-        mcpServers: [exaServer],
-      });
-      expect(resources.getConnectorTools("tenki-tools")).toEqual({
-        exa_search: {},
-        other_tool: {},
-      });
-    } finally {
-      await resources.shutdown();
-    }
-  });
-
-  it("preserves the Tenki workspace when MCP initialization fails", async () => {
-    const remote: OttoBotWorkspace = { ...localBotWorkspace(workspace()), provider: "tenki" };
+  it("preserves the Boat workspace when MCP initialization fails", async () => {
+    const remote: OttoBotWorkspace = { ...localBotWorkspace(workspace()), provider: "boat" };
     const destroy = vi.spyOn(remote, "destroy");
     const sleep = vi.spyOn(remote, "sleep");
     const manager = mcpManager({ connected: true, toolCount: 1 });
@@ -205,8 +168,8 @@ describe("OttoSessionResources", () => {
     await expect(
       resources.acquire({
         ...remoteInput,
-        botSandbox: "tenki",
-        threadId: "tenki-init-failure",
+        botSandbox: "boat",
+        threadId: "boat-init-failure",
         mcpServers: [exaServer],
       }),
     ).rejects.toThrow("connector failed");
@@ -216,47 +179,8 @@ describe("OttoSessionResources", () => {
 
     const recovered = await resources.acquire({
       ...remoteInput,
-      botSandbox: "tenki",
-      threadId: "tenki-init-failure",
-      mcpServers: [exaServer],
-    });
-
-    expect(recovered.botWorkspace).toBe(remote.workspace);
-    await resources.shutdown();
-    expect(destroy).not.toHaveBeenCalled();
-  });
-
-  it("preserves the Ascii workspace when MCP initialization fails", async () => {
-    const remote: OttoBotWorkspace = { ...localBotWorkspace(workspace()), provider: "ascii" };
-    const destroy = vi.spyOn(remote, "destroy");
-    const sleep = vi.spyOn(remote, "sleep");
-    const manager = mcpManager({ connected: true, toolCount: 1 });
-    manager.init.mockRejectedValueOnce(new Error("connector failed"));
-
-    const resources = new OttoSessionResources({
-      io: workspaceIO,
-      stateDir: stateDir(),
-      makeRemoteWorkspace: async () => remote,
-      makeMcpManager: () => manager as never,
-      toMcpServerConfigs: () => ({}),
-    });
-
-    await expect(
-      resources.acquire({
-        ...remoteInput,
-        botSandbox: "ascii",
-        threadId: "ascii-init-failure",
-        mcpServers: [exaServer],
-      }),
-    ).rejects.toThrow("connector failed");
-    expect(destroy).not.toHaveBeenCalled();
-    expect(sleep).toHaveBeenCalledOnce();
-    expect(manager.disconnect).toHaveBeenCalledOnce();
-
-    const recovered = await resources.acquire({
-      ...remoteInput,
-      botSandbox: "ascii",
-      threadId: "ascii-init-failure",
+      botSandbox: "boat",
+      threadId: "boat-init-failure",
       mcpServers: [exaServer],
     });
 

@@ -46,9 +46,9 @@ describe("BotWorkspaceIO", () => {
 
     try {
       await expect(readIdentity(workspaceIO, file)).resolves.toBeUndefined();
-      await writeIdentity(workspaceIO, file, { provider: "ascii", providerId: "box-1" });
+      await writeIdentity(workspaceIO, file, { provider: "boat", providerId: "box-1" });
       await expect(readIdentity(workspaceIO, file)).resolves.toEqual({
-        provider: "ascii",
+        provider: "boat",
         providerId: "box-1",
       });
       expect((await NodeFSP.stat(NodePath.dirname(file))).mode & 0o777).toBe(0o700);
@@ -65,7 +65,7 @@ describe("BotWorkspaceIO", () => {
   it("rejects malformed persisted identities", async () => {
     await expect(
       readIdentity(
-        { ...workspaceIO, readIdentity: async () => '{"provider":"ascii","providerId":""}' },
+        { ...workspaceIO, readIdentity: async () => '{"provider":"boat","providerId":""}' },
         "identity.json",
       ),
     ).rejects.toThrow("is invalid");

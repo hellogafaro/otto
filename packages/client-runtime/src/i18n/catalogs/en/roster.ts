@@ -1,6 +1,4 @@
 export const rosterCatalog = {
-  "Run bots in a persistent Linux VM. Public previews are enabled by default.":
-    "Run bots in a persistent Linux VM. Public previews are enabled by default.",
   "Add project starts in": "Add project starts in",
   "All projects": "All projects",
   "Bot browser access": "Bot browser access",

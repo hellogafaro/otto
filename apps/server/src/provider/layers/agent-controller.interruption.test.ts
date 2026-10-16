@@ -561,10 +561,9 @@ describe("AgentControllerLive", () => {
           modelSelection: codexSelection,
           runtimeMode: "full-access" as const,
           botId: "bot-one" as never,
-          botSandboxBrowserSharing: "separate" as const,
         };
 
-        yield* controller.startSession(codexThreadId, { ...input, botSandbox: "upstash" });
+        yield* controller.startSession(codexThreadId, { ...input, botSandbox: "e2b" });
         yield* controller.startSession(codexThreadId, { ...input, botSandbox: "vercel" });
         expect(firstDestroy).toHaveBeenCalledOnce();
       }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);

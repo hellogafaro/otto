@@ -335,14 +335,6 @@ export const connectionsCatalog = {
   "Not connected": "Not connected",
   "OAuth connected": "OAuth connected",
   "Computer > Local execution": "Computer > Local execution",
-  "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.":
-    "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.",
-  "Stored by the environment server. Add a key before enabling Browserbase.":
-    "Stored by the environment server. Add a key before enabling Browserbase.",
-  "Bots can open pages and inspect them in a sandboxed preview. Browserbase is only needed for hosted sessions.":
-    "Bots can open pages and inspect them in a sandboxed preview. Browserbase is only needed for hosted sessions.",
-  "Use Browserbase when a remote browser is needed.":
-    "Use Browserbase when a remote browser is needed.",
   "Allow calls through ChatGPT Realtime. Microphone audio and call data leave this environment during a call.":
     "Allow calls through ChatGPT Realtime. Microphone audio and call data leave this environment during a call.",
   "Other connections": "Other connections",
@@ -373,14 +365,12 @@ export const connectionsCatalog = {
   "Browser viewport": "Browser viewport",
   "Cloud workspaces managed by E2B. Requires an API key.":
     "Cloud workspaces managed by E2B. Requires an API key.",
+  "Persistent Linux VMs managed by Boat. Requires an API key.":
+    "Persistent Linux VMs managed by Boat. Requires an API key.",
   "Cloud workspaces managed by Daytona. Requires an API key.":
     "Cloud workspaces managed by Daytona. Requires an API key.",
   "Cloud workspaces in your Vercel team and project.":
     "Cloud workspaces in your Vercel team and project.",
-  "Cloud workspaces managed by Upstash Box. Requires an API key.":
-    "Cloud workspaces managed by Upstash Box. Requires an API key.",
-  "Cloud workspaces managed by Tenki. Requires an API key.":
-    "Cloud workspaces managed by Tenki. Requires an API key.",
   "Network access": "Network access",
   "No models available. Check your provider connection in Settings.":
     "No models available. Check your provider connection in Settings.",
@@ -631,17 +621,4 @@ export const connectionsCatalog = {
   "Default sandbox couldn't be saved": "Default sandbox couldn't be saved",
   "Bots can use the in-app browser for research and previews.":
     "Bots can use the in-app browser for research and previews.",
-  "Hosted browser sessions for bots": "Hosted browser sessions for bots",
-  "Use Browserbase": "Use Browserbase",
-  "One per bot": "One per bot",
-  "Shared by all": "Shared by all",
-  "Bot computers": "Bot computers",
-  "bot computers": "bot computers",
-  "One per bot gives each bot its own files and browser logins. Shared by all lets every bot use the same ones.":
-    "One per bot gives each bot its own files and browser logins. Shared by all lets every bot use the same ones.",
-  "Change bot computers?": "Change bot computers?",
-  "Bots finish what they are doing first. From their next turn, every bot uses one shared computer. Files and browser logins on their own computers do not move.":
-    "Bots finish what they are doing first. From their next turn, every bot uses one shared computer. Files and browser logins on their own computers do not move.",
-  "Bots finish what they are doing first. From their next turn, each bot gets its own computer with its own files and browser logins. The shared computer's files stay where they are.":
-    "Bots finish what they are doing first. From their next turn, each bot gets its own computer with its own files and browser logins. The shared computer's files stay where they are.",
 } as const;

@@ -336,11 +336,8 @@ const make = Effect.gen(function* () {
       Stream.map(resolveTextGenerationProvider),
     );
 
-  const {
-    persistProviderEnvironmentSecrets,
-    persistSandboxEnvironmentSecrets,
-    persistBrowserProviderSecret,
-  } = createSettingsSecretWrites(secretStore, settingsPath);
+  const { persistProviderEnvironmentSecrets, persistSandboxEnvironmentSecrets } =
+    createSettingsSecretWrites(secretStore, settingsPath);
 
   const writeSettingsAtomically = Effect.fnUntraced(
     function* (settings: ServerSettings) {
@@ -473,8 +470,7 @@ const make = Effect.gen(function* () {
               sandbox: sandboxMaterialized.sandbox,
             });
 
-            const browserSecretPersisted = yield* persistBrowserProviderSecret(nextPersisted);
-            const normalized = yield* normalizeServerSettings(browserSecretPersisted);
+            const normalized = yield* normalizeServerSettings(nextPersisted);
             yield* writeSettingsAtomically(normalized);
 
             return normalized;

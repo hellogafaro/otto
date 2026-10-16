@@ -1,5 +1,7 @@
-import { credential, commandLine } from "../bot-workspace-lifecycle.ts";
+import type { RailwaySandbox } from "@mastra/railway";
+import { credential } from "../bot-workspace-lifecycle.ts";
 import { type OttoRemoteSession, type OttoWorkspaceState } from "../bot-workspace-types.ts";
+import { mastraSession } from "./mastra.ts";
 
 export function railwayCredentials(environment: Readonly<Record<string, string>>) {
   return {
@@ -8,32 +10,28 @@ export function railwayCredentials(environment: Readonly<Record<string, string>>
   };
 }
 
-export function railway(sandbox: import("railway").Sandbox): OttoRemoteSession {
+export function railway(
+  sandbox: RailwaySandbox,
+  credentials: ReturnType<typeof railwayCredentials>,
+): OttoRemoteSession {
+  const providerId = sandbox.sandboxId;
+
+  if (!providerId) throw new Error(`Railway workspace '${sandbox.id}' is not started.`);
+
   const inspect = async (): Promise<OttoWorkspaceState> => {
-    const { SandboxNotFoundError } = await import("railway");
+    const { Sandbox, SandboxNotFoundError } = await import("railway");
 
     try {
-      await sandbox.refresh();
+      return railwayWorkspaceState((await Sandbox.connect(providerId, credentials)).status);
     } catch (cause) {
       if (cause instanceof SandboxNotFoundError) return "missing";
       throw cause;
     }
-
-    return railwayWorkspaceState(sandbox.status);
   };
 
-  return {
-    providerId: sandbox.id,
+  return mastraSession(sandbox, {
+    providerId,
     inspect,
-    run: async (command, args, options) => {
-      const result = await sandbox.exec(commandLine(command, args), {
-        ...(options?.cwd ? { cwd: options.cwd } : {}),
-        ...(options?.env ? { env: options.env } : {}),
-        ...(options?.timeout ? { timeoutSec: Math.ceil(options.timeout / 1000) } : {}),
-      });
-
-      return { exitCode: result.exitCode ?? 1, stdout: result.stdout, stderr: result.stderr };
-    },
     browserEndpoint: async () => {
       throw new Error(
         "Railway previews require a Railway CLI tunnel. Automatic bot browser routing is not supported; private VM addresses are not browser endpoints.",
@@ -41,12 +39,11 @@ export function railway(sandbox: import("railway").Sandbox): OttoRemoteSession {
     },
     wake: async () => {
       if ((await inspect()) !== "running")
-        throw new Error(`Railway workspace '${sandbox.id}' is not running.`);
+        throw new Error(`Railway workspace '${providerId}' is not running.`);
     },
-    // Railway has no pause/resume API; idle preserves the durable VM and its identity.
+    // Railway has no pause; Mastra's stop deletes the VM, so idle keeps it running.
     sleep: async () => undefined,
-    destroy: () => sandbox.destroy(),
-  };
+  });
 }
 
 export function railwayWorkspaceState(status: import("railway").SandboxStatus): OttoWorkspaceState {

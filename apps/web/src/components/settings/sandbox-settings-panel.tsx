@@ -16,24 +16,23 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
   DialogPopup,
   DialogTitle,
 } from "../ui/dialog";
-import { Input } from "../ui/input";
 import { MenuItem } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { CredentialsDialog } from "./api-key-dialog";
 import { SettingsMessageRow } from "./settings-detail-layout";
 import { SettingsRow, SettingsSection } from "./settings-layout";
 import { searchableSetting } from "./settings-search";
 import {
-  canSaveSandboxProviderConnection,
   applyRailwayConnectionChange,
   type RailwayConnectionChange,
   type CloudSandboxProvider,
   disconnectSandboxProvider,
   isSandboxProviderConnected,
   SANDBOX_PROVIDER_DEFINITIONS,
-  sandboxConnectionDraft,
   sandboxProviderDefinition,
   saveSandboxProviderConnection,
   selectableSandboxProviders,
@@ -46,10 +45,8 @@ const SANDBOX_PROVIDER_LABELS: Readonly<Record<SandboxProvider, string>> = {
   e2b: "E2B",
   daytona: "Daytona",
   vercel: "Vercel Sandbox",
-  upstash: "Upstash Box",
-  ascii: "Ascii Box",
   railway: "Railway",
-  tenki: "Tenki",
+  boat: "Boat",
 };
 
 function errorMessage(
@@ -90,19 +87,16 @@ function EnvironmentSandboxSettingsPanel({
   const sandbox = useEnvironmentSettings(environmentId, (settings) => settings.sandbox);
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
   const [editingProvider, setEditingProvider] = useState<CloudSandboxProvider | null>(null);
-  const [draft, setDraft] = useState<Readonly<Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [railwayChange, setRailwayChange] = useState<RailwayConnectionChange | null>(null);
 
   const persist = async (next: SandboxSettings) => {
     setSaving(true);
-    setError(null);
     const result = await updateSettings({ environmentId, input: { patch: { sandbox: next } } });
     setSaving(false);
 
     if (Predicate.isTagged(result, "Failure")) {
-      setError(errorMessage(result, t("The server rejected these sandbox settings.")));
+      toast.error(errorMessage(result, t("The server rejected these sandbox settings.")));
 
       return false;
     }
@@ -110,40 +104,22 @@ function EnvironmentSandboxSettingsPanel({
     return true;
   };
 
-  const openConnection = (provider: CloudSandboxProvider) => {
-    setEditingProvider(provider);
-    setDraft(sandboxConnectionDraft(sandbox, provider));
-    setError(null);
-  };
+  const saveConnection = async (
+    provider: CloudSandboxProvider,
+    draft: Readonly<Record<string, string>>,
+  ) => {
+    if (provider === "railway" && isSandboxProviderConnected(sandbox, "railway")) {
+      setRailwayChange({ kind: "save", draft });
 
-  const closeConnection = () => {
-    if (saving) return;
-    setEditingProvider(null);
-    setDraft({});
-    setError(null);
-  };
-
-  const saveConnection = async () => {
-    if (editingProvider === null) return;
-
-    const next = saveSandboxProviderConnection({
-      settings: sandbox,
-      provider: editingProvider,
-      draft,
-    });
-
-    if (editingProvider === "railway" && isSandboxProviderConnected(sandbox, "railway")) {
-      setRailwayChange({ kind: "save", draft: { ...draft } });
-
-      return;
+      return true;
     }
 
-    if (!(await persist(next))) return;
+    if (!(await persist(saveSandboxProviderConnection({ settings: sandbox, provider, draft }))))
+      return false;
 
-    toast.success(
-      t("{name} has been connected", { name: SANDBOX_PROVIDER_LABELS[editingProvider] }),
-    );
-    closeConnection();
+    toast.success(t("{name} has been connected", { name: SANDBOX_PROVIDER_LABELS[provider] }));
+
+    return true;
   };
 
   const remove = async (provider: CloudSandboxProvider) => {
@@ -171,12 +147,11 @@ function EnvironmentSandboxSettingsPanel({
 
   const editingDefinition = editingProvider ? sandboxProviderDefinition(editingProvider) : null;
 
+  const editingConnected =
+    editingDefinition !== null && isSandboxProviderConnected(sandbox, editingDefinition.id);
+
   const providerLabel = (provider: SandboxProvider) =>
     provider === "local" ? t("Local") : SANDBOX_PROVIDER_LABELS[provider];
-
-  const canSave =
-    editingProvider !== null &&
-    canSaveSandboxProviderConnection({ settings: sandbox, provider: editingProvider, draft });
 
   return (
     <>
@@ -196,7 +171,7 @@ function EnvironmentSandboxSettingsPanel({
                     <MenuItem
                       key={definition.id}
                       disabled={saving}
-                      onClick={() => openConnection(definition.id)}
+                      onClick={() => setEditingProvider(definition.id)}
                     >
                       <Icon aria-hidden />
                       {definition.label}
@@ -240,7 +215,7 @@ function EnvironmentSandboxSettingsPanel({
                 variant="outline"
                 disabled={saving}
                 aria-label={t("Edit {name}", { name: definition.label })}
-                onClick={() => openConnection(definition.id)}
+                onClick={() => setEditingProvider(definition.id)}
               >
                 {t("Edit")}
               </Button>
@@ -286,64 +261,37 @@ function EnvironmentSandboxSettingsPanel({
         )}
       </SettingsSection>
 
-      <Dialog
-        open={editingProvider !== null && railwayChange === null}
-        onOpenChange={(open) => !open && closeConnection()}
-      >
-        <DialogPopup>
-          <DialogHeader>
-            <DialogTitle>
-              {editingDefinition
-                ? isSandboxProviderConnected(sandbox, editingDefinition.id)
-                  ? t("Edit {name}", { name: editingDefinition.label })
-                  : t("Connect {name}", { name: editingDefinition.label })
-                : t("Connect sandbox")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("The server stores these credentials in its secret store.")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            {editingDefinition?.fields.map((field) => (
-              <label key={field.name} className="grid gap-1.5 text-sm font-medium">
-                {t(field.label)}
-                <Input
-                  type={field.secret ? "password" : undefined}
-                  autoComplete="off"
-                  value={draft[field.name] ?? ""}
-                  placeholder={field.secret ? t("Leave blank to keep the saved value") : undefined}
-                  onChange={(event) => {
-                    const value = event.currentTarget.value;
-                    setDraft((current) => ({ ...current, [field.name]: value }));
-                  }}
-                />
-              </label>
-            ))}
-            {error ? (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" disabled={saving} onClick={closeConnection}>
-              {t("Cancel")}
-            </Button>
-            <Button disabled={!canSave || saving} onClick={() => void saveConnection()}>
-              {saving
-                ? t("Saving…")
-                : editingDefinition && isSandboxProviderConnected(sandbox, editingDefinition.id)
-                  ? t("Save changes")
-                  : t("Connect")}
-            </Button>
-          </DialogFooter>
-        </DialogPopup>
-      </Dialog>
+      {editingDefinition ? (
+        <CredentialsDialog
+          title={
+            editingConnected
+              ? t("Edit {name}", { name: editingDefinition.label })
+              : t("Connect {name}", { name: editingDefinition.label })
+          }
+          description={t("The server stores these credentials in its secret store.")}
+          fields={editingDefinition.fields.map((field) => {
+            const saved = sandbox.providers[editingDefinition.id].environment.find(
+              (variable) => variable.name === field.name,
+            );
+
+            return {
+              name: field.name,
+              label: t(field.label),
+              secret: field.secret,
+              saved: field.secret && saved?.valueRedacted === true,
+              value: field.secret ? "" : (saved?.value ?? ""),
+            };
+          })}
+          submitLabel={editingConnected ? t("Save changes") : t("Connect")}
+          onSave={(draft) => saveConnection(editingDefinition.id, draft)}
+          onClose={() => setEditingProvider(null)}
+        />
+      ) : null}
       <Dialog
         open={railwayChange !== null}
         onOpenChange={(open) => !open && !saving && setRailwayChange(null)}
       >
-        <DialogPopup>
+        <DialogPopup className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("Retire Railway VMs before changing access")}</DialogTitle>
             <DialogDescription>
@@ -352,21 +300,18 @@ function EnvironmentSandboxSettingsPanel({
               )}
             </DialogDescription>
           </DialogHeader>
-          <a
-            href="https://railway.com/dashboard"
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm underline"
-          >
-            {t("Open Railway dashboard")}
-          </a>
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
+          <DialogPanel>
+            <a
+              href="https://railway.com/dashboard"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm underline"
+            >
+              {t("Open Railway dashboard")}
+            </a>
+          </DialogPanel>
           <DialogFooter>
-            <Button variant="outline" disabled={saving} onClick={() => setRailwayChange(null)}>
+            <Button variant="ghost" disabled={saving} onClick={() => setRailwayChange(null)}>
               {t("Cancel")}
             </Button>
             <Button
@@ -377,7 +322,6 @@ function EnvironmentSandboxSettingsPanel({
                   (await persist(applyRailwayConnectionChange(sandbox, railwayChange)))
                 ) {
                   setRailwayChange(null);
-                  closeConnection();
                 }
               }}
             >

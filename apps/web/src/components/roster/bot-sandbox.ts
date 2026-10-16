@@ -15,10 +15,8 @@ export const BOT_SANDBOX_OPTIONS = [
   { value: "e2b", label: "E2B" },
   { value: "daytona", label: "Daytona" },
   { value: "vercel", label: "Vercel Sandbox" },
-  { value: "upstash", label: "Upstash Box" },
-  { value: "ascii", label: "Ascii Box" },
   { value: "railway", label: "Railway" },
-  { value: "tenki", label: "Tenki" },
+  { value: "boat", label: "Boat" },
 ] as const;
 
 export type BotSandboxChoice = (typeof BOT_SANDBOX_OPTIONS)[number]["value"] | "default";

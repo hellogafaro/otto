@@ -25,7 +25,6 @@ describe("ProviderCommandReactor", () => {
     const harness = await createHarness({
       botEngine: { provider: "codex", model: "gpt-5-codex" },
       secondBot: { engine: { provider: "codex", model: "gpt-5-codex" } },
-      botSandboxBrowserSharing: "shared",
     });
 
     const now = "2026-01-01T00:00:00.000Z";

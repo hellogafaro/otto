@@ -305,14 +305,11 @@ export function createProviderCommandHarness() {
         }),
       ),
       Layer.provideMerge(
-        ServerSettingsService.layerTest({
-          ...(input?.enableAgentBrowserAccess === undefined
+        ServerSettingsService.layerTest(
+          input?.enableAgentBrowserAccess === undefined
             ? {}
-            : { enableAgentBrowserAccess: input.enableAgentBrowserAccess }),
-          ...(input?.botSandboxBrowserSharing === undefined
-            ? {}
-            : { botSandboxBrowserSharing: input.botSandboxBrowserSharing }),
-        }),
+            : { enableAgentBrowserAccess: input.enableAgentBrowserAccess },
+        ),
       ),
       Layer.provideMerge(ServerConfig.layerTest(process.cwd(), baseDir)),
       Layer.provideMerge(NodeServices.layer),

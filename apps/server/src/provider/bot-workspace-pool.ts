@@ -2,7 +2,7 @@ import * as Match from "effect/Match";
 import * as NodeCrypto from "node:crypto";
 
 import { Workspace } from "@mastra/core/workspace";
-import type { BotId, BotSandbox, BotSandboxBrowserSharing } from "@otto/contracts";
+import type { BotId, BotSandbox } from "@otto/contracts";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -12,13 +12,11 @@ import * as Schema from "effect/Schema";
 import { Duration } from "effect";
 import type { OttoBotWorkspace } from "./bot-workspace.ts";
 
+/** Every bot gets its own computer; a thread without a bot gets its own. */
 export function botRuntimeResourceScope(input: {
-  readonly sharing: BotSandboxBrowserSharing;
   readonly botId?: BotId;
   readonly threadId: string;
 }): string {
-  if (input.sharing === "shared") return "shared";
-
   return input.botId ? `bot-${input.botId}` : `thread-${input.threadId}`;
 }
 
@@ -161,7 +159,7 @@ export class BotWorkspacePool {
               Match.when("local", () =>
                 Effect.promise(() => workspace.destroy().catch(() => undefined)),
               ),
-              Match.when("ascii", () => Effect.void),
+              Match.when("boat", () => Effect.void),
               Match.orElse(() =>
                 Effect.sync(() => {
                   this.sleepers.set(key, workspace);
@@ -225,7 +223,7 @@ export class BotWorkspacePool {
           Match.when("local", () =>
             Effect.promise(() => workspace.destroy().catch(() => undefined)),
           ),
-          Match.when("ascii", () => Effect.void),
+          Match.when("boat", () => Effect.void),
           Match.orElse(() =>
             Effect.sync(() => {
               this.sleepers.set(key, workspace);

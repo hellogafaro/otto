@@ -25,10 +25,8 @@ describe("botSandbox", () => {
       "e2b",
       "daytona",
       "vercel",
-      "upstash",
-      "ascii",
       "railway",
-      "tenki",
+      "boat",
     ]);
     expect(botSandboxLabel("vercel")).toBe("Vercel Sandbox");
   });

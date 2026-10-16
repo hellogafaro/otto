@@ -32,7 +32,7 @@ describe("BotWorkspacePool", () => {
 
     const remote = {
       id: local.id,
-      provider: "ascii" as const,
+      provider: "boat" as const,
       workspace: local,
       inspect: async () => "running" as const,
       wake: () => local.init(),
@@ -58,7 +58,7 @@ describe("BotWorkspacePool", () => {
 
     const remote = {
       id: local.id,
-      provider: "ascii" as const,
+      provider: "boat" as const,
       workspace: local,
       inspect: async () => "running" as const,
       wake: () => local.init(),
@@ -87,7 +87,7 @@ describe("BotWorkspacePool", () => {
 
     const create = vi.fn(async () => ({
       id: local.id,
-      provider: "ascii" as const,
+      provider: "boat" as const,
       workspace: local,
       inspect: async () => "running" as const,
       wake,

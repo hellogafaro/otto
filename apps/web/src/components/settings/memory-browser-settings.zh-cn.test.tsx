@@ -47,18 +47,7 @@ describe("memory and browser settings in Simplified Chinese", () => {
   it("translates Browser rows", () => {
     const html = renderInChinese(<BrowserSettingsSection />);
 
-    for (const label of [
-      zhCNCatalog["Bot browser access"]!,
-      zhCNCatalog["Hosted browser sessions for bots"]!,
-    ]) {
-      expect(html).toContain(label);
-    }
-
-    for (const label of ["Bot browser access", "Hosted browser sessions for bots", ">Connect<"]) {
-      expect(html).not.toContain(label);
-    }
-
-    // Brand names stay as written.
-    expect(html).toContain("Browserbase");
+    expect(html).toContain(zhCNCatalog["Bot browser access"]!);
+    expect(html).not.toContain("Bot browser access");
   });
 });
