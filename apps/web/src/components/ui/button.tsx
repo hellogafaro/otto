@@ -31,9 +31,6 @@ const buttonPresentations = {
   "model-favorite-toggle-on":
     "text-muted-foreground/70 opacity-64 transition-color-opacity hover:text-foreground hover:opacity-100 group-hover:opacity-100 text-foreground opacity-100",
   "muted-dismiss": "text-muted-foreground hover:text-foreground",
-  // Otto: A secondary text action under a form, such as Forgot password.
-  "quiet-link":
-    "h-auto self-start border-0 px-0 text-13px font-normal text-muted-foreground hover:text-foreground sm:text-13px",
   "markdown-chrome": "chat-markdown-chrome-action",
   "reveal-on-hover":
     "opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100",

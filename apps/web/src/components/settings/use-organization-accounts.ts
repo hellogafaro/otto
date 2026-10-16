@@ -47,6 +47,7 @@ export function useOrganizationAccounts() {
   }, [baseURL, token]);
 
   return {
+    baseURL,
     client,
     state: loaded?.baseURL === baseURL ? (loaded?.state ?? null) : null,
     error,

@@ -313,6 +313,53 @@ describe("setup code and email sign-in", () => {
     expect((await request("/sign-in/email", { email: owner.email, password })).status).toBe(200);
   });
 
+  it("sets up without mail or a setup code and lets an invite link stand in for the email", async () => {
+    const { runtime, request, emails } = await fixture({ mailConfigured: false });
+    expect(await runtime.setup(owner)).toMatchObject({ verificationRequired: false });
+
+    const signIn = async (email: string) => {
+      const response = await request("/sign-in/email", { email, password });
+      expect(response.status).toBe(200);
+
+      return ((await response.json()) as { token: string }).token;
+    };
+
+    const admin = await signIn(owner.email);
+
+    const invitation = await request(
+      "/organization/invite-member",
+      {
+        email: "member@example.test",
+        role: "member",
+        organizationId: runtime.getOrganization()!.id,
+      },
+      admin,
+    );
+
+    expect(invitation.status).toBe(200);
+    const { id } = (await invitation.json()) as { id: string };
+
+    const registered = await request("/sign-up/email", {
+      email: "member@example.test",
+      password,
+      firstName: "Mina",
+      lastName: "Member",
+      name: "Mina Member",
+      invitationId: id,
+    });
+
+    expect(registered.status).toBe(200);
+    const member = await signIn("member@example.test");
+    expect(
+      (await request("/organization/accept-invitation", { invitationId: id }, member)).status,
+    ).toBe(200);
+
+    expect(
+      await runtime.authenticate(new Headers({ authorization: `Bearer ${member}` })),
+    ).toMatchObject({ email: "member@example.test", role: "member" });
+    expect(emails).toEqual([]);
+  });
+
   it("refuses setup in a container without a setup token", async () => {
     const { runtime } = await fixture({ requireSetupToken: true });
     await expect(runtime.setup(owner)).rejects.toThrow("OTTO_SETUP_TOKEN");

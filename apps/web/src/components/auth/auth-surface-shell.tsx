@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "~/lib/utils";
+import { Button } from "../ui/button";
 
 export function AuthSurfaceShell({
   children,
@@ -29,6 +30,13 @@ export function AuthSurfaceShell({
       </main>
     </div>
   );
+}
+
+/** Otto: Every secondary action on an auth screen is a full-width ghost button under the primary one. */
+export function AuthSecondaryButton(
+  props: Omit<ComponentProps<typeof Button>, "variant" | "type">,
+) {
+  return <Button type="button" variant="ghost" {...props} />;
 }
 
 export function AuthSurfaceSection({

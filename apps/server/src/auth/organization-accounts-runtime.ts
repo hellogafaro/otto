@@ -128,9 +128,18 @@ export async function createOrganizationAccountsRuntime(options: {
     },
     account: { modelName: "accounts" },
     verification: { modelName: "verifications" },
+    // Otto: without mail nobody can confirm an address; the invite link the admin shared is the proof.
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user) =>
+            options.mailConfigured ? undefined : { data: { ...user, emailVerified: true } },
+        },
+      },
+    },
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
+      requireEmailVerification: options.mailConfigured,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         requireMail();
@@ -142,8 +151,8 @@ export async function createOrganizationAccountsRuntime(options: {
       },
     },
     emailVerification: {
-      sendOnSignUp: true,
-      sendOnSignIn: true,
+      sendOnSignUp: options.mailConfigured,
+      sendOnSignIn: options.mailConfigured,
       sendVerificationEmail: async ({ user, url }) => {
         requireMail();
         await options.sendEmail({
@@ -185,14 +194,14 @@ export async function createOrganizationAccountsRuntime(options: {
         creatorRole: "admin",
         roles: { admin: adminAc, member: memberAc },
         disableOrganizationDeletion: true,
-        requireEmailVerificationOnInvitation: true,
+        requireEmailVerificationOnInvitation: options.mailConfigured,
         schema: {
           organization: { modelName: "organizations" },
           member: { modelName: "members" },
           invitation: { modelName: "invitations" },
         },
         sendInvitationEmail: async ({ id, email, organization }) => {
-          requireMail();
+          if (!options.mailConfigured) return;
           const url = new URL(`/invite/${encodeURIComponent(id)}`, origin);
           await options.sendEmail({
             to: email,
@@ -202,8 +211,6 @@ export async function createOrganizationAccountsRuntime(options: {
         },
         organizationHooks: {
           beforeCreateInvitation: async ({ invitation }) => {
-            requireMail();
-
             if (invitation.role !== "admin" && invitation.role !== "member") {
               throw new APIError("BAD_REQUEST", { message: "Choose admin or member." });
             }
@@ -319,23 +326,21 @@ export async function createOrganizationAccountsRuntime(options: {
       throw new APIError("CONFLICT", { message: "This organization is already set up. Sign in." });
     }
 
-    const verified = options.setupToken !== undefined;
-
-    if (verified && !setupCodeMatches(input.setupCode)) {
+    if (options.setupToken !== undefined && !setupCodeMatches(input.setupCode)) {
       throw new APIError("FORBIDDEN", {
         code: "INVALID_SETUP_CODE",
         message: "That setup code is not right.",
       });
     }
 
-    if (!verified && options.requireSetupToken) {
+    if (options.setupToken === undefined && options.requireSetupToken) {
       throw new APIError("SERVICE_UNAVAILABLE", {
         code: "SETUP_TOKEN_NOT_CONFIGURED",
         message: "Set OTTO_SETUP_TOKEN on the server before setting up the organization.",
       });
     }
 
-    if (!verified) requireMail();
+    const verified = options.setupToken !== undefined || !options.mailConfigured;
     const context = await auth.$context;
 
     await runWithTransaction(context.adapter, async () => {
@@ -409,7 +414,6 @@ export async function createOrganizationAccountsRuntime(options: {
     const path = new URL(request.url).pathname.slice("/api/accounts".length);
 
     if (path === "/sign-up/email") {
-      requireMail();
       const body = (await request.clone().json()) as Record<string, unknown>;
       const email = z.email().safeParse(body.email);
 

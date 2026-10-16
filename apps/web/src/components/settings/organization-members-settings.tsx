@@ -32,6 +32,7 @@ import {
 import { matchesMemberSearch, splitPersonName } from "./organization-members.logic";
 import { SettingsPageContainer, SettingsPageSkeleton } from "./settings-layout";
 import { useOrganizationAccounts } from "./use-organization-accounts";
+import { useCopyToClipboard } from "~/hooks/use-copy-to-clipboard";
 
 type AccountsClient = ReturnType<typeof createOrganizationAccountsClient>;
 
@@ -114,7 +115,7 @@ function memberColumns(currentUserId: string | undefined): DataTableColumn<Membe
 }
 
 export function OrganizationMembersSettings() {
-  const { client, state, error: loadError } = useOrganizationAccounts();
+  const { baseURL, client, state, error: loadError } = useOrganizationAccounts();
   const [members, setMembers] = useState<readonly Member[]>([]);
   const [invitations, setInvitations] = useState<readonly Invitation[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -122,6 +123,13 @@ export function OrganizationMembersSettings() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
+  // Otto: without server mail an invitation is a link the admin shares by hand.
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const { copyToClipboard, isCopied } = useCopyToClipboard();
+
+  const invitationLink = (id: string) =>
+    new URL(`/invite/${encodeURIComponent(id)}`, baseURL ?? window.location.origin).toString();
+
   const [removing, setRemoving] = useState<Member | null>(null);
   // Otto: open flags stay apart from what a dialog shows, so closing never empties it mid-fade.
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -266,6 +274,7 @@ export function OrganizationMembersSettings() {
               onClick={() => {
                 setEmail("");
                 setInviteError(null);
+                setInviteLink(null);
                 setInviteOpen(true);
               }}
             >
@@ -316,67 +325,96 @@ export function OrganizationMembersSettings() {
         <DialogPopup>
           <DialogHeader>
             <DialogTitle>Invite member</DialogTitle>
-            <DialogDescription>Invite one person to join {organization.name}.</DialogDescription>
+            <DialogDescription>
+              {inviteLink
+                ? `Share this link with ${email.trim()}. It lets them create their account and join.`
+                : `Invite one person to join ${organization.name}.`}
+            </DialogDescription>
           </DialogHeader>
           <DialogPanel>
-            <Form
-              id="invite-member"
-              onSubmit={async (event) => {
-                event.preventDefault();
-
-                if (pending) return;
-                setPending(true);
-                setInviteError(null);
-
-                try {
-                  const result = await client.organization.inviteMember({
-                    email: email.trim(),
-                    role: "member",
-                    organizationId: organization.id,
-                    resend: true,
-                  });
-
-                  if (result.error)
-                    throw new Error(result.error.message ?? "Could not invite this person.");
-                  await load();
-                  setInviteOpen(false);
-                  setEmail("");
-                } catch (cause) {
-                  setInviteError(
-                    cause instanceof Error ? cause.message : "Could not invite this person.",
-                  );
-                } finally {
-                  setPending(false);
-                }
-              }}
-            >
+            {inviteLink ? (
               <Field>
-                <FieldLabel htmlFor="invite-email">Email</FieldLabel>
+                <FieldLabel htmlFor="invite-link">Invite link</FieldLabel>
                 <Input
-                  id="invite-email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="teammate@example.com"
-                  autoComplete="email"
-                  required
-                  maxLength={254}
+                  id="invite-link"
+                  readOnly
+                  value={inviteLink}
+                  onFocus={(event) => event.target.select()}
                 />
               </Field>
-              {inviteError ? (
-                <Alert variant="error">
-                  <AlertDescription>{inviteError}</AlertDescription>
-                </Alert>
-              ) : null}
-            </Form>
+            ) : (
+              <Form
+                id="invite-member"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+
+                  if (pending) return;
+                  setPending(true);
+                  setInviteError(null);
+
+                  try {
+                    const result = await client.organization.inviteMember({
+                      email: email.trim(),
+                      role: "member",
+                      organizationId: organization.id,
+                      resend: true,
+                    });
+
+                    if (result.error)
+                      throw new Error(result.error.message ?? "Could not invite this person.");
+                    await load();
+
+                    if (!state.mailConfigured) {
+                      setInviteLink(invitationLink(result.data.id));
+
+                      return;
+                    }
+
+                    setInviteOpen(false);
+                    setEmail("");
+                  } catch (cause) {
+                    setInviteError(
+                      cause instanceof Error ? cause.message : "Could not invite this person.",
+                    );
+                  } finally {
+                    setPending(false);
+                  }
+                }}
+              >
+                <Field>
+                  <FieldLabel htmlFor="invite-email">Email</FieldLabel>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="teammate@example.com"
+                    autoComplete="email"
+                    required
+                    maxLength={254}
+                  />
+                </Field>
+                {inviteError ? (
+                  <Alert variant="error">
+                    <AlertDescription>{inviteError}</AlertDescription>
+                  </Alert>
+                ) : null}
+              </Form>
+            )}
           </DialogPanel>
           <DialogFooter>
             <Button variant="ghost" disabled={pending} onClick={() => setInviteOpen(false)}>
-              Cancel
+              {inviteLink ? "Done" : "Cancel"}
             </Button>
-            <Button type="submit" form="invite-member" disabled={pending || !state.mailConfigured}>
-              {pending ? <Spinner /> : null}Invite
-            </Button>
+            {inviteLink ? (
+              <Button onClick={() => copyToClipboard(inviteLink)}>
+                {isCopied ? "Copied" : "Copy link"}
+              </Button>
+            ) : (
+              <Button type="submit" form="invite-member" disabled={pending}>
+                {pending ? <Spinner /> : null}Invite
+              </Button>
+            )}
           </DialogFooter>
         </DialogPopup>
       </Dialog>
@@ -505,7 +543,12 @@ export function OrganizationMembersSettings() {
                 {pending ? <Spinner /> : null}Save
               </Button>
             ) : null}
-            {admin && selectedInvitation ? (
+            {admin && selectedInvitation && !state.mailConfigured ? (
+              <Button onClick={() => copyToClipboard(invitationLink(selectedInvitation.id))}>
+                {isCopied ? "Copied" : "Copy invite link"}
+              </Button>
+            ) : null}
+            {admin && selectedInvitation && state.mailConfigured ? (
               <Button
                 disabled={pending}
                 onClick={() =>
