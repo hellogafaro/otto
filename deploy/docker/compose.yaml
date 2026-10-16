@@ -1,39 +1,42 @@
+# One Otto container serving the app and API on port 3773, all state in the otto-data volume.
+# Optional HTTPS: OTTO_DOMAIN=otto.example.com docker compose --profile https up -d
 services:
-  tailscale:
-    image: tailscale/tailscale:v1.88.4
-    hostname: ${OTTO_HOSTNAME:-otto}
-    environment:
-      TS_STATE_DIR: /var/lib/tailscale
-      TS_SERVE_CONFIG: /config/serve.json
-      TS_AUTHKEY: ${TS_AUTHKEY:-}
-      TS_USERSPACE: "false"
-    volumes:
-      - tailscale-state:/var/lib/tailscale
-      - ./serve.json:/config/serve.json:ro
-    cap_add: [NET_ADMIN, NET_RAW]
-    devices: [/dev/net/tun:/dev/net/tun]
-    restart: unless-stopped
-
   otto:
-    image: ${OTTO_IMAGE:-otto-remote:local}
+    image: ${OTTO_IMAGE:-otto:local}
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
-    network_mode: service:tailscale
     environment:
-      OTTO_LEGACY_MODE: web
-      OTTO_LEGACY_HOST: 0.0.0.0
-      OTTO_LEGACY_PORT: 3773
-      OTTO_LEGACY_NO_BROWSER: "true"
-      OTTO_HOME: /data
+      OTTO_PUBLIC_ORIGIN: ${OTTO_PUBLIC_ORIGIN:?Set the https origin people open, e.g. https://otto.example.com}
+      OTTO_SECRETS_KEY: ${OTTO_SECRETS_KEY:?Set a key from openssl rand -base64 32}
+      OTTO_SETUP_TOKEN: ${OTTO_SETUP_TOKEN:?Set a one-time setup code, e.g. openssl rand -hex 16}
+      BOAT_API_KEY: ${BOAT_API_KEY:-}
+      OTTO_SMTP_HOST: ${OTTO_SMTP_HOST:-}
+      OTTO_SMTP_PORT: ${OTTO_SMTP_PORT:-587}
+      OTTO_SMTP_SECURE: ${OTTO_SMTP_SECURE:-false}
+      OTTO_SMTP_USER: ${OTTO_SMTP_USER:-}
+      OTTO_SMTP_PASSWORD: ${OTTO_SMTP_PASSWORD:-}
+      OTTO_MAIL_FROM: ${OTTO_MAIL_FROM:-}
+    ports:
+      - "${OTTO_HTTP_BIND:-127.0.0.1}:${OTTO_HTTP_PORT:-3773}:3773"
     volumes:
       - otto-data:/data
-      - ${OTTO_WORKSPACE:-$HOME}:/workspace
     restart: unless-stopped
-    depends_on: [tailscale]
+    stop_grace_period: 30s
+
+  caddy:
+    image: caddy:2.10
+    profiles: [https]
+    command: caddy reverse-proxy --from ${OTTO_DOMAIN:-localhost} --to otto:3773
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+    depends_on: [otto]
+    restart: unless-stopped
 
 volumes:
   otto-data:
     name: ${OTTO_DATA_VOLUME:-otto-data}
-  tailscale-state:
-    name: ${OTTO_TAILSCALE_VOLUME:-otto-tailscale-state}
+  caddy-data:

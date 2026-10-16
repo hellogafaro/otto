@@ -1,5 +1,11 @@
 #!/bin/sh
 set -eu
+# Platform volumes (Railway) arrive owned by root: take /data for the node user once, then drop
+# root so the server never runs with it.
+if [ "$(id -u)" = 0 ]; then
+  [ "$(stat -c %U /data)" = node ] || chown -R node:node /data
+  exec setpriv --reuid=node --regid=node --init-groups env HOME=/home/node "$0" "$@"
+fi
 # Otto state lives in OTTO_HOME. The server reads OTTO_LEGACY_HOME, so derive it here and never
 # inherit an ambient Otto Legacy home.
 OTTO_HOME="${OTTO_HOME:-$HOME/.otto}"

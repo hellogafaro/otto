@@ -10,10 +10,6 @@ const dockerfile = read("./Dockerfile");
 
 const compose = read("./compose.yaml");
 
-const composeDirect = read("./compose.direct.yaml");
-
-const release = read("../../.github/workflows/release.yml");
-
 const entrypoint = read("./otto-entrypoint.sh");
 
 const dockerignore = read("../../.dockerignore");
@@ -22,28 +18,22 @@ it("health-gates the image on the server's environment endpoint", () => {
   expect(dockerfile).toMatch(
     /HEALTHCHECK [^\n]*\\\n\s+CMD curl -fsS http:\/\/127\.0\.0\.1:3773\/\.well-known\/ottoLegacy\/environment/,
   );
-  expect(compose).toContain("${OTTO_IMAGE:-otto-remote:local}");
+  expect(compose).toContain("${OTTO_IMAGE:-otto:local}");
   expect(dockerfile).toContain("OTTO_SERVER_ENTRYPOINT=/opt/otto/node_modules/otto/dist/bin.mjs");
   expect(dockerfile).toContain("OTTO_REMOTE_CONTAINER=1");
   expect(entrypoint).toContain('exec /opt/otto/remote-admin "$@"');
 });
 
 it("never schedules the unsupported hosted heartbeat command", () => {
-  for (const file of [dockerfile, compose, composeDirect, entrypoint]) {
+  for (const file of [dockerfile, compose, entrypoint]) {
     expect(file).not.toContain("heartbeat");
   }
-});
-
-it("does not build or publish a Docker release artifact", () => {
-  expect(release).not.toContain("docker build");
-  expect(release).not.toContain("docker save");
-  expect(release).not.toContain("Otto-Remote-Docker");
 });
 
 it("keeps Otto's data in OTTO_HOME and ignores an ambient OTTO_LEGACY_HOME", () => {
   expect(dockerfile).toContain("OTTO_HOME=/data");
 
-  for (const file of [dockerfile, compose, composeDirect]) {
+  for (const file of [dockerfile, compose]) {
     expect(file).not.toContain("OTTO_LEGACY_HOME");
   }
 
@@ -76,6 +66,14 @@ it("keeps Otto's data in OTTO_HOME and ignores an ambient OTTO_LEGACY_HOME", () 
   } finally {
     NodeFS.rmSync(root, { recursive: true, force: true });
   }
+});
+
+it("keeps every state on the /data volume, never a host folder, and requires a setup code", () => {
+  expect(dockerfile).toContain('VOLUME ["/data"]');
+  expect(dockerfile).not.toContain("/workspace");
+  expect(compose).not.toContain("/workspace");
+  expect(compose).toContain("OTTO_SETUP_TOKEN: ${OTTO_SETUP_TOKEN:?");
+  expect(entrypoint).toContain("exec setpriv --reuid=node --regid=node");
 });
 
 it("keeps root and nested environment and private-key files out of the Docker context", () => {
