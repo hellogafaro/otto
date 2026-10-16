@@ -70,7 +70,7 @@ function memberColumns(currentUserId: string | undefined): DataTableColumn<Membe
       cell: (row) => (
         <PersonAvatar
           name={row.type === "member" ? row.member.user.name : row.invitation.email}
-          className="size-5"
+          className="size-5 text-9px"
         />
       ),
     },
