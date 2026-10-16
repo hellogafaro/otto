@@ -282,6 +282,9 @@ export const rosterCatalog = {
   "Removed bot": "Removed bot",
   "It introduces itself and asks about your work.":
     "It introduces itself and asks about your work.",
+  "Create your first bot": "Create your first bot",
+  "Instructions (optional)": "Instructions (optional)",
+  "Bots run on your own subscription or API key.": "Bots run on your own subscription or API key.",
   "Meet {name}": "Meet {name}",
   "Choose another image": "Choose another image",
   "No active bots": "No active bots",

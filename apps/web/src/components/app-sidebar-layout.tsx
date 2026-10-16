@@ -46,7 +46,7 @@ import {
 } from "./ui/sidebar";
 import { SIDEBAR_WIDTH_ICON } from "./ui/sidebar-context";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
-import { DesktopOnboarding } from "./onboarding/desktop-onboarding";
+import { Onboarding, useOnboarding } from "./onboarding/onboarding";
 
 const MACOS_TRAFFIC_LIGHTS_LEFT_INSET = "90px";
 
@@ -152,6 +152,7 @@ function ProjectProjectionRetention() {
 
 export function AppSidebarLayout({ children }: { children: ReactNode }) {
   useServerRosterSync();
+  const onboarding = useOnboarding();
   const pathname = useLocation({ select: (location) => location.pathname });
   const isOnSettings = pathname === "/settings" || pathname.startsWith("/settings/");
   const stageArtworkVisible = false;
@@ -239,6 +240,10 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  if (onboarding.environmentId) {
+    return <Onboarding environmentId={onboarding.environmentId} onDone={onboarding.finish} />;
+  }
+
   return (
     <SidebarProvider
       className="h-dvh! min-h-0!"
@@ -274,7 +279,6 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       </Sidebar>
       {children}
       <SidebarControl stageArtworkVisible={stageArtworkVisible} />
-      <DesktopOnboarding />
     </SidebarProvider>
   );
 }
