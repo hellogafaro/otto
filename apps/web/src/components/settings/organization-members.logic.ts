@@ -20,3 +20,13 @@ export function matchesMemberSearch(query: string, ...fields: readonly string[])
 
   return fields.some((field) => field.toLowerCase().includes(needle));
 }
+
+/**
+ * First and last name from a full name. Profile saves the name as "first last", and the member
+ * list only carries that full name, so the first word is the first name and the rest the last.
+ */
+export function splitPersonName(name: string) {
+  const [first = "", ...rest] = name.trim().split(/\s+/);
+
+  return { first, last: rest.join(" ") };
+}

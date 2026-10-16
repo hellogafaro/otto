@@ -1,17 +1,9 @@
-import {
-  RiDeleteBinLine,
-  RiMailLine,
-  RiMailSendLine,
-  RiPencilLine,
-  RiShieldUserLine,
-  RiUserLine,
-} from "@remixicon/react";
+import { RiMailLine, RiShieldUserLine, RiUserLine } from "@remixicon/react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { createOrganizationAccountsClient } from "@otto/client-runtime/authorization";
 import { formatRelativeTime } from "../../timestamp-format";
 import { PersonAvatar } from "../roster/person-avatar";
-import { RosterRowAction } from "../roster/roster-row-actions";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Form } from "../ui/form";
@@ -37,7 +29,7 @@ import {
   DialogPopup,
   DialogTitle,
 } from "../ui/dialog";
-import { matchesMemberSearch } from "./organization-members.logic";
+import { matchesMemberSearch, splitPersonName } from "./organization-members.logic";
 import { SettingsPageContainer, SettingsPageSkeleton } from "./settings-layout";
 import { useOrganizationAccounts } from "./use-organization-accounts";
 
@@ -70,68 +62,8 @@ const joinedLabel = (date: Date | string) => {
   return relative?.suffix ? relative.value : "now";
 };
 
-interface MemberActions {
-  readonly adminCount: number;
-  readonly onEdit: (member: Member) => void;
-  readonly onRemove: (member: Member) => void;
-  readonly onResend: (invitation: Invitation) => void;
-  readonly onCancel: (invitation: Invitation) => void;
-}
-
-/**
- * An admin's row actions: Edit and Delete for a member, Resend and Delete for an invitation.
- * The last admin has no Delete, so the organization always keeps one.
- */
-function MemberRowActions({
-  row,
-  actions,
-}: {
-  readonly row: MemberRow;
-  readonly actions: MemberActions;
-}) {
-  if (row.type === "invitation")
-    return (
-      <span className="flex items-center gap-1">
-        <RosterRowAction
-          label={`Resend invitation to ${row.invitation.email}`}
-          icon={RiMailSendLine}
-          onClick={() => actions.onResend(row.invitation)}
-        />
-        <RosterRowAction
-          label={`Cancel invitation to ${row.invitation.email}`}
-          icon={RiDeleteBinLine}
-          onClick={() => actions.onCancel(row.invitation)}
-        />
-      </span>
-    );
-  const lastAdmin = row.member.role === "admin" && actions.adminCount === 1;
-
-  return (
-    <span className="flex items-center gap-1">
-      <RosterRowAction
-        label={`Edit ${row.member.user.name}`}
-        icon={RiPencilLine}
-        onClick={() => actions.onEdit(row.member)}
-      />
-      {lastAdmin ? null : (
-        <RosterRowAction
-          label={`Delete ${row.member.user.name}`}
-          icon={RiDeleteBinLine}
-          onClick={() => actions.onRemove(row.member)}
-        />
-      )}
-    </span>
-  );
-}
-
-/** Columns like Tasks: who leads, then email and role chips and when they joined; admins get Edit and Delete. */
-function memberColumns({
-  currentUserId,
-  actions,
-}: {
-  readonly currentUserId: string | undefined;
-  readonly actions: MemberActions | null;
-}): DataTableColumn<MemberRow>[] {
+/** Columns like Tasks: who leads, then email and role chips and when they joined. */
+function memberColumns(currentUserId: string | undefined): DataTableColumn<MemberRow>[] {
   return [
     {
       id: "avatar",
@@ -178,14 +110,6 @@ function memberColumns({
       cell: (row) =>
         joinedLabel(row.type === "member" ? row.member.createdAt : row.invitation.createdAt),
     },
-    ...(actions
-      ? [
-          {
-            id: "actions",
-            cell: (row: MemberRow) => <MemberRowActions row={row} actions={actions} />,
-          },
-        ]
-      : []),
   ];
 }
 
@@ -199,8 +123,8 @@ export function OrganizationMembersSettings() {
   const [email, setEmail] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Member | null>(null);
-  const [editing, setEditing] = useState<Member | null>(null);
-  const [editRole, setEditRole] = useState<Role>("member");
+  const [selected, setSelected] = useState<MemberRow | null>(null);
+  const [selectedRole, setSelectedRole] = useState<Role>("member");
   const [pending, setPending] = useState(false);
   const organizationId = state?.organization?.id;
   const admin = state?.role === "admin";
@@ -287,7 +211,14 @@ export function OrganizationMembersSettings() {
     );
   const organization = state.organization;
   const adminCount = members.filter((member) => member.role === "admin").length;
-  const editingLastAdmin = editing?.role === "admin" && adminCount === 1;
+  const selectedMember = selected?.type === "member" ? selected.member : null;
+  const selectedInvitation = selected?.type === "invitation" ? selected.invitation : null;
+  const selectedName = splitPersonName(selectedMember?.user.name ?? "");
+  const selectedLastAdmin = selectedMember?.role === "admin" && adminCount === 1;
+
+  const close = () => {
+    if (!pending) setSelected(null);
+  };
 
   const rows: MemberRow[] = [
     ...members
@@ -298,32 +229,12 @@ export function OrganizationMembersSettings() {
       .map((invitation) => ({ type: "invitation" as const, id: invitation.id, invitation })),
   ];
 
-  const columns = memberColumns({
-    currentUserId: state.user?.id,
-    actions: admin
-      ? {
-          adminCount,
-          onEdit: (member) => {
-            setEditRole(member.role === "admin" ? "admin" : "member");
-            setEditing(member);
-          },
-          onRemove: setRemoving,
-          onResend: (invitation) =>
-            void mutate(() =>
-              client.organization.inviteMember({
-                email: invitation.email,
-                role: invitation.role === "admin" ? "admin" : "member",
-                organizationId: organization.id,
-                resend: true,
-              }),
-            ),
-          onCancel: (invitation) =>
-            void mutate(() =>
-              client.organization.cancelInvitation({ invitationId: invitation.id }),
-            ),
-        }
-      : null,
-  });
+  const open = (row: MemberRow) => {
+    const role = row.type === "member" ? row.member.role : row.invitation.role;
+
+    setSelectedRole(role === "admin" ? "admin" : "member");
+    setSelected(row);
+  };
 
   return (
     <SettingsPageContainer>
@@ -374,8 +285,9 @@ export function OrganizationMembersSettings() {
         ) : (
           <DataTable
             rows={rows}
-            columns={columns}
+            columns={memberColumns(state.user?.id)}
             getRowKey={(row) => `${row.type}:${row.id}`}
+            onRowClick={open}
             getRowLabel={(row) =>
               row.type === "member"
                 ? `${row.member.user.name}, ${roleLabel(row.member.role)}`
@@ -465,49 +377,71 @@ export function OrganizationMembersSettings() {
         </DialogPopup>
       </Dialog>
       <Dialog
-        open={editing !== null}
-        onOpenChange={(open) => {
-          if (!open && !pending) setEditing(null);
+        open={selected !== null}
+        onOpenChange={(next) => {
+          if (!next) close();
         }}
       >
         <DialogPopup>
           <DialogHeader>
-            <DialogTitle>Edit member</DialogTitle>
+            <DialogTitle>{selectedMember ? "Member" : "Invitation"}</DialogTitle>
             <DialogDescription>
-              {editing?.user.name} · {editing?.user.email}
+              {selectedMember
+                ? `Joined ${new Date(selectedMember.createdAt).toLocaleDateString()}`
+                : `Invited ${selectedInvitation ? new Date(selectedInvitation.createdAt).toLocaleDateString() : ""}`}
             </DialogDescription>
           </DialogHeader>
           <DialogPanel>
             <Form
-              id="edit-member"
+              id="member-profile"
               onSubmit={(event) => {
                 event.preventDefault();
 
-                if (!editing) return;
+                if (!selectedMember) return;
                 void mutate(async () => {
                   const result = await client.organization.updateMemberRole({
-                    memberId: editing.id,
+                    memberId: selectedMember.id,
                     organizationId: organization.id,
-                    role: editRole,
+                    role: selectedRole,
                   });
 
-                  if (!result.error) setEditing(null);
+                  if (!result.error) setSelected(null);
 
                   return result;
                 });
               }}
             >
+              {selectedMember ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <Field>
+                    <FieldLabel htmlFor="member-first-name">First name</FieldLabel>
+                    <Input id="member-first-name" value={selectedName.first} disabled />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="member-last-name">Last name</FieldLabel>
+                    <Input id="member-last-name" value={selectedName.last} disabled />
+                  </Field>
+                </div>
+              ) : null}
               <Field>
-                <FieldLabel>Permissions</FieldLabel>
+                <FieldLabel htmlFor="member-email">Email</FieldLabel>
+                <Input
+                  id="member-email"
+                  value={selectedMember?.user.email ?? selectedInvitation?.email ?? ""}
+                  disabled
+                />
+              </Field>
+              <Field>
+                <FieldLabel>Role</FieldLabel>
                 <Select
                   items={ROLE_LABELS}
-                  value={editRole}
-                  disabled={pending || editingLastAdmin}
+                  value={selectedRole}
+                  disabled={!admin || !selectedMember || selectedLastAdmin || pending}
                   onValueChange={(role) => {
-                    if (role === "admin" || role === "member") setEditRole(role);
+                    if (role === "admin" || role === "member") setSelectedRole(role);
                   }}
                 >
-                  <SelectTrigger aria-label="Permissions">
+                  <SelectTrigger aria-label="Role">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -518,24 +452,89 @@ export function OrganizationMembersSettings() {
                   </SelectContent>
                 </Select>
                 <FieldDescription>
-                  {editingLastAdmin
+                  {selectedLastAdmin
                     ? "Every organization needs an admin, so the only admin stays an admin."
                     : "Admins can invite, edit and remove members."}
                 </FieldDescription>
               </Field>
+              {admin && !selectedLastAdmin ? (
+                <section className="flex flex-col gap-3 border-t pt-4">
+                  <h3 className="text-sm font-medium text-destructive-foreground">Danger zone</h3>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-13px font-medium">
+                        {selectedMember ? "Delete member" : "Cancel invitation"}
+                      </p>
+                      <p className="text-13px text-muted-foreground">
+                        {selectedMember
+                          ? "They lose access to this organization; their work stays."
+                          : "The invitation link stops working."}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive-outline"
+                      disabled={pending}
+                      onClick={() => {
+                        if (selectedMember) {
+                          setSelected(null);
+                          setRemoving(selectedMember);
+
+                          return;
+                        }
+
+                        if (!selectedInvitation) return;
+                        void mutate(async () => {
+                          const result = await client.organization.cancelInvitation({
+                            invitationId: selectedInvitation.id,
+                          });
+
+                          if (!result.error) setSelected(null);
+
+                          return result;
+                        });
+                      }}
+                    >
+                      {selectedMember ? "Delete" : "Cancel invitation"}
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
             </Form>
           </DialogPanel>
           <DialogFooter>
-            <Button variant="ghost" disabled={pending} onClick={() => setEditing(null)}>
-              Cancel
+            {selectedInvitation && admin ? (
+              <Button
+                variant="outline"
+                className="me-auto"
+                disabled={pending}
+                onClick={() =>
+                  void mutate(() =>
+                    client.organization.inviteMember({
+                      email: selectedInvitation.email,
+                      role: selectedInvitation.role === "admin" ? "admin" : "member",
+                      organizationId: organization.id,
+                      resend: true,
+                    }),
+                  )
+                }
+              >
+                Resend invitation
+              </Button>
+            ) : null}
+            <Button variant="ghost" disabled={pending} onClick={close}>
+              {admin && selectedMember ? "Cancel" : "Close"}
             </Button>
-            <Button
-              type="submit"
-              form="edit-member"
-              disabled={pending || editing === null || editRole === editing.role}
-            >
-              {pending ? <Spinner /> : null}Save
-            </Button>
+            {admin && selectedMember ? (
+              <Button
+                type="submit"
+                form="member-profile"
+                disabled={pending || selectedRole === selectedMember.role}
+              >
+                {pending ? <Spinner /> : null}Save
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogPopup>
       </Dialog>

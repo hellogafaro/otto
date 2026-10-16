@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { matchesMemberSearch, parseSettingsSearch } from "./organization-members.logic";
+import {
+  matchesMemberSearch,
+  parseSettingsSearch,
+  splitPersonName,
+} from "./organization-members.logic";
 
 describe("parseSettingsSearch", () => {
   it("keeps the members search", () => {
@@ -21,5 +25,15 @@ describe("matchesMemberSearch", () => {
 
   it("matches everyone on an empty search", () => {
     expect(matchesMemberSearch("", "Ada Lovelace")).toBe(true);
+  });
+});
+
+describe("splitPersonName", () => {
+  it("takes the first word as the first name and the rest as the last name", () => {
+    expect(splitPersonName(" Ana  María Lopez ")).toEqual({ first: "Ana", last: "María Lopez" });
+  });
+
+  it("leaves the last name empty for a single word", () => {
+    expect(splitPersonName("Ana")).toEqual({ first: "Ana", last: "" });
   });
 });
