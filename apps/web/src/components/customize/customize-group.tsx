@@ -16,15 +16,20 @@ export function LogoTile({ children }: { readonly children: ReactNode }) {
   );
 }
 
-/** One entity in a group card: its tile, name, an optional muted line, a status and a chevron. */
+/**
+ * One entity in a group card: its tile, name, an optional muted line, a status and a chevron.
+ * Otto: A person or bot shows its own 32px round avatar in the tile's place, never inside a tile.
+ */
 export function CustomizeRow({
   logo,
+  avatar,
   name,
   detail,
   status,
   onOpen,
 }: {
-  readonly logo: ReactNode;
+  readonly logo?: ReactNode;
+  readonly avatar?: ReactNode;
   readonly name: string;
   readonly detail?: string | undefined;
   readonly status?: ReactNode;
@@ -37,7 +42,7 @@ export function CustomizeRow({
         className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-foreground/3.5 focus-visible:ring-2 focus-visible:ring-ring"
         onClick={onOpen}
       >
-        <LogoTile>{logo}</LogoTile>
+        {avatar ?? <LogoTile>{logo}</LogoTile>}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-13px font-medium text-foreground">{name}</span>
           {detail ? (

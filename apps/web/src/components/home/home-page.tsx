@@ -63,6 +63,11 @@ const formatDay = (day: string) => {
   });
 };
 
+/** A person or bot at the 32px row-tile size, round, with 12px initials. */
+function RowAvatar(props: Omit<Parameters<typeof ParticipantAvatar>[0], "className">) {
+  return <ParticipantAvatar {...props} className="size-8 text-xs" />;
+}
+
 function Meta({ children }: { readonly children: string }) {
   return (
     <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
@@ -237,15 +242,14 @@ export function HomePage() {
               {chats.map(({ shell, state }) => (
                 <CustomizeRow
                   key={shell.id}
-                  logo={
+                  logo={<RiChat1Line aria-hidden className="size-4" />}
+                  avatar={
                     shell.botId ? (
-                      <ParticipantAvatar
+                      <RowAvatar
                         participant={{ kind: "bot", botId: shell.botId }}
                         bots={participants.allBots}
                       />
-                    ) : (
-                      <RiChat1Line aria-hidden className="size-4" />
-                    )
+                    ) : undefined
                   }
                   name={shell.title}
                   detail={chatStateLabel[state]}
@@ -272,7 +276,7 @@ export function HomePage() {
                 return (
                   <CustomizeRow
                     key={routine.id}
-                    logo={<ParticipantAvatar participant={bot} bots={participants.allBots} />}
+                    avatar={<RowAvatar participant={bot} bots={participants.allBots} />}
                     name={routine.job}
                     detail={participantName(bot, participants.allBots)}
                     status={at ? <Meta>{timeOfDay(at)}</Meta> : null}
@@ -320,12 +324,9 @@ export function HomePage() {
                 return (
                   <CustomizeRow
                     key={notification.id}
-                    logo={
-                      who ? (
-                        <ParticipantAvatar participant={who} bots={participants.allBots} />
-                      ) : (
-                        <RiInbox2Line aria-hidden className="size-4" />
-                      )
+                    logo={<RiInbox2Line aria-hidden className="size-4" />}
+                    avatar={
+                      who ? <RowAvatar participant={who} bots={participants.allBots} /> : undefined
                     }
                     name={t(NOTIFICATION_TEXT[notification.type], {
                       name: who ? participantName(who, participants.allBots) : t("Someone"),
