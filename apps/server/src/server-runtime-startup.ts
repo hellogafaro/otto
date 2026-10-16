@@ -29,6 +29,7 @@ import {
   ServerRuntimeStartup,
 } from "./startup-command-gate.ts";
 import { archivedBotRetentionLoop } from "./archived-bot-retention.ts";
+import { dailyBackupLoop } from "./backup.ts";
 import { reconcileDelegations, reconcileProviderSessions } from "./startup-reconciliation.ts";
 import {
   resolveWelcomeBase,
@@ -122,6 +123,7 @@ export const make = (options?: StartupOptions) =>
       yield* runStartupPhase("provider-sessions.reconcile", reconcileProviderSessions);
 
       yield* forkParked(archivedBotRetentionLoop).pipe(Scope.provide(reactorScope));
+      yield* forkParked(dailyBackupLoop).pipe(Scope.provide(reactorScope));
 
       yield* runStartupPhase(
         "channels.restore",

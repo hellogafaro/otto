@@ -12,6 +12,7 @@ import { runServerCommand, serveCommand, startCommand } from "./cli/server.ts";
 import { serviceCommand } from "./cli/service.ts";
 import { servicePreflightCommand } from "./cli/service-preflight.ts";
 import { remoteDoctorCommand } from "./cli/remote-doctor.ts";
+import { backupCommand } from "./cli/backup.ts";
 
 const CliRuntimeLayer = Layer.mergeAll(NodeServices.layer, NetService.layer);
 
@@ -25,6 +26,7 @@ export const makeCli = () =>
       serviceCommand,
       servicePreflightCommand,
       remoteDoctorCommand,
+      backupCommand,
     ]),
   );
 
