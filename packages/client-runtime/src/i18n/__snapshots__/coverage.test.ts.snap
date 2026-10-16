@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1845,
+  "directMessageCount": 1779,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -135,9 +135,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "QUIT_CONFIRMATION_MODE_LABELS[settings.confirmQuit])}",
       "label)}",
     ],
-    "apps/web/src/components/settings/keybindings-settings.tsx": [
-      "FILTER_LABELS[option])}",
-    ],
     "apps/web/src/components/settings/privacy-settings.tsx": [
       "description)",
       "description)} \${t(MEMORY_SETTING_DISABLED_HINT)}\`;",
@@ -169,10 +166,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "item.label)\` at render time. */",
       "group.label)}",
       "item.label)}</span>",
-    ],
-    "apps/web/src/components/settings/settings-panels.tsx": [
-      "ENVIRONMENT_IDENTIFICATION_LABELS[settings.environmentIdentificationMode])}",
-      "label)}",
     ],
     "apps/web/src/components/settings/settings-route-page.tsx": [
       "settingsSectionLabel(section));",
@@ -245,14 +238,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Usage",
       "Language",
       "Color scheme",
-      "Contrast",
-      "Environment identification",
-      "Interface font",
-      "Prompt font",
-      "Code font",
-      "Terminal font",
-      "Font smoothing",
-      "Word wrap",
+      "Interface font size",
+      "Code font size",
       "Sandbox and browser sharing",
       "Time format",
       "Privacy",
@@ -519,8 +506,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/settings/integrations-settings.tsx",
     "apps/web/src/components/settings/keybinding-editors.tsx",
     "apps/web/src/components/settings/keybinding-presentation.tsx",
-    "apps/web/src/components/settings/keybinding-rows.tsx",
-    "apps/web/src/components/settings/keybinding-when-editor.tsx",
     "apps/web/src/components/settings/keybindings-settings.tsx",
     "apps/web/src/components/settings/language-setting.tsx",
     "apps/web/src/components/settings/portability-import-preview.tsx",

@@ -94,7 +94,6 @@ describe("language client settings persistence", () => {
       ...DEFAULT_CLIENT_SETTINGS,
       language: "en",
       timestampFormat: "24-hour",
-      environmentIdentificationMode: "none",
     };
 
     const bridge = {
@@ -122,7 +121,6 @@ describe("language client settings persistence", () => {
     expect(disk).toMatchObject({
       language: "system",
       timestampFormat: "12-hour",
-      environmentIdentificationMode: "none",
     });
     await current.setPreference("en");
     await flushSettings();
@@ -143,7 +141,6 @@ describe("language client settings persistence", () => {
     expect(disk).toMatchObject({
       language: "system",
       timestampFormat: "12-hour",
-      environmentIdentificationMode: "none",
     });
     expect(render()).toContain('lang="en-GB">system');
     expect(bridge.setClientSettings).toHaveBeenLastCalledWith(disk);

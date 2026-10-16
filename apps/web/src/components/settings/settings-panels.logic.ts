@@ -77,37 +77,15 @@ export function hasChangedBackgroundActivitySettings(
   );
 }
 
-type TypographySettings = Pick<
-  UnifiedSettings,
-  | "fontFamilySans"
-  | "fontFamilyComposer"
-  | "fontFamilyCode"
-  | "fontFamilyTerminal"
-  | "fontSizeInterface"
-  | "fontSizePrompt"
-  | "fontSizeCode"
-  | "fontSizeTerminal"
->;
+type TypographySettings = Pick<UnifiedSettings, "fontSizeInterface" | "fontSizeCode">;
 
-/** Labels the font rows whose family or size differs from the defaults. */
+/** Labels the font size rows that differ from the defaults. */
 export function getChangedTypographySettingLabels(settings: TypographySettings): string[] {
   return [
-    ...(settings.fontFamilySans !== DEFAULT_UNIFIED_SETTINGS.fontFamilySans ||
-    settings.fontSizeInterface !== DEFAULT_UNIFIED_SETTINGS.fontSizeInterface
-      ? ["Interface font"]
+    ...(settings.fontSizeInterface !== DEFAULT_UNIFIED_SETTINGS.fontSizeInterface
+      ? ["Interface font size"]
       : []),
-    ...(settings.fontFamilyComposer !== DEFAULT_UNIFIED_SETTINGS.fontFamilyComposer ||
-    settings.fontSizePrompt !== DEFAULT_UNIFIED_SETTINGS.fontSizePrompt
-      ? ["Prompt font"]
-      : []),
-    ...(settings.fontFamilyCode !== DEFAULT_UNIFIED_SETTINGS.fontFamilyCode ||
-    settings.fontSizeCode !== DEFAULT_UNIFIED_SETTINGS.fontSizeCode
-      ? ["Code font"]
-      : []),
-    ...(settings.fontFamilyTerminal !== DEFAULT_UNIFIED_SETTINGS.fontFamilyTerminal ||
-    settings.fontSizeTerminal !== DEFAULT_UNIFIED_SETTINGS.fontSizeTerminal
-      ? ["Terminal font"]
-      : []),
+    ...(settings.fontSizeCode !== DEFAULT_UNIFIED_SETTINGS.fontSizeCode ? ["Code font size"] : []),
   ];
 }
 

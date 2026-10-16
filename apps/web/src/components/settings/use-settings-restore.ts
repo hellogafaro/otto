@@ -38,21 +38,13 @@ export function useSettingsRestore(onRestored?: () => void) {
   const changedSettingLabels = useMemo(
     () => [
       ...(appearanceMode !== "system" ? ["Color scheme"] : []),
-      ...(settings.appearanceContrast !== DEFAULT_UNIFIED_SETTINGS.appearanceContrast
-        ? ["Contrast"]
-        : []),
       ...(settings.glassOpacity !== DEFAULT_UNIFIED_SETTINGS.glassOpacity ? ["Glass opacity"] : []),
-      ...(settings.environmentIdentificationMode !==
-      DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode
-        ? ["Environment identification"]
-        : []),
       ...(settings.timestampFormat !== DEFAULT_UNIFIED_SETTINGS.timestampFormat
         ? ["Time format"]
         : []),
       ...(settings.sidebarThreadPreviewCount !== DEFAULT_UNIFIED_SETTINGS.sidebarThreadPreviewCount
         ? ["Visible chats"]
         : []),
-      ...(settings.wordWrap !== DEFAULT_UNIFIED_SETTINGS.wordWrap ? ["Word wrap"] : []),
       ...getChangedTypographySettingLabels(settings),
       ...(settings.diffIgnoreWhitespace !== DEFAULT_UNIFIED_SETTINGS.diffIgnoreWhitespace
         ? ["Diff whitespace changes"]
@@ -88,22 +80,14 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.browserDefaultViewport,
       settings.browserDefaultZoomFactor,
       settings.browserDefaultAppearance,
-      settings.appearanceContrast,
       settings.enableAgentBrowserAccess,
       settings.voice,
       settings.confirmQuit,
       settings.addProjectBaseDirectory,
       settings.localExecutionMode,
       settings.diffIgnoreWhitespace,
-      settings.environmentIdentificationMode,
-      settings.fontFamilyCode,
-      settings.fontFamilyComposer,
-      settings.fontFamilySans,
-      settings.fontFamilyTerminal,
       settings.fontSizeCode,
       settings.fontSizeInterface,
-      settings.fontSizePrompt,
-      settings.fontSizeTerminal,
       settings.glassOpacity,
       settings.enableLegacyTokenStreaming,
       settings.enableProviderUpdateChecks,
@@ -111,7 +95,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.sidebarThreadPreviewCount,
       settings.showSkillsInSlashMenu,
       settings.timestampFormat,
-      settings.wordWrap,
       appearanceMode,
     ],
   );
@@ -145,12 +128,9 @@ export function useSettingsRestore(onRestored?: () => void) {
     }
 
     updateSettings({
-      appearanceContrast: DEFAULT_UNIFIED_SETTINGS.appearanceContrast,
       timestampFormat: DEFAULT_UNIFIED_SETTINGS.timestampFormat,
-      wordWrap: DEFAULT_UNIFIED_SETTINGS.wordWrap,
       diffIgnoreWhitespace: DEFAULT_UNIFIED_SETTINGS.diffIgnoreWhitespace,
       showSkillsInSlashMenu: DEFAULT_UNIFIED_SETTINGS.showSkillsInSlashMenu,
-      environmentIdentificationMode: DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode,
       glassOpacity: DEFAULT_UNIFIED_SETTINGS.glassOpacity,
       sidebarThreadPreviewCount: DEFAULT_UNIFIED_SETTINGS.sidebarThreadPreviewCount,
       enableLegacyTokenStreaming: DEFAULT_UNIFIED_SETTINGS.enableLegacyTokenStreaming,
@@ -164,14 +144,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       addProjectBaseDirectory: DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory,
       confirmQuit: DEFAULT_UNIFIED_SETTINGS.confirmQuit,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
-      fontFamilySans: DEFAULT_UNIFIED_SETTINGS.fontFamilySans,
-      fontFamilyComposer: DEFAULT_UNIFIED_SETTINGS.fontFamilyComposer,
-      fontFamilyCode: DEFAULT_UNIFIED_SETTINGS.fontFamilyCode,
-      fontFamilyTerminal: DEFAULT_UNIFIED_SETTINGS.fontFamilyTerminal,
       fontSizeInterface: DEFAULT_UNIFIED_SETTINGS.fontSizeInterface,
-      fontSizePrompt: DEFAULT_UNIFIED_SETTINGS.fontSizePrompt,
       fontSizeCode: DEFAULT_UNIFIED_SETTINGS.fontSizeCode,
-      fontSizeTerminal: DEFAULT_UNIFIED_SETTINGS.fontSizeTerminal,
       browserDefaultViewport: DEFAULT_UNIFIED_SETTINGS.browserDefaultViewport,
       browserDefaultZoomFactor: DEFAULT_UNIFIED_SETTINGS.browserDefaultZoomFactor,
       browserDefaultAppearance: DEFAULT_UNIFIED_SETTINGS.browserDefaultAppearance,

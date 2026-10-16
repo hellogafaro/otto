@@ -15,7 +15,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getClientSettings } from "../../hooks/use-settings";
 import { useI18n } from "../../i18n";
 import { fnv1a32, type DiffThemeName } from "../../lib/diff-rendering";
 import { LRUCache } from "../../lib/lru-cache";
@@ -109,10 +108,6 @@ function createHighlightCacheKey(code: string, language: string, themeName: Diff
 
 function estimateHighlightedSize(html: string, code: string): number {
   return Math.max(html.length * 2, code.length * 3);
-}
-
-export function readInitialWordWrapSetting(): boolean {
-  return getClientSettings().wordWrap;
 }
 
 export function MarkdownMathExpression({
@@ -260,7 +255,7 @@ export function MarkdownCodeBlock({
   children: ReactNode;
 }) {
   const [copied, setCopied] = useState(false);
-  const [wrapped, setWrapped] = useState(readInitialWordWrapSetting);
+  const [wrapped, setWrapped] = useState(true);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { t } = useI18n();
   const wrapLabel = wrapped ? t("Disable line wrap") : t("Wrap lines");

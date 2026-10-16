@@ -16,8 +16,6 @@ vi.mock("@effect/atom-react", () => ({
 
 vi.mock("../../state/server", () => ({
   primaryServerKeybindingsAtom: "keybindings",
-  primaryServerKeybindingsConfigPathAtom: "configPath",
-  primaryServerAvailableEditorsAtom: "editors",
   serverEnvironment: {},
 }));
 
@@ -25,11 +23,7 @@ vi.mock("../../state/environments", () => ({
   usePrimaryEnvironment: () => ({ environmentId: "environment-1" }),
 }));
 
-vi.mock("../../editor-preferences", () => ({ useOpenInPreferredEditor: () => vi.fn() }));
-
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => vi.fn() }));
-
-vi.mock("../../env", () => ({ isElectron: true }));
 
 vi.mock("./settings-layout", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./settings-layout")>()),
@@ -48,27 +42,25 @@ describe("KeybindingsSettingsPanel", () => {
     fixtures.keybindings = DEFAULT_RESOLVED_KEYBINDINGS;
   });
 
-  it("renders purpose groups with collapsed numbered series", () => {
+  it("renders one card per purpose group with collapsed numbered series", () => {
     const html = render();
 
     for (const title of ["General", "Chats", "Composer &amp; models", "Layout"]) {
-      expect(html).toContain(`aria-label="${title}"`);
+      expect(html).toContain(`>${title}</h2>`);
     }
 
-    expect(html).not.toContain('aria-label="Browser preview"');
-    expect(html).not.toContain("the terminal is focused");
     expect(html).toContain("Jump to chat 1–9");
     expect(html).toContain("Pick model 1–9");
     expect(html).not.toContain("Jump to chat 4");
-    expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("Change shortcut for Open command palette, currently ⌘ K");
-    expect(html).toContain("Add condition for Open command palette");
-    expect(html).not.toContain("Conflicts");
+    expect(html).toContain("Record shortcut for New chat");
+    expect(html).not.toContain('type="search"');
+    expect(html).not.toContain("Reset to default");
   });
 
-  it("surfaces conflicts with a review action and a filter", () => {
+  it("flags conflicts and offers a reset on changed shortcuts", () => {
     fixtures.keybindings = [
-      ...DEFAULT_RESOLVED_KEYBINDINGS,
+      ...DEFAULT_RESOLVED_KEYBINDINGS.filter((binding) => binding.command !== "sidebar.toggle"),
       {
         command: "sidebar.toggle",
         shortcut: {
@@ -83,10 +75,7 @@ describe("KeybindingsSettingsPanel", () => {
     ];
     const html = render();
 
-    expect(html).toContain("2 shortcuts share their keys with another command.");
-    expect(html).toContain(">Review<");
-    expect(html).toContain("Conflicts");
     expect(html).toContain("Conflict. Same keys as Toggle sidebar.");
-    expect(html).toContain(">Custom<");
+    expect(html).toContain("Reset Toggle sidebar to default");
   });
 });

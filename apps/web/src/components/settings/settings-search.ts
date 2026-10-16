@@ -58,46 +58,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     targetId: "appearance",
   },
   {
-    // Prefixed because the slider control already owns the `appearance-contrast` id.
-    id: "setting-appearance-contrast",
-    title: "Contrast",
+    id: "interface-font-size",
+    title: "Interface font size",
     to: "/settings/appearance",
   },
   {
-    id: "environment-identification",
-    title: "Environment identification",
-    to: "/settings/appearance",
-    // The setting is stage-dependent, so its parent section is the stable destination.
-    targetId: "display",
-  },
-  {
-    id: "interface-font",
-    title: "Interface font",
-    to: "/settings/appearance",
-  },
-  {
-    id: "prompt-font",
-    title: "Prompt font",
-    to: "/settings/appearance",
-  },
-  {
-    id: "code-font",
-    title: "Code font",
-    to: "/settings/appearance",
-  },
-  {
-    id: "terminal-font",
-    title: "Terminal font",
-    to: "/settings/appearance",
-  },
-  {
-    id: "font-smoothing",
-    title: "Font smoothing",
-    to: "/settings/appearance",
-  },
-  {
-    id: "word-wrap",
-    title: "Word wrap",
+    id: "code-font-size",
+    title: "Code font size",
     to: "/settings/appearance",
   },
   {

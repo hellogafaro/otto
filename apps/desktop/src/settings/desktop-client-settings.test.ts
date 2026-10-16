@@ -16,7 +16,6 @@ const clientSettings: ClientSettings = {
   language: "en",
   reviewedPrivacyPolicyVersion: "",
   reviewedTermsVersion: "",
-  appearanceContrast: 100,
   browserDefaultViewport: { _tag: "preset", width: 1024, height: 600, presetId: "nest-hub" },
   browserDefaultZoomFactor: 1.25,
   browserDefaultAppearance: "dark",
@@ -25,17 +24,9 @@ const clientSettings: ClientSettings = {
   confirmThreadDelete: false,
   dismissedProviderUpdateNotificationKeys: [],
   diffIgnoreWhitespace: true,
-  environmentIdentificationMode: "artwork",
   favorites: [],
-  fontFamilyCode: "",
-  fontFamilyComposer: "",
-  fontFamilySans: "",
-  fontFamilyTerminal: "",
   fontSizeCode: 13,
   fontSizeInterface: 16,
-  fontSizePrompt: 14,
-  fontSizeTerminal: 12,
-  fontSmoothing: true,
   glassOpacity: 80,
   showSkillsInSlashMenu: false,
   providerModelPreferences: {},
@@ -47,7 +38,6 @@ const clientSettings: ClientSettings = {
   sidebarThreadSortOrder: "created_at",
   sidebarThreadPreviewCount: 6,
   timestampFormat: "24-hour",
-  wordWrap: true,
 };
 
 const decodeClientSettingsJson = Schema.decodeEffect(Schema.fromJsonString(ClientSettingsSchema));

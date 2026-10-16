@@ -93,23 +93,20 @@ describe("clientPersistenceStorage", () => {
     );
   });
 
-  it("defaults word wrap on and discards obsolete wrapping preferences", async () => {
+  it("discards retired wrapping preferences", async () => {
     const testWindow = getTestWindow();
     testWindow.localStorage.setItem(
       "otto:client-settings:v1",
       JSON.stringify({
         chatWordWrap: false,
         diffWordWrap: false,
+        wordWrap: false,
       }),
     );
     const { readBrowserClientSettings } = await import("./client-persistence-storage");
     const settings = readBrowserClientSettings();
 
-    expect(settings).toEqual(
-      expect.objectContaining({
-        wordWrap: true,
-      }),
-    );
+    expect(settings).not.toHaveProperty("wordWrap");
     expect(settings).not.toHaveProperty("chatWordWrap");
     expect(settings).not.toHaveProperty("diffWordWrap");
   });

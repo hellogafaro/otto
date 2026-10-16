@@ -22,7 +22,6 @@ import {
   type ClientSettingsPatch,
   type ClientSettings,
   DEFAULT_CLIENT_SETTINGS,
-  type EnvironmentIdentificationMode,
   type UnifiedSettings,
 } from "@otto/contracts/settings";
 import { safeErrorLogAttributes } from "@otto/client-runtime/errors";
@@ -422,34 +421,6 @@ export function useClientSettings<T>(
   const settings = useClientSettingsValue();
 
   return useMemo(() => (selector ? selector(settings) : settings), [selector, settings]);
-}
-
-export function resolveEnvironmentIdentificationMode(input: {
-  mode: EnvironmentIdentificationMode;
-  settingsHydrated: boolean;
-  paletteThemeActive?: boolean;
-  paletteThemeAllowsArtwork?: boolean;
-}): EnvironmentIdentificationMode {
-  // Avoid briefly rendering the default artwork before a persisted pill/none choice loads.
-  if (!input.settingsHydrated) return "none";
-
-  // Artwork palettes are maintained for built-ins only. Keep an explicit
-  // "none", but use the theme-aware pill for user-controlled palettes.
-  return input.paletteThemeActive && !input.paletteThemeAllowsArtwork && input.mode === "artwork"
-    ? "pill"
-    : input.mode;
-}
-
-export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMode {
-  const settingsHydrated = useClientSettingsHydrated();
-  const mode = useClientSettingsValue().environmentIdentificationMode;
-
-  return resolveEnvironmentIdentificationMode({
-    mode,
-    settingsHydrated,
-    paletteThemeActive: true,
-    paletteThemeAllowsArtwork: false,
-  });
 }
 
 /** Read current settings for one environment, merged with client-local preferences. */

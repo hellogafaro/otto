@@ -4,14 +4,7 @@ import {
   areFontAdvancesMonospace,
   clampCodeFontSize,
   clampInterfaceFontSize,
-  clampPromptFontSize,
-  DEFAULT_CODE_FONT_STACK,
-  DEFAULT_SANS_FONT_STACK,
-  appearanceFontStack,
   cssFontFamilies,
-  resolveDefaultFamilyLabel,
-  resolveTerminalFontPreference,
-  resolveTerminalFontSizePreference,
 } from "./appearance-fonts";
 
 describe("areFontAdvancesMonospace", () => {
@@ -51,75 +44,17 @@ describe("cssFontFamilies", () => {
   });
 });
 
-describe("resolveDefaultFamilyLabel", () => {
-  it("skips generic keywords and returns null for a stack of only generics", () => {
-    expect(resolveDefaultFamilyLabel("system-ui, sans-serif")).toBeNull();
-    expect(resolveDefaultFamilyLabel("ui-monospace, monospace")).toBeNull();
-  });
-});
-
-describe("appearanceFontStack", () => {
-  it("prepends the custom family to the default stack", () => {
-    expect(appearanceFontStack("Fira Code", DEFAULT_CODE_FONT_STACK)).toBe(
-      `"Fira Code", ${DEFAULT_CODE_FONT_STACK}`,
-    );
-  });
-
-  it("falls back to the default stack when unset", () => {
-    expect(appearanceFontStack("", DEFAULT_SANS_FONT_STACK)).toBe(DEFAULT_SANS_FONT_STACK);
-  });
-});
-
-describe("resolveTerminalFontPreference", () => {
-  it("inherits the code font in simple mode", () => {
-    expect(
-      resolveTerminalFontPreference({ advanced: false, code: "Fira Code", terminal: "" }),
-    ).toBe("Fira Code");
-    expect(
-      resolveTerminalFontPreference({
-        advanced: false,
-        code: "Fira Code",
-        terminal: "Berkeley Mono",
-      }),
-    ).toBe("Fira Code");
-  });
-
-  it("keeps code and terminal fonts independent in advanced mode", () => {
-    expect(resolveTerminalFontPreference({ advanced: true, code: "Fira Code", terminal: "" })).toBe(
-      "",
-    );
-    expect(
-      resolveTerminalFontPreference({
-        advanced: true,
-        code: "Fira Code",
-        terminal: "Berkeley Mono",
-      }),
-    ).toBe("Berkeley Mono");
-  });
-});
-
-describe("resolveTerminalFontSizePreference", () => {
-  it("inherits the code font size in simple mode", () => {
-    expect(resolveTerminalFontSizePreference({ advanced: false, code: 15, terminal: 12 })).toBe(15);
-  });
-
-  it("keeps code and terminal font sizes independent in advanced mode", () => {
-    expect(resolveTerminalFontSizePreference({ advanced: true, code: 15, terminal: 12 })).toBe(12);
-  });
-});
-
 describe("font size clamping", () => {
   it("keeps sizes inside the ranges the UI can absorb", () => {
     expect(clampInterfaceFontSize(16)).toBe(16);
     expect(clampInterfaceFontSize(2)).toBe(12);
     expect(clampInterfaceFontSize(96)).toBe(20);
-    expect(clampPromptFontSize(40)).toBe(20);
     expect(clampCodeFontSize(1)).toBe(10);
   });
 
   it("rounds fractional values and falls back for unusable input", () => {
     expect(clampCodeFontSize(13.4)).toBe(13);
     expect(clampInterfaceFontSize(Number.NaN)).toBe(16);
-    expect(clampPromptFontSize(Number.POSITIVE_INFINITY)).toBe(14);
+    expect(clampCodeFontSize(Number.POSITIVE_INFINITY)).toBe(13);
   });
 });

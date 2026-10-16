@@ -142,10 +142,7 @@ export function keybindingConflictLabels(
 
 export function buildKeybindingRows(
   keybindings: ResolvedKeybindingsConfig,
-  query: string,
 ): ReadonlyArray<KeybindingRow> {
-  const normalizedQuery = query.trim().toLowerCase();
-
   const rows = keybindings.flatMap((binding, index) => {
     if (isRetiredCommand(binding.command)) return [];
     const defaultBinding = defaultBindingForBinding(binding);
@@ -187,22 +184,7 @@ export function buildKeybindingRows(
     return left.key.localeCompare(right.key);
   });
 
-  if (normalizedQuery.length === 0) {
-    return rowsWithConflicts;
-  }
-
-  return rowsWithConflicts.filter((row) => {
-    return (
-      row.command.toLowerCase().includes(normalizedQuery) ||
-      commandLabel(row.command).toLowerCase().includes(normalizedQuery) ||
-      keybindingGroupTitle(keybindingGroupForCommand(row.command))
-        .toLowerCase()
-        .includes(normalizedQuery) ||
-      row.key.toLowerCase().includes(normalizedQuery) ||
-      row.when.toLowerCase().includes(normalizedQuery) ||
-      row.source.toLowerCase().includes(normalizedQuery)
-    );
-  });
+  return rowsWithConflicts;
 }
 
 export type KeybindingGroupId = "general" | "chats" | "composer" | "layout";
@@ -293,38 +275,6 @@ function commandOrder(command: KeybindingCommand): number {
   return meta.order + (series ? series.index / 100 : 0);
 }
 
-export type KeybindingFilter = "all" | "customized" | "conflicts";
-
-export function matchesKeybindingFilter(row: KeybindingRow, filter: KeybindingFilter): boolean {
-  switch (filter) {
-    case "all":
-      return true;
-    case "customized":
-      return row.source === "Custom";
-    case "conflicts":
-      return row.conflicts.length > 0;
-  }
-}
-
-export interface KeybindingSummary {
-  readonly total: number;
-  readonly customized: number;
-  readonly conflicts: number;
-}
-
-export function summarizeKeybindings(rows: ReadonlyArray<KeybindingRow>): KeybindingSummary {
-  let customized = 0;
-  let conflicts = 0;
-
-  for (const row of rows) {
-    if (row.source === "Custom") customized += 1;
-
-    if (row.conflicts.length > 0) conflicts += 1;
-  }
-
-  return { total: rows.length, customized, conflicts };
-}
-
 export interface KeybindingSeries {
   readonly id: string;
   readonly title: string;
@@ -384,12 +334,10 @@ function buildSeries(id: string, rows: ReadonlyArray<KeybindingRow>): Keybinding
  */
 export function buildKeybindingGroups(
   rows: ReadonlyArray<KeybindingRow>,
-  filter: KeybindingFilter = "all",
 ): ReadonlyArray<KeybindingGroupView> {
   const byGroup = new Map<KeybindingGroupId, KeybindingRow[]>();
 
   for (const row of rows) {
-    if (!matchesKeybindingFilter(row, filter)) continue;
     const groupId = keybindingGroupForCommand(row.command);
     const groupRows = byGroup.get(groupId) ?? [];
     groupRows.push(row);
@@ -652,14 +600,4 @@ export function keybindingFromKeyboardEvent(
   return parts.join("+");
 }
 
-export {
-  DEFAULT_WHEN_VARIABLE,
-  whenAstToExpression,
-  parseWhenExpressionDraft,
-  describeWhenExpression,
-  isKnownWhenVariable,
-  unknownWhenVariables,
-  buildWhenVariableOptions,
-} from "./keybinding-when.logic";
-
-export type { WhenVariableOption } from "./keybinding-when.logic";
+export { whenAstToExpression, describeWhenExpression } from "./keybinding-when.logic";

@@ -27,44 +27,6 @@ export function spokenKeybinding(value: string): string {
   return keybindingDisplayParts(value, navigator.platform).join(" ");
 }
 
-export function UnknownWhenVariableWarning({
-  identifiers,
-  focusable = true,
-}: {
-  identifiers: ReadonlyArray<string>;
-  focusable?: boolean;
-}) {
-  const { t } = useI18n();
-
-  if (identifiers.length === 0) return null;
-
-  const label =
-    identifiers.length === 1
-      ? t("Unknown condition: {name}", { name: identifiers[0] ?? "" })
-      : t("Unknown conditions: {names}", { names: identifiers.join(", ") });
-
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            tabIndex={focusable ? 0 : undefined}
-            aria-label={label}
-            className="inline-flex size-4.5 shrink-0 items-center justify-center rounded-sm text-warning outline-none transition-colors hover:bg-warning/10 focus-visible:ring-3 focus-visible:ring-warning/25"
-          >
-            <RiAlertLine className="size-3.5" />
-          </span>
-        }
-      />
-      <TooltipPopup side="top" variant="keybinding-warning" className="max-w-72 whitespace-normal">
-        {t(
-          "Otto does not recognize this condition yet. It can still be saved, but it may not match unless the runtime provides it.",
-        )}
-      </TooltipPopup>
-    </Tooltip>
-  );
-}
-
 export function conflictDescription(labels: ReadonlyArray<string>, t: Translate): string {
   const listed = labels.slice(0, 3).join(", ");
 

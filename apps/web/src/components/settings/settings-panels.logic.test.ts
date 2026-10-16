@@ -18,15 +18,15 @@ import {
 } from "./settings-panels.logic";
 
 describe("typography settings restore", () => {
-  it("detects family and size changes by font row", () => {
+  it("detects size changes by font row", () => {
     expect(getChangedTypographySettingLabels(DEFAULT_UNIFIED_SETTINGS)).toEqual([]);
     expect(
       getChangedTypographySettingLabels({
         ...DEFAULT_UNIFIED_SETTINGS,
         fontSizeInterface: 18,
-        fontFamilyCode: "Fira Code",
+        fontSizeCode: 15,
       }),
-    ).toEqual(["Interface font", "Code font"]);
+    ).toEqual(["Interface font size", "Code font size"]);
   });
 });
 

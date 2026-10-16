@@ -3,20 +3,25 @@ import * as Schema from "effect/Schema";
 import { ClientSettingsSchema } from "./settings.ts";
 import { decodeClientSettings, decodeClientSettingsPatch } from "./settings.test-support.ts";
 
-describe("ClientSettings word wrap", () => {
-  it("defaults word wrap on", () => {
-    expect(decodeClientSettings({}).wordWrap).toBe(true);
-  });
-
-  it("ignores obsolete wrapping preferences", () => {
+describe("ClientSettings retired preferences", () => {
+  it("drops word wrap and font family preferences", () => {
     const decoded = decodeClientSettings({
       chatWordWrap: false,
       diffWordWrap: false,
+      wordWrap: false,
+      fontFamilySans: "Comic Sans MS",
+      fontFamilyCode: "Fira Code",
     });
 
-    expect(decoded.wordWrap).toBe(true);
-    expect(decoded).not.toHaveProperty("chatWordWrap");
-    expect(decoded).not.toHaveProperty("diffWordWrap");
+    for (const key of [
+      "chatWordWrap",
+      "diffWordWrap",
+      "wordWrap",
+      "fontFamilySans",
+      "fontFamilyCode",
+    ]) {
+      expect(decoded).not.toHaveProperty(key);
+    }
   });
 });
 
@@ -33,22 +38,6 @@ describe("ClientSettings glass opacity", () => {
   it.each([40, 75, 100])("accepts a glass opacity within the supported range: %s", (value) => {
     expect(decodeClientSettings({ glassOpacity: value }).glassOpacity).toBe(value);
     expect(decodeClientSettingsPatch({ glassOpacity: value }).glassOpacity).toBe(value);
-  });
-});
-
-describe("ClientSettings appearance contrast", () => {
-  it("defaults to the theme's original contrast", () => {
-    expect(decodeClientSettings({}).appearanceContrast).toBe(100);
-  });
-
-  it.each([49, 201, 92.5])("rejects an invalid appearance contrast: %s", (value) => {
-    expect(() => decodeClientSettings({ appearanceContrast: value })).toThrow();
-    expect(() => decodeClientSettingsPatch({ appearanceContrast: value })).toThrow();
-  });
-
-  it.each([50, 100, 150, 200])("accepts an appearance contrast in range: %s", (value) => {
-    expect(decodeClientSettings({ appearanceContrast: value }).appearanceContrast).toBe(value);
-    expect(decodeClientSettingsPatch({ appearanceContrast: value }).appearanceContrast).toBe(value);
   });
 });
 
@@ -76,24 +65,6 @@ describe("ClientSettings quit confirmation", () => {
     expect(() => decodeClientSettings({ confirmQuit: "maybe" })).toThrow();
     expect(() => decodeClientSettingsPatch({ confirmQuit: "maybe" })).toThrow();
     expect(() => decodeClientSettingsPatch({ confirmQuit: true })).toThrow();
-  });
-});
-
-describe("ClientSettings environment identification", () => {
-  it("defaults to artwork and accepts each presentation mode", () => {
-    expect(decodeClientSettings({}).environmentIdentificationMode).toBe("artwork");
-
-    for (const mode of ["artwork", "pill", "none"] as const) {
-      expect(
-        decodeClientSettingsPatch({ environmentIdentificationMode: mode })
-          .environmentIdentificationMode,
-      ).toBe(mode);
-    }
-  });
-
-  it("rejects unsupported presentation modes", () => {
-    expect(() => decodeClientSettings({ environmentIdentificationMode: "badge" })).toThrow();
-    expect(() => decodeClientSettingsPatch({ environmentIdentificationMode: "badge" })).toThrow();
   });
 });
 

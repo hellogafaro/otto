@@ -28,7 +28,6 @@ import {
 } from "../components/ui/toast";
 import { resolveAndPersistPreferredEditor } from "../editor-preferences";
 import { applyAppearanceFontVariables } from "~/appearance-fonts";
-import { applyAppearanceContrast } from "~/appearance-contrast";
 import { useClientSettings } from "../hooks/use-settings";
 import { PlanAgentSelectionHeal } from "../plan-agent-selection-heal";
 import { syncBrowserChromeTheme } from "../hooks/use-theme";
@@ -134,7 +133,6 @@ function RootRouteView() {
     <ToastProvider>
       <AnchoredToastProvider>
         <DocumentTitleSync />
-        <ContrastAppearanceSync />
         <FontAppearanceSync />
         {primaryEnvironmentAuthenticated ? <AuthenticatedTracingBootstrap /> : null}
         <SshPasswordPromptDialog />
@@ -154,44 +152,16 @@ function RootRouteView() {
   );
 }
 
-function ContrastAppearanceSync() {
-  const appearanceContrast = useClientSettings((settings) => settings.appearanceContrast);
-
-  useEffect(() => {
-    applyAppearanceContrast(document.documentElement, appearanceContrast);
-  }, [appearanceContrast]);
-
-  return null;
-}
-
 function FontAppearanceSync() {
-  const fontFamilySans = useClientSettings((settings) => settings.fontFamilySans);
-  const fontFamilyCode = useClientSettings((settings) => settings.fontFamilyCode);
-  const fontFamilyComposer = useClientSettings((settings) => settings.fontFamilyComposer);
   const fontSizeInterface = useClientSettings((settings) => settings.fontSizeInterface);
-  const fontSizePrompt = useClientSettings((settings) => settings.fontSizePrompt);
   const fontSizeCode = useClientSettings((settings) => settings.fontSizeCode);
-  const fontSmoothing = useClientSettings((settings) => settings.fontSmoothing);
 
   useEffect(() => {
     applyAppearanceFontVariables(document.documentElement, {
-      sans: fontFamilySans,
-      code: fontFamilyCode,
-      composer: fontFamilyComposer,
       sizeInterface: fontSizeInterface,
-      sizePrompt: fontSizePrompt,
       sizeCode: fontSizeCode,
-      smoothing: fontSmoothing,
     });
-  }, [
-    fontFamilyCode,
-    fontFamilyComposer,
-    fontFamilySans,
-    fontSizeCode,
-    fontSizeInterface,
-    fontSizePrompt,
-    fontSmoothing,
-  ]);
+  }, [fontSizeCode, fontSizeInterface]);
 
   return null;
 }

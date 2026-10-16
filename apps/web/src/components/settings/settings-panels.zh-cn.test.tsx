@@ -58,12 +58,6 @@ vi.mock("../chat/provider-model-picker", () => ({ ProviderModelPicker: () => nul
 
 vi.mock("../chat/traits-picker", () => ({ TraitsPicker: () => null }));
 
-// Font discovery reads a browser-only store; rows fall back to the plain family input.
-vi.mock("./font-family-picker", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./font-family-picker")>()),
-  useFontEnumeration: () => ({ status: "unknown" }),
-}));
-
 import { ProviderDetailPage } from "./provider-detail-page";
 import { ProviderInstancesSection } from "./provider-instances-section";
 import { PROVIDER_CATALOG } from "./provider-catalog";
@@ -100,12 +94,11 @@ describe("settings panels in Simplified Chinese", () => {
   it("translates the Appearance panel", () => {
     expectTranslated(
       renderInChinese(<AppearanceSettingsPanel />),
-      ["显示", "字体排版", zhCNCatalog["Interface font"]!],
+      [zhCNCatalog["Appearance"]!, zhCNCatalog["Interface font size"]!],
       [
-        ">Display<",
-        ">Typography<",
+        ">Appearance<",
         "Glass opacity",
-        "Interface font",
+        "Interface font size",
         "Reset to default",
         zhCNCatalog["Glass opacity"]!,
       ],

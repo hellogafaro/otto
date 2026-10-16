@@ -20,7 +20,6 @@ import {
 
 import { createTranslator, type PluralForms } from "@otto/client-runtime/i18n";
 
-import { useEnvironmentIdentificationMode } from "../../hooks/use-settings";
 import { useI18n } from "../../i18n";
 import { openSettings } from "../../settings-dialog-store";
 import { openCustomize } from "../../customize-navigation";
@@ -34,8 +33,6 @@ import { isBuiltinMcpServer } from "../roster/bot-tools.logic";
 import { cn } from "../../lib/utils";
 import {
   resolveEnvironmentIdentificationPillLabel,
-  resolveSidebarStageBackdropVariant,
-  SidebarStageBackdrop,
   useEnvironmentStageLabel,
 } from "../sidebar-stage-backdrop";
 import { Badge } from "../ui/badge";
@@ -60,36 +57,21 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   isElectron: boolean;
 }) {
   const { t } = useI18n();
-  const stageLabel = useEnvironmentStageLabel();
-  const environmentIdentificationMode = useEnvironmentIdentificationMode();
-
-  const backdropVariant = resolveSidebarStageBackdropVariant(
-    stageLabel,
-    environmentIdentificationMode === "artwork",
-  );
-
-  const pillLabel =
-    environmentIdentificationMode === "pill"
-      ? resolveEnvironmentIdentificationPillLabel(stageLabel)
-      : null;
+  const pillLabel = resolveEnvironmentIdentificationPillLabel(useEnvironmentStageLabel());
 
   return (
     <SidebarHeader
       dragRegion={isElectron}
       className="@container/sidebar-header relative h-(--workspace-topbar-height) shrink-0 flex-row items-center gap-1 px-3 py-0 md:px-2"
     >
-      {backdropVariant ? <SidebarStageBackdrop variant={backdropVariant} /> : null}
       <div className="relative z-10 grid min-w-0 flex-1 grid-cols-grow-auto-grow items-center group-data-[collapsible=icon]:hidden">
         <div className="flex items-center justify-start">
-          <SidebarTrigger onStage={Boolean(backdropVariant)} className="md:hidden" />
+          <SidebarTrigger className="md:hidden" />
         </div>
         <div className="relative flex items-center justify-center">
           <Link
             aria-label={t("Go to chats")}
-            className={cn(
-              "flex items-center justify-center rounded-md outline-none ring-ring focus-visible:ring-2 app-region-no-drag",
-              backdropVariant ? "text-on-solid" : "text-sidebar-foreground",
-            )}
+            className="flex items-center justify-center rounded-md text-sidebar-foreground outline-none ring-ring focus-visible:ring-2 app-region-no-drag"
             to="/chats"
           >
             <OttoWordmark />

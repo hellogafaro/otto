@@ -25,13 +25,12 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collaps
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { ScrollArea } from "../ui/scroll-area";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { readInitialWordWrapSetting } from "./markdown-code-block";
 import { reportMarkdownActionFailure } from "./markdown-action-failure";
 
 export function MarkdownTable({ children, ...props }: React.ComponentProps<"table">) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tableRef = useRef<HTMLTableElement | null>(null);
-  const [expanded, setExpanded] = useState(readInitialWordWrapSetting);
+  const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { t } = useI18n();

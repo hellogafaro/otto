@@ -119,7 +119,10 @@ describe("searchSettings", () => {
   });
 
   it("serves anchor props to panels from the catalog", () => {
-    expect(searchableSetting("word-wrap")).toEqual({ id: "word-wrap", title: "Word wrap" });
+    expect(searchableSetting("code-font-size")).toEqual({
+      id: "code-font-size",
+      title: "Code font size",
+    });
   });
 
   it("routes sandbox and browser sharing to the Computer page", () => {
@@ -171,14 +174,9 @@ describe("searchSettings", () => {
       id: "color-scheme",
       to: "/settings/appearance",
     });
-    expect(searchSettings("word wrap")[0]).toMatchObject({
-      id: "word-wrap",
+    expect(searchSettings("code font size")[0]).toMatchObject({
+      id: "code-font-size",
       to: "/settings/appearance",
-    });
-    expect(searchSettings("environment identification")[0]).toMatchObject({
-      id: "environment-identification",
-      to: "/settings/appearance",
-      targetId: "display",
     });
   });
 
