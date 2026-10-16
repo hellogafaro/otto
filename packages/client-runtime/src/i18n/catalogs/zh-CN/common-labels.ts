@@ -249,7 +249,6 @@ export const commonLabelsCatalog = {
   Today: "今天",
   Unavailable: "不可用",
   "Usage unavailable": "用量不可用",
-  "View details": "查看详情",
   "auto-accept edits": "自动接受编辑",
   blocked: "已阻塞",
   canceled: "已取消",

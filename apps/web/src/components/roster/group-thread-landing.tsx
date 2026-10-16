@@ -8,7 +8,6 @@ import { type EnvironmentId, type ScopedThreadRef } from "@otto/contracts";
 import { Fragment, useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { selectOpenBotInboxItems } from "../../bot-inbox";
-import { openSettings } from "../../settings-dialog-store";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentPeopleAtom } from "../../state/bots";
 import { useEnvironmentQuery } from "../../state/query";
@@ -36,7 +35,7 @@ import { deriveBotActivity } from "./bot-activity-status.logic";
 import { BotApprovalPrompt } from "./bot-approval-prompt";
 import { MemoryApprovalPrompt } from "./memory-approval-prompt";
 import { BotUserInputPrompt } from "./bot-user-input-prompt";
-import { BotInboxAlertStack } from "./bot-inbox-alert-stack";
+import { BotInboxAlerts } from "./bot-inbox-alerts";
 import { BotConversationScrollArea } from "./bot-conversation-scroll-area";
 import { DelegationCard } from "./delegation-card";
 import { RosterLoadStatus } from "./roster-load-status";
@@ -522,16 +521,13 @@ export function GroupThreadLanding({
                 title={presentThreadError(runtime.turnFailure.message, failureContext, t).title}
               />
             ) : null}
+            <BotInboxAlerts items={inboxItems} environmentId={environmentId} />
             {waitingOnChildren && !working ? (
               <p className="ml-10 text-xs text-muted-foreground" aria-live="polite">
                 {t("Waiting on delegated work")}
               </p>
             ) : null}
           </BotConversationScrollArea>
-          <BotInboxAlertStack
-            items={inboxItems}
-            onOpenDetails={() => openSettings("advanced", "errors", environmentId)}
-          />
           <ThreadRuntimeWarningBanner warning={runtimeWarning} />
           {connectNeeded && connect ? (
             <ProviderConnectCard

@@ -103,7 +103,6 @@ export const commonMessagesCatalog = {
   "Delegation to {name}": "委派给 {name}",
   "{parent} asked {child}": "{parent} 请 {child} 处理",
   "{count} open": "{count} 个待处理",
-  "Next: {action}": "下一步：{action}",
   "Opening page…": "正在打开页面…",
   "React {emoji}": "回应 {emoji}",
   "Remove your {emoji} reaction": "移除你的 {emoji} 回应",

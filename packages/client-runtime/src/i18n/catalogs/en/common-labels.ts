@@ -249,7 +249,6 @@ export const commonLabelsCatalog = {
   Today: "Today",
   Unavailable: "Unavailable",
   "Usage unavailable": "Usage unavailable",
-  "View details": "View details",
   "auto-accept edits": "auto-accept edits",
   blocked: "blocked",
   canceled: "canceled",

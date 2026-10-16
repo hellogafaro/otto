@@ -2,12 +2,8 @@ import type { BotWorkspaceIO } from "../../workspace/bot-workspace-io.ts";
 import type { AgentControllerLiveOptions } from "./options.ts";
 
 import { ThreadId } from "@otto/contracts";
+import { Effect } from "effect";
 
-import { BotInboxService } from "../../../bot-inbox/service.ts";
-import {
-  recordBrowserFailure,
-  resolveBrowserFailure,
-} from "../../../bot-inbox/browser-incidents.ts";
 import { ServerConfig } from "../../../config.ts";
 
 import * as McpProviderSession from "../../../mcp/mcp-provider-session.ts";
@@ -23,7 +19,6 @@ export function createSessionResources(deps: {
   readonly config: ServerConfig["Service"];
   readonly hostPlatform: NodeJS.Platform;
   readonly subscriptionAuth: SubscriptionAuthService;
-  readonly botInbox: BotInboxService;
   readonly options: AgentControllerLiveOptions | undefined;
 }) {
   const sessionResources = new OttoSessionResources({
@@ -43,9 +38,10 @@ export function createSessionResources(deps: {
     toMcpServerConfigs,
     onMcpServerConnectionFailure: (serverId) =>
       deps.subscriptionAuth.recordMcpRequestFailure(serverId, "The MCP server failed to connect."),
-    onBrowserFailure: (input) => recordBrowserFailure(deps.botInbox, input),
-    onBrowserReady: (botId, resourceKey) =>
-      resolveBrowserFailure(deps.botInbox, botId, resourceKey),
+    // Otto: The bot already sees a browser failure in its tool result and says so in the chat,
+    // so it is only logged, never an inbox incident.
+    onBrowserFailure: ({ botId, botName, detail }) =>
+      Effect.runFork(Effect.logWarning("bot browser failed", { botId, botName, detail })),
     ...(deps.options?.makeMcpManager ? { makeMcpManager: deps.options.makeMcpManager } : {}),
     ...(deps.options?.makeRemoteWorkspace
       ? { makeRemoteWorkspace: deps.options.makeRemoteWorkspace }

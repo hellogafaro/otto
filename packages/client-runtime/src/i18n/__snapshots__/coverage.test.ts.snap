@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1900,
+  "directMessageCount": 1898,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -71,8 +71,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "failure.message)}",
       "readOnlyReason)}</p> : null}",
     ],
-    "apps/web/src/components/roster/bot-inbox-alert-stack.tsx": [
-      "botInboxKindLabel(item.kind))}\`,",
+    "apps/web/src/components/roster/bot-inbox-alerts.tsx": [
+      "botInboxKindLabel(item.kind))}",
     ],
     "apps/web/src/components/roster/bot-memory-sheet.tsx": [
       "copy.title)}",
@@ -476,7 +476,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/bot-engine-fields.tsx",
     "apps/web/src/components/roster/bot-engine-selection.ts",
     "apps/web/src/components/roster/bot-identity-fields.tsx",
-    "apps/web/src/components/roster/bot-inbox-alert-stack.tsx",
+    "apps/web/src/components/roster/bot-inbox-alerts.tsx",
     "apps/web/src/components/roster/bot-memory-sheet.tsx",
     "apps/web/src/components/roster/bot-memory-transfer.tsx",
     "apps/web/src/components/roster/bot-message-attachments.tsx",

@@ -15,7 +15,6 @@ import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useEnvironmentQuery } from "../../state/query";
 import { useEnvironmentSessionState } from "../../state/session";
-import { openSettings } from "../../settings-dialog-store";
 import { SidebarInset } from "../ui/sidebar";
 import { Spinner } from "../ui/spinner";
 import { WorkspaceHeaderTitle, WorkspacePageHeader } from "../workspace-page-header";
@@ -24,7 +23,7 @@ import { BotActivityStatus, useActivitySubjectName } from "./bot-activity-status
 import { deriveBotActivity } from "./bot-activity-status.logic";
 import { BotApprovalPrompt } from "./bot-approval-prompt";
 import { MemoryApprovalPrompt } from "./memory-approval-prompt";
-import { BotInboxAlertStack } from "./bot-inbox-alert-stack";
+import { BotInboxAlerts } from "./bot-inbox-alerts";
 import { ChatReplyContext } from "../markdown/generative/chat-reply-context";
 import { BotAvatarView } from "./bot-avatar-view";
 import { BotConversationScrollArea } from "./bot-conversation-scroll-area";
@@ -627,16 +626,13 @@ export function BotThreadLanding({
                   title={presentThreadError(runtime.turnFailure.message, failureContext, t).title}
                 />
               ) : null}
+              <BotInboxAlerts items={inboxItems} environmentId={environmentId} />
               {waitingOnChildren && !working ? (
                 <p className="ml-10 text-xs text-muted-foreground" aria-live="polite">
                   {t("Waiting on delegated work")}
                 </p>
               ) : null}
             </BotConversationScrollArea>
-            <BotInboxAlertStack
-              items={inboxItems}
-              onOpenDetails={() => openSettings("advanced", "errors", environmentId)}
-            />
             <ThreadRuntimeWarningBanner warning={runtimeWarning} />
             {connectNeeded && subscriptionToConnect ? (
               <ProviderConnectCard

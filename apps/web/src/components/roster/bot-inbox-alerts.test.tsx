@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { BotId, type SubscriptionAuthStatuses } from "@otto/contracts";
 
 import { selectOpenBotInboxItems } from "../../bot-inbox";
-import { BotInboxAlertStack } from "./bot-inbox-alert-stack";
+import { BotInboxAlerts } from "./bot-inbox-alerts";
 
 type BotInboxItem = SubscriptionAuthStatuses["inbox"][number];
 
@@ -40,22 +40,25 @@ describe("bot inbox alerts", () => {
     expect(selected.map((item) => item.id)).toEqual(["newer", "older"]);
   });
 
-  it("renders the incident through the existing composer alert", () => {
+  it("renders the incident as a chat alert: what failed, what happens next, the error", () => {
     const markup = renderToStaticMarkup(
-      <BotInboxAlertStack items={[incident()]} onOpenDetails={() => {}} />,
+      <BotInboxAlerts
+        items={[incident({ lastFailure: "Claude stopped answering." })]}
+        environmentId={null}
+      />,
     );
 
     expect(markup).toContain('role="alert"');
-    expect(markup).toContain('data-variant="error"');
-    expect(markup).toContain("Otto · Research brief");
-    expect(markup).toContain("Claude rejected the request.");
-    expect(markup).toContain("Next: Reconnect Claude in Settings.");
-    expect(markup).toContain("View details");
+    expect(markup).toContain("Provider connection failed");
+    expect(markup).toContain("Reconnect Claude in Settings.");
+    expect(markup).toContain("Claude stopped answering.");
+    expect(markup).not.toContain("Research brief");
   });
 
   it("leaves approval requests to the inline approval card", () => {
     const markup = renderToStaticMarkup(
-      <BotInboxAlertStack
+      <BotInboxAlerts
+        environmentId={null}
         items={[
           incident({
             kind: "approval-request",
@@ -63,8 +66,15 @@ describe("bot inbox alerts", () => {
             nextAction: "Open the thread and approve or decline the request.",
           }),
         ]}
-        onOpenDetails={() => {}}
       />,
+    );
+
+    expect(markup).toBe("");
+  });
+
+  it("leaves browser failures to the bot's own reply", () => {
+    const markup = renderToStaticMarkup(
+      <BotInboxAlerts items={[incident({ kind: "browser-dead" })]} environmentId={null} />,
     );
 
     expect(markup).toBe("");
@@ -72,10 +82,7 @@ describe("bot inbox alerts", () => {
 
   it("leaves routine failures in the inbox instead of blocking chat", () => {
     const markup = renderToStaticMarkup(
-      <BotInboxAlertStack
-        items={[incident({ kind: "routine-failure" })]}
-        onOpenDetails={() => {}}
-      />,
+      <BotInboxAlerts items={[incident({ kind: "routine-failure" })]} environmentId={null} />,
     );
 
     expect(markup).toBe("");

@@ -111,7 +111,6 @@ export const commonMessagesCatalog = {
   "Delegation to {name}": "Delegation to {name}",
   "{parent} asked {child}": "{parent} asked {child}",
   "{count} open": "{count} open",
-  "Next: {action}": "Next: {action}",
   "Opening page…": "Opening page…",
   "React {emoji}": "React {emoji}",
   "Remove your {emoji} reaction": "Remove your {emoji} reaction",

@@ -174,9 +174,6 @@ export const createControllerState = Effect.fn("createControllerState")(function
     get subscriptionAuth() {
       return subscriptionAuth;
     },
-    get botInbox() {
-      return botInbox;
-    },
     get options() {
       return options;
     },
