@@ -268,6 +268,14 @@ export function createTurnLifecycle(deps: {
     return failActiveTurn(active, pending.threadId, pending.turnId, cause);
   };
 
+  // This turn's block: why the bot answers now, sent last and never stored.
+  const turnState = (pending: PendingTurn, review = "") => ({
+    turnContext:
+      [pending.turnNote, review, pending.delegationResults].filter(Boolean).join("\n\n") ||
+      undefined,
+    timezone: pending.toolSession.timezone,
+  });
+
   const startAdmittedPendingTurn = (active: ActiveSession, pending: PendingTurn) => {
     const { threadId, turnId, message } = pending;
 
@@ -331,15 +339,17 @@ export function createTurnLifecycle(deps: {
         if (pending.memoryAccess) delete toolSession.memoryHandlers;
         active.toolSession = toolSession;
         deps.toolRuntime.registerSession(String(threadId), active.toolSession);
-        const { persistentMemoryContext, ...stateWithoutMemory } = active.session.state.get();
 
-        if (pending.delegationResults) {
-          await active.session.state.set({
-            ...stateWithoutMemory,
-            persistentMemoryContext: pending.delegationResults,
-          });
-        } else if (persistentMemoryContext) {
-          await active.session.state.set(stateWithoutMemory);
+        const { persistentMemoryContext, ...stateWithoutMemory } = active.session.state.get();
+        const turn = turnState(pending);
+
+        // Otto: only a changed state is written, so an unchanged turn starts without waiting.
+        if (
+          persistentMemoryContext !== undefined ||
+          stateWithoutMemory.turnContext !== turn.turnContext ||
+          stateWithoutMemory.timezone !== turn.timezone
+        ) {
+          await active.session.state.set({ ...stateWithoutMemory, ...turn });
         }
 
         if (active.admittingTurn?.turnId !== turnId) return;
@@ -389,17 +399,14 @@ export function createTurnLifecycle(deps: {
 
           const entityPacket = await deps.entityMemoryContext(entityMemoryAccess);
 
-          const persistentMemoryContext = [
-            memoryTurn.context,
-            entityPacket,
-            pending.delegationResults,
-          ]
+          const persistentMemoryContext = [memoryTurn.context, entityPacket]
             .filter(Boolean)
             .join("\n\n");
 
           await active.session.state.set({
             ...stateWithoutMemory,
             ...(persistentMemoryContext ? { persistentMemoryContext } : {}),
+            ...turnState(pending, memoryTurn.review),
           });
 
           if (active.admittingTurn?.turnId !== turnId) return;

@@ -203,7 +203,7 @@ describe("AgentControllerLive", () => {
           delegationResults: results,
         });
         yield* Effect.promise(() => mastra.waitForSendMessageCount(1));
-        expect(mastra.session.state.get().persistentMemoryContext).toBe(results);
+        expect(mastra.session.state.get().turnContext).toBe(results);
         expect(mastra.sendMessage).toHaveBeenCalledWith({
           content: "What did the researcher find?",
         });
@@ -212,7 +212,7 @@ describe("AgentControllerLive", () => {
         yield* controller.sendTurn({ threadId: codexThreadId, input: "Anything else?" });
         mastra.finishSend();
         yield* Effect.promise(() => mastra.waitForSendMessageCount(2));
-        expect(mastra.session.state.get()).not.toHaveProperty("persistentMemoryContext");
+        expect(mastra.session.state.get().turnContext).toBeUndefined();
         mastra.finishSend();
       }),
       bridge.service,

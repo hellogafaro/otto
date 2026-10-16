@@ -197,7 +197,7 @@ export function resolveOttoMastraModel(
     const credential = getCredential?.();
 
     if (credential) {
-      return ottoOpenAIProvider(trimmed.slice("openai/".length), () => credential);
+      return ottoOpenAIProvider(trimmed.slice("openai/".length), () => credential, threadId);
     }
 
     if (!useSavedCredential) {
@@ -207,6 +207,7 @@ export function resolveOttoMastraModel(
     return ottoCodexOAuthProvider(
       trimmed.slice("openai/".length),
       scopedAuthStorage("openai-codex"),
+      threadId,
     );
   }
 
@@ -250,9 +251,11 @@ export function resolveOttoMastraModel(
       );
     }
 
+    // Otto: Otto's prompt layout marks the conversation's cache points itself.
     return opencodeClaudeMaxProvider(model, {
       ...contextHeaders,
       authStorage: scopedAuthStorage("anthropic"),
+      promptCacheScope: "system",
     });
   }
 

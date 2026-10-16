@@ -11,6 +11,17 @@ export function isGroupTurnNote(text: string): boolean {
   return text.startsWith(GROUP_TURN_NOTE_PREFIX) && text.endsWith(")") && !text.includes("\n");
 }
 
+/**
+ * Splits a trailing turn note off a group message, so the note reaches the bot in its turn
+ * block instead of being stored with the message. A message that is only a note keeps it.
+ */
+export function splitGroupTurnNote(text: string) {
+  const at = text.lastIndexOf(`\n\n${GROUP_TURN_NOTE_PREFIX}`);
+  const note = at < 0 ? "" : text.slice(at + 2);
+
+  return isGroupTurnNote(note) ? { text: text.slice(0, at), note } : { text, note: "" };
+}
+
 /** The hidden note that tells a bot why it is answering now. */
 export function groupTurnNote(reason: GroupTurnReason, from?: string): string {
   switch (reason) {

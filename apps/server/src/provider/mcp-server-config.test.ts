@@ -121,6 +121,6 @@ describe("provider MCP configuration", () => {
         { ...servers[0]!, instructions: "  Search before answering.  " },
         { ...servers[1]!, instructions: "   " },
       ]),
-    ).toBe("MCP server guidance:\n- Search (search): Search before answering.");
+    ).toBe("- Search (search): Search before answering.");
   });
 });

@@ -394,6 +394,8 @@ export const openRoutineReview = (
       input: "Make a routine.",
       ...(timezone ? { timezone } : {}),
     });
+    // A tool call happens only inside a started turn.
+    yield* Effect.promise(() => mastra.waitForSendMessageCount(1));
     const createRoutine = mastra.harnessOptions[0]?.createRoutine;
     assert.isDefined(createRoutine);
 

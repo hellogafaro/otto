@@ -39,7 +39,8 @@ describe("OttoMemoryTurnHarness", () => {
         });
 
         expect(turn.reviewIncluded).toBe(true);
-        expect(turn.context).toContain("<automatic-memory-review>");
+        expect(turn.review).toContain("<automatic-memory-review>");
+        expect(turn.context).not.toContain("<automatic-memory-review>");
         const handler: OttoMemoryToolHandler = async () => ({ success: true });
         const tracked = turn.wrapMemoryHandler(handler);
 

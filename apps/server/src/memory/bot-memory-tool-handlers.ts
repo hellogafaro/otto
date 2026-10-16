@@ -56,6 +56,13 @@ Save only stable, high-signal facts useful in future chats. Skip one-off request
 
 Shared memory: to save a fact that other bots or future chats in this project, group, or workspace should know, pass share with the exact fact text and a scope of project, group, or workspace. Set sensitive to true for personal, health, financial, or otherwise private details. Use share only when the user asks you to remember something for the project, group, or workspace, not for ordinary preferences. The user is usually asked to approve shared facts in the chat before they are saved. When the result says the fact is pending approval, tell the user briefly and do not call share again for the same fact.`;
 
+export const OTTO_MEMORY_TOOL_PROMPT = {
+  snippet: "read and save what you should remember",
+  guidelines: [
+    "When the user states a durable preference or personal fact, call memory in that same turn with the user target. Do not wait for 'remember': 'I really like cats' merits 'User likes cats.' Skip transient details, save quietly, and answer normally.",
+  ],
+};
+
 export function createBotMemoryToolHandler(
   store: Pick<BotMemoryStore, "mutate" | "readDocument">,
   access: BotMemoryAccess,

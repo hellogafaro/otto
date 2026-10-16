@@ -45,6 +45,12 @@ const safeBrowserTool = <T extends Tool.Any>(tool: T): T =>
 const readonlyBrowserTool = <T extends Tool.Any>(tool: T): T =>
   safeBrowserTool(tool).annotate(Tool.Readonly, true).annotate(Tool.Idempotent, true) as T;
 
+/** The bot prompt's line for the whole preview_* family. */
+export const PREVIEW_TOOLS_PROMPT = {
+  label: "preview_*",
+  snippet: "the browser tab you share with the person",
+};
+
 export const PreviewStatusTool = Tool.make("preview_status", {
   description:
     "Report whether a collaborative browser tab is automation-capable, including its URL, title, visibility, loading state, viewport mode, and measured CSS-pixel size. Pass tabId to inspect a specific tab; omit it to use this agent session's current tab.",

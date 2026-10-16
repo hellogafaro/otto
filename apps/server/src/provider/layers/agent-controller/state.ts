@@ -73,6 +73,8 @@ export interface PendingTurn {
   readonly reviewInput: string;
   readonly hiddenWake: boolean;
   readonly delegationResults: string | undefined;
+  /** The group turn note, sent in the turn block instead of the stored message. */
+  readonly turnNote: string;
 }
 
 export interface ActiveSession {

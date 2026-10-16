@@ -177,14 +177,12 @@ describe("AgentControllerLive", () => {
           yield* Effect.promise(() => mastra.waitForSendMessageCount(1));
           expect(mastra.session.state.set).toHaveBeenLastCalledWith(
             expect.objectContaining({
-              persistentMemoryContext: expect.stringContaining("<automatic-memory-review>"),
+              turnContext: expect.stringContaining("<automatic-memory-review>"),
             }),
           );
           expect(mastra.session.state.set).toHaveBeenLastCalledWith(
             expect.objectContaining({
-              persistentMemoryContext: expect.stringContaining(
-                "GROUP.md is not available in this chat",
-              ),
+              turnContext: expect.stringContaining("GROUP.md is not available in this chat"),
             }),
           );
 

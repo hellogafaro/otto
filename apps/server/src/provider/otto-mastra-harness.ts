@@ -43,7 +43,7 @@ import {
   isObservationQueueClosed,
 } from "./mastra/otto-harness-errors.ts";
 import { openObservationQueueDb } from "./mastra/otto-observation-queue-store.ts";
-import { resolveOttoInstructions } from "./mastra/otto-instructions.ts";
+import { type OttoChatContextRecord, withOttoPrompt } from "./mastra/otto-instructions.ts";
 import {
   resolveOttoMastraModel,
   DEFAULT_MODEL_ID,
@@ -232,11 +232,15 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
       controllerResourceId(requestContext),
     );
 
+  const chatContexts = new Map<string, OttoChatContextRecord>();
+
+  // Otto: the model lays out the whole prompt, because only it sees the final tool list.
   const agent = new Agent({
     id: "otto-agent",
     name: "Otto",
-    instructions: ({ requestContext }) => resolveOttoInstructions(requestContext),
-    model: ({ requestContext }) => resolveModel(requestContext),
+    instructions: "",
+    model: ({ requestContext }) =>
+      withOttoPrompt(resolveModel(requestContext), requestContext, chatContexts),
     tools: ({ requestContext }) => resolveOttoTools(requestContext, options, resolveModel),
     memory: observationalMemory.memory,
     inputProcessors: [observationalMemory.processor],
@@ -770,7 +774,7 @@ export {
   resolveOttoMastraModel,
 } from "./mastra/otto-models.ts";
 
-export { resolveOttoInstructions } from "./mastra/otto-instructions.ts";
+export { withOttoPrompt } from "./mastra/otto-instructions.ts";
 
 export {
   OTTO_LIST_ROUTINES_TOOL_NAME,

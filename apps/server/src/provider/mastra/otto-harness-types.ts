@@ -41,6 +41,13 @@ export interface OttoMastraState {
   readonly groupContext?: string | undefined;
   // Otto: undefined clears the project when a reused session moves to the general project.
   readonly projectContext?: string | undefined;
+  readonly workspaceName?: string | undefined;
+  /** The workspace's people and projects. */
+  readonly workspaceContext?: string | undefined;
+  /** The person's timezone for this turn's date and time. */
+  readonly timezone?: string | undefined;
+  /** Why the bot is answering now, sent last and never stored: group turn, memory review, results. */
+  readonly turnContext?: string | undefined;
   readonly modelOptions?: OttoModelOptions;
 }
 

@@ -338,6 +338,13 @@ export const browserTargetSchema = z
     message: "Provide selector or backendNodeId.",
   });
 
+/** The bot prompt's line for the whole browser_* family. */
+export const BOT_BROWSER_TOOLS_PROMPT = {
+  label: "browser_*",
+  snippet: "a headless browser in your workspace",
+  guidelines: ["Use browser_* only when no preview_* tool fits."],
+};
+
 export function createBotBrowserTools(rpc: BotBrowserRpc): ToolsInput {
   const call = async (name: string, input: BrowserRpcParams) =>
     redactSensitiveText(await rpc.call(name, input)).value;

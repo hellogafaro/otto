@@ -29,12 +29,14 @@ export interface OttoMemoryTurnAdmission {
 /**
  * Provider-neutral memory lifecycle for one admitted bot turn.
  *
- * Provider transports decide only where to deliver `context` and whether review execution is
+ * Provider transports decide only where to deliver `context` (the memory documents) and `review`
+ * (this turn's automatic review request, if due), and whether review execution is
  * foreground or deferred. Claim ownership, successful-prompt accounting, exact tool-call
  * verification, retries, and cleanup stay here.
  */
 export class OttoMemoryTurn {
   readonly context: string;
+  readonly review: string;
   readonly reviewIncluded: boolean;
   readonly access: BotMemoryAccess;
 
@@ -63,6 +65,9 @@ export class OttoMemoryTurn {
     this.reservation = reservation;
     this.context = context;
     this.reviewIncluded = reservation.memoryReviewIncluded;
+    this.review = this.reviewIncluded
+      ? formatAutomaticBotMemoryReview(access.groupId !== null, reservation.reviewInputs)
+      : "";
     this.scope = scope;
   }
 
@@ -75,12 +80,6 @@ export class OttoMemoryTurn {
 
       return result;
     };
-  }
-
-  async freshReviewContext(): Promise<string> {
-    const snapshot = formatBotMemoryPrompt(await this.store.readPromptSnapshot(this.access));
-
-    return [snapshot, this.reviewInstruction()].filter(Boolean).join("\n\n");
   }
 
   async finishForeground(succeeded: boolean, mode: OttoMemoryReviewMode): Promise<void> {
@@ -129,12 +128,6 @@ export class OttoMemoryTurn {
       if (this.foregroundState === "pending") this.foregroundState = "failed";
       await this.settleReview(false);
     });
-  }
-
-  private reviewInstruction(): string {
-    return this.reviewIncluded
-      ? formatAutomaticBotMemoryReview(this.access.groupId !== null, this.reservation.reviewInputs)
-      : "";
   }
 
   private async settleReview(completed: boolean): Promise<void> {
@@ -189,17 +182,7 @@ export class OttoMemoryTurnHarness {
           : promptSnapshot,
       );
 
-      const review = reservation.memoryReviewIncluded
-        ? formatAutomaticBotMemoryReview(access.groupId !== null, reservation.reviewInputs)
-        : "";
-
-      const turn = new OttoMemoryTurn(
-        this.store,
-        access,
-        reservation,
-        [snapshot, review].filter(Boolean).join("\n\n"),
-        scope,
-      );
+      const turn = new OttoMemoryTurn(this.store, access, reservation, snapshot, scope);
 
       const store = this.store;
       await Effect.runPromise(

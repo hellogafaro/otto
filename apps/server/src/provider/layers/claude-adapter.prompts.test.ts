@@ -58,8 +58,8 @@ describe("ClaudeAdapterLive", () => {
             ? (createInput.options.systemPrompt.append ?? "")
             : "";
 
-        assert.include(appendedInstructions, "general assistant");
-        assert.notInclude(appendedInstructions, "Before you use a tool");
+        assert.include(appendedInstructions, "You are Otto, a member of the team in Otto.");
+        assert.notInclude(appendedInstructions, "<instructions>");
       }).pipe(
         Effect.provideService(Random.Random, makeDeterministicRandomService()),
         Effect.provide(harness.layer),
@@ -90,11 +90,10 @@ describe("ClaudeAdapterLive", () => {
           ? (systemPrompt.append ?? "")
           : "";
 
-      assert.include(appendedInstructions, "Before you use a tool");
+      assert.include(appendedInstructions, "say in one line what you will do before tool work");
       assert.include(appendedInstructions, "automatic continuation");
       assert.include(appendedInstructions, "You are Mina");
       assert.include(appendedInstructions, "<instructions>\nAnswer in Spanish.\n</instructions>");
-      assert.match(appendedInstructions, /Today is [A-Z][a-z]+, [A-Z][a-z]+ \d{1,2}, \d{4}/);
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),
       Effect.provide(harness.layer),

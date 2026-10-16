@@ -39,10 +39,7 @@ import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import { ServerConfig } from "../../../config.ts";
 import { subscriptionRuntimeEnvironment } from "../../../subscription-auth/runtime.ts";
-import {
-  createOttoAgentInstructions,
-  createOttoBotInstructions,
-} from "../../otto-agent-instructions.ts";
+import { createOttoInstructions } from "../../otto-agent-instructions.ts";
 import * as McpProviderSession from "../../../mcp/mcp-provider-session.ts";
 import { toClaudeMcpServers } from "../../mcp-server-config.ts";
 
@@ -283,12 +280,14 @@ export function createClaudeSessionLifecycle(deps: {
         systemPrompt: {
           type: "preset",
           preset: "claude_code",
-          append: input.botId
-            ? createOttoBotInstructions({
-                ...(input.botName ? { name: input.botName } : {}),
-                ...(input.botInstructions ? { instructions: input.botInstructions } : {}),
-              })
-            : createOttoAgentInstructions(),
+          append: createOttoInstructions(
+            input.botId
+              ? {
+                  ...(input.botName ? { name: input.botName } : {}),
+                  ...(input.botInstructions ? { instructions: input.botInstructions } : {}),
+                }
+              : {},
+          ),
         },
         settingSources: [...CLAUDE_SETTING_SOURCES],
         // `ultracode` is a Claude Code setting, not an API effort level. It is

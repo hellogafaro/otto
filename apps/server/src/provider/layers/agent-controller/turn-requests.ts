@@ -26,7 +26,8 @@ import { ServerConfig } from "../../../config.ts";
 import * as McpMemoryToolSession from "../../../mcp/mcp-memory-tool-session.ts";
 
 import type { OttoControllerHarness } from "../../mastra/otto-harness-types.ts";
-import { createOttoBotTurnInstructions } from "../../otto-agent-instructions.ts";
+import { createOttoInstructions } from "../../otto-agent-instructions.ts";
+import { splitGroupTurnNote } from "../../../orchestration/group-responder.ts";
 
 import { OttoMemoryTurnHarness } from "../../otto-memory-turn-harness.ts";
 
@@ -358,7 +359,7 @@ export function createTurnRequests(deps: {
         deps.addLegacyPending(key, pendingMemory);
 
         const turnInstructions = resolved?.botConversation
-          ? createOttoBotTurnInstructions({
+          ? createOttoInstructions({
               ...(resolved.botName ? { name: resolved.botName } : {}),
               ...(resolved.botInstructions ? { instructions: resolved.botInstructions } : {}),
             })
@@ -371,6 +372,7 @@ export function createTurnRequests(deps: {
         const providerContext = [
           contextInSystem ? turnInstructions : "",
           memoryTurn?.context,
+          memoryTurn?.review,
           entityPacket,
           observationContext,
           contextInSystem ? delegationResults : "",
@@ -477,10 +479,12 @@ export function createTurnRequests(deps: {
           }
 
           const turnId = TurnId.make(`mastra-turn-${NodeCrypto.randomUUID()}`);
+          const { text, note } = splitGroupTurnNote(content);
           active.pendingTurns.push({
             threadId: input.threadId,
             turnId,
-            message: { content, ...(files.length > 0 ? { files } : {}) },
+            message: { content: text, ...(files.length > 0 ? { files } : {}) },
+            turnNote: note,
             botUsage: input.botUsage,
             toolSession: active.configuredToolSession,
             memoryAccess: active.configuredMemoryAccess,

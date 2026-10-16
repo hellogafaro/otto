@@ -488,21 +488,17 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
     updateDocument: (caller: LibraryToolCaller, input: Input<"UpdateLibraryDocument">) =>
       run(updateDocument(caller, input)),
     listSkills: (caller: LibraryToolCaller) => run(listSkills(caller)),
-    /** The skills this bot can use, as system prompt text; empty when it has none or the read fails. */
+    /** The skills this bot can use, one prompt line each; empty when it has none or the read fails. */
     skillsContext: (caller: LibraryToolCaller) =>
       listSkills(caller).pipe(
         Effect.map(({ skills }) =>
-          skills.length === 0
-            ? ""
-            : [
-                "Saved skills you can use. When a request matches a skill's description, read its SKILL.md with ReadSkillFile before you answer, then follow it.",
-                ...skills
-                  .slice(0, 100)
-                  .map(
-                    (skill) =>
-                      `- ${skill.name} (skillId: ${skill.skillId})${skill.description ? `: ${skill.description}` : ""}`,
-                  ),
-              ].join("\n"),
+          skills
+            .slice(0, 100)
+            .map(
+              (skill) =>
+                `- ${skill.name} (skillId: ${skill.skillId})${skill.description ? `: ${skill.description}` : ""}`,
+            )
+            .join("\n"),
         ),
         Effect.orElseSucceed(() => ""),
         Effect.provide(context),

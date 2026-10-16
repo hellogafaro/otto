@@ -6,7 +6,7 @@ import {
   formatAutomaticBotMemoryReview,
 } from "./bot-memory-review.ts";
 import { OTTO_MEMORY_TOOL_DESCRIPTION } from "./bot-memory-tool-handlers.ts";
-import { createOttoBotInstructions } from "../provider/otto-agent-instructions.ts";
+import { createOttoInstructions } from "../provider/otto-agent-instructions.ts";
 
 describe("automatic bot memory review", () => {
   it("asks the foreground bot to save natural preference disclosures", () => {
@@ -17,10 +17,10 @@ describe("automatic bot memory review", () => {
     expect(OTTO_MEMORY_TOOL_DESCRIPTION).toContain(
       "stable preference, personal fact, desire, identity detail, or lasting expectation",
     );
-    expect(createOttoBotInstructions()).toContain(
-      "call memory in that same turn with the user target",
-    );
-    expect(createOttoBotInstructions()).toContain("'I really like cats'");
+    const instructions = createOttoInstructions({ tools: ["memory"] });
+
+    expect(instructions).toContain("call memory in that same turn with the user target");
+    expect(instructions).toContain("'I really like cats'");
     expect(OTTO_MEMORY_TOOL_DESCRIPTION).toContain('"I really like cats"');
   });
 

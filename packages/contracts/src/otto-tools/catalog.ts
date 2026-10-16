@@ -111,6 +111,10 @@ export interface OttoToolDefinition {
   readonly approval: OttoToolApprovalClass;
   readonly requiresUserComputer?: boolean;
   readonly copy?: OttoCopyDirection;
+  /** One line for the prompt's tool list; a tool without one is left off it. */
+  readonly promptSnippet?: string;
+  /** Rules the prompt adds while this tool is loaded. */
+  readonly promptGuidelines?: ReadonlyArray<string>;
 }
 
 const define = (
@@ -118,7 +122,15 @@ const define = (
   capability: OttoToolCapability,
   description: string,
   options: Partial<
-    Pick<OttoToolDefinition, "workspace" | "approval" | "requiresUserComputer" | "copy">
+    Pick<
+      OttoToolDefinition,
+      | "workspace"
+      | "approval"
+      | "requiresUserComputer"
+      | "copy"
+      | "promptSnippet"
+      | "promptGuidelines"
+    >
   > = {},
 ): OttoToolDefinition => ({
   id,
@@ -128,14 +140,18 @@ const define = (
   approval: options.approval ?? "none",
   ...(options.requiresUserComputer ? { requiresUserComputer: true } : {}),
   ...(options.copy ? { copy: options.copy } : {}),
+  ...(options.promptSnippet ? { promptSnippet: options.promptSnippet } : {}),
+  ...(options.promptGuidelines ? { promptGuidelines: options.promptGuidelines } : {}),
 });
 
 export const OTTO_TOOL_CATALOG = [
   define("Shell", "bot-workspace", "Run a command in the bot workspace.", {
     workspace: "bot-workspace",
+    promptSnippet: "run commands in your workspace",
   }),
   define("Read", "bot-workspace", "Read a file in the bot workspace.", {
     workspace: "bot-workspace",
+    promptSnippet: "read a file in your workspace",
   }),
   define("Screenshot", "bot-workspace", "Capture the bot workspace desktop.", {
     workspace: "bot-workspace",
@@ -205,6 +221,7 @@ export const OTTO_TOOL_CATALOG = [
     "Delegate a task to another bot. Returns a handle at once; the result arrives in your next turn.",
     {
       approval: "send",
+      promptSnippet: "hand work to another bot",
     },
   ),
   define("CreateChannel", "bot-workspace", "Create a bot channel."),
@@ -248,8 +265,12 @@ export const OTTO_TOOL_CATALOG = [
   define("RestartMcpServers", "bot-workspace", "Restart MCP servers.", {
     approval: "production",
   }),
-  define("WebSearch", "bot-workspace", "Search the public web."),
-  define("WebFetch", "bot-workspace", "Fetch and extract a public URL."),
+  define("WebSearch", "bot-workspace", "Search the public web.", {
+    promptSnippet: "search the public web",
+  }),
+  define("WebFetch", "bot-workspace", "Fetch and extract a public URL.", {
+    promptSnippet: "read a public web page",
+  }),
   define(
     "GenerateImage",
     "bot-workspace",
@@ -258,7 +279,7 @@ export const OTTO_TOOL_CATALOG = [
       "(attachment ids from this chat; defaults to the images on the latest user message). " +
       "Finished images appear in the chat automatically; do not repeat or describe the file data. " +
       'If the result status is "needs-consent", ask the user before retrying with allowProvider.',
-    { approval: "production" },
+    { approval: "production", promptSnippet: "create or edit images" },
   ),
   define(
     "SaveToLibrary",
@@ -267,12 +288,14 @@ export const OTTO_TOOL_CATALOG = [
       "Pass markdown content to save a .md document (titled after its first # heading unless you give a title), " +
       'text content with a fileName such as "report.csv" for another text file, or attachmentId to save a file from this chat. ' +
       "It goes into this chat's Library folder, which only the chat's people see, unless you pass a folderId from ListLibrary.",
+    { promptSnippet: "save a document or file to the Library, the workspace's shared files" },
   ),
   define(
     "ListLibrary",
     "bot-workspace",
     "List the Library folders and files you can see, newest first. Filter by folderId, type " +
       '("document", "image", "pdf" or "file") or a title query.',
+    { promptSnippet: "find Library files" },
   ),
   define(
     "ReadLibraryFile",
@@ -298,6 +321,11 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Read a file from a skill ListSkills returned: SKILL.md by default, or a path such as references/guide.md. " +
       "Text files up to 1 MB. Scripts in a skill are references to read; Otto never runs them.",
+    {
+      promptGuidelines: [
+        "When a request matches one of <available_skills>, read its SKILL.md with ReadSkillFile first and follow it.",
+      ],
+    },
   ),
   define(
     "ListTasks",
@@ -307,6 +335,7 @@ export const OTTO_TOOL_CATALOG = [
       'or a participant key such as "person:…") or a title query. Archived tasks only show when ' +
       "you ask for that status. It also lists every project with its projectId and every person " +
       "with their key, for CreateTask and UpdateTask.",
+    { promptSnippet: "find tasks, people and projects" },
   ),
   define(
     "ReadTask",
@@ -320,6 +349,7 @@ export const OTTO_TOOL_CATALOG = [
     "Create a task on the Tasks page. It goes into this chat's project unless you pass a " +
       'projectId (ListTasks lists them). Assign it with participant keys from ListTasks, or "me". ' +
       "Only people mark tasks completed, and the owner is left for a person to set.",
+    { promptSnippet: "create a task" },
   ),
   define(
     "UpdateTask",
@@ -333,6 +363,7 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Post a comment on a task's activity as yourself, in plain text. Use it to report progress " +
       "or answer someone on the task.",
+    { promptSnippet: "comment on a task" },
   ),
   define("AddMcpServer", "bot-workspace", "Add an MCP server account.", { approval: "secrets" }),
   define("UninstallMcpServer", "bot-workspace", "Remove an MCP server.", { approval: "delete" }),
@@ -345,6 +376,7 @@ export const OTTO_TOOL_CATALOG = [
     "Task",
     "bot-workspace",
     "Start a temporary worker for a bounded subtask. The worker is a copy of this bot with the same tools and no memory writes, runs in a hidden chat, and is canceled when this turn ends. Waits for the result unless background is true; a background worker still needs CheckSubagent with wait before you finish this turn, or its result is lost. Workers cannot start workers, and one turn can run at most 3 at once.",
+    { promptSnippet: "run a bounded subtask in a temporary worker" },
   ),
   define(
     "CheckSubagent",

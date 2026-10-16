@@ -80,6 +80,10 @@ export const ProviderSessionStartInput = Schema.Struct({
   groupContext: Schema.optional(Schema.String),
   /** Otto: the project the chat is filed in, for the bot's system context. */
   projectContext: Schema.optional(Schema.String),
+  /** The workspace (organization) the bot belongs to. */
+  workspaceName: Schema.optional(Schema.String),
+  /** The workspace's people and projects, for the bot's chat context. */
+  workspaceContext: Schema.optional(Schema.String),
   runtimeMode: RuntimeMode,
 });
 

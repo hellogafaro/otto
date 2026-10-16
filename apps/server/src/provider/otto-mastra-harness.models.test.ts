@@ -1,18 +1,11 @@
 import type { createAnthropic } from "@ai-sdk/anthropic";
 import { describe } from "vite-plus/test";
 import { AuthStorage } from "@mastra/code-sdk/auth/storage";
-import { RequestContext } from "@mastra/core/request-context";
 import { ProviderDriverKind } from "@otto/contracts";
-import * as DateTime from "effect/DateTime";
 import { it } from "@effect/vitest";
 import { assert, expect, vi } from "vite-plus/test";
 import {
-  createOttoAgentInstructions,
-  createOttoBotInstructions,
-} from "./otto-agent-instructions.ts";
-import {
   mastraModelId,
-  resolveOttoInstructions,
   resolveOttoMastraModel,
   withOttoModelRunOptions,
 } from "./otto-mastra-harness.ts";
@@ -349,29 +342,6 @@ describe("OttoMastraHarness", () => {
     );
   });
 
-  it("builds a compact, human prompt with the bot name and current date", () => {
-    const instructions = createOttoAgentInstructions({
-      name: "  Research\nBot  ",
-      now: DateTime.makeUnsafe("2026-09-02T12:00:00.000Z"),
-    });
-
-    assert.include(instructions, "You are Research Bot, a sharp, curious general assistant");
-    assert.include(instructions, "Today is Wednesday, September 2, 2026");
-    assert.include(instructions, "Write with judgment");
-    assert.include(instructions, "Before sending, cut filler");
-    assert.include(instructions, "Name every drawback");
-    assert.include(instructions, "Never use em or en dashes");
-    assert.include(instructions, "enabled plugins");
-    assert.include(instructions, "Prefer preview_* tools over browser_* tools");
-    assert.include(instructions, "Own the requested outcome");
-    assert.include(instructions, "Carry multi-step work through implementation");
-    assert.include(instructions, "Never report success before");
-    assert.include(instructions, "otto_list_routines");
-    assert.notInclude(instructions, "—");
-    assert.notInclude(instructions, "coding agent");
-    assert.isBelow(createOttoBotInstructions({ now: DateTime.nowUnsafe() }).length, 3_500);
-  });
-
   it("passes the saved Codex service tier to Mastra provider options", () => {
     expect(
       withOttoModelRunOptions(
@@ -384,59 +354,5 @@ describe("OttoMastraHarness", () => {
         openai: { store: false, serviceTier: "priority" },
       },
     });
-  });
-
-  it("adds reply and status rules only to bot conversations", () => {
-    const now = DateTime.makeUnsafe("2026-09-02T12:00:00.000Z");
-    const regular = new RequestContext();
-    regular.setRaw("controller", { state: { botConversation: false } });
-    const bot = new RequestContext();
-    bot.setRaw("controller", {
-      state: { botConversation: true, botName: "Mina", botInstructions: "Answer in Spanish." },
-    });
-
-    assert.equal(resolveOttoInstructions(regular, now), createOttoAgentInstructions({ now }));
-    assert.equal(
-      resolveOttoInstructions(bot, now),
-      createOttoBotInstructions({ name: "Mina", now, instructions: "Answer in Spanish." }),
-    );
-    assert.include(resolveOttoInstructions(bot, now), "You are Mina");
-    assert.include(resolveOttoInstructions(bot, now), "Answer in Spanish.");
-    assert.include(resolveOttoInstructions(bot, now), "Before you use a tool");
-    assert.include(resolveOttoInstructions(bot, now), "automatic continuation");
-  });
-
-  it("appends saved MCP server guidance to the system prompt", () => {
-    const now = DateTime.makeUnsafe("2026-09-02T12:00:00.000Z");
-    const context = new RequestContext();
-    context.setRaw("controller", {
-      state: {
-        botConversation: false,
-        mcpInstructions: "MCP server guidance:\n- Docs (docs): Search first.",
-      },
-    });
-
-    assert.equal(
-      resolveOttoInstructions(context, now),
-      `${createOttoAgentInstructions({ now })}\n\nMCP server guidance:\n- Docs (docs): Search first.`,
-    );
-  });
-
-  it("lists the bot's saved skills after MCP guidance", () => {
-    const now = DateTime.makeUnsafe("2026-09-02T12:00:00.000Z");
-    const context = new RequestContext();
-    context.setRaw("controller", {
-      state: {
-        botConversation: false,
-        mcpInstructions: "MCP server guidance:",
-        skillsContext: "Saved skills you can use.\n- Weekly report (skillId: s1)",
-        persistentMemoryContext: "<memory />",
-      },
-    });
-
-    assert.equal(
-      resolveOttoInstructions(context, now),
-      `${createOttoAgentInstructions({ now })}\n\nMCP server guidance:\n\nSaved skills you can use.\n- Weekly report (skillId: s1)\n\n<memory />`,
-    );
   });
 });

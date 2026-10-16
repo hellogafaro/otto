@@ -1,7 +1,7 @@
 import { AuthSessionId, BotId } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { groupRosterContext } from "./group-responder.ts";
+import { groupRosterContext, groupTurnNote, splitGroupTurnNote } from "./group-responder.ts";
 
 const axo = { id: BotId.make("bot-axo"), name: "Axo" };
 
@@ -32,5 +32,23 @@ describe("groupRosterContext", () => {
     expect(context).toContain("Greetings and small talk");
     expect(context).toContain("Stay out when another bot already took it");
     expect(context).not.toMatch(/\(lead\)|boss/i);
+  });
+});
+
+describe("splitGroupTurnNote", () => {
+  it("moves a trailing turn note out of the stored message", () => {
+    const note = groupTurnNote("handoff", "Axo");
+
+    expect(splitGroupTurnNote(`Ana: hi\n\n${note}`)).toEqual({ text: "Ana: hi", note });
+  });
+
+  it("keeps messages without a trailing note, and a message that is only a note", () => {
+    const note = groupTurnNote("plain");
+
+    expect(splitGroupTurnNote("Ana: (Group: not a note)")).toEqual({
+      text: "Ana: (Group: not a note)",
+      note: "",
+    });
+    expect(splitGroupTurnNote(note)).toEqual({ text: note, note: "" });
   });
 });

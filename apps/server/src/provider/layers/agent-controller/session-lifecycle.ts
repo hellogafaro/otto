@@ -232,6 +232,8 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           mcpInstructions: formatMcpServerInstructions(mcpServers),
           groupContext: input.groupContext,
           projectContext: input.projectContext,
+          workspaceName: input.workspaceName,
+          workspaceContext: input.workspaceContext,
         }),
       );
       const toolSession = { ...existing.configuredToolSession };
@@ -582,6 +584,8 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           mcpInstructions: formatMcpServerInstructions(mcpServers),
           ...(input.groupContext ? { groupContext: input.groupContext } : {}),
           ...(input.projectContext ? { projectContext: input.projectContext } : {}),
+          ...(input.workspaceName ? { workspaceName: input.workspaceName } : {}),
+          ...(input.workspaceContext ? { workspaceContext: input.workspaceContext } : {}),
           modelOptions: modelOptions ?? {},
         }),
       );

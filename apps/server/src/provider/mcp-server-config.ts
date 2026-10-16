@@ -117,7 +117,7 @@ export function formatMcpServerInstructions(servers: readonly McpServer[]): stri
       : [],
   );
 
-  return lines.length > 0 ? ["MCP server guidance:", ...lines].join("\n") : "";
+  return lines.join("\n");
 }
 
 export function toAcpMcpServers(

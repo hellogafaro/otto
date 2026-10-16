@@ -38,6 +38,9 @@ import type { createFailures } from "./failures.ts";
 import type { createWorkspace } from "./workspace.ts";
 import type { createMentions } from "./mentions.ts";
 
+/** How many people and projects the bot's workspace context names. */
+const WORKSPACE_CONTEXT_LIMIT = 50;
+
 export function createSession({
   resolveThreadShell,
   threadsAwaitingRestrictiveSessionCleanup,
@@ -57,6 +60,8 @@ export function createSession({
   threadRespondingBotIds,
   providerSessionDirectory,
   expandComposerMentions,
+  accounts,
+  projects,
 }: Pick<
   ReturnType<typeof createContext> &
     Effect.Success<ReturnType<typeof createDependencies>> &
@@ -81,6 +86,8 @@ export function createSession({
   | "threadRespondingBotIds"
   | "providerSessionDirectory"
   | "expandComposerMentions"
+  | "accounts"
+  | "projects"
 >) {
   const reconcileRestrictiveSessionCleanup = Effect.fn("reconcileRestrictiveSessionCleanup")(
     function* (threadId: ThreadId) {
@@ -327,6 +334,33 @@ export function createSession({
             .join(" ")
         : undefined;
 
+    const organization = Option.isSome(accounts) ? accounts.value.runtime.getOrganization() : null;
+
+    const people = Option.isSome(accounts)
+      ? yield* accounts.value.listPeople().pipe(Effect.orElseSucceed(() => []))
+      : [];
+
+    const projectTitles = Option.isSome(projects)
+      ? (yield* projects.value.listAll().pipe(Effect.orElseSucceed(() => []))).flatMap((entry) =>
+          entry.deletedAt === null && entry.projectId !== GENERAL_PROJECT_ID ? [entry.title] : [],
+        )
+      : [];
+
+    // Otto: who and what the bot can refer to without listing tasks first; capped for large teams.
+    const workspaceContext = [
+      people.length > 0
+        ? `People: ${people
+            .slice(0, WORKSPACE_CONTEXT_LIMIT)
+            .map((person) => person.displayName)
+            .join(", ")}`
+        : "",
+      projectTitles.length > 0
+        ? `Projects: ${projectTitles.slice(0, WORKSPACE_CONTEXT_LIMIT).join(", ")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     const effectiveSandbox = respondingBot?.sandbox ?? serverSettings.sandbox.defaultProvider;
 
     const sandboxEnvironment =
@@ -387,6 +421,8 @@ export function createSession({
         ...(respondingBot ? { botName: respondingBot.name } : {}),
         ...(groupContext ? { groupContext } : {}),
         ...(projectContext ? { projectContext } : {}),
+        ...(organization ? { workspaceName: organization.name } : {}),
+        ...(workspaceContext ? { workspaceContext } : {}),
         ...(respondingBot?.instructions?.trim()
           ? { botInstructions: respondingBot.instructions.trim() }
           : {}),

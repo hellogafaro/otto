@@ -1,3 +1,5 @@
+import { OTTO_CREATE_ROUTINE_TOOL_NAME } from "@otto/contracts";
+import type { OttoToolPrompt } from "../otto-agent-instructions.ts";
 import { z } from "zod";
 
 export const routineTime = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
@@ -9,6 +11,20 @@ export const OTTO_DELETE_ROUTINES_TOOL_NAME = "otto_delete_routines";
 export const OTTO_UPDATE_ROUTINE_TOOL_NAME = "otto_update_routine";
 
 export const OTTO_SET_ROUTINE_PAUSED_TOOL_NAME = "otto_set_routine_paused";
+
+/** What the routine tools add to the bot's prompt while they are loaded. */
+export const OTTO_ROUTINE_TOOL_PROMPTS = new Map<string, OttoToolPrompt>([
+  [OTTO_CREATE_ROUTINE_TOOL_NAME, { snippet: "schedule recurring work" }],
+  [
+    OTTO_LIST_ROUTINES_TOOL_NAME,
+    {
+      snippet: "list your routines",
+      guidelines: [
+        "Before you report on, change, pause or delete a routine, find it with otto_list_routines.",
+      ],
+    },
+  ],
+]);
 
 export const routineToolInputSchema = z.object({
   name: z.string().trim().min(1),
