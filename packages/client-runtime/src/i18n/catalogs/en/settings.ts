@@ -345,4 +345,17 @@ export const settingsCatalog = {
     "Pay per request instead of using the subscription.",
   "Finish signing in to {provider} in the browser.":
     "Finish signing in to {provider} in the browser.",
+  "Check your email": "Check your email",
+  "Could not send a code.": "Could not send a code.",
+  "Enter the code we sent to {email}.": "Enter the code we sent to {email}.",
+  "Enter the setup code from the server’s OTTO_SETUP_TOKEN setting.":
+    "Enter the setup code from the server’s OTTO_SETUP_TOKEN setting.",
+  "Organization ready": "Organization ready",
+  "Send a new code": "Send a new code",
+  "Send code": "Send code",
+  "Setup code": "Setup code",
+  "Sign-in code": "Sign-in code",
+  "Use another email": "Use another email",
+  "We sent a new code to {email}.": "We sent a new code to {email}.",
+  "Your organization is ready. Sign in.": "Your organization is ready. Sign in.",
 } as const;

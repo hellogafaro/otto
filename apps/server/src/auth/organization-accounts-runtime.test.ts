@@ -17,7 +17,9 @@ afterEach(() => {
   for (const database of databases.splice(0)) database.close();
 });
 
-async function fixture() {
+async function fixture(
+  overrides: Partial<Parameters<typeof createOrganizationAccountsRuntime>[0]> = {},
+) {
   const database = new NodeSqlite.DatabaseSync(":memory:");
   databases.push(database);
   database.exec("PRAGMA foreign_keys = ON");
@@ -33,6 +35,7 @@ async function fixture() {
     sendEmail: async (mail) => {
       emails.push(mail);
     },
+    ...overrides,
   });
 
   const request = (path: string, body?: Record<string, unknown>, token?: string) =>
@@ -61,8 +64,19 @@ async function fixture() {
     expect(response.status).toBeLessThan(400);
   };
 
+  const sendCode = async (email: string) => {
+    const response = await request("/email-otp/send-verification-otp", { email, type: "sign-in" });
+    expect(response.status).toBe(200);
+    const mail = emails.findLast((item) => item.to === email && item.subject.endsWith("code"));
+
+    if (!mail) throw new Error("Missing sign-in code mail");
+
+    return mail.subject.split(" ")[0]!;
+  };
+
   const signIn = async (email: string) => {
-    const response = await request("/sign-in/email", { email, password });
+    const otp = await sendCode(email);
+    const response = await request("/sign-in/email-otp", { email, otp });
     expect(response.status).toBe(200);
     const body = (await response.json()) as { token: string; user: { id: string } };
 
@@ -82,7 +96,7 @@ async function fixture() {
     return signIn("admin@example.test");
   };
 
-  return { database, runtime, request, emails, verify, signIn, setup };
+  return { database, runtime, request, emails, verify, sendCode, signIn, setup };
 }
 
 describe("installation accounts", () => {
@@ -161,7 +175,7 @@ describe("installation accounts", () => {
     expect(registered.status).toBe(200);
     expect(
       (await request("/sign-in/email", { email: "member@example.test", password })).status,
-    ).toBe(403);
+    ).toBe(404);
     await verify("member@example.test");
     const member = await signIn("member@example.test");
     expect(
@@ -258,5 +272,76 @@ describe("installation accounts", () => {
     expect(() =>
       database.prepare("UPDATE members SET role = 'owner' WHERE id = ?").run(membership!.id!),
     ).toThrow();
+  });
+});
+
+describe("setup code and email sign-in", () => {
+  const owner = {
+    organizationName: "Test organization",
+    email: "owner@example.test",
+    firstName: "Olga",
+    lastName: "Owner",
+    password,
+  };
+
+  it("needs the setup code and then counts the owner's email as verified", async () => {
+    const { runtime, emails, signIn } = await fixture({ setupToken: "correct-setup-code" });
+    await expect(runtime.setup({ ...owner, setupCode: "wrong" })).rejects.toThrow("not right");
+    await expect(runtime.setup(owner)).rejects.toThrow("not right");
+    expect(runtime.getOrganization()).toBeNull();
+
+    expect(await runtime.setup({ ...owner, setupCode: " correct-setup-code " })).toMatchObject({
+      verificationRequired: false,
+    });
+
+    expect(emails.some((mail) => mail.subject === "Verify your Otto email")).toBe(false);
+    const session = await signIn(owner.email);
+
+    expect(
+      await runtime.authenticate(new Headers({ authorization: `Bearer ${session.token}` })),
+    ).toMatchObject({ email: owner.email, role: "admin" });
+  });
+
+  it("sets up and signs in with the password on a server without mail", async () => {
+    const { runtime, request } = await fixture({ mailConfigured: false, setupToken: "code" });
+    await runtime.setup({ ...owner, setupCode: "code" });
+
+    expect(
+      (await request("/email-otp/send-verification-otp", { email: owner.email, type: "sign-in" }))
+        .status,
+    ).toBe(404);
+    expect((await request("/sign-in/email", { email: owner.email, password })).status).toBe(200);
+  });
+
+  it("refuses setup in a container without a setup token", async () => {
+    const { runtime } = await fixture({ requireSetupToken: true });
+    await expect(runtime.setup(owner)).rejects.toThrow("OTTO_SETUP_TOKEN");
+    expect(runtime.getOrganization()).toBeNull();
+  });
+
+  it("accepts each email code once and refuses the password while mail is set up", async () => {
+    const { runtime, request, sendCode } = await fixture({ setupToken: "code" });
+    await runtime.setup({ ...owner, setupCode: "code" });
+
+    expect((await request("/sign-in/email", { email: owner.email, password })).status).toBe(404);
+    const otp = await sendCode(owner.email);
+    expect((await request("/sign-in/email-otp", { email: owner.email, otp })).status).toBe(200);
+
+    expect(
+      (await request("/sign-in/email-otp", { email: owner.email, otp })).status,
+    ).toBeGreaterThanOrEqual(400);
+  });
+
+  it("mails no code to unknown addresses and limits how often codes are sent", async () => {
+    const { request, emails } = await fixture();
+    const send = () =>
+      request("/email-otp/send-verification-otp", {
+        email: "nobody@example.test",
+        type: "sign-in",
+      });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) expect((await send()).status).toBe(200);
+    expect((await send()).status).toBe(429);
+    expect(emails).toHaveLength(0);
   });
 });

@@ -1,5 +1,9 @@
 import { createAuthClient } from "better-auth/client";
-import { inferAdditionalFields, organizationClient } from "better-auth/client/plugins";
+import {
+  emailOTPClient,
+  inferAdditionalFields,
+  organizationClient,
+} from "better-auth/client/plugins";
 import { adminAc, memberAc } from "better-auth/plugins/organization/access";
 import { OrganizationAccountState } from "@otto/contracts";
 import * as Schema from "effect/Schema";
@@ -19,6 +23,7 @@ export function createOrganizationAccountsClient(
     },
     plugins: [
       organizationClient({ roles: { admin: adminAc, member: memberAc } }),
+      emailOTPClient(),
       inferAdditionalFields({
         user: {
           firstName: { type: "string", required: true },

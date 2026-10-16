@@ -2,8 +2,9 @@ import { runWithTransaction } from "@better-auth/core/context";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { APIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
-import { bearer, organization } from "better-auth/plugins";
+import { bearer, emailOTP, organization } from "better-auth/plugins";
 import { adminAc, memberAc } from "better-auth/plugins/organization/access";
+import * as NodeCrypto from "node:crypto";
 import * as NodeSqlite from "node:sqlite";
 import * as DateTime from "effect/DateTime";
 import { z } from "zod";
@@ -25,6 +26,7 @@ export const OrganizationSetupInput = z
       .max(254)
       .transform((email) => email.toLowerCase()),
     password: z.string().min(8).max(128),
+    setupCode: z.string().max(256).optional(),
   })
   .strict();
 
@@ -71,6 +73,10 @@ export async function createOrganizationAccountsRuntime(options: {
   readonly origin: string;
   readonly cookieName: string;
   readonly mailConfigured: boolean;
+  /** OTTO_SETUP_TOKEN: when set, setup needs this code and the owner's email counts as verified. */
+  readonly setupToken?: string | undefined;
+  /** Containers refuse setup without a setup token, so a missing variable fails closed. */
+  readonly requireSetupToken?: boolean;
   readonly now: () => number;
   readonly sendEmail: (mail: AccountMail) => Promise<void>;
 }) {
@@ -161,6 +167,19 @@ export async function createOrganizationAccountsRuntime(options: {
     },
     plugins: [
       bearer(),
+      emailOTP({
+        disableSignUp: true,
+        storeOTP: "hashed",
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          if (type !== "sign-in") return;
+          requireMail();
+          await options.sendEmail({
+            to: email,
+            subject: `${otp} is your Otto sign-in code`,
+            text: `Your Otto sign-in code is ${otp}. It expires in 5 minutes and works once.\n\nIf you did not try to sign in, ignore this email.`,
+          });
+        },
+      }),
       organization({
         allowUserToCreateOrganization: false,
         creatorRole: "admin",
@@ -284,42 +303,80 @@ export async function createOrganizationAccountsRuntime(options: {
     return result ? getPrincipal(result.session.id) : null;
   };
 
+  const setupCodeMatches = (code: string | undefined) => {
+    const digest = (value: string) => NodeCrypto.createHash("sha256").update(value).digest();
+
+    return (
+      options.setupToken !== undefined &&
+      NodeCrypto.timingSafeEqual(digest(code?.trim() ?? ""), digest(options.setupToken))
+    );
+  };
+
   const setup = async (value: unknown) => {
     const input = OrganizationSetupInput.parse(value);
-    requireMail();
 
     if (getOrganization()) {
       throw new APIError("CONFLICT", { message: "This organization is already set up. Sign in." });
     }
 
+    const verified = options.setupToken !== undefined;
+
+    if (verified && !setupCodeMatches(input.setupCode)) {
+      throw new APIError("FORBIDDEN", {
+        code: "INVALID_SETUP_CODE",
+        message: "That setup code is not right.",
+      });
+    }
+
+    if (!verified && options.requireSetupToken) {
+      throw new APIError("SERVICE_UNAVAILABLE", {
+        code: "SETUP_TOKEN_NOT_CONFIGURED",
+        message: "Set OTTO_SETUP_TOKEN on the server before setting up the organization.",
+      });
+    }
+
+    if (!verified) requireMail();
     const context = await auth.$context;
 
     await runWithTransaction(context.adapter, async () => {
-      const created = await auth.api.signUpEmail({
-        body: {
+      const user = await context.internalAdapter.createUser(
+        {
           email: input.email,
-          password: input.password,
           name: `${input.firstName} ${input.lastName}`,
           firstName: input.firstName,
           lastName: input.lastName,
-          callbackURL: `${origin}/login`,
+          emailVerified: verified,
         },
+        { method: "email-password" },
+      );
+
+      await context.internalAdapter.linkAccount({
+        userId: user.id,
+        providerId: "credential",
+        accountId: user.id,
+        password: await context.password.hash(input.password),
       });
 
       await auth.api.createOrganization({
-        body: {
-          name: input.organizationName,
-          slug: "organization",
-          userId: created.user.id,
-        },
+        body: { name: input.organizationName, slug: "organization", userId: user.id },
       });
+
+      if (!verified) {
+        await auth.api.sendVerificationEmail({
+          body: { email: input.email, callbackURL: `${origin}/login` },
+        });
+      }
     });
 
-    return { organization: getOrganization(), verificationRequired: true };
+    return { organization: getOrganization(), verificationRequired: !verified };
   };
 
+  // Otto: with mail, people sign in with a one-time email code; the password is the fallback
+  // only for servers without mail.
   const publicEndpoints = new Set([
-    "/sign-in/email",
+    ...(options.mailConfigured
+      ? ["/email-otp/send-verification-otp", "/sign-in/email-otp"]
+      : ["/sign-in/email"]),
     "/sign-out",
     "/get-session",
     "/send-verification-email",

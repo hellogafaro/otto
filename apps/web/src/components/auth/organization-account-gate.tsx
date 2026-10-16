@@ -14,10 +14,12 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Field, FieldError, FieldLabel } from "../ui/field";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "../ui/input-otp";
 import { Form } from "../ui/form";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Spinner } from "../ui/spinner";
 import { AuthSurfaceShell, AuthSurfaceSection } from "./auth-surface-shell";
+import { useI18n } from "../../i18n";
 
 type AccountPage = "setup" | "login" | "invite" | "reset";
 
@@ -54,6 +56,12 @@ const accountFields = {
     autoComplete: "organization",
     schema: z.string().trim().min(1, "Enter your organization’s name.").max(80),
   },
+  setupCode: {
+    label: "Setup code",
+    type: "password",
+    autoComplete: "off",
+    schema: z.string().max(256),
+  },
 };
 
 type AccountFieldName = keyof typeof accountFields;
@@ -83,6 +91,7 @@ export function OrganizationAccountGate({
   readonly page: AccountPage;
   readonly invitationId?: string;
 }) {
+  const { t } = useI18n();
   const baseURL = readPrimaryEnvironmentTarget()?.target.httpBaseUrl ?? window.location.origin;
   const [desktopToken] = useState(readDesktopSessionToken);
   const desktopAccounts = { bearer: Boolean(window.desktopBridge) };
@@ -103,7 +112,11 @@ export function OrganizationAccountGate({
   // Otto: A fresh server's first visitor sets it up; no token, the owner has the server.
   const [setupStep, setSetupStep] = useState<SetupStep>("account");
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ title: string; text: string } | null>(null);
+  // Otto: with mail, sign-in sends a one-time code to this address and asks for it.
+  const [codeEmail, setCodeEmail] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [codeResent, setCodeResent] = useState(false);
   const [pending, setPending] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
 
@@ -157,6 +170,7 @@ export function OrganizationAccountGate({
       email: "",
       password: "",
       organizationName: "",
+      setupCode: "",
     },
     onSubmit: async ({ value }): Promise<void> => {
       setError(null);
@@ -183,8 +197,15 @@ export function OrganizationAccountGate({
 
           window.history.replaceState({}, "", "/setup");
           form.setFieldValue("password", "");
+          form.setFieldValue("setupCode", "");
+
           setNotice(
-            "Your organization is ready. Check your email to verify your account, then sign in.",
+            state?.setupCodeRequired
+              ? { title: t("Organization ready"), text: t("Your organization is ready. Sign in.") }
+              : {
+                  title: "Check your email",
+                  text: "Your organization is ready. Check your email to verify your account, then sign in.",
+                },
           );
         } else if (page === "reset") {
           const token = new URLSearchParams(window.location.search).get("token") ?? "";
@@ -193,7 +214,10 @@ export function OrganizationAccountGate({
           if (result.error)
             throw new Error(result.error.message ?? "Could not reset your password.");
           form.setFieldValue("password", "");
-          setNotice("Your password has been changed. You can sign in now.");
+          setNotice({
+            title: "Password reset",
+            text: "Your password has been changed. You can sign in now.",
+          });
         } else if (mode === "forgot") {
           const result = await client.requestPasswordReset({
             email: value.email,
@@ -202,7 +226,10 @@ export function OrganizationAccountGate({
 
           if (result.error)
             throw new Error(result.error.message ?? "Could not request a password reset.");
-          setNotice("If an account exists for that email, you will receive a password reset link.");
+          setNotice({
+            title: "Check your email",
+            text: "If an account exists for that email, you will receive a password reset link.",
+          });
         } else if (mode === "signup") {
           const registration = {
             email: value.email,
@@ -219,20 +246,33 @@ export function OrganizationAccountGate({
           if (result.error)
             throw new Error(result.error.message ?? "Could not create your account.");
           form.setFieldValue("password", "");
-          setNotice(
-            "Check your email to verify your account, then sign in to accept the invitation.",
-          );
+          setNotice({
+            title: "Check your email",
+            text: "Check your email to verify your account, then sign in to accept the invitation.",
+          });
+        } else if (state?.mailConfigured && !codeEmail) {
+          const result = await client.emailOtp.sendVerificationOtp({
+            email: value.email,
+            type: "sign-in",
+          });
+
+          if (result.error) throw new Error(result.error.message ?? t("Could not send a code."));
+          setCode("");
+          setCodeResent(false);
+          setCodeEmail(value.email);
         } else {
           let signedInToken: string | undefined;
 
-          const result = await client.signIn.email(
-            { email: value.email, password: value.password },
-            {
-              onSuccess: (context) => {
-                signedInToken = context.response.headers.get("set-auth-token") ?? undefined;
-              },
-            },
-          );
+          const onSuccess = (context: { response: Response }) => {
+            signedInToken = context.response.headers.get("set-auth-token") ?? undefined;
+          };
+
+          const result = codeEmail
+            ? await client.signIn.emailOtp({ email: codeEmail, otp: code }, { onSuccess })
+            : await client.signIn.email(
+                { email: value.email, password: value.password },
+                { onSuccess },
+              );
 
           if (result.error) throw new Error(result.error.message ?? "Could not sign in.");
           const token = window.desktopBridge ? signedInToken : undefined;
@@ -255,18 +295,32 @@ export function OrganizationAccountGate({
   const isSubmitting = useStore(form.store, (value) => value.isSubmitting);
   const busy = pending || isSubmitting;
   const step = setupSteps[setupStep];
-  const setupBlocked = page === "setup" && setupStep === "organization" && !state?.mailConfigured;
+  const setupBlocked =
+    page === "setup" &&
+    setupStep === "organization" &&
+    !state?.mailConfigured &&
+    !state?.setupCodeRequired;
+
+  const codeSignIn =
+    page !== "setup" && page !== "reset" && mode === "login" && state?.mailConfigured;
+  const codeStep = codeSignIn && codeEmail !== null;
 
   const visibleFields: AccountFieldName[] =
     page === "setup"
-      ? step.fields
+      ? setupStep === "organization" && state?.setupCodeRequired
+        ? [...step.fields, "setupCode"]
+        : step.fields
       : page === "reset"
         ? ["password"]
         : mode === "forgot"
           ? ["email"]
           : mode === "signup"
             ? ["firstName", "lastName", "email", "password"]
-            : ["email", "password"];
+            : codeStep
+              ? []
+              : codeSignIn
+                ? ["email"]
+                : ["email", "password"];
 
   const title =
     page === "setup"
@@ -275,20 +329,28 @@ export function OrganizationAccountGate({
         ? "Reset your password"
         : mode === "forgot"
           ? "Forgot your password?"
-          : page === "invite"
-            ? `Join ${state?.organization?.name ?? "your organization"}`
-            : `Sign in${state?.organization ? ` to ${state.organization.name}` : ""}`;
+          : codeStep
+            ? t("Check your email")
+            : page === "invite"
+              ? `Join ${state?.organization?.name ?? "your organization"}`
+              : `Sign in${state?.organization ? ` to ${state.organization.name}` : ""}`;
 
   const description =
     page === "setup"
-      ? step.description
+      ? setupStep === "organization" && state?.setupCodeRequired
+        ? t("Enter the setup code from the server’s OTTO_SETUP_TOKEN setting.")
+        : step.description
       : page === "reset"
         ? "Choose a new password for your account."
         : mode === "forgot"
           ? "Enter your email and we’ll send you a reset link."
-          : page === "invite"
-            ? "Join your team on Otto."
-            : "Welcome back. Sign in to your organization.";
+          : codeStep
+            ? codeResent
+              ? t("We sent a new code to {email}.", { email: codeEmail ?? "" })
+              : t("Enter the code we sent to {email}.", { email: codeEmail ?? "" })
+            : page === "invite"
+              ? "Join your team on Otto."
+              : "Welcome back. Sign in to your organization.";
 
   const submitLabel =
     page === "setup"
@@ -301,9 +363,11 @@ export function OrganizationAccountGate({
           ? "Send reset link"
           : mode === "signup"
             ? "Create account"
-            : invitationId
-              ? "Sign in and join"
-              : "Sign in";
+            : codeSignIn && !codeStep
+              ? t("Send code")
+              : invitationId
+                ? "Sign in and join"
+                : "Sign in";
 
   return (
     <AuthSurfaceShell>
@@ -312,7 +376,7 @@ export function OrganizationAccountGate({
           <p className="text-xs text-muted-foreground">Step {step.number} of 2</p>
         ) : null}
         <h1 ref={heading} tabIndex={-1} className="text-xl leading-title font-medium outline-none">
-          {notice ? (page === "reset" ? "Password reset" : "Check your email") : title}
+          {notice ? notice.title : title}
         </h1>
         {!notice ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </AuthSurfaceSection>
@@ -326,7 +390,7 @@ export function OrganizationAccountGate({
         {notice ? (
           <div className="flex flex-col gap-5">
             <Alert variant="success">
-              <AlertDescription>{notice}</AlertDescription>
+              <AlertDescription>{notice.text}</AlertDescription>
             </Alert>
             <Button
               variant="primary"
@@ -402,11 +466,35 @@ export function OrganizationAccountGate({
                   if (!busy && !setupBlocked) void form.handleSubmit();
                 }}
               >
+                {codeStep ? (
+                  <InputOTP
+                    autoFocus
+                    maxLength={6}
+                    inputMode="numeric"
+                    pattern="^[0-9]*$"
+                    autoComplete="one-time-code"
+                    aria-label={t("Sign-in code")}
+                    value={code}
+                    disabled={busy}
+                    onChange={setCode}
+                    onComplete={() => void form.handleSubmit()}
+                  >
+                    <InputOTPGroup>
+                      {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <InputOTPSlot key={index} index={index} />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                ) : null}
                 {visibleFields.map((name) => {
                   const definition = accountFields[name];
 
                   const label =
-                    name === "password" && page === "reset" ? "New password" : definition.label;
+                    name === "setupCode"
+                      ? t("Setup code")
+                      : name === "password" && page === "reset"
+                        ? "New password"
+                        : definition.label;
 
                   return (
                     <form.Field key={name} name={name} validators={{ onSubmit: definition.schema }}>
@@ -453,7 +541,7 @@ export function OrganizationAccountGate({
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={busy || setupBlocked}
+                  disabled={busy || setupBlocked || (codeStep && code.length < 6)}
                   className="mt-2 mb-1"
                 >
                   {busy ? <Spinner /> : null}
@@ -489,7 +577,52 @@ export function OrganizationAccountGate({
                     {mode === "signup" ? "Already have an account? Sign in" : "Create an account"}
                   </Button>
                 ) : null}
-                {page === "login" ? (
+                {codeStep ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="link"
+                      presentation="quiet-link"
+                      disabled={busy}
+                      onClick={async () => {
+                        if (!codeEmail) return;
+                        setPending(true);
+                        setError(null);
+                        setCode("");
+
+                        const result = await client.emailOtp.sendVerificationOtp({
+                          email: codeEmail,
+                          type: "sign-in",
+                        });
+
+                        setPending(false);
+
+                        if (result.error) {
+                          setError(result.error.message ?? t("Could not send a code."));
+
+                          return;
+                        }
+
+                        setCodeResent(true);
+                      }}
+                    >
+                      {t("Send a new code")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="link"
+                      presentation="quiet-link"
+                      disabled={busy}
+                      onClick={() => {
+                        setError(null);
+                        setCodeEmail(null);
+                      }}
+                    >
+                      {t("Use another email")}
+                    </Button>
+                  </>
+                ) : null}
+                {page === "login" && !codeSignIn ? (
                   <Button
                     type="button"
                     variant="link"
