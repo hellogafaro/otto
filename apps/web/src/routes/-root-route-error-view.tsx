@@ -49,33 +49,36 @@ export function TranslatedRouteErrorView(props: RouteErrorViewProps) {
 
 /**
  * Otto: The one error screen, full window, no logo: the warning glyph, "Something went wrong",
- * one sentence, a single Reload, and the whole error trace in a code block with a copy button.
+ * one sentence, a single Reload, and the whole error trace in a code block with a copy button,
+ * set apart by the empty state's own 48px padding.
  */
 export function RouteErrorView({ error, reload = reloadApp, t = english }: RouteErrorViewProps) {
   const details = errorDetails(error, t);
 
   return (
     <main className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-background p-6 text-foreground">
-      <Empty aria-labelledby="route-error-title" role="region" className="w-full max-w-xl">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <RiErrorWarningLine />
-          </EmptyMedia>
-          <EmptyTitle id="route-error-title">{t("Something went wrong")}</EmptyTitle>
-          <EmptyDescription>{t("Otto hit an error. Reload to try again.")}</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent className="w-full max-w-xl">
-          <Button onClick={reload}>{t("Reload")}</Button>
-          <CodeBlock size="sm" className="text-left">
-            <CodeBlockActions>
-              <CodeBlockCopyButton value={details} />
-            </CodeBlockActions>
-            <CodeBlockContent wrap className="max-h-64" tabIndex={0}>
-              {details}
-            </CodeBlockContent>
-          </CodeBlock>
-        </EmptyContent>
-      </Empty>
+      <div className="flex w-full max-w-xl flex-col">
+        <Empty aria-labelledby="route-error-title" role="region">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <RiErrorWarningLine />
+            </EmptyMedia>
+            <EmptyTitle id="route-error-title">{t("Something went wrong")}</EmptyTitle>
+            <EmptyDescription>{t("Otto hit an error. Reload to try again.")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button onClick={reload}>{t("Reload")}</Button>
+          </EmptyContent>
+        </Empty>
+        <CodeBlock size="sm">
+          <CodeBlockActions>
+            <CodeBlockCopyButton value={details} />
+          </CodeBlockActions>
+          <CodeBlockContent wrap className="max-h-64" tabIndex={0}>
+            {details}
+          </CodeBlockContent>
+        </CodeBlock>
+      </div>
     </main>
   );
 }
