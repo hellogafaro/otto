@@ -1,26 +1,33 @@
-import { RiMailLine, RiMoreLine, RiShieldUserLine, RiUserLine } from "@remixicon/react";
+import {
+  RiDeleteBinLine,
+  RiMailLine,
+  RiMailSendLine,
+  RiPencilLine,
+  RiShieldUserLine,
+  RiUserLine,
+} from "@remixicon/react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { createOrganizationAccountsClient } from "@otto/client-runtime/authorization";
 import { formatRelativeTime } from "../../timestamp-format";
 import { PersonAvatar } from "../roster/person-avatar";
+import { RosterRowAction } from "../roster/roster-row-actions";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Form } from "../ui/form";
-import { Field, FieldLabel } from "../ui/field";
+import { Field, FieldDescription, FieldLabel } from "../ui/field";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Spinner } from "../ui/spinner";
 import { SkeletonTableRows } from "../ui/skeleton";
 import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import {
-  Menu,
-  MenuItem,
-  MenuPopup,
-  MenuRadioGroup,
-  MenuRadioItem,
-  MenuSeparator,
-  MenuTrigger,
-} from "../ui/menu";
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import {
   Dialog,
   DialogDescription,
@@ -53,6 +60,8 @@ type MemberRow =
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+const ROLE_LABELS: Record<Role, string> = { admin: "Admin", member: "Member" };
+
 const roleLabel = (role: string) => (role === "admin" ? "Admin" : "Member");
 
 const joinedLabel = (date: Date | string) => {
@@ -63,14 +72,16 @@ const joinedLabel = (date: Date | string) => {
 
 interface MemberActions {
   readonly adminCount: number;
-  readonly pending: boolean;
-  readonly onRoleChange: (member: Member, role: Role) => void;
+  readonly onEdit: (member: Member) => void;
   readonly onRemove: (member: Member) => void;
   readonly onResend: (invitation: Invitation) => void;
   readonly onCancel: (invitation: Invitation) => void;
 }
 
-/** An admin's More actions on a row: a member's role and removal, or an invitation's resend and cancel. */
+/**
+ * An admin's row actions: Edit and Delete for a member, Resend and Delete for an invitation.
+ * The last admin has no Delete, so the organization always keeps one.
+ */
 function MemberRowActions({
   row,
   actions,
@@ -78,65 +89,42 @@ function MemberRowActions({
   readonly row: MemberRow;
   readonly actions: MemberActions;
 }) {
-  const name = row.type === "member" ? row.member.user.name : row.invitation.email;
-
-  const lastAdmin =
-    row.type === "member" && row.member.role === "admin" && actions.adminCount === 1;
+  if (row.type === "invitation")
+    return (
+      <span className="flex items-center gap-1">
+        <RosterRowAction
+          label={`Resend invitation to ${row.invitation.email}`}
+          icon={RiMailSendLine}
+          onClick={() => actions.onResend(row.invitation)}
+        />
+        <RosterRowAction
+          label={`Cancel invitation to ${row.invitation.email}`}
+          icon={RiDeleteBinLine}
+          onClick={() => actions.onCancel(row.invitation)}
+        />
+      </span>
+    );
+  const lastAdmin = row.member.role === "admin" && actions.adminCount === 1;
 
   return (
-    <Menu>
-      <MenuTrigger
-        render={
-          <Button
-            size="icon-xs"
-            variant="ghost-muted"
-            aria-label={`Actions for ${name}`}
-            disabled={actions.pending}
-          />
-        }
-      >
-        <RiMoreLine />
-      </MenuTrigger>
-      <MenuPopup align="end" className="min-w-44">
-        {row.type === "member" ? (
-          <>
-            <MenuRadioGroup
-              value={row.member.role}
-              onValueChange={(role) => {
-                if (role === "admin" || role === "member") actions.onRoleChange(row.member, role);
-              }}
-            >
-              <MenuRadioItem value="admin" disabled={lastAdmin}>
-                Admin
-              </MenuRadioItem>
-              <MenuRadioItem value="member" disabled={lastAdmin}>
-                Member
-              </MenuRadioItem>
-            </MenuRadioGroup>
-            <MenuSeparator />
-            <MenuItem
-              variant="destructive"
-              disabled={lastAdmin}
-              onClick={() => actions.onRemove(row.member)}
-            >
-              Remove
-            </MenuItem>
-          </>
-        ) : (
-          <>
-            <MenuItem onClick={() => actions.onResend(row.invitation)}>Resend invitation</MenuItem>
-            <MenuSeparator />
-            <MenuItem variant="destructive" onClick={() => actions.onCancel(row.invitation)}>
-              Cancel invitation
-            </MenuItem>
-          </>
-        )}
-      </MenuPopup>
-    </Menu>
+    <span className="flex items-center gap-1">
+      <RosterRowAction
+        label={`Edit ${row.member.user.name}`}
+        icon={RiPencilLine}
+        onClick={() => actions.onEdit(row.member)}
+      />
+      {lastAdmin ? null : (
+        <RosterRowAction
+          label={`Delete ${row.member.user.name}`}
+          icon={RiDeleteBinLine}
+          onClick={() => actions.onRemove(row.member)}
+        />
+      )}
+    </span>
   );
 }
 
-/** Columns like Tasks: who leads, then email and role chips and when they joined; admins get More actions. */
+/** Columns like Tasks: who leads, then email and role chips and when they joined; admins get Edit and Delete. */
 function memberColumns({
   currentUserId,
   actions,
@@ -211,6 +199,8 @@ export function OrganizationMembersSettings() {
   const [email, setEmail] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Member | null>(null);
+  const [editing, setEditing] = useState<Member | null>(null);
+  const [editRole, setEditRole] = useState<Role>("member");
   const [pending, setPending] = useState(false);
   const organizationId = state?.organization?.id;
   const admin = state?.role === "admin";
@@ -297,6 +287,7 @@ export function OrganizationMembersSettings() {
     );
   const organization = state.organization;
   const adminCount = members.filter((member) => member.role === "admin").length;
+  const editingLastAdmin = editing?.role === "admin" && adminCount === 1;
 
   const rows: MemberRow[] = [
     ...members
@@ -312,15 +303,10 @@ export function OrganizationMembersSettings() {
     actions: admin
       ? {
           adminCount,
-          pending,
-          onRoleChange: (member, role) =>
-            void mutate(() =>
-              client.organization.updateMemberRole({
-                memberId: member.id,
-                organizationId: organization.id,
-                role,
-              }),
-            ),
+          onEdit: (member) => {
+            setEditRole(member.role === "admin" ? "admin" : "member");
+            setEditing(member);
+          },
           onRemove: setRemoving,
           onResend: (invitation) =>
             void mutate(() =>
@@ -479,6 +465,81 @@ export function OrganizationMembersSettings() {
         </DialogPopup>
       </Dialog>
       <Dialog
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open && !pending) setEditing(null);
+        }}
+      >
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>Edit member</DialogTitle>
+            <DialogDescription>
+              {editing?.user.name} · {editing?.user.email}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel>
+            <Form
+              id="edit-member"
+              onSubmit={(event) => {
+                event.preventDefault();
+
+                if (!editing) return;
+                void mutate(async () => {
+                  const result = await client.organization.updateMemberRole({
+                    memberId: editing.id,
+                    organizationId: organization.id,
+                    role: editRole,
+                  });
+
+                  if (!result.error) setEditing(null);
+
+                  return result;
+                });
+              }}
+            >
+              <Field>
+                <FieldLabel>Permissions</FieldLabel>
+                <Select
+                  items={ROLE_LABELS}
+                  value={editRole}
+                  disabled={pending || editingLastAdmin}
+                  onValueChange={(role) => {
+                    if (role === "admin" || role === "member") setEditRole(role);
+                  }}
+                >
+                  <SelectTrigger aria-label="Permissions">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="member">Member</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  {editingLastAdmin
+                    ? "Every organization needs an admin, so the only admin stays an admin."
+                    : "Admins can invite, edit and remove members."}
+                </FieldDescription>
+              </Field>
+            </Form>
+          </DialogPanel>
+          <DialogFooter>
+            <Button variant="ghost" disabled={pending} onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="edit-member"
+              disabled={pending || editing === null || editRole === editing.role}
+            >
+              {pending ? <Spinner /> : null}Save
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+      <Dialog
         open={removing !== null}
         onOpenChange={(open) => {
           if (!open && !pending) setRemoving(null);
@@ -486,7 +547,7 @@ export function OrganizationMembersSettings() {
       >
         <DialogPopup>
           <DialogHeader>
-            <DialogTitle>Remove member?</DialogTitle>
+            <DialogTitle>Delete member?</DialogTitle>
             <DialogDescription>
               {removing?.user.name} will lose access to this organization. Their existing
               contributions will remain.
@@ -513,7 +574,7 @@ export function OrganizationMembersSettings() {
                 });
               }}
             >
-              Remove
+              Delete
             </Button>
           </DialogFooter>
         </DialogPopup>
