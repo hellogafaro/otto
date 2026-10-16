@@ -153,6 +153,17 @@ export function ExperimentalSidebar() {
               isElectron && "drag-region",
             )}
           />
+          {/* Otto: The Otto mark heads the rail as a ghost button and is a second way home. */}
+          <button
+            type="button"
+            aria-label="Otto"
+            onClick={() => {
+              if (!onHome) void navigate({ to: "/" });
+            }}
+            className="mb-3 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none hover:bg-sidebar-wash motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag"
+          >
+            <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-lg" />
+          </button>
           <div className="flex flex-col items-center gap-1">
             <RailButton
               label={unread > 0 ? t("Home, {count} unread", { count: unread }) : t("Home")}
