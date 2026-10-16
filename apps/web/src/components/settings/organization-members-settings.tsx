@@ -123,7 +123,10 @@ export function OrganizationMembersSettings() {
   const [email, setEmail] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Member | null>(null);
+  // Otto: open flags stay apart from what a dialog shows, so closing never empties it mid-fade.
+  const [removeOpen, setRemoveOpen] = useState(false);
   const [selected, setSelected] = useState<MemberRow | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role>("member");
   const [pending, setPending] = useState(false);
   const organizationId = state?.organization?.id;
@@ -217,7 +220,7 @@ export function OrganizationMembersSettings() {
   const selectedLastAdmin = selectedMember?.role === "admin" && adminCount === 1;
 
   const close = () => {
-    if (!pending) setSelected(null);
+    if (!pending) setProfileOpen(false);
   };
 
   const rows: MemberRow[] = [
@@ -234,6 +237,7 @@ export function OrganizationMembersSettings() {
 
     setSelectedRole(role === "admin" ? "admin" : "member");
     setSelected(row);
+    setProfileOpen(true);
   };
 
   return (
@@ -377,7 +381,7 @@ export function OrganizationMembersSettings() {
         </DialogPopup>
       </Dialog>
       <Dialog
-        open={selected !== null}
+        open={profileOpen}
         onOpenChange={(next) => {
           if (!next) close();
         }}
@@ -405,7 +409,7 @@ export function OrganizationMembersSettings() {
                     role: selectedRole,
                   });
 
-                  if (!result.error) setSelected(null);
+                  if (!result.error) setProfileOpen(false);
 
                   return result;
                 });
@@ -457,57 +461,52 @@ export function OrganizationMembersSettings() {
                     : "Admins can invite, edit and remove members."}
                 </FieldDescription>
               </Field>
-              {admin && !selectedLastAdmin ? (
-                <section className="flex flex-col gap-3 border-t pt-4">
-                  <h3 className="text-sm font-medium text-destructive-foreground">Danger zone</h3>
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex flex-col gap-0.5">
-                      <p className="text-13px font-medium">
-                        {selectedMember ? "Delete member" : "Cancel invitation"}
-                      </p>
-                      <p className="text-13px text-muted-foreground">
-                        {selectedMember
-                          ? "They lose access to this organization; their work stays."
-                          : "The invitation link stops working."}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive-outline"
-                      disabled={pending}
-                      onClick={() => {
-                        if (selectedMember) {
-                          setSelected(null);
-                          setRemoving(selectedMember);
-
-                          return;
-                        }
-
-                        if (!selectedInvitation) return;
-                        void mutate(async () => {
-                          const result = await client.organization.cancelInvitation({
-                            invitationId: selectedInvitation.id,
-                          });
-
-                          if (!result.error) setSelected(null);
-
-                          return result;
-                        });
-                      }}
-                    >
-                      {selectedMember ? "Delete" : "Cancel invitation"}
-                    </Button>
-                  </div>
-                </section>
-              ) : null}
             </Form>
           </DialogPanel>
           <DialogFooter>
-            {selectedInvitation && admin ? (
+            {admin && !selectedLastAdmin ? (
               <Button
-                variant="outline"
+                variant="destructive-outline"
                 className="me-auto"
+                disabled={pending}
+                onClick={() => {
+                  if (selectedMember) {
+                    setProfileOpen(false);
+                    setRemoving(selectedMember);
+                    setRemoveOpen(true);
+
+                    return;
+                  }
+
+                  if (!selectedInvitation) return;
+                  void mutate(async () => {
+                    const result = await client.organization.cancelInvitation({
+                      invitationId: selectedInvitation.id,
+                    });
+
+                    if (!result.error) setProfileOpen(false);
+
+                    return result;
+                  });
+                }}
+              >
+                Delete
+              </Button>
+            ) : null}
+            <Button variant="ghost" disabled={pending} onClick={close}>
+              {admin && selectedMember ? "Cancel" : "Close"}
+            </Button>
+            {admin && selectedMember ? (
+              <Button
+                type="submit"
+                form="member-profile"
+                disabled={pending || selectedRole === selectedMember.role}
+              >
+                {pending ? <Spinner /> : null}Save
+              </Button>
+            ) : null}
+            {admin && selectedInvitation ? (
+              <Button
                 disabled={pending}
                 onClick={() =>
                   void mutate(() =>
@@ -523,25 +522,13 @@ export function OrganizationMembersSettings() {
                 Resend invitation
               </Button>
             ) : null}
-            <Button variant="ghost" disabled={pending} onClick={close}>
-              {admin && selectedMember ? "Cancel" : "Close"}
-            </Button>
-            {admin && selectedMember ? (
-              <Button
-                type="submit"
-                form="member-profile"
-                disabled={pending || selectedRole === selectedMember.role}
-              >
-                {pending ? <Spinner /> : null}Save
-              </Button>
-            ) : null}
           </DialogFooter>
         </DialogPopup>
       </Dialog>
       <Dialog
-        open={removing !== null}
+        open={removeOpen}
         onOpenChange={(open) => {
-          if (!open && !pending) setRemoving(null);
+          if (!open && !pending) setRemoveOpen(false);
         }}
       >
         <DialogPopup>
@@ -553,7 +540,7 @@ export function OrganizationMembersSettings() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" disabled={pending} onClick={() => setRemoving(null)}>
+            <Button variant="ghost" disabled={pending} onClick={() => setRemoveOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -567,7 +554,7 @@ export function OrganizationMembersSettings() {
                     organizationId: organization.id,
                   });
 
-                  if (!result.error) setRemoving(null);
+                  if (!result.error) setRemoveOpen(false);
 
                   return result;
                 });
