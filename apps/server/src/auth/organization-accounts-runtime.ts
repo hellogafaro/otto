@@ -77,6 +77,8 @@ export async function createOrganizationAccountsRuntime(options: {
   readonly setupToken?: string | undefined;
   /** Containers refuse setup without a setup token, so a missing variable fails closed. */
   readonly requireSetupToken?: boolean;
+  /** OTTO_TRUST_PROXY: a reverse proxy sets X-Forwarded-For, so rate limits can key on it. */
+  readonly trustProxy?: boolean;
   readonly now: () => number;
   readonly sendEmail: (mail: AccountMail) => Promise<void>;
 }) {
@@ -173,6 +175,9 @@ export async function createOrganizationAccountsRuntime(options: {
       database: { joins: true },
       cookies: { session_token: { name: options.cookieName } },
       useSecureCookies: origin.startsWith("https:"),
+      // Otto: Better Auth trusts X-Forwarded-For by default; on a bare port any client could set
+      // it to dodge rate limits, so it is read only behind a proxy the operator declares.
+      ipAddress: { ipAddressHeaders: options.trustProxy ? ["x-forwarded-for"] : [] },
     },
     plugins: [
       bearer(),

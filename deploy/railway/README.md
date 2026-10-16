@@ -24,6 +24,7 @@ files are deprecated, so the template is set up once in Railway's template compo
    | `OTTO_PUBLIC_ORIGIN`                                                                                             | `https://${{RAILWAY_PUBLIC_DOMAIN}}` (change it after adding a custom domain)          |
    | `OTTO_SECRETS_KEY`                                                                                               | `${{secret(43, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/")}}=` |
    | `OTTO_SETUP_TOKEN`                                                                                               | `${{secret(32)}}`                                                                      |
+   | `OTTO_TRUST_PROXY`                                                                                               | `1` (Railway's edge proxy forwards the client address for sign-in rate limits)         |
    | `BOAT_API_KEY`                                                                                                   | optional input: the Boat key bots use for their computers                              |
    | `OTTO_SMTP_HOST`, `OTTO_SMTP_PORT`, `OTTO_SMTP_SECURE`, `OTTO_SMTP_USER`, `OTTO_SMTP_PASSWORD`, `OTTO_MAIL_FROM` | optional inputs: any SMTP provider                                                     |
 

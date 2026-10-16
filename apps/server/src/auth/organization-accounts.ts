@@ -110,6 +110,7 @@ export const layer = Layer.effect(
         mailConfigured,
         setupToken,
         requireSetupToken: variables.OTTO_REMOTE_CONTAINER === "1",
+        trustProxy: Boolean(variables.OTTO_TRUST_PROXY?.trim()),
         now: () => clock.currentTimeMillisUnsafe(),
         sendEmail: async (mail) => {
           try {

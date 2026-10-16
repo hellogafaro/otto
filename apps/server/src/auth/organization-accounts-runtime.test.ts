@@ -360,6 +360,28 @@ describe("setup code and email sign-in", () => {
     expect(emails).toEqual([]);
   });
 
+  it("keys sign-in rate limits on X-Forwarded-For only behind a declared proxy", async () => {
+    const attempts = async (trustProxy: boolean) => {
+      const { runtime } = await fixture({ mailConfigured: false, trustProxy });
+
+      const signIn = (ip: string) =>
+        runtime.handle(
+          new Request(`${origin}/api/accounts/sign-in/email`, {
+            method: "POST",
+            headers: { origin, "content-type": "application/json", "x-forwarded-for": ip },
+            body: JSON.stringify({ email: owner.email, password }),
+          }),
+        );
+
+      for (let attempt = 0; attempt < 3; attempt++) await signIn("203.0.113.1");
+
+      return (await signIn("203.0.113.2")).status;
+    };
+
+    expect(await attempts(false)).toBe(429);
+    expect(await attempts(true)).not.toBe(429);
+  });
+
   it("refuses setup in a container without a setup token", async () => {
     const { runtime } = await fixture({ requireSetupToken: true });
     await expect(runtime.setup(owner)).rejects.toThrow("OTTO_SETUP_TOKEN");
