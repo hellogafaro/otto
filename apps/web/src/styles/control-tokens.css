@@ -15,9 +15,8 @@
   --control-radius: 0.375rem;
   /* Otto: The one gap between floating panels and the window edge. */
   --panel-gap: 0.375rem;
-  /* Otto: A floating toast's radius stays below the main panel's 12px so it reads as the inner shape; its controls sit 4px plus the 1px border in and nest inside it. */
+  /* Otto: A floating toast's radius stays below the main panel's 12px so it reads as the inner shape. */
   --toast-radius: var(--radius);
-  --toast-control-radius: calc(var(--toast-radius) - 0.25rem - 1px);
   --sidebar-content-inset: 0.5rem;
   --sidebar-control-gap: 0.5rem;
   --sidebar-icon-color: color-mix(
