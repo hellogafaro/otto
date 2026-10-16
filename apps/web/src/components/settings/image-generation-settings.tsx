@@ -55,7 +55,7 @@ export function ImageGenerationSettingsSection() {
 
 /**
  * Otto: Images reuses the ChatGPT and Grok connections from Models: one row per provider with a
- * switch, a Connect action only while the connection is missing, and a default only when both
+ * switch, which Connect replaces while the connection is missing, and a default only when both
  * are on. The other provider is always the fallback.
  */
 export function ImageGenerationSettingsContent({
@@ -179,17 +179,17 @@ export function ImageProviderRow({
         <span className="block truncate text-xs text-muted-foreground">{detail}</span>
       </span>
       {problem ? <Badge variant={health.variant}>{health.label}</Badge> : null}
-      {connected && !signedOut ? null : (
+      {connected && !signedOut ? (
+        <Switch
+          checked={enabled}
+          onCheckedChange={(checked) => onToggle(Boolean(checked))}
+          aria-label={t("Use {provider} for images", { provider: label })}
+        />
+      ) : (
         <Button size="sm" variant="outline" disabled={status === undefined} onClick={onConnect}>
           {signedOut ? t("Sign in again") : t("Connect")}
         </Button>
       )}
-      <Switch
-        checked={enabled}
-        disabled={!enabled && !connected}
-        onCheckedChange={(checked) => onToggle(Boolean(checked))}
-        aria-label={t("Use {provider} for images", { provider: label })}
-      />
     </div>
   );
 }

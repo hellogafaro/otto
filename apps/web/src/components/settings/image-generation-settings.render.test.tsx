@@ -67,16 +67,15 @@ describe("image provider row", () => {
     const markup = renderRow(status("revoked"));
     expect(markup).toContain("Revoked");
     expect(markup).toContain("Sign in again");
+    expect(markup).not.toContain('aria-label="Use Grok for images"');
   });
 
-  it("offers Connect and blocks enabling when no subscription is connected", () => {
+  it("replaces the switch with Connect when no subscription is connected", () => {
     const markup = renderRow(status("missing", { connected: false }), false);
     expect(markup).toContain("Connect Grok in Models first");
     expect(markup).toContain(">Connect<");
     expect(markup).not.toContain("Not connected");
-    expect(markup).toMatch(
-      /aria-label="Use Grok for images"[^>]*data-disabled|data-disabled[^>]*aria-label="Use Grok for images"/,
-    );
+    expect(markup).not.toContain('aria-label="Use Grok for images"');
   });
 
   it("shows checking while status loads and unavailable when it failed", () => {

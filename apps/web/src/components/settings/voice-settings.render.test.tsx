@@ -20,6 +20,7 @@ vi.mock("../../confirm-dialog", () => ({ requestConfirmDialog: vi.fn() }));
 vi.mock("../chat/reply-playback-provider", () => ({ useOptionalReplyPlayback: () => null }));
 
 import type { EnvironmentId } from "@otto/contracts";
+import { VoiceApiConnectionsSection } from "./voice-api-connections";
 import { VoiceApiProviderRow, VoiceModeRows } from "./voice-settings";
 
 const environmentId = "environment-1" as EnvironmentId;
@@ -38,14 +39,26 @@ function renderMode(
   );
 }
 
-function renderProvider(connected: boolean | undefined, keyRejected = false) {
+function renderProvider(keyRejected = false) {
   return renderToStaticMarkup(
     <VoiceApiProviderRow
       provider="elevenlabs"
-      connected={connected}
       keyRejected={keyRejected}
-      onSave={async () => true}
+      onReplace={() => {}}
       onRemove={() => {}}
+    />,
+  );
+}
+
+function renderProviders(connected: ReadonlyArray<"openai" | "elevenlabs"> | null) {
+  return renderToStaticMarkup(
+    <VoiceApiConnectionsSection
+      environmentId={environmentId}
+      connected={connected}
+      serverRejected={{}}
+      loadError={null}
+      onChanged={() => {}}
+      onKeySaved={() => {}}
     />,
   );
 }
@@ -64,7 +77,7 @@ describe("voice mode rows", () => {
     const html = renderMode({ provider: "openai" }, []);
     expect(html).toContain("OpenAI API voice");
     expect(html).toContain("interrupt the bot");
-    expect(html).toContain("Connect OpenAI API under API keys");
+    expect(html).toContain("Connect OpenAI API under Providers");
   });
 
   it("shows speech-only composition without interruption and asks to connect the speech provider", () => {
@@ -78,38 +91,40 @@ describe("voice mode rows", () => {
     expect(html).toContain("Speech provider");
     expect(html).toContain("Fish Audio");
     expect(html).toContain("Connect Fish Audio to choose a voice.");
-    expect(html).toContain("Connect Fish Audio under API keys");
+    expect(html).toContain("Connect Fish Audio under Providers");
   });
 });
 
-describe("voice API provider row", () => {
-  it("offers Connect when a provider is not connected, with the key asked in a dialog", () => {
-    const html = renderProvider(false);
-    expect(html).toContain(">Connect</button>");
+describe("voice providers card", () => {
+  it("lists only connected providers under a count row, like Models", () => {
+    const html = renderProviders(["elevenlabs"]);
+    expect(html).toContain("Providers");
+    expect(html).toContain("1 provider");
+    expect(html).toContain('aria-label="Add provider"');
+    expect(html).toContain("ElevenLabs");
+    expect(html).not.toContain("Cartesia");
+    expect(html).not.toContain(">Connect</button>");
+  });
+
+  it("explains an empty card and waits for the status before offering Add provider", () => {
+    expect(renderProviders([])).toContain("Add a provider for API voice calls and dictation.");
+    expect(renderProviders(null)).not.toContain('aria-label="Add provider"');
+    expect(renderProviders(null)).not.toContain("Add a provider for API voice calls");
+  });
+
+  it("offers Remove on a working key, without a status badge or the key", () => {
+    const html = renderProvider();
     expect(html).toContain("Transcription · Speech");
-    expect(html).not.toContain('type="password"');
-    expect(html).not.toContain(">Remove</button>");
-  });
-
-  it("offers Remove and Replace key once connected, without revealing the key", () => {
-    const html = renderProvider(true);
-    expect(html).toContain("Connected");
     expect(html).toContain(">Remove</button>");
-    expect(html).toContain(">Replace key</button>");
+    expect(html).not.toContain(">Replace key</button>");
+    expect(html).not.toContain("Connected");
     expect(html).not.toContain('type="password"');
   });
 
-  it("waits for the provider status before offering actions", () => {
-    const loading = renderProvider(undefined);
-    expect(loading).not.toContain(">Connect</button>");
-    expect(loading).not.toContain(">Remove</button>");
-  });
-
-  it("shows a rejected key in the danger tone instead of Connected", () => {
-    const html = renderProvider(true, true);
+  it("shows a rejected key in the danger tone with Replace key", () => {
+    const html = renderProvider(true);
     expect(html).toContain("Key rejected");
     expect(html).toContain("text-destructive-foreground");
-    expect(html).not.toContain("Connected");
     expect(html).toContain(">Replace key</button>");
   });
 });

@@ -37,7 +37,7 @@ describe("voice settings logic", () => {
     };
 
     expect(voiceSetupProblem(composed, ["openai"])).toBe(
-      "Connect Cartesia and Fish Audio under API keys before starting a call. Otto will not switch to another provider or billing source.",
+      "Connect Cartesia and Fish Audio under Providers before starting a call. Otto will not switch to another provider or billing source.",
     );
     expect(voiceSetupProblem(composed, ["cartesia", "fish"])).toBeNull();
     expect(voiceSetupProblem({ ...base, provider: "openai" }, [])).toContain("OpenAI API");

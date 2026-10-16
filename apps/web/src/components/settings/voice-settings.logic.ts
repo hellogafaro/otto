@@ -93,7 +93,7 @@ export function voiceSetupProblem(
   if (missing.length > 0) {
     const names = missing.map((provider) => VOICE_API_PROVIDER_LABELS[provider]).join(" and ");
 
-    return `Connect ${names} under API keys before starting a call. Otto will not switch to another provider or billing source.`;
+    return `Connect ${names} under Providers before starting a call. Otto will not switch to another provider or billing source.`;
   }
 
   if (settings.provider === "composed" && selectedSynthesisVoice(settings) === undefined) {

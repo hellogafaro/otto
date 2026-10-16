@@ -142,7 +142,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "voice-api-connections",
-    title: "Voice API connections",
+    title: "Voice providers",
     to: "/settings/voice",
     keywords: ["API key", "OpenAI", "ElevenLabs", "Cartesia", "Fish Audio", "billing"],
   },
@@ -266,7 +266,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "bot-channels",
-    title: "Bot channels",
+    title: "Channels",
     to: "/settings/channels",
     keywords: [
       "Channels",

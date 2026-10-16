@@ -56,7 +56,7 @@ export const connectionsCatalog = {
     "此环境需要可信的配对凭据后，应用才能连接。",
   "This environment is desktop-managed. Open it from the desktop app or paste a bootstrap credential if one was issued explicitly.":
     "此环境由桌面应用管理。请从桌面应用打开，或粘贴明确签发的引导凭据。",
-  "Voice API connections": "语音 API 连接",
+  "Voice providers": "语音提供商",
   "Environment: {environment}": "环境：{environment}",
   "on {environment}": "在 {environment} 上",
   "Backend paired": "后端已配对",
@@ -577,4 +577,9 @@ export const connectionsCatalog = {
   "default model": "默认模型",
   "Turned off": "已关闭",
   "Use {account}": "使用 {account}",
+  "Coming soon": "即将推出",
+  "{count} provider": "{count} 个提供商",
+  "{count} providers": "{count} 个提供商",
+  "Add provider": "添加提供商",
+  "Add a provider for API voice calls and dictation.": "添加提供商以使用 API 语音通话和听写。",
 } as const;

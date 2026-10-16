@@ -59,7 +59,7 @@ export const connectionsCatalog = {
     "This environment expects a trusted pairing credential before the app can connect.",
   "This environment is desktop-managed. Open it from the desktop app or paste a bootstrap credential if one was issued explicitly.":
     "This environment is desktop-managed. Open it from the desktop app or paste a bootstrap credential if one was issued explicitly.",
-  "Voice API connections": "Voice API connections",
+  "Voice providers": "Voice providers",
   "Environment: {environment}": "Environment: {environment}",
   "on {environment}": "on {environment}",
   "Backend paired": "Backend paired",
@@ -616,4 +616,10 @@ export const connectionsCatalog = {
   "default model": "default model",
   "Turned off": "Turned off",
   "Use {account}": "Use {account}",
+  "Coming soon": "Coming soon",
+  "{count} provider": "{count} provider",
+  "{count} providers": "{count} providers",
+  "Add provider": "Add provider",
+  "Add a provider for API voice calls and dictation.":
+    "Add a provider for API voice calls and dictation.",
 } as const;
