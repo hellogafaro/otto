@@ -203,6 +203,11 @@ export class SubscriptionAuthService {
         isDefaultScope(provider, instanceId)
           ? this.accounts.activeAccountKey(provider, now)
           : credentialKey(provider, instanceId),
+    ).map((status) =>
+      isDefaultScope(status.provider, instanceId) &&
+      this.accounts.allAccountsPaused(status.provider)
+        ? { ...status, health: "disabled" as const }
+        : status,
     );
   }
 
@@ -214,6 +219,13 @@ export class SubscriptionAuthService {
     accountIds: ReadonlyArray<string>,
   ): Promise<void> {
     return this.accounts.setAccountOrder(provider, accountIds);
+  }
+  setAccountPaused(
+    provider: SubscriptionProviderId,
+    accountId: string,
+    paused: boolean,
+  ): Promise<void> {
+    return this.accounts.setAccountPaused(provider, accountId, paused);
   }
   linkedAccountStatuses(now = this.clock.currentTimeMillisUnsafe()): ProviderStatus[] {
     this.accounts.refreshAccountState();

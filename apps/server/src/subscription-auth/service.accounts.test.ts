@@ -100,6 +100,45 @@ describe("linked subscription accounts", () => {
     ]);
   });
 
+  it("skips a turned-off account and reports the provider off when every account is", async () => {
+    const { authPath } = fixture();
+    const service = await makeTestSubscriptionAuthService(authPath);
+    const first = await service.startLogin("openai-codex", { authMode: "api-key" });
+    await service.completeLogin(first.loginId, "first-key");
+
+    const second = await service.startLogin("openai-codex", {
+      authMode: "api-key",
+      addAccount: true,
+    });
+
+    await service.completeLogin(second.loginId, "second-key");
+    const [, addedId] = service.linkedAccountIds("openai-codex");
+
+    await service.setAccountPaused("openai-codex", "default", true);
+    expect(await service.getAccessToken("openai-codex")).toBe("second-key");
+    expect(
+      service
+        .linkedAccountStatuses()
+        .filter((status) => status.provider === "openai-codex")
+        .map((status) => [status.accountId, status.paused === true, status.active]),
+    ).toEqual([
+      ["default", true, false],
+      [addedId, false, true],
+    ]);
+
+    await service.setAccountPaused("openai-codex", addedId!, true);
+    const off = service.statuses().find((status) => status.provider === "openai-codex");
+    expect(off).toMatchObject({ connected: false, health: "disabled" });
+    expect(await service.getAccessToken("openai-codex")).toBeUndefined();
+
+    const restarted = await makeTestSubscriptionAuthService(authPath);
+    expect(restarted.statuses().find((status) => status.provider === "openai-codex")?.health).toBe(
+      "disabled",
+    );
+    await restarted.setAccountPaused("openai-codex", "default", false);
+    expect(await restarted.getAccessToken("openai-codex")).toBe("first-key");
+  });
+
   it("follows an account order saved by another service instance", async () => {
     const { authPath } = fixture();
     const controller = await makeTestSubscriptionAuthService(authPath);

@@ -20,6 +20,5 @@ export { useSettingsRestore } from "./use-settings-restore";
 
 export {
   BotSandboxBrowserSharingSettings,
-  FallbackModelSettingsRow,
   BotWorkspaceSettingsSection,
 } from "./bot-workspace-settings";

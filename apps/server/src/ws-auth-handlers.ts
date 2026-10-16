@@ -404,6 +404,19 @@ export const createWsAuthHandlers = ({
         { "rpc.aggregate": "server" },
       ),
 
+    [WS_METHODS.subscriptionAuthSetAccountPaused]: ({ provider, accountId, paused }) =>
+      observeRpcEffect(
+        WS_METHODS.subscriptionAuthSetAccountPaused,
+        Effect.tryPromise({
+          try: () => subscriptionAuth.setAccountPaused(provider, accountId, paused),
+          catch: (cause) =>
+            new SubscriptionAuthError({
+              reason: cause instanceof Error ? cause.message : String(cause),
+            }),
+        }).pipe(Effect.andThen(getAccessHealthSnapshot())),
+        { "rpc.aggregate": "server" },
+      ),
+
     [WS_METHODS.imageProviderList]: (_input) =>
       observeRpcEffect(WS_METHODS.imageProviderList, getImageProviderSnapshot(), {
         "rpc.aggregate": "server",
@@ -472,6 +485,7 @@ export const createWsAuthHandlers = ({
     | typeof WS_METHODS.subscriptionAuthCancel
     | typeof WS_METHODS.subscriptionAuthLogout
     | typeof WS_METHODS.subscriptionAuthSetAccountOrder
+    | typeof WS_METHODS.subscriptionAuthSetAccountPaused
     | typeof WS_METHODS.subscriptionAuthHealthTest
     | typeof WS_METHODS.imageProviderList
     | typeof WS_METHODS.imageProviderHealthTest

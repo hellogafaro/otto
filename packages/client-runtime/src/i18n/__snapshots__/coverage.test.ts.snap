@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1734,
+  "directMessageCount": 1737,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -136,7 +136,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "label)}",
     ],
     "apps/web/src/components/settings/models-settings.tsx": [
-      "definition.subscription)}",
+      "definition.subscription);",
       "label)}</Badge>",
     ],
     "apps/web/src/components/settings/sandbox-settings-panel.tsx": [
@@ -246,6 +246,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Keybindings",
       "Archived chats",
       "Archived bots",
+      "Default model",
       "Providers",
       "Sandbox",
       "Default sandbox",

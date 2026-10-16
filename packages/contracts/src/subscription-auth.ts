@@ -65,6 +65,8 @@ export const SubscriptionProviderStatus = Schema.Struct({
   accountId: Schema.optional(SubscriptionAccountId),
   /** True on the linked account that new requests use right now. */
   active: Schema.optional(Schema.Boolean),
+  /** True on a linked account turned off in Settings; requests skip it until it is turned on. */
+  paused: Schema.optional(Schema.Boolean),
   connected: Schema.Boolean,
   /** Account identifier supplied by the provider, when available. Never a token. */
   accountLabel: Schema.optional(TrimmedNonEmptyString),
@@ -303,6 +305,14 @@ export const SubscriptionAuthAccountOrderInput = Schema.Struct({
 });
 
 export type SubscriptionAuthAccountOrderInput = typeof SubscriptionAuthAccountOrderInput.Type;
+
+export const SubscriptionAuthAccountPausedInput = Schema.Struct({
+  provider: SubscriptionProviderId,
+  accountId: SubscriptionAccountId,
+  paused: Schema.Boolean,
+});
+
+export type SubscriptionAuthAccountPausedInput = typeof SubscriptionAuthAccountPausedInput.Type;
 
 export class SubscriptionAuthError extends Schema.TaggedErrorClass<SubscriptionAuthError>()(
   "SubscriptionAuthError",

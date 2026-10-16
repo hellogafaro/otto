@@ -532,6 +532,10 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:subscription-auth:set-account-order",
       tag: WS_METHODS.subscriptionAuthSetAccountOrder,
     }),
+    setSubscriptionAccountPaused: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:subscription-auth:set-account-paused",
+      tag: WS_METHODS.subscriptionAuthSetAccountPaused,
+    }),
     testImageProvider: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:image-provider:health-test",
       tag: WS_METHODS.imageProviderHealthTest,

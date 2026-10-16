@@ -609,4 +609,11 @@ export const connectionsCatalog = {
   "Default provider": "Default provider",
   "Bots try this one first and use the other when it fails.":
     "Bots try this one first and use the other when it fails.",
+  Defaults: "Defaults",
+  "Default model": "Default model",
+  "New bots start on it and bots without their own model follow it.":
+    "New bots start on it and bots without their own model follow it.",
+  "default model": "default model",
+  "Turned off": "Turned off",
+  "Use {account}": "Use {account}",
 } as const;

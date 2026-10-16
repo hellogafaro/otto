@@ -120,6 +120,10 @@ export function useSubscriptionAccounts(
     reportFailure: false,
   });
 
+  const pauseAuth = useAtomCommand(serverEnvironment.setSubscriptionAccountPaused, {
+    reportFailure: false,
+  });
+
   const [activeLogin, setActiveLogin] = useState<ActiveLogin | null>(null);
   const [busyProvider, setBusyProvider] = useState<SubscriptionProviderId | null>(null);
   const [pastedCode, setPastedCode] = useState("");
@@ -424,6 +428,21 @@ export function useSubscriptionAccounts(
     else if (Predicate.isTagged(result, "Failure")) setError(commandError(result, t));
   };
 
+  const setAccountPaused = async (
+    provider: SubscriptionProviderId,
+    accountId: SubscriptionAccountId,
+    paused: boolean,
+  ) => {
+    if (environmentId === null) return;
+    setError(null);
+    setBusyProvider(provider);
+    const result = await pauseAuth({ environmentId, input: { provider, accountId, paused } });
+    setBusyProvider(null);
+
+    if (Predicate.isTagged(result, "Success")) statusQuery.refresh();
+    else if (Predicate.isTagged(result, "Failure")) setError(commandError(result, t));
+  };
+
   return {
     statusQuery,
     statusByProvider,
@@ -432,6 +451,7 @@ export function useSubscriptionAccounts(
     busyAccount,
     keyTarget: target,
     setAccountOrder,
+    setAccountPaused,
     pastedCode,
     setPastedCode,
     completing,

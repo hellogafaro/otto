@@ -169,6 +169,7 @@ export function linkedAccountStatuses(
         ...statusForKey(state, healthData, provider, key, [], now),
         accountId,
         active: key === active,
+        ...(accounts.accountPaused(provider, accountId) ? { paused: true } : {}),
       };
     });
   });

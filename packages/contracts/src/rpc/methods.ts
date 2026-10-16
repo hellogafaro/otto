@@ -83,6 +83,7 @@ export const WS_METHODS = {
   subscriptionAuthLogout: "subscriptionAuth.logout",
   subscriptionAuthHealthTest: "subscriptionAuth.healthTest",
   subscriptionAuthSetAccountOrder: "subscriptionAuth.setAccountOrder",
+  subscriptionAuthSetAccountPaused: "subscriptionAuth.setAccountPaused",
 
   // Image generation providers
   imageProviderList: "imageProvider.list",

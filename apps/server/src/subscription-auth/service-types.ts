@@ -70,6 +70,7 @@ export interface ProviderStatus {
   accountLabel?: string;
   accountId?: string;
   active?: boolean;
+  paused?: boolean;
   plan?: string;
   authMode?: "oauth" | "api-key";
   baseUrl?: string;
@@ -83,7 +84,8 @@ export interface ProviderStatus {
     | "revoked"
     | "failed"
     | "failed-first-request"
-    | "recovered";
+    | "recovered"
+    | "disabled";
   healthChecking?: boolean;
   lastSuccessfulRequestAt?: string;
   lastFailedRequest?: { at: string; message: string };

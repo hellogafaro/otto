@@ -1,23 +1,8 @@
 import { Match } from "effect";
 import { useState } from "react";
-import { useAtomValue } from "@effect/atom-react";
-import { type BotSandboxBrowserSharing, ProviderDriverKind } from "@otto/contracts";
+import type { BotSandboxBrowserSharing } from "@otto/contracts";
 import { DEFAULT_UNIFIED_SETTINGS } from "@otto/contracts/settings";
-import { createModelSelection } from "@otto/shared/model";
-import * as Equal from "effect/Equal";
-import { ProviderModelPicker } from "../chat/provider-model-picker";
-import { TraitsPicker } from "../chat/traits-picker";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/use-settings";
-import {
-  getCustomModelOptionsByInstance,
-  resolveAppModelSelectionState,
-} from "../../model-selection";
-import {
-  applyProviderInstanceSettings,
-  deriveProviderInstanceEntries,
-  sortProviderInstanceEntries,
-} from "../../provider-instances";
-import { primaryServerProvidersAtom } from "../../state/server";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -32,7 +17,6 @@ import { SettingResetButton, SettingsRow, SettingsSection } from "./settings-lay
 import { searchableSetting } from "./settings-search";
 import { useI18n } from "../../i18n";
 import type { MessageKey } from "@otto/client-runtime/i18n";
-import { DEFAULT_DRIVER_KIND } from "./use-settings-restore";
 
 const BOT_SANDBOX_BROWSER_SHARING_LABELS: Record<BotSandboxBrowserSharing, MessageKey> = {
   shared: "Shared",
@@ -120,117 +104,6 @@ export function BotSandboxBrowserSharingSettings({
         </DialogPopup>
       </Dialog>
     </>
-  );
-}
-
-/** Model used for chat titles and other background text when nothing else picks one. */
-export function FallbackModelSettingsRow() {
-  const { t } = useI18n();
-  const settings = usePrimarySettings();
-  const updateSettings = useUpdatePrimarySettings();
-  const serverProviders = useAtomValue(primaryServerProvidersAtom);
-  const textGenerationModelSelection = resolveAppModelSelectionState(settings, serverProviders);
-  const textGenInstanceId = textGenerationModelSelection.instanceId;
-  const textGenModel = textGenerationModelSelection.model;
-  const textGenModelOptions = textGenerationModelSelection.options;
-
-  const textGenerationModelInstanceEntries = sortProviderInstanceEntries(
-    applyProviderInstanceSettings(deriveProviderInstanceEntries(serverProviders), settings),
-  );
-
-  const textGenInstanceEntry = textGenerationModelInstanceEntries.find(
-    (entry) => entry.instanceId === textGenInstanceId,
-  );
-
-  const textGenProvider: ProviderDriverKind =
-    textGenInstanceEntry?.driverKind ?? DEFAULT_DRIVER_KIND;
-
-  const textGenerationModelOptionsByInstance = getCustomModelOptionsByInstance(
-    settings,
-    serverProviders,
-    textGenInstanceId,
-    textGenModel,
-  );
-
-  const isTextGenerationModelDirty = !Equal.equals(
-    settings.textGenerationModelSelection ?? null,
-    DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection ?? null,
-  );
-
-  return (
-    <SettingsRow
-      id="text-generation-model"
-      title={t("Fallback model")}
-      description={t("Writes chat titles and other short background text.")}
-      resetAction={
-        isTextGenerationModelDirty ? (
-          <SettingResetButton
-            label={t("text generation model")}
-            onClick={() =>
-              updateSettings({
-                textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
-              })
-            }
-          />
-        ) : null
-      }
-      control={
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <ProviderModelPicker
-            activeInstanceId={textGenInstanceId}
-            model={textGenModel}
-            lockedProvider={null}
-            instanceEntries={textGenerationModelInstanceEntries}
-            modelOptionsByInstance={textGenerationModelOptionsByInstance}
-            triggerVariant="outline"
-            triggerFit="settings-row"
-            onInstanceModelChange={(instanceId, model) => {
-              updateSettings({
-                textGenerationModelSelection: resolveAppModelSelectionState(
-                  {
-                    ...settings,
-                    textGenerationModelSelection: createModelSelection(instanceId, model),
-                  },
-                  serverProviders,
-                ),
-              });
-            }}
-          />
-          <TraitsPicker
-            provider={textGenProvider}
-            models={
-              // Use the exact instance's models (rather than the
-              // first-kind-match) so a custom text-gen instance like
-              // `codex_personal` gets its own model list, not the
-              // default Codex one.
-              textGenInstanceEntry?.models ?? []
-            }
-            model={textGenModel}
-            prompt=""
-            onPromptChange={() => {}}
-            modelOptions={textGenModelOptions}
-            allowPromptInjectedEffort={false}
-            triggerVariant="outline"
-            triggerFit="settings-row"
-            onModelOptionsChange={(nextOptions) => {
-              updateSettings({
-                textGenerationModelSelection: resolveAppModelSelectionState(
-                  {
-                    ...settings,
-                    textGenerationModelSelection: createModelSelection(
-                      textGenInstanceId,
-                      textGenModel,
-                      nextOptions,
-                    ),
-                  },
-                  serverProviders,
-                ),
-              });
-            }}
-          />
-        </div>
-      }
-    />
   );
 }
 

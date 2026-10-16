@@ -1,6 +1,6 @@
 import { BrowserSettingsSection } from "./browser-settings";
 import { ImageGenerationSettingsSection } from "./image-generation-settings";
-import { ModelsConnectionsSection } from "./models-settings";
+import { DefaultModelSection, ModelsConnectionsSection } from "./models-settings";
 import { SandboxSettingsPanel } from "./sandbox-settings-panel";
 import { BotWorkspaceSettingsSection } from "./settings-panels";
 import { SettingsPageContainer } from "./settings-layout";
@@ -14,6 +14,7 @@ export function ModelsSettingsPage() {
   return (
     <SettingsPageContainer>
       <ModelsConnectionsSection />
+      <DefaultModelSection />
     </SettingsPageContainer>
   );
 }

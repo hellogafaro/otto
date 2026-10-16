@@ -20,9 +20,19 @@ import {
 
 const SERVED_BY_THREAD_CAP = 512;
 
+type ProviderAccountLists = Partial<Record<SubscriptionProviderId, string[]>>;
+
+/** The key a provider resolves to when every linked account is turned off: no credential lives there. */
+function pausedProviderKey(provider: SubscriptionProviderId): string {
+  return `paused:${provider}`;
+}
+
 export class SubscriptionAccountState {
   private readonly orderPath: string;
-  private accountOrder: Partial<Record<SubscriptionProviderId, string[]>> = {};
+  private readonly pausedPath: string;
+  private accountOrder: ProviderAccountLists = {};
+  private pausedAccounts: ProviderAccountLists = {};
+  private pausedVersion: string | undefined;
   readonly lastServedKey = new Map<SubscriptionProviderId, string>();
   private readonly servedByThread = new Map<string, string>();
   private orderVersion: string | undefined;
@@ -41,7 +51,9 @@ export class SubscriptionAccountState {
     this.clock = clock;
     this.reload = reload;
     this.orderPath = `${store.path}.accounts`;
+    this.pausedPath = `${store.path}.paused`;
     this.reloadAccountOrder();
+    this.reloadPausedAccounts();
   }
   private get data() {
     return this.store.current().data;
@@ -52,22 +64,33 @@ export class SubscriptionAccountState {
   private reloadAsync() {
     return Effect.runPromise(this.reload());
   }
-  reloadAccountOrder(): void {
-    this.orderVersion = fileVersion(this.orderPath);
-
+  /** Account ids per provider from a JSON file, or none when it is missing or unreadable. */
+  private readAccountLists(filePath: string): ProviderAccountLists {
     try {
-      const parsed = this.healthService.readAccountOrder(this.orderPath);
-      this.accountOrder = {};
+      const parsed = this.healthService.readAccountOrder(filePath);
+      const lists: ProviderAccountLists = {};
 
-      if (!Predicate.isObjectKeyword(parsed)) return;
+      if (!Predicate.isObjectKeyword(parsed)) return lists;
 
       for (const [provider, ids] of Object.entries(parsed)) {
         if (isSubscriptionProviderId(provider) && Array.isArray(ids))
-          this.accountOrder[provider] = ids.filter((id): id is string => Predicate.isString(id));
+          lists[provider] = ids.filter((id): id is string => Predicate.isString(id));
       }
+
+      return lists;
     } catch {
-      this.accountOrder = {};
+      return {};
     }
+  }
+
+  reloadAccountOrder(): void {
+    this.orderVersion = fileVersion(this.orderPath);
+    this.accountOrder = this.readAccountLists(this.orderPath);
+  }
+
+  private reloadPausedAccounts(): void {
+    this.pausedVersion = fileVersion(this.pausedPath);
+    this.pausedAccounts = this.readAccountLists(this.pausedPath);
   }
 
   private saveAccountOrder(provider: SubscriptionProviderId, accountIds: string[]): void {
@@ -80,6 +103,8 @@ export class SubscriptionAccountState {
   /** Picks up an order or health change another service instance wrote, such as a reorder from Settings. */
   refreshAccountState(): void {
     if (fileVersion(this.orderPath) !== this.orderVersion) this.reloadAccountOrder();
+
+    if (fileVersion(this.pausedPath) !== this.pausedVersion) this.reloadPausedAccounts();
 
     if (fileVersion(this.healthService.healthPath) !== this.healthService.healthVersion)
       this.healthService.reloadHealth();
@@ -103,6 +128,39 @@ export class SubscriptionAccountState {
     return [...new Set(stored), ...present.filter((id) => !stored.includes(id))];
   }
 
+  /** True when Settings turned this linked account off, so requests skip it. */
+  accountPaused(provider: SubscriptionProviderId, accountId: string): boolean {
+    return this.pausedAccounts[provider]?.includes(accountId) ?? false;
+  }
+
+  /** True when the provider has linked accounts and every one of them is turned off. */
+  allAccountsPaused(provider: SubscriptionProviderId): boolean {
+    const linked = this.linkedAccountIds(provider);
+
+    return linked.length > 0 && linked.every((id) => this.accountPaused(provider, id));
+  }
+
+  /** Turns a linked account off or back on. Ids that are not linked are ignored. */
+  async setAccountPaused(
+    provider: SubscriptionProviderId,
+    accountId: string,
+    paused: boolean,
+  ): Promise<void> {
+    await this.reloadAsync();
+    this.reloadPausedAccounts();
+    const linked = this.linkedAccountIds(provider);
+
+    const others = (this.pausedAccounts[provider] ?? []).filter(
+      (id) => id !== accountId && linked.includes(id),
+    );
+
+    this.pausedAccounts[provider] =
+      paused && linked.includes(accountId) ? [...others, accountId] : others;
+
+    this.healthService.writeSecureJson(this.pausedPath, this.pausedAccounts);
+    this.pausedVersion = fileVersion(this.pausedPath);
+  }
+
   /** False while an account sits out a limit or its sign-in was rejected. */
   accountReady(key: string, now: number): boolean {
     const health = this.health[key];
@@ -120,18 +178,22 @@ export class SubscriptionAccountState {
   }
 
   /**
-   * The credential key default-scope requests use: the first linked account
-   * that is ready, else the first linked account so its error still surfaces.
+   * The credential key default-scope requests use: the first linked account that
+   * is on and ready, else the first one that is on so its error still surfaces.
+   * With every account turned off it resolves to a key that holds no credential.
    */
   activeAccountKey(
     provider: SubscriptionProviderId,
     now = this.clock.currentTimeMillisUnsafe(),
   ): string {
     this.refreshAccountState();
+    const linked = this.linkedAccountIds(provider);
 
-    const keys = this.linkedAccountIds(provider).map((id) =>
-      credentialKey(provider, accountScope(id)),
-    );
+    const keys = linked
+      .filter((id) => !this.accountPaused(provider, id))
+      .map((id) => credentialKey(provider, accountScope(id)));
+
+    if (linked.length > 0 && keys.length === 0) return pausedProviderKey(provider);
 
     return keys.find((key) => this.accountReady(key, now)) ?? keys[0] ?? provider;
   }

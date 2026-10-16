@@ -1,3 +1,4 @@
+import { useAtomValue } from "@effect/atom-react";
 import { RiArrowDownLine, RiArrowUpLine, RiExternalLinkLine, RiLoaderLine } from "@remixicon/react";
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import { providerSupportsBaseUrl, providerUsesApiKey } from "@otto/client-runtime/provider-auth";
@@ -10,13 +11,32 @@ import {
 } from "@otto/contracts";
 import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@otto/contracts/settings";
 import { Match, Predicate } from "effect";
+import * as Equal from "effect/Equal";
+import { createModelSelection } from "@otto/shared/model";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { requestConfirmDialog } from "../../confirm-dialog";
-import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "../../hooks/use-settings";
+import {
+  useEnvironmentSettings,
+  usePrimarySettings,
+  useUpdateEnvironmentSettings,
+  useUpdatePrimarySettings,
+} from "../../hooks/use-settings";
 import { useI18n } from "../../i18n";
+import {
+  getCustomModelOptionsByInstance,
+  resolveAppModelSelectionState,
+} from "../../model-selection";
+import {
+  applyProviderInstanceSettings,
+  deriveProviderInstanceEntries,
+  sortProviderInstanceEntries,
+} from "../../provider-instances";
 import { useSettingsEnvironmentId } from "../../settings-dialog-store";
+import { primaryServerProvidersAtom } from "../../state/server";
+import { ProviderModelPicker } from "../chat/provider-model-picker";
+import { TraitsPicker } from "../chat/traits-picker";
 import { AddMenu, CardCountRow, LogoTile } from "../customize/customize-group";
 import { CustomApiIcon } from "../icons";
 import { recordLookup } from "../record-lookup";
@@ -35,10 +55,12 @@ import { Input } from "../ui/input";
 import { MenuItem } from "../ui/menu";
 import { SkeletonSettingsSections } from "../ui/skeleton";
 import { Spinner } from "../ui/spinner";
+import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
 import { SettingsMessageRow } from "./settings-detail-layout";
-import { SettingsSection } from "./settings-layout";
+import { SettingResetButton, SettingsRow, SettingsSection } from "./settings-layout";
 import { buildProviderInstanceUpdatePatch } from "./settings-panels.logic";
+import { searchableSetting } from "./settings-search";
 import { SignInCodeCopy } from "./sign-in-code-copy";
 import {
   linkedAccountTitle,
@@ -46,6 +68,7 @@ import {
   subscriptionProviderTargetId,
   type SubscriptionProviderDefinition,
 } from "./subscription-providers";
+import { DEFAULT_DRIVER_KIND } from "./use-settings-restore";
 import { useSubscriptionAccounts } from "./use-subscription-accounts";
 
 type Translate = ReturnType<typeof useI18n>["t"];
@@ -281,15 +304,23 @@ function Connections({ environmentId }: { readonly environmentId: EnvironmentId 
       ) : null}
       {groups.flatMap(({ definition, statuses }) =>
         statuses.map((status, index) => {
-          const problem = accountProblem(
-            status,
-            accounts.busyAccount === status.accountId,
-            locale,
-            now,
-          );
+          const paused = status.paused === true;
+
+          const problem = paused
+            ? null
+            : accountProblem(status, accounts.busyAccount === status.accountId, locale, now);
 
           const title = connectionTitle(definition, status, t);
           const usesKey = providerUsesApiKey(status);
+
+          const order =
+            index === 0 ? t("Main account") : t("Backup {number}", { number: String(index) });
+
+          const detail = paused
+            ? t("Turned off")
+            : statuses.length > 1
+              ? order
+              : t(definition.subscription);
 
           const move = (offset: -1 | 1) => {
             const ids = statuses.map((entry) => entry.accountId!);
@@ -317,13 +348,7 @@ function Connections({ environmentId }: { readonly environmentId: EnvironmentId 
                 <span className="block truncate text-13px font-medium text-foreground">
                   {title}
                 </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {statuses.length > 1
-                    ? index === 0
-                      ? t("Main account")
-                      : t("Backup {number}", { number: String(index) })
-                    : t(definition.subscription)}
-                </span>
+                <span className="block truncate text-xs text-muted-foreground">{detail}</span>
               </span>
               {problem === null
                 ? null
@@ -392,6 +417,14 @@ function Connections({ environmentId }: { readonly environmentId: EnvironmentId 
                     )),
                     Match.orElse(() => null),
                   )}
+              <Switch
+                checked={!paused}
+                disabled={locked}
+                aria-label={t("Use {account}", { account: title })}
+                onCheckedChange={(checked) =>
+                  void accounts.setAccountPaused(definition.id, status.accountId!, !checked)
+                }
+              />
             </div>
           );
         }),
@@ -704,5 +737,122 @@ function CustomApiDialog({
         </form>
       </DialogPopup>
     </Dialog>
+  );
+}
+
+/**
+ * Otto: The default model, its thinking level and speed. New bots start on it, bots without
+ * their own model follow it, and it writes chat titles.
+ */
+export function DefaultModelSection() {
+  const { t } = useI18n();
+  const settings = usePrimarySettings();
+  const updateSettings = useUpdatePrimarySettings();
+  const serverProviders = useAtomValue(primaryServerProvidersAtom);
+  const textGenerationModelSelection = resolveAppModelSelectionState(settings, serverProviders);
+  const textGenInstanceId = textGenerationModelSelection.instanceId;
+  const textGenModel = textGenerationModelSelection.model;
+  const textGenModelOptions = textGenerationModelSelection.options;
+
+  const textGenerationModelInstanceEntries = sortProviderInstanceEntries(
+    applyProviderInstanceSettings(deriveProviderInstanceEntries(serverProviders), settings),
+  );
+
+  const textGenInstanceEntry = textGenerationModelInstanceEntries.find(
+    (entry) => entry.instanceId === textGenInstanceId,
+  );
+
+  const textGenProvider: ProviderDriverKind =
+    textGenInstanceEntry?.driverKind ?? DEFAULT_DRIVER_KIND;
+
+  const textGenerationModelOptionsByInstance = getCustomModelOptionsByInstance(
+    settings,
+    serverProviders,
+    textGenInstanceId,
+    textGenModel,
+  );
+
+  const isTextGenerationModelDirty = !Equal.equals(
+    settings.textGenerationModelSelection ?? null,
+    DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection ?? null,
+  );
+
+  return (
+    <SettingsSection title={t("Defaults")}>
+      <SettingsRow
+        {...searchableSetting("default-model", t)}
+        title={t("Default model")}
+        description={t("New bots start on it and bots without their own model follow it.")}
+        resetAction={
+          isTextGenerationModelDirty ? (
+            <SettingResetButton
+              label={t("text generation model")}
+              onClick={() =>
+                updateSettings({
+                  textGenerationModelSelection:
+                    DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
+                })
+              }
+            />
+          ) : null
+        }
+        control={
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <ProviderModelPicker
+              activeInstanceId={textGenInstanceId}
+              model={textGenModel}
+              lockedProvider={null}
+              instanceEntries={textGenerationModelInstanceEntries}
+              modelOptionsByInstance={textGenerationModelOptionsByInstance}
+              triggerVariant="outline"
+              triggerFit="settings-row"
+              onInstanceModelChange={(instanceId, model) => {
+                updateSettings({
+                  textGenerationModelSelection: resolveAppModelSelectionState(
+                    {
+                      ...settings,
+                      textGenerationModelSelection: createModelSelection(instanceId, model),
+                    },
+                    serverProviders,
+                  ),
+                });
+              }}
+            />
+            <TraitsPicker
+              provider={textGenProvider}
+              models={
+                // Use the exact instance's models (rather than the
+                // first-kind-match) so a custom text-gen instance like
+                // `codex_personal` gets its own model list, not the
+                // default Codex one.
+                textGenInstanceEntry?.models ?? []
+              }
+              model={textGenModel}
+              prompt=""
+              onPromptChange={() => {}}
+              modelOptions={textGenModelOptions}
+              allowPromptInjectedEffort={false}
+              triggerVariant="outline"
+              triggerFit="settings-row"
+              onModelOptionsChange={(nextOptions) => {
+                updateSettings({
+                  textGenerationModelSelection: resolveAppModelSelectionState(
+                    {
+                      ...settings,
+                      textGenerationModelSelection: createModelSelection(
+                        textGenInstanceId,
+                        textGenModel,
+                        nextOptions,
+                      ),
+                    },
+                    serverProviders,
+                  ),
+                });
+              }}
+            />
+          </div>
+        }
+      />
+    </SettingsSection>
   );
 }

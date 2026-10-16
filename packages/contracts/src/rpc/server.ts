@@ -125,6 +125,7 @@ import {
   McpServerTools,
   McpServerToolsError,
   SubscriptionAuthAccountOrderInput,
+  SubscriptionAuthAccountPausedInput,
   SubscriptionAuthCompleteInput,
   SubscriptionAuthError,
   SubscriptionAuthHealthTestInput,
@@ -348,6 +349,15 @@ export const WsSubscriptionAuthSetAccountOrderRpc = Rpc.make(
   WS_METHODS.subscriptionAuthSetAccountOrder,
   {
     payload: SubscriptionAuthAccountOrderInput,
+    success: SubscriptionAuthStatuses,
+    error: Schema.Union([SubscriptionAuthError, EnvironmentAuthorizationError]),
+  },
+);
+
+export const WsSubscriptionAuthSetAccountPausedRpc = Rpc.make(
+  WS_METHODS.subscriptionAuthSetAccountPaused,
+  {
+    payload: SubscriptionAuthAccountPausedInput,
     success: SubscriptionAuthStatuses,
     error: Schema.Union([SubscriptionAuthError, EnvironmentAuthorizationError]),
   },

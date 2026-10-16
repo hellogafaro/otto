@@ -570,4 +570,11 @@ export const connectionsCatalog = {
   "Default provider": "默认提供商",
   "Bots try this one first and use the other when it fails.":
     "机器人会先使用这个，失败时改用另一个。",
+  Defaults: "默认设置",
+  "Default model": "默认模型",
+  "New bots start on it and bots without their own model follow it.":
+    "新机器人从它开始，没有自己模型的机器人也会跟随它。",
+  "default model": "默认模型",
+  "Turned off": "已关闭",
+  "Use {account}": "使用 {account}",
 } as const;

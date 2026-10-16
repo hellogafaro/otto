@@ -52,6 +52,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.subscriptionAuthLogout]: AuthAccessWriteScope,
   [WS_METHODS.subscriptionAuthHealthTest]: AuthAccessWriteScope,
   [WS_METHODS.subscriptionAuthSetAccountOrder]: AuthAccessWriteScope,
+  [WS_METHODS.subscriptionAuthSetAccountPaused]: AuthAccessWriteScope,
   [WS_METHODS.imageProviderList]: AuthOrchestrationReadScope,
   [WS_METHODS.imageProviderHealthTest]: AuthAccessWriteScope,
   [WS_METHODS.mcpServerAuthenticate]: AuthAccessWriteScope,

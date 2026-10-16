@@ -203,6 +203,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     keywords: ["archive", "restore", "delete", "bot"],
   },
   {
+    id: "default-model",
+    title: "Default model",
+    to: "/settings/models",
+    keywords: ["thinking", "reasoning", "fast", "speed", "new bot"],
+  },
+  {
     id: "providers",
     title: "Providers",
     to: "/settings/models",
