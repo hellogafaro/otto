@@ -49,10 +49,10 @@ describe("settings dialog store", () => {
   it("keeps the originating environment while navigating Settings", () => {
     const environmentId = EnvironmentId.make("env-secondary");
     openSettings("computer", "local-execution", environmentId);
-    useSettingsDialogStore.getState().openSettings("providers");
+    useSettingsDialogStore.getState().openSettings("models");
 
     expect(useSettingsDialogStore.getState()).toMatchObject({
-      section: "providers",
+      section: "models",
       environmentId,
     });
 
@@ -65,10 +65,10 @@ describe("settings dialog store", () => {
     const primaryEnvironmentId = EnvironmentId.make("env-primary");
     openSettings("computer", "local-execution", secondaryEnvironmentId);
 
-    openSettings("providers", null, primaryEnvironmentId);
+    openSettings("models", null, primaryEnvironmentId);
 
     expect(useSettingsDialogStore.getState()).toMatchObject({
-      section: "providers",
+      section: "models",
       environmentId: primaryEnvironmentId,
     });
   });
@@ -77,14 +77,15 @@ describe("settings dialog store", () => {
 describe("legacy settings deep links", () => {
   it("maps a known settings path onto its section", () => {
     expect(settingsSectionFromPathname("/settings/memory")).toBe("memory");
+    expect(settingsSectionFromPathname("/settings/voice")).toBe("voice");
     expect(settingsSectionFromPathname("/settings/channels")).toBe("channels");
     expect(settingsSectionFromPathname("/settings/computer")).toBe("computer");
   });
 
   it("maps retired sections onto the page that now owns them", () => {
     expect(settingsSectionFromPathname("/settings/source-control")).toBe("general");
-    expect(settingsSectionFromPathname("/settings/voice")).toBe("providers");
-    expect(settingsSectionFromPathname("/settings/image-generation")).toBe("providers");
+    expect(settingsSectionFromPathname("/settings/providers")).toBe("models");
+    expect(settingsSectionFromPathname("/settings/image-generation")).toBe("models");
     expect(settingsSectionFromPathname("/settings/sandbox")).toBe("computer");
     expect(settingsSectionFromPathname("/settings/browser")).toBe("computer");
   });

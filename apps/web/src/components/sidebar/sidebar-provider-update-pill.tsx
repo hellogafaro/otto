@@ -73,7 +73,7 @@ export function SidebarProviderUpdatePill() {
   }, [effectiveVisibleAfterIso, visibleAfterIso]);
 
   const openProviderSettings = useCallback(() => {
-    openSettings("providers");
+    openSettings("models");
   }, []);
 
   const displayedView = renderedView ?? view;

@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "../../lib/utils";
 import type { Icon } from "../icons";
+import { Badge } from "../ui/badge";
 import type { ConnectionTone } from "./provider-status";
 
 const TONE_DOT_CLASS: Readonly<Record<ConnectionTone, string>> = {
@@ -19,7 +20,14 @@ const TONE_DOT_CLASS: Readonly<Record<ConnectionTone, string>> = {
   pending: "bg-muted-foreground/20",
 };
 
-/** A dot and a word or two. The one status a list row or page header shows. */
+// Otto: List rows show their status as a badge, like Integrations; not connected shows nothing.
+const TONE_BADGE_VARIANT = {
+  positive: "success",
+  attention: "warning",
+  pending: "quiet",
+} as const satisfies Partial<Record<ConnectionTone, "success" | "warning" | "quiet">>;
+
+/** A dot and a word or two. The status a page header shows. */
 export function SettingsStatus({
   tone,
   label,
@@ -109,7 +117,9 @@ export function SettingsLinkRow<TRouter extends RegisteredRouter, TOptions>({
             <span className="block truncate text-13px text-muted-foreground/80">{description}</span>
           ) : null}
         </span>
-        <SettingsStatus tone={tone} label={statusLabel} />
+        {tone === "neutral" ? null : (
+          <Badge variant={TONE_BADGE_VARIANT[tone]}>{statusLabel}</Badge>
+        )}
         <RiArrowRightSLine
           aria-hidden
           className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-muted-foreground"

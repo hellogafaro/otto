@@ -153,7 +153,7 @@ export function ImageGenerationSettingsContent({
 
   const openProviderLogin = (provider: ImageProviderId) =>
     openSettings(
-      "providers",
+      "models",
       subscriptionProviderTargetId(IMAGE_PROVIDER_SUBSCRIPTIONS[provider]),
       environmentId,
     );

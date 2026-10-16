@@ -31,12 +31,8 @@ function renderRow(
       provider={provider}
       connected={connected}
       keyRejected={keyRejected}
-      busyAction={null}
-      disabled={false}
-      message={null}
-      onConnect={async () => true}
-      onTest={() => {}}
-      onDisconnect={() => {}}
+      onSave={async () => true}
+      onRemove={() => {}}
     />
   );
 
@@ -51,27 +47,18 @@ function renderRow(
   );
 }
 
-describe("voice API key labels", () => {
-  it("name each key once in English and Simplified Chinese", () => {
-    expect(renderRow("openai", false, false)).toContain('placeholder="OpenAI API key"');
-    expect(renderRow("fish", false, false)).toContain('placeholder="Fish Audio API key"');
-    expect(renderRow("openai", false, true)).toContain('placeholder="OpenAI API 密钥"');
-    expect(renderRow("cartesia", false, true)).toContain('aria-label="Cartesia API 密钥"');
-
+describe("voice API key rows in Simplified Chinese", () => {
+  it("translates the actions and the status badge", () => {
     for (const provider of VOICE_API_PROVIDERS) {
-      for (const chinese of [false, true]) {
-        for (const connected of [false, true]) {
-          expect(renderRow(provider, connected, chinese)).not.toMatch(/API\s*API/);
-        }
-      }
+      const connected = renderRow(provider, true, true);
+      expect(connected).not.toContain(">Remove</button>");
+      expect(connected).not.toContain(">Replace key</button>");
+      expect(connected).not.toContain("Connected");
+      expect(renderRow(provider, false, true)).not.toContain(">Connect</button>");
     }
-  });
 
-  it("translates the key status badge", () => {
-    expect(renderRow("openai", true, true)).toContain("密钥已保存");
     const rejected = renderRow("openai", true, true, true);
     expect(rejected).toContain("密钥被拒绝");
     expect(rejected).not.toContain("Key rejected");
-    expect(renderRow("openai", false, true)).toContain("未连接");
   });
 });

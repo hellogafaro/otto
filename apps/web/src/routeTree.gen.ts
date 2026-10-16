@@ -31,7 +31,7 @@ import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitat
 import { Route as CustomizeAppsIndexRouteImport } from './routes/customize_.apps.index'
 import { Route as ChatChatsIndexRouteImport } from './routes/_chat.chats.index'
 import { Route as SettingsSkillsIdRouteImport } from './routes/settings.skills.$id'
-import { Route as SettingsProvidersProviderIdRouteImport } from './routes/settings.providers.$providerId'
+import { Route as SettingsModelsProviderIdRouteImport } from './routes/settings.models.$providerId'
 import { Route as SettingsChannelsChannelRouteImport } from './routes/settings.channels.$channel'
 import { Route as SettingsBotsBotIdRouteImport } from './routes/settings.bots.$botId'
 import { Route as CustomizeAppsSlugRouteImport } from './routes/customize_.apps.$slug'
@@ -155,10 +155,10 @@ const SettingsSkillsIdRoute = SettingsSkillsIdRouteImport.update({
   path: '/skills/$id',
   getParentRoute: () => SettingsRoute,
 } as any)
-const SettingsProvidersProviderIdRoute =
-  SettingsProvidersProviderIdRouteImport.update({
-    id: '/providers/$providerId',
-    path: '/providers/$providerId',
+const SettingsModelsProviderIdRoute =
+  SettingsModelsProviderIdRouteImport.update({
+    id: '/models/$providerId',
+    path: '/models/$providerId',
     getParentRoute: () => SettingsRoute,
   } as any)
 const SettingsChannelsChannelRoute = SettingsChannelsChannelRouteImport.update({
@@ -260,7 +260,7 @@ export interface FileRoutesByFullPath {
   '/customize/apps/$slug': typeof CustomizeAppsSlugRoute
   '/settings/bots/$botId': typeof SettingsBotsBotIdRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
-  '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/settings/models/$providerId': typeof SettingsModelsProviderIdRoute
   '/settings/skills/$id': typeof SettingsSkillsIdRoute
   '/chats/': typeof ChatChatsIndexRoute
   '/customize/apps/': typeof CustomizeAppsIndexRoute
@@ -297,7 +297,7 @@ export interface FileRoutesByTo {
   '/customize/apps/$slug': typeof CustomizeAppsSlugRoute
   '/settings/bots/$botId': typeof SettingsBotsBotIdRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
-  '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/settings/models/$providerId': typeof SettingsModelsProviderIdRoute
   '/settings/skills/$id': typeof SettingsSkillsIdRoute
   '/chats': typeof ChatChatsIndexRoute
   '/customize/apps': typeof CustomizeAppsIndexRoute
@@ -336,7 +336,7 @@ export interface FileRoutesById {
   '/customize_/apps/$slug': typeof CustomizeAppsSlugRoute
   '/settings/bots/$botId': typeof SettingsBotsBotIdRoute
   '/settings/channels/$channel': typeof SettingsChannelsChannelRoute
-  '/settings/providers/$providerId': typeof SettingsProvidersProviderIdRoute
+  '/settings/models/$providerId': typeof SettingsModelsProviderIdRoute
   '/settings/skills/$id': typeof SettingsSkillsIdRoute
   '/_chat/chats/': typeof ChatChatsIndexRoute
   '/customize_/apps/': typeof CustomizeAppsIndexRoute
@@ -375,7 +375,7 @@ export interface FileRouteTypes {
     | '/customize/apps/$slug'
     | '/settings/bots/$botId'
     | '/settings/channels/$channel'
-    | '/settings/providers/$providerId'
+    | '/settings/models/$providerId'
     | '/settings/skills/$id'
     | '/chats/'
     | '/customize/apps/'
@@ -412,7 +412,7 @@ export interface FileRouteTypes {
     | '/customize/apps/$slug'
     | '/settings/bots/$botId'
     | '/settings/channels/$channel'
-    | '/settings/providers/$providerId'
+    | '/settings/models/$providerId'
     | '/settings/skills/$id'
     | '/chats'
     | '/customize/apps'
@@ -450,7 +450,7 @@ export interface FileRouteTypes {
     | '/customize_/apps/$slug'
     | '/settings/bots/$botId'
     | '/settings/channels/$channel'
-    | '/settings/providers/$providerId'
+    | '/settings/models/$providerId'
     | '/settings/skills/$id'
     | '/_chat/chats/'
     | '/customize_/apps/'
@@ -639,11 +639,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSkillsIdRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/settings/providers/$providerId': {
-      id: '/settings/providers/$providerId'
-      path: '/providers/$providerId'
-      fullPath: '/settings/providers/$providerId'
-      preLoaderRoute: typeof SettingsProvidersProviderIdRouteImport
+    '/settings/models/$providerId': {
+      id: '/settings/models/$providerId'
+      path: '/models/$providerId'
+      fullPath: '/settings/models/$providerId'
+      preLoaderRoute: typeof SettingsModelsProviderIdRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/channels/$channel': {
@@ -765,7 +765,7 @@ interface SettingsRouteChildren {
   SettingsSectionRoute: typeof SettingsSectionRoute
   SettingsBotsBotIdRoute: typeof SettingsBotsBotIdRoute
   SettingsChannelsChannelRoute: typeof SettingsChannelsChannelRoute
-  SettingsProvidersProviderIdRoute: typeof SettingsProvidersProviderIdRoute
+  SettingsModelsProviderIdRoute: typeof SettingsModelsProviderIdRoute
   SettingsSkillsIdRoute: typeof SettingsSkillsIdRoute
   SettingsIntegrationsAppsSlugRoute: typeof SettingsIntegrationsAppsSlugRoute
   SettingsIntegrationsMcpIdRoute: typeof SettingsIntegrationsMcpIdRoute
@@ -777,7 +777,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsSectionRoute: SettingsSectionRoute,
   SettingsBotsBotIdRoute: SettingsBotsBotIdRoute,
   SettingsChannelsChannelRoute: SettingsChannelsChannelRoute,
-  SettingsProvidersProviderIdRoute: SettingsProvidersProviderIdRoute,
+  SettingsModelsProviderIdRoute: SettingsModelsProviderIdRoute,
   SettingsSkillsIdRoute: SettingsSkillsIdRoute,
   SettingsIntegrationsAppsSlugRoute: SettingsIntegrationsAppsSlugRoute,
   SettingsIntegrationsMcpIdRoute: SettingsIntegrationsMcpIdRoute,

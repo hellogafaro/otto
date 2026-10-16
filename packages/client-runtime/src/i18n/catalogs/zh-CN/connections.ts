@@ -535,4 +535,15 @@ export const connectionsCatalog = {
   "No accounts": "没有帐户",
   "Label, like Work or Personal": "标签，例如工作或个人",
   "You already have an account called {label}.": "你已有名为 {label} 的帐户。",
+  "API keys": "API 密钥",
+  "Replace {name} key": "替换 {name} 密钥",
+  "The key stays on this environment. {name} bills its API usage.":
+    "密钥保存在此环境中。{name} 会单独计费其 API 用量。",
+  "{name} rejected the key": "{name} 拒绝了该密钥",
+  "{name} key couldn't be saved": "无法保存 {name} 密钥",
+  "{name} has been connected": "{name} 已连接",
+  "{name} has been disconnected": "{name} 已断开连接",
+  "Remove the {name} key? Voice features that use {name} stop working until you connect it again.":
+    "移除 {name} 密钥？重新连接之前，使用 {name} 的语音功能将无法使用。",
+  "Voice connections couldn't be loaded": "无法加载语音连接",
 } as const;

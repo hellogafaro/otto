@@ -28,14 +28,12 @@ export function SurfaceNavigationCoordinator() {
         settingsSection === "channels" ? channelProviderFromSettingsTarget(settingsTarget) : null;
 
       const providerId =
-        settingsSection === "providers"
-          ? providerCatalogSlugFromSettingsTarget(settingsTarget)
-          : null;
+        settingsSection === "models" ? providerCatalogSlugFromSettingsTarget(settingsTarget) : null;
 
       void (channel
         ? navigate({ to: "/settings/channels/$channel", params: { channel } })
         : providerId
-          ? navigate({ to: "/settings/providers/$providerId", params: { providerId } })
+          ? navigate({ to: "/settings/models/$providerId", params: { providerId } })
           : navigate({
               to: "/settings/$section",
               params: { section: settingsSection },

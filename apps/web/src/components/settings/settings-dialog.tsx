@@ -5,6 +5,7 @@ import {
   RiGroupLine,
   RiBuildingLine,
   RiBrainLine,
+  RiMicLine,
   RiComputerLine,
   RiKeyboardLine,
   RiChat3Line,
@@ -42,8 +43,12 @@ const UsageSettingsPanel = lazy(async () => ({
   default: (await import("../usage/usage-page")).UsagePage,
 }));
 
-const ProvidersSettingsPage = lazy(async () => ({
-  default: (await import("./settings-pages")).ProvidersSettingsPage,
+const ModelsSettingsPage = lazy(async () => ({
+  default: (await import("./settings-pages")).ModelsSettingsPage,
+}));
+
+const VoiceSettingsPage = lazy(async () => ({
+  default: (await import("./settings-pages")).VoiceSettingsPage,
 }));
 
 const ComputerSettingsPage = lazy(async () => ({
@@ -103,7 +108,8 @@ const SECTION_PANELS: Readonly<Record<SettingsSection, ComponentType>> = {
   keybindings: KeybindingsSettingsPanel,
   memory: MemorySettingsPanel,
   archived: ArchivedChatsSettingsPanel,
-  providers: ProvidersSettingsPage,
+  models: ModelsSettingsPage,
+  voice: VoiceSettingsPage,
   channels: BotChannelsSettingsPanel,
   computer: ComputerSettingsPage,
 };
@@ -153,7 +159,8 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
       { section: "skills", label: "Skills", icon: RiSparkling2Line },
       { section: "memory", label: "Memory", icon: RiLightbulbLine },
       { section: "integrations", label: "Integrations", icon: RiPuzzleLine },
-      { section: "providers", label: "Models", icon: RiBrainLine },
+      { section: "models", label: "Models", icon: RiBrainLine },
+      { section: "voice", label: "Voice", icon: RiMicLine },
       { section: "channels", label: "Channels", icon: RiChat3Line },
       { section: "computer", label: "Computer", icon: RiComputerLine },
     ],

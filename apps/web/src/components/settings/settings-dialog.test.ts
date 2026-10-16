@@ -68,7 +68,7 @@ describe("settings dialog navigation", () => {
       "members",
       "usage",
     ]);
-    expect(SETTINGS_NAV_ITEMS).toHaveLength(15);
+    expect(SETTINGS_NAV_ITEMS).toHaveLength(16);
     expect(SETTINGS_NAV_GROUPS).toHaveLength(3);
     expect(new Set(sections).size).toBe(sections.length);
     expect(sections).not.toContain("source-control");

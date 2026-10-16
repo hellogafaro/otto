@@ -21,7 +21,7 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
   {
     id: "providers",
     title: "Providers",
-    to: "/settings/providers",
+    to: "/settings/models",
   },
   {
     id: "provider-updates",
@@ -132,10 +132,10 @@ describe("searchSettings", () => {
     });
   });
 
-  it("routes voice to the Models page without offering a fallback model control", () => {
+  it("routes voice to the Voice page without offering a fallback model control", () => {
     expect(searchSettings("voice provider")[0]).toMatchObject({
       id: "voice-provider",
-      to: "/settings/providers",
+      to: "/settings/voice",
     });
     expect(searchSettings("fallback model")).not.toContainEqual(
       expect.objectContaining({ id: "text-generation-model" }),
@@ -194,15 +194,15 @@ describe("searchSettings", () => {
   it("finds image generation on the Models page", () => {
     expect(searchSettings("image generation")[0]).toMatchObject({
       id: "image-generation",
-      to: "/settings/providers",
+      to: "/settings/models",
     });
     expect(searchSettings("Grok images")[0]).toMatchObject({
       id: "image-provider-grok",
-      to: "/settings/providers",
+      to: "/settings/models",
     });
     expect(searchSettings("image fallback")[0]).toMatchObject({
       id: "image-fallback-order",
-      to: "/settings/providers",
+      to: "/settings/models",
     });
   });
 });

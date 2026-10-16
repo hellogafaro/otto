@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1734,
+  "directMessageCount": 1742,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -221,6 +221,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Memory",
       "Integrations",
       "Models",
+      "Voice",
       "Channels",
       "Computer",
       "Organization",
@@ -240,7 +241,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Private bot memory",
       "Ask before saving project memory",
       "Local execution",
-      "Voice",
+      "Voice calls",
       "Voice provider",
       "Voice selection",
       "OpenAI API voice",

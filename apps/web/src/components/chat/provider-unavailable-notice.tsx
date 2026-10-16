@@ -29,7 +29,7 @@ function openProviderSettings(
   provider: ProviderCatalogEntry | null | undefined,
   environmentId: EnvironmentId | null,
 ) {
-  openSettings("providers", provider ? providerCatalogTargetId(provider) : null, environmentId);
+  openSettings("models", provider ? providerCatalogTargetId(provider) : null, environmentId);
 }
 
 /** The provider's logo in a small tile, so a failure card says which account it means. */

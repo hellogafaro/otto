@@ -367,7 +367,7 @@ describe("ChatMarkdown bot chat forms", () => {
     const html = render(ALL_FORMS);
     expect(html).toContain('href="https://example.com/docs"');
     expect(html).toContain("chat-markdown-settings-link");
-    expect(html).toContain("Open Settings &gt; Models &gt; Voice");
+    expect(html).toContain("Open Settings &gt; Voice");
   });
 
   it.each([

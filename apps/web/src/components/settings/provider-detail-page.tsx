@@ -202,7 +202,7 @@ function ConnectedProvidersList({ environmentId }: { readonly environmentId: Env
             <SettingsLinkRow
               key={entry.slug}
               {...(entry.account ? { id: subscriptionProviderTargetId(entry.account.id) } : {})}
-              link={{ to: "/settings/providers/$providerId", params: { providerId: entry.slug } }}
+              link={{ to: "/settings/models/$providerId", params: { providerId: entry.slug } }}
               icon={entry.icon}
               title={entry.label}
               description={plans.get(entry.slug) ?? translate(entry.planHint)}

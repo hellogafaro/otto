@@ -13,7 +13,7 @@ import {
  * drivers whose instances, models, and settings the subpage edits.
  */
 export interface ProviderCatalogEntry {
-  /** URL segment under `/settings/providers/`. */
+  /** URL segment under `/settings/models/`. */
   readonly slug: string;
   readonly label: string;
   readonly icon: Icon;

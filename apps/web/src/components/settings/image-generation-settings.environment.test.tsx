@@ -240,13 +240,13 @@ describe("ImageGenerationSettingsContent environment wiring", () => {
   it("opens the provider login row in the same environment", () => {
     findRow(renderContent(), "grok").onConnect();
     expect(navigation.openSettings).toHaveBeenCalledWith(
-      "providers",
+      "models",
       "subscription-provider-xai",
       environmentId,
     );
     findRow(renderContent(), "chatgpt").onConnect();
     expect(navigation.openSettings).toHaveBeenLastCalledWith(
-      "providers",
+      "models",
       "subscription-provider-openai-codex",
       environmentId,
     );

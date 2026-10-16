@@ -13,7 +13,7 @@ import { VoiceModeRows } from "./voice-mode-settings";
 import { VoiceApiConnectionsSection } from "./voice-api-connections";
 import { AutomaticReadoutRow } from "./voice-readout-settings";
 
-/** Voice rows for the Providers page, which supplies the page container. */
+/** The Voice page's rows; the page supplies the container. */
 export function VoiceSettingsSection() {
   const { t } = useI18n();
   const voice = usePrimarySettings((settings) => settings.voice);
@@ -51,7 +51,7 @@ export function VoiceSettingsSection() {
 
   return (
     <>
-      <SettingsSection id="voice" title="Voice">
+      <SettingsSection id="voice" title={t("Voice")}>
         <SettingsRow
           {...searchableSetting("voice-enabled", t)}
           description="Allow bots with Voice calls enabled to start voice calls."

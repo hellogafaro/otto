@@ -22,7 +22,8 @@ export const SETTINGS_SECTIONS = [
   "skills",
   "memory",
   "archived",
-  "providers",
+  "models",
+  "voice",
   "channels",
   "computer",
 ] as const;
@@ -106,9 +107,9 @@ export function clearSettingsEnvironment(): void {
  * links and bookmarks keep working.
  */
 export const LEGACY_SETTINGS_SECTIONS = {
-  voice: { section: "providers", targetId: "voice" },
+  providers: { section: "models" },
   "source-control": { section: "general" },
-  "image-generation": { section: "providers", targetId: "image-generation" },
+  "image-generation": { section: "models", targetId: "image-generation" },
   sandbox: { section: "computer" },
   browser: { section: "computer", targetId: "browser" },
 } as const satisfies Record<string, { section: SettingsSection; targetId?: string }>;

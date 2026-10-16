@@ -1,19 +1,30 @@
-import { RiLoaderLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import { VOICE_API_PROVIDERS, type EnvironmentId, type VoiceApiProvider } from "@otto/contracts";
 import {
   squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@otto/client-runtime/state/runtime";
-
 import { useState } from "react";
+import { toast } from "sonner";
+
 import { requestConfirmDialog } from "../../confirm-dialog";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+} from "../ui/dialog";
 import { Input } from "../ui/input";
+import { Spinner } from "../ui/spinner";
 import { SettingsRow, SettingsSection } from "./settings-layout";
+import { SettingsMessageRow } from "./settings-detail-layout";
 import { searchableSetting } from "./settings-search";
 import { useI18n } from "../../i18n";
 import {
@@ -31,8 +42,11 @@ export function commandError(result: AtomCommandResult<unknown, unknown>): strin
   return error instanceof Error ? error.message : "The request failed.";
 }
 
-type ProviderMessage = { readonly tone: "error" | "ok"; readonly text: string };
-
+/**
+ * Otto: Voice API keys follow the Composio row: Connect opens a key dialog, a connected
+ * provider offers Remove and Replace key, and every result is a toast. A saved key is tested
+ * straight away, so a rejected key shows as soon as it is saved.
+ */
 export function VoiceApiConnectionsSection({
   environmentId,
   connected,
@@ -56,8 +70,6 @@ export function VoiceApiConnectionsSection({
   });
 
   const test = useAtomCommand(serverEnvironment.testVoiceProvider, { reportFailure: false });
-  const [busy, setBusy] = useState<{ provider: VoiceApiProvider; action: string } | null>(null);
-  const [messages, setMessages] = useState<Partial<Record<VoiceApiProvider, ProviderMessage>>>({});
 
   // This client's latest verdicts, shown until the next provider status arrives.
   // Servers that do not report a verdict keep using them.
@@ -72,98 +84,80 @@ export function VoiceApiConnectionsSection({
     local.rejected[provider] ??
     false;
 
-  const run = async (
-    provider: VoiceApiProvider,
-    action: string,
-    call: () => Promise<AtomCommandResult<unknown, unknown>>,
-    success: string,
-  ): Promise<boolean> => {
-    setBusy({ provider, action });
-    setMessages((current) => ({ ...current, [provider]: undefined }));
-    const result = await call();
-    setBusy(null);
-    const ok = Predicate.isTagged(result, "Success");
-    const failure = Predicate.isTagged(result, "Failure") ? squashAtomCommandFailure(result) : null;
-    const keyRejected = failure !== null && voiceKeyWasRejected(failure);
-    const nextRejected = nextVoiceKeyRejected(rejectedFor(provider), failure);
+  const recordVerdict = (provider: VoiceApiProvider, rejected: boolean) =>
     setLocal((current) => ({
       basis: serverRejected,
-      rejected: { ...current.rejected, [provider]: nextRejected },
+      rejected: { ...current.rejected, [provider]: rejected },
     }));
-    setMessages((current) => ({
-      ...current,
-      [provider]: ok
-        ? { tone: "ok", text: success }
-        : {
-            tone: "error",
-            // The server's wording points to Settings for call errors; here the user is already there.
-            text: keyRejected
-              ? t("The voice provider rejected the API key. Replace the key and test it again.")
-              : commandError(result),
-          },
-    }));
+
+  const saveKey = async (provider: VoiceApiProvider, apiKey: string): Promise<boolean> => {
+    const name = VOICE_API_PROVIDER_LABELS[provider];
+    const saved = await connect({ environmentId, input: { provider, apiKey } });
+
+    if (!Predicate.isTagged(saved, "Success")) {
+      const failure = squashAtomCommandFailure(saved);
+      recordVerdict(provider, nextVoiceKeyRejected(rejectedFor(provider), failure));
+      toast.error(
+        voiceKeyWasRejected(failure)
+          ? t("{name} rejected the key", { name })
+          : t("{name} key couldn't be saved", { name }),
+      );
+      onChanged();
+
+      return false;
+    }
+
+    onKeySaved();
+    const tested = await test({ environmentId, input: { provider } });
+    const failure = Predicate.isTagged(tested, "Failure") ? squashAtomCommandFailure(tested) : null;
+    recordVerdict(provider, nextVoiceKeyRejected(rejectedFor(provider), failure));
     onChanged();
 
-    return ok;
+    if (failure !== null && voiceKeyWasRejected(failure)) {
+      toast.error(t("{name} rejected the key", { name }));
+
+      return true;
+    }
+
+    toast.success(t("{name} has been connected", { name }));
+
+    return true;
+  };
+
+  const removeKey = async (provider: VoiceApiProvider) => {
+    const name = VOICE_API_PROVIDER_LABELS[provider];
+
+    const confirmed =
+      (await requestConfirmDialog(
+        t(
+          "Remove the {name} key? Voice features that use {name} stop working until you connect it again.",
+          { name },
+        ),
+        { variant: "destructive" },
+      )) ?? false;
+
+    if (!confirmed) return;
+    const result = await disconnect({ environmentId, input: { provider } });
+    onChanged();
+
+    if (Predicate.isTagged(result, "Success"))
+      toast.success(t("{name} has been disconnected", { name }));
+    else toast.error(t("{name} couldn't be disconnected", { name }));
   };
 
   return (
-    <SettingsSection title="API connections">
-      <SettingsRow
-        {...searchableSetting("voice-api-connections", t)}
-        description="Keys stay on this environment and are never sent back to a client. API usage is billed by each provider, separately from your ChatGPT subscription."
-        status={
-          loadError ? (
-            <span className="text-destructive">Could not load voice connections: {loadError}</span>
-          ) : null
-        }
-      />
+    <SettingsSection id={searchableSetting("voice-api-connections").id} title={t("API keys")}>
+      {loadError ? (
+        <SettingsMessageRow>{t("Voice connections couldn't be loaded")}</SettingsMessageRow>
+      ) : null}
       {VOICE_API_PROVIDERS.map((provider) => (
         <VoiceApiProviderRow
           key={provider}
           provider={provider}
           connected={connected === null ? undefined : connected.includes(provider)}
           keyRejected={rejectedFor(provider)}
-          busyAction={busy?.provider === provider ? busy.action : null}
-          disabled={busy !== null}
-          message={messages[provider] ?? null}
-          onConnect={async (apiKey) => {
-            const saved = await run(
-              provider,
-              "connect",
-              () => connect({ environmentId, input: { provider, apiKey } }),
-              "Key saved. Run Test to check it with the provider.",
-            );
-
-            if (saved) onKeySaved();
-
-            return saved;
-          }}
-          onTest={() =>
-            void run(
-              provider,
-              "test",
-              () => test({ environmentId, input: { provider } }),
-              "The provider accepted this key.",
-            )
-          }
-          onDisconnect={async () => {
-            const label = VOICE_API_PROVIDER_LABELS[provider];
-
-            const confirmed =
-              (await requestConfirmDialog(
-                `Remove the ${label} key from this environment? Voice settings that use ${label} stop working until you connect it again.`,
-                { variant: "destructive" },
-              )) ?? false;
-
-            if (!confirmed) return;
-            await run(
-              provider,
-              "disconnect",
-              () => disconnect({ environmentId, input: { provider } }),
-              "Key removed.",
-            );
-          }}
+          onSave={(apiKey) => saveKey(provider, apiKey)}
+          onRemove={() => void removeKey(provider)}
         />
       ))}
     </SettingsSection>
@@ -174,146 +168,133 @@ export function VoiceApiProviderRow({
   provider,
   connected,
   keyRejected = false,
-  busyAction,
-  disabled,
-  message,
-  onConnect,
-  onTest,
-  onDisconnect,
+  onSave,
+  onRemove,
 }: {
   readonly provider: VoiceApiProvider;
+  /** Undefined until the provider status loads, which hides the actions. */
   readonly connected: boolean | undefined;
-  /** The last Test found the saved key invalid. */
+  /** The last test found the saved key invalid. */
   readonly keyRejected?: boolean;
-  readonly busyAction: string | null;
-  readonly disabled: boolean;
-  readonly message: ProviderMessage | null;
-  readonly onConnect: (apiKey: string) => Promise<boolean>;
-  readonly onTest: () => void;
-  readonly onDisconnect: () => void;
+  readonly onSave: (apiKey: string) => Promise<boolean>;
+  readonly onRemove: () => void;
 }) {
   const { t } = useI18n();
-  const label = VOICE_API_PROVIDER_LABELS[provider];
+  const name = VOICE_API_PROVIDER_LABELS[provider];
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <>
+      <SettingsRow
+        title={
+          <span className="flex items-center gap-2">
+            {name}
+            {connected ? (
+              <Badge variant={keyRejected ? "error" : "success"} presentation="connection-kind">
+                {keyRejected ? t("Key rejected") : t("Connected")}
+              </Badge>
+            ) : null}
+          </span>
+        }
+        description={voiceCapabilityLabel(provider)}
+        control={
+          connected === undefined ? null : connected ? (
+            <div className="flex items-center gap-1.5">
+              <Button size="sm" variant="ghost" onClick={onRemove}>
+                {t("Remove")}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+                {t("Replace key")}
+              </Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+              {t("Connect")}
+            </Button>
+          )
+        }
+      />
+      {dialogOpen ? (
+        <VoiceKeyDialog
+          provider={provider}
+          replacing={connected === true}
+          onSave={onSave}
+          onClose={() => setDialogOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function VoiceKeyDialog({
+  provider,
+  replacing,
+  onSave,
+  onClose,
+}: {
+  readonly provider: VoiceApiProvider;
+  readonly replacing: boolean;
+  readonly onSave: (apiKey: string) => Promise<boolean>;
+  readonly onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const name = VOICE_API_PROVIDER_LABELS[provider];
   const keyLabel = t("{api} key", { api: VOICE_API_NAMES[provider] });
-  const [editing, setEditing] = useState(false);
   const [apiKey, setApiKey] = useState("");
-  const showInput = connected === false || editing;
+  const [saving, setSaving] = useState(false);
 
-  const spinner = (action: string) =>
-    busyAction === action ? <RiLoaderLine className="size-3 animate-spin" /> : null;
-
-  const submit = async () => {
+  const save = async () => {
     const trimmed = apiKey.trim();
 
     if (!trimmed) return;
+    setSaving(true);
+    const saved = await onSave(trimmed);
+    setSaving(false);
 
-    if (await onConnect(trimmed)) {
-      setApiKey("");
-      setEditing(false);
-    }
+    if (saved) onClose();
   };
 
   return (
-    <SettingsRow
-      title={
-        <span className="flex items-center gap-2">
-          {label}
-          {connected === undefined ? null : (
-            <Badge
-              variant={connected ? (keyRejected ? "error" : "success") : "outline"}
-              presentation="connection-kind"
-            >
-              {connected ? (keyRejected ? t("Key rejected") : t("Key saved")) : t("Not connected")}
-            </Badge>
-          )}
-        </span>
-      }
-      description={voiceCapabilityLabel(provider)}
-      status={
-        message ? (
-          <span
-            role={message.tone === "error" ? "alert" : "status"}
-            className={message.tone === "error" ? "text-destructive" : undefined}
-          >
-            {message.text}
-          </span>
-        ) : null
-      }
-      control={
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {showInput ? (
-            <form
-              className="flex items-center gap-1.5"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit();
-              }}
-            >
-              <Input
-                type="password"
-                size="sm"
-                autoComplete="off"
-                spellCheck={false}
-                className="w-44"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.currentTarget.value)}
-                placeholder={keyLabel}
-                aria-label={keyLabel}
-              />
-              <Button size="sm" type="submit" disabled={disabled || apiKey.trim().length === 0}>
-                {spinner("connect")}
-                {connected ? "Save key" : "Connect"}
-              </Button>
-              {editing ? (
-                <Button
-                  size="sm"
-                  variant="ghost-muted"
-                  type="button"
-                  onClick={() => {
-                    setApiKey("");
-                    setEditing(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-              ) : null}
-            </form>
-          ) : null}
-          {connected && !editing ? (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={disabled}
-                onClick={onTest}
-                aria-label={`Test ${label} key`}
-              >
-                {spinner("test")}
-                Test
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={disabled}
-                onClick={() => setEditing(true)}
-                aria-label={`Replace ${label} key`}
-              >
-                Replace key
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost-muted"
-                disabled={disabled}
-                onClick={onDisconnect}
-                aria-label={`Disconnect ${label}`}
-              >
-                {spinner("disconnect")}
-                Disconnect
-              </Button>
-            </>
-          ) : null}
-        </div>
-      }
-    />
+    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <DialogPopup className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {replacing ? t("Replace {name} key", { name }) : t("Connect {name}", { name })}
+          </DialogTitle>
+          <DialogDescription>
+            {t("The key stays on this environment. {name} bills its API usage.", { name })}
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="contents"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <DialogPanel>
+            <Input
+              autoFocus
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label={keyLabel}
+              placeholder={keyLabel}
+              value={apiKey}
+              onChange={(event) => setApiKey(event.currentTarget.value)}
+            />
+          </DialogPanel>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              {t("Cancel")}
+            </Button>
+            <Button type="submit" disabled={!apiKey.trim() || saving}>
+              {saving ? <Spinner /> : null}
+              {replacing ? t("Replace key") : t("Save key")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogPopup>
+    </Dialog>
   );
 }

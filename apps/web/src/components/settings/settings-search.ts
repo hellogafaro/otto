@@ -1,7 +1,8 @@
 import { isElectron } from "~/env";
 
 export type SettingsPath =
-  | "/settings/providers"
+  | "/settings/models"
+  | "/settings/voice"
   | "/settings/channels"
   | "/settings/computer"
   | "/settings/general"
@@ -102,81 +103,81 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "voice-enabled",
-    title: "Voice",
-    to: "/settings/providers",
+    title: "Voice calls",
+    to: "/settings/voice",
   },
   {
     id: "voice-provider",
     title: "Voice provider",
-    to: "/settings/providers",
+    to: "/settings/voice",
   },
   {
     id: "voice-selection",
     title: "Voice selection",
-    to: "/settings/providers",
+    to: "/settings/voice",
   },
   {
     id: "voice-openai-voice",
     title: "OpenAI API voice",
-    to: "/settings/providers",
+    to: "/settings/voice",
     keywords: ["realtime", "interrupt"],
   },
   {
     id: "voice-transcription-provider",
     title: "Transcription provider",
-    to: "/settings/providers",
+    to: "/settings/voice",
     keywords: ["speech to text", "OpenAI", "ElevenLabs", "Cartesia"],
   },
   {
     id: "voice-synthesis-provider",
     title: "Speech provider",
-    to: "/settings/providers",
+    to: "/settings/voice",
     keywords: ["text to speech", "OpenAI", "ElevenLabs", "Cartesia", "Fish Audio"],
   },
   {
     id: "voice-synthesis-voice",
     title: "Speech voice",
-    to: "/settings/providers",
+    to: "/settings/voice",
   },
   {
     id: "voice-api-connections",
     title: "Voice API connections",
-    to: "/settings/providers",
+    to: "/settings/voice",
     keywords: ["API key", "OpenAI", "ElevenLabs", "Cartesia", "Fish Audio", "billing"],
   },
   {
     id: "image-generation",
     title: "Image generation",
-    to: "/settings/providers",
+    to: "/settings/models",
     keywords: ["images", "pictures", "ChatGPT", "Grok", "health test"],
   },
   {
     id: "image-provider-chatgpt",
     title: "ChatGPT images",
-    to: "/settings/providers",
+    to: "/settings/models",
     keywords: ["image", "OpenAI", "subscription"],
   },
   {
     id: "image-provider-grok",
     title: "Grok images",
-    to: "/settings/providers",
+    to: "/settings/models",
     keywords: ["image", "xAI", "subscription"],
   },
   {
     id: "image-default-provider",
     title: "Default image provider",
-    to: "/settings/providers",
+    to: "/settings/models",
   },
   {
     id: "image-fallback-order",
     title: "Image fallback order",
-    to: "/settings/providers",
+    to: "/settings/models",
     keywords: ["retry", "backup"],
   },
   {
     id: "voice-read-aloud",
     title: "Read new replies aloud",
-    to: "/settings/providers",
+    to: "/settings/voice",
     keywords: ["read aloud", "speech", "playback", "automatic readout"],
   },
   {
@@ -208,7 +209,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "providers",
     title: "Providers",
-    to: "/settings/providers",
+    to: "/settings/models",
     keywords: [
       "models",
       "ChatGPT",

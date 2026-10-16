@@ -573,4 +573,15 @@ export const connectionsCatalog = {
   "No accounts": "No accounts",
   "Label, like Work or Personal": "Label, like Work or Personal",
   "You already have an account called {label}.": "You already have an account called {label}.",
+  "API keys": "API keys",
+  "Replace {name} key": "Replace {name} key",
+  "The key stays on this environment. {name} bills its API usage.":
+    "The key stays on this environment. {name} bills its API usage.",
+  "{name} rejected the key": "{name} rejected the key",
+  "{name} key couldn't be saved": "{name} key couldn't be saved",
+  "{name} has been connected": "{name} has been connected",
+  "{name} has been disconnected": "{name} has been disconnected",
+  "Remove the {name} key? Voice features that use {name} stop working until you connect it again.":
+    "Remove the {name} key? Voice features that use {name} stop working until you connect it again.",
+  "Voice connections couldn't be loaded": "Voice connections couldn't be loaded",
 } as const;
