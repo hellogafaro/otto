@@ -74,7 +74,7 @@ export async function spawnRemoteBrowser(
   const command = lightpandaMcpCommand(binaryPath, port);
 
   const output = await execute(sandbox, "sh", [
-    "-lc",
+    "-c",
     `nohup ${command} >${shellQuote(`/tmp/otto-browser-${port}.log`)} 2>&1 </dev/null & echo $!`,
   ]);
 
@@ -107,7 +107,7 @@ export async function spawnRemoteBrowser(
         if (stopped) return;
 
         try {
-          const status = (await execute(sandbox, "sh", ["-lc", monitorCommand])).trim();
+          const status = (await execute(sandbox, "sh", ["-c", monitorCommand])).trim();
           failures = 0;
 
           if (status === "dead") return;

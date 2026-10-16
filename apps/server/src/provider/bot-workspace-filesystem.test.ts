@@ -19,7 +19,7 @@ describe("BotWorkspaceFilesystem", () => {
     );
     await filesystem.writeFile("file.txt", Buffer.from([0, 1, 2]));
 
-    expect(run).toHaveBeenNthCalledWith(1, "sh", ["-lc", "base64 < 'file.txt'"]);
+    expect(run).toHaveBeenNthCalledWith(1, "sh", ["-c", "base64 < 'file.txt'"]);
     expect(run.mock.calls[1]?.[1]?.[1]).toContain(Buffer.from([0, 1, 2]).toString("base64"));
   });
 });

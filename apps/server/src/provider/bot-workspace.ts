@@ -194,7 +194,7 @@ async function connect(
 
   if (provider === "railway") {
     const { RailwaySandbox } = await import("@mastra/railway");
-    const credentials = railwayCredentials(environment);
+    const credentials = await railwayCredentials(environment);
     const sandbox = new RailwaySandbox({ id, ...credentials, ...reattach });
     await sandbox._start();
 

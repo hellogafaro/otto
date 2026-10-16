@@ -160,7 +160,7 @@ export class BotWorkspaceFilesystem implements WorkspaceFilesystem {
   }
 
   private async shell(script: string): Promise<string> {
-    return this.command("sh", ["-lc", script]);
+    return this.command("sh", ["-c", script]);
   }
 
   private async command(command: string, args: readonly string[]): Promise<string> {

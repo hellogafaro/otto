@@ -18,8 +18,14 @@ import {
   vercel,
   vercelWorkspaceState,
 } from "./bot-workspace.ts";
+import { railwayCredentials as railwayCredentialsFor } from "./workspace/adapters/railway.ts";
 
-const railwayCredentials = { token: "token", environmentId: "env" };
+const railwayCredentials = { token: "token", environmentId: "env", authType: "bearer" as const };
+
+const railwayTokenProbe = (projectToken: { readonly environmentId: string } | null) =>
+  vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async () => Response.json({ data: { projectToken } }));
 
 describe("createBotWorkspace", () => {
   it("creates and reattaches Railway identities with explicit credentials and cleans up", async () => {
@@ -37,6 +43,7 @@ describe("createBotWorkspace", () => {
 
     const create = vi.spyOn(Sandbox, "create").mockResolvedValue(sandbox);
     const connect = vi.spyOn(Sandbox, "connect").mockResolvedValue(sandbox);
+    const probe = railwayTokenProbe(null);
 
     const input = {
       io: workspaceIO,
@@ -75,7 +82,27 @@ describe("createBotWorkspace", () => {
     } finally {
       create.mockRestore();
       connect.mockRestore();
+      probe.mockRestore();
       NodeFS.rmSync(baseDir, { recursive: true, force: true });
+    }
+  });
+
+  it("sends Railway project tokens in their own header", async () => {
+    const probe = railwayTokenProbe({ environmentId: "env" });
+
+    try {
+      await expect(
+        railwayCredentialsFor({ RAILWAY_API_TOKEN: "token", RAILWAY_ENVIRONMENT_ID: "env" }),
+      ).resolves.toEqual({ ...railwayCredentials, authType: "project-token" });
+      expect(probe.mock.calls[0]?.[1]?.headers).toMatchObject({ "project-access-token": "token" });
+      probe.mockImplementation(async () =>
+        Response.json({ errors: [{ message: "Not Authorized" }], data: null }),
+      );
+      await expect(
+        railwayCredentialsFor({ RAILWAY_API_TOKEN: "token", RAILWAY_ENVIRONMENT_ID: "env" }),
+      ).resolves.toEqual(railwayCredentials);
+    } finally {
+      probe.mockRestore();
     }
   });
 

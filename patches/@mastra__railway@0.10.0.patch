@@ -1,0 +1,109 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 1bb9dda71501cfd1c9f5b371f781dc483e1cdcf5..47f31ac00c780a48ac1566942e9865dbb7d8b97d 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -195,6 +195,7 @@ var RailwaySandbox = class RailwaySandbox extends _mastra_core_workspace.MastraS
+ 	_sandboxId;
+ 	_restoredCheckpointName;
+ 	_token;
++	_authType;
+ 	_environmentId;
+ 	_checkpointName;
+ 	_seedCheckpointName;
+@@ -213,6 +214,7 @@ var RailwaySandbox = class RailwaySandbox extends _mastra_core_workspace.MastraS
+ 		});
+ 		this.id = options.id ?? this.generateId();
+ 		this._token = options.token ?? process.env.RAILWAY_API_TOKEN;
++		this._authType = options.authType;
+ 		this._environmentId = options.environmentId ?? process.env.RAILWAY_ENVIRONMENT_ID;
+ 		this._sandboxId = options.sandboxId;
+ 		this._checkpointName = options.checkpointName;
+@@ -324,6 +326,7 @@ var RailwaySandbox = class RailwaySandbox extends _mastra_core_workspace.MastraS
+ 	_clientConfig() {
+ 		return {
+ 			...this._token !== void 0 && { token: this._token },
++			...this._authType !== void 0 && { authType: this._authType },
+ 			...this._environmentId !== void 0 && { environmentId: this._environmentId }
+ 		};
+ 	}
+@@ -487,6 +490,7 @@ var RailwaySandbox = class RailwaySandbox extends _mastra_core_workspace.MastraS
+ 		const child = new RailwaySandbox({
+ 			...options.id !== void 0 && { id: options.id },
+ 			...this._token !== void 0 && { token: this._token },
++			...this._authType !== void 0 && { authType: this._authType },
+ 			...this._environmentId !== void 0 && { environmentId: this._environmentId },
+ 			idleTimeoutMinutes: options.idleTimeoutMinutes ?? this._idleTimeoutMinutes,
+ 			networkIsolation: options.networkIsolation ?? this._networkIsolation,
+@@ -511,6 +515,7 @@ var RailwaySandbox = class RailwaySandbox extends _mastra_core_workspace.MastraS
+ 		return new RailwaySandbox({
+ 			...options.id !== void 0 && { id: options.id },
+ 			...this._token !== void 0 && { token: this._token },
++			...this._authType !== void 0 && { authType: this._authType },
+ 			...this._environmentId !== void 0 && { environmentId: this._environmentId },
+ 			...(options.checkpointName ?? this._checkpointName) !== void 0 && { checkpointName: options.checkpointName ?? this._checkpointName },
+ 			...options.seedCheckpointName !== void 0 && { seedCheckpointName: options.seedCheckpointName },
+diff --git a/dist/index.js b/dist/index.js
+index c1f85dd370842cc20608a32d956f1c4219e4ba96..97841b3c502e65c2c8af2ebf7a958d8dd2145bb7 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -194,6 +194,7 @@ var RailwaySandbox = class RailwaySandbox extends MastraSandbox {
+ 	_sandboxId;
+ 	_restoredCheckpointName;
+ 	_token;
++	_authType;
+ 	_environmentId;
+ 	_checkpointName;
+ 	_seedCheckpointName;
+@@ -212,6 +213,7 @@ var RailwaySandbox = class RailwaySandbox extends MastraSandbox {
+ 		});
+ 		this.id = options.id ?? this.generateId();
+ 		this._token = options.token ?? process.env.RAILWAY_API_TOKEN;
++		this._authType = options.authType;
+ 		this._environmentId = options.environmentId ?? process.env.RAILWAY_ENVIRONMENT_ID;
+ 		this._sandboxId = options.sandboxId;
+ 		this._checkpointName = options.checkpointName;
+@@ -323,6 +325,7 @@ var RailwaySandbox = class RailwaySandbox extends MastraSandbox {
+ 	_clientConfig() {
+ 		return {
+ 			...this._token !== void 0 && { token: this._token },
++			...this._authType !== void 0 && { authType: this._authType },
+ 			...this._environmentId !== void 0 && { environmentId: this._environmentId }
+ 		};
+ 	}
+@@ -486,6 +489,7 @@ var RailwaySandbox = class RailwaySandbox extends MastraSandbox {
+ 		const child = new RailwaySandbox({
+ 			...options.id !== void 0 && { id: options.id },
+ 			...this._token !== void 0 && { token: this._token },
++			...this._authType !== void 0 && { authType: this._authType },
+ 			...this._environmentId !== void 0 && { environmentId: this._environmentId },
+ 			idleTimeoutMinutes: options.idleTimeoutMinutes ?? this._idleTimeoutMinutes,
+ 			networkIsolation: options.networkIsolation ?? this._networkIsolation,
+@@ -510,6 +514,7 @@ var RailwaySandbox = class RailwaySandbox extends MastraSandbox {
+ 		return new RailwaySandbox({
+ 			...options.id !== void 0 && { id: options.id },
+ 			...this._token !== void 0 && { token: this._token },
++			...this._authType !== void 0 && { authType: this._authType },
+ 			...this._environmentId !== void 0 && { environmentId: this._environmentId },
+ 			...(options.checkpointName ?? this._checkpointName) !== void 0 && { checkpointName: options.checkpointName ?? this._checkpointName },
+ 			...options.seedCheckpointName !== void 0 && { seedCheckpointName: options.seedCheckpointName },
+diff --git a/dist/sandbox/index.d.ts b/dist/sandbox/index.d.ts
+index 735b037291ecd7819565c9246394f37dae2cf66e..a149ea0539e40b4c5f77c6c2e11d47d5bbb5fc53 100644
+--- a/dist/sandbox/index.d.ts
++++ b/dist/sandbox/index.d.ts
+@@ -39,6 +39,8 @@ export interface RailwaySandboxOptions extends Omit<MastraSandboxOptions, 'proce
+     id?: string;
+     /** Railway API token. Falls back to the RAILWAY_API_TOKEN env var. */
+     token?: string;
++    /** How Railway reads the token: an account or workspace token (bearer) or a project token. */
++    authType?: 'bearer' | 'project-token';
+     /** Railway environment ID. Falls back to the RAILWAY_ENVIRONMENT_ID env var. */
+     environmentId?: string;
+     /**
+@@ -157,6 +159,7 @@ export declare class RailwaySandbox extends MastraSandbox {
+     private _sandboxId?;
+     private _restoredCheckpointName?;
+     private readonly _token?;
++    private readonly _authType?;
+     private readonly _environmentId?;
+     private readonly _checkpointName?;
+     private readonly _seedCheckpointName?;

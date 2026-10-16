@@ -6,6 +6,27 @@ settings:
 
 catalogs:
   default:
+    '@effect/openapi-generator':
+      specifier: 4.0.0-beta.103
+      version: 4.0.0-beta.103
+    '@effect/tsgo':
+      specifier: 0.13.2
+      version: 0.13.2
+    '@legendapp/list':
+      specifier: 3.3.5
+      version: 3.3.5
+    '@noble/hashes':
+      specifier: 1.8.0
+      version: 1.8.0
+    '@pierre/diffs':
+      specifier: 1.3.0-beta.10
+      version: 1.3.0-beta.10
+    '@typescript/native-preview':
+      specifier: 7.0.0-dev.20260604.1
+      version: 7.0.0-dev.20260604.1
+    typescript:
+      specifier: ~6.0.3
+      version: 6.0.3
     vite-plus:
       specifier: 0.2.2
       version: 0.2.2
@@ -45,6 +66,7 @@ patchedDependencies:
   '@ff-labs/fff-node@0.9.4': ab9ff544009e1891cfe3930105862d3699007f38922a79f3c98d90018deca368
   '@legendapp/list@3.3.5': 064530db83875fa671559a81ae42dc159726dc2dd6ec4c982da44ff7c7a74706
   '@mastra/code-sdk@1.14.0': acbcc39781f44543fe5ec3ae14ba3f5fa144b39d08ffffd91f297ac7dc49dbe1
+  '@mastra/railway@0.10.0': 02dac5531cd28ba7253fabd82d6fe608fb4400652af717a23b639358b256fb13
   '@pierre/diffs@1.3.0-beta.10': 7ef7cb0cbabb17c15cdb137554068b36f15f6f5265e73fb51452aa3380db91aa
   '@react-native-menu/menu@2.0.0': c7f66d121c726ade4f5c4e1aed11a691e5711d244c544084e289ac26132a0045
   '@react-native/gradle-plugin@0.85.3': c1b594a16e682d621b6a960926f8ce13fc92edfb397884cfe7fcb0518996a784
@@ -448,7 +470,7 @@ importers:
         version: 1.38.0(@mastra/core@1.78.0(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(ai@6.0.266(zod@4.4.3))(bufferutil@4.1.0)(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))(express@5.2.1)(utf-8-validate@6.0.6)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))
       '@mastra/railway':
         specifier: 0.10.0
-        version: 0.10.0(@mastra/core@1.78.0(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(ai@6.0.266(zod@4.4.3))(bufferutil@4.1.0)(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))(express@5.2.1)(utf-8-validate@6.0.6)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))
+        version: 0.10.0(patch_hash=02dac5531cd28ba7253fabd82d6fe608fb4400652af717a23b639358b256fb13)(@mastra/core@1.78.0(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(ai@6.0.266(zod@4.4.3))(bufferutil@4.1.0)(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))(express@5.2.1)(utf-8-validate@6.0.6)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))
       '@mastra/telegram':
         specifier: 0.2.2
         version: 0.2.2(@mastra/core@1.78.0(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(ai@6.0.266(zod@4.4.3))(bufferutil@4.1.0)(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))(express@5.2.1)(utf-8-validate@6.0.6)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(ai@6.0.266(zod@4.4.3))(zod@4.4.3)
@@ -466,7 +488,7 @@ importers:
         version: 2.9.2
       better-auth:
         specifier: ^1.7.7
-        version: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(b34f8268ccdb9c48bbaf58cbf4b5bba1))(mongodb@6.21.0(@aws-sdk/credential-providers@3.1118.0)(socks@2.8.9))(mysql2@3.22.4(@types/node@24.12.4))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/browser-preview@4.1.9)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.15)(typescript@6.0.3)(unrun@0.2.39)(yaml@2.9.0))(msw@2.12.11(@types/node@24.12.4)(typescript@6.0.3)))
+        version: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(b34f8268ccdb9c48bbaf58cbf4b5bba1))(mongodb@6.21.0(@aws-sdk/credential-providers@3.1118.0)(socks@2.8.9))(mysql2@3.22.4(@types/node@24.12.4))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9)
       chat:
         specifier: 4.39.0
         version: 4.39.0(ai@6.0.266(zod@4.4.3))(zod@4.4.3)
@@ -15562,7 +15584,7 @@ snapshots:
       postcss: 8.5.26
       resolve-from: 5.0.0
     optionalDependencies:
-      expo: 56.0.12(deb8cbf3e0f411b34ba85a995c9982ba)
+      expo: 56.0.12(8895228379997a2a064f9644cda56ed0)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -16019,7 +16041,7 @@ snapshots:
   '@legendapp/list@3.3.5(patch_hash=064530db83875fa671559a81ae42dc159726dc2dd6ec4c982da44ff7c7a74706)(react-dom@19.2.3(react@19.2.3))(react-native@0.85.3(@babel/core@7.29.7)(@react-native/metro-config@0.85.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.2.16)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6))(react@19.2.3)':
     dependencies:
       react: 19.2.3
-      use-sync-external-store: 1.6.0(react@19.2.3)
+      use-sync-external-store: 1.7.0(react@19.2.3)
     optionalDependencies:
       react-dom: 19.2.3(react@19.2.3)
       react-native: 0.85.3(@babel/core@7.29.7)(@react-native/metro-config@0.85.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.2.16)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6)
@@ -16027,7 +16049,7 @@ snapshots:
   '@legendapp/list@3.3.5(patch_hash=064530db83875fa671559a81ae42dc159726dc2dd6ec4c982da44ff7c7a74706)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
       react: 19.2.6
-      use-sync-external-store: 1.6.0(react@19.2.6)
+      use-sync-external-store: 1.7.0(react@19.2.6)
     optionalDependencies:
       react-dom: 19.2.6(react@19.2.6)
 
@@ -16578,7 +16600,7 @@ snapshots:
     transitivePeerDependencies:
       - pg-native
 
-  '@mastra/railway@0.10.0(@mastra/core@1.78.0(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(ai@6.0.266(zod@4.4.3))(bufferutil@4.1.0)(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))(express@5.2.1)(utf-8-validate@6.0.6)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))':
+  '@mastra/railway@0.10.0(patch_hash=02dac5531cd28ba7253fabd82d6fe608fb4400652af717a23b639358b256fb13)(@mastra/core@1.78.0(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(ai@6.0.266(zod@4.4.3))(bufferutil@4.1.0)(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))(express@5.2.1)(utf-8-validate@6.0.6)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))':
     dependencies:
       '@mastra/core': 1.78.0(@bufbuild/protobuf@2.14.0)(@grpc/grpc-js@1.14.4)(ai@6.0.266(zod@4.4.3))(bufferutil@4.1.0)(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))(express@5.2.1)(utf-8-validate@6.0.6)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3)
       railway: 3.11.0
@@ -18076,7 +18098,7 @@ snapshots:
       '@babel/plugin-transform-private-methods': 7.29.7(@babel/core@7.29.7)
       '@babel/plugin-transform-private-property-in-object': 7.29.7(@babel/core@7.29.7)
       '@babel/plugin-transform-react-display-name': 7.29.7(@babel/core@7.29.7)
-      '@babel/plugin-transform-react-jsx': 7.29.7(@babel/core@7.29.7)
+      '@babel/plugin-transform-react-jsx': 7.28.6(@babel/core@7.29.7)
       '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
       '@babel/plugin-transform-react-jsx-source': 7.29.7(@babel/core@7.29.7)
       '@babel/plugin-transform-regenerator': 7.29.7(@babel/core@7.29.7)
@@ -20252,8 +20274,8 @@ snapshots:
       react-refresh: 0.14.2
     optionalDependencies:
       '@babel/runtime': 7.29.7
-      expo: 56.0.12(deb8cbf3e0f411b34ba85a995c9982ba)
-      expo-widgets: 56.0.19(32843e0c0883df8bccfa0b8323659df5)
+      expo: 56.0.12(8895228379997a2a064f9644cda56ed0)
+      expo-widgets: 56.0.19(3cdc0dde9f93166d952f1e1bd0cb25c0)
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
@@ -20338,7 +20360,7 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(b34f8268ccdb9c48bbaf58cbf4b5bba1))(mongodb@6.21.0(@aws-sdk/credential-providers@3.1118.0)(socks@2.8.9))(mysql2@3.22.4(@types/node@24.12.4))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/browser-preview@4.1.9)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.15)(typescript@6.0.3)(unrun@0.2.39)(yaml@2.9.0))(msw@2.12.11(@types/node@24.12.4)(typescript@6.0.3))):
+  better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(b34f8268ccdb9c48bbaf58cbf4b5bba1))(mongodb@6.21.0(@aws-sdk/credential-providers@3.1118.0)(socks@2.8.9))(mysql2@3.22.4(@types/node@24.12.4))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.9):
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.3)(kysely@0.29.6)(nanostores@1.5.5)
       '@better-auth/drizzle-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.3)(kysely@0.29.6)(nanostores@1.5.5))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(b34f8268ccdb9c48bbaf58cbf4b5bba1))
@@ -20365,7 +20387,7 @@ snapshots:
       pg: 8.22.0
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
-      vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/browser-preview@4.1.9)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.15)(typescript@6.0.3)(unrun@0.2.39)(yaml@2.9.0))(msw@2.12.11(@types/node@24.12.4)(typescript@6.0.3))
+      vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/browser-preview@4.1.9)(msw@2.12.11(@types/node@24.12.4)(typescript@6.0.3))(vite@8.2.2(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.15)(yaml@2.9.0))
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
@@ -22274,22 +22296,6 @@ snapshots:
     dependencies:
       expo: 56.0.12(8895228379997a2a064f9644cda56ed0)
       react-native: 0.85.3(@babel/core@7.29.7)(@react-native/metro-config@0.85.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.2.16)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6)
-
-  expo-widgets@56.0.19(32843e0c0883df8bccfa0b8323659df5):
-    dependencies:
-      '@expo/plist': 0.7.0
-      '@expo/ui': 56.0.18(32843e0c0883df8bccfa0b8323659df5)
-      expo: 56.0.12(deb8cbf3e0f411b34ba85a995c9982ba)
-      react: 19.2.6
-      react-native: 0.85.3(@babel/core@7.29.7)(@react-native/metro-config@0.85.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.2.16)(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
-    transitivePeerDependencies:
-      - '@babel/core'
-      - '@types/react'
-      - '@types/react-dom'
-      - react-dom
-      - react-native-reanimated
-      - react-native-worklets
-    optional: true
 
   expo-widgets@56.0.19(3cdc0dde9f93166d952f1e1bd0cb25c0):
     dependencies:
@@ -27376,6 +27382,10 @@ snapshots:
   use-sync-external-store@1.6.0(react@19.2.6):
     dependencies:
       react: 19.2.6
+
+  use-sync-external-store@1.7.0(react@19.2.3):
+    dependencies:
+      react: 19.2.3
 
   use-sync-external-store@1.7.0(react@19.2.6):
     dependencies:
