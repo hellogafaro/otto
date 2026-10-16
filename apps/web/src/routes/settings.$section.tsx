@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
+import { parseSettingsSearch } from "../components/settings/organization-members.logic";
 import { SettingsPanelForSection } from "../components/settings/settings-dialog";
 import {
   LEGACY_SETTINGS_SECTIONS,
@@ -12,6 +13,7 @@ function isSettingsSection(value: string): value is SettingsSection {
 }
 
 export const Route = createFileRoute("/settings/$section")({
+  validateSearch: parseSettingsSearch,
   beforeLoad: ({ params }) => {
     if (isSettingsSection(params.section)) return;
 
