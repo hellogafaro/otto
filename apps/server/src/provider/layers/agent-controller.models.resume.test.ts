@@ -112,9 +112,7 @@ describe("AgentControllerLive", () => {
         assert.equal((yield* Fiber.join(completed))._tag, "Some");
 
         expect(mastraAfter.createSession).toHaveBeenCalledOnce();
-        expect(mastraAfter.session.model.switch).toHaveBeenCalledWith({
-          modelId: "kimi-for-coding/k3-256k",
-        });
+        expect(mastraAfter.session.model.switch).toHaveBeenCalledWith("kimi-for-coding/k3-256k");
         expect(mastraAfter.sendMessage).toHaveBeenCalledWith({ content: "After restart." });
         yield* Scope.close(secondScope, Exit.void);
         expect(bridge.startSession).not.toHaveBeenCalled();
@@ -146,16 +144,16 @@ describe("AgentControllerLive", () => {
           mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
           mastra.finishSend();
           yield* Effect.yieldNow;
-          expect(mastra.session.model.switch).toHaveBeenCalledWith({
-            modelId: "kimi-for-coding/kimi-for-coding",
-          });
+          expect(mastra.session.model.switch).toHaveBeenCalledWith(
+            "kimi-for-coding/kimi-for-coding",
+          );
 
           // The user picks a different advertised model; the existing Mastra
           // session absorbs the switch instead of being rebuilt.
           yield* resolveKimi(controller, "kimi-for-coding-highspeed");
-          expect(mastra.session.model.switch).toHaveBeenCalledWith({
-            modelId: "kimi-for-coding/kimi-for-coding-highspeed",
-          });
+          expect(mastra.session.model.switch).toHaveBeenCalledWith(
+            "kimi-for-coding/kimi-for-coding-highspeed",
+          );
           expect(mastra.createSession).toHaveBeenCalledOnce();
 
           const completed = yield* controller.streamEvents.pipe(
@@ -501,9 +499,7 @@ describe("AgentControllerLive", () => {
             mastra.finishSend();
             yield* Effect.yieldNow;
 
-            expect(mastra.session.model.switch).toHaveBeenCalledWith({
-              modelId: testCase.wireModelId,
-            });
+            expect(mastra.session.model.switch).toHaveBeenCalledWith(testCase.wireModelId);
 
             if (testCase.modelOptions !== undefined) {
               expect(mastra.session.state.set).toHaveBeenLastCalledWith(

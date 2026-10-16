@@ -36,8 +36,8 @@ async function capturedRequest(
 ) {
   let body: unknown;
 
-  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
-    body = JSON.parse(String(init?.body));
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    body = JSON.parse(input instanceof Request ? await input.text() : String(init?.body));
     throw stopped;
   });
 
@@ -49,6 +49,12 @@ async function capturedRequest(
     expires: Number.MAX_SAFE_INTEGER,
   });
   vi.spyOn(auth, "getApiKey").mockResolvedValue("test-token");
+  vi.spyOn(auth, "getOAuthCredential").mockResolvedValue({
+    type: "oauth",
+    access: "test-token",
+    refresh: "refresh",
+    expires: Number.MAX_SAFE_INTEGER,
+  });
 
   try {
     const modelOptions = nativeModelOptions(provider, selection(modelId, options));

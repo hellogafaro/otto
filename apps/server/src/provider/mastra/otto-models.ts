@@ -169,6 +169,13 @@ export function resolveOttoMastraModel(
         provider === providerId && credential
           ? getSubscriptionAccessToken(providerId, credential.scope ?? instanceId)
           : undefined,
+      // Mastra prefers this over getApiKey; refresh must stay on Otto's pinned account.
+      getOAuthCredential: async (provider: string) => {
+        if (provider !== providerId || !credential) return undefined;
+        const access = await getSubscriptionAccessToken(providerId, credential.scope ?? instanceId);
+
+        return access ? { ...credential, access } : undefined;
+      },
     });
   };
 

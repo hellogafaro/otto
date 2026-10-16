@@ -1,5 +1,5 @@
 import * as Path from "effect/Path";
-import { AuthStorage } from "@mastra/code-sdk/auth/storage";
+import { OttoMastraAuthStorage } from "../provider/layers/agent-controller/provider-access.ts";
 import { Agent } from "@mastra/core/agent";
 import {
   TextGenerationError,
@@ -54,7 +54,10 @@ export const makeHarnessTextGeneration = Effect.fn("makeHarnessTextGeneration")(
   const fileSystem = yield* FileSystem.FileSystem;
   const serverConfig = yield* ServerConfig;
   const path = yield* Path.Path;
-  const authStorage = new AuthStorage(path.join(input.secretsDir, "subscription-auth.json"));
+
+  const authStorage = new OttoMastraAuthStorage(
+    path.join(input.secretsDir, "subscription-auth.json"),
+  );
 
   const generate = <Output>(
     operation: "generateBranchName" | "generateThreadTitle",

@@ -592,9 +592,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           modelOptions: modelOptions ?? {},
         }),
       );
-      yield* deps.runMastra("model.switch", () =>
-        session.model.switch({ modelId: resolved.mastraModelId }),
-      );
+      yield* deps.runMastra("model.switch", () => session.model.switch(resolved.mastraModelId));
 
       if (session.mode.get() !== deps.DEFAULT_MODE_ID) {
         yield* deps.runMastra("mode.switch", () =>

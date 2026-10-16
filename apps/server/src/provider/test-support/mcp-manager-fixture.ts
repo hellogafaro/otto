@@ -7,6 +7,8 @@ export function mcpManagerFixture(overrides: Partial<McpManager> = {}): McpManag
   };
 
   return {
+    inheritServer: unavailable,
+    inheritAllServers: async () => {},
     init: async () => {},
     initInBackground: async () => ({ connected: [], failed: [], skipped: [], totalTools: 0 }),
     reload: async () => {},

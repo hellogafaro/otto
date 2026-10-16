@@ -98,7 +98,7 @@ export function mastraHarnessFixture() {
     },
     model: {
       get: () => modelId,
-      switch: vi.fn(async ({ modelId: next }: { readonly modelId: string }) => {
+      switch: vi.fn(async (next: string) => {
         modelId = next;
       }),
     },
@@ -145,6 +145,29 @@ export function mastraHarnessFixture() {
     for (const listener of listeners) listener(event);
   };
 
+  const streamedParts = new Map<string, string[]>();
+
+  /** Streams a message as Mastra does: a start, updates for changed parts, then an id-only end. */
+  const emitMessage = (message: MastraDBMessage, { end = false }: { end?: boolean } = {}) => {
+    const parts = message.content.parts.map((part) => JSON.stringify(part));
+    const previous = streamedParts.get(message.id);
+
+    if (!previous) emit({ type: "message_start", message: structuredClone(message) });
+
+    if (previous) {
+      for (const [index, part] of message.content.parts.entries()) {
+        if (previous[index] === parts[index]) continue;
+        emit({ type: "message_update", id: message.id, event: { type: "part", index, part } });
+      }
+    }
+
+    streamedParts.set(message.id, parts);
+
+    if (!end) return;
+    streamedParts.delete(message.id);
+    emit({ type: "message_end", id: message.id });
+  };
+
   return {
     factory,
     harnessOptions,
@@ -155,6 +178,7 @@ export function mastraHarnessFixture() {
     sendSignal,
     observeExternalTurn,
     emit,
+    emitMessage,
     /** Marks a Mastra run live, as it is from its first stream chunk to its end. */
     setRunId: (next: string | null) => {
       runId = next;

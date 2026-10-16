@@ -45,7 +45,7 @@ describe("OttoMastraHarness legacy modes", () => {
         });
 
         await session.state.set({ projectPath: directory, yolo: false });
-        await session.model.switch({ modelId: "openai/gpt-5.6-sol" });
+        await session.model.switch("openai/gpt-5.6-sol");
         await session.mode.switch({ modeId: "plan" });
         expect(session.mode.get()).toBe("plan");
         await session.mode.switch({ modeId: "build" });

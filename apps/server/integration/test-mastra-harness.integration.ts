@@ -223,7 +223,8 @@ export function testMastraHarness(): TestMastraHarness {
       );
 
       state.assistantText = "";
-      publish(state, { type: "message_end", message });
+      publish(state, { type: "message_start", message });
+      publish(state, { type: "message_end", id: message.id });
     }
 
     if (terminal.length === 0) {
@@ -256,7 +257,7 @@ export function testMastraHarness(): TestMastraHarness {
       mode: { get: () => "build", switch: async () => undefined },
       model: {
         get: () => state.modelSwitches.at(-1) ?? "default",
-        switch: async ({ modelId }: { readonly modelId: string }) => {
+        switch: async (modelId: string) => {
           state.modelSwitches.push(modelId);
         },
       },
@@ -305,7 +306,7 @@ export function testMastraHarness(): TestMastraHarness {
         readonly toolCallId?: string;
         readonly decision: string;
       }) => {
-        if (!toolCallId) return;
+        if (!toolCallId) return { accepted: false, reason: "not_pending" } as const;
 
         state.approvalResponses.push({
           threadId: state.threadId,
@@ -320,6 +321,8 @@ export function testMastraHarness(): TestMastraHarness {
         const resolve = state.resolvePendingApproval;
         state.resolvePendingApproval = undefined;
         resolve?.();
+
+        return { accepted: true } as const;
       },
       respondToToolSuspension: async () => undefined,
     }) satisfies OttoControllerSession;

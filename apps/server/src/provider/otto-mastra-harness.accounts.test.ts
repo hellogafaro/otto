@@ -150,9 +150,17 @@ it.each(["openai-codex", "anthropic", "xai"] as const)(
           prompt: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
         }),
       ).rejects.toThrow();
-      const dispatch = request.mock.calls.find(([input]) => !String(input).includes("token"));
+
+      const requestUrl = (input: string | URL | Request) =>
+        input instanceof Request ? input.url : String(input);
+
+      const dispatch = request.mock.calls.find(([input]) => !requestUrl(input).includes("token"));
       expect(dispatch).toBeDefined();
-      const headers = new Headers(dispatch?.[1]?.headers);
+
+      const headers = new Headers(
+        dispatch?.[0] instanceof Request ? dispatch[0].headers : dispatch?.[1]?.headers,
+      );
+
       expect(headers.get("authorization")).toBe("Bearer refreshed-main");
 
       if (provider === "openai-codex")

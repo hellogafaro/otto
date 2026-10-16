@@ -83,6 +83,38 @@ export function abandonUnpublishedText(turn: ActiveTurn) {
   }
 }
 
+type MessageDelta = Extract<AgentControllerEvent, { type: "message_update" }>["event"];
+
+/**
+ * Folds one streamed delta into the message, the same way Mastra's display
+ * state does. Text parts are extended in place so abandoned parts keep their identity.
+ */
+function applyMessageDelta(message: MastraDBMessage, delta: MessageDelta) {
+  const parts = message.content.parts;
+
+  if (delta.type === "part") {
+    parts[delta.index] = structuredClone(delta.part);
+
+    return;
+  }
+
+  if (delta.type === "reasoning-delta") {
+    const part = parts[delta.index];
+
+    if (part?.type !== "reasoning") return;
+    const reasoning = part.reasoning + delta.delta;
+
+    parts[delta.index] = { ...part, reasoning, details: [{ type: "text", text: reasoning }] };
+
+    return;
+  }
+
+  const part = parts.findLast((candidate) => candidate.type === "text");
+
+  if (part?.type === "text") part.text += delta.delta;
+  else parts.push({ type: "text", text: delta.delta });
+}
+
 export function createEvents(deps: {
   readonly forkPromise: OttoRuntimeSeam["forkPromise"];
   readonly runPromise: OttoRuntimeSeam["runPromise"];
@@ -225,6 +257,8 @@ export function createEvents(deps: {
     }
   };
 
+  const streamingMessages = new Map<string, MastraDBMessage>();
+
   const publishAssistantText = (
     threadId: ThreadId,
     active: ActiveSession,
@@ -300,14 +334,35 @@ export function createEvents(deps: {
         deps.adoptRun(threadId, active);
 
         return;
-      case "message_update":
-        publishAssistantText(threadId, active, event.message, false);
+      case "message_start": {
+        const message = structuredClone(event.message);
+
+        streamingMessages.set(message.id, message);
+        publishAssistantText(threadId, active, message, false);
 
         return;
-      case "message_end":
-        publishAssistantText(threadId, active, event.message, true);
+      }
+
+      case "message_update": {
+        const message = streamingMessages.get(event.id);
+
+        if (!message) return;
+        applyMessageDelta(message, event.event);
+        publishAssistantText(threadId, active, message, false);
 
         return;
+      }
+
+      case "message_end": {
+        const message = streamingMessages.get(event.id);
+
+        if (!message) return;
+        streamingMessages.delete(event.id);
+        publishAssistantText(threadId, active, message, true);
+
+        return;
+      }
+
       case "tool_start": {
         if (!turn) return;
         completeAssistantMessages(threadId, active, turn);

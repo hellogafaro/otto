@@ -49,11 +49,11 @@ describe("AgentControllerLive stream retry", () => {
         yield* controller.sendTurn({ threadId: codexThreadId, input: "Fetch the page." });
         // Mastra streams into one live message and keeps the failed attempt's part.
         const live = assistantMessage("I'll fetch the page and check");
-        mastra.emit({ type: "message_update", message: live } as AgentControllerEvent);
+        mastra.emitMessage(live);
         mastra.harnessOptions[0]?.onStreamRetry?.(String(codexThreadId));
         live.content.parts.push({ type: "text", text: "I'll fetch the page and check its title." });
-        mastra.emit({ type: "message_update", message: live } as AgentControllerEvent);
-        mastra.emit({ type: "message_end", message: live } as AgentControllerEvent);
+        mastra.emitMessage(live);
+        mastra.emitMessage(live, { end: true });
         mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
         mastra.finishSend();
         yield* Effect.yieldNow;
@@ -100,8 +100,8 @@ describe("AgentControllerLive stream retry", () => {
         yield* Effect.yieldNow;
         yield* controller.sendTurn({ threadId: codexThreadId, input: "Anyone?" });
         const pass = assistantMessage(" NO_REPLY\n");
-        mastra.emit({ type: "message_update", message: pass } as AgentControllerEvent);
-        mastra.emit({ type: "message_end", message: pass } as AgentControllerEvent);
+        mastra.emitMessage(pass);
+        mastra.emitMessage(pass, { end: true });
         mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
         mastra.finishSend();
         yield* Effect.yieldNow;

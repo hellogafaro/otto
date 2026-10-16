@@ -90,12 +90,12 @@ describe("AgentControllerLive", () => {
             yield* controller.sendTurn({ threadId, input: `Use ${model}.` });
           }
 
-          expect(sessionsByThread.get(String(codexWorkThread))?.model.switch).toHaveBeenCalledWith({
-            modelId: "openai/gpt-5.6-sol",
-          });
+          expect(sessionsByThread.get(String(codexWorkThread))?.model.switch).toHaveBeenCalledWith(
+            "openai/gpt-5.6-sol",
+          );
           expect(
             sessionsByThread.get(String(codexReviewThread))?.model.switch,
-          ).toHaveBeenCalledWith({ modelId: "openai/gpt-5.6-codex-mini" });
+          ).toHaveBeenCalledWith("openai/gpt-5.6-codex-mini");
           expect(sessionsByThread.get(String(codexWorkThread))?.sendMessage).toHaveBeenCalledWith({
             content: "Use gpt-5.6-sol.",
           });

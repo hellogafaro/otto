@@ -17,12 +17,23 @@ import { type OttoDelegationRuntimeOptions } from "../../otto-delegation-runtime
 
 import { nowIso, eventId } from "./event-identity.ts";
 
+/**
+ * Mastra reads Otto's subscription credentials but never writes them. Its AuthStorage migrates
+ * the file into its own account registry on load, which would bring back credentials Otto has
+ * logged out; SubscriptionAuthService owns every write and refresh.
+ */
+export class OttoMastraAuthStorage extends AuthStorage {}
+
+// Otto: `save` is private in Mastra's types, so it is replaced on the prototype; the base
+// constructor already resolves it here when its first reload migrates the file.
+Object.defineProperty(OttoMastraAuthStorage.prototype, "save", { value: () => undefined });
+
 export const createOttoMastraAuthStorage = Effect.fn("createOttoMastraAuthStorage")(function* (
   secretsDir: string,
 ) {
   const path = yield* Path.Path;
 
-  return new AuthStorage(path.join(secretsDir, "subscription-auth.json"));
+  return new OttoMastraAuthStorage(path.join(secretsDir, "subscription-auth.json"));
 });
 
 export type DelegatedUsage = Parameters<

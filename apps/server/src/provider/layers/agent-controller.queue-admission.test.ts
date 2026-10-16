@@ -164,14 +164,8 @@ describe("AgentControllerLive", () => {
 
         yield* Effect.yieldNow;
         yield* controller.sendTurn({ threadId: codexThreadId, input: "Say hello." });
-        mastra.emit({
-          type: "message_update",
-          message: assistantMessage("Hello world"),
-        } as AgentControllerEvent);
-        mastra.emit({
-          type: "message_end",
-          message: assistantMessage("Hi there!"),
-        } as AgentControllerEvent);
+        mastra.emitMessage(assistantMessage("Hello world"));
+        mastra.emitMessage(assistantMessage("Hi there!"), { end: true });
         mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
         mastra.finishSend();
 
@@ -215,10 +209,7 @@ describe("AgentControllerLive", () => {
 
         yield* Effect.yieldNow;
         yield* controller.sendTurn({ threadId: codexThreadId, input: "Check the project." });
-        mastra.emit({
-          type: "message_update",
-          message: assistantMessage("draft", "same"),
-        } as AgentControllerEvent);
+        mastra.emitMessage(assistantMessage("draft", "same"));
         mastra.emit({
           type: "tool_start",
           toolCallId: "view-1",
@@ -231,10 +222,7 @@ describe("AgentControllerLive", () => {
           result: "{}",
           isError: false,
         } as AgentControllerEvent);
-        mastra.emit({
-          type: "message_end",
-          message: assistantMessage("final revised", "same"),
-        } as AgentControllerEvent);
+        mastra.emitMessage(assistantMessage("final revised", "same"), { end: true });
         mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
         mastra.finishSend();
 
@@ -427,10 +415,7 @@ describe("AgentControllerLive", () => {
           input: "Check the project.",
           hiddenWake: true,
         });
-        mastra.emit({
-          type: "message_update",
-          message: assistantMessage("I'll check first.", "opening"),
-        } as AgentControllerEvent);
+        mastra.emitMessage(assistantMessage("I'll check first.", "opening"));
         mastra.emit({
           type: "tool_start",
           toolCallId: "view-1",
@@ -443,10 +428,7 @@ describe("AgentControllerLive", () => {
           result: "{}",
           isError: false,
         } as AgentControllerEvent);
-        mastra.emit({
-          type: "message_end",
-          message: assistantMessage("I found the configuration.", "status"),
-        } as AgentControllerEvent);
+        mastra.emitMessage(assistantMessage("I found the configuration.", "status"), { end: true });
         mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
         mastra.finishSend();
         yield* Effect.yieldNow;

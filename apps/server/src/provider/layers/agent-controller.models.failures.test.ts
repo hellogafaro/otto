@@ -112,14 +112,8 @@ describe("AgentControllerLive", () => {
 
         yield* Effect.yieldNow;
         yield* controller.sendTurn({ threadId: codexThreadId, input: "Reply once." });
-        mastra.emit({
-          type: "message_update",
-          message: assistantMessage("Mastra"),
-        } as AgentControllerEvent);
-        mastra.emit({
-          type: "message_end",
-          message: assistantMessage("Mastra answer"),
-        } as AgentControllerEvent);
+        mastra.emitMessage(assistantMessage("Mastra"));
+        mastra.emitMessage(assistantMessage("Mastra answer"), { end: true });
         mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
         mastra.finishSend();
         yield* Effect.yieldNow;
@@ -188,9 +182,7 @@ describe("AgentControllerLive", () => {
         expect(bridge.startSession).not.toHaveBeenCalled();
         expect(bridge.sendTurn).not.toHaveBeenCalled();
         expect(mastra.createSession).toHaveBeenCalledOnce();
-        expect(mastra.session.model.switch).toHaveBeenCalledWith({
-          modelId: "anthropic/claude-fable-5[1m]",
-        });
+        expect(mastra.session.model.switch).toHaveBeenCalledWith("anthropic/claude-fable-5[1m]");
         expect(mastra.session.mode.switch).not.toHaveBeenCalledWith({ modeId: "plan" });
         expect(mastra.sendMessage).toHaveBeenCalledOnce();
       }),
@@ -232,9 +224,7 @@ describe("AgentControllerLive", () => {
         expect(bridge.startSession).not.toHaveBeenCalled();
         expect(bridge.sendTurn).not.toHaveBeenCalled();
         expect(mastra.createSession).toHaveBeenCalledOnce();
-        expect(mastra.session.model.switch).toHaveBeenCalledWith({
-          modelId: "xai/grok-code-fast-1",
-        });
+        expect(mastra.session.model.switch).toHaveBeenCalledWith("xai/grok-code-fast-1");
         expect(mastra.sendMessage).toHaveBeenCalledOnce();
       }),
       bridge.service,
@@ -270,9 +260,7 @@ describe("AgentControllerLive", () => {
 
         assert.equal(session.provider, "kimi");
         assert.equal(session.model, "k3-256k");
-        expect(mastra.session.model.switch).toHaveBeenCalledWith({
-          modelId: "kimi-for-coding/k3-256k",
-        });
+        expect(mastra.session.model.switch).toHaveBeenCalledWith("kimi-for-coding/k3-256k");
         expect(bridge.startSession).not.toHaveBeenCalled();
         expect(bridge.getCapabilities).not.toHaveBeenCalled();
       }),
@@ -326,14 +314,14 @@ describe("AgentControllerLive", () => {
               mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
               mastra.finishSend();
               yield* Effect.yieldNow;
-              expect(mastra.session.model.switch).toHaveBeenCalledWith({
-                modelId: `${testCase.wirePrefix}/${testCase.from}${testCase.provider === "claudeAgent" ? "[1m]" : ""}`,
-              });
+              expect(mastra.session.model.switch).toHaveBeenCalledWith(
+                `${testCase.wirePrefix}/${testCase.from}${testCase.provider === "claudeAgent" ? "[1m]" : ""}`,
+              );
 
               yield* resolve(testCase.to);
-              expect(mastra.session.model.switch).toHaveBeenCalledWith({
-                modelId: `${testCase.wirePrefix}/${testCase.to}${testCase.provider === "claudeAgent" ? "[1m]" : ""}`,
-              });
+              expect(mastra.session.model.switch).toHaveBeenCalledWith(
+                `${testCase.wirePrefix}/${testCase.to}${testCase.provider === "claudeAgent" ? "[1m]" : ""}`,
+              );
               expect(mastra.createSession).toHaveBeenCalledOnce();
 
               const completed = yield* controller.streamEvents.pipe(
@@ -454,9 +442,7 @@ describe("AgentControllerLive", () => {
             cwd: process.cwd(),
             runtimeMode: "approval-required",
           });
-          expect(mastra.session.model.switch).toHaveBeenCalledWith({
-            modelId: "anthropic/claude-opus-4-6[1m]",
-          });
+          expect(mastra.session.model.switch).toHaveBeenCalledWith("anthropic/claude-opus-4-6[1m]");
         }),
         bridge.service,
         mastra.factory,
@@ -606,14 +592,14 @@ describe("AgentControllerLive", () => {
             result: "file contents",
             isError: false,
           } as AgentControllerEvent);
-          mastra.emit({
-            type: "message_end",
-            message: {
+          mastra.emitMessage(
+            {
               ...assistantMessage("Kimi answer"),
               threadId: String(kimiThreadId),
               resourceId: String(kimiThreadId),
             },
-          } as AgentControllerEvent);
+            { end: true },
+          );
           mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
           mastra.finishSend();
           const completedEvent = yield* Fiber.join(completed);
@@ -644,9 +630,7 @@ describe("AgentControllerLive", () => {
 
           expect(toolItem).toMatchObject({ payload: { status: "completed" } });
           expect(mastra.sendMessage).toHaveBeenCalledWith({ content: "Read this file." });
-          expect(mastra.session.model.switch).toHaveBeenCalledWith({
-            modelId: "kimi-for-coding/k3-256k",
-          });
+          expect(mastra.session.model.switch).toHaveBeenCalledWith("kimi-for-coding/k3-256k");
           expect(bridge.startSession).not.toHaveBeenCalled();
           expect(bridge.sendTurn).not.toHaveBeenCalled();
         }),

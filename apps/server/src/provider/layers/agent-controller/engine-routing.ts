@@ -199,7 +199,7 @@ export function createEngineRouting(deps: {
             }),
           );
           yield* deps.runMastra("model.switch", () =>
-            active.session.model.switch({ modelId: resolved.mastraModelId }),
+            active.session.model.switch(resolved.mastraModelId),
           );
           active.model = modelSelection.model;
         }

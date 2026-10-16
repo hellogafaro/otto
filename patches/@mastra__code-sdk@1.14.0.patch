@@ -1,22 +1,22 @@
 diff --git a/dist/mcp/manager.js b/dist/mcp/manager.js
-index c563b38b5902f519a08f887c450a421bb5f00a86..38def0c980a57837a2eb0c4d408f972884be4121 100644
+index ce369d36aa3f81df1481441b477f3c2c05a5bb55..9825419ad04afe7860f20a40498973a4c465e6ca 100644
 --- a/dist/mcp/manager.js
 +++ b/dist/mcp/manager.js
-@@ -175,7 +175,7 @@ function createMcpManager(projectDir, configDirName = DEFAULT_CONFIG_DIR, extraS
- 				client_id: oauth.clientId,
- 				...oauth.clientSecret ? { client_secret: oauth.clientSecret } : {}
- 			} : void 0,
+@@ -190,7 +190,7 @@ function createMcpManager(projectDir, configDirName = DEFAULT_CONFIG_DIR, extraS
+ 			},
+ 			clientInformation,
+ 			clientMetadataUrl,
 -			storage: new FileOAuthStorage(getOAuthStoragePath(projectDir, name, cfg)),
 +			storage: oauth.storage ?? new FileOAuthStorage(getOAuthStoragePath(projectDir, name, cfg)),
  			onRedirectToAuthorization: (url) => {
  				authUrlHandlers.get(name)?.(url.toString());
  			}
 diff --git a/dist/mcp/types.d.ts b/dist/mcp/types.d.ts
-index f7b713dabe3277f4a618b3ad72824a4a5d04aed1..29e5db9ae17f2ab229f3491dbf624cdb6bbe465c 100644
+index a2f653edeb501ad62e0ad7a4a01440a8c22fe9b5..b1e7c5eb0065390e38fb9be25dac646ec1345b31 100644
 --- a/dist/mcp/types.d.ts
 +++ b/dist/mcp/types.d.ts
-@@ -40,6 +40,12 @@ export interface McpHttpOAuthConfig {
-      * servers, `callbackPort` takes precedence over `redirectUrl`.
+@@ -49,6 +49,12 @@ export interface McpHttpOAuthConfig {
+      * `clientId` caveat as `redirectUrl` applies.
       */
      callbackPort?: number;
 +    /** Where OAuth tokens, client registration and the PKCE verifier live. Defaults to a JSON file in the app data directory. */
