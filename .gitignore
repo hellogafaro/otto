@@ -38,3 +38,6 @@ node_modules/
 *.log
 .env*
 !.env.example
+
+# Mastra LocalSandbox seatbelt profiles written to the working directory by default
+.sandbox-profiles/

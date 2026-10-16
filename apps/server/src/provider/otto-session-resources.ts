@@ -127,6 +127,10 @@ export class OttoSessionResources {
                 }
               : {
                   sandbox: "local" as const,
+                  sandboxProfileDirectory: this.options.io.path.join(
+                    this.options.stateDir,
+                    "sandbox-profiles",
+                  ),
                   localRoot: this.options.io.path.join(
                     this.options.stateDir,
                     "bot-workspaces",
@@ -155,6 +159,10 @@ export class OttoSessionResources {
               io: this.options.io,
               threadId: `user-computer-${key}`,
               cwd: userComputerCwd,
+              sandboxProfileDirectory: this.options.io.path.join(
+                this.options.stateDir,
+                "sandbox-profiles",
+              ),
             });
 
             if (!workspace) {

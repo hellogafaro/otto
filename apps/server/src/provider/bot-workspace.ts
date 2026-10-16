@@ -1,3 +1,4 @@
+import * as NodeCrypto from "node:crypto";
 import { TOOL_NAME_OVERRIDES } from "@mastra/code-sdk/tool-names";
 import { LocalFilesystem, LocalSandbox, Workspace } from "@mastra/core/workspace";
 import type { BotSandbox } from "@otto/contracts";
@@ -51,6 +52,15 @@ export async function createBotWorkspace(
   await input.io.mkdir(root);
   const isolation = LocalSandbox.detectIsolation();
 
+  const profile = input.sandboxProfileDirectory
+    ? {
+        seatbeltProfilePath: input.io.path.join(
+          input.sandboxProfileDirectory,
+          `${NodeCrypto.createHash("sha256").update(root).digest("hex").slice(0, 16)}.sb`,
+        ),
+      }
+    : {};
+
   const workspace = new Workspace({
     id: input.workspaceId ?? `otto-${input.threadId}`,
     name: `Otto ${input.threadId}`,
@@ -58,7 +68,7 @@ export async function createBotWorkspace(
     sandbox: new LocalSandbox({
       workingDirectory: root,
       ...(isolation.available
-        ? { isolation: isolation.backend, nativeSandbox: { allowNetwork: true } }
+        ? { isolation: isolation.backend, nativeSandbox: { allowNetwork: true, ...profile } }
         : {}),
     }),
     tools: TOOL_NAME_OVERRIDES,

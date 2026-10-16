@@ -58,6 +58,8 @@ export interface CreateBotWorkspaceInput {
   readonly cwd?: string;
   readonly identityFile?: string;
   readonly localRoot?: string;
+  /** Server-owned directory for local isolation profiles, outside every bot-writable path. */
+  readonly sandboxProfileDirectory?: string;
   readonly sandbox?: BotSandbox | null;
   readonly workspaceId?: string;
   readonly environment?: Readonly<Record<string, string>>;
