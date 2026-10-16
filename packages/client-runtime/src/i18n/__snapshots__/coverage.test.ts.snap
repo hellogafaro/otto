@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1647,
+  "directMessageCount": 1651,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -50,6 +50,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/chat/settings-link-chip.tsx": [
       "destination.label) });",
+    ],
+    "apps/web/src/components/desktop/desktop-tab-strip.tsx": [
+      "place.label)}",
     ],
     "apps/web/src/components/home/home-page.tsx": [
       "greeting, { name: firstName })",
@@ -334,6 +337,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/customize/customize-integrations.tsx",
     "apps/web/src/components/customize/customize-skills.tsx",
     "apps/web/src/components/customize/mcp-server-dialog.tsx",
+    "apps/web/src/components/desktop/desktop-tab-strip.tsx",
     "apps/web/src/components/details-aside.tsx",
     "apps/web/src/components/home/home-page.tsx",
     "apps/web/src/components/library/chat-library-section.tsx",
