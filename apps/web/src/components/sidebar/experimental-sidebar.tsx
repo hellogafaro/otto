@@ -279,7 +279,7 @@ function RailButton({
             {badge ? (
               <span
                 aria-hidden
-                className="absolute top-1 right-1 size-1.5 rounded-full bg-primary"
+                className="absolute top-1 right-1 size-1.5 rounded-full bg-destructive"
               />
             ) : null}
           </button>

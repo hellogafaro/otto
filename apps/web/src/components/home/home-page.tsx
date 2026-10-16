@@ -331,7 +331,7 @@ export function HomePage() {
                       <span className="flex shrink-0 items-center gap-2">
                         <Meta>{formatRelativeTimeLabel(notification.createdAt)}</Meta>
                         {notification.readAt === null ? (
-                          <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+                          <span aria-hidden className="size-1.5 rounded-full bg-destructive" />
                         ) : null}
                       </span>
                     }
