@@ -158,6 +158,7 @@ export const SETTINGS_SECTION_TITLE_CLASS =
 export function SettingsSection({
   title,
   icon,
+  count,
   headerAction,
   children,
   className,
@@ -165,6 +166,8 @@ export function SettingsSection({
 }: ComponentPropsWithoutRef<"section"> & {
   title: string;
   icon?: ReactNode;
+  /** Otto: How many items the section holds, in a lighter weight right after its title. */
+  count?: number | undefined;
   headerAction?: ReactNode;
   children: ReactNode;
 }) {
@@ -194,6 +197,9 @@ export function SettingsSection({
         <h2 className={cn("flex items-center gap-2", SETTINGS_SECTION_TITLE_CLASS)}>
           {icon}
           {title}
+          {count === undefined ? null : (
+            <span className="font-normal text-muted-foreground tabular-nums">{count}</span>
+          )}
         </h2>
         <div className="ms-auto flex min-h-7 min-w-7 items-center justify-end">{headerAction}</div>
       </div>

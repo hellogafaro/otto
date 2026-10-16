@@ -137,11 +137,9 @@ export const workCatalog = {
   "{name} mentioned you in {title}": "{name} 在 {title} 中提到了你",
   "Mark all read": "全部标为已读",
   "Due today": "今天到期",
-  "Routines today": "今天的例行任务",
-  "No tasks due": "没有到期任务",
-  "No chats waiting": "没有等待中的聊天",
-  "No routines today": "今天没有例行任务",
   "No notifications": "没有通知",
   "Waiting on you": "等你处理",
   "New reply": "新回复",
+  "No tasks": "没有任务",
+  "No chats": "没有聊天",
 } as const;

@@ -207,10 +207,10 @@ export function HomePage() {
         ) : (
           <div className="flex flex-col gap-10">
             <CustomizeGroup
-              title={t("Today")}
+              title={t("Tasks")}
               count={due.length}
               empty={
-                due.length === 0 ? { icon: <RiListCheck3 />, description: t("No tasks due") } : null
+                due.length === 0 ? { icon: <RiListCheck3 />, description: t("No tasks") } : null
               }
             >
               {due.map((task) => (
@@ -234,9 +234,7 @@ export function HomePage() {
               title={t("Chats")}
               count={chats.length}
               empty={
-                chats.length === 0
-                  ? { icon: <RiChat1Line />, description: t("No chats waiting") }
-                  : null
+                chats.length === 0 ? { icon: <RiChat1Line />, description: t("No chats") } : null
               }
             >
               {chats.map(({ shell, state }) => (
@@ -261,11 +259,11 @@ export function HomePage() {
               ))}
             </CustomizeGroup>
             <CustomizeGroup
-              title={t("Routines today")}
+              title={t("Routines")}
               count={routines.length}
               empty={
                 routines.length === 0
-                  ? { icon: <RiTimeLine />, description: t("No routines today") }
+                  ? { icon: <RiTimeLine />, description: t("No routines") }
                   : null
               }
             >

@@ -137,11 +137,9 @@ export const workCatalog = {
   "{name} mentioned you in {title}": "{name} mentioned you in {title}",
   "Mark all read": "Mark all read",
   "Due today": "Due today",
-  "Routines today": "Routines today",
-  "No tasks due": "No tasks due",
-  "No chats waiting": "No chats waiting",
-  "No routines today": "No routines today",
   "No notifications": "No notifications",
   "Waiting on you": "Waiting on you",
   "New reply": "New reply",
+  "No tasks": "No tasks",
+  "No chats": "No chats",
 } as const;

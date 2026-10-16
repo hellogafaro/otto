@@ -81,7 +81,8 @@ export function CustomizeItem({
 
 /**
  * Otto: A Customize group is a settings section: its 16px title above the card on the card edge,
- * its muted count and its action (a quiet plus menu or one button) at the right of that title.
+ * its count in a lighter weight right after the title, and its action (a quiet plus menu or one
+ * button) at the right.
  * An empty card holds the icon-and-description empty state.
  */
 export function CustomizeGroup({
@@ -99,17 +100,7 @@ export function CustomizeGroup({
   readonly children?: ReactNode;
 }) {
   return (
-    <SettingsSection
-      title={title}
-      headerAction={
-        <span className="flex items-center gap-2">
-          {count === undefined ? null : (
-            <span className="text-13px tabular-nums text-muted-foreground">{count}</span>
-          )}
-          {action}
-        </span>
-      }
-    >
+    <SettingsSection title={title} count={count} headerAction={action}>
       {empty ? (
         <div data-settings-row="">
           <Empty>
