@@ -112,6 +112,8 @@ export function withOttoPrompt(
         : [],
     );
 
+    const contextUpdate = previous ? createOttoChatContextUpdate(changes, previous.sections) : "";
+
     const chat: OttoChatContextRecord =
       !previous ||
       previous.firstMessage !== firstMessage ||
@@ -122,10 +124,9 @@ export function withOttoPrompt(
           : {
               ...previous,
               sections,
-              updates: [
-                ...previous.updates,
-                { after: history.length, text: createOttoChatContextUpdate(changes) },
-              ],
+              updates: contextUpdate
+                ? [...previous.updates, { after: history.length, text: contextUpdate }]
+                : previous.updates,
             };
 
     if (threadId) chats.set(threadId, chat);

@@ -11,11 +11,11 @@ import {
   type OttoRuntimeToolId,
   type OttoToolRuntime,
 } from "./otto-tool-runtime.ts";
-import { OttoMemoryToolInputSchema } from "../memory/bot-memory-tool-handlers.ts";
+import { MemoryUpdateToolInput } from "../memory/memory-update-tool.ts";
 import type { OttoToolExecution } from "./tools/otto-tool-types.ts";
 
 function inputSchema(toolId: OttoRuntimeToolId) {
-  return isMemoryToolId(toolId) ? OttoMemoryToolInputSchema : OttoToolInputSchemas[toolId];
+  return isMemoryToolId(toolId) ? MemoryUpdateToolInput : OttoToolInputSchemas[toolId];
 }
 
 type JsonSchemaNode = JSONSchema.JSONSchema;

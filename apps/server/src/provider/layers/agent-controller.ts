@@ -28,8 +28,8 @@ import type { AgentControllerLiveOptions } from "./agent-controller/options.ts";
 
 export type { AgentControllerLiveOptions } from "./agent-controller/options.ts";
 
-import { createMemoryAccess } from "./agent-controller/memory-access.ts";
-import { createMemoryCadence } from "./agent-controller/memory-cadence.ts";
+import { createMemoryAccess, type MemoryTurn } from "./agent-controller/memory-access.ts";
+import { createTurnObservations } from "./agent-controller/observations.ts";
 import { createDelegation } from "./agent-controller/delegation.ts";
 import { createEvents } from "./agent-controller/events.ts";
 import { createTurnLifecycle } from "./agent-controller/turn-lifecycle.ts";
@@ -41,7 +41,7 @@ import { createConversation } from "./agent-controller/conversation.ts";
 
 import { createMcpManager, type McpManager } from "@mastra/code-sdk/mcp/index";
 
-import { TurnId, type ProviderRuntimeEvent, type RuntimeMode, ThreadId } from "@otto/contracts";
+import { type ProviderRuntimeEvent, type RuntimeMode, ThreadId } from "@otto/contracts";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -50,18 +50,11 @@ import * as PubSub from "effect/PubSub";
 import * as Schedule from "effect/Schedule";
 import * as Ref from "effect/Ref";
 
-import { type BotMemoryAccess } from "../../memory/bot-memory.ts";
-
-import { EntityMemoryRepository } from "../../memory/services/entity-memory-repository.ts";
-
 import { ProjectionThreadMessageRepositoryLive } from "../../persistence/layers/projection-thread-messages.ts";
 import { ProjectionTurnRepositoryLive } from "../../persistence/layers/projection-turns.ts";
 
-import * as McpMemoryToolSession from "../../mcp/mcp-memory-tool-session.ts";
-
 import { createOttoChannelRuntime } from "../otto-channel-runtime.ts";
 import { createOttoBotStateRuntime } from "../otto-bot-state-runtime.ts";
-import { type OttoMemoryTurn } from "../otto-memory-turn-harness.ts";
 
 import {
   createOttoPluginRuntime,
@@ -83,12 +76,6 @@ import {
 
 import { toMcpServerConfigs } from "./agent-controller/mcp-configuration.ts";
 
-const DEFAULT_MEMORY_TOOL_SETTINGS = {
-  enabled: true,
-  privateBotMemory: true,
-  sharedProjectMemory: "ask",
-} as const;
-
 const APPROVAL_FREE_MASTRA_TOOL_NAMES: ReadonlySet<string> = new Set(["ask_user"]);
 
 const make = (options?: AgentControllerLiveOptions) =>
@@ -100,7 +87,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       legacyProviderBridge,
       botUsageLedger,
       serverSettings,
-      memoryApprovals,
+      memories,
       routineDispatcher,
       mutationLock,
       runtimeEvents,
@@ -128,13 +115,13 @@ const make = (options?: AgentControllerLiveOptions) =>
       authStorage,
       subscriptionAuth,
       botInbox,
-      botMemoryStore,
-      memoryTurnHarness,
       creatingRoutineReviews,
       runPromise,
       fork,
       forkPromise,
     } = yield* createControllerState(options);
+
+    const memoryTurns = new Map<string, MemoryTurn>();
 
     // A turn waits on the user while any tool approval, question, or routine review
     // it opened is unanswered, or an accepted routine is still being created.
@@ -171,24 +158,10 @@ const make = (options?: AgentControllerLiveOptions) =>
       get stopSessionWithResources() {
         return stopSessionWithResources;
       },
-      get memorySettings() {
-        return memorySettings;
+      get memoryContext() {
+        return memoryContext;
       },
-      get refreshEntityMemoryAccess() {
-        return refreshEntityMemoryAccess;
-      },
-      get memoryTurnHarness() {
-        return memoryTurnHarness;
-      },
-      get mastraReservationKey() {
-        return mastraReservationKey;
-      },
-      get mastraMemoryTurns() {
-        return mastraMemoryTurns;
-      },
-      get entityMemoryContext() {
-        return entityMemoryContext;
-      },
+      memoryTurns,
       legacyProviderBridge,
       get startPendingTurn() {
         return startPendingTurn;
@@ -232,17 +205,14 @@ const make = (options?: AgentControllerLiveOptions) =>
       },
     });
 
-    const { memoryAccessFor, refreshEntityMemoryAccess, entityMemoryContext, memoryHandlers } =
-      createMemoryAccess({
-        runPromise,
-        projectionSnapshotQuery,
-        options,
-        get memorySettings() {
-          return memorySettings;
-        },
-        memoryApprovals,
-        botMemoryStore,
-      });
+    const { memoryContext, memoryHandlers } = createMemoryAccess({
+      runPromise,
+      memories,
+      get memoryEnabled() {
+        return memoryEnabled;
+      },
+      memoryTurns,
+    });
 
     // Image providers for the GenerateImage tool, read on every session start or reuse. An
     // unreadable settings file hides the tool rather than offering a call that can only fail
@@ -256,25 +226,14 @@ const make = (options?: AgentControllerLiveOptions) =>
         )
       : Effect.succeed({ chatgptEnabled: true, grokEnabled: true });
 
-    const memorySettings = () =>
+    const memoryEnabled = () =>
       Option.isSome(serverSettings)
         ? serverSettings.value.getSettings.pipe(
-            Effect.map((settings) => ({
-              enabled: settings.memory.enabled,
-              privateBotMemory: settings.memory.privateBotMemory,
-              sharedProjectMemory: settings.memory.sharedProjectMemory,
-            })),
+            Effect.map((settings) => settings.memory.enabled),
             // Fail closed: an unreadable setting must not re-enable memory the user turned off.
-            Effect.orElseSucceed(() => ({
-              ...DEFAULT_MEMORY_TOOL_SETTINGS,
-              enabled: false,
-              privateBotMemory: false,
-            })),
+            Effect.orElseSucceed(() => false),
           )
-        : Effect.succeed(DEFAULT_MEMORY_TOOL_SETTINGS);
-
-    const memoryAccessKey = (access: BotMemoryAccess | undefined): string | undefined =>
-      access ? `${access.botId}:${access.groupId ?? "private"}` : undefined;
+        : Effect.succeed(true);
 
     const legacyResourceIdentity = new Map<string, LegacyResourceIdentity>();
     const legacyTurnMemory = new Map<string, Array<LegacyTurnMemoryState>>();
@@ -293,47 +252,20 @@ const make = (options?: AgentControllerLiveOptions) =>
     const hasLegacyPending = (key: string, pending: LegacyTurnMemoryState) =>
       legacyPending(key).includes(pending);
 
-    const restoreLegacyMemoryHandler = (key: string, pending: LegacyTurnMemoryState) => {
-      if (
-        !pending.reviewMemoryHandler ||
-        McpMemoryToolSession.readMcpMemoryToolSession(ThreadId.make(key)) !==
-          pending.reviewMemoryHandler
-      ) {
-        return;
-      }
-
-      if (pending.priorMemoryHandler) {
-        McpMemoryToolSession.setMcpMemoryToolSession(
-          ThreadId.make(key),
-          pending.priorMemoryHandler,
-        );
-      } else {
-        McpMemoryToolSession.clearMcpMemoryToolSession(ThreadId.make(key));
-      }
-    };
-
     const legacyBufferedTerminals = new Map<string, Map<string, ProviderRuntimeEvent>>();
-    const mastraMemoryTurns = new Map<string, OttoMemoryTurn>();
 
-    const mastraReservationKey = (threadId: ThreadId, turnId: TurnId) =>
-      `${String(threadId)}:${String(turnId)}`;
-
-    const { releaseMastraReservations, drainLegacyTerminals, queueTurnMemory } =
-      createMemoryCadence({
-        forkPromise,
-        mastraMemoryTurns,
-        runMastra,
-        hasLegacyPending,
-        resolveChildWaiter,
-        restoreLegacyMemoryHandler,
-        removeLegacyPending,
-        legacyPending,
-        get bundle() {
-          return bundle;
-        },
-        legacyBufferedTerminals,
-        resolvedByThread,
-      });
+    const { drainLegacyTerminals, queueTurnMemory } = createTurnObservations({
+      forkPromise,
+      hasLegacyPending,
+      resolveChildWaiter,
+      removeLegacyPending,
+      legacyPending,
+      get bundle() {
+        return bundle;
+      },
+      legacyBufferedTerminals,
+      resolvedByThread,
+    });
 
     const { delegationFor, makeDelegationRuntime } = createDelegation({
       runPromise,
@@ -474,26 +406,22 @@ const make = (options?: AgentControllerLiveOptions) =>
       legacyProviderBridge,
       disabledProviderError,
       options,
-      botMemoryStore,
       failureDetail,
       runMastra,
       imageToolSettings,
-      memorySettings,
+      memoryEnabled,
       memoryHandlers,
       delegationFor,
       workersFor,
-      memoryAccessFor,
       toolRuntime,
       toProviderSession,
       legacyResourceIdentity,
-      memoryAccessKey,
       sessionResources,
       get stopSessionWithResources() {
         return stopSessionWithResources;
       },
       preparePreviewMcpSession,
       clearPreviewMcpSession,
-      entityMemoryContext,
       subscriptionAuth,
       botInbox,
       deleteCatalogMcpServer,
@@ -514,18 +442,15 @@ const make = (options?: AgentControllerLiveOptions) =>
       usesMastraCode,
       legacyProviderBridge,
       disabledProviderError,
-      memorySettings,
       legacyResourceIdentity,
       runMastra,
-      refreshEntityMemoryAccess,
-      entityMemoryContext,
+      memoryContext,
+      memoryTurns,
       bundle,
-      memoryTurnHarness,
       addLegacyPending,
       hasLegacyPending,
       legacyHiddenWakeByTurn,
       drainLegacyTerminals,
-      restoreLegacyMemoryHandler,
       removeLegacyPending,
       toolRuntime,
       config,
@@ -536,7 +461,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       legacyTurnMemory,
       legacyBufferedTerminals,
       endTurnAdmissionGeneration,
-      releaseMastraReservations,
       finishTurn,
     });
 
@@ -564,7 +488,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       sessions,
       legacyProviderBridge,
       legacyPending,
-      restoreLegacyMemoryHandler,
       legacyTurnMemory,
       legacyBufferedTerminals,
       runMastra,
@@ -575,7 +498,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       resolvedByThread,
       toolRuntime,
       endTurnAdmissionGeneration,
-      releaseMastraReservations,
       finishTurn,
       cancelAllPendingApprovals,
       publishSessionState,
@@ -603,7 +525,6 @@ const make = (options?: AgentControllerLiveOptions) =>
           }
 
           active.unsubscribe();
-          yield* releaseMastraReservations(ThreadId.make(threadId));
           yield* runMastra("deleteSession", () =>
             bundle.controller.deleteSession({ resourceId: threadId }),
           ).pipe(Effect.ignoreCause({ log: true }));
@@ -613,16 +534,6 @@ const make = (options?: AgentControllerLiveOptions) =>
 
         for (const threadId of legacyResourceIdentity.keys()) {
           yield* clearPreviewMcpSession(ThreadId.make(threadId));
-        }
-
-        for (const pendingTurns of legacyTurnMemory.values()) {
-          for (const pending of pendingTurns) {
-            if (pending.memoryTurn) {
-              yield* runMastra("memory.abandon", () => pending.memoryTurn!.abandon()).pipe(
-                Effect.ignoreCause({ log: true }),
-              );
-            }
-          }
         }
 
         legacyTurnMemory.clear();
@@ -792,14 +703,7 @@ const make = (options?: AgentControllerLiveOptions) =>
 export const agentControllerLayerWith = (options?: AgentControllerLiveOptions) =>
   Layer.effect(AgentController, make(options));
 
-export const AgentControllerLive = Layer.effect(
-  AgentController,
-  Effect.gen(function* () {
-    const entityMemoryRepository = yield* EntityMemoryRepository;
-
-    return yield* make({ entityMemoryRepository });
-  }),
-).pipe(
+export const AgentControllerLive = Layer.effect(AgentController, make()).pipe(
   Layer.provide(ProjectionThreadMessageRepositoryLive),
   Layer.provide(ProjectionTurnRepositoryLive),
 );

@@ -3,9 +3,10 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { McpSchema, McpServer, Tool } from "effect/unstable/ai";
 import {
-  OTTO_MEMORY_TOOL_DESCRIPTION,
-  OttoMemoryToolInputSchema,
-} from "../memory/bot-memory-tool-handlers.ts";
+  MEMORY_UPDATE_TOOL_DESCRIPTION,
+  MEMORY_UPDATE_TOOL_ID,
+  MemoryUpdateToolInput,
+} from "../memory/memory-update-tool.ts";
 import * as McpInvocationContext from "./mcp-invocation-context.ts";
 import * as McpMemoryToolSession from "./mcp-memory-tool-session.ts";
 import {
@@ -15,14 +16,14 @@ import {
   MemoryMcpExecutionError,
 } from "./mcp-tool-schema.ts";
 
-export const decodeMemoryToolInput = Schema.decodeUnknownEffect(OttoMemoryToolInputSchema);
+export const decodeMemoryToolInput = Schema.decodeUnknownEffect(MemoryUpdateToolInput);
 
 export const registerMemoryTool = Effect.fn("McpHttpServer.registerMemoryTool")(function* () {
   const server = yield* McpServer.McpServer;
 
-  const memoryTool = Tool.make("memory", {
-    description: OTTO_MEMORY_TOOL_DESCRIPTION,
-    parameters: OttoMemoryToolInputSchema,
+  const memoryTool = Tool.make(MEMORY_UPDATE_TOOL_ID, {
+    description: MEMORY_UPDATE_TOOL_DESCRIPTION,
+    parameters: MemoryUpdateToolInput,
     success: Schema.Unknown,
   });
 
@@ -62,7 +63,7 @@ export const registerMemoryTool = Effect.fn("McpHttpServer.registerMemoryTool")(
               try: () =>
                 handler({
                   threadId: String(invocation.threadId),
-                  toolId: "memory",
+                  toolId: MEMORY_UPDATE_TOOL_ID,
                   toolCallId: `mcp-memory-${invocation.providerSessionId}`,
                   input,
                   approvalMode: "require-grant",

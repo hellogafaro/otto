@@ -1,6 +1,6 @@
 import type {
+  AuthSessionId,
   OttoConversationMemorySnapshot,
-  OttoMemoryThreadAccess,
   ComposioToolkit,
   BotEngine,
   BotId,
@@ -27,6 +27,7 @@ import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
 import type * as Stream from "effect/Stream";
 
+import type { MemoryChat } from "../../memory/memories.ts";
 import type { OttoDelegationDispatch, OttoDelegationHandle } from "../otto-delegation-runtime.ts";
 import type { AgentControllerError, AgentControllerRuntimeError } from "../errors.ts";
 import type { ProviderAdapterCapabilities } from "./provider-adapter.ts";
@@ -51,6 +52,10 @@ export type AgentControllerSendTurnInput = ProviderSendTurnInput & {
    * provider path adds it to this turn only; it is never queued as a message.
    */
   readonly delegationResults?: string;
+  /** The chat's memory scopes and audience, derived on the server for this turn. */
+  readonly memoryChat?: MemoryChat;
+  /** The person whose message this turn answers. */
+  readonly authorPersonId?: AuthSessionId | null;
 };
 
 export interface AgentControllerShape {
@@ -129,7 +134,7 @@ export interface AgentControllerShape {
 
   readonly startSession: (
     threadId: ThreadId,
-    input: ProviderSessionStartInput & { readonly memoryAccess?: OttoMemoryThreadAccess },
+    input: ProviderSessionStartInput,
   ) => Effect.Effect<ProviderSession, AgentControllerError>;
 
   readonly sendTurn: (

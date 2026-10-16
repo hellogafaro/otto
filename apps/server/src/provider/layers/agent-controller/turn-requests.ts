@@ -7,13 +7,7 @@ import type { AgentControllerLiveOptions } from "./options.ts";
 import * as NodeCrypto from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 
-import {
-  type ChatAttachment,
-  TurnId,
-  type ProviderRuntimeEvent,
-  ThreadId,
-  type OttoMemoryThreadAccess,
-} from "@otto/contracts";
+import { type ChatAttachment, TurnId, type ProviderRuntimeEvent, ThreadId } from "@otto/contracts";
 
 import * as Deferred from "effect/Deferred";
 
@@ -23,14 +17,12 @@ import { resolveAttachmentPath } from "../../../attachment-store.ts";
 
 import { ServerConfig } from "../../../config.ts";
 
-import * as McpMemoryToolSession from "../../../mcp/mcp-memory-tool-session.ts";
-
 import type { OttoControllerHarness } from "../../mastra/otto-harness-types.ts";
 import { createOttoInstructions } from "../../otto-agent-instructions.ts";
 import { splitGroupTurnNote } from "../../../orchestration/group-responder.ts";
 
-import { OttoMemoryTurnHarness } from "../../otto-memory-turn-harness.ts";
-
+import type { MemoryChat } from "../../../memory/memories.ts";
+import type { MemoryTurn } from "./memory-access.ts";
 import { cancelActiveImageGenerations } from "../../../image-generation/image-generation-runtime.ts";
 
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
@@ -57,33 +49,14 @@ export function createTurnRequests(deps: {
     operation: string,
     providerInstanceId: ProviderInstanceId,
   ) => ProviderValidationError;
-  readonly memorySettings: () =>
-    | Effect.Effect<
-        | { enabled: boolean; privateBotMemory: boolean; sharedProjectMemory: "auto" | "ask" }
-        | { enabled: boolean; privateBotMemory: boolean; sharedProjectMemory: "ask" },
-        never,
-        never
-      >
-    | Effect.Effect<
-        {
-          readonly enabled: true;
-          readonly privateBotMemory: true;
-          readonly sharedProjectMemory: "ask";
-        },
-        never,
-        never
-      >;
   readonly legacyResourceIdentity: Map<string, LegacyResourceIdentity>;
   readonly runMastra: <A>(
     operation: string,
     run: (signal: AbortSignal) => Promise<A>,
   ) => Effect.Effect<A, AgentControllerRuntimeError, never>;
-  readonly refreshEntityMemoryAccess: (
-    access: OttoMemoryThreadAccess | undefined,
-  ) => Promise<OttoMemoryThreadAccess | undefined>;
-  readonly entityMemoryContext: (access: OttoMemoryThreadAccess | undefined) => Promise<string>;
+  readonly memoryContext: (chat: MemoryChat | undefined) => Promise<string>;
+  readonly memoryTurns: Map<string, MemoryTurn>;
   readonly bundle: OttoControllerHarness;
-  readonly memoryTurnHarness: OttoMemoryTurnHarness;
   readonly addLegacyPending: (
     key: string,
     pending: LegacyTurnMemoryState,
@@ -91,7 +64,6 @@ export function createTurnRequests(deps: {
   readonly hasLegacyPending: (key: string, pending: LegacyTurnMemoryState) => boolean;
   readonly legacyHiddenWakeByTurn: Map<string, boolean>;
   readonly drainLegacyTerminals: (key: string) => Effect.Effect<void, never, never>;
-  readonly restoreLegacyMemoryHandler: (key: string, pending: LegacyTurnMemoryState) => void;
   readonly removeLegacyPending: (key: string, pending: LegacyTurnMemoryState) => void;
   readonly toolRuntime: OttoToolRuntime;
   readonly config: ServerConfig["Service"];
@@ -109,7 +81,6 @@ export function createTurnRequests(deps: {
   readonly legacyTurnMemory: Map<string, LegacyTurnMemoryState[]>;
   readonly legacyBufferedTerminals: Map<string, Map<string, ProviderRuntimeEvent>>;
   readonly endTurnAdmissionGeneration: (active: ActiveSession) => void;
-  readonly releaseMastraReservations: (threadId: ThreadId) => Effect.Effect<void, never, never>;
   readonly finishTurn: (
     threadId: ThreadId,
     active: ActiveSession,
@@ -268,40 +239,27 @@ export function createTurnRequests(deps: {
           });
         }
 
-        const { botUsage: _, delegationResults, ...providerInput } = input;
-        // memory.enabled is authoritative per turn: while it is off the turn
-        // must not read the durable snapshot or reserve review cadence. The
-        // identity keeps its stored access so re-enabling restores memory.
-        const settings = yield* deps.memorySettings();
+        const {
+          botUsage: _,
+          delegationResults,
+          memoryChat: requestedMemoryChat,
+          authorPersonId,
+          ...providerInput
+        } = input;
 
-        const memoryAccess = settings.enabled
-          ? deps.legacyResourceIdentity.get(key)?.memoryAccess
+        const memoryChat = deps.legacyResourceIdentity.get(key)?.memory
+          ? requestedMemoryChat
           : undefined;
 
-        const entityMemoryAccess = settings.enabled
-          ? yield* deps.runMastra("memory.access", () =>
-              deps.refreshEntityMemoryAccess(
-                deps.legacyResourceIdentity.get(key)?.entityMemoryAccess,
-              ),
-            )
-          : undefined;
+        const memoryContext = yield* deps.runMastra("memory.render", () =>
+          deps.memoryContext(memoryChat),
+        );
 
-        if (
-          settings.enabled &&
-          deps.legacyResourceIdentity.get(key)?.entityMemoryAccess &&
-          !entityMemoryAccess
-        ) {
-          return yield* new AgentControllerRuntimeError({
-            operation: "sendTurn.memory",
-            detail: "The bot is no longer a member of this group.",
-          });
+        if (memoryChat) {
+          deps.memoryTurns.set(key, { chat: memoryChat, authorPersonId: authorPersonId ?? null });
+        } else {
+          deps.memoryTurns.delete(key);
         }
-
-        const entityPacket = entityMemoryAccess
-          ? yield* deps.runMastra("memory.packet", () =>
-              deps.entityMemoryContext(entityMemoryAccess),
-            )
-          : "";
 
         const conversation = deps.bundle.readObservationalMemory
           ? yield* deps.runMastra("memory.read", () =>
@@ -317,20 +275,6 @@ export function createTurnRequests(deps: {
             ].join("\n")
           : "";
 
-        const memoryTurn = memoryAccess
-          ? yield* Effect.promise(() =>
-              deps.memoryTurnHarness.admit({
-                access: memoryAccess,
-                input: {
-                  threadId: key,
-                  groupId: memoryAccess.groupId === null ? null : String(memoryAccess.groupId),
-                  text: (providerInput.input ?? "").slice(0, 4_000),
-                },
-                privateBotMemory: settings.privateBotMemory,
-              }),
-            )
-          : undefined;
-
         const pendingMemory: LegacyTurnMemoryState = {
           observationPromptId: NodeCrypto.randomUUID(),
           observationRecorded: false,
@@ -341,20 +285,8 @@ export function createTurnRequests(deps: {
           dispatchReturned: false,
           earlyEvents: [],
           assistant: "",
-          memoryTurn,
           hiddenWake: input.hiddenWake === true,
         };
-
-        if (memoryTurn?.reviewIncluded) {
-          const priorMemoryHandler = McpMemoryToolSession.readMcpMemoryToolSession(input.threadId);
-
-          if (priorMemoryHandler) {
-            const reviewMemoryHandler = memoryTurn.wrapMemoryHandler(priorMemoryHandler);
-            pendingMemory.priorMemoryHandler = priorMemoryHandler;
-            pendingMemory.reviewMemoryHandler = reviewMemoryHandler;
-            McpMemoryToolSession.setMcpMemoryToolSession(input.threadId, reviewMemoryHandler);
-          }
-        }
 
         deps.addLegacyPending(key, pendingMemory);
 
@@ -371,9 +303,7 @@ export function createTurnRequests(deps: {
 
         const providerContext = [
           contextInSystem ? turnInstructions : "",
-          memoryTurn?.context,
-          memoryTurn?.review,
-          entityPacket,
+          memoryContext,
           observationContext,
           contextInSystem ? delegationResults : "",
         ]
@@ -418,12 +348,7 @@ export function createTurnRequests(deps: {
             Effect.tapError(() =>
               Effect.gen(function* () {
                 if (deps.hasLegacyPending(key, pendingMemory)) {
-                  deps.restoreLegacyMemoryHandler(key, pendingMemory);
                   deps.removeLegacyPending(key, pendingMemory);
-                }
-
-                if (memoryTurn) {
-                  yield* Effect.promise(() => memoryTurn.abandon());
                 }
 
                 yield* deps.drainLegacyTerminals(key);
@@ -487,9 +412,8 @@ export function createTurnRequests(deps: {
             turnNote: note,
             botUsage: input.botUsage,
             toolSession: active.configuredToolSession,
-            memoryAccess: active.configuredMemoryAccess,
-            entityMemoryAccess: active.configuredEntityMemoryAccess,
-            reviewInput: input.input ?? "",
+            memoryChat: input.memoryChat,
+            authorPersonId: input.authorPersonId ?? null,
             hiddenWake: input.hiddenWake === true,
             delegationResults: input.delegationResults,
           });
@@ -549,22 +473,9 @@ export function createTurnRequests(deps: {
 
       return yield* deps.legacyProviderBridge.interruptTurn(input).pipe(
         Effect.ensuring(
-          Effect.gen(function* () {
-            const pendingTurns = deps.legacyPending(key);
-
-            for (const pending of pendingTurns) deps.restoreLegacyMemoryHandler(key, pending);
+          Effect.sync(() => {
             deps.legacyTurnMemory.delete(key);
             deps.legacyBufferedTerminals.delete(key);
-            yield* Effect.forEach(
-              pendingTurns,
-              (pendingMemory) =>
-                pendingMemory.memoryTurn
-                  ? deps
-                      .runMastra("memory.abandon", () => pendingMemory.memoryTurn!.abandon())
-                      .pipe(Effect.ignoreCause({ log: true }))
-                  : Effect.void,
-              { discard: true },
-            );
           }),
         ),
       );
@@ -575,7 +486,6 @@ export function createTurnRequests(deps: {
     active.admittingTurn = null;
     active.session.abort();
     yield* cancelActiveImageGenerations(input.threadId);
-    yield* deps.releaseMastraReservations(input.threadId);
     deps.finishTurn(input.threadId, active, "interrupted");
   });
 

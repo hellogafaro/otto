@@ -3,13 +3,10 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
-  OttoMemoryTenantId,
-  OttoMemoryUserId,
   BotId,
   DelegationId,
   McpServerId,
   ProviderDriverKind,
-  ProjectId,
   ThreadId,
   type OttoDelegationAccessGrant,
 } from "@otto/contracts";
@@ -18,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { assert, describe, expect, vi } from "vite-plus/test";
 import { ServerConfig } from "../../config.ts";
-import { BotMemoryStore } from "../../memory/bot-memory.ts";
+import { Memories } from "../../memory/memories.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../services/legacy-provider-bridge.ts";
 import { agentControllerLayerWith, type AgentControllerLiveOptions } from "./agent-controller.ts";
@@ -33,12 +30,10 @@ import { usageLedgerFixture } from "./test-support/agent-controller-memory.ts";
 import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
 
 describe("AgentControllerLive", () => {
-  it.effect("enforces delegated MCP and memory grants for tools and prompt context", () => {
+  it.effect("enforces delegated MCP grants and keeps memory out of delegated turns", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
-    const memoryDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-delegated-memory-"));
-    const botMemoryStore = new BotMemoryStore(memoryDir);
-    const readMemory = vi.spyOn(botMemoryStore, "readPromptSnapshot");
+    const render = vi.fn(() => Effect.succeed("<memory>never</memory>"));
 
     const mcpManager = {
       init: vi.fn(async () => undefined),
@@ -87,9 +82,9 @@ describe("AgentControllerLive", () => {
       makeMcpManager,
       undefined,
       undefined,
-      { botMemoryStore },
+      undefined,
       runtime,
-    );
+    ).pipe(Layer.provide(Layer.mock(Memories)({ render })));
 
     const server = (id: typeof webId, name: string) => ({
       id,
@@ -113,17 +108,7 @@ describe("AgentControllerLive", () => {
         modelSelection: codexSelection,
         runtimeMode: "approval-required",
         mcpServers: [server(webId, "web"), server(emailId, "email")],
-        memoryAccess: {
-          tenantId: OttoMemoryTenantId.make("local"),
-          userId: OttoMemoryUserId.make("owner"),
-          threadId: codexThreadId,
-          projectId: ProjectId.make("delegation-memory"),
-          workspaceRoot: process.cwd(),
-          botId: BotId.make("delegated-bot"),
-          respondingBotId: BotId.make("delegated-bot"),
-          groupId: null,
-          groupMemberBotIds: [],
-        },
+        botId: BotId.make("delegated-bot"),
       });
 
       expect(session.mcpServerIds).toEqual([webId]);
@@ -138,18 +123,25 @@ describe("AgentControllerLive", () => {
       expect(toolIds).not.toContain("ExternalRead");
       expect(toolIds).not.toContain("CopyToBox");
       expect(toolIds).not.toContain("CopyFromBox");
-      expect(toolIds).not.toContain("memory");
-      yield* controller.sendTurn({ threadId: codexThreadId, input: "Do the delegated task." });
+      expect(toolIds).not.toContain("memory_update");
+      yield* controller.sendTurn({
+        threadId: codexThreadId,
+        input: "Do the delegated task.",
+        memoryChat: {
+          threadId: codexThreadId,
+          botId: BotId.make("delegated-bot"),
+          groupId: null,
+          groupName: "",
+          projectId: null,
+          projectTitle: "",
+          audiencePersonId: null,
+          people: [],
+        },
+      });
       expect(mastra.session.sendMessage).toHaveBeenCalled();
-      expect(readMemory).not.toHaveBeenCalled();
+      expect(render).not.toHaveBeenCalled();
       expect(mastra.session.state.get()).not.toHaveProperty("persistentMemoryContext");
-    }).pipe(
-      Effect.provide(layer),
-      Effect.orDie,
-      Effect.ensuring(
-        Effect.sync(() => NodeFS.rmSync(memoryDir, { recursive: true, force: true })),
-      ),
-    );
+    }).pipe(Effect.provide(layer), Effect.orDie);
   });
 });
 

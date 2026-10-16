@@ -9,7 +9,6 @@ import { ObservationalMemory, type ObserveHooks } from "@mastra/memory/processor
 import { it } from "@effect/vitest";
 import { assert, expect, vi } from "vite-plus/test";
 import { createOttoObserveHooks, createOttoMastraMemory } from "./otto-mastra-harness.ts";
-import { invalidateEntityMemoryObservations } from "../memory/entity-memory-invalidation.ts";
 import { makeOttoMastraHarnessTestSupport } from "./test-support/otto-mastra-harness.ts";
 
 const { harnessTest, makeObservationHarness, queuedObservations } =
@@ -229,43 +228,6 @@ describe("OttoMastraHarness", () => {
         );
       } finally {
         await harness.close();
-        NodeFS.rmSync(directory, { recursive: true, force: true });
-      }
-    }),
-  );
-
-  it.effect("invalidates observations for threads no harness has touched since restart", () =>
-    harnessTest(async (open) => {
-      const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-om-restart-"));
-      const before = await makeObservationHarness(open, directory);
-
-      try {
-        await before.restoreObservationalMemory!("thread-idle", {
-          current: {
-            id: "observation-before-restart",
-            generationCount: 1,
-            originType: "initial",
-            activeObservations: "A fact that will be forgotten.",
-            bufferedObservations: "",
-            bufferedReflection: null,
-            totalTokensObserved: 3,
-            observationTokenCount: 1,
-            createdAt: "2026-09-13T12:00:00.000Z",
-            updatedAt: "2026-09-13T12:01:00.000Z",
-          },
-          history: [],
-        });
-      } finally {
-        await before.close();
-      }
-
-      const after = await makeObservationHarness(open, directory);
-
-      try {
-        await invalidateEntityMemoryObservations([["thread-idle", "thread-idle"]]);
-        assert.isNull((await after.readObservationalMemory!("thread-idle")).current);
-      } finally {
-        await after.close();
         NodeFS.rmSync(directory, { recursive: true, force: true });
       }
     }),

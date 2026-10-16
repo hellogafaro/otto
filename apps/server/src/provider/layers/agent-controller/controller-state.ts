@@ -3,8 +3,6 @@ import { createSessionResources } from "./session-resources.ts";
 import { BotInboxService } from "../../../bot-inbox/service.ts";
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 import { createOttoMastraAuthStorage } from "./provider-access.ts";
-import { BotMemoryStore } from "../../../memory/bot-memory.ts";
-import { OttoMemoryTurnHarness } from "../../otto-memory-turn-harness.ts";
 import { createPreviewMcpSessions } from "./preview-mcp-sessions.ts";
 import type { AgentControllerLiveOptions } from "./options.ts";
 import * as FileSystem from "effect/FileSystem";
@@ -44,7 +42,7 @@ import {
 import { createOttoWebFetch } from "../../otto-web-fetch.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { RoutineDraftDispatcher } from "../../../routines/routine-draft-dispatcher.ts";
-import { MemoryApprovals } from "../../../memory/memory-approvals.ts";
+import { Memories } from "../../../memory/memories.ts";
 import { type ResolvedEngine, type ActiveSession, type WorkerOrchestration } from "./state.ts";
 
 export const createControllerState = Effect.fn("createControllerState")(function* (
@@ -62,7 +60,7 @@ export const createControllerState = Effect.fn("createControllerState")(function
   // are interrupted when the layer scope closes.
   const { runPromise, fork, forkPromise } = yield* OttoRuntimeSeam.makeOttoRuntimeSeam;
   const routineDraftDispatcher = yield* Effect.serviceOption(RoutineDraftDispatcher);
-  const memoryApprovals = yield* Effect.serviceOption(MemoryApprovals);
+  const memories = yield* Effect.serviceOption(Memories);
   const routineDispatcher = Option.getOrUndefined(routineDraftDispatcher);
   const mutationLock = yield* Semaphore.make(1);
   const runtimeEvents = yield* PubSub.unbounded<ProviderRuntimeEvent>();
@@ -179,16 +177,11 @@ export const createControllerState = Effect.fn("createControllerState")(function
     },
   });
 
-  const botMemoryStore = options?.botMemoryStore ?? new BotMemoryStore(config.stateDir);
-  const memoryTurnHarness = new OttoMemoryTurnHarness(botMemoryStore);
-
   return {
     sessionResources,
     authStorage,
     subscriptionAuth,
     botInbox,
-    botMemoryStore,
-    memoryTurnHarness,
     config,
     fileSystem,
     path,
@@ -198,7 +191,7 @@ export const createControllerState = Effect.fn("createControllerState")(function
     serverSettings,
     mcpSessionRegistry,
     routineDraftDispatcher,
-    memoryApprovals,
+    memories,
     routineDispatcher,
     mutationLock,
     runtimeEvents,

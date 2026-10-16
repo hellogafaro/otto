@@ -18,9 +18,9 @@ import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import { redactComputerScreenshot } from "../mcp/preview-snapshot-redaction.ts";
 import {
-  OTTO_MEMORY_TOOL_DESCRIPTION,
-  type OttoMemoryToolId,
-} from "../memory/bot-memory-tool-handlers.ts";
+  MEMORY_UPDATE_TOOL_DESCRIPTION,
+  type MemoryUpdateToolId,
+} from "../memory/memory-update-tool.ts";
 import {
   type OttoRuntimeToolDefinition,
   type OttoToolRuntimeOptions,
@@ -48,11 +48,11 @@ const isDelegationContextTooLong = Schema.is(OttoDelegationContextTooLongError);
 const isDelegationProviderUnsupported = Schema.is(OttoDelegationProviderUnsupportedError);
 
 const MEMORY_TOOL_DEFINITIONS = [
-  { id: "memory", description: OTTO_MEMORY_TOOL_DESCRIPTION },
+  { id: "memory_update", description: MEMORY_UPDATE_TOOL_DESCRIPTION },
 ] as const satisfies ReadonlyArray<OttoRuntimeToolDefinition>;
 
-export function isMemoryToolId(toolId: string): toolId is OttoMemoryToolId {
-  return toolId === "memory";
+export function isMemoryToolId(toolId: string): toolId is MemoryUpdateToolId {
+  return toolId === "memory_update";
 }
 
 export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToolRuntime {
@@ -228,7 +228,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
     tool: OttoRuntimeToolDefinition,
     input: OttoToolExecution["input"],
   ) => {
-    if (tool.id === "memory") return false;
+    if (tool.id === "memory_update") return false;
     const ottoTool = OTTO_TOOL_CATALOG.find((candidate) => candidate.id === tool.id);
 
     if (!ottoTool) throw new Error(`Tool '${tool.id}' has no definition.`);
@@ -325,7 +325,9 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
         let result: OttoToolResult;
 
         const catalogHandler =
-          execution.toolId === "memory" ? undefined : session.catalogHandlers?.[execution.toolId];
+          execution.toolId === "memory_update"
+            ? undefined
+            : session.catalogHandlers?.[execution.toolId];
 
         if (isMemoryToolId(input.toolId)) {
           const handler = session.memoryHandlers?.[input.toolId];

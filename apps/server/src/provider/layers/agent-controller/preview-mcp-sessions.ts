@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 
 import * as Option from "effect/Option";
 
-import { type OttoMemoryToolHandler } from "../../../memory/bot-memory-tool-handlers.ts";
+import type { MemoryToolHandler } from "../../../memory/memory-update-tool.ts";
 
 import * as McpProviderSession from "../../../mcp/mcp-provider-session.ts";
 import * as McpMemoryToolSession from "../../../mcp/mcp-memory-tool-session.ts";
@@ -50,7 +50,7 @@ export function createPreviewMcpSessions(deps: {
   const preparePreviewMcpSession = (
     threadId: ThreadId,
     providerInstanceId: ProviderInstanceId,
-    memoryHandler?: OttoMemoryToolHandler,
+    memoryHandler?: MemoryToolHandler,
   ) =>
     Effect.gen(function* () {
       // Matches ProviderService's capabilities: an unreadable settings file withholds both.

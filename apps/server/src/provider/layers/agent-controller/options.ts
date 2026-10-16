@@ -8,10 +8,6 @@ import * as Effect from "effect/Effect";
 
 import type * as Scope from "effect/Scope";
 
-import { BotMemoryStore } from "../../../memory/bot-memory.ts";
-
-import { type EntityMemoryRepositoryShape } from "../../../memory/services/entity-memory-repository.ts";
-
 import * as McpSessionRegistry from "../../../mcp/mcp-session-registry.ts";
 
 import {
@@ -41,8 +37,6 @@ export interface AgentControllerLiveOptions {
   readonly resolveComputerUseServer?: typeof resolveCodexComputerUseServer;
   readonly issueMcpCredential?: typeof McpSessionRegistry.issueActiveMcpCredential;
   readonly revokeMcpCredential?: typeof McpSessionRegistry.revokeActiveMcpThread;
-  readonly entityMemoryRepository?: EntityMemoryRepositoryShape;
-  readonly botMemoryStore?: BotMemoryStore;
   readonly delegationRuntime?: Pick<
     OttoDelegationRuntime,
     "send" | "sendToUser" | "parentFinished" | "accessForThread"

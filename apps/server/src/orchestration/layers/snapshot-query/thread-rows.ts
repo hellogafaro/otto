@@ -408,6 +408,7 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
         text,
         attachments_json AS "attachments",
         channel_origin_json AS "channelOrigin",
+        author_person_id AS "authorPersonId",
         is_streaming AS "isStreaming",
         created_at AS "createdAt",
         updated_at AS "updatedAt",

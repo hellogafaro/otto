@@ -1,114 +1,13 @@
-import * as NodeFS from "node:fs";
-import * as NodeOS from "node:os";
-import * as NodePath from "node:path";
-import {
-  OttoMemoryTenantId,
-  OttoMemoryUserId,
-  BotId,
-  ProviderDriverKind,
-  ProjectId,
-  type OttoDelegationAccessGrant,
-} from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Scope from "effect/Scope";
-import { describe, expect, vi } from "vite-plus/test";
-import { BotMemoryStore } from "../../memory/bot-memory.ts";
-import { AgentController } from "../services/agent-controller.ts";
+import { describe, expect } from "vite-plus/test";
 import { type AgentControllerLiveOptions } from "./agent-controller.ts";
-import {
-  codexThreadId,
-  codexInstanceId,
-  codexSelection,
-} from "./test-support/agent-controller-fixtures.ts";
-import { makeBridge, makeLayer, resolveCodex } from "./test-support/agent-controller-layers.ts";
+import { makeBridge, makeLayer } from "./test-support/agent-controller-layers.ts";
 import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
-
-describe("AgentControllerLive", () => {
-  it.effect("keeps the memory tool for a delegated turn granted memory scopes", () => {
-    const bridge = makeBridge();
-    const mastra = mastraHarnessFixture();
-    const memoryDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-delegated-grant-"));
-    const botMemoryStore = new BotMemoryStore(memoryDir);
-
-    const access: OttoDelegationAccessGrant = {
-      allowedToolIds: ["Read"],
-      memoryScopes: ["bot"],
-      sandbox: "local",
-      runtimeMode: "approval-required",
-      hasUserComputer: false,
-      enabledMcpServerIds: [],
-      disabledMcpServerIds: [],
-      approvalCeiling: "send",
-    };
-
-    const runtime = {
-      send: vi.fn(async () => {
-        throw new Error("not used");
-      }),
-      sendToUser: vi.fn(async () => {
-        throw new Error("not used");
-      }),
-      parentFinished: vi.fn(async () => undefined),
-      accessForThread: () => access,
-    };
-
-    const layer = makeLayer(
-      bridge.service,
-      mastra.factory,
-      undefined,
-      undefined,
-      undefined,
-      { botMemoryStore },
-      runtime,
-    );
-
-    const memoryToolIds = () =>
-      mastra.harnessOptions[0]?.toolRuntime
-        .toolsForThread(String(codexThreadId))
-        .map((tool) => tool.id)
-        .filter((id) => id === "memory");
-
-    return Effect.gen(function* () {
-      const controller = yield* AgentController;
-      yield* resolveCodex(controller);
-      yield* controller.startSession(codexThreadId, {
-        threadId: codexThreadId,
-        provider: ProviderDriverKind.make("codex"),
-        providerInstanceId: codexInstanceId,
-        cwd: process.cwd(),
-        modelSelection: codexSelection,
-        runtimeMode: "approval-required",
-        memoryAccess: {
-          tenantId: OttoMemoryTenantId.make("local"),
-          userId: OttoMemoryUserId.make("owner"),
-          threadId: codexThreadId,
-          projectId: ProjectId.make("delegation-memory-grant"),
-          workspaceRoot: process.cwd(),
-          botId: BotId.make("delegated-bot"),
-          respondingBotId: BotId.make("delegated-bot"),
-          groupId: null,
-          groupMemberBotIds: [],
-        },
-      });
-      expect(memoryToolIds()).toEqual(["memory"]);
-      yield* controller.sendTurn({ threadId: codexThreadId, input: "Do the delegated task." });
-      expect(mastra.session.sendMessage).toHaveBeenCalled();
-      // Admission runs the turn without durable memory but keeps the granted tool.
-      expect(memoryToolIds()).toEqual(["memory"]);
-      expect(mastra.session.state.get()).not.toHaveProperty("persistentMemoryContext");
-    }).pipe(
-      Effect.provide(layer),
-      Effect.orDie,
-      Effect.ensuring(
-        Effect.sync(() => NodeFS.rmSync(memoryDir, { recursive: true, force: true })),
-      ),
-    );
-  });
-});
 
 describe("AgentControllerLive", () => {
   it.effect("waits for observational memory shutdown before closing the controller scope", () => {

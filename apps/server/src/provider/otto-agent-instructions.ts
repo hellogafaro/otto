@@ -2,7 +2,7 @@ import { OTTO_TOOL_CATALOG } from "@otto/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import { PREVIEW_TOOLS_PROMPT } from "../mcp/toolkits/preview/tools.ts";
-import { OTTO_MEMORY_TOOL_PROMPT } from "../memory/bot-memory-tool-handlers.ts";
+import { MEMORY_UPDATE_TOOL_PROMPT } from "../memory/memory-update-tool.ts";
 import { BOT_BROWSER_TOOLS_PROMPT } from "./browser/lightpanda-rpc.ts";
 import { OTTO_ROUTINE_TOOL_PROMPTS } from "./mastra/otto-routine-schemas.ts";
 
@@ -57,7 +57,7 @@ function toolPrompt(name: string): OttoToolPrompt | undefined {
     };
   }
 
-  if (name === "memory") return OTTO_MEMORY_TOOL_PROMPT;
+  if (name === "memory_update") return MEMORY_UPDATE_TOOL_PROMPT;
 
   if (name === "ask_user") return ASK_USER_PROMPT;
 
@@ -130,16 +130,66 @@ export function createOttoChatContext(context: OttoChatContext): string {
   );
 }
 
-/** Sections that changed since the chat context was sent; a removed section is an empty tag. */
+/** A memory section's entries by id, each with its scope label and text. */
+function memoryEntries(memory: string): ReadonlyMap<string, string> {
+  const entries = new Map<string, string>();
+  let scope = "";
+
+  for (const line of memory.split("\n")) {
+    const tag = /^<(person|bot|group|project|workspace)(?: name="([^"]*)")?>$/.exec(line);
+
+    if (tag) {
+      scope = tag[1] === "person" ? "person" : [tag[1], tag[2]].filter(Boolean).join(" ");
+      continue;
+    }
+
+    const entry = /^- \[([^\]]+)\] (.*)$/.exec(line);
+
+    if (entry?.[1] && entry[2] !== undefined) entries.set(entry[1], `${scope}: ${entry[2]}`);
+  }
+
+  return entries;
+}
+
+/** What changed in memory since it was sent, entry by entry. */
+function memoryChanges(previous: string, current: string): string {
+  const before = memoryEntries(previous);
+  const after = memoryEntries(current);
+
+  const lines = [
+    ...[...after].flatMap(([id, text]) =>
+      before.get(id) === text ? [] : [`- ${before.has(id) ? "updated" : "added"} [${id}] ${text}`],
+    ),
+    ...[...before.keys()].flatMap((id) => (after.has(id) ? [] : [`- deleted [${id}]`])),
+  ];
+
+  return lines.length > 0 ? ["<memory_changes>", ...lines, "</memory_changes>"].join("\n") : "";
+}
+
+/**
+ * Sections that changed since the chat context was sent; a removed section is an empty tag.
+ * Memory changes are listed per entry instead of resending the whole section.
+ */
 export function createOttoChatContextUpdate(
   changes: ReadonlyArray<readonly [name: string, content: string]>,
+  previous: Readonly<Record<string, string>> = {},
 ): string {
+  const replaced = changes.filter(([name]) => name !== "memory");
+  const memory = changes.find(([name]) => name === "memory");
+
   return [
-    "<context_update>",
-    "These sections replace the ones sent earlier.",
-    ...changes.map(([name, content]) => section(name, content) || `<${name} />`),
-    "</context_update>",
-  ].join("\n");
+    replaced.length > 0
+      ? [
+          "<context_update>",
+          "These sections replace the ones sent earlier.",
+          ...replaced.map(([name, content]) => section(name, content) || `<${name} />`),
+          "</context_update>",
+        ].join("\n")
+      : "",
+    memory ? memoryChanges(previous["memory"] ?? "", memory[1]) : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** The last block of every request: when it is and why the bot is answering now. */

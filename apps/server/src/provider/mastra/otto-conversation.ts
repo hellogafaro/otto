@@ -8,7 +8,6 @@ import { OttoObservationRestoreError } from "./otto-harness-errors.ts";
 
 export function createOttoConversation(
   observationalMemory: Awaited<ReturnType<typeof createOttoMastraMemory>>,
-  registerResource: (threadId: string, resourceId?: string) => void,
   queueObservation: <Result>(
     threadId: string,
     resourceId: string,
@@ -53,8 +52,6 @@ export function createOttoConversation(
   };
 
   const readObservationalMemory = async (threadId: string, resourceId?: string) => {
-    registerResource(threadId, resourceId ?? threadId);
-
     const normalize = (
       record: Awaited<ReturnType<typeof observationalMemory.engine.getRecord>>,
     ) => {

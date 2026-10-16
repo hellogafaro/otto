@@ -1,14 +1,14 @@
 import type { ThreadId } from "@otto/contracts";
 
-import type { OttoMemoryToolHandler } from "../memory/bot-memory-tool-handlers.ts";
+import type { MemoryToolHandler } from "../memory/memory-update-tool.ts";
 
-const handlersByThread = new Map<string, OttoMemoryToolHandler>();
+const handlersByThread = new Map<string, MemoryToolHandler>();
 
-export function setMcpMemoryToolSession(threadId: ThreadId, handler: OttoMemoryToolHandler): void {
+export function setMcpMemoryToolSession(threadId: ThreadId, handler: MemoryToolHandler): void {
   handlersByThread.set(String(threadId), handler);
 }
 
-export function readMcpMemoryToolSession(threadId: ThreadId): OttoMemoryToolHandler | undefined {
+export function readMcpMemoryToolSession(threadId: ThreadId): MemoryToolHandler | undefined {
   return handlersByThread.get(String(threadId));
 }
 

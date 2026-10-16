@@ -7,7 +7,6 @@ import { ObservationalMemory } from "@mastra/memory/processors";
 import { it } from "@effect/vitest";
 import { assert, expect, vi } from "vite-plus/test";
 import { OttoObservationQueueClosedError } from "./otto-mastra-harness.ts";
-import { invalidateEntityMemoryObservations } from "../memory/entity-memory-invalidation.ts";
 import { makeOttoMastraHarnessTestSupport } from "./test-support/otto-mastra-harness.ts";
 
 const { harnessTest, makeObservationHarness, queuedObservations } =
@@ -163,12 +162,11 @@ describe("OttoMastraHarness", () => {
         await observed;
         // The persisted turn left its observation for the next start.
         assert.lengthOf(queuedObservations(directory), 1);
-        // A turn arriving after close is refused and leaves no callback behind.
+        // A turn arriving after close is refused.
         assert.instanceOf(
           await harness.observeExternalTurn!(turn).catch((cause: unknown) => cause),
           OttoObservationQueueClosedError,
         );
-        await invalidateEntityMemoryObservations([[turn.threadId, turn.threadId]]);
         assert.strictEqual(persist.mock.calls.length, 1);
       } finally {
         observe.mockRestore();

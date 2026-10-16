@@ -6,10 +6,7 @@ import * as Effect from "effect/Effect";
 
 import type { OttoControllerHarness } from "../../mastra/otto-harness-types.ts";
 
-import { type OttoMemoryTurn } from "../../otto-memory-turn-harness.ts";
 import { type OttoDelegationChildOutcome } from "../../otto-delegation-runtime.ts";
-
-import { AgentControllerRuntimeError } from "../../errors.ts";
 
 import {
   type ResolvedEngine,
@@ -18,49 +15,23 @@ import {
   type LegacyTurnMemoryState,
 } from "./state.ts";
 
-export function createMemoryCadence(deps: {
+/** Hands finished turns to observational memory, the near-limit compactor. */
+export function createTurnObservations(deps: {
   readonly forkPromise: OttoRuntimeSeam["forkPromise"];
-  readonly mastraMemoryTurns: Map<string, OttoMemoryTurn>;
-  readonly runMastra: <A>(
-    operation: string,
-    run: (signal: AbortSignal) => Promise<A>,
-  ) => Effect.Effect<A, AgentControllerRuntimeError, never>;
   readonly hasLegacyPending: (key: string, pending: LegacyTurnMemoryState) => boolean;
   readonly resolveChildWaiter: (threadId: ThreadId, outcome: OttoDelegationChildOutcome) => void;
-  readonly restoreLegacyMemoryHandler: (key: string, pending: LegacyTurnMemoryState) => void;
   readonly removeLegacyPending: (key: string, pending: LegacyTurnMemoryState) => void;
   readonly legacyPending: (key: string) => LegacyTurnMemoryState[];
   readonly bundle: OttoControllerHarness;
   readonly legacyBufferedTerminals: Map<string, Map<string, ProviderRuntimeEvent>>;
   readonly resolvedByThread: Map<string, ResolvedEngine>;
 }) {
-  const releaseMastraReservations = (threadId: ThreadId) =>
-    Effect.forEach(
-      [...deps.mastraMemoryTurns.entries()].filter(([key]) =>
-        key.startsWith(`${String(threadId)}:`),
-      ),
-      ([key, memoryTurn]) =>
-        deps
-          .runMastra("memory.abandon", () => memoryTurn.abandon())
-          .pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (deps.mastraMemoryTurns.get(key) === memoryTurn) {
-                  deps.mastraMemoryTurns.delete(key);
-                }
-              }),
-            ),
-            Effect.ignoreCause({ log: true }),
-          ),
-      { discard: true },
-    );
-
   const settleLegacyTurnMemory = (
     key: string,
     pending: LegacyTurnMemoryState,
     event: ProviderRuntimeEvent,
   ) =>
-    Effect.gen(function* () {
+    Effect.sync(() => {
       if (!deps.hasLegacyPending(key, pending)) return;
 
       const foregroundSucceeded =
@@ -81,26 +52,9 @@ export function createMemoryCadence(deps: {
       });
 
       if (!foregroundSucceeded) {
-        deps.restoreLegacyMemoryHandler(key, pending);
         deps.removeLegacyPending(key, pending);
 
-        if (pending.memoryTurn) {
-          yield* deps
-            .runMastra("memory.finishForeground", () =>
-              pending.memoryTurn!.finishForeground(false, "foreground"),
-            )
-            .pipe(Effect.ignoreCause({ log: true }));
-        }
-
         return;
-      }
-
-      if (pending.memoryTurn) {
-        yield* deps
-          .runMastra("memory.finishForeground", () =>
-            pending.memoryTurn!.finishForeground(true, "foreground"),
-          )
-          .pipe(Effect.ignoreCause({ log: true }));
       }
 
       const mergedPrompts = deps
@@ -140,10 +94,6 @@ export function createMemoryCadence(deps: {
       }
 
       deps.removeLegacyPending(key, pending);
-
-      if (pending.memoryTurn?.reviewIncluded) {
-        deps.restoreLegacyMemoryHandler(key, pending);
-      }
     });
 
   const drainLegacyTerminals = (key: string) =>
@@ -194,7 +144,6 @@ export function createMemoryCadence(deps: {
   };
 
   return {
-    releaseMastraReservations,
     settleLegacyTurnMemory,
     drainLegacyTerminals,
     queueTurnMemory,

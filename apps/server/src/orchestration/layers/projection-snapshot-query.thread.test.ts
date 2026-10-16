@@ -29,6 +29,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           role,
           text,
           channel_origin_json,
+          author_person_id,
           is_streaming,
           created_at,
           updated_at
@@ -41,6 +42,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
             'user',
             'From Telegram',
             '{"provider":"telegram","externalThreadId":"chat-1"}',
+            NULL,
             0,
             '2026-04-06T00:00:01.000Z',
             '2026-04-06T00:00:01.000Z'
@@ -52,6 +54,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
             'user',
             'From the app',
             NULL,
+            'person-ana',
             0,
             '2026-04-06T00:00:02.000Z',
             '2026-04-06T00:00:02.000Z'
@@ -71,6 +74,8 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
         externalThreadId: "chat-1",
       });
       assert.equal((yield* read("message-local")).message.channelOrigin, undefined);
+      assert.equal((yield* read("message-local")).message.authorPersonId, "person-ana");
+      assert.equal((yield* read("message-channel")).message.authorPersonId, undefined);
     }),
   );
 

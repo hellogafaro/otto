@@ -19,10 +19,6 @@ import * as FiberHandle from "effect/FiberHandle";
 import * as FiberSet from "effect/FiberSet";
 import * as Semaphore from "effect/Semaphore";
 import {
-  registerEntityMemoryResource,
-  registerEntityMemoryStore,
-} from "../memory/entity-memory-invalidation.ts";
-import {
   type OttoMastraHarnessOptions,
   type OttoMastraState,
   type OttoMastraSession,
@@ -591,7 +587,6 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
   // Writes the durable queue row. Admitted work may call this during close;
   // everything else goes through the closed gate in observeAfterTurn.
   const writeObservationRow = (input: OttoBackgroundObservationInput) => {
-    registerResource(input.threadId);
     const resourceId = input.resourceId ?? input.threadId;
     const id = `${input.threadId}:${resourceId}:${input.modelId}:${NodeCrypto.randomUUID()}`;
     const now = DateTime.formatIso(DateTime.nowUnsafe());
@@ -635,8 +630,6 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
   const observeExternalTurn: NonNullable<OttoMastraHarness["observeExternalTurn"]> = async (
     input,
   ) => {
-    registerResource(input.threadId);
-
     // Persisting the turn and queueing its observation are admitted together,
     // so close waits for (or interrupts) both before the stores close. A turn
     // that persisted always leaves a row for the next start to observe.
@@ -655,40 +648,9 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
   };
 
   const { readObservationalMemory, restoreRecords, clearObservationalMemory, persistExternalTurn } =
-    createOttoConversation(
-      observationalMemory,
-      (threadId, resourceId) => registerResource(threadId, resourceId),
-      queueObservation,
-      discardQueuedObservations,
-    );
+    createOttoConversation(observationalMemory, queueObservation, discardQueuedObservations);
 
   void drainObservationQueue().catch(() => undefined);
-  const unregisterStore = registerEntityMemoryStore(clearObservationalMemory);
-  const registeredResources = new Map<string, () => void>();
-  let resourcesUnregistered = false;
-
-  const registerResource = (threadId: string, resourceId = threadId) => {
-    // A late call after close must not leave a callback into this closed harness.
-    if (closed || resourcesUnregistered) return;
-    const key = `${threadId}\u0000${resourceId}`;
-    registeredResources.get(key)?.();
-    registeredResources.set(
-      key,
-      registerEntityMemoryResource(threadId, resourceId, clearObservationalMemory),
-    );
-  };
-
-  // Registered last, so it runs first on close: invalidation stops reaching
-  // this harness before its memory work winds down.
-  yield* Effect.addFinalizer(() =>
-    Effect.sync(() => {
-      unregisterStore();
-      resourcesUnregistered = true;
-
-      for (const unregister of registeredResources.values()) unregister();
-      registeredResources.clear();
-    }),
-  );
 
   const harness: OttoMastraHarness = {
     controller,
@@ -744,13 +706,10 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
       }),
     clearObservationalMemory,
     readObservationalMemory,
-    restoreObservationalMemory: (threadId, snapshot, resourceId = threadId, expectedSnapshot) => {
-      registerResource(threadId, resourceId);
-
-      return queueObservation(threadId, resourceId, () =>
+    restoreObservationalMemory: (threadId, snapshot, resourceId = threadId, expectedSnapshot) =>
+      queueObservation(threadId, resourceId, () =>
         restoreRecords(threadId, snapshot, resourceId, expectedSnapshot),
-      );
-    },
+      ),
     observeAfterTurn,
     observeExternalTurn,
     drainObservationQueue,

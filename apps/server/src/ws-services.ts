@@ -54,9 +54,7 @@ import { OrchestrationCommandReceiptRepository } from "./persistence/services/or
 import * as ProjectionBots from "./persistence/services/projection-bots.ts";
 import * as ProjectionGroups from "./persistence/services/projection-groups.ts";
 import { ProjectionLibraryRepository } from "./persistence/services/projection-library.ts";
-import { BotMemoryStore } from "./memory/bot-memory.ts";
-import { EntityMemoryRepository } from "./memory/services/entity-memory-repository.ts";
-import { MemoryApprovals } from "./memory/memory-approvals.ts";
+import { Memories } from "./memory/memories.ts";
 import {
   observeRpcEffect as instrumentRpcEffect,
   observeRpcStream as instrumentRpcStream,
@@ -100,8 +98,6 @@ import {
   type ProviderSubscribeRefreshes,
   ORCHESTRATION_REPLAY_PAYLOAD_BUDGET_BYTES,
 } from "./ws-support.ts";
-
-import { createWsMemoryAccess } from "./ws-memory-access.ts";
 
 export const createWsServices = (
   currentSession: EnvironmentAuth.AuthenticatedSession,
@@ -243,11 +239,7 @@ export const createWsServices = (
 
     const agentController = yield* AgentController.AgentController;
 
-    const entityMemoryRepositoryOption = yield* Effect.serviceOption(EntityMemoryRepository);
-
-    const entityMemoryRepository = Option.getOrNull(entityMemoryRepositoryOption);
-
-    const memoryApprovals = Option.getOrNull(yield* Effect.serviceOption(MemoryApprovals));
+    const memories = Option.getOrNull(yield* Effect.serviceOption(Memories));
 
     const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
 
@@ -267,8 +259,6 @@ export const createWsServices = (
         env: process.env,
       }),
     };
-
-    const botMemoryStore = new BotMemoryStore(config.stateDir);
 
     const subscriptionAuth = yield* SubscriptionAuthService.forSecretsDir(config.secretsDir, {
       checkHealthOnConnect: true,
@@ -387,9 +377,6 @@ export const createWsServices = (
     const sessions = yield* SessionStore.SessionStore;
 
     const usage = yield* UsageService.UsageService;
-
-    const { resolveMemoryAccess, resolveBotMemoryAccess, readArchiveConversations } =
-      createWsMemoryAccess(projectionSnapshotQuery, projectionGroups, agentController);
 
     const authorizationError = (requiredScope: AuthEnvironmentScope) =>
       new EnvironmentAuthorizationError({
@@ -744,15 +731,12 @@ export const createWsServices = (
       previewManager,
       portDiscovery,
       agentController,
-      entityMemoryRepositoryOption,
-      entityMemoryRepository,
-      memoryApprovals,
+      memories,
       providerRegistry,
       providerMaintenanceRunner,
       serverSelfUpdate,
       config,
       remoteDoctorTarget,
-      botMemoryStore,
       subscriptionAuth,
       botInbox,
       lifecycleEvents,
@@ -777,9 +761,6 @@ export const createWsServices = (
       channelBindingsForRuntime,
       sessions,
       usage,
-      resolveMemoryAccess,
-      resolveBotMemoryAccess,
-      readArchiveConversations,
       authorizationError,
       getAccessHealthSnapshot,
       getImageProviderSnapshot,

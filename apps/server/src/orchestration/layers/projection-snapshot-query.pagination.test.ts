@@ -473,27 +473,26 @@ projectionSnapshotLayer("ProjectionSnapshotQuery windowed thread detail", (it) =
           (
             'memory-approval:memory-open:requested', 'thread-w', NULL, 'approval',
             'memory.approval.requested', 'Save to project memory?',
-            '{"candidateId":"memory-open"}', NULL, '2026-03-01T00:00:06.000Z'
+            '{"memoryId":"memory-open"}', NULL, '2026-03-01T00:00:06.000Z'
           ),
           (
             'memory-approval:memory-decided:requested', 'thread-w', NULL, 'approval',
             'memory.approval.requested', 'Save to project memory?',
-            '{"candidateId":"memory-decided"}', NULL, '2026-03-01T00:00:07.000Z'
+            '{"memoryId":"memory-decided"}', NULL, '2026-03-01T00:00:07.000Z'
           )
       `;
       yield* sql`
-        INSERT INTO otto_memory_candidates (
-          candidate_id, tenant_id, initiating_user_id, source_thread_id, fact_text,
-          target_scope, sensitive, confidence, affected_bot_ids_json, status, created_at
+        INSERT INTO memories (
+          id, scope, scope_id, text, status, thread_id, created_at, updated_at
         )
         VALUES
           (
-            'memory-open', 'tenant', 'user', 'thread-w', 'Open fact', 'project', 0, 1, '[]',
-            'pending', '2026-03-01T00:00:06.000Z'
+            'memory-open', 'project', 'project-w', 'Open fact', 'pending', 'thread-w',
+            '2026-03-01T00:00:06.000Z', '2026-03-01T00:00:06.000Z'
           ),
           (
-            'memory-decided', 'tenant', 'user', 'thread-w', 'Decided fact', 'project', 0, 1,
-            '[]', 'approved', '2026-03-01T00:00:07.000Z'
+            'memory-decided', 'project', 'project-w', 'Decided fact', 'active', 'thread-w',
+            '2026-03-01T00:00:07.000Z', '2026-03-01T00:00:07.000Z'
           )
       `;
       yield* sql`

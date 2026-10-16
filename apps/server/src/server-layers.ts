@@ -50,8 +50,7 @@ import * as EnvironmentAuth from "./auth/environment-auth.ts";
 import * as Composio from "./composio/composio-service.ts";
 import * as DesktopTelemetryReceiver from "./desktop-telemetry/desktop-telemetry-receiver.ts";
 import * as UsageService from "./usage/usage-service.ts";
-import { EntityMemoryRepositoryLive } from "./memory/layers/entity-memory-repository.ts";
-import { MemoryRevisionWriteLockLive } from "./memory/services/memory-revision-write-lock.ts";
+import { MemoriesLive } from "./memory/memories.ts";
 import { OrchestrationLayerLive } from "./orchestration/runtime-layer.ts";
 import * as NetService from "@otto/shared/Net";
 import { RoutineLayerLive } from "./routines/layer.ts";
@@ -61,7 +60,6 @@ import * as TaskToolRuntime from "./tasks/task-tool-runtime.ts";
 import { TaskWorkReactorLive } from "./tasks/task-work-reactor.ts";
 import { NotificationReactorLive } from "./notifications/notification-reactor.ts";
 import { RoutineDraftDispatcherLive } from "./routines/routine-draft-dispatcher.ts";
-import { MemoryApprovalsLive } from "./memory/memory-approvals.ts";
 
 export const ApplicationObservabilityLive = ObservabilityLive;
 
@@ -129,23 +127,14 @@ export const PersistenceLayerLive = Layer.empty.pipe(
 
 export const McpSessionRegistryLayerLive = McpSessionRegistry.layer;
 
-export const RuntimeMemoryRepositoriesLive = EntityMemoryRepositoryLive.pipe(
-  Layer.provide(MemoryRevisionWriteLockLive),
-);
-
-export const RuntimeMemoryRepositoriesWithPersistenceLive = RuntimeMemoryRepositoriesLive.pipe(
-  Layer.provideMerge(PersistenceLayerLive),
-);
-
-export const MemoryApprovalsLayerLive = MemoryApprovalsLive.pipe(
+export const MemoriesLayerLive = MemoriesLive.pipe(
   Layer.provide(OrchestrationLayerLive),
-  Layer.provide(RuntimeMemoryRepositoriesWithPersistenceLive),
+  Layer.provide(PersistenceLayerLive),
 );
 
 export const ProviderLayerLive = AgentControllerLive.pipe(
   Layer.provide(LegacyProviderLayerLive),
-  Layer.provide(RuntimeMemoryRepositoriesWithPersistenceLive),
-  Layer.provide(MemoryApprovalsLayerLive),
+  Layer.provide(MemoriesLayerLive),
   Layer.provide(RoutineDraftDispatcherLive.pipe(Layer.provide(OrchestrationLayerLive))),
 );
 
@@ -207,7 +196,7 @@ export const AuthLayerLive = EnvironmentAuth.layer.pipe(
 export const ProviderRuntimeLayerLive = ProviderSessionReaperLive.pipe(
   Layer.provideMerge(ProviderSessionDirectoryLayerLive),
   Layer.provideMerge(ProviderLayerLive),
-  Layer.provideMerge(MemoryApprovalsLayerLive),
+  Layer.provideMerge(MemoriesLayerLive),
   Layer.provideMerge(OrchestrationLayerLive),
 );
 
@@ -220,7 +209,7 @@ export const RuntimeCoreDependenciesLive = ReactorLayerLive.pipe(
   Layer.provideMerge(VcsLayerLive),
   Layer.provideMerge(ProviderRuntimeLayerLive),
   Layer.provideMerge(PreviewLayerLive),
-  Layer.provideMerge(RuntimeMemoryRepositoriesWithPersistenceLive),
+  Layer.provideMerge(PersistenceLayerLive),
   Layer.provideMerge(Keybindings.layer),
   Layer.provideMerge(ProviderRegistryLive),
   // The instance registry is the new routing keystone — text generation,

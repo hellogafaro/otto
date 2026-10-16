@@ -45,7 +45,6 @@ export function createConversation(deps: {
   readonly sessions: Map<string, ActiveSession>;
   readonly legacyProviderBridge: LegacyProviderBridge["Service"];
   readonly legacyPending: (key: string) => LegacyTurnMemoryState[];
-  readonly restoreLegacyMemoryHandler: (key: string, pending: LegacyTurnMemoryState) => void;
   readonly legacyTurnMemory: Map<string, LegacyTurnMemoryState[]>;
   readonly legacyBufferedTerminals: Map<string, Map<string, ProviderRuntimeEvent>>;
   readonly runMastra: <A>(
@@ -59,7 +58,6 @@ export function createConversation(deps: {
   readonly resolvedByThread: Map<string, ResolvedEngine>;
   readonly toolRuntime: OttoToolRuntime;
   readonly endTurnAdmissionGeneration: (active: ActiveSession) => void;
-  readonly releaseMastraReservations: (threadId: ThreadId) => Effect.Effect<void, never, never>;
   readonly finishTurn: (
     threadId: ThreadId,
     active: ActiveSession,
@@ -99,21 +97,8 @@ export function createConversation(deps: {
       const legacySessions = yield* deps.legacyProviderBridge.listSessions();
 
       if (legacySessions.some((session) => session.threadId === input.threadId)) {
-        const pendingTurns = deps.legacyPending(key);
-
-        for (const pending of pendingTurns) deps.restoreLegacyMemoryHandler(key, pending);
         deps.legacyTurnMemory.delete(key);
         deps.legacyBufferedTerminals.delete(key);
-        yield* Effect.forEach(
-          pendingTurns,
-          (pendingMemory) =>
-            pendingMemory.memoryTurn
-              ? deps
-                  .runMastra("memory.abandon", () => pendingMemory.memoryTurn!.abandon())
-                  .pipe(Effect.ignoreCause({ log: true }))
-              : Effect.void,
-          { discard: true },
-        );
         yield* deps.legacyProviderBridge.stopSession(input).pipe(
           Effect.ensuring(
             Effect.gen(function* () {
@@ -154,7 +139,6 @@ export function createConversation(deps: {
     active.pendingTurns.length = 0;
     active.admittingTurn = null;
     active.session.abort();
-    yield* deps.releaseMastraReservations(input.threadId);
 
     if (active.activeTurn) {
       deps.finishTurn(input.threadId, active, "interrupted");

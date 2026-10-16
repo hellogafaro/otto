@@ -20,15 +20,13 @@ import {
   ThreadId,
   type OttoDelegationAccessGrant,
   type OttoDelegationRecord,
-  type OttoMemoryThreadAccess,
 } from "@otto/contracts";
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { BotInboxService } from "../../../bot-inbox/service.ts";
-import { BotMemoryStore, type BotMemoryAccess } from "../../../memory/bot-memory.ts";
-import { type OttoMemoryToolHandler } from "../../../memory/bot-memory-tool-handlers.ts";
+import type { MemoryToolHandler } from "../../../memory/memory-update-tool.ts";
 
 import { ProjectionSnapshotQuery } from "../../../orchestration/services/projection-snapshot-query.ts";
 
@@ -77,7 +75,6 @@ export interface SessionLifecycleDependencies {
     providerInstanceId: ProviderInstanceId,
   ) => ProviderValidationError;
   readonly options: AgentControllerLiveOptions | undefined;
-  readonly botMemoryStore: BotMemoryStore;
   readonly failureDetail: (cause: unknown) => string;
   readonly runMastra: <A>(
     operation: string,
@@ -88,26 +85,8 @@ export interface SessionLifecycleDependencies {
     never,
     never
   >;
-  readonly memorySettings: () =>
-    | Effect.Effect<
-        | { enabled: boolean; privateBotMemory: boolean; sharedProjectMemory: "auto" | "ask" }
-        | { enabled: boolean; privateBotMemory: boolean; sharedProjectMemory: "ask" },
-        never,
-        never
-      >
-    | Effect.Effect<
-        {
-          readonly enabled: true;
-          readonly privateBotMemory: true;
-          readonly sharedProjectMemory: "ask";
-        },
-        never,
-        never
-      >;
-  readonly memoryHandlers: (
-    access: OttoMemoryThreadAccess | undefined,
-    allowedScopes: OttoDelegationAccessGrant["memoryScopes"],
-  ) => { memory: OttoMemoryToolHandler } | undefined;
+  readonly memoryEnabled: () => Effect.Effect<boolean>;
+  readonly memoryHandlers: (threadId: string) => { memory_update: MemoryToolHandler } | undefined;
   readonly delegationFor: (input: {
     readonly threadId: ThreadId;
     readonly botId: BotId;
@@ -119,13 +98,9 @@ export interface SessionLifecycleDependencies {
     threadId: ThreadId,
     access: OttoDelegationAccessGrant,
   ) => NonNullable<OttoToolSession["workers"]>;
-  readonly memoryAccessFor: (
-    access: OttoMemoryThreadAccess | undefined,
-  ) => BotMemoryAccess | undefined;
   readonly toolRuntime: OttoToolRuntime;
   readonly toProviderSession: (threadId: ThreadId, active: ActiveSession) => ProviderSession;
   readonly legacyResourceIdentity: Map<string, LegacyResourceIdentity>;
-  readonly memoryAccessKey: (access: BotMemoryAccess | undefined) => string | undefined;
   readonly sessionResources: OttoSessionResources;
   readonly stopSessionWithResources: (
     input: { readonly threadId: ThreadId },
@@ -134,10 +109,9 @@ export interface SessionLifecycleDependencies {
   readonly preparePreviewMcpSession: (
     threadId: ThreadId,
     providerInstanceId: ProviderInstanceId,
-    memoryHandler?: OttoMemoryToolHandler,
+    memoryHandler?: MemoryToolHandler,
   ) => Effect.Effect<void, never, never>;
   readonly clearPreviewMcpSession: (threadId: ThreadId) => Effect.Effect<void, never, never>;
-  readonly entityMemoryContext: (access: OttoMemoryThreadAccess | undefined) => Promise<string>;
   readonly subscriptionAuth: SubscriptionAuthService;
   readonly botInbox: BotInboxService;
   readonly deleteCatalogMcpServer: (

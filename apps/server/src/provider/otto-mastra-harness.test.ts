@@ -9,7 +9,6 @@ import * as DateTime from "effect/DateTime";
 import { it } from "@effect/vitest";
 import { assert, expect, vi } from "vite-plus/test";
 import { OttoObservationRestoreError } from "./otto-mastra-harness.ts";
-import { invalidateEntityMemoryObservations } from "../memory/entity-memory-invalidation.ts";
 import { makeOttoMastraHarnessTestSupport } from "./test-support/otto-mastra-harness.ts";
 
 const { harnessTest, makeObservationHarness, restoreSnapshot, failInserts } =
@@ -158,48 +157,6 @@ describe("OttoMastraHarness", () => {
         spy?.mockRestore();
         await harness.close();
         NodeFS.rmSync(directory, { recursive: true, force: true });
-      }
-    }),
-  );
-
-  it.effect("scopes entity invalidation to the owning harness and thread resources", () =>
-    harnessTest(async (open) => {
-      const firstDirectory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-om-owner-a-"));
-
-      const secondDirectory = NodeFS.mkdtempSync(
-        NodePath.join(NodeOS.tmpdir(), "otto-om-owner-b-"),
-      );
-
-      const first = await makeObservationHarness(open, firstDirectory);
-      const second = await makeObservationHarness(open, secondDirectory);
-
-      const snapshot = {
-        current: {
-          id: "owned-observation",
-          generationCount: 1,
-          originType: "initial",
-          activeObservations: "Shared fact.",
-          bufferedObservations: "",
-          bufferedReflection: null,
-          totalTokensObserved: 1,
-          observationTokenCount: 1,
-          createdAt: "2026-09-13T12:00:00.000Z",
-          updatedAt: "2026-09-13T12:01:00.000Z",
-        },
-        history: [],
-      } as const;
-
-      try {
-        await first.restoreObservationalMemory!("thread-a", snapshot);
-        await second.restoreObservationalMemory!("thread-b", snapshot);
-        await invalidateEntityMemoryObservations([["thread-a", "thread-a"]]);
-        assert.isNull((await first.readObservationalMemory!("thread-a")).current);
-        assert.isNotNull((await second.readObservationalMemory!("thread-b")).current);
-      } finally {
-        await first.close();
-        await second.close();
-        NodeFS.rmSync(firstDirectory, { recursive: true, force: true });
-        NodeFS.rmSync(secondDirectory, { recursive: true, force: true });
       }
     }),
   );

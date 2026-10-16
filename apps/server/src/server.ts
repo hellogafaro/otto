@@ -307,5 +307,3 @@ export const makeServerLayer = Layer.unwrap(
 
 // The CLI supplies configuration.
 export const runServer = Layer.launch(makeServerLayer);
-
-export { RuntimeMemoryRepositoriesLive } from "./server-layers.ts";

@@ -1,513 +1,242 @@
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 import * as Effect from "effect/Effect";
 import {
-  OttoMemoryId,
-  OttoMemoryOperationError,
-  type OttoMemoryMutationResult,
+  isGroupBotMember,
+  MEMORY_SCOPE_CAPS,
+  type Memory,
+  MemoryError,
+  type MemoryScope,
+  type MemorySection,
+  WORKSPACE_MEMORY_SCOPE_ID,
   WS_METHODS,
   WsRpcGroup,
 } from "@otto/contracts";
-import {
-  applyBotMemoryImport,
-  exportBotMemoryArchive,
-  previewBotMemoryImport,
-} from "./memory/bot-memory-archive.ts";
-import { exportOttoMemory } from "./memory/memory-export.ts";
-import { applyOttoMemoryImport, previewOttoMemoryImport } from "./memory/memory-import.ts";
 
-import { isOrchestrationDispatchCommandError, nowIso, memoryOperationError } from "./ws-support.ts";
+import { canSeeGroup, canSeeThread, canSeeThreadById } from "./orchestration/group-visibility.ts";
+import { memoryOperationError } from "./ws-support.ts";
 import type { WsConnection } from "./ws-connection.ts";
+
+/** The old Markdown and fact RPCs, kept so older apps get a clear answer. */
+const replaced = (operation: string) => () =>
+  Effect.fail(
+    memoryOperationError(operation, "This memory view was replaced. Open the bot's Memory panel."),
+  );
 
 export const createWsMemoryHandlers = ({
   agentController,
-  entityMemoryRepository,
-  memoryApprovals,
-  botMemoryStore,
-  serverSettings,
-  resolveMemoryAccess,
-  resolveBotMemoryAccess,
-  readArchiveConversations,
+  memories,
+  currentPersonId,
+  projectionSnapshotQuery,
+  projectionGroups,
   observeRpcEffect,
-  randomUUID,
 }: Pick<
   WsConnection,
   | "agentController"
-  | "entityMemoryRepository"
-  | "memoryApprovals"
-  | "botMemoryStore"
-  | "serverSettings"
-  | "resolveMemoryAccess"
-  | "resolveBotMemoryAccess"
-  | "readArchiveConversations"
+  | "memories"
+  | "currentPersonId"
+  | "projectionSnapshotQuery"
+  | "projectionGroups"
   | "observeRpcEffect"
-  | "randomUUID"
->) =>
-  ({
-    [WS_METHODS.memoryExport]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryExport,
-        Effect.all({
-          access: resolveBotMemoryAccess("documents.export", input.threadId),
-          createdAt: nowIso,
-          conversation: agentController.readConversationMemory
-            ? agentController
-                .readConversationMemory(input.threadId)
-                .pipe(Effect.mapError((cause) => memoryOperationError("documents.export", cause)))
-            : Effect.fail(
-                memoryOperationError("documents.export", "Observational memory is unavailable."),
-              ),
-        }).pipe(
-          Effect.flatMap(({ access, createdAt, conversation }) =>
-            Effect.tryPromise({
-              try: () =>
-                exportBotMemoryArchive({
-                  store: botMemoryStore,
-                  access,
-                  threadId: input.threadId,
-                  conversation,
-                  createdAt,
-                }),
-              catch: (cause) => memoryOperationError("documents.export", cause),
-            }),
-          ),
-        ),
-        { "rpc.aggregate": "memory" },
-      ),
+>) => {
+  const fail = (message: string) => Effect.fail(new MemoryError({ message }));
 
-    [WS_METHODS.memoryImportPreview]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryImportPreview,
-        Effect.all({
-          access: resolveBotMemoryAccess("documents.importPreview", input.threadId),
-          settings: serverSettings.getSettings.pipe(
-            Effect.mapError((cause) => memoryOperationError("documents.importPreview", cause)),
-          ),
-          conversation: agentController.readConversationMemory
-            ? agentController
-                .readConversationMemory(input.threadId)
-                .pipe(
-                  Effect.mapError((cause) =>
-                    memoryOperationError("documents.importPreview", cause),
-                  ),
-                )
-            : Effect.fail(
-                memoryOperationError(
-                  "documents.importPreview",
-                  "Observational memory is unavailable.",
-                ),
-              ),
-        }).pipe(
-          Effect.flatMap(({ access, settings, conversation }) =>
-            Effect.tryPromise({
-              try: () =>
-                previewBotMemoryImport({
-                  store: botMemoryStore,
-                  access,
-                  threadId: input.threadId,
-                  archive: input.archive,
-                  currentConversation: conversation,
-                  privateBotMemory: settings.memory.privateBotMemory,
-                }),
-              catch: (cause) => memoryOperationError("documents.importPreview", cause),
-            }),
-          ),
-        ),
-        { "rpc.aggregate": "memory" },
-      ),
+  const service = memories === null ? fail("Memory is unavailable.") : Effect.succeed(memories);
 
-    [WS_METHODS.memoryImportApply]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryImportApply,
-        Effect.all({
-          access: resolveBotMemoryAccess("documents.importApply", input.threadId),
-          settings: serverSettings.getSettings.pipe(
-            Effect.mapError((cause) => memoryOperationError("documents.importApply", cause)),
-            Effect.flatMap((settings) =>
-              settings.memory.enabled === false
-                ? Effect.fail(
-                    memoryOperationError("documents.importApply", "Memory is turned off."),
-                  )
-                : Effect.succeed(settings),
+  const shell = projectionSnapshotQuery
+    .getShellSnapshot()
+    .pipe(Effect.mapError(() => new MemoryError({ message: "Memory could not be read." })));
+
+  type Shell = Effect.Success<typeof shell>;
+
+  /** Person memory belongs to its person; group memory to the people who can see the group. */
+  const canReach = (shellSnapshot: Shell, scope: MemoryScope, scopeId: string) => {
+    if (scope === "person") return scopeId === currentPersonId;
+
+    if (scope !== "group") return true;
+
+    return shellSnapshot.groups.some(
+      (group) => group.id === scopeId && canSeeGroup(group, currentPersonId),
+    );
+  };
+
+  /** An entry this person may change, by id. */
+  const reachable = (id: string) =>
+    Effect.all([service, shell]).pipe(
+      Effect.flatMap(([memoriesService, shellSnapshot]) =>
+        memoriesService
+          .get(id)
+          .pipe(
+            Effect.flatMap((row) =>
+              canReach(shellSnapshot, row.scope, row.scopeId)
+                ? Effect.succeed({ memoriesService, row })
+                : fail(`${id} does not exist.`),
             ),
           ),
-          conversation: agentController.readConversationMemory
-            ? agentController
-                .readConversationMemory(input.threadId)
-                .pipe(
-                  Effect.mapError((cause) => memoryOperationError("documents.importApply", cause)),
-                )
-            : Effect.fail(
-                memoryOperationError(
-                  "documents.importApply",
-                  "Observational memory is unavailable.",
-                ),
-              ),
-        }).pipe(
-          Effect.flatMap(({ access, settings, conversation }) =>
-            Effect.tryPromise({
-              try: () =>
-                applyBotMemoryImport({
-                  store: botMemoryStore,
-                  access,
-                  threadId: input.threadId,
-                  archive: input.archive,
-                  currentConversation: conversation,
-                  previewHash: input.previewHash,
-                  privateBotMemory: settings.memory.privateBotMemory,
-                  restoreConversation: (snapshot, expectedSnapshot) =>
-                    agentController.restoreConversationMemory
-                      ? Effect.runPromise(
-                          agentController.restoreConversationMemory(
-                            input.threadId,
-                            snapshot,
-                            expectedSnapshot,
-                          ),
-                        )
-                      : Promise.reject(
-                          new Error("Observational memory restoration is unavailable."),
-                        ),
-                }),
-              catch: (cause) => memoryOperationError("documents.importApply", cause),
-            }),
-          ),
-        ),
-        { "rpc.aggregate": "memory" },
       ),
+    );
 
-    [WS_METHODS.memoryArchiveExport]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryArchiveExport,
-        entityMemoryRepository === null
-          ? Effect.fail(memoryOperationError("archive.export", "Durable memory is unavailable."))
-          : Effect.all({
-              access: resolveMemoryAccess("archive.export", input.threadId),
-              conversations: resolveMemoryAccess("archive.export", input.threadId).pipe(
-                Effect.flatMap((access) => readArchiveConversations(access, input.target)),
-              ),
-              createdAt: nowIso,
-            }).pipe(
-              Effect.flatMap(({ access, conversations, createdAt }) =>
-                exportOttoMemory({
-                  repository: entityMemoryRepository,
-                  access,
-                  target: input.target,
-                  complete: input.complete && conversations.length > 0,
-                  createdAt,
-                  conversations,
-                }).pipe(Effect.mapError((cause) => memoryOperationError("archive.export", cause))),
-              ),
-            ),
-        { "rpc.aggregate": "memory" },
-      ),
-
-    [WS_METHODS.memoryArchivePreviewImport]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryArchivePreviewImport,
-        entityMemoryRepository === null
-          ? Effect.fail(
-              memoryOperationError("archive.previewImport", "Durable memory is unavailable."),
-            )
-          : resolveMemoryAccess("archive.previewImport", input.threadId).pipe(
-              Effect.flatMap((access) =>
-                previewOttoMemoryImport({
-                  repository: entityMemoryRepository,
-                  access,
-                  target: input.target,
-                  archive: input.archive,
-                }).pipe(
-                  Effect.mapError((cause) => memoryOperationError("archive.previewImport", cause)),
-                ),
-              ),
-            ),
-        { "rpc.aggregate": "memory" },
-      ),
-
-    [WS_METHODS.memoryArchiveApplyImport]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryArchiveApplyImport,
-        entityMemoryRepository === null
-          ? Effect.fail(
-              memoryOperationError("archive.applyImport", "Durable memory is unavailable."),
-            )
-          : serverSettings.getSettings.pipe(
-              Effect.mapError((cause) => memoryOperationError("archive.applyImport", cause)),
-              Effect.flatMap((settings) =>
-                settings.memory.enabled === false
-                  ? Effect.fail(
-                      memoryOperationError("archive.applyImport", "Memory is turned off."),
-                    )
-                  : resolveMemoryAccess("archive.applyImport", input.threadId),
-              ),
-              Effect.flatMap((access) =>
-                applyOttoMemoryImport({
-                  repository: entityMemoryRepository,
-                  access,
-                  target: input.target,
-                  archive: input.archive,
-                  previewHash: input.previewHash,
-                  resolutions: input.resolutions,
-                }).pipe(
-                  Effect.mapError((cause) => memoryOperationError("archive.applyImport", cause)),
-                ),
-              ),
-            ),
-        { "rpc.aggregate": "memory" },
-      ),
-
-    [WS_METHODS.memoryFactsList]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryFactsList,
-        entityMemoryRepository === null
-          ? Effect.fail(memoryOperationError("facts.list", "Durable memory is unavailable."))
-          : resolveMemoryAccess("facts.list", input.threadId).pipe(
-              Effect.flatMap((access) =>
-                exportOttoMemory({
-                  repository: entityMemoryRepository,
-                  access,
-                  target: input.target,
-                  // Complete history, so pending, rejected, and forgotten facts stay
-                  // visible and actionable, and each fact can show the text it replaced.
-                  complete: true,
-                  createdAt: "1970-01-01T00:00:00.000Z",
-                  conversations: [],
-                }).pipe(
-                  Effect.mapError((cause) => memoryOperationError("facts.list", cause)),
-                  Effect.map((archive) => {
-                    const revisions = archive.revisions.map(({ revision }) => revision);
-                    const byId = new Map(revisions.map((revision) => [revision.id, revision]));
-                    const firstCreatedAt = new Map<string, string>();
-
-                    for (const revision of revisions) {
-                      if (revision.revision === 1) {
-                        firstCreatedAt.set(revision.rootId, revision.createdAt);
-                      }
-                    }
-
-                    return {
-                      facts: revisions
-                        .filter(
-                          (revision) =>
-                            revision.supersededById === null &&
-                            revision.deletionState !== "deleted",
-                        )
-                        .map((revision) => {
-                          const previous = revision.supersedesId
-                            ? byId.get(revision.supersedesId)
-                            : undefined;
-
-                          return {
-                            rootId: revision.rootId,
-                            fact: revision.fact,
-                            scope: revision.partition.scope,
-                            sourceThreadId: revision.sourceThreadId,
-                            affectedBotIds: revision.affectedBotIds,
-                            approvalState: revision.approvalState,
-                            deletionState: revision.deletionState,
-                            pinned: revision.pinned,
-                            createdAt: firstCreatedAt.get(revision.rootId) ?? revision.createdAt,
-                            updatedAt: revision.updatedAt,
-                            revision: revision.revision,
-                            supersededFact:
-                              previous && previous.fact !== revision.fact ? previous.fact : null,
-                          };
-                        }),
-                    };
-                  }),
-                ),
-              ),
-            ),
-        { "rpc.aggregate": "memory" },
-      ),
-
-    [WS_METHODS.memoryFactMutate]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryFactMutate,
-        entityMemoryRepository === null
-          ? Effect.fail(memoryOperationError("facts.mutate", "Durable memory is unavailable."))
-          : Effect.all({
-              access: resolveMemoryAccess("facts.mutate", input.threadId),
-              memoryId: randomUUID.pipe(Effect.map((uuid) => OttoMemoryId.make(`rpc:${uuid}`))),
-              updatedAt: nowIso,
-              settings: serverSettings.getSettings.pipe(
-                Effect.mapError((cause) => memoryOperationError("facts.mutate", cause)),
-              ),
-            }).pipe(
-              Effect.flatMap(
-                ({
-                  access,
-                  memoryId,
-                  updatedAt,
-                  settings,
-                }): Effect.Effect<OttoMemoryMutationResult, OttoMemoryOperationError> => {
-                  const mutation = input.mutation;
-
-                  if (mutation.operation === "candidate.decide") {
-                    const { decision } = mutation;
-
-                    if (memoryApprovals === null) {
-                      return Effect.fail(
-                        memoryOperationError("facts.mutate", "Memory approvals are unavailable."),
-                      );
-                    }
-
-                    if (decision.decision === "approve" && !settings.memory.enabled) {
-                      return Effect.fail(
-                        memoryOperationError("facts.mutate", "Memory is turned off."),
-                      );
-                    }
-
-                    if (
-                      decision.decision === "approve" &&
-                      settings.memory.privateBotMemory === false &&
-                      (decision.scope === "private" || decision.scope === "bot")
-                    ) {
-                      return Effect.fail(
-                        memoryOperationError(
-                          "facts.mutate",
-                          "Private bot memory is turned off. The fact cannot be saved to a bot-private scope.",
-                        ),
-                      );
-                    }
-
-                    return memoryApprovals.decide({ access, decision }).pipe(
-                      Effect.map((receipt) => ({ kind: "candidate" as const, receipt })),
-                      Effect.mapError((cause) => memoryOperationError("facts.mutate", cause)),
-                    );
-                  }
-
-                  if (mutation.operation === "conversation.clear") {
-                    return Effect.fail(
-                      memoryOperationError(
-                        "facts.mutate",
-                        `${mutation.operation} is not a durable fact mutation.`,
-                      ),
-                    );
-                  }
-
-                  if (settings.memory.enabled === false) {
-                    return Effect.fail(
-                      memoryOperationError("facts.mutate", "Memory is turned off."),
-                    );
-                  }
-
-                  if (
-                    settings.memory.privateBotMemory === false &&
-                    mutation.operation === "fact.scope" &&
-                    (mutation.scope === "private" || mutation.scope === "bot")
-                  ) {
-                    return Effect.fail(
-                      memoryOperationError(
-                        "facts.mutate",
-                        "Private bot memory is turned off. The fact cannot be moved to a bot-private scope.",
-                      ),
-                    );
-                  }
-
-                  return entityMemoryRepository
-                    .applyMutation({
-                      access,
-                      mutation,
-                      memoryId,
-                      updatedAt,
-                      sharedProjectApproval:
-                        settings.memory.sharedProjectMemory === "auto" ? "approved" : "pending",
-                    })
-                    .pipe(
-                      Effect.map((revision) =>
-                        revision === null
-                          ? { kind: "deleted" as const, memoryId: mutation.memoryId }
-                          : { kind: "revision" as const, revision },
-                      ),
-                      Effect.mapError((cause) => memoryOperationError("facts.mutate", cause)),
-                    );
-                },
-              ),
-            ),
-        { "rpc.aggregate": "memory" },
-      ).pipe(
-        Effect.catch((cause) =>
-          isOrchestrationDispatchCommandError(cause)
-            ? memoryOperationError("facts.mutate", cause)
-            : Effect.fail(cause),
-        ),
-      ),
-
-    [WS_METHODS.memoryDocumentsInspect]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryDocumentsInspect,
-        Effect.all({
-          access: resolveBotMemoryAccess("documents.inspect", input.threadId),
-          conversation: agentController.readConversationMemory
-            ? agentController
-                .readConversationMemory(input.threadId)
-                .pipe(Effect.mapError((cause) => memoryOperationError("documents.inspect", cause)))
-            : Effect.fail(
-                memoryOperationError("documents.inspect", "Observational memory is unavailable."),
-              ),
-        }).pipe(
-          Effect.flatMap(({ access, conversation }) =>
-            Effect.tryPromise({
-              try: () => botMemoryStore.readSnapshot(access),
-              catch: (cause) => memoryOperationError("documents.inspect", cause),
-            }).pipe(Effect.map((documents) => ({ ...documents, conversation }))),
-          ),
-        ),
-        { "rpc.aggregate": "memory" },
-      ),
-
-    [WS_METHODS.memoryDocumentReplace]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryDocumentReplace,
-        Effect.all({
-          access: resolveBotMemoryAccess("document.replace", input.threadId),
-          settings: serverSettings.getSettings.pipe(
-            Effect.mapError((cause) => memoryOperationError("document.replace", cause)),
-          ),
-        }).pipe(
-          Effect.flatMap(({ access, settings }) =>
-            settings.memory.enabled === false ||
-            (input.target === "memory" && settings.memory.privateBotMemory === false)
-              ? Effect.fail(
-                  memoryOperationError(
-                    "document.replace",
-                    input.target === "memory"
-                      ? "Private bot memory is turned off."
-                      : "Memory is turned off.",
-                  ),
-                )
-              : Effect.tryPromise({
-                  try: () =>
-                    botMemoryStore.replaceDocument(
-                      access,
-                      input.target,
-                      input.content,
-                      input.expectedBotId,
-                      input.expectedContent,
-                    ),
-                  catch: (cause) => memoryOperationError("document.replace", cause),
-                }),
-          ),
-        ),
-        { "rpc.aggregate": "memory" },
-      ),
+  return {
+    [WS_METHODS.memoryExport]: replaced("documents.export"),
+    [WS_METHODS.memoryImportPreview]: replaced("documents.importPreview"),
+    [WS_METHODS.memoryImportApply]: replaced("documents.importApply"),
+    [WS_METHODS.memoryArchiveExport]: replaced("archive.export"),
+    [WS_METHODS.memoryArchivePreviewImport]: replaced("archive.previewImport"),
+    [WS_METHODS.memoryArchiveApplyImport]: replaced("archive.applyImport"),
+    [WS_METHODS.memoryFactsList]: replaced("facts.list"),
+    [WS_METHODS.memoryFactMutate]: replaced("facts.mutate"),
+    [WS_METHODS.memoryDocumentsInspect]: replaced("documents.inspect"),
+    [WS_METHODS.memoryDocumentReplace]: replaced("document.replace"),
 
     [WS_METHODS.memoryObservationsClear]: (input) =>
       observeRpcEffect(
         WS_METHODS.memoryObservationsClear,
-        agentController.clearConversationMemory
-          ? resolveMemoryAccess("observations.clear", input.threadId).pipe(
-              Effect.flatMap(() =>
-                (agentController.clearConversationMemory?.(input.threadId) ?? Effect.void).pipe(
-                  Effect.mapError((cause) => memoryOperationError("observations.clear", cause)),
-                ),
-              ),
-            )
-          : Effect.fail(
-              memoryOperationError("observations.clear", "Observational memory is unavailable."),
-            ),
+        Effect.gen(function* () {
+          const visible = yield* canSeeThreadById(
+            { projectionSnapshotQuery, projectionGroups },
+            input.threadId,
+            currentPersonId,
+          );
+
+          if (!visible || !agentController.clearConversationMemory) {
+            return yield* memoryOperationError(
+              "observations.clear",
+              "Observational memory is unavailable.",
+            );
+          }
+
+          yield* agentController
+            .clearConversationMemory(input.threadId)
+            .pipe(Effect.mapError((cause) => memoryOperationError("observations.clear", cause)));
+        }),
         { "rpc.aggregate": "memory" },
       ),
-  }) satisfies Pick<
+
+    [WS_METHODS.memoryList]: ({ botId }) =>
+      observeRpcEffect(
+        WS_METHODS.memoryList,
+        Effect.gen(function* () {
+          const memoriesService = yield* service;
+          const shellSnapshot = yield* shell;
+
+          const groups = shellSnapshot.groups.filter(
+            (group) =>
+              group.members.some((member) => isGroupBotMember(member) && member.botId === botId) &&
+              canSeeGroup(group, currentPersonId),
+          );
+
+          const rows = yield* memoriesService.list([
+            ["person", currentPersonId],
+            ["bot", botId],
+            ...groups.map((group) => ["group", group.id] as const),
+            ...shellSnapshot.projects.map((project) => ["project", project.id] as const),
+            ["workspace", WORKSPACE_MEMORY_SCOPE_ID],
+          ]);
+
+          const threadTitles = new Map(
+            shellSnapshot.threads
+              .filter((thread) => canSeeThread(thread, shellSnapshot.groups, currentPersonId))
+              .map((thread) => [String(thread.id), thread.title]),
+          );
+
+          const section = (scope: MemoryScope, scopeId: string, title: string): MemorySection => {
+            const entries = rows.filter((row) => row.scope === scope && row.scopeId === scopeId);
+
+            return {
+              scope,
+              scopeId,
+              title,
+              used: entries.reduce((total, row) => total + row.text.length, 0),
+              cap: MEMORY_SCOPE_CAPS[scope],
+              memories: entries.map(
+                (row): Memory => ({
+                  ...row,
+                  threadTitle: row.threadId ? (threadTitles.get(row.threadId) ?? null) : null,
+                }),
+              ),
+            };
+          };
+
+          // About you and the bot always show; shared scopes only once they hold something.
+          const shared = [
+            ...groups.map((group) => section("group", group.id, group.name)),
+            ...shellSnapshot.projects.map((project) =>
+              section("project", project.id, project.title),
+            ),
+            section("workspace", WORKSPACE_MEMORY_SCOPE_ID, ""),
+          ].filter((candidate) => candidate.memories.length > 0);
+
+          return {
+            sections: [
+              section("person", currentPersonId, ""),
+              section("bot", botId, ""),
+              ...shared,
+            ],
+          };
+        }),
+        { "rpc.aggregate": "memory" },
+      ),
+
+    [WS_METHODS.memoryCreate]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.memoryCreate,
+        Effect.gen(function* () {
+          const memoriesService = yield* service;
+
+          if (!canReach(yield* shell, input.scope, input.scopeId)) {
+            return yield* fail("You cannot add to this memory.");
+          }
+
+          return yield* memoriesService.create({ personId: currentPersonId, ...input });
+        }),
+        { "rpc.aggregate": "memory" },
+      ),
+
+    [WS_METHODS.memoryUpdate]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.memoryUpdate,
+        reachable(input.id).pipe(
+          Effect.flatMap(({ memoriesService, row }) =>
+            row.status === "active"
+              ? memoriesService.update({ personId: currentPersonId, row, text: input.text })
+              : fail("Approve or reject this entry instead."),
+          ),
+        ),
+        { "rpc.aggregate": "memory" },
+      ),
+
+    [WS_METHODS.memoryDelete]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.memoryDelete,
+        reachable(input.id).pipe(
+          Effect.flatMap(({ memoriesService, row }) =>
+            row.status === "active"
+              ? memoriesService.remove(row.id).pipe(Effect.asVoid)
+              : fail("Approve or reject this entry instead."),
+          ),
+        ),
+        { "rpc.aggregate": "memory" },
+      ),
+
+    [WS_METHODS.memoryDecide]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.memoryDecide,
+        reachable(input.id).pipe(
+          Effect.flatMap(({ memoriesService, row }) =>
+            row.status === "pending"
+              ? memoriesService
+                  .decide({
+                    personId: currentPersonId,
+                    row,
+                    decision: input.decision,
+                    text: input.text,
+                  })
+                  .pipe(Effect.asVoid)
+              : fail("This entry was already decided."),
+          ),
+        ),
+        { "rpc.aggregate": "memory" },
+      ),
+  } satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     | typeof WS_METHODS.memoryExport
     | typeof WS_METHODS.memoryImportPreview
@@ -520,4 +249,10 @@ export const createWsMemoryHandlers = ({
     | typeof WS_METHODS.memoryDocumentsInspect
     | typeof WS_METHODS.memoryDocumentReplace
     | typeof WS_METHODS.memoryObservationsClear
+    | typeof WS_METHODS.memoryList
+    | typeof WS_METHODS.memoryCreate
+    | typeof WS_METHODS.memoryUpdate
+    | typeof WS_METHODS.memoryDelete
+    | typeof WS_METHODS.memoryDecide
   >;
+};

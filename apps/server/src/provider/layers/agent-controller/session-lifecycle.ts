@@ -11,14 +11,6 @@ import * as Effect from "effect/Effect";
 
 import * as Semaphore from "effect/Semaphore";
 
-import { formatBotMemoryPrompt } from "../../../memory/bot-memory.ts";
-
-import {
-  legacyMemoryMigrationKeys,
-  legacyMemoryMigrationAccesses,
-  migrateLegacyBotMemory,
-} from "../../../memory/legacy-memory-migration.ts";
-
 import * as McpMemoryToolSession from "../../../mcp/mcp-memory-tool-session.ts";
 
 import { workerAccess } from "../../otto-worker-runtime.ts";
@@ -45,7 +37,6 @@ import { type ActiveSession, type PendingApproval } from "./state.ts";
 import { nowIso } from "./event-identity.ts";
 
 export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
-  const options = deps.options;
   const { isOpenDelegation, isChildOf, readSessionStartContext } = createSessionContext(deps);
 
   const startSession: AgentControllerShape["startSession"] = Effect.fn(
@@ -165,46 +156,9 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       });
     }
 
-    const migrationBotId = input.memoryAccess?.respondingBotId ?? input.memoryAccess?.botId;
-
-    if (migrationBotId && input.memoryAccess && options?.entityMemoryRepository) {
-      const migrationKeys = legacyMemoryMigrationKeys(input.memoryAccess);
-
-      const migrationsComplete = yield* Effect.promise(() =>
-        Promise.all(
-          migrationKeys.map((migrationKey) =>
-            deps.botMemoryStore.isMigrationComplete(migrationBotId, migrationKey),
-          ),
-        ),
-      );
-
-      if (migrationsComplete.some((complete) => !complete)) {
-        const revisions = yield* Effect.forEach(
-          legacyMemoryMigrationAccesses(input.memoryAccess),
-          (access) => options.entityMemoryRepository!.listCurrent({ access }),
-        ).pipe(
-          Effect.map((sets) => [
-            ...new Map(sets.flat().map((revision) => [revision.id, revision])).values(),
-          ]),
-          Effect.mapError(
-            (cause) =>
-              new AgentControllerRuntimeError({
-                operation: "memory.migrate.read",
-                detail: deps.failureDetail(cause),
-                cause,
-              }),
-          ),
-        );
-
-        yield* deps.runMastra("memory.migrate", () =>
-          migrateLegacyBotMemory({
-            store: deps.botMemoryStore,
-            access: input.memoryAccess!,
-            revisions,
-          }),
-        );
-      }
-    }
+    // Delegated work gets no memory: a worker or child chat has no person or scope of its own.
+    const memory = !delegatedAccess && Boolean(botId) && (yield* deps.memoryEnabled());
+    const nextMemoryHandlers = memory ? deps.memoryHandlers(key) : undefined;
 
     // A cwd change invalidates reuse for local workspaces: the user-computer
     // workspace lease is keyed by cwd and the session tools would keep
@@ -246,12 +200,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       delete toolSession.botState;
       delete toolSession.imageGeneration;
       const imageGeneration = yield* deps.imageToolSettings;
-      const settings = yield* deps.memorySettings();
-
-      const nextMemoryHandlers =
-        access.memoryScopes.length > 0
-          ? deps.memoryHandlers(input.memoryAccess, access.memoryScopes)
-          : undefined;
 
       const configuredToolSession: OttoToolSession = {
         ...toolSession,
@@ -282,16 +230,10 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
 
       existing.configuredToolSession = configuredToolSession;
       existing.startInput = input;
-      existing.configuredMemoryAccess = delegatedAccess
-        ? undefined
-        : deps.memoryAccessFor(input.memoryAccess);
-      existing.configuredEntityMemoryAccess = input.memoryAccess;
-      existing.privateBotMemory = settings.privateBotMemory;
+      existing.configuredMemory = memory;
 
       if (!existing.activeTurn && !existing.admittingTurn && existing.pendingTurns.length === 0) {
         existing.toolSession = configuredToolSession;
-        existing.memoryAccess = existing.configuredMemoryAccess;
-        existing.entityMemoryAccess = existing.configuredEntityMemoryAccess;
         deps.toolRuntime.registerSession(key, existing.toolSession);
       }
 
@@ -299,13 +241,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
     }
 
     const existingLegacy = deps.legacyResourceIdentity.get(key);
-    const settings = yield* deps.memorySettings();
-    const nextMemoryAccess = delegatedAccess ? undefined : deps.memoryAccessFor(input.memoryAccess);
-
-    const nextMemoryHandlers =
-      access.memoryScopes.length > 0
-        ? deps.memoryHandlers(input.memoryAccess, access.memoryScopes)
-        : undefined;
 
     if (
       !existing &&
@@ -315,20 +250,17 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       existingLegacy.provider === resolved.provider &&
       existingLegacy.providerInstanceId === resolved.providerInstanceId &&
       existingLegacy.botName === input.botName &&
-      existingLegacy.botInstructions === botInstructions &&
-      existingLegacy.memoryAccessKey === deps.memoryAccessKey(nextMemoryAccess)
+      existingLegacy.botInstructions === botInstructions
     ) {
       const live = (yield* deps.legacyProviderBridge.listSessions()).find(
         (session) => session.threadId === threadId,
       );
 
       if (live) {
-        existingLegacy.memoryAccess = nextMemoryAccess;
-        existingLegacy.entityMemoryAccess = input.memoryAccess;
-        existingLegacy.privateBotMemory = settings.privateBotMemory;
+        existingLegacy.memory = memory;
 
-        if (nextMemoryHandlers?.memory) {
-          McpMemoryToolSession.setMcpMemoryToolSession(threadId, nextMemoryHandlers.memory);
+        if (nextMemoryHandlers) {
+          McpMemoryToolSession.setMcpMemoryToolSession(threadId, nextMemoryHandlers.memory_update);
         } else {
           McpMemoryToolSession.clearMcpMemoryToolSession(threadId);
         }
@@ -364,7 +296,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       yield* deps.preparePreviewMcpSession(
         threadId,
         resolved.providerInstanceId,
-        deps.usesMastraCode(resolved.provider) ? undefined : nextMemoryHandlers?.memory,
+        deps.usesMastraCode(resolved.provider) ? undefined : nextMemoryHandlers?.memory_update,
       );
     }
 
@@ -397,36 +329,10 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
             .pipe(Effect.onError(() => deps.clearPreviewMcpSession(threadId)));
 
     if (!deps.usesMastraCode(resolved.provider)) {
-      const frozenMemoryContext =
-        nextMemoryAccess && settings.enabled
-          ? formatBotMemoryPrompt(
-              yield* Effect.promise(() =>
-                settings.privateBotMemory
-                  ? deps.botMemoryStore.readPromptSnapshot(nextMemoryAccess)
-                  : deps.botMemoryStore.readPromptSnapshot(nextMemoryAccess).then((snapshot) => ({
-                      ...snapshot,
-                      memory: { ...snapshot.memory, content: "", charCount: 0 },
-                    })),
-              ),
-            )
-          : "";
-
-      const entityPacket =
-        nextMemoryAccess && settings.enabled
-          ? yield* deps.runMastra("memory.packet", () =>
-              deps.entityMemoryContext(input.memoryAccess),
-            )
-          : "";
-
-      const combinedMemoryContext = [frozenMemoryContext, entityPacket]
-        .filter(Boolean)
-        .join("\n\n");
-
       return yield* deps.legacyProviderBridge
         .startSession(threadId, {
           ...input,
           ...(botInstructions ? { botInstructions } : {}),
-          ...(combinedMemoryContext ? { persistentMemoryContext: combinedMemoryContext } : {}),
         })
         .pipe(
           Effect.tap((session) =>
@@ -438,10 +344,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                 providerInstanceId: resolved.providerInstanceId,
                 botName: input.botName,
                 botInstructions,
-                memoryAccess: nextMemoryAccess,
-                entityMemoryAccess: input.memoryAccess,
-                memoryAccessKey: deps.memoryAccessKey(nextMemoryAccess),
-                privateBotMemory: settings.privateBotMemory,
+                memory,
               });
 
               return session;
@@ -652,12 +555,8 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         approvalRequests: new Map(),
         connectorSessionApprovals: new Set<string>(),
         toolSession,
-        memoryAccess: nextMemoryAccess,
-        entityMemoryAccess: input.memoryAccess,
         configuredToolSession: toolSession,
-        configuredMemoryAccess: nextMemoryAccess,
-        configuredEntityMemoryAccess: input.memoryAccess,
-        privateBotMemory: settings.privateBotMemory,
+        configuredMemory: memory,
         workspaceResourceKey,
         pendingApprovals: new Map<string, PendingApproval>(),
         unsubscribe,

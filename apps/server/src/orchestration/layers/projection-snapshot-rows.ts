@@ -178,6 +178,7 @@ export const ProjectionTurnStartMessageDbRowSchema = Schema.Struct({
   text: ProjectionThreadMessage.fields.text,
   attachments: Schema.NullOr(Schema.fromJsonString(Schema.Array(ChatAttachment))),
   channelOrigin: Schema.NullOr(Schema.fromJsonString(ChannelMessageOrigin)),
+  authorPersonId: ProjectionThreadMessage.fields.authorPersonId,
   isStreaming: Schema.Number,
   createdAt: ProjectionThreadMessage.fields.createdAt,
   updatedAt: ProjectionThreadMessage.fields.updatedAt,

@@ -277,6 +277,7 @@ export function createTurns({
         : {}),
       ...(event.payload.hiddenWake !== undefined ? { hiddenWake: event.payload.hiddenWake } : {}),
       ...(event.payload.timezone !== undefined ? { timezone: event.payload.timezone } : {}),
+      authorPersonId: message.authorPersonId ?? null,
       createdAt: event.payload.createdAt,
     }).pipe(
       Effect.map(Option.some),

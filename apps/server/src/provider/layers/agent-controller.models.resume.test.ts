@@ -21,7 +21,6 @@ import * as Stream from "effect/Stream";
 import { assert, describe, expect, vi } from "vite-plus/test";
 import { ServerConfig } from "../../config.ts";
 import { layerTest as serverSettingsLayerTest } from "../../server-settings.ts";
-import { EntityMemoryRepository } from "../../memory/services/entity-memory-repository.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import { makeOttoMastraHarness } from "../otto-mastra-harness.ts";
 import { LegacyProviderBridge } from "../services/legacy-provider-bridge.ts";
@@ -297,7 +296,6 @@ describe("AgentControllerLive", () => {
           Layer.mergeAll(
             Layer.succeed(LegacyProviderBridge, bridge.service),
             Layer.succeed(BotUsageLedger, usageLedgerFixture().service),
-            Layer.mock(EntityMemoryRepository)({}),
             serverSettingsLayerTest({}),
             ServerConfig.layerTest(process.cwd(), baseDir).pipe(Layer.provide(NodeServices.layer)),
             NodeServices.layer,

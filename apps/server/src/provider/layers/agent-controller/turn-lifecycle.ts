@@ -14,7 +14,6 @@ import {
   type OttoCreateRoutineInput,
   type ProviderRuntimeEvent,
   ThreadId,
-  type OttoMemoryThreadAccess,
 } from "@otto/contracts";
 
 import * as Deferred from "effect/Deferred";
@@ -23,7 +22,8 @@ import * as Effect from "effect/Effect";
 
 import { type OttoChannelRuntime } from "../../otto-channel-runtime.ts";
 import { type OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
-import { OttoMemoryTurnHarness, type OttoMemoryTurn } from "../../otto-memory-turn-harness.ts";
+import type { MemoryChat } from "../../../memory/memories.ts";
+import type { MemoryTurn } from "./memory-access.ts";
 import { type OttoDelegationChildOutcome } from "../../otto-delegation-runtime.ts";
 import type { OttoWorkerRuntime } from "../../otto-worker-runtime.ts";
 
@@ -32,8 +32,6 @@ import {
   createOttoPluginRuntime,
   type OttoPluginRuntimeOptions,
 } from "../../otto-catalog-tool-handlers.ts";
-
-import { type OttoToolSession } from "../../otto-tool-runtime.ts";
 
 import { AgentControllerRuntimeError } from "../../errors.ts";
 import { activeLibraryTools } from "../../../library/library-tool-runtime.ts";
@@ -91,29 +89,8 @@ export function createTurnLifecycle(deps: {
     input: { readonly threadId: ThreadId },
     destroyResources: boolean,
   ) => Effect.Effect<void, ProviderServiceError | AgentControllerRuntimeError, never>;
-  readonly memorySettings: () =>
-    | Effect.Effect<
-        | { enabled: boolean; privateBotMemory: boolean; sharedProjectMemory: "auto" | "ask" }
-        | { enabled: boolean; privateBotMemory: boolean; sharedProjectMemory: "ask" },
-        never,
-        never
-      >
-    | Effect.Effect<
-        {
-          readonly enabled: true;
-          readonly privateBotMemory: true;
-          readonly sharedProjectMemory: "ask";
-        },
-        never,
-        never
-      >;
-  readonly refreshEntityMemoryAccess: (
-    access: OttoMemoryThreadAccess | undefined,
-  ) => Promise<OttoMemoryThreadAccess | undefined>;
-  readonly memoryTurnHarness: OttoMemoryTurnHarness;
-  readonly mastraReservationKey: (threadId: ThreadId, turnId: TurnId) => string;
-  readonly mastraMemoryTurns: Map<string, OttoMemoryTurn>;
-  readonly entityMemoryContext: (access: OttoMemoryThreadAccess | undefined) => Promise<string>;
+  readonly memoryContext: (chat: MemoryChat | undefined) => Promise<string>;
+  readonly memoryTurns: Map<string, MemoryTurn>;
   readonly legacyProviderBridge: LegacyProviderBridge["Service"];
   readonly startPendingTurn: (active: ActiveSession, pending: PendingTurn) => void;
   readonly queueTurnMemory: (threadId: ThreadId, active: ActiveSession, turn: ActiveTurn) => void;
@@ -269,10 +246,9 @@ export function createTurnLifecycle(deps: {
   };
 
   // This turn's block: why the bot answers now, sent last and never stored.
-  const turnState = (pending: PendingTurn, review = "") => ({
+  const turnState = (pending: PendingTurn) => ({
     turnContext:
-      [pending.turnNote, review, pending.delegationResults].filter(Boolean).join("\n\n") ||
-      undefined,
+      [pending.turnNote, pending.delegationResults].filter(Boolean).join("\n\n") || undefined,
     timezone: pending.toolSession.timezone,
   });
 
@@ -282,40 +258,24 @@ export function createTurnLifecycle(deps: {
     if (active.admittingTurn?.turnId !== turnId) return;
 
     const dispatch: Promise<void> = (async () => {
-      const settings = pending.memoryAccess
-        ? await deps.runPromise(deps.memorySettings())
-        : undefined;
+      const memoryChat = active.configuredMemory ? pending.memoryChat : undefined;
+      const memoryContext = memoryChat ? await deps.memoryContext(memoryChat) : "";
 
-      // The settings read is asynchronous; the turn may have been interrupted
-      // while it was pending. Only mutate session state if this admission
-      // still owns the turn.
+      // Rendering memory is asynchronous; the turn may have been interrupted while it was
+      // pending. Only mutate session state if this admission still owns the turn.
       if (active.admittingTurn?.turnId !== turnId) return;
 
-      const memoryAccess =
-        pending.memoryAccess && settings?.enabled ? pending.memoryAccess : undefined;
-
-      // Entity memory rides on durable memory access. With Memory off (or a
-      // delegated turn without memory) the turn runs without memory, so group
-      // membership is only checked when memory is actually in play.
-      const entityMemoryAccess = memoryAccess
-        ? await deps.refreshEntityMemoryAccess(pending.entityMemoryAccess)
-        : undefined;
-
-      if (memoryAccess && pending.entityMemoryAccess && !entityMemoryAccess) {
-        active.admittingTurn = null;
-        beginPendingTurn(active, pending);
-        await failActiveTurn(
-          active,
-          pending.threadId,
-          pending.turnId,
-          new Error("The bot is no longer a member of this group."),
-        );
-
-        return;
+      if (memoryChat) {
+        deps.memoryTurns.set(String(threadId), {
+          chat: memoryChat,
+          authorPersonId: pending.authorPersonId,
+        });
+      } else {
+        deps.memoryTurns.delete(String(threadId));
       }
 
-      if (settings) active.privateBotMemory = settings.privateBotMemory;
-      active.memoryAccess = memoryAccess;
+      active.toolSession = pending.toolSession;
+      deps.toolRuntime.registerSession(String(threadId), active.toolSession);
 
       const libraryTools = activeLibraryTools();
       const botId = pending.toolSession.botId;
@@ -329,104 +289,26 @@ export function createTurnLifecycle(deps: {
         }
       }
 
-      if (!memoryAccess) {
-        // Memory was turned off after the turn was queued: drop the memory
-        // tool handler so the bot cannot read or change facts. A delegated
-        // turn never has durable access, so it keeps the handler its grant
-        // built; that handler checks the Memory setting on every call.
-        const toolSession = { ...pending.toolSession };
+      const { persistentMemoryContext, ...stateWithoutMemory } = active.session.state.get();
+      const turn = turnState(pending);
 
-        if (pending.memoryAccess) delete toolSession.memoryHandlers;
-        active.toolSession = toolSession;
-        deps.toolRuntime.registerSession(String(threadId), active.toolSession);
-
-        const { persistentMemoryContext, ...stateWithoutMemory } = active.session.state.get();
-        const turn = turnState(pending);
-
-        // Otto: only a changed state is written, so an unchanged turn starts without waiting.
-        if (
-          persistentMemoryContext !== undefined ||
-          stateWithoutMemory.turnContext !== turn.turnContext ||
-          stateWithoutMemory.timezone !== turn.timezone
-        ) {
-          await active.session.state.set({ ...stateWithoutMemory, ...turn });
-        }
-
-        if (active.admittingTurn?.turnId !== turnId) return;
-        active.admittingTurn = null;
-        beginPendingTurn(active, pending);
-        await active.session.sendMessage(message);
-
-        return;
-      }
-
-      {
-        active.toolSession = pending.toolSession;
-
-        const memoryTurn = await deps.memoryTurnHarness.admit({
-          access: memoryAccess,
-          input: {
-            threadId: String(threadId),
-            groupId: memoryAccess.groupId === null ? null : String(memoryAccess.groupId),
-            text: pending.reviewInput.slice(0, 4_000),
-          },
-          privateBotMemory: active.privateBotMemory,
+      // Otto: only a changed state is written, so an unchanged turn starts without waiting.
+      if (
+        persistentMemoryContext !== (memoryContext || undefined) ||
+        stateWithoutMemory.turnContext !== turn.turnContext ||
+        stateWithoutMemory.timezone !== turn.timezone
+      ) {
+        await active.session.state.set({
+          ...stateWithoutMemory,
+          ...(memoryContext ? { persistentMemoryContext: memoryContext } : {}),
+          ...turn,
         });
-
-        const reservationKey = deps.mastraReservationKey(threadId, turnId);
-        deps.mastraMemoryTurns.set(reservationKey, memoryTurn);
-        let accepted = false;
-        let reviewToolSession: OttoToolSession | undefined;
-
-        try {
-          const memoryHandler = pending.toolSession.memoryHandlers?.memory;
-
-          if (memoryTurn.reviewIncluded && memoryHandler) {
-            reviewToolSession = {
-              ...pending.toolSession,
-              memoryHandlers: {
-                memory: memoryTurn.wrapMemoryHandler(memoryHandler),
-              },
-            };
-            active.toolSession = reviewToolSession;
-          }
-
-          deps.toolRuntime.registerSession(String(threadId), active.toolSession);
-          const currentState = active.session.state.get();
-
-          const { persistentMemoryContext: _priorMemoryContext, ...stateWithoutMemory } =
-            currentState;
-
-          const entityPacket = await deps.entityMemoryContext(entityMemoryAccess);
-
-          const persistentMemoryContext = [memoryTurn.context, entityPacket]
-            .filter(Boolean)
-            .join("\n\n");
-
-          await active.session.state.set({
-            ...stateWithoutMemory,
-            ...(persistentMemoryContext ? { persistentMemoryContext } : {}),
-            ...turnState(pending, memoryTurn.review),
-          });
-
-          if (active.admittingTurn?.turnId !== turnId) return;
-          active.admittingTurn = null;
-          beginPendingTurn(active, pending);
-          await active.session.sendMessage(message);
-          accepted = true;
-        } finally {
-          await memoryTurn.finishForeground(accepted, "foreground");
-
-          if (reviewToolSession && active.toolSession === reviewToolSession) {
-            active.toolSession = active.configuredToolSession;
-            deps.toolRuntime.registerSession(String(threadId), active.toolSession);
-          }
-
-          if (deps.mastraMemoryTurns.get(reservationKey) === memoryTurn) {
-            deps.mastraMemoryTurns.delete(reservationKey);
-          }
-        }
       }
+
+      if (active.admittingTurn?.turnId !== turnId) return;
+      active.admittingTurn = null;
+      beginPendingTurn(active, pending);
+      await active.session.sendMessage(message);
     })();
 
     active.pendingDispatches.add(dispatch);

@@ -113,20 +113,17 @@ describe("createOttoMastraTools", () => {
       runtimeMode: "full-access",
       workspaceType: "none",
       memoryHandlers: {
-        memory: memoryHandler,
+        memory_update: memoryHandler,
       },
     });
 
-    const memory = probeTool(createOttoMastraTools("thread-memory", runtime).memory);
+    const memory = probeTool(createOttoMastraTools("thread-memory", runtime).memory_update);
 
     if (!memory?.execute) throw new Error("Memory tool is unavailable.");
 
     await expect(
       memory.execute(
-        {
-          target: "user",
-          operations: [{ action: "add", content: "The user prefers vim." }],
-        },
+        { changes: [{ action: "add", id: null, scope: "person", text: "Prefers vim." }] },
         {
           agent: { toolCallId: "memory-1" },
         } as never,

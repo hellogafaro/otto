@@ -353,12 +353,12 @@ pending_approval_requests AS (
         ),
         pending_memory_approval_activities AS (
           SELECT activity.activity_id
-          FROM otto_memory_candidates AS candidate
+          FROM memories AS memory
           INNER JOIN projection_thread_activities AS activity
-            ON activity.activity_id = 'memory-approval:' || candidate.candidate_id || ':requested'
-          WHERE candidate.source_thread_id = ${threadId}
-            AND candidate.status = 'pending'
-            AND activity.thread_id = candidate.source_thread_id
+            ON activity.activity_id = 'memory-approval:' || memory.id || ':requested'
+          WHERE memory.thread_id = ${threadId}
+            AND memory.status = 'pending'
+            AND activity.thread_id = memory.thread_id
         ),
         pinned_activity_ids AS (
           SELECT activity_id

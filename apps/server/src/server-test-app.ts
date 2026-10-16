@@ -12,8 +12,6 @@ import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 
 import { DEFAULT_SERVER_SETTINGS, type PreviewEvent } from "@otto/contracts";
 
-import * as Context from "effect/Context";
-
 import * as Effect from "effect/Effect";
 
 import * as FileSystem from "effect/FileSystem";
@@ -57,16 +55,6 @@ import { OrchestrationCommandReceiptRepository } from "./persistence/services/or
 import * as ProjectionBots from "./persistence/services/projection-bots.ts";
 
 import * as ProjectionGroups from "./persistence/services/projection-groups.ts";
-
-import { EntityMemoryRepositoryLive } from "./memory/layers/entity-memory-repository.ts";
-
-import { MemoryRevisionWriteLockLive } from "./memory/services/memory-revision-write-lock.ts";
-
-import {
-  EntityMemoryRepository,
-  type EntityMemoryRepositoryShape,
-  type EntityMemoryRepositoryError,
-} from "./memory/services/entity-memory-repository.ts";
 
 import * as AgentController from "./provider/services/agent-controller.ts";
 
@@ -197,11 +185,6 @@ const seedTestAccount = (dbPath: string) =>
 export const buildAppUnderTest = (options?: {
   /** Leaves the organization unset, for setup tests. */
   seedAccount?: boolean;
-  durableMemory?: {
-    readonly seed?: (
-      repository: EntityMemoryRepositoryShape,
-    ) => Effect.Effect<void, EntityMemoryRepositoryError, never>;
-  };
   config?: Partial<ServerConfig.ServerConfig["Service"]>;
   layers?: {
     keybindings?: Partial<Keybindings.Keybindings["Service"]>;
@@ -757,19 +740,6 @@ export const buildAppUnderTest = (options?: {
         }),
       ),
       Layer.provideMerge(authTestLayer()),
-      Layer.provideMerge(
-        options?.durableMemory
-          ? EntityMemoryRepositoryLive.pipe(
-              Layer.provide(MemoryRevisionWriteLockLive),
-              Layer.provide(SqlitePersistenceMemory),
-              Layer.tap((context) =>
-                options.durableMemory?.seed
-                  ? options.durableMemory.seed(Context.get(context, EntityMemoryRepository))
-                  : Effect.void,
-              ),
-            )
-          : Layer.empty,
-      ),
       Layer.provideMerge(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
       Layer.provideMerge(
         options?.layers?.channelRuntime

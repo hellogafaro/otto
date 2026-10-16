@@ -32,7 +32,6 @@ import {
   ServerSettingsService,
   layerTest as serverSettingsLayerTest,
 } from "../../../server-settings.ts";
-import { EntityMemoryRepository } from "../../../memory/services/entity-memory-repository.ts";
 import { AgentController } from "../../services/agent-controller.ts";
 import { ProviderValidationError } from "../../errors.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
@@ -252,11 +251,9 @@ export function makeLayer(
   overrides?: Pick<
     AgentControllerLiveOptions,
     | "resolveComputerUseServer"
-    | "entityMemoryRepository"
     | "issueMcpCredential"
     | "revokeMcpCredential"
     | "makeBotBrowser"
-    | "botMemoryStore"
     | "webFetch"
     | "generateImage"
     | "readAttachment"
@@ -283,7 +280,6 @@ export function makeLayer(
       Layer.mergeAll(
         Layer.succeed(LegacyProviderBridge, bridge),
         Layer.succeed(BotUsageLedger, usageLedger),
-        Layer.mock(EntityMemoryRepository)({}),
         settingsLayer ?? serverSettingsLayerTest(settingsOverrides ?? {}),
         ServerConfig.layerTest(
           process.cwd(),
@@ -309,11 +305,9 @@ export function provideController<A, E>(
   overrides?: Pick<
     AgentControllerLiveOptions,
     | "resolveComputerUseServer"
-    | "entityMemoryRepository"
     | "issueMcpCredential"
     | "revokeMcpCredential"
     | "makeBotBrowser"
-    | "botMemoryStore"
     | "webFetch"
     | "generateImage"
     | "readAttachment"

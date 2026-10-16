@@ -3,14 +3,11 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
-  OttoMemoryTenantId,
-  OttoMemoryUserId,
   BotId,
   EventId,
   McpServerId,
   ProviderDriverKind,
   ProviderInstanceId,
-  ProjectId,
   ThreadId,
   TurnId,
   type ProviderRuntimeEvent,
@@ -23,6 +20,7 @@ import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import { assert, describe, expect, vi } from "vite-plus/test";
 import { ServerConfig } from "../../config.ts";
+import { Memories } from "../../memory/memories.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../services/legacy-provider-bridge.ts";
 import {
@@ -47,6 +45,8 @@ import {
 } from "./test-support/agent-controller-layers.ts";
 import { usageLedgerFixture } from "./test-support/agent-controller-memory.ts";
 import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
+
+const memoriesLayer = Layer.mock(Memories)({});
 
 describe("mastraConnectionIssue", () => {
   it("uses the exact instance transport when deciding readiness", () => {
@@ -305,28 +305,20 @@ describe("AgentControllerLive", () => {
           modelSelection: codexSelection,
           runtimeMode: "full-access",
           botId,
-          memoryAccess: {
-            tenantId: OttoMemoryTenantId.make("local"),
-            userId: OttoMemoryUserId.make("owner"),
-            threadId: codexThreadId,
-            projectId: ProjectId.make("project-tool-usage"),
-            workspaceRoot: "/workspace/tool-usage",
-            botId,
-            groupId: null,
-            respondingBotId: botId,
-            groupMemberBotIds: [],
-          },
         });
         const runtime = mastra.harnessOptions[0]?.toolRuntime;
         assert.isDefined(runtime);
+        // No chat turn is running, so the call fails; its usage is still recorded.
         yield* Effect.promise(() =>
-          runtime.execute({
-            threadId: String(codexThreadId),
-            toolId: "memory",
-            toolCallId: "usage-tool-call",
-            input: { target: "user", operations: [] },
-            approvalMode: "require-grant",
-          }),
+          runtime
+            .execute({
+              threadId: String(codexThreadId),
+              toolId: "memory_update",
+              toolCallId: "usage-tool-call",
+              input: { changes: [{ action: "add", id: null, scope: "bot", text: "Uses tabs." }] },
+              approvalMode: "require-grant",
+            })
+            .catch(() => undefined),
         );
 
         expect(usage.reserve).not.toHaveBeenCalled();
@@ -350,7 +342,7 @@ describe("AgentControllerLive", () => {
       undefined,
       undefined,
       usage.service,
-    );
+    ).pipe(Effect.provide(memoriesLayer));
   });
 });
 
@@ -373,28 +365,20 @@ describe("AgentControllerLive", () => {
           modelSelection: codexSelection,
           runtimeMode: "full-access",
           botId,
-          memoryAccess: {
-            tenantId: OttoMemoryTenantId.make("local"),
-            userId: OttoMemoryUserId.make("owner"),
-            threadId: codexThreadId,
-            projectId: ProjectId.make("project-tool-usage"),
-            workspaceRoot: "/workspace/tool-usage",
-            botId,
-            groupId: null,
-            respondingBotId: botId,
-            groupMemberBotIds: [],
-          },
         });
         const runtime = mastra.harnessOptions[0]?.toolRuntime;
         assert.isDefined(runtime);
+        // No chat turn is running, so the call fails; its usage is still recorded.
         yield* Effect.promise(() =>
-          runtime.execute({
-            threadId: String(codexThreadId),
-            toolId: "memory",
-            toolCallId: "usage-tool-call",
-            input: { target: "user", operations: [] },
-            approvalMode: "require-grant",
-          }),
+          runtime
+            .execute({
+              threadId: String(codexThreadId),
+              toolId: "memory_update",
+              toolCallId: "usage-tool-call",
+              input: { changes: [{ action: "add", id: null, scope: "bot", text: "Uses tabs." }] },
+              approvalMode: "require-grant",
+            })
+            .catch(() => undefined),
         );
 
         expect(usage.recordStart).toHaveBeenCalledTimes(1);
@@ -414,7 +398,7 @@ describe("AgentControllerLive", () => {
       undefined,
       undefined,
       usage.service,
-    );
+    ).pipe(Effect.provide(memoriesLayer));
   });
 });
 

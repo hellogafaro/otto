@@ -30,11 +30,13 @@ describe("Otto bot instructions", () => {
   });
 
   it("lists only loaded tools, each with its own rules", () => {
-    const instructions = createOttoInstructions({ tools: ["Read", "memory", "unknown_tool"] });
+    const instructions = createOttoInstructions({
+      tools: ["Read", "memory_update", "unknown_tool"],
+    });
 
     expect(instructions).toContain("- Read: ");
-    expect(instructions).toContain("- memory: ");
-    expect(instructions).toContain("call memory in that same turn with the user target");
+    expect(instructions).toContain("- memory_update: ");
+    expect(instructions).toContain("facts about a person go to person, never bot");
     expect(instructions).not.toContain("unknown_tool");
     expect(instructions).not.toContain("<computer>");
     expect(createOttoInstructions({ tools: ["Shell"] })).toContain("<computer>");

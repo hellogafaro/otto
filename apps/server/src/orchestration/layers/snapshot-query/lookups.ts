@@ -484,6 +484,7 @@ export function createLookups({
         updatedAt: row.updatedAt,
         ...(row.attachments !== null ? { attachments: row.attachments } : {}),
         ...(row.channelOrigin !== null ? { channelOrigin: row.channelOrigin } : {}),
+        ...(row.authorPersonId ? { authorPersonId: row.authorPersonId } : {}),
       },
       hasOtherUserMessages: row.hasOtherUserMessages === 1 || row.hasOtherUserMessages === true,
     }));

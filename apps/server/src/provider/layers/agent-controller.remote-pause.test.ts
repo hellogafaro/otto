@@ -1,29 +1,14 @@
 import * as Predicate from "effect/Predicate";
-import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
-import * as NodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { LocalFilesystem, LocalSandbox, Workspace } from "@mastra/core/workspace";
-import {
-  OttoMemoryTenantId,
-  OttoMemoryUserId,
-  BotId,
-  EventId,
-  ProviderDriverKind,
-  ProviderInstanceId,
-  ProjectId,
-  ThreadId,
-  TurnId,
-  type ProviderRuntimeEvent,
-} from "@otto/contracts";
+import { BotId, ProviderDriverKind, ProviderInstanceId, ThreadId } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as TestClock from "effect/testing/TestClock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Stream from "effect/Stream";
 import { assert, describe, expect, vi } from "vite-plus/test";
 import { ServerConfig } from "../../config.ts";
-import { BotMemoryStore } from "../../memory/bot-memory.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../services/legacy-provider-bridge.ts";
 import { agentControllerLayerWith, type AgentControllerLiveOptions } from "./agent-controller.ts";
@@ -339,103 +324,6 @@ describe("AgentControllerLive", () => {
       mastra.factory,
     );
   });
-});
-
-describe("AgentControllerLive", () => {
-  it.effect.each(["failed", "interrupted", "cancelled", "aborted"] as const)(
-    "keeps a legacy review due after terminal %s",
-    (terminalState) => {
-      const bridge = makeBridge();
-      const mastra = mastraHarnessFixture();
-      const memoryDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-review-failed-"));
-      const botMemoryStore = new BotMemoryStore(memoryDir);
-      const botId = BotId.make(`bot-legacy-${terminalState}`);
-
-      const memoryAccess = {
-        tenantId: OttoMemoryTenantId.make("local"),
-        userId: OttoMemoryUserId.make("owner"),
-        threadId: claudeThreadId,
-        projectId: ProjectId.make("project-legacy-failure"),
-        workspaceRoot: "/workspace/legacy-failure",
-        botId,
-        groupId: null,
-        respondingBotId: botId,
-        groupMemberBotIds: [],
-      } as const;
-
-      const event: ProviderRuntimeEvent =
-        terminalState === "aborted"
-          ? {
-              provider: ProviderDriverKind.make("opencode"),
-              providerInstanceId: openCodeInstanceId,
-              threadId: claudeThreadId,
-              turnId: TurnId.make("legacy-turn"),
-              type: "turn.aborted",
-              eventId: EventId.make("legacy-review-aborted"),
-              createdAt: "2026-09-14T12:00:00.000Z",
-              payload: { reason: "Provider aborted the turn." },
-            }
-          : {
-              provider: ProviderDriverKind.make("opencode"),
-              providerInstanceId: openCodeInstanceId,
-              threadId: claudeThreadId,
-              turnId: TurnId.make("legacy-turn"),
-              type: "turn.completed",
-              eventId: EventId.make(`legacy-review-${terminalState}`),
-              createdAt: "2026-09-14T12:00:00.000Z",
-              payload: { state: terminalState, stopReason: null },
-            };
-
-      const service = { ...bridge.service, streamEvents: Stream.succeed(event) };
-
-      return provideController(
-        Effect.gen(function* () {
-          for (let prompt = 1; prompt <= 10; prompt += 1) {
-            const reservation = yield* Effect.promise(() =>
-              botMemoryStore.reserveReviewCadence(botId),
-            );
-
-            yield* Effect.promise(() => botMemoryStore.settleReviewCadence(reservation, true));
-          }
-
-          const controller = yield* AgentController;
-          yield* controller.resolveEngine({
-            threadId: claudeThreadId,
-            engine: { provider: "opencode", model: "anthropic/claude-sonnet-4-5" },
-            fallback: codexSelection,
-            mode: "default",
-            botConversation: true,
-          });
-          yield* controller.startSession(claudeThreadId, {
-            threadId: claudeThreadId,
-            provider: ProviderDriverKind.make("opencode"),
-            providerInstanceId: openCodeInstanceId,
-            cwd: process.cwd(),
-            runtimeMode: "approval-required",
-            memoryAccess,
-          });
-          yield* controller.sendTurn({ threadId: claudeThreadId, input: "Threshold prompt" });
-          yield* controller.streamEvents.pipe(Stream.take(1), Stream.runDrain);
-
-          assert.deepEqual(yield* Effect.promise(() => botMemoryStore.readReviewCadence(botId)), {
-            acceptedPromptCount: 10,
-            reviewedThroughPromptCount: 0,
-            dueOnNextAcceptedPrompt: true,
-          });
-        }),
-        service,
-        mastra.factory,
-        undefined,
-        undefined,
-        undefined,
-        { botMemoryStore },
-      ).pipe(
-        Effect.ensuring(
-          Effect.sync(() => NodeFS.rmSync(memoryDir, { recursive: true, force: true })),
-        ),
-      );
-    },
-  );
 });
 
 describe("AgentControllerLive", () => {

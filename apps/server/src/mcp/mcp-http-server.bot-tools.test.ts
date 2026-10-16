@@ -20,10 +20,9 @@ it.effect("requires both memory capability and a thread-scoped handler", () =>
 
     const previewOnly = yield* server
       .callTool({
-        name: "memory",
+        name: "memory_update",
         arguments: {
-          target: "memory",
-          operations: [{ action: "add", content: "Unauthorized note." }],
+          changes: [{ action: "add", id: null, scope: "person", text: "Unauthorized note." }],
         },
       })
       .pipe(
@@ -36,10 +35,9 @@ it.effect("requires both memory capability and a thread-scoped handler", () =>
 
     const result = yield* server
       .callTool({
-        name: "memory",
+        name: "memory_update",
         arguments: {
-          target: "memory",
-          operations: [{ action: "add", content: "Keep answers concise." }],
+          changes: [{ action: "add", id: null, scope: "person", text: "Prefers concise answers." }],
         },
       })
       .pipe(
@@ -58,8 +56,10 @@ it.effect("requires both memory capability and a thread-scoped handler", () =>
 
     const denied = yield* server
       .callTool({
-        name: "memory",
-        arguments: { target: "user", operations: [] },
+        name: "memory_update",
+        arguments: {
+          changes: [{ action: "delete", id: "m_1", scope: null, text: null }],
+        },
       })
       .pipe(
         Effect.provideService(McpInvocationContext.McpInvocationContext, memoryInvocation),

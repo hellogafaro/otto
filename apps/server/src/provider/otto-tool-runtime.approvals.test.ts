@@ -30,26 +30,25 @@ describe("OttoToolRuntime", () => {
       runtimeMode: "full-access",
       workspaceType: "none",
       memoryHandlers: {
-        memory,
+        memory_update: memory,
       },
     });
 
-    expect(runtime.toolsForThread("thread-memory").map((tool) => tool.id)).toEqual(["memory"]);
+    expect(runtime.toolsForThread("thread-memory").map((tool) => tool.id)).toEqual([
+      "memory_update",
+    ]);
 
     const write = {
       threadId: "thread-memory",
-      toolId: "memory" as const,
+      toolId: "memory_update" as const,
       toolCallId: "memory-write",
-      input: {
-        target: "user",
-        operations: [{ action: "add", content: "The user prefers vim." }],
-      },
+      input: { changes: [{ action: "add", id: null, scope: "person", text: "Prefers vim." }] },
       approvalMode: "require-grant" as const,
     };
 
-    await expect(runtime.requiresApproval("thread-memory", "memory", write.input)).resolves.toBe(
-      false,
-    );
+    await expect(
+      runtime.requiresApproval("thread-memory", "memory_update", write.input),
+    ).resolves.toBe(false);
     await expect(runtime.execute(write)).resolves.toEqual({ saved: true });
     expect(memory).toHaveBeenCalledOnce();
   });
@@ -140,16 +139,16 @@ describe("OttoToolRuntime", () => {
     runtime.registerSession("memory-boundary", {
       runtimeMode: "full-access",
       workspaceType: "none",
-      memoryHandlers: { memory },
+      memoryHandlers: { memory_update: memory },
     });
 
     await expect(
       runtime.execute({
         threadId: "memory-boundary",
-        toolId: "memory",
+        toolId: "memory_update",
         toolCallId: "invalid-memory",
         approvalMode: "require-grant",
-        input: { target: null, operations: [{ action: "add", content: "Remember this." }] },
+        input: { changes: [{ action: "add", text: "Remember this.", extra: true }] },
       }),
     ).rejects.toThrow();
     expect(memory).not.toHaveBeenCalled();

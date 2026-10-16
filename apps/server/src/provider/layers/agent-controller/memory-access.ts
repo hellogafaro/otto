@@ -1,223 +1,40 @@
-import { readSdkRecord } from "../protocol-json.ts";
-import type { OttoRuntimeSeam } from "../../otto-runtime-seam.ts";
-import type { AgentControllerLiveOptions } from "./options.ts";
-
-import {
-  type OttoDelegationAccessGrant,
-  type OttoMemoryDocumentTarget,
-  type OttoMemoryThreadAccess,
-} from "@otto/contracts";
-
-import * as Effect from "effect/Effect";
-
+import type { AuthSessionId } from "@otto/contracts";
+import type * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { BotMemoryStore, type BotMemoryAccess } from "../../../memory/bot-memory.ts";
-import {
-  createBotMemoryToolHandler,
-  type OttoMemoryShareFact,
-  type OttoMemoryToolHandler,
-} from "../../../memory/bot-memory-tool-handlers.ts";
+import type { OttoRuntimeSeam } from "../../otto-runtime-seam.ts";
+import type { Memories, MemoryChat } from "../../../memory/memories.ts";
+import { createMemoryUpdateHandler } from "../../../memory/memory-update-tool.ts";
 
-import { buildProviderMemoryPacket } from "../../../memory/provider-memory-packet.ts";
+/** The chat and author of a thread's current turn, which its memory_update calls act for. */
+export interface MemoryTurn {
+  readonly chat: MemoryChat;
+  readonly authorPersonId: AuthSessionId | null;
+}
 
-import { ProjectionSnapshotQuery } from "../../../orchestration/services/projection-snapshot-query.ts";
-
-import { MemoryApprovals } from "../../../memory/memory-approvals.ts";
-
+/** A chat's memory section and its memory_update tool, both off while Memory is off. */
 export function createMemoryAccess(deps: {
   readonly runPromise: OttoRuntimeSeam["runPromise"];
-  readonly projectionSnapshotQuery: Option.Option<ProjectionSnapshotQuery["Service"]>;
-  readonly options: AgentControllerLiveOptions | undefined;
-  readonly memorySettings: () =>
-    | Effect.Effect<
-        | { enabled: boolean; privateBotMemory: boolean; sharedProjectMemory: "auto" | "ask" }
-        | { enabled: boolean; privateBotMemory: boolean; sharedProjectMemory: "ask" },
-        never,
-        never
-      >
-    | Effect.Effect<
-        {
-          readonly enabled: true;
-          readonly privateBotMemory: true;
-          readonly sharedProjectMemory: "ask";
-        },
-        never,
-        never
-      >;
-  readonly memoryApprovals: Option.Option<MemoryApprovals["Service"]>;
-  readonly botMemoryStore: BotMemoryStore;
+  readonly memories: Option.Option<Memories["Service"]>;
+  readonly memoryEnabled: () => Effect.Effect<boolean>;
+  readonly memoryTurns: Map<string, MemoryTurn>;
 }) {
-  const memoryApprovals = deps.memoryApprovals;
+  const memoryContext = async (chat: MemoryChat | undefined): Promise<string> =>
+    chat && Option.isSome(deps.memories) && (await deps.runPromise(deps.memoryEnabled()))
+      ? deps.runPromise(deps.memories.value.render(chat))
+      : "";
 
-  const memoryAccessFor = (
-    access: OttoMemoryThreadAccess | undefined,
-  ): BotMemoryAccess | undefined => {
-    const botId = access?.respondingBotId ?? access?.botId;
-
-    return access && botId
+  const memoryHandlers = (threadId: string) =>
+    Option.isSome(deps.memories)
       ? {
-          botId,
-          groupId: access.groupId,
-          groupMemberBotIds: access.groupMemberBotIds,
+          memory_update: createMemoryUpdateHandler({
+            turn: () => deps.memoryTurns.get(threadId),
+            enabled: () => deps.runPromise(deps.memoryEnabled()),
+            memories: deps.memories.value,
+            run: deps.runPromise,
+          }),
         }
       : undefined;
-  };
 
-  const refreshEntityMemoryAccess = async (
-    access: OttoMemoryThreadAccess | undefined,
-  ): Promise<OttoMemoryThreadAccess | undefined> => {
-    if (!access || access.groupId === null) return access;
-
-    // Without a projection the membership cannot be rechecked. The access stays a group
-    // access with no members, so it reads neither group facts nor the bot's private ones.
-    if (Option.isNone(deps.projectionSnapshotQuery)) {
-      return { ...access, groupMemberBotIds: [] };
-    }
-
-    const snapshot = await deps.runPromise(deps.projectionSnapshotQuery.value.getSnapshot());
-    const group = snapshot.groups.find((candidate) => candidate.id === access.groupId);
-
-    if (!group) return undefined;
-
-    const groupMemberBotIds = group.members
-      .filter((member) => member.kind === "bot")
-      .map((member) => member.botId);
-
-    const respondingBotId = access.respondingBotId ?? access.botId;
-
-    if (respondingBotId === null || !groupMemberBotIds.includes(respondingBotId)) return undefined;
-
-    return { ...access, groupMemberBotIds };
-  };
-
-  const entityMemoryContext = async (
-    access: OttoMemoryThreadAccess | undefined,
-  ): Promise<string> => {
-    const current = await refreshEntityMemoryAccess(access);
-
-    if (!current || !deps.options?.entityMemoryRepository) return "";
-
-    if (current.groupId !== null && current.groupMemberBotIds.length === 0) return "";
-
-    const currentRevisions = await deps.runPromise(
-      deps.options.entityMemoryRepository.listCurrent({ access: current }),
-    );
-
-    // Memory inspection and export still list bot-private facts; only the
-    // provider packet honours the Private bot memory switch.
-    const { privateBotMemory } = await deps.runPromise(deps.memorySettings());
-
-    const revisions = privateBotMemory
-      ? currentRevisions
-      : currentRevisions.filter(
-          (revision) =>
-            revision.partition.scope !== "bot" && revision.partition.scope !== "bot-user",
-        );
-
-    await deps.runPromise(
-      deps.options.entityMemoryRepository.recordDerivedCopies?.({
-        tenantId: current.tenantId,
-        threadId: String(current.threadId),
-        revisions,
-      }) ?? Effect.void,
-    );
-    const packet = buildProviderMemoryPacket(current.threadId, revisions);
-
-    return packet.rendered ? `<entity-memory>\n${packet.rendered}\n</entity-memory>` : "";
-  };
-
-  const memoryHandlers = (
-    access: OttoMemoryThreadAccess | undefined,
-    allowedScopes: OttoDelegationAccessGrant["memoryScopes"],
-  ) => {
-    const resolved = memoryAccessFor(access);
-
-    if (!resolved) return undefined;
-    const scopes = new Set(allowedScopes);
-    const targets = new Set<OttoMemoryDocumentTarget>();
-
-    if (scopes.has("private")) targets.add("user");
-
-    if (scopes.has("bot")) targets.add("memory");
-
-    if (resolved.groupId !== null && scopes.has("group")) targets.add("group");
-
-    const canShare =
-      scopes.has("project") ||
-      scopes.has("workspace") ||
-      (resolved.groupId !== null && scopes.has("group"));
-
-    if (targets.size === 0 && !(canShare && Option.isSome(memoryApprovals))) return undefined;
-
-    // Shared facts go through MemoryApprovals, which saves them directly in
-    // auto mode or opens an approval card and inbox item in ask mode.
-    const shareFact: OttoMemoryShareFact | undefined =
-      access && Option.isSome(memoryApprovals)
-        ? async (request) => {
-            if (!scopes.has(request.scope)) {
-              throw new Error(
-                `The ${request.scope} memory scope is outside this bot's access grant.`,
-              );
-            }
-
-            if (request.scope === "group" && access.groupId === null) {
-              throw new Error("Group memory is available only in a group chat.");
-            }
-
-            const settings = await deps.runPromise(deps.memorySettings());
-
-            const result = await deps.runPromise(
-              memoryApprovals.value.propose({
-                access,
-                fact: request.fact,
-                scope: request.scope,
-                sensitive: request.sensitive,
-                mode: settings.sharedProjectMemory,
-              }),
-            );
-
-            return { status: result.status };
-          }
-        : undefined;
-
-    const handler = createBotMemoryToolHandler(
-      deps.botMemoryStore,
-      resolved,
-      targets,
-      shareFact,
-    ).memory;
-
-    // The memory settings gate is enforced at call time: a handler captured
-    // while Memory was on must deny calls after it is turned off, and a
-    // "Private bot memory" toggle applies without rebuilding the session.
-    const guarded: OttoMemoryToolHandler = async (input) => {
-      const settings = await deps.runPromise(deps.memorySettings());
-
-      if (!settings.enabled) {
-        throw new Error("Bot memory is disabled.");
-      }
-
-      if (!settings.privateBotMemory) {
-        const memoryInput = readSdkRecord(input.input);
-        const target = memoryInput?.target;
-        const operations = memoryInput?.operations;
-        const share = memoryInput?.share;
-
-        // A share-only call never reads or changes the target document.
-        const shareOnly =
-          share !== undefined && Array.isArray(operations) && operations.length === 0;
-
-        if (target === "memory" && !shareOnly) {
-          throw new Error("Private bot memory is disabled.");
-        }
-      }
-
-      return handler(input);
-    };
-
-    return { memory: guarded };
-  };
-
-  return { memoryAccessFor, refreshEntityMemoryAccess, entityMemoryContext, memoryHandlers };
+  return { memoryContext, memoryHandlers };
 }

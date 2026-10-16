@@ -20,10 +20,7 @@ import { makeProviderRegistryLayer } from "../../src/provider/test-utils/provide
 import { ProviderSessionDirectoryLive } from "../../src/provider/layers/provider-session-directory.ts";
 import { ServerSettingsService } from "../../src/server-settings.ts";
 import { agentControllerLayerWith } from "../../src/provider/layers/agent-controller.ts";
-import { EntityMemoryRepository } from "../../src/memory/services/entity-memory-repository.ts";
 import { type TestMastraHarness } from "../test-mastra-harness.integration.ts";
-import { EntityMemoryRepositoryLive } from "../../src/memory/layers/entity-memory-repository.ts";
-import { MemoryRevisionWriteLockLive } from "../../src/memory/services/memory-revision-write-lock.ts";
 import { LegacyProviderBridgeLive } from "../../src/provider/layers/legacy-provider-bridge.ts";
 import { ProviderServiceLive } from "../../src/provider/layers/provider-service.ts";
 import { makeCodexAdapter } from "../../src/provider/layers/codex-adapter.ts";
@@ -82,11 +79,6 @@ export function createIntegrationLayers({
 
   const persistenceLayer = sqlitePersistenceLayer(dbPath);
 
-  const memoryRepositoriesLayer = EntityMemoryRepositoryLive.pipe(
-    Layer.provide(MemoryRevisionWriteLockLive),
-    Layer.provide(persistenceLayer),
-  );
-
   const orchestrationLayer = OrchestrationEngineLive.pipe(
     Layer.provide(OrchestrationProjectionPipelineLive),
     Layer.provide(OrchestrationEventStoreLive),
@@ -129,15 +121,9 @@ export function createIntegrationLayers({
 
   const legacyProviderLayer = LegacyProviderBridgeLive.pipe(Layer.provide(providerLayer));
 
-  const agentControllerLayer = Layer.unwrap(
-    Effect.map(Effect.service(EntityMemoryRepository), (entityMemoryRepository) =>
-      agentControllerLayerWith({
-        entityMemoryRepository,
-        ...(mastraHarness ? { makeMastraHarness: mastraHarness.factory } : {}),
-      }),
-    ),
+  const agentControllerLayer = agentControllerLayerWith(
+    mastraHarness ? { makeMastraHarness: mastraHarness.factory } : {},
   ).pipe(
-    Layer.provide(memoryRepositoriesLayer),
     Layer.provide(legacyProviderLayer),
     Layer.provide(BotUsageLedgerLive),
     Layer.provide(ProjectionThreadMessageRepositoryLive),

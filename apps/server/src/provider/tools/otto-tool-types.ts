@@ -12,16 +12,16 @@ import {
 } from "@otto/contracts";
 import type { UserActionIncidentInput } from "../../bot-inbox/user-action-incidents.ts";
 import {
-  type OttoMemoryToolHandler,
-  type OttoMemoryToolId,
-} from "../../memory/bot-memory-tool-handlers.ts";
+  type MemoryToolHandler,
+  type MemoryUpdateToolId,
+} from "../../memory/memory-update-tool.ts";
 import type { OttoCatalogBackendOptions, OttoCatalogToolHandler } from "./otto-catalog-types.ts";
 import type { OttoBotStateRuntime } from "../otto-bot-state-runtime.ts";
 
 /** Native and plugin tools use the SDK result contract until tool-specific processing. */
 export type OttoToolResult = Awaited<ReturnType<NonNullable<Tool["execute"]>>>;
 
-export type OttoRuntimeToolId = OttoToolId | OttoMemoryToolId;
+export type OttoRuntimeToolId = OttoToolId | MemoryUpdateToolId;
 
 export interface OttoRuntimeToolDefinition {
   readonly id: OttoRuntimeToolId;
@@ -37,7 +37,7 @@ export interface OttoToolSession {
   readonly timezone?: string;
   readonly workspace?: Workspace;
   readonly userComputerWorkspace?: Workspace;
-  readonly memoryHandlers?: Record<OttoMemoryToolId, OttoMemoryToolHandler>;
+  readonly memoryHandlers?: Record<MemoryUpdateToolId, MemoryToolHandler>;
   readonly delegation?: {
     readonly depth: number;
     readonly activeDelegations: number;

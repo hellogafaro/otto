@@ -1,18 +1,12 @@
-import * as Predicate from "effect/Predicate";
-import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import type { AgentControllerEvent } from "@mastra/core/agent-controller";
 import {
-  OttoMemoryTenantId,
-  OttoMemoryUserId,
   ApprovalRequestId,
-  BotId,
   EnvironmentId,
   McpServerId,
   ProviderDriverKind,
-  ProjectId,
   ThreadId,
   type ProviderRuntimeEvent,
 } from "@otto/contracts";
@@ -21,9 +15,6 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
 import { assert, describe, expect, vi } from "vite-plus/test";
-import { ServerSettingsService } from "../../server-settings.ts";
-import { BotMemoryStore } from "../../memory/bot-memory.ts";
-import * as McpMemoryToolSession from "../../mcp/mcp-memory-tool-session.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import {
   mcpServerIdForToolName,
@@ -35,15 +26,9 @@ import { SubscriptionAuthService } from "../../subscription-auth/service.ts";
 import { withMcpRuntimeHeaders } from "../mcp-server-config.ts";
 import {
   codexThreadId,
-  claudeThreadId,
   codexInstanceId,
-  openCodeInstanceId,
   codexSelection,
 } from "./test-support/agent-controller-fixtures.ts";
-import {
-  MemoryToolCallError,
-  makeMemoryOnlyCredentialOptions,
-} from "./test-support/agent-controller-memory.ts";
 import {
   computerUseToolName,
   computerUseServer,
@@ -102,131 +87,6 @@ describe("toMcpServerConfigs", () => {
     });
     expect(server).not.toHaveProperty("headers");
   });
-});
-
-describe("AgentControllerLive", () => {
-  it.effect(
-    "denies the legacy MCP memory tool while Memory is off and restores it on re-enable",
-    () => {
-      const bridge = makeBridge();
-      const mastra = mastraHarnessFixture();
-
-      const memoryDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-mcp-gate-legacy-"));
-
-      const botMemoryStore = new BotMemoryStore(memoryDir);
-      const botId = BotId.make("bot-mcp-gate-legacy");
-
-      const access = {
-        tenantId: OttoMemoryTenantId.make("local"),
-        userId: OttoMemoryUserId.make("owner"),
-        threadId: claudeThreadId,
-        projectId: ProjectId.make("project-mcp-gate-legacy"),
-        workspaceRoot: "/workspace/mcp-gate-legacy",
-        botId,
-        groupId: null,
-        respondingBotId: botId,
-        groupMemberBotIds: [],
-      } as const;
-
-      const credentials = makeMemoryOnlyCredentialOptions();
-
-      const callMemoryTool = (input: { target: string; operations: Array<unknown> }) =>
-        Effect.tryPromise({
-          try: () => {
-            const handler = McpMemoryToolSession.readMcpMemoryToolSession(claudeThreadId);
-            assert.isDefined(handler);
-
-            return handler({
-              threadId: String(claudeThreadId),
-              toolId: "memory",
-              toolCallId: `mcp-memory-${NodeCrypto.randomUUID()}`,
-              input,
-              approvalMode: "require-grant",
-            });
-          },
-          catch: (cause) =>
-            new MemoryToolCallError({
-              cause: cause instanceof Error ? cause : new Error(String(cause)),
-            }),
-        });
-
-      return provideController(
-        Effect.gen(function* () {
-          const controller = yield* AgentController;
-          const settings = yield* ServerSettingsService;
-          yield* controller.resolveEngine({
-            threadId: claudeThreadId,
-            engine: { provider: "opencode", model: "anthropic/claude-sonnet-4-5" },
-            fallback: codexSelection,
-            mode: "default",
-            botConversation: true,
-          });
-          yield* controller.startSession(claudeThreadId, {
-            threadId: claudeThreadId,
-            provider: ProviderDriverKind.make("opencode"),
-            providerInstanceId: openCodeInstanceId,
-            cwd: process.cwd(),
-            runtimeMode: "approval-required",
-            memoryAccess: access,
-          });
-
-          const enabled = yield* callMemoryTool({
-            target: "user",
-            operations: [{ action: "add", content: "The user prefers vim." }],
-          });
-
-          expect(enabled).toMatchObject({ success: true, changed: true });
-
-          // The handler stays registered between turns, so it must re-check the
-          // Memory setting on every call.
-          yield* settings.updateSettings({ memory: { enabled: false } });
-
-          const denied = yield* callMemoryTool({
-            target: "user",
-            operations: [],
-          }).pipe(Effect.result);
-
-          assert.equal(denied._tag, "Failure");
-          expect(
-            Predicate.isTagged(denied, "Failure") ? denied.failure.cause.message : "",
-          ).toContain("disabled");
-          yield* controller.sendTurn({ threadId: claudeThreadId, input: "Memory off turn." });
-
-          const deniedDuringTurn = yield* callMemoryTool({
-            target: "user",
-            operations: [],
-          }).pipe(Effect.result);
-
-          assert.equal(deniedDuringTurn._tag, "Failure");
-          expect(
-            Predicate.isTagged(deniedDuringTurn, "Failure")
-              ? deniedDuringTurn.failure.cause.message
-              : "",
-          ).toContain("disabled");
-
-          yield* settings.updateSettings({ memory: { enabled: true } });
-          const restored = yield* callMemoryTool({ target: "user", operations: [] });
-          expect(restored).toMatchObject({
-            success: true,
-            content: "The user prefers vim.",
-          });
-        }),
-        bridge.service,
-        mastra.factory,
-        undefined,
-        undefined,
-        undefined,
-        { botMemoryStore, ...credentials },
-      ).pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            McpMemoryToolSession.clearMcpMemoryToolSession(claudeThreadId);
-            NodeFS.rmSync(memoryDir, { recursive: true, force: true });
-          }),
-        ),
-      );
-    },
-  );
 });
 
 describe("AgentControllerLive", () => {
