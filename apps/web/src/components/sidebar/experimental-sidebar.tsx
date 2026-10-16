@@ -163,7 +163,7 @@ export function ExperimentalSidebar() {
               }}
               className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none hover:bg-sidebar-wash motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag"
             >
-              <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-base" />
+              <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-xl" />
             </button>
             <RailButton
               label={unread > 0 ? t("Home, {count} unread", { count: unread }) : t("Home")}
