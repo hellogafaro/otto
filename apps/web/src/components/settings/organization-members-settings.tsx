@@ -1,4 +1,4 @@
-import { RiMoreLine } from "@remixicon/react";
+import { RiMailLine, RiMoreLine, RiShieldUserLine, RiUserLine } from "@remixicon/react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { createOrganizationAccountsClient } from "@otto/client-runtime/authorization";
@@ -11,7 +11,7 @@ import { Field, FieldLabel } from "../ui/field";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Spinner } from "../ui/spinner";
 import { SkeletonTableRows } from "../ui/skeleton";
-import { DataTable, type DataTableColumn } from "../ui/data-table";
+import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import {
   Menu,
   MenuItem,
@@ -136,7 +136,7 @@ function MemberRowActions({
   );
 }
 
-/** Columns like Tasks: who leads, then email, role and when they joined; admins get More actions. */
+/** Columns like Tasks: who leads, then email and role chips and when they joined; admins get More actions. */
 function memberColumns({
   currentUserId,
   actions,
@@ -163,14 +163,26 @@ function memberColumns({
           : `${row.member.user.name}${row.member.userId === currentUserId ? " (you)" : ""}`,
     },
     {
-      id: "email",
-      type: "meta",
-      cell: (row) => (row.type === "member" ? row.member.user.email : null),
-    },
-    {
-      id: "role",
-      type: "meta",
-      cell: (row) => roleLabel(row.type === "member" ? row.member.role : row.invitation.role),
+      id: "details",
+      type: "chips",
+      cell: (row) => {
+        const role = row.type === "member" ? row.member.role : row.invitation.role;
+
+        return (
+          <>
+            {row.type === "member" ? (
+              <DataTableChip>
+                <RiMailLine aria-hidden />
+                <span className="truncate">{row.member.user.email}</span>
+              </DataTableChip>
+            ) : null}
+            <DataTableChip>
+              {role === "admin" ? <RiShieldUserLine aria-hidden /> : <RiUserLine aria-hidden />}
+              {roleLabel(role)}
+            </DataTableChip>
+          </>
+        );
+      },
     },
     {
       id: "joined",
