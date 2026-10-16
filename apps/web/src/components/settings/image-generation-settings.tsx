@@ -45,7 +45,7 @@ import {
   imageProviderTogglePatch,
   isImageProviderEnabled,
 } from "@otto/client-runtime/image-generation";
-import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settings-layout";
+import { SettingsRow, SettingsSection } from "./settings-layout";
 import { searchableSetting } from "./settings-search";
 import { subscriptionProviderTargetId } from "./subscription-providers";
 
@@ -69,23 +69,21 @@ function confirmAction(message: string): Promise<boolean> {
   return requestConfirmDialog(message, { variant: "destructive" }) ?? Promise.resolve(false);
 }
 
-export function ImageGenerationSettingsPanel() {
+export function ImageGenerationSettingsSection() {
   const environmentId = useSettingsEnvironmentId();
 
-  return (
-    <SettingsPageContainer>
-      {environmentId === null ? (
-        <SettingsSection id="image-generation" title="Image generation">
-          <SettingsRow
-            title="No environment"
-            description="Connect to an environment to set up image generation."
-          />
-        </SettingsSection>
-      ) : (
-        <ImageGenerationSettingsContent key={environmentId} environmentId={environmentId} />
-      )}
-    </SettingsPageContainer>
-  );
+  if (environmentId === null) {
+    return (
+      <SettingsSection id="image-generation" title="Image generation">
+        <SettingsRow
+          title="No environment"
+          description="Connect to an environment to set up image generation."
+        />
+      </SettingsSection>
+    );
+  }
+
+  return <ImageGenerationSettingsContent key={environmentId} environmentId={environmentId} />;
 }
 
 export function ImageGenerationSettingsContent({

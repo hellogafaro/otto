@@ -8,10 +8,7 @@ import type { ChannelProvider, EnvironmentId } from "@otto/contracts";
 
 import { usePrimaryEnvironmentId } from "./state/environments";
 
-/**
- * Every settings page. `diagnostics` has no nav row and is reached from
- * links, so this is wider than the visible nav.
- */
+/** Every settings page; each one has a nav row. */
 export const SETTINGS_SECTIONS = [
   "account",
   "organization",
@@ -27,9 +24,7 @@ export const SETTINGS_SECTIONS = [
   "archived",
   "providers",
   "channels",
-  "sandbox",
-  "browser",
-  "image-generation",
+  "computer",
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -113,6 +108,9 @@ export function clearSettingsEnvironment(): void {
 export const LEGACY_SETTINGS_SECTIONS = {
   voice: { section: "providers", targetId: "voice" },
   "source-control": { section: "general" },
+  "image-generation": { section: "providers", targetId: "image-generation" },
+  sandbox: { section: "computer" },
+  browser: { section: "computer", targetId: "browser" },
 } as const satisfies Record<string, { section: SettingsSection; targetId?: string }>;
 
 /** Map a `/settings/...` pathname, current or legacy, onto a settings page. */

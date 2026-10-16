@@ -295,7 +295,12 @@ export const settingsCatalog = {
   "Open Settings > {destination}": "Open Settings > {destination}",
   "The voice provider rejected the API key. Replace the key and test it again.":
     "The voice provider rejected the API key. Replace the key and test it again.",
-  "Providers > Voice": "Providers > Voice",
+  "Models > Voice": "Models > Voice",
+  "Models > Image generation": "Models > Image generation",
+  "Computer > Browser": "Computer > Browser",
+  Computer: "Computer",
+  Profile: "Profile",
+  Shortcuts: "Shortcuts",
   "Privacy & data": "Privacy & data",
   "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.":
     "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.",

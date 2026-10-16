@@ -3,13 +3,11 @@ import { isElectron } from "~/env";
 export type SettingsPath =
   | "/settings/providers"
   | "/settings/channels"
-  | "/settings/sandbox"
-  | "/settings/browser"
+  | "/settings/computer"
   | "/settings/general"
   | "/settings/usage"
   | "/settings/appearance"
   | "/settings/keybindings"
-  | "/settings/image-generation"
   | "/settings/privacy"
   | "/settings/archived";
 
@@ -105,7 +103,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "sandbox-browser-sharing",
     title: "Sandbox and browser sharing",
-    to: "/settings/sandbox",
+    to: "/settings/computer",
   },
   {
     id: "time-format",
@@ -148,7 +146,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "local-execution",
     title: "Local execution",
-    to: "/settings/sandbox",
+    to: "/settings/computer",
   },
   {
     id: "voice-enabled",
@@ -197,30 +195,30 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "image-generation",
     title: "Image generation",
-    to: "/settings/image-generation",
+    to: "/settings/providers",
     keywords: ["images", "pictures", "ChatGPT", "Grok", "health test"],
   },
   {
     id: "image-provider-chatgpt",
     title: "ChatGPT images",
-    to: "/settings/image-generation",
+    to: "/settings/providers",
     keywords: ["image", "OpenAI", "subscription"],
   },
   {
     id: "image-provider-grok",
     title: "Grok images",
-    to: "/settings/image-generation",
+    to: "/settings/providers",
     keywords: ["image", "xAI", "subscription"],
   },
   {
     id: "image-default-provider",
     title: "Default image provider",
-    to: "/settings/image-generation",
+    to: "/settings/providers",
   },
   {
     id: "image-fallback-order",
     title: "Image fallback order",
-    to: "/settings/image-generation",
+    to: "/settings/providers",
     keywords: ["retry", "backup"],
   },
   {
@@ -245,6 +243,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "keybindings",
     title: "Keybindings",
     to: "/settings/keybindings",
+    keywords: ["shortcuts", "keyboard"],
   },
   {
     id: "archived-chats",
@@ -263,45 +262,56 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "providers",
     title: "Providers",
     to: "/settings/providers",
-    keywords: ["ChatGPT", "Codex", "Claude", "Grok", "Kimi", "OpenCode", "API key", "Subscription"],
+    keywords: [
+      "models",
+      "ChatGPT",
+      "Codex",
+      "Claude",
+      "Grok",
+      "Kimi",
+      "OpenCode",
+      "API key",
+      "Subscription",
+    ],
   },
   {
     id: "sandbox",
     title: "Sandbox",
-    to: "/settings/sandbox",
+    to: "/settings/computer",
+    keywords: ["computer", "machine"],
   },
   {
     id: "default-sandbox",
     title: "Default sandbox",
-    to: "/settings/sandbox",
+    to: "/settings/computer",
   },
   {
     id: "sandbox-auto-idle",
     title: "Sandbox auto-idle",
-    to: "/settings/sandbox",
+    to: "/settings/computer",
   },
   {
     id: "agent-browser-access",
     title: "Bot browser access",
-    to: "/settings/browser",
+    to: "/settings/computer",
     targetId: "browser",
   },
   {
     id: "browser-default-viewport",
     title: "Default browser viewport",
-    to: "/settings/browser",
+    to: "/settings/computer",
     targetId: "browser",
   },
   {
     id: "browser-default-zoom",
     title: "Default browser zoom",
-    to: "/settings/browser",
+    to: "/settings/computer",
     targetId: "browser",
   },
   {
     id: "browser-default-appearance",
     title: "Default browser appearance",
-    to: "/settings/browser",
+    to: "/settings/computer",
     targetId: "browser",
   },
   {

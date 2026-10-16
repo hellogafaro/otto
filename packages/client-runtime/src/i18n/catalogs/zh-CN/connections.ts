@@ -320,7 +320,7 @@ export const connectionsCatalog = {
   Unsupported: "不支持",
   "Not connected": "未连接",
   "OAuth connected": "已通过 OAuth 连接",
-  "Sandbox > Local execution": "沙盒 > 本地执行",
+  "Computer > Local execution": "计算机 > 本地执行",
   "The environment rejected the change.": "环境拒绝了此更改。",
   "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.":
     "托管浏览器会话在此环境中运行，可以从网页端、桌面端或远程客户端控制。",

@@ -80,7 +80,7 @@ describe("searchSettings", () => {
     expect(searchSettings("glass").map((item) => item.id)).toEqual([]);
     expect(searchSettings("local execution")[0]).toMatchObject({
       id: "local-execution",
-      to: "/settings/sandbox",
+      to: "/settings/computer",
     });
     expect(searchSettings("xyzzy")).toEqual([]);
   });
@@ -122,14 +122,14 @@ describe("searchSettings", () => {
     expect(searchableSetting("word-wrap")).toEqual({ id: "word-wrap", title: "Word wrap" });
   });
 
-  it("routes sandbox and browser sharing to the Sandbox page", () => {
+  it("routes sandbox and browser sharing to the Computer page", () => {
     expect(searchSettings("sandbox and browser sharing")[0]).toMatchObject({
       id: "sandbox-browser-sharing",
-      to: "/settings/sandbox",
+      to: "/settings/computer",
     });
   });
 
-  it("routes voice to the Providers page without offering a fallback model control", () => {
+  it("routes voice to the Models page without offering a fallback model control", () => {
     expect(searchSettings("voice provider")[0]).toMatchObject({
       id: "voice-provider",
       to: "/settings/providers",
@@ -158,10 +158,10 @@ describe("searchSettings", () => {
     }
   });
 
-  it("routes sandbox provider settings to Sandbox settings", () => {
+  it("routes sandbox provider settings to Computer settings", () => {
     expect(searchSettings("default sandbox")[0]).toMatchObject({
       id: "default-sandbox",
-      to: "/settings/sandbox",
+      to: "/settings/computer",
     });
   });
 
@@ -200,18 +200,18 @@ describe("searchSettings", () => {
     });
   });
 
-  it("finds image generation separately from chat providers", () => {
+  it("finds image generation on the Models page", () => {
     expect(searchSettings("image generation")[0]).toMatchObject({
       id: "image-generation",
-      to: "/settings/image-generation",
+      to: "/settings/providers",
     });
     expect(searchSettings("Grok images")[0]).toMatchObject({
       id: "image-provider-grok",
-      to: "/settings/image-generation",
+      to: "/settings/providers",
     });
     expect(searchSettings("image fallback")[0]).toMatchObject({
       id: "image-fallback-order",
-      to: "/settings/image-generation",
+      to: "/settings/providers",
     });
   });
 });

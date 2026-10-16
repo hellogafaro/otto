@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1850,
+  "directMessageCount": 1852,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -178,9 +178,10 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "settingsSectionLabel(section));",
     ],
     "apps/web/src/components/settings/settings-sidebar-nav.tsx": [
+      "result.title)}",
       "group.label)}",
-      "item.label)}</span>",
-      "group.label)}</SidebarGroupLabel>",
+      "item.label)}",
+      "group.label)}</SidebarGroupLabel> : null}",
       "item.label)}",
       "item.label)}",
     ],
@@ -223,27 +224,23 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Dictation failed. Try again.",
     ],
     "SettingsDialog: group.label and item.label (SETTINGS_NAV_GROUPS)": [
-      "App",
       "General",
-      "Usage",
+      "Profile",
       "Appearance",
-      "Keyboard",
+      "Shortcuts",
       "Privacy & data",
       "Archived",
-      "Organization",
-      "Account",
-      "Organization",
-      "Members",
-      "Customize",
+      "Bots",
       "Bots",
       "Skills",
       "Integrations",
-      "Bots",
-      "Providers",
+      "Models",
       "Channels",
-      "Sandbox",
-      "Browser",
-      "Image generation",
+      "Computer",
+      "Organization",
+      "General",
+      "Members",
+      "Usage",
     ],
     "settingsSearch: item.title (SETTINGS_SEARCH_ITEMS)": [
       "Usage",

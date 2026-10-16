@@ -44,7 +44,7 @@ describe("settings in Simplified Chinese", () => {
       </SidebarProvider>,
     );
 
-    for (const label of ["通用", "隐私与数据", "外观", "提供商", "返回聊天"]) {
+    for (const label of ["通用", "隐私与数据", "外观", "模型", "返回聊天"]) {
       expect(html).toContain(label);
     }
 

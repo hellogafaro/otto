@@ -37,18 +37,18 @@ describe("settings dialog store", () => {
   });
 
   it("clears a handled target without closing its Settings section", () => {
-    openSettings("sandbox", "local-execution");
+    openSettings("computer", "local-execution");
     clearSettingsTarget();
 
     expect(useSettingsDialogStore.getState()).toMatchObject({
-      section: "sandbox",
+      section: "computer",
       targetId: null,
     });
   });
 
   it("keeps the originating environment while navigating Settings", () => {
     const environmentId = EnvironmentId.make("env-secondary");
-    openSettings("sandbox", "local-execution", environmentId);
+    openSettings("computer", "local-execution", environmentId);
     useSettingsDialogStore.getState().openSettings("providers");
 
     expect(useSettingsDialogStore.getState()).toMatchObject({
@@ -63,7 +63,7 @@ describe("settings dialog store", () => {
   it("replaces a stale environment when an entry point names its environment", () => {
     const secondaryEnvironmentId = EnvironmentId.make("env-secondary");
     const primaryEnvironmentId = EnvironmentId.make("env-primary");
-    openSettings("sandbox", "local-execution", secondaryEnvironmentId);
+    openSettings("computer", "local-execution", secondaryEnvironmentId);
 
     openSettings("providers", null, primaryEnvironmentId);
 
@@ -78,13 +78,15 @@ describe("legacy settings deep links", () => {
   it("maps a known settings path onto its section", () => {
     expect(settingsSectionFromPathname("/settings/privacy")).toBe("privacy");
     expect(settingsSectionFromPathname("/settings/channels")).toBe("channels");
-    expect(settingsSectionFromPathname("/settings/sandbox")).toBe("sandbox");
-    expect(settingsSectionFromPathname("/settings/browser")).toBe("browser");
+    expect(settingsSectionFromPathname("/settings/computer")).toBe("computer");
   });
 
   it("maps retired sections onto the page that now owns them", () => {
     expect(settingsSectionFromPathname("/settings/source-control")).toBe("general");
     expect(settingsSectionFromPathname("/settings/voice")).toBe("providers");
+    expect(settingsSectionFromPathname("/settings/image-generation")).toBe("providers");
+    expect(settingsSectionFromPathname("/settings/sandbox")).toBe("computer");
+    expect(settingsSectionFromPathname("/settings/browser")).toBe("computer");
   });
 
   it("opens the Bots list under Customize", () => {

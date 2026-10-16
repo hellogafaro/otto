@@ -11,7 +11,7 @@ import { SETTINGS_NAV_GROUPS, SETTINGS_NAV_ITEMS, settingsSectionLabel } from ".
 describe("settings dialog navigation", () => {
   it("lists General first and lands there by default", () => {
     expect(DEFAULT_SETTINGS_SECTION).toBe("general");
-    expect(SETTINGS_NAV_GROUPS[0]?.label).toBe("App");
+    expect(SETTINGS_NAV_GROUPS[0]?.label).toBeNull();
     expect(SETTINGS_NAV_ITEMS[0]?.section).toBe("general");
     expect(settingsSectionFromPathname("/settings")).toBe("general");
     expect(settingsSectionFromPathname("/settings/unknown")).toBe("general");
@@ -28,10 +28,10 @@ describe("settings dialog navigation", () => {
     );
   });
 
-  it("opens Usage as an ordinary App settings section", () => {
-    const app = SETTINGS_NAV_GROUPS.find((group) => group.label === "App");
+  it("opens Usage as an ordinary Organization settings section", () => {
+    const organization = SETTINGS_NAV_GROUPS.find((group) => group.label === "Organization");
 
-    expect(app?.items).toContainEqual(
+    expect(organization?.items).toContainEqual(
       expect.objectContaining({ section: "usage", label: "Usage" }),
     );
     expect(settingsSectionFromPathname("/settings/usage")).toBe("usage");
@@ -49,9 +49,13 @@ describe("settings dialog navigation", () => {
     );
   });
 
-  it("gives every group a label so no row floats without a heading", () => {
-    for (const group of SETTINGS_NAV_GROUPS) {
-      expect(group.label.length).toBeGreaterThan(0);
+  it("heads the list with your own pages and labels every later group", () => {
+    const [personal, ...rest] = SETTINGS_NAV_GROUPS;
+
+    expect(personal?.label).toBeNull();
+
+    for (const group of rest) {
+      expect(group.label?.length).toBeGreaterThan(0);
       expect(group.items.length).toBeGreaterThan(0);
     }
   });
@@ -60,15 +64,12 @@ describe("settings dialog navigation", () => {
     const sections = SETTINGS_NAV_ITEMS.map((item) => item.section);
     const organization = SETTINGS_NAV_GROUPS.find((group) => group.label === "Organization");
     expect(organization?.items.map((item) => item.section)).toEqual([
-      "account",
       "organization",
       "members",
+      "usage",
     ]);
-    expect(
-      SETTINGS_NAV_GROUPS.filter((group) => group.label !== "Organization").flatMap(
-        (group) => group.items,
-      ).length,
-    ).toBe(14);
+    expect(SETTINGS_NAV_ITEMS).toHaveLength(15);
+    expect(SETTINGS_NAV_GROUPS).toHaveLength(3);
     expect(new Set(sections).size).toBe(sections.length);
     expect(sections).not.toContain("source-control");
     expect(sections).not.toContain("diagnostics");

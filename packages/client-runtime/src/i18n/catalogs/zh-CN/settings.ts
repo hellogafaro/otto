@@ -287,7 +287,12 @@ export const settingsCatalog = {
   "Open Settings > {destination}": "打开“设置 > {destination}”",
   "The voice provider rejected the API key. Replace the key and test it again.":
     "语音提供商拒绝了此 API 密钥。请更换密钥后重新测试。",
-  "Providers > Voice": "提供商 > 语音",
+  "Models > Voice": "模型 > 语音",
+  "Models > Image generation": "模型 > 图像生成",
+  "Computer > Browser": "计算机 > 浏览器",
+  Computer: "计算机",
+  Profile: "个人资料",
+  Shortcuts: "快捷键",
   "Privacy & data": "隐私与数据",
   "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.":
     "此机器人的提供商无法移交工作。它不能把工作发给其他机器人，也不能接收来自它们的工作。",

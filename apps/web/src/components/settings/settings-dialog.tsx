@@ -4,10 +4,8 @@ import {
   RiUserLine,
   RiGroupLine,
   RiBuildingLine,
-  RiRobot2Line,
-  RiGlobalLine,
-  RiHardDriveLine,
-  RiImageLine,
+  RiBrainLine,
+  RiComputerLine,
   RiKeyboardLine,
   RiChat3Line,
   RiPaintBrushLine,
@@ -48,12 +46,8 @@ const ProvidersSettingsPage = lazy(async () => ({
   default: (await import("./settings-pages")).ProvidersSettingsPage,
 }));
 
-const SandboxSettingsPage = lazy(async () => ({
-  default: (await import("./settings-pages")).SandboxSettingsPage,
-}));
-
-const BrowserSettingsPage = lazy(async () => ({
-  default: (await import("./settings-pages")).BrowserSettingsPage,
+const ComputerSettingsPage = lazy(async () => ({
+  default: (await import("./settings-pages")).ComputerSettingsPage,
 }));
 
 const BotChannelsSettingsPanel = lazy(async () => ({
@@ -66,10 +60,6 @@ const PrivacySettingsPanel = lazy(async () => ({
 
 const KeybindingsSettingsPanel = lazy(async () => ({
   default: (await import("./keybindings-settings")).KeybindingsSettingsPanel,
-}));
-
-const ImageGenerationSettingsPanel = lazy(async () => ({
-  default: (await import("./image-generation-settings")).ImageGenerationSettingsPanel,
 }));
 
 const ArchivedChatsSettingsPanel = lazy(async () => ({
@@ -115,9 +105,7 @@ const SECTION_PANELS: Readonly<Record<SettingsSection, ComponentType>> = {
   archived: ArchivedChatsSettingsPanel,
   providers: ProvidersSettingsPage,
   channels: BotChannelsSettingsPanel,
-  sandbox: SandboxSettingsPage,
-  browser: BrowserSettingsPage,
-  "image-generation": ImageGenerationSettingsPanel,
+  computer: ComputerSettingsPage,
 };
 
 export function SettingsPanelForSection({ section }: { readonly section: SettingsSection }) {
@@ -143,50 +131,45 @@ export interface SettingsNavItem {
   readonly icon: RemixiconComponentType;
 }
 
-/**
- * Nav rows in display order, grouped. App comes first so General, the default
- * page, heads the list.
- */
-export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
-  readonly label: MessageKey;
+export interface SettingsNavGroup {
+  /** Null for your own pages, which head the list without a heading, like Capy. */
+  readonly label: MessageKey | null;
   readonly items: ReadonlyArray<SettingsNavItem>;
-}> = [
+}
+
+/**
+ * Nav rows in display order: your own pages first (General, the default page,
+ * heads the list), then what bots are and can use, then the organization.
+ */
+export const SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
   {
-    label: "App",
+    label: null,
     items: [
       { section: "general", label: "General", icon: RiSettings3Line },
-      { section: "usage", label: "Usage", icon: RiBarChartLine },
+      { section: "account", label: "Profile", icon: RiUserLine },
       { section: "appearance", label: "Appearance", icon: RiPaintBrushLine },
-      { section: "keybindings", label: "Keyboard", icon: RiKeyboardLine },
+      { section: "keybindings", label: "Shortcuts", icon: RiKeyboardLine },
       { section: "privacy", label: "Privacy & data", icon: RiShieldCheckLine },
       { section: "archived", label: "Archived", icon: RiArchiveLine },
     ],
   },
   {
-    label: "Organization",
-    items: [
-      { section: "account", label: "Account", icon: RiUserLine },
-      { section: "organization", label: "Organization", icon: RiBuildingLine },
-      { section: "members", label: "Members", icon: RiGroupLine },
-    ],
-  },
-  {
-    // Otto: what bots are and can use; they change rarely, so they live here, not in the sidebar.
-    label: "Customize",
+    label: "Bots",
     items: [
       { section: "bots", label: "Bots", icon: RiRobot3Line },
       { section: "skills", label: "Skills", icon: RiSparkling2Line },
       { section: "integrations", label: "Integrations", icon: RiPuzzleLine },
+      { section: "providers", label: "Models", icon: RiBrainLine },
+      { section: "channels", label: "Channels", icon: RiChat3Line },
+      { section: "computer", label: "Computer", icon: RiComputerLine },
     ],
   },
   {
-    label: "Bots",
+    label: "Organization",
     items: [
-      { section: "providers", label: "Providers", icon: RiRobot2Line },
-      { section: "channels", label: "Channels", icon: RiChat3Line },
-      { section: "sandbox", label: "Sandbox", icon: RiHardDriveLine },
-      { section: "browser", label: "Browser", icon: RiGlobalLine },
-      { section: "image-generation", label: "Image generation", icon: RiImageLine },
+      { section: "organization", label: "General", icon: RiBuildingLine },
+      { section: "members", label: "Members", icon: RiGroupLine },
+      { section: "usage", label: "Usage", icon: RiBarChartLine },
     ],
   },
 ];
@@ -222,10 +205,12 @@ export function SettingsDialog() {
           className="flex w-52 shrink-0 flex-col gap-0.5 border-e bg-muted/30 p-2 max-sm:w-full max-sm:flex-row max-sm:overflow-x-auto max-sm:border-e-0 max-sm:border-b"
         >
           {SETTINGS_NAV_GROUPS.map((group) => (
-            <Fragment key={group.label}>
-              <div className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground max-sm:hidden">
-                {t(group.label)}
-              </div>
+            <Fragment key={group.label ?? "personal"}>
+              {group.label ? (
+                <div className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground max-sm:hidden">
+                  {t(group.label)}
+                </div>
+              ) : null}
               {group.items.map((item) => {
                 const isActive = section === item.section;
 

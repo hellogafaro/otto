@@ -342,7 +342,7 @@ export const connectionsCatalog = {
   Unsupported: "Unsupported",
   "Not connected": "Not connected",
   "OAuth connected": "OAuth connected",
-  "Sandbox > Local execution": "Sandbox > Local execution",
+  "Computer > Local execution": "Computer > Local execution",
   "The environment rejected the change.": "The environment rejected the change.",
   "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.":
     "Hosted browser sessions run in this environment and can be controlled from web, desktop, or remote clients.",
