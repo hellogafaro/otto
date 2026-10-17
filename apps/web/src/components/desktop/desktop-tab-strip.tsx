@@ -221,7 +221,7 @@ export function DesktopTabStrip() {
                 "group/tab relative flex h-7 w-48 min-w-0 items-center overflow-hidden rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
                 active
                   ? "sidebar-row-raised text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
-                  : "sidebar-row-hovered text-sidebar-muted-foreground hover:sidebar-row-current hover:text-sidebar-foreground",
+                  : "sidebar-row-hovered text-sidebar-muted-foreground hover:text-sidebar-foreground",
               )}
             >
               <button
@@ -239,14 +239,15 @@ export function DesktopTabStrip() {
                   <span
                     className={cn(
                       "flex size-5 items-center justify-center",
-                      tabs.length > 1 && "group-hover/tab:hidden group-focus-within/tab:hidden",
+                      tabs.length > 1 &&
+                        "group-hover/tab:hidden group-has-focus-visible/tab:hidden",
                     )}
                   >
                     <TabChatStatus threadId={chatId} current={active} />
                   </span>
                 ) : null}
                 {tabs.length > 1 ? (
-                  <span className="hidden group-hover/tab:flex group-focus-within/tab:flex">
+                  <span className="hidden group-hover/tab:flex group-has-focus-visible/tab:flex">
                     <Button
                       variant="ghost-muted"
                       size="icon-micro"
