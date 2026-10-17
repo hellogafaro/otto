@@ -407,6 +407,7 @@ export function createTurnRequests(deps: {
             toolSession: active.configuredToolSession,
             memoryChat: input.memoryChat,
             authorPersonId: input.authorPersonId ?? null,
+            askerPersonId: input.askerPersonId ?? null,
             hiddenWake: input.hiddenWake === true,
             delegationResults: input.delegationResults,
             taskWake: input.taskWake,

@@ -73,6 +73,8 @@ export interface PendingTurn {
   readonly memoryChat: MemoryChat | undefined;
   /** The person whose message this turn answers; person memory writes go to them. */
   readonly authorPersonId: AuthSessionId | null;
+  /** The person whose GitHub login the bot's computer gets this turn. */
+  readonly askerPersonId: AuthSessionId | null;
   readonly hiddenWake: boolean;
   readonly delegationResults: string | undefined;
   /** The group turn note, sent in the turn block instead of the stored message. */

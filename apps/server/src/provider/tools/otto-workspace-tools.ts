@@ -51,6 +51,35 @@ export async function toolsForWorkspace(workspace: Workspace | undefined) {
   });
 }
 
+const bound = (target: object, key: PropertyKey): unknown => {
+  const value: unknown = Reflect.get(target, key);
+
+  return Predicate.isFunction(value) ? value.bind(target) : value;
+};
+
+/** The workspace as one turn's shell sees it: every command also gets `environment`. */
+export function withCommandEnvironment(
+  workspace: Workspace,
+  environment: Readonly<Record<string, string>>,
+): Workspace {
+  const sandbox = workspace.sandbox;
+
+  if (!sandbox?.executeCommand) return workspace;
+  const run = sandbox.executeCommand.bind(sandbox);
+
+  const scoped = new Proxy(sandbox, {
+    get: (target, key) =>
+      key === "executeCommand"
+        ? (...[command, args, options]: Parameters<typeof run>) =>
+            run(command, args, { ...options, env: { ...options?.env, ...environment } })
+        : bound(target, key),
+  });
+
+  return new Proxy(workspace, {
+    get: (target, key) => (key === "sandbox" ? scoped : bound(target, key)),
+  });
+}
+
 export function executable(
   value: unknown,
 ): value is Pick<Tool, "execute"> & { execute: NonNullable<Tool["execute"]> } {

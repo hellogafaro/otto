@@ -3,7 +3,7 @@ name: git
 description: Use for any work in a git repository in your computer, from branch to pull request, review fixes and updates.
 ---
 
-- Your git login and author are set per turn for the person who asked. If git or gh says you are not logged in to GitHub, ask that person to connect GitHub (Customize → Integrations → Yours → Connect GitHub) and stop there.
+- Your git login and author are set per turn for the person who asked, so commits and pull requests are theirs. If git or gh says you are not logged in to GitHub, ask that person to connect GitHub in Settings → Integrations and stop there.
 - Branch from a fresh base: `git fetch origin`, then `git switch -c otto/<your-name>/<topic> origin/<default-branch>`. Never commit to the default branch.
 - Commit in small themed steps with clear messages, saying what changed and why in plain words. End every message with your co-author line from your instructions.
 - Never commit secrets, tokens, .env files or credentials. Check `git diff --staged` before each commit.
@@ -22,6 +22,6 @@ description: Use for any work in a git repository in your computer, from branch 
   - Fix the cause, push, and reply to every review comment with what you changed or why not.
 - If the push is refused, say why and stop; do not try another route:
   - no access: ask the person to get write access;
-  - the app is not installed on the repo: give them the install link from your instructions;
+  - the app is not installed on the repo: give them the link from `git config otto.installurl`;
   - protected branch: say so.
 - Never push to the default branch, never merge, and never enable auto-merge, even when asked. Tell the person to merge.

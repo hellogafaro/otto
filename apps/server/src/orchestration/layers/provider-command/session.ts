@@ -21,6 +21,7 @@ import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import { resolveThreadWorkspaceCwd } from "../../../checkpointing/utils.ts";
 import type { MemoryChat } from "../../../memory/memories.ts";
+import { taskChatId } from "../../../tasks/task-work-reactor.ts";
 import { ProviderAdapterRequestError } from "../../../provider/errors.ts";
 import {
   botRuntimeResourceScope,
@@ -705,6 +706,20 @@ export function createSession({
 
     const normalizedAttachments = input.attachments ?? [];
     const memoryChat = yield* resolveMemoryChat(thread);
+    const botId = thread.botId;
+
+    // Otto: a task wake acts for the task's owner; with no person, whoever started the chat
+    // (a routine's owner for its runs).
+    const taskOwner =
+      input.authorPersonId || !botId || !input.threadId.startsWith("task-")
+        ? undefined
+        : ((yield* projectionSnapshotQuery.getCommandReadModel()).tasks ?? []).find(
+            (task) => taskChatId(task.id, botId) === input.threadId,
+          )?.owner;
+
+    const askerPersonId =
+      input.authorPersonId ??
+      (taskOwner?.kind === "person" ? taskOwner.personId : (thread.createdBy ?? null));
 
     const activeSession = yield* agentController
       .listSessions()
@@ -752,6 +767,7 @@ export function createSession({
       ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
       ...(memoryChat ? { memoryChat } : {}),
       authorPersonId: input.authorPersonId ?? null,
+      askerPersonId,
     };
   });
 

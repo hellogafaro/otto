@@ -38,6 +38,7 @@ import { activeLibraryTools } from "../../../library/library-tool-runtime.ts";
 import { taskWakeSignal } from "../../mastra/otto-task-signals.ts";
 
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
+import type { createBotGitHubLogins } from "../../bot-github-login.ts";
 
 import {
   type ActiveTurn,
@@ -75,6 +76,7 @@ export function createTurnLifecycle(deps: {
   };
   readonly toolRuntime: OttoToolRuntime;
   readonly sessionResources: Pick<OttoSessionResources, "keepComputerAwake">;
+  readonly githubLogins: ReturnType<typeof createBotGitHubLogins>;
   readonly turnUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
   readonly publishSessionState: (
     threadId: ThreadId,
@@ -285,6 +287,25 @@ export function createTurnLifecycle(deps: {
           deps.runPromise(Effect.logWarning("bot computer wake failed", { threadId, cause })),
         );
 
+      // Otto: the computer acts on GitHub as the person this turn is for, until the turn ends.
+      // It is awaited only when there is a login to write, so other turns start without a pause.
+      const writingLogin = deps.githubLogins.start(String(threadId), pending.askerPersonId);
+
+      const commandEnvironment =
+        writingLogin &&
+        (await writingLogin.catch((cause: unknown) =>
+          deps.runPromise(
+            Effect.logWarning("bot GitHub login failed", { threadId, cause }).pipe(
+              Effect.as(undefined),
+            ),
+          ),
+        ));
+
+      if (commandEnvironment) {
+        active.toolSession = { ...pending.toolSession, commandEnvironment };
+        deps.toolRuntime.registerSession(String(threadId), active.toolSession);
+      }
+
       const libraryTools = activeLibraryTools();
       const botId = pending.toolSession.botId;
 
@@ -440,6 +461,11 @@ export function createTurnLifecycle(deps: {
     }
 
     active.activeTurn = null;
+    void deps.githubLogins
+      .end(String(threadId))
+      ?.catch((cause: unknown) =>
+        deps.runPromise(Effect.logWarning("bot GitHub login cleanup failed", { threadId, cause })),
+      );
     const nextTurn = active.pendingTurns.shift();
 
     if (nextTurn) {

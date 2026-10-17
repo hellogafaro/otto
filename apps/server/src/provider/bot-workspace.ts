@@ -77,7 +77,10 @@ export async function createBotWorkspace(
     tools: TOOL_NAME_OVERRIDES,
   });
 
-  return wrap(workspace, "local");
+  return {
+    ...wrap(workspace, "local"),
+    writePrivateFile: (path, content) => input.io.writeIdentity(path, content),
+  };
 }
 
 export async function createRemoteBotWorkspace(
@@ -149,6 +152,7 @@ export async function createRemoteBotWorkspace(
     inspect: session.inspect,
     ...(session.desktopUrl ? { desktopUrl: session.desktopUrl } : {}),
     ...(session.keepAlive ? { keepAlive: session.keepAlive } : {}),
+    ...(session.writePrivateFile ? { writePrivateFile: session.writePrivateFile } : {}),
     wake: () => workspace.init(),
     sleep: () => workspace.stop(),
     destroy: async () => {

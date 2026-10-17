@@ -114,6 +114,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       clearPreviewMcpSession,
       preparePreviewMcpSession,
       sessionResources,
+      githubLogins,
       authStorage,
       subscriptionAuth,
       botInbox,
@@ -153,6 +154,7 @@ const make = (options?: AgentControllerLiveOptions) =>
         return toolRuntime;
       },
       sessionResources,
+      githubLogins,
       turnUsageByThread,
       get publishSessionState() {
         return publishSessionState;

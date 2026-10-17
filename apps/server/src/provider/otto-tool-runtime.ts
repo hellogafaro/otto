@@ -30,7 +30,12 @@ import {
 import { ensureWorkspaceCwd, canonicalInput, field } from "./tools/otto-tool-authorization.ts";
 import { editWorkspaceFile } from "./tools/otto-edit-file.ts";
 import { proposedBotInstructions } from "./mastra/otto-actions.ts";
-import { toolsForWorkspace, BACKEND_NAMES, executable } from "./tools/otto-workspace-tools.ts";
+import {
+  toolsForWorkspace,
+  BACKEND_NAMES,
+  executable,
+  withCommandEnvironment,
+} from "./tools/otto-workspace-tools.ts";
 
 const isDelegationContextTooLong = Schema.is(OttoDelegationContextTooLongError);
 
@@ -438,7 +443,10 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           failureCode = "internal";
           result = await session.reactToMessage(execution.input, input.toolCallId);
         } else {
-          const workspace = session.workspace;
+          const workspace =
+            execution.toolId === "shell" && session.workspace && session.commandEnvironment
+              ? withCommandEnvironment(session.workspace, session.commandEnvironment)
+              : session.workspace;
           const backends = await toolsForWorkspace(workspace);
 
           const backendNames = Object.hasOwn(BACKEND_NAMES, input.toolId)

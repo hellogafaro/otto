@@ -42,6 +42,9 @@ import { createOttoWebFetch } from "../../otto-web-fetch.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { RoutineDraftDispatcher } from "../../../routines/routine-draft-dispatcher.ts";
 import { Memories } from "../../../memory/memories.ts";
+import { ServerSecretStore } from "../../../auth/server-secret-store.ts";
+import { makeGitHubAccounts } from "../../../github/github-accounts.ts";
+import { createBotGitHubLogins } from "../../bot-github-login.ts";
 import { type ResolvedEngine, type ActiveSession } from "./state.ts";
 
 export const createControllerState = Effect.fn("createControllerState")(function* (
@@ -159,8 +162,23 @@ export const createControllerState = Effect.fn("createControllerState")(function
     },
   });
 
+  const github = Option.map(yield* Effect.serviceOption(ServerSecretStore), (store) =>
+    makeGitHubAccounts(store),
+  );
+
+  const githubLogins = createBotGitHubLogins({
+    turnLogin: (personId) =>
+      Option.match(github, {
+        onNone: () => Promise.resolve(undefined),
+        onSome: (accounts) =>
+          runPromise(accounts.turnLogin(personId).pipe(Effect.map(Option.getOrUndefined))),
+      }),
+    computer: (threadId) => sessionResources.computer(threadId),
+  });
+
   return {
     sessionResources,
+    githubLogins,
     authStorage,
     subscriptionAuth,
     botInbox,

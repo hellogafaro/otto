@@ -35,6 +35,8 @@ export interface OttoToolSession {
   readonly workspaceType: OttoToolWorkspaceType;
   readonly timezone?: string;
   readonly workspace?: Workspace;
+  /** Path-only environment this turn's shell commands get, such as the asker's GitHub login folder. */
+  readonly commandEnvironment?: Readonly<Record<string, string>>;
   readonly memoryHandlers?: Record<MemoryUpdateToolId, MemoryToolHandler>;
   readonly delegation?: {
     readonly depth: number;

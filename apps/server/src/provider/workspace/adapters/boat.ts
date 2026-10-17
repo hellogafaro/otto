@@ -119,6 +119,20 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
 
       return desktopUrl;
     },
+    writePrivateFile: async (path, content) => {
+      await client
+        .writeFile({
+          sandboxId,
+          fileWriteRequest: {
+            path,
+            content: Buffer.from(content).toString("base64"),
+            encoding: "base64",
+          },
+        })
+        .catch(async (cause: unknown) => {
+          throw await boatFailure(cause);
+        });
+    },
     run: async (command, args, options) => {
       const timeout = options?.timeout ?? 600_000;
 

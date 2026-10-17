@@ -21,6 +21,8 @@ export interface OttoBotWorkspace {
   readonly desktopUrl?: () => Promise<string>;
   /** While a turn runs: wakes the computer if the provider stopped it and pushes its auto-stop back. */
   readonly keepAlive?: () => Promise<void>;
+  /** Writes a file at an absolute path through a file API, never a command, so secrets stay out of command logs. */
+  readonly writePrivateFile?: (path: string, content: string) => Promise<void>;
 }
 
 export interface OttoRemoteSession {
@@ -36,6 +38,7 @@ export interface OttoRemoteSession {
   readonly destroy: () => Promise<void>;
   readonly desktopUrl?: () => Promise<string>;
   readonly keepAlive?: () => Promise<void>;
+  readonly writePrivateFile?: (path: string, content: string) => Promise<void>;
 }
 
 export interface CreateRemoteBotWorkspaceInput {

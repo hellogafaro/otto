@@ -21,6 +21,7 @@ import {
   readIdentity,
   writeIdentity,
 } from "./workspace/bot-workspace-lifecycle.ts";
+import type { OttoBotWorkspace } from "./workspace/bot-workspace-types.ts";
 import {
   type OttoSessionResourcesOptions,
   type OttoSessionResourceView,
@@ -234,6 +235,11 @@ export class OttoSessionResources {
    * Wakes the thread's computer if its provider stopped it and pushes back the provider's
    * auto-stop, so a computer stays up while a turn runs and stops on its own after.
    */
+  /** The bot computer a thread's session holds, while it holds one. */
+  computer(threadId: string): OttoBotWorkspace | undefined {
+    return this.workspaceLeases.get(threadId)?.workspace;
+  }
+
   keepComputerAwake(threadId: string): (() => Promise<void>) | undefined {
     return this.workspaceLeases.get(threadId)?.workspace.keepAlive;
   }
