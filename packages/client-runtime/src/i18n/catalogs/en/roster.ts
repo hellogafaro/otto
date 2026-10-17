@@ -380,11 +380,8 @@ export const rosterCatalog = {
   "Watch {name}'s computer": "Watch {name}'s computer",
   "{name} has no computer to watch": "{name} has no computer to watch",
   "{name}'s computer has no desktop to watch": "{name}'s computer has no desktop to watch",
-  "You can click and type here. Sign in if asked, then tell {name} you're done.":
-    "You can click and type here. Sign in if asked, then tell {name} you're done.",
   "Opening the desktop…": "Opening the desktop…",
   "The desktop did not open.": "The desktop did not open.",
-  "Open in a new window": "Open in a new window",
   "Review skill": "Review skill",
   "Skill details": "Skill details",
   "Skill approval": "Skill approval",

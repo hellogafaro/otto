@@ -1,6 +1,6 @@
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import type { ScopedThreadRef } from "@otto/contracts";
-import { RiComputerLine, RiExternalLinkLine } from "@remixicon/react";
+import { RiComputerLine } from "@remixicon/react";
 import * as Predicate from "effect/Predicate";
 import { useState } from "react";
 
@@ -10,7 +10,7 @@ import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "../ui/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "../ui/drawer";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { Bot } from "./types";
 
@@ -114,42 +114,22 @@ export function WatchComputerButton({
         }}
       >
         <DrawerContent>
-          <div className="mx-auto flex w-full max-w-min-80rem-16x9-dvh-15rem flex-col">
-            <DrawerHeader className="px-0">
-              <DrawerTitle>{label}</DrawerTitle>
-              <DrawerDescription>
-                {t("You can click and type here. Sign in if asked, then tell {name} you're done.", {
-                  name: botName,
-                })}
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="flex flex-col gap-2 py-4">
-              <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border bg-muted">
-                {url ? (
-                  <iframe
-                    allow="clipboard-read; clipboard-write; fullscreen"
-                    className="size-full"
-                    sandbox={DESKTOP_FRAME_SANDBOX}
-                    src={url}
-                    title={label}
-                  />
-                ) : (
-                  <p className="px-6 text-center text-sm text-muted-foreground" role="status">
-                    {error ?? t("Opening the desktop…")}
-                  </p>
-                )}
-              </div>
+          <DrawerTitle className="sr-only">{label}</DrawerTitle>
+          <div className="mx-auto w-full max-w-min-80rem-16x9-dvh-15rem">
+            <div className="flex aspect-video w-full items-center justify-center bg-muted">
               {url ? (
-                <Button
-                  className="self-end"
-                  render={<a href={url} rel="noreferrer" target="_blank" />}
-                  size="compact"
-                  variant="ghost-muted"
-                >
-                  <RiExternalLinkLine />
-                  {t("Open in a new window")}
-                </Button>
-              ) : null}
+                <iframe
+                  allow="clipboard-read; clipboard-write; fullscreen"
+                  className="size-full"
+                  sandbox={DESKTOP_FRAME_SANDBOX}
+                  src={url}
+                  title={label}
+                />
+              ) : (
+                <p className="px-6 text-center text-sm text-muted-foreground" role="status">
+                  {error ?? t("Opening the desktop…")}
+                </p>
+              )}
             </div>
           </div>
         </DrawerContent>

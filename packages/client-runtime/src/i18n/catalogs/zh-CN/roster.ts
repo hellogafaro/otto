@@ -367,11 +367,8 @@ export const rosterCatalog = {
   "Watch {name}'s computer": "查看 {name} 的电脑",
   "{name} has no computer to watch": "{name} 没有可查看的电脑",
   "{name}'s computer has no desktop to watch": "{name} 的电脑没有可查看的桌面",
-  "You can click and type here. Sign in if asked, then tell {name} you're done.":
-    "你可以在这里点击和输入。需要时请登录，然后告诉 {name} 你已完成。",
   "Opening the desktop…": "正在打开桌面…",
   "The desktop did not open.": "桌面没有打开。",
-  "Open in a new window": "在新窗口中打开",
   "Review skill": "审核技能",
   "Skill details": "技能详情",
   "Skill approval": "技能审批",
