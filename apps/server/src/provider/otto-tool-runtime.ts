@@ -28,6 +28,7 @@ import {
 } from "./tools/otto-tool-types.ts";
 import { ensureWorkspaceCwd, canonicalInput, field } from "./tools/otto-tool-authorization.ts";
 import { editWorkspaceFile } from "./tools/otto-edit-file.ts";
+import { proposedBotInstructions } from "./mastra/otto-actions.ts";
 import { toolsForWorkspace, BACKEND_NAMES, executable } from "./tools/otto-workspace-tools.ts";
 
 const isDelegationContextTooLong = Schema.is(OttoDelegationContextTooLongError);
@@ -173,6 +174,8 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
     input: OttoToolExecution["input"],
   ) => {
     if (tool.id === "memory_update") return false;
+
+    if (proposedBotInstructions(tool.id, input) !== null) return true;
     const ottoTool = OTTO_TOOL_CATALOG.find((candidate) => candidate.id === tool.id);
 
     if (!ottoTool) throw new Error(`Tool '${tool.id}' has no definition.`);

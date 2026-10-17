@@ -76,6 +76,47 @@ describe("OttoToolRuntime", () => {
     expect(updateProfile).toHaveBeenCalledTimes(1);
   });
 
+  it("changes a bot's instructions only with a person's approval", async () => {
+    const updateProfile = vi.fn(async () => ({
+      receiptId: "instructions-1",
+      toolId: "bot_update",
+      phase: "success" as const,
+      threadId: ThreadId.make("thread-profile"),
+      botId: BotId.make("bot-one"),
+      fatalToThread: false as const,
+      createdAt: "2026-09-01T02:00:00.000Z",
+    }));
+
+    const runtime = createOttoToolRuntime();
+    runtime.registerSession("thread-profile", {
+      botId: BotId.make("bot-one"),
+      runtimeMode: "full-access",
+      workspaceType: "none",
+      botState: { updateProfile },
+    });
+    const input = { instructions: "Always answer in French." };
+
+    await expect(runtime.requiresApproval("thread-profile", "bot_update", input)).resolves.toBe(
+      true,
+    );
+    const call = { threadId: "thread-profile", toolId: "bot_update" as const, input };
+    await expect(
+      runtime.execute({ ...call, toolCallId: "instructions-1", approvalMode: "require-grant" }),
+    ).rejects.toThrow("requires approval");
+    expect(updateProfile).not.toHaveBeenCalled();
+
+    runtime.grantApproval({ ...call, toolCallId: "instructions-1" });
+    await expect(
+      runtime.execute({ ...call, toolCallId: "instructions-1", approvalMode: "require-grant" }),
+    ).resolves.toMatchObject({ phase: "success" });
+    expect(updateProfile).toHaveBeenCalledWith(
+      "thread-profile",
+      "bot-one",
+      "instructions-1",
+      input,
+    );
+  });
+
   it.each([{ label: null }, { name: "Renamed", description: null }])(
     "preserves explicit profile clears: %j",
     async (input) => {
