@@ -91,6 +91,7 @@ export const settingsCatalog = {
   "No provider is ready for this group": "此群组没有可用的提供商",
   "Set up a provider": "设置提供商",
   "Open Providers": "打开提供商",
+  "Open Computer settings": "打开计算机设置",
   "{tokens} tokens": "{tokens} 个令牌",
   "{tokens} tokens billed to {name}": "{tokens} 个令牌计入 {name}",
   "Let this bot take subscription voice calls. Voice must also be enabled in Settings.":

@@ -57,6 +57,7 @@ describe("providerUnavailabilityFromDetail", () => {
     ["opencode", "OpenCode API rate limit exceeded", "limit-reached"],
     ["opencode", "OpenCode usage cap exceeded", "usage-cap"],
     ["codex", "socket closed", "temporary-failure"],
+    ["codex", "Boat: unauthorized", "temporary-failure"],
   ])("maps %s provider detail", (driver, detail, category) => {
     expect(providerUnavailabilityFromDetail(driver, detail)).toBe(category);
   });

@@ -94,6 +94,7 @@ export const settingsCatalog = {
   "No provider is ready for this group": "No provider is ready for this group",
   "Set up a provider": "Set up a provider",
   "Open Providers": "Open Providers",
+  "Open Computer settings": "Open Computer settings",
   "{tokens} tokens": "{tokens} tokens",
   "{tokens} tokens billed to {name}": "{tokens} tokens billed to {name}",
   "Let this bot take subscription voice calls. Voice must also be enabled in Settings.":

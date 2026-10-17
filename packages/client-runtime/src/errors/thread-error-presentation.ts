@@ -71,6 +71,23 @@ export function presentThreadError(
       t,
     );
 
+  // The bot's computer failed, not the model provider. Checked first because
+  // older servers tagged it as the model provider's missing sign-in.
+  const computer = error.match(/^Boat: (.+)/);
+
+  if (computer?.[1]) {
+    const message = computer[1].trim().replace(/[.:。：]$/, "");
+
+    return {
+      title: t("The bot's computer couldn't start"),
+      description: /unauthorized|forbidden|api key/i.test(message)
+        ? t("Boat refused its API key. Replace it in Settings > Computer, then try again.")
+        : t("Boat couldn't start it: {message}. Try again in a moment.", { message }),
+      technicalDetails: boundedTechnicalDetails(error),
+      action: "computer",
+    };
+  }
+
   // A temporary failure is the server's catch-all, so the text below can
   // still say more about it than the category can.
   if (context.unavailability && context.unavailability !== "temporary-failure") {

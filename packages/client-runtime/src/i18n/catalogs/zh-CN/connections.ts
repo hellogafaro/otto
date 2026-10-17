@@ -261,6 +261,11 @@ export const connectionsCatalog = {
   "Reconnect the provider in Settings > Providers, then send your message again.":
     "请在“设置 > 提供商”中重新连接提供商，然后重新发送消息。",
   "Connection interrupted": "连接中断",
+  "The bot's computer couldn't start": "机器人的计算机无法启动",
+  "Boat refused its API key. Replace it in Settings > Computer, then try again.":
+    "Boat 拒绝了它的 API 密钥。请在“设置 > 计算机”中更换密钥，然后重试。",
+  "Boat couldn't start it: {message}. Try again in a moment.":
+    "Boat 无法启动它：{message}。请稍后重试。",
   "Check the environment connection, then send your message again.":
     "请检查环境连接，然后重新发送消息。",
   "Automatically read new replies in this chat on this device":

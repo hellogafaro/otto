@@ -62,6 +62,9 @@ export function providerUnavailabilityFromDetail(
 ): ServerProviderUnavailability {
   const text = detail.toLowerCase();
 
+  // The bot's computer failed, not the model provider, so no sign-in fixes it.
+  if (text.startsWith("boat: ")) return "temporary-failure";
+
   const mappings = new Map<string, ReadonlyArray<readonly [RegExp, ServerProviderUnavailability]>>(
     Object.entries({
       codex: [

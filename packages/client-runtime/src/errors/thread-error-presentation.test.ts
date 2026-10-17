@@ -27,6 +27,18 @@ describe("presentThreadError", () => {
     );
   });
 
+  it("blames the bot's computer, not the model provider, for a Boat failure", () => {
+    const context = { providerName: "ChatGPT", unavailability: "missing-login" as const };
+    expect(presentThreadError("Boat: unauthorized", context)).toMatchObject({
+      title: "The bot's computer couldn't start",
+      description: "Boat refused its API key. Replace it in Settings > Computer, then try again.",
+      action: "computer",
+    });
+    expect(presentThreadError("Boat: sandbox limit reached.").description).toBe(
+      "Boat couldn't start it: sandbox limit reached. Try again in a moment.",
+    );
+  });
+
   it("names a disabled provider from the error when the chat does not know it", () => {
     expect(presentThreadError("Provider instance 'kimi' is disabled.")).toMatchObject({
       title: "Kimi For Coding is turned off",

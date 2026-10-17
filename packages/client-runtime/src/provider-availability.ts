@@ -19,8 +19,11 @@ export type ProviderAvailabilityReason =
   | "not-installed"
   | "missing-provider";
 
-/** One next step. Clients map "providers" to Settings > Providers and "usage" to bot settings. */
-export type ProviderAvailabilityAction = "providers" | "usage" | "none";
+/**
+ * One next step. Clients map "providers" to Settings > Models, "computer" to Settings > Computer
+ * and "usage" to bot settings.
+ */
+export type ProviderAvailabilityAction = "providers" | "computer" | "usage" | "none";
 
 export interface ProviderAvailabilityPresentation {
   readonly title: string;

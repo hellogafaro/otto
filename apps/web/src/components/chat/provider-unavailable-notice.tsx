@@ -66,11 +66,24 @@ export function ProviderRepairAction({
       <Button
         size="sm"
         type="button"
-        variant={provider ? "default" : "outline"}
+        variant="outline"
         onClick={() => openProviderSettings(provider, environmentId)}
       >
         {provider ? null : <RiEqualizerLine aria-hidden="true" />}
         {provider ? providerButtonLabel(t, provider, reason) : t("Open Providers")}
+      </Button>
+    );
+  }
+
+  if (action === "computer") {
+    return (
+      <Button
+        size="sm"
+        type="button"
+        variant="outline"
+        onClick={() => openSettings("computer", null, environmentId)}
+      >
+        {t("Open Computer settings")}
       </Button>
     );
   }
