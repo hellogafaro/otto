@@ -1,3 +1,4 @@
+import * as NodeFS from "node:fs";
 import * as NodeModule from "node:module";
 import "vite-plus/test/config";
 import { defineConfig, mergeConfig } from "vite-plus";
@@ -53,6 +54,16 @@ export default mergeConfig(
       banner: {
         js: "#!/usr/bin/env node\n",
       },
+      plugins: [
+        {
+          // Otto: built-in skills import their Markdown with Vite's ?raw, which the bundler lacks.
+          name: "otto-raw-markdown",
+          load: (id: string) =>
+            id.endsWith(".md?raw")
+              ? `export default ${JSON.stringify(NodeFS.readFileSync(id.slice(0, -"?raw".length), "utf8"))};`
+              : null,
+        },
+      ],
       define: {
         __OTTO_LEGACY_BUILD_CHANNEL__: JSON.stringify(cliBuildChannel),
         MASTRACODE_VERSION: JSON.stringify(

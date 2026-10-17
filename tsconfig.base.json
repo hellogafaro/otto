@@ -174,10 +174,10 @@
             }
           },
           {
-            // Build, release, and dev scripts are one-shot Node processes on a developer or CI
-            // machine. Console output is their interface, and they often run before workspace
-            // packages are built.
-            "include": ["**/scripts/**/*.ts"],
+            // Build, release, and dev scripts and build configs are one-shot Node processes on a
+            // developer or CI machine. Console output is their interface, and they often run
+            // before workspace packages are built.
+            "include": ["**/scripts/**/*.ts", "**/vite.config.ts"],
             "options": {
               "diagnosticSeverity": {
                 "nodeBuiltinImport": "off",
