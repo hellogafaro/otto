@@ -63,7 +63,12 @@ function OpenLibraryLightbox({
     <FileLightbox
       file={{
         title: file.title,
-        kind: file.type === "image" || file.type === "pdf" ? file.type : "file",
+        kind:
+          file.type === "image" || file.type === "pdf"
+            ? file.type
+            : file.extension === "mp4" || file.extension === "webm"
+              ? "video"
+              : "file",
         url,
         icon: LIBRARY_TYPE_ICONS[file.type],
       }}

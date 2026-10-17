@@ -14,7 +14,6 @@ vi.mock("../../i18n", async () => {
 
 import {
   BotPromptAttachments,
-  buildBotPromptAttachmentPreview,
   createBotPromptAttachments,
   releaseBotPromptAttachments,
   type BotPromptAttachment,
@@ -322,23 +321,10 @@ describe("bot prompt composer", () => {
     expect(attachments.map((attachment) => attachment.file)).toEqual([first, second]);
     expect(attachments[0]?.id).not.toBe(attachments[1]?.id);
     expect(createObjectURL).toHaveBeenCalledTimes(2);
-    expect(buildBotPromptAttachmentPreview(attachments, attachments[1]!.id)).toEqual({
-      images: [
-        { id: attachments[0]!.id, src: "blob:first", name: "same-name.png" },
-        { id: attachments[1]!.id, src: "blob:second", name: "same-name.png" },
-      ],
-      index: 1,
-    });
-    expect(
-      buildBotPromptAttachmentPreview(
-        attachments,
-        attachments[1]!.id,
-        new Set([attachments[0]!.id]),
-      ),
-    ).toEqual({
-      images: [{ id: attachments[1]!.id, src: "blob:second", name: "same-name.png" }],
-      index: 0,
-    });
+    expect(attachments.map((attachment) => attachment.previewUrl)).toEqual([
+      "blob:first",
+      "blob:second",
+    ]);
 
     releaseBotPromptAttachments(attachments);
     expect(revokeObjectURL.mock.calls).toEqual([["blob:first"], ["blob:second"]]);
@@ -405,5 +391,33 @@ describe("bot prompt composer", () => {
 
     expect(failed).not.toContain('src="blob:preview"');
     expect(failed).not.toContain('aria-label="Preview preview.png"');
+  });
+
+  it("opens a staged video or document like an image, behind its file icon", () => {
+    const onExpand = vi.fn();
+
+    const tree = BotPromptAttachments({
+      attachments: [
+        {
+          id: "attachment-video",
+          file: new File(["video"], "clip.mp4", { type: "video/mp4" }),
+          previewUrl: "blob:clip",
+        },
+      ],
+      onExpand,
+      onPreviewError: vi.fn(),
+      onRemove: vi.fn(),
+    });
+
+    const markup = renderToStaticMarkup(tree);
+
+    const preview = visitElements(
+      tree,
+      (element) => element.props["aria-label"] === "Preview clip.mp4",
+    );
+
+    expect(markup).not.toContain('src="blob:clip"');
+    (preview?.props.onClick as (() => void) | undefined)?.();
+    expect(onExpand).toHaveBeenCalledWith("attachment-video");
   });
 });

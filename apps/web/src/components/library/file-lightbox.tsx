@@ -16,10 +16,10 @@ import { Button } from "../ui/button";
 import { Lightbox, LightboxClose, LightboxPopup, LightboxTitle } from "../ui/lightbox";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
-/** The file a lightbox shows: images and PDFs preview, anything else offers its download. */
+/** The file a lightbox shows: images, PDFs and videos preview, anything else offers its download. */
 export interface FileLightboxFile {
   readonly title: string;
-  readonly kind: "image" | "pdf" | "file";
+  readonly kind: "image" | "pdf" | "video" | "file";
   readonly url: string | null;
   readonly icon: typeof RiCloseLine;
 }
@@ -187,6 +187,19 @@ function FilePreview({
         src={file.url}
         alt={file.title}
         className="max-h-full max-w-full rounded-md object-contain shadow-sm"
+      />
+    );
+  }
+
+  if (file.kind === "video" && file.url) {
+    return (
+      <video
+        key={file.url}
+        src={file.url}
+        controls
+        autoPlay
+        aria-label={file.title}
+        className="max-h-full max-w-full rounded-md shadow-sm"
       />
     );
   }

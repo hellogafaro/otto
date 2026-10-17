@@ -19,7 +19,7 @@ import { cn } from "../../lib/utils";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { ComposerBanner } from "../chat/composer-banner";
 import { DictationControls } from "../chat/dictation-controls";
-import { ExpandedImageDialog } from "../chat/expanded-image-dialog";
+import { FileLightbox } from "../library/file-lightbox";
 import { ComposerStashBadge } from "../chat/composer-stash-badge";
 import { ComposerStashMenu } from "../chat/composer-stash-menu";
 import { LoaderMeter } from "../chat/response-loading-state";
@@ -36,6 +36,7 @@ import { useI18n } from "../../i18n";
 import { BotComposerModelControl } from "./bot-composer-model-control";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { useRosterStore } from "./roster-store";
+import { attachmentLightboxFile, downloadAttachment } from "./bot-message-attachments";
 import { BotPromptAttachments } from "./bot-prompt-attachments";
 import {
   appendBotMention,
@@ -173,7 +174,6 @@ export function BotPromptComposer({
     attachments,
     expandedAttachmentId,
     setExpandedAttachmentId,
-    expandedPreview,
     addFiles,
     removeAttachment,
     failedAttachmentIds,
@@ -187,6 +187,14 @@ export function BotPromptComposer({
     stashCurrentPrompt,
     submitDraft,
   } = useBotComposerDraft({ draftKey, promptInputRef });
+
+  const expandedIndex = attachments.findIndex(
+    (attachment) => attachment.id === expandedAttachmentId,
+  );
+
+  const expandedAttachment = attachments[expandedIndex];
+  const previousAttachment = expandedIndex > 0 ? attachments[expandedIndex - 1] : undefined;
+  const nextAttachment = expandedIndex >= 0 ? attachments[expandedIndex + 1] : undefined;
 
   const mentionHintId = useId();
   const draftMention = resolveBotMention(draft, mentionBots);
@@ -679,7 +687,7 @@ export function BotPromptComposer({
         ref={fileInputRef}
         type="file"
         aria-label={t("Attach files")}
-        accept="image/*,.txt,.md,.markdown,.csv,.json,.yaml,.yml,.toml,.xml,.pdf"
+        accept="image/*,video/mp4,video/webm,.txt,.md,.markdown,.csv,.json,.yaml,.yml,.toml,.xml,.pdf"
         multiple
         disabled={readOnly}
         className="sr-only"
@@ -688,13 +696,27 @@ export function BotPromptComposer({
           event.currentTarget.value = "";
         }}
       />
-      {expandedPreview ? (
-        <ExpandedImageDialog
-          key={`${expandedAttachmentId}:${attachments.map((attachment) => attachment.id).join(":")}`}
-          preview={expandedPreview}
-          onClose={() => setExpandedAttachmentId(null)}
-        />
-      ) : null}
+      <FileLightbox
+        file={
+          expandedAttachment
+            ? attachmentLightboxFile(
+                { name: expandedAttachment.file.name, mimeType: expandedAttachment.file.type },
+                expandedAttachment.previewUrl,
+              )
+            : null
+        }
+        hasSiblings={attachments.length > 1}
+        onPrevious={
+          previousAttachment ? () => setExpandedAttachmentId(previousAttachment.id) : undefined
+        }
+        onNext={nextAttachment ? () => setExpandedAttachmentId(nextAttachment.id) : undefined}
+        onDownload={() => {
+          if (expandedAttachment) {
+            downloadAttachment(expandedAttachment.previewUrl, expandedAttachment.file.name);
+          }
+        }}
+        onClose={() => setExpandedAttachmentId(null)}
+      />
     </form>
   );
 }

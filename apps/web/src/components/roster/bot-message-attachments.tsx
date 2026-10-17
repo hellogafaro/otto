@@ -1,4 +1,4 @@
-import { RiFilePdf2Line, RiFileTextLine, RiImageLine } from "@remixicon/react";
+import { RiFilePdf2Line, RiFileTextLine, RiFileVideoLine, RiImageLine } from "@remixicon/react";
 import type { ChatAttachment, EnvironmentId } from "@otto/contracts";
 
 import { useMemo, useState } from "react";
@@ -6,8 +6,7 @@ import { useMemo, useState } from "react";
 import { useAssetUrls } from "../../assets/asset-urls";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
-import { FileLightbox } from "../library/file-lightbox";
-import { CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME } from "../markdown/markdown-images";
+import { FileLightbox, type FileLightboxFile } from "../library/file-lightbox";
 import {
   Attachment,
   AttachmentContent,
@@ -65,30 +64,7 @@ export function BotMessageAttachments({
       <div className={cn("flex flex-wrap gap-1.5", align === "end" && "justify-end")}>
         {attachments.map((attachment, index) => {
           const url = urls[index] ?? null;
-
-          // Otto: A video plays where it was posted, in the frame chat images use.
-          if (
-            attachment.type === "file" &&
-            attachment.mimeType.startsWith("video/") &&
-            url !== null &&
-            !failedIds.has(attachment.id)
-          ) {
-            return (
-              <video
-                key={attachment.id}
-                src={url}
-                controls
-                preload="metadata"
-                aria-label={attachment.name}
-                data-testid="bot-message-video"
-                className={cn(
-                  CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME,
-                  "rounded-lg border border-border/40",
-                )}
-                onError={() => setFailedIds((current) => new Set(current).add(attachment.id))}
-              />
-            );
-          }
+          const Icon = attachmentLightboxFile(attachment, url).icon;
 
           const thumbnail =
             attachment.type === "image" && url !== null && !failedIds.has(attachment.id)
@@ -105,10 +81,8 @@ export function BotMessageAttachments({
                     draggable={false}
                     onError={() => setFailedIds((current) => new Set(current).add(attachment.id))}
                   />
-                ) : attachment.type === "image" ? (
-                  <RiImageLine aria-hidden="true" />
                 ) : (
-                  <RiFileTextLine aria-hidden="true" />
+                  <Icon aria-hidden="true" />
                 )}
               </AttachmentMedia>
               <AttachmentContent>
@@ -135,11 +109,7 @@ export function BotMessageAttachments({
             : undefined
         }
         onDownload={() => {
-          if (!open || !openUrl) return;
-          const link = document.createElement("a");
-          link.href = openUrl;
-          link.download = open.name;
-          link.click();
+          if (open && openUrl) downloadAttachment(openUrl, open.name);
         }}
         onClose={() => setOpenIndex(null)}
       />
@@ -147,15 +117,34 @@ export function BotMessageAttachments({
   );
 }
 
-/** Otto: A chat attachment opens in the Library's file lightbox: images and PDFs preview, the rest download. */
-function attachmentLightboxFile(attachment: ChatAttachment, url: string | null) {
-  if (attachment.type === "image") {
-    return { title: attachment.name, kind: "image" as const, url, icon: RiImageLine };
+/**
+ * Otto: Every chat attachment, sent or staged, is an attachment card that opens the Library's
+ * file lightbox: images, PDFs and videos preview there, the rest download.
+ */
+export function attachmentLightboxFile(
+  attachment: { readonly name: string; readonly mimeType: string },
+  url: string | null,
+): FileLightboxFile {
+  const title = attachment.name;
+
+  if (attachment.mimeType.startsWith("image/")) {
+    return { title, kind: "image", url, icon: RiImageLine };
   }
 
   if (attachment.mimeType === "application/pdf") {
-    return { title: attachment.name, kind: "pdf" as const, url, icon: RiFilePdf2Line };
+    return { title, kind: "pdf", url, icon: RiFilePdf2Line };
   }
 
-  return { title: attachment.name, kind: "file" as const, url, icon: RiFileTextLine };
+  if (attachment.mimeType.startsWith("video/")) {
+    return { title, kind: "video", url, icon: RiFileVideoLine };
+  }
+
+  return { title, kind: "file", url, icon: RiFileTextLine };
+}
+
+export function downloadAttachment(url: string, name: string) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
 }

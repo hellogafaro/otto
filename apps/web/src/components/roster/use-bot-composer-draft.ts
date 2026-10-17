@@ -16,7 +16,6 @@ import {
 import { toast } from "sonner";
 import { clearBotDraft, readBotDraft, writeBotDraft } from "./bot-draft-store";
 import {
-  buildBotPromptAttachmentPreview,
   createBotPromptAttachments,
   releaseBotPromptAttachments,
   type BotPromptAttachment,
@@ -64,12 +63,7 @@ export function useBotComposerDraft(input: {
 
   const releaseAttachments = useCallback((items: readonly BotPromptAttachment[]) => {
     const unreleased = items.filter((attachment) => {
-      if (
-        attachment.previewUrl === null ||
-        releasedPreviewUrlsRef.current.has(attachment.previewUrl)
-      ) {
-        return false;
-      }
+      if (releasedPreviewUrlsRef.current.has(attachment.previewUrl)) return false;
 
       releasedPreviewUrlsRef.current.add(attachment.previewUrl);
 
@@ -143,11 +137,6 @@ export function useBotComposerDraft(input: {
 
     if (expandedAttachmentId === attachmentId) setExpandedAttachmentId(null);
   };
-
-  const expandedPreview =
-    expandedAttachmentId === null
-      ? null
-      : buildBotPromptAttachmentPreview(attachments, expandedAttachmentId, failedAttachmentIds);
 
   const pulseStashBadge = useCallback(() => {
     if (stashPulseTimeoutRef.current !== null) {
@@ -416,7 +405,6 @@ export function useBotComposerDraft(input: {
     attachments,
     expandedAttachmentId,
     setExpandedAttachmentId,
-    expandedPreview,
     addFiles,
     removeAttachment,
     failedAttachmentIds,

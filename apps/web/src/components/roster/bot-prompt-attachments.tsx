@@ -1,11 +1,7 @@
-import { RiCloseLine, RiFileLine } from "@remixicon/react";
+import { RiCloseLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
-import {
-  buildExpandedImagePreview,
-  type ExpandedImagePreview,
-} from "../chat/expanded-image-preview";
 import {
   Attachment,
   AttachmentAction,
@@ -16,20 +12,20 @@ import {
   AttachmentTitle,
   AttachmentTrigger,
 } from "../ui/attachment";
-import { attachmentDetails } from "./bot-message-attachments";
+import { attachmentDetails, attachmentLightboxFile } from "./bot-message-attachments";
 
-/** A staged composer file plus the object URL that backs its live thumbnail. */
+/** A staged composer file plus the object URL that backs its thumbnail and lightbox preview. */
 export interface BotPromptAttachment {
   readonly id: string;
   readonly file: File;
-  readonly previewUrl: string | null;
+  readonly previewUrl: string;
 }
 
 let attachmentSequence = 0;
 
 /**
- * Wraps picked files for the composer strip. Images get an object URL so the
- * thumbnail renders before any upload starts; the caller owns releasing them.
+ * Wraps picked files for the composer strip. Each gets an object URL so its thumbnail and
+ * lightbox preview work before any upload starts; the caller owns releasing them.
  */
 export function createBotPromptAttachments(files: readonly File[]): BotPromptAttachment[] {
   return files.map((file) => {
@@ -38,7 +34,7 @@ export function createBotPromptAttachments(files: readonly File[]): BotPromptAtt
     return {
       id: `bot-prompt-attachment-${attachmentSequence}`,
       file,
-      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      previewUrl: URL.createObjectURL(file),
     };
   });
 }
@@ -46,28 +42,8 @@ export function createBotPromptAttachments(files: readonly File[]): BotPromptAtt
 /** Revokes every object URL held by the given attachments. */
 export function releaseBotPromptAttachments(attachments: readonly BotPromptAttachment[]): void {
   for (const attachment of attachments) {
-    if (attachment.previewUrl !== null) {
-      URL.revokeObjectURL(attachment.previewUrl);
-    }
+    URL.revokeObjectURL(attachment.previewUrl);
   }
-}
-
-/** Builds the lightbox payload so expanding one thumbnail can page the rest. */
-export function buildBotPromptAttachmentPreview(
-  attachments: readonly BotPromptAttachment[],
-  attachmentId: string,
-  failedAttachmentIds: ReadonlySet<string> = new Set(),
-): ExpandedImagePreview | null {
-  return buildExpandedImagePreview(
-    attachments.map((attachment) => ({
-      id: attachment.id,
-      name: attachment.file.name,
-      ...(attachment.previewUrl !== null && !failedAttachmentIds.has(attachment.id)
-        ? { previewUrl: attachment.previewUrl }
-        : {}),
-    })),
-    attachmentId,
-  );
 }
 
 /** Otto: Staged files are the shadcn Attachment at xs, like sent ones, with a remove action. */
@@ -80,7 +56,7 @@ export function BotPromptAttachments({
   className,
 }: {
   attachments: ReadonlyArray<BotPromptAttachment>;
-  /** Images whose thumbnail failed to load show the file icon and cannot be expanded. */
+  /** Files whose preview failed to load show their icon and cannot be opened. */
   failedIds?: ReadonlySet<string>;
   onExpand: (attachmentId: string) => void;
   onPreviewError: (attachmentId: string) => void;
@@ -94,7 +70,10 @@ export function BotPromptAttachments({
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>
       {attachments.map((attachment) => {
-        const thumbnail = failedIds.has(attachment.id) ? null : attachment.previewUrl;
+        const failed = failedIds.has(attachment.id);
+        const { name, type } = attachment.file;
+        const Icon = attachmentLightboxFile({ name, mimeType: type }, null).icon;
+        const thumbnail = type.startsWith("image/") && !failed ? attachment.previewUrl : null;
 
         return (
           <Attachment key={attachment.id} size="xs" data-testid="bot-prompt-attachment">
@@ -107,7 +86,7 @@ export function BotPromptAttachments({
                   onError={() => onPreviewError(attachment.id)}
                 />
               ) : (
-                <RiFileLine aria-hidden="true" />
+                <Icon aria-hidden="true" />
               )}
             </AttachmentMedia>
             <AttachmentContent>
@@ -124,13 +103,13 @@ export function BotPromptAttachments({
                 <RiCloseLine />
               </AttachmentAction>
             </AttachmentActions>
-            {thumbnail ? (
+            {failed ? null : (
               <AttachmentTrigger
                 aria-label={t("Preview {name}", { name: attachment.file.name })}
                 className="cursor-zoom-in"
                 onClick={() => onExpand(attachment.id)}
               />
-            ) : null}
+            )}
           </Attachment>
         );
       })}
