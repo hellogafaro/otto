@@ -1,36 +1,23 @@
 {
-  "fill": {
-    "solid": "srgb:0.95686,0.94510,0.91765,1.00000"
-  },
-  "fill-specializations": [
-    {
-      "appearance": "dark",
-      "value": "system-dark"
-    }
-  ],
   "groups": [
     {
-      "name": "glyph",
+      "name": "artwork",
       "layers": [
         {
-          "image-name": "glyph.png",
+          "image-name": "artwork.png",
           "name": "Otto",
-          "fill-specializations": [
-            {
-              "appearance": "dark",
-              "value": {
-                "solid": "srgb:0.95686,0.94510,0.91765,1.00000"
-              }
-            },
-            {
-              "appearance": "tinted",
-              "value": {
-                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
-              }
-            }
-          ]
+          "glass": false
         }
-      ]
+      ],
+      "shadow": {
+        "kind": "none",
+        "opacity": 0
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      },
+      "specular": false
     }
   ],
   "supported-platforms": {
