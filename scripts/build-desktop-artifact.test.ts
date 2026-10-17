@@ -20,7 +20,7 @@ import {
   resolveBuildOptions,
   resolveDesktopProductName,
   DESKTOP_UPDATE_CHANNEL,
-  resolveGitHubPublishConfig,
+  DESKTOP_UPDATE_PUBLISH_CONFIG,
   resolveMockUpdateServerPort,
   resolveMockUpdateServerUrl,
   resolvePackageManagerUserAgent,
@@ -69,27 +69,65 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     assert.equal(DESKTOP_PACKAGE_NAME, "otto");
   });
 
-  it.effect("resolves GitHub desktop publish config from Effect config", () =>
+  it.effect("publishes signed macOS builds only to the public releases repository", () =>
     Effect.gen(function* () {
-      const latestConfig = yield* resolveGitHubPublishConfig().pipe(
-        Effect.provide(
-          ConfigProvider.layer(
-            ConfigProvider.fromEnv({
-              env: {
-                OTTO_LEGACY_DESKTOP_UPDATE_REPOSITORY: "hellogafaro/otto",
-              },
-            }),
-          ),
-        ),
+      const signed = yield* createBuildConfig("mac", "dmg", "1.2.3", true, false, undefined, {
+        entitlementsPath: "/tmp/entitlements.mac.plist",
+        notarize: true,
+      });
+
+      const adHoc = yield* createBuildConfig("mac", "dmg", "1.2.3", false, false, undefined, {
+        entitlementsPath: "/tmp/entitlements.mac.plist",
+        notarize: false,
+      });
+
+      const mock = yield* createBuildConfig("mac", "dmg", "1.2.3", true, true, 4123, {
+        entitlementsPath: "/tmp/entitlements.mac.plist",
+        notarize: false,
+      });
+
+      const windows = yield* createBuildConfig(
+        "win",
+        "nsis",
+        "1.2.3",
+        false,
+        false,
+        undefined,
+        undefined,
       );
 
-      assert.deepStrictEqual(latestConfig, {
-        provider: "github",
-        owner: "hellogafaro",
-        repo: "otto",
-        releaseType: "release",
+      assert.deepStrictEqual(signed.publish, [
+        {
+          provider: "github",
+          owner: "hellogafaro",
+          repo: "otto-releases",
+          releaseType: "release",
+        },
+      ]);
+      assert.deepStrictEqual(signed.publish, [DESKTOP_UPDATE_PUBLISH_CONFIG]);
+      assert.include(signed.mac, {
+        hardenedRuntime: true,
+        notarize: true,
+        entitlements: "/tmp/entitlements.mac.plist",
+        entitlementsInherit: "/tmp/entitlements.mac.plist",
       });
-    }),
+      assert.deepStrictEqual(signed.mac?.target, ["dmg", "zip"]);
+      assert.isUndefined(adHoc.publish);
+      assert.include(adHoc.mac, { identity: "-", notarize: false });
+      assert.deepStrictEqual(mock.publish, [{ provider: "generic", url: "http://localhost:4123" }]);
+      assert.isUndefined(windows.publish);
+    }).pipe(
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnv({
+            env: {
+              GITHUB_REPOSITORY: "hellogafaro/otto",
+              OTTO_LEGACY_DESKTOP_UPDATE_REPOSITORY: "hellogafaro/otto",
+            },
+          }),
+        ),
+      ),
+    ),
   );
 
   it("limits Electron locales and excludes the unused Claude SDK executable", () => {

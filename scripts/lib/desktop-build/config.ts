@@ -5,8 +5,6 @@ import * as Config from "effect/Config";
 
 import * as Effect from "effect/Effect";
 
-import * as Option from "effect/Option";
-
 import * as Path from "effect/Path";
 
 import { BuildArch, BuildPlatform, RepoRoot } from "./model.ts";
@@ -157,31 +155,12 @@ const AzureTrustedSigningOptionsConfig = Config.all({
   ),
 });
 
-export const resolveGitHubPublishConfig = Effect.fn("resolveGitHubPublishConfig")(function* () {
-  const env = yield* Config.all({
-    updateRepository: Config.string("OTTO_LEGACY_DESKTOP_UPDATE_REPOSITORY").pipe(Config.option),
-    githubRepository: Config.string("GITHUB_REPOSITORY").pipe(Config.option),
-  });
-
-  const rawRepo = (
-    Option.getOrUndefined(env.updateRepository)?.trim() ||
-    Option.getOrUndefined(env.githubRepository)?.trim() ||
-    ""
-  ).trim();
-
-  if (!rawRepo) return undefined;
-
-  const [owner, repo, ...rest] = rawRepo.split("/");
-
-  if (!owner || !repo || rest.length > 0) return undefined;
-
-  return {
-    provider: "github",
-    owner,
-    repo,
-    releaseType: "release",
-  };
-});
+export const DESKTOP_UPDATE_PUBLISH_CONFIG = {
+  provider: "github",
+  owner: "hellogafaro",
+  repo: "otto-releases",
+  releaseType: "release",
+} as const;
 
 export const DESKTOP_UPDATE_CHANNEL = "latest";
 
@@ -221,6 +200,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   macSigning:
     | {
         readonly entitlementsPath: string;
+        readonly notarize: boolean;
         readonly provisioningProfilePath?: string;
       }
     | undefined,
@@ -250,17 +230,15 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   const updateChannel = DESKTOP_UPDATE_CHANNEL;
 
   if (!isDesktopPreviewVersion(version)) {
-    const publishConfig = yield* resolveGitHubPublishConfig();
-
-    if (publishConfig) {
-      buildConfig.publish = [publishConfig];
-    } else if (mockUpdates) {
+    if (mockUpdates) {
       buildConfig.publish = [
         {
           provider: "generic",
           url: resolveMockUpdateServerUrl(mockUpdateServerPort),
         },
       ];
+    } else if (platform === "mac" && signed) {
+      buildConfig.publish = [DESKTOP_UPDATE_PUBLISH_CONFIG];
     }
   }
 
@@ -285,13 +263,15 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
         },
       ],
       // Unsigned builds opt into identity "-" so electron-builder replaces
-      // Electron's linker-signed stub. Developer ID builds use CSC_NAME.
-      notarize: signed,
+      // Electron's linker-signed stub. Developer ID builds use CSC_NAME or CSC_LINK.
+      hardenedRuntime: true,
+      notarize: macSigning?.notarize ?? false,
       sign: path.join(repoRoot, "scripts/sign-macos.ts"),
       ...(signed ? {} : { identity: "-" }),
       ...(macSigning
         ? {
             entitlements: macSigning.entitlementsPath,
+            entitlementsInherit: macSigning.entitlementsPath,
             ...(macSigning.provisioningProfilePath
               ? { provisioningProfile: macSigning.provisioningProfilePath }
               : {}),

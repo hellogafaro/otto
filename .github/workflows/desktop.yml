@@ -117,17 +117,11 @@ jobs:
           if test "$MACOS_SIGNED" = true; then args+=(--signed); fi
           vp run dist:desktop:artifact "${args[@]}"
 
-      - name: Notarize and verify macOS DMG
+      - name: Verify notarized macOS DMG
         if: matrix.platform == 'mac' && env.MACOS_SIGNED == 'true'
         shell: bash
-        env:
-          APPLE_API_KEY: ${{ runner.temp }}/notarytool-api-key.p8
-          APPLE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
         run: |
           dmg="release/Otto-Bot-$RELEASE_VERSION-arm64.dmg"
-          xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
-          xcrun stapler staple "$dmg"
           xcrun stapler validate "$dmg"
           spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
 
