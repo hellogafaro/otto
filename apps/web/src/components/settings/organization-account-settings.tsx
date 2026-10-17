@@ -1,3 +1,4 @@
+import { RiPencilLine } from "@remixicon/react";
 import { useRef, useState } from "react";
 import { useI18n } from "../../i18n";
 import { AVATAR_UPLOAD_MAX_FILE_BYTES, downscaleAvatarImage } from "../roster/avatar-upload";
@@ -16,6 +17,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Field, FieldLabel } from "../ui/field";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
   SettingsPageContainer,
   SettingsPageSkeleton,
@@ -191,7 +193,11 @@ export function AccountSettingsPanel() {
 
 const PROFILE_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-/** Otto: the photo is cropped to a small square JPEG here, so the server stores only that. */
+/**
+ * Otto: the avatar is the control: hovering or focusing it darkens it under a pencil, and a
+ * click picks a new photo, cropped to a small square JPEG here so the server stores only that.
+ * A photo is replaced, never removed.
+ */
 function ProfilePhotoRow({
   name,
   image,
@@ -200,15 +206,15 @@ function ProfilePhotoRow({
 }: {
   readonly name: string;
   readonly image: string | null;
-  /** Resolves to whether the server saved the photo, or its removal for null. */
-  readonly saveImage: (image: string | null) => Promise<boolean>;
+  /** Resolves to whether the server saved the photo. */
+  readonly saveImage: (image: string) => Promise<boolean>;
   readonly onError: (message: string | null) => void;
 }) {
   const { t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(false);
 
-  const save = async (next: string | null) => {
+  const save = async (next: string) => {
     setPending(true);
     const saved = await saveImage(next);
     setPending(false);
@@ -251,26 +257,32 @@ function ProfilePhotoRow({
       )}
       control={
         <>
-          <PersonAvatar
-            name={name}
-            image={image}
-            className="size-8 rounded-md border border-border/70 text-xs"
-          />
-          {image ? (
-            <Button
-              variant="ghost"
-              disabled={pending}
-              onClick={() => {
-                onError(null);
-                void save(null);
-              }}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={t("Change photo")}
+                  disabled={pending}
+                  onClick={() => input.current?.click()}
+                  className="group/photo relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+                />
+              }
             >
-              {t("Remove")}
-            </Button>
-          ) : null}
-          <Button variant="outline" disabled={pending} onClick={() => input.current?.click()}>
-            {image ? t("Replace photo") : t("Upload photo")}
-          </Button>
+              <PersonAvatar
+                name={name}
+                image={image}
+                className="size-8 rounded-md border border-border/70 text-xs"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 flex items-center justify-center rounded-md bg-media-mat/50 text-on-solid opacity-0 transition-opacity duration-(--duration-fast) group-hover/photo:opacity-100 group-focus-visible/photo:opacity-100 group-disabled/photo:opacity-100 motion-reduce:transition-none"
+              >
+                <RiPencilLine className="size-4" />
+              </span>
+            </TooltipTrigger>
+            <TooltipPopup>{t("Change photo")}</TooltipPopup>
+          </Tooltip>
           <input
             ref={input}
             type="file"
