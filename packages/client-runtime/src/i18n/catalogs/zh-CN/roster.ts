@@ -377,8 +377,6 @@ export const rosterCatalog = {
   "Proposed by": "提议者",
   "{bot} in {chat} · approved by {person}": "{bot}，在 {chat} 中 · 由 {person} 批准",
   "{bot} · approved by {person}": "{bot} · 由 {person} 批准",
-  "Tools this bot runs without asking. Remove one and it asks again.":
-    "此机器人无需询问即可运行的工具。移除后会再次询问。",
   "Nothing always allowed": "没有始终允许的工具",
   "Choose Always allow on one of this bot's approvals to add a tool here.":
     "在此机器人的审批中选择“始终允许”，工具会显示在这里。",

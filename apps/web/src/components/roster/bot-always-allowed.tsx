@@ -81,7 +81,6 @@ export function BotAlwaysAllowed({
       id="always-allowed"
       title={t("Always allowed")}
       count={rules.length > 0 ? rules.length : undefined}
-      description={t("Tools this bot runs without asking. Remove one and it asks again.")}
     >
       {rules.length === 0 ? (
         <SettingsRow

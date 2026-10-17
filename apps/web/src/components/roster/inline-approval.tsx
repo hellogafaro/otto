@@ -13,8 +13,10 @@ import {
   routineProposalDetails,
   skillProposalDetails,
 } from "../chat/composer-pending-approval-panel";
+import { StatusIcon } from "../status-icon";
 import { Card } from "../ui/card";
 import { QuestionnaireActions } from "../ui/questionnaire";
+import { Trace, TraceLine } from "../ui/trace";
 import { BotAvatarView } from "./bot-avatar-view";
 import type { Bot } from "./types";
 
@@ -130,14 +132,18 @@ export function InlineApproval({
   if (approval.resolution) {
     const subject = approvalSubject(approval, delegateTo);
 
+    const allowed = approval.resolution.decision?.startsWith("accept") ?? false;
+
     return (
-      <p
-        className="ml-10 flex min-w-0 gap-1 text-xs text-muted-foreground"
-        data-testid="answered-approval"
-      >
-        <span className="shrink-0">{answeredLabel(approval, t)}</span>
-        {subject ? <span className="min-w-0 truncate">· {subject}</span> : null}
-      </p>
+      <Trace className="ml-10 w-auto" data-testid="answered-approval">
+        <TraceLine>
+          <StatusIcon status={allowed ? "completed" : "cancelled"} />
+          <span className="shrink-0">{answeredLabel(approval, t)}</span>
+          {subject ? (
+            <span className="min-w-0 truncate font-mono text-muted-foreground/70">{subject}</span>
+          ) : null}
+        </TraceLine>
+      </Trace>
     );
   }
 

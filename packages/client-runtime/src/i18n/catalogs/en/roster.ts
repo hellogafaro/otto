@@ -390,8 +390,6 @@ export const rosterCatalog = {
   "Proposed by": "Proposed by",
   "{bot} in {chat} · approved by {person}": "{bot} in {chat} · approved by {person}",
   "{bot} · approved by {person}": "{bot} · approved by {person}",
-  "Tools this bot runs without asking. Remove one and it asks again.":
-    "Tools this bot runs without asking. Remove one and it asks again.",
   "Nothing always allowed": "Nothing always allowed",
   "Choose Always allow on one of this bot's approvals to add a tool here.":
     "Choose Always allow on one of this bot's approvals to add a tool here.",
