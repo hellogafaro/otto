@@ -94,6 +94,8 @@ const AUTHORIZATION_PREFIX = "Bearer ";
 
 const WEBSOCKET_TICKET_QUERY_PARAM = "wsTicket";
 
+const encodeScopesJson = Schema.encodeEffect(Schema.fromJsonString(AuthEnvironmentScopes));
+
 const bySessionPriority = (left: AuthClientSession, right: AuthClientSession) => {
   const leftCanManage = left.scopes.includes(AuthAccessWriteScope);
   const rightCanManage = right.scopes.includes(AuthAccessWriteScope);
@@ -181,9 +183,9 @@ export const make = Effect.gen(function* () {
     const now = DateTime.formatIso(yield* DateTime.now);
     const expiresAt = DateTime.makeUnsafe(principal.expiresAt);
 
-    const encodedScopes = yield* Schema.encodeEffect(Schema.fromJsonString(AuthEnvironmentScopes))(
-      scopes,
-    ).pipe(Effect.mapError((cause) => new ServerAuthSessionCredentialValidationError({ cause })));
+    const encodedScopes = yield* encodeScopesJson(scopes).pipe(
+      Effect.mapError((cause) => new ServerAuthSessionCredentialValidationError({ cause })),
+    );
 
     yield* sql`
       INSERT INTO auth_sessions (

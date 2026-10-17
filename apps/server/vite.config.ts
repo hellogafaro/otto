@@ -1,4 +1,4 @@
-import { createRequire } from "node:module";
+import * as NodeModule from "node:module";
 import "vite-plus/test/config";
 import { defineConfig, mergeConfig } from "vite-plus";
 
@@ -56,7 +56,7 @@ export default mergeConfig(
       define: {
         __OTTO_LEGACY_BUILD_CHANNEL__: JSON.stringify(cliBuildChannel),
         MASTRACODE_VERSION: JSON.stringify(
-          createRequire(import.meta.url)("@mastra/code-sdk/package.json").version,
+          NodeModule.createRequire(import.meta.url)("@mastra/code-sdk/package.json").version,
         ),
       },
     },

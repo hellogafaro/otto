@@ -13,14 +13,18 @@ export function useOrganizationAccounts() {
   const prepared = usePreparedConnection(environmentId);
   const baseURL = Option.isSome(prepared) ? prepared.value.httpBaseUrl : null;
   const token = Option.isSome(prepared) ? prepared.value.httpAuthorization?.token : undefined;
+
   const client = useMemo(
     () => (baseURL ? createOrganizationAccountsClient(baseURL, token) : null),
     [baseURL, token],
   );
+
   const [loaded, setLoaded] = useState<{ baseURL: string; state: OrganizationAccountState } | null>(
     null,
   );
+
   const [error, setError] = useState<string | null>(null);
+
   const refresh = useCallback(async () => {
     if (!baseURL) return;
     const state = await getOrganizationAccountState(baseURL, token);
@@ -41,6 +45,7 @@ export function useOrganizationAccounts() {
       .catch(() => {
         if (!cancelled) setError("Could not load organization account settings.");
       });
+
     return () => {
       cancelled = true;
     };

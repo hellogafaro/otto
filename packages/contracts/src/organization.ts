@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema";
 
 export const OrganizationRole = Schema.Literals(["admin", "member"]);
+
 export type OrganizationRole = typeof OrganizationRole.Type;
 
 export const OrganizationAccountState = Schema.Struct({
@@ -18,4 +19,5 @@ export const OrganizationAccountState = Schema.Struct({
   mailConfigured: Schema.Boolean,
   setupCodeRequired: Schema.Boolean,
 });
+
 export type OrganizationAccountState = typeof OrganizationAccountState.Type;

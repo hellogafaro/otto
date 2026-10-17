@@ -23,6 +23,7 @@ import {
   type AccountPerson,
   type AccountPrincipal,
   type OrganizationAccountsRuntime,
+  OrganizationSetupInput,
 } from "./organization-accounts-runtime.ts";
 
 export const organizationRoleScopes = (
@@ -162,7 +163,9 @@ export const layer = Layer.effect(
             return Response.json({ message: "Invalid request origin." }, { status: 403 });
           }
 
-          return Response.json(await runtime.setup(await request.json()), {
+          const input = OrganizationSetupInput.parse(await request.json());
+
+          return Response.json(await runtime.setup(input), {
             headers: { "cache-control": "no-store" },
           });
         }

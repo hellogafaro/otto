@@ -289,6 +289,7 @@ export const decideGroups = Effect.fn("decideGroups")(function* ({
           detail: `${command.person.displayName} is already in this group.`,
         });
       }
+
       const occurredAt = yield* nowIso;
 
       return {

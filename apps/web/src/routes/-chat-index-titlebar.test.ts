@@ -9,6 +9,7 @@ describe("empty bot workspace header", () => {
       new URL("./_chat.chats.index.tsx", import.meta.url),
       "utf8",
     );
+
     const onboardingStart = routeSource.indexOf("function ChatIndexRedirect()");
     const onboardingEnd = routeSource.indexOf("<BotZeroState />", onboardingStart);
 

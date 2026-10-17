@@ -5,5 +5,6 @@ export const Route = createFileRoute("/invite/$invitationId")({ component: Invit
 
 function InvitationPage() {
   const { invitationId } = Route.useParams();
+
   return <OrganizationAccountGate page="invite" invitationId={invitationId} />;
 }

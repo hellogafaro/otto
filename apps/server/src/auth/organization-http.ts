@@ -11,15 +11,20 @@ const handle = Effect.gen(function* () {
   const accounts = yield* OrganizationAccounts;
   const request = yield* HttpServerRequest.HttpServerRequest;
   const url = HttpServerRequest.toURL(request);
+
   if (Option.isNone(url)) return HttpServerResponse.empty({ status: 400 });
+
   const body =
     request.method === "GET" || request.method === "HEAD" ? undefined : yield* request.text;
+
   const webRequest = new Request(url.value.toString(), {
     method: request.method,
     headers: request.headers,
     ...(body === undefined ? {} : { body }),
   });
+
   const response = yield* accounts.handle(webRequest);
+
   return HttpServerResponse.fromWeb(response);
 }).pipe(
   Effect.provideService(HttpServerRequest.MaxBodySize, FileSystem.Size(16 * 1024)),

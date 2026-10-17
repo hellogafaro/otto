@@ -87,7 +87,7 @@ function Peek({
   );
 }
 
-function Attachment({ className, ...props }: ComponentProps<"div">) {
+function Attached({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="composer-banner-attachment"
@@ -105,7 +105,7 @@ function Attachment({ className, ...props }: ComponentProps<"div">) {
 
 function Dock({ className, ...props }: ComponentProps<"div">) {
   return (
-    <Attachment
+    <Attached
       className={cn(
         "flex items-end gap-1 not-has-data-[composer-banner-surface=attached]:hidden",
         className,
@@ -314,7 +314,6 @@ function Dismiss({ className, children, ...props }: ComponentProps<typeof Button
 export const ComposerBanner = {
   Surface,
   Peek,
-  Attachment,
   Dock,
   Column,
   Root,

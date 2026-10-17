@@ -14,7 +14,7 @@ const personName = z
   .trim()
   .min(1)
   .max(80)
-  .regex(/^[^\r\n\u0000]+$/u);
+  .regex(/^\P{Cc}+$/u);
 
 export const OrganizationSetupInput = z
   .object({
@@ -29,6 +29,10 @@ export const OrganizationSetupInput = z
     setupCode: z.string().max(256).optional(),
   })
   .strict();
+
+export type OrganizationSetup = z.output<typeof OrganizationSetupInput>;
+
+const signUpInvitation = z.object({ email: z.email(), invitationId: z.string() });
 
 const organizationRow = z.object({ id: z.string(), name: z.string() });
 
@@ -324,9 +328,7 @@ export async function createOrganizationAccountsRuntime(options: {
     );
   };
 
-  const setup = async (value: unknown) => {
-    const input = OrganizationSetupInput.parse(value);
-
+  const setup = async (input: OrganizationSetup) => {
     if (getOrganization()) {
       throw new APIError("CONFLICT", { message: "This organization is already set up. Sign in." });
     }
@@ -419,22 +421,20 @@ export async function createOrganizationAccountsRuntime(options: {
     const path = new URL(request.url).pathname.slice("/api/accounts".length);
 
     if (path === "/sign-up/email") {
-      const body = (await request.clone().json()) as Record<string, unknown>;
-      const email = z.email().safeParse(body.email);
+      const body = signUpInvitation.safeParse(await request.clone().json());
 
-      const invitation =
-        typeof body.invitationId === "string"
-          ? database
-              .prepare(`
+      const invitation = body.success
+        ? database
+            .prepare(`
             SELECT id FROM invitations
             WHERE id = ? AND lower(email) = ? AND status = 'pending' AND expiresAt > ?
           `)
-              .get(
-                body.invitationId,
-                email.success ? email.data.toLowerCase() : "",
-                DateTime.formatIso(DateTime.makeUnsafe(options.now())),
-              )
-          : undefined;
+            .get(
+              body.data.invitationId,
+              body.data.email.toLowerCase(),
+              DateTime.formatIso(DateTime.makeUnsafe(options.now())),
+            )
+        : undefined;
 
       if (!invitation) {
         return Response.json(

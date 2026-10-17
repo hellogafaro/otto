@@ -1,6 +1,4 @@
 import * as NodeSqlite from "node:sqlite";
-import * as Clock from "effect/Clock";
-import * as Effect from "effect/Effect";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   createOrganizationAccountsRuntime,
@@ -31,14 +29,14 @@ async function fixture(
     origin,
     cookieName: "otto_test_accounts",
     mailConfigured: true,
-    now: () => Effect.runSync(Clock.currentTimeMillis),
+    now: () => Date.now(),
     sendEmail: async (mail) => {
       emails.push(mail);
     },
     ...overrides,
   });
 
-  const request = (path: string, body?: Record<string, unknown>, token?: string) =>
+  const request = (path: string, body?: Readonly<Record<string, string>>, token?: string) =>
     runtime.handle(
       new Request(`${origin}/api/accounts${path}`, {
         method: body ? "POST" : "GET",
@@ -219,7 +217,7 @@ describe("installation accounts", () => {
         await request(
           "/organization/remove-member",
           {
-            memberIdOrEmail: membership!.id,
+            memberIdOrEmail: String(membership!.id),
             organizationId,
           },
           admin.token,
@@ -246,7 +244,7 @@ describe("installation accounts", () => {
         await request(
           "/organization/update-member-role",
           {
-            memberId: membership!.id,
+            memberId: String(membership!.id),
             role: "member",
             organizationId,
           },
@@ -259,7 +257,7 @@ describe("installation accounts", () => {
         await request(
           "/organization/remove-member",
           {
-            memberIdOrEmail: membership!.id,
+            memberIdOrEmail: String(membership!.id),
             organizationId,
           },
           admin.token,

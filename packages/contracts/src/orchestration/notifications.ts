@@ -14,6 +14,7 @@ export const NotificationType = Schema.Literals([
   "comment",
   "chat_mention",
 ]);
+
 export type NotificationType = typeof NotificationType.Type;
 
 export const NotificationId = TrimmedNonEmptyString.check(Schema.isMaxLength(100));
@@ -32,6 +33,7 @@ export const Notification = Schema.Struct({
   createdAt: IsoDateTime,
   readAt: Schema.NullOr(IsoDateTime),
 });
+
 export type Notification = typeof Notification.Type;
 
 export const NotificationListResult = Schema.Struct({
