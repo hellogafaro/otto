@@ -697,7 +697,7 @@ describe("AgentControllerLive", () => {
             UPSTASH_REDIS_REST_TOKEN: "sandbox-token",
           },
           workspaceId: expect.stringMatching(/^otto-[a-f0-9]{24}$/),
-          identityFile: expect.stringMatching(/provider\.json$/),
+          identityFile: expect.stringMatching(/bot-workspaces\/otto-[0-9a-f]+\.json$/),
         }),
       );
       expect(mastra.createSession.mock.calls[0]?.[0]).toMatchObject({ workspace: remote });

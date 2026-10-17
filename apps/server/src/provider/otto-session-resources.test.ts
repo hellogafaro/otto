@@ -196,8 +196,7 @@ describe("OttoSessionResources", () => {
     const identityFile = NodePath.join(
       directory,
       "bot-workspaces",
-      remoteInput.workspaceId,
-      "provider.json",
+      `${remoteInput.workspaceId}.json`,
     );
 
     expect(NodeFS.existsSync(identityFile)).toBe(true);
@@ -205,8 +204,8 @@ describe("OttoSessionResources", () => {
     const second = new OttoSessionResources(options);
     await second.acquire({ ...remoteInput, threadId: "after-restart" });
     expect(openSession).toHaveBeenNthCalledWith(2, "provider-1");
-    await second.release("after-restart", { destroy: true });
-    expect(destroy).toHaveBeenCalledOnce();
-    expect(NodeFS.existsSync(identityFile)).toBe(false);
+    await second.release("after-restart");
+    expect(destroy).not.toHaveBeenCalled();
+    expect(NodeFS.existsSync(identityFile)).toBe(true);
   });
 });

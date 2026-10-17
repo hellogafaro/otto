@@ -511,67 +511,72 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
-  it.effect("destroys obsolete and stops final pooled remote workspaces", () => {
-    const bridge = makeBridge();
-    const mastra = mastraHarnessFixture();
+  it.effect(
+    "stops the computer a sandbox change replaced and leaves deleting it to the sweep",
+    () => {
+      const bridge = makeBridge();
+      const mastra = mastraHarnessFixture();
 
-    const firstWorkspace = new Workspace({
-      filesystem: new LocalFilesystem({ basePath: process.cwd() }),
-      sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
-    });
+      const firstWorkspace = new Workspace({
+        filesystem: new LocalFilesystem({ basePath: process.cwd() }),
+        sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
+      });
 
-    const secondWorkspace = new Workspace({
-      filesystem: new LocalFilesystem({ basePath: process.cwd() }),
-      sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
-    });
+      const secondWorkspace = new Workspace({
+        filesystem: new LocalFilesystem({ basePath: process.cwd() }),
+        sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
+      });
 
-    const firstDestroy = vi.spyOn(firstWorkspace, "destroy");
-    const secondStop = vi.spyOn(secondWorkspace, "stop");
-    const secondDestroy = vi.spyOn(secondWorkspace, "destroy");
+      const firstDestroy = vi.spyOn(firstWorkspace, "destroy");
+      const firstStop = vi.spyOn(firstWorkspace, "stop");
+      const secondStop = vi.spyOn(secondWorkspace, "stop");
+      const secondDestroy = vi.spyOn(secondWorkspace, "destroy");
 
-    const makeRemoteWorkspace = vi
-      .fn()
-      .mockResolvedValueOnce(firstWorkspace)
-      .mockResolvedValueOnce(secondWorkspace);
+      const makeRemoteWorkspace = vi
+        .fn()
+        .mockResolvedValueOnce(firstWorkspace)
+        .mockResolvedValueOnce(secondWorkspace);
 
-    const layer = agentControllerLayerWith({
-      makeMastraHarness: mastra.factory,
-      makeRemoteWorkspace,
-    }).pipe(
-      Layer.provide(
-        Layer.mergeAll(
-          Layer.succeed(LegacyProviderBridge, bridge.service),
-          Layer.succeed(BotUsageLedger, usageLedgerFixture().service),
-          ServerConfig.layerTest(process.cwd(), {
-            prefix: "otto-mastra-resource-finalizer-test-",
-          }).pipe(Layer.provide(NodeServices.layer)),
+      const layer = agentControllerLayerWith({
+        makeMastraHarness: mastra.factory,
+        makeRemoteWorkspace,
+      }).pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.succeed(LegacyProviderBridge, bridge.service),
+            Layer.succeed(BotUsageLedger, usageLedgerFixture().service),
+            ServerConfig.layerTest(process.cwd(), {
+              prefix: "otto-mastra-resource-finalizer-test-",
+            }).pipe(Layer.provide(NodeServices.layer)),
+          ),
         ),
-      ),
-    );
+      );
 
-    return Effect.gen(function* () {
-      yield* Effect.gen(function* () {
-        const controller = yield* AgentController;
-        yield* resolveCodex(controller);
+      return Effect.gen(function* () {
+        yield* Effect.gen(function* () {
+          const controller = yield* AgentController;
+          yield* resolveCodex(controller);
 
-        const input = {
-          threadId: codexThreadId,
-          provider: ProviderDriverKind.make("codex"),
-          providerInstanceId: codexInstanceId,
-          modelSelection: codexSelection,
-          runtimeMode: "full-access" as const,
-          botId: "bot-one" as never,
-        };
+          const input = {
+            threadId: codexThreadId,
+            provider: ProviderDriverKind.make("codex"),
+            providerInstanceId: codexInstanceId,
+            modelSelection: codexSelection,
+            runtimeMode: "full-access" as const,
+            botId: "bot-one" as never,
+          };
 
-        yield* controller.startSession(codexThreadId, { ...input, botSandbox: "e2b" });
-        yield* controller.startSession(codexThreadId, { ...input, botSandbox: "vercel" });
-        expect(firstDestroy).toHaveBeenCalledOnce();
-      }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
+          yield* controller.startSession(codexThreadId, { ...input, botSandbox: "e2b" });
+          yield* controller.startSession(codexThreadId, { ...input, botSandbox: "vercel" });
+          expect(firstStop).toHaveBeenCalledOnce();
+          expect(firstDestroy).not.toHaveBeenCalled();
+        }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
 
-      expect(secondStop).toHaveBeenCalledOnce();
-      expect(secondDestroy).not.toHaveBeenCalled();
-    });
-  });
+        expect(secondStop).toHaveBeenCalledOnce();
+        expect(secondDestroy).not.toHaveBeenCalled();
+      });
+    },
+  );
 });
 
 describe("AgentControllerLive", () => {

@@ -70,7 +70,7 @@ describe("BotWorkspacePool", () => {
     const lease = await acquisition;
     expect(sleep).toHaveBeenCalledOnce();
     expect(lease.workspace).toBe(workspace);
-    await lease.release({ destroy: true });
+    await lease.release();
   });
 
   effectIt.effect("sleeps after final release and wakes once on reuse", () =>
@@ -94,7 +94,7 @@ describe("BotWorkspacePool", () => {
       expect(coLease.wokeFromSleep).toBe(false);
       expect(init).toHaveBeenCalledTimes(2);
       yield* Effect.promise(() => coLease.release());
-      yield* Effect.promise(() => third.release({ destroy: true }));
+      yield* Effect.promise(() => third.release());
     }).pipe(Effect.provide(TestClock.layer())),
   );
 
@@ -127,7 +127,7 @@ describe("BotWorkspacePool", () => {
       expect(second.wokeFromSleep).toBe(true);
       expect(init).toHaveBeenCalledTimes(2);
       yield* Effect.promise(() => first.release());
-      yield* Effect.promise(() => second.release({ destroy: true }));
+      yield* Effect.promise(() => second.release());
     }).pipe(Effect.provide(TestClock.layer())),
   );
 
@@ -146,7 +146,7 @@ describe("BotWorkspacePool", () => {
       expect(create).toHaveBeenCalledOnce();
       expect(init).toHaveBeenCalledOnce();
       expect(stop).not.toHaveBeenCalled();
-      yield* Effect.promise(() => second.release({ destroy: true }));
+      yield* Effect.promise(() => second.release());
     }).pipe(Effect.provide(TestClock.layer())),
   );
 });

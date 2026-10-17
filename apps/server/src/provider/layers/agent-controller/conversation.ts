@@ -79,7 +79,6 @@ export function createConversation(deps: {
 }) {
   const stopSessionWithResources = Effect.fn("AgentController.stopSession")(function* (
     input: Parameters<AgentControllerShape["stopSession"]>[0],
-    destroyResources: boolean,
   ) {
     // A stopped chat must not receive an image that finishes later.
     yield* cancelActiveImageGenerations(input.threadId);
@@ -96,9 +95,7 @@ export function createConversation(deps: {
           Effect.ensuring(
             Effect.gen(function* () {
               yield* deps
-                .runMastra("resources.release", () =>
-                  deps.sessionResources.release(key, { destroy: destroyResources }),
-                )
+                .runMastra("resources.release", () => deps.sessionResources.release(key))
                 .pipe(Effect.ignoreCause({ log: true }));
               yield* deps.clearPreviewMcpSession(input.threadId);
               deps.legacyResourceIdentity.delete(key);
@@ -115,9 +112,7 @@ export function createConversation(deps: {
         )
       ) {
         yield* deps
-          .runMastra("resources.release", () =>
-            deps.sessionResources.release(key, { destroy: destroyResources }),
-          )
+          .runMastra("resources.release", () => deps.sessionResources.release(key))
           .pipe(Effect.ignoreCause({ log: true }));
         yield* deps.clearPreviewMcpSession(input.threadId);
         deps.toolRuntime.unregisterSession(key);
@@ -147,9 +142,7 @@ export function createConversation(deps: {
         Effect.ensuring(
           Effect.gen(function* () {
             yield* deps
-              .runMastra("resources.release", () =>
-                deps.sessionResources.release(key, { destroy: destroyResources }),
-              )
+              .runMastra("resources.release", () => deps.sessionResources.release(key))
               .pipe(Effect.ignoreCause({ log: true }));
             yield* deps.clearPreviewMcpSession(input.threadId);
             deps.toolRuntime.unregisterSession(key);
@@ -160,8 +153,7 @@ export function createConversation(deps: {
       );
   });
 
-  const stopSession: AgentControllerShape["stopSession"] = (input) =>
-    stopSessionWithResources(input, false);
+  const stopSession: AgentControllerShape["stopSession"] = stopSessionWithResources;
 
   const rollbackConversation: AgentControllerShape["rollbackConversation"] = Effect.fn(
     "AgentController.rollbackConversation",

@@ -1,8 +1,26 @@
 import type { ToolsInput } from "@mastra/core/agent";
 import { createMcpManager, type McpManager } from "@mastra/code-sdk/mcp/index";
 import type { Workspace } from "@mastra/core/workspace";
-import { createBotWorkspace, isRemoteBotSandbox } from "./bot-workspace.ts";
-import { BotWorkspacePool, type BotWorkspaceLease } from "./bot-workspace-pool.ts";
+import * as DateTime from "effect/DateTime";
+import type { BotSandbox } from "@otto/contracts";
+import {
+  createBotWorkspace,
+  destroyRemoteComputer,
+  isRemoteBotSandbox,
+  type RemoteBotSandbox,
+} from "./bot-workspace.ts";
+import {
+  BotWorkspacePool,
+  type BotWorkspaceLease,
+  botWorkspaceCredentialFingerprint,
+  botWorkspaceIdentity,
+  botWorkspaceResourceKey,
+} from "./bot-workspace-pool.ts";
+import {
+  type BotWorkspaceRecord,
+  readIdentity,
+  writeIdentity,
+} from "./workspace/bot-workspace-lifecycle.ts";
 import {
   type OttoSessionResourcesOptions,
   type OttoSessionResourceView,
@@ -10,6 +28,16 @@ import {
 } from "./resources/otto-session-resource-types.ts";
 
 const OTTO_PREVIEW_MCP_SERVER_NAME = "otto";
+
+const ORPHAN_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface BotComputerSweepResult {
+  readonly workspaceId: string;
+  readonly provider: BotSandbox;
+  readonly providerId?: string;
+  readonly reason: "bot_deleted" | "sandbox_changed" | "replaced" | "orphan";
+  readonly error?: string;
+}
 
 const OTTO_PREVIEW_TOOL_PREFIX = `${OTTO_PREVIEW_MCP_SERVER_NAME}_`;
 
@@ -27,6 +55,7 @@ export class OttoSessionResources {
   private readonly mcpManagers = new Map<string, McpManager>();
   private readonly workspaceLeases = new Map<string, BotWorkspaceLease>();
   private readonly workspacePool = new BotWorkspacePool();
+  private readonly workspaceIds = new Map<string, string>();
   private shuttingDown = false;
 
   constructor(options: OttoSessionResourcesOptions) {
@@ -61,21 +90,28 @@ export class OttoSessionResources {
 
   private async acquireOnce(input: OttoSessionResourceInput): Promise<OttoSessionResourceView> {
     const key = input.threadId;
+    const { io } = this.options;
+    const directory = io.path.join(this.options.stateDir, "bot-workspaces");
+    const identityFile = io.path.join(directory, `${input.workspaceId}.json`);
+    this.workspaceIds.set(key, input.workspaceId);
 
     try {
       const workspaceLease = await this.workspacePool.acquire(
         input.workspaceResourceKey,
         async () => {
+          if (!isRemoteBotSandbox(input.botSandbox) && !(await readIdentity(io, identityFile))) {
+            await writeIdentity(io, identityFile, {
+              provider: "local",
+              scope: input.resourceScope,
+            });
+          }
+
           const workspace = await createBotWorkspace({
-            io: this.options.io,
+            io,
             threadId: input.resourceScope,
             workspaceId: input.workspaceId,
-            identityFile: this.options.io.path.join(
-              this.options.stateDir,
-              "bot-workspaces",
-              input.workspaceId,
-              "provider.json",
-            ),
+            identityFile,
+            legacyIdentityFile: io.path.join(directory, input.workspaceId, "provider.json"),
             ...(isRemoteBotSandbox(input.botSandbox)
               ? {
                   sandbox: input.botSandbox,
@@ -83,15 +119,8 @@ export class OttoSessionResources {
                 }
               : {
                   sandbox: "local" as const,
-                  sandboxProfileDirectory: this.options.io.path.join(
-                    this.options.stateDir,
-                    "sandbox-profiles",
-                  ),
-                  localRoot: this.options.io.path.join(
-                    this.options.stateDir,
-                    "bot-workspaces",
-                    input.workspaceId,
-                  ),
+                  sandboxProfileDirectory: io.path.join(this.options.stateDir, "sandbox-profiles"),
+                  localRoot: io.path.join(directory, input.workspaceId),
                 }),
             ...(this.options.makeRemoteWorkspace
               ? { makeRemoteWorkspace: this.options.makeRemoteWorkspace }
@@ -105,6 +134,14 @@ export class OttoSessionResources {
       );
 
       this.workspaceLeases.set(key, workspaceLease);
+      const record = await readIdentity(io, identityFile);
+
+      if (record) {
+        await writeIdentity(io, identityFile, {
+          ...record,
+          usedAt: DateTime.formatIso(DateTime.nowUnsafe()),
+        });
+      }
 
       const previewMcpServerConfig = this.options.getPreviewMcpServerConfig?.(key);
 
@@ -193,15 +230,147 @@ export class OttoSessionResources {
     return this.workspacePool.retryFailedSleeps();
   }
 
-  async release(threadId: string, options?: { readonly destroy?: boolean }): Promise<void> {
-    await this.acquisitions.get(threadId)?.catch(() => undefined);
-    await this.releaseOnce(threadId, options);
+  /** Pushes back the provider's auto-stop for every computer a session holds. */
+  async keepComputersAwake(): Promise<void> {
+    await Promise.allSettled(
+      [...this.workspaceLeases.values()].map((lease) => lease.workspace.keepAlive?.()),
+    );
   }
 
-  private async releaseOnce(
-    threadId: string,
-    options?: { readonly destroy?: boolean },
-  ): Promise<void> {
+  /**
+   * Deletes the computers no session should use again: a deleted bot's, the one a bot left
+   * when its sandbox changed or it last used a newer computer, and one nobody claims a week
+   * after it was found. A failure is reported and the next sweep tries again.
+   */
+  async sweepComputers(input: {
+    /** Every bot that exists, with the sandbox it uses now. */
+    readonly sandboxes: ReadonlyMap<string, BotSandbox>;
+    readonly environment: (provider: RemoteBotSandbox) => Readonly<Record<string, string>>;
+    readonly now: number;
+  }): Promise<readonly BotComputerSweepResult[]> {
+    const { io } = this.options;
+    const directory = io.path.join(this.options.stateDir, "bot-workspaces");
+    const entries = await io.list(directory);
+    const records = new Map<string, BotWorkspaceRecord>();
+
+    for (const name of entries) {
+      if (!name.endsWith(".json")) continue;
+      const record = await readIdentity(io, io.path.join(directory, name)).catch(() => undefined);
+
+      if (record) records.set(name.slice(0, -".json".length), record);
+    }
+
+    // Records from before they moved out of the computer's folder; a folder holding anything
+    // else is a Local computer's files.
+    for (const name of entries) {
+      if (name.endsWith(".json") || records.has(name)) continue;
+      const files = await io.list(io.path.join(directory, name)).catch(() => []);
+
+      if (files.length !== 1 || files[0] !== "provider.json") continue;
+
+      const record = await readIdentity(io, io.path.join(directory, name, "provider.json")).catch(
+        () => undefined,
+      );
+
+      if (record && record.provider !== "local") records.set(name, record);
+    }
+
+    const inUse = new Set(this.workspaceIds.values());
+    const newest = new Map<string, string>();
+
+    for (const [id, record] of records) {
+      if (record.provider === "local" || !record.scope) continue;
+      const group = `${record.scope}:${record.provider}`;
+      const current = newest.get(group);
+
+      if (!current || (records.get(current)?.usedAt ?? "") < (record.usedAt ?? "")) {
+        newest.set(group, id);
+      }
+    }
+
+    const results: BotComputerSweepResult[] = [];
+
+    for (const [id, record] of records) {
+      if (inUse.has(id)) continue;
+      let reason: BotComputerSweepResult["reason"] | undefined;
+
+      if (record.scope?.startsWith("bot-")) {
+        const sandbox = input.sandboxes.get(record.scope.slice("bot-".length));
+
+        if (sandbox === undefined) reason = "bot_deleted";
+        else if (sandbox !== record.provider) reason = "sandbox_changed";
+        else if (
+          record.provider !== "local" &&
+          newest.get(`${record.scope}:${record.provider}`) !== id
+        )
+          reason = "replaced";
+      } else if (!record.scope && record.provider !== "local") {
+        const provider = record.provider;
+        const fingerprint = botWorkspaceCredentialFingerprint(input.environment(provider));
+
+        const owner = [...input.sandboxes].find(
+          ([botId, sandbox]) =>
+            sandbox === provider &&
+            botWorkspaceIdentity(
+              botWorkspaceResourceKey({
+                resourceScope: `bot-${botId}`,
+                sandbox,
+                credentialFingerprint: fingerprint,
+              }),
+            ) === id,
+        );
+
+        const claimed = owner
+          ? { ...record, scope: `bot-${owner[0]}` }
+          : {
+              ...record,
+              orphanedAt: record.orphanedAt ?? DateTime.formatIso(DateTime.makeUnsafe(input.now)),
+            };
+
+        if (owner || !record.orphanedAt) {
+          await writeIdentity(io, io.path.join(directory, `${id}.json`), claimed);
+          await io.remove(io.path.join(directory, id), true);
+        } else if (input.now - Date.parse(record.orphanedAt) >= ORPHAN_GRACE_MS) {
+          reason = "orphan";
+        }
+      }
+
+      if (!reason) continue;
+
+      const result = {
+        workspaceId: id,
+        provider: record.provider,
+        ...(record.providerId ? { providerId: record.providerId } : {}),
+        reason,
+      };
+
+      try {
+        if (record.provider !== "local") {
+          await destroyRemoteComputer({
+            provider: record.provider,
+            workspaceId: id,
+            record,
+            environment: input.environment(record.provider),
+          });
+        }
+
+        await io.remove(io.path.join(directory, id), true);
+        await io.remove(io.path.join(directory, `${id}.json`));
+        results.push(result);
+      } catch (cause) {
+        results.push({ ...result, error: cause instanceof Error ? cause.message : String(cause) });
+      }
+    }
+
+    return results;
+  }
+
+  async release(threadId: string): Promise<void> {
+    await this.acquisitions.get(threadId)?.catch(() => undefined);
+    await this.releaseOnce(threadId);
+  }
+
+  private async releaseOnce(threadId: string): Promise<void> {
     const failures: unknown[] = [];
     const manager = this.mcpManagers.get(threadId);
     this.mcpManagers.delete(threadId);
@@ -210,9 +379,10 @@ export class OttoSessionResources {
 
     const workspaceLease = this.workspaceLeases.get(threadId);
     this.workspaceLeases.delete(threadId);
+    this.workspaceIds.delete(threadId);
 
     if (workspaceLease) {
-      await workspaceLease.release(options).catch((cause) => failures.push(cause));
+      await workspaceLease.release().catch((cause) => failures.push(cause));
     }
 
     if (failures.length > 0) throw failures[0];

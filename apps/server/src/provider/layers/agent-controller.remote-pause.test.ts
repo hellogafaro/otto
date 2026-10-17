@@ -526,6 +526,7 @@ describe("AgentControllerLive", () => {
     return Effect.gen(function* () {
       const controller = yield* AgentController;
       yield* resolveCodex(controller);
+
       const started = yield* controller
         .startSession(codexThreadId, {
           threadId: codexThreadId,
@@ -536,6 +537,7 @@ describe("AgentControllerLive", () => {
           botSandbox: "boat",
         })
         .pipe(Effect.exit);
+
       expect(started._tag).toBe("Failure");
       expect(mastra.createSession).toHaveBeenCalledOnce();
       expect(destroy).not.toHaveBeenCalled();

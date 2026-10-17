@@ -211,7 +211,7 @@ describe("AgentControllerLive", () => {
       );
       expect(destroy).not.toHaveBeenCalled();
       yield* controller.startSession(codexThreadId, { ...input, botSandbox: "e2b" });
-      expect(destroy).toHaveBeenCalledOnce();
+      expect(destroy).not.toHaveBeenCalled();
     }).pipe(Effect.provide(layer), Effect.orDie);
   });
 });

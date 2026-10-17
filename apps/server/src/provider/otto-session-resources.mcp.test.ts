@@ -178,21 +178,16 @@ describe("OttoSessionResources", () => {
     expect(openSession).toHaveBeenNthCalledWith(2, "railway-vm");
     await resources.release(second.threadId);
 
-    const identityFile = NodePath.join(
-      directory,
-      "bot-workspaces",
-      first.workspaceId,
-      "provider.json",
-    );
+    const identityFile = NodePath.join(directory, "bot-workspaces", `${first.workspaceId}.json`);
 
-    const identity = NodeFS.readFileSync(identityFile, "utf8");
+    const { providerId } = JSON.parse(NodeFS.readFileSync(identityFile, "utf8"));
     expect(makeRemoteWorkspace).toHaveBeenCalledTimes(2);
     await expect(
       resources.acquire({ ...input("another-token"), mcpServers: [exaServer] }),
     ).rejects.toThrow("MCP init failed after rotation");
     expect(destroy).not.toHaveBeenCalled();
     expect(resources.getWorkspace(first.threadId)).toBeDefined();
-    expect(NodeFS.readFileSync(identityFile, "utf8")).toBe(identity);
+    expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toMatchObject({ providerId });
     await resources.shutdown();
 
     const restarted = new OttoSessionResources({
@@ -203,11 +198,9 @@ describe("OttoSessionResources", () => {
     });
 
     openSession.mockRejectedValueOnce(new Error("credentials revoked"));
-    await expect(restarted.acquire(input("revoked-token"))).rejects.toThrow(
-      "missing or unavailable",
-    );
+    await expect(restarted.acquire(input("revoked-token"))).rejects.toThrow("is unavailable");
     expect(openSession).toHaveBeenLastCalledWith("railway-vm");
-    expect(NodeFS.readFileSync(identityFile, "utf8")).toBe(identity);
+    expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toMatchObject({ providerId });
     expect(destroy).not.toHaveBeenCalled();
     await restarted.shutdown();
   });

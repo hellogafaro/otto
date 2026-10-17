@@ -24,6 +24,7 @@ import type { MemoryChat } from "../../../memory/memories.ts";
 import { ProviderAdapterRequestError } from "../../../provider/errors.ts";
 import {
   botRuntimeResourceScope,
+  botSandboxEnvironment,
   botWorkspaceCredentialFingerprint,
   botWorkspaceResourceKey,
 } from "../../../provider/bot-workspace-pool.ts";
@@ -413,22 +414,14 @@ export function createSession({
 
     const effectiveSandbox = respondingBot?.sandbox ?? serverSettings.sandbox.defaultProvider;
 
-    // Otto: a Boat key saved in Settings wins; BOAT_API_KEY in the server's environment is the fallback.
-    const serverBoatKey = (yield* HostProcessEnvironment).BOAT_API_KEY?.trim();
-
-    const sandboxEnvironment: Readonly<Record<string, string>> | undefined =
+    const sandboxEnvironment =
       effectiveSandbox === "local"
         ? undefined
-        : {
-            ...(effectiveSandbox === "boat" && serverBoatKey
-              ? { BOAT_API_KEY: serverBoatKey }
-              : {}),
-            ...Object.fromEntries(
-              serverSettings.sandbox.providers[effectiveSandbox].environment.flatMap((variable) =>
-                variable.value.trim() ? [[variable.name, variable.value]] : [],
-              ),
-            ),
-          };
+        : botSandboxEnvironment(
+            serverSettings.sandbox,
+            effectiveSandbox,
+            (yield* HostProcessEnvironment).BOAT_API_KEY,
+          );
 
     if (effectiveSandbox !== "local") {
       const missingCredential = SANDBOX_PROVIDER_CREDENTIALS[effectiveSandbox].find(

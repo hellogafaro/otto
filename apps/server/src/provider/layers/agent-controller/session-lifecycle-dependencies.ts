@@ -96,10 +96,9 @@ export interface SessionLifecycleDependencies {
   readonly toProviderSession: (threadId: ThreadId, active: ActiveSession) => ProviderSession;
   readonly legacyResourceIdentity: Map<string, LegacyResourceIdentity>;
   readonly sessionResources: OttoSessionResources;
-  readonly stopSessionWithResources: (
-    input: { readonly threadId: ThreadId },
-    destroyResources: boolean,
-  ) => Effect.Effect<void, ProviderServiceError | AgentControllerRuntimeError, never>;
+  readonly stopSessionWithResources: (input: {
+    readonly threadId: ThreadId;
+  }) => Effect.Effect<void, ProviderServiceError | AgentControllerRuntimeError, never>;
   readonly preparePreviewMcpSession: (
     threadId: ThreadId,
     providerInstanceId: ProviderInstanceId,

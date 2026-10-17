@@ -231,16 +231,8 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       deps.legacyResourceIdentity.delete(key);
     }
 
-    if (existing || existingLegacy) {
-      const previousWorkspaceResourceKey =
-        existing?.workspaceResourceKey ?? existingLegacy?.workspaceResourceKey;
-
-      yield* deps.stopSessionWithResources(
-        { threadId },
-        previousWorkspaceResourceKey !== undefined &&
-          botWorkspaceIdentity(previousWorkspaceResourceKey) !== workspaceId,
-      );
-    }
+    // The computer of a changed sandbox is only released here; the computer sweep deletes it.
+    if (existing || existingLegacy) yield* deps.stopSessionWithResources({ threadId });
 
     if (delegatedAccess && !deps.usesMastraCode(resolved.provider)) {
       return yield* new AgentControllerRuntimeError({

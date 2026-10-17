@@ -47,6 +47,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
 import * as Schedule from "effect/Schedule";
+import * as Clock from "effect/Clock";
+import { HostProcessEnvironment } from "@otto/shared/hostProcess";
+import { botSandboxEnvironment } from "../bot-workspace-pool.ts";
 import * as Ref from "effect/Ref";
 
 import { ProjectionThreadMessageRepositoryLive } from "../../persistence/layers/projection-thread-messages.ts";
@@ -533,6 +536,41 @@ const make = (options?: AgentControllerLiveOptions) =>
     ).pipe(
       Effect.ignoreCause({ log: true }),
       Effect.repeat(Schedule.spaced("30 seconds")),
+      Effect.forkScoped,
+    );
+
+    // Otto: one sweep at startup and every 10 minutes keeps used computers from auto-stopping
+    // and deletes the ones no bot owns anymore.
+    const sweepComputers = Effect.gen(function* () {
+      yield* runMastra("resources.keepComputersAwake", () => sessionResources.keepComputersAwake());
+
+      if (Option.isNone(projectionSnapshotQuery) || Option.isNone(serverSettings)) return;
+      const readModel = yield* projectionSnapshotQuery.value.getCommandReadModel();
+      const settings = yield* serverSettings.value.getSettings;
+      const serverBoatKey = (yield* HostProcessEnvironment).BOAT_API_KEY;
+      const now = yield* Clock.currentTimeMillis;
+
+      const results = yield* runMastra("resources.sweepComputers", () =>
+        sessionResources.sweepComputers({
+          sandboxes: new Map(
+            readModel.bots.map((bot) => [bot.id, bot.sandbox ?? settings.sandbox.defaultProvider]),
+          ),
+          environment: (provider) =>
+            botSandboxEnvironment(settings.sandbox, provider, serverBoatKey),
+          now,
+        }),
+      );
+
+      for (const result of results) {
+        yield* result.error
+          ? Effect.logWarning("bot.workspace.destroy_failed", result)
+          : Effect.logInfo("bot.workspace.destroyed", result);
+      }
+    });
+
+    yield* sweepComputers.pipe(
+      Effect.ignoreCause({ log: true }),
+      Effect.repeat(Schedule.spaced("10 minutes")),
       Effect.forkScoped,
     );
 

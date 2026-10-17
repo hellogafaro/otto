@@ -83,10 +83,9 @@ export function createTurnLifecycle(deps: {
     active: Pick<ActiveSession, "mcpServerIds">,
     cause: unknown,
   ) => string;
-  readonly stopSessionWithResources: (
-    input: { readonly threadId: ThreadId },
-    destroyResources: boolean,
-  ) => Effect.Effect<void, ProviderServiceError | AgentControllerRuntimeError, never>;
+  readonly stopSessionWithResources: (input: {
+    readonly threadId: ThreadId;
+  }) => Effect.Effect<void, ProviderServiceError | AgentControllerRuntimeError, never>;
   readonly memoryContext: (chat: MemoryChat | undefined) => Promise<string>;
   readonly memoryTurns: Map<string, MemoryTurn>;
   readonly legacyProviderBridge: LegacyProviderBridge["Service"];
@@ -212,7 +211,7 @@ export function createTurnLifecycle(deps: {
     });
     finishTurn(threadId, active, "failed", detail);
     await deps.runPromise(
-      deps.stopSessionWithResources({ threadId }, false).pipe(
+      deps.stopSessionWithResources({ threadId }).pipe(
         Effect.catchCause((resetCause) =>
           Effect.logWarning("provider session reset failed", {
             threadId,

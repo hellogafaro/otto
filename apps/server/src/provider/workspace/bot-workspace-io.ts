@@ -25,6 +25,18 @@ export function makeBotWorkspaceIO(
       runPromise(fileSystem.makeDirectory(directory, { recursive: true, mode: 0o700 })),
     writeIdentity: (file: string, content: string) =>
       runPromise(fileSystem.writeFileString(file, content, { mode: 0o600 })),
+    list: (directory: string) =>
+      runPromise(
+        fileSystem
+          .readDirectory(directory)
+          .pipe(
+            Effect.catch((error) =>
+              Predicate.isTagged(error.reason, "NotFound")
+                ? Effect.succeed<ReadonlyArray<string>>([])
+                : Effect.fail(error),
+            ),
+          ),
+      ),
     rename: (from: string, to: string) => runPromise(fileSystem.rename(from, to)),
     remove: (file: string, recursive = false) =>
       runPromise(fileSystem.remove(file, { recursive, force: true })),
