@@ -340,6 +340,25 @@ describe("setup and email sign-in", () => {
     expect(emails).toEqual([]);
   });
 
+  it("names the https session cookie exactly as the environment session reads it", async () => {
+    const httpsOrigin = "https://otto.example.test";
+    const { runtime } = await fixture({ mailConfigured: false, origin: httpsOrigin });
+    await runtime.setup(owner);
+
+    const response = await runtime.handle(
+      new Request(`${httpsOrigin}/api/accounts/sign-in/email`, {
+        method: "POST",
+        headers: { origin: httpsOrigin, "content-type": "application/json" },
+        body: JSON.stringify({ email: owner.email, password }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const cookies = response.headers.getSetCookie();
+    expect(cookies.find((value) => value.startsWith("otto_test_accounts="))).toMatch(/; Secure/);
+    expect(cookies.some((value) => value.startsWith("__Secure-"))).toBe(false);
+  });
+
   it("keys sign-in rate limits on X-Forwarded-For only behind a declared proxy", async () => {
     const attempts = async (trustProxy: boolean) => {
       const { runtime } = await fixture({ mailConfigured: false, trustProxy });

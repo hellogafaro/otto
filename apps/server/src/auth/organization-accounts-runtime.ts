@@ -172,7 +172,10 @@ export async function createOrganizationAccountsRuntime(options: {
     advanced: {
       database: { joins: true },
       cookies: { session_token: { name: options.cookieName } },
-      useSecureCookies: origin.startsWith("https:"),
+      // Otto: no __Secure- name prefix, so the environment session reads the same cookie name;
+      // https still marks it Secure.
+      useSecureCookies: false,
+      defaultCookieAttributes: { secure: origin.startsWith("https:") },
       // Otto: Better Auth trusts X-Forwarded-For by default; on a bare port any client could set
       // it to dodge rate limits, so it is read only behind a proxy the operator declares.
       ipAddress: { ipAddressHeaders: options.trustProxy ? ["x-forwarded-for"] : [] },
