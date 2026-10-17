@@ -177,6 +177,7 @@ describe("TaskWorkReactor", () => {
               type: "assigned",
               taskId: task.id,
               by: { key: `person:${ADA}`, name: "Ada" },
+              text: `Ada assigned ${NOVA} to this task.`,
             },
           },
         ]);

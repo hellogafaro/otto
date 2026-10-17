@@ -52,7 +52,7 @@ export const TaskWake = Schema.Struct({
   commentId: Schema.optional(TrimmedNonEmptyString),
   reason: Schema.optional(Schema.Literals(["mention", "reply"])),
   replyTo: Schema.optional(TrimmedNonEmptyString),
-  /** The comment as plain text. */
+  /** The comment as plain text, or the line the chat shows for an assignment. */
   text: Schema.optional(Schema.String),
 });
 

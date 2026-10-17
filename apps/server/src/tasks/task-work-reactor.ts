@@ -230,6 +230,8 @@ export const makeTaskWorkReactor = (
           });
         }
 
+        const text = wake.text ?? `${wake.by.name} assigned ${bot.name} to this task.`;
+
         working.set(threadId, {
           taskId: task.id,
           botId,
@@ -246,13 +248,13 @@ export const makeTaskWorkReactor = (
           message: {
             messageId: MessageId.make(`task-work:${NodeCrypto.randomUUID()}`),
             role: "user",
-            text: wake.text ?? `${wake.by.name} assigned ${bot.name} to this task.`,
+            text,
             attachments: [],
           },
           ...(actor?.type === "person"
             ? { senderPersonId: actor.id, senderDisplayName: wake.by.name }
             : {}),
-          taskWake: wake,
+          taskWake: { ...wake, text },
           modelSelection,
           runtimeMode: bot.runtimeMode,
           interactionMode: "default",

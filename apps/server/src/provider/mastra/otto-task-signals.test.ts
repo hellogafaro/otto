@@ -198,11 +198,18 @@ describe("taskNotification", () => {
     expect(
       createSignal(
         taskNotification(
-          { type: "assigned", taskId: TASK, by: { key: "bot:juno", name: "Juno" } },
+          {
+            type: "assigned",
+            taskId: TASK,
+            by: { key: "bot:juno", name: "Juno" },
+            text: "Juno assigned Nova to this task.",
+          },
           undefined,
         ),
       ).toLLMMessage().content,
-    ).toBe('<assignment assigned_by="Juno" assigned_by_id="bot:juno" task_id="task-launch" />');
+    ).toBe(
+      '<assignment assigned_by="Juno" assigned_by_id="bot:juno" task_id="task-launch">Juno assigned Nova to this task.</assignment>',
+    );
   });
 });
 

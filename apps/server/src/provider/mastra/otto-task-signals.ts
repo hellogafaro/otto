@@ -115,16 +115,14 @@ export function taskNotification(wake: TaskWake, task: TaskState | undefined): A
           task_id: wake.taskId,
         }
       : { assigned_by: wake.by.name, assigned_by_id: wake.by.key, task_id: wake.taskId },
-    contents: commented ? (wake.text ?? "") : "",
+    contents: wake.text ?? "",
     ...(task ? { metadata: { task } } : {}),
   };
 }
 
 /** The task event as the tag a model reads, for providers without signals. */
 export function taskWakeText(wake: TaskWake): string {
-  const { contents: _contents, ...signal } = taskNotification(wake, undefined);
-
-  return signalToXmlMarkup({ ...signal, contents: wake.text ?? "" });
+  return signalToXmlMarkup({ ...taskNotification(wake, undefined), contents: wake.text ?? "" });
 }
 
 /** Reads the task as the waking bot sees it and wraps the event around it. */
