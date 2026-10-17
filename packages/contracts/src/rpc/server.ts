@@ -94,6 +94,9 @@ import {
   ProviderUploadFeedbackError,
   ProviderUploadFeedbackInput,
   ProviderUploadFeedbackResult,
+  ComputerWatchError,
+  ComputerWatchInput,
+  ComputerWatchResult,
 } from "../provider.ts";
 import { ProviderInstanceId } from "../provider-instance.ts";
 import { DiscoveredLocalServerList, ConfiguredLocalServerUrls } from "../preview.ts";
@@ -743,6 +746,12 @@ export const WsProviderUploadFeedbackRpc = Rpc.make(WS_METHODS.providerUploadFee
   payload: ProviderUploadFeedbackInput,
   success: ProviderUploadFeedbackResult,
   error: Schema.Union([ProviderUploadFeedbackError, EnvironmentAuthorizationError]),
+});
+
+export const WsComputerWatchRpc = Rpc.make(WS_METHODS.computerWatch, {
+  payload: ComputerWatchInput,
+  success: ComputerWatchResult,
+  error: Schema.Union([ComputerWatchError, EnvironmentAuthorizationError]),
 });
 
 export const WsSubscribeDiscoveredLocalServersRpc = Rpc.make(

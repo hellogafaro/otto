@@ -129,6 +129,7 @@ export async function createRemoteBotWorkspace(
     providerId: session.providerId,
     workspace,
     inspect: session.inspect,
+    ...(session.desktopUrl ? { desktopUrl: session.desktopUrl } : {}),
     wake: () => workspace.init(),
     sleep: () => workspace.stop(),
     destroy: async () => {

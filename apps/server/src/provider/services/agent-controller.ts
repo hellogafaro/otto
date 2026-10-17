@@ -2,6 +2,7 @@ import type {
   AuthSessionId,
   OttoConversationMemorySnapshot,
   ComposioToolkit,
+  ComputerWatchError,
   BotEngine,
   BotId,
   ModelSelection,
@@ -175,6 +176,16 @@ export interface AgentControllerShape {
   readonly uploadFeedback: (
     input: ProviderUploadFeedbackInput,
   ) => Effect.Effect<ProviderUploadFeedbackResult, AgentControllerError>;
+
+  /** The computer a chat's bot is using, for the people allowed to watch it live. */
+  readonly computerWatch: (threadId: ThreadId) => Effect.Effect<
+    {
+      readonly botId: BotId;
+      readonly turnRunning: boolean;
+      readonly url: Effect.Effect<string, ComputerWatchError>;
+    },
+    ComputerWatchError
+  >;
 
   /**
    * Codex events are normalized from Mastra controller sessions. Other provider

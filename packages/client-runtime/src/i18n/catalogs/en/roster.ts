@@ -385,4 +385,10 @@ export const rosterCatalog = {
   "Waiting for your answer": "Waiting for your answer",
   "Saving to memory": "Saving to memory",
   "Reading memory": "Reading memory",
+  "Watch {name}'s computer": "Watch {name}'s computer",
+  "You can click and type here. Sign in if asked, then tell {name} you're done.":
+    "You can click and type here. Sign in if asked, then tell {name} you're done.",
+  "Opening the desktop…": "Opening the desktop…",
+  "The desktop did not open.": "The desktop did not open.",
+  "Open in a new window": "Open in a new window",
 } as const;

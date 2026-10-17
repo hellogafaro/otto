@@ -123,6 +123,7 @@ const startupDependencies = Layer.mergeAll(
     listSessions: () => Effect.succeed([]),
     rollbackConversation: () => Effect.die("unused"),
     uploadFeedback: () => Effect.die("unused"),
+    computerWatch: () => Effect.die("unused"),
     streamEvents: Stream.empty,
   }),
 );

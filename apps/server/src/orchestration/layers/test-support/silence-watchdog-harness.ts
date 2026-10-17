@@ -136,6 +136,7 @@ export function makeSilenceWatchdogHarness() {
       listSessions: () => Effect.succeed([...runtimeSessions]),
       rollbackConversation: () => unsupported(),
       uploadFeedback: () => unsupported(),
+      computerWatch: () => unsupported(),
       get streamEvents() {
         return Stream.fromPubSub(runtimeEventPubSub);
       },

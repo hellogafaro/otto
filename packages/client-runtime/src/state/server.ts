@@ -572,6 +572,10 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:voice:test",
       tag: WS_METHODS.voiceTest,
     }),
+    watchComputer: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:computer:watch",
+      tag: WS_METHODS.computerWatch,
+    }),
     listVoiceVoices: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:voice:list-voices",
       tag: WS_METHODS.voiceListVoices,

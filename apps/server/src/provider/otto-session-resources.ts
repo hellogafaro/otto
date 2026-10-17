@@ -187,6 +187,10 @@ export class OttoSessionResources {
     return this.workspaceLeases.get(threadId)?.workspace.workspace;
   }
 
+  desktopUrl(threadId: string): (() => Promise<string>) | undefined {
+    return this.workspaceLeases.get(threadId)?.workspace.desktopUrl;
+  }
+
   retryFailedWorkspaceSleeps(): Promise<void> {
     return this.workspacePool.retryFailedSleeps();
   }

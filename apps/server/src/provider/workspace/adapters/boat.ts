@@ -93,6 +93,15 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
         result = await client.getDeletionOperation({ operationId: result.operation.id });
       }
     },
+    desktopUrl: async () => {
+      const { desktopUrl } = await client.desktop({ sandboxId }).catch(async (cause: unknown) => {
+        throw await boatFailure(cause);
+      });
+
+      if (!desktopUrl) throw new Error("Boat has no desktop for this computer yet. Try again.");
+
+      return desktopUrl;
+    },
     run: async (command, args, options) => {
       const timeout = options?.timeout ?? 600_000;
 

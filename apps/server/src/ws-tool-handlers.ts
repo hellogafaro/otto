@@ -1,6 +1,9 @@
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
-import { WS_METHODS, WsRpcGroup } from "@otto/contracts";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { ComputerWatchError, WS_METHODS, WsRpcGroup } from "@otto/contracts";
 
+import { canSeeThreadById } from "./orchestration/group-visibility.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
 export const createWsToolHandlers = ({
@@ -10,6 +13,10 @@ export const createWsToolHandlers = ({
   observeRpcEffect,
   observeRpcStream,
   voiceCalls,
+  agentController,
+  projectionBots,
+  projectionSnapshotQuery,
+  projectionGroups,
 }: Pick<
   WsConnection,
   | "voiceCallOwnerId"
@@ -18,8 +25,46 @@ export const createWsToolHandlers = ({
   | "observeRpcEffect"
   | "observeRpcStream"
   | "voiceCalls"
+  | "agentController"
+  | "projectionBots"
+  | "projectionSnapshotQuery"
+  | "projectionGroups"
 >) =>
   ({
+    [WS_METHODS.computerWatch]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.computerWatch,
+        Effect.gen(function* () {
+          const computer = yield* agentController.computerWatch(input.threadId);
+
+          const bot = yield* projectionBots
+            .getById({ botId: computer.botId })
+            .pipe(Effect.orElseSucceed(() => Option.none()));
+
+          const owner = Option.match(bot, {
+            onNone: () => false,
+            onSome: ({ owner }) => owner?.kind === "person" && owner.personId === currentPersonId,
+          });
+
+          const inChat =
+            computer.turnRunning &&
+            (yield* canSeeThreadById(
+              { projectionSnapshotQuery, projectionGroups },
+              input.threadId,
+              currentPersonId,
+            ));
+
+          if (!owner && !inChat) {
+            return yield* new ComputerWatchError({
+              message: "Only the bot's owner, or people in this chat while it works, can watch.",
+            });
+          }
+
+          return { url: yield* computer.url };
+        }),
+        { "rpc.aggregate": "computer" },
+      ),
+
     [WS_METHODS.voiceProviders]: () => voiceCalls.providers,
 
     [WS_METHODS.voiceConnect]: ({ provider, apiKey }) => voiceCalls.connect(provider, apiKey),
@@ -115,4 +160,5 @@ export const createWsToolHandlers = ({
     | typeof WS_METHODS.previewList
     | typeof WS_METHODS.previewReportStatus
     | typeof WS_METHODS.subscribePreviewEvents
+    | typeof WS_METHODS.computerWatch
   >;

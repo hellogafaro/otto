@@ -70,6 +70,7 @@ import { useMessageArrivals } from "./message-arrival";
 import { useRosterStore } from "./roster-store";
 import { useGroupThreadRuntime } from "./use-group-thread-runtime";
 import { ChatActionsMenu, useMarkChatVisited } from "../chat/chat-actions-menu";
+import { WatchComputerButton } from "./watch-computer-button";
 import { useBotEngineAvailability } from "./use-bot-engine-availability";
 import { buildBotTurnTraces } from "./bot-turn-trace.logic";
 import { useLocalDay } from "./use-local-day";
@@ -387,6 +388,12 @@ export function GroupThreadLanding({
               {group.name}
             </WorkspaceHeaderTitle>
             <div data-chat-header-actions className="ml-auto flex items-center gap-1.5">
+              {working && respondingBot?.sandbox === "boat" && runtime.linkedThreadRef ? (
+                <WatchComputerButton
+                  botName={respondingBot.name}
+                  threadRef={runtime.linkedThreadRef}
+                />
+              ) : null}
               <ChatActionsMenu threadRef={runtime.linkedThreadRef} />
             </div>
           </WorkspacePageHeader>

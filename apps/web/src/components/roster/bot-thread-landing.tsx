@@ -80,6 +80,7 @@ import { useBotLandingTimeline } from "./use-bot-landing-timeline";
 import { resolveRoutedBot } from "./roster-route-selection";
 import { ThreadRuntimeWarningBanner } from "./thread-runtime-warning-banner";
 import { ChatActionsMenu, useMarkChatVisited } from "../chat/chat-actions-menu";
+import { WatchComputerButton } from "./watch-computer-button";
 
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
@@ -435,6 +436,9 @@ export function BotThreadLanding({
                 {bot.name}
               </WorkspaceHeaderTitle>
               <div data-chat-header-actions className="ml-auto flex items-center gap-1.5">
+                {bot.sandbox === "boat" && runtime.linkedThreadRef ? (
+                  <WatchComputerButton botName={bot.name} threadRef={runtime.linkedThreadRef} />
+                ) : null}
                 <BotVoiceCallButton
                   bot={bot}
                   threadRef={threadRef}

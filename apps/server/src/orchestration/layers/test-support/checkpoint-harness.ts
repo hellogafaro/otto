@@ -136,6 +136,7 @@ export function createAgentControllerHarness(
     listSessions,
     rollbackConversation,
     uploadFeedback: () => unsupported(),
+    computerWatch: () => unsupported(),
     get streamEvents() {
       return Stream.fromPubSub(runtimeEventPubSub);
     },

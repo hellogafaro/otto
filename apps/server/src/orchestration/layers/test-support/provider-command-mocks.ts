@@ -392,6 +392,7 @@ export function createProviderCommandMocks(
     failDelegation,
     rollbackConversation: () => Effect.die("unused"),
     uploadFeedback: () => Effect.die("unused"),
+    computerWatch: () => Effect.die("unused"),
     get streamEvents() {
       return Stream.fromPubSub(runtimeEventPubSub);
     },

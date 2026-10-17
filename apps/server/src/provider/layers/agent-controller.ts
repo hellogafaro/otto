@@ -40,7 +40,7 @@ import { createConversation } from "./agent-controller/conversation.ts";
 
 import { createMcpManager, type McpManager } from "@mastra/code-sdk/mcp/index";
 
-import { type ProviderRuntimeEvent, ThreadId } from "@otto/contracts";
+import { ComputerWatchError, type ProviderRuntimeEvent, ThreadId } from "@otto/contracts";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -674,6 +674,29 @@ const make = (options?: AgentControllerLiveOptions) =>
 
       rollbackConversation,
       uploadFeedback: legacyProviderBridge.uploadFeedback,
+      computerWatch: (threadId) =>
+        Effect.suspend(() => {
+          const active = sessions.get(threadId);
+          const desktopUrl = sessionResources.desktopUrl(threadId);
+
+          if (!active?.toolSession.botId || !desktopUrl) {
+            return Effect.fail(
+              new ComputerWatchError({ message: "This bot has no computer you can watch." }),
+            );
+          }
+
+          return Effect.succeed({
+            botId: active.toolSession.botId,
+            turnRunning: active.activeTurn !== null,
+            url: Effect.tryPromise({
+              try: desktopUrl,
+              catch: (cause) =>
+                new ComputerWatchError({
+                  message: cause instanceof Error ? cause.message : "The desktop did not open.",
+                }),
+            }),
+          });
+        }),
     });
   });
 

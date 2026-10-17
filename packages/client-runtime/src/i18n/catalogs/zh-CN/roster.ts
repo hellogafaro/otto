@@ -372,4 +372,10 @@ export const rosterCatalog = {
   "Waiting for your answer": "正在等待你的回答",
   "Saving to memory": "正在保存到记忆",
   "Reading memory": "正在读取记忆",
+  "Watch {name}'s computer": "查看 {name} 的电脑",
+  "You can click and type here. Sign in if asked, then tell {name} you're done.":
+    "你可以在这里点击和输入。需要时请登录，然后告诉 {name} 你已完成。",
+  "Opening the desktop…": "正在打开桌面…",
+  "The desktop did not open.": "桌面没有打开。",
+  "Open in a new window": "在新窗口中打开",
 } as const;

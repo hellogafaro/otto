@@ -149,6 +149,20 @@ export const ProviderRespondToUserInputInput = Schema.Struct({
 
 export type ProviderRespondToUserInputInput = typeof ProviderRespondToUserInputInput.Type;
 
+export const ComputerWatchInput = Schema.Struct({ threadId: ThreadId });
+
+export type ComputerWatchInput = typeof ComputerWatchInput.Type;
+
+/** A short-lived, secret-bearing link to the bot computer's live desktop. Never store or log it. */
+export const ComputerWatchResult = Schema.Struct({ url: TrimmedNonEmptyString });
+
+export type ComputerWatchResult = typeof ComputerWatchResult.Type;
+
+export class ComputerWatchError extends Schema.TaggedErrorClass<ComputerWatchError>()(
+  "ComputerWatchError",
+  { message: Schema.String },
+) {}
+
 export const ProviderUploadFeedbackInput = Schema.Struct({
   threadId: ThreadId,
   reason: Schema.optional(TrimmedNonEmptyString),

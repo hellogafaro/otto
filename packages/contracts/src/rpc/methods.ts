@@ -34,6 +34,7 @@ export const WS_METHODS = {
 
   // Provider methods
   providerUploadFeedback: "provider.uploadFeedback",
+  computerWatch: "computer.watch",
 
   // Preview methods
   previewOpen: "preview.open",

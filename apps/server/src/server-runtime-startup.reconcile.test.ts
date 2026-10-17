@@ -60,6 +60,7 @@ const makeAgentController = (liveThreadIds: ReadonlyArray<ThreadId> = []) =>
     listSessions: () => Effect.succeed(liveThreadIds.map((threadId) => ({ threadId }) as never)),
     rollbackConversation: () => Effect.die("unused"),
     uploadFeedback: () => Effect.die("unused"),
+    computerWatch: () => Effect.die("unused"),
     streamEvents: Stream.empty,
   }) satisfies AgentController.AgentController["Service"];
 

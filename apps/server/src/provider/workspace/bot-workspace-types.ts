@@ -17,6 +17,8 @@ export interface OttoBotWorkspace {
   readonly wake: () => Promise<void>;
   readonly sleep: () => Promise<void>;
   readonly destroy: () => Promise<void>;
+  /** A fresh secret link to the computer's live desktop, where the provider streams one. */
+  readonly desktopUrl?: () => Promise<string>;
 }
 
 export interface OttoRemoteSession {
@@ -30,6 +32,7 @@ export interface OttoRemoteSession {
   readonly wake: () => Promise<void>;
   readonly sleep: () => Promise<void>;
   readonly destroy: () => Promise<void>;
+  readonly desktopUrl?: () => Promise<string>;
 }
 
 export interface CreateRemoteBotWorkspaceInput {
