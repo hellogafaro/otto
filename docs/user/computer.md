@@ -1,76 +1,31 @@
-# Watch and control a bot's computer
+# Watch a bot's computer
 
-A bot that works in a Daytona sandbox has its own desktop with a browser. You can watch that screen
-live, take control to click and type for the bot, then hand control back.
+A bot whose computer is Boat has its own Linux desktop. You can watch it work there and click or
+type on it, for example to sign in to a site for the bot.
 
 ## Open the computer
 
-In a bot chat, open the bot panel and select **Open computer**. This helps when the bot needs you to
-sign in, solve a check, or confirm something on a page.
+In a chat with the bot, select the computer button in the chat header (**Watch _bot name_'s
+computer**). The desktop opens in a window inside Otto. Select **Open in a new window** to use it in
+its own browser tab.
 
-The computer window shows who is in control: the bot, you, someone else, or no one.
+When you are done, close the window and tell the bot you are finished. The bot and you share the
+same screen, so avoid typing while the bot is in the middle of a step.
 
-## Take control and hand it back
+## Who can watch
 
-1. Select **Take control**. The bot finishes its current browser step, then waits.
-2. Click, type, paste, and scroll on the picture. Most keyboard shortcuts, such as Ctrl+C, go to the
-   bot's computer while the picture has focus.
-3. Select **Return to _bot name_** when you are done. The bot continues its work.
+- The bot's owner can open the computer at any time.
+- Other people in the chat can open it only while the bot is working in that chat.
 
-Only one person controls the computer at a time. If someone else already has control, **Take
-control** stays unavailable until they return it.
-
-Control lasts up to one minute and cannot be extended. When the minute runs out, the computer stops
-so that no one keeps typing into a screen the bot also drives. Select **Resume** to start it again,
-then take control again if you still need it.
-
-## Stop the computer
-
-Select **Stop** to stop the computer immediately, whoever is in control. The bot cannot use its
-browser until you select **Resume**.
-
-## When control ends on its own
-
-Your control ends, and the computer stops, when:
-
-- your minute of control runs out
-- your connection to the environment drops
-- the bot's sandbox pauses or the bot's work ends
-
-When you close the computer window, switch to another page, or hide the app, the picture stops and
-control returns to the bot. The computer keeps running. When control ends, the window says why and
-offers **Resume** when that applies.
+Each opening asks the server for a fresh link. Otto keeps the link only while the window is open
+and never saves it to the chat.
 
 ## Supported computers
 
-| Bot setup                                               | Computer                                                  |
-| ------------------------------------------------------- | --------------------------------------------------------- |
-| Daytona sandbox with a Codex or Kimi For Coding engine  | Watch and control                                         |
-| Daytona sandbox with a Claude, Grok, or OpenCode engine | Not available yet                                         |
-| Local workspace                                         | Not available. A local workspace has no separate desktop. |
-| E2B, Vercel Sandbox, or Upstash Box                     | Not available. These sandboxes have no graphical desktop. |
+| Bot computer                          | Watch                                          |
+| ------------------------------------- | ---------------------------------------------- |
+| Boat                                  | Yes                                            |
+| Local                                 | No. A local workspace has no separate desktop. |
+| E2B, Daytona, Vercel Sandbox, Railway | No. Otto does not open these desktops.         |
 
-The computer starts when the bot begins work in its Daytona sandbox. If the window says the computer
-has not started, send the bot a message and open the computer again. To set up Daytona, see
-[Configure sandboxes](./sandboxes.md).
-
-The desktop app and the web client can watch and control the computer. The mobile app shows when a
-bot's computer is running and asks you to open Otto on a desktop or in a web browser.
-
-## Privacy
-
-- The picture streams only while the computer window is open and visible.
-- Pictures, your clicks, and the text you type are not saved to the chat, chat history, or
-  routines.
-- Commands the bot runs in its terminal can still reach the desktop while you are in control. Stop
-  the computer if you need the bot to pause everything.
-
-## Recover from problems
-
-| What you see                          | What to do                                                                            |
-| ------------------------------------- | ------------------------------------------------------------------------------------- |
-| "Your minute of control ran out"      | Select **Resume**, then **Take control** again.                                       |
-| "The connection dropped"              | Wait for the environment to reconnect, then select **Resume**.                        |
-| "Someone else took control first"     | Wait for them to return control, or ask them to.                                      |
-| "The computer did not accept that"    | Control has returned to the bot. Select **Take control** to try again.                |
-| "The computer is no longer available" | The bot's work ended or its sandbox paused. Send the bot a message to start it again. |
+To set up Boat, see [Configure sandboxes](./sandboxes.md).

@@ -13,6 +13,13 @@ import { Dialog, DialogDescription, DialogHeader, DialogPopup, DialogTitle } fro
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 /**
+ * The desktop page loads its scripts as its own origin, so it needs allow-same-origin. That is safe
+ * only because the link is always another origin than Otto (checked before it renders): the frame
+ * cannot reach Otto, and the sandbox still blocks top navigation, popups, forms and downloads.
+ */
+const DESKTOP_FRAME_SANDBOX = "allow-scripts allow-same-origin allow-pointer-lock";
+
+/**
  * Otto: A header action that shows a bot's computer live, for watching it work or signing in for
  * it. Each opening asks the server for a fresh link and keeps it only while the dialog is open.
  */
@@ -40,7 +47,11 @@ export function WatchComputerButton({
       input: { threadId: threadRef.threadId },
     });
 
-    if (Predicate.isTagged(result, "Success")) return setUrl(result.value.url);
+    if (Predicate.isTagged(result, "Success")) {
+      return new URL(result.value.url).origin === window.location.origin
+        ? setError(t("The desktop did not open."))
+        : setUrl(result.value.url);
+    }
 
     const failure = Predicate.isTagged(result, "Failure") ? squashAtomCommandFailure(result) : null;
     setError(failure instanceof Error ? failure.message : t("The desktop did not open."));
@@ -87,7 +98,7 @@ export function WatchComputerButton({
                 <iframe
                   allow="clipboard-read; clipboard-write; fullscreen"
                   className="size-full"
-                  sandbox="allow-scripts allow-forms allow-pointer-lock allow-popups"
+                  sandbox={DESKTOP_FRAME_SANDBOX}
                   src={url}
                   title={label}
                 />
