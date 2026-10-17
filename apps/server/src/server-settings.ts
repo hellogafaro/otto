@@ -239,8 +239,6 @@ const make = Effect.gen(function* () {
     );
 
     yield* validatePersistedSandboxSecrets(normalized);
-    const sandboxMaterialized = yield* materializeSandboxEnvironmentSecrets(normalized);
-    yield* validateSandboxSettings(sandboxMaterialized);
 
     return normalized;
   });
@@ -457,7 +455,9 @@ const make = Effect.gen(function* () {
 
           const patched = applyServerSettingsPatch(current, normalizedPatch);
           const sandboxMaterialized = yield* materializeSandboxEnvironmentSecrets(patched);
-          yield* validateSandboxSettings(sandboxMaterialized);
+
+          if (patch.sandbox) yield* validateSandboxSettings(sandboxMaterialized);
+
           const secretSnapshots = yield* snapshotSettingsSecrets(current, patched);
 
           const next = yield* Effect.gen(function* () {

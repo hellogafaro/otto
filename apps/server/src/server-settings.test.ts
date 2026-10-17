@@ -632,4 +632,25 @@ it.layer(NodeServices.layer)("server settings", (it) => {
       assert.deepEqual(saved.sandbox.providers.boat.environment, []);
     }),
   );
+
+  it.effect("keeps settings working after the server loses BOAT_API_KEY", () =>
+    Effect.gen(function* () {
+      const serverConfig = yield* ServerConfig.ServerConfig;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
+      yield* fileSystem.writeFileString(
+        serverConfig.settingsPath,
+        '{"sandbox":{"defaultProvider":"boat"}}',
+      );
+
+      const loaded = yield* serverSettings.getSettings;
+      assert.equal(loaded.sandbox.defaultProvider, "boat");
+
+      const saved = yield* serverSettings.updateSettings({ enableAgentBrowserAccess: true });
+      assert.equal(saved.enableAgentBrowserAccess, true);
+    }).pipe(
+      Effect.provide(makeServerSettingsLayer()),
+      Effect.provideService(HostProcessEnvironment, {}),
+    ),
+  );
 });
