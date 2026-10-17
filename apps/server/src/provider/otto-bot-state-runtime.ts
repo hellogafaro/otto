@@ -7,6 +7,7 @@ import {
   type OttoToolReceipt,
   type BotAlwaysAllowedTool,
   type BotId,
+  type OrchestrationBot,
   type OrchestrationCommand,
   type OrchestrationReadModel,
 } from "@otto/contracts";
@@ -14,6 +15,8 @@ import * as DateTime from "effect/DateTime";
 
 export interface OttoBotStateRuntimeOptions {
   readonly readSnapshot: () => Promise<OrchestrationReadModel>;
+  /** Reads one bot without the whole read model, which readSnapshot falls back to. */
+  readonly readBot?: (botId: BotId) => Promise<Pick<OrchestrationBot, "alwaysAllowed"> | undefined>;
   readonly dispatch: (command: OrchestrationCommand) => Promise<{ readonly sequence: number }>;
   readonly now?: () => string;
   readonly id?: () => string;
@@ -70,7 +73,16 @@ export function createOttoBotStateRuntime(options: OttoBotStateRuntimeOptions) {
     });
   };
 
-  return { updateProfile, allowAlways };
+  /** The bot's Always allow rules as saved now, so a removed rule stops applying at once. */
+  const alwaysAllowed = async (botId: BotId) => {
+    const bot = options.readBot
+      ? await options.readBot(botId)
+      : (await options.readSnapshot()).bots.find((candidate) => candidate.id === botId);
+
+    return bot?.alwaysAllowed ?? [];
+  };
+
+  return { updateProfile, allowAlways, alwaysAllowed };
 }
 
 export type OttoBotStateRuntime = ReturnType<typeof createOttoBotStateRuntime>;

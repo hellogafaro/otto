@@ -194,6 +194,11 @@ describe("AgentControllerLive", () => {
           readSnapshot: async () => {
             throw new Error("No snapshot in this test.");
           },
+          readBot: async () => ({
+            alwaysAllowed: dispatched.flatMap((command) =>
+              command.type === "bot.update" && command.alwaysAllow ? [command.alwaysAllow] : [],
+            ),
+          }),
           dispatch: async (command) => {
             dispatched.push(command);
 
@@ -265,20 +270,26 @@ describe("AgentControllerLive", () => {
           toolName: "shell",
           args: { command: "rm -rf ./build" },
         } as AgentControllerEvent);
-        yield* Effect.yieldNow;
-
-        expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
-          toolCallId: "shell-review-2",
-          decision: "approve",
-        });
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
+              toolCallId: "shell-review-2",
+              decision: "approve",
+            }),
+          ),
+        );
         expect(
           events.some(
             (event) => event.type === "request.opened" && event.requestId === "shell-review-2",
           ),
         ).toBe(false);
         // Deleting is another kind of action, so it still asks.
-        expect(events).toContainEqual(
-          expect.objectContaining({ type: "request.opened", requestId: "shell-review-delete" }),
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(events).toContainEqual(
+              expect.objectContaining({ type: "request.opened", requestId: "shell-review-delete" }),
+            ),
+          ),
         );
         // The allowed call must also pass the runtime's own grant check.
         const runtime = mastra.harnessOptions[0]?.toolRuntime;

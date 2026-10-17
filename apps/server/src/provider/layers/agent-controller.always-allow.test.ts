@@ -4,12 +4,13 @@ import {
   AuthSessionId,
   BotId,
   ProviderDriverKind,
+  type OrchestrationCommand,
   type ProviderRuntimeEvent,
 } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
-import { assert, describe, expect } from "vite-plus/test";
+import { assert, describe, expect, vi } from "vite-plus/test";
 import { AgentController } from "../services/agent-controller.ts";
 import {
   codexThreadId,
@@ -23,93 +24,159 @@ import {
 } from "./test-support/agent-controller-layers.ts";
 import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
 
+/**
+ * Starts a turn for bot-ops whose saved rules are the ones its Always allow answers added,
+ * minus any the test removes from `saved`.
+ */
+const startBotTurn = (mastra: ReturnType<typeof mastraHarnessFixture>) =>
+  Effect.gen(function* () {
+    const controller = yield* AgentController;
+    const events: ProviderRuntimeEvent[] = [];
+    const saved: OrchestrationCommand[] = [];
+    yield* controller.streamEvents.pipe(
+      Stream.runForEach((event) => Effect.sync(() => events.push(event))),
+      Effect.forkChild({ startImmediately: true }),
+    );
+    assert.isDefined(controller.configureDelegation);
+    yield* controller.configureDelegation({
+      readSnapshot: async () => {
+        throw new Error("No snapshot in this test.");
+      },
+      readBot: async () => ({
+        alwaysAllowed: saved.flatMap((command) =>
+          command.type === "bot.update" && command.alwaysAllow ? [command.alwaysAllow] : [],
+        ),
+      }),
+      dispatch: async (command) => {
+        saved.push(command);
+
+        return { sequence: saved.length };
+      },
+    });
+    yield* resolveCodex(controller);
+    yield* controller.startSession(codexThreadId, {
+      threadId: codexThreadId,
+      provider: ProviderDriverKind.make("codex"),
+      providerInstanceId: codexInstanceId,
+      cwd: process.cwd(),
+      modelSelection: codexSelection,
+      runtimeMode: "approval-required",
+      botId: BotId.make("bot-ops"),
+    });
+    yield* controller.sendTurn({ threadId: codexThreadId, input: "Tidy up." });
+
+    const ask = (toolCallId: string, command: string) =>
+      mastra.emit({
+        type: "tool_approval_required",
+        toolCallId,
+        toolName: "shell",
+        args: { command },
+      } as AgentControllerEvent);
+
+    const allowAlways = (toolCallId: string) =>
+      controller.respondToRequest({
+        threadId: codexThreadId,
+        requestId: ApprovalRequestId.make(toolCallId),
+        decision: "acceptAlways",
+        responder: {
+          personId: AuthSessionId.make("person-ana"),
+          displayName: "Ana",
+          canWrite: true,
+        },
+      });
+
+    return { events, saved, ask, allowAlways };
+  });
+
 describe("AgentControllerLive Always allow", () => {
+  it.effect("stops a removed rule on the next call of a running session", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    return provideController(
+      Effect.gen(function* () {
+        const { events, saved, ask, allowAlways } = yield* startBotTurn(mastra);
+        ask("ls-1", "ls");
+        yield* Effect.yieldNow;
+        yield* allowAlways("ls-1");
+
+        ask("ls-2", "ls -la");
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
+              toolCallId: "ls-2",
+              decision: "approve",
+            }),
+          ),
+        );
+
+        // The owner removes the rule in bot settings while the session keeps running.
+        saved.length = 0;
+        ask("ls-3", "ls -a");
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(events).toContainEqual(
+              expect.objectContaining({ type: "request.opened", requestId: "ls-3" }),
+            ),
+          ),
+        );
+        expect(mastra.session.respondToToolApproval).not.toHaveBeenCalledWith({
+          toolCallId: "ls-3",
+          decision: "approve",
+        });
+        mastra.finishSend();
+      }),
+      bridge.service,
+      mastra.factory,
+    );
+  });
+
   it.effect("lets a delete-only rule through only calls that just delete", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
 
     return provideController(
       Effect.gen(function* () {
-        const controller = yield* AgentController;
-        const events: ProviderRuntimeEvent[] = [];
-        yield* controller.streamEvents.pipe(
-          Stream.runForEach((event) => Effect.sync(() => events.push(event))),
-          Effect.forkChild({ startImmediately: true }),
+        const { events, ask, allowAlways } = yield* startBotTurn(mastra);
+        ask("rm-1", "rm ./scratch.txt");
+        yield* Effect.yieldNow;
+        yield* allowAlways("rm-1");
+
+        ask("rm-2", "rm ./other.txt");
+        ask("rm-push", "rm ./scratch.txt; git push origin main");
+        ask("rm-newline-push", "rm ./scratch.txt\ngit push origin main");
+
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
+              toolCallId: "rm-2",
+              decision: "approve",
+            }),
+          ),
         );
-        assert.isDefined(controller.configureDelegation);
-        yield* controller.configureDelegation({
-          readSnapshot: async () => {
-            throw new Error("No snapshot in this test.");
-          },
-          dispatch: async () => ({ sequence: 1 }),
-        });
-        yield* resolveCodex(controller);
-        yield* controller.startSession(codexThreadId, {
-          threadId: codexThreadId,
-          provider: ProviderDriverKind.make("codex"),
-          providerInstanceId: codexInstanceId,
-          cwd: process.cwd(),
-          modelSelection: codexSelection,
-          runtimeMode: "approval-required",
-          botId: BotId.make("bot-ops"),
-        });
-        yield* controller.sendTurn({ threadId: codexThreadId, input: "Tidy up." });
-        mastra.emit({
-          type: "tool_approval_required",
-          toolCallId: "rm-1",
-          toolName: "shell",
-          args: { command: "rm ./scratch.txt" },
-        } as AgentControllerEvent);
-        yield* Effect.yieldNow;
-        yield* controller.respondToRequest({
-          threadId: codexThreadId,
-          requestId: ApprovalRequestId.make("rm-1"),
-          decision: "acceptAlways",
-          responder: {
-            personId: AuthSessionId.make("person-ana"),
-            displayName: "Ana",
-            canWrite: true,
-          },
-        });
-
-        for (const [toolCallId, command] of [
-          ["rm-2", "rm ./other.txt"],
-          ["rm-push", "rm ./scratch.txt; git push origin main"],
-          ["rm-newline-push", "rm ./scratch.txt\ngit push origin main"],
-        ] as const) {
-          mastra.emit({
-            type: "tool_approval_required",
-            toolCallId,
-            toolName: "shell",
-            args: { command },
-          } as AgentControllerEvent);
-        }
-
-        yield* Effect.yieldNow;
-
-        expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
-          toolCallId: "rm-2",
-          decision: "approve",
-        });
 
         for (const requestId of ["rm-push", "rm-newline-push"]) {
+          // A chained command asks every time and cannot be always allowed.
+          yield* Effect.promise(() =>
+            vi.waitFor(() =>
+              expect(events).toContainEqual(
+                expect.objectContaining({
+                  type: "request.opened",
+                  requestId,
+                  payload: expect.objectContaining({
+                    options: [
+                      { decision: "decline", label: "Never" },
+                      { decision: "accept", label: "Allow once" },
+                    ],
+                  }),
+                }),
+              ),
+            ),
+          );
           expect(mastra.session.respondToToolApproval).not.toHaveBeenCalledWith({
             toolCallId: requestId,
             decision: "approve",
           });
-          // A chained command asks every time and cannot be always allowed.
-          expect(events).toContainEqual(
-            expect.objectContaining({
-              type: "request.opened",
-              requestId,
-              payload: expect.objectContaining({
-                options: [
-                  { decision: "decline", label: "Never" },
-                  { decision: "accept", label: "Allow once" },
-                ],
-              }),
-            }),
-          );
         }
 
         mastra.finishSend();

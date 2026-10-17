@@ -18,6 +18,7 @@ import type {
   ProviderTurnStartResult,
   ProviderUploadFeedbackInput,
   ProviderUploadFeedbackResult,
+  OrchestrationBot,
   OrchestrationCommand,
   TaskWake,
   OrchestrationReadModel,
@@ -81,6 +82,9 @@ export interface AgentControllerShape {
   }) => Effect.Effect<void>;
   readonly configureDelegation?: (input: {
     readonly readSnapshot: () => Promise<OrchestrationReadModel>;
+    readonly readBot?: (
+      botId: BotId,
+    ) => Promise<Pick<OrchestrationBot, "alwaysAllowed"> | undefined>;
     readonly readThread?: (threadId: ThreadId) => Promise<OrchestrationThread | undefined>;
     readonly dispatch: (command: OrchestrationCommand) => Promise<{ readonly sequence: number }>;
   }) => Effect.Effect<void>;

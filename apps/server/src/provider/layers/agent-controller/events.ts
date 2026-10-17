@@ -482,22 +482,94 @@ export function createEvents(deps: {
 
         const proposal = isOttoProposal(event.toolName, toolInput);
 
-        // A person chose Always allow for this bot and this tool, for every kind of action in it.
-        const alwaysAllowed = alwaysAllowCovers(
-          active.toolSession.alwaysAllowed ?? [],
-          event.toolName,
-          toolInput,
-        );
+        const policyAllows =
+          !oneUseApproval &&
+          deps.permissionPolicy(active.runtimeMode, ottoToolCategory(event.toolName)) === "allow";
 
-        if (
-          alwaysAllowed ||
-          (!oneUseApproval &&
-            deps.permissionPolicy(active.runtimeMode, ottoToolCategory(event.toolName)) === "allow")
-        ) {
+        // A person chose Always allow for this bot and this tool, for every kind of action in it.
+        // The session's copy only shortlists the call; the bot's current rules decide, so a
+        // removed rule stops applying at once.
+        const maybeAlwaysAllowed =
+          !policyAllows &&
+          alwaysAllowCovers(active.toolSession.alwaysAllowed ?? [], event.toolName, toolInput);
+
+        const botId = active.toolSession.botId;
+
+        const openApproval = () => {
+          active.approvalRequests.set(event.toolCallId, {
+            name: event.toolName,
+            input: toolInput,
+          });
+          active.pendingApprovals.set(event.toolCallId, {
+            toolName: event.toolName,
+            action: action ?? "unclassified",
+          });
+          turn.waiting = true;
+          publishSessionState(threadId, active, "waiting");
+          deps.publish({
+            ...baseEvent(threadId, active, turn.turnId),
+            requestId: RuntimeRequestId.make(event.toolCallId),
+            type: "request.opened",
+            payload: {
+              requestType: "dynamic_tool_call",
+              actor: "agent",
+              target: event.toolName,
+              detail:
+                event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
+                  ? "Review routine"
+                  : event.toolName === "skill_create" || event.toolName === "skill_update"
+                    ? "Review skill"
+                    : instructions !== null
+                      ? `Change this bot's instructions to:\n\n${instructions}`
+                      : deps.approvalDetail(event.toolName, action, oneUseApproval),
+              toolName: event.toolName,
+              ...(action ? { action } : {}),
+              args: toolInput,
+              options:
+                event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
+                  ? [
+                      { decision: "accept", label: "Create routine" },
+                      { decision: "decline", label: "Cancel" },
+                    ]
+                  : proposal
+                    ? [
+                        { decision: "decline", label: "Decline" },
+                        { decision: "accept", label: "Approve" },
+                      ]
+                    : alwaysAllowKinds(event.toolName, toolInput)?.length === 1
+                      ? [
+                          { decision: "decline", label: "Never" },
+                          { decision: "acceptAlways", label: "Always allow" },
+                          { decision: "accept", label: "Allow once" },
+                        ]
+                      : [
+                          { decision: "decline", label: "Never" },
+                          { decision: "accept", label: "Allow once" },
+                        ],
+            },
+          });
+        };
+
+        if (policyAllows || maybeAlwaysAllowed) {
           deps.forkPromise(
             "Otto could not approve an allowed tool call.",
-            () =>
-              deps.runPromise(
+            async () => {
+              if (!policyAllows) {
+                const rules = botId
+                  ? await deps
+                      .wired()
+                      .botStateRuntime?.alwaysAllowed(botId)
+                      .catch(() => undefined)
+                  : undefined;
+
+                if (!rules || !alwaysAllowCovers(rules, event.toolName, toolInput)) {
+                  if (active.activeTurn === turn && !turn.finished) openApproval();
+
+                  return;
+                }
+              }
+
+              await deps.runPromise(
                 deps.legacyProviderBridge.dispatchIfEnabled(
                   active.providerInstanceId,
                   "AgentController.handleControllerEvent",
@@ -524,7 +596,8 @@ export function createEvents(deps: {
                     });
                   },
                 ),
-              ),
+              );
+            },
             {
               annotations: { threadId, turnId: turn.turnId, toolCallId: event.toolCallId },
               onFailure: (cause) => {
@@ -538,58 +611,7 @@ export function createEvents(deps: {
           return;
         }
 
-        active.approvalRequests.set(event.toolCallId, {
-          name: event.toolName,
-          input: toolInput,
-        });
-        active.pendingApprovals.set(event.toolCallId, {
-          toolName: event.toolName,
-          action: action ?? "unclassified",
-        });
-        turn.waiting = true;
-        publishSessionState(threadId, active, "waiting");
-        deps.publish({
-          ...baseEvent(threadId, active, turn.turnId),
-          requestId: RuntimeRequestId.make(event.toolCallId),
-          type: "request.opened",
-          payload: {
-            requestType: "dynamic_tool_call",
-            actor: "agent",
-            target: event.toolName,
-            detail:
-              event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
-                ? "Review routine"
-                : event.toolName === "skill_create" || event.toolName === "skill_update"
-                  ? "Review skill"
-                  : instructions !== null
-                    ? `Change this bot's instructions to:\n\n${instructions}`
-                    : deps.approvalDetail(event.toolName, action, oneUseApproval),
-            toolName: event.toolName,
-            ...(action ? { action } : {}),
-            args: toolInput,
-            options:
-              event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
-                ? [
-                    { decision: "accept", label: "Create routine" },
-                    { decision: "decline", label: "Cancel" },
-                  ]
-                : proposal
-                  ? [
-                      { decision: "decline", label: "Decline" },
-                      { decision: "accept", label: "Approve" },
-                    ]
-                  : alwaysAllowKinds(event.toolName, toolInput)?.length === 1
-                    ? [
-                        { decision: "decline", label: "Never" },
-                        { decision: "acceptAlways", label: "Always allow" },
-                        { decision: "accept", label: "Allow once" },
-                      ]
-                    : [
-                        { decision: "decline", label: "Never" },
-                        { decision: "accept", label: "Allow once" },
-                      ],
-          },
-        });
+        openApproval();
 
         return;
       }

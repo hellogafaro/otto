@@ -96,8 +96,16 @@ export const createDependencies = Effect.fn("makeprovider-command-Dependencies")
   }
 
   if (agentController.configureDelegation) {
+    const { getBotById } = projectionSnapshotQuery;
+
     yield* agentController.configureDelegation({
       readSnapshot: () => runPromise(projectionSnapshotQuery.getCommandReadModel()),
+      ...(getBotById
+        ? {
+            readBot: (botId: BotId) =>
+              runPromise(getBotById(botId).pipe(Effect.map(Option.getOrUndefined))),
+          }
+        : {}),
       readThread: (threadId) =>
         runPromise(
           projectionSnapshotQuery
