@@ -1,11 +1,12 @@
-import type {
-  Actor,
-  ActivityEntry,
-  EnvironmentId,
-  LibraryFile,
-  ProjectId,
-  TaskChanges,
-  WorkParticipant,
+import {
+  type Actor,
+  type ActivityEntry,
+  type EnvironmentId,
+  GENERAL_PROJECT_ID,
+  type LibraryFile,
+  type ProjectId,
+  type TaskChanges,
+  type WorkParticipant,
 } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { RiAttachment2, RiDeleteBinLine, RiReplyLine } from "@remixicon/react";
@@ -93,11 +94,13 @@ export function ActivitySection({
       label: person.displayName,
     })),
     ...participants.bots.map((bot) => ({ type: "bot" as const, id: bot.id, label: bot.name })),
-    ...projects.map((project) => ({
-      type: "project" as const,
-      id: project.id,
-      label: project.title,
-    })),
+    ...projects
+      .filter((project) => project.id !== GENERAL_PROJECT_ID)
+      .map((project) => ({
+        type: "project" as const,
+        id: project.id,
+        label: project.title,
+      })),
     ...tasks.map((task) => ({ type: "task" as const, id: task.id, label: task.title })),
   ];
 

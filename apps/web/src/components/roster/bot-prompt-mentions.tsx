@@ -12,7 +12,7 @@ import {
   RiSparkling2Line,
 } from "@remixicon/react";
 import { Match } from "effect";
-import { type EnvironmentId, LIBRARY_SKILLS_FOLDER_ID } from "@otto/contracts";
+import { type EnvironmentId, GENERAL_PROJECT_ID, LIBRARY_SKILLS_FOLDER_ID } from "@otto/contracts";
 import type { ComposerResourceMentionKind } from "@otto/shared/composerInlineTokens";
 import { rankComposerThreadMentions } from "@otto/shared/composerThreadMentions";
 
@@ -146,13 +146,15 @@ export function useBotPromptMentionResources(
       );
 
     // Otto: tasks and projects can be tagged too; their tokens tell the bot what to read.
-    const projects = (snapshot?.projects ?? []).map(
-      (project): BotPromptMentionResource => ({
-        kind: "project",
-        id: project.id,
-        label: project.title,
-      }),
-    );
+    const projects = (snapshot?.projects ?? [])
+      .filter((project) => project.id !== GENERAL_PROJECT_ID)
+      .map(
+        (project): BotPromptMentionResource => ({
+          kind: "project",
+          id: project.id,
+          label: project.title,
+        }),
+      );
 
     const work = tasks.map(
       (task): BotPromptMentionResource => ({ kind: "task", id: task.id, label: task.title }),

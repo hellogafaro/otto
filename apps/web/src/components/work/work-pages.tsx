@@ -1,4 +1,5 @@
 import {
+  GENERAL_PROJECT_ID,
   type OrchestrationTask,
   type ProjectListFilter,
   type TaskListFilter,
@@ -40,6 +41,7 @@ import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
 const EMPTY_TASKS: readonly OrchestrationTask[] = [];
 
 export function useWorkData() {
+  const { t } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
@@ -50,7 +52,9 @@ export function useWorkData() {
   return {
     environmentId,
     loaded: snapshot !== null && snapshot !== undefined,
-    projects: snapshot?.projects ?? [],
+    projects: (snapshot?.projects ?? []).map((project) =>
+      project.id === GENERAL_PROJECT_ID ? { ...project, title: t("No project") } : project,
+    ),
     tasks: environmentId ? tasks : EMPTY_TASKS,
     groups: snapshot?.groups ?? [],
     currentPersonId: snapshot?.currentPersonId ?? null,
@@ -272,8 +276,9 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
   const { t } = useI18n();
   const navigate = useNavigate();
   const statusLabel = useWorkStatusLabel();
-  const { environmentId, loaded, projects, participants } = useWorkData();
+  const { environmentId, loaded, participants, ...work } = useWorkData();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const projects = work.projects.filter((project) => project.id !== GENERAL_PROJECT_ID);
 
   const visible = projects
     .filter((project) => matchesProjectFilter(project, filter))

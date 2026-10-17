@@ -12,7 +12,6 @@ import {
   type Routine,
   type RoutineThreadMode,
   type Visibility,
-  GENERAL_PROJECT_ID,
 } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -127,10 +126,7 @@ function RoutineDetail({
   const remove = useAtomCommand(routineEnvironment.delete, { reportFailure: false });
   const update = useAtomCommand(routineEnvironment.update, { reportFailure: false });
 
-  // The General project reads as "No project", as in New chat.
-  const projects = useWorkData().projects.map((project) =>
-    project.id === GENERAL_PROJECT_ID ? { ...project, title: t("No project") } : project,
-  );
+  const { projects } = useWorkData();
 
   const running = item.latestRun?.status === "running";
   const failed = routine.lifecycle === "failed" || routine.lifecycle === "blocked";
