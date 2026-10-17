@@ -45,6 +45,7 @@
     "culori": "^4.0.2",
     "d3-scale": "^4.0.2",
     "d3-shape": "^3.2.0",
+    "docx-preview": "0.4.1",
     "effect": "catalog:",
     "heic-to": "^1.5.2",
     "input-otp": "^1.5.0",
@@ -68,6 +69,7 @@
     "remark-math": "^6.0.0",
     "shadcn": "^4.21.5",
     "sonner": "^2.0.8",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "4.4.3",
     "zustand": "^5.0.11"
   },
