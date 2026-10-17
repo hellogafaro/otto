@@ -9,8 +9,10 @@ Known limits of the MVP, most important first.
   them. Uploads and downloads already stream; this path does not.
 - **Approve group requests together.** A bot that asks several approvals in a group chat shows them one
   at a time.
-- **macOS DMG build.** Packaging stops at the linker until Xcode's command line tools are installed
-  (`xcode-select --install`).
+- **macOS DMG build.** It builds, but only with Xcode's own SDK: the newer Command Line Tools SDK
+  (macOS 27) breaks Xcode 26's linker. Run `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+SDKROOT=$(xcrun --sdk macosx26.5 --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The app is ad-hoc
+  signed, so a downloaded copy is blocked by Gatekeeper until it is signed and notarized.
 - **Durable Garage profile.** `otto-v1-durable-garage` expects `ops/local-garage.toml`, which is not in
   the repository.
 - **Railway template.** `deploy/railway/README.md` is the recipe; publish it as a one-click template in
