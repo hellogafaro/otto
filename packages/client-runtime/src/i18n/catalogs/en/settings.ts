@@ -92,6 +92,8 @@ export const settingsCatalog = {
   "Update available": "Update available",
   "Downloading update…": "Downloading update…",
   "Restart to update": "Restart to update",
+  "Log out": "Log out",
+  "Couldn't log out": "Couldn't log out",
   "Dismiss provider update notice": "Dismiss provider update notice",
   "Dismiss until provider status changes": "Dismiss until provider status changes",
   "Toggle main sidebar ({shortcut})": "Toggle main sidebar ({shortcut})",

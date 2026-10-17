@@ -90,6 +90,8 @@ export const settingsCatalog = {
   "Update available": "有可用更新",
   "Downloading update…": "正在下载更新…",
   "Restart to update": "重启以更新",
+  "Log out": "退出登录",
+  "Couldn't log out": "无法退出登录",
   "Dismiss provider update notice": "关闭提供商更新通知",
   "Dismiss until provider status changes": "在提供商状态变化前不再显示",
   "Toggle main sidebar ({shortcut})": "切换主侧边栏（{shortcut}）",

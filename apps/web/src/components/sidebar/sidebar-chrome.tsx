@@ -1,9 +1,8 @@
-import { RiSettings3Line, RiShapesLine } from "@remixicon/react";
+import { RiShapesLine } from "@remixicon/react";
 import { useAtomValue } from "@effect/atom-react";
 
 import type { EnvironmentId, McpServer } from "@otto/contracts";
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
 import {
   loadCatalog,
@@ -37,6 +36,7 @@ import {
   useSidebar,
 } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { AccountMenu } from "./account-menu";
 import { SidebarProviderUpdatePill } from "./sidebar-provider-update-pill";
 import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "./sidebar-update-pill";
 
@@ -226,46 +226,7 @@ export function SidebarStatusStack({ className }: { className?: string }) {
   );
 }
 
-/**
- * A footer destination. Expanded, it reads as a labeled row — four unlabeled
- * icons asked the user to remember which glyph meant Usage and which meant
- * Feedback. Collapsed to the icon rail there is no room for the label, so the
- * tooltip carries it there and only there.
- */
-export function SidebarUtilityItem({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  const { state } = useSidebar();
-
-  return (
-    <SidebarMenuItem className="shrink-0">
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <SidebarMenuButton
-              aria-label={label}
-              className="group-data-[collapsible=icon]:justify-center"
-              onClick={onClick}
-            >
-              {icon}
-              <span className="truncate group-data-[collapsible=icon]:hidden">{label}</span>
-            </SidebarMenuButton>
-          }
-        />
-        {state === "collapsed" ? <TooltipPopup side="right">{label}</TooltipPopup> : null}
-      </Tooltip>
-    </SidebarMenuItem>
-  );
-}
-
 export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
-  const { t } = useI18n();
   const { isMobile, setOpenMobile } = useSidebar();
 
   const closeMobileSidebar = useCallback(() => {
@@ -298,11 +259,7 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
         <SidebarUpdatePill />
       </div>
       <SidebarMenu density="tight" className="flex-col flex-nowrap overflow-visible">
-        <SidebarUtilityItem
-          icon={<AppIcon className="size-4" icon={RiSettings3Line} />}
-          label={t("Settings")}
-          onClick={handleSettingsClick}
-        />
+        <AccountMenu presentation="row" onOpenSettings={handleSettingsClick} />
       </SidebarMenu>
     </SidebarFooter>
   );

@@ -5,7 +5,6 @@ import {
   RiHome5Line,
   RiTimeLine,
   RiListCheck3,
-  RiSettings3Line,
   type RemixiconComponentType,
 } from "@remixicon/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -26,6 +25,7 @@ import { SettingsPanelNav } from "../settings/settings-sidebar-nav";
 import { AppIcon } from "../ui/app-icon";
 import { useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { AccountMenu } from "./account-menu";
 import { SidebarUpdatePill } from "./sidebar-update-pill";
 
 /**
@@ -196,11 +196,9 @@ export function ExperimentalSidebar() {
         </div>
         <div className="mt-auto flex flex-col items-center gap-1">
           <SidebarUpdatePill />
-          <RailButton
-            label={t("Settings")}
-            icon={RiSettings3Line}
-            active={onSettings}
-            onClick={() => {
+          <AccountMenu
+            presentation="rail"
+            onOpenSettings={() => {
               revealPanel();
 
               if (!onSettings) openSettings();
