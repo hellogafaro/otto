@@ -74,6 +74,13 @@ export const settingsCatalog = {
   "Grok images": "Grok images",
   "Default image provider": "Default image provider",
   "Quit shortcut": "Quit shortcut",
+  Updates: "Updates",
+  "Update channel": "Update channel",
+  "Update channel couldn't be changed": "Update channel couldn't be changed",
+  "Beta installs a new build after every change, before it reaches Stable.":
+    "Beta installs a new build after every change, before it reaches Stable.",
+  Stable: "Stable",
+  Beta: "Beta",
   "Privacy and data": "Privacy and data",
   "Loading settings": "Loading settings",
   "Update failed": "Update failed",

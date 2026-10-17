@@ -2,6 +2,7 @@ import { recordLookup } from "../record-lookup";
 import { Predicate } from "effect";
 import { useCallback, useState } from "react";
 import type { MessageKey } from "@otto/client-runtime/i18n";
+import type { DesktopUpdateChannel } from "@otto/contracts";
 import { DEFAULT_UNIFIED_SETTINGS, type QuitConfirmationMode } from "@otto/contracts/settings";
 
 import { APP_VERSION } from "../../branding";
@@ -44,6 +45,11 @@ const QUIT_CONFIRMATION_MODE_LABELS: Record<QuitConfirmationMode, MessageKey> = 
   hold: "Hold",
   "double-click": "Double press",
   direct: "Direct",
+};
+
+const UPDATE_CHANNEL_LABELS: Record<DesktopUpdateChannel, MessageKey> = {
+  latest: "Stable",
+  beta: "Beta",
 };
 
 function AboutVersionTitle() {
@@ -179,6 +185,59 @@ function AboutVersionSection() {
   );
 }
 
+function UpdateChannelSetting() {
+  const { t } = useI18n();
+  const updateState = useDesktopUpdateState();
+  const [isChangingChannel, setIsChangingChannel] = useState(false);
+  const channel = updateState?.channel ?? "latest";
+
+  const handleChannelChange = (nextChannel: DesktopUpdateChannel) => {
+    const bridge = window.desktopBridge;
+
+    if (!bridge || nextChannel === channel) return;
+
+    setIsChangingChannel(true);
+    void bridge
+      .setUpdateChannel(nextChannel)
+      .catch(() => {
+        toast.error(t("Update channel couldn't be changed"));
+      })
+      .finally(() => setIsChangingChannel(false));
+  };
+
+  return (
+    <SettingsRow
+      {...searchableSetting("update-channel", t)}
+      description={t("Beta installs a new build after every change, before it reaches Stable.")}
+      control={
+        <Select
+          value={channel}
+          onValueChange={(value) => {
+            if (value === "latest" || value === "beta") handleChannelChange(value);
+          }}
+        >
+          <SelectTrigger
+            size="sm"
+            className="w-full sm:w-40"
+            aria-label={t("Update channel")}
+            disabled={isChangingChannel}
+          >
+            <SelectValue>{t(UPDATE_CHANNEL_LABELS[channel])}</SelectValue>
+          </SelectTrigger>
+          <SelectPopup align="end" alignItemWithTrigger={false}>
+            <SelectItem hideIndicator value="latest">
+              {t(UPDATE_CHANNEL_LABELS.latest)}
+            </SelectItem>
+            <SelectItem hideIndicator value="beta">
+              {t(UPDATE_CHANNEL_LABELS.beta)}
+            </SelectItem>
+          </SelectPopup>
+        </Select>
+      }
+    />
+  );
+}
+
 export function GeneralSettingsPanel() {
   const { t } = useI18n();
   const settings = usePrimarySettings();
@@ -282,7 +341,10 @@ export function GeneralSettingsPanel() {
 
       <SettingsSection title={t("About")}>
         {isElectron ? (
-          <AboutVersionSection />
+          <>
+            <AboutVersionSection />
+            <UpdateChannelSetting />
+          </>
         ) : (
           <SettingsRow
             title={<AboutVersionTitle />}

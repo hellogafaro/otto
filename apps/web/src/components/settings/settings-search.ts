@@ -184,6 +184,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "update-channel",
+    title: "Updates",
+    to: "/settings/general",
+    keywords: ["update channel", "stable", "beta", "prerelease", "release"],
+    desktopOnly: true,
+  },
+  {
     id: "keybindings",
     title: "Keybindings",
     to: "/settings/keybindings",

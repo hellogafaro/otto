@@ -73,6 +73,13 @@ export const settingsCatalog = {
   "Grok images": "Grok 图像",
   "Default image provider": "默认图像提供商",
   "Quit shortcut": "退出快捷键",
+  Updates: "更新",
+  "Update channel": "更新通道",
+  "Update channel couldn't be changed": "无法更改更新通道",
+  "Beta installs a new build after every change, before it reaches Stable.":
+    "测试版会在每次更改后安装新构建，早于稳定版。",
+  Stable: "稳定版",
+  Beta: "测试版",
   "Privacy and data": "隐私与数据",
   "Loading settings": "正在加载设置",
   "Update failed": "更新失败",
