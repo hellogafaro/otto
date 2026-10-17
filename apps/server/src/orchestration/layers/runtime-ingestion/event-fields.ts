@@ -130,9 +130,10 @@ export function boundedApprovalArgs(
 
   // Other tools keep only the fields a reviewer reads, cut to a bounded length.
   const record = asRecord(args);
+  const toolFields = (toolName && TOOL_PREVIEW_FIELDS.get(toolName)) || [];
 
   const preview = Object.fromEntries(
-    APPROVAL_PREVIEW_FIELDS.flatMap((field) => {
+    [...APPROVAL_PREVIEW_FIELDS, ...toolFields].flatMap((field) => {
       const value = record?.[field];
 
       return Predicate.isString(value) && value.trim()
@@ -145,6 +146,22 @@ export function boundedApprovalArgs(
 }
 
 const APPROVAL_PREVIEW_FIELDS = ["command", "message", "url", "path"] as const;
+
+/** What a reviewer reads for Otto's own tools: a delegate's target and brief, a skill proposal. */
+const SKILL_PREVIEW_FIELDS = [
+  "skillId",
+  "name",
+  "description",
+  "reason",
+  "instructions",
+  "visibility",
+];
+
+const TOOL_PREVIEW_FIELDS: ReadonlyMap<string, ReadonlyArray<string>> = new Map([
+  ["delegate", ["botId", "task", "expectedResult", "context"]],
+  ["skill_create", SKILL_PREVIEW_FIELDS],
+  ["skill_update", SKILL_PREVIEW_FIELDS],
+]);
 
 const APPROVAL_PREVIEW_MAX_CHARS = 2_000;
 

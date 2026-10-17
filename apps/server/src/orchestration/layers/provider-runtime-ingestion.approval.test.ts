@@ -60,6 +60,36 @@ describe("runtimeEventToActivities approval details", () => {
     expect(runtimeEventToActivities(event)[0]?.payload).not.toHaveProperty("args");
   });
 
+  it("keeps a delegate's target and brief for the reviewer, nothing else", () => {
+    const event = {
+      type: "request.opened",
+      eventId: EventId.make("evt-delegate-request"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: "2026-08-30T00:00:00.000Z",
+      threadId: ThreadId.make("thread-1"),
+      requestId: RuntimeRequestId.make("approval-delegate"),
+      payload: {
+        requestType: "dynamic_tool_call",
+        toolName: "delegate",
+        args: {
+          botId: "bot-nova",
+          task: "Draft three first-week questions.",
+          expectedResult: "A numbered list.",
+          token: "secret",
+        },
+      },
+    } satisfies ProviderRuntimeEvent;
+
+    expect(runtimeEventToActivities(event)[0]?.payload).toMatchObject({
+      args: {
+        botId: "bot-nova",
+        task: "Draft three first-week questions.",
+        expectedResult: "A numbered list.",
+      },
+    });
+    expect(JSON.stringify(runtimeEventToActivities(event)[0]?.payload)).not.toContain("secret");
+  });
+
   it("preserves complete multiline command details", () => {
     const detail = `bun run release -- ${"long-argument ".repeat(20)}\nsecond line`;
 
