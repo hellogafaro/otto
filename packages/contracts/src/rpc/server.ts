@@ -94,6 +94,7 @@ import {
   ProviderUploadFeedbackError,
   ProviderUploadFeedbackInput,
   ProviderUploadFeedbackResult,
+  ComputerNotRunningError,
   ComputerWatchError,
   ComputerWatchInput,
   ComputerWatchResult,
@@ -777,7 +778,7 @@ export const WsProviderUploadFeedbackRpc = Rpc.make(WS_METHODS.providerUploadFee
 export const WsComputerWatchRpc = Rpc.make(WS_METHODS.computerWatch, {
   payload: ComputerWatchInput,
   success: ComputerWatchResult,
-  error: Schema.Union([ComputerWatchError, EnvironmentAuthorizationError]),
+  error: Schema.Union([ComputerWatchError, ComputerNotRunningError, EnvironmentAuthorizationError]),
 });
 
 export const WsSubscribeDiscoveredLocalServersRpc = Rpc.make(

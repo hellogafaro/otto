@@ -40,7 +40,12 @@ import { createConversation } from "./agent-controller/conversation.ts";
 
 import { createMcpManager, type McpManager } from "@mastra/code-sdk/mcp/index";
 
-import { ComputerWatchError, type ProviderRuntimeEvent, ThreadId } from "@otto/contracts";
+import {
+  ComputerNotRunningError,
+  ComputerWatchError,
+  type ProviderRuntimeEvent,
+  ThreadId,
+} from "@otto/contracts";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -713,7 +718,9 @@ const make = (options?: AgentControllerLiveOptions) =>
 
           if (!active?.toolSession.botId || !desktopUrl) {
             return Effect.fail(
-              new ComputerWatchError({ message: "This bot has no computer you can watch." }),
+              new ComputerNotRunningError({
+                message: "This bot has no computer running in this chat.",
+              }),
             );
           }
 

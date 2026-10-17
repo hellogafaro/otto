@@ -165,6 +165,12 @@ export class ComputerWatchError extends Schema.TaggedErrorClass<ComputerWatchErr
   { message: Schema.String },
 ) {}
 
+/** The chat's bot has no computer running right now, so there is nothing to watch yet. */
+export class ComputerNotRunningError extends Schema.TaggedErrorClass<ComputerNotRunningError>()(
+  "ComputerNotRunningError",
+  { message: Schema.String },
+) {}
+
 export const ProviderUploadFeedbackInput = Schema.Struct({
   threadId: ThreadId,
   reason: Schema.optional(TrimmedNonEmptyString),
