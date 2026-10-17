@@ -393,6 +393,11 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.composioGetStatus,
       staleTimeMs: 2_000,
     }),
+    githubStatus: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:github-status",
+      tag: WS_METHODS.githubGetStatus,
+      staleTimeMs: 2_000,
+    }),
     composioToolkits: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:composio-toolkits",
       tag: WS_METHODS.composioSearchToolkits,
@@ -503,6 +508,18 @@ export function createServerEnvironmentAtoms<R, E>(
     updateComposioConnection: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:composio-update-connection",
       tag: WS_METHODS.composioUpdateConnection,
+    }),
+    startGitHubLink: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:github-start-link",
+      tag: WS_METHODS.githubStartLink,
+    }),
+    pollGitHubLink: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:github-poll-link",
+      tag: WS_METHODS.githubPollLink,
+    }),
+    disconnectGitHub: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:github-disconnect",
+      tag: WS_METHODS.githubDisconnect,
     }),
     startSubscriptionAuth: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:subscription-auth:start",

@@ -607,4 +607,19 @@ export const connectionsCatalog = {
   "Default sandbox couldn't be saved": "Default sandbox couldn't be saved",
   "Bots can use a browser on their own computer when you mention @browser.":
     "Bots can use a browser on their own computer when you mention @browser.",
+  GitHub: "GitHub",
+  "Connect GitHub": "Connect GitHub",
+  "Let bots push and open pull requests as you.": "Let bots push and open pull requests as you.",
+  "Bots push and open pull requests as @{login}.": "Bots push and open pull requests as @{login}.",
+  "Add repositories": "Add repositories",
+  "Open GitHub": "Open GitHub",
+  "Enter this code on GitHub. This closes by itself once you approve.":
+    "Enter this code on GitHub. This closes by itself once you approve.",
+  "The code expired. Close this and try again.": "The code expired. Close this and try again.",
+  "GitHub access was declined.": "GitHub access was declined.",
+  "GitHub couldn't be connected": "GitHub couldn't be connected",
+  "GitHub couldn't be opened": "GitHub couldn't be opened",
+  "GitHub couldn't be disconnected": "GitHub couldn't be disconnected",
+  "Disconnect GitHub? Bots can no longer push or open pull requests for you. To revoke Otto on GitHub too, visit {url}.":
+    "Disconnect GitHub? Bots can no longer push or open pull requests for you. To revoke Otto on GitHub too, visit {url}.",
 } as const;

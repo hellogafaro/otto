@@ -193,6 +193,12 @@ import {
   ComposioGetToolkitInput,
   ComposioToolkitDetail,
 } from "../composio.ts";
+import {
+  GitHubLinkCode,
+  GitHubLinkPollResult,
+  GitHubOperationError,
+  GitHubStatus,
+} from "../github.ts";
 import { WS_METHODS } from "./methods.ts";
 
 export const WsServerUpsertKeybindingRpc = Rpc.make(WS_METHODS.serverUpsertKeybinding, {
@@ -313,6 +319,30 @@ export const WsComposioUpdateConnectionRpc = Rpc.make(WS_METHODS.composioUpdateC
   payload: ComposioUpdateConnectionInput,
   success: ComposioStatus,
   error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
+});
+
+export const WsGitHubGetStatusRpc = Rpc.make(WS_METHODS.githubGetStatus, {
+  payload: Schema.Struct({}),
+  success: GitHubStatus,
+  error: Schema.Union([GitHubOperationError, EnvironmentAuthorizationError]),
+});
+
+export const WsGitHubStartLinkRpc = Rpc.make(WS_METHODS.githubStartLink, {
+  payload: Schema.Struct({}),
+  success: GitHubLinkCode,
+  error: Schema.Union([GitHubOperationError, EnvironmentAuthorizationError]),
+});
+
+export const WsGitHubPollLinkRpc = Rpc.make(WS_METHODS.githubPollLink, {
+  payload: Schema.Struct({}),
+  success: GitHubLinkPollResult,
+  error: Schema.Union([GitHubOperationError, EnvironmentAuthorizationError]),
+});
+
+export const WsGitHubDisconnectRpc = Rpc.make(WS_METHODS.githubDisconnect, {
+  payload: Schema.Struct({}),
+  success: GitHubStatus,
+  error: Schema.Union([GitHubOperationError, EnvironmentAuthorizationError]),
 });
 
 export const WsSubscriptionAuthListRpc = Rpc.make(WS_METHODS.subscriptionAuthList, {

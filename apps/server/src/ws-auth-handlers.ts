@@ -40,6 +40,7 @@ export const createWsAuthHandlers = ({
   resetChangedApiKeySessions,
   validateAccountInstance,
   composio,
+  github,
   secretStore,
   sessions,
   getAccessHealthSnapshot,
@@ -60,6 +61,7 @@ export const createWsAuthHandlers = ({
   | "resetChangedApiKeySessions"
   | "validateAccountInstance"
   | "composio"
+  | "github"
   | "secretStore"
   | "sessions"
   | "getAccessHealthSnapshot"
@@ -162,6 +164,26 @@ export const createWsAuthHandlers = ({
         Effect.flatMap(composioViewer, (viewer) => composio.updateConnection(input, viewer)),
         { "rpc.aggregate": "composio" },
       ),
+
+    [WS_METHODS.githubGetStatus]: (_input) =>
+      observeRpcEffect(WS_METHODS.githubGetStatus, github.getStatus(currentPersonId), {
+        "rpc.aggregate": "github",
+      }),
+
+    [WS_METHODS.githubStartLink]: (_input) =>
+      observeRpcEffect(WS_METHODS.githubStartLink, github.startLink(currentPersonId), {
+        "rpc.aggregate": "github",
+      }),
+
+    [WS_METHODS.githubPollLink]: (_input) =>
+      observeRpcEffect(WS_METHODS.githubPollLink, github.pollLink(currentPersonId), {
+        "rpc.aggregate": "github",
+      }),
+
+    [WS_METHODS.githubDisconnect]: (_input) =>
+      observeRpcEffect(WS_METHODS.githubDisconnect, github.disconnect(currentPersonId), {
+        "rpc.aggregate": "github",
+      }),
 
     [WS_METHODS.subscriptionAuthList]: (_input) =>
       observeRpcEffect(WS_METHODS.subscriptionAuthList, getAccessHealthSnapshot(), {
@@ -474,6 +496,10 @@ export const createWsAuthHandlers = ({
     | typeof WS_METHODS.composioAuthorize
     | typeof WS_METHODS.composioDisconnect
     | typeof WS_METHODS.composioUpdateConnection
+    | typeof WS_METHODS.githubGetStatus
+    | typeof WS_METHODS.githubStartLink
+    | typeof WS_METHODS.githubPollLink
+    | typeof WS_METHODS.githubDisconnect
     | typeof WS_METHODS.subscriptionAuthList
     | typeof WS_METHODS.mcpServerAuthenticate
     | typeof WS_METHODS.mcpServerListTools

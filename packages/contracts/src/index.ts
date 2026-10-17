@@ -40,6 +40,8 @@ export * from "./mcp-server.ts";
 
 export * from "./composio.ts";
 
+export * from "./github.ts";
+
 export * from "./keybindings.ts";
 
 export * from "./server.ts";

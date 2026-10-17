@@ -570,4 +570,20 @@ export const connectionsCatalog = {
   "Default sandbox couldn't be saved": "无法保存默认沙盒",
   "Bots can use a browser on their own computer when you mention @browser.":
     "提到 @browser 时，机器人可以在自己的电脑上使用浏览器。",
+  GitHub: "GitHub",
+  "Connect GitHub": "连接 GitHub",
+  "Let bots push and open pull requests as you.": "让机器人以你的身份推送代码并创建拉取请求。",
+  "Bots push and open pull requests as @{login}.":
+    "机器人以 @{login} 的身份推送代码并创建拉取请求。",
+  "Add repositories": "添加仓库",
+  "Open GitHub": "打开 GitHub",
+  "Enter this code on GitHub. This closes by itself once you approve.":
+    "在 GitHub 上输入此代码。你批准后此窗口会自动关闭。",
+  "The code expired. Close this and try again.": "代码已过期。请关闭后重试。",
+  "GitHub access was declined.": "GitHub 访问已被拒绝。",
+  "GitHub couldn't be connected": "无法连接 GitHub",
+  "GitHub couldn't be opened": "无法打开 GitHub",
+  "GitHub couldn't be disconnected": "无法断开 GitHub",
+  "Disconnect GitHub? Bots can no longer push or open pull requests for you. To revoke Otto on GitHub too, visit {url}.":
+    "断开 GitHub？机器人将无法再以你的身份推送代码或创建拉取请求。如需在 GitHub 上也撤销 Otto 的授权，请访问 {url}。",
 } as const;
