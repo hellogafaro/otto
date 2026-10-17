@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import type { OttoRuntimeSeam } from "../../otto-runtime-seam.ts";
 import type { Memories, MemoryChat } from "../../../memory/memories.ts";
 import { createMemoryUpdateHandler } from "../../../memory/memory-update-tool.ts";
+import { chatTimeZone } from "../../otto-agent-instructions.ts";
 
 /** The chat and author of a thread's current turn, which its memory_update calls act for. */
 export interface MemoryTurn {
@@ -19,9 +20,12 @@ export function createMemoryAccess(deps: {
   readonly memoryEnabled: () => Effect.Effect<boolean>;
   readonly memoryTurns: Map<string, MemoryTurn>;
 }) {
-  const memoryContext = async (chat: MemoryChat | undefined): Promise<string> =>
+  const memoryContext = async (
+    chat: MemoryChat | undefined,
+    timezone: string | undefined,
+  ): Promise<string> =>
     chat && Option.isSome(deps.memories) && (await deps.runPromise(deps.memoryEnabled()))
-      ? deps.runPromise(deps.memories.value.render(chat))
+      ? deps.runPromise(deps.memories.value.render(chat, chatTimeZone(timezone)))
       : "";
 
   const memoryHandlers = (threadId: string) =>

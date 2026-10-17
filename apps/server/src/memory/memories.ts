@@ -22,6 +22,7 @@ import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
@@ -102,11 +103,15 @@ const namedPerson = (text: string, people: MemoryChat["people"]) => {
 
 const YEAR_MILLIS = 365 * 24 * 60 * 60 * 1000;
 
-const dateLabel = (iso: string, now: DateTime.Utc) => {
+const dateLabel = (iso: string, now: DateTime.Utc, timeZone: string) => {
   const date = DateTime.makeUnsafe(iso);
   const olderThanAYear = DateTime.toEpochMillis(now) - DateTime.toEpochMillis(date) > YEAR_MILLIS;
 
-  return DateTime.formatUtc(date, {
+  const zoned = Option.getOrElse(DateTime.makeZoned(date, { timeZone }), () =>
+    DateTime.toUtc(date),
+  );
+
+  return DateTime.format(zoned, {
     locale: "en-US",
     month: "short",
     day: "numeric",
@@ -127,11 +132,12 @@ export const chatScopes = (chat: MemoryChat): ReadonlyArray<readonly [MemoryScop
 
 /**
  * The memory section of a chat's context: its active entries by scope, each with its id and
- * date. Empty when the chat has no entries, so the section is left out.
+ * date in the person's timezone. Empty when the chat has no entries, so the section is left out.
  */
 export function renderMemory(
   chat: MemoryChat,
   rows: ReadonlyArray<Pick<Memory, "id" | "scope" | "text" | "updatedAt">>,
+  timeZone: string,
   now: DateTime.Utc = DateTime.nowUnsafe(),
 ): string {
   const personName =
@@ -153,7 +159,9 @@ export function renderMemory(
 
     return [
       open,
-      ...entries.map((row) => `- [${row.id}] ${row.text} (${dateLabel(row.updatedAt, now)})`),
+      ...entries.map(
+        (row) => `- [${row.id}] ${row.text} (${dateLabel(row.updatedAt, now, timeZone)})`,
+      ),
       close,
     ];
   });
@@ -209,12 +217,13 @@ const makeMemories = Effect.gen(function* () {
     );
 
   /** The memory section for a chat: its active entries, never pending ones. */
-  const render = Effect.fn("Memories.render")(function* (chat: MemoryChat) {
+  const render = Effect.fn("Memories.render")(function* (chat: MemoryChat, timeZone: string) {
     const rows = yield* list(chatScopes(chat));
 
     return renderMemory(
       chat,
       rows.filter((row) => row.status === "active"),
+      timeZone,
     );
   });
 

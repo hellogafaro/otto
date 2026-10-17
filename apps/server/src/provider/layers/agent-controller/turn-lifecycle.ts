@@ -91,7 +91,10 @@ export function createTurnLifecycle(deps: {
   readonly stopSessionWithResources: (input: {
     readonly threadId: ThreadId;
   }) => Effect.Effect<void, ProviderServiceError | AgentControllerRuntimeError, never>;
-  readonly memoryContext: (chat: MemoryChat | undefined) => Promise<string>;
+  readonly memoryContext: (
+    chat: MemoryChat | undefined,
+    timezone: string | undefined,
+  ) => Promise<string>;
   readonly memoryTurns: Map<string, MemoryTurn>;
   readonly legacyProviderBridge: LegacyProviderBridge["Service"];
   readonly startPendingTurn: (active: ActiveSession, pending: PendingTurn) => void;
@@ -260,7 +263,10 @@ export function createTurnLifecycle(deps: {
 
     const dispatch: Promise<void> = (async () => {
       const memoryChat = active.configuredMemory ? pending.memoryChat : undefined;
-      const memoryContext = memoryChat ? await deps.memoryContext(memoryChat) : "";
+
+      const memoryContext = memoryChat
+        ? await deps.memoryContext(memoryChat, pending.toolSession.timezone)
+        : "";
 
       // Rendering memory is asynchronous; the turn may have been interrupted while it was
       // pending. Only mutate session state if this admission still owns the turn.

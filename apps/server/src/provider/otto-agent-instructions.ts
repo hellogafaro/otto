@@ -205,6 +205,10 @@ export function createOttoChatContextUpdate(
     .join("\n\n");
 }
 
+/** The person's timezone when the chat knows it, else this server's. */
+export const chatTimeZone = (timezone: string | undefined) =>
+  timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 /** The last block of every request: when it is and why the bot is answering now. */
 export function createOttoTurn(input: {
   readonly now: DateTime.DateTime;

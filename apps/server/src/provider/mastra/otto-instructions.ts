@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 import {
+  chatTimeZone,
   createOttoChatContext,
   createOttoChatContextUpdate,
   createOttoInstructions,
@@ -218,9 +219,7 @@ export function withOttoPrompt(
         : note(
             createOttoTurn({
               now: now(),
-              timezone:
-                stateText(requestContext, "timezone") ||
-                Intl.DateTimeFormat().resolvedOptions().timeZone,
+              timezone: chatTimeZone(stateText(requestContext, "timezone")),
               notes: stateText(requestContext, "turnContext"),
             }),
           );

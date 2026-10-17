@@ -26,14 +26,14 @@ const task: TaskState = {
   activity: [
     {
       id: "c-1",
-      at: "2026-10-15T10:02:00.000Z",
+      at: "2026-10-15 10:02",
       by: "Ada",
       mine: false,
       text: "commented (comment c-1): Under 600 words.",
     },
     {
       id: "c-2",
-      at: "2026-10-16T09:00:00.000Z",
+      at: "2026-10-16 09:00",
       by: "Ada",
       mine: false,
       text: "commented (comment c-2): @Nova is this ready?",
@@ -130,21 +130,21 @@ describe("OttoTaskStateProcessor", () => {
         ...task.activity,
         {
           id: "c-3",
-          at: "2026-10-16T09:10:00.000Z",
+          at: "2026-10-16 09:10",
           by: "Nova",
           mine: true,
           text: "commented (comment c-3): Yes.",
         },
         {
           id: "c-4",
-          at: "2026-10-16T09:40:00.000Z",
+          at: "2026-10-16 09:40",
           by: "Juno",
           mine: false,
           text: "commented (comment c-4): Image is in the Library.",
         },
         {
           id: "c-5",
-          at: "2026-10-16T09:41:00.000Z",
+          at: "2026-10-16 09:41",
           by: "Ada",
           mine: false,
           text: "commented (comment c-5): And now?",
@@ -214,7 +214,7 @@ describe("taskNotification", () => {
 });
 
 describe("taskState", () => {
-  it("bounds the task and reads comments as plain text", () => {
+  it("bounds the task, reads comments as plain text and dates them in the chat's timezone", () => {
     const state = taskState(
       {
         taskId: TASK,
@@ -239,6 +239,7 @@ describe("taskState", () => {
         })),
       },
       "Nova",
+      "Europe/Madrid",
     );
 
     expect(state.description).toHaveLength(4_000 + "… (truncated, task_read has the rest)".length);
@@ -246,6 +247,7 @@ describe("taskState", () => {
     expect(state.links).toEqual(["Brief https://example.test/brief"]);
     expect(state.activity).toHaveLength(10);
     expect(state.activity.at(-1)).toMatchObject({
+      at: "2026-10-16 11:00",
       mine: true,
       text: "commented (comment c-11): Ask @Nova & me",
     });

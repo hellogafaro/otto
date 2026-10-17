@@ -17,7 +17,7 @@ import { ServerConfig } from "../config.ts";
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
 import { SqlitePersistenceMemory } from "../persistence/layers/sqlite.ts";
 import { createMemoryAccess } from "../provider/layers/agent-controller/memory-access.ts";
-import { Memories, MemoriesLive, type MemoryChat } from "./memories.ts";
+import { Memories, MemoriesLive, type MemoryChat, renderMemory } from "./memories.ts";
 import { createMemoryUpdateHandler } from "./memory-update-tool.ts";
 
 const icon = AuthSessionId.make("person-icon");
@@ -89,7 +89,7 @@ const add = (
   );
 
 const render = (target: MemoryChat) =>
-  Effect.flatMap(Effect.service(Memories), (memories) => memories.render(target));
+  Effect.flatMap(Effect.service(Memories), (memories) => memories.render(target, "UTC"));
 
 const failure = <A, E extends { readonly message: string }, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
@@ -98,6 +98,20 @@ const failure = <A, E extends { readonly message: string }, R>(effect: Effect.Ef
   );
 
 describe("Memories", () => {
+  it("dates each fact in the person's timezone", () => {
+    const rows = [
+      {
+        id: "m_late",
+        scope: "bot" as const,
+        text: "Ships on Fridays.",
+        updatedAt: "2026-10-16T22:30:00.000Z",
+      },
+    ];
+
+    expect(renderMemory(chat({}), rows, "UTC")).toContain("Ships on Fridays. (Oct 16)");
+    expect(renderMemory(chat({}), rows, "Europe/Madrid")).toContain("Ships on Fridays. (Oct 17)");
+  });
+
   it.effect("renders a person's facts only in chats that person alone can read", () =>
     Effect.gen(function* () {
       yield* add(iconDm, icon, "person", "Likes durian.");
@@ -187,7 +201,7 @@ describe("Memories", () => {
         memoryTurns: new Map([[String(iconDm.threadId), { chat: iconDm, authorPersonId: icon }]]),
       });
 
-      expect(yield* Effect.promise(() => access.memoryContext(iconDm))).toBe("");
+      expect(yield* Effect.promise(() => access.memoryContext(iconDm, undefined))).toBe("");
 
       const handler = createMemoryUpdateHandler({
         turn: () => ({ chat: iconDm, authorPersonId: icon }),

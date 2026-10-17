@@ -37,6 +37,7 @@ import {
 } from "../../../usage/bot-usage-ledger.ts";
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 import { makeOttoMastraHarness } from "../../otto-mastra-harness.ts";
+import { chatTimeZone } from "../../otto-agent-instructions.ts";
 import { abandonUnpublishedText } from "./events.ts";
 
 import { OTTO_ROUTINE_REVIEW_TIMEOUT, type PendingWaiters } from "../../pending-waiters.ts";
@@ -209,8 +210,7 @@ export function createHarness(deps: {
 
               // Turns the server starts itself, such as restart recovery, carry no
               // device timezone. The review card shows the timezone before approval.
-              const timezone =
-                active.toolSession.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+              const timezone = chatTimeZone(active.toolSession.timezone);
 
               const requestId = `routine-${NodeCrypto.randomUUID()}`;
 

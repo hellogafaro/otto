@@ -9,6 +9,7 @@ import {
   chatsSeenByAll,
 } from "../../../orchestration/group-visibility.ts";
 import { activeTaskTools } from "../../../tasks/task-tool-runtime.ts";
+import { chatTimeZone } from "../../otto-agent-instructions.ts";
 import type { SessionLifecycleDependencies } from "./session-lifecycle-dependencies.ts";
 
 type SearchInput = (typeof OttoToolInputSchemas.search)["Type"];
@@ -156,10 +157,7 @@ export function createSessionSearch(
           assignee: request.assignee,
           projectId: request.projectId,
           due: request.due,
-          ...chatWeek(
-            deps.sessions.get(threadId)?.toolSession.timezone ??
-              Intl.DateTimeFormat().resolvedOptions().timeZone,
-          ),
+          ...chatWeek(chatTimeZone(deps.sessions.get(threadId)?.toolSession.timezone)),
         }),
       );
 

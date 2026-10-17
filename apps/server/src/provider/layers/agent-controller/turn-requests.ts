@@ -56,7 +56,10 @@ export function createTurnRequests(deps: {
     operation: string,
     run: (signal: AbortSignal) => Promise<A>,
   ) => Effect.Effect<A, AgentControllerRuntimeError, never>;
-  readonly memoryContext: (chat: MemoryChat | undefined) => Promise<string>;
+  readonly memoryContext: (
+    chat: MemoryChat | undefined,
+    timezone: string | undefined,
+  ) => Promise<string>;
   readonly memoryTurns: Map<string, MemoryTurn>;
   readonly bundle: OttoControllerHarness;
   readonly addLegacyPending: (
@@ -260,7 +263,7 @@ export function createTurnRequests(deps: {
           : undefined;
 
         const memoryContext = yield* deps.runMastra("memory.render", () =>
-          deps.memoryContext(memoryChat),
+          deps.memoryContext(memoryChat, input.timezone),
         );
 
         if (memoryChat) {

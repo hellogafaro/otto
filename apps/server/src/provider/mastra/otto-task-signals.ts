@@ -8,12 +8,14 @@ import {
   type ProcessorStateSignal,
 } from "@mastra/core/processors";
 import { type BotId, type TaskWake, type ThreadId } from "@otto/contracts";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { activeTaskTools, type TaskToolRuntimeShape } from "../../tasks/task-tool-runtime.ts";
 import { commentText } from "../../tasks/task-work-reactor.ts";
+import { chatTimeZone } from "../otto-agent-instructions.ts";
 
 const DESCRIPTION_LIMIT = 4_000;
 
@@ -40,6 +42,7 @@ const TaskState = Schema.Struct({
   activity: Schema.Array(
     Schema.Struct({
       id: Schema.String,
+      /** Local time in the chat's timezone, as YYYY-MM-DD HH:mm. */
       at: Schema.String,
       by: Schema.String,
       /** The bot's own comment or change, which it already knows. */
@@ -65,7 +68,22 @@ const person = (participant: {
   readonly you?: boolean;
 }) => `${participant.name} (${participant.you ? "you, " : ""}${participant.key})`;
 
-export function taskState(read: TaskRead, botName: string | undefined): TaskState {
+/** An instant as YYYY-MM-DD HH:mm in the given timezone, or in UTC when it is unknown. */
+const localTime = (iso: string, timeZone: string) => {
+  const instant = DateTime.makeUnsafe(iso);
+
+  const zoned = Option.getOrElse(DateTime.makeZoned(instant, { timeZone }), () =>
+    DateTime.toUtc(instant),
+  );
+
+  return DateTime.formatIsoOffset(zoned).slice(0, 16).replace("T", " ");
+};
+
+export function taskState(
+  read: TaskRead,
+  botName: string | undefined,
+  timeZone: string,
+): TaskState {
   return {
     taskId: read.taskId,
     title: read.title,
@@ -82,7 +100,7 @@ export function taskState(read: TaskRead, botName: string | undefined): TaskStat
     description: capped(read.description, DESCRIPTION_LIMIT),
     activity: read.activity.slice(-ACTIVITY_LIMIT).map((entry) => ({
       id: entry.id,
-      at: entry.at,
+      at: localTime(entry.at, timeZone),
       by: entry.by ?? "Someone",
       mine: botName !== undefined && entry.by === botName,
       text:
@@ -129,7 +147,11 @@ export function taskWakeText(wake: TaskWake): string {
 export const taskWakeSignal = (
   wake: TaskWake,
   threadId: ThreadId,
-  bot: { readonly botId?: BotId | undefined; readonly botName?: string | undefined },
+  bot: {
+    readonly botId?: BotId | undefined;
+    readonly botName?: string | undefined;
+    readonly timezone?: string | undefined;
+  },
 ) =>
   Effect.gen(function* () {
     const tasks = activeTaskTools();
@@ -140,7 +162,9 @@ export const taskWakeSignal = (
 
     return taskNotification(
       wake,
-      read && !("error" in read) ? taskState(read, bot.botName) : undefined,
+      read && !("error" in read)
+        ? taskState(read, bot.botName, chatTimeZone(bot.timezone))
+        : undefined,
     );
   });
 
@@ -163,8 +187,7 @@ function notificationOf(message: MastraDBMessage) {
   return signal?.type === "notification" ? signal : undefined;
 }
 
-const line = (entry: TaskState["activity"][number]) =>
-  `- ${entry.at.slice(0, 16).replace("T", " ")} ${entry.by} ${entry.text}`;
+const line = (entry: TaskState["activity"][number]) => `- ${entry.at} ${entry.by} ${entry.text}`;
 
 const fields = (task: TaskState): ReadonlyArray<readonly [string, string]> => [
   ["Title", task.title],
