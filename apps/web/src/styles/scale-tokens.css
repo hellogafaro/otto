@@ -63,7 +63,14 @@
   --spacing-dvh-2rem: calc(100dvh - 2rem);
   --spacing-full-plus-1rem: calc(100% + 1rem);
   --spacing-min-full-30rem: min(100%, 30rem);
-  --spacing-min-80rem-16x9-dvh-15rem: min(80rem, calc((100dvh - 15rem) * 16 / 9));
+  /* The watch drawer's 16:9 desktop frame: at most 80rem, as wide as the window allows with the
+     drawer's 1rem padding, 1px border and panel gap around it, and short enough to leave room
+     above the drawer and for its handle and header. */
+  --spacing-watch-frame: min(
+    80rem,
+    calc(100vw - 2 * var(--panel-gap) - 2rem - 2px),
+    calc((100dvh - 11rem) * 16 / 9)
+  );
   --spacing-min-300px-vw-2rem: min(300px, calc(100vw - 2rem));
   --spacing-min-440px-vw-2rem: min(440px, calc(100vw - 2rem));
   --spacing-min-520px-vw-2rem: min(520px, calc(100vw - 2rem));
