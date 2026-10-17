@@ -81,10 +81,12 @@ export function makeDesktopContentSecurityPolicy(scheme: string): string {
     `script-src ${scriptSources.join(" ")}`,
     `connect-src ${connectSources.join(" ")}`,
     `img-src 'self' ${scheme}: blob: data: http: https:`,
+    `media-src 'self' ${scheme}: blob: data: http: https:`,
+    "object-src 'self' blob: http: https:",
     "style-src 'self' 'unsafe-inline'",
     `font-src 'self' ${scheme}: data:`,
     "worker-src 'self' blob:",
-    "frame-src 'self' https://challenges.cloudflare.com",
+    "frame-src 'self' https:",
     "form-action 'self'",
   ].join("; ");
 }
