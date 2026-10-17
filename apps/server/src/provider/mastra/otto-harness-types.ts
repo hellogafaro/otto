@@ -58,6 +58,7 @@ export type OttoControllerSession = Pick<
   | "subscribe"
   | "sendMessage"
   | "sendSignal"
+  | "queueSignal"
   | "grantTool"
   | "abort"
   | "respondToToolApproval"

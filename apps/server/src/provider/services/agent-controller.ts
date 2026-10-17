@@ -19,6 +19,7 @@ import type {
   ProviderUploadFeedbackInput,
   ProviderUploadFeedbackResult,
   OrchestrationCommand,
+  TaskWake,
   OrchestrationReadModel,
   OrchestrationThread,
   ThreadId,
@@ -56,6 +57,8 @@ export type AgentControllerSendTurnInput = ProviderSendTurnInput & {
   readonly memoryChat?: MemoryChat;
   /** The person whose message this turn answers. */
   readonly authorPersonId?: AuthSessionId | null;
+  /** The task event this turn answers, sent as signals instead of `input`. */
+  readonly taskWake?: TaskWake;
 };
 
 export interface AgentControllerShape {
@@ -132,7 +135,9 @@ export interface AgentControllerShape {
    * reads it at its next step. False when no turn is running to take it.
    */
   readonly signalTurn: (
-    input: Pick<ProviderSendTurnInput, "threadId" | "input" | "attachments">,
+    input: Pick<ProviderSendTurnInput, "threadId" | "input" | "attachments"> & {
+      readonly taskWake?: TaskWake;
+    },
   ) => Effect.Effect<boolean, AgentControllerError>;
 
   readonly interruptTurn: (

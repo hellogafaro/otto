@@ -41,6 +41,23 @@ export const WorkParticipant = Schema.Union([
 
 export type WorkParticipant = typeof WorkParticipant.Type;
 
+/**
+ * A task event that wakes a bot in its task chat: an assignment, or a person's comment that
+ * mentions the bot or replies to it. `by` names whoever did it, with their participant key.
+ */
+export const TaskWake = Schema.Struct({
+  type: Schema.Literals(["assigned", "commented"]),
+  taskId: TaskId,
+  by: Schema.Struct({ key: TrimmedNonEmptyString, name: TrimmedNonEmptyString }),
+  commentId: Schema.optional(TrimmedNonEmptyString),
+  reason: Schema.optional(Schema.Literals(["mention", "reply"])),
+  replyTo: Schema.optional(TrimmedNonEmptyString),
+  /** The comment as plain text. */
+  text: Schema.optional(Schema.String),
+});
+
+export type TaskWake = typeof TaskWake.Type;
+
 /** The signed-in person answering an approval; the server sets it, never the client. */
 export const ApprovalResponder = Schema.Struct({
   personId: AuthSessionId,

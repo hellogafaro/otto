@@ -127,6 +127,7 @@ export function createTurns({
             threadId: thread.id,
             input,
             ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+            ...(event.payload.taskWake !== undefined ? { taskWake: event.payload.taskWake } : {}),
           }),
         ),
         Effect.catchCause((cause) =>
@@ -322,6 +323,7 @@ export function createTurns({
       .sendTurn({
         ...sendTurnRequest.value,
         ...(delegationResults.value ? { delegationResults: delegationResults.value } : {}),
+        ...(event.payload.taskWake !== undefined ? { taskWake: event.payload.taskWake } : {}),
       })
       .pipe(
         Effect.tap((result) =>

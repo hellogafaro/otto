@@ -1,3 +1,4 @@
+import { type AgentSignalInput } from "@mastra/core/agent";
 import * as Predicate from "effect/Predicate";
 import { ProviderDriverKind } from "@otto/contracts";
 import { ProviderInstanceId } from "@otto/contracts";
@@ -29,6 +30,7 @@ import { AgentControllerRuntimeError, ProviderValidationError } from "../../erro
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { modelReadsFile } from "../../chat-history.ts";
+import { taskWakeSignal, taskWakeText } from "../../mastra/otto-task-signals.ts";
 
 import {
   type ResolvedEngine,
@@ -184,24 +186,24 @@ export function createTurnRequests(deps: {
       if (!takesSignals(active, turn)) return false;
       const { text, files } = yield* readTurnContent(input.input, input.attachments ?? []);
 
+      const signal: AgentSignalInput = input.taskWake
+        ? yield* taskWakeSignal(input.taskWake, input.threadId, active.toolSession)
+        : {
+            type: "user",
+            contents:
+              files.length === 0
+                ? text
+                : [
+                    { type: "text", text },
+                    ...files.map((file) => ({ type: "file" as const, ...file })),
+                  ],
+          };
+
       if (!takesSignals(active, turn)) return false;
 
       const accepted = yield* deps.runMastra(
         "signalTurn",
-        () =>
-          active.session.sendSignal(
-            {
-              type: "user",
-              contents:
-                files.length === 0
-                  ? text
-                  : [
-                      { type: "text", text },
-                      ...files.map((file) => ({ type: "file" as const, ...file })),
-                    ],
-            },
-            { requireDelivery: true },
-          ).accepted,
+        () => active.session.sendSignal(signal, { requireDelivery: true }).accepted,
       );
 
       return accepted.action !== "blocked" && accepted.action !== "discard";
@@ -244,8 +246,14 @@ export function createTurnRequests(deps: {
           delegationResults,
           memoryChat: requestedMemoryChat,
           authorPersonId,
-          ...providerInput
+          taskWake,
+          ...requested
         } = input;
+
+        // Otto: providers without signals read the task event as the tag Mastra would send.
+        const providerInput = taskWake
+          ? { ...requested, input: taskWakeText(taskWake) }
+          : requested;
 
         const memoryChat = deps.legacyResourceIdentity.get(key)?.memory
           ? requestedMemoryChat
@@ -401,6 +409,7 @@ export function createTurnRequests(deps: {
             authorPersonId: input.authorPersonId ?? null,
             hiddenWake: input.hiddenWake === true,
             delegationResults: input.delegationResults,
+            taskWake: input.taskWake,
           });
 
           return turnId;

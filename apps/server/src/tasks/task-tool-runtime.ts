@@ -221,7 +221,7 @@ export const makeTaskToolRuntime = (
             ? (model.bots.find((bot) => bot.id === entry.actor?.id)?.name ?? "A bot")
             : (people.get(entry.actor.id) ?? "Someone");
 
-      const base = { type: entry.type, by, at: entry.createdAt };
+      const base = { id: entry.id, type: entry.type, by, at: entry.createdAt };
 
       switch (entry.type) {
         case "comment":

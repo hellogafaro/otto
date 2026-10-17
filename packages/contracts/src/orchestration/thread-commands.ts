@@ -16,7 +16,7 @@ import {
   Visibility,
 } from "../base-schemas.ts";
 import { DelegationIdSchema } from "./identities.ts";
-import { ApprovalResponder } from "./work.ts";
+import { ApprovalResponder, TaskWake } from "./work.ts";
 import {
   ModelSelection,
   RuntimeMode,
@@ -240,6 +240,8 @@ export const ThreadTurnStartCommand = Schema.Struct({
   senderDisplayName: Schema.optional(TrimmedNonEmptyString),
   senderCanManageGroups: Schema.optional(Schema.Boolean),
   timezone: Schema.optional(TrimmedNonEmptyString),
+  /** The task event this turn answers; the bot gets it instead of the message's text. */
+  taskWake: Schema.optional(TaskWake),
   createdAt: IsoDateTime,
 });
 

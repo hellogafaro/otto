@@ -2,12 +2,12 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import type { AgentControllerEvent } from "@mastra/core/agent-controller";
-import { ProviderDriverKind, type ProviderRuntimeEvent } from "@otto/contracts";
+import { ProviderDriverKind, type ProviderRuntimeEvent, TaskId } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
-import { describe, expect } from "vite-plus/test";
+import { describe, expect, vi } from "vite-plus/test";
 import { AgentController } from "../services/agent-controller.ts";
 import {
   codexThreadId,
@@ -77,6 +77,68 @@ describe("AgentControllerLive signals", () => {
         expect(turnEvents(events, "turn.started")).toEqual([first.turnId]);
         expect(turnEvents(events, "turn.completed")).toEqual([first.turnId]);
         expect(mastra.sendMessage).toHaveBeenCalledTimes(1);
+        yield* Fiber.interrupt(eventsFiber);
+      }),
+      bridge.service,
+      mastra.factory,
+    );
+  });
+
+  it.effect("wakes an idle bot with a task event and adds a later one to its run", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    const wake = (commentId: string) =>
+      ({
+        type: "commented",
+        taskId: TaskId.make("task-launch"),
+        by: { key: "person:ada", name: "Ada" },
+        commentId,
+        reason: "mention",
+        text: "@Nova is this ready?",
+      }) as const;
+
+    const comment = (commentId: string) => ({
+      type: "notification",
+      tagName: "comment",
+      contents: "@Nova is this ready?",
+      attributes: expect.objectContaining({ comment_id: commentId, author: "Ada" }),
+    });
+
+    return provideController(
+      Effect.gen(function* () {
+        const { controller, events, eventsFiber } = yield* startCodex;
+
+        const first = yield* controller.sendTurn({
+          threadId: codexThreadId,
+          input: "@Nova is this ready?",
+          taskWake: wake("c-1"),
+        });
+
+        yield* Effect.promise(() =>
+          vi.waitFor(() => expect(mastra.queueSignal).toHaveBeenCalled()),
+        );
+        expect(mastra.queueSignal).toHaveBeenCalledWith(expect.objectContaining(comment("c-1")));
+        expect(mastra.sendMessage).not.toHaveBeenCalled();
+
+        mastra.setRunId("run-1");
+        expect(
+          yield* controller.signalTurn({
+            threadId: codexThreadId,
+            input: "@Nova is this ready?",
+            taskWake: wake("c-2"),
+          }),
+        ).toBe(true);
+        expect(mastra.sendSignal).toHaveBeenCalledWith(expect.objectContaining(comment("c-2")), {
+          requireDelivery: true,
+        });
+
+        mastra.setRunId(null);
+        mastra.finishSend();
+        yield* Effect.promise(() =>
+          vi.waitFor(() => expect(turnEvents(events, "turn.completed")).toEqual([first.turnId])),
+        );
+        expect(turnEvents(events, "turn.started")).toEqual([first.turnId]);
         yield* Fiber.interrupt(eventsFiber);
       }),
       bridge.service,

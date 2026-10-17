@@ -290,6 +290,9 @@ export function testMastraHarness(): TestMastraHarness {
           accepted: Promise.resolve({ accepted: true as const, action: "deliver" as const }),
         };
       },
+      queueSignal: async (input: SignalInput) => {
+        state.signals.push(input);
+      },
       abort: () => {
         state.interruptCalls.push(state.activeTurnId);
         state.activeTurnId = undefined;

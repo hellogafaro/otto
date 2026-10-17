@@ -262,6 +262,7 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
           ...(sourceProposedPlan !== undefined ? { sourceProposedPlan } : {}),
           respondingBotId,
           ...(command.timezone !== undefined ? { timezone: command.timezone } : {}),
+          ...(command.taskWake !== undefined ? { taskWake: command.taskWake } : {}),
           ...(acknowledgedDelegations.length > 0
             ? {
                 acknowledgedDelegationIds: acknowledgedDelegations.map(

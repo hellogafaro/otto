@@ -1,5 +1,6 @@
 import {
   ApprovalResponder,
+  TaskWake,
   WorkDescription,
   WorkParticipant,
   WorkResources,
@@ -523,6 +524,8 @@ export const ThreadTurnStartRequestedPayload = Schema.Struct({
   groupInput: Schema.optional(
     Schema.Struct({ text: Schema.String, attachments: Schema.Array(ChatAttachment) }),
   ),
+  /** A task event, sent to the bot as signals instead of the message's own text. */
+  taskWake: Schema.optional(TaskWake),
   timezone: Schema.optional(TrimmedNonEmptyString),
   /**
    * Finished child delegations acknowledged by this turn start. The same

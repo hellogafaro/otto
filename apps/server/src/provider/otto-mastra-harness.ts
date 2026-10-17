@@ -32,6 +32,7 @@ import {
   DEFAULT_MODEL_ID,
   withOttoModelRunOptions,
 } from "./mastra/otto-models.ts";
+import { OttoTaskStateProcessor } from "./mastra/otto-task-signals.ts";
 import { resolveOttoTools } from "./mastra/otto-tools.ts";
 import { ottoErrorProcessors } from "./mastra/otto-error-processors.ts";
 import { ottoToolCategory, routineToolNeedsGlobalApproval } from "./mastra/otto-actions.ts";
@@ -96,7 +97,8 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
       ),
     tools: ({ requestContext }) => resolveOttoTools(requestContext, options, resolveModel),
     memory: history.memory,
-    inputProcessors: [history.processor],
+    // The history loads first, so the task state is compared with what the model already has.
+    inputProcessors: [history.processor, new OttoTaskStateProcessor()],
     outputProcessors: [history.processor],
     errorProcessors: [...ottoErrorProcessors(options.onStreamRetry)],
   });

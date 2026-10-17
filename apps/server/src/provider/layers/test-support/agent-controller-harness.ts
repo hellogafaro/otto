@@ -37,6 +37,15 @@ export function mastraHarnessFixture() {
     });
   });
 
+  /** A task wake: like a message, it settles when the run it starts ends. */
+  const queueSignal = vi.fn(
+    (_signal: Parameters<OttoMastraSession["queueSignal"]>[0]) =>
+      new Promise<void>((resolve, reject) => {
+        resolveSend = resolve;
+        rejectSends.push(reject);
+      }),
+  );
+
   let runId: string | null = null;
 
   const sendSignal = vi.fn((input: Parameters<OttoMastraSession["sendSignal"]>[0]) => ({
@@ -80,6 +89,7 @@ export function mastraHarnessFixture() {
     }),
     sendMessage,
     sendSignal,
+    queueSignal,
     abort: vi.fn(),
     respondToToolApproval: vi.fn(),
     respondToToolSuspension: vi.fn(async () => undefined),
@@ -142,6 +152,7 @@ export function mastraHarnessFixture() {
     deleteSession,
     sendMessage,
     sendSignal,
+    queueSignal,
     persistExternalTurn,
     emit,
     emitMessage,

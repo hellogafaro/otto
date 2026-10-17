@@ -14,6 +14,7 @@ import {
   ThreadId,
   type AuthSessionId,
   type OrchestrationReadModel,
+  type TaskWake,
 } from "@otto/contracts";
 import * as Deferred from "effect/Deferred";
 import * as Semaphore from "effect/Semaphore";
@@ -76,6 +77,8 @@ export interface PendingTurn {
   readonly delegationResults: string | undefined;
   /** The group turn note, sent in the turn block instead of the stored message. */
   readonly turnNote: string;
+  /** The task event this turn answers, sent as signals instead of `message`. */
+  readonly taskWake: TaskWake | undefined;
 }
 
 export interface ActiveSession {
