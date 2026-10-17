@@ -466,7 +466,6 @@ export const commonLabelsCatalog = {
   "Composio accounts": "Composio 账号",
   "No key": "无密钥",
   "Get a Composio API key": "获取 Composio API 密钥",
-  "Composio API key": "Composio API 密钥",
   "Paste a new key to replace it": "粘贴新密钥以替换",
   "Save key": "保存密钥",
   "Remove key": "移除密钥",

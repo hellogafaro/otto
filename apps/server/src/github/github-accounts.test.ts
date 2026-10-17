@@ -115,6 +115,7 @@ describe("GitHub accounts", () => {
       expect(linked).toEqual({
         state: "connected",
         login: "ana",
+        teamLogin: null,
         installUrl: "https://github.com/apps/otto-by-hello-gafaro/installations/new",
       });
       expect(github.calls.at(-1)).toMatchObject({ authorization: "Bearer ghu_first" });
@@ -200,6 +201,28 @@ describe("GitHub accounts", () => {
 
       expect((yield* accounts.disconnect("person-ana")).login).toBeNull();
       expect(read("github-user-person-ana")).toBeUndefined();
+    }),
+  );
+
+  it.effect("lends the team's link to anyone without their own, and keeps their own first", () =>
+    Effect.gen(function* () {
+      const { store, read } = makeSecretStore();
+      const accounts = GitHub.make(store, fakeGitHub([issued]).fetch);
+
+      yield* accounts.startLink("person-ana", true);
+      yield* TestClock.adjust("5 seconds");
+      const linked = yield* accounts.pollLink("person-ana", true);
+
+      expect(linked).toMatchObject({ state: "connected", login: null, teamLogin: "ana" });
+      expect(read("github-team")).toMatchObject({ login: "ana" });
+      expect(read("github-user-person-ana")).toBeUndefined();
+      expect((yield* accounts.getStatus("person-ben")).teamLogin).toBe("ana");
+
+      const borrowed = yield* accounts.turnLogin("person-ben");
+      expect(Option.map(borrowed, (login) => login.login)).toEqual(Option.some("ana"));
+
+      expect((yield* accounts.disconnect("person-ben", true)).teamLogin).toBeNull();
+      expect(Option.isNone(yield* accounts.turnLogin("person-ben"))).toBe(true);
     }),
   );
 });

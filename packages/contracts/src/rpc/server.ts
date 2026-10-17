@@ -185,7 +185,6 @@ import {
 import {
   ComposioAuthorizeInput,
   ComposioAuthorizeResult,
-  ComposioConfigureInput,
   ComposioDisconnectInput,
   ComposioUpdateConnectionInput,
   ComposioOperationError,
@@ -198,6 +197,7 @@ import {
 import {
   GitHubLinkCode,
   GitHubLinkPollResult,
+  GitHubLinkTarget,
   GitHubOperationError,
   GitHubStatus,
 } from "../github.ts";
@@ -281,18 +281,6 @@ export const WsComposioGetStatusRpc = Rpc.make(WS_METHODS.composioGetStatus, {
   error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
 });
 
-export const WsComposioConfigureRpc = Rpc.make(WS_METHODS.composioConfigure, {
-  payload: ComposioConfigureInput,
-  success: ComposioStatus,
-  error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsComposioRemoveRpc = Rpc.make(WS_METHODS.composioRemove, {
-  payload: Schema.Struct({}),
-  success: ComposioStatus,
-  error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
-});
-
 export const WsComposioSearchToolkitsRpc = Rpc.make(WS_METHODS.composioSearchToolkits, {
   payload: ComposioToolkitSearchInput,
   success: Schema.Array(ComposioToolkit),
@@ -330,19 +318,19 @@ export const WsGitHubGetStatusRpc = Rpc.make(WS_METHODS.githubGetStatus, {
 });
 
 export const WsGitHubStartLinkRpc = Rpc.make(WS_METHODS.githubStartLink, {
-  payload: Schema.Struct({}),
+  payload: GitHubLinkTarget,
   success: GitHubLinkCode,
   error: Schema.Union([GitHubOperationError, EnvironmentAuthorizationError]),
 });
 
 export const WsGitHubPollLinkRpc = Rpc.make(WS_METHODS.githubPollLink, {
-  payload: Schema.Struct({}),
+  payload: GitHubLinkTarget,
   success: GitHubLinkPollResult,
   error: Schema.Union([GitHubOperationError, EnvironmentAuthorizationError]),
 });
 
 export const WsGitHubDisconnectRpc = Rpc.make(WS_METHODS.githubDisconnect, {
-  payload: Schema.Struct({}),
+  payload: GitHubLinkTarget,
   success: GitHubStatus,
   error: Schema.Union([GitHubOperationError, EnvironmentAuthorizationError]),
 });

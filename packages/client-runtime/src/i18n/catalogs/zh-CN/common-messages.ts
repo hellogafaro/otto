@@ -263,8 +263,6 @@ export const commonMessagesCatalog = {
   "Chat visibility couldn't be changed": "无法更改聊天的可见范围",
   "Command couldn't be run": "无法运行命令",
   "Composio couldn't be opened": "无法打开 Composio",
-  "Composio key couldn't be removed": "无法移除 Composio 密钥",
-  "Composio key couldn't be saved": "无法保存 Composio 密钥",
   "Delegation couldn't be cancelled": "无法取消委派",
   "Dictation couldn't be completed": "无法完成听写",
   "Dictation isn't available": "听写不可用",

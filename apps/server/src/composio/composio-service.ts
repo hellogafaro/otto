@@ -22,10 +22,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
+import { HostProcessEnvironment } from "@otto/shared/hostProcess";
+
 import { ServerSecretStore } from "../auth/server-secret-store.ts";
 import { withMcpRuntimeHeaders } from "../provider/mcp-server-config.ts";
-
-const API_KEY_SECRET = "composio-api-key";
 
 const USER_ID_SECRET = "composio-user-id";
 
@@ -33,10 +33,6 @@ const COMPOSIO_MCP_SERVER_ID = McpServerId.make("composio-session");
 
 /** Bots open pull requests but never merge, and raw GraphQL could merge too. */
 const BOT_DISABLED_GITHUB_TOOLS = ["GITHUB_MERGE_A_PULL_REQUEST", "GITHUB_RUN_GRAPH_QL_QUERY"];
-
-const textDecoder = new TextDecoder();
-
-const textEncoder = new TextEncoder();
 
 type ComposioSdk = InstanceType<typeof Composio>;
 
@@ -212,11 +208,6 @@ export interface ComposioServiceShape {
   readonly getStatus: (
     viewer: ComposioViewer,
   ) => Effect.Effect<ComposioStatus, ComposioOperationError>;
-  readonly configure: (
-    apiKey: string,
-    viewer: ComposioViewer,
-  ) => Effect.Effect<ComposioStatus, ComposioOperationError>;
-  readonly remove: Effect.Effect<ComposioStatus, ComposioOperationError>;
   readonly searchToolkits: (input: {
     readonly query?: string | undefined;
     readonly limit?: number | undefined;
@@ -331,9 +322,11 @@ function createComposioClient(apiKey: string): ComposioClient {
   };
 }
 
+/** `apiKey` is the server's COMPOSIO_API_KEY: one Composio project for the whole workspace. */
 export function make(
   secretStore: ServerSecretStore["Service"],
   accounts: ComposioAccountStore,
+  apiKey: string | undefined,
   createClient: ComposioClientFactory = createComposioClient,
 ): ComposioServiceShape {
   let runtimeConfigurationGeneration = 0;
@@ -404,11 +397,7 @@ export function make(
     await clearHostedSessions();
   };
 
-  const readApiKey = secretStore.get(API_KEY_SECRET).pipe(
-    Effect.mapError((cause) => operationError("read its API key", cause)),
-    Effect.map(Option.map((bytes) => textDecoder.decode(bytes).trim())),
-    Effect.map(Option.filter((apiKey) => apiKey.length > 0)),
-  );
+  const readApiKey = Effect.succeed(Option.fromUndefinedOr(apiKey?.trim() || undefined));
 
   const readUserId = secretStore.getOrCreateRandom(USER_ID_SECRET, 16).pipe(
     Effect.map(bytesToId),
@@ -425,7 +414,7 @@ export function make(
       if (Option.isNone(apiKey)) {
         return yield* new ComposioOperationError({
           operation,
-          message: "Connect Composio in Settings first.",
+          message: "Set COMPOSIO_API_KEY on the server first.",
         });
       }
 
@@ -488,38 +477,6 @@ export function make(
         }),
       };
     });
-
-  const configure: ComposioServiceShape["configure"] = (apiKey, viewer) =>
-    Effect.gen(function* () {
-      const normalized = apiKey.trim();
-
-      if (!normalized) {
-        return yield* new ComposioOperationError({
-          operation: "save its API key",
-          message: "Enter a Composio API key.",
-        });
-      }
-
-      const client = createClient(normalized);
-      yield* tryComposio("validate its API key", () => client.toolkits.get({ limit: 1 }));
-      yield* tryComposio("delete hosted tool sessions", invalidateHostedSessions);
-      yield* secretStore
-        .set(API_KEY_SECRET, textEncoder.encode(normalized))
-        .pipe(Effect.mapError((cause) => operationError("save its API key", cause)));
-      yield* tryComposio("delete hosted tool sessions", invalidateHostedSessions);
-
-      return yield* getStatus(viewer);
-    });
-
-  const remove: ComposioServiceShape["remove"] = Effect.gen(function* () {
-    yield* tryComposio("delete hosted tool sessions", invalidateHostedSessions);
-    yield* secretStore
-      .remove(API_KEY_SECRET)
-      .pipe(Effect.mapError((cause) => operationError("remove its API key", cause)));
-    yield* tryComposio("delete hosted tool sessions", invalidateHostedSessions);
-
-    return { configured: false, connections: [] };
-  });
 
   /** Composio's whole app catalog, most used first, fetched once per key: its list has no search. */
   const loadCatalog = (client: ComposioClient) => {
@@ -848,8 +805,6 @@ export function make(
   return {
     isConfigured,
     getStatus,
-    configure,
-    remove,
     searchToolkits,
     getToolkit,
     authorize,
@@ -864,7 +819,8 @@ export const layer = Layer.effect(
   ComposioService,
   Effect.gen(function* () {
     const secretStore = yield* ServerSecretStore;
+    const { COMPOSIO_API_KEY } = yield* HostProcessEnvironment;
 
-    return make(secretStore, yield* sqlComposioAccounts);
+    return make(secretStore, yield* sqlComposioAccounts, COMPOSIO_API_KEY);
   }),
 );

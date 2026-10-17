@@ -57,8 +57,6 @@ export const WS_METHODS = {
   serverGetSettings: "server.getSettings",
   serverUpdateSettings: "server.updateSettings",
   composioGetStatus: "composio.getStatus",
-  composioConfigure: "composio.configure",
-  composioRemove: "composio.remove",
   composioSearchToolkits: "composio.searchToolkits",
   composioGetToolkit: "composio.getToolkit",
   composioAuthorize: "composio.authorize",

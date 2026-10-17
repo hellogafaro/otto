@@ -494,14 +494,6 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:mcp-server-set-headers",
       tag: WS_METHODS.mcpServerSetHeaders,
     }),
-    configureComposio: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:composio-configure",
-      tag: WS_METHODS.composioConfigure,
-    }),
-    removeComposio: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:composio-remove",
-      tag: WS_METHODS.composioRemove,
-    }),
     authorizeComposio: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:composio-authorize",
       tag: WS_METHODS.composioAuthorize,

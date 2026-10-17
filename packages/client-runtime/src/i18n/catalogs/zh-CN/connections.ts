@@ -367,8 +367,6 @@ export const connectionsCatalog = {
   "Connect one from All and it shows up here.": "从“全部”中连接一个插件，它就会显示在这里。",
   "No accounts connected yet. Search above to find an app, then connect it.":
     "尚未连接任何账号。在上方搜索应用，然后连接它。",
-  "Remove the Composio API key from this environment? Bots lose access to Composio apps until you add a key again.":
-    "要从此环境中移除 Composio API 密钥吗？在你重新添加密钥之前，机器人将无法使用 Composio 应用。",
   "Disconnect {name}? Bots stop using this account.": "要断开 {name} 吗？机器人将停止使用此账号。",
   "Search above to find Composio apps. Composio handles each app's sign-in, and your bots can use connected accounts.":
     "在上方搜索 Composio 应用。Composio 负责各应用的登录，你的机器人可以使用已连接的账号。",
@@ -439,8 +437,6 @@ export const connectionsCatalog = {
   "Edit SKILL.md": "编辑 SKILL.md",
   "Open folder": "打开文件夹",
   Customize: "自定义",
-  "Replace Composio key": "替换 Composio 密钥",
-  "Set up Composio": "设置 Composio",
   "Get a key": "获取密钥",
   "No apps match “{query}”.": "没有与“{query}”匹配的应用。",
   "Composio lists no apps for this key.": "Composio 没有为此密钥列出任何应用。",
@@ -491,10 +487,6 @@ export const connectionsCatalog = {
   "{count} skill": "{count} 个技能",
   "{count} skills": "{count} 个技能",
   "Connect apps like Slack and Gmail.": "连接 Slack 和 Gmail 等应用。",
-  "Accounts stay connected when the key is from the same Composio project.":
-    "若新密钥属于同一 Composio 项目，账号会保持连接。",
-  "Composio runs each app's sign-in. The key stays on this Otto server.":
-    "Composio 负责每个应用的登录。密钥保存在此 Otto 服务器上。",
   "Connect apps with Composio": "使用 Composio 连接应用",
   "Add a Composio key in Settings to connect apps like Slack and Gmail.":
     "在设置中添加 Composio 密钥，即可连接 Slack 和 Gmail 等应用。",
@@ -576,7 +568,10 @@ export const connectionsCatalog = {
     "提到 @browser 时，机器人可以在自己的电脑上使用浏览器。",
   GitHub: "GitHub",
   "Connect GitHub": "连接 GitHub",
-  "Let bots push and open pull requests as you.": "让机器人以你的身份推送代码并创建拉取请求。",
+  "Bots act as @{login} for anyone who hasn't connected their own GitHub.":
+    "对于尚未连接自己 GitHub 的人，机器人以 @{login} 身份操作。",
+  "Disconnect the team's GitHub? Bots can no longer push or open pull requests for people without their own.":
+    "断开团队的 GitHub？机器人将无法再为没有自己 GitHub 的人推送或创建拉取请求。",
   "Bots push and open pull requests as @{login}.":
     "机器人以 @{login} 的身份推送代码并创建拉取请求。",
   "Add repositories": "添加仓库",

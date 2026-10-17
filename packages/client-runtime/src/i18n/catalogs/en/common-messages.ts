@@ -268,8 +268,6 @@ export const commonMessagesCatalog = {
   "Chat visibility couldn't be changed": "Chat visibility couldn't be changed",
   "Command couldn't be run": "Command couldn't be run",
   "Composio couldn't be opened": "Composio couldn't be opened",
-  "Composio key couldn't be removed": "Composio key couldn't be removed",
-  "Composio key couldn't be saved": "Composio key couldn't be saved",
   "Delegation couldn't be cancelled": "Delegation couldn't be cancelled",
   "Dictation couldn't be completed": "Dictation couldn't be completed",
   "Dictation isn't available": "Dictation isn't available",

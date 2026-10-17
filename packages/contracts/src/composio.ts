@@ -95,12 +95,6 @@ export const ComposioToolkitDetail = Schema.Struct({
 
 export type ComposioToolkitDetail = typeof ComposioToolkitDetail.Type;
 
-export const ComposioConfigureInput = Schema.Struct({
-  apiKey: TrimmedNonEmptyString,
-});
-
-export type ComposioConfigureInput = typeof ComposioConfigureInput.Type;
-
 export const ComposioAuthorizeInput = Schema.Struct({
   toolkitSlug: TrimmedNonEmptyString,
   alias: Schema.optional(TrimmedNonEmptyString),

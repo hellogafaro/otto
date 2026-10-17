@@ -37,8 +37,6 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.serverGetSettings]: AuthOrchestrationReadScope,
   [WS_METHODS.serverUpdateSettings]: AuthAccessWriteScope,
   [WS_METHODS.composioGetStatus]: AuthOrchestrationReadScope,
-  [WS_METHODS.composioConfigure]: AuthAccessWriteScope,
-  [WS_METHODS.composioRemove]: AuthAccessWriteScope,
   [WS_METHODS.composioSearchToolkits]: AuthOrchestrationReadScope,
   [WS_METHODS.composioGetToolkit]: AuthOrchestrationReadScope,
   [WS_METHODS.composioAuthorize]: AuthOrchestrationOperateScope,

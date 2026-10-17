@@ -71,9 +71,14 @@ const UserResponse = Schema.Struct({
   name: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
-const accountSecret = (personId: string) => `github-user-${personId}`;
+/** The team's link, which bots use for anyone who has not linked their own. */
+const TEAM_ACCOUNT_SECRET = "github-team";
 
-const pendingSecret = (personId: string) => `github-device-${personId}`;
+const accountSecret = (personId: string, team = false) =>
+  team ? TEAM_ACCOUNT_SECRET : `github-user-${personId}`;
+
+const pendingSecret = (personId: string, team = false) =>
+  `github-device-${team ? "team-" : ""}${personId}`;
 
 const textEncoder = new TextEncoder();
 
@@ -146,10 +151,22 @@ export function make(
       .remove(name)
       .pipe(Effect.mapError(() => failure("Could not remove your GitHub link.")));
 
-  const status = (account: Option.Option<StoredAccount>): GitHubStatus => ({
-    login: Option.match(account, { onNone: () => null, onSome: (value) => value.login }),
-    installUrl: GITHUB_INSTALL_URL,
-  });
+  const loginOf = (account: Option.Option<StoredAccount>) =>
+    Option.match(account, { onNone: () => null, onSome: (value) => value.login });
+
+  const readAccount = (personId: string, team = false) =>
+    readSecret(accountSecret(personId, team), decodeAccount);
+
+  const getStatus = (personId: string) =>
+    Effect.all([readAccount(personId), readAccount(personId, true)]).pipe(
+      Effect.map(
+        ([own, shared]): GitHubStatus => ({
+          login: loginOf(own),
+          teamLogin: loginOf(shared),
+          installUrl: GITHUB_INSTALL_URL,
+        }),
+      ),
+    );
 
   const now = Effect.map(DateTime.now, DateTime.toEpochMillis);
 
@@ -178,10 +195,7 @@ export function make(
       ),
     );
 
-  const getStatus = (personId: string) =>
-    readSecret(accountSecret(personId), decodeAccount).pipe(Effect.map(status));
-
-  const startLink = (personId: string) =>
+  const startLink = (personId: string, team = false) =>
     Effect.gen(function* () {
       const code = yield* request(DeviceCodeResponse, "https://github.com/login/device/code", {
         method: "POST",
@@ -191,7 +205,7 @@ export function make(
       const startedAt = yield* now;
       const expiresAt = startedAt + code.expires_in * 1_000;
 
-      yield* writeSecret(pendingSecret(personId), {
+      yield* writeSecret(pendingSecret(personId, team), {
         deviceCode: code.device_code,
         intervalSeconds: code.interval,
         expiresAt,
@@ -206,35 +220,33 @@ export function make(
       } satisfies GitHubLinkCode;
     });
 
-  const pollLink = (personId: string) =>
+  const pollLink = (personId: string, team = false) =>
     Effect.gen(function* () {
-      const finished = (
-        state: GitHubLinkPollResult["state"],
-        account: Option.Option<StoredAccount>,
-      ) =>
-        removeSecret(pendingSecret(personId)).pipe(
-          Effect.as({ state, ...status(account) } satisfies GitHubLinkPollResult),
+      const finished = (state: GitHubLinkPollResult["state"]) =>
+        removeSecret(pendingSecret(personId, team)).pipe(
+          Effect.andThen(getStatus(personId)),
+          Effect.map((current): GitHubLinkPollResult => ({ state, ...current })),
         );
 
-      const pending = yield* readSecret(pendingSecret(personId), decodePending);
+      const pending = yield* readSecret(pendingSecret(personId, team), decodePending);
 
       if (Option.isNone(pending)) {
-        const account = yield* readSecret(accountSecret(personId), decodeAccount);
+        const current = yield* getStatus(personId);
 
         return {
-          state: Option.isSome(account) ? "connected" : "expired",
-          ...status(account),
+          state: (team ? current.teamLogin : current.login) ? "connected" : "expired",
+          ...current,
         } satisfies GitHubLinkPollResult;
       }
 
       const polledAt = yield* now;
 
-      if (polledAt >= pending.value.expiresAt) return yield* finished("expired", Option.none());
+      if (polledAt >= pending.value.expiresAt) return yield* finished("expired");
 
-      const stillPending = {
+      const stillPending: GitHubLinkPollResult = {
         state: "pending",
-        ...status(Option.none()),
-      } satisfies GitHubLinkPollResult;
+        ...(yield* getStatus(personId)),
+      };
 
       if (polledAt < pending.value.nextPollAt) return stillPending;
 
@@ -248,9 +260,9 @@ export function make(
       });
 
       if (token.access_token === undefined) {
-        if (token.error === "expired_token") return yield* finished("expired", Option.none());
+        if (token.error === "expired_token") return yield* finished("expired");
 
-        if (token.error === "access_denied") return yield* finished("denied", Option.none());
+        if (token.error === "access_denied") return yield* finished("denied");
 
         if (token.error !== "authorization_pending" && token.error !== "slow_down")
           return yield* failure("GitHub could not link your account. Try again.");
@@ -260,7 +272,7 @@ export function make(
             ? (token.interval ?? pending.value.intervalSeconds + 5)
             : pending.value.intervalSeconds;
 
-        yield* writeSecret(pendingSecret(personId), {
+        yield* writeSecret(pendingSecret(personId, team), {
           ...pending.value,
           intervalSeconds,
           nextPollAt: polledAt + intervalSeconds * 1_000,
@@ -271,23 +283,21 @@ export function make(
 
       const account = yield* tokenAccount({ ...token, access_token: token.access_token }, polledAt);
 
-      yield* writeSecret(accountSecret(personId), account);
+      yield* writeSecret(accountSecret(personId, team), account);
 
-      return yield* finished("connected", Option.some(account));
+      return yield* finished("connected");
     });
 
-  const disconnect = (personId: string) =>
-    Effect.all([removeSecret(accountSecret(personId)), removeSecret(pendingSecret(personId))]).pipe(
-      Effect.as(status(Option.none())),
-    );
+  const disconnect = (personId: string, team = false) =>
+    Effect.all([
+      removeSecret(accountSecret(personId, team)),
+      removeSecret(pendingSecret(personId, team)),
+    ]).pipe(Effect.andThen(getStatus(personId)));
 
-  /**
-   * The person's login for one bot turn, refreshed on the server when it is close to expiring.
-   * None when the person never linked GitHub or the link can no longer be refreshed.
-   */
-  const turnLogin = (personId: string) =>
+  /** One stored link, refreshed on the server when it is close to expiring. */
+  const freshLogin = (secret: string) =>
     Effect.gen(function* () {
-      const stored = yield* readSecret(accountSecret(personId), decodeAccount);
+      const stored = yield* readSecret(secret, decodeAccount);
 
       if (Option.isNone(stored)) return Option.none<GitHubTurnLogin>();
       const account = stored.value;
@@ -303,7 +313,7 @@ export function make(
         account.refreshToken === null ||
         (account.refreshExpiresAt !== null && account.refreshExpiresAt <= checkedAt)
       ) {
-        yield* removeSecret(accountSecret(personId));
+        yield* removeSecret(secret);
 
         return Option.none<GitHubTurnLogin>();
       }
@@ -319,7 +329,7 @@ export function make(
 
       if (token.access_token === undefined) {
         // GitHub refused the refresh token, so the link is gone; the person connects again.
-        yield* removeSecret(accountSecret(personId));
+        yield* removeSecret(secret);
 
         return Option.none<GitHubTurnLogin>();
       }
@@ -329,10 +339,21 @@ export function make(
         checkedAt,
       );
 
-      yield* writeSecret(accountSecret(personId), refreshed);
+      yield* writeSecret(secret, refreshed);
 
       return Option.some<GitHubTurnLogin>(refreshed);
     });
+
+  /**
+   * The login for one bot turn: the asking person's own, else the team's. None when neither is
+   * linked or neither can be refreshed.
+   */
+  const turnLogin = (personId: string) =>
+    freshLogin(accountSecret(personId)).pipe(
+      Effect.flatMap((own) =>
+        Option.isSome(own) ? Effect.succeed(own) : freshLogin(TEAM_ACCOUNT_SECRET),
+      ),
+    );
 
   return { getStatus, startLink, pollLink, disconnect, turnLogin };
 }

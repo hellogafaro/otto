@@ -335,7 +335,7 @@ export const createWsServices = (
     const composioService = yield* Effect.serviceOption(Composio.ComposioService);
 
     const composio = Option.getOrElse(composioService, () =>
-      Composio.make(secretStore, Composio.inMemoryComposioAccounts()),
+      Composio.make(secretStore, Composio.inMemoryComposioAccounts(), undefined),
     );
 
     const github = Option.getOrElse(yield* Effect.serviceOption(GitHub.GitHubAccounts), () =>

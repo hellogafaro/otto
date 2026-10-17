@@ -392,8 +392,6 @@ export const connectionsCatalog = {
   "Connect one from All and it shows up here.": "Connect one from All and it shows up here.",
   "No accounts connected yet. Search above to find an app, then connect it.":
     "No accounts connected yet. Search above to find an app, then connect it.",
-  "Remove the Composio API key from this environment? Bots lose access to Composio apps until you add a key again.":
-    "Remove the Composio API key from this environment? Bots lose access to Composio apps until you add a key again.",
   "Disconnect {name}? Bots stop using this account.":
     "Disconnect {name}? Bots stop using this account.",
   "Search above to find Composio apps. Composio handles each app's sign-in, and your bots can use connected accounts.":
@@ -473,8 +471,6 @@ export const connectionsCatalog = {
   "Edit SKILL.md": "Edit SKILL.md",
   "Open folder": "Open folder",
   Customize: "Customize",
-  "Replace Composio key": "Replace Composio key",
-  "Set up Composio": "Set up Composio",
   "Get a key": "Get a key",
   "No apps match “{query}”.": "No apps match “{query}”.",
   "Composio lists no apps for this key.": "Composio lists no apps for this key.",
@@ -526,10 +522,6 @@ export const connectionsCatalog = {
   "{count} skill": "{count} skill",
   "{count} skills": "{count} skills",
   "Connect apps like Slack and Gmail.": "Connect apps like Slack and Gmail.",
-  "Accounts stay connected when the key is from the same Composio project.":
-    "Accounts stay connected when the key is from the same Composio project.",
-  "Composio runs each app's sign-in. The key stays on this Otto server.":
-    "Composio runs each app's sign-in. The key stays on this Otto server.",
   "Connect apps with Composio": "Connect apps with Composio",
   "Add a Composio key in Settings to connect apps like Slack and Gmail.":
     "Add a Composio key in Settings to connect apps like Slack and Gmail.",
@@ -614,7 +606,10 @@ export const connectionsCatalog = {
     "Bots can use a browser on their own computer when you mention @browser.",
   GitHub: "GitHub",
   "Connect GitHub": "Connect GitHub",
-  "Let bots push and open pull requests as you.": "Let bots push and open pull requests as you.",
+  "Bots act as @{login} for anyone who hasn't connected their own GitHub.":
+    "Bots act as @{login} for anyone who hasn't connected their own GitHub.",
+  "Disconnect the team's GitHub? Bots can no longer push or open pull requests for people without their own.":
+    "Disconnect the team's GitHub? Bots can no longer push or open pull requests for people without their own.",
   "Bots push and open pull requests as @{login}.": "Bots push and open pull requests as @{login}.",
   "Add repositories": "Add repositories",
   "Open GitHub": "Open GitHub",

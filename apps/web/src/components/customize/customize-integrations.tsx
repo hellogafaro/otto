@@ -21,13 +21,11 @@ import { environmentMcpServersAtom } from "../../state/mcp-servers";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { openSettings } from "../../settings-dialog-store";
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";
 import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
 import { MenuItem } from "../ui/menu";
 import { toast } from "sonner";
 import { AddMenu, CardCountRow, CustomizeGroup, CustomizeRow } from "./customize-group";
+import { useGitHubIntegration } from "./github-integration";
 import { McpServerDialog } from "./mcp-server-dialog";
 
 export function useComposio(environmentId: EnvironmentId) {
@@ -35,8 +33,6 @@ export function useComposio(environmentId: EnvironmentId) {
     serverEnvironment.composioStatus({ environmentId, input: {} }),
   );
 
-  const configure = useAtomCommand(serverEnvironment.configureComposio, { reportFailure: false });
-  const remove = useAtomCommand(serverEnvironment.removeComposio, { reportFailure: false });
   const authorize = useAtomCommand(serverEnvironment.authorizeComposio, { reportFailure: false });
   const disconnect = useAtomCommand(serverEnvironment.disconnectComposio, { reportFailure: false });
 
@@ -55,7 +51,7 @@ export function useComposio(environmentId: EnvironmentId) {
     return true;
   };
 
-  return { status, configure, remove, authorize, disconnect, update, failed };
+  return { status, authorize, disconnect, update, failed };
 }
 
 /** An app's logo from Composio's catalog, or its first letter on a quiet tile. */
@@ -102,12 +98,11 @@ export const serverHost = (server: McpServer, t: ReturnType<typeof useI18n>["t"]
   server.transport === "url" ? new URL(server.url).host : t("Local command, not supported");
 
 /**
- * Otto: Customize's Integrations tab: everything that gives bots tools, Composio apps and remote
- * MCP servers alike, since an app is a hosted MCP server. Two groups copy Capy's MCP & plugins
- * page: Yours (only you and the bots you own) and Team (every member's bots). Like Bots, each
- * card's first row counts its integrations and holds the plus to connect an app or add a server
- * for that group. The Composio key
- * itself lives in Settings → Integrations, and Connect an app opens the app catalog.
+ * Otto: Settings → Integrations: everything that gives bots tools, GitHub, Composio apps and
+ * remote MCP servers alike. Two groups copy Capy's MCP & plugins page: Yours (only you and the
+ * bots you own) and Team (every member's bots). Each card's first row counts its integrations and
+ * holds the plus with Connect GitHub, Connect an app and Add MCP server for that group. Connect
+ * an app shows only when the server has COMPOSIO_API_KEY; there is no key setting.
  */
 export function CustomizeIntegrations({
   environmentId,
@@ -117,6 +112,7 @@ export function CustomizeIntegrations({
   const { t, plural } = useI18n();
   const navigate = useNavigate();
   const composio = useComposio(environmentId);
+  const github = useGitHubIntegration(environmentId);
   const servers = useAtomValue(environmentMcpServersAtom(environmentId));
   const configured = composio.status.data?.configured === true;
   const connections = composio.status.data?.connections ?? [];
@@ -131,7 +127,7 @@ export function CustomizeIntegrations({
     return () => window.removeEventListener("focus", refreshStatus);
   }, [refreshStatus]);
 
-  if (!composio.status.data)
+  if (!composio.status.data || !github.loaded)
     return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 2]} />;
 
   const groups = (["user", "organization"] as const).map((visibility) => {
@@ -139,7 +135,8 @@ export function CustomizeIntegrations({
 
     const mcps = servers.filter((server) => (server.visibility ?? "organization") === visibility);
 
-    const count = apps.length + mcps.length;
+    const team = visibility === "organization";
+    const count = apps.length + mcps.length + (github.linked(team) ? 1 : 0);
 
     return (
       <CustomizeGroup
@@ -158,6 +155,11 @@ export function CustomizeIntegrations({
             label={plural(count, { one: "{count} integration", other: "{count} integrations" })}
             action={
               <AddMenu label={visibility === "user" ? t("Add to yours") : t("Add to team")}>
+                {github.linked(team) ? null : (
+                  <MenuItem onClick={() => void github.connect(team)}>
+                    {t("Connect GitHub")}
+                  </MenuItem>
+                )}
                 {configured ? (
                   <MenuItem
                     onClick={() =>
@@ -173,6 +175,7 @@ export function CustomizeIntegrations({
           />
         }
       >
+        {github.row(team)}
         {apps.map((connection) => {
           const name = connection.toolkitName ?? connection.toolkitSlug;
 
@@ -218,24 +221,8 @@ export function CustomizeIntegrations({
 
   return (
     <div className="flex flex-col gap-10">
-      {configured ? null : (
-        <Alert>
-          <AlertTitle>{t("Connect apps with Composio")}</AlertTitle>
-          <AlertDescription>
-            {t("Add a Composio key in Settings to connect apps like Slack and Gmail.")}
-          </AlertDescription>
-          <AlertAction>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openSettings("integrations", null, environmentId)}
-            >
-              {t("Open settings")}
-            </Button>
-          </AlertAction>
-        </Alert>
-      )}
       {groups}
+      {github.dialogs}
       {mcpDialog ? (
         <McpServerDialog
           environmentId={environmentId}

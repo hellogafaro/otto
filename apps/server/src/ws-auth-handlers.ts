@@ -122,18 +122,6 @@ export const createWsAuthHandlers = ({
         { "rpc.aggregate": "composio" },
       ),
 
-    [WS_METHODS.composioConfigure]: ({ apiKey }) =>
-      observeRpcEffect(
-        WS_METHODS.composioConfigure,
-        Effect.flatMap(composioViewer, (viewer) => composio.configure(apiKey, viewer)),
-        { "rpc.aggregate": "composio" },
-      ),
-
-    [WS_METHODS.composioRemove]: (_input) =>
-      observeRpcEffect(WS_METHODS.composioRemove, composio.remove, {
-        "rpc.aggregate": "composio",
-      }),
-
     [WS_METHODS.composioSearchToolkits]: (input) =>
       observeRpcEffect(WS_METHODS.composioSearchToolkits, composio.searchToolkits(input), {
         "rpc.aggregate": "composio",
@@ -170,18 +158,18 @@ export const createWsAuthHandlers = ({
         "rpc.aggregate": "github",
       }),
 
-    [WS_METHODS.githubStartLink]: (_input) =>
-      observeRpcEffect(WS_METHODS.githubStartLink, github.startLink(currentPersonId), {
+    [WS_METHODS.githubStartLink]: ({ team }) =>
+      observeRpcEffect(WS_METHODS.githubStartLink, github.startLink(currentPersonId, team), {
         "rpc.aggregate": "github",
       }),
 
-    [WS_METHODS.githubPollLink]: (_input) =>
-      observeRpcEffect(WS_METHODS.githubPollLink, github.pollLink(currentPersonId), {
+    [WS_METHODS.githubPollLink]: ({ team }) =>
+      observeRpcEffect(WS_METHODS.githubPollLink, github.pollLink(currentPersonId, team), {
         "rpc.aggregate": "github",
       }),
 
-    [WS_METHODS.githubDisconnect]: (_input) =>
-      observeRpcEffect(WS_METHODS.githubDisconnect, github.disconnect(currentPersonId), {
+    [WS_METHODS.githubDisconnect]: ({ team }) =>
+      observeRpcEffect(WS_METHODS.githubDisconnect, github.disconnect(currentPersonId, team), {
         "rpc.aggregate": "github",
       }),
 
@@ -489,8 +477,6 @@ export const createWsAuthHandlers = ({
   } satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     | typeof WS_METHODS.composioGetStatus
-    | typeof WS_METHODS.composioConfigure
-    | typeof WS_METHODS.composioRemove
     | typeof WS_METHODS.composioSearchToolkits
     | typeof WS_METHODS.composioGetToolkit
     | typeof WS_METHODS.composioAuthorize
