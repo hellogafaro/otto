@@ -228,7 +228,7 @@ export function BotPromptComposer({
 
   const promptTextClassName = cn(
     "text-base leading-5 sm:text-sm",
-    expanded ? "px-3.5 pb-10 pt-3" : "min-h-10 px-10.5 py-2.5",
+    expanded ? "px-3.5 pb-1 pt-3" : "min-h-10 px-10.5 py-2.5",
   );
 
   const mentionsEnabled =
@@ -514,7 +514,7 @@ export function BotPromptComposer({
               onPreviewError={markAttachmentPreviewFailed}
               onRemove={removeAttachment}
             />
-            <div className="relative">
+            <div className={cn("relative", expanded && "pb-9")}>
               {draftMentions.length > 0 ? (
                 <BotPromptMentionHighlights
                   ref={mentionHighlightsRef}
