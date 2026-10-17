@@ -280,8 +280,6 @@ export const connectionsCatalog = {
   "The bot's computer couldn't start": "The bot's computer couldn't start",
   "Boat refused its API key. Replace it in Settings > Computer, then try again.":
     "Boat refused its API key. Replace it in Settings > Computer, then try again.",
-  "Boat couldn't start it: {message}. Try again in a moment.":
-    "Boat couldn't start it: {message}. Try again in a moment.",
   "Check the environment connection, then send your message again.":
     "Check the environment connection, then send your message again.",
   "Automatically read new replies in this chat on this device":

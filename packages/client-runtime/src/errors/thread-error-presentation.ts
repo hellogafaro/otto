@@ -76,14 +76,14 @@ export function presentThreadError(
   const computer = error.match(/^Boat: (.+)/);
 
   if (computer?.[1]) {
-    const message = computer[1].trim().replace(/[.:。：]$/, "");
+    const message = boundedTechnicalDetails(computer[1]);
 
     return {
       title: t("The bot's computer couldn't start"),
       description: /unauthorized|forbidden|api key/i.test(message)
         ? t("Boat refused its API key. Replace it in Settings > Computer, then try again.")
-        : t("Boat couldn't start it: {message}. Try again in a moment.", { message }),
-      technicalDetails: boundedTechnicalDetails(error),
+        : message,
+      technicalDetails: message,
       action: "computer",
     };
   }

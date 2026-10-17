@@ -34,9 +34,10 @@ describe("presentThreadError", () => {
       description: "Boat refused its API key. Replace it in Settings > Computer, then try again.",
       action: "computer",
     });
-    expect(presentThreadError("Boat: sandbox limit reached.").description).toBe(
-      "Boat couldn't start it: sandbox limit reached. Try again in a moment.",
-    );
+    expect(presentThreadError("Boat: sandbox limit reached.")).toMatchObject({
+      description: "sandbox limit reached.",
+      technicalDetails: "sandbox limit reached.",
+    });
   });
 
   it("names a disabled provider from the error when the chat does not know it", () => {
