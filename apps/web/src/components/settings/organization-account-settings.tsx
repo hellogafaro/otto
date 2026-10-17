@@ -272,7 +272,7 @@ function ProfilePhotoRow({
               <PersonAvatar
                 name={name}
                 image={image}
-                className="size-8 rounded-md border border-border/70 text-xs"
+                className="size-8 rounded-md border border-border/70 text-xs group-hover/photo:text-transparent group-focus-visible/photo:text-transparent group-disabled/photo:text-transparent"
               />
               <span
                 aria-hidden="true"
