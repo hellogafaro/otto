@@ -74,9 +74,14 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
       const { waitUntilReady } = await import("@boatdev/sdk");
       await waitUntilReady(client, sandboxId, { timeoutMs: 300_000 });
     },
-    // Stop takes a native lifecycle snapshot; never force-stop and discard VM changes.
+    // Stop takes a native lifecycle snapshot; never force-stop and discard VM changes. A VM that
+    // Boat's auto-stop already archived, or that is gone, needs nothing.
     sleep: async () => {
-      await client.stop({ sandboxId });
+      const current = await state();
+
+      if (current === "archived" || current === "gone") return;
+
+      if (current !== "archiving") await client.stop({ sandboxId });
       await waitUntilArchived();
     },
     destroy: async () => {

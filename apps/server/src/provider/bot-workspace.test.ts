@@ -115,9 +115,14 @@ describe("Boat", () => {
 
     const remove = vi.spyOn(client, "deleteSandbox").mockResolvedValue(deleted);
     const current = await client.get({ sandboxId: "boat-id" });
-    get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
+    get
+      .mockResolvedValueOnce(current)
+      .mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
     await session.sleep();
     expect(stop).toHaveBeenCalledWith({ sandboxId: "boat-id" });
+    get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
+    await session.sleep();
+    expect(stop).toHaveBeenCalledOnce();
     get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
     await session.wake();
     expect(resume).toHaveBeenCalledWith({
@@ -159,7 +164,7 @@ describe("Boat", () => {
           .spyOn(client, "resume")
           .mockResolvedValue({ ok: true, type: "sandbox.resumed", id: "boat-id", status: "ready" });
 
-        if (action === "wake") get.mockResolvedValueOnce(archiving);
+        get.mockResolvedValueOnce(action === "wake" ? archiving : current);
         get.mockResolvedValueOnce(archiving).mockResolvedValueOnce(archived);
         let completed = false;
 
