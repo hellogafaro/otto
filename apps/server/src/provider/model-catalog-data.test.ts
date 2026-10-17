@@ -34,6 +34,7 @@ const MODELS_DEV_PAYLOAD = {
         tool_call: true,
         reasoning_options: effort(["none", "low", "medium", "high", "xhigh"]),
         experimental: { modes: { fast: { provider: { body: { service_tier: "priority" } } } } },
+        limit: { context: 1_050_000, input: 922_000, output: 128_000 },
       },
       "gpt-old": {
         id: "gpt-old",
@@ -70,6 +71,7 @@ const MODELS_DEV_PAYLOAD = {
         family: "claude-opus",
         release_date: "2026-09-01",
         tool_call: true,
+        limit: { context: 200_000, output: 64_000 },
       },
       "claude-next-20260901": {
         id: "claude-next-20260901",
@@ -116,11 +118,13 @@ describe("catalogFromModelsDev", () => {
       releaseDate: "2026-09-01",
       efforts: ["none", "low", "medium", "high", "xhigh"],
       fast: true,
+      contextWindow: 922_000,
     });
   });
 
   it("drops dated Claude snapshots and orders models newest first", () => {
     assert.deepStrictEqual(ids(CLAUDE), ["claude-next", "claude-retired", "claude-ancient"]);
+    assert.strictEqual(catalogModelsFor(catalog, CLAUDE)[0]?.contextWindow, 200_000);
   });
 
   it("drops Pro and nano tiers by id when models.dev files them under the base family", () => {

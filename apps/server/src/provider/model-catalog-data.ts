@@ -43,6 +43,8 @@ const CatalogModel = Schema.Struct({
   efforts: Schema.optionalKey(Schema.Array(Schema.String)),
   /** True when the model offers a priority (Fast) service tier. */
   fast: Schema.optionalKey(Schema.Boolean),
+  /** Input tokens the model accepts: models.dev `limit.input`, else `limit.context`. */
+  contextWindow: Schema.optionalKey(Schema.Number),
 });
 
 export type CatalogModel = typeof CatalogModel.Type;
@@ -76,6 +78,12 @@ const ModelsDevModel = Schema.Struct({
   ),
   modalities: Schema.optionalKey(
     Schema.Struct({ output: Schema.optionalKey(Schema.Array(Schema.String)) }),
+  ),
+  limit: Schema.optionalKey(
+    Schema.Struct({
+      context: Schema.optionalKey(Schema.Number),
+      input: Schema.optionalKey(Schema.Number),
+    }),
   ),
   experimental: Schema.optionalKey(
     Schema.Struct({
@@ -127,6 +135,7 @@ function isUsable(driver: string, model: ModelsDevModel): boolean {
 
 function toCatalogModel(model: ModelsDevModel): CatalogModel {
   const efforts = model.reasoning_options?.find((option) => option.type === "effort")?.values;
+  const contextWindow = model.limit?.input ?? model.limit?.context;
 
   return {
     id: model.id,
@@ -136,6 +145,7 @@ function toCatalogModel(model: ModelsDevModel): CatalogModel {
     ...(model.status === "deprecated" ? { deprecated: true } : {}),
     ...(efforts && efforts.length > 0 ? { efforts } : {}),
     ...(model.experimental?.modes?.fast !== undefined ? { fast: true } : {}),
+    ...(contextWindow ? { contextWindow } : {}),
   };
 }
 

@@ -8,7 +8,8 @@
         "family": "gpt-sol",
         "releaseDate": "2026-09-29",
         "efforts": ["low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-6-luna",
@@ -16,7 +17,8 @@
         "family": "gpt-luna",
         "releaseDate": "2026-09-22",
         "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-6-sol",
@@ -24,7 +26,8 @@
         "family": "gpt-sol",
         "releaseDate": "2026-09-22",
         "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-6-astra",
@@ -32,21 +35,24 @@
         "family": "gpt-astra",
         "releaseDate": "2026-09-04",
         "efforts": ["low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-daybreak-blue-latest",
         "name": "Daybreak Blue",
         "family": "gpt-sol",
         "releaseDate": "2026-08-07",
-        "efforts": ["none", "low", "medium", "high", "xhigh", "max"]
+        "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 922000
       },
       {
         "id": "gpt-daybreak-red-latest",
         "name": "Daybreak Red",
         "family": "gpt",
         "releaseDate": "2026-08-07",
-        "efforts": ["none", "low", "medium", "high", "xhigh", "max"]
+        "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 272000
       },
       {
         "id": "gpt-5.6",
@@ -54,7 +60,8 @@
         "family": "gpt-sol",
         "releaseDate": "2026-07-09",
         "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-5.6-luna",
@@ -62,7 +69,8 @@
         "family": "gpt-luna",
         "releaseDate": "2026-07-09",
         "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-5.6-sol",
@@ -70,7 +78,8 @@
         "family": "gpt-sol",
         "releaseDate": "2026-07-09",
         "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-5.6-terra",
@@ -78,7 +87,8 @@
         "family": "gpt-terra",
         "releaseDate": "2026-07-09",
         "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-5.5",
@@ -86,7 +96,8 @@
         "family": "gpt",
         "releaseDate": "2026-04-23",
         "efforts": ["none", "low", "medium", "high", "xhigh"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-5.4-mini",
@@ -94,7 +105,8 @@
         "family": "gpt-mini",
         "releaseDate": "2026-03-17",
         "efforts": ["none", "low", "medium", "high", "xhigh"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 272000
       },
       {
         "id": "gpt-5.4",
@@ -102,7 +114,8 @@
         "family": "gpt",
         "releaseDate": "2026-03-05",
         "efforts": ["none", "low", "medium", "high", "xhigh"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 922000
       },
       {
         "id": "gpt-5.3-codex",
@@ -110,14 +123,16 @@
         "family": "gpt-codex",
         "releaseDate": "2026-02-05",
         "efforts": ["none", "low", "medium", "high", "xhigh"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 272000
       },
       {
         "id": "gpt-5.3-codex-spark",
         "name": "GPT-5.3 Codex Spark",
         "family": "gpt-codex-spark",
         "releaseDate": "2026-02-05",
-        "efforts": ["none", "low", "medium", "high", "xhigh"]
+        "efforts": ["none", "low", "medium", "high", "xhigh"],
+        "contextWindow": 100000
       },
       {
         "id": "gpt-5.2",
@@ -125,7 +140,8 @@
         "family": "gpt",
         "releaseDate": "2025-12-11",
         "efforts": ["none", "low", "medium", "high", "xhigh"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 272000
       },
       {
         "id": "gpt-5.2-chat-latest",
@@ -133,7 +149,8 @@
         "family": "gpt-codex",
         "releaseDate": "2025-12-11",
         "deprecated": true,
-        "efforts": ["medium"]
+        "efforts": ["medium"],
+        "contextWindow": 128000
       },
       {
         "id": "gpt-5.1",
@@ -141,7 +158,8 @@
         "family": "gpt",
         "releaseDate": "2025-11-13",
         "efforts": ["none", "low", "medium", "high"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 272000
       },
       {
         "id": "gpt-5",
@@ -149,7 +167,8 @@
         "family": "gpt",
         "releaseDate": "2025-08-07",
         "efforts": ["minimal", "low", "medium", "high"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 272000
       },
       {
         "id": "gpt-5-mini",
@@ -157,7 +176,8 @@
         "family": "gpt-mini",
         "releaseDate": "2025-08-07",
         "efforts": ["minimal", "low", "medium", "high"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 272000
       }
     ],
     "claudeAgent": [
@@ -166,7 +186,8 @@
         "name": "Claude Sonnet 5.5",
         "family": "claude-sonnet",
         "releaseDate": "2026-09-28",
-        "efforts": ["low", "medium", "high", "xhigh", "max"]
+        "efforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "claude-opus-5-5",
@@ -174,14 +195,16 @@
         "family": "claude-opus",
         "releaseDate": "2026-09-22",
         "efforts": ["low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 1000000
       },
       {
         "id": "claude-fable-5-1",
         "name": "Claude Fable 5.1",
         "family": "claude-fable",
         "releaseDate": "2026-09-01",
-        "efforts": ["low", "medium", "high", "xhigh", "max"]
+        "efforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "claude-opus-5",
@@ -189,21 +212,24 @@
         "family": "claude-opus",
         "releaseDate": "2026-07-24",
         "efforts": ["low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 1000000
       },
       {
         "id": "claude-sonnet-5",
         "name": "Claude Sonnet 5",
         "family": "claude-sonnet",
         "releaseDate": "2026-06-29",
-        "efforts": ["low", "medium", "high", "xhigh", "max"]
+        "efforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "claude-fable-5",
         "name": "Claude Fable 5",
         "family": "claude-fable",
         "releaseDate": "2026-06-07",
-        "efforts": ["low", "medium", "high", "xhigh", "max"]
+        "efforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "claude-opus-4-8",
@@ -211,47 +237,54 @@
         "family": "claude-opus",
         "releaseDate": "2026-05-28",
         "efforts": ["low", "medium", "high", "xhigh", "max"],
-        "fast": true
+        "fast": true,
+        "contextWindow": 1000000
       },
       {
         "id": "claude-opus-4-7",
         "name": "Claude Opus 4.7",
         "family": "claude-opus",
         "releaseDate": "2026-04-14",
-        "efforts": ["low", "medium", "high", "xhigh", "max"]
+        "efforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "claude-sonnet-4-6",
         "name": "Claude Sonnet 4.6",
         "family": "claude-sonnet",
         "releaseDate": "2026-02-17",
-        "efforts": ["low", "medium", "high", "max"]
+        "efforts": ["low", "medium", "high", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "claude-opus-4-6",
         "name": "Claude Opus 4.6",
         "family": "claude-opus",
         "releaseDate": "2026-02-04",
-        "efforts": ["low", "medium", "high", "max"]
+        "efforts": ["low", "medium", "high", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "claude-opus-4-5",
         "name": "Claude Opus 4.5 (latest)",
         "family": "claude-opus",
         "releaseDate": "2025-11-24",
-        "efforts": ["low", "medium", "high"]
+        "efforts": ["low", "medium", "high"],
+        "contextWindow": 200000
       },
       {
         "id": "claude-haiku-4-5",
         "name": "Claude Haiku 4.5 (latest)",
         "family": "claude-haiku",
-        "releaseDate": "2025-10-15"
+        "releaseDate": "2025-10-15",
+        "contextWindow": 200000
       },
       {
         "id": "claude-sonnet-4-5",
         "name": "Claude Sonnet 4.5 (latest)",
         "family": "claude-sonnet",
-        "releaseDate": "2025-09-29"
+        "releaseDate": "2025-09-29",
+        "contextWindow": 200000
       }
     ],
     "grok": [
@@ -260,46 +293,53 @@
         "name": "Grok 4.7",
         "family": "grok",
         "releaseDate": "2026-09-21",
-        "efforts": ["low", "medium", "high", "xhigh"]
+        "efforts": ["low", "medium", "high", "xhigh"],
+        "contextWindow": 500000
       },
       {
         "id": "grok-4.6",
         "name": "Grok 4.6",
         "family": "grok",
         "releaseDate": "2026-08-12",
-        "efforts": ["low", "medium", "high", "xhigh"]
+        "efforts": ["low", "medium", "high", "xhigh"],
+        "contextWindow": 500000
       },
       {
         "id": "grok-4.5",
         "name": "Grok 4.5",
         "family": "grok",
         "releaseDate": "2026-07-08",
-        "efforts": ["low", "medium", "high"]
+        "efforts": ["low", "medium", "high"],
+        "contextWindow": 500000
       },
       {
         "id": "grok-4.3",
         "name": "Grok 4.3",
         "family": "grok",
         "releaseDate": "2026-04-17",
-        "efforts": ["none", "low", "medium", "high"]
+        "efforts": ["none", "low", "medium", "high"],
+        "contextWindow": 1000000
       },
       {
         "id": "grok-build-0.1",
         "name": "Grok Build 0.1",
         "family": "grok-build",
-        "releaseDate": "2026-04-16"
+        "releaseDate": "2026-04-16",
+        "contextWindow": 256000
       },
       {
         "id": "grok-4.20-0309-non-reasoning",
         "name": "Grok 4.20 (Non-Reasoning)",
         "family": "grok",
-        "releaseDate": "2026-03-09"
+        "releaseDate": "2026-03-09",
+        "contextWindow": 1000000
       },
       {
         "id": "grok-4.20-0309-reasoning",
         "name": "Grok 4.20 (Reasoning)",
         "family": "grok",
-        "releaseDate": "2026-03-09"
+        "releaseDate": "2026-03-09",
+        "contextWindow": 1000000
       }
     ],
     "kimi": [
@@ -308,27 +348,31 @@
         "name": "kimi-for-coding",
         "family": "kimi-k2",
         "releaseDate": "2026-09-11",
-        "efforts": ["low", "high", "max"]
+        "efforts": ["low", "high", "max"],
+        "contextWindow": 1048576
       },
       {
         "id": "k3",
         "name": "Kimi K3",
         "family": "kimi-k3",
         "releaseDate": "2026-07-16",
-        "efforts": ["low", "high", "max"]
+        "efforts": ["low", "high", "max"],
+        "contextWindow": 1048576
       },
       {
         "id": "k3-256k",
         "name": "Kimi K3-256K",
         "family": "kimi-k3",
         "releaseDate": "2026-07-16",
-        "efforts": ["low", "high", "max"]
+        "efforts": ["low", "high", "max"],
+        "contextWindow": 262144
       },
       {
         "id": "kimi-for-coding-highspeed",
         "name": "Kimi For Coding HighSpeed",
         "family": "kimi-k2",
-        "releaseDate": "2026-06-12"
+        "releaseDate": "2026-06-12",
+        "contextWindow": 262144
       }
     ],
     "opencodeGo": [
@@ -336,7 +380,8 @@
         "id": "longcat-2.5-preview-free",
         "name": "LongCat 2.5 Preview Free",
         "family": "longcat",
-        "releaseDate": "2026-09-25"
+        "releaseDate": "2026-09-25",
+        "contextWindow": 1000000
       },
       {
         "id": "space-bunny-free",
@@ -349,61 +394,70 @@
         "name": "GPT-6 Luna",
         "family": "gpt-luna",
         "releaseDate": "2026-09-22",
-        "efforts": ["none", "low", "medium", "high", "xhigh", "max"]
+        "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 922000
       },
       {
         "id": "mimo-v2.6-flash",
         "name": "MiMo-V2.6-Flash",
         "family": "mimo",
-        "releaseDate": "2026-09-22"
+        "releaseDate": "2026-09-22",
+        "contextWindow": 1048576
       },
       {
         "id": "mimo-v2.6-pro",
         "name": "MiMo-V2.6-Pro",
         "family": "mimo",
-        "releaseDate": "2026-09-22"
+        "releaseDate": "2026-09-22",
+        "contextWindow": 1048576
       },
       {
         "id": "grok-4.7",
         "name": "Grok 4.7",
         "family": "grok",
         "releaseDate": "2026-09-21",
-        "efforts": ["low", "medium", "high", "xhigh"]
+        "efforts": ["low", "medium", "high", "xhigh"],
+        "contextWindow": 500000
       },
       {
         "id": "deepseek-v4.1-flash",
         "name": "DeepSeek V4.1 Flash",
         "family": "deepseek-flash",
         "releaseDate": "2026-09-10",
-        "efforts": ["low", "high", "max"]
+        "efforts": ["low", "high", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "muse-spark-1.3-contributor",
         "name": "Muse Spark 1.3 Contributor",
         "family": "muse",
         "releaseDate": "2026-09-02",
-        "efforts": ["minimal", "low", "medium", "high", "xhigh"]
+        "efforts": ["minimal", "low", "medium", "high", "xhigh"],
+        "contextWindow": 1048576
       },
       {
         "id": "hy4-preview",
         "name": "Hy4 preview",
         "family": "Hy",
         "releaseDate": "2026-08-28",
-        "efforts": ["none", "high"]
+        "efforts": ["none", "high"],
+        "contextWindow": 1024000
       },
       {
         "id": "glm-5.3-flash",
         "name": "GLM-5.3-Flash",
         "family": "glm-flash",
         "releaseDate": "2026-08-26",
-        "efforts": ["low", "high", "max"]
+        "efforts": ["low", "high", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "qwen3.8-flash",
         "name": "Qwen3.8 Flash",
         "family": "qwen",
         "releaseDate": "2026-08-26",
-        "efforts": ["low", "medium", "xhigh"]
+        "efforts": ["low", "medium", "xhigh"],
+        "contextWindow": 1000000
       },
       {
         "id": "deepseek-v4-flash-vision-exp",
@@ -417,7 +471,8 @@
         "name": "GLM-5.3",
         "family": "glm",
         "releaseDate": "2026-08-14",
-        "efforts": ["low", "high", "max"]
+        "efforts": ["low", "high", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "grok-4.6",
@@ -431,14 +486,16 @@
         "name": "Muse Spark 1.2 Contributor",
         "family": "muse",
         "releaseDate": "2026-08-05",
-        "efforts": ["minimal", "low", "medium", "high", "xhigh"]
+        "efforts": ["minimal", "low", "medium", "high", "xhigh"],
+        "contextWindow": 1048576
       },
       {
         "id": "qwen3.8-max",
         "name": "Qwen3.8 Max",
         "family": "qwen3.8-max",
         "releaseDate": "2026-08-03",
-        "efforts": ["low", "medium", "xhigh"]
+        "efforts": ["low", "medium", "xhigh"],
+        "contextWindow": 1000000
       },
       {
         "id": "deepseek-v4-flash",
@@ -452,14 +509,16 @@
         "name": "Kimi K3",
         "family": "kimi-k3",
         "releaseDate": "2026-07-16",
-        "efforts": ["max"]
+        "efforts": ["max"],
+        "contextWindow": 1048576
       },
       {
         "id": "gpt-5.6-luna",
         "name": "GPT-5.6 Luna",
         "family": "gpt-luna",
         "releaseDate": "2026-07-09",
-        "efforts": ["none", "low", "medium", "high", "xhigh", "max"]
+        "efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 922000
       },
       {
         "id": "grok-4.5",
@@ -474,38 +533,44 @@
         "name": "Hy3",
         "family": "Hy",
         "releaseDate": "2026-07-06",
-        "efforts": ["none", "low", "high"]
+        "efforts": ["none", "low", "high"],
+        "contextWindow": 192000
       },
       {
         "id": "longcat-2.0",
         "name": "LongCat-2.0",
         "family": "longcat",
-        "releaseDate": "2026-06-30"
+        "releaseDate": "2026-06-30",
+        "contextWindow": 1000000
       },
       {
         "id": "glm-5.2",
         "name": "GLM-5.2",
         "family": "glm",
         "releaseDate": "2026-06-13",
-        "efforts": ["high", "max"]
+        "efforts": ["high", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "kimi-k2.7-code",
         "name": "Kimi K2.7 Code",
         "family": "kimi-k2",
-        "releaseDate": "2026-06-12"
+        "releaseDate": "2026-06-12",
+        "contextWindow": 262144
       },
       {
         "id": "qwen3.7-plus",
         "name": "Qwen3.7 Plus",
         "family": "qwen3.7-plus",
-        "releaseDate": "2026-06-02"
+        "releaseDate": "2026-06-02",
+        "contextWindow": 1000000
       },
       {
         "id": "minimax-m3",
         "name": "MiniMax-M3",
         "family": "minimax-m3",
-        "releaseDate": "2026-05-31"
+        "releaseDate": "2026-05-31",
+        "contextWindow": 1000000
       },
       {
         "id": "qwen3.7-max",
@@ -519,19 +584,22 @@
         "name": "DeepSeek V4 Pro (New)",
         "family": "deepseek-thinking",
         "releaseDate": "2026-04-24",
-        "efforts": ["high", "max"]
+        "efforts": ["high", "max"],
+        "contextWindow": 1000000
       },
       {
         "id": "mimo-v2.5",
         "name": "MiMo V2.5",
         "family": "mimo-v2.5",
-        "releaseDate": "2026-04-22"
+        "releaseDate": "2026-04-22",
+        "contextWindow": 1000000
       },
       {
         "id": "mimo-v2.5-pro",
         "name": "MiMo V2.5 Pro",
         "family": "mimo-v2.5-pro",
-        "releaseDate": "2026-04-22"
+        "releaseDate": "2026-04-22",
+        "contextWindow": 1048576
       },
       {
         "id": "kimi-k2.6",
@@ -551,7 +619,8 @@
         "id": "minimax-m2.7",
         "name": "MiniMax-M2.7",
         "family": "minimax-m2.7",
-        "releaseDate": "2026-03-18"
+        "releaseDate": "2026-03-18",
+        "contextWindow": 204800
       }
     ]
   }
