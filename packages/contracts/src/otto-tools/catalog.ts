@@ -155,7 +155,6 @@ export const OTTO_TOOL_CATALOG = [
     "Hand bounded work to another bot, which runs it with its own tools and settings. " +
       "The result arrives in your next turn; follow it with delegate_check.",
     {
-      approval: "send",
       promptSnippet: "hand work to another bot",
       promptGuidelines: [
         "Brief it like a teammate: the bounded goal, what done looks like, how to prove it, and what not to touch.",

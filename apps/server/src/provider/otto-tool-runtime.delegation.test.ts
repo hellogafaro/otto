@@ -21,7 +21,7 @@ describe("OttoToolRuntime", () => {
     directories.clear();
   });
 
-  it("requires a one-shot send grant for delegated work", async () => {
+  it("hands work to another bot without asking for approval", async () => {
     const send = vi.fn(async () => ({ delivered: true }));
     const runtime = createOttoToolRuntime();
     runtime.registerSession("thread-delegated", {
@@ -54,8 +54,9 @@ describe("OttoToolRuntime", () => {
       approvalMode: "require-grant" as const,
     };
 
-    await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
-    runtime.grantApproval(execution);
+    await expect(
+      runtime.requiresApproval("thread-delegated", "delegate", execution.input),
+    ).resolves.toBe(false);
     await expect(runtime.execute(execution)).resolves.toEqual({ delivered: true });
     expect(send).toHaveBeenCalledOnce();
   });
@@ -101,30 +102,31 @@ describe("OttoToolRuntime", () => {
       state: "ready",
     });
 
-    for (const execution of [
-      {
+    await expect(
+      runtime.execute({
         threadId: "thread-controls",
-        toolId: "delegate" as const,
+        toolId: "delegate",
         toolCallId: "tool-message",
         input: {
           botId: BotId.make("bot-research"),
           task: "Compare flights.",
           expectedResult: "Return a short comparison.",
         },
-        approvalMode: "require-grant" as const,
-      },
-      {
-        threadId: "thread-controls",
-        toolId: "delegate_stop" as const,
-        toolCallId: "tool-stop",
-        input: { botId: BotId.make("bot-research") },
-        approvalMode: "require-grant" as const,
-      },
-    ]) {
-      await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
-      runtime.grantApproval(execution);
-      await expect(runtime.execute(execution)).resolves.toBeDefined();
-    }
+        approvalMode: "require-grant",
+      }),
+    ).resolves.toEqual({ delivered: true });
+
+    const stopExecution = {
+      threadId: "thread-controls",
+      toolId: "delegate_stop" as const,
+      toolCallId: "tool-stop",
+      input: { botId: BotId.make("bot-research") },
+      approvalMode: "require-grant" as const,
+    };
+
+    await expect(runtime.execute(stopExecution)).rejects.toThrow("requires approval");
+    runtime.grantApproval(stopExecution);
+    await expect(runtime.execute(stopExecution)).resolves.toBeDefined();
 
     expect(send).toHaveBeenCalledOnce();
     expect(stop).toHaveBeenCalledOnce();

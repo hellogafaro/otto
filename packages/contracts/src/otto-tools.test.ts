@@ -118,7 +118,7 @@ describe("Otto tool contracts", () => {
       expect(() => decodeOttoToolInput("delegate", { ...input, ...policy })).toThrow();
     }
 
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate")?.approval).toBe("send");
+    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate")?.approval).toBe("none");
   });
 
   it("bounds the context a bot hands to a child and rejects oversized context", () => {
@@ -148,7 +148,7 @@ describe("Otto tool contracts", () => {
     expect(decodeOttoToolInput("delegate_stop", { botId: "bot-research" })).toEqual({
       botId: "bot-research",
     });
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate")?.approval).toBe("send");
+    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate")?.approval).toBe("none");
     expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate_stop")?.approval).toBe("delete");
   });
 
