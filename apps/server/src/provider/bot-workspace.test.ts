@@ -295,7 +295,7 @@ describe("Boat", () => {
     expect(command).toHaveBeenCalledWith({
       sandboxId: "boat-id",
       commandRequest: {
-        command: "cd '/workspace/my files' && env 'VALUE=x; echo unsafe' printf 'a'\\''b'",
+        command: "export 'VALUE=x; echo unsafe'; cd '/workspace/my files' && printf 'a'\\''b'",
         timeoutSeconds: 2,
       },
     });

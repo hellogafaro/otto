@@ -143,12 +143,14 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
         quote(`${key}=${value}`),
       );
 
-      const invocation = `${env.length ? `env ${env.join(" ")} ` : ""}${commandLine(command, args)}`;
+      const invocation = options?.cwd
+        ? `cd ${quote(options.cwd)} && ${commandLine(command, args)}`
+        : commandLine(command, args);
 
       const result = await client.command({
         sandboxId,
         commandRequest: {
-          command: options?.cwd ? `cd ${quote(options.cwd)} && ${invocation}` : invocation,
+          command: env.length ? `export ${env.join(" ")}; ${invocation}` : invocation,
           timeoutSeconds: Math.ceil(timeout / 1_000),
         },
       });
