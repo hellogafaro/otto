@@ -341,6 +341,29 @@ describe("ComposioService", () => {
     }),
   );
 
+  it.effect("never gives bots GitHub's merge or raw GraphQL tools", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore({ "composio-api-key": "project-key" });
+
+      const { client, createSession } = fakeClient({
+        accounts: [{ id: "github-work", toolkit: { slug: "github" }, status: "ACTIVE" }],
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), () => client);
+      yield* service.getStatus(viewer);
+      yield* service.resolveRuntimeMcpServer("thread-1", noBot);
+
+      expect(createSession).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          tools: {
+            github: { disable: ["GITHUB_MERGE_A_PULL_REQUEST", "GITHUB_RUN_GRAPH_QL_QUERY"] },
+          },
+        }),
+      );
+    }),
+  );
+
   it.effect("switches accounts per bot, lending a personal one only by its owner", () =>
     Effect.gen(function* () {
       const { store } = makeSecretStore({ "composio-api-key": "project-key" });
