@@ -192,7 +192,7 @@ export function DesktopTabStrip() {
       <div
         role="tablist"
         aria-label={t("Tabs")}
-        className="flex min-w-0 flex-1 items-center gap-panel-gap"
+        className="flex min-w-0 items-center gap-panel-gap"
       >
         {tabs.map((tab, index) => {
           const place = tabPlace(tab.href);
@@ -218,7 +218,7 @@ export function DesktopTabStrip() {
               }}
               onDragEnd={() => setDragIndex(null)}
               className={cn(
-                "group/tab relative flex h-7 max-w-48 min-w-0 flex-1 basis-48 items-center overflow-hidden rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
+                "group/tab relative flex h-7 w-48 min-w-0 items-center overflow-hidden rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
                 active
                   ? "sidebar-row-raised text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
                   : "sidebar-row-hovered text-sidebar-muted-foreground hover:sidebar-row-current hover:text-sidebar-foreground",
