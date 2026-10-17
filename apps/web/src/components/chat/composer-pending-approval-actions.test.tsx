@@ -74,13 +74,13 @@ describe("ComposerPendingApprovalActions", () => {
       />,
     );
 
-    expect(markup).not.toContain("Enable Auto Review");
+    expect(markup).not.toContain(">Always allow<");
     expect(markup).toContain("Allow once");
     expect(markup).toContain("Never");
     expect(markup).not.toContain(">Decline<");
   });
 
-  it("offers Enable Auto Review when the server allows switching to it", () => {
+  it("offers Always allow as an outline button beside the primary Allow once", () => {
     const markup = renderToStaticMarkup(
       <ComposerPendingApprovalActions
         requestId={ApprovalRequestId.make("approval-shell-auto-review")}
@@ -88,16 +88,18 @@ describe("ComposerPendingApprovalActions", () => {
         isResponding={false}
         options={[
           { decision: "decline", label: "Decline" },
-          { decision: "acceptAlways", label: "Enable Auto Review" },
+          { decision: "acceptAlways", label: "Always allow" },
           { decision: "accept", label: "Allow" },
         ]}
         onRespondToApproval={async () => undefined}
       />,
     );
 
-    expect(markup).toContain("Enable Auto Review");
+    expect(markup).toContain(">Always allow<");
     expect(markup).toContain("Allow once");
     expect(markup).toContain("Never");
+    expect(markup.match(/bg-\(--primary-button-background\)/g)).toHaveLength(1);
+    expect(markup.indexOf("Always allow")).toBeLessThan(markup.indexOf("Allow once"));
   });
 
   it("keeps a session-only approval under its own label", () => {
@@ -116,7 +118,7 @@ describe("ComposerPendingApprovalActions", () => {
     );
 
     expect(markup).toContain("Allow for session");
-    expect(markup).not.toContain("Enable Auto Review");
+    expect(markup).not.toContain(">Always allow<");
   });
 
   it("uses one create or cancel choice for a routine", () => {
@@ -139,7 +141,7 @@ describe("ComposerPendingApprovalActions", () => {
     expect(markup.indexOf("Don&#x27;t create")).toBeLessThan(markup.indexOf("Create routine"));
     expect(markup).toContain("bg-(--primary-button-background)");
     expect(markup).not.toContain("text-destructive-foreground");
-    expect(markup).not.toContain("Enable Auto Review");
+    expect(markup).not.toContain(">Always allow<");
     expect(markup).not.toContain("Allow once");
     expect(markup).not.toContain(">Never<");
 
@@ -155,6 +157,6 @@ describe("ComposerPendingApprovalActions", () => {
 
     expect(fallbackMarkup).toContain("Create routine");
     expect(fallbackMarkup).toContain(">Don&#x27;t create<");
-    expect(fallbackMarkup).not.toContain("Enable Auto Review");
+    expect(fallbackMarkup).not.toContain(">Always allow<");
   });
 });

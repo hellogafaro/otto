@@ -56,7 +56,7 @@ describe("InlineApproval", () => {
     expect(markup).toContain("Runs once");
     expect(markup).toContain("Allow once");
     expect(markup).toContain("Never");
-    expect(markup).not.toContain("Enable Auto Review");
+    expect(markup).not.toContain(">Always allow<");
     // Not docked on the composer any more.
     expect(markup).not.toContain("rounded-t-xl");
     expect(markup.match(/disabled=""/g)).toHaveLength(2);
@@ -72,14 +72,12 @@ describe("InlineApproval", () => {
       args: { command: "pwd" },
       options: [
         { decision: "decline", label: "Decline" },
-        { decision: "acceptAlways", label: "Enable Auto Review" },
+        { decision: "acceptAlways", label: "Always allow" },
         { decision: "accept", label: "Allow" },
       ],
     });
 
-    const order = ["Never", "Enable Auto Review", "Allow once"].map((label) =>
-      markup.indexOf(label),
-    );
+    const order = ["Never", "Always allow", "Allow once"].map((label) => markup.indexOf(label));
 
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((left, right) => left - right)).toEqual(order);
@@ -156,6 +154,7 @@ describe("InlineApproval", () => {
 
   it.each([
     [{ decision: "accept", actor: "user", respondedBy: "Ana" }, "Allowed once by Ana"],
+    [{ decision: "acceptAlways", actor: "user", respondedBy: "Ana" }, "Always allowed by Ana"],
     [
       { decision: "acceptForSession", actor: "user", respondedBy: "Ana" },
       "Allowed for this session by Ana",

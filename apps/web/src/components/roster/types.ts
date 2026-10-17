@@ -1,4 +1,5 @@
 import type {
+  BotAlwaysAllowedTool,
   BotEngine,
   ChannelBinding,
   GroupMembership,
@@ -39,6 +40,8 @@ export interface Bot {
   disabledMcpServerIds: readonly McpServerId[];
   /** Skills (Library folder ids) switched off for this bot. */
   disabledSkillIds?: readonly LibraryFolderId[] | undefined;
+  /** Tools a person chose Always allow for; they run without asking. */
+  alwaysAllowed?: readonly BotAlwaysAllowedTool[] | undefined;
   /** The person responsible for the bot; its personal connections and skills serve it. */
   owner?: WorkParticipant | null | undefined;
   avatar: BotAvatar;

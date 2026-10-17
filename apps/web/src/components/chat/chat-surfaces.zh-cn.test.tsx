@@ -41,11 +41,8 @@ describe("chat surfaces in Simplified Chinese", () => {
     );
 
     expect(command).toContain(zhCNCatalog["Never"]);
-    expect(command).toContain(zhCNCatalog["Enable Auto Review"]);
+    expect(command).toContain(zhCNCatalog["Always allow"]);
     expect(command).toContain(zhCNCatalog["Allow once"]);
-    expect(command).toContain(
-      zhCNCatalog["Switch to Auto Review. Safe actions run, sensitive ones still ask."],
-    );
     expect(command).not.toContain("Allow once");
 
     const routine = renderInChinese(

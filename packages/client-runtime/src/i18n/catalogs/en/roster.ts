@@ -390,5 +390,21 @@ export const rosterCatalog = {
   "Proposed by": "Proposed by",
   "{bot} in {chat} · approved by {person}": "{bot} in {chat} · approved by {person}",
   "{bot} · approved by {person}": "{bot} · approved by {person}",
+  "Tools this bot runs without asking. Remove one and it asks again.":
+    "Tools this bot runs without asking. Remove one and it asks again.",
+  "Nothing always allowed": "Nothing always allowed",
+  "Choose Always allow on one of this bot's approvals to add a tool here.":
+    "Choose Always allow on one of this bot's approvals to add a tool here.",
+  "Turned on by {name} on {date}": "Turned on by {name} on {date}",
+  "Stop always allowing {tool}": "Stop always allowing {tool}",
+  "Sending only": "Sending only",
+  "Payments only": "Payments only",
+  "Deleting only": "Deleting only",
+  "Production changes only": "Production changes only",
+  "Secrets only": "Secrets only",
+  "Publishing only": "Publishing only",
+  "Signing only": "Signing only",
+  "Refunds only": "Refunds only",
+  "Account changes only": "Account changes only",
   you: "you",
 } as const;

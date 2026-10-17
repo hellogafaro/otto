@@ -377,5 +377,21 @@ export const rosterCatalog = {
   "Proposed by": "提议者",
   "{bot} in {chat} · approved by {person}": "{bot}，在 {chat} 中 · 由 {person} 批准",
   "{bot} · approved by {person}": "{bot} · 由 {person} 批准",
+  "Tools this bot runs without asking. Remove one and it asks again.":
+    "此机器人无需询问即可运行的工具。移除后会再次询问。",
+  "Nothing always allowed": "没有始终允许的工具",
+  "Choose Always allow on one of this bot's approvals to add a tool here.":
+    "在此机器人的审批中选择“始终允许”，工具会显示在这里。",
+  "Turned on by {name} on {date}": "{name} 于 {date} 开启",
+  "Stop always allowing {tool}": "不再始终允许 {tool}",
+  "Sending only": "仅限发送",
+  "Payments only": "仅限付款",
+  "Deleting only": "仅限删除",
+  "Production changes only": "仅限生产环境更改",
+  "Secrets only": "仅限密钥",
+  "Publishing only": "仅限发布",
+  "Signing only": "仅限签署",
+  "Refunds only": "仅限退款",
+  "Account changes only": "仅限账户更改",
   you: "你",
 } as const;

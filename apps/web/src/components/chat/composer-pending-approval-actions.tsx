@@ -1,4 +1,3 @@
-import { RiShieldCheckLine } from "@remixicon/react";
 import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
   type ApprovalRequestId,
@@ -45,7 +44,7 @@ function commandApprovalOptions(
   options: ReadonlyArray<ProviderApprovalOption>,
   t: Translate,
 ): ReadonlyArray<ProviderApprovalOption> {
-  const autoReview = options.find((option) => option.decision === "acceptAlways");
+  const always = options.find((option) => option.decision === "acceptAlways");
   const session = options.find((option) => option.decision === "acceptForSession");
 
   const once =
@@ -59,11 +58,7 @@ function commandApprovalOptions(
 
   return [
     { ...never, label: t("Never") },
-    ...(autoReview
-      ? [{ ...autoReview, label: t("Enable Auto Review") } as const]
-      : session
-        ? [session]
-        : []),
+    ...(always ? [{ ...always, label: t("Always allow") } as const] : session ? [session] : []),
     { ...once, label: t("Allow once") },
   ];
 }
@@ -89,7 +84,6 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
   return (
     <>
       {visibleOptions.map((option, index) => {
-        const isAutoReview = requestKind === "command" && option.decision === "acceptAlways";
         const allows = option.decision.startsWith("accept");
 
         return (
@@ -102,11 +96,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
             className={index === 0 && !allows ? "me-auto" : undefined}
             disabled={isResponding}
             onClick={() => void onRespondToApproval(requestId, option.decision)}
-            {...(isAutoReview
-              ? { title: t("Switch to Auto Review. Safe actions run, sensitive ones still ask.") }
-              : {})}
           >
-            {isAutoReview ? <RiShieldCheckLine aria-hidden="true" /> : null}
             <span className="max-w-40 truncate">{option.label}</span>
           </Button>
         );

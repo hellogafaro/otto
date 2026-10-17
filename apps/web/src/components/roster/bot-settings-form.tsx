@@ -32,6 +32,7 @@ import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
 import { toast } from "sonner";
 import { AvatarPickerDialog } from "./avatar-picker-dialog";
+import { BotAlwaysAllowed } from "./bot-always-allowed";
 import { BotAvatarView } from "./bot-avatar-view";
 import { BotEngineFields } from "./bot-engine-fields";
 import { BotIdentityFields } from "./bot-identity-fields";
@@ -302,6 +303,8 @@ export function BotSettingsForm({
               draft.activeEntry ? driverSupportsDelegation(draft.activeEntry.driverKind) : true
             }
           />
+
+          <BotAlwaysAllowed bot={bot} environmentId={environmentId} />
 
           <SettingsSection title={t("Danger")}>
             <SettingsRow

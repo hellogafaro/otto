@@ -89,7 +89,7 @@ function answeredLabel(approval: ApprovalRecord, t: Translate) {
         ? t("Allowed for this session by {name}", { name })
         : t("Allowed for this session");
     case "acceptAlways":
-      return name ? t("Auto Review turned on by {name}", { name }) : t("Auto Review turned on");
+      return name ? t("Always allowed by {name}", { name }) : t("Always allowed");
     case "decline":
       return name ? t("Not allowed by {name}", { name }) : t("Not allowed");
     case "cancel":
