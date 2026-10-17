@@ -42,6 +42,7 @@ import {
   ThreadLinkedPullRequest,
   ThreadId,
   LibraryFolderId,
+  BotAlwaysAllowedTool,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
@@ -94,6 +95,7 @@ export const ProjectionBotDbRowSchema = ProjectionBot.mapFields(
     engine: Schema.NullOr(Schema.fromJsonString(BotEngine)),
     disabledMcpServerIds: Schema.fromJsonString(Schema.Array(McpServerId)),
     disabledSkillIds: Schema.optional(Schema.fromJsonString(Schema.Array(LibraryFolderId))),
+    alwaysAllowed: Schema.optional(Schema.fromJsonString(Schema.Array(BotAlwaysAllowedTool))),
     owner: Schema.NullOr(Schema.fromJsonString(WorkParticipant)),
     channelBindings: Schema.fromJsonString(Schema.Array(ChannelBinding)),
     voiceEnabled: Schema.Number,
@@ -501,6 +503,7 @@ export function mapBotRow(
     instructions: row.instructions,
     disabledMcpServerIds: row.disabledMcpServerIds,
     ...(row.disabledSkillIds?.length ? { disabledSkillIds: row.disabledSkillIds } : {}),
+    ...(row.alwaysAllowed?.length ? { alwaysAllowed: row.alwaysAllowed } : {}),
     owner: row.owner,
     avatar: row.avatar,
     engine: row.engine,

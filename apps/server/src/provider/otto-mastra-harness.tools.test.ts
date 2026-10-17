@@ -74,7 +74,6 @@ describe("OttoMastraHarness", () => {
     });
 
     const pluginTool = { id: "plugin", execute: async () => undefined, requireApproval: false };
-    const approvalPolicies: boolean[] = [];
 
     const tools = await resolveOttoTools(requestContext, {
       authStorage: new AuthStorage("/tmp/otto-unused-auth.json"),
@@ -83,9 +82,6 @@ describe("OttoMastraHarness", () => {
         RestartMcpServers: pluginTool,
         shell: pluginTool,
       }),
-      syncThreadToolApproval: async (_threadId, _toolName, protectedAction) => {
-        approvalPolicies.push(protectedAction);
-      },
       toolRuntime: runtime,
     });
 
@@ -108,7 +104,6 @@ describe("OttoMastraHarness", () => {
       await shell.needsApprovalFn({ command: 'printf "hi\\n"', cwd: null, background: null }),
     );
     assert.deepEqual(approvalInputs, [{ command: 'printf "hi\\n"' }]);
-    assert.deepEqual(approvalPolicies, [true, true, true, true, false]);
     assert.equal(criticalOttoAction("RestartMcpServers"), "production");
   });
 

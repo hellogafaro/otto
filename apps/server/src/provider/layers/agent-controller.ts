@@ -460,6 +460,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       routineDispatcher,
       ThreadIdBrand,
       toolRuntime,
+      botStateRuntime: () => wired().botStateRuntime,
       approvalDecision,
       runMastra,
     });

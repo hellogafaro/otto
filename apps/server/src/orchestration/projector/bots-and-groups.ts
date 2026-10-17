@@ -77,6 +77,9 @@ export function projectBotsAndGroups(
             ...(payload.disabledSkillIds !== undefined
               ? { disabledSkillIds: payload.disabledSkillIds }
               : {}),
+            ...(payload.alwaysAllowed !== undefined
+              ? { alwaysAllowed: payload.alwaysAllowed }
+              : {}),
             ...(payload.owner !== undefined ? { owner: payload.owner } : {}),
             ...(payload.avatar !== undefined ? { avatar: payload.avatar } : {}),
             ...(payload.engine !== undefined ? { engine: payload.engine } : {}),

@@ -265,6 +265,28 @@ export const ChannelBinding = Schema.Struct({
 
 export type ChannelBinding = typeof ChannelBinding.Type;
 
+/**
+ * A tool a person let the bot run without asking, from an approval's Always allow. A tool the
+ * server classifies by action (send, delete…) is allowed for that kind only; `action` is null
+ * when the call named none.
+ */
+export const BotAlwaysAllowedTool = Schema.Struct({
+  toolName: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
+  action: Schema.NullOr(TrimmedNonEmptyString.check(Schema.isMaxLength(40))),
+  createdBy: Schema.Struct({
+    personId: AuthSessionId,
+    displayName: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
+  }),
+  createdAt: IsoDateTime,
+});
+
+export type BotAlwaysAllowedTool = typeof BotAlwaysAllowedTool.Type;
+
+export const sameAlwaysAllowedTool = (
+  left: Pick<BotAlwaysAllowedTool, "toolName" | "action">,
+  right: Pick<BotAlwaysAllowedTool, "toolName" | "action">,
+) => left.toolName === right.toolName && left.action === right.action;
+
 export const OrchestrationBot = Schema.Struct({
   id: BotId,
   name: TrimmedNonEmptyString,
@@ -281,6 +303,7 @@ export const OrchestrationBot = Schema.Struct({
   ),
   /** Skills (their Library folder ids) the bot leaves off; every other skill it can use is on. */
   disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
+  alwaysAllowed: Schema.optional(Schema.Array(BotAlwaysAllowedTool)),
   /** The person responsible for the bot, like a task's owner; its personal connections serve it. */
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   avatar: BotAvatar,

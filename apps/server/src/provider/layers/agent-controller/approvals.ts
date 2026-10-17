@@ -1,5 +1,11 @@
 import * as Predicate from "effect/Predicate";
-import type { ProviderApprovalDecision } from "@otto/contracts";
+import type {
+  ApprovalResponder,
+  BotAlwaysAllowedTool,
+  BotId,
+  ProviderApprovalDecision,
+} from "@otto/contracts";
+import { sameAlwaysAllowedTool } from "@otto/contracts";
 import { ProviderDriverKind } from "@otto/contracts";
 import { ProviderInstanceId } from "@otto/contracts";
 import type { OttoToolRuntime } from "../../otto-tool-runtime.ts";
@@ -12,12 +18,12 @@ import {
   type OttoCreateRoutineInput,
   type ProviderRuntimeEvent,
   ThreadId,
-  OTTO_CREATE_ROUTINE_TOOL_NAME,
 } from "@otto/contracts";
 
 import * as Effect from "effect/Effect";
 
-import { ottoActionNeedsApproval } from "../../otto-mastra-harness.ts";
+import { criticalOttoAction, isOttoProposal } from "../../mastra/otto-actions.ts";
+import type { OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
 
 import type { PendingWaiters } from "../../pending-waiters.ts";
 
@@ -29,6 +35,7 @@ import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { RoutineDraftDispatcher } from "../../../routines/routine-draft-dispatcher.ts";
 
 import { type ResolvedEngine, type ActiveSession } from "./state.ts";
+import { nowIso } from "./event-identity.ts";
 
 export function createApprovals(deps: {
   readonly sessions: Map<string, ActiveSession>;
@@ -72,12 +79,53 @@ export function createApprovals(deps: {
   readonly routineDispatcher: RoutineDraftDispatcher["Service"] | undefined;
   readonly ThreadIdBrand: (value: string) => ThreadId;
   readonly toolRuntime: OttoToolRuntime;
+  readonly botStateRuntime: () => OttoBotStateRuntime | undefined;
   readonly approvalDecision: (decision: ProviderApprovalDecision) => "approve" | "decline";
   readonly runMastra: <A>(
     operation: string,
     run: (signal: AbortSignal) => Promise<A>,
   ) => Effect.Effect<A, AgentControllerRuntimeError, never>;
 }) {
+  /**
+   * Saves Always allow on the bot for this tool and the kind of action the server classified, and
+   * returns the bot's rules with it. Proposals are approved one at a time, so they never get one.
+   */
+  const allowAlways = Effect.fn("AgentController.allowAlways")(function* (input: {
+    readonly toolName: string;
+    readonly toolInput: unknown;
+    readonly botId: BotId | undefined;
+    readonly responder: ApprovalResponder | undefined;
+    readonly current: ReadonlyArray<BotAlwaysAllowedTool>;
+  }) {
+    const { toolName, toolInput, botId, responder } = input;
+    const botState = deps.botStateRuntime();
+
+    if (isOttoProposal(toolName, toolInput) || !botId || !responder || !botState) {
+      return yield* new AgentControllerRuntimeError({
+        operation: "respondToRequest",
+        detail: "Always allow is only for a bot's tools, answered by a signed-in person.",
+      });
+    }
+
+    const rule: BotAlwaysAllowedTool = {
+      toolName,
+      action: criticalOttoAction(toolName, toolInput),
+      createdBy: { personId: responder.personId, displayName: responder.displayName },
+      createdAt: nowIso(),
+    };
+
+    yield* Effect.tryPromise({
+      try: () => botState.allowAlways(botId, rule),
+      catch: (cause) =>
+        new AgentControllerRuntimeError({
+          operation: "respondToRequest",
+          detail: `Always allow could not be saved: ${cause instanceof Error ? cause.message : String(cause)}`,
+        }),
+    });
+
+    return [...input.current.filter((entry) => !sameAlwaysAllowedTool(entry, rule)), rule];
+  });
+
   const respondToRequest: AgentControllerShape["respondToRequest"] = Effect.fn(
     "AgentController.respondToRequest",
   )(function* (input) {
@@ -225,22 +273,25 @@ export function createApprovals(deps: {
     const ottoTool = OTTO_TOOL_CATALOG.find((tool) => tool.id === toolName);
     const runtimeToolId = ottoTool?.id ?? (isMemoryToolId(toolName) ? toolName : undefined);
 
-    const acceptForSession =
-      input.decision === "acceptForSession" &&
-      !runtimeToolId &&
-      !ottoActionNeedsApproval(toolName, toolInput);
-
-    const enableAutoReview =
-      input.decision === "acceptAlways" &&
-      !ottoActionNeedsApproval(toolName, toolInput) &&
-      toolName !== OTTO_CREATE_ROUTINE_TOOL_NAME;
-
     const target = pendingApproval.toolName;
 
     const decision =
       input.decision === "acceptForSession" || input.decision === "acceptAlways"
         ? "accept"
         : input.decision;
+
+    const botId = active.toolSession.botId;
+
+    const alwaysAllowed =
+      input.decision === "acceptAlways"
+        ? yield* allowAlways({
+            toolName,
+            toolInput,
+            botId,
+            responder: input.responder,
+            current: active.toolSession.alwaysAllowed ?? [],
+          })
+        : undefined;
 
     const admitted = yield* deps.legacyProviderBridge.dispatchIfEnabled(
       active.providerInstanceId,
@@ -263,15 +314,16 @@ export function createApprovals(deps: {
           });
         }
 
-        // Auto Review lets permissionPolicy run the rest of this session; risky
-        // one-use actions still ask.
-        if (enableAutoReview) active.runtimeMode = "auto";
+        // The saved rule also covers this bot's later calls in the running turn.
+        if (alwaysAllowed) {
+          if (active.toolSession.botId === botId) {
+            active.toolSession = { ...active.toolSession, alwaysAllowed };
+          }
 
-        const update = acceptForSession
-          ? active.session.permissions.setForTool({ toolName, policy: "allow" })
-          : undefined;
-
-        if (acceptForSession) active.connectorSessionApprovals.add(toolName);
+          if (active.configuredToolSession.botId === botId) {
+            active.configuredToolSession = { ...active.configuredToolSession, alwaysAllowed };
+          }
+        }
 
         if (active.activeTurn) active.activeTurn.waiting = deps.turnStillWaiting(key, active);
         active.session.respondToToolApproval({
@@ -282,7 +334,7 @@ export function createApprovals(deps: {
               : deps.approvalDecision(decision),
         });
 
-        return { _tag: "Dispatched" as const, permissionUpdate: update };
+        return { _tag: "Dispatched" as const };
       },
     );
 
@@ -291,12 +343,6 @@ export function createApprovals(deps: {
         operation: "respondToRequest",
         detail: `Stale pending approval request: ${input.requestId}. The bot turn has ended. Send the request again.`,
       });
-    }
-
-    const permissionUpdate = admitted.permissionUpdate;
-
-    if (permissionUpdate) {
-      yield* deps.runMastra("permissions.setForTool", () => permissionUpdate);
     }
 
     deps.publish({

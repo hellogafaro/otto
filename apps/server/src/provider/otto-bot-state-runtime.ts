@@ -5,6 +5,7 @@ import {
   ThreadId,
   type OttoToolInputSchemas,
   type OttoToolReceipt,
+  type BotAlwaysAllowedTool,
   type BotId,
   type OrchestrationCommand,
   type OrchestrationReadModel,
@@ -55,7 +56,17 @@ export function createOttoBotStateRuntime(options: OttoBotStateRuntimeOptions) {
     };
   };
 
-  return { updateProfile };
+  /** Saves a person's Always allow on the bot, so later turns and restarts keep it. */
+  const allowAlways = async (botId: BotId, rule: BotAlwaysAllowedTool) => {
+    await options.dispatch({
+      type: "bot.update",
+      commandId: CommandId.make(`bot-state:always-allow:${id()}`),
+      botId,
+      alwaysAllow: rule,
+    });
+  };
+
+  return { updateProfile, allowAlways };
 }
 
 export type OttoBotStateRuntime = ReturnType<typeof createOttoBotStateRuntime>;

@@ -155,6 +155,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       const toolSession = { ...existing.configuredToolSession };
       delete toolSession.botId;
       delete toolSession.botName;
+      delete toolSession.alwaysAllowed;
       delete toolSession.billedBotId;
       delete toolSession.delegation;
       delete toolSession.memoryHandlers;
@@ -167,6 +168,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         runtimeMode: access.runtimeMode,
         ...(botId ? { botId } : {}),
         ...(input.botName ? { botName: input.botName } : {}),
+        ...(bot?.alwaysAllowed?.length ? { alwaysAllowed: bot.alwaysAllowed } : {}),
         ...(nextMemoryHandlers ? { memoryHandlers: nextMemoryHandlers } : {}),
         ...(delegatedAccess && botId ? { billedBotId: botId } : {}),
         ...(deps.wired().delegationRuntime && botId
@@ -310,6 +312,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
     const toolSession: OttoToolSession = {
       ...(botId ? { botId } : {}),
       ...(input.botName ? { botName: input.botName } : {}),
+      ...(bot?.alwaysAllowed?.length ? { alwaysAllowed: bot.alwaysAllowed } : {}),
       runtimeMode: access.runtimeMode,
       workspaceType,
       ...(workspace ? { workspace } : {}),
@@ -492,7 +495,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         pendingTurns: [],
         toolNames: new Map<string, string>(),
         approvalRequests: new Map(),
-        connectorSessionApprovals: new Set<string>(),
         toolSession,
         configuredToolSession: toolSession,
         configuredMemory: memory,

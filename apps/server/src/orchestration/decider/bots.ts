@@ -8,6 +8,7 @@ import {
   type OrchestrationCommand,
   type OrchestrationEvent,
   type OrchestrationReadModel,
+  sameAlwaysAllowedTool,
 } from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
@@ -183,6 +184,26 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         });
       }
 
+      const allowed = bot.alwaysAllowed ?? [];
+      const keep = command.alwaysAllowed;
+
+      if (keep?.some((rule) => !allowed.some((kept) => sameAlwaysAllowedTool(kept, rule)))) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Only Always allow on an approval adds an always-allowed tool.",
+        });
+      }
+
+      const kept = keep
+        ? allowed.filter((rule) => keep.some((entry) => sameAlwaysAllowedTool(rule, entry)))
+        : allowed;
+
+      const added = command.alwaysAllow;
+
+      const alwaysAllowed = added
+        ? [...kept.filter((rule) => !sameAlwaysAllowedTool(rule, added)), added]
+        : kept;
+
       const targetGroup =
         command.groupId == null
           ? null
@@ -280,6 +301,7 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           ...(command.disabledSkillIds !== undefined
             ? { disabledSkillIds: command.disabledSkillIds }
             : {}),
+          ...(keep !== undefined || added !== undefined ? { alwaysAllowed } : {}),
           ...(command.owner !== undefined ? { owner: command.owner } : {}),
           ...(command.avatar !== undefined ? { avatar: command.avatar } : {}),
           ...(command.engine !== undefined ? { engine: command.engine } : {}),

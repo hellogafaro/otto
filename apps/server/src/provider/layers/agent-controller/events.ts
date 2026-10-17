@@ -20,13 +20,14 @@ import {
   type ProviderRuntimeEvent,
   ThreadId,
   OTTO_CREATE_ROUTINE_TOOL_NAME,
+  sameAlwaysAllowedTool,
 } from "@otto/contracts";
 
 import { ServerConfig } from "../../../config.ts";
 
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 import { ottoActionNeedsApproval, criticalOttoAction } from "../../otto-mastra-harness.ts";
-import { proposedBotInstructions } from "../../mastra/otto-actions.ts";
+import { isOttoProposal, proposedBotInstructions } from "../../mastra/otto-actions.ts";
 
 import { type OttoChannelRuntime } from "../../otto-channel-runtime.ts";
 import { type OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
@@ -475,9 +476,19 @@ export function createEvents(deps: {
           ottoActionNeedsApproval(event.toolName, toolInput) ||
           deps.mcpToolNeedsApproval(mcpManager, event.toolName);
 
+        const proposal = isOttoProposal(event.toolName, toolInput);
+
+        // A person chose Always allow for this bot, this tool and this kind of action.
+        const alwaysAllowed =
+          !proposal &&
+          (active.toolSession.alwaysAllowed ?? []).some((rule) =>
+            sameAlwaysAllowedTool(rule, { toolName: event.toolName, action }),
+          );
+
         if (
-          !oneUseApproval &&
-          deps.permissionPolicy(active.runtimeMode, ottoToolCategory(event.toolName)) === "allow"
+          alwaysAllowed ||
+          (!oneUseApproval &&
+            deps.permissionPolicy(active.runtimeMode, ottoToolCategory(event.toolName)) === "allow")
         ) {
           deps.forkPromise(
             "Otto could not approve an allowed tool call.",
@@ -558,15 +569,15 @@ export function createEvents(deps: {
                     { decision: "accept", label: "Create routine" },
                     { decision: "decline", label: "Cancel" },
                   ]
-                : oneUseApproval
+                : proposal
                   ? [
                       { decision: "decline", label: "Decline" },
                       { decision: "accept", label: "Approve" },
                     ]
                   : [
-                      { decision: "decline", label: "Decline" },
-                      { decision: "acceptAlways", label: "Enable Auto Review" },
-                      { decision: "accept", label: "Allow" },
+                      { decision: "decline", label: "Never" },
+                      { decision: "acceptAlways", label: "Always allow" },
+                      { decision: "accept", label: "Allow once" },
                     ],
           },
         });

@@ -3,10 +3,12 @@ import type { AgentControllerEvent } from "@mastra/core/agent-controller";
 import { LocalFilesystem, LocalSandbox, Workspace } from "@mastra/core/workspace";
 import {
   ApprovalRequestId,
+  AuthSessionId,
   BotId,
   DelegationId,
   ProviderDriverKind,
   ThreadId,
+  type OrchestrationCommand,
   type ProviderRuntimeEvent,
 } from "@otto/contracts";
 import { it } from "@effect/vitest";
@@ -174,9 +176,10 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
-  it.effect("offers Enable Auto Review for workspace commands and then stops asking", () => {
+  it.effect("saves Always allow on the bot and stops asking for that tool and kind", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
+    const dispatched: OrchestrationCommand[] = [];
 
     return provideController(
       Effect.gen(function* () {
@@ -186,6 +189,17 @@ describe("AgentControllerLive", () => {
           Stream.runForEach((event) => Effect.sync(() => events.push(event))),
           Effect.forkChild({ startImmediately: true }),
         );
+        assert.isDefined(controller.configureDelegation);
+        yield* controller.configureDelegation({
+          readSnapshot: async () => {
+            throw new Error("No snapshot in this test.");
+          },
+          dispatch: async (command) => {
+            dispatched.push(command);
+
+            return { sequence: dispatched.length };
+          },
+        });
         yield* resolveCodex(controller);
         yield* controller.startSession(codexThreadId, {
           threadId: codexThreadId,
@@ -194,6 +208,7 @@ describe("AgentControllerLive", () => {
           cwd: process.cwd(),
           modelSelection: codexSelection,
           runtimeMode: "approval-required",
+          botId: BotId.make("bot-ops"),
         });
         yield* controller.sendTurn({ threadId: codexThreadId, input: "List files." });
         mastra.emit({
@@ -209,22 +224,46 @@ describe("AgentControllerLive", () => {
             event.type === "request.opened" && event.requestId === "shell-review-1",
         );
 
-        expect(opened?.payload.options?.map((option) => option.decision)).toEqual([
-          "decline",
-          "acceptAlways",
-          "accept",
+        expect(opened?.payload.options).toEqual([
+          { decision: "decline", label: "Never" },
+          { decision: "acceptAlways", label: "Always allow" },
+          { decision: "accept", label: "Allow once" },
         ]);
 
         yield* controller.respondToRequest({
           threadId: codexThreadId,
           requestId: ApprovalRequestId.make("shell-review-1"),
           decision: "acceptAlways",
+          responder: {
+            personId: AuthSessionId.make("person-ana"),
+            displayName: "Ana",
+            canWrite: true,
+          },
         });
+
+        expect(dispatched).toEqual([
+          expect.objectContaining({
+            type: "bot.update",
+            botId: "bot-ops",
+            alwaysAllow: expect.objectContaining({
+              toolName: "shell",
+              action: null,
+              createdBy: { personId: "person-ana", displayName: "Ana" },
+            }),
+          }),
+        ]);
+
         mastra.emit({
           type: "tool_approval_required",
           toolCallId: "shell-review-2",
           toolName: "shell",
           args: { command: "ls" },
+        } as AgentControllerEvent);
+        mastra.emit({
+          type: "tool_approval_required",
+          toolCallId: "shell-review-delete",
+          toolName: "shell",
+          args: { command: "rm -rf ./build" },
         } as AgentControllerEvent);
         yield* Effect.yieldNow;
 
@@ -237,7 +276,11 @@ describe("AgentControllerLive", () => {
             (event) => event.type === "request.opened" && event.requestId === "shell-review-2",
           ),
         ).toBe(false);
-        // The auto-approved call must also pass the runtime's own grant check.
+        // Deleting is another kind of action, so it still asks.
+        expect(events).toContainEqual(
+          expect.objectContaining({ type: "request.opened", requestId: "shell-review-delete" }),
+        );
+        // The allowed call must also pass the runtime's own grant check.
         const runtime = mastra.harnessOptions[0]?.toolRuntime;
         assert.isDefined(runtime);
         yield* Effect.promise(() =>
@@ -249,6 +292,64 @@ describe("AgentControllerLive", () => {
             approvalMode: "require-grant",
           }),
         );
+        mastra.finishSend();
+      }),
+      bridge.service,
+      mastra.factory,
+    );
+  });
+
+  it.effect("never saves Always allow for a proposal", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    return provideController(
+      Effect.gen(function* () {
+        const controller = yield* AgentController;
+        assert.isDefined(controller.configureDelegation);
+        yield* controller.configureDelegation({
+          readSnapshot: async () => {
+            throw new Error("No snapshot in this test.");
+          },
+          dispatch: async () => ({ sequence: 1 }),
+        });
+        yield* resolveCodex(controller);
+        yield* controller.startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          cwd: process.cwd(),
+          modelSelection: codexSelection,
+          runtimeMode: "full-access",
+          botId: BotId.make("bot-ops"),
+        });
+        yield* controller.sendTurn({ threadId: codexThreadId, input: "Tidy your profile." });
+        mastra.emit({
+          type: "tool_approval_required",
+          toolCallId: "profile-instructions",
+          toolName: "bot_update",
+          args: { instructions: "Answer in Spanish." },
+        } as AgentControllerEvent);
+        yield* Effect.yieldNow;
+
+        const error = yield* controller
+          .respondToRequest({
+            threadId: codexThreadId,
+            requestId: ApprovalRequestId.make("profile-instructions"),
+            decision: "acceptAlways",
+            responder: {
+              personId: AuthSessionId.make("person-ana"),
+              displayName: "Ana",
+              canWrite: true,
+            },
+          })
+          .pipe(Effect.flip);
+
+        expect(error.message).toContain("Always allow is only for a bot's tools");
+        expect(mastra.session.respondToToolApproval).not.toHaveBeenCalledWith({
+          toolCallId: "profile-instructions",
+          decision: "approve",
+        });
         mastra.finishSend();
       }),
       bridge.service,

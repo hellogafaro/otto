@@ -3,6 +3,7 @@ import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
   ApprovalRequestId,
   AuthSessionId,
+  BotId,
   ProviderDriverKind,
   type ProviderRuntimeEvent,
 } from "@otto/contracts";
@@ -97,7 +98,7 @@ describe("AgentControllerLive", () => {
         yield* controller.respondToRequest({
           threadId: codexThreadId,
           requestId: ApprovalRequestId.make("shell-tool-1"),
-          decision: "acceptAlways",
+          decision: "accept",
         });
 
         const runtime = mastra.harnessOptions[0]?.toolRuntime;
@@ -211,6 +212,13 @@ describe("AgentControllerLive", () => {
     return provideController(
       Effect.gen(function* () {
         const controller = yield* AgentController;
+        assert.isDefined(controller.configureDelegation);
+        yield* controller.configureDelegation({
+          readSnapshot: async () => {
+            throw new Error("No snapshot in this test.");
+          },
+          dispatch: async () => ({ sequence: 1 }),
+        });
         yield* resolveCodex(controller);
         yield* controller.startSession(codexThreadId, {
           threadId: codexThreadId,
@@ -219,6 +227,7 @@ describe("AgentControllerLive", () => {
           cwd: process.cwd(),
           modelSelection: codexSelection,
           runtimeMode: "approval-required",
+          botId: BotId.make("bot-mail"),
         });
         yield* controller.sendTurn({ threadId: codexThreadId, input: "Email Ana." });
         mastra.emit({
@@ -239,7 +248,7 @@ describe("AgentControllerLive", () => {
         yield* controller.respondToRequest({
           threadId: codexThreadId,
           requestId: ApprovalRequestId.make("send-tool-ana"),
-          decision: "acceptForSession",
+          decision: "acceptAlways",
           responder: {
             personId: AuthSessionId.make("person-ana"),
             displayName: "Ana",
@@ -250,7 +259,7 @@ describe("AgentControllerLive", () => {
 
         assert.strictEqual(resolved?.type, "request.resolved");
         expect(resolved?.payload).toMatchObject({
-          decision: "acceptForSession",
+          decision: "acceptAlways",
           respondedBy: "Ana",
           outcome: "approved",
         });

@@ -129,36 +129,6 @@ export function createHarness(deps: {
         return connection ? { ...connection, instanceId: providerInstanceId } : undefined;
       },
       memoryDbPath: path.join(deps.config.stateDir, "mastra-observational-memory.sqlite"),
-      syncThreadToolApproval: async (threadId, toolName, protectedAction) => {
-        const active = deps.sessions.get(threadId);
-        const activeTurn = active?.activeTurn;
-
-        if (
-          !active ||
-          !activeTurn ||
-          (!protectedAction && !active.connectorSessionApprovals.has(toolName))
-        ) {
-          return;
-        }
-
-        const update = await deps.runPromise(
-          deps.legacyProviderBridge.dispatchIfEnabled(
-            active.providerInstanceId,
-            "AgentController.syncThreadToolApproval",
-            () => {
-              if (deps.sessions.get(threadId) !== active || active.activeTurn !== activeTurn)
-                return;
-
-              return active.session.permissions.setForTool({
-                toolName,
-                policy: protectedAction ? "ask" : "allow",
-              });
-            },
-          ),
-        );
-
-        await update;
-      },
       getThreadTools: (threadId) => deps.sessionResources.getConnectorTools(threadId),
       onStreamRetry: (threadId) => {
         const turn = deps.sessions.get(threadId)?.activeTurn;

@@ -105,7 +105,6 @@ export interface ActiveSession {
   readonly pendingDispatches: Set<Promise<void>>;
   readonly toolNames: Map<string, string>;
   readonly approvalRequests: Map<string, { readonly name: string; readonly input: unknown }>;
-  readonly connectorSessionApprovals: Set<string>;
   toolSession: OttoToolSession;
   configuredToolSession: OttoToolSession;
   /** Whether this session's turns get memory: Memory is on and the work is not delegated. */

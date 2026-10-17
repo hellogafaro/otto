@@ -56,6 +56,9 @@ export function createBots({
             ...(event.payload.disabledSkillIds !== undefined
               ? { disabledSkillIds: event.payload.disabledSkillIds }
               : {}),
+            ...(event.payload.alwaysAllowed !== undefined
+              ? { alwaysAllowed: event.payload.alwaysAllowed }
+              : {}),
             ...(event.payload.owner !== undefined ? { owner: event.payload.owner } : {}),
             ...(event.payload.avatar !== undefined ? { avatar: event.payload.avatar } : {}),
             ...(event.payload.engine !== undefined ? { engine: event.payload.engine } : {}),

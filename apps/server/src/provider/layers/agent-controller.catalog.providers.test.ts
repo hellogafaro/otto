@@ -247,23 +247,7 @@ describe("AgentControllerLive", () => {
         yield* controller.respondToRequest({
           threadId: codexThreadId,
           requestId: ApprovalRequestId.make("exa-tool-1"),
-          decision: "acceptForSession",
-        });
-        const syncApproval = mastra.harnessOptions[0]?.syncThreadToolApproval;
-        assert.isDefined(syncApproval);
-        yield* Effect.promise(() =>
-          syncApproval(String(codexThreadId), "builtin-exa_search", true),
-        );
-        expect(mastra.session.permissions.setForTool).toHaveBeenLastCalledWith({
-          toolName: "builtin-exa_search",
-          policy: "ask",
-        });
-        yield* Effect.promise(() =>
-          syncApproval(String(codexThreadId), "builtin-exa_search", false),
-        );
-        expect(mastra.session.permissions.setForTool).toHaveBeenLastCalledWith({
-          toolName: "builtin-exa_search",
-          policy: "allow",
+          decision: "accept",
         });
         mastra.emit({
           type: "tool_end",

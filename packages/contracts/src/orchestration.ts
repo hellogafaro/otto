@@ -63,6 +63,8 @@ export {
   ChannelBindingStatus,
   ChannelFailureCategory,
   ChannelBinding,
+  BotAlwaysAllowedTool,
+  sameAlwaysAllowedTool,
   OrchestrationBot,
   ARCHIVED_BOT_RETENTION_DAYS,
   archivedBotDeletesAtMs,

@@ -299,6 +299,9 @@ export const createWsOrchestrationStreams = ({
                   ...(nextBot.disabledSkillIds?.length
                     ? { disabledSkillIds: nextBot.disabledSkillIds }
                     : {}),
+                  ...(nextBot.alwaysAllowed?.length
+                    ? { alwaysAllowed: nextBot.alwaysAllowed }
+                    : {}),
                   ...(nextBot.owner !== undefined ? { owner: nextBot.owner } : {}),
                   avatar: nextBot.avatar,
                   engine: nextBot.engine,

@@ -1,4 +1,5 @@
 import {
+  BotAlwaysAllowedTool,
   BotAvatar,
   BotEngine,
   BotId,
@@ -28,6 +29,7 @@ export const ProjectionBot = Schema.Struct({
   instructions: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   disabledMcpServerIds: Schema.Array(McpServerId),
   disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
+  alwaysAllowed: Schema.optional(Schema.Array(BotAlwaysAllowedTool)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),

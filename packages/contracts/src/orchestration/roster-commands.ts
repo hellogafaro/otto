@@ -29,6 +29,7 @@ import {
   BotEngine,
   BotSandbox,
   BotInstructions,
+  BotAlwaysAllowedTool,
   ChannelProvider,
   ChannelBinding,
   GroupMembershipRole,
@@ -109,6 +110,10 @@ export const BotUpdateCommand = Schema.Struct({
   instructions: Schema.optional(Schema.NullOr(BotInstructions)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
   disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
+  /** The always-allowed tools to keep; it can only remove, never add. */
+  alwaysAllowed: Schema.optional(Schema.Array(BotAlwaysAllowedTool)),
+  /** Set by the server when a person answers an approval with Always allow. */
+  alwaysAllow: Schema.optional(BotAlwaysAllowedTool),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   /** Filled in by the server; only the owner hands a bot to someone else. */
   by: Schema.optional(WorkParticipant),
@@ -133,6 +138,8 @@ export const ClientBotUpdateCommand = Schema.Struct({
   instructions: Schema.optional(Schema.NullOr(BotInstructions)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
   disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
+  /** The always-allowed tools to keep; removing one makes the bot ask again. */
+  alwaysAllowed: Schema.optional(Schema.Array(BotAlwaysAllowedTool)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   /** Filled in by the server; only the owner hands a bot to someone else. */
   by: Schema.optional(WorkParticipant),

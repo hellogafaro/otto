@@ -261,6 +261,16 @@ export function proposedBotInstructions<Input>(toolName: string, args?: Input): 
     : null;
 }
 
+/** A routine, skill or instruction change a person approves as a whole; it is never always allowed. */
+export function isOttoProposal<Input>(toolName: string, args?: Input): boolean {
+  return (
+    toolName === OTTO_CREATE_ROUTINE_TOOL_NAME ||
+    toolName === "skill_create" ||
+    toolName === "skill_update" ||
+    proposedBotInstructions(toolName, args) !== null
+  );
+}
+
 export function ottoActionNeedsApproval<Input>(toolName: string, args?: Input): boolean {
   if (proposedBotInstructions(toolName, args) !== null) return true;
 

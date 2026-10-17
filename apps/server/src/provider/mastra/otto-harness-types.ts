@@ -113,11 +113,6 @@ export interface OttoMastraHarnessOptions {
   readonly getThreadTools: (threadId: string) => ToolsInput;
   /** Called before a failed model stream for this thread is retried from the start. */
   readonly onStreamRetry?: (threadId: string) => void;
-  readonly syncThreadToolApproval?: (
-    threadId: string,
-    toolName: string,
-    protectedAction: boolean,
-  ) => Promise<void>;
   readonly toolRuntime: OttoToolRuntime;
   readonly createRoutine?: (
     threadId: string,
@@ -169,7 +164,6 @@ export type OttoMastraToolOptions = Pick<
   | "getKimiAccess"
   | "getOpenCodeGoApiKey"
   | "getThreadTools"
-  | "syncThreadToolApproval"
   | "toolRuntime"
   | "createRoutine"
   | "listRoutines"

@@ -2,6 +2,7 @@ import type { Tool } from "@mastra/core/tools";
 import { type Workspace } from "@mastra/core/workspace";
 import {
   type ApprovalResponder,
+  type BotAlwaysAllowedTool,
   type OttoDelegationAccessGrant,
   OttoToolInputSchemas,
   type BotId,
@@ -31,6 +32,8 @@ export interface OttoToolSession {
   readonly botId?: BotId;
   readonly botName?: string;
   readonly billedBotId?: BotId;
+  /** The bot's tools a person chose Always allow for; they run without asking. */
+  readonly alwaysAllowed?: ReadonlyArray<BotAlwaysAllowedTool>;
   readonly runtimeMode: RuntimeMode;
   readonly workspaceType: OttoToolWorkspaceType;
   readonly timezone?: string;

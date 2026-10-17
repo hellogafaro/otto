@@ -1,4 +1,5 @@
 import {
+  AuthSessionId,
   BotId,
   CommandId,
   GroupId,
@@ -273,6 +274,72 @@ it.layer(TestLayer)("bot persistence", (it) => {
       });
       bot = (yield* snapshots.getShellSnapshot()).bots.find((entry) => entry.id === botId);
       assert.equal(bot?.imageProvider, null);
+    }),
+  );
+
+  it.effect("adds always-allowed tools only from Always allow and removes them on request", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngineService;
+      const snapshots = yield* ProjectionSnapshotQuery;
+      const botId = BotId.make("bot-always-allowed");
+      const createdAt = "2026-01-03T00:00:00.000Z";
+      const createdBy = { personId: AuthSessionId.make("person-ana"), displayName: "Ana" };
+      const shell = { toolName: "shell", action: null, createdBy, createdAt };
+      const send = { toolName: "gmail_send_message", action: "send", createdBy, createdAt };
+
+      yield* engine.dispatch({
+        type: "bot.create",
+        commandId: CommandId.make("cmd-allow-bot-create"),
+        botId,
+        name: "Runner",
+        title: "Operator",
+        avatar: { kind: "dither", seed: "runner" },
+        engine: null,
+        sandbox: "local",
+        groupId: null,
+        createdAt,
+      });
+
+      for (const [index, rule] of [shell, send, shell].entries()) {
+        yield* engine.dispatch({
+          type: "bot.update",
+          commandId: CommandId.make(`cmd-allow-bot-add-${index}`),
+          botId,
+          alwaysAllow: rule,
+        });
+      }
+
+      const allowed = () =>
+        snapshots
+          .getShellSnapshot()
+          .pipe(
+            Effect.map(
+              (snapshot) => snapshot.bots.find((entry) => entry.id === botId)?.alwaysAllowed,
+            ),
+          );
+
+      assert.deepEqual(yield* allowed(), [send, shell]);
+
+      const forged = yield* engine
+        .dispatch({
+          type: "bot.update",
+          commandId: CommandId.make("cmd-allow-bot-forge"),
+          botId,
+          alwaysAllowed: [send, shell, { ...shell, toolName: "edit" }],
+        })
+        .pipe(Effect.flip);
+
+      assert.include(forged.message, "Only Always allow on an approval adds");
+
+      yield* engine.dispatch({
+        type: "bot.update",
+        commandId: CommandId.make("cmd-allow-bot-remove"),
+        botId,
+        alwaysAllowed: [{ ...shell, createdAt: "2030-01-01T00:00:00.000Z" }],
+      });
+
+      // The kept rule keeps who turned it on and when, whatever the client sent.
+      assert.deepEqual(yield* allowed(), [shell]);
     }),
   );
 

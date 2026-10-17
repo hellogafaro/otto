@@ -251,7 +251,7 @@ export async function resolveOttoTools(
   );
 
   return {
-    ...approvalAwareTools(threadId, options.getThreadTools(threadId), options),
+    ...approvalAwareTools(options.getThreadTools(threadId)),
     ...ottoTools,
     ...(routineTool ? { [OTTO_CREATE_ROUTINE_TOOL_NAME]: routineTool } : {}),
     ...(deleteRoutinesTool ? { [OTTO_DELETE_ROUTINES_TOOL_NAME]: deleteRoutinesTool } : {}),
@@ -262,11 +262,7 @@ export async function resolveOttoTools(
   };
 }
 
-export function approvalAwareTools(
-  threadId: string,
-  tools: ToolsInput,
-  options: OttoMastraToolOptions,
-): ToolsInput {
+export function approvalAwareTools(tools: ToolsInput): ToolsInput {
   return Object.fromEntries(
     Object.entries(tools).map(([name, tool]) => {
       const existing =
@@ -277,12 +273,8 @@ export function approvalAwareTools(
             : undefined;
 
       const needsApproval: NeedsApprovalFn = async (input, context) => {
-        const protectedAction = ottoActionNeedsApproval(name, input);
-
-        await options.syncThreadToolApproval?.(threadId, name, protectedAction);
-
         return (
-          protectedAction ||
+          ottoActionNeedsApproval(name, input) ||
           (Predicate.isFunction(existing) ? await existing(input, context) : existing === true)
         );
       };
