@@ -54,7 +54,7 @@ import * as PubSub from "effect/PubSub";
 import * as Schedule from "effect/Schedule";
 import * as Clock from "effect/Clock";
 import { HostProcessEnvironment } from "@otto/shared/hostProcess";
-import { botSandboxEnvironment } from "../bot-workspace-pool.ts";
+import { botSandboxEnvironment, defaultBotSandbox } from "../bot-workspace-pool.ts";
 import * as Ref from "effect/Ref";
 
 import { ProjectionThreadMessageRepositoryLive } from "../../persistence/layers/projection-thread-messages.ts";
@@ -557,7 +557,10 @@ const make = (options?: AgentControllerLiveOptions) =>
       const results = yield* runMastra("resources.sweepComputers", () =>
         sessionResources.sweepComputers({
           sandboxes: new Map(
-            readModel.bots.map((bot) => [bot.id, bot.sandbox ?? settings.sandbox.defaultProvider]),
+            readModel.bots.map((bot) => [
+              bot.id,
+              bot.sandbox ?? defaultBotSandbox(settings.sandbox, serverBoatKey),
+            ]),
           ),
           environment: (provider) =>
             botSandboxEnvironment(settings.sandbox, provider, serverBoatKey),

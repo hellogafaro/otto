@@ -27,6 +27,7 @@ import {
   botRuntimeResourceScope,
   botSandboxEnvironment,
   botWorkspaceCredentialFingerprint,
+  defaultBotSandbox,
   botWorkspaceResourceKey,
 } from "../../../provider/bot-workspace-pool.ts";
 import {
@@ -413,16 +414,15 @@ export function createSession({
       .filter(Boolean)
       .join("\n");
 
-    const effectiveSandbox = respondingBot?.sandbox ?? serverSettings.sandbox.defaultProvider;
+    const serverBoatKey = (yield* HostProcessEnvironment).BOAT_API_KEY;
+
+    const effectiveSandbox =
+      respondingBot?.sandbox ?? defaultBotSandbox(serverSettings.sandbox, serverBoatKey);
 
     const sandboxEnvironment =
       effectiveSandbox === "local"
         ? undefined
-        : botSandboxEnvironment(
-            serverSettings.sandbox,
-            effectiveSandbox,
-            (yield* HostProcessEnvironment).BOAT_API_KEY,
-          );
+        : botSandboxEnvironment(serverSettings.sandbox, effectiveSandbox, serverBoatKey);
 
     if (effectiveSandbox !== "local") {
       const missingCredential = SANDBOX_PROVIDER_CREDENTIALS[effectiveSandbox].find(

@@ -1,6 +1,6 @@
 import { describe } from "vite-plus/test";
 import { it as effectIt } from "@effect/vitest";
-import { BotId } from "@otto/contracts";
+import { BotId, DEFAULT_SERVER_SETTINGS } from "@otto/contracts";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as TestClock from "effect/testing/TestClock";
@@ -10,12 +10,36 @@ import {
   BotWorkspacePool,
   botWorkspaceCredentialFingerprint,
   botWorkspaceIdentity,
+  defaultBotSandbox,
 } from "./bot-workspace-pool.ts";
 import { makebotWorkspacePoolTestSupport } from "./test-support/bot-workspace-pool.ts";
 
 const { localWorkspace, remoteWorkspace } = makebotWorkspacePoolTestSupport();
 
 describe("BotWorkspacePool", () => {
+  it("runs bots on this computer while the default sandbox has no credentials", () => {
+    const sandbox = { ...DEFAULT_SERVER_SETTINGS.sandbox, defaultProvider: "boat" as const };
+
+    expect(defaultBotSandbox(sandbox, undefined)).toBe("local");
+    expect(defaultBotSandbox(sandbox, "server-boat-key")).toBe("boat");
+
+    const railway = {
+      ...DEFAULT_SERVER_SETTINGS.sandbox,
+      defaultProvider: "railway" as const,
+      providers: {
+        ...DEFAULT_SERVER_SETTINGS.sandbox.providers,
+        railway: {
+          environment: [
+            { name: "RAILWAY_API_TOKEN", value: "token", sensitive: true },
+            { name: "RAILWAY_ENVIRONMENT_ID", value: "", sensitive: false },
+          ],
+        },
+      },
+    };
+
+    expect(defaultBotSandbox(railway, undefined)).toBe("local");
+  });
+
   effectIt.effect("derives workspace identities", () =>
     Effect.sync(() => {
       expect(

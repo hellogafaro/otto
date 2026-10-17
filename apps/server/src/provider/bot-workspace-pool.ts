@@ -2,7 +2,12 @@ import * as Match from "effect/Match";
 import * as NodeCrypto from "node:crypto";
 
 import { Workspace } from "@mastra/core/workspace";
-import type { BotId, BotSandbox, ServerSettings } from "@otto/contracts";
+import {
+  SANDBOX_PROVIDER_CREDENTIALS,
+  type BotId,
+  type BotSandbox,
+  type ServerSettings,
+} from "@otto/contracts";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -60,6 +65,23 @@ export function botSandboxEnvironment(
   return provider === "boat" && serverBoatKey?.trim()
     ? { BOAT_API_KEY: serverBoatKey.trim(), ...configured }
     : configured;
+}
+
+/** The sandbox for bots without an override: the saved default when it has every credential, otherwise this computer. */
+export function defaultBotSandbox(
+  settings: ServerSettings["sandbox"],
+  serverBoatKey: string | undefined,
+): BotSandbox {
+  const provider = settings.defaultProvider;
+
+  if (provider === "local") return "local";
+  const environment = botSandboxEnvironment(settings, provider, serverBoatKey);
+
+  return SANDBOX_PROVIDER_CREDENTIALS[provider].every((credential) =>
+    environment[credential.name]?.trim(),
+  )
+    ? provider
+    : "local";
 }
 
 export function botWorkspaceIdentity(resourceKey: string): string {
