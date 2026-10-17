@@ -22,6 +22,8 @@ const FILE_EXTENSION_BY_MIME_TYPE = {
   "text/toml": ".toml",
   "text/xml": ".xml",
   "text/yaml": ".yaml",
+  "video/mp4": ".mp4",
+  "video/webm": ".webm",
 };
 
 const SAFE_FILE_EXTENSIONS = new Set([
@@ -29,9 +31,11 @@ const SAFE_FILE_EXTENSIONS = new Set([
   ".json",
   ".md",
   ".markdown",
+  ".mp4",
   ".pdf",
   ".toml",
   ".txt",
+  ".webm",
   ".xml",
   ".yaml",
   ".yml",

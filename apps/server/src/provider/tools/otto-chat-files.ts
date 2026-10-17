@@ -31,6 +31,8 @@ const FILE_TYPES = new Map<string, (typeof PROVIDER_SEND_TURN_SUPPORTED_FILE_MIM
   ["yaml", "text/yaml"],
   ["yml", "text/yaml"],
   ["toml", "text/toml"],
+  ["mp4", "video/mp4"],
+  ["webm", "video/webm"],
 ]);
 
 export class ChatFileError extends Schema.TaggedErrorClass<ChatFileError>()("ChatFileError", {
@@ -39,7 +41,7 @@ export class ChatFileError extends Schema.TaggedErrorClass<ChatFileError>()("Cha
 
 /**
  * Saves a file a bot made on its computer as an attachment of this chat, the same way an
- * uploaded file is kept: images, PDFs and text files up to 10 MB.
+ * uploaded file is kept: images, videos, PDFs and text files up to 10 MB.
  */
 export const storeChatFile = Effect.fn("storeChatFile")(function* (
   fs: FileSystem.FileSystem,
@@ -57,7 +59,7 @@ export const storeChatFile = Effect.fn("storeChatFile")(function* (
 
   if (!image && !document) {
     return yield* new ChatFileError({
-      message: `${file.name} can't be attached: use an image, a PDF or a text file.`,
+      message: `${file.name} can't be attached: use an image, a video, a PDF or a text file.`,
     });
   }
 

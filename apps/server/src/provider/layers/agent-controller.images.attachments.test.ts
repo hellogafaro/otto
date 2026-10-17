@@ -180,4 +180,53 @@ describe("AgentControllerLive", () => {
       baseDir,
     );
   });
+
+  it.effect("sends only a video's path, never its bytes as text", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-mastra-video-"));
+    const attachmentsDir = NodePath.join(baseDir, "userdata", "attachments");
+    NodeFS.mkdirSync(attachmentsDir, { recursive: true });
+    NodeFS.writeFileSync(NodePath.join(attachmentsDir, "file-1.mp4"), "ftypisom");
+
+    return provideController(
+      Effect.gen(function* () {
+        const controller = yield* AgentController;
+        yield* resolveCodex(controller);
+        yield* controller.startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          cwd: process.cwd(),
+          modelSelection: codexSelection,
+          runtimeMode: "full-access",
+        });
+        yield* controller.sendTurn({
+          threadId: codexThreadId,
+          input: "Watch this.",
+          attachments: [
+            {
+              type: "file",
+              id: "file-1",
+              name: "clip.mp4",
+              mimeType: "video/mp4",
+              sizeBytes: 8,
+            },
+          ],
+        });
+
+        expect(mastra.sendMessage).toHaveBeenCalledWith({
+          content: `Watch this.\n\n[Attached file "clip.mp4" is saved at: ${NodePath.join(attachmentsDir, "file-1.mp4")}]`,
+        });
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(baseDir, { recursive: true, force: true })),
+        ),
+      ),
+      bridge.service,
+      mastra.factory,
+      undefined,
+      baseDir,
+    );
+  });
 });

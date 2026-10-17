@@ -163,7 +163,7 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Post a message where you were asked: the chat, or the task's activity when a task woke you. " +
       "Use it for the reply, a progress update or a question people should see; your final text stays private, " +
-      "and if you post nothing it is posted for you. Attach images, PDFs or text files from your computer by path. " +
+      "and if you post nothing it is posted for you. Attach images, videos, PDFs or text files from your computer by path. " +
       "Returns the message id.",
     { promptSnippet: "post a reply, update or question where you were asked" },
   ),

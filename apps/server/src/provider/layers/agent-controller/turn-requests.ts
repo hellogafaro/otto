@@ -142,6 +142,8 @@ export function createTurnRequests(deps: {
               };
             }
 
+            if (attachment.mimeType.startsWith("video/")) return { pathLine };
+
             const text = buffer.toString("utf8");
 
             const longestRun = Math.max(

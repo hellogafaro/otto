@@ -37,6 +37,8 @@ export const PROVIDER_SEND_TURN_SUPPORTED_FILE_MIME_TYPES = [
   "text/toml",
   "text/xml",
   "text/yaml",
+  "video/mp4",
+  "video/webm",
 ] as const;
 
 const PROVIDER_SEND_TURN_SUPPORTED_FILE_MIME_TYPE_SET = new Set<string>(

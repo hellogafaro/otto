@@ -11,7 +11,7 @@ import { resolveAttachmentPath } from "../../attachment-store.ts";
 import { storeChatFile } from "./otto-chat-files.ts";
 
 describe("storeChatFile", () => {
-  it.effect("saves an image and a text file as chat attachments and refuses other files", () =>
+  it.effect("saves images, text files and videos as chat attachments and refuses other files", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -28,17 +28,22 @@ describe("storeChatFile", () => {
         bytes,
       });
 
+      const clip = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
+        name: "clip.mp4",
+        bytes,
+      });
+
       const refused = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
         name: "tool.exe",
         bytes,
       }).pipe(Effect.flip);
 
       assert.deepStrictEqual(
-        [image.type, image.mimeType, report.type, report.mimeType],
-        ["image", "image/png", "file", "text/markdown"],
+        [image.type, image.mimeType, report.type, report.mimeType, clip.type, clip.mimeType],
+        ["image", "image/png", "file", "text/markdown", "file", "video/mp4"],
       );
 
-      for (const attachment of [image, report]) {
+      for (const attachment of [image, report, clip]) {
         const saved = resolveAttachmentPath({ attachmentsDir, attachment });
         assert.strictEqual(saved && NodeFS.readFileSync(saved, "utf8"), "hello");
       }
