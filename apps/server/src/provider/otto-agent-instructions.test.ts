@@ -40,6 +40,14 @@ describe("Otto bot instructions", () => {
     expect(instructions).not.toContain("unknown_tool");
     expect(instructions).not.toContain("<computer>");
     expect(createOttoInstructions({ tools: ["shell"] })).toContain("<computer>");
+    expect(
+      createOttoInstructions({
+        tools: ["shell"],
+        coAuthor: "Co-authored-by: Nova from Otto <bot-nova@bots.otto.invalid>",
+      }),
+    ).toContain(
+      "Your git co-author line: Co-authored-by: Nova from Otto <bot-nova@bots.otto.invalid>",
+    );
   });
 
   it("lists a family of occasional tools in one line naming the loaded ones", () => {

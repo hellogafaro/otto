@@ -83,6 +83,11 @@ export function withOttoPrompt(
   const transform = (params: OttoCallOptions): OttoCallOptions => {
     const instructions = createOttoInstructions({
       name: botConversation ? stateText(requestContext, "botName") : "Otto",
+      ...(botConversation && stateText(requestContext, "botId")
+        ? {
+            coAuthor: `Co-authored-by: ${stateText(requestContext, "botName")} from Otto <${stateText(requestContext, "botId")}@bots.otto.invalid>`,
+          }
+        : {}),
       workspaceName: stateText(requestContext, "workspaceName"),
       instructions: botConversation ? stateText(requestContext, "botInstructions") : "",
       tools: (params.tools ?? []).map((tool) => tool.name),

@@ -11,7 +11,7 @@ import {
 } from "@otto/contracts";
 import { expect, it } from "@effect/vitest";
 
-import { botSkills, inLibraryToolScope } from "./library-tool-runtime.ts";
+import { botSkills, inLibraryToolScope, skillCatalog } from "./library-tool-runtime.ts";
 
 const ANA = {
   kind: "person" as const,
@@ -153,4 +153,33 @@ it("gives a bot workspace skills and its owner's personal ones, with paths insid
       disabledSkillIds: [LibraryFolderId.make("shared-skill")],
     }).map(({ skill }) => skill.title),
   ).toEqual(["Ana's"]);
+});
+
+it("lists built-in skills first, computer ones only with a computer, and hides shadowed Library skills", () => {
+  const library = [
+    { name: "verify", skillId: "skill-verify", description: "An old copy." },
+    { name: "weekly-report", skillId: "skill-weekly", description: "Write the weekly report." },
+  ];
+
+  const withComputer = skillCatalog(library, { computer: true }).split("\n");
+  const withoutComputer = skillCatalog(library, { computer: false }).split("\n");
+
+  expect(withComputer.map((line) => line.split(":")[0])).toEqual([
+    "- research",
+    "- investigate",
+    "- implement",
+    "- git",
+    "- verify",
+    "- visualize",
+    "- write",
+    "- handoff",
+    "- summarize",
+    "- close",
+    "- computer",
+    "- weekly-report (skillId",
+  ]);
+  expect(withoutComputer.some((line) => line.startsWith("- computer:"))).toBe(false);
+  expect(withoutComputer.some((line) => line.startsWith("- git:"))).toBe(false);
+  expect(withComputer.join("\n")).not.toContain("An old copy.");
+  expect(skillCatalog(library, { computer: true })).toBe(skillCatalog(library, { computer: true }));
 });

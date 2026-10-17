@@ -31,6 +31,7 @@ export interface OttoMastraState {
   readonly yolo?: boolean;
   readonly botConversation?: boolean;
   readonly botName?: string;
+  readonly botId?: string;
   // Undefined clears the instructions when the bot's owner removes them.
   readonly botInstructions?: string | undefined;
   readonly persistentMemoryContext?: string;

@@ -240,7 +240,8 @@ export const OttoToolInputSchemas = {
     title: Schema.optional(LibraryTitle),
   }),
   skill_read: Schema.Struct({
-    skillId: LibraryFolderId,
+    /** A built-in skill's name, or a Library skill's skillId. */
+    skillId: TrimmedNonEmptyString.check(Schema.isMaxLength(100)),
     path: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(500))),
   }),
   task_read: Schema.Struct({ taskId: TaskId }),

@@ -163,6 +163,7 @@
               "**/apps/server/src/cli/triage.ts",
               "**/apps/server/src/usage/usage-transcript-reader.ts",
               "**/apps/server/src/provider/tools/otto-plugin-catalog.ts",
+              "**/apps/server/src/skills/system-skills.ts",
               "**/apps/server/src/provider/layers/agent-controller/event-identity.ts"
             ],
             "options": {

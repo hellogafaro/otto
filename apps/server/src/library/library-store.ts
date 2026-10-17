@@ -1,5 +1,6 @@
 import * as NodeCrypto from "node:crypto";
 
+import { findSystemSkill } from "../skills/system-skills.ts";
 import {
   AuthSessionId,
   GENERAL_PROJECT_ID,
@@ -287,6 +288,10 @@ export const createSkill = Effect.fn("Library.createSkill")(function* (
   input: LibraryCreateSkillInput,
   by: WorkParticipant,
 ) {
+  if (findSystemSkill(input.name.trim())) {
+    return yield* fail(`${input.name.trim()} is a built-in skill. Choose another name.`);
+  }
+
   const createdAt = yield* nowIso;
   yield* ensureTopFolder(LIBRARY_SKILLS_FOLDER_ID, LIBRARY_SKILLS_FOLDER_TITLE, by, createdAt);
   const folderId = LibraryFolderIdSchema.make(NodeCrypto.randomUUID());

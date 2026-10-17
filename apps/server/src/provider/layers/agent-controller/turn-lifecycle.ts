@@ -278,7 +278,12 @@ export function createTurnLifecycle(deps: {
 
       if (libraryTools && botId) {
         const skillsContext =
-          (await deps.runPromise(libraryTools.skillsContext({ threadId, botId }))) || undefined;
+          (await deps.runPromise(
+            libraryTools.skillsContext(
+              { threadId, botId },
+              { computer: pending.toolSession.workspaceType !== "none" },
+            ),
+          )) || undefined;
 
         if (active.session.state.get().skillsContext !== skillsContext) {
           await active.session.state.set({ ...active.session.state.get(), skillsContext });

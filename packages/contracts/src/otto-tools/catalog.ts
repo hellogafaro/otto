@@ -254,7 +254,8 @@ export const OTTO_TOOL_CATALOG = [
   define(
     "skill_read",
     "bot-workspace",
-    "Read a file from a skill in <available_skills>: SKILL.md by default, or a path such as references/guide.md. " +
+    "Read a file from a skill in <available_skills>, by name for a built-in skill or by skillId: " +
+      "SKILL.md by default, or a path such as references/guide.md. " +
       "Text files up to 1 MB. Scripts in a skill are references to read; Otto never runs them.",
     {
       promptGuidelines: [

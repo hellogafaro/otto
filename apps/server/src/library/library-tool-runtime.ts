@@ -1,5 +1,6 @@
 import * as NodeCrypto from "node:crypto";
 
+import { findSystemSkill, systemSkills } from "../skills/system-skills.ts";
 import {
   type AuthSessionId,
   type BotId,
@@ -108,6 +109,32 @@ export const inLibraryToolScope = (
 
   return chatFolder === undefined || chatFolder.threadId === caller.threadId;
 };
+
+/**
+ * The <available_skills> lines: built-in skills first in a fixed order (those that need a
+ * computer only when the bot has one), then Library skills. A Library skill named like a
+ * built-in one is left out.
+ */
+export const skillCatalog = (
+  library: ReadonlyArray<{
+    readonly name: string;
+    readonly skillId: string;
+    readonly description: string | null;
+  }>,
+  options: { readonly computer: boolean },
+) =>
+  [
+    ...systemSkills
+      .filter((skill) => options.computer || !skill.needsComputer)
+      .map((skill) => `- ${skill.name}: ${skill.description}`),
+    ...library
+      .filter((skill) => !findSystemSkill(skill.name))
+      .slice(0, 100)
+      .map(
+        (skill) =>
+          `- ${skill.name} (skillId: ${skill.skillId})${skill.description ? `: ${skill.description}` : ""}`,
+      ),
+  ].join("\n");
 
 /**
  * The skills a bot uses, each with its files and their paths inside the skill: workspace
@@ -472,11 +499,25 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
 
   const readSkillFile = (caller: LibraryToolCaller, input: Input<"skill_read">) =>
     Effect.gen(function* () {
+      const path = (input.path ?? "SKILL.md").replace(/^\.?\//, "");
+      const builtIn = findSystemSkill(input.skillId);
+
+      if (builtIn) {
+        const content = builtIn.files.get(path);
+
+        if (content === undefined) {
+          return yield* fail(
+            `This skill has no file '${path}'. It has: ${[...builtIn.files.keys()].join(", ")}.`,
+          );
+        }
+
+        return { skillId: builtIn.name, path, content };
+      }
+
       const found = (yield* skillState(caller)).find(({ skill }) => skill.id === input.skillId);
 
       if (found === undefined) return yield* fail("That skill doesn't exist.");
       const { skill, files } = found;
-      const path = (input.path ?? "SKILL.md").replace(/^\.?\//, "");
 
       const entry =
         files.find((candidate) => candidate.path === path) ??
@@ -524,19 +565,12 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
     read: (caller: LibraryToolCaller, input: Input<"library_read">) => run(read(caller, input)),
     updateDocument: (caller: LibraryToolCaller, input: Input<"library_update">) =>
       run(updateDocument(caller, input)),
-    /** The skills this bot can use, one prompt line each; empty when it has none or the read fails. */
-    skillsContext: (caller: LibraryToolCaller) =>
+    /** The skills this bot can use, one prompt line each; built-in ones even when the read fails. */
+    skillsContext: (caller: LibraryToolCaller, options: { readonly computer: boolean }) =>
       listSkills(caller).pipe(
-        Effect.map(({ skills }) =>
-          skills
-            .slice(0, 100)
-            .map(
-              (skill) =>
-                `- ${skill.name} (skillId: ${skill.skillId})${skill.description ? `: ${skill.description}` : ""}`,
-            )
-            .join("\n"),
-        ),
-        Effect.orElseSucceed(() => ""),
+        Effect.map(({ skills }) => skills),
+        Effect.orElseSucceed(() => []),
+        Effect.map((skills) => skillCatalog(skills, options)),
         Effect.provide(context),
       ),
     readSkillFile: (caller: LibraryToolCaller, input: Input<"skill_read">) =>
