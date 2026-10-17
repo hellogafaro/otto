@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { scopeProjectRef } from "@otto/client-runtime/environment";
 import { BotId, type ScopedThreadRef, GENERAL_PROJECT_ID } from "@otto/contracts";
-import { RiArrowRightSLine, RiSettings3Line } from "@remixicon/react";
+import { RiArrowRightSLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -126,19 +126,7 @@ export function ChatDetailsPanel({
             <h2 className="max-w-full truncate text-base font-medium">{bot.name}</h2>
             {bot.label ? <span className="text-sm text-muted-foreground">{bot.label}</span> : null}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                void navigate({ to: "/settings/bots/$botId", params: { botId: bot.id } })
-              }
-            >
-              <RiSettings3Line />
-              {t("Bot settings")}
-            </Button>
-          </div>
-          <div className="mt-6">{chatProperties}</div>
+          {chatProperties}
           <div className="mt-6">
             <DetailsGroup id="chat-members" label={t("Members")}>
               <div className="flex min-h-9 items-center gap-2">

@@ -124,10 +124,10 @@ describe("bot settings entry points", () => {
     expect(source).toContain("onOpenSettings={handleOpenBotSettings}");
   });
 
-  it("keeps the chat panel about the chat and hands bot setup to Settings", () => {
+  it("keeps the chat panel about the chat and leaves bot setup to Settings", () => {
     const panel = read("./chat-details-panel.tsx");
 
-    expect(panel).toContain('to: "/settings/bots/$botId"');
+    expect(panel).not.toContain('to: "/settings/bots/$botId"');
     expect(panel).toContain('t("Project")');
     expect(panel).toContain('t("Members")');
     expect(panel).not.toContain("<BotModelPicker");
