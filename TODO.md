@@ -16,6 +16,11 @@ Known limits of the MVP, most important first.
 - **Railway template.** `deploy/railway/README.md` is the recipe; publish it as a one-click template in
   Railway's template composer. Without SMTP (paid Railway plans only) people sign in with a password
   and cannot be invited by email.
+- **Workspace URL first, several workspaces.** The desktop app opens on "Enter your workspace URL";
+  the server then shows setup, sign-in or join as it does today. Running a server on this computer
+  becomes one option on that screen. The app keeps a list of servers, each with its own session, and
+  a workspace switcher; today it stores one server address and one session. Any Otto app works with
+  any Otto server through a stable, versioned API.
 - **Watch drawer close button** sits 9px from the edge instead of 8px.
 
 ## Not verified yet
