@@ -2,6 +2,7 @@ import { ProviderDriverKind } from "@otto/contracts";
 import { ProviderInstanceId } from "@otto/contracts";
 import * as NodeCrypto from "node:crypto";
 import type { OttoToolRuntime } from "../../otto-tool-runtime.ts";
+import type { OttoSessionResources } from "../../otto-session-resources.ts";
 import type { ProviderServiceError } from "../../errors.ts";
 import type { OttoRuntimeSeam } from "../../otto-runtime-seam.ts";
 import type { AgentControllerLiveOptions } from "./options.ts";
@@ -72,6 +73,7 @@ export function createTurnLifecycle(deps: {
     createdAt: string;
   };
   readonly toolRuntime: OttoToolRuntime;
+  readonly sessionResources: Pick<OttoSessionResources, "keepComputerAwake">;
   readonly memoryUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
   readonly publishSessionState: (
     threadId: ThreadId,
@@ -272,6 +274,15 @@ export function createTurnLifecycle(deps: {
 
       active.toolSession = pending.toolSession;
       deps.toolRuntime.registerSession(String(threadId), active.toolSession);
+
+      // Otto: a computer its provider stopped while the chat sat idle comes back for this turn;
+      // if it cannot, its commands report why.
+      const keepComputerAwake = deps.sessionResources.keepComputerAwake(String(threadId));
+
+      if (keepComputerAwake)
+        await keepComputerAwake().catch((cause: unknown) =>
+          deps.runPromise(Effect.logWarning("bot computer wake failed", { threadId, cause })),
+        );
 
       const libraryTools = activeLibraryTools();
       const botId = pending.toolSession.botId;

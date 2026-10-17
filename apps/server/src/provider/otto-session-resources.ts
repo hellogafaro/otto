@@ -230,10 +230,17 @@ export class OttoSessionResources {
     return this.workspacePool.retryFailedSleeps();
   }
 
-  /** Pushes back the provider's auto-stop for every computer a session holds. */
-  async keepComputersAwake(): Promise<void> {
+  /**
+   * Wakes the thread's computer if its provider stopped it and pushes back the provider's
+   * auto-stop, so a computer stays up while a turn runs and stops on its own after.
+   */
+  keepComputerAwake(threadId: string): (() => Promise<void>) | undefined {
+    return this.workspaceLeases.get(threadId)?.workspace.keepAlive;
+  }
+
+  async keepComputersAwake(threadIds: Iterable<string>): Promise<void> {
     await Promise.allSettled(
-      [...this.workspaceLeases.values()].map((lease) => lease.workspace.keepAlive?.()),
+      [...threadIds].map((threadId) => this.keepComputerAwake(threadId)?.()),
     );
   }
 

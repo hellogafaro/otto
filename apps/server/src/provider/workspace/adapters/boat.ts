@@ -55,6 +55,17 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
     }
   };
 
+  const wake = async () => {
+    const { sandbox } = await client.get({ sandboxId });
+
+    if (sandbox.state === "archiving") await waitUntilArchived();
+
+    if (sandbox.state === "archived" || sandbox.state === "archiving")
+      await client.resume({ sandboxId, resumeRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
+    const { waitUntilReady } = await import("@boatdev/sdk");
+    await waitUntilReady(client, sandboxId, { timeoutMs: 300_000 });
+  };
+
   return {
     providerId: sandboxId,
     inspect: async () => {
@@ -64,16 +75,7 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
 
       return current === "error" || current === "gone" ? "missing" : "sleeping";
     },
-    wake: async () => {
-      const { sandbox } = await client.get({ sandboxId });
-
-      if (sandbox.state === "archiving") await waitUntilArchived();
-
-      if (sandbox.state === "archived" || sandbox.state === "archiving")
-        await client.resume({ sandboxId, resumeRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
-      const { waitUntilReady } = await import("@boatdev/sdk");
-      await waitUntilReady(client, sandboxId, { timeoutMs: 300_000 });
-    },
+    wake,
     // Stop takes a native lifecycle snapshot; never force-stop and discard VM changes. A VM that
     // Boat's auto-stop already archived, or that is gone, needs nothing.
     sleep: async () => {
@@ -101,7 +103,11 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
         result = await client.getDeletionOperation({ operationId: result.operation.id });
       }
     },
+    // Resumes a computer Boat's auto-stop archived, or pushes the auto-stop back on a running one.
     keepAlive: async () => {
+      const current = await state();
+
+      if (current === "archived" || current === "archiving") return wake();
       await client.update({ sandboxId, updateSandboxRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
     },
     desktopUrl: async () => {

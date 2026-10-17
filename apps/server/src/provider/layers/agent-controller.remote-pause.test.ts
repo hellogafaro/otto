@@ -544,3 +544,61 @@ describe("AgentControllerLive", () => {
     }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });
 });
+
+describe("AgentControllerLive", () => {
+  it.effect("wakes a Boat computer that stopped itself when the next turn starts", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    const workspace = new Workspace({
+      filesystem: new LocalFilesystem({ basePath: process.cwd() }),
+      sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
+    });
+
+    const keepAlive = vi.fn(async () => undefined);
+
+    const layer = agentControllerLayerWith({
+      makeMastraHarness: mastra.factory,
+      makeRemoteWorkspace: async () => ({
+        id: "boat-turn",
+        provider: "boat",
+        providerId: "sbx_turn",
+        workspace,
+        inspect: async () => "running",
+        wake: async () => undefined,
+        sleep: async () => undefined,
+        destroy: async () => undefined,
+        keepAlive,
+      }),
+    }).pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(LegacyProviderBridge, bridge.service),
+          Layer.succeed(BotUsageLedger, usageLedgerFixture().service),
+          ServerConfig.layerTest(process.cwd(), { prefix: "otto-turn-wake-" }).pipe(
+            Layer.provide(NodeServices.layer),
+          ),
+        ),
+      ),
+    );
+
+    return Effect.gen(function* () {
+      const controller = yield* AgentController;
+      yield* resolveCodex(controller);
+      yield* controller.startSession(codexThreadId, {
+        threadId: codexThreadId,
+        provider: ProviderDriverKind.make("codex"),
+        providerInstanceId: codexInstanceId,
+        modelSelection: codexSelection,
+        runtimeMode: "full-access",
+        botSandbox: "boat",
+      });
+      expect(keepAlive).not.toHaveBeenCalled();
+
+      yield* controller.sendTurn({ threadId: codexThreadId, input: "Run the tests." });
+      yield* Effect.promise(() => mastra.waitForSendMessageCount(1));
+      expect(keepAlive).toHaveBeenCalledOnce();
+      mastra.finishSend();
+    }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
+  });
+});

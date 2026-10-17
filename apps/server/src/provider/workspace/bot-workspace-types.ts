@@ -19,7 +19,7 @@ export interface OttoBotWorkspace {
   readonly destroy: () => Promise<void>;
   /** A fresh secret link to the computer's live desktop, where the provider streams one. */
   readonly desktopUrl?: () => Promise<string>;
-  /** Pushes back the provider's own auto-stop while Otto uses the computer. */
+  /** While a turn runs: wakes the computer if the provider stopped it and pushes its auto-stop back. */
   readonly keepAlive?: () => Promise<void>;
 }
 

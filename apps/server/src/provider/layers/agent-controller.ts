@@ -153,6 +153,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       get toolRuntime() {
         return toolRuntime;
       },
+      sessionResources,
       memoryUsageByThread,
       get publishSessionState() {
         return publishSessionState;
@@ -539,10 +540,14 @@ const make = (options?: AgentControllerLiveOptions) =>
       Effect.forkScoped,
     );
 
-    // Otto: one sweep at startup and every 10 minutes keeps used computers from auto-stopping
-    // and deletes the ones no bot owns anymore.
+    // Otto: one sweep at startup and every 10 minutes keeps the computers of running turns from
+    // auto-stopping and deletes the ones no bot owns anymore. Idle computers stop on their own.
     const sweepComputers = Effect.gen(function* () {
-      yield* runMastra("resources.keepComputersAwake", () => sessionResources.keepComputersAwake());
+      yield* runMastra("resources.keepComputersAwake", () =>
+        sessionResources.keepComputersAwake(
+          [...sessions].flatMap(([threadId, active]) => (active.activeTurn ? [threadId] : [])),
+        ),
+      );
 
       if (Option.isNone(projectionSnapshotQuery) || Option.isNone(serverSettings)) return;
       const readModel = yield* projectionSnapshotQuery.value.getCommandReadModel();

@@ -49,6 +49,11 @@ describe("OttoSessionResources computer sweep", () => {
         return { ok: true, type: "sandbox.stopped" } as never;
       }).mockRestore,
       vi.spyOn(BoatApi.prototype, "update").mockResolvedValue({} as never).mockRestore,
+      vi.spyOn(BoatApi.prototype, "resume").mockImplementation(async ({ sandboxId }) => {
+        states.set(sandboxId, "idle");
+
+        return {} as never;
+      }).mockRestore,
       vi.spyOn(BoatApi.prototype, "deleteSandbox").mockResolvedValue(deleted).mockRestore,
       vi.spyOn(BoatApi.prototype, "command").mockResolvedValue({
         ok: true,
@@ -94,7 +99,7 @@ describe("OttoSessionResources computer sweep", () => {
   const recordFile = (workspaceId: string) =>
     NodePath.join(stateDir, "bot-workspaces", `${workspaceId}.json`);
 
-  it("creates Boat computers with an idempotency key and a TTL that use pushes back", async () => {
+  it("creates Boat computers with an idempotency key and a TTL that running turns push back", async () => {
     const { BoatApi } = await import("@boatdev/sdk");
     const target = resources();
     await target.acquire(boatInput("ivy"));
@@ -103,10 +108,21 @@ describe("OttoSessionResources computer sweep", () => {
       idempotencyKey: expect.any(String),
       createSandboxRequest: { ttlSeconds: 1800, noEnv: true },
     });
-    await target.keepComputersAwake();
+    vi.mocked(BoatApi.prototype.update).mockClear();
+    await target.keepComputersAwake([]);
+    expect(BoatApi.prototype.update).not.toHaveBeenCalled();
+
+    await target.keepComputersAwake(["thread-ivy"]);
     expect(BoatApi.prototype.update).toHaveBeenCalledWith({
       sandboxId: "vm-1",
       updateSandboxRequest: { ttlSeconds: 1800 },
+    });
+
+    states.set("vm-1", "archived");
+    await target.keepComputersAwake(["thread-ivy"]);
+    expect(BoatApi.prototype.resume).toHaveBeenCalledWith({
+      sandboxId: "vm-1",
+      resumeRequest: { ttlSeconds: 1800 },
     });
     await target.release("thread-ivy");
     expect(BoatApi.prototype.stop).toHaveBeenCalledWith({ sandboxId: "vm-1" });
