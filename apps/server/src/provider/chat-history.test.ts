@@ -28,7 +28,7 @@ const signal = (id: string, text = id, type = "user"): MastraDBMessage =>
 
 const checkpoint = (id: string, firstKeptMessageId: string): MastraDBMessage =>
   ({
-    ...message(id, "system", `<checkpoint>${id}</checkpoint>`),
+    ...message(id, "assistant", `<checkpoint>${id}</checkpoint>`),
     content: {
       format: 2,
       parts: [{ type: "text", text: `<checkpoint>${id}</checkpoint>` }],

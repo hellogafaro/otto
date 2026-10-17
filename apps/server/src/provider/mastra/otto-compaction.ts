@@ -382,7 +382,7 @@ export function createOttoCompaction(
 
     const checkpoint: MastraDBMessage = {
       id: NodeCrypto.randomUUID(),
-      role: "system",
+      role: "assistant",
       threadId: thread.threadId,
       resourceId: thread.resourceId,
       createdAt: DateTime.toDate(now),

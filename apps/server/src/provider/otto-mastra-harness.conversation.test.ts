@@ -11,7 +11,7 @@ import { it } from "@effect/vitest";
 import { assert, expect, vi } from "vite-plus/test";
 import { OttoHistoryProcessor, createOttoMastraMemory } from "./otto-mastra-harness.ts";
 import { createOttoCompaction } from "./mastra/otto-compaction.ts";
-import { OTTO_REPLY_BOT_NAME } from "./chat-history.ts";
+import { OTTO_CHECKPOINT, OTTO_REPLY_BOT_NAME } from "./chat-history.ts";
 import { groupTurnNote } from "../orchestration/group-responder.ts";
 
 const chat = (
@@ -101,6 +101,65 @@ describe("OttoMastraHarness", () => {
         messages.map((message) => message.id),
       );
       assert.equal(messageList.get.input.db()[0]?.id, "current-message");
+      await reopened.close();
+    } finally {
+      NodeFS.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("stores a checkpoint and sends the chat from it after reopening", async () => {
+    const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-checkpoint-store-"));
+    const options = { memoryDbPath: NodePath.join(directory, "messages.sqlite") };
+
+    try {
+      const first = await createOttoMastraMemory(options);
+      await first.memory.createThread({ threadId: "thread-group", resourceId: "thread-group" });
+
+      const turns = Array.from({ length: 6 }, (_, index) => ({
+        ...stored(`message-${index}`, index % 2 === 0 ? "user" : "assistant", `Turn ${index}`),
+        createdAt: DateTime.toDate(
+          DateTime.add(DateTime.makeUnsafe("2026-08-30T20:00:00.000Z"), { minutes: index }),
+        ),
+      }));
+
+      const checkpoint = {
+        ...stored("checkpoint", "assistant", "<checkpoint>Turns 0 to 3.</checkpoint>"),
+        createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-08-30T21:00:00.000Z")),
+        content: {
+          format: 2 as const,
+          parts: [{ type: "text" as const, text: "<checkpoint>Turns 0 to 3.</checkpoint>" }],
+          metadata: {
+            [OTTO_CHECKPOINT]: {
+              firstKeptMessageId: "message-4",
+              tokensBefore: 370_000,
+              model: "openai/gpt-6.1-sol",
+              createdAt: "2026-08-30T21:00:00.000Z",
+            },
+          },
+        },
+      };
+
+      await first.memory.persistMessages([...turns, checkpoint]);
+      await first.close();
+
+      const reopened = await createOttoMastraMemory(options);
+      const messageList = new MessageList({ threadId: "thread-group", resourceId: "thread-group" });
+
+      await reopened.processor.processInputStep({
+        stepNumber: 0,
+        messageList,
+        state: {},
+        requestContext: chat("thread-group"),
+      } as never);
+
+      assert.deepEqual(
+        messageList.get.remembered.db().map((message) => [message.id, message.role]),
+        [
+          ["checkpoint", "user"],
+          ["message-4", "user"],
+          ["message-5", "assistant"],
+        ],
+      );
       await reopened.close();
     } finally {
       NodeFS.rmSync(directory, { recursive: true, force: true });

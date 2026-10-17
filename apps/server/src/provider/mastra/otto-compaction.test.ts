@@ -202,7 +202,7 @@ describe("createOttoCompaction", () => {
     });
 
     const checkpoint = persistMessages.mock.calls[0]![0][0]!;
-    expect(checkpoint.role).toBe("system");
+    expect(checkpoint.role).toBe("assistant");
     expect(checkpoint.content.metadata?.[OTTO_CHECKPOINT]).toMatchObject({
       firstKeptMessageId: "user-5",
       model: MODEL,

@@ -84,10 +84,10 @@ function isGroupPass(message: MastraDBMessage): boolean {
   return message.role === "assistant" ? text === GROUP_NO_REPLY : isGroupTurnNote(text);
 }
 
+// Mastra's memory neither stores nor recalls system messages, so a checkpoint is stored as an
+// assistant message that only its metadata marks.
 export function checkpointOf(message: MastraDBMessage) {
-  return message.role === "system"
-    ? Option.getOrUndefined(decodeCheckpoint(message.content.metadata?.[OTTO_CHECKPOINT]))
-    : undefined;
+  return Option.getOrUndefined(decodeCheckpoint(message.content.metadata?.[OTTO_CHECKPOINT]));
 }
 
 /**
@@ -126,7 +126,7 @@ export function projectHistory(
   const turns: MastraDBMessage[][] = [];
 
   for (const message of messages.slice(start)) {
-    if (message.role === "system") continue;
+    if (checkpointOf(message)) continue;
 
     if (isUserMessage(message) || turns.length === 0) turns.push([]);
     turns.at(-1)!.push(withoutUnreadableFiles(message));

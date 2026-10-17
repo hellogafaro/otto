@@ -242,13 +242,14 @@ tokens per inline image, 3,000 per PDF). When it passes W − 32,768, where W is
 input window capped at 400,000 tokens (128,000 when the catalog does not know the model), the chat is
 compacted once. The compaction request is the thread's latest request with a checkpoint instruction
 in place of the turn block, so it reads from the cache. Its reply must have every section (goal,
-constraints, decisions, done, open, next step, key references) and is stored as a `system` message
-with `metadata.ottoCheckpoint.firstKeptMessageId`. From then on the chat is sent as that checkpoint
+constraints, decisions, done, open, next step, key references) and is stored as an `assistant`
+message marked by `metadata.ottoCheckpoint.firstKeptMessageId` (Mastra's memory drops system
+messages on save and on recall). From then on the chat is sent as that checkpoint
 (as a user message) followed by every turn from the first kept message: a user message at least a
 tenth of W back, never inside a turn. Nothing stored is deleted. At a turn's start the previous turn
 always stays verbatim; mid-turn the current turn does. A failed or incomplete checkpoint is logged,
-keeps the previous one, and is not retried in the same run. The call is billed to the bot under the
-`compaction` usage category. Rebuilding a thread (rollback) drops its checkpoints with the rest of
+keeps the previous one, and is not retried in the same run. The call is billed to the session's bot under
+the `compaction` usage category. Rebuilding a thread (rollback) drops its checkpoints with the rest of
 the transcript.
 
 ## Shared memory approvals
