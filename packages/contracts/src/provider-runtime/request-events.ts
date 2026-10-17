@@ -35,6 +35,8 @@ const RequestResolvedPayload = Schema.Struct({
   target: Schema.optional(TrimmedNonEmptyStringSchema),
   action: Schema.optional(TrimmedNonEmptyStringSchema),
   outcome: Schema.optional(TrimmedNonEmptyStringSchema),
+  /** Who answered the request, by display name, when a person did. */
+  respondedBy: Schema.optional(TrimmedNonEmptyStringSchema),
   resolution: Schema.optional(Schema.Unknown),
 });
 

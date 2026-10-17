@@ -90,6 +90,7 @@ export function runtimeEventToActivities(
             ...(event.payload.target ? { target: event.payload.target } : {}),
             ...(event.payload.action ? { action: event.payload.action } : {}),
             ...(event.payload.outcome ? { outcome: event.payload.outcome } : {}),
+            ...(event.payload.respondedBy ? { respondedBy: event.payload.respondedBy } : {}),
           },
           turnId: toTurnId(event.turnId) ?? null,
           ...maybeSequence,

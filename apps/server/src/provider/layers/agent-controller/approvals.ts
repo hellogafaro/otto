@@ -145,6 +145,7 @@ export function createApprovals(deps: {
             payload: {
               requestType: "dynamic_tool_call" as const,
               decision: input.decision,
+              ...(input.responder ? { respondedBy: input.responder.displayName } : {}),
               ...(outcome ? { outcome } : {}),
             },
           });
@@ -304,8 +305,9 @@ export function createApprovals(deps: {
       type: "request.resolved",
       payload: {
         requestType: "dynamic_tool_call" as const,
-        decision,
+        decision: input.decision,
         actor: "user",
+        ...(input.responder ? { respondedBy: input.responder.displayName } : {}),
         target,
         action: pendingApproval.action,
         outcome: decision === "accept" ? "approved" : "denied",

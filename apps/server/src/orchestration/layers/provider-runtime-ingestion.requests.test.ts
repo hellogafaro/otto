@@ -88,6 +88,7 @@ describe("ProviderRuntimeIngestion", () => {
       payload: {
         requestType: "command_execution_approval",
         decision: "accept",
+        respondedBy: "Ana",
       },
     });
 
@@ -131,6 +132,7 @@ describe("ProviderRuntimeIngestion", () => {
 
     expect(resolvedPayload?.requestKind).toBe("command");
     expect(resolvedPayload?.requestType).toBe("command_execution_approval");
+    expect(resolvedPayload?.respondedBy).toBe("Ana");
   });
 
   it("removes a pending approval after a lifecycle cancellation", async () => {

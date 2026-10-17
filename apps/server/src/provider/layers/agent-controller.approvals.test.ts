@@ -2,6 +2,7 @@ import type { AgentControllerEvent } from "@mastra/core/agent-controller";
 import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
   ApprovalRequestId,
+  AuthSessionId,
   ProviderDriverKind,
   type ProviderRuntimeEvent,
 } from "@otto/contracts";
@@ -203,6 +204,63 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
+  it.effect("records who answered an approval and the choice they made", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    return provideController(
+      Effect.gen(function* () {
+        const controller = yield* AgentController;
+        yield* resolveCodex(controller);
+        yield* controller.startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          cwd: process.cwd(),
+          modelSelection: codexSelection,
+          runtimeMode: "approval-required",
+        });
+        yield* controller.sendTurn({ threadId: codexThreadId, input: "Email Ana." });
+        mastra.emit({
+          type: "tool_approval_required",
+          toolCallId: "send-tool-ana",
+          toolName: "gmail_send_message",
+          args: { to: "ana@example.com" },
+        } as AgentControllerEvent);
+
+        const resolvedFiber = yield* controller.streamEvents.pipe(
+          Stream.filter((event) => event.type === "request.resolved"),
+          Stream.take(1),
+          Stream.runCollect,
+          Effect.forkChild({ startImmediately: true }),
+        );
+
+        yield* Effect.yieldNow;
+        yield* controller.respondToRequest({
+          threadId: codexThreadId,
+          requestId: ApprovalRequestId.make("send-tool-ana"),
+          decision: "acceptForSession",
+          responder: {
+            personId: AuthSessionId.make("person-ana"),
+            displayName: "Ana",
+            canWrite: true,
+          },
+        });
+        const [resolved] = yield* Fiber.join(resolvedFiber);
+
+        assert.strictEqual(resolved?.type, "request.resolved");
+        expect(resolved?.payload).toMatchObject({
+          decision: "acceptForSession",
+          respondedBy: "Ana",
+          outcome: "approved",
+        });
+        mastra.finishSend();
+      }),
+      bridge.service,
+      mastra.factory,
+    );
+  });
+
   it.effect("resolves pending approvals when a turn or session ends", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
