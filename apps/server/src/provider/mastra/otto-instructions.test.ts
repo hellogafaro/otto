@@ -247,12 +247,14 @@ describe("withOttoPrompt", () => {
   it("keeps each group bot's prefix and OpenAI prompt cache apart", async () => {
     const { model, calls } = recordingModel("openai.responses");
     const chats = inMemoryChats();
+
     const mina = {
       botConversation: true,
       botId: "bot-mina",
       botName: "Mina",
       groupContext: "Mina",
     };
+
     const juno = {
       botConversation: true,
       botId: "bot-juno",
