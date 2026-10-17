@@ -148,6 +148,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
           load: Effect.sync(() => testSettings),
           setMainWindowBounds: () => Effect.die("unexpected main window bounds update"),
           setServerExposureMode: () => Effect.die("unexpected server exposure update"),
+          setServerUrl: () => Effect.die("unexpected server URL update"),
           setTailscaleServe: () => Effect.die("unexpected Tailscale Serve update"),
           setUpdateChannel: (channel) =>
             setUpdateChannelError

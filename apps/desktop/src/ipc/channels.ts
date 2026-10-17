@@ -34,6 +34,12 @@ export const GET_SYSTEM_LOCALE_CHANNEL = "desktop:get-system-locale";
 
 export const GET_LOCAL_ENVIRONMENT_BOOTSTRAPS_CHANNEL = "desktop:get-local-environment-bootstraps";
 
+export const GET_SHELL_VERSION_CHANNEL = "desktop:get-shell-version";
+
+export const GET_SERVER_URL_CHANNEL = "desktop:get-server-url";
+
+export const SET_SERVER_URL_CHANNEL = "desktop:set-server-url";
+
 export const GET_CLIENT_SETTINGS_CHANNEL = "desktop:get-client-settings";
 
 export const SET_CLIENT_SETTINGS_CHANNEL = "desktop:set-client-settings";

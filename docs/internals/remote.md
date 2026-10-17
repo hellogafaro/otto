@@ -56,6 +56,35 @@ and reports failure; reconnect waits for that stop on the same target.
 SSH is a desktop capability because it requires local process and SSH access. Web and mobile can use
 a directly reachable server after normal pairing.
 
+## Desktop shell (hybrid)
+
+The desktop app is a thin native shell around the web app. Its window always loads `otto://app`
+(`otto-dev://app` in development), and the shell's protocol handler proxies every request on that
+origin to one server:
+
+- the Otto server the desktop is connected to, when one is set (`serverUrl` in the desktop
+  settings, an http(s) origin), or
+- the bundled local server, or the Vite dev server in development.
+
+So the web UI is whatever that server serves. A fix in `apps/web` reaches desktop users when the
+server deploys it and the window reloads; only changes to `apps/desktop` (window, preload, bridge,
+menus, protocol) need a new desktop build. The renderer calls the server's API and WebSocket
+directly with the account's bearer session, as it does for the local server.
+
+`window.desktopBridge.setServerUrl(url | null)` connects the window: the shell checks that an Otto
+server answers at `/.well-known/ottoLegacy/environment`, saves the origin, clears everything the
+previous server's app stored on the `otto://app` origin (its session token included) and reloads
+the window onto the new server. `getServerUrl()` reads it back. While connected to a remote server,
+`getLocalEnvironmentBootstraps()` returns only that server, never a local backend or its bootstrap
+credential. If the server stops answering, the shell serves a small page with "Try again" and "Use
+this computer". The web app served by the connected server runs with the full bridge, so connect
+only to servers you trust.
+
+`window.desktopBridge.version` is the shell's own version (`app.getVersion()`; a development
+build reports Electron's version). The web app updates without the shell, so feature-detect shell
+capabilities with it, or with the presence of a bridge method, instead of assuming the newest
+shell. Shells older than the hybrid desktop have no `version`.
+
 ## Environment identity
 
 Each server stores a stable `environmentId` in its state directory. Clients use that identifier to

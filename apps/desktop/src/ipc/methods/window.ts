@@ -9,6 +9,7 @@ import {
   type DesktopEnvironmentBootstrap,
   type PickedThemeFile,
 } from "@otto/contracts";
+import { fetchRemoteEnvironmentDescriptor } from "@otto/client-runtime/environment";
 import * as NodeOS from "node:os";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -24,6 +25,7 @@ import * as DesktopWslEnvironment from "../../wsl/desktop-wsl-environment.ts";
 import * as ElectronApp from "../../electron/electron-app.ts";
 import * as ElectronDialog from "../../electron/electron-dialog.ts";
 import * as ElectronMenu from "../../electron/electron-menu.ts";
+import * as ElectronProtocol from "../../electron/electron-protocol.ts";
 import * as ElectronShell from "../../electron/electron-shell.ts";
 import * as ElectronTheme from "../../electron/electron-theme.ts";
 import * as ElectronWindow from "../../electron/electron-window.ts";
@@ -83,10 +85,100 @@ export const getWindowFullscreenState = DesktopIpc.makeSyncIpcMethod({
   }),
 });
 
+export const getShellVersion = DesktopIpc.makeSyncIpcMethod({
+  channel: IpcChannels.GET_SHELL_VERSION_CHANNEL,
+  result: Schema.String,
+  handler: Effect.fn("desktop.ipc.window.getShellVersion")(function* () {
+    const environment = yield* DesktopEnvironment.DesktopEnvironment;
+
+    return environment.appVersion;
+  }),
+});
+
+export const getServerUrl = DesktopIpc.makeSyncIpcMethod({
+  channel: IpcChannels.GET_SERVER_URL_CHANNEL,
+  result: Schema.NullOr(Schema.String),
+  handler: Effect.fn("desktop.ipc.window.getServerUrl")(function* () {
+    const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
+
+    return (yield* appSettings.get).serverUrl;
+  }),
+});
+
+class DesktopServerUnreachableError extends Schema.TaggedErrorClass<DesktopServerUnreachableError>()(
+  "DesktopServerUnreachableError",
+  { serverUrl: Schema.String, cause: Schema.Defect() },
+) {
+  override get message(): string {
+    return `No Otto server answered at ${this.serverUrl}.`;
+  }
+}
+
+// Otto: the window shows the web app of the server it is connected to. Switching checks that an
+// Otto server answers, clears what the previous server's app stored (its session token among
+// it) and reloads the window onto the new server.
+export const setServerUrl = DesktopIpc.defineIpcMethod({
+  channel: IpcChannels.SET_SERVER_URL_CHANNEL,
+  payload: Schema.NullOr(Schema.String),
+  result: Schema.Void,
+  handler: Effect.fn("desktop.ipc.window.setServerUrl")(function* (input) {
+    const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
+    const environment = yield* DesktopEnvironment.DesktopEnvironment;
+    const electronProtocol = yield* ElectronProtocol.ElectronProtocol;
+    const electronWindow = yield* ElectronWindow.ElectronWindow;
+    const serverUrl = DesktopAppSettings.normalizeServerUrl(input);
+
+    if (input !== null && serverUrl === null) {
+      return yield* new DesktopServerUnreachableError({ serverUrl: input, cause: null });
+    }
+
+    if (serverUrl !== null) {
+      yield* fetchRemoteEnvironmentDescriptor({ httpBaseUrl: serverUrl }).pipe(
+        Effect.mapError((cause) => new DesktopServerUnreachableError({ serverUrl, cause })),
+      );
+    }
+
+    const change = yield* appSettings.setServerUrl(serverUrl);
+
+    if (!change.changed) return;
+    yield* electronProtocol.setServerOrigin(serverUrl === null ? null : new URL(serverUrl));
+    const window = yield* electronWindow.currentMainOrFirst;
+
+    if (Option.isNone(window)) return;
+    const webContents = window.value.webContents;
+
+    yield* Effect.promise(() =>
+      webContents.session.clearStorageData({
+        origin: ElectronProtocol.getDesktopOrigin(environment.isDevelopment),
+      }),
+    );
+    yield* Effect.promise(() => webContents.session.clearCache());
+    void webContents.loadURL(ElectronProtocol.getDesktopUrl(environment.isDevelopment));
+  }),
+});
+
 export const getLocalEnvironmentBootstraps = DesktopIpc.makeSyncIpcMethod({
   channel: IpcChannels.GET_LOCAL_ENVIRONMENT_BOOTSTRAPS_CHANNEL,
   result: Schema.Array(DesktopEnvironmentBootstrapSchema),
   handler: Effect.fn("desktop.ipc.window.getLocalEnvironmentBootstraps")(function* () {
+    const { serverUrl } = yield* (yield* DesktopAppSettings.DesktopAppSettings).get;
+
+    // Otto: connected to a remote server, the window has one environment, that server. Local
+    // backends and their bootstrap credentials stay out of its web app.
+    if (serverUrl !== null) {
+      const url = new URL(serverUrl);
+
+      return [
+        {
+          id: PRIMARY_LOCAL_ENVIRONMENT_ID,
+          label: url.host,
+          runningDistro: null,
+          httpBaseUrl: url.href,
+          wsBaseUrl: toWebSocketBaseUrl(url),
+        },
+      ];
+    }
+
     const pool = yield* DesktopBackendPool.DesktopBackendPool;
     const instances = yield* pool.list;
     const bootstraps: DesktopEnvironmentBootstrap[] = [];

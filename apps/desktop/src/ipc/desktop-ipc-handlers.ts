@@ -33,11 +33,14 @@ import {
 import {
   getAppBranding,
   getLocalEnvironmentBootstraps,
+  getServerUrl,
+  getShellVersion,
   getSystemLocale,
   getWindowFullscreenState,
   openExternal,
   pickFolder,
   pickThemeFiles,
+  setServerUrl,
   setTheme,
   showContextMenu,
 } from "./methods/window.ts";
@@ -52,6 +55,9 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handleSync(getSystemLocale);
   yield* ipc.handleSync(getWindowFullscreenState);
   yield* ipc.handleSync(getLocalEnvironmentBootstraps);
+  yield* ipc.handleSync(getShellVersion);
+  yield* ipc.handleSync(getServerUrl);
+  yield* ipc.handle(setServerUrl);
 
   yield* ipc.handle(getClientSettings);
   yield* ipc.handle(setClientSettings);

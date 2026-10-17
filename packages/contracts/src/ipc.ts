@@ -50,7 +50,20 @@ import { type PreviewAnnotationSubmissionResult } from "./ipc/annotations.ts";
 import { type DesktopPreviewTabDefaults } from "./ipc/preview-automation.ts";
 
 export interface DesktopBridge {
+  /**
+   * The desktop shell's own version. The web app comes from the connected server and updates
+   * without the shell, so it feature-detects shell capabilities with this. Missing on shells
+   * older than the hybrid desktop.
+   */
+  readonly version?: string;
   getAppBranding: () => DesktopAppBranding | null;
+  /** The remote Otto server the window shows, or null for this computer's server. */
+  getServerUrl?: () => string | null;
+  /**
+   * Connects the window to the Otto server at `url` (null: this computer's server), then
+   * reloads it onto that server's web app. Rejects when no Otto server answers there.
+   */
+  setServerUrl?: (url: string | null) => Promise<void>;
   /**
    * The OS locale as a BCP-47 tag, which the renderer cannot read for itself:
    * the packaged app ships only the `en-US` Chromium locale pak, so

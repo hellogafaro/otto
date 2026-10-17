@@ -69,7 +69,10 @@ function unwrapEnsureSshEnvironmentResult(result: ReturnType<typeof decodeEnsure
   throw new Error("SSH authentication cancelled.");
 }
 
+const shellVersion = ipcRenderer.sendSync(IpcChannels.GET_SHELL_VERSION_CHANNEL);
+
 contextBridge.exposeInMainWorld("desktopBridge", {
+  version: Predicate.isString(shellVersion) ? shellVersion : "0.0.0",
   getAppBranding: () => {
     const result = ipcRenderer.sendSync(IpcChannels.GET_APP_BRANDING_CHANNEL);
 
@@ -85,6 +88,12 @@ contextBridge.exposeInMainWorld("desktopBridge", {
 
     return Option.getOrElse(decodeBootstraps(result), () => []);
   },
+  getServerUrl: () => {
+    const result = ipcRenderer.sendSync(IpcChannels.GET_SERVER_URL_CHANNEL);
+
+    return Predicate.isString(result) ? result : null;
+  },
+  setServerUrl: (url) => ipcRenderer.invoke(IpcChannels.SET_SERVER_URL_CHANNEL, url),
   getClientSettings: () => ipcRenderer.invoke(IpcChannels.GET_CLIENT_SETTINGS_CHANNEL),
   setClientSettings: (settings) =>
     ipcRenderer.invoke(IpcChannels.SET_CLIENT_SETTINGS_CHANNEL, settings),

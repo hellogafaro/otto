@@ -26,6 +26,7 @@ const DesktopSettingsPatch = Schema.Struct({
   ),
   mainWindowMaximized: Schema.optionalKey(Schema.Boolean),
   serverExposureMode: Schema.optionalKey(Schema.Literals(["local-only", "network-accessible"])),
+  serverUrl: Schema.optionalKey(Schema.NullOr(Schema.String)),
   tailscaleServeEnabled: Schema.optionalKey(Schema.Boolean),
   tailscaleServePort: Schema.optionalKey(Schema.Number),
   updateChannel: Schema.optionalKey(Schema.Literal("latest")),
@@ -122,6 +123,7 @@ describe("DesktopSettings", () => {
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
+          serverUrl: null,
           tailscaleServeEnabled: true,
           tailscaleServePort: 8443,
           updateChannel: "latest",
@@ -142,6 +144,24 @@ describe("DesktopSettings", () => {
 
         assert.isTrue(tailscale.changed);
         assert.equal(tailscale.settings.tailscaleServePort, 9443);
+
+        const server = yield* settings.setServerUrl("https://otto.example.com");
+        assert.isTrue(server.changed);
+        assert.equal((yield* settings.load).serverUrl, "https://otto.example.com");
+      }),
+    ),
+  );
+
+  it.effect("keeps only the origin of an http(s) server URL", () =>
+    withSettings(
+      Effect.gen(function* () {
+        const settings = yield* DesktopAppSettings.DesktopAppSettings;
+
+        yield* writeSettingsPatch({ serverUrl: "https://otto.example.com:8443/app?x=1" });
+        assert.equal((yield* settings.load).serverUrl, "https://otto.example.com:8443");
+
+        yield* writeSettingsPatch({ serverUrl: "file:///etc/passwd" });
+        assert.isNull((yield* settings.load).serverUrl);
       }),
     ),
   );
@@ -226,6 +246,7 @@ describe("DesktopSettings", () => {
           mainWindowBounds: { x: 120, y: 80, width: 1280, height: 900 },
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
+          serverUrl: null,
           tailscaleServeEnabled: true,
           tailscaleServePort: 8443,
           updateChannel: "latest",
@@ -282,6 +303,7 @@ describe("DesktopSettings", () => {
             mainWindowBounds: null,
             mainWindowMaximized: false,
             serverExposureMode: "network-accessible",
+            serverUrl: null,
             tailscaleServeEnabled: true,
             tailscaleServePort: 8443,
             updateChannel: "latest",
@@ -331,6 +353,7 @@ describe("DesktopSettings", () => {
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "local-only",
+          serverUrl: null,
           tailscaleServeEnabled: true,
           tailscaleServePort: 443,
           updateChannel: "latest",

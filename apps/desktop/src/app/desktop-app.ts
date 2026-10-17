@@ -186,17 +186,16 @@ const bootstrap = Effect.gen(function* () {
   const backendConfig = yield* serverExposure.backendConfig;
   const electronProtocol = yield* ElectronProtocol.ElectronProtocol;
 
-  const rendererTarget = environment.isDevelopment
-    ? Option.getOrThrow(environment.devServerUrl)
-    : backendConfig.httpBaseUrl;
-
   yield* electronProtocol.registerDesktopProtocol({
     scheme: ElectronProtocol.getDesktopScheme(environment.isDevelopment),
-    targetOrigin: rendererTarget,
-    backendOrigin: backendConfig.httpBaseUrl,
+    localOrigin: environment.isDevelopment
+      ? Option.getOrThrow(environment.devServerUrl)
+      : backendConfig.httpBaseUrl,
+    serverOrigin: settings.serverUrl === null ? null : new URL(settings.serverUrl),
   });
   yield* logBootstrapInfo("bootstrap resolved backend endpoint", {
     baseUrl: backendConfig.httpBaseUrl.href,
+    serverUrl: settings.serverUrl,
   });
 
   if (serverExposureState.endpointUrl) {

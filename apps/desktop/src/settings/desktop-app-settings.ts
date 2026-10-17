@@ -18,6 +18,7 @@ import {
   settingsChange,
   setMainWindowBounds,
   setServerExposureMode,
+  setServerUrl,
   setTailscaleServe,
   setUpdateChannel,
   setWslBackendEnabled,
@@ -48,7 +49,7 @@ export { DEFAULT_DESKTOP_SETTINGS } from "./desktop-settings-document.ts";
 
 export { resolveDefaultDesktopSettings } from "./desktop-settings-document.ts";
 
-export { normalizeMainWindowBounds } from "./desktop-settings-document.ts";
+export { normalizeMainWindowBounds, normalizeServerUrl } from "./desktop-settings-document.ts";
 
 export { DesktopSettingsWriteError } from "./desktop-settings-persistence.ts";
 
@@ -63,6 +64,9 @@ export class DesktopAppSettings extends Context.Service<
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly setServerExposureMode: (
       mode: DesktopServerExposureMode,
+    ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
+    readonly setServerUrl: (
+      serverUrl: string | null,
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly setTailscaleServe: (input: {
       readonly enabled: boolean;
@@ -163,6 +167,10 @@ export const make = Effect.gen(function* () {
       persist((settings) => setServerExposureMode(settings, mode)).pipe(
         Effect.withSpan("desktop.settings.setServerExposureMode", { attributes: { mode } }),
       ),
+    setServerUrl: (serverUrl) =>
+      persist((settings) => setServerUrl(settings, serverUrl)).pipe(
+        Effect.withSpan("desktop.settings.setServerUrl", { attributes: { serverUrl } }),
+      ),
     setTailscaleServe: (input) =>
       persist((settings) => setTailscaleServe(settings, input)).pipe(
         Effect.withSpan("desktop.settings.setTailscaleServe", { attributes: input }),
@@ -222,6 +230,7 @@ export const layerTest = (initialSettings: DesktopSettings = DEFAULT_DESKTOP_SET
           update((settings) => setMainWindowBounds(settings, bounds, isMaximized)),
         setServerExposureMode: (mode) =>
           update((settings) => setServerExposureMode(settings, mode)),
+        setServerUrl: (serverUrl) => update((settings) => setServerUrl(settings, serverUrl)),
         setTailscaleServe: (input) => update((settings) => setTailscaleServe(settings, input)),
         setUpdateChannel: (channel) => update((settings) => setUpdateChannel(settings, channel)),
         setWslBackendEnabled: (enabled) =>

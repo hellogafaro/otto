@@ -52,8 +52,10 @@ export class ElectronProtocolUnregistrationError extends Schema.TaggedErrorClass
 
 export interface DesktopProtocolRegistrationInput {
   readonly scheme: string;
-  readonly targetOrigin: URL;
-  readonly backendOrigin: URL;
+  /** The bundled local server, or the Vite dev server in development. */
+  readonly localOrigin: URL;
+  /** The remote Otto server the desktop is connected to; its web app replaces the local one. */
+  readonly serverOrigin: URL | null;
 }
 
 export class ElectronProtocol extends Context.Service<
@@ -62,10 +64,11 @@ export class ElectronProtocol extends Context.Service<
     readonly registerDesktopProtocol: (
       input: DesktopProtocolRegistrationInput,
     ) => Effect.Effect<void, ElectronProtocolRegistrationError, Scope.Scope>;
+    readonly setServerOrigin: (serverOrigin: URL | null) => Effect.Effect<void>;
   }
 >()("@otto/desktop/electron/electron-protocol/ElectronProtocol") {}
 
-export function makeDesktopContentSecurityPolicy(input: DesktopProtocolRegistrationInput): string {
+export function makeDesktopContentSecurityPolicy(scheme: string): string {
   const scriptSources = ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'"];
 
   // The renderer connects directly to user-configured environments. Those environment
@@ -77,9 +80,9 @@ export function makeDesktopContentSecurityPolicy(input: DesktopProtocolRegistrat
     "default-src 'self'",
     `script-src ${scriptSources.join(" ")}`,
     `connect-src ${connectSources.join(" ")}`,
-    `img-src 'self' ${input.scheme}: blob: data: http: https:`,
+    `img-src 'self' ${scheme}: blob: data: http: https:`,
     "style-src 'self' 'unsafe-inline'",
-    `font-src 'self' ${input.scheme}: data:`,
+    `font-src 'self' ${scheme}: data:`,
     "worker-src 'self' blob:",
     "frame-src 'self' https://challenges.cloudflare.com",
     "form-action 'self'",
@@ -129,9 +132,22 @@ const registerDesktopSchemePrivileges = Effect.sync(registerDesktopSchemePrivile
 
 export const layerSchemePrivileges = Layer.effectDiscard(registerDesktopSchemePrivileges);
 
+// Otto: shown instead of a blank window when the connected server cannot be reached, so the
+// person can retry or go back to the bundled server without a web app.
+function unreachableServerPage(serverOrigin: URL): Response {
+  return new Response(
+    `<!doctype html><meta charset="utf-8"><title>Otto</title>
+<style>body{font:14px system-ui;display:grid;place-content:center;gap:12px;height:100vh;margin:0;background:#fafafa;color:#171717}@media (prefers-color-scheme:dark){body{background:#171717;color:#fafafa}}button{font:inherit;padding:6px 12px}</style>
+<p>Can't reach the Otto server at ${serverOrigin.host}.</p>
+<p><button onclick="location.reload()">Try again</button> <button onclick="desktopBridge.setServerUrl(null)">Use this computer</button></p>`,
+    { status: 502, headers: { "content-type": "text/html; charset=utf-8" } },
+  );
+}
+
 async function proxyRequest(
   request: Request,
   targetOrigin: URL,
+  isServer: boolean,
   contentSecurityPolicy: string,
 ): Promise<Response> {
   const requestUrl = new URL(request.url);
@@ -173,12 +189,25 @@ async function proxyRequest(
     init.duplex = "half";
   }
 
-  const response =
-    request.method === "GET" || request.method === "HEAD"
-      ? await fetchWithTransientRetry(targetUrl.toString(), init)
-      : await Electron.net.fetch(targetUrl.toString(), init);
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return withContentSecurityPolicy(
+      await Electron.net.fetch(targetUrl.toString(), init),
+      contentSecurityPolicy,
+    );
+  }
 
-  return withContentSecurityPolicy(response, contentSecurityPolicy);
+  try {
+    return withContentSecurityPolicy(
+      await fetchWithTransientRetry(targetUrl.toString(), init),
+      contentSecurityPolicy,
+    );
+  } catch (error) {
+    if (isServer && request.headers.get("accept")?.includes("text/html")) {
+      return withContentSecurityPolicy(unreachableServerPage(targetOrigin), contentSecurityPolicy);
+    }
+
+    throw error;
+  }
 }
 
 const TRANSIENT_FETCH_RETRY_DELAYS_MS = [0, 50, 150] as const;
@@ -203,6 +232,7 @@ async function fetchWithTransientRetry(url: string, init: RequestInit): Promise<
 
 export const make = Effect.gen(function* () {
   const registered = yield* Ref.make<ReadonlySet<string>>(new Set());
+  let serverOrigin: URL | null = null;
 
   const registerDesktopProtocol = Effect.fn("desktop.electron.protocol.registerDesktopProtocol")(
     function* (input: DesktopProtocolRegistrationInput) {
@@ -214,13 +244,19 @@ export const make = Effect.gen(function* () {
 
       if (!shouldRegister) return;
 
-      const contentSecurityPolicy = makeDesktopContentSecurityPolicy(input);
+      const contentSecurityPolicy = makeDesktopContentSecurityPolicy(input.scheme);
+      serverOrigin = input.serverOrigin;
 
       yield* Effect.acquireRelease(
         Effect.try({
           try: () => {
             Electron.protocol.handle(input.scheme, (request) =>
-              proxyRequest(request, input.targetOrigin, contentSecurityPolicy),
+              proxyRequest(
+                request,
+                serverOrigin ?? input.localOrigin,
+                serverOrigin !== null,
+                contentSecurityPolicy,
+              ),
             );
           },
           catch: (cause) => new ElectronProtocolRegistrationError({ scheme: input.scheme, cause }),
@@ -257,7 +293,13 @@ export const make = Effect.gen(function* () {
     },
   );
 
-  return ElectronProtocol.of({ registerDesktopProtocol });
+  return ElectronProtocol.of({
+    registerDesktopProtocol,
+    setServerOrigin: (origin) =>
+      Effect.sync(() => {
+        serverOrigin = origin;
+      }),
+  });
 });
 
 export const layer = Layer.effect(ElectronProtocol, make);

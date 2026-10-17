@@ -24,6 +24,9 @@ export interface DesktopSettings {
   readonly mainWindowBounds: DesktopWindowBounds | null;
   readonly mainWindowMaximized: boolean;
   readonly serverExposureMode: DesktopServerExposureMode;
+  // Otto: the origin of the remote Otto server whose web app the window shows, or null for the
+  // bundled local server.
+  readonly serverUrl: string | null;
   readonly tailscaleServeEnabled: boolean;
   readonly tailscaleServePort: number;
   readonly updateChannel: DesktopUpdateChannel;
@@ -76,6 +79,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   mainWindowBounds: null,
   mainWindowMaximized: false,
   serverExposureMode: "local-only",
+  serverUrl: null,
   tailscaleServeEnabled: false,
   tailscaleServePort: DEFAULT_TAILSCALE_SERVE_PORT,
   updateChannel: "latest",
@@ -97,6 +101,7 @@ export const DesktopSettingsDocument = Schema.Struct({
   mainWindowBounds: Schema.optionalKey(Schema.NullOr(DesktopWindowBoundsDocument)),
   mainWindowMaximized: Schema.optionalKey(Schema.Boolean),
   serverExposureMode: Schema.optionalKey(DesktopServerExposureModeSchema),
+  serverUrl: Schema.optionalKey(Schema.NullOr(Schema.String)),
   tailscaleServeEnabled: Schema.optionalKey(Schema.Boolean),
   tailscaleServePort: Schema.optionalKey(Schema.Number),
   updateChannel: Schema.optionalKey(DesktopUpdateChannelSchema),
@@ -153,6 +158,14 @@ export const normalizeWslDistro = flow(
 
 export const normalizeMainWindowBounds = flow(decodeDesktopWindowBounds, Option.getOrNull);
 
+/** An http(s) URL reduced to its origin, or null for anything else. */
+export function normalizeServerUrl(value: string | null | undefined): string | null {
+  if (!value || !URL.canParse(value)) return null;
+  const url = new URL(value);
+
+  return url.protocol === "http:" || url.protocol === "https:" ? url.origin : null;
+}
+
 export function normalizeDesktopSettingsDocument(
   parsed: DesktopSettingsDocument,
   appVersion: string,
@@ -175,6 +188,7 @@ export function normalizeDesktopSettingsDocument(
     mainWindowMaximized: mainWindowBounds !== null && parsed.mainWindowMaximized === true,
     serverExposureMode:
       parsed.serverExposureMode === "network-accessible" ? "network-accessible" : "local-only",
+    serverUrl: normalizeServerUrl(parsed.serverUrl),
     tailscaleServeEnabled: parsed.tailscaleServeEnabled === true,
     tailscaleServePort: normalizeTailscaleServePort(parsed.tailscaleServePort),
     updateChannel: updateChannelConfiguredByUser
@@ -207,6 +221,10 @@ export function toDesktopSettingsDocument(
 
   if (settings.serverExposureMode !== defaults.serverExposureMode) {
     document.serverExposureMode = settings.serverExposureMode;
+  }
+
+  if (settings.serverUrl !== defaults.serverUrl) {
+    document.serverUrl = settings.serverUrl;
   }
 
   if (settings.tailscaleServeEnabled !== defaults.tailscaleServeEnabled) {
@@ -250,6 +268,10 @@ export function setServerExposureMode(
         ...settings,
         serverExposureMode: requestedMode,
       };
+}
+
+export function setServerUrl(settings: DesktopSettings, serverUrl: string | null): DesktopSettings {
+  return settings.serverUrl === serverUrl ? settings : { ...settings, serverUrl };
 }
 
 export function setMainWindowBounds(

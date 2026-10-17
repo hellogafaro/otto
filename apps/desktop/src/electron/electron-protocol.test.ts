@@ -37,8 +37,8 @@ describe("ElectronProtocol", () => {
           const protocol = yield* ElectronProtocol.ElectronProtocol;
           yield* protocol.registerDesktopProtocol({
             scheme: "otto-dev",
-            targetOrigin: new URL("http://127.0.0.1:3773/"),
-            backendOrigin: new URL("http://127.0.0.1:3774/"),
+            localOrigin: new URL("http://127.0.0.1:3773/"),
+            serverOrigin: null,
           });
           assert.isDefined(handler);
 
@@ -89,6 +89,65 @@ describe("ElectronProtocol", () => {
     }).pipe(Effect.provide(ElectronProtocol.layer)),
   );
 
+  it.effect("proxies to the connected server and back to the local server", () =>
+    Effect.gen(function* () {
+      let handler: ((request: Request) => Promise<Response>) | undefined;
+      handleMock.mockImplementation((_scheme, nextHandler) => {
+        handler = nextHandler;
+      });
+      netFetchMock.mockResolvedValue(new Response("ok"));
+
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const protocol = yield* ElectronProtocol.ElectronProtocol;
+          yield* protocol.registerDesktopProtocol({
+            scheme: "otto",
+            localOrigin: new URL("http://127.0.0.1:3773/"),
+            serverOrigin: new URL("https://otto.example.com/"),
+          });
+          yield* Effect.promise(() => handler!(new Request("otto://app/assets/index.js")));
+          yield* protocol.setServerOrigin(null);
+          yield* Effect.promise(() => handler!(new Request("otto://app/assets/index.js")));
+        }),
+      );
+
+      assert.deepEqual(
+        netFetchMock.mock.calls.map((call) => call[0]),
+        ["https://otto.example.com/assets/index.js", "http://127.0.0.1:3773/assets/index.js"],
+      );
+    }).pipe(Effect.provide(ElectronProtocol.layer)),
+  );
+
+  it.effect("offers a way back when the connected server cannot be reached", () =>
+    Effect.gen(function* () {
+      let handler: ((request: Request) => Promise<Response>) | undefined;
+      handleMock.mockImplementation((_scheme, nextHandler) => {
+        handler = nextHandler;
+      });
+      netFetchMock.mockRejectedValue(new Error("connect ECONNREFUSED"));
+
+      const response = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const protocol = yield* ElectronProtocol.ElectronProtocol;
+          yield* protocol.registerDesktopProtocol({
+            scheme: "otto",
+            localOrigin: new URL("http://127.0.0.1:3773/"),
+            serverOrigin: new URL("https://otto.example.com/"),
+          });
+
+          return yield* Effect.promise(() =>
+            handler!(new Request("otto://app/", { headers: { accept: "text/html" } })),
+          );
+        }),
+      );
+
+      assert.equal(response.status, 502);
+      const page = yield* Effect.promise(() => response.text());
+      assert.include(page, "otto.example.com");
+      assert.include(page, "desktopBridge.setServerUrl(null)");
+    }).pipe(Effect.provide(ElectronProtocol.layer)),
+  );
+
   it.effect("rejects custom protocol requests for another host", () =>
     Effect.gen(function* () {
       let handler: ((request: Request) => Promise<Response>) | undefined;
@@ -101,8 +160,8 @@ describe("ElectronProtocol", () => {
           const protocol = yield* ElectronProtocol.ElectronProtocol;
           yield* protocol.registerDesktopProtocol({
             scheme: "otto",
-            targetOrigin: new URL("http://127.0.0.1:3773/"),
-            backendOrigin: new URL("http://127.0.0.1:3773/"),
+            localOrigin: new URL("http://127.0.0.1:3773/"),
+            serverOrigin: null,
           });
 
           return yield* Effect.promise(() => handler!(new Request("otto://other/")));
@@ -129,8 +188,8 @@ describe("ElectronProtocol", () => {
           const protocol = yield* ElectronProtocol.ElectronProtocol;
           yield* protocol.registerDesktopProtocol({
             scheme: "otto-dev",
-            targetOrigin: new URL("http://127.0.0.1:5733/"),
-            backendOrigin: new URL("http://127.0.0.1:3773/"),
+            localOrigin: new URL("http://127.0.0.1:5733/"),
+            serverOrigin: null,
           });
 
           return yield* Effect.promise(() => handler!(new Request("otto-dev://app/")));
@@ -154,8 +213,8 @@ describe("ElectronProtocol", () => {
       const error = yield* Effect.scoped(
         protocol.registerDesktopProtocol({
           scheme: "otto-dev",
-          targetOrigin: new URL("http://127.0.0.1:3773/"),
-          backendOrigin: new URL("http://127.0.0.1:3774/"),
+          localOrigin: new URL("http://127.0.0.1:3773/"),
+          serverOrigin: null,
         }),
       ).pipe(Effect.flip);
 
@@ -179,8 +238,8 @@ describe("ElectronProtocol", () => {
         Effect.scoped(
           protocol.registerDesktopProtocol({
             scheme: "otto",
-            targetOrigin: new URL("http://127.0.0.1:3773/"),
-            backendOrigin: new URL("http://127.0.0.1:3773/"),
+            localOrigin: new URL("http://127.0.0.1:3773/"),
+            serverOrigin: null,
           }),
         ),
       );
@@ -198,11 +257,7 @@ describe("ElectronProtocol", () => {
   );
 
   it("keeps executable sources host-restricted while allowing runtime network resources", () => {
-    const policy = ElectronProtocol.makeDesktopContentSecurityPolicy({
-      scheme: "otto",
-      targetOrigin: new URL("http://127.0.0.1:3773/"),
-      backendOrigin: new URL("http://127.0.0.1:3773/"),
-    });
+    const policy = ElectronProtocol.makeDesktopContentSecurityPolicy("otto");
 
     const directives = Object.fromEntries(
       policy.split("; ").map((directive) => {

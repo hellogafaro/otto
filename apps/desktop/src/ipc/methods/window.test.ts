@@ -8,6 +8,7 @@ import type * as Electron from "electron";
 import * as DesktopBackendManager from "../../backend/desktop-backend-manager.ts";
 import * as DesktopBackendPool from "../../backend/desktop-backend-pool.ts";
 import * as ElectronWindow from "../../electron/electron-window.ts";
+import * as DesktopAppSettings from "../../settings/desktop-app-settings.ts";
 import { getLocalEnvironmentBootstraps, getWindowFullscreenState } from "./window.ts";
 
 const readyWslConfig: DesktopBackendManager.DesktopBackendStartConfig = {
@@ -64,7 +65,14 @@ describe("getLocalEnvironmentBootstraps", () => {
           bootstrapToken: "bootstrap-token",
         },
       ]);
-    }).pipe(Effect.provide(DesktopBackendPool.layerTest([defaultWslInstance]))),
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          DesktopBackendPool.layerTest([defaultWslInstance]),
+          DesktopAppSettings.layerTest(),
+        ),
+      ),
+    ),
   );
 
   it.effect("publishes a pending bootstrap only while a transient retry is scheduled", () => {
@@ -100,7 +108,14 @@ describe("getLocalEnvironmentBootstraps", () => {
           wsBaseUrl: null,
         },
       ]);
-    }).pipe(Effect.provide(DesktopBackendPool.layerTest([retryingInstance])));
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          DesktopBackendPool.layerTest([retryingInstance]),
+          DesktopAppSettings.layerTest(),
+        ),
+      ),
+    );
   });
 
   it.effect("omits a bounded transient bootstrap after retries stop", () => {
@@ -128,8 +143,41 @@ describe("getLocalEnvironmentBootstraps", () => {
     return Effect.gen(function* () {
       const result = yield* getLocalEnvironmentBootstraps.handler();
       assert.deepEqual(result, []);
-    }).pipe(Effect.provide(DesktopBackendPool.layerTest([stoppedInstance])));
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          DesktopBackendPool.layerTest([stoppedInstance]),
+          DesktopAppSettings.layerTest(),
+        ),
+      ),
+    );
   });
+
+  it.effect("gives a window connected to a remote server only that server", () =>
+    Effect.gen(function* () {
+      const result = yield* getLocalEnvironmentBootstraps.handler();
+
+      assert.deepEqual(result, [
+        {
+          id: "primary",
+          label: "otto.example.com",
+          runningDistro: null,
+          httpBaseUrl: "https://otto.example.com/",
+          wsBaseUrl: "wss://otto.example.com/",
+        },
+      ]);
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          DesktopBackendPool.layerTest([defaultWslInstance]),
+          DesktopAppSettings.layerTest({
+            ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
+            serverUrl: "https://otto.example.com",
+          }),
+        ),
+      ),
+    ),
+  );
 });
 
 describe("getWindowFullscreenState", () => {
