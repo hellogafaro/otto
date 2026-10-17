@@ -14,6 +14,7 @@ import { type OttoMastraToolOptions } from "./otto-harness-types.ts";
 import { controllerModelId, controllerResourceId } from "./otto-memory.ts";
 import type { resolveOttoMastraModel } from "./otto-models.ts";
 import { ottoNativeWebSearch } from "./otto-web-search.ts";
+import { deferredToolOptions, nativeToolSearch, toolSearchTool } from "./otto-tool-search.ts";
 import { ottoActionNeedsApproval } from "./otto-actions.ts";
 import {
   routineToolInputSchema,
@@ -232,22 +233,30 @@ export async function resolveOttoTools(
         })
       : undefined;
 
+  const search = nativeToolSearch(controllerModelId(requestContext));
+
+  const ottoTools = createOttoMastraTools(
+    threadId,
+    options.toolRuntime,
+    resolveModel &&
+      ((abortSignal) =>
+        ottoNativeWebSearch(
+          controllerModelId(requestContext),
+          () => resolveModel(requestContext),
+          abortSignal,
+        )),
+    search,
+  );
+
   return {
     ...approvalAwareTools(threadId, options.getThreadTools(threadId), options),
-    ...createOttoMastraTools(
-      threadId,
-      options.toolRuntime,
-      resolveModel &&
-        ((abortSignal) =>
-          ottoNativeWebSearch(
-            controllerModelId(requestContext),
-            () => resolveModel(requestContext),
-            abortSignal,
-          )),
-    ),
+    ...ottoTools,
     ...(routineTool ? { [OTTO_CREATE_ROUTINE_TOOL_NAME]: routineTool } : {}),
     ...(deleteRoutinesTool ? { [OTTO_DELETE_ROUTINES_TOOL_NAME]: deleteRoutinesTool } : {}),
     ...(updateRoutineTool ? { [OTTO_UPDATE_ROUTINE_TOOL_NAME]: updateRoutineTool } : {}),
+    ...(search && Object.keys(ottoTools).some((id) => deferredToolOptions(search, id))
+      ? { tool_search: toolSearchTool(search) }
+      : {}),
   };
 }
 

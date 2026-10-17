@@ -1,4 +1,4 @@
-import { OTTO_TOOL_CATALOG } from "@otto/contracts";
+import { OTTO_TOOL_CATALOG, OTTO_TOOL_FAMILIES } from "@otto/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import { MEMORY_UPDATE_TOOL_PROMPT } from "../memory/memory-update-tool.ts";
@@ -92,8 +92,20 @@ export function createOttoInstructions(input: OttoInstructionInput = {}): string
     return prompt ? [{ tool, prompt }] : [];
   });
 
-  const toolLines = prompts.flatMap(({ tool, prompt }) =>
-    prompt.snippet ? [`- ${prompt.label ?? tool}: ${prompt.snippet}`] : [],
+  const toolLines = new Set(
+    prompts.flatMap(({ tool, prompt }) => {
+      const family = OTTO_TOOL_FAMILIES.find((candidate) =>
+        candidate.tools.some((id) => id === tool),
+      );
+
+      if (family) {
+        const present = family.tools.filter((id) => loaded.includes(id));
+
+        return [`- ${family.name} (${present.join(", ")}): ${family.description}`];
+      }
+
+      return prompt.snippet ? [`- ${prompt.label ?? tool}: ${prompt.snippet}`] : [];
+    }),
   );
 
   const rules = [
@@ -103,7 +115,7 @@ export function createOttoInstructions(input: OttoInstructionInput = {}): string
   return [
     `You are ${name}, a member of the ${workspace ? `${workspace} ` : ""}team in Otto. You work with people and other bots on chats, tasks, routines and the Library.`,
     section("instructions", input.instructions),
-    section("tools", toolLines.join("\n")),
+    section("tools", [...toolLines].join("\n")),
     section("rules", rules.map((rule) => `- ${rule}`).join("\n")),
     loaded.includes("shell") ? section("computer", COMPUTER) : "",
     section("available_skills", input.skills),

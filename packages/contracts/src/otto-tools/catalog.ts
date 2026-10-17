@@ -291,3 +291,41 @@ export const OTTO_TOOL_CATALOG = [
     { promptSnippet: "comment on a task" },
   ),
 ] satisfies ReadonlyArray<OttoToolDefinition>;
+
+/**
+ * Tools a bot needs now and then. Models with a native tool search load them on demand;
+ * the prompt lists each family in one line on every model.
+ */
+export const OTTO_TOOL_FAMILIES = [
+  {
+    name: "connections",
+    description: "Find, add, check and remove the apps and MCP servers this bot can use.",
+    tools: [
+      "connection_search",
+      "connection_read",
+      "connection_create",
+      "connection_update",
+      "connection_check",
+      "connection_delete",
+    ],
+  },
+  {
+    name: "images",
+    description: "Create images, or new images from images in this chat.",
+    tools: ["image_create"],
+  },
+  {
+    name: "delegation",
+    description: "Hand work to another bot and follow it.",
+    tools: ["delegate", "delegate_check", "delegate_stop"],
+  },
+  {
+    name: "bot",
+    description: "Change your own profile or instructions, create a bot, or react to a message.",
+    tools: ["bot_update", "bot_create", "message_react"],
+  },
+] as const satisfies ReadonlyArray<{
+  readonly name: string;
+  readonly description: string;
+  readonly tools: ReadonlyArray<OttoToolId>;
+}>;

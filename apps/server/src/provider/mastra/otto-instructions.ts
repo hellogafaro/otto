@@ -157,6 +157,11 @@ export function withOttoPrompt(
 
     const tools = params.tools ?? [];
 
+    // Deferred tools stay out of the cached prefix, so the mark goes on the last loaded tool.
+    const lastLoaded = tools.findLastIndex(
+      (tool) => tool.type === "function" && tool.providerOptions?.anthropic?.deferLoading !== true,
+    );
+
     return {
       ...params,
       prompt: [
@@ -171,7 +176,7 @@ export function withOttoPrompt(
       ...(tools.length > 0
         ? {
             tools: tools.map((tool, index) =>
-              index === tools.length - 1 && tool.type === "function" ? cached(tool) : tool,
+              index === lastLoaded && tool.type === "function" ? cached(tool) : tool,
             ),
           }
         : {}),

@@ -133,6 +133,7 @@ export {
   type OttoToolWorkspaceRequirement,
   type OttoToolDefinition,
   OTTO_TOOL_CATALOG,
+  OTTO_TOOL_FAMILIES,
 } from "./otto-tools/catalog.ts";
 
 export {

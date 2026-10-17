@@ -13,6 +13,7 @@ import {
 } from "./otto-tool-runtime.ts";
 import { MemoryUpdateToolInput } from "../memory/memory-update-tool.ts";
 import type { OttoToolExecution } from "./tools/otto-tool-types.ts";
+import { deferredToolOptions, type OttoToolSearch } from "./mastra/otto-tool-search.ts";
 
 function inputSchema(toolId: OttoRuntimeToolId) {
   return isMemoryToolId(toolId) ? MemoryUpdateToolInput : OttoToolInputSchemas[toolId];
@@ -74,11 +75,13 @@ export function createOttoMastraTools(
   threadId: string,
   runtime: OttoToolRuntime,
   webSearch?: (abortSignal: AbortSignal | undefined) => OttoToolExecution["webSearch"],
+  search?: OttoToolSearch | null,
 ): ToolsInput {
   return Object.fromEntries(
     runtime.toolsForThread(threadId).map((definition) => {
       const schema = inputSchema(definition.id);
       const standardSchema = Schema.toStandardJSONSchemaV1(schema);
+      const providerOptions = search ? deferredToolOptions(search, definition.id) : undefined;
 
       // A throw here ends the whole turn, so input the runtime cannot decode
       // goes on to execute, which rejects it as a tool error the model can fix.
@@ -97,6 +100,7 @@ export function createOttoMastraTools(
           { defaultTarget: "draft-7" },
         ),
         requireApproval: approval,
+        ...(providerOptions ? { providerOptions } : {}),
         execute: (input, context) => {
           const toolCallId = context.agent?.toolCallId;
 

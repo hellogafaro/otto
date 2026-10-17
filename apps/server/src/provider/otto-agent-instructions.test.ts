@@ -42,6 +42,20 @@ describe("Otto bot instructions", () => {
     expect(createOttoInstructions({ tools: ["shell"] })).toContain("<computer>");
   });
 
+  it("lists a family of occasional tools in one line naming the loaded ones", () => {
+    const instructions = createOttoInstructions({
+      tools: ["search", "connection_read", "connection_check", "image_create"],
+    });
+
+    expect(instructions).toContain(
+      "- connections (connection_read, connection_check): Find, add, check and remove the apps and MCP servers this bot can use.",
+    );
+    expect(instructions).toContain(
+      "- images (image_create): Create images, or new images from images in this chat.",
+    );
+    expect(instructions.match(/connection_read/g)).toHaveLength(1);
+  });
+
   it("keeps the shared rules without the removed follow-up rule", () => {
     const instructions = createOttoInstructions();
 
