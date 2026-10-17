@@ -160,9 +160,12 @@ export const createSettingsSecretReads = (
       }
     });
 
-  const validateSandboxSettings = (settings: ServerSettings) =>
+  const validateSandboxSettings = (
+    settings: ServerSettings,
+    providers: ReadonlyArray<CloudSandboxProvider> = CLOUD_SANDBOX_PROVIDERS,
+  ) =>
     Effect.gen(function* () {
-      for (const provider of CLOUD_SANDBOX_PROVIDERS) {
+      for (const provider of providers) {
         const environment = settings.sandbox.providers[provider].environment;
         const credentials = SANDBOX_PROVIDER_CREDENTIALS[provider];
 

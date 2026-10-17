@@ -16,6 +16,7 @@ import { createSettingsSecretRollback } from "./server-settings-secret-rollback.
  * @module ServerSettings
  */
 import {
+  CLOUD_SANDBOX_PROVIDERS,
   DEFAULT_SERVER_SETTINGS,
   ServerSettings,
   ServerSettingsError,
@@ -456,7 +457,16 @@ const make = Effect.gen(function* () {
           const patched = applyServerSettingsPatch(current, normalizedPatch);
           const sandboxMaterialized = yield* materializeSandboxEnvironmentSecrets(patched);
 
-          if (patch.sandbox) yield* validateSandboxSettings(sandboxMaterialized);
+          if (patch.sandbox) {
+            yield* validateSandboxSettings(
+              sandboxMaterialized,
+              CLOUD_SANDBOX_PROVIDERS.filter(
+                (provider) =>
+                  patch.sandbox?.providers?.[provider] !== undefined ||
+                  patch.sandbox?.defaultProvider === provider,
+              ),
+            );
+          }
 
           const secretSnapshots = yield* snapshotSettingsSecrets(current, patched);
 

@@ -633,6 +633,36 @@ it.layer(NodeServices.layer)("server settings", (it) => {
     }),
   );
 
+  it.effect("connects another sandbox while the saved default has lost its key", () =>
+    Effect.gen(function* () {
+      const serverConfig = yield* ServerConfig.ServerConfig;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
+      yield* fileSystem.writeFileString(
+        serverConfig.settingsPath,
+        '{"sandbox":{"defaultProvider":"boat"}}',
+      );
+
+      const saved = yield* serverSettings.updateSettings({
+        sandbox: {
+          providers: {
+            railway: {
+              environment: [
+                { name: "RAILWAY_API_TOKEN", value: "token", sensitive: true },
+                { name: "RAILWAY_ENVIRONMENT_ID", value: "environment", sensitive: false },
+              ],
+            },
+          },
+        },
+      });
+
+      assert.equal(saved.sandbox.defaultProvider, "boat");
+    }).pipe(
+      Effect.provide(makeServerSettingsLayer()),
+      Effect.provideService(HostProcessEnvironment, {}),
+    ),
+  );
+
   it.effect("keeps settings working after the server loses BOAT_API_KEY", () =>
     Effect.gen(function* () {
       const serverConfig = yield* ServerConfig.ServerConfig;
