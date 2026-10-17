@@ -55,7 +55,7 @@ describe("DesktopUpdates", () => {
       NodePath.join(resourcesPath, "app-update.yml"),
       [
         "owner: hellogafaro",
-        "repo: otto-releases",
+        "repo: otto",
         "provider: github",
         "releaseType: release",
         "updaterCacheDirName: otto-updater",

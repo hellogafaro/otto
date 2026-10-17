@@ -19,7 +19,7 @@ describe("release-desktop-mac.sh", () => {
     expect(runRelease({})).toEqual({
       status: 1,
       stderr:
-        "release-desktop-mac: set GH_TOKEN to a token that can write releases in hellogafaro/otto-releases.\n",
+        "release-desktop-mac: set GH_TOKEN to a token that can write releases in hellogafaro/otto.\n",
     });
   });
 

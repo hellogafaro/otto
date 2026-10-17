@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds, signs, notarizes and publishes the macOS arm64 app to hellogafaro/otto-releases.
+# Builds, signs, notarizes and publishes the macOS arm64 app as a GitHub release of hellogafaro/otto.
 # Usage: GH_TOKEN=... APPLE_API_KEY=... APPLE_API_KEY_ID=... APPLE_API_ISSUER=... scripts/release-desktop-mac.sh
 # See deploy/desktop-mac/README.md.
 set -euo pipefail
 
-releases_repo="hellogafaro/otto-releases"
+releases_repo="hellogafaro/otto"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 fail() {
@@ -73,11 +73,11 @@ spctl --assess --type open --context context:primary-signature "$dmg"
 grep -q "repo: ${releases_repo#*/}" "$app/Contents/Resources/app-update.yml" ||
   fail "the app's app-update.yml does not point at $releases_repo."
 
-commit="$(git -C "$root" rev-parse --short=12 HEAD)"
+commit="$(git -C "$root" rev-parse HEAD)"
 
 if [[ -z "$draft" ]]; then
-  gh release create "$tag" --repo "$releases_repo" --draft --title "Otto $version" \
-    --notes "Otto $version for Apple silicon Macs, built from hellogafaro/otto@$commit."
+  gh release create "$tag" --repo "$releases_repo" --draft --target "$commit" --title "Otto $version" \
+    --notes "Otto $version for Apple silicon Macs, built from ${commit:0:12}."
 fi
 
 gh release upload "$tag" "${assets[@]}" --repo "$releases_repo" --clobber

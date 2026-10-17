@@ -69,7 +69,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         {
           provider: "github",
           owner: "hellogafaro",
-          repo: "otto-releases",
+          repo: "otto",
           releaseType: "release",
         },
       ]);

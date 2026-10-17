@@ -158,7 +158,7 @@ const AzureTrustedSigningOptionsConfig = Config.all({
 export const DESKTOP_UPDATE_PUBLISH_CONFIG = {
   provider: "github",
   owner: "hellogafaro",
-  repo: "otto-releases",
+  repo: "otto",
   releaseType: "release",
 } as const;
 
