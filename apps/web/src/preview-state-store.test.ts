@@ -72,7 +72,6 @@ describe("previewStateStore (single-tab)", () => {
       colorScheme: "system",
       audioMuted: false,
       audible: false,
-      controller: "none",
       favicon: null,
     });
     const state = readThreadPreviewState(ref);
@@ -94,7 +93,6 @@ describe("previewStateStore (single-tab)", () => {
       colorScheme: "system" as const,
       audioMuted: false,
       audible: false,
-      controller: "none" as const,
       favicon: {
         dataUrl: "data:image/png;base64,AA==",
         pageUrl: "https://example.com",

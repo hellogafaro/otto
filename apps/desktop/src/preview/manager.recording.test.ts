@@ -404,7 +404,7 @@ describe("PreviewManager", () => {
         );
         yield* manager.createTab("tab_screencast_guard");
         yield* manager.registerWebview("tab_screencast_guard", 42);
-        yield* manager.automationEvaluate("tab_screencast_guard", { expression: "null" });
+        yield* manager.setColorScheme("tab_screencast_guard", "dark");
 
         debuggerMessage?.(
           { preventDefault: () => {}, defaultPrevented: false },

@@ -1,10 +1,6 @@
 import * as Data from "effect/Data";
 import * as Predicate from "effect/Predicate";
-import type {
-  PreviewAutomationResizeInput,
-  PreviewViewportPresetId,
-  PreviewViewportSetting,
-} from "@otto/contracts";
+import type { PreviewViewportPresetId, PreviewViewportSetting } from "@otto/contracts";
 import { PREVIEW_VIEWPORT_PRESET_IDS } from "@otto/contracts";
 
 const Viewport = Data.taggedEnum<PreviewViewportSetting>();
@@ -150,9 +146,15 @@ export const PREVIEW_VIEWPORT_PRESETS: ReadonlyArray<PreviewViewportPreset> =
     ...PREVIEW_VIEWPORT_PRESET_DEFINITIONS[id],
   }));
 
-export function resolvePreviewViewport(
-  input: PreviewAutomationResizeInput,
-): PreviewViewportSetting {
+export interface PreviewViewportInput {
+  readonly mode: "fill" | "freeform" | "preset";
+  readonly preset?: PreviewViewportPresetId;
+  readonly width?: number;
+  readonly height?: number;
+  readonly orientation?: "portrait" | "landscape";
+}
+
+export function resolvePreviewViewport(input: PreviewViewportInput): PreviewViewportSetting {
   if (input.mode === "fill") return Viewport.fill();
 
   if (input.mode === "preset" && input.preset !== undefined) {

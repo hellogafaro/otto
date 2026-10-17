@@ -7,7 +7,6 @@ import {
   EnvironmentId,
   McpServerId,
   ProviderDriverKind,
-  ThreadId,
   type ProviderRuntimeEvent,
 } from "@otto/contracts";
 import { it } from "@effect/vitest";
@@ -29,12 +28,7 @@ import {
   codexInstanceId,
   codexSelection,
 } from "./test-support/agent-controller-fixtures.ts";
-import {
-  computerUseToolName,
-  computerUseServer,
-  computerUseMcpManager,
-  mastraHarnessFixture,
-} from "./test-support/agent-controller-harness.ts";
+import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
 import {
   makeBridge,
   provideController,
@@ -194,7 +188,7 @@ describe("AgentControllerLive", () => {
     const mcpManager = {
       init: vi.fn(async () => undefined),
       disconnect: vi.fn(async () => undefined),
-      getTools: vi.fn(() => ({ "builtin-exa_search": {}, otto_preview_status: {} })),
+      getTools: vi.fn(() => ({ "builtin-exa_search": {} })),
       getServerStatuses: vi.fn(() => [{ name: "builtin-exa", connected: true }]),
     };
 
@@ -232,19 +226,11 @@ describe("AgentControllerLive", () => {
         expect(makeMcpManagerMock).toHaveBeenCalledOnce();
         expect(makeMcpManagerMock.mock.calls[0]?.[2]).toEqual({
           "builtin-exa": { url: "https://mcp.exa.ai/mcp" },
-          otto: {
-            url: "http://127.0.0.1:15070/mcp",
-            headers: { Authorization: "Bearer preview-test" },
-          },
         });
         expect(mcpManager.init).toHaveBeenCalledOnce();
         assert.property(
           mastra.harnessOptions[0]?.getThreadTools(String(codexThreadId)),
           "builtin-exa_search",
-        );
-        assert.property(
-          mastra.harnessOptions[0]?.getThreadTools(String(codexThreadId)),
-          "preview_status",
         );
         expect(mastra.session.permissions.setForTool).toHaveBeenCalledWith({
           toolName: "builtin-exa_search",
@@ -337,197 +323,6 @@ describe("AgentControllerLive", () => {
             },
           }),
         revokeMcpCredential: () => Effect.void,
-      },
-    );
-  });
-});
-
-describe("AgentControllerLive", () => {
-  it.effect("keeps Computer Use approval data and desktop content out of runtime events", () => {
-    const bridge = makeBridge();
-    const mastra = mastraHarnessFixture();
-    const toolName = computerUseToolName;
-    const mcpManager = computerUseMcpManager();
-    const server = computerUseServer();
-
-    return provideController(
-      Effect.gen(function* () {
-        const controller = yield* AgentController;
-        yield* resolveCodex(controller);
-        yield* controller.startSession(codexThreadId, {
-          threadId: codexThreadId,
-          provider: ProviderDriverKind.make("codex"),
-          providerInstanceId: codexInstanceId,
-          modelSelection: codexSelection,
-          runtimeMode: "full-access",
-          mcpServers: [server],
-        });
-
-        const events: ProviderRuntimeEvent[] = [];
-
-        const eventsFiber = yield* controller.streamEvents.pipe(
-          Stream.runForEach((event) => Effect.sync(() => events.push(event))),
-          Effect.forkChild({ startImmediately: true }),
-        );
-
-        yield* Effect.yieldNow;
-        yield* controller.sendTurn({ threadId: codexThreadId, input: "Control this Mac." });
-        mastra.emit({
-          type: "tool_start",
-          toolCallId: "computer-use-1",
-          toolName,
-          args: { text: "typed secret", app: "Private App", path: "/private/tester" },
-        } as AgentControllerEvent);
-        mastra.emit({
-          type: "tool_update",
-          toolCallId: "computer-use-1",
-          partialResult: { windowTitle: "Private Window" },
-        } as AgentControllerEvent);
-        mastra.emit({
-          type: "tool_approval_required",
-          toolCallId: "computer-use-1",
-          toolName,
-          args: { text: "typed secret", app: "Private App" },
-        } as AgentControllerEvent);
-        yield* controller.respondToRequest({
-          threadId: codexThreadId,
-          requestId: ApprovalRequestId.make("computer-use-1"),
-          decision: "acceptForSession",
-        });
-        mastra.emit({
-          type: "tool_end",
-          toolCallId: "computer-use-1",
-          result: { screenshot: "raw frame", applicationContent: "private content" },
-        } as AgentControllerEvent);
-        mastra.emit({
-          type: "tool_approval_required",
-          toolCallId: "computer-use-2",
-          toolName,
-          args: { text: "deny this" },
-        } as AgentControllerEvent);
-        yield* controller.respondToRequest({
-          threadId: codexThreadId,
-          requestId: ApprovalRequestId.make("computer-use-2"),
-          decision: "decline",
-        });
-        mastra.emit({
-          type: "error",
-          error: new Error("Private Window at /private/tester failed"),
-        } as AgentControllerEvent);
-        yield* Effect.yieldNow;
-        yield* Fiber.interrupt(eventsFiber);
-
-        const serialized = JSON.stringify(events);
-        expect(serialized).not.toContain("typed secret");
-        expect(serialized).not.toContain("Private App");
-        expect(serialized).not.toContain("Private Window");
-        expect(serialized).not.toContain("private/tester");
-        expect(serialized).not.toContain("raw frame");
-        expect(serialized).not.toContain("private content");
-
-        const approval = events.find(
-          (event): event is Extract<ProviderRuntimeEvent, { readonly type: "request.opened" }> =>
-            event.type === "request.opened" && event.requestId === "computer-use-1",
-        );
-
-        assert.isDefined(approval);
-        assert.isDefined(approval.payload.options);
-        expect(approval.payload.options.map((option) => option.decision)).toEqual([
-          "accept",
-          "decline",
-        ]);
-        expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
-          toolCallId: "computer-use-1",
-          decision: "approve",
-        });
-        expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
-          toolCallId: "computer-use-2",
-          decision: "decline",
-        });
-        expect(mastra.session.permissions.setForTool).not.toHaveBeenCalledWith({
-          toolName,
-          policy: "allow",
-        });
-        mastra.finishSend();
-      }),
-      bridge.service,
-      mastra.factory,
-      (() => mcpManager as never) as NonNullable<AgentControllerLiveOptions["makeMcpManager"]>,
-      undefined,
-      undefined,
-      {
-        resolveComputerUseServer: async () => ({
-          command: "/local/launcher",
-          args: ["mcp"],
-          env: {},
-        }),
-      },
-    );
-  });
-});
-
-describe("AgentControllerLive", () => {
-  it.effect("releases Computer Use when session setup and deletion fail", () => {
-    const bridge = makeBridge();
-    const mastra = mastraHarnessFixture();
-    const mcpManager = computerUseMcpManager();
-    const nextThreadId = ThreadId.make("thread-mastra-codex-next");
-    vi.mocked(mastra.session.state.set).mockRejectedValueOnce(new Error("setup failed"));
-
-    return provideController(
-      Effect.gen(function* () {
-        const controller = yield* AgentController;
-        yield* resolveCodex(controller);
-        yield* controller
-          .startSession(codexThreadId, {
-            threadId: codexThreadId,
-            provider: ProviderDriverKind.make("codex"),
-            providerInstanceId: codexInstanceId,
-            modelSelection: codexSelection,
-            runtimeMode: "full-access",
-            mcpServers: [computerUseServer()],
-          })
-          .pipe(Effect.ignore);
-
-        yield* controller.resolveEngine({
-          threadId: nextThreadId,
-          engine: { provider: "codex", model: "gpt-5.6-sol" },
-          fallback: codexSelection,
-          mode: "default",
-          botConversation: true,
-        });
-        yield* controller.startSession(nextThreadId, {
-          threadId: nextThreadId,
-          provider: ProviderDriverKind.make("codex"),
-          providerInstanceId: codexInstanceId,
-          modelSelection: codexSelection,
-          runtimeMode: "full-access",
-          mcpServers: [computerUseServer()],
-        });
-
-        mastra.deleteSession.mockRejectedValueOnce(new Error("delete failed"));
-        yield* controller.stopSession({ threadId: nextThreadId }).pipe(Effect.ignore);
-        yield* controller.startSession(codexThreadId, {
-          threadId: codexThreadId,
-          provider: ProviderDriverKind.make("codex"),
-          providerInstanceId: codexInstanceId,
-          modelSelection: codexSelection,
-          runtimeMode: "full-access",
-          mcpServers: [computerUseServer()],
-        });
-        expect(mcpManager.init).toHaveBeenCalledTimes(3);
-      }),
-      bridge.service,
-      mastra.factory,
-      (() => mcpManager as never) as NonNullable<AgentControllerLiveOptions["makeMcpManager"]>,
-      undefined,
-      undefined,
-      {
-        resolveComputerUseServer: async () => ({
-          command: "/local/launcher",
-          args: ["mcp"],
-          env: {},
-        }),
       },
     );
   });

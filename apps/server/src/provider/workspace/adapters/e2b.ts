@@ -15,16 +15,5 @@ export function e2b(sandbox: E2BSandbox, apiKey: string): OttoRemoteSession {
 
       return info.state === "paused" ? "sleeping" : "running";
     },
-    browserEndpoint: async (port) => {
-      const instance = sandbox.instance;
-      const token = instance.trafficAccessToken?.trim();
-
-      if (!token) throw new Error(`E2B workspace '${providerId}' has no traffic access token.`);
-
-      return {
-        url: `https://${instance.getHost(port)}`,
-        requestHeaders: { "e2b-traffic-access-token": token },
-      };
-    },
   });
 }

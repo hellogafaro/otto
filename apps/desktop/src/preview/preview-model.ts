@@ -1,19 +1,15 @@
 import { flow } from "effect/Function";
 import * as Option from "effect/Option";
-import * as Predicate from "effect/Predicate";
 import type {
   DesktopPreviewAnnotationTheme,
   DesktopPreviewColorScheme,
   DesktopPreviewFavicon,
-  DesktopPreviewPointerEvent,
   PreviewAnnotationPayload,
   PreviewAnnotationRect,
   DesktopPreviewRecordingFrame,
-  PreviewAutomationConsoleEntry,
-  PreviewAutomationNetworkEntry,
 } from "@otto/contracts";
 
-import { type BrowserWindow, type Rectangle } from "electron";
+import { type BrowserWindow } from "electron";
 
 import type * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -21,8 +17,6 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type * as Semaphore from "effect/Semaphore";
 import type * as Scope from "effect/Scope";
-
-import { PNG } from "pngjs";
 
 import { PreviewOperationError, type PreviewManagerError } from "./preview-errors.ts";
 
@@ -51,7 +45,6 @@ export interface PreviewTabState {
   audioMuted: boolean;
   /** Observed from Chromium. Stays true while a muted tab keeps playing. */
   audible: boolean;
-  controller: "human" | "agent" | "none";
   favicon?: DesktopPreviewFavicon;
   updatedAt: string;
 }
@@ -64,52 +57,6 @@ export const ZOOM_LEVELS: ReadonlyArray<number> = [
 export const DEFAULT_ZOOM_FACTOR = 1.0;
 
 export const ZOOM_EPSILON = 0.001;
-
-export const MAX_EVALUATION_BYTES = 64_000;
-
-export const MAX_VISIBLE_TEXT_LENGTH = 20_000;
-
-export const MAX_INTERACTIVE_ELEMENTS = 200;
-
-export const MAX_SCREENSHOT_WIDTH = 1280;
-
-export const containsVisiblePngPixel = (data: Buffer): boolean => {
-  try {
-    const png = PNG.sync.read(data);
-
-    for (let offset = 0; offset + 3 < png.data.byteLength; offset += 4) {
-      const alpha = png.data[offset + 3]!;
-
-      if (
-        alpha !== 0 &&
-        (png.data[offset]! !== 0 || png.data[offset + 1]! !== 0 || png.data[offset + 2]! !== 0)
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  } catch {
-    return false;
-  }
-};
-
-export const scaleCaptureRect = (
-  rect: Rectangle,
-  windowBounds: Rectangle,
-  contentBounds: Rectangle,
-  thumbnailSize: { readonly width: number; readonly height: number },
-): Rectangle => {
-  const scaleX = thumbnailSize.width / windowBounds.width;
-  const scaleY = thumbnailSize.height / windowBounds.height;
-
-  return {
-    x: Math.max(0, Math.round((contentBounds.x - windowBounds.x + rect.x) * scaleX)),
-    y: Math.max(0, Math.round((contentBounds.y - windowBounds.y + rect.y) * scaleY)),
-    width: Math.max(1, Math.round(rect.width * scaleX)),
-    height: Math.max(1, Math.round(rect.height * scaleY)),
-  };
-};
 
 export const RECORDING_FRAME_INTERVAL_MS = Math.ceil(1_000 / 12);
 
@@ -125,13 +72,7 @@ export const PICTURE_IN_PICTURE_MIN_HEIGHT = 160;
 
 export const PICTURE_IN_PICTURE_ASPECT_RATIO_EPSILON = 0.002;
 
-export const DIAGNOSTIC_BUFFER_LIMIT = 200;
-
 export const MAX_ARTIFACT_SITE_SLUG_LENGTH = 80;
-
-export const AGENT_CURSOR_MOVE_MS = 160;
-
-export const AGENT_CURSOR_CLICK_LEAD_MS = 40;
 
 export const encodeUnknownJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -328,10 +269,6 @@ export type Listener = (tabId: string, state: PreviewTabState) => Effect.Effect<
 
 export type RecordingFrameListener = (frame: DesktopPreviewRecordingFrame) => Effect.Effect<void>;
 
-export type PreviewInputSignal =
-  | { readonly kind: "pointer"; readonly x: number; readonly y: number; readonly button: number }
-  | { readonly kind: "key"; readonly key: string; readonly code: string };
-
 export interface ManagedListeners {
   readonly attachmentId: symbol;
   readonly cancelFaviconCapture: () => void;
@@ -375,19 +312,6 @@ export interface BrowserControlSession {
   ) => void;
 }
 
-export interface BrowserDiagnostics {
-  readonly consoleEntries: ReadonlyArray<PreviewAutomationConsoleEntry>;
-  readonly networkEntries: ReadonlyArray<PreviewAutomationNetworkEntry>;
-  readonly requests: ReadonlyMap<string, { url: string; method: string }>;
-}
-
-export type PointerEventListener = (event: DesktopPreviewPointerEvent) => Effect.Effect<void>;
-
-export interface ExpectedAgentInput {
-  readonly signal: PreviewInputSignal;
-  readonly expiresAt: number;
-}
-
 export const isPreviewRefreshShortcut = (input: Electron.Input): boolean =>
   input.type === "keyDown" &&
   input.key.toLowerCase() === "r" &&
@@ -424,50 +348,3 @@ export const isPreviewEditingShortcut = (
     (key === "y" && platform === "win32")
   );
 };
-
-export const isPreviewInputSignal = (value: unknown): value is PreviewInputSignal => {
-  if (!Predicate.isObjectOrArray(value) || !("kind" in value)) return false;
-
-  if (value.kind === "pointer") {
-    return (
-      "x" in value &&
-      Predicate.isNumber(value.x) &&
-      "y" in value &&
-      Predicate.isNumber(value.y) &&
-      "button" in value &&
-      Predicate.isNumber(value.button)
-    );
-  }
-
-  return (
-    value.kind === "key" &&
-    "key" in value &&
-    Predicate.isString(value.key) &&
-    "code" in value &&
-    Predicate.isString(value.code)
-  );
-};
-
-export const inputSignalsMatch = (left: PreviewInputSignal, right: PreviewInputSignal): boolean => {
-  if (left.kind !== right.kind) return false;
-
-  if (left.kind === "pointer" && right.kind === "pointer") {
-    return (
-      Math.abs(left.x - right.x) <= 1 &&
-      Math.abs(left.y - right.y) <= 1 &&
-      left.button === right.button
-    );
-  }
-
-  return (
-    left.kind === "key" &&
-    right.kind === "key" &&
-    left.key === right.key &&
-    left.code === right.code
-  );
-};
-
-export type SendCommand = (
-  method: string,
-  commandParams?: Record<string, Schema.Json | undefined>,
-) => Effect.Effect<unknown, PreviewManagerError>;

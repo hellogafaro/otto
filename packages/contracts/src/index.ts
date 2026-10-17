@@ -42,8 +42,6 @@ export * from "./mcp-server.ts";
 
 export * from "./composio.ts";
 
-export * from "./computer.ts";
-
 export * from "./keybindings.ts";
 
 export * from "./server.ts";
@@ -71,8 +69,6 @@ export * from "./project.ts";
 export * from "./assets.ts";
 
 export * from "./preview.ts";
-
-export * from "./preview-automation.ts";
 
 export * from "./desktop-telemetry.ts";
 

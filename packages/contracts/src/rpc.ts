@@ -101,16 +101,6 @@ import {
   WsProjectsWriteFileRpc,
 } from "./rpc/project.ts";
 import {
-  WsComputerGetStateRpc,
-  WsComputerOpenRpc,
-  WsComputerAcquireRpc,
-  WsComputerInputRpc,
-  WsComputerReleaseRpc,
-  WsComputerCloseRpc,
-  WsComputerStopRpc,
-  WsComputerEventsRpc,
-} from "./rpc/computer.ts";
-import {
   WsPreviewOpenRpc,
   WsPreviewNavigateRpc,
   WsPreviewResizeRpc,
@@ -118,9 +108,6 @@ import {
   WsPreviewCloseRpc,
   WsPreviewListRpc,
   WsPreviewReportStatusRpc,
-  WsPreviewAutomationConnectRpc,
-  WsPreviewAutomationRespondRpc,
-  WsPreviewAutomationFocusHostRpc,
   WsSubscribePreviewEventsRpc,
 } from "./rpc/preview.ts";
 import {
@@ -227,14 +214,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsLibrarySaveDocumentRpc,
   WsLibraryCreateFileUrlRpc,
   WsProviderUploadFeedbackRpc,
-  WsComputerGetStateRpc,
-  WsComputerOpenRpc,
-  WsComputerAcquireRpc,
-  WsComputerInputRpc,
-  WsComputerReleaseRpc,
-  WsComputerCloseRpc,
-  WsComputerStopRpc,
-  WsComputerEventsRpc,
   WsPreviewOpenRpc,
   WsPreviewNavigateRpc,
   WsPreviewResizeRpc,
@@ -242,9 +221,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsPreviewCloseRpc,
   WsPreviewListRpc,
   WsPreviewReportStatusRpc,
-  WsPreviewAutomationConnectRpc,
-  WsPreviewAutomationRespondRpc,
-  WsPreviewAutomationFocusHostRpc,
   WsSubscribePreviewEventsRpc,
   WsSubscribeDiscoveredLocalServersRpc,
   WsSubscribeServerConfigRpc,
@@ -367,17 +343,6 @@ export {
 } from "./rpc/project.ts";
 
 export {
-  WsComputerGetStateRpc,
-  WsComputerOpenRpc,
-  WsComputerAcquireRpc,
-  WsComputerInputRpc,
-  WsComputerReleaseRpc,
-  WsComputerCloseRpc,
-  WsComputerStopRpc,
-  WsComputerEventsRpc,
-} from "./rpc/computer.ts";
-
-export {
   WsPreviewOpenRpc,
   WsPreviewNavigateRpc,
   WsPreviewResizeRpc,
@@ -385,9 +350,6 @@ export {
   WsPreviewCloseRpc,
   WsPreviewListRpc,
   WsPreviewReportStatusRpc,
-  WsPreviewAutomationConnectRpc,
-  WsPreviewAutomationRespondRpc,
-  WsPreviewAutomationFocusHostRpc,
   WsSubscribePreviewEventsRpc,
 } from "./rpc/preview.ts";
 

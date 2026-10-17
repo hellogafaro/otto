@@ -250,13 +250,7 @@ export function makeLayer(
   usageLedger: BotUsageLedgerShape = usageLedgerFixture().service,
   overrides?: Pick<
     AgentControllerLiveOptions,
-    | "resolveComputerUseServer"
-    | "issueMcpCredential"
-    | "revokeMcpCredential"
-    | "makeBotBrowser"
-    | "webFetch"
-    | "generateImage"
-    | "readAttachment"
+    "issueMcpCredential" | "revokeMcpCredential" | "webFetch" | "generateImage" | "readAttachment"
   >,
   delegationRuntime?: AgentControllerLiveOptions["delegationRuntime"],
   settingsOverrides?: Parameters<typeof serverSettingsLayerTest>[0],
@@ -267,14 +261,6 @@ export function makeLayer(
     ...(makeMcpManager ? { makeMcpManager } : {}),
     ...overrides,
     ...(delegationRuntime ? { delegationRuntime } : {}),
-    makeBotBrowser:
-      overrides?.makeBotBrowser ??
-      (() => ({
-        tools: {},
-        attachment: async () => undefined,
-        reconnect: async () => undefined,
-        close: async () => undefined,
-      })),
   }).pipe(
     Layer.provideMerge(
       Layer.mergeAll(
@@ -304,13 +290,7 @@ export function provideController<A, E>(
   usageLedger?: BotUsageLedgerShape,
   overrides?: Pick<
     AgentControllerLiveOptions,
-    | "resolveComputerUseServer"
-    | "issueMcpCredential"
-    | "revokeMcpCredential"
-    | "makeBotBrowser"
-    | "webFetch"
-    | "generateImage"
-    | "readAttachment"
+    "issueMcpCredential" | "revokeMcpCredential" | "webFetch" | "generateImage" | "readAttachment"
   >,
   settingsOverrides?: Parameters<typeof serverSettingsLayerTest>[0],
   settingsLayer?: Layer.Layer<ServerSettingsService>,

@@ -2,8 +2,9 @@ import * as Schema from "effect/Schema";
 import { decodeJson, jsonObject } from "../json.ts";
 import * as Predicate from "effect/Predicate";
 import * as Data from "effect/Data";
-import { McpSchema } from "effect/unstable/ai";
-import { type ToolInputSchema } from "./preview-tool-registration.ts";
+import { McpSchema, Tool } from "effect/unstable/ai";
+
+type ToolInputSchema = ReturnType<typeof Tool.getJsonSchema>;
 
 export const isRecord = Predicate.isObject;
 

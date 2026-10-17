@@ -40,9 +40,6 @@ describe("Otto bot instructions", () => {
     expect(instructions).not.toContain("unknown_tool");
     expect(instructions).not.toContain("<computer>");
     expect(createOttoInstructions({ tools: ["Shell"] })).toContain("<computer>");
-    expect(createOttoInstructions({ tools: ["browser_navigate"] })).toContain(
-      "Use browser_* only when no preview_* tool fits.",
-    );
   });
 
   it("keeps the shared rules without the removed follow-up rule", () => {

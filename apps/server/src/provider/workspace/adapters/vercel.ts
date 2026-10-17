@@ -36,14 +36,5 @@ export function vercel(
         (await Sandbox.get({ name: providerId, resume: false, ...credentials })).status,
       );
     },
-    browserEndpoint: async (port) => {
-      const current = sandbox.sandbox;
-
-      if (!current.routes.some((route) => route.port === port)) {
-        await current.update({ ports: [...current.routes.map((route) => route.port), port] });
-      }
-
-      return { url: current.domain(port), requestHeaders: {} };
-    },
   });
 }

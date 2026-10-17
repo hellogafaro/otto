@@ -144,18 +144,6 @@
       "types": "./src/state/assets.ts",
       "default": "./src/state/assets.ts"
     },
-    "./state/computer": {
-      "types": "./src/state/computer.ts",
-      "default": "./src/state/computer.ts"
-    },
-    "./state/computer-viewer": {
-      "types": "./src/state/computer-viewer.ts",
-      "default": "./src/state/computer-viewer.ts"
-    },
-    "./state/computer-viewer-controller": {
-      "types": "./src/state/computer-viewer-controller.ts",
-      "default": "./src/state/computer-viewer-controller.ts"
-    },
     "./state/connections": {
       "types": "./src/state/connections.ts",
       "default": "./src/state/connections.ts"

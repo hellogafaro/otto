@@ -103,7 +103,6 @@ vi.mock("~/preview-state-store", () => ({
         colorScheme: "system",
         audioMuted: false,
         audible: false,
-        controller: "none",
       },
     },
     recentlySeenUrls: [],
@@ -203,8 +202,6 @@ vi.mock("./preview-more-menu", () => ({
 vi.mock("./preview-unreachable", () => ({ PreviewUnreachable: () => null }));
 
 vi.mock("./zoom-indicator", () => ({ ZoomIndicator: () => null }));
-
-vi.mock("./agent-browser-cursor", () => ({ AgentBrowserCursor: () => null }));
 
 vi.mock("~/browser/browser-surface-slot", () => ({ BrowserSurfaceSlot: () => null }));
 

@@ -93,8 +93,6 @@ export const rosterCatalog = {
   "No plugins enabled": "No plugins enabled",
   "Plugins, {status}": "Plugins, {status}",
   "Plugins · {status}": "Plugins · {status}",
-  "Revoke Computer Use for all bots": "Revoke Computer Use for all bots",
-  "Disable Computer Use for all bots": "Disable Computer Use for all bots",
   "{count} plugin enabled": "{count} plugin enabled",
   "{count} plugins enabled": "{count} plugins enabled",
   "Add a project before you message a bot.": "Add a project before you message a bot.",
@@ -119,8 +117,6 @@ export const rosterCatalog = {
   Routines: "Routines",
   "Send this reply to {channel}?": "Send this reply to {channel}?",
   "Sent to {channel}": "Sent to {channel}",
-  "The browser appears when the bot opens a page.":
-    "The browser appears when the bot opens a page.",
   "Unavailable bot": "Unavailable bot",
   "{botName} did not reply. {title}.": "{botName} did not reply. {title}.",
   "{name} group chat": "{name} group chat",
@@ -224,10 +220,6 @@ export const rosterCatalog = {
   "The bot couldn’t finish that request": "The bot couldn’t finish that request",
   "The membership works only in coding tools. It does not include Moonshot Open Platform API credit.":
     "The membership works only in coding tools. It does not include Moonshot Open Platform API credit.",
-  "The computer is no longer available. The bot's work may have ended.":
-    "The computer is no longer available. The bot's work may have ended.",
-  "You see the screen the bot works on. Pictures are streamed while this window is open and are not saved.":
-    "You see the screen the bot works on. Pictures are streamed while this window is open and are not saved.",
   "Open Otto on a desktop or in a web browser to watch or take control of it.":
     "Open Otto on a desktop or in a web browser to watch or take control of it.",
   "Advanced > Bot inbox": "Advanced > Bot inbox",

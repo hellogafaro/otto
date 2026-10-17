@@ -8,7 +8,6 @@ export function makebotWorkspaceTestSupport() {
       providerId,
       inspect: async () => "running",
       run: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-      browserEndpoint: async () => ({ url: "https://browser.example", requestHeaders: {} }),
       wake: async () => undefined,
       sleep: async () => undefined,
       destroy: async () => undefined,

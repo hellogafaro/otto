@@ -1,7 +1,6 @@
 import { createSessionContext } from "./session-context.ts";
 import { createSessionCatalogHandlers } from "./catalog-tool-handlers.ts";
 import type { SessionLifecycleDependencies } from "./session-lifecycle-dependencies.ts";
-import { ProviderDriverKind } from "@otto/contracts";
 
 import { OTTO_TOOL_CATALOG, type OttoDelegationAccessGrant } from "@otto/contracts";
 
@@ -21,7 +20,6 @@ import {
 } from "../../mcp-server-config.ts";
 import { type OttoToolSession } from "../../otto-tool-runtime.ts";
 
-import { isCodexComputerUseServer } from "../../codex-computer-use.ts";
 import { isRemoteBotSandbox } from "../../bot-workspace.ts";
 import {
   botRuntimeResourceScope,
@@ -44,7 +42,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
   )(function* (threadId, input) {
     const key = String(threadId);
 
-    const { parentDelegation, workerParent, bot, botId, activeChildDelegations, threadTitle } =
+    const { parentDelegation, workerParent, bot, botId, activeChildDelegations } =
       yield* readSessionStartContext(threadId, input.botId ?? null);
 
     const isWorkerThread = deps.workerRuntime.depthForThread(threadId) > 0;
@@ -144,16 +142,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           resolved.providerInstanceId,
         );
       }
-    }
-
-    if (
-      mcpServers.some((server) => isCodexComputerUseServer(String(server.id))) &&
-      resolved.provider !== ProviderDriverKind.make("codex")
-    ) {
-      return yield* new AgentControllerRuntimeError({
-        operation: "startSession",
-        detail: "Computer Use requires a Codex bot.",
-      });
     }
 
     // Delegated work gets no memory: a worker or child chat has no person or scope of its own.
@@ -320,10 +308,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                   ? { userComputerCwd: input.cwd }
                   : {}),
                 mcpServers,
-                exclusiveComputer: resolved.provider === "codex" || resolved.provider === "kimi",
-                ...(botId ? { botId } : {}),
-                ...(bot?.name ? { botName: bot.name } : {}),
-                taskOrRoutine: threadTitle ?? "Browser task",
               }),
             )
             .pipe(Effect.onError(() => deps.clearPreviewMcpSession(threadId)));

@@ -1,11 +1,10 @@
 import * as NodeFS from "node:fs";
-import { BotId, McpServerId, ThreadId, type McpServer } from "@otto/contracts";
+import { McpServerId, type McpServer } from "@otto/contracts";
 
 import { describe, expect, it } from "vite-plus/test";
 
 import { loadDirectoryCatalog } from "../../../../../plugins";
 import {
-  findActiveComputerUseControl,
   formatEnabledPluginBadge,
   formatEnabledPluginStatus,
   summarizeEnabledPlugins,
@@ -57,101 +56,6 @@ describe("sidebar footer", () => {
 
     expect(summary.enabledCount).toBe(3);
     expect(summary.enabledPlugins).toEqual([catalogPlugin]);
-  });
-
-  it("shows only the bot that holds an enabled Computer Use session", () => {
-    const botId = BotId.make("bot-1");
-
-    const input: Parameters<typeof findActiveComputerUseControl>[0] = {
-      mcpServers: [server("builtin-computer-use")],
-      bots: [
-        {
-          id: botId,
-          name: "Operator",
-          title: "Operator",
-          label: null,
-          description: "",
-          instructions: null,
-          engine: null,
-          sandbox: null,
-          runtimeMode: "approval-required",
-          imageProvider: null,
-          voiceEnabled: false,
-          channelBindings: [],
-          groupId: null,
-          disabledMcpServerIds: [],
-          avatar: { kind: "blob", shape: "circle", color: "#5B7FD4" },
-          archivedAt: null,
-          createdAt: "2026-08-27T00:00:00.000Z",
-          updatedAt: "2026-08-27T00:00:00.000Z",
-        },
-      ],
-      threads: [
-        {
-          id: ThreadId.make("thread-1"),
-          botId,
-          projectId: "project-1" as never,
-          title: "Control",
-          modelSelection: { instanceId: "codex" as never, model: "gpt-5.6-sol" },
-          runtimeMode: "approval-required",
-          interactionMode: "default",
-          branch: null,
-          worktreePath: null,
-          latestTurn: null,
-          createdAt: "2026-08-27T00:00:00.000Z",
-          updatedAt: "2026-08-27T00:00:00.000Z",
-          archivedAt: null,
-          settledOverride: null,
-          settledAt: null,
-          session: {
-            threadId: ThreadId.make("thread-1"),
-            status: "ready",
-            providerName: "codex",
-            runtimeMode: "approval-required",
-            mcpServerIds: [McpServerId.make("builtin-computer-use")],
-            activeTurnId: null,
-            lastError: null,
-            updatedAt: "2026-08-27T00:00:00.000Z",
-          },
-          latestUserMessageAt: null,
-          hasPendingApprovals: false,
-          hasPendingUserInput: false,
-          hasActionableProposedPlan: false,
-        },
-      ],
-    };
-
-    const control = findActiveComputerUseControl(input);
-
-    expect(control).toEqual({ threadId: ThreadId.make("thread-1"), botName: "Operator" });
-
-    for (const status of ["starting", "error", "stopped"] as const) {
-      expect(
-        findActiveComputerUseControl({
-          ...input,
-          threads: input.threads.map((thread) => ({
-            ...thread,
-            session: thread.session ? { ...thread.session, status } : null,
-          })),
-        }),
-      ).toBeNull();
-    }
-
-    expect(
-      findActiveComputerUseControl({
-        ...input,
-        mcpServers: [server("builtin-computer-use", false)],
-      }),
-    ).toBeNull();
-    expect(
-      findActiveComputerUseControl({
-        ...input,
-        threads: input.threads.map((thread) => ({
-          ...thread,
-          session: thread.session ? { ...thread.session, mcpServerIds: [] } : null,
-        })),
-      }),
-    ).toBeNull();
   });
 
   it("keeps the error inbox in Settings instead of the sidebar", () => {

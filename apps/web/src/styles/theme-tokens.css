@@ -21,7 +21,6 @@
   --markdown-warning-foreground: var(--color-amber-600);
   --markdown-caution: var(--color-red-500);
   --markdown-caution-foreground: var(--color-red-600);
-  --computer-control-indicator: var(--color-amber-500);
   --quit-prompt: var(--color-neutral-700);
   --memory-approval-indicator: var(--color-amber-400);
   /* Status icons: work in progress and a bot at work. Same value in both modes. */

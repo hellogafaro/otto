@@ -29,7 +29,6 @@ export function createSessionContext(
         bot: undefined,
         botId: fallbackBotId,
         activeChildDelegations: 0,
-        threadTitle: undefined,
       };
     }
 
@@ -64,7 +63,6 @@ export function createSessionContext(
         activeChildDelegations: delegations.filter(
           (candidate) => candidate.parentThreadId === threadId,
         ).length,
-        threadTitle: thread?.title,
       };
     }
 
@@ -96,7 +94,6 @@ export function createSessionContext(
       activeChildDelegations: snapshot.delegations.filter(
         (candidate) => candidate.parentThreadId === threadId && isOpenDelegation(candidate),
       ).length,
-      threadTitle: thread?.title,
     };
   });
 

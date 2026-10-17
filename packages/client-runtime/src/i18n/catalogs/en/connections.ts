@@ -307,16 +307,6 @@ export const connectionsCatalog = {
     "Missing: no subscription login or API key in this environment.",
   "API key saved in this environment.": "API key saved in this environment.",
   "Subscription login saved in this environment.": "Subscription login saved in this environment.",
-  "The connection dropped, so your control ended and the computer stopped.":
-    "The connection dropped, so your control ended and the computer stopped.",
-  "{name} works in a local workspace, which has no desktop to watch. Choose a Daytona sandbox in bot settings to give it a computer.":
-    "{name} works in a local workspace, which has no desktop to watch. Choose a Daytona sandbox in bot settings to give it a computer.",
-  "This bot's sandbox has no graphical desktop. Only Daytona sandboxes provide a computer you can watch and control.":
-    "This bot's sandbox has no graphical desktop. Only Daytona sandboxes provide a computer you can watch and control.",
-  "The computer starts when {name} begins work in its Daytona sandbox. Send it a message, then open the computer again.":
-    "The computer starts when {name} begins work in its Daytona sandbox. Send it a message, then open the computer again.",
-  "Connecting to the computer…": "Connecting to the computer…",
-  "Reconnecting to the computer…": "Reconnecting to the computer…",
   "Disconnect {provider}": "Disconnect {provider}",
   "The provider check failed. Reconnect and try again.":
     "The provider check failed. Reconnect and try again.",

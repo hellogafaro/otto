@@ -23,8 +23,6 @@ import type { PendingWaiters } from "../../pending-waiters.ts";
 
 import { isMemoryToolId } from "../../otto-tool-runtime.ts";
 
-import { isCodexComputerUseTool } from "../../codex-computer-use.ts";
-
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
@@ -229,12 +227,10 @@ export function createApprovals(deps: {
     const acceptForSession =
       input.decision === "acceptForSession" &&
       !runtimeToolId &&
-      !isCodexComputerUseTool(toolName) &&
       !ottoActionNeedsApproval(toolName, toolInput);
 
     const enableAutoReview =
       input.decision === "acceptAlways" &&
-      !isCodexComputerUseTool(toolName) &&
       !ottoActionNeedsApproval(toolName, toolInput) &&
       toolName !== OTTO_CREATE_ROUTINE_TOOL_NAME;
 

@@ -1,30 +1,7 @@
 import { ipcRenderer } from "electron";
-import { HUMAN_INPUT_CHANNEL, MOUSE_NAVIGATE_CHANNEL } from "./guest-protocol.ts";
+import { MOUSE_NAVIGATE_CHANNEL } from "./guest-protocol.ts";
 
 export function installGuestInputListeners() {
-  const reportHumanPointerInput = (event: PointerEvent): void => {
-    if (!event.isTrusted) return;
-    ipcRenderer.send(HUMAN_INPUT_CHANNEL, {
-      kind: "pointer",
-      x: event.clientX,
-      y: event.clientY,
-      button: event.button,
-    });
-  };
-
-  const reportHumanKeyInput = (event: KeyboardEvent): void => {
-    if (!event.isTrusted) return;
-    ipcRenderer.send(HUMAN_INPUT_CHANNEL, {
-      kind: "key",
-      key: event.key,
-      code: event.code,
-    });
-  };
-
-  window.addEventListener("pointerdown", reportHumanPointerInput, true);
-
-  window.addEventListener("keydown", reportHumanKeyInput, true);
-
   // Mouse thumb buttons: `button === 3` is Back, `button === 4` is Forward.
   const MOUSE_BUTTON_BACK = 3;
 

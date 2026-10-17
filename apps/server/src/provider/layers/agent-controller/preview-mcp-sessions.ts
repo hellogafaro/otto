@@ -53,20 +53,18 @@ export function createPreviewMcpSessions(deps: {
     memoryHandler?: MemoryToolHandler,
   ) =>
     Effect.gen(function* () {
-      // Matches ProviderService's capabilities: an unreadable settings file withholds both.
-      const { previewEnabled, imageEnabled } = Option.isSome(deps.serverSettings)
+      // Matches ProviderService's capabilities: an unreadable settings file withholds image.
+      const imageEnabled = Option.isSome(deps.serverSettings)
         ? yield* deps.serverSettings.value.getSettings.pipe(
-            Effect.map((settings) => ({
-              previewEnabled: settings.enableAgentBrowserAccess,
-              imageEnabled:
+            Effect.map(
+              (settings) =>
                 settings.imageGeneration.chatgptEnabled || settings.imageGeneration.grokEnabled,
-            })),
-            Effect.orElseSucceed(() => ({ previewEnabled: false, imageEnabled: false })),
+            ),
+            Effect.orElseSucceed(() => false),
           )
-        : { previewEnabled: true, imageEnabled: false };
+        : false;
 
       const capabilities = new Set<McpInvocationContext.McpCapability>([
-        ...(previewEnabled ? (["preview"] as const) : []),
         ...(imageEnabled ? (["image"] as const) : []),
         ...(memoryHandler ? (["memory"] as const) : []),
       ]);

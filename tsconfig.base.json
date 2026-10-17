@@ -132,10 +132,7 @@
             // snapshot dispatch ordering.
             // Promise signatures alone do not justify avoiding Effect services.
             "include": [
-              "**/apps/server/src/provider/otto-preview-snapshot-attachment.ts",
               "**/apps/server/src/provider/otto-web-fetch.ts",
-              "**/apps/server/src/provider/codex-computer-use.ts",
-              "**/apps/server/src/provider/browser/lightpanda-process.ts",
               "**/apps/server/src/voice-call/chat-gpt-realtime.ts"
             ],
             "options": {

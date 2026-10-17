@@ -1,17 +1,11 @@
 import type { BotWorkspaceIO } from "../workspace/bot-workspace-io.ts";
 import { createMcpManager, type McpServerConfig } from "@mastra/code-sdk/mcp/index";
 import type { Workspace } from "@mastra/core/workspace";
-import type { BotId, BotSandbox, McpServer } from "@otto/contracts";
-import {
-  type BotBrowser,
-  type BotBrowserAttachment,
-  type CreateBotBrowserInput,
-} from "../browser/bot-browser-types.ts";
+import type { BotSandbox, McpServer } from "@otto/contracts";
 import {
   type OttoBotWorkspace,
   type CreateRemoteBotWorkspaceInput,
 } from "../workspace/bot-workspace-types.ts";
-import { resolveCodexComputerUseServer } from "../codex-computer-use.ts";
 
 export interface OttoSessionResourceInput {
   readonly threadId: string;
@@ -22,10 +16,6 @@ export interface OttoSessionResourceInput {
   readonly sandboxEnvironment?: Readonly<Record<string, string>>;
   readonly userComputerCwd?: string;
   readonly mcpServers: readonly McpServer[];
-  readonly exclusiveComputer?: boolean;
-  readonly botId?: BotId;
-  readonly botName?: string;
-  readonly taskOrRoutine?: string;
 }
 
 export interface OttoSessionResourceView {
@@ -40,28 +30,7 @@ export interface OttoSessionResourcesOptions {
   readonly makeRemoteWorkspace?: (
     input: CreateRemoteBotWorkspaceInput,
   ) => Promise<OttoBotWorkspace | Workspace>;
-  readonly makeBotBrowser?: (input: CreateBotBrowserInput) => BotBrowser;
-  readonly hostPlatform?: NodeJS.Platform;
-  readonly resolveComputerUseServer?: typeof resolveCodexComputerUseServer;
   readonly onMcpServerConnectionFailure?: (serverId: McpServer["id"]) => void;
-  readonly onBrowserFailure?: (input: {
-    readonly botId: BotId;
-    readonly botName: string;
-    readonly taskOrRoutine: string;
-    readonly detail: string;
-    readonly resourceKey: string;
-  }) => void;
-  readonly onBrowserReady?: (botId: BotId, resourceKey: string) => void;
   readonly getPreviewMcpServerConfig?: (threadId: string) => McpServerConfig | undefined;
-  readonly toMcpServerConfigs: (
-    servers: readonly McpServer[],
-    browser?: BotBrowserAttachment,
-  ) => Record<string, McpServerConfig>;
-}
-
-export interface BrowserAttribution {
-  readonly botId: BotId;
-  readonly botName: string;
-  readonly taskOrRoutine: string;
-  references: number;
+  readonly toMcpServerConfigs: (servers: readonly McpServer[]) => Record<string, McpServerConfig>;
 }

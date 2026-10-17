@@ -1,6 +1,5 @@
 import { subscriptionProviderMutation } from "./subscription-auth/provider-mutation.ts";
 import { ProviderInstanceRegistryMutator } from "./provider/services/provider-instance-registry-mutator.ts";
-import { computerRegistry } from "./provider/computer-registry.ts";
 import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 import * as Cause from "effect/Cause";
 import * as Crypto from "effect/Crypto";
@@ -9,7 +8,6 @@ import { NotificationStore } from "./notifications/notification-store.ts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import {
   AuthAccessWriteScope,
@@ -25,7 +23,6 @@ import {
   ProviderInstanceId,
   type SubscriptionProviderId,
   RpcClientId,
-  ComputerError,
   EnvironmentAuthorizationError,
   ImageGenerationError,
   SubscriptionAuthError,
@@ -73,7 +70,6 @@ import * as ServerSettings from "./server-settings.ts";
 import { TextGeneration } from "./text-generation/text-generation.ts";
 import { RoutineRepository } from "./routines/repository.ts";
 import { RoutineRuntime } from "./routines/runtime.ts";
-import * as PreviewAutomationBroker from "./mcp/preview-automation-broker.ts";
 import * as PreviewManager from "./preview/manager.ts";
 import * as PortScanner from "./preview/port-scanner.ts";
 import * as WorkspaceEntries from "./workspace/workspace-entries.ts";
@@ -103,7 +99,6 @@ import {
 export const createWsServices = (
   currentSession: EnvironmentAuth.AuthenticatedSession,
   clientOrigin: OrchestrationClientOrigin,
-  previewAutomationBroker: PreviewAutomationBroker.PreviewAutomationBroker["Service"],
   voiceCalls: VoiceCallManager.VoiceCallManager["Service"],
   providerRefreshes: ProviderSubscribeRefreshes,
 ) =>
@@ -114,32 +109,6 @@ export const createWsServices = (
     const crypto = yield* Crypto.Crypto;
 
     const voiceCallOwnerId = yield* crypto.randomUUIDv4.pipe(Effect.orDie);
-
-    const computerClients = new Set<string>();
-
-    const computerClient = (id: number) => {
-      const key = `${voiceCallOwnerId}:${id}`;
-      computerClients.add(key);
-
-      return key;
-    };
-
-    yield* Effect.addFinalizer(() =>
-      Effect.sync(() => {
-        for (const client of computerClients) computerRegistry.disconnect(client);
-      }),
-    );
-
-    const isComputerError = Schema.is(ComputerError);
-
-    const computerOperation = <A>(client: string, operation: () => Promise<A>) =>
-      Effect.tryPromise({
-        try: operation,
-        catch: (cause) =>
-          isComputerError(cause)
-            ? cause
-            : new ComputerError({ code: "adapter", message: "Computer operation failed." }),
-      }).pipe(Effect.onInterrupt(() => Effect.sync(() => computerRegistry.disconnect(client))));
 
     const projectionSnapshotQuery = yield* ProjectionSnapshotQuery.ProjectionSnapshotQuery;
 
@@ -698,7 +667,6 @@ export const createWsServices = (
     return {
       currentSession,
       clientOrigin,
-      previewAutomationBroker,
       voiceCalls,
       providerRefreshes,
       currentSessionId,
@@ -706,10 +674,6 @@ export const createWsServices = (
       accounts,
       crypto,
       voiceCallOwnerId,
-      computerClients,
-      computerClient,
-      isComputerError,
-      computerOperation,
       projectionSnapshotQuery,
       projectionBots,
       botUsageLedger,

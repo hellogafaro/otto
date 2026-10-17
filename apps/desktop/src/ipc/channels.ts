@@ -138,22 +138,6 @@ export const PREVIEW_PICTURE_IN_PICTURE_CLOSE_CHANNEL = "desktop:preview-pip-clo
 
 export const PREVIEW_PICTURE_IN_PICTURE_FRAME_CHANNEL = "desktop:preview-pip-frame";
 
-export const PREVIEW_AUTOMATION_STATUS_CHANNEL = "desktop:preview-automation-status";
-
-export const PREVIEW_AUTOMATION_SNAPSHOT_CHANNEL = "desktop:preview-automation-snapshot";
-
-export const PREVIEW_AUTOMATION_CLICK_CHANNEL = "desktop:preview-automation-click";
-
-export const PREVIEW_AUTOMATION_TYPE_CHANNEL = "desktop:preview-automation-type";
-
-export const PREVIEW_AUTOMATION_PRESS_CHANNEL = "desktop:preview-automation-press";
-
-export const PREVIEW_AUTOMATION_SCROLL_CHANNEL = "desktop:preview-automation-scroll";
-
-export const PREVIEW_AUTOMATION_EVALUATE_CHANNEL = "desktop:preview-automation-evaluate";
-
-export const PREVIEW_AUTOMATION_WAIT_FOR_CHANNEL = "desktop:preview-automation-wait-for";
-
 export const PREVIEW_RECORDING_START_CHANNEL = "desktop:preview-recording-start";
 
 export const PREVIEW_RECORDING_STOP_CHANNEL = "desktop:preview-recording-stop";
@@ -163,5 +147,3 @@ export const PREVIEW_RECORDING_SAVE_CHANNEL = "desktop:preview-recording-save";
 export const PREVIEW_RECORDING_FRAME_CHANNEL = "desktop:preview-recording-frame";
 
 export const PREVIEW_STATE_CHANGE_CHANNEL = "desktop:preview-state-change";
-
-export const PREVIEW_POINTER_EVENT_CHANNEL = "desktop:preview-pointer-event";

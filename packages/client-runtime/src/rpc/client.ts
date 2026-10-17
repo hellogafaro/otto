@@ -49,9 +49,7 @@ export type EnvironmentSubscriptionRpcTag =
   | typeof WS_METHODS.subscribeServerConfig
   | typeof WS_METHODS.subscribeServerLifecycle
   | typeof WS_METHODS.subscribePreviewEvents
-  | typeof WS_METHODS.computerEvents
-  | typeof WS_METHODS.subscribeDiscoveredLocalServers
-  | typeof WS_METHODS.previewAutomationConnect;
+  | typeof WS_METHODS.subscribeDiscoveredLocalServers;
 
 export type EnvironmentStreamCommandRpcTag =
   | typeof WS_METHODS.serverUpdateServerWithProgress

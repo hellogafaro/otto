@@ -12,22 +12,6 @@ export interface McpOAuthStorage {
 
 const runtimeOAuthStorage = new WeakMap<McpServer, McpOAuthStorage>();
 
-const BROWSER_ATTACHMENT_CONNECTORS: ReadonlySet<string> = new Set([
-  "builtin-executor",
-  "builtin-tinyfish",
-]);
-
-export function mcpServerNeedsBrowserAttachment(
-  server: McpServer,
-  availableToHostedPlugins: boolean,
-): boolean {
-  return (
-    server.enabled &&
-    BROWSER_ATTACHMENT_CONNECTORS.has(String(server.id)) &&
-    (server.transport === "stdio" || availableToHostedPlugins)
-  );
-}
-
 export function withMcpRuntimeHeaders<T extends McpServer>(
   server: T,
   headers: Readonly<Record<string, string>>,

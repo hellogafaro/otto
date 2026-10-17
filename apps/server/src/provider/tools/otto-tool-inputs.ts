@@ -42,8 +42,6 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "Read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "Screenshot":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "CopyToBox":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "CopyFromBox":

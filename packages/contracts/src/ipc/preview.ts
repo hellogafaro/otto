@@ -220,7 +220,6 @@ export interface DesktopPreviewTabState {
    * sound" from "muted and silent".
    */
   audible: boolean;
-  controller: "human" | "agent" | "none";
   favicon?: DesktopPreviewFavicon;
   updatedAt: string;
 }
@@ -261,29 +260,9 @@ export const DesktopPreviewTabStateSchema: Schema.Codec<DesktopPreviewTabState> 
   colorScheme: DesktopPreviewColorSchemeSchema,
   audioMuted: Schema.Boolean,
   audible: Schema.Boolean,
-  controller: Schema.Literals(["human", "agent", "none"]),
   favicon: Schema.optionalKey(DesktopPreviewFaviconSchema),
   updatedAt: Schema.String,
 });
-
-export interface DesktopPreviewPointerEvent {
-  tabId: string;
-  phase: "move" | "click";
-  x: number;
-  y: number;
-  sequence: number;
-  createdAt: string;
-}
-
-export const DesktopPreviewPointerEventSchema: Schema.Codec<DesktopPreviewPointerEvent> =
-  Schema.Struct({
-    tabId: DesktopPreviewTabIdSchema,
-    phase: Schema.Literals(["move", "click"]),
-    x: Schema.Number,
-    y: Schema.Number,
-    sequence: Schema.Int,
-    createdAt: Schema.String,
-  });
 
 /**
  * Static config a renderer needs to mount a preview `<webview>`. Returned

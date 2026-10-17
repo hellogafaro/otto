@@ -211,11 +211,11 @@ export function appendComposerMentionContext(
 
   if (input.browser === "enabled") {
     sections.push(
-      "The user mentioned @browser. Use your Otto preview browser tools (preview_*) for this request. Do not start a separate browser.",
+      "The user mentioned @browser. Drive a browser in your computer through shell for this request.",
     );
   } else if (input.browser === "disabled") {
     sections.push(
-      "The user mentioned @browser, but agent browser access is turned off in Settings, so you have no browser tools. Say so if the request needs a browser.",
+      "The user mentioned @browser, but bot browser access is turned off in Settings. Say so if the request needs a browser.",
     );
   }
 

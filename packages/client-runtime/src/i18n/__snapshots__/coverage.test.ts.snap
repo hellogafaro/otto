@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1657,
+  "directMessageCount": 1604,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -50,9 +50,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/chat/settings-link-chip.tsx": [
       "destination.label) });",
-    ],
-    "apps/web/src/components/desktop/desktop-tab-strip.tsx": [
-      "place.label)}",
     ],
     "apps/web/src/components/home/home-page.tsx": [
       "greeting, { name: firstName })",
@@ -294,7 +291,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/mobile/src/state/use-remote-environment-registry.ts",
     "apps/mobile/src/state/use-thread-composer-state.ts",
     "apps/web/src/components/app-sidebar-layout.tsx",
-    "apps/web/src/components/auth/desktop-server-page.tsx",
     "apps/web/src/components/auth/organization-account-gate.tsx",
     "apps/web/src/components/chat-markdown.tsx",
     "apps/web/src/components/chat/chat-actions-menu.tsx",
@@ -330,15 +326,12 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/command-palette-content.tsx",
     "apps/web/src/components/command-palette.logic.ts",
     "apps/web/src/components/command-palette.tsx",
-    "apps/web/src/components/computer/computer-viewer-dialog.tsx",
-    "apps/web/src/components/computer/computer-viewer-panel.tsx",
     "apps/web/src/components/confirm-dialog-host.tsx",
     "apps/web/src/components/customize/customize-apps.tsx",
     "apps/web/src/components/customize/customize-detail.tsx",
     "apps/web/src/components/customize/customize-integrations.tsx",
     "apps/web/src/components/customize/customize-skills.tsx",
     "apps/web/src/components/customize/mcp-server-dialog.tsx",
-    "apps/web/src/components/desktop/desktop-tab-strip.tsx",
     "apps/web/src/components/details-aside.tsx",
     "apps/web/src/components/home/home-page.tsx",
     "apps/web/src/components/library/chat-library-section.tsx",
@@ -362,7 +355,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/bot-activity-status.tsx",
     "apps/web/src/components/roster/bot-approval-prompt.tsx",
     "apps/web/src/components/roster/bot-avatar-popover.tsx",
-    "apps/web/src/components/roster/bot-browser-preview.tsx",
     "apps/web/src/components/roster/bot-channels-sheet.tsx",
     "apps/web/src/components/roster/bot-chat-message-rows.tsx",
     "apps/web/src/components/roster/bot-chat-tree.tsx",

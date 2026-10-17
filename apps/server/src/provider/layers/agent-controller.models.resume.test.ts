@@ -285,12 +285,6 @@ describe("AgentControllerLive", () => {
 
       const layer = agentControllerLayerWith({
         makeMastraHarness: makeOttoMastraHarness,
-        makeBotBrowser: () => ({
-          tools: {},
-          attachment: async () => undefined,
-          reconnect: async () => undefined,
-          close: async () => undefined,
-        }),
       }).pipe(
         Layer.provideMerge(
           Layer.mergeAll(

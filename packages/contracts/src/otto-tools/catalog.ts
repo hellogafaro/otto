@@ -4,7 +4,6 @@ import type { OttoComputerBoundary } from "./inputs.ts";
 export const OttoToolId = Schema.Literals([
   "Shell",
   "Read",
-  "Screenshot",
   "CopyToBox",
   "CopyFromBox",
   "request_box_help",
@@ -152,9 +151,6 @@ export const OTTO_TOOL_CATALOG = [
   define("Read", "bot-workspace", "Read a file in the bot workspace.", {
     workspace: "bot-workspace",
     promptSnippet: "read a file in your workspace",
-  }),
-  define("Screenshot", "bot-workspace", "Capture the bot workspace desktop.", {
-    workspace: "bot-workspace",
   }),
   define(
     "CopyToBox",

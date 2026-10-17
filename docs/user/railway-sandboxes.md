@@ -12,9 +12,7 @@ Deleting a bot does not delete its Railway VM, just as switching the bot to anot
 
 ## Networking and previews
 
-Railway supports private networking, but a private VM address is not a browser preview URL. Previews require a Railway CLI tunnel. Otto does not automatically create these tunnels and cannot route its bot browser to a Railway workspace; browser requests report this limitation instead of returning an inaccessible address. Use Railway's CLI to establish a tunnel when you need to inspect a preview manually.
-
-Disable browser-dependent connectors before starting a Railway bot. Otto rejects these connectors before opening the workspace, preserving the VM and its saved identity.
+Railway supports private networking, but a private VM address is not a browser preview URL. Previews require a Railway CLI tunnel. Otto does not automatically create these tunnels. Use Railway's CLI to establish a tunnel when you need to inspect a preview manually.
 
 Railway also supports disk checkpoints through its SDK. Otto does not currently expose Railway checkpoint creation or restoration, and does not use checkpoints to simulate sleeping a VM.
 

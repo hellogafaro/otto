@@ -59,11 +59,6 @@ export function railway(
   return mastraSession(sandbox, {
     providerId,
     inspect,
-    browserEndpoint: async () => {
-      throw new Error(
-        "Railway previews require a Railway CLI tunnel. Automatic bot browser routing is not supported; private VM addresses are not browser endpoints.",
-      );
-    },
     wake: async () => {
       if ((await inspect()) !== "running")
         throw new Error(`Railway workspace '${providerId}' is not running.`);

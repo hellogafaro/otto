@@ -138,7 +138,6 @@
   --color-markdown-warning-foreground: var(--markdown-warning-foreground);
   --color-markdown-caution: var(--markdown-caution);
   --color-markdown-caution-foreground: var(--markdown-caution-foreground);
-  --color-computer-control-indicator: var(--computer-control-indicator);
   --color-quit-prompt: var(--quit-prompt);
   --color-memory-approval-indicator: var(--memory-approval-indicator);
   --color-success: var(--success);

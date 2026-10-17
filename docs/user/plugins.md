@@ -83,12 +83,3 @@ When a bot removes an MCP server for you, it reports which bots were using it an
 
 Otto does not store plugin credentials in the public directory or MCP registry. Keep credentials in
 the environment server or the service's sign-in flow.
-
-## Codex Computer Use
-
-Codex Computer Use runs only on the local Mac. It does not use a hosted desktop. macOS requests
-Screen Recording and Accessibility access when the helper needs them.
-
-Only one bot can control the Mac at a time. **Stop** ends the current session. **Revoke** ends it and
-disables Computer Use for every bot. Otto excludes screenshots, typed text, window titles, and app
-content from stored runtime events.

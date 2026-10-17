@@ -6,7 +6,6 @@ import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
 import * as OrchestrationEngine from "./orchestration/services/orchestration-engine.ts";
 import * as ProviderMaintenanceRunner from "./provider/provider-maintenance-runner.ts";
 import * as ServerSelfUpdate from "./cloud/self-update.ts";
-import * as PreviewAutomationBroker from "./mcp/preview-automation-broker.ts";
 import * as EnvironmentAuth from "./auth/environment-auth.ts";
 import * as VoiceCallManager from "./voice-call/voice-call-manager.ts";
 import * as SessionStore from "./auth/session-store.ts";
@@ -35,7 +34,6 @@ export {
 const createWsRpcLayer = (
   currentSession: EnvironmentAuth.AuthenticatedSession,
   clientOrigin: OrchestrationClientOrigin,
-  previewAutomationBroker: PreviewAutomationBroker.PreviewAutomationBroker["Service"],
   voiceCalls: VoiceCallManager.VoiceCallManager["Service"],
   providerRefreshes: ProviderSubscribeRefreshes,
 ) =>
@@ -44,7 +42,6 @@ const createWsRpcLayer = (
       const connection = yield* createWsConnection(
         currentSession,
         clientOrigin,
-        previewAutomationBroker,
         voiceCalls,
         providerRefreshes,
       );
@@ -67,7 +64,6 @@ const createWsRpcLayer = (
 
 export const websocketRpcRouteLayer = Layer.unwrap(
   Effect.gen(function* () {
-    const previewAutomationBroker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
     const voiceCalls = yield* VoiceCallManager.VoiceCallManager;
     const orchestrationEngine = yield* OrchestrationEngine.OrchestrationEngineService;
     // Deleting a bot frees the single call slot it may hold.
@@ -105,13 +101,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
           disableTracing: true,
         }).pipe(
           Effect.provide(
-            createWsRpcLayer(
-              session,
-              clientOrigin,
-              previewAutomationBroker,
-              voiceCalls,
-              providerRefreshes,
-            ).pipe(
+            createWsRpcLayer(session, clientOrigin, voiceCalls, providerRefreshes).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               Layer.provide(ProviderMaintenanceRunner.layer),
               Layer.provide(Layer.succeed(ServerSelfUpdate.ServerSelfUpdate, serverSelfUpdate)),

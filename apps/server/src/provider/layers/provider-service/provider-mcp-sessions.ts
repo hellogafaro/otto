@@ -30,8 +30,6 @@ export function createProviderMcpSessions(deps: {
     Effect.map((settings) => {
       const capabilities = new Set<McpCapability>();
 
-      if (settings.enableAgentBrowserAccess) capabilities.add("preview");
-
       if (settings.imageGeneration.chatgptEnabled || settings.imageGeneration.grokEnabled) {
         capabilities.add("image");
       }
@@ -40,7 +38,7 @@ export function createProviderMcpSessions(deps: {
     }),
     Effect.catch((cause) =>
       Effect.logWarning(
-        "Could not read server settings; withholding agent browser access and image generation for this session.",
+        "Could not read server settings; withholding image generation for this session.",
         { cause },
       ).pipe(Effect.as(new Set<McpCapability>())),
     ),

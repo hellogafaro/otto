@@ -1,14 +1,3 @@
-import type { PreviewAutomationResponse } from "./preview-automation.ts";
-import {
-  PreviewAutomationClickInput,
-  PreviewAutomationEvaluateInput,
-  PreviewAutomationPressInput,
-  PreviewAutomationScrollInput,
-  PreviewAutomationTypeInput,
-  PreviewAutomationWaitForInput,
-} from "./preview-automation/input.ts";
-import { PreviewAutomationSnapshot } from "./preview-automation/snapshot.ts";
-import { PreviewAutomationStatus } from "./preview-automation/targets.ts";
 import { EnvironmentId } from "./base-schemas.ts";
 import { AuthAccessTokenResult, AuthSessionState, AuthWebSocketTicketResult } from "./auth.ts";
 import { AdvertisedEndpoint } from "./remote-access.ts";
@@ -39,7 +28,6 @@ import {
   type DesktopWslState,
   type DesktopPreviewColorScheme,
   type DesktopPreviewTabState,
-  type DesktopPreviewPointerEvent,
   type DesktopPreviewWebviewConfig,
   type DesktopPreviewAnnotationTheme,
   type DesktopPreviewRecordingFrame,
@@ -47,7 +35,7 @@ import {
   type DesktopPreviewScreenshotArtifact,
 } from "./ipc/preview.ts";
 import { type PreviewAnnotationSubmissionResult } from "./ipc/annotations.ts";
-import { type DesktopPreviewTabDefaults } from "./ipc/preview-automation.ts";
+import { type DesktopPreviewTabDefaults } from "./ipc/preview-inputs.ts";
 
 export interface DesktopBridge {
   /**
@@ -207,21 +195,7 @@ export interface DesktopPreviewBridge {
     ) => Promise<DesktopPreviewRecordingArtifact>;
     onFrame: (listener: (frame: DesktopPreviewRecordingFrame) => void) => () => void;
   };
-  automation: {
-    status: (tabId: string) => Promise<PreviewAutomationStatus>;
-    snapshot: (tabId: string) => Promise<PreviewAutomationSnapshot>;
-    click: (tabId: string, input: PreviewAutomationClickInput) => Promise<void>;
-    type: (tabId: string, input: PreviewAutomationTypeInput) => Promise<void>;
-    press: (tabId: string, input: PreviewAutomationPressInput) => Promise<void>;
-    scroll: (tabId: string, input: PreviewAutomationScrollInput) => Promise<void>;
-    evaluate: (
-      tabId: string,
-      input: PreviewAutomationEvaluateInput,
-    ) => Promise<PreviewAutomationResponse["result"]>;
-    waitFor: (tabId: string, input: PreviewAutomationWaitForInput) => Promise<void>;
-  };
   onStateChange: (listener: (tabId: string, state: DesktopPreviewTabState) => void) => () => void;
-  onPointerEvent: (listener: (event: DesktopPreviewPointerEvent) => void) => () => void;
 }
 
 export type ConfirmDialogVariant = "default" | "destructive";
@@ -343,8 +317,6 @@ export {
   DesktopPreviewTabIdSchema,
   DesktopPreviewNavStatusSchema,
   DesktopPreviewTabStateSchema,
-  type DesktopPreviewPointerEvent,
-  DesktopPreviewPointerEventSchema,
   type DesktopPreviewWebviewConfig,
   DesktopPreviewWebviewConfigSchema,
   type DesktopPreviewAnnotationTheme,
@@ -396,10 +368,4 @@ export {
   DesktopPreviewAnnotationThemeInputSchema,
   DesktopPreviewArtifactInputSchema,
   DesktopPreviewRecordingSaveInputSchema,
-  DesktopPreviewAutomationClickInputSchema,
-  DesktopPreviewAutomationTypeInputSchema,
-  DesktopPreviewAutomationPressInputSchema,
-  DesktopPreviewAutomationScrollInputSchema,
-  DesktopPreviewAutomationEvaluateInputSchema,
-  DesktopPreviewAutomationWaitForInputSchema,
-} from "./ipc/preview-automation.ts";
+} from "./ipc/preview-inputs.ts";

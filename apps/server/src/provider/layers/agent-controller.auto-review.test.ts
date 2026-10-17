@@ -548,17 +548,9 @@ describe("AgentControllerLive", () => {
 
     const makeRemoteWorkspace = vi.fn(async () => remote);
 
-    const makeBotBrowser = vi.fn(() => ({
-      tools: {},
-      attachment: vi.fn(async () => undefined),
-      reconnect: vi.fn(async () => undefined),
-      close: vi.fn(async () => undefined),
-    }));
-
     const layer = agentControllerLayerWith({
       makeMastraHarness: mastra.factory,
       makeRemoteWorkspace,
-      makeBotBrowser: makeBotBrowser as never,
       delegationRuntime: {
         send: vi.fn(async () => ({
           delegationId: DelegationId.make("delegation-child"),
@@ -632,7 +624,6 @@ describe("AgentControllerLive", () => {
         }),
       );
       expect(mastra.createSession.mock.calls[0]?.[0]).toMatchObject({ workspace: remote });
-      expect(makeBotBrowser).toHaveBeenCalledOnce();
       yield* controller.stopSession({ threadId: codexThreadId });
     }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });

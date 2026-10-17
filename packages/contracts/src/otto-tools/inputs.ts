@@ -197,7 +197,6 @@ const TaskToolFields = {
 export const OttoToolInputSchemas = {
   Shell: CommandInput,
   Read: PathInput,
-  Screenshot: Schema.Struct({ displayId: Schema.optional(TrimmedNonEmptyString) }),
   CopyToBox: CopyInput,
   CopyFromBox: CopyInput,
   request_box_help: Schema.Struct({

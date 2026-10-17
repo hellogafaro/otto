@@ -10,7 +10,6 @@ import {
 import * as Schema from "effect/Schema";
 import { z } from "zod";
 import { createOttoMastraTools } from "../otto-mastra-tools.ts";
-import { isCodexComputerUseTool } from "../codex-computer-use.ts";
 import { type OttoMastraToolOptions } from "./otto-harness-types.ts";
 import { controllerModelId, controllerResourceId } from "./otto-memory.ts";
 import type { resolveOttoMastraModel } from "./otto-models.ts";
@@ -285,8 +284,7 @@ export function approvalAwareTools(
             : undefined;
 
       const needsApproval: NeedsApprovalFn = async (input, context) => {
-        const protectedAction =
-          isCodexComputerUseTool(name) || ottoActionNeedsApproval(name, input);
+        const protectedAction = ottoActionNeedsApproval(name, input);
 
         await options.syncThreadToolApproval?.(threadId, name, protectedAction);
 

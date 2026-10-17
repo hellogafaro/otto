@@ -18,7 +18,7 @@ it.effect("requires both memory capability and a thread-scoped handler", () =>
     });
     const memoryInvocation = { ...invocation, capabilities: new Set(["memory"] as const) };
 
-    const previewOnly = yield* server
+    const imageOnly = yield* server
       .callTool({
         name: "memory_update",
         arguments: {
@@ -30,7 +30,7 @@ it.effect("requires both memory capability and a thread-scoped handler", () =>
         Effect.provideService(McpSchema.McpServerClient, client),
       );
 
-    expect(previewOnly.isError).toBe(true);
+    expect(imageOnly.isError).toBe(true);
     expect(calls).toBe(0);
 
     const result = yield* server
@@ -116,7 +116,7 @@ it.effect("gates generate_image on the image capability and returns metadata onl
             Effect.provideService(McpSchema.McpServerClient, client),
           );
 
-      const denied = yield* call(new Set(["preview", "memory"]));
+      const denied = yield* call(new Set(["memory"]));
       expect(denied.isError).toBe(true);
       expect(received).toEqual([]);
 

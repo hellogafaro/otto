@@ -19,7 +19,6 @@ export interface DesktopPreviewOverlay {
   colorScheme: DesktopPreviewColorScheme;
   audioMuted: boolean;
   audible: boolean;
-  controller: "human" | "agent" | "none";
   favicon: DesktopPreviewFavicon | null;
 }
 
@@ -113,7 +112,6 @@ function isPreviewStateEqual(
       previous.colorScheme === next.colorScheme &&
       previous.audioMuted === next.audioMuted &&
       previous.audible === next.audible &&
-      previous.controller === next.controller &&
       previous.favicon?.dataUrl === next.favicon?.dataUrl &&
       previous.favicon?.pageUrl === next.favicon?.pageUrl &&
       previous.favicon?.capturedAt === next.favicon?.capturedAt)

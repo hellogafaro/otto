@@ -115,17 +115,9 @@ describe("AgentControllerLive", () => {
       NonNullable<AgentControllerLiveOptions["makeRemoteWorkspace"]>
     >(async () => remote);
 
-    const makeBotBrowser = vi.fn(() => ({
-      tools: {},
-      attachment: vi.fn(async () => undefined),
-      reconnect: vi.fn(async () => undefined),
-      close: vi.fn(async () => undefined),
-    }));
-
     const layer = agentControllerLayerWith({
       makeMastraHarness: mastra.factory,
       makeRemoteWorkspace,
-      makeBotBrowser: makeBotBrowser as never,
     }).pipe(
       Layer.provide(
         Layer.mergeAll(
@@ -158,7 +150,6 @@ describe("AgentControllerLive", () => {
       expect(mastra.createSession).toHaveBeenCalledOnce();
       expect(mastra.createSession.mock.calls[0]?.[0]).toMatchObject({ workspace: remote });
       expect(destroy).not.toHaveBeenCalled();
-      expect(makeBotBrowser).toHaveBeenCalledOnce();
     }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });
 });

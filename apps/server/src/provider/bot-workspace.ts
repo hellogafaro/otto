@@ -127,17 +127,11 @@ export async function createRemoteBotWorkspace(
     id: input.workspaceId,
     provider: input.sandbox,
     providerId: session.providerId,
-    ...(session.computer ? { computer: session.computer } : {}),
     workspace,
-    browserEndpoint: session.browserEndpoint,
     inspect: session.inspect,
     wake: () => workspace.init(),
-    sleep: async () => {
-      await session.computer?.close();
-      await workspace.stop();
-    },
+    sleep: () => workspace.stop(),
     destroy: async () => {
-      await session.computer?.close();
       await workspace.destroy();
       await input.io.remove(identityFile);
     },
@@ -231,7 +225,6 @@ export {
   REMOTE_BOT_SANDBOXES,
   type RemoteBotSandbox,
   type OttoWorkspaceState,
-  type OttoBrowserEndpoint,
   type OttoBotWorkspace,
   type OttoRemoteSession,
   type CreateRemoteBotWorkspaceInput,

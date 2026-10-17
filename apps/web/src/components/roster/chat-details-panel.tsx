@@ -1,11 +1,10 @@
 import { useAtomValue } from "@effect/atom-react";
 import { scopeProjectRef } from "@otto/client-runtime/environment";
 import { type ScopedThreadRef, GENERAL_PROJECT_ID } from "@otto/contracts";
-import { RiComputerLine, RiSettings3Line } from "@remixicon/react";
+import { RiSettings3Line } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useShallow } from "zustand/react/shallow";
 
-import { openComputerViewer } from "../../computer-viewer-store";
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useI18n } from "../../i18n";
 import { environmentPeopleAtom } from "../../state/bots";
@@ -15,7 +14,6 @@ import { LibraryVisibilitySelect } from "../library/library-actions";
 import { ChatLibrarySection } from "../library/chat-library-section";
 import { Button } from "../ui/button";
 import { BotAvatarView } from "./bot-avatar-view";
-import { BotBrowserPreview } from "./bot-browser-preview";
 import { useChatDetailsOpen } from "./details-panel-open";
 import { GroupEditor } from "./group-editor";
 import { PersonAvatar } from "./person-avatar";
@@ -78,11 +76,6 @@ export function ChatDetailsPanel({
 
   const library = <ChatLibrarySection threadId={threadRef.threadId} className="mt-6" />;
 
-  const openComputer = () => {
-    if (bot === null) return;
-    openComputerViewer({ threadRef, botName: bot.name, sandbox: bot.sandbox, engine: bot.engine });
-  };
-
   const details =
     group !== null ? (
       <GroupEditor
@@ -96,13 +89,6 @@ export function ChatDetailsPanel({
       </GroupEditor>
     ) : bot !== null ? (
       <>
-        <BotBrowserPreview
-          botName={bot.name}
-          threadRef={threadRef}
-          expanded={false}
-          visible={open}
-          onExpandedChange={(expanded) => expanded && openComputer()}
-        />
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
           <div className="flex flex-col items-start gap-1 pb-6 pt-2">
             <BotAvatarView avatar={bot.avatar} name={bot.name} className="mb-2 size-16" />
@@ -119,10 +105,6 @@ export function ChatDetailsPanel({
             >
               <RiSettings3Line />
               {t("Bot settings")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={openComputer}>
-              <RiComputerLine />
-              {t("Open computer")}
             </Button>
           </div>
           <div className="mt-6">{chatProperties}</div>

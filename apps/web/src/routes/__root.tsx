@@ -14,7 +14,6 @@ import { ReplyPlaybackProvider } from "../components/chat/reply-playback-provide
 import { VoiceCallProvider } from "../components/voice/voice-call";
 import { SlowRpcRequestToastCoordinator } from "../components/slow-rpc-request-toast-coordinator";
 import { SurfaceNavigationCoordinator } from "../components/surface-navigation-coordinator";
-import { ComputerViewerDialog } from "../components/computer/computer-viewer-dialog";
 import { NewChatDialogHost } from "../components/roster/new-chat-dialog";
 import { TranslatedRouteErrorView } from "./-root-route-error-view";
 import { useI18n } from "../i18n";
@@ -137,7 +136,6 @@ function RootRouteView() {
       <ReplyPlaybackProvider>
         <VoiceCallProvider>{appShell}</VoiceCallProvider>
       </ReplyPlaybackProvider>
-      <ComputerViewerDialog />
       {primaryEnvironmentAuthenticated ? <NewChatDialogHost /> : null}
       <Toaster />
     </>

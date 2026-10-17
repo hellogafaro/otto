@@ -12,7 +12,10 @@ describe("ProviderCommandReactor", () => {
   const { createHarness } = testScope;
   afterEach(testScope.dispose);
   it.each([
-    { enableAgentBrowserAccess: true, browserText: "preview browser tools" },
+    {
+      enableAgentBrowserAccess: true,
+      browserText: "Drive a browser in your computer through shell",
+    },
     { enableAgentBrowserAccess: false, browserText: "turned off in Settings" },
   ])(
     "expands @browser and @chat: mentions into bounded provider context (browser access $enableAgentBrowserAccess)",

@@ -1,11 +1,6 @@
 import { type McpServerConfig } from "@mastra/code-sdk/mcp/index";
 import { type McpServer, type OrchestrationReadModel } from "@otto/contracts";
-import {
-  getMcpOAuthStorage,
-  getMcpRuntimeHeaders,
-  mcpServerNeedsBrowserAttachment,
-} from "../../mcp-server-config.ts";
-import type { BotBrowserAttachment } from "../../bot-browser.ts";
+import { getMcpOAuthStorage, getMcpRuntimeHeaders } from "../../mcp-server-config.ts";
 
 /** Active bots that lose an MCP server when it goes away: every one that has not turned it off. */
 export function mcpServerDependentBots(snapshot: OrchestrationReadModel, serverId: string) {
@@ -17,12 +12,9 @@ export function mcpServerDependentBots(snapshot: OrchestrationReadModel, serverI
     .map((bot) => ({ id: bot.id, name: bot.name }));
 }
 
-export function toMcpServerConfigs(
-  servers: readonly McpServer[],
-  browser?: BotBrowserAttachment,
-): Record<string, McpServerConfig> {
+export function toMcpServerConfigs(servers: readonly McpServer[]): Record<string, McpServerConfig> {
   return Object.fromEntries(
-    servers.map((server) => [String(server.id), toMcpServerConfig(server, browser)]),
+    servers.map((server) => [String(server.id), toMcpServerConfig(server)]),
   );
 }
 
@@ -31,45 +23,17 @@ export function toMcpServerConfigs(
  * recipe. Authentication headers are transient runtime state and therefore
  * never become part of the persisted contract record.
  */
-export function toMcpServerConfig(
-  server: McpServer,
-  browser?: BotBrowserAttachment,
-): McpServerConfig {
-  const runtimeHeaders = getMcpRuntimeHeaders(server);
-
+export function toMcpServerConfig(server: McpServer): McpServerConfig {
   if (server.transport === "stdio") {
-    const browserAttachment =
-      browser && mcpServerNeedsBrowserAttachment(server, browser.availableToHostedPlugins)
-        ? {
-            OTTO_BROWSER_MCP_URL: browser.browserUrl,
-            OTTO_BROWSER_MCP_SESSION_ID: browser.mcpSessionId,
-            OTTO_BROWSER_MCP_HEADERS: JSON.stringify(browser.localRequestHeaders),
-          }
-        : undefined;
-
-    return {
-      command: server.command,
-      ...(server.args ? { args: [...server.args] } : {}),
-      ...(browserAttachment ? { env: browserAttachment } : {}),
-    };
+    return { command: server.command, ...(server.args ? { args: [...server.args] } : {}) };
   }
 
-  const browserHeaders =
-    browser?.availableToHostedPlugins &&
-    mcpServerNeedsBrowserAttachment(server, browser.availableToHostedPlugins)
-      ? {
-          ...runtimeHeaders,
-          "x-otto-browser-mcp-url": browser.browserUrl,
-          "x-otto-browser-mcp-session-id": browser.mcpSessionId,
-          "x-otto-browser-mcp-headers": JSON.stringify(browser.requestHeaders),
-        }
-      : runtimeHeaders;
-
+  const headers = getMcpRuntimeHeaders(server);
   const oauthStorage = getMcpOAuthStorage(server);
 
   return {
     url: server.url,
-    ...(Object.keys(browserHeaders).length > 0 ? { headers: browserHeaders } : {}),
+    ...(Object.keys(headers).length > 0 ? { headers } : {}),
     ...(oauthStorage ? { oauth: { storage: oauthStorage } } : {}),
   };
 }

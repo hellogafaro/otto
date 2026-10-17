@@ -19,9 +19,6 @@ import { type OttoDelegationRuntime } from "../../otto-delegation-runtime.ts";
 
 import { type OttoWebFetchOptions } from "../../otto-web-fetch.ts";
 
-import type { BotBrowser, CreateBotBrowserInput } from "../../bot-browser.ts";
-
-import { resolveCodexComputerUseServer } from "../../codex-computer-use.ts";
 import { type OttoBotWorkspace, type CreateRemoteBotWorkspaceInput } from "../../bot-workspace.ts";
 
 export interface AgentControllerLiveOptions {
@@ -33,8 +30,6 @@ export interface AgentControllerLiveOptions {
   readonly makeRemoteWorkspace?: (
     input: CreateRemoteBotWorkspaceInput,
   ) => Promise<OttoBotWorkspace | Workspace>;
-  readonly makeBotBrowser?: (input: CreateBotBrowserInput) => BotBrowser;
-  readonly resolveComputerUseServer?: typeof resolveCodexComputerUseServer;
   readonly issueMcpCredential?: typeof McpSessionRegistry.issueActiveMcpCredential;
   readonly revokeMcpCredential?: typeof McpSessionRegistry.revokeActiveMcpThread;
   readonly delegationRuntime?: Pick<

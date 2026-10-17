@@ -101,33 +101,6 @@ describe("PreviewManager", () => {
     webviewSend.mockClear();
   });
 
-  effectIt.effect("reports an unregistered webview as temporarily unavailable", () =>
-    withManager((manager) =>
-      Effect.gen(function* () {
-        expect(yield* manager.automationStatus("tab_1")).toEqual({
-          available: false,
-          visible: true,
-          tabId: "tab_1",
-          url: null,
-          title: null,
-          loading: false,
-        });
-
-        yield* manager.createTab("tab_1");
-
-        expect(yield* manager.automationStatus("tab_1")).toEqual({
-          available: false,
-          visible: true,
-          tabId: "tab_1",
-          url: null,
-          title: null,
-          loading: false,
-        });
-        expect(fromId).not.toHaveBeenCalled();
-      }),
-    ),
-  );
-
   effectIt.effect("rejects a destroyed webview during registration", () =>
     withManager((manager) =>
       Effect.gen(function* () {
@@ -263,15 +236,6 @@ describe("PreviewManager", () => {
         } as never);
 
         yield* manager.navigate("tab_pending", "localhost:3200");
-
-        expect(yield* manager.automationStatus("tab_pending")).toEqual({
-          available: false,
-          visible: true,
-          tabId: "tab_pending",
-          url: "http://localhost:3200/",
-          title: "",
-          loading: true,
-        });
 
         yield* manager.registerWebview("tab_pending", 42);
         yield* Effect.yieldNow;

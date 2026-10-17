@@ -1,9 +1,7 @@
 import { OTTO_TOOL_CATALOG } from "@otto/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
-import { PREVIEW_TOOLS_PROMPT } from "../mcp/toolkits/preview/tools.ts";
 import { MEMORY_UPDATE_TOOL_PROMPT } from "../memory/memory-update-tool.ts";
-import { BOT_BROWSER_TOOLS_PROMPT } from "./browser/lightpanda-rpc.ts";
 import { OTTO_ROUTINE_TOOL_PROMPTS } from "./mastra/otto-routine-schemas.ts";
 
 /** What a loaded tool adds to the prompt: its line in <tools> and its rules. */
@@ -60,10 +58,6 @@ function toolPrompt(name: string): OttoToolPrompt | undefined {
   if (name === "memory_update") return MEMORY_UPDATE_TOOL_PROMPT;
 
   if (name === "ask_user") return ASK_USER_PROMPT;
-
-  if (name === "preview_open") return PREVIEW_TOOLS_PROMPT;
-
-  if (name === "browser_navigate") return BOT_BROWSER_TOOLS_PROMPT;
 
   return OTTO_ROUTINE_TOOL_PROMPTS.get(name);
 }

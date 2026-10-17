@@ -4,44 +4,10 @@ import type { OttoMastraSession } from "../../mastra/otto-harness-types.ts";
 import type { OttoMastraState } from "../../otto-mastra-harness.ts";
 
 import type { AgentControllerEvent, MastraDBMessage } from "@mastra/core/agent-controller";
-import { McpServerId } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import { vi } from "vite-plus/test";
 import { type AgentControllerLiveOptions } from "../agent-controller.ts";
 import { codexThreadId } from "./agent-controller-fixtures.ts";
-
-export const computerUseToolName = "builtin-computer-use_control";
-
-export function computerUseServer() {
-  return {
-    id: McpServerId.make("builtin-computer-use"),
-    name: "Codex Computer Use",
-    transport: "stdio" as const,
-    command: "otto-codex-computer-use",
-    enabled: true,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  };
-}
-
-export function computerUseMcpManager() {
-  return {
-    init: vi.fn(async () => undefined),
-    disconnect: vi.fn(async () => undefined),
-    getTools: vi.fn(() => ({
-      [computerUseToolName]: { execute: vi.fn(async () => ({})) },
-    })),
-    getServerStatuses: vi.fn(() => [
-      {
-        name: "builtin-computer-use",
-        connected: true,
-        toolCount: 1,
-        toolNames: [computerUseToolName],
-        transport: "stdio" as const,
-      },
-    ]),
-  };
-}
 
 export function mastraHarnessFixture() {
   const harnessOptions: Array<

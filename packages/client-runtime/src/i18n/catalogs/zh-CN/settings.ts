@@ -243,8 +243,6 @@ export const settingsCatalog = {
   "No action needed. A provider request succeeded.": "无需操作。提供商请求已成功。",
   "{models}, and {count} more.": "{models}，以及另外 {count} 个。",
   "{models}.": "{models}。",
-  "Computer control needs a Codex or Kimi For Coding engine. Claude, Grok, and OpenCode bots cannot share a computer yet.":
-    "电脑控制需要 Codex 或 Kimi For Coding 引擎。Claude、Grok 和 OpenCode 机器人暂时无法共享电脑。",
   "API billing can be separate from your subscription.": "API 计费可能独立于你的订阅。",
   "Open OpenCode": "打开 OpenCode",
   "Use your ChatGPT subscription with Codex models.": "通过 Codex 模型使用你的 ChatGPT 订阅。",

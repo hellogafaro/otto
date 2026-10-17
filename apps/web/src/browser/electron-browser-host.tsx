@@ -11,7 +11,6 @@ import { useTheme } from "~/hooks/use-theme";
 import { useActivePreviewSessions } from "~/preview-state-store";
 
 import { readPreviewAnnotationTheme } from "./annotation-theme";
-import { useBrowserPointerStore } from "./browser-pointer-store";
 import { HostedBrowserWebview } from "./hosted-browser-webview";
 import { previewRuntimeTabId } from "./preview-runtime-tab-id";
 
@@ -79,16 +78,6 @@ export function ElectronBrowserHost() {
       headObserver.disconnect();
     };
   }, [resolvedTheme]);
-
-  useEffect(() => {
-    const preview = window.desktopBridge?.preview;
-
-    if (!preview) return;
-
-    return preview.onPointerEvent((event) => {
-      useBrowserPointerStore.getState().apply(event);
-    });
-  }, []);
 
   if (!isElectron) return null;
 

@@ -150,16 +150,8 @@ describe("AgentControllerLive", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
 
-    const makeBotBrowser = vi.fn(() => ({
-      tools: {},
-      attachment: vi.fn(async () => undefined),
-      reconnect: vi.fn(async () => undefined),
-      close: vi.fn(async () => undefined),
-    }));
-
     const layer = agentControllerLayerWith({
       makeMastraHarness: mastra.factory,
-      makeBotBrowser: makeBotBrowser as never,
     }).pipe(
       Layer.provide(
         Layer.mergeAll(

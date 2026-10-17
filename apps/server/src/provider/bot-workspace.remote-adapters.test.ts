@@ -6,16 +6,12 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { expect, it, vi } from "vite-plus/test";
 import type { DaytonaSandbox } from "@mastra/daytona";
-import type { E2BSandbox } from "@mastra/e2b";
 import type { RailwaySandbox } from "@mastra/railway";
-import type { VercelSandbox } from "@mastra/vercel";
 import {
   createRemoteBotWorkspace,
   daytona,
-  e2b,
   railway,
   railwayWorkspaceState,
-  vercel,
   vercelWorkspaceState,
 } from "./bot-workspace.ts";
 import { railwayCredentials as railwayCredentialsFor } from "./workspace/adapters/railway.ts";
@@ -146,7 +142,6 @@ describe("createBotWorkspace", () => {
         timeout: 1501,
         maxRetainedBytes: 16 * 1024 * 1024,
       });
-      await expect(session.browserEndpoint(9223)).rejects.toThrow("Railway CLI tunnel");
       await expect(session.inspect()).resolves.toBe("running");
       await session.sleep();
       remote.status = "DESTROYED";
@@ -207,78 +202,7 @@ describe("createBotWorkspace", () => {
     expect(_stop).toHaveBeenCalledOnce();
     expect(_start).toHaveBeenCalledOnce();
     expect(session.providerId).toBe("daytona-id");
-    expect(session.computer?.workspaceId).toBe("daytona-id");
     expect(await session.inspect()).toBe("running");
-    await expect(session.browserEndpoint(9223)).resolves.toEqual({
-      url: "https://9223-daytona.example/?DAYTONA_SANDBOX_AUTH_KEY=daytona-token",
-      requestHeaders: {},
-    });
-  });
-
-  it("keeps E2B browser ingress private", async () => {
-    const session = e2b(
-      partialSdkFixture<E2BSandbox>({
-        sandboxId: "e2b-id",
-        instance: {
-          trafficAccessToken: "e2b-token",
-          getHost: (port: number) => `${port}-e2b.example`,
-        },
-      }),
-      "e2b-key",
-    );
-
-    expect(session.providerId).toBe("e2b-id");
-    await expect(session.browserEndpoint(9223)).resolves.toEqual({
-      url: "https://9223-e2b.example",
-      requestHeaders: { "e2b-traffic-access-token": "e2b-token" },
-    });
-  });
-
-  it("adds the Vercel browser port without removing existing routes", async () => {
-    const update = vi.fn(async () => undefined);
-
-    const session = vercel(
-      partialSdkFixture<VercelSandbox>({
-        sandbox: {
-          name: "vercel-id",
-          routes: [{ port: 3000 }],
-          update,
-          domain: (port: number) => `https://${port}-vercel.example`,
-        },
-      }),
-      { token: "token", teamId: "team", projectId: "project" },
-    );
-
-    expect(session.providerId).toBe("vercel-id");
-    await expect(session.browserEndpoint(9223)).resolves.toEqual({
-      url: "https://9223-vercel.example",
-      requestHeaders: {},
-    });
-    expect(update).toHaveBeenCalledWith({ ports: [3000, 9223] });
-  });
-
-  it("fails closed when a remote provider omits browser credentials", async () => {
-    const e2bSession = e2b(
-      partialSdkFixture<E2BSandbox>({
-        sandboxId: "e2b-id",
-        instance: { trafficAccessToken: "", getHost: vi.fn() },
-      }),
-      "e2b-key",
-    );
-
-    const daytonaSession = daytona(
-      partialSdkFixture<DaytonaSandbox>({
-        instance: {
-          id: "daytona-id",
-          getPreviewLink: vi.fn(async () => ({ url: "https://daytona.example", token: "" })),
-        },
-      }),
-    );
-
-    await expect(e2bSession.browserEndpoint(9223)).rejects.toThrow("no traffic access token");
-    await expect(daytonaSession.browserEndpoint(9223)).rejects.toThrow(
-      "no authenticated preview URL",
-    );
   });
 
   it("does not classify unavailable provider states as running", () => {

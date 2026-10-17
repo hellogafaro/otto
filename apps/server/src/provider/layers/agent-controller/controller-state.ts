@@ -15,7 +15,6 @@ import {
   type ProviderRuntimeEvent,
   ThreadId,
 } from "@otto/contracts";
-import { HostProcessPlatform } from "@otto/shared/hostProcess";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
@@ -51,7 +50,6 @@ export const createControllerState = Effect.fn("createControllerState")(function
   const config = yield* ServerConfig;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const hostPlatform = yield* HostProcessPlatform;
   const legacyProviderBridge = yield* LegacyProviderBridge;
   const botUsageLedger = yield* BotUsageLedger;
   const serverSettings = yield* Effect.serviceOption(ServerSettings.ServerSettingsService);
@@ -166,9 +164,6 @@ export const createControllerState = Effect.fn("createControllerState")(function
     get config() {
       return config;
     },
-    get hostPlatform() {
-      return hostPlatform;
-    },
     get subscriptionAuth() {
       return subscriptionAuth;
     },
@@ -185,7 +180,6 @@ export const createControllerState = Effect.fn("createControllerState")(function
     config,
     fileSystem,
     path,
-    hostPlatform,
     legacyProviderBridge,
     botUsageLedger,
     serverSettings,

@@ -25,7 +25,6 @@ import { type OttoPluginRuntimeOptions } from "../../otto-catalog-tool-handlers.
 
 import { isMemoryToolId } from "../../otto-tool-runtime.ts";
 
-import { isCodexComputerUseServer } from "../../codex-computer-use.ts";
 import { ProviderValidationError } from "../../errors.ts";
 
 import { type ResolvedEngine, type ActiveSession } from "./state.ts";
@@ -90,9 +89,7 @@ export function sessionFailureDetail(
   active: Pick<ActiveSession, "mcpServerIds">,
   cause: unknown,
 ): string {
-  return active.mcpServerIds.some((id) => isCodexComputerUseServer(String(id)))
-    ? "Computer Use session failed."
-    : failureDetail(cause);
+  return failureDetail(cause);
 }
 
 /**

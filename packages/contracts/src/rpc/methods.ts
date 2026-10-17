@@ -35,15 +35,6 @@ export const WS_METHODS = {
   // Provider methods
   providerUploadFeedback: "provider.uploadFeedback",
 
-  computerGetState: "computer.getState",
-  computerOpen: "computer.open",
-  computerAcquire: "computer.acquire",
-  computerInput: "computer.input",
-  computerRelease: "computer.release",
-  computerClose: "computer.close",
-  computerStop: "computer.stop",
-  computerEvents: "computer.events",
-
   // Preview methods
   previewOpen: "preview.open",
   previewNavigate: "preview.navigate",
@@ -52,9 +43,6 @@ export const WS_METHODS = {
   previewClose: "preview.close",
   previewList: "preview.list",
   previewReportStatus: "preview.reportStatus",
-  previewAutomationConnect: "previewAutomation.connect",
-  previewAutomationRespond: "previewAutomation.respond",
-  previewAutomationFocusHost: "previewAutomation.focusHost",
 
   // Server meta
   serverProbe: "server.probe",

@@ -312,42 +312,6 @@ describe("Boat", () => {
     }
   });
 
-  it("protects browser control without forwarding the API credential", async () => {
-    const { client, session } = await setup();
-
-    const hostPort = vi.spyOn(client, "hostPort").mockResolvedValue({
-      ok: true,
-      type: "host_port",
-      url: "https://preview.example/?_token=browser-token",
-      isProtected: true,
-    });
-
-    expect(await session.browserEndpoint(9223)).toEqual({
-      url: "https://preview.example/?_token=browser-token",
-      requestHeaders: {},
-    });
-    expect(hostPort).toHaveBeenCalledWith({
-      sandboxId: "boat-id",
-      hostPortRequest: { port: 9223, _public: false },
-    });
-    hostPort.mockResolvedValue({ ok: true, type: "host_port" });
-    await expect(session.browserEndpoint(9223)).rejects.toThrow("preview URL");
-    hostPort.mockResolvedValue({
-      ok: true,
-      type: "host_port",
-      url: "https://preview.example",
-      isProtected: false,
-    });
-    await expect(session.browserEndpoint(9223)).rejects.toThrow("protected browser endpoint");
-    hostPort.mockResolvedValue({
-      ok: true,
-      type: "host_port",
-      url: "https://preview.example",
-      isProtected: true,
-    });
-    await expect(session.browserEndpoint(9223)).rejects.toThrow("protected browser endpoint");
-  });
-
   it("creates once with the configured credential and reattaches by saved VM identity", async () => {
     const { BoatApi } = await import("@boatdev/sdk");
     const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-boat-"));

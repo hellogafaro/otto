@@ -2,13 +2,12 @@ import { workspaceIO } from "./test-support/workspace-io.ts";
 import { describe } from "vite-plus/test";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
-import { BotId } from "@otto/contracts";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 import { OttoSessionResources } from "./otto-session-resources.ts";
 import { type OttoRemoteSession, createRemoteBotWorkspace } from "./bot-workspace.ts";
 import { makeOttoSessionResourcesTestSupport } from "./test-support/otto-session-resources.ts";
 
-const { directories, stateDir, workspace, localBotWorkspace, browser, remoteInput } =
+const { directories, stateDir, workspace, localBotWorkspace, remoteInput } =
   makeOttoSessionResourcesTestSupport();
 
 describe("OttoSessionResources", () => {
@@ -36,7 +35,6 @@ describe("OttoSessionResources", () => {
       io: workspaceIO,
       stateDir: stateDir(),
       makeRemoteWorkspace: async () => botWorkspace,
-      makeBotBrowser: () => browser(),
       toMcpServerConfigs: () => ({}),
     });
 
@@ -62,7 +60,6 @@ describe("OttoSessionResources", () => {
       io: workspaceIO,
       stateDir: stateDir(),
       makeRemoteWorkspace: async () => botWorkspace,
-      makeBotBrowser: () => browser(),
       toMcpServerConfigs: () => ({}),
     });
 
@@ -70,34 +67,6 @@ describe("OttoSessionResources", () => {
     await expect(resources.release("idle-retry")).rejects.toThrow("pause unavailable");
     await resources.retryFailedWorkspaceSleeps();
     expect(botWorkspace.sleep).toHaveBeenCalledTimes(2);
-    await resources.shutdown();
-  });
-
-  it("retains attribution while another chat for the same bot is active", async () => {
-    const browserFailure = vi.fn();
-    let onFailure!: (cause: unknown) => void;
-
-    const resources = new OttoSessionResources({
-      io: workspaceIO,
-      stateDir: stateDir(),
-      makeBotBrowser: (input) => {
-        onFailure = input.onFailure!;
-
-        return browser();
-      },
-      onBrowserFailure: browserFailure,
-      toMcpServerConfigs: () => ({}),
-    });
-
-    const botId = BotId.make("bot-same");
-    const first = { ...remoteInput, botSandbox: null, threadId: "chat-a", botId };
-    const second = { ...remoteInput, botSandbox: null, threadId: "chat-b", botId };
-    await resources.acquire(first);
-    await resources.acquire(second);
-    await resources.release(first.threadId);
-    onFailure(new Error("browser exited"));
-    expect(browserFailure).toHaveBeenCalledOnce();
-    expect(browserFailure.mock.calls[0]?.[0].botId).toBe(botId);
     await resources.shutdown();
   });
 
@@ -117,7 +86,6 @@ describe("OttoSessionResources", () => {
       io: workspaceIO,
       stateDir: stateDir(),
       makeRemoteWorkspace,
-      makeBotBrowser: () => browser(),
       toMcpServerConfigs: () => ({}),
     });
 
@@ -132,23 +100,21 @@ describe("OttoSessionResources", () => {
     await resources.shutdown();
   });
 
-  it("exposes the authenticated product preview tools without a plugin connection", async () => {
-    const previewStatus = { execute: vi.fn(async () => ({ attached: true })) };
-    const previewSnapshot = { execute: vi.fn(async () => ({ url: "https://example.com" })) };
+  it("exposes the authenticated Otto MCP tools without a plugin connection", async () => {
+    const memoryUpdate = { execute: vi.fn(async () => ({ saved: true })) };
 
     const manager = {
       init: vi.fn(async () => undefined),
       disconnect: vi.fn(async () => undefined),
       getTools: vi.fn(() => ({
-        otto_preview_status: previewStatus,
-        otto_preview_snapshot: previewSnapshot,
+        otto_memory_update: memoryUpdate,
       })),
       getServerStatuses: vi.fn(() => [
         {
           name: "otto",
           connected: true,
-          toolCount: 2,
-          toolNames: ["otto_preview_status", "otto_preview_snapshot"],
+          toolCount: 1,
+          toolNames: ["otto_memory_update"],
         },
       ]),
     };
@@ -170,13 +136,10 @@ describe("OttoSessionResources", () => {
       headers: { Authorization: "Bearer preview-token" },
     }));
 
-    const botBrowser = browser();
-
     const resources = new OttoSessionResources({
       io: workspaceIO,
       stateDir: stateDir(),
       makeRemoteWorkspace: async () => workspace(),
-      makeBotBrowser: () => botBrowser,
       makeMcpManager,
       getPreviewMcpServerConfig,
       toMcpServerConfigs: () => ({}),
@@ -192,10 +155,8 @@ describe("OttoSessionResources", () => {
         headers: { Authorization: "Bearer preview-token" },
       },
     });
-    expect(botBrowser.attachment).not.toHaveBeenCalled();
     expect(resources.getConnectorTools("preview-thread")).toEqual({
-      preview_status: previewStatus,
-      preview_snapshot: previewSnapshot,
+      memory_update: memoryUpdate,
     });
 
     await resources.shutdown();
@@ -211,7 +172,6 @@ describe("OttoSessionResources", () => {
         providerId: providerId ?? "provider-1",
         inspect: async () => "running",
         run: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-        browserEndpoint: async () => ({ url: "https://browser.example", requestHeaders: {} }),
         wake: async () => undefined,
         sleep,
         destroy,

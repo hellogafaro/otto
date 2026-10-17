@@ -12,15 +12,6 @@ import type {
   DesktopPreviewRecordingArtifact,
   DesktopPreviewScreenshotArtifact,
   DesktopPreviewTabDefaults,
-  PreviewAutomationClickInput,
-  PreviewAutomationActionEvent,
-  PreviewAutomationEvaluateInput,
-  PreviewAutomationPressInput,
-  PreviewAutomationScrollInput,
-  PreviewAutomationSnapshot,
-  PreviewAutomationStatus,
-  PreviewAutomationTypeInput,
-  PreviewAutomationWaitForInput,
 } from "@otto/contracts";
 
 import { HostProcessPlatform } from "@otto/shared/hostProcess";
@@ -53,13 +44,9 @@ import * as DesktopEnvironment from "../app/desktop-environment.ts";
 
 import * as BrowserSession from "./browser-session.ts";
 
-import { playwrightInjectedRuntimeInstallExpression } from "./playwright-injected-runtime.ts";
-
 import { PreviewOperationError, type PreviewManagerError } from "./preview-errors.ts";
 
 export {
-  PreviewAutomationSelectorKind,
-  PreviewAutomationEvaluationDetailKind,
   PreviewTabNotFoundError,
   PreviewWebContentsNotFoundError,
   PreviewWebviewNotInitializedError,
@@ -70,19 +57,8 @@ export {
   PreviewArtifactImageLoadError,
   PreviewAutomationDevToolsOpenError,
   PreviewAutomationDebuggerAttachedError,
-  PreviewAutomationEvaluationError,
-  PreviewAutomationTargetNotFoundError,
-  PreviewAutomationTargetNotEditableError,
-  PreviewAutomationCoordinatesOutsideViewportError,
-  PreviewAutomationInvalidSelectorError,
-  PreviewAutomationResultTooLargeError,
-  PreviewAutomationTimeoutError,
-  PreviewAutomationControlInterruptedError,
   PreviewManagerError,
   isPreviewManagerError,
-  isPreviewAutomationControlInterruptedError,
-  isPreviewAutomationEvaluationError,
-  isPreviewAutomationInvalidSelectorError,
 } from "./preview-errors.ts";
 
 import {
@@ -97,9 +73,6 @@ import {
   type PictureInPictureSession,
   type PickSession,
   type BrowserControlSession,
-  type BrowserDiagnostics,
-  type PointerEventListener,
-  type ExpectedAgentInput,
 } from "./preview-model.ts";
 
 export {
@@ -119,9 +92,6 @@ import { createPreviewTabLifecycle } from "./preview-tab-lifecycle.ts";
 import { createPreviewFrameCapture } from "./preview-frame-capture.ts";
 import { createPreviewPictureInPicture } from "./preview-picture-in-picture.ts";
 import { createPreviewArtifacts } from "./preview-artifacts.ts";
-import { createPreviewAutomationSnapshot } from "./preview-automation-snapshot.ts";
-import { createPreviewAutomationInput } from "./preview-automation-input.ts";
-import { createPreviewAutomationQuery } from "./preview-automation-query.ts";
 
 const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function* (
   artifactDirectory: string,
@@ -141,13 +111,6 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
 
   const resolvedArtifactDirectory = path.resolve(artifactDirectory);
 
-  const playwrightInstallExpression = yield* Effect.cached(
-    playwrightInjectedRuntimeInstallExpression().pipe(
-      Effect.provideService(FileSystem.FileSystem, fileSystem),
-      Effect.provideService(Path.Path, path),
-    ),
-  );
-
   const annotationThemeRef = yield* Ref.make(DEFAULT_ANNOTATION_THEME);
 
   const mainWindowRef = yield* Ref.make<Option.Option<BrowserWindow>>(Option.none());
@@ -158,8 +121,6 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
 
   const listenersRef = yield* Ref.make<ReadonlySet<Listener>>(new Set());
 
-  const pointerEventListenersRef = yield* Ref.make<ReadonlySet<PointerEventListener>>(new Set());
-
   const recordingFrameListenersRef = yield* Ref.make<ReadonlySet<RecordingFrameListener>>(
     new Set(),
   );
@@ -169,22 +130,6 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
   const controlSessionsRef = yield* SynchronizedRef.make<
     ReadonlyMap<number, BrowserControlSession>
   >(new Map());
-
-  const diagnosticsRef = yield* Ref.make<ReadonlyMap<number, BrowserDiagnostics>>(new Map());
-
-  const expectedAgentInputsRef = yield* Ref.make<
-    ReadonlyMap<string, ReadonlyArray<ExpectedAgentInput>>
-  >(new Map());
-
-  const controlEpochRef = yield* Ref.make<ReadonlyMap<string, number>>(new Map());
-
-  const actionTimelineRef = yield* Ref.make<
-    ReadonlyMap<string, ReadonlyArray<PreviewAutomationActionEvent>>
-  >(new Map());
-
-  const actionSequenceRef = yield* Ref.make(0);
-
-  const pointerSequenceRef = yield* Ref.make(0);
 
   const frameCaptureSessionsRef = yield* SynchronizedRef.make<
     ReadonlyMap<string, FrameCaptureSession>
@@ -211,8 +156,6 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     attemptPromise,
     currentIso,
     currentMillis,
-    encodeJson,
-    nextCounter,
     replaceMap,
     deliverEvent,
     emit,
@@ -227,40 +170,21 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     subscribe,
   } = createPreviewState({ listenersRef, tabsRef, path, resolvedArtifactDirectory });
 
-  const {
-    detachControlSession,
-    prepareAutomationInput,
-    withControlSession,
-    evaluateWithDebugger,
-    ensurePlaywrightInjected,
-    consumeExpectedAgentInput,
-    expectAgentInput,
-    applyColorScheme,
-    restoreControlSession,
-    automationStatus,
-  } = createPreviewBrowserControl({
-    currentIso,
-    diagnosticsRef,
-    replaceMap,
-    controlSessionsRef,
-    parentScope,
-    attemptPromise,
-    tabIdForWebContents,
-    frameCaptureSessionsRef,
-    recordingFrameListenersRef,
-    deliverEvent,
-    runFork,
-    attempt,
-    actionTimelineRef,
-    nextCounter,
-    actionSequenceRef,
-    currentMillis,
-    controlEpochRef,
-    update,
-    tabsRef,
-    playwrightInstallExpression,
-    expectedAgentInputsRef,
-  });
+  const { detachControlSession, applyColorScheme, restoreControlSession } =
+    createPreviewBrowserControl({
+      currentIso,
+      replaceMap,
+      controlSessionsRef,
+      parentScope,
+      attemptPromise,
+      tabIdForWebContents,
+      frameCaptureSessionsRef,
+      recordingFrameListenersRef,
+      deliverEvent,
+      runFork,
+      attempt,
+      tabsRef,
+    });
 
   const { cancelPickElement, setAnnotationTheme, pickElement } = createPreviewAnnotations({
     pickSessionsRef,
@@ -283,8 +207,6 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     syncTabAudible,
     currentMillis,
     update,
-    consumeExpectedAgentInput,
-    controlEpochRef,
     attempt,
     hostPlatform,
     attemptPromise,
@@ -393,50 +315,6 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     attempt,
   });
 
-  const { automationLocator, automationSelectorDiagnostics, automationSnapshot } =
-    createPreviewAutomationSnapshot({
-      evaluateWithDebugger,
-      diagnosticsRef,
-      actionTimelineRef,
-      mainWindowRef,
-      encodeJson,
-      attemptPromise,
-      attempt,
-      runFork,
-      requireWebContents,
-      withControlSession,
-    });
-
-  const { automationClick, automationType, automationPress } = createPreviewAutomationInput({
-    automationLocator,
-    ensurePlaywrightInjected,
-    encodeJson,
-    evaluateWithDebugger,
-    automationSelectorDiagnostics,
-    pointerEventListenersRef,
-    deliverEvent,
-    prepareAutomationInput,
-    nextCounter,
-    pointerSequenceRef,
-    currentIso,
-    expectAgentInput,
-    requireWebContents,
-    withControlSession,
-    hostPlatform,
-    attempt,
-  });
-
-  const { automationScroll, automationEvaluate, automationWaitFor } = createPreviewAutomationQuery({
-    automationLocator,
-    ensurePlaywrightInjected,
-    encodeJson,
-    evaluateWithDebugger,
-    automationSelectorDiagnostics,
-    requireWebContents,
-    withControlSession,
-    currentMillis,
-  });
-
   const setMainWindow = Effect.fn("PreviewManager.setMainWindow")(function* (
     window: BrowserWindow,
   ) {
@@ -475,12 +353,7 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     const tabs = yield* SynchronizedRef.get(tabsRef);
     yield* Effect.forEach(tabs.keys(), closeTab, { discard: true });
     yield* Effect.all(
-      [
-        Ref.set(listenersRef, new Set()),
-        Ref.set(expectedAgentInputsRef, new Map()),
-        Ref.set(pointerEventListenersRef, new Set()),
-        Ref.set(recordingFrameListenersRef, new Set()),
-      ],
+      [Ref.set(listenersRef, new Set()), Ref.set(recordingFrameListenersRef, new Set())],
       { discard: true },
     );
   });
@@ -488,14 +361,6 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
   yield* Effect.addFinalizer(() => destroy().pipe(Effect.ignore));
 
   return {
-    automationClick,
-    automationEvaluate,
-    automationPress,
-    automationScroll,
-    automationSnapshot,
-    automationStatus,
-    automationType,
-    automationWaitFor,
     cancelPickElement,
     captureScreenshot,
     closeTab,
@@ -521,8 +386,6 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     startRecording,
     closePictureInPicture,
     stopRecording,
-    subscribePointerEvents: (listener: PointerEventListener) =>
-      subscribe(pointerEventListenersRef, listener),
     subscribeRecordingFrames: (listener: RecordingFrameListener) =>
       subscribe(recordingFrameListenersRef, listener),
     subscribeStateChanges: (listener: Listener) => subscribe(listenersRef, listener),
@@ -590,40 +453,7 @@ export class PreviewManager extends Context.Service<
       mimeType: string,
       data: Uint8Array,
     ) => Effect.Effect<DesktopPreviewRecordingArtifact, PreviewManagerError>;
-    readonly automationStatus: (
-      tabId: string,
-    ) => Effect.Effect<PreviewAutomationStatus, PreviewManagerError>;
-    readonly automationSnapshot: (
-      tabId: string,
-    ) => Effect.Effect<PreviewAutomationSnapshot, PreviewManagerError>;
-    readonly automationClick: (
-      tabId: string,
-      input: PreviewAutomationClickInput,
-    ) => Effect.Effect<void, PreviewManagerError>;
-    readonly automationType: (
-      tabId: string,
-      input: PreviewAutomationTypeInput,
-    ) => Effect.Effect<void, PreviewManagerError>;
-    readonly automationPress: (
-      tabId: string,
-      input: PreviewAutomationPressInput,
-    ) => Effect.Effect<void, PreviewManagerError>;
-    readonly automationScroll: (
-      tabId: string,
-      input: PreviewAutomationScrollInput,
-    ) => Effect.Effect<void, PreviewManagerError>;
-    readonly automationEvaluate: (
-      tabId: string,
-      input: PreviewAutomationEvaluateInput,
-    ) => Effect.Effect<unknown, PreviewManagerError>;
-    readonly automationWaitFor: (
-      tabId: string,
-      input: PreviewAutomationWaitForInput,
-    ) => Effect.Effect<void, PreviewManagerError>;
     readonly subscribeStateChanges: (listener: Listener) => Effect.Effect<void, never, Scope.Scope>;
-    readonly subscribePointerEvents: (
-      listener: PointerEventListener,
-    ) => Effect.Effect<void, never, Scope.Scope>;
     readonly subscribeRecordingFrames: (
       listener: RecordingFrameListener,
     ) => Effect.Effect<void, never, Scope.Scope>;
@@ -702,16 +532,7 @@ export const make = Effect.gen(function* PreviewManagerMake() {
     startRecording: operations.startRecording,
     stopRecording: operations.stopRecording,
     saveRecording: operations.saveRecording,
-    automationStatus: operations.automationStatus,
-    automationSnapshot: operations.automationSnapshot,
-    automationClick: operations.automationClick,
-    automationType: operations.automationType,
-    automationPress: operations.automationPress,
-    automationScroll: operations.automationScroll,
-    automationEvaluate: operations.automationEvaluate,
-    automationWaitFor: operations.automationWaitFor,
     subscribeStateChanges: operations.subscribeStateChanges,
-    subscribePointerEvents: operations.subscribePointerEvents,
     subscribeRecordingFrames: operations.subscribeRecordingFrames,
   });
 }).pipe(Effect.withSpan("PreviewManager.make"));

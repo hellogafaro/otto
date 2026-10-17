@@ -4,7 +4,6 @@ import * as NodePath from "node:path";
 import { LocalFilesystem, LocalSandbox, Workspace } from "@mastra/core/workspace";
 import { McpServerId } from "@otto/contracts";
 import { vi } from "vite-plus/test";
-import { CODEX_COMPUTER_USE_SERVER_ID } from "../codex-computer-use.ts";
 import { type OttoBotWorkspace } from "../bot-workspace.ts";
 
 export function makeOttoSessionResourcesTestSupport() {
@@ -36,27 +35,6 @@ export function makeOttoSessionResourcesTestSupport() {
     };
   }
 
-  function browser(overrides?: { reconnect?: () => Promise<void>; close?: () => Promise<void> }) {
-    return {
-      tools: {},
-      attachment: vi.fn(async () => undefined),
-      reconnect: vi.fn(overrides?.reconnect ?? (async () => undefined)),
-      close: vi.fn(overrides?.close ?? (async () => undefined)),
-    };
-  }
-
-  function computerServer() {
-    return {
-      id: CODEX_COMPUTER_USE_SERVER_ID as never,
-      name: "Computer Use",
-      transport: "stdio" as const,
-      command: "otto-codex-computer-use",
-      enabled: true,
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-  }
-
   function mcpManager(
     status: { connected: boolean; toolCount: number; error?: string },
     tools: Record<string, Pick<import("@mastra/core/tools").Tool, "execute">> = {},
@@ -67,9 +45,9 @@ export function makeOttoSessionResourcesTestSupport() {
       getTools: vi.fn(() => tools),
       getServerStatuses: vi.fn(() => [
         {
-          name: CODEX_COMPUTER_USE_SERVER_ID,
-          transport: "stdio" as const,
-          toolNames: status.toolCount > 0 ? [`${CODEX_COMPUTER_USE_SERVER_ID}_control`] : [],
+          name: "builtin-exa",
+          transport: "url" as const,
+          toolNames: status.toolCount > 0 ? ["builtin-exa_search"] : [],
           ...status,
         },
       ]),
@@ -99,8 +77,6 @@ export function makeOttoSessionResourcesTestSupport() {
     stateDir,
     workspace,
     localBotWorkspace,
-    browser,
-    computerServer,
     mcpManager,
     remoteInput,
     exaServer,

@@ -18,7 +18,6 @@ import {
   recordFaviconForThread,
   useFaviconProjectRefForThread,
 } from "~/browser-favicon-store";
-import { useBrowserPointerStore } from "~/browser/browser-pointer-store";
 import { applyPreviewDesktopState, type DesktopPreviewOverlay } from "~/preview-state-store";
 import { previewEnvironment } from "~/state/preview";
 import { usePreparedConnection } from "~/state/session";
@@ -46,7 +45,6 @@ export function usePreviewBridge(input: {
   runtimeTabId: string;
 }): void {
   const { threadRef, tabId, runtimeTabId } = input;
-  const clearBrowserPointer = useBrowserPointerStore((state) => state.clear);
   const reportStatus = useAtomCommand(previewEnvironment.reportStatus, "preview status report");
   const bridge = previewBridge;
   const threadKey = scopedThreadKey(threadRef);
@@ -70,17 +68,11 @@ export function usePreviewBridge(input: {
   // server) so the desktop bridge keeps a single listener entry per tab.
   const lastReportedUrl = useRef<string | null>(null);
   const lastReportedKind = useRef<DesktopPreviewTabState["navStatus"]["kind"] | null>(null);
-  const lastDesktopNavStatus = useRef<DesktopPreviewTabState["navStatus"] | null>(null);
 
   const handleStateChange = useEffectEvent(
     (changedTabId: string, state: DesktopPreviewTabState): void => {
       if (changedTabId !== runtimeTabId) return;
 
-      if (shouldClearBrowserPointer(lastDesktopNavStatus.current, state.navStatus)) {
-        clearBrowserPointer(runtimeTabId);
-      }
-
-      lastDesktopNavStatus.current = state.navStatus;
       applyPreviewDesktopState(stableThreadRef, tabId, projectDesktopState(state));
 
       if (state.favicon) {
@@ -109,7 +101,6 @@ export function usePreviewBridge(input: {
     if (!bridge || typeof window === "undefined") return;
     lastReportedUrl.current = null;
     lastReportedKind.current = null;
-    lastDesktopNavStatus.current = null;
 
     return bridge.onStateChange(handleStateChange);
   }, [bridge, runtimeTabId, stableThreadRef, tabId]);
@@ -117,19 +108,6 @@ export function usePreviewBridge(input: {
     if (!projectRef) return;
     flushPendingFaviconsForThread(stableThreadRef, projectRef, environmentHostname);
   }, [environmentHostname, projectRef, stableThreadRef]);
-}
-
-function shouldClearBrowserPointer(
-  previous: DesktopPreviewTabState["navStatus"] | null,
-  current: DesktopPreviewTabState["navStatus"],
-): boolean {
-  if (!previous) return false;
-
-  if (current.kind === "Loading" && previous.kind !== "Loading") return true;
-
-  if (current.kind === "Idle" || previous.kind === "Idle") return false;
-
-  return current.url !== previous.url;
 }
 
 export function projectDesktopState(state: DesktopPreviewTabState): DesktopPreviewOverlay {
@@ -145,7 +123,6 @@ export function projectDesktopState(state: DesktopPreviewTabState): DesktopPrevi
     colorScheme: state.colorScheme,
     audioMuted: state.audioMuted,
     audible: state.audible,
-    controller: state.controller,
     favicon: state.favicon && originOf(state.favicon.pageUrl) === navOrigin ? state.favicon : null,
   };
 }

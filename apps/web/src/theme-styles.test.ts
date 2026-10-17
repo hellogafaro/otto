@@ -73,7 +73,6 @@ it.effect("preserves nominal indicator and alert colors in both default appearan
       ["markdown-warning-foreground", "amber-600", "amber-500"],
       ["markdown-caution", "red-500", "red-500"],
       ["markdown-caution-foreground", "red-600", "red-400"],
-      ["computer-control-indicator", "amber-500", "amber-500"],
       ["quit-prompt", "neutral-700", "neutral-700"],
       ["memory-approval-indicator", "amber-400", "amber-400"],
     ];
@@ -109,12 +108,6 @@ it.effect("uses parity tokens and opacities at the reviewed component sites", ()
         "text-markdown-warning-foreground",
         "border-markdown-caution/70",
         "text-markdown-caution-foreground",
-      ],
-      [
-        "components/sidebar/sidebar-chrome.tsx",
-        "border-computer-control-indicator/30",
-        "bg-computer-control-indicator/10",
-        "bg-computer-control-indicator",
       ],
       ["components/quit-hold-overlay.tsx", "bg-quit-prompt/95", "text-on-solid"],
       ["components/roster/memory-approval-prompt.tsx", "bg-memory-approval-indicator"],

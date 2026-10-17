@@ -4,10 +4,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { ThreadId, WS_METHODS } from "@otto/contracts";
 import { assert, it } from "@effect/vitest";
 import { assertTrue } from "@effect/vitest/utils";
-import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import { HttpBody, HttpClient } from "effect/unstable/http";
@@ -22,7 +20,6 @@ import {
   crossOriginClientOrigin,
   assertBrowserApiCorsResponseHeaders,
 } from "./server-test-clients.ts";
-import { testEnvironmentDescriptor } from "./server-test-fixtures.ts";
 
 it.layer(NodeServices.layer)("server router seam", (it) => {
   it.effect("uploads Codex thread feedback through websocket rpc", () =>
@@ -141,49 +138,6 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         assert.isDefined(error.cause);
       }
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
-  );
-
-  it.effect("shares one preview automation broker across websocket sessions", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        yield* buildAppUnderTest();
-
-        const wsUrl = yield* getWsServerUrl("/ws");
-        const firstConnected = yield* Deferred.make<string>();
-        const firstClosed = yield* Deferred.make<void>();
-
-        const host = {
-          clientId: "shared-preview-host",
-          environmentId: testEnvironmentDescriptor.environmentId,
-        } as const;
-
-        yield* withWsRpcClient(wsUrl, (client) =>
-          client[WS_METHODS.previewAutomationConnect](host).pipe(
-            Stream.tap((event) =>
-              event.type === "connected"
-                ? Deferred.succeed(firstConnected, event.connectionId)
-                : Effect.void,
-            ),
-            Stream.runDrain,
-            Effect.ensuring(Deferred.succeed(firstClosed, undefined)),
-          ),
-        ).pipe(Effect.forkScoped);
-
-        const firstConnectionId = yield* Deferred.await(firstConnected);
-
-        const replacementEvent = yield* withWsRpcClient(wsUrl, (client) =>
-          client[WS_METHODS.previewAutomationConnect](host).pipe(Stream.runHead),
-        ).pipe(Effect.map(Option.getOrThrow));
-
-        const firstStreamClosed = yield* Deferred.await(firstClosed).pipe(
-          Effect.timeoutOption("2 seconds"),
-        );
-
-        assert.equal(replacementEvent.type, "connected");
-        assert.notEqual(replacementEvent.connectionId, firstConnectionId);
-        assert.isTrue(Option.isSome(firstStreamClosed));
-      }),
-    ).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
   it.effect("rejects websocket rpc handshake when session authentication is missing", () =>

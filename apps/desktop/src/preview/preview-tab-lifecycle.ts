@@ -162,7 +162,6 @@ export const createPreviewTabLifecycle = ({
           colorScheme: defaults?.colorScheme ?? "system",
           audioMuted: false,
           audible: false,
-          controller: "none",
           updatedAt,
         };
 
@@ -241,7 +240,6 @@ export const createPreviewTabLifecycle = ({
       colorScheme: "system",
       audioMuted: false,
       audible: false,
-      controller: "none",
       updatedAt,
     };
 
@@ -489,7 +487,6 @@ export const createPreviewTabLifecycle = ({
         // left to restore it. Chromium reports the change when it happens.
         audioMuted: current?.audioMuted ?? false,
         audible: current?.audible ?? false,
-        controller: current?.controller ?? "none",
         ...(current?.favicon ? { favicon: current.favicon } : {}),
         updatedAt,
       };

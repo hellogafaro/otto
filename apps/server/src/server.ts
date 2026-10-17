@@ -22,7 +22,6 @@ import { fixPath } from "./os-jank.ts";
 import { websocketRpcRouteLayer } from "./ws.ts";
 import { remoteMachineUpdateRouteLayer } from "./remote/update-route.ts";
 import * as McpHttpServer from "./mcp/mcp-http-server.ts";
-import * as PreviewAutomationBroker from "./mcp/preview-automation-broker.ts";
 import * as ServerRuntimeStartup from "./server-runtime-startup.ts";
 import * as VcsProcess from "./vcs/vcs-process.ts";
 import { authHttpApiLayer, environmentAuthenticatedAuthLayer } from "./auth/http.ts";
@@ -150,7 +149,6 @@ const makeRoutesLayerWithSharedMcpRegistry = Layer.mergeAll(
 // private registry. The real server uses the runtime-owned registry below.
 export const routesLayer = makeRoutesLayerWithSharedMcpRegistry.pipe(
   Layer.provide(McpSessionRegistryLayerLive),
-  Layer.provide(PreviewAutomationBroker.layer),
 );
 
 export const makeServerLayer = Layer.unwrap(
@@ -294,7 +292,6 @@ export const makeServerLayer = Layer.unwrap(
 
     return serverApplicationLayer.pipe(
       Layer.provideMerge(runtimeServicesLive),
-      Layer.provide(PreviewAutomationBroker.layer),
       Layer.provide(activationLayer),
       Layer.provideMerge(HttpServerLive),
       Layer.provide(ApplicationObservabilityLive),

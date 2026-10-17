@@ -16,7 +16,6 @@ import {
 } from "@otto/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
-import { redactComputerScreenshot } from "../mcp/preview-snapshot-redaction.ts";
 import {
   MEMORY_UPDATE_TOOL_DESCRIPTION,
   type MemoryUpdateToolId,
@@ -121,8 +120,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
     if (session.workspace?.filesystem) tools.add("Read");
 
     if (session.workspace?.sandbox?.processes) tools.add("AwaitShell");
-
-    if (session.workspace?.sandbox?.computer) tools.add("Screenshot");
 
     if (session.userComputerWorkspace?.sandbox?.executeCommand) {
       tools.add("ExternalShell");
@@ -591,25 +588,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
               log: () => undefined,
             },
           });
-        }
-
-        if (input.toolId === "Screenshot") {
-          const mediaType = field(result, "mediaType");
-          const data = field(result, "data");
-
-          if (mediaType !== "image/png" || !Predicate.isString(data)) {
-            throw new Error("Screenshot result is invalid.");
-          }
-
-          const redacted = redactComputerScreenshot({
-            mediaType,
-            data: Buffer.from(data, "base64"),
-          });
-
-          result = {
-            ...(Predicate.isObject(result) ? result : {}),
-            data: Buffer.from(redacted.data).toString("base64"),
-          };
         }
 
         if (field(result, "phase") === "failure") {

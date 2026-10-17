@@ -7,14 +7,6 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstab
 import packageJson from "../../package.json" with { type: "json" };
 import * as McpInvocationContext from "./mcp-invocation-context.ts";
 import * as McpSessionRegistry from "./mcp-session-registry.ts";
-import {
-  PreviewSnapshotToolkitHandlersLive,
-  PreviewStandardToolkitHandlersLive,
-} from "./toolkits/preview/handlers.ts";
-import {
-  registerPreviewStandardTools,
-  registerPreviewSnapshot,
-} from "./preview-tool-registration.ts";
 import { registerMemoryTool } from "./memory-tool-registration.ts";
 import { registerImageTool } from "./image-tool-registration.ts";
 
@@ -97,17 +89,7 @@ const McpAuthMiddlewareLive = HttpRouter.middleware<{
   provides: McpInvocationContext.McpInvocationContext;
 }>()(makeMcpAuthMiddleware).layer;
 
-const PreviewStandardToolkitRegistrationLive = Layer.effectDiscard(
-  registerPreviewStandardTools(),
-).pipe(Layer.provide(PreviewStandardToolkitHandlersLive));
-
-const PreviewSnapshotRegistrationLive = Layer.effectDiscard(registerPreviewSnapshot()).pipe(
-  Layer.provide(PreviewSnapshotToolkitHandlersLive),
-);
-
-export const PreviewToolkitRegistrationLive = Layer.mergeAll(
-  PreviewStandardToolkitRegistrationLive,
-  PreviewSnapshotRegistrationLive,
+export const ToolRegistrationLive = Layer.mergeAll(
   Layer.effectDiscard(registerMemoryTool()),
   Layer.effectDiscard(registerImageTool()),
 );
@@ -119,7 +101,7 @@ const McpTransportLive = McpServer.layerHttp({
   protocols: [McpProtocol.v2025_06_18],
 }).pipe(Layer.provide(McpAuthMiddlewareLive));
 
-export const layer = PreviewToolkitRegistrationLive.pipe(Layer.provideMerge(McpTransportLive));
+export const layer = ToolRegistrationLive.pipe(Layer.provideMerge(McpTransportLive));
 
 export { normalizeProviderToolInputSchema } from "./mcp-tool-schema.ts";
 

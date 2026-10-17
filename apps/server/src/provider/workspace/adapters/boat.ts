@@ -111,19 +111,5 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
         stderr: result.stderr,
       };
     },
-    browserEndpoint: async (port) => {
-      const result = await client.hostPort({
-        sandboxId,
-        hostPortRequest: { port, _public: false },
-      });
-
-      if (!result.url || result.success === false)
-        throw new Error("Boat workspace did not return a preview URL.");
-
-      if (result.isProtected !== true || !new URL(result.url).searchParams.get("_token"))
-        throw new Error("Boat workspace did not return a protected browser endpoint.");
-
-      return { url: result.url, requestHeaders: {} };
-    },
   };
 }

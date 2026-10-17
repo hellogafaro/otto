@@ -24,7 +24,6 @@ import {
 
 import { ServerConfig } from "../../../config.ts";
 
-import { persistOttoPreviewSnapshot } from "../../otto-preview-snapshot-attachment.ts";
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 import { ottoActionNeedsApproval, criticalOttoAction } from "../../otto-mastra-harness.ts";
 
@@ -41,8 +40,6 @@ import {
 import { isMemoryToolId } from "../../otto-tool-runtime.ts";
 
 import { OttoSessionResources } from "../../otto-session-resources.ts";
-
-import { isCodexComputerUseTool } from "../../codex-computer-use.ts";
 
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 
@@ -375,10 +372,8 @@ export function createEvents(deps: {
           payload: {
             itemType: deps.itemType(event.toolName),
             status: "inProgress",
-            title: isCodexComputerUseTool(event.toolName) ? "Computer Use" : event.toolName,
-            data: isCodexComputerUseTool(event.toolName)
-              ? { action: "computer-use" }
-              : { args: event.args },
+            title: event.toolName,
+            data: { args: event.args },
           },
         });
 
@@ -399,9 +394,7 @@ export function createEvents(deps: {
           payload: {
             itemType: deps.itemType(active.toolNames.get(event.toolCallId) ?? "tool"),
             status: "inProgress",
-            data: isCodexComputerUseTool(active.toolNames.get(event.toolCallId) ?? "")
-              ? { action: "computer-use" }
-              : { partialResult: event.partialResult },
+            data: { partialResult: event.partialResult },
           },
         });
 
@@ -409,15 +402,6 @@ export function createEvents(deps: {
       case "tool_end": {
         if (!turn) return;
         const toolName = active.toolNames.get(event.toolCallId) ?? "tool";
-
-        const previewSnapshot =
-          toolName === "preview_snapshot" && !event.isError && !event.denied
-            ? persistOttoPreviewSnapshot({
-                attachmentsDir: deps.config.attachmentsDir,
-                threadId: String(threadId),
-                result: event.result,
-              })
-            : null;
 
         active.approvalRequests.delete(event.toolCallId);
         active.toolNames.delete(event.toolCallId);
@@ -453,15 +437,8 @@ export function createEvents(deps: {
           payload: {
             itemType: deps.itemType(toolName),
             status: event.isError ? "failed" : event.denied ? "declined" : "completed",
-            title: isCodexComputerUseTool(toolName) ? "Computer Use" : toolName,
-            data: isCodexComputerUseTool(toolName)
-              ? { action: "computer-use" }
-              : {
-                  result: previewSnapshot?.activityResult ?? event.result,
-                  ...(previewSnapshot?.attachment
-                    ? { chatAttachment: previewSnapshot.attachment }
-                    : {}),
-                },
+            title: toolName,
+            data: { result: event.result },
           },
         });
 
@@ -581,20 +558,15 @@ export function createEvents(deps: {
             requestType: "dynamic_tool_call",
             actor: "agent",
             target: event.toolName,
-            detail: isCodexComputerUseTool(event.toolName)
-              ? "Allow Computer Use?"
-              : event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
+            detail:
+              event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
                 ? "Review routine"
                 : deps.approvalDetail(event.toolName, action, oneUseApproval),
-            toolName: isCodexComputerUseTool(event.toolName) ? "Computer Use" : event.toolName,
+            toolName: event.toolName,
             ...(action ? { action } : {}),
-            args: isCodexComputerUseTool(event.toolName) ? undefined : toolInput,
-            options: isCodexComputerUseTool(event.toolName)
-              ? [
-                  { decision: "accept", label: "Allow" },
-                  { decision: "decline", label: "Decline" },
-                ]
-              : event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
+            args: toolInput,
+            options:
+              event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
                 ? [
                     { decision: "accept", label: "Create routine" },
                     { decision: "decline", label: "Cancel" },

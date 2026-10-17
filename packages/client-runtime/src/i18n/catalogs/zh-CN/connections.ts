@@ -288,16 +288,6 @@ export const connectionsCatalog = {
     "缺少：此环境中没有订阅登录或 API 密钥。",
   "API key saved in this environment.": "API 密钥已保存在此环境中。",
   "Subscription login saved in this environment.": "订阅登录已保存在此环境中。",
-  "The connection dropped, so your control ended and the computer stopped.":
-    "连接已断开，因此你的控制已结束，电脑已停止。",
-  "{name} works in a local workspace, which has no desktop to watch. Choose a Daytona sandbox in bot settings to give it a computer.":
-    "{name} 在本地工作区中工作，没有可观看的桌面。请在机器人设置中选择 Daytona 沙盒，为它提供一台电脑。",
-  "This bot's sandbox has no graphical desktop. Only Daytona sandboxes provide a computer you can watch and control.":
-    "此机器人的沙盒没有图形桌面。只有 Daytona 沙盒提供可观看和控制的电脑。",
-  "The computer starts when {name} begins work in its Daytona sandbox. Send it a message, then open the computer again.":
-    "{name} 在其 Daytona 沙盒中开始工作时，电脑才会启动。请先给它发送消息，然后再次打开电脑。",
-  "Connecting to the computer…": "正在连接电脑…",
-  "Reconnecting to the computer…": "正在重新连接电脑…",
   "Disconnect {provider}": "断开 {provider} 的连接",
   "The provider check failed. Reconnect and try again.": "提供商检查失败。请重新连接后重试。",
   "Connect a subscription or API key. Credentials stay on this environment.":

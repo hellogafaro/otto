@@ -9,7 +9,13 @@ import * as Data from "effect/Data";
  * @module Preview
  */
 import { Schema } from "effect";
-import { NonNegativeInt, PositiveInt, ThreadId, TrimmedNonEmptyString } from "./base-schemas.ts";
+import {
+  EnvironmentId,
+  NonNegativeInt,
+  PositiveInt,
+  ThreadId,
+  TrimmedNonEmptyString,
+} from "./base-schemas.ts";
 
 const Viewport = Data.taggedEnum<PreviewViewportSetting>();
 
@@ -396,3 +402,28 @@ export class PreviewInvalidUrlError extends Schema.TaggedErrorClass<PreviewInval
 export const PreviewError = Schema.Union([PreviewSessionLookupError, PreviewInvalidUrlError]);
 
 export type PreviewError = typeof PreviewError.Type;
+
+const BoundedUrl = Schema.String.check(Schema.isTrimmed())
+  .check(Schema.isNonEmpty())
+  .check(Schema.isMaxLength(2048));
+
+export const BrowserNavigationTarget = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("url"), url: BoundedUrl }),
+  Schema.Struct({
+    kind: Schema.Literal("environment-port"),
+    port: Schema.Int.check(Schema.isGreaterThan(0)).check(Schema.isLessThan(65_536)),
+    protocol: Schema.optional(Schema.Literals(["http", "https"])),
+    path: Schema.optional(Schema.String),
+  }),
+]);
+
+export type BrowserNavigationTarget = typeof BrowserNavigationTarget.Type;
+
+export const PreviewUrlResolution = Schema.Struct({
+  requestedUrl: Schema.String,
+  resolvedUrl: Schema.String,
+  resolutionKind: Schema.Literals(["direct", "direct-private-network"]),
+  environmentId: EnvironmentId,
+});
+
+export type PreviewUrlResolution = typeof PreviewUrlResolution.Type;

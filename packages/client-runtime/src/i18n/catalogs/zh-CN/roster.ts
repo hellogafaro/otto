@@ -89,8 +89,6 @@ export const rosterCatalog = {
   "No plugins enabled": "未启用插件",
   "Plugins, {status}": "插件，{status}",
   "Plugins · {status}": "插件 · {status}",
-  "Revoke Computer Use for all bots": "撤销所有机器人的电脑使用权限",
-  "Disable Computer Use for all bots": "停用所有机器人的电脑使用权限",
   "{count} plugin enabled": "已启用 {count} 个插件",
   "{count} plugins enabled": "已启用 {count} 个插件",
   "Add a project before you message a bot.": "请先添加项目，再给机器人发消息。",
@@ -114,7 +112,6 @@ export const rosterCatalog = {
   Routines: "例行任务",
   "Send this reply to {channel}?": "将此回复发送到 {channel}？",
   "Sent to {channel}": "已发送到 {channel}",
-  "The browser appears when the bot opens a page.": "机器人打开页面后，浏览器会显示在这里。",
   "Unavailable bot": "不可用的机器人",
   "{botName} did not reply. {title}.": "{botName} 没有回复。{title}。",
   "{name} group chat": "{name} 群组聊天",
@@ -212,10 +209,6 @@ export const rosterCatalog = {
   "The bot couldn’t finish that request": "机器人未能完成该请求",
   "The membership works only in coding tools. It does not include Moonshot Open Platform API credit.":
     "该会员仅可在编程工具中使用，不包含 Moonshot 开放平台 API 额度。",
-  "The computer is no longer available. The bot's work may have ended.":
-    "这台电脑已不可用。机器人的工作可能已经结束。",
-  "You see the screen the bot works on. Pictures are streamed while this window is open and are not saved.":
-    "你看到的是机器人正在使用的屏幕。画面仅在此窗口打开时传输，且不会被保存。",
   "Open Otto on a desktop or in a web browser to watch or take control of it.":
     "请在桌面端或网页浏览器中打开 Otto，以观看或接管这台电脑。",
   "Advanced > Bot inbox": "高级 > 机器人收件箱",

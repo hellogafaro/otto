@@ -5,7 +5,7 @@ const MAX_COMMAND_OUTPUT_BYTES = 16 * 1024 * 1024;
 
 export function mastraSession(
   sandbox: MastraSandbox,
-  session: Pick<OttoRemoteSession, "providerId" | "inspect" | "browserEndpoint" | "computer"> &
+  session: Pick<OttoRemoteSession, "providerId" | "inspect"> &
     Partial<Pick<OttoRemoteSession, "wake" | "sleep">>,
 ): OttoRemoteSession {
   return {

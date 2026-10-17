@@ -58,7 +58,6 @@ export const BACKEND_NAMES: Record<
 > = {
   Shell: ["execute_command", "mastra_workspace_execute_command"],
   Read: ["view", "mastra_workspace_read_file"],
-  Screenshot: ["mastra_workspace_computer_screenshot"],
   ExternalShell: ["execute_command", "mastra_workspace_execute_command"],
   ExternalRead: ["view", "mastra_workspace_read_file"],
   AwaitShell: ["get_process_output", "mastra_workspace_get_process_output"],

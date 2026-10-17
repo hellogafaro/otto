@@ -118,8 +118,6 @@ const TOOL_DETAIL_ARGS = {
   ExternalRead: "path",
   SaveToLibrary: "title",
   otto_create_routine: "name",
-  browser_navigate: "url",
-  preview_open: "url",
 } as const satisfies Readonly<Record<string, string>>;
 
 const MAX_TRACE_DETAIL_LENGTH = 160;

@@ -1,20 +1,12 @@
 import { describe } from "vite-plus/test";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
-import { createWorkspaceTools } from "@mastra/core/workspace";
-import { PNG } from "pngjs";
-import { afterEach, expect, it, vi } from "vite-plus/test";
+import { afterEach, expect, it } from "vite-plus/test";
 import { BotId, ThreadId, type OttoToolReceipt } from "@otto/contracts";
 import { createOttoToolRuntime } from "./otto-tool-runtime.ts";
 import { makeOttoToolRuntimeTestSupport } from "./test-support/otto-tool-runtime.ts";
 
 const { directories, workspace, workspaceRoot } = makeOttoToolRuntimeTestSupport();
-
-vi.mock("@mastra/core/workspace", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@mastra/core/workspace")>();
-
-  return { ...actual, createWorkspaceTools: vi.fn(actual.createWorkspaceTools) };
-});
 
 describe("OttoToolRuntime", () => {
   afterEach(() => {
@@ -37,42 +29,6 @@ describe("OttoToolRuntime", () => {
       "Read",
       "AwaitShell",
     ]);
-  });
-
-  it("redacts screenshot frames before returning tool results", async () => {
-    const png = new PNG({ width: 1, height: 1 });
-    png.data.set([255, 255, 255, 255]);
-    const bot = workspace("screenshot");
-    Object.defineProperty(bot.sandbox, "computer", { value: {} });
-    vi.mocked(createWorkspaceTools).mockResolvedValueOnce({
-      mastra_workspace_computer_screenshot: {
-        execute: async () => ({
-          __workspaceMedia: true,
-          text: "Screenshot captured.",
-          mediaType: "image/png",
-          data: PNG.sync.write(png).toString("base64"),
-        }),
-      },
-    });
-    const runtime = createOttoToolRuntime();
-    runtime.registerSession("thread-screenshot", {
-      runtimeMode: "full-access",
-      workspaceType: "cloud",
-      workspace: bot,
-    });
-
-    const result = (await runtime.execute({
-      threadId: "thread-screenshot",
-      toolId: "Screenshot",
-      toolCallId: "tool-screenshot",
-      input: {},
-      approvalMode: "require-grant",
-    })) as { readonly data: string; readonly text: string };
-
-    const frame = PNG.sync.read(Buffer.from(result.data, "base64"));
-
-    expect(result.text).toBe("Screenshot captured.");
-    expect([...frame.data]).toEqual([0, 0, 0, 255]);
   });
 
   it("rejects shell working directories outside both workspace boundaries", async () => {

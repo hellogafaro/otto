@@ -2,7 +2,6 @@ import {
   DesktopSshPasswordPromptRequestSchema,
   DesktopUpdateStateSchema,
   DesktopPreviewRecordingFrameSchema,
-  DesktopPreviewPointerEventSchema,
   DesktopAppBrandingSchema,
   DesktopEnvironmentBootstrapSchema,
   DesktopSshEnvironmentEnsureResultSchema,
@@ -32,8 +31,6 @@ const decodeWindowFullscreenStateChange = Schema.decodeUnknownOption(Schema.Bool
 const decodeUpdateState = Schema.decodeUnknownOption(DesktopUpdateStateSchema);
 
 const decodeFrame = Schema.decodeUnknownOption(DesktopPreviewRecordingFrameSchema);
-
-const decodePointerEvent = Schema.decodeUnknownOption(DesktopPreviewPointerEventSchema);
 
 const decodeBranding = Schema.decodeUnknownOption(DesktopAppBrandingSchema);
 
@@ -228,24 +225,6 @@ contextBridge.exposeInMainWorld("desktopBridge", {
       onFrame: (listener) =>
         subscribeDecoded(IpcChannels.PREVIEW_RECORDING_FRAME_CHANNEL, decodeFrame, listener),
     },
-    automation: {
-      status: (tabId) =>
-        ipcRenderer.invoke(IpcChannels.PREVIEW_AUTOMATION_STATUS_CHANNEL, { tabId }),
-      snapshot: (tabId) =>
-        ipcRenderer.invoke(IpcChannels.PREVIEW_AUTOMATION_SNAPSHOT_CHANNEL, { tabId }),
-      click: (tabId, input) =>
-        ipcRenderer.invoke(IpcChannels.PREVIEW_AUTOMATION_CLICK_CHANNEL, { tabId, input }),
-      type: (tabId, input) =>
-        ipcRenderer.invoke(IpcChannels.PREVIEW_AUTOMATION_TYPE_CHANNEL, { tabId, input }),
-      press: (tabId, input) =>
-        ipcRenderer.invoke(IpcChannels.PREVIEW_AUTOMATION_PRESS_CHANNEL, { tabId, input }),
-      scroll: (tabId, input) =>
-        ipcRenderer.invoke(IpcChannels.PREVIEW_AUTOMATION_SCROLL_CHANNEL, { tabId, input }),
-      evaluate: (tabId, input) =>
-        ipcRenderer.invoke(IpcChannels.PREVIEW_AUTOMATION_EVALUATE_CHANNEL, { tabId, input }),
-      waitFor: (tabId, input) =>
-        ipcRenderer.invoke(IpcChannels.PREVIEW_AUTOMATION_WAIT_FOR_CHANNEL, { tabId, input }),
-    },
     onStateChange: (listener) => {
       const wrappedListener: Parameters<typeof ipcRenderer.on>[1] = (_event, tabId, state) => {
         if (!Predicate.isString(tabId)) return;
@@ -259,7 +238,5 @@ contextBridge.exposeInMainWorld("desktopBridge", {
       return () =>
         ipcRenderer.removeListener(IpcChannels.PREVIEW_STATE_CHANGE_CHANNEL, wrappedListener);
     },
-    onPointerEvent: (listener) =>
-      subscribeDecoded(IpcChannels.PREVIEW_POINTER_EVENT_CHANNEL, decodePointerEvent, listener),
   },
 } satisfies DesktopBridge);

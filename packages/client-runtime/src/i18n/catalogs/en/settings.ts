@@ -248,8 +248,6 @@ export const settingsCatalog = {
     "No action needed. A provider request succeeded.",
   "{models}, and {count} more.": "{models}, and {count} more.",
   "{models}.": "{models}.",
-  "Computer control needs a Codex or Kimi For Coding engine. Claude, Grok, and OpenCode bots cannot share a computer yet.":
-    "Computer control needs a Codex or Kimi For Coding engine. Claude, Grok, and OpenCode bots cannot share a computer yet.",
   "API billing can be separate from your subscription.":
     "API billing can be separate from your subscription.",
   "Open OpenCode": "Open OpenCode",

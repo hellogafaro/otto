@@ -64,19 +64,6 @@ describe("agent browser access", () => {
 });
 
 describe("agent browser access", () => {
-  it.effect("requests an MCP credential when agent browser access is on", () =>
-    Effect.gen(function* () {
-      const threadId = asThreadId("thread-browser-on");
-
-      const issued = yield* startSessionWith(true, threadId);
-
-      assert.deepEqual(issued, [threadId]);
-      assert.deepEqual(issued.capabilities, [["preview"]]);
-    }).pipe(Effect.provide(NodeServices.layer)),
-  );
-});
-
-describe("agent browser access", () => {
   it.effect("grants only the image tool when image generation is on without browser access", () =>
     Effect.gen(function* () {
       const threadId = asThreadId("thread-image-only");
@@ -85,18 +72,6 @@ describe("agent browser access", () => {
 
       assert.deepEqual(issued, [threadId]);
       assert.deepEqual(issued.capabilities, [["image"]]);
-    }).pipe(Effect.provide(NodeServices.layer)),
-  );
-});
-
-describe("agent browser access", () => {
-  it.effect("grants preview and image together when both are on", () =>
-    Effect.gen(function* () {
-      const issued = yield* startSessionWith(true, asThreadId("thread-image-and-preview"), {
-        chatgptEnabled: true,
-      });
-
-      assert.deepEqual(issued.capabilities, [["image", "preview"]]);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

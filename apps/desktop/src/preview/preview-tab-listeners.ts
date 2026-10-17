@@ -13,20 +13,17 @@ import * as Ref from "effect/Ref";
 import * as Scope from "effect/Scope";
 import * as SynchronizedRef from "effect/SynchronizedRef";
 
-import { HUMAN_INPUT_CHANNEL, MOUSE_NAVIGATE_CHANNEL } from "./guest-protocol.ts";
+import { MOUSE_NAVIGATE_CHANNEL } from "./guest-protocol.ts";
 
 import { captureFavicon, safeHttpOrigin, selectFaviconCandidates } from "./favicon-capture.ts";
 import { PreviewOperationError } from "./preview-errors.ts";
 import type { createPreviewState } from "./preview-state.ts";
-import type { createPreviewBrowserControl } from "./preview-browser-control.ts";
 import {
   type PreviewNavStatus,
   type PreviewTabState,
-  type PreviewInputSignal,
   type ManagedListeners,
   isPreviewRefreshShortcut,
   isPreviewEditingShortcut,
-  isPreviewInputSignal,
 } from "./preview-model.ts";
 
 export const createPreviewTabListeners = ({
@@ -40,8 +37,6 @@ export const createPreviewTabListeners = ({
   syncTabAudible,
   currentMillis,
   update,
-  consumeExpectedAgentInput,
-  controlEpochRef,
   attempt,
   hostPlatform,
   attemptPromise,
@@ -59,10 +54,6 @@ export const createPreviewTabListeners = ({
   readonly syncTabAudible: ReturnType<typeof createPreviewState>["syncTabAudible"];
   readonly currentMillis: ReturnType<typeof createPreviewState>["currentMillis"];
   readonly update: ReturnType<typeof createPreviewState>["update"];
-  readonly consumeExpectedAgentInput: ReturnType<
-    typeof createPreviewBrowserControl
-  >["consumeExpectedAgentInput"];
-  readonly controlEpochRef: Ref.Ref<ReadonlyMap<string, number>>;
   readonly attempt: ReturnType<typeof createPreviewState>["attempt"];
   readonly hostPlatform: NodeJS.Platform;
   readonly attemptPromise: ReturnType<typeof createPreviewState>["attemptPromise"];
@@ -313,31 +304,6 @@ export const createPreviewTabListeners = ({
       );
     };
 
-    const handleHumanInput = Effect.fn("PreviewManager.handleHumanInput")(function* (
-      rawSignal?: PreviewInputSignal,
-    ) {
-      if (isPreviewInputSignal(rawSignal) && (yield* consumeExpectedAgentInput(tabId, rawSignal))) {
-        return;
-      }
-
-      yield* Ref.update(controlEpochRef, (epochs) =>
-        replaceMap(epochs, (copy) => {
-          copy.set(tabId, (epochs.get(tabId) ?? 0) + 1);
-        }),
-      );
-      yield* update(tabId, { controller: "human" });
-      yield* Effect.sleep(750);
-      const tabs = yield* SynchronizedRef.get(tabsRef);
-
-      if (tabs.get(tabId)?.controller === "human") {
-        yield* update(tabId, { controller: "none" });
-      }
-    });
-
-    const humanInput: Parameters<Electron.IpcMain["on"]>[1] = (_event, rawSignal) => {
-      runFork(handleHumanInput(isPreviewInputSignal(rawSignal) ? rawSignal : undefined));
-    };
-
     const mouseNavigate: Parameters<Electron.IpcMain["on"]>[1] = (_event, payload) => {
       const direction =
         Predicate.isObjectOrArray(payload) && "direction" in payload
@@ -404,7 +370,6 @@ export const createPreviewTabListeners = ({
         wc.off("audio-state-changed", audioStateChanged);
         wc.off("did-create-window", windowCreated);
         wc.off("before-input-event", beforeInput);
-        wc.ipc.off(HUMAN_INPUT_CHANNEL, humanInput);
         wc.ipc.off(MOUSE_NAVIGATE_CHANNEL, mouseNavigate);
       }).pipe(Effect.ignore),
     );
@@ -423,7 +388,6 @@ export const createPreviewTabListeners = ({
         wc.on("did-stop-loading", sync);
         wc.on("did-fail-load", failed);
         wc.on("audio-state-changed", audioStateChanged);
-        wc.ipc.on(HUMAN_INPUT_CHANNEL, humanInput);
         wc.ipc.on(MOUSE_NAVIGATE_CHANNEL, mouseNavigate);
         wc.setWindowOpenHandler(({ url }) => {
           runFork(

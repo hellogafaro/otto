@@ -1,6 +1,5 @@
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/unstable/rpc/Rpc";
-import { ComputerError } from "../computer.ts";
 import {
   ActivityCommentAddInput,
   ActivityCommentRemoveInput,
@@ -745,8 +744,6 @@ export const WsProviderUploadFeedbackRpc = Rpc.make(WS_METHODS.providerUploadFee
   success: ProviderUploadFeedbackResult,
   error: Schema.Union([ProviderUploadFeedbackError, EnvironmentAuthorizationError]),
 });
-
-export const computerError = Schema.Union([ComputerError, EnvironmentAuthorizationError]);
 
 export const WsSubscribeDiscoveredLocalServersRpc = Rpc.make(
   WS_METHODS.subscribeDiscoveredLocalServers,

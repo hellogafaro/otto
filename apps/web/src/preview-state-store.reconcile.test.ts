@@ -37,7 +37,6 @@ describe("previewStateStore (single-tab)", () => {
       colorScheme: "system",
       audioMuted: false,
       audible: false,
-      controller: "none",
       favicon: null,
     });
     setActivePreviewTab(ref, first.tabId);
@@ -93,7 +92,6 @@ describe("previewStateStore (single-tab)", () => {
       colorScheme: "system",
       audioMuted: false,
       audible: false,
-      controller: "none",
       favicon: null,
     });
 
@@ -167,7 +165,6 @@ describe("previewStateStore (single-tab)", () => {
       colorScheme: "system",
       audioMuted: false,
       audible: false,
-      controller: "none",
       favicon: null,
     });
 

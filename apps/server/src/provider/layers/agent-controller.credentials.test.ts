@@ -3,14 +3,7 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { LocalFilesystem, LocalSandbox, Workspace } from "@mastra/core/workspace";
-import {
-  EventId,
-  McpServerId,
-  ProviderDriverKind,
-  ProviderInstanceId,
-  ThreadId,
-  TurnId,
-} from "@otto/contracts";
+import { EventId, ProviderDriverKind, ProviderInstanceId, ThreadId, TurnId } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -22,11 +15,9 @@ import {
   createOttoMastraAuthStorage,
   agentControllerLayerWith,
   recordProviderAccessHealth,
-  toMcpServerConfigs,
 } from "./agent-controller.ts";
 import { makeTestSubscriptionAuthService } from "../../subscription-auth/test-utils/subscription-auth-service.ts";
 import { BotUsageLedger } from "../../usage/bot-usage-ledger.ts";
-import { withMcpRuntimeHeaders } from "../mcp-server-config.ts";
 import {
   codexThreadId,
   codexInstanceId,
@@ -39,56 +30,6 @@ import {
 } from "./test-support/agent-controller-layers.ts";
 import { usageLedgerFixture } from "./test-support/agent-controller-memory.ts";
 import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
-
-describe("toMcpServerConfigs", () => {
-  it("attaches browser metadata only to dependent connectors and preserves authentication", () => {
-    const server = withMcpRuntimeHeaders(
-      {
-        id: McpServerId.make("builtin-tinyfish"),
-        name: "TinyFish",
-        transport: "url" as const,
-        url: "https://example.com/mcp",
-        enabled: true,
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      },
-      { Authorization: "Bearer fixture" },
-    );
-
-    const browser = {
-      browserUrl: "https://sandbox.example/browser",
-      mcpSessionId: "session",
-      requestHeaders: { "sandbox-key": "remote" },
-      localRequestHeaders: { "sandbox-key": "local" },
-      availableToHostedPlugins: true,
-    };
-
-    const local = { ...server, transport: "stdio" as const, command: "executor" };
-    expect(toMcpServerConfigs([server], browser)[server.id]).toEqual({
-      url: server.url,
-      headers: {
-        Authorization: "Bearer fixture",
-        "x-otto-browser-mcp-url": browser.browserUrl,
-        "x-otto-browser-mcp-session-id": "session",
-        "x-otto-browser-mcp-headers": JSON.stringify(browser.requestHeaders),
-      },
-    });
-    expect(toMcpServerConfigs([local], browser)[server.id]).toMatchObject({
-      env: { OTTO_BROWSER_MCP_HEADERS: JSON.stringify(browser.localRequestHeaders) },
-    });
-    expect(
-      toMcpServerConfigs([server], { ...browser, availableToHostedPlugins: false })[server.id],
-    ).toEqual({
-      url: server.url,
-      headers: { Authorization: "Bearer fixture" },
-    });
-    const unrelated = { ...local, id: McpServerId.make("builtin-exa") };
-    expect(toMcpServerConfigs([unrelated], browser)[unrelated.id]).not.toHaveProperty("env");
-    expect(
-      toMcpServerConfigs([{ ...server, enabled: false }], browser)[server.id],
-    ).not.toHaveProperty("headers");
-  });
-});
 
 describe("provider access health", () => {
   it.each([

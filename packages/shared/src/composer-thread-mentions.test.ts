@@ -171,7 +171,7 @@ describe("appendComposerMentionContext", () => {
 
   it("adds browser guidance for each gate state", () => {
     expect(appendComposerMentionContext("go", { browser: "enabled", threads: [] })).toContain(
-      "preview browser tools",
+      "Drive a browser in your computer through shell",
     );
     expect(appendComposerMentionContext("go", { browser: "disabled", threads: [] })).toContain(
       "turned off in Settings",
