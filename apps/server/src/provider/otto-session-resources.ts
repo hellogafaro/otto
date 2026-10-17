@@ -231,15 +231,15 @@ export class OttoSessionResources {
     return this.workspacePool.retryFailedSleeps();
   }
 
-  /**
-   * Wakes the thread's computer if its provider stopped it and pushes back the provider's
-   * auto-stop, so a computer stays up while a turn runs and stops on its own after.
-   */
   /** The bot computer a thread's session holds, while it holds one. */
   computer(threadId: string): OttoBotWorkspace | undefined {
     return this.workspaceLeases.get(threadId)?.workspace;
   }
 
+  /**
+   * Wakes the thread's computer if its provider stopped it and pushes back the provider's
+   * auto-stop, so a computer stays up while a turn runs and stops on its own after.
+   */
   keepComputerAwake(threadId: string): (() => Promise<void>) | undefined {
     return this.workspaceLeases.get(threadId)?.workspace.keepAlive;
   }

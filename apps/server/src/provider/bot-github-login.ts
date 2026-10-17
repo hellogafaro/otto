@@ -95,6 +95,10 @@ export async function removeGitHubLogin(
  * Gives each turn the GitHub login of the person it acts for, and takes it away when the turn
  * ends. Nothing is written when that person has not linked GitHub, so git and gh say they are
  * not logged in and the bot asks them to connect.
+ *
+ * Known limit: a bot's chats share one computer and one system user, so a turn running at the
+ * same time in another chat of the same bot can read this folder. The token it holds is a
+ * GitHub App user token that expires within 8 hours and is deleted when the turn ends.
  */
 export function createBotGitHubLogins(deps: {
   readonly turnLogin: (personId: string) => Promise<GitHubTurnLogin | undefined>;
