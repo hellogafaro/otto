@@ -69,13 +69,39 @@ export interface AccountMail {
 /** Otto: The desktop app's renderer origins; they sign in with bearer sessions, not cookies. */
 export const DESKTOP_RENDERER_ORIGINS = ["otto://app", "otto-dev://app"];
 
+/** Otto: Cloudflare's published edge ranges (cloudflare.com/ips), the hop in front of Railway's edge. */
+const CLOUDFLARE_PROXY_RANGES = [
+  "173.245.48.0/20",
+  "103.21.244.0/22",
+  "103.22.200.0/22",
+  "103.31.4.0/22",
+  "141.101.64.0/18",
+  "108.162.192.0/18",
+  "190.93.240.0/20",
+  "188.114.96.0/20",
+  "197.234.240.0/22",
+  "198.41.128.0/17",
+  "162.158.0.0/15",
+  "104.16.0.0/13",
+  "104.24.0.0/14",
+  "172.64.0.0/13",
+  "131.0.72.0/22",
+  "2400:cb00::/32",
+  "2606:4700::/32",
+  "2803:f800::/32",
+  "2405:b500::/32",
+  "2405:8100::/32",
+  "2a06:98c0::/29",
+  "2c0f:f248::/32",
+];
+
 export async function createOrganizationAccountsRuntime(options: {
   readonly database: NodeSqlite.DatabaseSync;
   readonly secret: string;
   readonly origin: string;
   readonly cookieName: string;
   readonly mailConfigured: boolean;
-  /** An https OTTO_PUBLIC_URL sits behind a reverse proxy that sets X-Forwarded-For, so rate limits can key on it. */
+  /** An https OTTO_PUBLIC_URL sits behind a reverse proxy that appends the client to X-Forwarded-For, so rate limits can key on it. */
   readonly trustProxy?: boolean;
   readonly now: () => number;
   readonly sendEmail: (mail: AccountMail) => Promise<void>;
@@ -177,8 +203,12 @@ export async function createOrganizationAccountsRuntime(options: {
       useSecureCookies: false,
       defaultCookieAttributes: { secure: origin.startsWith("https:") },
       // Otto: Better Auth trusts X-Forwarded-For by default; on a bare port any client could set
-      // it to dodge rate limits, so it is read only behind a proxy the operator declares.
-      ipAddress: { ipAddressHeaders: options.trustProxy ? ["x-forwarded-for"] : [] },
+      // it to dodge rate limits, so it is read only behind a proxy the operator declares. There the
+      // chain is read from the right: Railway appends whoever connected, which is Cloudflare when it
+      // fronts the domain, so its edge hops are skipped and client-written entries on the left never count.
+      ipAddress: options.trustProxy
+        ? { ipAddressHeaders: ["x-forwarded-for"], trustedProxies: CLOUDFLARE_PROXY_RANGES }
+        : { ipAddressHeaders: [] },
     },
     plugins: [
       bearer(),

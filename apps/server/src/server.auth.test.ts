@@ -107,6 +107,46 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
+  const signInStatusFrom = (forwardedFor: string) =>
+    Effect.gen(function* () {
+      const response = yield* fetchEffect(yield* getHttpServerUrl("/api/accounts/sign-in/email"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "otto://app",
+          "x-forwarded-for": forwardedFor,
+        },
+        body: JSON.stringify({ email: defaultTestAccount.email, password: "not-the-password" }),
+      });
+
+      return response.status;
+    });
+
+  it.effect("gives each client behind the https proxy its own sign-in rate limit", () =>
+    Effect.gen(function* () {
+      yield* buildAppUnderTest({ config: { publicOrigin: "https://otto.example.test" } });
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        assert.equal(yield* signInStatusFrom("203.0.113.1, 162.158.10.20"), 401);
+      }
+
+      assert.equal(yield* signInStatusFrom("203.0.113.2, 162.158.10.20"), 401);
+      assert.equal(yield* signInStatusFrom("198.51.100.7, 203.0.113.1, 162.158.10.20"), 429);
+    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
+  );
+
+  it.effect("ignores a client-sent X-Forwarded-For without a proxy", () =>
+    Effect.gen(function* () {
+      yield* buildAppUnderTest();
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        assert.equal(yield* signInStatusFrom("203.0.113.1"), 401);
+      }
+
+      assert.equal(yield* signInStatusFrom("203.0.113.2"), 429);
+    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
+  );
+
   it.effect("includes CORS headers on public environment descriptor responses", () =>
     Effect.gen(function* () {
       yield* buildAppUnderTest();
