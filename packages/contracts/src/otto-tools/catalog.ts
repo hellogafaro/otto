@@ -8,8 +8,6 @@ export const OttoToolId = Schema.Literals([
   "MessageAgent",
   "StopAgent",
   "SendToAgent",
-  "CreateChannel",
-  "UpdateChannel",
   "SendToUser",
   "SearchPlugins",
   "GetPlugin",
@@ -153,8 +151,6 @@ export const OTTO_TOOL_CATALOG = [
       promptSnippet: "hand work to another bot",
     },
   ),
-  define("CreateChannel", "bot-workspace", "Create a bot channel."),
-  define("UpdateChannel", "bot-workspace", "Rename a bot channel."),
   define("SendToUser", "bot-workspace", "Send a message into the current Otto thread.", {
     approval: "send",
   }),

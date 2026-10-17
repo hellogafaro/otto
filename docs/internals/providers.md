@@ -370,7 +370,7 @@ outlive the turn. A worker id only resolves from the chat that started it.
 grant. Workers get no memory scopes, an approval ceiling of `none`, no access to the user's
 computer, and the parent's sandbox or the local workspace. `OTTO_WORKER_EXCLUDED_TOOL_IDS` removes
 the worker tools, the agent tools (CreateAgent, CheckAgent, MessageAgent, StopAgent, SendToAgent),
-channel creation and updates, SendToUser, ReactToMessage, and UpdateBotProfile.
+SendToUser, ReactToMessage, and UpdateBotProfile.
 The `none` ceiling covers MCP and built-in tools: a call that would open an approval request is
 declined at once with an error the worker can read, so a worker never waits on a prompt nobody can
 see. The worker tools themselves need no approval because they only start work that runs under

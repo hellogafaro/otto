@@ -15,8 +15,6 @@ export const BACKEND_NAMES: Record<
     | "CheckSubagent"
     | "MessageSubagent"
     | "StopSubagent"
-    | "CreateChannel"
-    | "UpdateChannel"
     | "SendToUser"
     | "UpdateBotProfile"
     | "SearchPlugins"

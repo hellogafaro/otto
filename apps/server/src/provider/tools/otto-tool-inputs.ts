@@ -52,10 +52,6 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "SendToAgent":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "CreateChannel":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "UpdateChannel":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "SendToUser":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "SearchPlugins":

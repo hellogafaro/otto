@@ -130,11 +130,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
       tools.add("StopSubagent");
     }
 
-    if (session.channels) {
-      tools.add("CreateChannel");
-      tools.add("UpdateChannel");
-    }
-
     if (session.sendToUser) tools.add("SendToUser");
 
     if (session.botId && session.botState) tools.add("UpdateBotProfile");
@@ -387,48 +382,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
             );
           } catch (cause) {
             return nonfatalToolFailureReceipt(input, session, cause, failureCode);
-          }
-        } else if (execution.toolId === "CreateChannel" || execution.toolId === "UpdateChannel") {
-          if (!session.channels || !session.botId) {
-            throw new Error("Channel management is not available for this session.");
-          }
-
-          failureCode = "internal";
-
-          try {
-            const channelId =
-              execution.toolId === "CreateChannel"
-                ? await session.channels.create(execution.input)
-                : await session.channels.update(execution.input);
-
-            result = {
-              receiptId: input.toolCallId,
-              toolId: input.toolId,
-              phase: "success",
-              threadId: ThreadId.make(input.threadId),
-              botId: session.botId,
-              summary: `Channel '${channelId}' saved.`,
-              fatalToThread: false,
-              billedBotId: session.botId,
-              createdAt: options?.now?.() ?? DateTime.formatIso(DateTime.nowUnsafe()),
-            } satisfies OttoToolReceipt;
-          } catch (cause) {
-            const summary = cause instanceof Error ? cause.message : String(cause);
-            result = {
-              receiptId: input.toolCallId,
-              toolId: input.toolId,
-              phase: "failure",
-              threadId: ThreadId.make(input.threadId),
-              botId: session.botId,
-              summary,
-              failureCode,
-              fatalToThread: false,
-              billedBotId: session.botId,
-              createdAt: options?.now?.() ?? DateTime.formatIso(DateTime.nowUnsafe()),
-            } satisfies OttoToolReceipt;
-            emitReceipt(input, "failure", { failureCode, summary });
-
-            return result;
           }
         } else if (execution.toolId === "SendToUser") {
           if (!session.sendToUser) {

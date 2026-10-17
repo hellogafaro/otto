@@ -2,7 +2,6 @@ import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import {
   BotId,
-  GroupId,
   ProjectId,
   TaskId,
   IsoDateTime,
@@ -198,14 +197,6 @@ export const OttoToolInputSchemas = {
     ...AgentMessageInput.fields,
     /** Keep the work running after the parent turn ends instead of stopping it. */
     keep: Schema.optional(Schema.Boolean),
-  }),
-  CreateChannel: Schema.Struct({
-    name: TrimmedNonEmptyString,
-    specialistBotIds: Schema.optional(Schema.Array(BotId)),
-  }),
-  UpdateChannel: Schema.Struct({
-    channelId: GroupId,
-    name: TrimmedNonEmptyString,
   }),
   SendToUser: Schema.Struct({
     message: TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_COMMAND_MAX_CHARS)),

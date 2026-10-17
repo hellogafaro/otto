@@ -109,59 +109,6 @@ const snapshotWithMessage = (reacted = false): OrchestrationReadModel => ({
 });
 
 describe("OttoChannelRuntime", () => {
-  it("creates a persisted group with the calling bot as boss", async () => {
-    const dispatch = vi.fn();
-
-    const runtime = createOttoChannelRuntime({
-      readSnapshot: async () => ({ ...snapshot, groups: [], bots: [bot(bossBotId, null)] }),
-      dispatch,
-      now: () => now,
-      id: () => "1",
-    });
-
-    await expect(runtime.create(bossBotId, { name: "Research" })).resolves.toBe("channel-1");
-    expect(dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "group.create",
-        groupId: "channel-1",
-        name: "Research",
-        bossBotId,
-      }),
-    );
-  });
-
-  it("lets the existing boss rename a channel", async () => {
-    const dispatch = vi.fn();
-
-    const runtime = createOttoChannelRuntime({
-      readSnapshot: async () => snapshot,
-      dispatch,
-      id: () => "1",
-    });
-
-    await runtime.update(bossBotId, { channelId, name: "Launch room" });
-    expect(dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "group.rename", groupId: channelId, name: "Launch room" }),
-    );
-  });
-
-  it("rejects updates from specialists and missing channels", async () => {
-    const dispatch = vi.fn();
-
-    const runtime = createOttoChannelRuntime({
-      readSnapshot: async () => snapshot,
-      dispatch,
-    });
-
-    await expect(runtime.update(specialistBotId, { channelId, name: "Hijacked" })).rejects.toThrow(
-      "Only the channel boss",
-    );
-    await expect(
-      runtime.update(bossBotId, { channelId: GroupId.make("missing"), name: "Missing" }),
-    ).rejects.toThrow("does not exist");
-    expect(dispatch).not.toHaveBeenCalled();
-  });
-
   it("adds reactions once and keeps retries idempotent", async () => {
     const dispatch = vi.fn();
 

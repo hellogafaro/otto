@@ -4,7 +4,6 @@ import {
   BotId,
   type OttoMessageReactionResult,
   CommandId,
-  GroupId,
   ThreadId,
   type OttoToolInputSchemas,
   type OrchestrationCommand,
@@ -21,57 +20,11 @@ export interface OttoChannelRuntimeOptions {
     command: OrchestrationCommand,
   ) => Promise<{ readonly sequence: number } | void>;
   readonly now?: () => string;
-  readonly id?: () => string;
   readonly supportsReactions?: (thread: OrchestrationThread) => boolean;
 }
 
 export function createOttoChannelRuntime(options: OttoChannelRuntimeOptions) {
   const now = options.now ?? (() => DateTime.formatIso(DateTime.nowUnsafe()));
-  const id = options.id ?? (() => NodeCrypto.randomUUID());
-
-  const create = async (
-    bossBotId: BotId,
-    input: (typeof OttoToolInputSchemas.CreateChannel)["Type"],
-  ) => {
-    const snapshot = await options.readSnapshot();
-    const boss = snapshot.bots.find((bot) => bot.id === bossBotId && bot.archivedAt === null);
-
-    if (!boss) throw new Error("The channel boss bot is not available.");
-
-    const channelId = GroupId.make(`channel-${id()}`);
-    await options.dispatch({
-      type: "group.create",
-      commandId: CommandId.make(`channel:create:${id()}`),
-      groupId: channelId,
-      name: input.name,
-      bossBotId,
-      specialistBotIds: input.specialistBotIds,
-      createdAt: now(),
-    });
-
-    return channelId;
-  };
-
-  const update = async (
-    botId: BotId,
-    input: (typeof OttoToolInputSchemas.UpdateChannel)["Type"],
-  ) => {
-    const snapshot = await options.readSnapshot();
-    const channel = snapshot.groups.find((group) => group.id === input.channelId);
-
-    if (!channel) throw new Error("The channel does not exist.");
-
-    if (channel.bossBotId !== botId) throw new Error("Only the channel boss can update it.");
-
-    await options.dispatch({
-      type: "group.rename",
-      commandId: CommandId.make(`channel:update:${id()}`),
-      groupId: input.channelId,
-      name: input.name,
-    });
-
-    return input.channelId;
-  };
 
   const react = async (
     threadId: ThreadId,
@@ -132,7 +85,7 @@ export function createOttoChannelRuntime(options: OttoChannelRuntimeOptions) {
     return { status: "applied", ...input, changed: true };
   };
 
-  return { create, update, react };
+  return { react };
 }
 
 export type OttoChannelRuntime = ReturnType<typeof createOttoChannelRuntime>;

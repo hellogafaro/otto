@@ -89,8 +89,6 @@ export const OTTO_WORKER_EXCLUDED_TOOL_IDS: ReadonlySet<OttoToolId> = new Set([
   "MessageAgent",
   "StopAgent",
   "SendToAgent",
-  "CreateChannel",
-  "UpdateChannel",
   "SendToUser",
   "ReactToMessage",
   "UpdateBotProfile",

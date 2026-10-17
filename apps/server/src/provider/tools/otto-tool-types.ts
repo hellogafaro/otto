@@ -69,14 +69,6 @@ export interface OttoToolSession {
       input: (typeof OttoToolInputSchemas.StopSubagent)["Type"],
     ) => Promise<OttoWorkerStatus>;
   };
-  readonly channels?: {
-    readonly create: (
-      input: (typeof OttoToolInputSchemas.CreateChannel)["Type"],
-    ) => Promise<string>;
-    readonly update: (
-      input: (typeof OttoToolInputSchemas.UpdateChannel)["Type"],
-    ) => Promise<string>;
-  };
   readonly sendToUser?: (
     input: (typeof OttoToolInputSchemas.SendToUser)["Type"],
   ) => Promise<OttoToolReceipt>;

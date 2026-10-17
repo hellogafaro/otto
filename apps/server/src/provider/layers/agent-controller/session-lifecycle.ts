@@ -402,10 +402,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         ? {
             reactToMessage: (request, toolCallId) =>
               deps.wired().channelRuntime!.react(threadId, input.botId!, request, toolCallId),
-            channels: {
-              create: (request) => deps.wired().channelRuntime!.create(input.botId!, request),
-              update: (request) => deps.wired().channelRuntime!.update(input.botId!, request),
-            },
           }
         : {}),
     };

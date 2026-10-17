@@ -56,8 +56,6 @@ const TOOL_LABELS = {
   MessageAgent: "Messaging a helper",
   SendToAgent: "Messaging a helper",
   StopAgent: "Stopping a helper",
-  CreateChannel: "Setting up a channel",
-  UpdateChannel: "Updating a channel",
   SendToUser: "Sending a message",
   ReactToMessage: "Reacting",
   SearchPlugins: "Searching plugins",
