@@ -44,7 +44,12 @@ export const settingsCatalog = {
   "Update ready": "Update ready",
   "Voice provider": "Voice provider",
   "OpenAI API voice": "OpenAI API voice",
-  "Transcription provider": "Transcription provider",
+  "Default transcription provider": "Default transcription provider",
+  "Transcription providers": "Transcription providers",
+  Transcription: "Transcription",
+  "Used for dictation, Transcribe, reply, speak calls and bots transcribing files.":
+    "Used for dictation, Transcribe, reply, speak calls and bots transcribing files.",
+  "Choose a provider": "Choose a provider",
   "Speech provider": "Speech provider",
   "{mode} appearance": "{mode} appearance",
   "{theme} dark theme": "{theme} dark theme",

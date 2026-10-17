@@ -68,7 +68,8 @@ describe("settings dialog navigation", () => {
       "members",
       "usage",
     ]);
-    expect(SETTINGS_NAV_ITEMS).toHaveLength(17);
+    expect(SETTINGS_NAV_ITEMS).toHaveLength(18);
+    expect(sections.indexOf("transcription")).toBe(sections.indexOf("voice") + 1);
     expect(SETTINGS_NAV_GROUPS).toHaveLength(3);
     expect(new Set(sections).size).toBe(sections.length);
     expect(sections).not.toContain("source-control");

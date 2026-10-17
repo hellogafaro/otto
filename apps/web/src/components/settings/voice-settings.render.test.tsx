@@ -22,6 +22,7 @@ vi.mock("../chat/reply-playback-provider", () => ({ useOptionalReplyPlayback: ()
 import type { EnvironmentId } from "@otto/contracts";
 import { VoiceApiConnectionsSection } from "./voice-api-connections";
 import { VoiceApiProviderRow, VoiceModeRows } from "./voice-settings";
+import { VOICE_SPEECH_PROVIDERS } from "./voice-settings.logic";
 
 const environmentId = "environment-1" as EnvironmentId;
 
@@ -50,9 +51,12 @@ function renderProvider(keyRejected = false) {
   );
 }
 
-function renderProviders(connected: ReadonlyArray<"openai" | "elevenlabs"> | null) {
+function renderProviders(connected: ReadonlyArray<"openai" | "elevenlabs" | "openrouter"> | null) {
   return renderToStaticMarkup(
     <VoiceApiConnectionsSection
+      providers={VOICE_SPEECH_PROVIDERS}
+      searchId="voice-api-connections"
+      emptyMessage="Add a provider for API voice calls and read-aloud."
       environmentId={environmentId}
       connected={connected}
       serverRejected={{}}
@@ -87,27 +91,39 @@ describe("voice mode rows", () => {
     );
 
     expect(html).toContain("cannot be interrupted");
-    expect(html).toContain("Transcription provider");
+    expect(html).not.toContain('aria-label="Transcription provider"');
     expect(html).toContain("Speech provider");
     expect(html).toContain("Fish Audio");
     expect(html).toContain("Connect Fish Audio to choose a voice.");
     expect(html).toContain("Connect Fish Audio under Providers");
   });
+
+  it("sends a composed call's missing transcription key to the Transcription page", () => {
+    const html = renderMode(
+      { provider: "composed", transcriptionProvider: "openrouter", synthesisProvider: "openai" },
+      ["openai"],
+    );
+
+    expect(html).toContain("Set up a transcription provider in Settings, Transcription");
+    expect(html).not.toContain("Connect OpenRouter under Providers");
+  });
 });
 
 describe("voice providers card", () => {
-  it("lists only connected providers under a count row, like Models", () => {
-    const html = renderProviders(["elevenlabs"]);
+  it("lists only connected speech providers under a count row, like Models", () => {
+    const html = renderProviders(["elevenlabs", "openrouter"]);
     expect(html).toContain("Providers");
     expect(html).toContain("1 provider");
     expect(html).toContain('aria-label="Add provider"');
     expect(html).toContain("ElevenLabs");
+    expect(html).not.toContain("OpenRouter");
     expect(html).not.toContain("Cartesia");
     expect(html).not.toContain(">Connect</button>");
   });
 
   it("explains an empty card and waits for the status before offering Add provider", () => {
-    expect(renderProviders([])).toContain("Add a provider for API voice calls and dictation.");
+    expect(renderProviders([])).toContain("Add a provider for API voice calls and read-aloud.");
+    expect(renderProviders(["openrouter"])).toContain("0 providers");
     expect(renderProviders(null)).not.toContain('aria-label="Add provider"');
     expect(renderProviders(null)).not.toContain("Add a provider for API voice calls");
   });

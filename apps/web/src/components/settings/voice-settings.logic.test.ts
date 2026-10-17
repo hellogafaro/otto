@@ -2,6 +2,7 @@ import { DEFAULT_SERVER_SETTINGS, VoiceCallError } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  VOICE_SPEECH_PROVIDERS,
   VOICE_SYNTHESIS_PROVIDERS,
   VOICE_TRANSCRIPTION_PROVIDERS,
   nextVoiceKeyRejected,
@@ -14,8 +15,15 @@ const base = DEFAULT_SERVER_SETTINGS.voice;
 
 describe("voice settings logic", () => {
   it("only offers providers for the capability they have", () => {
-    expect(VOICE_TRANSCRIPTION_PROVIDERS).toEqual(["openai", "elevenlabs", "cartesia"]);
+    expect(VOICE_TRANSCRIPTION_PROVIDERS).toEqual([
+      "openai",
+      "elevenlabs",
+      "cartesia",
+      "openrouter",
+    ]);
     expect(VOICE_SYNTHESIS_PROVIDERS).toEqual(["openai", "elevenlabs", "cartesia", "fish"]);
+    expect(VOICE_SPEECH_PROVIDERS).toEqual(["openai", "elevenlabs", "cartesia", "fish"]);
+    expect(voiceCapabilityLabel("openrouter")).toBe("Transcription");
     expect(voiceCapabilityLabel("openai")).toBe(
       "Live calls with interruption · Transcription · Speech",
     );
@@ -37,7 +45,10 @@ describe("voice settings logic", () => {
     };
 
     expect(voiceSetupProblem(composed, ["openai"])).toBe(
-      "Connect Cartesia and Fish Audio under Providers before starting a call. Otto will not switch to another provider or billing source.",
+      "Connect Fish Audio under Providers before starting a call. Otto will not switch to another provider or billing source.",
+    );
+    expect(voiceSetupProblem(composed, ["fish"])).toBe(
+      "Set up a transcription provider in Settings, Transcription before starting a call.",
     );
     expect(voiceSetupProblem(composed, ["cartesia", "fish"])).toBeNull();
     expect(voiceSetupProblem({ ...base, provider: "openai" }, [])).toContain("OpenAI API");

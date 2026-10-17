@@ -16,6 +16,7 @@ export const SETTINGS_DEEP_LINK_IDS = [
   "providers",
   "channels",
   "voice",
+  "transcription",
   "image-generation",
   "browser",
   "plugins",

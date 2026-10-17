@@ -525,9 +525,9 @@ export const connectionsCatalog = {
   "{name} key couldn't be saved": "无法保存 {name} 密钥",
   "{name} has been connected": "{name} 已连接",
   "{name} has been disconnected": "{name} 已断开连接",
-  "Remove the {name} key? Voice features that use {name} stop working until you connect it again.":
-    "移除 {name} 密钥？重新连接之前，使用 {name} 的语音功能将无法使用。",
-  "Voice connections couldn't be loaded": "无法加载语音连接",
+  "Remove the {name} key? Voice and transcription features that use {name} stop working until you add it again.":
+    "移除 {name} 密钥？重新添加之前，使用 {name} 的语音和转写功能将无法使用。",
+  "Providers couldn't be loaded": "无法加载提供商",
   "{provider} API key": "{provider} API 密钥",
   "Disconnect {name}? Bots stop using it.": "断开 {name}？机器人将停止使用它。",
   "Custom API": "自定义 API",
@@ -565,7 +565,9 @@ export const connectionsCatalog = {
   "{count} provider": "{count} 个提供商",
   "{count} providers": "{count} 个提供商",
   "Add provider": "添加提供商",
-  "Add a provider for API voice calls and dictation.": "添加提供商以使用 API 语音通话和听写。",
+  "Add a provider for API voice calls and read-aloud.": "添加提供商以使用 API 语音通话和朗读。",
+  "Add a provider to dictate and to let bots transcribe audio and video.":
+    "添加提供商以使用听写，并让机器人转写音频和视频。",
   Sandboxes: "沙盒",
   "{count} sandbox": "{count} 个沙盒",
   "{count} sandboxes": "{count} 个沙盒",

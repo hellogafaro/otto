@@ -6,6 +6,7 @@ import {
   type VoiceApiProvider,
   type VoiceProvider,
   type VoiceSettings,
+  type VoiceSynthesisProvider,
   type VoiceTranscriptionProvider,
 } from "@otto/contracts";
 
@@ -21,7 +22,7 @@ export const VOICE_MODE_DESCRIPTIONS: Readonly<Record<VoiceProvider, string>> = 
   openai:
     "Live calls use your OpenAI API key and are billed to that API account. You can interrupt the bot while it speaks.",
   composed:
-    "Each thing you say is transcribed, sent to the bot as a chat message, and the reply is spoken. Calls take turns and cannot be interrupted. Usage is billed to the API keys you choose.",
+    "Each thing you say is transcribed by your Transcription provider, sent to the bot as a chat message, and the reply is spoken. Calls take turns and cannot be interrupted. Usage is billed to the API keys you choose.",
 };
 
 export const VOICE_API_PROVIDER_LABELS: Readonly<Record<VoiceApiProvider, string>> = {
@@ -29,6 +30,7 @@ export const VOICE_API_PROVIDER_LABELS: Readonly<Record<VoiceApiProvider, string
   elevenlabs: "ElevenLabs",
   cartesia: "Cartesia",
   fish: "Fish Audio",
+  openrouter: "OpenRouter",
 };
 
 /** The API product each key belongs to. Key labels read "{api} key", so "OpenAI API" never doubles up. */
@@ -37,6 +39,7 @@ export const VOICE_API_NAMES: Readonly<Record<VoiceApiProvider, string>> = {
   elevenlabs: "ElevenLabs API",
   cartesia: "Cartesia API",
   fish: "Fish Audio API",
+  openrouter: "OpenRouter API",
 };
 
 export const VOICE_TRANSCRIPTION_PROVIDERS = VOICE_API_PROVIDERS.filter(
@@ -45,8 +48,20 @@ export const VOICE_TRANSCRIPTION_PROVIDERS = VOICE_API_PROVIDERS.filter(
 );
 
 export const VOICE_SYNTHESIS_PROVIDERS = VOICE_API_PROVIDERS.filter(
-  (provider) => VOICE_PROVIDER_CAPABILITIES[provider].synthesis,
+  (provider): provider is VoiceSynthesisProvider => VOICE_PROVIDER_CAPABILITIES[provider].synthesis,
 );
+
+/** Providers the Voice page lists: those that speak, or hold live calls. */
+export const VOICE_SPEECH_PROVIDERS = VOICE_API_PROVIDERS.filter(
+  (provider) =>
+    VOICE_PROVIDER_CAPABILITIES[provider].synthesis ||
+    VOICE_PROVIDER_CAPABILITIES[provider].realtime,
+);
+
+/** The provider dictation, composed calls and bots transcribe with; OpenAI until one is chosen. */
+export function selectedTranscriptionProvider(settings: VoiceSettings): VoiceTranscriptionProvider {
+  return settings.transcriptionProvider ?? "openai";
+}
 
 /** Plain-language list of what a provider can do in Otto voice calls. */
 export function voiceCapabilityLabel(provider: VoiceApiProvider): string {
@@ -90,10 +105,22 @@ export function voiceSetupProblem(
   if (connected === null) return null;
   const missing = voiceMissingApiProviders(settings, connected);
 
-  if (missing.length > 0) {
-    const names = missing.map((provider) => VOICE_API_PROVIDER_LABELS[provider]).join(" and ");
+  const transcription =
+    settings.provider === "composed" ? selectedTranscriptionProvider(settings) : null;
+
+  const speech = missing.filter(
+    (provider) =>
+      provider !== transcription || provider === (settings.synthesisProvider ?? "openai"),
+  );
+
+  if (speech.length > 0) {
+    const names = speech.map((provider) => VOICE_API_PROVIDER_LABELS[provider]).join(" and ");
 
     return `Connect ${names} under Providers before starting a call. Otto will not switch to another provider or billing source.`;
+  }
+
+  if (missing.length > 0) {
+    return "Set up a transcription provider in Settings, Transcription before starting a call.";
   }
 
   if (settings.provider === "composed" && selectedSynthesisVoice(settings) === undefined) {

@@ -12,7 +12,7 @@ export const DICTATION_UNAVAILABLE = {
   callActive: "End the voice call to dictate.",
   disconnected: "Reconnect to dictate.",
   capture: "The microphone isn't available on this device.",
-  transcription: "Transcription isn't set up. Connect a provider in Settings, Voice.",
+  transcription: "Connect a transcription provider in Settings, Transcription.",
 } as const;
 
 export function dictationControlStatus(status: DictationStatus): DictationControlStatus {

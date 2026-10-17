@@ -40,6 +40,7 @@ const destinations: Readonly<Record<SettingsDeepLinkId, MobileSettingsDestinatio
   providers: { kind: "health", target: "providers" },
   channels: HOME,
   voice: HOME,
+  transcription: HOME,
   "image-generation": { kind: "health", target: "image-generation" },
   browser: HOME,
   plugins: HOME,

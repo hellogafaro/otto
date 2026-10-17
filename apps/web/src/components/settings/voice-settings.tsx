@@ -1,17 +1,16 @@
 import { DEFAULT_SERVER_SETTINGS } from "@otto/contracts";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { usePrimarySettings, useUpdatePrimarySettings } from "~/hooks/use-settings";
 import { usePrimaryEnvironment } from "~/state/environments";
-import { serverEnvironment } from "../../state/server";
-import { useEnvironmentQuery } from "../../state/query";
 import { Switch } from "../ui/switch";
 import { useOptionalReplyPlayback } from "../chat/reply-playback-provider";
 import { SettingResetButton, SettingsRow, SettingsSection } from "./settings-layout";
 import { searchableSetting } from "./settings-search";
 import { useI18n } from "../../i18n";
 import { VoiceModeRows } from "./voice-mode-settings";
-import { VoiceApiConnectionsSection } from "./voice-api-connections";
+import { useVoiceProviders, VoiceApiConnectionsSection } from "./voice-api-connections";
 import { AutomaticReadoutRow } from "./voice-readout-settings";
+import { VOICE_SPEECH_PROVIDERS } from "./voice-settings.logic";
 
 /** The Voice page's rows; the page supplies the container. */
 export function VoiceSettingsSection() {
@@ -20,34 +19,10 @@ export function VoiceSettingsSection() {
   const updateSettings = useUpdatePrimarySettings();
   const replyPlayback = useOptionalReplyPlayback();
   const environmentId = usePrimaryEnvironment()?.environmentId ?? null;
-
-  const providersQuery = useEnvironmentQuery(
-    environmentId ? serverEnvironment.voiceProviders({ environmentId, input: {} }) : null,
-  );
+  const { connected, serverRejected, loadError, refresh } = useVoiceProviders(environmentId);
 
   // Bumped when a key is saved so the voice list reloads for the new account.
   const [keyRevision, setKeyRevision] = useState(0);
-
-  const connected = useMemo(
-    () =>
-      providersQuery.data
-        ? providersQuery.data.providers.filter((status) => status.connected).map((s) => s.provider)
-        : null,
-    [providersQuery.data],
-  );
-
-  // The server keeps each saved key's last Test verdict, so every client agrees.
-  const serverRejected = useMemo(
-    () =>
-      providersQuery.data
-        ? Object.fromEntries(
-            providersQuery.data.providers.flatMap((status) =>
-              status.keyRejected === undefined ? [] : [[status.provider, status.keyRejected]],
-            ),
-          )
-        : {},
-    [providersQuery.data],
-  );
 
   return (
     <>
@@ -87,11 +62,14 @@ export function VoiceSettingsSection() {
       {environmentId ? (
         <VoiceApiConnectionsSection
           key={environmentId}
+          providers={VOICE_SPEECH_PROVIDERS}
+          searchId="voice-api-connections"
+          emptyMessage={t("Add a provider for API voice calls and read-aloud.")}
           environmentId={environmentId}
           connected={connected}
           serverRejected={serverRejected}
-          loadError={providersQuery.error}
-          onChanged={providersQuery.refresh}
+          loadError={loadError}
+          onChanged={refresh}
           onKeySaved={() => setKeyRevision((revision) => revision + 1)}
         />
       ) : null}

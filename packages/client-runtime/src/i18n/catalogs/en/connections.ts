@@ -560,9 +560,9 @@ export const connectionsCatalog = {
   "{name} key couldn't be saved": "{name} key couldn't be saved",
   "{name} has been connected": "{name} has been connected",
   "{name} has been disconnected": "{name} has been disconnected",
-  "Remove the {name} key? Voice features that use {name} stop working until you connect it again.":
-    "Remove the {name} key? Voice features that use {name} stop working until you connect it again.",
-  "Voice connections couldn't be loaded": "Voice connections couldn't be loaded",
+  "Remove the {name} key? Voice and transcription features that use {name} stop working until you add it again.":
+    "Remove the {name} key? Voice and transcription features that use {name} stop working until you add it again.",
+  "Providers couldn't be loaded": "Providers couldn't be loaded",
   "{provider} API key": "{provider} API key",
   "Disconnect {name}? Bots stop using it.": "Disconnect {name}? Bots stop using it.",
   "Custom API": "Custom API",
@@ -601,8 +601,10 @@ export const connectionsCatalog = {
   "{count} provider": "{count} provider",
   "{count} providers": "{count} providers",
   "Add provider": "Add provider",
-  "Add a provider for API voice calls and dictation.":
-    "Add a provider for API voice calls and dictation.",
+  "Add a provider for API voice calls and read-aloud.":
+    "Add a provider for API voice calls and read-aloud.",
+  "Add a provider to dictate and to let bots transcribe audio and video.":
+    "Add a provider to dictate and to let bots transcribe audio and video.",
   Sandboxes: "Sandboxes",
   "{count} sandbox": "{count} sandbox",
   "{count} sandboxes": "{count} sandboxes",

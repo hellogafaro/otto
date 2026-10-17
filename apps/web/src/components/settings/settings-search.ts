@@ -3,6 +3,7 @@ import { isElectron } from "~/env";
 export type SettingsPath =
   | "/settings/models"
   | "/settings/voice"
+  | "/settings/transcription"
   | "/settings/images"
   | "/settings/channels"
   | "/settings/computer"
@@ -102,12 +103,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     keywords: ["realtime", "interrupt"],
   },
   {
-    id: "voice-transcription-provider",
-    title: "Transcription provider",
-    to: "/settings/voice",
-    keywords: ["speech to text", "OpenAI", "ElevenLabs", "Cartesia"],
-  },
-  {
     id: "voice-synthesis-provider",
     title: "Speech provider",
     to: "/settings/voice",
@@ -123,6 +118,27 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Voice providers",
     to: "/settings/voice",
     keywords: ["API key", "OpenAI", "ElevenLabs", "Cartesia", "Fish Audio", "billing"],
+  },
+  {
+    id: "transcription-default-provider",
+    title: "Default transcription provider",
+    to: "/settings/transcription",
+    keywords: ["speech to text", "dictation", "OpenAI", "ElevenLabs", "Cartesia", "OpenRouter"],
+  },
+  {
+    id: "transcription-providers",
+    title: "Transcription providers",
+    to: "/settings/transcription",
+    keywords: [
+      "API key",
+      "speech to text",
+      "dictation",
+      "OpenAI",
+      "ElevenLabs",
+      "Cartesia",
+      "OpenRouter",
+      "billing",
+    ],
   },
   {
     id: "image-generation",

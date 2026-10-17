@@ -6,6 +6,7 @@ import {
   RiBuildingLine,
   RiBrainLine,
   RiMicLine,
+  RiSpeechToTextLine,
   RiImageLine,
   RiComputerLine,
   RiKeyboardLine,
@@ -50,6 +51,10 @@ const ModelsSettingsPage = lazy(async () => ({
 
 const VoiceSettingsPage = lazy(async () => ({
   default: (await import("./settings-pages")).VoiceSettingsPage,
+}));
+
+const TranscriptionSettingsPage = lazy(async () => ({
+  default: (await import("./settings-pages")).TranscriptionSettingsPage,
 }));
 
 const ImagesSettingsPage = lazy(async () => ({
@@ -115,6 +120,7 @@ const SECTION_PANELS: Readonly<Record<SettingsSection, ComponentType>> = {
   archived: ArchivedChatsSettingsPanel,
   models: ModelsSettingsPage,
   voice: VoiceSettingsPage,
+  transcription: TranscriptionSettingsPage,
   images: ImagesSettingsPage,
   channels: BotChannelsSettingsPanel,
   computer: ComputerSettingsPage,
@@ -167,6 +173,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
       { section: "integrations", label: "Integrations", icon: RiPuzzleLine },
       { section: "models", label: "Models", icon: RiBrainLine },
       { section: "voice", label: "Voice", icon: RiMicLine },
+      { section: "transcription", label: "Transcription", icon: RiSpeechToTextLine },
       { section: "images", label: "Images", icon: RiImageLine },
       { section: "channels", label: "Channels", icon: RiChat3Line },
       { section: "computer", label: "Computer", icon: RiComputerLine },

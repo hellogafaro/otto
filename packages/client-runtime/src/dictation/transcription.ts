@@ -12,23 +12,18 @@ export const VOICE_DICTATION_LIMITS: Partial<DictationLimits> = {
 };
 
 export const DICTATION_TRANSCRIPTION_UNAVAILABLE = {
-  disabled: "Voice is turned off. Turn it on in Settings, Voice.",
-  noProvider: "Connect a transcription provider in Settings, Voice.",
+  noProvider: "Connect a transcription provider in Settings, Transcription.",
 } as const;
 
 export type DictationTranscriptionCapability =
   | { readonly available: true; readonly provider: string }
   | { readonly available: false; readonly reason: string };
 
-/** Mirrors the server's standalone transcription path: voice enabled and a connected provider key. */
+/** Mirrors the server's standalone transcription path: a key for the default transcription provider. */
 export function dictationTranscriptionCapability(input: {
-  readonly voice?: { readonly enabled?: boolean; readonly transcriptionProvider?: string };
+  readonly voice?: { readonly transcriptionProvider?: string };
   readonly providers?: ReadonlyArray<{ readonly provider: string; readonly connected: boolean }>;
 }): DictationTranscriptionCapability {
-  if (input.voice?.enabled === false) {
-    return { available: false, reason: DICTATION_TRANSCRIPTION_UNAVAILABLE.disabled };
-  }
-
   const provider = input.voice?.transcriptionProvider ?? "openai";
 
   const connected = input.providers?.some(
@@ -79,13 +74,12 @@ export function encodeDictationAudioBase64(bytes: Uint8Array): string {
 }
 
 const FAILURE_MESSAGES = new Map<string, string>([
-  ["voice-disabled", DICTATION_TRANSCRIPTION_UNAVAILABLE.disabled],
   ["provider-unavailable", DICTATION_TRANSCRIPTION_UNAVAILABLE.noProvider],
   ["busy", "Too many voice requests are running. Try again in a moment."],
   ["invalid-input", "The recording could not be transcribed. Try a shorter recording."],
   [
     "provider-auth",
-    "The transcription provider rejected its API key. Replace it in Settings, Voice.",
+    "The transcription provider rejected its API key. Replace it in Settings, Transcription.",
   ],
   [
     "provider-quota",

@@ -20,22 +20,22 @@ const audio = {
 };
 
 describe("dictationTranscriptionCapability", () => {
-  it("needs voice turned on and the transcription provider connected", () => {
+  it("needs the default transcription provider connected", () => {
     expect(
       dictationTranscriptionCapability({
-        voice: { enabled: false },
-        providers: [{ provider: "openai", connected: true }],
+        voice: { transcriptionProvider: "openrouter" },
+        providers: [{ provider: "openrouter", connected: true }],
       }),
-    ).toEqual({ available: false, reason: DICTATION_TRANSCRIPTION_UNAVAILABLE.disabled });
+    ).toEqual({ available: true, provider: "openrouter" });
     expect(
       dictationTranscriptionCapability({
-        voice: { enabled: true, transcriptionProvider: "groq" },
+        voice: { transcriptionProvider: "groq" },
         providers: [{ provider: "openai", connected: true }],
       }),
     ).toEqual({ available: false, reason: DICTATION_TRANSCRIPTION_UNAVAILABLE.noProvider });
     expect(
       dictationTranscriptionCapability({
-        voice: { enabled: true },
+        voice: {},
         providers: [{ provider: "openai", connected: true }],
       }),
     ).toEqual({ available: true, provider: "openai" });
@@ -100,7 +100,7 @@ describe("createVoiceDictationTranscriber", () => {
     const transcriber = createVoiceDictationTranscriber({
       transcribe: async () => ({
         _tag: "Failure" as const,
-        cause: Cause.fail({ _tag: "VoiceCallError", reason: "voice-disabled" }),
+        cause: Cause.fail({ _tag: "VoiceCallError", reason: "provider-unavailable" }),
       }),
       cancel: async () => undefined,
       nextOperationId: () => "op-3",
@@ -108,7 +108,7 @@ describe("createVoiceDictationTranscriber", () => {
 
     await expect(
       transcriber({ audio, signal: new AbortController().signal, identity }),
-    ).rejects.toThrow(DICTATION_TRANSCRIPTION_UNAVAILABLE.disabled);
+    ).rejects.toThrow("Connect a transcription provider in Settings, Transcription.");
   });
 
   it.each([

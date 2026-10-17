@@ -3,6 +3,7 @@ import { ImageGenerationSettingsSection } from "./image-generation-settings";
 import { DefaultModelSection, ModelsConnectionsSection } from "./models-settings";
 import { SandboxSettingsPanel } from "./sandbox-settings-panel";
 import { SettingsPageContainer } from "./settings-layout";
+import { TranscriptionSettingsSection } from "./transcription-settings";
 import { VoiceSettingsSection } from "./voice-settings";
 
 // Pages that combine sections from several panels. Each section keeps its own
@@ -27,11 +28,20 @@ export function ImagesSettingsPage() {
   );
 }
 
-// Otto: Voice holds voice calls, read-aloud and the speech API keys that dictation and calls use.
+// Otto: Voice holds voice calls, read-aloud and the speech API keys that calls use.
 export function VoiceSettingsPage() {
   return (
     <SettingsPageContainer>
       <VoiceSettingsSection />
+    </SettingsPageContainer>
+  );
+}
+
+// Otto: Transcription holds the default speech-to-text provider for dictation, calls and bots.
+export function TranscriptionSettingsPage() {
+  return (
+    <SettingsPageContainer>
+      <TranscriptionSettingsSection />
     </SettingsPageContainer>
   );
 }

@@ -31,6 +31,7 @@ const destinations: Readonly<
   providers: { section: "models", label: "Models" },
   channels: { section: "channels", label: "Channels" },
   voice: { section: "voice", label: "Voice" },
+  transcription: { section: "transcription", label: "Transcription" },
   "image-generation": {
     section: "images",
     label: "Images",

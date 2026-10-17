@@ -6,6 +6,7 @@ import {
   type EnvironmentId,
   type VoiceApiProvider,
   type VoiceSettings,
+  type VoiceSynthesisProvider,
 } from "@otto/contracts";
 import { useEffect, useState } from "react";
 import { serverEnvironment } from "../../state/server";
@@ -20,7 +21,6 @@ import {
   VOICE_MODE_DESCRIPTIONS,
   VOICE_MODE_LABELS,
   VOICE_SYNTHESIS_PROVIDERS,
-  VOICE_TRANSCRIPTION_PROVIDERS,
   selectedSynthesisVoice,
   voiceSetupProblem,
 } from "./voice-settings.logic";
@@ -131,19 +131,6 @@ export function VoiceModeRows({
       {voice.provider === "composed" ? (
         <>
           <SettingsRow
-            {...searchableSetting("voice-transcription-provider", t)}
-            description="Turns what you say into a chat message for the bot."
-            control={
-              <ProviderSelect
-                value={voice.transcriptionProvider ?? "openai"}
-                providers={VOICE_TRANSCRIPTION_PROVIDERS}
-                disabled={!voice.enabled}
-                label="Transcription provider"
-                onChange={(transcriptionProvider) => onChange({ voice: { transcriptionProvider } })}
-              />
-            }
-          />
-          <SettingsRow
             {...searchableSetting("voice-synthesis-provider", t)}
             description="Speaks the bot's reply."
             control={
@@ -220,7 +207,7 @@ function RealtimeVoiceSelect({
   );
 }
 
-function ProviderSelect<P extends VoiceApiProvider>({
+function ProviderSelect<P extends VoiceSynthesisProvider>({
   value,
   providers,
   disabled,
@@ -266,7 +253,7 @@ function SynthesisVoicePicker({
   onChange,
 }: {
   readonly environmentId: EnvironmentId;
-  readonly provider: VoiceApiProvider;
+  readonly provider: VoiceSynthesisProvider;
   readonly connected: boolean;
   readonly value: string | undefined;
   readonly disabled: boolean;

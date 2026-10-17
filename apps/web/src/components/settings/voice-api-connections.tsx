@@ -1,14 +1,15 @@
 import { RiOpenaiFill, RiVoiceprintLine, type RemixiconComponentType } from "@remixicon/react";
 import { Predicate } from "effect";
-import { VOICE_API_PROVIDERS, type EnvironmentId, type VoiceApiProvider } from "@otto/contracts";
+import { type EnvironmentId, type VoiceApiProvider } from "@otto/contracts";
 import {
   squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@otto/client-runtime/state/runtime";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { requestConfirmDialog } from "../../confirm-dialog";
+import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { AddMenu, CardCountRow, LogoTile } from "../customize/customize-group";
@@ -18,7 +19,7 @@ import { MenuItem } from "../ui/menu";
 import { SettingsSection } from "./settings-layout";
 import { ApiKeyDialog } from "./api-key-dialog";
 import { SettingsMessageRow } from "./settings-detail-layout";
-import { searchableSetting } from "./settings-search";
+import { searchableSetting, type SettingsSearchItemId } from "./settings-search";
 import { useI18n } from "../../i18n";
 import {
   VOICE_API_NAMES,
@@ -40,15 +41,52 @@ const VOICE_API_PROVIDER_ICONS: Readonly<Record<VoiceApiProvider, RemixiconCompo
   elevenlabs: RiVoiceprintLine,
   cartesia: RiVoiceprintLine,
   fish: RiVoiceprintLine,
+  openrouter: RiVoiceprintLine,
 };
 
 /**
- * Otto: Voice Providers follow the Models Connections card: a count row whose plus adds a
- * provider by its API key in a dialog, then one row per connected provider with Remove, and a
- * Key rejected badge plus Replace key only when the saved key fails. A saved key is tested
+ * Which providers have a saved key, and the server's last Test verdict on each. Voice and
+ * Transcription read the same keys, so a key added on one page shows on the other.
+ */
+export function useVoiceProviders(environmentId: EnvironmentId | null) {
+  const query = useEnvironmentQuery(
+    environmentId ? serverEnvironment.voiceProviders({ environmentId, input: {} }) : null,
+  );
+
+  const connected = useMemo(
+    () =>
+      query.data
+        ? query.data.providers.filter((status) => status.connected).map((s) => s.provider)
+        : null,
+    [query.data],
+  );
+
+  const serverRejected = useMemo(
+    () =>
+      query.data
+        ? Object.fromEntries(
+            query.data.providers.flatMap((status) =>
+              status.keyRejected === undefined ? [] : [[status.provider, status.keyRejected]],
+            ),
+          )
+        : {},
+    [query.data],
+  );
+
+  return { connected, serverRejected, loadError: query.error, refresh: query.refresh };
+}
+
+/**
+ * Otto: Voice and Transcription Providers follow the Models Connections card: a count row whose
+ * plus adds a provider by its API key in a dialog, then one row per connected provider with
+ * Remove, and a Key rejected badge plus Replace key only when the saved key fails. Each page lists
+ * the providers that serve it; one provider's key is one secret on both. A saved key is tested
  * straight away, and every result is a toast.
  */
 export function VoiceApiConnectionsSection({
+  providers,
+  searchId,
+  emptyMessage,
   environmentId,
   connected,
   serverRejected,
@@ -56,6 +94,9 @@ export function VoiceApiConnectionsSection({
   onChanged,
   onKeySaved,
 }: {
+  readonly providers: ReadonlyArray<VoiceApiProvider>;
+  readonly searchId: SettingsSearchItemId;
+  readonly emptyMessage: string;
   readonly environmentId: EnvironmentId;
   readonly connected: ReadonlyArray<VoiceApiProvider> | null;
   readonly serverRejected: Partial<Record<VoiceApiProvider, boolean>>;
@@ -137,7 +178,7 @@ export function VoiceApiConnectionsSection({
     const confirmed =
       (await requestConfirmDialog(
         t(
-          "Remove the {name} key? Voice features that use {name} stop working until you connect it again.",
+          "Remove the {name} key? Voice and transcription features that use {name} stop working until you add it again.",
           { name },
         ),
         { variant: "destructive" },
@@ -152,11 +193,11 @@ export function VoiceApiConnectionsSection({
     else toast.error(t("{name} couldn't be disconnected", { name }));
   };
 
-  const added = VOICE_API_PROVIDERS.filter((provider) => connected?.includes(provider));
-  const available = VOICE_API_PROVIDERS.filter((provider) => !connected?.includes(provider));
+  const added = providers.filter((provider) => connected?.includes(provider));
+  const available = providers.filter((provider) => !connected?.includes(provider));
 
   return (
-    <SettingsSection id={searchableSetting("voice-api-connections").id} title={t("Providers")}>
+    <SettingsSection id={searchableSetting(searchId).id} title={t("Providers")}>
       <CardCountRow
         label={plural(added.length, { one: "{count} provider", other: "{count} providers" })}
         action={
@@ -180,9 +221,7 @@ export function VoiceApiConnectionsSection({
         }
       />
       {loadError ? (
-        <SettingsMessageRow tone="error">
-          {t("Voice connections couldn't be loaded")}
-        </SettingsMessageRow>
+        <SettingsMessageRow tone="error">{t("Providers couldn't be loaded")}</SettingsMessageRow>
       ) : null}
       {added.map((provider) => (
         <VoiceApiProviderRow
@@ -194,9 +233,7 @@ export function VoiceApiConnectionsSection({
         />
       ))}
       {connected !== null && added.length === 0 && !loadError ? (
-        <SettingsMessageRow>
-          {t("Add a provider for API voice calls and dictation.")}
-        </SettingsMessageRow>
+        <SettingsMessageRow>{emptyMessage}</SettingsMessageRow>
       ) : null}
       {dialog ? (
         <ApiKeyDialog

@@ -44,7 +44,12 @@ export const settingsCatalog = {
   "Update ready": "更新已就绪",
   "Voice provider": "语音提供商",
   "OpenAI API voice": "OpenAI API 语音",
-  "Transcription provider": "转写提供商",
+  "Default transcription provider": "默认转写提供商",
+  "Transcription providers": "转写提供商",
+  Transcription: "转写",
+  "Used for dictation, Transcribe, reply, speak calls and bots transcribing files.":
+    "用于听写、“转写、回复、朗读”通话，以及机器人转写文件。",
+  "Choose a provider": "选择提供商",
   "Speech provider": "语音合成提供商",
   "{mode} appearance": "{mode}外观",
   "{theme} dark theme": "{theme}深色主题",

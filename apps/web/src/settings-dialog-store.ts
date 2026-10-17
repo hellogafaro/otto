@@ -24,6 +24,7 @@ export const SETTINGS_SECTIONS = [
   "archived",
   "models",
   "voice",
+  "transcription",
   "images",
   "channels",
   "computer",
