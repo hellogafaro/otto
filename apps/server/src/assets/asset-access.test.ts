@@ -243,6 +243,7 @@ describe("AssetAccess", () => {
       expect(yield* resolveAsset(token, "ignored.png")).toEqual({
         kind: "file",
         path: attachmentPath,
+        attachmentId,
       });
     }).pipe(Effect.provide(testLayer)),
   );

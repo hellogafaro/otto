@@ -17,6 +17,8 @@ import {
   AppendStreamingProjectionThreadMessage,
   GetProjectionThreadMessageInput,
   HasProjectionThreadAssistantMessageInput,
+  ListProjectionAttachmentMessagesInput,
+  ProjectionAttachmentMessage,
   ProjectionThreadMessageRepository,
   type ProjectionThreadMessageRepositoryShape,
   DeleteProjectionThreadMessagesInput,
@@ -289,6 +291,22 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
       `,
   });
 
+  const listProjectionAttachmentMessageRows = SqlSchema.findAll({
+    Request: ListProjectionAttachmentMessagesInput,
+    Result: ProjectionAttachmentMessage,
+    execute: ({ attachmentId }) =>
+      sql`
+        SELECT
+          message.thread_id AS "threadId",
+          message.author_person_id AS "authorPersonId"
+        FROM projection_thread_messages AS message, json_each(message.attachments_json) AS attachment
+        WHERE message.attachments_json IS NOT NULL
+          AND instr(message.attachments_json, ${attachmentId}) > 0
+          AND json_extract(attachment.value, '$.id') = ${attachmentId}
+        LIMIT 100
+      `,
+  });
+
   const searchProjectionThreadMessageRows = SqlSchema.findAll({
     Request: SearchProjectionThreadMessagesInput,
     Result: ProjectionThreadMessageDbRowSchema,
@@ -397,6 +415,15 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
           Effect.map((rows) => rows.map(toProjectionThreadMessage)),
         );
 
+  const listAttachmentMessages: ProjectionThreadMessageRepositoryShape["listAttachmentMessages"] = (
+    input,
+  ) =>
+    listProjectionAttachmentMessageRows(input).pipe(
+      Effect.mapError(
+        toPersistenceSqlError("ProjectionThreadMessageRepository.listAttachmentMessages:query"),
+      ),
+    );
+
   const getLatestUserMessageAt: ProjectionThreadMessageRepositoryShape["getLatestUserMessageAt"] = (
     input,
   ) =>
@@ -420,6 +447,7 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
     getByMessageId,
     hasAssistantMessageForTurn,
     listByThreadId,
+    listAttachmentMessages,
     search,
     getLatestUserMessageAt,
     deleteByThreadId,

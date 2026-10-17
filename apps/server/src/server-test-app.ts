@@ -55,6 +55,10 @@ import { OrchestrationCommandReceiptRepository } from "./persistence/services/or
 import * as ProjectionBots from "./persistence/services/projection-bots.ts";
 
 import * as ProjectionGroups from "./persistence/services/projection-groups.ts";
+import {
+  ProjectionThreadMessageRepository,
+  type ProjectionThreadMessageRepositoryShape,
+} from "./persistence/services/projection-thread-messages.ts";
 
 import * as AgentController from "./provider/services/agent-controller.ts";
 
@@ -204,6 +208,7 @@ export const buildAppUnderTest = (options?: {
     projectionSnapshotQuery?: Partial<ProjectionSnapshotQuery.ProjectionSnapshotQuery["Service"]>;
     projectionBots?: Partial<ProjectionBots.ProjectionBotRepositoryShape>;
     projectionGroups?: Partial<ProjectionGroups.ProjectionGroupRepositoryShape>;
+    projectionThreadMessages?: Partial<ProjectionThreadMessageRepositoryShape>;
     botUsageLedger?: Partial<BotUsageLedgerShape>;
     checkpointDiffQuery?: Partial<CheckpointDiffQuery.CheckpointDiffQuery["Service"]>;
     browserTraceCollector?: Partial<BrowserTraceCollector.BrowserTraceCollector["Service"]>;
@@ -566,6 +571,10 @@ export const buildAppUnderTest = (options?: {
             deleteById: () => Effect.void,
             ...options?.layers?.projectionGroups,
           } satisfies ProjectionGroups.ProjectionGroupRepositoryShape),
+          Layer.mock(ProjectionThreadMessageRepository)({
+            listAttachmentMessages: () => Effect.succeed([]),
+            ...options?.layers?.projectionThreadMessages,
+          }),
           Layer.succeed(ActivityStore, {
             list: () => Effect.succeed({ entries: [] }),
             getComment: () => Effect.die("Activity is not part of this test."),

@@ -74,6 +74,20 @@ export const GetProjectionThreadMessageInput = Schema.Struct({
 
 export type GetProjectionThreadMessageInput = typeof GetProjectionThreadMessageInput.Type;
 
+export const ListProjectionAttachmentMessagesInput = Schema.Struct({
+  attachmentId: Schema.String,
+});
+
+export type ListProjectionAttachmentMessagesInput =
+  typeof ListProjectionAttachmentMessagesInput.Type;
+
+export const ProjectionAttachmentMessage = Schema.Struct({
+  threadId: ThreadId,
+  authorPersonId: Schema.NullOr(AuthSessionId),
+});
+
+export type ProjectionAttachmentMessage = typeof ProjectionAttachmentMessage.Type;
+
 export const HasProjectionThreadAssistantMessageInput = Schema.Struct({
   threadId: ThreadId,
   turnId: TurnId,
@@ -113,6 +127,11 @@ export interface ProjectionThreadMessageRepositoryShape {
   readonly getByMessageId: (
     input: GetProjectionThreadMessageInput,
   ) => Effect.Effect<Option.Option<ProjectionThreadMessage>, ProjectionRepositoryError>;
+
+  /** The chats and authors of the messages that carry an attachment, without message bodies. */
+  readonly listAttachmentMessages: (
+    input: ListProjectionAttachmentMessagesInput,
+  ) => Effect.Effect<ReadonlyArray<ProjectionAttachmentMessage>, ProjectionRepositoryError>;
 
   /**
    * Check for an assistant message in a turn without hydrating message text.

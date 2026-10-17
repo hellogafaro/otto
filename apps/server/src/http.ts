@@ -4,6 +4,7 @@ import * as NodeFS from "node:fs";
 import {
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
+  AuthSessionId,
   EnvironmentHttpApi,
 } from "@otto/contracts";
 import { isDevProxiedPath } from "@otto/shared/devProxy";
@@ -33,6 +34,10 @@ import { OtlpTracer } from "effect/unstable/observability";
 import * as ServerConfig from "./config.ts";
 import { ASSET_ROUTE_PREFIX, resolveAsset } from "./assets/asset-access.ts";
 import { OrganizationAccounts } from "./auth/organization-accounts.ts";
+import { canReadAttachment } from "./orchestration/group-visibility.ts";
+import { ProjectionSnapshotQuery } from "./orchestration/services/projection-snapshot-query.ts";
+import { ProjectionGroupRepository } from "./persistence/services/projection-groups.ts";
+import { ProjectionThreadMessageRepository } from "./persistence/services/projection-thread-messages.ts";
 import { DESKTOP_RENDERER_ORIGINS } from "./auth/organization-accounts-runtime.ts";
 import {
   ATTACHMENT_UPLOAD_ROUTE_PREFIX,
@@ -247,9 +252,25 @@ export const assetRouteLayer = HttpRouter.add(
 
     const accounts = yield* OrganizationAccounts;
 
+    const principal = asset?.sessionId
+      ? yield* accounts.getPrincipal(asset.sessionId).pipe(Effect.orElseSucceed(() => null))
+      : null;
+
+    if (!asset || !principal) {
+      return HttpServerResponse.text("Not Found", { status: 404 });
+    }
+
     if (
-      !asset?.sessionId ||
-      !(yield* accounts.getPrincipal(asset.sessionId).pipe(Effect.orElseSucceed(() => null)))
+      "attachmentId" in asset &&
+      !(yield* canReadAttachment(
+        {
+          projectionSnapshotQuery: yield* ProjectionSnapshotQuery,
+          projectionGroups: yield* ProjectionGroupRepository,
+          projectionThreadMessages: yield* ProjectionThreadMessageRepository,
+        },
+        asset.attachmentId,
+        AuthSessionId.make(principal.userId),
+      ))
     ) {
       return HttpServerResponse.text("Not Found", { status: 404 });
     }

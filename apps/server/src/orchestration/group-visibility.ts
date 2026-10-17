@@ -20,6 +20,7 @@ import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import type { ProjectionGroupRepository } from "../persistence/services/projection-groups.ts";
 import type { LibraryChatThread } from "../persistence/services/projection-library.ts";
+import type { ProjectionThreadMessageRepository } from "../persistence/services/projection-thread-messages.ts";
 import type { ProjectionSnapshotQuery } from "./services/projection-snapshot-query.ts";
 
 interface GroupMembers {
@@ -109,21 +110,27 @@ export function chatsSeenByAll<Thread extends ChatShell>(
   );
 }
 
-/** Whether a person may read or act on a chat; an unknown chat is left to its own checks. */
+interface ThreadVisibilityServices {
+  readonly projectionSnapshotQuery: ProjectionSnapshotQuery["Service"];
+  readonly projectionGroups: ProjectionGroupRepository["Service"];
+}
+
+/**
+ * Whether a person may read a chat. An unknown chat is left to its own checks unless
+ * `unknown` says otherwise.
+ */
 export const canSeeThreadById = (
-  services: {
-    readonly projectionSnapshotQuery: ProjectionSnapshotQuery["Service"];
-    readonly projectionGroups: ProjectionGroupRepository["Service"];
-  },
+  services: ThreadVisibilityServices,
   threadId: ThreadId,
   personId: AuthSessionId,
+  unknown = true,
 ) =>
   Effect.gen(function* () {
     const thread = yield* services.projectionSnapshotQuery
       .getThreadShellById(threadId)
       .pipe(Effect.orElseSucceed(() => Option.none()));
 
-    if (Option.isNone(thread)) return true;
+    if (Option.isNone(thread)) return unknown;
 
     const group =
       thread.value.groupId == null
@@ -138,6 +145,31 @@ export const canSeeThreadById = (
     });
 
     return canSeeThread(thread.value, groups, personId);
+  });
+
+/**
+ * Otto: A chat attachment is readable by the person who sent it, and by its chat's people
+ * while they can see that chat. An attachment no message carries is readable by no one.
+ */
+export const canReadAttachment = (
+  services: ThreadVisibilityServices & {
+    readonly projectionThreadMessages: ProjectionThreadMessageRepository["Service"];
+  },
+  attachmentId: string,
+  personId: AuthSessionId,
+) =>
+  Effect.gen(function* () {
+    const messages = yield* services.projectionThreadMessages
+      .listAttachmentMessages({ attachmentId })
+      .pipe(Effect.orElseSucceed(() => []));
+
+    if (messages.some((message) => message.authorPersonId === personId)) return true;
+
+    for (const threadId of new Set(messages.map((message) => message.threadId))) {
+      if (yield* canSeeThreadById(services, threadId, personId, false)) return true;
+    }
+
+    return false;
   });
 
 /** Library items a person may see; a chat's folder follows that chat's people. */

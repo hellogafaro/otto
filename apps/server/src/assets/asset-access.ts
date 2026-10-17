@@ -115,6 +115,8 @@ export type ResolvedAsset = {
   readonly kind: "file";
   readonly path: string;
   readonly sessionId?: AuthSessionId;
+  /** Set for chat attachments, whose reader is checked again on every download. */
+  readonly attachmentId?: string;
   /** Set for Library files, which carry their own type and download name. */
   readonly headers?: Readonly<Record<string, string>>;
 };
@@ -486,6 +488,7 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
       ? ({
           kind: "file",
           path: attachmentPath,
+          attachmentId: claims.attachmentId,
           ...(claims.sessionId ? { sessionId: claims.sessionId } : {}),
         } satisfies ResolvedAsset)
       : null;

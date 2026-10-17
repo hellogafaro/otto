@@ -1,5 +1,5 @@
 import * as Predicate from "effect/Predicate";
-import { BotId, MessageId, ThreadId, TurnId } from "@otto/contracts";
+import { AuthSessionId, BotId, MessageId, ThreadId, TurnId } from "@otto/contracts";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -422,6 +422,61 @@ layer("ProjectionThreadMessageRepository", (it) => {
           streamingOnly: true,
         }),
         false,
+      );
+    }),
+  );
+  it.effect("finds the chats and authors of messages that carry an attachment", () =>
+    Effect.gen(function* () {
+      const repository = yield* ProjectionThreadMessageRepository;
+      const threadId = ThreadId.make("thread-attachment-owner");
+      const createdAt = "2026-10-17T10:00:00.000Z";
+
+      const attachment = (id: string) => ({
+        type: "file" as const,
+        id,
+        name: "notes.txt",
+        mimeType: "text/plain" as const,
+        sizeBytes: 3,
+      });
+
+      yield* repository.upsert({
+        messageId: MessageId.make("message-attachment-owner"),
+        threadId,
+        turnId: null,
+        authorPersonId: AuthSessionId.make("person-attachment-owner"),
+        role: "user",
+        text: "see attached",
+        attachments: [
+          attachment("thread-attachment-owner-1"),
+          attachment("thread-attachment-owner-2"),
+        ],
+        isStreaming: false,
+        createdAt,
+        updatedAt: createdAt,
+      });
+      yield* repository.upsert({
+        messageId: MessageId.make("message-attachment-bot"),
+        threadId,
+        turnId: null,
+        role: "assistant",
+        text: "here it is",
+        attachments: [attachment("thread-attachment-owner-10")],
+        isStreaming: false,
+        createdAt,
+        updatedAt: createdAt,
+      });
+
+      assert.deepStrictEqual(
+        yield* repository.listAttachmentMessages({ attachmentId: "thread-attachment-owner-1" }),
+        [{ threadId, authorPersonId: AuthSessionId.make("person-attachment-owner") }],
+      );
+      assert.deepStrictEqual(
+        yield* repository.listAttachmentMessages({ attachmentId: "thread-attachment-owner-10" }),
+        [{ threadId, authorPersonId: null }],
+      );
+      assert.deepStrictEqual(
+        yield* repository.listAttachmentMessages({ attachmentId: "thread-attachment-owner" }),
+        [],
       );
     }),
   );

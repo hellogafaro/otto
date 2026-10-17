@@ -9,6 +9,7 @@ import {
   ProjectWriteFileError,
   AssetWorkspaceContextNotFoundError,
   AssetWorkspaceContextResolutionError,
+  AssetAttachmentNotFoundError,
   AttachmentNotFoundError,
   WS_METHODS,
   WsRpcGroup,
@@ -16,13 +17,17 @@ import {
 import { issueAssetUrl } from "./assets/asset-access.ts";
 import { deletePendingAttachment, issueAttachmentUploadUrl } from "./assets/attachment-upload.ts";
 import { resolveAttachmentPathById } from "./attachment-store.ts";
+import { canReadAttachment } from "./orchestration/group-visibility.ts";
 
 import { projectEntriesFailureContext, projectFileFailureContext } from "./ws-support.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
 export const createWsWorkspaceHandlers = ({
   currentSession,
+  currentPersonId,
   projectionSnapshotQuery,
+  projectionGroups,
+  projectionThreadMessages,
   externalLauncher,
   config,
   workspaceEntries,
@@ -31,7 +36,10 @@ export const createWsWorkspaceHandlers = ({
 }: Pick<
   WsConnection,
   | "currentSession"
+  | "currentPersonId"
   | "projectionSnapshotQuery"
+  | "projectionGroups"
+  | "projectionThreadMessages"
   | "externalLauncher"
   | "config"
   | "workspaceEntries"
@@ -144,6 +152,16 @@ export const createWsWorkspaceHandlers = ({
         WS_METHODS.assetsCreateUrl,
         Effect.gen(function* () {
           if (Predicate.isTagged(input.resource, "attachment")) {
+            const readable = yield* canReadAttachment(
+              { projectionSnapshotQuery, projectionGroups, projectionThreadMessages },
+              input.resource.attachmentId,
+              currentPersonId,
+            );
+
+            if (!readable) {
+              return yield* new AssetAttachmentNotFoundError({ resource: input.resource });
+            }
+
             return yield* issueAssetUrl({
               resource: input.resource,
               sessionId: currentSession.sessionId,

@@ -52,6 +52,7 @@ import { OrchestrationCommandReceiptRepository } from "./persistence/services/or
 import * as ProjectionBots from "./persistence/services/projection-bots.ts";
 import * as ProjectionGroups from "./persistence/services/projection-groups.ts";
 import { ProjectionLibraryRepository } from "./persistence/services/projection-library.ts";
+import { ProjectionThreadMessageRepository } from "./persistence/services/projection-thread-messages.ts";
 import { Memories } from "./memory/memories.ts";
 import {
   observeRpcEffect as instrumentRpcEffect,
@@ -120,6 +121,8 @@ export const createWsServices = (
     const projectionGroups = yield* ProjectionGroups.ProjectionGroupRepository;
 
     const projectionLibrary = yield* ProjectionLibraryRepository;
+
+    const projectionThreadMessages = yield* ProjectionThreadMessageRepository;
 
     const activityStore = yield* ActivityStore;
 
@@ -684,6 +687,7 @@ export const createWsServices = (
       botUsageLedger,
       projectionGroups,
       projectionLibrary,
+      projectionThreadMessages,
       activityStore,
       notificationStore,
       routineRepository,
