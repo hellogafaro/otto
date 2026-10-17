@@ -30,6 +30,7 @@ import {
   type OttoDelegationParent,
   phaseChildThreadId,
   phaseChildTurnId,
+  findDelegationTarget,
   isReachableFromThread,
   TERMINAL_PHASES,
   phaseStartedAt,
@@ -122,7 +123,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
   ) => {
     const snapshot = await options.readSnapshot();
     const parentThread = snapshot.threads.find((thread) => thread.id === parent.threadId);
-    const bot = snapshot.bots.find((candidate) => candidate.id === request.botId);
+    const bot = findDelegationTarget(snapshot.bots, request.botId);
 
     if (!parentThread || !bot || bot.archivedAt !== null) {
       throw new Error("The target bot is not available in this workspace.");

@@ -16,6 +16,7 @@ import {
   type OttoDelegationRuntimeOptions,
   type OttoDelegationParent,
   phaseChildThreadId,
+  findDelegationTarget,
   isReachableFromThread,
   TERMINAL_PHASES,
 } from "./otto-delegation-policy.ts";
@@ -34,7 +35,7 @@ export function createOttoDelegationControls(
     botId: BotId,
   ) => {
     const parentThread = snapshot.threads.find((thread) => thread.id === parent.threadId);
-    const bot = snapshot.bots.find((candidate) => candidate.id === botId);
+    const bot = findDelegationTarget(snapshot.bots, botId);
 
     if (!parentThread || !bot || bot.archivedAt !== null) {
       throw new Error("The target bot is not available in this workspace.");
@@ -135,12 +136,12 @@ export function createOttoDelegationControls(
     request: (typeof OttoToolInputSchemas.delegate_stop)["Type"],
   ) => {
     const snapshot = await options.readSnapshot();
-    availableBot(snapshot, parent, request.botId);
+    const { bot } = availableBot(snapshot, parent, request.botId);
 
     const active = snapshot.delegations.filter(
       (delegation) =>
         delegation.parentThreadId === parent.threadId &&
-        delegation.childBotId === request.botId &&
+        delegation.childBotId === bot.id &&
         !TERMINAL_PHASES.has(delegation.phase._tag),
     );
 
@@ -156,7 +157,7 @@ export function createOttoDelegationControls(
       });
     }
 
-    return { botId: request.botId, stopped: active.map((entry) => entry.delegationId) };
+    return { botId: bot.id, stopped: active.map((entry) => entry.delegationId) };
   };
 
   return { availableBot, create, check, stop };

@@ -163,6 +163,26 @@ export function botAccess(
 }
 
 /**
+ * The bot a delegation call names: by id, or by its exact name (case-insensitive, an
+ * optional leading @) when exactly one live bot has it, since models often pass the name.
+ */
+export function findDelegationTarget<
+  Bot extends Pick<OrchestrationBot, "id" | "name" | "archivedAt">,
+>(bots: ReadonlyArray<Bot>, botId: string): Bot | undefined {
+  const byId = bots.find((candidate) => candidate.id === botId);
+
+  if (byId) return byId;
+
+  const name = botId.trim().replace(/^@/, "").toLowerCase();
+
+  const named = bots.filter(
+    (candidate) => candidate.archivedAt === null && candidate.name.trim().toLowerCase() === name,
+  );
+
+  return named.length === 1 ? named[0] : undefined;
+}
+
+/**
  * A bot can take work from a group chat only when it is a member of that
  * group. A bot may belong to several groups, so membership is read from the
  * group, not from the bot's legacy `groupId`. A direct chat can reach any bot.
