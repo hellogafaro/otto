@@ -23,6 +23,7 @@ const targetPerson = {
   userId: targetPersonId,
   displayName: "Target person",
   email: "target@example.test",
+  image: null,
 };
 
 describe("authenticated orchestration commands", () => {

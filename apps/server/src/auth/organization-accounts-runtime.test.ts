@@ -36,7 +36,7 @@ async function fixture(
     ...overrides,
   });
 
-  const request = (path: string, body?: Readonly<Record<string, string>>, token?: string) =>
+  const request = (path: string, body?: Readonly<Record<string, string | null>>, token?: string) =>
     runtime.handle(
       new Request(`${origin}/api/accounts${path}`, {
         method: body ? "POST" : "GET",
@@ -406,5 +406,29 @@ describe("setup and email sign-in", () => {
     for (let attempt = 0; attempt < 3; attempt += 1) expect((await send()).status).toBe(200);
     expect((await send()).status).toBe(429);
     expect(emails).toHaveLength(0);
+  });
+
+  it("keeps a member's own small JPEG photo for everyone and refuses anything else", async () => {
+    const { runtime, request, setup } = await fixture();
+    const admin = await setup();
+    const photo = `data:image/jpeg;base64,/9j/${"A".repeat(400)}`;
+
+    expect((await request("/update-user", { image: photo }, admin.token)).status).toBe(200);
+    expect(runtime.listPeople()).toEqual([
+      expect.objectContaining({ email: "admin@example.test", image: photo }),
+    ]);
+
+    for (const image of [
+      "https://tracker.example.test/pixel.png",
+      "data:image/png;base64,iVBORw0KGgo=",
+      "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+      `data:image/jpeg;base64,/9j/${"A".repeat(64 * 1024)}`,
+    ]) {
+      expect((await request("/update-user", { image }, admin.token)).status).toBe(400);
+    }
+
+    expect(runtime.listPeople()[0]?.image).toBe(photo);
+    expect((await request("/update-user", { image: null }, admin.token)).status).toBe(200);
+    expect(runtime.listPeople()[0]?.image).toBeNull();
   });
 });

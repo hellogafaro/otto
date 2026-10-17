@@ -116,6 +116,7 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
                 personId: AuthSessionId.make(person.userId),
                 displayName: person.displayName,
                 email: person.email,
+                ...(person.image ? { image: person.image } : {}),
               })),
               bots: snapshot.bots.map((bot) => ({
                 ...bot,

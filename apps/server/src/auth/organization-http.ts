@@ -27,7 +27,7 @@ const handle = Effect.gen(function* () {
 
   return HttpServerResponse.fromWeb(response);
 }).pipe(
-  Effect.provideService(HttpServerRequest.MaxBodySize, FileSystem.Size(16 * 1024)),
+  Effect.provideService(HttpServerRequest.MaxBodySize, FileSystem.Size(96 * 1024)),
   Effect.orElseSucceed(() =>
     HttpServerResponse.jsonUnsafe({ message: "Invalid account request." }, { status: 400 }),
   ),
