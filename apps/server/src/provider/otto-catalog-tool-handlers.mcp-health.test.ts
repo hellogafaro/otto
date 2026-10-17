@@ -34,7 +34,10 @@ describe("Otto catalog MCP tool handlers", () => {
     const emitProgress = vi.fn();
 
     await expect(
-      handlers.AuthenticateMcpServer!({ input: { serverId: "search" }, emitProgress }),
+      handlers.connection_check!({
+        input: { id: "search", action: "authenticate" },
+        emitProgress,
+      }),
     ).resolves.toEqual({
       ...status,
       authorizationUrl: "https://example.com/authorize",
@@ -49,47 +52,11 @@ describe("Otto catalog MCP tool handlers", () => {
       error: "Authentication cancelled.",
     });
     await expect(
-      handlers.AuthenticateMcpServer!({ input: { serverId: "search" }, emitProgress }),
+      handlers.connection_check!({
+        input: { id: "search", action: "authenticate" },
+        emitProgress,
+      }),
     ).rejects.toThrow("Authentication cancelled");
-  });
-
-  it("restarts all or selected servers and fails on a disconnected server", async () => {
-    const status = {
-      name: "search",
-      connected: true,
-      toolCount: 1,
-      toolNames: ["search_web"],
-      transport: "http" as const,
-    };
-
-    const reload = vi.fn(async () => undefined);
-    const reconnectServer = vi.fn<McpManager["reconnectServer"]>(async () => status);
-
-    const manager = mcpManagerFixture({
-      reload,
-      reconnectServer,
-      getServerStatuses: () => [status],
-    });
-
-    const handler = createOttoCatalogToolHandlers(manager).RestartMcpServers!;
-    const emitProgress = vi.fn();
-
-    await expect(handler({ input: {}, emitProgress })).resolves.toEqual({ servers: [status] });
-    expect(reload).toHaveBeenCalledOnce();
-    await expect(
-      handler({ input: { serverIds: ["search", "search"] }, emitProgress }),
-    ).resolves.toEqual({ servers: [status] });
-    expect(reconnectServer).toHaveBeenCalledOnce();
-
-    reconnectServer.mockResolvedValueOnce({
-      ...status,
-      name: "broken",
-      connected: false,
-      error: "Connection failed.",
-    });
-    await expect(handler({ input: { serverIds: ["broken"] }, emitProgress })).rejects.toThrow(
-      "Connection failed",
-    );
   });
 
   it("reports real request evidence instead of treating a connection as healthy", async () => {
@@ -105,11 +72,9 @@ describe("Otto catalog MCP tool handlers", () => {
           lastFailedRequest: { at: "2026-09-01T01:30:00.000Z", message: "OAuth expired." },
         }),
       }),
-    ).GetMcpServerStatus!;
+    ).connection_read!;
 
-    await expect(
-      handler({ input: { serverId: "search" }, emitProgress: vi.fn() }),
-    ).resolves.toEqual(
+    await expect(handler({ input: { id: "search" }, emitProgress: vi.fn() })).resolves.toEqual(
       expect.objectContaining({
         connectionState: "connected",
         healthTest: "failed",
@@ -121,9 +86,9 @@ describe("Otto catalog MCP tool handlers", () => {
     );
   });
 
-  it.each(["TestMcpServer", "ReconnectMcpServer"] as const)(
-    "%s records the real reconnect result",
-    async (toolId) => {
+  it.each(["test", "reconnect"] as const)(
+    "connection_check %s records the real reconnect result",
+    async (action) => {
       const reconnectServer = vi.fn(async () => connectedStatus);
 
       const manager = mcpManagerFixture({
@@ -138,10 +103,10 @@ describe("Otto catalog MCP tool handlers", () => {
         manager,
         undefined,
         healthOptions({ recordSuccess, onRecovery }),
-      )[toolId]!;
+      ).connection_check!;
 
       await expect(
-        handler({ input: { serverId: "search" }, emitProgress: vi.fn() }),
+        handler({ input: { id: "search", action }, emitProgress: vi.fn() }),
       ).resolves.toEqual(expect.objectContaining({ connected: true }));
       expect(reconnectServer).toHaveBeenCalledWith("search");
       expect(recordSuccess).toHaveBeenCalledWith("search", "2026-09-01T02:00:00.000Z");
@@ -164,11 +129,11 @@ describe("Otto catalog MCP tool handlers", () => {
       manager,
       undefined,
       healthOptions({ recordFailure, onFailure }),
-    ).TestMcpServer!;
+    ).connection_check!;
 
-    await expect(handler({ input: { serverId: "search" }, emitProgress: vi.fn() })).rejects.toThrow(
-      "OAuth expired",
-    );
+    await expect(
+      handler({ input: { id: "search", action: "test" }, emitProgress: vi.fn() }),
+    ).rejects.toThrow("OAuth expired");
     expect(recordFailure).toHaveBeenCalledOnce();
     expect(onFailure).toHaveBeenCalledOnce();
   });

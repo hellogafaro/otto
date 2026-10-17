@@ -1,4 +1,3 @@
-import { McpServerId, type OttoToolInputSchemas } from "@otto/contracts";
 import { describe } from "vite-plus/test";
 import { expect, it, vi } from "vite-plus/test";
 import { createOttoCatalogToolHandlers } from "./otto-catalog-tool-handlers.ts";
@@ -38,7 +37,7 @@ describe("Otto catalog MCP tool handlers", () => {
         return { url: "https://img" };
       },
       addMcpServer: async (input) => {
-        calls.push(`add:${input.serverId}`);
+        calls.push(`add:${input.title}`);
 
         return { added: true };
       },
@@ -47,13 +46,8 @@ describe("Otto catalog MCP tool handlers", () => {
 
         return { removed: true };
       },
-      removeMcpAccount: async (id) => {
-        calls.push(`remove:${id}`);
-
-        return { removed: true };
-      },
-      renameMcpAccount: async () => {
-        calls.push("rename");
+      renameMcpAccount: async (input) => {
+        calls.push(`rename:${input.name}`);
 
         return { renamed: true };
       },
@@ -71,36 +65,26 @@ describe("Otto catalog MCP tool handlers", () => {
       emitProgress: vi.fn(),
     });
 
-    const addMcpInput = {
-      serverId: McpServerId.make("one"),
-      name: "One",
-      transport: "stdio",
-      command: "example-mcp",
-    } satisfies (typeof OttoToolInputSchemas.AddMcpServer)["Type"];
-
-    await handlers.AddMcpServer!({ input: addMcpInput, emitProgress: vi.fn() });
-    await handlers.UninstallMcpServer!({ input: { serverId: "one" }, emitProgress: vi.fn() });
-    await handlers.RemoveMcpAccount!({ input: { serverId: "one" }, emitProgress: vi.fn() });
-    await handlers.RenameMcpAccount!({
-      input: { serverId: "one", name: "two" },
+    await handlers.connection_create!({
+      input: { url: "https://example.com/mcp", title: "One" },
       emitProgress: vi.fn(),
     });
-    await handlers.SetMcpInstructions!({
-      input: { serverId: "one", instructions: "keep safe" },
+    await handlers.connection_delete!({ input: { id: "one" }, emitProgress: vi.fn() });
+    await handlers.connection_update!({
+      input: { id: "one", title: "two", instructions: "keep safe" },
       emitProgress: vi.fn(),
     });
     expect(calls).toEqual([
       "search:otto",
       "fetch:https://example.com/",
       "image:a cat",
-      "add:one",
+      "add:One",
       "uninstall:one",
-      "remove:one",
-      "rename",
+      "rename:two",
       "instructions",
     ]);
-    await expect(
-      handlers.UninstallMcpServer!({ input: {}, emitProgress: vi.fn() }),
-    ).rejects.toThrow("serverId");
+    await expect(handlers.connection_delete!({ input: {}, emitProgress: vi.fn() })).rejects.toThrow(
+      "id",
+    );
   });
 });

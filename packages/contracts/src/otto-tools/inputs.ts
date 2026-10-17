@@ -10,7 +10,7 @@ import {
   PositiveInt,
   TrimmedNonEmptyString,
 } from "../base-schemas.ts";
-import { McpServerId, McpServerInstructions, McpServerUrl } from "../mcp-server.ts";
+import { McpServerInstructions, McpServerUrl } from "../mcp-server.ts";
 import { ImageGenerationRequest } from "../image-generation.ts";
 import { LibraryFileId, LibraryFolderId, LibraryTitle } from "../orchestration/library.ts";
 import {
@@ -63,8 +63,6 @@ const CommandInput = Schema.Struct({
 
 const PathInput = Schema.Struct({ path: PathText });
 
-const McpServerIdInput = Schema.Struct({ serverId: TrimmedNonEmptyString });
-
 const WebSearchInput = Schema.Struct({
   query: TrimmedNonEmptyString.check(Schema.isMaxLength(2_000)),
   domains: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
@@ -74,26 +72,34 @@ const WebFetchInput = Schema.Struct({
   url: Schema.String.check(Schema.isPattern(/^https?:\/\//i)),
 });
 
-const AddMcpServerInput = Schema.Union([
-  Schema.Struct({
-    serverId: McpServerId,
-    name: TrimmedNonEmptyString,
-    transport: Schema.Literal("stdio"),
-    command: TrimmedNonEmptyString,
-    args: Schema.optional(Schema.Array(Schema.String)),
-  }),
-  Schema.Struct({
-    serverId: McpServerId,
-    name: TrimmedNonEmptyString,
-    transport: Schema.Literal("url"),
-    url: McpServerUrl,
-  }),
-]);
+const ConnectionIdInput = Schema.Struct({ id: TrimmedNonEmptyString });
 
-const RenameMcpAccountInput = Schema.Struct({
-  serverId: McpServerId,
-  name: TrimmedNonEmptyString,
-});
+const ConnectionCreateInput = Schema.Struct({
+  pluginId: Schema.optional(TrimmedNonEmptyString),
+  url: Schema.optional(McpServerUrl),
+  title: Schema.optional(TrimmedNonEmptyString),
+}).check(
+  Schema.makeFilter(
+    (input) =>
+      (input.pluginId !== undefined
+        ? input.url === undefined
+        : input.url !== undefined && input.title !== undefined) ||
+      new SchemaIssue.InvalidValue({ message: "Pass either pluginId, or url with a title." }),
+  ),
+);
+
+const ConnectionUpdateInput = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  title: Schema.optional(TrimmedNonEmptyString),
+  instructions: Schema.optional(McpServerInstructions),
+}).check(
+  Schema.makeFilter(
+    (input) =>
+      input.title !== undefined ||
+      input.instructions !== undefined ||
+      new SchemaIssue.InvalidValue({ message: "Pass a title, instructions, or both." }),
+  ),
+);
 
 const UpdateBotProfileInput = Schema.Struct({
   name: Schema.optional(TrimmedNonEmptyString),
@@ -191,22 +197,20 @@ export const OttoToolInputSchemas = {
     query: Schema.optional(TrimmedNonEmptyString),
     limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(50))),
   }),
-  GetPlugin: Schema.Struct({ pluginId: TrimmedNonEmptyString }),
+  connection_read: ConnectionIdInput,
+  connection_create: ConnectionCreateInput,
+  connection_update: ConnectionUpdateInput,
+  connection_check: Schema.Struct({
+    id: TrimmedNonEmptyString,
+    action: Schema.Literals(["test", "reconnect", "authenticate"]),
+  }),
+  connection_delete: ConnectionIdInput,
   message_react: Schema.Struct({
     messageId: MessageId,
     emoji: TrimmedNonEmptyString.check(Schema.isMaxLength(32)),
     action: Schema.Literals(["add", "remove"]),
   }),
-  InstallPlugin: Schema.Struct({ pluginId: TrimmedNonEmptyString }),
-  UninstallPlugin: Schema.Struct({ pluginId: TrimmedNonEmptyString }),
-  GetMcpServerStatus: McpServerIdInput,
-  TestMcpServer: McpServerIdInput,
-  ReconnectMcpServer: McpServerIdInput,
   bot_update: UpdateBotProfileInput,
-  AuthenticateMcpServer: McpServerIdInput,
-  RestartMcpServers: Schema.Struct({
-    serverIds: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
-  }),
   web_search: WebSearchInput,
   web_fetch: WebFetchInput,
   image_create: ImageGenerationRequest,
@@ -235,11 +239,6 @@ export const OttoToolInputSchemas = {
     ...TaskToolFields,
   }),
   task_comment: Schema.Struct({ taskId: TaskId, content: ActivityContent }),
-  AddMcpServer: AddMcpServerInput,
-  UninstallMcpServer: Schema.Struct({ serverId: McpServerId }),
-  RemoveMcpAccount: Schema.Struct({ serverId: McpServerId }),
-  RenameMcpAccount: RenameMcpAccountInput,
-  SetMcpInstructions: Schema.Struct({ serverId: McpServerId, instructions: McpServerInstructions }),
 } as const satisfies Record<OttoToolId, Schema.Top>;
 
 export const OttoMessageReactionResult = Schema.Union([

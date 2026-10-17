@@ -1,19 +1,13 @@
-import * as Predicate from "effect/Predicate";
 import type { McpManager } from "@mastra/code-sdk/mcp/index";
 import { type OttoToolId, decodeOttoToolInput } from "@otto/contracts";
 import { parseOttoPublicUrl } from "./otto-web-fetch.ts";
-import { createOttoPluginRuntime } from "./tools/otto-plugin-catalog.ts";
+import { createOttoPluginRuntime, pluginServerId } from "./tools/otto-plugin-catalog.ts";
 import {
   type OttoMcpHealthHandlerOptions,
   type OttoCatalogBackendOptions,
   type OttoCatalogToolHandler,
 } from "./tools/otto-catalog-types.ts";
-import {
-  requiredString,
-  mcpHealthStatus,
-  checkMcpConnection,
-  field,
-} from "./tools/otto-mcp-health.ts";
+import { requiredString, mcpHealthStatus, checkMcpConnection } from "./tools/otto-mcp-health.ts";
 
 export function createOttoCatalogToolHandlers(
   mcpManager?: McpManager,
@@ -22,6 +16,12 @@ export function createOttoCatalogToolHandlers(
   backends: OttoCatalogBackendOptions = {},
 ): Partial<Record<OttoToolId, OttoCatalogToolHandler>> {
   const statuses = () => mcpManager?.getServerStatuses() ?? [];
+
+  /** The configured MCP server an id names: its own id, or an installed plugin's server. */
+  const serverIdOf = (id: string) =>
+    [id, pluginServerId(id)].find((candidate) =>
+      statuses().some((status) => status.name === candidate),
+    );
 
   return {
     ...(backends.webSearch
@@ -80,36 +80,6 @@ export function createOttoCatalogToolHandlers(
             backends.tasks!.comment(decodeOttoToolInput("task_comment", input)),
         }
       : {}),
-    ...(backends.addMcpServer
-      ? {
-          AddMcpServer: async ({ input }) =>
-            backends.addMcpServer!(decodeOttoToolInput("AddMcpServer", input)),
-        }
-      : {}),
-    ...(backends.uninstallMcpServer
-      ? {
-          UninstallMcpServer: async ({ input }) =>
-            backends.uninstallMcpServer!(requiredString(input, "serverId")),
-        }
-      : {}),
-    ...(backends.removeMcpAccount
-      ? {
-          RemoveMcpAccount: async ({ input }) =>
-            backends.removeMcpAccount!(requiredString(input, "serverId")),
-        }
-      : {}),
-    ...(backends.renameMcpAccount
-      ? {
-          RenameMcpAccount: async ({ input }) =>
-            backends.renameMcpAccount!(decodeOttoToolInput("RenameMcpAccount", input)),
-        }
-      : {}),
-    ...(backends.setMcpInstructions
-      ? {
-          SetMcpInstructions: async ({ input }) =>
-            backends.setMcpInstructions!(decodeOttoToolInput("SetMcpInstructions", input)),
-        }
-      : {}),
     ...(pluginRuntime
       ? {
           connection_search: async ({ input }) =>
@@ -118,48 +88,103 @@ export function createOttoCatalogToolHandlers(
               statuses(),
               backends.botId,
             ),
-          GetPlugin: async ({ input }) =>
-            pluginRuntime.getPlugin(requiredString(input, "pluginId"), statuses()),
-          InstallPlugin: async ({ input, emitProgress }) => {
-            const pluginId = requiredString(input, "pluginId");
-            await emitProgress(`Installing plugin '${pluginId}'.`);
+        }
+      : {}),
+    ...(pluginRuntime || mcpManager
+      ? {
+          connection_read: async ({ input }) => {
+            const { id } = decodeOttoToolInput("connection_read", input);
+            const serverId = serverIdOf(id);
 
-            return pluginRuntime.install(pluginId);
+            if (serverId !== undefined && mcpManager && health) {
+              return mcpHealthStatus(mcpManager, health, serverId);
+            }
+
+            if (pluginRuntime?.has(id)) return pluginRuntime.getPlugin(id, statuses());
+
+            throw new Error(
+              `No plugin or MCP server has the id '${id}'. Find it with connection_search.`,
+            );
           },
-          UninstallPlugin: async ({ input, emitProgress }) => {
-            const pluginId = requiredString(input, "pluginId");
-            await emitProgress(`Removing plugin '${pluginId}'.`);
+        }
+      : {}),
+    ...(pluginRuntime || backends.uninstallMcpServer
+      ? {
+          connection_delete: async ({ input, emitProgress }) => {
+            const { id } = decodeOttoToolInput("connection_delete", input);
 
-            return pluginRuntime.uninstall(pluginId, statuses());
+            if (pluginRuntime?.has(id)) {
+              await emitProgress(`Removing plugin '${id}'.`);
+
+              return pluginRuntime.uninstall(id, statuses());
+            }
+
+            if (!backends.uninstallMcpServer) {
+              throw new Error("Removing MCP servers is not available here.");
+            }
+
+            return backends.uninstallMcpServer(serverIdOf(id) ?? id);
+          },
+        }
+      : {}),
+    ...(pluginRuntime || backends.addMcpServer
+      ? {
+          connection_create: async ({ input, emitProgress }) => {
+            const { pluginId, url, title } = decodeOttoToolInput("connection_create", input);
+
+            if (pluginId !== undefined) {
+              if (!pluginRuntime) throw new Error("The plugin catalog is not available here.");
+              await emitProgress(`Installing plugin '${pluginId}'.`);
+
+              return pluginRuntime.install(pluginId);
+            }
+
+            if (!backends.addMcpServer || url === undefined || title === undefined) {
+              throw new Error("Adding MCP servers by url is not available here.");
+            }
+
+            return backends.addMcpServer({ url, title });
+          },
+        }
+      : {}),
+    ...(backends.renameMcpAccount && backends.setMcpInstructions
+      ? {
+          connection_update: async ({ input }) => {
+            const { id, title, instructions } = decodeOttoToolInput("connection_update", input);
+            const serverId = serverIdOf(id) ?? id;
+
+            const renamed =
+              title === undefined
+                ? undefined
+                : await backends.renameMcpAccount!({ serverId, name: title });
+
+            const instructed =
+              instructions === undefined
+                ? undefined
+                : await backends.setMcpInstructions!({ serverId, instructions });
+
+            return Object.assign({ serverId }, renamed, instructed);
           },
         }
       : {}),
     ...(mcpManager
       ? {
-          ...(health
-            ? {
-                GetMcpServerStatus: async ({ input }) =>
-                  mcpHealthStatus(mcpManager, health, requiredString(input, "serverId")),
-                TestMcpServer: async ({ input, emitProgress }) =>
-                  checkMcpConnection(
-                    mcpManager,
-                    health,
-                    requiredString(input, "serverId"),
-                    emitProgress,
-                    "Testing",
-                  ),
-                ReconnectMcpServer: async ({ input, emitProgress }) =>
-                  checkMcpConnection(
-                    mcpManager,
-                    health,
-                    requiredString(input, "serverId"),
-                    emitProgress,
-                    "Reconnecting",
-                  ),
-              }
-            : {}),
-          AuthenticateMcpServer: async ({ input, emitProgress }) => {
-            const serverId = requiredString(input, "serverId");
+          connection_check: async ({ input, emitProgress }) => {
+            const { id, action } = decodeOttoToolInput("connection_check", input);
+            const serverId = serverIdOf(id) ?? id;
+
+            if (action !== "authenticate") {
+              if (!health) throw new Error("Connection checks are not available here.");
+
+              return checkMcpConnection(
+                mcpManager,
+                health,
+                serverId,
+                emitProgress,
+                action === "test" ? "Testing" : "Reconnecting",
+              );
+            }
+
             let authorizationUrl: string | undefined;
 
             const status = await mcpManager.authenticateServer(serverId, {
@@ -176,35 +201,6 @@ export function createOttoCatalogToolHandlers(
             }
 
             return { ...status, authorizationUrl: authorizationUrl ?? null };
-          },
-          RestartMcpServers: async ({ input, emitProgress }) => {
-            const requested = field(input, "serverIds");
-
-            const serverIds = Array.isArray(requested)
-              ? requested.filter((value): value is string => Predicate.isString(value))
-              : [];
-
-            if (serverIds.length === 0) {
-              await emitProgress("Restarting MCP servers.");
-              await mcpManager.reload();
-
-              return { servers: mcpManager.getServerStatuses() };
-            }
-
-            const servers = [];
-
-            for (const serverId of new Set(serverIds)) {
-              await emitProgress(`Restarting MCP server '${serverId}'.`);
-              const status = await mcpManager.reconnectServer(serverId);
-
-              if (!status.connected) {
-                throw new Error(status.error ?? `MCP server '${serverId}' did not reconnect.`);
-              }
-
-              servers.push(status);
-            }
-
-            return { servers };
           },
         }
       : {}),

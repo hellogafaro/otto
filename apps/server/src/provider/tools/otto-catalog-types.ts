@@ -111,14 +111,16 @@ export interface OttoCatalogBackendOptions {
       input: (typeof OttoToolInputSchemas.task_comment)["Type"],
     ) => Promise<OttoToolResult>;
   };
-  readonly addMcpServer?: (
-    input: (typeof OttoToolInputSchemas.AddMcpServer)["Type"],
-  ) => Promise<OttoToolResult>;
+  /** Adds a remote MCP server; Otto runs no local MCP commands. */
+  readonly addMcpServer?: (input: {
+    readonly url: string;
+    readonly title: string;
+  }) => Promise<OttoToolResult>;
   readonly uninstallMcpServer?: (serverId: string) => Promise<OttoToolResult>;
-  readonly removeMcpAccount?: (serverId: string) => Promise<OttoToolResult>;
-  readonly renameMcpAccount?: (
-    input: (typeof OttoToolInputSchemas.RenameMcpAccount)["Type"],
-  ) => Promise<OttoToolResult>;
+  readonly renameMcpAccount?: (input: {
+    readonly serverId: string;
+    readonly name: string;
+  }) => Promise<OttoToolResult>;
   readonly setMcpInstructions?: (input: {
     readonly serverId: string;
     readonly instructions: string;

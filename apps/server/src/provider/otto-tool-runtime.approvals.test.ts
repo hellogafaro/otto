@@ -172,9 +172,9 @@ describe("OttoToolRuntime", () => {
 
   it("requires approval before catalog MCP handlers run and forwards progress", async () => {
     const handler = vi.fn(async ({ emitProgress }) => {
-      await emitProgress("Restarting MCP server 'search'.");
+      await emitProgress("Reconnecting MCP server 'search'.");
 
-      return { servers: [{ name: "search", connected: true }] };
+      return { name: "search", connected: true };
     });
 
     const onProgress = vi.fn();
@@ -182,27 +182,28 @@ describe("OttoToolRuntime", () => {
     runtime.registerSession("thread-mcp", {
       runtimeMode: "full-access",
       workspaceType: "none",
-      catalogHandlers: { RestartMcpServers: handler },
+      catalogHandlers: { connection_check: handler },
     });
 
     const execution = {
       threadId: "thread-mcp",
-      toolId: "RestartMcpServers" as const,
+      toolId: "connection_check" as const,
       toolCallId: "tool-restart",
-      input: { serverIds: ["search"] },
+      input: { id: "search", action: "reconnect" },
       approvalMode: "require-grant" as const,
     };
 
     await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
     runtime.grantApproval(execution);
     await expect(runtime.execute(execution)).resolves.toEqual({
-      servers: [{ name: "search", connected: true }],
+      name: "search",
+      connected: true,
     });
     expect(onProgress).toHaveBeenCalledWith({
       threadId: "thread-mcp",
-      toolId: "RestartMcpServers",
+      toolId: "connection_check",
       toolCallId: "tool-restart",
-      summary: "Restarting MCP server 'search'.",
+      summary: "Reconnecting MCP server 'search'.",
     });
   });
 
@@ -212,14 +213,14 @@ describe("OttoToolRuntime", () => {
     runtime.registerSession("thread-mcp-test", {
       runtimeMode: "full-access",
       workspaceType: "none",
-      catalogHandlers: { TestMcpServer: testConnection },
+      catalogHandlers: { connection_check: testConnection },
     });
 
     const execution = {
       threadId: "thread-mcp-test",
-      toolId: "TestMcpServer" as const,
+      toolId: "connection_check" as const,
       toolCallId: "tool-test-mcp",
-      input: { serverId: "search" },
+      input: { id: "search", action: "test" },
       approvalMode: "require-grant" as const,
     };
 
@@ -272,8 +273,8 @@ describe("OttoToolRuntime", () => {
       workspaceType: "none",
       catalogHandlers: {
         connection_search: search,
-        InstallPlugin: install,
-        UninstallPlugin: uninstall,
+        connection_create: install,
+        connection_delete: uninstall,
       },
     });
 
@@ -287,12 +288,15 @@ describe("OttoToolRuntime", () => {
       }),
     ).resolves.toEqual({ plugins: [] });
 
-    for (const toolId of ["InstallPlugin", "UninstallPlugin"] as const) {
+    for (const [toolId, input] of [
+      ["connection_create", { pluginId: "exa" }],
+      ["connection_delete", { id: "exa" }],
+    ] as const) {
       const execution = {
         threadId: "thread-plugins",
         toolId,
         toolCallId: `tool-${toolId}`,
-        input: { pluginId: "exa" },
+        input,
         approvalMode: "require-grant" as const,
       };
 

@@ -106,13 +106,16 @@ image_create calls `runImageGenerationTool` in the image generation runtime, the
 Grok images are enabled in Settings. Images are saved as chat attachments and posted into the chat;
 the tool result carries artifact metadata only. image_create needs production approval.
 
-SetMcpInstructions dispatches `mcp-server.instructions.set`. The guidance is stored on the MCP
-server record, is limited to 4,000 characters, and an empty string clears it. Mastra appends every
-saved guidance line to the system prompt from the next turn on. MCP mutations exist only after the
-plugin runtime is configured with a snapshot reader and dispatcher. AddMcpServer and RenameMcpAccount
-decode their input with the contract schema, so a stdio add without a command fails as a schema
-error before anything is dispatched. UninstallMcpServer and RemoveMcpAccount read the snapshot
-first, return `dependentBots` (active bots that had the server on, the same rule as MCP health
+Bots manage plugins and MCP servers with six connection tools: `connection_search`,
+`connection_read`, `connection_create`, `connection_update`, `connection_check` and
+`connection_delete`. An id names a catalog plugin, an MCP server, or the server an installed
+plugin created. connection_update with `instructions` dispatches `mcp-server.instructions.set`. The
+guidance is stored on the MCP server record, is limited to 4,000 characters, and an empty string
+clears it. Mastra appends every saved guidance line to the system prompt from the next turn on. MCP
+mutations exist only after the plugin runtime is configured with a snapshot reader and dispatcher.
+connection_create adds remote MCP servers by url only and decodes its input with the contract schema,
+so a call with neither a plugin nor a url fails as a schema error before anything is dispatched.
+connection_delete of an MCP server reads the snapshot first, returns `dependentBots` (active bots that had the server on, the same rule as MCP health
 dependencies), and follow `mcp-server.delete` with a `bot.update` for every bot, archived or not,
 whose `disabledMcpServerIds` still names the deleted server. Legacy bridge sessions don't
 receive the guidance. Environment exports carry it on each MCP server record.

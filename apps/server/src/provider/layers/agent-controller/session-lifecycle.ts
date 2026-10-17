@@ -458,7 +458,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         new Set([
           ...deps.toolRuntime.toolsForThread(key).map((tool) => tool.id),
           ...Object.keys(deps.sessionResources.getConnectorTools(key)),
-          "RestartMcpServers",
         ]),
         (toolName) =>
           deps.runMastra("permissions.setForTool", () =>

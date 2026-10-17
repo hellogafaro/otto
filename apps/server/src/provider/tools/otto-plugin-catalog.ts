@@ -393,7 +393,10 @@ export function createOttoPluginRuntime(
       authenticationRequired: plugin.authentication !== "none",
       nextTool:
         plugin.authentication === "oauth" || plugin.authentication === "optional-oauth"
-          ? { id: "AuthenticateMcpServer" as const, input: { serverId: mcpServerId } }
+          ? {
+              id: "connection_check" as const,
+              input: { id: mcpServerId, action: "authenticate" as const },
+            }
           : null,
       health: { state: "not-checked" as const },
     };
@@ -418,5 +421,5 @@ export function createOttoPluginRuntime(
     return { pluginId: plugin.id, mcpServerId, removed: true, before };
   };
 
-  return { search, getPlugin, install, uninstall };
+  return { has: (pluginId: string) => byId.has(pluginId), search, getPlugin, install, uninstall };
 }

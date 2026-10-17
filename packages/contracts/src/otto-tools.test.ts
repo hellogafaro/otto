@@ -17,11 +17,11 @@ describe("Otto tool contracts", () => {
       "web_search",
       "web_fetch",
       "image_create",
-      "AddMcpServer",
-      "UninstallMcpServer",
-      "RemoveMcpAccount",
-      "RenameMcpAccount",
-      "SetMcpInstructions",
+      "connection_read",
+      "connection_create",
+      "connection_update",
+      "connection_check",
+      "connection_delete",
       "library_create",
       "library_read",
       "library_update",
@@ -36,18 +36,15 @@ describe("Otto tool contracts", () => {
     expect(() =>
       decodeOttoToolInput("image_create", { operation: "generate", prompt: "" }),
     ).toThrow();
+    expect(() => decodeOttoToolInput("connection_create", { title: "x" })).toThrow();
     expect(() =>
-      decodeOttoToolInput("AddMcpServer", { serverId: "x", name: "x", transport: "stdio" }),
+      decodeOttoToolInput("connection_create", { url: "https://example.com/mcp" }),
     ).toThrow();
+    expect(() => decodeOttoToolInput("connection_update", { id: "x" })).toThrow();
+    expect(() => decodeOttoToolInput("connection_check", { id: "x", action: "restart" })).toThrow();
     expect(() =>
-      decodeOttoToolInput("AddMcpServer", { serverId: "x", name: "x", transport: "url" }),
-    ).toThrow();
-    expect(() => decodeOttoToolInput("RenameMcpAccount", { serverId: "x" })).toThrow();
-    expect(() =>
-      decodeOttoToolInput("AddMcpServer", {
-        serverId: "x",
-        name: "x",
-        transport: "url",
+      decodeOttoToolInput("connection_create", {
+        title: "x",
         url: "https://user:pass@example.com",
       }),
     ).toThrow();
@@ -61,39 +58,22 @@ describe("Otto tool contracts", () => {
         implementedTools: new Set(["shell", "web_search"]),
       }).map((tool) => tool.id),
     ).toEqual(["web_search"]);
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "AuthenticateMcpServer")?.approval).toBe(
-      "secrets",
-    );
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "RestartMcpServers")?.approval).toBe(
-      "production",
-    );
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "InstallPlugin")?.approval).toBe(
-      "production",
-    );
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "UninstallPlugin")?.approval).toBe(
-      "delete",
-    );
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "connection_search")?.approval).toBe(
-      "none",
-    );
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "GetPlugin")?.approval).toBe("none");
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "GetMcpServerStatus")?.approval).toBe(
-      "none",
-    );
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "TestMcpServer")?.approval).toBe(
-      "production",
-    );
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "ReconnectMcpServer")?.approval).toBe(
-      "production",
-    );
+    const approval = (id: string) => OTTO_TOOL_CATALOG.find((tool) => tool.id === id)?.approval;
+
+    expect(approval("connection_search")).toBe("none");
+    expect(approval("connection_read")).toBe("none");
+    expect(approval("connection_create")).toBe("secrets");
+    expect(approval("connection_update")).toBe("secrets");
+    expect(approval("connection_check")).toBe("production");
+    expect(approval("connection_delete")).toBe("delete");
   });
 
   it("accepts catalog-owned plugin inputs and rejects model-supplied recipes", () => {
-    expect(decodeOttoToolInput("InstallPlugin", { pluginId: "exa" })).toEqual({
+    expect(decodeOttoToolInput("connection_create", { pluginId: "exa" })).toEqual({
       pluginId: "exa",
     });
     expect(() =>
-      decodeOttoToolInput("InstallPlugin", {
+      decodeOttoToolInput("connection_create", {
         pluginId: "exa",
         url: "https://attacker.example/mcp",
       }),

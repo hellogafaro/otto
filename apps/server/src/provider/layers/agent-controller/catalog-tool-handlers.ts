@@ -1,11 +1,5 @@
 import * as NodeCrypto from "node:crypto";
-import {
-  type BotId,
-  CommandId,
-  McpServerId,
-  type ThreadId,
-  decodeOttoToolInput,
-} from "@otto/contracts";
+import { type BotId, CommandId, McpServerId, type ThreadId } from "@otto/contracts";
 import { runImageGenerationTool } from "../../../image-generation/image-generation-runtime.ts";
 import { activeLibraryTools } from "../../../library/library-tool-runtime.ts";
 import { activeTaskTools } from "../../../tasks/task-tool-runtime.ts";
@@ -121,30 +115,33 @@ export function createSessionCatalogHandlers(
         : {}),
       ...(deps.wired().pluginRuntimeOptions
         ? {
-            addMcpServer: async (input) => {
-              const value = decodeOttoToolInput("AddMcpServer", input);
+            addMcpServer: async ({ url, title }) => {
+              const slug = title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-|-$/g, "")
+                .slice(0, 40);
 
-              const base = {
-                type: "mcp-server.create" as const,
-                commandId: CommandId.make(`catalog:mcp-add:${NodeCrypto.randomUUID()}`),
-                mcpServerId: value.serverId,
-                name: value.name,
-                enabled: true,
-                createdAt: nowIso(),
-              };
-
-              await deps.wired().pluginRuntimeOptions!.dispatch(
-                value.transport === "stdio"
-                  ? {
-                      ...base,
-                      transport: "stdio",
-                      command: value.command,
-                      ...(value.args ? { args: [...value.args] } : {}),
-                    }
-                  : { ...base, transport: "url", url: value.url },
+              const serverId = McpServerId.make(
+                `${slug || "mcp"}-${NodeCrypto.randomUUID().slice(0, 6)}`,
               );
 
-              return { serverId: value.serverId, added: true };
+              await deps.wired().pluginRuntimeOptions!.dispatch({
+                type: "mcp-server.create",
+                commandId: CommandId.make(`catalog:mcp-add:${NodeCrypto.randomUUID()}`),
+                mcpServerId: serverId,
+                name: title,
+                transport: "url",
+                url,
+                enabled: true,
+                createdAt: nowIso(),
+              });
+
+              return {
+                serverId,
+                added: true,
+                next: "Check it with connection_check; sign in with action authenticate if it asks.",
+              };
             },
             uninstallMcpServer: (serverId: string) =>
               deps.deleteCatalogMcpServer(
@@ -152,15 +149,7 @@ export function createSessionCatalogHandlers(
                 serverId,
                 "mcp-delete",
               ),
-            removeMcpAccount: (serverId: string) =>
-              deps.deleteCatalogMcpServer(
-                deps.wired().pluginRuntimeOptions!,
-                serverId,
-                "mcp-remove",
-              ),
-            renameMcpAccount: async (input) => {
-              const value = decodeOttoToolInput("RenameMcpAccount", input);
-
+            renameMcpAccount: async (value) => {
               const server = (
                 await deps.wired().pluginRuntimeOptions!.readSnapshot()
               ).mcpServers?.find((candidate) => candidate.id === value.serverId);

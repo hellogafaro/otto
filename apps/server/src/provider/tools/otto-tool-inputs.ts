@@ -54,25 +54,19 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "connection_search":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "GetPlugin":
+    case "connection_read":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "connection_create":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "connection_update":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "connection_check":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "connection_delete":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "message_react":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "InstallPlugin":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "UninstallPlugin":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "GetMcpServerStatus":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "TestMcpServer":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ReconnectMcpServer":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "bot_update":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "AuthenticateMcpServer":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "RestartMcpServers":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "web_search":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
@@ -97,16 +91,6 @@ export function decodeOttoRuntimeToolInput<Input>(
     case "task_update":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "task_comment":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "AddMcpServer":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "UninstallMcpServer":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "RemoveMcpAccount":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "RenameMcpAccount":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "SetMcpInstructions":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
   }
 }

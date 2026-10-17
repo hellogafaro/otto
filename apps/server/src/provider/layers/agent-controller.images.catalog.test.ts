@@ -154,11 +154,9 @@ describe("AgentControllerLive", () => {
             "web_search",
             "web_fetch",
             "image_create",
-            "AddMcpServer",
-            "UninstallMcpServer",
-            "RemoveMcpAccount",
-            "RenameMcpAccount",
-            "SetMcpInstructions",
+            "connection_create",
+            "connection_update",
+            "connection_delete",
           ]),
         );
 
@@ -184,8 +182,8 @@ describe("AgentControllerLive", () => {
         expect(generateImage).toHaveBeenCalledExactlyOnceWith(codexThreadId, imageRequest);
 
         expect(
-          yield* run("SetMcpInstructions", "instructions", {
-            serverId: "docs",
+          yield* run("connection_update", "instructions", {
+            id: "docs",
             instructions: " Search the docs first. ",
           }),
         ).toMatchObject({ serverId: "docs", instructions: "Search the docs first." });
@@ -202,41 +200,16 @@ describe("AgentControllerLive", () => {
         const anyCommandId = expect.stringMatching(/^catalog:/);
 
         expect(
-          yield* run("AddMcpServer", "add-stdio", {
-            serverId: "tools",
-            name: "Tools",
-            transport: "stdio",
-            command: "uvx",
-            args: ["tools-mcp", "--verbose"],
-          }),
-        ).toEqual({ serverId: "tools", added: true });
-        expect(takeDispatched()).toEqual([
-          {
-            type: "mcp-server.create",
-            commandId: anyCommandId,
-            mcpServerId: "tools",
-            name: "Tools",
-            transport: "stdio",
-            command: "uvx",
-            args: ["tools-mcp", "--verbose"],
-            enabled: true,
-            createdAt: expect.any(String),
-          },
-        ]);
-
-        expect(
-          yield* run("AddMcpServer", "add-url", {
-            serverId: "search",
-            name: "Search",
-            transport: "url",
+          yield* run("connection_create", "add-url", {
             url: "https://mcp.example.com/search?region=eu",
+            title: "Search",
           }),
-        ).toEqual({ serverId: "search", added: true });
+        ).toMatchObject({ serverId: expect.stringMatching(/^search-/), added: true });
         expect(takeDispatched()).toEqual([
           {
             type: "mcp-server.create",
             commandId: anyCommandId,
-            mcpServerId: "search",
+            mcpServerId: expect.stringMatching(/^search-/),
             name: "Search",
             transport: "url",
             url: "https://mcp.example.com/search?region=eu",
@@ -245,14 +218,14 @@ describe("AgentControllerLive", () => {
           },
         ]);
 
-        // A stdio add without a command fails schema validation before any dispatch.
+        // An add with no url or plugin fails schema validation before any dispatch.
         const invalidAdd = yield* Effect.promise(() =>
           runtime
             .execute({
               threadId: String(codexThreadId),
-              toolId: "AddMcpServer",
+              toolId: "connection_create",
               toolCallId: "add-invalid",
-              input: { serverId: "broken", name: "Broken", transport: "stdio" },
+              input: { title: "Broken" },
               approvalMode: "require-grant",
             })
             .then(
@@ -265,10 +238,10 @@ describe("AgentControllerLive", () => {
         expect(takeDispatched()).toEqual([]);
 
         expect(
-          yield* run("RenameMcpAccount", "rename-url", { serverId: "docs", name: "Docs (EU)" }),
+          yield* run("connection_update", "rename-url", { id: "docs", title: "Docs (EU)" }),
         ).toEqual({ serverId: "docs", name: "Docs (EU)", renamed: true });
         expect(
-          yield* run("RenameMcpAccount", "rename-stdio", { serverId: "local", name: "Local 2" }),
+          yield* run("connection_update", "rename-stdio", { id: "local", title: "Local 2" }),
         ).toEqual({ serverId: "local", name: "Local 2", renamed: true });
         expect(takeDispatched()).toEqual([
           {
@@ -290,7 +263,7 @@ describe("AgentControllerLive", () => {
           },
         ]);
 
-        expect(yield* run("UninstallMcpServer", "uninstall", { serverId: "docs" })).toEqual({
+        expect(yield* run("connection_delete", "uninstall", { id: "docs" })).toEqual({
           serverId: "docs",
           removed: true,
           dependentBots: [{ id: "ada", name: "Ada" }],
@@ -306,7 +279,7 @@ describe("AgentControllerLive", () => {
           },
         ]);
 
-        expect(yield* run("RemoveMcpAccount", "remove", { serverId: "local" })).toEqual({
+        expect(yield* run("connection_delete", "remove", { id: "local" })).toEqual({
           serverId: "local",
           removed: true,
           dependentBots: [

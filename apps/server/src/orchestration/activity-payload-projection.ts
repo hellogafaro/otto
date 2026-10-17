@@ -113,7 +113,7 @@ const TOOL_DETAIL_ARGS = {
   web_search: "query",
   web_fetch: "url",
   connection_search: "query",
-  GetPlugin: "pluginId",
+  connection_read: "id",
   read: "path",
   library_create: "title",
   routine_create: "name",

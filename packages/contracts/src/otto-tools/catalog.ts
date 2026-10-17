@@ -10,16 +10,13 @@ export const OttoToolId = Schema.Literals([
   "delegate",
   "message_post",
   "connection_search",
-  "GetPlugin",
+  "connection_read",
+  "connection_create",
+  "connection_update",
+  "connection_check",
+  "connection_delete",
   "message_react",
-  "InstallPlugin",
-  "UninstallPlugin",
-  "GetMcpServerStatus",
-  "TestMcpServer",
-  "ReconnectMcpServer",
   "bot_update",
-  "AuthenticateMcpServer",
-  "RestartMcpServers",
   "web_search",
   "web_fetch",
   "image_create",
@@ -31,11 +28,6 @@ export const OttoToolId = Schema.Literals([
   "task_create",
   "task_update",
   "task_comment",
-  "AddMcpServer",
-  "UninstallMcpServer",
-  "RemoveMcpAccount",
-  "RenameMcpAccount",
-  "SetMcpInstructions",
 ]);
 
 export type OttoToolId = typeof OttoToolId.Type;
@@ -157,12 +149,39 @@ export const OTTO_TOOL_CATALOG = [
   define(
     "connection_search",
     "bot-workspace",
-    "Search available plugins and connected integration providers when the user needs a capability that is not installed.",
+    "Search the plugin catalog and connected providers for a capability you lack. " +
+      "Read-only; returns plugins with id, status and the action to take.",
   ),
   define(
-    "GetPlugin",
+    "connection_read",
     "bot-workspace",
-    "Inspect a plugin, its connection, permissions, health, and dependents.",
+    "Show one plugin or MCP server by id: connection, permissions, health and dependents. Read-only.",
+  ),
+  define(
+    "connection_create",
+    "bot-workspace",
+    "Install a catalog plugin by pluginId, or add a remote MCP server by url and title. " +
+      "A person approves it. Returns the new connection and any sign-in step.",
+    { approval: "secrets" },
+  ),
+  define(
+    "connection_update",
+    "bot-workspace",
+    "Rename an MCP server or replace its instructions for bots; null keeps a field. A person approves it.",
+    { approval: "secrets" },
+  ),
+  define(
+    "connection_check",
+    "bot-workspace",
+    'Test a connection, reconnect it, or start sign-in with action "authenticate". ' +
+      "Returns its status and any authorization link to give the person.",
+    { approval: "production" },
+  ),
+  define(
+    "connection_delete",
+    "bot-workspace",
+    "Remove a plugin or MCP server and its account. A person approves it.",
+    { approval: "delete" },
   ),
   define(
     "message_react",
@@ -170,26 +189,7 @@ export const OTTO_TOOL_CATALOG = [
     "Add or remove an emoji reaction on a visible message.",
     { approval: "send" },
   ),
-  define("InstallPlugin", "bot-workspace", "Install a curated plugin after inspecting it.", {
-    approval: "production",
-  }),
-  define("UninstallPlugin", "bot-workspace", "Remove a curated plugin after inspecting it.", {
-    approval: "delete",
-  }),
-  define("GetMcpServerStatus", "bot-workspace", "Inspect an MCP server connection."),
-  define("TestMcpServer", "bot-workspace", "Run a real MCP server connection test.", {
-    approval: "production",
-  }),
-  define("ReconnectMcpServer", "bot-workspace", "Reconnect one MCP server.", {
-    approval: "production",
-  }),
   define("bot_update", "bot-workspace", "Update this bot's public profile."),
-  define("AuthenticateMcpServer", "bot-workspace", "Authenticate an MCP server.", {
-    approval: "secrets",
-  }),
-  define("RestartMcpServers", "bot-workspace", "Restart MCP servers.", {
-    approval: "production",
-  }),
   define("web_search", "bot-workspace", "Search the public web.", {
     promptSnippet: "search the public web",
   }),
@@ -266,11 +266,4 @@ export const OTTO_TOOL_CATALOG = [
       "or answer someone on the task.",
     { promptSnippet: "comment on a task" },
   ),
-  define("AddMcpServer", "bot-workspace", "Add an MCP server account.", { approval: "secrets" }),
-  define("UninstallMcpServer", "bot-workspace", "Remove an MCP server.", { approval: "delete" }),
-  define("RemoveMcpAccount", "bot-workspace", "Remove an MCP account.", { approval: "delete" }),
-  define("RenameMcpAccount", "bot-workspace", "Rename an MCP account.", { approval: "secrets" }),
-  define("SetMcpInstructions", "bot-workspace", "Set MCP account instructions.", {
-    approval: "secrets",
-  }),
 ] satisfies ReadonlyArray<OttoToolDefinition>;

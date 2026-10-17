@@ -51,7 +51,7 @@ describe("AgentControllerLive", () => {
           policy: expect.anything(),
         });
         expect(mastra.session.permissions.setForTool).toHaveBeenCalledWith({
-          toolName: "RestartMcpServers",
+          toolName: "shell",
           policy: "ask",
         });
       }),

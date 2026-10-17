@@ -217,8 +217,8 @@ describe("Otto catalog MCP tool handlers", () => {
       changed: true,
       authenticationRequired: true,
       nextTool: {
-        id: "AuthenticateMcpServer",
-        input: { serverId: "builtin-matrix-fixture" },
+        id: "connection_check",
+        input: { id: "builtin-matrix-fixture", action: "authenticate" },
       },
     });
     expect(dispatch.mock.calls.map(([command]) => command.type)).toEqual([
@@ -331,9 +331,9 @@ describe("Otto catalog MCP tool handlers", () => {
 
     expect(Object.keys(createOttoCatalogToolHandlers(undefined, runtime))).toEqual([
       "connection_search",
-      "GetPlugin",
-      "InstallPlugin",
-      "UninstallPlugin",
+      "connection_read",
+      "connection_delete",
+      "connection_create",
     ]);
   });
 });
