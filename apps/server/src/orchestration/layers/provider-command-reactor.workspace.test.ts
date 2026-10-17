@@ -106,6 +106,50 @@ describe("ProviderCommandReactor", () => {
     });
   });
 
+  it("names a bot's worktree branch otto/<bot>/<topic>", async () => {
+    const harness = await createHarness({
+      botEngine: { provider: "codex", model: "gpt-5-codex" },
+    });
+    const now = "2026-01-01T00:00:00.000Z";
+
+    await harness.run(
+      harness.engine.dispatch({
+        type: "thread.meta.update",
+        commandId: CommandId.make("cmd-thread-bot-branch"),
+        threadId: ThreadId.make("thread-1"),
+        branch: "otto/1234abcd",
+        worktreePath: "/tmp/provider-project-worktree",
+      }),
+    );
+
+    harness.generateBranchName.mockImplementation(() =>
+      Effect.succeed({ branch: "otto/reconnect-backoff" }),
+    );
+
+    await harness.run(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.make("cmd-turn-start-bot-branch"),
+        threadId: ThreadId.make("thread-1"),
+        message: {
+          messageId: asMessageId("user-message-bot-branch"),
+          role: "user",
+          text: "Add a safer reconnect backoff.",
+          attachments: [],
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: now,
+      }),
+    );
+
+    await harness.waitFor(() => harness.renameBranch.mock.calls.length === 1);
+    expect(harness.renameBranch.mock.calls[0]?.[0]).toMatchObject({
+      oldBranch: "otto/1234abcd",
+      newBranch: "otto/configured-bot/reconnect-backoff",
+    });
+  });
+
   it("recreates a missing worktree from the thread branch before starting a turn", async () => {
     const harness = await createHarness();
     const now = "2026-01-01T00:00:00.000Z";

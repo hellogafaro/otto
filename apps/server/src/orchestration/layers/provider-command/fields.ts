@@ -6,7 +6,11 @@ import {
   type OrchestrationThreadShell,
   type RuntimeMode,
 } from "@otto/contracts";
-import { stripWorktreeBranchPrefix, WORKTREE_BRANCH_PREFIX } from "@otto/shared/git";
+import {
+  sanitizeBranchFragment,
+  stripWorktreeBranchPrefix,
+  WORKTREE_BRANCH_PREFIX,
+} from "@otto/shared/git";
 import * as Cause from "effect/Cause";
 import * as Duration from "effect/Duration";
 import * as Schema from "effect/Schema";
@@ -213,24 +217,19 @@ export function stalePendingRequestDetail(
   return `Stale pending ${requestKind} request: ${requestId}. Provider callback state does not survive app restarts or recovered sessions. Restart the turn to continue.`;
 }
 
-export function buildGeneratedWorktreeBranchName(raw: string): string {
-  const normalized = raw
-    .trim()
-    .toLowerCase()
-    .replace(/^refs\/heads\//, "")
-    .replace(/['"`]/g, "");
+/** Bot work lands on `otto/<bot>/<topic>`, the shape the git skill teaches. */
+export function buildGeneratedWorktreeBranchName(raw: string, botName?: string): string {
+  const topic = sanitizeBranchFragment(
+    stripWorktreeBranchPrefix(raw.trim().replace(/^refs\/heads\//i, "")),
+  );
 
-  const withoutPrefix = stripWorktreeBranchPrefix(normalized);
+  if (botName === undefined) {
+    return `${WORKTREE_BRANCH_PREFIX}/${topic}`;
+  }
 
-  const branchFragment = withoutPrefix
-    .replace(/[^a-z0-9/_-]+/g, "-")
-    .replace(/\/+/g, "/")
-    .replace(/-+/g, "-")
-    .replace(/^[./_-]+|[./_-]+$/g, "")
-    .slice(0, 64)
-    .replace(/[./_-]+$/g, "");
+  const bot = sanitizeBranchFragment(botName).replaceAll("/", "-");
 
-  const safeFragment = branchFragment.length > 0 ? branchFragment : "update";
-
-  return `${WORKTREE_BRANCH_PREFIX}/${safeFragment}`;
+  return topic.startsWith(`${bot}/`)
+    ? `${WORKTREE_BRANCH_PREFIX}/${topic}`
+    : `${WORKTREE_BRANCH_PREFIX}/${bot}/${topic}`;
 }

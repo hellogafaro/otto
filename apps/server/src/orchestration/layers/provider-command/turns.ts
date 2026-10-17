@@ -157,6 +157,15 @@ export function createTurns({
 
     yield* ensureThreadWorktree(thread);
 
+    const respondingBotId = resolveControllerBotId(thread);
+
+    const respondingBot =
+      respondingBotId === null
+        ? undefined
+        : yield* projectionBotRepository
+            .getById({ botId: respondingBotId })
+            .pipe(Effect.map(Option.getOrUndefined));
+
     const isFirstUserMessageTurn = !hasOtherUserMessages;
 
     if (isFirstUserMessageTurn) {
@@ -170,6 +179,7 @@ export function createTurns({
         branch: thread.branch,
         worktreePath: thread.worktreePath,
         ...generationInput,
+        ...(respondingBot ? { botName: respondingBot.name } : {}),
       }).pipe(Effect.forkScoped);
     }
 
@@ -222,15 +232,6 @@ export function createTurns({
           }),
         ),
       );
-
-    const respondingBotId = resolveControllerBotId(thread);
-
-    const respondingBot =
-      respondingBotId === null
-        ? undefined
-        : yield* projectionBotRepository
-            .getById({ botId: respondingBotId })
-            .pipe(Effect.map(Option.getOrUndefined));
 
     const reservationId = OttoUsageReservationId.make(`turn:${event.eventId}`);
 

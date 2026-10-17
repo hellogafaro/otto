@@ -90,6 +90,7 @@ export function createWorkspace({
     readonly worktreePath: string | null;
     readonly messageText: string;
     readonly attachments?: ReadonlyArray<ChatAttachment>;
+    readonly botName?: string;
   }) {
     if (!input.branch || !input.worktreePath) {
       return;
@@ -117,7 +118,7 @@ export function createWorkspace({
 
       if (!generated) return;
 
-      const targetBranch = buildGeneratedWorktreeBranchName(generated.branch);
+      const targetBranch = buildGeneratedWorktreeBranchName(generated.branch, input.botName);
 
       if (targetBranch === oldBranch) return;
 
