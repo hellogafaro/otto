@@ -122,7 +122,7 @@ describe("Boat", () => {
     await session.wake();
     expect(resume).toHaveBeenCalledWith({
       sandboxId: "boat-id",
-      resumeRequest: { ttlSeconds: null },
+      resumeRequest: { ttlSeconds: 1800 },
     });
     expect(await session.inspect()).toBe("running");
     await session.destroy();
@@ -176,7 +176,7 @@ describe("Boat", () => {
         if (action === "wake")
           expect(resume).toHaveBeenCalledWith({
             sandboxId: "boat-id",
-            resumeRequest: { ttlSeconds: null },
+            resumeRequest: { ttlSeconds: 1800 },
           });
         else expect(stop).toHaveBeenCalledOnce();
       } finally {
@@ -400,7 +400,8 @@ describe("Boat", () => {
 
       const first = await createRemoteBotWorkspace(input);
       expect(create).toHaveBeenCalledWith({
-        createSandboxRequest: { ttlSeconds: null, noEnv: true },
+        idempotencyKey: expect.any(String),
+        createSandboxRequest: { ttlSeconds: 1800, noEnv: true },
       });
       const client = create.mock.contexts[0] as import("@boatdev/sdk").BoatApi;
       expect((await client.createRequestOpts({})).headers.Authorization).toBe(
@@ -418,6 +419,7 @@ describe("Boat", () => {
       await expect(second.destroy()).rejects.toThrow("Boat is unavailable.");
       expect(JSON.parse(await NodeFS.promises.readFile(input.identityFile, "utf8"))).toEqual({
         provider: "boat",
+        scope: "thread",
         providerId: "boat-id",
       });
       await second.destroy();
@@ -475,17 +477,25 @@ describe("Boat", () => {
         if (status === 404) {
           create.mockRejectedValueOnce(new Error("creation unavailable"));
           await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
-          expect(JSON.parse(await NodeFS.promises.readFile(identityFile, "utf8"))).toEqual(
-            previous,
-          );
+          const pending = JSON.parse(await NodeFS.promises.readFile(identityFile, "utf8"));
+          expect(pending).toEqual({
+            provider: "boat",
+            scope: "thread",
+            createKey: expect.any(String),
+          });
           const workspace = await createRemoteBotWorkspace(input);
+          expect(create).toHaveBeenLastCalledWith(
+            expect.objectContaining({ idempotencyKey: pending.createKey }),
+          );
           expect(workspace.providerId).toBe("replacement-id");
           expect(JSON.parse(await NodeFS.promises.readFile(identityFile, "utf8"))).toEqual({
             provider: "boat",
+            scope: "thread",
             providerId: "replacement-id",
           });
           expect(create).toHaveBeenLastCalledWith({
-            createSandboxRequest: { ttlSeconds: null, noEnv: true },
+            idempotencyKey: expect.any(String),
+            createSandboxRequest: { ttlSeconds: 1800, noEnv: true },
           });
         } else {
           await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
@@ -681,6 +691,7 @@ describe("createBotWorkspace", () => {
     expect(openSession).toHaveBeenNthCalledWith(2, "native-workspace-id");
     expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toEqual({
       provider: "e2b",
+      scope: "thread-remote",
       providerId: "native-workspace-id",
     });
     await reattached.destroy();
@@ -752,6 +763,7 @@ describe("createBotWorkspace", () => {
       expect(workspace.providerId).toBe("fresh-id");
       expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toEqual({
         provider: "railway",
+        scope: "thread-railway",
         providerId: "fresh-id",
       });
     } finally {

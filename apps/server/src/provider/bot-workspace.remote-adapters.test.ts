@@ -61,7 +61,7 @@ describe("createBotWorkspace", () => {
       expect(create.mock.calls[0]?.[0]).toMatchObject(railwayCredentials);
       expect(connect).toHaveBeenCalledWith("railway-id", railwayCredentials);
       connect.mockRejectedValueOnce(new Error("unavailable"));
-      await expect(createRemoteBotWorkspace(input)).rejects.toThrow("missing or unavailable");
+      await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
       expect(create).toHaveBeenCalledTimes(1);
       await second.wake();
       await second.destroy();

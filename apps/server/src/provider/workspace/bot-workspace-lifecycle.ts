@@ -26,29 +26,43 @@ export function wrap(workspace: Workspace, provider: "local" | RemoteBotSandbox)
   };
 }
 
-const decodeIdentity = Schema.decodeUnknownOption(
-  Schema.Struct({ provider: Schema.Literals(REMOTE_BOT_SANDBOXES), providerId: Schema.String }),
-);
+/**
+ * One record per computer, written before the provider creates it: who owns it (`scope` is
+ * `bot-<id>` or `thread-<id>`), the provider's id once created, Boat's idempotency key, and
+ * when a session last opened it.
+ */
+const BotWorkspaceRecord = Schema.Struct({
+  provider: Schema.Literals(["local", ...REMOTE_BOT_SANDBOXES]),
+  providerId: Schema.optional(Schema.String),
+  createKey: Schema.optional(Schema.String),
+  scope: Schema.optional(Schema.String),
+  usedAt: Schema.optional(Schema.String),
+  orphanedAt: Schema.optional(Schema.String),
+});
 
-export async function readIdentity(io: BotWorkspaceIO, path: string) {
+export type BotWorkspaceRecord = typeof BotWorkspaceRecord.Type;
+
+const decodeRecord = Schema.decodeUnknownOption(BotWorkspaceRecord);
+
+export async function readIdentity(
+  io: BotWorkspaceIO,
+  path: string,
+): Promise<BotWorkspaceRecord | undefined> {
   const content = await io.readIdentity(path);
 
   if (content === undefined) return undefined;
-  const value = Option.getOrUndefined(decodeIdentity(JSON.parse(content)));
+  const value = Option.getOrUndefined(decodeRecord(JSON.parse(content)));
 
-  if (!value || !value.providerId) throw new Error(`Workspace identity file '${path}' is invalid.`);
+  if (!value || value.providerId === "")
+    throw new Error(`Workspace identity file '${path}' is invalid.`);
 
   return value;
 }
 
-export async function writeIdentity(
-  io: BotWorkspaceIO,
-  path: string,
-  identity: { provider: RemoteBotSandbox; providerId: string },
-) {
+export async function writeIdentity(io: BotWorkspaceIO, path: string, record: BotWorkspaceRecord) {
   await io.mkdir(io.path.dirname(path));
   const temporary = `${path}.${process.pid}.tmp`;
-  await io.writeIdentity(temporary, `${JSON.stringify(identity)}\n`);
+  await io.writeIdentity(temporary, `${JSON.stringify(record)}\n`);
   await io.rename(temporary, path);
 }
 

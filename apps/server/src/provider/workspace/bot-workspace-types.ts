@@ -19,6 +19,8 @@ export interface OttoBotWorkspace {
   readonly destroy: () => Promise<void>;
   /** A fresh secret link to the computer's live desktop, where the provider streams one. */
   readonly desktopUrl?: () => Promise<string>;
+  /** Pushes back the provider's own auto-stop while Otto uses the computer. */
+  readonly keepAlive?: () => Promise<void>;
 }
 
 export interface OttoRemoteSession {
@@ -33,6 +35,7 @@ export interface OttoRemoteSession {
   readonly sleep: () => Promise<void>;
   readonly destroy: () => Promise<void>;
   readonly desktopUrl?: () => Promise<string>;
+  readonly keepAlive?: () => Promise<void>;
 }
 
 export interface CreateRemoteBotWorkspaceInput {
@@ -40,6 +43,8 @@ export interface CreateRemoteBotWorkspaceInput {
   readonly threadId: string;
   readonly sandbox: RemoteBotSandbox;
   readonly identityFile?: string;
+  /** Where the record lived before it moved beside the computer's folder. */
+  readonly legacyIdentityFile?: string;
   readonly workspaceId?: string;
   readonly environment?: Readonly<Record<string, string>>;
   readonly openSession?: (providerId?: string) => Promise<OttoRemoteSession>;
@@ -50,6 +55,7 @@ export interface CreateBotWorkspaceInput {
   readonly threadId: string;
   readonly cwd?: string;
   readonly identityFile?: string;
+  readonly legacyIdentityFile?: string;
   readonly localRoot?: string;
   /** Server-owned directory for local isolation profiles, outside every bot-writable path. */
   readonly sandboxProfileDirectory?: string;

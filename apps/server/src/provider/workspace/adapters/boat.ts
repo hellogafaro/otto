@@ -3,6 +3,9 @@ import * as Predicate from "effect/Predicate";
 import { type OttoRemoteSession } from "../bot-workspace-types.ts";
 import { quote, commandLine } from "../bot-workspace-lifecycle.ts";
 
+/** Boat stops a computer by itself this long after Otto last used it, even if Otto is down. */
+export const BOAT_TTL_SECONDS = 1800;
+
 /** Boat's SDK reports every HTTP failure as "Response returned an error code"; surface its message. */
 export async function boatFailure(cause: unknown): Promise<Error> {
   const { ResponseError } = await import("@boatdev/sdk");
@@ -67,7 +70,7 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
       if (sandbox.state === "archiving") await waitUntilArchived();
 
       if (sandbox.state === "archived" || sandbox.state === "archiving")
-        await client.resume({ sandboxId, resumeRequest: { ttlSeconds: null } });
+        await client.resume({ sandboxId, resumeRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
       const { waitUntilReady } = await import("@boatdev/sdk");
       await waitUntilReady(client, sandboxId, { timeoutMs: 300_000 });
     },
@@ -92,6 +95,9 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
         await Effect.runPromise(Effect.sleep(2_000));
         result = await client.getDeletionOperation({ operationId: result.operation.id });
       }
+    },
+    keepAlive: async () => {
+      await client.update({ sandboxId, updateSandboxRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
     },
     desktopUrl: async () => {
       const { desktopUrl } = await client.desktop({ sandboxId }).catch(async (cause: unknown) => {

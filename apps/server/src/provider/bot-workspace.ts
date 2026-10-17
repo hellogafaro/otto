@@ -11,14 +11,16 @@ import {
   type CreateRemoteBotWorkspaceInput,
   type OttoRemoteSession,
 } from "./workspace/bot-workspace-types.ts";
+import * as Predicate from "effect/Predicate";
 import {
+  type BotWorkspaceRecord,
   wrap,
   readIdentity,
   writeIdentity,
   credential,
 } from "./workspace/bot-workspace-lifecycle.ts";
 import { RemoteSandbox } from "./workspace/remote-sandbox.ts";
-import { boat, boatFailure } from "./workspace/adapters/boat.ts";
+import { BOAT_TTL_SECONDS, boat, boatFailure } from "./workspace/adapters/boat.ts";
 import { e2b } from "./workspace/adapters/e2b.ts";
 import { daytona } from "./workspace/adapters/daytona.ts";
 import { vercel, vercelCredentials } from "./workspace/adapters/vercel.ts";
@@ -39,6 +41,7 @@ export async function createBotWorkspace(
       threadId: input.threadId,
       sandbox: input.sandbox,
       ...(input.identityFile ? { identityFile: input.identityFile } : {}),
+      ...(input.legacyIdentityFile ? { legacyIdentityFile: input.legacyIdentityFile } : {}),
       ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
       ...(input.environment ? { environment: input.environment } : {}),
     });
@@ -82,34 +85,50 @@ export async function createRemoteBotWorkspace(
 ): Promise<OttoBotWorkspace> {
   if (!input.identityFile || !input.workspaceId)
     throw new Error(`Remote sandbox '${input.sandbox}' needs a stable workspace identity.`);
-  const identityFile = input.identityFile;
-  const persisted = await readIdentity(input.io, identityFile);
+  const { identityFile, legacyIdentityFile } = input;
+
+  const persisted =
+    (await readIdentity(input.io, identityFile)) ??
+    (legacyIdentityFile ? await readIdentity(input.io, legacyIdentityFile) : undefined);
 
   if (persisted && persisted.provider !== input.sandbox)
     throw new Error(
       `Workspace '${input.workspaceId}' belongs to '${persisted.provider}', not '${input.sandbox}'.`,
     );
+  const owner = { provider: input.sandbox, scope: input.threadId };
   let session: OttoRemoteSession;
 
   try {
-    session = input.openSession
+    const opened = input.openSession
       ? await input.openSession(persisted?.providerId)
-      : await connect(input.sandbox, input.workspaceId, input.environment, persisted?.providerId);
+      : await connect(input.sandbox, input.workspaceId, input.environment, persisted, (createKey) =>
+          writeIdentity(input.io, identityFile, { ...owner, createKey }),
+        );
+
+    if (!opened) throw new Error(`Remote ${input.sandbox} workspace is missing.`);
+    session = opened;
   } catch (cause) {
-    if (!persisted) throw cause;
+    if (!persisted?.providerId) throw cause;
     throw new Error(`Remote ${input.sandbox} workspace '${persisted.providerId}' is unavailable.`, {
       cause,
     });
   }
 
-  if (!persisted || persisted.providerId !== session.providerId) {
+  const created = persisted?.providerId !== session.providerId;
+
+  const record = {
+    ...owner,
+    providerId: session.providerId,
+    ...(!created && persisted?.usedAt ? { usedAt: persisted.usedAt } : {}),
+  };
+
+  if (JSON.stringify(record) !== JSON.stringify(persisted)) {
     try {
-      await writeIdentity(input.io, identityFile, {
-        provider: input.sandbox,
-        providerId: session.providerId,
-      });
+      await writeIdentity(input.io, identityFile, record);
+
+      if (legacyIdentityFile) await input.io.remove(legacyIdentityFile);
     } catch (cause) {
-      await session.destroy().catch(() => undefined);
+      if (created) await session.destroy().catch(() => undefined);
       throw cause;
     }
   }
@@ -129,6 +148,7 @@ export async function createRemoteBotWorkspace(
     workspace,
     inspect: session.inspect,
     ...(session.desktopUrl ? { desktopUrl: session.desktopUrl } : {}),
+    ...(session.keepAlive ? { keepAlive: session.keepAlive } : {}),
     wake: () => workspace.init(),
     sleep: () => workspace.stop(),
     destroy: async () => {
@@ -138,14 +158,56 @@ export async function createRemoteBotWorkspace(
   };
 }
 
+/**
+ * Deletes a recorded computer at its provider without creating one; a computer the provider
+ * no longer has counts as deleted.
+ */
+export async function destroyRemoteComputer(input: {
+  readonly provider: RemoteBotSandbox;
+  readonly workspaceId: string;
+  readonly record: BotWorkspaceRecord;
+  readonly environment: Readonly<Record<string, string>>;
+}): Promise<void> {
+  if (!input.record.providerId && !input.record.createKey) return;
+
+  try {
+    const session = await connect(
+      input.provider,
+      input.workspaceId,
+      input.environment,
+      input.record,
+      async () => undefined,
+      { replaceMissing: false },
+    );
+
+    await session?.destroy();
+  } catch (cause) {
+    const { ResponseError } = await import("@boatdev/sdk");
+
+    if (cause instanceof ResponseError && cause.response.status === 404) return;
+
+    if (Predicate.hasProperty(cause, "code") && cause.code === "SANDBOX_REATTACH_FAILED") return;
+    throw input.provider === "boat" ? await boatFailure(cause) : cause;
+  }
+}
+
 async function connect(
   provider: RemoteBotSandbox,
   id: string,
   environment: Readonly<Record<string, string>> = {},
-  providerId?: string,
-): Promise<OttoRemoteSession> {
+  persisted: BotWorkspaceRecord | undefined,
+  saveCreateKey: (createKey: string) => Promise<void>,
+  options: { readonly replaceMissing: boolean } = { replaceMissing: true },
+): Promise<OttoRemoteSession | undefined> {
+  const providerId = persisted?.providerId;
+
   // A confirmed-missing VM is replaced; any other failure keeps the saved identity.
-  const reattach = providerId ? { sandboxId: providerId } : {};
+  const reattach = providerId
+    ? {
+        sandboxId: providerId,
+        ...(options.replaceMissing ? {} : { reattach: "required" as const }),
+      }
+    : {};
 
   if (provider === "e2b") {
     const { E2BSandbox } = await import("@mastra/e2b");
@@ -210,11 +272,22 @@ async function connect(
     } catch (cause) {
       // A timed-out deletion can finish later; only confirmed absence permits replacement.
       if (!(cause instanceof ResponseError) || cause.response.status !== 404) throw cause;
+
+      if (!options.replaceMissing) return undefined;
     }
   }
 
+  // A create whose VM was never recorded retries with its key, so Boat returns that VM.
+  const createKey =
+    !providerId && persisted?.createKey ? persisted.createKey : NodeCrypto.randomUUID();
+
+  await saveCreateKey(createKey);
+
   const { sandbox } = await client
-    .create({ createSandboxRequest: { ttlSeconds: null, noEnv: true } })
+    .create({
+      idempotencyKey: createKey,
+      createSandboxRequest: { ttlSeconds: BOAT_TTL_SECONDS, noEnv: true },
+    })
     .catch(async (cause: unknown) => {
       throw await boatFailure(cause);
     });
