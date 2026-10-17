@@ -1,6 +1,7 @@
 import { buildOpenAICodexOAuthFetch } from "@mastra/code-sdk/providers/openai-codex";
 import type { AuthStorage } from "@mastra/code-sdk/auth/storage";
 import { createOpenAI } from "@ai-sdk/openai";
+import { Predicate } from "effect";
 import type { ApiKeyCredential } from "../subscription-auth/types.ts";
 import { subscriptionRequestUrl } from "../subscription-auth/runtime.ts";
 
@@ -51,15 +52,24 @@ function withCallOptions(
   };
 }
 
-/** Routes every request of one chat to the same prompt cache. */
+/** The prompt cache a request uses: the one its prompt chose (a group bot's own), else its chat's. */
+function promptCacheKey(params: OpenAICallOptions, threadId: string | undefined) {
+  const chosen = params.providerOptions?.openai?.["promptCacheKey"];
+
+  return Predicate.isString(chosen) ? chosen : threadId;
+}
+
+/** Routes every request of one chat, or of one bot in a group, to the same prompt cache. */
 function withPromptCacheKey(params: OpenAICallOptions, threadId: string | undefined) {
-  if (!threadId) return params;
+  const key = promptCacheKey(params, threadId);
+
+  if (!key) return params;
 
   return {
     ...params,
     providerOptions: {
       ...params.providerOptions,
-      openai: { ...params.providerOptions?.openai, promptCacheKey: threadId },
+      openai: { ...params.providerOptions?.openai, promptCacheKey: key },
     },
   };
 }
@@ -97,6 +107,7 @@ export function ottoCodexOAuthProvider(
   }).responses(modelId);
 
   return withCallOptions(model, (params) => {
+    const sessionId = promptCacheKey(params, threadId);
     const [first, ...rest] = params.prompt;
     const instructions = first?.role === "system" ? first.content : undefined;
     const openai = params.providerOptions?.openai;
@@ -106,12 +117,12 @@ export function ottoCodexOAuthProvider(
       {
         ...(params.temperature !== undefined ? withoutTopP : params),
         // Otto: the ChatGPT backend routes a session to the server holding its prompt cache.
-        ...(threadId
+        ...(sessionId
           ? {
               headers: {
                 ...params.headers,
-                "session-id": threadId,
-                "x-client-request-id": threadId,
+                "session-id": sessionId,
+                "x-client-request-id": sessionId,
               },
             }
           : {}),

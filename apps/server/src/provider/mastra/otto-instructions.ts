@@ -48,13 +48,20 @@ export const OttoChatContextRecord = Schema.Struct({
 
 export type OttoChatContextRecord = typeof OttoChatContextRecord.Type;
 
-/** Where each thread's record is kept; it must outlive the process for the prompt to cache. */
+/**
+ * Where each thread's record is kept, one per bot (`botId` is empty outside bot chats), so the
+ * bots of a group never rewrite each other's prompt prefix. It must outlive the process for the
+ * prompt to cache.
+ */
 export interface OttoChatContexts {
-  get(threadId: string): Promise<OttoChatContextRecord | undefined>;
-  set(threadId: string, record: OttoChatContextRecord): Promise<void>;
+  get(threadId: string, botId: string): Promise<OttoChatContextRecord | undefined>;
+  set(threadId: string, botId: string, record: OttoChatContextRecord): Promise<void>;
 }
 
 const CHAT_CONTEXT_KEY = "ottoChatContext";
+
+const chatContextKey = (botId: string) =>
+  botId ? `${CHAT_CONTEXT_KEY}:${botId}` : CHAT_CONTEXT_KEY;
 
 const decodeChatContextRecord = Schema.decodeUnknownOption(OttoChatContextRecord);
 
@@ -63,19 +70,21 @@ export function storedChatContexts(
   memory: Pick<Memory, "getThreadById" | "updateThread">,
 ): OttoChatContexts {
   return {
-    get: async (threadId) => {
+    get: async (threadId, botId) => {
       const thread = await memory.getThreadById({ threadId });
 
-      return Option.getOrUndefined(decodeChatContextRecord(thread?.metadata?.[CHAT_CONTEXT_KEY]));
+      return Option.getOrUndefined(
+        decodeChatContextRecord(thread?.metadata?.[chatContextKey(botId)]),
+      );
     },
-    set: async (threadId, record) => {
+    set: async (threadId, botId, record) => {
       const thread = await memory.getThreadById({ threadId });
 
       if (!thread) return;
 
       await memory.updateThread({
         id: threadId,
-        metadata: { ...thread.metadata, [CHAT_CONTEXT_KEY]: record },
+        metadata: { ...thread.metadata, [chatContextKey(botId)]: record },
       });
     },
   };
@@ -162,6 +171,7 @@ export function withOttoPrompt(
 
     const history = prompt.filter((message) => message.role !== "system");
     const threadId = controllerResourceId(requestContext);
+    const botId = botConversation ? stateText(requestContext, "botId") : "";
 
     // Mastra stamps each loaded message's provider options with a fresh createdAt.
     const firstMessage = NodeCrypto.createHash("sha256")
@@ -172,7 +182,7 @@ export function withOttoPrompt(
       )
       .digest("hex");
 
-    const previous = threadId ? await chats.get(threadId) : undefined;
+    const previous = threadId ? await chats.get(threadId, botId) : undefined;
 
     const changes = OTTO_CHAT_CONTEXT_SECTIONS.flatMap((name) =>
       previous && previous.sections[name] !== sections[name]
@@ -197,7 +207,7 @@ export function withOttoPrompt(
                 : previous.updates,
             };
 
-    if (threadId && chat !== previous) await chats.set(threadId, chat);
+    if (threadId && chat !== previous) await chats.set(threadId, botId, chat);
 
     const conversation = history.flatMap((message, index) => [
       message,
@@ -224,8 +234,24 @@ export function withOttoPrompt(
             }),
           );
 
+    // Each bot of a group has its own prompt prefix, so it gets its own OpenAI prompt cache.
     if (!anthropic)
-      return { ...params, maxOutputTokens, prompt: [...system, ...conversation, turn] };
+      return {
+        ...params,
+        maxOutputTokens,
+        prompt: [...system, ...conversation, turn],
+        ...(threadId && botId
+          ? {
+              providerOptions: {
+                ...params.providerOptions,
+                openai: {
+                  ...params.providerOptions?.openai,
+                  promptCacheKey: `${threadId}:${botId}`,
+                },
+              },
+            }
+          : {}),
+      };
 
     const tools = params.tools ?? [];
 

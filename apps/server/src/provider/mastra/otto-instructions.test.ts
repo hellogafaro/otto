@@ -94,9 +94,9 @@ function inMemoryChats(): OttoChatContexts {
   const records = new Map<string, OttoChatContextRecord>();
 
   return {
-    get: async (threadId) => records.get(threadId),
-    set: async (threadId, record) => {
-      records.set(threadId, record);
+    get: async (threadId, botId) => records.get(`${threadId}:${botId}`),
+    set: async (threadId, botId, record) => {
+      records.set(`${threadId}:${botId}`, record);
     },
   };
 }
@@ -241,6 +241,46 @@ describe("withOttoPrompt", () => {
       user("summary"),
       user("e"),
       turn,
+    ]);
+  });
+
+  it("keeps each group bot's prefix and OpenAI prompt cache apart", async () => {
+    const { model, calls } = recordingModel("openai.responses");
+    const chats = inMemoryChats();
+    const mina = {
+      botConversation: true,
+      botId: "bot-mina",
+      botName: "Mina",
+      groupContext: "Mina",
+    };
+    const juno = {
+      botConversation: true,
+      botId: "bot-juno",
+      botName: "Juno",
+      groupContext: "Juno",
+    };
+
+    await send(withOttoPrompt(model, context(mina), chats, now), [user("a")]);
+    await send(withOttoPrompt(model, context(juno), chats, now), [user("a"), assistant("b")]);
+
+    await send(withOttoPrompt(model, context(mina), chats, now), [
+      user("a"),
+      assistant("b"),
+      assistant("c"),
+    ]);
+
+    const minaChat = { role: "system", content: createOttoChatContext({ chat: "Mina" }) };
+
+    expect(calls[2]?.prompt.slice(1, 3)).toEqual([minaChat, user("a")]);
+    expect(
+      calls[2]?.prompt.some(
+        (message) => message.role === "system" && message.content.includes("Juno"),
+      ),
+    ).toBe(false);
+    expect(calls.map((call) => call.providerOptions?.["openai"]?.["promptCacheKey"])).toEqual([
+      "thread-1:bot-mina",
+      "thread-1:bot-juno",
+      "thread-1:bot-mina",
     ]);
   });
 
