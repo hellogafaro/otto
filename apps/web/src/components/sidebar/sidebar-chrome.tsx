@@ -293,12 +293,16 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
           it back to centered icons. */}
       <SidebarMenu density="tight" className="flex-col flex-nowrap overflow-visible">
         <SidebarPluginSummary onClick={handlePluginsClick} />
+      </SidebarMenu>
+      <div className="flex empty:hidden group-data-[collapsible=icon]:justify-center">
+        <SidebarUpdatePill />
+      </div>
+      <SidebarMenu density="tight" className="flex-col flex-nowrap overflow-visible">
         <SidebarUtilityItem
           icon={<AppIcon className="size-4" icon={RiSettings3Line} />}
           label={t("Settings")}
           onClick={handleSettingsClick}
         />
-        <SidebarUpdatePill />
       </SidebarMenu>
     </SidebarFooter>
   );

@@ -26,6 +26,7 @@ import { SettingsPanelNav } from "../settings/settings-sidebar-nav";
 import { AppIcon } from "../ui/app-icon";
 import { useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { SidebarUpdatePill } from "./sidebar-update-pill";
 
 /**
  * Codex-style sidebar experiment: a rail of places beside a raised panel.
@@ -194,6 +195,7 @@ export function ExperimentalSidebar() {
           />
         </div>
         <div className="mt-auto flex flex-col items-center gap-1">
+          <SidebarUpdatePill />
           <RailButton
             label={t("Settings")}
             icon={RiSettings3Line}

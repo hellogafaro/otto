@@ -127,6 +127,9 @@ const buttonVariants = cva(
           "[--control-icon-color:var(--contrast-muted-foreground)] border-transparent text-foreground data-pressed:bg-accent [:hover,[data-pressed]]:bg-accent",
         "ghost-destructive":
           "[--control-icon-color:var(--contrast-muted-foreground)] border-transparent text-destructive data-pressed:bg-accent [:hover,[data-pressed]]:bg-accent",
+        // Otto: A ghost button made of the primary color: primary glyph, a soft primary fill on hover.
+        "ghost-primary":
+          "[--control-icon-color:var(--primary)] border-transparent text-primary aria-disabled:cursor-not-allowed not-aria-disabled:[:hover,[data-pressed]]:bg-primary/10",
         "ghost-muted":
           "[--control-icon-color:var(--contrast-muted-foreground)] border-transparent text-muted-foreground data-pressed:bg-accent [:hover,[data-pressed]]:bg-accent [:hover,[data-pressed]]:text-foreground",
         /** Quiet sheet row; the hover fill marks it without changing its color. */
