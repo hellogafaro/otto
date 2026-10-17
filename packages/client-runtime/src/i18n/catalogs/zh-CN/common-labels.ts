@@ -498,6 +498,5 @@ export const commonLabelsCatalog = {
   "Otto hit an error. Reload to try again.": "Otto 出错了。请重新加载后再试。",
   Tabs: "标签页",
   "New tab": "新建标签页",
-  "New tab ({shortcut})": "新建标签页（{shortcut}）",
   "Close tab": "关闭标签页",
 } as const;

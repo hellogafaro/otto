@@ -88,7 +88,23 @@
 /* Otto: A raised card fill, like the active desktop tab, whose trail fades into the card. */
 @utility sidebar-row-raised {
   --sidebar-row-tint: var(--card);
+  --sidebar-row-base: var(--card);
   background-color: var(--card);
+}
+
+/*
+ * Otto: An inactive desktop tab: one opaque fill a step off the titlebar in both themes,
+ * which its title fade also uses, so the fade never darkens into a shadow.
+ */
+@utility desktop-tab-fill {
+  --desktop-tab-fill: color-mix(in oklab, var(--sidebar-foreground) 6%, var(--sidebar));
+  --sidebar-row-tint: var(--desktop-tab-fill);
+  --sidebar-row-base: var(--desktop-tab-fill);
+  background-color: var(--desktop-tab-fill);
+
+  &:is(.dark *) {
+    --desktop-tab-fill: var(--sidebar-row-hover);
+  }
 }
 
 /*
@@ -98,7 +114,7 @@
 @utility sidebar-row-trail {
   background-image:
     linear-gradient(to right, transparent, var(--sidebar-row-tint, transparent) 1.25rem),
-    linear-gradient(to right, transparent, var(--sidebar) 1.25rem);
+    linear-gradient(to right, transparent, var(--sidebar-row-base, var(--sidebar)) 1.25rem);
 }
 
 /* Sidebar panel drawn as a floating shell card. */

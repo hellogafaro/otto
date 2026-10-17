@@ -38,6 +38,7 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { ThreadStatusIcon } from "../roster/chat-status-icon";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
+import { Kbd, KbdGroup } from "../ui/kbd";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 const isMac = isMacPlatform(navigator.platform);
@@ -180,7 +181,6 @@ export function DesktopTabStrip() {
   }, [router]);
 
   const show = (next: string | null) => showRoute(router, next);
-  const shortcut = isMac ? "⌘T" : "Ctrl+T";
 
   return (
     <div
@@ -221,7 +221,7 @@ export function DesktopTabStrip() {
                 "group/tab relative flex h-7 w-48 min-w-0 items-center overflow-hidden rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
                 active
                   ? "sidebar-row-raised text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
-                  : "sidebar-row-hovered text-sidebar-muted-foreground hover:text-sidebar-foreground",
+                  : "desktop-tab-fill text-sidebar-muted-foreground hover:text-sidebar-foreground",
               )}
             >
               <button
@@ -276,7 +276,15 @@ export function DesktopTabStrip() {
             </Button>
           }
         />
-        <TooltipPopup side="bottom">{t("New tab ({shortcut})", { shortcut })}</TooltipPopup>
+        <TooltipPopup side="bottom">
+          <span className="flex items-center gap-2">
+            {t("New tab")}
+            <KbdGroup>
+              <Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd>
+              <Kbd>T</Kbd>
+            </KbdGroup>
+          </span>
+        </TooltipPopup>
       </Tooltip>
     </div>
   );
