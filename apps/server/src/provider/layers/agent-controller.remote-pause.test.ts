@@ -485,3 +485,60 @@ describe("AgentControllerLive", () => {
     );
   });
 });
+
+describe("AgentControllerLive", () => {
+  it.effect("keeps a reattached Boat computer when the session fails to start", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+    mastra.createSession.mockRejectedValueOnce(new Error("model unavailable"));
+
+    const workspace = new Workspace({
+      filesystem: new LocalFilesystem({ basePath: process.cwd() }),
+      sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
+    });
+
+    const destroy = vi.fn(async () => undefined);
+
+    const layer = agentControllerLayerWith({
+      makeMastraHarness: mastra.factory,
+      makeRemoteWorkspace: async () => ({
+        id: "boat-reattached",
+        provider: "boat",
+        providerId: "sbx_existing",
+        workspace,
+        inspect: async () => "running",
+        wake: async () => undefined,
+        sleep: async () => undefined,
+        destroy,
+      }),
+    }).pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(LegacyProviderBridge, bridge.service),
+          Layer.succeed(BotUsageLedger, usageLedgerFixture().service),
+          ServerConfig.layerTest(process.cwd(), { prefix: "otto-failed-start-" }).pipe(
+            Layer.provide(NodeServices.layer),
+          ),
+        ),
+      ),
+    );
+
+    return Effect.gen(function* () {
+      const controller = yield* AgentController;
+      yield* resolveCodex(controller);
+      const started = yield* controller
+        .startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          modelSelection: codexSelection,
+          runtimeMode: "full-access",
+          botSandbox: "boat",
+        })
+        .pipe(Effect.exit);
+      expect(started._tag).toBe("Failure");
+      expect(mastra.createSession).toHaveBeenCalledOnce();
+      expect(destroy).not.toHaveBeenCalled();
+    }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
+  });
+});

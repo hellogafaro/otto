@@ -302,9 +302,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           ),
           Effect.tapError(() =>
             deps
-              .runMastra("resources.release", () =>
-                deps.sessionResources.release(key, { destroy: true }),
-              )
+              .runMastra("resources.release", () => deps.sessionResources.release(key))
               .pipe(Effect.ignoreCause({ log: true })),
           ),
         );
@@ -402,9 +400,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
           Effect.all(
             [
               deps
-                .runMastra("resources.release", () =>
-                  deps.sessionResources.release(key, { destroy: true }),
-                )
+                .runMastra("resources.release", () => deps.sessionResources.release(key))
                 .pipe(Effect.ignoreCause({ log: true })),
               Effect.sync(() => deps.toolRuntime.unregisterSession(key)),
             ],
@@ -418,7 +414,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         .runMastra("deleteSession", () => deps.bundle.controller.deleteSession({ resourceId: key }))
         .pipe(Effect.ignoreCause({ log: true }));
       yield* deps
-        .runMastra("resources.release", () => deps.sessionResources.release(key, { destroy: true }))
+        .runMastra("resources.release", () => deps.sessionResources.release(key))
         .pipe(Effect.ignoreCause({ log: true }));
       deps.toolRuntime.unregisterSession(key);
     });

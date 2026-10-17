@@ -145,9 +145,7 @@ export class OttoSessionResources {
 
       return { botWorkspace: workspaceLease.workspace.workspace };
     } catch (cause) {
-      await this.releaseOnce(key, {
-        destroy: input.botSandbox !== "railway" && input.botSandbox !== "boat",
-      }).catch(() => undefined);
+      await this.releaseOnce(key).catch(() => undefined);
       throw cause;
     }
   }
