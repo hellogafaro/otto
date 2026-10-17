@@ -156,7 +156,9 @@ export const OTTO_TOOL_CATALOG = [
     {
       approval: "send",
       promptSnippet: "hand work to another bot",
-      promptGuidelines: ["Write the brief as the handoff skill describes."],
+      promptGuidelines: [
+        "Brief it like a teammate: the bounded goal, what done looks like, how to prove it, and what not to touch.",
+      ],
     },
   ),
   define(
