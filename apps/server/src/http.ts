@@ -319,16 +319,7 @@ export const attachmentUploadRouteLayer = HttpRouter.add(
       });
     }
 
-    const body = yield* request.arrayBuffer.pipe(
-      Effect.provideService(HttpServerRequest.MaxBodySize, FileSystem.Size(claims.sizeBytes)),
-      Effect.orElseSucceed(() => null),
-    );
-
-    if (body === null) {
-      return HttpServerResponse.text("Failed to read the upload body.", { status: 400 });
-    }
-
-    const stored = yield* storeAttachmentUpload(claims, new Uint8Array(body));
+    const stored = yield* storeAttachmentUpload(claims, request.stream);
 
     return stored.ok
       ? HttpServerResponse.empty({ status: 204 })

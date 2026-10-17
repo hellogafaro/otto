@@ -6,6 +6,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as ServerSecretStore from "../auth/server-secret-store.ts";
@@ -98,16 +99,55 @@ describe("AttachmentUpload", () => {
         throw new Error("Expected valid upload claims.");
       }
 
-      expect(yield* storeAttachmentUpload(claims, new Uint8Array([1, 2, 3]))).toMatchObject({
+      expect(
+        yield* storeAttachmentUpload(claims, Stream.make(new Uint8Array([1, 2, 3]))),
+      ).toMatchObject({
         ok: false,
         status: 400,
       });
-      expect(yield* storeAttachmentUpload(claims, new Uint8Array(6))).toEqual({ ok: true });
+      expect(
+        yield* storeAttachmentUpload(claims, Stream.make(new Uint8Array(2), new Uint8Array(4))),
+      ).toEqual({ ok: true });
       expect(
         NodeFS.existsSync(NodePath.join(config.attachmentsDir, `${issued.attachmentId}.png`)),
       ).toBe(true);
       expect(
         NodeFS.readdirSync(config.attachmentsDir).filter((entry) => entry.endsWith(".part")),
+      ).toEqual([]);
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("stops reading a body once it passes the signed size", () =>
+    Effect.gen(function* () {
+      const config = yield* ServerConfig.ServerConfig;
+      const issued = yield* issueAttachmentUploadUrl(uploadInput);
+      const token = issued.relativeUrl.slice(`${ATTACHMENT_UPLOAD_ROUTE_PREFIX}/`.length);
+      const claims = yield* validateAttachmentUploadToken(token);
+
+      if (!claims) {
+        throw new Error("Expected valid upload claims.");
+      }
+
+      let pulledChunks = 0;
+
+      const endlessBody = Stream.iterate(0, (index) => index + 1).pipe(
+        Stream.map(() => {
+          pulledChunks += 1;
+
+          return new Uint8Array(4);
+        }),
+      );
+
+      expect(yield* storeAttachmentUpload(claims, endlessBody)).toEqual({
+        ok: false,
+        status: 413,
+        detail: "Body exceeded 6 bytes.",
+      });
+      expect(pulledChunks).toBeLessThanOrEqual(4);
+      expect(
+        NodeFS.readdirSync(config.attachmentsDir).filter((entry) =>
+          entry.startsWith(issued.attachmentId),
+        ),
       ).toEqual([]);
     }).pipe(Effect.provide(testLayer)),
   );

@@ -6,11 +6,13 @@ import {
   AttachmentUploadSigningKeyError,
 } from "@otto/contracts";
 import * as Clock from "effect/Clock";
+import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
 
 import {
   createPendingAttachmentId,
@@ -153,18 +155,19 @@ export type StoreAttachmentUploadResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly status: number; readonly detail: string };
 
-export const storeAttachmentUpload = Effect.fn("AttachmentUpload.store")(function* (
-  claims: AttachmentUploadClaims,
-  bytes: Uint8Array,
-) {
-  if (bytes.byteLength !== claims.sizeBytes) {
-    return {
-      ok: false,
-      status: 400,
-      detail: `Body was ${bytes.byteLength} bytes, expected ${claims.sizeBytes}.`,
-    } satisfies StoreAttachmentUploadResult;
-  }
+class AttachmentUploadBodyError extends Data.TaggedError("AttachmentUploadBodyError")<{
+  readonly status: number;
+  readonly detail: string;
+}> {}
 
+/**
+ * Streams an upload body into its pending attachment file, counting bytes as they arrive so a
+ * body longer than the signed size stops without ever being held in memory.
+ */
+export const storeAttachmentUpload = Effect.fn("AttachmentUpload.store")(function* <E>(
+  claims: AttachmentUploadClaims,
+  body: Stream.Stream<Uint8Array, E>,
+) {
   const config = yield* ServerConfig.ServerConfig;
   const extension = inferAttachmentExtension({ mimeType: claims.mimeType, name: claims.name });
   const relativePath = `${claims.attachmentId}${extension}`;
@@ -185,17 +188,54 @@ export const storeAttachmentUpload = Effect.fn("AttachmentUpload.store")(functio
 
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const removePart = fileSystem.remove(partPath, { force: true }).pipe(Effect.ignore);
+  let receivedBytes = 0;
 
   return yield* Effect.gen(function* () {
     yield* fileSystem.makeDirectory(path.dirname(finalPath), { recursive: true });
-    yield* fileSystem.writeFile(partPath, bytes);
+
+    yield* body.pipe(
+      Stream.mapError(
+        () =>
+          new AttachmentUploadBodyError({ status: 400, detail: "Failed to read the upload body." }),
+      ),
+      Stream.tap((chunk) => {
+        receivedBytes += chunk.byteLength;
+
+        return receivedBytes > claims.sizeBytes
+          ? Effect.fail(
+              new AttachmentUploadBodyError({
+                status: 413,
+                detail: `Body exceeded ${claims.sizeBytes} bytes.`,
+              }),
+            )
+          : Effect.void;
+      }),
+      Stream.run(fileSystem.sink(partPath)),
+    );
+
+    if (receivedBytes !== claims.sizeBytes) {
+      return yield* new AttachmentUploadBodyError({
+        status: 400,
+        detail: `Body was ${receivedBytes} bytes, expected ${claims.sizeBytes}.`,
+      });
+    }
+
     yield* fileSystem.rename(partPath, finalPath);
 
     return { ok: true } satisfies StoreAttachmentUploadResult;
   }).pipe(
+    Effect.catchTag("AttachmentUploadBodyError", (error) =>
+      removePart.pipe(
+        Effect.as({
+          ok: false,
+          status: error.status,
+          detail: error.detail,
+        } satisfies StoreAttachmentUploadResult),
+      ),
+    ),
     Effect.catch((cause) =>
-      fileSystem.remove(partPath, { force: true }).pipe(
-        Effect.orElseSucceed(() => undefined),
+      removePart.pipe(
         Effect.andThen(
           Effect.logError("Failed to persist attachment upload.", {
             attachmentId: claims.attachmentId,
