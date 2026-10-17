@@ -98,7 +98,9 @@ vi.mock("./roster-store", () => ({
 import { DelegationCard, delegationUsageTokens } from "./delegation-card";
 import { DelegationDetail } from "./delegation-detail";
 import { delegationClockState } from "./delegation-clock";
+import { StatusIcon } from "../status-icon";
 import { visitElements } from "../test-support/react-tree";
+import { TraceCollapsibleContent, TraceCollapsibleTrigger } from "../ui/trace";
 import type { Bot } from "./types";
 
 const decodeDelegationRecord = Schema.decodeUnknownSync(OttoDelegationRecord);
@@ -294,6 +296,20 @@ function findByLabel(node: TestValue, label: string): ReactElement<TestProps> | 
   return found;
 }
 
+/** The card's trace line, which stays on the face and opens the details. */
+function traceLineMarkup(card: ReactElement<TestProps>) {
+  const trigger = visitElements(card, (element) => element.type === TraceCollapsibleTrigger);
+
+  return trigger ? renderToStaticMarkup(<>{trigger.props.children as ReactElement}</>) : "";
+}
+
+/** What the trace line's disclosure holds; it renders only once opened. */
+function detailsMarkup(card: ReactElement<TestProps>) {
+  const content = visitElements(card, (element) => element.type === TraceCollapsibleContent);
+
+  return content ? renderToStaticMarkup(<>{content.props.children as ReactElement}</>) : "";
+}
+
 function detailElement(bot: Bot | null = childBot, onOpenChange = vi.fn()) {
   return DelegationDetail({
     delegation: delegation("running"),
@@ -317,13 +333,28 @@ describe("DelegationCard", () => {
     mocks.clockCleanups = null;
   });
 
-  it.each(["queued", "running", "blocked", "failed", "canceled", "completed"] as const)(
-    "shows the exact %s state",
-    (state) => {
-      const markup = renderCard(state);
-      expect(markup).toContain(`aria-live="polite">${state}</span>`);
-    },
-  );
+  it.each([
+    ["queued", "Queued", "pending"],
+    ["running", "Running", "in_progress"],
+    ["blocked", "Blocked", "waiting"],
+    ["failed", "Failed", "error"],
+    ["canceled", "Cancelled", "cancelled"],
+    ["completed", "Completed", "completed"],
+  ] as const)("shows the %s state with the shared status icon and label", (state, label, icon) => {
+    const card = cardElement(state);
+    const line = traceLineMarkup(card);
+    expect(line).toContain(`aria-live="polite">${label}</span>`);
+    expect(visitElements(card, (element) => element.type === StatusIcon)?.props.status).toBe(icon);
+    expect(renderCard(state)).not.toContain("rounded-full");
+  });
+
+  it("shimmers the trace line only while the work runs", () => {
+    expect(traceLineMarkup(cardElement("running"))).toContain('data-status="running"');
+
+    for (const state of ["queued", "blocked", "failed", "canceled", "completed"] as const) {
+      expect(traceLineMarkup(cardElement(state))).not.toContain("data-status");
+    }
+  });
 
   it("shows result and failure text without mixing them", () => {
     const complete = renderCard("completed");
@@ -424,10 +455,13 @@ describe("DelegationCard", () => {
     expect(markup).not.toContain("file://");
   });
 
-  it("shows elapsed time and the child bot's settings", () => {
-    const markup = renderCard("completed");
-    expect(markup).toContain(">50s</span>");
-    expect(markup).toContain("approval required · local sandbox · MCP servers: 0");
+  it("shows elapsed time on the trace line and the child bot's settings behind it", () => {
+    const card = cardElement("completed");
+    expect(traceLineMarkup(card)).toContain(">50s</span>");
+    expect(renderCard("completed")).not.toContain("Expected result");
+    const details = detailsMarkup(card);
+    expect(details).toContain("A short comparison.");
+    expect(details).toContain("approval required · local sandbox · MCP servers: 0");
   });
 
   it("shows hours for work that ran an hour or more", () => {
@@ -454,7 +488,7 @@ describe("DelegationCard", () => {
   it("uses only the delegated child turn usage", () => {
     expect(delegationUsageTokens(delegation("completed"), mocks.activities)).toBe(1_234);
     expect(delegationUsageTokens(delegation("queued"), mocks.activities)).toBeNull();
-    const markup = renderCard("completed");
+    const markup = traceLineMarkup(cardElement("completed"));
     expect(markup).toContain('aria-label="1,234 tokens billed to Mori"');
     expect(markup).not.toContain("100K");
   });
@@ -607,25 +641,28 @@ describe("DelegationCard", () => {
   });
 
   it("keeps MCP counts off the card face", () => {
-    const markup = renderToStaticMarkup(
+    const record = delegation("running", {
+      access: {
+        sandbox: "local",
+        runtimeMode: "approval-required",
+        enabledMcpServerIds: ["github", "linear"],
+        disabledMcpServerIds: [],
+      },
+    });
+
+    const face = renderToStaticMarkup(
       <DelegationCard
-        delegation={delegation("running", {
-          access: {
-            sandbox: "local",
-            runtimeMode: "approval-required",
-            enabledMcpServerIds: ["github", "linear"],
-            disabledMcpServerIds: [],
-          },
-        })}
+        delegation={record}
         delegations={[]}
         childBot={childBot}
         parentBot={parentBot}
       />,
     );
 
-    const [face, details] = markup.split("<details");
     expect(face).not.toContain("MCP servers");
-    expect(details).toContain("MCP servers: 2");
+    expect(face).toContain('aria-expanded="false"');
+    const card = DelegationCard({ delegation: record, delegations: [], childBot, parentBot });
+    expect(detailsMarkup(card as ReactElement<TestProps>)).toContain("MCP servers: 2");
   });
 
   it("names the asking bot on group cards", () => {

@@ -44,17 +44,17 @@ function runtimeModeLabel(mode: OttoDelegationAccessGrant["runtimeMode"], t: Tra
 export function delegationStateLabel(state: OttoDelegationState, t: Translate): string {
   switch (state) {
     case "queued":
-      return t("queued");
+      return t("Queued");
     case "running":
-      return t("running");
+      return t("Running");
     case "blocked":
-      return t("blocked");
+      return t("Blocked");
     case "failed":
-      return t("failed");
+      return t("Failed");
     case "canceled":
-      return t("canceled");
+      return t("Cancelled");
     case "completed":
-      return t("completed");
+      return t("Completed");
   }
 }
 

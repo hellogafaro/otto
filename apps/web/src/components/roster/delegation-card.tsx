@@ -22,7 +22,18 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useThreadActivities, useThreadShell } from "../../state/entities";
 import { orchestrationEnvironment } from "../../state/orchestration";
 import { useAtomCommand } from "../../state/use-atom-command";
+import ChatMarkdown from "../chat-markdown";
+import { StatusIcon, type StatusKind } from "../status-icon";
 import { Button } from "../ui/button";
+import {
+  Trace,
+  TraceCollapsible,
+  TraceCollapsibleContent,
+  TraceCollapsibleTrigger,
+  TraceDescription,
+  TraceLine,
+  TraceTitle,
+} from "../ui/trace";
 import { toast } from "sonner";
 import { BotAvatarView } from "./bot-avatar-view";
 import {
@@ -33,13 +44,13 @@ import {
 import { useDelegationClock } from "./delegation-clock";
 import type { Bot } from "./types";
 
-const STATE_DOT: Record<OttoDelegationState, string> = {
-  queued: "bg-muted-foreground/50",
-  running: "bg-primary",
-  blocked: "bg-warning",
-  failed: "bg-destructive",
-  canceled: "bg-muted-foreground/60",
-  completed: "bg-muted-foreground/60",
+const STATUS_ICON: Record<OttoDelegationState, StatusKind> = {
+  queued: "pending",
+  running: "in_progress",
+  blocked: "waiting",
+  failed: "error",
+  canceled: "cancelled",
+  completed: "completed",
 };
 
 export function delegationUsageTokens(
@@ -65,7 +76,7 @@ function DelegationElapsed({
   const now = useDelegationClock(live);
   const elapsed = delegationElapsedMs(delegation, now);
 
-  return elapsed === null ? null : <span className="tabular-nums">{formatDuration(elapsed)}</span>;
+  return elapsed === null ? null : <TraceDescription>{formatDuration(elapsed)}</TraceDescription>;
 }
 
 /**
@@ -122,9 +133,8 @@ function DelegationActions({
     return (
       <Button
         key={action}
-        size="sm"
+        size="xs"
         variant="ghost-muted"
-        className="min-h-11"
         disabled={pending !== null}
         aria-busy={pending === action || undefined}
         aria-label={copy.ariaLabel}
@@ -162,9 +172,11 @@ function actionCopy(action: DelegationAction, t: Translate, name: string) {
 }
 
 /**
- * One piece of delegated work in the parent chat's timeline. The face shows who
- * is working, the task, progress, and the outcome. The access grant sits behind
- * Details, and View work opens the child's chat read-only.
+ * One piece of delegated work in the parent chat's timeline, quoted under a left
+ * rule: who is working and the task, then one trace line with the status icon,
+ * elapsed time and tokens that opens like a reply's "Worked for" line onto the
+ * expected result and access, then the bot's result clamped to six lines. The actions
+ * and View work, which opens the child's chat read-only, sit after the trace line.
  *
  * The actions slot defaults to the reverse-state controls (let it finish,
  * cancel, try again); a caller can pass `actions` to replace them.
@@ -208,11 +220,13 @@ export function DelegationCard({
   const parentName = parentBot?.name ?? t("Unknown bot");
   const usageTokens = childThread ? delegationUsageTokens(delegation, childActivities) : null;
 
-  const outcome = presentation.outcome
-    ? presentation.outcome.text ||
-      Match.value(presentation.outcome.kind).pipe(
-        Match.when("failure", () => t("Failure details unavailable")),
-        Match.when("result", () => t("Result unavailable")),
+  const outcome = presentation.outcome;
+  const resultText = outcome?.kind === "result" ? outcome.text || t("Result unavailable") : null;
+
+  const noteText = outcome
+    ? Match.value(outcome.kind).pipe(
+        Match.when("failure", () => outcome.text || t("Failure details unavailable")),
+        Match.when("blocked", () => outcome.text),
         Match.orElse(() => null),
       )
     : null;
@@ -220,7 +234,7 @@ export function DelegationCard({
   return (
     <article
       aria-label={t("Delegation to {name}", { name: childName })}
-      className="mt-2 ml-10 max-w-min-42rem-pct-2.5rem border-l-2 border-border py-1.5 pl-3"
+      className="mt-2 ml-10 max-w-min-42rem-pct-2.5rem border-l-2 border-border py-1 pl-3"
       data-testid="delegation-card"
       data-delegation-id={delegation.delegationId}
     >
@@ -228,7 +242,7 @@ export function DelegationCard({
         <BotAvatarView
           avatar={activeChildBot?.avatar ?? { kind: "dither", seed: delegation.childBotId }}
           name={childName}
-          className="size-7 shrink-0"
+          className="size-5 shrink-0"
         />
         <span className="min-w-0 truncate text-sm font-medium">
           {variant === "group"
@@ -241,72 +255,86 @@ export function DelegationCard({
         {presentation.retried ? (
           <span className="shrink-0 text-xs text-muted-foreground">{t("Retried")}</span>
         ) : null}
-        <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <span aria-hidden className={`size-1.5 rounded-full ${STATE_DOT[state]}`} />
-          <span aria-live="polite">{delegationStateLabel(state, t)}</span>
-        </span>
       </div>
-      <p className="mt-1 line-clamp-2 text-sm leading-5">{delegation.task}</p>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-        <DelegationElapsed delegation={delegation} live={!presentation.terminal} />
-        {usageTokens === null ? null : (
-          <span
-            className="tabular-nums"
-            aria-label={t("{tokens} tokens billed to {name}", {
-              tokens: usageTokens.toLocaleString(),
-              name: childName,
-            })}
-          >
-            {t("{tokens} tokens", { tokens: formatTokens(usageTokens) })}
-          </span>
-        )}
-      </div>
-      {outcome ? (
+      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{delegation.task}</p>
+      <Trace className="mt-1">
+        <TraceCollapsible>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <TraceCollapsibleTrigger>
+              <TraceLine {...(state === "running" ? { status: "running" as const } : {})}>
+                <StatusIcon status={STATUS_ICON[state]} />
+                <TraceTitle aria-live="polite">{delegationStateLabel(state, t)}</TraceTitle>
+                <DelegationElapsed delegation={delegation} live={!presentation.terminal} />
+                {usageTokens === null ? null : (
+                  <TraceDescription
+                    aria-label={t("{tokens} tokens billed to {name}", {
+                      tokens: usageTokens.toLocaleString(),
+                      name: childName,
+                    })}
+                  >
+                    {t("{tokens} tokens", { tokens: formatTokens(usageTokens) })}
+                  </TraceDescription>
+                )}
+              </TraceLine>
+            </TraceCollapsibleTrigger>
+            {presentation.delivery ? (
+              <span
+                className="min-w-0 truncate text-xs/relaxed text-muted-foreground"
+                data-delivery={presentation.delivery}
+              >
+                {presentation.delivery === "pending"
+                  ? t("Result waiting for the next reply")
+                  : t("Result delivered to {name}", { name: parentName })}
+              </span>
+            ) : null}
+            <div className="flex items-center gap-1" data-delegation-actions>
+              {actions ?? (
+                <DelegationActions
+                  delegation={delegation}
+                  delegations={delegations}
+                  childName={childName}
+                />
+              )}
+              <Button
+                size="xs"
+                variant="ghost-muted"
+                aria-label={t("View {name}'s work", { name: childName })}
+                disabled={presentation.childThreadId === null || environmentId === null}
+                onClick={() => setDetailOpen(true)}
+              >
+                {t("View work")}
+              </Button>
+            </div>
+          </div>
+          <TraceCollapsibleContent>
+            <dl className="flex flex-col gap-1.5 text-xs/relaxed" data-delegation-details>
+              <div>
+                <dt className="font-medium">{t("Expected result")}</dt>
+                <dd className="whitespace-pre-wrap">{delegation.expectedResult}</dd>
+              </div>
+              <div>
+                <dt className="font-medium">{t("Access")}</dt>
+                <dd>{formatDelegationAccess(delegation.access, t)}</dd>
+              </div>
+            </dl>
+          </TraceCollapsibleContent>
+        </TraceCollapsible>
+      </Trace>
+      {resultText ? (
+        <ChatMarkdown
+          className="mt-1 line-clamp-6"
+          cwd={undefined}
+          threadRef={childThreadRef ?? undefined}
+          text={resultText}
+        />
+      ) : null}
+      {noteText ? (
         <p
-          className={`mt-1 text-sm leading-5 ${isTagged(delegation.phase, "Failed") ? "text-destructive-foreground" : "text-muted-foreground"}`}
+          className={`mt-1 text-sm whitespace-pre-wrap ${state === "failed" ? "text-destructive-foreground" : "text-foreground/80"}`}
         >
-          {outcome}
+          {noteText}
         </p>
       ) : null}
-      {presentation.delivery ? (
-        <p className="mt-1 text-xs text-muted-foreground" data-delivery={presentation.delivery}>
-          {presentation.delivery === "pending"
-            ? t("Result waiting for the next reply")
-            : t("Result delivered to {name}", { name: parentName })}
-        </p>
-      ) : null}
-      <details className="mt-1 text-xs text-muted-foreground" data-delegation-details>
-        <summary className="min-h-11 w-fit content-center">{t("Details")}</summary>
-        <dl className="flex flex-col gap-1 pb-1">
-          <div>
-            <dt className="font-medium">{t("Expected result")}</dt>
-            <dd className="break-words">{delegation.expectedResult}</dd>
-          </div>
-          <div>
-            <dt className="font-medium">{t("Access")}</dt>
-            <dd className="break-words">{formatDelegationAccess(delegation.access, t)}</dd>
-          </div>
-        </dl>
-      </details>
-      <div className="flex items-center gap-1" data-delegation-actions>
-        {actions ?? (
-          <DelegationActions
-            delegation={delegation}
-            delegations={delegations}
-            childName={childName}
-          />
-        )}
-        <Button
-          size="sm"
-          variant="ghost-muted"
-          className="min-h-11"
-          aria-label={t("View {name}'s work", { name: childName })}
-          disabled={presentation.childThreadId === null || environmentId === null}
-          onClick={() => setDetailOpen(true)}
-        >
-          {t("View work")}
-        </Button>
-      </div>
       {detailOpen ? (
         <DelegationDetail
           delegation={delegation}
