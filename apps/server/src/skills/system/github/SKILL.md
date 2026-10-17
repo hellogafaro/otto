@@ -1,6 +1,6 @@
 ---
 name: github
-description: Use with the git skill when the repository is on GitHub, to push, open pull requests, read reviews and checks, and reply, all with gh.
+description: Use with the git skill when the repository is on GitHub, to push, open a pull request, read checks and reviews, and reply, all with gh.
 ---
 
 - Your git and gh login are set per turn for the person who asked, so commits and pull requests are theirs. If git or gh says you are not logged in, ask that person to connect GitHub in Settings → Integrations and stop there.
@@ -13,6 +13,6 @@ description: Use with the git skill when the repository is on GitHub, to push, o
   - `gh api repos/<owner>/<repo>/pulls/<n>/comments` for line comments.
   - `gh pr checks <n>`, then `gh run view --job <job-id> --log-failed` for a failing check; the job id ends the check's link.
 - Reply where the comment is: `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body="<reply>"` for a line comment, `gh pr comment <n> --body "<reply>"` for the conversation.
-- To review someone's pull request, read it with `gh pr diff <n>` or `gh pr checkout <n>`, then post your findings with `gh pr review <n> --comment --body-file <file>`. Never use `--approve`.
+- To review someone's pull request, read it with `gh pr diff <n>` or `gh pr checkout <n>`, follow the review skill, then post your findings with `gh pr review <n> --comment --body-file <file>`. Never use `--approve`.
 - If the push is refused because the app is not installed on the repository, give the person the link from `git config otto.installurl`.
 - Never run `gh pr merge` and never enable auto-merge.

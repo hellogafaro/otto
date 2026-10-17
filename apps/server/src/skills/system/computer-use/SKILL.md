@@ -1,6 +1,6 @@
 ---
-name: computer
-description: Use for work in your computer, such as shell commands, files, code, web pages that need clicks, forms or logins, desktop apps, screenshots and screen recordings.
+name: computer-use
+description: Use when work needs your computer, such as shell commands, files, code, web pages with clicks, forms or logins, desktop apps, screenshots or screen recordings.
 ---
 
 Install what you need.

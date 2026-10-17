@@ -1,6 +1,6 @@
 ---
 name: git
-description: Use for any work in a git repository on your computer, from branch and commits to describing, reviewing and updating a change, whatever host the repository uses.
+description: Use when working in a git repository on your computer, to branch, commit, describe a change, keep it current or read a diff for review, on any host.
 ---
 
 Start
@@ -26,18 +26,9 @@ Keep it current
 - If a push is rejected and you did not rewrite history, you are behind: merge `origin/<branch>` and push again.
 - Never use a bare force push. After a rewrite, record the remote head first and push with `git push --force-with-lease=<branch>:<that-sha>`.
 
-Review a change, when asked
+Review a change
 
-- Read what was asked first, then the whole diff, then the code around it.
-- Judge behaviour against the request, not only style: correctness, edge cases, security (secrets, auth, untrusted input), tests that really exercise the change, and dead code left behind.
-- Run the checks yourself when you can and say what you ran.
-- Write each finding with file and line, what is wrong, why it matters and a concrete fix, marked blocking, should fix or nit. When you are unsure, say what to check instead of calling it a bug.
-- Give the verdict to the person. Never approve or merge it yourself.
-
-Answer review feedback
-
-- Treat each comment as evidence, not an order. Check it against the current diff, fix the valid ones at the root and reply to every comment with what you changed or why not.
-- If the same kind of fix keeps coming back, stop, rethink the approach and tell the person.
+- Read the diff with `git diff <base>...HEAD` and the code around it, then follow the review skill.
 
 Limits
 

@@ -49,7 +49,7 @@ describe("bot skills section", () => {
 
     expect(markup).toContain("Built-in skills are always on.");
     expect(markup.indexOf(">research<")).toBeGreaterThan(-1);
-    expect(markup.indexOf(">research<")).toBeLessThan(markup.indexOf(">computer<"));
+    expect(markup.indexOf(">research<")).toBeLessThan(markup.indexOf(">computer-use<"));
     expect(markup).not.toContain("No skills");
     expect(markup.match(/data-disabled/g)?.length ?? 0).toBeGreaterThanOrEqual(11);
   });

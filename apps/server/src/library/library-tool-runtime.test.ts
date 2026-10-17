@@ -171,15 +171,16 @@ it("lists built-in skills first, computer ones only with a computer, and hides s
     "- git",
     "- github",
     "- verify",
+    "- review",
     "- visualize",
     "- write",
     "- handoff",
     "- summarize",
-    "- close",
-    "- computer",
+    "- deliver",
+    "- computer-use",
     "- weekly-report (skillId",
   ]);
-  expect(withoutComputer.some((line) => line.startsWith("- computer:"))).toBe(false);
+  expect(withoutComputer.some((line) => line.startsWith("- computer-use:"))).toBe(false);
   expect(withoutComputer.some((line) => line.startsWith("- git:"))).toBe(false);
   expect(withoutComputer.some((line) => line.startsWith("- github:"))).toBe(false);
   expect(withComputer.join("\n")).not.toContain("An old copy.");

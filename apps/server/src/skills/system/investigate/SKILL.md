@@ -1,6 +1,6 @@
 ---
 name: investigate
-description: Use for how or why questions about an existing system, to explain it, diagnose a failure or trace a past decision.
+description: Use when asked how or why an existing system behaves as it does, to explain it, diagnose a failure or trace a past decision before changing anything.
 ---
 
 - Look at the real thing: run it, query it, read the live value. Code shape and reports are leads.
