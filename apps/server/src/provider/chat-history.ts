@@ -71,6 +71,15 @@ export function isUserMessage(message: MastraDBMessage): boolean {
   return Predicate.isObject(signal) && "type" in signal && signal.type === "user";
 }
 
+/** A person's message or a task event: each starts a turn. */
+export function startsTurn(message: MastraDBMessage): boolean {
+  if (isUserMessage(message)) return true;
+
+  const signal = message.role === "signal" ? message.content.metadata?.["signal"] : undefined;
+
+  return Predicate.isObject(signal) && "type" in signal && signal.type === "notification";
+}
+
 /** A group turn sent as its hidden note alone: it starts the run and is never stored. */
 export function isGroupTurnNoteMessage(message: MastraDBMessage): boolean {
   return isUserMessage(message) && isGroupTurnNote(messageText(message));
@@ -128,7 +137,7 @@ export function projectHistory(
   for (const message of messages.slice(start)) {
     if (checkpointOf(message)) continue;
 
-    if (isUserMessage(message) || turns.length === 0) turns.push([]);
+    if (startsTurn(message) || turns.length === 0) turns.push([]);
     turns.at(-1)!.push(withoutUnreadableFiles(message));
   }
 

@@ -106,6 +106,19 @@ describe("projectHistory", () => {
     expect(ids(projectHistory(history))).toEqual(["user", "reminder", "assistant"]);
   });
 
+  it("starts a turn at each task event and keeps the task state inside its turn", () => {
+    const history = [
+      signal("user"),
+      message("answer", "assistant"),
+      signal("comment", "is this ready?", "notification"),
+      signal("task", "Title: Launch", "state"),
+      message("reply", "assistant"),
+      signal("assignment", "", "notification"),
+    ];
+
+    expect(ids(projectHistory(history))).toEqual(["user", "answer", "comment", "task", "reply"]);
+  });
+
   it("drops group passes but keeps the message nobody answered", () => {
     const history = [
       signal("person", "Ana: @Ivy what is 7 times 8?"),

@@ -6,7 +6,7 @@ import * as NodeCrypto from "node:crypto";
 import * as DateTime from "effect/DateTime";
 import * as Predicate from "effect/Predicate";
 
-import { checkpointAsUserMessage, isUserMessage, OTTO_CHECKPOINT } from "../chat-history.ts";
+import { checkpointAsUserMessage, OTTO_CHECKPOINT, startsTurn } from "../chat-history.ts";
 import { BUNDLED_MODEL_CATALOG } from "../model-catalog-data.ts";
 import type { OttoMastraHarnessOptions } from "./otto-harness-types.ts";
 import {
@@ -124,7 +124,7 @@ export function estimateTokens(messages: ReadonlyArray<MastraDBMessage>): number
 }
 
 /**
- * The first message kept verbatim after a checkpoint: a user message, no later than `latest`,
+ * The first message kept verbatim after a checkpoint: a turn's first message, no later than `latest`,
  * from which at least `keepTokens` remain. A turn is never split, so a tool call always keeps
  * its result. Undefined when no earlier message is left to summarise.
  */
@@ -138,7 +138,7 @@ export function firstKeptIndex(
   for (let index = messages.length - 1; index > 0; index -= 1) {
     tokens += estimateTokens([messages[index]!]);
 
-    if (index <= latest && tokens >= keepTokens && isUserMessage(messages[index]!)) return index;
+    if (index <= latest && tokens >= keepTokens && startsTurn(messages[index]!)) return index;
   }
 
   return undefined;
@@ -340,7 +340,7 @@ export function createOttoCompaction(
 
     const latest =
       args.stepNumber === 0
-        ? messages.findLastIndex((message, index) => index < inputIndex && isUserMessage(message))
+        ? messages.findLastIndex((message, index) => index < inputIndex && startsTurn(message))
         : inputIndex;
 
     const kept =
