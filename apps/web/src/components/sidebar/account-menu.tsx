@@ -72,11 +72,11 @@ export function AccountMenu({
         />
       }
     >
-      <AccountAvatar name={name} image={user?.image} className="size-5 rounded-sm text-9px" />
+      <AccountAvatar name={name} image={user?.image} className="size-6 rounded-sm text-10px" />
     </MenuTrigger>
   ) : (
     <MenuTrigger render={<SidebarMenuButton aria-label={name} />}>
-      <AccountAvatar name={name} image={user?.image} className="size-5 rounded-sm text-9px" />
+      <AccountAvatar name={name} image={user?.image} className="size-6 rounded-sm text-10px" />
       <span className="truncate group-data-[collapsible=icon]:hidden">{name}</span>
     </MenuTrigger>
   );
