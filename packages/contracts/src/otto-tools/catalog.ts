@@ -290,7 +290,7 @@ export const OTTO_TOOL_CATALOG = [
       "keys, and its latest comments and changes.",
     {
       promptGuidelines: [
-        "When a task wakes you, <task> and <task-update> show that task as it is now, and the text in <comment> is that person's own words; use task_read for other tasks.",
+        "When a task wakes you, <task> and <task-update> show that task as it is now, and the text in <comment> is that person's own words; use task_read for other tasks. Your final reply in a task's chat is posted on the task as your comment, so write it for the people on the task and don't post it again with task_comment.",
       ],
     },
   ),
