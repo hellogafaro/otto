@@ -108,7 +108,7 @@ vi.mock("../../lib/use-environment-composer-dictation", async () => {
   return {
     useEnvironmentComposerDictation: (input: DictationInput & { generation: number }) => {
       fake.input = input;
-      const draft = () => ({ identity: { ...identity, generation: 0 }, ...input.getDraft() });
+      const draft = () => ({ identity: { ...identity, generation: 0 }, ...fake.input!.getDraft() });
       fake.session ??= createDictationSession({
         capture: async () => ({
           stop: async () => ({
@@ -132,6 +132,8 @@ vi.mock("../../lib/use-environment-composer-dictation", async () => {
         onStart: () => session.start(draft()),
         onRelease: () => session.finish(),
         onCancel: () => session.cancel(),
+        stream: null,
+        onRetry: session.canRetry ? () => void session.retry() : null,
       };
     },
   };
@@ -166,17 +168,6 @@ function render() {
   };
 }
 
-async function retryDictation() {
-  (render().find("Retry dictation")!.props.onClick as (event: { detail: number }) => void)({
-    detail: 0,
-  });
-  await vi.waitFor(() => expect(fake.session!.status).toBe("recording"));
-  (render().find("Stop dictation")!.props.onClick as (event: { detail: number }) => void)({
-    detail: 0,
-  });
-  await vi.waitFor(() => expect(fake.session!.status).toBe("error"));
-}
-
 beforeEach(() => {
   hooks.reset();
   fake.session = null;
@@ -187,7 +178,7 @@ beforeEach(() => {
 });
 
 describe("BotPromptComposer dictation failure", () => {
-  it("keeps typed text and attachments through retry and dismiss", async () => {
+  it("keeps typed text and attachments when a failed dictation is retried", async () => {
     const view = render();
     (view.textarea.props.onChange as (event: { currentTarget: { value: string } }) => void)({
       currentTarget: { value: "Summarize the attached notes" },
@@ -218,24 +209,32 @@ describe("BotPromptComposer dictation failure", () => {
     await fake.session!.finish();
     expect(fake.session!.status).toBe("error");
 
+    // The failure's toast retries; the slot goes back to Send for the typed draft.
     const failed = render();
-    expect(failed.find("Retry dictation")).not.toBeNull();
-    expect(failed.find("Dismiss dictation error")).not.toBeNull();
-    expect(failed.find("Send message")).toBeNull();
+    expect(failed.find("Send message")?.props.disabled).toBe(false);
+    expect(failed.find("Start dictation")).toBeNull();
 
-    await retryDictation();
+    fake.transcribe.mockResolvedValueOnce("and the slides");
+    await fake.session!.retry();
     expect(fake.transcribe).toHaveBeenCalledTimes(2);
     const retried = render();
-    expect(retried.textarea.props.value).toBe("Summarize the attached notes");
-    expect(retried.attachments()).toEqual([attachment]);
+    expect(retried.textarea.props.value).toBe("Summarize the attached notes and the slides");
     expect(retried.attachments()[0]).toBe(attachment);
+  });
 
-    (retried.find("Dismiss dictation error")!.props.onClick as () => void)();
+  it("turns + into a cancel button while dictating", async () => {
+    const view = render();
+    expect(view.find("Cancel dictation")).toBeNull();
+
+    (view.find("Start dictation")!.props.onClick as (event: { detail: number }) => void)({
+      detail: 0,
+    });
+    await vi.waitFor(() => expect(fake.session!.status).toBe("recording"));
+
+    const recording = render();
+    expect(recording.find("Attach file")).toBeNull();
+    (recording.find("Cancel dictation")!.props.onClick as () => void)();
     expect(fake.session!.status).toBe("cancelled");
-    const dismissed = render();
-    expect(dismissed.find("Retry dictation")).toBeNull();
-    expect(dismissed.find("Send message")?.props.disabled).toBe(false);
-    expect(dismissed.textarea.props.value).toBe("Summarize the attached notes");
-    expect(dismissed.attachments()[0]).toBe(attachment);
+    expect(render().find("Attach file")).not.toBeNull();
   });
 });

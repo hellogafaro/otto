@@ -229,43 +229,39 @@ describe("DictationControls", () => {
     expect(handlers.onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it("shows a visible cancel while a send-slot recording runs", () => {
+  it("disables the send-slot mic while the recording is transcribed", () => {
     const handlers = callbacks();
     hooks.beginRender();
     effects.cursor = 0;
-    const tree = DictationControls({ status: "recording", appearance: "send-slot", ...handlers });
 
-    const cancel = visitElements(
-      tree,
-      (element) => element.type === "button" && element.props["aria-label"] === "Cancel dictation",
-    )!;
+    const tree = DictationControls({
+      status: "transcribing",
+      appearance: "send-slot",
+      ...handlers,
+    });
 
-    (cancel.props as TestButtonProps).onClick!(click(1));
-    expect(handlers.onCancel).toHaveBeenCalledTimes(1);
-    expect(handlers.onRelease).not.toHaveBeenCalled();
+    const slot = visitElements(tree, (element) => element.type === "button")!
+      .props as TestButtonProps;
+
+    expect(slot["aria-label"]).toBe("Transcribing dictation…");
+    expect(slot.disabled).toBe(true);
+    slot.onClick!(click(0));
+    expect(handlers.onCancel).not.toHaveBeenCalled();
+    expect(handlers.onStart).not.toHaveBeenCalled();
   });
 
-  it("offers retry and dismiss after a send-slot failure", () => {
+  it("returns the send-slot to the mic after a failure, which its toast retries", () => {
     const handlers = callbacks();
     hooks.beginRender();
     effects.cursor = 0;
     const tree = DictationControls({ status: "failed", appearance: "send-slot", ...handlers });
 
-    const retry = visitElements(tree, (element) => element.type === "button")!
+    const slot = visitElements(tree, (element) => element.type === "button")!
       .props as TestButtonProps;
 
-    expect(retry["aria-label"]).toBe("Retry dictation");
-    retry.onClick!(click(0));
+    expect(slot["aria-label"]).toBe("Start dictation");
+    slot.onClick!(click(0));
     expect(handlers.onStart).toHaveBeenCalledTimes(1);
-
-    const dismiss = visitElements(
-      tree,
-      (element) =>
-        element.type === "button" && element.props["aria-label"] === "Dismiss dictation error",
-    )!;
-
-    (dismiss.props as TestButtonProps).onClick!(click(1));
-    expect(handlers.onCancel).toHaveBeenCalledTimes(1);
   });
 
   it("lets a blocked send-slot mic explain itself instead of starting", () => {

@@ -32,7 +32,14 @@ export interface ComposerDictationBinding {
   ) => ComposerDictationSession;
 }
 
-export function useComposerDictation(input: ComposerDictationBinding): DictationControlsProps {
+export interface ComposerDictation extends DictationControlsProps {
+  /** The microphone while recording, for the level meter. */
+  readonly stream: MediaStream | null;
+  /** Transcribes a failed dictation's recording again; null when there is nothing to retry. */
+  readonly onRetry: (() => void) | null;
+}
+
+export function useComposerDictation(input: ComposerDictationBinding): ComposerDictation {
   const getDraft = useRef(input.getDraft);
   getDraft.current = input.getDraft;
   const applyDraft = useRef(input.applyDraft);
@@ -40,6 +47,7 @@ export function useComposerDictation(input: ComposerDictationBinding): Dictation
   const transcribe = useRef(input.transcribe);
   transcribe.current = input.transcribe;
   const captureAvailable = input.captureAvailable ?? true;
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   const unavailableReason = dictationUnavailableReason({
     callActive: input.callActive,
@@ -70,7 +78,7 @@ export function useComposerDictation(input: ComposerDictationBinding): Dictation
 
     return input.createSession
       ? input.createSession(dependencies)
-      : createBrowserDictationSession(dependencies, VOICE_DICTATION_LIMITS);
+      : createBrowserDictationSession(dependencies, VOICE_DICTATION_LIMITS, undefined, setStream);
   }, [input.createSession]);
 
   const [status, setStatus] = useState(() => dictationControlStatus(session.status));
@@ -104,6 +112,8 @@ export function useComposerDictation(input: ComposerDictationBinding): Dictation
     onStart,
     onRelease,
     onCancel,
+    stream: status === "recording" ? stream : null,
+    onRetry: session.canRetry ? () => void session.retry() : null,
   };
 }
 

@@ -33,7 +33,7 @@ export interface DictationCapture {
   cancel: () => void;
 }
 
-function browserDependencies(): DictationCaptureDependencies {
+export function browserDependencies(): DictationCaptureDependencies {
   if (
     typeof navigator === "undefined" ||
     !navigator.mediaDevices ||

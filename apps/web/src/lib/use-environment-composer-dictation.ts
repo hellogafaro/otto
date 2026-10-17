@@ -6,7 +6,6 @@ import {
 import { useAtomValue } from "@effect/atom-react";
 import { useMemo } from "react";
 
-import type { DictationControlsProps } from "~/components/chat/dictation-controls";
 import { useOptionalVoiceCall } from "~/components/voice/voice-call";
 import { useEnvironmentConnectionState, usePrimaryEnvironmentId } from "~/state/environments";
 import { useEnvironmentQuery } from "~/state/query";
@@ -14,7 +13,7 @@ import { primaryServerSettingsAtom, serverEnvironment } from "~/state/server";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { browserDictationCaptureReason } from "./browser-dictation";
-import { useComposerDictation } from "./use-composer-dictation";
+import { useComposerDictation, type ComposerDictation } from "./use-composer-dictation";
 
 let operationSequence = 0;
 
@@ -31,7 +30,7 @@ export function useEnvironmentComposerDictation(input: {
   /** Reads the live text and caret; identity comes from the props above. */
   readonly getDraft: () => Omit<DictationDraft, "identity">;
   readonly applyDraft: (draft: DictationDraft) => void;
-}): DictationControlsProps {
+}): ComposerDictation {
   const environmentId = usePrimaryEnvironmentId();
   const connection = useEnvironmentConnectionState(environmentId).data;
   const settings = useAtomValue(primaryServerSettingsAtom);

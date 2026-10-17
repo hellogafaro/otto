@@ -19,6 +19,7 @@ import { cn } from "../../lib/utils";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { ComposerBanner } from "../chat/composer-banner";
 import { DictationControls } from "../chat/dictation-controls";
+import { DictationMeter } from "../chat/dictation-meter";
 import { FileLightbox } from "../library/file-lightbox";
 import { ComposerStashBadge } from "../chat/composer-stash-badge";
 import { ComposerStashMenu } from "../chat/composer-stash-menu";
@@ -348,16 +349,32 @@ export function BotPromptComposer({
     },
   });
 
+  const retryDictation = useRef(dictation.onRetry);
+  retryDictation.current = dictation.onRetry;
+
   useEffect(() => {
     if (dictation.status !== "failed" || !dictation.errorMessage) return;
-    toast.error(t("Dictation couldn't be completed"));
+    const retry = retryDictation.current;
+
+    toast.error(t("Dictation couldn't be completed"), {
+      id: "dictation-failed",
+      description: dictation.errorMessage,
+      ...(retry ? { action: { label: t("Retry"), onClick: retry } } : {}),
+    });
   }, [dictation.errorMessage, dictation.status, t]);
+
+  // While dictating, + turns into × (cancel) and the row shows the voice and the time.
+  const dictating =
+    dictation.status === "requesting" ||
+    dictation.status === "recording" ||
+    dictation.status === "transcribing";
 
   const showDictation =
     !readOnly &&
     composerActionIsDictation({
       hasDraft: draft.trim().length > 0 || attachments.length > 0,
-      status: dictation.status,
+      // A failed dictation is retried from its toast, so it gives the slot back.
+      status: dictation.status === "failed" ? "idle" : dictation.status,
     });
 
   return (
@@ -576,8 +593,32 @@ export function BotPromptComposer({
              the add or send button out from under the pointer. */
               className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center justify-between"
             >
-              <div className="pointer-events-auto flex min-w-0 items-center gap-1">
-                {mentionBots.length === 0 ? (
+              <div
+                className={cn(
+                  "pointer-events-auto flex min-w-0 items-center gap-1",
+                  dictating && "flex-1 pe-1",
+                )}
+              >
+                {dictating ? (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            size="icon-sm"
+                            variant="secondary"
+                            aria-label={t("Cancel dictation")}
+                            onClick={dictation.onCancel}
+                          />
+                        }
+                      >
+                        <RiCloseLine />
+                      </TooltipTrigger>
+                      <TooltipPopup side="top">{t("Cancel dictation")}</TooltipPopup>
+                    </Tooltip>
+                    <DictationMeter stream={dictation.stream} />
+                  </>
+                ) : mentionBots.length === 0 ? (
                   // Attaching is the only prompt action here, so the button opens the picker.
                   <Tooltip>
                     <TooltipTrigger

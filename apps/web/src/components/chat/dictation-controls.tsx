@@ -1,8 +1,10 @@
-import { RiMicLine, RiStopLine, RiCloseLine, RiLoopRightLine } from "@remixicon/react";
+import { RiMicLine, RiStopFill } from "@remixicon/react";
 
 import { useEffect, useId, useRef } from "react";
 
 import { useI18n } from "~/i18n";
+
+import { Spinner } from "../ui/spinner";
 
 export interface DictationControlsProps {
   status: "idle" | "requesting" | "recording" | "transcribing" | "canceled" | "failed";
@@ -43,13 +45,10 @@ export function DictationControls({
   const startedThisGesture = useRef(false);
   const active = status === "requesting" || status === "recording";
   const busy = active || status === "transcribing";
-  // Send-slot only: a failed dictation stays in the slot as a retry until it is dismissed.
-  const retry = appearance === "send-slot" && status === "failed" && !unavailableReason;
   const blocked = Boolean(unavailableReason);
   const explainsBlock = appearance === "send-slot" && blocked && onBlockedPress !== undefined;
 
-  const disabled =
-    (appearance === "labeled" && status === "transcribing") || (blocked && !explainsBlock);
+  const disabled = status === "transcribing" || (blocked && !explainsBlock);
 
   const operation = useRef(busy);
   const cancelCallback = useRef(onCancel);
@@ -91,24 +90,16 @@ export function DictationControls({
 
     if (disabled) return;
 
-    if (appearance === "send-slot" && status === "transcribing") {
-      cancel();
-
-      return;
-    }
-
     if (active) onRelease();
     else start();
   };
 
   const label =
-    appearance === "send-slot" && status === "transcribing"
-      ? t("Cancel dictation")
+    status === "transcribing"
+      ? t("Transcribing dictation…")
       : active
         ? t("Stop dictation")
-        : retry
-          ? t("Retry dictation")
-          : t("Start dictation");
+        : t("Start dictation");
 
   const statusText = unavailableReason
     ? t("Dictation unavailable: {reason}", { reason: unavailableReason })
@@ -135,8 +126,6 @@ export function DictationControls({
         if (event.button !== 0 || !event.isPrimary || disabled || pointer.current !== null) return;
 
         if (explainsBlock) return;
-
-        if (appearance === "send-slot" && status === "transcribing") return;
         event.preventDefault();
         suppressClick.current = true;
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -175,9 +164,14 @@ export function DictationControls({
     >
       {appearance === "send-slot" ? (
         status === "transcribing" ? (
-          <RiStopLine className="size-3 fill-current" aria-hidden="true" />
-        ) : retry ? (
-          <RiLoopRightLine className="size-3.5" aria-hidden="true" />
+          <Spinner
+            className="size-3.5"
+            aria-hidden="true"
+            aria-label={undefined}
+            role={undefined}
+          />
+        ) : active ? (
+          <RiStopFill className="size-3" aria-hidden="true" />
         ) : (
           <RiMicLine className="size-3.5" aria-hidden="true" />
         )
@@ -193,26 +187,6 @@ export function DictationControls({
     return (
       <div className="relative size-full">
         {button}
-        {active && (
-          <button
-            type="button"
-            className="absolute top-1/2 right-full mr-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-(--control-radius) border bg-background text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-            aria-label={t("Cancel dictation")}
-            onClick={cancel}
-          >
-            <RiCloseLine className="size-3.5" aria-hidden="true" />
-          </button>
-        )}
-        {retry && (
-          <button
-            type="button"
-            className="absolute top-1/2 right-full mr-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-(--control-radius) border bg-background text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-            aria-label={t("Dismiss dictation error")}
-            onClick={() => cancelCallback.current()}
-          >
-            <RiCloseLine className="size-3.5" aria-hidden="true" />
-          </button>
-        )}
         <span id={descriptionId} className="sr-only">
           {t(
             "Hold to dictate and release to finish, or activate to start and activate again to stop.",

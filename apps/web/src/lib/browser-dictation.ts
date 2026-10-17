@@ -4,13 +4,21 @@ import {
   type DictationDependencies,
   type DictationLimits,
 } from "@otto/client-runtime/dictation";
-import { startDictationCapture, type DictationCaptureDependencies } from "./dictation-capture";
+import {
+  browserDependencies,
+  startDictationCapture,
+  type DictationCaptureDependencies,
+} from "./dictation-capture";
 
-/** Connect local browser capture to an environment-owned transcription operation. */
+/**
+ * Connect local browser capture to an environment-owned transcription operation. onStream gets
+ * the recorder's microphone stream, so a level meter shares it instead of opening the mic again.
+ */
 export function createBrowserDictationSession(
   dependencies: Omit<DictationDependencies, "capture" | "schedule" | "cancelSchedule">,
   limits: Partial<DictationLimits> = {},
   captureDependencies?: DictationCaptureDependencies,
+  onStream?: (stream: MediaStream) => void,
 ) {
   return createDictationSession(
     {
@@ -19,13 +27,24 @@ export function createBrowserDictationSession(
       // SAFETY: The dictation controller returns the opaque handle created by this same setTimeout scheduler.
       cancelSchedule: (timer) => globalThis.clearTimeout(timer as ReturnType<typeof setTimeout>),
       capture: async ({ signal, limits, onError }) => {
+        const deps = onStream ? (captureDependencies ?? browserDependencies()) : undefined;
+
         const capture = await startDictationCapture(
           {
             signal,
             maxDurationMs: limits.maxRecordingMs,
             maxBytes: limits.maxAudioBytes,
           },
-          captureDependencies,
+          deps && onStream
+            ? {
+                ...deps,
+                createRecorder: (stream) => {
+                  onStream(stream);
+
+                  return deps.createRecorder(stream);
+                },
+              }
+            : captureDependencies,
         );
 
         void capture.result.catch(onError);

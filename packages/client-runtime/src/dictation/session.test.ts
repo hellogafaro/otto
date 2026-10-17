@@ -212,6 +212,39 @@ describe("isolated dictation lifecycle", () => {
     expect(h.session.status).toBe("cancelled");
   });
 
+  it("transcribes the same recording again on retry, without recording again", async () => {
+    const h = setup();
+    h.transcribe.mockRejectedValueOnce(new Error("provider down")).mockResolvedValueOnce("world");
+    await h.session.start(h.draft);
+    await h.session.finish();
+    expect(h.session.canRetry).toBe(true);
+
+    await h.session.retry();
+    expect(h.capture).toHaveBeenCalledTimes(1);
+    expect(h.transcribe).toHaveBeenCalledTimes(2);
+    expect(h.transcribe.mock.calls[1]?.[0].audio).toBe(h.audio);
+    expect(h.session.status).toBe("completed");
+    expect(h.session.canRetry).toBe(false);
+    expect(h.draft.text).toBe("hello world");
+  });
+
+  it("drops the failed recording on cancel, a new start or another chat", async () => {
+    const h = setup();
+    h.transcribe.mockRejectedValue(new Error("provider down"));
+    await h.session.start(h.draft);
+    await h.session.finish();
+    h.session.updateContext({ ...h.draft.identity, threadId: "other" }, true);
+    expect(h.session.canRetry).toBe(false);
+    await h.session.retry();
+    expect(h.transcribe).toHaveBeenCalledTimes(1);
+
+    await h.session.start(h.draft);
+    await h.session.finish();
+    expect(h.session.canRetry).toBe(true);
+    h.session.cancel();
+    expect(h.session.canRetry).toBe(false);
+  });
+
   it("handles capture denial and stop failure", async () => {
     const h = setup();
     h.capture.mockRejectedValueOnce(new Error("permission denied"));

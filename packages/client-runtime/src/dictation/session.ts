@@ -116,9 +116,13 @@ export function createDictationSession(
         original: DictationDraft;
         controller: AbortController;
         capture?: DictationCapture;
+        audio?: DictationAudio;
         timer?: DictationTimer;
       }
     | undefined;
+
+  // The recording and draft of a failed transcription, so retry() sends the same audio again.
+  let failed: { original: DictationDraft; audio: DictationAudio } | undefined;
 
   function releaseCapture(run: NonNullable<typeof active>) {
     const capture = run.capture;
@@ -137,8 +141,40 @@ export function createDictationSession(
   }
 
   function terminate(next: DictationStatus, cause?: unknown) {
+    const run = active;
     releaseActive(cause);
+    failed =
+      next === "error" && run?.audio ? { original: run.original, audio: run.audio } : undefined;
     transition(next, cause);
+  }
+
+  async function transcribe(run: NonNullable<typeof active>, audio: DictationAudio) {
+    run.audio = audio;
+
+    try {
+      const transcript = await abortable(
+        dependencies.transcribe({
+          audio,
+          signal: run.controller.signal,
+          identity: run.original.identity,
+        }),
+        run.controller.signal,
+      );
+
+      if (active !== run) return;
+
+      if (transcript.length > limits.maxTranscriptCharacters)
+        throw new Error("Dictation transcript limit exceeded");
+      dependencies.updateDraft((current) =>
+        active === run
+          ? mergeDictationDraft(run.original, current, transcript, limits.maxDraftCharacters)
+          : current,
+      );
+
+      if (active === run) terminate("completed");
+    } catch (cause) {
+      if (active === run) terminate("error", cause);
+    }
   }
 
   function deadline(run: NonNullable<typeof active>, milliseconds: number) {
@@ -155,6 +191,10 @@ export function createDictationSession(
     get error() {
       return error;
     },
+    /** A failed transcription kept its recording, so retry() can send it again. */
+    get canRetry() {
+      return status === "error" && failed !== undefined;
+    },
     /** Observe transitions synchronously; listeners must not throw. Returns an unsubscribe function. */
     subscribe(listener: () => void) {
       if (!disposed) listeners.add(listener);
@@ -166,6 +206,7 @@ export function createDictationSession(
     async start(draft: DictationDraft) {
       if (disposed) throw new Error("Dictation session is disposed");
       releaseActive();
+      failed = undefined;
 
       const run: NonNullable<typeof active> = {
         original: { ...draft, identity: { ...draft.identity }, selection: { ...draft.selection } },
@@ -234,36 +275,33 @@ export function createDictationSession(
           throw new Error("Invalid dictation audio or audio limit exceeded");
         }
 
-        const transcript = await abortable(
-          dependencies.transcribe({
-            audio,
-            signal: run.controller.signal,
-            identity: run.original.identity,
-          }),
-          run.controller.signal,
-        );
-
-        if (active !== run) return;
-
-        if (transcript.length > limits.maxTranscriptCharacters)
-          throw new Error("Dictation transcript limit exceeded");
-        dependencies.updateDraft((current) =>
-          active === run
-            ? mergeDictationDraft(run.original, current, transcript, limits.maxDraftCharacters)
-            : current,
-        );
-
-        if (active === run) terminate("completed");
+        await transcribe(run, audio);
       } catch (cause) {
         if (active === run) terminate("error", cause);
       }
+    },
+    /** Transcribes a failed dictation's recording again into the draft it started from. */
+    async retry() {
+      if (status !== "error" || !failed) return;
+      const { original, audio } = failed;
+      failed = undefined;
+      const run: NonNullable<typeof active> = { original, controller: new AbortController() };
+
+      active = run;
+      deadline(run, limits.maxTranscriptionMs);
+      transition("transcribing");
+
+      if (active !== run) return;
+      await transcribe(run, audio);
     },
     cancel(reason: DictationCancelReason = "cancel") {
       terminate("cancelled", reason);
     },
     /** Call on navigation, draft replacement, and connectivity changes, including a return to the same chat. */
     updateContext(identity: DictationIdentity, connected: boolean) {
-      if (active && (!connected || !sameDictationIdentity(active.original.identity, identity))) {
+      const original = active?.original ?? failed?.original;
+
+      if (original && (!connected || !sameDictationIdentity(original.identity, identity))) {
         terminate("cancelled", connected ? "navigation" : "disconnect");
       }
     },
