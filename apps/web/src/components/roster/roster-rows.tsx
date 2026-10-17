@@ -316,11 +316,6 @@ export const BotRosterRow = memo(function BotRosterRow({
               icon={pinned ? RiUnpinLine : RiPushpinLine}
               onClick={() => onPin(item, !pinned)}
             />
-            <RosterRowAction
-              label={t("Archive bot")}
-              icon={RiArchiveLine}
-              onClick={() => onArchive(bot)}
-            />
             <RosterRowMore
               label={t("Actions for {name}", { name: bot.name })}
               triggerRef={menuTriggerRef}
@@ -336,6 +331,11 @@ export const BotRosterRow = memo(function BotRosterRow({
               <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
                 <RiArrowDownLine />
                 {t("Move down")}
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem onClick={() => onArchive(bot)}>
+                <RiArchiveLine />
+                {t("Archive bot")}
               </MenuItem>
             </RosterRowMore>
           </span>

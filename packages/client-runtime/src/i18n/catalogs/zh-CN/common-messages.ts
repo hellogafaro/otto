@@ -324,7 +324,7 @@ export const commonMessagesCatalog = {
   "Work couldn't be kept running": "无法让工作继续运行",
   "Work couldn't be retried": "无法重试工作",
   "{name} couldn't be added": "无法添加 {name}",
-  "{name} couldn't be archived": "无法归档 {name}",
+  "Bot couldn't be archived": "无法归档机器人",
   "{name} couldn't be connected": "无法连接 {name}",
   "{name} couldn't be deleted": "无法删除 {name}",
   "{name} couldn't be disconnected": "无法断开 {name}",

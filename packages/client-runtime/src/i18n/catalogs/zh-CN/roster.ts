@@ -64,8 +64,8 @@ export const rosterCatalog = {
   Groups: "群组",
   "No bots match": "没有匹配的机器人",
   "Archived bots": "已归档的机器人",
-  "{name} leaves the roster and stops taking messages. You can restore it from Settings > Archived for {days} days, then it is deleted. Its chats stay in your history.":
-    "{name} 将离开机器人列表并停止接收消息。你可以在 {days} 天内从“设置 > 已归档”中恢复它，之后它将被删除。它的聊天记录会保留。",
+  "The bot leaves the roster and stops taking messages. You can restore it from Settings > Archived for {days} days, then it is deleted. Its chats stay in your history.":
+    "该机器人将离开机器人列表并停止接收消息。你可以在 {days} 天内从“设置 > 已归档”中恢复它，之后它将被删除。它的聊天记录会保留。",
   "Archived {time}. Deleted automatically on {date}.": "归档于 {time}。将于 {date} 自动删除。",
   "{count} bot": "{count} 个机器人",
   "{count} bots": "{count} 个机器人",

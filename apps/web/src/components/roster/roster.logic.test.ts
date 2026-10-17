@@ -10,6 +10,7 @@ import {
   filterRosterGroups,
   orderRosterBotsForShortcuts,
   resolveBotPresence,
+  resolveLatestOpenChatId,
   resolveRosterBotId,
   resolveRosterIndicator,
   resolveAdjacentRosterBot,
@@ -28,6 +29,39 @@ describe("resolveRosterBotId", () => {
         bot({ id: "archived", name: "Archived", archivedAt: "2026-08-02T00:00:00.000Z" }),
       ]),
     ).toBe("available");
+  });
+});
+
+describe("resolveLatestOpenChatId", () => {
+  const chat = (
+    id: string,
+    botId: string | null,
+    updatedAt: string,
+    groupId: string | null = null,
+  ) => ({
+    id,
+    environmentId: "env",
+    botId,
+    groupId,
+    parentThreadId: null,
+    archivedAt: null,
+    updatedAt,
+  });
+
+  it("skips chats with an archived bot or a missing group, which would bounce back to Chats", () => {
+    const bots = [
+      bot({ id: "live", name: "Live" }),
+      bot({ id: "gone", name: "Gone", archivedAt: "2026-08-02T00:00:00.000Z" }),
+    ];
+
+    const shells = [
+      chat("older", "live", "2026-08-01T00:00:00.000Z"),
+      chat("archived-bot", "gone", "2026-08-03T00:00:00.000Z"),
+      chat("missing-group", null, "2026-08-04T00:00:00.000Z", "deleted-group"),
+    ];
+
+    expect(resolveLatestOpenChatId(shells, "env", bots, [])).toBe("older");
+    expect(resolveLatestOpenChatId(shells.slice(1), "env", bots, [])).toBeNull();
   });
 });
 

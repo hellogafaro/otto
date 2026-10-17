@@ -88,6 +88,39 @@ export function rosterChatStatus(
   return unread ? "completed" : null;
 }
 
+/**
+ * The latest chat Chats can open. A chat whose bot is archived, or whose group is gone, sends
+ * its page back to Chats, so opening it again would bounce between the two forever.
+ */
+export function resolveLatestOpenChatId(
+  shells: ReadonlyArray<{
+    readonly id: string;
+    readonly environmentId: string;
+    readonly botId?: string | null | undefined;
+    readonly groupId?: string | null | undefined;
+    readonly parentThreadId?: string | null | undefined;
+    readonly archivedAt: string | null;
+    readonly updatedAt: string;
+  }>,
+  environmentId: string | null,
+  bots: ReadonlyArray<Pick<Bot, "id" | "archivedAt">>,
+  groups: ReadonlyArray<Pick<Group, "id">>,
+): string | null {
+  return (
+    shells
+      .filter(
+        (shell) =>
+          shell.environmentId === environmentId &&
+          shell.parentThreadId == null &&
+          shell.archivedAt === null &&
+          (shell.groupId != null
+            ? groups.some((group) => group.id === shell.groupId)
+            : bots.some((bot) => bot.id === shell.botId && bot.archivedAt === null)),
+      )
+      .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.id ?? null
+  );
+}
+
 export function resolveRosterBotId(
   selectedBotId: string | null,
   bots: ReadonlyArray<Pick<Bot, "id" | "archivedAt">>,

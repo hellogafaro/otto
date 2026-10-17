@@ -299,7 +299,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
       archivedFocusTarget.current = undefined;
       focusRosterRow(botKey);
       // Archiving is refused with a reason (a group boss, a group left too small), so say it.
-      toast.error(t("{name} couldn't be archived", { name: bot.name }));
+      toast.error(t("Bot couldn't be archived"));
 
       return;
     }
@@ -545,13 +545,11 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
             finalFocus={() => archivedFocusTarget.current === undefined}
           >
             <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("Archive {name}?", { name: archivingBot.name })}
-              </AlertDialogTitle>
+              <AlertDialogTitle>{t("Archive bot?")}</AlertDialogTitle>
               <AlertDialogDescription>
                 {t(
-                  "{name} leaves the roster and stops taking messages. You can restore it from Settings > Archived for {days} days, then it is deleted. Its chats stay in your history.",
-                  { name: archivingBot.name, days: ARCHIVED_BOT_RETENTION_DAYS },
+                  "The bot leaves the roster and stops taking messages. You can restore it from Settings > Archived for {days} days, then it is deleted. Its chats stay in your history.",
+                  { days: ARCHIVED_BOT_RETENTION_DAYS },
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>

@@ -329,7 +329,7 @@ export const commonMessagesCatalog = {
   "Work couldn't be kept running": "Work couldn't be kept running",
   "Work couldn't be retried": "Work couldn't be retried",
   "{name} couldn't be added": "{name} couldn't be added",
-  "{name} couldn't be archived": "{name} couldn't be archived",
+  "Bot couldn't be archived": "Bot couldn't be archived",
   "{name} couldn't be connected": "{name} couldn't be connected",
   "{name} couldn't be deleted": "{name} couldn't be deleted",
   "{name} couldn't be disconnected": "{name} couldn't be disconnected",

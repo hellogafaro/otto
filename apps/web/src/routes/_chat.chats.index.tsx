@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { BotZeroState } from "../components/roster/bot-zero-state";
 import { useOpenChat } from "../components/roster/chat-navigation";
-import { resolveRosterBotId } from "../components/roster/roster.logic";
+import { resolveLatestOpenChatId, resolveRosterBotId } from "../components/roster/roster.logic";
 import { isRosterReady } from "../components/roster/roster-route-selection";
 import { RosterLoadStatus } from "../components/roster/roster-load-status";
 import { useRosterStore } from "../components/roster/roster-store";
@@ -22,22 +22,15 @@ function ChatIndexRedirect() {
   const rosterEnvironmentId = useRosterStore((state) => state.environmentId);
   const rosterReady = isRosterReady(environmentId, rosterEnvironmentId);
   const botId = useRosterStore((state) => resolveRosterBotId(state.selectedBotId, state.bots));
+  const bots = useRosterStore((state) => state.bots);
+  const groups = useRosterStore((state) => state.groups);
   const loadState = useRosterLoadState();
   const shells = useThreadShells();
   const opened = useRef(false);
 
   const latestThreadId = useMemo(
-    () =>
-      shells
-        .filter(
-          (shell) =>
-            shell.environmentId === environmentId &&
-            (shell.botId != null || shell.groupId != null) &&
-            shell.parentThreadId == null &&
-            shell.archivedAt === null,
-        )
-        .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.id ?? null,
-    [environmentId, shells],
+    () => resolveLatestOpenChatId(shells, environmentId, bots, groups),
+    [bots, environmentId, groups, shells],
   );
 
   const ready = rosterReady && bootstrapped;

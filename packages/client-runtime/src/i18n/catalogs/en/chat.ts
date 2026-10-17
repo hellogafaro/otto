@@ -188,7 +188,7 @@ export const chatCatalog = {
   "{count} unpinned": "{count} unpinned",
   Archived: "Archived",
   "{count} archived": "{count} archived",
-  "Archive {name}?": "Archive {name}?",
+  "Archive bot?": "Archive bot?",
   "Upload image": "Upload image",
   Upload: "Upload",
   "Choose image": "Choose image",

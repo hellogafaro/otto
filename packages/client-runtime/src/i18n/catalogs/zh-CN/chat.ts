@@ -184,7 +184,7 @@ export const chatCatalog = {
   "{count} unpinned": "{count} 个未置顶",
   Archived: "已归档",
   "{count} archived": "{count} 个已归档",
-  "Archive {name}?": "归档 {name}？",
+  "Archive bot?": "归档机器人？",
   "Upload image": "上传图片",
   Upload: "上传",
   "Choose image": "选择图片",
