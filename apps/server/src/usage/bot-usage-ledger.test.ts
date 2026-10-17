@@ -319,6 +319,39 @@ it.layer(layer)("BotUsageLedger", (it) => {
     }),
   );
 
+  it.effect("meters history compaction as ordinary input and output with its cache share", () =>
+    Effect.gen(function* () {
+      const ledger = yield* BotUsageLedger;
+      const botId = BotId.make("bot-compaction");
+
+      const reservation = yield* ledger.reserve(
+        reserveInput("compaction-call", {
+          botId,
+          sourceKey: "compaction:thread-1",
+          category: "compaction",
+          maximumTokens: 400_000,
+        }),
+      );
+
+      yield* ledger.settle({
+        reservationId: reservation.reservationId,
+        state: "reported",
+        inputTokens: 300_000,
+        cachedInputTokens: 290_000,
+        cacheCreationTokens: 0,
+        outputTokens: 4_000,
+        reasoningTokens: null,
+        settledAt: "2026-10-17T10:00:00.000Z",
+      });
+
+      const summary = yield* ledger.summarize(botId);
+      assert.equal(summary.measurements.input.tokens, 300_000);
+      assert.equal(summary.measurements.output.tokens, 4_000);
+      assert.equal(summary.entries[0]?.category, "compaction");
+      assert.equal(summary.entries[0]?.cachedInputTokens, 290_000);
+    }),
+  );
+
   it.effect("accepts a later cache breakdown without charging the same tokens twice", () =>
     Effect.gen(function* () {
       const ledger = yield* BotUsageLedger;

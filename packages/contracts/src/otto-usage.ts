@@ -17,6 +17,7 @@ export const OttoUsageCategory = Schema.Literals([
   "tool",
   "observer",
   "reflector",
+  "compaction",
   "extraction",
   "recall",
   "routine",
