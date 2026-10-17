@@ -1,33 +1,84 @@
-# Otto
+<p align="center">
+  <img src="assets/readme-icon.png" width="128" height="128" alt="Otto app icon">
+</p>
 
-Otto is a local-first agent workspace with web, desktop and mobile clients.
+<h1 align="center">Otto</h1>
 
-This fork starts from the MIT-licensed [Akeru source](https://github.com/opencoredev/akeru-bot/tree/020a7b5c9630fa7a2a603771cca25128b3cacc15), itself derived from T3 Code. Original copyright and third-party license notices remain intact. Product names, first-party packages, internal identities, environment variables and owned artwork are branded Otto. External providers retain their actual names.
+<p align="center">A shared workspace where your team and its bots get work done together.</p>
 
-## Development
+## Why Otto
 
-Use Node 24 and the pnpm version declared in `package.json`:
+- **One place for people and bots.** Invite your team, chat with a bot alone or in a group, and
+  hand it a task. The bot keeps the task's history, so nobody has to repeat themselves.
+- **You stay in control.** Bots ask before they act. Approve or decline right in the chat, or always
+  allow an action you trust.
+- **Bots that do the work, not just talk about it.** Each bot gets its own computer and can use your
+  GitHub, connected apps and MCP servers. Recurring work runs on a schedule with routines.
+- **Use the AI you already pay for.** Connect a ChatGPT or Claude subscription, or an API key.
+- **Reach bots where you already talk**, such as Slack, Telegram or Discord.
+- **Your data stays yours.** Otto runs on your own server. Chats, files and settings live there,
+  not with us.
+
+## Download
+
+Get the Mac app from [GitHub Releases](https://github.com/hellogafaro/otto/releases). Signed
+releases are coming once our Apple Developer ID is in place; until then, use Otto in the browser or
+build the app yourself.
+
+## Host it yourself
+
+Otto is one Docker image that serves the app on port 3773 and keeps everything on a volume at
+`/data`. The first person to open a new Otto becomes its owner and invites the rest.
+
+**Railway:** create a service from this repository with the Dockerfile at
+`deploy/docker/Dockerfile`, a volume at `/data` and a public domain. Step by step:
+[deploy/railway/README.md](deploy/railway/README.md).
+
+**Docker:** on any server with Docker Compose:
 
 ```sh
+export OTTO_PUBLIC_URL=https://otto.example.com
+export OTTO_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+docker compose -f deploy/docker/compose.yaml up -d --build --wait
+```
+
+HTTPS, mail, backups and updates: [deploy/docker/README.md](deploy/docker/README.md).
+
+The settings that matter:
+
+| Variable              | What it does                                                                    |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `OTTO_PUBLIC_URL`     | The address people open, for example `https://otto.example.com`.                |
+| `OTTO_ENCRYPTION_KEY` | Seals the credentials Otto saves. Keep it in a password manager; don't lose it. |
+| `PORT`                | Railway only: set it to `3773` so Railway routes traffic to Otto.               |
+| `COMPOSIO_API_KEY`    | Optional. Lets everyone connect apps through Composio.                          |
+
+## Build it yourself
+
+In case you don't trust our builds, which is fine. You need Node 24.13 or newer and pnpm 11
+(`corepack enable` picks the version this repository pins).
+
+```sh
+git clone https://github.com/hellogafaro/otto.git
+cd otto
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-The launcher reports the API and web ports. `OTTO_HOME` selects a separate state directory. Do not point this foundation at an existing BB/Otto or Akeru database: no saved-data migration is implemented. Development in a linked worktree defaults to a worktree-local `.otto` directory.
+`pnpm dev` starts the server and the web app and prints the address to open.
 
-Pairing links are single-use. To mint another link for a running dev instance, run `node apps/server/src/bin.ts pair --base-dir <same-state-directory> --public-url <web-origin>` from this checkout. Treat its output as a password; do not publish it. No npm package is configured for this fork, so do not substitute `npx otto` for the source CLI.
-
-## Verification
+To build the Mac app you also need Xcode with the macOS 26.5 SDK:
 
 ```sh
-pnpm typecheck
-pnpm test
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+SDKROOT=$(xcrun --sdk macosx26.5 --show-sdk-path) \
+pnpm dist:desktop:dmg:arm64
 ```
 
-Package-scoped checks use the repository's Vite+ scripts through pnpm. Use development/HMR, not a production build, for local acceptance. Current source and verification evidence are recorded in `docs/native-acceptance.md`.
+The DMG lands in `release/`. Without your own Developer ID the app is signed ad hoc: it runs on your
+Mac but doesn't update itself. Signing and releases:
+[deploy/desktop-mac/README.md](deploy/desktop-mac/README.md).
 
-## Fork boundaries
+## License
 
-The explicitly authorized Akeru replacement supersedes historical runtime and toolchain directions in the preserved root `AGENTS.md` and `DESIGN.md`. Those files and the owned source assets remain unchanged. This phase is a rebrand, not a redesign or new room implementation; see `docs/otto-rebrand.md`.
-
-Git history and the former application's saved data are retained. No public release, npm package, hosted service, deployment or cloud account is implied. Product-hosted endpoints use reserved `.localhost` addresses until owned infrastructure is explicitly configured; upstream provider integrations are not renamed. Do not publish or deploy without separate authorization.
+MIT. See [LICENSE](LICENSE).
