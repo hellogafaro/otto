@@ -355,4 +355,11 @@ export const settingsCatalog = {
   "Use another email": "Use another email",
   "We sent a new code to {email}.": "We sent a new code to {email}.",
   "Your organization is ready. Sign in.": "Your organization is ready. Sign in.",
+  "Connect to a server": "Connect to a server",
+  "Enter the address of an Otto server. This window opens its app.":
+    "Enter the address of an Otto server. This window opens its app.",
+  "No Otto server answered at that address.": "No Otto server answered at that address.",
+  "Server address": "Server address",
+  "Use another server": "Use another server",
+  "Use this computer": "Use this computer",
 } as const;

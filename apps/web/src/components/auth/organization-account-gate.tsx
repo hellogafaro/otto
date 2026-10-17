@@ -19,6 +19,7 @@ import { Form } from "../ui/form";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Spinner } from "../ui/spinner";
 import { AuthSecondaryButton, AuthSurfaceShell, AuthSurfaceSection } from "./auth-surface-shell";
+import { DesktopServerPage } from "./desktop-server-page";
 import { useI18n } from "../../i18n";
 
 type AccountPage = "setup" | "login" | "invite" | "reset";
@@ -118,6 +119,7 @@ export function OrganizationAccountGate({
   const [code, setCode] = useState("");
   const [codeResent, setCodeResent] = useState(false);
   const [pending, setPending] = useState(false);
+  const [serverPage, setServerPage] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -349,6 +351,8 @@ export function OrganizationAccountGate({
             : invitationId
               ? "Sign in and join"
               : "Sign in";
+
+  if (serverPage) return <DesktopServerPage onBack={() => setServerPage(false)} />;
 
   // Otto: the boot splash from index.html stays up until we know which screen to show.
   if (!state && !error)
@@ -603,6 +607,11 @@ export function OrganizationAccountGate({
               </Form>
             ) : null}
           </div>
+        ) : null}
+        {window.desktopBridge?.setServerUrl && !notice ? (
+          <AuthSecondaryButton disabled={busy} onClick={() => setServerPage(true)}>
+            {t("Use another server")}
+          </AuthSecondaryButton>
         ) : null}
       </AuthSurfaceSection>
     </AuthSurfaceShell>

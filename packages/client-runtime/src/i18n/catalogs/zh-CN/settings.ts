@@ -344,4 +344,11 @@ export const settingsCatalog = {
   "Use another email": "使用其他邮箱",
   "We sent a new code to {email}.": "我们已向 {email} 发送了新验证码。",
   "Your organization is ready. Sign in.": "你的组织已就绪。请登录。",
+  "Connect to a server": "连接到服务器",
+  "Enter the address of an Otto server. This window opens its app.":
+    "输入 Otto 服务器的地址。此窗口将打开它的应用。",
+  "No Otto server answered at that address.": "该地址没有 Otto 服务器响应。",
+  "Server address": "服务器地址",
+  "Use another server": "使用其他服务器",
+  "Use this computer": "使用这台电脑",
 } as const;
