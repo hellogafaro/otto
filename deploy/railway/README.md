@@ -24,7 +24,6 @@ files are deprecated, so the template is set up once in Railway's template compo
    | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`                                                                            | `30`                                                                                   |
    | `OTTO_PUBLIC_ORIGIN`                                                                                             | `https://${{RAILWAY_PUBLIC_DOMAIN}}` (change it after adding a custom domain)          |
    | `OTTO_SECRETS_KEY`                                                                                               | `${{secret(43, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/")}}=` |
-   | `OTTO_SETUP_TOKEN`                                                                                               | `${{secret(32)}}`                                                                      |
    | `OTTO_TRUST_PROXY`                                                                                               | `1` (Railway's edge proxy forwards the client address for sign-in rate limits)         |
    | `BOAT_API_KEY`                                                                                                   | optional input: the Boat key bots use for their computers                              |
    | `OTTO_SMTP_HOST`, `OTTO_SMTP_PORT`, `OTTO_SMTP_SECURE`, `OTTO_SMTP_USER`, `OTTO_SMTP_PASSWORD`, `OTTO_MAIL_FROM` | optional inputs: any SMTP provider                                                     |
@@ -37,7 +36,7 @@ cannot be invited by email.
 ## After deploying
 
 1. Copy `OTTO_SECRETS_KEY` into a password manager: it seals every credential Otto saves.
-2. Open the public domain, fill in the setup form and enter `OTTO_SETUP_TOKEN` (service → Variables)
-   as the setup code.
+2. Open the public domain right after the first deploy and fill in the setup form: the first person
+   to do it becomes the owner.
 3. In the service's **Backups** tab, turn on daily and weekly volume backups. Otto also keeps seven
    daily database copies in `/data/backups`; `railway ssh` then `otto backup` takes one by hand.

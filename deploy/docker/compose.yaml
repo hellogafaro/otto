@@ -9,7 +9,6 @@ services:
     environment:
       OTTO_PUBLIC_ORIGIN: ${OTTO_PUBLIC_ORIGIN:?Set the https origin people open, e.g. https://otto.example.com}
       OTTO_SECRETS_KEY: ${OTTO_SECRETS_KEY:?Set a key from openssl rand -base64 32}
-      OTTO_SETUP_TOKEN: ${OTTO_SETUP_TOKEN:?Set a one-time setup code, e.g. openssl rand -hex 16}
       BOAT_API_KEY: ${BOAT_API_KEY:-}
       OTTO_TRUST_PROXY: ${OTTO_TRUST_PROXY:-}
       OTTO_SMTP_HOST: ${OTTO_SMTP_HOST:-}

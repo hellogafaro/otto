@@ -341,12 +341,9 @@ export const settingsCatalog = {
   "Connected by the server": "已由服务器连接",
   "Could not send a code.": "无法发送验证码。",
   "Enter the code we sent to {email}.": "输入我们发送到 {email} 的验证码。",
-  "Enter the setup code from the server’s OTTO_SETUP_TOKEN setting.":
-    "输入服务器 OTTO_SETUP_TOKEN 设置中的设置码。",
   "Organization ready": "组织已就绪",
   "Send a new code": "发送新验证码",
   "Send code": "发送验证码",
-  "Setup code": "设置码",
   "Sign-in code": "登录验证码",
   "Use another email": "使用其他邮箱",
   "We sent a new code to {email}.": "我们已向 {email} 发送了新验证码。",

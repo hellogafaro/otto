@@ -4,7 +4,6 @@ import { APIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
 import { bearer, emailOTP, organization } from "better-auth/plugins";
 import { adminAc, memberAc } from "better-auth/plugins/organization/access";
-import * as NodeCrypto from "node:crypto";
 import * as NodeSqlite from "node:sqlite";
 import * as DateTime from "effect/DateTime";
 import { z } from "zod";
@@ -26,7 +25,6 @@ export const OrganizationSetupInput = z
       .max(254)
       .transform((email) => email.toLowerCase()),
     password: z.string().min(8).max(128),
-    setupCode: z.string().max(256).optional(),
   })
   .strict();
 
@@ -77,10 +75,6 @@ export async function createOrganizationAccountsRuntime(options: {
   readonly origin: string;
   readonly cookieName: string;
   readonly mailConfigured: boolean;
-  /** OTTO_SETUP_TOKEN: when set, setup needs this code and the owner's email counts as verified. */
-  readonly setupToken?: string | undefined;
-  /** Containers refuse setup without a setup token, so a missing variable fails closed. */
-  readonly requireSetupToken?: boolean;
   /** OTTO_TRUST_PROXY: a reverse proxy sets X-Forwarded-For, so rate limits can key on it. */
   readonly trustProxy?: boolean;
   readonly now: () => number;
@@ -319,35 +313,12 @@ export async function createOrganizationAccountsRuntime(options: {
     return result ? getPrincipal(result.session.id) : null;
   };
 
-  const setupCodeMatches = (code: string | undefined) => {
-    const digest = (value: string) => NodeCrypto.createHash("sha256").update(value).digest();
-
-    return (
-      options.setupToken !== undefined &&
-      NodeCrypto.timingSafeEqual(digest(code?.trim() ?? ""), digest(options.setupToken))
-    );
-  };
-
   const setup = async (input: OrganizationSetup) => {
     if (getOrganization()) {
       throw new APIError("CONFLICT", { message: "This organization is already set up. Sign in." });
     }
 
-    if (options.setupToken !== undefined && !setupCodeMatches(input.setupCode)) {
-      throw new APIError("FORBIDDEN", {
-        code: "INVALID_SETUP_CODE",
-        message: "That setup code is not right.",
-      });
-    }
-
-    if (options.setupToken === undefined && options.requireSetupToken) {
-      throw new APIError("SERVICE_UNAVAILABLE", {
-        code: "SETUP_TOKEN_NOT_CONFIGURED",
-        message: "Set OTTO_SETUP_TOKEN on the server before setting up the organization.",
-      });
-    }
-
-    const verified = options.setupToken !== undefined || !options.mailConfigured;
+    const verified = !options.mailConfigured;
     const context = await auth.$context;
 
     await runWithTransaction(context.adapter, async () => {

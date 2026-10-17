@@ -77,7 +77,6 @@ export const layer = Layer.effect(
       config.publicOrigin ?? config.devUrl?.origin ?? `http://localhost:${config.port}`;
 
     const mailConfigured = Boolean(variables.OTTO_SMTP_HOST && variables.OTTO_MAIL_FROM);
-    const setupToken = variables.OTTO_SETUP_TOKEN?.trim() || undefined;
 
     const mailer = Nodemailer.createTransport({
       host: variables.OTTO_SMTP_HOST,
@@ -109,8 +108,6 @@ export const layer = Layer.effect(
           development: config.devUrl !== undefined,
         }),
         mailConfigured,
-        setupToken,
-        requireSetupToken: variables.OTTO_REMOTE_CONTAINER === "1",
         trustProxy: Boolean(variables.OTTO_TRUST_PROXY?.trim()),
         now: () => clock.currentTimeMillisUnsafe(),
         sendEmail: async (mail) => {
@@ -148,7 +145,6 @@ export const layer = Layer.effect(
                 : null,
               role: principal?.role ?? null,
               mailConfigured,
-              setupCodeRequired: setupToken !== undefined,
             },
             { headers: { "cache-control": "no-store" } },
           );

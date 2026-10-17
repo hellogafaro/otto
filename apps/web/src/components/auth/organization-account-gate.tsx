@@ -62,12 +62,6 @@ const accountFields = {
     autoComplete: "organization",
     schema: z.string().trim().min(1, "Enter your organization’s name.").max(80),
   },
-  setupCode: {
-    label: "Setup code",
-    type: "password",
-    autoComplete: "off",
-    schema: z.string().max(256),
-  },
 };
 
 type AccountFieldName = keyof typeof accountFields;
@@ -177,7 +171,6 @@ export function OrganizationAccountGate({
       email: "",
       password: "",
       organizationName: "",
-      setupCode: "",
     },
     onSubmit: async ({ value }): Promise<void> => {
       setError(null);
@@ -213,7 +206,6 @@ export function OrganizationAccountGate({
           if (result.error) throw new Error(result.error.message ?? "Organization setup failed.");
 
           form.setFieldValue("password", "");
-          form.setFieldValue("setupCode", "");
 
           setNotice(
             result.data?.verificationRequired
@@ -303,9 +295,7 @@ export function OrganizationAccountGate({
 
   const visibleFields: AccountFieldName[] =
     page === "setup"
-      ? setupStep === "organization" && state?.setupCodeRequired
-        ? [...step.fields, "setupCode"]
-        : step.fields
+      ? step.fields
       : page === "reset"
         ? ["password"]
         : mode === "signup"
@@ -329,9 +319,7 @@ export function OrganizationAccountGate({
 
   const description =
     page === "setup"
-      ? setupStep === "organization" && state?.setupCodeRequired
-        ? t("Enter the setup code from the server’s OTTO_SETUP_TOKEN setting.")
-        : step.description
+      ? step.description
       : page === "reset"
         ? "Choose a new password for your account."
         : codeStep
@@ -500,11 +488,7 @@ export function OrganizationAccountGate({
                   const definition = accountFields[name];
 
                   const label =
-                    name === "setupCode"
-                      ? t("Setup code")
-                      : name === "password" && page === "reset"
-                        ? "New password"
-                        : definition.label;
+                    name === "password" && page === "reset" ? "New password" : definition.label;
 
                   return (
                     <form.Field key={name} name={name} validators={{ onSubmit: definition.schema }}>

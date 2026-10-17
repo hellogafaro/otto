@@ -273,7 +273,7 @@ describe("installation accounts", () => {
   });
 });
 
-describe("setup code and email sign-in", () => {
+describe("setup and email sign-in", () => {
   const owner = {
     organizationName: "Test organization",
     email: "owner@example.test",
@@ -282,27 +282,9 @@ describe("setup code and email sign-in", () => {
     password,
   };
 
-  it("needs the setup code and then counts the owner's email as verified", async () => {
-    const { runtime, emails, signIn } = await fixture({ setupToken: "correct-setup-code" });
-    await expect(runtime.setup({ ...owner, setupCode: "wrong" })).rejects.toThrow("not right");
-    await expect(runtime.setup(owner)).rejects.toThrow("not right");
-    expect(runtime.getOrganization()).toBeNull();
-
-    expect(await runtime.setup({ ...owner, setupCode: " correct-setup-code " })).toMatchObject({
-      verificationRequired: false,
-    });
-
-    expect(emails.some((mail) => mail.subject === "Verify your Otto email")).toBe(false);
-    const session = await signIn(owner.email);
-
-    expect(
-      await runtime.authenticate(new Headers({ authorization: `Bearer ${session.token}` })),
-    ).toMatchObject({ email: owner.email, role: "admin" });
-  });
-
   it("sets up and signs in with the password on a server without mail", async () => {
-    const { runtime, request } = await fixture({ mailConfigured: false, setupToken: "code" });
-    await runtime.setup({ ...owner, setupCode: "code" });
+    const { runtime, request } = await fixture({ mailConfigured: false });
+    await runtime.setup(owner);
 
     expect(
       (await request("/email-otp/send-verification-otp", { email: owner.email, type: "sign-in" }))
@@ -311,7 +293,7 @@ describe("setup code and email sign-in", () => {
     expect((await request("/sign-in/email", { email: owner.email, password })).status).toBe(200);
   });
 
-  it("sets up without mail or a setup code and lets an invite link stand in for the email", async () => {
+  it("sets up without mail and lets an invite link stand in for the email", async () => {
     const { runtime, request, emails } = await fixture({ mailConfigured: false });
     expect(await runtime.setup(owner)).toMatchObject({ verificationRequired: false });
 
@@ -380,15 +362,9 @@ describe("setup code and email sign-in", () => {
     expect(await attempts(true)).not.toBe(429);
   });
 
-  it("refuses setup in a container without a setup token", async () => {
-    const { runtime } = await fixture({ requireSetupToken: true });
-    await expect(runtime.setup(owner)).rejects.toThrow("OTTO_SETUP_TOKEN");
-    expect(runtime.getOrganization()).toBeNull();
-  });
-
   it("accepts each email code once and refuses the password while mail is set up", async () => {
-    const { runtime, request, sendCode } = await fixture({ setupToken: "code" });
-    await runtime.setup({ ...owner, setupCode: "code" });
+    const { runtime, request, sendCode } = await fixture();
+    await runtime.setup(owner);
 
     expect((await request("/sign-in/email", { email: owner.email, password })).status).toBe(404);
     const otp = await sendCode(owner.email);

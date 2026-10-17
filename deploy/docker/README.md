@@ -10,7 +10,6 @@ Export the settings in your shell (or a secrets manager such as `infisical run -
 ```sh
 export OTTO_PUBLIC_ORIGIN=https://otto.example.com   # the address people open
 export OTTO_SECRETS_KEY="$(openssl rand -base64 32)"  # keep it in a password manager
-export OTTO_SETUP_TOKEN="$(openssl rand -hex 16)"     # the first person enters it on the setup form
 export BOAT_API_KEY=…                                 # optional: bots' Boat computers
 export OTTO_SMTP_HOST=… OTTO_SMTP_USER=… OTTO_SMTP_PASSWORD=… OTTO_MAIL_FROM=…  # optional
 docker compose -f deploy/docker/compose.yaml up -d --build --wait
@@ -23,8 +22,8 @@ listens on `127.0.0.1:3773`; change `OTTO_HTTP_BIND`/`OTTO_HTTP_PORT` to expose 
   gets a Let's Encrypt certificate: `OTTO_DOMAIN=otto.example.com OTTO_TRUST_PROXY=1 docker compose -f deploy/docker/compose.yaml --profile https up -d --wait`.
   `OTTO_TRUST_PROXY=1` lets sign-in rate limits use the client address Caddy forwards; leave it unset
   when people reach port 3773 directly, so nobody can fake that header.
-- **First run:** open the origin, fill in the setup form and enter `OTTO_SETUP_TOKEN` as the setup
-  code. The owner can sign in straight away; others join by invitation, which needs SMTP.
+- **First run:** open the origin straight away and fill in the setup form: the first person to do it
+  becomes the owner. Others join by invitation.
 - **Sign-in:** with SMTP set, people sign in with a code sent to their email; without it, with their
   password.
 - **Mail:** any SMTP provider works (`OTTO_SMTP_PORT` defaults to 587, `OTTO_SMTP_SECURE=true` for 465).

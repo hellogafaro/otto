@@ -17,7 +17,6 @@ export const OrganizationAccountState = Schema.Struct({
   ),
   role: Schema.NullOr(OrganizationRole),
   mailConfigured: Schema.Boolean,
-  setupCodeRequired: Schema.Boolean,
 });
 
 export type OrganizationAccountState = typeof OrganizationAccountState.Type;

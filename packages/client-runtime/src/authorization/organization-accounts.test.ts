@@ -36,7 +36,6 @@ describe("organization accounts client for the desktop app", () => {
         user: null,
         role: "admin",
         mailConfigured: false,
-        setupCodeRequired: false,
       };
 
       return Response.json(state);
