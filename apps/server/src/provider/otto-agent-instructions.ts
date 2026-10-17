@@ -100,7 +100,7 @@ export function createOttoInstructions(input: OttoInstructionInput = {}): string
     section("instructions", input.instructions),
     section("tools", toolLines.join("\n")),
     section("rules", rules.map((rule) => `- ${rule}`).join("\n")),
-    loaded.includes("Shell") ? section("computer", COMPUTER) : "",
+    loaded.includes("shell") ? section("computer", COMPUTER) : "",
     section("available_skills", input.skills),
     section("mcp_servers", input.mcpInstructions),
   ]

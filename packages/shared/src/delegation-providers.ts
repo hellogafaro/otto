@@ -1,6 +1,6 @@
 /**
  * Drivers that run on Otto's controller, which is the only runtime that can
- * advertise SendToAgent and enforce a delegated child's access grant. Every
+ * advertise delegate and enforce a delegated child's access grant. Every
  * other driver runs on the legacy adapter bridge and can neither hand off work
  * nor receive it.
  */

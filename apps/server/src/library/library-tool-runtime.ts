@@ -221,7 +221,7 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
 
   const by = (caller: LibraryToolCaller): WorkParticipant => ({ kind: "bot", botId: caller.botId });
 
-  const save = (caller: LibraryToolCaller, input: Input<"SaveToLibrary">) =>
+  const save = (caller: LibraryToolCaller, input: Input<"library_create">) =>
     Effect.gen(function* () {
       const scoped = yield* scopedState(caller);
 
@@ -330,7 +330,7 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
       };
     });
 
-  const read = (caller: LibraryToolCaller, input: Input<"ReadLibraryFile">) =>
+  const read = (caller: LibraryToolCaller, input: Input<"library_read">) =>
     Effect.gen(function* () {
       const { state, file } = yield* requireFile(caller, input.fileId);
       const details = describeFile(state, file);
@@ -351,7 +351,7 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
       return { ...details, content: new TextDecoder().decode(bytes) };
     });
 
-  const updateDocument = (caller: LibraryToolCaller, input: Input<"UpdateLibraryDocument">) =>
+  const updateDocument = (caller: LibraryToolCaller, input: Input<"library_update">) =>
     Effect.gen(function* () {
       const { state, file } = yield* requireFile(caller, input.fileId);
 
@@ -437,7 +437,7 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
       };
     });
 
-  const readSkillFile = (caller: LibraryToolCaller, input: Input<"ReadSkillFile">) =>
+  const readSkillFile = (caller: LibraryToolCaller, input: Input<"skill_read">) =>
     Effect.gen(function* () {
       const found = (yield* skillState(caller)).find(({ skill }) => skill.id === input.skillId);
 
@@ -482,10 +482,10 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
     );
 
   return {
-    save: (caller: LibraryToolCaller, input: Input<"SaveToLibrary">) => run(save(caller, input)),
+    save: (caller: LibraryToolCaller, input: Input<"library_create">) => run(save(caller, input)),
     list: (caller: LibraryToolCaller, input: Input<"ListLibrary">) => run(list(caller, input)),
-    read: (caller: LibraryToolCaller, input: Input<"ReadLibraryFile">) => run(read(caller, input)),
-    updateDocument: (caller: LibraryToolCaller, input: Input<"UpdateLibraryDocument">) =>
+    read: (caller: LibraryToolCaller, input: Input<"library_read">) => run(read(caller, input)),
+    updateDocument: (caller: LibraryToolCaller, input: Input<"library_update">) =>
       run(updateDocument(caller, input)),
     listSkills: (caller: LibraryToolCaller) => run(listSkills(caller)),
     /** The skills this bot can use, one prompt line each; empty when it has none or the read fails. */
@@ -503,7 +503,7 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
         Effect.orElseSucceed(() => ""),
         Effect.provide(context),
       ),
-    readSkillFile: (caller: LibraryToolCaller, input: Input<"ReadSkillFile">) =>
+    readSkillFile: (caller: LibraryToolCaller, input: Input<"skill_read">) =>
       run(readSkillFile(caller, input)),
     /** Files a generated image in the chat's Library folder; a failure only logs. */
     saveGeneratedImage: (

@@ -35,7 +35,7 @@ describe("OttoMastraHarness", () => {
           memoryDbPath: NodePath.join(directory, "observational-memory.sqlite"),
           getThreadTools: () => ({}),
           toolRuntime: toolRuntimeFixture({
-            toolsForThread: () => OTTO_TOOL_CATALOG.filter((tool) => tool.id === "Shell"),
+            toolsForThread: () => OTTO_TOOL_CATALOG.filter((tool) => tool.id === "shell"),
           }),
         });
 
@@ -66,7 +66,7 @@ describe("OttoMastraHarness", () => {
     const approvalInputs: unknown[] = [];
 
     const runtime = toolRuntimeFixture({
-      toolsForThread: () => OTTO_TOOL_CATALOG.filter((tool) => tool.id === "Shell"),
+      toolsForThread: () => OTTO_TOOL_CATALOG.filter((tool) => tool.id === "shell"),
       requiresApproval: async (_threadId, _toolId, input) => {
         approvalInputs.push(input);
 
@@ -83,7 +83,7 @@ describe("OttoMastraHarness", () => {
       getThreadTools: () => ({
         exa_search: pluginTool,
         RestartMcpServers: pluginTool,
-        Shell: pluginTool,
+        shell: pluginTool,
       }),
       syncThreadToolApproval: async (_threadId, _toolName, protectedAction) => {
         approvalPolicies.push(protectedAction);
@@ -91,11 +91,11 @@ describe("OttoMastraHarness", () => {
       toolRuntime: runtime,
     });
 
-    assert.containsAllKeys(tools, ["Shell", "exa_search", "RestartMcpServers"]);
-    assert.notProperty(tools, "Read");
+    assert.containsAllKeys(tools, ["shell", "exa_search", "RestartMcpServers"]);
+    assert.notProperty(tools, "read");
     assert.notProperty(tools, "execute_command");
 
-    const shell = probeTool(tools.Shell);
+    const shell = probeTool(tools.shell);
 
     const restart = probeTool(tools.RestartMcpServers);
 

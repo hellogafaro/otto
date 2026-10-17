@@ -63,7 +63,7 @@ const commandsOf = <Type extends OrchestrationCommand["type"]>(
 
 describe("delegation provider matrix", () => {
   describe.each(DELEGATION_DRIVER_KINDS)("%s", (driverKind) => {
-    it("runs on the controller, so SendToAgent is advertised", () => {
+    it("runs on the controller, so delegate is advertised", () => {
       expect(driverSupportsDelegation(driverKind)).toBe(true);
     });
 
@@ -137,7 +137,7 @@ describe("delegation provider matrix", () => {
   });
 
   describe("opencode (legacy bridge)", () => {
-    it("does not run on the controller, so SendToAgent is not advertised", () => {
+    it("does not run on the controller, so delegate is not advertised", () => {
       expect(driverSupportsDelegation("opencode")).toBe(false);
     });
 

@@ -40,13 +40,11 @@ describe("OttoToolRuntime", () => {
         send,
       },
     });
-    expect(runtime.toolsForThread("thread-delegated").map((tool) => tool.id)).toContain(
-      "SendToAgent",
-    );
+    expect(runtime.toolsForThread("thread-delegated").map((tool) => tool.id)).toContain("delegate");
 
     const execution = {
       threadId: "thread-delegated",
-      toolId: "SendToAgent" as const,
+      toolId: "delegate" as const,
       toolCallId: "tool-send",
       input: {
         botId: BotId.make("child-bot"),
@@ -87,7 +85,7 @@ describe("OttoToolRuntime", () => {
       },
     });
 
-    const execute = <Input>(toolId: "CreateAgent" | "CheckAgent", input: Input) =>
+    const execute = <Input>(toolId: "bot_create" | "delegate_check", input: Input) =>
       runtime.execute({
         threadId: "thread-controls",
         toolId,
@@ -96,10 +94,10 @@ describe("OttoToolRuntime", () => {
         approvalMode: "require-grant",
       });
 
-    await expect(execute("CreateAgent", { name: "Research" })).resolves.toEqual({
+    await expect(execute("bot_create", { name: "Research" })).resolves.toEqual({
       botId: "bot-research",
     });
-    await expect(execute("CheckAgent", { botId: "bot-research" })).resolves.toEqual({
+    await expect(execute("delegate_check", { botId: "bot-research" })).resolves.toEqual({
       state: "ready",
     });
 
@@ -117,7 +115,7 @@ describe("OttoToolRuntime", () => {
       },
       {
         threadId: "thread-controls",
-        toolId: "StopAgent" as const,
+        toolId: "delegate_stop" as const,
         toolCallId: "tool-stop",
         input: { botId: BotId.make("bot-research") },
         approvalMode: "require-grant" as const,
@@ -162,27 +160,27 @@ describe("OttoToolRuntime", () => {
     for (const execution of [
       {
         threadId: "thread-control-failures",
-        toolId: "CreateAgent" as const,
+        toolId: "bot_create" as const,
         toolCallId: "create-failure",
         input: { name: "Research" },
         approvalMode: "require-grant" as const,
       },
       {
         threadId: "thread-control-failures",
-        toolId: "CheckAgent" as const,
+        toolId: "delegate_check" as const,
         toolCallId: "check-failure",
         input: { botId: BotId.make("bot-research") },
         approvalMode: "require-grant" as const,
       },
       {
         threadId: "thread-control-failures",
-        toolId: "StopAgent" as const,
+        toolId: "delegate_stop" as const,
         toolCallId: "stop-failure",
         input: { botId: BotId.make("bot-research") },
         approvalMode: "require-grant" as const,
       },
     ]) {
-      if (execution.toolId === "StopAgent") runtime.grantApproval(execution);
+      if (execution.toolId === "delegate_stop") runtime.grantApproval(execution);
       receipts.length = 0;
       await expect(runtime.execute(execution)).resolves.toMatchObject({
         receiptId: execution.toolCallId,
@@ -203,7 +201,7 @@ describe("OttoToolRuntime", () => {
 
     const execution = {
       threadId: "thread-1",
-      toolId: "SendToAgent" as const,
+      toolId: "delegate" as const,
       toolCallId: "tool-delegate",
       input: {
         botId: BotId.make("reviewer"),

@@ -55,7 +55,7 @@ describe("createOttoMastraTools", () => {
       execute,
     });
 
-    const shell = probeTool(createOttoMastraTools("thread-1", runtime).Shell);
+    const shell = probeTool(createOttoMastraTools("thread-1", runtime).shell);
 
     if (!shell?.execute) throw new Error("Shell tool is unavailable.");
 
@@ -64,7 +64,7 @@ describe("createOttoMastraTools", () => {
     ).resolves.toEqual({ ok: true });
     expect(execute).toHaveBeenCalledWith({
       threadId: "thread-1",
-      toolId: "Shell",
+      toolId: "shell",
       toolCallId: "tool-1",
       input: { command: "pwd" },
       approvalMode: "require-grant",
@@ -75,7 +75,7 @@ describe("createOttoMastraTools", () => {
   });
 
   it("keeps checked string fields as plain strings with their pattern", () => {
-    const webFetch = Schema.toStandardJSONSchemaV1(OttoToolInputSchemas.WebFetch)["~standard"];
+    const webFetch = Schema.toStandardJSONSchemaV1(OttoToolInputSchemas.web_fetch)["~standard"];
     // SAFETY: Effect's Standard JSON Schema output for draft-07 is a JSON Schema object.
     const generated = webFetch.jsonSchema.input({ target: "draft-07" }) as JSONSchema.JSONSchema;
 
@@ -94,14 +94,14 @@ describe("createOttoMastraTools", () => {
 
   it("lets undecodable input reach execute instead of failing the turn in the approval check", async () => {
     const runtime = toolRuntimeFixture({
-      toolsForThread: () => OTTO_TOOL_CATALOG.filter((definition) => definition.id === "WebFetch"),
+      toolsForThread: () => OTTO_TOOL_CATALOG.filter((definition) => definition.id === "web_fetch"),
       requiresApproval: vi.fn(async () => {
         throw new Error("Expected string");
       }),
       execute: vi.fn(async () => ({ ok: true })),
     });
 
-    const webFetch = probeTool(createOttoMastraTools("thread-fetch", runtime).WebFetch);
+    const webFetch = probeTool(createOttoMastraTools("thread-fetch", runtime).web_fetch);
 
     await expect(webFetch.needsApprovalFn({ url: {} })).resolves.toBe(false);
   });

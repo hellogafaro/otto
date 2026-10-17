@@ -216,7 +216,7 @@ export const decideDelegations = Effect.fn("decideDelegations")(function* ({
           updatedAt: current.updatedAt,
         });
 
-        // CheckAgent delivers a finished result by stamping acknowledgedAt.
+        // delegate_check delivers a finished result by stamping acknowledgedAt.
         // That stamp is the only other same-phase change allowed.
         const acknowledgesOnly =
           isOttoDelegationResultPending(current) &&

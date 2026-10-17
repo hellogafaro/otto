@@ -110,12 +110,12 @@ function projectAcpContent(value: ActivityValue): ActivityRecord | undefined {
  * and anything from a person's connected accounts stay out.
  */
 const TOOL_DETAIL_ARGS = {
-  WebSearch: "query",
-  WebFetch: "url",
-  SearchPlugins: "query",
+  web_search: "query",
+  web_fetch: "url",
+  connection_search: "query",
   GetPlugin: "pluginId",
-  Read: "path",
-  SaveToLibrary: "title",
+  read: "path",
+  library_create: "title",
   otto_create_routine: "name",
 } as const satisfies Readonly<Record<string, string>>;
 
@@ -201,7 +201,7 @@ export function projectActivityPayload(
     };
   }
 
-  if (payload.itemType === "dynamic_tool_call" && activity.summary === "SearchPlugins") {
+  if (payload.itemType === "dynamic_tool_call" && activity.summary === "connection_search") {
     const result = projectPluginSearchResult(data.result);
 
     if (result) {

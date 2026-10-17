@@ -49,7 +49,7 @@ export function createOttoDelegationControls(
 
   const create = async (
     parent: OttoDelegationParent,
-    request: (typeof OttoToolInputSchemas.CreateAgent)["Type"],
+    request: (typeof OttoToolInputSchemas.bot_create)["Type"],
   ) => {
     const snapshot = await options.readSnapshot();
     const { parentThread, bot: parentBot } = availableBot(snapshot, parent, parent.botId);
@@ -89,7 +89,7 @@ export function createOttoDelegationControls(
 
   const check = async (
     parent: OttoDelegationParent,
-    request: (typeof OttoToolInputSchemas.CheckAgent)["Type"],
+    request: (typeof OttoToolInputSchemas.delegate_check)["Type"],
   ) => {
     const snapshot = await options.readSnapshot();
     const { bot } = availableBot(snapshot, parent, request.botId);
@@ -132,7 +132,7 @@ export function createOttoDelegationControls(
 
   const stop = async (
     parent: OttoDelegationParent,
-    request: (typeof OttoToolInputSchemas.StopAgent)["Type"],
+    request: (typeof OttoToolInputSchemas.delegate_stop)["Type"],
   ) => {
     const snapshot = await options.readSnapshot();
     availableBot(snapshot, parent, request.botId);

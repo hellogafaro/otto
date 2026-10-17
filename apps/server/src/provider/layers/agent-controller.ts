@@ -209,7 +209,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       memoryTurns,
     });
 
-    // Image providers for the GenerateImage tool, read on every session start or reuse. An
+    // Image providers for the image_create tool, read on every session start or reuse. An
     // unreadable settings file hides the tool rather than offering a call that can only fail
     // (ProviderService denies the MCP capability the same way). Without the service, tests
     // keep the tool visible.

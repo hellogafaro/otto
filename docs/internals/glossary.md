@@ -123,7 +123,7 @@ A typed signal emitted when an async milestone completes, such as `checkpoint.ba
 
 #### Delegation
 
-Work one bot sends to another with `SendToAgent`. It runs in a child thread and returns a handle at once. Its finished result is acknowledged exactly once, when the parent's next turn starts or when `CheckAgent` reads it. See [delegation.md](delegation.md).
+Work one bot sends to another with `delegate`. It runs in a child thread and returns a handle at once. Its finished result is acknowledged exactly once, when the parent's next turn starts or when `delegate_check` reads it. See [delegation.md](delegation.md).
 
 #### Waiting on children
 

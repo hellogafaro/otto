@@ -54,10 +54,10 @@ describe("work log tool data", () => {
       makeActivity({
         id: "plugin-search-done",
         kind: "tool.completed",
-        summary: "SearchPlugins",
+        summary: "connection_search",
         payload: {
           itemType: "dynamic_tool_call",
-          title: "SearchPlugins",
+          title: "connection_search",
           data: { result },
         },
       }),

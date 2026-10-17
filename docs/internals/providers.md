@@ -101,10 +101,10 @@ WebSearch is advertised but reports `status: "unavailable"` with no results. The
 expose no native search call that Otto can invoke, and Otto has no search index of its own, so the
 tool says so and suggests WebFetch instead of inventing results.
 
-GenerateImage calls `runImageGenerationTool` in the image generation runtime, the same entry the
+image_create calls `runImageGenerationTool` in the image generation runtime, the same entry the
 `generate_image` MCP tool uses for legacy-bridge sessions. The tool is listed only when ChatGPT or
 Grok images are enabled in Settings. Images are saved as chat attachments and posted into the chat;
-the tool result carries artifact metadata only. GenerateImage needs production approval.
+the tool result carries artifact metadata only. image_create needs production approval.
 
 SetMcpInstructions dispatches `mcp-server.instructions.set`. The guidance is stored on the MCP
 server record, is limited to 4,000 characters, and an empty string clears it. Mastra appends every

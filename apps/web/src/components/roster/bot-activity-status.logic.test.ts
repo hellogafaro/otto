@@ -102,10 +102,8 @@ describe("deriveBotActivity", () => {
 
   it("labels skill reads by name even though the item type says file change", () => {
     expect(
-      deriveBotActivity(
-        [started("ReadSkillFile", "call-1", { itemType: "file_change" })],
-        runningTurn,
-      ).label,
+      deriveBotActivity([started("skill_read", "call-1", { itemType: "file_change" })], runningTurn)
+        .label,
     ).toBe("Reading a skill");
   });
 
@@ -144,7 +142,7 @@ describe("deriveBotActivity", () => {
   it("shows the newest open tool when calls overlap", () => {
     expect(
       deriveBotActivity(
-        [started("Read", "call-1"), started("SearchPlugins", "call-2")],
+        [started("read", "call-1"), started("connection_search", "call-2")],
         runningTurn,
       ),
     ).toMatchObject({ label: "Searching plugins" });
@@ -161,7 +159,7 @@ describe("deriveBotActivity", () => {
     expect(
       deriveBotActivity(
         [
-          started("Shell", "call-1"),
+          started("shell", "call-1"),
           activity("approval.requested", "Approval requested", {
             requestId: "call-1",
             requestKind: "command",
@@ -174,7 +172,7 @@ describe("deriveBotActivity", () => {
 
   it("ignores activity from earlier turns", () => {
     expect(
-      deriveBotActivity([started("Shell", "old")], {
+      deriveBotActivity([started("shell", "old")], {
         ...runningTurn,
         turnId: TurnId.make("turn-2"),
       }),

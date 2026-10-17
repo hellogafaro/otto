@@ -26,7 +26,7 @@ describe("OttoToolRuntime", () => {
   it("exposes a narrow profile tool only for a bot-owned session", async () => {
     const updateProfile = vi.fn(async () => ({
       receiptId: "profile-1",
-      toolId: "UpdateBotProfile",
+      toolId: "bot_update",
       phase: "success" as const,
       threadId: ThreadId.make("thread-profile"),
       botId: BotId.make("bot-one"),
@@ -48,15 +48,13 @@ describe("OttoToolRuntime", () => {
     });
 
     expect(runtime.toolsForThread("thread-no-bot").map((tool) => tool.id)).not.toContain(
-      "UpdateBotProfile",
+      "bot_update",
     );
-    expect(runtime.toolsForThread("thread-profile").map((tool) => tool.id)).toEqual([
-      "UpdateBotProfile",
-    ]);
+    expect(runtime.toolsForThread("thread-profile").map((tool) => tool.id)).toEqual(["bot_update"]);
     await expect(
       runtime.execute({
         threadId: "thread-profile",
-        toolId: "UpdateBotProfile",
+        toolId: "bot_update",
         toolCallId: "profile-1",
         input: { title: "Principal researcher" },
         approvalMode: "require-grant",
@@ -69,7 +67,7 @@ describe("OttoToolRuntime", () => {
     await expect(
       runtime.execute({
         threadId: "thread-profile",
-        toolId: "UpdateBotProfile",
+        toolId: "bot_update",
         toolCallId: "profile-2",
         input: { title: "Principal researcher", botId: "bot-other" },
         approvalMode: "require-grant",
@@ -83,7 +81,7 @@ describe("OttoToolRuntime", () => {
     async (input) => {
       const updateProfile = vi.fn(async () => ({
         receiptId: "clear-profile",
-        toolId: "UpdateBotProfile",
+        toolId: "bot_update",
         phase: "success" as const,
         threadId: ThreadId.make("thread-profile"),
         botId: BotId.make("bot-one"),
@@ -99,13 +97,13 @@ describe("OttoToolRuntime", () => {
         botState: { updateProfile },
       });
 
-      await expect(
-        runtime.requiresApproval("thread-profile", "UpdateBotProfile", input),
-      ).resolves.toBe(false);
+      await expect(runtime.requiresApproval("thread-profile", "bot_update", input)).resolves.toBe(
+        false,
+      );
       await expect(
         runtime.execute({
           threadId: "thread-profile",
-          toolId: "UpdateBotProfile",
+          toolId: "bot_update",
           toolCallId: "clear-profile",
           input,
           approvalMode: "require-grant",
@@ -127,14 +125,14 @@ describe("OttoToolRuntime", () => {
       runtimeMode: "full-access",
       workspaceType: "none",
       catalogHandlers: {
-        WebFetch: async ({ input }) => fetch(decodeOttoToolInput("WebFetch", input)),
+        web_fetch: async ({ input }) => fetch(decodeOttoToolInput("web_fetch", input)),
       },
     });
-    expect(runtime.toolsForThread("thread-webfetch").map((tool) => tool.id)).toContain("WebFetch");
+    expect(runtime.toolsForThread("thread-webfetch").map((tool) => tool.id)).toContain("web_fetch");
     await expect(
       runtime.execute({
         threadId: "thread-webfetch",
-        toolId: "WebFetch",
+        toolId: "web_fetch",
         toolCallId: "tool-webfetch",
         input: { url: "https://example.com" },
         approvalMode: "require-grant",

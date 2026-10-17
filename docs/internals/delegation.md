@@ -31,7 +31,7 @@ migration was needed.
   otherwise. Old records default to `null`.
 - `retryOfDelegationId` points at the delegation a retry replaces. A retry is
   always a new record; the original is never mutated. Defaults to `null`.
-- `trigger` is `"bot"` for work a bot started with `SendToAgent` and
+- `trigger` is `"bot"` for work a bot started with `delegate` and
   `"scheduled"` for work a routine started. Defaults to `"bot"`.
 
 `botChatTimeline` in `@otto/client-runtime/state/bot-chat-timeline` merges a
@@ -48,7 +48,7 @@ stored in the `delegate_to_bot_id` column of `projection_routines` (migration
 
 ## Lifecycle
 
-`SendToAgent` returns a handle as soon as the child thread and its first turn
+`delegate` returns a handle as soon as the child thread and its first turn
 are dispatched. The handle carries `delegationId`, `childThreadId`,
 `childBotId`, the bot name, and `phase: "running"`. The parent turn keeps going
 and usually replies before the child finishes.
@@ -146,7 +146,7 @@ ways.
   records and passes them to the provider as `delegationResults`, formatted by
   `delegationResultsContext`. Each summary is shortened to about 4,000
   characters; the card keeps the full text.
-- **`CheckAgent`.** The tool returns each delegation's `state` and `summary`
+- **`delegate_check`.** The tool returns each delegation's `state` and `summary`
   (the result summary or failure message). Reading a finished, unacknowledged
   result acknowledges it, so the next turn does not repeat it.
 
@@ -181,7 +181,7 @@ the five.
 ## Legacy bridge providers
 
 Standard OpenCode runs on the legacy bridge, which registers no tool session.
-Its bots never see `SendToAgent` or the other delegation tools. A bot on
+Its bots never see `delegate` or the other delegation tools. A bot on
 another provider that sends work to an OpenCode bot is refused before any child
 thread exists: `send` resolves the target's driver through the
 `providerDriverKind` option and throws
@@ -253,7 +253,7 @@ message.
 
 ## Sending to the same bot again
 
-A second `SendToAgent` to a bot that already has work from the same parent is
+A second `delegate` to a bot that already has work from the same parent is
 allowed. It creates a new delegation with its own child thread and returns its
 own handle. The earlier work is not replaced or merged. Both count toward the
 concurrency cap, and each result is delivered separately.

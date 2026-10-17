@@ -40,16 +40,16 @@ export interface OttoToolSession {
     readonly activeDelegations: number;
     readonly access: OttoDelegationAccessGrant;
     readonly create?: (
-      input: (typeof OttoToolInputSchemas.CreateAgent)["Type"],
+      input: (typeof OttoToolInputSchemas.bot_create)["Type"],
     ) => Promise<OttoToolResult>;
     readonly check?: (
-      input: (typeof OttoToolInputSchemas.CheckAgent)["Type"],
+      input: (typeof OttoToolInputSchemas.delegate_check)["Type"],
     ) => Promise<OttoToolResult>;
     readonly send: (
-      input: (typeof OttoToolInputSchemas.SendToAgent)["Type"],
+      input: (typeof OttoToolInputSchemas.delegate)["Type"],
     ) => Promise<OttoToolResult>;
     readonly stop?: (
-      input: (typeof OttoToolInputSchemas.StopAgent)["Type"],
+      input: (typeof OttoToolInputSchemas.delegate_stop)["Type"],
     ) => Promise<OttoToolResult>;
   };
   readonly postToChat?: (
@@ -57,11 +57,11 @@ export interface OttoToolSession {
   ) => Promise<OttoToolReceipt>;
   readonly botState?: Pick<OttoBotStateRuntime, "updateProfile">;
   readonly reactToMessage?: (
-    input: (typeof OttoToolInputSchemas.ReactToMessage)["Type"],
+    input: (typeof OttoToolInputSchemas.message_react)["Type"],
     toolCallId: string,
   ) => Promise<OttoToolResult>;
   readonly catalogHandlers?: Partial<Record<OttoToolId, OttoCatalogToolHandler>>;
-  /** Image providers enabled in Settings; gates the GenerateImage tool. */
+  /** Image providers enabled in Settings; gates the image_create tool. */
   readonly imageGeneration?: { readonly chatgptEnabled: boolean; readonly grokEnabled: boolean };
 }
 

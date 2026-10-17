@@ -527,12 +527,12 @@ describe("thread landing delegations", () => {
         id: EventId.make("activity-plugin-search"),
         tone: "tool",
         kind: "tool.completed",
-        summary: "SearchPlugins",
+        summary: "connection_search",
         turnId,
         createdAt: timestamp,
         payload: {
           itemType: "dynamic_tool_call",
-          title: "SearchPlugins",
+          title: "connection_search",
           data: {
             result: {
               kind: "plugin-search-results",

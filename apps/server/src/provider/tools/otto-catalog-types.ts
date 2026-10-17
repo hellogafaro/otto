@@ -76,24 +76,24 @@ export interface OttoCatalogBackendOptions {
   }) => Promise<OttoToolResult>;
   readonly webFetch?: (input: { readonly url: string }) => Promise<OttoToolResult>;
   readonly generateImage?: (
-    input: (typeof OttoToolInputSchemas.GenerateImage)["Type"],
+    input: (typeof OttoToolInputSchemas.image_create)["Type"],
   ) => Promise<OttoToolResult>;
   readonly library?: {
     readonly save: (
-      input: (typeof OttoToolInputSchemas.SaveToLibrary)["Type"],
+      input: (typeof OttoToolInputSchemas.library_create)["Type"],
     ) => Promise<OttoToolResult>;
     readonly list: (
       input: (typeof OttoToolInputSchemas.ListLibrary)["Type"],
     ) => Promise<OttoToolResult>;
     readonly read: (
-      input: (typeof OttoToolInputSchemas.ReadLibraryFile)["Type"],
+      input: (typeof OttoToolInputSchemas.library_read)["Type"],
     ) => Promise<OttoToolResult>;
     readonly updateDocument: (
-      input: (typeof OttoToolInputSchemas.UpdateLibraryDocument)["Type"],
+      input: (typeof OttoToolInputSchemas.library_update)["Type"],
     ) => Promise<OttoToolResult>;
     readonly listSkills: () => Promise<OttoToolResult>;
     readonly readSkillFile: (
-      input: (typeof OttoToolInputSchemas.ReadSkillFile)["Type"],
+      input: (typeof OttoToolInputSchemas.skill_read)["Type"],
     ) => Promise<OttoToolResult>;
   };
   /** Otto: The organization's Tasks page, as the calling bot. */
@@ -102,16 +102,16 @@ export interface OttoCatalogBackendOptions {
       input: (typeof OttoToolInputSchemas.ListTasks)["Type"],
     ) => Promise<OttoToolResult>;
     readonly read: (
-      input: (typeof OttoToolInputSchemas.ReadTask)["Type"],
+      input: (typeof OttoToolInputSchemas.task_read)["Type"],
     ) => Promise<OttoToolResult>;
     readonly create: (
-      input: (typeof OttoToolInputSchemas.CreateTask)["Type"],
+      input: (typeof OttoToolInputSchemas.task_create)["Type"],
     ) => Promise<OttoToolResult>;
     readonly update: (
-      input: (typeof OttoToolInputSchemas.UpdateTask)["Type"],
+      input: (typeof OttoToolInputSchemas.task_update)["Type"],
     ) => Promise<OttoToolResult>;
     readonly comment: (
-      input: (typeof OttoToolInputSchemas.CommentOnTask)["Type"],
+      input: (typeof OttoToolInputSchemas.task_comment)["Type"],
     ) => Promise<OttoToolResult>;
   };
   readonly addMcpServer?: (

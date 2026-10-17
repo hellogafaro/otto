@@ -117,7 +117,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
 
   const send = async (
     parent: OttoDelegationParent,
-    request: (typeof OttoToolInputSchemas.SendToAgent)["Type"],
+    request: (typeof OttoToolInputSchemas.delegate)["Type"],
     origin?: OttoDelegationOrigin,
   ) => {
     const snapshot = await options.readSnapshot();
@@ -317,7 +317,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
     }
 
     const watch = async () => {
-      // StopAgent or a parent interrupt may have settled the record while the
+      // delegate_stop or a parent interrupt may have settled the record while the
       // child ran, and a keep-cancel may have stamped the record meanwhile.
       // Completion writes must build on the latest stored record: rebuilding
       // from `delegation` would reset keep/ownership fields and trip the

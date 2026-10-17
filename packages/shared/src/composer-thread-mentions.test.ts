@@ -162,7 +162,7 @@ describe("appendComposerMentionContext", () => {
       ],
     });
 
-    expect(context).toContain("skillId skill-1. Read its SKILL.md with ReadSkillFile");
+    expect(context).toContain("skillId skill-1. Read its SKILL.md with skill_read");
     expect(context).toContain(
       "connected googlecalendar account through your composio-session tools",
     );

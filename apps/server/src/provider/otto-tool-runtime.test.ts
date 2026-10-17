@@ -23,7 +23,7 @@ describe("OttoToolRuntime", () => {
       workspaceType: "local",
       workspace: workspace("bot"),
     });
-    expect(runtime.toolsForThread("thread-1").map((tool) => tool.id)).toEqual(["Shell", "Read"]);
+    expect(runtime.toolsForThread("thread-1").map((tool) => tool.id)).toEqual(["shell", "read"]);
   });
 
   it("rejects shell working directories outside the workspace", async () => {
@@ -37,7 +37,7 @@ describe("OttoToolRuntime", () => {
     for (const cwd of ["/", ".."]) {
       const execution = {
         threadId: "thread-1",
-        toolId: "Shell" as const,
+        toolId: "shell" as const,
         toolCallId: `tool-shell-${cwd}`,
         input: { command: "pwd", cwd },
         approvalMode: "require-grant" as const,

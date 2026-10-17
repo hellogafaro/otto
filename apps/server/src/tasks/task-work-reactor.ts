@@ -252,7 +252,7 @@ export const makeTaskWorkReactor = (
     const taskLine = (task: OrchestrationTask) => `the task "${task.title}" (taskId: ${task.id})`;
 
     const REPLY_NOTE =
-      "Read it with ReadTask before you start. Your final reply here is posted on the task as your comment, so write it for the people on the task.";
+      "Read it with task_read before you start. Your final reply here is posted on the task as your comment, so write it for the people on the task.";
 
     const finish = (threadId: ThreadId, work: Work) =>
       Effect.gen(function* () {

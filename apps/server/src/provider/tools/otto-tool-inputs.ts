@@ -38,27 +38,27 @@ export function decodeOttoRuntimeToolInput<Input>(
   const normalized = normalizeOttoToolInput(toolId, input, options?.approvalGrant);
 
   switch (toolId) {
-    case "Shell":
+    case "shell":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "Read":
+    case "read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "CreateAgent":
+    case "bot_create":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "CheckAgent":
+    case "delegate_check":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "MessageAgent":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "StopAgent":
+    case "delegate_stop":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "SendToAgent":
+    case "delegate":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "message_post":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "SearchPlugins":
+    case "connection_search":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "GetPlugin":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ReactToMessage":
+    case "message_react":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "InstallPlugin":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
@@ -70,39 +70,39 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "ReconnectMcpServer":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "UpdateBotProfile":
+    case "bot_update":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "AuthenticateMcpServer":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "RestartMcpServers":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "WebSearch":
+    case "web_search":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "WebFetch":
+    case "web_fetch":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "GenerateImage":
+    case "image_create":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "SaveToLibrary":
+    case "library_create":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "ListLibrary":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ReadLibraryFile":
+    case "library_read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "UpdateLibraryDocument":
+    case "library_update":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "ListSkills":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ReadSkillFile":
+    case "skill_read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "ListTasks":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ReadTask":
+    case "task_read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "CreateTask":
+    case "task_create":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "UpdateTask":
+    case "task_update":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "CommentOnTask":
+    case "task_comment":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "AddMcpServer":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };

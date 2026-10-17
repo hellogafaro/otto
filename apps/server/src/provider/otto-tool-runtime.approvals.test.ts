@@ -64,7 +64,7 @@ describe("OttoToolRuntime", () => {
 
     const execution = {
       threadId: "thread-1",
-      toolId: "Shell" as const,
+      toolId: "shell" as const,
       toolCallId: "tool-1",
       input: { command: "pwd" },
       approvalMode: "require-grant" as const,
@@ -119,7 +119,7 @@ describe("OttoToolRuntime", () => {
 
     const execution = {
       threadId: "nullable-shell",
-      toolId: "Shell" as const,
+      toolId: "shell" as const,
       toolCallId: "nullable-command",
       input: { command: "pwd", cwd: null },
       approvalMode: "require-grant" as const,
@@ -155,7 +155,7 @@ describe("OttoToolRuntime", () => {
     expect(() =>
       runtime.grantApproval({
         threadId: "memory-boundary",
-        toolId: "Shell",
+        toolId: "shell",
         toolCallId: "extra-command",
         input: { command: "pwd", extra: null },
       }),
@@ -163,7 +163,7 @@ describe("OttoToolRuntime", () => {
     expect(() =>
       runtime.grantApproval({
         threadId: "memory-boundary",
-        toolId: "Shell",
+        toolId: "shell",
         toolCallId: "extra-command",
         input: { command: "pwd", extra: "unexpected" },
       }),
@@ -245,7 +245,7 @@ describe("OttoToolRuntime", () => {
     await expect(
       runtime.execute({
         threadId: "thread-1",
-        toolId: "Read",
+        toolId: "read",
         toolCallId: "tool-read",
         input: { path: "report.txt" },
         approvalMode: "require-grant",
@@ -254,7 +254,7 @@ describe("OttoToolRuntime", () => {
     await expect(
       runtime.execute({
         threadId: "thread-1",
-        toolId: "Read",
+        toolId: "read",
         toolCallId: "tool-read-outside",
         input: { path: "../outside.txt" },
         approvalMode: "require-grant",
@@ -271,7 +271,7 @@ describe("OttoToolRuntime", () => {
       runtimeMode: "full-access",
       workspaceType: "none",
       catalogHandlers: {
-        SearchPlugins: search,
+        connection_search: search,
         InstallPlugin: install,
         UninstallPlugin: uninstall,
       },
@@ -280,7 +280,7 @@ describe("OttoToolRuntime", () => {
     await expect(
       runtime.execute({
         threadId: "thread-plugins",
-        toolId: "SearchPlugins",
+        toolId: "connection_search",
         toolCallId: "tool-search",
         input: { query: "web" },
         approvalMode: "require-grant",
@@ -315,7 +315,7 @@ describe("OttoToolRuntime", () => {
 
     const execution = {
       threadId: "thread-1",
-      toolId: "Shell" as const,
+      toolId: "shell" as const,
       toolCallId: "tool-shell",
       input: { command: "touch approved.txt" },
       approvalMode: "require-grant" as const,
@@ -344,7 +344,7 @@ describe("OttoToolRuntime", () => {
 
     const execution = {
       threadId: "thread-reaction",
-      toolId: "ReactToMessage" as const,
+      toolId: "message_react" as const,
       toolCallId: "reaction-1",
       input: { messageId: "message-1", emoji: "👍", action: "add" as const },
       approvalMode: "require-grant" as const,

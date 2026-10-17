@@ -405,7 +405,7 @@ export class OttoDelegationContextTooLongError extends Schema.TaggedErrorClass<O
   }
 }
 
-/** SendToAgent names a bot whose provider runs on the legacy bridge. */
+/** delegate names a bot whose provider runs on the legacy bridge. */
 export class OttoDelegationProviderUnsupportedError extends Schema.TaggedErrorClass<OttoDelegationProviderUnsupportedError>()(
   "OttoDelegationProviderUnsupportedError",
   {

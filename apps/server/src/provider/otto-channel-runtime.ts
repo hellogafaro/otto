@@ -29,7 +29,7 @@ export function createOttoChannelRuntime(options: OttoChannelRuntimeOptions) {
   const react = async (
     threadId: ThreadId,
     botId: BotId,
-    input: (typeof OttoToolInputSchemas.ReactToMessage)["Type"],
+    input: (typeof OttoToolInputSchemas.message_react)["Type"],
     toolCallId: string,
   ): Promise<OttoMessageReactionResult> => {
     const snapshot = await options.readSnapshot();

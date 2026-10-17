@@ -105,7 +105,7 @@ describe("AgentControllerLive", () => {
       threadId: childThreadId,
       turnId: childTurnId,
       payload: {
-        toolId: "SendToAgent",
+        toolId: "delegate",
         threadId: childThreadId,
         botId: childBotId,
         billedBotId: childBotId,

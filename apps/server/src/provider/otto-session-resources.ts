@@ -14,7 +14,7 @@ const OTTO_PREVIEW_MCP_SERVER_NAME = "otto";
 const OTTO_PREVIEW_TOOL_PREFIX = `${OTTO_PREVIEW_MCP_SERVER_NAME}_`;
 
 /**
- * Mastra sessions reach image generation through the GenerateImage catalog
+ * Mastra sessions reach image generation through the image_create catalog
  * tool on the runtime, not the shared `/mcp` server (their credential never
  * carries the `image` capability). Hide the dead MCP copy so a bot sees
  * exactly one image tool.

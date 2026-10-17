@@ -6,16 +6,16 @@ import { type OttoToolId } from "@otto/contracts";
 export const BACKEND_NAMES: Record<
   Exclude<
     OttoToolId,
-    | "CreateAgent"
-    | "CheckAgent"
+    | "bot_create"
+    | "delegate_check"
     | "MessageAgent"
-    | "StopAgent"
-    | "SendToAgent"
+    | "delegate_stop"
+    | "delegate"
     | "message_post"
-    | "UpdateBotProfile"
-    | "SearchPlugins"
+    | "bot_update"
+    | "connection_search"
     | "GetPlugin"
-    | "ReactToMessage"
+    | "message_react"
     | "InstallPlugin"
     | "UninstallPlugin"
     | "GetMcpServerStatus"
@@ -23,21 +23,21 @@ export const BACKEND_NAMES: Record<
     | "ReconnectMcpServer"
     | "AuthenticateMcpServer"
     | "RestartMcpServers"
-    | "WebSearch"
-    | "WebFetch"
-    | "GenerateImage"
+    | "web_search"
+    | "web_fetch"
+    | "image_create"
     | "generate_image"
-    | "SaveToLibrary"
+    | "library_create"
     | "ListLibrary"
-    | "ReadLibraryFile"
-    | "UpdateLibraryDocument"
+    | "library_read"
+    | "library_update"
     | "ListSkills"
-    | "ReadSkillFile"
+    | "skill_read"
     | "ListTasks"
-    | "ReadTask"
-    | "CreateTask"
-    | "UpdateTask"
-    | "CommentOnTask"
+    | "task_read"
+    | "task_create"
+    | "task_update"
+    | "task_comment"
     | "AddMcpServer"
     | "UninstallMcpServer"
     | "RemoveMcpAccount"
@@ -46,8 +46,8 @@ export const BACKEND_NAMES: Record<
   >,
   ReadonlyArray<string>
 > = {
-  Shell: ["execute_command", "mastra_workspace_execute_command"],
-  Read: ["view", "mastra_workspace_read_file"],
+  shell: ["execute_command", "mastra_workspace_execute_command"],
+  read: ["view", "mastra_workspace_read_file"],
 };
 
 export async function toolsForWorkspace(workspace: Workspace | undefined) {

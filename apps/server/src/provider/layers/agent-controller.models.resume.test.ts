@@ -210,7 +210,7 @@ describe("AgentControllerLive", () => {
           "event: message_start",
           'data: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"kimi-for-coding","content":[],"stop_reason":null,"usage":{"input_tokens":10,"output_tokens":0}}}',
           "event: content_block_start",
-          'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_shell","name":"Shell","input":{"command":"pwd"}}}',
+          'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_shell","name":"shell","input":{"command":"pwd"}}}',
           "event: content_block_stop",
           'data: {"type":"content_block_stop","index":0}',
           "event: message_delta",

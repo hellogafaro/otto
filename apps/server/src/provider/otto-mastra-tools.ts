@@ -105,7 +105,7 @@ export function createOttoMastraTools(
           }
 
           const search =
-            definition.id === "WebSearch" ? webSearch?.(context.abortSignal) : undefined;
+            definition.id === "web_search" ? webSearch?.(context.abortSignal) : undefined;
 
           return runtime.execute({
             threadId,

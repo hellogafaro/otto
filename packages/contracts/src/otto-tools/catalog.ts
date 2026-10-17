@@ -1,39 +1,39 @@
 import * as Schema from "effect/Schema";
 
 export const OttoToolId = Schema.Literals([
-  "Shell",
-  "Read",
-  "CreateAgent",
-  "CheckAgent",
+  "shell",
+  "read",
+  "bot_create",
+  "delegate_check",
   "MessageAgent",
-  "StopAgent",
-  "SendToAgent",
+  "delegate_stop",
+  "delegate",
   "message_post",
-  "SearchPlugins",
+  "connection_search",
   "GetPlugin",
-  "ReactToMessage",
+  "message_react",
   "InstallPlugin",
   "UninstallPlugin",
   "GetMcpServerStatus",
   "TestMcpServer",
   "ReconnectMcpServer",
-  "UpdateBotProfile",
+  "bot_update",
   "AuthenticateMcpServer",
   "RestartMcpServers",
-  "WebSearch",
-  "WebFetch",
-  "GenerateImage",
-  "SaveToLibrary",
+  "web_search",
+  "web_fetch",
+  "image_create",
+  "library_create",
   "ListLibrary",
-  "ReadLibraryFile",
-  "UpdateLibraryDocument",
+  "library_read",
+  "library_update",
   "ListSkills",
-  "ReadSkillFile",
+  "skill_read",
   "ListTasks",
-  "ReadTask",
-  "CreateTask",
-  "UpdateTask",
-  "CommentOnTask",
+  "task_read",
+  "task_create",
+  "task_update",
+  "task_comment",
   "AddMcpServer",
   "UninstallMcpServer",
   "RemoveMcpAccount",
@@ -113,17 +113,17 @@ const define = (
 });
 
 export const OTTO_TOOL_CATALOG = [
-  define("Shell", "bot-workspace", "Run a command in the bot workspace.", {
+  define("shell", "bot-workspace", "Run a command in the bot workspace.", {
     workspace: "bot-workspace",
     promptSnippet: "run commands in your workspace",
   }),
-  define("Read", "bot-workspace", "Read a file in the bot workspace.", {
+  define("read", "bot-workspace", "Read a file in the bot workspace.", {
     workspace: "bot-workspace",
     promptSnippet: "read a file in your workspace",
   }),
-  define("CreateAgent", "bot-workspace", "Create a durable named bot."),
+  define("bot_create", "bot-workspace", "Create a durable named bot."),
   define(
-    "CheckAgent",
+    "delegate_check",
     "bot-workspace",
     "Inspect a durable named bot and its delegated work. A finished result returned here counts as delivered and is not repeated in your next turn.",
   ),
@@ -135,11 +135,11 @@ export const OTTO_TOOL_CATALOG = [
       approval: "send",
     },
   ),
-  define("StopAgent", "bot-workspace", "Cancel a durable bot's delegated work.", {
+  define("delegate_stop", "bot-workspace", "Cancel a durable bot's delegated work.", {
     approval: "delete",
   }),
   define(
-    "SendToAgent",
+    "delegate",
     "bot-workspace",
     "Delegate a task to another bot. Returns a handle at once; the result arrives in your next turn.",
     {
@@ -156,7 +156,7 @@ export const OTTO_TOOL_CATALOG = [
     { promptSnippet: "post a reply, update or question where you were asked" },
   ),
   define(
-    "SearchPlugins",
+    "connection_search",
     "bot-workspace",
     "Search available plugins and connected integration providers when the user needs a capability that is not installed.",
   ),
@@ -166,7 +166,7 @@ export const OTTO_TOOL_CATALOG = [
     "Inspect a plugin, its connection, permissions, health, and dependents.",
   ),
   define(
-    "ReactToMessage",
+    "message_react",
     "bot-workspace",
     "Add or remove an emoji reaction on a visible message.",
     { approval: "send" },
@@ -184,21 +184,21 @@ export const OTTO_TOOL_CATALOG = [
   define("ReconnectMcpServer", "bot-workspace", "Reconnect one MCP server.", {
     approval: "production",
   }),
-  define("UpdateBotProfile", "bot-workspace", "Update this bot's public profile."),
+  define("bot_update", "bot-workspace", "Update this bot's public profile."),
   define("AuthenticateMcpServer", "bot-workspace", "Authenticate an MCP server.", {
     approval: "secrets",
   }),
   define("RestartMcpServers", "bot-workspace", "Restart MCP servers.", {
     approval: "production",
   }),
-  define("WebSearch", "bot-workspace", "Search the public web.", {
+  define("web_search", "bot-workspace", "Search the public web.", {
     promptSnippet: "search the public web",
   }),
-  define("WebFetch", "bot-workspace", "Fetch and extract a public URL.", {
+  define("web_fetch", "bot-workspace", "Fetch and extract a public URL.", {
     promptSnippet: "read a public web page",
   }),
   define(
-    "GenerateImage",
+    "image_create",
     "bot-workspace",
     "Generate a new image, or edit images from this chat, with the image provider the user configured. " +
       'Use operation "generate" with a prompt, or operation "edit" with a prompt and optional inputImages ' +
@@ -208,7 +208,7 @@ export const OTTO_TOOL_CATALOG = [
     { approval: "production", promptSnippet: "create or edit images" },
   ),
   define(
-    "SaveToLibrary",
+    "library_create",
     "bot-workspace",
     "Save an artifact to the Otto Library, the workspace's shared folders and files. " +
       "Pass markdown content to save a .md document (titled after its first # heading unless you give a title), " +
@@ -224,15 +224,15 @@ export const OTTO_TOOL_CATALOG = [
     { promptSnippet: "find Library files" },
   ),
   define(
-    "ReadLibraryFile",
+    "library_read",
     "bot-workspace",
     "Read one Library file: its details, and the text of a document or text file up to 1 MB. " +
-      "Keep the returned updatedAt to edit a document with UpdateLibraryDocument.",
+      "Keep the returned updatedAt to edit a document with library_update.",
   ),
   define(
-    "UpdateLibraryDocument",
+    "library_update",
     "bot-workspace",
-    "Replace a Library document's markdown, and optionally its title. Pass the updatedAt ReadLibraryFile returned; " +
+    "Replace a Library document's markdown, and optionally its title. Pass the updatedAt library_read returned; " +
       "if someone changed the document since, the save is rejected, so read it again and merge. Only a document's creator can edit it.",
   ),
   define(
@@ -240,16 +240,16 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "List the skills you can use: reusable instructions people saved in the Library's Skills folder, " +
       "each with a name, a description of when it applies, and its files. " +
-      "Check it when a request might match one, then read the skill's SKILL.md with ReadSkillFile and follow it.",
+      "Check it when a request might match one, then read the skill's SKILL.md with skill_read and follow it.",
   ),
   define(
-    "ReadSkillFile",
+    "skill_read",
     "bot-workspace",
     "Read a file from a skill ListSkills returned: SKILL.md by default, or a path such as references/guide.md. " +
       "Text files up to 1 MB. Scripts in a skill are references to read; Otto never runs them.",
     {
       promptGuidelines: [
-        "When a request matches one of <available_skills>, read its SKILL.md with ReadSkillFile first and follow it.",
+        "When a request matches one of <available_skills>, read its SKILL.md with skill_read first and follow it.",
       ],
     },
   ),
@@ -260,17 +260,17 @@ export const OTTO_TOOL_CATALOG = [
       'updated first. Filter by projectId, status, assignee ("me" for tasks assigned to you, ' +
       'or a participant key such as "person:…") or a title query. Archived tasks only show when ' +
       "you ask for that status. It also lists every project with its projectId and every person " +
-      "with their key, for CreateTask and UpdateTask.",
+      "with their key, for task_create and task_update.",
     { promptSnippet: "find tasks, people and projects" },
   ),
   define(
-    "ReadTask",
+    "task_read",
     "bot-workspace",
     "Read one task: its fields, description, links, the people involved with their participant " +
       "keys, and its latest comments and changes.",
   ),
   define(
-    "CreateTask",
+    "task_create",
     "bot-workspace",
     "Create a task on the Tasks page. It goes into this chat's project unless you pass a " +
       'projectId (ListTasks lists them). Assign it with participant keys from ListTasks, or "me". ' +
@@ -278,14 +278,14 @@ export const OTTO_TOOL_CATALOG = [
     { promptSnippet: "create a task" },
   ),
   define(
-    "UpdateTask",
+    "task_update",
     "bot-workspace",
     "Change a task's title, description, status, due date (null clears it), project or " +
       "assignees; fields you leave out stay as they are. You can't mark a task completed or " +
       "change its owner; ask a person to.",
   ),
   define(
-    "CommentOnTask",
+    "task_comment",
     "bot-workspace",
     "Post a comment on a task's activity as yourself, in plain text. Use it to report progress " +
       "or answer someone on the task.",

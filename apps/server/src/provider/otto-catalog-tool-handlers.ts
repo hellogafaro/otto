@@ -26,8 +26,8 @@ export function createOttoCatalogToolHandlers(
   return {
     ...(backends.webSearch
       ? {
-          WebSearch: async ({ input, webSearch }) => {
-            const request = decodeOttoToolInput("WebSearch", input);
+          web_search: async ({ input, webSearch }) => {
+            const request = decodeOttoToolInput("web_search", input);
 
             return (webSearch ?? backends.webSearch!)({
               query: request.query,
@@ -38,7 +38,7 @@ export function createOttoCatalogToolHandlers(
       : {}),
     ...(backends.webFetch
       ? {
-          WebFetch: async ({ input }) => {
+          web_fetch: async ({ input }) => {
             const url = parseOttoPublicUrl(requiredString(input, "url"));
 
             return backends.webFetch!({ url: url.toString() });
@@ -47,37 +47,37 @@ export function createOttoCatalogToolHandlers(
       : {}),
     ...(backends.generateImage
       ? {
-          GenerateImage: async ({ input }) =>
-            backends.generateImage!(decodeOttoToolInput("GenerateImage", input)),
+          image_create: async ({ input }) =>
+            backends.generateImage!(decodeOttoToolInput("image_create", input)),
         }
       : {}),
     ...(backends.library
       ? {
-          SaveToLibrary: async ({ input }) =>
-            backends.library!.save(decodeOttoToolInput("SaveToLibrary", input)),
+          library_create: async ({ input }) =>
+            backends.library!.save(decodeOttoToolInput("library_create", input)),
           ListLibrary: async ({ input }) =>
             backends.library!.list(decodeOttoToolInput("ListLibrary", input)),
-          ReadLibraryFile: async ({ input }) =>
-            backends.library!.read(decodeOttoToolInput("ReadLibraryFile", input)),
-          UpdateLibraryDocument: async ({ input }) =>
-            backends.library!.updateDocument(decodeOttoToolInput("UpdateLibraryDocument", input)),
+          library_read: async ({ input }) =>
+            backends.library!.read(decodeOttoToolInput("library_read", input)),
+          library_update: async ({ input }) =>
+            backends.library!.updateDocument(decodeOttoToolInput("library_update", input)),
           ListSkills: async () => backends.library!.listSkills(),
-          ReadSkillFile: async ({ input }) =>
-            backends.library!.readSkillFile(decodeOttoToolInput("ReadSkillFile", input)),
+          skill_read: async ({ input }) =>
+            backends.library!.readSkillFile(decodeOttoToolInput("skill_read", input)),
         }
       : {}),
     ...(backends.tasks
       ? {
           ListTasks: async ({ input }) =>
             backends.tasks!.list(decodeOttoToolInput("ListTasks", input)),
-          ReadTask: async ({ input }) =>
-            backends.tasks!.read(decodeOttoToolInput("ReadTask", input)),
-          CreateTask: async ({ input }) =>
-            backends.tasks!.create(decodeOttoToolInput("CreateTask", input)),
-          UpdateTask: async ({ input }) =>
-            backends.tasks!.update(decodeOttoToolInput("UpdateTask", input)),
-          CommentOnTask: async ({ input }) =>
-            backends.tasks!.comment(decodeOttoToolInput("CommentOnTask", input)),
+          task_read: async ({ input }) =>
+            backends.tasks!.read(decodeOttoToolInput("task_read", input)),
+          task_create: async ({ input }) =>
+            backends.tasks!.create(decodeOttoToolInput("task_create", input)),
+          task_update: async ({ input }) =>
+            backends.tasks!.update(decodeOttoToolInput("task_update", input)),
+          task_comment: async ({ input }) =>
+            backends.tasks!.comment(decodeOttoToolInput("task_comment", input)),
         }
       : {}),
     ...(backends.addMcpServer
@@ -112,9 +112,9 @@ export function createOttoCatalogToolHandlers(
       : {}),
     ...(pluginRuntime
       ? {
-          SearchPlugins: async ({ input }) =>
+          connection_search: async ({ input }) =>
             pluginRuntime.search(
-              decodeOttoToolInput("SearchPlugins", input),
+              decodeOttoToolInput("connection_search", input),
               statuses(),
               backends.botId,
             ),

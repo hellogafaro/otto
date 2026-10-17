@@ -519,8 +519,8 @@ describe("AgentControllerLive", () => {
         .toolsForThread(String(codexThreadId))
         .map((tool) => tool.id);
 
-      expect(toolIds).not.toContain("Shell");
-      expect(toolIds).not.toContain("Read");
+      expect(toolIds).not.toContain("shell");
+      expect(toolIds).not.toContain("read");
     }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });
 });

@@ -87,7 +87,7 @@ export interface OttoDelegationRuntimeOptions {
   }) => Promise<void>;
   /**
    * Driver kind behind a provider instance, or null when the instance is
-   * unknown. SendToAgent refuses a target whose instance is unknown or whose
+   * unknown. delegate refuses a target whose instance is unknown or whose
    * driver cannot run delegated work before it creates the child thread.
    */
   readonly providerDriverKind?: (instanceId: ProviderInstanceId) => Promise<string | null>;
@@ -137,7 +137,7 @@ export const isDispatchedDelegation = (delegation: OttoDelegationRecord) =>
 /** Why a group chat did not receive a finished delegation's result message. */
 export type OttoGroupResultSkipReason = "bot_left_group" | "group_unavailable";
 
-/** Returned by SendToAgent and MessageAgent as soon as the child turn is dispatched. */
+/** Returned by delegate and MessageAgent as soon as the child turn is dispatched. */
 export interface OttoDelegationHandle {
   readonly delegationId: DelegationId;
   readonly childThreadId: ThreadId;

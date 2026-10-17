@@ -251,7 +251,7 @@ export function createOttoPluginRuntime(
   };
 
   const search = async (
-    input: (typeof OttoToolInputSchemas.SearchPlugins)["Type"],
+    input: (typeof OttoToolInputSchemas.connection_search)["Type"],
     statuses: readonly McpRuntimeStatus[] = [],
     botId?: string,
   ) => {

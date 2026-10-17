@@ -216,7 +216,7 @@ describe("withOttoPrompt", () => {
     const cache = { anthropic: { cacheControl: { type: "ephemeral" } } };
 
     const tools: CallOptions["tools"] = [
-      { type: "function", name: "Read", inputSchema: { type: "object" } },
+      { type: "function", name: "read", inputSchema: { type: "object" } },
       { type: "function", name: "memory", inputSchema: { type: "object" } },
     ];
 
@@ -243,12 +243,12 @@ describe("withOttoPrompt", () => {
         "providerOptions" in tool ? tool.providerOptions : undefined,
       ]),
     ).toEqual([
-      ["Read", undefined],
+      ["read", undefined],
       ["memory", cache],
     ]);
     expect(request?.prompt[0]).toEqual({
       role: "system",
-      content: createOttoInstructions({ tools: ["Read", "memory"] }),
+      content: createOttoInstructions({ tools: ["read", "memory"] }),
     });
   });
 });

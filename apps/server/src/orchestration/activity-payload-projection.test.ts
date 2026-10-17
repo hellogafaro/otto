@@ -92,7 +92,7 @@ describe("projectActivityPayload", () => {
         data: { args: { query: "Madrid  population\n2025", domains: null } },
       }),
       kind: "tool.started",
-      summary: "WebSearch started",
+      summary: "web_search started",
     });
 
     expect((search.payload as Record<string, Schema.Json>).data).toEqual({
@@ -104,7 +104,7 @@ describe("projectActivityPayload", () => {
         itemType: "dynamic_tool_call",
         data: { result: { text: "<html>…</html>" } },
       }),
-      summary: "WebFetch",
+      summary: "web_fetch",
     });
 
     expect((fetched.payload as Record<string, Schema.Json>).data).toEqual({});
@@ -137,7 +137,7 @@ describe("projectActivityPayload", () => {
         data: { args: { query: "Madrid population" } },
       }),
       kind: "tool.started",
-      summary: "WebSearch started",
+      summary: "web_search started",
     });
 
     const command = projectActivityPayload(
@@ -463,7 +463,7 @@ describe("projectActivityPayload", () => {
           },
         },
       }),
-      summary: "SearchPlugins",
+      summary: "connection_search",
     });
 
     const data = (projected.payload as Record<string, Schema.Json>).data as Record<

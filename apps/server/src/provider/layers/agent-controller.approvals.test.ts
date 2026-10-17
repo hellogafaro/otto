@@ -82,7 +82,7 @@ describe("AgentControllerLive", () => {
         mastra.emit({
           type: "tool_approval_required",
           toolCallId: "shell-tool-1",
-          toolName: "Shell",
+          toolName: "shell",
           args: { command: "pwd" },
         } as AgentControllerEvent);
         yield* controller.startSession(codexThreadId, {
@@ -104,7 +104,7 @@ describe("AgentControllerLive", () => {
 
         const execution = {
           threadId: String(codexThreadId),
-          toolId: "Shell" as const,
+          toolId: "shell" as const,
           toolCallId: "shell-tool-1",
           input: { command: "pwd" },
           approvalMode: "require-grant" as const,
@@ -126,10 +126,10 @@ describe("AgentControllerLive", () => {
         );
         assert.isTrue([...receipts].every((event) => event.payload.fatalToThread === false));
         yield* Effect.promise(() =>
-          expect(runtime.execute(execution)).rejects.toThrow("Tool 'Shell' requires approval."),
+          expect(runtime.execute(execution)).rejects.toThrow("Tool 'shell' requires approval."),
         );
         expect(mastra.session.permissions.setForTool).not.toHaveBeenCalledWith({
-          toolName: "Shell",
+          toolName: "shell",
           policy: "allow",
         });
         expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
@@ -191,7 +191,7 @@ describe("AgentControllerLive", () => {
         yield* controller.interruptTurn({ threadId: codexThreadId });
         yield* Effect.promise(() =>
           expect(runtime.execute({ ...execution, toolCallId: "shell-tool-stale" })).rejects.toThrow(
-            "Tool 'Shell' requires approval.",
+            "Tool 'shell' requires approval.",
           ),
         );
         mastra.finishSend();
@@ -443,7 +443,7 @@ describe("AgentControllerLive", () => {
         mastra.emit({
           type: "tool_approval_required",
           toolCallId: "disabled-approval",
-          toolName: "Shell",
+          toolName: "shell",
           args: { command: "pwd" },
         } as AgentControllerEvent);
 

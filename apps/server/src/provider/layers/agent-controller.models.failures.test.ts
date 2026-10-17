@@ -678,7 +678,7 @@ describe("AgentControllerLive", () => {
           mastra.emit({
             type: "tool_approval_required",
             toolCallId: "shell-1",
-            toolName: "Shell",
+            toolName: "shell",
             args: { command: "rm -rf build" },
           } as AgentControllerEvent);
           yield* Effect.yieldNow;

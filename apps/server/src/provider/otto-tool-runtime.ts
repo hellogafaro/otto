@@ -102,30 +102,30 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
   const implementedTools = (session: OttoToolSession) => {
     const tools = new Set<OttoToolId>();
 
-    if (session.workspace?.sandbox?.executeCommand) tools.add("Shell");
+    if (session.workspace?.sandbox?.executeCommand) tools.add("shell");
 
-    if (session.workspace?.filesystem) tools.add("Read");
+    if (session.workspace?.filesystem) tools.add("read");
 
     if (session.delegation) {
-      if (session.delegation.create) tools.add("CreateAgent");
+      if (session.delegation.create) tools.add("bot_create");
 
-      if (session.delegation.check) tools.add("CheckAgent");
+      if (session.delegation.check) tools.add("delegate_check");
       tools.add("MessageAgent");
 
-      if (session.delegation.stop) tools.add("StopAgent");
-      tools.add("SendToAgent");
+      if (session.delegation.stop) tools.add("delegate_stop");
+      tools.add("delegate");
     }
 
     if (session.postToChat) tools.add("message_post");
 
-    if (session.botId && session.botState) tools.add("UpdateBotProfile");
+    if (session.botId && session.botState) tools.add("bot_update");
 
-    if (session.reactToMessage) tools.add("ReactToMessage");
+    if (session.reactToMessage) tools.add("message_react");
 
     for (const { id: toolId } of OTTO_TOOL_CATALOG) {
       if (!Object.hasOwn(session.catalogHandlers ?? {}, toolId)) continue;
 
-      if (toolId === "GenerateImage") {
+      if (toolId === "image_create") {
         const image = session.imageGeneration;
 
         if (image && !image.chatgptEnabled && !image.grokEnabled) continue;
@@ -281,7 +281,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
                 ...details,
               }),
           });
-        } else if (execution.toolId === "SendToAgent" || execution.toolId === "MessageAgent") {
+        } else if (execution.toolId === "delegate" || execution.toolId === "MessageAgent") {
           if (!session.delegation) throw new Error("Delegation is not available for this session.");
           const delegationInput = execution.input;
           failureCode = "internal";
@@ -302,9 +302,9 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
             );
           }
         } else if (
-          execution.toolId === "CreateAgent" ||
-          execution.toolId === "CheckAgent" ||
-          execution.toolId === "StopAgent"
+          execution.toolId === "bot_create" ||
+          execution.toolId === "delegate_check" ||
+          execution.toolId === "delegate_stop"
         ) {
           if (!session.delegation) {
             throw new Error("Bot management is not available for this session.");
@@ -314,10 +314,10 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           let billedBotId = session.botId;
 
           try {
-            if (execution.toolId === "CreateAgent") {
+            if (execution.toolId === "bot_create") {
               if (!session.delegation.create) throw new Error("Bot creation is not available.");
               result = await session.delegation.create(execution.input);
-            } else if (execution.toolId === "CheckAgent") {
+            } else if (execution.toolId === "delegate_check") {
               if (!session.delegation.check) throw new Error("Bot inspection is not available.");
               const checkInput = execution.input;
               billedBotId = checkInput.botId;
@@ -357,7 +357,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
             return result;
           }
-        } else if (execution.toolId === "UpdateBotProfile") {
+        } else if (execution.toolId === "bot_update") {
           if (!session.botId || !session.botState) {
             throw new Error("Bot profile management is not available for this session.");
           }
@@ -389,7 +389,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
             return result;
           }
-        } else if (execution.toolId === "ReactToMessage") {
+        } else if (execution.toolId === "message_react") {
           if (!session.reactToMessage) {
             throw new Error("Message reactions are not available for this session.");
           }

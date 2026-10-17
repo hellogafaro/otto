@@ -26,7 +26,7 @@ export function createOttoBotStateRuntime(options: OttoBotStateRuntimeOptions) {
     threadId: ThreadId,
     botId: BotId,
     toolCallId: string,
-    input: (typeof OttoToolInputSchemas.UpdateBotProfile)["Type"],
+    input: (typeof OttoToolInputSchemas.bot_update)["Type"],
   ): Promise<OttoToolReceipt> => {
     const snapshot = await options.readSnapshot();
     const bot = snapshot.bots.find((candidate) => candidate.id === botId);
@@ -44,7 +44,7 @@ export function createOttoBotStateRuntime(options: OttoBotStateRuntimeOptions) {
 
     return {
       receiptId: toolCallId,
-      toolId: "UpdateBotProfile",
+      toolId: "bot_update",
       phase: "success",
       threadId,
       botId,

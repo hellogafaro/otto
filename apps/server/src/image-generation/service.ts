@@ -16,7 +16,7 @@
  *
  * Generation itself is owned by `ImageGenerationRuntime`, the single producer
  * behind every image tool surface (the MCP `generate_image` tool and the
- * Mastra `GenerateImage` catalog tool). This module keeps provider status
+ * Mastra `image_create` catalog tool). This module keeps provider status
  * rows, settings normalization, and the health test.
  */
 import {

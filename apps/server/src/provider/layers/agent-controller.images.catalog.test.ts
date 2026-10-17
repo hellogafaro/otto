@@ -151,9 +151,9 @@ describe("AgentControllerLive", () => {
         assert.isDefined(runtime);
         expect(runtime.toolsForThread(String(codexThreadId)).map((tool) => tool.id)).toEqual(
           expect.arrayContaining([
-            "WebSearch",
-            "WebFetch",
-            "GenerateImage",
+            "web_search",
+            "web_fetch",
+            "image_create",
             "AddMcpServer",
             "UninstallMcpServer",
             "RemoveMcpAccount",
@@ -170,17 +170,17 @@ describe("AgentControllerLive", () => {
             return runtime.execute({ ...execution, approvalMode: "require-grant" });
           });
 
-        expect(yield* run("WebSearch", "search", { query: "otto bot" })).toMatchObject({
+        expect(yield* run("web_search", "search", { query: "otto bot" })).toMatchObject({
           status: "unavailable",
           query: "otto bot",
           results: [],
         });
         expect(
-          yield* run("WebFetch", "fetch", { url: `http://catalog.example:${port}/` }),
+          yield* run("web_fetch", "fetch", { url: `http://catalog.example:${port}/` }),
         ).toMatchObject({ status: 200, text: "catalog page", truncated: false });
 
         const imageRequest = { operation: "generate", prompt: "a fox" } as const;
-        expect(yield* run("GenerateImage", "image", imageRequest)).toEqual(imageResult);
+        expect(yield* run("image_create", "image", imageRequest)).toEqual(imageResult);
         expect(generateImage).toHaveBeenCalledExactlyOnceWith(codexThreadId, imageRequest);
 
         expect(
@@ -342,7 +342,7 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
-  it.effect("routes the Mastra GenerateImage catalog tool through the image runtime", () => {
+  it.effect("routes the Mastra image_create catalog tool through the image runtime", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
     const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-catalog-image-"));
@@ -398,7 +398,7 @@ describe("AgentControllerLive", () => {
         const runtime = mastra.harnessOptions[0]?.toolRuntime;
         assert.isDefined(runtime);
         expect(runtime.toolsForThread(String(codexThreadId)).map((tool) => tool.id)).toContain(
-          "GenerateImage",
+          "image_create",
         );
         expect(runtime.toolsForThread(String(codexThreadId)).map((tool) => tool.id)).not.toContain(
           "generate_image",
@@ -407,7 +407,7 @@ describe("AgentControllerLive", () => {
 
         const execution = {
           threadId: String(codexThreadId),
-          toolId: "GenerateImage" as const,
+          toolId: "image_create" as const,
           toolCallId: "image-catalog",
           input,
         };
@@ -518,7 +518,7 @@ describe("AgentControllerLive", () => {
 
         const execution = {
           threadId: String(codexThreadId),
-          toolId: "GenerateImage" as const,
+          toolId: "image_create" as const,
           toolCallId: "image-catalog-timeout",
           input: { operation: "generate", prompt: "a fox" },
         };
@@ -668,12 +668,12 @@ describe("AgentControllerLive", () => {
           const toolIds = () =>
             runtime.toolsForThread(String(codexThreadId)).map((tool) => tool.id);
 
-          expect(toolIds()).toContain("GenerateImage");
+          expect(toolIds()).toContain("image_create");
 
           yield* settings.updateSettings({ imageGeneration: { grokEnabled: false } });
           yield* controller.startSession(codexThreadId, input);
           expect(mastra.createSession).toHaveBeenCalledOnce();
-          expect(toolIds()).not.toContain("GenerateImage");
+          expect(toolIds()).not.toContain("image_create");
         }),
         bridge.service,
         mastra.factory,

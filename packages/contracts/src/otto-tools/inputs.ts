@@ -165,26 +165,26 @@ const TaskToolFields = {
 };
 
 export const OttoToolInputSchemas = {
-  Shell: CommandInput,
-  Read: PathInput,
-  CreateAgent: Schema.Struct({
+  shell: CommandInput,
+  read: PathInput,
+  bot_create: Schema.Struct({
     name: TrimmedNonEmptyString,
     title: Schema.optional(TrimmedNonEmptyString),
     description: Schema.optional(TrimmedNonEmptyString),
   }),
-  CheckAgent: Schema.Struct({ botId: BotId }),
+  delegate_check: Schema.Struct({ botId: BotId }),
   MessageAgent: AgentMessageInput,
-  StopAgent: Schema.Struct({ botId: BotId }),
-  SendToAgent: AgentMessageInput,
+  delegate_stop: Schema.Struct({ botId: BotId }),
+  delegate: AgentMessageInput,
   message_post: Schema.Struct({
     text: TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_COMMAND_MAX_CHARS)),
   }),
-  SearchPlugins: Schema.Struct({
+  connection_search: Schema.Struct({
     query: Schema.optional(TrimmedNonEmptyString),
     limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(50))),
   }),
   GetPlugin: Schema.Struct({ pluginId: TrimmedNonEmptyString }),
-  ReactToMessage: Schema.Struct({
+  message_react: Schema.Struct({
     messageId: MessageId,
     emoji: TrimmedNonEmptyString.check(Schema.isMaxLength(32)),
     action: Schema.Literals(["add", "remove"]),
@@ -194,30 +194,30 @@ export const OttoToolInputSchemas = {
   GetMcpServerStatus: McpServerIdInput,
   TestMcpServer: McpServerIdInput,
   ReconnectMcpServer: McpServerIdInput,
-  UpdateBotProfile: UpdateBotProfileInput,
+  bot_update: UpdateBotProfileInput,
   AuthenticateMcpServer: McpServerIdInput,
   RestartMcpServers: Schema.Struct({
     serverIds: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   }),
-  WebSearch: WebSearchInput,
-  WebFetch: WebFetchInput,
-  GenerateImage: ImageGenerationRequest,
-  SaveToLibrary: SaveToLibraryInput,
+  web_search: WebSearchInput,
+  web_fetch: WebFetchInput,
+  image_create: ImageGenerationRequest,
+  library_create: SaveToLibraryInput,
   ListLibrary: Schema.Struct({
     folderId: Schema.optional(LibraryFolderId),
     type: Schema.optional(LibraryFileType),
     query: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
     limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
   }),
-  ReadLibraryFile: Schema.Struct({ fileId: LibraryFileId }),
-  UpdateLibraryDocument: Schema.Struct({
+  library_read: Schema.Struct({ fileId: LibraryFileId }),
+  library_update: Schema.Struct({
     fileId: LibraryFileId,
     content: LibraryText,
     updatedAt: IsoDateTime,
     title: Schema.optional(LibraryTitle),
   }),
   ListSkills: Schema.Record(Schema.String, Schema.Never),
-  ReadSkillFile: Schema.Struct({
+  skill_read: Schema.Struct({
     skillId: LibraryFolderId,
     path: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(500))),
   }),
@@ -228,19 +228,19 @@ export const OttoToolInputSchemas = {
     query: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
     limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
   }),
-  ReadTask: Schema.Struct({ taskId: TaskId }),
-  CreateTask: Schema.Struct({
+  task_read: Schema.Struct({ taskId: TaskId }),
+  task_create: Schema.Struct({
     title: WorkTitle,
     projectId: Schema.optional(ProjectId),
     ...TaskToolFields,
   }),
-  UpdateTask: Schema.Struct({
+  task_update: Schema.Struct({
     taskId: TaskId,
     title: Schema.optional(WorkTitle),
     projectId: Schema.optional(ProjectId),
     ...TaskToolFields,
   }),
-  CommentOnTask: Schema.Struct({ taskId: TaskId, content: ActivityContent }),
+  task_comment: Schema.Struct({ taskId: TaskId, content: ActivityContent }),
   AddMcpServer: AddMcpServerInput,
   UninstallMcpServer: Schema.Struct({ serverId: McpServerId }),
   RemoveMcpAccount: Schema.Struct({ serverId: McpServerId }),

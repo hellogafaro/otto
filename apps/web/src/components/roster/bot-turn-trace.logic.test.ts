@@ -51,14 +51,14 @@ describe("buildBotTurnTraces", () => {
   it("lists a turn's tool calls in the past tense with the thinking between them", () => {
     const trace = buildBotTurnTraces(
       [
-        tool("tool.started", "WebSearch", 5, "search", {
+        tool("tool.started", "web_search", 5, "search", {
           data: { detail: "Madrid population 2025" },
         }),
-        tool("tool.completed", "WebSearch", 9, "search", { status: "completed", data: {} }),
-        tool("tool.started", "WebFetch", 9, "fetch", {
+        tool("tool.completed", "web_search", 9, "search", { status: "completed", data: {} }),
+        tool("tool.started", "web_fetch", 9, "fetch", {
           data: { detail: "https://www.ine.es/consul/serie.do?L=0" },
         }),
-        tool("tool.completed", "WebFetch", 10, "fetch", { status: "failed", data: {} }),
+        tool("tool.completed", "web_fetch", 10, "fetch", { status: "failed", data: {} }),
       ],
       messages,
     ).get(TURN);
@@ -81,11 +81,11 @@ describe("buildBotTurnTraces", () => {
   it("opens a command into its command line and the start of its output", () => {
     const trace = buildBotTurnTraces(
       [
-        tool("tool.started", "Shell", 1, "pwd", {
+        tool("tool.started", "shell", 1, "pwd", {
           itemType: "command_execution",
           data: { command: "pwd" },
         }),
-        tool("tool.completed", "Shell", 2, "pwd", {
+        tool("tool.completed", "shell", 2, "pwd", {
           itemType: "command_execution",
           status: "completed",
           data: { output: "/workspace" },
@@ -104,8 +104,8 @@ describe("buildBotTurnTraces", () => {
   it("times a turn from the message that opened it, not one sent while it worked", () => {
     const trace = buildBotTurnTraces(
       [
-        tool("tool.started", "WebSearch", 2, "search", { data: { detail: "Madrid weather" } }),
-        tool("tool.completed", "WebSearch", 6, "search", { status: "completed", data: {} }),
+        tool("tool.started", "web_search", 2, "search", { data: { detail: "Madrid weather" } }),
+        tool("tool.completed", "web_search", 6, "search", { status: "completed", data: {} }),
       ],
       [message("ask", "user", 0), message("wait", "user", 7), message("answer", "assistant", 16)],
     ).get(TURN);

@@ -14,7 +14,7 @@ describe("Otto catalog MCP tool handlers", () => {
   ])("rejects unsafe WebFetch URL %s before the backend runs", async (url) => {
     const webFetch = vi.fn(async () => ({ text: "page" }));
     const handlers = createOttoCatalogToolHandlers(undefined, undefined, undefined, { webFetch });
-    await expect(handlers.WebFetch!({ input: { url }, emitProgress: vi.fn() })).rejects.toThrow();
+    await expect(handlers.web_fetch!({ input: { url }, emitProgress: vi.fn() })).rejects.toThrow();
     expect(webFetch).not.toHaveBeenCalled();
   });
 
@@ -64,9 +64,9 @@ describe("Otto catalog MCP tool handlers", () => {
       },
     });
 
-    await handlers.WebSearch!({ input: { query: "otto" }, emitProgress: vi.fn() });
-    await handlers.WebFetch!({ input: { url: "https://example.com" }, emitProgress: vi.fn() });
-    await handlers.GenerateImage!({
+    await handlers.web_search!({ input: { query: "otto" }, emitProgress: vi.fn() });
+    await handlers.web_fetch!({ input: { url: "https://example.com" }, emitProgress: vi.fn() });
+    await handlers.image_create!({
       input: { operation: "generate", prompt: "a cat" },
       emitProgress: vi.fn(),
     });

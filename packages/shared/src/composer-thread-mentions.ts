@@ -182,7 +182,7 @@ export function appendComposerMentionContext(
         Match.when(
           "skill",
           () =>
-            `The user tagged the skill with skillId ${resource.id}. Read its SKILL.md with ReadSkillFile and follow it for this request.`,
+            `The user tagged the skill with skillId ${resource.id}. Read its SKILL.md with skill_read and follow it for this request.`,
         ),
         Match.when(
           "app",
@@ -197,7 +197,7 @@ export function appendComposerMentionContext(
         Match.when(
           "task",
           () =>
-            `The user tagged the task with taskId ${resource.id}. Read it with ReadTask before acting on it.`,
+            `The user tagged the task with taskId ${resource.id}. Read it with task_read before acting on it.`,
         ),
         Match.when(
           "project",

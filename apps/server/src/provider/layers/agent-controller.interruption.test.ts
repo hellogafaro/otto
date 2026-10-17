@@ -199,7 +199,7 @@ describe("AgentControllerLive", () => {
         mastra.emit({
           type: "tool_approval_required",
           toolCallId: "shell-review-1",
-          toolName: "Shell",
+          toolName: "shell",
           args: { command: "sleep 5; ls -la" },
         } as AgentControllerEvent);
         yield* Effect.yieldNow;
@@ -223,7 +223,7 @@ describe("AgentControllerLive", () => {
         mastra.emit({
           type: "tool_approval_required",
           toolCallId: "shell-review-2",
-          toolName: "Shell",
+          toolName: "shell",
           args: { command: "ls" },
         } as AgentControllerEvent);
         yield* Effect.yieldNow;
@@ -243,7 +243,7 @@ describe("AgentControllerLive", () => {
         yield* Effect.promise(() =>
           runtime.execute({
             threadId: String(codexThreadId),
-            toolId: "Shell",
+            toolId: "shell",
             toolCallId: "shell-review-2",
             input: { command: "ls" },
             approvalMode: "require-grant",

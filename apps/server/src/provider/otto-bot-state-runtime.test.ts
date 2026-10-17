@@ -80,7 +80,7 @@ describe("OttoBotStateRuntime", () => {
       }),
     ).resolves.toEqual({
       receiptId: "tool-1",
-      toolId: "UpdateBotProfile",
+      toolId: "bot_update",
       phase: "success",
       threadId: "thread-1",
       botId,

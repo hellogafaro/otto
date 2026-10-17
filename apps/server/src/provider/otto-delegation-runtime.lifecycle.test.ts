@@ -275,7 +275,7 @@ describe("OttoDelegationRuntime", () => {
     expect(watchErrors).toEqual([]);
   });
 
-  it("acknowledges a finished result that CheckAgent returns", async () => {
+  it("acknowledges a finished result that delegate_check returns", async () => {
     const test = harness();
     await test.runtime.send(parent(), request() as never);
     await test.runtime.drain();

@@ -330,7 +330,7 @@ describe("Otto catalog MCP tool handlers", () => {
     });
 
     expect(Object.keys(createOttoCatalogToolHandlers(undefined, runtime))).toEqual([
-      "SearchPlugins",
+      "connection_search",
       "GetPlugin",
       "InstallPlugin",
       "UninstallPlugin",

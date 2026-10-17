@@ -34,27 +34,27 @@ const TOOL_LABELS = {
   otto_update_routine: "Updating a routine",
   otto_set_routine_paused: "Updating a routine",
   ListSkills: "Checking skills",
-  ReadSkillFile: "Reading a skill",
+  skill_read: "Reading a skill",
   ListLibrary: "Browsing the library",
-  ReadLibraryFile: "Reading the library",
-  SaveToLibrary: "Saving to the library",
-  UpdateLibraryDocument: "Editing a document",
-  WebSearch: "Searching the web",
-  WebFetch: "Reading a web page",
-  GenerateImage: "Making an image",
+  library_read: "Reading the library",
+  library_create: "Saving to the library",
+  library_update: "Editing a document",
+  web_search: "Searching the web",
+  web_fetch: "Reading a web page",
+  image_create: "Making an image",
   AddMcpServer: "Adding a connection",
   UninstallMcpServer: "Removing a connection",
   ask_user: "Waiting for your answer",
-  Shell: "Running a command",
-  Read: "Reading files",
-  CreateAgent: "Starting a helper",
-  CheckAgent: "Checking on a helper",
+  shell: "Running a command",
+  read: "Reading files",
+  bot_create: "Starting a helper",
+  delegate_check: "Checking on a helper",
   MessageAgent: "Messaging a helper",
-  SendToAgent: "Messaging a helper",
-  StopAgent: "Stopping a helper",
+  delegate: "Messaging a helper",
+  delegate_stop: "Stopping a helper",
   message_post: "Sending a message",
-  ReactToMessage: "Reacting",
-  SearchPlugins: "Searching plugins",
+  message_react: "Reacting",
+  connection_search: "Searching plugins",
   GetPlugin: "Looking at a plugin",
   InstallPlugin: "Installing a plugin",
   UninstallPlugin: "Removing a plugin",
@@ -63,7 +63,7 @@ const TOOL_LABELS = {
   ReconnectMcpServer: "Reconnecting",
   AuthenticateMcpServer: "Signing in to a connection",
   RestartMcpServers: "Restarting connections",
-  UpdateBotProfile: "Updating profile",
+  bot_update: "Updating profile",
   "Computer Use": "Using the computer",
 } satisfies Readonly<Record<string, MessageKey>>;
 
@@ -113,7 +113,7 @@ export function toolName(activity: OrchestrationThreadActivity): string {
 }
 
 // Task-list tools only update the bot's plan, so they never change the label.
-export const TASK_LIST_TOOLS = new Set(["task_write", "task_update", "TodoWrite"]);
+export const TASK_LIST_TOOLS = new Set(["task_write", "TodoWrite"]);
 
 function memoryLabel(activity: OrchestrationThreadActivity): MessageKey {
   const count = Option.getOrNull(

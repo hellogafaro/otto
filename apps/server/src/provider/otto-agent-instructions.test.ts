@@ -21,7 +21,7 @@ describe("Otto bot instructions", () => {
   it("puts the owner's instructions after the preamble and before the tools", () => {
     const instructions = createOttoInstructions({
       instructions: "  Answer in Spanish.  ",
-      tools: ["Read"],
+      tools: ["read"],
     });
 
     expect(instructions).toContain("<instructions>\nAnswer in Spanish.\n</instructions>");
@@ -31,15 +31,15 @@ describe("Otto bot instructions", () => {
 
   it("lists only loaded tools, each with its own rules", () => {
     const instructions = createOttoInstructions({
-      tools: ["Read", "memory_update", "unknown_tool"],
+      tools: ["read", "memory_update", "unknown_tool"],
     });
 
-    expect(instructions).toContain("- Read: ");
+    expect(instructions).toContain("- read: ");
     expect(instructions).toContain("- memory_update: ");
     expect(instructions).toContain("facts about a person go to person, never bot");
     expect(instructions).not.toContain("unknown_tool");
     expect(instructions).not.toContain("<computer>");
-    expect(createOttoInstructions({ tools: ["Shell"] })).toContain("<computer>");
+    expect(createOttoInstructions({ tools: ["shell"] })).toContain("<computer>");
   });
 
   it("keeps the shared rules without the removed follow-up rule", () => {

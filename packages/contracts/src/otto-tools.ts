@@ -29,7 +29,7 @@ export function filterOttoTools(
     if (!context.implementedTools.has(tool.id)) return false;
 
     if (
-      (tool.id === "SendToAgent" || tool.id === "MessageAgent") &&
+      (tool.id === "delegate" || tool.id === "MessageAgent") &&
       ((context.delegationDepth ?? 0) >= OTTO_DELEGATION_MAX_DEPTH ||
         (context.activeDelegations ?? 0) >= OTTO_DELEGATION_MAX_CONCURRENCY)
     )
@@ -80,13 +80,13 @@ export function ottoToolApprovalForInput(
 ): OttoToolApprovalClass {
   if (!Predicate.isObjectOrArray(input)) return tool.approval;
 
-  if (tool.id === "Shell" && "command" in input && Predicate.isString(input.command)) {
+  if (tool.id === "shell" && "command" in input && Predicate.isString(input.command)) {
     const protectedClass = classifyOttoExternalCommand(input.command);
 
     if (protectedClass) return protectedClass;
   }
 
-  if (tool.id === "Shell" && context?.workspaceType === "local") return "user-computer";
+  if (tool.id === "shell" && context?.workspaceType === "local") return "user-computer";
 
   return tool.approval;
 }
@@ -100,7 +100,7 @@ export function ottoToolRequiresApproval(
 ): boolean {
   const approval = ottoToolApprovalForInput(tool, input, context);
 
-  if (tool.id === "Shell" && context.workspaceType === "local") return true;
+  if (tool.id === "shell" && context.workspaceType === "local") return true;
 
   if (
     Array.from(OTTO_PROTECTED_APPROVAL_CLASSES).some(

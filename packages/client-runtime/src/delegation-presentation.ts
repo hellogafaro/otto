@@ -13,7 +13,7 @@ import { withoutErrorStack } from "@otto/shared/errorText";
 
 /**
  * Whether the parent bot has received a finished result. Completed and failed
- * work is delivered once, to the parent's next turn or its CheckAgent call.
+ * work is delivered once, to the parent's next turn or its delegate_check call.
  * Canceled and unfinished work has no delivery state.
  */
 export type DelegationDelivery = "pending" | "delivered";

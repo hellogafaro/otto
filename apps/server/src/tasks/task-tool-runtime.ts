@@ -247,7 +247,7 @@ export const makeTaskToolRuntime = (
 
     const by = (caller: TaskToolCaller) => ({ type: "bot" as const, id: caller.botId });
 
-    const create = (caller: TaskToolCaller, input: Input<"CreateTask">) =>
+    const create = (caller: TaskToolCaller, input: Input<"task_create">) =>
       Effect.gen(function* () {
         const model = yield* readModel;
 
@@ -283,7 +283,7 @@ export const makeTaskToolRuntime = (
         return { created: true, ...summarize(next, caller, yield* requireTask(next, taskId)) };
       });
 
-    const update = (caller: TaskToolCaller, input: Input<"UpdateTask">) =>
+    const update = (caller: TaskToolCaller, input: Input<"task_update">) =>
       Effect.gen(function* () {
         const model = yield* readModel;
 
@@ -312,7 +312,7 @@ export const makeTaskToolRuntime = (
         };
       });
 
-    const comment = (caller: TaskToolCaller, input: Input<"CommentOnTask">) =>
+    const comment = (caller: TaskToolCaller, input: Input<"task_comment">) =>
       Effect.gen(function* () {
         const commentId = NodeCrypto.randomUUID();
 
@@ -344,10 +344,10 @@ export const makeTaskToolRuntime = (
 
     return {
       list: (caller: TaskToolCaller, input: Input<"ListTasks">) => run(list(caller, input)),
-      read: (caller: TaskToolCaller, input: Input<"ReadTask">) => run(read(caller, input)),
-      create: (caller: TaskToolCaller, input: Input<"CreateTask">) => run(create(caller, input)),
-      update: (caller: TaskToolCaller, input: Input<"UpdateTask">) => run(update(caller, input)),
-      comment: (caller: TaskToolCaller, input: Input<"CommentOnTask">) =>
+      read: (caller: TaskToolCaller, input: Input<"task_read">) => run(read(caller, input)),
+      create: (caller: TaskToolCaller, input: Input<"task_create">) => run(create(caller, input)),
+      update: (caller: TaskToolCaller, input: Input<"task_update">) => run(update(caller, input)),
+      comment: (caller: TaskToolCaller, input: Input<"task_comment">) =>
         run(comment(caller, input)),
     };
   });

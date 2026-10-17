@@ -58,7 +58,7 @@ export function delegatedUsageReceipt(
     type: "tool.receipt",
     payload: {
       receiptId: `delegation:usage:${NodeCrypto.randomUUID()}`,
-      toolId: "SendToAgent",
+      toolId: "delegate",
       phase: "success",
       threadId: usage.threadId,
       botId: usage.botId,
