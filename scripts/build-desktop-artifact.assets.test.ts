@@ -48,7 +48,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         "mac",
         "dmg",
         "0.0.33-pr.8182.1",
-        false,
+        true,
         false,
         undefined,
         undefined,
@@ -58,7 +58,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         "mac",
         "dmg",
         "0.0.33",
-        false,
+        true,
         false,
         undefined,
         undefined,
@@ -69,7 +69,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         {
           provider: "github",
           owner: "hellogafaro",
-          repo: "otto",
+          repo: "otto-releases",
           releaseType: "release",
         },
       ]);
@@ -86,6 +86,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     Effect.gen(function* () {
       const mac = yield* createBuildConfig("mac", "dmg", "1.2.3", false, false, undefined, {
         entitlementsPath: "/tmp/entitlements.mac.plist",
+        notarize: false,
       });
 
       const linux = yield* createBuildConfig(
@@ -241,6 +242,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     Effect.gen(function* () {
       const config = yield* createBuildConfig("mac", "dmg", "1.2.3", true, false, undefined, {
         entitlementsPath: "/tmp/entitlements.mac.plist",
+        notarize: true,
       });
 
       const mac = config.mac;
@@ -264,6 +266,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     Effect.gen(function* () {
       const config = yield* createBuildConfig("mac", "dmg", "1.2.3", true, false, undefined, {
         entitlementsPath: "/tmp/entitlements.mac.plist",
+        notarize: true,
       });
 
       const mac = config.mac;

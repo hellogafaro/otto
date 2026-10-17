@@ -55,7 +55,7 @@ export interface ResolvedBuildOptions {
   readonly outputDir: string;
   readonly skipBuild: boolean;
   readonly keepStage: boolean;
-  readonly signed: boolean;
+  readonly signed: boolean | undefined;
   readonly verbose: boolean;
   readonly mockUpdates: boolean;
   readonly mockUpdateServerPort: number | undefined;
@@ -70,7 +70,7 @@ const BuildEnvConfig = Config.all({
   outputDir: Config.string("OTTO_LEGACY_DESKTOP_OUTPUT_DIR").pipe(Config.option),
   skipBuild: Config.boolean("OTTO_LEGACY_DESKTOP_SKIP_BUILD").pipe(Config.withDefault(false)),
   keepStage: Config.boolean("OTTO_LEGACY_DESKTOP_KEEP_STAGE").pipe(Config.withDefault(false)),
-  signed: Config.boolean("OTTO_LEGACY_DESKTOP_SIGNED").pipe(Config.withDefault(false)),
+  signed: Config.boolean("OTTO_LEGACY_DESKTOP_SIGNED").pipe(Config.option),
   verbose: Config.boolean("OTTO_LEGACY_DESKTOP_VERBOSE").pipe(Config.withDefault(false)),
   mockUpdates: Config.boolean("OTTO_LEGACY_DESKTOP_MOCK_UPDATES").pipe(Config.withDefault(false)),
   mockUpdateServerPort: Config.string("OTTO_LEGACY_DESKTOP_MOCK_UPDATE_SERVER_PORT").pipe(
@@ -152,7 +152,7 @@ export const resolveBuildOptions = Effect.fn("resolveBuildOptions")(function* (
 
   const skipBuild = resolveBooleanFlag(input.skipBuild, env.skipBuild);
   const keepStage = resolveBooleanFlag(input.keepStage, env.keepStage);
-  const signed = resolveBooleanFlag(input.signed, env.signed);
+  const signed = Option.getOrUndefined(Option.orElse(input.signed, () => env.signed));
   const verbose = resolveBooleanFlag(input.verbose, env.verbose);
 
   const mockUpdates = resolveBooleanFlag(input.mockUpdates, env.mockUpdates);

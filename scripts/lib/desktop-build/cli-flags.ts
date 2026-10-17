@@ -39,7 +39,7 @@ export const desktopArtifactFlags = {
   ),
   signed: Flag.boolean("signed").pipe(
     Flag.withDescription(
-      "Enable signing/notarization discovery; Windows uses Azure Trusted Signing (env: OTTO_LEGACY_DESKTOP_SIGNED).",
+      "Require signing; --signed=false forces an ad-hoc macOS build. macOS signs on its own when a Developer ID identity is available; Windows uses Azure Trusted Signing (env: OTTO_LEGACY_DESKTOP_SIGNED).",
     ),
     Flag.optional,
   ),

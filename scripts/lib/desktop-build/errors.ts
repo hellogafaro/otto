@@ -244,6 +244,29 @@ export class MacProvisioningProfileNotFoundError extends Schema.TaggedErrorClass
   }
 }
 
+export class MacSigningConfigurationError extends Schema.TaggedErrorClass<MacSigningConfigurationError>()(
+  "MacSigningConfigurationError",
+  {
+    problem: Schema.String,
+  },
+) {
+  override get message(): string {
+    return `macOS signing is misconfigured: ${this.problem} See deploy/desktop-mac/README.md.`;
+  }
+}
+
+export class MacDmgNotarizationError extends Schema.TaggedErrorClass<MacDmgNotarizationError>()(
+  "MacDmgNotarizationError",
+  {
+    dmgPath: Schema.String,
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `Could not refresh the update manifest after notarizing ${this.dmgPath}.`;
+  }
+}
+
 export class DesktopBuildDistDirectoryMissingError extends Schema.TaggedErrorClass<DesktopBuildDistDirectoryMissingError>()(
   "DesktopBuildDistDirectoryMissingError",
   {

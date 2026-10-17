@@ -50,7 +50,7 @@ const collectCommandStream = <E>(
     ),
   );
 
-const spawnAndCollectOutput = Effect.fn("spawnAndCollectOutput")(function* (
+export const spawnAndCollectOutput = Effect.fn("spawnAndCollectOutput")(function* (
   command: ChildProcess.Command,
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;

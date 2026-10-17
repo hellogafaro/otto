@@ -67,7 +67,16 @@ import {
   createBuildConfig,
   resolvePackageManagerUserAgent,
   resolveDesktopProductName,
+  resolveMockUpdateServerUrl,
+  DESKTOP_UPDATE_PUBLISH_CONFIG,
 } from "./lib/desktop-build/config.ts";
+
+import {
+  type MacSigningPlan,
+  describeMacSigningPlan,
+  loadMacSigningPlan,
+  notarizeAndStapleDmg,
+} from "./lib/desktop-build/mac-signing.ts";
 
 import {
   UnsupportedDesktopBuildPlatformError,
@@ -201,7 +210,7 @@ export { stageLinuxIconSize } from "./lib/desktop-build/assets.ts";
 
 export { resolveDesktopRuntimeDependencies } from "./lib/desktop-build/workspace.ts";
 
-export { resolveGitHubPublishConfig } from "./lib/desktop-build/config.ts";
+export { DESKTOP_UPDATE_PUBLISH_CONFIG } from "./lib/desktop-build/config.ts";
 
 export { DESKTOP_UPDATE_CHANNEL } from "./lib/desktop-build/config.ts";
 
@@ -244,6 +253,15 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     return yield* new UnsupportedDesktopBuildPlatformError({
       platform: options.platform,
     });
+  }
+
+  const macSigningPlan =
+    options.platform === "mac" ? yield* loadMacSigningPlan(options.signed) : undefined;
+
+  const signed = macSigningPlan ? macSigningPlan.kind === "identity" : options.signed === true;
+
+  if (macSigningPlan) {
+    yield* logMacSigningPlan(macSigningPlan, options);
   }
 
   const electronVersion = desktopPackageJson.dependencies.electron;
@@ -528,10 +546,16 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
       options.platform,
       options.target,
       appVersion,
-      options.signed,
+      signed,
       options.mockUpdates,
       options.mockUpdateServerPort,
-      macEntitlementsPath ? { entitlementsPath: macEntitlementsPath } : undefined,
+      macEntitlementsPath
+        ? {
+            entitlementsPath: macEntitlementsPath,
+            notarize:
+              macSigningPlan?.kind === "identity" && macSigningPlan.notarization !== undefined,
+          }
+        : undefined,
     ),
     dependencies: stageDependencies,
     devDependencies: {
@@ -606,13 +630,18 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     }
   }
 
-  if (!options.signed) {
+  if (!signed) {
     buildEnv.CSC_IDENTITY_AUTO_DISCOVERY = "false";
     delete buildEnv.CSC_LINK;
     delete buildEnv.CSC_KEY_PASSWORD;
     delete buildEnv.APPLE_API_KEY;
     delete buildEnv.APPLE_API_KEY_ID;
     delete buildEnv.APPLE_API_ISSUER;
+    delete buildEnv.APPLE_KEYCHAIN_PROFILE;
+  }
+
+  if (macSigningPlan?.kind === "identity" && macSigningPlan.source === "keychain") {
+    buildEnv.CSC_NAME = macSigningPlan.identity.replace(/^Developer ID Application: /, "");
   }
 
   if (hostPlatform === "win32") {
@@ -723,10 +752,46 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     });
   }
 
-  yield* Effect.log("[desktop-artifact] Done. Artifacts:").pipe(
-    Effect.annotateLogs({ artifacts: copiedArtifacts }),
-  );
+  const notarization =
+    macSigningPlan?.kind === "identity" ? macSigningPlan.notarization : undefined;
+
+  const dmgArtifact = copiedArtifacts.find((artifact) => artifact.endsWith(".dmg"));
+
+  if (notarization && dmgArtifact) {
+    yield* Effect.log("[desktop-artifact] Notarizing and stapling the DMG...");
+    yield* notarizeAndStapleDmg({
+      dmgPath: dmgArtifact,
+      notarization,
+      verbose: options.verbose,
+    });
+  }
+
+  const artifacts: string[] = [];
+
+  for (const artifact of copiedArtifacts) {
+    if (yield* fs.exists(artifact)) artifacts.push(artifact);
+  }
+
+  yield* Effect.log("[desktop-artifact] Done. Artifacts:").pipe(Effect.annotateLogs({ artifacts }));
+
+  if (macSigningPlan) {
+    yield* logMacSigningPlan(macSigningPlan, options);
+  }
 });
+
+const logMacSigningPlan = (plan: MacSigningPlan, options: ResolvedBuildOptions) => {
+  const feed = options.mockUpdates
+    ? `Update feed: mock server ${resolveMockUpdateServerUrl(options.mockUpdateServerPort)}.`
+    : plan.kind === "identity"
+      ? `Update feed: github ${DESKTOP_UPDATE_PUBLISH_CONFIG.owner}/${DESKTOP_UPDATE_PUBLISH_CONFIG.repo}.`
+      : "";
+
+  const message = `[desktop-artifact] ${describeMacSigningPlan(plan)} ${feed}`.trim();
+
+  return plan.kind === "identity" && plan.notarization
+    ? Effect.log(message)
+    : Effect.logWarning(message);
+};
 
 const buildDesktopArtifactCli = Command.make("build-desktop-artifact", desktopArtifactFlags).pipe(
   Command.withDescription("Build a desktop artifact for Otto."),
