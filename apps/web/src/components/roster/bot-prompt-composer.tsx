@@ -641,7 +641,9 @@ export function BotPromptComposer({
                   <DictationControls
                     appearance="send-slot"
                     {...dictation}
-                    onBlockedPress={() => toast.info(t("Dictation isn't available"))}
+                    onBlockedPress={(reason) =>
+                      toast.info(t("Dictation isn't available"), { description: reason })
+                    }
                   />
                 </div>
               ) : (
