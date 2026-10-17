@@ -80,7 +80,6 @@ export const settingsCatalog = {
   "The shared content reservation could not be updated.":
     "The shared content reservation could not be updated.",
   "Start a Codex chat first": "Start a Codex chat first",
-  "No response from {provider}": "No response from {provider}",
   "No response from {provider} for {duration}": "No response from {provider} for {duration}",
   "Could not change the model": "Could not change the model",
   "Could not change the reasoning": "Could not change the reasoning",

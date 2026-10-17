@@ -1,6 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
 import type { MessageKey } from "@otto/client-runtime/i18n";
-import type { ThreadSilentRun } from "@otto/client-runtime/silent-run";
 import type { EnvironmentId } from "@otto/contracts";
 import { useEffect, useRef, useState } from "react";
 
@@ -10,7 +9,7 @@ import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { cn } from "~/lib/utils";
 
-import { formatLoadingElapsed, ResponseLoadingState } from "../chat/response-loading-state";
+import { formatLoadingElapsed } from "../chat/response-loading-state";
 import { BotAvatarView } from "./bot-avatar-view";
 import type { BotActivity, BotActivitySubject } from "./bot-activity-status.logic";
 import type { Bot } from "./types";
@@ -120,15 +119,13 @@ function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
  * is really doing ("Reading a skill", "Using Google Calendar"), the same in a DM and a group. Under
  * the bot's own streaming reply the avatar
  * gives way to the message's indent. While it only thinks, playful verbs rotate in that line.
- * The row shows its own elapsed time from 0s. A run its provider went quiet on instead
- * shows the stalled timer counting from the last output.
+ * The row shows its own elapsed time from 0s.
  */
 export function BotActivityStatus({
   bot,
   activity,
   startedAt,
   subjectName = null,
-  silentRun = null,
   continuesReply = false,
 }: {
   readonly bot: Pick<Bot, "name" | "avatar">;
@@ -137,7 +134,6 @@ export function BotActivityStatus({
   readonly startedAt: string | null;
   /** The app's or MCP server's name for a tool working on one. */
   readonly subjectName?: string | null;
-  readonly silentRun?: ThreadSilentRun | null;
   /** The bot's reply is already streaming above, so the row continues it without the avatar. */
   readonly continuesReply?: boolean;
 }) {
@@ -160,19 +156,6 @@ export function BotActivityStatus({
       className="size-7 shrink-0"
     />
   );
-
-  if (silentRun) {
-    return (
-      <div className={rowClass} data-testid="bot-activity-status" data-silent-run="">
-        {avatar}
-        <ResponseLoadingState
-          createdAt={silentRun.lastActivityAt}
-          label={t("No response from {provider}", { provider: silentRun.providerName })}
-          stalled
-        />
-      </div>
-    );
-  }
 
   const label =
     activity.subject && subjectName ? t("Using {name}", { name: subjectName }) : t(activity.label);

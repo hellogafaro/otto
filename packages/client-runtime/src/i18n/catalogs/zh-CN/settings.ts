@@ -78,7 +78,6 @@ export const settingsCatalog = {
   "Update failed": "更新失败",
   "The shared content reservation could not be updated.": "无法更新共享内容的预留。",
   "Start a Codex chat first": "请先开始一个 Codex 聊天",
-  "No response from {provider}": "{provider} 暂无响应",
   "No response from {provider} for {duration}": "{provider} 已 {duration} 无响应",
   "Could not change the model": "无法更改模型",
   "Could not change the reasoning": "无法更改推理设置",

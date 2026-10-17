@@ -1,4 +1,3 @@
-import type { ThreadSilentRun } from "@otto/client-runtime/silent-run";
 import { BotId, type OrchestrationLatestTurn, type OrchestrationMessage } from "@otto/contracts";
 import { useEffect, useReducer } from "react";
 
@@ -29,7 +28,6 @@ export function GroupWorkingRows({
   latestTurn,
   activity,
   subjectName,
-  silentRun,
   working,
   showCurrent,
 }: {
@@ -40,7 +38,6 @@ export function GroupWorkingRows({
   readonly latestTurn: OrchestrationLatestTurn | null;
   readonly activity: BotActivity;
   readonly subjectName: string | null;
-  readonly silentRun: ThreadSilentRun | null;
   /** A bot turn is running or being sent. */
   readonly working: boolean;
   /** False while the answering bot waits on an approval or a question shown elsewhere. */
@@ -90,7 +87,6 @@ export function GroupWorkingRows({
         started ? (latestTurn.startedAt ?? latestTurn.requestedAt ?? null) : null
       }
       subjectName={started ? subjectName : null}
-      silentRun={started ? silentRun : null}
       continuesReply={last?.role === "assistant" && last.respondingBotId === bot.id}
     />
   );

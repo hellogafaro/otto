@@ -28,7 +28,6 @@ import { useI18n } from "~/i18n";
 import { ProviderUnavailableLine } from "../chat/provider-unavailable-notice";
 import { ThreadErrorCard } from "../chat/thread-error-card";
 import { useOptionalVoiceCall } from "../voice/voice-call";
-import { threadSilentRun } from "@otto/client-runtime/silent-run";
 import { useActivitySubjectName } from "./bot-activity-status";
 import { ChatReplyContext } from "../markdown/generative/chat-reply-context";
 import { deriveBotActivity } from "./bot-activity-status.logic";
@@ -267,10 +266,6 @@ export function GroupThreadLanding({
     turnRunning: runtime.latestTurn?.state === "running",
     waitingForUserInput,
   });
-
-  const silentRun = runtime.latestTurn?.completedAt
-    ? null
-    : threadSilentRun(activities, runtime.latestTurn?.turnId);
 
   const messages = useMemo(
     () =>
@@ -569,7 +564,6 @@ export function GroupThreadLanding({
               latestTurn={runtime.latestTurn}
               activity={botActivity}
               subjectName={activitySubjectName}
-              silentRun={silentRun}
               working={working}
               showCurrent={!waitingForUserInput && !waitingForApproval}
             />

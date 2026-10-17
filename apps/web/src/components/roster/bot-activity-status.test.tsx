@@ -1,4 +1,3 @@
-import { ProviderDriverKind } from "@otto/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -94,23 +93,16 @@ describe("bot activity status", () => {
     expect(later).not.toMatch(/hidden=""[^>]*data-testid="bot-activity-time"/);
   });
 
-  it("replaces the activity with a silent-run notice", () => {
+  it("keeps the working line while the provider is quiet, never a no-response notice", () => {
     const markup = renderToStaticMarkup(
       <BotActivityStatus
         bot={bot}
         activity={{ label: "Running a command" }}
         startedAt={secondsAgo(300)}
-        silentRun={{
-          provider: ProviderDriverKind.make("kimi"),
-          providerName: "Kimi For Coding",
-          lastActivityAt: secondsAgo(120),
-        }}
       />,
     );
 
-    expect(markup).toContain("data-silent-run");
-    expect(markup).toContain("No response from Kimi For Coding");
-    expect(markup).toContain('data-testid="response-loading-time">2m');
-    expect(markup).not.toContain("Running a command");
+    expect(markup).toContain("Running a command");
+    expect(markup).not.toContain("No response from");
   });
 });

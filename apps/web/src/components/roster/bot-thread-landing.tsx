@@ -18,7 +18,6 @@ import { useEnvironmentSessionState } from "../../state/session";
 import { SidebarInset } from "../ui/sidebar";
 import { Spinner } from "../ui/spinner";
 import { WorkspaceHeaderTitle, WorkspacePageHeader } from "../workspace-page-header";
-import { threadSilentRun } from "@otto/client-runtime/silent-run";
 import { BotActivityStatus, useActivitySubjectName } from "./bot-activity-status";
 import { deriveBotActivity } from "./bot-activity-status.logic";
 import { MemoryApprovalPrompt } from "./memory-approval-prompt";
@@ -262,10 +261,6 @@ export function BotThreadLanding({
     turnRunning: runtime.latestTurn?.state === "running",
     waitingForUserInput,
   });
-
-  const silentRun = runtime.latestTurn?.completedAt
-    ? null
-    : threadSilentRun(activities, runtime.latestTurn?.turnId);
 
   const messages = useMemo(
     () =>
@@ -652,7 +647,6 @@ export function BotThreadLanding({
                       : null
                   }
                   subjectName={activitySubjectName}
-                  silentRun={silentRun}
                   continuesReply={messages.at(-1)?.role === "assistant"}
                 />
               ) : null}
