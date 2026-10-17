@@ -233,6 +233,15 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
           <BotStepMeter meter={stepMeter} />
           <BotTurnTrace trace={trace} environmentId={environmentId} />
           {markdown}
+          {/* Otto: What a bot posts with message_post keeps its files, as a person's message does. */}
+          {message.attachments?.length ? (
+            <div className="mt-1.5">
+              <BotMessageAttachments
+                attachments={message.attachments}
+                environmentId={environmentId ?? NO_ENVIRONMENT}
+              />
+            </div>
+          ) : null}
           <div className={toolbarClass(startsGroup)}>
             <MessageControls
               copyText={copyText}
