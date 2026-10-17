@@ -23,6 +23,14 @@ interface RemoteCommandSession {
   ) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 }
 
+const MEDIA_TYPES = new Map([
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".webp", "image/webp"],
+  [".pdf", "application/pdf"],
+]);
+
 const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 
 export class BotWorkspaceFilesystem implements WorkspaceFilesystem {
@@ -143,17 +151,20 @@ export class BotWorkspaceFilesystem implements WorkspaceFilesystem {
   }
 
   async stat(path: string): Promise<FileStat> {
-    const output = await this.command("stat", ["-c", "%F\\037%s\\037%W\\037%Y", "--", path]);
+    const output = await this.command("stat", ["--printf", "%F\\037%s\\037%W\\037%Y", "--", path]);
 
     const [kind = "", size = "0", createdAt = "0", modifiedAt = "0"] = output
       .trim()
       .split("\u001f");
+
+    const mimeType = MEDIA_TYPES.get(posixPath.extname(path).toLowerCase());
 
     return {
       name: posixPath.basename(path),
       path,
       type: kind.includes("directory") ? "directory" : "file",
       size: kind.includes("directory") ? 0 : Number(size),
+      ...(mimeType ? { mimeType } : {}),
       createdAt: new Date(Math.max(0, Number(createdAt)) * 1_000),
       modifiedAt: new Date(Number(modifiedAt) * 1_000),
     };

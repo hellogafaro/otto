@@ -54,8 +54,9 @@ export async function writeIdentity(
 
 export const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 
+/** As in Mastra's sandboxes, the command is a shell line run as written; only the arguments are quoted. */
 export const commandLine = (command: string, args: readonly string[]) =>
-  [command, ...args].map(quote).join(" ");
+  args.length === 0 ? command : `${command} ${args.map(quote).join(" ")}`;
 
 export function credential(environment: Readonly<Record<string, string>>, name: string): string {
   const value = environment[name]?.trim();

@@ -71,6 +71,37 @@ describe("Boat", () => {
     }
   });
 
+  it("treats a blocked deletion as done once the VM is gone", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "performance"] });
+
+    try {
+      const { ResponseError } = await import("@boatdev/sdk");
+      const { client, get, session } = await setup();
+
+      const blocked = {
+        ...deleted,
+        operation: { ...deleted.operation, status: "blocked" as const },
+      };
+
+      vi.spyOn(client, "deleteSandbox").mockResolvedValue(blocked);
+      const poll = vi.spyOn(client, "getDeletionOperation").mockResolvedValue(blocked);
+      const gone = new ResponseError(new Response(null, { status: 404 }));
+      get
+        .mockResolvedValueOnce(await client.get({ sandboxId: "boat-id" }))
+        .mockRejectedValueOnce(gone);
+      const operation = session.destroy();
+      await vi.advanceTimersByTimeAsync(2_000);
+      await operation;
+      expect(poll).toHaveBeenCalledOnce();
+
+      const failure = expect(session.destroy()).rejects.toThrow("deletion is blocked");
+      await vi.advanceTimersByTimeAsync(300_000);
+      await failure;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stops with a native snapshot, resumes, and deletes with confirmation", async () => {
     const { client, get, session } = await setup();
 
@@ -259,7 +290,7 @@ describe("Boat", () => {
     expect(command).toHaveBeenCalledWith({
       sandboxId: "boat-id",
       commandRequest: {
-        command: "cd '/workspace/my files' && env 'VALUE=x; echo unsafe' 'printf' 'a'\\''b'",
+        command: "cd '/workspace/my files' && env 'VALUE=x; echo unsafe' printf 'a'\\''b'",
         timeoutSeconds: 2,
       },
     });
@@ -275,12 +306,21 @@ describe("Boat", () => {
     expect((await session.run("sleep", ["2"])).exitCode).toBe(124);
     expect(command).toHaveBeenLastCalledWith({
       sandboxId: "boat-id",
-      commandRequest: { command: "'sleep' '2'", timeoutSeconds: 600 },
+      commandRequest: { command: "sleep '2'", timeoutSeconds: 600 },
     });
     await session.run("sleep", ["2"], { timeout: 600_000 });
     expect(command).toHaveBeenLastCalledWith({
       sandboxId: "boat-id",
-      commandRequest: { command: "'sleep' '2'", timeoutSeconds: 600 },
+      commandRequest: { command: "sleep '2'", timeoutSeconds: 600 },
+    });
+    // The shell tool sends a whole shell line with no arguments; it runs as written.
+    await session.run("command -v agent-browser || npm i -g agent-browser", []);
+    expect(command).toHaveBeenLastCalledWith({
+      sandboxId: "boat-id",
+      commandRequest: {
+        command: "command -v agent-browser || npm i -g agent-browser",
+        timeoutSeconds: 600,
+      },
     });
   });
 
@@ -374,11 +414,8 @@ describe("Boat", () => {
       expect(create).toHaveBeenCalledOnce();
       expect(get).toHaveBeenCalledWith({ sandboxId: "boat-id" });
       await second.wake();
-      remove.mockResolvedValueOnce({
-        ...deleted,
-        operation: { ...deleted.operation, status: "blocked" },
-      });
-      await expect(second.destroy()).rejects.toThrow("deletion is blocked");
+      remove.mockRejectedValueOnce(new Error("Boat is unavailable."));
+      await expect(second.destroy()).rejects.toThrow("Boat is unavailable.");
       expect(JSON.parse(await NodeFS.promises.readFile(input.identityFile, "utf8"))).toEqual({
         provider: "boat",
         providerId: "boat-id",

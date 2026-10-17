@@ -2,6 +2,7 @@ import * as Predicate from "effect/Predicate";
 import type { ToolsInput } from "@mastra/core/agent";
 import { type Tool, createTool } from "@mastra/core/tools";
 import { OttoToolInputSchemas } from "@otto/contracts";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { z } from "zod";
 import type { JSONSchema } from "zod/v4/core";
@@ -20,6 +21,15 @@ function inputSchema(toolId: OttoRuntimeToolId) {
 }
 
 type JsonSchemaNode = JSONSchema.JSONSchema;
+
+const decodeWorkspaceMedia = Schema.decodeUnknownOption(
+  Schema.Struct({
+    __workspaceMedia: Schema.Literal(true),
+    text: Schema.String,
+    mediaType: Schema.String,
+    data: Schema.String,
+  }),
+);
 
 const STRUCTURAL_KEYWORDS = ["type", "$ref", "anyOf", "oneOf", "allOf", "properties", "items"];
 
@@ -101,6 +111,26 @@ export function createOttoMastraTools(
         ),
         requireApproval: approval,
         ...(providerOptions ? { providerOptions } : {}),
+        ...(definition.id === "read"
+          ? {
+              toModelOutput: (output) => {
+                const media = decodeWorkspaceMedia(output);
+
+                if (Option.isNone(media)) return undefined;
+                const { text, data, mediaType } = media.value;
+
+                return {
+                  type: "content" as const,
+                  value: [
+                    { type: "text" as const, text },
+                    mediaType.startsWith("image/")
+                      ? { type: "image-data" as const, data, mediaType }
+                      : { type: "file-data" as const, data, mediaType },
+                  ],
+                };
+              },
+            }
+          : {}),
         execute: (input, context) => {
           const toolCallId = context.agent?.toolCallId;
 

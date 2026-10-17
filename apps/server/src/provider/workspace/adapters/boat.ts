@@ -39,21 +39,27 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
     }
   };
 
+  const state = async () => {
+    try {
+      const { sandbox } = await client.get({ sandboxId });
+
+      return sandbox.state;
+    } catch (cause) {
+      const { ResponseError } = await import("@boatdev/sdk");
+
+      if (cause instanceof ResponseError && cause.response.status === 404) return "gone";
+      throw cause;
+    }
+  };
+
   return {
     providerId: sandboxId,
     inspect: async () => {
-      try {
-        const { sandbox } = await client.get({ sandboxId });
+      const current = await state();
 
-        if (["ready", "idle", "running"].includes(sandbox.state)) return "running";
+      if (["ready", "idle", "running"].includes(current)) return "running";
 
-        return sandbox.state === "error" ? "missing" : "sleeping";
-      } catch (cause) {
-        const { ResponseError } = await import("@boatdev/sdk");
-
-        if (cause instanceof ResponseError && cause.response.status === 404) return "missing";
-        throw cause;
-      }
+      return current === "error" || current === "gone" ? "missing" : "sleeping";
     },
     wake: async () => {
       const { sandbox } = await client.get({ sandboxId });
@@ -75,9 +81,14 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
       const deadline = performance.now() + 300_000;
 
       while (result.operation.status !== "completed") {
-        if (result.operation.status === "blocked") throw new Error("Boat deletion is blocked.");
+        if (result.operation.status === "blocked" && (await state()) === "gone") return;
 
-        if (performance.now() >= deadline) throw new Error("Boat deletion timed out.");
+        if (performance.now() >= deadline)
+          throw new Error(
+            result.operation.status === "blocked"
+              ? "Boat deletion is blocked."
+              : "Boat deletion timed out.",
+          );
         await Effect.runPromise(Effect.sleep(2_000));
         result = await client.getDeletionOperation({ operationId: result.operation.id });
       }

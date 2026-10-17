@@ -3,6 +3,7 @@ import { toolRuntimeFixture } from "./test-support/tool-runtime-fixture.ts";
 import { OTTO_TOOL_CATALOG, OttoToolInputSchemas } from "@otto/contracts";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
+import type { Tool } from "@mastra/core/tools";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 import type { JSONSchema } from "zod/v4/core";
@@ -72,6 +73,39 @@ describe("createOttoMastraTools", () => {
     await expect(shell.execute({ command: "pwd" }, {} as never)).rejects.toThrow(
       "has no call identity",
     );
+  });
+
+  it("shows a screenshot read from the computer to the model as an image", () => {
+    const runtime = toolRuntimeFixture({
+      toolsForThread: () => OTTO_TOOL_CATALOG,
+      requiresApproval: vi.fn(async () => false),
+      execute: vi.fn(async () => ({ ok: true })),
+    });
+
+    type ReadOutput =
+      | string
+      | { __workspaceMedia: true; text: string; mediaType: string; data: string };
+
+    // SAFETY: the read tool is a Mastra tool and toModelOutput is part of its shape.
+    const read = createOttoMastraTools("thread-read", runtime).read as {
+      toModelOutput?: (output: ReadOutput) => ReturnType<NonNullable<Tool["toModelOutput"]>>;
+    };
+
+    expect(
+      read.toModelOutput?.({
+        __workspaceMedia: true,
+        text: "/tmp/page.png (4 bytes, image/png)",
+        mediaType: "image/png",
+        data: "iVBO",
+      }),
+    ).toEqual({
+      type: "content",
+      value: [
+        { type: "text", text: "/tmp/page.png (4 bytes, image/png)" },
+        { type: "image-data", data: "iVBO", mediaType: "image/png" },
+      ],
+    });
+    expect(read.toModelOutput?.("notes.txt (5 bytes)\nhello")).toBeUndefined();
   });
 
   it("keeps checked string fields as plain strings with their pattern", () => {
