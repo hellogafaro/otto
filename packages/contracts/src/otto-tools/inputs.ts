@@ -12,12 +12,7 @@ import {
 } from "../base-schemas.ts";
 import { McpServerId, McpServerInstructions, McpServerUrl } from "../mcp-server.ts";
 import { ImageGenerationRequest } from "../image-generation.ts";
-import {
-  LibraryFileId,
-  LibraryFileType,
-  LibraryFolderId,
-  LibraryTitle,
-} from "../orchestration/library.ts";
+import { LibraryFileId, LibraryFolderId, LibraryTitle } from "../orchestration/library.ts";
 import {
   TaskDueDate,
   WorkDescription,
@@ -164,7 +159,21 @@ const TaskToolFields = {
   assignees: Schema.optional(Schema.Array(TaskParticipantRef).check(Schema.isMaxLength(20))),
 };
 
+const OttoSearchType = Schema.Literals(["task", "file", "message", "routine"]);
+
+const OttoSearchDue = Schema.Literals(["overdue", "today", "this_week", "none"]);
+
 export const OttoToolInputSchemas = {
+  search: Schema.Struct({
+    query: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
+    type: Schema.optional(OttoSearchType),
+    status: Schema.optional(Schema.Array(WorkStatus)),
+    assignee: Schema.optional(TaskParticipantRef),
+    projectId: Schema.optional(ProjectId),
+    due: Schema.optional(OttoSearchDue),
+    folderId: Schema.optional(LibraryFolderId),
+    limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(50))),
+  }),
   shell: CommandInput,
   read: PathInput,
   bot_create: Schema.Struct({
@@ -203,12 +212,6 @@ export const OttoToolInputSchemas = {
   web_fetch: WebFetchInput,
   image_create: ImageGenerationRequest,
   library_create: SaveToLibraryInput,
-  ListLibrary: Schema.Struct({
-    folderId: Schema.optional(LibraryFolderId),
-    type: Schema.optional(LibraryFileType),
-    query: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
-    limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
-  }),
   library_read: Schema.Struct({ fileId: LibraryFileId }),
   library_update: Schema.Struct({
     fileId: LibraryFileId,
@@ -216,17 +219,9 @@ export const OttoToolInputSchemas = {
     updatedAt: IsoDateTime,
     title: Schema.optional(LibraryTitle),
   }),
-  ListSkills: Schema.Record(Schema.String, Schema.Never),
   skill_read: Schema.Struct({
     skillId: LibraryFolderId,
     path: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(500))),
-  }),
-  ListTasks: Schema.Struct({
-    projectId: Schema.optional(ProjectId),
-    status: Schema.optional(Schema.Array(WorkStatus)),
-    assignee: Schema.optional(TaskParticipantRef),
-    query: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
-    limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
   }),
   task_read: Schema.Struct({ taskId: TaskId }),
   task_create: Schema.Struct({

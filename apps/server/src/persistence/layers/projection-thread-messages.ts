@@ -22,6 +22,7 @@ import {
   DeleteProjectionThreadMessagesInput,
   ListProjectionThreadMessagesInput,
   ProjectionThreadMessage,
+  SearchProjectionThreadMessagesInput,
 } from "../services/projection-thread-messages.ts";
 
 const ProjectionThreadMessageDbRowSchema = ProjectionThreadMessage.mapFields(
@@ -288,6 +289,46 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
       `,
   });
 
+  const searchProjectionThreadMessageRows = SqlSchema.findAll({
+    Request: SearchProjectionThreadMessagesInput,
+    Result: ProjectionThreadMessageDbRowSchema,
+    execute: ({ threadIds, terms, limit }) =>
+      sql`
+        SELECT
+          message_id AS "messageId",
+          thread_id AS "threadId",
+          turn_id AS "turnId",
+          responding_bot_id AS "respondingBotId",
+          author_person_id AS "authorPersonId",
+          author_display_name AS "authorDisplayName",
+          channel_origin_json AS "channelOrigin",
+          channel_delivery AS "channelDelivery",
+          role,
+          text,
+          attachments_json AS "attachments",
+          reactions_json AS "reactions",
+          is_streaming AS "isStreaming",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM projection_thread_messages
+        WHERE ${sql.in("thread_id", threadIds)}
+          AND is_streaming = 0
+          AND role IN ('user', 'assistant')
+          ${
+            terms.length === 0
+              ? sql``
+              : sql`AND ${sql.or(
+                  terms.map(
+                    (term) =>
+                      sql`text LIKE ${`%${term.replaceAll("!", "!!").replaceAll("%", "!%").replaceAll("_", "!_")}%`} ESCAPE '!'`,
+                  ),
+                )}`
+          }
+        ORDER BY created_at DESC, message_id DESC
+        LIMIT ${limit}
+      `,
+  });
+
   const getLatestUserMessageAtRow = SqlSchema.findOne({
     Request: ListProjectionThreadMessagesInput,
     Result: Schema.Struct({
@@ -348,6 +389,14 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
       Effect.map((rows) => rows.map(toProjectionThreadMessage)),
     );
 
+  const search: ProjectionThreadMessageRepositoryShape["search"] = (input) =>
+    input.threadIds.length === 0
+      ? Effect.succeed([])
+      : searchProjectionThreadMessageRows(input).pipe(
+          Effect.mapError(toPersistenceSqlError("ProjectionThreadMessageRepository.search:query")),
+          Effect.map((rows) => rows.map(toProjectionThreadMessage)),
+        );
+
   const getLatestUserMessageAt: ProjectionThreadMessageRepositoryShape["getLatestUserMessageAt"] = (
     input,
   ) =>
@@ -371,6 +420,7 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
     getByMessageId,
     hasAssistantMessageForTurn,
     listByThreadId,
+    search,
     getLatestUserMessageAt,
     deleteByThreadId,
   } satisfies ProjectionThreadMessageRepositoryShape;

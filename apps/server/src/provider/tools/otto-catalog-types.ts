@@ -78,12 +78,13 @@ export interface OttoCatalogBackendOptions {
   readonly generateImage?: (
     input: (typeof OttoToolInputSchemas.image_create)["Type"],
   ) => Promise<OttoToolResult>;
+  /** Otto: One permission-checked search over tasks, files, messages and routines. */
+  readonly search?: (
+    input: (typeof OttoToolInputSchemas.search)["Type"],
+  ) => Promise<OttoToolResult>;
   readonly library?: {
     readonly save: (
       input: (typeof OttoToolInputSchemas.library_create)["Type"],
-    ) => Promise<OttoToolResult>;
-    readonly list: (
-      input: (typeof OttoToolInputSchemas.ListLibrary)["Type"],
     ) => Promise<OttoToolResult>;
     readonly read: (
       input: (typeof OttoToolInputSchemas.library_read)["Type"],
@@ -91,16 +92,12 @@ export interface OttoCatalogBackendOptions {
     readonly updateDocument: (
       input: (typeof OttoToolInputSchemas.library_update)["Type"],
     ) => Promise<OttoToolResult>;
-    readonly listSkills: () => Promise<OttoToolResult>;
     readonly readSkillFile: (
       input: (typeof OttoToolInputSchemas.skill_read)["Type"],
     ) => Promise<OttoToolResult>;
   };
   /** Otto: The organization's Tasks page, as the calling bot. */
   readonly tasks?: {
-    readonly list: (
-      input: (typeof OttoToolInputSchemas.ListTasks)["Type"],
-    ) => Promise<OttoToolResult>;
     readonly read: (
       input: (typeof OttoToolInputSchemas.task_read)["Type"],
     ) => Promise<OttoToolResult>;

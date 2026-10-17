@@ -60,6 +60,14 @@ export const ListProjectionThreadMessagesInput = Schema.Struct({
 
 export type ListProjectionThreadMessagesInput = typeof ListProjectionThreadMessagesInput.Type;
 
+export const SearchProjectionThreadMessagesInput = Schema.Struct({
+  threadIds: Schema.Array(ThreadId),
+  terms: Schema.Array(Schema.String),
+  limit: Schema.Number,
+});
+
+export type SearchProjectionThreadMessagesInput = typeof SearchProjectionThreadMessagesInput.Type;
+
 export const GetProjectionThreadMessageInput = Schema.Struct({
   messageId: MessageId,
 });
@@ -120,6 +128,14 @@ export interface ProjectionThreadMessageRepositoryShape {
    */
   readonly listByThreadId: (
     input: ListProjectionThreadMessagesInput,
+  ) => Effect.Effect<ReadonlyArray<ProjectionThreadMessage>, ProjectionRepositoryError>;
+
+  /**
+   * Finished person and bot messages in the given chats that contain any of the terms
+   * (any message when there are none), newest first.
+   */
+  readonly search: (
+    input: SearchProjectionThreadMessagesInput,
   ) => Effect.Effect<ReadonlyArray<ProjectionThreadMessage>, ProjectionRepositoryError>;
 
   /** Read the latest user-message timestamp without loading message bodies. */

@@ -1,7 +1,6 @@
 import { OTTO_CREATE_ROUTINE_TOOL_NAME, classifyOttoSensitivePath } from "@otto/contracts";
 import * as Predicate from "effect/Predicate";
 import {
-  OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
 } from "./otto-routine-schemas.ts";
@@ -274,7 +273,6 @@ export function ottoToolCategory(toolName: string): OttoToolCategory {
 export function routineToolNeedsGlobalApproval(toolName: string): boolean {
   return (
     toolName !== OTTO_CREATE_ROUTINE_TOOL_NAME &&
-    toolName !== OTTO_LIST_ROUTINES_TOOL_NAME &&
     toolName !== OTTO_DELETE_ROUTINES_TOOL_NAME &&
     toolName !== OTTO_UPDATE_ROUTINE_TOOL_NAME
   );

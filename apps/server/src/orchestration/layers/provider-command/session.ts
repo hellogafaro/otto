@@ -390,7 +390,9 @@ export function createSession({
 
     const projectTitles = Option.isSome(projects)
       ? (yield* projects.value.listAll().pipe(Effect.orElseSucceed(() => []))).flatMap((entry) =>
-          entry.deletedAt === null && entry.projectId !== GENERAL_PROJECT_ID ? [entry.title] : [],
+          entry.deletedAt === null && entry.projectId !== GENERAL_PROJECT_ID
+            ? [`${entry.title} (projectId ${entry.projectId})`]
+            : [],
         )
       : [];
 
@@ -399,7 +401,7 @@ export function createSession({
       people.length > 0
         ? `People: ${people
             .slice(0, WORKSPACE_CONTEXT_LIMIT)
-            .map((person) => person.displayName)
+            .map((person) => `${person.displayName} (person:${person.userId})`)
             .join(", ")}`
         : "",
       projectTitles.length > 0

@@ -12,6 +12,7 @@ import { activeTaskTools } from "../../../tasks/task-tool-runtime.ts";
 import { createOttoCatalogToolHandlers } from "../../otto-catalog-tool-handlers.ts";
 import { ottoWebSearchUnavailable } from "../../otto-web-fetch.ts";
 import { nowIso } from "./event-identity.ts";
+import { createSessionSearch } from "./search-tool.ts";
 import { mcpServerDependentBots } from "./mcp-configuration.ts";
 import type { SessionLifecycleDependencies } from "./session-lifecycle-dependencies.ts";
 
@@ -85,7 +86,12 @@ export function createSessionCatalogHandlers(
       webFetch: deps.webFetch,
       // The router bounds each provider attempt and interruptTurn cancels
       // in-flight requests, so there is no outer deadline here.
-      ...(input.botId ? { botId: input.botId } : {}),
+      ...(input.botId
+        ? {
+            botId: input.botId,
+            search: createSessionSearch(deps, { threadId, botId: input.botId }),
+          }
+        : {}),
       generateImage: async (request) => {
         const generate = deps.options?.generateImage ?? runImageGenerationTool;
 
@@ -95,11 +101,9 @@ export function createSessionCatalogHandlers(
         ? {
             library: {
               save: (request) => deps.runPromise(libraryTools.save(libraryCaller, request)),
-              list: (request) => deps.runPromise(libraryTools.list(libraryCaller, request)),
               read: (request) => deps.runPromise(libraryTools.read(libraryCaller, request)),
               updateDocument: (request) =>
                 deps.runPromise(libraryTools.updateDocument(libraryCaller, request)),
-              listSkills: () => deps.runPromise(libraryTools.listSkills(libraryCaller)),
               readSkillFile: (request) =>
                 deps.runPromise(libraryTools.readSkillFile(libraryCaller, request)),
             },
@@ -108,7 +112,6 @@ export function createSessionCatalogHandlers(
       ...(taskTools && libraryCaller
         ? {
             tasks: {
-              list: (request) => deps.runPromise(taskTools.list(libraryCaller, request)),
               read: (request) => deps.runPromise(taskTools.read(libraryCaller, request)),
               create: (request) => deps.runPromise(taskTools.create(libraryCaller, request)),
               update: (request) => deps.runPromise(taskTools.update(libraryCaller, request)),

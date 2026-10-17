@@ -51,25 +51,25 @@ export function createOttoCatalogToolHandlers(
             backends.generateImage!(decodeOttoToolInput("image_create", input)),
         }
       : {}),
+    ...(backends.search
+      ? {
+          search: async ({ input }) => backends.search!(decodeOttoToolInput("search", input)),
+        }
+      : {}),
     ...(backends.library
       ? {
           library_create: async ({ input }) =>
             backends.library!.save(decodeOttoToolInput("library_create", input)),
-          ListLibrary: async ({ input }) =>
-            backends.library!.list(decodeOttoToolInput("ListLibrary", input)),
           library_read: async ({ input }) =>
             backends.library!.read(decodeOttoToolInput("library_read", input)),
           library_update: async ({ input }) =>
             backends.library!.updateDocument(decodeOttoToolInput("library_update", input)),
-          ListSkills: async () => backends.library!.listSkills(),
           skill_read: async ({ input }) =>
             backends.library!.readSkillFile(decodeOttoToolInput("skill_read", input)),
         }
       : {}),
     ...(backends.tasks
       ? {
-          ListTasks: async ({ input }) =>
-            backends.tasks!.list(decodeOttoToolInput("ListTasks", input)),
           task_read: async ({ input }) =>
             backends.tasks!.read(decodeOttoToolInput("task_read", input)),
           task_create: async ({ input }) =>

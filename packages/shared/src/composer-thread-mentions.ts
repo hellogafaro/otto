@@ -202,7 +202,7 @@ export function appendComposerMentionContext(
         Match.when(
           "project",
           () =>
-            `The user tagged the project with projectId ${resource.id}. ListTasks with that projectId shows its work.`,
+            `The user tagged the project with projectId ${resource.id}. search with that projectId shows its tasks.`,
         ),
         Match.exhaustive,
       ),

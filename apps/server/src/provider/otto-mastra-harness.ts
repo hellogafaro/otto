@@ -736,7 +736,6 @@ export {
 export { withOttoPrompt } from "./mastra/otto-instructions.ts";
 
 export {
-  OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
   routineToolInputSchema,

@@ -84,17 +84,13 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "library_create":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ListLibrary":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "library_read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "library_update":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ListSkills":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "skill_read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ListTasks":
+    case "search":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "task_read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };

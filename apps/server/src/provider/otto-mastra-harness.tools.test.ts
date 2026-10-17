@@ -11,7 +11,6 @@ import { it } from "@effect/vitest";
 import { assert } from "vite-plus/test";
 import {
   OTTO_DELETE_ROUTINES_TOOL_NAME,
-  OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
   criticalOttoAction,
   resolveOttoTools,
@@ -115,7 +114,6 @@ describe("OttoMastraHarness", () => {
 
   it("creates an approved routine for the current chat after tool approval", async () => {
     assert.isFalse(routineToolNeedsGlobalApproval(OTTO_CREATE_ROUTINE_TOOL_NAME));
-    assert.isFalse(routineToolNeedsGlobalApproval(OTTO_LIST_ROUTINES_TOOL_NAME));
     assert.isTrue(routineToolNeedsGlobalApproval("execute_command"));
     assert.isTrue(
       routineToolInputSchema.safeParse({
@@ -181,48 +179,6 @@ describe("OttoMastraHarness", () => {
         },
       },
     ]);
-  });
-
-  it("lets the model inspect this bot's routine states without approval", async () => {
-    const calls: string[] = [];
-    const requestContext = new RequestContext();
-    requestContext.setRaw("controller", { resourceId: "thread-1" });
-
-    const result = {
-      routines: [
-        { id: "routine-1", name: "Morning brief", enabled: true, lifecycle: "enabled" as const },
-        {
-          id: "routine-2",
-          name: "Weekly review",
-          enabled: false,
-          lifecycle: "approved" as const,
-        },
-        {
-          id: "routine-3",
-          name: "Inbox check",
-          enabled: false,
-          lifecycle: "paused" as const,
-        },
-      ],
-    };
-
-    const tools = await resolveOttoTools(requestContext, {
-      authStorage: new AuthStorage("/tmp/otto-unused-auth.json"),
-      getThreadTools: () => ({}),
-      toolRuntime: toolRuntimeFixture({ toolsForThread: () => [] }),
-      listRoutines: async (threadId) => {
-        calls.push(threadId);
-
-        return result;
-      },
-    });
-
-    const tool = probeTool(tools[OTTO_LIST_ROUTINES_TOOL_NAME]);
-
-    assert.deepEqual(calls, []);
-    assert.isFalse(tool.requireApproval);
-    assert.deepEqual(await tool.execute?.({}, {}), result);
-    assert.deepEqual(calls, ["thread-1"]);
   });
 
   it("asks once before deleting one or more routines", async () => {

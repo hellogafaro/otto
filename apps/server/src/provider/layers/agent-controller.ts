@@ -380,6 +380,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       webFetch,
       runPromise,
       projectionSnapshotQuery,
+      projectionMessages,
       wired,
       sessions,
       resolvedByThread,

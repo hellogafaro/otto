@@ -4,8 +4,6 @@ import { z } from "zod";
 
 export const routineTime = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
 
-export const OTTO_LIST_ROUTINES_TOOL_NAME = "otto_list_routines";
-
 export const OTTO_DELETE_ROUTINES_TOOL_NAME = "routine_delete";
 
 export const OTTO_UPDATE_ROUTINE_TOOL_NAME = "routine_update";
@@ -13,15 +11,6 @@ export const OTTO_UPDATE_ROUTINE_TOOL_NAME = "routine_update";
 /** What the routine tools add to the bot's prompt while they are loaded. */
 export const OTTO_ROUTINE_TOOL_PROMPTS = new Map<string, OttoToolPrompt>([
   [OTTO_CREATE_ROUTINE_TOOL_NAME, { snippet: "schedule recurring work" }],
-  [
-    OTTO_LIST_ROUTINES_TOOL_NAME,
-    {
-      snippet: "list your routines",
-      guidelines: [
-        "Before you report on, change, pause or delete a routine, find it with otto_list_routines.",
-      ],
-    },
-  ],
 ]);
 
 export const routineToolInputSchema = z.object({

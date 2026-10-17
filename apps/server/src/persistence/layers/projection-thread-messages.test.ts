@@ -339,6 +339,56 @@ layer("ProjectionThreadMessageRepository", (it) => {
     }),
   );
 
+  it.effect("searches finished messages in the given chats, newest first", () =>
+    Effect.gen(function* () {
+      const repository = yield* ProjectionThreadMessageRepository;
+      const seen = ThreadId.make("thread-search-seen");
+      const hidden = ThreadId.make("thread-search-hidden");
+
+      const messages = [
+        { id: "search-old", threadId: seen, text: "Launch on Friday", streaming: false },
+        { id: "search-new", threadId: seen, text: "launch moved to 50% Monday", streaming: false },
+        { id: "search-streaming", threadId: seen, text: "launch draft", streaming: true },
+        { id: "search-hidden", threadId: hidden, text: "launch secret", streaming: false },
+        { id: "search-percent", threadId: seen, text: "Up 50 points", streaming: false },
+      ];
+
+      for (const [index, message] of messages.entries()) {
+        const createdAt = `2026-03-01T10:00:0${index}.000Z`;
+
+        yield* repository.upsert({
+          messageId: MessageId.make(message.id),
+          threadId: message.threadId,
+          turnId: null,
+          role: "user",
+          text: message.text,
+          isStreaming: message.streaming,
+          createdAt,
+          updatedAt: createdAt,
+        });
+      }
+
+      const ids = (rows: ReadonlyArray<{ readonly messageId: string }>) =>
+        rows.map((row) => row.messageId);
+
+      assert.deepEqual(
+        ids(yield* repository.search({ threadIds: [seen], terms: ["LAUNCH"], limit: 10 })),
+        ["search-new", "search-old"],
+      );
+
+      assert.deepEqual(
+        ids(yield* repository.search({ threadIds: [seen], terms: ["50%"], limit: 10 })),
+        ["search-new"],
+      );
+
+      assert.deepEqual(ids(yield* repository.search({ threadIds: [seen], terms: [], limit: 1 })), [
+        "search-percent",
+      ]);
+
+      assert.deepEqual(yield* repository.search({ threadIds: [], terms: [], limit: 10 }), []);
+    }),
+  );
+
   it.effect("checks assistant turn state without hydrating message text", () =>
     Effect.gen(function* () {
       const repository = yield* ProjectionThreadMessageRepository;

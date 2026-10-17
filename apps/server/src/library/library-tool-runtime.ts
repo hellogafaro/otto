@@ -1,6 +1,7 @@
 import * as NodeCrypto from "node:crypto";
 
 import {
+  type AuthSessionId,
   type BotId,
   CommandId,
   canEditLibraryItem,
@@ -85,7 +86,7 @@ const SKILL_TEXT_EXTENSIONS = new Set([
 
 const SKILLS_MAX = 100;
 
-const LIST_DEFAULT_LIMIT = 50;
+const SEARCH_TEXT_FILES = 200;
 
 const fail = (detail: string) => Effect.fail(new LibraryRequestError({ detail }));
 
@@ -299,35 +300,72 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
       return { bytes, fileName: attachment.name, title };
     });
 
-  const list = (caller: LibraryToolCaller, input: Input<"ListLibrary">) =>
-    Effect.gen(function* () {
-      const { state, folders, files } = yield* scopedState(caller);
-      const query = input.query?.toLowerCase();
+  /** The text of a document, or of a text file up to 1 MB; null for anything else. */
+  const fileText = (file: LibraryFile) =>
+    file.type === "document"
+      ? readLibraryDocument(file)
+      : !TEXT_EXTENSIONS.has(file.extension) || file.sizeBytes > TEXT_READ_MAX_BYTES
+        ? Effect.succeed(null)
+        : readLibraryBytes(file).pipe(Effect.map((bytes) => new TextDecoder().decode(bytes)));
 
-      const matches = files
+  /**
+   * Files the bot and every reader may see, in a folder when given, newest first, whose
+   * title, folder or text holds any of the words. Text is read from the newest 200 documents
+   * and text files only.
+   */
+  const search = (
+    caller: LibraryToolCaller,
+    readers: ReadonlyArray<AuthSessionId>,
+    input: { readonly terms: ReadonlyArray<string>; readonly folderId?: string | undefined },
+  ) =>
+    Effect.gen(function* () {
+      const { state, files } = yield* scopedState(caller);
+
+      const visible = files
         .filter(
           (file) =>
             (input.folderId === undefined || file.folderId === input.folderId) &&
-            (input.type === undefined || file.type === input.type) &&
-            (query === undefined || file.title.toLowerCase().includes(query)),
+            readers.every((personId) =>
+              canSeeLibraryItem(file, state.context, { kind: "person", personId }),
+            ),
         )
         .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 
-      const limit = input.limit ?? LIST_DEFAULT_LIMIT;
+      const textIds = new Set(
+        input.terms.length === 0
+          ? []
+          : visible
+              .filter(
+                (file) =>
+                  file.type === "document" ||
+                  (TEXT_EXTENSIONS.has(file.extension) && file.sizeBytes <= TEXT_READ_MAX_BYTES),
+              )
+              .slice(0, SEARCH_TEXT_FILES)
+              .map((file) => file.id),
+      );
 
-      return {
-        folders: folders
-          .filter((folder) => input.folderId === undefined || folder.parentId === input.folderId)
-          .map((folder) => ({
-            folderId: folder.id,
-            title: folder.title,
-            parentId: folder.parentId,
-            isChatFolder: folder.threadId !== undefined,
-            isThisChat: folder.threadId === caller.threadId,
-          })),
-        files: matches.slice(0, limit).map((file) => describeFile(state, file)),
-        truncated: matches.length > limit,
-      };
+      const found = yield* Effect.forEach(
+        visible,
+        (file) =>
+          Effect.gen(function* () {
+            const details = describeFile(state, file);
+
+            const content = textIds.has(file.id)
+              ? yield* fileText(file).pipe(Effect.orElseSucceed(() => null))
+              : null;
+
+            const text = [details.title, details.folderPath, content ?? ""]
+              .join("\n")
+              .toLowerCase();
+
+            return input.terms.length === 0 || input.terms.some((term) => text.includes(term))
+              ? [{ ...details, content: content ?? "" }]
+              : [];
+          }),
+        { concurrency: 8 },
+      );
+
+      return found.flat();
     });
 
   const read = (caller: LibraryToolCaller, input: Input<"library_read">) =>
@@ -335,20 +373,15 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
       const { state, file } = yield* requireFile(caller, input.fileId);
       const details = describeFile(state, file);
 
-      if (file.type === "document")
-        return { ...details, content: yield* readLibraryDocument(file) };
+      const content = yield* fileText(file);
 
-      if (!TEXT_EXTENSIONS.has(file.extension) || file.sizeBytes > TEXT_READ_MAX_BYTES) {
-        return {
-          ...details,
-          content: null,
-          note: "Only documents and text files up to 1 MB can be read as text.",
-        };
-      }
-
-      const bytes = yield* readLibraryBytes(file);
-
-      return { ...details, content: new TextDecoder().decode(bytes) };
+      return content === null
+        ? {
+            ...details,
+            content,
+            note: "Only documents and text files up to 1 MB can be read as text.",
+          }
+        : { ...details, content };
     });
 
   const updateDocument = (caller: LibraryToolCaller, input: Input<"library_update">) =>
@@ -483,11 +516,14 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
 
   return {
     save: (caller: LibraryToolCaller, input: Input<"library_create">) => run(save(caller, input)),
-    list: (caller: LibraryToolCaller, input: Input<"ListLibrary">) => run(list(caller, input)),
+    search: (
+      caller: LibraryToolCaller,
+      readers: ReadonlyArray<AuthSessionId>,
+      input: { readonly terms: ReadonlyArray<string>; readonly folderId?: string | undefined },
+    ) => run(search(caller, readers, input)),
     read: (caller: LibraryToolCaller, input: Input<"library_read">) => run(read(caller, input)),
     updateDocument: (caller: LibraryToolCaller, input: Input<"library_update">) =>
       run(updateDocument(caller, input)),
-    listSkills: (caller: LibraryToolCaller) => run(listSkills(caller)),
     /** The skills this bot can use, one prompt line each; empty when it has none or the read fails. */
     skillsContext: (caller: LibraryToolCaller) =>
       listSkills(caller).pipe(

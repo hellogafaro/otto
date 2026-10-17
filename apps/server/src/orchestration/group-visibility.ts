@@ -7,6 +7,7 @@ import {
   type LibraryFolder,
   type LibraryVisibilityContext,
   type AuthSessionId,
+  type BotId,
   type GroupId,
   type GroupMembership,
   type OrchestrationShellSnapshot,
@@ -53,6 +54,60 @@ export const canSeeRoutine = (
   routine: Pick<Routine, "createdBy" | "botId" | "visibility">,
   personId: AuthSessionId,
 ) => canSeeDirectChat(routine, { kind: "person", personId });
+
+type ChatShell = DirectChatAccess & {
+  readonly id: ThreadId;
+  readonly groupId?: GroupId | null | undefined;
+  readonly respondingBotId?: BotId | null | undefined;
+  readonly parentThreadId?: ThreadId | null | undefined;
+};
+
+/**
+ * Otto: The people a bot's answer in a chat reaches: a DM's person, or a group's people. A
+ * group with no people predates people in groups and names no one.
+ */
+export function chatPeople(
+  thread: ChatShell,
+  groups: ReadonlyArray<GroupMembers>,
+): ReadonlyArray<AuthSessionId> {
+  if (thread.groupId == null) return thread.createdBy == null ? [] : [thread.createdBy];
+
+  return (
+    groups
+      .find((group) => group.id === thread.groupId)
+      ?.members.filter(isGroupPersonMember)
+      .map((person) => person.personId) ?? []
+  );
+}
+
+/**
+ * Otto: The top-level chats other than `exceptId` a bot is in that every one of `people` may
+ * read; what the bot finds there is safe to repeat to all of them.
+ */
+export function chatsSeenByAll<Thread extends ChatShell>(
+  snapshot: {
+    readonly threads: ReadonlyArray<Thread>;
+    readonly groups: ReadonlyArray<GroupMembers>;
+  },
+  botId: BotId,
+  people: ReadonlyArray<AuthSessionId>,
+  exceptId: ThreadId,
+): ReadonlyArray<Thread> {
+  const botIn = (thread: Thread) =>
+    thread.groupId == null
+      ? thread.botId === botId || thread.respondingBotId === botId
+      : (snapshot.groups
+          .find((group) => group.id === thread.groupId)
+          ?.members.some((member) => member.kind === "bot" && member.botId === botId) ?? false);
+
+  return snapshot.threads.filter(
+    (thread) =>
+      thread.id !== exceptId &&
+      thread.parentThreadId == null &&
+      botIn(thread) &&
+      people.every((personId) => canSeeThread(thread, snapshot.groups, personId)),
+  );
+}
 
 /** Whether a person may read or act on a chat; an unknown chat is left to its own checks. */
 export const canSeeThreadById = (

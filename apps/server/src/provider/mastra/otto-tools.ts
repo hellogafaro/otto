@@ -17,8 +17,6 @@ import { ottoNativeWebSearch } from "./otto-web-search.ts";
 import { ottoActionNeedsApproval } from "./otto-actions.ts";
 import {
   routineToolInputSchema,
-  OTTO_LIST_ROUTINES_TOOL_NAME,
-  routineListOutputSchema,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   routineDeleteResultSchema,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
@@ -86,19 +84,6 @@ export async function resolveOttoTools(
               },
             ),
           ),
-      })
-    : undefined;
-
-  const listRoutinesTool = options.listRoutines
-    ? createTool({
-        id: OTTO_LIST_ROUTINES_TOOL_NAME,
-        description:
-          "List this bot's routines and show whether each schedule is enabled or disabled, plus its exact lifecycle. Use this before answering questions about routine state.",
-        inputSchema: z.object({}),
-        outputSchema: routineListOutputSchema,
-        strict: true,
-        requireApproval: false,
-        execute: async () => options.listRoutines!(threadId),
       })
     : undefined;
 
@@ -176,7 +161,7 @@ export async function resolveOttoTools(
       ? createTool({
           id: OTTO_UPDATE_ROUTINE_TOOL_NAME,
           description:
-            "Change a routine's name, instructions or schedule, or pause and resume it; null keeps a field. Find the id with otto_list_routines. The person confirms changes in the app. Returns the routine status.",
+            "Change a routine's name, instructions or schedule, or pause and resume it; null keeps a field. Find the id with search type routine. The person confirms changes in the app. Returns the routine status.",
           inputSchema: routineUpdateInputSchema,
           outputSchema: routineUpdateResultSchema,
           ...confirmSchemas,
@@ -261,7 +246,6 @@ export async function resolveOttoTools(
           )),
     ),
     ...(routineTool ? { [OTTO_CREATE_ROUTINE_TOOL_NAME]: routineTool } : {}),
-    ...(listRoutinesTool ? { [OTTO_LIST_ROUTINES_TOOL_NAME]: listRoutinesTool } : {}),
     ...(deleteRoutinesTool ? { [OTTO_DELETE_ROUTINES_TOOL_NAME]: deleteRoutinesTool } : {}),
     ...(updateRoutineTool ? { [OTTO_UPDATE_ROUTINE_TOOL_NAME]: updateRoutineTool } : {}),
   };
@@ -299,11 +283,9 @@ export function approvalAwareTools(
 
 export {
   routineTime,
-  OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
   routineToolInputSchema,
-  routineListOutputSchema,
   type OttoRoutineListResult,
   routineDeleteResultSchema,
   type OttoRoutineDeleteResult,

@@ -37,14 +37,24 @@ export interface TaskToolCaller {
   readonly botId: BotIdType;
 }
 
+/** What search asks of tasks: lowercase words, the filters, and the chat's today and week end. */
+export interface TaskSearch {
+  readonly terms: ReadonlyArray<string>;
+  readonly status?: ReadonlyArray<OrchestrationTask["status"]> | undefined;
+  readonly assignee?: string | undefined;
+  readonly projectId?: ProjectId | undefined;
+  readonly due?: "overdue" | "today" | "this_week" | "none" | undefined;
+  /** YYYY-MM-DD in the chat's timezone, and the Sunday that ends its week. */
+  readonly today: string;
+  readonly weekEnd: string;
+}
+
 /** A refusal the bot reads and can act on, returned as the tool's result. */
 class TaskToolError extends Schema.TaggedErrorClass<TaskToolError>()("TaskToolError", {
   detail: Schema.String,
 }) {}
 
 const fail = (detail: string) => Effect.fail(new TaskToolError({ detail }));
-
-const LIST_DEFAULT = 25;
 
 const ACTIVITY_SHOWN = 20;
 
@@ -148,42 +158,55 @@ export const makeTaskToolRuntime = (
       updatedAt: task.updatedAt,
     });
 
-    const list = (caller: TaskToolCaller, input: Input<"ListTasks">) =>
+    /** Tasks that pass the filters and contain any of the words; every member sees every task. */
+    const search = (caller: TaskToolCaller, input: TaskSearch) =>
       Effect.gen(function* () {
         const model = yield* readModel;
-        const statuses = input.status;
-        const query = input.query?.toLowerCase();
 
         const assignee =
           input.assignee === undefined
             ? undefined
             : workParticipantKey(yield* resolve(caller, model, input.assignee));
 
-        const matching = (model.tasks ?? [])
+        const due = (task: OrchestrationTask) => {
+          switch (input.due) {
+            case undefined:
+              return true;
+            case "none":
+              return task.dueDate === null;
+            case "today":
+              return task.dueDate === input.today;
+            case "this_week":
+              return (
+                task.dueDate !== null &&
+                task.dueDate >= input.today &&
+                task.dueDate <= input.weekEnd
+              );
+            case "overdue":
+              return (
+                task.dueDate !== null &&
+                task.dueDate < input.today &&
+                task.status !== "completed" &&
+                task.status !== "archived"
+              );
+          }
+        };
+
+        return (model.tasks ?? [])
           .filter((task) =>
-            statuses === undefined ? task.status !== "archived" : statuses.includes(task.status),
+            input.status === undefined
+              ? task.status !== "archived"
+              : input.status.includes(task.status),
           )
           .filter((task) => input.projectId === undefined || task.projectId === input.projectId)
           .filter((task) => assignee === undefined || involves(task, assignee))
-          .filter((task) => query === undefined || task.title.toLowerCase().includes(query))
-          .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+          .filter(due)
+          .filter((task) => {
+            const text = `${task.title}\n${task.description}`.toLowerCase();
 
-        const people = yield* listPeople();
-
-        // Otto: The projects and people to pick from, so a task can go anywhere and to anyone.
-        return {
-          tasks: matching
-            .slice(0, input.limit ?? LIST_DEFAULT)
-            .map((task) => summarize(model, caller, task)),
-          total: matching.length,
-          projects: model.projects
-            .filter((project) => project.deletedAt === null && project.status !== "archived")
-            .map((project) => ({ projectId: project.id, title: project.title })),
-          people: people.map((person) => ({
-            key: `person:${person.userId}`,
-            name: person.displayName,
-          })),
-        };
+            return input.terms.length === 0 || input.terms.some((term) => text.includes(term));
+          })
+          .map((task) => ({ ...summarize(model, caller, task), description: task.description }));
       });
 
     const describeEntry = (
@@ -343,7 +366,7 @@ export const makeTaskToolRuntime = (
       );
 
     return {
-      list: (caller: TaskToolCaller, input: Input<"ListTasks">) => run(list(caller, input)),
+      search: (caller: TaskToolCaller, input: TaskSearch) => run(search(caller, input)),
       read: (caller: TaskToolCaller, input: Input<"task_read">) => run(read(caller, input)),
       create: (caller: TaskToolCaller, input: Input<"task_create">) => run(create(caller, input)),
       update: (caller: TaskToolCaller, input: Input<"task_update">) => run(update(caller, input)),

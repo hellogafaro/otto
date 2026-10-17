@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 export const OttoToolId = Schema.Literals([
   "shell",
   "read",
+  "search",
   "bot_create",
   "delegate_check",
   "MessageAgent",
@@ -24,12 +25,9 @@ export const OttoToolId = Schema.Literals([
   "web_fetch",
   "image_create",
   "library_create",
-  "ListLibrary",
   "library_read",
   "library_update",
-  "ListSkills",
   "skill_read",
-  "ListTasks",
   "task_read",
   "task_create",
   "task_update",
@@ -121,6 +119,14 @@ export const OTTO_TOOL_CATALOG = [
     workspace: "bot-workspace",
     promptSnippet: "read a file in your workspace",
   }),
+  define(
+    "search",
+    "bot-workspace",
+    "Find or list tasks, Library files, chat messages and your routines: by words, ranked best first, " +
+      "or with no words, newest first. Filters narrow tasks (status, assignee, project, due) and files (folder). " +
+      "Read-only; returns type, title, snippet and id for what you and everyone in this chat may see.",
+    { promptSnippet: "find or list tasks, files, messages and your routines" },
+  ),
   define("bot_create", "bot-workspace", "Create a durable named bot."),
   define(
     "delegate_check",
@@ -213,15 +219,8 @@ export const OTTO_TOOL_CATALOG = [
     "Save an artifact to the Otto Library, the workspace's shared folders and files. " +
       "Pass markdown content to save a .md document (titled after its first # heading unless you give a title), " +
       'text content with a fileName such as "report.csv" for another text file, or attachmentId to save a file from this chat. ' +
-      "It goes into this chat's Library folder, which only the chat's people see, unless you pass a folderId from ListLibrary.",
+      "It goes into this chat's Library folder, which only the chat's people see, unless you pass a folderId from search.",
     { promptSnippet: "save a document or file to the Library, the workspace's shared files" },
-  ),
-  define(
-    "ListLibrary",
-    "bot-workspace",
-    "List the Library folders and files you can see, newest first. Filter by folderId, type " +
-      '("document", "image", "pdf" or "file") or a title query.',
-    { promptSnippet: "find Library files" },
   ),
   define(
     "library_read",
@@ -236,32 +235,15 @@ export const OTTO_TOOL_CATALOG = [
       "if someone changed the document since, the save is rejected, so read it again and merge. Only a document's creator can edit it.",
   ),
   define(
-    "ListSkills",
-    "bot-workspace",
-    "List the skills you can use: reusable instructions people saved in the Library's Skills folder, " +
-      "each with a name, a description of when it applies, and its files. " +
-      "Check it when a request might match one, then read the skill's SKILL.md with skill_read and follow it.",
-  ),
-  define(
     "skill_read",
     "bot-workspace",
-    "Read a file from a skill ListSkills returned: SKILL.md by default, or a path such as references/guide.md. " +
+    "Read a file from a skill in <available_skills>: SKILL.md by default, or a path such as references/guide.md. " +
       "Text files up to 1 MB. Scripts in a skill are references to read; Otto never runs them.",
     {
       promptGuidelines: [
         "When a request matches one of <available_skills>, read its SKILL.md with skill_read first and follow it.",
       ],
     },
-  ),
-  define(
-    "ListTasks",
-    "bot-workspace",
-    "List the organization's tasks (the Tasks page, not your own subagent work), most recently " +
-      'updated first. Filter by projectId, status, assignee ("me" for tasks assigned to you, ' +
-      'or a participant key such as "person:…") or a title query. Archived tasks only show when ' +
-      "you ask for that status. It also lists every project with its projectId and every person " +
-      "with their key, for task_create and task_update.",
-    { promptSnippet: "find tasks, people and projects" },
   ),
   define(
     "task_read",
@@ -273,7 +255,7 @@ export const OTTO_TOOL_CATALOG = [
     "task_create",
     "bot-workspace",
     "Create a task on the Tasks page. It goes into this chat's project unless you pass a " +
-      'projectId (ListTasks lists them). Assign it with participant keys from ListTasks, or "me". ' +
+      'projectId. Assign it with the people keys from your workspace context, or "me". ' +
       "Only people mark tasks completed, and the owner is left for a person to set.",
     { promptSnippet: "create a task" },
   ),

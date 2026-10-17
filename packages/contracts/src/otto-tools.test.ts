@@ -23,10 +23,9 @@ describe("Otto tool contracts", () => {
       "RenameMcpAccount",
       "SetMcpInstructions",
       "library_create",
-      "ListLibrary",
       "library_read",
       "library_update",
-      "ListSkills",
+      "search",
       "skill_read",
     ] as const) {
       expect(OTTO_TOOL_CATALOG.some((tool) => tool.id === id)).toBe(true);

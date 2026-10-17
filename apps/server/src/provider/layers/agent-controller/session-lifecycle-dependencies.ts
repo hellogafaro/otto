@@ -29,6 +29,7 @@ import { BotInboxService } from "../../../bot-inbox/service.ts";
 import type { MemoryToolHandler } from "../../../memory/memory-update-tool.ts";
 
 import { ProjectionSnapshotQuery } from "../../../orchestration/services/projection-snapshot-query.ts";
+import type { ProjectionThreadMessageRepository } from "../../../persistence/services/projection-thread-messages.ts";
 
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 
@@ -51,6 +52,7 @@ export interface SessionLifecycleDependencies {
   readonly webFetch: ReturnType<typeof createOttoWebFetch>;
   readonly runPromise: OttoRuntimeSeam["runPromise"];
   readonly projectionSnapshotQuery: Option.Option<ProjectionSnapshotQuery["Service"]>;
+  readonly projectionMessages: Option.Option<ProjectionThreadMessageRepository["Service"]>;
   readonly wired: () => {
     readonly channelRuntime?: OttoChannelRuntime;
     readonly pluginRuntime?: ReturnType<typeof createOttoPluginRuntime>;

@@ -29,12 +29,10 @@ export interface BotActivity {
 // catalog, the routine contracts, and the memory tool.
 const TOOL_LABELS = {
   [OTTO_CREATE_ROUTINE_TOOL_NAME]: "Adding a routine",
-  otto_list_routines: "Checking routines",
   routine_delete: "Removing routines",
   routine_update: "Updating a routine",
-  ListSkills: "Checking skills",
   skill_read: "Reading a skill",
-  ListLibrary: "Browsing the library",
+  search: "Searching",
   library_read: "Reading the library",
   library_create: "Saving to the library",
   library_update: "Editing a document",

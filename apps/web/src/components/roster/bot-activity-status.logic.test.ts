@@ -68,10 +68,7 @@ describe("deriveBotActivity", () => {
 
   it("returns to thinking after a tool finishes", () => {
     expect(
-      deriveBotActivity(
-        [started("otto_list_routines", "call-1"), completed("otto_list_routines", "call-1")],
-        runningTurn,
-      ),
+      deriveBotActivity([started("search", "call-1"), completed("search", "call-1")], runningTurn),
     ).toEqual({ label: "Working", thinking: true });
   });
 

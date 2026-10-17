@@ -103,19 +103,37 @@ it.live("creates, finds, updates and comments on a task as the bot", () =>
       });
 
       const taskId = TaskId.make((created as { taskId: string }).taskId);
-      const mine = yield* tools.list(caller, { assignee: "me" });
+      const week = { today: "2026-02-01", weekEnd: "2026-02-01" };
 
-      expect(mine).toMatchObject({
-        total: 1,
-        tasks: [{ taskId }],
-        projects: [{ projectId, title: "Launch" }],
-        people: [{ key: `person:${ada}`, name: "Ada" }],
-      });
+      expect(yield* tools.search(caller, { terms: [], assignee: "me", ...week })).toMatchObject([
+        { taskId },
+      ]);
+
+      expect(yield* tools.search(caller, { terms: ["launch"], ...week })).toMatchObject([
+        { taskId },
+      ]);
+
+      expect(yield* tools.search(caller, { terms: ["invoice"], ...week })).toEqual([]);
 
       expect(yield* tools.update(caller, { taskId, dueDate: "2026-02-01" })).toMatchObject({
         updated: true,
         dueDate: "2026-02-01",
       });
+
+      expect(yield* tools.search(caller, { terms: [], due: "today", ...week })).toMatchObject([
+        { taskId },
+      ]);
+
+      expect(
+        yield* tools.search(caller, {
+          terms: [],
+          due: "overdue",
+          today: "2026-02-02",
+          weekEnd: "2026-02-08",
+        }),
+      ).toMatchObject([{ taskId }]);
+
+      expect(yield* tools.search(caller, { terms: [], due: "none", ...week })).toEqual([]);
 
       expect(yield* tools.comment(caller, { taskId, content: "Done <b>soon</b>" })).toMatchObject({
         commented: true,
