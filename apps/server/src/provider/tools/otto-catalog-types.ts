@@ -15,6 +15,8 @@ export interface OttoCatalogToolHandlerInput {
   /** The person who approved this call, for tools that act as that person. */
   readonly responder?: ApprovalResponder;
   readonly webSearch?: OttoCatalogBackendOptions["webSearch"];
+  /** Aborts when the turn that called the tool is stopped. */
+  readonly abortSignal?: AbortSignal;
   readonly emitProgress: (
     summary: string,
     details?: { readonly authorizationUrl?: string },
@@ -80,6 +82,10 @@ export interface OttoCatalogBackendOptions {
   readonly webFetch?: (input: { readonly url: string }) => Promise<{ readonly text: string }>;
   readonly generateImage?: (
     input: (typeof OttoToolInputSchemas.image_create)["Type"],
+  ) => Promise<OttoToolResult>;
+  readonly transcribeAudio?: (
+    input: (typeof OttoToolInputSchemas.audio_transcribe)["Type"],
+    signal: AbortSignal,
   ) => Promise<OttoToolResult>;
   /** Otto: One permission-checked search over tasks, files, messages and routines. */
   readonly search?: (

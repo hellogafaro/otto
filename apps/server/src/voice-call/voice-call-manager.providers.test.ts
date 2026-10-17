@@ -46,6 +46,45 @@ it.effect("uses explicit transcription selection without provider fallback", () 
   );
 });
 
+it.effect("dictates with the Transcription provider while Voice calls are off", () => {
+  const used: string[] = [];
+
+  return Effect.gen(function* () {
+    const manager = yield* VoiceCallManager;
+    yield* manager.connect("openrouter", "router-key");
+
+    const result = yield* manager.transcribe(
+      { operationId: "dictation", audioBase64: "YQ==", mimeType: "audio/wav" },
+      "owner",
+    );
+
+    assert.equal(result.text, "hello");
+    assert.deepEqual(used, ["openrouter:router-key"]);
+
+    const speech = yield* Effect.result(
+      manager.synthesize({ operationId: "speech", text: "Hello" }, "owner"),
+    );
+
+    assert.equal(speech._tag, "Failure");
+
+    if (Predicate.isTagged(speech, "Failure"))
+      assert.equal(speech.failure.reason, "voice-disabled");
+  }).pipe(
+    Effect.provide(
+      makeTest(
+        {
+          transcribe: async (provider, key) => {
+            used.push(`${provider}:${key}`);
+
+            return { text: "hello" };
+          },
+        },
+        { enabled: false, transcriptionProvider: "openrouter" },
+      ),
+    ),
+  );
+});
+
 it.effect("starts OpenAI realtime with its own key and selected voice", () => {
   const used: string[] = [];
 

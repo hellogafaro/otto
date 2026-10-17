@@ -681,6 +681,27 @@ export const makeLibraryToolRuntime = Effect.gen(function* () {
       input: { readonly terms: ReadonlyArray<string>; readonly folderId?: string | undefined },
     ) => run(search(caller, readers, input)),
     read: (caller: LibraryToolCaller, input: Input<"library_read">) => run(read(caller, input)),
+    /** A Library file's name, folder and bytes for a bot tool, when it is at most `maxBytes`. */
+    readBytes: (caller: LibraryToolCaller, fileId: string, maxBytes: number) =>
+      run(
+        Effect.gen(function* () {
+          const { file } = yield* requireFile(caller, fileId);
+
+          if (file.type === "document") return yield* fail("That's a document, not a media file.");
+
+          if (file.sizeBytes > maxBytes) {
+            return yield* fail(
+              `That file is over ${Math.floor(maxBytes / 1024 / 1024)} MB, the most a bot tool reads from the Library.`,
+            );
+          }
+
+          return {
+            name: file.extension === "" ? file.title : `${file.title}.${file.extension}`,
+            folderId: file.folderId,
+            bytes: yield* readLibraryBytes(file),
+          };
+        }),
+      ),
     updateDocument: (caller: LibraryToolCaller, input: Input<"library_update">) =>
       run(updateDocument(caller, input)),
     /** The skills this bot can use, one prompt line each; built-in ones even when the read fails. */

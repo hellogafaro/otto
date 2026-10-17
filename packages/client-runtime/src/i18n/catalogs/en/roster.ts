@@ -300,6 +300,7 @@ export const rosterCatalog = {
   "Looking at an image": "Looking at an image",
   "Looking for the right app": "Looking for the right app",
   "Making an image": "Making an image",
+  "Transcribing audio": "Transcribing audio",
   "Messaging a helper": "Messaging a helper",
   "Mulling it over": "Mulling it over",
   Noodling: "Noodling",

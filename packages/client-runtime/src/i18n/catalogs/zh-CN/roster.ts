@@ -287,6 +287,7 @@ export const rosterCatalog = {
   "Looking at an image": "正在查看图片",
   "Looking for the right app": "正在寻找合适的应用",
   "Making an image": "正在生成图片",
+  "Transcribing audio": "正在转写音频",
   "Messaging a helper": "正在给助手发消息",
   "Mulling it over": "正在反复思量",
   Noodling: "正在琢磨",

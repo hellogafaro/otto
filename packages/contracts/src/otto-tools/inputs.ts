@@ -181,6 +181,18 @@ const SaveToLibraryInput = Schema.Struct({
   ),
 );
 
+const AudioTranscribeInput = Schema.Struct({
+  path: Schema.optional(PathText),
+  fileId: Schema.optional(LibraryFileId),
+  language: Schema.optional(Schema.String.check(Schema.isPattern(/^[a-z]{2}$/))),
+}).check(
+  Schema.makeFilter(
+    (input) =>
+      (input.path === undefined) !== (input.fileId === undefined) ||
+      new SchemaIssue.InvalidValue({ message: "Pass either path or fileId." }),
+  ),
+);
+
 /** Otto: Someone work goes to: `me` for the calling bot, or a `bot:…` / `person:…` key. */
 const TaskParticipantRef = Schema.Union([Schema.Literal("me"), WorkParticipantKey]);
 
@@ -256,6 +268,7 @@ export const OttoToolInputSchemas = {
   web_search: WebSearchInput,
   web_fetch: WebFetchInput,
   image_create: ImageGenerationRequest,
+  audio_transcribe: AudioTranscribeInput,
   library_create: SaveToLibraryInput,
   library_read: Schema.Struct({ fileId: LibraryFileId }),
   library_update: Schema.Struct({

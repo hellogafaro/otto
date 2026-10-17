@@ -38,6 +38,63 @@ describe("voice capability adapters", () => {
     },
   );
 
+  it("transcribes with OpenRouter's OpenAI-compatible multipart API, passing the language", async () => {
+    const fetcher = vi.fn<VoiceFetch>(async (url, init) => {
+      expect(String(url)).toBe("https://openrouter.ai/api/v1/audio/transcriptions");
+      expect(init?.method).toBe("POST");
+      expect(init?.redirect).toBe("error");
+      const headers = new Headers(init?.headers);
+      expect(headers.get("Authorization")).toBe("Bearer secret");
+      expect(headers.get("Content-Type")).toBeNull();
+      const form = init?.body as FormData;
+      expect(form.get("model")).toBe("openai/whisper-large-v3");
+      expect(form.get("language")).toBe("es");
+      expect(await (form.get("file") as Blob).text()).toBe("audio");
+
+      return Response.json({ text: "hola", usage: { seconds: 1.2, cost: 0.00001 } });
+    });
+
+    expect(
+      await voiceAdapters(fetcher).transcribe(
+        "openrouter",
+        "secret",
+        { ...audio, mimeType: "audio/mp4" },
+        signal(),
+        "es",
+      ),
+    ).toEqual({ text: "hola" });
+  });
+
+  it.each([
+    [401, "provider-auth"],
+    [402, "provider-quota"],
+    [500, "upstream-failed"],
+  ] as const)("reports an OpenRouter %s without its body", async (status, reason) => {
+    const fetcher = vi.fn<VoiceFetch>(async () =>
+      Response.json({ error: { code: status, message: "sk-or-secret detail" } }, { status }),
+    );
+
+    const failure = await voiceAdapters(fetcher)
+      .transcribe("openrouter", "secret", audio, signal())
+      .catch((error: Error) => error);
+
+    expect(failure).toMatchObject({ reason });
+    expect(JSON.stringify(failure)).not.toContain("sk-or-secret");
+  });
+
+  it("tests an OpenRouter key against its key endpoint", async () => {
+    const fetcher = vi.fn<VoiceFetch>(async (url, init) => {
+      expect(String(url)).toBe("https://openrouter.ai/api/v1/key");
+      expect(init?.method).toBe("GET");
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer secret");
+
+      return Response.json({ data: { label: "sk-or-v1-abc" } });
+    });
+
+    await voiceAdapters(fetcher).test("openrouter", "secret", signal());
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it.each(["openai", "elevenlabs", "cartesia", "fish"] as const)(
     "synthesizes MP3 with the official %s API",
     async (provider) => {

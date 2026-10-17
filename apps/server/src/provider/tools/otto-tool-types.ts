@@ -92,6 +92,8 @@ export interface OttoToolExecution {
   readonly approvalMode: "require-grant";
   /** Search through this turn's model, when its provider has built-in web search. */
   readonly webSearch?: OttoCatalogBackendOptions["webSearch"];
+  /** The turn's abort signal, for catalog tools that run long. */
+  readonly abortSignal?: AbortSignal;
 }
 
 export interface OttoToolRuntime {

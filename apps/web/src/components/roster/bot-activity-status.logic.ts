@@ -39,6 +39,7 @@ const TOOL_LABELS = {
   web_search: "Searching the web",
   web_fetch: "Reading a web page",
   image_create: "Making an image",
+  audio_transcribe: "Transcribing audio",
   ask_user: "Waiting for your answer",
   shell: "Running a command",
   read: "Reading files",

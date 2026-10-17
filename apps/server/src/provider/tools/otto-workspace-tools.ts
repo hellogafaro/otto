@@ -23,6 +23,7 @@ export const BACKEND_NAMES: Record<
     | "web_search"
     | "web_fetch"
     | "image_create"
+    | "audio_transcribe"
     | "generate_image"
     | "library_create"
     | "library_read"

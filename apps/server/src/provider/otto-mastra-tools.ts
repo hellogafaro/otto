@@ -156,6 +156,7 @@ export function createOttoMastraTools(
               input: omitNullValues(input),
               approvalMode: "require-grant",
               ...(search ? { webSearch: search } : {}),
+              ...(context.abortSignal ? { abortSignal: context.abortSignal } : {}),
             }),
           );
         },

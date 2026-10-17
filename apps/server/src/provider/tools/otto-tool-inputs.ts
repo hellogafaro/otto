@@ -76,6 +76,8 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "image_create":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "audio_transcribe":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "library_create":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "library_read":

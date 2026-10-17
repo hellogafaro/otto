@@ -1,5 +1,14 @@
+import * as NodeBuffer from "node:buffer";
 import * as NodeCrypto from "node:crypto";
+import type { Workspace } from "@mastra/core/workspace";
 import { type BotId, CommandId, McpServerId, type ThreadId } from "@otto/contracts";
+import * as Predicate from "effect/Predicate";
+import {
+  activeAudioTranscriber,
+  AUDIO_LIBRARY_MAX_BYTES,
+  type AudioComputer,
+  transcribeAudioFile,
+} from "../../../voice-call/audio-transcribe-tool.ts";
 import { runImageGenerationTool } from "../../../image-generation/image-generation-runtime.ts";
 import { activeLibraryTools } from "../../../library/library-tool-runtime.ts";
 import { activeTaskTools } from "../../../tasks/task-tool-runtime.ts";
@@ -10,9 +19,46 @@ import { createSessionSearch } from "./search-tool.ts";
 import { mcpServerDependentBots } from "./mcp-configuration.ts";
 import type { SessionLifecycleDependencies } from "./session-lifecycle-dependencies.ts";
 
+/** Base64 the remote computer's file API takes in one command, about 64 KB. */
+const COMPUTER_WRITE_PIECE_BYTES = 48 * 1024;
+
+/** The bot's computer as audio_transcribe uses it: commands, and binary file reads and writes. */
+function audioComputer(workspace: Workspace | undefined): AudioComputer | undefined {
+  const sandbox = workspace?.sandbox;
+  const filesystem = workspace?.filesystem;
+
+  if (!sandbox?.executeCommand || !filesystem) return undefined;
+  const run = sandbox.executeCommand.bind(sandbox);
+
+  return {
+    run: async (command) => {
+      const result = await run(command, [], { timeout: 600_000 });
+
+      return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
+    },
+    readFile: async (path) => NodeBuffer.Buffer.from(await filesystem.readFile(path)),
+    // A remote computer writes through one shell command per call, so large files go in pieces.
+    writeFile: async (path, content) => {
+      const bytes = NodeBuffer.Buffer.from(content);
+      await filesystem.writeFile(path, bytes.subarray(0, COMPUTER_WRITE_PIECE_BYTES));
+
+      for (
+        let offset = COMPUTER_WRITE_PIECE_BYTES;
+        offset < bytes.byteLength;
+        offset += COMPUTER_WRITE_PIECE_BYTES
+      ) {
+        await filesystem.appendFile(
+          path,
+          bytes.subarray(offset, offset + COMPUTER_WRITE_PIECE_BYTES),
+        );
+      }
+    },
+  };
+}
+
 /**
  * Catalog tool handlers for one bot session: MCP request health and inbox
- * incidents, image generation, and the catalog MCP server management tools.
+ * incidents, image generation, transcription, and the catalog MCP server management tools.
  */
 export function createSessionCatalogHandlers(
   deps: SessionLifecycleDependencies,
@@ -23,12 +69,14 @@ export function createSessionCatalogHandlers(
     readonly mcpManager: ReturnType<
       SessionLifecycleDependencies["sessionResources"]["getMcpManager"]
     >;
+    readonly workspace?: Workspace | undefined;
   },
 ) {
   const { threadId, mcpManager } = input;
   const libraryTools = activeLibraryTools();
   const libraryCaller = input.botId ? { threadId, botId: input.botId } : null;
   const taskTools = activeTaskTools();
+  const transcriber = activeAudioTranscriber();
 
   const mcpDependencies =
     input.botId && input.botName
@@ -91,6 +139,39 @@ export function createSessionCatalogHandlers(
 
         return deps.runPromise(generate(threadId, request));
       },
+      ...(transcriber
+        ? {
+            transcribeAudio: (request, signal) =>
+              transcribeAudioFile(request, {
+                computer: audioComputer(input.workspace),
+                library:
+                  libraryTools && libraryCaller
+                    ? {
+                        read: async (fileId) => {
+                          const file = await deps.runPromise(
+                            libraryTools.readBytes(libraryCaller, fileId, AUDIO_LIBRARY_MAX_BYTES),
+                          );
+
+                          if (Predicate.hasProperty(file, "error")) throw new Error(file.error);
+
+                          return file;
+                        },
+                        save: async (file) => {
+                          const saved = await deps.runPromise(
+                            libraryTools.save(libraryCaller, file),
+                          );
+
+                          if (Predicate.hasProperty(saved, "error")) throw new Error(saved.error);
+
+                          return saved.fileId;
+                        },
+                      }
+                    : undefined,
+                transcribe: transcriber,
+                signal,
+              }),
+          }
+        : {}),
       ...(libraryTools && libraryCaller
         ? {
             library: {

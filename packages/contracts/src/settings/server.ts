@@ -21,7 +21,7 @@ import {
   VoiceProvider,
   ChatGptRealtimeVoice,
   VoiceSettings,
-  VoiceApiProvider,
+  VoiceSynthesisProvider,
   VoiceTranscriptionProvider,
   VoiceSynthesisVoices,
 } from "../voice-call.ts";
@@ -299,7 +299,7 @@ const ServerSettingsPatchFields = {
       voice: Schema.optionalKey(ChatGptRealtimeVoice),
       openaiVoice: Schema.optionalKey(ChatGptRealtimeVoice),
       transcriptionProvider: Schema.optionalKey(VoiceTranscriptionProvider),
-      synthesisProvider: Schema.optionalKey(VoiceApiProvider),
+      synthesisProvider: Schema.optionalKey(VoiceSynthesisProvider),
       synthesisVoices: Schema.optionalKey(VoiceSynthesisVoices),
     }),
   ),

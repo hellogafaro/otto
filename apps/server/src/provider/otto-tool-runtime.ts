@@ -297,6 +297,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
             input: decoded,
             ...(responder ? { responder } : {}),
             ...(input.webSearch ? { webSearch: input.webSearch } : {}),
+            ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
             emitProgress: (summary, details) =>
               options?.onProgress?.({
                 threadId: input.threadId,

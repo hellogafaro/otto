@@ -22,15 +22,30 @@ export const ChatGptRealtimeVoice = Schema.Literals(CHATGPT_REALTIME_VOICES);
 
 export type ChatGptRealtimeVoice = typeof ChatGptRealtimeVoice.Type;
 
-export const VOICE_API_PROVIDERS = ["openai", "elevenlabs", "cartesia", "fish"] as const;
+export const VOICE_API_PROVIDERS = [
+  "openai",
+  "elevenlabs",
+  "cartesia",
+  "fish",
+  "openrouter",
+] as const;
 
 export const VoiceApiProvider = Schema.Literals(VOICE_API_PROVIDERS);
 
 export type VoiceApiProvider = typeof VoiceApiProvider.Type;
 
-export const VoiceTranscriptionProvider = Schema.Literals(["openai", "elevenlabs", "cartesia"]);
+export const VoiceTranscriptionProvider = Schema.Literals([
+  "openai",
+  "elevenlabs",
+  "cartesia",
+  "openrouter",
+]);
 
 export type VoiceTranscriptionProvider = typeof VoiceTranscriptionProvider.Type;
+
+export const VoiceSynthesisProvider = Schema.Literals(["openai", "elevenlabs", "cartesia", "fish"]);
+
+export type VoiceSynthesisProvider = typeof VoiceSynthesisProvider.Type;
 
 export const VoiceId = TrimmedNonEmptyString.check(Schema.isMaxLength(256));
 
@@ -51,7 +66,7 @@ export const VoiceSettings = Schema.Struct({
   voice: ChatGptRealtimeVoice.pipe(Schema.withDecodingDefault(Effect.succeed("alloy" as const))),
   openaiVoice: Schema.optionalKey(ChatGptRealtimeVoice),
   transcriptionProvider: Schema.optionalKey(VoiceTranscriptionProvider),
-  synthesisProvider: Schema.optionalKey(VoiceApiProvider),
+  synthesisProvider: Schema.optionalKey(VoiceSynthesisProvider),
   synthesisVoices: Schema.optionalKey(VoiceSynthesisVoices),
 }).pipe(Schema.withDecodingDefault(Effect.succeed({})));
 
@@ -69,6 +84,7 @@ export const VOICE_PROVIDER_CAPABILITIES: Record<VoiceApiProvider, VoiceCapabili
   elevenlabs: { realtime: false, transcription: true, synthesis: true },
   cartesia: { realtime: false, transcription: true, synthesis: true },
   fish: { realtime: false, transcription: false, synthesis: true },
+  openrouter: { realtime: false, transcription: true, synthesis: false },
 };
 
 /** API keys a call needs under these settings. ChatGPT calls use the subscription and need none. */
@@ -158,7 +174,7 @@ export const VoiceProviderStatus = Schema.Struct({
 export const VoiceProvidersResult = Schema.Struct({ providers: Schema.Array(VoiceProviderStatus) });
 
 export const VoiceListVoicesInput = Schema.Struct({
-  provider: VoiceApiProvider,
+  provider: VoiceSynthesisProvider,
   cursor: Schema.optionalKey(VoiceId),
 });
 

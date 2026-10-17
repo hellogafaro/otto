@@ -61,6 +61,15 @@ export function createOttoCatalogToolHandlers(
             backends.generateImage!(decodeOttoToolInput("image_create", input)),
         }
       : {}),
+    ...(backends.transcribeAudio
+      ? {
+          audio_transcribe: async ({ input, abortSignal }) =>
+            backends.transcribeAudio!(
+              decodeOttoToolInput("audio_transcribe", input),
+              abortSignal ?? new AbortController().signal,
+            ),
+        }
+      : {}),
     ...(backends.search
       ? {
           search: async ({ input }) => backends.search!(decodeOttoToolInput("search", input)),

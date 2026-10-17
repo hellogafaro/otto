@@ -58,6 +58,7 @@ import { RoutineLayerLive } from "./routines/layer.ts";
 import * as ImageGenerationRuntime from "./image-generation/image-generation-runtime.ts";
 import * as LibraryToolRuntime from "./library/library-tool-runtime.ts";
 import * as TaskToolRuntime from "./tasks/task-tool-runtime.ts";
+import * as AudioTranscribeTool from "./voice-call/audio-transcribe-tool.ts";
 import { TaskWorkReactorLive } from "./tasks/task-work-reactor.ts";
 import { NotificationReactorLive } from "./notifications/notification-reactor.ts";
 import { RoutineDraftDispatcherLive } from "./routines/routine-draft-dispatcher.ts";
@@ -252,6 +253,7 @@ export const RuntimeCoreWithRoutinesLive = Layer.mergeAll(
   ImageGenerationRuntime.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
   LibraryToolRuntime.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
   TaskToolRuntime.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
+  AudioTranscribeTool.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
 );
 
 export const RuntimeDependenciesLive = RuntimeCoreWithRoutinesLive.pipe(

@@ -67,6 +67,7 @@ it.effect("pins composed settings and keys, rejects key changes, and enforces ow
         { provider: "elevenlabs", connected: false, keyRejected: false },
         { provider: "cartesia", connected: false, keyRejected: false },
         { provider: "fish", connected: true, keyRejected: false },
+        { provider: "openrouter", connected: false, keyRejected: false },
       ],
     });
     yield* manager.hangup(started.call.callId, "owner");

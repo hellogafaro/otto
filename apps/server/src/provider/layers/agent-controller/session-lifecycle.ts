@@ -323,6 +323,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         botId: input.botId,
         botName: input.botName,
         mcpManager,
+        workspace,
       }),
       ...(delegatedAccess && botId ? { billedBotId: botId } : {}),
       ...(deps.wired().delegationRuntime && botId

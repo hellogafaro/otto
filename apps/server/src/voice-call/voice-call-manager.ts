@@ -12,6 +12,7 @@ import {
   type VoiceTranscribeInput,
   type VoiceSynthesizeInput,
   type VoiceListVoicesResult,
+  type VoiceSynthesisProvider,
   VOICE_API_PROVIDERS,
   VoiceTranscribeInput as TranscribeSchema,
   VoiceSynthesizeInput as SynthesizeSchema,
@@ -86,7 +87,7 @@ export class VoiceCallManager extends Context.Service<
       provider: VoiceApiProvider,
     ) => Effect.Effect<{ provider: VoiceApiProvider; connected: boolean }, VoiceCallError>;
     readonly listVoices: (
-      provider: VoiceApiProvider,
+      provider: VoiceSynthesisProvider,
       cursor?: string,
     ) => Effect.Effect<VoiceListVoicesResult, VoiceCallError>;
     readonly transcribe: (
@@ -116,6 +117,9 @@ export class VoiceCallManager extends Context.Service<
   }
 >()("@otto/server/voice-call/voice-call-manager/VoiceCallManager") {}
 
+/** The one secret holding a provider's key, shared by every voice and transcription feature. */
+export const voiceKeySecretName = (provider: VoiceApiProvider) => `voice-${provider}`;
+
 const make = (options?: VoiceCallManagerOptions) =>
   Effect.gen(function* () {
     const config = yield* ServerConfig.ServerConfig;
@@ -133,7 +137,7 @@ const make = (options?: VoiceCallManagerOptions) =>
     >();
 
     const operationKey = (ownerId: string, id: string) => JSON.stringify([ownerId, id]);
-    const secretName = (provider: VoiceApiProvider) => `voice-${provider}`;
+    const secretName = voiceKeySecretName;
     const rejectedSecretName = (provider: VoiceApiProvider) => `voice-${provider}-rejected`;
     // Bumped whenever a provider's key is replaced or removed, so a Test that read
     // an earlier connection cannot record its verdict against a later one, even
@@ -312,7 +316,7 @@ const make = (options?: VoiceCallManagerOptions) =>
     });
 
     const listVoices = Effect.fn("VoiceCallManager.listVoices")(function* (
-      provider: VoiceApiProvider,
+      provider: VoiceSynthesisProvider,
       cursor?: string,
     ) {
       const key = yield* getKey(provider);
@@ -373,7 +377,9 @@ const make = (options?: VoiceCallManagerOptions) =>
                 Effect.mapError(() => voiceFailure()),
               ));
 
-            if (!settings.enabled) return yield* voiceFailure("voice-disabled");
+            // Dictation is transcription with no call, so the Voice calls switch does not gate it.
+            if (!settings.enabled && (call || capability === "synthesis"))
+              return yield* voiceFailure("voice-disabled");
 
             const provider =
               capability === "transcription"

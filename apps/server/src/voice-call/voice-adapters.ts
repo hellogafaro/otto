@@ -9,7 +9,9 @@ import {
   VoiceTranscribeResult,
   type VoiceApiProvider,
   type VoiceListVoicesResult,
+  type VoiceSynthesisProvider,
   type VoiceTranscribeInput,
+  type VoiceTranscriptionProvider,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
 
@@ -25,7 +27,11 @@ const origins = {
   elevenlabs: "https://api.elevenlabs.io",
   cartesia: "https://api.cartesia.ai",
   fish: "https://api.fish.audio",
+  openrouter: "https://openrouter.ai",
 } as const;
+
+/** OpenRouter's speech-to-text model, through its OpenAI-compatible multipart endpoint: the API reference's own example. */
+export const OPENROUTER_TRANSCRIPTION_MODEL = "openai/whisper-large-v3";
 
 const Name = Schema.String.check(Schema.isMaxLength(256));
 
@@ -212,7 +218,7 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
   }
 
   async function listVoices(
-    provider: VoiceApiProvider,
+    provider: VoiceSynthesisProvider,
     key: string,
     signal: AbortSignal,
     cursor?: string,
@@ -275,7 +281,7 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
   }
 
   async function validateVoice(
-    provider: VoiceApiProvider,
+    provider: VoiceSynthesisProvider,
     key: string,
     voice: string,
     signal: AbortSignal,
@@ -316,10 +322,11 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
   }
 
   async function transcribe(
-    provider: Exclude<VoiceApiProvider, "fish">,
+    provider: VoiceTranscriptionProvider,
     key: string,
     input: VoiceTranscribeInput,
     signal: AbortSignal,
+    language?: string,
   ) {
     if (input.audioBase64.length > 4 * Math.ceil(VOICE_AUDIO_MAX_BYTES / 3))
       throw voiceFailure("invalid-input");
@@ -344,10 +351,15 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
     form.set("file", new Blob([audio], { type: input.mimeType }), `audio.${extension}`);
     form.set(
       provider === "elevenlabs" ? "model_id" : "model",
-      { openai: "gpt-4o-mini-transcribe", elevenlabs: "scribe_v2", cartesia: "ink-whisper" }[
-        provider
-      ],
+      {
+        openai: "gpt-4o-mini-transcribe",
+        openrouter: OPENROUTER_TRANSCRIPTION_MODEL,
+        elevenlabs: "scribe_v2",
+        cartesia: "ink-whisper",
+      }[provider],
     );
+
+    if (language) form.set(provider === "elevenlabs" ? "language_code" : "language", language);
 
     if (provider === "elevenlabs") {
       form.set("tag_audio_events", "false");
@@ -361,6 +373,7 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
           key,
           {
             openai: "/v1/audio/transcriptions",
+            openrouter: "/api/v1/audio/transcriptions",
             elevenlabs: "/v1/speech-to-text",
             cartesia: "/stt",
           }[provider],
@@ -374,7 +387,7 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
   }
 
   async function synthesize(
-    provider: VoiceApiProvider,
+    provider: VoiceSynthesisProvider,
     key: string,
     voice: string,
     text: string,
@@ -469,6 +482,7 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
 
   async function test(provider: VoiceApiProvider, key: string, signal: AbortSignal) {
     if (provider === "openai") await request(provider, key, "/v1/models", signal);
+    else if (provider === "openrouter") await request(provider, key, "/api/v1/key", signal);
     else await listVoices(provider, key, signal);
   }
 

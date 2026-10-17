@@ -21,6 +21,7 @@ export const OttoToolId = Schema.Literals([
   "web_search",
   "web_fetch",
   "image_create",
+  "audio_transcribe",
   "library_create",
   "library_read",
   "library_update",
@@ -239,6 +240,14 @@ export const OTTO_TOOL_CATALOG = [
     { approval: "production", promptSnippet: "create or edit images" },
   ),
   define(
+    "audio_transcribe",
+    "bot-workspace",
+    "Transcribe an audio or video file, by path on your computer or Library fileId, with the workspace's " +
+      "transcription provider. Optional language is an ISO-639-1 code. Saves the full transcript as <name>.txt " +
+      "beside the source and returns its path or fileId with the text.",
+    { promptSnippet: "transcribe audio or video files" },
+  ),
+  define(
     "library_create",
     "bot-workspace",
     "Save an artifact to the Otto Library, the workspace's shared folders and files. " +
@@ -343,6 +352,11 @@ export const OTTO_TOOL_FAMILIES = [
     name: "images",
     description: "Create images, or new images from images in this chat.",
     tools: ["image_create"],
+  },
+  {
+    name: "audio",
+    description: "Transcribe audio and video files.",
+    tools: ["audio_transcribe"],
   },
   {
     name: "delegation",
