@@ -6,11 +6,9 @@ export const routineTime = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
 
 export const OTTO_LIST_ROUTINES_TOOL_NAME = "otto_list_routines";
 
-export const OTTO_DELETE_ROUTINES_TOOL_NAME = "otto_delete_routines";
+export const OTTO_DELETE_ROUTINES_TOOL_NAME = "routine_delete";
 
-export const OTTO_UPDATE_ROUTINE_TOOL_NAME = "otto_update_routine";
-
-export const OTTO_SET_ROUTINE_PAUSED_TOOL_NAME = "otto_set_routine_paused";
+export const OTTO_UPDATE_ROUTINE_TOOL_NAME = "routine_update";
 
 /** What the routine tools add to the bot's prompt while they are loaded. */
 export const OTTO_ROUTINE_TOOL_PROMPTS = new Map<string, OttoToolPrompt>([
@@ -47,8 +45,6 @@ export const routineToolInputSchema = z.object({
       time: routineTime,
     }),
   ]),
-  skillNames: z.array(z.string().trim().min(1)).nullish(),
-  connectorNames: z.array(z.string().trim().min(1)).nullish(),
   newChatEachRun: z.boolean().nullish(),
 });
 
@@ -86,6 +82,7 @@ export const routineUpdateInputSchema = z.object({
   name: routineToolInputSchema.shape.name.nullish(),
   instructions: routineToolInputSchema.shape.instructions.nullish(),
   schedule: routineToolInputSchema.shape.schedule.nullish(),
+  paused: z.boolean().nullish(),
 });
 
 export const routineUpdateResultSchema = z.object({

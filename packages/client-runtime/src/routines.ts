@@ -465,7 +465,7 @@ export interface RoutineApprovalSummary {
 }
 
 /**
- * What a bot's `otto_create_routine` request proposes, read defensively from the raw
+ * What a bot's `routine_create` request proposes, read defensively from the raw
  * tool arguments so a malformed request still renders as a reviewable approval.
  */
 export function routineApprovalSummary(

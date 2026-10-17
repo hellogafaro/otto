@@ -24,8 +24,6 @@ import {
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
   routineUpdateInputSchema,
   routineUpdateResultSchema,
-  OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
-  routinePausedResultSchema,
 } from "./otto-routine-schemas.ts";
 
 export const decodeCreateRoutineInput = Schema.decodeUnknownPromise(OttoCreateRoutineInput);
@@ -72,17 +70,15 @@ export async function resolveOttoTools(
     ? createTool({
         id: OTTO_CREATE_ROUTINE_TOOL_NAME,
         description:
-          "Create a routine for recurring work in this chat. Once the user approves it, it runs on its schedule. Call this tool as soon as the routine details are complete. The app previews the tool arguments and asks the user before execution, so do not ask for separate confirmation. Put the timing only in schedule: hourly runs every everyHours hours (1, 2, 3, 4, 6, 8 or 12) around the clock, lined up with time; daily, weekdays and weekly run once at time. Make instructions describe only what each run should do. Keep the name short and specific. Use the current chat and device timezone by default. Only name plugins or skills the user explicitly requests. Set newChatEachRun when the user wants every run in a new chat.",
+          "Create a routine that runs instructions on a schedule in this chat. The person approves it in the app, so do not ask separately. Hourly runs every everyHours hours lined up with time; daily, weekdays and weekly run once at time. Returns the routine id.",
         inputSchema: routineToolInputSchema,
         requireApproval: false,
-        execute: async ({ skillNames, connectorNames, newChatEachRun, ...input }) =>
+        execute: async ({ newChatEachRun, ...input }) =>
           options.createRoutine!(
             threadId,
             await decodeCreateRoutineInput(
               {
                 ...input,
-                ...(skillNames ? { skillNames } : {}),
-                ...(connectorNames ? { connectorNames } : {}),
                 ...(newChatEachRun ? { newChatEachRun } : {}),
               },
               {
@@ -111,7 +107,7 @@ export async function resolveOttoTools(
       ? createTool({
           id: OTTO_DELETE_ROUTINES_TOOL_NAME,
           description:
-            "Delete one or more routines owned by this bot. Pass routine IDs from otto_list_routines. This tool asks the user for confirmation before deleting anything, so do not ask for separate confirmation.",
+            "Delete routines for good; to stop one for now, use routine_update with paused. The person confirms in the app. Returns the deleted ids.",
           inputSchema: z.object({
             routineIds: z.array(z.string().trim().min(1)).min(1),
           }),
@@ -180,16 +176,29 @@ export async function resolveOttoTools(
       ? createTool({
           id: OTTO_UPDATE_ROUTINE_TOOL_NAME,
           description:
-            "Change one of this bot's routines: its name, its instructions or its schedule. Pass the routine ID from otto_list_routines and only the fields the user wants changed; pass instructions as the full new text. This tool asks the user to confirm the change, so do not ask for separate confirmation.",
+            "Change a routine's name, instructions or schedule, or pause and resume it; null keeps a field. Find the id with otto_list_routines. The person confirms changes in the app. Returns the routine status.",
           inputSchema: routineUpdateInputSchema,
           outputSchema: routineUpdateResultSchema,
           ...confirmSchemas,
           requireApproval: false,
-          execute: async ({ routineId, name, instructions, schedule }, context) => {
+          execute: async ({ routineId, name, instructions, schedule, paused }, context) => {
             const { routines } = await options.listRoutines!(threadId);
             const routine = routines.find((candidate) => candidate.id === routineId);
 
             if (!routine) return { status: "not-found" as const };
+
+            const setPaused = async () => {
+              if (paused === null || paused === undefined) return { status: "updated" as const };
+
+              if (!options.setRoutinePaused) throw new Error("Pausing routines is not available.");
+              const result = await options.setRoutinePaused(threadId, routineId, paused);
+
+              return result.status === "not-found"
+                ? { status: "not-found" as const }
+                : { status: "updated" as const, enabled: !paused };
+            };
+
+            if (!name && !instructions && !schedule) return setPaused();
 
             const answer = context?.agent?.resumeData;
 
@@ -218,7 +227,7 @@ export async function resolveOttoTools(
 
             if (answer !== "Save changes") return { status: "cancelled" as const };
 
-            return options.updateRoutine!(
+            const updated = await options.updateRoutine!(
               threadId,
               routineId,
               await decodeUpdateRoutineInput(
@@ -230,23 +239,13 @@ export async function resolveOttoTools(
                 { onExcessProperty: "error" },
               ),
             );
+
+            return updated.status === "updated" && paused !== null && paused !== undefined
+              ? setPaused()
+              : updated;
           },
         })
       : undefined;
-
-  const setRoutinePausedTool = options.setRoutinePaused
-    ? createTool({
-        id: OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
-        description:
-          "Pause or resume one of this bot's routines. Pass the routine ID from otto_list_routines, with paused true to stop its schedule or false to start it again.",
-        inputSchema: z.object({ routineId: z.string().trim().min(1), paused: z.boolean() }),
-        outputSchema: routinePausedResultSchema,
-        strict: true,
-        requireApproval: false,
-        execute: async ({ routineId, paused }) =>
-          options.setRoutinePaused!(threadId, routineId, paused),
-      })
-    : undefined;
 
   return {
     ...approvalAwareTools(threadId, options.getThreadTools(threadId), options),
@@ -265,7 +264,6 @@ export async function resolveOttoTools(
     ...(listRoutinesTool ? { [OTTO_LIST_ROUTINES_TOOL_NAME]: listRoutinesTool } : {}),
     ...(deleteRoutinesTool ? { [OTTO_DELETE_ROUTINES_TOOL_NAME]: deleteRoutinesTool } : {}),
     ...(updateRoutineTool ? { [OTTO_UPDATE_ROUTINE_TOOL_NAME]: updateRoutineTool } : {}),
-    ...(setRoutinePausedTool ? { [OTTO_SET_ROUTINE_PAUSED_TOOL_NAME]: setRoutinePausedTool } : {}),
   };
 }
 
@@ -304,7 +302,6 @@ export {
   OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
-  OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
   routineToolInputSchema,
   routineListOutputSchema,
   type OttoRoutineListResult,

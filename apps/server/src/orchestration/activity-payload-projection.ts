@@ -116,7 +116,7 @@ const TOOL_DETAIL_ARGS = {
   GetPlugin: "pluginId",
   read: "path",
   library_create: "title",
-  otto_create_routine: "name",
+  routine_create: "name",
 } as const satisfies Readonly<Record<string, string>>;
 
 const MAX_TRACE_DETAIL_LENGTH = 160;

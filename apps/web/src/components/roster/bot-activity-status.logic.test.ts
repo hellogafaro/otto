@@ -61,9 +61,9 @@ describe("deriveBotActivity", () => {
   });
 
   it("names the routine tool while it runs", () => {
-    expect(
-      deriveBotActivity([started("otto_create_routine", "call-1")], runningTurn),
-    ).toMatchObject({ label: "Adding a routine" });
+    expect(deriveBotActivity([started("routine_create", "call-1")], runningTurn)).toMatchObject({
+      label: "Adding a routine",
+    });
   });
 
   it("returns to thinking after a tool finishes", () => {
@@ -78,7 +78,7 @@ describe("deriveBotActivity", () => {
   it("labels routine deletes by name even though the item type says file change", () => {
     expect(
       deriveBotActivity(
-        [started("otto_delete_routines", "call-1", { itemType: "file_change" })],
+        [started("routine_delete", "call-1", { itemType: "file_change" })],
         runningTurn,
       ),
     ).toMatchObject({ label: "Removing routines" });

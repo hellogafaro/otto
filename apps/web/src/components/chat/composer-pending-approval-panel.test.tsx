@@ -168,7 +168,7 @@ describe("ComposerPendingApprovalPanel", () => {
     expect(markup).toContain("What it does");
     expect(markup).toContain("Summarize the work in this chat.");
     expect(markup).not.toContain("Command approval");
-    expect(markup).not.toContain("Allow otto_create_routine?");
+    expect(markup).not.toContain("Allow routine_create?");
   });
 
   it("shows the exact weekday and timezone in a weekly routine preview", () => {

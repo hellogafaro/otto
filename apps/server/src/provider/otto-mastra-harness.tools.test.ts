@@ -12,7 +12,6 @@ import { assert } from "vite-plus/test";
 import {
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   OTTO_LIST_ROUTINES_TOOL_NAME,
-  OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
   criticalOttoAction,
   resolveOttoTools,
@@ -347,7 +346,7 @@ describe("OttoMastraHarness", () => {
     );
   });
 
-  it("pauses and resumes a routine without asking", async () => {
+  it("pauses and resumes a routine through routine_update without asking", async () => {
     const calls: unknown[] = [];
     const requestContext = new RequestContext();
     requestContext.setRaw("controller", { resourceId: "thread-1" });
@@ -356,6 +355,10 @@ describe("OttoMastraHarness", () => {
       authStorage: new AuthStorage("/tmp/otto-unused-auth.json"),
       getThreadTools: () => ({}),
       toolRuntime: toolRuntimeFixture({ toolsForThread: () => [] }),
+      listRoutines: async () => ({
+        routines: [{ id: "routine-1", name: "Morning brief", enabled: true, lifecycle: "enabled" }],
+      }),
+      updateRoutine: async () => ({ status: "updated", enabled: true }),
       setRoutinePaused: async (threadId, routineId, paused) => {
         calls.push({ threadId, routineId, paused });
 
@@ -363,11 +366,11 @@ describe("OttoMastraHarness", () => {
       },
     });
 
-    const tool = probeTool(tools[OTTO_SET_ROUTINE_PAUSED_TOOL_NAME]);
+    const tool = probeTool(tools[OTTO_UPDATE_ROUTINE_TOOL_NAME]);
 
-    assert.isFalse(routineToolNeedsGlobalApproval(OTTO_SET_ROUTINE_PAUSED_TOOL_NAME));
     assert.deepEqual(await tool.execute?.({ routineId: "routine-1", paused: true }, {}), {
-      status: "paused",
+      status: "updated",
+      enabled: false,
     });
     assert.deepEqual(calls, [{ threadId: "thread-1", routineId: "routine-1", paused: true }]);
   });

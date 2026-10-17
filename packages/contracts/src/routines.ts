@@ -193,7 +193,7 @@ export const RoutineDefinition = Schema.Struct({
 
 export type RoutineDefinition = typeof RoutineDefinition.Type;
 
-export const OTTO_CREATE_ROUTINE_TOOL_NAME = "otto_create_routine";
+export const OTTO_CREATE_ROUTINE_TOOL_NAME = "routine_create";
 
 export const OttoCreateRoutineInput = Schema.Struct({
   name: TrimmedNonEmptyString,

@@ -739,7 +739,6 @@ export {
   OTTO_LIST_ROUTINES_TOOL_NAME,
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
-  OTTO_SET_ROUTINE_PAUSED_TOOL_NAME,
   routineToolInputSchema,
   type OttoRoutineListResult,
   type OttoRoutineDeleteResult,

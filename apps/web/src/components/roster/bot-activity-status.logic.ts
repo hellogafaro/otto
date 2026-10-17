@@ -30,9 +30,8 @@ export interface BotActivity {
 const TOOL_LABELS = {
   [OTTO_CREATE_ROUTINE_TOOL_NAME]: "Adding a routine",
   otto_list_routines: "Checking routines",
-  otto_delete_routines: "Removing routines",
-  otto_update_routine: "Updating a routine",
-  otto_set_routine_paused: "Updating a routine",
+  routine_delete: "Removing routines",
+  routine_update: "Updating a routine",
   ListSkills: "Checking skills",
   skill_read: "Reading a skill",
   ListLibrary: "Browsing the library",

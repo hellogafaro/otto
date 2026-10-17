@@ -28,7 +28,7 @@ describe("runtimeEventToActivities approval details", () => {
       requestId: RuntimeRequestId.make("approval-routine"),
       payload: {
         requestType: "dynamic_tool_call",
-        toolName: "otto_create_routine",
+        toolName: "routine_create",
         args,
       },
     } satisfies ProviderRuntimeEvent;

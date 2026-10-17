@@ -37,14 +37,14 @@ describe("derivePendingApprovals", () => {
         payload: {
           requestId: "routine-approval",
           requestType: "dynamic_tool_call",
-          toolName: "otto_create_routine",
+          toolName: "routine_create",
           args,
         },
       }),
     ]);
 
     expect(approvals[0]).toMatchObject({
-      toolName: "otto_create_routine",
+      toolName: "routine_create",
       args,
     });
   });
