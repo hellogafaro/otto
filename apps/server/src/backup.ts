@@ -24,6 +24,8 @@ const listBackups = (backupsDir: string) =>
 /**
  * Copies every SQLite database in the state directory into `<backupsDir>/<time>` with SQLite's
  * online backup, which stays consistent while the server writes, then keeps the newest seven.
+ * The source opens read-only: a writable connection from this SQLite build would delete the WAL
+ * on close under another build's open connection (libsql's memory store) and break it.
  */
 export const backupDatabases = Effect.fn("backupDatabases")(function* (input: {
   readonly stateDir: string;
@@ -41,7 +43,9 @@ export const backupDatabases = Effect.fn("backupDatabases")(function* (input: {
       if (!name.endsWith(".sqlite")) continue;
 
       yield* Effect.acquireUseRelease(
-        Effect.try(() => new NodeSqlite.DatabaseSync(path.join(input.stateDir, name))),
+        Effect.try(
+          () => new NodeSqlite.DatabaseSync(path.join(input.stateDir, name), { readOnly: true }),
+        ),
         (database) => Effect.tryPromise(() => NodeSqlite.backup(database, path.join(target, name))),
         (database) => Effect.sync(() => database.close()),
       );

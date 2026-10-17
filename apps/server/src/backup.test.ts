@@ -6,7 +6,38 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeSqlite from "node:sqlite";
 
+import Libsql from "libsql";
+
 import { backupDatabases } from "./backup.ts";
+
+it.effect("leaves a database another SQLite build holds open usable", () =>
+  Effect.gen(function* () {
+    const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-backup-"));
+    const stateDir = NodePath.join(root, "userdata");
+    NodeFS.mkdirSync(stateDir);
+    const file = NodePath.join(stateDir, "memory.sqlite");
+    const live = new Libsql(file);
+    live.exec("PRAGMA journal_mode = WAL; CREATE TABLE notes (body TEXT);");
+    live.exec("INSERT INTO notes VALUES ('kept');");
+
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        live.close();
+        NodeFS.rmSync(root, { recursive: true, force: true });
+      }),
+    );
+
+    yield* backupDatabases({ stateDir, backupsDir: NodePath.join(root, "backups"), now: 0 });
+    live.exec("INSERT INTO notes VALUES ('after');");
+
+    const next = new Libsql(file);
+    assert.deepEqual(next.prepare("SELECT body FROM notes").all(), [
+      { body: "kept" },
+      { body: "after" },
+    ]);
+    next.close();
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
 
 it.effect("copies a live WAL database consistently and keeps the newest seven backups", () =>
   Effect.gen(function* () {
