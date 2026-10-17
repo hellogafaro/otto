@@ -27,12 +27,7 @@ export function BotInboxAlerts({
   const resolveIncident = useAtomCommand(botInboxEnvironment.resolve);
 
   return items
-    .filter(
-      (item) =>
-        item.kind !== "approval-request" &&
-        item.kind !== "routine-failure" &&
-        item.kind !== "browser-dead",
-    )
+    .filter((item) => item.kind !== "approval-request" && item.kind !== "routine-failure")
     .map((item) => (
       <ChatAlertCard
         key={item.id}

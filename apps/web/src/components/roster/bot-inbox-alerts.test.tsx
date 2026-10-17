@@ -72,14 +72,6 @@ describe("bot inbox alerts", () => {
     expect(markup).toBe("");
   });
 
-  it("leaves browser failures to the bot's own reply", () => {
-    const markup = renderToStaticMarkup(
-      <BotInboxAlerts items={[incident({ kind: "browser-dead" })]} environmentId={null} />,
-    );
-
-    expect(markup).toBe("");
-  });
-
   it("leaves routine failures in the inbox instead of blocking chat", () => {
     const markup = renderToStaticMarkup(
       <BotInboxAlerts items={[incident({ kind: "routine-failure" })]} environmentId={null} />,

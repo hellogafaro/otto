@@ -51,9 +51,7 @@ export const findBlockingDependencyIncident = (
     if (
       incident.botId !== botId ||
       incident.status !== "open" ||
-      (incident.kind !== "oauth-expired" &&
-        incident.kind !== "connector-failure" &&
-        incident.kind !== "browser-dead")
+      (incident.kind !== "oauth-expired" && incident.kind !== "connector-failure")
     ) {
       return false;
     }
@@ -193,7 +191,7 @@ const make = Effect.gen(function* () {
 
       if (dependencyIncident !== undefined) {
         return {
-          kind: dependencyIncident.kind === "browser-dead" ? "browser" : "connector",
+          kind: "connector",
           reason: dependencyIncident.lastFailure,
           nextAction: dependencyIncident.nextAction,
         } satisfies RoutineDependencyFailure;

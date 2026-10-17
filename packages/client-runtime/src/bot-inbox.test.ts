@@ -123,7 +123,6 @@ describe("botInboxRowAction", () => {
       ["user-action:bot-1:request_box_help:login", "approval-request"],
       ["silence:bot-1", "silence-watchdog-failure"],
       ["routine:routine-1", "routine-failure"],
-      ["browser:bot-1", "browser-dead"],
     ] as const) {
       expect(botInboxRowAction(incident({ incidentKey, kind }))).toBe("resolve");
     }

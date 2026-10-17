@@ -11,7 +11,6 @@ export const connectionsCatalog = {
   "All environments": "全部环境",
   "Allow camera access to scan an environment pairing QR code.":
     "允许相机访问以扫描环境配对二维码。",
-  "Browser connection failed": "浏览器连接失败",
   "Camera permission is required to scan a QR code.": "扫描二维码需要相机权限。",
   "Clearing caches never removes environment connections, credentials, account data, or appearance preferences.":
     "清除缓存不会删除环境连接、凭据、账户数据或外观偏好。",

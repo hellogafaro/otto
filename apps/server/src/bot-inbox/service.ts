@@ -1,4 +1,5 @@
 import * as DateTime from "effect/DateTime";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
@@ -9,7 +10,6 @@ export const BOT_INBOX_KINDS = [
   "oauth-expired",
   "connector-failure",
   "routine-failure",
-  "browser-dead",
   "silence-watchdog-failure",
   "approval-request",
 ] as const;
@@ -59,9 +59,9 @@ const InboxItem = Schema.Struct({
   memoryApproval: Schema.optionalKey(OttoMemoryApprovalRequest),
 });
 
-const decodeInbox = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Array(InboxItem)), {
-  onExcessProperty: "preserve",
-});
+const decodeInbox = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Array(Schema.Unknown)));
+
+const decodeInboxItem = Schema.decodeUnknownOption(InboxItem, { onExcessProperty: "preserve" });
 
 export type BotInboxIncident = Pick<
   BotInboxItem,
@@ -102,8 +102,9 @@ export class BotInboxService {
     }
 
     try {
-      const decoded = decodeInbox(NodeFS.readFileSync(this.filePath, "utf-8"));
-      this.items = Array.isArray(decoded) ? decoded : [];
+      this.items = decodeInbox(NodeFS.readFileSync(this.filePath, "utf-8")).flatMap((item) =>
+        Option.toArray(decodeInboxItem(item)),
+      );
     } catch {
       this.items = [];
     }
@@ -181,13 +182,12 @@ export class BotInboxService {
       // the one the item was closed against. Comparisons use provider failure
       // timestamps, never the local resolution time, so clock skew cannot hide
       // a new failure. Kinds that represent discrete lifecycle events
-      // (browser-dead) carry no timestamp and always reopen; recurring kinds
+      // (silence-watchdog-failure) carry no timestamp and always reopen; recurring kinds
       // (connector, approval, routine) must not resurrect on every sync.
       const failureAt = incident.lastFailedRequestAt;
       const storedFailureAt = existing.resolvedFailureAt ?? existing.lastFailedRequestAt ?? null;
 
-      const timestampedReopenAllowed =
-        incident.kind === "browser-dead" || incident.kind === "silence-watchdog-failure";
+      const timestampedReopenAllowed = incident.kind === "silence-watchdog-failure";
 
       if (failureAt === undefined) {
         if (!timestampedReopenAllowed) return existing;

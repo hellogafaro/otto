@@ -11,7 +11,6 @@ export const connectionsCatalog = {
   "All environments": "All environments",
   "Allow camera access to scan an environment pairing QR code.":
     "Allow camera access to scan an environment pairing QR code.",
-  "Browser connection failed": "Browser connection failed",
   "Camera permission is required to scan a QR code.":
     "Camera permission is required to scan a QR code.",
   "Clearing caches never removes environment connections, credentials, account data, or appearance preferences.":

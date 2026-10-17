@@ -183,7 +183,6 @@ export const BotInboxItem = Schema.Struct({
     "oauth-expired",
     "connector-failure",
     "routine-failure",
-    "browser-dead",
     "silence-watchdog-failure",
     "approval-request",
   ]),

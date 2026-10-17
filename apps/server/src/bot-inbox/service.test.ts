@@ -43,7 +43,6 @@ describe("bot inbox incidents", () => {
       "oauth-expired",
       "connector-failure",
       "routine-failure",
-      "browser-dead",
       "silence-watchdog-failure",
       "approval-request",
     ]);
@@ -278,33 +277,20 @@ describe("bot inbox incidents", () => {
     expect(reopened.occurrenceCount).toBe(2);
   });
 
-  it("reopens a resolved browser-dead incident for a new death", () => {
-    const { service } = makeService([
-      "2026-08-30T20:00:00.000Z",
-      "2026-08-30T20:01:00.000Z",
-      "2026-08-30T20:02:00.000Z",
-    ]);
+  it("drops a stored row of a retired kind and keeps the rest", () => {
+    const { filePath, service } = makeService(["2026-08-30T20:00:00.000Z"]);
 
-    const dead = {
-      ...incident,
-      incidentKey: "browser:bot-otto",
-      kind: "browser-dead" as const,
-      lastFailure: "The managed browser exited.",
-    };
+    service.ensureOpen(incident);
+    const [item] = service.list();
+    NodeFS.writeFileSync(
+      filePath,
+      JSON.stringify([
+        item,
+        { ...item, id: "retired", incidentKey: "browser:bot-otto", kind: "browser-dead" },
+      ]),
+    );
 
-    service.ensureOpen(dead);
-    const item = service.list()[0]!;
-    service.resolveById(item.id);
-
-    const reopened = service.ensureOpen({
-      ...dead,
-      lastFailure: "The managed browser exited again.",
-    });
-
-    expect(reopened.id).toBe(item.id);
-    expect(reopened.status).toBe("open");
-    expect(reopened.occurrenceCount).toBe(2);
-    expect(reopened.lastFailure).toBe("The managed browser exited again.");
+    expect(new BotInboxService(filePath).list().map(({ id }) => id)).toEqual([item!.id]);
   });
 
   it("resolves an open incident by id", () => {

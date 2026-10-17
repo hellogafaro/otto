@@ -56,8 +56,6 @@ export function botInboxKindLabel(kind: BotInboxItem["kind"]): MessageKey {
       return "Provider sign-in expired";
     case "connector-failure":
       return "Provider connection failed";
-    case "browser-dead":
-      return "Browser connection failed";
   }
 }
 
