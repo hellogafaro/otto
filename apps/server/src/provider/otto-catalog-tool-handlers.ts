@@ -1,6 +1,7 @@
 import type { McpManager } from "@mastra/code-sdk/mcp/index";
 import { type OttoToolId, decodeOttoToolInput } from "@otto/contracts";
 import { parseOttoPublicUrl } from "./otto-web-fetch.ts";
+import { capToolText } from "./tool-output.ts";
 import { createOttoPluginRuntime, pluginServerId } from "./tools/otto-plugin-catalog.ts";
 import {
   type OttoMcpHealthHandlerOptions,
@@ -40,8 +41,17 @@ export function createOttoCatalogToolHandlers(
       ? {
           web_fetch: async ({ input }) => {
             const url = parseOttoPublicUrl(requiredString(input, "url"));
+            const offset = decodeOttoToolInput("web_fetch", input).offset ?? 0;
+            const { text } = await backends.webFetch!({ url: url.toString() });
 
-            return backends.webFetch!({ url: url.toString() });
+            if (offset > 0 && offset >= text.length) {
+              return `The page has ${text.length} characters, so offset ${offset} is past its end.`;
+            }
+
+            return capToolText(
+              text.slice(offset),
+              (shown) => `Use offset=${offset + shown} to read more.`,
+            );
           },
         }
       : {}),

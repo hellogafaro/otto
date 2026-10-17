@@ -95,7 +95,8 @@ multicast, or IPv4-mapped. The socket is then pinned to the validated address th
 `lookup`, so the connection never asks DNS again and a rebinding resolver cannot swap the target.
 Redirects are followed up to five times, and every hop is parsed and resolved again. Bodies stream
 with a 2 MB cap and end with a truncation marker when cut. Each request has an idle timeout and an
-overall deadline.
+overall deadline. The tool returns the page text from its `offset` (characters, default 0), capped at
+50 KB and 2,000 lines with a notice naming the offset to read on from.
 
 WebSearch is advertised but reports `status: "unavailable"` with no results. The Mastra providers
 expose no native search call that Otto can invoke, and Otto has no search index of its own, so the

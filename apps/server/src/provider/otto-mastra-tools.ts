@@ -15,6 +15,7 @@ import {
 import { MemoryUpdateToolInput } from "../memory/memory-update-tool.ts";
 import type { OttoToolExecution } from "./tools/otto-tool-types.ts";
 import { deferredToolOptions, type OttoToolSearch } from "./mastra/otto-tool-search.ts";
+import { capToolOutput } from "./tool-output.ts";
 
 function inputSchema(toolId: OttoRuntimeToolId) {
   return isMemoryToolId(toolId) ? MemoryUpdateToolInput : OttoToolInputSchemas[toolId];
@@ -137,7 +138,7 @@ export function createOttoMastraTools(
               },
             }
           : {}),
-        execute: (input, context) => {
+        execute: async (input, context) => {
           const toolCallId = context.agent?.toolCallId;
 
           if (!toolCallId) {
@@ -147,14 +148,16 @@ export function createOttoMastraTools(
           const search =
             definition.id === "web_search" ? webSearch?.(context.abortSignal) : undefined;
 
-          return runtime.execute({
-            threadId,
-            toolId: definition.id,
-            toolCallId,
-            input: omitNullValues(input),
-            approvalMode: "require-grant",
-            ...(search ? { webSearch: search } : {}),
-          });
+          return capToolOutput(
+            await runtime.execute({
+              threadId,
+              toolId: definition.id,
+              toolCallId,
+              input: omitNullValues(input),
+              approvalMode: "require-grant",
+              ...(search ? { webSearch: search } : {}),
+            }),
+          );
         },
       });
 

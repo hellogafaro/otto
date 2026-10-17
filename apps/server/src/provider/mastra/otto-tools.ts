@@ -10,6 +10,8 @@ import {
 import * as Schema from "effect/Schema";
 import { z } from "zod";
 import { createOttoMastraTools } from "../otto-mastra-tools.ts";
+import { capToolOutput } from "../tool-output.ts";
+import { executable } from "../tools/otto-workspace-tools.ts";
 import { type OttoMastraToolOptions } from "./otto-harness-types.ts";
 import { controllerModelId, controllerResourceId } from "./otto-memory.ts";
 import type { resolveOttoMastraModel } from "./otto-models.ts";
@@ -285,7 +287,20 @@ export function approvalAwareTools(
         );
       };
 
-      return [name, { ...tool, requireApproval: needsApproval, needsApprovalFn: needsApproval }];
+      const capped = executable(tool)
+        ? {
+            execute: async (...args: Parameters<typeof tool.execute>) =>
+              capToolOutput(await tool.execute(...args)),
+          }
+        : {};
+
+      return [
+        name,
+        Object.assign({}, tool, capped, {
+          requireApproval: needsApproval,
+          needsApprovalFn: needsApproval,
+        }),
+      ];
     }),
   );
 }

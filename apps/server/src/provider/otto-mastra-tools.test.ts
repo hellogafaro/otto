@@ -75,6 +75,26 @@ describe("createOttoMastraTools", () => {
     );
   });
 
+  it("caps a tool's result where it is created", async () => {
+    const runtime = toolRuntimeFixture({
+      toolsForThread: () => [OTTO_TOOL_CATALOG[0]!],
+      requiresApproval: vi.fn(async () => false),
+      execute: vi.fn(async () => "output\n".repeat(10_000)),
+    });
+
+    const shell = probeTool(createOttoMastraTools("thread-cap", runtime).shell);
+
+    if (!shell?.execute) throw new Error("Shell tool is unavailable.");
+
+    const result = await shell.execute({ command: "yes" }, {
+      agent: { toolCallId: "tool-cap" },
+    } as never);
+
+    expect(result).toEqual(
+      expect.stringContaining("1998 of 10000 lines. Narrow the request to see the rest.]"),
+    );
+  });
+
   it("shows a screenshot read from the computer to the model as an image", () => {
     const runtime = toolRuntimeFixture({
       toolsForThread: () => OTTO_TOOL_CATALOG,

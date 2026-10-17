@@ -76,6 +76,7 @@ const WebSearchInput = Schema.Struct({
 
 const WebFetchInput = Schema.Struct({
   url: Schema.String.check(Schema.isPattern(/^https?:\/\//i)),
+  offset: Schema.optional(NonNegativeInt),
 });
 
 const ConnectionIdInput = Schema.Struct({ id: TrimmedNonEmptyString });

@@ -17,6 +17,30 @@ describe("Otto catalog MCP tool handlers", () => {
     expect(webFetch).not.toHaveBeenCalled();
   });
 
+  it("shows a long page in parts that offset reads on from", async () => {
+    const page = Array.from({ length: 3_000 }, (_, index) => `line ${index + 1}`).join("\n");
+
+    const handlers = createOttoCatalogToolHandlers(undefined, undefined, undefined, {
+      webFetch: async () => ({ text: page }),
+    });
+
+    const read = (offset?: number) =>
+      handlers.web_fetch!({
+        input: { url: "https://example.com", ...(offset === undefined ? {} : { offset }) },
+        emitProgress: vi.fn(),
+      });
+
+    const first = await read();
+    const next = Number(/Use offset=(\d+) to read more/.exec(String(first))?.[1]);
+
+    expect(first).toMatch(/^line 1\n[\s\S]*\nline 1998\n\n\[Showing /);
+    expect(next).toBe(page.indexOf("line 1999"));
+    await expect(read(next)).resolves.toBe(page.slice(next));
+    await expect(read(page.length)).resolves.toBe(
+      `The page has ${page.length} characters, so offset ${page.length} is past its end.`,
+    );
+  });
+
   it("runs the M2-T6 backends and aliases image generation", async () => {
     const calls: string[] = [];
 

@@ -173,9 +173,9 @@ describe("AgentControllerLive", () => {
           query: "otto bot",
           results: [],
         });
-        expect(
-          yield* run("web_fetch", "fetch", { url: `http://catalog.example:${port}/` }),
-        ).toMatchObject({ status: 200, text: "catalog page", truncated: false });
+        expect(yield* run("web_fetch", "fetch", { url: `http://catalog.example:${port}/` })).toBe(
+          "catalog page",
+        );
 
         const imageRequest = { operation: "generate", prompt: "a fox" } as const;
         expect(yield* run("image_create", "image", imageRequest)).toEqual(imageResult);

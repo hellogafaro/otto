@@ -112,6 +112,29 @@ describe("OttoMastraHarness", () => {
     assert.equal(criticalOttoAction("RestartMcpServers"), "production");
   });
 
+  it("caps a connector tool's result where it is created", async () => {
+    const requestContext = new RequestContext();
+    requestContext.setRaw("controller", { resourceId: "thread-cap" });
+
+    const tools = await resolveOttoTools(requestContext, {
+      authStorage: new AuthStorage("/tmp/otto-unused-auth.json"),
+      getThreadTools: () => ({
+        crm_export: {
+          id: "crm_export",
+          description: "Export every contact.",
+          execute: async () => ({ content: [{ type: "text", text: "contact\n".repeat(20_000) }] }),
+        },
+      }),
+      toolRuntime: toolRuntimeFixture({ toolsForThread: () => [] }),
+    });
+
+    const result = await probeTool(tools.crm_export).execute!({}, {} as never);
+
+    assert.isString(result);
+    assert.include(result, '{\n  "content": [\n    {\n      "type": "text",');
+    assert.include(result, "Narrow the request to see the rest.]");
+  });
+
   it("creates an approved routine for the current chat after tool approval", async () => {
     assert.isFalse(routineToolNeedsGlobalApproval(OTTO_CREATE_ROUTINE_TOOL_NAME));
     assert.isTrue(routineToolNeedsGlobalApproval("execute_command"));

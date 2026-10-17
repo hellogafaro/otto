@@ -77,7 +77,7 @@ export interface OttoCatalogBackendOptions {
     readonly query: string;
     readonly domains?: readonly string[];
   }) => Promise<OttoToolResult>;
-  readonly webFetch?: (input: { readonly url: string }) => Promise<OttoToolResult>;
+  readonly webFetch?: (input: { readonly url: string }) => Promise<{ readonly text: string }>;
   readonly generateImage?: (
     input: (typeof OttoToolInputSchemas.image_create)["Type"],
   ) => Promise<OttoToolResult>;

@@ -227,6 +227,13 @@ model reads are dropped, group passes are dropped, other bots' replies read as t
 therefore starts with the previous request's history, so providers serve it from their prompt cache.
 The same processor stores the run's new messages.
 
+Tool results are capped where they are created, so the stored result is the one the model saw
+(`provider/tool-output.ts`): at most 50 KB and 2,000 lines, from the start, with a notice giving the
+full size and how to see the rest. Text is cut after a whole line; any other result over 50 KB
+becomes its capped JSON. Otto tools are capped in `createOttoMastraTools` and connector tools in
+`approvalAwareTools`. Files read from the computer stay whole. `web_fetch` takes a character
+`offset`, and its notice names the offset to read on from.
+
 Before every model step, `otto-compaction.ts` measures the next request: the provider's count for
 the thread's latest request plus an estimate of what was added since (four characters a token, 1,600
 tokens per inline image, 3,000 per PDF). When it passes W − 32,768, where W is the model's catalog

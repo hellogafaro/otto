@@ -219,9 +219,12 @@ export const OTTO_TOOL_CATALOG = [
   define("web_search", "bot-workspace", "Search the public web.", {
     promptSnippet: "search the public web",
   }),
-  define("web_fetch", "bot-workspace", "Fetch and extract a public URL.", {
-    promptSnippet: "read a public web page",
-  }),
+  define(
+    "web_fetch",
+    "bot-workspace",
+    "Fetch the text of a public URL. A long page comes in parts; pass offset to read on.",
+    { promptSnippet: "read a public web page" },
+  ),
   define(
     "image_create",
     "bot-workspace",
