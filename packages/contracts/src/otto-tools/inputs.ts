@@ -61,8 +61,6 @@ const CommandInput = Schema.Struct({
   cwd: Schema.optional(PathText),
 });
 
-const PathInput = Schema.Struct({ path: PathText });
-
 const WebSearchInput = Schema.Struct({
   query: TrimmedNonEmptyString.check(Schema.isMaxLength(2_000)),
   domains: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
@@ -181,7 +179,20 @@ export const OttoToolInputSchemas = {
     limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(50))),
   }),
   shell: CommandInput,
-  read: PathInput,
+  read: Schema.Struct({
+    path: PathText,
+    offset: Schema.optional(PositiveInt),
+    limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(2_000))),
+  }),
+  edit: Schema.Struct({
+    path: PathText,
+    edits: Schema.Array(
+      Schema.Struct({
+        oldText: Schema.String.check(Schema.isMinLength(1)),
+        newText: Schema.String,
+      }),
+    ).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
+  }),
   bot_create: Schema.Struct({
     name: TrimmedNonEmptyString,
     title: Schema.optional(TrimmedNonEmptyString),
@@ -192,6 +203,9 @@ export const OttoToolInputSchemas = {
   delegate: AgentMessageInput,
   message_post: Schema.Struct({
     text: TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_COMMAND_MAX_CHARS)),
+    files: Schema.optional(
+      Schema.Array(Schema.Struct({ path: PathText })).check(Schema.isMaxLength(10)),
+    ),
   }),
   connection_search: Schema.Struct({
     query: Schema.optional(TrimmedNonEmptyString),

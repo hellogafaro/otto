@@ -9,7 +9,7 @@ import {
   ThreadId,
   type OttoDelegationRecord,
   ottoDelegationStateOf,
-  type OttoToolInputSchemas,
+  type ChatAttachment,
   type OttoToolReceipt,
   type OrchestrationCommand,
   type OrchestrationReadModel,
@@ -33,7 +33,7 @@ export function createOttoDelegationDelivery(
 ) {
   const postToChat = async (
     parent: OttoDelegationParent,
-    request: (typeof OttoToolInputSchemas.message_post)["Type"],
+    request: { readonly text: string; readonly attachments?: ReadonlyArray<ChatAttachment> },
   ): Promise<OttoToolReceipt> => {
     const snapshot = await options.readSnapshot();
     const sourceThread = snapshot.threads.find((thread) => thread.id === parent.threadId);
@@ -60,6 +60,7 @@ export function createOttoDelegationDelivery(
       threadId: parent.threadId,
       messageId,
       delta: request.text,
+      ...(request.attachments?.length ? { attachments: [...request.attachments] } : {}),
       turnId: parent.turnId,
       createdAt,
     });

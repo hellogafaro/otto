@@ -263,6 +263,69 @@ describe("OttoToolRuntime", () => {
     ).rejects.toThrow();
   });
 
+  it("edits a file by exact replacement and refuses missing, repeated and outside text", async () => {
+    const runtime = createOttoToolRuntime();
+    const bot = workspace("edit");
+    const file = NodePath.join(workspaceRoot(bot), "notes.md");
+    const outside = NodePath.join(workspaceRoot(bot), "..", "outside.txt");
+    NodeFS.writeFileSync(file, "one\ntwo\ntwo\nthree\n");
+    NodeFS.writeFileSync(outside, "secret");
+    runtime.registerSession("thread-edit", {
+      runtimeMode: "full-access",
+      workspaceType: "local",
+      workspace: bot,
+    });
+
+    const edit = (
+      toolCallId: string,
+      path: string,
+      edits: ReadonlyArray<{ oldText: string; newText: string }>,
+    ) =>
+      runtime.execute({
+        threadId: "thread-edit",
+        toolId: "edit",
+        toolCallId,
+        input: { path, edits },
+        approvalMode: "require-grant",
+      });
+
+    await expect(
+      edit("edit-ok", "notes.md", [
+        { oldText: "one", newText: "uno" },
+        { oldText: "three", newText: "tres\ncuatro" },
+      ]),
+    ).resolves.toEqual({
+      path: "notes.md",
+      edits: 2,
+      changedLines: [
+        { from: 1, to: 1 },
+        { from: 4, to: 5 },
+      ],
+    });
+    expect(NodeFS.readFileSync(file, "utf8")).toBe("uno\ntwo\ntwo\ntres\ncuatro\n");
+
+    await expect(
+      edit("edit-repeated", "notes.md", [
+        { oldText: "two", newText: "dos" },
+        { oldText: "nine", newText: "nueve" },
+      ]),
+    ).resolves.toMatchObject({
+      error: {
+        code: "no_unique_match",
+        misses: [
+          { edit: 0, matches: 2 },
+          { edit: 1, matches: 0 },
+        ],
+      },
+    });
+    expect(NodeFS.readFileSync(file, "utf8")).toBe("uno\ntwo\ntwo\ntres\ncuatro\n");
+
+    await expect(
+      edit("edit-outside", "../outside.txt", [{ oldText: "secret", newText: "leaked" }]),
+    ).rejects.toThrow();
+    expect(NodeFS.readFileSync(outside, "utf8")).toBe("secret");
+  });
+
   it("keeps plugin inspection read-only and requires one-shot grants for install and removal", async () => {
     const search = vi.fn(async () => ({ plugins: [] }));
     const install = vi.fn(async () => ({ installed: true }));

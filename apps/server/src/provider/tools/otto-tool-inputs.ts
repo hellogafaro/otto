@@ -42,6 +42,8 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "edit":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "bot_create":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "delegate_check":

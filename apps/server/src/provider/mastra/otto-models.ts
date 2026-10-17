@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema";
 import * as Predicate from "effect/Predicate";
 import { AuthStorage } from "@mastra/code-sdk/auth/storage";
+import type { MastraModelConfig } from "@mastra/core/llm";
 import { opencodeClaudeMaxProvider } from "@mastra/code-sdk/providers/claude-max";
 import { xaiProvider } from "@mastra/code-sdk/providers/xai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -143,7 +144,7 @@ export function resolveOttoMastraModel(
   getSubscriptionAccessToken?: SubscriptionAuthService["getAccessToken"],
   /** The thread this request serves, so its outcome is recorded on the account it used. */
   threadId?: string,
-) {
+): MastraModelConfig {
   const trimmed = modelId.trim();
 
   const environment = connection?.useSavedCredential

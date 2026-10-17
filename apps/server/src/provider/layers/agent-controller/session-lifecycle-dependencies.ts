@@ -6,7 +6,7 @@ import { ottoToolCategory } from "../../otto-mastra-harness.ts";
 import type { createOttoWebFetch } from "../../otto-web-fetch.ts";
 import type { OttoToolRuntime } from "../../otto-tool-runtime.ts";
 import type { ProviderServiceError } from "../../errors.ts";
-import type { RuntimeMode } from "@otto/contracts";
+import type { ChatAttachment, RuntimeMode } from "@otto/contracts";
 import type { OttoRuntimeSeam } from "../../otto-runtime-seam.ts";
 import type { AgentControllerLiveOptions } from "./options.ts";
 
@@ -53,6 +53,10 @@ export interface SessionLifecycleDependencies {
   readonly runPromise: OttoRuntimeSeam["runPromise"];
   readonly projectionSnapshotQuery: Option.Option<ProjectionSnapshotQuery["Service"]>;
   readonly projectionMessages: Option.Option<ProjectionThreadMessageRepository["Service"]>;
+  readonly storeChatFile: (
+    threadId: string,
+    file: { readonly name: string; readonly bytes: Uint8Array },
+  ) => Promise<ChatAttachment>;
   readonly wired: () => {
     readonly channelRuntime?: OttoChannelRuntime;
     readonly pluginRuntime?: ReturnType<typeof createOttoPluginRuntime>;

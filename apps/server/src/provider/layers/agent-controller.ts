@@ -74,6 +74,7 @@ import {
 } from "./agent-controller/state.ts";
 
 import { toMcpServerConfigs } from "./agent-controller/mcp-configuration.ts";
+import { storeChatFile } from "../tools/otto-chat-files.ts";
 
 const APPROVAL_FREE_MASTRA_TOOL_NAMES: ReadonlySet<string> = new Set(["ask_user"]);
 
@@ -381,6 +382,8 @@ const make = (options?: AgentControllerLiveOptions) =>
       runPromise,
       projectionSnapshotQuery,
       projectionMessages,
+      storeChatFile: (threadId, file) =>
+        runPromise(storeChatFile(fileSystem, path, config.attachmentsDir, threadId, file)),
       wired,
       sessions,
       resolvedByThread,

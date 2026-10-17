@@ -27,6 +27,7 @@ import {
   type OttoToolExecution,
 } from "./tools/otto-tool-types.ts";
 import { ensureWorkspaceCwd, canonicalInput, field } from "./tools/otto-tool-authorization.ts";
+import { editWorkspaceFile } from "./tools/otto-edit-file.ts";
 import { toolsForWorkspace, BACKEND_NAMES, executable } from "./tools/otto-workspace-tools.ts";
 
 const isDelegationContextTooLong = Schema.is(OttoDelegationContextTooLongError);
@@ -104,7 +105,10 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
     if (session.workspace?.sandbox?.executeCommand) tools.add("shell");
 
-    if (session.workspace?.filesystem) tools.add("read");
+    if (session.workspace?.filesystem) {
+      tools.add("read");
+      tools.add("edit");
+    }
 
     if (session.delegation) {
       if (session.delegation.create) tools.add("bot_create");
@@ -338,7 +342,21 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           failureCode = "internal";
 
           try {
-            result = await session.postToChat(execution.input);
+            const files = await Promise.all(
+              (execution.input.files ?? []).map(async ({ path }) => {
+                const filesystem = session.workspace?.filesystem;
+
+                if (!filesystem) throw new Error("Attaching files needs your computer.");
+                const bytes = await filesystem.readFile(path);
+
+                return {
+                  name: path.split("/").at(-1) ?? path,
+                  bytes: Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes),
+                };
+              }),
+            );
+
+            result = await session.postToChat({ text: execution.input.text, files });
           } catch (cause) {
             const summary = cause instanceof Error ? cause.message : String(cause);
             result = {
@@ -388,6 +406,12 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
             return result;
           }
+        } else if (execution.toolId === "edit") {
+          const filesystem = session.workspace?.filesystem;
+
+          if (!filesystem) throw new Error("Editing files needs your computer.");
+          failureCode = "internal";
+          result = await editWorkspaceFile(filesystem, execution.input);
         } else if (execution.toolId === "message_react") {
           if (!session.reactToMessage) {
             throw new Error("Message reactions are not available for this session.");

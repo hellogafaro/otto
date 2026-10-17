@@ -52,9 +52,11 @@ export interface OttoToolSession {
       input: (typeof OttoToolInputSchemas.delegate_stop)["Type"],
     ) => Promise<OttoToolResult>;
   };
-  readonly postToChat?: (
-    input: (typeof OttoToolInputSchemas.message_post)["Type"],
-  ) => Promise<OttoToolReceipt>;
+  /** Posts the text with files read from the bot's computer. */
+  readonly postToChat?: (input: {
+    readonly text: string;
+    readonly files: ReadonlyArray<{ readonly name: string; readonly bytes: Uint8Array }>;
+  }) => Promise<OttoToolReceipt>;
   readonly botState?: Pick<OttoBotStateRuntime, "updateProfile">;
   readonly reactToMessage?: (
     input: (typeof OttoToolInputSchemas.message_react)["Type"],

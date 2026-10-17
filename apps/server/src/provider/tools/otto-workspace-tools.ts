@@ -7,6 +7,7 @@ export const BACKEND_NAMES: Record<
   Exclude<
     OttoToolId,
     | "bot_create"
+    | "edit"
     | "delegate_check"
     | "delegate_stop"
     | "delegate"

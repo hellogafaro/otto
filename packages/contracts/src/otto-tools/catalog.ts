@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 export const OttoToolId = Schema.Literals([
   "shell",
   "read",
+  "edit",
   "search",
   "bot_create",
   "delegate_check",
@@ -102,14 +103,31 @@ const define = (
 });
 
 export const OTTO_TOOL_CATALOG = [
-  define("shell", "bot-workspace", "Run a command in the bot workspace.", {
-    workspace: "bot-workspace",
-    promptSnippet: "run commands in your workspace",
-  }),
-  define("read", "bot-workspace", "Read a file in the bot workspace.", {
-    workspace: "bot-workspace",
-    promptSnippet: "read a file in your workspace",
-  }),
+  define(
+    "shell",
+    "bot-workspace",
+    "Run a bash command in your computer, a sandbox that keeps files between chats but can be wiped. " +
+      "Use it for code, files, git, CLIs, installs and driving a browser. Returns the exit code and output.",
+    {
+      workspace: "bot-workspace",
+      promptSnippet: "run bash in your computer, including a browser CLI",
+    },
+  ),
+  define(
+    "read",
+    "bot-workspace",
+    "Read a file in your computer: text with line numbers, or an image you can see. " +
+      "Read-only; use offset and limit for long files.",
+    { workspace: "bot-workspace", promptSnippet: "read a file, or see an image, in your computer" },
+  ),
+  define(
+    "edit",
+    "bot-workspace",
+    "Change a file in your computer by replacing exact text: each oldText must match once, including whitespace. " +
+      "Use it for code and config edits; write new files with shell. " +
+      "Returns the changed line ranges, or which oldText did not match and how often.",
+    { workspace: "bot-workspace", promptSnippet: "replace exact text in a file in your computer" },
+  ),
   define(
     "search",
     "bot-workspace",
@@ -143,7 +161,8 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Post a message where you were asked: the chat, or the task's activity when a task woke you. " +
       "Use it for the reply, a progress update or a question people should see; your final text stays private, " +
-      "and if you post nothing it is posted for you. Returns the message id.",
+      "and if you post nothing it is posted for you. Attach images, PDFs or text files from your computer by path. " +
+      "Returns the message id.",
     { promptSnippet: "post a reply, update or question where you were asked" },
   ),
   define(

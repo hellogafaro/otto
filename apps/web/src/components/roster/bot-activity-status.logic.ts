@@ -42,6 +42,7 @@ const TOOL_LABELS = {
   ask_user: "Waiting for your answer",
   shell: "Running a command",
   read: "Reading files",
+  edit: "Editing files",
   bot_create: "Starting a helper",
   delegate_check: "Checking on a helper",
   delegate: "Messaging a helper",

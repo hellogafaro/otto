@@ -342,6 +342,10 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
 
               if (!turnId) throw new Error("Posting a message requires an active turn.");
 
+              const attachments = await Promise.all(
+                request.files.map((file) => deps.storeChatFile(threadId, file)),
+              );
+
               const receipt = await deps.wired().delegationRuntime!.postToChat(
                 {
                   threadId,
@@ -352,7 +356,9 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                   depth: parentDelegation?.depth ?? 0,
                   access,
                 },
-                request,
+                attachments.length > 0
+                  ? { text: request.text, attachments }
+                  : { text: request.text },
               );
 
               if (receipt.phase === "success" && active?.activeTurn?.turnId === turnId) {
