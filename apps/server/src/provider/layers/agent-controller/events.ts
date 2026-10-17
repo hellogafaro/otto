@@ -20,14 +20,18 @@ import {
   type ProviderRuntimeEvent,
   ThreadId,
   OTTO_CREATE_ROUTINE_TOOL_NAME,
-  sameAlwaysAllowedTool,
 } from "@otto/contracts";
 
 import { ServerConfig } from "../../../config.ts";
 
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 import { ottoActionNeedsApproval, criticalOttoAction } from "../../otto-mastra-harness.ts";
-import { isOttoProposal, proposedBotInstructions } from "../../mastra/otto-actions.ts";
+import {
+  alwaysAllowCovers,
+  alwaysAllowKinds,
+  isOttoProposal,
+  proposedBotInstructions,
+} from "../../mastra/otto-actions.ts";
 
 import { type OttoChannelRuntime } from "../../otto-channel-runtime.ts";
 import { type OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
@@ -478,12 +482,12 @@ export function createEvents(deps: {
 
         const proposal = isOttoProposal(event.toolName, toolInput);
 
-        // A person chose Always allow for this bot, this tool and this kind of action.
-        const alwaysAllowed =
-          !proposal &&
-          (active.toolSession.alwaysAllowed ?? []).some((rule) =>
-            sameAlwaysAllowedTool(rule, { toolName: event.toolName, action }),
-          );
+        // A person chose Always allow for this bot and this tool, for every kind of action in it.
+        const alwaysAllowed = alwaysAllowCovers(
+          active.toolSession.alwaysAllowed ?? [],
+          event.toolName,
+          toolInput,
+        );
 
         if (
           alwaysAllowed ||
@@ -574,11 +578,16 @@ export function createEvents(deps: {
                       { decision: "decline", label: "Decline" },
                       { decision: "accept", label: "Approve" },
                     ]
-                  : [
-                      { decision: "decline", label: "Never" },
-                      { decision: "acceptAlways", label: "Always allow" },
-                      { decision: "accept", label: "Allow once" },
-                    ],
+                  : alwaysAllowKinds(event.toolName, toolInput)?.length === 1
+                    ? [
+                        { decision: "decline", label: "Never" },
+                        { decision: "acceptAlways", label: "Always allow" },
+                        { decision: "accept", label: "Allow once" },
+                      ]
+                    : [
+                        { decision: "decline", label: "Never" },
+                        { decision: "accept", label: "Allow once" },
+                      ],
           },
         });
 

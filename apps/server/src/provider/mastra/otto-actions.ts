@@ -1,4 +1,9 @@
-import { OTTO_CREATE_ROUTINE_TOOL_NAME, classifyOttoSensitivePath } from "@otto/contracts";
+import {
+  OTTO_CREATE_ROUTINE_TOOL_NAME,
+  type BotAlwaysAllowedTool,
+  classifyOttoSensitivePath,
+  sameAlwaysAllowedTool,
+} from "@otto/contracts";
 import * as Predicate from "effect/Predicate";
 import {
   OTTO_DELETE_ROUTINES_TOOL_NAME,
@@ -119,64 +124,74 @@ export function textTokens(value: string): ReadonlySet<string> {
   );
 }
 
-export function criticalActionFromText(value: string): OttoCriticalAction | null {
+export function criticalActionsFromText(value: string): ReadonlyArray<OttoCriticalAction> {
   const tokens = textTokens(value);
+  const actions: OttoCriticalAction[] = [];
 
-  if (tokens.has("restart") && tokens.has("mcp")) return "production";
+  if (tokens.has("restart") && tokens.has("mcp")) actions.push("production");
 
   for (const [action, actionTokens] of CRITICAL_ACTION_TOKENS) {
-    if ([...actionTokens].some((token) => tokens.has(token))) return action;
+    if ([...actionTokens].some((token) => tokens.has(token))) actions.push(action);
   }
 
   if (
     [...ACCOUNT_SCOPE_TOKENS].some((token) => tokens.has(token)) &&
     [...CHANGE_TOKENS].some((token) => tokens.has(token))
   ) {
-    return "account";
+    actions.push("account");
   }
 
-  return null;
+  return actions;
 }
 
-export function criticalActionFromShellCommand(
+export function criticalActionsFromShellCommand(
   value: string,
   wrapperDepth = 0,
-): OttoCriticalAction | null {
-  for (const [action, pattern] of CRITICAL_SHELL_ACTIONS) {
-    if (pattern.test(value)) return action;
-  }
+): ReadonlyArray<OttoCriticalAction> {
+  const actions = CRITICAL_SHELL_ACTIONS.flatMap(([action, pattern]) =>
+    pattern.test(value) ? [action] : [],
+  );
 
   if (wrapperDepth < 5) {
     for (const wrapperPattern of SHELL_COMMAND_WRAPPER_PATTERNS) {
       for (const match of value.matchAll(wrapperPattern)) {
         const nestedCommand = match[1] ?? match[2] ?? match[3];
 
-        if (!nestedCommand) continue;
-        const action = criticalActionFromShellCommand(nestedCommand, wrapperDepth + 1);
-
-        if (action) return action;
+        if (nestedCommand) {
+          actions.push(...criticalActionsFromShellCommand(nestedCommand, wrapperDepth + 1));
+        }
       }
     }
   }
 
-  return criticalActionFromText(value);
+  return [...actions, ...criticalActionsFromText(value)];
 }
 
+/** Chains, pipes, backgrounds or substitutes commands; fd redirections such as 2>&1 do not count. */
+const COMPOUND_SHELL_COMMAND = /[;&|`\n\r]|\$\(|[<>]\(/;
+
 export type OttoActionInspection = {
-  readonly action: OttoCriticalAction | null;
+  /** Every kind of action the call contains, in the order found. */
+  readonly actions: ReadonlyArray<OttoCriticalAction>;
   readonly hasUnclassifiedIntent: boolean;
+  /** A shell command runs several commands, so its actions are not all known. */
+  readonly hasCompoundCommand: boolean;
 };
 
 export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoActionInspection {
-  const namedAction = criticalActionFromText(toolName);
-
-  if (namedAction) return { action: namedAction, hasUnclassifiedIntent: false };
-
+  const actions = new Set(criticalActionsFromText(toolName));
   const pending: unknown[] = [args];
   const visited = new WeakSet<object>();
   let inspected = 0;
   let entriesInspected = 0;
   let hasUnclassifiedIntent = false;
+  let hasCompoundCommand = false;
+
+  const inspection = (unclassified: boolean): OttoActionInspection => ({
+    actions: [...actions],
+    hasUnclassifiedIntent: unclassified,
+    hasCompoundCommand,
+  });
 
   while (pending.length > 0 && inspected < 100) {
     const value = pending.pop();
@@ -193,7 +208,7 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
 
     if (Array.isArray(value)) {
       for (const entry of value) {
-        if (entriesInspected >= 100_000) return { action: null, hasUnclassifiedIntent: true };
+        if (entriesInspected >= 100_000) return inspection(true);
         entriesInspected += 1;
 
         if (Predicate.isObjectOrArray(entry) && entry !== null) pending.push(entry);
@@ -203,25 +218,29 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
     }
 
     for (const key in value) {
-      if (entriesInspected >= 100_000) return { action: null, hasUnclassifiedIntent: true };
+      if (entriesInspected >= 100_000) return inspection(true);
       entriesInspected += 1;
 
       if (!Object.hasOwn(value, key)) continue;
       const entry: unknown = value[key];
       const normalizedKey = key.toLowerCase();
-      const keyedAction = criticalActionFromText(key);
 
-      if (keyedAction) return { action: keyedAction, hasUnclassifiedIntent: false };
+      for (const action of criticalActionsFromText(key)) actions.add(action);
 
       if (ACTION_TEXT_KEYS.has(normalizedKey) && Predicate.isString(entry)) {
-        const action =
-          normalizedKey === "command"
-            ? criticalActionFromShellCommand(entry)
-            : criticalActionFromText(entry);
+        const command = normalizedKey === "command";
 
-        if (action) return { action, hasUnclassifiedIntent: false };
+        const found = command
+          ? criticalActionsFromShellCommand(entry)
+          : criticalActionsFromText(entry);
 
-        if (MUTATING_INTENT_KEYS.has(normalizedKey)) {
+        for (const action of found) actions.add(action);
+
+        if (command && COMPOUND_SHELL_COMMAND.test(entry.replace(/\d*[<>]&[\d-]*/g, ""))) {
+          hasCompoundCommand = true;
+        }
+
+        if (found.length === 0 && MUTATING_INTENT_KEYS.has(normalizedKey)) {
           const tokens = textTokens(entry);
 
           if (![...tokens].some((token) => READ_ONLY_INTENT_TOKENS.has(token))) {
@@ -235,21 +254,52 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
         (normalizedKey === "path" || normalizedKey.endsWith("path")) &&
         classifyOttoSensitivePath(entry)
       ) {
-        return { action: "secrets", hasUnclassifiedIntent: false };
+        actions.add("secrets");
       }
 
       if (Predicate.isObjectOrArray(entry) && entry !== null) pending.push(entry);
     }
   }
 
-  return { action: null, hasUnclassifiedIntent: hasUnclassifiedIntent || pending.length > 0 };
+  return inspection(hasUnclassifiedIntent || pending.length > 0);
 }
 
 export function criticalOttoAction<Input>(
   toolName: string,
   args?: Input,
 ): OttoCriticalAction | null {
-  return inspectOttoAction(toolName, args).action;
+  return inspectOttoAction(toolName, args).actions[0] ?? null;
+}
+
+/**
+ * The kinds of action Always allow rules must cover for a call: each classified action, or null
+ * for a plain call. Null overall when no rule may cover it: a proposal, an intent the classifier
+ * cannot read, or a shell command that runs several commands.
+ */
+export function alwaysAllowKinds<Input>(
+  toolName: string,
+  args?: Input,
+): ReadonlyArray<OttoCriticalAction | null> | null {
+  if (isOttoProposal(toolName, args)) return null;
+  const { actions, hasUnclassifiedIntent, hasCompoundCommand } = inspectOttoAction(toolName, args);
+
+  if (hasUnclassifiedIntent || hasCompoundCommand) return null;
+
+  return actions.length > 0 ? actions : [null];
+}
+
+/** Whether a bot's Always allow rules cover every kind of action in this call. */
+export function alwaysAllowCovers<Input>(
+  rules: ReadonlyArray<Pick<BotAlwaysAllowedTool, "toolName" | "action">>,
+  toolName: string,
+  args?: Input,
+): boolean {
+  const kinds = alwaysAllowKinds(toolName, args);
+
+  return (
+    kinds !== null &&
+    kinds.every((action) => rules.some((rule) => sameAlwaysAllowedTool(rule, { toolName, action })))
+  );
 }
 
 /** The new instructions a bot proposes for itself; they apply only after a person approves. */
@@ -277,7 +327,7 @@ export function ottoActionNeedsApproval<Input>(toolName: string, args?: Input): 
   if (toolName === "skill_create" || toolName === "skill_update") return true;
   const inspection = inspectOttoAction(toolName, args);
 
-  return inspection.action !== null || inspection.hasUnclassifiedIntent;
+  return inspection.actions.length > 0 || inspection.hasUnclassifiedIntent;
 }
 
 export function ottoToolCategory(toolName: string): OttoToolCategory {

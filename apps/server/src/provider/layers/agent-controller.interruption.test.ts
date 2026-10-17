@@ -215,7 +215,7 @@ describe("AgentControllerLive", () => {
           type: "tool_approval_required",
           toolCallId: "shell-review-1",
           toolName: "shell",
-          args: { command: "sleep 5; ls -la" },
+          args: { command: "ls -la" },
         } as AgentControllerEvent);
         yield* Effect.yieldNow;
 

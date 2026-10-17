@@ -22,7 +22,7 @@ import {
 
 import * as Effect from "effect/Effect";
 
-import { criticalOttoAction, isOttoProposal } from "../../mastra/otto-actions.ts";
+import { alwaysAllowKinds, isOttoProposal } from "../../mastra/otto-actions.ts";
 import type { OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
 
 import type { PendingWaiters } from "../../pending-waiters.ts";
@@ -107,9 +107,18 @@ export function createApprovals(deps: {
       });
     }
 
+    const kinds = alwaysAllowKinds(toolName, toolInput);
+
+    if (kinds?.length !== 1) {
+      return yield* new AgentControllerRuntimeError({
+        operation: "respondToRequest",
+        detail: "Always allow covers one kind of action, so this call can only be allowed once.",
+      });
+    }
+
     const rule: BotAlwaysAllowedTool = {
       toolName,
-      action: criticalOttoAction(toolName, toolInput),
+      action: kinds[0] ?? null,
       createdBy: { personId: responder.personId, displayName: responder.displayName },
       createdAt: nowIso(),
     };

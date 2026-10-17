@@ -4,6 +4,7 @@ import { describe } from "vite-plus/test";
 import { it } from "@effect/vitest";
 import { expect } from "vite-plus/test";
 import { ottoActionNeedsApproval, criticalOttoAction } from "./otto-mastra-harness.ts";
+import { alwaysAllowCovers, alwaysAllowKinds } from "./mastra/otto-actions.ts";
 
 describe("Otto action classifier", () => {
   it.each([
@@ -54,6 +55,36 @@ describe("Otto action classifier", () => {
   ])("leaves ordinary local command %s unclassified", (command) => {
     expect(criticalOttoAction("execute_command", { command })).toBeNull();
     expect(ottoActionNeedsApproval("execute_command", { command })).toBe(false);
+  });
+
+  it("lists every kind of action and fails closed on chained shell commands", () => {
+    const deleteOnly = [{ toolName: "shell", action: "delete" }];
+
+    expect(alwaysAllowKinds("shell", { command: "rm ./scratch.txt" })).toEqual(["delete"]);
+    expect(alwaysAllowCovers(deleteOnly, "shell", { command: "rm ./scratch.txt" })).toBe(true);
+    expect(alwaysAllowKinds("shell", { command: "ls -la 2>&1" })).toEqual([null]);
+
+    for (const command of [
+      "rm ./scratch.txt; git push origin main",
+      "rm ./scratch.txt && ./deploy.sh",
+      "rm ./scratch.txt\ngit push origin main",
+      "rm $(cat list.txt)",
+    ]) {
+      expect(alwaysAllowKinds("shell", { command })).toBeNull();
+      expect(alwaysAllowCovers(deleteOnly, "shell", { command })).toBe(false);
+    }
+
+    const removeSecret = { path: ".env", operation: "remove" };
+
+    expect(alwaysAllowKinds("custom_tool", removeSecret)).toEqual(["secrets", "delete"]);
+    expect(
+      alwaysAllowCovers(
+        [{ toolName: "custom_tool", action: "delete" }],
+        "custom_tool",
+        removeSecret,
+      ),
+    ).toBe(false);
+    expect(alwaysAllowKinds("custom_tool", { operation: "frobnicate" })).toBeNull();
   });
 
   it("requires approval when nested input exceeds the inspection limit", () => {
