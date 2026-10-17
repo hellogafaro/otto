@@ -288,17 +288,18 @@ export function createHarness(deps: {
       startCompaction: async ({ threadId, modelId }) => {
         const context = deps.turnUsageByThread.get(threadId);
         const active = deps.sessions.get(threadId);
+        const botId = context?.botId ?? active?.toolSession.botId;
 
-        if (!context || !active) return undefined;
+        if (!active || !botId) return undefined;
         const callId = `compaction:${NodeCrypto.randomUUID()}`;
 
         await deps.runPromise(
           deps.botUsageLedger.reserve({
             reservationId: OttoUsageReservationId.make(callId),
             sourceKey: callId,
-            botId: context.botId,
+            botId,
             threadId: ThreadIdBrand(threadId),
-            turnId: context.turnId,
+            turnId: context?.turnId ?? active.activeTurn?.turnId ?? null,
             category: "compaction",
             maximumTokens: OTTO_TURN_USAGE_RESERVATION_TOKENS,
             provider: active.provider,
