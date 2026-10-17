@@ -1,5 +1,5 @@
 import * as NodeFS from "node:fs";
-import { parseSkillFrontMatter } from "@otto/contracts";
+import { COMPUTER_SYSTEM_SKILLS, parseSkillFrontMatter, SYSTEM_SKILL_NAMES } from "@otto/contracts";
 import * as Predicate from "effect/Predicate";
 
 declare global {
@@ -10,23 +10,6 @@ declare global {
     ): Record<string, T>;
   }
 }
-
-/** Built-in skills in the order bots see them; `computer` and `git` need the bot's computer. */
-const SYSTEM_SKILL_ORDER = [
-  "research",
-  "investigate",
-  "implement",
-  "git",
-  "verify",
-  "visualize",
-  "write",
-  "handoff",
-  "summarize",
-  "close",
-  "computer",
-] as const;
-
-const COMPUTER_SKILLS: ReadonlySet<string> = new Set(["computer", "git"]);
 
 const SKILL_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -64,7 +47,7 @@ export function loadSystemSkills(
     byName.set(name, files);
   }
 
-  return SYSTEM_SKILL_ORDER.map((name) => {
+  return SYSTEM_SKILL_NAMES.map((name) => {
     const files = byName.get(name);
     const skill = files?.get("SKILL.md");
 
@@ -90,7 +73,7 @@ export function loadSystemSkills(
       }
     }
 
-    return { name, description, needsComputer: COMPUTER_SKILLS.has(name), files };
+    return { name, description, needsComputer: COMPUTER_SYSTEM_SKILLS.includes(name), files };
   });
 }
 

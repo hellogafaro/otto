@@ -19,6 +19,7 @@ import { cn } from "../../lib/utils";
 import { LogoTile } from "../customize/customize-group";
 import { AppLogo } from "../customize/customize-integrations";
 import { useSkillFrontMatter } from "../customize/customize-skills";
+import { SYSTEM_SKILLS } from "../customize/system-skills";
 import { SettingsRow, SettingsSection } from "../settings/settings-layout";
 import { Switch } from "../ui/switch";
 import {
@@ -217,7 +218,10 @@ function BotSkillRow({
   );
 }
 
-/** The bot's Skills, each on unless switched off for it; switches save at once. */
+/**
+ * The bot's Skills: the built-in ones first, always on with their switches disabled, then its
+ * Library skills, each on unless switched off for it; switches save at once.
+ */
 export function BotSkillsSection({
   environmentId,
   skills,
@@ -235,23 +239,35 @@ export function BotSkillsSection({
   const { t } = useI18n();
 
   return (
-    <SettingsSection id="skills" title={t("Skills")}>
-      {skills.length === 0 ? (
-        <SettingsRow title={t("No skills")} />
-      ) : (
-        skills.map(({ folder, main }) => (
-          <BotSkillRow
-            key={folder.id}
-            environmentId={environmentId}
-            skill={folder}
-            main={main}
-            checked={!disabledIds.includes(folder.id)}
-            onCheckedChange={(enabled) =>
-              onDisabledIdsChange(planBotToolToggle(disabledIds, folder.id, enabled))
-            }
-          />
-        ))
-      )}
+    <SettingsSection
+      id="skills"
+      title={t("Skills")}
+      description={t("Built-in skills are always on.")}
+    >
+      {SYSTEM_SKILLS.map((skill) => (
+        <BotToggleRow
+          key={skill.name}
+          icon={<RiSparkling2Line aria-hidden className="size-4" />}
+          name={skill.name}
+          description={skill.description}
+          status={null}
+          checked
+          disabled
+          onCheckedChange={() => undefined}
+        />
+      ))}
+      {skills.map(({ folder, main }) => (
+        <BotSkillRow
+          key={folder.id}
+          environmentId={environmentId}
+          skill={folder}
+          main={main}
+          checked={!disabledIds.includes(folder.id)}
+          onCheckedChange={(enabled) =>
+            onDisabledIdsChange(planBotToolToggle(disabledIds, folder.id, enabled))
+          }
+        />
+      ))}
     </SettingsSection>
   );
 }

@@ -67,6 +67,27 @@ export const LIBRARY_PROJECTS_FOLDER_TITLE = "Projects";
  */
 export const LIBRARY_SKILLS_FOLDER_ID = LibraryFolderId.make("library-skills");
 
+/**
+ * Skills every bot has, shipped with Otto, in the order bots see them. Their files live in
+ * apps/server/src/skills/system; no Library skill can take one of these names.
+ */
+export const SYSTEM_SKILL_NAMES = [
+  "research",
+  "investigate",
+  "implement",
+  "git",
+  "verify",
+  "visualize",
+  "write",
+  "handoff",
+  "summarize",
+  "close",
+  "computer",
+] as const;
+
+/** Built-in skills that need the bot's computer. */
+export const COMPUTER_SYSTEM_SKILLS: ReadonlyArray<string> = ["git", "computer"];
+
 export const LIBRARY_SKILLS_FOLDER_TITLE = "Skills";
 
 /** The top-level folders Otto makes; they can't be renamed, moved or deleted. */

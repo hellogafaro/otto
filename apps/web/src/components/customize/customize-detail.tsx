@@ -46,6 +46,7 @@ import { WorkEmpty } from "../work/work-pages";
 import { CustomizeGroup, CustomizeItem, CustomizeRow } from "./customize-group";
 import { serverHost } from "./customize-integrations";
 import { deleteSkill, skillContents } from "./customize-skills";
+import { systemSkillForPage, type SystemSkillView } from "./system-skills";
 import type { CustomizeEntityType } from "./customize.logic";
 import { McpServerDialog, useMcpCommands } from "./mcp-server-dialog";
 
@@ -534,6 +535,32 @@ function SkillDetail({
   );
 }
 
+/** Otto: a built-in skill's page: read-only, its files shown in full. */
+function SystemSkillDetail({ skill }: { readonly skill: SystemSkillView }) {
+  const { t } = useI18n();
+
+  return (
+    <DetailLayout>
+      <DetailHeader
+        logo={<RiSparkling2Line aria-hidden className="size-5" />}
+        title={skill.name}
+        description={skill.description}
+        actions={null}
+      />
+      <SettingsCard>
+        <SettingsRow title={t("Owner")} description={t("Built in. Every bot has it.")} />
+      </SettingsCard>
+      {skill.files.map((file) => (
+        <CustomizeGroup key={file.path} title={file.path} empty={null}>
+          <pre className="overflow-x-auto px-4 py-3 font-mono text-xs whitespace-pre-wrap text-foreground">
+            {file.content}
+          </pre>
+        </CustomizeGroup>
+      ))}
+    </DetailLayout>
+  );
+}
+
 function DetailBody({
   type,
   environmentId,
@@ -546,8 +573,15 @@ function DetailBody({
   switch (type) {
     case "mcp":
       return <McpDetail environmentId={environmentId} id={id} />;
-    case "skill":
-      return <SkillDetail environmentId={environmentId} id={id} />;
+    case "skill": {
+      const builtIn = systemSkillForPage(id);
+
+      return builtIn ? (
+        <SystemSkillDetail skill={builtIn} />
+      ) : (
+        <SkillDetail environmentId={environmentId} id={id} />
+      );
+    }
   }
 }
 

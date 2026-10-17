@@ -37,7 +37,9 @@ import { MenuItem } from "../ui/menu";
 import { Textarea } from "../ui/textarea";
 import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
+import { Badge } from "../ui/badge";
 import { AddMenu, CardCountRow, CustomizeGroup, CustomizeRow } from "./customize-group";
+import { SYSTEM_SKILLS, shadowsSystemSkill, systemSkillPageId } from "./system-skills";
 import { planSkillImport } from "./customize.logic";
 
 /** What an import brings besides its SKILL.md: files by their path inside the skill. */
@@ -323,11 +325,18 @@ function SkillRow({
   const navigate = useNavigate();
   const frontMatter = useSkillFrontMatter(environmentId, main);
 
+  const name = frontMatter.name ?? skill.title;
+
   return (
     <CustomizeRow
       logo={<RiSparkling2Line aria-hidden className="size-4" />}
-      name={frontMatter.name ?? skill.title}
+      name={name}
       detail={frontMatter.description ?? (main ? t("Skill") : t("No SKILL.md yet"))}
+      status={
+        shadowsSystemSkill(name) ? (
+          <Badge variant="warning">{t("Not used: a built-in skill has this name")}</Badge>
+        ) : null
+      }
       onOpen={() => void navigate({ to: "/settings/skills/$id", params: { id: skill.id } })}
     />
   );
@@ -336,13 +345,15 @@ function SkillRow({
 /**
  * Otto: Customize's Skills tab: the Library's Skills folder, one folder per skill holding its
  * SKILL.md and any references, scripts or assets. Two group cards like Integrations: Yours (you
- * and the bots you own; anyone chatting with them uses it without seeing it here) and Team. Like
+ * and the bots you own; anyone chatting with them uses it without seeing it here) and Team,
+ * then Built in, the read-only skills every bot has, with a count row and no plus. Like
  * Bots, each card's first row counts its skills and holds the plus to write a skill or import a
  * folder or zip into that group. Scripts are read
  * by bots, never run.
  */
 export function CustomizeSkills({ environmentId }: { readonly environmentId: EnvironmentId }) {
   const { t, plural } = useI18n();
+  const navigate = useNavigate();
   const data = useLibraryData();
   const [draft, setDraft] = useState<SkillDraft | null>(null);
   const importVisibility = useRef<LibraryVisibility>("user");
@@ -433,6 +444,31 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
           </CustomizeGroup>
         );
       })}
+      <CustomizeGroup
+        title={t("Built in")}
+        empty={null}
+        header={
+          <CardCountRow
+            label={plural(SYSTEM_SKILLS.length, { one: "{count} skill", other: "{count} skills" })}
+            action={null}
+          />
+        }
+      >
+        {SYSTEM_SKILLS.map((skill) => (
+          <CustomizeRow
+            key={skill.name}
+            logo={<RiSparkling2Line aria-hidden className="size-4" />}
+            name={skill.name}
+            detail={skill.description}
+            onOpen={() =>
+              void navigate({
+                to: "/settings/skills/$id",
+                params: { id: systemSkillPageId(skill.name) },
+              })
+            }
+          />
+        ))}
+      </CustomizeGroup>
       <input
         ref={(node) => {
           folderInput.current = node;

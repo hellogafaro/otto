@@ -142,6 +142,7 @@ export function SettingsSection({
   title,
   icon,
   count,
+  description,
   headerAction,
   children,
   className,
@@ -151,6 +152,8 @@ export function SettingsSection({
   icon?: ReactNode;
   /** Otto: How many items the section holds, in a lighter weight right after its title. */
   count?: number | undefined;
+  /** Otto: One muted line between the title and the card, for a rule that covers every row. */
+  description?: ReactNode;
   headerAction?: ReactNode;
   children: ReactNode;
 }) {
@@ -186,6 +189,7 @@ export function SettingsSection({
         </h2>
         <div className="ms-auto flex min-h-7 min-w-7 items-center justify-end">{headerAction}</div>
       </div>
+      {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
       <div
         className={cn("relative space-y-1 overflow-visible text-foreground", GROUPED_ROWS_CLASS)}
       >
