@@ -126,6 +126,25 @@ describe("createOttoMastraTools", () => {
     });
   });
 
+  it("keeps every field's check after import, including schemas behind a $ref", () => {
+    const runtime = toolRuntimeFixture({
+      toolsForThread: () => OTTO_TOOL_CATALOG,
+      requiresApproval: vi.fn(async () => false),
+      execute: vi.fn(async () => ({ ok: true })),
+    });
+
+    const emptyMembers = Object.entries(createOttoMastraTools("thread-checks", runtime))
+      // SAFETY: createOttoMastraTools always builds a Mastra tool whose inputSchema is zod.
+      .map(
+        ([toolId, tool]) =>
+          [toolId, z.toJSONSchema((tool as { inputSchema: z.ZodType }).inputSchema)] as const,
+      )
+      .filter(([, schema]) => JSON.stringify(schema).includes("{}"))
+      .map(([toolId]) => toolId);
+
+    expect(emptyMembers).toEqual([]);
+  });
+
   it("lets undecodable input reach execute instead of failing the turn in the approval check", async () => {
     const runtime = toolRuntimeFixture({
       toolsForThread: () => OTTO_TOOL_CATALOG.filter((definition) => definition.id === "web_fetch"),

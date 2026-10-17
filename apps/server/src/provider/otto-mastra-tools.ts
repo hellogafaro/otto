@@ -52,6 +52,12 @@ export function foldConstraintAllOf(schema: JsonSchemaNode): JsonSchemaNode {
     );
   }
 
+  if (node.definitions) {
+    node.definitions = Object.fromEntries(
+      Object.entries(node.definitions).map(([key, child]) => [key, foldChild(child)]),
+    );
+  }
+
   if (Array.isArray(node.items)) node.items = node.items.map(foldChild);
   else if (node.items !== undefined) node.items = foldChild(node.items);
 
