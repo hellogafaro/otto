@@ -83,7 +83,6 @@ export const commonMessagesCatalog = {
   "Remove {emoji}": "Remove {emoji}",
   "Retrying…": "Retrying…",
   "Usage unavailable for {name}": "Usage unavailable for {name}",
-  "Use the computer?": "Use the computer?",
   "Write a custom answer…": "Write a custom answer…",
   "{step} of {total}": "{step} of {total}",
   Recommended: "Recommended",

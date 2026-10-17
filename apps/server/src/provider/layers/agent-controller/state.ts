@@ -58,6 +58,8 @@ export interface ActiveTurn {
   reasoningTokens: number;
   memoryQueued: boolean;
   assistantText: string;
+  /** Set once message_post posts; the turn's remaining text then stays private. */
+  posted: boolean;
 }
 
 export interface PendingTurn {

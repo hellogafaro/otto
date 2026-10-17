@@ -52,8 +52,8 @@ export interface OttoToolSession {
       input: (typeof OttoToolInputSchemas.StopAgent)["Type"],
     ) => Promise<OttoToolResult>;
   };
-  readonly sendToUser?: (
-    input: (typeof OttoToolInputSchemas.SendToUser)["Type"],
+  readonly postToChat?: (
+    input: (typeof OttoToolInputSchemas.message_post)["Type"],
   ) => Promise<OttoToolReceipt>;
   readonly botState?: Pick<OttoBotStateRuntime, "updateProfile">;
   readonly reactToMessage?: (

@@ -81,7 +81,6 @@ export const commonMessagesCatalog = {
   "Remove {emoji}": "移除 {emoji}",
   "Retrying…": "正在重试…",
   "Usage unavailable for {name}": "{name} 的用量不可用",
-  "Use the computer?": "使用电脑？",
   "Write a custom answer…": "输入自定义回答…",
   "{step} of {total}": "第 {step} 题，共 {total} 题",
   Recommended: "推荐",

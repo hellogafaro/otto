@@ -58,7 +58,7 @@ describe("AgentControllerLive", () => {
           name: "Child",
           phase: "running" as const,
         })),
-        sendToUser: vi.fn(async () => {
+        postToChat: vi.fn(async () => {
           throw new Error("not used");
         }),
         parentFinished,

@@ -11,7 +11,7 @@ export const BACKEND_NAMES: Record<
     | "MessageAgent"
     | "StopAgent"
     | "SendToAgent"
-    | "SendToUser"
+    | "message_post"
     | "UpdateBotProfile"
     | "SearchPlugins"
     | "GetPlugin"

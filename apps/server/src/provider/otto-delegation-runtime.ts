@@ -60,7 +60,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
 
   const commandId = (label: string) => CommandId.make(`delegation:${label}:${id()}`);
 
-  const { sendToUser, deliver, postGroupResult } = createOttoDelegationDelivery(
+  const { postToChat, deliver, postGroupResult } = createOttoDelegationDelivery(
     options,
     now,
     id,
@@ -631,7 +631,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
     send,
     dispatchDelegation,
     stop,
-    sendToUser,
+    postToChat,
     parentFinished,
     readSnapshot: options.readSnapshot,
     /** Resolves once every background child watch has recorded its outcome. */

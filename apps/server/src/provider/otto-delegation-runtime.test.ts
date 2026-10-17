@@ -91,9 +91,9 @@ describe("OttoDelegationRuntime", () => {
     );
 
     await expect(
-      test.runtime.sendToUser(parent(), { message: "The export is ready." }),
+      test.runtime.postToChat(parent(), { text: "The export is ready." }),
     ).resolves.toMatchObject({
-      toolId: "SendToUser",
+      toolId: "message_post",
       phase: "success",
       threadId: PARENT_THREAD_ID,
       botId: PARENT_BOT_ID,

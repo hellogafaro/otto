@@ -222,7 +222,6 @@ export const chatCatalog = {
   "Reply to message": "回复消息",
   "Retry readout": "重试朗读",
   "Run this command?": "运行此命令？",
-  "Send this message?": "发送这条消息？",
   "Allow {tool}?": "允许 {tool}？",
   "Running a command": "正在运行命令",
   "Runs once": "仅运行一次",

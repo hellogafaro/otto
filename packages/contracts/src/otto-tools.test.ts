@@ -171,12 +171,12 @@ describe("Otto tool contracts", () => {
     expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "StopAgent")?.approval).toBe("delete");
   });
 
-  it("decodes SendToUser input and keeps it approval-gated", () => {
-    expect(decodeOttoToolInput("SendToUser", { message: "The export is ready." })).toEqual({
-      message: "The export is ready.",
+  it("decodes message_post input and posts without approval", () => {
+    expect(decodeOttoToolInput("message_post", { text: "The export is ready." })).toEqual({
+      text: "The export is ready.",
     });
-    expect(() => decodeOttoToolInput("SendToUser", { message: "" })).toThrow();
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "SendToUser")?.approval).toBe("send");
+    expect(() => decodeOttoToolInput("message_post", { text: "" })).toThrow();
+    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "message_post")?.approval).toBe("none");
   });
 
   it("decodes only narrow bot profile fields", () => {

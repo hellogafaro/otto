@@ -116,7 +116,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
       tools.add("SendToAgent");
     }
 
-    if (session.sendToUser) tools.add("SendToUser");
+    if (session.postToChat) tools.add("message_post");
 
     if (session.botId && session.botState) tools.add("UpdateBotProfile");
 
@@ -331,15 +331,15 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           } catch (cause) {
             return nonfatalToolFailureReceipt(input, session, cause, failureCode, billedBotId);
           }
-        } else if (execution.toolId === "SendToUser") {
-          if (!session.sendToUser) {
+        } else if (execution.toolId === "message_post") {
+          if (!session.postToChat) {
             throw new Error("User messaging is not available for this session.");
           }
 
           failureCode = "internal";
 
           try {
-            result = await session.sendToUser(execution.input);
+            result = await session.postToChat(execution.input);
           } catch (cause) {
             const summary = cause instanceof Error ? cause.message : String(cause);
             result = {

@@ -53,9 +53,9 @@ describe("OttoToolRuntime", () => {
 
     const execution = {
       threadId: "thread-1",
-      toolId: "SendToUser" as const,
+      toolId: "message_post" as const,
       toolCallId: "tool-message",
-      input: { message: "The export is ready." },
+      input: { text: "The export is ready." },
       approvalMode: "require-grant" as const,
     };
 
@@ -63,7 +63,7 @@ describe("OttoToolRuntime", () => {
       botId: BotId.make("parent"),
       runtimeMode: "full-access",
       workspaceType: "local",
-      sendToUser: async () => {
+      postToChat: async () => {
         throw new Error("Message dispatch failed");
       },
     });
@@ -71,7 +71,7 @@ describe("OttoToolRuntime", () => {
 
     await expect(runtime.execute(execution)).resolves.toMatchObject({
       receiptId: "tool-message",
-      toolId: "SendToUser",
+      toolId: "message_post",
       phase: "failure",
       failureCode: "internal",
       fatalToThread: false,
@@ -89,9 +89,9 @@ describe("OttoToolRuntime", () => {
 
     const execution = {
       threadId: "thread-1",
-      toolId: "SendToUser" as const,
+      toolId: "message_post" as const,
       toolCallId: "tool-message",
-      input: { message: "The export is ready." },
+      input: { text: "The export is ready." },
       approvalMode: "require-grant" as const,
     };
 
@@ -99,9 +99,9 @@ describe("OttoToolRuntime", () => {
       botId: BotId.make("parent"),
       runtimeMode: "full-access",
       workspaceType: "local",
-      sendToUser: async () => ({
+      postToChat: async () => ({
         receiptId: "tool-message",
-        toolId: "SendToUser",
+        toolId: "message_post",
         phase: "failure",
         threadId: ThreadId.make("thread-1"),
         botId: BotId.make("parent"),

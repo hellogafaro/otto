@@ -31,9 +31,9 @@ export function createOttoDelegationDelivery(
   commandId: (label: string) => CommandId,
   dispatch: (command: OrchestrationCommand) => Promise<void>,
 ) {
-  const sendToUser = async (
+  const postToChat = async (
     parent: OttoDelegationParent,
-    request: (typeof OttoToolInputSchemas.SendToUser)["Type"],
+    request: (typeof OttoToolInputSchemas.message_post)["Type"],
   ): Promise<OttoToolReceipt> => {
     const snapshot = await options.readSnapshot();
     const sourceThread = snapshot.threads.find((thread) => thread.id === parent.threadId);
@@ -59,7 +59,7 @@ export function createOttoDelegationDelivery(
       commandId: commandId("message"),
       threadId: parent.threadId,
       messageId,
-      delta: request.message,
+      delta: request.text,
       turnId: parent.turnId,
       createdAt,
     });
@@ -74,11 +74,11 @@ export function createOttoDelegationDelivery(
 
     return {
       receiptId: `message:${messageId}`,
-      toolId: "SendToUser",
+      toolId: "message_post",
       phase: "success",
       threadId: parent.threadId,
       botId: parent.botId,
-      summary: "Message sent to the user.",
+      summary: `Posted message ${messageId}.`,
       fatalToThread: false,
       createdAt,
     };
@@ -193,5 +193,5 @@ export function createOttoDelegationDelivery(
     }
   };
 
-  return { sendToUser, deliver, groupResultSkipReason, postGroupResult };
+  return { postToChat, deliver, groupResultSkipReason, postGroupResult };
 }

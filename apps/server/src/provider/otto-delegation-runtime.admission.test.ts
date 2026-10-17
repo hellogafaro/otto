@@ -47,7 +47,7 @@ describe("OttoDelegationRuntime", () => {
     );
 
     await expect(
-      test.runtime.sendToUser(parent({ botId: OTHER_BOT_ID }), { message: "Wrong thread." }),
+      test.runtime.postToChat(parent({ botId: OTHER_BOT_ID }), { text: "Wrong thread." }),
     ).rejects.toThrow("not authorized");
   });
 

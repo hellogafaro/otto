@@ -8,7 +8,7 @@ export const OttoToolId = Schema.Literals([
   "MessageAgent",
   "StopAgent",
   "SendToAgent",
-  "SendToUser",
+  "message_post",
   "SearchPlugins",
   "GetPlugin",
   "ReactToMessage",
@@ -147,9 +147,14 @@ export const OTTO_TOOL_CATALOG = [
       promptSnippet: "hand work to another bot",
     },
   ),
-  define("SendToUser", "bot-workspace", "Send a message into the current Otto thread.", {
-    approval: "send",
-  }),
+  define(
+    "message_post",
+    "bot-workspace",
+    "Post a message where you were asked: the chat, or the task's activity when a task woke you. " +
+      "Use it for the reply, a progress update or a question people should see; your final text stays private, " +
+      "and if you post nothing it is posted for you. Returns the message id.",
+    { promptSnippet: "post a reply, update or question where you were asked" },
+  ),
   define(
     "SearchPlugins",
     "bot-workspace",

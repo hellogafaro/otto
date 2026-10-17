@@ -1,10 +1,18 @@
 import type { AgentControllerEvent } from "@mastra/core/agent-controller";
-import { ProviderDriverKind, type ProviderRuntimeEvent } from "@otto/contracts";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import {
+  BotId,
+  DelegationId,
+  ProviderDriverKind,
+  ThreadId,
+  type ProviderRuntimeEvent,
+} from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
-import { assert, describe } from "vite-plus/test";
+import { assert, describe, vi } from "vite-plus/test";
 
 import { AgentController } from "../services/agent-controller.ts";
 import {
@@ -15,6 +23,7 @@ import {
 import { assistantMessage, mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
 import {
   makeBridge,
+  makeLayer,
   provideController,
   resolveCodex,
 } from "./test-support/agent-controller-layers.ts";
@@ -121,5 +130,93 @@ describe("AgentControllerLive stream retry", () => {
       bridge.service,
       mastra.factory,
     );
+  });
+
+  it.effect("keeps the rest of the turn's text private after message_post", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    const postToChat = vi.fn(async () => ({
+      receiptId: "message:posted",
+      toolId: "message_post",
+      phase: "success" as const,
+      threadId: codexThreadId,
+      fatalToThread: false as const,
+      createdAt: "2026-10-17T00:00:00.000Z",
+    }));
+
+    const layer = makeLayer(
+      bridge.service,
+      mastra.factory,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        send: vi.fn(async () => ({
+          delegationId: DelegationId.make("delegation-child"),
+          childThreadId: ThreadId.make("thread-child"),
+          childBotId: BotId.make("bot-child"),
+          name: "Child",
+          phase: "running" as const,
+        })),
+        postToChat,
+        parentFinished: vi.fn(async () => undefined),
+        accessForThread: () => undefined,
+      },
+    );
+
+    return Effect.gen(function* () {
+      const controller = yield* AgentController;
+      yield* resolveCodex(controller);
+
+      yield* controller.startSession(codexThreadId, {
+        threadId: codexThreadId,
+        provider: ProviderDriverKind.make("codex"),
+        providerInstanceId: codexInstanceId,
+        cwd: process.cwd(),
+        botId: BotId.make("bot-poster"),
+        modelSelection: codexSelection,
+        runtimeMode: "full-access",
+      });
+
+      const events: ProviderRuntimeEvent[] = [];
+
+      const eventsFiber = yield* controller.streamEvents.pipe(
+        Stream.runForEach((event) => Effect.sync(() => events.push(event))),
+        Effect.forkChild({ startImmediately: true }),
+      );
+
+      yield* Effect.yieldNow;
+      yield* controller.sendTurn({ threadId: codexThreadId, input: "Post the summary." });
+
+      const runtime = mastra.harnessOptions[0]?.toolRuntime;
+      assert.isDefined(runtime);
+      yield* Effect.promise(() =>
+        runtime.execute({
+          threadId: String(codexThreadId),
+          toolId: "message_post",
+          toolCallId: "tool-post",
+          input: { text: "Here is the summary." },
+          approvalMode: "require-grant",
+        }),
+      );
+
+      const final = assistantMessage("Posted the summary.");
+      mastra.emitMessage(final);
+      mastra.emitMessage(final, { end: true });
+      mastra.emit({ type: "agent_end", reason: "complete" } as AgentControllerEvent);
+      mastra.finishSend();
+      yield* Effect.yieldNow;
+      yield* Effect.yieldNow;
+      yield* Fiber.interrupt(eventsFiber);
+
+      assert.deepEqual(postToChat.mock.calls.at(0)?.at(1), { text: "Here is the summary." });
+      assert.deepEqual(
+        events.filter((event) => event.type === "content.delta"),
+        [],
+      );
+      assert.isTrue(events.some((event) => event.type === "turn.completed"));
+    }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });
 });

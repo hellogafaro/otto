@@ -172,6 +172,7 @@ export function createTurnLifecycle(deps: {
       reasoningTokens: 0,
       memoryQueued: false,
       assistantText: "",
+      posted: false,
     };
     active.status = "running";
     deps.publish({

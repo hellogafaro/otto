@@ -39,21 +39,17 @@ export function BotApprovalPrompt({
     approval.args && Predicate.isObject(approval.args) && "command" in approval.args;
 
   const heading =
-    approval.toolName === "SendToUser"
-      ? t("Send this message?")
-      : approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
-        ? t("Review routine")
-        : approval.toolName === "Computer Use"
-          ? t("Use the computer?")
-          : approval.requestKind === "command" && approval.toolName && !toolCommand
-            ? t("Allow {tool}?", { tool: approval.toolName })
-            : approval.requestKind === "command"
-              ? t("Run this command?")
-              : approval.requestKind === "file-read"
-                ? t("Read this file?")
-                : approval.requestKind === "file-change"
-                  ? t("Change this file?")
-                  : t("Allow app access?");
+    approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
+      ? t("Review routine")
+      : approval.requestKind === "command" && approval.toolName && !toolCommand
+        ? t("Allow {tool}?", { tool: approval.toolName })
+        : approval.requestKind === "command"
+          ? t("Run this command?")
+          : approval.requestKind === "file-read"
+            ? t("Read this file?")
+            : approval.requestKind === "file-change"
+              ? t("Change this file?")
+              : t("Allow app access?");
 
   return (
     <section

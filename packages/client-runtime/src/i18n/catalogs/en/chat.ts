@@ -228,7 +228,6 @@ export const chatCatalog = {
   "Reply to message": "Reply to message",
   "Retry readout": "Retry readout",
   "Run this command?": "Run this command?",
-  "Send this message?": "Send this message?",
   "Allow {tool}?": "Allow {tool}?",
   "Running a command": "Running a command",
   "Runs once": "Runs once",

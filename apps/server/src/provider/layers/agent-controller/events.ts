@@ -212,6 +212,13 @@ export function createEvents(deps: {
 
     if (text.length === 0) return;
 
+    if (turn.posted) {
+      turn.assistantText += text;
+      message.publishedText = message.text;
+
+      return;
+    }
+
     const itemId = RuntimeItemId.make(
       `mastra-answer-${message.messageId}${message.revision === 0 ? "" : `-${message.revision}`}`,
     );

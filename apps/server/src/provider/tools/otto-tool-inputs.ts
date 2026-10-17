@@ -52,7 +52,7 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "SendToAgent":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "SendToUser":
+    case "message_post":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "SearchPlugins":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };

@@ -336,13 +336,13 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       ...(delegatedAccess && botId ? { billedBotId: botId } : {}),
       ...(deps.wired().delegationRuntime && botId
         ? {
-            sendToUser: async (request) => {
+            postToChat: async (request) => {
               const active = deps.sessions.get(key);
               const turnId = active?.activeTurn?.turnId;
 
-              if (!turnId) throw new Error("User messaging requires an active turn.");
+              if (!turnId) throw new Error("Posting a message requires an active turn.");
 
-              return deps.wired().delegationRuntime!.sendToUser(
+              const receipt = await deps.wired().delegationRuntime!.postToChat(
                 {
                   threadId,
                   turnId,
@@ -354,6 +354,12 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                 },
                 request,
               );
+
+              if (receipt.phase === "success" && active?.activeTurn?.turnId === turnId) {
+                active.activeTurn.posted = true;
+              }
+
+              return receipt;
             },
             delegation: deps.delegationFor({
               threadId,

@@ -52,7 +52,7 @@ const TOOL_LABELS = {
   MessageAgent: "Messaging a helper",
   SendToAgent: "Messaging a helper",
   StopAgent: "Stopping a helper",
-  SendToUser: "Sending a message",
+  message_post: "Sending a message",
   ReactToMessage: "Reacting",
   SearchPlugins: "Searching plugins",
   GetPlugin: "Looking at a plugin",

@@ -34,7 +34,7 @@ export interface AgentControllerLiveOptions {
   readonly revokeMcpCredential?: typeof McpSessionRegistry.revokeActiveMcpThread;
   readonly delegationRuntime?: Pick<
     OttoDelegationRuntime,
-    "send" | "sendToUser" | "parentFinished" | "accessForThread"
+    "send" | "postToChat" | "parentFinished" | "accessForThread"
   > &
     Partial<Pick<OttoDelegationRuntime, "create" | "check" | "stop" | "dispatchDelegation">>;
   readonly readAttachment?: (path: string) => Promise<Uint8Array>;

@@ -176,8 +176,8 @@ export const OttoToolInputSchemas = {
   MessageAgent: AgentMessageInput,
   StopAgent: Schema.Struct({ botId: BotId }),
   SendToAgent: AgentMessageInput,
-  SendToUser: Schema.Struct({
-    message: TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_COMMAND_MAX_CHARS)),
+  message_post: Schema.Struct({
+    text: TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_COMMAND_MAX_CHARS)),
   }),
   SearchPlugins: Schema.Struct({
     query: Schema.optional(TrimmedNonEmptyString),
