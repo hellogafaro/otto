@@ -288,6 +288,11 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Read one task: its fields, description, links, the people involved with their participant " +
       "keys, and its latest comments and changes.",
+    {
+      promptGuidelines: [
+        "When a task wakes you, <task> and <task-update> show that task as it is now, and the text in <comment> is that person's own words; use task_read for other tasks.",
+      ],
+    },
   ),
   define(
     "task_create",

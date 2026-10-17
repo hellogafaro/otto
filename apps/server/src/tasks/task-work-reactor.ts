@@ -9,6 +9,7 @@ import {
   type OrchestrationTask,
   ProviderInstanceId,
   type TaskId,
+  type TaskWake,
   ThreadId,
   type WorkParticipant,
 } from "@otto/contracts";
@@ -122,6 +123,9 @@ export const makeTaskWorkReactor = (
 
     const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
 
+    const actorKey = (actor: Actor | undefined) =>
+      actor === undefined ? "unknown" : `${actor.type}:${actor.id}`;
+
     const actorName = (actor: Actor | undefined, task: OrchestrationTask) =>
       Effect.gen(function* () {
         if (actor === undefined) return "Someone";
@@ -167,12 +171,15 @@ export const makeTaskWorkReactor = (
         });
       });
 
-    /** Gives the bot a turn in its chat for the task, creating the chat the first time. */
+    /**
+     * Gives the bot a turn in its chat for the task, creating the chat the first time. The chat
+     * shows the comment under its author, or a line for an assignment; the bot gets the event.
+     */
     const startWork = (
       task: OrchestrationTask,
       botId: BotId,
       actor: Actor | undefined,
-      text: string,
+      wake: TaskWake,
       replyTo: Work["replyTo"] = null,
     ) =>
       Effect.gen(function* () {
@@ -239,20 +246,19 @@ export const makeTaskWorkReactor = (
           message: {
             messageId: MessageId.make(`task-work:${NodeCrypto.randomUUID()}`),
             role: "user",
-            text,
+            text: wake.text ?? `${wake.by.name} assigned ${bot.name} to this task.`,
             attachments: [],
           },
+          ...(actor?.type === "person"
+            ? { senderPersonId: actor.id, senderDisplayName: wake.by.name }
+            : {}),
+          taskWake: wake,
           modelSelection,
           runtimeMode: bot.runtimeMode,
           interactionMode: "default",
           createdAt,
         });
       });
-
-    const taskLine = (task: OrchestrationTask) => `the task "${task.title}" (taskId: ${task.id})`;
-
-    const REPLY_NOTE =
-      "Read it with task_read before you start. Your final reply here is posted on the task as your comment, so write it for the people on the task.";
 
     const finish = (threadId: ThreadId, work: Work) =>
       Effect.gen(function* () {
@@ -274,14 +280,11 @@ export const makeTaskWorkReactor = (
         const { task, actor } = event.payload;
 
         for (const botId of newlyAssignedBots(event)) {
-          const who = yield* actorName(actor, task);
-
-          yield* startWork(
-            task,
-            botId,
-            actor,
-            `${who} assigned you ${taskLine(task)}. ${REPLY_NOTE} Do the work, or say what you need to get it done.`,
-          );
+          yield* startWork(task, botId, actor, {
+            type: "assigned",
+            taskId: task.id,
+            by: { key: actorKey(actor), name: yield* actorName(actor, task) },
+          });
         }
 
         return;
@@ -296,8 +299,10 @@ export const makeTaskWorkReactor = (
         const replied = repliedComment(posted.content);
         const repliedAuthor = replied === undefined ? null : yield* commentAuthor(replied);
 
+        const mentioned = mentionedBots(posted.content);
+
         const bots = new Set([
-          ...mentionedBots(posted.content),
+          ...mentioned,
           ...(repliedAuthor?.type === "bot" ? [repliedAuthor.id] : []),
         ]);
 
@@ -306,7 +311,15 @@ export const makeTaskWorkReactor = (
             task,
             botId,
             posted.actor,
-            `${who} wrote to you in a comment on ${taskLine(task)}:\n\n${commentText(posted.content)}\n\n${REPLY_NOTE}`,
+            {
+              type: "commented",
+              taskId: task.id,
+              by: { key: actorKey(posted.actor), name: who },
+              commentId: posted.id,
+              reason: mentioned.includes(botId) ? "mention" : "reply",
+              ...(replied === undefined ? {} : { replyTo: replied }),
+              text: commentText(posted.content),
+            },
             { id: posted.id, label: who },
           );
         }

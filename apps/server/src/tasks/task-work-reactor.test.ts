@@ -168,9 +168,18 @@ describe("TaskWorkReactor", () => {
           { threadId: chat, botId: NOVA, projectId: task.projectId, createdBy: ADA },
         ]);
 
-        expect(ofType(dispatched, "thread.turn.start")[0]?.message.text).toContain(
-          `Ada assigned you the task "Draft the launch post" (taskId: ${task.id})`,
-        );
+        expect(ofType(dispatched, "thread.turn.start")).toMatchObject([
+          {
+            message: { text: `Ada assigned ${NOVA} to this task.` },
+            senderPersonId: ADA,
+            senderDisplayName: "Ada",
+            taskWake: {
+              type: "assigned",
+              taskId: task.id,
+              by: { key: `person:${ADA}`, name: "Ada" },
+            },
+          },
+        ]);
 
         yield* session("running");
         yield* reply("I'll read the task first.");
@@ -214,13 +223,20 @@ describe("TaskWorkReactor", () => {
 
         yield* comment({ type: "person", id: ADA });
 
-        expect(ofType(dispatched, "thread.turn.start")[0]?.message.text).toContain(
-          'Ada wrote to you in a comment on the task "Draft the launch post"',
-        );
-
-        expect(ofType(dispatched, "thread.turn.start")[0]?.message.text).toContain(
-          "Can you check this, @Nova?",
-        );
+        expect(ofType(dispatched, "thread.turn.start")).toMatchObject([
+          {
+            message: { text: "Can you check this, @Nova?" },
+            senderPersonId: ADA,
+            taskWake: {
+              type: "commented",
+              taskId: task.id,
+              by: { key: `person:${ADA}`, name: "Ada" },
+              commentId: "comment-1",
+              reason: "mention",
+              text: "Can you check this, @Nova?",
+            },
+          },
+        ]);
       }),
     ),
   );
@@ -241,7 +257,9 @@ describe("TaskWorkReactor", () => {
           },
         });
 
-        expect(ofType(dispatched, "thread.turn.start")).toHaveLength(1);
+        expect(ofType(dispatched, "thread.turn.start")).toMatchObject([
+          { taskWake: { reason: "reply", replyTo: "comment-by-nova", text: "@Nova try again" } },
+        ]);
 
         yield* session("running");
         yield* reply("Done.");
