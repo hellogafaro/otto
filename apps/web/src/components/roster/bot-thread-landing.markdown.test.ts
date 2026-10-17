@@ -78,15 +78,15 @@ describe("BotThreadLanding message formatting", () => {
     expect(groupSource).not.toContain("justify-end gap-4");
   });
 
-  it("renders the shared approval card in bot and group threads", () => {
+  it("renders approvals inline in bot and group threads, never locking the composer", () => {
     const sources = ["bot-thread-landing.tsx", "group-thread-landing.tsx"].map((file) =>
       NodeFS.readFileSync(new URL(`./${file}`, import.meta.url), "utf8"),
     );
 
     for (const source of sources) {
-      expect(source).toContain("<BotApprovalPrompt");
-      expect(source).toContain("useRosterPendingApproval(runtime.linkedThreadRef)");
-      expect(source).toContain("pendingApproval !== null ||");
+      expect(source).toContain("<InlineApproval");
+      expect(source).toContain("useRosterApprovals(runtime.linkedThreadRef)");
+      expect(source).not.toContain("pendingApproval");
     }
   });
 

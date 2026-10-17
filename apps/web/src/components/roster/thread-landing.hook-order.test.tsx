@@ -184,8 +184,13 @@ vi.mock("./use-bot-thread-runtime", () => ({
   }),
 }));
 
-vi.mock("./use-roster-pending-approval", () => ({
-  useRosterPendingApproval: () => ({ pendingApproval: null }),
+vi.mock("./use-roster-approvals", () => ({
+  useRosterApprovals: () => ({
+    approvals: [],
+    pending: [],
+    respond: vi.fn(),
+    responseFor: () => ({ responding: false, error: null }),
+  }),
 }));
 
 vi.mock("./use-group-thread-runtime", () => ({

@@ -19,10 +19,10 @@ describe("ComposerPendingApprovalActions", () => {
     expect(markup).not.toContain(">Always allow<");
     expect(markup).toContain("h-7");
     expect(markup).not.toContain("sm:h-");
-    expect(markup).toContain("bg-foreground text-background");
+    // The questionnaire's footer buttons: the allowing choice is its sky Send button.
+    expect(markup).toContain("bg-(--primary-button-background)");
     expect(markup).toContain("text-muted-foreground");
-    expect(markup).not.toContain("bg-primary");
-    expect(markup).not.toContain("border-input");
+    expect(markup).not.toContain("bg-foreground text-background");
   });
 
   it("shows only the approval choices advertised by an MCP server", () => {
@@ -136,8 +136,8 @@ describe("ComposerPendingApprovalActions", () => {
 
     expect(markup).toContain("Create routine");
     expect(markup).toContain(">Don&#x27;t create<");
-    expect(markup).toContain("bg-foreground");
-    expect(markup).not.toContain("bg-primary");
+    expect(markup.indexOf("Don&#x27;t create")).toBeLessThan(markup.indexOf("Create routine"));
+    expect(markup).toContain("bg-(--primary-button-background)");
     expect(markup).not.toContain("text-destructive-foreground");
     expect(markup).not.toContain("Enable Auto Review");
     expect(markup).not.toContain("Allow once");

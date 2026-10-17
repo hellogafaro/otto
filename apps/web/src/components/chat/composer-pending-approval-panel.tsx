@@ -360,6 +360,77 @@ function SkillProposal({
   );
 }
 
+/** The brief a bot hands another bot: the goal, what done looks like and any context. */
+export function delegateProposalDetails(args: PendingApproval["args"]) {
+  const record = Predicate.isObject(args) ? args : {};
+
+  const text = (key: string) =>
+    key in record && Predicate.isString(record[key]) ? record[key].trim() : "";
+
+  return {
+    botId: text("botId"),
+    task: text("task"),
+    expectedResult: text("expectedResult"),
+    context: text("context"),
+  };
+}
+
+function DelegateProposal({
+  args,
+  className,
+  label,
+}: {
+  args: PendingApproval["args"];
+  className: string | undefined;
+  label: string;
+}) {
+  const { t } = useI18n();
+  const details = delegateProposalDetails(args);
+
+  return (
+    <div
+      aria-label={label}
+      className={cn("flex min-w-0 flex-1 flex-col gap-2.5", className)}
+      data-testid="delegate-proposal"
+      role="group"
+    >
+      {details.task ? (
+        <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-5 text-foreground/90">
+          {details.task}
+        </p>
+      ) : null}
+      {details.expectedResult ? (
+        <div className="min-w-0">
+          <p className="text-11px font-medium text-muted-foreground">{t("Done when")}</p>
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-5 text-foreground/90">
+            {details.expectedResult}
+          </p>
+        </div>
+      ) : null}
+      {details.context ? (
+        <p className="min-w-0 text-11px text-muted-foreground">
+          {t("Context: {context}", { context: details.context })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** A named tool's own arguments, one "name: value" line each, instead of a generic prompt. */
+function toolArgumentLines(args: PendingApproval["args"]): string | null {
+  if (!Predicate.isObject(args)) return null;
+
+  const lines = Object.entries(args).flatMap(([key, value]) =>
+    (Predicate.isString(value) && value.trim()) ||
+    Predicate.isNumber(value) ||
+    Predicate.isBoolean(value)
+      ? [`${key}: ${String(value).trim()}`]
+      : [],
+  );
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
 export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprovalPanel({
   approval,
   pendingCount,
@@ -413,13 +484,22 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
       ? (argsCommand ?? (approval.detail?.trim() ? approval.detail : fallbackLabel))
       : null;
 
-  const detail = command ?? argsMessage ?? approval.detail ?? fallbackLabel;
+  // A named tool shows what it would do with its own arguments, never the generic
+  // "Approve this action with …" prompt the server sends with it.
+  const namedTool = approval.requestKind === "command" && approval.toolName !== undefined;
+
+  const detail =
+    command ??
+    argsMessage ??
+    (namedTool ? toolArgumentLines(approval.args) : null) ??
+    (namedTool ? null : (approval.detail ?? fallbackLabel));
+
   const details = command ? describeCommandApproval(command, approval.args) : null;
-  const firstLine = detail.split("\n", 1)[0] ?? detail;
-  const detailLineCount = detail.split("\n").length;
+  const firstLine = detail?.split("\n", 1)[0] ?? "";
+  const detailLineCount = detail?.split("\n").length ?? 0;
   // Only hide detail behind a disclosure when there is more than one screenful
   // of it. A one-line path behind "Expand" wastes a click.
-  const detailFitsInline = detailLineCount <= 4 && detail.length <= 400;
+  const detailFitsInline = detailLineCount <= 4 && (detail?.length ?? 0) <= 400;
 
   if (approval.toolName === "skill_create" || approval.toolName === "skill_update") {
     return (
@@ -431,6 +511,10 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
         pendingCount={pendingCount}
       />
     );
+  }
+
+  if (approval.toolName === "delegate") {
+    return <DelegateProposal args={approval.args} className={className} label={fallbackLabel} />;
   }
 
   if (isRoutine) {
@@ -505,7 +589,7 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
             </div>
           ) : null}
         </>
-      ) : detailFitsInline ? (
+      ) : detail === null ? null : detailFitsInline ? (
         <div className={cn("flex min-w-0 flex-col", DETAIL_SURFACE_CLASS_NAME)}>
           <code
             aria-label={detailAriaLabel}

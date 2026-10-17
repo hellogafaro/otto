@@ -18,11 +18,6 @@ const buttonPresentations = {
     "gap-1 rounded-(--control-radius) px-2 text-13px sm:text-13px text-foreground/90 transition-none hover:text-foreground",
   "stash-badge": "gap-1 px-1.5",
   "stash-badge-active": "gap-1 px-1.5 [--control-icon-color:currentColor] text-foreground",
-  "approval-accept":
-    "font-medium bg-foreground text-background [:active,[data-pressed]]:bg-foreground/80 [:hover,[data-pressed]]:bg-foreground/90",
-  "approval-always":
-    "font-medium border-border bg-muted/40 text-foreground [:hover,[data-pressed]]:bg-muted/70",
-  "approval-other": "font-medium text-muted-foreground [:hover,[data-pressed]]:text-foreground",
   "image-nav": "text-on-solid/90 hover:bg-on-solid/10 hover:text-on-solid",
   // Otto: Reaction emoji sit in the message toolbar's 24px buttons at body size.
   "reaction-emoji": "text-base sm:text-base font-emoji",

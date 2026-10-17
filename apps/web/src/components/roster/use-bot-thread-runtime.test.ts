@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { reactHookHarness as hooks } from "../../test/react-hook-harness";
 import { useBotThreadRuntime } from "./use-bot-thread-runtime";
-import { useRosterPendingApproval } from "./use-roster-pending-approval";
+import { useRosterApprovals } from "./use-roster-approvals";
 import type { BotConversationMessageProjection } from "./bot-conversation-message-projection";
 
 const mocks = vi.hoisted(() => ({
-  derivePendingApprovals: vi.fn(),
+  deriveApprovalRecords: vi.fn(),
   useAtomCommand: vi.fn(),
   command: vi.fn(),
   approvalCommand: Symbol("respondToApproval"),
@@ -80,7 +80,7 @@ vi.mock("../../state/threads", () => ({
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: mocks.useAtomCommand }));
 
 vi.mock("../../session-logic", () => ({
-  derivePendingApprovals: mocks.derivePendingApprovals,
+  deriveApprovalRecords: mocks.deriveApprovalRecords,
   derivePendingUserInputs: () => [],
 }));
 
@@ -108,7 +108,7 @@ beforeEach(() => {
     hasMessages: false,
     lastUserMessageAt: null,
   };
-  mocks.derivePendingApprovals.mockReturnValue([]);
+  mocks.deriveApprovalRecords.mockReturnValue([]);
   mocks.useAtomCommand.mockReturnValue(mocks.command);
   mocks.command.mockResolvedValue({ _tag: "Success", value: undefined });
 });
@@ -117,7 +117,7 @@ describe("bot runtime approval ownership", () => {
   it("does not derive approvals or acquire an unused approval command", () => {
     hooks.beginRender();
     const runtime = useBotThreadRuntime("bot-1", null, null);
-    expect(mocks.derivePendingApprovals).not.toHaveBeenCalled();
+    expect(mocks.deriveApprovalRecords).not.toHaveBeenCalled();
     expect(
       mocks.useAtomCommand.mock.calls.filter(([command]) => command === mocks.approvalCommand),
     ).toHaveLength(0);
@@ -134,17 +134,22 @@ describe("bot runtime approval ownership", () => {
       threadId: ThreadId.make("thread-1"),
     };
 
-    mocks.derivePendingApprovals.mockReturnValue([
-      { requestId, requestKind: "command", createdAt: "2026-08-27T00:00:00.000Z" },
+    mocks.deriveApprovalRecords.mockReturnValue([
+      {
+        requestId,
+        requestKind: "command",
+        createdAt: "2026-08-27T00:00:00.000Z",
+        resolution: null,
+      },
     ]);
     hooks.beginRender();
     useBotThreadRuntime("bot-1", null, null);
-    const approval = useRosterPendingApproval(threadRef);
-    expect(mocks.derivePendingApprovals).toHaveBeenCalledTimes(1);
+    const approval = useRosterApprovals(threadRef);
+    expect(mocks.deriveApprovalRecords).toHaveBeenCalledTimes(1);
     expect(
       mocks.useAtomCommand.mock.calls.filter(([command]) => command === mocks.approvalCommand),
     ).toHaveLength(1);
-    expect(approval.pendingApproval?.requestId).toBe(requestId);
+    expect(approval.pending[0]?.requestId).toBe(requestId);
     expect(await approval.respond(requestId, "accept")).toBe(true);
     expect(mocks.command).toHaveBeenCalledWith({
       environmentId: threadRef.environmentId,

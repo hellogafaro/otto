@@ -1,6 +1,8 @@
 import {
+  deriveApprovalRecords,
   derivePendingApprovals,
   derivePendingUserInputs,
+  type ApprovalRecord,
   type PendingApproval,
   type PendingUserInput,
 } from "@otto/client-runtime/pending-requests";
@@ -48,9 +50,9 @@ export const PROVIDER_OPTIONS: Array<{
   },
 ];
 
-export type { PendingApproval, PendingUserInput };
+export type { ApprovalRecord, PendingApproval, PendingUserInput };
 
-export { derivePendingApprovals, derivePendingUserInputs };
+export { deriveApprovalRecords, derivePendingApprovals, derivePendingUserInputs };
 
 export { formatDuration, formatElapsed } from "@otto/shared/orchestrationTiming";
 

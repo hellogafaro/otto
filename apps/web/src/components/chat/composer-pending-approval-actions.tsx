@@ -36,8 +36,8 @@ function defaultApprovalOptions(t: Translate): ReadonlyArray<ProviderApprovalOpt
 
 function routineApprovalOptions(t: Translate): ReadonlyArray<ProviderApprovalOption> {
   return [
-    { decision: "accept", label: t("Create routine") },
     { decision: "decline", label: t("Don't create") },
+    { decision: "accept", label: t("Create routine") },
   ];
 }
 
@@ -88,27 +88,18 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
 
   return (
     <>
-      {visibleOptions.map((option) => {
+      {visibleOptions.map((option, index) => {
         const isAutoReview = requestKind === "command" && option.decision === "acceptAlways";
+        const allows = option.decision.startsWith("accept");
 
         return (
           <Button
             key={option.decision}
             size="sm"
-            variant={
-              option.decision === "accept"
-                ? "default"
-                : option.decision === "acceptAlways" || option.decision === "acceptForSession"
-                  ? "outline"
-                  : "ghost-muted"
-            }
-            presentation={
-              option.decision === "accept"
-                ? "approval-accept"
-                : option.decision === "acceptAlways" || option.decision === "acceptForSession"
-                  ? "approval-always"
-                  : "approval-other"
-            }
+            // Like the questionnaire's footer: the way out on the left as Back sits, the
+            // allowing choice last as Send.
+            variant={option.decision === "accept" ? "primary" : allows ? "outline" : "ghost-muted"}
+            className={index === 0 && !allows ? "me-auto" : undefined}
             disabled={isResponding}
             onClick={() => void onRespondToApproval(requestId, option.decision)}
             {...(isAutoReview

@@ -21,7 +21,6 @@ import { WorkspaceHeaderTitle, WorkspacePageHeader } from "../workspace-page-hea
 import { threadSilentRun } from "@otto/client-runtime/silent-run";
 import { BotActivityStatus, useActivitySubjectName } from "./bot-activity-status";
 import { deriveBotActivity } from "./bot-activity-status.logic";
-import { BotApprovalPrompt } from "./bot-approval-prompt";
 import { MemoryApprovalPrompt } from "./memory-approval-prompt";
 import { BotInboxAlerts } from "./bot-inbox-alerts";
 import { ChatReplyContext } from "../markdown/generative/chat-reply-context";
@@ -70,7 +69,10 @@ import { useBotThreadRuntime } from "./use-bot-thread-runtime";
 import { buildBotTurnTraces } from "./bot-turn-trace.logic";
 import { resolveBotPresence } from "./roster.logic";
 import { useLocalDay } from "./use-local-day";
-import { useRosterPendingApproval } from "./use-roster-pending-approval";
+import { useRosterApprovals } from "./use-roster-approvals";
+import { InlineApproval } from "./inline-approval";
+import { withInlineApprovals } from "./inline-approvals.logic";
+import { delegateProposalDetails } from "../chat/composer-pending-approval-panel";
 import { useRosterLoadState } from "./use-server-roster";
 import { RosterLoadStatus } from "./roster-load-status";
 import { deriveWorkLogEntries, pluginSearchResultForWorkEntry } from "../../session-logic";
@@ -182,7 +184,7 @@ export function BotThreadLanding({
     subscriptionToConnect !== null &&
     providerConnectStep(subscriptionStatuses.get(subscriptionToConnect)) !== null;
 
-  const approvalState = useRosterPendingApproval(runtime.linkedThreadRef);
+  const approvalState = useRosterApprovals(runtime.linkedThreadRef);
   const activities = useThreadActivities(runtime.linkedThreadRef);
   const memoryApprovals = useMemo(() => pendingMemoryApprovals(activities), [activities]);
   const stepMeters = useMemo(() => buildBotStepMeters(activities), [activities]);
@@ -353,7 +355,16 @@ export function BotThreadLanding({
     ([turnId]) => !assistantTurnIds.has(turnId),
   );
 
-  const pendingApproval = approvalState.pendingApproval;
+  const waitingForApproval = approvalState.pending.length > 0;
+
+  const transcriptRows = withInlineApprovals(timelineItems, approvalState.approvals, (item) =>
+    Predicate.isTagged(item, "Message")
+      ? item.message.createdAt
+      : Predicate.isTagged(item, "Receipt")
+        ? item.receipt.createdAt
+        : null,
+  );
+
   const inboxItems = selectOpenBotInboxItems(inboxQuery.data?.inbox ?? [], new Set([bot.id]));
 
   const activeBot = (id: string) =>
@@ -405,7 +416,7 @@ export function BotThreadLanding({
       runtime.sending ||
       runtime.latestTurn?.state === "running" ||
       runtime.pendingUserInputs.length > 0 ||
-      pendingApproval !== null ||
+      waitingForApproval ||
       sendBlocked ||
       !runtime.botReady,
     send: (text: string) => runtime.send(text, []),
@@ -467,15 +478,28 @@ export function BotThreadLanding({
                       : t("Load older routine notes")}
                 </button>
               ) : null}
-              {timelineItems.length === 0 ? (
+              {transcriptRows.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12">
                   <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-14" />
                   <h1 className="text-lg font-medium">{t("Message {name}", { name: bot.name })}</h1>
                 </div>
               ) : (
-                timelineItems.map((item, timelineIndex) => (
+                transcriptRows.map((item, timelineIndex) => (
                   <Fragment key={item.key}>
-                    {Predicate.isTagged(item, "Receipt") ? (
+                    {Predicate.isTagged(item, "Approval") ? (
+                      <InlineApproval
+                        approval={item.approval}
+                        bot={bot}
+                        delegateTo={
+                          item.approval.toolName === "delegate"
+                            ? (activeBot(delegateProposalDetails(item.approval.args).botId)?.name ??
+                              null)
+                            : null
+                        }
+                        response={approvalState.responseFor(item.approval.requestId)}
+                        onRespond={approvalState.respond}
+                      />
+                    ) : Predicate.isTagged(item, "Receipt") ? (
                       <RoutineReceiptRow receipt={item.receipt} />
                     ) : Predicate.isTagged(item, "Delegation") ? (
                       <DelegationCard
@@ -489,7 +513,7 @@ export function BotThreadLanding({
                         const { message, separator, startsGroup } = item.message.entry;
 
                         const startsAfterReceipt = Predicate.isTagged(
-                          timelineItems[timelineIndex - 1] ?? {},
+                          transcriptRows[timelineIndex - 1] ?? {},
                           "Receipt",
                         );
 
@@ -599,7 +623,7 @@ export function BotThreadLanding({
                   </div>
                 </div>
               ) : null}
-              {working && !waitingForUserInput && pendingApproval === null ? (
+              {working && !waitingForUserInput && !waitingForApproval ? (
                 <BotActivityStatus
                   bot={bot}
                   activity={botActivity}
@@ -652,28 +676,16 @@ export function BotThreadLanding({
               commandCatalog={engineCatalog}
               botName={bot.name}
               draftKey={bot.id}
-              busy={working && pendingApproval === null}
+              busy={working && !waitingForApproval}
               pendingActionSlot={
-                pendingApproval ? (
-                  <BotApprovalPrompt
-                    approval={pendingApproval}
-                    pendingCount={approvalState.pendingCount}
-                    responding={approvalState.responding}
-                    error={approvalState.responseError}
-                    onRespond={(decision) =>
-                      approvalState.respond(pendingApproval.requestId, decision)
-                    }
-                  />
-                ) : memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
+                memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
                   <MemoryApprovalPrompt
                     threadRef={runtime.linkedThreadRef}
                     approvals={memoryApprovals}
                   />
                 ) : null
               }
-              quietSurface={pendingApproval !== null}
               disabled={
-                pendingApproval !== null ||
                 runtime.respondingRequestIds.length > 0 ||
                 voiceCall.activeCall?.botId === bot.id ||
                 voiceCall.startingBotId === bot.id ||

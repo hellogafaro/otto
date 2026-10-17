@@ -3,7 +3,7 @@ import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import type { ApprovalRequestId, ProviderApprovalDecision, ScopedThreadRef } from "@otto/contracts";
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { derivePendingApprovals } from "../../session-logic";
+import { deriveApprovalRecords } from "../../session-logic";
 import { useThreadActivities } from "../../state/entities";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -15,9 +15,17 @@ export function rosterApprovalResponseKey(
   return JSON.stringify([threadRef.environmentId, threadRef.threadId, requestId]);
 }
 
-export function useRosterPendingApproval(threadRef: ScopedThreadRef | null) {
+const IDLE = { responding: false, error: null } as const;
+
+/**
+ * Every approval the chat asked for, each answered on its own: answered ones keep their
+ * resolution so the transcript shows them in place, and a response in flight or a failed one
+ * belongs to its own request only.
+ */
+export function useRosterApprovals(threadRef: ScopedThreadRef | null) {
   const activities = useThreadActivities(threadRef);
-  const pendingApprovals = useMemo(() => derivePendingApprovals(activities), [activities]);
+  const approvals = useMemo(() => deriveApprovalRecords(activities), [activities]);
+  const pending = useMemo(() => approvals.filter((approval) => !approval.resolution), [approvals]);
 
   const respondToApproval = useAtomCommand(threadEnvironment.respondToApproval, {
     reportFailure: false,
@@ -70,18 +78,9 @@ export function useRosterPendingApproval(threadRef: ScopedThreadRef | null) {
     [respondToApproval, threadRef],
   );
 
-  const pendingApproval = pendingApprovals[0] ?? null;
+  const responseFor = (requestId: ApprovalRequestId) =>
+    (threadRef ? responses.get(rosterApprovalResponseKey(threadRef, requestId)) : undefined) ??
+    IDLE;
 
-  const response =
-    threadRef && pendingApproval
-      ? responses.get(rosterApprovalResponseKey(threadRef, pendingApproval.requestId))
-      : undefined;
-
-  return {
-    pendingApproval,
-    pendingCount: pendingApprovals.length,
-    respond,
-    responding: response?.responding ?? false,
-    responseError: response?.error ?? null,
-  };
+  return { approvals, pending, respond, responseFor };
 }

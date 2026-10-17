@@ -20,7 +20,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { reactHookHarness as hooks } from "../../test/react-hook-harness";
 import { visitElements } from "../test-support/react-tree";
 import type { Bot, Group } from "./types";
-import type { PendingApproval, PendingUserInput } from "../../session-logic";
+import type { ApprovalRecord, PendingUserInput } from "../../session-logic";
 
 const mocks = vi.hoisted(() => ({
   providersAtom: Symbol("providers"),
@@ -34,7 +34,8 @@ const mocks = vi.hoisted(() => ({
   groupMessages: [] as OrchestrationMessage[],
   pendingUserInputs: [] as PendingUserInput[],
   groupPendingUserInputs: [] as PendingUserInput[],
-  pendingApproval: null as PendingApproval | null,
+  approvals: [] as ApprovalRecord[],
+  respond: vi.fn(),
   latestTurn: null as OrchestrationLatestTurn | null,
 }));
 
@@ -159,13 +160,12 @@ vi.mock("~/lib/reply-playback-thread", () => ({
   replyPlaybackControlProps: () => undefined,
 }));
 
-vi.mock("./use-roster-pending-approval", () => ({
-  useRosterPendingApproval: () => ({
-    pendingApproval: mocks.pendingApproval,
-    pendingCount: mocks.pendingApproval ? 1 : 0,
-    responding: false,
-    responseError: null,
-    respond: vi.fn(),
+vi.mock("./use-roster-approvals", () => ({
+  useRosterApprovals: () => ({
+    approvals: mocks.approvals,
+    pending: mocks.approvals.filter((approval) => approval.resolution === null),
+    respond: mocks.respond,
+    responseFor: () => ({ responding: false, error: null }),
   }),
 }));
 
@@ -253,6 +253,7 @@ import { ComposerPendingUserInputPanel } from "../chat/composer-pending-user-inp
 import { DelegationCard } from "./delegation-card";
 import { GroupThreadLanding } from "./group-thread-landing";
 import { BotUserInputPrompt } from "./bot-user-input-prompt";
+import { InlineApproval } from "./inline-approval";
 import { ThreadRuntimeWarningBanner } from "./thread-runtime-warning-banner";
 
 const chatRef = {
@@ -390,7 +391,8 @@ describe("thread landing delegations", () => {
     mocks.groupMessages = [];
     mocks.pendingUserInputs = [];
     mocks.groupPendingUserInputs = [];
-    mocks.pendingApproval = null;
+    mocks.approvals = [];
+    mocks.respond.mockReset();
     mocks.latestTurn = null;
     mocks.snapshot = {
       snapshotSequence: 1,
@@ -728,16 +730,19 @@ describe("thread landing delegations", () => {
       completedAt: null,
       assistantMessageId: null,
     };
-    mocks.pendingApproval = {
-      requestId: ApprovalRequestId.make("approval-1"),
-      requestKind: "command",
-      createdAt: timestamp,
-      detail: "Run the tests?",
-      options: [
-        { decision: "decline", label: "Decline" },
-        { decision: "accept", label: "Allow" },
-      ],
-    };
+    mocks.approvals = [
+      {
+        requestId: ApprovalRequestId.make("approval-1"),
+        requestKind: "command",
+        createdAt: timestamp,
+        detail: "Run the tests?",
+        options: [
+          { decision: "decline", label: "Decline" },
+          { decision: "accept", label: "Allow" },
+        ],
+        resolution: null,
+      },
+    ];
 
     hooks.beginRender();
     const tree = render();
@@ -748,7 +753,80 @@ describe("thread landing delegations", () => {
     ) as ReactElement<Parameters<typeof BotPromptComposer>[0]> | null;
 
     expect(composer?.props.busy).toBe(false);
+    // The approval waits inline in the transcript, not docked on the composer.
+    expect(composer?.props.pendingActionSlot ?? null).toBeNull();
+    expect(composer?.props.quietSurface ?? false).toBe(false);
+    expect(visitElements(tree, (element) => element.type === InlineApproval)).not.toBeNull();
     expect(visitElements(tree, (element) => element.type === BotActivityStatus)).toBeNull();
+  });
+
+  it("shows two bots' pending approvals as two cards, each named and answered on its own", () => {
+    const at = (minute: number) => `2026-09-11T12:0${minute}:00.000Z`;
+
+    const reply = (id: string, turn: string, botId: string, minute: number) =>
+      ({
+        id: MessageId.make(id),
+        role: "assistant",
+        text: id,
+        turnId: TurnId.make(turn),
+        respondingBotId: BotId.make(botId),
+        streaming: false,
+        createdAt: at(minute),
+        updatedAt: at(minute),
+      }) satisfies OrchestrationMessage;
+
+    mocks.groupMessages = [
+      { ...message("ask", "user", "turn-ask", 1) },
+      reply("otto-says", "turn-otto", parentBot.id, 2),
+      reply("mori-says", "turn-mori", childBot.id, 3),
+    ];
+
+    const approval = (id: string, turn: string, minute: number, command: string) =>
+      ({
+        requestId: ApprovalRequestId.make(id),
+        requestKind: "command",
+        createdAt: at(minute),
+        turnId: TurnId.make(turn),
+        args: { command },
+        resolution: null,
+      }) satisfies ApprovalRecord;
+
+    mocks.approvals = [
+      approval("otto-approval", "turn-otto", 4, "pnpm test"),
+      approval("mori-approval", "turn-mori", 5, "git status"),
+    ];
+
+    hooks.beginRender();
+    const tree = GroupThreadLanding({ groupId: group.id, threadRef: chatRef });
+    const cards: Array<Parameters<typeof InlineApproval>[0]> = [];
+
+    visitElements(tree, (element) => {
+      if (element.type === InlineApproval) {
+        const props: unknown = element.props;
+        cards.push(props as Parameters<typeof InlineApproval>[0]);
+      }
+
+      return false;
+    });
+
+    expect(cards.map((card) => [card.approval.requestId, card.bot?.name ?? null])).toEqual([
+      ["otto-approval", "Otto"],
+      ["mori-approval", "Mori"],
+    ]);
+
+    void cards[1]?.onRespond(ApprovalRequestId.make("mori-approval"), "decline");
+    void cards[0]?.onRespond(ApprovalRequestId.make("otto-approval"), "accept");
+    expect(mocks.respond.mock.calls).toEqual([
+      ["mori-approval", "decline"],
+      ["otto-approval", "accept"],
+    ]);
+
+    const composer = visitElements(
+      tree,
+      (element) => element.type === BotPromptComposer,
+    ) as ReactElement<Parameters<typeof BotPromptComposer>[0]> | null;
+
+    expect(composer?.props.pendingActionSlot ?? null).toBeNull();
   });
 
   it.each([

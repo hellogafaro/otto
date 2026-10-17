@@ -32,7 +32,6 @@ import { threadSilentRun } from "@otto/client-runtime/silent-run";
 import { useActivitySubjectName } from "./bot-activity-status";
 import { ChatReplyContext } from "../markdown/generative/chat-reply-context";
 import { deriveBotActivity } from "./bot-activity-status.logic";
-import { BotApprovalPrompt } from "./bot-approval-prompt";
 import { MemoryApprovalPrompt } from "./memory-approval-prompt";
 import { BotUserInputPrompt } from "./bot-user-input-prompt";
 import { BotInboxAlerts } from "./bot-inbox-alerts";
@@ -74,7 +73,10 @@ import { WatchComputerButton } from "./watch-computer-button";
 import { useBotEngineAvailability } from "./use-bot-engine-availability";
 import { buildBotTurnTraces } from "./bot-turn-trace.logic";
 import { useLocalDay } from "./use-local-day";
-import { useRosterPendingApproval } from "./use-roster-pending-approval";
+import { useRosterApprovals } from "./use-roster-approvals";
+import { InlineApproval } from "./inline-approval";
+import { approvalBotId, withInlineApprovals } from "./inline-approvals.logic";
+import { delegateProposalDetails } from "../chat/composer-pending-approval-panel";
 import { useRosterLoadState } from "./use-server-roster";
 import { useChatDetailsOpen } from "./details-panel-open";
 import { activeThreadRuntimeWarning } from "./thread-runtime-warning.logic";
@@ -219,7 +221,7 @@ export function GroupThreadLanding({
   const replyPlayback = useOptionalReplyPlayback();
   const voiceCall = useOptionalVoiceCall();
   const [replyTarget, setReplyTarget] = useState<MessageReplyTarget | null>(null);
-  const approvalState = useRosterPendingApproval(runtime.linkedThreadRef);
+  const approvalState = useRosterApprovals(runtime.linkedThreadRef);
   const activities = useThreadActivities(runtime.linkedThreadRef);
   const memoryApprovals = useMemo(() => pendingMemoryApprovals(activities), [activities]);
   const stepMeters = useMemo(() => buildBotStepMeters(activities), [activities]);
@@ -250,7 +252,7 @@ export function GroupThreadLanding({
     setReplyTarget(null);
   }, [groupId, runtime.linkedThreadRef?.environmentId, runtime.linkedThreadRef?.threadId]);
 
-  const pendingApproval = approvalState.pendingApproval;
+  const waitingForApproval = approvalState.pending.length > 0;
   const pendingUserInput = runtime.pendingUserInputs[0] ?? null;
 
   const waitingForUserInput =
@@ -345,15 +347,19 @@ export function GroupThreadLanding({
       ? threadDelegations(snapshot.delegations, runtime.linkedThreadRef.threadId)
       : { delegations: [], waitingOnChildren: false };
 
-  const timeline = botChatTimeline({
-    messages: entries.map((entry) => ({
-      id: entry.message.id,
-      turnId: entry.message.turnId,
-      createdAt: entry.message.createdAt,
-      entry,
-    })),
-    delegations,
-  });
+  const timeline = withInlineApprovals(
+    botChatTimeline({
+      messages: entries.map((entry) => ({
+        id: entry.message.id,
+        turnId: entry.message.turnId,
+        createdAt: entry.message.createdAt,
+        entry,
+      })),
+      delegations,
+    }),
+    approvalState.approvals,
+    (item) => (Predicate.isTagged(item, "Message") ? item.message.createdAt : null),
+  );
 
   const activeBotById = (id: string) =>
     bots.find((candidate) => candidate.id === id && candidate.archivedAt === null) ?? null;
@@ -363,7 +369,7 @@ export function GroupThreadLanding({
       runtime.sending ||
       runtime.latestTurn?.state === "running" ||
       runtime.pendingUserInputs.length > 0 ||
-      pendingApproval !== null ||
+      waitingForApproval ||
       !runtime.groupReady ||
       !runtime.providerAvailable,
     send: (text: string) => runtime.send(text, []),
@@ -412,6 +418,35 @@ export function GroupThreadLanding({
               </div>
             ) : (
               timeline.map((item) => {
+                if (Predicate.isTagged(item, "Approval")) {
+                  // Each bot's approval names that bot and is answered on its own.
+                  const askingBot = activeBotById(
+                    approvalBotId(
+                      item.approval,
+                      runtime.messages,
+                      item.approval.resolution ? null : runtime.respondingBotId,
+                    ) ??
+                      boss?.id ??
+                      "",
+                  );
+
+                  return (
+                    <InlineApproval
+                      key={item.key}
+                      approval={item.approval}
+                      bot={askingBot}
+                      delegateTo={
+                        item.approval.toolName === "delegate"
+                          ? (activeBotById(delegateProposalDetails(item.approval.args).botId)
+                              ?.name ?? null)
+                          : null
+                      }
+                      response={approvalState.responseFor(item.approval.requestId)}
+                      onRespond={approvalState.respond}
+                    />
+                  );
+                }
+
                 if (Predicate.isTagged(item, "Delegation")) {
                   return (
                     <DelegationCard
@@ -512,7 +547,7 @@ export function GroupThreadLanding({
               subjectName={activitySubjectName}
               silentRun={silentRun}
               working={working}
-              showCurrent={!waitingForUserInput && pendingApproval === null}
+              showCurrent={!waitingForUserInput && !waitingForApproval}
             />
             {inlineError ? (
               <ThreadErrorCard
@@ -552,19 +587,9 @@ export function GroupThreadLanding({
             onAddressedBotChange={setAddressedBotId}
             botName={group.name}
             draftKey={`group:${group.id}`}
-            busy={working && pendingApproval === null}
+            busy={working && !waitingForApproval}
             pendingActionSlot={
-              pendingApproval ? (
-                <BotApprovalPrompt
-                  approval={pendingApproval}
-                  pendingCount={approvalState.pendingCount}
-                  responding={approvalState.responding}
-                  error={approvalState.responseError}
-                  onRespond={(decision) =>
-                    approvalState.respond(pendingApproval.requestId, decision)
-                  }
-                />
-              ) : waitingForUserInput ? (
+              waitingForUserInput ? (
                 <BotUserInputPrompt
                   pendingUserInputs={runtime.pendingUserInputs}
                   respondingRequestIds={runtime.respondingRequestIds}
@@ -586,10 +611,9 @@ export function GroupThreadLanding({
                 />
               ) : null
             }
-            quietSurface={pendingApproval !== null || pendingUserInput !== null}
+            quietSurface={pendingUserInput !== null}
             {...(waitingForUserInput ? { placeholder: t("Write a custom answer…") } : {})}
             disabled={
-              pendingApproval !== null ||
               runtime.respondingRequestIds.length > 0 ||
               !runtime.groupReady ||
               runtime.project === null ||

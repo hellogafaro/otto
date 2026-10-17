@@ -1,7 +1,7 @@
 import { ApprovalRequestId, type ScopedThreadRef } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { rosterApprovalResponseKey } from "./use-roster-pending-approval";
+import { rosterApprovalResponseKey } from "./use-roster-approvals";
 
 describe("roster approval response state", () => {
   it("is scoped by environment, thread, and request", () => {
