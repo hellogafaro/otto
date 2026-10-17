@@ -19,8 +19,8 @@ import {
   renderMacEntitlements,
   resolveBuildOptions,
   resolveDesktopProductName,
-  DESKTOP_UPDATE_CHANNEL,
   DESKTOP_UPDATE_PUBLISH_CONFIG,
+  resolveDesktopUpdateChannel,
   resolveMockUpdateServerPort,
   resolveMockUpdateServerUrl,
   resolvePackageManagerUserAgent,
@@ -57,8 +57,9 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       assert.equal(parsed.mac.sign, path.join(repoRoot, "scripts/sign-macos.ts"));
     }),
   );
-  it("uses the latest updater channel", () => {
-    assert.equal(DESKTOP_UPDATE_CHANNEL, "latest");
+  it("uses the beta updater channel only for beta versions", () => {
+    assert.equal(resolveDesktopUpdateChannel("1.2.3"), "latest");
+    assert.equal(resolveDesktopUpdateChannel("1.2.4-beta.20261018.7"), "beta");
   });
 
   it("uses the Otto product name", () => {
@@ -75,6 +76,16 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         entitlementsPath: "/tmp/entitlements.mac.plist",
         notarize: true,
       });
+
+      const beta = yield* createBuildConfig(
+        "mac",
+        "dmg",
+        "1.2.4-beta.20261018.7",
+        true,
+        false,
+        undefined,
+        { entitlementsPath: "/tmp/entitlements.mac.plist", notarize: true },
+      );
 
       const adHoc = yield* createBuildConfig("mac", "dmg", "1.2.3", false, false, undefined, {
         entitlementsPath: "/tmp/entitlements.mac.plist",
@@ -105,6 +116,15 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         },
       ]);
       assert.deepStrictEqual(signed.publish, [DESKTOP_UPDATE_PUBLISH_CONFIG]);
+      assert.deepStrictEqual(beta.publish, [
+        {
+          provider: "github",
+          owner: "hellogafaro",
+          repo: "otto",
+          releaseType: "prerelease",
+          channel: "beta",
+        },
+      ]);
       assert.include(signed.mac, {
         hardenedRuntime: true,
         notarize: true,

@@ -162,7 +162,9 @@ export const DESKTOP_UPDATE_PUBLISH_CONFIG = {
   releaseType: "release",
 } as const;
 
-export const DESKTOP_UPDATE_CHANNEL = "latest";
+export function resolveDesktopUpdateChannel(version: string): "latest" | "beta" {
+  return /-beta\.\d{8}\.\d+$/.test(version) ? "beta" : "latest";
+}
 
 function isDesktopPreviewVersion(version: string): boolean {
   return /-pr\./.test(version);
@@ -227,8 +229,6 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     ],
   };
 
-  const updateChannel = DESKTOP_UPDATE_CHANNEL;
-
   if (!isDesktopPreviewVersion(version)) {
     if (mockUpdates) {
       buildConfig.publish = [
@@ -238,7 +238,11 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
         },
       ];
     } else if (platform === "mac" && signed) {
-      buildConfig.publish = [DESKTOP_UPDATE_PUBLISH_CONFIG];
+      buildConfig.publish = [
+        resolveDesktopUpdateChannel(version) === "beta"
+          ? { ...DESKTOP_UPDATE_PUBLISH_CONFIG, releaseType: "prerelease", channel: "beta" }
+          : DESKTOP_UPDATE_PUBLISH_CONFIG,
+      ];
     }
   }
 
@@ -286,7 +290,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       // DMG window backgrounds by volume name, so reusing a generic name can
       // make a newly built background look unchanged during testing.
       title: `${resolveDesktopProductName()} ${version} Installer`,
-      background: `dmg/dmg-background-${updateChannel}.png`,
+      background: "dmg/dmg-background-latest.png",
       window: {
         width: 540,
         // Finder counts its 32px title bar in the window bounds. The themed

@@ -251,10 +251,11 @@ const sha512Base64 = (filePath: string) =>
 
 export const refreshUpdateManifestDmgEntry = Effect.fn("refreshUpdateManifestDmgEntry")(function* (
   dmgPath: string,
+  updateChannel: "latest" | "beta",
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const manifestPath = path.join(path.dirname(dmgPath), "latest-mac.yml");
+  const manifestPath = path.join(path.dirname(dmgPath), `${updateChannel}-mac.yml`);
   const dmgName = path.basename(dmgPath);
 
   yield* Effect.gen(function* () {
@@ -281,11 +282,12 @@ export const refreshUpdateManifestDmgEntry = Effect.fn("refreshUpdateManifestDmg
 
 export const notarizeAndStapleDmg = Effect.fn("notarizeAndStapleDmg")(function* (input: {
   readonly dmgPath: string;
+  readonly updateChannel: "latest" | "beta";
   readonly notarization: MacNotarization;
   readonly verbose: boolean;
 }) {
   const path = yield* Path.Path;
-  const { dmgPath, notarization, verbose } = input;
+  const { dmgPath, updateChannel, notarization, verbose } = input;
 
   yield* runCommand(
     ChildProcess.make("xcrun", [
@@ -301,5 +303,5 @@ export const notarizeAndStapleDmg = Effect.fn("notarizeAndStapleDmg")(function* 
     label: `xcrun stapler staple ${path.basename(dmgPath)}`,
     verbose,
   });
-  yield* refreshUpdateManifestDmgEntry(dmgPath);
+  yield* refreshUpdateManifestDmgEntry(dmgPath, updateChannel);
 });
