@@ -26,6 +26,7 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import { FetchHttpClient } from "effect/unstable/http";
+import { resolveInitialServerAuthGateState } from "../environments/primary/auth";
 import { primaryEnvironmentHttpLayer } from "../environments/primary/http-layer";
 import {
   readPrimaryEnvironmentTarget,
@@ -37,6 +38,12 @@ import {
   type DesktopSecondaryBootstrapsRead,
 } from "./desktop-local";
 import { clientMetadata } from "./browser-signals";
+
+// Otto: before sign-in the socket is refused, so the primary connects only once signed in.
+const primarySignedOut = Effect.tryPromise(() => resolveInitialServerAuthGateState()).pipe(
+  Effect.map((gate) => gate.status === "requires-auth"),
+  Effect.orElseSucceed(() => false),
+);
 
 const loadPrimaryConnectionRegistration = Effect.fn(
   "web.connectionPlatform.loadPrimaryConnectionRegistration",
@@ -250,7 +257,7 @@ export const platformConnectionSourceLayer = Layer.effect(
         yield* Effect.logWarning("Could not read the primary environment topology.", {
           cause: primaryTopologyRead.cause,
         });
-      } else if (primaryTopologyRead.target !== null) {
+      } else if (primaryTopologyRead.target !== null && !(yield* primarySignedOut)) {
         const primaryTarget = primaryTopologyRead.target;
         const signature = `primary|${primaryTarget.target.httpBaseUrl}|${primaryTarget.target.wsBaseUrl}`;
         const cached = previous.get(PRIMARY_LOCAL_ENVIRONMENT_ID);
