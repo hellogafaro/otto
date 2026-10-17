@@ -1,6 +1,6 @@
 ---
 name: write
-description: Use when drafting or editing text people will read, such as replies, task comments, documents and messages.
+description: Use when drafting or editing a long or important text, such as a report, proposal or announcement; not for chat replies or short notes.
 ---
 
 - Lead with the answer. Keep only what the reader needs to understand it and act.
