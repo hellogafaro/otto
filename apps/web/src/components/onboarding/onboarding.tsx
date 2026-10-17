@@ -9,7 +9,7 @@ import { useI18n } from "../../i18n";
 import { environmentBotsAtom, environmentRosterLoadedAtom } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentShell } from "../../state/shell";
-import { AuthSurfaceSection, AuthSurfaceShell } from "../auth/auth-surface-shell";
+import { AuthActions, AuthSurfaceSection, AuthSurfaceShell } from "../auth/auth-surface-shell";
 import { CustomizeRow } from "../customize/customize-group";
 import { randomBotAvatar } from "../roster/roster.logic";
 import { useCreateBot } from "../roster/use-create-bot";
@@ -158,18 +158,19 @@ export function Onboarding({
             />
           ) : null}
           {errorAlert(accounts.error)}
-          <Button
-            type="submit"
-            variant="primary"
-            className="mt-2"
-            disabled={accounts.completing || !accounts.pastedCode.trim()}
-          >
-            {accounts.completing ? <Spinner /> : null}
-            {t("Save key")}
-          </Button>
-          <Button variant="ghost" onClick={accounts.closeApiKey}>
-            {t("Back")}
-          </Button>
+          <AuthActions>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={accounts.completing || !accounts.pastedCode.trim()}
+            >
+              {accounts.completing ? <Spinner /> : null}
+              {t("Save key")}
+            </Button>
+            <Button variant="ghost" onClick={accounts.closeApiKey}>
+              {t("Back")}
+            </Button>
+          </AuthActions>
         </form>
       </>
     );
@@ -219,31 +220,32 @@ export function Onboarding({
             <p className="text-sm text-muted-foreground">{t("Waiting for approval…")}</p>
           )}
           {errorAlert(login.error)}
-          {paste ? (
-            <Button
-              variant="primary"
-              className="mt-2"
-              disabled={accounts.completing || !accounts.pastedCode.trim()}
-              onClick={() => void accounts.complete()}
-            >
-              {accounts.completing ? <Spinner /> : null}
-              {t("Connect")}
+          <AuthActions>
+            {paste ? (
+              <Button
+                variant="primary"
+                disabled={accounts.completing || !accounts.pastedCode.trim()}
+                onClick={() => void accounts.complete()}
+              >
+                {accounts.completing ? <Spinner /> : null}
+                {t("Connect")}
+              </Button>
+            ) : null}
+            {openSignIn}
+            {definition ? (
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  void accounts.cancelLogin().then(() => accounts.openApiKey(definition))
+                }
+              >
+                {t("Use an API key")}
+              </Button>
+            ) : null}
+            <Button variant="ghost" onClick={() => void accounts.cancelLogin()}>
+              {t("Back")}
             </Button>
-          ) : null}
-          {openSignIn}
-          {definition ? (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                void accounts.cancelLogin().then(() => accounts.openApiKey(definition))
-              }
-            >
-              {t("Use an API key")}
-            </Button>
-          ) : null}
-          <Button variant="ghost" onClick={() => void accounts.cancelLogin()}>
-            {t("Back")}
-          </Button>
+          </AuthActions>
         </AuthSurfaceSection>
       </>
     );
@@ -332,16 +334,13 @@ export function Onboarding({
             disabled={creating}
             onChange={(event) => setInstructions(event.currentTarget.value)}
           />
-          <Button
-            type="submit"
-            variant="primary"
-            className="mt-2"
-            disabled={creating || !trimmedName}
-          >
-            {creating ? <Spinner /> : null}
-            {t("Create bot")}
-          </Button>
-          {skip}
+          <AuthActions>
+            <Button type="submit" variant="primary" disabled={creating || !trimmedName}>
+              {creating ? <Spinner /> : null}
+              {t("Create bot")}
+            </Button>
+            {skip}
+          </AuthActions>
         </form>
       </>
     );

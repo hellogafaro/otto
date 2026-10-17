@@ -18,7 +18,12 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "../ui/input-otp";
 import { Form } from "../ui/form";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Spinner } from "../ui/spinner";
-import { AuthSecondaryButton, AuthSurfaceShell, AuthSurfaceSection } from "./auth-surface-shell";
+import {
+  AuthActions,
+  AuthSecondaryButton,
+  AuthSurfaceShell,
+  AuthSurfaceSection,
+} from "./auth-surface-shell";
 import { DesktopServerPage } from "./desktop-server-page";
 import { useI18n } from "../../i18n";
 
@@ -364,6 +369,13 @@ export function OrganizationAccountGate({
       </div>
     );
 
+  const serverButton =
+    window.desktopBridge?.setServerUrl && !notice ? (
+      <AuthSecondaryButton disabled={busy} onClick={() => setServerPage(true)}>
+        {t("Use another server")}
+      </AuthSecondaryButton>
+    ) : null;
+
   return (
     <AuthSurfaceShell>
       <AuthSurfaceSection className="gap-2">
@@ -410,45 +422,48 @@ export function OrganizationAccountGate({
                       invitation.
                     </AlertDescription>
                   </Alert>
-                ) : (
-                  <Button
-                    variant="primary"
-                    className="mt-2 mb-1"
+                ) : null}
+                <AuthActions>
+                  {page === "login" ? null : (
+                    <Button
+                      variant="primary"
+                      disabled={busy}
+                      onClick={async () => {
+                        setPending(true);
+                        setError(null);
+
+                        try {
+                          if (!state.role) await acceptInvitation(desktopToken ?? undefined);
+                          window.location.replace("/");
+                        } catch (cause) {
+                          setError(cause instanceof Error ? cause.message : "Could not join.");
+                        } finally {
+                          setPending(false);
+                        }
+                      }}
+                    >
+                      {state.role ? "Open organization" : "Accept invitation"}
+                    </Button>
+                  )}
+                  <AuthSecondaryButton
                     disabled={busy}
                     onClick={async () => {
-                      setPending(true);
-                      setError(null);
+                      const result = await client.signOut();
 
-                      try {
-                        if (!state.role) await acceptInvitation(desktopToken ?? undefined);
-                        window.location.replace("/");
-                      } catch (cause) {
-                        setError(cause instanceof Error ? cause.message : "Could not join.");
-                      } finally {
-                        setPending(false);
+                      if (result.error) {
+                        setError(result.error.message ?? "Could not sign out.");
+
+                        return;
                       }
+
+                      storeDesktopSessionToken(null);
+                      window.location.reload();
                     }}
                   >
-                    {state.role ? "Open organization" : "Accept invitation"}
-                  </Button>
-                )}
-                <AuthSecondaryButton
-                  disabled={busy}
-                  onClick={async () => {
-                    const result = await client.signOut();
-
-                    if (result.error) {
-                      setError(result.error.message ?? "Could not sign out.");
-
-                      return;
-                    }
-
-                    storeDesktopSessionToken(null);
-                    window.location.reload();
-                  }}
-                >
-                  Use another account
-                </AuthSecondaryButton>
+                    Use another account
+                  </AuthSecondaryButton>
+                  {serverButton}
+                </AuthActions>
               </div>
             ) : state.organization || page === "setup" ? (
               <Form
@@ -533,87 +548,88 @@ export function OrganizationAccountGate({
                     </form.Field>
                   );
                 })}
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={busy || (codeStep && code.length < 6)}
-                  className="mt-2 mb-1"
-                >
-                  {busy ? <Spinner /> : null}
-                  {submitLabel}
-                </Button>
-                {page === "setup" && setupStep === "organization" ? (
-                  <AuthSecondaryButton
-                    disabled={busy}
-                    onClick={() => {
-                      setError(null);
-                      form.reset(form.state.values, { keepDefaultValues: true });
-                      setSetupStep("account");
-                    }}
+                <AuthActions>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={busy || (codeStep && code.length < 6)}
                   >
-                    Back
-                  </AuthSecondaryButton>
-                ) : null}
-                {page === "invite" ? (
-                  <AuthSecondaryButton
-                    disabled={busy}
-                    onClick={() => {
-                      setMode(mode === "signup" ? "login" : "signup");
-                      setError(null);
-                      form.reset(form.state.values, { keepDefaultValues: true });
-                    }}
-                  >
-                    {mode === "signup" ? "Already have an account? Sign in" : "Create an account"}
-                  </AuthSecondaryButton>
-                ) : null}
-                {codeStep ? (
-                  <>
-                    <AuthSecondaryButton
-                      disabled={busy}
-                      onClick={async () => {
-                        if (!codeEmail) return;
-                        setPending(true);
-                        setError(null);
-                        setCode("");
-
-                        const result = await client.emailOtp.sendVerificationOtp({
-                          email: codeEmail,
-                          type: "sign-in",
-                        });
-
-                        setPending(false);
-
-                        if (result.error) {
-                          setError(result.error.message ?? t("Could not send a code."));
-
-                          return;
-                        }
-
-                        setCodeResent(true);
-                      }}
-                    >
-                      {t("Send a new code")}
-                    </AuthSecondaryButton>
+                    {busy ? <Spinner /> : null}
+                    {submitLabel}
+                  </Button>
+                  {page === "setup" && setupStep === "organization" ? (
                     <AuthSecondaryButton
                       disabled={busy}
                       onClick={() => {
                         setError(null);
-                        setCodeEmail(null);
+                        form.reset(form.state.values, { keepDefaultValues: true });
+                        setSetupStep("account");
                       }}
                     >
-                      {t("Use another email")}
+                      Back
                     </AuthSecondaryButton>
-                  </>
-                ) : null}
+                  ) : null}
+                  {page === "invite" ? (
+                    <AuthSecondaryButton
+                      disabled={busy}
+                      onClick={() => {
+                        setMode(mode === "signup" ? "login" : "signup");
+                        setError(null);
+                        form.reset(form.state.values, { keepDefaultValues: true });
+                      }}
+                    >
+                      {mode === "signup" ? "Already have an account? Sign in" : "Create an account"}
+                    </AuthSecondaryButton>
+                  ) : null}
+                  {codeStep ? (
+                    <>
+                      <AuthSecondaryButton
+                        disabled={busy}
+                        onClick={async () => {
+                          if (!codeEmail) return;
+                          setPending(true);
+                          setError(null);
+                          setCode("");
+
+                          const result = await client.emailOtp.sendVerificationOtp({
+                            email: codeEmail,
+                            type: "sign-in",
+                          });
+
+                          setPending(false);
+
+                          if (result.error) {
+                            setError(result.error.message ?? t("Could not send a code."));
+
+                            return;
+                          }
+
+                          setCodeResent(true);
+                        }}
+                      >
+                        {t("Send a new code")}
+                      </AuthSecondaryButton>
+                      <AuthSecondaryButton
+                        disabled={busy}
+                        onClick={() => {
+                          setError(null);
+                          setCodeEmail(null);
+                        }}
+                      >
+                        {t("Use another email")}
+                      </AuthSecondaryButton>
+                    </>
+                  ) : null}
+                  {serverButton}
+                </AuthActions>
               </Form>
-            ) : null}
+            ) : (
+              serverButton
+            )}
           </div>
-        ) : null}
-        {window.desktopBridge?.setServerUrl && !notice ? (
-          <AuthSecondaryButton disabled={busy} onClick={() => setServerPage(true)}>
-            {t("Use another server")}
-          </AuthSecondaryButton>
-        ) : null}
+        ) : (
+          serverButton
+        )}
       </AuthSurfaceSection>
     </AuthSurfaceShell>
   );

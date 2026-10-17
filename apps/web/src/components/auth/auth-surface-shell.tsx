@@ -39,6 +39,11 @@ export function AuthSecondaryButton(
   return <Button type="button" variant="ghost" {...props} />;
 }
 
+/** Otto: An auth screen's buttons stack as one group, 8px apart, a little below the fields. */
+export function AuthActions({ children }: { readonly children: ReactNode }) {
+  return <div className="mt-2 flex flex-col gap-2">{children}</div>;
+}
+
 export function AuthSurfaceSection({
   children,
   className,

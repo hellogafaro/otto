@@ -7,7 +7,12 @@ import { Field, FieldLabel } from "../ui/field";
 import { Form } from "../ui/form";
 import { Input } from "../ui/input";
 import { Spinner } from "../ui/spinner";
-import { AuthSecondaryButton, AuthSurfaceSection, AuthSurfaceShell } from "./auth-surface-shell";
+import {
+  AuthActions,
+  AuthSecondaryButton,
+  AuthSurfaceSection,
+  AuthSurfaceShell,
+} from "./auth-surface-shell";
 
 /** Otto: the desktop window shows the web app of the Otto server it is connected to. */
 export function DesktopServerPage({ onBack }: { readonly onBack: () => void }) {
@@ -70,23 +75,20 @@ export function DesktopServerPage({ onBack }: { readonly onBack: () => void }) {
               disabled={pending}
             />
           </Field>
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={pending || !address.trim()}
-            className="mt-2 mb-1"
-          >
-            {pending ? <Spinner /> : null}
-            {t("Connect")}
-          </Button>
-          {currentServer ? (
-            <AuthSecondaryButton disabled={pending} onClick={() => void connect(null)}>
-              {t("Use this computer")}
+          <AuthActions>
+            <Button type="submit" variant="primary" disabled={pending || !address.trim()}>
+              {pending ? <Spinner /> : null}
+              {t("Connect")}
+            </Button>
+            {currentServer ? (
+              <AuthSecondaryButton disabled={pending} onClick={() => void connect(null)}>
+                {t("Use this computer")}
+              </AuthSecondaryButton>
+            ) : null}
+            <AuthSecondaryButton disabled={pending} onClick={onBack}>
+              {t("Back")}
             </AuthSecondaryButton>
-          ) : null}
-          <AuthSecondaryButton disabled={pending} onClick={onBack}>
-            {t("Back")}
-          </AuthSecondaryButton>
+          </AuthActions>
         </Form>
       </AuthSurfaceSection>
     </AuthSurfaceShell>
