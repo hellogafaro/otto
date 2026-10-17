@@ -71,6 +71,11 @@ export function isUserMessage(message: MastraDBMessage): boolean {
   return Predicate.isObject(signal) && "type" in signal && signal.type === "user";
 }
 
+/** A group turn sent as its hidden note alone: it starts the run and is never stored. */
+export function isGroupTurnNoteMessage(message: MastraDBMessage): boolean {
+  return isUserMessage(message) && isGroupTurnNote(messageText(message));
+}
+
 // A group bot that passed left a hidden note and a NO_REPLY that nobody saw.
 // Replaying them teaches every bot in the group to pass.
 function isGroupPass(message: MastraDBMessage): boolean {

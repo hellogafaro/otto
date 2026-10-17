@@ -225,7 +225,9 @@ returns resolutions only after every conflicting root has one.
 each run and sends it whole: every complete turn, verbatim, with only per-message transforms (files no
 model reads are dropped, group passes are dropped, other bots' replies read as theirs). Each request
 therefore starts with the previous request's history, so providers serve it from their prompt cache.
-The same processor stores the run's new messages.
+The same processor stores the run's new messages, except a group turn sent as its hidden note alone
+(`(Group: …)`): the note starts the run, so the model sees it, but it is never stored. Older stored
+notes and `NO_REPLY` passes are still dropped when the history is read.
 
 Tool results are capped where they are created, so the stored result is the one the model saw
 (`provider/tool-output.ts`): at most 50 KB and 2,000 lines, from the start, with a notice giving the

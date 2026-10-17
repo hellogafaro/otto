@@ -13,7 +13,12 @@ import {
 } from "@mastra/core/processors";
 import { LibSQLStore } from "@mastra/libsql";
 import { Memory } from "@mastra/memory";
-import { attributeGroupReplies, OTTO_REPLY_BOT_NAME, projectHistory } from "../chat-history.ts";
+import {
+  attributeGroupReplies,
+  isGroupTurnNoteMessage,
+  OTTO_REPLY_BOT_NAME,
+  projectHistory,
+} from "../chat-history.ts";
 import {
   createOttoCompaction,
   isContextOverflow,
@@ -184,7 +189,9 @@ export class OttoHistoryProcessor implements Processor<"otto-history"> {
     const messages = [
       ...args.messageList.get.input.db(),
       ...args.messageList.get.response.db(),
-    ].filter((message) => args.messageList.isNewMessage(message));
+    ].filter(
+      (message) => args.messageList.isNewMessage(message) && !isGroupTurnNoteMessage(message),
+    );
 
     const botName = controllerBot(args.requestContext)?.name;
 

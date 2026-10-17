@@ -12,6 +12,7 @@ import { assert, expect, vi } from "vite-plus/test";
 import { OttoHistoryProcessor, createOttoMastraMemory } from "./otto-mastra-harness.ts";
 import { createOttoCompaction } from "./mastra/otto-compaction.ts";
 import { OTTO_REPLY_BOT_NAME } from "./chat-history.ts";
+import { groupTurnNote } from "../orchestration/group-responder.ts";
 
 const chat = (
   threadId: string,
@@ -185,6 +186,20 @@ describe("OttoMastraHarness", () => {
         content: expect.objectContaining({ metadata: { [OTTO_REPLY_BOT_NAME]: "Ivy" } }),
       }),
     ]);
+  });
+
+  it("does not store a group turn that was only its hidden note", async () => {
+    const persistMessages = vi.fn(async () => undefined);
+
+    const processor = historyProcessor(partialSdkFixture<Memory>({ persistMessages }));
+
+    const messageList = new MessageList({ threadId: "thread-group", resourceId: "thread-group" });
+    messageList.add(stored("note", "user", groupTurnNote("fallback")), "input");
+    messageList.add(stored("reply", "assistant", "Here is the plan."), "response");
+
+    await processor.processOutputResult({ messageList, requestContext: groupBot("Ivy") } as never);
+
+    expect(persistMessages).toHaveBeenCalledWith([expect.objectContaining({ id: "reply" })]);
   });
 
   it("shows another group bot's reply, or an unnamed older one, as not its own", async () => {
