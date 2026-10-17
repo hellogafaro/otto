@@ -150,9 +150,7 @@ export function presentThreadError(
       title: provider
         ? t("{provider} needs {requirement}", { provider, requirement })
         : t("The provider needs {requirement}", { requirement }),
-      description: t(
-        "Add it to this provider in Settings > Providers, then send your message again.",
-      ),
+      description: t("Add it to this provider in Settings > Models, then send your message again."),
       technicalDetails: boundedTechnicalDetails(error),
       action: "providers",
     };
@@ -163,9 +161,7 @@ export function presentThreadError(
       title: provider
         ? t("{provider} can't use custom credentials", { provider })
         : t("The provider can't use custom credentials"),
-      description: t(
-        "Use your account in Settings > Providers, or pick another model for this bot.",
-      ),
+      description: t("Use your account in Settings > Models, or pick another model for this bot."),
       technicalDetails: boundedTechnicalDetails(error),
       action: "providers",
     };

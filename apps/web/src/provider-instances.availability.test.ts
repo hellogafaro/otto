@@ -148,7 +148,7 @@ describe("providerInstanceUnavailableReason", () => {
 
     expect(providerInstanceUnavailableReason(ready)).toBeNull();
     expect(providerInstanceUnavailableReason(signedOut)).toMatch(
-      /not connected.*Settings > Providers/,
+      /not connected.*Settings > Models/,
     );
     expect(providerInstanceUnavailableReason(missing)).toMatch(/not installed/);
     expect(providerInstanceUnavailableReason(limited)).toMatch(/limit reached/);

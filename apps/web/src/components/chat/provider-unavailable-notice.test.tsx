@@ -11,7 +11,7 @@ describe("ProviderUnavailableLine", () => {
         environmentId={null}
         presentation={{
           title: "No provider is ready for this bot",
-          description: "Connect a provider in Settings > Providers so this bot can reply.",
+          description: "Connect a provider in Settings > Models so this bot can reply.",
           action: "providers",
         }}
       />,

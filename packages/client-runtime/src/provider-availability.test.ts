@@ -97,7 +97,7 @@ describe("providerAvailabilityReason", () => {
       presentProviderUnavailability({ reason: reason!, providerName: "Claude" }),
     ).toMatchObject({
       title: "Claude is not connected",
-      description: "Connect your Claude account in Settings > Providers.",
+      description: "Connect your Claude account in Settings > Models.",
       action: "providers",
     });
   });
@@ -138,12 +138,12 @@ describe("presentProviderUnavailability", () => {
     expect(titles.size).toBe(reasons.length);
   });
 
-  it("names the provider and points login failures at Settings > Providers", () => {
+  it("names the provider and points login failures at Settings > Models", () => {
     expect(
       presentProviderUnavailability({ reason: "expired-login", providerName: "Codex" }),
     ).toMatchObject({
       title: "Codex sign-in expired",
-      description: "Reconnect Codex in Settings > Providers, then send your message again.",
+      description: "Reconnect Codex in Settings > Models, then send your message again.",
       action: "providers",
     });
     expect(
@@ -174,11 +174,11 @@ describe("presentProviderUnavailability", () => {
       presentProviderUnavailability({ reason: "expired-login", providerName: "Codex" }, zh),
     ).toMatchObject({
       title: "Codex 登录已过期",
-      description: "请在“设置 > 提供商”中重新连接 Codex，然后重新发送消息。",
+      description: "请在“设置 > 模型”中重新连接 Codex，然后重新发送消息。",
     });
     expect(presentProviderUnavailability({ reason: "missing-login" }, zh)).toMatchObject({
       title: "提供商未连接",
-      description: "请在“设置 > 提供商”中连接你的提供商账户。",
+      description: "请在“设置 > 模型”中连接你的提供商账户。",
     });
     expect(
       providerUnavailabilitySummary(

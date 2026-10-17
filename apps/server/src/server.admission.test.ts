@@ -142,7 +142,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       assert.equal(response.status, 400);
       const error = (yield* response.json) as Schema.JsonObject;
       assert.equal(error.reason, "invalid_command");
-      assert.equal(error.detail, "codex is turned off in Settings > Providers.");
+      assert.equal(error.detail, "codex is turned off in Settings > Models.");
       assert.equal(error.unavailability, "temporary-failure");
       assert.equal(dispatch.mock.calls.length, 0);
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),

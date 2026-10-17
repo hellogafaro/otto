@@ -19,7 +19,7 @@ describe("presentThreadError", () => {
     );
     expect(presentThreadError("401 Unauthorized", context)).toMatchObject({
       title: "Claude is not connected",
-      description: "Connect your Claude account in Settings > Providers.",
+      description: "Connect your Claude account in Settings > Models.",
       action: "providers",
     });
     expect(presentThreadError("Too many requests", { providerName: "Grok" }).title).toBe(
@@ -42,7 +42,7 @@ describe("presentThreadError", () => {
   it("names a disabled provider from the error when the chat does not know it", () => {
     expect(presentThreadError("Provider instance 'kimi' is disabled.")).toMatchObject({
       title: "Kimi For Coding is turned off",
-      description: "Turn Kimi For Coding on in Settings > Providers, then send your message again.",
+      description: "Turn Kimi For Coding on in Settings > Models, then send your message again.",
       action: "providers",
     });
   });

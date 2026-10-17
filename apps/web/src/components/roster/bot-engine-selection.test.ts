@@ -96,13 +96,13 @@ describe("resolveStickyBotEngine", () => {
     expect(botEngineUnavailability({ instanceId, model: "gpt-5-codex" }, signedOut)).toMatchObject({
       reason: "expired-login",
       title: "ChatGPT sign-in expired",
-      description: "Reconnect ChatGPT in Settings > Providers, then send your message again.",
+      description: "Reconnect ChatGPT in Settings > Models, then send your message again.",
     });
     expect(
       botEngineUnavailability({ instanceId, model: "gpt-5-codex" }, signedOut, zh),
     ).toMatchObject({
       title: "ChatGPT 登录已过期",
-      description: "请在“设置 > 提供商”中重新连接 ChatGPT，然后重新发送消息。",
+      description: "请在“设置 > 模型”中重新连接 ChatGPT，然后重新发送消息。",
     });
     expect(botEngineUnavailability({ instanceId, model: "gpt-4-retired" }, signedIn)).toMatchObject(
       {
@@ -119,7 +119,7 @@ describe("resolveStickyBotEngine", () => {
     expect(botEngineUnavailability(null, signedIn, zh)).toMatchObject({
       reason: "missing-provider",
       title: "此机器人没有可用的提供商",
-      description: "请在“设置 > 提供商”中连接一个提供商，以便此机器人回复。",
+      description: "请在“设置 > 模型”中连接一个提供商，以便此机器人回复。",
     });
   });
 

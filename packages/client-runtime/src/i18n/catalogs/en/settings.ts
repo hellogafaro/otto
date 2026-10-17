@@ -130,7 +130,7 @@ export const settingsCatalog = {
   "{model} is no longer offered by this provider. Choose another model.":
     "{model} is no longer offered by this provider. Choose another model.",
   "No longer offered by this provider": "No longer offered by this provider",
-  "Settings > Providers": "Settings > Providers",
+  "Settings > Models": "Settings > Models",
   "Created {created} · Updated {updated}": "Created {created} · Updated {updated}",
   Updated: "Updated",
   "Run provider command": "Run provider command",
@@ -172,22 +172,22 @@ export const settingsCatalog = {
   "text generation model": "text generation model",
   "{provider} is not set up": "{provider} is not set up",
   "The provider is not set up": "The provider is not set up",
-  "Add {provider} in Settings > Providers, or pick another model for this bot.":
-    "Add {provider} in Settings > Providers, or pick another model for this bot.",
-  "Add the provider in Settings > Providers, or pick another model for this bot.":
-    "Add the provider in Settings > Providers, or pick another model for this bot.",
+  "Add {provider} in Settings > Models, or pick another model for this bot.":
+    "Add {provider} in Settings > Models, or pick another model for this bot.",
+  "Add the provider in Settings > Models, or pick another model for this bot.":
+    "Add the provider in Settings > Models, or pick another model for this bot.",
   "{provider} is turned off": "{provider} is turned off",
   "The provider is turned off": "The provider is turned off",
-  "Turn {provider} on in Settings > Providers, then send your message again.":
-    "Turn {provider} on in Settings > Providers, then send your message again.",
-  "Turn the provider on in Settings > Providers, then send your message again.":
-    "Turn the provider on in Settings > Providers, then send your message again.",
+  "Turn {provider} on in Settings > Models, then send your message again.":
+    "Turn {provider} on in Settings > Models, then send your message again.",
+  "Turn the provider on in Settings > Models, then send your message again.":
+    "Turn the provider on in Settings > Models, then send your message again.",
   "{provider} is not installed": "{provider} is not installed",
   "The provider is not installed": "The provider is not installed",
-  "Install {provider} from Settings > Providers, or pick another model for this bot.":
-    "Install {provider} from Settings > Providers, or pick another model for this bot.",
-  "Install the provider from Settings > Providers, or pick another model for this bot.":
-    "Install the provider from Settings > Providers, or pick another model for this bot.",
+  "Install {provider} from Settings > Models, or pick another model for this bot.":
+    "Install {provider} from Settings > Models, or pick another model for this bot.",
+  "Install the provider from Settings > Models, or pick another model for this bot.":
+    "Install the provider from Settings > Models, or pick another model for this bot.",
   "{provider} sign-in expired": "{provider} sign-in expired",
   "{model} is not available on {provider}": "{model} is not available on {provider}",
   "{model} is not available on the provider": "{model} is not available on the provider",

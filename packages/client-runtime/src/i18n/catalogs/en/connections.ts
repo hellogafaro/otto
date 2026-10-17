@@ -151,8 +151,8 @@ export const connectionsCatalog = {
   "Connect an environment first": "Connect an environment first",
   "Connect an environment to create one.": "Connect an environment to create one.",
   "Connect an environment": "Connect an environment",
-  "Connect a provider in Settings > Providers so this group can reply.":
-    "Connect a provider in Settings > Providers so this group can reply.",
+  "Connect a provider in Settings > Models so this group can reply.":
+    "Connect a provider in Settings > Models so this group can reply.",
   "Connect an environment to get started": "Connect an environment to get started",
   "Connecting bot…": "Connecting bot…",
   "MCP servers: {count}": "MCP servers: {count}",
@@ -228,8 +228,8 @@ export const connectionsCatalog = {
   "Connect a provider to use its commands.": "Connect a provider to use its commands.",
   "No {provider} subscription connected": "No {provider} subscription connected",
   "Connect {provider} subscription": "Connect {provider} subscription",
-  "Connect a provider in Settings > Providers so this bot can reply.":
-    "Connect a provider in Settings > Providers so this bot can reply.",
+  "Connect a provider in Settings > Models so this bot can reply.":
+    "Connect a provider in Settings > Models so this bot can reply.",
   "Refresh remote branch status in the background.":
     "Refresh remote branch status in the background.",
   "{filename}. Review what Otto will restore on this environment.":
@@ -260,22 +260,22 @@ export const connectionsCatalog = {
   "Open {provider} settings": "Open {provider} settings",
   "{provider} needs {requirement}": "{provider} needs {requirement}",
   "The provider needs {requirement}": "The provider needs {requirement}",
-  "Add it to this provider in Settings > Providers, then send your message again.":
-    "Add it to this provider in Settings > Providers, then send your message again.",
+  "Add it to this provider in Settings > Models, then send your message again.":
+    "Add it to this provider in Settings > Models, then send your message again.",
   "{provider} can't use custom credentials": "{provider} can't use custom credentials",
   "The provider can't use custom credentials": "The provider can't use custom credentials",
-  "Use your account in Settings > Providers, or pick another model for this bot.":
-    "Use your account in Settings > Providers, or pick another model for this bot.",
+  "Use your account in Settings > Models, or pick another model for this bot.":
+    "Use your account in Settings > Models, or pick another model for this bot.",
   "{provider} is not connected": "{provider} is not connected",
   "The provider is not connected": "The provider is not connected",
-  "Connect your {provider} account in Settings > Providers.":
-    "Connect your {provider} account in Settings > Providers.",
-  "Connect your provider account in Settings > Providers.":
-    "Connect your provider account in Settings > Providers.",
-  "Reconnect {provider} in Settings > Providers, then send your message again.":
-    "Reconnect {provider} in Settings > Providers, then send your message again.",
-  "Reconnect the provider in Settings > Providers, then send your message again.":
-    "Reconnect the provider in Settings > Providers, then send your message again.",
+  "Connect your {provider} account in Settings > Models.":
+    "Connect your {provider} account in Settings > Models.",
+  "Connect your provider account in Settings > Models.":
+    "Connect your provider account in Settings > Models.",
+  "Reconnect {provider} in Settings > Models, then send your message again.":
+    "Reconnect {provider} in Settings > Models, then send your message again.",
+  "Reconnect the provider in Settings > Models, then send your message again.":
+    "Reconnect the provider in Settings > Models, then send your message again.",
   "Connection interrupted": "Connection interrupted",
   "The bot's computer couldn't start": "The bot's computer couldn't start",
   "Boat refused its API key. Replace it in Settings > Computer, then try again.":

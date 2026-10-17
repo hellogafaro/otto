@@ -140,8 +140,8 @@ export const connectionsCatalog = {
   "Connect an environment first": "请先连接一个环境",
   "Connect an environment to create one.": "连接一个环境即可创建。",
   "Connect an environment": "连接一个环境",
-  "Connect a provider in Settings > Providers so this group can reply.":
-    "请在“设置 > 提供商”中连接提供商，以便此群组可以回复。",
+  "Connect a provider in Settings > Models so this group can reply.":
+    "请在“设置 > 模型”中连接提供商，以便此群组可以回复。",
   "Connect an environment to get started": "连接环境以开始使用",
   "Connecting bot…": "正在连接机器人…",
   "MCP servers: {count}": "MCP 服务器：{count}",
@@ -213,8 +213,8 @@ export const connectionsCatalog = {
   "Connect a provider to use its commands.": "连接提供方后即可使用其命令。",
   "No {provider} subscription connected": "未连接 {provider} 订阅",
   "Connect {provider} subscription": "连接 {provider} 订阅",
-  "Connect a provider in Settings > Providers so this bot can reply.":
-    "请在“设置 > 提供商”中连接一个提供商，以便此机器人回复。",
+  "Connect a provider in Settings > Models so this bot can reply.":
+    "请在“设置 > 模型”中连接一个提供商，以便此机器人回复。",
   "Refresh remote branch status in the background.": "在后台刷新远程分支状态。",
   "{filename}. Review what Otto will restore on this environment.":
     "{filename}。请查看 Otto 将在此环境中恢复的内容。",
@@ -244,22 +244,21 @@ export const connectionsCatalog = {
   "Open {provider} settings": "打开 {provider} 设置",
   "{provider} needs {requirement}": "{provider} 需要 {requirement}",
   "The provider needs {requirement}": "提供商需要 {requirement}",
-  "Add it to this provider in Settings > Providers, then send your message again.":
-    "请在“设置 > 提供商”中为此提供商添加它，然后重新发送消息。",
+  "Add it to this provider in Settings > Models, then send your message again.":
+    "请在“设置 > 模型”中为此提供商添加它，然后重新发送消息。",
   "{provider} can't use custom credentials": "{provider} 无法使用自定义凭据",
   "The provider can't use custom credentials": "提供商无法使用自定义凭据",
-  "Use your account in Settings > Providers, or pick another model for this bot.":
-    "请在“设置 > 提供商”中改用你的账户，或为此机器人选择其他模型。",
+  "Use your account in Settings > Models, or pick another model for this bot.":
+    "请在“设置 > 模型”中改用你的账户，或为此机器人选择其他模型。",
   "{provider} is not connected": "{provider} 未连接",
   "The provider is not connected": "提供商未连接",
-  "Connect your {provider} account in Settings > Providers.":
-    "请在“设置 > 提供商”中连接你的 {provider} 账户。",
-  "Connect your provider account in Settings > Providers.":
-    "请在“设置 > 提供商”中连接你的提供商账户。",
-  "Reconnect {provider} in Settings > Providers, then send your message again.":
-    "请在“设置 > 提供商”中重新连接 {provider}，然后重新发送消息。",
-  "Reconnect the provider in Settings > Providers, then send your message again.":
-    "请在“设置 > 提供商”中重新连接提供商，然后重新发送消息。",
+  "Connect your {provider} account in Settings > Models.":
+    "请在“设置 > 模型”中连接你的 {provider} 账户。",
+  "Connect your provider account in Settings > Models.": "请在“设置 > 模型”中连接你的提供商账户。",
+  "Reconnect {provider} in Settings > Models, then send your message again.":
+    "请在“设置 > 模型”中重新连接 {provider}，然后重新发送消息。",
+  "Reconnect the provider in Settings > Models, then send your message again.":
+    "请在“设置 > 模型”中重新连接提供商，然后重新发送消息。",
   "Connection interrupted": "连接中断",
   "The bot's computer couldn't start": "机器人的计算机无法启动",
   "Boat refused its API key. Replace it in Settings > Computer, then try again.":

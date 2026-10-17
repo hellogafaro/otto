@@ -55,7 +55,7 @@ describe("ThreadErrorCard", () => {
 
     expect(presentThreadError(error)).toEqual({
       title: "ChatGPT is turned off",
-      description: "Turn ChatGPT on in Settings > Providers, then send your message again.",
+      description: "Turn ChatGPT on in Settings > Models, then send your message again.",
       technicalDetails: "Provider instance “codex” is disabled.",
       action: "providers",
       reason: "disabled",
@@ -89,7 +89,7 @@ describe("ThreadErrorCard", () => {
     );
 
     expect(markup).toContain("Claude sign-in expired");
-    expect(markup).toContain("Reconnect Claude in Settings &gt; Providers");
+    expect(markup).toContain("Reconnect Claude in Settings &gt; Models");
     expect(markup).toContain(">Open Providers<");
   });
 

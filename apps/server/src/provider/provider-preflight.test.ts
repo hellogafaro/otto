@@ -155,7 +155,7 @@ describe("preflightProvider", () => {
       ),
     ).toEqual({
       category: "temporary-failure",
-      detail: "Claude is turned off in Settings > Providers.",
+      detail: "Claude is turned off in Settings > Models.",
       repairAction: "providers",
     });
   });

@@ -202,7 +202,7 @@ export function botEngineUnavailability(
     return {
       reason: "missing-provider" as const,
       title: t("No provider is ready for this bot"),
-      description: t("Connect a provider in Settings > Providers so this bot can reply."),
+      description: t("Connect a provider in Settings > Models so this bot can reply."),
       technicalDetails: "",
       action: "providers" as const,
       provider: null,

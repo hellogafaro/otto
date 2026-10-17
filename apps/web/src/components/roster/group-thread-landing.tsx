@@ -629,9 +629,7 @@ export function GroupThreadLanding({
               id={noProviderNoticeId}
               presentation={{
                 title: t("No provider is ready for this group"),
-                description: t(
-                  "Connect a provider in Settings > Providers so this group can reply.",
-                ),
+                description: t("Connect a provider in Settings > Models so this group can reply."),
                 action: "providers",
               }}
               environmentId={environmentId}

@@ -114,8 +114,8 @@ function presentReason(
       return {
         title: named("{provider} is not set up", "The provider is not set up"),
         description: named(
-          "Add {provider} in Settings > Providers, or pick another model for this bot.",
-          "Add the provider in Settings > Providers, or pick another model for this bot.",
+          "Add {provider} in Settings > Models, or pick another model for this bot.",
+          "Add the provider in Settings > Models, or pick another model for this bot.",
         ),
         technicalDetails,
         action: "providers",
@@ -124,8 +124,8 @@ function presentReason(
       return {
         title: named("{provider} is turned off", "The provider is turned off"),
         description: named(
-          "Turn {provider} on in Settings > Providers, then send your message again.",
-          "Turn the provider on in Settings > Providers, then send your message again.",
+          "Turn {provider} on in Settings > Models, then send your message again.",
+          "Turn the provider on in Settings > Models, then send your message again.",
         ),
         technicalDetails,
         action: "providers",
@@ -134,8 +134,8 @@ function presentReason(
       return {
         title: named("{provider} is not installed", "The provider is not installed"),
         description: named(
-          "Install {provider} from Settings > Providers, or pick another model for this bot.",
-          "Install the provider from Settings > Providers, or pick another model for this bot.",
+          "Install {provider} from Settings > Models, or pick another model for this bot.",
+          "Install the provider from Settings > Models, or pick another model for this bot.",
         ),
         technicalDetails,
         action: "providers",
@@ -144,8 +144,8 @@ function presentReason(
       return {
         title: named("{provider} is not connected", "The provider is not connected"),
         description: named(
-          "Connect your {provider} account in Settings > Providers.",
-          "Connect your provider account in Settings > Providers.",
+          "Connect your {provider} account in Settings > Models.",
+          "Connect your provider account in Settings > Models.",
         ),
         technicalDetails,
         action: "providers",
@@ -154,8 +154,8 @@ function presentReason(
       return {
         title: named("{provider} sign-in expired", "Provider sign-in expired"),
         description: named(
-          "Reconnect {provider} in Settings > Providers, then send your message again.",
-          "Reconnect the provider in Settings > Providers, then send your message again.",
+          "Reconnect {provider} in Settings > Models, then send your message again.",
+          "Reconnect the provider in Settings > Models, then send your message again.",
         ),
         technicalDetails,
         action: "providers",

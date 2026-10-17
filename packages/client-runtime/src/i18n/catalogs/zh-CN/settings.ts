@@ -127,7 +127,7 @@ export const settingsCatalog = {
   "{model} is no longer offered by this provider. Choose another model.":
     "此提供商已不再提供 {model}。请选择其他模型。",
   "No longer offered by this provider": "此提供商已不再提供",
-  "Settings > Providers": "设置 > 提供商",
+  "Settings > Models": "设置 > 模型",
   "Created {created} · Updated {updated}": "创建于 {created} · 更新于 {updated}",
   Updated: "更新时间",
   "Run provider command": "运行提供方命令",
@@ -168,22 +168,22 @@ export const settingsCatalog = {
   "text generation model": "文本生成模型",
   "{provider} is not set up": "{provider} 尚未设置",
   "The provider is not set up": "提供商尚未设置",
-  "Add {provider} in Settings > Providers, or pick another model for this bot.":
-    "请在“设置 > 提供商”中添加 {provider}，或为此机器人选择其他模型。",
-  "Add the provider in Settings > Providers, or pick another model for this bot.":
-    "请在“设置 > 提供商”中添加提供商，或为此机器人选择其他模型。",
+  "Add {provider} in Settings > Models, or pick another model for this bot.":
+    "请在“设置 > 模型”中添加 {provider}，或为此机器人选择其他模型。",
+  "Add the provider in Settings > Models, or pick another model for this bot.":
+    "请在“设置 > 模型”中添加提供商，或为此机器人选择其他模型。",
   "{provider} is turned off": "{provider} 已关闭",
   "The provider is turned off": "提供商已关闭",
-  "Turn {provider} on in Settings > Providers, then send your message again.":
-    "请在“设置 > 提供商”中开启 {provider}，然后重新发送消息。",
-  "Turn the provider on in Settings > Providers, then send your message again.":
-    "请在“设置 > 提供商”中开启提供商，然后重新发送消息。",
+  "Turn {provider} on in Settings > Models, then send your message again.":
+    "请在“设置 > 模型”中开启 {provider}，然后重新发送消息。",
+  "Turn the provider on in Settings > Models, then send your message again.":
+    "请在“设置 > 模型”中开启提供商，然后重新发送消息。",
   "{provider} is not installed": "{provider} 未安装",
   "The provider is not installed": "提供商未安装",
-  "Install {provider} from Settings > Providers, or pick another model for this bot.":
-    "请在“设置 > 提供商”中安装 {provider}，或为此机器人选择其他模型。",
-  "Install the provider from Settings > Providers, or pick another model for this bot.":
-    "请在“设置 > 提供商”中安装提供商，或为此机器人选择其他模型。",
+  "Install {provider} from Settings > Models, or pick another model for this bot.":
+    "请在“设置 > 模型”中安装 {provider}，或为此机器人选择其他模型。",
+  "Install the provider from Settings > Models, or pick another model for this bot.":
+    "请在“设置 > 模型”中安装提供商，或为此机器人选择其他模型。",
   "{provider} sign-in expired": "{provider} 登录已过期",
   "{model} is not available on {provider}": "{model} 在 {provider} 上不可用",
   "{model} is not available on the provider": "{model} 在该提供商上不可用",

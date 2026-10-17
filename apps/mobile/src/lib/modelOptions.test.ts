@@ -169,11 +169,11 @@ describe("mobile model options", () => {
     expect(options.map((option) => [option.key, option.disabledReason])).toEqual([
       [
         "claudeAgent:claude-opus",
-        "Claude is not connected. Connect your Claude account in Settings > Providers.",
+        "Claude is not connected. Connect your Claude account in Settings > Models.",
       ],
       [
         "kimi:kimi-k3",
-        "Kimi For Coding is turned off. Turn Kimi For Coding on in Settings > Providers, then send your message again.",
+        "Kimi For Coding is turned off. Turn Kimi For Coding on in Settings > Models, then send your message again.",
       ],
       ["grok:grok-build", null],
     ]);

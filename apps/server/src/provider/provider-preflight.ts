@@ -105,7 +105,7 @@ export const preflightProvider = (input: {
   if (!provider.enabled) {
     return {
       category: "temporary-failure",
-      detail: provider.unavailableReason ?? `${name} is turned off in Settings > Providers.`,
+      detail: provider.unavailableReason ?? `${name} is turned off in Settings > Models.`,
       repairAction: "providers",
     };
   }
