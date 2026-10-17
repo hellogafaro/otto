@@ -109,7 +109,7 @@ describe("selectCliRuntimeExternalDependencies", () => {
   it("selects every external root declared by the server", () => {
     assert.deepStrictEqual(
       Object.keys(selectCliRuntimeExternalDependencies(serverPackageJson.dependencies)).sort(),
-      ["@ff-labs/fff-node", "libsql", "msgpackr-extract", "node-pty", "playwright-core"],
+      ["@ff-labs/fff-node", "libsql", "msgpackr-extract", "node-pty"],
     );
   });
 });

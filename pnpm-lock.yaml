@@ -513,12 +513,6 @@ importers:
       nodemailer:
         specifier: ^10.1.0
         version: 10.1.0
-      playwright-core:
-        specifier: 1.60.0
-        version: 1.60.0
-      pngjs:
-        specifier: 7.0.0
-        version: 7.0.0
       railway:
         specifier: 3.11.0
         version: 3.11.0
@@ -553,9 +547,6 @@ importers:
       '@types/nodemailer':
         specifier: ^8.0.2
         version: 8.0.2
-      '@types/pngjs':
-        specifier: 6.0.5
-        version: 6.0.5
       effect-acp:
         specifier: workspace:*
         version: link:../../packages/effect-acp
