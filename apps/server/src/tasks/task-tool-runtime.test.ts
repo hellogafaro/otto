@@ -29,7 +29,7 @@ const createdAt = "2026-01-01T00:00:00.000Z";
 const caller = { threadId: ThreadId.make("thread-nova"), botId: nova };
 
 const listPeople = () =>
-  Effect.succeed([{ userId: ada, displayName: "Ada", email: "ada@example.test" }]);
+  Effect.succeed([{ userId: ada, displayName: "Ada", email: "ada@example.test", image: null }]);
 
 const TestLayer = OrchestrationEngineLive.pipe(
   Layer.provideMerge(

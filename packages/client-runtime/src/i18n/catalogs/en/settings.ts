@@ -365,4 +365,11 @@ export const settingsCatalog = {
   "Server address": "Server address",
   "Use another server": "Use another server",
   "Use this computer": "Use this computer",
+  "Choose a JPG, PNG, WebP or GIF image.": "Choose a JPG, PNG, WebP or GIF image.",
+  "Could not save your photo.": "Could not save your photo.",
+  "JPG, PNG, WebP or GIF up to 8 MB, cropped to a square. Everyone in your organization sees it.":
+    "JPG, PNG, WebP or GIF up to 8 MB, cropped to a square. Everyone in your organization sees it.",
+  Photo: "Photo",
+  "Replace photo": "Replace photo",
+  "Upload photo": "Upload photo",
 } as const;

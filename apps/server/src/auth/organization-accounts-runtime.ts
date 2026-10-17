@@ -30,6 +30,22 @@ export const OrganizationSetupInput = z
 
 export type OrganizationSetup = z.output<typeof OrganizationSetupInput>;
 
+export const PROFILE_IMAGE_MAX_LENGTH = 64 * 1024;
+
+const profileImage = z
+  .string()
+  .max(PROFILE_IMAGE_MAX_LENGTH)
+  .regex(/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]*={0,2}$/);
+
+const assertProfileImage = (image: string | null | undefined) => {
+  if (image == null || profileImage.safeParse(image).success) return;
+
+  throw new APIError("BAD_REQUEST", {
+    code: "INVALID_PROFILE_IMAGE",
+    message: "A profile photo must be a small JPEG image.",
+  });
+};
+
 const signUpInvitation = z.object({ email: z.email(), invitationId: z.string() });
 
 const organizationRow = z.object({ id: z.string(), name: z.string() });
@@ -52,12 +68,14 @@ const personRow = z.object({
   firstName: z.string(),
   lastName: z.string(),
   email: z.string(),
+  image: z.string().nullable(),
 });
 
 export interface AccountPerson {
   readonly userId: string;
   readonly displayName: string;
   readonly email: string;
+  readonly image: string | null;
 }
 
 export interface AccountMail {
@@ -158,8 +176,16 @@ export async function createOrganizationAccountsRuntime(options: {
     databaseHooks: {
       user: {
         create: {
-          before: async (user) =>
-            options.mailConfigured ? undefined : { data: { ...user, emailVerified: true } },
+          before: async (user) => {
+            assertProfileImage(user.image);
+
+            return options.mailConfigured ? undefined : { data: { ...user, emailVerified: true } };
+          },
+        },
+        update: {
+          before: async (user) => {
+            assertProfileImage(user.image);
+          },
         },
       },
     },
@@ -312,7 +338,7 @@ export async function createOrganizationAccountsRuntime(options: {
   };
 
   const selectPeople = database.prepare(`
-    SELECT u.id AS userId, u.firstName, u.lastName, u.email
+    SELECT u.id AS userId, u.firstName, u.lastName, u.email, u.image
     FROM members m
     JOIN users u ON u.id = m.userId
     WHERE u.emailVerified = 1
@@ -328,6 +354,7 @@ export async function createOrganizationAccountsRuntime(options: {
         userId: person.userId,
         displayName: `${person.firstName} ${person.lastName}`.trim() || person.email,
         email: person.email,
+        image: person.image,
       };
     });
 

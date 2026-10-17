@@ -573,6 +573,7 @@ export const createWsServices = (
               personId: AuthSessionId.make(person.userId),
               displayName: person.displayName,
               email: person.email,
+              ...(person.image ? { image: person.image } : {}),
             })),
             current: {
               personId: currentPersonId,

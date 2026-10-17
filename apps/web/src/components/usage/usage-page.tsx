@@ -150,7 +150,11 @@ function memberColumns(
         return bot ? (
           <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-5" />
         ) : (
-          <PersonAvatar name={member.displayName ?? "?"} className="size-5 text-9px" />
+          <PersonAvatar
+            name={member.displayName ?? "?"}
+            personId={member.personId}
+            className="size-5 text-9px"
+          />
         );
       },
     },

@@ -82,7 +82,10 @@ const harness = Effect.gen(function* () {
 
   const reactor = yield* Effect.provide(
     makeTaskWorkReactor(
-      () => Effect.succeed([{ userId: ADA, displayName: "Ada", email: "ada@example.test" }]),
+      () =>
+        Effect.succeed([
+          { userId: ADA, displayName: "Ada", email: "ada@example.test", image: null },
+        ]),
       (commentId) =>
         Effect.succeed(commentId === "comment-by-nova" ? { type: "bot" as const, id: NOVA } : null),
     ),

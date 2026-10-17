@@ -156,6 +156,7 @@ export const OrchestrationPerson = Schema.Struct({
   personId: AuthSessionId,
   displayName: TrimmedNonEmptyString,
   email: Schema.optional(TrimmedNonEmptyString),
+  image: Schema.optional(Schema.String),
 });
 
 export type OrchestrationPerson = typeof OrchestrationPerson.Type;

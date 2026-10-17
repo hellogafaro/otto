@@ -335,7 +335,11 @@ export const UserMessageRow = memo(function UserMessageRow({
         data-testid={testId}
       >
         {startsGroup ? (
-          <PersonAvatar name={authorName} className="mt-0.5 size-7" />
+          <PersonAvatar
+            name={authorName}
+            personId={message.authorPersonId}
+            className="mt-0.5 size-7"
+          />
         ) : (
           <div aria-hidden="true" className="size-7 shrink-0" />
         )}

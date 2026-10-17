@@ -4,6 +4,7 @@ import {
   type WorkParticipant,
   workParticipantKey,
 } from "@otto/contracts";
+import { useAtomValue } from "@effect/atom-react";
 import { RiUserLine } from "@remixicon/react";
 import { Match } from "effect";
 import { useMemo } from "react";
@@ -16,6 +17,7 @@ import {
   ComposerControlChevron,
   ComposerSelectControl,
 } from "../chat/composer-control";
+import { personImageAtom } from "../../state/people";
 import { useRosterStore } from "../roster/roster-store";
 import type { Bot } from "../roster/types";
 import { Button } from "../ui/button";
@@ -120,6 +122,10 @@ export function ParticipantAvatar({
       ? bots.find((candidate) => candidate.id === participant.botId)
       : undefined;
 
+  const image = useAtomValue(
+    personImageAtom(participant.kind === "person" ? participant.personId : ""),
+  );
+
   return (
     <span
       aria-hidden
@@ -130,6 +136,8 @@ export function ParticipantAvatar({
     >
       {bot ? (
         <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-full" />
+      ) : participant.kind === "person" && image ? (
+        <img src={image} alt="" className="size-full object-cover" />
       ) : participant.kind === "person" ? (
         initials(participant.displayName)
       ) : (

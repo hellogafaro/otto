@@ -13,6 +13,7 @@ export const OrganizationAccountState = Schema.Struct({
       firstName: Schema.String,
       lastName: Schema.String,
       emailVerified: Schema.Boolean,
+      image: Schema.optional(Schema.NullOr(Schema.String)),
     }),
   ),
   role: Schema.NullOr(OrganizationRole),
