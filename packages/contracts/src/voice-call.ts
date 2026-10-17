@@ -56,6 +56,21 @@ export const VoiceSynthesisVoices = Schema.Struct({
   fish: Schema.optionalKey(VoiceId),
 });
 
+/** The model each transcription provider uses; a provider without one uses its default. */
+export const VoiceTranscriptionModels = Schema.Struct({
+  openai: Schema.optionalKey(VoiceId),
+  elevenlabs: Schema.optionalKey(VoiceId),
+  cartesia: Schema.optionalKey(VoiceId),
+  openrouter: Schema.optionalKey(VoiceId),
+});
+
+export const VOICE_TRANSCRIPTION_DEFAULT_MODELS: Record<VoiceTranscriptionProvider, string> = {
+  openai: "gpt-4o-mini-transcribe",
+  elevenlabs: "scribe_v2",
+  cartesia: "ink-whisper",
+  openrouter: "openai/whisper-large-v3",
+};
+
 export const VoiceProvider = Schema.Literals(["chatgpt", "openai", "composed"]);
 
 export type VoiceProvider = typeof VoiceProvider.Type;
@@ -66,6 +81,7 @@ export const VoiceSettings = Schema.Struct({
   voice: ChatGptRealtimeVoice.pipe(Schema.withDecodingDefault(Effect.succeed("alloy" as const))),
   openaiVoice: Schema.optionalKey(ChatGptRealtimeVoice),
   transcriptionProvider: Schema.optionalKey(VoiceTranscriptionProvider),
+  transcriptionModels: Schema.optionalKey(VoiceTranscriptionModels),
   synthesisProvider: Schema.optionalKey(VoiceSynthesisProvider),
   synthesisVoices: Schema.optionalKey(VoiceSynthesisVoices),
 }).pipe(Schema.withDecodingDefault(Effect.succeed({})));
@@ -186,6 +202,18 @@ export const VoiceListVoicesResult = Schema.Struct({
 });
 
 export type VoiceListVoicesResult = typeof VoiceListVoicesResult.Type;
+
+export const VoiceListTranscriptionModelsInput = Schema.Struct({
+  provider: VoiceTranscriptionProvider,
+});
+
+export const VoiceListTranscriptionModelsResult = Schema.Struct({
+  models: Schema.Array(
+    Schema.Struct({ id: VoiceId, name: Schema.String.check(Schema.isMaxLength(256)) }),
+  ).check(Schema.isMaxLength(200)),
+});
+
+export type VoiceListTranscriptionModelsResult = typeof VoiceListTranscriptionModelsResult.Type;
 
 export const VoiceOperationId = TrimmedNonEmptyString.check(Schema.isMaxLength(128));
 

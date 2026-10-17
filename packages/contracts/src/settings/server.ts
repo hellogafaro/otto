@@ -24,6 +24,7 @@ import {
   VoiceSynthesisProvider,
   VoiceTranscriptionProvider,
   VoiceSynthesisVoices,
+  VoiceTranscriptionModels,
 } from "../voice-call.ts";
 import { ImageGenerationSettings, ImageGenerationSettingsPatch } from "../image-generation.ts";
 import { ProviderInstanceConfig, ProviderInstanceId } from "../provider-instance.ts";
@@ -299,6 +300,7 @@ const ServerSettingsPatchFields = {
       voice: Schema.optionalKey(ChatGptRealtimeVoice),
       openaiVoice: Schema.optionalKey(ChatGptRealtimeVoice),
       transcriptionProvider: Schema.optionalKey(VoiceTranscriptionProvider),
+      transcriptionModels: Schema.optionalKey(VoiceTranscriptionModels),
       synthesisProvider: Schema.optionalKey(VoiceSynthesisProvider),
       synthesisVoices: Schema.optionalKey(VoiceSynthesisVoices),
     }),

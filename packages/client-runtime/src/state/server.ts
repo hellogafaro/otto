@@ -428,6 +428,11 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.voiceProviders,
       staleTimeMs: 5_000,
     }),
+    voiceTranscriptionModels: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:voice-transcription-models",
+      tag: WS_METHODS.voiceListTranscriptionModels,
+      staleTimeMs: 60_000,
+    }),
     // The doctor shells out to system tools for several seconds; keep a result until Re-run.
     remoteDoctor: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:remote-doctor",

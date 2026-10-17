@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1647,
+  "directMessageCount": 1651,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -199,6 +199,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Speech voice",
       "Voice providers",
       "Default transcription provider",
+      "Transcription model",
       "Transcription providers",
       "Image generation",
       "ChatGPT images",

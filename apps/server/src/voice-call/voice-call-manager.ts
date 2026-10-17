@@ -11,8 +11,10 @@ import {
   type VoiceApiProvider,
   type VoiceTranscribeInput,
   type VoiceSynthesizeInput,
+  type VoiceListTranscriptionModelsResult,
   type VoiceListVoicesResult,
   type VoiceSynthesisProvider,
+  type VoiceTranscriptionProvider,
   VOICE_API_PROVIDERS,
   VoiceTranscribeInput as TranscribeSchema,
   VoiceSynthesizeInput as SynthesizeSchema,
@@ -90,6 +92,9 @@ export class VoiceCallManager extends Context.Service<
       provider: VoiceSynthesisProvider,
       cursor?: string,
     ) => Effect.Effect<VoiceListVoicesResult, VoiceCallError>;
+    readonly listTranscriptionModels: (
+      provider: VoiceTranscriptionProvider,
+    ) => Effect.Effect<VoiceListTranscriptionModelsResult, VoiceCallError>;
     readonly transcribe: (
       input: VoiceTranscribeInput,
       ownerId: string,
@@ -327,6 +332,31 @@ const make = (options?: VoiceCallManagerOptions) =>
       });
     });
 
+    // OpenRouter's live model list, kept for ten minutes.
+    let openRouterModels:
+      | { readonly at: number; readonly result: VoiceListTranscriptionModelsResult }
+      | undefined;
+
+    const listTranscriptionModels = Effect.fn("VoiceCallManager.listTranscriptionModels")(
+      function* (provider: VoiceTranscriptionProvider) {
+        const now = DateTime.toEpochMillis(yield* DateTime.now);
+
+        if (provider === "openrouter" && openRouterModels && now - openRouterModels.at < 600_000)
+          return openRouterModels.result;
+
+        const key = yield* getKey(provider);
+
+        const result = yield* Effect.tryPromise({
+          try: (signal) => adapters.listTranscriptionModels(provider, key, signal),
+          catch: (cause) => classifyVoiceFailure(cause),
+        });
+
+        if (provider === "openrouter") openRouterModels = { at: now, result };
+
+        return result;
+      },
+    );
+
     const cancel = (id: string, ownerId: string) =>
       Effect.sync(() => {
         const operation = operations.get(operationKey(ownerId, id));
@@ -418,9 +448,12 @@ const make = (options?: VoiceCallManagerOptions) =>
       Effect.gen(function* () {
         if (!isTranscribeInput(input)) return yield* voiceFailure("invalid-input");
 
-        return yield* audioOperation(input, ownerId, "transcription", (settings, key, signal) =>
-          adapters.transcribe(settings.transcriptionProvider ?? "openai", key, input, signal),
-        );
+        return yield* audioOperation(input, ownerId, "transcription", (settings, key, signal) => {
+          const provider = settings.transcriptionProvider ?? "openai";
+          const model = settings.transcriptionModels?.[provider];
+
+          return adapters.transcribe(provider, key, input, signal, model ? { model } : {});
+        });
       });
 
     const synthesize = (input: VoiceSynthesizeInput, ownerId: string) =>
@@ -739,6 +772,7 @@ const make = (options?: VoiceCallManagerOptions) =>
       disconnect,
       test,
       listVoices,
+      listTranscriptionModels,
       transcribe,
       synthesize,
       cancel,

@@ -46,6 +46,9 @@ const repository = {
 const defaults: VoiceAdapters = {
   test: async () => undefined,
   listVoices: async () => ({ voices: [{ id: "alloy", name: "Alloy" }] }),
+  listTranscriptionModels: async () => ({
+    models: [{ id: "gpt-4o-mini-transcribe", name: "GPT-4o mini Transcribe" }],
+  }),
   validateVoice: async () => undefined,
   transcribe: async () => ({ text: "transcript" }),
   synthesize: async () => ({ audioBase64: "bXAz", mimeType: "audio/mpeg" }),

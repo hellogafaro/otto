@@ -255,7 +255,11 @@ describe("audio_transcribe provider", () => {
     return makeAudioTranscriber({ transcribe: adapter }).pipe(
       Effect.provide(
         Layer.mergeAll(
-          settingsLayerTest({ voice: transcriptionProvider ? { transcriptionProvider } : {} }),
+          settingsLayerTest({
+            voice: transcriptionProvider
+              ? { transcriptionProvider, transcriptionModels: { openrouter: "deepgram/nova-3" } }
+              : {},
+          }),
           Layer.succeed(ServerSecretStore, secrets),
         ),
       ),
@@ -283,13 +287,13 @@ describe("audio_transcribe provider", () => {
       ).toEqual({ text: "bonjour" });
 
       expect(adapter).toHaveBeenCalledOnce();
-      const [provider, key, request, , language] = adapter.mock.calls[0]!;
-      expect([provider, key, request.audioBase64, request.mimeType, language]).toEqual([
+      const [provider, key, request, , options] = adapter.mock.calls[0]!;
+      expect([provider, key, request.audioBase64, request.mimeType, options]).toEqual([
         "openrouter",
         "router-key",
         "YXVkaW8=",
         "audio/wav",
-        "fr",
+        { language: "fr", model: "deepgram/nova-3" },
       ]);
     }),
   );

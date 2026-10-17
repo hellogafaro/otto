@@ -75,6 +75,9 @@ export const createWsToolHandlers = ({
 
     [WS_METHODS.voiceListVoices]: ({ provider, cursor }) => voiceCalls.listVoices(provider, cursor),
 
+    [WS_METHODS.voiceListTranscriptionModels]: ({ provider }) =>
+      voiceCalls.listTranscriptionModels(provider),
+
     [WS_METHODS.voiceTranscribe]: (input) => voiceCalls.transcribe(input, voiceCallOwnerId),
 
     [WS_METHODS.voiceSynthesize]: (input) => voiceCalls.synthesize(input, voiceCallOwnerId),
@@ -146,6 +149,7 @@ export const createWsToolHandlers = ({
     | typeof WS_METHODS.voiceDisconnect
     | typeof WS_METHODS.voiceTest
     | typeof WS_METHODS.voiceListVoices
+    | typeof WS_METHODS.voiceListTranscriptionModels
     | typeof WS_METHODS.voiceTranscribe
     | typeof WS_METHODS.voiceSynthesize
     | typeof WS_METHODS.voiceCancel

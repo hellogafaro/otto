@@ -70,6 +70,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.voiceDisconnect]: AuthAccessWriteScope,
   [WS_METHODS.voiceTest]: AuthAccessWriteScope,
   [WS_METHODS.voiceListVoices]: AuthOrchestrationReadScope,
+  [WS_METHODS.voiceListTranscriptionModels]: AuthOrchestrationReadScope,
   [WS_METHODS.voiceTranscribe]: AuthOrchestrationOperateScope,
   [WS_METHODS.voiceSynthesize]: AuthOrchestrationOperateScope,
   [WS_METHODS.voiceCancel]: AuthOrchestrationOperateScope,

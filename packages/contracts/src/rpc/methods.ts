@@ -92,6 +92,7 @@ export const WS_METHODS = {
   voiceDisconnect: "voice.disconnect",
   voiceTest: "voice.test",
   voiceListVoices: "voice.listVoices",
+  voiceListTranscriptionModels: "voice.listTranscriptionModels",
   voiceTranscribe: "voice.transcribe",
   voiceSynthesize: "voice.synthesize",
   voiceCancel: "voice.cancel",

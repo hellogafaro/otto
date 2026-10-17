@@ -228,13 +228,14 @@ export const makeAudioTranscriber = (
     const transcriber: AudioTranscriber = async (audio, language, signal) => {
       const selection = await runPromise(
         Effect.gen(function* () {
-          const provider = (yield* settings.getSettings).voice.transcriptionProvider ?? "openai";
+          const voice = (yield* settings.getSettings).voice;
+          const provider = voice.transcriptionProvider ?? "openai";
 
           const key = Option.isSome(secrets)
             ? yield* secrets.value.get(voiceKeySecretName(provider))
             : Option.none<Uint8Array>();
 
-          return { provider, key };
+          return { provider, model: voice.transcriptionModels?.[provider], key };
         }),
       ).catch(() => {
         throw new Error("Transcription settings couldn't be read.");
@@ -256,7 +257,10 @@ export const makeAudioTranscriber = (
             mimeType: audio.mimeType,
           },
           AbortSignal.any([signal, AbortSignal.timeout(120_000)]),
-          language,
+          {
+            ...(language ? { language } : {}),
+            ...(selection.model ? { model: selection.model } : {}),
+          },
         );
 
         return result.text;

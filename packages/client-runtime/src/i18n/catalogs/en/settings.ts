@@ -50,6 +50,9 @@ export const settingsCatalog = {
   "Used for dictation, Transcribe, reply, speak calls and bots transcribing files.":
     "Used for dictation, Transcribe, reply, speak calls and bots transcribing files.",
   "Choose a provider": "Choose a provider",
+  "Transcription model": "Transcription model",
+  "Used with {provider}.": "Used with {provider}.",
+  "Models couldn't be loaded.": "Models couldn't be loaded.",
   "Speech provider": "Speech provider",
   "{mode} appearance": "{mode} appearance",
   "{theme} dark theme": "{theme} dark theme",

@@ -60,9 +60,57 @@ describe("voice capability adapters", () => {
         "secret",
         { ...audio, mimeType: "audio/mp4" },
         signal(),
-        "es",
+        { language: "es" },
       ),
     ).toEqual({ text: "hola" });
+  });
+
+  it("sends the chosen transcription model instead of the default", async () => {
+    const fetcher = vi.fn<VoiceFetch>(async (_url, init) => {
+      const form = init?.body as FormData;
+      expect(form.get("model")).toBe("gpt-4o-transcribe");
+
+      return Response.json({ text: "hello" });
+    });
+
+    await voiceAdapters(fetcher).transcribe("openai", "secret", audio, signal(), {
+      model: "gpt-4o-transcribe",
+    });
+
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("lists OpenRouter's speech-to-text models by name and the others from a fixed list", async () => {
+    const fetcher = vi.fn<VoiceFetch>(async (url, init) => {
+      expect(String(url)).toBe(
+        "https://openrouter.ai/api/v1/models?output_modalities=transcription",
+      );
+      expect(init?.method).toBe("GET");
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer secret");
+
+      return Response.json({
+        data: [
+          { id: "openai/whisper-large-v3", name: "OpenAI: Whisper Large V3", pricing: {} },
+          { id: "deepgram/nova-3", name: "Deepgram: Nova-3" },
+        ],
+      });
+    });
+
+    const adapters = voiceAdapters(fetcher);
+
+    expect(await adapters.listTranscriptionModels("openrouter", "secret", signal())).toEqual({
+      models: [
+        { id: "openai/whisper-large-v3", name: "OpenAI: Whisper Large V3" },
+        { id: "deepgram/nova-3", name: "Deepgram: Nova-3" },
+      ],
+    });
+
+    expect(
+      (await adapters.listTranscriptionModels("openai", "secret", signal())).models.map(
+        (model) => model.name,
+      ),
+    ).toEqual(["GPT Transcribe", "GPT-4o Transcribe", "GPT-4o mini Transcribe", "Whisper"]);
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 
   it.each([

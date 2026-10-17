@@ -11,20 +11,44 @@ const state = vi.hoisted(() => ({
   connected: [] as string[],
 }));
 
-vi.mock("../../state/server", () => ({ serverEnvironment: { voiceProviders: () => ({}) } }));
+vi.mock("../../state/server", () => ({
+  serverEnvironment: {
+    voiceProviders: () => ({ query: "providers" }),
+    voiceTranscriptionModels: ({ input }: { input: { provider: string } }) => ({
+      query: "models",
+      provider: input.provider,
+    }),
+  },
+}));
 
 vi.mock("../../state/query", () => ({
-  useEnvironmentQuery: () => ({
-    data: {
-      providers: ["openai", "elevenlabs", "cartesia", "fish", "openrouter"].map((provider) => ({
-        provider,
-        connected: state.connected.includes(provider),
-        keyRejected: false,
-      })),
-    },
-    error: null,
-    refresh: () => {},
-  }),
+  useEnvironmentQuery: (atom: { query: string; provider?: string } | null) =>
+    atom?.query === "models"
+      ? {
+          data: {
+            models:
+              atom.provider === "openrouter"
+                ? [
+                    { id: "openai/whisper-large-v3", name: "OpenAI: Whisper Large V3" },
+                    { id: "deepgram/nova-3", name: "Deepgram: Nova-3" },
+                  ]
+                : [{ id: "gpt-4o-mini-transcribe", name: "GPT-4o mini Transcribe" }],
+          },
+          error: null,
+        }
+      : {
+          data: {
+            providers: ["openai", "elevenlabs", "cartesia", "fish", "openrouter"].map(
+              (provider) => ({
+                provider,
+                connected: state.connected.includes(provider),
+                keyRejected: false,
+              }),
+            ),
+          },
+          error: null,
+          refresh: () => {},
+        },
 }));
 
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => vi.fn() }));
@@ -109,5 +133,27 @@ describe("settings split between Voice and Transcription", () => {
       "Add a provider to dictate and to let bots transcribe audio and video.",
     );
     expect(empty.voice).not.toContain("Add a provider for API voice calls and read-aloud.");
+  });
+
+  it("shows the selected provider's models by name, its default until one is chosen", () => {
+    const fresh = renderPages({ transcriptionProvider: "openrouter" }, ["openrouter"]);
+    expect(fresh.transcription).toMatch(
+      /aria-label="Transcription model"[^]*?OpenAI: Whisper Large V3/,
+    );
+    expect(fresh.transcription).not.toContain("openai/whisper-large-v3<");
+
+    const chosen = renderPages(
+      {
+        transcriptionProvider: "openrouter",
+        transcriptionModels: { openrouter: "deepgram/nova-3" },
+      },
+      ["openrouter"],
+    );
+
+    expect(chosen.transcription).toMatch(/aria-label="Transcription model"[^]*?Deepgram: Nova-3/);
+
+    expect(renderPages({ transcriptionProvider: "openrouter" }, []).transcription).not.toContain(
+      "Transcription model",
+    );
   });
 });

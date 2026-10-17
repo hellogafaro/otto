@@ -165,6 +165,8 @@ import {
   VoiceProvidersResult,
   VoiceListVoicesInput,
   VoiceListVoicesResult,
+  VoiceListTranscriptionModelsInput,
+  VoiceListTranscriptionModelsResult,
   VoiceTranscribeInput,
   VoiceTranscribeResult,
   VoiceSynthesizeInput,
@@ -483,6 +485,12 @@ export const WsVoiceTestRpc = Rpc.make(WS_METHODS.voiceTest, {
 export const WsVoiceListVoicesRpc = Rpc.make(WS_METHODS.voiceListVoices, {
   payload: VoiceListVoicesInput,
   success: VoiceListVoicesResult,
+  error: VoiceRpcError,
+});
+
+export const WsVoiceListTranscriptionModelsRpc = Rpc.make(WS_METHODS.voiceListTranscriptionModels, {
+  payload: VoiceListTranscriptionModelsInput,
+  success: VoiceListTranscriptionModelsResult,
   error: VoiceRpcError,
 });
 

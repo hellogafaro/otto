@@ -59,7 +59,7 @@ it.effect("dictates with the Transcription provider while Voice calls are off", 
     );
 
     assert.equal(result.text, "hello");
-    assert.deepEqual(used, ["openrouter:router-key"]);
+    assert.deepEqual(used, ["openrouter:router-key:deepgram/nova-3"]);
 
     const speech = yield* Effect.result(
       manager.synthesize({ operationId: "speech", text: "Hello" }, "owner"),
@@ -73,13 +73,17 @@ it.effect("dictates with the Transcription provider while Voice calls are off", 
     Effect.provide(
       makeTest(
         {
-          transcribe: async (provider, key) => {
-            used.push(`${provider}:${key}`);
+          transcribe: async (provider, key, _input, _signal, options) => {
+            used.push(`${provider}:${key}:${options?.model}`);
 
             return { text: "hello" };
           },
         },
-        { enabled: false, transcriptionProvider: "openrouter" },
+        {
+          enabled: false,
+          transcriptionProvider: "openrouter",
+          transcriptionModels: { openrouter: "deepgram/nova-3" },
+        },
       ),
     ),
   );

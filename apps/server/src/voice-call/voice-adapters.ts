@@ -4,10 +4,12 @@ import {
   CHATGPT_REALTIME_VOICES,
   CHATGPT_REALTIME_VOICE_MODEL,
   VOICE_AUDIO_MAX_BYTES,
+  VOICE_TRANSCRIPTION_DEFAULT_MODELS,
   VoiceCallError,
   VoiceId,
   VoiceTranscribeResult,
   type VoiceApiProvider,
+  type VoiceListTranscriptionModelsResult,
   type VoiceListVoicesResult,
   type VoiceSynthesisProvider,
   type VoiceTranscribeInput,
@@ -29,9 +31,6 @@ const origins = {
   fish: "https://api.fish.audio",
   openrouter: "https://openrouter.ai",
 } as const;
-
-/** OpenRouter's speech-to-text model, through its OpenAI-compatible multipart endpoint: the API reference's own example. */
-export const OPENROUTER_TRANSCRIPTION_MODEL = "openai/whisper-large-v3";
 
 const Name = Schema.String.check(Schema.isMaxLength(256));
 
@@ -79,6 +78,25 @@ const decodeCartesiaVoice = Schema.decodeUnknownSync(
 );
 
 const decodeTranscript = Schema.decodeUnknownSync(VoiceTranscribeResult);
+
+const decodeOpenRouterModels = Schema.decodeUnknownSync(
+  Schema.Struct({ data: Schema.Array(Schema.Struct({ id: VoiceId, name: Schema.String })) }),
+);
+
+/** Batch transcription models each provider documents today, newest first. */
+const TRANSCRIPTION_MODELS: Record<
+  Exclude<VoiceTranscriptionProvider, "openrouter">,
+  VoiceListTranscriptionModelsResult["models"]
+> = {
+  openai: [
+    { id: "gpt-transcribe", name: "GPT Transcribe" },
+    { id: "gpt-4o-transcribe", name: "GPT-4o Transcribe" },
+    { id: "gpt-4o-mini-transcribe", name: "GPT-4o mini Transcribe" },
+    { id: "whisper-1", name: "Whisper" },
+  ],
+  elevenlabs: [{ id: "scribe_v2", name: "Scribe v2" }],
+  cartesia: [{ id: "ink-whisper", name: "Ink Whisper" }],
+};
 
 const isVoiceId = Schema.is(VoiceId);
 
@@ -326,7 +344,7 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
     key: string,
     input: VoiceTranscribeInput,
     signal: AbortSignal,
-    language?: string,
+    options: { readonly language?: string; readonly model?: string } = {},
   ) {
     if (input.audioBase64.length > 4 * Math.ceil(VOICE_AUDIO_MAX_BYTES / 3))
       throw voiceFailure("invalid-input");
@@ -351,15 +369,11 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
     form.set("file", new Blob([audio], { type: input.mimeType }), `audio.${extension}`);
     form.set(
       provider === "elevenlabs" ? "model_id" : "model",
-      {
-        openai: "gpt-4o-mini-transcribe",
-        openrouter: OPENROUTER_TRANSCRIPTION_MODEL,
-        elevenlabs: "scribe_v2",
-        cartesia: "ink-whisper",
-      }[provider],
+      options.model ?? VOICE_TRANSCRIPTION_DEFAULT_MODELS[provider],
     );
 
-    if (language) form.set(provider === "elevenlabs" ? "language_code" : "language", language);
+    if (options.language)
+      form.set(provider === "elevenlabs" ? "language_code" : "language", options.language);
 
     if (provider === "elevenlabs") {
       form.set("tag_audio_events", "false");
@@ -381,6 +395,27 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
           form,
         ),
       );
+    } catch (cause) {
+      throw classifyVoiceFailure(cause, signal);
+    }
+  }
+
+  /** OpenRouter's live speech-to-text models; the others are a documented list. */
+  async function listTranscriptionModels(
+    provider: VoiceTranscriptionProvider,
+    key: string,
+    signal: AbortSignal,
+  ): Promise<VoiceListTranscriptionModelsResult> {
+    if (provider !== "openrouter") return { models: TRANSCRIPTION_MODELS[provider] };
+
+    try {
+      const { data } = decodeOpenRouterModels(
+        await json(provider, key, "/api/v1/models?output_modalities=transcription", signal),
+      );
+
+      return {
+        models: data.slice(0, 200).map(({ id, name }) => ({ id, name: name.slice(0, 256) })),
+      };
     } catch (cause) {
       throw classifyVoiceFailure(cause, signal);
     }
@@ -486,7 +521,15 @@ export function voiceAdapters(fetcher: VoiceFetch = fetch) {
     else await listVoices(provider, key, signal);
   }
 
-  return { listVoices, validateVoice, transcribe, synthesize, negotiate, test };
+  return {
+    listVoices,
+    validateVoice,
+    listTranscriptionModels,
+    transcribe,
+    synthesize,
+    negotiate,
+    test,
+  };
 }
 
 export type VoiceAdapters = ReturnType<typeof voiceAdapters>;

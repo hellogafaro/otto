@@ -126,6 +126,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     keywords: ["speech to text", "dictation", "OpenAI", "ElevenLabs", "Cartesia", "OpenRouter"],
   },
   {
+    id: "transcription-model",
+    title: "Transcription model",
+    to: "/settings/transcription",
+    keywords: ["speech to text", "Whisper", "GPT-4o Transcribe", "Scribe", "Ink Whisper"],
+  },
+  {
     id: "transcription-providers",
     title: "Transcription providers",
     to: "/settings/transcription",

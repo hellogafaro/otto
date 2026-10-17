@@ -50,6 +50,9 @@ export const settingsCatalog = {
   "Used for dictation, Transcribe, reply, speak calls and bots transcribing files.":
     "用于听写、“转写、回复、朗读”通话，以及机器人转写文件。",
   "Choose a provider": "选择提供商",
+  "Transcription model": "转写模型",
+  "Used with {provider}.": "用于 {provider}。",
+  "Models couldn't be loaded.": "无法加载模型。",
   "Speech provider": "语音合成提供商",
   "{mode} appearance": "{mode}外观",
   "{theme} dark theme": "{theme}深色主题",
