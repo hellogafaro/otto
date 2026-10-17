@@ -8,4 +8,4 @@ description: Use when work looks done or a result is disputed, to test the real 
 - Mark each check passed, failed or unverified, with why and how to verify it. Never call an unrun check passed.
 - After any further change, rerun the affected checks.
 - When a person rejects a result, recheck before answering, fix the actual cause and say what changed. If a skill's steps caused it, propose a fix with skill_update.
-- To show the evidence as screenshots or a recording, use visualize. To judge quality and completeness, use review.
+- To show the evidence as screenshots or a recording, use visualize. On heavy or long work, review comes next, then deliver.

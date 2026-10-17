@@ -8,3 +8,4 @@ description: Use when drafting or editing a long or important text, such as a re
 - Match the reader's language and tone. Plain words, active voice, sentence case.
 - No filler, hype, chatbot phrases, em dashes or bold-label lists.
 - For a long or important text, check [patterns](references/patterns.md).
+- A document or other long text is heavy work: once drafted, run verify, then review, then deliver.
