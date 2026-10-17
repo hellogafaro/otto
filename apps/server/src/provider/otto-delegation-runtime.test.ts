@@ -6,8 +6,8 @@ import {
   MessageId,
   ThreadId,
   TurnId,
+  type McpServer,
   OttoDelegationRecord,
-  OttoToolInputSchemas,
   type OrchestrationCommand,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
@@ -16,7 +16,6 @@ import {
   createOttoDelegationRuntime,
   type OttoDelegationChildOutcome,
 } from "./otto-delegation-runtime.ts";
-import { intersectDelegationAccess } from "./otto-tool-runtime.ts";
 import {
   CHILD_BOT_ID,
   CHILD_TURN_ID,
@@ -25,6 +24,7 @@ import {
   PARENT_THREAD_ID,
   PARENT_TURN_ID,
   access,
+  bot,
   delegation,
   harness,
   parent,
@@ -37,43 +37,41 @@ const encodeDelegationRecord = Schema.encodeUnknownSync(OttoDelegationRecord);
 
 const decodeDelegationRecord = Schema.decodeUnknownSync(OttoDelegationRecord);
 
-const decodeSendToAgent = Schema.decodeUnknownSync(OttoToolInputSchemas.SendToAgent);
-
-describe("delegation access", () => {
-  it("intersects MCP disables, user-computer capability, tools, and memory scopes", () => {
-    const grant = intersectDelegationAccess({
-      parent: access({
-        allowedToolIds: ["Read", "WebFetch", "SendToAgent"],
-        memoryScopes: ["private", "project"],
-        hasUserComputer: false,
-        enabledMcpServerIds: [McpServerId.make("web"), McpServerId.make("email")],
-        disabledMcpServerIds: [McpServerId.make("parent-disabled")],
-      }),
-      child: access({
-        allowedToolIds: ["Read", "WebFetch"],
-        memoryScopes: ["project", "group"],
-        hasUserComputer: true,
-        enabledMcpServerIds: [McpServerId.make("web")],
-        disabledMcpServerIds: [McpServerId.make("child-disabled")],
-      }),
-      requested: request({
-        allowedToolIds: ["Read", "WebFetch"],
-        memoryScopes: ["project"],
-        mcpServerIds: [McpServerId.make("web"), McpServerId.make("email")],
-      }) as never,
-    });
-
-    expect(grant).toMatchObject({
-      allowedToolIds: ["Read", "WebFetch"],
-      memoryScopes: ["project"],
-      hasUserComputer: false,
-      enabledMcpServerIds: ["web"],
-      disabledMcpServerIds: ["parent-disabled", "child-disabled"],
-    });
-  });
+const mcpServer = (id: string, enabled = true): McpServer => ({
+  id: McpServerId.make(id),
+  name: id,
+  transport: "url",
+  url: `https://example.com/${id}`,
+  enabled,
+  createdAt: NOW,
+  updatedAt: NOW,
 });
 
 describe("OttoDelegationRuntime", () => {
+  it("runs delegated work with the target bot's own settings", async () => {
+    const test = harness(
+      snapshot({
+        bots: [
+          bot(PARENT_BOT_ID, { sandbox: "boat", runtimeMode: "full-access" }),
+          bot(CHILD_BOT_ID, {
+            runtimeMode: "auto",
+            disabledMcpServerIds: [McpServerId.make("email")],
+          }),
+        ],
+        mcpServers: [mcpServer("web"), mcpServer("email"), mcpServer("off", false)],
+      }),
+    );
+
+    await test.runtime.send(parent(), request() as never);
+
+    expect(test.state.delegations.at(-1)?.access).toEqual({
+      sandbox: "local",
+      runtimeMode: "auto",
+      enabledMcpServerIds: ["web"],
+      disabledMcpServerIds: ["email"],
+    });
+  });
+
   it("sends a bot message through its active thread", async () => {
     const test = harness(
       snapshot({
@@ -170,47 +168,10 @@ describe("OttoDelegationRuntime", () => {
     expect(otherTurn.state.delegations.at(-1)?.anchorMessageId).toBeNull();
   });
 
-  it("keeps work a bot sent with keep running after its turn ends", async () => {
-    const test = harness();
-    const child = Promise.withResolvers<OttoDelegationChildOutcome>();
-
-    const runtime = createOttoDelegationRuntime({
-      readSnapshot: async () => test.state,
-      dispatch: test.dispatch,
-      awaitChild: () => child.promise,
-      interruptChild: async () => undefined,
-      now: () => NOW,
-      id: (() => {
-        let next = 100;
-
-        return () => String(++next);
-      })(),
-    });
-
-    const input = decodeSendToAgent(request({ keep: true }));
-
-    const handle = await runtime.send(parent(), input);
-    expect(test.state.delegations.at(-1)).toMatchObject({ keep: true });
-
-    await runtime.parentFinished({
-      threadId: PARENT_THREAD_ID,
-      turnId: PARENT_TURN_ID,
-      failed: false,
-    });
-    expect(test.state.delegations.at(-1)?.phase._tag).toBe("Running");
-
-    child.resolve({ state: "completed", turnId: CHILD_TURN_ID, summary: "Done later." });
-    await runtime.drain();
-    expect(test.state.delegations.at(-1)).toMatchObject({
-      delegationId: handle.delegationId,
-      phase: { _tag: "Completed", result: { summary: "Done later." } },
-    });
-  });
-
   it("retries failed work as a new record and never changes the original", async () => {
     const original = delegation(DelegationId.make("delegation-original"), {
       anchorMessageId: MessageId.make("message-user"),
-      access: access({ memoryScopes: ["project"], allowedToolIds: ["Read"] }),
+      access: access({ runtimeMode: "full-access" }),
       phase: {
         _tag: "Failed",
         childThreadId: ThreadId.make("child-old"),
@@ -254,7 +215,7 @@ describe("OttoDelegationRuntime", () => {
       ancestorBotIds: [PARENT_BOT_ID],
       depth: 1,
       task: original.task,
-      access: original.access,
+      access: access(),
       phase: { _tag: "Completed" },
     });
 
@@ -347,7 +308,7 @@ describe("OttoDelegationRuntime", () => {
       parentBotId: PARENT_BOT_ID,
       parentDelegationId: null,
       depth: 1,
-      access: { memoryScopes: [], runtimeMode: "approval-required" },
+      access: { runtimeMode: "approval-required" },
     });
     // The card keeps its own turn, so the running chat turn cannot move it.
     expect(test.state.delegations.at(-1)?.parentTurnId).not.toBe(PARENT_TURN_ID);
@@ -388,20 +349,6 @@ describe("OttoDelegationRuntime", () => {
       "delegation.create",
       "thread.delete",
     ]);
-  });
-
-  it("grants only the memory scopes the parent holds and the request names", async () => {
-    const scoped = harness();
-    await scoped.runtime.send(parent(), request({ memoryScopes: ["project"] }) as never);
-    expect(scoped.state.delegations.at(-1)?.access.memoryScopes).toEqual(["project"]);
-
-    const omitted = harness();
-    await omitted.runtime.send(parent(), request() as never);
-    expect(omitted.state.delegations.at(-1)?.access.memoryScopes).toEqual([]);
-
-    await expect(
-      harness().runtime.send(parent(), request({ memoryScopes: ["group"] }) as never),
-    ).rejects.toThrow("parent turn grant");
   });
 
   it("preserves blocked state and persists child failure", async () => {

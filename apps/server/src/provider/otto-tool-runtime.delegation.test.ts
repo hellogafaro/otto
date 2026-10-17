@@ -21,7 +21,7 @@ describe("OttoToolRuntime", () => {
     directories.clear();
   });
 
-  it("limits delegated tools and requires a one-shot send grant", async () => {
+  it("requires a one-shot send grant for delegated work", async () => {
     const send = vi.fn(async () => ({ delivered: true }));
     const runtime = createOttoToolRuntime();
     runtime.registerSession("thread-delegated", {
@@ -32,21 +32,17 @@ describe("OttoToolRuntime", () => {
         depth: 0,
         activeDelegations: 0,
         access: {
-          allowedToolIds: ["SendToAgent"],
-          memoryScopes: [],
           sandbox: "local",
           runtimeMode: "full-access",
-          hasUserComputer: false,
           enabledMcpServerIds: [],
           disabledMcpServerIds: [],
-          approvalCeiling: "send",
         },
         send,
       },
     });
-    expect(runtime.toolsForThread("thread-delegated").map((tool) => tool.id)).toEqual([
+    expect(runtime.toolsForThread("thread-delegated").map((tool) => tool.id)).toContain(
       "SendToAgent",
-    ]);
+    );
 
     const execution = {
       threadId: "thread-delegated",
@@ -79,14 +75,10 @@ describe("OttoToolRuntime", () => {
         depth: 0,
         activeDelegations: 0,
         access: {
-          allowedToolIds: ["CreateAgent", "CheckAgent", "MessageAgent", "StopAgent"],
-          memoryScopes: [],
           sandbox: "local",
           runtimeMode: "full-access",
-          hasUserComputer: false,
           enabledMcpServerIds: [],
           disabledMcpServerIds: [],
-          approvalCeiling: "delete",
         },
         create,
         check,
@@ -155,14 +147,10 @@ describe("OttoToolRuntime", () => {
         depth: 0,
         activeDelegations: 0,
         access: {
-          allowedToolIds: ["CreateAgent", "CheckAgent", "StopAgent"],
-          memoryScopes: [],
           sandbox: "local",
           runtimeMode: "full-access",
-          hasUserComputer: false,
           enabledMcpServerIds: [],
           disabledMcpServerIds: [],
-          approvalCeiling: "delete",
         },
         create: fail,
         check: fail,
@@ -233,14 +221,10 @@ describe("OttoToolRuntime", () => {
         depth: 0,
         activeDelegations: 0,
         access: {
-          allowedToolIds: ["SendToAgent"],
-          memoryScopes: [],
           sandbox: "local",
           runtimeMode: "full-access",
-          hasUserComputer: false,
           enabledMcpServerIds: [],
           disabledMcpServerIds: [],
-          approvalCeiling: "send",
         },
         send: async () => {
           throw new Error("Provider unavailable");

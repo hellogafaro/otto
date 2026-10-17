@@ -35,16 +35,11 @@ const record = {
   depth: 1,
   task: "Compare three flights.",
   expectedResult: "A short comparison with sources.",
-  deadline: null,
   access: {
-    allowedToolIds: ["Read"],
-    memoryScopes: ["project"],
     sandbox: "daytona",
     runtimeMode: "approval-required",
-    hasUserComputer: false,
     enabledMcpServerIds: [],
     disabledMcpServerIds: ["email"],
-    approvalCeiling: "send",
   },
   billedBotId: "bot-child",
   phase: {

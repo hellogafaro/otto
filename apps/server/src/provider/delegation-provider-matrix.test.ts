@@ -67,13 +67,10 @@ describe("delegation provider matrix", () => {
       expect(driverSupportsDelegation(driverKind)).toBe(true);
     });
 
-    it("starts the child, applies the access grant, returns the result, and bills the child", async () => {
+    it("starts the child with its own settings, returns the result, and bills the child", async () => {
       const test = onDriver(driverKind);
 
-      const handle = await test.runtime.send(
-        parent(),
-        request({ allowedToolIds: ["Read"], memoryScopes: ["project"] }) as never,
-      );
+      const handle = await test.runtime.send(parent(), request() as never);
 
       const [create] = commandsOf(test.commands, "thread.create");
       expect(create).toMatchObject({
@@ -86,8 +83,8 @@ describe("delegation provider matrix", () => {
         expect.objectContaining({ threadId: handle.childThreadId }),
       ]);
       expect(test.runtime.accessForThread(handle.childThreadId)).toMatchObject({
-        allowedToolIds: ["Read"],
-        memoryScopes: ["project"],
+        sandbox: "local",
+        runtimeMode: "approval-required",
       });
 
       test.child.resolve({

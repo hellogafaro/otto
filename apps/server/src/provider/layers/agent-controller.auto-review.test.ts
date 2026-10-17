@@ -471,14 +471,10 @@ describe("AgentControllerLive", () => {
     const mastra = mastraHarnessFixture();
 
     const access: OttoDelegationAccessGrant = {
-      allowedToolIds: ["Shell", "Read"],
-      memoryScopes: [],
       sandbox: null,
       runtimeMode: "approval-required",
-      hasUserComputer: false,
       enabledMcpServerIds: [],
       disabledMcpServerIds: [],
-      approvalCeiling: "send",
     };
 
     const layer = makeLayer(
@@ -518,9 +514,13 @@ describe("AgentControllerLive", () => {
       });
 
       expect(mastra.createSession.mock.calls[0]?.[0]).not.toHaveProperty("workspace");
-      expect(mastra.harnessOptions[0]?.toolRuntime.toolsForThread(String(codexThreadId))).toEqual(
-        [],
-      );
+
+      const toolIds = mastra.harnessOptions[0]?.toolRuntime
+        .toolsForThread(String(codexThreadId))
+        .map((tool) => tool.id);
+
+      expect(toolIds).not.toContain("Shell");
+      expect(toolIds).not.toContain("Read");
     }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });
 });
@@ -531,14 +531,10 @@ describe("AgentControllerLive", () => {
     const mastra = mastraHarnessFixture();
 
     const access: OttoDelegationAccessGrant = {
-      allowedToolIds: ["Shell", "Read"],
-      memoryScopes: [],
       sandbox: "e2b",
       runtimeMode: "full-access",
-      hasUserComputer: false,
       enabledMcpServerIds: [],
       disabledMcpServerIds: [],
-      approvalCeiling: "secrets",
     };
 
     const remote = new Workspace({

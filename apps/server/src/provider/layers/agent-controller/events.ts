@@ -514,24 +514,6 @@ export function createEvents(deps: {
           return;
         }
 
-        const grant =
-          deps.wired().delegationRuntime?.accessForThread(threadId) ??
-          active.toolSession.delegation?.access;
-
-        if (grant?.approvalCeiling === "none") {
-          // Nobody can answer a prompt here, so the call fails now instead of waiting.
-          active.session.respondToToolApproval({
-            toolCallId: event.toolCallId,
-            decision: "decline",
-            declineContext: {
-              reason: "approval_unavailable",
-              message: `Tool '${event.toolName}' needs approval, and this chat cannot ask anyone for it. Finish without it or report the blocker.`,
-            },
-          });
-
-          return;
-        }
-
         active.approvalRequests.set(event.toolCallId, {
           name: event.toolName,
           input: toolInput,

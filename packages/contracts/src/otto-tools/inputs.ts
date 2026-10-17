@@ -10,11 +10,8 @@ import {
   PositiveInt,
   TrimmedNonEmptyString,
 } from "../base-schemas.ts";
-import { OttoMemoryTargetScope } from "../otto-memory/base.ts";
 import { McpServerId, McpServerInstructions, McpServerUrl } from "../mcp-server.ts";
 import { ImageGenerationRequest } from "../image-generation.ts";
-import { BotSandbox } from "../orchestration/roster.ts";
-import { RuntimeMode } from "../orchestration/model-selection.ts";
 import {
   LibraryFileId,
   LibraryFileType,
@@ -29,7 +26,7 @@ import {
   WorkTitle,
 } from "../orchestration/work.ts";
 import { ActivityContent } from "../orchestration/activity.ts";
-import { OttoToolId, OttoToolApprovalClass } from "./catalog.ts";
+import { OttoToolId } from "./catalog.ts";
 
 export const OTTO_COMMAND_MAX_CHARS = 32_000;
 
@@ -138,15 +135,6 @@ const AgentMessageInput = Schema.Struct({
       }),
     ),
   ),
-  deadline: Schema.optional(IsoDateTime),
-  allowedToolIds: Schema.optional(Schema.Array(OttoToolId)),
-  memoryScopes: Schema.optional(Schema.Array(OttoMemoryTargetScope)),
-  mcpServerIds: Schema.optional(Schema.Array(McpServerId)),
-  sandbox: Schema.optional(
-    Schema.NullOr(Schema.suspend((): Schema.Codec<BotSandbox> => BotSandbox)),
-  ),
-  runtimeMode: Schema.optional(Schema.suspend((): Schema.Codec<RuntimeMode> => RuntimeMode)),
-  approvalCeiling: Schema.optional(OttoToolApprovalClass),
 });
 
 /** The size limit is checked on the saved bytes, so the model sees a plain string. */
@@ -187,11 +175,7 @@ export const OttoToolInputSchemas = {
   CheckAgent: Schema.Struct({ botId: BotId }),
   MessageAgent: AgentMessageInput,
   StopAgent: Schema.Struct({ botId: BotId }),
-  SendToAgent: Schema.Struct({
-    ...AgentMessageInput.fields,
-    /** Keep the work running after the parent turn ends instead of stopping it. */
-    keep: Schema.optional(Schema.Boolean),
-  }),
+  SendToAgent: AgentMessageInput,
   SendToUser: Schema.Struct({
     message: TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_COMMAND_MAX_CHARS)),
   }),

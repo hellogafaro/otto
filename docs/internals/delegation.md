@@ -98,14 +98,11 @@ such a child's orphaned session as errored.
 waiter is an Effect `Deferred` awaited under `Effect.timeoutOrElse`, so no wait
 is unbounded:
 
-- A delegation with a `deadline` times out at the deadline with the message
-  "The delegation deadline expired." A deadline already in the past fails at
-  once.
-- A delegation with no deadline times out after
-  `OTTO_CHILD_WAIT_DEFAULT_TIMEOUT` (4 hours). Coding work can run for hours,
-  so the bound catches a child that never reports back rather than a slow one.
+A child that does not report back within `OTTO_CHILD_WAIT_DEFAULT_TIMEOUT`
+(4 hours) times out. Coding work can run for hours, so the bound catches a
+child that never reports back rather than a slow one.
 
-Both cases reject `awaitChild` with `PendingWaiterTimeoutError`. The runtime
+A timeout rejects `awaitChild` with `PendingWaiterTimeoutError`. The runtime
 records that as a `Failed` phase with failure code `timeout` and interrupts
 the child turn, so the card shows a timeout instead of running forever.
 
@@ -246,9 +243,10 @@ message.
   at `OTTO_DELEGATION_CONTEXT_MAX_CHARS` (8,000). The runtime rejects longer
   context with `OttoDelegationContextTooLongError`, which the tool runtime
   reports with failure code `validation`.
-- `memoryScopes` is an allowlist. Each requested scope must be one the parent
-  turn holds, or the request fails. An omitted list grants the child no memory
-  scopes.
+- The request carries only the brief: `botId`, `task`, `expectedResult` and
+  `context`. The child runs with its own settings: its sandbox, runtime mode
+  and the workspace's enabled MCP servers it has not turned off. The record's
+  `access` keeps those settings as they were when the work started.
 - A parent thread can have at most `OTTO_DELEGATION_MAX_CONCURRENCY` (3)
   active delegations, and delegation nests at most
   `OTTO_DELEGATION_MAX_DEPTH` (2) levels.
@@ -269,8 +267,7 @@ Every way into a delegation state has a way back out.
   already finished.
 - **Let it finish.** `delegation.cancel` with `keep: true` only sets `keep` on
   the record, and the work keeps running. A kept child survives its parent turn
-  being interrupted or failing. A bot can set the same flag up front with
-  `keep: true` on `SendToAgent`.
+  being interrupted or failing.
 - **Retry.** `delegation.retry` starts new work from a `Failed` or `Canceled`
   record. The decider refuses any other phase, a record that another record
   already retries (its `retryOfDelegationId` points at it), and a retry when
@@ -281,9 +278,9 @@ Every way into a delegation state has a way back out.
   `delegation.retry-requested` and leaves the original record untouched.
   `ProviderCommandReactor` then calls `AgentController.dispatchDelegation`
   with `{ _tag: "Retry" }`. The runtime sends a new delegation to the same bot
-  with the original task, expected result, access grant, `keep`, `trigger`,
-  and anchor, plus `retryOfDelegationId` pointing at the original. A deadline
-  carries over only if it is still in the future. The original `context` is
+  with the original task, expected result, `keep`, `trigger` and anchor,
+  plus `retryOfDelegationId` pointing at the original. The child runs with
+  its settings at the time of the retry. The original `context` is
   not stored on the record, so a retry runs without it. Storing it would put up
   to 8,000 characters on every record sent to clients. If the runtime refuses
   the new work, the reactor appends a `delegation.retry.failed` activity to

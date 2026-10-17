@@ -21,11 +21,8 @@ export const memoryCatalog = {
   "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.":
     "机器人会记住你的指令、工具和上下文，你只需交代一次任务，它就会持续推进工作。",
   "Approval required": "需要批准",
-  "approval ceiling: {ceiling}": "批准上限：{ceiling}",
   "approval required": "需要批准",
   "automatic approvals": "自动批准",
-  "memory: {scopes}": "记忆：{scopes}",
-  "no approvals": "无需批准",
   "A note to yourself about what this bot is for. Searchable from the roster.":
     "写给自己的备注，说明此机器人的用途。可在机器人列表中搜索。",
   Memory: "记忆",

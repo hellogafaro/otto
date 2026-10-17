@@ -121,35 +121,7 @@ describe("OttoDelegationRuntime", () => {
     }
   });
 
-  it("enforces timeout and interrupts the child", async () => {
-    const test = harness();
-
-    const runtime = createOttoDelegationRuntime({
-      readSnapshot: async () => test.state,
-      dispatch: async (command) => test.dispatch(command),
-      awaitChild: async () => {
-        throw new Error("The delegation deadline expired.");
-      },
-      interruptChild: async (threadId, turnId) => {
-        test.interrupts.push({ threadId, turnId });
-      },
-      now: () => NOW,
-      id: (() => {
-        let value = 0;
-
-        return () => String(++value);
-      })(),
-    });
-
-    await runtime.send(parent(), request({ deadline: "2020-01-01T00:00:00.000Z" }) as never);
-    await runtime.drain();
-    expect(test.state.delegations.at(-1)).toMatchObject({
-      phase: { _tag: "Failed", failure: { failureCode: "timeout" } },
-    });
-    expect(test.interrupts).toHaveLength(1);
-  });
-
-  it("treats a waiter timeout without a deadline as a timeout and interrupts the child", async () => {
+  it("treats a waiter timeout as a timeout and interrupts the child", async () => {
     const test = harness();
 
     const runtime = createOttoDelegationRuntime({
@@ -175,7 +147,6 @@ describe("OttoDelegationRuntime", () => {
     await runtime.send(parent(), request() as never);
     await runtime.drain();
     expect(test.state.delegations.at(-1)).toMatchObject({
-      deadline: null,
       phase: {
         _tag: "Failed",
         failure: {

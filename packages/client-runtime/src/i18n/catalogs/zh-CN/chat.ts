@@ -231,7 +231,6 @@ export const chatCatalog = {
   Working: "工作中",
   queued: "排队中",
   running: "运行中",
-  "tools: {tools}": "工具：{tools}",
   "{name} chat": "{name} 的聊天",
   "Disable voice calls for {name}": "停用 {name} 的语音通话",
   "Enable voice calls for {name}": "启用 {name} 的语音通话",

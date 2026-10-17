@@ -221,16 +221,11 @@ function delegation(state: OttoDelegationState, overrides: TestProps = {}) {
     depth: 1,
     task: "Compare the release options.",
     expectedResult: "A short comparison.",
-    deadline: null,
     access: {
-      allowedToolIds: ["Read"],
-      memoryScopes: ["project"],
       sandbox: "local",
       runtimeMode: "approval-required",
-      hasUserComputer: false,
       enabledMcpServerIds: [],
       disabledMcpServerIds: [],
-      approvalCeiling: "none",
     },
     billedBotId: "bot-child",
     phase: phaseFor(state),
@@ -429,11 +424,10 @@ describe("DelegationCard", () => {
     expect(markup).not.toContain("file://");
   });
 
-  it("shows elapsed time and the access grant", () => {
+  it("shows elapsed time and the child bot's settings", () => {
     const markup = renderCard("completed");
     expect(markup).toContain(">50s</span>");
-    expect(markup).toContain("approval required · local sandbox · tools: Read");
-    expect(markup).toContain("memory: project · MCP servers: 0 · no user computer · no approvals");
+    expect(markup).toContain("approval required · local sandbox · MCP servers: 0");
   });
 
   it("shows hours for work that ran an hour or more", () => {
@@ -612,19 +606,15 @@ describe("DelegationCard", () => {
     expect(markup).toContain('aria-label="View Mori&#x27;s work"');
   });
 
-  it("keeps tool ids and MCP counts off the card face", () => {
+  it("keeps MCP counts off the card face", () => {
     const markup = renderToStaticMarkup(
       <DelegationCard
         delegation={delegation("running", {
           access: {
-            allowedToolIds: ["Shell", "WebFetch"],
-            memoryScopes: ["project"],
             sandbox: "local",
             runtimeMode: "approval-required",
-            hasUserComputer: false,
             enabledMcpServerIds: ["github", "linear"],
             disabledMcpServerIds: [],
-            approvalCeiling: "none",
           },
         })}
         delegations={[]}
@@ -634,10 +624,7 @@ describe("DelegationCard", () => {
     );
 
     const [face, details] = markup.split("<details");
-    expect(face).not.toContain("Shell");
     expect(face).not.toContain("MCP servers");
-    expect(face).not.toContain("tools:");
-    expect(details).toContain("tools: Shell, WebFetch");
     expect(details).toContain("MCP servers: 2");
   });
 

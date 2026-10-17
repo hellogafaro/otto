@@ -58,18 +58,12 @@ export function delegationStateLabel(state: OttoDelegationState, t: Translate): 
   }
 }
 
-// Sandbox, tool, memory scope, and approval ceiling values are identifiers and stay raw.
+// Sandbox values are identifiers and stay raw.
 export function formatDelegationAccess(access: OttoDelegationAccessGrant, t: Translate): string {
   return [
     runtimeModeLabel(access.runtimeMode, t),
     access.sandbox === null ? t("no sandbox") : t("{sandbox} sandbox", { sandbox: access.sandbox }),
-    t("tools: {tools}", { tools: access.allowedToolIds.join(", ") || t("none") }),
-    t("memory: {scopes}", { scopes: access.memoryScopes.join(", ") || t("none") }),
     t("MCP servers: {count}", { count: access.enabledMcpServerIds.length }),
-    access.hasUserComputer ? t("user computer") : t("no user computer"),
-    access.approvalCeiling === "none"
-      ? t("no approvals")
-      : t("approval ceiling: {ceiling}", { ceiling: access.approvalCeiling }),
   ].join(" · ");
 }
 

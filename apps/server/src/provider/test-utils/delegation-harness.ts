@@ -44,14 +44,10 @@ export const PARENT_TURN_ID = TurnId.make("turn-parent");
 export const CHILD_TURN_ID = TurnId.make("turn-child");
 
 export const access = (overrides: Partial<OttoDelegationAccessGrant> = {}) => ({
-  allowedToolIds: ["Read", "Shell", "SendToAgent"] as const,
-  memoryScopes: ["private", "bot", "project"] as const,
   sandbox: "local" as const,
   runtimeMode: "approval-required" as const,
-  hasUserComputer: false,
   enabledMcpServerIds: [],
   disabledMcpServerIds: [],
-  approvalCeiling: "send" as const,
   ...overrides,
 });
 
@@ -127,7 +123,6 @@ export function delegation(
     depth: 1,
     task: "Research the answer.",
     expectedResult: "A concise answer.",
-    deadline: null,
     access: access(),
     phase: { _tag: "Queued" },
     billedBotId: CHILD_BOT_ID,

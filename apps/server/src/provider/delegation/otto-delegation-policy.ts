@@ -1,5 +1,4 @@
 import {
-  OTTO_TOOL_CATALOG,
   BotId,
   DelegationId,
   MessageId,
@@ -73,13 +72,10 @@ export interface OttoDelegationRuntimeOptions {
   ) => Promise<{ readonly sequence: number } | void>;
   /**
    * Resolves with the child's turn outcome. Rejects with
-   * `PendingWaiterTimeoutError` at the deadline, or after a bounded default
-   * when the deadline is null, so a silent child never hangs the watch.
+   * `PendingWaiterTimeoutError` after a bounded wait, so a silent child never
+   * hangs the watch.
    */
-  readonly awaitChild: (
-    threadId: ThreadId,
-    deadline: string | null,
-  ) => Promise<OttoDelegationChildOutcome>;
+  readonly awaitChild: (threadId: ThreadId) => Promise<OttoDelegationChildOutcome>;
   readonly interruptChild: (threadId: ThreadId, turnId: TurnId | null) => Promise<void>;
   readonly recordUsage?: (input: {
     readonly botId: BotId;
@@ -132,6 +128,7 @@ export interface OttoDelegationOrigin {
   readonly trigger: OttoDelegationRecord["trigger"];
   readonly retryOfDelegationId: DelegationId | null;
   readonly anchorMessageId: MessageId | null;
+  readonly keep: boolean;
 }
 
 export const isDispatchedDelegation = (delegation: OttoDelegationRecord) =>
@@ -149,24 +146,19 @@ export interface OttoDelegationHandle {
   readonly phase: "running";
 }
 
-// The child offers every memory scope; intersectDelegationAccess narrows it to
-// what the parent holds and the request names, so an omitted request grants none.
-export function childAccess(
+/** A bot's own settings: its sandbox, and the workspace's enabled MCP servers it has not turned off. */
+export function botAccess(
   bot: OrchestrationBot,
-  parentMcpServerIds: ReadonlyArray<OttoDelegationAccessGrant["enabledMcpServerIds"][number]>,
-  requestedMemoryScopes: OttoDelegationAccessGrant["memoryScopes"] | undefined,
+  snapshot: OrchestrationReadModel,
+  runtimeMode: OttoDelegationAccessGrant["runtimeMode"] = bot.runtimeMode,
 ): OttoDelegationAccessGrant {
   return {
-    allowedToolIds: OTTO_TOOL_CATALOG.map((tool) => tool.id),
-    memoryScopes: requestedMemoryScopes ?? [],
     sandbox: bot.sandbox,
-    runtimeMode: bot.runtimeMode,
-    hasUserComputer: bot.sandbox === "local",
-    enabledMcpServerIds: parentMcpServerIds.filter(
-      (serverId) => !bot.disabledMcpServerIds.includes(serverId),
-    ),
+    runtimeMode,
+    enabledMcpServerIds: (snapshot.mcpServers ?? [])
+      .filter((server) => server.enabled && !bot.disabledMcpServerIds.includes(server.id))
+      .map((server) => server.id),
     disabledMcpServerIds: bot.disabledMcpServerIds,
-    approvalCeiling: "secrets",
   };
 }
 
@@ -192,14 +184,12 @@ export function isReachableFromThread(
 export function childInstructions(input: {
   readonly task: string;
   readonly expectedResult: string;
-  readonly deadline: string | null;
   readonly context: string | undefined;
 }): string {
   return [
     "This work was delegated from another bot chat.",
     `Task: ${input.task}`,
     `Expected result: ${input.expectedResult}`,
-    ...(input.deadline ? [`Deadline: ${input.deadline}`] : []),
     ...(input.context?.trim() ? ["Context from the parent bot:", input.context.trim()] : []),
     "Return a concise final result to the parent chat. Report a concrete blocker or failure.",
   ].join("\n");

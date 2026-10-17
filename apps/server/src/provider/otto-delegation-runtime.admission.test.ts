@@ -10,7 +10,6 @@ import {
   createOttoDelegationRuntime,
   type OttoDelegationChildOutcome,
 } from "./otto-delegation-runtime.ts";
-import { intersectDelegationAccess } from "./otto-tool-runtime.ts";
 import {
   CHILD_BOT_ID,
   CHILD_TURN_ID,
@@ -19,7 +18,6 @@ import {
   PARENT_BOT_ID,
   PARENT_THREAD_ID,
   PARENT_TURN_ID,
-  access,
   bot,
   delegation,
   harness,
@@ -28,35 +26,6 @@ import {
   snapshot,
   thread,
 } from "./test-utils/delegation-harness.ts";
-
-describe("delegation access", () => {
-  it("rejects extra memory, tools, full access, and approval upgrades", () => {
-    for (const requested of [
-      { memoryScopes: ["workspace"] },
-      { allowedToolIds: ["WebFetch"] },
-      { runtimeMode: "full-access" },
-      { approvalCeiling: "production" },
-    ]) {
-      expect(() =>
-        intersectDelegationAccess({
-          parent: access(),
-          child: access({ runtimeMode: "full-access", approvalCeiling: "secrets" }),
-          requested: request(requested) as never,
-        }),
-      ).toThrow("parent turn grant");
-    }
-  });
-
-  it("allows a delegation to remove sandbox access", () => {
-    expect(
-      intersectDelegationAccess({
-        parent: access({ sandbox: "local" }),
-        child: access({ sandbox: "local" }),
-        requested: request({ sandbox: null }) as never,
-      }).sandbox,
-    ).toBeNull();
-  });
-});
 
 describe("OttoDelegationRuntime", () => {
   it("rejects user messages from a bot that does not own the active thread", async () => {

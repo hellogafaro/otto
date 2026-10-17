@@ -8,7 +8,6 @@ import {
   OTTO_DELEGATION_CONTEXT_MAX_CHARS,
   OTTO_DELEGATION_MAX_CONCURRENCY,
   OTTO_DELEGATION_MAX_DEPTH,
-  OTTO_TOOL_CATALOG,
   CommandId,
   DelegationId,
   MessageId,
@@ -26,7 +25,6 @@ import {
 } from "@otto/contracts";
 import { driverSupportsDelegation } from "@otto/shared/delegationProviders";
 import { withoutErrorStack } from "@otto/shared/errorText";
-import { intersectDelegationAccess } from "./tools/otto-tool-authorization.ts";
 import {
   type OttoDelegationRuntimeOptions,
   type OttoDelegationParent,
@@ -36,7 +34,7 @@ import {
   TERMINAL_PHASES,
   phaseStartedAt,
   type OttoDelegationOrigin,
-  childAccess,
+  botAccess,
   parentTurnRequestMessageId,
   type OttoDelegationChildOutcome,
   childInstructions,
@@ -185,11 +183,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
       }
     }
 
-    const grant = intersectDelegationAccess({
-      parent: parent.access,
-      child: childAccess(bot, parent.access.enabledMcpServerIds, request.memoryScopes),
-      requested: request,
-    });
+    const grant = botAccess(bot, snapshot);
 
     const delegationId = DelegationId.make(`delegation-${id()}`);
     const childThreadId = ThreadId.make(`delegation-thread-${id()}`);
@@ -225,10 +219,9 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
       depth: parent.depth + 1,
       task: request.task,
       expectedResult: request.expectedResult,
-      deadline: request.deadline ?? null,
       access: grant,
       billedBotId: bot.id,
-      keep: request.keep ?? false,
+      keep: origin?.keep ?? false,
       anchorMessageId: origin
         ? origin.anchorMessageId
         : parentTurnRequestMessageId(parentThread, parent.turnId),
@@ -284,7 +277,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
       await deliver(delegation, `Sent bot work to ${bot.name}.`);
       // The waiter must exist before the child turn starts: a child that ends
       // quickly reports its outcome once, and an outcome with no waiter is lost.
-      childOutcome = options.awaitChild(childThreadId, request.deadline ?? null);
+      childOutcome = options.awaitChild(childThreadId);
       childOutcome.catch(() => undefined);
       await dispatch({
         type: "thread.turn.start",
@@ -296,7 +289,6 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
           text: childInstructions({
             task: request.task,
             expectedResult: request.expectedResult,
-            deadline: request.deadline ?? null,
             context: request.context,
           }),
           attachments: [],
@@ -339,8 +331,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
       };
 
       try {
-        const outcome = await (childOutcome ??
-          options.awaitChild(childThreadId, request.deadline ?? null));
+        const outcome = await (childOutcome ?? options.awaitChild(childThreadId));
 
         const current = activeByParent.get(parent.threadId)?.get(delegationId);
         const latest = await latestRecord();
@@ -440,10 +431,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
 
         if (latest === undefined) return;
 
-        // The waiter also times out a silent child that has no deadline.
-        const timeout =
-          isPendingWaiterTimeout(cause) ||
-          (request.deadline !== undefined && Date.parse(request.deadline) <= Date.parse(now()));
+        const timeout = isPendingWaiterTimeout(cause);
 
         if (timeout) await options.interruptChild(childThreadId, null);
         await fail(
@@ -505,11 +493,6 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
         throw new Error("This bot work was already retried. Use the newer card instead.");
       }
 
-      const deadline =
-        original.deadline !== null && Date.parse(original.deadline) > Date.parse(now())
-          ? original.deadline
-          : undefined;
-
       return send(
         {
           threadId: original.parentThreadId,
@@ -524,19 +507,12 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
           botId: original.childBotId,
           task: original.task,
           expectedResult: original.expectedResult,
-          ...(deadline ? { deadline } : {}),
-          allowedToolIds: original.access.allowedToolIds,
-          memoryScopes: original.access.memoryScopes,
-          mcpServerIds: original.access.enabledMcpServerIds,
-          sandbox: original.access.sandbox,
-          runtimeMode: original.access.runtimeMode,
-          approvalCeiling: original.access.approvalCeiling,
-          keep: original.keep,
         },
         {
           trigger: original.trigger,
           retryOfDelegationId: original.delegationId,
           anchorMessageId: original.anchorMessageId,
+          keep: original.keep,
         },
       );
     }
@@ -548,20 +524,6 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
       throw new Error("The routine's chat or bot is not available.");
     }
 
-    // The owner's default grant, the same one an ordinary turn in this chat gets.
-    const access: OttoDelegationAccessGrant = {
-      allowedToolIds: OTTO_TOOL_CATALOG.map((tool) => tool.id),
-      memoryScopes: ["private", "bot", "project", "group", "workspace"],
-      sandbox: owner.sandbox,
-      runtimeMode: input.runtimeMode,
-      hasUserComputer: owner.sandbox === "local",
-      enabledMcpServerIds: (snapshot.mcpServers ?? [])
-        .filter((server) => server.enabled && !owner.disabledMcpServerIds.includes(server.id))
-        .map((server) => server.id),
-      disabledMcpServerIds: owner.disabledMcpServerIds,
-      approvalCeiling: "secrets",
-    };
-
     return send(
       {
         threadId: parentThread.id,
@@ -572,7 +534,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
         parentDelegationId: null,
         ancestorBotIds: [],
         depth: 0,
-        access,
+        access: botAccess(owner, snapshot, input.runtimeMode),
       },
       { botId: input.childBotId, task: input.task, expectedResult: input.expectedResult },
       {
@@ -580,6 +542,7 @@ export function createOttoDelegationRuntime(options: OttoDelegationRuntimeOption
         retryOfDelegationId: null,
         // The card sits where the chat was when the routine fired.
         anchorMessageId: parentThread.messages.at(-1)?.id ?? null,
+        keep: false,
       },
     );
   };

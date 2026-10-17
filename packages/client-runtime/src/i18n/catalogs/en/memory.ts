@@ -21,11 +21,8 @@ export const memoryCatalog = {
   "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.":
     "A bot remembers your instructions, tools, and context, so you explain a job once and it keeps the work moving.",
   "Approval required": "Approval required",
-  "approval ceiling: {ceiling}": "approval ceiling: {ceiling}",
   "approval required": "approval required",
   "automatic approvals": "automatic approvals",
-  "memory: {scopes}": "memory: {scopes}",
-  "no approvals": "no approvals",
   "A note to yourself about what this bot is for. Searchable from the roster.":
     "A note to yourself about what this bot is for. Searchable from the roster.",
   Memory: "Memory",

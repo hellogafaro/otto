@@ -2,7 +2,7 @@ import { createSessionContext } from "./session-context.ts";
 import { createSessionCatalogHandlers } from "./catalog-tool-handlers.ts";
 import type { SessionLifecycleDependencies } from "./session-lifecycle-dependencies.ts";
 
-import { OTTO_TOOL_CATALOG, type OttoDelegationAccessGrant } from "@otto/contracts";
+import { type OttoDelegationAccessGrant } from "@otto/contracts";
 
 import * as Deferred from "effect/Deferred";
 
@@ -46,16 +46,12 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
     );
 
     const botAccess: OttoDelegationAccessGrant = {
-      allowedToolIds: OTTO_TOOL_CATALOG.map((tool) => tool.id),
-      memoryScopes: ["private", "bot", "project", "group", "workspace"],
       sandbox: input.botSandbox ?? null,
       runtimeMode: input.runtimeMode,
-      hasUserComputer: Boolean(input.cwd),
       enabledMcpServerIds: (input.mcpServers ?? [])
         .map((server) => server.id)
         .filter((serverId) => !bot?.disabledMcpServerIds.includes(serverId)),
       disabledMcpServerIds: bot?.disabledMcpServerIds ?? [],
-      approvalCeiling: "secrets",
     };
 
     const delegatedAccess =

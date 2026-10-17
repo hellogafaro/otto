@@ -5,8 +5,6 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 
-import { OttoMemoryTargetScope } from "./otto-memory/base.ts";
-import { OttoToolApprovalClass, OttoToolId } from "./otto-tools/catalog.ts";
 import {
   BotId,
   IsoDateTime,
@@ -57,17 +55,14 @@ export const OttoDelegationTrigger = Schema.Literals(["bot", "scheduled"]);
 
 export type OttoDelegationTrigger = typeof OttoDelegationTrigger.Type;
 
+/** The target bot's own settings when the work started. */
 export const OttoDelegationAccessGrant = Schema.Struct({
-  allowedToolIds: Schema.Array(Schema.suspend(() => OttoToolId)),
-  memoryScopes: Schema.Array(OttoMemoryTargetScope),
   sandbox: Schema.NullOr(Schema.suspend((): Schema.Codec<BotSandbox> => BotSandbox)),
   runtimeMode: Schema.suspend((): Schema.Codec<RuntimeMode> => RuntimeMode),
-  hasUserComputer: Schema.Boolean,
   enabledMcpServerIds: Schema.Array(McpServerId).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
   disabledMcpServerIds: Schema.Array(McpServerId),
-  approvalCeiling: Schema.suspend(() => OttoToolApprovalClass),
 });
 
 export type OttoDelegationAccessGrant = typeof OttoDelegationAccessGrant.Type;
@@ -108,7 +103,6 @@ const OttoDelegationRecordFields = {
   depth: PositiveInt.check(Schema.isLessThanOrEqualTo(OTTO_DELEGATION_MAX_DEPTH)),
   task: TrimmedNonEmptyString,
   expectedResult: TrimmedNonEmptyString,
-  deadline: Schema.NullOr(IsoDateTime),
   access: OttoDelegationAccessGrant,
   billedBotId: BotId,
   keep: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),

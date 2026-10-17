@@ -7,7 +7,6 @@ import {
   type OttoToolId,
   type OttoToolReceipt,
   ThreadId,
-  ottoToolApprovalForInput,
   ottoToolRequiresApproval,
   filterOttoTools,
   OttoDelegationContextTooLongError,
@@ -27,12 +26,7 @@ import {
   type OttoRuntimeToolId,
   type OttoToolExecution,
 } from "./tools/otto-tool-types.ts";
-import {
-  ensureWorkspaceCwd,
-  APPROVAL_RANK,
-  canonicalInput,
-  field,
-} from "./tools/otto-tool-authorization.ts";
+import { ensureWorkspaceCwd, canonicalInput, field } from "./tools/otto-tool-authorization.ts";
 import { toolsForWorkspace, BACKEND_NAMES, executable } from "./tools/otto-workspace-tools.ts";
 
 const isDelegationContextTooLong = Schema.is(OttoDelegationContextTooLongError);
@@ -140,12 +134,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
       tools.add(toolId);
     }
 
-    if (session.delegation) {
-      for (const toolId of tools) {
-        if (!session.delegation.access.allowedToolIds.includes(toolId)) tools.delete(toolId);
-      }
-    }
-
     return tools;
   };
 
@@ -186,16 +174,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
     if (!ottoTool) throw new Error(`Tool '${tool.id}' has no definition.`);
     ensureWorkspaceCwd(ottoTool.id, input);
-    const ceiling = session.delegation?.access.approvalCeiling;
-
-    if (
-      ceiling &&
-      APPROVAL_RANK.indexOf(
-        ottoToolApprovalForInput(ottoTool, input, { workspaceType: session.workspaceType }),
-      ) > APPROVAL_RANK.indexOf(ceiling)
-    ) {
-      throw new Error(`Tool '${tool.id}' exceeds this delegation's approval ceiling.`);
-    }
 
     return ottoToolRequiresApproval(
       ottoTool,
@@ -474,5 +452,3 @@ export {
   type OttoToolExecution,
   type OttoToolRuntime,
 } from "./tools/otto-tool-types.ts";
-
-export { intersectDelegationAccess } from "./tools/otto-tool-authorization.ts";

@@ -117,22 +117,26 @@ describe("Otto tool contracts", () => {
     expect(filterOttoTools({ ...context, delegationDepth: 1, activeDelegations: 3 })).toEqual([]);
   });
 
-  it("decodes the approval limit and keeps escalation fields server-owned", () => {
+  it("takes only the brief, so the target bot runs with its own settings", () => {
     const input = {
       botId: "bot-research",
       task: "Compare three flights.",
       expectedResult: "A short comparison with sources.",
-      approvalCeiling: "send" as const,
     };
 
-    expect(decodeOttoToolInput("SendToAgent", input)).toMatchObject(input);
-    expect(() => decodeOttoToolInput("SendToAgent", { ...input, depth: 2 })).toThrow();
-    expect(() =>
-      decodeOttoToolInput("SendToAgent", {
-        ...input,
-        hasUserComputer: true,
-      }),
-    ).toThrow();
+    expect(decodeOttoToolInput("SendToAgent", input)).toEqual(input);
+
+    for (const policy of [
+      { depth: 2 },
+      { approvalCeiling: "send" },
+      { allowedToolIds: ["Read"] },
+      { runtimeMode: "full-access" },
+      { keep: true },
+      { deadline: "2026-10-17T00:00:00.000Z" },
+    ]) {
+      expect(() => decodeOttoToolInput("SendToAgent", { ...input, ...policy })).toThrow();
+    }
+
     expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "SendToAgent")?.approval).toBe("send");
   });
 

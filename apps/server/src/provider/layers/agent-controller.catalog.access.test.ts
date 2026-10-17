@@ -51,14 +51,10 @@ describe("AgentControllerLive", () => {
     const emailId = McpServerId.make("email");
 
     const access: OttoDelegationAccessGrant = {
-      allowedToolIds: ["Read", "WebFetch"],
-      memoryScopes: [],
       sandbox: "local",
       runtimeMode: "approval-required",
-      hasUserComputer: false,
       enabledMcpServerIds: [webId],
       disabledMcpServerIds: [emailId],
-      approvalCeiling: "send",
     };
 
     const runtime = {

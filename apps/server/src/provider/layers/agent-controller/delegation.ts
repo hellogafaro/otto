@@ -12,8 +12,6 @@ import {
   type OrchestrationReadModel,
 } from "@otto/contracts";
 
-import * as Clock from "effect/Clock";
-
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 
@@ -106,26 +104,12 @@ export function createDelegation(deps: {
       dispatch: async (command) => {
         await input.dispatch(command);
       },
-      awaitChild: (threadId, deadline) =>
+      awaitChild: (threadId) =>
         deps.runPromise(
-          Effect.gen(function* () {
-            const now = yield* Clock.currentTimeMillis;
-
-            return yield* deps.childWaiters.wait(
-              String(threadId),
-              null,
-              deadline === null
-                ? {
-                    timeout: OTTO_CHILD_WAIT_DEFAULT_TIMEOUT,
-                    timeoutMessage: `The bot did not report back within ${Duration.toHours(OTTO_CHILD_WAIT_DEFAULT_TIMEOUT)} hours.`,
-                    existsMessage: `Delegation waiter already exists for '${threadId}'.`,
-                  }
-                : {
-                    timeout: Duration.millis(Date.parse(deadline) - now),
-                    timeoutMessage: "The delegation deadline expired.",
-                    existsMessage: `Delegation waiter already exists for '${threadId}'.`,
-                  },
-            );
+          deps.childWaiters.wait(String(threadId), null, {
+            timeout: OTTO_CHILD_WAIT_DEFAULT_TIMEOUT,
+            timeoutMessage: `The bot did not report back within ${Duration.toHours(OTTO_CHILD_WAIT_DEFAULT_TIMEOUT)} hours.`,
+            existsMessage: `Delegation waiter already exists for '${threadId}'.`,
           }),
         ),
       interruptChild: (threadId, turnId) =>

@@ -237,7 +237,6 @@ export const chatCatalog = {
   Working: "Working",
   queued: "queued",
   running: "running",
-  "tools: {tools}": "tools: {tools}",
   "{name} chat": "{name} chat",
   "Disable voice calls for {name}": "Disable voice calls for {name}",
   "Enable voice calls for {name}": "Enable voice calls for {name}",
