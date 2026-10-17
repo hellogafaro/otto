@@ -8,6 +8,7 @@ describe("system skills", () => {
       "investigate",
       "implement",
       "git",
+      "github",
       "verify",
       "visualize",
       "write",
@@ -18,6 +19,7 @@ describe("system skills", () => {
     ]);
     expect(systemSkills.filter((skill) => skill.needsComputer).map((skill) => skill.name)).toEqual([
       "git",
+      "github",
       "computer",
     ]);
     expect([...findSystemSkill("write")!.files.keys()]).toEqual([

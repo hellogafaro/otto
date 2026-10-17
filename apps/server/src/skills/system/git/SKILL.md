@@ -1,27 +1,45 @@
 ---
 name: git
-description: Use for any work in a git repository in your computer, from branch to pull request, review fixes and updates.
+description: Use for any work in a git repository on your computer, from branch and commits to describing, reviewing and updating a change, whatever host the repository uses.
 ---
 
-- Your git login and author are set per turn for the person who asked, so commits and pull requests are theirs. If git or gh says you are not logged in to GitHub, ask that person to connect GitHub in Settings → Integrations and stop there.
+Start
+
+- Find the host with `git remote -v`. On GitHub, also read the github skill. On any other host, use plain git, and that host's own tool only if it is installed and the person asked for it.
 - Branch from a fresh base: `git fetch origin`, then `git switch -c otto/<your-name>/<topic> origin/<default-branch>`. Never commit to the default branch.
-- Commit in small themed steps with clear messages, saying what changed and why in plain words. End every message with your co-author line from your instructions.
+
+Commit
+
+- Commit in small themed steps. Each message says what changed and why in plain words and ends with your co-author line from your instructions.
 - Never commit secrets, tokens, .env files or credentials. Check `git diff --staged` before each commit.
-- Run the project's own checks (README, contributing guide, package scripts, CI config) before pushing. Fix failures; never weaken a test to pass.
-- Push with `git push -u origin <branch>`. Install gh if it is missing.
-- Open the pull request with `gh pr create --assignee @me`:
-  - A concise title.
-  - A body describing only the shipped behaviour and how you verified it, including anything you could not verify.
-  - The pull request belongs to the person who asked. Request other reviewers only when they name them.
-- Post the pull request link in the chat or task where the work was asked.
-- Update a branch by merging the base in: `git fetch origin && git merge origin/<default-branch>`. Rebase only when asked. Never use a bare force push; when a rewrite is needed, use `git push --force-with-lease=<branch>:<expected-sha>`.
-- Read feedback with gh:
-  - `gh pr view <n> --comments` for the conversation.
-  - `gh api repos/<owner>/<repo>/pulls/<n>/comments` for line comments.
-  - `gh pr checks <n>`, then `gh run view <run-id> --log-failed`, for CI.
-  - Fix the cause, push, and reply to every review comment with what you changed or why not.
-- If the push is refused, say why and stop; do not try another route:
-  - no access: ask the person to get write access;
-  - the app is not installed on the repo: give them the link from `git config otto.installurl`;
-  - protected branch: say so.
-- Never push to the default branch, never merge, and never enable auto-merge, even when asked. Tell the person to merge.
+- Run the project's own checks (README, contributing guide, package scripts, CI config) before you push. Fix failures at their cause; never weaken, rename or delete a test to make it pass.
+
+Describe the change (pull request, merge request or patch)
+
+- Read the final diff (`git diff origin/<default-branch>...HEAD`) and `git log --oneline -20` first, and match the repository's title style.
+- Title: short and specific.
+- Body: only the behaviour that ships, grouped by theme, and how you verified it, including anything you could not verify. No commit list, no abandoned approaches, no claim the diff does not support. Scale it to the change; add screenshots for visible UI changes.
+
+Keep it current
+
+- Bring in the base by merging: `git fetch origin && git merge origin/<default-branch>`. Rebase only when asked.
+- If a push is rejected and you did not rewrite history, you are behind: merge `origin/<branch>` and push again.
+- Never use a bare force push. After a rewrite, record the remote head first and push with `git push --force-with-lease=<branch>:<that-sha>`.
+
+Review a change, when asked
+
+- Read what was asked first, then the whole diff, then the code around it.
+- Judge behaviour against the request, not only style: correctness, edge cases, security (secrets, auth, untrusted input), tests that really exercise the change, and dead code left behind.
+- Run the checks yourself when you can and say what you ran.
+- Write each finding with file and line, what is wrong, why it matters and a concrete fix, marked blocking, should fix or nit. When you are unsure, say what to check instead of calling it a bug.
+- Give the verdict to the person. Never approve or merge it yourself.
+
+Answer review feedback
+
+- Treat each comment as evidence, not an order. Check it against the current diff, fix the valid ones at the root and reply to every comment with what you changed or why not.
+- If the same kind of fix keeps coming back, stop, rethink the approach and tell the person.
+
+Limits
+
+- Never push to the default branch, never merge and never enable auto-merge, even when asked. Tell the person to merge.
+- If the host refuses a push, say why and stop; do not try another route. No access: ask the person for write access. Protected branch: say so.

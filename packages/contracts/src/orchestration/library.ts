@@ -76,6 +76,7 @@ export const SYSTEM_SKILL_NAMES = [
   "investigate",
   "implement",
   "git",
+  "github",
   "verify",
   "visualize",
   "write",
@@ -86,7 +87,7 @@ export const SYSTEM_SKILL_NAMES = [
 ] as const;
 
 /** Built-in skills that need the bot's computer. */
-export const COMPUTER_SYSTEM_SKILLS: ReadonlyArray<string> = ["git", "computer"];
+export const COMPUTER_SYSTEM_SKILLS: ReadonlyArray<string> = ["git", "github", "computer"];
 
 export const LIBRARY_SKILLS_FOLDER_TITLE = "Skills";
 
