@@ -1,16 +1,8 @@
 import * as Schema from "effect/Schema";
-import type { OttoComputerBoundary } from "./inputs.ts";
 
 export const OttoToolId = Schema.Literals([
   "Shell",
   "Read",
-  "CopyToBox",
-  "CopyFromBox",
-  "request_box_help",
-  "ExternalShell",
-  "ExternalRead",
-  "AwaitShell",
-  "AwaitExternalShell",
   "CreateAgent",
   "CheckAgent",
   "MessageAgent",
@@ -87,7 +79,7 @@ export const OTTO_PROTECTED_APPROVAL_CLASSES: ReadonlySet<OttoProtectedApprovalC
   "secrets",
 ]);
 
-export const OttoToolCapability = Schema.Literals(["bot-workspace", "user-computer"]);
+export const OttoToolCapability = Schema.Literals(["bot-workspace"]);
 
 export type OttoToolCapability = typeof OttoToolCapability.Type;
 
@@ -95,12 +87,7 @@ export const OttoToolWorkspaceType = Schema.Literals(["none", "local", "cloud"])
 
 export type OttoToolWorkspaceType = typeof OttoToolWorkspaceType.Type;
 
-export type OttoToolWorkspaceRequirement = "none" | "bot-workspace" | "user-computer";
-
-export interface OttoCopyDirection {
-  readonly from: OttoComputerBoundary;
-  readonly to: OttoComputerBoundary;
-}
+export type OttoToolWorkspaceRequirement = "none" | "bot-workspace";
 
 export interface OttoToolDefinition {
   readonly id: OttoToolId;
@@ -108,8 +95,6 @@ export interface OttoToolDefinition {
   readonly capability: OttoToolCapability;
   readonly workspace: OttoToolWorkspaceRequirement;
   readonly approval: OttoToolApprovalClass;
-  readonly requiresUserComputer?: boolean;
-  readonly copy?: OttoCopyDirection;
   /** One line for the prompt's tool list; a tool without one is left off it. */
   readonly promptSnippet?: string;
   /** Rules the prompt adds while this tool is loaded. */
@@ -121,15 +106,7 @@ const define = (
   capability: OttoToolCapability,
   description: string,
   options: Partial<
-    Pick<
-      OttoToolDefinition,
-      | "workspace"
-      | "approval"
-      | "requiresUserComputer"
-      | "copy"
-      | "promptSnippet"
-      | "promptGuidelines"
-    >
+    Pick<OttoToolDefinition, "workspace" | "approval" | "promptSnippet" | "promptGuidelines">
   > = {},
 ): OttoToolDefinition => ({
   id,
@@ -137,8 +114,6 @@ const define = (
   description,
   workspace: options.workspace ?? "none",
   approval: options.approval ?? "none",
-  ...(options.requiresUserComputer ? { requiresUserComputer: true } : {}),
-  ...(options.copy ? { copy: options.copy } : {}),
   ...(options.promptSnippet ? { promptSnippet: options.promptSnippet } : {}),
   ...(options.promptGuidelines ? { promptGuidelines: options.promptGuidelines } : {}),
 });
@@ -151,48 +126,6 @@ export const OTTO_TOOL_CATALOG = [
   define("Read", "bot-workspace", "Read a file in the bot workspace.", {
     workspace: "bot-workspace",
     promptSnippet: "read a file in your workspace",
-  }),
-  define(
-    "CopyToBox",
-    "bot-workspace",
-    "Copy a file from the user computer into the bot workspace.",
-    {
-      workspace: "bot-workspace",
-      approval: "user-computer",
-      requiresUserComputer: true,
-      copy: { from: "user-computer", to: "bot-workspace" },
-    },
-  ),
-  define(
-    "CopyFromBox",
-    "bot-workspace",
-    "Copy a file from the bot workspace to the user computer.",
-    {
-      workspace: "bot-workspace",
-      approval: "user-computer",
-      requiresUserComputer: true,
-      copy: { from: "bot-workspace", to: "user-computer" },
-    },
-  ),
-  define("request_box_help", "bot-workspace", "Ask the user to complete a human-only step.", {
-    workspace: "bot-workspace",
-  }),
-  define("ExternalShell", "user-computer", "Run a command on the user computer.", {
-    workspace: "user-computer",
-    approval: "user-computer",
-    requiresUserComputer: true,
-  }),
-  define("ExternalRead", "user-computer", "Read an allowed file from the user computer.", {
-    workspace: "user-computer",
-    approval: "user-computer",
-    requiresUserComputer: true,
-  }),
-  define("AwaitShell", "bot-workspace", "Await a bot workspace command.", {
-    workspace: "bot-workspace",
-  }),
-  define("AwaitExternalShell", "user-computer", "Await a user computer command.", {
-    workspace: "user-computer",
-    requiresUserComputer: true,
   }),
   define("CreateAgent", "bot-workspace", "Create a durable named bot."),
   define(

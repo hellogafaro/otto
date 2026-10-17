@@ -7,7 +7,6 @@ import {
   OttoToolReceipt,
   ottoToolApprovalForInput,
   ottoToolRequiresApproval,
-  copyDirectionForTool,
   decodeOttoToolInput,
   filterOttoTools,
 } from "./otto-tools.ts";
@@ -54,28 +53,15 @@ describe("Otto tool contracts", () => {
       }),
     ).toThrow();
   });
-  it("validates copy direction and rejects incomplete input", () => {
-    expect(copyDirectionForTool("CopyToBox")).toEqual({
-      from: "user-computer",
-      to: "bot-workspace",
-    });
-    expect(copyDirectionForTool("CopyFromBox")).toEqual({
-      from: "bot-workspace",
-      to: "user-computer",
-    });
-    expect(() => decodeOttoToolInput("CopyToBox", { path: "/tmp/report" })).toThrow();
-  });
-
   it("only returns implemented tools for available computer boundaries", () => {
     expect(
       filterOttoTools({
-        capabilities: new Set(["bot-workspace", "user-computer"]),
-        workspaceType: "local",
-        hasUserComputer: false,
+        capabilities: new Set(["bot-workspace"]),
+        workspaceType: "none",
         localFullAccess: false,
-        implementedTools: new Set(["Shell", "ExternalShell", "CopyToBox"]),
+        implementedTools: new Set(["Shell", "WebSearch"]),
       }).map((tool) => tool.id),
-    ).toEqual(["Shell"]);
+    ).toEqual(["WebSearch"]);
     expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "AuthenticateMcpServer")?.approval).toBe(
       "secrets",
     );
@@ -118,7 +104,6 @@ describe("Otto tool contracts", () => {
     const context = {
       capabilities: new Set(["bot-workspace"] as const),
       workspaceType: "local" as const,
-      hasUserComputer: false,
       localFullAccess: false,
       implementedTools: new Set(["SendToAgent"]),
     };
@@ -136,7 +121,6 @@ describe("Otto tool contracts", () => {
     const context = {
       capabilities: new Set(["bot-workspace"] as const),
       workspaceType: "local" as const,
-      hasUserComputer: false,
       localFullAccess: false,
       implementedTools: new Set(["Task", "CheckSubagent", "MessageSubagent", "StopSubagent"]),
     };
@@ -259,14 +243,7 @@ describe("Otto tool contracts", () => {
   });
 
   it("never lets full access bypass protected commands or paths", () => {
-    const shell = OTTO_TOOL_CATALOG.find((tool) => tool.id === "ExternalShell")!;
-    const read = OTTO_TOOL_CATALOG.find((tool) => tool.id === "ExternalRead")!;
-    const copyFromBox = OTTO_TOOL_CATALOG.find((tool) => tool.id === "CopyFromBox")!;
-
-    const copyInput = {
-      sourcePath: "/project/.env",
-      destinationPath: "/tmp/exported-env",
-    };
+    const shell = OTTO_TOOL_CATALOG.find((tool) => tool.id === "Shell")!;
 
     expect(ottoToolApprovalForInput(shell, { command: "git push origin main" })).toBe("production");
     expect(
@@ -277,10 +254,8 @@ describe("Otto tool contracts", () => {
       ),
     ).toBe(true);
     expect(
-      ottoToolRequiresApproval(read, { localFullAccess: true }, { path: "/project/.env" }),
+      ottoToolRequiresApproval(shell, { localFullAccess: true }, { command: "rm -rf build" }),
     ).toBe(true);
-    expect(ottoToolApprovalForInput(copyFromBox, copyInput)).toBe("secrets");
-    expect(ottoToolRequiresApproval(copyFromBox, { localFullAccess: true }, copyInput)).toBe(true);
   });
 
   it("decodes non-fatal typed receipts", () => {

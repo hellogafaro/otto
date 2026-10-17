@@ -42,20 +42,6 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "Read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "CopyToBox":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "CopyFromBox":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "request_box_help":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ExternalShell":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "ExternalRead":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "AwaitShell":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "AwaitExternalShell":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "CreateAgent":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "CheckAgent":

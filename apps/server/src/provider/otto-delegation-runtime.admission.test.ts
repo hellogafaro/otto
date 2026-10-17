@@ -33,7 +33,7 @@ describe("delegation access", () => {
   it("rejects extra memory, tools, full access, and approval upgrades", () => {
     for (const requested of [
       { memoryScopes: ["workspace"] },
-      { allowedToolIds: ["ExternalShell"] },
+      { allowedToolIds: ["WebFetch"] },
       { runtimeMode: "full-access" },
       { approvalCeiling: "production" },
     ]) {

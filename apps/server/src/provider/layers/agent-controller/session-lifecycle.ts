@@ -304,9 +304,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                 input.botSandboxEnvironment
                   ? { sandboxEnvironment: input.botSandboxEnvironment }
                   : {}),
-                ...((!delegatedAccess || access.hasUserComputer) && input.cwd
-                  ? { userComputerCwd: input.cwd }
-                  : {}),
                 mcpServers,
               }),
             )
@@ -346,11 +343,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
 
     const workspace = "botWorkspace" in resources ? resources.botWorkspace : undefined;
 
-    const userComputerWorkspace =
-      "workspace" in resources && access.hasUserComputer && workspaceType === "local" && input.cwd
-        ? resources.workspace
-        : undefined;
-
     const registeredMemoryHandlers = nextMemoryHandlers;
     const mcpManager = deps.sessionResources.getMcpManager(key);
     const imageGenerationSettings = yield* deps.imageToolSettings;
@@ -361,7 +353,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       runtimeMode: access.runtimeMode,
       workspaceType,
       ...(workspace ? { workspace } : {}),
-      ...(userComputerWorkspace ? { userComputerWorkspace } : {}),
       ...(registeredMemoryHandlers ? { memoryHandlers: registeredMemoryHandlers } : {}),
       ...(input.botId && deps.wired().botStateRuntime
         ? { botState: deps.wired().botStateRuntime }

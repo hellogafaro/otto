@@ -51,7 +51,7 @@ describe("AgentControllerLive", () => {
     const emailId = McpServerId.make("email");
 
     const access: OttoDelegationAccessGrant = {
-      allowedToolIds: ["Read", "ExternalRead", "CopyToBox", "CopyFromBox"],
+      allowedToolIds: ["Read", "WebFetch"],
       memoryScopes: [],
       sandbox: "local",
       runtimeMode: "approval-required",
@@ -120,9 +120,6 @@ describe("AgentControllerLive", () => {
         .toolsForThread(String(codexThreadId))
         .map((tool) => tool.id);
 
-      expect(toolIds).not.toContain("ExternalRead");
-      expect(toolIds).not.toContain("CopyToBox");
-      expect(toolIds).not.toContain("CopyFromBox");
       expect(toolIds).not.toContain("memory_update");
       yield* controller.sendTurn({
         threadId: codexThreadId,

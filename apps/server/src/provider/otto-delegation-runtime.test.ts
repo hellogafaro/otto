@@ -43,28 +43,28 @@ describe("delegation access", () => {
   it("intersects MCP disables, user-computer capability, tools, and memory scopes", () => {
     const grant = intersectDelegationAccess({
       parent: access({
-        allowedToolIds: ["Read", "ExternalRead", "SendToAgent"],
+        allowedToolIds: ["Read", "WebFetch", "SendToAgent"],
         memoryScopes: ["private", "project"],
         hasUserComputer: false,
         enabledMcpServerIds: [McpServerId.make("web"), McpServerId.make("email")],
         disabledMcpServerIds: [McpServerId.make("parent-disabled")],
       }),
       child: access({
-        allowedToolIds: ["Read", "ExternalRead"],
+        allowedToolIds: ["Read", "WebFetch"],
         memoryScopes: ["project", "group"],
         hasUserComputer: true,
         enabledMcpServerIds: [McpServerId.make("web")],
         disabledMcpServerIds: [McpServerId.make("child-disabled")],
       }),
       requested: request({
-        allowedToolIds: ["Read", "ExternalRead"],
+        allowedToolIds: ["Read", "WebFetch"],
         memoryScopes: ["project"],
         mcpServerIds: [McpServerId.make("web"), McpServerId.make("email")],
       }) as never,
     });
 
     expect(grant).toMatchObject({
-      allowedToolIds: ["Read", "ExternalRead"],
+      allowedToolIds: ["Read", "WebFetch"],
       memoryScopes: ["project"],
       hasUserComputer: false,
       enabledMcpServerIds: ["web"],

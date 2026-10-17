@@ -617,7 +617,7 @@ describe("DelegationCard", () => {
       <DelegationCard
         delegation={delegation("running", {
           access: {
-            allowedToolIds: ["ExternalShell", "WebFetch"],
+            allowedToolIds: ["Shell", "WebFetch"],
             memoryScopes: ["project"],
             sandbox: "local",
             runtimeMode: "approval-required",
@@ -634,10 +634,10 @@ describe("DelegationCard", () => {
     );
 
     const [face, details] = markup.split("<details");
-    expect(face).not.toContain("ExternalShell");
+    expect(face).not.toContain("Shell");
     expect(face).not.toContain("MCP servers");
     expect(face).not.toContain("tools:");
-    expect(details).toContain("tools: ExternalShell, WebFetch");
+    expect(details).toContain("tools: Shell, WebFetch");
     expect(details).toContain("MCP servers: 2");
   });
 

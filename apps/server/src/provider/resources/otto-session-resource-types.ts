@@ -14,12 +14,10 @@ export interface OttoSessionResourceInput {
   readonly workspaceId: string;
   readonly botSandbox?: BotSandbox | null;
   readonly sandboxEnvironment?: Readonly<Record<string, string>>;
-  readonly userComputerCwd?: string;
   readonly mcpServers: readonly McpServer[];
 }
 
 export interface OttoSessionResourceView {
-  readonly workspace: Workspace;
   readonly botWorkspace: Workspace;
 }
 

@@ -32,15 +32,9 @@ import {
   ensureWorkspaceCwd,
   APPROVAL_RANK,
   canonicalInput,
-  requiredString,
   field,
 } from "./tools/otto-tool-authorization.ts";
-import {
-  workspaceForTool,
-  toolsForWorkspace,
-  BACKEND_NAMES,
-  executable,
-} from "./tools/otto-workspace-tools.ts";
+import { toolsForWorkspace, BACKEND_NAMES, executable } from "./tools/otto-workspace-tools.ts";
 
 const isDelegationContextTooLong = Schema.is(OttoDelegationContextTooLongError);
 
@@ -119,29 +113,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
     if (session.workspace?.filesystem) tools.add("Read");
 
-    if (session.workspace?.sandbox?.processes) tools.add("AwaitShell");
-
-    if (session.userComputerWorkspace?.sandbox?.executeCommand) {
-      tools.add("ExternalShell");
-    }
-
-    if (session.userComputerWorkspace?.filesystem) {
-      tools.add("ExternalRead");
-    }
-
-    if (session.userComputerWorkspace?.sandbox?.processes) {
-      tools.add("AwaitExternalShell");
-    }
-
-    if (session.workspace?.filesystem && session.userComputerWorkspace?.filesystem) {
-      tools.add("CopyToBox");
-      tools.add("CopyFromBox");
-    }
-
-    if (options?.onUserActionRequired && session.workspace && session.botId && session.botName) {
-      tools.add("request_box_help");
-    }
-
     if (session.delegation) {
       if (session.delegation.create) tools.add("CreateAgent");
 
@@ -198,9 +169,8 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
     const implemented = implementedTools(session);
 
     const workspaceTools = filterOttoTools({
-      capabilities: new Set(["bot-workspace", "user-computer"]),
+      capabilities: new Set(["bot-workspace"]),
       workspaceType: session.workspaceType,
-      hasUserComputer: Boolean(session.userComputerWorkspace),
       localFullAccess: session.runtimeMode === "full-access",
       implementedTools: implemented,
       ...(session.delegation
@@ -525,43 +495,8 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
           failureCode = "internal";
           result = await session.reactToMessage(execution.input, input.toolCallId);
-        } else if (input.toolId === "CopyToBox" || input.toolId === "CopyFromBox") {
-          const source =
-            input.toolId === "CopyToBox" ? session.userComputerWorkspace : session.workspace;
-
-          const destination =
-            input.toolId === "CopyToBox" ? session.workspace : session.userComputerWorkspace;
-
-          if (!source?.filesystem || !destination?.filesystem) {
-            throw new Error("Both computer boundaries are required for file copy.");
-          }
-
-          const sourcePath = requiredString(decoded, "sourcePath");
-          const destinationPath = requiredString(decoded, "destinationPath");
-          failureCode = "internal";
-          await destination.filesystem.writeFile(
-            destinationPath,
-            await source.filesystem.readFile(sourcePath),
-            { recursive: true },
-          );
-          result = { sourcePath, destinationPath };
-        } else if (input.toolId === "request_box_help") {
-          if (!options?.onUserActionRequired || !session.botId || !session.botName) {
-            throw new Error("Human handoff is not available for this session.");
-          }
-
-          failureCode = "internal";
-          await options.onUserActionRequired({
-            botId: session.botId,
-            botName: session.botName,
-            toolId: input.toolId,
-            summary: requiredString(decoded, "message"),
-            nextAction: "Open the bot workspace and complete the requested step.",
-            target: requiredString(decoded, "reason"),
-          });
-          result = { requested: true };
         } else {
-          const workspace = workspaceForTool(input.toolId, session);
+          const workspace = session.workspace;
           const backends = await toolsForWorkspace(workspace);
 
           const backendNames = Object.hasOwn(BACKEND_NAMES, input.toolId)
@@ -574,13 +509,8 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
           if (!executable(backend)) throw new Error(`Tool '${input.toolId}' has no backend.`);
 
-          const backendInput =
-            input.toolId === "AwaitShell" || input.toolId === "AwaitExternalShell"
-              ? { pid: requiredString(decoded, "handleId"), wait: true }
-              : decoded;
-
           failureCode = "internal";
-          result = await backend.execute(backendInput, {
+          result = await backend.execute(decoded, {
             ...(workspace ? { workspace } : {}),
             requestContext: new RequestContext(),
             observe: {

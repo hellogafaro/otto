@@ -115,7 +115,6 @@ const TOOL_DETAIL_ARGS = {
   SearchPlugins: "query",
   GetPlugin: "pluginId",
   Read: "path",
-  ExternalRead: "path",
   SaveToLibrary: "title",
   otto_create_routine: "name",
 } as const satisfies Readonly<Record<string, string>>;

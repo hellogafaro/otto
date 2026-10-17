@@ -42,10 +42,6 @@ export const OTTO_COMMAND_MAX_CHARS = 32_000;
 
 export const OTTO_PATH_MAX_CHARS = 512;
 
-export const OttoAwaitHandleId = TrimmedNonEmptyString.pipe(Schema.brand("OttoAwaitHandleId"));
-
-export type OttoAwaitHandleId = typeof OttoAwaitHandleId.Type;
-
 export const OttoPluginRecommendation = Schema.Struct({
   id: TrimmedNonEmptyString,
   source: Schema.Literals(["directory", "composio"]),
@@ -71,10 +67,6 @@ export const OttoPluginSearchResult = Schema.Struct({
 
 export type OttoPluginSearchResult = typeof OttoPluginSearchResult.Type;
 
-export const OttoComputerBoundary = Schema.Literals(["bot-workspace", "user-computer"]);
-
-export type OttoComputerBoundary = typeof OttoComputerBoundary.Type;
-
 const CommandText = TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_COMMAND_MAX_CHARS));
 
 const PathText = TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_PATH_MAX_CHARS));
@@ -82,12 +74,9 @@ const PathText = TrimmedNonEmptyString.check(Schema.isMaxLength(OTTO_PATH_MAX_CH
 const CommandInput = Schema.Struct({
   command: CommandText,
   cwd: Schema.optional(PathText),
-  background: Schema.optional(Schema.Boolean),
 });
 
 const PathInput = Schema.Struct({ path: PathText });
-
-const CopyInput = Schema.Struct({ sourcePath: PathText, destinationPath: PathText });
 
 const McpServerIdInput = Schema.Struct({ serverId: TrimmedNonEmptyString });
 
@@ -197,16 +186,6 @@ const TaskToolFields = {
 export const OttoToolInputSchemas = {
   Shell: CommandInput,
   Read: PathInput,
-  CopyToBox: CopyInput,
-  CopyFromBox: CopyInput,
-  request_box_help: Schema.Struct({
-    reason: Schema.Literals(["login", "2fa", "captcha", "payment", "other"]),
-    message: TrimmedNonEmptyString,
-  }),
-  ExternalShell: CommandInput,
-  ExternalRead: PathInput,
-  AwaitShell: Schema.Struct({ handleId: OttoAwaitHandleId }),
-  AwaitExternalShell: Schema.Struct({ handleId: OttoAwaitHandleId }),
   CreateAgent: Schema.Struct({
     name: TrimmedNonEmptyString,
     title: Schema.optional(TrimmedNonEmptyString),

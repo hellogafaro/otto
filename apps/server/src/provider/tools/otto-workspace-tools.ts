@@ -2,14 +2,10 @@ import type { Tool } from "@mastra/core/tools";
 import * as Predicate from "effect/Predicate";
 import { createWorkspaceTools, type Workspace } from "@mastra/core/workspace";
 import { type OttoToolId } from "@otto/contracts";
-import { type OttoToolSession } from "./otto-tool-types.ts";
 
 export const BACKEND_NAMES: Record<
   Exclude<
     OttoToolId,
-    | "CopyToBox"
-    | "CopyFromBox"
-    | "request_box_help"
     | "CreateAgent"
     | "CheckAgent"
     | "MessageAgent"
@@ -58,17 +54,7 @@ export const BACKEND_NAMES: Record<
 > = {
   Shell: ["execute_command", "mastra_workspace_execute_command"],
   Read: ["view", "mastra_workspace_read_file"],
-  ExternalShell: ["execute_command", "mastra_workspace_execute_command"],
-  ExternalRead: ["view", "mastra_workspace_read_file"],
-  AwaitShell: ["get_process_output", "mastra_workspace_get_process_output"],
-  AwaitExternalShell: ["get_process_output", "mastra_workspace_get_process_output"],
 };
-
-export function workspaceForTool(toolId: OttoToolId, session: OttoToolSession) {
-  return toolId === "ExternalShell" || toolId === "ExternalRead" || toolId === "AwaitExternalShell"
-    ? session.userComputerWorkspace
-    : session.workspace;
-}
 
 export async function toolsForWorkspace(workspace: Workspace | undefined) {
   if (!workspace) return {};

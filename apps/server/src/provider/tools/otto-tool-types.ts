@@ -10,7 +10,6 @@ import {
   type OttoWorkerStatus,
   type RuntimeMode,
 } from "@otto/contracts";
-import type { UserActionIncidentInput } from "../../bot-inbox/user-action-incidents.ts";
 import {
   type MemoryToolHandler,
   type MemoryUpdateToolId,
@@ -36,7 +35,6 @@ export interface OttoToolSession {
   readonly workspaceType: OttoToolWorkspaceType;
   readonly timezone?: string;
   readonly workspace?: Workspace;
-  readonly userComputerWorkspace?: Workspace;
   readonly memoryHandlers?: Record<MemoryUpdateToolId, MemoryToolHandler>;
   readonly delegation?: {
     readonly depth: number;
@@ -93,7 +91,6 @@ export interface OttoToolSession {
 }
 
 export interface OttoToolRuntimeOptions {
-  readonly onUserActionRequired?: (input: UserActionIncidentInput) => void | Promise<void>;
   readonly onReceipt?: (receipt: OttoToolReceipt) => void;
   readonly onProgress?: (input: {
     readonly threadId: string;

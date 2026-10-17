@@ -79,7 +79,7 @@ describe("AgentControllerLive", () => {
           const runtime = mastra.harnessOptions[0]?.toolRuntime;
           assert.isDefined(runtime);
           const parentTools = runtime.toolsForThread(String(codexThreadId)).map((tool) => tool.id);
-          expect(parentTools).toEqual(expect.arrayContaining(["Task", "ExternalShell"]));
+          expect(parentTools).toEqual(expect.arrayContaining(["Task", "Shell"]));
 
           const spawned = (yield* Effect.promise(() =>
             runtime.execute({
@@ -120,13 +120,7 @@ describe("AgentControllerLive", () => {
           });
           const workerTools = runtime.toolsForThread(String(childThreadId)).map((tool) => tool.id);
 
-          for (const toolId of [
-            "Task",
-            "request_box_help",
-            "ReactToMessage",
-            "ExternalShell",
-            "AwaitExternalShell",
-          ]) {
+          for (const toolId of ["Task", "ReactToMessage"]) {
             expect(workerTools).not.toContain(toolId);
           }
 
@@ -212,13 +206,7 @@ describe("AgentControllerLive", () => {
           const tools = runtime.toolsForThread(String(orphanThreadId)).map((tool) => tool.id);
 
           // Without a parent link to rebuild the grant from, the chat keeps no tools.
-          for (const toolId of [
-            "Read",
-            "Task",
-            "request_box_help",
-            "ReactToMessage",
-            "ExternalShell",
-          ]) {
+          for (const toolId of ["Read", "Task", "ReactToMessage"]) {
             expect(tools).not.toContain(toolId);
           }
 

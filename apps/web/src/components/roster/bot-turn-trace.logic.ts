@@ -15,13 +15,11 @@ import {
 const DONE_LABELS = {
   "Adding a connection": "Added a connection",
   "Adding a routine": "Added a routine",
-  "Asking for help": "Asked for help",
   "Browsing the library": "Browsed the library",
   "Checking connections": "Checked connections",
   "Checking on a helper": "Checked on a helper",
   "Checking routines": "Checked routines",
   "Checking skills": "Checked skills",
-  "Copying files": "Copied files",
   "Editing a document": "Edited a document",
   "Editing files": "Edited files",
   "Installing a plugin": "Installed a plugin",
@@ -51,7 +49,6 @@ const DONE_LABELS = {
   "Signing in to a connection": "Signed in to a connection",
   "Starting a helper": "Started a helper",
   "Stopping a helper": "Stopped a helper",
-  "Taking a screenshot": "Took a screenshot",
   "Testing a connection": "Tested a connection",
   "Updating a channel": "Updated a channel",
   "Updating a routine": "Updated a routine",
@@ -61,7 +58,6 @@ const DONE_LABELS = {
   "Using the browser": "Used the browser",
   "Using the computer": "Used the computer",
   "Waiting for your answer": "Asked you a question",
-  "Waiting on a command": "Waited on a command",
 } satisfies Readonly<Record<string, MessageKey>>;
 
 /** A gap between steps shorter than this is just the hand-off, not thinking. */

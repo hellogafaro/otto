@@ -1,12 +1,11 @@
 import { describe } from "vite-plus/test";
 import * as NodeFS from "node:fs";
-import * as NodePath from "node:path";
 import { afterEach, expect, it } from "vite-plus/test";
 import { BotId, ThreadId, type OttoToolReceipt } from "@otto/contracts";
 import { createOttoToolRuntime } from "./otto-tool-runtime.ts";
 import { makeOttoToolRuntimeTestSupport } from "./test-support/otto-tool-runtime.ts";
 
-const { directories, workspace, workspaceRoot } = makeOttoToolRuntimeTestSupport();
+const { directories, workspace } = makeOttoToolRuntimeTestSupport();
 
 describe("OttoToolRuntime", () => {
   afterEach(() => {
@@ -24,122 +23,29 @@ describe("OttoToolRuntime", () => {
       workspaceType: "local",
       workspace: workspace("bot"),
     });
-    expect(runtime.toolsForThread("thread-1").map((tool) => tool.id)).toEqual([
-      "Shell",
-      "Read",
-      "AwaitShell",
-    ]);
+    expect(runtime.toolsForThread("thread-1").map((tool) => tool.id)).toEqual(["Shell", "Read"]);
   });
 
-  it("rejects shell working directories outside both workspace boundaries", async () => {
+  it("rejects shell working directories outside the workspace", async () => {
     const runtime = createOttoToolRuntime();
-    const bot = workspace("cwd-bot");
-    const user = workspace("cwd-user");
-    NodeFS.mkdirSync(NodePath.join(workspaceRoot(user), "nested"));
     runtime.registerSession("thread-1", {
       runtimeMode: "full-access",
       workspaceType: "local",
-      workspace: bot,
-      userComputerWorkspace: user,
+      workspace: workspace("cwd-bot"),
     });
 
-    await expect(
-      runtime.execute({
+    for (const cwd of ["/", ".."]) {
+      const execution = {
         threadId: "thread-1",
-        toolId: "ExternalShell",
-        toolCallId: "tool-safe-external",
-        input: { command: "pwd", cwd: "nested" },
-        approvalMode: "require-grant",
-      }),
-    ).resolves.toBeDefined();
+        toolId: "Shell" as const,
+        toolCallId: `tool-shell-${cwd}`,
+        input: { command: "pwd", cwd },
+        approvalMode: "require-grant" as const,
+      };
 
-    for (const toolId of ["Shell", "ExternalShell"] as const) {
-      for (const cwd of ["/", ".."]) {
-        const execution = {
-          threadId: "thread-1",
-          toolId,
-          toolCallId: `tool-${toolId}-${cwd}`,
-          input: { command: "pwd", cwd },
-          approvalMode: "require-grant" as const,
-        };
-
-        if (toolId === "Shell") runtime.grantApproval(execution);
-        await expect(runtime.execute(execution)).rejects.toThrow("must stay inside its workspace");
-      }
+      runtime.grantApproval(execution);
+      await expect(runtime.execute(execution)).rejects.toThrow("must stay inside its workspace");
     }
-  });
-
-  it("copies files only when both boundaries are registered", async () => {
-    const runtime = createOttoToolRuntime();
-    const bot = workspace("copy-bot");
-    const user = workspace("copy-user");
-    await user.filesystem?.writeFile("report.txt", "report");
-    runtime.registerSession("thread-1", {
-      runtimeMode: "full-access",
-      workspaceType: "local",
-      workspace: bot,
-      userComputerWorkspace: user,
-    });
-
-    const execution = {
-      threadId: "thread-1",
-      toolId: "CopyToBox" as const,
-      toolCallId: "tool-copy",
-      input: { sourcePath: "report.txt", destinationPath: "inbox/report.txt" },
-      approvalMode: "require-grant" as const,
-    };
-
-    runtime.grantApproval(execution);
-    await runtime.execute(execution);
-    expect(await bot.filesystem?.readFile("inbox/report.txt", { encoding: "utf-8" })).toBe(
-      "report",
-    );
-    NodeFS.writeFileSync(NodePath.join(workspaceRoot(user), "..", "outside.txt"), "secret");
-    await expect(
-      runtime.execute({
-        ...execution,
-        toolCallId: "tool-copy-outside",
-        input: { sourcePath: "../outside.txt", destinationPath: "inbox/outside.txt" },
-      }),
-    ).rejects.toThrow();
-  });
-
-  it("records a human handoff request", async () => {
-    const requests: unknown[] = [];
-
-    const runtime = createOttoToolRuntime({
-      onUserActionRequired: (request) => {
-        requests.push(request);
-      },
-    });
-
-    runtime.registerSession("thread-1", {
-      botId: BotId.make("bot-one"),
-      botName: "Research bot",
-      runtimeMode: "full-access",
-      workspaceType: "local",
-      workspace: workspace("handoff"),
-    });
-
-    await expect(
-      runtime.execute({
-        threadId: ThreadId.make("thread-1"),
-        toolId: "request_box_help",
-        toolCallId: "tool-help",
-        input: { reason: "captcha", message: "Complete the CAPTCHA." },
-        approvalMode: "require-grant",
-      }),
-    ).resolves.toEqual({ requested: true });
-    expect(requests).toEqual([
-      {
-        botId: "bot-one",
-        botName: "Research bot",
-        toolId: "request_box_help",
-        summary: "Complete the CAPTCHA.",
-        nextAction: "Open the bot workspace and complete the requested step.",
-        target: "captcha",
-      },
-    ]);
   });
 
   it("isolates user-message failures from the current thread", async () => {
@@ -209,35 +115,5 @@ describe("OttoToolRuntime", () => {
 
     await expect(runtime.execute(execution)).resolves.toMatchObject({ phase: "failure" });
     expect(receipts.map((receipt) => receipt.phase)).toEqual(["start", "failure"]);
-  });
-
-  it("translates await handles to workspace process ids", async () => {
-    const runtime = createOttoToolRuntime();
-    runtime.registerSession("thread-1", {
-      runtimeMode: "full-access",
-      workspaceType: "cloud",
-      workspace: workspace("await"),
-    });
-
-    const started = await runtime.execute({
-      threadId: "thread-1",
-      toolId: "Shell",
-      toolCallId: "tool-start",
-      input: { command: "printf done", background: true },
-      approvalMode: "require-grant",
-    });
-
-    const handleId = String(started).match(/PID: ([^)]+)/)?.[1];
-
-    if (!handleId) throw new Error("Background command did not return a process id.");
-    await expect(
-      runtime.execute({
-        threadId: "thread-1",
-        toolId: "AwaitShell",
-        toolCallId: "tool-await",
-        input: { handleId },
-        approvalMode: "require-grant",
-      }),
-    ).resolves.toContain("done");
   });
 });

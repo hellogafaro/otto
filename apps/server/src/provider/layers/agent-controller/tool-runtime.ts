@@ -12,10 +12,6 @@ import * as Effect from "effect/Effect";
 
 import * as PubSub from "effect/PubSub";
 
-import { BotInboxService } from "../../../bot-inbox/service.ts";
-
-import { recordUserActionIncident } from "../../../bot-inbox/user-action-incidents.ts";
-
 import { BotUsageLedger } from "../../../usage/bot-usage-ledger.ts";
 
 import { createOttoToolRuntime } from "../../otto-tool-runtime.ts";
@@ -25,7 +21,6 @@ import { type ActiveSession } from "./state.ts";
 import { nowIso, eventId } from "./event-identity.ts";
 
 export function createToolRuntime(deps: {
-  readonly botInbox: BotInboxService;
   readonly sessions: Map<string, ActiveSession>;
   readonly runtimeEvents: PubSub.PubSub<ProviderRuntimeEvent>;
   readonly toolUsageKey: (input: {
@@ -57,9 +52,6 @@ export function createToolRuntime(deps: {
   };
 }) {
   const toolRuntime = createOttoToolRuntime({
-    onUserActionRequired: (input) => {
-      recordUserActionIncident(deps.botInbox, input);
-    },
     onReceipt: (receipt) => {
       const active = deps.sessions.get(String(receipt.threadId));
 

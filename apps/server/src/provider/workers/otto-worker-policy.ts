@@ -92,7 +92,6 @@ export const OTTO_WORKER_EXCLUDED_TOOL_IDS: ReadonlySet<OttoToolId> = new Set([
   "CreateChannel",
   "UpdateChannel",
   "SendToUser",
-  "request_box_help",
   "ReactToMessage",
   "UpdateBotProfile",
   "SaveToLibrary",
@@ -101,8 +100,7 @@ export const OTTO_WORKER_EXCLUDED_TOOL_IDS: ReadonlySet<OttoToolId> = new Set([
 
 /**
  * A worker runs in a hidden thread where nobody can answer an approval prompt.
- * The `none` ceiling makes approval-gated tools fail fast instead of waiting,
- * and without the user's computer the ExternalShell tools drop out.
+ * The `none` ceiling makes approval-gated tools fail fast instead of waiting.
  * The worker keeps the parent's sandbox. Callers pass a top-level bot's local
  * workspace as an explicit `local` sandbox, because a null sandbox on a
  * delegated grant means no workspace at all.

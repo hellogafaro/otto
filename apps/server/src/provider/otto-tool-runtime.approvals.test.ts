@@ -85,26 +85,26 @@ describe("OttoToolRuntime", () => {
     runtime.grantApproval({
       ...execution,
       toolCallId: "tool-null-cwd",
-      input: { command: "pwd", cwd: null, background: false },
+      input: { command: "pwd", cwd: null },
     });
     await expect(
       runtime.execute({
         ...execution,
         toolCallId: "tool-null-cwd",
-        input: { command: "pwd", background: false },
+        input: { command: "pwd" },
       }),
     ).resolves.toBeDefined();
 
     runtime.grantApproval({
       ...execution,
       toolCallId: "tool-undefined-cwd",
-      input: { command: "pwd", background: false },
+      input: { command: "pwd" },
     });
     await expect(
       runtime.execute({
         ...execution,
         toolCallId: "tool-undefined-cwd",
-        input: { command: "pwd", cwd: undefined, background: false },
+        input: { command: "pwd", cwd: undefined },
       }),
     ).resolves.toBeDefined();
   });
@@ -121,7 +121,7 @@ describe("OttoToolRuntime", () => {
       threadId: "nullable-shell",
       toolId: "Shell" as const,
       toolCallId: "nullable-command",
-      input: { command: "pwd", cwd: null, background: null },
+      input: { command: "pwd", cwd: null },
       approvalMode: "require-grant" as const,
     };
 
@@ -307,20 +307,17 @@ describe("OttoToolRuntime", () => {
     const runtime = createOttoToolRuntime();
     const original = workspace("original");
     const replacement = workspace("replacement");
-    const user = workspace("user");
-    await user.filesystem?.writeFile(".env", "SECRET=value");
     runtime.registerSession("thread-1", {
       runtimeMode: "full-access",
       workspaceType: "local",
       workspace: original,
-      userComputerWorkspace: user,
     });
 
     const execution = {
       threadId: "thread-1",
-      toolId: "CopyToBox" as const,
-      toolCallId: "tool-copy",
-      input: { sourcePath: ".env", destinationPath: ".env" },
+      toolId: "Shell" as const,
+      toolCallId: "tool-shell",
+      input: { command: "touch approved.txt" },
       approvalMode: "require-grant" as const,
     };
 
@@ -329,11 +326,10 @@ describe("OttoToolRuntime", () => {
       runtimeMode: "full-access",
       workspaceType: "local",
       workspace: replacement,
-      userComputerWorkspace: user,
     });
 
     await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
-    await expect(replacement.filesystem?.readFile(".env")).rejects.toThrow();
+    await expect(replacement.filesystem?.readFile("approved.txt")).rejects.toThrow();
   });
 
   it("requires approval before a message reaction runs", async () => {

@@ -1,20 +1,12 @@
-import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
-import * as NodePath from "node:path";
 import type { AgentControllerEvent } from "@mastra/core/agent-controller";
-import {
-  BotId,
-  ProviderDriverKind,
-  RuntimeItemId,
-  type ProviderRuntimeEvent,
-} from "@otto/contracts";
+import { ProviderDriverKind, RuntimeItemId, type ProviderRuntimeEvent } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
 import { assert, describe, expect } from "vite-plus/test";
-import { BotInboxService } from "../../bot-inbox/service.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import * as OrchestrationEngine from "../../orchestration/services/orchestration-engine.ts";
 import {
@@ -28,7 +20,6 @@ import {
   provideController,
   resolveCodex,
 } from "./test-support/agent-controller-layers.ts";
-import { usageLedgerFixture } from "./test-support/agent-controller-memory.ts";
 import { mastraHarnessFixture, assistantMessage } from "./test-support/agent-controller-harness.ts";
 
 describe("AgentControllerLive", () => {
@@ -505,82 +496,6 @@ describe("AgentControllerLive", () => {
       }),
       bridge.service,
       mastra.factory,
-    );
-  });
-});
-
-describe("AgentControllerLive", () => {
-  it.effect("records human handoff requests in the bot inbox", () => {
-    const bridge = makeBridge();
-    const mastra = mastraHarnessFixture();
-    const usageLedger = usageLedgerFixture();
-    usageLedger.reserve.mockImplementation(() => Effect.die("usage reserve failed"));
-    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-handoff-inbox-"));
-
-    return provideController(
-      Effect.gen(function* () {
-        const controller = yield* AgentController;
-        yield* resolveCodex(controller);
-
-        const sessionInput = {
-          threadId: codexThreadId,
-          provider: ProviderDriverKind.make("codex"),
-          providerInstanceId: codexInstanceId,
-          modelSelection: codexSelection,
-          runtimeMode: "full-access" as const,
-        };
-
-        yield* controller.startSession(codexThreadId, {
-          ...sessionInput,
-          botId: BotId.make("bot-one"),
-          botName: "Research bot",
-        });
-
-        const runtime = mastra.harnessOptions[0]?.toolRuntime;
-        assert.isDefined(runtime);
-        yield* Effect.promise(() =>
-          runtime.execute({
-            threadId: String(codexThreadId),
-            toolId: "request_box_help",
-            toolCallId: "tool-help",
-            input: { reason: "captcha", message: "Complete the CAPTCHA." },
-            approvalMode: "require-grant",
-          }),
-        );
-
-        expect(
-          BotInboxService.forSecretsDir(NodePath.join(baseDir, "userdata", "secrets")).list(),
-        ).toMatchObject([
-          {
-            botId: "bot-one",
-            botName: "Research bot",
-            taskOrRoutine: "request_box_help",
-            lastFailure: "Complete the CAPTCHA.",
-          },
-        ]);
-        yield* controller.startSession(codexThreadId, sessionInput);
-        expect(runtime.toolsForThread(String(codexThreadId)).map((tool) => tool.id)).not.toContain(
-          "request_box_help",
-        );
-        yield* Effect.promise(() =>
-          expect(
-            runtime.execute({
-              threadId: String(codexThreadId),
-              toolId: "request_box_help",
-              toolCallId: "stale-handoff",
-              input: { reason: "captcha", message: "Complete the CAPTCHA." },
-              approvalMode: "require-grant",
-            }),
-          ).rejects.toThrow("Tool 'request_box_help' is not available for this turn."),
-        );
-      }),
-      bridge.service,
-      mastra.factory,
-      undefined,
-      baseDir,
-      usageLedger.service,
-    ).pipe(
-      Effect.ensuring(Effect.sync(() => NodeFS.rmSync(baseDir, { recursive: true, force: true }))),
     );
   });
 });

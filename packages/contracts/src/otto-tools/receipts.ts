@@ -7,7 +7,6 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
 } from "../base-schemas.ts";
-import { OttoAwaitHandleId } from "./inputs.ts";
 import { OttoToolApprovalClass } from "./catalog.ts";
 
 export const OttoToolReceiptPhase = Schema.Literals([
@@ -34,7 +33,6 @@ export const OttoToolReceipt = Schema.Struct({
   phase: OttoToolReceiptPhase,
   threadId: ThreadId,
   botId: Schema.optional(BotId),
-  handleId: Schema.optional(OttoAwaitHandleId),
   summary: Schema.optional(TrimmedNonEmptyString),
   authorizationUrl: Schema.optional(TrimmedNonEmptyString),
   progress: Schema.optional(NonNegativeInt),

@@ -193,7 +193,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       });
 
     const { toolRuntime } = createToolRuntime({
-      botInbox,
       sessions,
       runtimeEvents,
       toolUsageKey,

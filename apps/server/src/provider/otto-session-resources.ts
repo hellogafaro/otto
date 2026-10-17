@@ -26,7 +26,6 @@ export class OttoSessionResources {
   private readonly acquisitions = new Map<string, Promise<OttoSessionResourceView>>();
   private readonly mcpManagers = new Map<string, McpManager>();
   private readonly workspaceLeases = new Map<string, BotWorkspaceLease>();
-  private readonly userComputerWorkspaceLeases = new Map<string, BotWorkspaceLease>();
   private readonly workspacePool = new BotWorkspacePool();
   private shuttingDown = false;
 
@@ -107,33 +106,6 @@ export class OttoSessionResources {
 
       this.workspaceLeases.set(key, workspaceLease);
 
-      const remote = isRemoteBotSandbox(input.botSandbox);
-      const userComputerCwd = remote ? undefined : input.userComputerCwd;
-
-      const userComputerWorkspaceLease = userComputerCwd
-        ? await this.workspacePool.acquire(`user-computer:${key}:${userComputerCwd}`, async () => {
-            const workspace = await createBotWorkspace({
-              io: this.options.io,
-              threadId: `user-computer-${key}`,
-              cwd: userComputerCwd,
-              sandboxProfileDirectory: this.options.io.path.join(
-                this.options.stateDir,
-                "sandbox-profiles",
-              ),
-            });
-
-            if (!workspace) {
-              throw new Error(`User computer is unavailable for thread '${key}'.`);
-            }
-
-            return workspace;
-          })
-        : undefined;
-
-      if (userComputerWorkspaceLease) {
-        this.userComputerWorkspaceLeases.set(key, userComputerWorkspaceLease);
-      }
-
       const previewMcpServerConfig = this.options.getPreviewMcpServerConfig?.(key);
 
       if (input.mcpServers.length > 0 || previewMcpServerConfig) {
@@ -171,11 +143,7 @@ export class OttoSessionResources {
         }
       }
 
-      return {
-        workspace:
-          userComputerWorkspaceLease?.workspace.workspace ?? workspaceLease.workspace.workspace,
-        botWorkspace: workspaceLease.workspace.workspace,
-      };
+      return { botWorkspace: workspaceLease.workspace.workspace };
     } catch (cause) {
       await this.releaseOnce(key, {
         destroy: input.botSandbox !== "railway" && input.botSandbox !== "boat",
@@ -216,10 +184,7 @@ export class OttoSessionResources {
   }
 
   getWorkspace(threadId: string): Workspace | undefined {
-    return (
-      this.userComputerWorkspaceLeases.get(threadId)?.workspace.workspace ??
-      this.workspaceLeases.get(threadId)?.workspace.workspace
-    );
+    return this.workspaceLeases.get(threadId)?.workspace.workspace;
   }
 
   retryFailedWorkspaceSleeps(): Promise<void> {
@@ -248,13 +213,6 @@ export class OttoSessionResources {
       await workspaceLease.release(options).catch((cause) => failures.push(cause));
     }
 
-    const userComputerLease = this.userComputerWorkspaceLeases.get(threadId);
-    this.userComputerWorkspaceLeases.delete(threadId);
-
-    if (userComputerLease) {
-      await userComputerLease.release(options).catch((cause) => failures.push(cause));
-    }
-
     if (failures.length > 0) throw failures[0];
   }
 
@@ -266,7 +224,6 @@ export class OttoSessionResources {
     const threadIds = new Set([
       ...this.acquisitions.keys(),
       ...this.workspaceLeases.keys(),
-      ...this.userComputerWorkspaceLeases.keys(),
       ...this.mcpManagers.keys(),
     ]);
 

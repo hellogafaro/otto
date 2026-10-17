@@ -37,7 +37,7 @@ export function canonicalInput<Value>(value: Value): string {
 }
 
 export function ensureWorkspaceCwd<Input>(toolId: OttoToolId, input: Input): void {
-  if (toolId !== "Shell" && toolId !== "ExternalShell") return;
+  if (toolId !== "Shell") return;
   const cwd = field(input, "cwd");
 
   if (cwd === undefined) return;

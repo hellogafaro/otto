@@ -3,13 +3,11 @@ import * as Predicate from "effect/Predicate";
 import { OTTO_DELEGATION_MAX_CONCURRENCY, OTTO_DELEGATION_MAX_DEPTH } from "./otto-delegation.ts";
 import { OTTO_WORKER_MAX_DEPTH } from "./otto-workers.ts";
 import {
-  OttoToolId,
   OttoToolApprovalClass,
   OttoProtectedApprovalClass,
   OTTO_PROTECTED_APPROVAL_CLASSES,
   OttoToolCapability,
   OttoToolWorkspaceType,
-  type OttoCopyDirection,
   type OttoToolDefinition,
   OTTO_TOOL_CATALOG,
 } from "./otto-tools/catalog.ts";
@@ -17,7 +15,6 @@ import {
 export interface OttoToolAvailabilityContext {
   readonly capabilities: ReadonlySet<OttoToolCapability>;
   readonly workspaceType: OttoToolWorkspaceType;
-  readonly hasUserComputer: boolean;
   readonly localFullAccess: boolean;
   readonly implementedTools: ReadonlySet<string>;
   readonly delegationDepth?: number;
@@ -43,11 +40,7 @@ export function filterOttoTools(
 
     if (tool.id === "Task" && (context.workerDepth ?? 0) >= OTTO_WORKER_MAX_DEPTH) return false;
 
-    if (tool.workspace === "bot-workspace" && context.workspaceType === "none") return false;
-
-    if (tool.workspace === "user-computer" && !context.hasUserComputer) return false;
-
-    return !(tool.requiresUserComputer && !context.hasUserComputer);
+    return !(tool.workspace === "bot-workspace" && context.workspaceType === "none");
   });
 }
 
@@ -92,26 +85,10 @@ export function ottoToolApprovalForInput(
 ): OttoToolApprovalClass {
   if (!Predicate.isObjectOrArray(input)) return tool.approval;
 
-  if (
-    (tool.id === "Shell" || tool.id === "ExternalShell") &&
-    "command" in input &&
-    Predicate.isString(input.command)
-  ) {
+  if (tool.id === "Shell" && "command" in input && Predicate.isString(input.command)) {
     const protectedClass = classifyOttoExternalCommand(input.command);
 
     if (protectedClass) return protectedClass;
-  }
-
-  if (tool.id === "ExternalRead" && "path" in input && Predicate.isString(input.path)) {
-    return classifyOttoSensitivePath(input.path) ?? tool.approval;
-  }
-
-  if (tool.id === "CopyToBox" && "sourcePath" in input && Predicate.isString(input.sourcePath)) {
-    return classifyOttoSensitivePath(input.sourcePath) ?? tool.approval;
-  }
-
-  if (tool.id === "CopyFromBox" && "sourcePath" in input && Predicate.isString(input.sourcePath)) {
-    return classifyOttoSensitivePath(input.sourcePath) ?? tool.approval;
   }
 
   if (tool.id === "Shell" && context?.workspaceType === "local") return "user-computer";
@@ -140,17 +117,11 @@ export function ottoToolRequiresApproval(
   return approval === "user-computer" && !(context.localFullAccess && input !== undefined);
 }
 
-export function copyDirectionForTool(toolId: OttoToolId): OttoCopyDirection | undefined {
-  return OTTO_TOOL_CATALOG.find((tool) => tool.id === toolId)?.copy;
-}
-
 export {
   OTTO_COMMAND_MAX_CHARS,
   OTTO_PATH_MAX_CHARS,
-  OttoAwaitHandleId,
   OttoPluginRecommendation,
   OttoPluginSearchResult,
-  OttoComputerBoundary,
   OTTO_DELEGATION_CONTEXT_MAX_CHARS,
   OttoToolInputSchemas,
   OttoMessageReactionResult,
@@ -165,7 +136,6 @@ export {
   OttoToolCapability,
   OttoToolWorkspaceType,
   type OttoToolWorkspaceRequirement,
-  type OttoCopyDirection,
   type OttoToolDefinition,
   OTTO_TOOL_CATALOG,
 } from "./otto-tools/catalog.ts";
