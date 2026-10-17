@@ -28,6 +28,8 @@ export const memoryCatalog = {
   Memory: "记忆",
   "Facts this bot keeps between chats.": "此机器人在各个聊天之间保留的事实。",
   "Manage bot memory": "管理机器人记忆",
+  "{count} memory": "{count} 条记忆",
+  "{count} memories": "{count} 条记忆",
   "Facts and history": "事实与历史",
   "Keep durable facts that bots can use across chats.":
     "保留机器人可以在各个聊天中使用的长期事实。",

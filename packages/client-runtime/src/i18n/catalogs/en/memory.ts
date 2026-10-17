@@ -28,6 +28,8 @@ export const memoryCatalog = {
   Memory: "Memory",
   "Facts this bot keeps between chats.": "Facts this bot keeps between chats.",
   "Manage bot memory": "Manage bot memory",
+  "{count} memory": "{count} memory",
+  "{count} memories": "{count} memories",
   "Facts and history": "Facts and history",
   "Keep durable facts that bots can use across chats.":
     "Keep durable facts that bots can use across chats.",

@@ -1,19 +1,23 @@
 import { useAtomValue } from "@effect/atom-react";
 import { scopeProjectRef } from "@otto/client-runtime/environment";
-import { type ScopedThreadRef, GENERAL_PROJECT_ID } from "@otto/contracts";
-import { RiSettings3Line } from "@remixicon/react";
+import { BotId, type ScopedThreadRef, GENERAL_PROJECT_ID } from "@otto/contracts";
+import { RiArrowRightSLine, RiSettings3Line } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useI18n } from "../../i18n";
 import { environmentPeopleAtom } from "../../state/bots";
 import { useProject, useThreadShell } from "../../state/entities";
+import { memoryEnvironment } from "../../state/memory";
+import { useEnvironmentQuery } from "../../state/query";
 import { DetailsAside, DetailsGroup, DetailsRow } from "../details-aside";
 import { LibraryVisibilitySelect } from "../library/library-actions";
 import { ChatLibrarySection } from "../library/chat-library-section";
 import { Button } from "../ui/button";
 import { BotAvatarView } from "./bot-avatar-view";
+import { BotMemorySheet } from "./bot-memory-sheet";
 import { useChatDetailsOpen } from "./details-panel-open";
 import { GroupEditor } from "./group-editor";
 import { PersonAvatar } from "./person-avatar";
@@ -33,9 +37,10 @@ export function ChatDetailsPanel({
   readonly botId: string | null;
   readonly groupId: string | null;
 }) {
-  const { t } = useI18n();
+  const { t, plural } = useI18n();
   const navigate = useNavigate();
   const [open, setOpen] = useChatDetailsOpen();
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const shell = useThreadShell(threadRef);
   const people = useAtomValue(environmentPeopleAtom(threadRef.environmentId));
   const chatActions = useChatActions();
@@ -53,6 +58,22 @@ export function ChatDetailsPanel({
 
   const bot = bots.find((candidate) => candidate.id === botId) ?? null;
 
+  const memories = useEnvironmentQuery(
+    bot && open
+      ? memoryEnvironment.list({
+          environmentId: threadRef.environmentId,
+          input: { botId: BotId.make(bot.id) },
+        })
+      : null,
+  );
+
+  // What this bot remembers that you can see: about you, itself and the chats you share.
+  const memoryCount = memories.data?.sections.reduce(
+    (total, section) =>
+      total + section.memories.filter((memory) => memory.status === "active").length,
+    0,
+  );
+
   // The General project reads as "No project", as in New chat.
   const projectLabel =
     project === null || project.id === GENERAL_PROJECT_ID ? t("No project") : project.title;
@@ -69,6 +90,16 @@ export function ChatDetailsPanel({
             editable={shell.createdBy != null && shell.createdBy === people.current?.id}
             onChange={(visibility) => void chatActions.setVisibility(threadRef, visibility)}
           />
+        </DetailsRow>
+      ) : null}
+      {bot ? (
+        <DetailsRow label={t("Memory")}>
+          <Button size="sm" variant="ghost" onClick={() => setMemoryOpen(true)}>
+            {memoryCount === undefined
+              ? t("View")
+              : plural(memoryCount, { one: "{count} memory", other: "{count} memories" })}
+            <RiArrowRightSLine aria-hidden />
+          </Button>
         </DetailsRow>
       ) : null}
     </DetailsGroup>
@@ -126,6 +157,13 @@ export function ChatDetailsPanel({
           </div>
           {library}
         </div>
+        <BotMemorySheet
+          open={memoryOpen}
+          onOpenChange={setMemoryOpen}
+          environmentId={threadRef.environmentId}
+          botId={BotId.make(bot.id)}
+          botName={bot.name}
+        />
       </>
     ) : null;
 
