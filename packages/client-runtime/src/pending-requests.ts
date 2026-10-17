@@ -5,6 +5,7 @@ import {
   type OrchestrationThreadActivity,
   ProviderApprovalOption,
   ProviderRequestKind,
+  type TurnId,
   UserInputQuestion,
 } from "@otto/contracts";
 import * as Predicate from "effect/Predicate";
@@ -19,6 +20,20 @@ export interface PendingApproval {
   readonly options?: ReadonlyArray<ProviderApprovalOption>;
   readonly toolName?: string;
   readonly args?: unknown;
+  /** The turn that asked, so a group chat can name the bot that asked. */
+  readonly turnId?: TurnId;
+}
+
+/** How an approval ended: the choice made, by whom, or that it closed unanswered. */
+export interface ApprovalResolution {
+  readonly decision?: string;
+  readonly actor?: string;
+  readonly respondedBy?: string;
+}
+
+/** Every approval a chat asked for, answered ones with their resolution. */
+export interface ApprovalRecord extends PendingApproval {
+  readonly resolution: ApprovalResolution | null;
 }
 
 export interface PendingUserInput {
@@ -139,6 +154,8 @@ function isStaleRequestFailure(
 /** Reduces request state once for web, desktop, and mobile. Layout stays with each client. */
 export function derivePendingRequests(activities: ReadonlyArray<OrchestrationThreadActivity>) {
   const approvals = new Map<ApprovalRequestId, PendingApproval>();
+  const requestedApprovals = new Map<ApprovalRequestId, PendingApproval>();
+  const resolutions = new Map<ApprovalRequestId, ApprovalResolution>();
   const userInputs = new Map<ApprovalRequestId, PendingUserInput>();
   const closedApprovals = new Set<ApprovalRequestId>();
   const closedUserInputs = new Set<ApprovalRequestId>();
@@ -177,7 +194,6 @@ export function derivePendingRequests(activities: ReadonlyArray<OrchestrationThr
 
     if (activity.kind === "approval.requested") {
       if (
-        closedApprovals.has(requestId) ||
         payload.requestType === "tool_user_input" ||
         payload.requestType === "auth_tokens_refresh"
       ) {
@@ -193,7 +209,8 @@ export function derivePendingRequests(activities: ReadonlyArray<OrchestrationThr
         : [];
 
       const args = payload.args ?? toolArgsByCallId.get(requestId);
-      approvals.set(requestId, {
+
+      const approval: PendingApproval = {
         requestId,
         requestKind: requestKind ?? "command",
         createdAt: activity.createdAt,
@@ -206,7 +223,12 @@ export function derivePendingRequests(activities: ReadonlyArray<OrchestrationThr
           : {}),
         ...(args !== undefined ? { args } : {}),
         ...(options.length > 0 ? { options } : {}),
-      });
+        ...(activity.turnId ? { turnId: activity.turnId } : {}),
+      };
+
+      requestedApprovals.set(requestId, approval);
+
+      if (!closedApprovals.has(requestId)) approvals.set(requestId, approval);
     } else if (activity.kind === "user-input.requested") {
       if (closedUserInputs.has(requestId)) continue;
       const questions = parseQuestions(payload.questions);
@@ -220,6 +242,17 @@ export function derivePendingRequests(activities: ReadonlyArray<OrchestrationThr
     ) {
       closedApprovals.add(requestId);
       approvals.delete(requestId);
+
+      const text = (key: string) =>
+        activity.kind === "approval.resolved" && Predicate.isString(payload[key]) && payload[key]
+          ? { [key]: payload[key] }
+          : {};
+
+      resolutions.set(requestId, {
+        ...text("decision"),
+        ...text("actor"),
+        ...text("respondedBy"),
+      });
     } else if (
       activity.kind === "user-input.resolved" ||
       (activity.kind === "provider.user-input.respond.failed" &&
@@ -237,8 +270,18 @@ export function derivePendingRequests(activities: ReadonlyArray<OrchestrationThr
 
   return {
     approvals: [...approvals.values()].sort(byCreatedAt),
+    approvalRecords: [...requestedApprovals.values()]
+      .map((approval) => ({ ...approval, resolution: resolutions.get(approval.requestId) ?? null }))
+      .sort(byCreatedAt),
     userInputs: [...userInputs.values()].sort(byCreatedAt),
   };
+}
+
+/** Every approval the chat asked for, in order, answered ones with their resolution. */
+export function deriveApprovalRecords(
+  activities: ReadonlyArray<OrchestrationThreadActivity>,
+): ApprovalRecord[] {
+  return derivePendingRequests(activities).approvalRecords;
 }
 
 export function derivePendingApprovals(
