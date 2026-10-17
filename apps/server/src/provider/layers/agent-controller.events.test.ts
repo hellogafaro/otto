@@ -117,7 +117,7 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
-  it.effect("adds every Mastra step usage update", () => {
+  it.effect("adds every Mastra step usage update, cache reads and writes included", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
 
@@ -143,11 +143,23 @@ describe("AgentControllerLive", () => {
         yield* controller.sendTurn({ threadId: codexThreadId, input: "Use two steps." });
         mastra.emit({
           type: "usage_update",
-          usage: { promptTokens: 10, completionTokens: 4, reasoningTokens: 2, totalTokens: 14 },
+          usage: {
+            promptTokens: 10,
+            completionTokens: 4,
+            reasoningTokens: 2,
+            totalTokens: 14,
+            cacheCreationInputTokens: 3,
+          },
         } as AgentControllerEvent);
         mastra.emit({
           type: "usage_update",
-          usage: { promptTokens: 7, completionTokens: 3, reasoningTokens: 1, totalTokens: 10 },
+          usage: {
+            promptTokens: 7,
+            completionTokens: 3,
+            reasoningTokens: 1,
+            totalTokens: 10,
+            cachedInputTokens: 6,
+          },
         } as AgentControllerEvent);
         yield* Effect.yieldNow;
         yield* Fiber.interrupt(eventsFiber);
@@ -157,8 +169,22 @@ describe("AgentControllerLive", () => {
             event.type === "thread.token-usage.updated" ? [event.payload.usage] : [],
           ),
           [
-            { usedTokens: 14, inputTokens: 10, outputTokens: 4, reasoningOutputTokens: 2 },
-            { usedTokens: 24, inputTokens: 17, outputTokens: 7, reasoningOutputTokens: 3 },
+            {
+              usedTokens: 14,
+              inputTokens: 10,
+              cachedInputTokens: 0,
+              cacheCreationTokens: 3,
+              outputTokens: 4,
+              reasoningOutputTokens: 2,
+            },
+            {
+              usedTokens: 24,
+              inputTokens: 17,
+              cachedInputTokens: 6,
+              cacheCreationTokens: 3,
+              outputTokens: 7,
+              reasoningOutputTokens: 3,
+            },
           ],
         );
         mastra.finishSend();
@@ -210,8 +236,22 @@ describe("AgentControllerLive", () => {
             event.type === "thread.token-usage.updated" ? [event.payload.usage] : [],
           ),
           [
-            { usedTokens: 14, inputTokens: 10, outputTokens: 4, reasoningOutputTokens: 2 },
-            { usedTokens: 24, inputTokens: 17, outputTokens: 7, reasoningOutputTokens: 3 },
+            {
+              usedTokens: 14,
+              inputTokens: 10,
+              cachedInputTokens: 0,
+              cacheCreationTokens: 0,
+              outputTokens: 4,
+              reasoningOutputTokens: 2,
+            },
+            {
+              usedTokens: 24,
+              inputTokens: 17,
+              cachedInputTokens: 0,
+              cacheCreationTokens: 0,
+              outputTokens: 7,
+              reasoningOutputTokens: 3,
+            },
           ],
         );
         mastra.finishSend();

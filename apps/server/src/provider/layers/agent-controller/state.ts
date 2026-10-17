@@ -54,6 +54,8 @@ export interface ActiveTurn {
   readonly suspendedToolCalls: Set<string>;
   finished: boolean;
   inputTokens: number;
+  cachedInputTokens: number;
+  cacheCreationTokens: number;
   outputTokens: number;
   reasoningTokens: number;
   assistantText: string;

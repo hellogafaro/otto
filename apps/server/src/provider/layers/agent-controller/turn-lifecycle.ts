@@ -168,6 +168,8 @@ export function createTurnLifecycle(deps: {
       suspendedToolCalls: new Set(),
       finished: false,
       inputTokens: 0,
+      cachedInputTokens: 0,
+      cacheCreationTokens: 0,
       outputTokens: 0,
       reasoningTokens: 0,
       assistantText: "",

@@ -631,6 +631,8 @@ export function createEvents(deps: {
       case "usage_update":
         if (!turn) return;
         turn.inputTokens += Math.max(0, event.usage.promptTokens ?? 0);
+        turn.cachedInputTokens += Math.max(0, event.usage.cachedInputTokens ?? 0);
+        turn.cacheCreationTokens += Math.max(0, event.usage.cacheCreationInputTokens ?? 0);
         turn.outputTokens += Math.max(0, event.usage.completionTokens ?? 0);
         turn.reasoningTokens += Math.max(0, event.usage.reasoningTokens ?? 0);
         deps.publish({
@@ -640,6 +642,8 @@ export function createEvents(deps: {
             usage: {
               usedTokens: turn.inputTokens + turn.outputTokens,
               inputTokens: turn.inputTokens,
+              cachedInputTokens: turn.cachedInputTokens,
+              cacheCreationTokens: turn.cacheCreationTokens,
               outputTokens: turn.outputTokens,
               reasoningOutputTokens: turn.reasoningTokens,
             },
