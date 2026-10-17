@@ -1,3 +1,7 @@
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
+
 import type { MastraModelConfig } from "@mastra/core/llm";
 import { RequestContext } from "@mastra/core/request-context";
 import * as DateTime from "effect/DateTime";
@@ -11,8 +15,11 @@ import {
 import {
   OTTO_COMPACTION_INSTRUCTION,
   type OttoChatContextRecord,
+  type OttoChatContexts,
+  storedChatContexts,
   withOttoPrompt,
 } from "./otto-instructions.ts";
+import { createOttoMastraMemory } from "./otto-memory.ts";
 
 type TestModel = Extract<
   MastraModelConfig,
@@ -83,6 +90,17 @@ async function send(
   await native.doGenerate({ prompt, ...(tools ? { tools } : {}) });
 }
 
+function inMemoryChats(): OttoChatContexts {
+  const records = new Map<string, OttoChatContextRecord>();
+
+  return {
+    get: async (threadId) => records.get(threadId),
+    set: async (threadId, record) => {
+      records.set(threadId, record);
+    },
+  };
+}
+
 function user(text: string): Prompt[number] {
   return { role: "user", content: [{ type: "text", text }] };
 }
@@ -105,7 +123,7 @@ describe("withOttoPrompt", () => {
       turnContext: "Your turn in the group.",
     };
 
-    await send(withOttoPrompt(model, context(state), new Map(), now), [user("hola")]);
+    await send(withOttoPrompt(model, context(state), inMemoryChats(), now), [user("hola")]);
 
     expect(calls[0]?.prompt).toEqual([
       {
@@ -134,8 +152,8 @@ describe("withOttoPrompt", () => {
     const grok = new RequestContext();
     grok.setRaw("controller", { resourceId: "thread-1", session: { modelId: "xai/grok-4.3" } });
 
-    await send(withOttoPrompt(model, context({}), new Map(), now), [user("a")]);
-    await send(withOttoPrompt(model, grok, new Map(), now), [user("a")]);
+    await send(withOttoPrompt(model, context({}), inMemoryChats(), now), [user("a")]);
+    await send(withOttoPrompt(model, grok, inMemoryChats(), now), [user("a")]);
 
     expect(calls.map((call) => call.maxOutputTokens)).toEqual([32_768, 30_000]);
   });
@@ -151,7 +169,7 @@ describe("withOttoPrompt", () => {
       groupContext: "Group of three",
     };
 
-    await send(withOttoPrompt(model, context(state), new Map(), now), [user("hi")]);
+    await send(withOttoPrompt(model, context(state), inMemoryChats(), now), [user("hi")]);
 
     expect(calls[0]?.prompt).toEqual([
       { role: "system", content: createOttoInstructions({ tools: [] }) },
@@ -162,7 +180,7 @@ describe("withOttoPrompt", () => {
 
   it("keeps the sent context and appends changes where they were first sent", async () => {
     const { model, calls } = recordingModel("openai.responses");
-    const chats = new Map<string, OttoChatContextRecord>();
+    const chats = inMemoryChats();
     const first = { botConversation: true, botName: "Mina", projectContext: "Launch" };
     const changed = { ...first, projectContext: "Launch, now in beta" };
 
@@ -226,9 +244,63 @@ describe("withOttoPrompt", () => {
     ]);
   });
 
+  it("sends the same chat context after the server restarts, with changes appended", async () => {
+    const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-chat-context-"));
+    const options = { memoryDbPath: NodePath.join(directory, "messages.sqlite") };
+    const first = { botConversation: true, botName: "Mina", workspaceContext: "People: Ana" };
+    const changed = { ...first, workspaceContext: "People: Ana\nProjects: Beta" };
+
+    // Mastra stamps a loaded message with a fresh createdAt on every request.
+    const loaded = (createdAt: number) => ({
+      ...user("a"),
+      providerOptions: { mastra: { createdAt } },
+    });
+
+    try {
+      const before = await createOttoMastraMemory(options);
+      await before.memory.createThread({
+        threadId: "thread-1",
+        resourceId: "thread-1",
+        title: "Launch",
+      });
+      const { model: sentBefore, calls: callsBefore } = recordingModel("openai.responses");
+
+      await send(
+        withOttoPrompt(sentBefore, context(first), storedChatContexts(before.memory), now),
+        [loaded(1)],
+      );
+      await before.close();
+
+      const after = await createOttoMastraMemory(options);
+      const { model, calls } = recordingModel("openai.responses");
+
+      await send(withOttoPrompt(model, context(changed), storedChatContexts(after.memory), now), [
+        loaded(2),
+        assistant("b"),
+        user("c"),
+      ]);
+
+      expect(calls[0]?.prompt.slice(0, 2)).toEqual(callsBefore[0]?.prompt.slice(0, 2));
+      expect(calls[0]?.prompt.slice(2)).toEqual([
+        loaded(2),
+        assistant("b"),
+        user("c"),
+        {
+          role: "system",
+          content: createOttoChatContextUpdate([["workspace", "People: Ana\nProjects: Beta"]]),
+        },
+        { role: "system", content: TURN },
+      ]);
+      expect((await after.memory.getThreadById({ threadId: "thread-1" }))?.title).toBe("Launch");
+      await after.close();
+    } finally {
+      NodeFS.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("sends a compaction instruction in place of the turn block, after the same history", async () => {
     const { model, calls } = recordingModel("anthropic.messages");
-    const chats = new Map<string, OttoChatContextRecord>();
+    const chats = inMemoryChats();
     const state = { workspaceContext: "People: Ana", turnContext: "Your turn in the group." };
     const history = [user("a"), assistant("b"), user("c")];
 
@@ -252,7 +324,7 @@ describe("withOttoPrompt", () => {
     ];
 
     await send(
-      withOttoPrompt(model, context({ workspaceContext: "People: Ana" }), new Map(), now),
+      withOttoPrompt(model, context({ workspaceContext: "People: Ana" }), inMemoryChats(), now),
       [user("a"), assistant("b"), user("c")],
       tools,
     );

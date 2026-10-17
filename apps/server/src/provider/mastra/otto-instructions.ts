@@ -1,7 +1,12 @@
+import * as NodeCrypto from "node:crypto";
+
 import type { MastraModelConfig } from "@mastra/core/llm";
 import { RequestContext } from "@mastra/core/request-context";
+import type { Memory } from "@mastra/memory";
 import * as DateTime from "effect/DateTime";
+import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
+import * as Schema from "effect/Schema";
 import {
   createOttoChatContext,
   createOttoChatContextUpdate,
@@ -28,14 +33,51 @@ type OttoPromptMessage = OttoCallOptions["prompt"][number];
 /** Marks the last prompt message as a compaction instruction, sent in place of the turn block. */
 export const OTTO_COMPACTION_INSTRUCTION = { otto: { compaction: true } };
 
-/** The chat context a thread's model has seen: what was sent first and the updates after it. */
-export interface OttoChatContextRecord {
-  /** The first history message when the context was sent; a new one means history was rebuilt. */
-  readonly firstMessage: string;
-  readonly context: string;
-  readonly sections: Readonly<Record<string, string>>;
-  /** Each update follows the history message it was first sent after. */
-  readonly updates: ReadonlyArray<{ readonly after: number; readonly text: string }>;
+/**
+ * The chat context a thread's model has seen: what was sent first and the updates after it,
+ * each following the history message it was first sent after. `firstMessage` hashes the first
+ * history message's content when the context was sent; a new one means history was rebuilt.
+ */
+export const OttoChatContextRecord = Schema.Struct({
+  firstMessage: Schema.String,
+  context: Schema.String,
+  sections: Schema.Record(Schema.String, Schema.String),
+  updates: Schema.Array(Schema.Struct({ after: Schema.Number, text: Schema.String })),
+});
+
+export type OttoChatContextRecord = typeof OttoChatContextRecord.Type;
+
+/** Where each thread's record is kept; it must outlive the process for the prompt to cache. */
+export interface OttoChatContexts {
+  get(threadId: string): Promise<OttoChatContextRecord | undefined>;
+  set(threadId: string, record: OttoChatContextRecord): Promise<void>;
+}
+
+const CHAT_CONTEXT_KEY = "ottoChatContext";
+
+const decodeChatContextRecord = Schema.decodeUnknownOption(OttoChatContextRecord);
+
+/** Keeps each thread's record in its stored metadata, so a restarted server sends the same prompt. */
+export function storedChatContexts(
+  memory: Pick<Memory, "getThreadById" | "updateThread">,
+): OttoChatContexts {
+  return {
+    get: async (threadId) => {
+      const thread = await memory.getThreadById({ threadId });
+
+      return Option.getOrUndefined(decodeChatContextRecord(thread?.metadata?.[CHAT_CONTEXT_KEY]));
+    },
+    set: async (threadId, record) => {
+      const thread = await memory.getThreadById({ threadId });
+
+      if (!thread) return;
+
+      await memory.updateThread({
+        id: threadId,
+        metadata: { ...thread.metadata, [CHAT_CONTEXT_KEY]: record },
+      });
+    },
+  };
 }
 
 const ANTHROPIC_CACHE = { anthropic: { cacheControl: { type: "ephemeral" } } };
@@ -70,7 +112,7 @@ function cached<
 export function withOttoPrompt(
   model: MastraModelConfig,
   requestContext: RequestContext,
-  chats: Map<string, OttoChatContextRecord>,
+  chats: OttoChatContexts,
   now: () => DateTime.DateTime = DateTime.nowUnsafe,
 ): MastraModelConfig {
   if (!isV3Model(model)) return model;
@@ -87,7 +129,7 @@ export function withOttoPrompt(
   // Room for one reply is reserved below the window, so no request asks for more than that.
   const maxOutputTokens = replyTokenLimit(controllerModelId(requestContext));
 
-  const transform = (params: OttoCallOptions): OttoCallOptions => {
+  const transform = async (params: OttoCallOptions): Promise<OttoCallOptions> => {
     const instructions = createOttoInstructions({
       name: botConversation ? stateText(requestContext, "botName") : "Otto",
       ...(botConversation && stateText(requestContext, "botId")
@@ -119,8 +161,17 @@ export function withOttoPrompt(
 
     const history = prompt.filter((message) => message.role !== "system");
     const threadId = controllerResourceId(requestContext);
-    const firstMessage = JSON.stringify(history[0] ?? null);
-    const previous = threadId ? chats.get(threadId) : undefined;
+
+    // Mastra stamps each loaded message's provider options with a fresh createdAt.
+    const firstMessage = NodeCrypto.createHash("sha256")
+      .update(
+        JSON.stringify(history[0] ?? null, (key, value) =>
+          key === "providerOptions" ? undefined : value,
+        ),
+      )
+      .digest("hex");
+
+    const previous = threadId ? await chats.get(threadId) : undefined;
 
     const changes = OTTO_CHAT_CONTEXT_SECTIONS.flatMap((name) =>
       previous && previous.sections[name] !== sections[name]
@@ -145,7 +196,7 @@ export function withOttoPrompt(
                 : previous.updates,
             };
 
-    if (threadId) chats.set(threadId, chat);
+    if (threadId && chat !== previous) await chats.set(threadId, chat);
 
     const conversation = history.flatMap((message, index) => [
       message,
@@ -211,7 +262,7 @@ export function withOttoPrompt(
     provider: model.provider,
     modelId: model.modelId,
     supportedUrls: model.supportedUrls,
-    doGenerate: (params) => model.doGenerate(transform(params)),
-    doStream: (params) => model.doStream(transform(params)),
+    doGenerate: async (params) => model.doGenerate(await transform(params)),
+    doStream: async (params) => model.doStream(await transform(params)),
   };
 }

@@ -26,7 +26,7 @@ import {
 } from "./mastra/otto-memory.ts";
 import { withLastRequest } from "./mastra/otto-compaction.ts";
 import { OttoMastraHarnessError } from "./mastra/otto-harness-errors.ts";
-import { type OttoChatContextRecord, withOttoPrompt } from "./mastra/otto-instructions.ts";
+import { storedChatContexts, withOttoPrompt } from "./mastra/otto-instructions.ts";
 import {
   resolveOttoMastraModel,
   DEFAULT_MODEL_ID,
@@ -82,7 +82,7 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
       controllerResourceId(requestContext),
     );
 
-  const chatContexts = new Map<string, OttoChatContextRecord>();
+  const chatContexts = storedChatContexts(history.memory);
 
   // Otto: the model lays out the whole prompt, because only it sees the final tool list.
   const agent = new Agent({
