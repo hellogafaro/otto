@@ -2,7 +2,12 @@ import type { MastraDBMessage } from "@mastra/core/agent-controller";
 import { describe, expect, it } from "vite-plus/test";
 
 import { GROUP_NO_REPLY, groupTurnNote } from "../orchestration/group-responder.ts";
-import { OTTO_CHECKPOINT, projectHistory } from "./chat-history.ts";
+import {
+  MODEL_FILE_MAX_BYTES,
+  modelReadsAttachment,
+  OTTO_CHECKPOINT,
+  projectHistory,
+} from "./chat-history.ts";
 
 let clock = Date.parse("2026-09-13T12:00:00.000Z");
 
@@ -169,5 +174,17 @@ describe("projectHistory", () => {
     const after = JSON.stringify(projectHistory([...stored, ...turns(2, "next-")]));
 
     expect(after.startsWith(before.slice(0, -1))).toBe(true);
+  });
+});
+
+describe("modelReadsAttachment", () => {
+  it("hands the model images and PDFs of at most 8 MiB", () => {
+    expect(MODEL_FILE_MAX_BYTES).toBe(8 * 1024 * 1024);
+    expect(modelReadsAttachment({ mimeType: "application/pdf", sizeBytes: 8 * 1024 * 1024 })).toBe(
+      true,
+    );
+    expect(modelReadsAttachment({ mimeType: "image/png", sizeBytes: 8 * 1024 * 1024 + 1 })).toBe(
+      false,
+    );
   });
 });

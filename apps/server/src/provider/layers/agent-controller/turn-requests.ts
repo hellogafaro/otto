@@ -116,7 +116,7 @@ export function createTurnRequests(deps: {
   ) => void;
 }) {
   // Images and PDFs go as file parts and text files inline as decoded text, which every model
-  // reads; anything else (video, office files, archives) or anything over 10 MB only as the path
+  // reads; anything else (video, office files, archives) or anything over 8 MiB only as the path
   // line, which lets tools open the saved copy without the server reading it.
   const readTurnContent = (input: string | undefined, attachments: ReadonlyArray<ChatAttachment>) =>
     Effect.forEach(

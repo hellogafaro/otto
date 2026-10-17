@@ -25,7 +25,7 @@ export const modelReadsFile = (mediaType: string) =>
   mediaType.startsWith("image/") || mediaType === "application/pdf";
 
 /** Providers refuse larger inputs, so a bigger attachment reaches the model only as its path. */
-export const MODEL_FILE_MAX_BYTES = 10 * 1024 * 1024;
+export const MODEL_FILE_MAX_BYTES = 8 * 1024 * 1024;
 
 export const modelReadsAttachment = (attachment: {
   readonly mimeType: string;
