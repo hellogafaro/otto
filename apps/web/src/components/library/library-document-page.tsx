@@ -219,8 +219,10 @@ function DocumentEditor({
   const shown = loaded && loaded !== "failed" ? splitFrontMatter(loaded.content) : null;
 
   const onChange = (next: Partial<typeof parts.current>) => {
+    if (!editable) return;
     parts.current = { ...parts.current, ...next };
-    pending.current = joinFrontMatter(parts.current.frontMatter, parts.current.body);
+    const content = joinFrontMatter(parts.current.frontMatter, parts.current.body);
+    pending.current = content.trimEnd() === baseContent.current.trimEnd() ? null : content;
 
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), SAVE_DELAY_MS);
