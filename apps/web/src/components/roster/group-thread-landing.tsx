@@ -388,9 +388,10 @@ export function GroupThreadLanding({
               {group.name}
             </WorkspaceHeaderTitle>
             <div data-chat-header-actions className="ml-auto flex items-center gap-1.5">
-              {working && respondingBot?.sandbox === "boat" && runtime.linkedThreadRef ? (
+              {working && respondingBot ? (
                 <WatchComputerButton
                   botName={respondingBot.name}
+                  sandbox={respondingBot.sandbox}
                   threadRef={runtime.linkedThreadRef}
                 />
               ) : null}

@@ -436,9 +436,11 @@ export function BotThreadLanding({
                 {bot.name}
               </WorkspaceHeaderTitle>
               <div data-chat-header-actions className="ml-auto flex items-center gap-1.5">
-                {bot.sandbox === "boat" && runtime.linkedThreadRef ? (
-                  <WatchComputerButton botName={bot.name} threadRef={runtime.linkedThreadRef} />
-                ) : null}
+                <WatchComputerButton
+                  botName={bot.name}
+                  sandbox={bot.sandbox}
+                  threadRef={runtime.linkedThreadRef}
+                />
                 <BotVoiceCallButton
                   bot={bot}
                   threadRef={threadRef}

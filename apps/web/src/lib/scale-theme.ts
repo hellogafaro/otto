@@ -50,6 +50,7 @@ export const scaleTheme = {
     "dvh-2rem",
     "full-plus-1rem",
     "min-full-30rem",
+    "min-80rem-16x9-dvh-15rem",
     "min-300px-vw-2rem",
     "min-440px-vw-2rem",
     "min-520px-vw-2rem",
