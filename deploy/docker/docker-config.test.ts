@@ -69,7 +69,9 @@ it("keeps Otto's data in OTTO_HOME and ignores an ambient OTTO_LEGACY_HOME", () 
 });
 
 it("keeps every state on the /data volume, never a host folder, and requires a setup code", () => {
-  expect(dockerfile).toContain('VOLUME ["/data"]');
+  expect(dockerfile).toContain("OTTO_HOME=/data");
+  expect(dockerfile).not.toMatch(/^VOLUME/m);
+  expect(compose).toContain("otto-data:/data");
   expect(dockerfile).not.toContain("/workspace");
   expect(compose).not.toContain("/workspace");
   expect(compose).toContain("OTTO_SETUP_TOKEN: ${OTTO_SETUP_TOKEN:?");

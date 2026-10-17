@@ -10,9 +10,10 @@ files are deprecated, so the template is set up once in Railway's template compo
    repository `hellogafaro/otto`, branch `main`. People deploying it need Railway access to the
    repository while it is private.
 2. **Settings → Build:** builder Dockerfile; the variable `RAILWAY_DOCKERFILE_PATH` below points at it.
-3. **Volume:** attach one volume mounted at `/data`.
+3. **Volume:** attach one volume mounted at `/data`. The Dockerfile declares no `VOLUME` because
+   Railway refuses to build one that does; Compose mounts its own named volume.
 4. **Networking:** public HTTP domain, target port `3773`.
-5. **Deploy:** healthcheck path `/.well-known/ottoLegacy/environment`, timeout 300 seconds; restart
+5. **Deploy:** healthcheck path `/` (Railway rejects paths with dots or capitals), timeout 300 seconds; restart
    policy On failure; one replica (a volume allows only one).
 6. **Variables** (give each a description in the composer):
 

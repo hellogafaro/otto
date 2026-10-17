@@ -33,7 +33,6 @@ RUN mkdir -p /data node/bin \
   && chmod 755 remote-admin initialize-remote-identity.sh /usr/local/bin/otto \
   && chown node:node /data
 EXPOSE 3773
-VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -fsS http://127.0.0.1:3773/.well-known/ottoLegacy/environment >/dev/null || exit 1
 ENTRYPOINT ["otto"]
