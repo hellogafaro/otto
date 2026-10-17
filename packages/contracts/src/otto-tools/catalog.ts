@@ -208,7 +208,12 @@ export const OTTO_TOOL_CATALOG = [
     "Add or remove an emoji reaction on a visible message.",
     { approval: "send" },
   ),
-  define("bot_update", "bot-workspace", "Update this bot's public profile."),
+  define(
+    "bot_update",
+    "bot-workspace",
+    "Change your name, title, description or instructions; null keeps a field. " +
+      "Instructions change only after a person in the chat approves them.",
+  ),
   define("web_search", "bot-workspace", "Search the public web.", {
     promptSnippet: "search the public web",
   }),

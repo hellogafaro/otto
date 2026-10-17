@@ -252,7 +252,17 @@ export function criticalOttoAction<Input>(
   return inspectOttoAction(toolName, args).action;
 }
 
+/** The new instructions a bot proposes for itself; they apply only after a person approves. */
+export function proposedBotInstructions<Input>(toolName: string, args?: Input): string | null {
+  return toolName === "bot_update" &&
+    Predicate.hasProperty(args, "instructions") &&
+    Predicate.isString(args.instructions)
+    ? args.instructions
+    : null;
+}
+
 export function ottoActionNeedsApproval<Input>(toolName: string, args?: Input): boolean {
+  if (proposedBotInstructions(toolName, args) !== null) return true;
   const inspection = inspectOttoAction(toolName, args);
 
   return inspection.action !== null || inspection.hasUnclassifiedIntent;

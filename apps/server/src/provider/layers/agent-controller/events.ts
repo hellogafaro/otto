@@ -26,6 +26,7 @@ import { ServerConfig } from "../../../config.ts";
 
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 import { ottoActionNeedsApproval, criticalOttoAction } from "../../otto-mastra-harness.ts";
+import { proposedBotInstructions } from "../../mastra/otto-actions.ts";
 
 import { type OttoChannelRuntime } from "../../otto-channel-runtime.ts";
 import { type OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
@@ -468,6 +469,7 @@ export function createEvents(deps: {
 
         const toolInput = deps.omitNullToolFields(event.args);
         const action = criticalOttoAction(event.toolName, toolInput);
+        const instructions = proposedBotInstructions(event.toolName, toolInput);
 
         const oneUseApproval =
           ottoActionNeedsApproval(event.toolName, toolInput) ||
@@ -542,7 +544,9 @@ export function createEvents(deps: {
             detail:
               event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
                 ? "Review routine"
-                : deps.approvalDetail(event.toolName, action, oneUseApproval),
+                : instructions !== null
+                  ? `Change this bot's instructions to:\n\n${instructions}`
+                  : deps.approvalDetail(event.toolName, action, oneUseApproval),
             toolName: event.toolName,
             ...(action ? { action } : {}),
             args: toolInput,

@@ -194,6 +194,87 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
+  it.effect(
+    "asks a person before a bot changes its own instructions, even with full access",
+    () => {
+      const bridge = makeBridge();
+      const mastra = mastraHarnessFixture();
+
+      return provideController(
+        Effect.gen(function* () {
+          const controller = yield* AgentController;
+          const events: ProviderRuntimeEvent[] = [];
+
+          const collector = yield* controller.streamEvents.pipe(
+            Stream.runForEach((event) => Effect.sync(() => events.push(event))),
+            Effect.forkChild({ startImmediately: true }),
+          );
+
+          yield* resolveCodex(controller);
+          yield* controller.startSession(codexThreadId, {
+            threadId: codexThreadId,
+            provider: ProviderDriverKind.make("codex"),
+            providerInstanceId: codexInstanceId,
+            cwd: process.cwd(),
+            modelSelection: codexSelection,
+            runtimeMode: "full-access",
+          });
+          yield* controller.sendTurn({ threadId: codexThreadId, input: "Tidy your profile." });
+
+          mastra.emit({
+            type: "tool_approval_required",
+            toolCallId: "profile-title",
+            toolName: "bot_update",
+            args: { title: "Researcher", instructions: null },
+          } as AgentControllerEvent);
+          mastra.emit({
+            type: "tool_approval_required",
+            toolCallId: "profile-instructions",
+            toolName: "bot_update",
+            args: { instructions: "Answer in Spanish." },
+          } as AgentControllerEvent);
+          yield* Effect.yieldNow;
+
+          expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
+            toolCallId: "profile-title",
+            decision: "approve",
+          });
+          expect(mastra.session.respondToToolApproval).not.toHaveBeenCalledWith({
+            toolCallId: "profile-instructions",
+            decision: "approve",
+          });
+
+          const opened = events.find(
+            (event) =>
+              event.type === "request.opened" && event.requestId === "profile-instructions",
+          );
+
+          expect(opened?.payload).toMatchObject({
+            detail: "Change this bot's instructions to:\n\nAnswer in Spanish.",
+            options: [
+              { decision: "decline", label: "Decline" },
+              { decision: "accept", label: "Approve" },
+            ],
+          });
+
+          yield* controller.respondToRequest({
+            threadId: codexThreadId,
+            requestId: ApprovalRequestId.make("profile-instructions"),
+            decision: "accept",
+          });
+
+          expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
+            toolCallId: "profile-instructions",
+            decision: "approve",
+          });
+          yield* Fiber.interrupt(collector);
+        }),
+        bridge.service,
+        mastra.factory,
+      );
+    },
+  );
+
   it.effect("keeps a turn waiting while another suspended question is open", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();

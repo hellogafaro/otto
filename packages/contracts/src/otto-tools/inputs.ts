@@ -21,6 +21,7 @@ import {
   WorkTitle,
 } from "../orchestration/work.ts";
 import { ActivityContent } from "../orchestration/activity.ts";
+import { BotInstructions } from "../orchestration/roster.ts";
 import { OttoToolId } from "./catalog.ts";
 
 export const OTTO_COMMAND_MAX_CHARS = 32_000;
@@ -104,6 +105,7 @@ const UpdateBotProfileInput = Schema.Struct({
   title: Schema.optional(TrimmedNonEmptyString),
   label: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   description: Schema.optional(Schema.NullOr(Schema.String)),
+  instructions: Schema.optional(BotInstructions),
 }).check(
   Schema.makeFilter(
     (input) =>
@@ -111,6 +113,7 @@ const UpdateBotProfileInput = Schema.Struct({
       input.title !== undefined ||
       input.label !== undefined ||
       input.description !== undefined ||
+      input.instructions !== undefined ||
       new SchemaIssue.InvalidValue({ message: "At least one profile field is required." }),
     { identifier: "UpdateBotProfileInput" },
   ),
