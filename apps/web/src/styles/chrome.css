@@ -36,8 +36,9 @@ body {
   padding-right: var(--desktop-window-right-resize-inset);
 }
 
+/* Otto: The tab row is the 28px tabs with the panel gap above them; the panels add the same gap below. */
 .electron {
-  --app-titlebar-height: var(--workspace-topbar-height);
+  --app-titlebar-height: calc(var(--panel-gap) + 1.75rem);
 }
 
 .electron-windows {

@@ -115,7 +115,7 @@ export function WatchComputerButton({
       >
         <DrawerContent>
           <DrawerTitle className="sr-only">{label}</DrawerTitle>
-          <div className="flex justify-end px-2 pb-2">
+          <div className="flex justify-end p-2">
             <DrawerClose
               aria-label={t("Close")}
               render={<Button size="icon-sm" variant="ghost-muted" />}

@@ -14,7 +14,9 @@ import {
 } from "@remixicon/react";
 import { useLocation, useRouter, type AnyRouter } from "@tanstack/react-router";
 import { Predicate } from "effect";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { scopeThreadRef } from "@otto/client-runtime/environment";
+import { ThreadId } from "@otto/contracts";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 import {
   activateDesktopTab,
@@ -31,6 +33,9 @@ import {
 import { useI18n } from "../../i18n";
 import { cn, isMacPlatform } from "../../lib/utils";
 import { isModelPickerOpen } from "../../model-picker-visibility";
+import { useThreadShell } from "../../state/entities";
+import { usePrimaryEnvironmentId } from "../../state/environments";
+import { ThreadStatusIcon } from "../roster/chat-status-icon";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -180,14 +185,19 @@ export function DesktopTabStrip() {
   return (
     <div
       className={cn(
-        "drag-region fixed inset-x-0 top-0 z-20 flex h-(--app-titlebar-height) items-center gap-1 pr-2 wco:pr-(--workspace-native-controls-inset)",
+        "drag-region fixed inset-x-0 top-0 z-20 flex h-(--app-titlebar-height) items-start gap-panel-gap pt-panel-gap pr-2 wco:pr-(--workspace-native-controls-inset)",
         trafficLights ? "pl-22" : "pl-2",
       )}
     >
-      <div role="tablist" aria-label={t("Tabs")} className="flex min-w-0 items-center gap-1">
+      <div
+        role="tablist"
+        aria-label={t("Tabs")}
+        className="flex min-w-0 flex-1 items-center gap-panel-gap"
+      >
         {tabs.map((tab, index) => {
           const place = tabPlace(tab.href);
           const active = tab.id === activeId;
+          const chatId = /^\/chats\/([^/]+)$/.exec(desktopTabPathname(tab.href))?.[1] ?? null;
 
           return (
             <div
@@ -208,10 +218,10 @@ export function DesktopTabStrip() {
               }}
               onDragEnd={() => setDragIndex(null)}
               className={cn(
-                "group/tab flex h-7 max-w-48 min-w-20 shrink items-center rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
+                "group/tab relative flex h-7 max-w-48 min-w-0 flex-1 basis-48 items-center overflow-hidden rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
                 active
-                  ? "bg-card text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
-                  : "text-sidebar-muted-foreground hover:bg-sidebar-wash hover:text-sidebar-foreground",
+                  ? "sidebar-row-raised text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
+                  : "sidebar-row-hovered text-sidebar-muted-foreground hover:sidebar-row-current hover:text-sidebar-foreground",
               )}
             >
               <button
@@ -219,28 +229,35 @@ export function DesktopTabStrip() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => show(activateDesktopTab(tab.id))}
-                className={cn(
-                  "flex h-full min-w-0 flex-1 cursor-default items-center gap-1.5 rounded-md text-13px font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring",
-                  tabs.length > 1 ? "pl-2" : "px-2",
-                )}
+                className="flex h-full min-w-0 flex-1 cursor-default items-center gap-1.5 overflow-hidden rounded-md pl-2 text-13px font-medium whitespace-nowrap outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <AppIcon icon={place.icon} className="size-3.5 shrink-0" />
-                <span className="truncate">
-                  {titles[desktopTabPathname(tab.href)] ?? t(place.label)}
-                </span>
+                <span>{titles[desktopTabPathname(tab.href)] ?? t(place.label)}</span>
               </button>
-              {tabs.length > 1 ? (
-                <span className="mr-1 flex opacity-0 group-hover/tab:opacity-100 focus-within:opacity-100">
-                  <Button
-                    variant="ghost-muted"
-                    size="icon-micro"
-                    aria-label={t("Close tab")}
-                    onClick={() => show(closeDesktopTab(tab.id))}
+              <span className="sidebar-row-trail absolute inset-y-0 right-0 flex items-center pr-1 pl-5">
+                {chatId ? (
+                  <span
+                    className={cn(
+                      "flex size-5 items-center justify-center",
+                      tabs.length > 1 && "group-hover/tab:hidden group-focus-within/tab:hidden",
+                    )}
                   >
-                    <RiCloseLine aria-hidden />
-                  </Button>
-                </span>
-              ) : null}
+                    <TabChatStatus threadId={chatId} current={active} />
+                  </span>
+                ) : null}
+                {tabs.length > 1 ? (
+                  <span className="hidden group-hover/tab:flex group-focus-within/tab:flex">
+                    <Button
+                      variant="ghost-muted"
+                      size="icon-micro"
+                      aria-label={t("Close tab")}
+                      onClick={() => show(closeDesktopTab(tab.id))}
+                    >
+                      <RiCloseLine aria-hidden />
+                    </Button>
+                  </span>
+                ) : null}
+              </span>
             </div>
           );
         })}
@@ -262,6 +279,28 @@ export function DesktopTabStrip() {
       </Tooltip>
     </div>
   );
+}
+
+/** The status of the chat a tab shows, like its sidebar row: working, waiting or unread. */
+function TabChatStatus({
+  threadId,
+  current,
+}: {
+  readonly threadId: string;
+  readonly current: boolean;
+}) {
+  const environmentId = usePrimaryEnvironmentId();
+
+  const threadRef = useMemo(
+    () => (environmentId ? scopeThreadRef(environmentId, ThreadId.make(threadId)) : null),
+    [environmentId, threadId],
+  );
+
+  const shell = useThreadShell(threadRef);
+
+  if (!environmentId || !shell) return null;
+
+  return <ThreadStatusIcon environmentId={environmentId} shell={shell} current={current} />;
 }
 
 /** True while the macOS traffic lights show, which full screen hides. */

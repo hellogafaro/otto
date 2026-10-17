@@ -85,6 +85,12 @@
   background-color: var(--sidebar-row-active);
 }
 
+/* Otto: A raised card fill, like the active desktop tab, whose trail fades into the card. */
+@utility sidebar-row-raised {
+  --sidebar-row-tint: var(--card);
+  background-color: var(--card);
+}
+
 /*
  * Otto: A sidebar row's right slot, like Capy's: titles never ellipsize; they run under
  * this slot, which fades in over 20px in the row's own fill and is as wide as its content.
