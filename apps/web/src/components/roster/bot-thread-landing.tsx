@@ -182,7 +182,6 @@ export function BotThreadLanding({
     subscriptionToConnect !== null &&
     providerConnectStep(subscriptionStatuses.get(subscriptionToConnect)) !== null;
 
-  const openBotSettings = () => void navigate({ to: "/settings/bots/$botId", params: { botId } });
   const approvalState = useRosterPendingApproval(runtime.linkedThreadRef);
   const activities = useThreadActivities(runtime.linkedThreadRef);
   const memoryApprovals = useMemo(() => pendingMemoryApprovals(activities), [activities]);
@@ -621,7 +620,6 @@ export function BotThreadLanding({
                   error={inlineError}
                   context={failureContext}
                   environmentId={environmentId}
-                  onOpenUsage={openBotSettings}
                   {...(runtime.canResume ? { onResume: () => void runtime.resume() } : {})}
                   resuming={runtime.resuming}
                 />
@@ -700,7 +698,6 @@ export function BotThreadLanding({
                 id={engineNoticeId}
                 presentation={engineUnavailability}
                 environmentId={environmentId}
-                onOpenUsage={openBotSettings}
               />
             ) : sendBlocked ? null : !runtime.botReady ? (
               <p className="px-4 pb-3 text-center text-xs text-muted-foreground">

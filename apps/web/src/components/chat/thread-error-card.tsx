@@ -37,7 +37,6 @@ export function ThreadErrorCard({
   error,
   context,
   environmentId = null,
-  onOpenUsage,
   onResume,
   resuming = false,
 }: {
@@ -45,7 +44,6 @@ export function ThreadErrorCard({
   /** The failure's category and names, plus the provider page that fixes it. */
   readonly context?: ThreadErrorContext & { readonly provider?: ProviderCatalogEntry | null };
   readonly environmentId?: EnvironmentId | null;
-  readonly onOpenUsage?: () => void;
   readonly onResume?: () => void;
   readonly resuming?: boolean;
 }) {
@@ -72,7 +70,6 @@ export function ThreadErrorCard({
             reason={presentation.reason}
             provider={provider}
             environmentId={environmentId}
-            onOpenUsage={onOpenUsage}
           />
           {onResume ? (
             <Tooltip>

@@ -42,22 +42,20 @@ export function ProviderLogoTile({ provider }: { readonly provider: ProviderCata
 }
 
 /**
- * The next step for a provider failure: a button into that provider's
- * settings, or into this bot's usage settings when an Otto cap blocked the
- * turn. Renders nothing when waiting or picking another model is the only step.
+ * The next step for a provider failure: a button into that provider's or the
+ * computer's settings. Renders nothing when waiting, picking another model or
+ * an Otto usage cap is the only step; the cap's message says what happened.
  */
 export function ProviderRepairAction({
   action,
   reason,
   provider,
   environmentId,
-  onOpenUsage,
 }: {
   readonly action: ProviderAvailabilityPresentation["action"];
   readonly reason?: ProviderAvailabilityPresentation["reason"];
   readonly provider?: ProviderCatalogEntry | null | undefined;
   readonly environmentId: EnvironmentId | null;
-  readonly onOpenUsage?: (() => void) | undefined;
 }) {
   const { t } = useI18n();
 
@@ -88,14 +86,6 @@ export function ProviderRepairAction({
     );
   }
 
-  if (action === "usage" && onOpenUsage) {
-    return (
-      <Button size="sm" type="button" variant="outline" onClick={onOpenUsage}>
-        {t("Bot settings")}
-      </Button>
-    );
-  }
-
   return null;
 }
 
@@ -108,7 +98,6 @@ export function ProviderUnavailableNotice({
   presentation,
   provider,
   environmentId,
-  onOpenUsage,
   className,
   id,
 }: {
@@ -120,7 +109,6 @@ export function ProviderUnavailableNotice({
   /** The provider whose settings fix this, when the bot's engine names one. */
   readonly provider?: ProviderCatalogEntry | null | undefined;
   readonly environmentId: EnvironmentId | null;
-  readonly onOpenUsage?: (() => void) | undefined;
   readonly className?: string;
 }) {
   return (
@@ -143,14 +131,13 @@ export function ProviderUnavailableNotice({
         <p className="mt-0.5 text-xs leading-4.5 text-muted-foreground">
           {presentation.description}
         </p>
-        {presentation.action === "providers" || (presentation.action === "usage" && onOpenUsage) ? (
+        {presentation.action === "providers" ? (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <ProviderRepairAction
               action={presentation.action}
               reason={presentation.reason}
               provider={provider}
               environmentId={environmentId}
-              onOpenUsage={onOpenUsage}
             />
           </div>
         ) : null}
@@ -168,7 +155,6 @@ export function ProviderUnavailableLine({
   presentation,
   provider,
   environmentId,
-  onOpenUsage,
   id,
 }: {
   readonly id?: string | undefined;
@@ -179,7 +165,6 @@ export function ProviderUnavailableLine({
   /** The provider whose settings fix this, when the bot's engine names one. */
   readonly provider?: ProviderCatalogEntry | null | undefined;
   readonly environmentId: EnvironmentId | null;
-  readonly onOpenUsage?: (() => void) | undefined;
 }) {
   const { t } = useI18n();
 
@@ -193,10 +178,6 @@ export function ProviderUnavailableLine({
       >
         {provider ? <SettingsEntityIcon icon={provider.icon} className="size-3.5" /> : null}
         {provider ? providerButtonLabel(t, provider, presentation.reason) : t("Set up a provider")}
-      </Button>
-    ) : presentation.action === "usage" && onOpenUsage ? (
-      <Button size="xs" type="button" variant="outline" onClick={onOpenUsage}>
-        {t("Bot settings")}
       </Button>
     ) : null;
 
