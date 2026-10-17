@@ -298,11 +298,28 @@ describe("audio_transcribe provider", () => {
     }),
   );
 
-  it.effect("fails clearly with no key for the default provider, never using another account", () =>
+  it.effect("falls back to the first added provider when the default has no key", () =>
+    Effect.gen(function* () {
+      const adapter = vi.fn<VoiceAdapters["transcribe"]>(async () => ({ text: "hola" }));
+
+      expect(
+        yield* run(
+          "openai",
+          { "voice-cartesia": "cartesia-key", "voice-openrouter": "router-key" },
+          adapter,
+        ),
+      ).toEqual({ text: "hola" });
+
+      const [provider, key] = adapter.mock.calls[0]!;
+      expect([provider, key]).toEqual(["cartesia", "cartesia-key"]);
+    }),
+  );
+
+  it.effect("fails clearly when no transcription provider has a key", () =>
     Effect.gen(function* () {
       const adapter = vi.fn<VoiceAdapters["transcribe"]>();
 
-      expect(yield* run("openrouter", { "voice-openai": "openai-key" }, adapter)).toEqual({
+      expect(yield* run("openrouter", { "voice-fish": "fish-key" }, adapter)).toEqual({
         error:
           "No transcription provider is set up. Ask a person to add one in Settings, Transcription.",
       });

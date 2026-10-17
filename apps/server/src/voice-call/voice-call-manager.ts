@@ -14,8 +14,9 @@ import {
   type VoiceListTranscriptionModelsResult,
   type VoiceListVoicesResult,
   type VoiceSynthesisProvider,
-  type VoiceTranscriptionProvider,
+  VoiceTranscriptionProvider,
   VOICE_API_PROVIDERS,
+  voiceTranscriptionProvider,
   VoiceTranscribeInput as TranscribeSchema,
   VoiceSynthesizeInput as SynthesizeSchema,
   type OrchestrationEvent,
@@ -46,6 +47,8 @@ import {
   defaultSession,
   instructionsForBot,
 } from "./chat-gpt-realtime.ts";
+
+const isTranscriptionProvider = Schema.is(VoiceTranscriptionProvider);
 
 const isVoiceCallError = Schema.is(VoiceCallError);
 
@@ -164,6 +167,24 @@ const make = (options?: VoiceCallManagerOptions) =>
       return new TextDecoder().decode(value.value);
     });
 
+    // Settings as calls and dictation use them: a default transcription provider without a key
+    // falls back to the first added one.
+    const withTranscriptionFallback = Effect.fn("VoiceCallManager.withTranscriptionFallback")(
+      function* (settings: VoiceSettings) {
+        const connected: VoiceApiProvider[] = [];
+
+        for (const provider of VoiceTranscriptionProvider.literals) {
+          if (Predicate.isTagged(yield* Effect.result(getKey(provider)), "Success"))
+            connected.push(provider);
+        }
+
+        return {
+          ...settings,
+          transcriptionProvider: voiceTranscriptionProvider(settings, connected),
+        };
+      },
+    );
+
     const selectedProviders = (settings: VoiceSettings): ReadonlyArray<VoiceApiProvider> =>
       Match.value(settings).pipe(
         Match.when({ provider: "chatgpt" }, (_settings) => []),
@@ -212,6 +233,24 @@ const make = (options?: VoiceCallManagerOptions) =>
               yield* store.remove(rejectedSecretName(provider));
             }
           }).pipe(Effect.mapError(() => voiceFailure("provider-unavailable")));
+
+          // The first transcription provider someone adds becomes the default.
+          const voice = yield* serverSettings.getSettings.pipe(
+            Effect.map((settings) => settings.voice),
+            Effect.mapError(() => voiceFailure("provider-unavailable")),
+          );
+
+          const saved = voice.transcriptionProvider ?? "openai";
+
+          if (
+            provider !== saved &&
+            isTranscriptionProvider(provider) &&
+            Predicate.isTagged(yield* Effect.result(getKey(saved)), "Failure")
+          ) {
+            yield* serverSettings
+              .updateSettings({ voice: { transcriptionProvider: provider } })
+              .pipe(Effect.mapError(() => voiceFailure("provider-unavailable")));
+          }
 
           return { provider, connected: true };
         }),
@@ -403,7 +442,7 @@ const make = (options?: VoiceCallManagerOptions) =>
             const settings =
               call?.settings ??
               (yield* serverSettings.getSettings.pipe(
-                Effect.map((s) => s.voice),
+                Effect.flatMap((s) => withTranscriptionFallback(s.voice)),
                 Effect.mapError(() => voiceFailure()),
               ));
 
@@ -487,7 +526,7 @@ const make = (options?: VoiceCallManagerOptions) =>
       personId?: string,
     ) {
       const voiceSettings = yield* serverSettings.getSettings.pipe(
-        Effect.map((settings) => settings.voice),
+        Effect.flatMap((settings) => withTranscriptionFallback(settings.voice)),
         Effect.mapError(
           () =>
             new VoiceCallError({

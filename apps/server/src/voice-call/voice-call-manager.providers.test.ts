@@ -3,23 +3,29 @@ import { botId, makeTest } from "./test-utils/voice-providers.ts";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import { ServerSettingsService } from "../server-settings.ts";
 import { VoiceCallManager } from "./voice-call-manager.ts";
 import { voiceFailure } from "./voice-adapters.ts";
 
-it.effect("uses explicit transcription selection without provider fallback", () => {
+it.effect("saves the first added transcription provider as the default and keeps it", () => {
   const used: string[] = [];
 
   return Effect.gen(function* () {
     const manager = yield* VoiceCallManager;
-    yield* manager.connect("openai", "openai-key");
-    const missing = yield* Effect.result(manager.start({ botId }, "owner"));
-    assert.equal(missing._tag, "Failure");
+    const settings = yield* ServerSettingsService;
+    const saved = settings.getSettings.pipe(Effect.map((s) => s.voice.transcriptionProvider));
 
-    if (Predicate.isTagged(missing, "Failure"))
-      assert.equal(missing.failure.reason, "provider-unavailable");
-    assert.deepEqual(yield* manager.get, { status: "idle" });
+    yield* manager.connect("fish", "fish-key");
+    assert.equal(yield* saved, "elevenlabs");
+
+    yield* manager.connect("openai", "openai-key");
+    assert.equal(yield* saved, "openai");
+
     yield* manager.connect("elevenlabs", "eleven-key");
+    assert.equal(yield* saved, "openai");
+
     const call = yield* manager.start({ botId }, "owner");
+
     yield* manager.transcribe(
       {
         operationId: "transcribe",
@@ -29,7 +35,8 @@ it.effect("uses explicit transcription selection without provider fallback", () 
       },
       "owner",
     );
-    assert.deepEqual(used, ["elevenlabs:eleven-key"]);
+
+    assert.deepEqual(used, ["openai:openai-key"]);
   }).pipe(
     Effect.provide(
       makeTest(
@@ -41,6 +48,35 @@ it.effect("uses explicit transcription selection without provider fallback", () 
           },
         },
         { transcriptionProvider: "elevenlabs" },
+      ),
+    ),
+  );
+});
+
+it.effect("dictates with the first added provider while the default has no key", () => {
+  const used: string[] = [];
+
+  return Effect.gen(function* () {
+    const manager = yield* VoiceCallManager;
+
+    yield* manager.transcribe(
+      { operationId: "dictation", audioBase64: "YQ==", mimeType: "audio/wav" },
+      "owner",
+    );
+
+    assert.deepEqual(used, ["cartesia:cartesia-key"]);
+  }).pipe(
+    Effect.provide(
+      makeTest(
+        {
+          transcribe: async (provider, key) => {
+            used.push(`${provider}:${key}`);
+
+            return { text: "hello" };
+          },
+        },
+        { transcriptionProvider: "openai" },
+        new Map([["voice-cartesia", new TextEncoder().encode("cartesia-key")]]),
       ),
     ),
   );

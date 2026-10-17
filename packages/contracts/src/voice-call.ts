@@ -116,6 +116,20 @@ export const voiceRequiredApiProviders = (
   return transcription === synthesis ? [transcription] : [transcription, synthesis];
 };
 
+/** The saved default transcription provider while it has a key, else the first added one. */
+export const voiceTranscriptionProvider = (
+  settings: VoiceSettings,
+  connected: ReadonlyArray<VoiceApiProvider>,
+): VoiceTranscriptionProvider => {
+  const saved = settings.transcriptionProvider ?? "openai";
+
+  if (connected.includes(saved)) return saved;
+
+  return (
+    VoiceTranscriptionProvider.literals.find((provider) => connected.includes(provider)) ?? saved
+  );
+};
+
 /** Providers these settings need that have no connected key. Empty means a call can start. */
 export const voiceMissingApiProviders = (
   settings: VoiceSettings,

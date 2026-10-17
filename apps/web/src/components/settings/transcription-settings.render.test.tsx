@@ -122,9 +122,15 @@ describe("settings split between Voice and Transcription", () => {
     expect(pages.transcription).not.toContain("Choose a provider");
   });
 
-  it("asks for a choice when the default provider has no key, and waits for one to be added", () => {
+  it("shows the first added provider while the default has no key, and waits for one", () => {
     const unset = renderPages({}, ["openrouter"]);
-    expect(unset.transcription).toContain("Choose a provider");
+    expect(unset.transcription).not.toContain("Choose a provider");
+    expect(unset.transcription).toMatch(
+      /aria-label="Default transcription provider"[^]*?OpenRouter/,
+    );
+    expect(unset.transcription).toMatch(
+      /aria-label="Transcription model"[^]*?OpenAI: Whisper Large V3/,
+    );
 
     const empty = renderPages({}, ["fish"]);
     expect(empty.transcription).toContain("Choose a provider");

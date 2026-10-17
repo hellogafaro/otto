@@ -3,6 +3,7 @@ import {
   VOICE_API_PROVIDERS,
   VOICE_PROVIDER_CAPABILITIES,
   voiceMissingApiProviders,
+  voiceTranscriptionProvider,
   type VoiceApiProvider,
   type VoiceProvider,
   type VoiceSettings,
@@ -58,11 +59,6 @@ export const VOICE_SPEECH_PROVIDERS = VOICE_API_PROVIDERS.filter(
     VOICE_PROVIDER_CAPABILITIES[provider].realtime,
 );
 
-/** The provider dictation, composed calls and bots transcribe with; OpenAI until one is chosen. */
-export function selectedTranscriptionProvider(settings: VoiceSettings): VoiceTranscriptionProvider {
-  return settings.transcriptionProvider ?? "openai";
-}
-
 /** Plain-language list of what a provider can do in Otto voice calls. */
 export function voiceCapabilityLabel(provider: VoiceApiProvider): string {
   const capability = VOICE_PROVIDER_CAPABILITIES[provider];
@@ -103,10 +99,14 @@ export function voiceSetupProblem(
   connected: ReadonlyArray<VoiceApiProvider> | null,
 ): string | null {
   if (connected === null) return null;
-  const missing = voiceMissingApiProviders(settings, connected);
 
-  const transcription =
-    settings.provider === "composed" ? selectedTranscriptionProvider(settings) : null;
+  const effective = {
+    ...settings,
+    transcriptionProvider: voiceTranscriptionProvider(settings, connected),
+  };
+
+  const missing = voiceMissingApiProviders(effective, connected);
+  const transcription = settings.provider === "composed" ? effective.transcriptionProvider : null;
 
   const speech = missing.filter(
     (provider) =>

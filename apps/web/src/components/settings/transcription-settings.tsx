@@ -4,6 +4,7 @@ import {
   type VoiceApiProvider,
   type VoiceSettings,
   type VoiceTranscriptionProvider,
+  voiceTranscriptionProvider,
 } from "@otto/contracts";
 import { usePrimarySettings, useUpdatePrimarySettings } from "~/hooks/use-settings";
 import { usePrimaryEnvironment } from "~/state/environments";
@@ -14,11 +15,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { SettingsRow, SettingsSection } from "./settings-layout";
 import { searchableSetting } from "./settings-search";
 import { useVoiceProviders, VoiceApiConnectionsSection } from "./voice-api-connections";
-import {
-  VOICE_API_PROVIDER_LABELS,
-  VOICE_TRANSCRIPTION_PROVIDERS,
-  selectedTranscriptionProvider,
-} from "./voice-settings.logic";
+import { VOICE_API_PROVIDER_LABELS, VOICE_TRANSCRIPTION_PROVIDERS } from "./voice-settings.logic";
 
 /**
  * Otto: Transcription is its own page after Voice, built like Voice and Models: a card with the
@@ -31,7 +28,7 @@ export function TranscriptionSettingsSection() {
   const updateSettings = useUpdatePrimarySettings();
   const environmentId = usePrimaryEnvironment()?.environmentId ?? null;
   const { connected, serverRejected, loadError, refresh } = useVoiceProviders(environmentId);
-  const provider = selectedTranscriptionProvider(voice);
+  const provider = voiceTranscriptionProvider(voice, connected ?? []);
 
   return (
     <>
@@ -85,7 +82,10 @@ export function TranscriptionProviderRow({
 }) {
   const { t } = useI18n();
   const options = VOICE_TRANSCRIPTION_PROVIDERS.filter((provider) => connected?.includes(provider));
-  const selected = options.find((provider) => provider === selectedTranscriptionProvider(voice));
+
+  const selected = options.find(
+    (provider) => provider === voiceTranscriptionProvider(voice, connected ?? []),
+  );
 
   return (
     <SettingsRow

@@ -100,12 +100,19 @@ describe("voice mode rows", () => {
 
   it("sends a composed call's missing transcription key to the Transcription page", () => {
     const html = renderMode(
-      { provider: "composed", transcriptionProvider: "openrouter", synthesisProvider: "openai" },
-      ["openai"],
+      { provider: "composed", transcriptionProvider: "openrouter", synthesisProvider: "fish" },
+      ["fish"],
     );
 
     expect(html).toContain("Set up a transcription provider in Settings, Transcription");
     expect(html).not.toContain("Connect OpenRouter under Providers");
+
+    const fallback = renderMode(
+      { provider: "composed", transcriptionProvider: "openrouter", synthesisProvider: "openai" },
+      ["openai"],
+    );
+
+    expect(fallback).not.toContain("Set up a transcription provider");
   });
 });
 

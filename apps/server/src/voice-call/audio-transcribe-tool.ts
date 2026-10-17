@@ -3,8 +3,11 @@ import * as NodeCrypto from "node:crypto";
 import {
   VOICE_AUDIO_MAX_BYTES,
   VoiceCallError,
+  VoiceTranscriptionProvider,
+  voiceTranscriptionProvider,
   type LibraryFolderId,
   type OttoToolInputSchemas,
+  type VoiceApiProvider,
   type VoiceTranscribeInput,
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
@@ -229,11 +232,18 @@ export const makeAudioTranscriber = (
       const selection = await runPromise(
         Effect.gen(function* () {
           const voice = (yield* settings.getSettings).voice;
-          const provider = voice.transcriptionProvider ?? "openai";
+          const keys = new Map<VoiceApiProvider, Uint8Array>();
 
-          const key = Option.isSome(secrets)
-            ? yield* secrets.value.get(voiceKeySecretName(provider))
-            : Option.none<Uint8Array>();
+          if (Option.isSome(secrets)) {
+            for (const candidate of VoiceTranscriptionProvider.literals) {
+              const key = yield* secrets.value.get(voiceKeySecretName(candidate));
+
+              if (Option.isSome(key)) keys.set(candidate, key.value);
+            }
+          }
+
+          const provider = voiceTranscriptionProvider(voice, [...keys.keys()]);
+          const key = Option.fromUndefinedOr(keys.get(provider));
 
           return { provider, model: voice.transcriptionModels?.[provider], key };
         }),
