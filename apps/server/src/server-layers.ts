@@ -48,6 +48,7 @@ import * as RemoteOpenTargets from "./environment/remote-open-targets.ts";
 import * as ServerSecretStore from "./auth/server-secret-store.ts";
 import * as EnvironmentAuth from "./auth/environment-auth.ts";
 import * as Composio from "./composio/composio-service.ts";
+import * as GitHub from "./github/github-accounts.ts";
 import * as DesktopTelemetryReceiver from "./desktop-telemetry/desktop-telemetry-receiver.ts";
 import * as UsageService from "./usage/usage-service.ts";
 import { MemoriesLive } from "./memory/memories.ts";
@@ -240,6 +241,7 @@ export const RuntimeCoreDependenciesLive = ReactorLayerLive.pipe(
     Layer.mergeAll(
       ServerSecretStore.layer,
       Composio.layer.pipe(Layer.provide(ServerSecretStore.layer)),
+      GitHub.layer.pipe(Layer.provide(ServerSecretStore.layer)),
     ),
   ),
 );

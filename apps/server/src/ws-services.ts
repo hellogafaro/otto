@@ -81,7 +81,7 @@ import * as BackgroundPolicy from "./background/background-policy.ts";
 import * as EnvironmentAuth from "./auth/environment-auth.ts";
 import * as ServerSecretStore from "./auth/server-secret-store.ts";
 import * as Composio from "./composio/composio-service.ts";
-import { makeGitHubAccounts } from "./github/github-accounts.ts";
+import * as GitHub from "./github/github-accounts.ts";
 import { requiredScopeForRpcMethod } from "./auth/rpc-authorization.ts";
 import { BotUsageLedger } from "./usage/bot-usage-ledger.ts";
 import * as UsageService from "./usage/usage-service.ts";
@@ -335,7 +335,9 @@ export const createWsServices = (
       Composio.make(secretStore, Composio.inMemoryComposioAccounts()),
     );
 
-    const github = makeGitHubAccounts(secretStore);
+    const github = Option.getOrElse(yield* Effect.serviceOption(GitHub.GitHubAccounts), () =>
+      GitHub.make(secretStore),
+    );
 
     const commandReceipts = yield* Effect.serviceOption(OrchestrationCommandReceiptRepository);
 

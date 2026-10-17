@@ -5,7 +5,7 @@ import * as TestClock from "effect/testing/TestClock";
 import { describe, expect } from "vite-plus/test";
 
 import type { ServerSecretStore } from "../auth/server-secret-store.ts";
-import { makeGitHubAccounts } from "./github-accounts.ts";
+import * as GitHub from "./github-accounts.ts";
 
 function makeSecretStore() {
   const values = new Map<string, Uint8Array>();
@@ -34,8 +34,17 @@ interface Call {
   readonly authorization: string | undefined;
 }
 
+interface TokenAnswer {
+  readonly access_token?: string;
+  readonly expires_in?: number;
+  readonly refresh_token?: string;
+  readonly refresh_token_expires_in?: number;
+  readonly error?: string;
+  readonly interval?: number;
+}
+
 /** Answers GitHub's endpoints in order from a queue of token responses. */
-function fakeGitHub(tokenAnswers: Array<Record<string, unknown>>) {
+function fakeGitHub(tokenAnswers: TokenAnswer[]) {
   const calls: Call[] = [];
 
   const fetch = async (url: string, init: RequestInit) => {
@@ -46,10 +55,8 @@ function fakeGitHub(tokenAnswers: Array<Record<string, unknown>>) {
       authorization: headers.get("Authorization") ?? undefined,
     });
 
-    const json = (value: unknown) => Response.json(value);
-
     if (url === "https://github.com/login/device/code")
-      return json({
+      return Response.json({
         device_code: "device-1",
         user_code: "ABCD-1234",
         verification_uri: "https://github.com/login/device",
@@ -57,9 +64,10 @@ function fakeGitHub(tokenAnswers: Array<Record<string, unknown>>) {
         interval: 5,
       });
 
-    if (url === "https://github.com/login/oauth/access_token") return json(tokenAnswers.shift());
+    if (url === "https://github.com/login/oauth/access_token")
+      return Response.json(tokenAnswers.shift());
 
-    return json({ id: 42, login: "ana", name: "Ana Gómez" });
+    return Response.json({ id: 42, login: "ana", name: "Ana Gómez" });
   };
 
   return { fetch, calls };
@@ -83,7 +91,7 @@ describe("GitHub accounts", () => {
         issued,
       ]);
 
-      const accounts = makeGitHubAccounts(store, github.fetch);
+      const accounts = GitHub.make(store, github.fetch);
 
       const code = yield* accounts.startLink("person-ana");
       expect(code).toMatchObject({ userCode: "ABCD-1234", intervalSeconds: 5 });
@@ -126,7 +134,7 @@ describe("GitHub accounts", () => {
   it.effect("stops when the person denies access", () =>
     Effect.gen(function* () {
       const { store, read } = makeSecretStore();
-      const accounts = makeGitHubAccounts(store, fakeGitHub([{ error: "access_denied" }]).fetch);
+      const accounts = GitHub.make(store, fakeGitHub([{ error: "access_denied" }]).fetch);
 
       yield* accounts.startLink("person-ana");
       yield* TestClock.adjust("5 seconds");
@@ -146,7 +154,7 @@ describe("GitHub accounts", () => {
         { ...issued, access_token: "ghu_second", refresh_token: "ghr_second" },
       ]);
 
-      const accounts = makeGitHubAccounts(store, github.fetch);
+      const accounts = GitHub.make(store, github.fetch);
       yield* accounts.startLink("person-ana");
       yield* TestClock.adjust("5 seconds");
       yield* accounts.pollLink("person-ana");
@@ -173,7 +181,7 @@ describe("GitHub accounts", () => {
     Effect.gen(function* () {
       const { store, read } = makeSecretStore();
 
-      const accounts = makeGitHubAccounts(
+      const accounts = GitHub.make(
         store,
         fakeGitHub([issued, { error: "bad_refresh_token" }, issued]).fetch,
       );

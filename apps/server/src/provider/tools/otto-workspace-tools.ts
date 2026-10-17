@@ -51,11 +51,11 @@ export async function toolsForWorkspace(workspace: Workspace | undefined) {
   });
 }
 
-const bound = (target: object, key: PropertyKey): unknown => {
-  const value: unknown = Reflect.get(target, key);
+function bound<T extends object, K extends keyof T>(target: T, key: K): T[K] {
+  const value = target[key];
 
   return Predicate.isFunction(value) ? value.bind(target) : value;
-};
+}
 
 /** The workspace as one turn's shell sees it: every command also gets `environment`. */
 export function withCommandEnvironment(
@@ -68,7 +68,7 @@ export function withCommandEnvironment(
   const run = sandbox.executeCommand.bind(sandbox);
 
   const scoped = new Proxy(sandbox, {
-    get: (target, key) =>
+    get: (target, key: keyof typeof sandbox) =>
       key === "executeCommand"
         ? (...[command, args, options]: Parameters<typeof run>) =>
             run(command, args, { ...options, env: { ...options?.env, ...environment } })
@@ -76,7 +76,7 @@ export function withCommandEnvironment(
   });
 
   return new Proxy(workspace, {
-    get: (target, key) => (key === "sandbox" ? scoped : bound(target, key)),
+    get: (target, key: keyof Workspace) => (key === "sandbox" ? scoped : bound(target, key)),
   });
 }
 

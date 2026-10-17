@@ -1,10 +1,11 @@
-import * as NodeFs from "node:fs/promises";
-import * as NodeOs from "node:os";
+import * as NodeFSP from "node:fs/promises";
+import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
 import { LocalFilesystem, LocalSandbox, Workspace } from "@mastra/core/workspace";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import type { GitHubTurnLogin } from "../github/github-accounts.ts";
 import { createBotGitHubLogins } from "./bot-github-login.ts";
 import { withCommandEnvironment } from "./tools/otto-workspace-tools.ts";
 import { wrap } from "./workspace/bot-workspace-lifecycle.ts";
@@ -15,14 +16,15 @@ const roots: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    roots.splice(0).map((root) => NodeFs.rm(root, { recursive: true, force: true })),
+    roots.splice(0).map((root) => NodeFSP.rm(root, { recursive: true, force: true })),
   );
 });
 
 async function localComputer() {
-  const root = await NodeFs.realpath(
-    await NodeFs.mkdtemp(NodePath.join(NodeOs.tmpdir(), "otto-gh-")),
+  const root = await NodeFSP.realpath(
+    await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-gh-")),
   );
+
   roots.push(root);
 
   const workspace = new Workspace({
@@ -38,7 +40,7 @@ async function localComputer() {
   const computer = {
     ...wrap(workspace, "local"),
     writePrivateFile: (path: string, content: string) =>
-      NodeFs.writeFile(path, content, { mode: 0o600 }),
+      NodeFSP.writeFile(path, content, { mode: 0o600 }),
   };
 
   const run = async (command: string, env: Readonly<Record<string, string>>) => {
@@ -77,16 +79,16 @@ describe("bot GitHub logins", () => {
       await run("printf 'protocol=https\\nhost=github.com\\n\\n' | git credential fill", env!),
     ).toContain(`password=${TOKEN}`);
     expect(
-      await NodeFs.readFile(NodePath.join(env!.GH_CONFIG_DIR!, "hosts.yml"), "utf8"),
+      await NodeFSP.readFile(NodePath.join(env!.GH_CONFIG_DIR!, "hosts.yml"), "utf8"),
     ).toContain(`oauth_token: ${TOKEN}`);
 
     const folder = NodePath.dirname(env!.GIT_CONFIG_GLOBAL!);
     expect(folder.startsWith(NodePath.join(root, ".otto", "github"))).toBe(true);
-    expect((await NodeFs.stat(folder)).mode & 0o777).toBe(0o700);
-    expect((await NodeFs.stat(NodePath.join(folder, "git-credentials"))).mode & 0o777).toBe(0o600);
+    expect((await NodeFSP.stat(folder)).mode & 0o777).toBe(0o700);
+    expect((await NodeFSP.stat(NodePath.join(folder, "git-credentials"))).mode & 0o777).toBe(0o600);
 
     await logins.end("thread-1");
-    await expect(NodeFs.stat(folder)).rejects.toThrow();
+    await expect(NodeFSP.stat(folder)).rejects.toThrow();
 
     for (const call of commands.mock.calls) {
       expect(JSON.stringify(call)).not.toContain(TOKEN);
@@ -97,9 +99,13 @@ describe("bot GitHub logins", () => {
     const { computer, run } = await localComputer();
     const ben = { githubId: 7, login: "ben", name: null, accessToken: "ghu_ben" };
 
+    const people = new Map<string, GitHubTurnLogin>([
+      ["person-ana", ana],
+      ["person-ben", ben],
+    ]);
+
     const logins = createBotGitHubLogins({
-      turnLogin: async (personId) =>
-        personId === "person-ana" ? ana : personId === "person-ben" ? ben : undefined,
+      turnLogin: async (personId) => people.get(personId),
       computer: () => computer,
     });
 

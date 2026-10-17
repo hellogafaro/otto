@@ -447,6 +447,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
             execution.toolId === "shell" && session.workspace && session.commandEnvironment
               ? withCommandEnvironment(session.workspace, session.commandEnvironment)
               : session.workspace;
+
           const backends = await toolsForWorkspace(workspace);
 
           const backendNames = Object.hasOwn(BACKEND_NAMES, input.toolId)

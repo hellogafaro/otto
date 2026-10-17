@@ -1,6 +1,6 @@
 import { isAtomCommandInterrupted } from "@otto/client-runtime/state/runtime";
 import type { EnvironmentId, GitHubLinkCode } from "@otto/contracts";
-import { Predicate } from "effect";
+import { Match, Predicate } from "effect";
 import { useCallback, useEffect, useState } from "react";
 
 import { useI18n } from "../../i18n";
@@ -224,11 +224,13 @@ function GitHubLinkDialog({
         <DialogHeader>
           <DialogTitle>{t("Connect GitHub")}</DialogTitle>
           <DialogDescription>
-            {ended === "expired"
-              ? t("The code expired. Close this and try again.")
-              : ended === "denied"
-                ? t("GitHub access was declined.")
-                : t("Enter this code on GitHub. This closes by itself once you approve.")}
+            {Match.value(ended).pipe(
+              Match.when("expired", () => t("The code expired. Close this and try again.")),
+              Match.when("denied", () => t("GitHub access was declined.")),
+              Match.orElse(() =>
+                t("Enter this code on GitHub. This closes by itself once you approve."),
+              ),
+            )}
           </DialogDescription>
         </DialogHeader>
         {ended === null ? (

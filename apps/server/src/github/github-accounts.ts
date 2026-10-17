@@ -4,12 +4,14 @@ import {
   GitHubOperationError,
   type GitHubStatus,
 } from "@otto/contracts";
+import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import type { ServerSecretStore } from "../auth/server-secret-store.ts";
+import { ServerSecretStore } from "../auth/server-secret-store.ts";
 
 /** The public "Otto by Hello Gafaro" GitHub App; device flow needs only its client id. */
 const CLIENT_ID = process.env.OTTO_GITHUB_CLIENT_ID?.trim() || "Iv23liPQaEONwVhkPCQs";
@@ -89,7 +91,7 @@ export type GitHubFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 const failure = (message: string) => new GitHubOperationError({ message });
 
-export function makeGitHubAccounts(
+export function make(
   secretStore: ServerSecretStore["Service"],
   fetchImpl: GitHubFetch = globalThis.fetch,
 ) {
@@ -134,7 +136,7 @@ export function makeGitHubAccounts(
       Effect.map(Option.flatMap((bytes) => decode(textDecoder.decode(bytes)))),
     );
 
-  const writeSecret = (name: string, value: unknown) =>
+  const writeSecret = (name: string, value: StoredAccount | PendingLink) =>
     secretStore
       .set(name, textEncoder.encode(JSON.stringify(value)))
       .pipe(Effect.mapError(() => failure("Could not save your GitHub link.")));
@@ -185,6 +187,7 @@ export function makeGitHubAccounts(
         method: "POST",
         body: { client_id: CLIENT_ID },
       });
+
       const startedAt = yield* now;
       const expiresAt = startedAt + code.expires_in * 1_000;
 
@@ -267,6 +270,7 @@ export function makeGitHubAccounts(
       }
 
       const account = yield* tokenAccount({ ...token, access_token: token.access_token }, polledAt);
+
       yield* writeSecret(accountSecret(personId), account);
 
       return yield* finished("connected", Option.some(account));
@@ -324,6 +328,7 @@ export function makeGitHubAccounts(
         { ...token, access_token: token.access_token },
         checkedAt,
       );
+
       yield* writeSecret(accountSecret(personId), refreshed);
 
       return Option.some<GitHubTurnLogin>(refreshed);
@@ -332,4 +337,11 @@ export function makeGitHubAccounts(
   return { getStatus, startLink, pollLink, disconnect, turnLogin };
 }
 
-export type GitHubAccounts = ReturnType<typeof makeGitHubAccounts>;
+export class GitHubAccounts extends Context.Service<GitHubAccounts, ReturnType<typeof make>>()(
+  "@otto/server/github/github-accounts/GitHubAccounts",
+) {}
+
+export const layer = Layer.effect(
+  GitHubAccounts,
+  Effect.map(ServerSecretStore, (store) => make(store)),
+);

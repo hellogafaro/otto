@@ -42,8 +42,7 @@ import { createOttoWebFetch } from "../../otto-web-fetch.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { RoutineDraftDispatcher } from "../../../routines/routine-draft-dispatcher.ts";
 import { Memories } from "../../../memory/memories.ts";
-import { ServerSecretStore } from "../../../auth/server-secret-store.ts";
-import { makeGitHubAccounts } from "../../../github/github-accounts.ts";
+import { GitHubAccounts } from "../../../github/github-accounts.ts";
 import { createBotGitHubLogins } from "../../bot-github-login.ts";
 import { type ResolvedEngine, type ActiveSession } from "./state.ts";
 
@@ -162,9 +161,7 @@ export const createControllerState = Effect.fn("createControllerState")(function
     },
   });
 
-  const github = Option.map(yield* Effect.serviceOption(ServerSecretStore), (store) =>
-    makeGitHubAccounts(store),
-  );
+  const github = yield* Effect.serviceOption(GitHubAccounts);
 
   const githubLogins = createBotGitHubLogins({
     turnLogin: (personId) =>

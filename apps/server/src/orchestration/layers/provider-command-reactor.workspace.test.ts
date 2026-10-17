@@ -110,6 +110,7 @@ describe("ProviderCommandReactor", () => {
     const harness = await createHarness({
       botEngine: { provider: "codex", model: "gpt-5-codex" },
     });
+
     const now = "2026-01-01T00:00:00.000Z";
 
     await harness.run(
