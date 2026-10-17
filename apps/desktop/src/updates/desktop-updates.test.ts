@@ -90,6 +90,83 @@ describe("DesktopUpdates", () => {
     ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
   });
 
+  it.effect("keeps a stable build on the latest feed and ignores beta releases", () => {
+    const harness = makeHarness();
+
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+
+        assert.equal(harness.channel(), "latest");
+        assert.isFalse(harness.allowPrerelease());
+        assert.isFalse(harness.allowDowngrade());
+
+        harness.emit("update-available", { version: "1.2.4-beta.20261018.7" });
+        yield* flushCallbacks;
+        assert.equal((yield* updates.getState).status, "up-to-date");
+
+        harness.emit("update-available", { version: "1.2.4" });
+        yield* flushCallbacks;
+        assert.equal((yield* updates.getState).availableVersion, "1.2.4");
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
+  it.effect("puts a beta build on the beta feed and still takes newer stable releases", () => {
+    const harness = makeHarness({
+      appVersion: "1.2.4-beta.20261018.7",
+      env: { OTTO_LEGACY_HOME: `/tmp/otto-desktop-updates-beta-${process.pid}` },
+    });
+
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+
+        assert.equal((yield* updates.getState).channel, "beta");
+        assert.equal(harness.channel(), "beta");
+        assert.isTrue(harness.allowPrerelease());
+        assert.isFalse(harness.allowDowngrade());
+
+        harness.emit("update-available", { version: "1.2.4-beta.20261019.8" });
+        yield* flushCallbacks;
+        assert.equal((yield* updates.getState).availableVersion, "1.2.4-beta.20261019.8");
+
+        harness.emit("update-available", { version: "1.2.4" });
+        yield* flushCallbacks;
+        assert.equal((yield* updates.getState).availableVersion, "1.2.4");
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
+  it.effect("switches a beta install back to stable without allowing a downgrade", () => {
+    const allowDowngradeDuringChecks: boolean[] = [];
+
+    const harness = makeHarness({
+      appVersion: "1.2.4-beta.20261018.7",
+      env: { OTTO_LEGACY_HOME: `/tmp/otto-desktop-updates-switch-${process.pid}` },
+      checkForUpdates: Effect.sync(() => {
+        allowDowngradeDuringChecks.push(harness.allowDowngrade());
+      }),
+    });
+
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+
+        const state = yield* updates.setChannel("latest");
+
+        assert.equal(state.channel, "latest");
+        assert.equal(harness.channel(), "latest");
+        assert.isFalse(harness.allowPrerelease());
+        assert.deepEqual(allowDowngradeDuringChecks, [false]);
+        assert.isFalse(harness.allowDowngrade());
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
   it.effect("keeps an ad-hoc build without app-update.yml off the update feed", () => {
     const harness = makeHarness({ env: { OTTO_LEGACY_DESKTOP_MOCK_UPDATES: "false" } });
 

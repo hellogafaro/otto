@@ -59,7 +59,7 @@ export type DesktopRuntimeArch = "arm64" | "x64" | "other";
 
 export type DesktopTheme = "light" | "dark" | "system";
 
-export type DesktopUpdateChannel = "latest";
+export type DesktopUpdateChannel = "latest" | "beta";
 
 export type DesktopAppStageLabel = "Alpha" | "Dev";
 
@@ -78,7 +78,7 @@ export const DesktopRuntimeArchSchema = Schema.Literals(["arm64", "x64", "other"
 
 export const DesktopThemeSchema = Schema.Literals(["light", "dark", "system"]);
 
-export const DesktopUpdateChannelSchema = Schema.Literal("latest");
+export const DesktopUpdateChannelSchema = Schema.Literals(["latest", "beta"]);
 
 export const DesktopAppStageLabelSchema = Schema.Literals(["Alpha", "Dev"]);
 

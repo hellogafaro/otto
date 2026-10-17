@@ -211,15 +211,16 @@ export const make = Effect.gen(function* () {
     channel: DesktopUpdateChannel,
   ) {
     yield* Effect.annotateCurrentSpan({ channel });
+    const allowsPrerelease = channel === "beta";
     yield* electronUpdater.setChannel(channel);
-    yield* electronUpdater.setAllowPrerelease(false);
+    yield* electronUpdater.setAllowPrerelease(allowsPrerelease);
     yield* electronUpdater.setAllowDowngrade(false);
-    yield* electronUpdater.setFullChangelog(false);
+    yield* electronUpdater.setFullChangelog(allowsPrerelease);
     yield* logUpdaterInfo("using update channel", {
       channel,
-      allowPrerelease: false,
+      allowPrerelease: allowsPrerelease,
       allowDowngrade: false,
-      fullChangelog: false,
+      fullChangelog: allowsPrerelease,
     });
   });
 
@@ -477,8 +478,9 @@ export const make = Effect.gen(function* () {
       Effect.flatMap(
         Effect.fn("desktop.updates.applyUpdateAvailable")(function* (info) {
           const state = yield* Ref.get(updateStateRef);
+          const releaseChannel = resolveDefaultDesktopUpdateChannel(info.version);
 
-          if (resolveDefaultDesktopUpdateChannel(info.version) !== state.channel) {
+          if (releaseChannel !== "latest" && releaseChannel !== state.channel) {
             yield* logUpdaterInfo("ignoring update that does not match selected channel", {
               version: info.version,
               channel: state.channel,
@@ -741,11 +743,7 @@ export const make = Effect.gen(function* () {
         }
 
         yield* applyAutoUpdaterChannel(nextChannel);
-        const allowDowngrade = yield* electronUpdater.allowDowngrade;
-        yield* electronUpdater.setAllowDowngrade(true);
-        yield* checkForUpdates("channel-change", "held").pipe(
-          Effect.ensuring(electronUpdater.setAllowDowngrade(allowDowngrade).pipe(Effect.ignore)),
-        );
+        yield* checkForUpdates("channel-change", "held");
 
         return yield* Ref.get(updateStateRef);
       }).pipe(Effect.ensuring(finishUpdateAction("channel")));

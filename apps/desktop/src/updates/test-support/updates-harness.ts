@@ -30,12 +30,15 @@ export interface UpdatesHarnessOptions {
   readonly startBackend?: Effect.Effect<void>;
   readonly env?: Record<string, string | undefined>;
   readonly resourcesPath?: string;
+  readonly appVersion?: string;
 }
 
 export const flushCallbacks = Effect.yieldNow;
 
 export function makeHarness(options: UpdatesHarnessOptions = {}) {
   let checkCount = 0;
+  let channel: string | null = null;
+  let allowPrerelease = false;
   let allowDowngrade = false;
   let fullChangelog = false;
   const feedUrls: ElectronUpdater.ElectronUpdaterFeedUrl[] = [];
@@ -49,9 +52,14 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
       }),
     setAutoDownload: () => Effect.void,
     setAutoInstallOnAppQuit: () => Effect.void,
-    setChannel: () => Effect.void,
-    setAllowPrerelease: () => Effect.void,
-    allowDowngrade: Effect.sync(() => allowDowngrade),
+    setChannel: (value) =>
+      Effect.sync(() => {
+        channel = value;
+      }),
+    setAllowPrerelease: (value) =>
+      Effect.sync(() => {
+        allowPrerelease = value;
+      }),
     setAllowDowngrade: (value) =>
       Effect.sync(() => {
         allowDowngrade = value;
@@ -117,7 +125,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
     homeDirectory: `/tmp/ottoLegacy-desktop-updates-home-${process.pid}`,
     platform: "darwin",
     processArch: "x64",
-    appVersion: "1.2.3",
+    appVersion: options.appVersion ?? "1.2.3",
     appPath: "/repo",
     isPackaged: true,
     resourcesPath: options.resourcesPath ?? "/missing/resources",
@@ -197,6 +205,9 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
   return {
     layer,
     checkCount: () => checkCount,
+    channel: () => channel,
+    allowPrerelease: () => allowPrerelease,
+    allowDowngrade: () => allowDowngrade,
     feedUrls: () => feedUrls,
     fullChangelog: () => fullChangelog,
     listenerCount: () =>
