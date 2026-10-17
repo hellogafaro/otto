@@ -47,6 +47,8 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **"New single chat" in automations**: a run can start a fresh chat.
 - **Global search** in the command palette.
 - **Shortcut hints**: holding ⌘ shows each control's shortcut.
+- **Menus like Linear's**: every dropdown item shows a one-key shortcut, and typing filters the menu.
+- **Shortcuts for approvals**: approve, deny and Allow all from the keyboard, for every bot approval.
 
 ## Not verified yet
 
