@@ -1,6 +1,5 @@
 import * as NodeFS from "node:fs";
 import { COMPUTER_SYSTEM_SKILLS, parseSkillFrontMatter, SYSTEM_SKILL_NAMES } from "@otto/contracts";
-import * as Predicate from "effect/Predicate";
 
 declare global {
   interface ImportMeta {
@@ -77,15 +76,23 @@ export function loadSystemSkills(
   });
 }
 
-export const systemSkills = loadSystemSkills(
-  Predicate.isFunction(import.meta.glob)
-    ? import.meta.glob<string>("./system/**/*.md", {
-        eager: true,
-        query: "?raw",
-        import: "default",
-      })
-    : readSourceTree(),
-);
+/**
+ * Vite and the server bundle replace the glob call with the Markdown itself but leave a bare
+ * `import.meta.glob` undefined, so the call is tried rather than checked; plain Node reads the files.
+ */
+function readSkillModules(): Record<string, string> {
+  try {
+    return import.meta.glob<string>("./system/**/*.md", {
+      eager: true,
+      query: "?raw",
+      import: "default",
+    });
+  } catch {
+    return readSourceTree();
+  }
+}
+
+export const systemSkills = loadSystemSkills(readSkillModules());
 
 export function findSystemSkill(name: string): SystemSkill | undefined {
   return systemSkills.find((skill) => skill.name === name);
