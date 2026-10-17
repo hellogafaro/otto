@@ -136,10 +136,22 @@ export const layerSchemePrivileges = Layer.effectDiscard(registerDesktopSchemePr
 // person can retry or go back to the bundled server without a web app.
 function unreachableServerPage(serverOrigin: URL): Response {
   return new Response(
-    `<!doctype html><meta charset="utf-8"><title>Otto</title>
-<style>body{font:14px system-ui;display:grid;place-content:center;gap:12px;height:100vh;margin:0;background:#fafafa;color:#171717}@media (prefers-color-scheme:dark){body{background:#171717;color:#fafafa}}button{font:inherit;padding:6px 12px}</style>
-<p>Can't reach the Otto server at ${serverOrigin.host}.</p>
-<p><button onclick="location.reload()">Try again</button> <button onclick="desktopBridge.setServerUrl(null)">Use this computer</button></p>`,
+    `<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Otto</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 16px;box-sizing:border-box;font-family:"Inter Variable",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;background:oklch(0.982 0.001 286);color:oklch(0.233 0 0)}
+main{width:100%;max-width:384px;display:flex;flex-direction:column;gap:32px}
+h1{margin:0 0 8px;font-size:20px;line-height:24px;font-weight:500}
+p{margin:0;font-size:13px;line-height:20px;color:oklch(0.53 0 0)}
+div{display:flex;flex-direction:column;gap:4px}
+button{height:32px;border:1px solid transparent;border-radius:6px;font-family:inherit;font-size:13px;font-weight:500;color:inherit;background:transparent;cursor:pointer}
+button:hover{background:color-mix(in oklab,currentColor 5%,transparent)}
+button:focus-visible{outline:2px solid color-mix(in oklab,currentColor 40%,transparent);outline-offset:1px}
+.primary{margin-bottom:12px;background:oklch(0.5 0.134 242.75);color:#fff}
+.primary:hover{background:oklch(0.46 0.134 242.75)}
+@media (prefers-color-scheme:dark){body{background:oklch(0.186 0.002 286);color:oklch(0.97 0 0)}p{color:oklch(0.754 0 0)}}
+</style>
+<main><section><h1>Can't reach the Otto server</h1><p>Nothing answered at ${serverOrigin.host}. Try again once it is running, or use the server on this computer.</p></section>
+<div><button class="primary" onclick="location.reload()">Try again</button><button onclick="desktopBridge.setServerUrl(null)">Use this computer</button></div></main>`,
     { status: 502, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }
