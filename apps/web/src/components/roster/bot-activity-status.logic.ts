@@ -55,7 +55,6 @@ const TOOL_LABELS = {
   connection_check: "Testing a connection",
   connection_delete: "Removing a connection",
   bot_update: "Updating profile",
-  "Computer Use": "Using the computer",
 } satisfies Readonly<Record<string, MessageKey>>;
 
 const ITEM_TYPE_LABELS = {
@@ -137,10 +136,6 @@ export function botToolActivity(activity: OrchestrationThreadActivity): BotActiv
   const name = toolName(activity);
 
   if (name === "memory") return { label: memoryLabel(activity) };
-
-  if (name.startsWith("preview_") || name.startsWith("browser_")) {
-    return { label: "Using the browser" };
-  }
 
   if (name.startsWith(COMPOSIO_TOOL_PREFIX)) return composioActivity(activity, name);
   const server = MCP_TOOL_NAME.exec(name)?.[1];

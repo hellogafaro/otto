@@ -2,7 +2,7 @@
 
 Milestone 13 keeps catalog discovery separate from connection verification. An entry stays non-installable until its real install, authentication, safe read, approved write, disable, reconnect, and removal lifecycle passes. `verification-pending` means that local lifecycle proof is missing. `approval-pending` means an external vendor, administrator, allowlist, or first-party connector is still required.
 
-`plugins/lifecycle-matrix.test.ts` is the catalog gate. It fixes the directory at 54 IDs and, since every entry is currently pending, keeps `loadCatalog()` empty until a lifecycle is verified. It also checks Featured order, consequential approval coverage, broker identity, Custom MCP independence, legacy built-in display, and the Computer Use, Executor, Typefully, Paper, and PayPal blockers.
+`plugins/lifecycle-matrix.test.ts` is the catalog gate. It fixes the directory at 53 IDs and, since every entry is currently pending, keeps `loadCatalog()` empty until a lifecycle is verified. It also checks Featured order, consequential approval coverage, broker identity, Custom MCP independence, legacy built-in display, and the Executor, Typefully, Paper, and PayPal blockers.
 
 ## Runtime proof
 
@@ -22,7 +22,7 @@ Run the matrix with the catalog, schema, runtime, and validator checks. Do not c
 
 ## Lifecycle matrix execution
 
-`apps/server/src/provider/plugin-lifecycle-matrix.test.ts` runs the install → connect → health → disconnect → reconnect → remove sequence through the same Mastra `McpManager` used by bot sessions. The Codex Computer Use stdio recipe (`otto-codex-computer-use mcp`) runs against a newline-delimited JSON-RPC fixture because the CLI is not on PATH in CI. URL recipes (including Executor 2's authenticated `https://executor.sh/mcp` recipe) run against a loopback Streamable HTTP fake that stands in for the vendor endpoint. The Executor fixture requires a bearer header, so discovery is not treated as an unauthenticated socket probe.
+`apps/server/src/provider/plugin-lifecycle-matrix.test.ts` runs the install → connect → health → disconnect → reconnect → remove sequence through the same Mastra `McpManager` used by bot sessions. URL recipes (including Executor 2's authenticated `https://executor.sh/mcp` recipe) run against a loopback Streamable HTTP fake that stands in for the vendor endpoint. The Executor fixture requires a bearer header, so discovery is not treated as an unauthenticated socket probe.
 
 Fixtures prove the lifecycle wiring, not vendor behavior. A fixture pass never moves an entry out of `verification-pending`; only a run against the real CLI or endpoint does.
 

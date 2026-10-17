@@ -15,8 +15,6 @@ import { startHttpMcpFixture } from "./plugin-lifecycle-fixtures.test-support.ts
 import { toMcpServerConfigs } from "./layers/agent-controller.ts";
 import { withMcpRuntimeHeaders } from "./mcp-server-config.ts";
 
-const STDIO_FIXTURE = new URL("./plugin-lifecycle-stdio-fixture.mjs", import.meta.url).pathname;
-
 const PLUGIN_ENTRIES = new URL("../../../../plugins/entries/", import.meta.url);
 
 function catalogManifests() {
@@ -124,25 +122,6 @@ describe("plugin lifecycle matrix execution", () => {
   const fixtures: Array<{ close: () => Promise<void> }> = [];
   afterEach(async () => {
     while (fixtures.length > 0) await fixtures.pop()?.close();
-  });
-
-  it("runs the local stdio lifecycle for the Computer Use recipe shape", async () => {
-    const catalog = loadManifestCatalog(catalogManifests());
-
-    for (const pluginId of ["computer-use"]) {
-      const plugin = catalog.find((entry) => entry.id === pluginId);
-
-      if (plugin?.transport.type !== "stdio") {
-        throw new TypeError(`Plugin '${pluginId}' is missing its stdio recipe.`);
-      }
-
-      // `otto-codex-computer-use` is not on PATH in CI; the fixture substitutes
-      // the command while keeping the manifest's `<command> mcp` recipe shape.
-      await runLifecycle({
-        command: process.execPath,
-        args: [STDIO_FIXTURE, ...(plugin.transport.args ?? [])],
-      });
-    }
   });
 
   it("runs the URL connect/health/reconnect lifecycle for pending vendor entries against a fake", async () => {

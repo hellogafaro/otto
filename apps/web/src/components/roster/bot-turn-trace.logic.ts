@@ -45,8 +45,6 @@ const DONE_LABELS = {
   "Updating profile": "Updated profile",
   "Using a tool": "Used a tool",
   "Using an app": "Used an app",
-  "Using the browser": "Used the browser",
-  "Using the computer": "Used the computer",
   "Waiting for your answer": "Asked you a question",
 } satisfies Readonly<Record<string, MessageKey>>;
 
