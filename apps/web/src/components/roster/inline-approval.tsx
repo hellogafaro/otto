@@ -16,7 +16,6 @@ import {
 import { StatusIcon } from "../status-icon";
 import { Card } from "../ui/card";
 import { QuestionnaireActions } from "../ui/questionnaire";
-import { Trace, TraceLine } from "../ui/trace";
 import { BotAvatarView } from "./bot-avatar-view";
 import type { Bot } from "./types";
 
@@ -135,15 +134,21 @@ export function InlineApproval({
     const allowed = approval.resolution.decision?.startsWith("accept") ?? false;
 
     return (
-      <Trace className="ml-10 w-auto" data-testid="answered-approval">
-        <TraceLine>
-          <StatusIcon status={allowed ? "completed" : "cancelled"} />
-          <span className="shrink-0">{answeredLabel(approval, t)}</span>
+      <div
+        className="ml-10 flex w-fit max-w-min-42rem-pct-2.5rem min-w-0 items-start gap-2.5 rounded-(--toast-radius) border bg-card px-3 py-2"
+        data-testid="answered-approval"
+      >
+        <StatusIcon
+          status={allowed ? "completed" : "cancelled"}
+          className="mt-0.5 size-4 shrink-0"
+        />
+        <div className="flex min-w-0 flex-col">
+          <span className="text-13px text-foreground">{answeredLabel(approval, t)}</span>
           {subject ? (
-            <span className="min-w-0 truncate font-mono text-muted-foreground/70">{subject}</span>
+            <span className="truncate font-mono text-xs text-muted-foreground">{subject}</span>
           ) : null}
-        </TraceLine>
-      </Trace>
+        </div>
+      </div>
     );
   }
 
