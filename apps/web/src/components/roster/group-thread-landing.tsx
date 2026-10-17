@@ -435,6 +435,7 @@ export function GroupThreadLanding({
                       key={item.key}
                       approval={item.approval}
                       bot={askingBot}
+                      currentPersonId={currentPersonId}
                       delegateTo={
                         item.approval.toolName === "delegate"
                           ? (activeBotById(delegateProposalDetails(item.approval.args).botId)

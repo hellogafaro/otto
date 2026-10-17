@@ -111,13 +111,16 @@ function answeredLabel(approval: ApprovalRecord, t: Translate) {
 export function InlineApproval({
   approval,
   bot,
+  currentPersonId,
   delegateTo,
   response,
   onRespond,
 }: {
   readonly approval: ApprovalRecord;
   /** The bot that asked; an archived one keeps its card without a face. */
-  readonly bot: Pick<Bot, "name" | "avatar"> | null;
+  readonly bot: Pick<Bot, "name" | "avatar" | "owner"> | null;
+  /** Always allow saves a rule on the bot, so only its owner is offered it. */
+  readonly currentPersonId: string | null | undefined;
   /** The bot a delegate request hands work to, by name. */
   readonly delegateTo: string | null;
   readonly response: { readonly responding: boolean; readonly error: string | null };
@@ -163,6 +166,11 @@ export function InlineApproval({
 
   const meta = [approval.appName, oneUse ? t("Runs once") : undefined].filter(Boolean);
 
+  const options =
+    bot?.owner?.kind === "person" && bot.owner.personId !== currentPersonId
+      ? approval.options?.filter((option) => option.decision !== "acceptAlways")
+      : approval.options;
+
   return (
     <div className="flex items-start gap-3" data-testid="inline-approval">
       {bot ? (
@@ -196,7 +204,7 @@ export function InlineApproval({
                   requestKind={approval.requestKind}
                   toolName={approval.toolName}
                   isResponding={response.responding}
-                  options={approval.options}
+                  options={options}
                   onRespondToApproval={onRespond}
                 />
               </QuestionnaireActions>

@@ -1,4 +1,4 @@
-import { OTTO_CREATE_ROUTINE_TOOL_NAME, ApprovalRequestId } from "@otto/contracts";
+import { OTTO_CREATE_ROUTINE_TOOL_NAME, ApprovalRequestId, AuthSessionId } from "@otto/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -18,12 +18,15 @@ function render(
   options: {
     readonly response?: { readonly responding: boolean; readonly error: string | null };
     readonly delegateTo?: string | null;
+    readonly bot?: Pick<Bot, "name" | "avatar" | "owner">;
+    readonly currentPersonId?: string;
   } = {},
 ) {
   return renderToStaticMarkup(
     <InlineApproval
       approval={{ resolution: null, ...approval }}
-      bot={juno}
+      bot={options.bot ?? juno}
+      currentPersonId={options.currentPersonId ?? "person-ana"}
       delegateTo={options.delegateTo ?? null}
       response={options.response ?? idle}
       onRespond={vi.fn()}
@@ -81,6 +84,39 @@ describe("InlineApproval", () => {
 
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((left, right) => left - right)).toEqual(order);
+  });
+
+  it("offers Always allow only to the bot's owner", () => {
+    const approval = {
+      requestId: ApprovalRequestId.make("review-command-owner"),
+      requestKind: "command" as const,
+      createdAt: "2026-08-27T00:00:00.000Z",
+      args: { command: "pwd" },
+      options: [
+        { decision: "decline" as const, label: "Decline" },
+        { decision: "acceptAlways" as const, label: "Always allow" },
+        { decision: "accept" as const, label: "Allow" },
+      ],
+    };
+
+    const owned = {
+      ...juno,
+      owner: {
+        kind: "person" as const,
+        personId: AuthSessionId.make("person-ana"),
+        displayName: "Ana",
+      },
+    };
+
+    expect(render(approval, { bot: owned, currentPersonId: "person-ana" })).toContain(
+      ">Always allow<",
+    );
+
+    const markup = render(approval, { bot: owned, currentPersonId: "person-ben" });
+
+    expect(markup).not.toContain(">Always allow<");
+    expect(markup).toContain("Never");
+    expect(markup).toContain("Allow once");
   });
 
   it("shows a delegate's target bot and brief instead of the generic prompt", () => {

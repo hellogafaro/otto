@@ -14,6 +14,7 @@ import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../errors.ts";
 import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import {
+  hasBotOwnerAuthority,
   requireActiveGroupMember,
   requireBot,
   requireBotNotArchived,
@@ -482,12 +483,20 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
           ? null
           : yield* requireGroup({ readModel, command, groupId: thread.groupId });
 
-      yield* requireActiveResponder({
-        readModel,
-        command,
-        groupId: thread.groupId,
-        botId: thread.respondingBotId ?? thread.botId ?? group?.bossBotId,
-      });
+      const botId = thread.respondingBotId ?? thread.botId ?? group?.bossBotId;
+
+      yield* requireActiveResponder({ readModel, command, groupId: thread.groupId, botId });
+
+      if (command.decision === "acceptAlways") {
+        const bot = botId ? yield* requireBot({ readModel, command, botId }) : undefined;
+
+        if (!bot || !command.responder || !hasBotOwnerAuthority(bot, command.responder.personId)) {
+          return yield* new OrchestrationCommandInvariantError({
+            commandType: command.type,
+            detail: "Only the bot's owner can choose Always allow for it.",
+          });
+        }
+      }
 
       return {
         ...(yield* withEventBase({

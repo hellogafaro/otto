@@ -306,6 +306,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
           commandId: CommandId.make(`cmd-allow-bot-add-${index}`),
           botId,
           alwaysAllow: rule,
+          by: { kind: "person", ...createdBy },
         });
       }
 

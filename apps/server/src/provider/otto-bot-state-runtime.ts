@@ -56,13 +56,17 @@ export function createOttoBotStateRuntime(options: OttoBotStateRuntimeOptions) {
     };
   };
 
-  /** Saves a person's Always allow on the bot, so later turns and restarts keep it. */
+  /**
+   * Saves a person's Always allow on the bot, so later turns and restarts keep it. The command
+   * acts as that person, so only someone with the bot's owner authority can save it.
+   */
   const allowAlways = async (botId: BotId, rule: BotAlwaysAllowedTool) => {
     await options.dispatch({
       type: "bot.update",
       commandId: CommandId.make(`bot-state:always-allow:${id()}`),
       botId,
       alwaysAllow: rule,
+      by: { kind: "person", ...rule.createdBy },
     });
   };
 

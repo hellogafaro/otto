@@ -490,6 +490,7 @@ export function BotThreadLanding({
                       <InlineApproval
                         approval={item.approval}
                         bot={bot}
+                        currentPersonId={currentPersonId}
                         delegateTo={
                           item.approval.toolName === "delegate"
                             ? (activeBot(delegateProposalDetails(item.approval.args).botId)?.name ??

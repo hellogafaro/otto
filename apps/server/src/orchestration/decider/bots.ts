@@ -16,6 +16,7 @@ import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../errors.ts";
 import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import {
+  hasBotOwnerAuthority,
   requireBot,
   requireBotAbsent,
   requireBotArchived,
@@ -175,12 +176,21 @@ export const decideBots = Effect.fn("decideBots")(function* ({
       if (
         command.owner !== undefined &&
         command.by?.kind === "person" &&
-        bot.owner?.kind === "person" &&
-        bot.owner.personId !== command.by.personId
+        !hasBotOwnerAuthority(bot, command.by.personId)
       ) {
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
           detail: "Only the bot's owner can hand it to someone else.",
+        });
+      }
+
+      if (
+        command.alwaysAllow !== undefined &&
+        (command.by?.kind !== "person" || !hasBotOwnerAuthority(bot, command.by.personId))
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Only the bot's owner can choose Always allow for it.",
         });
       }
 

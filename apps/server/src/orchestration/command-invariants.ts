@@ -160,6 +160,17 @@ export function requireBot(input: {
       );
 }
 
+/**
+ * Whether a person holds a bot's owner authority, which handing the bot over and choosing Always
+ * allow for it need: its owner, or anyone for a bot nobody owns.
+ */
+export function hasBotOwnerAuthority(
+  bot: Pick<OrchestrationBot, "owner">,
+  personId: string,
+): boolean {
+  return bot.owner?.kind !== "person" || bot.owner.personId === personId;
+}
+
 export function requireBotAbsent(input: {
   readonly readModel: OrchestrationReadModel;
   readonly command: OrchestrationCommand;
