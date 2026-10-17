@@ -287,6 +287,7 @@ export const ensureChatFolder = Effect.fn("Library.ensureChatFolder")(function* 
 export const createSkill = Effect.fn("Library.createSkill")(function* (
   input: LibraryCreateSkillInput,
   by: WorkParticipant,
+  references: ReadonlyArray<SkillReference> = [],
 ) {
   if (findSystemSkill(input.name.trim())) {
     return yield* fail(`${input.name.trim()} is a built-in skill. Choose another name.`);
@@ -316,7 +317,76 @@ export const createSkill = Effect.fn("Library.createSkill")(function* (
     by,
   });
 
+  yield* saveSkillReferences(folderId, references, by);
+
   return { folderId, fileId };
+});
+
+/** A text file a skill keeps in its references folder. */
+export interface SkillReference {
+  readonly path: string;
+  readonly content: string;
+}
+
+/**
+ * Writes text files into a skill's references folder, made on first use: a new name adds a file,
+ * an existing document's text is replaced.
+ */
+export const saveSkillReferences = Effect.fn("Library.saveSkillReferences")(function* (
+  skillFolderId: LibraryFolderId,
+  references: ReadonlyArray<SkillReference>,
+  by: WorkParticipant,
+) {
+  if (references.length === 0) return;
+  const state = yield* loadLibraryState;
+  const skill = state.folders.find((folder) => folder.id === skillFolderId);
+
+  if (skill === undefined) return yield* fail("That skill doesn't exist.");
+
+  const existing = state.folders.find(
+    (folder) => folder.parentId === skillFolderId && folder.title === "references",
+  );
+
+  const folderId = existing?.id ?? LibraryFolderIdSchema.make(NodeCrypto.randomUUID());
+
+  if (existing === undefined) {
+    yield* dispatchLibrary({
+      type: "library.folder.create",
+      commandId: newCommandId(),
+      folderId,
+      parentId: skillFolderId,
+      title: "references",
+      visibility: skill.visibility,
+      by,
+      createdAt: yield* nowIso,
+    });
+  }
+
+  for (const reference of references) {
+    const fileName = reference.path.replace(/^references\//, "");
+
+    const file = state.files.find(
+      (candidate) =>
+        candidate.folderId === folderId && `${candidate.title}.${candidate.extension}` === fileName,
+    );
+
+    if (file === undefined) {
+      yield* storeLibraryFile({
+        bytes: new TextEncoder().encode(reference.content),
+        fileName,
+        folderId,
+        visibility: skill.visibility,
+        by,
+      });
+    } else {
+      yield* saveLibraryDocument({
+        fileId: file.id,
+        content: reference.content,
+        expectedUpdatedAt: file.updatedAt,
+        by,
+      });
+    }
+  }
 });
 
 /** The folder a new file goes in: a chat's own folder, a project's, or the given folder. */

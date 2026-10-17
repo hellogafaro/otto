@@ -19,6 +19,9 @@ import {
   normalizeLibraryTitle,
   type OttoToolInputSchemas,
   parseSkillFrontMatter,
+  proposedSkillMarkdown,
+  splitFrontMatter,
+  type ApprovalResponder,
   type ThreadId,
   type WorkParticipant,
 } from "@otto/contracts";
@@ -38,7 +41,9 @@ import { ProjectionGroupRepository } from "../persistence/services/projection-gr
 import { ProjectionLibraryRepository } from "../persistence/services/projection-library.ts";
 import { ProjectionThreadMessageRepository } from "../persistence/services/projection-thread-messages.ts";
 import {
+  createSkill,
   loadLibraryState,
+  saveSkillReferences,
   type LibraryState,
   readLibraryBytes,
   readLibraryDocument,
@@ -225,7 +230,7 @@ type LibraryToolServices =
   | FileSystem.FileSystem
   | Path.Path;
 
-const makeLibraryToolRuntime = Effect.gen(function* () {
+export const makeLibraryToolRuntime = Effect.gen(function* () {
   const context = yield* Effect.context<LibraryToolServices>();
 
   const scopedState = (caller: LibraryToolCaller) =>
@@ -531,7 +536,12 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
         );
       }
 
-      const details = { skillId: skill.id, path: entry.path, sizeBytes: entry.file.sizeBytes };
+      const details = {
+        skillId: skill.id,
+        path: entry.path,
+        sizeBytes: entry.file.sizeBytes,
+        updatedAt: entry.file.updatedAt,
+      };
 
       if (entry.file.type === "document") {
         return { ...details, content: yield* readLibraryDocument(entry.file) };
@@ -547,6 +557,114 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
       const bytes = yield* readLibraryBytes(entry.file);
 
       return { ...details, content: new TextDecoder().decode(bytes) };
+    });
+
+  const callerBot = (caller: LibraryToolCaller) =>
+    Effect.gen(function* () {
+      return yield* (yield* ProjectionBotRepository).getById({ botId: caller.botId }).pipe(
+        Effect.map(Option.getOrUndefined),
+        Effect.orElseSucceed(() => undefined),
+      );
+    });
+
+  /** The person a skill proposal is saved as: whoever approved it, if they may. */
+  const approverOf = (responder: ApprovalResponder | undefined) =>
+    responder
+      ? Effect.succeed({
+          kind: "person" as const,
+          personId: responder.personId,
+          displayName: responder.displayName,
+        })
+      : fail("A person has to approve a skill proposal in the chat.");
+
+  const proposeSkill = (
+    caller: LibraryToolCaller,
+    input: Input<"skill_create">,
+    responder: ApprovalResponder | undefined,
+  ) =>
+    Effect.gen(function* () {
+      const approver = yield* approverOf(responder);
+
+      if (input.visibility === "user") {
+        const owner = (yield* callerBot(caller))?.owner;
+
+        if (owner?.kind !== "person" || owner.personId !== responder?.personId) {
+          return yield* fail("Only this bot's owner can approve a skill for this bot alone.");
+        }
+      } else if (!responder?.canWrite) {
+        return yield* fail(
+          "Only a workspace member who can make changes can approve a Team skill.",
+        );
+      }
+
+      const { folderId } = yield* createSkill(
+        {
+          name: input.name,
+          description: input.description,
+          visibility: input.visibility,
+          content: proposedSkillMarkdown({
+            ...input,
+            proposal: { botId: caller.botId, threadId: caller.threadId },
+          }),
+        },
+        approver,
+        input.files ?? [],
+      );
+
+      return { saved: true, skillId: folderId, approvedBy: approver.displayName };
+    });
+
+  const updateSkill = (
+    caller: LibraryToolCaller,
+    input: Input<"skill_update">,
+    responder: ApprovalResponder | undefined,
+  ) =>
+    Effect.gen(function* () {
+      if (findSystemSkill(input.skillId)) return yield* fail("Built-in skills can't be changed.");
+      const approver = yield* approverOf(responder);
+      const found = (yield* skillState(caller)).find(({ skill }) => skill.id === input.skillId);
+
+      if (found === undefined) return yield* fail("That skill doesn't exist.");
+      const state = yield* loadLibraryState;
+
+      if (
+        !canEditLibraryItem(found.skill, state.folders, {
+          kind: "person",
+          personId: approver.personId,
+        })
+      ) {
+        return yield* fail("Only someone who can edit this skill can approve a change to it.");
+      }
+
+      const main = found.files.find(
+        (entry) => !entry.path.includes("/") && isSkillFile(entry.file),
+      )?.file;
+
+      if (main === undefined) return yield* fail("This skill has no SKILL.md to change.");
+      const current = yield* readLibraryDocument(main);
+      const frontMatter = parseSkillFrontMatter(current);
+
+      if (input.description !== undefined || input.instructions !== undefined) {
+        yield* saveLibraryDocument({
+          fileId: main.id,
+          content: proposedSkillMarkdown({
+            name: frontMatter.name ?? found.skill.title,
+            description: input.description ?? frontMatter.description ?? "",
+            instructions: input.instructions ?? splitFrontMatter(current).body,
+            proposal: { botId: caller.botId, threadId: caller.threadId },
+          }),
+          expectedUpdatedAt: input.updatedAt,
+          by: approver,
+        });
+      } else if (main.updatedAt !== input.updatedAt) {
+        return yield* fail(
+          "Someone changed this skill since you read it. Read it again and merge.",
+        );
+      }
+
+      yield* saveSkillReferences(found.skill.id, input.files ?? [], approver);
+
+      return { saved: true, skillId: found.skill.id, approvedBy: approver.displayName };
     });
 
   const run = <A>(effect: Effect.Effect<A, LibraryRequestError, LibraryToolServices>) =>
@@ -573,6 +691,16 @@ const makeLibraryToolRuntime = Effect.gen(function* () {
         Effect.map((skills) => skillCatalog(skills, options)),
         Effect.provide(context),
       ),
+    proposeSkill: (
+      caller: LibraryToolCaller,
+      input: Input<"skill_create">,
+      responder: ApprovalResponder | undefined,
+    ) => run(proposeSkill(caller, input, responder)),
+    updateSkill: (
+      caller: LibraryToolCaller,
+      input: Input<"skill_update">,
+      responder: ApprovalResponder | undefined,
+    ) => run(updateSkill(caller, input, responder)),
     readSkillFile: (caller: LibraryToolCaller, input: Input<"skill_read">) =>
       run(readSkillFile(caller, input)),
     /** Files a generated image in the chat's Library folder; a failure only logs. */

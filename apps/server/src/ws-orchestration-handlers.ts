@@ -156,6 +156,7 @@ export const createWsOrchestrationHandlers = ({
             decodedCommand.type === "group.create" ||
             decodedCommand.type === "group.leave" ||
             decodedCommand.type === "thread.turn.start" ||
+            decodedCommand.type === "thread.approval.respond" ||
             isLibraryClientCommand(decodedCommand)
               ? yield* loadEnvironmentPeople().pipe(Effect.map((people) => people.current))
               : undefined;

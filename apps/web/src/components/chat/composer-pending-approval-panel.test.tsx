@@ -171,6 +171,36 @@ describe("ComposerPendingApprovalPanel", () => {
     expect(markup).not.toContain("Allow routine_create?");
   });
 
+  it("shows a skill proposal with who gets it, why, and its instructions", () => {
+    const markup = renderToStaticMarkup(
+      <ComposerPendingApprovalPanel
+        approval={{
+          requestId: ApprovalRequestId.make("approval-skill"),
+          requestKind: "command",
+          toolName: "skill_create",
+          createdAt: "2026-08-31T00:00:00.000Z",
+          detail: "Review skill",
+          args: {
+            name: "weekly-report",
+            description: "Writes the Monday report.",
+            instructions: "Group last week's tasks by project.",
+            visibility: "organization",
+            reason: "Asked three Mondays in a row.",
+          },
+        }}
+        pendingCount={1}
+      />,
+    );
+
+    expect(markup).toContain("Review skill");
+    expect(markup).toContain("weekly-report");
+    expect(markup).toContain("Team");
+    expect(markup).toContain("Writes the Monday report.");
+    expect(markup).toContain("Why: Asked three Mondays in a row.");
+    expect(markup).toContain("Group last week&#x27;s tasks by project.");
+    expect(markup).not.toContain("Command approval");
+  });
+
   it("shows the exact weekday and timezone in a weekly routine preview", () => {
     const markup = renderToStaticMarkup(
       <ComposerPendingApprovalPanel

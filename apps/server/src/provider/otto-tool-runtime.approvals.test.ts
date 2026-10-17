@@ -53,6 +53,38 @@ describe("OttoToolRuntime", () => {
     expect(memory).toHaveBeenCalledOnce();
   });
 
+  it("runs a skill proposal only with a person's grant, as that person, even with full access", async () => {
+    const proposeSkill = vi.fn(async () => ({ saved: true }));
+    const runtime = createOttoToolRuntime();
+    runtime.registerSession("thread-skill", {
+      runtimeMode: "full-access",
+      workspaceType: "none",
+      catalogHandlers: { skill_create: proposeSkill },
+    });
+
+    const execution = {
+      threadId: "thread-skill",
+      toolId: "skill_create" as const,
+      toolCallId: "skill-1",
+      input: {
+        name: "weekly-report",
+        description: "Writes the Monday report.",
+        instructions: "Group last week's tasks by project.",
+        visibility: "organization",
+        reason: "Asked three Mondays in a row.",
+      },
+      approvalMode: "require-grant" as const,
+    };
+
+    const responder = { personId: "user-ana", displayName: "Ana", canWrite: true } as never;
+
+    await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
+    runtime.grantApproval({ ...execution, responder });
+    await expect(runtime.execute(execution)).resolves.toEqual({ saved: true });
+    expect(proposeSkill).toHaveBeenCalledWith(expect.objectContaining({ responder }));
+    await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
+  });
+
   it("requires an exact one-shot grant for local shell commands", async () => {
     const receipts: OttoToolReceipt[] = [];
     const runtime = createOttoToolRuntime({ onReceipt: (receipt) => receipts.push(receipt) });

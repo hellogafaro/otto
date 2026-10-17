@@ -372,4 +372,13 @@ export const rosterCatalog = {
   "Opening the desktop…": "正在打开桌面…",
   "The desktop did not open.": "桌面没有打开。",
   "Open in a new window": "在新窗口中打开",
+  "Review skill": "审核技能",
+  "Skill details": "技能详情",
+  "Skill approval": "技能审批",
+  "A change to a skill": "对技能的修改",
+  "Why: {reason}": "原因：{reason}",
+  "Proposed by": "提议者",
+  "{bot} in {chat} · approved by {person}": "{bot}，在 {chat} 中 · 由 {person} 批准",
+  "{bot} · approved by {person}": "{bot} · 由 {person} 批准",
+  you: "你",
 } as const;

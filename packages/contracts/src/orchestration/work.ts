@@ -41,6 +41,15 @@ export const WorkParticipant = Schema.Union([
 
 export type WorkParticipant = typeof WorkParticipant.Type;
 
+/** The signed-in person answering an approval; the server sets it, never the client. */
+export const ApprovalResponder = Schema.Struct({
+  personId: AuthSessionId,
+  displayName: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
+  canWrite: Schema.Boolean,
+});
+
+export type ApprovalResponder = typeof ApprovalResponder.Type;
+
 /** An external web link; resources saved before resource types existed decode as links. */
 export const WorkLinkResource = Schema.Struct({
   type: Schema.Literal("link").pipe(Schema.withDecodingDefault(Effect.succeed("link" as const))),

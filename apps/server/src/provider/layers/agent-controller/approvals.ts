@@ -258,6 +258,7 @@ export function createApprovals(deps: {
             toolCallId,
             toolId: runtimeToolId,
             input: toolInput,
+            ...(input.responder ? { responder: input.responder } : {}),
           });
         }
 

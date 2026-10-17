@@ -2,6 +2,7 @@ import type { OttoToolResult } from "./otto-tool-types.ts";
 import { type OttoToolInputSchemas } from "@otto/contracts";
 import type { McpManager } from "@mastra/code-sdk/mcp/index";
 import {
+  type ApprovalResponder,
   type BotId,
   type ComposioToolkit,
   type OrchestrationCommand,
@@ -11,6 +12,8 @@ import type { RequestHealthStatus } from "../../subscription-auth/service.ts";
 
 export interface OttoCatalogToolHandlerInput {
   readonly input: unknown;
+  /** The person who approved this call, for tools that act as that person. */
+  readonly responder?: ApprovalResponder;
   readonly webSearch?: OttoCatalogBackendOptions["webSearch"];
   readonly emitProgress: (
     summary: string,
@@ -94,6 +97,14 @@ export interface OttoCatalogBackendOptions {
     ) => Promise<OttoToolResult>;
     readonly readSkillFile: (
       input: (typeof OttoToolInputSchemas.skill_read)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly proposeSkill: (
+      input: (typeof OttoToolInputSchemas.skill_create)["Type"],
+      responder: ApprovalResponder | undefined,
+    ) => Promise<OttoToolResult>;
+    readonly updateSkill: (
+      input: (typeof OttoToolInputSchemas.skill_update)["Type"],
+      responder: ApprovalResponder | undefined,
     ) => Promise<OttoToolResult>;
   };
   /** Otto: The organization's Tasks page, as the calling bot. */

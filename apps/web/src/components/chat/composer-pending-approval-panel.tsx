@@ -7,6 +7,7 @@ import { hourlyScheduleText } from "@otto/client-runtime/routines";
 import { OTTO_CREATE_ROUTINE_TOOL_NAME } from "@otto/contracts";
 import { type PendingApproval } from "../../session-logic";
 import { describeCommandApproval } from "~/lib/command-approval-details";
+import { useLibraryData } from "../library/use-library";
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 
@@ -268,6 +269,97 @@ function RoutineProposal({
   );
 }
 
+/** A skill a bot proposes: what it is, who gets it, why, and its instructions. */
+export function skillProposalDetails(args: PendingApproval["args"]) {
+  const record = Predicate.isObject(args) ? args : {};
+
+  const text = (key: string) =>
+    key in record && Predicate.isString(record[key]) ? record[key].trim() : "";
+
+  return {
+    name: text("name"),
+    team: text("visibility") === "organization",
+    personal: text("visibility") === "user",
+    description: text("description"),
+    reason: text("reason"),
+    instructions: text("instructions"),
+  };
+}
+
+function SkillProposal({
+  args,
+  className,
+  hideLabel,
+  label,
+  pendingCount,
+}: {
+  args: PendingApproval["args"];
+  className: string | undefined;
+  hideLabel: boolean;
+  label: string;
+  pendingCount: number;
+}) {
+  const { t } = useI18n();
+  const library = useLibraryData();
+  const details = skillProposalDetails(args);
+
+  const skillId =
+    Predicate.isObject(args) && "skillId" in args && Predicate.isString(args.skillId)
+      ? args.skillId
+      : null;
+
+  const name = details.name || library.folders.find((folder) => folder.id === skillId)?.title || "";
+
+  return (
+    <div
+      aria-label={label}
+      className={cn("flex min-w-0 flex-1 flex-col gap-2", className)}
+      role="group"
+    >
+      {!hideLabel ? (
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="text-xs font-medium text-foreground">{t("Review skill")}</span>
+          {pendingCount > 1 ? (
+            <span className="ml-auto text-10px text-muted-foreground tabular-nums">
+              1/{pendingCount}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      <div
+        aria-label={t("Skill details")}
+        className="flex min-w-0 flex-col gap-2.5"
+        data-testid="skill-proposal"
+      >
+        <p className="min-w-0 text-base font-semibold leading-5 text-foreground">
+          {name || t("A change to a skill")}
+          {details.team || details.personal ? (
+            <span className="ms-2 text-xs font-normal text-muted-foreground">
+              {details.team ? t("Team") : t("Yours")}
+            </span>
+          ) : null}
+        </p>
+        {details.description ? (
+          <p className="min-w-0 text-sm leading-5 text-foreground/90">{details.description}</p>
+        ) : null}
+        {details.reason ? (
+          <p className="min-w-0 text-11px text-muted-foreground">
+            {t("Why: {reason}", { reason: details.reason })}
+          </p>
+        ) : null}
+        {details.instructions ? (
+          <div className="min-w-0">
+            <p className="text-11px font-medium text-muted-foreground">{t("Instructions")}</p>
+            <p className="mt-0.5 line-clamp-6 whitespace-pre-wrap break-words text-sm leading-5 text-foreground/90">
+              {details.instructions}
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprovalPanel({
   approval,
   pendingCount,
@@ -328,6 +420,18 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
   // Only hide detail behind a disclosure when there is more than one screenful
   // of it. A one-line path behind "Expand" wastes a click.
   const detailFitsInline = detailLineCount <= 4 && detail.length <= 400;
+
+  if (approval.toolName === "skill_create" || approval.toolName === "skill_update") {
+    return (
+      <SkillProposal
+        args={approval.args}
+        className={className}
+        hideLabel={hideLabel}
+        label={t("Skill approval")}
+        pendingCount={pendingCount}
+      />
+    );
+  }
 
   if (isRoutine) {
     return (

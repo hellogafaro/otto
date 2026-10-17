@@ -544,9 +544,11 @@ export function createEvents(deps: {
             detail:
               event.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME
                 ? "Review routine"
-                : instructions !== null
-                  ? `Change this bot's instructions to:\n\n${instructions}`
-                  : deps.approvalDetail(event.toolName, action, oneUseApproval),
+                : event.toolName === "skill_create" || event.toolName === "skill_update"
+                  ? "Review skill"
+                  : instructions !== null
+                    ? `Change this bot's instructions to:\n\n${instructions}`
+                    : deps.approvalDetail(event.toolName, action, oneUseApproval),
             toolName: event.toolName,
             ...(action ? { action } : {}),
             args: toolInput,

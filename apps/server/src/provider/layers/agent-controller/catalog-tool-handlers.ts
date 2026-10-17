@@ -100,6 +100,10 @@ export function createSessionCatalogHandlers(
                 deps.runPromise(libraryTools.updateDocument(libraryCaller, request)),
               readSkillFile: (request) =>
                 deps.runPromise(libraryTools.readSkillFile(libraryCaller, request)),
+              proposeSkill: (request, responder) =>
+                deps.runPromise(libraryTools.proposeSkill(libraryCaller, request, responder)),
+              updateSkill: (request, responder) =>
+                deps.runPromise(libraryTools.updateSkill(libraryCaller, request, responder)),
             },
           }
         : {}),

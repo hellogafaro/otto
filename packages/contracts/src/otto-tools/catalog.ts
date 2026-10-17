@@ -25,6 +25,8 @@ export const OttoToolId = Schema.Literals([
   "library_read",
   "library_update",
   "skill_read",
+  "skill_create",
+  "skill_update",
   "task_read",
   "task_create",
   "task_update",
@@ -264,6 +266,21 @@ export const OTTO_TOOL_CATALOG = [
     },
   ),
   define(
+    "skill_create",
+    "bot-workspace",
+    "Propose a new skill, a repeatable procedure for you and other bots. Use it when the same kind of " +
+      "request has come up two or three times, when a routine's instructions hold a procedure, or when " +
+      "asked; not for one-off work, facts (memory) or secrets. A person approves it in the chat. " +
+      "Returns the skill id, or why it was not saved.",
+  ),
+  define(
+    "skill_update",
+    "bot-workspace",
+    "Propose a fix to a Library skill in <available_skills> when a step was wrong, outdated or corrected " +
+      "by a person. Built-in skills can't be changed. Pass the updatedAt skill_read returned for its " +
+      "SKILL.md. A person approves it in the chat.",
+  ),
+  define(
     "task_read",
     "bot-workspace",
     "Read one task: its fields, description, links, the people involved with their participant " +
@@ -322,8 +339,9 @@ export const OTTO_TOOL_FAMILIES = [
   },
   {
     name: "bot",
-    description: "Change your own profile or instructions, create a bot, or react to a message.",
-    tools: ["bot_update", "bot_create", "message_react"],
+    description:
+      "Change your own profile or instructions, create a bot, react to a message, or propose a skill.",
+    tools: ["bot_update", "bot_create", "message_react", "skill_create", "skill_update"],
   },
 ] as const satisfies ReadonlyArray<{
   readonly name: string;

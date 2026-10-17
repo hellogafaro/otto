@@ -1,4 +1,12 @@
-import { AuthSessionId, BotId, CommandId, GroupId, MessageId, ThreadId } from "@otto/contracts";
+import {
+  ApprovalRequestId,
+  AuthSessionId,
+  BotId,
+  CommandId,
+  GroupId,
+  MessageId,
+  ThreadId,
+} from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -30,6 +38,29 @@ describe("authenticated orchestration commands", () => {
     );
 
     expect(command).toMatchObject({ type: "group.leave", personId: currentPersonId });
+  });
+
+  it("names the signed-in person who answers an approval, never a spoofed one", () => {
+    const command = applyAuthenticatedCommandActor(
+      {
+        type: "thread.approval.respond",
+        commandId: CommandId.make("command-approve"),
+        threadId: ThreadId.make("thread-1"),
+        requestId: ApprovalRequestId.make("skill-1"),
+        decision: "accept",
+        responder: {
+          personId: AuthSessionId.make("person-spoofed"),
+          displayName: "Spoofed",
+          canWrite: true,
+        },
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      { personId: currentPersonId, displayName: "Current person", canManageGroups: false },
+    );
+
+    expect(command).toMatchObject({
+      responder: { personId: currentPersonId, displayName: "Current person", canWrite: false },
+    });
   });
 
   it("stamps group creators and turn senders from the authenticated person", () => {

@@ -12,7 +12,14 @@ import {
 } from "../base-schemas.ts";
 import { McpServerInstructions, McpServerUrl } from "../mcp-server.ts";
 import { ImageGenerationRequest } from "../image-generation.ts";
-import { LibraryFileId, LibraryFolderId, LibraryTitle } from "../orchestration/library.ts";
+import {
+  LIBRARY_DOCUMENT_MAX_BYTES,
+  LibraryFileId,
+  LibraryFolderId,
+  LibraryTitle,
+  LibraryVisibility,
+  SkillDescription,
+} from "../orchestration/library.ts";
 import {
   TaskDueDate,
   WorkDescription,
@@ -142,6 +149,23 @@ const AgentMessageInput = Schema.Struct({
 /** The size limit is checked on the saved bytes, so the model sees a plain string. */
 const LibraryText = Schema.String;
 
+const SkillInstructions = TrimmedNonEmptyString.check(
+  Schema.isMaxLength(LIBRARY_DOCUMENT_MAX_BYTES),
+);
+
+/** Reference files a skill proposal brings; Otto keeps them as text under references/. */
+const SkillProposalFiles = Schema.Array(
+  Schema.Struct({
+    path: TrimmedNonEmptyString.check(
+      Schema.isMaxLength(200),
+      Schema.isPattern(/^(references\/)?[A-Za-z0-9][\w.-]*\.(md|txt)$/),
+    ),
+    content: Schema.String.check(Schema.isMaxLength(LIBRARY_DOCUMENT_MAX_BYTES)),
+  }),
+).check(Schema.isMaxLength(10));
+
+const SkillProposalReason = TrimmedNonEmptyString.check(Schema.isMaxLength(500));
+
 const SaveToLibraryInput = Schema.Struct({
   content: Schema.optional(LibraryText),
   fileName: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
@@ -243,6 +267,25 @@ export const OttoToolInputSchemas = {
     /** A built-in skill's name, or a Library skill's skillId. */
     skillId: TrimmedNonEmptyString.check(Schema.isMaxLength(100)),
     path: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(500))),
+  }),
+  skill_create: Schema.Struct({
+    name: TrimmedNonEmptyString.check(
+      Schema.isMaxLength(64),
+      Schema.isPattern(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+    ),
+    description: SkillDescription,
+    instructions: SkillInstructions,
+    files: Schema.optional(SkillProposalFiles),
+    visibility: LibraryVisibility,
+    reason: SkillProposalReason,
+  }),
+  skill_update: Schema.Struct({
+    skillId: TrimmedNonEmptyString.check(Schema.isMaxLength(100)),
+    updatedAt: IsoDateTime,
+    description: Schema.optional(SkillDescription),
+    instructions: Schema.optional(SkillInstructions),
+    files: Schema.optional(SkillProposalFiles),
+    reason: SkillProposalReason,
   }),
   task_read: Schema.Struct({ taskId: TaskId }),
   task_create: Schema.Struct({

@@ -600,6 +600,42 @@ export function parseSkillFrontMatter(markdown: string): SkillFrontMatter {
   return { ...(name ? { name } : {}), ...(description ? { description } : {}) };
 }
 
+/** Where a bot proposed a skill: written into its SKILL.md metadata when a person approves it. */
+export interface SkillProposal {
+  readonly botId: string;
+  readonly threadId: string;
+}
+
+/** A proposed skill's SKILL.md: Otto's own front matter, then the bot's instructions. */
+export function proposedSkillMarkdown(input: {
+  readonly name: string;
+  readonly description: string;
+  readonly instructions: string;
+  readonly proposal: SkillProposal;
+}) {
+  return [
+    "---",
+    `name: ${input.name}`,
+    `description: ${input.description.replace(/\s+/g, " ")}`,
+    "metadata:",
+    `  proposed-by: ${input.proposal.botId}`,
+    `  proposed-in: ${input.proposal.threadId}`,
+    "---",
+    "",
+    splitFrontMatter(input.instructions).body.trim(),
+    "",
+  ].join("\n");
+}
+
+/** The bot and chat that proposed a skill, from its SKILL.md metadata. */
+export function skillProposal(markdown: string): SkillProposal | null {
+  const block = splitFrontMatter(markdown).frontMatter ?? "";
+  const botId = /^\s+proposed-by:[ \t]*(\S+)\s*$/m.exec(block)?.[1];
+  const threadId = /^\s+proposed-in:[ \t]*(\S+)\s*$/m.exec(block)?.[1];
+
+  return botId && threadId ? { botId, threadId } : null;
+}
+
 /** A starter `SKILL.md` for a new skill. */
 export function skillTemplate(input: { readonly name: string; readonly description: string }) {
   return [

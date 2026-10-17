@@ -222,6 +222,7 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
             decodedCommand.type === "group.leave" ||
             decodedCommand.type === "group.person.assign" ||
             decodedCommand.type === "thread.turn.start" ||
+            decodedCommand.type === "thread.approval.respond" ||
             isLibraryClientCommand(decodedCommand);
 
           const people = needsPeople

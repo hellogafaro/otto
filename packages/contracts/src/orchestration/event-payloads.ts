@@ -1,4 +1,10 @@
-import { WorkDescription, WorkParticipant, WorkResources, WorkStatus } from "./work.ts";
+import {
+  ApprovalResponder,
+  WorkDescription,
+  WorkParticipant,
+  WorkResources,
+  WorkStatus,
+} from "./work.ts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { RepositoryIdentity, ThreadEnvMode } from "../environment.ts";
@@ -544,6 +550,7 @@ export const ThreadApprovalResponseRequestedPayload = Schema.Struct({
   threadId: ThreadId,
   requestId: ApprovalRequestId,
   decision: ProviderApprovalDecision,
+  responder: Schema.optional(ApprovalResponder),
   createdAt: IsoDateTime,
 });
 

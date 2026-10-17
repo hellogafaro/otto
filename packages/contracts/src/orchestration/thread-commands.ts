@@ -16,6 +16,7 @@ import {
   Visibility,
 } from "../base-schemas.ts";
 import { DelegationIdSchema } from "./identities.ts";
+import { ApprovalResponder } from "./work.ts";
 import {
   ModelSelection,
   RuntimeMode,
@@ -295,6 +296,7 @@ export const ThreadApprovalRespondCommand = Schema.Struct({
   threadId: ThreadId,
   requestId: ApprovalRequestId,
   decision: ProviderApprovalDecision,
+  responder: Schema.optional(ApprovalResponder),
   createdAt: IsoDateTime,
 });
 

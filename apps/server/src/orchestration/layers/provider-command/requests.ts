@@ -66,6 +66,7 @@ export function createRequests({
         threadId: event.payload.threadId,
         requestId: event.payload.requestId,
         decision: event.payload.decision,
+        ...(event.payload.responder ? { responder: event.payload.responder } : {}),
       })
       .pipe(
         Effect.catchCause((cause) => {

@@ -102,6 +102,9 @@ export function ottoToolRequiresApproval(
 
   if (tool.id === "shell" && context.workspaceType === "local") return true;
 
+  // A skill proposal is saved as the person who approves it.
+  if (tool.id === "skill_create" || tool.id === "skill_update") return true;
+
   if (
     Array.from(OTTO_PROTECTED_APPROVAL_CLASSES).some(
       (protectedClass) => protectedClass === approval,

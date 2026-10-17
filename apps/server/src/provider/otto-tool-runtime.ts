@@ -3,6 +3,7 @@ import * as Predicate from "effect/Predicate";
 import { decodeOttoRuntimeToolInput } from "./tools/otto-tool-inputs.ts";
 import { RequestContext } from "@mastra/core/request-context";
 import {
+  type ApprovalResponder,
   OTTO_TOOL_CATALOG,
   type OttoToolId,
   type OttoToolReceipt,
@@ -45,7 +46,16 @@ export function isMemoryToolId(toolId: string): toolId is MemoryUpdateToolId {
 
 export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToolRuntime {
   const sessions = new Map<string, OttoToolSession>();
-  const grants = new Map<string, { readonly toolId: OttoRuntimeToolId; readonly input: string }>();
+
+  const grants = new Map<
+    string,
+    {
+      readonly toolId: OttoRuntimeToolId;
+      readonly input: string;
+      readonly responder?: ApprovalResponder;
+    }
+  >();
+
   const key = (threadId: string, toolCallId: string) => `${threadId}\u0000${toolCallId}`;
 
   const clearApprovals = (threadId: string) => {
@@ -216,6 +226,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
       grants.set(key(input.threadId, input.toolCallId), {
         toolId: input.toolId,
         input: canonicalInput(decodedGrantInput(input.toolId, input.input)),
+        ...(input.responder ? { responder: input.responder } : {}),
       });
     },
     execute: async (input) => {
@@ -242,6 +253,8 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
         const decoded = execution.input;
         failureCode = "denied";
 
+        let responder: ApprovalResponder | undefined;
+
         if (await requiresApproval(session, tool, decoded)) {
           const grantKey = key(input.threadId, input.toolCallId);
           const grant = grants.get(grantKey);
@@ -256,6 +269,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           }
 
           grants.delete(grantKey);
+          responder = grant.responder;
         }
 
         failureCode = "not_found";
@@ -276,6 +290,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           failureCode = "internal";
           result = await catalogHandler({
             input: decoded,
+            ...(responder ? { responder } : {}),
             ...(input.webSearch ? { webSearch: input.webSearch } : {}),
             emitProgress: (summary, details) =>
               options?.onProgress?.({

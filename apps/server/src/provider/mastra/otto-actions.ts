@@ -263,6 +263,8 @@ export function proposedBotInstructions<Input>(toolName: string, args?: Input): 
 
 export function ottoActionNeedsApproval<Input>(toolName: string, args?: Input): boolean {
   if (proposedBotInstructions(toolName, args) !== null) return true;
+
+  if (toolName === "skill_create" || toolName === "skill_update") return true;
   const inspection = inspectOttoAction(toolName, args);
 
   return inspection.action !== null || inspection.hasUnclassifiedIntent;

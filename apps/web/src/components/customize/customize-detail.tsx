@@ -8,6 +8,7 @@ import {
   type LibraryVisibility,
   type McpServer,
   parseSkillFrontMatter,
+  skillProposal,
   type WorkParticipant,
 } from "@otto/contracts";
 import {
@@ -407,6 +408,7 @@ function SkillDetail({
   const { t } = useI18n();
   const navigate = useNavigate();
   const data = useLibraryData();
+  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId));
   const updateFolder = useAtomCommand(libraryEnvironment.updateFolder, { reportFailure: false });
   const deleteFolder = useAtomCommand(libraryEnvironment.deleteFolder, { reportFailure: false });
   const deleteFile = useAtomCommand(libraryEnvironment.deleteFile, { reportFailure: false });
@@ -481,6 +483,15 @@ function SkillDetail({
   };
 
   const creator = personName(skill.createdBy);
+  const proposal = document.data ? skillProposal(document.data.content) : null;
+
+  const proposedBy = proposal
+    ? snapshot?.bots.find((bot) => bot.id === proposal.botId)?.name
+    : undefined;
+
+  const proposedIn = proposal
+    ? snapshot?.threads.find((thread) => thread.id === proposal.threadId)?.title
+    : undefined;
 
   return (
     <DetailLayout>
@@ -519,6 +530,23 @@ function SkillDetail({
           owner={editable ? null : creator}
           onChange={(visibility) => void setVisibility(visibility)}
         />
+        {proposedBy ? (
+          <SettingsRow
+            title={t("Proposed by")}
+            description={
+              proposedIn
+                ? t("{bot} in {chat} · approved by {person}", {
+                    bot: proposedBy,
+                    chat: proposedIn,
+                    person: creator ?? t("you"),
+                  })
+                : t("{bot} · approved by {person}", {
+                    bot: proposedBy,
+                    person: creator ?? t("you"),
+                  })
+            }
+          />
+        ) : null}
       </SettingsCard>
       <CustomizeGroup title={t("Files")} count={files.length} empty={null}>
         {files.map(({ file, path }) => (

@@ -1,6 +1,7 @@
 import type { Tool } from "@mastra/core/tools";
 import { type Workspace } from "@mastra/core/workspace";
 import {
+  type ApprovalResponder,
   type OttoDelegationAccessGrant,
   OttoToolInputSchemas,
   type BotId,
@@ -101,6 +102,9 @@ export interface OttoToolRuntime {
     toolId: OttoRuntimeToolId,
     input: OttoToolExecution["input"],
   ) => Promise<boolean>;
-  readonly grantApproval: (input: Omit<OttoToolExecution, "approvalMode">) => void;
+  /** A one-use grant for this exact call, naming the person who approved it when one did. */
+  readonly grantApproval: (
+    input: Omit<OttoToolExecution, "approvalMode"> & { readonly responder?: ApprovalResponder },
+  ) => void;
   readonly execute: (input: OttoToolExecution) => Promise<OttoToolResult>;
 }

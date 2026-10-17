@@ -66,6 +66,10 @@ export function createOttoCatalogToolHandlers(
             backends.library!.updateDocument(decodeOttoToolInput("library_update", input)),
           skill_read: async ({ input }) =>
             backends.library!.readSkillFile(decodeOttoToolInput("skill_read", input)),
+          skill_create: async ({ input, responder }) =>
+            backends.library!.proposeSkill(decodeOttoToolInput("skill_create", input), responder),
+          skill_update: async ({ input, responder }) =>
+            backends.library!.updateSkill(decodeOttoToolInput("skill_update", input), responder),
         }
       : {}),
     ...(backends.tasks

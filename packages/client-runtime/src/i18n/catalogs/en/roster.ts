@@ -385,4 +385,13 @@ export const rosterCatalog = {
   "Opening the desktop…": "Opening the desktop…",
   "The desktop did not open.": "The desktop did not open.",
   "Open in a new window": "Open in a new window",
+  "Review skill": "Review skill",
+  "Skill details": "Skill details",
+  "Skill approval": "Skill approval",
+  "A change to a skill": "A change to a skill",
+  "Why: {reason}": "Why: {reason}",
+  "Proposed by": "Proposed by",
+  "{bot} in {chat} · approved by {person}": "{bot} in {chat} · approved by {person}",
+  "{bot} · approved by {person}": "{bot} · approved by {person}",
+  you: "you",
 } as const;

@@ -503,6 +503,7 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
           threadId: command.threadId,
           requestId: command.requestId,
           decision: command.decision,
+          ...(command.responder ? { responder: command.responder } : {}),
           createdAt: command.createdAt,
         },
       };

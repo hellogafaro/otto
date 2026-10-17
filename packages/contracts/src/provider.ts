@@ -11,6 +11,7 @@ import {
   TurnId,
 } from "./base-schemas.ts";
 import { BotSandbox, BotInstructions } from "./orchestration/roster.ts";
+import { ApprovalResponder } from "./orchestration/work.ts";
 import {
   ChatAttachment,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
@@ -137,6 +138,7 @@ export const ProviderRespondToRequestInput = Schema.Struct({
   threadId: ThreadId,
   requestId: ApprovalRequestId,
   decision: ProviderApprovalDecision,
+  responder: Schema.optional(ApprovalResponder),
 });
 
 export type ProviderRespondToRequestInput = typeof ProviderRespondToRequestInput.Type;

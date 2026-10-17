@@ -28,6 +28,8 @@ export const BACKEND_NAMES: Record<
     | "library_read"
     | "library_update"
     | "skill_read"
+    | "skill_create"
+    | "skill_update"
     | "search"
     | "task_read"
     | "task_create"
