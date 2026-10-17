@@ -52,7 +52,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "destination.label) });",
     ],
     "apps/web/src/components/desktop/desktop-tab-strip.tsx": [
-      "place.label)}",
+      "place.label)}</span>",
     ],
     "apps/web/src/components/home/home-page.tsx": [
       "greeting, { name: firstName })",
