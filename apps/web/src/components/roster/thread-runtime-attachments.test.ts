@@ -76,7 +76,7 @@ describe("readThreadTurnAttachments", () => {
   it("builds image attachments with name, size, and data URL", async () => {
     stubFileReader({ result: "data:image/png;base64,AAAA" });
     const file = new File(["png"], "shot.png", { type: "image/png" });
-    await expect(readThreadTurnAttachments([file])).resolves.toEqual([
+    await expect(readThreadTurnAttachments([file], vi.fn())).resolves.toEqual([
       {
         type: "image",
         mimeType: "image/png",
@@ -87,9 +87,25 @@ describe("readThreadTurnAttachments", () => {
     ]);
   });
 
-  it("rejects an unsupported file by name", async () => {
+  it("uploads other files first and names them by their pending id", async () => {
+    const upload = vi.fn(async () => "pending-1");
+    const file = new File(["zip"], "bundle.zip", { type: "application/zip" });
+
+    await expect(readThreadTurnAttachments([file], upload)).resolves.toEqual([
+      {
+        type: "file",
+        mimeType: "application/zip",
+        id: "pending-1",
+        name: "bundle.zip",
+        sizeBytes: 3,
+      },
+    ]);
+    expect(upload).toHaveBeenCalledWith(file, "application/zip");
+  });
+
+  it("rejects an empty file by name", async () => {
     await expect(
-      readThreadTurnAttachments([new File(["x"], "tool.exe", { type: "application/x-msdos" })]),
-    ).rejects.toThrow("This file type is not supported: tool.exe");
+      readThreadTurnAttachments([new File([], "empty.txt", { type: "text/plain" })], vi.fn()),
+    ).rejects.toThrow("This file type is not supported: empty.txt");
   });
 });

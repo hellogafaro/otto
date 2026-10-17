@@ -1,3 +1,4 @@
+import type { UploadChatFileAttachment } from "@otto/contracts";
 import { Predicate } from "effect";
 import { resolveBotFileAttachment } from "./bot-file-attachment";
 
@@ -29,13 +30,34 @@ export function readFileAsDataUrl(file: File, mimeType: string): Promise<string>
   });
 }
 
-/** Turns composer files into turn attachments, rejecting with a readable message on failure. */
-export function readThreadTurnAttachments(files: readonly File[]) {
+/** Stores one file's bytes on the server ahead of the message and resolves to its pending id. */
+export type UploadThreadAttachment = (
+  file: File,
+  mimeType: UploadChatFileAttachment["mimeType"],
+) => Promise<string>;
+
+/**
+ * Turns composer files into turn attachments, rejecting with a readable message on failure.
+ * Images travel inline as data URLs; every other file uploads first and the message names it.
+ */
+export function readThreadTurnAttachments(
+  files: readonly File[],
+  uploadAttachment: UploadThreadAttachment,
+) {
   return Promise.all(
     files.map(async (file) => {
       const attachment = resolveBotFileAttachment(file);
 
       if (!attachment) throw new Error(`This file type is not supported: ${file.name}`);
+
+      if (attachment.type === "file") {
+        return {
+          ...attachment,
+          id: await uploadAttachment(file, attachment.mimeType),
+          name: file.name,
+          sizeBytes: file.size,
+        };
+      }
 
       return {
         ...attachment,

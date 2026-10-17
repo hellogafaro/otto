@@ -72,7 +72,7 @@ export function useLibraryFileUrl(environmentId: EnvironmentId, fileId: LibraryF
  * The HTTP base for upload and download URLs. Subscribing keeps the prepared connection alive
  * even when nothing on the page shows a file yet.
  */
-function useHttpBaseUrl() {
+export function useHttpBaseUrl() {
   const connection = usePreparedConnection(usePrimaryEnvironmentId());
   const ref = useRef<string | null>(null);
   ref.current = hasTag(connection, "None") ? null : connection.value.httpBaseUrl;

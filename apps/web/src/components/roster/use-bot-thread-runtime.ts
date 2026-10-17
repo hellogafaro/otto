@@ -38,6 +38,7 @@ import { useRosterStore } from "./roster-store";
 import { ensureLocalApi } from "../../local-api";
 import { resolveBotFileAttachment } from "./bot-file-attachment";
 import { readThreadTurnAttachments, threadTitle } from "./thread-runtime-attachments";
+import { useThreadAttachmentUpload } from "./use-thread-attachment-upload";
 import { usePlaceholderTitle } from "./use-placeholder-title";
 import { useThreadPendingUserInput } from "./use-thread-pending-user-input";
 import {
@@ -104,6 +105,7 @@ export function useBotThreadRuntime(
   });
 
   const startTurn = useAtomCommand(threadEnvironment.startTurn, { reportFailure: false });
+  const uploadAttachment = useThreadAttachmentUpload();
   const resumeTurnCommand = useAtomCommand(threadEnvironment.resumeTurn, { reportFailure: false });
 
   const appendVoiceTranscript = useAtomCommand(threadEnvironment.appendVoiceTranscript, {
@@ -225,8 +227,6 @@ export function useBotThreadRuntime(
         const title = threadTitle(prompt, files);
 
         try {
-          const attachments = await readThreadTurnAttachments(files);
-
           if (
             files.some((file) => resolveBotFileAttachment(file)?.type === "file") &&
             !readEnvironmentSupportsFileAttachments(activeProject.environmentId)
@@ -235,6 +235,11 @@ export function useBotThreadRuntime(
 
             return false;
           }
+
+          const attachments = await readThreadTurnAttachments(
+            files,
+            uploadAttachment(currentThreadRef.environmentId),
+          );
 
           if (rememberedThread && rememberedThread.runtimeMode !== runtimeMode) {
             const modeResult = await setRuntimeMode({
@@ -314,6 +319,7 @@ export function useBotThreadRuntime(
       answerPendingUserInputWithPrompt,
       pendingUserInputs,
       startTurn,
+      uploadAttachment,
     ],
   );
 

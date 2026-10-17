@@ -33,6 +33,18 @@ const FILE_TYPES = new Map<string, (typeof PROVIDER_SEND_TURN_SUPPORTED_FILE_MIM
   ["toml", "text/toml"],
   ["mp4", "video/mp4"],
   ["webm", "video/webm"],
+  ["doc", "application/msword"],
+  ["docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  ["xls", "application/vnd.ms-excel"],
+  ["xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+  ["ppt", "application/vnd.ms-powerpoint"],
+  ["pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+  ["zip", "application/zip"],
+  ["gz", "application/gzip"],
+  ["tgz", "application/gzip"],
+  ["tar", "application/x-tar"],
+  ["mp3", "audio/mpeg"],
+  ["wav", "audio/wav"],
 ]);
 
 export class ChatFileError extends Schema.TaggedErrorClass<ChatFileError>()("ChatFileError", {
@@ -41,7 +53,7 @@ export class ChatFileError extends Schema.TaggedErrorClass<ChatFileError>()("Cha
 
 /**
  * Saves a file a bot made on its computer as an attachment of this chat, the same way an
- * uploaded file is kept: images, videos, PDFs and text files up to 10 MB.
+ * uploaded file is kept: any file up to 100 MB (images up to 10 MB), typed by its extension.
  */
 export const storeChatFile = Effect.fn("storeChatFile")(function* (
   fs: FileSystem.FileSystem,
@@ -52,21 +64,17 @@ export const storeChatFile = Effect.fn("storeChatFile")(function* (
 ): Effect.fn.Return<ChatAttachment, ChatFileError> {
   const extension = path.extname(file.name).slice(1).toLowerCase();
   const image = IMAGE_TYPES.get(extension);
-  const document = FILE_TYPES.get(extension);
+  const document = FILE_TYPES.get(extension) ?? "application/octet-stream";
   const id = createAttachmentId(threadId);
   const name = file.name.slice(0, 255);
   const sizeBytes = file.bytes.byteLength;
 
-  if (!image && !document) {
-    return yield* new ChatFileError({
-      message: `${file.name} can't be attached: use an image, a video, a PDF or a text file.`,
-    });
-  }
-
   const limit = image ? PROVIDER_SEND_TURN_MAX_IMAGE_BYTES : PROVIDER_SEND_TURN_MAX_FILE_BYTES;
 
   if (sizeBytes > limit) {
-    return yield* new ChatFileError({ message: `${file.name} is larger than 10 MB.` });
+    return yield* new ChatFileError({
+      message: `${file.name} is larger than ${image ? "10 MB" : "100 MB"}.`,
+    });
   }
 
   const attachment: ChatAttachment | null =
@@ -74,7 +82,7 @@ export const storeChatFile = Effect.fn("storeChatFile")(function* (
       ? null
       : image
         ? { type: "image", id, name, mimeType: image, sizeBytes }
-        : { type: "file", id, name, mimeType: document!, sizeBytes };
+        : { type: "file", id, name, mimeType: document, sizeBytes };
 
   const target = attachment && resolveAttachmentPath({ attachmentsDir, attachment });
 

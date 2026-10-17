@@ -23,6 +23,10 @@ const mocks = vi.hoisted(() => ({
   } as BotConversationMessageProjection,
 }));
 
+vi.mock("./use-thread-attachment-upload", () => ({
+  useThreadAttachmentUpload: () => () => async () => "pending-attachment",
+}));
+
 vi.mock("react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react")>();
   const { reactHookHarness } = await import("../../test/react-hook-harness");

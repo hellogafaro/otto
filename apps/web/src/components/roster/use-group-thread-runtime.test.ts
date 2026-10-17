@@ -1,5 +1,9 @@
 import type { RuntimeThreadFixture, RuntimeProjectFixture } from "../test-support/fixtures";
 
+vi.mock("./use-thread-attachment-upload", () => ({
+  useThreadAttachmentUpload: () => () => async () => "pending-attachment",
+}));
+
 vi.mock("./bot-conversation-message-projection", () => ({
   useBotConversationMessageProjection: () => mocks.messageProjection,
 }));

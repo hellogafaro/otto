@@ -11,45 +11,67 @@ import { resolveAttachmentPath } from "../../attachment-store.ts";
 import { storeChatFile } from "./otto-chat-files.ts";
 
 describe("storeChatFile", () => {
-  it.effect("saves images, text files and videos as chat attachments and refuses other files", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const attachmentsDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-chat-files-"));
-      const bytes = new TextEncoder().encode("hello");
+  it.effect(
+    "saves any file as a chat attachment, typed by extension, and refuses one over 100 MB",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
 
-      const image = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
-        name: "shot.PNG",
-        bytes,
-      });
+        const attachmentsDir = NodeFS.mkdtempSync(
+          NodePath.join(NodeOS.tmpdir(), "otto-chat-files-"),
+        );
 
-      const report = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
-        name: "report.md",
-        bytes,
-      });
+        const bytes = new TextEncoder().encode("hello");
 
-      const clip = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
-        name: "clip.mp4",
-        bytes,
-      });
+        const image = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
+          name: "shot.PNG",
+          bytes,
+        });
 
-      const refused = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
-        name: "tool.exe",
-        bytes,
-      }).pipe(Effect.flip);
+        const report = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
+          name: "report.md",
+          bytes,
+        });
 
-      assert.deepStrictEqual(
-        [image.type, image.mimeType, report.type, report.mimeType, clip.type, clip.mimeType],
-        ["image", "image/png", "file", "text/markdown", "file", "video/mp4"],
-      );
+        const clip = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
+          name: "clip.mp4",
+          bytes,
+        });
 
-      for (const attachment of [image, report, clip]) {
-        const saved = resolveAttachmentPath({ attachmentsDir, attachment });
-        assert.strictEqual(saved && NodeFS.readFileSync(saved, "utf8"), "hello");
-      }
+        const office = yield* Effect.forEach(
+          ["sheet.xlsx", "letter.docx", "bundle.zip", "tool.exe"],
+          (name) => storeChatFile(fs, path, attachmentsDir, "thread-1", { name, bytes }),
+        );
 
-      assert.include(refused.message, "can't be attached");
-      NodeFS.rmSync(attachmentsDir, { force: true, recursive: true });
-    }).pipe(Effect.provide(NodeServices.layer)),
+        const refused = yield* storeChatFile(fs, path, attachmentsDir, "thread-1", {
+          name: "huge.zip",
+          bytes: new Uint8Array(100_000_001),
+        }).pipe(Effect.flip);
+
+        assert.deepStrictEqual(
+          [image, report, clip, ...office].map((attachment) => [
+            attachment.type,
+            attachment.mimeType,
+          ]),
+          [
+            ["image", "image/png"],
+            ["file", "text/markdown"],
+            ["file", "video/mp4"],
+            ["file", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+            ["file", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+            ["file", "application/zip"],
+            ["file", "application/octet-stream"],
+          ],
+        );
+
+        for (const attachment of [image, report, clip, ...office]) {
+          const saved = resolveAttachmentPath({ attachmentsDir, attachment });
+          assert.strictEqual(saved && NodeFS.readFileSync(saved, "utf8"), "hello");
+        }
+
+        assert.include(refused.message, "larger than 100 MB");
+        NodeFS.rmSync(attachmentsDir, { force: true, recursive: true });
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

@@ -29,7 +29,7 @@ import { cancelActiveImageGenerations } from "../../../image-generation/image-ge
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
-import { modelReadsFile } from "../../chat-history.ts";
+import { MODEL_FILE_MAX_BYTES, modelReadsAttachment } from "../../chat-history.ts";
 import { taskWakeSignal, taskWakeText } from "../../mastra/otto-task-signals.ts";
 
 import {
@@ -40,6 +40,28 @@ import {
   type LegacyTurnMemoryState,
   type LegacyResourceIdentity,
 } from "./state.ts";
+
+const TEXT_APPLICATION_TYPES = new Set([
+  "application/json",
+  "application/toml",
+  "application/xml",
+  "application/x-yaml",
+]);
+
+type TurnContent =
+  | { readonly pathLine: string }
+  | {
+      readonly pathLine: string;
+      readonly file: {
+        readonly data: string;
+        readonly mediaType: string;
+        readonly filename: string;
+      };
+    }
+  | { readonly pathLine: string; readonly inline: string };
+
+const readsAsText = (mimeType: string) =>
+  mimeType.startsWith("text/") || TEXT_APPLICATION_TYPES.has(mimeType);
 
 export function createTurnRequests(deps: {
   readonly fileSystem: FileSystem.FileSystem;
@@ -93,12 +115,13 @@ export function createTurnRequests(deps: {
     errorMessage?: string,
   ) => void;
 }) {
-  // Text files go inline as decoded text, which every model reads; other files
-  // go as file parts. The path line lets tools open the saved copy.
+  // Images and PDFs go as file parts and text files inline as decoded text, which every model
+  // reads; anything else (video, office files, archives) or anything over 10 MB only as the path
+  // line, which lets tools open the saved copy without the server reading it.
   const readTurnContent = (input: string | undefined, attachments: ReadonlyArray<ChatAttachment>) =>
     Effect.forEach(
       attachments,
-      (attachment) => {
+      (attachment): Effect.Effect<TurnContent, AgentControllerRuntimeError> => {
         const path = resolveAttachmentPath({
           attachmentsDir: deps.config.attachmentsDir,
           attachment,
@@ -111,6 +134,16 @@ export function createTurnRequests(deps: {
               detail: `Attachment '${attachment.id}' has an invalid path.`,
             }),
           );
+        }
+
+        const pathLine = `[Attached ${attachment.type} "${attachment.name}" is saved at: ${path}]`;
+        const asFile = modelReadsAttachment(attachment);
+
+        if (
+          !asFile &&
+          !(readsAsText(attachment.mimeType) && attachment.sizeBytes <= MODEL_FILE_MAX_BYTES)
+        ) {
+          return Effect.succeed({ pathLine });
         }
 
         const readError = (cause: unknown) =>
@@ -129,9 +162,8 @@ export function createTurnRequests(deps: {
         return bytes.pipe(
           Effect.map((bytes) => {
             const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-            const pathLine = `[Attached ${attachment.type} "${attachment.name}" is saved at: ${path}]`;
 
-            if (modelReadsFile(attachment.mimeType)) {
+            if (asFile) {
               return {
                 pathLine,
                 file: {
@@ -141,8 +173,6 @@ export function createTurnRequests(deps: {
                 },
               };
             }
-
-            if (attachment.mimeType.startsWith("video/")) return { pathLine };
 
             const text = buffer.toString("utf8");
 

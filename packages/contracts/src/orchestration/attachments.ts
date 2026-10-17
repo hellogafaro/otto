@@ -7,7 +7,8 @@ export const PROVIDER_SEND_TURN_MAX_ATTACHMENTS = 8;
 
 export const PROVIDER_SEND_TURN_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
-export const PROVIDER_SEND_TURN_MAX_FILE_BYTES = 10 * 1024 * 1024;
+/** Otto: A chat file may be as large as a Library file; files over 10 MB upload by signed URL. */
+export const PROVIDER_SEND_TURN_MAX_FILE_BYTES = 100_000_000;
 
 export const PROVIDER_SEND_TURN_SUPPORTED_IMAGE_MIME_TYPES = [
   "image/gif",
@@ -25,9 +26,25 @@ export function isProviderSendTurnSupportedImageMimeType(mimeType: string): bool
   return PROVIDER_SEND_TURN_SUPPORTED_IMAGE_MIME_TYPE_SET.has(mimeType.toLowerCase());
 }
 
+/**
+ * Otto: Every file a person or bot can attach: the model reads images, PDFs and text, and gets
+ * the rest (office files, archives, audio, anything else as octet-stream) as its saved path.
+ */
 export const PROVIDER_SEND_TURN_SUPPORTED_FILE_MIME_TYPES = [
+  "application/gzip",
   "application/json",
+  "application/msword",
+  "application/octet-stream",
   "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/x-tar",
+  "application/zip",
+  "audio/mpeg",
+  "audio/wav",
   "application/toml",
   "application/xml",
   "application/x-yaml",

@@ -63,6 +63,11 @@ export function createLibraryEnvironmentAtoms<R, E>(
       label: "environment-data:library:create-upload-url",
       tag: WS_METHODS.libraryCreateUploadUrl,
     }),
+    /** A signed URL that takes one chat attachment's bytes before the message that sends it. */
+    createAttachmentUploadUrl: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:attachments:create-upload-url",
+      tag: WS_METHODS.attachmentsCreateUploadUrl,
+    }),
     createDocument: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:library:create-document",
       tag: WS_METHODS.libraryCreateDocument,

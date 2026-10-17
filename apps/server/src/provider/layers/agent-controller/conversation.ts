@@ -27,6 +27,7 @@ import { cancelActiveImageGenerations } from "../../../image-generation/image-ge
 
 import { OttoSessionResources } from "../../otto-session-resources.ts";
 
+import { modelReadsAttachment } from "../../chat-history.ts";
 import { AgentControllerRuntimeError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
@@ -211,26 +212,29 @@ export function createConversation(deps: {
 
     const transcript: MastraDBMessage[] = yield* Effect.forEach(retained, (message) =>
       Effect.gen(function* () {
-        const attachments = yield* Effect.forEach(message.attachments ?? [], (attachment) => {
-          const path = resolveAttachmentPath({
-            attachmentsDir: deps.config.attachmentsDir,
-            attachment,
-          });
+        const attachments = yield* Effect.forEach(
+          (message.attachments ?? []).filter(modelReadsAttachment),
+          (attachment) => {
+            const path = resolveAttachmentPath({
+              attachmentsDir: deps.config.attachmentsDir,
+              attachment,
+            });
 
-          if (path === null)
-            return Effect.fail(
-              attachmentReadError(new Error(`Invalid attachment '${attachment.id}'.`)),
+            if (path === null)
+              return Effect.fail(
+                attachmentReadError(new Error(`Invalid attachment '${attachment.id}'.`)),
+              );
+
+            return deps.fileSystem.readFile(path).pipe(
+              Effect.map((bytes) => ({
+                name: attachment.name,
+                contentType: attachment.mimeType,
+                url: `data:${attachment.mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
+              })),
+              Effect.mapError(attachmentReadError),
             );
-
-          return deps.fileSystem.readFile(path).pipe(
-            Effect.map((bytes) => ({
-              name: attachment.name,
-              contentType: attachment.mimeType,
-              url: `data:${attachment.mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
-            })),
-            Effect.mapError(attachmentReadError),
-          );
-        });
+          },
+        );
 
         return yield* Effect.try({
           try: () => ({

@@ -33,6 +33,7 @@ import { groupContainsBot } from "./roster.logic";
 import { useRosterStore } from "./roster-store";
 import { resolveBotFileAttachment } from "./bot-file-attachment";
 import { readThreadTurnAttachments, threadTitle } from "./thread-runtime-attachments";
+import { useThreadAttachmentUpload } from "./use-thread-attachment-upload";
 import { usePlaceholderTitle } from "./use-placeholder-title";
 import { useThreadPendingUserInput } from "./use-thread-pending-user-input";
 import { groupModelSelection } from "./group-thread-model.logic";
@@ -94,6 +95,7 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
   });
 
   const startTurn = useAtomCommand(threadEnvironment.startTurn, { reportFailure: false });
+  const uploadAttachment = useThreadAttachmentUpload();
   const resumeTurnCommand = useAtomCommand(threadEnvironment.resumeTurn, { reportFailure: false });
   const groupReady = serverGroups.some((candidate) => candidate.id === groupId);
   const sendQueueRef = useRef(createBotTurnSubmissionQueue());
@@ -251,8 +253,12 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
         const runtimeMode = DEFAULT_BOT_RUNTIME_MODE;
 
         try {
-          const attachments = await readThreadTurnAttachments(files);
           const environmentId = currentThreadRef.environmentId;
+
+          const attachments = await readThreadTurnAttachments(
+            files,
+            uploadAttachment(environmentId),
+          );
 
           if (rememberedThread?.runtimeMode !== runtimeMode) {
             const modeResult = await setRuntimeMode({
@@ -326,6 +332,7 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
       setRuntimeMode,
       startTurn,
       titleFromFirstMessage,
+      uploadAttachment,
     ],
   );
 

@@ -24,6 +24,14 @@ const decodeCheckpoint = Schema.decodeUnknownOption(
 export const modelReadsFile = (mediaType: string) =>
   mediaType.startsWith("image/") || mediaType === "application/pdf";
 
+/** Providers refuse larger inputs, so a bigger attachment reaches the model only as its path. */
+export const MODEL_FILE_MAX_BYTES = 10 * 1024 * 1024;
+
+export const modelReadsAttachment = (attachment: {
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+}) => modelReadsFile(attachment.mimeType) && attachment.sizeBytes <= MODEL_FILE_MAX_BYTES;
+
 /**
  * Otto: A file the model can't read, saved in an older turn, would fail every later turn that
  * replays it. Its path line stays in the message text, so the bot can still open it.
