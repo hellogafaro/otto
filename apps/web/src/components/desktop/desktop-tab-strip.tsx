@@ -208,7 +208,7 @@ export function DesktopTabStrip() {
               }}
               onDragEnd={() => setDragIndex(null)}
               className={cn(
-                "group/tab flex h-7 w-48 min-w-20 shrink items-center rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
+                "group/tab flex h-7 max-w-48 min-w-20 shrink items-center rounded-md app-region-no-drag transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) motion-reduce:transition-none",
                 active
                   ? "bg-card text-sidebar-foreground shadow-xs ring-1 ring-sidebar-border/70"
                   : "text-sidebar-muted-foreground hover:bg-sidebar-wash hover:text-sidebar-foreground",
@@ -219,7 +219,10 @@ export function DesktopTabStrip() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => show(activateDesktopTab(tab.id))}
-                className="flex h-full min-w-0 flex-1 cursor-default items-center gap-1.5 rounded-md pl-2 text-13px font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={cn(
+                  "flex h-full min-w-0 flex-1 cursor-default items-center gap-1.5 rounded-md text-13px font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring",
+                  tabs.length > 1 ? "pl-2" : "px-2",
+                )}
               >
                 <AppIcon icon={place.icon} className="size-3.5 shrink-0" />
                 <span className="truncate">
