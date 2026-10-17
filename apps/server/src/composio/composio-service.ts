@@ -1,7 +1,9 @@
+import * as NodeCrypto from "node:crypto";
 import * as Match from "effect/Match";
 import * as Predicate from "effect/Predicate";
 import { Composio } from "@composio/core";
 import {
+  ComposioLabelTakenError,
   ComposioOperationError,
   type ComposioAuthorizeInput,
   type ComposioAuthorizeResult,
@@ -88,6 +90,8 @@ export interface ComposioAccountRecord {
   readonly connectionId: string;
   readonly createdBy: string | null;
   readonly createdByName: string | null;
+  /** The label the person typed. Older accounts have none and show Composio's bare alias. */
+  readonly label: string | null;
   readonly visibility: ComposioVisibility;
   /** Per-bot choices that differ from the default, by bot id. */
   readonly botAccess: Readonly<Record<string, boolean>>;
@@ -140,9 +144,30 @@ export function composioAccountServesBot(
   return choice ?? composioAccountVisibleTo(record, bot.ownerPersonId);
 }
 
+const isLabelTaken = Schema.is(ComposioLabelTakenError);
+
 const decodeBotAccess = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.Boolean)),
 );
+
+/** What people see an account called: the label they typed, else an older account's bare alias. */
+function accountLabel(
+  record: ComposioAccountRecord | undefined,
+  connection: { readonly alias?: string | undefined },
+): string | undefined {
+  return record?.label ?? connection.alias;
+}
+
+/**
+ * The alias Composio gets. Everyone shares one Composio user, which needs aliases unique per
+ * app, so this one carries its owner: their name for bots to read, and a short tag from their
+ * person id because two people can share a name.
+ */
+export function composioAccountAlias(viewer: ComposioViewer, label: string): string {
+  const tag = NodeCrypto.createHash("sha256").update(viewer.personId).digest("hex").slice(0, 6);
+
+  return `${viewer.displayName} · ${label} · ${tag}`;
+}
 
 function manageableBy(record: ComposioAccountRecord | undefined, personId: string): boolean {
   return record === undefined || record.createdBy === null || record.createdBy === personId;
@@ -158,7 +183,7 @@ export function inMemoryComposioAccounts(): ComposioAccountStore {
   };
 }
 
-const sqlComposioAccounts = Effect.gen(function* () {
+export const sqlComposioAccounts = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const fail = (operation: string) => (cause: unknown) => operationError(operation, cause);
 
@@ -167,15 +192,17 @@ const sqlComposioAccounts = Effect.gen(function* () {
       readonly connection_id: string;
       readonly created_by: string | null;
       readonly created_by_name: string | null;
+      readonly label: string | null;
       readonly visibility: ComposioVisibility;
       readonly bot_access_json: string;
-    }>`SELECT connection_id, created_by, created_by_name, visibility, bot_access_json FROM composio_accounts`.pipe(
+    }>`SELECT connection_id, created_by, created_by_name, label, visibility, bot_access_json FROM composio_accounts`.pipe(
       Effect.map((rows) =>
         rows.map(
           (row): ComposioAccountRecord => ({
             connectionId: row.connection_id,
             createdBy: row.created_by,
             createdByName: row.created_by_name,
+            label: row.label,
             visibility: row.visibility,
             botAccess: Option.getOrElse(decodeBotAccess(row.bot_access_json), () => ({})),
           }),
@@ -185,13 +212,14 @@ const sqlComposioAccounts = Effect.gen(function* () {
     ),
     save: (record) =>
       sql`
-        INSERT INTO composio_accounts (connection_id, created_by, created_by_name, visibility, bot_access_json, created_at)
-        VALUES (${record.connectionId}, ${record.createdBy}, ${record.createdByName}, ${record.visibility}, ${JSON.stringify(record.botAccess)}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        INSERT INTO composio_accounts (connection_id, created_by, created_by_name, label, visibility, bot_access_json, created_at)
+        VALUES (${record.connectionId}, ${record.createdBy}, ${record.createdByName}, ${record.label}, ${record.visibility}, ${JSON.stringify(record.botAccess)}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         ON CONFLICT (connection_id) DO UPDATE SET
           visibility = excluded.visibility,
           bot_access_json = excluded.bot_access_json,
           created_by = COALESCE(composio_accounts.created_by, excluded.created_by),
-          created_by_name = COALESCE(composio_accounts.created_by_name, excluded.created_by_name)
+          created_by_name = COALESCE(composio_accounts.created_by_name, excluded.created_by_name),
+          label = COALESCE(composio_accounts.label, excluded.label)
       `.pipe(Effect.asVoid, Effect.mapError(fail("save the account owner"))),
     remove: (connectionId) =>
       sql`DELETE FROM composio_accounts WHERE connection_id = ${connectionId}`.pipe(
@@ -218,7 +246,7 @@ export interface ComposioServiceShape {
   readonly authorize: (
     input: ComposioAuthorizeInput,
     viewer: ComposioViewer,
-  ) => Effect.Effect<ComposioAuthorizeResult, ComposioOperationError>;
+  ) => Effect.Effect<ComposioAuthorizeResult, ComposioOperationError | ComposioLabelTakenError>;
   readonly disconnect: (
     connectionId: string,
     viewer: ComposioViewer,
@@ -463,9 +491,12 @@ export function make(
           const mine = record?.createdBy === viewer.personId;
           const app = apps.get(connection.toolkitSlug);
 
+          const alias = accountLabel(record, connection);
+
           return [
             {
               ...connection,
+              ...(alias ? { alias } : {}),
               ...(app ? { toolkitName: app.name } : {}),
               ...(app?.logoUrl ? { logoUrl: app.logoUrl } : {}),
               visibility: record?.visibility ?? "organization",
@@ -543,67 +574,128 @@ export function make(
       };
     });
 
-  const authorize: ComposioServiceShape["authorize"] = (input, viewer) =>
-    withClient("start account authorization", async (client, userId) => {
-      await invalidateHostedSessions();
-
-      const session = await client.sessions.create(userId, {
-        mcp: true,
-        toolkits: [input.toolkitSlug],
-        manageConnections: true,
-        multiAccount: { enable: true, maxAccountsPerToolkit: 10 },
-      });
-
-      const deleteSession = () => session.delete().then(() => undefined);
-      pendingHostedSessionDeletes.add(deleteSession);
-
-      const authorization = await session
-        .authorize(input.toolkitSlug, input.alias ? { alias: input.alias } : undefined)
-        .then((request) => {
-          if (!request.redirectUrl) {
-            throw new Error("Composio did not return an authorization URL.");
-          }
-
-          return { connectionId: request.id, redirectUrl: request.redirectUrl };
-        })
-        .then(
-          (value) => ({ ok: true as const, value }),
-          (cause: unknown) => ({ ok: false as const, error: cause }),
-        );
-
-      const cleanup = await deletePendingHostedSession(deleteSession).then(
-        () => ({ ok: true as const }),
-        (cause: unknown) => ({ ok: false as const, error: cause }),
+  /**
+   * Refuses a label the person already gave one of their accounts for this app, and returns the
+   * refusal for a conflict Composio reports itself.
+   */
+  const claimLabel = (toolkitSlug: string, label: string, personId: string) =>
+    Effect.gen(function* () {
+      const records = new Map(
+        (yield* accounts.list).map((record) => [record.connectionId, record]),
       );
 
-      if (!authorization.ok) {
-        if (!cleanup.ok) {
-          throw new AggregateError(
-            [authorization.error, cleanup.error],
-            "Composio authorization and hosted-session cleanup both failed.",
-            { cause: authorization.error },
+      const [connections, toolkits] = yield* withClient(
+        "check your account labels",
+        (client, userId) =>
+          Promise.all([
+            listConnections(client, userId),
+            loadCatalog(client).catch((): readonly ComposioToolkit[] => []),
+          ]),
+      );
+
+      const toolkitName =
+        toolkits.find((toolkit) => toolkit.slug === toolkitSlug)?.name ?? toolkitSlug;
+
+      const taken = new ComposioLabelTakenError({
+        toolkitSlug,
+        label,
+        message: `You already have an account called ${label} for ${toolkitName}.`,
+      });
+
+      const used = connections.some((connection) => {
+        const record = records.get(connection.id);
+
+        return (
+          connection.toolkitSlug === toolkitSlug &&
+          record?.createdBy === personId &&
+          accountLabel(record, connection)?.toLowerCase() === label.toLowerCase()
+        );
+      });
+
+      return used ? yield* taken : taken;
+    });
+
+  const authorize: ComposioServiceShape["authorize"] = (input, viewer) =>
+    Effect.gen(function* () {
+      const label = input.alias;
+
+      const labelTaken =
+        label === undefined
+          ? undefined
+          : yield* claimLabel(input.toolkitSlug, label, viewer.personId);
+
+      const authorization = yield* withClient(
+        "start account authorization",
+        async (client, userId) => {
+          await invalidateHostedSessions();
+
+          const session = await client.sessions.create(userId, {
+            mcp: true,
+            toolkits: [input.toolkitSlug],
+            manageConnections: true,
+            multiAccount: { enable: true, maxAccountsPerToolkit: 10 },
+          });
+
+          const deleteSession = () => session.delete().then(() => undefined);
+          pendingHostedSessionDeletes.add(deleteSession);
+
+          const authorization = await session
+            .authorize(
+              input.toolkitSlug,
+              label === undefined ? undefined : { alias: composioAccountAlias(viewer, label) },
+            )
+            .then((request) => {
+              if (!request.redirectUrl) {
+                throw new Error("Composio did not return an authorization URL.");
+              }
+
+              return { connectionId: request.id, redirectUrl: request.redirectUrl };
+            })
+            .then(
+              (value) => ({ ok: true as const, value }),
+              (cause: unknown) => ({ ok: false as const, error: cause }),
+            );
+
+          const cleanup = await deletePendingHostedSession(deleteSession).then(
+            () => ({ ok: true as const }),
+            (cause: unknown) => ({ ok: false as const, error: cause }),
           );
-        }
 
-        throw authorization.error;
-      }
+          if (!authorization.ok) {
+            if (!cleanup.ok) {
+              throw new AggregateError(
+                [authorization.error, cleanup.error],
+                "Composio authorization and hosted-session cleanup both failed.",
+                { cause: authorization.error },
+              );
+            }
 
-      if (!cleanup.ok) {
-        throw cleanup.error;
-      }
+            if (labelTaken && composioStatus(authorization.error) === 409) return labelTaken;
 
-      return authorization.value;
-    }).pipe(
-      Effect.tap(({ connectionId }) =>
-        accounts.save({
-          connectionId,
-          createdBy: viewer.personId,
-          createdByName: viewer.displayName,
-          visibility: input.visibility ?? "user",
-          botAccess: {},
-        }),
-      ),
-    );
+            throw authorization.error;
+          }
+
+          if (!cleanup.ok) {
+            throw cleanup.error;
+          }
+
+          return authorization.value;
+        },
+      );
+
+      if (isLabelTaken(authorization)) return yield* authorization;
+
+      yield* accounts.save({
+        connectionId: authorization.connectionId,
+        createdBy: viewer.personId,
+        createdByName: viewer.displayName,
+        label: label ?? null,
+        visibility: input.visibility ?? "user",
+        botAccess: {},
+      });
+
+      return authorization;
+    });
 
   const requireManageable = (connectionId: string, personId: string) =>
     accounts.list.pipe(
@@ -642,6 +734,7 @@ export function make(
         createdBy: record?.createdBy ?? (input.visibility === undefined ? null : viewer.personId),
         createdByName:
           record?.createdByName ?? (input.visibility === undefined ? null : viewer.displayName),
+        label: record?.label ?? null,
         visibility: input.visibility ?? record?.visibility ?? "organization",
         botAccess,
       });

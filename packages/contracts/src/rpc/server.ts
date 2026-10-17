@@ -187,6 +187,7 @@ import {
   ComposioAuthorizeResult,
   ComposioDisconnectInput,
   ComposioUpdateConnectionInput,
+  ComposioLabelTakenError,
   ComposioOperationError,
   ComposioStatus,
   ComposioToolkit,
@@ -296,7 +297,11 @@ export const WsComposioGetToolkitRpc = Rpc.make(WS_METHODS.composioGetToolkit, {
 export const WsComposioAuthorizeRpc = Rpc.make(WS_METHODS.composioAuthorize, {
   payload: ComposioAuthorizeInput,
   success: ComposioAuthorizeResult,
-  error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
+  error: Schema.Union([
+    ComposioOperationError,
+    ComposioLabelTakenError,
+    EnvironmentAuthorizationError,
+  ]),
 });
 
 export const WsComposioDisconnectRpc = Rpc.make(WS_METHODS.composioDisconnect, {
