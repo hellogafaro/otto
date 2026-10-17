@@ -1,0 +1,227 @@
+# Otto: publishes the signed, notarized macOS arm64 app as a GitHub release of this repository.
+# Every push to main that changes more than docs releases a beta, and a pushed vX.Y.Z tag releases
+# stable. A manual run releases a beta, or promotes the latest beta's commit to stable.
+# See deploy/desktop-mac/README.md.
+
+name: Release macOS app
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+      - "!v*-beta.*"
+    # Tag pushes ignore path filters, so these only skip docs-only pushes to main.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel. Stable builds the commit of the latest published beta.
+        required: true
+        default: beta
+        type: choice
+        options:
+          - beta
+          - stable
+      version:
+        description: Stable version (X.Y.Z). Defaults to the version the latest beta previews.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# One beta publishes at a time: a newer push replaces a beta run that is still waiting, and a beta
+# that has started is never cancelled. Every stable run gets its own group, so nothing cancels it.
+concurrency:
+  group: ${{ ((github.event_name == 'push' && github.ref_type == 'branch') || inputs.channel == 'beta') && 'release-mac-beta' || format('release-mac-stable-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      publish: ${{ steps.resolve.outputs.publish }}
+      version: ${{ steps.resolve.outputs.version }}
+      ref: ${{ steps.resolve.outputs.ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@8a7496fd44e8a1b0a88a7459e36213b2fefc1d15 # v1
+        with:
+          node-version-file: package.json
+          cache: false
+          run-install: false
+
+      - id: resolve
+        name: Resolve channel, version and commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_CHANNEL: ${{ inputs.channel }}
+          DISPATCH_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          fail() { printf '::error::%s\n' "$*"; exit 1; }
+
+          case "$GITHUB_EVENT_NAME:$GITHUB_REF_TYPE" in
+            push:tag) channel=stable ;;
+            push:branch) channel=beta ;;
+            workflow_dispatch:*)
+              [[ "$GITHUB_REF" == refs/heads/main ]] || fail "Run this workflow from main, not $GITHUB_REF."
+              channel="$DISPATCH_CHANNEL"
+              ;;
+            *) fail "Unsupported event $GITHUB_EVENT_NAME." ;;
+          esac
+
+          latest_beta="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 100 \
+            --json tagName,publishedAt \
+            --jq '[.[] | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+-beta\\."))] | sort_by(.publishedAt) | last | .tagName // ""')"
+
+          if [[ "$channel" == beta ]]; then
+            previous_sha=-
+            [[ -z "$latest_beta" ]] || previous_sha="$(git rev-list -n 1 "$latest_beta")"
+            latest_stable="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)"
+            latest_stable="${latest_stable#v}"
+            [[ "$latest_stable" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || latest_stable=-
+            package_version="$(node -p "require('./apps/desktop/package.json').version")"
+
+            node scripts/beta-release.ts "$package_version" "$latest_stable" "$GITHUB_SHA" \
+              "$previous_sha" "$(date -u +%Y%m%d)" "$GITHUB_RUN_NUMBER"
+            printf 'ref=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+            if grep -q '^publish=false$' "$GITHUB_OUTPUT"; then
+              printf '::notice::main has not changed since %s, so no beta is due.\n' "$latest_beta"
+            fi
+
+            exit 0
+          fi
+
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            ref="$GITHUB_SHA"
+            version="${GITHUB_REF_NAME#v}"
+          else
+            [[ -n "$latest_beta" ]] ||
+              fail "No published beta. A manual stable release builds the latest beta's commit."
+            ref="$(git rev-list -n 1 "$latest_beta")"
+            beta_version="${latest_beta#v}"
+            version="${DISPATCH_VERSION#v}"
+            version="${version:-${beta_version%%-*}}"
+            printf '::notice::Stable %s builds %s, the commit %s shipped.\n' "$version" "$ref" "$latest_beta"
+          fi
+
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Stable version $version is not X.Y.Z."
+          git merge-base --is-ancestor "$ref" origin/main || fail "Release commit $ref is not on main."
+          printf 'publish=true\nversion=%s\nref=%s\n' "$version" "$ref" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Build, notarize and publish
+    needs: resolve
+    if: needs.resolve.outputs.publish == 'true'
+    runs-on: macos-26
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+
+      - name: Check signing secrets
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          missing=()
+          for name in MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY_P8 APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::Add these repository secrets: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+      - name: Select Xcode
+        shell: bash
+        run: |
+          developer_dir="$(xcode-select -p)"
+          xcode_major="$(xcodebuild -version | awk 'NR == 1 { split($2, part, "."); print part[1] }')"
+          if (( xcode_major < 26 )); then
+            printf '::error::The runner selects Xcode %s; the release needs Xcode 26 or newer.\n' "$xcode_major"
+            exit 1
+          fi
+          xcrun --sdk macosx --show-sdk-path
+          printf 'DEVELOPER_DIR=%s\n' "$developer_dir" >> "$GITHUB_ENV"
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@8a7496fd44e8a1b0a88a7459e36213b2fefc1d15 # v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+
+      - name: Install desktop dependencies
+        run: vp install --frozen-lockfile --filter=@otto/desktop... --filter=otto... --filter=@otto/scripts...
+
+      - name: Import Developer ID certificate into a temporary keychain
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/otto-signing.keychain-db"
+          certificate="$RUNNER_TEMP/otto-signing.p12"
+          keychain_password="$(openssl rand -base64 32)"
+          printf '::add-mask::%s\n' "$keychain_password"
+          (umask 077 && printf '%s' "$MACOS_CERTIFICATE_P12" | base64 --decode > "$certificate")
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -f pkcs12 \
+            -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$certificate"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
+          read -r -a keychains < <(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
+          security list-keychains -d user -s "$keychain" "${keychains[@]}"
+          printf 'SIGNING_KEYCHAIN=%s\n' "$keychain" >> "$GITHUB_ENV"
+
+      - name: Write App Store Connect API key
+        shell: bash
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          (umask 077 && printf '%s\n' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/notarytool-api-key.p8")
+          chmod 600 "$RUNNER_TEMP/notarytool-api-key.p8"
+
+      - name: Build, notarize and publish ${{ needs.resolve.outputs.version }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLE_API_KEY: ${{ runner.temp }}/notarytool-api-key.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: bash scripts/release-desktop-mac.sh --version "$RELEASE_VERSION"
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/notarytool-api-key.p8" "$RUNNER_TEMP/otto-signing.p12"
+          if [[ -n "${SIGNING_KEYCHAIN:-}" ]]; then security delete-keychain "$SIGNING_KEYCHAIN" || true; fi
