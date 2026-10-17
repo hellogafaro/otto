@@ -97,10 +97,9 @@ export async function createRemoteBotWorkspace(
       : await connect(input.sandbox, input.workspaceId, input.environment, persisted?.providerId);
   } catch (cause) {
     if (!persisted) throw cause;
-    throw new Error(
-      `Remote ${input.sandbox} workspace '${persisted.providerId}' is missing or unavailable. Remove '${identityFile}' to create a replacement.`,
-      { cause },
-    );
+    throw new Error(`Remote ${input.sandbox} workspace '${persisted.providerId}' is unavailable.`, {
+      cause,
+    });
   }
 
   if (!persisted || persisted.providerId !== session.providerId) {
@@ -145,7 +144,8 @@ async function connect(
   environment: Readonly<Record<string, string>> = {},
   providerId?: string,
 ): Promise<OttoRemoteSession> {
-  const reattach = providerId ? { sandboxId: providerId, reattach: "required" as const } : {};
+  // A confirmed-missing VM is replaced; any other failure keeps the saved identity.
+  const reattach = providerId ? { sandboxId: providerId } : {};
 
   if (provider === "e2b") {
     const { E2BSandbox } = await import("@mastra/e2b");

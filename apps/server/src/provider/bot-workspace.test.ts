@@ -408,7 +408,7 @@ describe("Boat", () => {
       );
       expect(first.providerId).toBe("boat-id");
       get.mockRejectedValueOnce(new Error("VM unavailable"));
-      await expect(createRemoteBotWorkspace(input)).rejects.toThrow("missing or unavailable");
+      await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
       expect(create).toHaveBeenCalledOnce();
       const second = await createRemoteBotWorkspace(input);
       expect(create).toHaveBeenCalledOnce();
@@ -474,7 +474,7 @@ describe("Boat", () => {
 
         if (status === 404) {
           create.mockRejectedValueOnce(new Error("creation unavailable"));
-          await expect(createRemoteBotWorkspace(input)).rejects.toThrow("missing or unavailable");
+          await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
           expect(JSON.parse(await NodeFS.promises.readFile(identityFile, "utf8"))).toEqual(
             previous,
           );
@@ -488,7 +488,7 @@ describe("Boat", () => {
             createSandboxRequest: { ttlSeconds: null, noEnv: true },
           });
         } else {
-          await expect(createRemoteBotWorkspace(input)).rejects.toThrow("missing or unavailable");
+          await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
           expect(create).not.toHaveBeenCalled();
           expect(JSON.parse(await NodeFS.promises.readFile(identityFile, "utf8"))).toEqual(
             previous,
@@ -688,7 +688,7 @@ describe("createBotWorkspace", () => {
     NodeFS.rmSync(baseDir, { recursive: true, force: true });
   });
 
-  it("fails closed when a persisted remote workspace is missing", async () => {
+  it("keeps the saved identity when a persisted remote workspace is unavailable", async () => {
     const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-missing-"));
     const identityFile = NodePath.join(baseDir, "provider.json");
     NodeFS.writeFileSync(
@@ -705,8 +705,60 @@ describe("createBotWorkspace", () => {
         identityFile,
         openSession: async () => Promise.reject(new Error("not found")),
       }),
-    ).rejects.toThrow(`Remove '${identityFile}' to create a replacement`);
+    ).rejects.toThrow("Remote vercel workspace 'missing-id' is unavailable.");
     expect(NodeFS.existsSync(identityFile)).toBe(true);
     NodeFS.rmSync(baseDir, { recursive: true, force: true });
+  });
+
+  it("replaces a Railway VM that Railway no longer has instead of failing every start", async () => {
+    const { RailwaySandbox } = await import("@mastra/railway");
+    const { SandboxNotFoundError } = await import("railway");
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-railway-stale-"));
+    const identityFile = NodePath.join(baseDir, "provider.json");
+    NodeFS.writeFileSync(
+      identityFile,
+      `${JSON.stringify({ provider: "railway", providerId: "gone-id" })}\n`,
+    );
+
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ data: { projectToken: null } }));
+
+    const internals: {
+      _reconnectSandbox: () => Promise<{ readonly id: string }>;
+      _createNewSandbox: () => Promise<{ readonly id: string; readonly status: string }>;
+    } = Object.getPrototypeOf(new RailwaySandbox({ id: "probe" }));
+
+    const reconnect = vi
+      .spyOn(internals, "_reconnectSandbox")
+      .mockRejectedValue(new SandboxNotFoundError({ id: "gone-id", environmentId: "env" }));
+
+    const create = vi
+      .spyOn(internals, "_createNewSandbox")
+      .mockResolvedValue({ id: "fresh-id", status: "RUNNING" });
+
+    try {
+      const workspace = await createRemoteBotWorkspace({
+        io: workspaceIO,
+        threadId: "thread-railway",
+        sandbox: "railway",
+        workspaceId: "otto-railway-id",
+        identityFile,
+        environment: { RAILWAY_API_TOKEN: "token", RAILWAY_ENVIRONMENT_ID: "env" },
+      });
+
+      expect(reconnect).toHaveBeenCalledOnce();
+      expect(create).toHaveBeenCalledOnce();
+      expect(workspace.providerId).toBe("fresh-id");
+      expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toEqual({
+        provider: "railway",
+        providerId: "fresh-id",
+      });
+    } finally {
+      fetchSpy.mockRestore();
+      reconnect.mockRestore();
+      create.mockRestore();
+      NodeFS.rmSync(baseDir, { recursive: true, force: true });
+    }
   });
 });
