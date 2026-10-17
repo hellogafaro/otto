@@ -1,7 +1,12 @@
 import { describe } from "vite-plus/test";
 import * as NodeFS from "node:fs";
-import { afterEach, expect, it } from "vite-plus/test";
-import { BotId, ThreadId, type OttoToolReceipt } from "@otto/contracts";
+import { afterEach, expect, it, vi } from "vite-plus/test";
+import {
+  BotId,
+  PROVIDER_SEND_TURN_MAX_FILE_BYTES,
+  ThreadId,
+  type OttoToolReceipt,
+} from "@otto/contracts";
 import { createOttoToolRuntime } from "./otto-tool-runtime.ts";
 import { makeOttoToolRuntimeTestSupport } from "./test-support/otto-tool-runtime.ts";
 
@@ -194,5 +199,42 @@ describe("OttoToolRuntime", () => {
 
     await expect(runtime.execute(execution)).resolves.toMatchObject({ phase: "failure" });
     expect(receipts.map((receipt) => receipt.phase)).toEqual(["start", "failure"]);
+  });
+  it("checks attached file sizes before reading any of their bytes", async () => {
+    const computer = workspace("oversized-attachment");
+    const root = workspaceRoot(computer);
+    NodeFS.writeFileSync(`${root}/small.txt`, "ok");
+    NodeFS.writeFileSync(`${root}/huge.bin`, "");
+    NodeFS.truncateSync(`${root}/huge.bin`, PROVIDER_SEND_TURN_MAX_FILE_BYTES + 1);
+    const readFile = vi.spyOn(computer.filesystem!, "readFile");
+    const postToChat = vi.fn();
+    const runtime = createOttoToolRuntime({ now: () => "2026-09-01T00:00:00.000Z" });
+
+    const execution = {
+      threadId: "thread-1",
+      toolId: "message_post" as const,
+      toolCallId: "tool-oversized-attachment",
+      input: {
+        text: "Attached.",
+        files: [{ path: "small.txt" }, { path: "huge.bin" }],
+      },
+      approvalMode: "require-grant" as const,
+    };
+
+    runtime.registerSession("thread-1", {
+      botId: BotId.make("parent"),
+      runtimeMode: "full-access",
+      workspaceType: "local",
+      workspace: computer,
+      postToChat,
+    });
+    runtime.grantApproval(execution);
+
+    await expect(runtime.execute(execution)).resolves.toMatchObject({
+      phase: "failure",
+      summary: "huge.bin is larger than 100 MB.",
+    });
+    expect(readFile.mock.calls.map(([path]) => path)).toEqual(["small.txt"]);
+    expect(postToChat).not.toHaveBeenCalled();
   });
 });

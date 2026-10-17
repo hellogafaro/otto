@@ -12,6 +12,7 @@ import {
   filterOttoTools,
   OttoDelegationContextTooLongError,
   OttoDelegationProviderUnsupportedError,
+  PROVIDER_SEND_TURN_MAX_FILE_BYTES,
 } from "@otto/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
@@ -366,19 +367,24 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           failureCode = "internal";
 
           try {
-            const files = await Promise.all(
-              (execution.input.files ?? []).map(async ({ path }) => {
-                const filesystem = session.workspace?.filesystem;
+            const files: Array<{ readonly name: string; readonly bytes: Buffer }> = [];
 
-                if (!filesystem) throw new Error("Attaching files needs your computer.");
-                const bytes = await filesystem.readFile(path);
+            for (const { path } of execution.input.files ?? []) {
+              const filesystem = session.workspace?.filesystem;
 
-                return {
-                  name: path.split("/").at(-1) ?? path,
-                  bytes: Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes),
-                };
-              }),
-            );
+              if (!filesystem) throw new Error("Attaching files needs your computer.");
+              const name = path.split("/").at(-1) ?? path;
+              const stat = await filesystem.stat(path);
+
+              if (stat.type !== "file") throw new Error(`${name} is not a file.`);
+
+              if (stat.size > PROVIDER_SEND_TURN_MAX_FILE_BYTES) {
+                throw new Error(`${name} is larger than 100 MB.`);
+              }
+
+              const bytes = await filesystem.readFile(path);
+              files.push({ name, bytes: Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes) });
+            }
 
             result = await session.postToChat({ text: execution.input.text, files });
           } catch (cause) {
