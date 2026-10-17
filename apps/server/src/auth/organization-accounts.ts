@@ -140,6 +140,7 @@ export const layer = Layer.effect(
                     email: session.user.email,
                     firstName: session.user.firstName,
                     lastName: session.user.lastName,
+                    image: session.user.image ?? null,
                     emailVerified: session.user.emailVerified,
                   }
                 : null,
