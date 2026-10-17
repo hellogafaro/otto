@@ -462,6 +462,7 @@ export function OrganizationAccountGate({
               >
                 {codeStep ? (
                   <InputOTP
+                    containerClassName="w-full"
                     autoFocus
                     maxLength={6}
                     inputMode="numeric"
@@ -473,9 +474,9 @@ export function OrganizationAccountGate({
                     onChange={setCode}
                     onComplete={() => void form.handleSubmit()}
                   >
-                    <InputOTPGroup>
+                    <InputOTPGroup className="w-full">
                       {[0, 1, 2, 3, 4, 5].map((index) => (
-                        <InputOTPSlot key={index} index={index} />
+                        <InputOTPSlot key={index} index={index} className="flex-1" />
                       ))}
                     </InputOTPGroup>
                   </InputOTP>
