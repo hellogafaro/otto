@@ -603,6 +603,6 @@ export const connectionsCatalog = {
   "Bots run on this computer until you add a sandbox.":
     "Bots run on this computer until you add a sandbox.",
   "Default sandbox couldn't be saved": "Default sandbox couldn't be saved",
-  "Bots can use the in-app browser for research and previews.":
-    "Bots can use the in-app browser for research and previews.",
+  "Bots can use a browser on their own computer when you mention @browser.":
+    "Bots can use a browser on their own computer when you mention @browser.",
 } as const;

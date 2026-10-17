@@ -220,8 +220,6 @@ export const rosterCatalog = {
   "Turn on {name} for this bot": "为此机器人开启 {name}",
   "Name your bot": "为你的机器人命名",
   "Set up how this bot works with you.": "设置这个机器人与你协作的方式。",
-  "Allow bots to use the in-app browser for research, previews, and interactive web tasks.":
-    "允许机器人使用应用内浏览器进行调研、预览和交互式网页任务。",
   "Otto does not recognize this condition yet. It can still be saved, but it may not match unless the runtime provides it.":
     "Otto 暂时无法识别此条件。它仍然可以保存，但除非运行时提供该条件，否则可能不会匹配。",
   "Negate group": "取反条件组",

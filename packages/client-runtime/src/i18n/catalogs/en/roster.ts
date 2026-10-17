@@ -231,8 +231,6 @@ export const rosterCatalog = {
   "Turn on {name} for this bot": "Turn on {name} for this bot",
   "Name your bot": "Name your bot",
   "Set up how this bot works with you.": "Set up how this bot works with you.",
-  "Allow bots to use the in-app browser for research, previews, and interactive web tasks.":
-    "Allow bots to use the in-app browser for research, previews, and interactive web tasks.",
   "Otto does not recognize this condition yet. It can still be saved, but it may not match unless the runtime provides it.":
     "Otto does not recognize this condition yet. It can still be saved, but it may not match unless the runtime provides it.",
   "Negate group": "Negate group",

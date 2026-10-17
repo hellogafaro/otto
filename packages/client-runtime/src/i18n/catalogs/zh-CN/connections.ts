@@ -565,6 +565,6 @@ export const connectionsCatalog = {
   "Add sandbox": "添加沙盒",
   "Bots run on this computer until you add a sandbox.": "添加沙盒前，机器人在这台计算机上运行。",
   "Default sandbox couldn't be saved": "无法保存默认沙盒",
-  "Bots can use the in-app browser for research and previews.":
-    "机器人可以使用应用内浏览器进行研究和预览。",
+  "Bots can use a browser on their own computer when you mention @browser.":
+    "提到 @browser 时，机器人可以在自己的电脑上使用浏览器。",
 } as const;
