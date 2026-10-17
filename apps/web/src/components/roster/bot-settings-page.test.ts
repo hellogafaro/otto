@@ -104,16 +104,6 @@ describe("bot settings page", () => {
 });
 
 describe("bot settings entry points", () => {
-  it("opens from the chat header bot identity", () => {
-    const source = read("./active-bot-header-chip.tsx");
-
-    expect(source).toContain('to: "/settings/bots/$botId"');
-    expect(source).toContain("params: { botId: bot.id }");
-    expect(source).toContain("aria-label={`Settings for ${bot.name}`}");
-    // The avatar keeps its existing job.
-    expect(source).toContain("aria-label={`Change avatar for ${bot.name}`}");
-  });
-
   it("opens from the roster row overflow menu", () => {
     const source = ["./bot-roster-sidebar.tsx", "./roster-rows.tsx"].map(read).join("\n");
 

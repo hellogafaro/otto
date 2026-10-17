@@ -437,11 +437,3 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
     saveState(get());
   },
 }));
-
-export function useSelectedBot(): Bot | null {
-  return useRosterStore((state) =>
-    state.selectedBotId === null
-      ? null
-      : (state.bots.find((bot) => bot.id === state.selectedBotId) ?? null),
-  );
-}
