@@ -17,6 +17,7 @@ import { listBotChats } from "./bot-thread-runtime.logic";
 import {
   ROSTER_TIME_CLASS,
   ROSTER_TRAIL_ACTIONS_CLASS,
+  ROSTER_ROW_FOCUS_CLASS,
   ROSTER_TRAIL_CLASS,
   ROSTER_TRAIL_INFO_CLASS,
 } from "./roster-row-classes";
@@ -100,6 +101,7 @@ export function BotChatTree({
             }}
             className={cn(
               "group/row relative list-none rounded-md",
+              ROSTER_ROW_FOCUS_CLASS,
               row.current ? "sidebar-row-current" : "sidebar-row-plain hover:sidebar-row-hovered",
             )}
           >
@@ -110,7 +112,7 @@ export function BotChatTree({
                 void navigate({ to: "/chats/$threadId", params: { threadId: row.threadId } })
               }
               className={cn(
-                "flex h-7 w-full cursor-pointer items-center gap-2 rounded-md ps-7.5 pe-2 text-left text-13px outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                "flex h-7 w-full cursor-pointer items-center gap-2 rounded-md ps-7.5 pe-2 text-left text-13px outline-none select-none",
                 row.current
                   ? "text-sidebar-foreground"
                   : "text-sidebar-foreground/80 group-hover/row:text-sidebar-foreground dark:text-sidebar-foreground/68",

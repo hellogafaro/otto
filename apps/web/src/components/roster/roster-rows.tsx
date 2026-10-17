@@ -49,6 +49,7 @@ import {
   ROSTER_REVEAL_CLASS,
   ROSTER_TIME_CLASS,
   ROSTER_TRAIL_ACTIONS_CLASS,
+  ROSTER_ROW_FOCUS_CLASS,
   ROSTER_TRAIL_CLASS,
   ROSTER_TRAIL_INFO_CLASS,
 } from "./roster-row-classes";
@@ -217,6 +218,7 @@ export const BotRosterRow = memo(function BotRosterRow({
         }}
         className={cn(
           "group/row relative flex w-full items-center rounded-md outline-none select-none",
+          ROSTER_ROW_FOCUS_CLASS,
           active
             ? // With its chats listed, only the open chat's row is filled.
               "sidebar-row-current text-sidebar-foreground group-has-[[data-bot-chat-tree]_[aria-current]]/bot:sidebar-row-plain group-has-[[data-bot-chat-tree]_[aria-current]]/bot:hover:sidebar-row-hovered"
@@ -235,7 +237,7 @@ export const BotRosterRow = memo(function BotRosterRow({
             else onSelect(bot);
           }}
           className={cn(
-            "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none",
           )}
         >
           <span
@@ -496,6 +498,7 @@ export const ChatRosterRow = memo(function ChatRosterRow({
       }}
       className={cn(
         "group/row relative flex w-full flex-none items-center rounded-md",
+        ROSTER_ROW_FOCUS_CLASS,
         current ? "sidebar-row-current" : "sidebar-row-plain hover:sidebar-row-hovered",
       )}
     >
@@ -504,7 +507,7 @@ export const ChatRosterRow = memo(function ChatRosterRow({
         data-roster-row={rosterItemKey(item)}
         aria-current={current || undefined}
         onClick={() => void navigate({ to: "/chats/$threadId", params: { threadId } })}
-        className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none"
       >
         <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />
         <span
@@ -607,6 +610,7 @@ export const GroupRosterRow = memo(function GroupRosterRow({
       }}
       className={cn(
         "group/row relative flex w-full flex-none items-center rounded-md",
+        ROSTER_ROW_FOCUS_CLASS,
         isActive ? "sidebar-row-current" : "sidebar-row-plain hover:sidebar-row-hovered",
       )}
     >
@@ -616,7 +620,7 @@ export const GroupRosterRow = memo(function GroupRosterRow({
         aria-current={isActive || undefined}
         onClick={() => onSelect(group)}
         className={cn(
-          "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none",
         )}
       >
         <GroupMemberStack group={group} bots={bots} ringClassName="ring-sidebar" />

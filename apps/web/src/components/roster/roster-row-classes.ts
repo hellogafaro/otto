@@ -7,6 +7,13 @@
 export const ROSTER_NAME_CLASS =
   "min-w-0 flex-1 overflow-hidden whitespace-nowrap text-13px font-normal text-sidebar-foreground/80 dark:text-sidebar-foreground/68";
 
+/**
+ * Otto: A row's keyboard focus: a 1px inset ring drawn over the whole row, above the right
+ * slot's fade, so the fade never cuts it off.
+ */
+export const ROSTER_ROW_FOCUS_CLASS =
+  "after:pointer-events-none after:absolute after:inset-0 after:rounded-md after:ring-inset after:ring-ring has-[>button:focus-visible]:after:ring-1";
+
 /** Row controls appear on hover or keyboard focus, like Capy's row actions. */
 export const ROSTER_REVEAL_CLASS =
   "opacity-0 transition-opacity duration-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 motion-reduce:transition-none";
