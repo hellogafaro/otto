@@ -22,7 +22,6 @@ import { DictationControls } from "../chat/dictation-controls";
 import { FileLightbox } from "../library/file-lightbox";
 import { ComposerStashBadge } from "../chat/composer-stash-badge";
 import { ComposerStashMenu } from "../chat/composer-stash-menu";
-import { LoaderMeter } from "../chat/response-loading-state";
 import {
   BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME,
   BOT_COMPOSER_SURFACE_CLASS_NAME,
@@ -316,8 +315,6 @@ export function BotPromptComposer({
 
   const canSubmit = canSubmitBotPrompt(disabled, draft, attachments.length);
   const composerState = botComposerState({ disabled, busy, canSubmit });
-  // Only stands in for the arrow when there is nothing to send, so a follow-up stays sendable.
-  const showBusyMeter = busy && !canSubmit;
   useBotComposerKeyboard({
     readOnly,
     typeToFocus,
@@ -358,7 +355,6 @@ export function BotPromptComposer({
 
   const showDictation =
     !readOnly &&
-    !showBusyMeter &&
     composerActionIsDictation({
       hasDraft: draft.trim().length > 0 || attachments.length > 0,
       status: dictation.status,
@@ -657,21 +653,16 @@ export function BotPromptComposer({
                   type="submit"
                   size="icon-sm"
                   variant="primary"
-                  aria-label={
-                    showBusyMeter
-                      ? t("{name} is working", { name: botName })
-                      : (submitLabel ?? t("Send message"))
-                  }
+                  aria-label={submitLabel ?? t("Send message")}
                   aria-describedby={
                     [mentionHint ? mentionHintId : null, disabled ? sendBlockedDescriptionId : null]
                       .filter(Boolean)
                       .join(" ") || undefined
                   }
-                  data-busy={showBusyMeter || undefined}
                   disabled={!canSubmit || mentionHint !== null}
                   className="pointer-events-auto"
                 >
-                  {showBusyMeter ? <LoaderMeter /> : <RiArrowUpLine />}
+                  <RiArrowUpLine />
                 </Button>
               )}
             </div>
