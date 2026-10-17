@@ -7,6 +7,7 @@ import { useAssetUrls } from "../../assets/asset-urls";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { FileLightbox } from "../library/file-lightbox";
+import { CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME } from "../markdown/markdown-images";
 import {
   Attachment,
   AttachmentContent,
@@ -64,6 +65,30 @@ export function BotMessageAttachments({
       <div className={cn("flex flex-wrap gap-1.5", align === "end" && "justify-end")}>
         {attachments.map((attachment, index) => {
           const url = urls[index] ?? null;
+
+          // Otto: A video plays where it was posted, in the frame chat images use.
+          if (
+            attachment.type === "file" &&
+            attachment.mimeType.startsWith("video/") &&
+            url !== null &&
+            !failedIds.has(attachment.id)
+          ) {
+            return (
+              <video
+                key={attachment.id}
+                src={url}
+                controls
+                preload="metadata"
+                aria-label={attachment.name}
+                data-testid="bot-message-video"
+                className={cn(
+                  CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME,
+                  "rounded-lg border border-border/40",
+                )}
+                onError={() => setFailedIds((current) => new Set(current).add(attachment.id))}
+              />
+            );
+          }
 
           const thumbnail =
             attachment.type === "image" && url !== null && !failedIds.has(attachment.id)
