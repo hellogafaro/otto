@@ -278,6 +278,9 @@ export const connectionsCatalog = {
     "Reconnect the provider in Settings > Models, then send your message again.",
   "Connection interrupted": "Connection interrupted",
   "The bot's computer couldn't start": "The bot's computer couldn't start",
+  "The bot's computer isn't connected": "The bot's computer isn't connected",
+  "Connect a computer in Settings > Computer, then try again.":
+    "Connect a computer in Settings > Computer, then try again.",
   "Boat refused its API key. Replace it in Settings > Computer, then try again.":
     "Boat refused its API key. Replace it in Settings > Computer, then try again.",
   "Check the environment connection, then send your message again.":

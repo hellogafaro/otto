@@ -261,6 +261,9 @@ export const connectionsCatalog = {
     "请在“设置 > 模型”中重新连接提供商，然后重新发送消息。",
   "Connection interrupted": "连接中断",
   "The bot's computer couldn't start": "机器人的计算机无法启动",
+  "The bot's computer isn't connected": "机器人的计算机未连接",
+  "Connect a computer in Settings > Computer, then try again.":
+    "请在“设置 > 计算机”中连接一台计算机，然后重试。",
   "Boat refused its API key. Replace it in Settings > Computer, then try again.":
     "Boat 拒绝了它的 API 密钥。请在“设置 > 计算机”中更换密钥，然后重试。",
   "Check the environment connection, then send your message again.":

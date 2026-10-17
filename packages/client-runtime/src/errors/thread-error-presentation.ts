@@ -88,6 +88,16 @@ export function presentThreadError(
     };
   }
 
+  // Older servers worded a missing computer like a missing model sign-in.
+  if (/in Settings > Computer|before using it as a bot sandbox/i.test(error)) {
+    return {
+      title: t("The bot's computer isn't connected"),
+      description: t("Connect a computer in Settings > Computer, then try again."),
+      technicalDetails: boundedTechnicalDetails(error),
+      action: "computer",
+    };
+  }
+
   // A temporary failure is the server's catch-all, so the text below can
   // still say more about it than the category can.
   if (context.unavailability && context.unavailability !== "temporary-failure") {

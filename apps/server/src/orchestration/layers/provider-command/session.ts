@@ -433,7 +433,7 @@ export function createSession({
         return yield* new ProviderAdapterRequestError({
           provider: providerErrorLabel(preferredProvider),
           method: "thread.turn.start",
-          detail: `Connect ${effectiveSandbox} in Settings before using it as a bot sandbox.`,
+          detail: "This bot's computer isn't connected. Connect it in Settings > Computer.",
         });
       }
     }

@@ -40,6 +40,26 @@ describe("presentThreadError", () => {
     });
   });
 
+  it("blames the bot's computer, not the model provider, when no computer is connected", () => {
+    const context = { providerName: "Claude", unavailability: "missing-login" as const };
+
+    const expected = {
+      title: "The bot's computer isn't connected",
+      description: "Connect a computer in Settings > Computer, then try again.",
+      action: "computer",
+    };
+
+    expect(
+      presentThreadError(
+        "This bot's computer isn't connected. Connect it in Settings > Computer.",
+        context,
+      ),
+    ).toMatchObject(expected);
+    expect(
+      presentThreadError("Connect boat in Settings before using it as a bot sandbox.", context),
+    ).toMatchObject(expected);
+  });
+
   it("names a disabled provider from the error when the chat does not know it", () => {
     expect(presentThreadError("Provider instance 'kimi' is disabled.")).toMatchObject({
       title: "Kimi For Coding is turned off",
