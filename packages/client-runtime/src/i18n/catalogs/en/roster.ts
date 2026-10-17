@@ -268,7 +268,6 @@ export const rosterCatalog = {
   Person: "Person",
   "Remove {name} from {group}": "Remove {name} from {group}",
   Someone: "Someone",
-  "{name} (you)": "{name} (you)",
   Rename: "Rename",
   "Rename group": "Rename group",
   "Add members": "Add members",

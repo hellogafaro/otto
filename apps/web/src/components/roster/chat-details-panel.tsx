@@ -137,7 +137,7 @@ export function ChatDetailsPanel({
                 <div className="flex min-h-9 items-center gap-2">
                   <PersonAvatar name={people.current.displayName} className="size-6" />
                   <span className="min-w-0 flex-1 truncate text-sm">
-                    {t("{name} (you)", { name: people.current.displayName })}
+                    {people.current.displayName}
                   </span>
                 </div>
               ) : null}

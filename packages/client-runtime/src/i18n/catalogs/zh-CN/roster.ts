@@ -256,7 +256,6 @@ export const rosterCatalog = {
   Person: "成员",
   "Remove {name} from {group}": "将 {name} 从 {group} 中移除",
   Someone: "某人",
-  "{name} (you)": "{name}（你）",
   Rename: "重命名",
   "Rename group": "重命名群组",
   "Add members": "添加成员",

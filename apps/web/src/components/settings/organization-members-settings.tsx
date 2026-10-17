@@ -64,7 +64,7 @@ const joinedLabel = (date: Date | string) => {
 };
 
 /** Columns like Tasks: who leads, then email and role chips and when they joined. */
-function memberColumns(currentUserId: string | undefined): DataTableColumn<MemberRow>[] {
+function memberColumns(): DataTableColumn<MemberRow>[] {
   return [
     {
       id: "avatar",
@@ -78,10 +78,7 @@ function memberColumns(currentUserId: string | undefined): DataTableColumn<Membe
     {
       id: "name",
       type: "title",
-      cell: (row) =>
-        row.type === "invitation"
-          ? row.invitation.email
-          : `${row.member.user.name}${row.member.userId === currentUserId ? " (you)" : ""}`,
+      cell: (row) => (row.type === "invitation" ? row.invitation.email : row.member.user.name),
     },
     {
       id: "details",
@@ -298,7 +295,7 @@ export function OrganizationMembersSettings() {
         ) : (
           <DataTable
             rows={rows}
-            columns={memberColumns(state.user?.id)}
+            columns={memberColumns()}
             getRowKey={(row) => `${row.type}:${row.id}`}
             onRowClick={open}
             getRowLabel={(row) =>
