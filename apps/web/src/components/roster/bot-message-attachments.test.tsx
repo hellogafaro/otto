@@ -9,13 +9,16 @@ describe("sent bot message attachments", () => {
     expect(attachmentDetails({ name: "deck.pdf", sizeBytes: 3_250_000 })).toBe("3.1 MB · PDF");
   });
 
-  it("previews images, PDFs and videos in the lightbox and offers the rest as downloads", () => {
-    const kind = (mimeType: string) => attachmentLightboxFile({ name: "f", mimeType }, null).kind;
+  it("opens each attachment in the lightbox by its name, then its type", () => {
+    const kind = (name: string, mimeType: string) =>
+      attachmentLightboxFile({ name, mimeType }, null).kind;
 
-    expect(kind("image/png")).toBe("image");
-    expect(kind("application/pdf")).toBe("pdf");
-    expect(kind("video/mp4")).toBe("video");
-    expect(kind("video/webm")).toBe("video");
-    expect(kind("text/csv")).toBe("file");
+    expect(kind("f", "image/png")).toBe("image");
+    expect(kind("f", "application/pdf")).toBe("pdf");
+    expect(kind("f", "video/mp4")).toBe("video");
+    expect(kind("f", "video/webm")).toBe("video");
+    expect(kind("f", "text/csv")).toBe("sheet");
+    expect(kind("report.docx", "application/octet-stream")).toBe("docx");
+    expect(kind("slides.pptx", "application/octet-stream")).toBe("file");
   });
 });

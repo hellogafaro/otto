@@ -1,4 +1,3 @@
-import { RiFilePdf2Line, RiFileTextLine, RiFileVideoLine, RiImageLine } from "@remixicon/react";
 import type { ChatAttachment, EnvironmentId } from "@otto/contracts";
 
 import { useMemo, useState } from "react";
@@ -6,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useAssetUrls } from "../../assets/asset-urls";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
-import { FileLightbox, type FileLightboxFile } from "../library/file-lightbox";
+import { FileLightbox, type FileLightboxFile, fileLightboxKind } from "../library/file-lightbox";
 import {
   Attachment,
   AttachmentContent,
@@ -119,27 +118,13 @@ export function BotMessageAttachments({
 
 /**
  * Otto: Every chat attachment, sent or staged, is an attachment card that opens the Library's
- * file lightbox: images, PDFs and videos preview there, the rest download.
+ * file lightbox, with its kind and icon from `fileLightboxKind`.
  */
 export function attachmentLightboxFile(
   attachment: { readonly name: string; readonly mimeType: string },
   url: string | null,
 ): FileLightboxFile {
-  const title = attachment.name;
-
-  if (attachment.mimeType.startsWith("image/")) {
-    return { title, kind: "image", url, icon: RiImageLine };
-  }
-
-  if (attachment.mimeType === "application/pdf") {
-    return { title, kind: "pdf", url, icon: RiFilePdf2Line };
-  }
-
-  if (attachment.mimeType.startsWith("video/")) {
-    return { title, kind: "video", url, icon: RiFileVideoLine };
-  }
-
-  return { title, kind: "file", url, icon: RiFileTextLine };
+  return { title: attachment.name, url, ...fileLightboxKind(attachment.name, attachment.mimeType) };
 }
 
 export function downloadAttachment(url: string, name: string) {

@@ -1,9 +1,8 @@
-import type { EnvironmentId, LibraryFile } from "@otto/contracts";
+import { libraryDownloadName, type EnvironmentId, type LibraryFile } from "@otto/contracts";
 
-import { FileLightbox } from "./file-lightbox";
+import { FileLightbox, fileLightboxKind } from "./file-lightbox";
 import { LibraryItemMenu } from "./library-actions";
 import { LibraryFileDetails } from "./library-details";
-import { LIBRARY_TYPE_ICONS } from "./library-visuals";
 import { useLibraryDownload, useLibraryFileUrl, type LibraryData } from "./use-library";
 
 /** A Library file in the shared file lightbox, with its item menu and Details sidebar. */
@@ -61,17 +60,7 @@ function OpenLibraryLightbox({
 
   return (
     <FileLightbox
-      file={{
-        title: file.title,
-        kind:
-          file.type === "image" || file.type === "pdf"
-            ? file.type
-            : file.extension === "mp4" || file.extension === "webm"
-              ? "video"
-              : "file",
-        url,
-        icon: LIBRARY_TYPE_ICONS[file.type],
-      }}
+      file={{ title: file.title, url, ...fileLightboxKind(libraryDownloadName(file)) }}
       hasSiblings={siblings.length > 1}
       onPrevious={previous ? () => onSelect(previous) : undefined}
       onNext={next ? () => onSelect(next) : undefined}

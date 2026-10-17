@@ -3,10 +3,20 @@ import {
   RiArrowRightSLine,
   RiCloseLine,
   RiDownloadLine,
+  RiFileCodeLine,
+  RiFileExcel2Line,
+  RiFileLine,
+  RiFilePdf2Line,
+  RiFileTextLine,
+  RiFileVideoLine,
+  RiFileWord2Line,
+  RiFileZipLine,
+  RiImageLine,
   RiListCheck,
+  RiMarkdownLine,
 } from "@remixicon/react";
 import * as Schema from "effect/Schema";
-import { type ReactNode, useEffect } from "react";
+import { lazy, type ReactNode, Suspense, useEffect } from "react";
 
 import { useLocalStorage } from "../../hooks/use-local-storage";
 import { useI18n } from "../../i18n";
@@ -14,14 +24,120 @@ import { DetailsTabs } from "../details-aside";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import { Lightbox, LightboxClose, LightboxPopup, LightboxTitle } from "../ui/lightbox";
+import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
-/** The file a lightbox shows: images, PDFs and videos preview, anything else offers its download. */
+const FetchedFilePreview = lazy(() =>
+  import("./file-previews").then((module) => ({ default: module.FetchedFilePreview })),
+);
+
+/** The file a lightbox shows: every kind but `file` previews, a `file` offers its download. */
 export interface FileLightboxFile {
   readonly title: string;
-  readonly kind: "image" | "pdf" | "video" | "file";
+  readonly kind: FileLightboxKind;
   readonly url: string | null;
   readonly icon: typeof RiCloseLine;
+}
+
+export type FileLightboxKind =
+  | "image"
+  | "pdf"
+  | "video"
+  | "markdown"
+  | "sheet"
+  | "docx"
+  | "text"
+  | "zip"
+  | "file";
+
+const FILE_KINDS: ReadonlyArray<{
+  readonly kind: Exclude<FileLightboxKind, "file">;
+  readonly icon: typeof RiCloseLine;
+  readonly extensions: ReadonlyArray<string>;
+  /** Exact types, or a family when it ends in a slash. */
+  readonly mimeTypes: ReadonlyArray<string>;
+}> = [
+  {
+    kind: "image",
+    icon: RiImageLine,
+    extensions: ["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp"],
+    mimeTypes: ["image/"],
+  },
+  { kind: "pdf", icon: RiFilePdf2Line, extensions: ["pdf"], mimeTypes: ["application/pdf"] },
+  { kind: "video", icon: RiFileVideoLine, extensions: ["mp4", "webm"], mimeTypes: ["video/"] },
+  {
+    kind: "markdown",
+    icon: RiMarkdownLine,
+    extensions: ["md", "markdown"],
+    mimeTypes: ["text/markdown"],
+  },
+  {
+    kind: "sheet",
+    icon: RiFileExcel2Line,
+    extensions: ["csv", "xlsx", "xls"],
+    mimeTypes: [
+      "text/csv",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+    ],
+  },
+  {
+    kind: "docx",
+    icon: RiFileWord2Line,
+    extensions: ["docx"],
+    mimeTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  },
+  {
+    kind: "zip",
+    icon: RiFileZipLine,
+    extensions: ["zip"],
+    mimeTypes: ["application/zip", "application/x-zip-compressed"],
+  },
+  {
+    kind: "text",
+    icon: RiFileCodeLine,
+    extensions: [
+      "json",
+      "yaml",
+      "yml",
+      "toml",
+      "xml",
+      "html",
+      "htm",
+      "css",
+      "js",
+      "jsx",
+      "ts",
+      "tsx",
+      "py",
+      "sh",
+      "sql",
+    ],
+    mimeTypes: ["application/json", "application/xml", "application/yaml", "text/html"],
+  },
+  { kind: "text", icon: RiFileTextLine, extensions: ["txt", "log"], mimeTypes: ["text/"] },
+];
+
+/**
+ * Otto: How a file opens in the lightbox and which icon stands for it, for chat attachments
+ * and Library files alike: the name's extension decides first, then the MIME type.
+ */
+export function fileLightboxKind(
+  name: string,
+  mimeType = "",
+): Pick<FileLightboxFile, "kind" | "icon"> {
+  const extension = name.includes(".") ? (name.split(".").at(-1)?.toLowerCase() ?? "") : "";
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+
+  const match =
+    FILE_KINDS.find((candidate) => candidate.extensions.includes(extension)) ??
+    FILE_KINDS.find((candidate) =>
+      candidate.mimeTypes.some((mime) =>
+        mime.endsWith("/") ? type.startsWith(mime) : type === mime,
+      ),
+    );
+
+  return match ? { kind: match.kind, icon: match.icon } : { kind: "file", icon: RiFileLine };
 }
 
 /**
@@ -216,9 +332,7 @@ function FilePreview({
     );
   }
 
-  if (file.kind !== "file") return null;
-
-  return (
+  const fallback = (
     <div className="flex flex-col items-center gap-3 text-center">
       <Icon aria-hidden className="size-10 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">{t("This file can't be previewed.")}</p>
@@ -228,4 +342,21 @@ function FilePreview({
       </Button>
     </div>
   );
+
+  if (
+    file.url &&
+    (file.kind === "markdown" ||
+      file.kind === "sheet" ||
+      file.kind === "docx" ||
+      file.kind === "text" ||
+      file.kind === "zip")
+  ) {
+    return (
+      <Suspense fallback={<Spinner className="size-5" />}>
+        <FetchedFilePreview key={file.url} kind={file.kind} url={file.url} fallback={fallback} />
+      </Suspense>
+    );
+  }
+
+  return file.kind === "file" ? fallback : null;
 }
