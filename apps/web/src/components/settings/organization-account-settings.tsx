@@ -22,8 +22,7 @@ import {
   SettingsRow,
   SettingsSection,
 } from "./settings-layout";
-import { storeDesktopSessionToken } from "~/environments/primary/desktop-auth";
-import { useOrganizationAccounts } from "./use-organization-accounts";
+import { signOut, useOrganizationAccounts } from "./use-organization-accounts";
 import { useAutosave } from "~/hooks/use-autosave";
 
 export function AccountSettingsPanel() {
@@ -160,16 +159,9 @@ export function AccountSettingsPanel() {
             <Button
               variant="outline"
               onClick={async () => {
-                const result = await client.signOut();
+                const failure = await signOut(client);
 
-                if (result.error) {
-                  setError(result.error.message ?? "Could not sign out.");
-
-                  return;
-                }
-
-                storeDesktopSessionToken(null);
-                window.location.assign("/login");
+                if (failure) setError(failure);
               }}
             >
               Sign out

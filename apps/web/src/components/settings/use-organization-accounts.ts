@@ -5,9 +5,24 @@ import {
   createOrganizationAccountsClient,
   getOrganizationAccountState,
 } from "@otto/client-runtime/authorization";
+import { storeDesktopSessionToken } from "~/environments/primary/desktop-auth";
 import { useSettingsEnvironmentId } from "~/settings-dialog-store";
 import { organizationAccountAtom } from "~/state/people";
 import { usePreparedConnection } from "~/state/session";
+
+/** Signs out and opens the sign-in page; resolves to the error message when the server refuses. */
+export async function signOut(
+  client: ReturnType<typeof createOrganizationAccountsClient>,
+): Promise<string | null> {
+  const result = await client.signOut();
+
+  if (result.error) return result.error.message ?? "Could not sign out.";
+
+  storeDesktopSessionToken(null);
+  window.location.assign("/login");
+
+  return null;
+}
 
 export function useOrganizationAccounts() {
   const environmentId = useSettingsEnvironmentId();
