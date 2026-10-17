@@ -11,7 +11,7 @@ Known limits of the MVP, most important first.
   at a time.
 - **macOS DMG build.** It builds, but only with Xcode's own SDK: the newer Command Line Tools SDK
   (macOS 27) breaks Xcode 26's linker. Run `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-SDKROOT=$(xcrun --sdk macosx26.5 --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The app is ad-hoc
+SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The app is ad-hoc
   signed, so a downloaded copy is blocked by Gatekeeper until it is signed and notarized.
 - **Durable Garage profile.** `otto-v1-durable-garage` expects `ops/local-garage.toml`, which is not in
   the repository.

@@ -69,7 +69,7 @@ scripts/release-desktop-mac.sh
 1. It stops before building when `GH_TOKEN`, the notarization credentials or a Developer ID
    identity is missing, when the server and desktop versions differ, or when
    `hellogafaro/otto` already published `v<version>`.
-2. It builds with the Xcode macOS 26.5 SDK through `scripts/build-desktop-artifact.ts --signed`.
+2. It builds with Xcode's own macOS SDK through `scripts/build-desktop-artifact.ts --signed`.
    Electron-builder signs every binary with the hardened runtime and the entitlements Electron
    needs (JIT, unsigned executable memory, library validation off for native modules, microphone),
    notarizes and staples the app, and packs it into a DMG and a zip. The build script then
@@ -104,7 +104,7 @@ version. Ad-hoc builds have no `app-update.yml` and report that no update feed i
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-SDKROOT=$(xcrun --sdk macosx26.5 --show-sdk-path) \
+SDKROOT=$(xcrun --sdk macosx --show-sdk-path) \
 node scripts/build-desktop-artifact.ts --platform mac --target dmg --arch arm64
 ```
 
@@ -141,7 +141,7 @@ with the same identity; an Apple Development certificate is enough for this loca
 
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-export SDKROOT=$(xcrun --sdk macosx26.5 --show-sdk-path)
+export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
 export CSC_NAME="Apple Development: <name> (<id>)"
 for version in 0.1.0 0.1.1; do
   node scripts/build-desktop-artifact.ts --platform mac --target dmg --arch arm64 \

@@ -42,7 +42,7 @@ draft="$(gh release view "$tag" --repo "$releases_repo" --json isDraft --jq .isD
   fail "$releases_repo already published $tag. Bump the version: node scripts/update-release-package-versions.ts <next version>."
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-SDKROOT="$(xcrun --sdk macosx26.5 --show-sdk-path)" || fail "Xcode with the macOS 26.5 SDK is required."
+SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" || fail "Xcode with a macOS SDK is required."
 export SDKROOT
 export PATH="$root/node_modules/.bin:$PATH"
 

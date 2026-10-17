@@ -67,11 +67,11 @@ pnpm dev
 
 `pnpm dev` starts the server and the web app and prints the address to open.
 
-To build the Mac app you also need Xcode with the macOS 26.5 SDK:
+To build the Mac app you also need Xcode; the build uses its own macOS SDK:
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-SDKROOT=$(xcrun --sdk macosx26.5 --show-sdk-path) \
+SDKROOT=$(xcrun --sdk macosx --show-sdk-path) \
 pnpm dist:desktop:dmg:arm64
 ```
 
