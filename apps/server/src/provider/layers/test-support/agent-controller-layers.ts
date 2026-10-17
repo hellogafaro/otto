@@ -1,21 +1,11 @@
-import { emptyProviderSnapshot, providerThreadFixture } from "./projection-fixtures.ts";
-import { sessionFixture } from "./partial-fixtures.ts";
-import type { OttoMastraState } from "../../otto-mastra-harness.ts";
-
 import * as Match from "effect/Match";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import type { AgentControllerEvent, Session } from "@mastra/core/agent-controller";
 import {
   BotId,
-  GroupId,
-  McpServerId,
   ProviderDriverKind,
   ProviderInstanceId,
-  ProjectId,
   ThreadId,
   TurnId,
-  type McpServer,
-  type OrchestrationReadModel,
   type ProviderRuntimeEvent,
   type ProviderSession,
 } from "@otto/contracts";
@@ -400,58 +390,6 @@ export const provideRoutineController = <A, E>(
   );
 
 export const bossBotId = BotId.make("bot-boss");
-
-export const linearServer: McpServer = {
-  id: McpServerId.make("linear"),
-  name: "Linear",
-  transport: "url",
-  url: "https://mcp.example.com/linear",
-  enabled: true,
-  createdAt: "2026-09-01T00:00:00.000Z",
-  updatedAt: "2026-09-01T00:00:00.000Z",
-};
-
-export const groupParentSnapshot = {
-  ...emptyProviderSnapshot(),
-  threads: [
-    providerThreadFixture({
-      id: codexThreadId,
-      projectId: ProjectId.make("project-workers"),
-      botId: null,
-      groupId: GroupId.make("group-workers"),
-      respondingBotId: bossBotId,
-      runtimeMode: "approval-required",
-      modelSelection: codexSelection,
-      branch: null,
-      worktreePath: null,
-    }),
-  ],
-  bots: [],
-  groups: [],
-  delegations: [],
-} satisfies OrchestrationReadModel;
-
-export const makeWorkerSession = (base: Session<OttoMastraState>) => {
-  const listeners = new Set<(event: AgentControllerEvent) => void>();
-
-  const session = sessionFixture({
-    ...base,
-    subscribe: vi.fn((listener: (event: AgentControllerEvent) => void) => {
-      listeners.add(listener);
-
-      return () => listeners.delete(listener);
-    }),
-    sendMessage: vi.fn(() => new Promise<void>(() => undefined)),
-    respondToToolApproval: vi.fn(),
-  });
-
-  return {
-    session,
-    emit: (event: AgentControllerEvent) => {
-      for (const listener of listeners) listener(event);
-    },
-  };
-};
 
 export const switchCases = [
   {

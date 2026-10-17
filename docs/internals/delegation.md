@@ -260,14 +260,6 @@ allowed. It creates a new delegation with its own child thread and returns its
 own handle. The earlier work is not replaced or merged. Both count toward the
 concurrency cap, and each result is delivered separately.
 
-## Temporary workers are not delegations
-
-`Task`, `CheckSubagent`, `MessageSubagent`, and `StopSubagent` start a
-temporary worker inside the parent's own turn. The worker is a copy of the
-bot under a narrower grant, not a delegation to another bot, so it is not
-covered by this document's acknowledgement and delivery rules. See
-[Temporary workers](providers.md#temporary-workers) in providers.md.
-
 ## Reverse states
 
 Every way into a delegation state has a way back out.

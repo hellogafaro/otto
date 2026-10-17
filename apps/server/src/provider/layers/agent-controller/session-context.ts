@@ -3,12 +3,10 @@ import { type BotId, ThreadId, type OttoDelegationRecord } from "@otto/contracts
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { isWorkerThreadId } from "../../otto-worker-runtime.ts";
-
 import type { SessionLifecycleDependencies } from "./session-lifecycle-dependencies.ts";
 
 export function createSessionContext(
-  deps: Pick<SessionLifecycleDependencies, "projectionSnapshotQuery" | "workerRuntime" | "wired">,
+  deps: Pick<SessionLifecycleDependencies, "projectionSnapshotQuery" | "wired">,
 ) {
   const isOpenDelegation = (delegation: OttoDelegationRecord) =>
     !["Completed", "Failed", "Canceled"].includes(delegation.phase._tag);
@@ -47,17 +45,9 @@ export function createSessionContext(
         thread?.respondingBotId ?? thread?.botId ?? fallbackBotId ?? group?.bossBotId ?? null;
 
       const bot = botId ? Option.getOrUndefined(yield* getBotById(botId)) : undefined;
-      const workerParentThreadId = isWorkerThreadId(threadId) ? thread?.parentThreadId : null;
 
       return {
         parentDelegation: delegations.find((candidate) => isChildOf(candidate, threadId)),
-        workerParent: workerParentThreadId
-          ? {
-              delegatedAccess: (yield* listThreadDelegations(workerParentThreadId)).find(
-                (candidate) => isChildOf(candidate, workerParentThreadId),
-              )?.access,
-            }
-          : undefined,
         bot,
         botId,
         activeChildDelegations: delegations.filter(
@@ -76,19 +66,10 @@ export function createSessionContext(
     const botId =
       thread?.respondingBotId ?? thread?.botId ?? fallbackBotId ?? group?.bossBotId ?? null;
 
-    const workerParentThreadId = isWorkerThreadId(threadId) ? thread?.parentThreadId : null;
-
     return {
       parentDelegation: snapshot.delegations.find(
         (candidate) => isChildOf(candidate, threadId) && isOpenDelegation(candidate),
       ),
-      workerParent: workerParentThreadId
-        ? {
-            delegatedAccess: snapshot.delegations.find((candidate) =>
-              isChildOf(candidate, workerParentThreadId),
-            )?.access,
-          }
-        : undefined,
       bot: snapshot.bots.find((candidate) => candidate.id === botId),
       botId,
       activeChildDelegations: snapshot.delegations.filter(

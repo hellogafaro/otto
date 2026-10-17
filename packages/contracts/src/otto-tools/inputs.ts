@@ -11,12 +11,6 @@ import {
   TrimmedNonEmptyString,
 } from "../base-schemas.ts";
 import { OttoMemoryTargetScope } from "../otto-memory/base.ts";
-import {
-  OttoWorkerCheckInput,
-  OttoWorkerMessageInput,
-  OttoWorkerStopInput,
-  OttoWorkerTaskInput,
-} from "../otto-workers.ts";
 import { McpServerId, McpServerInstructions, McpServerUrl } from "../mcp-server.ts";
 import { ImageGenerationRequest } from "../image-generation.ts";
 import { BotSandbox } from "../orchestration/roster.ts";
@@ -268,10 +262,6 @@ export const OttoToolInputSchemas = {
   RemoveMcpAccount: Schema.Struct({ serverId: McpServerId }),
   RenameMcpAccount: RenameMcpAccountInput,
   SetMcpInstructions: Schema.Struct({ serverId: McpServerId, instructions: McpServerInstructions }),
-  Task: OttoWorkerTaskInput,
-  CheckSubagent: OttoWorkerCheckInput,
-  MessageSubagent: OttoWorkerMessageInput,
-  StopSubagent: OttoWorkerStopInput,
 } as const satisfies Record<OttoToolId, Schema.Top>;
 
 export const OttoMessageReactionResult = Schema.Union([

@@ -1,5 +1,4 @@
 import type { OttoToolResult } from "./tools/otto-tool-types.ts";
-import * as Match from "effect/Match";
 import * as Predicate from "effect/Predicate";
 import { decodeOttoRuntimeToolInput } from "./tools/otto-tool-inputs.ts";
 import { RequestContext } from "@mastra/core/request-context";
@@ -123,13 +122,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
       tools.add("SendToAgent");
     }
 
-    if (session.workers) {
-      tools.add("Task");
-      tools.add("CheckSubagent");
-      tools.add("MessageSubagent");
-      tools.add("StopSubagent");
-    }
-
     if (session.sendToUser) tools.add("SendToUser");
 
     if (session.botId && session.botState) tools.add("UpdateBotProfile");
@@ -174,7 +166,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
             activeDelegations: session.delegation.activeDelegations,
           }
         : {}),
-      ...(session.workers ? { workerDepth: session.workers.depth } : {}),
     });
 
     return session.memoryHandlers
@@ -361,27 +352,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
             }
           } catch (cause) {
             return nonfatalToolFailureReceipt(input, session, cause, failureCode, billedBotId);
-          }
-        } else if (
-          execution.toolId === "Task" ||
-          execution.toolId === "CheckSubagent" ||
-          execution.toolId === "MessageSubagent" ||
-          execution.toolId === "StopSubagent"
-        ) {
-          if (!session.workers) throw new Error("Workers are not available for this session.");
-          failureCode = "internal";
-
-          try {
-            result = await Match.value(execution).pipe(
-              Match.when({ toolId: "Task" }, ({ input }) => session.workers!.spawn(input)),
-              Match.when({ toolId: "CheckSubagent" }, ({ input }) => session.workers!.check(input)),
-              Match.when({ toolId: "MessageSubagent" }, ({ input }) =>
-                session.workers!.message(input),
-              ),
-              Match.orElse(({ input }) => session.workers!.stop(input)),
-            );
-          } catch (cause) {
-            return nonfatalToolFailureReceipt(input, session, cause, failureCode);
           }
         } else if (execution.toolId === "SendToUser") {
           if (!session.sendToUser) {

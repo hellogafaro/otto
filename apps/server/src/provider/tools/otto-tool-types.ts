@@ -7,7 +7,6 @@ import {
   type OttoToolId,
   type OttoToolReceipt,
   type OttoToolWorkspaceType,
-  type OttoWorkerStatus,
   type RuntimeMode,
 } from "@otto/contracts";
 import {
@@ -52,22 +51,6 @@ export interface OttoToolSession {
     readonly stop?: (
       input: (typeof OttoToolInputSchemas.StopAgent)["Type"],
     ) => Promise<OttoToolResult>;
-  };
-  /** Temporary workers owned by this bot turn. Worker threads never get this. */
-  readonly workers?: {
-    readonly depth: number;
-    readonly spawn: (
-      input: (typeof OttoToolInputSchemas.Task)["Type"],
-    ) => Promise<OttoWorkerStatus>;
-    readonly check: (
-      input: (typeof OttoToolInputSchemas.CheckSubagent)["Type"],
-    ) => Promise<OttoWorkerStatus>;
-    readonly message: (
-      input: (typeof OttoToolInputSchemas.MessageSubagent)["Type"],
-    ) => Promise<OttoWorkerStatus>;
-    readonly stop: (
-      input: (typeof OttoToolInputSchemas.StopSubagent)["Type"],
-    ) => Promise<OttoWorkerStatus>;
   };
   readonly sendToUser?: (
     input: (typeof OttoToolInputSchemas.SendToUser)["Type"],

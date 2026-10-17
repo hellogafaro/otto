@@ -12,8 +12,6 @@ import * as Semaphore from "effect/Semaphore";
 
 import * as McpMemoryToolSession from "../../../mcp/mcp-memory-tool-session.ts";
 
-import { workerAccess } from "../../otto-worker-runtime.ts";
-
 import {
   formatMcpServerInstructions,
   sameMcpServerConfigurations,
@@ -42,10 +40,10 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
   )(function* (threadId, input) {
     const key = String(threadId);
 
-    const { parentDelegation, workerParent, bot, botId, activeChildDelegations } =
-      yield* readSessionStartContext(threadId, input.botId ?? null);
-
-    const isWorkerThread = deps.workerRuntime.depthForThread(threadId) > 0;
+    const { parentDelegation, bot, botId, activeChildDelegations } = yield* readSessionStartContext(
+      threadId,
+      input.botId ?? null,
+    );
 
     const botAccess: OttoDelegationAccessGrant = {
       allowedToolIds: OTTO_TOOL_CATALOG.map((tool) => tool.id),
@@ -60,31 +58,10 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       approvalCeiling: "secrets",
     };
 
-    // A restart drops the worker runtime's grants, so a worker chat it orphaned rebuilds
-    // its grant from the parent chat: the parent's delegated grant, or the bot's own for a
-    // top-level parent. Without a parent link it keeps no tools rather than gaining any.
-    const orphanedWorkerAccess = () =>
-      workerAccess(
-        workerParent
-          ? (workerParent.delegatedAccess ?? {
-              ...botAccess,
-              sandbox: botAccess.sandbox ?? "local",
-            })
-          : { ...botAccess, allowedToolIds: [], enabledMcpServerIds: [] },
-      );
-
     const delegatedAccess =
-      deps.wired().delegationRuntime?.accessForThread(threadId) ??
-      parentDelegation?.access ??
-      deps.workerRuntime.accessForThread(threadId) ??
-      (isWorkerThread ? orphanedWorkerAccess() : undefined);
+      deps.wired().delegationRuntime?.accessForThread(threadId) ?? parentDelegation?.access;
 
     const access = delegatedAccess ?? botAccess;
-
-    // A top-level bot's null sandbox is its local workspace, while a delegated
-    // null sandbox has none, so workers receive the local workspace explicitly.
-    const workerParentAccess: OttoDelegationAccessGrant =
-      delegatedAccess || access.sandbox !== null ? access : { ...access, sandbox: "local" };
 
     const mcpServers = (input.mcpServers ?? []).filter(
       (server) =>
@@ -144,7 +121,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       }
     }
 
-    // Delegated work gets no memory: a worker or child chat has no person or scope of its own.
+    // Delegated work gets no memory: a child chat has no person or scope of its own.
     const memory = !delegatedAccess && Boolean(botId) && (yield* deps.memoryEnabled());
     const nextMemoryHandlers = memory ? deps.memoryHandlers(key) : undefined;
 
@@ -183,7 +160,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       delete toolSession.botName;
       delete toolSession.billedBotId;
       delete toolSession.delegation;
-      delete toolSession.workers;
       delete toolSession.memoryHandlers;
       delete toolSession.botState;
       delete toolSession.imageGeneration;
@@ -206,9 +182,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                 activeChildDelegations,
               }),
             }
-          : {}),
-        ...(deps.wired().workerOrchestration && botId && !isWorkerThread
-          ? { workers: deps.workersFor(threadId, workerParentAccess) }
           : {}),
         ...(input.botId && deps.wired().botStateRuntime
           ? { botState: deps.wired().botStateRuntime }
@@ -394,9 +367,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
               activeChildDelegations,
             }),
           }
-        : {}),
-      ...(deps.wired().workerOrchestration && botId && !isWorkerThread
-        ? { workers: deps.workersFor(threadId, workerParentAccess) }
         : {}),
       ...(input.botId && deps.wired().channelRuntime
         ? {

@@ -117,39 +117,6 @@ describe("Otto tool contracts", () => {
     expect(filterOttoTools({ ...context, delegationDepth: 1, activeDelegations: 3 })).toEqual([]);
   });
 
-  it("hides Task inside a worker and validates worker inputs", () => {
-    const context = {
-      capabilities: new Set(["bot-workspace"] as const),
-      workspaceType: "local" as const,
-      localFullAccess: false,
-      implementedTools: new Set(["Task", "CheckSubagent", "MessageSubagent", "StopSubagent"]),
-    };
-
-    expect(filterOttoTools({ ...context, workerDepth: 0 }).map((tool) => tool.id)).toEqual([
-      "Task",
-      "CheckSubagent",
-      "MessageSubagent",
-      "StopSubagent",
-    ]);
-    expect(filterOttoTools({ ...context, workerDepth: 1 }).map((tool) => tool.id)).toEqual([
-      "CheckSubagent",
-      "MessageSubagent",
-      "StopSubagent",
-    ]);
-
-    for (const toolId of ["Task", "CheckSubagent", "MessageSubagent", "StopSubagent"] as const) {
-      expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === toolId)?.approval).toBe("none");
-    }
-
-    expect(decodeOttoToolInput("Task", { task: "Summarize", background: true })).toEqual({
-      task: "Summarize",
-      background: true,
-    });
-    expect(() => decodeOttoToolInput("Task", { task: "  " })).toThrow();
-    expect(() => decodeOttoToolInput("CheckSubagent", {})).toThrow();
-    expect(() => decodeOttoToolInput("MessageSubagent", { workerId: "worker-1" })).toThrow();
-  });
-
   it("decodes the approval limit and keeps escalation fields server-owned", () => {
     const input = {
       botId: "bot-research",

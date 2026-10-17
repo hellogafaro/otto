@@ -2,7 +2,6 @@ import { createControllerState } from "./agent-controller/controller-state.ts";
 import { createAuxiliaryOperations } from "./agent-controller/auxiliary-operations.ts";
 import { createToolRuntime } from "./agent-controller/tool-runtime.ts";
 import { createHarness } from "./agent-controller/harness.ts";
-import { createWorkers } from "./agent-controller/workers.ts";
 import {
   DEFAULT_MODE_ID,
   omitNullToolFields,
@@ -41,7 +40,7 @@ import { createConversation } from "./agent-controller/conversation.ts";
 
 import { createMcpManager, type McpManager } from "@mastra/code-sdk/mcp/index";
 
-import { type ProviderRuntimeEvent, type RuntimeMode, ThreadId } from "@otto/contracts";
+import { type ProviderRuntimeEvent, ThreadId } from "@otto/contracts";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -71,7 +70,7 @@ import {
   type ActiveSession,
   type LegacyTurnMemoryState,
   type LegacyResourceIdentity,
-  type WorkerOrchestration,
+  type OrchestrationAccess,
 } from "./agent-controller/state.ts";
 
 import { toMcpServerConfigs } from "./agent-controller/mcp-configuration.ts";
@@ -173,9 +172,6 @@ const make = (options?: AgentControllerLiveOptions) =>
         return completeAssistantMessages;
       },
       resolveChildWaiter,
-      get workerRuntime() {
-        return workerRuntime;
-      },
       wired,
       failureDetail,
     });
@@ -318,7 +314,7 @@ const make = (options?: AgentControllerLiveOptions) =>
     };
 
     if (Option.isSome(orchestrationEngine) && Option.isSome(projectionSnapshotQuery)) {
-      const orchestration: WorkerOrchestration = {
+      const orchestration: OrchestrationAccess = {
         readSnapshot: () => runPromise(projectionSnapshotQuery.value.getCommandReadModel()),
         dispatch: (command) => runPromise(orchestrationEngine.value.dispatch(command)),
       };
@@ -326,20 +322,8 @@ const make = (options?: AgentControllerLiveOptions) =>
       yield* Ref.update(lateWiring, (current) => ({
         ...current,
         delegationRuntime: current.delegationRuntime ?? makeDelegationRuntime(orchestration),
-        workerOrchestration: orchestration,
       }));
     }
-
-    /** Runtime mode for each hidden worker thread's turns, keyed by child thread id. */
-    const workerTurnDefaults = new Map<string, RuntimeMode>();
-
-    const { workerRuntime, workersFor } = yield* createWorkers({
-      runMastra,
-      wired,
-      sessions,
-      workerTurnDefaults,
-      runPromise,
-    });
 
     const { baseEvent, publishSessionState, completeAssistantMessages, handleControllerEvent } =
       createEvents({
@@ -362,7 +346,6 @@ const make = (options?: AgentControllerLiveOptions) =>
         toolRuntime,
         failActiveTurn,
         wired,
-        workerRuntime,
         approvalDetail,
         sessionFailureDetail,
         finishTurn,
@@ -397,7 +380,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       webFetch,
       runPromise,
       projectionSnapshotQuery,
-      workerRuntime,
       wired,
       sessions,
       resolvedByThread,
@@ -411,7 +393,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       memoryEnabled,
       memoryHandlers,
       delegationFor,
-      workersFor,
       toolRuntime,
       toProviderSession,
       legacyResourceIdentity,
@@ -502,8 +483,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       publishSessionState,
       bundle,
       memoryUsageByThread,
-      workerRuntime,
-      workerTurnDefaults,
       projectionMessages,
       projectionTurns,
       config,
@@ -587,14 +566,9 @@ const make = (options?: AgentControllerLiveOptions) =>
           botStateRuntime: createOttoBotStateRuntime(input),
           channelRuntime: createOttoChannelRuntime(input),
           delegationRuntime: current.delegationRuntime ?? makeDelegationRuntime(input),
-          workerOrchestration: current.workerOrchestration ?? input,
         })),
       failDelegation: ({ threadId, error }) =>
-        Effect.sync(() =>
-          resolveChildWaiter(threadId, { state: "failed", turnId: null, error }),
-        ).pipe(
-          Effect.andThen(workerRuntime.childTurnFinished(threadId, { state: "failed", error })),
-        ),
+        Effect.sync(() => resolveChildWaiter(threadId, { state: "failed", turnId: null, error })),
       dispatchDelegation: (input) =>
         Effect.tryPromise({
           try: async () => {

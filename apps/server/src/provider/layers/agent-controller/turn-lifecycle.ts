@@ -25,7 +25,6 @@ import { type OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
 import type { MemoryChat } from "../../../memory/memories.ts";
 import type { MemoryTurn } from "./memory-access.ts";
 import { type OttoDelegationChildOutcome } from "../../otto-delegation-runtime.ts";
-import type { OttoWorkerRuntime } from "../../otto-worker-runtime.ts";
 
 import type { PendingWaiters } from "../../pending-waiters.ts";
 import {
@@ -43,7 +42,6 @@ import {
   type PendingTurn,
   type ActiveSession,
   type PendingApproval,
-  type WorkerOrchestration,
 } from "./state.ts";
 
 export function createTurnLifecycle(deps: {
@@ -100,14 +98,12 @@ export function createTurnLifecycle(deps: {
     turn: ActiveTurn,
   ) => void;
   readonly resolveChildWaiter: (threadId: ThreadId, outcome: OttoDelegationChildOutcome) => void;
-  readonly workerRuntime: OttoWorkerRuntime;
   readonly wired: () => {
     readonly channelRuntime?: OttoChannelRuntime;
     readonly pluginRuntime?: ReturnType<typeof createOttoPluginRuntime>;
     readonly pluginRuntimeOptions?: OttoPluginRuntimeOptions;
     readonly botStateRuntime?: OttoBotStateRuntime;
     readonly delegationRuntime?: AgentControllerLiveOptions["delegationRuntime"];
-    readonly workerOrchestration?: WorkerOrchestration;
   };
   readonly failureDetail: (cause: unknown) => string;
 }) {
@@ -389,24 +385,6 @@ export function createTurnLifecycle(deps: {
         : { error: errorMessage ?? `The delegated turn ${state}.` }),
       usage: { inputTokens: turn.inputTokens, outputTokens: turn.outputTokens },
     });
-    deps.fork(
-      "Otto worker could not record its turn outcome.",
-      deps.workerRuntime.childTurnFinished(threadId, {
-        state: state === "completed" ? "completed" : "failed",
-        ...(state === "completed" && turn.assistantText.trim()
-          ? { summary: turn.assistantText.trim() }
-          : { error: errorMessage ?? `The worker turn ${state}.` }),
-      }),
-      { threadId, turnId: turn.turnId },
-    );
-    deps.fork(
-      "Otto workers could not settle after the parent turn.",
-      deps.workerRuntime.parentTurnEnded(threadId, turn.turnId),
-      {
-        threadId,
-        turnId: turn.turnId,
-      },
-    );
     const delegationRuntime = deps.wired().delegationRuntime;
 
     if (state !== "completed" && delegationRuntime) {

@@ -34,7 +34,6 @@ import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 
 import { type OttoChannelRuntime } from "../../otto-channel-runtime.ts";
 import { type OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
-import type { OttoWorkerRuntime } from "../../otto-worker-runtime.ts";
 import {
   createOttoPluginRuntime,
   type OttoPluginRuntimeOptions,
@@ -46,25 +45,18 @@ import { OttoSessionResources } from "../../otto-session-resources.ts";
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
 
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
-import {
-  type ResolvedEngine,
-  type ActiveSession,
-  type LegacyResourceIdentity,
-  type WorkerOrchestration,
-} from "./state.ts";
+import { type ResolvedEngine, type ActiveSession, type LegacyResourceIdentity } from "./state.ts";
 
 export interface SessionLifecycleDependencies {
   readonly webFetch: ReturnType<typeof createOttoWebFetch>;
   readonly runPromise: OttoRuntimeSeam["runPromise"];
   readonly projectionSnapshotQuery: Option.Option<ProjectionSnapshotQuery["Service"]>;
-  readonly workerRuntime: OttoWorkerRuntime;
   readonly wired: () => {
     readonly channelRuntime?: OttoChannelRuntime;
     readonly pluginRuntime?: ReturnType<typeof createOttoPluginRuntime>;
     readonly pluginRuntimeOptions?: OttoPluginRuntimeOptions;
     readonly botStateRuntime?: OttoBotStateRuntime;
     readonly delegationRuntime?: AgentControllerLiveOptions["delegationRuntime"];
-    readonly workerOrchestration?: WorkerOrchestration;
   };
   readonly sessions: Map<string, ActiveSession>;
   readonly resolvedByThread: Map<string, ResolvedEngine>;
@@ -94,10 +86,6 @@ export interface SessionLifecycleDependencies {
     readonly access: OttoDelegationAccessGrant;
     readonly activeChildDelegations: number;
   }) => NonNullable<OttoToolSession["delegation"]>;
-  readonly workersFor: (
-    threadId: ThreadId,
-    access: OttoDelegationAccessGrant,
-  ) => NonNullable<OttoToolSession["workers"]>;
   readonly toolRuntime: OttoToolRuntime;
   readonly toProviderSession: (threadId: ThreadId, active: ActiveSession) => ProviderSession;
   readonly legacyResourceIdentity: Map<string, LegacyResourceIdentity>;

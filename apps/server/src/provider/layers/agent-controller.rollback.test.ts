@@ -1,26 +1,19 @@
-import { DelegationId, type OttoDelegationRecord } from "@otto/contracts";
-import {
-  projectionQueryFixture,
-  providerRuntimeContext,
-} from "./test-support/projection-fixtures.ts";
 import type { OttoMastraState } from "../otto-mastra-harness.ts";
 
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import type { MastraDBMessage, Session } from "@mastra/core/agent-controller";
-import { MessageId, ProviderDriverKind, ThreadId, TurnId } from "@otto/contracts";
+import { MessageId, ProviderDriverKind, TurnId } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import { assert, describe, expect, vi } from "vite-plus/test";
+import { describe, expect, vi } from "vite-plus/test";
 import { ServerConfig } from "../../config.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import { makeOttoMastraHarness, type OttoMastraHarness } from "../otto-mastra-harness.ts";
 import { type AgentControllerLiveOptions } from "./agent-controller.ts";
-import * as ProjectionSnapshotQuery from "../../orchestration/services/projection-snapshot-query.ts";
 import {
   ProjectionThreadMessageRepository,
   type ProjectionThreadMessage,
@@ -32,19 +25,10 @@ import {
 import {
   codexThreadId,
   kimiThreadId,
-  codexInstanceId,
   kimiInstanceId,
   codexSelection,
 } from "./test-support/agent-controller-fixtures.ts";
-import {
-  makeBridge,
-  makeLayer,
-  provideController,
-  bossBotId,
-  linearServer,
-  groupParentSnapshot,
-} from "./test-support/agent-controller-layers.ts";
-import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
+import { makeBridge, makeLayer } from "./test-support/agent-controller-layers.ts";
 
 describe("AgentControllerLive", () => {
   it.effect.each(["codex", "kimi"] as const)(
@@ -288,129 +272,4 @@ describe("AgentControllerLive", () => {
       );
     },
   );
-});
-
-describe("AgentControllerLive", () => {
-  describe("temporary workers", () => {
-    it.effect("rebuilds an orphaned worker grant from its delegated parent after a restart", () => {
-      const bridge = makeBridge();
-      const mastra = mastraHarnessFixture();
-
-      const mcpManager = {
-        init: vi.fn(async () => undefined),
-        disconnect: vi.fn(async () => undefined),
-        getTools: vi.fn(() => ({ linear_update: { mcp: { annotations: {} } } })),
-        getServerStatuses: vi.fn(() => []),
-      };
-
-      // The worker's parent is a delegated chat limited to Task and WebSearch.
-      const delegatedParentThreadId = ThreadId.make("thread-delegated-parent");
-      const orphanThreadId = ThreadId.make("worker-thread-restricted");
-
-      const parentDelegation: OttoDelegationRecord = {
-        delegationId: DelegationId.make("delegation-restricted"),
-        parentDelegationId: null,
-        parentBotId: bossBotId,
-        childBotId: bossBotId,
-        parentTurnId: TurnId.make("parent-turn"),
-        ancestorBotIds: [],
-        depth: 1,
-        task: "Restricted delegation",
-        expectedResult: "Summary",
-        deadline: null,
-        billedBotId: bossBotId,
-        keep: false,
-        anchorMessageId: null,
-        retryOfDelegationId: null,
-        trigger: "bot",
-        createdAt: "2026-09-01T00:00:00.000Z",
-        updatedAt: "2026-09-01T00:01:00.000Z",
-        parentThreadId: codexThreadId,
-        phase: {
-          _tag: "Completed",
-          childThreadId: delegatedParentThreadId,
-          childTurnId: null,
-          startedAt: "2026-09-01T00:00:00.000Z",
-          completedAt: "2026-09-01T00:01:00.000Z",
-          result: { summary: "Done.", childThreadId: delegatedParentThreadId, childTurnId: null },
-          acknowledgedAt: null,
-        },
-        access: {
-          allowedToolIds: ["Task", "WebSearch"],
-          memoryScopes: [],
-          sandbox: null,
-          runtimeMode: "approval-required",
-          hasUserComputer: false,
-          enabledMcpServerIds: [],
-          disabledMcpServerIds: [],
-          approvalCeiling: "none",
-        },
-      };
-
-      return provideController(
-        Effect.gen(function* () {
-          const controller = yield* AgentController;
-          yield* controller.configureDelegation!({
-            readSnapshot: async () => groupParentSnapshot,
-            dispatch: async () => ({ sequence: 1 }),
-          });
-          yield* controller.resolveEngine({
-            threadId: orphanThreadId,
-            engine: null,
-            fallback: codexSelection,
-            mode: "default",
-            botConversation: true,
-          });
-          yield* controller.startSession(orphanThreadId, {
-            threadId: orphanThreadId,
-            provider: ProviderDriverKind.make("codex"),
-            providerInstanceId: codexInstanceId,
-            cwd: process.cwd(),
-            modelSelection: codexSelection,
-            runtimeMode: "approval-required",
-            botId: bossBotId,
-            botName: "Boss",
-            mcpServers: [linearServer],
-          });
-          const runtime = mastra.harnessOptions[0]?.toolRuntime;
-          assert.isDefined(runtime);
-          const tools = runtime.toolsForThread(String(orphanThreadId)).map((tool) => tool.id);
-          expect(tools).toContain("WebSearch");
-
-          for (const toolId of ["Read", "Task", "linear_update"]) {
-            expect(tools).not.toContain(toolId);
-          }
-        }),
-        bridge.service,
-        mastra.factory,
-        () => mcpManager as never,
-      ).pipe(
-        Effect.provideService(
-          ProjectionSnapshotQuery.ProjectionSnapshotQuery,
-          ProjectionSnapshotQuery.ProjectionSnapshotQuery.of(
-            projectionQueryFixture({
-              getThreadRuntimeContext: (threadId: ThreadId) =>
-                Effect.succeed(
-                  Option.some(
-                    providerRuntimeContext(
-                      threadId === orphanThreadId
-                        ? {
-                            id: threadId,
-                            botId: bossBotId,
-                            parentThreadId: delegatedParentThreadId,
-                          }
-                        : { id: threadId, botId: bossBotId },
-                    ),
-                  ),
-                ),
-              getBotById: () => Effect.succeed(Option.none()),
-              getGroupById: () => Effect.succeed(Option.none()),
-              listThreadDelegations: (threadId: ThreadId) =>
-                Effect.succeed(threadId === delegatedParentThreadId ? [parentDelegation] : []),
-            }),
-          ),
-        ),
-      );
-    });
-  });
 });

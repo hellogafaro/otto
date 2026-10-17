@@ -30,8 +30,6 @@ import { ottoActionNeedsApproval, criticalOttoAction } from "../../otto-mastra-h
 import { type OttoChannelRuntime } from "../../otto-channel-runtime.ts";
 import { type OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
 
-import type { OttoWorkerRuntime } from "../../otto-worker-runtime.ts";
-
 import {
   createOttoPluginRuntime,
   type OttoPluginRuntimeOptions,
@@ -48,7 +46,6 @@ import {
   type ActiveTurn,
   type ActiveSession,
   type PendingApproval,
-  type WorkerOrchestration,
 } from "./state.ts";
 
 import { nowIso, eventId } from "./event-identity.ts";
@@ -150,9 +147,7 @@ export function createEvents(deps: {
     readonly pluginRuntimeOptions?: OttoPluginRuntimeOptions;
     readonly botStateRuntime?: OttoBotStateRuntime;
     readonly delegationRuntime?: AgentControllerLiveOptions["delegationRuntime"];
-    readonly workerOrchestration?: WorkerOrchestration;
   };
-  readonly workerRuntime: OttoWorkerRuntime;
   readonly approvalDetail: (toolName: string, action: string | null, oneUse: boolean) => string;
   readonly sessionFailureDetail: (
     active: Pick<ActiveSession, "mcpServerIds">,
@@ -519,11 +514,8 @@ export function createEvents(deps: {
           return;
         }
 
-        // The session's own grant covers a worker chat a restart orphaned, which the
-        // runtimes no longer track.
         const grant =
           deps.wired().delegationRuntime?.accessForThread(threadId) ??
-          deps.workerRuntime.accessForThread(threadId) ??
           active.toolSession.delegation?.access;
 
         if (grant?.approvalCeiling === "none") {

@@ -135,8 +135,8 @@ export interface LegacyResourceIdentity {
   readonly botInstructions: string | undefined;
 }
 
-/** Orchestration access for temporary workers and delegation. */
-export interface WorkerOrchestration {
+/** Orchestration access for delegation. */
+export interface OrchestrationAccess {
   readonly readSnapshot: () => Promise<OrchestrationReadModel>;
   readonly dispatch: OttoPluginRuntimeOptions["dispatch"];
 }

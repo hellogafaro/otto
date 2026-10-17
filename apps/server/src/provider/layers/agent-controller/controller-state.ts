@@ -42,7 +42,7 @@ import { createOttoWebFetch } from "../../otto-web-fetch.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { RoutineDraftDispatcher } from "../../../routines/routine-draft-dispatcher.ts";
 import { Memories } from "../../../memory/memories.ts";
-import { type ResolvedEngine, type ActiveSession, type WorkerOrchestration } from "./state.ts";
+import { type ResolvedEngine, type ActiveSession } from "./state.ts";
 
 export const createControllerState = Effect.fn("createControllerState")(function* (
   options?: AgentControllerLiveOptions,
@@ -125,7 +125,6 @@ export const createControllerState = Effect.fn("createControllerState")(function
     readonly pluginRuntimeOptions?: OttoPluginRuntimeOptions;
     readonly botStateRuntime?: OttoBotStateRuntime;
     readonly delegationRuntime?: AgentControllerLiveOptions["delegationRuntime"];
-    readonly workerOrchestration?: WorkerOrchestration;
   }>({ delegationRuntime: options?.delegationRuntime });
 
   const wired = () => Ref.getUnsafe(lateWiring);

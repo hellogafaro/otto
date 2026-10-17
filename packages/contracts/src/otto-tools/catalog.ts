@@ -39,10 +39,6 @@ export const OttoToolId = Schema.Literals([
   "RemoveMcpAccount",
   "RenameMcpAccount",
   "SetMcpInstructions",
-  "Task",
-  "CheckSubagent",
-  "MessageSubagent",
-  "StopSubagent",
 ]);
 
 export type OttoToolId = typeof OttoToolId.Type;
@@ -297,21 +293,4 @@ export const OTTO_TOOL_CATALOG = [
   define("SetMcpInstructions", "bot-workspace", "Set MCP account instructions.", {
     approval: "secrets",
   }),
-  define(
-    "Task",
-    "bot-workspace",
-    "Start a temporary worker for a bounded subtask. The worker is a copy of this bot with the same tools and no memory writes, runs in a hidden chat, and is canceled when this turn ends. Waits for the result unless background is true; a background worker still needs CheckSubagent with wait before you finish this turn, or its result is lost. Workers cannot start workers, and one turn can run at most 3 at once.",
-    { promptSnippet: "run a bounded subtask in a temporary worker" },
-  ),
-  define(
-    "CheckSubagent",
-    "bot-workspace",
-    "Report a temporary worker's status: Running, Completed with its result, Failed, or Canceled. Set wait to block until it finishes.",
-  ),
-  define(
-    "MessageSubagent",
-    "bot-workspace",
-    "Send a follow-up instruction to a running temporary worker.",
-  ),
-  define("StopSubagent", "bot-workspace", "Cancel a temporary worker. It ends as Canceled."),
 ] satisfies ReadonlyArray<OttoToolDefinition>;

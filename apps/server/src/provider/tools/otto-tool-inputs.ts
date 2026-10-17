@@ -114,13 +114,5 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "SetMcpInstructions":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "Task":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "CheckSubagent":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "MessageSubagent":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "StopSubagent":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
   }
 }

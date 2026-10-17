@@ -35,7 +35,7 @@ import { type OttoToolSession } from "../../otto-tool-runtime.ts";
 
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 
-import { type ActiveSession, type WorkerOrchestration } from "./state.ts";
+import { type ActiveSession } from "./state.ts";
 import { delegatedUsageReceipt } from "./provider-access.ts";
 import { nowIso } from "./event-identity.ts";
 
@@ -48,7 +48,6 @@ export function createDelegation(deps: {
     readonly pluginRuntimeOptions?: OttoPluginRuntimeOptions;
     readonly botStateRuntime?: OttoBotStateRuntime;
     readonly delegationRuntime?: AgentControllerLiveOptions["delegationRuntime"];
-    readonly workerOrchestration?: WorkerOrchestration;
   };
   readonly sessions: Map<string, ActiveSession>;
   readonly childWaiters: PendingWaiters<null, OttoDelegationChildOutcome, never>;

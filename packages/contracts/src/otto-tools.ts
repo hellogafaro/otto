@@ -1,7 +1,6 @@
 import type { decodeOttoToolInput } from "./otto-tools/inputs.ts";
 import * as Predicate from "effect/Predicate";
 import { OTTO_DELEGATION_MAX_CONCURRENCY, OTTO_DELEGATION_MAX_DEPTH } from "./otto-delegation.ts";
-import { OTTO_WORKER_MAX_DEPTH } from "./otto-workers.ts";
 import {
   OttoToolApprovalClass,
   OttoProtectedApprovalClass,
@@ -19,8 +18,6 @@ export interface OttoToolAvailabilityContext {
   readonly implementedTools: ReadonlySet<string>;
   readonly delegationDepth?: number;
   readonly activeDelegations?: number;
-  /** 0 for a bot turn, 1 inside a temporary worker. */
-  readonly workerDepth?: number;
 }
 
 export function filterOttoTools(
@@ -37,8 +34,6 @@ export function filterOttoTools(
         (context.activeDelegations ?? 0) >= OTTO_DELEGATION_MAX_CONCURRENCY)
     )
       return false;
-
-    if (tool.id === "Task" && (context.workerDepth ?? 0) >= OTTO_WORKER_MAX_DEPTH) return false;
 
     return !(tool.workspace === "bot-workspace" && context.workspaceType === "none");
   });

@@ -1,14 +1,7 @@
 import * as NodeFS from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import {
-  OttoWorkerId,
-  BotId,
-  ThreadId,
-  type OttoToolReceipt,
-  type OttoWorkerStatus,
-} from "@otto/contracts";
-import { createOttoToolRuntime, type OttoToolSession } from "./otto-tool-runtime.ts";
-import { OttoWorkerError } from "./otto-worker-runtime.ts";
+import { BotId, type OttoToolReceipt } from "@otto/contracts";
+import { createOttoToolRuntime } from "./otto-tool-runtime.ts";
 import { makeOttoToolRuntimeTestSupport } from "./test-support/otto-tool-runtime.ts";
 
 const { directories, workspace } = makeOttoToolRuntimeTestSupport();
@@ -71,119 +64,6 @@ describe("OttoToolRuntime", () => {
     runtime.grantApproval(execution);
     await expect(runtime.execute(execution)).resolves.toEqual({ delivered: true });
     expect(send).toHaveBeenCalledOnce();
-  });
-
-  describe("temporary workers", () => {
-    const WORKER_TOOLS = ["Task", "CheckSubagent", "MessageSubagent", "StopSubagent"];
-
-    const status: OttoWorkerStatus = {
-      workerId: OttoWorkerId.make("worker-1"),
-      task: "Summarize",
-      phase: {
-        _tag: "Canceled",
-        childThreadId: ThreadId.make("worker-thread-1"),
-        startedAt: "2026-09-25T00:00:00.000Z",
-        completedAt: "2026-09-25T00:01:00.000Z",
-        canceledBy: "stop",
-      },
-    };
-
-    const workers = (depth: number): NonNullable<OttoToolSession["workers"]> => ({
-      depth,
-      spawn: vi.fn(async () => status),
-      check: vi.fn(async () => status),
-      message: vi.fn(async () => status),
-      stop: vi.fn(async () => status),
-    });
-
-    const toolIds = (runtime: ReturnType<typeof createOttoToolRuntime>, threadId: string) =>
-      runtime.toolsForThread(threadId).map((tool) => tool.id);
-
-    it("exposes worker tools only to sessions with a worker backend", () => {
-      const runtime = createOttoToolRuntime();
-      runtime.registerSession("bot-turn", {
-        runtimeMode: "approval-required",
-        workspaceType: "local",
-        workers: workers(0),
-      });
-      // Legacy-bridge sessions and worker threads register no worker backend.
-      runtime.registerSession("no-workers", {
-        runtimeMode: "approval-required",
-        workspaceType: "local",
-      });
-      runtime.registerSession("depth-limit", {
-        runtimeMode: "approval-required",
-        workspaceType: "local",
-        workers: workers(1),
-      });
-      expect(toolIds(runtime, "bot-turn")).toEqual(WORKER_TOOLS);
-      expect(toolIds(runtime, "no-workers")).toEqual([]);
-      expect(toolIds(runtime, "depth-limit")).toEqual(WORKER_TOOLS.slice(1));
-    });
-
-    it("runs worker tools without approval and reports their status", async () => {
-      const backend = workers(0);
-      const runtime = createOttoToolRuntime();
-      runtime.registerSession("bot-turn", {
-        runtimeMode: "approval-required",
-        workspaceType: "local",
-        workers: backend,
-      });
-      await expect(
-        runtime.execute({
-          threadId: "bot-turn",
-          toolId: "StopSubagent",
-          toolCallId: "tool-stop",
-          input: { workerId: "worker-1" },
-          approvalMode: "require-grant",
-        }),
-      ).resolves.toEqual(status);
-      expect(backend.stop).toHaveBeenCalledWith({ workerId: "worker-1" });
-    });
-
-    it("returns worker limit errors as failure receipts", async () => {
-      const receipts: OttoToolReceipt[] = [];
-
-      const backend: NonNullable<OttoToolSession["workers"]> = {
-        ...workers(0),
-        spawn: () =>
-          Promise.reject(
-            new OttoWorkerError({
-              reason: "concurrency_limit",
-              detail: "This turn already has 3 running workers.",
-            }),
-          ),
-      };
-
-      const runtime = createOttoToolRuntime({
-        onReceipt: (receipt) => receipts.push(receipt),
-        now: () => "2026-09-25T00:00:00.000Z",
-      });
-
-      runtime.registerSession("bot-turn", {
-        botId: BotId.make("bot-1"),
-        runtimeMode: "approval-required",
-        workspaceType: "local",
-        workers: backend,
-      });
-      await expect(
-        runtime.execute({
-          threadId: "bot-turn",
-          toolId: "Task",
-          toolCallId: "tool-task",
-          input: { task: "Fourth job", background: true },
-          approvalMode: "require-grant",
-        }),
-      ).resolves.toMatchObject({
-        phase: "failure",
-        toolId: "Task",
-        summary: "This turn already has 3 running workers.",
-      });
-      expect(receipts.at(-1)).toMatchObject({
-        phase: "failure",
-        summary: "This turn already has 3 running workers.",
-      });
-    });
   });
 
   it("runs typed durable bot controls through the delegation backend", async () => {

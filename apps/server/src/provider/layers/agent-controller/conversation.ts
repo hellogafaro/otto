@@ -23,8 +23,6 @@ import { ProjectionTurnRepository } from "../../../persistence/services/projecti
 
 import type { OttoControllerHarness } from "../../mastra/otto-harness-types.ts";
 
-import type { OttoWorkerRuntime } from "../../otto-worker-runtime.ts";
-
 import { cancelActiveImageGenerations } from "../../../image-generation/image-generation-runtime.ts";
 
 import { OttoSessionResources } from "../../otto-session-resources.ts";
@@ -73,11 +71,6 @@ export function createConversation(deps: {
   ) => void;
   readonly bundle: OttoControllerHarness;
   readonly memoryUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
-  readonly workerRuntime: OttoWorkerRuntime;
-  readonly workerTurnDefaults: Map<
-    string,
-    "approval-required" | "auto-accept-edits" | "auto" | "full-access"
-  >;
   readonly projectionMessages: Option.Option<ProjectionThreadMessageRepository["Service"]>;
   readonly projectionTurns: Option.Option<ProjectionTurnRepository["Service"]>;
   readonly config: ServerConfig["Service"];
@@ -162,8 +155,6 @@ export function createConversation(deps: {
             deps.toolRuntime.unregisterSession(key);
             deps.sessions.delete(key);
             deps.memoryUsageByThread.delete(key);
-            yield* deps.workerRuntime.releaseThread(input.threadId);
-            deps.workerTurnDefaults.delete(key);
           }),
         ),
       );
