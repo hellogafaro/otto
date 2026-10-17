@@ -45,6 +45,8 @@ const CatalogModel = Schema.Struct({
   fast: Schema.optionalKey(Schema.Boolean),
   /** Input tokens the model accepts: models.dev `limit.input`, else `limit.context`. */
   contextWindow: Schema.optionalKey(Schema.Number),
+  /** The most tokens one reply may have: models.dev `limit.output`. */
+  maxOutputTokens: Schema.optionalKey(Schema.Number),
 });
 
 export type CatalogModel = typeof CatalogModel.Type;
@@ -83,6 +85,7 @@ const ModelsDevModel = Schema.Struct({
     Schema.Struct({
       context: Schema.optionalKey(Schema.Number),
       input: Schema.optionalKey(Schema.Number),
+      output: Schema.optionalKey(Schema.Number),
     }),
   ),
   experimental: Schema.optionalKey(
@@ -146,6 +149,7 @@ function toCatalogModel(model: ModelsDevModel): CatalogModel {
     ...(efforts && efforts.length > 0 ? { efforts } : {}),
     ...(model.experimental?.modes?.fast !== undefined ? { fast: true } : {}),
     ...(contextWindow ? { contextWindow } : {}),
+    ...(model.limit?.output ? { maxOutputTokens: model.limit.output } : {}),
   };
 }
 

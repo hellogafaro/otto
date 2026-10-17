@@ -129,6 +129,17 @@ describe("withOttoPrompt", () => {
     ]);
   });
 
+  it("asks for at most 32,768 output tokens, or the model's own smaller limit", async () => {
+    const { model, calls } = recordingModel("xai.responses");
+    const grok = new RequestContext();
+    grok.setRaw("controller", { resourceId: "thread-1", session: { modelId: "xai/grok-4.3" } });
+
+    await send(withOttoPrompt(model, context({}), new Map(), now), [user("a")]);
+    await send(withOttoPrompt(model, grok, new Map(), now), [user("a")]);
+
+    expect(calls.map((call) => call.maxOutputTokens)).toEqual([32_768, 30_000]);
+  });
+
   it("names Otto and drops bot-only context outside bot conversations", async () => {
     const { model, calls } = recordingModel("openai.responses");
 

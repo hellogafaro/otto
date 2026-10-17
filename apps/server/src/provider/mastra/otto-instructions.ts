@@ -9,7 +9,8 @@ import {
   createOttoTurn,
   OTTO_CHAT_CONTEXT_SECTIONS,
 } from "../otto-agent-instructions.ts";
-import { controllerContext, controllerResourceId } from "./otto-memory.ts";
+import { replyTokenLimit } from "./otto-compaction.ts";
+import { controllerContext, controllerModelId, controllerResourceId } from "./otto-memory.ts";
 
 /** The native AI SDK v3 model; Mastra's own v3 wrapper streams from doGenerate too. */
 export type OttoLanguageModel = Extract<
@@ -82,6 +83,9 @@ export function withOttoPrompt(
     anthropic
       ? { role: "user", content: [{ type: "text", text }] }
       : { role: "system", content: text };
+
+  // Room for one reply is reserved below the window, so no request asks for more than that.
+  const maxOutputTokens = replyTokenLimit(controllerModelId(requestContext));
 
   const transform = (params: OttoCallOptions): OttoCallOptions => {
     const instructions = createOttoInstructions({
@@ -170,7 +174,8 @@ export function withOttoPrompt(
             }),
           );
 
-    if (!anthropic) return { ...params, prompt: [...system, ...conversation, turn] };
+    if (!anthropic)
+      return { ...params, maxOutputTokens, prompt: [...system, ...conversation, turn] };
 
     const tools = params.tools ?? [];
 
@@ -181,6 +186,7 @@ export function withOttoPrompt(
 
     return {
       ...params,
+      maxOutputTokens,
       prompt: [
         ...system.map((message, index) =>
           index === system.length - 1 ? cached(message) : message,

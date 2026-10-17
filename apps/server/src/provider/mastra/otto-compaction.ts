@@ -76,19 +76,30 @@ export interface OttoLastRequest {
   readonly params: OttoCallOptions;
 }
 
-/** The tokens a model may receive: its catalog window, at most 400k, else 128k. */
-export function contextWindow(modelId: string): number {
+function catalogModel(modelId: string) {
   const slash = modelId.indexOf("/");
   const prefix = modelId.slice(0, slash);
-
   const driver = Object.entries(MASTRA_MODEL_PREFIX).find(([, value]) => value === prefix)?.[0];
 
-  const window = driver
+  return driver
     ? BUNDLED_MODEL_CATALOG.drivers[driver]?.find((model) => model.id === modelId.slice(slash + 1))
-        ?.contextWindow
     : undefined;
+}
 
-  return Math.min(window ?? OTTO_UNKNOWN_CONTEXT_WINDOW_TOKENS, OTTO_CONTEXT_WINDOW_CAP_TOKENS);
+/** The tokens a model may receive: its catalog window, at most 400k, else 128k. */
+export function contextWindow(modelId: string): number {
+  return Math.min(
+    catalogModel(modelId)?.contextWindow ?? OTTO_UNKNOWN_CONTEXT_WINDOW_TOKENS,
+    OTTO_CONTEXT_WINDOW_CAP_TOKENS,
+  );
+}
+
+/** The output limit every bot request sends, so a reply always fits the reserve. */
+export function replyTokenLimit(modelId: string): number {
+  return Math.min(
+    catalogModel(modelId)?.maxOutputTokens ?? OTTO_REPLY_RESERVE_TOKENS,
+    OTTO_REPLY_RESERVE_TOKENS,
+  );
 }
 
 // A long base64 run or data URL in the stored JSON is an inline file; "JVBERi" is "%PDF" in base64.

@@ -119,6 +119,7 @@ describe("catalogFromModelsDev", () => {
       efforts: ["none", "low", "medium", "high", "xhigh"],
       fast: true,
       contextWindow: 922_000,
+      maxOutputTokens: 128_000,
     });
   });
 
