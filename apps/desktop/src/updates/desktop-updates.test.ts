@@ -1,3 +1,7 @@
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
+
 import * as Predicate from "effect/Predicate";
 import { assert, describe, it } from "@effect/vitest";
 
@@ -7,6 +11,7 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 
 import * as TestClock from "effect/testing/TestClock";
 
@@ -41,6 +46,71 @@ describe("DesktopUpdates", () => {
 
       assert.equal(harness.listenerCount(), 0);
     }).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
+  it.effect("turns on a packaged build's release feed and checks on launch and every poll", () => {
+    const resourcesPath = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-resources-"));
+
+    NodeFS.writeFileSync(
+      NodePath.join(resourcesPath, "app-update.yml"),
+      [
+        "owner: hellogafaro",
+        "repo: otto-releases",
+        "provider: github",
+        "releaseType: release",
+        "updaterCacheDirName: otto-updater",
+        "",
+      ].join("\n"),
+    );
+
+    const harness = makeHarness({
+      resourcesPath,
+      env: { OTTO_LEGACY_DESKTOP_MOCK_UPDATES: "false" },
+    });
+
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+
+        const state = yield* updates.getState;
+        assert.equal(state.enabled, true);
+        assert.equal(state.status, "idle");
+        assert.deepEqual(harness.feedUrls(), []);
+
+        yield* TestClock.adjust(Duration.seconds(15));
+        assert.equal(harness.checkCount(), 1);
+
+        yield* TestClock.adjust(Duration.minutes(4));
+        assert.equal(harness.checkCount(), 2);
+
+        yield* TestClock.adjust(Duration.minutes(4));
+        assert.equal(harness.checkCount(), 3);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
+  it.effect("keeps an ad-hoc build without app-update.yml off the update feed", () => {
+    const harness = makeHarness({ env: { OTTO_LEGACY_DESKTOP_MOCK_UPDATES: "false" } });
+
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+
+        const state = yield* updates.getState;
+        const disabledReason = yield* updates.disabledReason;
+        assert.equal(state.enabled, false);
+        assert.equal(state.status, "disabled");
+        assert.include(
+          Option.getOrElse(disabledReason, () => ""),
+          "no update feed",
+        );
+
+        yield* TestClock.adjust(Duration.minutes(30));
+        assert.equal(harness.checkCount(), 0);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
   });
 
   it.effect("checks for newer releases after an update has been downloaded", () => {
