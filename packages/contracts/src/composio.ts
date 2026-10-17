@@ -24,6 +24,7 @@ export const ComposioConnection = Schema.Struct({
   id: TrimmedNonEmptyString,
   toolkitSlug: TrimmedNonEmptyString,
   status: ComposioConnectionStatus,
+  /** The label the person typed when connecting, such as Work, or an older account's Composio alias. */
   alias: Schema.optional(TrimmedNonEmptyString),
   /** Who the account signed in as, such as an email address, once the provider reports it. */
   accountName: Schema.optional(TrimmedNonEmptyString),
@@ -97,6 +98,7 @@ export type ComposioToolkitDetail = typeof ComposioToolkitDetail.Type;
 
 export const ComposioAuthorizeInput = Schema.Struct({
   toolkitSlug: TrimmedNonEmptyString,
+  /** The person's label for the account, unique among their own accounts for this app. */
   alias: Schema.optional(TrimmedNonEmptyString),
   visibility: Schema.optional(ComposioVisibility),
 });
@@ -127,6 +129,16 @@ export const ComposioUpdateConnectionInput = Schema.Struct({
 });
 
 export type ComposioUpdateConnectionInput = typeof ComposioUpdateConnectionInput.Type;
+
+/** The person already has an account for this app with that label. */
+export class ComposioLabelTakenError extends Schema.TaggedErrorClass<ComposioLabelTakenError>()(
+  "ComposioLabelTakenError",
+  {
+    toolkitSlug: TrimmedNonEmptyString,
+    label: TrimmedNonEmptyString,
+    message: TrimmedNonEmptyString,
+  },
+) {}
 
 export class ComposioOperationError extends Schema.TaggedErrorClass<ComposioOperationError>()(
   "ComposioOperationError",

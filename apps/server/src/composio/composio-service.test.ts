@@ -1,15 +1,59 @@
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { describe, expect, vi } from "vite-plus/test";
 
 import type { ServerSecretStore } from "../auth/server-secret-store.ts";
 
+import { SqlitePersistenceMemory } from "../persistence/layers/sqlite.ts";
 import { toClaudeMcpServers } from "../provider/mcp-server-config.ts";
-import { inMemoryComposioAccounts, make } from "./composio-service.ts";
+import {
+  composioAccountAlias,
+  inMemoryComposioAccounts,
+  make,
+  sqlComposioAccounts,
+} from "./composio-service.ts";
 
 const viewer = { personId: "person-ana", displayName: "Ana" };
+
+const ben = { personId: "person-ben", displayName: "Ben" };
+
+type FakeAccount = {
+  readonly id: string;
+  readonly toolkit: { readonly slug: string };
+  readonly status: "ACTIVE" | "FAILED" | "INITIATED";
+  readonly alias?: string | null;
+  readonly state?: unknown;
+};
+
+/** Composio's own rule: one alias per user and app. Everyone in Otto is that one user. */
+function composioProject(accounts: FakeAccount[]) {
+  return async (toolkit: string, options?: { readonly alias?: string }) => {
+    if (
+      options?.alias !== undefined &&
+      accounts.some(
+        (account) => account.toolkit.slug === toolkit && account.alias === options.alias,
+      )
+    ) {
+      throw Object.assign(new Error("Alias already exists for this user and toolkit"), {
+        status: 409,
+      });
+    }
+
+    const id = `connection-${accounts.length + 1}`;
+    accounts.push({
+      id,
+      toolkit: { slug: toolkit },
+      status: "INITIATED",
+      alias: options?.alias ?? null,
+    });
+
+    return { id, redirectUrl: "https://connect.composio.dev/link" };
+  };
+}
 
 const noBot = { botId: null, ownerPersonId: null };
 
@@ -43,20 +87,17 @@ function makeSecretStore(initial: Readonly<Record<string, string>> = {}) {
 }
 
 function fakeClient(input?: {
-  readonly accounts?: ReadonlyArray<{
-    readonly id: string;
-    readonly toolkit: { readonly slug: string };
-    readonly status: "ACTIVE" | "FAILED";
-    readonly alias?: string | null;
-    readonly state?: unknown;
-  }>;
+  readonly accounts?: ReadonlyArray<FakeAccount>;
   readonly toolkits?: ReadonlyArray<{
     readonly slug: string;
     readonly name: string;
     readonly meta: { readonly toolsCount?: number };
   }>;
   readonly tools?: ReadonlyArray<{ readonly slug: string; readonly name: string }>;
-  readonly authorize?: () => Promise<{
+  readonly authorize?: (
+    toolkit: string,
+    options?: { readonly alias?: string },
+  ) => Promise<{
     readonly id: string;
     readonly redirectUrl?: string;
   }>;
@@ -615,5 +656,190 @@ describe("ComposioService", () => {
       expect(yield* Fiber.join(first)).toBe(yield* Fiber.join(second));
       expect(createSession).toHaveBeenCalledTimes(1);
     }),
+  );
+
+  it.effect("lets two people use the same label, each under their own Composio alias", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore();
+      const accounts: FakeAccount[] = [];
+
+      const { client } = fakeClient({
+        accounts,
+        toolkits: [{ slug: "gmail", name: "Gmail", meta: {} }],
+        authorize: composioProject(accounts),
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), "project-key", () => client);
+      const otherAna = { personId: "person-ana-2", displayName: "Ana" };
+
+      yield* service.authorize({ toolkitSlug: "gmail", alias: "Work" }, viewer);
+      yield* service.authorize(
+        { toolkitSlug: "gmail", alias: "Work", visibility: "organization" },
+        ben,
+      );
+      yield* service.authorize({ toolkitSlug: "gmail", alias: "Work" }, otherAna);
+
+      const aliases = accounts.map((account) => account.alias);
+      expect(aliases).toEqual([
+        composioAccountAlias(viewer, "Work"),
+        composioAccountAlias(ben, "Work"),
+        composioAccountAlias(otherAna, "Work"),
+      ]);
+      expect(new Set(aliases).size).toBe(3);
+      expect(aliases[0]).toMatch(/^Ana · Work · [0-9a-f]{6}$/);
+      expect(aliases[1]).toMatch(/^Ben · Work · [0-9a-f]{6}$/);
+
+      const anaSees = yield* service.getStatus(viewer);
+      expect(
+        anaSees.connections.map((connection) => [connection.alias, connection.ownerName]),
+      ).toEqual([
+        ["Work", undefined],
+        ["Work", "Ben"],
+      ]);
+    }),
+  );
+
+  it.effect("refuses a label the person already uses for that app, before calling Composio", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore();
+      const accounts: FakeAccount[] = [];
+
+      const { client, createSession } = fakeClient({
+        accounts,
+        toolkits: [{ slug: "gmail", name: "Gmail", meta: {} }],
+        authorize: composioProject(accounts),
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), "project-key", () => client);
+      yield* service.authorize({ toolkitSlug: "gmail", alias: "Work" }, viewer);
+      yield* service.authorize({ toolkitSlug: "slack", alias: "Work" }, viewer);
+
+      const error = yield* Effect.flip(
+        service.authorize({ toolkitSlug: "gmail", alias: "work" }, viewer),
+      );
+
+      expect(error).toMatchObject({
+        _tag: "ComposioLabelTakenError",
+        toolkitSlug: "gmail",
+        label: "work",
+        message: "You already have an account called work for Gmail.",
+      });
+      expect(createSession).toHaveBeenCalledTimes(2);
+    }),
+  );
+
+  it.effect("reports Composio's own alias conflict as a taken label", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore();
+
+      const { client, sessionDeletes } = fakeClient({
+        authorize: () =>
+          Promise.reject(Object.assign(new Error("duplicate alias"), { status: 409 })),
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), "project-key", () => client);
+
+      expect(
+        yield* Effect.flip(service.authorize({ toolkitSlug: "gmail", alias: "Work" }, viewer)),
+      ).toMatchObject({
+        _tag: "ComposioLabelTakenError",
+        message: "You already have an account called Work for gmail.",
+      });
+      expect(sessionDeletes[0]).toHaveBeenCalledTimes(1);
+    }),
+  );
+
+  it.effect("keeps showing and guarding older accounts' bare aliases", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore();
+      const records = inMemoryComposioAccounts();
+
+      const accounts: FakeAccount[] = [
+        {
+          id: "gmail-legacy",
+          toolkit: { slug: "gmail" },
+          status: "ACTIVE",
+          alias: "ana@example.com",
+        },
+        {
+          id: "gmail-unowned",
+          toolkit: { slug: "gmail" },
+          status: "ACTIVE",
+          alias: "team@example.com",
+        },
+      ];
+
+      yield* records.save({
+        connectionId: "gmail-legacy",
+        createdBy: viewer.personId,
+        createdByName: viewer.displayName,
+        label: null,
+        visibility: "user",
+        botAccess: {},
+      });
+
+      const { client, createSession } = fakeClient({
+        accounts,
+        authorize: composioProject(accounts),
+      });
+
+      const service = make(store, records, "project-key", () => client);
+
+      expect(
+        (yield* service.getStatus(viewer)).connections.map((connection) => connection.alias),
+      ).toEqual(["ana@example.com", "team@example.com"]);
+
+      expect(
+        yield* Effect.flip(
+          service.authorize({ toolkitSlug: "gmail", alias: "ana@example.com" }, viewer),
+        ),
+      ).toMatchObject({ _tag: "ComposioLabelTakenError", label: "ana@example.com" });
+
+      yield* service.authorize({ toolkitSlug: "gmail", alias: "team@example.com" }, viewer);
+
+      yield* service.resolveRuntimeMcpServer("thread-1", botOwnedBy(viewer.personId));
+      expect(createSession).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          connectedAccounts: { gmail: ["gmail-legacy", "gmail-unowned"] },
+        }),
+      );
+    }),
+  );
+
+  it.effect("stores the person's label in SQLite and reads older rows without one", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      const records = yield* sqlComposioAccounts;
+
+      yield* sql`
+        INSERT INTO composio_accounts (connection_id, created_by, created_by_name, visibility, created_at)
+        VALUES ('gmail-legacy', NULL, NULL, 'organization', '2026-01-01T00:00:00.000Z')
+      `;
+
+      const record = {
+        connectionId: "gmail-work",
+        createdBy: viewer.personId,
+        createdByName: viewer.displayName,
+        label: "Work",
+        visibility: "user" as const,
+        botAccess: {},
+      };
+
+      yield* records.save(record);
+      yield* records.save({ ...record, label: null, visibility: "organization" });
+
+      expect(yield* records.list).toEqual([
+        {
+          connectionId: "gmail-legacy",
+          createdBy: null,
+          createdByName: null,
+          label: null,
+          visibility: "organization",
+          botAccess: {},
+        },
+        { ...record, visibility: "organization" },
+      ]);
+    }).pipe(Effect.provide(Layer.fresh(SqlitePersistenceMemory))),
   );
 });
