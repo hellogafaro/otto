@@ -238,7 +238,11 @@ export function GroupEditor({
 
             return (
               <div key={member.key} className="flex min-h-9 items-center gap-2">
-                <PersonAvatar name={member.name} className="size-6" />
+                <PersonAvatar
+                  name={member.name}
+                  personId={member.person.personId}
+                  className="size-6"
+                />
                 <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
                 {canAct ? (
                   <Button

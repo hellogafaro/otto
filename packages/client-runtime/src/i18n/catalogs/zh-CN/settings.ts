@@ -354,4 +354,11 @@ export const settingsCatalog = {
   "Server address": "服务器地址",
   "Use another server": "使用其他服务器",
   "Use this computer": "使用这台电脑",
+  "Choose a JPG, PNG, WebP or GIF image.": "请选择 JPG、PNG、WebP 或 GIF 图片。",
+  "Could not save your photo.": "无法保存你的照片。",
+  "JPG, PNG, WebP or GIF up to 8 MB, cropped to a square. Everyone in your organization sees it.":
+    "JPG、PNG、WebP 或 GIF，最大 8 MB，裁剪为正方形。组织中的所有人都能看到。",
+  Photo: "照片",
+  "Replace photo": "更换照片",
+  "Upload photo": "上传照片",
 } as const;

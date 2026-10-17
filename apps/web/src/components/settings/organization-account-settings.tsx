@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useI18n } from "../../i18n";
+import { AVATAR_UPLOAD_MAX_FILE_BYTES, downscaleAvatarImage } from "../roster/avatar-upload";
+import { PersonAvatar } from "../roster/person-avatar";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Form } from "../ui/form";
@@ -75,6 +78,19 @@ export function AccountSettingsPanel() {
         </Alert>
       ) : null}
       <SettingsSection title="Profile">
+        <ProfilePhotoRow
+          name={`${state.user.firstName} ${state.user.lastName}`}
+          image={state.user.image ?? null}
+          saveImage={async (image) => {
+            const result = await client.updateUser({ image });
+
+            if (result.error) return false;
+            await refresh();
+
+            return true;
+          }}
+          onError={setError}
+        />
         <SettingsRow
           title="First name"
           control={
@@ -178,6 +194,107 @@ export function AccountSettingsPanel() {
         }}
       />
     </SettingsPageContainer>
+  );
+}
+
+const PROFILE_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+/** Otto: the photo is cropped to a small square JPEG here, so the server stores only that. */
+function ProfilePhotoRow({
+  name,
+  image,
+  saveImage,
+  onError,
+}: {
+  readonly name: string;
+  readonly image: string | null;
+  /** Resolves to whether the server saved the photo, or its removal for null. */
+  readonly saveImage: (image: string | null) => Promise<boolean>;
+  readonly onError: (message: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const input = useRef<HTMLInputElement>(null);
+  const [pending, setPending] = useState(false);
+
+  const save = async (next: string | null) => {
+    setPending(true);
+    const saved = await saveImage(next);
+    setPending(false);
+
+    if (!saved) onError(t("Could not save your photo."));
+  };
+
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    onError(null);
+
+    if (!PROFILE_PHOTO_TYPES.includes(file.type)) {
+      onError(t("Choose a JPG, PNG, WebP or GIF image."));
+
+      return;
+    }
+
+    if (file.size > AVATAR_UPLOAD_MAX_FILE_BYTES) {
+      onError(t("Image too large"));
+
+      return;
+    }
+
+    const photo = await downscaleAvatarImage(file).catch(() => null);
+
+    if (!photo) {
+      onError(t("Could not read image"));
+
+      return;
+    }
+
+    await save(photo);
+  };
+
+  return (
+    <SettingsRow
+      title={t("Photo")}
+      description={t(
+        "JPG, PNG, WebP or GIF up to 8 MB, cropped to a square. Everyone in your organization sees it.",
+      )}
+      control={
+        <>
+          <PersonAvatar
+            name={name}
+            image={image}
+            className="size-8 rounded-md border border-border/70 text-xs"
+          />
+          {image ? (
+            <Button
+              variant="ghost"
+              disabled={pending}
+              onClick={() => {
+                onError(null);
+                void save(null);
+              }}
+            >
+              {t("Remove")}
+            </Button>
+          ) : null}
+          <Button variant="outline" disabled={pending} onClick={() => input.current?.click()}>
+            {image ? t("Replace photo") : t("Upload photo")}
+          </Button>
+          <input
+            ref={input}
+            type="file"
+            accept={PROFILE_PHOTO_TYPES.join(",")}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              void upload(file);
+            }}
+          />
+        </>
+      }
+    />
   );
 }
 

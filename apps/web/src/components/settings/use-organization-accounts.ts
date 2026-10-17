@@ -1,11 +1,12 @@
+import { useAtom } from "@effect/atom-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as Option from "effect/Option";
 import {
   createOrganizationAccountsClient,
   getOrganizationAccountState,
 } from "@otto/client-runtime/authorization";
-import type { OrganizationAccountState } from "@otto/contracts";
 import { useSettingsEnvironmentId } from "~/settings-dialog-store";
+import { organizationAccountAtom } from "~/state/people";
 import { usePreparedConnection } from "~/state/session";
 
 export function useOrganizationAccounts() {
@@ -19,10 +20,7 @@ export function useOrganizationAccounts() {
     [baseURL, token],
   );
 
-  const [loaded, setLoaded] = useState<{ baseURL: string; state: OrganizationAccountState } | null>(
-    null,
-  );
-
+  const [loaded, setLoaded] = useAtom(organizationAccountAtom);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -30,7 +28,7 @@ export function useOrganizationAccounts() {
     const state = await getOrganizationAccountState(baseURL, token);
     setLoaded({ baseURL, state });
     setError(null);
-  }, [baseURL, token]);
+  }, [baseURL, token, setLoaded]);
 
   useEffect(() => {
     if (!baseURL) return;
@@ -49,7 +47,7 @@ export function useOrganizationAccounts() {
     return () => {
       cancelled = true;
     };
-  }, [baseURL, token]);
+  }, [baseURL, token, setLoaded]);
 
   return {
     baseURL,

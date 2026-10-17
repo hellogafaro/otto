@@ -71,6 +71,7 @@ function memberColumns(): DataTableColumn<MemberRow>[] {
       cell: (row) => (
         <PersonAvatar
           name={row.type === "member" ? row.member.user.name : row.invitation.email}
+          image={row.type === "member" ? (row.member.user.image ?? null) : null}
           className="size-5 text-9px"
         />
       ),

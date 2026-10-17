@@ -62,7 +62,11 @@ export function GroupMemberChecklist({
           {candidate.kind === "bot" ? (
             <BotAvatarView avatar={candidate.bot.avatar} name={candidate.name} className="size-7" />
           ) : (
-            <PersonAvatar name={candidate.name} className="size-7" />
+            <PersonAvatar
+              name={candidate.name}
+              personId={candidate.person.personId}
+              className="size-7"
+            />
           )}
           <span className="min-w-0 flex-1 truncate text-sm">{candidate.name}</span>
         </label>

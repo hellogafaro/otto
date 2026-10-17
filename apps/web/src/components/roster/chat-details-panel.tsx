@@ -135,7 +135,11 @@ export function ChatDetailsPanel({
               </div>
               {people.current ? (
                 <div className="flex min-h-9 items-center gap-2">
-                  <PersonAvatar name={people.current.displayName} className="size-6" />
+                  <PersonAvatar
+                    name={people.current.displayName}
+                    personId={people.current.id}
+                    className="size-6"
+                  />
                   <span className="min-w-0 flex-1 truncate text-sm">
                     {people.current.displayName}
                   </span>
