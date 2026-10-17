@@ -543,6 +543,7 @@ export function BotPromptComposer({
                   "field-sizing-content relative block max-h-56 w-full resize-none bg-transparent outline-none placeholder:text-muted-foreground/70",
                   promptTextClassName,
                   draftMentions.length > 0 && "text-transparent caret-foreground",
+                  dictating && "placeholder:text-transparent",
                 )}
                 onScroll={(event) => {
                   if (mentionHighlightsRef.current) {

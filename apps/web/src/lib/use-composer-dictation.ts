@@ -89,7 +89,7 @@ export function useComposerDictation(input: ComposerDictationBinding): ComposerD
   useEffect(() => {
     session.updateContext(input.identity, input.connected && !input.callActive);
   }, [input.callActive, input.connected, input.identity, session]);
-  useEffect(() => () => session.dispose(), [session]);
+  useEffect(() => () => session.cancel("disposed"), [session]);
 
   const onStart = useCallback(() => {
     if (unavailableReason) return;
