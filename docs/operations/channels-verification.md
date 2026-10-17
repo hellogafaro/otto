@@ -76,7 +76,7 @@ Matrix result, 2026-09-26: **unverified: no credentials.**
 
 ### WhatsApp
 
-Needs: a Meta Business app with the WhatsApp Business Cloud API, a phone number ID, an access token, an app secret, a verify token, and a public HTTPS origin for the environment server (`--public-origin` or `OTTO_LEGACY_PUBLIC_ORIGIN`).
+Needs: a Meta Business app with the WhatsApp Business Cloud API, a phone number ID, an access token, an app secret, a verify token, and a public HTTPS origin for the environment server (`--public-url` or `OTTO_PUBLIC_URL`).
 
 - Without a public origin the binding must save as `not-live` and no webhook URL appears in the profile.
 - With a public origin the server writes the webhook URL (`/api/channels/whatsapp/connections/<connection-id>/webhook`) into the connection profile. Configure that URL and the verify token in the Meta app dashboard. The older per-bot route (`/api/channels/whatsapp/<bot-id>/webhook`) still accepts calls.

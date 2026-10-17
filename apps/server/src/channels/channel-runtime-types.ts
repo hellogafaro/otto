@@ -148,7 +148,7 @@ export interface ChannelRuntimeDependencies {
   readonly httpClient?: HttpClient.HttpClient;
   /**
    * Public https origin the operator advertises for this environment
-   * (`--public-origin`/`OTTO_LEGACY_PUBLIC_ORIGIN`). Drives provider webhook URLs and
+   * (`--public-url`/`OTTO_PUBLIC_URL`). Drives provider webhook URLs and
    * the "Open in Otto" reply footer. Never derived from a bind address or a
    * client-supplied origin; undefined means no public origin is configured.
    */

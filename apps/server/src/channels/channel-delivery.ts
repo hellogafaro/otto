@@ -53,7 +53,7 @@ export const channelReplyTextWithFooter = (
 export const CHANNEL_SENT_MESSAGE_RECOVERY_LIMIT = 128;
 
 export const WHATSAPP_NOT_LIVE_MESSAGE =
-  "WhatsApp cannot reach this server. Start it with a public https origin (--public-origin), then reconnect.";
+  "WhatsApp cannot reach this server. Start it with a public https origin (--public-url), then reconnect.";
 
 export const boundedSentMessageIds = (messageIds: ReadonlyArray<MessageId>) =>
   messageIds.slice(-CHANNEL_SENT_MESSAGE_RECOVERY_LIMIT);

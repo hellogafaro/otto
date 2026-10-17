@@ -8,9 +8,9 @@ attachments, settings, backups) lives in the `otto-data` volume at `/data`.
 Export the settings in your shell (or a secrets manager such as `infisical run -- …`), then start:
 
 ```sh
-export OTTO_PUBLIC_ORIGIN=https://otto.example.com   # the address people open
-export OTTO_SECRETS_KEY="$(openssl rand -base64 32)"  # keep it in a password manager
-export BOAT_API_KEY=…                                 # optional: bots' Boat computers
+export OTTO_PUBLIC_URL=https://otto.example.com   # the address people open
+export OTTO_ENCRYPTION_KEY="$(openssl rand -base64 32)"  # keep it in a password manager
+export COMPOSIO_API_KEY=…                             # optional: Connect an app for everyone
 export OTTO_SMTP_HOST=… OTTO_SMTP_USER=… OTTO_SMTP_PASSWORD=… OTTO_MAIL_FROM=…  # optional
 docker compose -f deploy/docker/compose.yaml up -d --build --wait
 ```
@@ -19,16 +19,16 @@ docker compose -f deploy/docker/compose.yaml up -d --build --wait
 listens on `127.0.0.1:3773`; change `OTTO_HTTP_BIND`/`OTTO_HTTP_PORT` to expose it differently.
 
 - **HTTPS:** point a DNS record at the host, open ports 80 and 443, and add the Caddy service, which
-  gets a Let's Encrypt certificate: `OTTO_DOMAIN=otto.example.com OTTO_TRUST_PROXY=1 docker compose -f deploy/docker/compose.yaml --profile https up -d --wait`.
-  `OTTO_TRUST_PROXY=1` lets sign-in rate limits use the client address Caddy forwards; leave it unset
-  when people reach port 3773 directly, so nobody can fake that header.
+  gets a Let's Encrypt certificate: `OTTO_DOMAIN=otto.example.com docker compose -f deploy/docker/compose.yaml --profile https up -d --wait`.
+  An https `OTTO_PUBLIC_URL` tells Otto it sits behind a proxy, so sign-in rate limits use the client
+  address Caddy forwards; keep port 3773 on 127.0.0.1 so nobody can reach it directly and fake that header.
 - **First run:** open the origin straight away and fill in the setup form: the first person to do it
   becomes the owner. Others join by invitation.
 - **Sign-in:** with SMTP set, people sign in with a code sent to their email; without it, with their
   password.
 - **Mail:** any SMTP provider works (`OTTO_SMTP_PORT` defaults to 587, `OTTO_SMTP_SECURE=true` for 465).
 
-`OTTO_SECRETS_KEY` seals every credential saved in Otto. Losing it makes them unreadable, and a backup
+`OTTO_ENCRYPTION_KEY` seals every credential saved in Otto. Losing it makes them unreadable, and a backup
 is only useful with it.
 
 ## Backups
@@ -43,7 +43,7 @@ docker compose -f deploy/docker/compose.yaml exec otto otto backup
 Copy `/data/backups` off the host with your usual backup tool (`docker compose cp otto:/data/backups ./`).
 
 To restore, stop Otto, put the backup's `.sqlite` files into `/data/userdata/` (deleting any
-`-wal`/`-shm` files beside them) and start it again with the same `OTTO_SECRETS_KEY`.
+`-wal`/`-shm` files beside them) and start it again with the same `OTTO_ENCRYPTION_KEY`.
 
 ## Update
 

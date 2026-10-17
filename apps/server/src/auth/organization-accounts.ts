@@ -108,7 +108,7 @@ export const layer = Layer.effect(
           development: config.devUrl !== undefined,
         }),
         mailConfigured,
-        trustProxy: Boolean(variables.OTTO_TRUST_PROXY?.trim()),
+        trustProxy: config.publicOrigin?.startsWith("https:") ?? false,
         now: () => clock.currentTimeMillisUnsafe(),
         sendEmail: async (mail) => {
           try {

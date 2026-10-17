@@ -27,7 +27,7 @@ const makeStoreLayer = (configLayer = makeConfigLayer()) =>
 
 const environmentKey = (key: Uint8Array) =>
   ConfigProvider.layer(
-    ConfigProvider.fromEnv({ env: { OTTO_SECRETS_KEY: Buffer.from(key).toString("base64") } }),
+    ConfigProvider.fromEnv({ env: { OTTO_ENCRYPTION_KEY: Buffer.from(key).toString("base64") } }),
   );
 
 it.layer(NodeServices.layer)("ServerSecretStore.layer", (it) => {
@@ -161,7 +161,7 @@ it.layer(NodeServices.layer)("ServerSecretStore.layer", (it) => {
     }).pipe(Effect.provide(Layer.merge(Layer.fresh(SqlitePersistenceMemory), makeConfigLayer()))),
   );
 
-  it.effect("uses OTTO_SECRETS_KEY and cannot read values sealed with another key", () =>
+  it.effect("uses OTTO_ENCRYPTION_KEY and cannot read values sealed with another key", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;

@@ -136,7 +136,7 @@ export class ServerSecretStore extends Context.Service<
   }
 >()("@otto/server/auth/server-secret-store/ServerSecretStore") {}
 
-/** The master key file, used when `OTTO_SECRETS_KEY` is not set. */
+/** The master key file, used when `OTTO_ENCRYPTION_KEY` is not set. */
 export const MASTER_KEY_FILE = "master.key";
 
 const MASTER_KEY_BYTES = 32;
@@ -147,7 +147,7 @@ const IV_BYTES = 12;
 
 const TAG_BYTES = 16;
 
-const masterKeyFromEnvironment = Config.redacted("OTTO_SECRETS_KEY").pipe(Config.option);
+const masterKeyFromEnvironment = Config.redacted("OTTO_ENCRYPTION_KEY").pipe(Config.option);
 
 /** Seals one value as version, IV, auth tag, then ciphertext, bound to its secret name. */
 function seal(key: Uint8Array, name: string, value: Uint8Array): Uint8Array {
@@ -181,7 +181,7 @@ function open(key: Uint8Array, name: string, envelope: Uint8Array): Uint8Array {
 
 /**
  * Every secret lives in the `secrets` table, sealed with AES-256-GCM. The master key comes
- * from `OTTO_SECRETS_KEY` (base64, 32 bytes) for hosted installs, otherwise from a key file
+ * from `OTTO_ENCRYPTION_KEY` (base64, 32 bytes) for hosted installs, otherwise from a key file
  * created once in the secrets directory. Secrets the file store kept as `<name>.bin` move
  * into the table the first time the store starts.
  */
@@ -240,7 +240,9 @@ export const make = Effect.gen(function* () {
   );
 
   const environmentKey = yield* masterKeyFromEnvironment.pipe(
-    Effect.mapError((cause) => new SecretStoreDecodeError({ resource: "OTTO_SECRETS_KEY", cause })),
+    Effect.mapError(
+      (cause) => new SecretStoreDecodeError({ resource: "OTTO_ENCRYPTION_KEY", cause }),
+    ),
   );
 
   const masterKey: Uint8Array = Option.isSome(environmentKey)

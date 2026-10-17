@@ -4,7 +4,7 @@ Known limits of the MVP, most important first.
 
 - **Encrypt provider sign-in tokens.** ChatGPT, Claude and other subscription sign-ins are saved as
   plain JSON in `secrets/subscription-auth.json` under the Otto home. Seal them with the existing
-  `OTTO_SECRETS_KEY` like every other saved credential.
+  `OTTO_ENCRYPTION_KEY` like every other saved credential.
 - **Stream message attachments.** `message_post` keeps the files it accepted in memory until it posts
   them. Uploads and downloads already stream; this path does not.
 - **Approve group requests together.** A bot that asks several approvals in a group chat shows them one

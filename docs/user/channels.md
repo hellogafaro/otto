@@ -63,7 +63,7 @@ When a channel turn finishes, the bot's reply posts to the external conversation
 
 ## Open in Otto links
 
-When the environment advertises a public address, external replies end with an **Open in Otto** link to the bot. The operator sets that address explicitly with `--public-origin` (or `OTTO_LEGACY_PUBLIC_ORIGIN`). Binding the server to a non-loopback host does not enable the link, and without an advertised public origin replies go out without it; Otto never guesses it from a bind address, browser, or client address.
+When the environment advertises a public address, external replies end with an **Open in Otto** link to the bot. The operator sets that address explicitly with `--public-url` (or `OTTO_PUBLIC_URL`). Binding the server to a non-loopback host does not enable the link, and without an advertised public origin replies go out without it; Otto never guesses it from a bind address, browser, or client address.
 
 ## Status signals
 
@@ -103,7 +103,7 @@ External iMessage group chats are not supported.
 
 Otto uses the WhatsApp Business Cloud API. The connection needs an access token, app secret, phone number ID, and verify token.
 
-WhatsApp must be able to reach the environment server over public HTTPS. Start the server with a public HTTPS origin, for example `--public-origin https://otto.example.com`. Add a WhatsApp connection in **Settings > Bot channels**, then configure Meta with the **Webhook URL** shown on that connection and your verify token. The URL uses `/api/channels/whatsapp/connections/<connection-id>/webhook` and stays with the saved connection if you assign it to another bot.
+WhatsApp must be able to reach the environment server over public HTTPS. Start the server with a public HTTPS origin, for example `--public-url https://otto.example.com`. Add a WhatsApp connection in **Settings > Bot channels**, then configure Meta with the **Webhook URL** shown on that connection and your verify token. The URL uses `/api/channels/whatsapp/connections/<connection-id>/webhook` and stays with the saved connection if you assign it to another bot.
 
 Without a public origin, the connection saves as **Not live**: replies can still be sent, but WhatsApp cannot deliver new messages to Otto. Restart the server with a public origin and reconnect to go live.
 

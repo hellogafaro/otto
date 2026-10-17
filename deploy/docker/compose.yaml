@@ -1,5 +1,5 @@
 # One Otto container serving the app and API on port 3773, all state in the otto-data volume.
-# Optional HTTPS: OTTO_DOMAIN=otto.example.com OTTO_TRUST_PROXY=1 docker compose --profile https up -d
+# Optional HTTPS: OTTO_DOMAIN=otto.example.com docker compose --profile https up -d
 services:
   otto:
     image: ${OTTO_IMAGE:-otto:local}
@@ -7,10 +7,9 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
     environment:
-      OTTO_PUBLIC_ORIGIN: ${OTTO_PUBLIC_ORIGIN:?Set the https origin people open, e.g. https://otto.example.com}
-      OTTO_SECRETS_KEY: ${OTTO_SECRETS_KEY:?Set a key from openssl rand -base64 32}
-      BOAT_API_KEY: ${BOAT_API_KEY:-}
-      OTTO_TRUST_PROXY: ${OTTO_TRUST_PROXY:-}
+      OTTO_PUBLIC_URL: ${OTTO_PUBLIC_URL:?Set the https origin people open, e.g. https://otto.example.com}
+      OTTO_ENCRYPTION_KEY: ${OTTO_ENCRYPTION_KEY:?Set a key from openssl rand -base64 32}
+      COMPOSIO_API_KEY: ${COMPOSIO_API_KEY:-}
       OTTO_SMTP_HOST: ${OTTO_SMTP_HOST:-}
       OTTO_SMTP_PORT: ${OTTO_SMTP_PORT:-587}
       OTTO_SMTP_SECURE: ${OTTO_SMTP_SECURE:-false}

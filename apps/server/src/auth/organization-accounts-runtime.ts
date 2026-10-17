@@ -75,7 +75,7 @@ export async function createOrganizationAccountsRuntime(options: {
   readonly origin: string;
   readonly cookieName: string;
   readonly mailConfigured: boolean;
-  /** OTTO_TRUST_PROXY: a reverse proxy sets X-Forwarded-For, so rate limits can key on it. */
+  /** An https OTTO_PUBLIC_URL sits behind a reverse proxy that sets X-Forwarded-For, so rate limits can key on it. */
   readonly trustProxy?: boolean;
   readonly now: () => number;
   readonly sendEmail: (mail: AccountMail) => Promise<void>;
