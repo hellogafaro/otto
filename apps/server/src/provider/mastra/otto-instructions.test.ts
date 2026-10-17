@@ -298,6 +298,87 @@ describe("withOttoPrompt", () => {
     }
   });
 
+  it("keeps a memory written during a turn as an update after the reloaded history", async () => {
+    const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-chat-context-"));
+    const before = { botConversation: true, botName: "Mina", workspaceContext: "People: Ben" };
+    const after = { ...before, persistentMemoryContext: "- [m_1] Ben prefers bullet points." };
+
+    // Mastra stamps every loaded message with a fresh createdAt on each request.
+    const loaded = (message: Prompt[number], createdAt: number): Prompt[number] => ({
+      ...message,
+      providerOptions: { mastra: { createdAt } },
+    });
+
+    const call: Prompt[number] = {
+      role: "assistant",
+      content: [{ type: "tool-call", toolCallId: "call-1", toolName: "memory_update", input: {} }],
+    };
+
+    const result: Prompt[number] = {
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: "call-1",
+          toolName: "memory_update",
+          output: { type: "json", value: { status: "saved" } },
+        },
+      ],
+    };
+
+    const history = (createdAt: number) =>
+      [
+        user("Remember I like bullet points."),
+        call,
+        result,
+        assistant("Got it."),
+        user("And?"),
+      ].map((message) => loaded(message, createdAt));
+
+    try {
+      const memory = await createOttoMastraMemory({
+        memoryDbPath: NodePath.join(directory, "messages.sqlite"),
+      });
+
+      await memory.memory.createThread({ threadId: "thread-1", resourceId: "thread-1" });
+      const chats = storedChatContexts(memory.memory);
+      const { model, calls } = recordingModel("openai.responses");
+
+      // The memory is written by a tool during the first turn; the next turn sees it.
+      await send(withOttoPrompt(model, context(before), chats, now), history(1).slice(0, 1));
+      await send(withOttoPrompt(model, context(before), chats, now), history(2).slice(0, 3));
+      await send(withOttoPrompt(model, context(after), chats, now), history(3));
+      await send(withOttoPrompt(model, context(after), chats, now), [
+        ...history(4),
+        assistant("Bullets."),
+        user("Thanks."),
+      ]);
+      await memory.close();
+
+      const update = {
+        role: "system",
+        content: createOttoChatContextUpdate([["memory", after.persistentMemoryContext]]),
+      };
+
+      expect(calls[2]?.prompt.slice(0, 2)).toEqual(calls[0]?.prompt.slice(0, 2));
+      expect(calls[2]?.prompt.slice(2)).toEqual([
+        ...history(3),
+        update,
+        { role: "system", content: TURN },
+      ]);
+      expect(calls[3]?.prompt.slice(0, 2)).toEqual(calls[0]?.prompt.slice(0, 2));
+      expect(calls[3]?.prompt.slice(2)).toEqual([
+        ...history(4),
+        update,
+        assistant("Bullets."),
+        user("Thanks."),
+        { role: "system", content: TURN },
+      ]);
+    } finally {
+      NodeFS.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("sends a compaction instruction in place of the turn block, after the same history", async () => {
     const { model, calls } = recordingModel("anthropic.messages");
     const chats = inMemoryChats();
