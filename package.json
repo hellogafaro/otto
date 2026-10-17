@@ -19,7 +19,7 @@
     "screenshots:mobile": "node scripts/mobile-showcase.ts",
     "plugins:check": "node scripts/validate-plugin-catalog.ts",
     "build": "vp run --filter './apps/*' --filter './packages/*' --filter './oxlint-plugin-otto' --filter './scripts' build",
-    "build:desktop": "vp run --filter @otto/desktop --filter @otto/server build",
+    "build:desktop": "vp run --filter @otto/desktop build",
     "check:public-dependencies": "node scripts/check-public-dependencies.ts",
     "typecheck": "vp run -r --concurrency-limit 2 typecheck",
     "tc": "vp run -r --concurrency-limit 2 typecheck",
