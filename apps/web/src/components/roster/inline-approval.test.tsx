@@ -20,12 +20,14 @@ function render(
     readonly delegateTo?: string | null;
     readonly bot?: Pick<Bot, "name" | "avatar" | "owner">;
     readonly currentPersonId?: string;
+    readonly startsGroup?: boolean;
   } = {},
 ) {
   return renderToStaticMarkup(
     <InlineApproval
       approval={{ resolution: null, ...approval }}
       bot={options.bot ?? juno}
+      startsGroup={options.startsGroup ?? true}
       currentPersonId={options.currentPersonId ?? "person-ana"}
       delegateTo={options.delegateTo ?? null}
       response={options.response ?? idle}
@@ -211,5 +213,24 @@ describe("InlineApproval", () => {
     expect(markup).toContain("pwd");
     expect(markup).not.toContain("inline-approval-card");
     expect(markup).not.toContain("<button");
+  });
+
+  it("joins the bot's group: only an approval that opens it shows the avatar and name", () => {
+    const answered = {
+      requestId: ApprovalRequestId.make("grouped"),
+      requestKind: "command",
+      createdAt: "2026-08-27T00:00:00.000Z",
+      args: { command: "pwd" },
+      resolution: { decision: "accept", actor: "user", respondedBy: "Ana" },
+    } as const;
+
+    const opening = render(answered);
+    expect(opening).toContain(">Juno</div>");
+    expect(opening).toContain("mt-3");
+
+    const continuing = render(answered, { startsGroup: false });
+    expect(continuing).not.toContain(">Juno</div>");
+    expect(continuing).toContain("ml-10");
+    expect(continuing).toContain("mt-1");
   });
 });

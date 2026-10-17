@@ -4,6 +4,7 @@ import {
   type ProviderApprovalDecision,
 } from "@otto/contracts";
 import { Predicate } from "effect";
+import type { ReactNode } from "react";
 
 import { useI18n } from "../../i18n";
 import type { ApprovalRecord } from "../../session-logic";
@@ -16,6 +17,7 @@ import {
 import { StatusIcon } from "../status-icon";
 import { Card } from "../ui/card";
 import { QuestionnaireActions } from "../ui/questionnaire";
+import { cn } from "~/lib/utils";
 import { BotAvatarView } from "./bot-avatar-view";
 import type { Bot } from "./types";
 
@@ -107,10 +109,12 @@ function answeredLabel(approval: ApprovalRecord, t: Translate) {
  * bot's questions: the questionnaire's card with a muted meta line, the 14px/500 question, what
  * exactly is being approved and the choices in its bordered footer. Each card answers its own
  * request, so several bots can wait at once; an answered one shrinks to one muted line in place.
+ * It belongs to the bot's group: only an approval that opens one shows the avatar and name.
  */
 export function InlineApproval({
   approval,
   bot,
+  startsGroup,
   currentPersonId,
   delegateTo,
   response,
@@ -119,6 +123,8 @@ export function InlineApproval({
   readonly approval: ApprovalRecord;
   /** The bot that asked; an archived one keeps its card without a face. */
   readonly bot: Pick<Bot, "name" | "avatar" | "owner"> | null;
+  /** True after anything but the same bot's own message or approval, like a message row. */
+  readonly startsGroup: boolean;
   /** Always allow saves a rule on the bot, so only its owner is offered it. */
   readonly currentPersonId: string | null | undefined;
   /** The bot a delegate request hands work to, by name. */
@@ -131,14 +137,36 @@ export function InlineApproval({
 }) {
   const { t } = useI18n();
 
+  const header = startsGroup ? bot : null;
+
+  const grouped = (testId: string | undefined, content: ReactNode) => (
+    <div
+      className={cn("flex items-start gap-3", startsGroup ? "mt-3 first:mt-0" : "mt-1")}
+      data-testid={testId}
+    >
+      {header ? (
+        <BotAvatarView
+          avatar={header.avatar}
+          name={header.name}
+          className="mt-0.5 size-7 shrink-0"
+        />
+      ) : null}
+      <div className={header ? "min-w-0 flex-1" : "ml-10 min-w-0 flex-1"}>
+        {header ? <div className="mb-2 text-sm font-medium">{header.name}</div> : null}
+        {content}
+      </div>
+    </div>
+  );
+
   if (approval.resolution) {
     const subject = approvalSubject(approval, delegateTo);
 
     const allowed = approval.resolution.decision?.startsWith("accept") ?? false;
 
-    return (
+    return grouped(
+      undefined,
       <div
-        className="ml-10 flex w-fit max-w-min-42rem-pct-2.5rem min-w-0 items-start gap-2.5 rounded-(--toast-radius) border bg-card px-3 py-2"
+        className="flex w-fit max-w-2xl min-w-0 items-start gap-2.5 rounded-(--toast-radius) border bg-card px-3 py-2"
         data-testid="answered-approval"
       >
         <StatusIcon
@@ -151,7 +179,7 @@ export function InlineApproval({
             <span className="truncate font-mono text-xs text-muted-foreground">{subject}</span>
           ) : null}
         </div>
-      </div>
+      </div>,
     );
   }
 
@@ -171,47 +199,40 @@ export function InlineApproval({
       ? approval.options?.filter((option) => option.decision !== "acceptAlways")
       : approval.options;
 
-  return (
-    <div className="flex items-start gap-3" data-testid="inline-approval">
-      {bot ? (
-        <BotAvatarView avatar={bot.avatar} name={bot.name} className="mt-0.5 size-7 shrink-0" />
-      ) : null}
-      <div className={bot ? "min-w-0 flex-1" : "ml-10 min-w-0 flex-1"}>
-        {bot ? <div className="mb-2 text-sm font-medium">{bot.name}</div> : null}
-        <section
-          aria-label={t("Approval required")}
-          className="chat-generative w-full max-w-2xl"
-          data-generative="approval"
-          data-testid="inline-approval-card"
-        >
-          <Card>
-            <div className="flex w-full min-w-0 flex-col gap-3 pt-4">
-              {meta.length > 0 ? (
-                <p className="w-fit px-4 text-xs text-muted-foreground">{meta.join(" · ")}</p>
-              ) : null}
-              <div className="flex min-w-0 flex-col gap-3 px-4">
-                <h3 className="mb-2 text-sm font-medium text-pretty text-foreground">{heading}</h3>
-                <ComposerPendingApprovalPanel approval={approval} pendingCount={1} hideLabel />
-              </div>
-              {response.error ? (
-                <p role="alert" className="px-4 text-xs text-destructive">
-                  {response.error}
-                </p>
-              ) : null}
-              <QuestionnaireActions className="flex flex-wrap justify-end">
-                <ComposerPendingApprovalActions
-                  requestId={approval.requestId}
-                  requestKind={approval.requestKind}
-                  toolName={approval.toolName}
-                  isResponding={response.responding}
-                  options={options}
-                  onRespondToApproval={onRespond}
-                />
-              </QuestionnaireActions>
-            </div>
-          </Card>
-        </section>
-      </div>
-    </div>
+  return grouped(
+    "inline-approval",
+    <section
+      aria-label={t("Approval required")}
+      className="chat-generative w-full max-w-2xl"
+      data-generative="approval"
+      data-testid="inline-approval-card"
+    >
+      <Card>
+        <div className="flex w-full min-w-0 flex-col gap-3 pt-4">
+          {meta.length > 0 ? (
+            <p className="w-fit px-4 text-xs text-muted-foreground">{meta.join(" · ")}</p>
+          ) : null}
+          <div className="flex min-w-0 flex-col gap-3 px-4">
+            <h3 className="mb-2 text-sm font-medium text-pretty text-foreground">{heading}</h3>
+            <ComposerPendingApprovalPanel approval={approval} pendingCount={1} hideLabel />
+          </div>
+          {response.error ? (
+            <p role="alert" className="px-4 text-xs text-destructive">
+              {response.error}
+            </p>
+          ) : null}
+          <QuestionnaireActions className="flex flex-wrap justify-end">
+            <ComposerPendingApprovalActions
+              requestId={approval.requestId}
+              requestKind={approval.requestKind}
+              toolName={approval.toolName}
+              isResponding={response.responding}
+              options={options}
+              onRespondToApproval={onRespond}
+            />
+          </QuestionnaireActions>
+        </div>
+      </Card>
+    </section>,
   );
 }

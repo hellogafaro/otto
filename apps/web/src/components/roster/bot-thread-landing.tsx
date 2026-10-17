@@ -490,6 +490,16 @@ export function BotThreadLanding({
                       <InlineApproval
                         approval={item.approval}
                         bot={bot}
+                        startsGroup={(() => {
+                          const previous = transcriptRows[timelineIndex - 1];
+
+                          return !(
+                            previous &&
+                            (Predicate.isTagged(previous, "Approval") ||
+                              (Predicate.isTagged(previous, "Message") &&
+                                previous.message.entry.message.role === "assistant"))
+                          );
+                        })()}
                         currentPersonId={currentPersonId}
                         delegateTo={
                           item.approval.toolName === "delegate"
@@ -518,6 +528,10 @@ export function BotThreadLanding({
                           "Receipt",
                         );
 
+                        const continuesApproval =
+                          separator === null &&
+                          Predicate.isTagged(transcriptRows[timelineIndex - 1] ?? {}, "Approval");
+
                         const messageIndex = item.index;
 
                         return (
@@ -529,7 +543,9 @@ export function BotThreadLanding({
                                 arrived={arrivedMessageIds.has(message.id)}
                                 author={bot}
                                 testId="bot-provider-message"
-                                startsGroup={startsGroup || startsAfterReceipt}
+                                startsGroup={
+                                  (startsGroup && !continuesApproval) || startsAfterReceipt
+                                }
                                 cwd={runtime.project?.workspaceRoot}
                                 threadRef={runtime.linkedThreadRef ?? undefined}
                                 stepMeter={

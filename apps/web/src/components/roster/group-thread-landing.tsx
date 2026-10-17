@@ -364,6 +364,27 @@ export function GroupThreadLanding({
   const activeBotById = (id: string) =>
     bots.find((candidate) => candidate.id === id && candidate.archivedAt === null) ?? null;
 
+  /** The bot a reply or approval belongs to; any other row ends that bot's group. */
+  const rowBotId = (row: (typeof timeline)[number] | undefined): string | null => {
+    if (row === undefined) return null;
+
+    if (Predicate.isTagged(row, "Approval")) {
+      return (
+        approvalBotId(
+          row.approval,
+          runtime.messages,
+          row.approval.resolution ? null : runtime.respondingBotId,
+        ) ??
+        boss?.id ??
+        null
+      );
+    }
+
+    return Predicate.isTagged(row, "Message") && row.message.entry.message.role === "assistant"
+      ? (row.message.entry.message.respondingBotId ?? boss?.id ?? null)
+      : null;
+  };
+
   const chatReply = {
     disabled:
       runtime.sending ||
@@ -417,24 +438,19 @@ export function GroupThreadLanding({
                 </h1>
               </div>
             ) : (
-              timeline.map((item) => {
+              timeline.map((item, index) => {
                 if (Predicate.isTagged(item, "Approval")) {
                   // Each bot's approval names that bot and is answered on its own.
-                  const askingBot = activeBotById(
-                    approvalBotId(
-                      item.approval,
-                      runtime.messages,
-                      item.approval.resolution ? null : runtime.respondingBotId,
-                    ) ??
-                      boss?.id ??
-                      "",
-                  );
+                  const askingBotId = rowBotId(item);
 
                   return (
                     <InlineApproval
                       key={item.key}
                       approval={item.approval}
-                      bot={askingBot}
+                      bot={activeBotById(askingBotId ?? "")}
+                      startsGroup={
+                        askingBotId === null || rowBotId(timeline[index - 1]) !== askingBotId
+                      }
                       currentPersonId={currentPersonId}
                       delegateTo={
                         item.approval.toolName === "delegate"
@@ -477,7 +493,14 @@ export function GroupThreadLanding({
                         arrived={arrivedMessageIds.has(message.id)}
                         author={respondingBot ?? null}
                         testId="group-provider-message"
-                        startsGroup={startsGroup}
+                        startsGroup={
+                          startsGroup &&
+                          !(
+                            separator === null &&
+                            Predicate.isTagged(timeline[index - 1] ?? {}, "Approval") &&
+                            rowBotId(timeline[index - 1]) === rowBotId(item)
+                          )
+                        }
                         cwd={runtime.project?.workspaceRoot}
                         threadRef={runtime.linkedThreadRef ?? undefined}
                         stepMeter={
