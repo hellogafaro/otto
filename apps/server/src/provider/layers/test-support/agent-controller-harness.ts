@@ -88,8 +88,8 @@ export function mastraHarnessFixture() {
   const createSession = vi.fn(async <Input>(_input: Input) => session as never);
   const deleteSession = vi.fn(async () => true);
 
-  const observeExternalTurn = vi.fn(
-    async (_input: Parameters<NonNullable<OttoMastraHarness["observeExternalTurn"]>>[0]) =>
+  const persistExternalTurn = vi.fn(
+    async (_input: Parameters<NonNullable<OttoMastraHarness["persistExternalTurn"]>>[0]) =>
       undefined,
   );
 
@@ -103,7 +103,7 @@ export function mastraHarnessFixture() {
           createSession,
           deleteSession,
         },
-        observeExternalTurn,
+        persistExternalTurn,
       };
     });
 
@@ -142,7 +142,7 @@ export function mastraHarnessFixture() {
     deleteSession,
     sendMessage,
     sendSignal,
-    observeExternalTurn,
+    persistExternalTurn,
     emit,
     emitMessage,
     /** Marks a Mastra run live, as it is from its first stream chunk to its end. */

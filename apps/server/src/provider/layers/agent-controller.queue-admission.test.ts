@@ -8,7 +8,6 @@ import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
 import { assert, describe, expect } from "vite-plus/test";
 import { AgentController } from "../services/agent-controller.ts";
-import * as OrchestrationEngine from "../../orchestration/services/orchestration-engine.ts";
 import {
   codexThreadId,
   codexInstanceId,
@@ -313,66 +312,6 @@ describe("AgentControllerLive", () => {
       }).pipe(Effect.orDie);
     });
   }
-});
-
-describe("AgentControllerLive", () => {
-  it.effect("dispatches the drop activity without an active session", () => {
-    const bridge = makeBridge();
-    const mastra = mastraHarnessFixture();
-    const dispatched: Array<{ readonly type: string; readonly activity?: unknown }> = [];
-
-    return provideController(
-      Effect.gen(function* () {
-        // No startSession: the durable queue can drain after a restart before
-        // any client opens the thread, so the drop must still be appended.
-        const options = mastra.harnessOptions[0]!;
-        yield* Effect.promise(() =>
-          Promise.resolve(
-            options.onObservationDropped!({
-              observationId: "observation-never-opened",
-              threadId: "thread-never-opened",
-              turnId: "turn-durable",
-              resourceId: "thread-never-opened",
-              modelId: "openai/gpt-5.6-sol",
-              attempts: 3,
-              error: new Error("observer down"),
-            }),
-          ),
-        );
-        assert.equal(dispatched.length, 1);
-        const command = dispatched[0]!;
-        assert.equal(command.type, "thread.activity.append");
-
-        const activity = command.activity as {
-          readonly kind: string;
-          readonly turnId: string;
-        };
-
-        assert.equal(activity.kind, "memory.observation.dropped");
-        assert.equal(activity.turnId, "turn-durable");
-      }),
-      bridge.service,
-      mastra.factory,
-    ).pipe(
-      Effect.provideService(
-        OrchestrationEngine.OrchestrationEngineService,
-        OrchestrationEngine.OrchestrationEngineService.of({
-          readEvents: () => Stream.empty,
-          readThreadEvents: () => Stream.empty,
-          getThreadReplayStats: () => Effect.die("unused"),
-          dispatch: (command) =>
-            Effect.sync(() => {
-              dispatched.push(command);
-
-              return { sequence: 1 };
-            }),
-          streamDomainEvents: Stream.empty,
-          subscribeDomainEvents: Effect.succeed(Stream.empty),
-          latestSequence: Effect.succeed(0),
-        }),
-      ),
-    );
-  });
 });
 
 describe("AgentControllerLive", () => {

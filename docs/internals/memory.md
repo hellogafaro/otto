@@ -5,8 +5,10 @@ Otto has two complementary memory layers:
 1. `BotMemoryStore` owns small Markdown documents scoped to a named bot. `USER.md` and `MEMORY.md`
    are private to the bot. `groups/<group-id>/GROUP.md` is also bot-owned; there is no group-wide
    writable file.
-2. Mastra observational memory condenses older messages for one thread. It does not write the
-   Markdown documents.
+2. Mastra stores every chat's messages. Otto sends a chat's whole history on each turn and compacts
+   it once into a checkpoint when it nears the model's window (see
+   [Chat history and compaction](#chat-history-and-compaction)). It does not write the Markdown
+   documents.
 
 Bot instructions are configuration, not memory. The bot sees them first but cannot change them with
 the memory tool.
@@ -20,8 +22,8 @@ Mastra providers use this logical order on every turn:
 3. `MEMORY.md`;
 4. the responding bot's active `GROUP.md`;
 5. the `<entity-memory>` packet of current entity facts;
-6. thread observations;
-7. up to 30 complete recent turns within an approximate 64,000-token budget;
+6. the chat's checkpoint, if it was compacted;
+7. every complete turn since the checkpoint, or since the chat began;
 8. the current user message.
 
 The file snapshot is read immediately before Mastra admission. Codex, Claude, Grok, Kimi,
@@ -32,11 +34,8 @@ field. Memory refresh does not require restarting a chat.
 Entity memory packets are built by `ProviderMemoryPacket` from authorized current revisions. The
 builder applies the same ordering and fact, character, and token bounds for every provider, so
 Mastra providers and the OpenCode compatibility bridge receive equivalent memory input. Both append
-the packet to the persistent memory context after the Markdown snapshot and before thread
-observations. A
-tombstone is excluded on the next packet or recall read. Tombstoning also removes derived-copy
-rows; the Mastra invalidation call clears that thread's observational memory before a later turn
-can rebuild it.
+the packet to the persistent memory context after the Markdown snapshot and before the chat
+history. A tombstone is excluded on the next packet or recall read.
 
 ## Automatic curation
 
@@ -220,35 +219,28 @@ over WebSocket.
 Import review lives in the same module: `resolveImportConflicts` has no default decision and
 returns resolutions only after every conflicting root has one.
 
-## Observational memory durability
+## Chat history and compaction
 
-Observation work is a rebuildable cache, but queue admission is durable. Each completed turn first
-records a pending observation in `mastra-observational-memory.sqlite.queue.sqlite`, a dedicated
-store beside the Mastra memory DB. The queue store is owned by `OttoMastraHarness`, which opens it
-directly and never sees the Effect migration runner, so it versions itself with `PRAGMA
-user_version` instead of an environment-store migration. A background drain claims one row at a time
-with a single conditional `UPDATE` (a lease expires after five minutes so a crashed drain cannot
-hold a row forever), then runs Mastra observation without holding up the reply. A failed attempt
-increments `attempts`, releases the claim, and pushes `next_attempt_at` out by a short backoff, so a
-stuck observation never blocks later rows; the third failure removes the row and emits a
-user-visible `memory.observation.dropped` activity. Startup drains rows left by a previous process,
-so a restart does not silently lose queued work, and `busy_timeout` plus enqueue error handling keep
-queue contention off the reply path. Observer and Reflector calls use the same usage ledger hooks
-for every provider path, including legacy external turns.
+`OttoHistoryProcessor` (`provider/mastra/otto-memory.ts`) loads a chat's stored Mastra thread before
+each run and sends it whole: every complete turn, verbatim, with only per-message transforms (files no
+model reads are dropped, group passes are dropped, other bots' replies read as theirs). Each request
+therefore starts with the previous request's history, so providers serve it from their prompt cache.
+The same processor stores the run's new messages.
 
-`makeOttoMastraHarness` is a scoped Effect. It acquires the Mastra memory store and the queue store
-and releases both when its scope closes; the agent controller layer owns that scope. Observation,
-restore, clear, and drain work runs in fibers the harness scope owns, and each thread's memory work
-takes that thread's one-permit semaphore, so work on one thread runs in order while other threads
-run alongside. Closing the scope first stops admission, so later calls fail with
-`OttoObservationQueueClosedError`, a completed turn writes no queue row, and the drain stops
-claiming rows. It then gives admitted work `observationCloseGrace` (five seconds by default) to
-finish, interrupts anything still running or waiting for a permit, and hands claimed rows back to the
-queue with their attempt count unchanged before it closes the stores. Rows left in the queue are
-drained by the next harness at startup.
-Observation records are cleared and reinserted through Mastra's storage adapter when restoration is
-required. Imports must target the archive's original thread. Flattened buffered observations are
-promoted into active observations on restore so Mastra's chunk-based storage retains their text.
+Before every model step, `otto-compaction.ts` measures the next request: the provider's count for
+the thread's latest request plus an estimate of what was added since (four characters a token, 1,600
+tokens per inline image, 3,000 per PDF). When it passes W − 32,768, where W is the model's catalog
+input window capped at 400,000 tokens (128,000 when the catalog does not know the model), the chat is
+compacted once. The compaction request is the thread's latest request with a checkpoint instruction
+in place of the turn block, so it reads from the cache. Its reply must have every section (goal,
+constraints, decisions, done, open, next step, key references) and is stored as a `system` message
+with `metadata.ottoCheckpoint.firstKeptMessageId`. From then on the chat is sent as that checkpoint
+(as a user message) followed by every turn from the first kept message: a user message at least a
+tenth of W back, never inside a turn. Nothing stored is deleted. At a turn's start the previous turn
+always stays verbatim; mid-turn the current turn does. A failed or incomplete checkpoint is logged,
+keeps the previous one, and is not retried in the same run. The call is billed to the bot under the
+`compaction` usage category. Rebuilding a thread (rollback) drops its checkpoints with the rest of
+the transcript.
 
 ## Shared memory approvals
 

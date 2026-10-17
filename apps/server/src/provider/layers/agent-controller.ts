@@ -28,7 +28,7 @@ import type { AgentControllerLiveOptions } from "./agent-controller/options.ts";
 export type { AgentControllerLiveOptions } from "./agent-controller/options.ts";
 
 import { createMemoryAccess, type MemoryTurn } from "./agent-controller/memory-access.ts";
-import { createTurnObservations } from "./agent-controller/observations.ts";
+import { createLegacyTurns } from "./agent-controller/legacy-turns.ts";
 import { createDelegation } from "./agent-controller/delegation.ts";
 import { createEvents } from "./agent-controller/events.ts";
 import { createTurnLifecycle } from "./agent-controller/turn-lifecycle.ts";
@@ -105,8 +105,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       toolUsageStarts,
       toolUsageKey,
       legacyHiddenWakeByTurn,
-      unreservedMemoryCalls,
-      memoryUsageByThread,
+      turnUsageByThread,
       lateWiring,
       wired,
       childWaiters,
@@ -154,7 +153,7 @@ const make = (options?: AgentControllerLiveOptions) =>
         return toolRuntime;
       },
       sessionResources,
-      memoryUsageByThread,
+      turnUsageByThread,
       get publishSessionState() {
         return publishSessionState;
       },
@@ -169,9 +168,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       legacyProviderBridge,
       get startPendingTurn() {
         return startPendingTurn;
-      },
-      get queueTurnMemory() {
-        return queueTurnMemory;
       },
       get completeAssistantMessages() {
         return completeAssistantMessages;
@@ -254,7 +250,7 @@ const make = (options?: AgentControllerLiveOptions) =>
 
     const legacyBufferedTerminals = new Map<string, Map<string, ProviderRuntimeEvent>>();
 
-    const { drainLegacyTerminals, queueTurnMemory } = createTurnObservations({
+    const { drainLegacyTerminals } = createLegacyTurns({
       forkPromise,
       hasLegacyPending,
       resolveChildWaiter,
@@ -264,7 +260,6 @@ const make = (options?: AgentControllerLiveOptions) =>
         return bundle;
       },
       legacyBufferedTerminals,
-      resolvedByThread,
     });
 
     const { delegationFor, makeDelegationRuntime } = createDelegation({
@@ -304,11 +299,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       },
       turnStillWaiting,
       toolRuntime,
-      memoryUsageByThread,
-      get readSessionStartContext() {
-        return readSessionStartContext;
-      },
-      unreservedMemoryCalls,
+      turnUsageByThread,
       botUsageLedger,
     });
 
@@ -381,7 +372,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       runMastra,
     });
 
-    const { readSessionStartContext, startSession } = createSessionLifecycle({
+    const { startSession } = createSessionLifecycle({
       webFetch,
       runPromise,
       projectionSnapshotQuery,
@@ -490,7 +481,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       cancelAllPendingApprovals,
       publishSessionState,
       bundle,
-      memoryUsageByThread,
+      turnUsageByThread,
       projectionMessages,
       projectionTurns,
       config,
@@ -580,8 +571,6 @@ const make = (options?: AgentControllerLiveOptions) =>
     );
 
     const auxiliary = createAuxiliaryOperations({
-      bundle,
-      runMastra,
       legacyProviderBridge,
       sessions,
       runtimeEvents,
@@ -594,9 +583,6 @@ const make = (options?: AgentControllerLiveOptions) =>
     });
 
     return AgentController.of({
-      readConversationMemory: auxiliary.readConversationMemory,
-      clearConversationMemory: auxiliary.clearConversationMemory,
-      restoreConversationMemory: auxiliary.restoreConversationMemory,
       listSessions: auxiliary.listSessions,
       get streamEvents() {
         return auxiliary.streamEvents;

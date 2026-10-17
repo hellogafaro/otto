@@ -1,31 +1,20 @@
-import { toolRuntimeFixture } from "./test-support/tool-runtime-fixture.ts";
 import { describe } from "vite-plus/test";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { AuthStorage } from "@mastra/code-sdk/auth/storage";
 import { Memory } from "@mastra/memory";
 import * as DateTime from "effect/DateTime";
 import { it } from "@effect/vitest";
-import { assert, expect, vi } from "vite-plus/test";
-import { OttoObservationRestoreError } from "./otto-mastra-harness.ts";
+import { expect, vi } from "vite-plus/test";
 import { makeOttoMastraHarnessTestSupport } from "./test-support/otto-mastra-harness.ts";
 
-const { harnessTest, makeObservationHarness, restoreSnapshot, failInserts } =
-  makeOttoMastraHarnessTestSupport();
+const { harnessTest, makeHarness } = makeOttoMastraHarnessTestSupport();
 
 describe("OttoMastraHarness", () => {
   it.effect("restores original history when rebuilding a conversation fails", () =>
     harnessTest(async (open) => {
       const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-rebuild-"));
-
-      const harness = await open({
-        authStorage: new AuthStorage(NodePath.join(directory, "auth.json")),
-        memoryDbPath: NodePath.join(directory, "observational-memory.sqlite"),
-        getThreadTools: () => ({}),
-        toolRuntime: toolRuntimeFixture({ toolsForThread: () => [] }),
-      });
-
+      const harness = await makeHarness(open, directory);
       const threadId = "rebuild-history";
 
       const messages = [1, 2].map((count) => ({
@@ -37,29 +26,11 @@ describe("OttoMastraHarness", () => {
         resourceId: threadId,
       }));
 
-      const snapshot = {
-        current: {
-          id: "original-observations",
-          generationCount: 1,
-          originType: "initial" as const,
-          activeObservations: "Facts from both original turns",
-          bufferedObservations: "",
-          bufferedReflection: null,
-          totalTokensObserved: 10,
-          observationTokenCount: 2,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        },
-        history: [],
-      };
-
       let persist: ReturnType<typeof vi.spyOn> | undefined;
 
       try {
         await harness.controller.init();
         await harness.rebuildConversation!(threadId, messages);
-        await harness.restoreObservationalMemory!(threadId, snapshot);
-        const originalSnapshot = await harness.readObservationalMemory!(threadId);
         persist = vi
           .spyOn(Memory.prototype, "persistMessages")
           .mockRejectedValueOnce(new Error("Persistence failed"));
@@ -71,90 +42,8 @@ describe("OttoMastraHarness", () => {
           "message-1",
           "message-2",
         ]);
-        expect(await harness.readObservationalMemory!(threadId)).toEqual(originalSnapshot);
       } finally {
         persist?.mockRestore();
-        await harness.close();
-        NodeFS.rmSync(directory, { recursive: true, force: true });
-      }
-    }),
-  );
-
-  it.effect("rolls back a failed restore and keeps the original failure as the cause", () =>
-    harnessTest(async (open) => {
-      const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-om-rollback-"));
-      const harness = await makeObservationHarness(open, directory);
-      const insertFailure = new Error("disk full while restoring");
-      let spy: ReturnType<typeof failInserts> | undefined;
-
-      try {
-        await harness.restoreObservationalMemory!(
-          "thread-rollback",
-          restoreSnapshot("original-observation", "Keep me."),
-        );
-        spy = failInserts((record) =>
-          record.id === "incoming-observation" ? insertFailure : undefined,
-        );
-
-        const failure = await harness.restoreObservationalMemory!(
-          "thread-rollback",
-          restoreSnapshot("incoming-observation", "Replace me."),
-        ).then(
-          () => undefined,
-          (cause: unknown) => cause,
-        );
-
-        assert.instanceOf(failure, OttoObservationRestoreError);
-        const restoreError = failure as OttoObservationRestoreError;
-        assert.isTrue(restoreError.rolledBack);
-        assert.strictEqual(restoreError.cause, insertFailure);
-        assert.isUndefined(restoreError.rollbackCause);
-        assert.include(restoreError.message, "disk full while restoring");
-        assert.equal(
-          (await harness.readObservationalMemory!("thread-rollback")).current?.activeObservations,
-          "Keep me.",
-        );
-      } finally {
-        spy?.mockRestore();
-        await harness.close();
-        NodeFS.rmSync(directory, { recursive: true, force: true });
-      }
-    }),
-  );
-
-  it.effect("reports both failures when the restore rollback also fails", () =>
-    harnessTest(async (open) => {
-      const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-om-rollback2-"));
-      const harness = await makeObservationHarness(open, directory);
-      const insertFailure = new Error("restore insert failed");
-      const rollbackFailure = new Error("rollback insert failed");
-      let spy: ReturnType<typeof failInserts> | undefined;
-
-      try {
-        await harness.restoreObservationalMemory!(
-          "thread-rollback",
-          restoreSnapshot("original-observation", "Original."),
-        );
-        spy = failInserts((record) =>
-          record.id === "incoming-observation" ? insertFailure : rollbackFailure,
-        );
-
-        const failure = await harness.restoreObservationalMemory!(
-          "thread-rollback",
-          restoreSnapshot("incoming-observation", "Incoming."),
-        ).then(
-          () => undefined,
-          (cause: unknown) => cause,
-        );
-
-        assert.instanceOf(failure, OttoObservationRestoreError);
-        const restoreError = failure as OttoObservationRestoreError;
-        assert.isFalse(restoreError.rolledBack);
-        assert.strictEqual(restoreError.cause, insertFailure);
-        assert.strictEqual(restoreError.rollbackCause, rollbackFailure);
-        assert.include(restoreError.message, "could not be restored");
-      } finally {
-        spy?.mockRestore();
         await harness.close();
         NodeFS.rmSync(directory, { recursive: true, force: true });
       }

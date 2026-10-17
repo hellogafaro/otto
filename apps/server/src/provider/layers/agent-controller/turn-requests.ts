@@ -28,7 +28,7 @@ import { cancelActiveImageGenerations } from "../../../image-generation/image-ge
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
-import { modelReadsFile } from "../../recent-conversation.ts";
+import { modelReadsFile } from "../../chat-history.ts";
 
 import {
   type ResolvedEngine,
@@ -261,23 +261,9 @@ export function createTurnRequests(deps: {
           deps.memoryTurns.delete(key);
         }
 
-        const conversation = deps.bundle.readObservationalMemory
-          ? yield* deps.runMastra("memory.read", () =>
-              deps.bundle.readObservationalMemory!(key, key),
-            )
-          : undefined;
-
-        const observationContext = conversation?.current?.activeObservations
-          ? [
-              "<thread-observations>",
-              conversation.current.activeObservations,
-              "</thread-observations>",
-            ].join("\n")
-          : "";
-
         const pendingMemory: LegacyTurnMemoryState = {
-          observationPromptId: NodeCrypto.randomUUID(),
-          observationRecorded: false,
+          promptId: NodeCrypto.randomUUID(),
+          persisted: false,
           seenEventIds: new Set(),
           user: providerInput.input ?? "",
           modelId: resolved?.mastraModelId ?? "openai/gpt-5.6-sol",
@@ -304,7 +290,6 @@ export function createTurnRequests(deps: {
         const providerContext = [
           contextInSystem ? turnInstructions : "",
           memoryContext,
-          observationContext,
           contextInSystem ? delegationResults : "",
         ]
           .filter(Boolean)

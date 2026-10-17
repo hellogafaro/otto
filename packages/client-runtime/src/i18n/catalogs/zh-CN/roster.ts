@@ -214,8 +214,6 @@ export const rosterCatalog = {
   "Advanced > Bot inbox": "高级 > 机器人收件箱",
   "Lasting details this bot has learned about you. It reads them in every chat.":
     "这个机器人了解到的关于你的长期信息。它会在每次聊天中读取这些内容。",
-  "Nothing yet. The bot starts a summary once the chat gets long.":
-    "暂无内容。聊天变长后，机器人会开始生成摘要。",
   "Turn off {name} for this bot": "为此机器人关闭 {name}",
   "Turn on {name} for this bot": "为此机器人开启 {name}",
   "Name your bot": "为你的机器人命名",

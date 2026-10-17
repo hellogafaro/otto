@@ -8,15 +8,10 @@ import type { OttoControllerHarness } from "../../mastra/otto-harness-types.ts";
 
 import { type OttoDelegationChildOutcome } from "../../otto-delegation-runtime.ts";
 
-import {
-  type ResolvedEngine,
-  type ActiveTurn,
-  type ActiveSession,
-  type LegacyTurnMemoryState,
-} from "./state.ts";
+import { type LegacyTurnMemoryState } from "./state.ts";
 
-/** Hands finished turns to observational memory, the near-limit compactor. */
-export function createTurnObservations(deps: {
+/** Settles turns other providers ran and stores them in the chat's one history. */
+export function createLegacyTurns(deps: {
   readonly forkPromise: OttoRuntimeSeam["forkPromise"];
   readonly hasLegacyPending: (key: string, pending: LegacyTurnMemoryState) => boolean;
   readonly resolveChildWaiter: (threadId: ThreadId, outcome: OttoDelegationChildOutcome) => void;
@@ -24,7 +19,6 @@ export function createTurnObservations(deps: {
   readonly legacyPending: (key: string) => LegacyTurnMemoryState[];
   readonly bundle: OttoControllerHarness;
   readonly legacyBufferedTerminals: Map<string, Map<string, ProviderRuntimeEvent>>;
-  readonly resolvedByThread: Map<string, ResolvedEngine>;
 }) {
   const settleLegacyTurnMemory = (
     key: string,
@@ -63,27 +57,27 @@ export function createTurnObservations(deps: {
 
       if (
         mergedPrompts[0] === pending &&
-        !pending.observationRecorded &&
+        !pending.persisted &&
         mergedPrompts.some((entry) => entry.assistant.trim()) &&
-        deps.bundle.observeExternalTurn
+        deps.bundle.persistExternalTurn
       ) {
-        for (const entry of mergedPrompts) entry.observationRecorded = true;
+        for (const entry of mergedPrompts) entry.persisted = true;
 
         const assistant = mergedPrompts
           .map((entry) => entry.assistant)
           .toSorted((left, right) => right.length - left.length)[0]!;
 
-        const observeExternalTurn = deps.bundle.observeExternalTurn;
+        const persistExternalTurn = deps.bundle.persistExternalTurn;
         const turnId = pending.turnId ?? `legacy-${event.eventId}`;
         deps.forkPromise(
-          "Otto background observational memory failed.",
+          "Otto could not store another provider's turn.",
           () =>
-            observeExternalTurn({
+            persistExternalTurn({
               threadId: key,
               turnId,
               modelId: pending.modelId,
               userMessages: mergedPrompts.map((entry) => ({
-                id: entry.observationPromptId,
+                id: entry.promptId,
                 text: entry.user,
               })),
               assistant,
@@ -118,34 +112,8 @@ export function createTurnObservations(deps: {
       if (terminals.size === 0) deps.legacyBufferedTerminals.delete(key);
     });
 
-  const queueTurnMemory = (threadId: ThreadId, active: ActiveSession, turn: ActiveTurn) => {
-    const resolved = deps.resolvedByThread.get(String(threadId));
-
-    if (turn.memoryQueued || !deps.bundle.observeAfterTurn || !resolved) return;
-    turn.memoryQueued = true;
-    const observeAfterTurn = deps.bundle.observeAfterTurn;
-    deps.forkPromise(
-      "Otto background observational memory failed.",
-      () =>
-        observeAfterTurn({
-          threadId: String(threadId),
-          resourceId: String(threadId),
-          modelId: resolved.mastraModelId,
-          providerInstanceId: active.providerInstanceId,
-          turnId: String(turn.turnId),
-        }),
-      {
-        annotations: { threadId, turnId: turn.turnId },
-        onFailure: () => {
-          turn.memoryQueued = false;
-        },
-      },
-    );
-  };
-
   return {
     settleLegacyTurnMemory,
     drainLegacyTerminals,
-    queueTurnMemory,
   };
 }

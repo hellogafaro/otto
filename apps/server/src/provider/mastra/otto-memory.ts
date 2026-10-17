@@ -6,61 +6,21 @@ import * as NodeURL from "node:url";
 import { RequestContext } from "@mastra/core/request-context";
 import {
   type Processor,
+  type ProcessAPIErrorArgs,
   type ProcessInputStepArgs,
   type ProcessOutputResultArgs,
+  type ProcessOutputStepArgs,
 } from "@mastra/core/processors";
 import { LibSQLStore } from "@mastra/libsql";
 import { Memory } from "@mastra/memory";
+import { attributeGroupReplies, OTTO_REPLY_BOT_NAME, projectHistory } from "../chat-history.ts";
 import {
-  ObservationalMemory,
-  OBSERVATION_CONTINUATION_HINT,
-  type ObserveHooks,
-} from "@mastra/memory/processors";
-import {
-  attributeGroupReplies,
-  OTTO_REPLY_BOT_NAME,
-  selectRecentConversation,
-} from "../recent-conversation.ts";
+  createOttoCompaction,
+  isContextOverflow,
+  type OttoCompactionWarning,
+} from "./otto-compaction.ts";
 import { type OttoMastraHarnessOptions, type OttoMastraState } from "./otto-harness-types.ts";
-import { DEFAULT_MODEL_ID, resolveOttoMastraModel } from "./otto-models.ts";
-
-export function createOttoObserveHooks(
-  options: Pick<OttoMastraHarnessOptions, "startMemoryCall" | "finishMemoryCall">,
-): ObserveHooks {
-  const active = new Map<string, string>();
-
-  const start = async (threadId: string | undefined, category: "observer" | "reflector") => {
-    if (!threadId) return;
-    const callId = await options.startMemoryCall?.({ threadId, category });
-
-    if (callId) active.set(`${threadId}:${category}`, callId);
-  };
-
-  const finish = async (
-    category: "observer" | "reflector",
-    result: Parameters<NonNullable<ObserveHooks["onObservationEnd"]>>[0],
-  ) => {
-    if (!result.threadId) return;
-    const key = `${result.threadId}:${category}`;
-    const callId = active.get(key);
-
-    if (!callId) return;
-    active.delete(key);
-    await options.finishMemoryCall?.({
-      callId,
-      category,
-      ...(result.usage ? { usage: result.usage } : {}),
-      ...(result.error ? { error: result.error } : {}),
-    });
-  };
-
-  return {
-    onObservationStart: ({ threadId } = {}) => start(threadId, "observer"),
-    onObservationEnd: (result) => finish("observer", result),
-    onReflectionStart: ({ threadId } = {}) => start(threadId, "reflector"),
-    onReflectionEnd: (result) => finish("reflector", result),
-  };
-}
+import { DEFAULT_MODEL_ID } from "./otto-models.ts";
 
 const decodeControllerContext = Schema.decodeUnknownOption(
   Schema.Struct({
@@ -137,51 +97,84 @@ function controllerBot(requestContext: RequestContext | undefined) {
   };
 }
 
-export class OttoPassiveObservationalMemoryProcessor implements Processor<"observational-memory"> {
-  readonly id = "observational-memory" as const;
-  readonly name = "Otto Observational Memory";
-  readonly engine: ObservationalMemory;
-  private readonly memory: Memory;
+const decodeMemoryThread = Schema.decodeUnknownOption(
+  Schema.Struct({
+    thread: Schema.Struct({ id: Schema.String }),
+    resourceId: Schema.optionalKey(Schema.String),
+  }),
+);
 
-  constructor(engine: ObservationalMemory, memory: Memory) {
-    this.engine = engine;
+function memoryThread(requestContext: RequestContext | undefined) {
+  const value = Option.getOrUndefined(decodeMemoryThread(requestContext?.get("MastraMemory")));
+
+  return value && { threadId: value.thread.id, resourceId: value.resourceId ?? value.thread.id };
+}
+
+/**
+ * Sends a chat's whole stored history, compacts it once near the model's window, and stores
+ * each run's new messages.
+ */
+export class OttoHistoryProcessor implements Processor<"otto-history"> {
+  readonly id = "otto-history" as const;
+  readonly name = "Otto History";
+  private readonly memory: Memory;
+  private readonly compaction: ReturnType<typeof createOttoCompaction>;
+
+  constructor(memory: Memory, compaction: ReturnType<typeof createOttoCompaction>) {
     this.memory = memory;
+    this.compaction = compaction;
   }
 
   async processInputStep(args: ProcessInputStepArgs) {
-    if (args.stepNumber !== 0) return args.messageList;
-    const context = this.engine.getThreadContext(args.requestContext, args.messageList);
+    const thread = memoryThread(args.requestContext);
 
-    if (!context) return args.messageList;
+    if (!thread || !args.requestContext) return args.messageList;
 
-    const [history, unobserved] = await Promise.all([
-      this.memory.recall({ threadId: context.threadId, perPage: false }),
-      this.engine.loadUnobservedMessages({
-        threadId: context.threadId,
-        ...(context.resourceId ? { resourceId: context.resourceId } : {}),
-      }),
-    ]);
+    if (args.stepNumber === 0) {
+      const stored = await this.memory.recall({ threadId: thread.threadId, perPage: false });
+      const history = projectHistory(stored.messages);
+      const bot = controllerBot(args.requestContext);
 
-    const requiredMessageIds = new Set(unobserved.map((message) => message.id));
-    const bot = controllerBot(args.requestContext);
-    const recent = selectRecentConversation(history.messages, { requiredMessageIds });
-
-    for (const message of bot?.inGroup ? attributeGroupReplies(recent, bot.name) : recent) {
-      if (message.role !== "system") args.messageList.add(message, "memory");
+      for (const message of bot?.inGroup ? attributeGroupReplies(history, bot.name) : history) {
+        args.messageList.add(message, "memory");
+      }
     }
 
-    const record = await this.engine.getOrCreateRecord(context.threadId, context.resourceId);
-    const chunks = await this.engine.buildContextSystemMessages({ ...context, record });
-    args.messageList.clearSystemMessages("observational-memory");
+    await this.compaction.compactIfNeeded(args, thread, controllerModelId(args.requestContext));
 
-    for (const chunk of chunks ?? []) args.messageList.addSystem(chunk, "observational-memory");
-    args.messageList.clearSystemMessages("om-continuation");
+    return args.messageList;
+  }
 
-    if (record.activeObservations) {
-      args.messageList.addSystem(
-        `<system-reminder>${OBSERVATION_CONTINUATION_HINT}</system-reminder>`,
-        "om-continuation",
-      );
+  /** A request the provider rejected as too long compacts at once and is sent again, once. */
+  async processAPIError(args: ProcessAPIErrorArgs) {
+    const thread = memoryThread(args.requestContext);
+
+    if (
+      !thread ||
+      !args.requestContext ||
+      args.state["overflowed"] ||
+      !(args.error instanceof Error && isContextOverflow(args.error))
+    ) {
+      return { retry: false };
+    }
+
+    args.state["overflowed"] = true;
+
+    return {
+      retry: await this.compaction.compactIfNeeded(
+        args,
+        thread,
+        controllerModelId(args.requestContext),
+        true,
+      ),
+    };
+  }
+
+  processOutputStep(args: ProcessOutputStepArgs) {
+    const thread = memoryThread(args.requestContext);
+
+    if (thread && args.requestContext) {
+      this.compaction.recordUsage(args, thread.threadId, controllerModelId(args.requestContext));
     }
 
     return args.messageList;
@@ -207,18 +200,10 @@ export class OttoPassiveObservationalMemoryProcessor implements Processor<"obser
 }
 
 export async function createOttoMastraMemory(
-  options: Pick<
-    OttoMastraHarnessOptions,
-    | "authStorage"
-    | "getKimiAccess"
-    | "getOpenCodeGoApiKey"
-    | "getSubscriptionApiKey"
-    | "getSubscriptionOAuth"
-    | "getSubscriptionAccessToken"
-    | "getModelConnection"
-    | "memoryDbPath"
-  >,
+  options: Pick<OttoMastraHarnessOptions, "memoryDbPath" | "startCompaction" | "finishCompaction">,
+  warn: (message: string, warning: OttoCompactionWarning) => void = () => undefined,
 ) {
+  // The file name predates compaction; it holds every chat's stored messages.
   const storage = new LibSQLStore({
     id: "otto-observational-memory",
     url: NodeURL.pathToFileURL(options.memoryDbPath).toString(),
@@ -226,19 +211,6 @@ export async function createOttoMastraMemory(
   });
 
   await storage.init();
-
-  const model = ({ requestContext }: { readonly requestContext: RequestContext }) =>
-    resolveOttoMastraModel(
-      controllerModelId(requestContext),
-      options.authStorage,
-      options.getKimiAccess,
-      options.getOpenCodeGoApiKey,
-      undefined,
-      options.getSubscriptionApiKey,
-      controllerModelConnection(requestContext, options.getModelConnection),
-      options.getSubscriptionOAuth,
-      options.getSubscriptionAccessToken,
-    );
 
   const memory = new Memory({
     storage,
@@ -250,44 +222,13 @@ export async function createOttoMastraMemory(
     },
   });
 
-  const memoryStore = await storage.getStore("memory");
-
-  if (!memoryStore?.supportsObservationalMemory) {
-    await storage.close();
-    throw new Error("The configured memory store does not support observational memory.");
-  }
-
-  const engine = new ObservationalMemory({
-    storage: memoryStore,
-    memory,
-    scope: "thread",
-    model,
-    retrieval: false,
-    hookExecution: "await",
-    observation: {
-      bufferTokens: false,
-      bufferOnIdle: false,
-      continuationHints: { currentTask: true, suggestedResponse: true },
-    },
-    reflection: {
-      continuationHints: { currentTask: true, suggestedResponse: true },
-    },
-  });
-
-  const processor = new OttoPassiveObservationalMemoryProcessor(engine, memory);
-  let closePromise: Promise<void> | undefined;
+  const compaction = createOttoCompaction({ ...options, memory, warn });
 
   return {
     memory,
     storage,
-    engine,
-    processor,
-    close: async () => {
-      closePromise ??= (async () => {
-        await engine.settled();
-        await storage.close();
-      })();
-      await closePromise;
-    },
+    compaction,
+    processor: new OttoHistoryProcessor(memory, compaction),
+    close: () => storage.close(),
   };
 }

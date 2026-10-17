@@ -39,8 +39,6 @@ export const memoryCatalog = {
   "Durable facts": "长期事实",
   "Facts kept beyond this chat. Clearing observations does not remove them.":
     "这些事实会在此聊天之外保留。清除观察记录不会删除它们。",
-  "Facts kept beyond this chat. Clearing chat observations does not remove them.":
-    "这些事实会在此聊天之外保留。清除聊天观察记录不会删除它们。",
   "Durable facts unavailable.": "无法获取长期事实。",
   "Loading durable facts…": "正在加载长期事实…",
   "No durable facts in this scope yet.": "此范围内还没有长期事实。",
@@ -75,8 +73,6 @@ export const memoryCatalog = {
   "Loading memory…": "正在加载记忆…",
   "Memory transfer failed.": "记忆转移失败。",
   "Transfer memory": "转移记忆",
-  "Export bot notes and chat observations, or durable facts for one scope. Review an import before anything changes.":
-    "导出机器人笔记和聊天观察记录，或导出某一范围的长期事实。导入前会先让你检查，确认后才会更改。",
   "Export notes": "导出笔记",
   "Durable facts: {description}": "长期事实：{description}",
   "Export durable facts": "导出长期事实",

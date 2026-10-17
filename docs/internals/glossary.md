@@ -60,8 +60,8 @@ A user-visible log item attached to a thread. In [the contracts][1], activities 
 #### Bot memory
 
 Small, server-owned Markdown context attached to one named bot: `USER.md`, `MEMORY.md`, and one
-bot-specific `GROUP.md` per group. It is distinct from bot instructions and thread observational
-memory. See [memory architecture](memory.md).
+bot-specific `GROUP.md` per group. It is distinct from bot instructions and the chat history. See
+[memory architecture](memory.md).
 
 #### Memory approval
 
@@ -69,11 +69,11 @@ A pending request from a bot to save a shared durable fact at project, group, or
 It appears as a chat card and a bot inbox item, and either one decides it through
 `candidate.decide`. See [shared memory approvals](memory.md#shared-memory-approvals).
 
-#### Observational memory
+#### History checkpoint
 
-An automatically generated, inspectable summary of older content in one thread. It complements the
-recent complete-turn window and never acts as a writable group-wide memory store. See
-[memory architecture](memory.md).
+A summary of a chat's earlier messages, written once when the chat nears the model's window. The
+model gets the checkpoint and every turn after it. Unrelated to a git checkpoint. See
+[memory architecture](memory.md#chat-history-and-compaction).
 
 ### Orchestration
 

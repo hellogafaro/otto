@@ -397,7 +397,6 @@ export const commonLabelsCatalog = {
   Keyboard: "Keyboard",
   "About you": "About you",
   "Confirm clear": "Confirm clear",
-  "Clear summary": "Clear summary",
   "Needs setup": "Needs setup",
   Error: "Error",
   Behavior: "Behavior",

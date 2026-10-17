@@ -39,8 +39,6 @@ export const memoryCatalog = {
   "Durable facts": "Durable facts",
   "Facts kept beyond this chat. Clearing observations does not remove them.":
     "Facts kept beyond this chat. Clearing observations does not remove them.",
-  "Facts kept beyond this chat. Clearing chat observations does not remove them.":
-    "Facts kept beyond this chat. Clearing chat observations does not remove them.",
   "Durable facts unavailable.": "Durable facts unavailable.",
   "Loading durable facts…": "Loading durable facts…",
   "No durable facts in this scope yet.": "No durable facts in this scope yet.",
@@ -76,8 +74,6 @@ export const memoryCatalog = {
   "Loading memory…": "Loading memory…",
   "Memory transfer failed.": "Memory transfer failed.",
   "Transfer memory": "Transfer memory",
-  "Export bot notes and chat observations, or durable facts for one scope. Review an import before anything changes.":
-    "Export bot notes and chat observations, or durable facts for one scope. Review an import before anything changes.",
   "Export notes": "Export notes",
   "Durable facts: {description}": "Durable facts: {description}",
   "Export durable facts": "Export durable facts",

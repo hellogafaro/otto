@@ -56,7 +56,6 @@ export interface ActiveTurn {
   inputTokens: number;
   outputTokens: number;
   reasoningTokens: number;
-  memoryQueued: boolean;
   assistantText: string;
   /** Set once message_post posts; the turn's remaining text then stays private. */
   posted: boolean;
@@ -115,8 +114,8 @@ export interface PendingApproval {
 }
 
 export interface LegacyTurnMemoryState {
-  readonly observationPromptId: string;
-  observationRecorded: boolean;
+  readonly promptId: string;
+  persisted: boolean;
   readonly seenEventIds: Set<string>;
   readonly user: string;
   readonly modelId: string;

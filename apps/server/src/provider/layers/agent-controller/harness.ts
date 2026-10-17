@@ -1,5 +1,4 @@
 import type { AuthStorage } from "@mastra/code-sdk/auth/storage";
-import type { createSessionContext } from "./session-context.ts";
 import type { OttoToolRuntime } from "../../otto-tool-runtime.ts";
 import type { AgentControllerLiveOptions } from "./options.ts";
 import { failureDetail, ThreadIdBrand } from "./policy.ts";
@@ -10,7 +9,6 @@ import * as Path from "effect/Path";
 
 import {
   OttoUsageReservationId,
-  CommandId,
   EventId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -103,20 +101,7 @@ export function createHarness(deps: {
   };
   readonly turnStillWaiting: (threadId: string, active: ActiveSession) => boolean;
   readonly toolRuntime: OttoToolRuntime;
-  readonly memoryUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
-  readonly readSessionStartContext: ReturnType<
-    typeof createSessionContext
-  >["readSessionStartContext"];
-  readonly unreservedMemoryCalls: Map<
-    string,
-    {
-      readonly botId: BotId;
-      readonly threadId: ThreadId;
-      readonly category: "observer" | "reflector";
-      readonly provider: ProviderDriverKind | null;
-      readonly model: string | null;
-    }
-  >;
+  readonly turnUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
   readonly botUsageLedger: BotUsageLedger["Service"];
 }) {
   const routineDispatcher = deps.routineDispatcher;
@@ -178,46 +163,6 @@ export function createHarness(deps: {
         const turn = deps.sessions.get(threadId)?.activeTurn;
 
         if (turn) abandonUnpublishedText(turn);
-      },
-      // Durable queue rows can drain before any client opens the thread (for
-      // example right after a server restart), so the activity must not
-      // depend on an active provider session; the row's recorded turnId is
-      // the authority and the active turn is only a fallback.
-      onObservationDropped: async ({
-        observationId,
-        threadId,
-        turnId,
-        resourceId,
-        modelId,
-        attempts,
-        error,
-      }) => {
-        if (!Option.isSome(deps.orchestrationEngine)) return;
-        const active = deps.sessions.get(threadId);
-        const droppedAt = nowIso();
-        await deps.runPromise(
-          deps.orchestrationEngine.value.dispatch({
-            type: "thread.activity.append",
-            // Stable ids make a retried notice idempotent.
-            commandId: CommandId.make(`server:observation-dropped:${observationId}`),
-            threadId: ThreadIdBrand(threadId),
-            activity: {
-              id: EventId.make(`observation-dropped:${observationId}`),
-              tone: "error",
-              kind: "memory.observation.dropped",
-              summary: "Background memory observation dropped after repeated failures",
-              payload: {
-                resourceId,
-                modelId: modelId ?? null,
-                attempts,
-                detail: error.message,
-              },
-              turnId: turnId ? TurnId.make(turnId) : (active?.activeTurn?.turnId ?? null),
-              createdAt: droppedAt,
-            },
-            createdAt: droppedAt,
-          }),
-        );
       },
       ...(routineDispatcher
         ? {
@@ -340,32 +285,12 @@ export function createHarness(deps: {
           }
         : {}),
       toolRuntime: deps.toolRuntime,
-      startMemoryCall: async ({ threadId, category }) => {
-        const context = deps.memoryUsageByThread.get(threadId);
+      startCompaction: async ({ threadId, modelId }) => {
+        const context = deps.turnUsageByThread.get(threadId);
         const active = deps.sessions.get(threadId);
-        const callId = `${category}:${NodeCrypto.randomUUID()}`;
 
-        if (!context || !active) {
-          // A queued observation can drain after a restart before its chat
-          // reopens. Attribute it to the chat's bot and record what it used.
-          const botId = await deps.runPromise(
-            deps.readSessionStartContext(ThreadIdBrand(threadId), null).pipe(
-              Effect.map((started) => started.botId),
-              Effect.catchCause(() => Effect.succeed(null)),
-            ),
-          );
-
-          if (!botId) return undefined;
-          deps.unreservedMemoryCalls.set(callId, {
-            botId,
-            threadId: ThreadIdBrand(threadId),
-            category,
-            provider: active?.provider ?? null,
-            model: active?.model ?? null,
-          });
-
-          return callId;
-        }
+        if (!context || !active) return undefined;
+        const callId = `compaction:${NodeCrypto.randomUUID()}`;
 
         await deps.runPromise(
           deps.botUsageLedger.reserve({
@@ -374,71 +299,36 @@ export function createHarness(deps: {
             botId: context.botId,
             threadId: ThreadIdBrand(threadId),
             turnId: context.turnId,
-            category,
+            category: "compaction",
             maximumTokens: OTTO_TURN_USAGE_RESERVATION_TOKENS,
             provider: active.provider,
-            model: active.model,
+            model: active.model ?? modelId,
             createdAt: nowIso(),
           }),
         );
 
         return callId;
       },
-      finishMemoryCall: async ({ callId, usage, error }) => {
-        const outputTokens = usage?.outputTokens ?? 0;
-
-        const inputTokens =
-          usage?.inputTokens ?? Math.max(0, (usage?.totalTokens ?? 0) - outputTokens);
-
-        const unreserved = deps.unreservedMemoryCalls.get(callId);
-
-        if (unreserved) {
-          deps.unreservedMemoryCalls.delete(callId);
-
-          if (!usage) return;
-          await deps.runPromise(
-            deps.botUsageLedger.recordMeasurement({
-              reservationId: OttoUsageReservationId.make(callId),
-              sourceKey: callId,
-              botId: unreserved.botId,
-              threadId: unreserved.threadId,
-              turnId: null,
-              category: unreserved.category,
-              inputTokens,
-              outputTokens,
-              reasoningTokens: null,
-              provider: unreserved.provider,
-              model: unreserved.model,
-              createdAt: nowIso(),
-            }),
-          );
-
-          return;
-        }
-
+      finishCompaction: async ({ callId, usage, error }) => {
         await deps.runPromise(
           deps.botUsageLedger.settle(
             usage
               ? {
                   reservationId: OttoUsageReservationId.make(callId),
                   state: "reported",
-                  inputTokens,
-                  outputTokens,
+                  inputTokens: usage.inputTokens,
+                  cachedInputTokens: usage.cachedInputTokens,
+                  cacheCreationTokens: usage.cacheCreationTokens,
+                  outputTokens: usage.outputTokens,
                   reasoningTokens: null,
                   settledAt: nowIso(),
                 }
-              : error
-                ? {
-                    reservationId: OttoUsageReservationId.make(callId),
-                    state: "unavailable",
-                    reason: error.message || "Observational Memory usage was unavailable.",
-                    settledAt: nowIso(),
-                  }
-                : {
-                    reservationId: OttoUsageReservationId.make(callId),
-                    state: "released",
-                    settledAt: nowIso(),
-                  },
+              : {
+                  reservationId: OttoUsageReservationId.make(callId),
+                  state: "unavailable",
+                  reason: error?.message || "Compaction usage was unavailable.",
+                  settledAt: nowIso(),
+                },
           ),
         );
       },

@@ -12,7 +12,7 @@ import * as Layer from "effect/Layer";
 import { describe, expect, vi } from "vite-plus/test";
 import { ServerConfig } from "../../config.ts";
 import { AgentController } from "../services/agent-controller.ts";
-import { makeOttoMastraHarness, type OttoMastraHarness } from "../otto-mastra-harness.ts";
+import { makeOttoMastraHarness } from "../otto-mastra-harness.ts";
 import { type AgentControllerLiveOptions } from "./agent-controller.ts";
 import {
   ProjectionThreadMessageRepository,
@@ -87,13 +87,11 @@ describe("AgentControllerLive", () => {
       const finishDispatch = Promise.withResolvers<void>();
       const dispatchAborted = Promise.withResolvers<void>();
       const sessions: Session<OttoMastraState>[] = [];
-      let harness: OttoMastraHarness | undefined;
       let failRestart = false;
 
       const factory: NonNullable<AgentControllerLiveOptions["makeMastraHarness"]> = (options) =>
         Effect.gen(function* () {
           const real = yield* makeOttoMastraHarness(options);
-          harness = real;
           yield* Effect.promise(() =>
             real.rebuildConversation!(
               String(threadId),
@@ -110,7 +108,6 @@ describe("AgentControllerLive", () => {
 
           return {
             ...real,
-            observeAfterTurn: async () => undefined,
             controller: {
               ...real.controller,
               init: () => real.controller.init(),
@@ -176,23 +173,6 @@ describe("AgentControllerLive", () => {
           "user-2",
           "assistant-2",
         ]);
-        yield* Effect.promise(() =>
-          harness!.restoreObservationalMemory!(String(threadId), {
-            current: {
-              id: "discarded-observation",
-              generationCount: 1,
-              activeObservations: "Facts from discarded turn 2",
-              bufferedObservations: "",
-              bufferedReflection: null,
-              totalTokensObserved: 10,
-              observationTokenCount: 2,
-              createdAt,
-              updatedAt: createdAt,
-              originType: "initial",
-            },
-            history: [],
-          }),
-        );
         yield* controller.sendTurn({ threadId, input: "Discarded in-flight turn" });
         yield* Effect.promise(() => dispatchStarted.promise);
 
@@ -204,9 +184,6 @@ describe("AgentControllerLive", () => {
         expect(sessions).toHaveLength(1);
         finishDispatch.resolve();
         yield* Fiber.join(rollback);
-        expect(
-          yield* Effect.promise(() => harness!.readObservationalMemory!(String(threadId))),
-        ).toEqual({ current: null, history: [] });
         expect(sessions).toHaveLength(2);
         expect(sessions[1]).not.toBe(sessions[0]);
         yield* controller.sendTurn({ threadId, input: "Next turn" });

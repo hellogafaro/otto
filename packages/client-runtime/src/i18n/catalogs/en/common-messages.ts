@@ -111,7 +111,6 @@ export const commonMessagesCatalog = {
   "Replaced:": "Replaced:",
   "It can't be restored.": "It can't be restored.",
   "No observations yet.": "No observations yet.",
-  "Previous observations ({count})": "Previous observations ({count})",
   "{count} generation": "{count} generation",
   "{count} generations": "{count} generations",
   "{name}: {status}, {count} / {limit} characters":
@@ -176,7 +175,6 @@ export const commonMessagesCatalog = {
   "{used} of {limit} characters used": "{used} of {limit} characters used",
   "Condensed {count} time to stay short.": "Condensed {count} time to stay short.",
   "Condensed {count} times to stay short.": "Condensed {count} times to stay short.",
-  "Earlier summaries ({count})": "Earlier summaries ({count})",
   "{name} (default)": "{name} (default)",
   "Install failed.": "Install failed.",
   "Stored key - enter a new key to replace": "Stored key - enter a new key to replace",
@@ -267,7 +265,6 @@ export const commonMessagesCatalog = {
   "Chat couldn't be unpinned": "Chat couldn't be unpinned",
   "Chat couldn't be unsettled": "Chat couldn't be unsettled",
   "Chat couldn't be woken": "Chat couldn't be woken",
-  "Chat summary couldn't be cleared": "Chat summary couldn't be cleared",
   "Chat visibility couldn't be changed": "Chat visibility couldn't be changed",
   "Command couldn't be run": "Command couldn't be run",
   "Composio couldn't be opened": "Composio couldn't be opened",

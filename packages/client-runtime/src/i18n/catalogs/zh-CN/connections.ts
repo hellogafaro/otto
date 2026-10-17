@@ -205,7 +205,6 @@ export const connectionsCatalog = {
     "根据报告的模型用量估算，不是订阅支出。",
   "Everything this chat can reach. Export only; import one scope at a time.":
     "此聊天可访问的全部内容。仅可导出；导入时一次只能导入一个范围。",
-  "This import will replace this chat's observations.": "此次导入将替换此聊天的观察记录。",
   "Apply import": "应用导入",
   "Imported {imported}, changed {changed}, skipped {skipped}.":
     "已导入 {imported} 条，更改 {changed} 条，跳过 {skipped} 条。",

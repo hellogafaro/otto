@@ -70,7 +70,7 @@ export function createConversation(deps: {
     reason?: string,
   ) => void;
   readonly bundle: OttoControllerHarness;
-  readonly memoryUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
+  readonly turnUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
   readonly projectionMessages: Option.Option<ProjectionThreadMessageRepository["Service"]>;
   readonly projectionTurns: Option.Option<ProjectionTurnRepository["Service"]>;
   readonly config: ServerConfig["Service"];
@@ -147,7 +147,7 @@ export function createConversation(deps: {
             yield* deps.clearPreviewMcpSession(input.threadId);
             deps.toolRuntime.unregisterSession(key);
             deps.sessions.delete(key);
-            deps.memoryUsageByThread.delete(key);
+            deps.turnUsageByThread.delete(key);
           }),
         ),
       );

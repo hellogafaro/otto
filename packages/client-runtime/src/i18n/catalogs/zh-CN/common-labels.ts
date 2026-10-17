@@ -397,7 +397,6 @@ export const commonLabelsCatalog = {
   Keyboard: "键盘",
   "About you": "关于你",
   "Confirm clear": "确认清除",
-  "Clear summary": "清除摘要",
   "Needs setup": "需要设置",
   Error: "错误",
   Behavior: "行为",

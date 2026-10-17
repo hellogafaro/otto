@@ -12,7 +12,7 @@ import {
   WsRpcGroup,
 } from "@otto/contracts";
 
-import { canSeeGroup, canSeeThread, canSeeThreadById } from "./orchestration/group-visibility.ts";
+import { canSeeGroup, canSeeThread } from "./orchestration/group-visibility.ts";
 import { memoryOperationError } from "./ws-support.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
@@ -23,20 +23,13 @@ const replaced = (operation: string) => () =>
   );
 
 export const createWsMemoryHandlers = ({
-  agentController,
   memories,
   currentPersonId,
   projectionSnapshotQuery,
-  projectionGroups,
   observeRpcEffect,
 }: Pick<
   WsConnection,
-  | "agentController"
-  | "memories"
-  | "currentPersonId"
-  | "projectionSnapshotQuery"
-  | "projectionGroups"
-  | "observeRpcEffect"
+  "memories" | "currentPersonId" | "projectionSnapshotQuery" | "observeRpcEffect"
 >) => {
   const fail = (message: string) => Effect.fail(new MemoryError({ message }));
 
@@ -86,30 +79,7 @@ export const createWsMemoryHandlers = ({
     [WS_METHODS.memoryFactMutate]: replaced("facts.mutate"),
     [WS_METHODS.memoryDocumentsInspect]: replaced("documents.inspect"),
     [WS_METHODS.memoryDocumentReplace]: replaced("document.replace"),
-
-    [WS_METHODS.memoryObservationsClear]: (input) =>
-      observeRpcEffect(
-        WS_METHODS.memoryObservationsClear,
-        Effect.gen(function* () {
-          const visible = yield* canSeeThreadById(
-            { projectionSnapshotQuery, projectionGroups },
-            input.threadId,
-            currentPersonId,
-          );
-
-          if (!visible || !agentController.clearConversationMemory) {
-            return yield* memoryOperationError(
-              "observations.clear",
-              "Observational memory is unavailable.",
-            );
-          }
-
-          yield* agentController
-            .clearConversationMemory(input.threadId)
-            .pipe(Effect.mapError((cause) => memoryOperationError("observations.clear", cause)));
-        }),
-        { "rpc.aggregate": "memory" },
-      ),
+    [WS_METHODS.memoryObservationsClear]: replaced("observations.clear"),
 
     [WS_METHODS.memoryList]: ({ botId }) =>
       observeRpcEffect(

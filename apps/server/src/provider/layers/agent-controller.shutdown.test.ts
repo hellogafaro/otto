@@ -10,7 +10,7 @@ import { makeBridge, makeLayer } from "./test-support/agent-controller-layers.ts
 import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
 
 describe("AgentControllerLive", () => {
-  it.effect("waits for observational memory shutdown before closing the controller scope", () => {
+  it.effect("waits for the Mastra harness to shut down before closing the controller scope", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
     const destroyStarted = Promise.withResolvers<void>();

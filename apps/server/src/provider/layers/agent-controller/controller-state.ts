@@ -94,19 +94,7 @@ export const createControllerState = Effect.fn("createControllerState")(function
 
   const legacyHiddenWakeByTurn = new Map<string, boolean>();
 
-  // Memory calls with no live turn reservation, recorded when they finish.
-  const unreservedMemoryCalls = new Map<
-    string,
-    {
-      readonly botId: BotId;
-      readonly threadId: ThreadId;
-      readonly category: "observer" | "reflector";
-      readonly provider: ProviderDriverKind | null;
-      readonly model: string | null;
-    }
-  >();
-
-  const memoryUsageByThread = new Map<string, { readonly botId: BotId; turnId: TurnId }>();
+  const turnUsageByThread = new Map<string, { readonly botId: BotId; turnId: TurnId }>();
 
   const { clearPreviewMcpSession, preparePreviewMcpSession } = createPreviewMcpSessions({
     options,
@@ -199,8 +187,7 @@ export const createControllerState = Effect.fn("createControllerState")(function
     toolUsageStarts,
     toolUsageKey,
     legacyHiddenWakeByTurn,
-    unreservedMemoryCalls,
-    memoryUsageByThread,
+    turnUsageByThread,
     lateWiring,
     wired,
     childWaiters,

@@ -74,7 +74,7 @@ export function createTurnLifecycle(deps: {
   };
   readonly toolRuntime: OttoToolRuntime;
   readonly sessionResources: Pick<OttoSessionResources, "keepComputerAwake">;
-  readonly memoryUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
+  readonly turnUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
   readonly publishSessionState: (
     threadId: ThreadId,
     active: ActiveSession,
@@ -92,7 +92,6 @@ export function createTurnLifecycle(deps: {
   readonly memoryTurns: Map<string, MemoryTurn>;
   readonly legacyProviderBridge: LegacyProviderBridge["Service"];
   readonly startPendingTurn: (active: ActiveSession, pending: PendingTurn) => void;
-  readonly queueTurnMemory: (threadId: ThreadId, active: ActiveSession, turn: ActiveTurn) => void;
   readonly completeAssistantMessages: (
     threadId: ThreadId,
     active: ActiveSession,
@@ -157,9 +156,9 @@ export function createTurnLifecycle(deps: {
     const key = String(threadId);
 
     if (botUsage) {
-      deps.memoryUsageByThread.set(key, { ...botUsage, turnId });
+      deps.turnUsageByThread.set(key, { ...botUsage, turnId });
     } else {
-      deps.memoryUsageByThread.delete(key);
+      deps.turnUsageByThread.delete(key);
     }
 
     active.activeTurn = {
@@ -171,7 +170,6 @@ export function createTurnLifecycle(deps: {
       inputTokens: 0,
       outputTokens: 0,
       reasoningTokens: 0,
-      memoryQueued: false,
       assistantText: "",
       posted: false,
     };
@@ -188,7 +186,7 @@ export function createTurnLifecycle(deps: {
   // That run becomes its own turn so its reply is shown and settled.
   const adoptRun = (threadId: ThreadId, active: ActiveSession) => {
     if (active.activeTurn || active.admittingTurn) return;
-    const botId = deps.memoryUsageByThread.get(String(threadId))?.botId;
+    const botId = deps.turnUsageByThread.get(String(threadId))?.botId;
 
     beginPendingTurn(active, {
       threadId,
@@ -381,7 +379,6 @@ export function createTurnLifecycle(deps: {
     const turn = active.activeTurn;
 
     if (!turn || turn.finished) return;
-    deps.queueTurnMemory(threadId, active, turn);
     turn.finished = true;
     deps.completeAssistantMessages(threadId, active, turn);
     cancelAllPendingApprovals(threadId, active);

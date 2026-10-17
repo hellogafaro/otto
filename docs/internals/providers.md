@@ -48,7 +48,7 @@ directory to route session and turn operations for a thread, so callers name a t
 Desktop chat does not call `ProviderService` directly from orchestration. The command reactor calls
 Otto's [`AgentController`][controller]. Codex, Claude, Grok, Kimi, OpenCode Go, and Custom API threads run
 through Otto's custom Mastra Core controller and call `Session.sendMessage()`. The backing agent is a general-purpose Otto assistant
-with Otto-owned observational memory, workspace, tools, approval policy, and lifecycle. Otto builds
+with Otto-owned chat history and compaction, workspace, tools, approval policy, and lifecycle. Otto builds
 workspace and enabled plugin tools per thread, and resolves the selected subscription model through
 the exact provider instance's private transport descriptor. Explicit instance credentials and base
 URLs take precedence and never fall back to provider-wide credentials. AgentController
@@ -69,7 +69,7 @@ owned by the layer scope, so stopping the layer interrupts in-flight work.
 - `runPromise` is for Promise callbacks that need an Effect result, such as Mastra tool handlers and
   approval callbacks. It resolves in the same microtask order as `Effect.runPromiseWith`, which turn
   admission relies on.
-- `fork` and `forkPromise` start background work: observational memory, turn dispatch and
+- `fork` and `forkPromise` start background work: storing other providers' turns, turn dispatch and
   admission, delegation settlement after a turn, and auto-approval of allowed tools. A
   failure is logged as a warning with the thread, turn, or tool context. `forkPromise` passes the
   rejection to `onFailure` first so the controller can fail the turn or publish `runtime.error` as

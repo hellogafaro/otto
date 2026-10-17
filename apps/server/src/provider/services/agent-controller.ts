@@ -1,6 +1,5 @@
 import type {
   AuthSessionId,
-  OttoConversationMemorySnapshot,
   ComposioToolkit,
   ComputerWatchError,
   BotEngine,
@@ -104,20 +103,6 @@ export interface AgentControllerShape {
     { readonly toolNames: readonly string[]; readonly needsSignIn: boolean },
     AgentControllerError
   >;
-
-  readonly readConversationMemory?: (
-    threadId: ThreadId,
-  ) => Effect.Effect<OttoConversationMemorySnapshot, AgentControllerError>;
-
-  readonly clearConversationMemory?: (
-    threadId: ThreadId,
-  ) => Effect.Effect<void, AgentControllerError>;
-
-  readonly restoreConversationMemory?: (
-    threadId: ThreadId,
-    snapshot: OttoConversationMemorySnapshot,
-    expectedSnapshot?: OttoConversationMemorySnapshot,
-  ) => Effect.Effect<void, AgentControllerError>;
 
   /** Resolve a thread's selected mode and model to an available Otto provider instance. */
   readonly resolveEngine: (input: {

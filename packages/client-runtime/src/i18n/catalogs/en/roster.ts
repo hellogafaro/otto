@@ -225,8 +225,6 @@ export const rosterCatalog = {
   "Advanced > Bot inbox": "Advanced > Bot inbox",
   "Lasting details this bot has learned about you. It reads them in every chat.":
     "Lasting details this bot has learned about you. It reads them in every chat.",
-  "Nothing yet. The bot starts a summary once the chat gets long.":
-    "Nothing yet. The bot starts a summary once the chat gets long.",
   "Turn off {name} for this bot": "Turn off {name} for this bot",
   "Turn on {name} for this bot": "Turn on {name} for this bot",
   "Name your bot": "Name your bot",

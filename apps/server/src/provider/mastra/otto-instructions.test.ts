@@ -8,7 +8,11 @@ import {
   createOttoChatContextUpdate,
   createOttoInstructions,
 } from "../otto-agent-instructions.ts";
-import { type OttoChatContextRecord, withOttoPrompt } from "./otto-instructions.ts";
+import {
+  OTTO_COMPACTION_INSTRUCTION,
+  type OttoChatContextRecord,
+  withOttoPrompt,
+} from "./otto-instructions.ts";
 
 type TestModel = Extract<
   MastraModelConfig,
@@ -209,6 +213,22 @@ describe("withOttoPrompt", () => {
       user("e"),
       turn,
     ]);
+  });
+
+  it("sends a compaction instruction in place of the turn block, after the same history", async () => {
+    const { model, calls } = recordingModel("anthropic.messages");
+    const chats = new Map<string, OttoChatContextRecord>();
+    const state = { workspaceContext: "People: Ana", turnContext: "Your turn in the group." };
+    const history = [user("a"), assistant("b"), user("c")];
+
+    await send(withOttoPrompt(model, context(state), chats, now), history);
+    await send(withOttoPrompt(model, context(state), chats, now), [
+      ...history,
+      { ...user("Write a checkpoint."), providerOptions: OTTO_COMPACTION_INSTRUCTION },
+    ]);
+
+    expect(calls[1]?.prompt.slice(0, -1)).toEqual(calls[0]?.prompt.slice(0, -1));
+    expect(calls[1]?.prompt.at(-1)).toEqual(user("Write a checkpoint."));
   });
 
   it("marks the system prompt, last tool and last history message for Anthropic's cache", async () => {

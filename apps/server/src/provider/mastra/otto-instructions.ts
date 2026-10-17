@@ -12,7 +12,7 @@ import {
 import { controllerContext, controllerResourceId } from "./otto-memory.ts";
 
 /** The native AI SDK v3 model; Mastra's own v3 wrapper streams from doGenerate too. */
-type OttoLanguageModel = Extract<
+export type OttoLanguageModel = Extract<
   MastraModelConfig,
   {
     readonly specificationVersion: "v3";
@@ -20,9 +20,12 @@ type OttoLanguageModel = Extract<
   }
 >;
 
-type OttoCallOptions = Parameters<OttoLanguageModel["doStream"]>[0];
+export type OttoCallOptions = Parameters<OttoLanguageModel["doStream"]>[0];
 
 type OttoPromptMessage = OttoCallOptions["prompt"][number];
+
+/** Marks the last prompt message as a compaction instruction, sent in place of the turn block. */
+export const OTTO_COMPACTION_INSTRUCTION = { otto: { compaction: true } };
 
 /** The chat context a thread's model has seen: what was sent first and the updates after it. */
 export interface OttoChatContextRecord {
@@ -43,7 +46,7 @@ function stateText(requestContext: RequestContext, key: string): string {
   return Predicate.isString(value) ? value : "";
 }
 
-function isV3Model(model: MastraModelConfig): model is OttoLanguageModel {
+export function isV3Model(model: MastraModelConfig): model is OttoLanguageModel {
   return (
     Predicate.isObject(model) &&
     "specificationVersion" in model &&
@@ -102,11 +105,15 @@ export function withOttoPrompt(
       memory: stateText(requestContext, "persistentMemoryContext"),
     };
 
-    const ownSystem = params.prompt.filter(
+    const last = params.prompt.at(-1);
+    const instruction = last?.role === "user" && last.providerOptions?.["otto"]?.["compaction"];
+    const prompt = instruction ? params.prompt.slice(0, -1) : params.prompt;
+
+    const ownSystem = prompt.filter(
       (message) => message.role === "system" && message.content.trim() !== "",
     );
 
-    const history = params.prompt.filter((message) => message.role !== "system");
+    const history = prompt.filter((message) => message.role !== "system");
     const threadId = controllerResourceId(requestContext);
     const firstMessage = JSON.stringify(history[0] ?? null);
     const previous = threadId ? chats.get(threadId) : undefined;
@@ -149,14 +156,19 @@ export function withOttoPrompt(
       ...ownSystem,
     ];
 
-    const turn = note(
-      createOttoTurn({
-        now: now(),
-        timezone:
-          stateText(requestContext, "timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone,
-        notes: stateText(requestContext, "turnContext"),
-      }),
-    );
+    // A compaction request is the last request with its instruction in place of the turn block.
+    const turn: OttoPromptMessage =
+      instruction && last.role === "user"
+        ? { role: "user", content: last.content }
+        : note(
+            createOttoTurn({
+              now: now(),
+              timezone:
+                stateText(requestContext, "timezone") ||
+                Intl.DateTimeFormat().resolvedOptions().timeZone,
+              notes: stateText(requestContext, "turnContext"),
+            }),
+          );
 
     if (!anthropic) return { ...params, prompt: [...system, ...conversation, turn] };
 

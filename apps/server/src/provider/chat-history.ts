@@ -1,19 +1,24 @@
 import type { MastraDBMessage } from "@mastra/core/agent-controller";
+import * as DateTime from "effect/DateTime";
+import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
+import * as Schema from "effect/Schema";
 import { GROUP_NO_REPLY, isGroupTurnNote } from "../orchestration/group-responder.ts";
-
-export const OTTO_RECENT_TURN_LIMIT = 30;
-
-export const OTTO_RECENT_TOKEN_LIMIT = 64_000;
 
 /** Message metadata naming the bot that wrote an assistant reply. */
 export const OTTO_REPLY_BOT_NAME = "ottoBotName";
 
-interface ConversationTurn {
-  readonly messages: ReadonlyArray<MastraDBMessage>;
-  readonly estimatedTokens: number;
-  readonly required: boolean;
-}
+/** Message metadata on a stored checkpoint: a system row that summarises the chat before it. */
+export const OTTO_CHECKPOINT = "ottoCheckpoint";
+
+const decodeCheckpoint = Schema.decodeUnknownOption(
+  Schema.Struct({
+    firstKeptMessageId: Schema.String,
+    tokensBefore: Schema.Number,
+    model: Schema.String,
+    createdAt: Schema.String,
+  }),
+);
 
 /** Otto: The files a model reads directly; any other attachment reaches it as its saved path. */
 export const modelReadsFile = (mediaType: string) =>
@@ -49,10 +54,6 @@ function withoutUnreadableFiles(message: MastraDBMessage): MastraDBMessage {
   };
 }
 
-function estimatedTokens(message: MastraDBMessage): number {
-  return Math.ceil(JSON.stringify(message.content).length / 4);
-}
-
 function messageText(message: MastraDBMessage): string {
   return message.content.parts
     .flatMap((part) => (part.type === "text" ? [part.text.trim()] : []))
@@ -61,7 +62,7 @@ function messageText(message: MastraDBMessage): string {
 }
 
 // Mastra stores a user message as a user signal, not a user row.
-function isUserMessage(message: MastraDBMessage): boolean {
+export function isUserMessage(message: MastraDBMessage): boolean {
   if (message.role === "user") return true;
 
   if (message.role !== "signal") return false;
@@ -78,66 +79,63 @@ function isGroupPass(message: MastraDBMessage): boolean {
   return message.role === "assistant" ? text === GROUP_NO_REPLY : isGroupTurnNote(text);
 }
 
-function conversationTurns(
+export function checkpointOf(message: MastraDBMessage) {
+  return message.role === "system"
+    ? Option.getOrUndefined(decodeCheckpoint(message.content.metadata?.[OTTO_CHECKPOINT]))
+    : undefined;
+}
+
+/**
+ * A checkpoint is sent as a user message (providers reject system messages mid-chat), dated just
+ * before the first message it keeps so the message list orders it there.
+ */
+export function checkpointAsUserMessage(
+  checkpoint: MastraDBMessage,
+  firstKept: MastraDBMessage,
+): MastraDBMessage {
+  return {
+    ...checkpoint,
+    role: "user",
+    createdAt: DateTime.toDate(DateTime.makeUnsafe(firstKept.createdAt.getTime() - 1)),
+  };
+}
+
+/**
+ * What the model gets of a stored chat: the newest checkpoint whose first kept message is still
+ * stored, then every complete turn from that message on (or from the start), verbatim. Every
+ * transform depends on one message alone, so each request starts with the previous request's
+ * history and stays cached.
+ */
+export function projectHistory(
   messages: ReadonlyArray<MastraDBMessage>,
-  requiredMessageIds: ReadonlySet<string>,
-): ReadonlyArray<ConversationTurn> {
+): ReadonlyArray<MastraDBMessage> {
+  const ids = new Map(messages.map((message, index) => [message.id, index]));
+
+  const checkpoint = messages.findLast((message) => {
+    const value = checkpointOf(message);
+
+    return value !== undefined && ids.has(value.firstKeptMessageId);
+  });
+
+  const start = checkpoint ? ids.get(checkpointOf(checkpoint)!.firstKeptMessageId)! : 0;
   const turns: MastraDBMessage[][] = [];
 
-  for (const message of messages) {
+  for (const message of messages.slice(start)) {
     if (message.role === "system") continue;
 
     if (isUserMessage(message) || turns.length === 0) turns.push([]);
     turns.at(-1)!.push(withoutUnreadableFiles(message));
   }
 
-  return turns.flatMap((turn) => {
-    const required = turn.some((message) => requiredMessageIds.has(message.id));
-    const complete = turn.some((message) => message.role === "assistant");
-    const kept = turn.filter((message) => !isGroupPass(message));
+  const history = turns.flatMap((turn) =>
+    turn.some((message) => message.role === "assistant")
+      ? turn.filter((message) => !isGroupPass(message))
+      : [],
+  );
 
-    return (complete || required) && kept.length > 0
-      ? [
-          {
-            messages: kept,
-            estimatedTokens: kept.reduce((total, message) => total + estimatedTokens(message), 0),
-            required,
-          },
-        ]
-      : [];
-  });
-}
-
-export function selectRecentConversation(
-  messages: ReadonlyArray<MastraDBMessage>,
-  options: {
-    readonly requiredMessageIds?: ReadonlySet<string>;
-    readonly turnLimit?: number;
-    readonly tokenLimit?: number;
-  } = {},
-): ReadonlyArray<MastraDBMessage> {
-  const requiredMessageIds = options.requiredMessageIds ?? new Set<string>();
-  const turnLimit = options.turnLimit ?? OTTO_RECENT_TURN_LIMIT;
-  const tokenLimit = options.tokenLimit ?? OTTO_RECENT_TOKEN_LIMIT;
-  const turns = conversationTurns(messages, requiredMessageIds);
-  const selected = new Set<number>();
-  let selectedTokens = 0;
-  let optionalTurns = 0;
-
-  for (let index = turns.length - 1; index >= 0; index -= 1) {
-    const turn = turns[index]!;
-    const isNewest = index === turns.length - 1;
-    const withinTurnLimit = optionalTurns < turnLimit;
-    const withinTokenLimit = selectedTokens + turn.estimatedTokens <= tokenLimit;
-
-    if (!turn.required && !isNewest && (!withinTurnLimit || !withinTokenLimit)) continue;
-    selected.add(index);
-    selectedTokens += turn.estimatedTokens;
-
-    if (!turn.required) optionalTurns += 1;
-  }
-
-  return turns.flatMap((turn, index) => (selected.has(index) ? turn.messages : []));
+  return checkpoint && history[0]
+    ? [checkpointAsUserMessage(checkpoint, history[0]), ...history]
+    : history;
 }
 
 /**

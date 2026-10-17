@@ -6,11 +6,9 @@ import {
   type Session,
 } from "@mastra/core/agent-controller";
 import {
-  type OttoConversationMemorySnapshot,
   type OttoCreateRoutineInput as OttoCreateRoutineInputValue,
   type OttoUpdateRoutineInput as OttoUpdateRoutineInputValue,
 } from "@otto/contracts";
-import * as Duration from "effect/Duration";
 import type { SubscriptionAuthService } from "../../subscription-auth/service.ts";
 import type { OttoOpenCodeGoAccess } from "../otto-open-code-go-provider.ts";
 import { type OttoKimiAccess } from "../otto-kimi-provider.ts";
@@ -94,23 +92,20 @@ export interface OttoMastraHarnessOptions {
         readonly instanceId?: string;
       }
     | undefined;
+  /** The store that holds every chat's messages. */
   readonly memoryDbPath: string;
-  /**
-   * How long closing the harness waits for admitted memory work before it
-   * interrupts that work. Defaults to five seconds.
-   */
-  readonly observationCloseGrace?: Duration.Input;
-  readonly startMemoryCall?: (input: {
+  /** Reserves usage for a history compaction; returns the call id to finish it with. */
+  readonly startCompaction?: (input: {
     readonly threadId: string;
-    readonly category: "observer" | "reflector";
+    readonly modelId: string;
   }) => Promise<string | undefined>;
-  readonly finishMemoryCall?: (input: {
+  readonly finishCompaction?: (input: {
     readonly callId: string;
-    readonly category: "observer" | "reflector";
     readonly usage?: {
-      readonly inputTokens?: number;
-      readonly outputTokens?: number;
-      readonly totalTokens?: number;
+      readonly inputTokens: number;
+      readonly cachedInputTokens: number;
+      readonly cacheCreationTokens: number;
+      readonly outputTokens: number;
     };
     readonly error?: Error;
   }) => Promise<void>;
@@ -142,16 +137,6 @@ export interface OttoMastraHarnessOptions {
     routineId: string,
     paused: boolean,
   ) => Promise<OttoRoutinePausedResult>;
-  readonly onObservationDropped?: (input: {
-    /** Stable queue-row id; retried notices reuse it. */
-    readonly observationId: string;
-    readonly threadId: string;
-    readonly turnId?: string;
-    readonly resourceId: string;
-    readonly modelId: string;
-    readonly attempts: number;
-    readonly error: Error;
-  }) => Promise<void> | void;
 }
 
 export type OttoControllerHarness = OttoMastraHarness<OttoControllerSession>;
@@ -166,19 +151,8 @@ export interface OttoMastraHarness<SessionType = OttoMastraSession> {
       ...args: Parameters<MastraAgentController<OttoMastraState>["createSession"]>
     ): Promise<SessionType>;
   };
-  readonly clearObservationalMemory?: (threadId: string, resourceId?: string) => Promise<void>;
-  readonly readObservationalMemory?: (
-    threadId: string,
-    resourceId?: string,
-  ) => Promise<OttoConversationMemorySnapshot>;
-  readonly restoreObservationalMemory?: (
-    threadId: string,
-    snapshot: OttoConversationMemorySnapshot,
-    resourceId?: string,
-    expectedSnapshot?: OttoConversationMemorySnapshot,
-  ) => Promise<void>;
-  readonly observeAfterTurn?: (input: OttoBackgroundObservationInput) => Promise<void>;
-  readonly observeExternalTurn?: (input: {
+  /** Stores a turn another provider ran, so the chat keeps one history across providers. */
+  readonly persistExternalTurn?: (input: {
     readonly threadId: string;
     readonly turnId: string;
     readonly modelId: string;
@@ -186,16 +160,6 @@ export interface OttoMastraHarness<SessionType = OttoMastraSession> {
     readonly assistant: string;
     readonly createdAt: string;
   }) => Promise<void>;
-  readonly drainObservationQueue?: () => Promise<void>;
-}
-
-export interface OttoBackgroundObservationInput {
-  readonly threadId: string;
-  readonly resourceId?: string;
-  readonly modelId: string;
-  /** Routes the observer to this instance's own credentials. */
-  readonly providerInstanceId?: string;
-  readonly turnId?: string;
 }
 
 export type OttoMastraToolOptions = Pick<

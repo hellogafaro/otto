@@ -219,8 +219,6 @@ export const connectionsCatalog = {
     "Estimated from reported model usage; this is not subscription spend.",
   "Everything this chat can reach. Export only; import one scope at a time.":
     "Everything this chat can reach. Export only; import one scope at a time.",
-  "This import will replace this chat's observations.":
-    "This import will replace this chat's observations.",
   "Apply import": "Apply import",
   "Imported {imported}, changed {changed}, skipped {skipped}.":
     "Imported {imported}, changed {changed}, skipped {skipped}.",

@@ -1,4 +1,3 @@
-import type { OttoControllerHarness } from "../../mastra/otto-harness-types.ts";
 import type { AgentControllerShape } from "../../services/agent-controller.ts";
 import { ThreadIdBrand, toProviderSession } from "./policy.ts";
 
@@ -12,16 +11,12 @@ import * as Stream from "effect/Stream";
 
 import { SubscriptionAuthService } from "../../../subscription-auth/service.ts";
 
-import { AgentControllerRuntimeError } from "../../errors.ts";
-
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 
 import { type ResolvedEngine, type ActiveSession, type LegacyTurnMemoryState } from "./state.ts";
 import { recordProviderAccessHealth } from "./provider-access.ts";
 
 export function createAuxiliaryOperations({
-  bundle,
-  runMastra,
   legacyProviderBridge,
   sessions,
   runtimeEvents,
@@ -32,11 +27,6 @@ export function createAuxiliaryOperations({
   legacyBufferedTerminals,
   drainLegacyTerminals,
 }: {
-  readonly bundle: OttoControllerHarness;
-  readonly runMastra: <A>(
-    operation: string,
-    run: (signal: AbortSignal) => Promise<A>,
-  ) => Effect.Effect<A, AgentControllerRuntimeError>;
   readonly legacyProviderBridge: LegacyProviderBridge["Service"];
   readonly sessions: Map<string, ActiveSession>;
   readonly runtimeEvents: PubSub.PubSub<ProviderRuntimeEvent>;
@@ -48,44 +38,6 @@ export function createAuxiliaryOperations({
   readonly drainLegacyTerminals: (key: string) => Effect.Effect<void>;
 }) {
   return {
-    readConversationMemory: (threadId) =>
-      bundle.readObservationalMemory
-        ? runMastra("memory.read", () =>
-            bundle.readObservationalMemory!(String(threadId), String(threadId)),
-          )
-        : Effect.fail(
-            new AgentControllerRuntimeError({
-              operation: "memory.read",
-              detail: "Conversation memory is unavailable.",
-            }),
-          ),
-    clearConversationMemory: (threadId) =>
-      bundle.clearObservationalMemory
-        ? runMastra("memory.clear", () =>
-            bundle.clearObservationalMemory!(String(threadId), String(threadId)),
-          )
-        : Effect.fail(
-            new AgentControllerRuntimeError({
-              operation: "memory.clear",
-              detail: "Conversation memory is unavailable.",
-            }),
-          ),
-    restoreConversationMemory: (threadId, snapshot, expectedSnapshot) =>
-      bundle.restoreObservationalMemory
-        ? runMastra("memory.restore", () =>
-            bundle.restoreObservationalMemory!(
-              String(threadId),
-              snapshot,
-              String(threadId),
-              expectedSnapshot,
-            ),
-          )
-        : Effect.fail(
-            new AgentControllerRuntimeError({
-              operation: "memory.restore",
-              detail: "Conversation memory restoration is unavailable.",
-            }),
-          ),
     listSessions: () =>
       Effect.map(legacyProviderBridge.listSessions(), (legacySessions) => [
         ...legacySessions,
@@ -172,12 +124,5 @@ export function createAuxiliaryOperations({
         ),
       );
     },
-  } satisfies Pick<
-    AgentControllerShape,
-    | "readConversationMemory"
-    | "clearConversationMemory"
-    | "restoreConversationMemory"
-    | "listSessions"
-    | "streamEvents"
-  >;
+  } satisfies Pick<AgentControllerShape, "listSessions" | "streamEvents">;
 }

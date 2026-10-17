@@ -5,13 +5,13 @@ import { it } from "@effect/vitest";
 import { describe, expect } from "vite-plus/test";
 import { makeOttoMastraHarnessTestSupport } from "./test-support/otto-mastra-harness.ts";
 
-const { harnessTest, makeObservationHarness } = makeOttoMastraHarnessTestSupport();
+const { harnessTest, makeHarness } = makeOttoMastraHarnessTestSupport();
 
 describe("OttoMastraHarness legacy modes", () => {
   it.effect("accepts legacy plan mode when starting a session", () =>
     harnessTest(async (open) => {
       const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-plan-start-"));
-      const harness = await makeObservationHarness(open, directory);
+      const harness = await makeHarness(open, directory);
 
       try {
         await harness.controller.init();
@@ -34,7 +34,7 @@ describe("OttoMastraHarness legacy modes", () => {
   it.effect("accepts legacy plan mode on an active session and returns to build", () =>
     harnessTest(async (open) => {
       const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-plan-active-"));
-      const harness = await makeObservationHarness(open, directory);
+      const harness = await makeHarness(open, directory);
 
       try {
         await harness.controller.init();
