@@ -40,10 +40,13 @@ function ChatIndexRedirect() {
     [environmentId, shells],
   );
 
-  const opens = rosterReady && bootstrapped && (latestThreadId !== null || botId !== null);
+  const ready = rosterReady && bootstrapped;
+  const opens = ready && (latestThreadId !== null || botId !== null);
 
+  // Otto: decides once, when everything has loaded. A bot created from the empty state opens
+  // its own introduction chat, so its arrival must not start a second chat here.
   useEffect(() => {
-    if (!opens || opened.current) return;
+    if (!ready || opened.current) return;
     opened.current = true;
 
     if (latestThreadId !== null) {
@@ -57,7 +60,7 @@ function ChatIndexRedirect() {
     }
 
     if (botId !== null) void openChat({ kind: "bot", id: botId }, { replace: true });
-  }, [botId, latestThreadId, navigate, openChat, opens]);
+  }, [botId, latestThreadId, navigate, openChat, ready]);
 
   if (opens || (rosterReady && !bootstrapped)) return null;
 

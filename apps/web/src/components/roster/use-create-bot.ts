@@ -66,10 +66,10 @@ export function useCreateBot(onCreated: () => void) {
           }
 
           useRosterStore.getState().selectBot(botId);
-          onCreated();
 
           // Its first chat opens with the bot introducing itself, from a prompt the chat hides.
-          void startChat(
+          // Onboarding closes only once that chat exists, so Chats opens it instead of a new one.
+          await startChat(
             { kind: "bot", id: botId },
             {
               prompt: botIntroPrompt(name.trim(), locale),
@@ -77,6 +77,7 @@ export function useCreateBot(onCreated: () => void) {
               title: t("Meet {name}", { name: name.trim() }),
             },
           );
+          onCreated();
         } finally {
           setCreating(false);
         }
