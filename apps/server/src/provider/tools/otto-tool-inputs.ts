@@ -46,8 +46,6 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "delegate_check":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "MessageAgent":
-      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "delegate_stop":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "delegate":

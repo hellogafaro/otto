@@ -8,7 +8,6 @@ export const BACKEND_NAMES: Record<
     OttoToolId,
     | "bot_create"
     | "delegate_check"
-    | "MessageAgent"
     | "delegate_stop"
     | "delegate"
     | "message_post"

@@ -151,7 +151,7 @@ describe("Otto tool contracts", () => {
     const context = "x".repeat(OTTO_DELEGATION_CONTEXT_MAX_CHARS);
     expect(decodeOttoToolInput("delegate", { ...input, context })).toMatchObject({ context });
     expect(
-      decodeOttoToolInput("MessageAgent", { ...input, context: "Prefers morning flights." }),
+      decodeOttoToolInput("delegate", { ...input, context: "Prefers morning flights." }),
     ).toMatchObject({ context: "Prefers morning flights." });
     expect(() => decodeOttoToolInput("delegate", { ...input, context: `${context}x` })).toThrow(
       `at most ${OTTO_DELEGATION_CONTEXT_MAX_CHARS} characters`,
@@ -168,7 +168,7 @@ describe("Otto tool contracts", () => {
     expect(decodeOttoToolInput("delegate_stop", { botId: "bot-research" })).toEqual({
       botId: "bot-research",
     });
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "MessageAgent")?.approval).toBe("send");
+    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate")?.approval).toBe("send");
     expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate_stop")?.approval).toBe("delete");
   });
 

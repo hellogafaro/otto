@@ -137,7 +137,7 @@ export const isDispatchedDelegation = (delegation: OttoDelegationRecord) =>
 /** Why a group chat did not receive a finished delegation's result message. */
 export type OttoGroupResultSkipReason = "bot_left_group" | "group_unavailable";
 
-/** Returned by delegate and MessageAgent as soon as the child turn is dispatched. */
+/** Returned by delegate as soon as the child turn is dispatched. */
 export interface OttoDelegationHandle {
   readonly delegationId: DelegationId;
   readonly childThreadId: ThreadId;

@@ -104,7 +104,7 @@ describe("OttoToolRuntime", () => {
     for (const execution of [
       {
         threadId: "thread-controls",
-        toolId: "MessageAgent" as const,
+        toolId: "delegate" as const,
         toolCallId: "tool-message",
         input: {
           botId: BotId.make("bot-research"),

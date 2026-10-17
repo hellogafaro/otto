@@ -46,7 +46,6 @@ const TOOL_LABELS = {
   read: "Reading files",
   bot_create: "Starting a helper",
   delegate_check: "Checking on a helper",
-  MessageAgent: "Messaging a helper",
   delegate: "Messaging a helper",
   delegate_stop: "Stopping a helper",
   message_post: "Sending a message",

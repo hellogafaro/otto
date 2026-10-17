@@ -182,7 +182,6 @@ export const OttoToolInputSchemas = {
     description: Schema.optional(TrimmedNonEmptyString),
   }),
   delegate_check: Schema.Struct({ botId: BotId }),
-  MessageAgent: AgentMessageInput,
   delegate_stop: Schema.Struct({ botId: BotId }),
   delegate: AgentMessageInput,
   message_post: Schema.Struct({

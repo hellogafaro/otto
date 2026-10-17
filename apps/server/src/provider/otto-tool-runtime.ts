@@ -110,7 +110,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
       if (session.delegation.create) tools.add("bot_create");
 
       if (session.delegation.check) tools.add("delegate_check");
-      tools.add("MessageAgent");
 
       if (session.delegation.stop) tools.add("delegate_stop");
       tools.add("delegate");
@@ -281,7 +280,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
                 ...details,
               }),
           });
-        } else if (execution.toolId === "delegate" || execution.toolId === "MessageAgent") {
+        } else if (execution.toolId === "delegate") {
           if (!session.delegation) throw new Error("Delegation is not available for this session.");
           const delegationInput = execution.input;
           failureCode = "internal";

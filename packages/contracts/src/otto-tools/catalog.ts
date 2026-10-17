@@ -6,7 +6,6 @@ export const OttoToolId = Schema.Literals([
   "search",
   "bot_create",
   "delegate_check",
-  "MessageAgent",
   "delegate_stop",
   "delegate",
   "message_post",
@@ -127,27 +126,21 @@ export const OTTO_TOOL_CATALOG = [
       "Read-only; returns type, title, snippet and id for what you and everyone in this chat may see.",
     { promptSnippet: "find or list tasks, files, messages and your routines" },
   ),
-  define("bot_create", "bot-workspace", "Create a durable named bot."),
+  define("bot_create", "bot-workspace", "Create a new named bot. Returns its botId."),
   define(
     "delegate_check",
     "bot-workspace",
-    "Inspect a durable named bot and its delegated work. A finished result returned here counts as delivered and is not repeated in your next turn.",
+    "Status of the work you handed a bot: running, done with its result, failed or stopped. " +
+      "A finished result read here counts as delivered and is not repeated in your next turn.",
   ),
-  define(
-    "MessageAgent",
-    "bot-workspace",
-    "Send bounded work to a durable named bot. Returns a handle at once; the result arrives in your next turn.",
-    {
-      approval: "send",
-    },
-  ),
-  define("delegate_stop", "bot-workspace", "Cancel a durable bot's delegated work.", {
+  define("delegate_stop", "bot-workspace", "Stop the work you handed a bot. It ends as stopped.", {
     approval: "delete",
   }),
   define(
     "delegate",
     "bot-workspace",
-    "Delegate a task to another bot. Returns a handle at once; the result arrives in your next turn.",
+    "Hand bounded work to another bot, which runs it with its own tools and settings. " +
+      "The result arrives in your next turn; follow it with delegate_check.",
     {
       approval: "send",
       promptSnippet: "hand work to another bot",

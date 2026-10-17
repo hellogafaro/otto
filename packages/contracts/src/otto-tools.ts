@@ -29,7 +29,7 @@ export function filterOttoTools(
     if (!context.implementedTools.has(tool.id)) return false;
 
     if (
-      (tool.id === "delegate" || tool.id === "MessageAgent") &&
+      tool.id === "delegate" &&
       ((context.delegationDepth ?? 0) >= OTTO_DELEGATION_MAX_DEPTH ||
         (context.activeDelegations ?? 0) >= OTTO_DELEGATION_MAX_CONCURRENCY)
     )
