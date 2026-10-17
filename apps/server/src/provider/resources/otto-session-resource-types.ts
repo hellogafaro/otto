@@ -2,6 +2,7 @@ import type { BotWorkspaceIO } from "../workspace/bot-workspace-io.ts";
 import { createMcpManager, type McpServerConfig } from "@mastra/code-sdk/mcp/index";
 import type { Workspace } from "@mastra/core/workspace";
 import type { BotSandbox, McpServer } from "@otto/contracts";
+import type * as Duration from "effect/Duration";
 import {
   type OttoBotWorkspace,
   type CreateRemoteBotWorkspaceInput,
@@ -31,4 +32,6 @@ export interface OttoSessionResourcesOptions {
   readonly onMcpServerConnectionFailure?: (serverId: McpServer["id"]) => void;
   readonly getPreviewMcpServerConfig?: (threadId: string) => McpServerConfig | undefined;
   readonly toMcpServerConfigs: (servers: readonly McpServer[]) => Record<string, McpServerConfig>;
+  /** How long a bot's computer stays awake after its last session ends; zero sleeps it at once. */
+  readonly workspaceIdleTimeToLive?: Duration.Input;
 }

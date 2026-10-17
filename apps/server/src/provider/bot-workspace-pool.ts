@@ -288,6 +288,12 @@ export class BotWorkspacePool {
     };
   }
 
+  /** Sleeps every workspace still awake, including idle ones kept for `idleTimeToLive`. */
+  async shutdown(): Promise<void> {
+    const { scope } = await this.state;
+    await this.run(Scope.close(scope, Exit.void));
+  }
+
   /** Retries failed pauses for retained remote workspaces. */
   async retryFailedSleeps(): Promise<void> {
     const results = await Promise.allSettled(

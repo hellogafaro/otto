@@ -540,6 +540,7 @@ describe("AgentControllerLive", () => {
       const layer = agentControllerLayerWith({
         makeMastraHarness: mastra.factory,
         makeRemoteWorkspace,
+        workspaceIdleTimeToLive: 0,
       }).pipe(
         Layer.provide(
           Layer.mergeAll(

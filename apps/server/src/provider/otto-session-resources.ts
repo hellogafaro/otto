@@ -55,12 +55,17 @@ export class OttoSessionResources {
   private readonly acquisitions = new Map<string, Promise<OttoSessionResourceView>>();
   private readonly mcpManagers = new Map<string, McpManager>();
   private readonly workspaceLeases = new Map<string, BotWorkspaceLease>();
-  private readonly workspacePool = new BotWorkspacePool();
+  private readonly workspacePool: BotWorkspacePool;
   private readonly workspaceIds = new Map<string, string>();
   private shuttingDown = false;
 
   constructor(options: OttoSessionResourcesOptions) {
     this.options = options;
+    this.workspacePool = new BotWorkspacePool(
+      options.workspaceIdleTimeToLive === undefined
+        ? {}
+        : { idleTimeToLive: options.workspaceIdleTimeToLive },
+    );
   }
 
   acquire(input: OttoSessionResourceInput): Promise<OttoSessionResourceView> {
@@ -418,6 +423,12 @@ export class OttoSessionResources {
 
     for (const result of releases) {
       if (result.status === "rejected") failures.push(result.reason);
+    }
+
+    try {
+      await this.workspacePool.shutdown();
+    } catch (cause) {
+      failures.push(cause);
     }
 
     try {

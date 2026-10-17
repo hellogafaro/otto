@@ -70,6 +70,30 @@ describe("OttoSessionResources", () => {
     await resources.shutdown();
   });
 
+  it("keeps a released computer awake for the idle time and sleeps it at shutdown", async () => {
+    const botWorkspace = {
+      ...localBotWorkspace(workspace()),
+      provider: "vercel" as const,
+      sleep: vi.fn(async () => undefined),
+    };
+
+    const resources = new OttoSessionResources({
+      io: workspaceIO,
+      stateDir: stateDir(),
+      makeRemoteWorkspace: async () => botWorkspace,
+      toMcpServerConfigs: () => ({}),
+      workspaceIdleTimeToLive: "1 hour",
+    });
+
+    await resources.acquire({ ...remoteInput, threadId: "first-turn" });
+    await resources.release("first-turn");
+    await resources.acquire({ ...remoteInput, threadId: "next-turn" });
+    await resources.release("next-turn");
+    expect(botWorkspace.sleep).not.toHaveBeenCalled();
+    await resources.shutdown();
+    expect(botWorkspace.sleep).toHaveBeenCalledOnce();
+  });
+
   it("coalesces concurrent acquisition for the same thread", async () => {
     const remote = workspace();
     const stop = vi.spyOn(remote, "stop");

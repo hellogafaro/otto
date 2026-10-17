@@ -66,6 +66,7 @@ describe("AgentControllerLive", () => {
         sleep,
         destroy,
       }),
+      workspaceIdleTimeToLive: 0,
     }).pipe(
       Layer.provide(
         Layer.mergeAll(

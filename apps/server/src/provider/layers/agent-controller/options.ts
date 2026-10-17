@@ -4,6 +4,7 @@ import { createMcpManager } from "@mastra/code-sdk/mcp/index";
 
 import { Workspace } from "@mastra/core/workspace";
 
+import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 
 import type * as Scope from "effect/Scope";
@@ -30,6 +31,8 @@ export interface AgentControllerLiveOptions {
   readonly makeRemoteWorkspace?: (
     input: CreateRemoteBotWorkspaceInput,
   ) => Promise<OttoBotWorkspace | Workspace>;
+  /** How long a bot's computer stays awake after its last session ends (5 minutes by default). */
+  readonly workspaceIdleTimeToLive?: Duration.Input;
   readonly issueMcpCredential?: typeof McpSessionRegistry.issueActiveMcpCredential;
   readonly revokeMcpCredential?: typeof McpSessionRegistry.revokeActiveMcpThread;
   readonly delegationRuntime?: Pick<
