@@ -368,7 +368,11 @@ export const rosterCatalog = {
   "{name} has no computer to watch": "{name} 没有可查看的电脑",
   "{name}'s computer has no desktop to watch": "{name} 的电脑没有可查看的桌面",
   "Opening the desktop…": "正在打开桌面…",
-  "The desktop did not open.": "桌面没有打开。",
+  "The desktop did not open": "桌面没有打开",
+  "No computer": "没有电脑",
+  "{name}'s computer starts when {name} works in this chat.":
+    "{name} 在这个聊天里工作时，它的电脑才会启动。",
+  "Try again in a moment.": "请稍后再试。",
   "Review skill": "审核技能",
   "Skill details": "技能详情",
   "Skill approval": "技能审批",

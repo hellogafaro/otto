@@ -1,6 +1,7 @@
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import type { ScopedThreadRef } from "@otto/contracts";
-import { RiCloseLine, RiComputerLine } from "@remixicon/react";
+import { RiCloseLine, RiComputerLine, RiLoopRightLine } from "@remixicon/react";
+import * as Match from "effect/Match";
 import * as Predicate from "effect/Predicate";
 import { useState } from "react";
 
@@ -10,7 +11,16 @@ import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
-import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "../ui/drawer";
+import { Drawer, DrawerClose, DrawerContent, DrawerHeader, DrawerTitle } from "../ui/drawer";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../ui/empty";
+import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { Bot } from "./types";
 
@@ -39,8 +49,14 @@ export function WatchComputerButton({
   const defaultSandbox = usePrimarySettings((settings) => settings.sandbox.defaultProvider);
   const watch = useAtomCommand(serverEnvironment.watchComputer, { reportFailure: false });
   const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  const [view, setView] = useState<
+    | { readonly kind: "opening" }
+    | { readonly kind: "live"; readonly url: string }
+    | { readonly kind: "off" }
+    | { readonly kind: "failed"; readonly message: string | null }
+  >({ kind: "opening" });
+
   const label = t("Watch {name}'s computer", { name: botName });
   const computer = sandbox ?? defaultSandbox;
 
@@ -57,8 +73,7 @@ export function WatchComputerButton({
   const start = async () => {
     if (threadRef === null) return;
     setOpen(true);
-    setUrl(null);
-    setError(null);
+    setView({ kind: "opening" });
 
     const result = await watch({
       environmentId: threadRef.environmentId,
@@ -66,13 +81,20 @@ export function WatchComputerButton({
     });
 
     if (Predicate.isTagged(result, "Success")) {
-      return new URL(result.value.url).origin === window.location.origin
-        ? setError(t("The desktop did not open."))
-        : setUrl(result.value.url);
+      return setView(
+        new URL(result.value.url).origin === window.location.origin
+          ? { kind: "failed", message: null }
+          : { kind: "live", url: result.value.url },
+      );
     }
 
     const failure = Predicate.isTagged(result, "Failure") ? squashAtomCommandFailure(result) : null;
-    setError(failure instanceof Error ? failure.message : t("The desktop did not open."));
+
+    setView(
+      Predicate.isTagged(failure, "ComputerNotRunningError")
+        ? { kind: "off" }
+        : { kind: "failed", message: failure instanceof Error ? failure.message : null },
+    );
   };
 
   const button = (
@@ -110,35 +132,66 @@ export function WatchComputerButton({
         onOpenChange={(next) => {
           setOpen(next);
 
-          if (!next) setUrl(null);
+          if (!next) setView({ kind: "opening" });
         }}
       >
-        <DrawerContent>
-          <DrawerTitle className="sr-only">{label}</DrawerTitle>
-          <div className="flex justify-end p-2">
+        <DrawerContent className="mx-auto w-fit">
+          <DrawerHeader className="flex-row items-center justify-between gap-2 pt-1">
+            <DrawerTitle className="min-w-0 truncate">{label}</DrawerTitle>
             <DrawerClose
               aria-label={t("Close")}
+              className="-me-1.5"
               render={<Button size="icon-sm" variant="ghost-muted" />}
             >
               <RiCloseLine />
             </DrawerClose>
-          </div>
-          <div className="mx-auto w-full max-w-min-80rem-16x9-dvh-15rem">
-            <div className="flex aspect-video w-full items-center justify-center bg-muted">
-              {url ? (
+          </DrawerHeader>
+          <div className="box-content w-watch-frame p-4">
+            {Match.value(view).pipe(
+              Match.when({ kind: "live" }, ({ url }) => (
                 <iframe
                   allow="clipboard-read; clipboard-write; fullscreen"
-                  className="size-full"
+                  className="block aspect-video w-full rounded-lg border bg-muted"
                   sandbox={DESKTOP_FRAME_SANDBOX}
                   src={url}
                   title={label}
                 />
-              ) : (
-                <p className="px-6 text-center text-sm text-muted-foreground" role="status">
-                  {error ?? t("Opening the desktop…")}
-                </p>
-              )}
-            </div>
+              )),
+              Match.when({ kind: "opening" }, () => (
+                <div
+                  className="flex aspect-video w-full items-center justify-center gap-2 rounded-lg border bg-muted text-sm text-muted-foreground"
+                  role="status"
+                >
+                  <Spinner aria-hidden className="size-4" />
+                  {t("Opening the desktop…")}
+                </div>
+              )),
+              Match.orElse((stopped) => (
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <RiComputerLine />
+                    </EmptyMedia>
+                    <EmptyTitle>
+                      {stopped.kind === "off" ? t("No computer") : t("The desktop did not open")}
+                    </EmptyTitle>
+                    <EmptyDescription>
+                      {stopped.kind === "off"
+                        ? t("{name}'s computer starts when {name} works in this chat.", {
+                            name: botName,
+                          })
+                        : (stopped.message ?? t("Try again in a moment."))}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button onClick={() => void start()}>
+                      <RiLoopRightLine />
+                      {t("Try again")}
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              )),
+            )}
           </div>
         </DrawerContent>
       </Drawer>

@@ -1,6 +1,7 @@
 import type {
   AuthSessionId,
   ComposioToolkit,
+  ComputerNotRunningError,
   ComputerWatchError,
   BotEngine,
   BotId,
@@ -180,7 +181,7 @@ export interface AgentControllerShape {
       readonly turnRunning: boolean;
       readonly url: Effect.Effect<string, ComputerWatchError>;
     },
-    ComputerWatchError
+    ComputerNotRunningError
   >;
 
   /**
