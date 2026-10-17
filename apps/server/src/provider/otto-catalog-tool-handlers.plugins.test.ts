@@ -148,7 +148,7 @@ describe("Otto catalog MCP tool handlers", () => {
     );
   });
 
-  it("marks a brokered plugin with a pending blocker as unavailable in recommendations", async () => {
+  it("leaves out a recommendation nobody can connect or open", async () => {
     const runtime = createOttoPluginRuntime({
       readSnapshot: async () => snapshot(),
       dispatch: async () => undefined,
@@ -157,15 +157,11 @@ describe("Otto catalog MCP tool handlers", () => {
 
     const result = await runtime.search({ query: "gmail", limit: 5 });
 
-    expect(result.recommendations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: "composio:gmail", action: "unavailable" }),
-      ]),
+    expect(result.recommendations).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "composio:gmail" })]),
     );
     expect(result.recommendations).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: "composio:gmail", action: "connect" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ action: "unavailable" })]),
     );
   });
 

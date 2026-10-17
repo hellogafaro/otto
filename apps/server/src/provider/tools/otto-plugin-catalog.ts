@@ -290,7 +290,9 @@ export function createOttoPluginRuntime(
       ...new Map(
         recommendations.map((recommendation) => [recommendation.id, recommendation]),
       ).values(),
-    ].slice(0, limit);
+    ]
+      .filter((recommendation) => recommendation.action !== "unavailable")
+      .slice(0, limit);
 
     return {
       kind: "plugin-search-results",
