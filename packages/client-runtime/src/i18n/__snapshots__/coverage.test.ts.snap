@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1601,
+  "directMessageCount": 1611,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -50,6 +50,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/chat/settings-link-chip.tsx": [
       "destination.label) });",
+    ],
+    "apps/web/src/components/desktop/desktop-tab-strip.tsx": [
+      "place.label)}",
     ],
     "apps/web/src/components/home/home-page.tsx": [
       "greeting, { name: firstName })",
@@ -291,6 +294,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/mobile/src/state/use-remote-environment-registry.ts",
     "apps/mobile/src/state/use-thread-composer-state.ts",
     "apps/web/src/components/app-sidebar-layout.tsx",
+    "apps/web/src/components/auth/desktop-server-page.tsx",
     "apps/web/src/components/auth/organization-account-gate.tsx",
     "apps/web/src/components/chat-markdown.tsx",
     "apps/web/src/components/chat/chat-actions-menu.tsx",
@@ -332,6 +336,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/customize/customize-integrations.tsx",
     "apps/web/src/components/customize/customize-skills.tsx",
     "apps/web/src/components/customize/mcp-server-dialog.tsx",
+    "apps/web/src/components/desktop/desktop-tab-strip.tsx",
     "apps/web/src/components/details-aside.tsx",
     "apps/web/src/components/home/home-page.tsx",
     "apps/web/src/components/library/chat-library-section.tsx",
