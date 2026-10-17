@@ -13,6 +13,7 @@ import {
   RiToolsLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
+import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import { Predicate } from "effect";
 import { type ReactNode, useDeferredValue, useEffect, useState } from "react";
 
@@ -184,19 +185,20 @@ export function CustomizeAppsPage({
   );
 }
 
-/** Starts a sign-in for one app, with its required label and the group the account joins. */
+/**
+ * Starts a sign-in for one app, with its required label and the group the account joins. The
+ * server knows every account the person owns, including private ones, so it judges whether a
+ * label is taken.
+ */
 function ConnectDialog({
   environmentId,
   toolkit,
   visibility,
-  labels,
   onClose,
 }: {
   readonly environmentId: EnvironmentId;
   readonly toolkit: ComposioToolkit;
   readonly visibility: ComposioVisibility;
-  /** Labels already used for this app; Composio needs each one to be unique. */
-  readonly labels: readonly string[];
   readonly onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -204,11 +206,10 @@ function ConnectDialog({
   const [alias, setAlias] = useState("");
   const [owner, setOwner] = useState<LibraryVisibility>(visibility);
   const [connecting, setConnecting] = useState(false);
-
-  const taken = labels.some((label) => label.toLowerCase() === alias.trim().toLowerCase());
+  const [takenLabel, setTakenLabel] = useState<string | null>(null);
 
   const connect = async () => {
-    if (!alias.trim() || taken) return;
+    if (!alias.trim() || takenLabel !== null) return;
     setConnecting(true);
 
     const result = await composio.authorize({
@@ -219,6 +220,14 @@ function ConnectDialog({
     setConnecting(false);
 
     if (Predicate.isTagged(result, "Failure")) {
+      const error = squashAtomCommandFailure(result);
+
+      if (Predicate.isTagged(error, "ComposioLabelTakenError")) {
+        setTakenLabel(alias.trim());
+
+        return;
+      }
+
       composio.failed(t("{name} couldn't be connected", { name: toolkit.name }), result);
 
       return;
@@ -260,15 +269,18 @@ function ConnectDialog({
                   aria-label={t("Label")}
                   value={alias}
                   placeholder={t("Label, like Work or Personal")}
-                  onChange={(event) => setAlias(event.currentTarget.value)}
+                  onChange={(event) => {
+                    setAlias(event.currentTarget.value);
+                    setTakenLabel(null);
+                  }}
                 />
                 <div className="shrink-0">
                   <LibraryVisibilitySelect value={owner} editable onChange={setOwner} />
                 </div>
               </div>
-              {taken ? (
+              {takenLabel !== null ? (
                 <FieldError match>
-                  {t("You already have an account called {label}.", { label: alias.trim() })}
+                  {t("You already have an account called {label}.", { label: takenLabel })}
                 </FieldError>
               ) : null}
             </Field>
@@ -277,7 +289,7 @@ function ConnectDialog({
             <Button type="button" variant="ghost" onClick={onClose}>
               {t("Cancel")}
             </Button>
-            <Button type="submit" disabled={connecting || !alias.trim() || taken}>
+            <Button type="submit" disabled={connecting || !alias.trim() || takenLabel !== null}>
               {connecting ? <Spinner /> : null}
               {t("Connect")}
             </Button>
@@ -469,7 +481,6 @@ function AppBody({
           environmentId={environmentId}
           toolkit={toolkit}
           visibility={visibility}
-          labels={connections.flatMap((connection) => connection.alias ?? [])}
           onClose={() => setConnecting(false)}
         />
       ) : null}
@@ -483,7 +494,7 @@ function AppBody({
  * button, one row per account managed in place: label or signed-in account, status pill, owner
  * select and a trash glyph; there is no account page or dialog), then the
  * tools it gives bots, each in a card row. Connect opens a small dialog: one label field (required,
- * unique per app) with the owner select to its right.
+ * unique among the person's own accounts for the app) with the owner select to its right.
  */
 export function CustomizeAppPage({
   slug,
