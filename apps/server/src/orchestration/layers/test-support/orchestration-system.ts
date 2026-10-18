@@ -53,6 +53,7 @@ export async function createOrchestrationSystem() {
 
   return {
     engine,
+    snapshotQuery,
     readModel: () => runtime.runPromise(snapshotQuery.getSnapshot()),
     run: <A, E>(effect: Effect.Effect<A, E>) => runtime.runPromise(effect),
     dispose: () => runtime.dispose(),

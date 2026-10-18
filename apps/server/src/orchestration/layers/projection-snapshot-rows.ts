@@ -265,6 +265,11 @@ export const ThreadIdLookupInput = Schema.Struct({
   threadId: ThreadId,
 });
 
+export const ThreadRowLookupInput = Schema.Struct({
+  threadId: ThreadId,
+  includeArchived: Schema.Boolean,
+});
+
 export const ThreadActivityKindsLookupInput = Schema.Struct({
   threadId: ThreadId,
   activityKinds: Schema.Array(Schema.String),

@@ -275,8 +275,9 @@ export const createWsOrchestrationSubscriptions = ({
       observeRpcStreamEffect(
         ORCHESTRATION_WS_METHODS.subscribeThread,
         Effect.gen(function* () {
+          // Otto: An archived chat stays readable by the people who could see it.
           const shell = yield* projectionSnapshotQuery
-            .getThreadShellById(input.threadId)
+            .getThreadShellById(input.threadId, { includeArchived: true })
             .pipe(Effect.orElseSucceed(() => Option.none()));
 
           const group =
@@ -424,6 +425,7 @@ export const createWsOrchestrationSubscriptions = ({
               // pre-pagination clients) get the full thread, since they
               // have no way to load older pages.
               input.turnLimit === undefined ? undefined : { turnLimit: input.turnLimit },
+              { includeArchived: true },
             )
             .pipe(
               Effect.mapError(

@@ -84,6 +84,7 @@ export const chatCatalog = {
   "Refresh archived chats": "刷新已归档聊天",
   "Unarchive {title}": "取消归档 {title}",
   Unarchive: "取消归档",
+  "This chat is archived.": "此聊天已归档。",
   "Could not load every archive": "无法加载全部归档",
   "Loading archive…": "正在加载归档…",
   "Chats you archive will appear here.": "你归档的聊天会显示在这里。",

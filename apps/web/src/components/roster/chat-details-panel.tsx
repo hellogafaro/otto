@@ -9,7 +9,8 @@ import { useShallow } from "zustand/react/shallow";
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useI18n } from "../../i18n";
 import { environmentPeopleAtom } from "../../state/bots";
-import { useProject, useThreadShell } from "../../state/entities";
+import { useChatShell } from "../../lib/archived-threads-state";
+import { useProject } from "../../state/entities";
 import { memoryEnvironment } from "../../state/memory";
 import { useEnvironmentQuery } from "../../state/query";
 import { DetailsAside, DetailsGroup, DetailsRow } from "../details-aside";
@@ -41,7 +42,7 @@ export function ChatDetailsPanel({
   const navigate = useNavigate();
   const [open, setOpen] = useChatDetailsOpen();
   const [memoryOpen, setMemoryOpen] = useState(false);
-  const shell = useThreadShell(threadRef);
+  const { shell } = useChatShell(threadRef);
   const people = useAtomValue(environmentPeopleAtom(threadRef.environmentId));
   const chatActions = useChatActions();
 
@@ -87,7 +88,11 @@ export function ChatDetailsPanel({
         <DetailsRow label={t("Visibility")}>
           <LibraryVisibilitySelect
             value={shell.visibility ?? "organization"}
-            editable={shell.createdBy != null && shell.createdBy === people.current?.id}
+            editable={
+              shell.archivedAt === null &&
+              shell.createdBy != null &&
+              shell.createdBy === people.current?.id
+            }
             onChange={(visibility) => void chatActions.setVisibility(threadRef, visibility)}
           />
         </DetailsRow>
