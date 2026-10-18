@@ -44,7 +44,7 @@ function MenuTrigger({ className, children, ...props }: MenuPrimitive.Trigger.Pr
   );
 }
 
-// Otto: With an empty filter, 1–9 and 0 pick the first ten rows; once you type, digits filter.
+// Otto: With an empty filter, 1–9 and 0 pick the first ten choice rows; once you type, digits filter.
 function activateItemByKey(event: React.KeyboardEvent<HTMLInputElement>) {
   const { altKey, ctrlKey, currentTarget, key, metaKey } = event;
 
@@ -57,23 +57,18 @@ function activateItemByKey(event: React.KeyboardEvent<HTMLInputElement>) {
   if (item && !item.hasAttribute("data-disabled")) item.click();
 }
 
-// Otto: Rows are numbered 1–9 then 0 in the shared Kbd, skipping rows that show their own
-// shortcut; later rows get no key.
+// Otto: Choice rows are numbered 1–9 then 0 in the shared Kbd; later rows get no key.
 function numberMenuKeys(list: HTMLDivElement | null) {
   if (!list) return;
 
-  const number = () => {
-    let count = 0;
-
-    list.querySelectorAll("[data-slot=menu-key]").forEach((key) => {
-      const ownShortcut = key.parentElement?.querySelector(":scope > [data-slot=menu-shortcut]");
-      const label = !ownShortcut && count < 10 ? String((count += 1) % 10) : "";
+  const number = () =>
+    list.querySelectorAll("[data-slot=menu-key]").forEach((key, index) => {
+      const label = index < 10 ? String((index + 1) % 10) : "";
       const cap = key.firstElementChild;
 
       if (cap && cap.textContent !== label) cap.textContent = label;
-      key.toggleAttribute("hidden", label === "");
+      key.toggleAttribute("hidden", index >= 10);
     });
-  };
 
   const observer = new MutationObserver(number);
 
@@ -83,7 +78,8 @@ function numberMenuKeys(list: HTMLDivElement | null) {
   return () => observer.disconnect();
 }
 
-// Otto: Submenus and the reaction picker show no keys.
+// Otto: Only choice rows (radio and checkbox) get keys, and not in submenus or the reaction picker;
+// action rows show their command's own shortcut through MenuShortcut instead.
 function MenuKey({ className }: { className?: string }) {
   if (!use(MenuFilterableContext)) return null;
 
@@ -189,7 +185,6 @@ function MenuGroup(props: MenuPrimitive.Group.Props) {
 
 function MenuItem({
   className,
-  children,
   inset,
   variant = "default",
   ...props
@@ -208,10 +203,7 @@ function MenuItem({
       data-slot="menu-item"
       data-variant={variant}
       {...props}
-    >
-      {children}
-      <MenuKey />
-    </MenuPrimitive.Item>
+    />
   );
 }
 
@@ -349,8 +341,7 @@ function MenuSubTrigger({
       {...props}
     >
       {children}
-      <MenuKey />
-      <RiArrowRightSLine className="-me-0.5 opacity-80" />
+      <RiArrowRightSLine className="-me-0.5 ms-auto opacity-80" />
     </MenuPrimitive.SubmenuTrigger>
   );
 }
