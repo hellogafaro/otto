@@ -1,5 +1,5 @@
 import { Predicate } from "effect";
-import { resolveSnoozePresets } from "@otto/client-runtime/state/thread-settled";
+import { resolveSnoozePresets } from "@otto/client-runtime/state/thread-snoozed";
 import { ProviderInstanceId, ThreadId } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import {
@@ -89,54 +89,26 @@ describe("resolveThreadListV2Status", () => {
 });
 
 describe("resolveThreadListV2SwipeActions", () => {
-  it("offers settle and snooze for an active snoozable thread", () => {
+  it("offers archive and snooze for an active snoozable thread", () => {
     expect(
       resolveThreadListV2SwipeActions({
-        variant: "card",
-        settlementSupported: true,
         snoozeSupported: true,
         snoozable: true,
       }),
-    ).toEqual({ primary: "settle", secondary: "snooze" });
-  });
-
-  it("offers un-settle and snooze for settled history", () => {
-    expect(
-      resolveThreadListV2SwipeActions({
-        variant: "slim",
-        settlementSupported: true,
-        snoozeSupported: true,
-        snoozable: true,
-      }),
-    ).toEqual({ primary: "unsettle", secondary: "snooze" });
+    ).toEqual({ primary: "archive", secondary: "snooze" });
   });
 
   it("omits snooze when the server or thread does not allow it", () => {
     expect(
       resolveThreadListV2SwipeActions({
-        variant: "card",
-        settlementSupported: true,
         snoozeSupported: false,
         snoozable: true,
       }),
-    ).toEqual({ primary: "settle", secondary: null });
+    ).toEqual({ primary: "archive", secondary: null });
     expect(
       resolveThreadListV2SwipeActions({
-        variant: "card",
-        settlementSupported: true,
         snoozeSupported: true,
         snoozable: false,
-      }),
-    ).toEqual({ primary: "settle", secondary: null });
-  });
-
-  it("falls back to archive only for a pre-lifecycle server", () => {
-    expect(
-      resolveThreadListV2SwipeActions({
-        variant: "card",
-        settlementSupported: false,
-        snoozeSupported: false,
-        snoozable: true,
       }),
     ).toEqual({ primary: "archive", secondary: null });
   });
@@ -144,8 +116,6 @@ describe("resolveThreadListV2SwipeActions", () => {
   it("offers wake and no snooze on a snoozed row", () => {
     expect(
       resolveThreadListV2SwipeActions({
-        variant: "slim",
-        settlementSupported: true,
         snoozeSupported: true,
         snoozable: true,
         snoozed: true,

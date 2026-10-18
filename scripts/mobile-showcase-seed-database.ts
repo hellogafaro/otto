@@ -34,7 +34,6 @@ export function insertThread(
     readonly branch: string;
     readonly minutesAgo: number;
     readonly state?: "working" | "approval" | "plan";
-    readonly settled?: boolean;
     readonly snoozeMinutes?: number;
     readonly workspaceRoot: string;
   },
@@ -59,8 +58,8 @@ export function insertThread(
         thread_id, project_id, title, model_selection_json, runtime_mode, interaction_mode,
         branch, worktree_path, latest_turn_id, latest_user_message_at, pending_approval_count,
         pending_user_input_count, has_actionable_proposed_plan, created_at, updated_at,
-        archived_at, deleted_at, settled_override, settled_at, snoozed_until, snoozed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`,
+        archived_at, deleted_at, snoozed_until, snoozed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, NULL, ?, ?)`,
     )
     .run(
       input.id,
@@ -77,8 +76,6 @@ export function insertThread(
       input.state === "plan" ? 1 : 0,
       minutesBefore(now, input.minutesAgo + 120),
       updatedAt,
-      input.settled ? "settled" : null,
-      input.settled ? updatedAt : null,
       snoozedUntil,
       snoozedAt,
     );

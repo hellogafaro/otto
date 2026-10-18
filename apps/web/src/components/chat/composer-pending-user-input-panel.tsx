@@ -25,6 +25,7 @@ import {
   QuestionnaireSubmit,
   QuestionnaireTitle,
 } from "../ui/questionnaire";
+import { useApprovalShortcuts } from "./use-approval-shortcuts";
 
 interface PendingUserInputPanelProps {
   pendingUserInputs: PendingUserInput[];
@@ -39,6 +40,8 @@ interface PendingUserInputPanelProps {
   onSubmit?: () => void;
   /** `docked` drops the card chrome when a host surface already frames the panel. */
   surface?: "card" | "docked";
+  /** The approve shortcut moves on or sends while no tool approval comes first. */
+  shortcuts?: boolean;
 }
 
 /**
@@ -57,6 +60,7 @@ export const ComposerPendingUserInputPanel = memo(function ComposerPendingUserIn
   onAnswerWithText,
   onSubmit,
   surface = "card",
+  shortcuts = false,
 }: PendingUserInputPanelProps) {
   const activePrompt = pendingUserInputs[0];
 
@@ -73,6 +77,7 @@ export const ComposerPendingUserInputPanel = memo(function ComposerPendingUserIn
       onSelectOption={onSelectOption}
       onAnswerWithText={onAnswerWithText}
       surface={surface}
+      shortcuts={shortcuts}
       {...(onSubmit ? { onSubmit } : {})}
     />
   );
@@ -106,6 +111,7 @@ function PendingUserInputCard({
   onAnswerWithText,
   onSubmit,
   surface,
+  shortcuts,
 }: {
   prompt: PendingUserInput;
   answers: Record<string, PendingUserInputDraftAnswer>;
@@ -115,6 +121,7 @@ function PendingUserInputCard({
   onAnswerWithText: (text: string) => void;
   onSubmit?: () => void;
   surface: "card" | "docked";
+  shortcuts: boolean;
 }) {
   const { t } = useI18n();
   const { questions } = prompt;
@@ -129,6 +136,15 @@ function PendingUserInputCard({
 
   const ownAnswerRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLElement>(null);
+
+  const goOn =
+    isLastStep && complete && onSubmit
+      ? onSubmit
+      : !isLastStep && stepAnswered !== null
+        ? () => onStepChange(step + 1)
+        : undefined;
+
+  const shortcutHint = useApprovalShortcuts(shortcuts, goOn ? { "approval.approve": goOn } : {});
 
   useEffect(() => {
     if (!question) return;
@@ -217,9 +233,11 @@ function PendingUserInputCard({
         </QuestionnairePrevious>
         <QuestionnaireNext size="sm" variant="primary" disabled={stepAnswered === null}>
           {t("Next")}
+          {shortcutHint("approval.approve")}
         </QuestionnaireNext>
         <QuestionnaireSubmit size="sm" variant="primary" disabled={!complete || !onSubmit}>
           {t("Send")}
+          {shortcutHint("approval.approve")}
         </QuestionnaireSubmit>
       </QuestionnaireActions>
     </Questionnaire>

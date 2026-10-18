@@ -148,9 +148,7 @@ export const OTTO_TOOL_CATALOG = [
     "Status of the work you handed a bot: running, done with its result, failed or stopped. " +
       "A finished result read here counts as delivered and is not repeated in your next turn.",
   ),
-  define("delegate_stop", "bot-workspace", "Stop the work you handed a bot. It ends as stopped.", {
-    approval: "delete",
-  }),
+  define("delegate_stop", "bot-workspace", "Stop the work you handed a bot. It ends as stopped."),
   define(
     "delegate",
     "bot-workspace",
@@ -201,7 +199,6 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     'Test a connection, reconnect it, or start sign-in with action "authenticate". ' +
       "Returns its status and any authorization link to give the person.",
-    { approval: "production" },
   ),
   define(
     "connection_delete",
@@ -209,12 +206,7 @@ export const OTTO_TOOL_CATALOG = [
     "Remove a plugin or MCP server and its account. A person approves it.",
     { approval: "delete" },
   ),
-  define(
-    "message_react",
-    "bot-workspace",
-    "Add or remove an emoji reaction on a visible message.",
-    { approval: "send" },
-  ),
+  define("message_react", "bot-workspace", "Add or remove an emoji reaction on a visible message."),
   define(
     "bot_update",
     "bot-workspace",
@@ -238,7 +230,7 @@ export const OTTO_TOOL_CATALOG = [
       "(attachment ids from this chat; defaults to the images on the latest user message). " +
       "Finished images appear in the chat automatically; do not repeat or describe the file data. " +
       'If the result status is "needs-consent", ask the user before retrying with allowProvider.',
-    { approval: "production", promptSnippet: "create or edit images" },
+    { promptSnippet: "create or edit images" },
   ),
   define(
     "audio_transcribe",

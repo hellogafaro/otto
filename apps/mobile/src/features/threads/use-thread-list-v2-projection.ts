@@ -6,7 +6,7 @@ import {
 import { sortPinnedThreadsByOrderKey } from "@otto/client-runtime/state/thread-sort";
 import type { EnvironmentId, ServerConfig, SidebarProjectGroupingMode } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { scopedProjectKey } from "../../lib/scopedEntities";
 import { useThreadSearch } from "../../state/queries";
@@ -15,12 +15,7 @@ import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import type { WorkspaceEnvironment } from "../../state/workspaceModel";
 import type { ThreadCapability } from "../home/environment-thread-capabilities";
 import { buildHomeProjectScopes } from "../home/homeThreadList";
-import {
-  buildThreadListV2Items,
-  buildThreadListV2ListItems,
-  THREAD_LIST_V2_SETTLED_INITIAL_COUNT,
-  THREAD_LIST_V2_SETTLED_PAGE_COUNT,
-} from "./threadListV2";
+import { buildThreadListV2Items, buildThreadListV2ListItems } from "./threadListV2";
 import { useThreadListV2ShelfPreferences } from "./use-thread-list-v2-shelf-preferences";
 
 type ServerConfigs = ReadonlyMap<EnvironmentId, ServerConfig>;
@@ -44,7 +39,6 @@ function environmentIdsWithCapability(
 function useThreadCapabilityEnvironmentIds(serverConfigs: ServerConfigs) {
   return useMemo(
     () => ({
-      settlement: environmentIdsWithCapability(serverConfigs, "threadSettlement"),
       snooze: environmentIdsWithCapability(serverConfigs, "threadSnooze"),
       pinning: environmentIdsWithCapability(serverConfigs, "threadPinning"),
       pinReorder: environmentIdsWithCapability(serverConfigs, "threadPinReorder"),
@@ -58,9 +52,7 @@ function useThreadCapabilityEnvironmentIds(serverConfigs: ServerConfigs) {
  * The Thread List v2 model shared by the compact Home list and the iPad
  * sidebar: search matches, project scopes and lookups, server capabilities,
  * one flat card block in creation order with queued tasks spliced in, and the
- * paged settled tail. Settled threads stay in the live shell stream (settled
- * is not archived), so the partition works directly off live shells.
- * `selectedProjectKey` may name a project scope or one of its member projects.
+ * snoozed shelf. `selectedProjectKey` may name a project scope or one of its member projects.
  */
 export function useThreadListV2Projection(input: {
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
@@ -188,27 +180,8 @@ export function useThreadListV2Projection(input: {
     [selectedProjectScope],
   );
 
-  // The settled tail renders in pages; expansion resets when the filter
-  // context changes so environment/search flips never inherit a deep page.
-  const [settledVisibleCount, setSettledVisibleCount] = useState(
-    THREAD_LIST_V2_SETTLED_INITIAL_COUNT,
-  );
-
-  const settledResetKey = `${selectedEnvironmentId ?? "all"}:${selectedProjectKey ?? "all"}:${searchQuery.trim()}`;
-  const lastSettledResetKeyRef = useRef(settledResetKey);
-
-  if (lastSettledResetKeyRef.current !== settledResetKey) {
-    lastSettledResetKeyRef.current = settledResetKey;
-    setSettledVisibleCount(THREAD_LIST_V2_SETTLED_INITIAL_COUNT);
-  }
-
-  const showMoreSettled = useCallback(
-    () => setSettledVisibleCount((count) => count + THREAD_LIST_V2_SETTLED_PAGE_COUNT),
-    [],
-  );
-
   const shelves = useThreadListV2ShelfPreferences();
-  const { settledShelfExpanded, snoozedShelfExpanded } = shelves;
+  const { snoozedShelfExpanded } = shelves;
   // A minute clock lets a queued turn leave its short adoption grace period
   // while the list stays open.
   const [nowMinute, setNowMinute] = useState(() => new Date().toISOString().slice(0, 16));
@@ -223,8 +196,7 @@ export function useThreadListV2Projection(input: {
 
     return () => clearInterval(id);
   }, []);
-  // Threads on servers without the settlement capability never classify as
-  // settled (the user could neither un-settle nor pin them).
+
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);
   const capabilities = useThreadCapabilityEnvironmentIds(serverConfigs);
 
@@ -245,30 +217,22 @@ export function useThreadListV2Projection(input: {
   }, [capabilities.pinReorder, input.threads]);
 
   const layout = useMemo(() => {
-    // Settled threads are live shells; archived threads keep their original
-    // "hidden from lists" meaning.
     return buildThreadListV2Items({
       threads: input.threads.filter((thread) => thread.archivedAt === null),
       environmentId: selectedEnvironmentId,
       projectRefs: selectedProjectScope === null ? null : selectedProjectScope.projectRefs,
       searchQuery,
       matchedThreadKeys,
-      settlementEnvironmentIds: capabilities.settlement,
       snoozeEnvironmentIds: capabilities.snooze,
-      settledLimit: settledVisibleCount,
       now: `${nowMinute}:00.000Z`,
       snoozeNow: new Date().toISOString(),
       snoozedShelfExpanded,
-      settledShelfExpanded,
       selectedThreadKey: input.selectedThreadKey,
     });
   }, [
     nowMinute,
     snoozeWakeTick,
     snoozedShelfExpanded,
-    settledShelfExpanded,
-    settledVisibleCount,
-    capabilities.settlement,
     capabilities.snooze,
     searchQuery,
     selectedEnvironmentId,
@@ -324,12 +288,9 @@ export function useThreadListV2Projection(input: {
         snoozedCount: layout.snoozedCount,
         snoozedShelfExpanded,
         snoozedShelfHeaderIndex: layout.snoozedShelfHeaderIndex,
-        settledCount: layout.settledCount,
-        settledShelfExpanded,
-        settledShelfHeaderIndex: layout.settledShelfHeaderIndex,
         snoozeLabelNow: `${nowMinute}:00.000Z`,
       }),
-    [layout, nowMinute, settledShelfExpanded, snoozedShelfExpanded, visiblePendingTasks],
+    [layout, nowMinute, snoozedShelfExpanded, visiblePendingTasks],
   );
 
   return {
@@ -346,7 +307,5 @@ export function useThreadListV2Projection(input: {
     nowMinute,
     shelves,
     listItems,
-    hiddenSettledCount: layout.hiddenSettledCount,
-    showMoreSettled,
   };
 }

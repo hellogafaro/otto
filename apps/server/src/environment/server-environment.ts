@@ -212,7 +212,6 @@ export const make = Effect.gen(function* () {
       connectionProbe: true,
       attachmentUploads: true,
       fileAttachments: true,
-      threadSettlement: true,
       threadSnooze: true,
       threadPinning: true,
       threadPinReorder: true,

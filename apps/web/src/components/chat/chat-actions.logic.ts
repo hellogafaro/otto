@@ -1,13 +1,7 @@
-import {
-  canSettle,
-  canSnooze,
-  effectiveSettled,
-  effectiveSnoozed,
-} from "@otto/client-runtime/state/thread-settled";
+import { canSnooze, effectiveSnoozed } from "@otto/client-runtime/state/thread-snoozed";
 import type { OrchestrationThreadShell } from "@otto/contracts";
 
 export interface ChatActionSupport {
-  readonly settlement: boolean;
   readonly snooze: boolean;
   readonly pinning: boolean;
   readonly titleRegeneration: boolean;
@@ -15,15 +9,13 @@ export interface ChatActionSupport {
 
 /**
  * What the open chat's menu offers, read from its shell at one instant. Each
- * pair (pin/unpin, settle/un-settle, snooze/wake) resolves to the one entry
+ * pair (pin/unpin, snooze/wake) resolves to the one entry
  * that applies now, so every state the menu can put a chat in has its way out.
  */
 export interface ChatMenuState {
   readonly isPinned: boolean;
-  readonly isSettled: boolean;
   readonly isSnoozed: boolean;
   readonly snoozedUntil: string | null;
-  readonly canSettle: boolean;
   readonly canSnooze: boolean;
   readonly canArchive: boolean;
   readonly canMarkUnread: boolean;
@@ -42,12 +34,10 @@ export function resolveChatMenuState(input: {
 
   return {
     isPinned: shell.pinnedAt != null,
-    isSettled: supports.settlement && effectiveSettled(shell, { now }),
     isSnoozed,
     snoozedUntil: isSnoozed ? (shell.snoozedUntil ?? null) : null,
-    canSettle: canSettle(shell, { now }),
     canSnooze: canSnooze(shell, { now }),
-    // Like settling, archiving waits while a session starts or runs a reply.
+    // Archiving waits while a session starts or runs a reply.
     canArchive: shell.session?.status !== "starting" && shell.session?.status !== "running",
     canMarkUnread:
       shell.latestTurn?.completedAt != null &&

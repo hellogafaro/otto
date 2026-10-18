@@ -5,115 +5,20 @@
 
 > For Otto maintainers.
 
-## Pull requests and stable releases
+The macOS arm64 app is the only thing Otto releases.
+[Release macOS app](../../.github/workflows/release-mac.yml) builds, signs, notarizes and publishes
+it as a GitHub release of `hellogafaro/otto`. It only starts by hand, with Run workflow on `main`:
 
-Every ordinary pull request commits a release decision. Run `pnpm changeset` for a shipped change,
-select one product package, choose `patch`, `minor`, or `major`, and write a concise user-facing
-summary. Use `pnpm changeset --empty` for documentation, tests, refactors, and internal tooling.
-The four product packages (`otto`, desktop, web, and contracts) are a fixed group and always
-receive the same version. Packages without versions remain outside the release train.
+- Channel `beta` publishes the head of `main` as the prerelease `X.Y.Z-beta.YYYYMMDD.N`.
+- Channel `stable` publishes the commit of the latest beta as the latest release.
 
-After changes reach `main`, the Version packages workflow runs `pnpm release:version`, force-pushes
-the result to `changeset-release/main`, and creates or refreshes one Version Packages pull request
-with `gh`. Changesets combines the pending release levels, updates all four manifests and
-changelogs, and consumes the changeset files. The pull request body lists the new changelog section
-of every package that changed. Merging this pull request is the deliberate stable release button. That merge
-starts the native builds, verifies every artifact, creates the `vX.Y.Z` tag, and creates the stable
-GitHub Release. Ordinary feature merges do not release immediately, and this flow does not publish
-the `otto` npm package. CI rejects stable-version edits from every PR except the authenticated,
-repository-owned Changesets PR.
+[Signed macOS releases and auto-updates](../../deploy/desktop-mac/README.md) covers the repository
+secrets, the update channels, publishing from a Mac and local builds.
 
-Before merging the Version Packages pull request, refresh the bundled model catalog with
+Before a stable release, refresh the bundled model catalog with
 `node apps/server/scripts/sync-model-catalog.ts` and commit any change. Running servers fetch
 models.dev on their own; the bundle only covers first launch and offline environments.
 
 Releases from before the catalog still read `apps/server/src/provider/model-manifest.json` from
 `main` to decide which models are current. When a model release changes the current lineup, update
 that file's `currentModels` lists to match the new catalog in the same commit.
-
-## Nightly releases
-
-GitHub Actions checks `main` at minute 17 every three hours. If `main` has not advanced since the
-latest successful nightly, the workflow exits without building. Otherwise it creates a semver
-prerelease version containing the workflow run, retry number, and commit SHA, then builds the same
-macOS arm64, Windows x64, and Linux x64 desktop artifacts. The GitHub Release is marked as a
-prerelease and `latest=false`, so installers and update checks that follow the latest stable release
-do not switch to nightly builds. Nightlies neither edit committed package versions nor consume
-stable changesets. A failed run creates no release; a rerun uses a new collision-safe version.
-
-## Manual smoke build
-
-`.github/workflows/release-smoke.yml` validates release inputs without publishing or releasing
-anything. Dispatch it from GitHub Actions with a version such as `0.0.0-smoke.0`.
-
-## What it checks
-
-- Public dependencies install from the committed lockfile. No dependency may resolve through a
-  local path outside the repository.
-- The release configuration passes `scripts/release-smoke.ts`.
-- macOS builds one arm64 DMG with the `studio.hellogafaro.otto` bundle identifier.
-- Unsigned macOS builds use a sealed ad-hoc signature. The workflow verifies the signature and the
-  `studio.hellogafaro.otto` identifier.
-- Signed macOS builds use a Developer ID Application certificate. Electron-builder submits and
-  staples the app before it packages the DMG. The workflow submits and staples the DMG separately.
-- Signed apps include the Electron hardened-runtime and microphone entitlements. The workflow
-  validates the notarization tickets, then runs `codesign` and `spctl`.
-- Windows builds one unsigned x64 NSIS installer.
-- Linux builds one unsigned x64 AppImage.
-- The CLI build includes the web client, then completes a package publish dry-run.
-
-Each desktop job uploads its artifact to the workflow run for seven days. The workflow does not
-create tags, create GitHub releases, publish npm packages, deploy a site, update AUR, or send
-release announcements.
-
-## Runner setup
-
-CI and release workflows run through GitHub Actions. Tenki provides Linux runners. GitHub provides
-the Apple Silicon macOS and Windows runners. The Tenki Runner GitHub App must have access to
-`hellogafaro/otto`.
-
-- Linux uses the 4-vCPU `tenki-standard-medium-4c-8g` runner.
-- Windows uses the GitHub-hosted `windows-2025` runner.
-- macOS uses the GitHub-hosted Apple Silicon `macos-15` runner.
-
-## macOS secrets
-
-The stable release fails before building when the macOS secrets are absent, so an unsigned DMG
-can never publish as the latest stable release. Scheduled nightlies still build the sealed,
-ad-hoc-signed fallback without secrets. A partial secret configuration stops every channel.
-
-Add these GitHub Actions secrets to publish a Developer ID signed and notarized DMG:
-
-- `MACOS_CERTIFICATE_P12` contains the base64-encoded `.p12` export of the Developer ID Application
-  certificate and its private key.
-- `MACOS_CERTIFICATE_PASSWORD` contains the `.p12` export password.
-- `MACOS_SIGNING_IDENTITY` contains the full certificate identity. It must start with
-  `Developer ID Application:`.
-- `APPSTORE_API_KEY_P8` contains the App Store Connect API private key text.
-- `APPSTORE_API_KEY_ID` contains the API key ID.
-- `APPSTORE_ISSUER_ID` contains the App Store Connect issuer ID.
-
-The workflow writes the API private key to the temporary runner directory. It imports the
-certificate into an ephemeral keychain. Neither file enters an uploaded artifact.
-
-## Local checks
-
-Run the focused checks before using the manual workflow:
-
-```sh
-vp install --frozen-lockfile
-vp run check:public-dependencies
-vp test run scripts/check-public-dependencies.test.ts scripts/resolve-previous-release-tag.test.ts
-vp run release:smoke
-vp run build:desktop
-```
-
-Run the CLI package dry-run after the server build has produced `apps/server/dist/client`:
-
-```sh
-vp run --filter @otto/server build
-node apps/server/scripts/cli.ts publish --dry-run --app-version 0.0.0-smoke.0 --verbose
-```
-
-Do not use the smoke workflow as a release procedure. Merge the Version Packages pull request for
-a stable release, or let the scheduled workflow create a nightly.

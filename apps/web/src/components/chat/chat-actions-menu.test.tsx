@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 type Item = { disabled?: boolean; onClick?: () => void; variant?: string };
 
 const mocks = vi.hoisted(() => ({
+  copied: [] as string[],
+  toasts: [] as string[],
   shell: null as ReturnType<typeof shell> | null,
   visited: {} as Record<string, string>,
   items: new Map<string, Item>(),
@@ -17,8 +19,6 @@ const mocks = vi.hoisted(() => ({
     regenerateTitle: vi.fn(),
     pin: vi.fn(),
     unpin: vi.fn(),
-    settle: vi.fn(),
-    unsettle: vi.fn(),
     snooze: vi.fn(),
     unsnooze: vi.fn(),
     markUnread: vi.fn(),
@@ -46,7 +46,6 @@ vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
 vi.mock("../../state/entities", () => ({
   useThreadShell: () => mocks.shell,
   readEnvironmentSupportsPinning: () => true,
-  readEnvironmentSupportsSettlement: () => true,
   readEnvironmentSupportsSnooze: () => true,
   readEnvironmentSupportsTitleRegeneration: () => true,
 }));
@@ -83,6 +82,25 @@ vi.mock("../ui/menu", () => ({
   },
 }));
 
+vi.mock("../../environments/primary/target", () => ({
+  readPrimaryEnvironmentTarget: () => ({ target: { httpBaseUrl: "https://otto.example.com/" } }),
+}));
+
+vi.mock("../../hooks/use-copy-to-clipboard", () => ({
+  writeTextToClipboard: async (value: string) => {
+    mocks.copied.push(value);
+
+    return true;
+  },
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: (message: string) => mocks.toasts.push(message),
+    error: (message: string) => mocks.toasts.push(message),
+  },
+}));
+
 vi.mock("../ui/tooltip", () => ({
   Tooltip: ({ children }: { children: ReactNode }) => children,
   // Renders the trigger element itself, so the pinned mark shows up in markup.
@@ -114,8 +132,6 @@ function shell(overrides: Partial<OrchestrationThreadShell> = {}): Orchestration
     createdAt: "2026-09-27T09:00:00.000Z",
     updatedAt: "2026-09-27T10:01:00.000Z",
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     session: null,
     latestUserMessageAt: "2026-09-27T10:00:00.000Z",
     hasPendingApprovals: false,
@@ -171,7 +187,8 @@ describe("ChatActionsMenu", () => {
       "Regenerate title",
       "Pin chat",
       "Mark unread",
-      "Settle chat",
+      "Copy link",
+      "Copy ID",
       "Archive chat",
       "Delete chat",
     ]);
@@ -179,12 +196,10 @@ describe("ChatActionsMenu", () => {
 
     click("Pin chat");
     click("Mark unread");
-    click("Settle chat");
     click("Archive chat");
     click("Delete chat");
     expect(mocks.actions.pin).toHaveBeenCalledWith(threadRef);
     expect(mocks.actions.markUnread).toHaveBeenCalledWith(threadRef);
-    expect(mocks.actions.settle).toHaveBeenCalledWith(threadRef);
     expect(mocks.actions.archive).toHaveBeenCalledWith(threadRef);
     expect(mocks.actions.delete).toHaveBeenCalledWith(threadRef);
     expect(mocks.items.get("Delete chat")?.variant).toBe("destructive");
@@ -201,11 +216,9 @@ describe("ChatActionsMenu", () => {
     expect(Date.parse(until)).toBeGreaterThan(Date.now());
   });
 
-  it("shows pinned, settled, and snoozed chats with the way back out", () => {
+  it("shows pinned and snoozed chats with the way back out", () => {
     mocks.shell = shell({
       pinnedAt: "2026-09-27T11:00:00.000Z",
-      settledOverride: "settled",
-      settledAt: "2026-09-27T11:00:00.000Z",
       snoozedUntil: "2999-01-01T09:00:00.000Z",
     });
     const markup = render();
@@ -217,27 +230,34 @@ describe("ChatActionsMenu", () => {
       "Regenerate title",
       "Unpin chat",
       "Mark unread",
-      "Un-settle chat",
       "Wake chat",
+      "Copy link",
+      "Copy ID",
       "Archive chat",
       "Delete chat",
     ]);
     expect(mocks.subTriggers.size).toBe(0);
 
     click("Unpin chat");
-    click("Un-settle chat");
     click("Wake chat");
     expect(mocks.actions.unpin).toHaveBeenCalledWith(threadRef);
-    expect(mocks.actions.unsettle).toHaveBeenCalledWith(threadRef);
     expect(mocks.actions.unsnooze).toHaveBeenCalledWith(threadRef);
   });
 
-  it("labels a settled chat that is not snoozed", () => {
-    mocks.shell = shell({ settledOverride: "settled", settledAt: "2026-09-27T11:00:00.000Z" });
-    expect(render()).toContain('data-testid="chat-state-settled"');
+  it("copies the chat's full link and its ID", async () => {
+    mocks.copied = [];
+    mocks.toasts = [];
+    render();
+
+    click("Copy link");
+    click("Copy ID");
+    await vi.waitFor(() => expect(mocks.toasts).toHaveLength(2));
+
+    expect(mocks.copied).toEqual(["https://otto.example.com/chats/thread-1", "thread-1"]);
+    expect(mocks.toasts).toEqual(["Link has been copied", "ID has been copied"]);
   });
 
-  it("keeps a running chat from being archived or settled", () => {
+  it("keeps a running chat from being archived", () => {
     mocks.shell = shell({
       session: {
         threadId: "thread-1",
@@ -248,7 +268,6 @@ describe("ChatActionsMenu", () => {
     render();
 
     expect(mocks.items.get("Archive chat")?.disabled).toBe(true);
-    expect(mocks.items.get("Settle chat")?.disabled).toBe(true);
     expect(mocks.items.get("Delete chat")?.disabled).toBeUndefined();
   });
 
@@ -277,7 +296,7 @@ describe("buildChatPaletteActions", () => {
       shell: shell(overrides),
       lastVisitedAt: "2026-09-27T10:01:00.000Z",
       now: "2026-09-27T12:00:00.000Z",
-      supports: { settlement: true, snooze: true, pinning: true, titleRegeneration: true },
+      supports: { snooze: true, pinning: true, titleRegeneration: true },
     });
 
     return buildChatPaletteActions({

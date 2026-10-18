@@ -264,6 +264,18 @@ const make = Effect.gen(function* () {
     Effect.mapError(toPersistenceSqlError("RoutineRepository.listAllRuns")),
   );
 
+  const getLatestThreadRef: RoutineRepositoryShape["getLatestThreadRef"] = (routineId) =>
+    sql<{ readonly threadRef: string }>`
+      SELECT thread_ref AS "threadRef"
+      FROM projection_routine_runs
+      WHERE routine_id = ${routineId} AND thread_ref IS NOT NULL
+      ORDER BY created_at DESC, run_id DESC
+      LIMIT 1
+    `.pipe(
+      Effect.map((rows) => (rows[0] === undefined ? null : ThreadId.make(rows[0].threadRef))),
+      Effect.mapError(toPersistenceSqlError("RoutineRepository.getLatestThreadRef")),
+    );
+
   const getActiveRunByThreadRef: RoutineRepositoryShape["getActiveRunByThreadRef"] = (
     threadRef,
     turnId = null,
@@ -367,6 +379,7 @@ const make = Effect.gen(function* () {
     listRuns,
     listThreadRuns,
     listAllRuns,
+    getLatestThreadRef,
     getActiveRunByThreadRef,
     listSkillAssignments,
     claim,

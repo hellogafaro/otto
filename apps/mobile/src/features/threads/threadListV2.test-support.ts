@@ -26,8 +26,6 @@ export function makeThread(
     createdAt: "2026-06-01T00:00:00.000Z",
     updatedAt: "2026-06-01T00:00:00.000Z",
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     session: null,
     latestUserMessageAt: null,
     hasPendingApprovals: false,

@@ -1,25 +1,23 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect } from "react";
 
 import { isCommandPaletteOpen } from "../../command-palette-bus";
 import { resolveShortcutCommand } from "../../keybindings";
 import type { ResolvedKeybindingsConfig } from "@otto/contracts";
-import { shouldFocusBotPromptForKey } from "./bot-prompt-composer.logic";
+import { shouldFocusBotPromptOnEnter } from "./bot-prompt-composer.logic";
 
 /**
  * Window-level keys for an editable bot composer: the stash shortcut stashes the draft, and
- * a printable key typed outside any text field lands in the prompt and focuses it.
+ * Enter pressed where nothing else takes it returns focus to the prompt. Letters typed
+ * outside the prompt stay free for shortcuts such as J and K.
  */
 export function useBotComposerKeyboard(input: {
   readonly readOnly: boolean;
-  readonly typeToFocus: boolean;
+  readonly focusOnEnter: boolean;
   readonly keybindings: ResolvedKeybindingsConfig;
   readonly promptInputRef: RefObject<HTMLTextAreaElement | null>;
-  readonly persistDraft: (next: string) => void;
   readonly stashCurrentPrompt: () => Promise<void>;
 }) {
-  const { keybindings, promptInputRef, readOnly, stashCurrentPrompt, typeToFocus } = input;
-  const persistDraftRef = useRef(input.persistDraft);
-  persistDraftRef.current = input.persistDraft;
+  const { focusOnEnter, keybindings, promptInputRef, readOnly, stashCurrentPrompt } = input;
 
   useEffect(() => {
     if (readOnly) return;
@@ -40,36 +38,14 @@ export function useBotComposerKeyboard(input: {
         return;
       }
 
-      const target = event.target;
-
-      const editableTarget =
-        target instanceof Element &&
-        target.closest(
-          'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"]',
-        ) !== null;
-
-      if (
-        !typeToFocus ||
-        !shouldFocusBotPromptForKey({
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          defaultPrevented: event.defaultPrevented,
-          editableTarget,
-          isComposing: event.isComposing,
-          key: event.key,
-          metaKey: event.metaKey,
-        })
-      ) {
-        return;
-      }
+      if (!focusOnEnter || !shouldFocusBotPromptOnEnter(event)) return;
 
       event.preventDefault();
-      persistDraftRef.current(`${promptInputRef.current?.value ?? ""}${event.key}`);
       promptInputRef.current?.focus();
     };
 
     window.addEventListener("keydown", onKeyDown, true);
 
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [keybindings, promptInputRef, readOnly, stashCurrentPrompt, typeToFocus]);
+  }, [focusOnEnter, keybindings, promptInputRef, readOnly, stashCurrentPrompt]);
 }

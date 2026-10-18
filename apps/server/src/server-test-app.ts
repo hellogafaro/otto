@@ -516,6 +516,7 @@ export const buildAppUnderTest = (options?: {
               listRuns: () => Effect.succeed([]),
               listThreadRuns: () => Effect.succeed({ runs: [], nextCursor: null }),
               listAllRuns: Effect.succeed([]),
+              getLatestThreadRef: () => Effect.succeed(null),
               getActiveRunByThreadRef: () => Effect.succeed(null),
               listSkillAssignments: Effect.succeed([]),
               claim: () => Effect.succeed(false),

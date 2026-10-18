@@ -3,7 +3,7 @@
 The Mac app is signed with a Developer ID Application certificate, notarized by Apple, and
 published as a GitHub release of
 [hellogafaro/otto](https://github.com/hellogafaro/otto/releases), the way t3code and bb ship. Installed signed
-builds read the latest release and update themselves. Builds without credentials stay ad-hoc
+builds follow the Stable or the Beta channel and update themselves. Builds without credentials stay ad-hoc
 signed, exactly as before, and never update themselves.
 
 ## What you need to provide
@@ -47,45 +47,111 @@ Never commit any of these values. Keep the `.p8` file outside the repository wit
    release, drag Otto (Alpha) into Applications to replace the old app, and open it. Every later
    release reaches you through the in-app update.
 
-## Publishing a release
+## Update channels
 
-Every release needs a higher version than the installed app, because the updater only offers
-newer versions. All product packages are `0.1.0` today. Bump them together, commit, then
-release:
+The desktop app has two update channels. Choose one in Settings, General, Updates (the row only
+appears in the desktop app).
+
+| Channel          | Version                     | GitHub release                                           | Feed file        |
+| ---------------- | --------------------------- | -------------------------------------------------------- | ---------------- |
+| Stable (default) | `X.Y.Z`                     | `vX.Y.Z`, marked Latest                                  | `latest-mac.yml` |
+| Beta             | `X.Y.Z-beta.YYYYMMDD.<run>` | `vX.Y.Z-beta.YYYYMMDD.<run>`, a prerelease, never Latest | `beta-mac.yml`   |
+
+Both channels ship the same app (`studio.hellogafaro.otto`), so switching keeps every setting and
+all local data. Every install starts on Stable; only an app built as a beta starts on Beta.
+
+- **Stable** reads the release GitHub marks as Latest. The updater does not allow prereleases or
+  downgrades.
+- **Beta** reads the newest release that is either a `-beta` prerelease (with its `beta-mac.yml`) or
+  a stable release, so beta users also get a stable release when it is the newest. A beta previews
+  the next patch version: after stable `0.1.1`, betas are `0.1.2-beta.…`, so switching from Stable
+  to Beta is always an upgrade.
+- **Switching back to Stable never downgrades.** A beta install stays on its build until a
+  stable release newer than it exists. Promoting that beta (below) publishes exactly such a
+  release, because `0.1.2` is newer than `0.1.2-beta.…`.
+
+## Publishing with GitHub Actions
+
+`.github/workflows/release-mac.yml` (Actions, Release macOS app) publishes both channels with
+`scripts/release-desktop-mac.sh` on a GitHub `macos-26` runner. It uses the runner's default Xcode
+(26 or newer, checked at the start) and that Xcode's own macOS SDK through `xcrun --sdk macosx`.
+A small Ubuntu job first decides what to release, so the macOS job only starts when there is
+something to publish.
+
+Nothing releases on its own: pushes and tags start no build. Both channels start from Run workflow
+on `main`.
+
+- **Beta.** Run workflow with channel `beta` publishes the head of `main` as
+  `X.Y.Z-beta.<UTC date>.<run number>`, where `X.Y.Z` is the next patch after the higher of
+  `apps/desktop`'s version and the latest stable release. It publishes nothing when the latest beta
+  already ships that commit.
+- **Stable.** Run workflow from `main` with channel `stable`. It builds
+  the commit of the latest published beta, so stable ships exactly what beta users ran, and
+  publishes the version that beta previewed (`0.1.2-beta.20261018.4` becomes `0.1.2`). Enter a
+  version such as `0.2.0` to publish under another number. It stops when no beta is published.
+
+The workflow writes the release version into the package manifests on the runner only; nothing is
+committed, so `main` needs no version bump between releases. One release of each channel runs at a
+time, and a started release always finishes. A failed run leaves at most a draft release, and Re-run jobs
+reuses it.
+
+Add these repository secrets to `hellogafaro/otto` before the first run:
+
+| Secret                       | Value                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------- |
+| `MACOS_CERTIFICATE_P12`      | Base64 of the `.p12` export of the Developer ID Application certificate and its key |
+| `MACOS_CERTIFICATE_PASSWORD` | The `.p12` export password                                                          |
+| `APPLE_API_KEY_P8`           | The text of the App Store Connect `.p8` key                                         |
+| `APPLE_API_KEY_ID`           | The API key ID                                                                      |
+| `APPLE_API_ISSUER`           | The Issuer ID                                                                       |
+
+Create the first value with `base64 -i DeveloperID.p12 | pbcopy`. The release job stops before it
+builds when a secret is missing. It imports the certificate into a temporary keychain, writes the
+`.p8` key to the runner's temporary directory with mode `600`, and deletes both when the job ends.
+`GH_TOKEN` is the workflow's own `GITHUB_TOKEN`, with `contents: write` only in the release job.
+
+## Publishing from a Mac
+
+The same script runs on your Mac. Every release needs a higher version than the installed app,
+because the updater only offers newer versions. Without `--version` it publishes the version in
+`apps/server` and `apps/desktop`, which must match:
 
 ```sh
-node scripts/update-release-package-versions.ts 0.1.1
-git commit -s -am "chore: release 0.1.1"
-
 GH_TOKEN=<token> \
 APPLE_API_KEY=~/.appstoreconnect/private_keys/AuthKey_<KEYID>.p8 \
 APPLE_API_KEY_ID=<KEYID> \
 APPLE_API_ISSUER=<issuer ID> \
-scripts/release-desktop-mac.sh
+scripts/release-desktop-mac.sh --version 0.1.1
 ```
+
+`--version X.Y.Z` publishes stable `X.Y.Z`, and `--version X.Y.Z-beta.YYYYMMDD.N` publishes a
+beta. The option first writes that version into the four release package manifests with
+`scripts/update-release-package-versions.ts`; discard or commit that change afterwards.
 
 `scripts/release-desktop-mac.sh` does the following:
 
-1. It stops before building when `GH_TOKEN`, the notarization credentials or a Developer ID
-   identity is missing, when the server and desktop versions differ, or when
-   `hellogafaro/otto` already published `v<version>`.
+1. It stops before building when the version is neither stable nor beta, when `GH_TOKEN`, the
+   notarization credentials or a Developer ID identity is missing, when the server and desktop
+   versions differ, or when `hellogafaro/otto` already published `v<version>`.
 2. It builds with Xcode's own macOS SDK through `scripts/build-desktop-artifact.ts --signed`.
    Electron-builder signs every binary with the hardened runtime and the entitlements Electron
    needs (JIT, unsigned executable memory, library validation off for native modules, microphone),
    notarizes and staples the app, and packs it into a DMG and a zip. The build script then
-   notarizes and staples the DMG and refreshes its hash in `latest-mac.yml`.
+   notarizes and staples the DMG and refreshes its hash in the channel's feed file,
+   `latest-mac.yml` or `beta-mac.yml`.
 3. It verifies the signature, Gatekeeper acceptance and both notarization tickets, and checks
    that the app's `app-update.yml` points at `hellogafaro/otto`.
-4. It uploads `Otto-Bot-<version>-arm64.dmg`, `Otto-Bot-<version>-arm64.zip`, the zip blockmap
-   and `latest-mac.yml` to a draft release `v<version>`, tagged at the commit you built, then publishes it as the latest
-   release. Installed apps see the update only after that last step. A failed run leaves at most a
-   draft, and rerunning the script reuses it.
+4. It uploads `Otto-Bot-<version>-arm64.dmg`, `Otto-Bot-<version>-arm64.zip`, the zip blockmap and
+   the feed file to a draft release `v<version>`, tagged at the commit you built, then publishes it:
+   a stable version as the latest release, a beta as a prerelease that is not the latest.
+   Installed apps see the update only after that last step. A failed run leaves at most a draft,
+   and rerunning the script reuses it.
 
 The artifacts are in `release/v<version>/`.
 
 ## How the app updates
 
-Packaged builds read `Contents/Resources/app-update.yml`. Signed builds carry:
+Packaged builds read `Contents/Resources/app-update.yml`. Signed stable builds carry:
 
 ```yaml
 owner: hellogafaro
@@ -94,11 +160,13 @@ provider: github
 releaseType: release
 ```
 
-The repository is a constant in `scripts/lib/desktop-build/config.ts`, so no environment variable
-can point a build at another repository. With that file present, the app turns
-updates on, checks 15 seconds after launch and then every 4 minutes. When a newer release
-exists, the sidebar update button downloads the zip, and installing restarts Otto into the new
-version. Ad-hoc builds have no `app-update.yml` and report that no update feed is configured.
+Beta builds carry `releaseType: prerelease` and `channel: beta`. The app overrides the channel
+with the one chosen in Settings, so either build can follow either channel. The repository is a
+constant in `scripts/lib/desktop-build/config.ts`, so no environment variable can point a build at
+another repository. With that file present, the app turns updates on, checks 15 seconds after
+launch and then every 4 minutes, and checks again right after you change the channel. When a newer
+release exists, the sidebar update button downloads the zip, and installing restarts Otto into the
+new version. Ad-hoc builds have no `app-update.yml` and report that no update feed is configured.
 
 ## Building locally
 
@@ -158,18 +226,3 @@ download and install it. Otto quits, Squirrel.Mac replaces the app, and Otto res
 `0.1.1`. Squirrel.Mac relaunches the new app through launchd with your real `HOME`, so the
 restarted app opens your normal `~/.otto` state and `~/Library/Application Support/otto` even
 when you started the old one with another `HOME`. Run this test in a separate macOS user.
-
-## Optional GitHub Actions release
-
-`deploy/desktop-mac/release-mac.yml` runs the same release script on a GitHub macOS runner. It
-is not active. To enable it, copy it to `.github/workflows/release-mac.yml`, confirm that the
-runner image has `/Applications/Xcode_26.5.app`, and add these repository secrets to
-`hellogafaro/otto`:
-
-- `MACOS_CERTIFICATE_P12`: base64 of the `.p12` export of the Developer ID Application certificate
-  and its private key.
-- `MACOS_CERTIFICATE_PASSWORD`: the `.p12` export password.
-- `APPSTORE_API_KEY_P8`: the text of the `.p8` key.
-- `APPSTORE_API_KEY_ID` and `APPSTORE_ISSUER_ID`.
-
-Then run Actions, Release macOS app, Run workflow, after the version bump is on `main`.

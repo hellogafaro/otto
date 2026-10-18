@@ -187,7 +187,7 @@ bot is refused with a note that the bot is archived. Archived bots are listed in
 Archived**, where **Restore** brings one back and the delete button removes it right away. Otto
 deletes an archived bot automatically 7 days after it was archived. Its chats stay in your history.
 
-Pins only change the roster layout. They do not change group membership or settle chats.
+Pins only change the roster layout. They do not change group membership.
 
 While you drag, the lifted row stays in the roster and moves vertically between available positions. The destination label stays readable and takes the accent color. These transitions follow your reduced-motion preference, and a drop does not replay a second animation.
 

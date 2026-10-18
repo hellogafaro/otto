@@ -277,10 +277,7 @@ const makeOrchestrationEngine = Effect.gen(function* () {
         let decisionReadModel = commandReadModel;
         const command = envelope.command;
 
-        if (
-          (command.type === "thread.settle" || command.type === "thread.snooze") &&
-          projectionSnapshotQuery.getThreadCommandContext
-        ) {
+        if (command.type === "thread.snooze" && projectionSnapshotQuery.getThreadCommandContext) {
           const context = yield* projectionSnapshotQuery.getThreadCommandContext(command.threadId);
           decisionReadModel = {
             ...commandReadModel,

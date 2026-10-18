@@ -187,13 +187,14 @@ export function buildKeybindingRows(
   return rowsWithConflicts;
 }
 
-export type KeybindingGroupId = "general" | "chats" | "composer" | "layout";
+export type KeybindingGroupId = "general" | "navigation" | "chats" | "composer" | "layout";
 
 export const KEYBINDING_GROUPS: ReadonlyArray<{
   readonly id: KeybindingGroupId;
   readonly title: string;
 }> = [
   { id: "general", title: "General" },
+  { id: "navigation", title: "Go to" },
   { id: "chats", title: "Chats" },
   { id: "composer", title: "Composer & models" },
   { id: "layout", title: "Layout" },
@@ -203,11 +204,22 @@ export const KEYBINDING_GROUPS: ReadonlyArray<{
 // (future additions) land at the end of General with a generated title.
 const COMMAND_META: ReadonlyArray<readonly [string, string, KeybindingGroupId]> = [
   ["commandPalette.toggle", "Open command palette", "general"],
+  ["settings.open", "Open settings", "general"],
+  ["shortcuts.show", "Show keyboard shortcuts", "general"],
+  ["navigation.home", "Home", "navigation"],
+  ["navigation.notifications", "Notifications", "navigation"],
+  ["navigation.chats", "Chats", "navigation"],
+  ["navigation.routines", "Routines", "navigation"],
+  ["navigation.tasks", "Tasks", "navigation"],
+  ["navigation.projects", "Projects", "navigation"],
+  ["navigation.library", "Library", "navigation"],
   ["chat.new", "New chat", "chats"],
-  ["thread.previous", "Previous bot", "chats"],
-  ["thread.next", "Next bot", "chats"],
+  ["thread.next", "Next chat", "chats"],
+  ["thread.previous", "Previous chat", "chats"],
   ["thread.jump", "Jump to chat", "chats"],
-  ["thread.settle", "Settle chat", "chats"],
+  ["approval.approve", "Approve", "chats"],
+  ["approval.allowAll", "Allow all", "chats"],
+  ["approval.deny", "Deny", "chats"],
   ["composer.stash", "Stash draft", "composer"],
   ["modelPicker.toggle", "Open model picker", "composer"],
   ["modelPicker.jump", "Pick model", "composer"],
@@ -233,8 +245,8 @@ function seriesParts(command: KeybindingCommand): { id: string; index: number } 
 
 /**
  * Commands for surfaces Otto no longer has: the terminal drawer, diff panel,
- * file browser, project scripts, preview-panel shortcuts, and local-versus-
- * worktree new chats. They still decode from older keybindings files, but
+ * file browser, project scripts, preview-panel shortcuts, local-versus-
+ * worktree new chats, and chat settling. They still decode from older keybindings files, but
  * nothing handles them, so settings hides them.
  */
 const RETIRED_COMMAND_PREFIXES = ["terminal.", "diff.", "preview.", "script."] as const;
@@ -246,6 +258,7 @@ const RETIRED_COMMANDS = new Set([
   "editor.openFavorite",
   "rightPanel.toggleMaximized",
   "chat.newLocal",
+  "thread.settle",
 ]);
 
 export function isRetiredCommand(command: KeybindingCommand): boolean {
@@ -472,7 +485,6 @@ const UNBOUND_COMMANDS: ReadonlyArray<KeybindingCommand> = [
   "chat.new",
   "thread.previous",
   "thread.next",
-  "thread.settle",
 ];
 
 export function buildKeybindingCommandOptions(

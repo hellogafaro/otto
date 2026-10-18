@@ -4,7 +4,7 @@ import { relativeTime } from "../../lib/time";
 
 /**
  * Thread List v2 renders one flat native list: rich edge-to-edge rows for
- * active work and a receded settled tail, all with native swipe and
+ * active work and a receded snoozed shelf, all with native swipe and
  * long-press actions. State reads through colored status labels and text
  * hierarchy rather than card fills.
  */

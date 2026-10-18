@@ -9,21 +9,28 @@ import {
   CommandList,
   CommandShortcut,
 } from "./ui/command";
+import { SkeletonPaletteRows } from "./ui/skeleton";
 
 interface CommandPaletteResultsProps {
   groups: ReadonlyArray<CommandPaletteGroup>;
   highlightedItemValue?: string | null;
   keybindings: ResolvedKeybindingsConfig;
   onExecuteItem: (item: CommandPaletteActionItem) => void;
-  /** Replaces the no-results line, such as while chat search is still running. */
-  emptyStateMessage?: string;
+  /** The line shown when nothing matches. */
+  emptyStateMessage: string;
+  /** While a search still runs and nothing matched yet, skeleton rows announced with this. */
+  loadingLabel: string | null;
 }
 
 export function CommandPaletteResults(props: CommandPaletteResultsProps) {
+  if (props.groups.length === 0 && props.loadingLabel !== null) {
+    return <SkeletonPaletteRows label={props.loadingLabel} />;
+  }
+
   if (props.groups.length === 0) {
     return (
       <div className="py-10 text-center text-sm text-muted-foreground">
-        {props.emptyStateMessage ?? "No matching commands."}
+        {props.emptyStateMessage}
       </div>
     );
   }

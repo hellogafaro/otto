@@ -4,10 +4,11 @@ import { RiArchiveLine, RiInboxUnarchiveLine, RiMoreLine } from "@remixicon/reac
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ComposerSelectControl } from "../chat/composer-control";
+import { CopyMenuItems } from "../copy-menu-items";
 import { StatusIcon } from "../status-icon";
 import { WORK_STATUS_CHOICES } from "./work.logic";
 
@@ -111,13 +112,17 @@ export function WorkStatusSelect({
 }
 
 /**
- * A task or project page's More actions menu. Archiving lives here rather than in the
- * status list; unarchiving puts the work back to Pending.
+ * A task or project page's More actions menu: Copy link and Copy ID, then Archive. Archiving
+ * lives here rather than in the status list; unarchiving puts the work back to Pending.
  */
 export function WorkMoreActions({
+  path,
+  id,
   status,
   onStatusChange,
 }: {
+  readonly path: string;
+  readonly id: string;
   readonly status: WorkStatus;
   readonly onStatusChange: (status: WorkStatus) => void;
 }) {
@@ -140,6 +145,8 @@ export function WorkMoreActions({
         <TooltipPopup side="bottom">{t("More actions")}</TooltipPopup>
       </Tooltip>
       <MenuPopup align="end">
+        <CopyMenuItems path={path} id={id} />
+        <MenuSeparator />
         {status === "archived" ? (
           <MenuItem onClick={() => onStatusChange("pending")}>
             <RiInboxUnarchiveLine />

@@ -5,5 +5,5 @@ import { RoutineRuntimeLive } from "./runtime-live.ts";
 import { RoutineRuntimeAdapterLive } from "./runtime-adapter-live.ts";
 
 export const RoutineLayerLive = RoutineRuntimeLive.pipe(
-  Layer.provide(Layer.mergeAll(RoutineRepositoryLive, RoutineRuntimeAdapterLive)),
+  Layer.provide(RoutineRuntimeAdapterLive.pipe(Layer.provideMerge(RoutineRepositoryLive))),
 );

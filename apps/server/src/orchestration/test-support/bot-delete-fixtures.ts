@@ -67,8 +67,6 @@ export function makeBotThread(botId: OrchestrationBot["id"]): OrchestrationThrea
     createdAt: NOW,
     updatedAt: NOW,
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     deletedAt: null,
     messages: [],
     proposedPlans: [],

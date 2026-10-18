@@ -141,6 +141,27 @@ describe("OttoToolRuntime", () => {
     ).resolves.toBeDefined();
   });
 
+  it("runs every shell command in a cloud sandbox without approval", async () => {
+    const runtime = createOttoToolRuntime();
+    runtime.registerSession("thread-cloud", {
+      runtimeMode: "approval-required",
+      workspaceType: "cloud",
+      workspace: workspace("shell"),
+    });
+
+    for (const command of ["rm -rf build", "cat .env", "git push origin main"]) {
+      await expect(
+        runtime.execute({
+          threadId: "thread-cloud",
+          toolId: "shell",
+          toolCallId: command,
+          input: { command },
+          approvalMode: "require-grant",
+        }),
+      ).resolves.toBeDefined();
+    }
+  });
+
   it("normalizes nullable optional fields consistently for approval and execution", async () => {
     const runtime = createOttoToolRuntime();
     runtime.registerSession("nullable-shell", {
@@ -202,7 +223,7 @@ describe("OttoToolRuntime", () => {
     ).toThrow();
   });
 
-  it("requires approval before catalog MCP handlers run and forwards progress", async () => {
+  it("runs catalog MCP handlers without approval and forwards progress", async () => {
     const handler = vi.fn(async ({ emitProgress }) => {
       await emitProgress("Reconnecting MCP server 'search'.");
 
@@ -225,8 +246,6 @@ describe("OttoToolRuntime", () => {
       approvalMode: "require-grant" as const,
     };
 
-    await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
-    runtime.grantApproval(execution);
     await expect(runtime.execute(execution)).resolves.toEqual({
       name: "search",
       connected: true,
@@ -239,7 +258,7 @@ describe("OttoToolRuntime", () => {
     });
   });
 
-  it("requires a production grant before an MCP connection test can reconnect", async () => {
+  it("tests an MCP connection without approval", async () => {
     const testConnection = vi.fn(async () => ({ connected: true }));
     const runtime = createOttoToolRuntime();
     runtime.registerSession("thread-mcp-test", {
@@ -256,10 +275,6 @@ describe("OttoToolRuntime", () => {
       approvalMode: "require-grant" as const,
     };
 
-    await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
-    expect(testConnection).not.toHaveBeenCalled();
-
-    runtime.grantApproval(execution);
     await expect(runtime.execute(execution)).resolves.toEqual({ connected: true });
     expect(testConnection).toHaveBeenCalledOnce();
   });
@@ -431,7 +446,7 @@ describe("OttoToolRuntime", () => {
     await expect(replacement.filesystem?.readFile("approved.txt")).rejects.toThrow();
   });
 
-  it("requires approval before a message reaction runs", async () => {
+  it("reacts to a message without approval", async () => {
     const reactToMessage = vi.fn(async () => ({ status: "applied", changed: true }));
     const runtime = createOttoToolRuntime();
     runtime.registerSession("thread-reaction", {
@@ -449,8 +464,6 @@ describe("OttoToolRuntime", () => {
       approvalMode: "require-grant" as const,
     };
 
-    await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
-    runtime.grantApproval(execution);
     await expect(runtime.execute(execution)).resolves.toMatchObject({ status: "applied" });
     expect(reactToMessage).toHaveBeenCalledWith(execution.input, execution.toolCallId);
   });

@@ -25,12 +25,14 @@ import {
   RiLockLine,
   RiMoreLine,
 } from "@remixicon/react";
+import { useRouter } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { ensureLocalApi } from "../../local-api";
 import { cn } from "../../lib/utils";
+import { CopyMenuItems } from "../copy-menu-items";
 import { libraryEnvironment } from "../../state/library";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
@@ -369,8 +371,10 @@ type MenuTarget =
   | { readonly kind: "file"; readonly file: LibraryFile };
 
 /**
- * The ⋯ menu on a Library item: download for files, and for its creator rename, move,
- * visibility and delete. A chat's folder can only be renamed; deleting asks first.
+ * The ⋯ menu on a Library item: download for files, for its creator rename, move and
+ * visibility, then Copy link and Copy ID, then delete for its creator. A chat's folder can only
+ * be renamed; deleting asks first. The link opens a document's page, another file's preview in
+ * its folder, or the folder itself.
  */
 export function LibraryItemMenu({
   environmentId,
@@ -387,6 +391,7 @@ export function LibraryItemMenu({
   readonly onDeleted?: () => void;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const actions = useLibraryItemActions(environmentId, data, target, onDeleted);
   const download = useLibraryDownload();
   const item = target.kind === "folder" ? target.folder : target.file;
@@ -400,7 +405,21 @@ export function LibraryItemMenu({
   const editable = !isHolder && data.canEdit(item);
   const [sharing, setSharing] = useState(false);
 
-  if (target.kind === "folder" && !editable) return null;
+  if (isHolder) return null;
+
+  const path =
+    target.kind === "file" && target.file.type === "document"
+      ? `/library/${target.file.id}`
+      : router.buildLocation({
+          to: "/library",
+          search:
+            target.kind === "folder"
+              ? { folder: target.folder.id }
+              : {
+                  ...(target.file.folderId ? { folder: target.file.folderId } : {}),
+                  preview: target.file.id,
+                },
+        }).href;
 
   return (
     <>
@@ -451,13 +470,19 @@ export function LibraryItemMenu({
                     {item.visibility === "user" ? <RiGlobalLine /> : <RiLockLine />}
                     {item.visibility === "user" ? t("Share with team") : t("Make private")}
                   </MenuItem>
-                  <MenuSeparator />
-                  <MenuItem variant="destructive" onClick={() => void actions.remove()}>
-                    <RiDeleteBinLine />
-                    {t("Delete")}
-                  </MenuItem>
                 </>
               )}
+            </>
+          ) : null}
+          {target.kind === "file" || editable ? <MenuSeparator /> : null}
+          <CopyMenuItems path={path} id={item.id} />
+          {editable && !isFixedFolder ? (
+            <>
+              <MenuSeparator />
+              <MenuItem variant="destructive" onClick={() => void actions.remove()}>
+                <RiDeleteBinLine />
+                {t("Delete")}
+              </MenuItem>
             </>
           ) : null}
         </MenuPopup>

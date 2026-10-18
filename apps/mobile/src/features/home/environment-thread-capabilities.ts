@@ -3,7 +3,6 @@ import { appAtomRegistry } from "../../state/atom-registry";
 import { environmentServerConfigsAtom } from "../../state/server";
 
 export type ThreadCapability =
-  | "threadSettlement"
   | "threadSnooze"
   | "threadPinning"
   | "threadPinReorder"

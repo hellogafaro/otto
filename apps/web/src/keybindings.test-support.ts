@@ -139,11 +139,6 @@ export const DEFAULT_BINDINGS = compile([
   { shortcut: modShortcut("o"), command: "editor.openFavorite" },
   { shortcut: modShortcut("[", { shiftKey: true }), command: "thread.previous" },
   { shortcut: modShortcut("]", { shiftKey: true }), command: "thread.next" },
-  {
-    shortcut: modShortcut("s", { shiftKey: true }),
-    command: "thread.settle",
-    whenAst: whenNot(whenIdentifier("terminalFocus")),
-  },
   { shortcut: modShortcut("1"), command: "thread.jump.1" },
   { shortcut: modShortcut("2"), command: "thread.jump.2" },
   { shortcut: modShortcut("3"), command: "thread.jump.3" },

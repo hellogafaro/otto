@@ -44,7 +44,7 @@ export function createLookups({
   getThreadCheckpointContextThreadRow,
   listCheckpointRowsByThread,
   getFullThreadDiffContextRow,
-  getActiveThreadRowById,
+  getThreadRowById,
   getLatestTurnRowByThread,
   getThreadSessionRowByThread,
   threadBackgroundLiveness,
@@ -73,7 +73,7 @@ export function createLookups({
   | "getThreadCheckpointContextThreadRow"
   | "listCheckpointRowsByThread"
   | "getFullThreadDiffContextRow"
-  | "getActiveThreadRowById"
+  | "getThreadRowById"
   | "getLatestTurnRowByThread"
   | "getThreadSessionRowByThread"
   | "threadBackgroundLiveness"
@@ -313,10 +313,15 @@ export function createLookups({
       });
     });
 
-  const getThreadShellById: ProjectionSnapshotQueryShape["getThreadShellById"] = (threadId) =>
+  const getThreadShellById: ProjectionSnapshotQueryShape["getThreadShellById"] = (
+    threadId,
+    options,
+  ) =>
     Effect.gen(function* () {
+      const includeArchived = options?.includeArchived === true;
+
       const [threadRow, latestTurnRow, sessionRow] = yield* Effect.all([
-        getActiveThreadRowById({ threadId }).pipe(
+        getThreadRowById({ threadId, includeArchived }).pipe(
           Effect.mapError(
             toPersistenceSqlOrDecodeError(
               "ProjectionSnapshotQuery.getThreadShellById:getThread:query",
@@ -324,7 +329,7 @@ export function createLookups({
             ),
           ),
         ),
-        getLatestTurnRowByThread({ threadId }).pipe(
+        getLatestTurnRowByThread({ threadId, includeArchived }).pipe(
           Effect.mapError(
             toPersistenceSqlOrDecodeError(
               "ProjectionSnapshotQuery.getThreadShellById:getLatestTurn:query",
@@ -369,9 +374,6 @@ export function createLookups({
         createdAt: threadRow.value.createdAt,
         updatedAt: threadRow.value.updatedAt,
         archivedAt: threadRow.value.archivedAt,
-        settledOverride: threadRow.value.settledOverride,
-        settledAt: threadRow.value.settledAt,
-        unsettledAt: threadRow.value.unsettledAt,
         snoozedUntil: threadRow.value.snoozedUntil,
         snoozedAt: threadRow.value.snoozedAt,
         pinnedAt: threadRow.value.pinnedAt,

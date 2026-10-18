@@ -211,8 +211,6 @@ describe("CheckpointReactor", () => {
         ],
         proposedPlans: [],
         activities: [],
-        settledOverride: null,
-        settledAt: null,
         snoozedUntil: null,
         snoozedAt: null,
         pinnedAt: null,

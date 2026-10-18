@@ -140,6 +140,12 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       assert.isFalse(defaultsByCommand.has("rightPanel.toggleMaximized"));
       assert.equal(defaultsByCommand.get("modelPicker.jump.1"), "mod+1");
       assert.equal(defaultsByCommand.get("modelPicker.jump.9"), "mod+9");
+      assert.equal(defaultsByCommand.get("thread.next"), "j");
+      assert.equal(defaultsByCommand.get("thread.previous"), "k");
+      assert.equal(defaultsByCommand.get("navigation.home"), "alt+1");
+      assert.equal(defaultsByCommand.get("navigation.library"), "alt+7");
+      assert.equal(defaultsByCommand.get("shortcuts.show"), "?");
+      assert.isTrue(defaultsByCommand.has("settings.open"));
 
       for (const retiredCommand of [
         "themeEditor.toggle",
@@ -155,8 +161,6 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
         "chat.newLocal",
         "modelPicker.toggle",
         "editor.openFavorite",
-        "thread.previous",
-        "thread.next",
         "thread.settle",
         "preview.toggle",
         "preview.refresh",

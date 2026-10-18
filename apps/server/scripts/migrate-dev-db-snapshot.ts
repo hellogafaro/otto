@@ -43,8 +43,7 @@ export const pruneSnapshot = Effect.fn("pruneDevDbSnapshot")(function* (
     : "";
 
   // "Stopped" is the persisted subset of the UI's thread status: the session
-  // reached status 'stopped' and nothing marks the thread settled or
-  // monitored. The in-memory working/monitoring liveness never persists, so
+  // reached status 'stopped' and nothing marks the thread monitored. The in-memory working/monitoring liveness never persists, so
   // filtering the session status is sufficient.
   yield* sql.unsafe(`CREATE TEMP TABLE stopped_threads AS
     SELECT t.thread_id, t.project_id, t.updated_at
@@ -52,8 +51,6 @@ export const pruneSnapshot = Effect.fn("pruneDevDbSnapshot")(function* (
     JOIN projection_thread_sessions s ON s.thread_id = t.thread_id
     WHERE t.deleted_at IS NULL
       AND t.archived_at IS NULL
-      AND t.settled_at IS NULL
-      AND (t.settled_override IS NULL OR t.settled_override <> 'settled')
       ${monitorFilter}
       AND s.status = 'stopped'`).unprepared;
 

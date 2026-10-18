@@ -137,7 +137,7 @@ from app configuration rather than copied identifiers.
 - To keep staging files for debugging package contents, run: `vp run dist:desktop:dmg --keep-stage`
 - To allow code-signing/notarization when configured in CI/secrets, add: `--signed`.
 - Signed macOS CI builds use the Developer ID certificate and App Store Connect API secrets
-  documented in `docs/operations/release.md`.
+  documented in `deploy/desktop-mac/README.md`.
 - Windows `--signed` uses Azure Trusted Signing and expects:
   `AZURE_TRUSTED_SIGNING_ENDPOINT`, `AZURE_TRUSTED_SIGNING_ACCOUNT_NAME`,
   `AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME`, and `AZURE_TRUSTED_SIGNING_PUBLISHER_NAME`.

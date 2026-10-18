@@ -2,9 +2,12 @@
 
 import {
   RiArchiveLine,
+  RiBox3Line,
   RiRobot2Line,
   RiBarChartLine,
   RiImageLine,
+  RiListCheck3,
+  RiTimeLine,
   RiTranslate2,
   RiDiscussLine,
   RiMoonLine,
@@ -12,9 +15,10 @@ import {
   RiSettings3Line,
   RiSunLine,
 } from "@remixicon/react";
-import { Predicate } from "effect";
+import { GENERAL_PROJECT_ID } from "@otto/contracts";
+import { Match, Predicate } from "effect";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -29,29 +33,56 @@ import {
   buildEnvironmentOwnerNames,
   buildLanguageCommandPaletteAction,
   buildModelPickerCommandPaletteAction,
+  COMMAND_PALETTE_SEARCH_GROUP_LIMIT,
+  COMMAND_PALETTE_TAB_LIMIT,
   filterCommandPaletteGroups,
   ITEM_ICON_CLASS,
+  normalizeSearchText,
   type CommandPaletteActionItem,
   type CommandPaletteChat,
   type CommandPaletteGroup,
 } from "./command-palette.logic";
 import { CommandPaletteContent } from "./command-palette-content";
 import { CommandPaletteResults } from "./command-palette-results";
+import { useCommandPaletteStore } from "~/command-palette-bus";
+import { DetailsTabs } from "./details-aside";
 import { openSettings } from "~/settings-dialog-store";
 import { openCustomize } from "~/customize-navigation";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { allEnvironmentRostersAtom } from "../state/bots";
 import { useThreadShells } from "../state/entities";
+import { environmentSnapshotAtom } from "../state/shell";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { useThreadSearch } from "../state/queries";
 import { findLatestGroupThreadIds, latestGroupThreadKey } from "./roster/bot-thread-runtime.logic";
 import { useRosterStore } from "./roster/roster-store";
+import { BotAvatarView } from "./roster/bot-avatar-view";
+import { PersonAvatar } from "./roster/person-avatar";
+import { LIBRARY_TYPE_ICONS } from "./library/library-visuals";
+import { useWorkStatusLabel } from "./work/work-status";
+import { projectStatus } from "./work/work.logic";
 import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
 import { toast } from "sonner";
 
+const COMMAND_PALETTE_TABS = [
+  "all",
+  "chats",
+  "bots",
+  "people",
+  "tasks",
+  "projects",
+  "routines",
+  "library",
+  "actions",
+] as const;
+
+type CommandPaletteTab = (typeof COMMAND_PALETTE_TABS)[number];
+
 export function CommandPalette({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const open = useCommandPaletteStore((state) => state.open);
+  const setOpen = useCommandPaletteStore((state) => state.setOpen);
+  const toggle = useCommandPaletteStore((state) => state.toggle);
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
 
   useEffect(() => {
@@ -69,13 +100,13 @@ export function CommandPalette({ children }: { children: ReactNode }) {
       if (command !== "commandPalette.toggle") return;
       event.preventDefault();
       event.stopPropagation();
-      setOpen((current) => !current);
+      toggle();
     };
 
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [keybindings]);
+  }, [keybindings, toggle]);
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
@@ -109,7 +140,9 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
   const { setOpen } = props;
   const { t } = useI18n();
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<CommandPaletteTab>("all");
   const [highlightedItemValue, setHighlightedItemValue] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const { resolvedTheme, setAppearanceMode } = useTheme();
 
@@ -234,14 +267,79 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
 
   // Rows follow the query the input shows, so Enter never runs a row from an
   // earlier query. Message search debounces its own RPC.
-  const chatSearch = useChatSearchItems(query);
+  const limit = tab === "all" ? COMMAND_PALETTE_SEARCH_GROUP_LIMIT : COMMAND_PALETTE_TAB_LIMIT;
+  const chatSearch = useChatSearchItems(query, limit);
+  const workspaceGroups = useWorkspaceSearchGroups();
+  const searchQuery = query.startsWith(">") ? "" : query;
+  const actionGroups = filterCommandPaletteGroups({ groups, query });
 
-  const filteredGroups = [
-    ...filterCommandPaletteGroups({ groups, query }),
-    ...(chatSearch.items.length > 0
+  const chatGroups =
+    chatSearch.items.length > 0
       ? [{ value: "chats", label: t("Chats"), items: chatSearch.items }]
-      : []),
-  ];
+      : [];
+
+  const workspaceResults = filterCommandPaletteGroups({
+    groups: workspaceGroups.filter((group) => tab === "all" || group.value === tab),
+    query: searchQuery,
+    limit,
+  });
+
+  // All lists actions until something is typed; a category lists its newest items until then.
+  const filteredGroups = Match.value(tab).pipe(
+    Match.when("all", () => [
+      ...actionGroups,
+      ...(normalizeSearchText(searchQuery).length > 0 ? [...chatGroups, ...workspaceResults] : []),
+    ]),
+    Match.when("actions", () => actionGroups),
+    Match.when("chats", () => chatGroups),
+    Match.orElse(() => workspaceResults),
+  );
+
+  const tabLabels: Record<CommandPaletteTab, string> = {
+    all: t("All"),
+    chats: t("Chats"),
+    bots: t("Bots"),
+    people: t("People"),
+    tasks: t("Tasks"),
+    projects: t("Projects"),
+    routines: t("Routines"),
+    library: t("Library"),
+    actions: t("Actions"),
+  };
+
+  function changeTab(next: CommandPaletteTab): void {
+    setHighlightedItemValue(null);
+    setTab(next);
+  }
+
+  // ← and → switch categories once the caret cannot move further that way.
+  function onInputKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    const input = event.currentTarget;
+
+    const step = Match.value(event.key).pipe(
+      Match.when("ArrowLeft", () => -1),
+      Match.when("ArrowRight", () => 1),
+      Match.orElse(() => 0),
+    );
+
+    if (step === 0 || input.selectionStart !== input.selectionEnd) return;
+
+    if (step === -1 ? input.selectionStart !== 0 : input.selectionEnd !== input.value.length) {
+      return;
+    }
+
+    const next = COMMAND_PALETTE_TABS[COMMAND_PALETTE_TABS.indexOf(tab) + step];
+
+    if (next === undefined) return;
+    event.preventDefault();
+    changeTab(next);
+  }
+
+  // The list highlights its first row again after the query changes without reporting it.
+  const activeItemValue =
+    highlightedItemValue ??
+    filteredGroups.flatMap((group) => group.items).find((item) => !item.disabled)?.value ??
+    null;
 
   function executeItem(item: CommandPaletteActionItem): void {
     if (item.disabled) return;
@@ -256,7 +354,11 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
       aria-label={t("Command palette")}
       autoHighlight="always"
       footerActionLabel={t("Select")}
-      inputProps={{ placeholder: t("Search commands and chats...") }}
+      inputProps={{
+        placeholder: t("Search chats, tasks, files and more..."),
+        ref: inputRef,
+        onKeyDown: onInputKeyDown,
+      }}
       mode="none"
       onItemHighlighted={(value) => {
         setHighlightedItemValue(Predicate.isString(value) ? value : null);
@@ -265,17 +367,178 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
         setHighlightedItemValue(null);
         setQuery(nextQuery);
       }}
+      tabs={
+        <DetailsTabs
+          label={t("Search categories")}
+          tabs={COMMAND_PALETTE_TABS.map((value) => ({ value, label: tabLabels[value] }))}
+          value={tab}
+          onValueChange={(next) => {
+            changeTab(next);
+            inputRef.current?.focus();
+          }}
+        />
+      }
       value={query}
     >
       <CommandPaletteResults
         groups={filteredGroups}
-        highlightedItemValue={highlightedItemValue}
+        highlightedItemValue={activeItemValue}
         keybindings={keybindings}
         onExecuteItem={executeItem}
-        {...(chatSearch.isPending ? { emptyStateMessage: t("Searching chats…") } : {})}
+        emptyStateMessage={t("No results")}
+        loadingLabel={
+          chatSearch.isPending && (tab === "all" || tab === "chats") ? t("Searching chats…") : null
+        }
       />
     </CommandPaletteContent>
   );
+}
+
+/**
+ * Everything else the palette finds by name, newest first within each group: live bots, people,
+ * tasks, projects, routines and Library files of the primary environment. The server already left
+ * out what this person can't see.
+ */
+function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const environmentId = usePrimaryEnvironmentId();
+  // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
+  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
+  const bots = useRosterStore((state) => state.bots);
+  const statusLabel = useWorkStatusLabel();
+
+  const newestFirst = <A extends { readonly updatedAt: string }>(items: ReadonlyArray<A>) =>
+    items.toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+
+  const projectTitles = new Map(
+    (snapshot?.projects ?? []).map((project) => [
+      project.id,
+      project.id === GENERAL_PROJECT_ID ? t("No project") : project.title,
+    ]),
+  );
+
+  const botNames = new Map(bots.map((bot) => [bot.id, bot.name]));
+
+  const folderTitles = new Map(
+    (snapshot?.libraryFolders ?? []).map((folder) => [folder.id, folder.title]),
+  );
+
+  return [
+    {
+      value: "bots",
+      label: t("Bots"),
+      items: newestFirst(bots.filter((bot) => bot.archivedAt === null)).map((bot) => ({
+        value: `bot:${bot.id}`,
+        searchTerms: [bot.name, bot.title, bot.label ?? ""],
+        title: bot.name,
+        description: bot.title,
+        icon: <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />,
+        run: async () => {
+          await navigate({ to: "/bots/$botId", params: { botId: bot.id } });
+        },
+      })),
+    },
+    {
+      value: "people",
+      label: t("People"),
+      items: (snapshot?.people ?? []).map((person) => ({
+        value: `person:${person.personId}`,
+        searchTerms: [person.displayName, person.email ?? ""],
+        title: person.displayName,
+        ...(person.email ? { description: person.email } : {}),
+        icon: (
+          <PersonAvatar
+            name={person.displayName}
+            personId={person.personId}
+            className="size-4 text-7px"
+          />
+        ),
+        run: async () => {
+          await navigate({
+            to: "/settings/$section",
+            params: { section: "members" },
+            search: { q: person.email ?? person.displayName },
+          });
+        },
+      })),
+    },
+    {
+      value: "tasks",
+      label: t("Tasks"),
+      items: newestFirst(snapshot?.tasks ?? []).map((task) => ({
+        value: `task:${task.id}`,
+        searchTerms: [task.title, task.description],
+        title: task.title,
+        description: [projectTitles.get(task.projectId), statusLabel(task.status)]
+          .filter(Boolean)
+          .join(" · "),
+        icon: <RiListCheck3 className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
+        },
+      })),
+    },
+    {
+      value: "projects",
+      label: t("Projects"),
+      items: newestFirst(
+        (snapshot?.projects ?? []).filter((project) => project.id !== GENERAL_PROJECT_ID),
+      ).map((project) => ({
+        value: `project:${project.id}`,
+        searchTerms: [project.title, project.description ?? ""],
+        title: project.title,
+        description: statusLabel(projectStatus(project)),
+        icon: <RiBox3Line className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await navigate({ to: "/projects/$projectId", params: { projectId: project.id } });
+        },
+      })),
+    },
+    {
+      value: "routines",
+      label: t("Routines"),
+      items: newestFirst(
+        (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted"),
+      ).map((routine) => ({
+        value: `routine:${routine.id}`,
+        searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
+        title: routine.job,
+        ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
+        icon: <RiTimeLine className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
+        },
+      })),
+    },
+    {
+      value: "library",
+      label: t("Library"),
+      items: newestFirst(snapshot?.libraryFiles ?? []).map((file) => {
+        const Icon = LIBRARY_TYPE_ICONS[file.type];
+        const folderTitle = file.folderId ? folderTitles.get(file.folderId) : undefined;
+
+        return {
+          value: `file:${file.id}`,
+          searchTerms: [file.title],
+          title: file.title,
+          description: folderTitle ?? t("Library"),
+          icon: <Icon className={ITEM_ICON_CLASS} />,
+          run: async () => {
+            await (file.type === "document"
+              ? navigate({ to: "/library/$fileId", params: { fileId: file.id } })
+              : navigate({
+                  to: "/library",
+                  search: {
+                    ...(file.folderId ? { folder: file.folderId } : {}),
+                    preview: file.id,
+                  },
+                }));
+          },
+        };
+      }),
+    },
+  ];
 }
 
 /**
@@ -284,7 +547,7 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
  * in the bot's view; a group opens its chat. Chats outside the environment this
  * client shows are listed but cannot be opened here.
  */
-function useChatSearchItems(query: string) {
+function useChatSearchItems(query: string, limit: number) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const { environments } = useEnvironments();
@@ -366,7 +629,7 @@ function useChatSearchItems(query: string) {
   }, [bots, connectedEnvironmentIds, environments, groups, primaryEnvironmentId, rosters, shells]);
 
   const items = buildChatSearchCommandPaletteItems({
-    query: searchQuery,
+    query,
     chats,
     matches: search.matches,
     untitledLabel: t("Untitled chat"),
@@ -375,6 +638,7 @@ function useChatSearchItems(query: string) {
     openChat: async (chat) => {
       await navigate({ to: "/chats/$threadId", params: { threadId: chat.threadId } });
     },
+    limit,
   });
 
   return { items, isPending: search.isPending };

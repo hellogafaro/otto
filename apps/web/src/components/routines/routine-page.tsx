@@ -34,6 +34,7 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { routineEnvironment } from "../../state/routines";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { CopyMenuItems } from "../copy-menu-items";
 import { DetailsRow } from "../details-aside";
 import { LibraryVisibilitySelect } from "../library/library-actions";
 import { PromptDialog } from "../prompt-dialog";
@@ -273,6 +274,8 @@ function RoutineDetail({
                   </MenuItem>
                 )}
                 <MenuSeparator />
+                <CopyMenuItems path={`/routines/${routine.id}`} id={routine.id} />
+                <MenuSeparator />
                 <MenuItem
                   variant="destructive"
                   onClick={async () => {
@@ -335,7 +338,7 @@ function RoutineDetail({
               />
             </DetailsRow>
             <DetailsRow label={t("Project")}>
-              {routine.threadMode === "per-run" ? (
+              {routine.threadMode !== "target" ? (
                 <ProjectSelect
                   variant="ghost"
                   value={routine.projectId}
