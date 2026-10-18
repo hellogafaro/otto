@@ -30,6 +30,7 @@ import { ProjectionMcpServerRepository } from "../persistence/services/projectio
 import { AgentController } from "../provider/services/agent-controller.ts";
 import { ProviderRegistry } from "../provider/services/provider-registry.ts";
 import { BotUsageLedger } from "../usage/bot-usage-ledger.ts";
+import { RoutineRepository } from "./repository.ts";
 import {
   RoutineRuntimeAdapter,
   type Routine,
@@ -40,7 +41,7 @@ import {
 } from "./types.ts";
 
 const routineTask = (procedure: string) =>
-  `Run the approved routine procedure below once. Do not create, update, enable, pause, or delete a routine or schedule.\n\n${procedure}`;
+  `Run the approved routine procedure below once. Explicit authorization in this procedure applies to this run within its stated scope and conditions; do not ask again for actions it already authorizes. Do not expand that authority or create, update, enable, pause, or delete a routine or schedule.\n\n${procedure}`;
 
 export const findBlockingDependencyIncident = (
   incidents: ReadonlyArray<BotInboxItem>,
@@ -77,6 +78,7 @@ const make = Effect.gen(function* () {
   const subscriptionAuth = yield* SubscriptionAuthService.forSecretsDir(config.secretsDir);
   const botUsageLedger = yield* BotUsageLedger;
   const agentController = yield* AgentController;
+  const routines = yield* RoutineRepository;
 
   const dispatch = (command: OrchestrationCommand) => engine.dispatch(command);
 
@@ -97,21 +99,39 @@ const make = Effect.gen(function* () {
         ?.modelSelection;
     });
 
+  // Otto: A single-chat routine keeps posting in its newest run's chat while that is a
+  // live chat with its bot in the routine's project; otherwise its next run starts one.
+  const singleChat = (routine: Routine) =>
+    Effect.gen(function* () {
+      const threadRef = yield* routines.getLatestThreadRef(routine.id);
+
+      if (threadRef === null || threadRef === routine.targetThreadId) return null;
+      const thread = Option.getOrNull(yield* snapshots.getThreadShellById(threadRef));
+
+      return thread !== null &&
+        thread.archivedAt === null &&
+        thread.botId === routine.botId &&
+        thread.projectId === routine.projectId
+        ? thread
+        : null;
+    }).pipe(Effect.orDie);
+
   const isTargetBusy: RoutineRuntimeAdapterShape["isTargetBusy"] = (routine) =>
-    routine.threadMode === "per-run"
-      ? Effect.succeed(false)
-      : snapshots.getThreadShellById(routine.targetThreadId).pipe(
-          Effect.map(
-            Option.match({
-              onNone: () => false,
-              onSome: (thread) =>
-                thread.latestTurn?.state === "running" ||
-                thread.session?.status === "starting" ||
-                thread.session?.status === "running",
-            }),
-          ),
-          Effect.orDie,
-        );
+    Effect.gen(function* () {
+      if (routine.threadMode === "per-run") return false;
+
+      const thread =
+        routine.threadMode === "single"
+          ? yield* singleChat(routine)
+          : Option.getOrNull(yield* snapshots.getThreadShellById(routine.targetThreadId));
+
+      return (
+        thread !== null &&
+        (thread.latestTurn?.state === "running" ||
+          thread.session?.status === "starting" ||
+          thread.session?.status === "running")
+      );
+    }).pipe(Effect.orDie);
 
   const checkDependencies: RoutineRuntimeAdapterShape["checkDependencies"] = (routine) =>
     Effect.gen(function* () {
@@ -256,10 +276,12 @@ const make = Effect.gen(function* () {
         } satisfies RoutineDependencyFailure;
       }
 
+      const ownChat = routine.threadMode === "single" ? yield* singleChat(routine) : null;
+
       const providerInstanceId =
         routine.threadMode === "target"
           ? Option.getOrNull(target)?.modelSelection.instanceId
-          : (yield* perRunModelSelection(routine))?.instanceId;
+          : (ownChat?.modelSelection ?? (yield* perRunModelSelection(routine)))?.instanceId;
 
       const providerSnapshots = yield* providers.getProviders;
 
@@ -505,11 +527,14 @@ const make = Effect.gen(function* () {
       return { threadRef } satisfies RoutineDispatchResult;
     });
 
-  // Otto: A per-run routine starts its own chat with the bot, named after the routine,
-  // keyed by the run so a retried dispatch reuses it.
+  // Otto: A per-run routine, or a single-chat one without a live chat, starts its own chat
+  // with the bot, named after the routine, keyed by the run so a retried dispatch reuses it.
   const runThread = (routine: Routine, run: RoutineRun, createdAt: string) =>
     Effect.gen(function* () {
       if (routine.threadMode === "target") return routine.targetThreadId;
+      const ownChat = routine.threadMode === "single" ? yield* singleChat(routine) : null;
+
+      if (ownChat !== null) return ownChat.id;
       const threadId = ThreadId.make(`routine-run-${run.id}`);
 
       if (Option.isSome(yield* snapshots.getThreadShellById(threadId))) return threadId;

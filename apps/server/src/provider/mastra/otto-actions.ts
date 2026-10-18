@@ -31,7 +31,7 @@ export const CRITICAL_ACTION_TOKENS: ReadonlyArray<
   ["delete", new Set(["delete", "remove", "destroy", "erase", "purge"])],
   ["production", new Set(["deploy", "release", "promote", "prod", "production"])],
   ["secrets", new Set(["secret", "secrets", "credential", "credentials", "password", "token"])],
-  ["publish", new Set(["publish", "post", "broadcast"])],
+  ["publish", new Set(["publish", "post", "broadcast", "merge"])],
   ["sign", new Set(["sign", "signature", "countersign"])],
   ["refund", new Set(["refund", "reimburse", "reimbursement"])],
 ];
@@ -85,6 +85,7 @@ export const CRITICAL_SHELL_ACTIONS: ReadonlyArray<readonly [OttoCriticalAction,
     /\bxargs\b[^\n;&|]*\s(?:(?:sudo|command|builtin|exec|nohup)\s+)*(?:rm|rmdir|shred|unlink)\b/i,
   ],
   ["publish", /(?:^|[;&|]\s*)git\s+push\b/i],
+  ["publish", /(?:^|[;&|]\s*)gh\s+(?:pr|stack)\s+merge\b/i],
   [
     "production",
     /(?:^|[;&|]\s*)(?:kubectl\s+(?:apply|delete|replace|rollout)|terraform\s+(?:apply|destroy)|docker\s+push)\b/i,

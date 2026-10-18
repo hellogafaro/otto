@@ -51,6 +51,10 @@ export interface RoutineRepositoryShape {
     PersistenceSqlError
   >;
   readonly listAllRuns: Effect.Effect<ReadonlyArray<RoutineRun>, PersistenceSqlError>;
+  /** The chat of the routine's newest run that has one. */
+  readonly getLatestThreadRef: (
+    routineId: RoutineId,
+  ) => Effect.Effect<ThreadId | null, PersistenceSqlError>;
   readonly getActiveRunByThreadRef: (
     threadRef: string,
     turnId?: string | null,

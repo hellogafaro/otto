@@ -33,9 +33,6 @@ const USER_ID_SECRET = "composio-user-id";
 
 const COMPOSIO_MCP_SERVER_ID = McpServerId.make("composio-session");
 
-/** Bots open pull requests but never merge, and raw GraphQL could merge too. */
-const BOT_DISABLED_GITHUB_TOOLS = ["GITHUB_MERGE_A_PULL_REQUEST", "GITHUB_RUN_GRAPH_QL_QUERY"];
-
 type ComposioSdk = InstanceType<typeof Composio>;
 
 type HostedSession = Awaited<ReturnType<ComposioSdk["sessions"]["create"]>>;
@@ -832,9 +829,6 @@ export function make(
             mcp: true,
             toolkits: Object.keys(accountMap),
             connectedAccounts: accountMap,
-            ...(accountMap.github
-              ? { tools: { github: { disable: BOT_DISABLED_GITHUB_TOOLS } } }
-              : {}),
             manageConnections: false,
             multiAccount: {
               enable: true,

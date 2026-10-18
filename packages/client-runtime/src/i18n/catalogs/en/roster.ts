@@ -98,11 +98,14 @@ export const rosterCatalog = {
   "Add a project before you message a bot.": "Add a project before you message a bot.",
   "Could not delete routine": "Could not delete routine",
   "New chat every run": "New chat every run",
-  "Same chat": "Same chat",
+  "Original chat": "Original chat",
+  "One new chat": "One new chat",
   "Routine title": "Routine title",
   "Set up a routine called \u201c{title}\u201d: {prompt}":
     "Set up a routine called \u201c{title}\u201d: {prompt}",
   "Start a new chat for every run.": "Start a new chat for every run.",
+  "Start one new chat for this routine and post every run there.":
+    "Start one new chat for this routine and post every run there.",
   "Could not enable routine": "Could not enable routine",
   "Could not open Routines": "Could not open Routines",
   "Could not pause routine": "Could not pause routine",

@@ -49,7 +49,6 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **Email addresses for bots.**
 - **Relay architecture**: a proper relay between apps and servers.
 - **Filters on index tables** (Tasks, Projects, Routines, Library).
-- **"New single chat" in automations**: a run can start a fresh chat.
 
 ## Not verified yet
 

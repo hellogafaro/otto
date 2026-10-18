@@ -299,7 +299,7 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
       const target = readModel.threads.find((thread) => thread.id === existing.targetThreadId);
 
       // Otto: The routine's chat is a live chat with its bot; posting into it puts the
-      // routine in that chat's project, so only per-run routines pick a project.
+      // routine in that chat's project, so only routines that start chats pick a project.
       if (
         threadMode === "target" &&
         (target === undefined ||
