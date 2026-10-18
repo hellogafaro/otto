@@ -432,6 +432,65 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
+  it.effect("asks a secret request's question with its valid secret names", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    return provideController(
+      Effect.gen(function* () {
+        const controller = yield* AgentController;
+        const events: ProviderRuntimeEvent[] = [];
+
+        yield* controller.streamEvents.pipe(
+          Stream.runForEach((event) => Effect.sync(() => events.push(event))),
+          Effect.forkChild({ startImmediately: true }),
+        );
+
+        yield* resolveCodex(controller);
+        yield* controller.startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          cwd: process.cwd(),
+          modelSelection: codexSelection,
+          runtimeMode: "approval-required",
+        });
+        yield* controller.sendTurn({ threadId: codexThreadId, input: "Deploy it." });
+        mastra.emit({
+          type: "tool_suspended",
+          toolCallId: "secret-request-1",
+          toolName: "secret_request",
+          args: {},
+          suspendPayload: {
+            question: "Deploy the site",
+            options: [{ label: "Save to project", description: "Every chat gets them." }],
+            selectionMode: "single_select",
+            secrets: [
+              { name: "VERCEL_TOKEN", description: "Deploy token" },
+              { name: "not a name" },
+              { name: "REGION" },
+            ],
+          },
+        } as AgentControllerEvent);
+        yield* Effect.yieldNow;
+
+        const requested = events.find((event) => event.type === "user-input.requested");
+
+        expect(requested?.payload).toMatchObject({
+          questions: [
+            {
+              id: "secret-request-1",
+              question: "Deploy the site",
+              secrets: [{ name: "VERCEL_TOKEN", description: "Deploy token" }, { name: "REGION" }],
+            },
+          ],
+        });
+      }),
+      bridge.service,
+      mastra.factory,
+    );
+  });
+
   it.effect("keeps a suspended Mastra turn active until tool input resumes", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();

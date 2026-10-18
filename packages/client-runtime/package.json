@@ -160,6 +160,10 @@
       "types": "./src/state/task-commands.ts",
       "default": "./src/state/task-commands.ts"
     },
+    "./state/secrets": {
+      "types": "./src/state/secrets-commands.ts",
+      "default": "./src/state/secrets-commands.ts"
+    },
     "./state/library": {
       "types": "./src/state/library-commands.ts",
       "default": "./src/state/library-commands.ts"

@@ -74,6 +74,9 @@ export interface OttoToolSession {
 }
 
 export interface OttoToolRuntimeOptions {
+  /** A chat's secrets: shell commands get them as environment variables, and every workspace
+   * tool's result names them instead of showing their values. */
+  readonly secrets?: (threadId: string) => Promise<Readonly<Record<string, string>>>;
   readonly onReceipt?: (receipt: OttoToolReceipt) => void;
   readonly onProgress?: (input: {
     readonly threadId: string;

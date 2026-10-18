@@ -4,6 +4,7 @@ import { useI18n } from "../../i18n";
 import type { PendingUserInputDraftAnswer } from "../../pending-user-input";
 import type { PendingUserInput } from "../../session-logic";
 import { ComposerPendingUserInputPanel } from "../chat/composer-pending-user-input-panel";
+import type { SecretRequestAnswer } from "../chat/secret-request-card";
 import { cn } from "../../lib/utils";
 import {
   BOT_COMPOSER_DOCKED_PANEL_CLASS_NAME,
@@ -19,6 +20,7 @@ export function BotUserInputPrompt({
   onSelectOption,
   onAnswerWithText,
   onSubmit,
+  onAnswerSecrets,
   shortcuts = false,
 }: {
   readonly pendingUserInputs: PendingUserInput[];
@@ -29,6 +31,7 @@ export function BotUserInputPrompt({
   readonly onSelectOption: (questionId: string, optionLabel: string) => void;
   readonly onAnswerWithText: (text: string) => void;
   readonly onSubmit: () => void;
+  readonly onAnswerSecrets?: (answer: SecretRequestAnswer | null) => Promise<boolean>;
   readonly shortcuts?: boolean;
 }) {
   const { t } = useI18n();
@@ -58,6 +61,7 @@ export function BotUserInputPrompt({
         onSelectOption={onSelectOption}
         onAnswerWithText={onAnswerWithText}
         onSubmit={onSubmit}
+        {...(onAnswerSecrets ? { onAnswerSecrets } : {})}
         shortcuts={shortcuts}
       />
     </section>

@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { ProviderApprovalOption } from "../orchestration/model-selection.ts";
+import { SecretRequestField } from "../secrets.ts";
 import {
   TrimmedNonEmptyStringSchema,
   UnknownRecordSchema,
@@ -57,6 +58,9 @@ export const UserInputQuestion = Schema.Struct({
   multiSelect: Schema.optional(Schema.Boolean).pipe(
     Schema.withConstructorDefault(Effect.succeed(false)),
   ),
+  // Otto: A secret request; the person types these values into a masked form that saves them
+  // through secrets.save, so they never travel in the answer.
+  secrets: Schema.optional(Schema.Array(SecretRequestField)),
 });
 
 export type UserInputQuestion = typeof UserInputQuestion.Type;
