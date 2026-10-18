@@ -164,9 +164,10 @@ export type RoutineSkillAssignment = typeof RoutineSkillAssignment.Type;
 
 /**
  * Otto: Where each run posts: `target` is the routine's one chat, `per-run` starts a new
- * chat with the bot in the routine's project every run.
+ * chat with the bot in the routine's project every run, and `single` starts one new chat
+ * and keeps posting there.
  */
-export const RoutineThreadMode = Schema.Literals(["target", "per-run"]);
+export const RoutineThreadMode = Schema.Literals(["target", "per-run", "single"]);
 
 export type RoutineThreadMode = typeof RoutineThreadMode.Type;
 
@@ -201,8 +202,8 @@ export const OttoCreateRoutineInput = Schema.Struct({
   schedule: RoutineSchedule,
   skillNames: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   connectorNames: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
-  /** Otto: Each run starts its own chat with the bot instead of posting here. */
-  newChatEachRun: Schema.optional(Schema.Boolean),
+  /** Otto: Where runs post; left out, every run posts here. */
+  threadMode: Schema.optional(RoutineThreadMode),
 });
 
 export type OttoCreateRoutineInput = typeof OttoCreateRoutineInput.Type;

@@ -208,6 +208,9 @@ function NewRoutineDialog({
         ? t("Set up a routine called \u201c{title}\u201d: {prompt}", { title: named, prompt })
         : t("Set up a routine: {prompt}", { prompt }),
       ...(threadMode === "per-run" ? [t("Start a new chat for every run.")] : []),
+      ...(threadMode === "single"
+        ? [t("Start one new chat for this routine and post every run there.")]
+        : []),
     ].join(" ");
 
     close();

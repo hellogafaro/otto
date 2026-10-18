@@ -48,7 +48,6 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **Relay architecture**: a proper relay between apps and servers.
 - **Filters on index tables** (Tasks, Projects, Routines, Library).
 - **More page actions**, for example Copy link and Copy ID on a task.
-- **"New single chat" in automations**: a run can start a fresh chat.
 - **Global search** in the command palette.
 - **Shortcuts for menu actions**: real shortcuts for chat, task, project and other actions, shown in their menus, for example Rename R, Pin P, Mark unread U, Snooze H, Archive E, Delete ⌘⌫, Copy link ⌘⇧, and Copy ID ⌘. (letters work when you aren't typing).
 
