@@ -4,7 +4,6 @@ import { AuthSessionId, BotId, ProjectId, TaskId } from "../base-schemas.ts";
 import * as Schema from "effect/Schema";
 
 import {
-  matchesProjectFilter,
   matchesTaskFilter,
   OrchestrationTask as TaskSchema,
   type OrchestrationTask,
@@ -57,17 +56,6 @@ describe("matchesTaskFilter", () => {
     expect(matchesTaskFilter(task(), { dueTo: "2026-03-09" })).toBe(false);
     expect(matchesTaskFilter(task(), { dueFrom: "2026-03-10" })).toBe(true);
     expect(matchesTaskFilter(task({ dueDate: null }), { dueFrom: "2026-01-01" })).toBe(false);
-  });
-});
-
-describe("matchesProjectFilter", () => {
-  it("reads projects without planning fields as active and unowned", () => {
-    expect(matchesProjectFilter({}, {})).toBe(true);
-    expect(matchesProjectFilter({}, { status: ["in_progress"] })).toBe(true);
-    expect(matchesProjectFilter({}, { owner: "bot:scout" })).toBe(false);
-    expect(matchesProjectFilter({ owner: scout, status: "archived" }, { owner: "bot:scout" })).toBe(
-      false,
-    );
   });
 });
 

@@ -430,21 +430,3 @@ export function matchesTaskFilter(task: OrchestrationTask, filter: TaskListFilte
 
   return matchesStatuses(task.status, filter.status);
 }
-
-/** Projects saved before planning fields existed count as in progress and unowned. */
-export function matchesProjectFilter(
-  project: {
-    readonly owner?: WorkParticipant | null | undefined;
-    readonly status?: WorkStatus | undefined;
-  },
-  filter: ProjectListFilter,
-): boolean {
-  if (
-    filter.owner !== undefined &&
-    (project.owner == null || workParticipantKey(project.owner) !== filter.owner)
-  ) {
-    return false;
-  }
-
-  return matchesStatuses(project.status ?? "in_progress", filter.status);
-}
