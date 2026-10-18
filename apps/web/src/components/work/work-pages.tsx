@@ -37,7 +37,7 @@ import { environmentSnapshotAtom } from "../../state/shell";
 import { environmentTasksAtom, taskEnvironment } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { localDateKey } from "../../timestamp-format";
-import { type ListFilter, ListToolbar } from "../list-toolbar";
+import { type ListFilter, ListFilterBar, ListFilterMenu, ListSortMenu } from "../list-toolbar";
 import { Button } from "../ui/button";
 import { DataGrid } from "../ui/data-grid";
 import {
@@ -320,6 +320,9 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
         icon: <WorkStatusIcon status={status} />,
       })),
       selected: view.status ?? [],
+      ...((view.status?.length ?? 0) > 1
+        ? { selectedLabel: t("{count} statuses", { count: view.status?.length ?? 0 }) }
+        : {}),
       onChange: (selected) =>
         setView(
           withField(
@@ -397,28 +400,6 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
     title: t("Title"),
   };
 
-  const toolbar = (
-    <ListToolbar
-      filters={filters}
-      sort={{
-        options: TASK_LIST_SORTS.map((value) => ({
-          value,
-          label: sortLabels[value],
-        })),
-        value: sort,
-        order: view.order ?? TASK_SORT_ORDER[sort],
-        onChange: (nextSort, order) =>
-          setView(
-            withField(
-              withField(view, "sort", nextSort === "status" ? undefined : nextSort),
-              "order",
-              order === TASK_SORT_ORDER[nextSort] ? undefined : order,
-            ),
-          ),
-      }}
-    />
-  );
-
   // Otto: Tasks need a project, so with none yet New starts the first project instead.
   const openNewTask = useCallback(
     () => (canCreate ? setTaskDialogOpen(true) : setProjectDialogOpen(true)),
@@ -449,12 +430,32 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
   return (
     <WorkPage
       actions={
-        canCreate && (rows.length > 0 || filtered) ? (
-          <WorkHeaderAction
-            label={t("New task")}
-            icon={RiAddLine}
-            onClick={() => setTaskDialogOpen(true)}
-          />
+        rows.length > 0 || filtered ? (
+          <>
+            <ListFilterMenu filters={filters} />
+            <ListSortMenu
+              sort={{
+                options: TASK_LIST_SORTS.map((value) => ({ value, label: sortLabels[value] })),
+                value: sort,
+                order: view.order ?? TASK_SORT_ORDER[sort],
+                onChange: (nextSort, order) =>
+                  setView(
+                    withField(
+                      withField(view, "sort", nextSort === "status" ? undefined : nextSort),
+                      "order",
+                      order === TASK_SORT_ORDER[nextSort] ? undefined : order,
+                    ),
+                  ),
+              }}
+            />
+            {canCreate ? (
+              <WorkHeaderAction
+                label={t("New task")}
+                icon={RiAddLine}
+                onClick={() => setTaskDialogOpen(true)}
+              />
+            ) : null}
+          </>
         ) : null
       }
     >
@@ -486,7 +487,15 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
       ) : (
         <WorkColumn title={t("Tasks")}>
           <div className="flex flex-col gap-3">
-            {toolbar}
+            <ListFilterBar
+              filters={filters}
+              onClear={() =>
+                setView({
+                  ...(view.sort === undefined ? {} : { sort: view.sort }),
+                  ...(view.order === undefined ? {} : { order: view.order }),
+                })
+              }
+            />
             {list.status === "error" && rows.length === 0 ? (
               <p className="text-13px text-muted-foreground">{t("Tasks couldn't be loaded.")}</p>
             ) : rows.length === 0 ? (
