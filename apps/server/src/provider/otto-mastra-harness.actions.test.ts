@@ -87,6 +87,27 @@ describe("Otto action classifier", () => {
     expect(alwaysAllowKinds("custom_tool", { operation: "frobnicate" })).toBeNull();
   });
 
+  it("offers Always allow for the intents an Otto tool defines, never an unknown one", () => {
+    const generate = { operation: "generate", prompt: "A red kite" };
+
+    expect(ottoActionNeedsApproval("image_create", generate)).toBe(true);
+    expect(alwaysAllowKinds("image_create", generate)).toEqual([null]);
+    expect(alwaysAllowKinds("image_create", { ...generate, operation: "edit" })).toEqual([null]);
+    expect(alwaysAllowKinds("connection_check", { id: "linear", action: "authenticate" })).toEqual([
+      null,
+    ]);
+    expect(
+      alwaysAllowKinds("message_react", { messageId: "message-1", emoji: "👍", action: "add" }),
+    ).toEqual([null]);
+    expect(
+      alwaysAllowKinds("message_react", { messageId: "message-1", emoji: "👍", action: "remove" }),
+    ).toEqual(["delete"]);
+
+    expect(alwaysAllowKinds("connection_check", { id: "linear", action: "frobnicate" })).toBeNull();
+    expect(alwaysAllowKinds("image_create", { ...generate, method: "patch" })).toBeNull();
+    expect(alwaysAllowKinds("notion_pages", { operation: "append", pageId: "page-1" })).toBeNull();
+  });
+
   it("requires approval when nested input exceeds the inspection limit", () => {
     let args: NestedAction = { action: "send" };
 
@@ -94,5 +115,6 @@ describe("Otto action classifier", () => {
 
     expect(criticalOttoAction("custom_tool", args)).toBeNull();
     expect(ottoActionNeedsApproval("custom_tool", args)).toBe(true);
+    expect(alwaysAllowKinds("custom_tool", args)).toBeNull();
   });
 });

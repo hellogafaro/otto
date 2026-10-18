@@ -185,4 +185,62 @@ describe("AgentControllerLive Always allow", () => {
       mastra.factory,
     );
   });
+
+  it.effect("offers and keeps Always allow for an Otto tool's own intent", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    return provideController(
+      Effect.gen(function* () {
+        const { events, saved, allowAlways } = yield* startBotTurn(mastra);
+
+        const generate = (toolCallId: string) =>
+          mastra.emit({
+            type: "tool_approval_required",
+            toolCallId,
+            toolName: "image_create",
+            args: { operation: "generate", prompt: "A red kite" },
+          } as AgentControllerEvent);
+
+        generate("image-1");
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(events).toContainEqual(
+              expect.objectContaining({
+                type: "request.opened",
+                requestId: "image-1",
+                payload: expect.objectContaining({
+                  options: [
+                    { decision: "decline", label: "Never" },
+                    { decision: "acceptAlways", label: "Always allow" },
+                    { decision: "accept", label: "Allow once" },
+                  ],
+                }),
+              }),
+            ),
+          ),
+        );
+        yield* allowAlways("image-1");
+        expect(saved).toContainEqual(
+          expect.objectContaining({
+            type: "bot.update",
+            alwaysAllow: expect.objectContaining({ toolName: "image_create", action: null }),
+          }),
+        );
+
+        generate("image-2");
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
+              toolCallId: "image-2",
+              decision: "approve",
+            }),
+          ),
+        );
+        mastra.finishSend();
+      }),
+      bridge.service,
+      mastra.factory,
+    );
+  });
 });

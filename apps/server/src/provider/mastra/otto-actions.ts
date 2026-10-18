@@ -1,10 +1,14 @@
 import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
+  OTTO_TOOL_CATALOG,
+  OttoToolInputSchemas,
   type BotAlwaysAllowedTool,
   classifyOttoSensitivePath,
   sameAlwaysAllowedTool,
 } from "@otto/contracts";
+import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
+import * as Schema from "effect/Schema";
 import {
   OTTO_DELETE_ROUTINES_TOOL_NAME,
   OTTO_UPDATE_ROUTINE_TOOL_NAME,
@@ -176,6 +180,8 @@ export type OttoActionInspection = {
   readonly hasUnclassifiedIntent: boolean;
   /** A shell command runs several commands, so its actions are not all known. */
   readonly hasCompoundCommand: boolean;
+  /** The input is cyclic or too large to read in full, so its actions are not all known. */
+  readonly incomplete: boolean;
 };
 
 export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoActionInspection {
@@ -186,11 +192,13 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
   let entriesInspected = 0;
   let hasUnclassifiedIntent = false;
   let hasCompoundCommand = false;
+  let incomplete = false;
 
-  const inspection = (unclassified: boolean): OttoActionInspection => ({
+  const inspection = (unread: boolean): OttoActionInspection => ({
     actions: [...actions],
-    hasUnclassifiedIntent: unclassified,
+    hasUnclassifiedIntent,
     hasCompoundCommand,
+    incomplete: unread,
   });
 
   while (pending.length > 0 && inspected < 100) {
@@ -200,7 +208,7 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
     if (!Predicate.isObject(value) && !Array.isArray(value)) continue;
 
     if (visited.has(value)) {
-      hasUnclassifiedIntent = true;
+      incomplete = true;
       continue;
     }
 
@@ -261,7 +269,7 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
     }
   }
 
-  return inspection(hasUnclassifiedIntent || pending.length > 0);
+  return inspection(incomplete || pending.length > 0);
 }
 
 export function criticalOttoAction<Input>(
@@ -271,19 +279,40 @@ export function criticalOttoAction<Input>(
   return inspectOttoAction(toolName, args).actions[0] ?? null;
 }
 
+const ottoToolInputDecoders = new Map(
+  OTTO_TOOL_CATALOG.map(({ id }) => [
+    String(id),
+    Schema.decodeUnknownOption(OttoToolInputSchemas[id]),
+  ]),
+);
+
+/** A valid call of an Otto tool, whose own schema allows only the intents Otto defines for it. */
+function isOttoToolInput<Input>(toolName: string, args?: Input): boolean {
+  const decode = ottoToolInputDecoders.get(toolName);
+
+  return decode !== undefined && Option.isSome(decode(args, { onExcessProperty: "error" }));
+}
+
 /**
  * The kinds of action Always allow rules must cover for a call: each classified action, or null
- * for a plain call. Null overall when no rule may cover it: a proposal, an intent the classifier
- * cannot read, or a shell command that runs several commands.
+ * for a plain call. Null overall when no rule may cover it: a proposal, input too large to read,
+ * a shell command that runs several commands, or an intent the classifier cannot read, unless it
+ * is one an Otto tool defines, such as image_create's generate.
  */
 export function alwaysAllowKinds<Input>(
   toolName: string,
   args?: Input,
 ): ReadonlyArray<OttoCriticalAction | null> | null {
   if (isOttoProposal(toolName, args)) return null;
-  const { actions, hasUnclassifiedIntent, hasCompoundCommand } = inspectOttoAction(toolName, args);
 
-  if (hasUnclassifiedIntent || hasCompoundCommand) return null;
+  const { actions, hasUnclassifiedIntent, hasCompoundCommand, incomplete } = inspectOttoAction(
+    toolName,
+    args,
+  );
+
+  if (incomplete || hasCompoundCommand) return null;
+
+  if (hasUnclassifiedIntent && !isOttoToolInput(toolName, args)) return null;
 
   return actions.length > 0 ? actions : [null];
 }
@@ -327,7 +356,7 @@ export function ottoActionNeedsApproval<Input>(toolName: string, args?: Input): 
   if (toolName === "skill_create" || toolName === "skill_update") return true;
   const inspection = inspectOttoAction(toolName, args);
 
-  return inspection.actions.length > 0 || inspection.hasUnclassifiedIntent;
+  return inspection.actions.length > 0 || inspection.hasUnclassifiedIntent || inspection.incomplete;
 }
 
 export function ottoToolCategory(toolName: string): OttoToolCategory {
