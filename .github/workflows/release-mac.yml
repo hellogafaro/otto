@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   resolve:
-    name: Resolve release
+    name: Resolve the release
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
@@ -39,12 +39,12 @@ jobs:
       version: ${{ steps.resolve.outputs.version }}
       ref: ${{ steps.resolve.outputs.ref }}
     steps:
-      - name: Checkout
+      - name: Check out main with its history
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Setup Vite+
+      - name: Set up Vite+
         uses: voidzero-dev/setup-vp@8a7496fd44e8a1b0a88a7459e36213b2fefc1d15 # v1
         with:
           node-version-file: package.json
@@ -52,7 +52,7 @@ jobs:
           run-install: false
 
       - id: resolve
-        name: Resolve channel, version and commit
+        name: Resolve the channel, version and commit
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -82,22 +82,22 @@ jobs:
             printf 'ref=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
             if grep -q '^publish=false$' "$GITHUB_OUTPUT"; then
-              printf '::notice::main has not changed since %s, so no beta is due.\n' "$latest_beta"
+              printf '::notice::The main branch has not changed since %s, so no beta is due.\n' "$latest_beta"
             fi
 
             exit 0
           fi
 
           [[ -n "$latest_beta" ]] ||
-            fail "No published beta. A stable release builds the latest beta's commit."
+            fail "No beta is published yet, and a stable release builds the latest beta's commit."
           ref="$(git rev-list -n 1 "$latest_beta")"
           beta_version="${latest_beta#v}"
           version="${DISPATCH_VERSION#v}"
           version="${version:-${beta_version%%-*}}"
           printf '::notice::Stable %s builds %s, the commit %s shipped.\n' "$version" "$ref" "$latest_beta"
 
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Stable version $version is not X.Y.Z."
-          git merge-base --is-ancestor "$ref" origin/main || fail "Release commit $ref is not on main."
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "The stable version $version is not X.Y.Z."
+          git merge-base --is-ancestor "$ref" origin/main || fail "The release commit $ref is not on main."
           printf 'publish=true\nversion=%s\nref=%s\n' "$version" "$ref" >> "$GITHUB_OUTPUT"
 
   release:
@@ -111,12 +111,12 @@ jobs:
     env:
       RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
     steps:
-      - name: Checkout
+      - name: Check out the release commit
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
-      - name: Check signing secrets
+      - name: Check the signing secrets
         shell: bash
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
@@ -134,29 +134,31 @@ jobs:
             exit 1
           fi
 
-      - name: Select Xcode
+      - name: Check the Xcode version
         shell: bash
         run: |
           developer_dir="$(xcode-select -p)"
           xcode_major="$(xcodebuild -version | awk 'NR == 1 { split($2, part, "."); print part[1] }')"
           if (( xcode_major < 26 )); then
-            printf '::error::The runner selects Xcode %s; the release needs Xcode 26 or newer.\n' "$xcode_major"
+            printf '::error::The runner selects Xcode %s, and the release needs Xcode 26 or newer.\n' "$xcode_major"
             exit 1
           fi
-          xcrun --sdk macosx --show-sdk-path
+          printf 'Using Xcode %s at %s with the macOS SDK at %s.\n' "$xcode_major" "$developer_dir" "$(xcrun --sdk macosx --show-sdk-path)"
           printf 'DEVELOPER_DIR=%s\n' "$developer_dir" >> "$GITHUB_ENV"
 
-      - name: Setup Vite+
+      - name: Set up Vite+
         uses: voidzero-dev/setup-vp@8a7496fd44e8a1b0a88a7459e36213b2fefc1d15 # v1
         with:
           node-version-file: package.json
           cache: true
           run-install: false
 
-      - name: Install desktop dependencies
-        run: vp install --frozen-lockfile --filter=@otto/desktop... --filter=otto... --filter=@otto/scripts...
+      # The desktop build runs the root build, which loads every package's Vite config, so every
+      # workspace package needs its dependencies.
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
 
-      - name: Import Developer ID certificate into a temporary keychain
+      - name: Import the Developer ID certificate into a temporary keychain
         shell: bash
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
@@ -178,8 +180,10 @@ jobs:
           read -r -a keychains <<<"$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')"
           security list-keychains -d user -s "$keychain" "${keychains[@]}"
           printf 'SIGNING_KEYCHAIN=%s\n' "$keychain" >> "$GITHUB_ENV"
+          printf 'Imported the signing identities into %s:\n' "$keychain"
+          security find-identity -v -p codesigning "$keychain"
 
-      - name: Write App Store Connect API key
+      - name: Write the App Store Connect API key
         shell: bash
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
@@ -196,7 +200,7 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: bash scripts/release-desktop-mac.sh --version "$RELEASE_VERSION"
 
-      - name: Remove signing material
+      - name: Remove the signing material
         if: always()
         shell: bash
         run: |
