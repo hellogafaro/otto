@@ -119,14 +119,16 @@ function matchesShortcut(
   platform = navigator.platform,
 ): boolean {
   // A symbol the layout itself typed, such as ?, needs Shift on some layouts and not on
-  // others, so Shift belongs to the symbol rather than to the shortcut.
-  const typedSymbol = /^[\p{P}\p{S}]$/u.test(shortcut.key) && event.key === shortcut.key;
+  // others, so Shift belongs to the symbol rather than to the shortcut. A shortcut that names
+  // Shift, such as mod+shift+comma, still needs it pressed.
+  const typedSymbol =
+    !shortcut.shiftKey && /^[\p{P}\p{S}]$/u.test(shortcut.key) && event.key === shortcut.key;
 
   const modifiers = {
     metaKey: event.metaKey,
     ctrlKey: event.ctrlKey,
     altKey: event.altKey,
-    shiftKey: typedSymbol ? shortcut.shiftKey : event.shiftKey,
+    shiftKey: typedSymbol ? false : event.shiftKey,
   };
 
   if (!matchesShortcutModifiers(modifiers, shortcut, platform)) return false;

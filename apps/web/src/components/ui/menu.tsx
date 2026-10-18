@@ -326,6 +326,7 @@ function MenuSubTrigger({
 }) {
   return (
     // Otto: A leading glyph sits and fades like a menu item's, so submenu rows line up with items.
+    // A row's key caps take the free space, and the chevron then sits 4px after them.
     <MenuPrimitive.SubmenuTrigger
       className={cn(
         "[&>svg:first-child]:-mx-0.5 [&>svg:first-child:not([class*='opacity-'])]:opacity-70 flex min-h-8 items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-popup-open:bg-accent data-inset:ps-8 data-highlighted:text-accent-foreground data-popup-open:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg]:pointer-events-none",
@@ -336,7 +337,7 @@ function MenuSubTrigger({
       {...props}
     >
       {children}
-      <RiArrowRightSLine className="-me-0.5 ms-auto opacity-80" />
+      <RiArrowRightSLine className="-me-0.5 ms-auto opacity-80 [[data-slot=kbd-group]~&]:-ms-1" />
     </MenuPrimitive.SubmenuTrigger>
   );
 }

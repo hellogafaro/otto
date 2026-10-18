@@ -124,6 +124,7 @@ describe("KeybindingsSettings.logic", () => {
     expect(groups.map((group) => group.id)).toEqual([
       "general",
       "navigation",
+      "items",
       "chats",
       "composer",
       "layout",
@@ -194,6 +195,9 @@ describe("KeybindingsSettings.logic", () => {
       "desktop",
       "!inputFocus",
       ...Array.from({ length: 7 }, () => ""),
+      "!inputFocus",
+      "desktop",
+      ...Array.from({ length: 8 }, () => "!inputFocus"),
       "!inputFocus",
       "!inputFocus",
       "approvalPending",
@@ -329,11 +333,13 @@ describe("KeybindingsSettings.logic", () => {
   it("offers the chat commands that run without a default shortcut and hides new local chat", () => {
     const options = buildKeybindingCommandOptions([]);
 
-    expect(options).toEqual(expect.arrayContaining(["chat.new", "thread.previous", "thread.next"]));
+    expect(options).toEqual(expect.arrayContaining(["item.new", "thread.previous", "thread.next"]));
+    expect(options).not.toContain("chat.new");
     expect(options).not.toContain("chat.newLocal");
     expect(options).not.toContain("thread.settle");
     expect(isRetiredCommand("chat.newLocal")).toBe(true);
     expect(isRetiredCommand("thread.settle")).toBe(true);
+    expect(isRetiredCommand("chat.new")).toBe(true);
     expect(commandLabel("thread.previous")).toBe("Previous chat");
     expect(commandLabel("thread.next")).toBe("Next chat");
   });
@@ -372,7 +378,7 @@ describe("KeybindingsSettings.logic", () => {
   it("reports conflicting shortcuts that share an active when context", () => {
     const rows = buildKeybindingRows([
       {
-        command: "chat.new",
+        command: "item.new",
         shortcut: {
           key: "n",
           modKey: true,

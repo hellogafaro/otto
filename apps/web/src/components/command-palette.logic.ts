@@ -3,6 +3,8 @@ import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
 import { type ReactNode } from "react";
 
+import type { PageAction } from "../page-actions-registry";
+
 export const ITEM_ICON_CLASS = "size-4 text-icon-muted";
 
 export interface CommandPaletteActionItem {
@@ -23,26 +25,21 @@ export interface CommandPaletteGroup {
 }
 
 /**
- * The open chat's actions as palette rows, in the order its header menu lists
- * them. Each row matches its translated title as well as its English terms.
+ * The open page's actions as palette rows, in the order its More actions menu lists them, each
+ * with its own glyph and shortcut. Each row matches its translated title as well as its English
+ * terms; actions that can't run right now stay listed but disabled.
  */
-export function buildChatCommandPaletteItems(input: {
-  readonly actions: ReadonlyArray<{
-    readonly id: string;
-    readonly title: string;
-    readonly description?: string;
-    readonly searchTerms: ReadonlyArray<string>;
-    readonly shortcutCommand?: KeybindingCommand;
-    readonly run: () => Promise<void> | void;
-  }>;
-  readonly icon: ReactNode;
+export function buildPageCommandPaletteItems(input: {
+  readonly actions: ReadonlyArray<PageAction>;
+  readonly renderIcon: (action: PageAction) => ReactNode;
 }): CommandPaletteActionItem[] {
   return input.actions.map((action) => ({
-    value: `chat:${action.id}`,
-    searchTerms: [action.title, "chat", ...action.searchTerms],
+    value: `page:${action.id}`,
+    searchTerms: [action.title, ...action.searchTerms],
     title: action.title,
     ...(action.description ? { description: action.description } : {}),
-    icon: input.icon,
+    icon: input.renderIcon(action),
+    ...(action.disabled ? { disabled: true } : {}),
     ...(action.shortcutCommand ? { shortcutCommand: action.shortcutCommand } : {}),
     run: async () => {
       await action.run();

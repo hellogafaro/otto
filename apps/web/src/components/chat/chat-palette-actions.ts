@@ -1,14 +1,23 @@
 import {
-  resolveSnoozePresets,
-  type SnoozePresetId,
-} from "@otto/client-runtime/state/thread-snoozed";
+  RiAddLine,
+  RiAlarmLine,
+  RiArchiveLine,
+  RiDeleteBinLine,
+  RiLoopRightLine,
+  RiPencilLine,
+  RiPushpinLine,
+  RiRadioButtonLine,
+  RiSunLine,
+  RiUnpinLine,
+} from "@remixicon/react";
+import type { SnoozePresetId } from "@otto/client-runtime/state/thread-snoozed";
 import type { ScopedThreadRef } from "@otto/contracts";
-import { type ChatPaletteAction } from "../../chat-actions-registry";
 import { type ChatActions } from "../../hooks/use-chat-actions";
 import { useI18n } from "../../i18n";
+import type { PageAction } from "../../page-actions-registry";
+import type { useCopyPageActions } from "../copy-menu-items";
 import { type ChatMenuState } from "./chat-actions.logic";
 
-/** Starts a fresh chat with the open bot. Groups keep a single chat, so they pass none. */
 /** Opens the New chat dialog, set up from the chat on screen. */
 export interface NewChatControl {
   readonly canStart: boolean;
@@ -31,8 +40,8 @@ export function snoozePresetLabel(id: SnoozePresetId, t: ReturnType<typeof useI1
 }
 
 /**
- * The open chat's palette rows, in the order its header menu lists them. Snooze
- * presets are resolved against `now`; running one re-resolves it at run time.
+ * The open chat's actions, in the order its header menu lists them. The menu, the command
+ * palette and the item shortcuts all run these entries.
  */
 export function buildChatPaletteActions({
   threadRef,
@@ -40,25 +49,29 @@ export function buildChatPaletteActions({
   newChat,
   actions,
   t,
-  now,
   openRename,
+  openSnooze,
+  copy,
 }: {
   readonly threadRef: ScopedThreadRef | null;
   readonly state: ChatMenuState | null;
   readonly newChat: NewChatControl | null;
   readonly actions: ChatActions;
   readonly t: ReturnType<typeof useI18n>["t"];
-  readonly now: Date;
   readonly openRename: () => void;
-}): ChatPaletteAction[] {
-  const list: ChatPaletteAction[] = [];
+  /** Opens the snooze presets beside the chat's More actions button. */
+  readonly openSnooze: () => void;
+  readonly copy: ReturnType<typeof useCopyPageActions> | null;
+}): PageAction[] {
+  const list: PageAction[] = [];
 
   if (newChat?.canStart) {
     list.push({
       id: "new",
       title: t("New chat"),
+      icon: RiAddLine,
       searchTerms: ["new chat", "fresh", "start over"],
-      shortcutCommand: "chat.new",
+      shortcutCommand: "item.new",
       run: () => newChat.start(),
     });
   }
@@ -67,15 +80,19 @@ export function buildChatPaletteActions({
   list.push({
     id: "rename",
     title: t("Rename chat"),
+    icon: RiPencilLine,
     searchTerms: ["rename", "title"],
+    shortcutCommand: "item.rename",
     run: openRename,
   });
 
-  if (state.supports.titleRegeneration && !state.isRegeneratingTitle) {
+  if (state.supports.titleRegeneration) {
     list.push({
       id: "regenerate-title",
-      title: t("Regenerate title"),
+      title: state.isRegeneratingTitle ? t("Regenerating…") : t("Regenerate title"),
+      icon: RiLoopRightLine,
       searchTerms: ["regenerate", "title"],
+      disabled: state.isRegeneratingTitle,
       run: async () => {
         await actions.regenerateTitle(threadRef);
       },
@@ -88,7 +105,9 @@ export function buildChatPaletteActions({
         ? {
             id: "unpin",
             title: t("Unpin chat"),
+            icon: RiUnpinLine,
             searchTerms: ["unpin"],
+            shortcutCommand: "item.pin",
             run: async () => {
               await actions.unpin(threadRef);
             },
@@ -96,7 +115,9 @@ export function buildChatPaletteActions({
         : {
             id: "pin",
             title: t("Pin chat"),
+            icon: RiPushpinLine,
             searchTerms: ["pin"],
+            shortcutCommand: "item.pin",
             run: async () => {
               await actions.pin(threadRef);
             },
@@ -104,65 +125,66 @@ export function buildChatPaletteActions({
     );
   }
 
-  if (state.canMarkUnread) {
-    list.push({
-      id: "mark-unread",
-      title: t("Mark unread"),
-      searchTerms: ["unread"],
-      run: () => actions.markUnread(threadRef),
-    });
-  }
+  list.push({
+    id: "mark-unread",
+    title: t("Mark unread"),
+    icon: RiRadioButtonLine,
+    searchTerms: ["unread"],
+    shortcutCommand: "item.markUnread",
+    disabled: !state.canMarkUnread,
+    run: () => actions.markUnread(threadRef),
+  });
 
   if (state.supports.snooze) {
-    if (state.isSnoozed) {
-      list.push({
-        id: "unsnooze",
-        title: t("Wake chat"),
-        searchTerms: ["wake", "unsnooze"],
-        run: async () => {
-          await actions.unsnooze(threadRef);
-        },
-      });
-    } else if (state.canSnooze) {
-      for (const preset of resolveSnoozePresets(now)) {
-        const when = snoozePresetLabel(preset.id, t);
-        list.push({
-          id: `snooze:${preset.id}`,
-          title: t("Snooze chat: {when}", { when }),
-          description: preset.whenLabel,
-          searchTerms: ["snooze", "later", "remind", preset.label],
-          run: async () => {
-            // Re-resolve so a palette left open still snoozes relative to now.
-            const current = resolveSnoozePresets(new Date()).find(
-              (candidate) => candidate.id === preset.id,
-            );
-
-            if (current) await actions.snooze(threadRef, current.snoozedUntil);
+    list.push(
+      state.isSnoozed
+        ? {
+            id: "unsnooze",
+            title: t("Wake chat"),
+            icon: RiSunLine,
+            searchTerms: ["wake", "unsnooze"],
+            shortcutCommand: "item.snooze",
+            run: async () => {
+              await actions.unsnooze(threadRef);
+            },
+          }
+        : {
+            id: "snooze",
+            title: t("Snooze…"),
+            icon: RiAlarmLine,
+            searchTerms: ["snooze", "later", "remind"],
+            shortcutCommand: "item.snooze",
+            disabled: !state.canSnooze,
+            run: openSnooze,
           },
-        });
-      }
-    }
+    );
   }
 
-  if (state.canArchive) {
-    list.push({
+  if (copy) list.push(copy.link, copy.id);
+
+  list.push(
+    {
       id: "archive",
       title: t("Archive chat"),
+      icon: RiArchiveLine,
       searchTerms: ["archive"],
+      shortcutCommand: "item.archive",
+      disabled: !state.canArchive,
       run: async () => {
         await actions.archive(threadRef);
       },
-    });
-  }
-
-  list.push({
-    id: "delete",
-    title: t("Delete chat"),
-    searchTerms: ["delete", "remove"],
-    run: async () => {
-      await actions.delete(threadRef);
     },
-  });
+    {
+      id: "delete",
+      title: t("Delete chat"),
+      icon: RiDeleteBinLine,
+      searchTerms: ["delete", "remove"],
+      shortcutCommand: "item.delete",
+      run: async () => {
+        await actions.delete(threadRef);
+      },
+    },
+  );
 
   return list;
 }

@@ -1,14 +1,17 @@
 import type { WorkStatus } from "@otto/contracts";
-import { RiArchiveLine, RiInboxUnarchiveLine, RiMoreLine } from "@remixicon/react";
+import { RiAddLine, RiArchiveLine, RiInboxUnarchiveLine, RiMoreLine } from "@remixicon/react";
+import { useMemo } from "react";
 
 import { useI18n } from "../../i18n";
+import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
+import { Menu, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ComposerSelectControl } from "../chat/composer-control";
-import { CopyMenuItems } from "../copy-menu-items";
+import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
+import { PageActionMenuItem } from "../page-action-menu-item";
 import { StatusIcon } from "../status-icon";
 import { WORK_STATUS_CHOICES } from "./work.logic";
 
@@ -112,21 +115,72 @@ export function WorkStatusSelect({
 }
 
 /**
- * A task or project page's More actions menu: Copy link and Copy ID, then Archive. Archiving
- * lives here rather than in the status list; unarchiving puts the work back to Pending.
+ * A task or project page's More actions menu: New task on a project, Copy link and Copy ID, then
+ * Archive. The same entries are the page's command palette group and its keys. Archiving lives
+ * here rather than in the status list; unarchiving puts the work back to Pending.
  */
 export function WorkMoreActions({
+  label,
   path,
   id,
   status,
   onStatusChange,
+  onNewTask,
 }: {
+  /** The palette group title, such as This task. */
+  readonly label: string;
   readonly path: string;
   readonly id: string;
   readonly status: WorkStatus;
   readonly onStatusChange: (status: WorkStatus) => void;
+  readonly onNewTask?: () => void;
 }) {
   const { t } = useI18n();
+  const copy = useCopyPageActions(path, id);
+
+  const newTask = useMemo(
+    (): PageAction | null =>
+      onNewTask
+        ? {
+            id: "new-task",
+            title: t("New task"),
+            icon: RiAddLine,
+            searchTerms: ["new task", "create", "add", "todo"],
+            shortcutCommand: "item.new",
+            run: onNewTask,
+          }
+        : null,
+    [onNewTask, t],
+  );
+
+  const archive = useMemo(
+    (): PageAction =>
+      status === "archived"
+        ? {
+            id: "unarchive",
+            title: t("Unarchive"),
+            icon: RiInboxUnarchiveLine,
+            searchTerms: ["unarchive", "restore"],
+            shortcutCommand: "item.archive",
+            run: () => onStatusChange("pending"),
+          }
+        : {
+            id: "archive",
+            title: t("Archive"),
+            icon: RiArchiveLine,
+            searchTerms: ["archive", "hide"],
+            shortcutCommand: "item.archive",
+            run: () => onStatusChange("archived"),
+          },
+    [onStatusChange, status, t],
+  );
+
+  const actions = useMemo(
+    () => [...(newTask ? [newTask] : []), copy.link, copy.id, archive],
+    [archive, copy, newTask],
+  );
+
+  usePageActions(label, actions);
 
   return (
     <Menu>
@@ -145,19 +199,15 @@ export function WorkMoreActions({
         <TooltipPopup side="bottom">{t("More actions")}</TooltipPopup>
       </Tooltip>
       <MenuPopup align="end">
-        <CopyMenuItems path={path} id={id} />
+        {newTask ? (
+          <>
+            <PageActionMenuItem action={newTask} />
+            <MenuSeparator />
+          </>
+        ) : null}
+        <CopyMenuItems actions={copy} />
         <MenuSeparator />
-        {status === "archived" ? (
-          <MenuItem onClick={() => onStatusChange("pending")}>
-            <RiInboxUnarchiveLine />
-            {t("Unarchive")}
-          </MenuItem>
-        ) : (
-          <MenuItem onClick={() => onStatusChange("archived")}>
-            <RiArchiveLine />
-            {t("Archive")}
-          </MenuItem>
-        )}
+        <PageActionMenuItem action={archive} />
       </MenuPopup>
     </Menu>
   );

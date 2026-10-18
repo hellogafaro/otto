@@ -33,6 +33,17 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "?", command: "shortcuts.show", when: "!inputFocus" },
   { key: "j", command: "thread.next", when: "!inputFocus" },
   { key: "k", command: "thread.previous", when: "!inputFocus" },
+  { key: "c", command: "item.new", when: "!inputFocus" },
+  // Browsers keep mod+n for a new window, so only the desktop app takes it.
+  { key: "mod+n", command: "item.new", when: "desktop" },
+  { key: "r", command: "item.rename", when: "!inputFocus" },
+  { key: "p", command: "item.pin", when: "!inputFocus" },
+  { key: "u", command: "item.markUnread", when: "!inputFocus" },
+  { key: "h", command: "item.snooze", when: "!inputFocus" },
+  { key: "e", command: "item.archive", when: "!inputFocus" },
+  { key: "mod+backspace", command: "item.delete", when: "!inputFocus" },
+  { key: "mod+shift+,", command: "item.copyLink", when: "!inputFocus" },
+  { key: "mod+.", command: "item.copyId", when: "!inputFocus" },
   ...NAVIGATION_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `alt+${index + 1}`,
     command,

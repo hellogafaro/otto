@@ -201,6 +201,15 @@ describe("app-wide default shortcuts", () => {
     );
   });
 
+  it("copies the link only when Shift is held with mod+comma", () => {
+    const cmdShiftComma = event({ key: "<", code: "Comma", metaKey: true, shiftKey: true });
+
+    assert.strictEqual(
+      resolveShortcutCommand(cmdShiftComma, DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "item.copyLink",
+    );
+  });
+
   it("leaves mod+1–9 to the desktop app's tabs", () => {
     const cmdOne = event({ key: "1", code: "Digit1", metaKey: true });
 

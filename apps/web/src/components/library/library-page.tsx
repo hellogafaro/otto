@@ -22,9 +22,11 @@ import {
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useRef, useState, type DragEvent } from "react";
+import { useMemo, useRef, useState, type DragEvent } from "react";
 
+import { useCreateRequest } from "../../create-request-store";
 import { useI18n } from "../../i18n";
+import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { cn, randomUUID } from "../../lib/utils";
 import { libraryEnvironment } from "../../state/library";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -74,6 +76,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   });
 
   const [naming, setNaming] = useState(false);
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -118,6 +121,35 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
     }
   };
 
+  useCreateRequest("document", environmentId !== null && canAddFiles, () => void newDocument());
+  useCreateRequest("folder", environmentId !== null && canAddFolder, () => setNaming(true));
+
+  // Otto: New opens the New menu in place, the way clicking it does.
+  const pageActions = useMemo((): PageAction[] => {
+    if (!environmentId) return [];
+
+    return [
+      {
+        id: "new",
+        title: t("New…"),
+        icon: RiAddLine,
+        searchTerms: ["new", "create", "add", "document", "folder"],
+        shortcutCommand: "item.new",
+        run: () => setNewMenuOpen(true),
+      },
+      {
+        id: "upload",
+        title: t("Upload files"),
+        icon: RiUploadLine,
+        searchTerms: ["upload", "add files", "import"],
+        disabled: !canAddFiles,
+        run: () => fileInput.current?.click(),
+      },
+    ];
+  }, [canAddFiles, environmentId, t]);
+
+  usePageActions(t("Library"), pageActions);
+
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
     setDragging(false);
@@ -131,7 +163,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   const empty = loaded && folders.length === 0 && files.length === 0;
 
   const newMenu = environmentId ? (
-    <Menu>
+    <Menu open={newMenuOpen} onOpenChange={setNewMenuOpen}>
       {empty ? (
         <MenuTrigger
           render={
