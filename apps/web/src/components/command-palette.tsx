@@ -16,9 +16,9 @@ import {
   RiSunLine,
 } from "@remixicon/react";
 import { GENERAL_PROJECT_ID } from "@otto/contracts";
-import { Predicate } from "effect";
+import { Match, Predicate } from "effect";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -34,6 +34,7 @@ import {
   buildLanguageCommandPaletteAction,
   buildModelPickerCommandPaletteAction,
   COMMAND_PALETTE_SEARCH_GROUP_LIMIT,
+  COMMAND_PALETTE_TAB_LIMIT,
   filterCommandPaletteGroups,
   ITEM_ICON_CLASS,
   normalizeSearchText,
@@ -43,6 +44,8 @@ import {
 } from "./command-palette.logic";
 import { CommandPaletteContent } from "./command-palette-content";
 import { CommandPaletteResults } from "./command-palette-results";
+import { useCommandPaletteStore } from "~/command-palette-bus";
+import { DetailsTabs } from "./details-aside";
 import { openSettings } from "~/settings-dialog-store";
 import { openCustomize } from "~/customize-navigation";
 import { primaryServerKeybindingsAtom } from "../state/server";
@@ -62,8 +65,24 @@ import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
 import { toast } from "sonner";
 
+const COMMAND_PALETTE_TABS = [
+  "all",
+  "chats",
+  "bots",
+  "people",
+  "tasks",
+  "projects",
+  "routines",
+  "library",
+  "actions",
+] as const;
+
+type CommandPaletteTab = (typeof COMMAND_PALETTE_TABS)[number];
+
 export function CommandPalette({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const open = useCommandPaletteStore((state) => state.open);
+  const setOpen = useCommandPaletteStore((state) => state.setOpen);
+  const toggle = useCommandPaletteStore((state) => state.toggle);
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
 
   useEffect(() => {
@@ -81,13 +100,13 @@ export function CommandPalette({ children }: { children: ReactNode }) {
       if (command !== "commandPalette.toggle") return;
       event.preventDefault();
       event.stopPropagation();
-      setOpen((current) => !current);
+      toggle();
     };
 
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [keybindings]);
+  }, [keybindings, toggle]);
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
@@ -121,7 +140,9 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
   const { setOpen } = props;
   const { t } = useI18n();
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<CommandPaletteTab>("all");
   const [highlightedItemValue, setHighlightedItemValue] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const { resolvedTheme, setAppearanceMode } = useTheme();
 
@@ -246,23 +267,73 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
 
   // Rows follow the query the input shows, so Enter never runs a row from an
   // earlier query. Message search debounces its own RPC.
-  const chatSearch = useChatSearchItems(query);
+  const limit = tab === "all" ? COMMAND_PALETTE_SEARCH_GROUP_LIMIT : COMMAND_PALETTE_TAB_LIMIT;
+  const chatSearch = useChatSearchItems(query, limit);
   const workspaceGroups = useWorkspaceSearchGroups();
   const searchQuery = query.startsWith(">") ? "" : query;
+  const actionGroups = filterCommandPaletteGroups({ groups, query });
 
-  const filteredGroups = [
-    ...filterCommandPaletteGroups({ groups, query }),
-    ...(chatSearch.items.length > 0
+  const chatGroups =
+    chatSearch.items.length > 0
       ? [{ value: "chats", label: t("Chats"), items: chatSearch.items }]
-      : []),
-    ...(normalizeSearchText(searchQuery).length > 0
-      ? filterCommandPaletteGroups({
-          groups: workspaceGroups,
-          query: searchQuery,
-          limit: COMMAND_PALETTE_SEARCH_GROUP_LIMIT,
-        })
-      : []),
-  ];
+      : [];
+
+  const workspaceResults = filterCommandPaletteGroups({
+    groups: workspaceGroups.filter((group) => tab === "all" || group.value === tab),
+    query: searchQuery,
+    limit,
+  });
+
+  // All lists actions until something is typed; a category lists its newest items until then.
+  const filteredGroups = Match.value(tab).pipe(
+    Match.when("all", () => [
+      ...actionGroups,
+      ...(normalizeSearchText(searchQuery).length > 0 ? [...chatGroups, ...workspaceResults] : []),
+    ]),
+    Match.when("actions", () => actionGroups),
+    Match.when("chats", () => chatGroups),
+    Match.orElse(() => workspaceResults),
+  );
+
+  const tabLabels: Record<CommandPaletteTab, string> = {
+    all: t("All"),
+    chats: t("Chats"),
+    bots: t("Bots"),
+    people: t("People"),
+    tasks: t("Tasks"),
+    projects: t("Projects"),
+    routines: t("Routines"),
+    library: t("Library"),
+    actions: t("Actions"),
+  };
+
+  function changeTab(next: CommandPaletteTab): void {
+    setHighlightedItemValue(null);
+    setTab(next);
+  }
+
+  // ← and → switch categories once the caret cannot move further that way.
+  function onInputKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    const input = event.currentTarget;
+
+    const step = Match.value(event.key).pipe(
+      Match.when("ArrowLeft", () => -1),
+      Match.when("ArrowRight", () => 1),
+      Match.orElse(() => 0),
+    );
+
+    if (step === 0 || input.selectionStart !== input.selectionEnd) return;
+
+    if (step === -1 ? input.selectionStart !== 0 : input.selectionEnd !== input.value.length) {
+      return;
+    }
+
+    const next = COMMAND_PALETTE_TABS[COMMAND_PALETTE_TABS.indexOf(tab) + step];
+
+    if (next === undefined) return;
+    event.preventDefault();
+    changeTab(next);
+  }
 
   // The list highlights its first row again after the query changes without reporting it.
   const activeItemValue =
@@ -283,7 +354,11 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
       aria-label={t("Command palette")}
       autoHighlight="always"
       footerActionLabel={t("Select")}
-      inputProps={{ placeholder: t("Search chats, tasks, files and more...") }}
+      inputProps={{
+        placeholder: t("Search chats, tasks, files and more..."),
+        ref: inputRef,
+        onKeyDown: onInputKeyDown,
+      }}
       mode="none"
       onItemHighlighted={(value) => {
         setHighlightedItemValue(Predicate.isString(value) ? value : null);
@@ -292,6 +367,17 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
         setHighlightedItemValue(null);
         setQuery(nextQuery);
       }}
+      tabs={
+        <DetailsTabs
+          label={t("Search categories")}
+          tabs={COMMAND_PALETTE_TABS.map((value) => ({ value, label: tabLabels[value] }))}
+          value={tab}
+          onValueChange={(next) => {
+            changeTab(next);
+            inputRef.current?.focus();
+          }}
+        />
+      }
       value={query}
     >
       <CommandPaletteResults
@@ -299,7 +385,10 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
         highlightedItemValue={activeItemValue}
         keybindings={keybindings}
         onExecuteItem={executeItem}
-        emptyStateMessage={chatSearch.isPending ? t("Searching chats…") : t("No results")}
+        emptyStateMessage={t("No results")}
+        loadingLabel={
+          chatSearch.isPending && (tab === "all" || tab === "chats") ? t("Searching chats…") : null
+        }
       />
     </CommandPaletteContent>
   );
@@ -458,7 +547,7 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
  * in the bot's view; a group opens its chat. Chats outside the environment this
  * client shows are listed but cannot be opened here.
  */
-function useChatSearchItems(query: string) {
+function useChatSearchItems(query: string, limit: number) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const { environments } = useEnvironments();
@@ -540,7 +629,7 @@ function useChatSearchItems(query: string) {
   }, [bots, connectedEnvironmentIds, environments, groups, primaryEnvironmentId, rosters, shells]);
 
   const items = buildChatSearchCommandPaletteItems({
-    query: searchQuery,
+    query,
     chats,
     matches: search.matches,
     untitledLabel: t("Untitled chat"),
@@ -549,6 +638,7 @@ function useChatSearchItems(query: string) {
     openChat: async (chat) => {
       await navigate({ to: "/chats/$threadId", params: { threadId: chat.threadId } });
     },
+    limit,
   });
 
   return { items, isPending: search.isPending };

@@ -198,7 +198,7 @@ export function DetailsAside({
 export interface DetailsTab<T extends string> {
   readonly value: T;
   readonly label: string;
-  readonly icon: typeof RiListCheck;
+  readonly icon?: typeof RiListCheck;
 }
 
 /**
@@ -256,7 +256,7 @@ export function DetailsTabs<T extends string>({
                 : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
             )}
           >
-            <Icon aria-hidden className="size-3.5 shrink-0" />
+            {Icon ? <Icon aria-hidden className="size-3.5 shrink-0" /> : null}
             {tab.label}
           </button>
         );

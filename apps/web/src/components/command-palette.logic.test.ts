@@ -69,6 +69,11 @@ describe("filterCommandPaletteGroups", () => {
     expect(groups[0]?.items.map((item) => item.value)).toEqual(["task:exact", "task:newest"]);
   });
 
+  it("keeps the limit for an empty query too", () => {
+    const groups = filterCommandPaletteGroups({ groups: [ACTIONS], query: "", limit: 1 });
+    expect(groups[0]?.items.map((item) => item.value)).toEqual(["action:theme-editor"]);
+  });
+
   it("ignores a leading > so actions-style queries still match", () => {
     const groups = filterCommandPaletteGroups({ groups: [ACTIONS], query: ">plugins" });
     expect(groups[0]?.items.map((item) => item.value)).toEqual(["action:plugins"]);
@@ -269,9 +274,18 @@ describe("buildChatSearchCommandPaletteItems", () => {
       openChat,
     });
 
-  it("returns nothing for an empty query or an actions-only query", () => {
-    expect(build("  ")).toEqual([]);
+  it("returns nothing for an actions-only query", () => {
     expect(build(">trip")).toEqual([]);
+  });
+
+  it("lists the newest chats for an empty query, ones this client can open first", () => {
+    expect(build("  ").map((item) => item.value)).toEqual([
+      "chat-search:env-a:draft",
+      "chat-search:env-a:trip",
+      "chat-search:env-a:budget",
+      "chat-search:env-a:trip-old",
+      "chat-search:env-b:remote",
+    ]);
   });
 
   it("ranks prefix title matches ahead of looser ones, newest first among equals", () => {

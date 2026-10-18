@@ -128,6 +128,9 @@ export const COMMAND_PALETTE_CHAT_LIMIT = 8;
 /** Rows per workspace search group (bots, people, tasks, projects, routines, Library). */
 export const COMMAND_PALETTE_SEARCH_GROUP_LIMIT = 5;
 
+/** Rows a category tab lists, typed query or not. */
+export const COMMAND_PALETTE_TAB_LIMIT = 20;
+
 /**
  * Looks up a bot or group name in the roster of the environment a chat lives
  * in. Ids are scoped per environment, so a primary-environment name is never
@@ -171,7 +174,8 @@ export function buildEnvironmentOwnerNames(
  * in its order, with the matching snippet as the description. Chats in another
  * environment are listed but disabled, because this client cannot open them,
  * and only after every chat it can open, so they never crowd one out.
- * A leading ">" asks for actions only, so it yields no chats.
+ * An empty query lists the newest chats. A leading ">" asks for actions only,
+ * so it yields no chats.
  */
 export function buildChatSearchCommandPaletteItems(input: {
   readonly query: string;
@@ -185,8 +189,6 @@ export function buildChatSearchCommandPaletteItems(input: {
 }): CommandPaletteActionItem[] {
   if (input.query.startsWith(">")) return [];
   const normalizedQuery = normalizeSearchText(input.query);
-
-  if (normalizedQuery.length === 0) return [];
   const limit = input.limit ?? COMMAND_PALETTE_CHAT_LIMIT;
 
   const chatKey = (chat: { readonly environmentId: string; readonly threadId: string }) =>
@@ -203,7 +205,7 @@ export function buildChatSearchCommandPaletteItems(input: {
     .map((chat, index) => ({
       chat,
       index,
-      rank: rankSearchFieldMatch(titleOf(chat), normalizedQuery),
+      rank: normalizedQuery.length === 0 ? 0 : rankSearchFieldMatch(titleOf(chat), normalizedQuery),
     }))
     .filter((entry) => entry.rank !== Number.NEGATIVE_INFINITY)
     .toSorted(
@@ -308,7 +310,9 @@ export function filterCommandPaletteGroups(input: {
   const normalizedQuery = normalizeSearchText(searchQuery);
 
   if (normalizedQuery.length === 0) {
-    return [...input.groups];
+    return input.groups.flatMap((group) =>
+      group.items.length === 0 ? [] : [{ ...group, items: group.items.slice(0, input.limit) }],
+    );
   }
 
   return input.groups.flatMap((group) => {
