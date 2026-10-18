@@ -46,14 +46,17 @@ describe("ComposerPendingApprovalActions", () => {
     const front = actions(true);
     vi.unstubAllGlobals();
 
-    const hints = [...front.matchAll(/truncate">([^<]+)<\/span><kbd[^>]*>([^<]+)</g)].map(
-      ([, label, keys]) => [label, keys],
+    const hints = [...front.matchAll(/truncate">([^<]+)<\/span>(<kbd.*?<\/kbd>)<\/button>/g)].map(
+      ([, label, group]) => [
+        label,
+        [...(group ?? "").matchAll(/<kbd[^>]*>([^<]+)<\/kbd>/g)].map((cap) => cap[1]),
+      ],
     );
 
     expect(hints).toEqual([
-      ["Never", "Ctrl+Shift+Backspace"],
-      ["Always allow", "Ctrl+Shift+Enter"],
-      ["Allow once", "Ctrl+Enter"],
+      ["Never", ["Ctrl", "Shift", "Backspace"]],
+      ["Always allow", ["Ctrl", "Shift", "Enter"]],
+      ["Allow once", ["Ctrl", "Enter"]],
     ]);
     expect(actions(false)).not.toContain("<kbd");
   });

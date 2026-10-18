@@ -250,33 +250,46 @@ const MAC_KEY_GLYPHS = { enter: "\u21b5", backspace: "\u232b" } satisfies Readon
   Record<string, string>
 >;
 
-export function formatShortcutLabel(
+/** One key cap per modifier and key, in the platform's order and notation. */
+export function formatShortcutParts(
   shortcut: KeybindingShortcut,
   platform = navigator.platform,
-): string {
+): ReadonlyArray<string> {
   const keyLabel = formatShortcutKeyLabel(shortcut.key);
   const useMetaForMod = isMacPlatform(platform);
   const showMeta = shortcut.metaKey || (shortcut.modKey && useMetaForMod);
   const showCtrl = shortcut.ctrlKey || (shortcut.modKey && !useMetaForMod);
-  const showAlt = shortcut.altKey;
-  const showShift = shortcut.shiftKey;
 
   if (useMetaForMod) {
-    return `${showCtrl ? "\u2303" : ""}${showAlt ? "\u2325" : ""}${showShift ? "\u21e7" : ""}${showMeta ? "\u2318" : ""}${recordLookup(MAC_KEY_GLYPHS, shortcut.key) ?? keyLabel}`;
+    return [
+      ...(showCtrl ? ["\u2303"] : []),
+      ...(shortcut.altKey ? ["\u2325"] : []),
+      ...(shortcut.shiftKey ? ["\u21e7"] : []),
+      ...(showMeta ? ["\u2318"] : []),
+      recordLookup(MAC_KEY_GLYPHS, shortcut.key) ?? keyLabel,
+    ];
   }
 
-  const parts: string[] = [];
+  return [
+    ...(showCtrl ? ["Ctrl"] : []),
+    ...(shortcut.altKey ? ["Alt"] : []),
+    ...(shortcut.shiftKey ? ["Shift"] : []),
+    ...(showMeta ? ["Meta"] : []),
+    keyLabel,
+  ];
+}
 
-  if (showCtrl) parts.push("Ctrl");
+export function formatShortcutLabel(
+  shortcut: KeybindingShortcut,
+  platform = navigator.platform,
+): string {
+  return formatShortcutParts(shortcut, platform).join(isMacPlatform(platform) ? "" : "+");
+}
 
-  if (showAlt) parts.push("Alt");
-
-  if (showShift) parts.push("Shift");
-
-  if (showMeta) parts.push("Meta");
-  parts.push(keyLabel);
-
-  return parts.join("+");
+function resolveLabelOptions(
+  options: string | ResolvedShortcutLabelOptions | undefined,
+): ResolvedShortcutLabelOptions | undefined {
+  return Predicate.isString(options) ? { platform: options } : options;
 }
 
 export function shortcutLabelForCommand(
@@ -284,14 +297,20 @@ export function shortcutLabelForCommand(
   command: KeybindingCommand,
   options?: string | ResolvedShortcutLabelOptions,
 ): string | null {
-  const resolvedOptions = Predicate.isString(options)
-    ? ({ platform: options } satisfies ResolvedShortcutLabelOptions)
-    : options;
-
-  const platform = resolvePlatform(resolvedOptions);
+  const resolvedOptions = resolveLabelOptions(options);
   const shortcut = findEffectiveShortcutForCommand(keybindings, command, resolvedOptions);
 
-  return shortcut ? formatShortcutLabel(shortcut, platform) : null;
+  return shortcut ? formatShortcutLabel(shortcut, resolvePlatform(resolvedOptions)) : null;
+}
+
+export function shortcutPartsForCommand(
+  keybindings: ResolvedKeybindingsConfig,
+  command: KeybindingCommand,
+  options?: ResolvedShortcutLabelOptions,
+): ReadonlyArray<string> | null {
+  const shortcut = findEffectiveShortcutForCommand(keybindings, command, options);
+
+  return shortcut ? formatShortcutParts(shortcut, resolvePlatform(options)) : null;
 }
 
 export function threadJumpCommandForIndex(index: number): ThreadJumpKeybindingCommand | null {

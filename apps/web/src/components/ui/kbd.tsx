@@ -14,8 +14,9 @@ function Kbd({
         variant === "shortcut" &&
           "h-5.5 min-w-5.5 rounded-[5px] border border-border/80 bg-background px-1.5 text-[11px] text-foreground shadow-xs/5",
         variant === "jump" && "rounded-sm px-1.5 text-10px",
-        // Otto: A shortcut inside a button reads as its quieter trailing text, in any button color.
-        variant === "inline" && "h-auto min-w-0 bg-transparent px-0 text-current opacity-64",
+        // Otto: Key caps inside a button take the button's own ink, so they sit on any fill.
+        variant === "inline" &&
+          "h-4.5 min-w-4.5 rounded-sm bg-current/12 px-1 text-[11px] leading-none text-current",
         className,
       )}
       data-slot="kbd"

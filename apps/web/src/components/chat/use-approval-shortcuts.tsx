@@ -3,9 +3,9 @@ import { APPROVAL_KEYBINDING_COMMANDS, type ApprovalKeybindingCommand } from "@o
 import { useEffect, useRef } from "react";
 
 import { isCommandPaletteOpen } from "../../command-palette-bus";
-import { resolveShortcutCommand, shortcutLabelForCommand } from "../../keybindings";
+import { resolveShortcutCommand, shortcutPartsForCommand } from "../../keybindings";
 import { primaryServerKeybindingsAtom } from "../../state/server";
-import { Kbd } from "../ui/kbd";
+import { Kbd, KbdGroup } from "../ui/kbd";
 
 export type ApprovalShortcutHandlers = Partial<Record<ApprovalKeybindingCommand, () => void>>;
 
@@ -52,14 +52,18 @@ export function useApprovalShortcuts(enabled: boolean, handlers: ApprovalShortcu
   }, [enabled, keybindings]);
 
   return (command: ApprovalKeybindingCommand) => {
-    const label = enabled
-      ? shortcutLabelForCommand(keybindings, command, APPROVAL_SHORTCUT_OPTIONS)
+    const parts = enabled
+      ? shortcutPartsForCommand(keybindings, command, APPROVAL_SHORTCUT_OPTIONS)
       : null;
 
-    return label ? (
-      <Kbd variant="inline" aria-hidden="true">
-        {label}
-      </Kbd>
+    return parts ? (
+      <KbdGroup aria-hidden="true" className="gap-0.5">
+        {parts.map((part) => (
+          <Kbd key={part} variant="inline">
+            {part}
+          </Kbd>
+        ))}
+      </KbdGroup>
     ) : null;
   };
 }
