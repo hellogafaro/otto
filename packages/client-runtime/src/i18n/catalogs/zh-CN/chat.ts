@@ -374,4 +374,8 @@ export const chatCatalog = {
   "Could not load archived chats": "无法加载已归档聊天",
   "Other chats": "其他聊天",
   "Archived {time}": "归档于 {time}",
+  "Values go straight to Otto. The bot gets them in its commands but never sees them.":
+    "这些值会直接发送到 Otto。机器人会在命令中获得它们，但永远看不到它们。",
+  "This chat only": "仅此聊天",
+  "Save to project": "保存到项目",
 } as const;

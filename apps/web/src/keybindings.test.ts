@@ -210,6 +210,30 @@ describe("app-wide default shortcuts", () => {
     );
   });
 
+  it("tells a property key with Shift from the item key without it, and waits while typing", () => {
+    const keys = [
+      [event({ key: "p", code: "KeyP" }), "item.pin"],
+      [event({ key: "P", code: "KeyP", shiftKey: true }), "property.project"],
+      [event({ key: "r", code: "KeyR" }), "item.rename"],
+      [event({ key: "R", code: "KeyR", shiftKey: true }), "property.repeat"],
+      [event({ key: "D", code: "KeyD", shiftKey: true }), "property.dueDate"],
+      [event({ key: "s", code: "KeyS" }), "property.status"],
+    ] as const;
+
+    for (const [keyEvent, command] of keys) {
+      assert.strictEqual(
+        resolveShortcutCommand(keyEvent, DEFAULT_RESOLVED_KEYBINDINGS, mac),
+        command,
+      );
+      assert.isNull(
+        resolveShortcutCommand(keyEvent, DEFAULT_RESOLVED_KEYBINDINGS, {
+          ...mac,
+          context: { inputFocus: true },
+        }),
+      );
+    }
+  });
+
   it("leaves mod+1–9 to the desktop app's tabs", () => {
     const cmdOne = event({ key: "1", code: "Digit1", metaKey: true });
 

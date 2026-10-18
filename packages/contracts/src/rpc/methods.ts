@@ -39,6 +39,12 @@ export const WS_METHODS = {
   libraryShareFile: "library.shareFile",
   libraryUnshareFile: "library.unshareFile",
 
+  // Secret methods
+  secretsList: "secrets.list",
+  secretsReveal: "secrets.reveal",
+  secretsSave: "secrets.save",
+  secretsRemove: "secrets.remove",
+
   // Provider methods
   providerUploadFeedback: "provider.uploadFeedback",
   computerWatch: "computer.watch",

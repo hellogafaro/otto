@@ -374,6 +374,7 @@ export const rosterCatalog = {
   Thinking: "Thinking",
   Untangling: "Untangling",
   "Updating a routine": "Updating a routine",
+  "Asking for secrets": "Asking for secrets",
   "Updating profile": "Updating profile",
   "Using a tool": "Using a tool",
   "Using an app": "Using an app",

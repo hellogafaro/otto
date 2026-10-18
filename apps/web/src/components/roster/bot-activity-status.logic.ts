@@ -31,6 +31,7 @@ const TOOL_LABELS = {
   [OTTO_CREATE_ROUTINE_TOOL_NAME]: "Adding a routine",
   routine_delete: "Removing routines",
   routine_update: "Updating a routine",
+  secret_request: "Asking for secrets",
   skill_read: "Reading a skill",
   search: "Searching",
   library_read: "Reading the library",

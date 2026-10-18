@@ -6,13 +6,17 @@ import {
   RiBox3Line,
   RiChat1Line,
   RiFileTextLine,
+  RiKey2Line,
   RiListCheck3,
+  RiProgress4Line,
+  RiUserStarLine,
 } from "@remixicon/react";
 import * as Match from "effect/Match";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useI18n } from "../../i18n";
+import type { PageAction } from "../../page-actions-registry";
 import { DetailsRow, DetailsTabs } from "../details-aside";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
@@ -24,9 +28,10 @@ import { SkeletonTableRows } from "../ui/skeleton";
 import { ProjectChats, ProjectNewChat } from "./project-chats";
 import { ProjectCover, ProjectCoverControls } from "./project-cover";
 import { ProjectLibrary, ProjectUpload } from "./project-library";
+import { ProjectAddSecret, ProjectSecrets } from "./project-secrets";
 import { TasksTable } from "./tasks-table";
 import { type ProjectTab, projectStatus } from "./work.logic";
-import { WorkDetailPage, WorkResourcesSection } from "./work-detail";
+import { WorkDetailPage, WorkResourcesSection, useWorkPickers } from "./work-detail";
 import { NewTaskDialog } from "./work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./work-pages";
 import { OwnerSelect } from "./work-participants";
@@ -36,8 +41,8 @@ type ProjectFields = Omit<UpdateProjectInput, "projectId">;
 
 /**
  * Otto: A project's page, the same pattern as a task's: its cover, then the Overview, Tasks,
- * Chats and Library tabs; Overview holds the title, description and resources, the others the
- * project's tasks, chats and Library folder. Status, owner and task counts sit in the details
+ * Chats, Library and Secrets tabs; Overview holds the title, description and resources, the
+ * others the project's tasks, chats, Library folder and secrets. Status, owner and task counts sit in the details
  * sidebar.
  */
 export function ProjectPage({
@@ -54,7 +59,32 @@ export function ProjectPage({
   const { environmentId, loaded, projects, participants } = useWorkData();
   const list = useTaskPages(environmentId, { project: projectId });
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [addingSecret, setAddingSecret] = useState(false);
   const openNewTask = useCallback(() => setNewTaskOpen(true), []);
+  const { open: openPicker, props: picker } = useWorkPickers<"status" | "owner">("project");
+
+  const properties = useMemo(
+    (): PageAction[] => [
+      {
+        id: "status",
+        title: t("Status"),
+        icon: RiProgress4Line,
+        searchTerms: ["status"],
+        shortcutCommand: "property.status",
+        run: () => openPicker("status"),
+      },
+      {
+        id: "owner",
+        title: t("Owner"),
+        icon: RiUserStarLine,
+        searchTerms: ["owner"],
+        shortcutCommand: "property.owner",
+        run: () => openPicker("owner"),
+      },
+    ],
+    [openPicker, t],
+  );
+
   const project = projects.find((candidate) => candidate.id === projectId);
   const back = { label: t("Projects"), onBack: () => void navigate({ to: "/projects" }) };
 
@@ -144,6 +174,7 @@ export function ProjectPage({
     ),
     Match.when("chats", () => <ProjectNewChat projectId={project.id} />),
     Match.when("library", () => <ProjectUpload projectId={project.id} />),
+    Match.when("secrets", () => <ProjectAddSecret onAdd={() => setAddingSecret(true)} />),
     Match.orElse(() => null),
   );
 
@@ -162,6 +193,7 @@ export function ProjectPage({
               id={project.id}
               status={status}
               onStatusChange={(next) => update({ status: next })}
+              properties={properties}
             />
           </>
         }
@@ -184,6 +216,7 @@ export function ProjectPage({
               { value: "tasks", label: t("Tasks"), icon: RiListCheck3 },
               { value: "chats", label: t("Chats"), icon: RiChat1Line },
               { value: "library", label: t("Library"), icon: RiBookShelfLine },
+              { value: "secrets", label: t("Secrets"), icon: RiKey2Line },
             ]}
             value={tab}
             onValueChange={(next) =>
@@ -199,6 +232,16 @@ export function ProjectPage({
           Match.when("tasks", () => ({ view: tasksView })),
           Match.when("chats", () => ({ view: <ProjectChats projectId={project.id} /> })),
           Match.when("library", () => ({ view: <ProjectLibrary projectId={project.id} /> })),
+          Match.when("secrets", () => ({
+            view: (
+              <ProjectSecrets
+                environmentId={environmentId}
+                projectId={project.id}
+                adding={addingSecret}
+                onAddingChange={setAddingSecret}
+              />
+            ),
+          })),
           Match.orElse(() => ({})),
         )}
         title={project.title}
@@ -224,6 +267,7 @@ export function ProjectPage({
                 variant="ghost"
                 value={status}
                 onChange={(next) => update({ status: next })}
+                picker={picker("status")}
               />
             </DetailsRow>
             <DetailsRow label={t("Owner")}>
@@ -232,6 +276,7 @@ export function ProjectPage({
                 value={project.owner ?? null}
                 onChange={(owner) => update({ owner })}
                 participants={participants}
+                picker={picker("owner")}
               />
             </DetailsRow>
             <DetailsRow label={t("Open tasks")}>

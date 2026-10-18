@@ -3,7 +3,7 @@ import { RiAddLine, RiCloseLine, RiLink } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 import * as Match from "effect/Match";
 import * as Schema from "effect/Schema";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useState, type ReactNode } from "react";
 
 import { useLocalStorage } from "../../hooks/use-local-storage";
 import { useCachedTasks } from "../../state/tasks";
@@ -11,7 +11,8 @@ import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import ChatMarkdown from "../chat-markdown";
 import { CONTENT_ROW_CLASS } from "../content-row";
-import { DetailsAside } from "../details-aside";
+import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../../right-panel-layout";
+import { DetailsAside, detailsGroupStorageKey, type PickerOpenState } from "../details-aside";
 import { SETTINGS_SECTION_TITLE_CLASS } from "../settings/settings-layout";
 import { PickerList, handlePickerKey, type PickerItem } from "../picker-list";
 import { RichTextEditor } from "../rich-text-editor";
@@ -46,7 +47,7 @@ export function WorkDetailPage({
   sections,
   aside,
 }: {
-  readonly type: "task" | "project" | "routine";
+  readonly type: WorkDetailType;
   /** The way back to the list the page belongs to. */
   readonly back?: { readonly label: string; readonly onBack: () => void };
   readonly actions?: ReactNode;
@@ -72,7 +73,7 @@ export function WorkDetailPage({
   useDesktopTabTitle(title);
 
   const [detailsOpen, setDetailsOpen] = useLocalStorage(
-    `otto:${type}-details-open`,
+    detailsOpenStorageKey(type),
     true,
     Schema.Boolean,
   );
@@ -163,6 +164,53 @@ export function WorkDetailPage({
       </DetailsAside>
     </>
   );
+}
+
+type WorkDetailType = "task" | "project" | "routine";
+
+function detailsOpenStorageKey(type: WorkDetailType): string {
+  return `otto:${type}-details-open`;
+}
+
+/**
+ * Otto: A work page's property pickers, opened by their keys as if clicked. Opening one first opens
+ * the details panel and the group holding it when either is closed. Below the inline breakpoint
+ * the details are a sheet, so the keys leave them alone there.
+ */
+export function useWorkPickers<T extends string>(type: WorkDetailType, groupId?: string) {
+  const [openPicker, setOpenPicker] = useState<T | null>(null);
+  const [openedByKey, setOpenedByKey] = useState(false);
+  const [, setDetailsOpen] = useLocalStorage(detailsOpenStorageKey(type), true, Schema.Boolean);
+
+  const [, setGroupOpen] = useLocalStorage(
+    detailsGroupStorageKey(groupId ?? ""),
+    true,
+    Schema.Boolean,
+  );
+
+  const open = useCallback(
+    (picker: T) => {
+      if (window.matchMedia(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY).matches) return;
+      setDetailsOpen(true);
+
+      if (groupId !== undefined) setGroupOpen(true);
+
+      setOpenedByKey(true);
+      setOpenPicker(picker);
+    },
+    [groupId, setDetailsOpen, setGroupOpen],
+  );
+
+  const props = (picker: T): PickerOpenState => ({
+    open: openPicker === picker,
+    onOpenChange: (next) => {
+      if (next) setOpenedByKey(false);
+      setOpenPicker(next ? picker : null);
+    },
+    finalFocus: !openedByKey,
+  });
+
+  return { open, props };
 }
 
 const WORK_TITLE_CLASS =

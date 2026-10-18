@@ -23,6 +23,7 @@ import { createWsServerStatusHandlers } from "./ws-server-status-handlers.ts";
 import { createWsWorkspaceHandlers } from "./ws-workspace-handlers.ts";
 import { createWsActivityHandlers } from "./ws-activity-handlers.ts";
 import { createWsLibraryHandlers } from "./ws-library-handlers.ts";
+import { createWsSecretsHandlers } from "./ws-secrets-handlers.ts";
 import { type ProviderSubscribeRefreshes, readClientConnectionOrigin } from "./ws-support.ts";
 
 export {
@@ -58,6 +59,7 @@ const createWsRpcLayer = (
         ...createWsWorkspaceHandlers(connection),
         ...createWsActivityHandlers(connection),
         ...createWsLibraryHandlers(connection),
+        ...createWsSecretsHandlers(connection),
       };
     }),
   );

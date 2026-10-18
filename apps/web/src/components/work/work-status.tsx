@@ -11,6 +11,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ComposerSelectControl } from "../chat/composer-control";
 import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
+import type { PickerOpenState } from "../details-aside";
 import { PageActionMenuItem } from "../page-action-menu-item";
 import { StatusIcon } from "../status-icon";
 import { WORK_STATUS_CHOICES } from "./work.logic";
@@ -69,12 +70,14 @@ export function WorkStatusSelect({
   onChange,
   className,
   variant,
+  picker,
 }: {
   readonly value: WorkStatus;
   readonly onChange: (status: WorkStatus) => void;
   readonly className?: string;
   /** `ghost` is the quiet property row on a task page; `composer` a composer control. */
   readonly variant?: "ghost" | "composer";
+  readonly picker?: PickerOpenState;
 }) {
   const { t } = useI18n();
   const label = useWorkStatusLabel();
@@ -86,6 +89,8 @@ export function WorkStatusSelect({
       onValueChange={(next) => {
         if (isWorkStatus(next)) onChange(next);
       }}
+      open={picker?.open}
+      onOpenChange={picker?.onOpenChange}
     >
       <Trigger
         size="sm"
@@ -100,7 +105,7 @@ export function WorkStatusSelect({
           </span>
         </SelectValue>
       </Trigger>
-      <SelectPopup alignItemWithTrigger={false}>
+      <SelectPopup alignItemWithTrigger={false} finalFocus={picker?.finalFocus}>
         {WORK_STATUS_CHOICES.map((status) => (
           <SelectItem key={status} hideIndicator value={status}>
             <span className="flex items-center gap-2">
@@ -114,6 +119,8 @@ export function WorkStatusSelect({
   );
 }
 
+const NO_PROPERTIES: ReadonlyArray<PageAction> = [];
+
 /**
  * A task or project page's More actions menu: New task on a project, Copy link and Copy ID, then
  * Archive. The same entries are the page's command palette group and its keys. Archiving lives
@@ -126,6 +133,7 @@ export function WorkMoreActions({
   status,
   onStatusChange,
   onNewTask,
+  properties = NO_PROPERTIES,
 }: {
   /** The palette group title, such as This task. */
   readonly label: string;
@@ -134,9 +142,12 @@ export function WorkMoreActions({
   readonly status: WorkStatus;
   readonly onStatusChange: (status: WorkStatus) => void;
   readonly onNewTask?: () => void;
+  /** The page's property keys, which open its pickers; they join the palette, not this menu. */
+  readonly properties?: ReadonlyArray<PageAction>;
 }) {
   const { t } = useI18n();
   const copy = useCopyPageActions(path, id);
+  const archive = useArchiveAction(status, onStatusChange);
 
   const newTask = useMemo(
     (): PageAction | null =>
@@ -153,31 +164,9 @@ export function WorkMoreActions({
     [onNewTask, t],
   );
 
-  const archive = useMemo(
-    (): PageAction =>
-      status === "archived"
-        ? {
-            id: "unarchive",
-            title: t("Unarchive"),
-            icon: RiInboxUnarchiveLine,
-            searchTerms: ["unarchive", "restore"],
-            shortcutCommand: "item.archive",
-            run: () => onStatusChange("pending"),
-          }
-        : {
-            id: "archive",
-            title: t("Archive"),
-            icon: RiArchiveLine,
-            searchTerms: ["archive", "hide"],
-            shortcutCommand: "item.archive",
-            run: () => onStatusChange("archived"),
-          },
-    [onStatusChange, status, t],
-  );
-
   const actions = useMemo(
-    () => [...(newTask ? [newTask] : []), copy.link, copy.id, archive],
-    [archive, copy, newTask],
+    () => [...(newTask ? [newTask] : []), ...properties, copy.link, copy.id, archive],
+    [archive, copy, newTask, properties],
   );
 
   usePageActions(label, actions);
@@ -211,4 +200,66 @@ export function WorkMoreActions({
       </MenuPopup>
     </Menu>
   );
+}
+
+/** Archive, or Unarchive back to Pending, under E. */
+function useArchiveAction(
+  status: WorkStatus,
+  onStatusChange: (status: WorkStatus) => void,
+): PageAction {
+  const { t } = useI18n();
+
+  return useMemo(
+    (): PageAction =>
+      status === "archived"
+        ? {
+            id: "unarchive",
+            title: t("Unarchive"),
+            icon: RiInboxUnarchiveLine,
+            searchTerms: ["unarchive", "restore"],
+            shortcutCommand: "item.archive",
+            run: () => onStatusChange("pending"),
+          }
+        : {
+            id: "archive",
+            title: t("Archive"),
+            icon: RiArchiveLine,
+            searchTerms: ["archive", "hide"],
+            shortcutCommand: "item.archive",
+            run: () => onStatusChange("archived"),
+          },
+    [onStatusChange, status, t],
+  );
+}
+
+/**
+ * Otto: The item keys of the task or project row J and K hold on Tasks or Projects: Copy link,
+ * Copy ID and Archive, joined to the index page's own actions while the row is held.
+ */
+export function WorkRowActions({
+  label,
+  path,
+  id,
+  status,
+  onStatusChange,
+  pageActions,
+}: {
+  readonly label: string;
+  readonly path: string;
+  readonly id: string;
+  readonly status: WorkStatus;
+  readonly onStatusChange: (status: WorkStatus) => void;
+  readonly pageActions: ReadonlyArray<PageAction>;
+}) {
+  const copy = useCopyPageActions(path, id);
+  const archive = useArchiveAction(status, onStatusChange);
+
+  const actions = useMemo(
+    () => [...pageActions, copy.link, copy.id, archive],
+    [archive, copy, pageActions],
+  );
+
+  usePageActions(label, actions);
+
+  return null;
 }

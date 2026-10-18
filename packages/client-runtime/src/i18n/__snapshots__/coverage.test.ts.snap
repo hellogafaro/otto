@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1750,
+  "directMessageCount": 1770,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -134,6 +134,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/settings/use-settings-restore.ts": [
       "label)).join(", "),",
+    ],
+    "apps/web/src/routes/__root.tsx": [
+      "resolvePageLabel(pathname)),",
     ],
     "packages/client-runtime/src/bot-inbox.ts": [
       "MEMORY_APPROVAL_ACTIONS[approval.scope]),",
@@ -331,6 +334,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/chat/reply-playback-controls.tsx",
     "apps/web/src/components/chat/reply-reference.tsx",
     "apps/web/src/components/chat/response-loading-state.tsx",
+    "apps/web/src/components/chat/secret-request-card.tsx",
     "apps/web/src/components/chat/sent-message-text.tsx",
     "apps/web/src/components/chat/settings-link-chip.tsx",
     "apps/web/src/components/chat/thread-error-card.tsx",
@@ -497,6 +501,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/work/project-cover.tsx",
     "apps/web/src/components/work/project-library.tsx",
     "apps/web/src/components/work/project-page.tsx",
+    "apps/web/src/components/work/project-secrets.tsx",
     "apps/web/src/components/work/task-due-date.tsx",
     "apps/web/src/components/work/task-page.tsx",
     "apps/web/src/components/work/task-repeat.tsx",

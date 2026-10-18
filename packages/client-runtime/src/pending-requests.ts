@@ -5,6 +5,7 @@ import {
   type OrchestrationThreadActivity,
   ProviderApprovalOption,
   ProviderRequestKind,
+  SecretRequestField,
   type TurnId,
   UserInputQuestion,
 } from "@otto/contracts";
@@ -47,6 +48,8 @@ const isRequestId = Schema.is(ApprovalRequestId);
 const isProviderRequestKind = Schema.is(ProviderRequestKind);
 
 const isProviderApprovalOption = Schema.is(ProviderApprovalOption);
+
+const isSecretRequestField = Schema.is(SecretRequestField);
 
 /** Older activities use native request types instead of a request kind. */
 function requestKindFromNativeType(requestType: string): ProviderRequestKind | null {
@@ -99,12 +102,18 @@ function parseQuestionArray(value: ReadonlyArray<Schema.Unknown["Type"]>): UserI
     });
 
     if (question.options.length > 0 && options.length === 0) continue;
+
+    const secrets = Array.isArray(question.secrets)
+      ? question.secrets.filter(isSecretRequestField)
+      : [];
+
     parsed.push({
       id: question.id,
       header: question.header,
       question: question.question,
       options,
       multiSelect: question.multiSelect === true,
+      ...(secrets.length > 0 ? { secrets } : {}),
     });
   }
 

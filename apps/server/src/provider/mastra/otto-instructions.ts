@@ -124,6 +124,7 @@ export function withOttoPrompt(
   requestContext: RequestContext,
   chats: OttoChatContexts,
   now: () => DateTime.DateTime = DateTime.nowUnsafe,
+  secretNames?: (threadId: string) => Promise<ReadonlyArray<string>>,
 ): MastraModelConfig {
   if (!isV3Model(model)) return model;
 
@@ -140,6 +141,15 @@ export function withOttoPrompt(
   const maxOutputTokens = replyTokenLimit(controllerModelId(requestContext));
 
   const transform = async (params: OttoCallOptions): Promise<OttoCallOptions> => {
+    const toolNames = (params.tools ?? []).map((tool) => tool.name);
+    const threadId = controllerResourceId(requestContext);
+
+    // Otto: names only, so the model uses saved secrets and asks only for missing ones.
+    const secrets =
+      secretNames && threadId && toolNames.includes("shell")
+        ? [...(await secretNames(threadId).catch(() => []))].sort()
+        : [];
+
     const instructions = createOttoInstructions({
       name: botConversation ? stateText(requestContext, "botName") : "Otto",
       ...(botConversation && stateText(requestContext, "botId")
@@ -149,7 +159,7 @@ export function withOttoPrompt(
         : {}),
       workspaceName: stateText(requestContext, "workspaceName"),
       instructions: botConversation ? stateText(requestContext, "botInstructions") : "",
-      tools: (params.tools ?? []).map((tool) => tool.name),
+      tools: toolNames,
       skills: stateText(requestContext, "skillsContext"),
       mcpInstructions: stateText(requestContext, "mcpInstructions"),
     });
@@ -158,6 +168,10 @@ export function withOttoPrompt(
       workspace: stateText(requestContext, "workspaceContext"),
       project: botConversation ? stateText(requestContext, "projectContext") : "",
       chat: botConversation ? stateText(requestContext, "groupContext") : "",
+      secrets:
+        secrets.length > 0
+          ? `Environment variables in every shell command: ${secrets.join(", ")}`
+          : "",
       memory: stateText(requestContext, "persistentMemoryContext"),
     };
 
@@ -170,7 +184,6 @@ export function withOttoPrompt(
     );
 
     const history = prompt.filter((message) => message.role !== "system");
-    const threadId = controllerResourceId(requestContext);
     const botId = botConversation ? stateText(requestContext, "botId") : "";
 
     // Mastra stamps each loaded message's provider options with a fresh createdAt.
