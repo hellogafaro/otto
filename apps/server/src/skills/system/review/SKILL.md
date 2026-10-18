@@ -8,7 +8,7 @@ description: Use when heavy or long work is drafted (code, a document, research,
 - Run the checks yourself when you can and say what you ran. When unsure, say what to check instead of calling it wrong.
 - Write each finding with its location, what is wrong, why it matters and a concrete fix, marked blocking, should fix or nit.
 - Your own work: fix your findings, then verify again what the fixes touched before you deliver.
-- Someone else's work: give it back to them as findings. Never approve or merge it.
+- Someone else's work: give it back to them as findings. Formal approval or merging is a separate action governed by the shared authorization rule; a review request alone does not authorize either.
 - Not for testing that a result works (verify) or for a recap (summarize).
 
 Answer review feedback

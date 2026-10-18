@@ -138,7 +138,13 @@ describe("AgentControllerLive", () => {
 
       return provideRoutineController(
         Effect.gen(function* () {
-          const { controller, toolCall, requestId } = yield* openRoutineReview(mastra, events);
+          const { controller, toolCall, requestId } = yield* openRoutineReview(
+            mastra,
+            events,
+            "UTC",
+            "auto",
+          );
+
           mastra.emit({
             type: "tool_approval_required",
             toolCallId: "restart-tool-1",

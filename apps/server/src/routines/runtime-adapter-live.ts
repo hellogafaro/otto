@@ -41,7 +41,7 @@ import {
 } from "./types.ts";
 
 const routineTask = (procedure: string) =>
-  `Run the approved routine procedure below once. Do not create, update, enable, pause, or delete a routine or schedule.\n\n${procedure}`;
+  `Run the approved routine procedure below once. Explicit authorization in this procedure applies to this run within its stated scope and conditions; do not ask again for actions it already authorizes. Do not expand that authority or create, update, enable, pause, or delete a routine or schedule.\n\n${procedure}`;
 
 export const findBlockingDependencyIncident = (
   incidents: ReadonlyArray<BotInboxItem>,
