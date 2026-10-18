@@ -15,7 +15,7 @@ import {
 import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 
-const MODES = ["target", "per-run", "single"] as const satisfies readonly RoutineThreadMode[];
+const MODES = ["target", "single", "per-run"] as const satisfies readonly RoutineThreadMode[];
 
 const MODE_ICONS = {
   target: RiChat3Line,
@@ -36,15 +36,15 @@ function useModeLabel() {
 
   return (mode: RoutineThreadMode) =>
     ({
-      target: t("Same chat"),
+      target: t("Original chat"),
       "per-run": t("New chat every run"),
-      single: t("New single chat"),
+      single: t("One new chat"),
     })[mode];
 }
 
 /**
- * Otto: Where a routine posts: Same chat (every run in the routine's own chat), New chat
- * every run, or New single chat (one new chat that every run posts in). A quiet select on
+ * Otto: Where a routine posts: Original chat (the chat it was set up in), One new chat
+ * (made on the first run, then reused) or New chat every run. A quiet select on
  * the routine page.
  */
 export function RoutineChatSelect({

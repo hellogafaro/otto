@@ -94,8 +94,8 @@ export const rosterCatalog = {
   "Add a project before you message a bot.": "请先添加项目，再给机器人发消息。",
   "Could not delete routine": "无法删除例行任务",
   "New chat every run": "每次运行新建聊天",
-  "Same chat": "同一个聊天",
-  "New single chat": "新建一个专用聊天",
+  "Original chat": "原来的聊天",
+  "One new chat": "一个新聊天",
   "Routine title": "例行任务标题",
   "Set up a routine called \u201c{title}\u201d: {prompt}":
     "设置一个名为\u201c{title}\u201d的例行任务：{prompt}",
