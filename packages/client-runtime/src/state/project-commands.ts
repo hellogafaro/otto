@@ -58,6 +58,11 @@ export function createProjectEnvironmentAtoms<R, E>(
   };
 
   return {
+    /** One page of the bounded project list; the Projects page asks for each page as it scrolls. */
+    list: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:projects:list",
+      tag: WS_METHODS.projectsList,
+    }),
     searchEntries: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:projects:search-entries",
       tag: WS_METHODS.projectsSearchEntries,

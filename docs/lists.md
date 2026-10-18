@@ -4,7 +4,7 @@ The Tasks, Projects, Routines and Library pages read their rows from the server 
 
 ## Contract
 
-- A list is one typed RPC per domain, named `<domain>.list` (`tasks.list`). There is no generic filter language, search domain or unified list endpoint.
+- A list is one typed RPC per domain, named `<domain>.list` (`tasks.list`, `projects.list`). There is no generic filter language, search domain or unified list endpoint.
 - The query is a strict schema: that domain's own filters, a `sort` from its allowlist, an `order` (`asc` or `desc`, defaulting to the sort's natural order), an optional `limit` and an optional `cursor`. Unknown or malformed fields are rejected, never ignored on the server.
 - A page holds at most 100 rows (`LIST_LIMIT_MAX`), and 100 when no limit is asked.
 - The server filters and orders in SQL before the limit. Every sort ends with the row id, so each row has exactly one place and paging is stable.
@@ -16,6 +16,10 @@ The Tasks, Projects, Routines and Library pages read their rows from the server 
 
 `tasks.list` filters by `project`, `owner` and `assignee` (participant keys, `bot:<id>` or `person:<id>`), `status` (any of a comma list; none means everything but archived) and an inclusive `dueFrom`/`dueTo` range (undated tasks never match a bound). It sorts by `status` (moving work first, latest change first within it), `due` (undated last in either order), `updated`, `created` or `title`. Every workspace member reads every task, so no per-row visibility applies. Rows omit timesheets; a task page reads its own.
 
+## Projects
+
+`projects.list` filters by `owner` (a participant key) and `status` (any of a comma list; none means everything but archived, and a project saved before statuses existed counts as in progress). It sorts by `updated` (the default), `created` or `title`. It never lists deleted projects or the General project. Every workspace member reads every project, so no per-row visibility applies. Rows carry what the Projects cards show: title, owner, status, cover and timestamps.
+
 ## Clients
 
-The web page keeps the filter and sort in the URL, renders a virtualized table and asks for the next page when the reader nears the end. When anything in the list changes it reloads the pages already shown, in place, so the reader keeps their position.
+The web page keeps the filter and sort in the URL, renders a virtualized table (or, for Projects, its card gallery with the pages loaded so far) and asks for the next page when the reader nears the end. When anything in the list changes it reloads the pages already shown, in place, so the reader keeps their position.

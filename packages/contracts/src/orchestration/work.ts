@@ -364,6 +364,39 @@ export const ProjectListFilter = Schema.Struct({
 
 export type ProjectListFilter = typeof ProjectListFilter.Type;
 
+/** How the project list is ordered: by last change, creation or title. */
+export const PROJECT_LIST_SORTS = ["updated", "created", "title"] as const;
+
+export const ProjectListSort = Schema.Literals(PROJECT_LIST_SORTS);
+
+export type ProjectListSort = typeof ProjectListSort.Type;
+
+/** The filter and order the Projects page keeps in its URL. */
+export const ProjectListView = Schema.Struct({
+  ...ProjectListFilter.fields,
+  sort: Schema.optional(ProjectListSort),
+  order: Schema.optional(ListOrder),
+});
+
+export type ProjectListView = typeof ProjectListView.Type;
+
+export const ProjectListQuery = Schema.Struct({
+  ...ProjectListView.fields,
+  limit: Schema.optional(ListLimit),
+  cursor: Schema.optional(ListCursor),
+});
+
+export type ProjectListQuery = typeof ProjectListQuery.Type;
+
+export class ProjectListError extends Schema.TaggedErrorClass<ProjectListError>()(
+  "ProjectListError",
+  { detail: Schema.String },
+) {
+  override get message(): string {
+    return this.detail;
+  }
+}
+
 function matchesStatuses(status: WorkStatus, statuses: ReadonlyArray<WorkStatus> | undefined) {
   return statuses === undefined || statuses.length === 0
     ? status !== "archived"
