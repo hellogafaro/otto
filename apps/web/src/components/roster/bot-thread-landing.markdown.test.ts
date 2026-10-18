@@ -167,5 +167,7 @@ describe("BotThreadLanding message formatting", () => {
     // built-in theme; the saturated destructive color does not in dark mode.
     expect(receiptRow).toContain("truncate text-destructive-foreground");
     expect(receiptRow).not.toMatch(/text-destructive(?!-foreground)/);
+    // The receipt shares the bot's column: past the 28px avatar and its 12px gap.
+    expect(receiptRow).toContain('className="w-full py-1 pl-10" data-testid="routine-receipt"');
   });
 });
