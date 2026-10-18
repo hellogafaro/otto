@@ -323,6 +323,7 @@ export const openRoutineReview = (
   mastra: ReturnType<typeof mastraHarnessFixture>,
   events: Array<ProviderRuntimeEvent>,
   timezone: string | null = "UTC",
+  runtimeMode: "auto" | "full-access" = "full-access",
 ) =>
   Effect.gen(function* () {
     const controller = yield* AgentController;
@@ -332,7 +333,7 @@ export const openRoutineReview = (
       provider: ProviderDriverKind.make("codex"),
       providerInstanceId: codexInstanceId,
       modelSelection: codexSelection,
-      runtimeMode: "full-access",
+      runtimeMode,
     });
     const opened = yield* Deferred.make<string>();
     const nextOpened = yield* Deferred.make<string>();

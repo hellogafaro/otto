@@ -28,6 +28,7 @@ import {
 } from "../persistence/services/projection-bots.ts";
 import { ProjectionMcpServerRepository } from "../persistence/services/projection-mcp-servers.ts";
 import { AgentController } from "../provider/services/agent-controller.ts";
+import type { OttoDelegationDispatch } from "../provider/otto-delegation-runtime.ts";
 import { ProviderRegistry } from "../provider/services/provider-registry.ts";
 import { BotUsageLedger } from "../usage/bot-usage-ledger.ts";
 import { RoutineRuntimeAdapterLive } from "./runtime-adapter-live.ts";
@@ -116,6 +117,7 @@ const makeLayer = (options: {
   readonly startFailure?: boolean;
   readonly usageRecordFailure?: boolean;
   readonly commands: Array<OrchestrationCommand>;
+  readonly delegations?: Array<OttoDelegationDispatch>;
 }) =>
   RoutineRuntimeAdapterLive.pipe(
     Layer.provide(
@@ -170,11 +172,14 @@ const makeLayer = (options: {
               : Effect.void,
         } as never),
         Layer.succeed(AgentController, {
-          dispatchDelegation: () =>
-            Effect.succeed({
+          dispatchDelegation: (input: OttoDelegationDispatch) => {
+            options.delegations?.push(input);
+
+            return Effect.succeed({
               delegationId: DelegationId.make("delegation-scheduled"),
               childThreadId: helperThreadId,
-            }),
+            });
+          },
         } as never),
         ServerConfig.layerTest(process.cwd(), { prefix: "otto-routine-adapter-test-" }),
       ).pipe(Layer.provideMerge(NodeServices.layer)),
@@ -313,6 +318,69 @@ it.effect("starts a new chat with the bot for a per-run routine", () => {
     assert.isFalse(yield* adapter.isTargetBusy(value));
   }).pipe(Effect.provide(makeLayer({ bots: [bot("bot-owner", "Ada", "codex")], commands })));
 });
+
+for (const approvalPolicy of [
+  "approval-required",
+  "auto-accept-edits",
+  "auto",
+  "full-access",
+] as const) {
+  for (const threadMode of ["target", "per-run"] as const) {
+    it.effect(`preserves ${approvalPolicy} authorization in a ${threadMode} scheduled turn`, () => {
+      const commands: Array<OrchestrationCommand> = [];
+
+      const procedure =
+        "Fix bugs in owner/repo, push branches, and merge after checks pass. Do not deploy.";
+
+      const value = routine({ approvalPolicy, threadMode, procedure, delegateToBotId: null });
+
+      return Effect.gen(function* () {
+        const adapter = yield* RoutineRuntimeAdapter;
+        yield* adapter.dispatchTurn(value, { ...run, trigger: "scheduled", scheduledFor: NOW });
+        const turn = commands.find((command) => command.type === "thread.turn.start");
+        assert.isDefined(turn);
+        assert.equal(turn?.runtimeMode, approvalPolicy);
+        assert.isTrue(turn?.message.text.endsWith(procedure));
+        const create = commands.find((command) => command.type === "thread.create");
+
+        if (threadMode === "per-run") assert.equal(create?.runtimeMode, approvalPolicy);
+        else assert.isUndefined(create);
+      }).pipe(Effect.provide(makeLayer({ bots: [bot("bot-owner", "Ada", "codex")], commands })));
+    });
+  }
+
+  it.effect(`preserves ${approvalPolicy} authorization when delegating a scheduled run`, () => {
+    const commands: Array<OrchestrationCommand> = [];
+    const delegations: Array<OttoDelegationDispatch> = [];
+
+    const procedure =
+      "Fix bugs in owner/repo, push branches, and merge after checks pass. Do not deploy.";
+
+    return Effect.gen(function* () {
+      const adapter = yield* RoutineRuntimeAdapter;
+      yield* adapter.dispatchTurn(routine({ approvalPolicy, procedure }), {
+        ...run,
+        trigger: "scheduled",
+        scheduledFor: NOW,
+      });
+      assert.equal(delegations.length, 1);
+      const delegation = delegations[0];
+
+      if (!delegation || !("runtimeMode" in delegation))
+        throw new Error("Expected scheduled work.");
+      assert.equal(delegation.runtimeMode, approvalPolicy);
+      assert.isTrue(delegation.task.endsWith(procedure));
+    }).pipe(
+      Effect.provide(
+        makeLayer({
+          bots: [bot("bot-owner", "Ada", "codex"), bot("bot-helper", "Helper", "codex")],
+          commands,
+          delegations,
+        }),
+      ),
+    );
+  });
+}
 
 it.effect("blocks a routine whose helper bot cannot take bot work", () =>
   Effect.gen(function* () {

@@ -363,7 +363,7 @@ describe("ComposioService", () => {
     }),
   );
 
-  it.effect("never gives bots GitHub's merge or raw GraphQL tools", () =>
+  it.effect("leaves GitHub tools available under the runtime approval policy", () =>
     Effect.gen(function* () {
       const { store } = makeSecretStore();
 
@@ -378,10 +378,13 @@ describe("ComposioService", () => {
       expect(createSession).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          tools: {
-            github: { disable: ["GITHUB_MERGE_A_PULL_REQUEST", "GITHUB_RUN_GRAPH_QL_QUERY"] },
-          },
+          connectedAccounts: { github: ["github-work"] },
+          manageConnections: false,
         }),
+      );
+      expect(createSession).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.not.objectContaining({ tools: expect.anything() }),
       );
     }),
   );

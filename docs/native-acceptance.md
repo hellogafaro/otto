@@ -102,3 +102,27 @@ The scoped manifests exclude this matrix, private mail, credentials, browser sto
 
 - Source manifest SHA-256: `de25a191e97b7d269e2864ef19b940ea6cb7ac5693e5eace20e872ec3fd2ec42` (131 scoped paths).
 - Evidence manifest SHA-256: `392ba15beffc7ea4dbc4022547824a3a40beb8eb6eb766756a1a25b2e0825d4d` (29 artifacts).
+
+## Explicit Git and routine authorization hotfix — 2026-10-18
+
+Local main over `f724f247c8d57070712d732178f3a925574b6d46`. The scoped source manifest covers
+17 files and excludes this matrix and the pre-existing desktop generated-style edit. Evidence stays
+local in `~/.capy/work/merge-authorization-hotfix/`.
+
+| Operation                                             | Result                          | Evidence                                                                                                                                                                                                                                           |
+| ----------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Explicit Git authorization and unattended Full access | Passed, controlled fixtures     | Shell pushes, native PR/stack merge calls, GitHub MCP/GraphQL and Composio batches run without prompts in Full access. Restricted modes ask and proceed after explicit acceptance. Proposal prompts remain.                                        |
+| Approved routine propagation                          | Passed, controlled fixtures     | Creation preserves instructions and the originating mode; scheduled target-chat, per-run-chat and helper execution preserve them. Saved restricted routines are not upgraded.                                                                      |
+| Regression checks                                     | Passed                          | Focused suite: 129 tests in 14 files. Complete controller suite: 160 tests in 25 files. These overlap: 267 distinct tests across 35 files. Final explicit-approval matrix rerun passes 4/4. Server types, scoped lint/format and diff checks pass. |
+| Independent code review                               | Passed with verification limits | A separate read-only reviewer found no production blocker. Three old full-access approval fixtures were moved to Auto with all assertions retained; the complete controller rerun passed.                                                          |
+| Bun test runner                                       | Failed; native runner passed    | Installed Bun 1.3.3 could not load the Zod export through Vitest. Tests used the repository-native Node 24/Vite+ runner; dependencies were not changed.                                                                                            |
+| Live GitHub/model/MCP and actual-app acceptance       | Unverified                      | No live merges, pushes or model-policy qualification; no independent authenticated app/reload acceptance. Prompt scope is not a technical security boundary. GitHub access and branch protections remain external enforcement.                     |
+
+The shared rule accepts prior explicit task/routine authorization instead of categorical merge
+bans. Full access now removes ordinary runtime prompts, not the requirement to follow the person's
+scope and conditions. Bot-instruction and skill proposals, routine creation and routine-edit
+confirmation remain human-controlled. No remote push, deployment, production build, saved-data
+mutation or live-app restart occurred.
+
+- Source manifest SHA-256: `dea6bbe55f590df5920239887b3236f7cd792a89c4789c7720328803bc0c3ec5`.
+- Evidence manifest SHA-256: `35d287c1b16a7ab54230f85ba01841265b658d6f9c90c2888aef9aa4721a15b2`.
