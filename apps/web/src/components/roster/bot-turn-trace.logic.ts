@@ -64,6 +64,8 @@ export type BotTraceStep =
       readonly failed: boolean;
       /** A command and the start of its output, shown as a small terminal block. */
       readonly terminal: string | null;
+      /** Still running in the live trace, labeled in the present tense ("Reading files"). */
+      readonly running: boolean;
     }
   | { readonly kind: "thought"; readonly id: string; readonly durationMs: number };
 
@@ -103,6 +105,65 @@ function readableDetail(detail: string) {
   }
 }
 
+const isToolActivity = (activity: OrchestrationThreadActivity) =>
+  activity.kind === "tool.started" || activity.kind === "tool.completed";
+
+/**
+ * One turn's tool calls in order with what they worked on, and the thinking before each, from
+ * `startAt`. In a live trace a call that has not finished yet keeps its present-tense label.
+ */
+function traceSteps(
+  turnActivities: ReadonlyArray<OrchestrationThreadActivity>,
+  startAt: number,
+  live: boolean,
+) {
+  const completedById = new Map<string, OrchestrationThreadActivity>();
+
+  for (const activity of turnActivities) {
+    if (activity.kind === "tool.completed") completedById.set(toolCallId(activity), activity);
+  }
+
+  const steps: BotTraceStep[] = [];
+  let cursor = startAt;
+
+  const thought = (until: number, id: string) => {
+    if (until - cursor >= THOUGHT_MIN_MS) {
+      steps.push({ kind: "thought", id: `thought:${id}`, durationMs: until - cursor });
+    }
+  };
+
+  for (const activity of turnActivities) {
+    if (activity.kind !== "tool.started" || TASK_LIST_TOOLS.has(toolName(activity))) continue;
+    const id = toolCallId(activity);
+    const completed = completedById.get(id);
+    const at = Date.parse(activity.createdAt);
+    const doneAt = completed ? Date.parse(completed.createdAt) : null;
+    const running = live && !completed;
+    const current = botToolActivity(activity);
+    const call = toolPayload(activity)?.data;
+    const done = toolPayload(completed);
+    const command = Predicate.isString(call?.command) ? call.command : null;
+    const detail = Predicate.isString(call?.detail) ? call.detail : command;
+    const output = Predicate.isString(done?.data?.output) ? done.data.output : null;
+
+    thought(at, id);
+    steps.push({
+      kind: "tool",
+      id,
+      label: running ? current.label : (recordLookup(DONE_LABELS, current.label) ?? "Used a tool"),
+      subject: current.subject ?? null,
+      detail: detail ? readableDetail(detail) : null,
+      durationMs: doneAt === null ? null : doneAt - at,
+      failed: done?.status === "failed",
+      terminal: command ? [`$ ${command}`, output].filter(Boolean).join("\n") : null,
+      running,
+    });
+    cursor = Math.max(cursor, doneAt ?? at);
+  }
+
+  return { steps, thought };
+}
+
 /**
  * What each finished bot turn did, keyed by turn: its tool calls in order with what they worked
  * on, the thinking between them, and how long the whole turn took (from the message that opened
@@ -116,13 +177,7 @@ export function buildBotTurnTraces(
   const byTurn = new Map<string, OrchestrationThreadActivity[]>();
 
   for (const activity of activities) {
-    if (
-      !activity.turnId ||
-      (activity.kind !== "tool.started" && activity.kind !== "tool.completed")
-    ) {
-      continue;
-    }
-
+    if (!activity.turnId || !isToolActivity(activity)) continue;
     const turn = byTurn.get(activity.turnId);
 
     if (turn) turn.push(activity);
@@ -137,17 +192,9 @@ export function buildBotTurnTraces(
 
     if (message.role !== "assistant" || !message.turnId || !turnActivities || !previous) return;
 
-    const completedById = new Map(
-      turnActivities
-        .filter((activity) => activity.kind === "tool.completed")
-        .map((activity) => [toolCallId(activity), activity]),
-    );
-
-    const started = turnActivities.filter(
+    const first = turnActivities.find(
       (activity) => activity.kind === "tool.started" && !TASK_LIST_TOOLS.has(toolName(activity)),
     );
-
-    const first = started[0];
 
     if (!first) return;
     const firstAt = Date.parse(first.createdAt);
@@ -162,44 +209,28 @@ export function buildBotTurnTraces(
 
     const startAt = Date.parse(opener.createdAt);
     const endAt = Date.parse(message.createdAt);
-    const steps: BotTraceStep[] = [];
-    let cursor = startAt;
-
-    const thought = (until: number, id: string) => {
-      if (until - cursor >= THOUGHT_MIN_MS) {
-        steps.push({ kind: "thought", id: `thought:${id}`, durationMs: until - cursor });
-      }
-    };
-
-    for (const activity of started) {
-      const id = toolCallId(activity);
-      const completed = completedById.get(id);
-      const at = Date.parse(activity.createdAt);
-      const doneAt = completed ? Date.parse(completed.createdAt) : null;
-      const live = botToolActivity(activity);
-      const call = toolPayload(activity)?.data;
-      const done = toolPayload(completed);
-      const command = Predicate.isString(call?.command) ? call.command : null;
-      const detail = Predicate.isString(call?.detail) ? call.detail : command;
-      const output = Predicate.isString(done?.data?.output) ? done.data.output : null;
-
-      thought(at, id);
-      steps.push({
-        kind: "tool",
-        id,
-        label: recordLookup(DONE_LABELS, live.label) ?? "Used a tool",
-        subject: live.subject ?? null,
-        detail: detail ? readableDetail(detail) : null,
-        durationMs: doneAt === null ? null : doneAt - at,
-        failed: done?.status === "failed",
-        terminal: command ? [`$ ${command}`, output].filter(Boolean).join("\n") : null,
-      });
-      cursor = Math.max(cursor, doneAt ?? at);
-    }
+    const { steps, thought } = traceSteps(turnActivities, startAt, false);
 
     thought(endAt, "reply");
     traces.set(message.turnId, { workedMs: Math.max(0, endAt - startAt), steps });
   });
 
   return traces;
+}
+
+/**
+ * What the running turn has done so far, from when it started: finished calls in the past tense
+ * with the thinking between them, and the calls still running. The thinking after the last call
+ * is the live trace's own "Thinking" line, not a step.
+ */
+export function buildLiveTurnSteps(
+  activities: ReadonlyArray<OrchestrationThreadActivity>,
+  turnId: string,
+  startedAt: string,
+): ReadonlyArray<BotTraceStep> {
+  return traceSteps(
+    activities.filter((activity) => activity.turnId === turnId && isToolActivity(activity)),
+    Date.parse(startedAt),
+    true,
+  ).steps;
 }

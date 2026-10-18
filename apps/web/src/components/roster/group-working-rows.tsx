@@ -1,8 +1,14 @@
-import { BotId, type OrchestrationLatestTurn, type OrchestrationMessage } from "@otto/contracts";
+import {
+  BotId,
+  type EnvironmentId,
+  type OrchestrationLatestTurn,
+  type OrchestrationMessage,
+} from "@otto/contracts";
 import { useEffect, useReducer } from "react";
 
 import { BotActivityStatus } from "./bot-activity-status";
 import type { BotActivity } from "./bot-activity-status.logic";
+import type { BotTraceStep } from "./bot-turn-trace.logic";
 import { groupWorkingRows } from "./group-working-rows.logic";
 import type { Bot } from "./types";
 
@@ -27,7 +33,8 @@ export function GroupWorkingRows({
   respondingBotId,
   latestTurn,
   activity,
-  subjectName,
+  steps,
+  environmentId,
   working,
   showCurrent,
 }: {
@@ -37,7 +44,9 @@ export function GroupWorkingRows({
   readonly respondingBotId: BotId | null;
   readonly latestTurn: OrchestrationLatestTurn | null;
   readonly activity: BotActivity;
-  readonly subjectName: string | null;
+  /** What the answering bot's running turn has done so far. */
+  readonly steps: ReadonlyArray<BotTraceStep>;
+  readonly environmentId: EnvironmentId | null;
   /** A bot turn is running or being sent. */
   readonly working: boolean;
   /** False while the answering bot waits on an approval or a question shown elsewhere. */
@@ -86,7 +95,8 @@ export function GroupWorkingRows({
         // Otto: A finished turn's start would flash a stale time before the new turn lands.
         started ? (latestTurn.startedAt ?? latestTurn.requestedAt ?? null) : null
       }
-      subjectName={started ? subjectName : null}
+      steps={started ? steps : []}
+      environmentId={environmentId}
       continuesReply={last?.role === "assistant" && last.respondingBotId === bot.id}
     />
   );

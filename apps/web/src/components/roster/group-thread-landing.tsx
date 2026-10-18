@@ -27,7 +27,6 @@ import { useI18n } from "~/i18n";
 import { ProviderUnavailableLine } from "../chat/provider-unavailable-notice";
 import { ThreadErrorCard } from "../chat/thread-error-card";
 import { useOptionalVoiceCall } from "../voice/voice-call";
-import { useActivitySubjectName } from "./bot-activity-status";
 import { ChatReplyContext } from "../markdown/generative/chat-reply-context";
 import { deriveBotActivity } from "./bot-activity-status.logic";
 import { BotUserInputPrompt } from "./bot-user-input-prompt";
@@ -71,7 +70,7 @@ import { WatchComputerButton } from "./watch-computer-button";
 import { ArchivedChatBar } from "./archived-chat-bar";
 import { useChatShell } from "../../lib/archived-threads-state";
 import { useBotEngineAvailability } from "./use-bot-engine-availability";
-import { buildBotTurnTraces } from "./bot-turn-trace.logic";
+import { buildBotTurnTraces, buildLiveTurnSteps } from "./bot-turn-trace.logic";
 import { useLocalDay } from "./use-local-day";
 import { useRosterApprovals } from "./use-roster-approvals";
 import { InlineApproval } from "./inline-approval";
@@ -232,7 +231,13 @@ export function GroupThreadLanding({
     [activities, runtime.latestTurn],
   );
 
-  const activitySubjectName = useActivitySubjectName(environmentId ?? null, botActivity.subject);
+  const liveSteps = useMemo(() => {
+    const turn = runtime.latestTurn;
+
+    return turn?.state === "running"
+      ? buildLiveTurnSteps(activities, turn.turnId, turn.startedAt ?? turn.requestedAt)
+      : [];
+  }, [activities, runtime.latestTurn]);
 
   const runtimeWarning = useMemo(
     () => activeThreadRuntimeWarning(activities, runtime.latestTurn),
@@ -568,7 +573,8 @@ export function GroupThreadLanding({
               respondingBotId={runtime.respondingBotId}
               latestTurn={runtime.latestTurn}
               activity={botActivity}
-              subjectName={activitySubjectName}
+              steps={liveSteps}
+              environmentId={environmentId ?? null}
               working={working}
               showCurrent={!waitingForUserInput && !waitingForApproval}
             />
