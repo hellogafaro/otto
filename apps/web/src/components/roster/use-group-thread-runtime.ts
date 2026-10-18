@@ -20,8 +20,8 @@ import {
   useProjects,
   readEnvironmentSupportsFileAttachments,
   useThreadActivities,
-  useThreadShell,
 } from "../../state/entities";
+import { useChatShell } from "../../lib/archived-threads-state";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { primaryServerProvidersAtom } from "../../state/server";
 import { threadEnvironment } from "../../state/threads";
@@ -67,7 +67,7 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
     state.groups.find((candidate) => candidate.id === groupId),
   );
 
-  const rememberedThread = useThreadShell(threadRef);
+  const rememberedThread = useChatShell(threadRef).shell;
   const linkedThreadRef = rememberedThread ? threadRef : null;
   const titleFromFirstMessage = usePlaceholderTitle(linkedThreadRef, rememberedThread?.title);
 

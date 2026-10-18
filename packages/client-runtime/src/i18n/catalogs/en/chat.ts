@@ -86,6 +86,7 @@ export const chatCatalog = {
   "Refresh archived chats": "Refresh archived chats",
   "Unarchive {title}": "Unarchive {title}",
   Unarchive: "Unarchive",
+  "This chat is archived.": "This chat is archived.",
   "Could not load every archive": "Could not load every archive",
   "Loading archive…": "Loading archive…",
   "Chats you archive will appear here.": "Chats you archive will appear here.",
