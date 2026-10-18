@@ -378,19 +378,28 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
       if (moves) yield* requireDestination(command.folderId ?? null, false);
 
       const { occurredAt, base: eventBase } = yield* base("library-file", file.id);
+      const { share: currentShare, ...unshared } = file;
+      const share = command.share === undefined ? currentShare : (command.share ?? undefined);
+
+      const shareOnly =
+        command.share !== undefined &&
+        !moves &&
+        command.title === undefined &&
+        command.visibility === undefined &&
+        command.sizeBytes === undefined;
 
       return {
         ...eventBase,
         type: "library.file-updated",
         payload: {
           file: {
-            ...file,
+            ...unshared,
+            ...(share !== undefined ? { share } : {}),
             ...(moves ? { folderId: command.folderId ?? null } : {}),
             ...(command.title !== undefined ? { title: command.title } : {}),
             ...(command.visibility !== undefined ? { visibility: command.visibility } : {}),
             ...(command.sizeBytes !== undefined ? { sizeBytes: command.sizeBytes } : {}),
-            updatedBy: by,
-            updatedAt: occurredAt,
+            ...(shareOnly ? {} : { updatedBy: by, updatedAt: occurredAt }),
           },
         },
       };

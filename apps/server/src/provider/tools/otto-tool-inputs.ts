@@ -84,6 +84,10 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "library_update":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "library_share":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "library_unshare":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "skill_read":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "skill_create":

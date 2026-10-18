@@ -5,6 +5,17 @@ export function libraryDirectory(path: Path.Path, attachmentsDir: string): strin
   return path.join(path.dirname(attachmentsDir), "library");
 }
 
+/** The copy a public link serves, frozen when the file was shared; one per shared file. */
+export function librarySharedCopyPath(
+  path: Path.Path,
+  attachmentsDir: string,
+  fileId: string,
+): string | null {
+  return /^[A-Za-z0-9-]{1,100}$/.test(fileId)
+    ? path.join(path.dirname(attachmentsDir), "library-shares", fileId)
+    : null;
+}
+
 /** Server-made ids only; anything else resolves to nothing. */
 export function libraryFilePath(
   path: Path.Path,

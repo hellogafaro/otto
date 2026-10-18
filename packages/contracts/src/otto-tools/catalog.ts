@@ -25,6 +25,8 @@ export const OttoToolId = Schema.Literals([
   "library_create",
   "library_read",
   "library_update",
+  "library_share",
+  "library_unshare",
   "skill_read",
   "skill_create",
   "skill_update",
@@ -258,6 +260,19 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Replace a Library document's markdown, and optionally its title. Pass the updatedAt library_read returned; " +
       "if someone changed the document since, the save is rejected, so read it again and merge. Only a document's creator can edit it.",
+  ),
+  define(
+    "library_share",
+    "bot-workspace",
+    "Publish a Library file you created at a public link anyone can open without signing in, and return the link. " +
+      "The link serves a copy frozen now; after editing the file, share it again to update that copy at the same link. " +
+      "Only share when a person asks to make the file public.",
+    { approval: "send", promptSnippet: "share a Library file at a public link" },
+  ),
+  define(
+    "library_unshare",
+    "bot-workspace",
+    "Remove a Library file's public link: its frozen copy is deleted and the link stops working.",
   ),
   define(
     "skill_read",

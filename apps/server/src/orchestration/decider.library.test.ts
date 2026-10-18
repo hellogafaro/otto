@@ -8,6 +8,7 @@ import {
   LIBRARY_SKILLS_FOLDER_ID,
   LibraryFileId,
   LibraryFolderId,
+  LibraryShareId,
   type OrchestrationCommand,
   type OrchestrationEvent,
   type OrchestrationReadModel,
@@ -251,6 +252,47 @@ it.layer(NodeServices.layer)("decider library", (it) => {
       expect(after?.sizeBytes).toBe(10);
       expect(after?.updatedAt).not.toBe(opened);
       expect(yield* rejection(saved, save(opened))).toBe("Changed by Ada, reload.");
+    }),
+  );
+
+  it.effect("records and removes a public link without touching the file's edit time", () =>
+    Effect.gen(function* () {
+      const readModel = yield* applyAll(empty, [createFile("doc", null)]);
+      const opened = readModel.libraryFiles?.[0]?.updatedAt ?? "";
+      const share = { id: LibraryShareId.make("a".repeat(22)), sharedBy: ada, sharedAt: now };
+
+      const setShare = (
+        value: typeof share | null,
+        by: WorkParticipant = ada,
+      ): OrchestrationCommand => ({
+        type: "library.file.update",
+        commandId: cmd(),
+        fileId: fileId("doc"),
+        share: value,
+        by,
+      });
+
+      const shared = yield* apply(readModel, setShare(share));
+
+      expect(shared.libraryFiles?.[0]?.share).toEqual(share);
+      expect(shared.libraryFiles?.[0]?.updatedAt).toBe(opened);
+      expect(yield* rejection(shared, setShare(null, ana))).toBe(
+        "Only the file's creator can change it.",
+      );
+
+      const renamed = yield* apply(shared, {
+        type: "library.file.update",
+        commandId: cmd(),
+        fileId: fileId("doc"),
+        title: "Renamed",
+        by: ada,
+      });
+
+      expect(renamed.libraryFiles?.[0]?.share).toEqual(share);
+
+      const unshared = yield* apply(renamed, setShare(null));
+
+      expect(unshared.libraryFiles?.[0]?.share).toBeUndefined();
     }),
   );
 
