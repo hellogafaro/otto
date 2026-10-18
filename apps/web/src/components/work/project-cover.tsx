@@ -2,13 +2,14 @@ import type { EnvironmentId, LibraryFileId, OrchestrationProjectShell } from "@o
 import { RiImageLine } from "@remixicon/react";
 import { useEffect, useRef } from "react";
 
+import { useTheme } from "../../hooks/use-theme";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useLibraryFileUrl, useLibraryUpload } from "../library/use-library";
 import { Button } from "../ui/button";
-import { coverGradient, ditherPixels } from "./work.logic";
+import { ditherPixels, grayCover } from "./work.logic";
 
 /** Device pixels per dither cell: about one and a half CSS pixels, never under two device pixels. */
 function cellSize() {
@@ -17,7 +18,7 @@ function cellSize() {
 
 /**
  * Otto: A project cover, 16:9 unless the caller sizes it: the uploaded image or a generated
- * gradient, both ordered-dithered on a canvas at one dot per cell and scaled up unsmoothed.
+ * gray card, both ordered-dithered on a canvas at one dot per cell and scaled up unsmoothed.
  */
 export function ProjectCover({
   environmentId,
@@ -28,43 +29,45 @@ export function ProjectCover({
   readonly project: Pick<OrchestrationProjectShell, "id" | "coverFileId">;
   readonly className?: string;
 }) {
+  const { resolvedTheme } = useTheme();
+
   if (project.coverFileId) {
     return (
       <UploadedCover
         environmentId={environmentId}
         fileId={project.coverFileId}
-        seed={project.id}
+        appearance={resolvedTheme}
         className={className}
       />
     );
   }
 
-  return <DitheredCover seed={project.id} imageUrl={null} className={className} />;
+  return <DitheredCover appearance={resolvedTheme} imageUrl={null} className={className} />;
 }
 
 function UploadedCover({
   environmentId,
   fileId,
-  seed,
+  appearance,
   className,
 }: {
   readonly environmentId: EnvironmentId;
   readonly fileId: LibraryFileId;
-  readonly seed: string;
+  readonly appearance: "light" | "dark";
   readonly className: string | undefined;
 }) {
   const imageUrl = useLibraryFileUrl(environmentId, fileId);
 
-  return <DitheredCover seed={seed} imageUrl={imageUrl} className={className} />;
+  return <DitheredCover appearance={appearance} imageUrl={imageUrl} className={className} />;
 }
 
-/** Draws the image, or the gradient until there is one, then dithers it whenever the size changes. */
+/** Draws the dithered image, or the gray cover until there is one, whenever the size changes. */
 function DitheredCover({
-  seed,
+  appearance,
   imageUrl,
   className,
 }: {
-  readonly seed: string;
+  readonly appearance: "light" | "dark";
   readonly imageUrl: string | null;
   readonly className: string | undefined;
 }) {
@@ -91,8 +94,7 @@ function DitheredCover({
       canvas.height = height;
 
       if (!image?.complete || image.naturalWidth === 0) {
-        const pixels = coverGradient(seed, width, height);
-        ditherPixels(pixels, width);
+        const pixels = grayCover(width, height, appearance);
         context.putImageData(new ImageData(pixels, width, height), 0, 0);
 
         return;
@@ -128,7 +130,7 @@ function DitheredCover({
       observer.disconnect();
       image?.removeEventListener("load", draw);
     };
-  }, [seed, imageUrl]);
+  }, [appearance, imageUrl]);
 
   return (
     <canvas

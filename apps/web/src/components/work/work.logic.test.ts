@@ -9,9 +9,9 @@ import {
   parseDuration,
   parseProjectSearch,
   parseTaskSearch,
-  coverGradient,
-  ditherPixels,
-  projectCover,
+  GRAY_COVER_TONES,
+  grayCover,
+  grayCoverDensity,
 } from "./work.logic";
 
 describe("duePresetRange", () => {
@@ -87,26 +87,49 @@ describe("parseProjectSearch", () => {
   });
 });
 
-describe("projectCover", () => {
-  it("is stable per seed", () => {
-    expect(projectCover("launch")).toEqual(projectCover("launch"));
-  });
-
-  it("dithers to whole brightness levels while keeping each pixel's hue", () => {
-    const pixels = ditherPixels(coverGradient("launch", 24, 16), 24);
-    const levels = new Set<number>();
+describe("grayCover", () => {
+  const tonesOf = (pixels: Uint8ClampedArray) => {
+    const tones = new Set<string>();
 
     for (let offset = 0; offset < pixels.length; offset += 4) {
-      levels.add(
-        Math.round(
-          (0.2126 * pixels[offset]! + 0.7152 * pixels[offset + 1]! + 0.0722 * pixels[offset + 2]!) /
-            (255 / 7),
-        ),
+      tones.add(
+        `${pixels[offset]},${pixels[offset + 1]},${pixels[offset + 2]},${pixels[offset + 3]}`,
       );
     }
 
-    expect(levels.size).toBeGreaterThan(1);
-    expect(levels.size).toBeLessThanOrEqual(8);
+    return tones;
+  };
+
+  it("uses only the base gray and its dot tone, per theme", () => {
+    for (const appearance of ["dark", "light"] as const) {
+      const { base, dots } = GRAY_COVER_TONES[appearance];
+
+      expect(tonesOf(grayCover(64, 36, appearance))).toEqual(
+        new Set([`${base.join(",")},255`, `${dots.join(",")},255`]),
+      );
+    }
+  });
+
+  it("puts more dots toward the lower right than the upper left", () => {
+    const width = 64;
+    const height = 36;
+    const pixels = grayCover(width, height, "dark");
+    const dot = GRAY_COVER_TONES.dark.dots[0];
+
+    const dotsIn = (x0: number, y0: number) => {
+      let count = 0;
+
+      for (let y = y0; y < y0 + height / 2; y++) {
+        for (let x = x0; x < x0 + width / 2; x++) {
+          if (pixels[(y * width + x) * 4] === dot) count++;
+        }
+      }
+
+      return count;
+    };
+
+    expect(dotsIn(width / 2, height / 2)).toBeGreaterThan(dotsIn(0, 0));
+    expect(grayCoverDensity(0.72, 0.75)).toBeGreaterThan(grayCoverDensity(0, 0));
   });
 });
 

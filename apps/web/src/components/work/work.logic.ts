@@ -101,59 +101,33 @@ export function hashSeed(seed: string): number {
 }
 
 /**
- * Otto: Generated covers are a soft gradient through three tones of one colour family; every
- * cover, generated or uploaded, is then ordered-dithered like a halftone print.
+ * Otto: A generated cover is a quiet gray card with a two-tone ordered dither that gathers
+ * toward the lower right, so it reads as texture rather than colour and photo covers stand out.
+ * Dark themes get a gray a step lighter than the page; light themes a step darker.
  */
-const COVER_PALETTES = [
-  ["#0B2E44", "#1B7FAF", "#7FD0E6"],
-  ["#15124F", "#3F4BC9", "#A9B6FF"],
-  ["#2A0C40", "#8E3592", "#F29AC4"],
-  ["#3A0E0B", "#C2432A", "#FFB06B"],
-  ["#0B2A20", "#2A8456", "#A6E09C"],
-  ["#161C2A", "#46577A", "#B5C3DD"],
-  ["#200F47", "#6538C9", "#C9A6FF"],
-  ["#351C02", "#C97C17", "#FFD585"],
-] as const;
+export const GRAY_COVER_TONES = {
+  dark: { base: [0x26, 0x26, 0x26], dots: [0x38, 0x38, 0x38] },
+  light: { base: [0xeb, 0xeb, 0xeb], dots: [0xdc, 0xdc, 0xdc] },
+} as const;
 
-/** A project's generated cover is drawn from its id, so it stays the same everywhere. */
-export function projectCover(seed: string) {
-  const hash = hashSeed(seed);
-  const pick = (salt: number, size: number) => Math.floor(hash / salt) % size;
-
-  return {
-    tones: COVER_PALETTES[hash % COVER_PALETTES.length]!,
-    angle: pick(3, 8) * 45,
-    glow: { x: 0.2 + pick(29, 7) / 10, y: 0.2 + pick(31, 7) / 10 },
-  };
+/** How densely the dots fall at u, v (0 to 1): densest near the lower right, none far from it. */
+export function grayCoverDensity(u: number, v: number) {
+  return Math.min(1, Math.max(0, 0.62 - Math.hypot(u - 0.72, v - 0.75) * 0.75));
 }
 
-/** The generated cover's RGBA pixels: a sweep along its angle, lifted by a soft glow. */
-export function coverGradient(seed: string, width: number, height: number) {
-  const { tones, angle, glow } = projectCover(seed);
-  const rgb = tones.map((tone) => [1, 3, 5].map((at) => parseInt(tone.slice(at, at + 2), 16)));
-  const radians = (angle * Math.PI) / 180;
-  const dx = Math.cos(radians);
-  const dy = Math.sin(radians);
-  const reach = Math.abs(dx) + Math.abs(dy);
+/** The generated cover's RGBA pixels, already dithered: each cell is the base tone or a dot. */
+export function grayCover(width: number, height: number, appearance: "light" | "dark") {
+  const { base, dots } = GRAY_COVER_TONES[appearance];
   const pixels = new Uint8ClampedArray(width * height * 4);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const u = x / Math.max(1, width - 1);
-      const v = y / Math.max(1, height - 1);
-      const sweep = ((u - 0.5) * dx + (v - 0.5) * dy) / reach + 0.5;
-      const lift = Math.max(0, 1 - Math.hypot(u - glow.x, (v - glow.y) * 0.5625) * 1.6);
-      const level = Math.min(1, Math.max(0, sweep * 0.75 + lift * 0.4)) * (rgb.length - 1);
-      const base = Math.min(rgb.length - 2, Math.floor(level));
-      const from = rgb[base]!;
-      const to = rgb[base + 1]!;
+      const tone = grayCoverDensity(x / width, y / height) > bayerThreshold(x, y) ? dots : base;
       const offset = (y * width + x) * 4;
 
-      for (let channel = 0; channel < 3; channel++) {
-        pixels[offset + channel] =
-          from[channel]! + (to[channel]! - from[channel]!) * (level - base);
-      }
-
+      pixels[offset] = tone[0];
+      pixels[offset + 1] = tone[1];
+      pixels[offset + 2] = tone[2];
       pixels[offset + 3] = 255;
     }
   }
