@@ -43,6 +43,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { useChatDetailsOpen } from "../roster/details-panel-open";
 import { useRosterStore } from "../roster/roster-store";
 import { resolveChatMenuState } from "./chat-actions.logic";
+import { useCanArchiveChat } from "./use-can-archive-chat";
 import {
   buildChatPaletteActions,
   type NewChatControl,
@@ -107,6 +108,7 @@ export function ChatActionsMenu({
   const threadId = threadRef?.threadId ?? "";
   const copy = useCopyPageActions(`/chats/${threadId}`, threadId);
   const [, setDetailsOpen] = useChatDetailsOpen();
+  const mayArchive = useCanArchiveChat(threadRef, groupId);
 
   const addMembers = useMemo(
     () =>
@@ -131,8 +133,9 @@ export function ChatActionsMenu({
         openSnooze,
         copy: threadRef ? copy : null,
         addMembers,
+        mayArchive,
       }),
-    [actions, addMembers, copy, newChat, openRename, openSnooze, state, t, threadRef],
+    [actions, addMembers, copy, mayArchive, newChat, openRename, openSnooze, state, t, threadRef],
   );
 
   usePageActions(t("This chat"), pageActions);
@@ -235,8 +238,12 @@ export function ChatActionsMenu({
           <MenuSeparator />
           <CopyMenuItems actions={copy} />
           <MenuSeparator />
-          {row("archive")}
-          <MenuSeparator />
+          {action("archive") ? (
+            <>
+              {row("archive")}
+              <MenuSeparator />
+            </>
+          ) : null}
           {row("delete", "destructive")}
         </MenuPopup>
       </Menu>
@@ -249,6 +256,7 @@ export function ChatActionsMenu({
       <Dialog open={renaming} onOpenChange={setRenaming}>
         <DialogPopup className="max-w-md" bottomStickOnMobile={false}>
           <form
+            className="flex min-h-0 flex-col"
             onSubmit={(event) => {
               event.preventDefault();
               const title = draftTitle.trim();
