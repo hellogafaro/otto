@@ -167,7 +167,7 @@ export function ProjectSecrets({
 
   return (
     <>
-      <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+      <ul className="mx-4 flex flex-col divide-y divide-border rounded-lg border border-border">
         {secrets.map((secret) => (
           <SecretRow
             key={`${secret.name}:${secret.updatedAt}`}
