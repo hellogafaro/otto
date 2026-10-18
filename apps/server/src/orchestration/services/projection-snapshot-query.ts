@@ -92,6 +92,11 @@ export interface ProjectionThreadDetailQuery {
   readonly activityKinds?: ReadonlyArray<string>;
 }
 
+export interface ProjectionThreadReadOptions {
+  /** Otto: Also read an archived chat; it stays out of every live list and write path. */
+  readonly includeArchived?: boolean;
+}
+
 export interface ProjectionTurnStartMessage {
   readonly message: OrchestrationMessage;
   readonly hasOtherUserMessages: boolean;
@@ -225,10 +230,13 @@ export interface ProjectionSnapshotQueryShape {
   ) => Effect.Effect<Option.Option<ProjectionFullThreadDiffContext>, ProjectionRepositoryError>;
 
   /**
-   * Read a single active thread shell row by id.
+   * Read a single active thread shell row by id. `includeArchived` also reads an
+   * archived chat, for the read-only views a person may open; writers and the
+   * live shell stream keep reading active chats only.
    */
   readonly getThreadShellById: (
     threadId: ThreadId,
+    options?: ProjectionThreadReadOptions,
   ) => Effect.Effect<Option.Option<OrchestrationThreadShell>, ProjectionRepositoryError>;
 
   /**
@@ -322,6 +330,7 @@ export interface ProjectionSnapshotQueryShape {
   readonly getThreadDetailSnapshot: (
     threadId: ThreadId,
     window?: OrchestrationThreadDetailWindow,
+    options?: ProjectionThreadReadOptions,
   ) => Effect.Effect<Option.Option<OrchestrationThreadDetailSnapshot>, ProjectionRepositoryError>;
 }
 
