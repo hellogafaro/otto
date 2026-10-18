@@ -208,7 +208,7 @@ function UpdateChannelSetting() {
   return (
     <SettingsRow
       {...searchableSetting("update-channel", t)}
-      description={t("Beta installs a new build after every change, before it reaches Stable.")}
+      description={t("Beta gets new builds before they reach Stable.")}
       control={
         <Select
           value={channel}

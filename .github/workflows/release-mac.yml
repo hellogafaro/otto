@@ -1,21 +1,11 @@
 # Otto: publishes the signed, notarized macOS arm64 app as a GitHub release of this repository.
-# Every push to main that changes more than docs releases a beta, and a pushed vX.Y.Z tag releases
-# stable. A manual run releases a beta, or promotes the latest beta's commit to stable.
+# Releases only start by hand: Run workflow with channel beta publishes main as a beta, and channel
+# stable promotes the latest beta's commit to stable.
 # See deploy/desktop-mac/README.md.
 
 name: Release macOS app
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*.*.*"
-      - "!v*-beta.*"
-    # Tag pushes ignore path filters, so these only skip docs-only pushes to main.
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
   workflow_dispatch:
     inputs:
       channel:
@@ -34,10 +24,9 @@ on:
 permissions:
   contents: read
 
-# One beta publishes at a time: a newer push replaces a beta run that is still waiting, and a beta
-# that has started is never cancelled. Every stable run gets its own group, so nothing cancels it.
+# One release of each channel runs at a time, and a started release is never cancelled.
 concurrency:
-  group: ${{ ((github.event_name == 'push' && github.ref_type == 'branch') || inputs.channel == 'beta') && 'release-mac-beta' || format('release-mac-stable-{0}', github.run_id) }}
+  group: release-mac-${{ inputs.channel }}
   cancel-in-progress: false
 
 jobs:
@@ -73,15 +62,8 @@ jobs:
           set -euo pipefail
           fail() { printf '::error::%s\n' "$*"; exit 1; }
 
-          case "$GITHUB_EVENT_NAME:$GITHUB_REF_TYPE" in
-            push:tag) channel=stable ;;
-            push:branch) channel=beta ;;
-            workflow_dispatch:*)
-              [[ "$GITHUB_REF" == refs/heads/main ]] || fail "Run this workflow from main, not $GITHUB_REF."
-              channel="$DISPATCH_CHANNEL"
-              ;;
-            *) fail "Unsupported event $GITHUB_EVENT_NAME." ;;
-          esac
+          [[ "$GITHUB_REF" == refs/heads/main ]] || fail "Run this workflow from main, not $GITHUB_REF."
+          channel="$DISPATCH_CHANNEL"
 
           latest_beta="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 100 \
             --json tagName,publishedAt \
@@ -106,18 +88,13 @@ jobs:
             exit 0
           fi
 
-          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
-            ref="$GITHUB_SHA"
-            version="${GITHUB_REF_NAME#v}"
-          else
-            [[ -n "$latest_beta" ]] ||
-              fail "No published beta. A manual stable release builds the latest beta's commit."
-            ref="$(git rev-list -n 1 "$latest_beta")"
-            beta_version="${latest_beta#v}"
-            version="${DISPATCH_VERSION#v}"
-            version="${version:-${beta_version%%-*}}"
-            printf '::notice::Stable %s builds %s, the commit %s shipped.\n' "$version" "$ref" "$latest_beta"
-          fi
+          [[ -n "$latest_beta" ]] ||
+            fail "No published beta. A stable release builds the latest beta's commit."
+          ref="$(git rev-list -n 1 "$latest_beta")"
+          beta_version="${latest_beta#v}"
+          version="${DISPATCH_VERSION#v}"
+          version="${version:-${beta_version%%-*}}"
+          printf '::notice::Stable %s builds %s, the commit %s shipped.\n' "$version" "$ref" "$latest_beta"
 
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Stable version $version is not X.Y.Z."
           git merge-base --is-ancestor "$ref" origin/main || fail "Release commit $ref is not on main."

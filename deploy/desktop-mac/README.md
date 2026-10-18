@@ -78,23 +78,21 @@ all local data. Every install starts on Stable; only an app built as a beta star
 A small Ubuntu job first decides what to release, so the macOS job only starts when there is
 something to publish.
 
-- **Beta on every push to `main`.** Every push to `main`, merged pull requests included, publishes
-  `X.Y.Z-beta.<UTC date>.<run number>` from that commit, where `X.Y.Z` is the next patch after the
-  higher of `apps/desktop`'s version and the latest stable release. Pushes that change only
-  Markdown files or `docs/` publish nothing. Run workflow with channel `beta` publishes the head of
-  `main` on demand, unless the latest beta already ships it.
-- **Stable from a tag.** Pushing a `vX.Y.Z` tag on a commit of `main` publishes that commit as
-  stable `X.Y.Z`. `-beta` tags never start a stable release.
-- **Promote the latest beta to stable.** Run workflow from `main` with channel `stable`. It builds
+Nothing releases on its own: pushes and tags start no build. Both channels start from Run workflow
+on `main`.
+
+- **Beta.** Run workflow with channel `beta` publishes the head of `main` as
+  `X.Y.Z-beta.<UTC date>.<run number>`, where `X.Y.Z` is the next patch after the higher of
+  `apps/desktop`'s version and the latest stable release. It publishes nothing when the latest beta
+  already ships that commit.
+- **Stable.** Run workflow from `main` with channel `stable`. It builds
   the commit of the latest published beta, so stable ships exactly what beta users ran, and
   publishes the version that beta previewed (`0.1.2-beta.20261018.4` becomes `0.1.2`). Enter a
   version such as `0.2.0` to publish under another number. It stops when no beta is published.
 
 The workflow writes the release version into the package manifests on the runner only; nothing is
-committed, so `main` needs no version bump between releases. One beta publishes at a time: when
-several pushes land while a beta builds, only the newest waits, and GitHub cancels the older
-waiting run because the newer one contains its changes. A beta that has started always finishes,
-and nothing cancels a stable run. A failed run leaves at most a draft release, and Re-run jobs
+committed, so `main` needs no version bump between releases. One release of each channel runs at a
+time, and a started release always finishes. A failed run leaves at most a draft release, and Re-run jobs
 reuses it.
 
 Add these repository secrets to `hellogafaro/otto` before the first run:
