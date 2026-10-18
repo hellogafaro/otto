@@ -351,22 +351,10 @@ pending_approval_requests AS (
             )
             AND json_extract(activity.payload_json, '$.requestId') IS NOT NULL
         ),
-        pending_memory_approval_activities AS (
-          SELECT activity.activity_id
-          FROM memories AS memory
-          INNER JOIN projection_thread_activities AS activity
-            ON activity.activity_id = 'memory-approval:' || memory.id || ':requested'
-          WHERE memory.thread_id = ${threadId}
-            AND memory.status = 'pending'
-            AND activity.thread_id = memory.thread_id
-        ),
         pinned_activity_ids AS (
           SELECT activity_id
           FROM pending_approval_activities
           WHERE request_order = 1
-          UNION ALL
-          SELECT activity_id
-          FROM pending_memory_approval_activities
           UNION ALL
           SELECT activity_id
           FROM user_input_lifecycle

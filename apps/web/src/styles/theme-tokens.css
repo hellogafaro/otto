@@ -22,7 +22,6 @@
   --markdown-caution: var(--color-red-500);
   --markdown-caution-foreground: var(--color-red-600);
   --quit-prompt: var(--color-neutral-700);
-  --memory-approval-indicator: var(--color-amber-400);
   /* Status icons: work in progress and a bot at work. Same value in both modes. */
   --progress: var(--color-violet-500);
   --success: var(--color-emerald-500);

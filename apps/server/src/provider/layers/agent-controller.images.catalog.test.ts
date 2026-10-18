@@ -14,6 +14,7 @@ import {
   type McpServer,
   type OrchestrationCommand,
   type OrchestrationReadModel,
+  type OttoToolId,
 } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -25,7 +26,6 @@ import * as Schema from "effect/Schema";
 import { assert, describe, expect, vi } from "vite-plus/test";
 import { ServerSettingsService } from "../../server-settings.ts";
 import { AgentController } from "../services/agent-controller.ts";
-import type { OttoRuntimeToolId } from "../otto-tool-runtime.ts";
 import { ImageGenerationRuntime } from "../../image-generation/image-generation-runtime.ts";
 import {
   GROK_IMAGE_CAPABILITIES,
@@ -46,7 +46,7 @@ import {
   provideController,
   resolveCodex,
 } from "./test-support/agent-controller-layers.ts";
-import { makeMemoryOnlyCredentialOptions } from "./test-support/agent-controller-memory.ts";
+import { makeCredentialRecorder } from "./test-support/agent-controller-memory.ts";
 import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
 import { makeImageRuntimeTestLayer } from "./test-support/agent-controller-images.ts";
 
@@ -160,7 +160,7 @@ describe("AgentControllerLive", () => {
           ]),
         );
 
-        const run = (toolId: OttoRuntimeToolId, toolCallId: string, input: Schema.Json) =>
+        const run = (toolId: OttoToolId, toolCallId: string, input: Schema.Json) =>
           Effect.promise(() => {
             const execution = { threadId: String(codexThreadId), toolId, toolCallId, input };
             runtime.grantApproval(execution);
@@ -580,7 +580,7 @@ describe("AgentControllerLive", () => {
   it.effect("grants legacy sessions the image tool when an image provider is enabled", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
-    const credentials = makeMemoryOnlyCredentialOptions();
+    const credentials = makeCredentialRecorder();
 
     return provideController(
       Effect.gen(function* () {

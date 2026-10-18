@@ -1,8 +1,4 @@
 import {
-  OttoMemoryImportPreview,
-  OttoMemoryRootId,
-  ThreadId,
-  BotId,
   OrchestrationThreadShell,
   OrchestrationBot,
   OrchestrationShellSnapshot,
@@ -11,18 +7,12 @@ import {
   ServerProvider,
 } from "@otto/contracts";
 import { Schema } from "effect";
-import type {
-  DurableImportReviewItem,
-  DurableMemoryFact,
-} from "@otto/client-runtime/durable-memory";
 
 export const decodeRoutine = Schema.decodeUnknownSync(Routine);
 
 export const decodeRoutineRun = Schema.decodeUnknownSync(RoutineRun);
 
 export const decodeServerProvider = Schema.decodeUnknownSync(ServerProvider);
-
-export const decodeMemoryPreview = Schema.decodeUnknownSync(OttoMemoryImportPreview);
 
 const decodeSnapshot = Schema.decodeUnknownSync(OrchestrationShellSnapshot);
 
@@ -70,26 +60,6 @@ export function makeShellSnapshot(overrides: ShellFixture) {
       ...thread,
     })),
   });
-}
-
-export function makeReviewItem(
-  item: Omit<DurableImportReviewItem, "rootId"> & { rootId: string },
-): DurableImportReviewItem {
-  return { ...item, rootId: OttoMemoryRootId.make(item.rootId) };
-}
-
-export type DurableFactFixture = Omit<
-  DurableMemoryFact,
-  "rootId" | "sourceThreadId" | "affectedBotIds"
-> & { rootId: string; sourceThreadId: string | null; affectedBotIds: ReadonlyArray<string> };
-
-export function makeDurableFact(fact: DurableFactFixture): DurableMemoryFact {
-  return {
-    ...fact,
-    rootId: OttoMemoryRootId.make(fact.rootId),
-    sourceThreadId: fact.sourceThreadId === null ? null : ThreadId.make(fact.sourceThreadId),
-    affectedBotIds: fact.affectedBotIds.map((id) => BotId.make(id)),
-  };
 }
 
 export type RuntimeThreadFixture = Omit<

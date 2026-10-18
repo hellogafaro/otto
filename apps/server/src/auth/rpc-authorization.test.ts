@@ -30,15 +30,9 @@ describe("RPC authorization scopes", () => {
     );
   });
 
-  // Otto: Whole-memory export and import are organization admin operations.
   it("separates memory reads from memory changes", () => {
-    expect(requiredScopeForRpcMethod(WS_METHODS.memoryExport)).toBe(AuthAccessReadScope);
-    expect(requiredScopeForRpcMethod(WS_METHODS.memoryImportPreview)).toBe(AuthAccessWriteScope);
-    expect(requiredScopeForRpcMethod(WS_METHODS.memoryImportApply)).toBe(AuthAccessWriteScope);
-    expect(requiredScopeForRpcMethod(WS_METHODS.memoryFactsList)).toBe(AuthOrchestrationReadScope);
-    expect(requiredScopeForRpcMethod(WS_METHODS.memoryDocumentReplace)).toBe(
-      AuthOrchestrationOperateScope,
-    );
+    expect(requiredScopeForRpcMethod(WS_METHODS.memoryList)).toBe(AuthOrchestrationReadScope);
+    expect(requiredScopeForRpcMethod(WS_METHODS.memoryUpdate)).toBe(AuthOrchestrationOperateScope);
   });
 
   it("reads one task with the same scope as the task list", () => {

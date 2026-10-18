@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
-import { OttoMemoryApprovalRequest, BotId } from "@otto/contracts";
+import { BotId } from "@otto/contracts";
 
 export const BOT_INBOX_KINDS = [
   "oauth-expired",
@@ -35,8 +35,6 @@ export interface BotInboxItem {
   readonly lastFailedRequestAt?: string;
   readonly resolvedFailureAt?: string;
   readonly occurrenceCount: number;
-  // Set on approval requests that ask to save shared memory.
-  readonly memoryApproval?: OttoMemoryApprovalRequest;
 }
 
 const InboxItem = Schema.Struct({
@@ -56,7 +54,6 @@ const InboxItem = Schema.Struct({
   lastFailedRequestAt: Schema.optionalKey(Schema.String),
   resolvedFailureAt: Schema.optionalKey(Schema.String),
   occurrenceCount: Schema.Number,
-  memoryApproval: Schema.optionalKey(OttoMemoryApprovalRequest),
 });
 
 const decodeInbox = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Array(Schema.Unknown)));
@@ -73,7 +70,6 @@ export type BotInboxIncident = Pick<
   | "lastFailure"
   | "nextAction"
   | "lastFailedRequestAt"
-  | "memoryApproval"
 >;
 
 export class BotInboxService {
@@ -284,14 +280,12 @@ export class BotInboxService {
     return changed;
   }
 
-  // Generic dismissal. Memory approvals close only when their candidate is
-  // decided, so this leaves them open.
   resolveById(id: string): boolean {
     this.reload();
     const resolvedAt = this.now();
     let changed = false;
     this.items = this.items.map((item) => {
-      if (item.id !== id || item.status === "resolved" || item.memoryApproval !== undefined) {
+      if (item.id !== id || item.status === "resolved") {
         return item;
       }
 

@@ -6,10 +6,7 @@ import * as Effect from "effect/Effect";
 
 import * as Option from "effect/Option";
 
-import type { MemoryToolHandler } from "../../../memory/memory-update-tool.ts";
-
 import * as McpProviderSession from "../../../mcp/mcp-provider-session.ts";
-import * as McpMemoryToolSession from "../../../mcp/mcp-memory-tool-session.ts";
 import * as McpInvocationContext from "../../../mcp/mcp-invocation-context.ts";
 import * as McpSessionRegistry from "../../../mcp/mcp-session-registry.ts";
 import * as ServerSettings from "../../../server-settings.ts";
@@ -42,16 +39,11 @@ export function createPreviewMcpSessions(deps: {
       Effect.tap(() =>
         Effect.sync(() => {
           McpProviderSession.clearMcpProviderSession(threadId);
-          McpMemoryToolSession.clearMcpMemoryToolSession(threadId);
         }),
       ),
     );
 
-  const preparePreviewMcpSession = (
-    threadId: ThreadId,
-    providerInstanceId: ProviderInstanceId,
-    memoryHandler?: MemoryToolHandler,
-  ) =>
+  const preparePreviewMcpSession = (threadId: ThreadId, providerInstanceId: ProviderInstanceId) =>
     Effect.gen(function* () {
       // Matches ProviderService's capabilities: an unreadable settings file withholds image.
       const imageEnabled = Option.isSome(deps.serverSettings)
@@ -64,10 +56,9 @@ export function createPreviewMcpSessions(deps: {
           )
         : false;
 
-      const capabilities = new Set<McpInvocationContext.McpCapability>([
-        ...(imageEnabled ? (["image"] as const) : []),
-        ...(memoryHandler ? (["memory"] as const) : []),
-      ]);
+      const capabilities = new Set<McpInvocationContext.McpCapability>(
+        imageEnabled ? ["image"] : [],
+      );
 
       if (capabilities.size === 0) {
         yield* clearPreviewMcpSession(threadId);
@@ -82,15 +73,7 @@ export function createPreviewMcpSessions(deps: {
       });
 
       if (credential) {
-        yield* Effect.sync(() => {
-          McpProviderSession.setMcpProviderSession(credential.config);
-
-          if (memoryHandler) {
-            McpMemoryToolSession.setMcpMemoryToolSession(threadId, memoryHandler);
-          } else {
-            McpMemoryToolSession.clearMcpMemoryToolSession(threadId);
-          }
-        });
+        yield* Effect.sync(() => McpProviderSession.setMcpProviderSession(credential.config));
       }
     });
 

@@ -1,7 +1,6 @@
 import { Predicate } from "effect";
 import { threadDelegations } from "@otto/client-runtime/delegation-presentation";
 import { botChatTimeline } from "@otto/client-runtime/state/bot-chat-timeline";
-import { pendingMemoryApprovals } from "@otto/client-runtime/durable-memory";
 import { useAtomValue } from "@effect/atom-react";
 import { presentThreadError } from "@otto/client-runtime/errors";
 import { type EnvironmentId, type ScopedThreadRef } from "@otto/contracts";
@@ -31,7 +30,6 @@ import { useOptionalVoiceCall } from "../voice/voice-call";
 import { useActivitySubjectName } from "./bot-activity-status";
 import { ChatReplyContext } from "../markdown/generative/chat-reply-context";
 import { deriveBotActivity } from "./bot-activity-status.logic";
-import { MemoryApprovalPrompt } from "./memory-approval-prompt";
 import { BotUserInputPrompt } from "./bot-user-input-prompt";
 import { BotInboxAlerts } from "./bot-inbox-alerts";
 import { BotConversationScrollArea } from "./bot-conversation-scroll-area";
@@ -227,7 +225,6 @@ export function GroupThreadLanding({
   const [replyTarget, setReplyTarget] = useState<MessageReplyTarget | null>(null);
   const approvalState = useRosterApprovals(runtime.linkedThreadRef);
   const activities = useThreadActivities(runtime.linkedThreadRef);
-  const memoryApprovals = useMemo(() => pendingMemoryApprovals(activities), [activities]);
   const stepMeters = useMemo(() => buildBotStepMeters(activities), [activities]);
 
   const botActivity = useMemo(
@@ -637,12 +634,6 @@ export function GroupThreadLanding({
                         void runtime.submitPendingUserInputAnswers();
                       }}
                       onAnswerSecrets={runtime.answerSecretRequest}
-                      shortcuts={shortcutApprovalId === null}
-                    />
-                  ) : memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
-                    <MemoryApprovalPrompt
-                      threadRef={runtime.linkedThreadRef}
-                      approvals={memoryApprovals}
                       shortcuts={shortcutApprovalId === null}
                     />
                   ) : null

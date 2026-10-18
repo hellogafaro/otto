@@ -1,223 +1,119 @@
 # Memory architecture
 
-Otto has two complementary memory layers:
+A bot gets three kinds of context on every turn, rebuilt fresh each time:
 
-1. `BotMemoryStore` owns small Markdown documents scoped to a named bot. `USER.md` and `MEMORY.md`
-   are private to the bot. `groups/<group-id>/GROUP.md` is also bot-owned; there is no group-wide
-   writable file.
-2. Mastra stores every chat's messages. Otto sends a chat's whole history on each turn and compacts
-   it once into a checkpoint when it nears the model's window (see
-   [Chat history and compaction](#chat-history-and-compaction)). It does not write the Markdown
-   documents.
+1. **Instructions**: the bot's own configuration, which only a person edits.
+2. **Memory**: short lines the bot learned in earlier chats, kept up to date after each chat.
+3. **Now**: what is happening right now (open tasks, running helpers, upcoming routines, pending
+   approvals). It is read from live state each turn and never stored.
 
-Bot instructions are configuration, not memory. The bot sees them first but cannot change them with
-the memory tool.
+The chat's own history comes on top of that (see [Chat history and compaction](#chat-history-and-compaction)),
+and older chats are reached through the search tool rather than copied into context.
+
+## Whose memory a chat reads
+
+There are two kinds of memory, each keyed by a `resource` string in `apps/server/src/memory/memories.ts`:
+the team's (`team`), shared by every person and every bot in the workspace, and each person's own
+(`person:<person-id>`). Every line is also either true everywhere (`project_id` null) or tagged to
+one project.
+
+`chatMemory(thread, group)` decides what a chat reads (`read`), the one memory it learns into
+(`learn`), and its project (`projectId`, null for General):
+
+| Chat                                                     | Reads        | Learns into |
+| -------------------------------------------------------- | ------------ | ----------- |
+| A private chat (`user` visibility) with a bot            | team + yours | yours       |
+| Any other chat with a bot, or a group of only bots       | team         | team        |
+| A group with people in it (only its members can read it) | team         | nothing     |
+| A helper's chat (`parentThreadId`)                       | team         | nothing     |
+| A chat without a bot                                     | nothing      | nothing     |
+
+A chat reads only lines that are true everywhere or tagged to its own project, so a project's lines
+never load in another project's chats. A person's own lines load only in their private chats, so
+nothing said in private reaches a chat other people can read, and nothing said in a restricted group
+reaches anyone outside it. Delegated work gets no memory at all (`session-lifecycle.ts`). A chat
+moved to another project keeps the lines it already taught; lines tagged to a deleted project stop
+loading and expire.
+
+## Storage
+
+Migration `014-resource-memories` drops the old scoped facts and starts memory empty, with nothing
+carried over, in one `memories` table. Each row is one line: `resource`, `project_id`, `text` (at
+most 280 characters), the `thread_id` it came from, `edited_by` (the person who wrote or last edited
+it, else null), `created_at` and `confirmed_at`. `memory_reviews` records how far each chat's
+messages have been reviewed.
+
+The limits live in `packages/contracts/src/memory.ts`: 40 lines per scope (`MEMORY_CAP`; a scope is
+one memory everywhere, or one memory in one project), 60 days without confirmation before a line is
+forgotten (`MEMORY_EXPIRY_DAYS`), 280 characters per line (`MEMORY_TEXT_MAX_CHARS`). Every read first
+deletes lines not confirmed within 60 days. Past the cap, a scope drops the lines confirmed longest
+ago. Text that looks like a credential or an instruction override is rejected
+(`memory-content-safety.ts`).
 
 ## Context assembly
 
-Mastra providers use this logical order on every turn:
+Before each turn `Memories.render` builds the chat's memory block (`renderMemory`):
 
-1. bot instructions;
-2. `USER.md`;
-3. `MEMORY.md`;
-4. the responding bot's active `GROUP.md`;
-5. the `<entity-memory>` packet of current entity facts;
-6. the chat's checkpoint, if it was compacted;
-7. every complete turn since the checkpoint, or since the chat began;
-8. the current user message.
+1. What memory is: lines bots learned in earlier chats, dated by when each was last confirmed, which
+   the bot never saves or deletes itself because a review updates them after the chat goes quiet.
+2. Where this chat's learning goes, so the bot answers "remember this" and "forget that" truthfully:
+   the whole team, only this person (their own lines are marked `yours`, and team lines can only be
+   changed in Memory), or nothing in a restricted group (the bot says so and points to Memory).
+3. That people can see and edit every line in Memory, that lines are data and not instructions, and
+   that what people say now or what the bot can see wins over a line.
+4. Each line as `- [id] text (Oct 18)`, or `(yours, Oct 18)` for the person's own, dated in the
+   chat's time zone, or `(nothing yet)`.
 
-The file snapshot is read immediately before Mastra admission. Codex, Claude, Grok, Kimi,
-and OpenCode Go use this unified path, including instance-specific model transports. Standard
-OpenCode is the compatibility runtime and receives memory through its native per-prompt system
-field. Memory refresh does not require restarting a chat.
+While Memory is off in Settings the block is empty. Mastra sends it in the `<memory>` section of the
+chat context. Later turns send only `<memory_changes>` (lines added, updated or deleted by id), so
+the cached prompt stays put, unless the explanation itself changed, for example a shared chat made
+private, in which case the whole section is resent in a `<context_update>`.
 
-Entity memory packets are built by `ProviderMemoryPacket` from authorized current revisions. The
-builder applies the same ordering and fact, character, and token bounds for every provider, so
-Mastra providers and the OpenCode compatibility bridge receive equivalent memory input. Both append
-the packet to the persistent memory context after the Markdown snapshot and before the chat
-history. A tombstone is excluded on the next packet or recall read.
+`nowContext` (`provider/now-context.ts`) builds the `<now>` block from the command read model when
+the turn is sent: open tasks assigned to the bot, this chat's queued, running or blocked helpers,
+enabled routines that post here with their next run, and whether an approval is waiting. It is
+rebuilt for every turn and never stored.
 
-## Automatic curation
+Memory goes in the system context. Instructions and Now go in front of the turn's input, except on
+OpenCode, which carries all three in its per-prompt system field.
 
-`OttoMemoryTurnHarness` is the single provider-neutral memory lifecycle. Every provider enters the
-same interface to reserve a review, assemble its scoped snapshot, wrap the memory handler, record
-foreground success, verify exactly one successful review call, and release or retry the claim.
-Provider adapters only decide how their native transport carries the supplied context and terminal
-event; they do not implement memory cadence or settlement policy.
+## Review
 
-The foreground bot instructions and memory tool description tell every provider to save stable user
-preferences, personal facts, desires, and lasting behavioral expectations without waiting for an
-explicit "remember" request. The same guidance excludes one-off work and temporary task state.
+Bots never write memory during a turn; there is no memory tool. `MemoryReviewLive`
+(`memory/memory-review.ts`) listens for finished messages and, two minutes after a chat's last one
+(`MEMORY_REVIEW_QUIET`), reviews the messages since the chat was last reviewed. A new message restarts
+the wait. It skips a chat that learns nothing, a run where no person spoke, hidden routine and intro
+prompts, and everything while Memory is off.
 
-Each bot has independent durable cadences for its private scope and every exact group scope. The
-private file is `memory/bots/<bot-id>/.memory-review.json`; group cadence files sit beside their
-`GROUP.md`. A terminally successful provider turn atomically increments that scope and appends its
-candidate. There is no lock, reservation, or polling lane held across a foreground model turn.
-Failed, aborted, interrupted, and cancelled turns do not count.
+The review runs on the chat's bot and the model that bot answers with (`AgentController.resolveEngine`),
+so it is billed and routed like the bot's own replies. `buildMemoryReviewPrompt` gives it every line
+the chat reads with its id, marks person-written lines and lines of another memory (`(read-only)`),
+says whether it is filling the team's memory or one person's, names the chat's project, and asks for a
+JSON list of `add`, `update`, `confirm` and `delete` changes. An add sets `projectOnly` when it is
+only true in this project. Explicit "remember this" and "forget that" requests are honored. Group
+messages carry each person's name.
 
-After 10 successful prompts beyond the reviewed cursor, the completed batch is due. A separate short
-claim selects that bounded batch under the file lock without blocking foreground admission. Claims
-use a renewable 60-second lease. Active controller fibers renew every 20 seconds and cancel renewal
-in their terminal, error, and finalizer paths. A crashed process stops renewing, and another live
-process can recover only after expiry. Claims cover exact candidate IDs and the recorded count cursor;
-concurrent successes start the next batch and are neither cleared nor disclosed by the older review.
-Settlement is idempotent across duplicate terminal events and store instances. Candidates are
-truncated to 1,000 characters, and each scope keeps the newest 10 candidates whose complete JSON
-array, including brackets and separators, fits the 8,000-character budget. The generated review
-prompt is capped at 12,000 characters.
+`Memories.applyReview` applies the changes in one transaction and can only touch the memory the chat
+learns into: invalid or unsafe changes are skipped, an add that nearly duplicates a line the chat can
+see confirms it (or is dropped when that line is read-only), `confirm` moves `confirmed_at` to now,
+and a line a person wrote is confirmed or deleted but never reworded. Then the scope cap applies.
 
-Cadence files are scheduling metadata, not memory. A malformed or invalid file is renamed under the
-same private bot directory with a `.memory-review.corrupt-...json` name and `0600` permissions. Otto
-then writes a valid conservative state that makes the next successful prompt carry a review.
+## Editing
 
-Codex, Claude, Grok, Kimi For Coding, and OpenCode Go receive the due bundle through the
-unified Mastra turn context. Standard OpenCode receives it through its native per-prompt system
-field. A due batch is reviewed during the next admitted turn. There is no separate Claude maintenance
-session or Grok ACP review resource in the active provider path.
-Private turns never receive a group target, and a group review never grants access to another bot's
-file. For queued group responders, memory handlers change only when that responder's turn is
-admitted; the active turn retains its original bot and group access for its full lifetime. Every
-automatic review must make exactly one successful memory call. A no-op review reads the user target
-with an empty operations array so the server can verify completion; zero or multiple successful calls
-leave the claimed inputs due for retry. Reviews emit no user-visible message and add no second reply.
+The Memory drawer, opened from a chat's details or **Settings → Memory**, lists the viewer's own lines
+and the team's through `memory.list` (with each line's project title, and its source chat's title only
+when the viewer can see that chat). `memory.create` takes an owner (`team` or `you`), a project or
+none, and the text; `memory.update` changes the text and project; `memory.delete` removes a line.
+Changes are limited to the team's lines and the viewer's own. Reading needs the read scope; changing
+needs operate. Lines added or edited by a person record `edited_by` and keep their wording through
+later reviews.
 
-Recent selection groups provider messages at user-turn boundaries. It never takes part of a turn,
-and unobserved messages are mandatory even when they exceed the ordinary count or token budget. The
-canonical Otto projection remains the user-facing conversation record. Provider-local history is
-used at the model boundary because it preserves native tool-call/result structures that the
-projection intentionally renders as activities.
+## Searching past chats
 
-## File boundary
-
-`BotMemoryStore` is the only module that resolves writable memory paths. IDs are restricted to safe
-path components. Existing path components and targets may not be symlinks. Writes take a
-cross-process lock, reread under that lock, validate the complete operation batch, fsync a private
-temporary file, and rename it over the destination. Documents use `0600`; directories use `0700`.
-
-The delimiter between independently addressable entries is `\n\n§\n\n`. Exact duplicate additions
-are no-ops. Replacement and removal require one unique substring match. The final rendered document,
-not each intermediate operation, is checked against its character budget.
-
-Tool and editor writes reject common instruction-override or prompt-exfiltration text, invisible
-Unicode controls, private keys, and recognizable credential prefixes. Hand-edited files are scanned
-when read for a prompt; unsafe entries are replaced by a visible blocked marker without modifying the
-source file. Oversized documents are withheld with a bounded marker. The final sanitized content
-is also checked against the limit, because blocked-entry notices can expand the original text.
-Editor writes include the displayed snapshot's bot ID and original content. The server checks both
-under the file lock and rejects changes made since the editor loaded.
-
-## Legacy migration
-
-The old entity-memory tables remain in the database for one rollback release but have no UI, tool,
-candidate, packet, search, or mutation RPC path. At the first session for a bot, the migration reads
-approved active revisions and writes a completion marker under that bot's memory directory. User and
-bot-user facts map to `USER.md`, matching bot facts map to `MEMORY.md`, and matching active-group facts
-map to that bot's `GROUP.md`. Other scopes, mismatched entities, rejected unsafe text, and overflow go
-to `memory/migration-archive/` and are never injected.
-
-Private and group markers are independent. This lets a bot migrate a newly encountered group later
-without re-running its private migration.
-
-## Archive format
-
-The T17 memory facts view reads current durable facts through `memory.facts.list`.
-Its input is `{ threadId, target }` and its result is `{ facts }`, containing only
-fact metadata and text. The RPC requires read scope; writes continue to use the
-durable repository authorization path.
-
-`memory.facts.mutate` serves the durable-fact edits the view needs: it accepts
-`{ threadId, mutation }` where the mutation is one of `fact.edit` (`{ fact }`),
-`fact.pin` (`{ pinned }`), `fact.scope` (`{ scope }`), `fact.decide`
-(`{ decision: "approve" | "reject" }`), `fact.forget`, or `fact.delete`. Every
-mutation carries `memoryId` (the root) and `expectedRevision` for optimistic
-concurrency. Edits, pins, scope moves, decisions, and forgets are recorded as
-new revisions on the same root (a tombstone for forget); delete removes the
-root and its history outright. The result is `{ kind: "revision", revision }`
-or `{ kind: "deleted", memoryId }`. Each write goes through the M1-T11
-`authorizeRevision` ownership checks, re-resolves the target scope's partition
-against the same thread context for scope changes, and deletes the root's
-`otto_memory_derived_copies` rows so packet and summary readers rebuild from
-the new chain. The RPC requires the operate scope.
-
-Server settings carry the durable memory switches as `settings.memory`:
-`enabled` ("Memory on", default true), `privateBotMemory` ("Private bot memory
-on", default true), and `sharedProjectMemory` ("Shared project memory",
-`"ask"` or `"auto"`, default `"ask"`). With `"ask"`, a fact moved onto a
-shared project partition lands `pending` and must be approved through
-`fact.decide` before it joins current recall. The settings hold no embedding
-or model configuration; durable memory is not a model feature.
-
-`enabled === false` rejects every `memory.facts.mutate` write and
-`memory.document.replace` write at the WS boundary, and the agent controller
-withholds the bot's whole memory prompt snapshot and memory tool. That
-includes `fact.forget` and `fact.delete`, and the web fact list hides every
-action while Memory is off. Listing and export remain available so the user
-can still inspect stored facts; cleanup needs Memory turned back on.
-
-`privateBotMemory === false` narrows that gate to the bot-private scope. The
-memory tool loses its `memory` (bot-private `MEMORY.md`) target, the
-`MEMORY.md` section is omitted from the prompt snapshot supplied on every
-turn (including legacy-adapter sessions), the `<entity-memory>` packet drops
-current facts in the `bot` and `bot-user` partitions on both the Mastra and
-legacy paths, `memory.document.replace` rejects
-writes to the `memory` target, and `memory.facts.mutate` rejects
-`fact.scope` moves onto `private`/`bot` partitions. Reads are unaffected:
-`memory.facts.list`, archive export, and `memory.documents.inspect` still
-return existing bot-private facts and notes so the user can forget or delete
-them.
-
-The memory archive schema is version 3. It binds file paths, scope IDs, file checksums, the
-observational snapshot checksum, and a manifest checksum. Preview validates all files and produces a
-hash of the archive plus current destination state. Apply recomputes it and refuses stale previews.
-Import holds all affected file locks and captures original files before applying changes. A failed
-write or observation restore rolls back the attempted changes before releasing the locks. A failed
-observation restore fails with `OttoObservationRestoreError`, whose `cause` is the original
-failure; `rolledBack` says whether the original records came back, and `rollbackCause` carries the
-rollback failure when both fail. File locks renew their lease while held. Observation restores and
-clears share the per-thread observation lock.
-Observation records are cleared and reinserted through Mastra's storage adapter when restoration is
-required. Imports must target the archive's original thread. Flattened buffered observations are
-promoted into active observations on restore so Mastra's chunk-based storage retains their text.
-
-## Durable entity archive format
-
-The durable ledger export is a version 2 JSON envelope whose `files` are UTF-8 Markdown
-records. Each record is at `durable/<root-id>/<revision>.md`; its `otto-memory`
-frontmatter contains the root and revision IDs, partition scope and ID, entity ownership,
-provenance, approval and deletion state, timestamps, and revision links. The `sha256` value
-on every file and revision covers its canonical JSON or Markdown content. `manifestSha256`
-covers the schema version, target, completeness flag, timestamps, and the file, revision, and
-conversation checksums. Complete exports include every revision in a chain, including a
-terminal tombstone, so another tool can inspect history without Otto.
-
-Import first validates checksums, chain links, approval state, tombstone position, and that
-every partition and entity belongs to the importing user's authorized thread. Preview reports
-`new`, `changed`, `conflicting`, and `skipped` roots. A conflicting root must receive an
-explicit `keep-local` or `use-archive` decision in the apply request; absent decisions are
-rejected. `use-archive` replaces that root's local history with the validated archive chain,
-while `keep-local` leaves it untouched.
-
-Durable archives use the `memory.archive.*` RPCs. `memory.archive.export` accepts a thread,
-bot, project, or all scope and returns the V2 archive. Preview returns per-root `new`, `changed`,
-`conflicting`, or `skipped` outcomes. Apply requires explicit `keep-local` or `use-archive`
-resolutions for every conflict. The older `memory.documents.*` RPCs remain available for V3
-Markdown document archives and compatibility imports.
-All-scope archives are export-only: import must target one authority domain so ownership can be
-validated without granting a combined archive access across unrelated users or workspaces.
-
-Clients read durable facts through `memory.facts.list` for one thread, bot, or
-project scope. The server collapses each root to its current revision, including
-pending, rejected, and forgotten facts, and fills `supersededFact` from the previous
-revision's text; chat snapshots never cross the wire on this path. Client action
-rules (`durableFactActions`, `durableFactMutation`) live in
-`packages/client-runtime/src/durable-memory.ts` and always send the fact's
-`expectedRevision`, so a stale edit fails with a revision conflict instead of
-overwriting a newer one. Mutations go through
-`memory.facts.mutate`, which also serves `candidate.decide` for shared memory
-approvals (below). `conversation.clear` exists in contracts but is not served
-over WebSocket.
-Import review lives in the same module: `resolveImportConflicts` has no default decision and
-returns resolutions only after every conflicting root has one.
+Memory holds a few lines; details stay in the chats. The search tool's `message` results use the
+`message_search` full-text index (migration `015-message-search`, `unicode61` with
+diacritics removed, kept current by triggers), limited to chats every person in the current chat can
+read. Each word matches as a prefix and results come newest first.
 
 ## Chat history and compaction
 
@@ -251,38 +147,3 @@ always stays verbatim; mid-turn the current turn does. A failed or incomplete ch
 keeps the previous one, and is not retried in the same run. The call is billed to the session's bot under
 the `compaction` usage category. Rebuilding a thread (rollback) drops its checkpoints with the rest of
 the transcript.
-
-## Shared memory approvals
-
-Bots save shared facts through the same `memory` tool: an optional `share`
-field (`{ fact, scope: "project" | "group" | "workspace", sensitive? }`) is
-handled in `bot-memory-tool-handlers.ts` and forwarded to the agent controller's
-`shareFact`. Because the handler set is shared, the Mastra controller (Codex, Claude,
-Grok, Kimi, OpenCode Go) and the MCP bridge for the legacy adapter (standard
-OpenCode) take the same path. `shareFact` checks the bot's scope grant and calls
-`MemoryApprovals.propose` (`apps/server/src/memory/memory-approvals.ts`) with
-the `sharedProjectMemory` mode.
-
-In `"auto"` mode a non-sensitive fact is written directly with
-`EntityMemoryRepository.insertScopedFact`. Otherwise `propose` stores a
-pending row in `otto_memory_candidates`, appends a
-`memory.approval.requested` thread activity whose payload is an
-`OttoMemoryApprovalRequest`, and opens an `approval-request` bot inbox item
-keyed `memory-approval:<candidateId>` that carries the same request as
-`memoryApproval`. The tool result reports `pending` so the bot does not retry.
-
-`candidate.decide` on `memory.facts.mutate` calls `MemoryApprovals.decide`.
-Decisions are serialized, must come from the candidate's source thread, and
-write an `otto_memory_candidate_receipts` row. Approve (optionally with an
-edited `fact`) inserts an approved revision; reject writes nothing. The
-decision then appends `memory.approval.resolved` and resolves the inbox item.
-A repeat decision for the same candidate returns the first receipt, so the
-chat card and inbox cannot double-apply.
-
-Clients derive open requests with `pendingMemoryApprovals` in
-`packages/client-runtime/src/durable-memory.ts`: a requested activity with no
-resolved activity for the same `candidateId`. Because this reads persisted
-activities, pending cards survive reload. The web chat renders
-`MemoryApprovalPrompt` in the composer's pending-action slot; web Settings and
-the mobile bot inbox decide items with `memoryApprovalMutation` against the
-request's `sourceThreadId`.

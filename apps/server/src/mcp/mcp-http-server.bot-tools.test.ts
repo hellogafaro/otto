@@ -1,77 +1,9 @@
-import { decodeJson } from "../json.ts";
-import { threadId, invocation, client, TestLayer } from "./test-utils/mcp-http-server.ts";
+import { invocation, client, TestLayer } from "./test-utils/mcp-http-server.ts";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { McpSchema, McpServer } from "effect/unstable/ai";
 import * as ImageGenerationRuntime from "../image-generation/image-generation-runtime.ts";
 import * as McpInvocationContext from "./mcp-invocation-context.ts";
-import * as McpMemoryToolSession from "./mcp-memory-tool-session.ts";
-
-it.effect("requires both memory capability and a thread-scoped handler", () =>
-  Effect.gen(function* () {
-    const server = yield* McpServer.McpServer;
-    let calls = 0;
-    McpMemoryToolSession.setMcpMemoryToolSession(threadId, async ({ input }) => {
-      calls += 1;
-
-      return { success: true, message: "Memory updated.", input: decodeJson(input) };
-    });
-    const memoryInvocation = { ...invocation, capabilities: new Set(["memory"] as const) };
-
-    const imageOnly = yield* server
-      .callTool({
-        name: "memory_update",
-        arguments: {
-          changes: [{ action: "add", id: null, scope: "person", text: "Unauthorized note." }],
-        },
-      })
-      .pipe(
-        Effect.provideService(McpInvocationContext.McpInvocationContext, invocation),
-        Effect.provideService(McpSchema.McpServerClient, client),
-      );
-
-    expect(imageOnly.isError).toBe(true);
-    expect(calls).toBe(0);
-
-    const result = yield* server
-      .callTool({
-        name: "memory_update",
-        arguments: {
-          changes: [{ action: "add", id: null, scope: "person", text: "Prefers concise answers." }],
-        },
-      })
-      .pipe(
-        Effect.provideService(McpInvocationContext.McpInvocationContext, memoryInvocation),
-        Effect.provideService(McpSchema.McpServerClient, client),
-      );
-
-    expect(result.isError).toBe(false);
-    expect(calls).toBe(1);
-    expect(result.structuredContent).toMatchObject({
-      success: true,
-      message: "Memory updated.",
-    });
-
-    McpMemoryToolSession.clearMcpMemoryToolSession(threadId);
-
-    const denied = yield* server
-      .callTool({
-        name: "memory_update",
-        arguments: {
-          changes: [{ action: "delete", id: "m_1", scope: null, text: null }],
-        },
-      })
-      .pipe(
-        Effect.provideService(McpInvocationContext.McpInvocationContext, memoryInvocation),
-        Effect.provideService(McpSchema.McpServerClient, client),
-      );
-
-    expect(denied.isError).toBe(true);
-  }).pipe(
-    Effect.ensuring(Effect.sync(() => McpMemoryToolSession.clearMcpMemoryToolSession(threadId))),
-    Effect.provide(TestLayer),
-  ),
-);
 
 it.effect("gates generate_image on the image capability and returns metadata only", () =>
   Effect.scoped(
@@ -116,7 +48,7 @@ it.effect("gates generate_image on the image capability and returns metadata onl
             Effect.provideService(McpSchema.McpServerClient, client),
           );
 
-      const denied = yield* call(new Set(["memory"]));
+      const denied = yield* call(new Set());
       expect(denied.isError).toBe(true);
       expect(received).toEqual([]);
 

@@ -6,8 +6,6 @@ export * from "./otto-tools.ts";
 
 export * from "./otto-delegation.ts";
 
-export * from "./otto-memory.ts";
-
 export * from "./memory.ts";
 
 export * from "./otto-usage.ts";

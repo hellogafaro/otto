@@ -119,8 +119,8 @@ function SheetPopup({
 }
 
 /**
- * `compact` is the tighter, bordered header of a narrow side sheet, with room on the end
- * for the close button.
+ * `compact` is the tighter header of a narrow side sheet, with room on the end for the close
+ * button. Otto: no sheet header has a bottom border; the content sits right under it.
  */
 function SheetHeader({
   className,
@@ -133,7 +133,7 @@ function SheetHeader({
     <div
       className={cn(
         "flex flex-col gap-2 p-6 in-[[data-slot=sheet-popup]:has([data-slot=sheet-panel])]:pb-3 max-sm:pb-4",
-        variant === "compact" && "gap-1 border-b px-6 pt-5 pb-4 pe-12",
+        variant === "compact" && "gap-1 px-6 pt-5 pb-4 pe-12",
         className,
       )}
       data-slot="sheet-header"

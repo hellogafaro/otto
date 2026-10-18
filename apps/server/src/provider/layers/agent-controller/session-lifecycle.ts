@@ -10,8 +10,6 @@ import * as Effect from "effect/Effect";
 
 import * as Semaphore from "effect/Semaphore";
 
-import * as McpMemoryToolSession from "../../../mcp/mcp-memory-tool-session.ts";
-
 import {
   formatMcpServerInstructions,
   sameMcpServerConfigurations,
@@ -119,7 +117,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
 
     // Delegated work gets no memory: a child chat has no person or scope of its own.
     const memory = !delegatedAccess && Boolean(botId) && (yield* deps.memoryEnabled());
-    const nextMemoryHandlers = memory ? deps.memoryHandlers(key) : undefined;
 
     // A cwd change invalidates reuse for local workspaces: the user-computer
     // workspace lease is keyed by cwd and the session tools would keep
@@ -158,7 +155,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       delete toolSession.alwaysAllowed;
       delete toolSession.billedBotId;
       delete toolSession.delegation;
-      delete toolSession.memoryHandlers;
       delete toolSession.botState;
       delete toolSession.imageGeneration;
       const imageGeneration = yield* deps.imageToolSettings;
@@ -169,7 +165,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         ...(botId ? { botId } : {}),
         ...(input.botName ? { botName: input.botName } : {}),
         ...(bot?.alwaysAllowed?.length ? { alwaysAllowed: bot.alwaysAllowed } : {}),
-        ...(nextMemoryHandlers ? { memoryHandlers: nextMemoryHandlers } : {}),
         ...(delegatedAccess && botId ? { billedBotId: botId } : {}),
         ...(deps.wired().delegationRuntime && botId
           ? {
@@ -219,12 +214,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       if (live) {
         existingLegacy.memory = memory;
 
-        if (nextMemoryHandlers) {
-          McpMemoryToolSession.setMcpMemoryToolSession(threadId, nextMemoryHandlers.memory_update);
-        } else {
-          McpMemoryToolSession.clearMcpMemoryToolSession(threadId);
-        }
-
         return live;
       }
 
@@ -245,11 +234,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
     }
 
     if (!(delegatedAccess && access.sandbox === null)) {
-      yield* deps.preparePreviewMcpSession(
-        threadId,
-        resolved.providerInstanceId,
-        deps.usesMastraCode(resolved.provider) ? undefined : nextMemoryHandlers?.memory_update,
-      );
+      yield* deps.preparePreviewMcpSession(threadId, resolved.providerInstanceId);
     }
 
     const resources =
@@ -305,7 +290,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
 
     const workspace = "botWorkspace" in resources ? resources.botWorkspace : undefined;
 
-    const registeredMemoryHandlers = nextMemoryHandlers;
     const mcpManager = deps.sessionResources.getMcpManager(key);
     const imageGenerationSettings = yield* deps.imageToolSettings;
 
@@ -316,7 +300,6 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       runtimeMode: access.runtimeMode,
       workspaceType,
       ...(workspace ? { workspace } : {}),
-      ...(registeredMemoryHandlers ? { memoryHandlers: registeredMemoryHandlers } : {}),
       ...(input.botId && deps.wired().botStateRuntime
         ? { botState: deps.wired().botStateRuntime }
         : {}),

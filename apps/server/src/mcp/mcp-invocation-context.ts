@@ -1,7 +1,7 @@
 import { type EnvironmentId, type ProviderInstanceId, type ThreadId } from "@otto/contracts";
 import * as Context from "effect/Context";
 
-export type McpCapability = "memory" | "image";
+export type McpCapability = "image";
 
 export interface McpInvocationScope {
   readonly environmentId: EnvironmentId;

@@ -7,7 +7,6 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstab
 import packageJson from "../../package.json" with { type: "json" };
 import * as McpInvocationContext from "./mcp-invocation-context.ts";
 import * as McpSessionRegistry from "./mcp-session-registry.ts";
-import { registerMemoryTool } from "./memory-tool-registration.ts";
 import { registerImageTool } from "./image-tool-registration.ts";
 
 const unauthorized = HttpServerResponse.jsonUnsafe(
@@ -89,10 +88,7 @@ const McpAuthMiddlewareLive = HttpRouter.middleware<{
   provides: McpInvocationContext.McpInvocationContext;
 }>()(makeMcpAuthMiddleware).layer;
 
-export const ToolRegistrationLive = Layer.mergeAll(
-  Layer.effectDiscard(registerMemoryTool()),
-  Layer.effectDiscard(registerImageTool()),
-);
+export const ToolRegistrationLive = Layer.mergeAll(Layer.effectDiscard(registerImageTool()));
 
 const McpTransportLive = McpServer.layerHttp({
   name: "Otto",

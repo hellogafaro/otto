@@ -27,7 +27,7 @@ import type { AgentControllerLiveOptions } from "./agent-controller/options.ts";
 
 export type { AgentControllerLiveOptions } from "./agent-controller/options.ts";
 
-import { createMemoryAccess, type MemoryTurn } from "./agent-controller/memory-access.ts";
+import { createMemoryAccess } from "./agent-controller/memory-access.ts";
 import { createLegacyTurns } from "./agent-controller/legacy-turns.ts";
 import { createDelegation } from "./agent-controller/delegation.ts";
 import { createEvents } from "./agent-controller/events.ts";
@@ -131,8 +131,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       forkPromise,
     } = yield* createControllerState(options);
 
-    const memoryTurns = new Map<string, MemoryTurn>();
-
     // A turn waits on the user while any tool approval, question, or routine review
     // it opened is unanswered, or an accepted routine is still being created.
     const {
@@ -173,7 +171,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       get memoryContext() {
         return memoryContext;
       },
-      memoryTurns,
       legacyProviderBridge,
       get startPendingTurn() {
         return startPendingTurn;
@@ -211,13 +208,12 @@ const make = (options?: AgentControllerLiveOptions) =>
       },
     });
 
-    const { memoryContext, memoryHandlers } = createMemoryAccess({
+    const { memoryContext } = createMemoryAccess({
       runPromise,
       memories,
       get memoryEnabled() {
         return memoryEnabled;
       },
-      memoryTurns,
     });
 
     // Image providers for the image_create tool, read on every session start or reuse. An
@@ -402,7 +398,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       runMastra,
       imageToolSettings,
       memoryEnabled,
-      memoryHandlers,
       delegationFor,
       toolRuntime,
       toProviderSession,
@@ -436,7 +431,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       legacyResourceIdentity,
       runMastra,
       memoryContext,
-      memoryTurns,
       bundle,
       addLegacyPending,
       hasLegacyPending,

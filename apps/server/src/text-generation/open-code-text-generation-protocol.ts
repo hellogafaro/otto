@@ -5,6 +5,7 @@ import { NonNegativeInt } from "@otto/contracts";
 export const OpenCodeTextGenerationOperation = Schema.Literals([
   "generateBranchName",
   "generateThreadTitle",
+  "generateMemoryReview",
 ]);
 
 export type OpenCodeTextGenerationOperation = typeof OpenCodeTextGenerationOperation.Type;

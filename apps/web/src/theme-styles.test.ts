@@ -74,7 +74,6 @@ it.effect("preserves nominal indicator and alert colors in both default appearan
       ["markdown-caution", "red-500", "red-500"],
       ["markdown-caution-foreground", "red-600", "red-400"],
       ["quit-prompt", "neutral-700", "neutral-700"],
-      ["memory-approval-indicator", "amber-400", "amber-400"],
     ];
 
     for (const [role, light, dark] of roles) {
@@ -110,7 +109,6 @@ it.effect("uses parity tokens and opacities at the reviewed component sites", ()
         "text-markdown-caution-foreground",
       ],
       ["components/quit-hold-overlay.tsx", "bg-quit-prompt/95", "text-on-solid"],
-      ["components/roster/memory-approval-prompt.tsx", "bg-memory-approval-indicator"],
     ];
 
     for (const [path, ...classes] of consumers) {

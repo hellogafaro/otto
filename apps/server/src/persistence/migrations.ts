@@ -26,6 +26,8 @@ import Migration0010 from "./migrations/010-task-repeat.ts";
 import Migration0011 from "./migrations/011-retire-thread-settling.ts";
 import Migration0012 from "./migrations/012-library-file-shares.ts";
 import Migration0013 from "./migrations/013-routine-triggers.ts";
+import Migration0014 from "./migrations/014-resource-memories.ts";
+import Migration0015 from "./migrations/015-message-search.ts";
 
 const migrationEntries = [
   [1, "Baseline", Migration0001],
@@ -41,6 +43,8 @@ const migrationEntries = [
   [11, "RetireThreadSettling", Migration0011],
   [12, "LibraryFileShares", Migration0012],
   [13, "RoutineTriggers", Migration0013],
+  [14, "ResourceMemories", Migration0014],
+  [15, "MessageSearch", Migration0015],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

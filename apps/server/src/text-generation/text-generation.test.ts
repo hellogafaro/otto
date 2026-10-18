@@ -19,6 +19,8 @@ const makeStubTextGeneration = (
   TextGeneration.TextGeneration.of({
     generateBranchName: () => Effect.die("generateBranchName stub not configured for this test"),
     generateThreadTitle: () => Effect.die("generateThreadTitle stub not configured for this test"),
+    generateMemoryReview: () =>
+      Effect.die("generateMemoryReview stub not configured for this test"),
     ...overrides,
   });
 

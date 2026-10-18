@@ -537,14 +537,6 @@ export function ThreadSettingsModelsScreen() {
       />
       <ThreadSettingsMainContent
         onOpenSubmenu={(submenu) => {
-          if (submenu.kind === "memory") {
-            if (session.memoryThreadRef) {
-              navigation.navigate("ThreadSettingsMemory", session.memoryThreadRef);
-            }
-
-            return;
-          }
-
           if (submenu.kind === "routines") {
             if (session.routinesRef) {
               navigation.navigate("ThreadSettingsRoutines", session.routinesRef);

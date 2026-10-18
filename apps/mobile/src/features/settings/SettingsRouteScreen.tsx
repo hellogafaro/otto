@@ -1,13 +1,6 @@
 import { Match, Predicate } from "effect";
 import { useMobileI18n } from "../../lib/i18n";
 import { useAtomValue } from "@effect/atom-react";
-import {
-  MEMORY_SETTING_DISABLED_HINT,
-  SHARED_PROJECT_MEMORY_SETTING,
-  sharedProjectMemoryAutoSaves,
-  sharedProjectMemoryMode,
-} from "@otto/client-runtime/durable-memory";
-import type { MessageKey } from "@otto/client-runtime/i18n";
 import { EnvironmentId } from "@otto/contracts";
 import type { MemorySettingsPatch } from "@otto/contracts/settings";
 import Constants from "expo-constants";
@@ -328,37 +321,14 @@ function EnvironmentMemorySettingsSection({
     void updateSettings({ environmentId, input: { patch: { memory } } });
   };
 
-  const memory = settings.memory;
-
-  const memoryHint = (description: MessageKey) =>
-    memory.enabled ? t(description) : `${t(description)} ${t(MEMORY_SETTING_DISABLED_HINT)}`;
-
   return (
     <SettingsSection title={t("Memory")}>
       <SettingsSwitchRow
         icon="doc.text"
         label={t("Memory")}
-        subtitle={t("Keep durable facts that bots can use across chats.")}
-        value={memory.enabled}
+        subtitle={t("Bots remember facts across chats.")}
+        value={settings.memory.enabled}
         onValueChange={(enabled) => updateMemory({ enabled })}
-      />
-      <SettingsSwitchRow
-        disabled={!memory.enabled}
-        icon="person.crop.circle"
-        label={t("Private bot memory")}
-        subtitle={memoryHint("Let each bot keep facts about you that only that bot uses.")}
-        value={memory.privateBotMemory}
-        onValueChange={(privateBotMemory) => updateMemory({ privateBotMemory })}
-      />
-      <SettingsSwitchRow
-        disabled={!memory.enabled}
-        icon="folder.fill"
-        label={t(SHARED_PROJECT_MEMORY_SETTING.label)}
-        subtitle={memoryHint(SHARED_PROJECT_MEMORY_SETTING.description)}
-        value={sharedProjectMemoryAutoSaves(memory.sharedProjectMemory)}
-        onValueChange={(auto) =>
-          updateMemory({ sharedProjectMemory: sharedProjectMemoryMode(auto) })
-        }
       />
     </SettingsSection>
   );
