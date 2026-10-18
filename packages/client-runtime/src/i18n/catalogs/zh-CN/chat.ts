@@ -356,7 +356,7 @@ export const chatCatalog = {
   "Command is required.": "命令为必填项。",
   "Local command": "本地命令",
   "Command palette": "命令面板",
-  "Search commands and chats...": "搜索命令和聊天...",
+  "Search chats, tasks, files and more...": "搜索聊天、任务、文件等...",
   "Filter chats": "筛选聊天",
   "Copy message": "复制消息",
   "Copy this code, then open the sign-in page and enter it.":

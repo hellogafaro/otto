@@ -5,8 +5,6 @@ import { type ReactNode } from "react";
 
 export const ITEM_ICON_CLASS = "size-4 text-icon-muted";
 
-export const COMMAND_PALETTE_INPUT_PLACEHOLDER = "Search commands and chats...";
-
 export interface CommandPaletteActionItem {
   readonly value: string;
   readonly searchTerms: ReadonlyArray<string>;
@@ -126,6 +124,9 @@ export interface CommandPaletteChatMatch {
 }
 
 export const COMMAND_PALETTE_CHAT_LIMIT = 8;
+
+/** Rows per workspace search group (bots, people, tasks, projects, routines, Library). */
+export const COMMAND_PALETTE_SEARCH_GROUP_LIMIT = 5;
 
 /**
  * Looks up a bot or group name in the roster of the environment a chat lives
@@ -295,12 +296,13 @@ function rankCommandPaletteItemMatch(
 
 /**
  * Filters each group to the items whose search terms contain the query, ranking
- * earlier and tighter term matches first. A leading ">" is accepted and ignored
- * so the VS Code habit of typing it still works.
+ * earlier and tighter term matches first, and keeps at most `limit` per group.
+ * A leading ">" is accepted and ignored so the VS Code habit of typing it still works.
  */
 export function filterCommandPaletteGroups(input: {
   readonly groups: ReadonlyArray<CommandPaletteGroup>;
   readonly query: string;
+  readonly limit?: number;
 }): CommandPaletteGroup[] {
   const searchQuery = input.query.startsWith(">") ? input.query.slice(1) : input.query;
   const normalizedQuery = normalizeSearchText(searchQuery);
@@ -324,6 +326,7 @@ export function filterCommandPaletteGroups(input: {
       });
     })
       .toSorted((left, right) => right.rank - left.rank || left.index - right.index)
+      .slice(0, input.limit)
       .map((entry) => entry.item);
 
     return items.length === 0 ? [] : [{ value: group.value, label: group.label, items }];

@@ -367,7 +367,7 @@ export const chatCatalog = {
   "Command is required.": "Command is required.",
   "Local command": "Local command",
   "Command palette": "Command palette",
-  "Search commands and chats...": "Search commands and chats...",
+  "Search chats, tasks, files and more...": "Search chats, tasks, files and more...",
   "Filter chats": "Filter chats",
   "Copy message": "Copy message",
   "Copy this code, then open the sign-in page and enter it.":

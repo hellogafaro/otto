@@ -2,9 +2,12 @@
 
 import {
   RiArchiveLine,
+  RiBox3Line,
   RiRobot2Line,
   RiBarChartLine,
   RiImageLine,
+  RiListCheck3,
+  RiTimeLine,
   RiTranslate2,
   RiDiscussLine,
   RiMoonLine,
@@ -12,6 +15,7 @@ import {
   RiSettings3Line,
   RiSunLine,
 } from "@remixicon/react";
+import { GENERAL_PROJECT_ID } from "@otto/contracts";
 import { Predicate } from "effect";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -29,8 +33,10 @@ import {
   buildEnvironmentOwnerNames,
   buildLanguageCommandPaletteAction,
   buildModelPickerCommandPaletteAction,
+  COMMAND_PALETTE_SEARCH_GROUP_LIMIT,
   filterCommandPaletteGroups,
   ITEM_ICON_CLASS,
+  normalizeSearchText,
   type CommandPaletteActionItem,
   type CommandPaletteChat,
   type CommandPaletteGroup,
@@ -42,10 +48,16 @@ import { openCustomize } from "~/customize-navigation";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { allEnvironmentRostersAtom } from "../state/bots";
 import { useThreadShells } from "../state/entities";
+import { environmentSnapshotAtom } from "../state/shell";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { useThreadSearch } from "../state/queries";
 import { findLatestGroupThreadIds, latestGroupThreadKey } from "./roster/bot-thread-runtime.logic";
 import { useRosterStore } from "./roster/roster-store";
+import { BotAvatarView } from "./roster/bot-avatar-view";
+import { PersonAvatar } from "./roster/person-avatar";
+import { LIBRARY_TYPE_ICONS } from "./library/library-visuals";
+import { useWorkStatusLabel } from "./work/work-status";
+import { projectStatus } from "./work/work.logic";
 import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
 import { toast } from "sonner";
@@ -235,13 +247,28 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
   // Rows follow the query the input shows, so Enter never runs a row from an
   // earlier query. Message search debounces its own RPC.
   const chatSearch = useChatSearchItems(query);
+  const workspaceGroups = useWorkspaceSearchGroups();
+  const searchQuery = query.startsWith(">") ? "" : query;
 
   const filteredGroups = [
     ...filterCommandPaletteGroups({ groups, query }),
     ...(chatSearch.items.length > 0
       ? [{ value: "chats", label: t("Chats"), items: chatSearch.items }]
       : []),
+    ...(normalizeSearchText(searchQuery).length > 0
+      ? filterCommandPaletteGroups({
+          groups: workspaceGroups,
+          query: searchQuery,
+          limit: COMMAND_PALETTE_SEARCH_GROUP_LIMIT,
+        })
+      : []),
   ];
+
+  // The list highlights its first row again after the query changes without reporting it.
+  const activeItemValue =
+    highlightedItemValue ??
+    filteredGroups.flatMap((group) => group.items).find((item) => !item.disabled)?.value ??
+    null;
 
   function executeItem(item: CommandPaletteActionItem): void {
     if (item.disabled) return;
@@ -256,7 +283,7 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
       aria-label={t("Command palette")}
       autoHighlight="always"
       footerActionLabel={t("Select")}
-      inputProps={{ placeholder: t("Search commands and chats...") }}
+      inputProps={{ placeholder: t("Search chats, tasks, files and more...") }}
       mode="none"
       onItemHighlighted={(value) => {
         setHighlightedItemValue(Predicate.isString(value) ? value : null);
@@ -269,13 +296,160 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
     >
       <CommandPaletteResults
         groups={filteredGroups}
-        highlightedItemValue={highlightedItemValue}
+        highlightedItemValue={activeItemValue}
         keybindings={keybindings}
         onExecuteItem={executeItem}
-        {...(chatSearch.isPending ? { emptyStateMessage: t("Searching chats…") } : {})}
+        emptyStateMessage={chatSearch.isPending ? t("Searching chats…") : t("No results")}
       />
     </CommandPaletteContent>
   );
+}
+
+/**
+ * Everything else the palette finds by name, newest first within each group: live bots, people,
+ * tasks, projects, routines and Library files of the primary environment. The server already left
+ * out what this person can't see.
+ */
+function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const environmentId = usePrimaryEnvironmentId();
+  // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
+  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
+  const bots = useRosterStore((state) => state.bots);
+  const statusLabel = useWorkStatusLabel();
+
+  const newestFirst = <A extends { readonly updatedAt: string }>(items: ReadonlyArray<A>) =>
+    items.toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+
+  const projectTitles = new Map(
+    (snapshot?.projects ?? []).map((project) => [
+      project.id,
+      project.id === GENERAL_PROJECT_ID ? t("No project") : project.title,
+    ]),
+  );
+
+  const botNames = new Map(bots.map((bot) => [bot.id, bot.name]));
+
+  const folderTitles = new Map(
+    (snapshot?.libraryFolders ?? []).map((folder) => [folder.id, folder.title]),
+  );
+
+  return [
+    {
+      value: "bots",
+      label: t("Bots"),
+      items: newestFirst(bots.filter((bot) => bot.archivedAt === null)).map((bot) => ({
+        value: `bot:${bot.id}`,
+        searchTerms: [bot.name, bot.title, bot.label ?? ""],
+        title: bot.name,
+        description: bot.title,
+        icon: <BotAvatarView avatar={bot.avatar} name={bot.name} className="size-4" />,
+        run: async () => {
+          await navigate({ to: "/bots/$botId", params: { botId: bot.id } });
+        },
+      })),
+    },
+    {
+      value: "people",
+      label: t("People"),
+      items: (snapshot?.people ?? []).map((person) => ({
+        value: `person:${person.personId}`,
+        searchTerms: [person.displayName, person.email ?? ""],
+        title: person.displayName,
+        ...(person.email ? { description: person.email } : {}),
+        icon: (
+          <PersonAvatar
+            name={person.displayName}
+            personId={person.personId}
+            className="size-4 text-7px"
+          />
+        ),
+        run: async () => {
+          await navigate({
+            to: "/settings/$section",
+            params: { section: "members" },
+            search: { q: person.email ?? person.displayName },
+          });
+        },
+      })),
+    },
+    {
+      value: "tasks",
+      label: t("Tasks"),
+      items: newestFirst(snapshot?.tasks ?? []).map((task) => ({
+        value: `task:${task.id}`,
+        searchTerms: [task.title, task.description],
+        title: task.title,
+        description: [projectTitles.get(task.projectId), statusLabel(task.status)]
+          .filter(Boolean)
+          .join(" · "),
+        icon: <RiListCheck3 className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
+        },
+      })),
+    },
+    {
+      value: "projects",
+      label: t("Projects"),
+      items: newestFirst(
+        (snapshot?.projects ?? []).filter((project) => project.id !== GENERAL_PROJECT_ID),
+      ).map((project) => ({
+        value: `project:${project.id}`,
+        searchTerms: [project.title, project.description ?? ""],
+        title: project.title,
+        description: statusLabel(projectStatus(project)),
+        icon: <RiBox3Line className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await navigate({ to: "/projects/$projectId", params: { projectId: project.id } });
+        },
+      })),
+    },
+    {
+      value: "routines",
+      label: t("Routines"),
+      items: newestFirst(
+        (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted"),
+      ).map((routine) => ({
+        value: `routine:${routine.id}`,
+        searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
+        title: routine.job,
+        ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
+        icon: <RiTimeLine className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
+        },
+      })),
+    },
+    {
+      value: "library",
+      label: t("Library"),
+      items: newestFirst(snapshot?.libraryFiles ?? []).map((file) => {
+        const Icon = LIBRARY_TYPE_ICONS[file.type];
+        const folderTitle = file.folderId ? folderTitles.get(file.folderId) : undefined;
+
+        return {
+          value: `file:${file.id}`,
+          searchTerms: [file.title],
+          title: file.title,
+          description: folderTitle ?? t("Library"),
+          icon: <Icon className={ITEM_ICON_CLASS} />,
+          run: async () => {
+            await (file.type === "document"
+              ? navigate({ to: "/library/$fileId", params: { fileId: file.id } })
+              : navigate({
+                  to: "/library",
+                  search: {
+                    ...(file.folderId ? { folder: file.folderId } : {}),
+                    preview: file.id,
+                  },
+                }));
+          },
+        };
+      }),
+    },
+  ];
 }
 
 /**

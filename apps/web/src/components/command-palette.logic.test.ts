@@ -53,6 +53,22 @@ describe("filterCommandPaletteGroups", () => {
     expect(groups[0]?.items.map((item) => item.value)).toEqual(["first", "later"]);
   });
 
+  it("keeps at most the limit per group, best matches first", () => {
+    const group: CommandPaletteGroup = {
+      value: "tasks",
+      label: "Tasks",
+      items: [
+        action("task:newest", ["Release notes draft"]),
+        action("task:exact", ["Release"]),
+        action("task:prefix", ["Release checklist"]),
+        action("task:oldest", ["Plan the release"]),
+      ],
+    };
+
+    const groups = filterCommandPaletteGroups({ groups: [group], query: "release", limit: 2 });
+    expect(groups[0]?.items.map((item) => item.value)).toEqual(["task:exact", "task:newest"]);
+  });
+
   it("ignores a leading > so actions-style queries still match", () => {
     const groups = filterCommandPaletteGroups({ groups: [ACTIONS], query: ">plugins" });
     expect(groups[0]?.items.map((item) => item.value)).toEqual(["action:plugins"]);
