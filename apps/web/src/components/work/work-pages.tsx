@@ -1,15 +1,13 @@
 import {
   BotId,
   GENERAL_PROJECT_ID,
-  type OrchestrationTask,
   PROJECT_LIST_SORTS,
   type ProjectListResult,
   type ProjectListSort,
   ProjectListView,
-  type TaskListResult,
   TASK_LIST_SORTS,
   type TaskListSort,
-  TaskListView,
+  type TaskListView,
   WORK_STATUS_ORDER,
   type WorkParticipant,
   type WorkStatus,
@@ -38,7 +36,7 @@ import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { projectEnvironment } from "../../state/projects";
-import { environmentTasksAtom, taskEnvironment } from "../../state/tasks";
+import { useTaskPages } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { localDateKey } from "../../timestamp-format";
 import {
@@ -84,15 +82,11 @@ import {
 } from "./work-participants";
 import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
 
-const EMPTY_TASKS: readonly OrchestrationTask[] = [];
-
 export function useWorkData() {
   const { t } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
-  // SAFETY: same inactive-query sentinel as the snapshot above.
-  const tasks = useAtomValue(environmentTasksAtom(environmentId ?? ("" as never)));
   const participants = useWorkParticipants(snapshot ?? null);
   const snapshotProjects = snapshot?.projects;
 
@@ -108,7 +102,6 @@ export function useWorkData() {
     environmentId,
     loaded: snapshot !== null && snapshot !== undefined,
     projects,
-    tasks: environmentId ? tasks : EMPTY_TASKS,
     groups: snapshot?.groups ?? [],
     currentPersonId: snapshot?.currentPersonId ?? null,
     participants,
@@ -256,10 +249,6 @@ const TASK_SORT_ORDER: Record<TaskListSort, "asc" | "desc"> = {
   title: "asc",
 };
 
-const encodeTaskView = Schema.encodeSync(Schema.fromJsonString(TaskListView));
-
-const nextTaskCursor = (page: TaskListResult) => page.nextCursor;
-
 /** The view with one field set, or left out when it is empty. */
 export function withField<View extends object, K extends keyof View>(
   view: View,
@@ -334,8 +323,7 @@ const shortDay = (day: string) => {
 export function TasksPage({ view }: { readonly view: TaskListView }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { environmentId, loaded, projects, tasks, participants } = useWorkData();
-  const listTasks = useAtomCommand(taskEnvironment.list, { reportFailure: false });
+  const { environmentId, loaded, projects, participants } = useWorkData();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const activeProjects = projects.filter((project) => projectStatus(project) !== "archived");
@@ -343,22 +331,7 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
   const sort = view.sort ?? "status";
   const today = localDateKey(new Date());
 
-  const list = useListPages({
-    view: `${environmentId}:${encodeTaskView(view)}`,
-    revision: tasks,
-    getNextCursor: nextTaskCursor,
-    fetchPage: async (cursor) => {
-      if (!environmentId) return null;
-
-      const result = await listTasks({
-        environmentId,
-        input: cursor === undefined ? view : { ...view, cursor },
-      });
-
-      return AsyncResult.isSuccess(result) ? result.value : null;
-    },
-  });
-
+  const list = useTaskPages(environmentId, view);
   const rows = list.pages.flatMap((page) => page.tasks);
   const filtered = Object.keys(view).some((key) => key !== "sort" && key !== "order");
 

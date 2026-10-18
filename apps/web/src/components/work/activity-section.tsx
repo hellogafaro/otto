@@ -8,7 +8,6 @@ import {
   type TaskChanges,
   type WorkParticipant,
 } from "@otto/contracts";
-import { useAtomValue } from "@effect/atom-react";
 import { RiAttachment2, RiDeleteBinLine, RiReplyLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { Match } from "effect";
@@ -25,7 +24,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../timestamp-format";
 import ChatMarkdown from "../chat-markdown";
 import { useLibraryUpload } from "../library/use-library";
-import { environmentTasksAtom } from "../../state/tasks";
+import { useTaskCache } from "../../state/tasks";
 import type { MessageReplyTarget } from "../chat/message-controls";
 import { BotPromptComposer } from "../roster/bot-prompt-composer";
 import { Button } from "../ui/button";
@@ -76,7 +75,7 @@ export function ActivitySection({
   readonly currentPersonId: string | null;
 }) {
   const { t } = useI18n();
-  const tasks = useAtomValue(environmentTasksAtom(environmentId));
+  const tasks = useTaskCache(environmentId);
   const query = useEnvironmentQuery(activityEnvironment.list({ environmentId, input: entity }));
   const addComment = useAtomCommand(activityEnvironment.addComment);
   const { upload } = useLibraryUpload();
@@ -102,7 +101,11 @@ export function ActivitySection({
         id: project.id,
         label: project.title,
       })),
-    ...tasks.map((task) => ({ type: "task" as const, id: task.id, label: task.title })),
+    ...[...tasks.values()].map((task) => ({
+      type: "task" as const,
+      id: task.id,
+      label: task.title,
+    })),
   ];
 
   const actorParticipant = (actor: Actor | null): WorkParticipant | null =>

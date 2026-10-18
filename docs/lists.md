@@ -14,7 +14,7 @@ The Tasks, Projects, Routines and Library pages read their rows from the server 
 
 ## Tasks
 
-`tasks.list` filters by `project`, `owner` and `assignee` (participant keys, `bot:<id>` or `person:<id>`), `status` (any of a comma list; none means everything but archived) and an inclusive `dueFrom`/`dueTo` range (undated tasks never match a bound). It sorts by `status` (moving work first, latest change first within it), `due` (undated last in either order), `updated`, `created` or `title`. Every workspace member reads every task, so no per-row visibility applies. Rows omit timesheets; a task page reads its own.
+`tasks.list` filters by `project`, `owner` and `assignee` (participant keys, `bot:<id>` or `person:<id>`), `status` (any of a comma list; none means everything but archived), an inclusive `dueFrom`/`dueTo` range (undated tasks never match a bound), `title` (the title contains the text, ignoring case, for pickers) and `search` (the title or description contains it, for the command palette); both match with SQL `instr` on lowercased text, never as a pattern. It sorts by `status` (moving work first, latest change first within it), `due` (undated last in either order), `updated`, `created` or `title`. Every workspace member reads every task, so no per-row visibility applies. Rows omit timesheets; a task page reads its own with `tasks.get` (one task by id, archived or not, with the same read scope as the list; an unknown id is `TaskNotFoundError`).
 
 ## Routines
 
@@ -29,6 +29,10 @@ The Tasks, Projects, Routines and Library pages read their rows from the server 
 `library.list` lists one folder's level (`folder`, or the top level without it) or, with `everywhere`, the matching items of every folder, which the Documents, Images and Files tabs use. It filters by `type` (any of a comma list of `folder`, `document`, `image` and `file`, where `file` is PDFs and every other file) and `creator` (a participant key), and sorts by `updated` (the default), `created` or `title`, folders before files in either order. Folders and files live in separate tables, so one query unions them under a shared key: folders first, the sort value, then the id.
 
 Visibility is applied in that same SQL exactly as the Library's rule (`canSeeLibraryItem`) decides it: a recursive pass finds, from the top down, the folders the person sees (a `user` folder only its creator; a chat's folder that chat's people, or only its creator once the chat or its group is gone), and an item is listed only when it passes the same check and every folder above it is seen. Public links are untouched. A Library cursor is sealed to the person as well as the view.
+
+## Shell snapshot
+
+The shell snapshot no longer carries tasks. The stream still sends each `task-upserted` event, which the client folds into a small per-environment cache of the tasks it has read (`taskCacheAtom`) and counts in `taskChangesAtom`. `tasks.get` and `tasks.list` results fill the cache. The Tasks page, a project's Tasks tab, Home and the pickers pass that counter as their list `revision`, so they reload when any task changes; a task page reads its task from the cache and calls `tasks.get` when the cache has no current timesheet for it. A new snapshot (a reconnect, which may follow missed events) leaves every cached task to be read again. Bounded consumers: a project's Tasks tab pages 100 at a time with load more; Home's due tasks read the first page of tasks the person owns and of those assigned to them (100 each); the @ pickers read the first 100 matches by title (the chat composer's 8); the command palette reads 100 matches, or the 20 newest on its Tasks tab.
 
 ## Clients
 

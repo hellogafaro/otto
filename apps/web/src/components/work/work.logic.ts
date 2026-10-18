@@ -1,6 +1,5 @@
 import {
   type OrchestrationProjectShell,
-  type OrchestrationTask,
   ProjectListView,
   TaskListView,
   WORK_STATUS_ORDER,
@@ -85,15 +84,6 @@ export const parseProjectPageSearch = (search: Parameters<typeof decodeProjectPa
   Option.getOrElse(decodeProjectPageSearch(search), (): ProjectPageSearch => ({}));
 
 const decodeProjectPageSearch = Schema.decodeUnknownOption(ProjectPageSearch);
-
-/** What is moving first, then what waits, then what is done; recent first within each. */
-export function sortTasks(tasks: readonly OrchestrationTask[]): OrchestrationTask[] {
-  return tasks.toSorted(
-    (left, right) =>
-      WORK_STATUS_ORDER.indexOf(left.status) - WORK_STATUS_ORDER.indexOf(right.status) ||
-      right.updatedAt.localeCompare(left.updatedAt),
-  );
-}
 
 /** FNV-1a with a final mix, so neighbouring ids still land on different covers. */
 export function hashSeed(seed: string): number {

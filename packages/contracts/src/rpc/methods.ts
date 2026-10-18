@@ -22,6 +22,7 @@ export const WS_METHODS = {
 
   // Task methods
   tasksList: "tasks.list",
+  tasksGet: "tasks.get",
 
   // Notification methods
   notificationsList: "notifications.list",

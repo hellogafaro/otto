@@ -24,7 +24,7 @@ import {
   type RemixiconComponentType,
 } from "@remixicon/react";
 import type { NavigationKeybindingCommand } from "@otto/contracts";
-import { GENERAL_PROJECT_ID } from "@otto/contracts";
+import { GENERAL_PROJECT_ID, WORK_STATUSES } from "@otto/contracts";
 import { Match, Predicate } from "effect";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
@@ -63,6 +63,7 @@ import { primaryServerKeybindingsAtom } from "../state/server";
 import { allEnvironmentRostersAtom } from "../state/bots";
 import { useThreadShells } from "../state/entities";
 import { environmentSnapshotAtom } from "../state/shell";
+import { useTaskPages } from "../state/tasks";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { useThreadSearch } from "../state/queries";
 import { findLatestGroupThreadIds, latestGroupThreadKey } from "./roster/bot-thread-runtime.logic";
@@ -297,8 +298,8 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
   // earlier query. Message search debounces its own RPC.
   const limit = tab === "all" ? COMMAND_PALETTE_SEARCH_GROUP_LIMIT : COMMAND_PALETTE_TAB_LIMIT;
   const chatSearch = useChatSearchItems(query, limit);
-  const workspaceGroups = useWorkspaceSearchGroups();
   const searchQuery = query.startsWith(">") ? "" : query;
+  const workspaceGroups = useWorkspaceSearchGroups(searchQuery, tab);
   const actionGroups = filterCommandPaletteGroups({ groups, query });
 
   const chatGroups =
@@ -506,15 +507,28 @@ function useGoToItems(): CommandPaletteActionItem[] {
 /**
  * Everything else the palette finds by name, newest first within each group: live bots, people,
  * tasks, projects, routines and Library files of the primary environment. The server already left
- * out what this person can't see.
+ * out what this person can't see. Tasks are asked of the server only once something is typed or
+ * the Tasks tab is open.
  */
-function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
+function useWorkspaceSearchGroups(query: string, tab: CommandPaletteTab): CommandPaletteGroup[] {
   const { t } = useI18n();
   const navigate = useNavigate();
   const environmentId = usePrimaryEnvironmentId();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
   const bots = useRosterStore((state) => state.bots);
+  const taskSearch = normalizeSearchText(query).slice(0, 300).trim();
+
+  const taskList = useTaskPages(
+    environmentId,
+    taskSearch === "" && tab !== "tasks"
+      ? null
+      : {
+          status: WORK_STATUSES,
+          sort: "updated",
+          ...(taskSearch === "" ? { limit: COMMAND_PALETTE_TAB_LIMIT } : { search: taskSearch }),
+        },
+  );
 
   const newestFirst = <A extends { readonly updatedAt: string }>(items: ReadonlyArray<A>) =>
     items.toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -574,7 +588,7 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
     {
       value: "tasks",
       label: t("Tasks"),
-      items: newestFirst(snapshot?.tasks ?? []).map((task) => ({
+      items: (taskList.pages[0]?.tasks ?? []).map((task) => ({
         value: `task:${task.id}`,
         searchTerms: [task.title, task.description],
         title: task.title,

@@ -1,4 +1,4 @@
-import type { WorkResource } from "@otto/contracts";
+import { TaskId, type WorkResource } from "@otto/contracts";
 import { RiAddLine, RiCloseLine, RiLink } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 import * as Match from "effect/Match";
@@ -6,6 +6,7 @@ import * as Schema from "effect/Schema";
 import { Fragment, useState, type ReactNode } from "react";
 
 import { useLocalStorage } from "../../hooks/use-local-storage";
+import { useCachedTasks } from "../../state/tasks";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import ChatMarkdown from "../chat-markdown";
@@ -66,7 +67,8 @@ export function WorkDetailPage({
   readonly aside: ReactNode;
 }) {
   const { t } = useI18n();
-  const links = useEntities();
+  const [linkQuery, setLinkQuery] = useState<string | null>(null);
+  const links = useEntities(linkQuery);
   useDesktopTabTitle(title);
 
   const [detailsOpen, setDetailsOpen] = useLocalStorage(
@@ -135,6 +137,7 @@ export function WorkDetailPage({
                     placeholder={t("Add a description…")}
                     ariaLabel={t("Description")}
                     links={links}
+                    onLinkQueryChange={setLinkQuery}
                     onBlur={(markdown) => {
                       if (markdown.trim() !== description) onDescriptionSave(markdown.trim());
                     }}
@@ -242,13 +245,18 @@ export function WorkResourcesSection({
   readonly onChange: (resources: WorkResource[]) => void;
 }) {
   const { t } = useI18n();
-  const { tasks, projects } = useWorkData();
-  const entities = useEntities();
+  const { environmentId, projects } = useWorkData();
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const taken = new Set([...resources.map(resourceKey), `${self.type}:${self.id}`]);
   const text = query.trim();
+  const entities = useEntities(adding ? text : null);
+
+  const tasks = useCachedTasks(
+    environmentId,
+    resources.flatMap((resource) => (resource.type === "task" ? [resource.id] : [])),
+  );
 
   const options: ResourceOption[] = [
     ...(isWebLink(text) && !taken.has(`link:${text}`)
@@ -302,7 +310,7 @@ export function WorkResourcesSection({
           Match.when({ type: "link" }, (link) => link.title),
           Match.when(
             { type: "task" },
-            (item) => tasks.find((task) => task.id === item.id)?.title ?? t("Task"),
+            (item) => tasks.get(TaskId.make(item.id))?.title ?? t("Task"),
           ),
           Match.orElse(
             (item) => projects.find((project) => project.id === item.id)?.title ?? t("Project"),

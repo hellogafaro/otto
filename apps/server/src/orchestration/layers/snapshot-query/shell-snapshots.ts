@@ -33,7 +33,6 @@ export function createShellSnapshots({
   listGroupRows,
   listShellDelegationRows,
   projectionMcpServerRepository,
-  projectionTaskRepository,
   projectionLibraryRepository,
   routineRepository,
   listActiveThreadRows,
@@ -56,7 +55,6 @@ export function createShellSnapshots({
   | "listGroupRows"
   | "listShellDelegationRows"
   | "projectionMcpServerRepository"
-  | "projectionTaskRepository"
   | "projectionLibraryRepository"
   | "routineRepository"
   | "listActiveThreadRows"
@@ -107,7 +105,6 @@ export function createShellSnapshots({
             ),
           ),
           projectionMcpServerRepository.listAll(),
-          projectionTaskRepository.listAll(),
           projectionLibraryRepository.listFolders(),
           projectionLibraryRepository.listFiles(),
           routineRepository.listAll,
@@ -155,7 +152,6 @@ export function createShellSnapshots({
             groupRows,
             delegationRows,
             mcpServers,
-            tasks,
             libraryFolders,
             libraryFiles,
             routines,
@@ -237,7 +233,6 @@ export function createShellSnapshots({
                 groups: groupRows.map(mapGroupRow),
                 delegations: delegationRows.map((row) => toShellDelegation(row.delegation)),
                 mcpServers,
-                tasks,
                 libraryFolders,
                 libraryFiles,
                 routines: routines.filter((routine) => routine.deletedAt === null),

@@ -173,7 +173,6 @@ export const OrchestrationShellSnapshot = Schema.Struct({
   routineReceiptSources: Schema.optional(Schema.Array(RoutineReceiptSource)),
   routineRuns: Schema.optional(Schema.Array(RoutineRun)),
   skillAssignments: Schema.optional(Schema.Array(RoutineSkillAssignment)),
-  tasks: Schema.optional(Schema.Array(OrchestrationTask)),
   libraryFolders: Schema.optional(Schema.Array(LibraryFolder)),
   libraryFiles: Schema.optional(Schema.Array(LibraryFile)),
   threads: Schema.Array(OrchestrationThreadShell),

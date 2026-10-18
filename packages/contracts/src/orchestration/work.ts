@@ -294,6 +294,8 @@ export const WorkStatusList = Schema.String.pipe(
   ),
 );
 
+const TaskListText = TrimmedNonEmptyString.check(Schema.isMaxLength(300));
+
 /** Every field narrows the list; no `status` means everything except archived. */
 export const TaskListFilter = Schema.Struct({
   project: Schema.optional(ProjectId),
@@ -303,6 +305,10 @@ export const TaskListFilter = Schema.Struct({
   /** Inclusive calendar days; tasks without a due date never match either bound. */
   dueFrom: Schema.optional(TaskDueDate),
   dueTo: Schema.optional(TaskDueDate),
+  /** Tasks whose title contains this text, ignoring case, as pickers match. */
+  title: Schema.optional(TaskListText),
+  /** Tasks whose title or description contains this text, ignoring case. */
+  search: Schema.optional(TaskListText),
 });
 
 export type TaskListFilter = typeof TaskListFilter.Type;
@@ -357,6 +363,19 @@ export class TaskListError extends Schema.TaggedErrorClass<TaskListError>()("Tas
   }
 }
 
+export const TaskGetInput = Schema.Struct({ taskId: TaskId });
+
+export type TaskGetInput = typeof TaskGetInput.Type;
+
+export class TaskNotFoundError extends Schema.TaggedErrorClass<TaskNotFoundError>()(
+  "TaskNotFoundError",
+  { taskId: TaskId },
+) {
+  override get message(): string {
+    return `Task ${this.taskId} was not found.`;
+  }
+}
+
 export const ProjectListFilter = Schema.Struct({
   owner: Schema.optional(WorkParticipantKey),
   status: Schema.optional(WorkStatusList),
@@ -395,38 +414,4 @@ export class ProjectListError extends Schema.TaggedErrorClass<ProjectListError>(
   override get message(): string {
     return this.detail;
   }
-}
-
-function matchesStatuses(status: WorkStatus, statuses: ReadonlyArray<WorkStatus> | undefined) {
-  return statuses === undefined || statuses.length === 0
-    ? status !== "archived"
-    : statuses.includes(status);
-}
-
-export function matchesTaskFilter(task: OrchestrationTask, filter: TaskListFilter): boolean {
-  if (filter.project !== undefined && task.projectId !== filter.project) return false;
-
-  if (
-    filter.owner !== undefined &&
-    (task.owner === null || workParticipantKey(task.owner) !== filter.owner)
-  ) {
-    return false;
-  }
-
-  if (
-    filter.assignee !== undefined &&
-    !task.assignees.some((assignee) => workParticipantKey(assignee) === filter.assignee)
-  ) {
-    return false;
-  }
-
-  if (filter.dueTo !== undefined && (task.dueDate === null || task.dueDate > filter.dueTo)) {
-    return false;
-  }
-
-  if (filter.dueFrom !== undefined && (task.dueDate === null || task.dueDate < filter.dueFrom)) {
-    return false;
-  }
-
-  return matchesStatuses(task.status, filter.status);
 }

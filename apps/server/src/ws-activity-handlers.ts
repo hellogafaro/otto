@@ -6,11 +6,12 @@ import * as Effect from "effect/Effect";
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 
 import { listProjects } from "./project/project-list.ts";
+import { getTask } from "./tasks/task-get.ts";
 import { listTasks } from "./tasks/task-list.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
 /**
- * Project and task lists and timelines are read by anyone who can read the workspace; comments
+ * Project and task lists, tasks and timelines are read by anyone who can read the workspace; comments
  * act as the signed-in person.
  */
 export const createWsActivityHandlers = ({
@@ -43,6 +44,11 @@ export const createWsActivityHandlers = ({
 
     [WS_METHODS.tasksList]: (input) =>
       observeRpcEffect(WS_METHODS.tasksList, listTasks(input, { projectionTasks, secretStore }), {
+        "rpc.aggregate": "tasks",
+      }),
+
+    [WS_METHODS.tasksGet]: (input) =>
+      observeRpcEffect(WS_METHODS.tasksGet, getTask(input, { projectionTasks }), {
         "rpc.aggregate": "tasks",
       }),
 
@@ -97,6 +103,7 @@ export const createWsActivityHandlers = ({
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     | typeof WS_METHODS.projectsList
     | typeof WS_METHODS.tasksList
+    | typeof WS_METHODS.tasksGet
     | typeof WS_METHODS.activityList
     | typeof WS_METHODS.activityCommentAdd
     | typeof WS_METHODS.activityCommentRemove

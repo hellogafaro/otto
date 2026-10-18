@@ -1,5 +1,5 @@
 import { scopedThreadKey, scopeThreadRef } from "@otto/client-runtime/environment";
-import { BotId } from "@otto/contracts";
+import { BotId, type WorkStatus } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
   RiChat1Line,
@@ -13,6 +13,7 @@ import { useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { environmentSnapshotAtom } from "../../state/shell";
+import { useTaskPages } from "../../state/tasks";
 import { useThreadShells } from "../../state/entities";
 import { formatRelativeTimeLabel, localDateKey } from "../../timestamp-format";
 import { useUiStateStore } from "../../ui-state-store";
@@ -31,6 +32,8 @@ import { HomeDither } from "./home-dither";
 import { pickGreeting, routinesToday, routineTime, tasksDue } from "./home.logic";
 
 type ChatState = "needs" | "working" | "ready";
+
+const OPEN_STATUSES: readonly WorkStatus[] = ["backlog", "pending", "in_progress"];
 
 const CHAT_STATE_ORDER: Record<ChatState, number> = { needs: 0, ready: 1, working: 2 };
 
@@ -68,7 +71,7 @@ function Meta({ children }: { readonly children: string }) {
 export function HomePage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { environmentId, loaded, projects, tasks, participants, currentPersonId } = useWorkData();
+  const { environmentId, loaded, projects, participants, currentPersonId } = useWorkData();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
   const shells = useThreadShells();
@@ -85,7 +88,20 @@ export function HomePage() {
       : t("Welcome back")
     : t(greeting);
 
-  const due = currentPersonId ? tasksDue(tasks, currentPersonId, today) : [];
+  const dueQuery = { status: OPEN_STATUSES, dueTo: today, sort: "due" as const };
+  const myKey = currentPersonId ? `person:${currentPersonId}` : null;
+  const owned = useTaskPages(environmentId, myKey ? { ...dueQuery, owner: myKey } : null);
+  const assigned = useTaskPages(environmentId, myKey ? { ...dueQuery, assignee: myKey } : null);
+  const mine = [...owned.pages, ...assigned.pages].flatMap((page) => page.tasks);
+
+  const tasksLoading = [owned, assigned].some(
+    (list) => list.status === "loading" && list.pages.length === 0,
+  );
+
+  const due = currentPersonId
+    ? tasksDue([...new Map(mine.map((task) => [task.id, task])).values()], currentPersonId, today)
+    : [];
+
   const routines = routinesToday(snapshot?.routines ?? [], today);
 
   const chatState = (shell: (typeof shells)[number]): ChatState | null => {
@@ -141,7 +157,7 @@ export function HomePage() {
             })}
           </p>
         </div>
-        {!loaded ? (
+        {!loaded || (currentPersonId !== null && tasksLoading) ? (
           <SkeletonTableRows label={t("Loading…")} />
         ) : (
           <div className="flex flex-col gap-10">

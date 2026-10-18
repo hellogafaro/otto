@@ -1,5 +1,5 @@
 import type { UpdateProjectInput } from "@otto/client-runtime/state/projects";
-import { type ProjectId, matchesTaskFilter } from "@otto/contracts";
+import type { ProjectId } from "@otto/contracts";
 import {
   RiAddLine,
   RiBookShelfLine,
@@ -18,12 +18,14 @@ import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { projectEnvironment } from "../../state/projects";
+import { useTaskPages } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { SkeletonTableRows } from "../ui/skeleton";
 import { ProjectChats, ProjectNewChat } from "./project-chats";
 import { ProjectCover, ProjectCoverControls } from "./project-cover";
 import { ProjectLibrary, ProjectUpload } from "./project-library";
 import { TasksTable } from "./tasks-table";
-import { type ProjectTab, projectStatus, sortTasks } from "./work.logic";
+import { type ProjectTab, projectStatus } from "./work.logic";
 import { WorkDetailPage, WorkResourcesSection } from "./work-detail";
 import { NewTaskDialog } from "./work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./work-pages";
@@ -49,7 +51,8 @@ export function ProjectPage({
   const navigate = useNavigate();
   const statusLabel = useWorkStatusLabel();
   const updateProject = useAtomCommand(projectEnvironment.update);
-  const { environmentId, loaded, projects, tasks, participants } = useWorkData();
+  const { environmentId, loaded, projects, participants } = useWorkData();
+  const list = useTaskPages(environmentId, { project: projectId });
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const openNewTask = useCallback(() => setNewTaskOpen(true), []);
   const project = projects.find((candidate) => candidate.id === projectId);
@@ -71,15 +74,17 @@ export function ProjectPage({
 
   const status = projectStatus(project);
 
-  const projectTasks = sortTasks(
-    tasks.filter((task) => matchesTaskFilter(task, { project: projectId })),
-  );
+  const projectTasks = list.pages.flatMap((page) => page.tasks);
+  const statusCounts = list.pages.at(-1)?.statusCounts ?? [];
 
-  const openCount = projectTasks.filter((task) =>
-    matchesTaskFilter(task, { status: ["backlog", "pending", "in_progress"] }),
-  ).length;
+  const countOf = (statuses: readonly string[]) =>
+    statusCounts.reduce(
+      (sum, entry) => (statuses.includes(entry.status) ? sum + entry.count : sum),
+      0,
+    );
 
-  const completedCount = projectTasks.filter((task) => task.status === "completed").length;
+  const openCount = countOf(["backlog", "pending", "in_progress"]);
+  const completedCount = countOf(["completed"]);
 
   const update = (fields: ProjectFields) =>
     void updateProject({ environmentId, input: { projectId: project.id, ...fields } });
@@ -87,7 +92,11 @@ export function ProjectPage({
   const canAddTask = status !== "archived";
 
   const tasksView =
-    projectTasks.length === 0 ? (
+    list.status === "loading" && projectTasks.length === 0 ? (
+      <SkeletonTableRows label={t("Loading tasks…")} />
+    ) : list.status === "error" && projectTasks.length === 0 ? (
+      <p className="text-13px text-muted-foreground">{t("Tasks couldn't be loaded.")}</p>
+    ) : projectTasks.length === 0 ? (
       <Empty>
         <EmptyMedia variant="icon">
           <RiListCheck3 />
@@ -102,6 +111,12 @@ export function ProjectPage({
         projects={projects}
         bots={participants.allBots}
         showProject={false}
+        statusCounts={statusCounts}
+        paging={{
+          hasMore: list.hasMore,
+          loading: list.status !== "ready",
+          onLoadMore: list.loadMore,
+        }}
         onOpenTask={(task) => void navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })}
       />
     );
