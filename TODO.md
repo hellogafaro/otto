@@ -24,6 +24,12 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
   a workspace switcher; today it stores one server address and one session. Any Otto app works with
   any Otto server through a stable, versioned API.
 - **Watch drawer close button** sits 9px from the edge instead of 8px.
+- **Bots reply without Composio.** On a server without `COMPOSIO_API_KEY`, every bot turn fails with
+  "Set COMPOSIO_API_KEY on the server first": `resolveRuntimeMcpServer` should return no server
+  when the key is missing instead of failing.
+- **Project default model after skipped onboarding.** The General project keeps ChatGPT as its default
+  model when only another provider, such as the Custom API, is connected. Turns then fail with
+  "Provider instance 'codex' is disabled", even for a bot with its own model.
 
 ## Next
 
@@ -34,8 +40,6 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **Allow all** is missing on some tool approvals.
 - **gh on bot computers.** A bot said "The \`gh\` CLI isn't installed on my machine, so I use git and the
   GitHub API directly." Install \`gh\` on bot computers.
-- **New bots learn from their introduction.** After a new bot asks its first questions, it doesn't save
-  the answers to its own instructions.
 - **Recurring tasks.**
 - **Public file sharing**: share a file through a public link.
 - **Commands everywhere**: palette commands for every action, for speed.
