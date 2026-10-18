@@ -64,7 +64,7 @@ vi.mock("./use-server-roster", () => ({
 vi.mock("@effect/atom-react", () => ({
   useAtomValue: (atom: string) =>
     Match.value(atom).pipe(
-      Match.when("people", () => ({ current: null, host: null })),
+      Match.when("people", () => ({ current: null, host: null, directory: [] })),
       Match.when("snapshot", () => mocks.snapshot),
       Match.when("bots", () => []),
       Match.orElse(() => null),
@@ -74,7 +74,7 @@ vi.mock("@effect/atom-react", () => ({
 vi.mock("../../state/bots", () => ({
   environmentPeopleAtom: () => "people",
   environmentBotsAtom: () => "bots",
-  botEnvironment: { update: null },
+  botEnvironment: { update: null, groups: { assignMember: null, assignPerson: null } },
 }));
 
 vi.mock("../../state/environments", () => ({
