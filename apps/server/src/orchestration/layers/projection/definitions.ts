@@ -6,6 +6,7 @@ import {
   RoutineRunFailure,
   RoutineRunResult,
   RoutineSchedule,
+  RoutineTrigger,
   SkillAssignmentId,
   type OrchestrationEvent,
 } from "@otto/contracts";
@@ -63,6 +64,8 @@ export type ProjectorName =
   (typeof ORCHESTRATION_PROJECTOR_NAMES)[keyof typeof ORCHESTRATION_PROJECTOR_NAMES];
 
 export const encodeRoutineSchedule = Schema.encodeSync(Schema.fromJsonString(RoutineSchedule));
+
+export const encodeRoutineTrigger = Schema.encodeSync(Schema.fromJsonString(RoutineTrigger));
 
 export const encodeSkillAssignmentIds = Schema.encodeSync(
   Schema.fromJsonString(Schema.Array(SkillAssignmentId)),
