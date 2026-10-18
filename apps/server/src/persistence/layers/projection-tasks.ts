@@ -1,5 +1,4 @@
 import {
-  type ListOrder,
   OrchestrationTask,
   TaskAssignees,
   type TaskListQuery,
@@ -18,6 +17,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
 import { toPersistenceSqlError } from "../errors.ts";
+import { listKeyset, type ListSortSpec } from "../list-keyset.ts";
 import {
   ProjectionTask,
   ProjectionTaskRepository,
@@ -40,58 +40,50 @@ const TaskListDbRow = ProjectionTaskDbRow.mapFields(
 
 const TaskStatusCountRow = Schema.Struct({ status: WorkStatus, count: Schema.Int });
 
-interface SortKey {
-  readonly sql: string;
-  readonly direction: ListOrder;
-  /** Kept whichever way the list runs, so undated tasks stay last. */
-  readonly fixed?: true;
-}
-
 const STATUS_RANK = `CASE status ${WORK_STATUS_ORDER.map(
   (status, rank) => `WHEN '${status}' THEN ${rank}`,
 ).join(" ")} END`;
 
 /** Each sort's natural order and its keys; the task id breaks ties so every row has a place. */
-const TASK_SORTS: Record<TaskListSort, { readonly natural: ListOrder; readonly keys: SortKey[] }> =
-  {
-    status: {
-      natural: "asc",
-      keys: [
-        { sql: STATUS_RANK, direction: "asc" },
-        { sql: "updated_at", direction: "desc" },
-        { sql: "task_id", direction: "desc" },
-      ],
-    },
-    due: {
-      natural: "asc",
-      keys: [
-        { sql: "due_date IS NULL", direction: "asc", fixed: true },
-        { sql: "COALESCE(due_date, '')", direction: "asc" },
-        { sql: "task_id", direction: "asc" },
-      ],
-    },
-    updated: {
-      natural: "desc",
-      keys: [
-        { sql: "updated_at", direction: "desc" },
-        { sql: "task_id", direction: "desc" },
-      ],
-    },
-    created: {
-      natural: "desc",
-      keys: [
-        { sql: "created_at", direction: "desc" },
-        { sql: "task_id", direction: "desc" },
-      ],
-    },
-    title: {
-      natural: "asc",
-      keys: [
-        { sql: "lower(title)", direction: "asc" },
-        { sql: "task_id", direction: "asc" },
-      ],
-    },
-  };
+const TASK_SORTS: Record<TaskListSort, ListSortSpec> = {
+  status: {
+    natural: "asc",
+    keys: [
+      { sql: STATUS_RANK, direction: "asc" },
+      { sql: "updated_at", direction: "desc" },
+      { sql: "task_id", direction: "desc" },
+    ],
+  },
+  due: {
+    natural: "asc",
+    keys: [
+      { sql: "due_date IS NULL", direction: "asc", fixed: true },
+      { sql: "COALESCE(due_date, '')", direction: "asc" },
+      { sql: "task_id", direction: "asc" },
+    ],
+  },
+  updated: {
+    natural: "desc",
+    keys: [
+      { sql: "updated_at", direction: "desc" },
+      { sql: "task_id", direction: "desc" },
+    ],
+  },
+  created: {
+    natural: "desc",
+    keys: [
+      { sql: "created_at", direction: "desc" },
+      { sql: "task_id", direction: "desc" },
+    ],
+  },
+  title: {
+    natural: "asc",
+    keys: [
+      { sql: "lower(title)", direction: "asc" },
+      { sql: "task_id", direction: "asc" },
+    ],
+  },
+};
 
 /** The `bot:<id>` or `person:<id>` key of a participant stored as JSON. */
 const participantKeySql = (json: string) =>
@@ -266,35 +258,10 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
     );
 
   const list: ProjectionTaskRepositoryShape["list"] = ({ query, limit, after }) => {
-    const sort = TASK_SORTS[query.sort ?? "status"];
-    const reversed = query.order !== undefined && query.order !== sort.natural;
-
-    const keys = sort.keys.map((key) => ({
-      sql: key.sql,
-      direction:
-        reversed && !key.fixed ? (key.direction === "asc" ? "desc" : "asc") : key.direction,
-    }));
-
+    const keyset = listKeyset(TASK_SORTS[query.sort ?? "status"], query.order, after);
     const filter = taskFilterSql(query);
-    const conditions = [...filter.conditions];
-    const params: Array<string | number> = [...filter.params];
-
-    // Keyset paging: rows strictly after the last key, comparing one sort key at a time.
-    if (after !== null && after.length === keys.length) {
-      conditions.push(
-        `(${keys
-          .map((key, index) =>
-            [
-              ...keys.slice(0, index).map((earlier) => `${earlier.sql} = ?`),
-              `${key.sql} ${key.direction === "asc" ? ">" : "<"} ?`,
-            ].join(" AND "),
-          )
-          .join(" OR ")})`,
-      );
-
-      keys.forEach((_, index) => params.push(...after.slice(0, index + 1)));
-    }
-
+    const conditions = [...filter.conditions, ...(keyset.after ? [keyset.after.sql] : [])];
+    const params = [...filter.params, ...(keyset.after?.params ?? [])];
     const where = `WHERE ${conditions.join(" AND ")}`;
 
     const rows = SqlSchema.findAll({
@@ -316,10 +283,10 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
               status,
               created_at AS "createdAt",
               updated_at AS "updatedAt",
-              json_array(${keys.map((key) => key.sql).join(", ")}) AS "sortKey"
+              ${keyset.sortKeySql} AS "sortKey"
             FROM projection_tasks
             ${where}
-            ORDER BY ${keys.map((key) => `${key.sql} ${key.direction.toUpperCase()}`).join(", ")}
+            ORDER BY ${keyset.orderBySql}
             LIMIT ?
           `,
           [...params, limit + 1],

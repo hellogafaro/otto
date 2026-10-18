@@ -596,6 +596,7 @@ export const buildAppUnderTest = (options?: {
             listFolders: () => Effect.succeed([]),
             listFiles: () => Effect.succeed([]),
             listChatThreads: () => Effect.succeed([]),
+            list: () => Effect.succeed([]),
             ...options?.layers?.projectionLibrary,
           } satisfies ProjectionLibraryRepositoryShape),
           Layer.mock(ProjectionTaskRepository)({}),

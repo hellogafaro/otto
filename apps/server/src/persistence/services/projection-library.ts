@@ -5,6 +5,8 @@ import type {
   LibraryFileId,
   LibraryFolder,
   LibraryFolderId,
+  LibraryListItem,
+  LibraryListView,
   ThreadId,
   AuthSessionId,
   BotId,
@@ -31,7 +33,23 @@ export interface ProjectionLibraryRepositoryShape {
     ReadonlyArray<LibraryChatThread>,
     ProjectionRepositoryError
   >;
+  /**
+   * One page of the folders and files a person sees, matching the view's filter in its order,
+   * strictly after `after`, with one row more than the limit when another page follows.
+   */
+  readonly list: (input: {
+    readonly query: LibraryListView;
+    readonly personId: AuthSessionId;
+    readonly limit: number;
+    readonly after: LibraryListKey | null;
+  }) => Effect.Effect<
+    ReadonlyArray<{ readonly item: LibraryListItem; readonly key: LibraryListKey }>,
+    ProjectionRepositoryError
+  >;
 }
+
+/** A row's sort key: folders first, the value of its sort, then its id. */
+export type LibraryListKey = ReadonlyArray<string | number>;
 
 /** The chat behind a chat folder, archived or deleted chats included. */
 export interface LibraryChatThread {

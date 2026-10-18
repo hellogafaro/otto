@@ -39,6 +39,11 @@ export function createLibraryEnvironmentAtoms<R, E>(
   runtime: Atom.AtomRuntime<EnvironmentRegistry | Crypto.Crypto | R, E>,
 ) {
   return {
+    /** One page of the bounded Library list; the Library page asks for each page as it scrolls. */
+    list: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:library:list",
+      tag: WS_METHODS.libraryList,
+    }),
     createFolder: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:library:folder:create",
       execute: (input: CreateLibraryFolderInput) => createLibraryFolder(input),
