@@ -208,7 +208,7 @@ const make = Effect.gen(function* () {
         updated_at AS "updatedAt"
       FROM projection_routine_runs
       WHERE routine_id = ${routineId}
-      ORDER BY scheduled_for DESC, run_id DESC
+      ORDER BY created_at DESC, run_id DESC
     `.pipe(
       Effect.map((rows) => rows.map((row) => decodeRun(row))),
       Effect.mapError(toPersistenceSqlError("RoutineRepository.listRuns")),
@@ -257,7 +257,7 @@ const make = Effect.gen(function* () {
           ) AS history_rank
         FROM projection_routine_runs
       ) WHERE history_rank <= 5
-    )
+    ) OR status IN ('queued', 'running', 'waiting-for-approval')
     ORDER BY created_at, run_id
   `.pipe(
     Effect.map((rows) => rows.map((row) => decodeRun(row))),

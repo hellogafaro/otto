@@ -10,6 +10,7 @@ import {
   type EnvironmentId,
   type ProjectId,
   type Routine,
+  type RoutineSchedule,
   type RoutineThreadMode,
   type Visibility,
 } from "@otto/contracts";
@@ -32,7 +33,9 @@ import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { randomUUID } from "../../lib/utils";
 import { hasTag } from "../../lib/tagged-union";
 import { usePrimaryEnvironmentId } from "../../state/environments";
+import { useEnvironmentQuery } from "../../state/query";
 import { routineEnvironment } from "../../state/routines";
+import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
@@ -53,13 +56,16 @@ import { ProjectSelect } from "../work/work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "../work/work-pages";
 import { RoutineChatSelect } from "./routine-chat-options";
 import { RoutineHistory } from "./routine-history";
+import { RoutineScheduleEdit } from "./routine-schedule";
+import { ROUTINE_STATUS_ICON, routineStatus, useRoutineStatusLabel } from "./routine-status";
 
 /**
  * Otto: A routine's own page, the task/project pattern: its title (edited in place; a
  * cleared title is generated again from the instructions) and instructions in the main
  * column, then its run history; bot, chat, project, schedule, status and run times in the
- * details sidebar. Instructions and schedule change through the bot: Edit asks for one,
- * then opens the routine's chat with the request sent, and the bot answers with a review card.
+ * details sidebar, where the schedule is edited in place. Instructions change through the bot:
+ * Edit asks for one, then opens the routine's chat with the request sent, and the bot answers
+ * with a review card.
  */
 export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
   const { t } = useI18n();
@@ -71,6 +77,12 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
 
   const routine = snapshot?.routines?.find(
     (candidate) => candidate.id === routineId && candidate.lifecycle !== "deleted",
+  );
+
+  const history = useEnvironmentQuery(
+    environmentId === null
+      ? null
+      : serverEnvironment.routineRuns({ environmentId, input: { routineId } }),
   );
 
   if (!snapshot) return <WorkPage back={back}>{null}</WorkPage>;
@@ -87,9 +99,27 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
     );
   }
 
+  // Otto: The snapshot carries each routine's newest runs live; older ones come from the
+  // routine's full history. A running run whose chat waits on someone's approval or answer
+  // shows as waiting for approval, not as running.
+  const liveRuns = snapshot.routineRuns ?? [];
+
+  const waitingChats = new Set(
+    snapshot.threads
+      .filter((thread) => thread.hasPendingApprovals || thread.hasPendingUserInput)
+      .map((thread) => thread.id),
+  );
+
   const item = toRoutinePanelItem(
     routine,
-    snapshot.routineRuns ?? [],
+    [
+      ...liveRuns,
+      ...(history.data?.runs ?? []).filter((run) => !liveRuns.some((live) => live.id === run.id)),
+    ].map((run) =>
+      run.status === "running" && run.threadRef !== null && waitingChats.has(run.threadRef)
+        ? { ...run, status: "waiting-for-approval" as const }
+        : run,
+    ),
     snapshot.skillAssignments ?? [],
     snapshot.mcpServers ?? [],
   );
@@ -101,6 +131,12 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
       item={item}
       back={back}
       currentPersonId={snapshot.currentPersonId ?? null}
+      originalChatAvailable={snapshot.threads.some(
+        (thread) =>
+          thread.id === routine.targetThreadId &&
+          thread.archivedAt === null &&
+          thread.botId === routine.botId,
+      )}
     />
   );
 }
@@ -117,9 +153,11 @@ function RoutineDetail({
   item,
   back,
   currentPersonId,
+  originalChatAvailable,
 }: {
   readonly environmentId: EnvironmentId;
   readonly currentPersonId: string | null;
+  readonly originalChatAvailable: boolean;
   readonly routine: Routine;
   readonly item: RoutineAdapterItem;
   readonly back: { readonly label: string; readonly onBack: () => void };
@@ -138,16 +176,16 @@ function RoutineDetail({
   const { projects } = useWorkData();
   const copy = useCopyPageActions(`/routines/${routine.id}`, routine.id);
 
-  const running = item.latestRun?.status === "running";
-  const failed = routine.lifecycle === "failed" || routine.lifecycle === "blocked";
+  const waiting = item.latestRun?.status === "waiting-for-approval";
+  const running = waiting || item.latestRun?.status === "running";
+  const statusLabel = useRoutineStatusLabel();
+  const routineState = routineStatus(routine);
 
-  const status: { readonly icon: StatusKind; readonly label: string } = running
-    ? { icon: "in_progress", label: t("Running") }
-    : failed
-      ? { icon: "error", label: t("Failed") }
-      : routine.enabled
-        ? { icon: "pending", label: t("Active") }
-        : { icon: "paused", label: t("Paused") };
+  const status: { readonly icon: StatusKind; readonly label: string } = waiting
+    ? { icon: "waiting", label: t("Waiting for approval") }
+    : running
+      ? { icon: "in_progress", label: t("Running") }
+      : { icon: ROUTINE_STATUS_ICON[routineState], label: statusLabel(routineState) };
 
   const botName = bot?.name ?? t("Unknown bot");
 
@@ -162,7 +200,7 @@ function RoutineDetail({
       title: t("Run now"),
       icon: RiPlayLine,
       searchTerms: ["run now", "start", "trigger"],
-      disabled: running,
+      disabled: running || routineState === "draft",
       run: () =>
         act(
           run({
@@ -177,45 +215,47 @@ function RoutineDetail({
           t("Routine couldn't be started"),
         ),
     }),
-    [environmentId, routine.id, run, running, t],
+    [environmentId, routine.id, routineState, run, running, t],
   );
 
   const pauseOrResume = useMemo(
-    (): PageAction =>
-      routine.enabled
-        ? {
-            id: "pause",
-            title: t("Pause"),
-            icon: RiPauseCircleLine,
-            searchTerms: ["pause", "stop", "disable"],
-            run: () =>
-              act(
-                pause({
-                  environmentId,
-                  input: {
-                    routineId: RoutineId.make(routine.id),
-                    reason: "Paused by the user.",
-                    createdAt: createdAt(),
-                  },
-                }),
-                t("Routine couldn't be paused"),
-              ),
-          }
-        : {
-            id: "resume",
-            title: t("Resume"),
-            icon: RiPlayCircleLine,
-            searchTerms: ["resume", "enable", "start"],
-            run: () =>
-              act(
-                enable({
-                  environmentId,
-                  input: { routineId: RoutineId.make(routine.id), createdAt: createdAt() },
-                }),
-                t("Routine couldn't be resumed"),
-              ),
-          },
-    [enable, environmentId, pause, routine.enabled, routine.id, t],
+    (): PageAction | null =>
+      routineState === "draft"
+        ? null
+        : routine.enabled
+          ? {
+              id: "pause",
+              title: t("Pause"),
+              icon: RiPauseCircleLine,
+              searchTerms: ["pause", "stop", "disable"],
+              run: () =>
+                act(
+                  pause({
+                    environmentId,
+                    input: {
+                      routineId: RoutineId.make(routine.id),
+                      reason: "Paused by the user.",
+                      createdAt: createdAt(),
+                    },
+                  }),
+                  t("Routine couldn't be paused"),
+                ),
+            }
+          : {
+              id: "resume",
+              title: t("Resume"),
+              icon: RiPlayCircleLine,
+              searchTerms: ["resume", "enable", "start"],
+              run: () =>
+                act(
+                  enable({
+                    environmentId,
+                    input: { routineId: RoutineId.make(routine.id), createdAt: createdAt() },
+                  }),
+                  t("Routine couldn't be resumed"),
+                ),
+            },
+    [enable, environmentId, pause, routine.enabled, routine.id, routineState, t],
   );
 
   const deleteRoutine = useMemo(
@@ -257,7 +297,7 @@ function RoutineDetail({
         run: () => setChanging(true),
       },
       runNow,
-      pauseOrResume,
+      ...(pauseOrResume ? [pauseOrResume] : []),
       copy.link,
       copy.id,
       deleteRoutine,
@@ -273,6 +313,8 @@ function RoutineDetail({
     readonly threadMode?: RoutineThreadMode;
     readonly projectId?: ProjectId;
     readonly visibility?: Visibility;
+    readonly schedule?: RoutineSchedule;
+    readonly timezone?: string;
   }) =>
     act(
       update({
@@ -315,7 +357,7 @@ function RoutineDetail({
                     size="icon-sm"
                     variant="ghost-muted"
                     aria-label={t("Run now")}
-                    disabled={running}
+                    disabled={runNow.disabled}
                     onClick={() => void runNow.run()}
                   >
                     <RiPlayLine aria-hidden className="size-4" />
@@ -340,8 +382,12 @@ function RoutineDetail({
                 <TooltipPopup side="bottom">{t("More actions")}</TooltipPopup>
               </Tooltip>
               <MenuPopup align="end">
-                <PageActionMenuItem action={pauseOrResume} />
-                <MenuSeparator />
+                {pauseOrResume ? (
+                  <>
+                    <PageActionMenuItem action={pauseOrResume} />
+                    <MenuSeparator />
+                  </>
+                ) : null}
                 <CopyMenuItems actions={copy} />
                 <MenuSeparator />
                 <PageActionMenuItem action={deleteRoutine} variant="destructive" />
@@ -363,10 +409,21 @@ function RoutineDetail({
         aside={
           <div className="flex flex-col">
             <DetailsRow label={t("Status")}>
-              <span className="flex items-center gap-1.5 px-2.5 text-sm">
-                <StatusIcon status={status.icon} />
-                {status.label}
-              </span>
+              {waiting ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => openChat(item.latestRun?.threadId ?? undefined)}
+                >
+                  <StatusIcon status={status.icon} />
+                  {status.label}
+                </Button>
+              ) : (
+                <span className="flex items-center gap-1.5 px-2.5 text-sm">
+                  <StatusIcon status={status.icon} />
+                  {status.label}
+                </span>
+              )}
             </DetailsRow>
             <DetailsRow label={t("Bot")}>
               <Button size="sm" variant="ghost" onClick={() => openChat()}>
@@ -380,6 +437,7 @@ function RoutineDetail({
               <RoutineChatSelect
                 value={routine.threadMode}
                 onChange={(threadMode) => void save({ threadMode })}
+                originalChatAvailable={originalChatAvailable}
               />
             </DetailsRow>
             <DetailsRow label={t("Project")}>
@@ -407,9 +465,12 @@ function RoutineDetail({
               />
             </DetailsRow>
             <DetailsRow label={t("Schedule")}>
-              <span className="px-2.5 text-end text-sm">
-                {routineScheduleLabel(item.schedule, i18n)}
-              </span>
+              <RoutineScheduleEdit
+                schedule={routine.schedule}
+                timezone={routine.timezone}
+                label={routineScheduleLabel(item.schedule, i18n)}
+                onSave={(next) => void save(next)}
+              />
             </DetailsRow>
             <DetailsRow label={t("Next run")}>
               <span className="px-2.5 text-sm tabular-nums">

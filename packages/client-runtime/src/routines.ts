@@ -46,6 +46,8 @@ export interface RoutineAdapterSchedule {
   readonly time: string;
   readonly timezone: string;
   readonly weekday: number | null;
+  /** Every day a weekly routine runs on, Sunday as 0. */
+  readonly weekdays?: readonly number[];
   /** Hours between runs of an hourly routine. */
   readonly everyHours?: RoutineHourInterval | null;
 }
@@ -80,8 +82,6 @@ export interface RoutineAdapterItem {
   readonly procedureApproved: boolean;
   readonly enabled: boolean;
   readonly paused: boolean;
-  /** Otto paused it after a blocked or failed run, not the user. */
-  readonly pausedByOtto: boolean;
   readonly nextRunAt: string | null;
   readonly lastRunAt: string | null;
   readonly latestRun: RoutineAdapterRun | null;
@@ -149,6 +149,9 @@ function toAdapterSchedule(routine: Routine): RoutineAdapterSchedule {
       routine.schedule.kind === "weekly"
         ? WEEKDAY_IDS.indexOf(routine.schedule.weekdays[0] ?? "monday")
         : null,
+    ...(routine.schedule.kind === "weekly"
+      ? { weekdays: routine.schedule.weekdays.map((day) => WEEKDAY_IDS.indexOf(day)) }
+      : {}),
     ...(routine.schedule.kind === "hourly" ? { everyHours: routine.schedule.everyHours } : {}),
   };
 }
@@ -206,10 +209,10 @@ export function toRoutinePanelItem(
     procedureApproved: routine.approvalVersion === routine.procedureVersion,
     enabled: routine.enabled,
     paused:
-      routine.lifecycle === "paused" ||
-      routine.lifecycle === "blocked" ||
-      routine.lifecycle === "failed",
-    pausedByOtto: routine.lifecycle === "blocked" || routine.lifecycle === "failed",
+      !routine.enabled &&
+      (routine.lifecycle === "paused" ||
+        routine.lifecycle === "blocked" ||
+        routine.lifecycle === "failed"),
     nextRunAt: routine.nextRunAt,
     lastRunAt: routine.lastRunAt,
     latestRun: history[0] ?? null,
@@ -295,7 +298,11 @@ export function routineFrequencyLabel(
     ),
     Match.when("daily", () => i18n.t("Daily")),
     Match.when("weekdays", () => i18n.t("Weekdays")),
-    Match.orElse(() => i18n.t(WEEKDAY_LABELS[schedule.weekday ?? 1] ?? "Monday")),
+    Match.orElse(() =>
+      (schedule.weekdays ?? [schedule.weekday ?? 1])
+        .map((day) => i18n.t(WEEKDAY_LABELS[day] ?? "Monday"))
+        .join(", "),
+    ),
   );
 }
 
@@ -341,13 +348,8 @@ export function routineStatus(routine: RoutineAdapterItem): RoutineStatusResult 
   return { label: "Draft", variant: "secondary" };
 }
 
-/**
- * Why a routine is not running on schedule, or null when it is. A routine Otto paused
- * points to the Bot inbox, where its cause is waiting.
- */
+/** Why a routine is not running on schedule, or null when it is. */
 export function routineStateNote(routine: RoutineAdapterItem): (MessageKey & string) | null {
-  if (routine.pausedByOtto) return "Paused. Fix the cause in Bot inbox, then resume it.";
-
   if (routine.paused) return "Paused until you resume it.";
 
   if (routine.enabled) return null;

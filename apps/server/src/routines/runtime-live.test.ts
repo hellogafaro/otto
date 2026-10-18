@@ -1,7 +1,9 @@
 import { routine, harness } from "./test-utils/runtime-live.ts";
 import { BotId, EventId, type OrchestrationEvent, RoutineId, RoutineRunId } from "@otto/contracts";
 import { assert, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import { RoutineRuntime } from "./runtime.ts";
@@ -131,6 +133,53 @@ it.effect("blocks a dispatched run whose session stopped before a turn", () => {
     assert.deepEqual(test.events, ["incident", "claim-blocked"]);
   }).pipe(Effect.provide(test.layer));
 });
+
+it.effect("never starts a Run now a second time while recovery runs", () =>
+  Effect.gen(function* () {
+    const dispatching = yield* Deferred.make<void>();
+    const release = yield* Deferred.make<void>();
+    let dispatches = 0;
+
+    const test = harness(
+      routine(),
+      [
+        {
+          runId: RoutineRunId.make("manual-1"),
+          routineId: RoutineId.make("routine-1"),
+          trigger: "manual",
+          scheduledFor: null,
+          claimedAt: "2026-08-31T13:00:00.000Z",
+          status: "claimed",
+        },
+      ],
+      null,
+      false,
+      Stream.empty,
+      null,
+      {
+        duringDispatch: Effect.suspend(() =>
+          (dispatches += 1) === 1
+            ? Deferred.succeed(dispatching, undefined).pipe(Effect.andThen(Deferred.await(release)))
+            : Effect.void,
+        ),
+      },
+    );
+
+    yield* Effect.gen(function* () {
+      const runtime = yield* RoutineRuntime;
+
+      const manual = yield* runtime
+        .runNow(RoutineId.make("routine-1"), RoutineRunId.make("manual-1"), "manual")
+        .pipe(Effect.forkChild);
+
+      yield* Deferred.await(dispatching);
+      yield* runtime.recover;
+      yield* Deferred.succeed(release, undefined);
+      yield* Fiber.join(manual);
+      assert.deepEqual(test.events, ["claimed:manual:null", "queued", "turn", "dispatched"]);
+    }).pipe(Effect.provide(test.layer));
+  }),
+);
 
 it.effect("validates dry runs without dispatching a provider turn", () => {
   const test = harness(routine());

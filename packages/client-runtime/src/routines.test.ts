@@ -20,6 +20,7 @@ import {
   botRoutinesView,
   routineApprovalSummary,
   routineLifecycleAction,
+  routineScheduleLabel,
   routineStateNote,
   runStatusTone,
   toRoutinePanelItem,
@@ -120,11 +121,28 @@ describe("toRoutinePanelItem", () => {
       time: "09:00",
       timezone: "America/New_York",
       weekday: 5,
+      weekdays: [5],
     });
     expect(item.runHistory.map((entry) => entry.id)).toEqual(["run-new", "run-old"]);
     expect(item.latestRun).toMatchObject({ id: "run-new", error: "Provider timed out" });
     expect(item.runHistory[1]?.startedAt).toBe("2026-09-19T09:00:00.000Z");
     expect(item.delegateToBotId).toBeNull();
+  });
+
+  it("names every day a weekly routine runs on", () => {
+    const item = toRoutinePanelItem(
+      {
+        ...routine,
+        schedule: { kind: "weekly", weekdays: ["monday", "wednesday"], time: "07:30" },
+      },
+      [],
+      [],
+      [],
+    );
+
+    expect(routineScheduleLabel(item.schedule)).toBe(
+      "Monday, Wednesday at 07:30 (America/New_York)",
+    );
   });
 
   it("carries the bot a routine hands its work to", () => {
@@ -182,13 +200,24 @@ describe("routineStateNote", () => {
     expect(routineStateNote(item)).toBe(null);
   });
 
-  it("tells a user-paused routine apart from one Otto stopped", () => {
+  it("says how to resume a paused routine, including one an older Otto stopped", () => {
     expect(routineStateNote({ ...item, paused: true })).toBe("Paused until you resume it.");
 
-    const blocked = toRoutinePanelItem({ ...routine, lifecycle: "blocked" }, [], [], []);
+    const blocked = toRoutinePanelItem(
+      { ...routine, enabled: false, lifecycle: "blocked" },
+      [],
+      [],
+      [],
+    );
 
-    expect(blocked.pausedByOtto).toBe(true);
-    expect(routineStateNote(blocked)).toBe("Paused. Fix the cause in Bot inbox, then resume it.");
+    expect(routineStateNote(blocked)).toBe("Paused until you resume it.");
+  });
+
+  it("keeps a routine whose last run failed on its schedule", () => {
+    const failed = toRoutinePanelItem({ ...routine, lifecycle: "failed" }, [], [], []);
+
+    expect(failed.paused).toBe(false);
+    expect(routineStateNote(failed)).toBeNull();
   });
 
   it("names the way back for a routine that is off or still a draft", () => {

@@ -97,3 +97,41 @@ it.layer(layer)("RoutineRepository.getLatestThreadRef", (it) => {
     }),
   );
 });
+
+it.layer(layer)("RoutineRepository run history", (it) => {
+  it.effect("keeps every open run beside each routine's newest runs, newest first", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      const repository = yield* RoutineRepository;
+
+      for (let index = 0; index < 8; index++) {
+        const createdAt = new Date(Date.UTC(2026, 8, 1, index)).toISOString();
+        const status = index === 0 ? "running" : "completed";
+        const scheduledFor = index % 2 === 0 ? createdAt : null;
+        const trigger = scheduledFor === null ? "manual" : "scheduled";
+        yield* sql`
+          INSERT INTO projection_routine_runs (
+            run_id, routine_id, procedure_version, trigger, scheduled_for, status, created_at,
+            updated_at
+          ) VALUES (
+            ${`history-run-${index}`}, 'history-routine', 1, ${trigger}, ${scheduledFor}, ${status},
+            ${createdAt}, ${createdAt}
+          )
+        `;
+      }
+
+      const loaded = (yield* repository.listAllRuns)
+        .filter((run) => run.routineId === "history-routine")
+        .map((run) => run.id);
+
+      assert.isTrue(loaded.includes(RoutineRunId.make("history-run-0")));
+      assert.lengthOf(loaded, 6);
+
+      const history = yield* repository.listRuns(RoutineId.make("history-routine"));
+      assert.deepEqual(
+        history.slice(0, 3).map((run) => run.id),
+        ["history-run-7", "history-run-6", "history-run-5"],
+      );
+    }),
+  );
+});
