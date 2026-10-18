@@ -439,6 +439,7 @@ const make = Effect.gen(function* () {
         project_id AS "projectId", job,
         procedure, procedure_version AS "procedureVersion",
         approval_version AS "approvalVersion", schedule_json AS schedule, timezone,
+        COALESCE(trigger_json, '{"type":"schedule"}') AS trigger,
         skill_assignment_ids_json AS "skillAssignmentIds",
         connector_dependencies_json AS "connectorDependencies", sandbox,
         approval_policy AS "approvalPolicy", delegate_to_bot_id AS "delegateToBotId",
