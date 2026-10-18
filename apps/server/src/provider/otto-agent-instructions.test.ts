@@ -40,6 +40,10 @@ describe("Otto bot instructions", () => {
     expect(instructions).not.toContain("unknown_tool");
     expect(instructions).not.toContain("<computer>");
     expect(createOttoInstructions({ tools: ["shell"] })).toContain("<computer>");
+    expect(createOttoInstructions({ tools: ["secret_request"] })).toContain(
+      "When a command needs a credential that is not in <secrets>, ask for it with secret_request.",
+    );
+    expect(instructions).not.toContain("secret_request");
     expect(
       createOttoInstructions({
         tools: ["shell"],
@@ -96,6 +100,11 @@ describe("Otto chat context", () => {
     expect(
       createOttoChatContext({ workspace: "People: Ana", project: " ", memory: "Likes tea" }),
     ).toBe("<workspace>\nPeople: Ana\n</workspace>\n\n<memory>\nLikes tea\n</memory>");
+    expect(
+      createOttoChatContext({ chat: "Mina", secrets: "STRIPE_KEY", memory: "Likes tea" }),
+    ).toBe(
+      "<chat>\nMina\n</chat>\n\n<secrets>\nSTRIPE_KEY\n</secrets>\n\n<memory>\nLikes tea\n</memory>",
+    );
   });
 
   it("marks removed sections as empty in an update", () => {

@@ -43,6 +43,14 @@ const RULES = [
 const COMPUTER =
   "Your computer is your own machine with a terminal, files and a browser. It keeps files between chats but can be wiped; put anything people need in the Library, a pull request or a task comment.";
 
+const SECRET_REQUEST_PROMPT: OttoToolPrompt = {
+  snippet: "ask the person for API keys and tokens in a masked form you never see",
+  guidelines: [
+    "The secrets in <secrets> are environment variables in every shell command. Use them as $NAME and never print, log or write their values to files, commits or messages.",
+    "When a command needs a credential that is not in <secrets>, ask for it with secret_request, never in a message.",
+  ],
+};
+
 /** Mastra's own question tool, which Otto loads without defining it. */
 const ASK_USER_PROMPT: OttoToolPrompt = {
   snippet: "ask the person a question and wait for the answer",
@@ -61,6 +69,8 @@ function toolPrompt(name: string): OttoToolPrompt | undefined {
   if (name === "memory_update") return MEMORY_UPDATE_TOOL_PROMPT;
 
   if (name === "ask_user") return ASK_USER_PROMPT;
+
+  if (name === "secret_request") return SECRET_REQUEST_PROMPT;
 
   return OTTO_ROUTINE_TOOL_PROMPTS.get(name);
 }
@@ -135,10 +145,18 @@ export interface OttoChatContext {
   readonly workspace?: string;
   readonly project?: string;
   readonly chat?: string;
+  /** The names of the secrets this chat's commands get, never their values. */
+  readonly secrets?: string;
   readonly memory?: string;
 }
 
-export const OTTO_CHAT_CONTEXT_SECTIONS = ["workspace", "project", "chat", "memory"] as const;
+export const OTTO_CHAT_CONTEXT_SECTIONS = [
+  "workspace",
+  "project",
+  "chat",
+  "secrets",
+  "memory",
+] as const;
 
 export function createOttoChatContext(context: OttoChatContext): string {
   return OTTO_CHAT_CONTEXT_SECTIONS.flatMap((name) => section(name, context[name]) || []).join(
