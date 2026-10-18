@@ -34,7 +34,6 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 ## Next
 
 - **Push notifications** on desktop and mobile, and a full Notifications page.
-- **Long messages** fold after a few lines, with a click to expand.
 - **Meeting recordings**: record a call, then transcribe and summarize it.
 - **Composio triggers**: let an event from a connected app start a bot or routine.
 - **Allow all** is missing on some tool approvals.
