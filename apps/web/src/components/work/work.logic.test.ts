@@ -9,11 +9,10 @@ import {
   parseDuration,
   parseProjectSearch,
   parseTaskSearch,
-  GRAY_COVER_PATTERNS,
+  GRAY_COVER_DENSITIES,
   GRAY_COVER_TONES,
   grayCover,
-  grayCoverDensity,
-  grayCoverStyle,
+  grayCoverDots,
 } from "./work.logic";
 
 describe("duePresetRange", () => {
@@ -118,20 +117,26 @@ describe("grayCover", () => {
 
   it("is the same for a project every time, and varies across projects", () => {
     expect(grayCover("launch", 64, 36, "dark")).toEqual(grayCover("launch", 64, 36, "dark"));
-
-    const patterns = new Set(seeds.map((seed) => grayCoverStyle(seed).pattern));
-    expect(patterns).toEqual(new Set(GRAY_COVER_PATTERNS));
+    expect(new Set(seeds.map(grayCoverDots))).toEqual(new Set(GRAY_COVER_DENSITIES));
   });
 
-  it("keeps every pattern a texture, never a solid fill", () => {
-    for (const seed of seeds) {
-      const style = grayCoverStyle(seed);
+  it("spreads dots evenly: every 8x8 tile holds exactly the project's dot count", () => {
+    for (const seed of seeds.slice(0, 8)) {
+      const width = 64;
+      const pixels = grayCover(seed, width, 32, "dark");
+      const dot = GRAY_COVER_TONES.dark.dots[0];
 
-      for (let v = 0; v <= 1; v += 0.05) {
-        for (let u = 0; u <= 1; u += 0.05) {
-          const density = grayCoverDensity(style, u, v);
-          expect(density).toBeGreaterThanOrEqual(0);
-          expect(density).toBeLessThanOrEqual(0.62);
+      for (let tileY = 0; tileY < 32; tileY += 8) {
+        for (let tileX = 0; tileX < width; tileX += 8) {
+          let count = 0;
+
+          for (let y = tileY; y < tileY + 8; y++) {
+            for (let x = tileX; x < tileX + 8; x++) {
+              if (pixels[(y * width + x) * 4] === dot) count++;
+            }
+          }
+
+          expect(count).toBe(grayCoverDots(seed));
         }
       }
     }

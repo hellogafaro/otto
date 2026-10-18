@@ -101,75 +101,25 @@ export function hashSeed(seed: string): number {
 }
 
 /**
- * Otto: A generated cover is a quiet gray card with a two-tone ordered dither, so it reads as
- * texture rather than colour and photo covers stand out. Dark themes get a gray a step lighter
- * than the page; light themes a step darker. Each project's id picks one of a few dither
- * patterns and where it sits, so the grid varies while every cover stays the same everywhere.
+ * Otto: A generated cover is a quiet gray card with an even ordered-dither dot texture, so it
+ * reads as texture rather than colour and photo covers stand out. Dark themes get a gray a step
+ * lighter than the page; light themes a step darker. Each project's id picks one of a few dot
+ * densities, so the grid varies a little while every cover stays the same everywhere.
  */
 export const GRAY_COVER_TONES = {
   dark: { base: [0x26, 0x26, 0x26], dots: [0x38, 0x38, 0x38] },
   light: { base: [0xeb, 0xeb, 0xeb], dots: [0xdc, 0xdc, 0xdc] },
 } as const;
 
-export const GRAY_COVER_PATTERNS = ["glow", "sweep", "arc", "waves", "ring"] as const;
+/**
+ * Dots per 8x8 Bayer tile. Each of these lands on a regular lattice of single dots, from a
+ * sparse scatter to a fine grid, so no cover shows lines or a fade.
+ */
+export const GRAY_COVER_DENSITIES = [2, 4, 8, 16] as const;
 
-export type GrayCoverPattern = (typeof GRAY_COVER_PATTERNS)[number];
-
-/** The densest a cover's dots get, so even the busiest pattern stays a texture. */
-const MAX_DENSITY = 0.62;
-
-/** The pattern a project's cover uses and where it sits, drawn from its id. */
-export function grayCoverStyle(seed: string) {
-  const hash = hashSeed(seed);
-  const pick = (salt: number, size: number) => Math.floor(hash / salt) % size;
-
-  return {
-    pattern: GRAY_COVER_PATTERNS[hash % GRAY_COVER_PATTERNS.length]!,
-    x: 0.15 + pick(7, 8) / 10,
-    y: 0.15 + pick(13, 8) / 10,
-    angle: pick(17, 8) * 45,
-    frequency: 2 + pick(19, 3),
-  };
-}
-
-/** How densely the dots fall at u, v (0 to 1) for this style, from none up to MAX_DENSITY. */
-export function grayCoverDensity(style: ReturnType<typeof grayCoverStyle>, u: number, v: number) {
-  const { pattern, x, y, angle, frequency } = style;
-  // Covers are 16:9, so distances are measured with v squashed to keep shapes round.
-  const dv = (v - y) * 0.5625;
-  let level: number;
-
-  switch (pattern) {
-    case "glow":
-      level = 1 - Math.hypot(u - x, dv) * 1.4;
-      break;
-
-    case "sweep": {
-      const radians = (angle * Math.PI) / 180;
-      const dx = Math.cos(radians);
-      const dy = Math.sin(radians);
-      // Steeper than a plain ramp, so one side stays clear and the other fills in.
-      level = (((u - 0.5) * dx + (v - 0.5) * dy) / (Math.abs(dx) + Math.abs(dy))) * 1.8 + 0.5;
-      break;
-    }
-
-    case "arc":
-      level = 1 - Math.abs(Math.hypot(u - x, (v - 1.6) * 0.5625) - 0.75) * 4;
-      break;
-
-    case "waves":
-      level =
-        0.5 +
-        0.5 *
-          Math.sin((u * 0.6 + v + Math.sin(u * Math.PI * 2 + x * 6) * 0.12) * Math.PI * frequency);
-      break;
-
-    case "ring":
-      level = 1 - Math.abs(Math.hypot(u - x, dv) - 0.28) * 5;
-      break;
-  }
-
-  return Math.min(1, Math.max(0, level)) * MAX_DENSITY;
+/** How many dots per 8x8 tile a project's cover uses, drawn from its id. */
+export function grayCoverDots(seed: string) {
+  return GRAY_COVER_DENSITIES[hashSeed(seed) % GRAY_COVER_DENSITIES.length]!;
 }
 
 /** The generated cover's RGBA pixels, already dithered: each cell is the base tone or a dot. */
@@ -180,13 +130,12 @@ export function grayCover(
   appearance: "light" | "dark",
 ) {
   const { base, dots } = GRAY_COVER_TONES[appearance];
-  const style = grayCoverStyle(seed);
+  const density = grayCoverDots(seed) / 64;
   const pixels = new Uint8ClampedArray(width * height * 4);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const on = grayCoverDensity(style, x / width, y / height) > bayerThreshold(x, y);
-      const tone = on ? dots : base;
+      const tone = density > bayerThreshold(x, y) ? dots : base;
       const offset = (y * width + x) * 4;
 
       pixels[offset] = tone[0];
